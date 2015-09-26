@@ -48,6 +48,10 @@ main_cp=ConfigParser.ConfigParser()
 main_cp.optionxform = str
 main_cp.readfp(open(inifile))
 
+# Remove gps start and end time options
+for option in ['gps-start-time','gps-end-time']:
+  if main_cp.has_option('input',option):
+    main_cp.remove_option('input',option)
 
 rundir=os.path.abspath(opts.run_path)
 
@@ -92,6 +96,11 @@ elif prior_cp.get('analysis','engine')=='lalinferencebambimpi':
   prior_cp.set('engine','zeroLogLike','')
   prior_cp.set('engine','nlive',str(opts.trials))
 
+# Remove marg options for prior sample generation
+for option in 'margphi','margtime','margtimephi':
+  if prior_cp.has_option('engine',option):
+        prior_cp.remove_option('engine',option)
+
 # Create a DAG to contain the other scripts
 outerdaglog=os.path.join(daglogdir,'lalinference_injection_test_'+str(uuid.uuid1())+'.log')
 outerdag=pipeline.CondorDAG(outerdaglog,dax=opts.dax)
@@ -130,6 +139,8 @@ prior2injjob.set_sub_file(convertsub)
 prior2injjob.set_stderr_file(converterr)
 prior2injjob.set_stdout_file(convertout)
 prior2injjob.add_condor_cmd('getenv','True')
+if main_cp.has_option('analysis','accounting_group'):
+  prior2injjob.add_condor_cmd('accounting_group',main_cp.get('analysis','accounting_group'))
 prior2injnode=pipeline.CondorDAGNode(prior2injjob)
 prior2injnode.add_var_opt('output',injfile)
 prior2injnode.add_var_opt('num-of-injs',str(opts.trials))
@@ -177,6 +188,8 @@ ppjob.set_sub_file(ppsub)
 ppjob.set_stderr_file(pperr)
 ppjob.set_stdout_file(ppout)
 ppjob.add_condor_cmd('getenv','True')
+if main_cp.has_option('analysis','accounting_group'):
+  ppjob.add_condor_cmd('accounting_group',main_cp.get('analysis','accounting_group'))
 
 ppnode=pipeline.CondorDAGNode(ppjob)
 ppnode.add_var_opt('injXML',injfile)

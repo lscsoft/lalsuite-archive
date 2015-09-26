@@ -26,24 +26,24 @@ from __future__ import division
 import os,re,tempfile,warnings
 
 # import swig LALSuite packages
-import lal
-import lalframe
+from lal import lal
+from lalframe import lalframe
 
 # import gluecache
 from glue import lal as _gluecache
 
 # type code dict
 _typestr = {\
-            lal.LAL_I2_TYPE_CODE: 'INT2',\
-            lal.LAL_I4_TYPE_CODE: 'INT4',\
-            lal.LAL_I8_TYPE_CODE: 'INT8',\
-            lal.LAL_U2_TYPE_CODE: 'UINT2',\
-            lal.LAL_U4_TYPE_CODE: 'UINT4',\
-            lal.LAL_U8_TYPE_CODE: 'UINT8',\
-            lal.LAL_S_TYPE_CODE:  'REAL4',\
-            lal.LAL_D_TYPE_CODE:  'REAL8',\
-            lal.LAL_C_TYPE_CODE:  'COMPLEX8',\
-            lal.LAL_Z_TYPE_CODE:  'COMPLEX16',\
+            lal.I2_TYPE_CODE: 'INT2',\
+            lal.I4_TYPE_CODE: 'INT4',\
+            lal.I8_TYPE_CODE: 'INT8',\
+            lal.U2_TYPE_CODE: 'UINT2',\
+            lal.U4_TYPE_CODE: 'UINT4',\
+            lal.U8_TYPE_CODE: 'UINT8',\
+            lal.S_TYPE_CODE:  'REAL4',\
+            lal.D_TYPE_CODE:  'REAL8',\
+            lal.C_TYPE_CODE:  'COMPLEX8',\
+            lal.Z_TYPE_CODE:  'COMPLEX16',\
             }
 
 # =============================================================================
@@ -51,7 +51,7 @@ _typestr = {\
 # =============================================================================
 
 def fromarray(array, name="", epoch=lal.LIGOTimeGPS(), f0=0, deltaT=1,\
-              sampleUnits=lal.lalDimensionlessUnit, frequencyseries=False):
+              sampleUnits=lal.DimensionlessUnit, frequencyseries=False):
     """
     Convert numpy.array to REAL8TimeSeries. Use frequencyseries to return
     REAL8FrequencySeries.
@@ -71,7 +71,7 @@ def fromarray(array, name="", epoch=lal.LIGOTimeGPS(), f0=0, deltaT=1,\
             sampling time for data (or frequency spacing for FrequencySeries)
         f0 : float
             lower frequency limit for data
-        sampleUnits : lal.LALUnit
+        sampleUnits : lal.Unit
             amplitude unit for array
     """
   
@@ -206,8 +206,8 @@ def fromFrStream(stream, chname, start=-1, duration=1, datatype=-1,\
     """
 
     # set mode
-    if verbose:  mode = lalframe.LAL_FR_STREAM_VERBOSE_MODE
-    else:        mode = lalframe.LAL_FR_STREAM_DEFAULT_MODE
+    if verbose:  mode = lalframe.FR_STREAM_VERBOSE_MODE
+    else:        mode = lalframe.FR_STREAM_DEFAULT_MODE
     lalframe.FrSetMode(mode, stream)
 
     # set time
@@ -397,7 +397,7 @@ def duplicate(series):
 # =============================================================================
 
 def compute_average_spectrum(series, seglen, stride, window=None, plan=None,\
-                             average='medianmean', unit=lal.lalStrainUnit):
+                             average='medianmean', unit=lal.StrainUnit):
     """
     Calculate the average (power) spectrum of the given REAL?TimeSeries
 
@@ -416,7 +416,7 @@ def compute_average_spectrum(series, seglen, stride, window=None, plan=None,\
             plan for FFT
         spectrum : [ 'median' | 'medianmean' | 'welch' ]
             averaging method for spectrum, default: 'medianmean'
-        unit : lal.lalUnit
+        unit : lal.Unit
             LAL unit for data
     """
 
@@ -464,7 +464,7 @@ def compute_average_spectrum(series, seglen, stride, window=None, plan=None,\
     f0       = (1/series.deltaT) * (1/seglen)
     deltaF   = (1/seglen)
     func     = getattr(lal, "Create%sFrequencySeries" % TYPESTR)
-    spectrum = func(series.name, series.epoch, f0, deltaF, lal.lalStrainUnit,\
+    spectrum = func(series.name, series.epoch, f0, deltaF, lal.StrainUnit,\
                     seglen//2+1)
 
     # calculate medianmean spectrum
@@ -490,7 +490,7 @@ def compute_average_spectrum(series, seglen, stride, window=None, plan=None,\
 
 def compute_average_spectrogram(series, step, seglen, stride, window=None,\
                                 plan=None, average='medianmean',\
-                                unit=lal.lalStrainUnit):
+                                unit=lal.StrainUnit):
     """
     Compute the average (power) spectrogram of the given REAL?TimeSeries by
     stacking together average spectra for each timestep.
@@ -514,7 +514,7 @@ def compute_average_spectrogram(series, step, seglen, stride, window=None,\
             plan for FFT
         spectrum : [ 'median' | 'medianmean' | 'welch' ]
             averaging method for spectrum, default: 'medianmean'
-        unit : lal.lalUnit
+        unit : lal.Unit
             LAL unit for data
     """
 

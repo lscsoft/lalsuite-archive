@@ -10,12 +10,15 @@
 /_build/
 /_inst/
 /lalmetaio-*/
+AUTHORS
 Makefile
 Makefile.in
 config.lt
+doxygen/autogen.dox
 doxygen/doxygen.cfg
 doxygen/filter
 doxygen/out/
+doxygen/test_doxygen.*
 include/lal/*.h
 include/lal/*.i
 include/lal/header-link-stamp

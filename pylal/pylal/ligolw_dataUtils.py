@@ -45,6 +45,7 @@ __version__ = git_version.id
 #   Tools for manipulating statistics
 #
 #
+
 def get_row_stat(row, arg):
     """
     Method to evaluate the desired operation on columns from a row in a table.
@@ -53,17 +54,68 @@ def get_row_stat(row, arg):
     Syntax for the arg is python.  The name space available to eval is limited
     to the columns in the row and functions in the math module.
     """
-    # for speed: if the arg exists in the row, just return it
-    if arg in dir(row):
+    # speed up: if the arg exists in the row, just return it
+    try:
+        val = getattr(row, arg)
         try:
-            return getattr( row, arg )()
+            # we'll try returning val as a function
+            return val()
         except TypeError:
-            return getattr( row, arg )
-    # otherwise, evaluate explicitly
-    row_dict = dict([ [name, getattr(row,name)] for name in dir(row) ])
-    safe_dict = dict([ [name,val] for name,val in row_dict.items() + math.__dict__.items() if not name.startswith('__') ])
-    
-    return eval( arg, {"__builtins__":None}, safe_dict )
+            # that failed, so val must not be a function; just return it
+            return val
+    except AttributeError:
+        # arg isn't a simple argument of row, so we'll have to eval it
+        try:
+            row_dict = row.__dict__
+        except AttributeError:
+            row_dict = dict([ [name, getattr(row,name)] for name in dir(row) ])
+        safe_dict = {}
+        safe_dict.update(row_dict)
+        safe_dict.update(math.__dict__)
+        return eval(arg, {"__builtins__": None}, safe_dict)
+
+def get_needed_columns(column_list, function):
+    """
+    Returns a list of columns from the given column list that are needed by
+    the given function string. This can be used to reduce the number of columns
+    that are passed to get_row_stat.
+
+    Parameters
+    ----------
+    column_list: list
+        A list of strings given the possible columns to pull out.
+    function: str
+        A string specifying the match criteria. Can either be:
+            * "endTime" or "startTime": in this case, all columns in
+              column_list with "end_time", "start_time", or "ifo" in their name
+              will be retrieved.
+            * "eThinca": in this case, all columns with mass1, mass2, mchirp,
+              eta, tau[0-9], time, or [Gg]amma[0-9] in their name will be
+              retrieved.
+            * a python string that is a function of one or more of the columns
+              in column_list.
+
+    Returns
+    -------
+    needed_columns: str
+        The subset of columns needed by the function.
+    """
+    if function == 'eThinca':
+        regex = re.compile(
+            'ifo|mass1|mass2|mchirp|eta|time|tau[0-9]|[Gg]amma[0-9]')
+        needed_cols = [col for col in column_list \
+            if regex.search(col) is not None]
+    elif function == 'endTime' or function == 'startTime':
+        # if endTime, we'll need all columns with "end_time" in it; this
+        # will get both an end_time column from a sngl_inspiral table and
+        # a {site}_end_time from a sim_inspiral table; ditto start time
+        regex = re.compile('ifo|end_time|start_time')
+        needed_cols = [col for col in column_list \
+            if regex.search(col) is not None]
+    else:
+        needed_cols = [col for col in column_list \
+            if re.search('(%s)' % col, function) is not None]
+    return needed_cols
 
 
 def createDataRowClass( classTableName, baseClass = None, columns = [] ):
@@ -299,54 +351,96 @@ class CompareDataRows:
      >>> compF = CompareDataRows( classA, classB )
      >>> compF.set_diffFunc( compF.diffRowARowB )
      >>> compF.set_window( 0.1 )
-     >>> compF.matchCriteriaA = 'mass1/mass2'
-     >>> compF.matchCriteriaB = 'mass1/mass2'
+     >>> compF.set_matchCriteriaA('mass1/mass2')
+     >>> compF.set_matchCriteriaB = ('mass1/mass2')
      >>> dataA = [('mass1', '10.0'), ('mass2', '5.0')]
      >>> dataB = [('mass1', '10.1'), ('mass2', '5.0')]
-     >>> compF._compare( dataA, dataB )
+     >>> compF.compare( dataA, dataB )
      True
      >>> compF.set_window(0)
-     >>> compF._compare( dataA, dataB )
+     >>> compF.compare( dataA, dataB )
      False
     """
     def __init__(self, RowClassA = None, RowClassB = None):
         self.classA = RowClassA
         self.classB = RowClassB
-        self.matchCriteriaA = None
-        self.matchCriteriaB = None
-        self.neededColumnsA = None
-        self.neededColumnsB = None
+        self._matchCriteriaA = None
+        self._matchCriteriaB = None
+        self._neededColumnsA = None
+        self._neededColumnsB = None
         self.diffFunc = None
         self.window = None
 
-    def set_classA( self, DataRowClass ):
+    def set_classA(self, DataRowClass):
         self.classA = DataRowClass
 
-    def set_classB( self, DataRowClass ):
+    def set_classB(self, DataRowClass):
         self.classB = DataRowClass
 
-    def set_matchCriteriaA( self, match_criteria ):
-        self.matchCriteriaA = match_criteria
+    def set_matchCriteriaA(self, match_criteria):
+        """
+        Sets the match criteria for classA. Also sets the columns needed for
+        the given match criteria.
+        """
+        self._matchCriteriaA = match_criteria
+        # set the needed columns for the given match criteria
+        self.set_neededColumnsA()
 
-    def set_matchCriteriaB( self, match_criteria ):
-        self.matchCriteriaB = match_criteria
+    @property
+    def matchCriteriaA(self):
+        return self._matchCriteriaA
 
-    def set_neededColumnsA( self, columns ):
-        for column in columns:
-            if column not in self.classA.__slots__:
-                raise ValueError, "column %s not in classA's slots" % column
-        self.neededColumnsA = columns
+    def set_matchCriteriaB(self, match_criteria):
+        """
+        Sets the match criteria for classB. Also sets the columns needed for
+        the given match criteria.
+        """
+        self._matchCriteriaB = match_criteria
+        # set the needed columns for the given match criteria
+        self.set_neededColumnsB()
 
-    def set_neededColumnsB( self, columns ):
-        for column in columns:
-            if column not in self.classB.__slots__:
-                raise ValueError, "column %s not in classB's slots" % column
-        self.neededColumnsB = columns
+    @property
+    def matchCriteriaB(self):
+        return self._matchCriteriaB
+
+    def get_needed_columnsAB(self, AorB):
+        """
+        Retrieves which columns in the desired class is needed for the match
+        criteria.
+
+        Parameters
+        ----------
+        AorB: str
+            Either 'A' or 'B'; which class to get the columns for.
+
+        Returns
+        -------
+        needed_cols: list
+            The list of needed columns; see get_needed_columns for
+            details.
+        """
+        return get_needed_columns(
+                getattr(self, 'class%s' % AorB).__slots__,
+                getattr(self, 'matchCriteria%s' %AorB))
+
+    def set_neededColumnsA(self):
+        self._neededColumnsA = self.get_needed_columnsAB('A')
+
+    @property
+    def neededColumnsA(self):
+        return self._neededColumnsA
+
+    def set_neededColumnsB(self):
+        self._neededColumnsB = self.get_needed_columnsAB('B')
+
+    @property
+    def neededColumnsB(self):
+        return self._neededColumnsB
 
     def set_diffFunc( self, function ):
         self.diffFunc = function
 
-    def set_window( self, window ):
+    def set_window(self, window):
         self.window = window
     #
     #   Functions
@@ -354,90 +448,124 @@ class CompareDataRows:
     def _diff( self, a, b ):
         """
         Returns the absolute value of the difference between a and b.
-        @a: a float or integer
-        @b: a float or integer
+
+        Parameters
+        ----------
+        a: float or integer
+        b: float or integer
+
+        Returns
+        -------
+        difference: float or integer
+            The abs difference between a and b.
         """
-        return abs( a - b )
+        return abs(a - b)
 
-    def _compare(self, a, b):
-        return self.diffFunc( a, b ) <= self.window
+    def compare(self, a, b):
+        """
+        Runs self.diffFunc on a and b and checks that that is <= self.window.
 
-    def dbWrapper( self, *args ):
+        Parameters
+        ----------
+        a: instance of classA row
+            The data passed to the first argument of self.diffFunc.
+        b: instance of classB row
+            The data passed to the second argument of self.diffFunc.
+
+        Returns
+        -------
+        comparison: bool
+            True if self.diffFunc(a, b) is <= self.window; False otherwise.
+        """
+        return self.diffFunc(a, b) <= self.window
+
+    def dbWrapper(self, *args):
         """
         A database wrapper for the compare functions.
-        @args: A list of values. The first len(self.neededColumnsA) is
-         assumed to be the data for classA, in the order that neededColumnsA
-         is in. The rest of the values are assumed to be the data for classB, in
-         the order that neededColumnsB is in.
+
+        Parameters
+        ----------
+        args: list
+            A list of values. The first len(self.neededColumnsA) is assumed to
+            be the data for classA, in the order that neededColumnsA is in.
+            The rest of the values are assumed to be the data for classB, in
+            the order that neededColumnsB is in.
+
+        Returns
+        -------
+        comparison: bool
+            The result of self.compare, where the first argument passed is
+            the data from classA and the second is data from classB.
         """
         dataA = [args[i] for i in range(len(self.neededColumnsA))]
         dataB = [args[i] for i in range(len(self.neededColumnsA), len(args))]
-        dataA = zip( self.neededColumnsA, dataA )
-        dataB = zip( self.neededColumnsB, dataB )
-
-        return self._compare( dataA, dataB )
+        dataA = zip(self.neededColumnsA, dataA)
+        dataB = zip(self.neededColumnsB, dataB)
+        return self.compare(dataA, dataB)
         
-    def create_dbCompF( self, connection, diffFunc, compFuncName, window, classAcolumns = None, classBcolumns = None ):
+    def create_dbCompF(self, connection, diffFunc, compFuncName, window):
         """
         Creates a function in the given connection to a database that allows
         the given diffFunc to be performed on classA and classB on the fly.
-        To ensure data is populated correctly, self.neededColumnsA and 
-        self.neededColumnsB are set to whatever the order of columns is
-        in the database. This can be overwritten using  classAcolumns and
-        classBcolumns
-        @connection: a connection to SQLite database
-        @diffFunc: the function to use to do comparisons; must be one of the
-         functions defined in this class
-        @compFuncName: what to call the call function in the database; this
-         must be unique
-        @window: the size of the window to use when determining whether or not
-         classA and classB are the same
-        @classAcolumns: set what columns will be used in the function, and the
-         order they will be passed. Use this if not all of the columns in
-         classA's table will be used.
-        @classBcolumns: set what columns will be used in the function, and the
-         order they will be passed. Use this if not all of the columns in
-         classB's table will used.
+        The matchCriteria and the neededColumns for each class must be already
+        set (this should happen simultaneously by using set_matchCriteria(A|B).
+
+        Parameters
+        ----------
+        connection: sqlite3.connection
+            A connection to SQLite database.
+        diffFunc: function
+            The function to use to do comparisons; must be one of the
+            functions defined in this class.
+        compFuncName: str
+            What to call the call function in the database; must be unique.
+        window: float
+            The size of the window to use when determining whether or not
+            classA and classB are the same.
         """
-        self.set_diffFunc( diffFunc )
-        self.set_window( window )
-        classAcolumns = sqlutils.get_column_names_from_table( connection, self.classA.tableName)
-        classBcolumns = sqlutils.get_column_names_from_table( connection, self.classB.tableName)
-        if self.diffFunc == self.eThincaSim or self.diffFunc == self.eThincaSngl:
-            self.set_neededColumnsA(classAcolumns)
-            self.set_neededColumnsB(classBcolumns)
-        else:
-            # figure out what columns are needed
-            if self.matchCriteriaA == 'startTime':
-                neededColumnsA = [col for col in classAcolumns if re.search('ifo|start_time', col) is not None]
-            elif self.matchCriteriaA == 'endTime':
-                neededColumnsA = [col for col in classAcolumns if re.search('ifo|end_time', col) is not None]
-            else:
-                neededColumnsA = [col for col in classAcolumns if re.search(self.matchCriteriaA, col) is not None]
-            self.set_neededColumnsA(neededColumnsA)
+        if self._matchCriteriaA is None:
+            raise ValueError("matchCriteriaA not set! " +\
+                "Run self.set_matchCriteriaA with appropriate arguments.")
+        if self._neededColumnsA is None:
+            raise ValueError("neededColumnsA not set! " +\
+                "Run self.set_matchCriteriaA to set the needed columns and " +\
+                "the match criteria.")
+        if self._matchCriteriaB is None:
+            raise ValueError("matchCriteriaB not set! " +\
+                "Run self.set_matchCriteriaB with appropriate arguments.")
+        if self._neededColumnsB is None:
+            raise ValueError("neededColumnsB not set! " +\
+                "Run self.set_matchCriteriaB to set the needed columns and " +\
+                "the match criteria.")
+        self.set_diffFunc(diffFunc)
+        self.set_window(window)
+        connection.create_function(compFuncName,
+            len(self.neededColumnsA)+len(self.neededColumnsB), self.dbWrapper)
 
-            if self.matchCriteriaB == 'startTime':
-                neededColumnsB = [col for col in classBcolumns if re.search('ifo|start_time', col) is not None]
-            elif self.matchCriteriaB == 'endTime':
-                neededColumnsB = [col for col in classBcolumns if re.search('ifo|end_time', col) is not None]
-            else:
-                neededColumnsB = [col for col in classBcolumns if re.search(self.matchCriteriaB, col) is not None]
-            self.set_neededColumnsB(neededColumnsB)
-
-        connection.create_function(compFuncName, len(self.neededColumnsA)+len(self.neededColumnsB), self.dbWrapper)
-
-    def diffRowARowB( self, dataA, dataB ):
+    def diffRowARowB(self, dataA, dataB):
         """
-        self.diffs self.classA and self.classB using self.matchCriteriA and
-        self.matchCriteriaB. A or B can be any DataRow class; the only requirement
-        is that their match criteria (set by self.matchCriteria(A|B)) be a
-        function of their slots. Special match criteria are 'startTime' and
-        'endTime'. In this case, (start|end)_time+1e-9*(start|end)_time_ns will
-        calculated.
-        @dataA: a list of tuples with data to populate this instance of classA.
-         The first value of each tuple is the column name, the second the value,
-         e.g., ('ifo', 'H1').
-        @dataB: list of data tuples to populate this instance of classB.
+
+        Runs self.diff on self.classA and self.classB using self.matchCriteriA
+        and self.matchCriteriaB. A or B can be any DataRow class; the only
+        requirement is that their match criteria (set by
+        self.matchCriteria(A|B)) be a function of their slots. Special match
+        criteria are 'startTime' and 'endTime'. In this case,
+        (start|end)_time+1e-9*(start|end)_time_ns will calculated.
+
+        Parameters
+        ----------
+        dataA: list
+            A list of tuples with data to populate this instance of classA.
+            The first value of each tuple is the column name, the second the
+            value, e.g., ('ifo', 'H1').
+        dataB: list
+            A list of data tuples to populate this instance of classB.
+
+        Returns
+        -------
+        diff: float
+            The return of self._diff(a,b), where a(b) is the matchCritieraA(B)
+            function run on dataA(B).
         """
         # store the data
         rowA = self.classA()

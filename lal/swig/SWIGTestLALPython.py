@@ -15,8 +15,8 @@ if hasattr(numpy, "ComplexWarning"):
 print("checking module load ...")
 import lal
 from lal import globalvar as lalglobalvar
-lal_c_si = lal.C_SI;
-lal_180_pi = lal.LAL_180_PI;
+lal_c_si = lal.C_SI
+lal_180_pi = lal.LAL_180_PI
 print("PASSED module load")
 
 # check memory allocation
@@ -309,6 +309,17 @@ assert((2 * r4out.data == r4.data).all())
 r4out.data = numpy.zeros(numpy.shape(r4dat), dtype=r4dat.dtype)
 assert(lal.swig_lal_test_viewinout_REAL4Vector(r4out, r4dat))
 assert((2 * r4out.data == r4dat).all())
+r4.data = r4dat
+assert(lal.swig_lal_test_copyinout_REAL4Vector(r4))
+assert((r4.data == 3 * r4dat).all())
+r4.data = r4dat
+retn, r4 = lal.swig_lal_test_copyinout_REAL4Vector(r4)
+assert(retn)
+assert((r4.data == 3 * r4dat).all())
+r4 = r4dat
+retn, r4 = lal.swig_lal_test_copyinout_REAL4Vector(r4)
+assert(retn)
+assert((r4 == 3 * r4dat).all())
 del r4
 del r4out
 del r4dat
@@ -328,6 +339,17 @@ assert((2 * r8out.data == r8.data).all())
 r8out.data = numpy.zeros(numpy.shape(r8dat), dtype=r8dat.dtype)
 assert(lal.swig_lal_test_viewinout_REAL8Vector(r8out, r8dat))
 assert((2 * r8out.data == r8dat).all())
+r8.data = r8dat
+assert(lal.swig_lal_test_copyinout_REAL8Vector(r8))
+assert((r8.data == 3 * r8dat).all())
+r8.data = r8dat
+retn, r8 = lal.swig_lal_test_copyinout_REAL8Vector(r8)
+assert(retn)
+assert((r8.data == 3 * r8dat).all())
+r8 = r8dat
+retn, r8 = lal.swig_lal_test_copyinout_REAL8Vector(r8)
+assert(retn)
+assert((r8 == 3 * r8dat).all())
 del r8
 del r8out
 del r8dat
@@ -347,6 +369,17 @@ assert((2 * c8out.data == c8.data).all())
 c8out.data = numpy.zeros(numpy.shape(c8dat), dtype=c8dat.dtype)
 assert(lal.swig_lal_test_viewinout_COMPLEX8Vector(c8out, c8dat))
 assert((2 * c8out.data == c8dat).all())
+c8.data = c8dat
+assert(lal.swig_lal_test_copyinout_COMPLEX8Vector(c8))
+assert((c8.data == 3 * c8dat).all())
+c8.data = c8dat
+retn, c8 = lal.swig_lal_test_copyinout_COMPLEX8Vector(c8)
+assert(retn)
+assert((c8.data == 3 * c8dat).all())
+c8 = c8dat
+retn, c8 = lal.swig_lal_test_copyinout_COMPLEX8Vector(c8)
+assert(retn)
+assert((c8 == 3 * c8dat).all())
 del c8
 del c8out
 del c8dat
@@ -366,6 +399,17 @@ assert((2 * c16out.data == c16.data).all())
 c16out.data = numpy.zeros(numpy.shape(c16dat), dtype=c16dat.dtype)
 assert(lal.swig_lal_test_viewinout_COMPLEX16Vector(c16out, c16dat))
 assert((2 * c16out.data == c16dat).all())
+c16.data = c16dat
+assert(lal.swig_lal_test_copyinout_COMPLEX16Vector(c16))
+assert((c16.data == 3 * c16dat).all())
+c16.data = c16dat
+retn, c16 = lal.swig_lal_test_copyinout_COMPLEX16Vector(c16)
+assert(retn)
+assert((c16.data == 3 * c16dat).all())
+c16 = c16dat
+retn, c16 = lal.swig_lal_test_copyinout_COMPLEX16Vector(c16)
+assert(retn)
+assert((c16 == 3 * c16dat).all())
 del c16
 del c16out
 del c16dat
@@ -389,6 +433,17 @@ assert((2 * r4out.data == r4.data).all())
 r4out.data = numpy.zeros(numpy.shape(r4dat), dtype=r4dat.dtype)
 assert(lal.swig_lal_test_viewinout_REAL4VectorSequence(r4out, r4dat))
 assert((2 * r4out.data == r4dat).all())
+r4.data = r4dat
+assert(lal.swig_lal_test_copyinout_REAL4VectorSequence(r4))
+assert((r4.data == 3 * r4dat).all())
+r4.data = r4dat
+retn, r4 = lal.swig_lal_test_copyinout_REAL4VectorSequence(r4)
+assert(retn)
+assert((r4.data == 3 * r4dat).all())
+r4 = r4dat
+retn, r4 = lal.swig_lal_test_copyinout_REAL4VectorSequence(r4)
+assert(retn)
+assert((r4 == 3 * r4dat).all())
 del r4
 del r4out
 del r4dat
@@ -408,6 +463,17 @@ assert((2 * r8out.data == r8.data).all())
 r8out.data = numpy.zeros(numpy.shape(r8dat), dtype=r8dat.dtype)
 assert(lal.swig_lal_test_viewinout_REAL8VectorSequence(r8out, r8dat))
 assert((2 * r8out.data == r8dat).all())
+r8.data = r8dat
+assert(lal.swig_lal_test_copyinout_REAL8VectorSequence(r8))
+assert((r8.data == 3 * r8dat).all())
+r8.data = r8dat
+retn, r8 = lal.swig_lal_test_copyinout_REAL8VectorSequence(r8)
+assert(retn)
+assert((r8.data == 3 * r8dat).all())
+r8 = r8dat
+retn, r8 = lal.swig_lal_test_copyinout_REAL8VectorSequence(r8)
+assert(retn)
+assert((r8 == 3 * r8dat).all())
 del r8
 del r8out
 del r8dat
@@ -427,6 +493,17 @@ assert((2 * c8out.data == c8.data).all())
 c8out.data = numpy.zeros(numpy.shape(c8dat), dtype=c8dat.dtype)
 assert(lal.swig_lal_test_viewinout_COMPLEX8VectorSequence(c8out, c8dat))
 assert((2 * c8out.data == c8dat).all())
+c8.data = c8dat
+assert(lal.swig_lal_test_copyinout_COMPLEX8VectorSequence(c8))
+assert((c8.data == 3 * c8dat).all())
+c8.data = c8dat
+retn, c8 = lal.swig_lal_test_copyinout_COMPLEX8VectorSequence(c8)
+assert(retn)
+assert((c8.data == 3 * c8dat).all())
+c8 = c8dat
+retn, c8 = lal.swig_lal_test_copyinout_COMPLEX8VectorSequence(c8)
+assert(retn)
+assert((c8 == 3 * c8dat).all())
 del c8
 del c8out
 del c8dat
@@ -446,6 +523,17 @@ assert((2 * c16out.data == c16.data).all())
 c16out.data = numpy.zeros(numpy.shape(c16dat), dtype=c16dat.dtype)
 assert(lal.swig_lal_test_viewinout_COMPLEX16VectorSequence(c16out, c16dat))
 assert((2 * c16out.data == c16dat).all())
+c16.data = c16dat
+assert(lal.swig_lal_test_copyinout_COMPLEX16VectorSequence(c16))
+assert((c16.data == 3 * c16dat).all())
+c16.data = c16dat
+retn, c16 = lal.swig_lal_test_copyinout_COMPLEX16VectorSequence(c16)
+assert(retn)
+assert((c16.data == 3 * c16dat).all())
+c16 = c16dat
+retn, c16 = lal.swig_lal_test_copyinout_COMPLEX16VectorSequence(c16)
+assert(retn)
+assert((c16 == 3 * c16dat).all())
 del c16
 del c16out
 del c16dat
@@ -470,6 +558,17 @@ assert((2 * vfout.data == vf.data).all())
 vfout.data = numpy.zeros(numpy.shape(vfdat), dtype=vfdat.dtype)
 assert(lal.swig_lal_test_viewinout_gsl_vector_float(vfout, vfdat))
 assert((2 * vfout.data == vfdat).all())
+vf.data = vfdat
+assert(lal.swig_lal_test_copyinout_gsl_vector_float(vf))
+assert((vf.data == 3 * vfdat).all())
+vf.data = vfdat
+retn, vf = lal.swig_lal_test_copyinout_gsl_vector_float(vf)
+assert(retn)
+assert((vf.data == 3 * vfdat).all())
+vf = vfdat
+retn, vf = lal.swig_lal_test_copyinout_gsl_vector_float(vf)
+assert(retn)
+assert((vf == 3 * vfdat).all())
 del vf
 del vfout
 del vfdat
@@ -489,6 +588,17 @@ assert((2 * vdout.data == vd.data).all())
 vdout.data = numpy.zeros(numpy.shape(vddat), dtype=vddat.dtype)
 assert(lal.swig_lal_test_viewinout_gsl_vector(vdout, vddat))
 assert((2 * vdout.data == vddat).all())
+vd.data = vddat
+assert(lal.swig_lal_test_copyinout_gsl_vector(vd))
+assert((vd.data == 3 * vddat).all())
+vd.data = vddat
+retn, vd = lal.swig_lal_test_copyinout_gsl_vector(vd)
+assert(retn)
+assert((vd.data == 3 * vddat).all())
+vd = vddat
+retn, vd = lal.swig_lal_test_copyinout_gsl_vector(vd)
+assert(retn)
+assert((vd == 3 * vddat).all())
 del vd
 del vdout
 del vddat
@@ -508,6 +618,17 @@ assert((2 * vcfout.data == vcf.data).all())
 vcfout.data = numpy.zeros(numpy.shape(vcfdat), dtype=vcfdat.dtype)
 assert(lal.swig_lal_test_viewinout_gsl_vector_complex_float(vcfout, vcfdat))
 assert((2 * vcfout.data == vcfdat).all())
+vcf.data = vcfdat
+assert(lal.swig_lal_test_copyinout_gsl_vector_complex_float(vcf))
+assert((vcf.data == 3 * vcfdat).all())
+vcf.data = vcfdat
+retn, vcf = lal.swig_lal_test_copyinout_gsl_vector_complex_float(vcf)
+assert(retn)
+assert((vcf.data == 3 * vcfdat).all())
+vcf = vcfdat
+retn, vcf = lal.swig_lal_test_copyinout_gsl_vector_complex_float(vcf)
+assert(retn)
+assert((vcf == 3 * vcfdat).all())
 del vcf
 del vcfout
 del vcfdat
@@ -527,6 +648,17 @@ assert((2 * vcdout.data == vcd.data).all())
 vcdout.data = numpy.zeros(numpy.shape(vcddat), dtype=vcddat.dtype)
 assert(lal.swig_lal_test_viewinout_gsl_vector_complex(vcdout, vcddat))
 assert((2 * vcdout.data == vcddat).all())
+vcd.data = vcddat
+assert(lal.swig_lal_test_copyinout_gsl_vector_complex(vcd))
+assert((vcd.data == 3 * vcddat).all())
+vcd.data = vcddat
+retn, vcd = lal.swig_lal_test_copyinout_gsl_vector_complex(vcd)
+assert(retn)
+assert((vcd.data == 3 * vcddat).all())
+vcd = vcddat
+retn, vcd = lal.swig_lal_test_copyinout_gsl_vector_complex(vcd)
+assert(retn)
+assert((vcd == 3 * vcddat).all())
 del vcd
 del vcdout
 del vcddat
@@ -550,6 +682,17 @@ assert((2 * mfout.data == mf.data).all())
 mfout.data = numpy.zeros(numpy.shape(mfdat), dtype=mfdat.dtype)
 assert(lal.swig_lal_test_viewinout_gsl_matrix_float(mfout, mfdat))
 assert((2 * mfout.data == mfdat).all())
+mf.data = mfdat
+assert(lal.swig_lal_test_copyinout_gsl_matrix_float(mf))
+assert((mf.data == 3 * mfdat).all())
+mf.data = mfdat
+retn, mf = lal.swig_lal_test_copyinout_gsl_matrix_float(mf)
+assert(retn)
+assert((mf.data == 3 * mfdat).all())
+mf = mfdat
+retn, mf = lal.swig_lal_test_copyinout_gsl_matrix_float(mf)
+assert(retn)
+assert((mf == 3 * mfdat).all())
 del mf
 del mfout
 del mfdat
@@ -569,6 +712,17 @@ assert((2 * mdout.data == md.data).all())
 mdout.data = numpy.zeros(numpy.shape(mddat), dtype=mddat.dtype)
 assert(lal.swig_lal_test_viewinout_gsl_matrix(mdout, mddat))
 assert((2 * mdout.data == mddat).all())
+md.data = mddat
+assert(lal.swig_lal_test_copyinout_gsl_matrix(md))
+assert((md.data == 3 * mddat).all())
+md.data = mddat
+retn, md = lal.swig_lal_test_copyinout_gsl_matrix(md)
+assert(retn)
+assert((md.data == 3 * mddat).all())
+md = mddat
+retn, md = lal.swig_lal_test_copyinout_gsl_matrix(md)
+assert(retn)
+assert((md == 3 * mddat).all())
 del md
 del mdout
 del mddat
@@ -588,6 +742,17 @@ assert((2 * mcfout.data == mcf.data).all())
 mcfout.data = numpy.zeros(numpy.shape(mcfdat), dtype=mcfdat.dtype)
 assert(lal.swig_lal_test_viewinout_gsl_matrix_complex_float(mcfout, mcfdat))
 assert((2 * mcfout.data == mcfdat).all())
+mcf.data = mcfdat
+assert(lal.swig_lal_test_copyinout_gsl_matrix_complex_float(mcf))
+assert((mcf.data == 3 * mcfdat).all())
+mcf.data = mcfdat
+retn, mcf = lal.swig_lal_test_copyinout_gsl_matrix_complex_float(mcf)
+assert(retn)
+assert((mcf.data == 3 * mcfdat).all())
+mcf = mcfdat
+retn, mcf = lal.swig_lal_test_copyinout_gsl_matrix_complex_float(mcf)
+assert(retn)
+assert((mcf == 3 * mcfdat).all())
 del mcf
 del mcfout
 del mcfdat
@@ -607,6 +772,17 @@ assert((2 * mcdout.data == mcd.data).all())
 mcdout.data = numpy.zeros(numpy.shape(mcddat), dtype=mcddat.dtype)
 assert(lal.swig_lal_test_viewinout_gsl_matrix_complex(mcdout, mcddat))
 assert((2 * mcdout.data == mcddat).all())
+mcd.data = mcddat
+assert(lal.swig_lal_test_copyinout_gsl_matrix_complex(mcd))
+assert((mcd.data == 3 * mcddat).all())
+mcd.data = mcddat
+retn, mcd = lal.swig_lal_test_copyinout_gsl_matrix_complex(mcd)
+assert(retn)
+assert((mcd.data == 3 * mcddat).all())
+mcd = mcddat
+retn, mcd = lal.swig_lal_test_copyinout_gsl_matrix_complex(mcd)
+assert(retn)
+assert((mcd == 3 * mcddat).all())
 del mcd
 del mcdout
 del mcddat
@@ -815,21 +991,22 @@ print("PASSED dynamic array of pointers access")
 
 # check 'tm' struct conversions
 print("checking 'tm' struct conversions ...")
-gps = 989168284
-utc = [2011, 5, 11, 16, 57, 49, 2, 131, 0]
-assert(lal.GPSToUTC(gps) == utc)
-assert(lal.UTCToGPS(utc) == gps)
-assert(lal.UTCToGPS(utc[0:6]) == gps)
-utc[6] = utc[7] = 0
-for i in [-1, 0, 1]:
-    utc[8] = i
-    assert(lal.UTCToGPS(utc) == gps)
-utcd = utc
+gps0 = 989168284
+utc0 = [2011, 5, 11, 16, 57, 49, 2, 131, 0]
+assert(lal.GPSToUTC(gps0) == tuple(utc0))
+assert(lal.UTCToGPS(utc0) == gps0)
 for i in range(0, 10):
-    utcd[2] = utc[2] + i
-    utcd = lal.GPSToUTC(lal.UTCToGPS(utcd))
-    dt = datetime.datetime(*utcd[0:6])
-    assert(utcd[6] == dt.weekday())
+    gps = gps0 + i * 86400
+    utc = list(utc0)
+    utc[2] = utc[2] + i
+    utc[6] = (utc[6] + i) % 7
+    utc[7] = utc[7] + i
+    utc[8] = -1 + (i % 3)
+    assert(lal.GPSToUTC(gps)[0:8] == tuple(utc[0:8]))
+    assert(lal.UTCToGPS(utc) == gps)
+    utc = lal.GPSToUTC(lal.UTCToGPS(utc))
+    dt = datetime.datetime(*utc[0:6])
+    assert(utc[6] == dt.weekday())
 lal.CheckMemoryLeaks()
 print("PASSED 'tm' struct conversions")
 
@@ -868,6 +1045,10 @@ assert(t1 % t2 == 0.5 and isinstance(t1 % t2, LIGOTimeGPS))
 assert(t1 > t2 and t2 < t1 and t1 >= t2 and t2 <= t1)
 assert(LIGOTimeGPS(333333333,333333333) == LIGOTimeGPS(1000000000) / 3)
 assert(LIGOTimeGPS(666666666,666666667) == LIGOTimeGPS(2000000000) / 3)
+assert(LIGOTimeGPS("-62997760.825036067") == LIGOTimeGPS("-47044285.062262587") - LIGOTimeGPS("15953475.76277348"))
+assert(LIGOTimeGPS("-6542354.389038577") == LIGOTimeGPS("-914984.929117316") * 7.1502318572066237)
+assert(LIGOTimeGPS("-6542354.389038577") == 7.1502318572066237 * LIGOTimeGPS("-914984.929117316"))
+assert(LIGOTimeGPS("-127965.770535834") == LIGOTimeGPS("-914984.929117316") / 7.1502318572066237)
 t1 += 812345667.75
 assert(str(t1) == "812345678.250000000")
 assert(LIGOTimeGPS(repr(t1)) == t1)
@@ -910,11 +1091,11 @@ assert(isinstance(lal.Unit(u1), lal.Unit))
 assert(u1 == lal.NewtonUnit and isinstance(u1, lal.Unit))
 assert(str(u1) == "m kg s^-2")
 u2 = lal.MeterUnit * lal.KiloGramUnit / lal.SecondUnit ** 2
-assert(u1 == u2 and isinstance(u2, lal.Unit));
+assert(u1 == u2 and isinstance(u2, lal.Unit))
 u2 = lal.MeterUnit**(1,2) * lal.KiloGramUnit**(1,2) * lal.SecondUnit ** -1
-assert(u1**(1,2) == u2 and isinstance(u2, lal.Unit));
+assert(u1**(1,2) == u2 and isinstance(u2, lal.Unit))
 try:
-    lal.SecondUnit ** (1,0);
+    lal.SecondUnit ** (1,0)
     expected_exception = True
 except:
     pass

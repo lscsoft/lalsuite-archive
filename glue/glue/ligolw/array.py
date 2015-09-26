@@ -1,4 +1,4 @@
-# Copyright (C) 2006--2014  Kipp Cannon
+# Copyright (C) 2006--2015  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -118,14 +118,28 @@ def from_array(name, array, dim_names = None):
 	"""
 	Construct a LIGO Light Weight XML Array document subtree from a
 	numpy array object.
+
+	Example:
+
+	>>> import numpy, sys
+	>>> a = numpy.arange(12, dtype = "double")
+	>>> a.shape = (4, 3)
+	>>> from_array(u"test", a).write(sys.stdout)	# doctest: +NORMALIZE_WHITESPACE
+	<Array Type="real_8" Name="test:array">
+		<Dim>3</Dim>
+		<Dim>4</Dim>
+		<Stream Delimiter=" " Type="Local">
+			0 3 6 9
+			1 4 7 10
+			2 5 8 11
+		</Stream>
+	</Array>
 	"""
 	# Type must be set for .__init__();  easier to set Name afterwards
 	# to take advantage of encoding handled by attribute proxy
 	doc = Array(Attributes({u"Type": ligolwtypes.FromNumPyType[str(array.dtype)]}))
 	doc.Name = name
-	s = list(array.shape)
-	s.reverse()
-	for n, dim in enumerate(s):
+	for n, dim in enumerate(reversed(array.shape)):
 		child = ligolw.Dim()
 		if dim_names is not None:
 			child.Name = dim_names[n]
@@ -164,11 +178,18 @@ class ArrayStream(ligolw.Stream):
 	array attribute, and knows how to turn the parent's array attribute
 	back into a character stream.
 	"""
-	def __init__(self, *args):
-		super(ArrayStream, self).__init__(*args)
-		self._tokenizer = tokenizer.Tokenizer(self.Delimiter)
 
 	Delimiter = ligolw.attributeproxy(u"Delimiter", default = u" ")
+
+	def __init__(self, *args):
+		super(ArrayStream, self).__init__(*args)
+		try:
+			self.Encoding
+		except AttributeError:
+			pass
+		else:
+			raise ligolw.ElementError("non-default encoding '%s' not supported.  if this is critical, please report." % self.Encoding)
+		self._tokenizer = tokenizer.Tokenizer(self.Delimiter)
 
 	def config(self, parentNode):
 		# some initialization that can only be done once parentNode
@@ -284,11 +305,11 @@ def use_in(ContentHandler):
 	Example:
 
 	>>> from glue.ligolw import ligolw
-	>>> def MyContentHandler(ligolw.LIGOLWContentHandler):
+	>>> class MyContentHandler(ligolw.LIGOLWContentHandler):
 	...	pass
 	...
-	>>> from glue.ligolw import array
-	>>> array.use_in(MyContentHandler)
+	>>> use_in(MyContentHandler)
+	<class 'glue.ligolw.array.MyContentHandler'>
 	"""
 	def startStream(self, parent, attrs, __orig_startStream = ContentHandler.startStream):
 		if parent.tagName == ligolw.Array.tagName:

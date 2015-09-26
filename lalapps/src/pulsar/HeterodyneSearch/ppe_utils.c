@@ -179,7 +179,9 @@ UINT4Vector *chop_n_merge( LALInferenceIFOData *data, INT4 chunkMin, INT4 chunkM
    * might affect the chunk calculations (which can assume the data is Gaussian with zero mean). */
   meddata = subtract_running_median( data->compTimeData->data );
 
-  chunkIndex = chop_data( meddata, chunkMin );
+  /* pass chop data a gsl_vector_view, so that internally it can use vector views rather than having to create new vectors */
+  gsl_vector_complex_view meddatagsl = gsl_vector_complex_view_array((double*)meddata->data, meddata->length);
+  chunkIndex = chop_data( &meddatagsl.vector, chunkMin );
 
   /* DON'T BOTHER WITH THE MERGING AS IT WILL MAKE VERY LITTLE DIFFERENCE */
   /* merge_data( meddata, chunkIndex ); */
@@ -257,12 +259,10 @@ COMPLEX16Vector *subtract_running_median( COMPLEX16Vector *data ){
       n = N+i;
       sidx = 0;
     }
-    else if ( i > length - N ){
-      n = length - i + N;
-      sidx = (i-N)-1;
-    }
     else{
-      n = mrange;
+      if ( i > length - N ){ n = length - i + N; }
+      else{ n = mrange; }
+
       sidx = i-N;
     }
 
@@ -296,14 +296,17 @@ COMPLEX16Vector *subtract_running_median( COMPLEX16Vector *data ){
  * This function splits data into two (and recursively runs on those two segments) if it is found that the odds ratio
  * for them being from two independent Gaussian distributions is greater than a certain threshold.
  *
- * The threshold is for the natural logarithm of the odds ratio is empirically set to be:
+ * The threshold for the natural logarithm of the odds ratio is empirically set to be
  * \f[
- * T = 0.57\ln{N} + 2.71,
+ * T = 4.07 + 1.33\log{}_{10}{N},
  * \f]
- * where \f$N\f$ is the length of the data set. This comes from a fit to the threshold value required to give a 1%
- * chance of splitting actual Gaussian data (drawn from one distribution) for data of various lengths. The first two
- * terms come from a fit to odds ratios for a Monte Carlo of Gaussian noise (with real and imaginary components) of
- * various lengths, and the final term comes from an offset to give the 1% false alarm rate.
+ * where \f$N\f$ is the length in samples of the dataset. This is based on Monte Carlo simulations of
+ * many realisations of Gaussian noise for data of different lengths. The threshold comes from a linear
+ * fit to the log odds ratios required to give a 1% chance of splitting Gaussian data (drawn from a single
+ * distribution) for data of various lengths.  Note, however, that this relation is not good for stretches of data
+ * with lengths of less than about 30 points, and in fact is rather consevative for such short stretches
+ * of data, i.e. such short stretches of data will require relatively larger odds ratios for splitting than
+ * longer stretches.
  *
  * \param data [in] A complex data vector
  * \param chunkMin [in] The minimum allowed segment length
@@ -312,12 +315,12 @@ COMPLEX16Vector *subtract_running_median( COMPLEX16Vector *data ){
  *
  * \sa find_change_point
  */
-UINT4Vector *chop_data( COMPLEX16Vector *data, INT4 chunkMin ){
+UINT4Vector *chop_data( gsl_vector_complex *data, INT4 chunkMin ){
   UINT4Vector *chunkIndex = NULL;
 
-  UINT4 length = data->length;
+  UINT4 length = (UINT4)data->size;
 
-  REAL8 logodds = 0;
+  REAL8 logodds = 0.;
   UINT4 changepoint = 0;
 
   REAL8 threshold = 0.; /* may need tuning or setting globally */
@@ -326,24 +329,20 @@ UINT4Vector *chop_data( COMPLEX16Vector *data, INT4 chunkMin ){
 
   changepoint = find_change_point( data, &logodds, chunkMin );
 
-  threshold = 0.57*log(length) + 2.71;
+  /* threshold scaling for a 0.5% false alarm probability of splitting Gaussian data */
+  threshold = 4.07 + 1.33*log10((REAL8)length);
 
   if ( logodds > threshold ){
     UINT4Vector *cp1 = NULL;
     UINT4Vector *cp2 = NULL;
 
-    COMPLEX16Vector *data1 = XLALCreateCOMPLEX16Vector( changepoint );
-    COMPLEX16Vector *data2 = XLALCreateCOMPLEX16Vector( length - changepoint );
+    gsl_vector_complex_view data1 = gsl_vector_complex_subvector( data, 0, changepoint );
+    gsl_vector_complex_view data2 = gsl_vector_complex_subvector( data, changepoint, length-changepoint );
 
     UINT4 i = 0, l = 0;
 
-    /* fill in data */
-    for (i = 0; i < changepoint; i++) { data1->data[i] = data->data[i]; }
-
-    for (i = 0; i < length - changepoint; i++) { data2->data[i] = data->data[i+changepoint]; }
-
-    cp1 = chop_data( data1, chunkMin );
-    cp2 = chop_data( data2, chunkMin );
+    cp1 = chop_data( &data1.vector, chunkMin );
+    cp2 = chop_data( &data2.vector, chunkMin );
 
     l = cp1->length + cp2->length;
 
@@ -351,12 +350,7 @@ UINT4Vector *chop_data( COMPLEX16Vector *data, INT4 chunkMin ){
 
     /* combine new chunks */
     for (i = 0; i < cp1->length; i++) { chunkIndex->data[i] = cp1->data[i]; }
-
     for (i = 0; i < cp2->length; i++) { chunkIndex->data[i+cp1->length] = cp2->data[i] + changepoint; }
-
-    /* free memory */
-    XLALDestroyCOMPLEX16Vector( data1 );
-    XLALDestroyCOMPLEX16Vector( data2 );
   }
   else{ chunkIndex->data[0] = length; }
 
@@ -388,9 +382,9 @@ UINT4Vector *chop_data( COMPLEX16Vector *data, INT4 chunkMin ){
  *
  * \return The position of the change point
  */
-UINT4 find_change_point( COMPLEX16Vector *data, REAL8 *logodds, INT4 minlength ){
+UINT4 find_change_point( gsl_vector_complex *data, REAL8 *logodds, INT4 minlength ){
   UINT4 changepoint = 0, i = 0;
-  UINT4 length = data->length, lsum = 0;
+  UINT4 length = (UINT4)data->size, lsum = 0;
 
   REAL8 datasum = 0.;
 
@@ -398,10 +392,10 @@ UINT4 find_change_point( COMPLEX16Vector *data, REAL8 *logodds, INT4 minlength )
   REAL8 logdouble = 0., logdouble_min = -INFINITY;
   REAL8 logratio = 0.;
 
-  REAL8Vector *sumforward = NULL, *sumback = NULL;
+  REAL8 sumforward = 0., sumback = 0.;
+  gsl_complex dval;
 
-  /* check that data is at least twice the minimum length, if not return an odds ratio of zero (log odds = -inf [or
-   * close to that!]) */
+  /* check that data is at least twice the minimum length, if not return an odds ratio of zero (log odds = -inf [or close to that!]) */
   if ( length < (UINT4)(2*minlength) ){
     logratio = -INFINITY;
     memcpy(logodds, &logratio, sizeof(REAL8));
@@ -409,29 +403,20 @@ UINT4 find_change_point( COMPLEX16Vector *data, REAL8 *logodds, INT4 minlength )
   }
 
   /* calculate the sum of the data squared */
-  for (i = 0; i < length; i++) { datasum += SQUARE( cabs(data->data[i]) ); }
+  for (i = 0; i < length; i++) {
+    dval = gsl_vector_complex_get( data, i );
+    datasum += SQUARE( gsl_complex_abs( dval ) );
+  }
 
-  /* calculate the evidence that the data consists of a Gaussian data with a
-     single standard deviation */
-  logsingle = -2 + gsl_sf_lnfact(length-1) - (REAL8)length * log( datasum );
+  /* calculate the evidence that the data consists of a Gaussian data with a single standard deviation */
+  logsingle = -LAL_LN2 - (REAL8)length*LAL_LNPI + gsl_sf_lnfact(length-1) - (REAL8)length * log( datasum );
 
-  /* to speed up process calculate data sums first */
   lsum = length - 2*minlength + 1;
-  sumforward = XLALCreateREAL8Vector( lsum );
-  sumback = XLALCreateREAL8Vector( lsum );
 
-  sumforward->data[0] = 0.;
-  sumback->data[0] = 0.;
-
-  for ( i = 0; i < length - minlength; i++ ){
-    if ( i < (UINT4)minlength ){
-      sumforward->data[0] += SQUARE( cabs(data->data[i]) );
-      sumback->data[0] += SQUARE( cabs(data->data[length-(i+1)]) );
-    }
-    else{
-      sumforward->data[i+1-minlength] = sumforward->data[i-minlength] + SQUARE( cabs(data->data[i]) );
-      sumback->data[i+1-minlength] = sumback->data[i-minlength] + SQUARE( cabs(data->data[length-(i+1)]) );
-    }
+  for ( i = 0; i < length; i++ ){
+    dval = gsl_vector_complex_get( data, i );
+    if ( i < (UINT4)minlength-1 ){ sumforward += SQUARE( gsl_complex_abs( dval ) ); }
+    else{ sumback += SQUARE( gsl_complex_abs( dval ) ); }
   }
 
   /* go through each possible change point and calculate the evidence for the data consisting of two independent
@@ -442,9 +427,14 @@ UINT4 find_change_point( COMPLEX16Vector *data, REAL8 *logodds, INT4 minlength )
 
     REAL8 log_1 = 0., log_2 = 0.;
 
+    dval = gsl_vector_complex_get( data, ln1-1 );
+    REAL8 adval = SQUARE( gsl_complex_abs( dval ) );
+    sumforward += adval;
+    sumback -= adval;
+
     /* get log evidences for the individual segments */
-    log_1 = -2 + gsl_sf_lnfact(ln1-1) - (REAL8)ln1 * log( sumforward->data[i] );
-    log_2 = -2 + gsl_sf_lnfact(ln2-1) - (REAL8)ln2 * log( sumback->data[lsum-i-1] );
+    log_1 = -LAL_LN2 - (REAL8)ln1*LAL_LNPI + gsl_sf_lnfact(ln1-1) - (REAL8)ln1 * log( sumforward );
+    log_2 = -LAL_LN2 - (REAL8)ln2*LAL_LNPI + gsl_sf_lnfact(ln2-1) - (REAL8)ln2 * log( sumback );
 
     /* get evidence for the two segments */
     logdouble = log_1 + log_2;
@@ -462,9 +452,6 @@ UINT4 find_change_point( COMPLEX16Vector *data, REAL8 *logodds, INT4 minlength )
   /* get the log odds ratio of segmented versus non-segmented model */
   logratio = logtot - logsingle;
   memcpy(logodds, &logratio, sizeof(REAL8));
-
-  XLALDestroyREAL8Vector( sumforward );
-  XLALDestroyREAL8Vector( sumback );
 
   return changepoint;
 }
@@ -490,8 +477,7 @@ void rechop_data( UINT4Vector *chunkIndex, INT4 chunkMax, INT4 chunkMin ){
   UINT4Vector *newindex = NULL;
   newindex = XLALCreateUINT4Vector( ceil((REAL8)endIndex / (REAL8)chunkMax ) );
 
-  /* chop any chunks that are greater than chunkMax into chunks smaller than, or equal to chunkMax, and greater than
-   * chunkMin */
+  /* chop any chunks that are greater than chunkMax into chunks smaller than, or equal to chunkMax, and greater than chunkMin */
   for ( i = 0; i < length; i++ ){
     if ( i == 0 ) { startindex = 0; }
     else { startindex = chunkIndex->data[i-1]+1; }
@@ -619,42 +605,26 @@ void merge_data( COMPLEX16Vector *data, UINT4Vector *segs ){
 
 
 /**
- * \brief Rescale the values output by the Nested Sampling algorithm
+ * \brief Gzip the nested sample files
  *
- * This function reads in the file of samples output from the Nested Sampling algorithm (in the file specified by \c
- * outfile) and scales them back to their true values. It removes the string variable "model" from the output and shifts
- * the logPrior and logLikelihood values to the end of the parameter list.
- *
- * Note: The output may soon be in an XML format, so this function will need to be amended.
+ * This function gzips the output nested sample files. It will also strip unneccesary parameters
+ * from the header "_params.txt" file.
  *
  * \param runState [in] The analysis information structure
  */
-void rescale_output( LALInferenceRunState *runState ){
+void gzip_output( LALInferenceRunState *runState ){
   /* Open original output output file */
-  CHAR *outfile, outfiletmp[256] = "";
-  CHAR outfilepars[256] = "", outfileparstmp[256] = "";
-  FILE *fp = NULL, *fptemp = NULL, *fppars = NULL, *fpparstmp = NULL;
-
-  LALStringVector *paramsStr = NULL;
-  UINT4Vector *paramsStrIdx = NULL;
-  UINT4 nonfixed = 0, k = 0;
-
+  CHAR *outfile = NULL;
   ProcessParamsTable *ppt1 = LALInferenceGetProcParamVal( runState->commandLine, "--outfile" );
 
   if( ppt1 ){
+    CHAR outfilepars[256] = "", outfileparstmp[256] = "";
+    FILE *fppars = NULL, *fpparstmp = NULL;
+    UINT4 nonfixed = 1;
+
     outfile = ppt1->value;
 
-    /* set temporary file for re-writing out samples */
-    sprintf(outfiletmp, "%s_tmp", outfile);
-
-    /* open temporary output file for reading */
-    if( (fptemp = fopen(outfiletmp, "w")) == NULL ){
-      XLALPrintError("Error... cannot open temporary output file %s.\n", outfile);
-      XLAL_ERROR_VOID(XLAL_EIO);
-    }
-
-    /* open file for printing out list of parameter names - this should already
-      exist */
+    /* open file for printing out list of parameter names - this should already exist */
     sprintf(outfilepars, "%s_params.txt", outfile);
     if( (fppars = fopen(outfilepars, "r")) == NULL ){
       XLALPrintError("Error... cannot open parameter name output file %s.\n", outfilepars);
@@ -667,32 +637,22 @@ void rescale_output( LALInferenceRunState *runState ){
       XLAL_ERROR_VOID(XLAL_EIO);
     }
 
-    if ( LALInferenceGetProcParamVal( runState->commandLine, "--non-fixed-only" ) ){ nonfixed = 1; }
+    if ( LALInferenceGetProcParamVal( runState->commandLine, "--output-all-params" ) ){ nonfixed = 0; }
 
     CHAR v[128] = "";
-    UINT4 idx = 0, counter = 0;
     while( fscanf(fppars, "%s", v) != EOF ){
       /* if outputing only non-fixed values then only re-output names of those non-fixed things */
       if ( nonfixed ){
         if ( LALInferenceCheckVariable( runState->currentParams, v ) ){
           if ( LALInferenceGetVariableVaryType( runState->currentParams, v ) != LALINFERENCE_PARAM_FIXED ){
             fprintf(fpparstmp, "%s\t", v);
-            paramsStrIdx = XLALResizeUINT4Vector( paramsStrIdx, counter+1 );
-            paramsStrIdx->data[counter] = idx;
-            counter++;
           }
         }
       }
       else{
-        /* re-output everything but the "model" value to a temporary file */
-        if( strcmp(v, "model") ) { fprintf(fpparstmp, "%s\t", v); }
-        paramsStrIdx = XLALResizeUINT4Vector( paramsStrIdx, counter+1 );
-        paramsStrIdx->data[counter] = idx;
-        counter++;
+        /* re-output everything to a temporary file */
+        fprintf(fpparstmp, "%s\t", v);
       }
-
-      paramsStr = XLALAppendString2Vector( paramsStr, v );
-      idx++;
     }
 
     fclose(fppars);
@@ -700,60 +660,6 @@ void rescale_output( LALInferenceRunState *runState ){
 
     /* move the temporary file name to the standard outfile_param name */
     rename( outfileparstmp, outfilepars );
-
-    CHAR *filebuf = NULL;
-    filebuf = XLALFileLoad( outfile );
-    TokenList *tlist = NULL;
-    if ( XLALCreateTokenList( &tlist, filebuf, "\n" ) != XLAL_SUCCESS ){
-      fprintf(stderr, "Error... could not convert data into separate lines.\n");
-      exit(3);
-    }
-
-    for ( k = 0; k < tlist->nTokens; k++ ){
-      UINT4 i = 0, j = 0;
-
-      TokenList *tline = NULL;
-      XLALCreateTokenList( &tline, tlist->tokens[k], " \t" );
-
-      /* scan through line, get value and reprint out scaled value to temporary file */
-      for( i = 0; i < paramsStrIdx->length; i++, j++ ){
-        CHAR scalename[VARNAME_MAX] = "";
-        CHAR scaleminname[VARNAME_MAX] = "";
-        REAL8 scalefac = 1., scalemin = 0.;
-
-        if ( !strcmp(paramsStr->data[paramsStrIdx->data[i]], "model") ){
-          j++;
-          continue;
-        }
-
-        sprintf(scalename, "%s_scale", paramsStr->data[paramsStrIdx->data[i]]);
-        sprintf(scaleminname, "%s_scale_min", paramsStr->data[paramsStrIdx->data[i]]);
-
-        if ( LALInferenceCheckVariable( runState->model->ifo->params, scalename ) &&
-          LALInferenceCheckVariable( runState->model->ifo->params, scaleminname ) ){
-          scalefac = *(REAL8 *)LALInferenceGetVariable( runState->model->ifo->params, scalename );
-          scalemin = *(REAL8 *)LALInferenceGetVariable( runState->model->ifo->params, scaleminname );
-
-          fprintf(fptemp, "%.12le\t", atof(tline->tokens[j])*scalefac + scalemin);
-        }
-        else{ fprintf(fptemp, "%.12le\t", atof(tline->tokens[j])); }
-      }
-
-      /* print out the last two items to be the logPrior and logLikelihood */
-      fprintf(fptemp, "\n");
-
-      XLALDestroyTokenList( tline );
-    }
-
-    fclose(fptemp);
-
-    XLALDestroyTokenList( tlist );
-    XLALDestroyStringVector( paramsStr );
-    XLALDestroyUINT4Vector( paramsStrIdx );
-    XLALFree( filebuf );
-
-    /* move the temporary file name to the standard outfile name */
-    rename( outfiletmp, outfile );
 
     /* gzip the output file if required */
     if( LALInferenceGetProcParamVal( runState->commandLine, "--gzip" ) ){
@@ -765,9 +671,10 @@ void rescale_output( LALInferenceRunState *runState ){
   }
 /* if we have XML enabled */
 #ifdef HAVE_LIBLALXML
-  ProcessParamsTable *ppt2 = LALInferenceGetProcParamVal( runState->commandLine, "--outXML" );
-  LALInferenceVariables *output_array = NULL;
-  UINT4 N_output_array = 0, i = 0;
+  ProcessParamsTable *ppt2 = LALInferenceGetProcParamVal( runState->commandLine, "--outxml" );
+  if(!ppt2){
+    ppt2=LALInferenceGetProcParamVal(runState->commandLine,"--outXML");
+  }
   CHAR *outVOTable = NULL;
 
   if ( !ppt2 && !ppt1 ){
@@ -775,75 +682,18 @@ void rescale_output( LALInferenceRunState *runState ){
     XLAL_ERROR_VOID( XLAL_EIO );
   }
 
-  /* rescale parameters held in array and recreate XML output - we don't need
-     to remove any variables. */
   if( ppt2 ){
     outVOTable = ppt2->value;
 
-    if( LALInferenceCheckVariable(runState->algorithmParams,"outputarray")
-      && LALInferenceCheckVariable(runState->algorithmParams,"N_outputarray")){
-      output_array = *(LALInferenceVariables **)LALInferenceGetVariable( runState->algorithmParams, "outputarray" );
-      N_output_array = *(UINT4 *)LALInferenceGetVariable( runState->algorithmParams, "N_outputarray" );
-    }
-
-    /* loop through output array and rescale values accordingly */
-    for( i = 0; i < N_output_array; i++ ){
-      LALInferenceVariableItem *scaleitem = NULL;
-
-      scaleitem = output_array[i].head;
-
-      /* loop through tmparr parameters and scale if necessary */
-      for( ; scaleitem; scaleitem = scaleitem->next ){
-        CHAR scalename[VARNAME_MAX] = "";
-        CHAR scaleminname[VARNAME_MAX] = "";
-        REAL8 scalefac = 1., scalemin = 0., value = 0;
-
-        sprintf(scalename, "%s_scale", scaleitem->name);
-        sprintf(scaleminname, "%s_scale_min", scaleitem->name);
-
-        /* check if scale values are present */
-        if ( LALInferenceCheckVariable( runState->model->ifo->params, scalename ) &&
-          LALInferenceCheckVariable( runState->model->ifo->params, scaleminname ) ){
-          scalefac = *(REAL8 *)LALInferenceGetVariable( runState->model->ifo->params, scalename );
-          scalemin = *(REAL8 *)LALInferenceGetVariable( runState->model->ifo->params, scaleminname );
-
-          /* get the value and scale it */
-          value = *(REAL8 *)LALInferenceGetVariable( &output_array[i], scaleitem->name );
-          value = value*scalefac + scalemin;
-
-          /* reset the value */
-          LALInferenceSetVariable( &output_array[i], scaleitem->name, &value );
-
-          /* change type to be REAL8 */
-          scaleitem->type = LALINFERENCE_REAL8_t;
-        }
+    /* gzip the output file if required */
+    if( LALInferenceGetProcParamVal( runState->commandLine, "--gzip" ) ){
+      if ( XLALGzipTextFile( outVOTable ) != XLAL_SUCCESS ){
+        XLAL_PRINT_ERROR( "Error... Could not gzip the output file!\n" );
+        XLAL_ERROR_VOID( XLAL_EIO );
       }
-    }
-
-    if( output_array && outVOTable && N_output_array > 0 ){
-      xmlNodePtr votable = XLALInferenceVariablesArray2VOTTable( output_array, N_output_array, "Nested Samples");
-      xmlNewProp( votable, CAST_CONST_XMLCHAR("utype"), CAST_CONST_XMLCHAR("lalinference:results:nestedsamples") );
-
-      xmlNodePtr stateResource = XLALInferenceStateVariables2VOTResource(runState, "Run State Configuration");
-
-      xmlNodePtr nestResource = XLALCreateVOTResourceNode("lalinference:results", "Nested sampling run", votable);
-
-      if( stateResource ) { xmlAddChild( nestResource, stateResource ); }
-
-      CHAR *xmlString = XLALCreateVOTStringFromTree( nestResource );
-
-      /* Write to disk */
-      if ( (fp = fopen(outVOTable, "w")) == NULL ){
-        XLALPrintError("Error... can't open output XML file\n");
-        XLAL_ERROR_VOID(XLAL_EIO);
-      }
-
-      fprintf(fp, "%s", xmlString);
-      fclose(fp);
     }
   }
 
-  if( output_array ) { XLALFree( output_array ); }
 #else
   if ( !ppt1 ){
     XLALPrintError("Error... --outfile not defined!\n");
@@ -872,7 +722,7 @@ INT4 count_csv( CHAR *csvline ){
 
   /* count number of commas */
   while(1){
-    if( strsep(&inputstr, ",") == NULL ){
+    if( XLALStringToken(&inputstr, ",", 0) == NULL ){
       XLALPrintError("Error... problem counting number of commas!\n");
       XLAL_ERROR( XLAL_EFUNC );
     }
@@ -1031,59 +881,4 @@ void check_and_add_fixed_variable( LALInferenceVariables *vars, const char *name
      if ( LALInferenceGetVariableVaryType( vars, name ) == LALINFERENCE_PARAM_FIXED ) { LALInferenceRemoveVariable( vars, name ); }
    }
    LALInferenceAddVariable( vars, name, value, type, LALINFERENCE_PARAM_FIXED );
-}
-
-
-/**
- * \brief Remove a variable from the current parameters and remove it's scaling and prior values
- *
- * This function will clear out a variable from the \c currentParams and also remove it's scale
- * factors and prior ranges.
- *
- * \param runState [in] The analysis information structure
- * \param ifo [in] The IFO data structure
- * \param var [in] The variable to remove
- *
- */
-void remove_variable_and_prior( LALInferenceRunState *runState, LALInferenceIFOModel *ifo, const CHAR *var ){
-  /* remove variable from currentParams */
-  if( LALInferenceCheckVariable( runState->currentParams, var ) ){
-    LALInferenceRemoveVariable( runState->currentParams, var );
-  }
-  else{
-    fprintf(stderr, "Error... variable %s cannot be removed as it does not exist!\n", var);
-    exit(3);
-  }
-
-  /* remove variable scale parameters from data */
-  LALInferenceIFOModel *ifotemp = ifo;
-  while ( ifotemp ){
-    CHAR *varscale = XLALStringDuplicate( var );
-    varscale = XLALStringAppend( varscale, "_scale" );
-
-    if( LALInferenceCheckVariable( ifotemp->params, varscale ) ){
-      LALInferenceRemoveVariable( ifotemp->params, varscale );
-    }
-    else{
-      fprintf(stderr, "Error... variable %s cannot be removed as it does not exist!\n", varscale);
-      exit(3);
-    }
-
-    varscale = XLALStringAppend( varscale, "_min" );
-    if( LALInferenceCheckVariable( ifotemp->params, varscale ) ){
-      LALInferenceRemoveVariable( ifotemp->params, varscale );
-    }
-    else{
-      fprintf(stderr, "Error... variable %s cannot be removed as it does not exist!\n", varscale);
-      exit(3);
-    }
-
-    ifotemp = ifotemp->next;
-  }
-
-  /* remove prior */
-  if ( LALInferenceCheckGaussianPrior( runState->priorArgs, var ) ){
-    LALInferenceRemoveGaussianPrior( runState->priorArgs, var );
-  }
-  else { LALInferenceRemoveMinMaxPrior( runState->priorArgs, var ); }
 }

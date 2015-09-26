@@ -1,3 +1,4 @@
+*.dSYM
 *.egg-info
 *.swp
 *.trs
@@ -10,6 +11,7 @@
 /_inst/
 /index.html
 /lalsuite-*/
+/lalsuiterc
 TAGS
 aclocal.m4
 auto/
@@ -18,5 +20,6 @@ config.cache
 config.log
 config.status
 configure
+cscope.*
 lalsuite-*.tar.gz
 tags

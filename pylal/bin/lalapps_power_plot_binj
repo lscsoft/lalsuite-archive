@@ -475,7 +475,7 @@ WHERE
 			bursts = tuple(SnglBurstUtils.coinc_sngl_bursts(contents, coinc_event_id))
 			coinc_dt = 0
 			for burst in bursts:
-				dt = float(burst.get_peak() - sim_peak)
+				dt = float(burst.peak - sim_peak)
 				if burst.ifo == self.instrument:
 					try:
 						self.offsets[dt,] += 1.0

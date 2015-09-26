@@ -55,6 +55,8 @@
 #include <lal/TimeSeries.h>
 #include <lal/BinaryPulsarTiming.h>
 #include <lal/Window.h>
+#include <lal/TranslateAngles.h>
+#include <lal/TranslateMJD.h>
 
 #ifdef HAVE_LIBLALFRAME
 #include <lal/LALFrameIO.h>
@@ -91,8 +93,6 @@ typedef struct
 
   COMPLEX8FrequencySeries *transfer;  /**< detector's transfer function for use in hardware-injection */
 
-  INT4 randSeed;		/**< random-number seed: either taken from user or /dev/urandom */
-
   transientWindow_t transientWindow;	/**< properties of transient-signal window */
   CHAR *VCSInfoString;          /**< LAL + LALapps Git version string */
 } ConfigVars_t;
@@ -124,7 +124,7 @@ typedef struct
 
   /* specify start + duration */
   CHAR *timestampsFile;	/**< Timestamps file */
-  INT4 startTime;		/**< Start-time of requested signal in detector-frame (GPS seconds) */
+  LIGOTimeGPS startTime;		/**< Start-time of requested signal in detector-frame (GPS seconds) */
   INT4 duration;		/**< Duration of requested signal in seconds */
 
   /* generation mode of timer-series: all-at-once or per-sft */
@@ -158,8 +158,7 @@ typedef struct
   CHAR *ephemSun;		/**< Sun ephemeris file to use */
 
   /* pulsar parameters [REQUIRED] */
-  REAL8 refTime;		/**< Pulsar reference time tRef in SSB ('0' means: use startTime converted to SSB) */
-  REAL8 refTimeMJD;          /**< Pulsar reference time tRef in MJD ('0' means: use startTime converted to SSB) */
+  LIGOTimeGPS refTime;		/**< Pulsar reference epoch tRef in SSB ('0' means: use startTime converted to SSB) */
 
   REAL8 h0;			/**< overall signal amplitude h0 */
   REAL8 cosi;		/**< cos(iota) of inclination angle iota */
@@ -186,9 +185,7 @@ typedef struct
 
   REAL8 orbitasini;	        /**< Projected orbital semi-major axis in seconds (a/c) */
   REAL8 orbitEcc;	        /**< Orbital eccentricity */
-  INT4  orbitTpSSBsec;	/**< 'observed' (SSB) time of periapsis passage. Seconds. */
-  INT4  orbitTpSSBnan;	/**< 'observed' (SSB) time of periapsis passage. Nanoseconds. */
-  REAL8 orbitTpSSBMJD;       /**< 'observed' (SSB) time of periapsis passage. MJD. */
+  LIGOTimeGPS  orbitTp;		/**< 'true' epoch of periapsis passage */
   REAL8 orbitPeriod;		/**< Orbital period (seconds) */
   REAL8 orbitArgp;	        /**< Argument of periapsis (radians) */
 
@@ -204,6 +201,12 @@ typedef struct
   CHAR *transientWindowType;	/**< name of transient window ('rect', 'exp',...) */
   REAL8 transientStartTime;	/**< GPS start-time of transient window */
   REAL8 transientTauDays;	/**< time-scale in days of transient window */
+
+  // ---------- OBSOLETE & unsupported options [kept for error-reporting] ----------
+  INT4 orbitTpSSBsec;
+  INT4 orbitTpSSBnan;
+  CHAR *orbitTpSSBMJD;
+
 } UserVariables_t;
 
 // ----- global variables ----------
@@ -355,14 +358,15 @@ main(int argc, char *argv[])
 
       /* add Gaussian noise if requested */
       if ( GV.noiseSigma > 0) {
-	XLAL_CHECK ( XLALAddGaussianNoise ( Tseries, GV.noiseSigma, GV.randSeed + i_chunk ) == XLAL_SUCCESS, XLAL_EFUNC );
+        // NOTE: seed=0 means randomize seed from /dev/urandom, otherwise we'll have to increment it for each chunk here
+	XLAL_CHECK ( XLALAddGaussianNoise ( Tseries, GV.noiseSigma, (uvar.randSeed == 0) ? 0 : (uvar.randSeed + i_chunk) ) == XLAL_SUCCESS, XLAL_EFUNC );
       }
 
       /* output ASCII time-series if requested */
       if ( uvar.TDDfile )
 	{
 	  CHAR *fname = XLALCalloc (1, len = strlen(uvar.TDDfile) + 10 );
-          XLAL_CHECK ( fname != NULL, XLAL_ENOMEM, "XLALCalloc(1,%lu) failed\n", len );
+          XLAL_CHECK ( fname != NULL, XLAL_ENOMEM, "XLALCalloc(1,%zu) failed\n", len );
 	  sprintf (fname, "%s.%02d", uvar.TDDfile, i_chunk);
 	  XLAL_CHECK ( XLALdumpREAL4TimeSeries ( fname, Tseries ) == XLAL_SUCCESS, XLAL_EFUNC );
 	  XLALFree (fname);
@@ -382,7 +386,7 @@ main(int argc, char *argv[])
           XLAL_CHECK ( (fname = LALCalloc (1, len )) != NULL, XLAL_ENOMEM );
           size_t written = snprintf ( fname, len, "%s/%c-%c%c_%s-%d-%d.gwf",
                                       uvar.TDDframedir, IFO[0], IFO[0], IFO[1], uvar.frameDesc, params.startTimeGPS.gpsSeconds, (int)params.duration );
-          XLAL_CHECK ( written < len, XLAL_ESIZE, "Frame-filename exceeds expected maximal length (%lu): '%s'\n", len, fname );
+          XLAL_CHECK ( written < len, XLAL_ESIZE, "Frame-filename exceeds expected maximal length (%zu): '%s'\n", len, fname );
 
 	  /* define the output frame */
 	  LALFrameH *outFrame;
@@ -486,7 +490,7 @@ main(int argc, char *argv[])
 	  if ( uvar.outSFTv1 ) 		/* write output-SFTs using the SFT-v1 format */
 	    {
 	      CHAR *fname = XLALCalloc (1, len = strlen (uvar.outSFTbname) + 10 );
-              XLAL_CHECK ( fname != NULL, XLAL_ENOMEM, "XLALCalloc(1,%lu) failed.\n", len );
+              XLAL_CHECK ( fname != NULL, XLAL_ENOMEM, "XLALCalloc(1,%zu) failed.\n", len );
 
               LALStatus status = blank_status;
 	      for (UINT4 i=0; i < SFTs->length; i++)
@@ -505,7 +509,7 @@ main(int argc, char *argv[])
               CHAR *logstr;
               XLAL_CHECK ( (logstr = XLALUserVarGetLog ( UVAR_LOGFMT_CMDLINE )) != NULL, XLAL_EFUNC );
               char *comment = XLALCalloc ( 1, len = strlen ( logstr ) + strlen(GV.VCSInfoString) + 512 );
-              XLAL_CHECK ( comment != NULL, XLAL_ENOMEM, "XLALCalloc(1,%lu) failed.\n", len );
+              XLAL_CHECK ( comment != NULL, XLAL_ENOMEM, "XLALCalloc(1,%zu) failed.\n", len );
               sprintf ( comment, "Generated by:\n%s\n%s\n", logstr, GV.VCSInfoString );
 
               /* if user requesting single concatenated SFT */
@@ -711,8 +715,8 @@ XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
       }
     else if ( have_RA )
       {
-	cfg->pulsar.Doppler.Alpha = XLALhmsToRads(uvar->RA);
-	cfg->pulsar.Doppler.Delta = XLALdmsToRads(uvar->Dec);
+	XLAL_CHECK ( XLALTranslateHMStoRAD ( &cfg->pulsar.Doppler.Alpha, uvar->RA  ) == XLAL_SUCCESS, XLAL_EFUNC );
+        XLAL_CHECK ( XLALTranslateDMStoRAD ( &cfg->pulsar.Doppler.Delta, uvar->Dec ) == XLAL_SUCCESS, XLAL_EFUNC );
       }
     else
       {
@@ -915,11 +919,12 @@ XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
 	/* use all additional constraints user might have given */
 	if ( haveStart && haveDuration )
 	  {
-	    XLALGPSSetREAL8 ( &minStartTime, uvar->startTime );
-	    constraints.minStartTime = &minStartTime;
-	    XLALGPSSetREAL8 ( &maxStartTime, uvar->startTime + uvar->duration );
+	    minStartTime = maxStartTime = uvar->startTime;
+            XLALGPSAdd ( &maxStartTime, uvar->duration );
+            constraints.minStartTime = &minStartTime;
 	    constraints.maxStartTime = &maxStartTime;
-            XLALPrintWarning ( "\nWARNING: only noise-SFTs between GPS [%d, %d] will be used!\n", uvar->startTime, uvar->startTime + uvar->duration );
+            char bufGPS1[32], bufGPS2[32];
+            XLALPrintWarning ( "\nWARNING: only noise-SFTs between GPS [%s, %s] will be used!\n", XLALGPSToStr (bufGPS1, &minStartTime), XLALGPSToStr (bufGPS2, &maxStartTime) );
 	  } /* if start+duration given */
 	if ( cfg->timestamps )
 	  {
@@ -966,10 +971,8 @@ XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
           XLAL_ERROR ( XLAL_EINVAL, "--SFToverlap cannot be larger than --Tsft!\n\n");
         }
 
-	LIGOTimeGPS tStart;
 	/* internally always use timestamps, so we generate them  */
-	XLALGPSSetREAL8 ( &tStart, uvar->startTime );
-        XLAL_CHECK ( ( cfg->timestamps = XLALMakeTimestamps ( tStart, uvar->duration, uvar->Tsft, uvar->SFToverlap )) != NULL, XLAL_EFUNC );
+        XLAL_CHECK ( ( cfg->timestamps = XLALMakeTimestamps ( uvar->startTime, uvar->duration, uvar->Tsft, uvar->SFToverlap )) != NULL, XLAL_EFUNC );
 
       } /* if !cfg->timestamps */
 
@@ -1040,13 +1043,7 @@ XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
         }
       else if ( !strcmp ( uvar->window, "tukey" ) )
 	{
-	  if ( !XLALUserVarWasSet( &uvar->tukeyBeta ) )
-	    {
-	      uvar->tukeyBeta = 0.5;   /* If Tukey window specified, default transition fraction is 1/2 */
-	    }
-	  else if ( uvar->tukeyBeta < 0.0 || uvar->tukeyBeta > 1.0 ) {
-            XLAL_ERROR ( XLAL_EINVAL, "Tukey beta value '%f' was specified; must be between 0 and 1.\n\n", uvar->tukeyBeta );
-          }
+	  XLAL_CHECK ( (uvar->tukeyBeta >= 0.0) && (uvar->tukeyBeta <= 1.0), XLAL_EINVAL, "Tukey beta value '%f' must be between 0 and 1.\n\n", uvar->tukeyBeta );
           cfg->window = XLALCreateTukeyREAL4Window( lengthOfTimeSeries, uvar->tukeyBeta );
           XLAL_CHECK ( cfg->window != NULL, XLAL_EFUNC, "XLALCreateTukeyREAL4Window(%d, %g) failed\n", lengthOfTimeSeries, uvar->tukeyBeta );
 	}
@@ -1096,43 +1093,26 @@ XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
 	  Dt = (uvar->orbitPeriod/LAL_TWOPI)*(uasc-uvar->orbitEcc*sin(uasc));
 	  pulparams.T0 = pulparams.Tasc + Dt;
 	}
-	uvar->orbitTpSSBsec = (UINT4)floor(pulparams.T0);
-	uvar->orbitTpSSBnan = (UINT4)floor((pulparams.T0 - uvar->orbitTpSSBsec)*1e9);
+	uvar->orbitTp.gpsSeconds = (UINT4)floor(pulparams.T0);
+	uvar->orbitTp.gpsNanoSeconds = (UINT4)floor((pulparams.T0 - uvar->orbitTp.gpsSeconds)*1e9);
       }
     }
     BOOLEAN set1 = XLALUserVarWasSet(&uvar->orbitasini);
     BOOLEAN set2 = XLALUserVarWasSet(&uvar->orbitEcc);
     BOOLEAN set3 = XLALUserVarWasSet(&uvar->orbitPeriod);
     BOOLEAN set4 = XLALUserVarWasSet(&uvar->orbitArgp);
-    BOOLEAN set5 = XLALUserVarWasSet(&uvar->orbitTpSSBsec);
-    BOOLEAN set6 = XLALUserVarWasSet(&uvar->orbitTpSSBnan);
-    BOOLEAN set7 = XLALUserVarWasSet(&uvar->orbitTpSSBMJD);
+    BOOLEAN set5 = XLALUserVarWasSet(&uvar->orbitTp);
 
-    if (set1 || set2 || set3 || set4 || set5 || set6 || set7)
+    if (set1 || set2 || set3 || set4 || set5 )
     {
-      if ( (uvar->orbitasini > 0) && !(set1 && set2 && set3 && set4 && (set5 || set7)) ) {
+      if ( (uvar->orbitasini > 0) && !(set1 && set2 && set3 && set4 && set5 ) ) {
         XLAL_ERROR ( XLAL_EINVAL, "\nPlease either specify  ALL orbital parameters or NONE!\n\n");
       }
       if ( (uvar->orbitEcc < 0) || (uvar->orbitEcc > 1) ) {
         XLAL_ERROR ( XLAL_EINVAL, "\nEccentricity = %g has to lie within [0, 1]\n\n", uvar->orbitEcc );
       }
 
-      if ( set7 && (!set5 && !set6) )
-	{
-	  /* convert MJD peripase to GPS using Matt Pitkins code found at lal/packages/pulsar/src/BinaryPulsarTimeing.c */
-	  REAL8 GPSfloat;
-	  GPSfloat = XLALTTMJDtoGPS(uvar->orbitTpSSBMJD);
-	  XLALGPSSetREAL8(&(cfg->pulsar.Doppler.tp),GPSfloat);
-	}
-      else if ( set5 && !set7 )
-	{
-	  cfg->pulsar.Doppler.tp.gpsSeconds = uvar->orbitTpSSBsec;
-	  cfg->pulsar.Doppler.tp.gpsNanoSeconds = uvar->orbitTpSSBnan;
-	}
-      else if ((set7 && set5) || (set7 && set6))
-	{
-	  XLAL_ERROR ( XLAL_EINVAL, "\nPlease either specify time of periapse in GPS OR MJD, not both!\n\n");
-	}
+      cfg->pulsar.Doppler.tp = uvar->orbitTp;
 
       /* fill in orbital parameter structure */
       cfg->pulsar.Doppler.period = uvar->orbitPeriod;
@@ -1159,60 +1139,22 @@ XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
     else
       cfg->noiseSigma = 0;
 
-    /* set random-number generator seed: either taken from user or from /dev/urandom */
-    if ( XLALUserVarWasSet ( &uvar->randSeed ) )
-      {
-        if ( uvar->randSeed == 0 ) {
-          XLALPrintError ("WARNING: setting randSeed==0 results in the system clock being used as a random seed!\n");
-        }
-        cfg->randSeed = uvar->randSeed;
-      }
-    else
-      {
-	/*
-	 * Modified so as to not create random number parameters with seed
-	 * drawn from clock.  Seconds don't change fast enough and sft's
-	 * look alike.  We open /dev/urandom and read a 4 byte integer from
-	 * it and use that as our seed.  Note: /dev/random is slow after the
-	 * first, few accesses.
-	 */
-	FILE *devrandom = fopen ( "/dev/urandom", "r" );
-        XLAL_CHECK ( devrandom != NULL, XLAL_EIO, "fopen() failed to open '/dev/urandom' for reading\n\n");
-
-	if ( fread( (void*)&(cfg->randSeed), sizeof(INT4), 1, devrandom) != 1 )
-	  {
-	    fclose ( devrandom );
-	    XLAL_ERROR ( XLAL_EIO, "Failed to read from '/dev/urandom'\n\n");
-	  }
-	fclose ( devrandom );
-      }
-
   } /* END: Noise params */
 
 
   /* ----- set "pulsar reference time", i.e. SSB-time at which pulsar params are defined ---------- */
   if (XLALUserVarWasSet (&uvar->parfile)) {
-    uvar->refTime = pulparams.pepoch; /*XLALReadTEMPOParFile already converted pepoch to GPS*/
-    XLALGPSSetREAL8(&(cfg->pulsar.Doppler.refTime),uvar->refTime);
+    XLALGPSSetREAL8( &(uvar->refTime), pulparams.pepoch ); /*XLALReadTEMPOParFile converted pepoch to REAL8 */
+    XLALGPSSetREAL8( &(cfg->pulsar.Doppler.refTime), pulparams.pepoch);
   }
-  else if (XLALUserVarWasSet(&uvar->refTime) && XLALUserVarWasSet(&uvar->refTimeMJD))
-    {
-      XLAL_ERROR ( XLAL_EINVAL, "\nUse only one of '--refTime' and '--refTimeMJD' to specify SSB reference time!\n\n");
-    }
   else if (XLALUserVarWasSet(&uvar->refTime))
     {
-      XLALGPSSetREAL8(&(cfg->pulsar.Doppler.refTime), uvar->refTime);
-    }
-  else if (XLALUserVarWasSet(&uvar->refTimeMJD))
-    {
-
-      /* convert MJD to GPS using Matt Pitkins code found at lal/packages/pulsar/src/BinaryPulsarTimeing.c */
-      REAL8 GPSfloat;
-      GPSfloat = XLALTTMJDtoGPS(uvar->refTimeMJD);
-      XLALGPSSetREAL8(&(cfg->pulsar.Doppler.refTime),GPSfloat);
+      cfg->pulsar.Doppler.refTime = uvar->refTime;
     }
   else
-    cfg->pulsar.Doppler.refTime = cfg->timestamps->data[0];	/* internal startTime always found in here*/
+    {
+      cfg->pulsar.Doppler.refTime = cfg->timestamps->data[0];	/* internal startTime always found in here*/
+    }
 
 
   /* ---------- has the user specified an actuation-function file ? ---------- */
@@ -1243,7 +1185,7 @@ XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
   cfg->transientWindow.type = twtype;
 
   cfg->transientWindow.t0   = uvar->transientStartTime;
-  cfg->transientWindow.tau  = uvar->transientTauDays * LAL_DAYSID_SI;
+  cfg->transientWindow.tau  = uvar->transientTauDays * 86400;
 
   return XLAL_SUCCESS;
 
@@ -1299,7 +1241,7 @@ XLALInitUserVars ( UserVariables_t *uvar, int argc, char *argv[] )
   XLALregSTRINGUserStruct( ephemSun, 	 	0,  UVAR_OPTIONAL, "Sun ephemeris file to use");
 
   /* start + duration of timeseries */
-  XLALregINTUserStruct (  startTime,            'G', UVAR_OPTIONAL, "Start-time of requested signal in detector-frame (GPS seconds)");
+  XLALregEPOCHUserStruct ( startTime,           'G', UVAR_OPTIONAL, "Start-time of requested signal in detector-frame (format 'xx.yy[GPS|MJD]')");
   XLALregINTUserStruct (  duration,              0,  UVAR_OPTIONAL, "Duration of requested signal in seconds");
   XLALregSTRINGUserStruct ( timestampsFile,      0,  UVAR_OPTIONAL, "ALTERNATIVE: File to read timestamps from (file-format: lines with <seconds> <nanoseconds>)");
 
@@ -1314,14 +1256,10 @@ XLALInitUserVars ( UserVariables_t *uvar, int argc, char *argv[] )
   XLALregREALUserStruct (  tukeyBeta,            0, UVAR_OPTIONAL, "Fraction of Tukey window which is transition (0.0=rect, 1.0=Hann)");
 
   /* pulsar params */
-  XLALregREALUserStruct (  refTime,             'S', UVAR_OPTIONAL, "Pulsar SSB reference time in GPS seconds (default: use startTime)");
-  XLALregREALUserStruct (  refTimeMJD,           0 , UVAR_OPTIONAL, "ALTERNATIVE: Pulsar SSB reference time in MJD (default: use startTime)");
+  XLALregEPOCHUserStruct ( refTime,             'S', UVAR_OPTIONAL, "Pulsar SSB reference epoch: format 'xx.yy[GPS|MJD]' [default: startTime]");
 
-  XLALregREALUserStruct (  Alpha,                0, UVAR_OPTIONAL, "Right-ascension/longitude of pulsar in radians");
-  XLALregSTRINGUserStruct (RA,                   0, UVAR_OPTIONAL, "ALTERNATIVE: Righ-ascension/longitude of pulsar in HMS 'hh:mm:ss.ssss'");
-
-  XLALregREALUserStruct (  Delta,                0, UVAR_OPTIONAL, "Declination/latitude of pulsar in radians");
-  XLALregSTRINGUserStruct (Dec,                  0, UVAR_OPTIONAL, "ALTERNATIVE: Declination/latitude of pulsar in DMS 'dd:mm:ss.ssss'");
+  XLALregRAJUserStruct (  Alpha,		 0, UVAR_OPTIONAL, "Sky: equatorial J2000 right ascension (in radians or hours:minutes:seconds)");
+  XLALregDECJUserStruct (  Delta,		 0, UVAR_OPTIONAL, "Sky: equatorial J2000 declination (in radians or degrees:minutes:seconds)");
 
   XLALregREALUserStruct (  h0,                   0, UVAR_OPTIONAL, "Overall signal-amplitude h0");
   XLALregREALUserStruct (  cosi,                 0, UVAR_OPTIONAL, "cos(iota) of inclination-angle iota");
@@ -1339,9 +1277,7 @@ XLALInitUserVars ( UserVariables_t *uvar, int argc, char *argv[] )
   /* binary-system orbital parameters */
   XLALregREALUserStruct (  orbitasini,           0, UVAR_OPTIONAL, "Projected orbital semi-major axis in seconds (a/c)");
   XLALregREALUserStruct (  orbitEcc,             0, UVAR_OPTIONAL, "Orbital eccentricity");
-  XLALregINTUserStruct (   orbitTpSSBsec,        0, UVAR_OPTIONAL, "'true' (SSB) time of periapsis passage. Seconds.");
-  XLALregINTUserStruct (   orbitTpSSBnan,        0, UVAR_OPTIONAL, "'true' (SSB) time of periapsis passage. Nanoseconds.");
-  XLALregREALUserStruct (  orbitTpSSBMJD,        0, UVAR_OPTIONAL, "'true' (SSB) time of periapsis passage. MJD.");
+  XLALregEPOCHUserStruct ( orbitTp,        	 0, UVAR_OPTIONAL, "True epoch of periapsis passage: format 'xx.yy[GPS|MJD]'");
   XLALregREALUserStruct (  orbitPeriod,          0, UVAR_OPTIONAL, "Orbital period (seconds)");
   XLALregREALUserStruct (  orbitArgp,            0, UVAR_OPTIONAL, "Argument of periapsis (radians)");
 
@@ -1368,14 +1304,22 @@ XLALInitUserVars ( UserVariables_t *uvar, int argc, char *argv[] )
   XLALregREALUserStruct (  actuationScale,       0,  UVAR_DEVELOPER,  "(Signed) scale-factor to apply to the actuation-function.");
 
   XLALregBOOLUserStruct (  exactSignal,          0, UVAR_DEVELOPER, "Generate signal time-series as exactly as possible (slow).");
-  XLALregINTUserStruct (   randSeed,             0, UVAR_DEVELOPER, "Specify random-number seed for reproducible noise (use /dev/urandom otherwise).");
+  XLALregINTUserStruct (   randSeed,             0, UVAR_DEVELOPER, "Specify random-number seed for reproducible noise (0 means use /dev/urandom for seeding).");
+  XLALregBOOLUserStruct ( outSFTv1,	 	 0, UVAR_DEVELOPER,   "[deprecated] Write output-SFTs in obsolete SFT-v1 format." );
 
-  XLALregREALUserStruct (  longitude,            0, UVAR_DEVELOPER, "[DEPRECATED] Use --Alpha instead!");
-  XLALregREALUserStruct (  latitude,             0, UVAR_DEVELOPER, "[DEPRECATED] Use --Delta instead!");
-  XLALregREALUserStruct (  f0,                   0, UVAR_DEVELOPER, "[DEPRECATED] Use --Freq instead!");
-  XLALregSTRINGUserStruct (detector,             0, UVAR_DEVELOPER, "[DEPRECATED] Detector: use --IFO instead!.");
-  XLALregBOOLUserStruct( outSFTv1,	 	 0, UVAR_DEVELOPER, "[DEPRECATED]Write output-SFTs in obsolete SFT-v1 format." );
-  XLALregREALUserStruct (  noiseSigma,           0, UVAR_DEVELOPER, "[DEPRECATED] Alternative: Gaussian noise with standard-deviation sigma");
+  // ----- deprecated but still supported options [throw warning if used] ----------
+  XLALRegisterUvarMember ( longitude,	REAL8, 	 0, DEPRECATED, "Use --Alpha instead!");
+  XLALRegisterUvarMember ( latitude,	REAL8, 	 0, DEPRECATED, "Use --Delta instead!");
+  XLALRegisterUvarMember ( f0,		REAL8,	 0, DEPRECATED, "Use --Freq instead!");
+  XLALRegisterUvarMember ( detector,	STRING,	 0, DEPRECATED, "Use --IFO instead!");
+  XLALRegisterUvarMember ( noiseSigma,	REAL8,   0, DEPRECATED, "Use --noiseSqrtSh to specify PSD instead of Gaussian standard-deviation sigma");
+  XLALRegisterUvarMember ( RA,		STRING,  0, DEPRECATED, "Use --Alpha instead");
+  XLALRegisterUvarMember ( Dec,		STRING,  0, DEPRECATED, "Use --Delta instead");
+
+  // ----- deprecated and unsupported options [throw error if used] ----------
+  XLALRegisterUvarMember ( orbitTpSSBsec, INT4,  0, DEFUNCT, "Obsolete, use --orbitTp instead");
+  XLALRegisterUvarMember ( orbitTpSSBnan, INT4,  0, DEFUNCT, "Obsolete, use --orbitTp instead");
+  XLALRegisterUvarMember ( orbitTpSSBMJD, STRING,0, DEFUNCT, "Obsolete, use --orbitTp instead");
 
   /* read cmdline & cfgfile  */
   ret = XLALUserVarReadAllInput ( argc, argv );

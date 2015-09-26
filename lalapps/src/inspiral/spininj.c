@@ -31,7 +31,6 @@
 #include <ctype.h>
 #include <assert.h>
 #include <string.h>
-#include <getopt.h>
 #include <time.h>
 #include <lalapps.h>
 #include <processtable.h>
@@ -51,7 +50,6 @@
 #include <lal/DetectorSite.h>
 #include <lal/DetResponse.h>
 #include <lal/TimeDelay.h>
-#include <lal/LALErrno.h>
 #include <LALAppsVCSInfo.h>
 
 

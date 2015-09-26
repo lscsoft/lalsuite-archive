@@ -23,6 +23,7 @@ from glue.ligolw import dbtables
 from pylal import InspiralUtils
 from pylal import ligolw_sqlutils as sqlutils
 from pylal import printutils
+from pylal.ligolw_dataUtils import get_row_stat
 
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
 __prog__ = "ligolw_cbc_plotfm"
@@ -237,21 +238,11 @@ def parse_command_line():
 #
 # =============================================================================
 
-def get_sfrow_stat(row, arg):
-    """
-    Wrapper method to evaluate the desired operation on columns from a row in the SelectedFound table. 
-    The name space available to eval is limited to the columns in the row and functions in the math module.
-    """
-    row_dict = dict([ [name, getattr(row,name)] for name in dir(row) ])
-    safe_dict = dict([ [name,val] for name,val in row_dict.items() + math.__dict__.items() if not name.startswith('__') ])
-
-    return eval( arg, {"__builtins__":None}, safe_dict )
-        
 def get_cmrow_stat(row, arg):
     """
     Wrapper method to evaluate the desired operation on columns from a row in the ClosestMissed table. 
     """
-    return get_sfrow_stat( row, arg.replace("injected_", '') )
+    return get_row_stat( row, arg.replace("injected_", '') )
         
 def select_best_inj_match(found_table, selection_stat, select_by, use_match_rank = True):
     """
@@ -468,15 +459,15 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
             ymin = numpy.inf
 
             # select best matches using snr
-            this_group = [row for row in found_table if (param_name is not None and param_parser.group_by_param_range( get_sfrow_stat(row, param_name) ) == n) or param_name is None]
+            this_group = [row for row in found_table if (param_name is not None and param_parser.group_by_param_range( get_row_stat(row, param_name) ) == n) or param_name is None]
             select_best_inj_match(this_group, 'snr', 'MAX', use_match_rank = True)
 
             # get desired plot values
 
             plotvals = [ (
-                get_sfrow_stat(row, xstat),
-                get_sfrow_stat(row, ystat),
-                get_sfrow_stat(row, 'recovered_' not in cbstat and 'recovered_' + cbstat or cbstat) )
+                get_row_stat(row, xstat),
+                get_row_stat(row, ystat),
+                get_row_stat(row, 'recovered_' not in cbstat and 'recovered_' + cbstat or cbstat) )
                 for row in this_group]
 
             # if logx, remove any 0 valued things

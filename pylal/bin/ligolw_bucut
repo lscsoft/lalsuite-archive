@@ -295,7 +295,7 @@ def remove_events_by_segment(contents, veto_segments):
 	ids = set()
 	for i in xrange(len(contents.snglbursttable) - 1, -1, -1):
 		burst = contents.snglbursttable[i]
-		if burst.process_id in contents.process_ids and burst.ifo in veto_segments and veto_segments[burst.ifo].intersects_segment(burst.get_period()):
+		if burst.process_id in contents.process_ids and burst.ifo in veto_segments and veto_segments[burst.ifo].intersects_segment(burst.period):
 			ids.add(burst.event_id)
 			del contents.snglbursttable[i]
 	return ids
@@ -471,17 +471,17 @@ def make_keep_this_sngl_burst(options):
 	if options.cut_instrument:
 		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.ifo not in options.cut_instrument)
 	if options.min_peak_time is not None:
-		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.get_peak() >= options.min_peak_time)
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.peak >= options.min_peak_time)
 	if options.max_peak_time is not None:
-		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.get_peak() <= options.max_peak_time)
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.peak <= options.max_peak_time)
 	if options.min_start_time is not None:
-		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.get_start() >= options.min_start_time)
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.start >= options.min_start_time)
 	if options.max_start_time is not None:
-		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.get_start() <= options.max_start_time)
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.start <= options.max_start_time)
 	if options.min_stop_time is not None:
-		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.get_stop() >= options.min_stop_time)
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.stop >= options.min_stop_time)
 	if options.max_stop_time is not None:
-		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.get_stop() <= options.max_stop_time)
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.stop <= options.max_stop_time)
 
 	return keep_this_sngl_burst
 

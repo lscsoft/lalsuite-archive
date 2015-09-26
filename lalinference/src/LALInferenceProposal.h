@@ -243,8 +243,6 @@ REAL8 LALInferenceSkyReflectDetPlane(LALInferenceRunState *runState, LALInferenc
 
 REAL8 LALInferenceSkyRingProposal(LALInferenceRunState *runState, LALInferenceVariables *currentParams, LALInferenceVariables *proposedParams);;
 
-/* Nested sampling wrappers. */
-void NSFillMCMCVariables(LALInferenceVariables *proposedParams, LALInferenceVariables *priorArgs);
 REAL8 NSWrapMCMCLALProposal(LALInferenceRunState *runState, LALInferenceVariables *currentParams, LALInferenceVariables *proposedParams);
 
 /* Noise model proposals. */
@@ -274,6 +272,11 @@ REAL8 LALInferenceExtrinsicParamProposal(LALInferenceRunState *runState, LALInfe
  * presumed to have the variable name \c f0.
  */
 REAL8 LALInferenceFrequencyBinJump(LALInferenceRunState *runState, LALInferenceVariables *currentParams, LALInferenceVariables *proposedParams);
+
+/** Proposal which draws a sample from the distance likelihood function
+ * Requires the currentParams to have optimal_snr and matched_filter_snr.
+ */
+REAL8 LALInferenceDistanceLikelihoodProposal(LALInferenceRunState *runState, LALInferenceVariables *currentParams, LALInferenceVariables *proposedParams);
 
 /* Zero out proposal statistics */
 void LALInferenceZeroProposalStats(LALInferenceRunState *runState);

@@ -5,7 +5,8 @@ include $(top_srcdir)/gnuscripts/lalsuite_python.am
 
 # FIXME: install this to pkgdata
 EXTRA_DIST += \
-	laldetchar-idq.ini
+	idq.ini \
+	idq_gdb.ini
 
 if HAVE_PYTHON
 
@@ -19,10 +20,13 @@ pymodule_PYTHON = \
 	idq_gdb_utils.py \
 	idq.py \
 	idq_summary_plots.py \
+	idq_tables_dbutils.py \
 	idq_tables.py \
 	ovl.py \
 	pdf_estimation.py \
 	svmkit.py \
+	calibration.py \
+	vetosrc.py \
 	$(END_OF_LIST)
 
 endif

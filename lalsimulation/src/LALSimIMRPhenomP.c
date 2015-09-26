@@ -1,8 +1,5 @@
 /*
- *  Copyright (C) 2013,2014 Michael Puerrer, Alejandro Bohe
- *  Reuses code found in:
- *    - LALSimIMRPhenomC
- *    - LALSimInspiralSpinTaylorF2
+ *  Copyright (C) 2013,2014,2015 Michael Puerrer, Alejandro Bohe
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -20,17 +17,17 @@
  *  MA  02111-1307  USA
  */
 
-/**
- * \author Michael Puerrer, Alejandro Bohe
- *
- * \file
- *
- * \brief Functions for producing PhenomP waveforms for precessing binaries,
- * as described in Hannam et al., arXiv:1308.3271 [gr-qc].
- */
+#ifdef __GNUC__
+#define UNUSED __attribute__ ((unused))
+#else
+#define UNUSED
+#endif
 
 #include <stdlib.h>
 #include <math.h>
+#include <gsl/gsl_errno.h>
+#include <gsl/gsl_spline.h>
+
 #include <lal/Date.h>
 #include <lal/FrequencySeries.h>
 #include <lal/LALAtomicDatatypes.h>
@@ -40,13 +37,22 @@
 #include <lal/Units.h>
 #include <lal/XLALError.h>
 #include <lal/SphericalHarmonics.h>
-#include "LALSimIMR.h"
-#include "LALSimIMRPhenomC_internals.c" /* This is ugly, but allows us to reuse internal PhenomC functions without making those functions XLAL */
+#include <lal/Sequence.h>
 
-/**************************** PhenomP internal function prototypes *****************************/
+#include "LALSimIMR.h"
+/* This is ugly, but allows us to reuse internal IMRPhenomC and IMRPhenomD functions without making those functions XLAL */
+#include "LALSimIMRPhenomC_internals.c"
+#include "LALSimIMRPhenomD_internals.c"
+
+#ifndef _OPENMP
+#define omp ignore
+#endif
+
+
+/* ************************** PhenomP internal function prototypes *****************************/
 
 /* PhenomC parameters for modified ringdown: Uses final spin formula of Barausse & Rezzolla, Astrophys.J.Lett.704:L40-L44, 2009 */
-BBHPhenomCParams *ComputeIMRPhenomCParamsRDmod(
+static BBHPhenomCParams *ComputeIMRPhenomCParamsRDmod(
   const REAL8 m1,   /**< Mass of companion 1 (solar masses) */
   const REAL8 m2,   /**< Mass of companion 2 (solar masses) */
   const REAL8 chi,  /**< Reduced aligned spin of the binary chi = (m1*chi1 + m2*chi2)/M */
@@ -78,8 +84,30 @@ typedef struct tagSpinWeightedSphericalHarmonic_l2 {
   COMPLEX16 Y2m2, Y2m1, Y20, Y21, Y22;
 } SpinWeightedSphericalHarmonic_l2;
 
+/* Internal core function to calculate PhenomP polarizations for a sequence of frequences. */
+static int PhenomPCore(
+  COMPLEX16FrequencySeries **hptilde,   /**< Output: Frequency-domain waveform h+ */
+  COMPLEX16FrequencySeries **hctilde,   /**< Output: Frequency-domain waveform hx */
+  const REAL8 chi1_l,                   /**< Dimensionless aligned spin on companion 1 */
+  const REAL8 chi2_l,                   /**< Dimensionless aligned spin on companion 2 */
+  const REAL8 chip,                     /**< Effective spin in the orbital plane */
+  const REAL8 eta,                      /**< Symmetric mass-ratio */
+  const REAL8 thetaJ,                   /**< Angle between J0 and line of sight (z-direction) */
+  const REAL8 Mtot_SI,                  /**< Total mass of binary (kg) */
+  const REAL8 distance,                 /**< Distance of source (m) */
+  const REAL8 alpha0,                   /**< Initial value of alpha angle (azimuthal precession angle) */
+  const REAL8 phic,                     /**< Orbital phase at the peak of the underlying non precessing model (rad) */
+  const REAL8 f_ref,                    /**< Reference frequency */
+  const REAL8Sequence *freqs,           /**< Frequency points at which to evaluate the waveform (Hz) */
+  double deltaF,
+  /**< If deltaF > 0, the frequency points given in freqs are uniformly spaced with
+   * spacing deltaF. Otherwise, the frequency points are spaced non-uniformly.
+   * Then we will use deltaF = 0 to create the frequency series we return. */
+  const UINT4 IMRPhenomP_version        /**< Version number: 1 uses IMRPhenomC, 2 uses IMRPhenomD */
+);
+
 /* Internal core function to calculate PhenomP polarizations for a single frequency. */
-int PhenomPCore(
+static int PhenomPCoreOneFrequency(
   const REAL8 fHz,                        /**< Frequency (Hz) */
   const REAL8 eta,                        /**< Symmetric mass ratio */
   const REAL8 chi_eff,                    /**< Dimensionless effective total aligned spin */
@@ -87,22 +115,26 @@ int PhenomPCore(
   const REAL8 distance,                   /**< Distance of source (m) */
   const REAL8 M,                          /**< Total mass (Solar masses) */
   const REAL8 phic,                       /**< Orbital phase at the peak of the underlying non precessing model (rad) */
+  IMRPhenomDAmplitudeCoefficients *pAmp,  /**< Internal IMRPhenomD amplitude coefficients */
+  IMRPhenomDPhaseCoefficients *pPhi,      /**< Internal IMRPhenomD phase coefficients */
   BBHPhenomCParams *PCparams,             /**< Internal PhenomC parameters */
   NNLOanglecoeffs *angcoeffs,             /**< Struct with PN coeffs for the NNLO angles */
   SpinWeightedSphericalHarmonic_l2 *Y2m,  /**< Struct of l=2 spherical harmonics of spin weight -2 */
-  const REAL8 alphaoffset,                /**< f_ref dependent offset for alpha angle */
+  const REAL8 alphaoffset,                /**< f_ref dependent offset for alpha angle (azimuthal precession angle) */
   const REAL8 epsilonoffset,              /**< f_ref dependent offset for epsilon angle */
   COMPLEX16 *hp,                          /**< Output: \f$\tilde h_+\f$ */
-  COMPLEX16 *hc                           /**< Output: \f$\tilde h_+\f$ */
+  COMPLEX16 *hc,                          /**< Output: \f$\tilde h_+\f$ */
+  REAL8 *phasing,                         /**< Output: overall phasing */
+  const UINT4 IMRPhenomP_version          /**< Version number: 1 uses IMRPhenomC, 2 uses IMRPhenomD */
 );
 
 /* Simple 2PN version of L, without any spin terms expressed as a function of v */
-REAL8 L2PNR(
+static REAL8 L2PNR(
   const REAL8 v,   /**< Cubic root of (Pi * Frequency (geometric)) */
   const REAL8 eta  /**< Symmetric mass-ratio */
 );
 
-void WignerdCoefficients(
+static void WignerdCoefficients(
   const REAL8 v,          /**< Cubic root of (Pi * Frequency (geometric)) */
   const REAL8 SL,         /**< Dimensionfull aligned spin */
   const REAL8 eta,        /**< Symmetric mass-ratio */
@@ -111,19 +143,21 @@ void WignerdCoefficients(
   REAL8 *sin_beta_half    /**< Output: sin(beta/2) */
 );
 
-REAL8 FinalSpinBarausse2009_all_spin_on_larger_BH(
+static REAL8 FinalSpinBarausse2009_all_spin_on_larger_BH(
   const REAL8 nu,     /**< Symmetric mass-ratio */
   const REAL8 chi,    /**< Reduced aligned spin of the binary chi = (m1*chi1 + m2*chi2)/M */
   const REAL8 chip    /**< Dimensionless spin in the orbital plane */
 );
 
-REAL8 FinalSpinBarausse2009_aligned_spin_equally_distributed(
+#if 0
+static REAL8 FinalSpinBarausse2009_aligned_spin_equally_distributed(
   const REAL8 nu,     /**< Symmetric mass-ratio */
   const REAL8 chi,    /**< Reduced aligned spin of the binary chi = (m1*chi1 + m2*chi2)/M */
   const REAL8 chip    /**< Dimensionless spin in the orbital plane */
 );
+#endif
 
-REAL8 FinalSpinBarausse2009(  /* Barausse & Rezzolla, Astrophys.J.Lett.704:L40-L44, 2009, arXiv:0904.2577 */
+static REAL8 FinalSpinBarausse2009(  /* Barausse & Rezzolla, Astrophys.J.Lett.704:L40-L44, 2009, arXiv:0904.2577 */
   const REAL8 nu,               /**< Symmetric mass-ratio */
   const REAL8 a1,               /**< |a_1| norm of dimensionless spin vector for BH 1 */
   const REAL8 a2,               /**< |a_2| norm of dimensionless spin vector for BH 2 */
@@ -134,11 +168,29 @@ REAL8 FinalSpinBarausse2009(  /* Barausse & Rezzolla, Astrophys.J.Lett.704:L40-L
 
 static size_t NextPow2(const size_t n); /* Return the closest higher power of 2. */
 
+/* ************************************* Implementation ****************************************/
 
-/*************************************** Implementation ****************************************/
+/**
+ * @addtogroup LALSimIMRPhenom_c
+ * @{
+ *
+ * @name Routines for IMR Phenomenological Model "P"
+ * @{
+ *
+ * @author Michael Puerrer, Alejandro Bohe
+ *
+ * @brief Functions for producing IMRPhenomP waveforms for precessing binaries,
+ * as described in Hannam et al., arXiv:1308.3271 [gr-qc].
+ *
+ * @note Two versions of IMRPhenomP are available (selected by IMRPhenomP_version):
+ *    * version 1: based on IMRPhenomC
+ *    * version 2: based on IMRPhenomD
+ * IMRPhenomP inherits its range of validity over the parameter space from the respective aligned-spin waveform.
+ */
 
 int XLALSimIMRPhenomPCalculateModelParameters(
-    REAL8 *chi_eff,                 /**< Output: Effective aligned spin */
+    REAL8 *chi1_l,                  /**< Output: Dimensionless aligned spin on companion 1 */
+    REAL8 *chi2_l,                  /**< Output: Dimensionless aligned spin on companion 2 */
     REAL8 *chip,                    /**< Output: Effective spin in the orbital plane */
     REAL8 *eta,                     /**< Output: Symmetric mass-ratio */
     REAL8 *thetaJ,                  /**< Output: Angle between J0 and line of sight (z-direction) */
@@ -160,16 +212,15 @@ int XLALSimIMRPhenomPCalculateModelParameters(
   // Note that the angle phiJ defined below and alpha0 are degenerate. Therefore we do not output phiJ.
 
   /* Check arguments for sanity */
-  if (!chi_eff)  XLAL_ERROR(XLAL_EFAULT);
-  if (!chip)     XLAL_ERROR(XLAL_EFAULT);
-  if (!eta)      XLAL_ERROR(XLAL_EFAULT);
-  if (!thetaJ)   XLAL_ERROR(XLAL_EFAULT);
-  if (!alpha0)   XLAL_ERROR(XLAL_EFAULT);
+  if (!chi1_l)  XLAL_ERROR(XLAL_EFAULT);
+  if (!chi2_l)  XLAL_ERROR(XLAL_EFAULT);
+  if (!chip)    XLAL_ERROR(XLAL_EFAULT);
+  if (!eta)     XLAL_ERROR(XLAL_EFAULT);
+  if (!thetaJ)  XLAL_ERROR(XLAL_EFAULT);
+  if (!alpha0)  XLAL_ERROR(XLAL_EFAULT);
 
-  if (f_ref <= 0) {
-    XLALPrintError("Reference frequency must be positive.\n");
-    XLAL_ERROR(XLAL_EDOM);
-  }
+  if (f_ref <= 0)
+    XLAL_ERROR(XLAL_EDOM, "Reference frequency must be positive.\n");
 
   const REAL8 m1 = m1_SI / LAL_MSUN_SI;   /* Masses in solar masses */
   const REAL8 m2 = m2_SI / LAL_MSUN_SI;
@@ -179,20 +230,18 @@ int XLALSimIMRPhenomPCalculateModelParameters(
   *eta = m1 * m2 / (M*M);    /* Symmetric mass-ratio */
 
   /* Aligned spins */
-  const REAL8 chi1_l = lnhatx*s1x + lnhaty*s1y + lnhatz*s1z; /* Dimensionless aligned spin on BH 1 */
-  const REAL8 chi2_l = lnhatx*s2x + lnhaty*s2y + lnhatz*s2z; /* Dimensionless aligned spin on BH 2 */
+  *chi1_l = lnhatx*s1x + lnhaty*s1y + lnhatz*s1z; /* Dimensionless aligned spin on BH 1 */
+  *chi2_l = lnhatx*s2x + lnhaty*s2y + lnhatz*s2z; /* Dimensionless aligned spin on BH 2 */
 
   /* Spin components orthogonal to lnhat */
-  const REAL8 S1_perp_x = (s1x - chi1_l*lnhatx) * m1_2;
-  const REAL8 S1_perp_y = (s1y - chi1_l*lnhaty) * m1_2;
-  const REAL8 S1_perp_z = (s1z - chi1_l*lnhatz) * m1_2;
-  const REAL8 S2_perp_x = (s2x - chi2_l*lnhatx) * m2_2;
-  const REAL8 S2_perp_y = (s2y - chi2_l*lnhaty) * m2_2;
-  const REAL8 S2_perp_z = (s2z - chi2_l*lnhatz) * m2_2;
+  const REAL8 S1_perp_x = (s1x - *chi1_l*lnhatx) * m1_2;
+  const REAL8 S1_perp_y = (s1y - *chi1_l*lnhaty) * m1_2;
+  const REAL8 S1_perp_z = (s1z - *chi1_l*lnhatz) * m1_2;
+  const REAL8 S2_perp_x = (s2x - *chi2_l*lnhatx) * m2_2;
+  const REAL8 S2_perp_y = (s2y - *chi2_l*lnhaty) * m2_2;
+  const REAL8 S2_perp_z = (s2z - *chi2_l*lnhatz) * m2_2;
   const REAL8 S1_perp = sqrt(S1_perp_x*S1_perp_x + S1_perp_y*S1_perp_y + S1_perp_z*S1_perp_z);
   const REAL8 S2_perp = sqrt(S2_perp_x*S2_perp_x + S2_perp_y*S2_perp_y + S2_perp_z*S2_perp_z);
-
-  *chi_eff = (m1*chi1_l + m2*chi2_l) / M; /* Effective aligned spin */
 
   const REAL8 A1 = 2 + (3*m2) / (2*m1);
   const REAL8 A2 = 2 + (3*m1) / (2*m2);
@@ -244,7 +293,8 @@ int XLALSimIMRPhenomPCalculateModelParameters(
 int XLALSimIMRPhenomP(
   COMPLEX16FrequencySeries **hptilde,   /**< Output: Frequency-domain waveform h+ */
   COMPLEX16FrequencySeries **hctilde,   /**< Output: Frequency-domain waveform hx */
-  const REAL8 chi_eff,                  /**< Effective aligned spin */
+  const REAL8 chi1_l,                   /**< Dimensionless aligned spin on companion 1 */
+  const REAL8 chi2_l,                   /**< Dimensionless aligned spin on companion 2 */
   const REAL8 chip,                     /**< Effective spin in the orbital plane */
   const REAL8 eta,                      /**< Symmetric mass-ratio */
   const REAL8 thetaJ,                   /**< Angle between J0 and line of sight (z-direction) */
@@ -255,11 +305,89 @@ int XLALSimIMRPhenomP(
   const REAL8 deltaF,                   /**< Sampling frequency (Hz) */
   const REAL8 f_min,                    /**< Starting GW frequency (Hz) */
   const REAL8 f_max,                    /**< End frequency; 0 defaults to ringdown cutoff freq */
-  const REAL8 f_ref)                    /**< Reference frequency */
+  const REAL8 f_ref,                    /**< Reference frequency */
+  const UINT4 IMRPhenomP_version)       /**< Version number: 1 uses IMRPhenomC, 2 uses IMRPhenomD */
 {
   // See Fig. 1. in arxiv:1408.1810 for diagram of the angles.
   // Note that the angles phiJ which is calculated internally in XLALSimIMRPhenomPCalculateModelParameters
   // and alpha0 are degenerate. Therefore phiJ is not passed to this function.
+
+  // Use fLow, fHigh, deltaF to compute freqs sequence
+  // Instead of building a full sequency we only transfer the boundaries and let
+  // the internal core function do the rest (and properly take care of corner cases).
+  REAL8Sequence *freqs = XLALCreateREAL8Sequence(2);
+  freqs->data[0] = f_min;
+  freqs->data[1] = f_max;
+
+  int retcode = PhenomPCore(hptilde, hctilde,
+      chi1_l, chi2_l, chip, eta, thetaJ, Mtot_SI, distance, alpha0, phic, f_ref, freqs, deltaF, IMRPhenomP_version);
+  XLALDestroyREAL8Sequence(freqs);
+  return (retcode);
+}
+
+int XLALSimIMRPhenomPFrequencySequence(
+  COMPLEX16FrequencySeries **hptilde,   /**< Output: Frequency-domain waveform h+ */
+  COMPLEX16FrequencySeries **hctilde,   /**< Output: Frequency-domain waveform hx */
+  const REAL8Sequence *freqs,           /**< Frequency points at which to evaluate the waveform (Hz) */
+  const REAL8 chi1_l,                   /**< Dimensionless aligned spin on companion 1 */
+  const REAL8 chi2_l,                   /**< Dimensionless aligned spin on companion 2 */
+  const REAL8 chip,                     /**< Effective spin in the orbital plane */
+  const REAL8 eta,                      /**< Symmetric mass-ratio */
+  const REAL8 thetaJ,                   /**< Angle between J0 and line of sight (z-direction) */
+  const REAL8 Mtot_SI,                  /**< Total mass of binary (kg) */
+  const REAL8 distance,                 /**< Distance of source (m) */
+  const REAL8 alpha0,                   /**< Initial value of alpha angle (azimuthal precession angle) */
+  const REAL8 phic,                     /**< Orbital phase at the peak of the underlying non precessing model (rad) */
+  const REAL8 f_ref,                    /**< Reference frequency */
+  const UINT4 IMRPhenomP_version)       /**< Version number: 1 uses IMRPhenomC, 2 uses IMRPhenomD */
+{
+  // See Fig. 1. in arxiv:1408.1810 for diagram of the angles.
+  // Note that the angles phiJ which is calculated internally in XLALSimIMRPhenomPCalculateModelParameters
+  // and alpha0 are degenerate. Therefore phiJ is not passed to this function.
+
+  // Call the internal core function with deltaF = 0 to indicate that freqs is non-uniformly
+  // spaced and we want the strain only at these frequencies
+  int retcode = PhenomPCore(hptilde, hctilde,
+      chi1_l, chi2_l, chip, eta, thetaJ, Mtot_SI, distance, alpha0, phic, f_ref, freqs, 0, IMRPhenomP_version);
+
+  return(retcode);
+}
+
+/** @} */
+/** @} */
+
+/* Internal core function to calculate PhenomP polarizations for a sequence of frequences. */
+static int PhenomPCore(
+  COMPLEX16FrequencySeries **hptilde,   /**< Output: Frequency-domain waveform h+ */
+  COMPLEX16FrequencySeries **hctilde,   /**< Output: Frequency-domain waveform hx */
+  const REAL8 chi1_l,                   /**< Dimensionless aligned spin on companion 1 */
+  const REAL8 chi2_l,                   /**< Dimensionless aligned spin on companion 2 */
+  const REAL8 chip,                     /**< Effective spin in the orbital plane */
+  const REAL8 eta,                      /**< Symmetric mass-ratio */
+  const REAL8 thetaJ,                   /**< Angle between J0 and line of sight (z-direction) */
+  const REAL8 Mtot_SI,                  /**< Total mass of binary (kg) */
+  const REAL8 distance,                 /**< Distance of source (m) */
+  const REAL8 alpha0,                   /**< Initial value of alpha angle (azimuthal precession angle) */
+  const REAL8 phic,                     /**< Orbital phase at the peak of the underlying non precessing model (rad) */
+  const REAL8 f_ref,                    /**< Reference frequency */
+  const REAL8Sequence *freqs_in,        /**< Frequency points at which to evaluate the waveform (Hz) */
+  double deltaF,
+  /* If deltaF > 0, the frequency points given in freqs are uniformly spaced with
+   * spacing deltaF. Otherwise, the frequency points are spaced non-uniformly.
+   * Then we will use deltaF = 0 to create the frequency series we return. */
+  const UINT4 IMRPhenomP_version       /**< Version number: 1 uses IMRPhenomC, 2 uses IMRPhenomD */
+  )
+{
+  // See Fig. 1. in arxiv:1408.1810 for diagram of the angles.
+  // Note that the angles phiJ which is calculated internally in XLALSimIMRPhenomPCalculateModelParameters
+  // and alpha0 are degenerate. Therefore phiJ is not passed to this function.
+
+  XLAL_PRINT_INFO("*** PhenomPCore() ***");
+
+  /* Find frequency bounds */
+  if (!freqs_in) XLAL_ERROR(XLAL_EFAULT);
+  double f_min = freqs_in->data[0];
+  double f_max = freqs_in->data[freqs_in->length - 1];
 
   const REAL8 M = Mtot_SI / LAL_MSUN_SI;  /* External units: SI; internal units: solar masses */
   const REAL8 m_sec = M * LAL_MTSUN_SI;   /* Total mass in seconds */
@@ -269,41 +397,50 @@ int XLALSimIMRPhenomP(
   const REAL8 piM = LAL_PI * m_sec;
   const REAL8 v0 = cbrt(piM * f_ref);
 
-  static LIGOTimeGPS ligotimegps_zero = {0, 0};
+  LIGOTimeGPS ligotimegps_zero = LIGOTIMEGPSZERO; // = {0, 0}
 
   /* Check inputs for sanity */
   if (*hptilde)       XLAL_ERROR(XLAL_EFAULT);
   if (*hctilde)       XLAL_ERROR(XLAL_EFAULT);
-  if (deltaF <= 0)    XLAL_ERROR(XLAL_EDOM);
+  if (deltaF < 0)    XLAL_ERROR(XLAL_EDOM);
   if (M <= 0)         XLAL_ERROR(XLAL_EDOM);
   if (f_min <= 0)     XLAL_ERROR(XLAL_EDOM);
   if (f_max < 0)      XLAL_ERROR(XLAL_EDOM);
   if (distance <= 0)  XLAL_ERROR(XLAL_EDOM);
 
-  if (f_ref <= 0) {
-      XLALPrintError("Reference frequency must be positive.\n");
-      XLAL_ERROR(XLAL_EDOM);
-  }
+  if (f_ref <= 0)
+      XLAL_ERROR(XLAL_EDOM, "Reference frequency must be positive.\n");
 
-  if (eta < 0.0453515){ /* q = 20 */
-      XLALPrintError("Mass ratio is way outside the calibration range. m1/m2 should be <= 20.\n");
-      XLAL_ERROR(XLAL_EDOM);
-  }
-  else if (eta < 0.16) { /* q = 4 */
-      XLALPrintWarning("Warning: The model is only calibrated for m1/m2 <= 4.\n");
-  }
-
-  if (fabs(chi_eff) > 1) XLAL_ERROR(XLAL_EDOM);
-  if (fabs(chip) > 1) XLAL_ERROR(XLAL_EDOM);
-
-  /* If spins are above 0.9 or below -0.9, throw an error. */
-  /* The rationale behind this is given at this page: https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/WaveformsReview/IMRPhenomCdevel-SanityCheck01 */
-  if (chi_eff > 0.9 || chi_eff < -0.9){
-      XLALPrintError("Spins outside the range [-0.9,0.9] are not supported\n");
-      XLAL_ERROR(XLAL_EDOM);
-  }
-
+  // Note:
+  // * IMRPhenomP uses chi_eff both in the aligned part and the twisting
+  // * IMRPhenomPv2 uses chi1_l, chi2_l in the aligned part and chi_eff in the twisting
+  const REAL8 chi_eff = (m1*chi1_l + m2*chi2_l) / M; /* Effective aligned spin */
   const REAL8 chil = (1.0+q)/q * chi_eff; /* dimensionless aligned spin of the largest BH */
+
+  switch (IMRPhenomP_version) {
+    case 1:
+      if (eta < 0.0453515) /* q = 20 */
+          XLAL_ERROR(XLAL_EDOM, "Mass ratio is way outside the calibration range. m1/m2 should be <= 20.\n");
+      else if (eta < 0.16)  /* q = 4 */
+          XLAL_PRINT_WARNING("Warning: The model is only calibrated for m1/m2 <= 4.\n");
+      /* If spins are above 0.9 or below -0.9, throw an error. */
+      /* The rationale behind this is given at this page: https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/WaveformsReview/IMRPhenomCdevel-SanityCheck01 */
+      if (chi_eff > 0.9 || chi_eff < -0.9)
+          XLAL_ERROR(XLAL_EDOM, "Effective spin chi_eff = %g outside the range [-0.9,0.9] is not supported!\n", chi_eff);
+      break;
+    case 2:
+      if (q > 18.0)
+        XLAL_PRINT_WARNING("Warning: The model is calibrated up to m1/m2 <= 18.\n");
+      break;
+    default:
+      XLALPrintError( "XLAL Error - %s: Unknown IMRPhenomP version!\nAt present only v1 and v2 are available.\n", __func__);
+      XLAL_ERROR( XLAL_EINVAL );
+      break;
+    }
+
+  if (fabs(chip) > 1)
+    XLAL_ERROR(XLAL_EDOM, "In-plane spin chip =%g is super extremal!\n", chip);
+
   NNLOanglecoeffs angcoeffs;
   ComputeNNLOanglecoeffs(&angcoeffs,q,chil,chip);
 
@@ -324,7 +461,7 @@ int XLALSimIMRPhenomP(
                                 + angcoeffs.epsiloncoeff4*logomega_ref
                                 + angcoeffs.epsiloncoeff5*omega_ref_cbrt);
 
-  /* Compute Ylm's only once and pass them to PhenomPCore() below. */
+  /* Compute Ylm's only once and pass them to PhenomPCoreOneFrequency() below. */
   SpinWeightedSphericalHarmonic_l2 Y2m;
   const REAL8 ytheta  = thetaJ;
   const REAL8 yphi    = 0;
@@ -336,33 +473,101 @@ int XLALSimIMRPhenomP(
 
 
   /* Phenomenological parameters */
-  BBHPhenomCParams *PCparams;
-  //PCparams = ComputeIMRPhenomCParams(m1, m2, chi_eff); /* original PhenomC */
-  PCparams = ComputeIMRPhenomCParamsRDmod(m1, m2, chi_eff, chip); /* PhenomC with ringdown using Barausse 2009 formula for final spin */
-  if (!PCparams) XLAL_ERROR(XLAL_EFUNC);
-  if (PCparams->fCut <= f_min) {
-      XLALPrintError("(fCut = 0.15M) <= f_min\n");
-      XLAL_ERROR(XLAL_EDOM);
+  IMRPhenomDAmplitudeCoefficients *pAmp = NULL;
+  IMRPhenomDPhaseCoefficients *pPhi = NULL;
+  BBHPhenomCParams *PCparams = NULL;
+
+  REAL8 fCut = 0.0;
+  REAL8 finspin = 0.0;
+  REAL8 f_final = 0.0;
+
+  switch (IMRPhenomP_version) {
+    case 1:
+      XLAL_PRINT_INFO("*** IMRPhenomP version 1: based on IMRPhenomC ***");
+      // PhenomC with ringdown using Barausse 2009 formula for final spin
+      PCparams = ComputeIMRPhenomCParamsRDmod(m1, m2, chi_eff, chip);
+      if (!PCparams) XLAL_ERROR(XLAL_EFUNC);
+      fCut = PCparams->fCut;
+      f_final = PCparams->fRingDown;
+      break;
+    case 2:
+      XLAL_PRINT_INFO("*** IMRPhenomP version 2: based on IMRPhenomD ***");
+      // PhenomD uses FinalSpin0714() to calculate the final spin if the spins are aligned.
+      // We use the more general Barausse & Rezzolla, Astrophys.J.Lett.704:L40-L44, 2009 here.
+      finspin = FinalSpinBarausse2009_all_spin_on_larger_BH(eta, chi_eff, chip);
+      pAmp = ComputeIMRPhenomDAmplitudeCoefficients(eta, chi1_l, chi2_l, finspin);
+      pPhi = ComputeIMRPhenomDPhaseCoefficients(eta, chi1_l, chi2_l, finspin);
+      if (!pAmp || !pPhi) XLAL_ERROR(XLAL_EFUNC);
+      ComputeIMRPhenDPhaseConnectionCoefficients(pPhi);
+      fCut = 0.3 / m_sec;
+      f_final = pAmp->fRD / m_sec;
+      break;
+    default:
+      XLALPrintError( "XLAL Error - %s: Unknown IMRPhenomP version!\nAt present only v1 and v2 are available.\n", __func__);
+      XLAL_ERROR( XLAL_EINVAL );
+      break;
   }
+  if (fCut <= f_min)
+    XLAL_ERROR(XLAL_EDOM, "fCut <= f_min\n");
 
   /* Default f_max to params->fCut */
-  REAL8 f_max_prime = f_max ? f_max : PCparams->fCut;
-  f_max_prime = (f_max_prime > PCparams->fCut) ? PCparams->fCut : f_max_prime;
-  if (f_max_prime <= f_min) {
-      XLALPrintError("f_max <= f_min\n");
-      XLAL_ERROR(XLAL_EDOM);
-  }
-  XLALPrintInfo("f_max_prime = %g\tfcut = %g\tv = %g\n", f_max_prime, PCparams->fCut, cbrt(piM * f_max_prime));
+  REAL8 f_max_prime = f_max ? f_max : fCut;
+  f_max_prime = (f_max_prime > fCut) ? fCut : f_max_prime;
+  if (f_max_prime <= f_min)
+      XLAL_ERROR(XLAL_EDOM, "f_max <= f_min\n");
+  XLAL_PRINT_INFO("f_max_prime = %g\tfcut = %g\tv = %g\n", f_max_prime, fCut, cbrt(piM * f_max_prime));
 
 
   /* Allocate hp, hc */
-  XLALPrintInfo("f_max / deltaF = %g\n", f_max_prime / deltaF);
-  size_t n = NextPow2(f_max_prime / deltaF) + 1; /* Note: Should explain why the length is one plus a power of 2. */
-  if (f_max_prime < f_max)                       /* Resize waveform if user wants f_max larger than cutoff frequency */
-    n = NextPow2(f_max / deltaF) + 1;
-  XLALPrintInfo("n = %d\n", (int)(n));
-  *hptilde = XLALCreateCOMPLEX16FrequencySeries("hptilde: FD waveform", &ligotimegps_zero, 0.0, deltaF, &lalStrainUnit, n);
-  *hctilde = XLALCreateCOMPLEX16FrequencySeries("hctilde: FD waveform", &ligotimegps_zero, 0.0, deltaF, &lalStrainUnit, n);
+  XLAL_PRINT_INFO("f_max / deltaF = %g\n", f_max_prime / deltaF);
+
+  UINT4 L_fCut = 0; // number of frequency points before we hit fCut
+  size_t n = 0;
+  UINT4 offset = 0; // Index shift between freqs and the frequency series
+  REAL8Sequence *freqs = NULL;
+  if (deltaF > 0)  { // freqs contains uniform frequency grid with spacing deltaF; we start at frequency 0
+    /* Set up output array with size closest power of 2 */
+    n = NextPow2(f_max_prime / deltaF) + 1;
+    if (f_max_prime < f_max)                       /* Resize waveform if user wants f_max larger than cutoff frequency */
+      n = NextPow2(f_max / deltaF) + 1;
+
+    /* coalesce at t=0 */
+    XLALGPSAdd(&ligotimegps_zero, -1. / deltaF); // shift by overall length in time
+
+    *hptilde = XLALCreateCOMPLEX16FrequencySeries("hptilde: FD waveform", &ligotimegps_zero, 0.0, deltaF, &lalStrainUnit, n);
+    *hctilde = XLALCreateCOMPLEX16FrequencySeries("hctilde: FD waveform", &ligotimegps_zero, 0.0, deltaF, &lalStrainUnit, n);
+
+    // Recreate freqs using only the lower and upper bounds
+    size_t i_min = (size_t) (f_min / deltaF);
+    size_t i_max = (size_t) (f_max_prime / deltaF);
+    freqs = XLALCreateREAL8Sequence(i_max - i_min);
+    for (UINT4 i=i_min; i<i_max; i++, L_fCut++)
+      freqs->data[i-i_min] = i*deltaF;
+
+    offset = i_min;
+  } else { // freqs contains frequencies with non-uniform spacing; we start at lowest given frequency
+    n = freqs_in->length;
+
+    *hptilde = XLALCreateCOMPLEX16FrequencySeries("hptilde: FD waveform", &ligotimegps_zero, f_min, 0, &lalStrainUnit, n);
+    *hctilde = XLALCreateCOMPLEX16FrequencySeries("hctilde: FD waveform", &ligotimegps_zero, f_min, 0, &lalStrainUnit, n);
+    offset = 0;
+
+    // Enforce that FS is strictly increasing
+    // (This is needed for phase correction towards the end of this function.)
+    for (UINT4 i=1; i<n; i++)
+      if (!(freqs_in->data[i] > freqs_in->data[i-1]))
+        XLAL_ERROR(XLAL_EDOM, "Frequency sequence must be strictly increasing!\n");
+
+    freqs = XLALCreateREAL8Sequence(n);
+    // Restrict sequence to frequencies <= fCut
+    for (UINT4 i=0; i<n; i++)
+      if (freqs_in->data[i] <= fCut) {
+        freqs->data[i] = freqs_in->data[i];
+        L_fCut++;
+      }
+  }
+
+
   memset((*hptilde)->data->data, 0, n * sizeof(COMPLEX16));
   memset((*hctilde)->data->data, 0, n * sizeof(COMPLEX16));
   XLALUnitMultiply(&((*hptilde)->sampleUnits), &((*hptilde)->sampleUnits), &lalSecondUnit);
@@ -371,28 +576,32 @@ int XLALSimIMRPhenomP(
     XLAL_ERROR(XLAL_EFUNC);
 
   /* Test output */
-  XLALPrintInfo("eta: %g\n", eta);
-  XLALPrintInfo("m1: %g\n", m1);
-  XLALPrintInfo("m2: %g\n", m2);
-  XLALPrintInfo("chi: %g\n", chi_eff);
-  XLALPrintInfo("chip: %g\n", chip);
-  XLALPrintInfo("thetaJ: %g\n", thetaJ);
-  XLALPrintInfo("ind_mix = (int)(f_mix / deltaF) = %d\n", (int)(f_min / deltaF));
-  XLALPrintInfo("ind_max = (int)(f_max / deltaF) = %d\n", (int)(f_max_prime / deltaF));
+  XLAL_PRINT_INFO("eta: %g", eta);
+  XLAL_PRINT_INFO("m1: %g", m1);
+  XLAL_PRINT_INFO("m2: %g", m2);
+  XLAL_PRINT_INFO("chi: %g", chi_eff);
+  XLAL_PRINT_INFO("chip: %g", chip);
+  XLAL_PRINT_INFO("thetaJ: %g", thetaJ);
+  XLAL_PRINT_INFO("ind_mix = (int)(f_mix / deltaF) = %d", (int)(f_min / deltaF));
+  XLAL_PRINT_INFO("ind_max = (int)(f_max / deltaF) = %d", (int)(f_max_prime / deltaF));
 
-  /* Note: there will usually be zero data at the beginning and end of the frequency series  */
-  size_t i_min = (size_t) (f_min / deltaF);
-  size_t i_max = (size_t) (f_max_prime / deltaF);
   int errcode = XLAL_SUCCESS;
+
+  REAL8 *phis = XLALMalloc(L_fCut*sizeof(REAL8)); // array for waveform phase
+  REAL8 phasing = 0;
+
   /*
     We can't call XLAL_ERROR() directly with OpenMP on.
     Keep track of return codes for each thread and in addition use flush to get out of
     the parallel for loop as soon as possible if something went wrong in any thread.
   */
   #pragma omp parallel for
-  for (size_t i = i_min; i < i_max; i++) {
-    COMPLEX16 hp_val, hc_val;
-    REAL8 f = i * deltaF;
+  for (UINT4 i=0; i<L_fCut; i++) { // loop over frequency points in sequence
+    COMPLEX16 hp_val = 0.0;
+    COMPLEX16 hc_val = 0.0;
+    double f = freqs->data[i];
+    int j = i + offset; // shift index for frequency series if needed
+
     int per_thread_errcode;
 
     #pragma omp flush(errcode)
@@ -400,22 +609,79 @@ int XLALSimIMRPhenomP(
       goto skip;
 
     /* Generate the waveform */
-    per_thread_errcode = PhenomPCore(f, eta, chi_eff, chip, distance, M, phic,
-                              PCparams, &angcoeffs, &Y2m,
+    per_thread_errcode = PhenomPCoreOneFrequency(f, eta, chi_eff, chip, distance, M, phic,
+                              pAmp, pPhi, PCparams, &angcoeffs, &Y2m,
                               alphaNNLOoffset - alpha0, epsilonNNLOoffset,
-                              &hp_val, &hc_val);
+                              &hp_val, &hc_val, &phasing, IMRPhenomP_version);
 
     if (per_thread_errcode != XLAL_SUCCESS) {
       errcode = per_thread_errcode;
       #pragma omp flush(errcode)
     }
 
+    ((*hptilde)->data->data)[j] = hp_val;
+    ((*hctilde)->data->data)[j] = hc_val;
 
-    ((*hptilde)->data->data)[i] = hp_val;
-    ((*hctilde)->data->data)[i] = hc_val;
+    phis[i] = phasing;
 
     skip: /* this statement intentionally left blank */;
   }
+
+  /* Correct phasing so we coalesce at t=0 (with the definition of the epoch=-1/deltaF above) */
+  /* We apply the same time shift to hptilde and hctilde based on the overall phasing returned by PhenomPCoreOneFrequency */
+  if (deltaF>0) {
+    /* Set up spline for phase */
+    gsl_interp_accel *acc = gsl_interp_accel_alloc();
+    gsl_spline *phiI = gsl_spline_alloc(gsl_interp_cspline, L_fCut);
+
+    gsl_spline_init(phiI, freqs->data, phis, L_fCut);
+
+    XLAL_PRINT_INFO("f_ringdown = %g\n", f_final);
+
+    // Prevent gsl interpolation errors
+    if (f_final > freqs->data[L_fCut-1])
+      f_final = freqs->data[L_fCut-1];
+    if (f_final < freqs->data[0])
+    {
+      gsl_spline_free(phiI);
+      gsl_interp_accel_free(acc);
+      XLALFree(phis);
+      XLALFree(PCparams);
+      XLALDestroyREAL8Sequence(freqs);
+      XLAL_ERROR(XLAL_EDOM, "f_ringdown < f_min\n");
+    }
+
+    /* Time correction is t(f_final) = 1/(2pi) dphi/df (f_final) */
+    REAL8 t_corr = gsl_spline_eval_deriv(phiI, f_final, acc) / (2*LAL_PI);
+    XLAL_PRINT_INFO("Time correction: t_corr = %g", t_corr);
+
+    /* Now correct phase */
+    for (UINT4 i=0; i<L_fCut; i++) { // loop over frequency points in sequence
+      double f = freqs->data[i];
+      int j = i + offset; // shift index for frequency series if needed
+      ((*hptilde)->data->data)[j] *= cexp(-2*LAL_PI * I * f * t_corr);
+      ((*hctilde)->data->data)[j] *= cexp(-2*LAL_PI * I * f * t_corr);
+    }
+
+    gsl_spline_free(phiI);
+    gsl_interp_accel_free(acc);
+    XLALFree(phis);
+  }
+
+  switch (IMRPhenomP_version) {
+    case 1:
+      XLALFree(PCparams);
+      break;
+    case 2:
+      XLALFree(pAmp);
+      XLALFree(pPhi);
+      break;
+    default:
+      XLALPrintError( "XLAL Error - %s: Unknown IMRPhenomP version!\nAt present only v1 and v2 are available.\n", __func__);
+      XLAL_ERROR( XLAL_EINVAL );
+      break;
+  }
+  XLALDestroyREAL8Sequence(freqs);
 
   if( errcode != XLAL_SUCCESS )
     XLAL_ERROR(errcode);
@@ -423,10 +689,10 @@ int XLALSimIMRPhenomP(
     return XLAL_SUCCESS;
 }
 
-/******************************* PhenomP internal functions *********************************/
+/* ***************************** PhenomP internal functions *********************************/
 
 /* Internal core function to calculate PhenomP polarizations for a single frequency. */
-int PhenomPCore(
+static int PhenomPCoreOneFrequency(
   const REAL8 fHz,                        /**< Frequency (Hz) */
   const REAL8 eta,                        /**< Symmetric mass ratio */
   const REAL8 chi_eff,                    /**< Dimensionless effective total aligned spin */
@@ -434,26 +700,42 @@ int PhenomPCore(
   const REAL8 distance,                   /**< Distance of source (m) */
   const REAL8 M,                          /**< Total mass (Solar masses) */
   const REAL8 phic,                       /**< Orbital phase at the peak of the underlying non precessing model (rad) */
+  IMRPhenomDAmplitudeCoefficients *pAmp,  /**< Internal IMRPhenomD amplitude coefficients */
+  IMRPhenomDPhaseCoefficients *pPhi,      /**< Internal IMRPhenomD phase coefficients */
   BBHPhenomCParams *PCparams,             /**< Internal PhenomC parameters */
-  NNLOanglecoeffs *angcoeffs,  		  /**< Struct with PN coeffs for the NNLO angles */
+  NNLOanglecoeffs *angcoeffs,  		        /**< Struct with PN coeffs for the NNLO angles */
   SpinWeightedSphericalHarmonic_l2 *Y2m,  /**< Struct of l=2 spherical harmonics of spin weight -2 */
   const REAL8 alphaoffset,                /**< f_ref dependent offset for alpha angle (azimuthal precession angle) */
   const REAL8 epsilonoffset,              /**< f_ref dependent offset for epsilon angle */
   COMPLEX16 *hp,                          /**< Output: \tilde h_+ */
-  COMPLEX16 *hc)                          /**< Output: \tilde h_+ */
+  COMPLEX16 *hc,                          /**< Output: \tilde h_+ */
+  REAL8 *phasing,                         /**< Output: overall phasing */
+  const UINT4 IMRPhenomP_version)         /**< Version number: 1 uses IMRPhenomC, 2 uses IMRPhenomD */
 {
-
-  /* Calculate PhenomC amplitude and phase for a given frequency. */
-  REAL8 phPhenomC = 0.0;
-  REAL8 aPhenomC  = 0.0;
-  int errcode = IMRPhenomCGenerateAmpPhase( &aPhenomC, &phPhenomC, fHz, eta, PCparams );
-  if( errcode != XLAL_SUCCESS )
-    XLAL_ERROR(XLAL_EFUNC);
-  phPhenomC -= 2.*phic; /* Note: phic is orbital phase */
-  REAL8 amp0 = M * LAL_MRSUN_SI * M * LAL_MTSUN_SI / distance;
-  COMPLEX16 hPC = amp0 * aPhenomC * cexp(-I*phPhenomC); /* Assemble PhenomC waveform. */
-
   REAL8 f = fHz*LAL_MTSUN_SI*M; /* Frequency in geometric units */
+
+  REAL8 aPhenom = 0.0;
+  REAL8 phPhenom = 0.0;
+  int errcode = XLAL_SUCCESS;
+  /* Calculate Phenom amplitude and phase for a given frequency. */
+  switch (IMRPhenomP_version) {
+    case 1:
+      errcode = IMRPhenomCGenerateAmpPhase( &aPhenom, &phPhenom, fHz, eta, PCparams );
+      if( errcode != XLAL_SUCCESS ) XLAL_ERROR(XLAL_EFUNC);
+      break;
+    case 2:
+      aPhenom = IMRPhenDAmplitude(f, pAmp);
+      phPhenom = IMRPhenDPhase(f, pPhi);
+      break;
+    default:
+      XLALPrintError( "XLAL Error - %s: Unknown IMRPhenomP version!\nAt present only v1 and v2 are available.\n", __func__);
+      XLAL_ERROR( XLAL_EINVAL );
+      break;
+  }
+
+  phPhenom -= 2.*phic; /* Note: phic is orbital phase */
+  REAL8 amp0 = M * LAL_MRSUN_SI * M * LAL_MTSUN_SI / distance;
+  COMPLEX16 hP = amp0 * aPhenom * cexp(-I*phPhenom); /* Assemble IMRPhenom waveform. */
 
   /*
    * We put all spin on the larger BH. Here m2 >= m1.
@@ -474,9 +756,9 @@ int PhenomPCore(
    * The general expression for the modes h^P_{2m}(t) is given by Eq. 1 of arXiv:1308.3271.
    * We calculate the frequency domain l=2 plus and cross polarizations separately for each m = -2, ... , 2.
    * The expression of the polarizations times the Ylm's in code notation are:
-   *    \tilde (h_2m)_+ = e^{-2i epsilon} (e^{-i m alpha} d^2_{-2,m} (-2Y_2m) + e^{+i m alpha} d^2_{2,m} (-2Y_2m)^*) * hPC / 2
-   *    \tilde (h_2m)_x = e^{-2i epsilon} (e^{-i m alpha} d^2_{-2,m} (-2Y_2m) - e^{+i m alpha} d^2_{2,m} (-2Y_2m)^*) * hPC / 2
-   * where the d^l_{m',m} are Wigner d-matrices evaluated at - beta, and hPC is the PhenomC frequency domain model hPC(f) = PCAmp(f) e^{-i PCPhase(f)}.
+   *    \tilde (h_2m)_+ = e^{-2i epsilon} (e^{-i m alpha} d^2_{-2,m} (-2Y_2m) + e^{+i m alpha} d^2_{2,m} (-2Y_2m)^*) * hP / 2
+   *    \tilde (h_2m)_x = e^{-2i epsilon} (e^{-i m alpha} d^2_{-2,m} (-2Y_2m) - e^{+i m alpha} d^2_{2,m} (-2Y_2m)^*) * hP / 2
+   * where the d^l_{m',m} are Wigner d-matrices evaluated at - beta, and hP is the Phenom[C,D] frequency domain model hP(f) = PAmp(f) e^{-i PPhase(f)}.
    *
    */
 
@@ -534,15 +816,18 @@ int PhenomPCore(
     hc_sum += +I*(T2m - Tm2m);
   }
 
-  COMPLEX16 eps_phase_hPC = cexp(-2*I*epsilon) * hPC / 2.0;
-  *hp = eps_phase_hPC * hp_sum;
-  *hc = eps_phase_hPC * hc_sum;
+  COMPLEX16 eps_phase_hP = cexp(-2*I*epsilon) * hP / 2.0;
+  *hp = eps_phase_hP * hp_sum;
+  *hc = eps_phase_hP * hc_sum;
+
+  // Return phasing for time-shift correction
+  *phasing = -phPhenom; // ignore alpha and epsilon contributions
 
   return XLAL_SUCCESS;
 }
 
 
-void ComputeNNLOanglecoeffs(
+static void ComputeNNLOanglecoeffs(
   NNLOanglecoeffs *angcoeffs, /**< Output: Structure to store results */
   const REAL8 q,              /**< Mass-ratio (convention q>1) */
   const REAL8 chil,           /**< Dimensionless aligned spin of the largest BH */
@@ -625,7 +910,7 @@ void ComputeNNLOanglecoeffs(
 }
 
 
-REAL8 L2PNR(
+static REAL8 L2PNR(
   const REAL8 v,   /**< Cubic root of (Pi * Frequency (geometric)) */
   const REAL8 eta) /**< Symmetric mass-ratio */
 {
@@ -645,7 +930,7 @@ REAL8 L2PNR(
       ((7 - 10*eta - 9*eta2)*v4)/(2.*(1 - ((3 - eta)*v2)/3. + (4.75 + eta/9.)*eta*v4)));
 }
 
-void WignerdCoefficients(
+static void WignerdCoefficients(
   const REAL8 v,        /**< Cubic root of (Pi * Frequency (geometric)) */
   const REAL8 SL,       /**< Dimensionfull aligned spin */
   const REAL8 eta,      /**< Symmetric mass-ratio */
@@ -661,7 +946,7 @@ void WignerdCoefficients(
   *sin_beta_half = sqrt(1.0 - 1.0/(1.0 + s2/4.0));   /* sin(beta/2) */
 }
 
-REAL8 FinalSpinBarausse2009_all_spin_on_larger_BH(
+static REAL8 FinalSpinBarausse2009_all_spin_on_larger_BH(
   const REAL8 nu,     /**< Symmetric mass-ratio */
   const REAL8 chi,    /**< Reduced aligned spin of the binary chi = (m1*chi1 + m2*chi2)/M */
   const REAL8 chip)   /**< Dimensionless spin in the orbital plane */
@@ -685,7 +970,8 @@ REAL8 FinalSpinBarausse2009_all_spin_on_larger_BH(
   return FinalSpinBarausse2009(nu, a1, a2, cos_alpha, cos_beta_tilde, cos_gamma_tilde);
 }
 
-REAL8 FinalSpinBarausse2009_aligned_spin_equally_distributed(
+#if 0
+static REAL8 FinalSpinBarausse2009_aligned_spin_equally_distributed(
   const REAL8 nu,     /**< Symmetric mass-ratio */
   const REAL8 chi,    /**< Reduced aligned spin of the binary chi = (m1*chi1 + m2*chi2)/M */
   const REAL8 chip)   /**< Dimensionless spin in the orbital plane */
@@ -708,9 +994,9 @@ REAL8 FinalSpinBarausse2009_aligned_spin_equally_distributed(
 
   return FinalSpinBarausse2009(nu, a1, a2, cos_alpha, cos_beta_tilde, cos_gamma_tilde);
 }
+#endif
 
-
-REAL8 FinalSpinBarausse2009(  /* Barausse & Rezzolla, Astrophys.J.Lett.704:L40-L44, 2009, arXiv:0904.2577 */
+static REAL8 FinalSpinBarausse2009(  /* Barausse & Rezzolla, Astrophys.J.Lett.704:L40-L44, 2009, arXiv:0904.2577 */
   const REAL8 nu,               /**< Symmetric mass-ratio */
   const REAL8 a1,               /**< |a_1| norm of dimensionless spin vector for BH 1 */
   const REAL8 a2,               /**< |a_2| norm of dimensionless spin vector for BH 2 */
@@ -751,7 +1037,7 @@ REAL8 FinalSpinBarausse2009(  /* Barausse & Rezzolla, Astrophys.J.Lett.704:L40-L
 
 
 /* PhenomC parameters for modified ringdown: Uses final spin formula of Barausse & Rezzolla, Astrophys.J.Lett.704:L40-L44, 2009 */
-BBHPhenomCParams *ComputeIMRPhenomCParamsRDmod(
+UNUSED static BBHPhenomCParams *ComputeIMRPhenomCParamsRDmod(
   const REAL8 m1,   /**< Mass of companion 1 (solar masses) */
   const REAL8 m2,   /**< Mass of companion 2 (solar masses) */
   const REAL8 chi,  /**< Reduced aligned spin of the binary chi = (m1*chi1 + m2*chi2)/M */
@@ -767,8 +1053,10 @@ BBHPhenomCParams *ComputeIMRPhenomCParamsRDmod(
   const REAL8 eta = m1 * m2 / (M * M);
 
   REAL8 finspin = FinalSpinBarausse2009_all_spin_on_larger_BH(eta, chi, chip);
-  if( fabs(finspin) > 1.0 )
+  if( fabs(finspin) > 1.0 ) {
+    XLAL_PRINT_ERROR("Error: magnitude of final spin > 1!");
     XLAL_ERROR_NULL( XLAL_EDOM );
+  }
 
   p->afin = finspin;
 

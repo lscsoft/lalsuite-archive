@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([LALSimulation],[1.2.4.1],[lal-discuss@ligo.org])
+AC_INIT([LALSimulation],[1.4.1.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([src/config.h src/LALSimulationConfig.h])
 AC_CONFIG_SRCDIR([src/LALSimulation.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -45,8 +45,8 @@ LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 #    then increment age.
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
-AC_SUBST([LIBCURRENT],[10])
-AC_SUBST([LIBREVISION],[0])
+AC_SUBST([LIBCURRENT],[12])
+AC_SUBST([LIBREVISION],[1])
 AC_SUBST([LIBAGE],[0])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
 
@@ -89,6 +89,7 @@ LALSUITE_USE_LIBTOOL
 
 # check for header files
 AC_HEADER_STDC
+AC_CHECK_HEADERS([unistd.h])
 
 # check for gethostname in unistd.h
 AC_MSG_CHECKING([for gethostname prototype in unistd.h])
@@ -115,8 +116,8 @@ LALSUITE_ENABLE_FAST_GSL
 AC_CHECK_HEADERS([gsl/gsl_errno.h],,[AC_MSG_ERROR([could not find the gsl/gsl_errno.h header])])
 
 # check for lal libraries and headers
-LALSUITE_CHECK_LIB([LAL],[6.13.0],[LALVersion],[lal/LALStdio.h])
-LALSUITE_CHECK_LIB([LALSupport],[6.13.0],[XLALCacheImport],[lal/LALCache.h])
+LALSUITE_CHECK_LIB([LAL],[6.15.0],[LALVersion],[lal/LALStdio.h])
+LALSUITE_CHECK_LIB([LALSupport],[6.15.0],[XLALCacheImport],[lal/LALCache.h])
 
 # configure SWIG wrapping modules
 LALSUITE_USE_SWIG
@@ -172,7 +173,6 @@ AC_MSG_NOTICE([
 LALSimulation has now been successfully configured:
 
 * Python support is $PYTHON_ENABLE_VAL
-* SWIG binding generation is $SWIG_GENERATE_ENABLE_VAL
 * SWIG bindings for Octave are $SWIG_BUILD_OCTAVE_ENABLE_VAL
 * SWIG bindings for Python are $SWIG_BUILD_PYTHON_ENABLE_VAL
 * OpenMP acceleration is $OPENMP_ENABLE_VAL

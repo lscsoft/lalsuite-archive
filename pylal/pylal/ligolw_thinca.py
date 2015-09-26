@@ -1,4 +1,4 @@
-# Copyright (C) 2008--2013  Kipp Cannon, Drew G. Keppel
+# Copyright (C) 2008--2015  Kipp Cannon, Drew G. Keppel
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -74,20 +74,10 @@ lsctables.CoincMapTable.RowType = lsctables.CoincMap = xlaltools.CoincMap
 class SnglInspiral(snglinspiraltable.SnglInspiralTable):
 	__slots__ = ()
 
-	def get_end(self):
-		return LIGOTimeGPS(self.end_time, self.end_time_ns)
-
-	def set_end(self, gps):
-		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
-
-	def get_effective_snr(self, fac):
-		return self.snr/ (1 + self.snr**2/fac)**(0.25)/(self.chisq/(2*self.chisq_dof - 2) )**(0.25)
-
 	def __eq__(self, other):
 		return not (
 			cmp(self.ifo, other.ifo) or
-			cmp(self.end_time, other.end_time) or
-			cmp(self.end_time_ns, other.end_time_ns) or
+			cmp(self.end, other.end) or
 			cmp(self.mass1, other.mass1) or
 			cmp(self.mass2, other.mass2) or
 			cmp(self.search, other.search)
@@ -97,7 +87,7 @@ class SnglInspiral(snglinspiraltable.SnglInspiralTable):
 		# compare self's end time to the LIGOTimeGPS instance
 		# other.  allows bisection searches by GPS time to find
 		# ranges of triggers quickly
-		return cmp(self.end_time, other.seconds) or cmp(self.end_time_ns, other.nanoseconds)
+		return cmp(self.end, other)
 
 
 #
@@ -190,16 +180,13 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		coinc_inspiral.coinc_event_id = coinc.coinc_event_id
 		coinc_inspiral.mass = sum(event.mass1 + event.mass2 for event in events) / len(events)
 		coinc_inspiral.mchirp = sum(event.mchirp for event in events) / len(events)
-		if all(event.chisq for event in events):
-			coinc_inspiral.snr = math.sqrt(sum(event.get_effective_snr(fac = effective_snr_factor)**2 for event in events))
-		else:
-			# would get divide-by-zero without a \chi^{2} value
-			coinc_inspiral.snr = None
+		coinc_inspiral.snr = math.sqrt(sum(event.snr**2 for event in events))
 		coinc_inspiral.false_alarm_rate = None
 		coinc_inspiral.combined_far = None
 		coinc_inspiral.minimum_duration = None
-		coinc_inspiral.set_end(coinc_inspiral_end_time(events, self.time_slide_index[time_slide_id]))
-		coinc_inspiral.set_ifos(event.ifo for event in events)
+		offsetvector = self.time_slide_index[time_slide_id]
+		coinc_inspiral.end = coinc_inspiral_end_time(events, offsetvector)
+		coinc_inspiral.instruments = (event.ifo for event in events)
 		self.coinc_inspiral_table.append(coinc_inspiral)
 
 		#
@@ -208,9 +195,9 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		# unslid to compare with the instrument segment lists
 		#
 
-		tstart = coinc_inspiral.get_end()
+		tstart = coinc_inspiral.end
 		instruments = set(event.ifo for event in events)
-		instruments |= set(instrument for instrument, segs in self.seglists.items() if tstart - self.time_slide_index[time_slide_id][instrument] in segs)
+		instruments |= set(instrument for instrument, segs in self.seglists.items() if tstart - offsetvector[instrument] in segs)
 		coinc.set_instruments(instruments)
 
 		#
@@ -219,7 +206,7 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		#
 
 		if self.likelihood_func is not None:
-			coinc.likelihood = self.likelihood_func(self.likelihood_params_func(events, self.time_slide_index[time_slide_id]))
+			coinc.likelihood = self.likelihood_func(self.likelihood_params_func(events, offsetvector))
 
 		#
 		# save memory by re-using strings
@@ -246,8 +233,8 @@ def coinc_inspiral_end_time(events, offset_vector):
 	@offset_vector: a dictionary of offsets to apply to different
 	detectors keyed by detector name
 	"""
-	event = min(events, key = lambda event: event.ifo)
-	return event.get_end() + offset_vector[event.ifo]
+	event = max(events, key = lambda event: event.snr)
+	return event.end + offset_vector[event.ifo]
 
 
 #
@@ -272,7 +259,7 @@ class InspiralEventList(snglcoinc.EventList):
 		previously been set to compare the event's end time to a
 		LIGOTimeGPS.
 		"""
-		self.sort(lambda a, b: cmp(a.end_time, b.end_time) or cmp(a.end_time_ns, b.end_time_ns))
+		self.sort(key = lambda event: event.end)
 
 	def set_dt(self, dt):
 		"""
@@ -289,7 +276,7 @@ class InspiralEventList(snglcoinc.EventList):
 		# event_a's end time, with time shift applied
 		#
 
-		end = event_a.get_end() + offset_a - self.offset
+		end = event_a.end + offset_a - self.offset
 
 		#
 		# extract the subset of events from this list that pass
@@ -327,8 +314,8 @@ def inspiral_coinc_compare(a, offseta, b, offsetb, light_travel_time, e_thinca_p
 	Returns False (a & b are coincident) if they pass the ellipsoidal
 	thinca test.
 	"""
-	if offseta: a.set_end(a.get_end() + offseta)
-	if offsetb: b.set_end(b.get_end() + offsetb)
+	if offseta: a.end += offseta
+	if offsetb: b.end += offsetb
 	try:
 		# FIXME:  should it be "<" or "<="?
 		coincident = xlaltools.XLALCalculateEThincaParameter(a, b) <= e_thinca_parameter
@@ -336,8 +323,8 @@ def inspiral_coinc_compare(a, offseta, b, offsetb, light_travel_time, e_thinca_p
 		# ethinca test failed to converge == events are not
 		# coincident
 		coincident = False
-	if offseta: a.set_end(a.get_end() - offseta)
-	if offsetb: b.set_end(b.get_end() - offsetb)
+	if offseta: a.end -= offseta
+	if offsetb: b.end -= offsetb
 	return not coincident
 
 
@@ -426,7 +413,7 @@ def ligolw_thinca(
 	eventlists = snglcoinc.make_eventlists(xmldoc, InspiralEventList, lsctables.SnglInspiralTable.tableName)
 	if veto_segments is not None:
 		for eventlist in eventlists.values():
-			iterutils.inplace_filter((lambda event: event.ifo not in veto_segments or event.get_end() not in veto_segments[event.ifo]), eventlist)
+			iterutils.inplace_filter((lambda event: event.ifo not in veto_segments or event.end not in veto_segments[event.ifo]), eventlist)
 
 	#
 	# set the \Delta t parameter on all the event lists

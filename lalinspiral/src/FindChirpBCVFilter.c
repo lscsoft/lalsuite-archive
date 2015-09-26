@@ -37,7 +37,6 @@
  */
 
 #include <math.h>
-#include <lal/LALErrno.h>
 #include <lal/XLALError.h>
 #include <lal/LALStdio.h>
 #include <lal/LALStdlib.h>
@@ -303,14 +302,14 @@ LALFindChirpBCVFilterSegment (
       CHAR newinfomsg[256];
 
 #if 0
-      snprintf( newinfomsg, sizeof(newinfomsg) / sizeof(*newinfomsg),
+      snprintf( newinfomsg, XLAL_NUM_ELEM(newinfomsg),
           "m = %e eta = %e => %e seconds => %d points\n"
           "invSpecTrunc = %d => ignoreIndex = %d\n",
           m, eta, chirpTime, deltaEventIndex,
           input->segment->invSpecTrunc, ignoreIndex );
 #endif
 
-      snprintf( newinfomsg, sizeof(newinfomsg) / sizeof(*newinfomsg),
+      snprintf( newinfomsg, XLAL_NUM_ELEM(newinfomsg),
           "chirp time = %e seconds => %d points\n"
           "invSpecTrunc = %d => ignoreIndex = %d\n",
           chirpTime, deltaEventIndex,
@@ -332,7 +331,7 @@ LALFindChirpBCVFilterSegment (
   {
     CHAR newinfomsg[256];
 
-    snprintf( newinfomsg, sizeof(newinfomsg) / sizeof(*newinfomsg),
+    snprintf( newinfomsg, XLAL_NUM_ELEM(newinfomsg),
         "filtering from %d to %d\n",
         ignoreIndex, numPoints - ignoreIndex );
     LALInfo( status, newinfomsg );
@@ -359,7 +358,7 @@ LALFindChirpBCVFilterSegment (
     if ( lalDebugLevel & LALINFO )
     {
        CHAR newinfomsg[256];
-       snprintf( newinfomsg, sizeof(newinfomsg) / sizeof(*newinfomsg),
+       snprintf( newinfomsg, XLAL_NUM_ELEM(newinfomsg),
               "a1 = %e b1 = %e b2 = %e\n"
               "fFinal = %e deltaF = %e numPoints = %d => kFinal = %d\n",
                a1, b1, b2, fFinal, deltaF, numPoints, kFinal );

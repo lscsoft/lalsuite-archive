@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([LALApps],[6.15.2.1],[lal-discuss@ligo.org])
+AC_INIT([LALApps],[6.17.0.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/lalapps/lalapps.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -18,7 +18,6 @@ AC_CONFIG_FILES([\
   src/hwinjection/Makefile \
   src/inspiral/Makefile \
   src/inspiral/posterior/Makefile \
-  src/inspiral/posterior/SPINspiral/Makefile \
   src/inspiral/posterior/mpi/Makefile \
   src/lalapps/LALAppsVCSInfo.c \
   src/lalapps/LALAppsVCSInfo.h \
@@ -41,11 +40,9 @@ AC_CONFIG_FILES([\
   src/pulsar/hough/Makefile \
   src/pulsar/hough/src/Makefile \
   src/pulsar/hough/src2/Makefile \
-  src/pulsar/templateBanks/Makefile \
   src/ring/Makefile \
   src/stochastic/Makefile \
   src/string/Makefile \
-  src/tracksearch/Makefile \
 ])
 # FIXME: -Wno-unsupported is a hack which silences warnings regarding
 # subdir-objects in automake-1.14+. this will be the default, and only,
@@ -148,9 +145,10 @@ if test "x$condor" = "xtrue"; then
     AC_MSG_RESULT([yes])
     LD=/usr/bin/ld
   fi
+  CONDOR_ENABLE_VAL="ENABLED"
+else
+  CONDOR_ENABLE_VAL="DISABLED"
 fi
-CONDOR_ENABLE_VAL="`eval test x$condor = xtrue && echo "ENABLED" || echo "DISABLED"`"
-AM_CONDITIONAL([CONDOR_ENABLED],[test "$CONDOR_ENABLE_VAL" = "ENABLED"])
 
 # check for supported mac os x version
 LALSUITE_OSX_VERSION_CHECK
@@ -165,9 +163,7 @@ AC_CHECK_LIB([z],[compress],,[AC_MSG_ERROR([could not find the zlib library])])
 # check for system headers
 AC_HEADER_STDC
 AC_CHECK_HEADERS([zlib.h],,[AC_MSG_ERROR([could not find zlib.h])])
-AC_CHECK_HEADERS([glob.h])
-AC_CHECK_HEADERS([punistd.h])
-AC_CHECK_HEADERS([getopt.h])
+AC_CHECK_HEADERS([unistd.h glob.h])
 
 # check for gsl
 PKG_CHECK_MODULES([GSL],[gsl],[true],[false])
@@ -347,16 +343,16 @@ if test "${boinc}" = "true" ; then
 fi
 
 # check for lal libararies and headers
-LALSUITE_CHECK_LIB([LAL],[6.13.0],[LALVersion],[lal/LALStdio.h])
-LALSUITE_CHECK_LIB([LALSupport],[6.13.0],[XLALCacheImport],[lal/LALCache.h])
-LALSUITE_CHECK_OPT_LIB([LALFrame],[1.2.0],[LALFrOpen],[lal/LALFrameL.h])
+LALSUITE_CHECK_LIB([LAL],[6.15.0],[LALVersion],[lal/LALStdio.h])
+LALSUITE_CHECK_LIB([LALSupport],[6.15.0],[XLALCacheImport],[lal/LALCache.h])
+LALSUITE_CHECK_OPT_LIB([LALFrame],[1.3.0],[LALFrOpen],[lal/LALFrameL.h])
 LALSUITE_CHECK_OPT_LIB([LALMetaIO],[1.2.0],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
-LALSUITE_CHECK_OPT_LIB([LALXML],[1.1.3],[XLALXMLFilePrintElements],[lal/LALXML.h])
-LALSUITE_CHECK_OPT_LIB([LALSimulation],[1.2.0],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
-LALSUITE_CHECK_OPT_LIB([LALBurst],[1.2.0],[XLALEPSearch],[lal/EPSearch.h])
-LALSUITE_CHECK_OPT_LIB([LALInspiral],[1.6.0],[LALInspiralParameterCalc],[lal/LALInspiral.h])
-LALSUITE_CHECK_OPT_LIB([LALPulsar],[1.10.0],[XLALComputeFstat],[lal/ComputeFstat.h])
-LALSUITE_CHECK_OPT_LIB([LALInference],[1.4.0],[LALInferenceAddVariable],[lal/LALInference.h])
+LALSUITE_CHECK_OPT_LIB([LALXML],[1.2.0],[XLALXMLFilePrintElements],[lal/LALXML.h])
+LALSUITE_CHECK_OPT_LIB([LALSimulation],[1.4.0],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
+LALSUITE_CHECK_OPT_LIB([LALBurst],[1.4.0],[XLALEPSearch],[lal/EPSearch.h])
+LALSUITE_CHECK_OPT_LIB([LALInspiral],[1.7.0],[LALInspiralParameterCalc],[lal/LALInspiral.h])
+LALSUITE_CHECK_OPT_LIB([LALPulsar],[1.12.0],[XLALComputeFstat],[lal/ComputeFstat.h])
+LALSUITE_CHECK_OPT_LIB([LALInference],[1.5.0],[LALInferenceAddVariable],[lal/LALInference.h])
 LALSUITE_CHECK_OPT_LIB([LALStochastic],[1.1.4],[LALStochasticOptimalFilter],[lal/StochasticCrossCorrelation.h])
 
 # check that lal was built with BOINC support, if required
@@ -395,7 +391,6 @@ if test "x${condor}" = "xtrue" ; then
   CC="$CONDOR_COMPILE $CC"
   LALSUITE_ADD_FLAGS([],[],[-all-static])
   AC_DISABLE_SHARED
-  AC_DEFINE([LALAPPS_CONDOR],[1],[LALApps is condor compiled])
 fi
 
 # add -all-static to AM_LDFLAGS for --enable-static-binaries

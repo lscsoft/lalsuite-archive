@@ -164,14 +164,7 @@ static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
 	if(!PyArg_ParseTuple(args, "O|L", &seconds, &nanoseconds))
 		return -1;
 
-	if(PyUnicode_Check(seconds)) {
-		/* convert to ascii string */
-		PyObject *str = PyUnicode_AsASCIIString(seconds);
-		if(!str)
-			return -1;
-		seconds = str;
-	}
-	if(PyString_Check(seconds)) {
+	if(PyString_Check(seconds) || PyUnicode_Check(seconds)) {
 		char *end, *str = PyString_AsString(seconds);
 		int result = XLALStrToGPS(gps, str, &end);
 		if((result < 0) || (end == str)) {
@@ -425,6 +418,8 @@ static PyObject *__sub__(PyObject *self, PyObject *other)
 static struct PyMemberDef members[] = {
 	{"seconds", T_INT, offsetof(pylal_LIGOTimeGPS, gps.gpsSeconds), 0, "integer seconds"},
 	{"nanoseconds", T_INT, offsetof(pylal_LIGOTimeGPS, gps.gpsNanoSeconds), 0, "integer nanoseconds"},
+	{"gpsSeconds", T_INT, offsetof(pylal_LIGOTimeGPS, gps.gpsSeconds), 0, "integer seconds"},
+	{"gpsNanoSeconds", T_INT, offsetof(pylal_LIGOTimeGPS, gps.gpsNanoSeconds), 0, "integer nanoseconds"},
 	{NULL,}
 };
 

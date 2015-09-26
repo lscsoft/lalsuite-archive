@@ -22,7 +22,7 @@
 /**
  * \author L.Sammut, C. Messenger
  * \file
- * \ingroup lalapps_pulsar_SideBand
+ * \ingroup lalapps_pulsar_SidebandSearch
  * \brief
  * Calculates the C-statistic for a given parameter-space of GW signals from binary sources with known sky position.
  *
@@ -43,9 +43,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fftw3.h>
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
 
 /* LAL-includes */
 #include <lal/LALConfig.h>

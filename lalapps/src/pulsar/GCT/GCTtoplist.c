@@ -17,9 +17,12 @@
 *  MA  02111-1307  USA
 */
 
+#include <config.h>
 
 #include <stdio.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include "GCTtoplist.h"
 #include "HeapToplist.h"
 #include <lal/StringInput.h> /* for LAL_REAL8_FORMAT etc. */
@@ -49,7 +52,7 @@
 #ifdef _WIN32
 
 /* errno */
-extern int errno;
+#include <errno.h>
 #ifndef _doserrno
 extern int _doserrno;
 #endif
@@ -368,7 +371,7 @@ static int write_gctFstat_toplist_item_to_fp(GCTtopOutputEntry fline, FILE*fp, U
     for(i=0;i<length;i++)
       *checksum += linebuf[i];
 
-  linebuf[sizeof(linebuf)-1] = '\0';
+  XLAL_LAST_ELEM(linebuf) = '\0';
 
   return(fprintf(fp,"%s",linebuf));
 }
@@ -552,9 +555,9 @@ static int _atomic_write_gctFstat_toplist_to_file(toplist_t *l, const char *file
     return(length);
   }
 
-  if(rename(tempname, filename)) {
-    LogPrintf (LOG_CRITICAL, "Failed to rename gctFstat file to \"%s\": %d: %s\n",
-	       filename,errno,strerror(errno));
+  if((ret = rename(tempname, filename))) {
+    LogPrintf (LOG_CRITICAL, "Failed to rename gctFstat file to \"%s\": %d: %s(%d)\n",
+	       filename,ret,strerror(errno),errno);
 #ifdef _MSC_VER
     LogPrintf (LOG_CRITICAL, "Windows system call returned: %d\n", _doserrno);
 #endif

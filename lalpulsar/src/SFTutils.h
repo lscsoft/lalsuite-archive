@@ -104,6 +104,8 @@ void XLALDestroySFTVector (SFTVector *vect);
 
 SFTVector *XLALDuplicateSFTVector ( const SFTVector *sftsIn );
 
+int XLALReorderMultiSFTVector( MultiSFTVector *multiSFTs, const LALStringVector *IFOs);
+
 COMPLEX8Vector *XLALrefineCOMPLEX8Vector (const COMPLEX8Vector *in, UINT4 refineby, UINT4 Dterms);
 
 int XLALExtractBandFromSFT ( SFTtype **outSFT, const SFTtype *inSFT, REAL8 fMin, REAL8 Band );
@@ -122,7 +124,7 @@ MultiLIGOTimeGPSVector *XLALExtractMultiTimestampsFromSFTs ( const MultiSFTVecto
 LIGOTimeGPSVector *XLALTimestampsFromSFTCatalog ( const SFTCatalog *catalog );
 MultiLIGOTimeGPSVector *XLALTimestampsFromMultiSFTCatalogView ( const MultiSFTCatalogView *multiView );
 
-LIGOTimeGPSVector *XLALTimestampsFromSegmentFile( const char *filename, REAL8 Tsft, REAL8 Toverlap, INT4 adjustSegExtraTime, INT4 synchronize );
+LIGOTimeGPSVector *XLALTimestampsFromSegmentFile( const char *filename, REAL8 Tsft, REAL8 Toverlap, BOOLEAN adjustSegExtraTime, BOOLEAN synchronize );
 
 void XLALDestroyTimestampVector (LIGOTimeGPSVector *vect);
 void XLALDestroyMultiTimestamps ( MultiLIGOTimeGPSVector *multiTS );

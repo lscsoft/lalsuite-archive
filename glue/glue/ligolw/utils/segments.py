@@ -1,4 +1,4 @@
-# Copyright (C) 2008-2010,2012-2014  Kipp Cannon
+# Copyright (C) 2008-2010,2012-2015  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -33,6 +33,7 @@ from glue import git_version
 from glue import iterutils
 from glue import segments
 from glue import segmentsUtils
+# FIXME:  switch to swig binding
 from glue.lal import LIGOTimeGPS
 from .. import lsctables
 
@@ -68,6 +69,19 @@ class LigolwSegmentList(object):
 	policy in that regard, but it should be expected that consumers of
 	the segment list will treat all times when the segment list's state
 	is unknown the same way.
+
+	Example:
+
+	>>> from glue.segments import *
+	>>> segs = segmentlist([segment(0, 10), segment(20, 30)])
+	>>> validity = segmentlist([segment(0, 10), segment(25, 100)])
+	>>> x = LigolwSegmentList(active = segs, valid = validity, instruments = set(("H1",)), name = "test")
+	>>> x.active & x.valid
+	[segment(0, 10), segment(25, 30)]
+	>>> ~x.active & x.valid
+	[segment(30, 100)]
+	>>> x.active & ~x.valid
+	[segment(20, 25)]
 	"""
 	#
 	# the columns the segment_definer, segment_summary and segment
@@ -141,6 +155,80 @@ class LigolwSegments(set):
 	This class is a subclass of the Python set builtin.  Each element
 	of the set is a LigolwSegmentList instance describing one of the
 	segment lists in the original XML document.
+
+	This class may be used as a context manager to automate the
+	replacement of segments back into the XML document, including in
+	the event of an untrapped exception.  When used as a context
+	manager, the process parameter of the .__init__() method is not
+	optional.
+
+	Example:
+
+	>>> import sys
+	>>> from glue.segments import *
+	>>> from glue.lal import LIGOTimeGPS
+	>>> from glue.ligolw import ligolw, lsctables
+	>>> xmldoc = ligolw.Document()
+	>>> xmldoc.appendChild(ligolw.LIGO_LW())	# doctest: +ELLIPSIS
+	<glue.ligolw.ligolw.LIGO_LW object at ...>
+	>>> process = lsctables.Process()
+	>>> process.process_id = lsctables.ProcessTable.get_next_id()
+	>>> with LigolwSegments(xmldoc, process) as xmlsegments:
+	...	h1segs = segmentlist([segment(LIGOTimeGPS(0), LIGOTimeGPS(10))])
+	...	xmlsegments.insert_from_segmentlistdict({"H1": h1segs}, "test")
+	>>> xmldoc.write(sys.stdout)		# doctest: +NORMALIZE_WHITESPACE
+	<?xml version='1.0' encoding='utf-8'?>
+	<!DOCTYPE LIGO_LW SYSTEM "http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt">
+	<LIGO_LW>
+		<Table Name="segment_definer:table">
+			<Column Type="ilwd:char" Name="segment_definer:process_id"/>
+			<Column Type="ilwd:char" Name="segment_definer:segment_def_id"/>
+			<Column Type="lstring" Name="segment_definer:ifos"/>
+			<Column Type="lstring" Name="segment_definer:name"/>
+			<Column Type="int_4s" Name="segment_definer:version"/>
+			<Column Type="lstring" Name="segment_definer:comment"/>
+			<Stream Delimiter="," Type="Local" Name="segment_definer:table">
+				"process:process_id:0","segment_definer:segment_def_id:0","H1","test",,,
+			</Stream>
+		</Table>
+		<Table Name="segment_summary:table">
+			<Column Type="ilwd:char" Name="segment_summary:process_id"/>
+			<Column Type="ilwd:char" Name="segment_summary:segment_sum_id"/>
+			<Column Type="int_4s" Name="segment_summary:start_time"/>
+			<Column Type="int_4s" Name="segment_summary:start_time_ns"/>
+			<Column Type="int_4s" Name="segment_summary:end_time"/>
+			<Column Type="int_4s" Name="segment_summary:end_time_ns"/>
+			<Column Type="ilwd:char" Name="segment_summary:segment_def_id"/>
+			<Column Type="lstring" Name="segment_summary:comment"/>
+			<Stream Delimiter="," Type="Local" Name="segment_summary:table">
+			</Stream>
+		</Table>
+		<Table Name="segment:table">
+			<Column Type="ilwd:char" Name="segment:process_id"/>
+			<Column Type="ilwd:char" Name="segment:segment_id"/>
+			<Column Type="int_4s" Name="segment:start_time"/>
+			<Column Type="int_4s" Name="segment:start_time_ns"/>
+			<Column Type="int_4s" Name="segment:end_time"/>
+			<Column Type="int_4s" Name="segment:end_time_ns"/>
+			<Column Type="ilwd:char" Name="segment:segment_def_id"/>
+			<Stream Delimiter="," Type="Local" Name="segment:table">
+				"process:process_id:0","segment:segment_id:0",0,0,10,0,"segment_definer:segment_def_id:0"
+			</Stream>
+		</Table>
+	</LIGO_LW>
+	>>> xmlsegments = LigolwSegments(xmldoc)
+	>>> xmlsegments.get_by_name("test")
+	{u'H1': [segment(LIGOTimeGPS(0,0), LIGOTimeGPS(10,0))]}
+	>>> xmlsegments.get_by_name("wrong name")
+	Traceback (most recent call last):
+		...
+	KeyError: "no segmentlists named 'wrong name'"
+
+	NOTE:  the process of extracting and re-inserting the contents of
+	the segment tables will, in general, randomize the IDs assigned to
+	the rows of these tables.  If there are references to segment,
+	segment_summary, or segment_definer row IDs in other tables in the
+	document, those references will be broken by this process.
 	"""
 	def __init__(self, xmldoc, process = None):
 		#
@@ -171,18 +259,24 @@ class LigolwSegments(set):
 		# construct empty LigolwSegmentList objects, one for each
 		# entry in the segment_definer table, indexed by
 		# segment_definer id
-		segment_lists = dict((row.segment_def_id, LigolwSegmentList(instruments = row.get_ifos(), name = row.name, version = row.version, comment = row.comment)) for row in self.segment_def_table)
+		segment_lists = dict((row.segment_def_id, LigolwSegmentList(instruments = row.instruments, name = row.name, version = row.version, comment = row.comment)) for row in self.segment_def_table)
 		if len(segment_lists) != len(self.segment_def_table):
-			raise ValueError("duplicate segment_definer IDs detected in segment_definer table")
+			raise ValueError("duplicate segment_def_id in segment_definer table")
 		del self.segment_def_table[:]
 
 		# populate LigolwSegmentList objects from segment table and
 		# segment_summary table
 		for row in self.segment_sum_table:
-			segment_lists[row.segment_def_id].valid.append(row.get())
+			try:
+				segment_lists[row.segment_def_id].valid.append(row.segment)
+			except KeyError as e:
+				raise ValueError("invalid segment_def_id in segment_summary table: %s" % e)
 		del self.segment_sum_table[:]
 		for row in self.segment_table:
-			segment_lists[row.segment_def_id].active.append(row.get())
+			try:
+				segment_lists[row.segment_def_id].active.append(row.segment)
+			except KeyError as e:
+				raise ValueError("invalid segment_def_id in segment table: %s" % e)
 		del self.segment_table[:]
 
 		#
@@ -193,16 +287,12 @@ class LigolwSegments(set):
 		self.update(segment_lists.values())
 
 		#
-		# Synchronize ID generators
+		# reset ID generators
 		#
 
-		# FIXME:  why am I doing this!?  I've just deleted all the
-		# rows.  the id generators should probably be 0'ed here,
-		# and these sync's moved to the .finalize() method to
-		# prevent collisions
-		self.segment_def_table.sync_next_id()
-		self.segment_table.sync_next_id()
-		self.segment_sum_table.sync_next_id()
+		self.segment_def_table.set_next_id(type(self.segment_def_table.next_id)(0))
+		self.segment_table.set_next_id(type(self.segment_table.next_id)(0))
+		self.segment_sum_table.set_next_id(type(self.segment_sum_table.next_id)(0))
 
 		#
 		# Save process row for later
@@ -224,9 +314,12 @@ class LigolwSegments(set):
 		table for the segment list, and instruments, name and
 		comment are used to populate the entry's metadata.  Note
 		that the "valid" segments are left empty, nominally
-		indicating that there are no periods of validity.
+		indicating that there are no periods of validity.  Returns
+		the newly created LigolwSegmentList object.
 		"""
-		self.add(LigolwSegmentList(active = segmentsUtils.fromsegwizard(fileobj, coltype = LIGOTimeGPS), instruments = instruments, name = name, version = version, comment = comment))
+		ligolw_segment_list = LigolwSegmentList(active = segmentsUtils.fromsegwizard(fileobj, coltype = LIGOTimeGPS), instruments = instruments, name = name, version = version, comment = comment)
+		self.add(ligolw_segment_list)
+		return ligolw_segment_list
 
 
 	def insert_from_segmentlistdict(self, seglists, name, version = None, comment = None):
@@ -284,6 +377,38 @@ class LigolwSegments(set):
 		self.update(segment_lists.values())
 
 
+	def get_by_name(self, name, clip_to_valid = False):
+		"""
+		Retrieve the active segmentlists whose name equals name.
+		The result is a segmentlistdict indexed by instrument.  All
+		segmentlist objects within it will be copies of the
+		contents of this object, modifications will not affect the
+		contents of this object.  If clip_to_valid is True then the
+		segmentlists will be intersected with their respective
+		intervals of validity, otherwise they will be the verbatim
+		active segments.
+
+		NOTE:  the intersection operation required by clip_to_valid
+		will yield undefined results unless the active and valid
+		segmentlist objects are coalesced.
+		"""
+		result = segments.segmentlistdict()
+		for seglist in self:
+			if seglist.name != name:
+				continue
+			segs = seglist.active
+			if clip_to_valid:
+				# do not use in-place intersection
+				segs = segs & seglist.valid
+			for instrument in seglist.instruments:
+				if instrument in result:
+					raise ValueError("multiple '%s' segmentlists for instrument '%s'" % (name, instrument))
+				result[instrument] = segments.segmentlist(segs)
+		if not result:
+			raise KeyError("no segmentlists named '%s'" % name)
+		return result
+
+
 	def finalize(self, process_row = None):
 		"""
 		Restore the LigolwSegmentList objects to the XML tables in
@@ -297,10 +422,20 @@ class LigolwSegments(set):
 		then it might be discontinued without notice.  You've been
 		warned.
 		"""
-		if process_row is None:
-			process_row = self.process
-			if process_row is None:
-				raise ValueError("must supply a process row to .__init__()")
+		if process_row is not None:
+			process_id = process_row.process_id
+		elif self.process is not None:
+			process_id = self.process.process_id
+		else:
+			raise ValueError("must supply a process row to .__init__()")
+
+		#
+		# ensure ID generators are synchronized with table contents
+		#
+
+		self.segment_def_table.sync_next_id()
+		self.segment_table.sync_next_id()
+		self.segment_sum_table.sync_next_id()
 
 		#
 		# put all segment lists in time order
@@ -314,14 +449,14 @@ class LigolwSegments(set):
 		# appended
 		#
 
-		def row_generator(segs, target_table, process_row, segment_def_row):
+		def row_generator(segs, target_table, process_id, segment_def_id):
 			id_column = target_table.next_id.column_name
 			for seg in segs:
 				row = target_table.RowType()
-				row.set(seg)
-				row.process_id = process_row.process_id
+				row.segment = seg
+				row.process_id = process_id
+				row.segment_def_id = segment_def_id
 				setattr(row, id_column, target_table.get_next_id())
-				row.segment_def_id = segment_def_row.segment_def_id
 				if hasattr(row, "comment"):
 					row.comment = None
 				yield row, target_table
@@ -337,16 +472,16 @@ class LigolwSegments(set):
 		while self:
 			ligolw_segment_list = self.pop()
 			segment_def_row = self.segment_def_table.RowType()
-			segment_def_row.process_id = process_row.process_id
+			segment_def_row.process_id = process_id
 			segment_def_row.segment_def_id = self.segment_def_table.get_next_id()
-			segment_def_row.set_ifos(ligolw_segment_list.instruments)
+			segment_def_row.instruments = ligolw_segment_list.instruments
 			segment_def_row.name = ligolw_segment_list.name
 			segment_def_row.version = ligolw_segment_list.version
 			segment_def_row.comment = ligolw_segment_list.comment
 			self.segment_def_table.append(segment_def_row)
 
-			row_generators.append(row_generator(ligolw_segment_list.valid, self.segment_sum_table, process_row, segment_def_row))
-			row_generators.append(row_generator(ligolw_segment_list.active, self.segment_table, process_row, segment_def_row))
+			row_generators.append(row_generator(ligolw_segment_list.valid, self.segment_sum_table, process_id, segment_def_row.segment_def_id))
+			row_generators.append(row_generator(ligolw_segment_list.active, self.segment_table, process_id, segment_def_row.segment_def_id))
 
 		#
 		# populate segment and segment_summary tables by pulling
@@ -358,7 +493,8 @@ class LigolwSegments(set):
 
 
 	def __enter__(self):
-		assert self.process is not None
+		if self.process is None:
+			raise ValueError("must supply a process row to .__init__()")
 		return self
 
 
@@ -384,22 +520,28 @@ def has_segment_tables(xmldoc, name = None):
 	tables, if present, contain a segment list by that name.
 	"""
 	try:
-		def_table = lsctables.SegmentDefTable.get_table(xmldoc)
+		names = lsctables.SegmentDefTable.get_table(xmldoc).getColumnByName("name")
 		lsctables.SegmentTable.get_table(xmldoc)
-	except ValueError:
+		lsctables.SegmentSumTable.get_table(xmldoc)
+	except (ValueError, KeyError):
 		return False
-	if name is not None and name not in set(row.name for row in def_table):
-		return False
-	return True
+	return name is None or name in names
 
 
 def segmenttable_get_by_name(xmldoc, name):
 	"""
-	Retrieve the segments whose name matches those given.  The result
-	is a segmentlistdict indexed by instrument.
+	Retrieve the segmentlists whose name equals name.  The result is a
+	segmentlistdict indexed by instrument.
 
 	The output of this function is not coalesced, each segmentlist
 	contains the segments as found in the segment table.
+
+	NOTE:  this is a light-weight version of the .get_by_name() method
+	of the LigolwSegments class intended for use when the full
+	machinery of that class is not required.  Considerably less
+	document validation and error checking is performed by this
+	version.  Consider using that method instead if your application
+	will be interfacing with the document via that class anyway.
 	"""
 	#
 	# find required tables
@@ -413,7 +555,7 @@ def segmenttable_get_by_name(xmldoc, name):
 	# segment_definer entries bearing the requested name
 	#
 
-	instrument_index = dict((row.segment_def_id, row.get_ifos()) for row in def_table if row.name == name)
+	instrument_index = dict((row.segment_def_id, row.instruments) for row in def_table if row.name == name)
 
 	#
 	# populate result segmentlistdict object from segment_def_map table
@@ -425,7 +567,7 @@ def segmenttable_get_by_name(xmldoc, name):
 
 	for row in seg_table:
 		if row.segment_def_id in instrument_index:
-			seg = row.get()
+			seg = row.segment
 			for instrument in instrument_index[row.segment_def_id]:
 				result[instrument].append(seg)
 

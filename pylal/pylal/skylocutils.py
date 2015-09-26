@@ -77,7 +77,7 @@ def get_delta_t_rss(pt,coinc,reference_frequency=None):
   time={}
   delta_t_rms = 0.0
   for ifos in coinc.ifo_coincs:
-    time[ifos[0]+ifos[1]] = 1.0e-9*date.XLALGPSToINT8NS(tgeo[ifos[0]] - tgeo[ifos[1]])
+    time[ifos[0]+ifos[1]] = float(tgeo[ifos[0]] - tgeo[ifos[1]])
     delta_t_rms += time[ifos[0]+ifos[1]] * time[ifos[0]+ifos[1]]
         
   return sqrt(delta_t_rms)

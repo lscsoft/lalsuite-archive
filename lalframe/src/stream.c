@@ -17,15 +17,83 @@
 *  MA  02111-1307  USA
 */
 
+/**
+ * @defgroup lalfr_stream lalfr-stream
+ * @ingroup lalframe_programs
+ *
+ * @brief Output a frame data stream
+ *
+ * ### Synopsis
+ *
+ *     lalfr-stream --channel=channel --frame-cache=cachefile [--start-time=tstart] [--duration=deltat]
+ *
+ *     lalfr-stream --channel=channel --frame-glob=globstring [--start-time=tstart] [--duration=deltat]
+ *
+ * ### Description
+ *
+ * The `lalfr-stream` utility reads a requested interval
+ * [`tstart`,`tstart+deltat`) of `channel` data from frame files that are
+ * either indexed in the `cachefile` or matching the pattern `globstring`  as
+ * described by `glob(3)`.  If `tstart` is not specified, streaming begins  at
+ * the beginning of the available data.  If `deltat` is not specified,
+ * streaming continues until the end of the available data.  The output is
+ * written to the standard output in two-column ascii format data in which the
+ * first column contains the GPS times of each sample and  the  second column
+ * contains the corresponding sample values.
+ *
+ * ### Options
+ *
+ * <DL>
+ * <DT>`-h`, `--help`</DT>
+ * <DD>Prints the help message.</DD>
+ * <DT>`-c channel`, `--channel=channel`</DT>
+ * <DD>The channel name that is to be read.</DD>
+ * <DT>`-f cachefile`, `--frame-cache=cachefile`</DT>
+ * <DD>The cachefile indexing the frame files to be used.</DD>
+ * <DT>`-g globstring `, `--frame-glob=globstring`</DT>
+ * <DD>The globstring identifying the frame files to be used.</DD>
+ * <DT>`-s tstart`, `--start-time=tstart`</DT>
+ * <DD>The time `tstart` GPS seconds of the data to read.</DD>
+ * <DT>`-t deltat`, `--duration=deltat`</DT>
+ * <DD>The duration `deltat` in seconds of data to read.</DD>
+ * </DL>
+ *
+ * ### Environment
+ * 
+ * The `LAL_DEBUG_LEVEL` can used to control the error and warning reporting of
+ * `lalfr-stream`.  Common values are: `LAL_DEBUG_LEVEL=0` which suppresses
+ * error messages, `LAL_DEBUG_LEVEL=1`  which prints error messages alone,
+ * `LAL_DEBUG_LEVEL=3` which prints both error messages and warning messages,
+ * and `LAL_DEBUG_LEVEL=7` which additionally prints informational messages.
+ *
+ *
+ * ### Exit Status
+ *
+ * The `lalfr-stream` utility exits 0 on success, and >0 if an error occurs.
+ *
+ * ### Examples
+ * 
+ * The command:
+ * 
+ *     lalfr-stream -c H1:LSC-STRAIN -g "H-*.gwf" -s 1000000000 -t 1000
+ *
+ * will stream 1000 seconds of `H1:LSC-STRAIN` data beginning at GPS time
+ * 1000000000 from frame files matching `H-*.gwf` in the current directory.
+ *
+ * @sa @ref lalfr_vis
+ */
+
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include <getopt.h>
 
 #include <lal/Date.h>
+#include <lal/LALgetopt.h>
 #include <lal/LALStdlib.h>
+#include <lal/LALString.h>
 #include <lal/TimeSeries.h>
 #include <lal/LALFrStream.h>
 #include <lal/Units.h>
@@ -144,7 +212,7 @@ int main(int argc, char *argv[])
 
 int parseargs(int argc, char **argv)
 {
-    struct option long_options[] = {
+    struct LALoption long_options[] = {
         {"help", no_argument, 0, 'h'},
         {"channel", required_argument, 0, 'c'},
         {"frame-cache", required_argument, 0, 'f'},
@@ -158,7 +226,7 @@ int parseargs(int argc, char **argv)
         int option_index = 0;
         int c;
 
-        c = getopt_long_only(argc, argv, args, long_options, &option_index);
+        c = LALgetopt_long_only(argc, argv, args, long_options, &option_index);
         if (c == -1)    /* end of options */
             break;
 
@@ -168,26 +236,26 @@ int parseargs(int argc, char **argv)
                 break;
             else {
                 fprintf(stderr, "error parsing option %s with argument %s\n",
-                    long_options[option_index].name, optarg);
+                    long_options[option_index].name, LALoptarg);
                 exit(1);
             }
         case 'h':      /* help */
             usage(argv[0]);
             exit(0);
         case 'c':      /* channel */
-            channel = strdup(optarg);
+            channel = XLALStringDuplicate(LALoptarg);
             break;
         case 'f':      /* frame-cache */
-            cache = XLALCacheImport(optarg);
+            cache = XLALCacheImport(LALoptarg);
             break;
         case 'g':      /* frame-cache */
-            cache = XLALCacheGlob(NULL, optarg);
+            cache = XLALCacheGlob(NULL, LALoptarg);
             break;
         case 's':      /* start-time */
-            t0 = atof(optarg);
+            t0 = atof(LALoptarg);
             break;
         case 't':      /* duration */
-            dt = atof(optarg);
+            dt = atof(LALoptarg);
             break;
         case '?':
         default:
@@ -196,10 +264,10 @@ int parseargs(int argc, char **argv)
         }
     }
 
-    if (optind < argc) {
+    if (LALoptind < argc) {
         fprintf(stderr, "extraneous command line arguments:\n");
-        while (optind < argc)
-            fprintf(stderr, "%s\n", argv[optind++]);
+        while (LALoptind < argc)
+            fprintf(stderr, "%s\n", argv[LALoptind++]);
         exit(1);
     }
 

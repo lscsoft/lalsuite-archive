@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include <lal/LALStdio.h>
 #include <lal/LALStdlib.h>
@@ -65,7 +66,6 @@
 #include <lal/GenerateInspiral.h>
 #include <lal/NRWaveInject.h>
 #include <lal/GenerateInspRing.h>
-#include <lal/LALErrno.h>
 #include <math.h>
 #include <lal/LALInspiral.h>
 #include <lal/LALSimulation.h>
@@ -201,7 +201,7 @@ static LALCache *GlobFramesPWD(char *ifo)
     LALCache *frInCache=NULL;
     /* sieve out the requested data type */
         snprintf( ifoRegExPattern,
-                sizeof(ifoRegExPattern) / sizeof(*ifoRegExPattern), ".*%c.*",
+                XLAL_NUM_ELEM(ifoRegExPattern), ".*%c.*",
                 ifo[0] );
     {
         fprintf(stderr,"GlobFramesPWD : Found unseived src files:\n");
@@ -221,16 +221,29 @@ static LALCache *GlobFramesPWD(char *ifo)
 
 static REAL8TimeSeries *readTseries(LALCache *cache, CHAR *channel, LIGOTimeGPS start, REAL8 length)
 {
+    /* This function attempts to read the data from the given cache file. If it failes to open the data
+	 * it waits for a period and tries again, up to 5 times. This is an attempt to get around overloading
+	 * of file servers when many jobs are run at the time same */
 	LALStatus status;
+	UINT4 max_tries=5,tries=0,delay=5;
 	memset(&status,0,sizeof(status));
 	LALFrStream *stream = NULL;
 	REAL8TimeSeries *out = NULL;
 	if(cache==NULL) fprintf(stderr,"readTseries ERROR: Received NULL pointer for channel %s\n",channel);
-	stream = XLALFrStreamCacheOpen( cache );
+	for (tries=0,delay=5;tries<max_tries;tries++,delay*=2) {
+			stream = XLALFrStreamCacheOpen( cache );
+			if(stream) break;
+			sleep(delay);
+	}
 	if(stream==NULL) {fprintf(stderr,"readTseries ERROR: Unable to open stream from frame cache file\n"); exit(-1);}
-	out = XLALFrStreamInputREAL8TimeSeries( stream, channel, &start, length , 0 );
-	if(out==NULL) fprintf(stderr,"readTseries ERROR: unable to read channel %s at time %i\nCheck the specified data duration is not too long\n",channel,start.gpsSeconds);
-	LALFrClose(&status,&stream);
+
+	for (tries=0,delay=5;tries<max_tries;tries++,delay*=2) {
+			out = XLALFrStreamInputREAL8TimeSeries( stream, channel, &start, length , 0 );
+			if(out) break;
+			sleep(delay);
+	}
+	if(out==NULL) fprintf(stderr,"readTseries ERROR: unable to read channel %s at times %i - %f\nCheck the specified data duration is not too long\n",channel,start.gpsSeconds,start.gpsSeconds+length);
+	XLALFrStreamClose(stream);
 	return out;
 }
 
@@ -446,6 +459,7 @@ void LALInferencePrintDataWithInjection(LALInferenceIFOData *IFOdata, ProcessPar
 (--inj-dlambdaT                  value of dlambdaT to be injected (0)\n\
 (--inj-spinOrder PNorder)           Specify twice the PN order (e.g. 5 <==> 2.5PN) of spin effects to use, only for LALSimulation (default: -1 <==> Use all spin effects).\n\
 (--inj-tidalOrder PNorder)          Specify twice the PN order (e.g. 10 <==> 5PN) of tidal effects to use, only for LALSimulation (default: -1 <==> Use all tidal effects).\n\
+(--inj-spin-frame FRAME         Specify injection spin frame: choice of TotalJ, OrbitalL, View. Default = OrbitalL.\n\
 (--0noise)                      Sets the noise realisation to be identically zero (for the fake caches above only)\n"
 
 
@@ -1632,6 +1646,9 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
       }
 
       LALSimInspiralWaveformFlags *waveFlags = XLALSimInspiralCreateWaveformFlags();
+
+      /* Set the spin-frame convention */
+
       LALSimInspiralSpinOrder spinO = -1;
       if(LALInferenceGetProcParamVal(commandLine,"--inj-spinOrder")) {
         spinO = atoi(LALInferenceGetProcParamVal(commandLine,"--inj-spinOrder")->value);
@@ -1642,6 +1659,11 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
         tideO = atoi(LALInferenceGetProcParamVal(commandLine,"--inj-tidalOrder")->value);
         XLALSimInspiralSetTidalOrder(waveFlags, tideO);
       }
+      LALSimInspiralFrameAxis frameAxis = LAL_SIM_INSPIRAL_FRAME_AXIS_DEFAULT;
+      if((ppt=LALInferenceGetProcParamVal(commandLine,"--inj-spin-frame"))) {
+        frameAxis = XLALSimInspiralGetFrameAxisFromString(ppt->value);
+      }
+      XLALSimInspiralSetFrameAxis(waveFlags,frameAxis);
       LALSimInspiralTestGRParam *nonGRparams = NULL;
       /* Print a line with information about approximant, amporder, phaseorder, tide order and spin order */
       fprintf(stdout,"Injection will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i, tidal order %i, in the time domain with a reference frequency of %f.\n",approximant,XLALGetStringFromApproximant(approximant),order,amporder,(int) spinO, (int) tideO, (float) fref);
@@ -1952,7 +1974,7 @@ LALInferenceLALFindChirpInjectSignals (
           );
     }
 
-    snprintf( warnMsg, sizeof(warnMsg)/sizeof(*warnMsg),
+    snprintf( warnMsg, XLAL_NUM_ELEM(warnMsg),
         "Injected waveform timing:\n"
         "thisEvent->geocent_end_time.gpsSeconds = %d\n"
         "thisEvent->geocent_end_time.gpsNanoSeconds = %d\n"
@@ -2254,13 +2276,11 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
   char SNRpath[FILENAME_MAX];
   ProcessParamsTable *ppt=NULL;
 
-  ppt=LALInferenceGetProcParamVal(commandLine,"--outfile");
-  if(!ppt){
-    fprintf(stderr,"Must specify --outfile <filename.dat>\n");
-    exit(1);
-  }
-  char *outfile=ppt->value;
-  sprintf(SNRpath,"%s_snr.txt",outfile);
+  ppt = LALInferenceGetProcParamVal(commandLine,"--outfile");
+  if (ppt)
+    sprintf(SNRpath, "%s_snr.txt", ppt->value);
+  else
+    sprintf(SNRpath, "snr.txt");
 
   Approximant approximant = XLALGetApproximantFromString(inj_table->waveform);
   if( (int) approximant == XLAL_FAILURE)
@@ -2304,6 +2324,17 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
 
   /* Set up wave flags */
   LALSimInspiralWaveformFlags *waveFlags = XLALSimInspiralCreateWaveformFlags();
+
+  /* Set the spin-frame convention */
+  ppt = LALInferenceGetProcParamVal(commandLine,"--inj-spin-frame");
+  if(ppt) {
+      if (!strcmp(ppt->value, "view"))
+          XLALSimInspiralSetFrameAxis(waveFlags, LAL_SIM_INSPIRAL_FRAME_AXIS_VIEW);
+      else if (!strcmp(ppt->value, "orbital-l"))
+          XLALSimInspiralSetFrameAxis(waveFlags, LAL_SIM_INSPIRAL_FRAME_AXIS_ORBITAL_L);
+      else if (!strcmp(ppt->value, "total-j"))
+          XLALSimInspiralSetFrameAxis(waveFlags, LAL_SIM_INSPIRAL_FRAME_AXIS_TOTAL_J);
+  }
 
   LALSimInspiralSpinOrder spinO = LAL_SIM_INSPIRAL_SPIN_ORDER_ALL;
   if(LALInferenceGetProcParamVal(commandLine, "--inj-spinOrder")) {
@@ -2542,7 +2573,7 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
   REAL8 injGPSTime = XLALGPSGetREAL8(&(theEventTable->geocent_end_time));
 
   REAL8 dist = theEventTable->distance;
-  REAL8 inclination = theEventTable->inclination;
+  REAL8 cosinclination = cos(theEventTable->inclination);
   REAL8 phase = theEventTable->coa_phase;
   REAL8 dec = theEventTable->latitude;
   REAL8 ra = theEventTable->longitude;
@@ -2559,7 +2590,7 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
   LALInferenceAddVariable(vars, "q", &q, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(vars, "time", &injGPSTime, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(vars, "distance", &dist, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-  LALInferenceAddVariable(vars, "theta_jn", &inclination, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddVariable(vars, "costheta_jn", &cosinclination, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(vars, "polarisation", &(psi), LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(vars, "phase", &phase, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(vars, "declination", &dec, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
@@ -2569,8 +2600,8 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
   LALInferenceAddVariable(vars, "LAL_AMPORDER", &(theEventTable->amp_order), LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
   if(spinCheck){
       if (theEventTable->spin1x==0 && theEventTable->spin1y==0.0 && theEventTable->spin2x==0.0 && theEventTable->spin2y==0.0){
-        LALInferenceAddVariable(vars, "spin1", &s1z, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-        LALInferenceAddVariable(vars, "spin2", &s2z, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+        LALInferenceAddVariable(vars, "a_spin1", &s1z, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+        LALInferenceAddVariable(vars, "a_spin2", &s2z, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
       }
       else{
         LALInferenceAddVariable(vars, "a_spin1", &a_spin1, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
@@ -2824,7 +2855,13 @@ void LALInferenceSetupROQ(LALInferenceIFOData *IFOdata, LALInferenceModel *model
 
   if(LALInferenceGetProcParamVal(commandLine,"--roqnodes")){
     ppt=LALInferenceGetProcParamVal(commandLine,"--roqnodes");
+
+    // open file containing the set of frequency points associated
+    // with the given weights
     tempfp = fopen(ppt->value, "rb");
+    if (!tempfp) {
+        fprintf(stderr,"Error: cannot find file %s \n", ppt->value);
+        exit(1);} // check file exists
     gsl_vector_fread(tempfp, model->roq->frequencyNodes);
 
     thisData=IFOdata;

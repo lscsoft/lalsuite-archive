@@ -42,16 +42,15 @@ void nested_sampling_algorithm_wrapper(LALInferenceRunState *runState);
 void setup_live_points_array_wrapper( LALInferenceRunState *runState );
 void initialise_algorithm( LALInferenceRunState *runState );
 void setup_lookup_tables(LALInferenceRunState *runState, LALSource *source);
-void add_initial_variables( LALInferenceVariables *ini, LALInferenceVariables *scaleFac, BinaryPulsarParams pars );
-void add_variable_scale( LALInferenceVariables *var, LALInferenceVariables *scale, const char *name, REAL8 value );
+void add_initial_variables( LALInferenceVariables *ini, PulsarParameters *pars );
 void initialise_prior( LALInferenceRunState *runState );
 void initialise_proposal( LALInferenceRunState *runState );
 void add_correlation_matrix( LALInferenceVariables *ini,
                              LALInferenceVariables *priors, REAL8Array *corMat,
                              LALStringVector *parMat );
 void sum_data( LALInferenceRunState *runState );
-void LogNonFixedSampleToFile(LALInferenceRunState *state, LALInferenceVariables *vars);
-void LogNonFixedSampleToArray(LALInferenceRunState *state, LALInferenceVariables *vars);
+void LogSampleToFile(LALInferenceRunState *state, LALInferenceVariables *vars);
+void LogSampleToArray(LALInferenceRunState *state, LALInferenceVariables *vars);
 
 #ifdef __cplusplus
 }

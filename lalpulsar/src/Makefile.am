@@ -3,21 +3,16 @@ MOSTLYCLEANFILES =
 include $(top_srcdir)/gnuscripts/lalsuite_header_links.am
 include $(top_srcdir)/gnuscripts/lalsuite_vcs_info.am
 
-if LALXML
-XMLHDR = LALXMLVOTableSerializersPulsar.h
-XMLSRC = LALXMLVOTableSerializersPulsar.c
-endif
-
 pkginclude_HEADERS = \
 	BinaryPulsarTiming.h \
+	CWMakeFakeData.h \
 	ComplexAM.h \
 	ComputeFstat.h \
 	ComputeSky.h \
-	CWFastMath.h \
-	CWMakeFakeData.h \
 	DetectorStates.h \
 	DopplerFullScan.h \
 	DopplerScan.h \
+	EstimateAmplitudeParams.h \
 	ExtrapolatePulsarSpins.h \
 	FitToPulsar.h \
 	FlatMesh.h \
@@ -28,18 +23,18 @@ pkginclude_HEADERS = \
 	HoughMap.h \
 	LALBarycenter.h \
 	LALComputeAM.h \
-	LALDemod.h \
 	LALHough.h \
 	LALInitBarycenter.h \
 	LALPulsarConfig.h \
 	LALPulsarVCSInfo.h \
 	LALPulsarVCSInfoHeader.h \
 	LALXMGRInterface.h \
-	LatticeTiling.h \
 	LFTandTSutils.h \
-	LineRobustStats.h \
 	LISAspecifics.h \
 	LUT.h \
+	LatticeTiling.h \
+	LineRobustStats.h \
+	MetricUtils.h \
 	NormalizeSFTRngMed.h \
 	PHMD.h \
 	ProbabilityDensity.h \
@@ -55,34 +50,38 @@ pkginclude_HEADERS = \
 	SFTfileIO.h \
 	SFTutils-LAL.h \
 	SFTutils.h \
+	SSBtimes.h \
 	SimulatePulsarSignal.h \
 	SinCosLUT.h \
-	SSBtimes.h \
 	StackMetric.h \
 	Statistics.h \
-	SuperSkyMetrics.h \
+	SuperskyMetrics.h \
 	SynthesizeCWDraws.h \
 	TransientCW_utils.h \
 	TwoDMesh.h \
 	UniversalDopplerMetric.h \
 	Velocity.h \
-	$(XMLHDR)
+	$(END_OF_LIST)
 
 lib_LTLIBRARIES = liblalpulsar.la
 liblalpulsar_la_SOURCES = \
 	BinaryPulsarTiming.c \
+	CWMakeFakeData.c \
 	CoherentMetric.c \
 	ComplexAM.c \
 	ComputeFstat.c \
+	ComputeFstat_Demod.c \
+	ComputeFstat_DemodHL_Generic.c \
+	ComputeFstat_DemodHL_OptC.c \
+	ComputeFstat_Resamp.c \
 	ComputeSky.c \
 	ConstructPLUT.c \
-	CWFastMath.c \
-	CWMakeFakeData.c \
+	DTEphemeris.c \
 	DetectorStates.c \
 	DopplerFullScan.c \
 	DopplerScan.c \
 	DriveHough.c \
-	DTEphemeris.c \
+	EstimateAmplitudeParams.c \
 	ExtrapolatePulsarSpins.c \
 	FitToPulsar.c \
 	FlatMesh.c \
@@ -97,15 +96,14 @@ liblalpulsar_la_SOURCES = \
 	HoughMap.c \
 	LALBarycenter.c \
 	LALComputeAM.c \
-	LALDemod.c \
-	LALDemodFAST.c \
 	LALInitBarycenter.c \
 	LALPulsarVCSInfo.c \
 	LALXMGRInterface.c \
-	LatticeTiling.c \
 	LFTandTSutils.c \
-	LineRobustStats.c \
 	LISAspecifics.c \
+	LatticeTiling.c \
+	LineRobustStats.c \
+	MetricUtils.c \
 	NDParamPLUT.c \
 	NormalizeSFTRngMed.c \
 	ParamPLUT.c \
@@ -121,39 +119,60 @@ liblalpulsar_la_SOURCES = \
 	SFTClean.c \
 	SFTfileIO.c \
 	SFTutils.c \
+	SSBtimes.c \
 	SimulatePulsarSignal.c \
 	SinCosLUT.c \
-	SSBtimes.c \
 	StackMetric.c \
 	Statistics.c \
 	Stereographic.c \
-	SuperSkyMetrics.c \
+	SuperskyMetrics.c \
 	SynthesizeCWDraws.c \
 	TBaryPtolemaic.c \
 	TComp.c \
-	TransientCW_utils.c \
 	TSpin.c \
+	TransientCW_utils.c \
 	TwoDMesh.c \
 	TwoDMeshInternal.c \
 	TwoDMeshMetrics.c \
 	TwoDMeshRanges.c \
 	UniversalDopplerMetric.c \
 	Velocity.c \
-	$(XMLSRC)
+	$(END_OF_LIST)
 nodist_liblalpulsar_la_SOURCES = LALPulsarBuildInfo.c
 
+if LALXML
+pkginclude_HEADERS += LALXMLVOTableSerializersPulsar.h
+liblalpulsar_la_SOURCES += LALXMLVOTableSerializersPulsar.c
+endif
+
+noinst_LTLIBRARIES =
+liblalpulsar_la_LIBADD =
+
+if HAVE_ALTIVEC
+noinst_LTLIBRARIES += libcomputefstat_demodhl_altivec.la
+liblalpulsar_la_LIBADD += libcomputefstat_demodhl_altivec.la
+libcomputefstat_demodhl_altivec_la_SOURCES = ComputeFstat_DemodHL_Altivec.c
+endif
+
+if HAVE_SSE_COMPILER
+noinst_LTLIBRARIES += libcomputefstat_demodhl_sse.la
+liblalpulsar_la_LIBADD += libcomputefstat_demodhl_sse.la
+libcomputefstat_demodhl_sse_la_SOURCES = ComputeFstat_DemodHL_SSE.c
+libcomputefstat_demodhl_sse_la_CFLAGS = $(AM_CFLAGS) $(SSE_CFLAGS)
+endif
+
 EXTRA_liblalpulsar_la_SOURCES = \
+	ComputeFstat_DemodHL_Altivec.i \
+	ComputeFstat_DemodHL_Generic.i \
+	ComputeFstat_DemodHL_OptC.i \
+	ComputeFstat_DemodHL_SSE.i \
+	ComputeFstat_Demod_ComputeFaFb.c \
+	ComputeFstat_internal.h \
 	GSLHelpers.h \
-	SinCosLUT.i 				\
-	ComputeFstat_Demod.c 			\
-	ComputeFstat_Demod_ComputeFaFb.c 	\
-	ComputeFstat_DemodHL_Altivec.i		\
-	ComputeFstat_DemodHL_OptC.i		\
-	ComputeFstat_DemodHL_SSE.i		\
-	ComputeFstat_DemodHL_Generic.i		\
-	ComputeFstat_Resamp.c 			\
-	SFTfileIO-LAL.c 			\
-	SFTutils-LAL.c
+	SFTfileIO-LAL.c \
+	SFTutils-LAL.c \
+	SinCosLUT.i \
+	$(END_OF_LIST)
 
 liblalpulsar_la_LDFLAGS = $(AM_LDFLAGS) -version-info $(LIBVERSION)
 

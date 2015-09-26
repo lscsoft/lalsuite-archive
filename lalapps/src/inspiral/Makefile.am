@@ -40,10 +40,8 @@ SKYMAPSRC = skymap.c
 COINJSRC = coinj.c
 STOCHBANKSRC = stochasticbank.c
 
-if LALFRAME
 if LALMETAIO
-if LALINSPIRAL
-LALFRAME_LALMETAIO_PROGS = \
+LALMETAIO_PROGS = \
 	lalapps_inspiral \
 	lalapps_tmpltbank \
 	lalapps_inca \
@@ -109,22 +107,16 @@ lalapps_skymap_SOURCES = $(SKYMAPSRC)
 lalapps_coinj_SOURCES = $(COINJSRC)
 lalapps_cbc_stochasticbank_SOURCES = $(STOCHBANKSRC)
 endif
-endif
-endif
 
-if LALFRAME
 if LALMETAIO
 if LALPULSAR
-if LALINSPIRAL
 LALPULSAR_PROGS = lalapps_coherent_inspiral
 lalapps_coherent_inspiral_SOURCES = $(COHERESRC)
 endif
 endif
-endif
-endif
 
 bin_PROGRAMS = \
-	$(LALFRAME_LALMETAIO_PROGS) \
+	$(LALMETAIO_PROGS) \
 	$(LALPULSAR_PROGS)
 
 if HAVE_PYTHON
@@ -160,7 +152,8 @@ pybin_scripts = \
 	lalapps_cbc_sbank_merge_sims \
 	lalapps_cbc_sbank_pipe \
 	lalapps_cbc_sbank_plot_sim \
-	lalapps_cbc_sbank_sim
+	lalapps_cbc_sbank_sim \
+	lalapps_bank_plotter
 
 pkgpython_PYTHON = \
 	inspiral.py \

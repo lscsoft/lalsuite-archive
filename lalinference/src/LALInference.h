@@ -83,6 +83,8 @@
 #include <gsl/gsl_complex_math.h>
 #include <sys/time.h>
 
+#define LALINFERENCE_HASHTABLE_SIZE 256 /* Max entries in hash table */
+
 //...other includes
 
 struct tagLALInferenceRunState;
@@ -162,6 +164,7 @@ tagLALInferenceVariables
 {
   LALInferenceVariableItem	*head;
   INT4 				dimension;
+  LALInferenceVariableItem	*hash_table[LALINFERENCE_HASHTABLE_SIZE];
 } LALInferenceVariables;
 
 /** 
@@ -208,7 +211,7 @@ INT4 LALInferenceFprintParameterNonFixedHeaders(FILE *out, LALInferenceVariables
 INT4 LALInferenceFprintParameterNonFixedHeadersWithSuffix(FILE *out, LALInferenceVariables *params, const char *suffix);
 
 /** Prints a variable item to a string (must be pre-allocated!) */
-void LALInferencePrintVariableItem(char *out, LALInferenceVariableItem *ptr);
+void LALInferencePrintVariableItem(char *out, const LALInferenceVariableItem *const ptr);
 
 /**
  * Return a pointer to the memory the variable \c vars is stored in specified by \c name
@@ -1024,6 +1027,10 @@ void LALInferenceSetstringVariable(LALInferenceVariables* vars,const char* name,
  * Print spline calibration parameter names as tab-separated ASCII
  */
 void LALInferenceFprintSplineCalibrationHeader(FILE *out, LALInferenceRunState *state);
+
+void LALInferenceDetFrameToEquatorial(LALDetector *det0, LALDetector *det1,
+                                      REAL8 t0, REAL8 alpha, REAL8 theta,
+                                      REAL8 *tg, REAL8 *ra, REAL8 *dec);
 
 /*@}*/
 

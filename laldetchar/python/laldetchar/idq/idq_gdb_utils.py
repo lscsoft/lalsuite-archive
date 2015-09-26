@@ -29,80 +29,31 @@ __author__ = 'Reed Essick <reed.essick@ligo.org>'
 __version__ = git_version.id
 __date__ = git_version.date
 
-## \addtogroup laldetchar_py_idq_auxmvc
+## \addtogroup laldetchar_py_idq_idq_gdb_utils
 # @{
 
 # Utility functions used for generating iDQ input to GraceDB.
 
 import numpy as np
 import re as re
+
 from laldetchar.idq import event
+
 from laldetchar.idq import idq
+#from laldetchar.idq import reed as idq
+
+from laldetchar.idq import idq_tables
+from glue.ligolw import ligolw
+from laldetchar.idq import idq_tables_dbutils
+from glue.ligolw import utils as ligolw_utils
+from glue.ligolw import lsctables
+from glue.ligolw import dbtables
+from glue.ligolw import table
 
 
-def combine_ts(filenames):
-    """ 
-....combine multiple files into a single time-series. Assumes filenames have the standard LIGO naming covention: *-start-dur.suffix
-....Also assumes that filenames are sorted into chronological order
-
-....returns lists of arrays, with each array consisting of only contiguous data
-........return timeseries, times
-...."""
-
-    t = np.array([])  # the array storing continuous data
-    ts = np.array([])
-    times = []  # a list that will contain stretches of continuous data
-    timeseries = []
-
-    matchfile = re.compile('.*-([0-9]*)-([0-9]*).*$')
-
-    end = False
-    for filename in filenames:
-        m = matchfile.match(filename)
-        (_start, _dur) = (int(m.group(1)), int(m.group(2)))
-
-        # ## check to see if we have continuous data
-
-        if not end or end == _start:  # beginning of data
-            end = _start + _dur
-
-            _file = event.gzopen(filename)
-            _ts = np.load(_file)
-            _file.close()
-
-            ts = np.concatenate((ts, _ts))
-            t = np.concatenate((t, np.arange(_start, _start + _dur, 1.0
-                               * _dur / len(_ts))))
-        else:
-
-            # gap in the data!
-
-            times.append(t)  # put old continuous data into lists
-            timeseries.append(ts)
-
-            _file = event.gzopen(filename)  # start new continuous data
-            ts = np.load(_file)
-            _file.close()
-            t = np.arange(_start, _start + _dur, 1.0 * _dur / len(ts))
-            end = _start + _dur
-
-    times.append(t)
-    timeseries.append(ts)
-
-    return (times, timeseries)
-
-
-def stats_ts(ts):
-    """ 
-....compute basic statistics about ts 
-
-....return min(ts), max(ts), mean(ts), stdv(ts)
-...."""
-
-    return (np.min(ts), np.max(ts), np.mean(ts), np.var(ts) ** 0.5)
-
-
-
+#===================================================================================================
+### DEPRECATED
+'''
 def execute_gdb_timeseries(
     gps_start,
     gps_end,
@@ -138,12 +89,10 @@ def execute_gdb_timeseries(
 
     for (option,value) in cp.items('gdb-time-series'):
         cmd_line.extend([option, value])
-	print cmd_line
+#	print cmd_line
     exit_status = idq.submit_command(cmd_line, 'gdb_timeseries', verbose=True)
 	
     return exit_status
-	
-	
 	
 def execute_gdb_glitch_tables(
     gps_start,
@@ -165,9 +114,72 @@ def execute_gdb_glitch_tables(
         cmd_line += ["--gdb-url", cp.get("general","gdb_url")]
     for (option,value) in cp.items('gdb-glitch-tables'):
         cmd_line.extend([option, value])
-	print cmd_line
+#	print cmd_line
     exit_status = idq.submit_command(cmd_line, 'gdb_glitch_tables', verbose=True)
 	
     return exit_status	
+'''
+
+#===================================================================================================
+
+def get_glitch_times(glitch_xmlfiles):
+    """
+    Returns list of (gps,gps_ns) tuples for all events contained in the glitch_xmlfiles.
+    """
+    # load files in database
+    connection, cursor = idq_tables_dbutils.load_xml_files_into_database(glitch_xmlfiles)
+
+    # get table names from the database
+    tablenames = dbtables.get_table_names(connection)
+    if not tablenames:
+        print "No tables were found in the database."
+        return []
+
+    # check if glitch table is present
+    if not table.StripTableName(idq_tables.IDQGlitchTable.tableName) in tablenames:
+        print "No glitch table is found in database."
+        print "Can not perform requested query."
+        return []
+
+    data = cursor.execute('''SELECT gps, gps_ns FROM ''' + \
+        table.StripTableName(idq_tables.IDQGlitchTable.tableName)).fetchall()
+    # close database
+    connection.close()
+    return data
+
+def get_glitch_ovl_snglburst_summary_info(glitch_xmlfiles, glitch_columns, ovl_columns, snglburst_columns):
+    """
+    Generates summary info table for glitch events stored in glitch_xmlfiles.
+    Returns list of (ifo, gps, gps_ns, rank, fap, ovl_channel, trig_type, trig_snr) tuples.
+    Each tuple in the list corresponds to a glitch event.
+    """
+    # load files in database
+    connection, cursor = idq_tables_dbutils.load_xml_files_into_database(glitch_xmlfiles)
+
+    # get glitch gps times and ovl channels
+    data = idq_tables_dbutils.get_get_glitch_ovl_sngburst_data(\
+        connection, cursor, glitch_columns, ovl_columns, snglburst_columns)
+
+    # close database
+    connection.close()
+    return data
+
+def get_glitch_ovl_channels(glitch_xmlfiles):
+    """
+    Gets ovl channels for glitch events from glitch_xmlfiles.
+    Returns list of (gps_seconds, gps_nanonsecons, ovl_channel) tuples.
+    Each tuple in the list corresponds to a glitch event.
+    """
+    # load files in database
+    connection, cursor = idq_tables_dbutils.load_xml_files_into_database(glitch_xmlfiles)
+
+    # get glitch gps times and ovl channels
+    data = idq_tables_dbutils.get_glitch_ovl_data(connection, cursor, \
+        ['gps', 'gps_ns'], ['aux_channel'])
+    # close database
+    connection.close()
+    return data
+
+
 ##@}
 

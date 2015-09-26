@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2014 Reinhard Prix
  * Copyright (C) 2009 Reinhard Prix
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -29,9 +30,6 @@
 /* System includes */
 #include <stdio.h>
 #include <time.h>
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
 
 /* GSL includes */
 #include <gsl/gsl_rng.h>
@@ -72,7 +70,7 @@ int main(void);
 
 int test_XLALSFTVectorToLFT(void);
 int test_XLALSincInterpolateCOMPLEX8TimeSeries(void);
-int test_XLALDirichletInterpolateSFT ( void );
+int test_XLALSincInterpolateSFT ( void );
 
 int XLALgenerateRandomData ( REAL4TimeSeries **ts, SFTVector **sfts );
 int write_SFTdata (const char *fname, const SFTtype *sft);
@@ -92,7 +90,7 @@ int main(void)
 
   XLAL_CHECK ( test_XLALSincInterpolateCOMPLEX8TimeSeries() == XLAL_SUCCESS, XLAL_EFUNC );
 
-  XLAL_CHECK ( test_XLALDirichletInterpolateSFT() == XLAL_SUCCESS, XLAL_EFUNC );
+  XLAL_CHECK ( test_XLALSincInterpolateSFT() == XLAL_SUCCESS, XLAL_EFUNC );
 
   LALCheckMemoryLeaks();
 
@@ -232,7 +230,7 @@ test_XLALSincInterpolateCOMPLEX8TimeSeries ( void )
       times_out->data[j] = t_j;
     } // for j < numSamplesOut
 
-  XLAL_CHECK ( XLALSincInterpolateCOMPLEX8TimeSeries ( &(tsOut->data), times_out, tsIn, Dterms ) == XLAL_SUCCESS, XLAL_EFUNC );
+  XLAL_CHECK ( XLALSincInterpolateCOMPLEX8TimeSeries ( tsOut->data, times_out, tsIn, Dterms ) == XLAL_SUCCESS, XLAL_EFUNC );
   XLALDestroyREAL8Vector ( times_out );
 
   // ---------- check accuracy of interpolation
@@ -271,7 +269,7 @@ test_XLALSincInterpolateCOMPLEX8TimeSeries ( void )
 } // test_XLALSincInterpolateCOMPLEX8TimeSeries()
 
 int
-test_XLALDirichletInterpolateSFT ( void )
+test_XLALSincInterpolateSFT ( void )
 {
   REAL8 f0 = 0;		// heterodyning frequency
   REAL8 sigmaN = 0.001;
@@ -347,7 +345,7 @@ test_XLALDirichletInterpolateSFT ( void )
   XLAL_CHECK ( XLALExtractBandFromSFT ( &sftUpsampled, sft0padded, fMin + 0.5*df0padded, BandOut - df0padded ) == XLAL_SUCCESS, XLAL_EFUNC );
 
   SFTtype *sftInterpolated;
-  XLAL_CHECK ( (sftInterpolated = XLALDirichletInterpolateSFT ( sft, fMin, df0padded, numBinsOut, Dterms )) != NULL, XLAL_EFUNC );
+  XLAL_CHECK ( (sftInterpolated = XLALSincInterpolateSFT ( sft, fMin, df0padded, numBinsOut, Dterms )) != NULL, XLAL_EFUNC );
 
   // ----- out debug info
   if ( lalDebugLevel & LALINFO )
@@ -377,7 +375,7 @@ test_XLALDirichletInterpolateSFT ( void )
 
   return XLAL_SUCCESS;
 
-} // test_XLALDirichletInterpolateSFT()
+} // test_XLALSincInterpolateSFT()
 
 
 /**

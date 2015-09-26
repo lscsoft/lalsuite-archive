@@ -113,6 +113,7 @@ static PyObject *frgetvect(PyObject *self, PyObject *args, PyObject *keywds) {
     int verbose, i, nDim;
     long nData;
     double start, span;
+    double fr_start, fr_end, fr_span;
     char *filename, *channel, msg[MAX_STR_LEN];
 
     npy_intp shape[MAX_VECT_DIMS];
@@ -165,12 +166,30 @@ static PyObject *frgetvect(PyObject *self, PyObject *args, PyObject *keywds) {
         printf("Opened %s.\n", filename);
     }
 
+    fr_start = FrFileITStart(iFile);
+    fr_end = FrFileITEnd(iFile);
+    fr_span = fr_end - fr_start;
+    /* Error checking */
+    if (start != -1. && start < fr_start) {
+        snprintf(msg, MAX_STR_LEN, "Requested start (%10.6f) is before frame start (%10.6f) in file %s", start, fr_start, filename);
+        FrFileIEnd(iFile);
+        PyErr_SetString(PyExc_ValueError, msg);
+        return NULL;
+    }
     // Start and span auto-detection requires a TOC in the frame file.
     if (start == -1.) {
-        start = FrFileITStart(iFile);
+        start = fr_start;
     }
+
+    if (span != -1. && start + span > fr_start + fr_span) {
+        snprintf(msg, MAX_STR_LEN, "Requested end (%10.6f) is after frame end (%10.6f) in file %s", start + span, fr_start + fr_span, filename);
+        FrFileIEnd(iFile);
+        PyErr_SetString(PyExc_ValueError, msg);
+        return NULL;
+    }
+    // Start and span auto-detection requires a TOC in the frame file.
     if (span == -1.) {
-        span = FrFileITEnd(iFile) - start;
+        span = fr_end - fr_start;
     }
 
     /*-------------- get vector --------------------------*/

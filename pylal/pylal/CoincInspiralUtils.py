@@ -29,7 +29,7 @@ class ExtractCoincInspiralTableLIGOLWContentHandler(ligolw.PartialLIGOLWContentH
         return 0==table.CompareTableNames(attrs.get('Name'), lsctables.CoincInspiralTable.tableName)
       else:
         return False
-      ligolw.PartialLIGOLWContentHandler.__init__(self,document,filterfunc)
+    ligolw.PartialLIGOLWContentHandler.__init__(self,document,filterfunc)
 
 
 def get_ifo_combos(ifo_list):

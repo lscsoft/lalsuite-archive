@@ -1,7 +1,7 @@
 AC_PREREQ([2.63])
-AC_INIT([LAL],[6.13.4.1],[lal-discuss@ligo.org])
-AC_CONFIG_HEADERS([include/config.h lib/lal/LALConfig.h])
-AC_CONFIG_SRCDIR([packages/std/include/LALStdio.h])
+AC_INIT([LAL],[6.15.0.1],[lal-discuss@ligo.org])
+AC_CONFIG_HEADERS([src/config.h src/LALConfig.h])
+AC_CONFIG_SRCDIR([src/std/LALStdio.h])
 AC_CONFIG_AUX_DIR([gnuscripts])
 AC_CONFIG_MACRO_DIR([gnuscripts])
 AC_CONFIG_FILES([ \
@@ -14,69 +14,42 @@ AC_CONFIG_FILES([ \
   lal.pc \
   lal.spec \
   lalsupport.pc \
-  lib/Makefile \
-  lib/lal/LALVCSInfo.c \
-  lib/lal/LALVCSInfo.h \
-  lib/lal/Makefile \
-  lib/lalsupport/Makefile \
-  lib/lalsupport/include/Makefile \
-  lib/lalsupport/src/Makefile \
-  lib/lalsupport/test/Makefile \
-  packages/Makefile \
-  packages/date/Makefile \
-  packages/date/include/Makefile \
-  packages/date/src/Makefile \
-  packages/date/test/Makefile \
-  packages/factories/Makefile \
-  packages/factories/include/Makefile \
-  packages/factories/src/Makefile \
-  packages/factories/test/Makefile \
-  packages/fft/Makefile \
-  packages/fft/include/Makefile \
-  packages/fft/src/Makefile \
-  packages/fft/test/Makefile \
-  packages/inject/Makefile \
-  packages/inject/include/Makefile \
-  packages/inject/src/Makefile \
-  packages/inject/test/Makefile \
-  packages/noisemodels/Makefile \
-  packages/noisemodels/include/Makefile \
-  packages/noisemodels/src/Makefile \
-  packages/noisemodels/test/Makefile \
-  packages/stats/Makefile \
-  packages/stats/include/Makefile \
-  packages/stats/src/Makefile \
-  packages/stats/test/Makefile \
-  packages/std/Makefile \
-  packages/std/include/Makefile
-  packages/std/src/Makefile \
-  packages/std/test/Makefile \
-  packages/tdfilter/Makefile \
-  packages/tdfilter/include/Makefile \
-  packages/tdfilter/src/Makefile \
-  packages/tdfilter/test/Makefile \
-  packages/tools/Makefile \
-  packages/tools/include/Makefile \
-  packages/tools/src/Makefile \
-  packages/tools/test/Makefile \
-  packages/utilities/Makefile \
-  packages/utilities/include/Makefile \
-  packages/utilities/src/Makefile \
-  packages/utilities/test/Makefile \
-  packages/vectorops/Makefile \
-  packages/vectorops/include/Makefile \
-  packages/vectorops/src/Makefile \
-  packages/vectorops/test/Makefile \
-  packages/window/Makefile \
-  packages/window/include/Makefile \
-  packages/window/src/Makefile \
-  packages/window/test/Makefile \
   python/Makefile \
   python/lal/Makefile \
   python/lal/__init__.py \
   python/lal/spectrum/Makefile \
   python/lal/utils/Makefile \
+  src/LALVCSInfo.c \
+  src/LALVCSInfo.h \
+  src/Makefile \
+  src/date/Makefile \
+  src/factories/Makefile \
+  src/fft/Makefile \
+  src/inject/Makefile \
+  src/noisemodels/Makefile \
+  src/stats/Makefile \
+  src/std/Makefile \
+  src/support/Makefile \
+  src/tdfilter/Makefile \
+  src/tools/Makefile \
+  src/utilities/Makefile \
+  src/vectorops/Makefile \
+  src/window/Makefile \
   swig/Makefile \
+  test/Makefile \
+  test/date/Makefile \
+  test/factories/Makefile \
+  test/fft/Makefile \
+  test/inject/Makefile \
+  test/noisemodels/Makefile \
+  test/stats/Makefile \
+  test/std/Makefile \
+  test/support/Makefile \
+  test/tdfilter/Makefile \
+  test/tools/Makefile \
+  test/utilities/Makefile \
+  test/vectorops/Makefile \
+  test/window/Makefile \
 ])
 AM_INIT_AUTOMAKE([1.11 foreign subdir-objects color-tests parallel-tests])
 
@@ -99,7 +72,7 @@ LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 #    then increment age.
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
-AC_SUBST([LIBCURRENT],[9])
+AC_SUBST([LIBCURRENT],[11])
 AC_SUBST([LIBREVISION],[0])
 AC_SUBST([LIBAGE],[0])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
@@ -118,9 +91,9 @@ AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
 #    then increment age.
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
-AC_SUBST([LIBCURRENT_SUPPORT],[5])
+AC_SUBST([LIBCURRENT_SUPPORT],[7])
 AC_SUBST([LIBREVISION_SUPPORT],[0])
-AC_SUBST([LIBAGE_SUPPORT],[1])
+AC_SUBST([LIBAGE_SUPPORT],[0])
 AC_SUBST([LIBVERSION_SUPPORT],[${LIBCURRENT_SUPPORT}:${LIBREVISION_SUPPORT}:${LIBAGE_SUPPORT}])
 
 LAL_ENABLE_INTELFFT
@@ -155,17 +128,8 @@ AM_SILENT_RULES([yes])
 # check for required compilers
 LALSUITE_PROG_COMPILERS
 
-# check for pthreads
-lal_pthread_available="yes"
-AX_PTHREAD(,[lal_pthread_available="no"])
-if test "$lal_pthread_lock" = "true" ; then
-  if test "$lal_pthread_available" = "yes" ; then
-    LALSUITE_ADD_FLAGS([C],[${PTHREAD_CFLAGS}],[${PTHREAD_LIBS}])
-    CC="$PTHREAD_CC"
-  else
-    AC_MSG_ERROR([do not know how to compile posix threads])
-  fi
-fi
+# check for SIMD extensions
+LALSUITE_CHECK_SIMD
 
 # check for programs
 AC_PROG_INSTALL
@@ -198,9 +162,10 @@ esac
 
 # check for system headers files
 AC_HEADER_STDC
-AC_CHECK_HEADERS([sys/time.h sys/resource.h unistd.h getopt.h malloc.h regex.h glob.h])
+AC_CHECK_HEADERS([sys/time.h sys/resource.h unistd.h malloc.h regex.h glob.h execinfo.h])
 AC_CHECK_HEADERS([stdint.h],,[AC_MSG_ERROR([could not find stdint.h])])
 AC_CHECK_HEADERS([inttypes.h],,[AC_MSG_ERROR([could not find inttypes.h])])
+AC_CHECK_HEADERS([cpuid.h])
 AC_MSG_CHECKING([for gethostname prototype in unistd.h])
 AC_EGREP_HEADER([gethostname],[unistd.h],AC_MSG_RESULT([yes])
 AC_DEFINE([HAVE_GETHOSTNAME_PROTOTYPE],[1],[Define if gethostname prototype is in unistd.h]),AC_MSG_RESULT([no]))
@@ -311,6 +276,14 @@ if test "${boinc}" = "true"; then
   AC_SUBST(BOINC_LIBS)
 fi
 
+# check for hdf5 support
+HDF5_ENABLE_VAL="DISABLED"
+AX_LIB_HDF5()
+if test "${with_hdf5}" = "yes"; then
+  AC_DEFINE([LAL_HDF5_ENABLED],[1],[Define if using HDF5 library])
+  HDF5_ENABLE_VAL="ENABLED"
+fi
+
 # configure SWIG wrapping modules
 LALSUITE_USE_SWIG
 
@@ -326,12 +299,7 @@ AC_TYPE_SSIZE_T
 AC_HEADER_TIME
 
 # checks for library functions
-AC_CHECK_FUNCS([gmtime_r localtime_r])
-AC_CHECK_FUNCS([stat],,[AC_MSG_ERROR([could not find the stat() function])])
-AC_CHECK_FUNCS([getopt],,[AC_MSG_ERROR([could not find the getopt() function])])
-AC_CHECK_FUNCS([getopt_long],,[AC_MSG_ERROR([could not find the getopt_long() function])])
-AC_CHECK_FUNCS([putenv])
-AC_CHECK_FUNCS([posix_memalign])
+AC_CHECK_FUNCS([gmtime_r localtime_r stat putenv posix_memalign backtrace clock_gettime])
 
 # set automake conditionals
 AM_CONDITIONAL([INTELFFT],[test x$intelfft = xtrue])
@@ -341,11 +309,11 @@ AM_CONDITIONAL([QTHREAD],[test x$qthread = xtrue])
 LALSUITE_ADD_GCC_FLAGS
 
 # link any executables against LAL and LALSupport libraries
-AC_SUBST([LDADD], ["\$(top_builddir)/lib/lal/liblal.la \$(top_builddir)/lib/lalsupport/src/liblalsupport.la"])
+AC_SUBST([LDADD], ["\$(top_builddir)/src/liblal.la \$(top_builddir)/src/support/liblalsupport.la"])
 
 # add extra preprocessor flags
 AM_CPPFLAGS="-DPKG_DATA_DIR='\"\$(pkgdatadir)/\"' ${AM_CPPFLAGS}"
-AM_CPPFLAGS="-I\$(top_builddir)/include ${AM_CPPFLAGS}"
+AM_CPPFLAGS="-I\$(top_builddir)/include -I\$(top_srcdir)/src ${AM_CPPFLAGS}"
 
 # force all python modules into the exec dir to prevent mixed C and
 # pure-python library code from being split across lib and lib64 on
@@ -361,7 +329,7 @@ LAL has now been successfully configured:
 * Python support is $PYTHON_ENABLE_VAL
 * CUDA support is $CUDA_ENABLE_VAL
 * BOINC support is $BOINC_ENABLE_VAL
-* SWIG binding generation is $SWIG_GENERATE_ENABLE_VAL
+* HDF5 support is $HDF5_ENABLE_VAL
 * SWIG bindings for Octave are $SWIG_BUILD_OCTAVE_ENABLE_VAL
 * SWIG bindings for Python are $SWIG_BUILD_PYTHON_ENABLE_VAL
 * Doxygen documentation is $DOXYGEN_ENABLE_VAL

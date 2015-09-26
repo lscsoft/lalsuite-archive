@@ -72,8 +72,8 @@ def time_at_instrument(sim, instrument, offsetvector):
 	# injections are done this way so that when the triggers that
 	# result from an injection have the offset vector added to their
 	# times the triggers will form a coinc
-	t_geocent = sim.get_time_geocent() - offsetvector[instrument]
-	ra, dec = sim.get_ra_dec()
+	t_geocent = sim.time_geocent - offsetvector[instrument]
+	ra, dec = sim.ra_dec
 	return t_geocent + date.XLALTimeDelayFromEarthCenter(inject.cached_detector[inject.prefix_to_name[instrument]].location, ra, dec, t_geocent)
 
 

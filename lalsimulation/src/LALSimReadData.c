@@ -17,9 +17,15 @@
 *  MA  02111-1307  USA
 */
 
+#define _GNU_SOURCE   /* for realpath() */
+
+#include <config.h>
+#include <stdlib.h>
 #include <limits.h>
 #include <string.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <lal/LALStdlib.h>
 #include <lal/LALString.h>
 #include <lal/LALSimReadData.h>
@@ -64,7 +70,7 @@ LALFILE *XLALSimReadDataFileOpen(const char *fname)
         char *str;
         char *dir;
         env = str = XLALStringDuplicate(env ? env : ":");
-        while ((dir = strsep(&str, ":"))) {
+        while ((dir = XLALStringToken(&str, ":", 1))) {
             if (strlen(dir))
                 snprintf(path, sizeof(path), "%s/%s", dir, fname);
             else        /* use default path */

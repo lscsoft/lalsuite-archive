@@ -33,17 +33,14 @@
 #include <numpy/arrayobject.h>
 
 
+#include <lal/EPSearch.h>
 #include <lal/LALDatatypes.h>
 #include <lal/Sequence.h>
-#include <lal/TFTransform.h>
-#include <lal/Window.h>
 
 
 #include <misc.h>
 #include <datatypes/complex16frequencyseries.h>
-#include <datatypes/real8fftplan.h>
 #include <datatypes/real8frequencyseries.h>
-#include <datatypes/real8window.h>
 
 
 #define MODULE_NAME "pylal.xlal.lalburst"
@@ -56,70 +53,6 @@
  *
  * ============================================================================
  */
-
-
-/*
- * XLALEPGetTimingParameters()
- */
-
-
-static PyObject *pylal_XLALEPGetTimingParameters(PyObject *self, PyObject *args)
-{
-	int window_length;
-	int max_tile_length;
-	double fractional_tile_stride;
-	int psd_length;
-	int psd_shift;
-	int window_shift;
-	int window_pad;
-	int tiling_length;
-
-	psd_length = -1;
-	if(!PyArg_ParseTuple(args, "iid|i", &window_length, &max_tile_length, &fractional_tile_stride, &psd_length))
-		return NULL;
-
-	if(XLALEPGetTimingParameters(window_length, max_tile_length, fractional_tile_stride, psd_length < 0 ? NULL : &psd_length, psd_length < 0 ? NULL : &psd_shift, &window_shift, &window_pad, &tiling_length) < 0) {
-	}
-
-	if(psd_length < 0)
-		return Py_BuildValue("{s:i,s:i,s:i}", "window_shift", window_shift, "window_pad", window_pad, "tiling_length", tiling_length);
-	return Py_BuildValue("{s:i,s:is:i,s:i,s:i}", "psd_length", psd_length, "psd_shift", psd_shift, "window_shift", window_shift, "window_pad", window_pad, "tiling_length", tiling_length);
-}
-
-
-/*
- * pylal_XLALREAL8WindowTwoPointSpectralCorrelation()
- */
-
-
-static PyObject *pylal_XLALREAL8WindowTwoPointSpectralCorrelation(PyObject *self, PyObject *args)
-{
-	pylal_REAL8Window *window;
-	pylal_REAL8FFTPlan *plan;
-	REAL8Sequence *sequence;
-	PyObject *result;
-
-	if(!PyArg_ParseTuple(args, "O!O!", &pylal_REAL8Window_Type, &window, &pylal_REAL8FFTPlan_Type, &plan))
-		return NULL;
-
-	sequence = XLALREAL8WindowTwoPointSpectralCorrelation(window->window, plan->plan);
-	if(!sequence) {
-		pylal_set_exception_from_xlalerrno();
-		return NULL;
-	}
-
-	{
-	npy_intp dims[] = {sequence->length};
-	result = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, sequence->data);
-	}
-
-	/* free sequence without freeing array data */
-	if(result)
-		sequence->data = NULL;
-	XLALDestroyREAL8Sequence(sequence);
-
-	return result;
-}
 
 
 /*
@@ -206,8 +139,6 @@ static PyObject *pylal_XLALCreateExcessPowerFilter(PyObject *self, PyObject *arg
 
 
 static struct PyMethodDef methods[] = {
-	{"XLALEPGetTimingParameters", pylal_XLALEPGetTimingParameters, METH_VARARGS, NULL},
-	{"XLALREAL8WindowTwoPointSpectralCorrelation", pylal_XLALREAL8WindowTwoPointSpectralCorrelation, METH_VARARGS, NULL},
 	{"XLALExcessPowerFilterInnerProduct", pylal_XLALExcessPowerFilterInnerProduct, METH_VARARGS, NULL},
 	{"XLALCreateExcessPowerFilter", pylal_XLALCreateExcessPowerFilter, METH_VARARGS, NULL},
 	{NULL,}
@@ -221,7 +152,5 @@ PyMODINIT_FUNC initlalburst(void)
 	import_array()
 
 	pylal_complex16frequencyseries_import();
-	pylal_real8fftplan_import();
 	pylal_real8frequencyseries_import();
-	pylal_real8window_import();
 }

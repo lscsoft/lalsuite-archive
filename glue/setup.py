@@ -9,13 +9,13 @@ try:
   from sys import version_info
 except:
   print >> sys.stderr, "Unable to determine the python version"
-  print >> sys.stderr, "Please check that your python version is >= 2.4"
+  print >> sys.stderr, "Please check that your python version is >= 2.6"
   sys.exit(1)
 
-if version_info < (2, 4):
-  print >> sys.stderr, "Your python version " + str(version_info) + " appears to be less than 2.4"
-  print >> sys.stderr, "Please check that your python version is >= 2.4"
-  print >> sys.stderr, "Glue requires at least version 2.4"
+if version_info < (2, 6):
+  print >> sys.stderr, "Your python version " + str(version_info) + " appears to be less than 2.6"
+  print >> sys.stderr, "Please check that your python version is >= 2.6"
+  print >> sys.stderr, "Glue requires at least version 2.6"
   sys.exit(1)
 
 try:
@@ -37,7 +37,7 @@ from distutils import log
 
 from misc import generate_vcs_info as gvcsi
 
-ver = "1.47.1"
+ver = "1.49.1"
 
 def remove_root(path,root):
   if root:
@@ -297,7 +297,6 @@ setup(
     ),
     ( os.path.join( 'share','nmi' ),
       [ 
-        os.path.join('src', 'nmi', 'builds', 'lalsuite-build.spec'),
         os.path.join('src', 'nmi', 'builds', 'lalsuite-build-scripts.location'),
       ]
     ),
