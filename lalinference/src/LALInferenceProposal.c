@@ -3947,7 +3947,7 @@ REAL8 LALInferenceStoredClusteredKDEProposal(LALInferenceRunState *runState, LAL
  * @param runState The run state containing the differential evolution buffer.
  * @param maxACL UNDOCUMENTED
 */
-void LALInferenceComputeMaxAutoCorrLenkip, maxAutoCorrLenromDE(LALInferenceRunState *runState, INT4* maxACL) {
+void LALInferenceComputeMaxAutoCorrLenFromDE(LALInferenceRunState *runState, INT4* maxACL) {
   INT4 nPar = LALInferenceGetVariableDimensionNonFixed(runState->currentParams);
   INT4 nPoints = runState->differentialPointsLength;
 
@@ -3968,20 +3968,8 @@ void LALInferenceComputeMaxAutoCorrLenkip, maxAutoCorrLenromDE(LALInferenceRunSt
     DEarray[i] = temp + (i*nPar);
 
   LALInferenceBufferToArray(runState, DEarray);
-  REAL8 maxAutoCorrLen = LALInferenceComputeMaxAutoCorrLen(DEarray[nPoints/2], nPoints-nPoints/2, nPar);
-  ACL = Nskip * maxAutoCorrLen;
-  /* ACL = Nskip * LALInferenceComputeMaxAutoCorrLen(DEarray[nPoints/2], nPoints-nPoints/2, nPar); */
+  ACL = Nskip * LALInferenceComputeMaxAutoCorrLen(DEarray[nPoints/2], nPoints-nPoints/2, nPar);
 
-  /* In some cases, the value maxACL is zero at this point then return the 
-     value zero, which generate error of integer divide-by-zero in function
-     LALInferenceComputeEffectiveSampleSize(). Then stop the code abruptly.
-     Hence I have put 1.0 if its integer truncation is equal or less than zero.
-     Since the default value should be INFINITY, I set its value as INFINITY.
-     modified at 25 September 2015 by KGWG PE team */
-  if((INT4)ACL <= 0) {
-    fprintf(stdout, "===== WARNING calculated ACL(=%d X %f) = %f, hence it was set to be 1. ==========\n", Nskip, maxAutoCorrLen, ACL);
-    ACL = 1.001;
-  }
   *maxACL = (INT4)ACL;
   XLALFree(temp);
   XLALFree(DEarray);
@@ -4064,6 +4052,8 @@ void LALInferenceUpdateMaxAutoCorrLen(LALInferenceRunState *runState) {
   INT4 acl;
 
   LALInferenceComputeMaxAutoCorrLenFromDE(runState, &acl);
+  /* Some case, calculated acl < 1, which causes program stop. 25 September 2015 by KGWG PE team. */
+  if(acl < 1) acl = 1;
   LALInferenceSetVariable(runState->algorithmParams, "acl", &acl);
 }
 
