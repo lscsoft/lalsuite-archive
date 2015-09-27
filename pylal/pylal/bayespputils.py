@@ -97,6 +97,7 @@ __date__= git_version.date
 #===============================================================================
 #Parameters which are not to be exponentiated when found
 logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior']
+snrParams=['snr','optimal_snr','matched_filter_snr'] + ['%s_optimal_snr'%(i) for i in ['H1','L1','V1']]
 #Pre-defined ordered list of line styles for use in matplotlib contour plots.
 __default_line_styles=['solid', 'dashed', 'dashdot', 'dotted']
 #Pre-defined ordered list of matplotlib colours for use in plots.
@@ -5187,7 +5188,8 @@ class PEOutputParser(object):
                 ntots.append(ntot)
                 if nDownsample is None:
                     try:
-                        nonParams = ["logpost", "cycle", "logprior", "logl", "loglh1", "logll1", "loglv1", "timestamp", "snrh1", "snrl1", "snrv1", "snr", "time_mean", "time_maxl"]
+                        nonParams = ["logpost", "cycle", "timestamp", "snrh1", "snrl1", "snrv1",
+                                     "time_mean", "time_maxl"] + logParams + snrParams
                         nonParamsIdxs = [header.index(name) for name in nonParams if name in header]
                         paramIdxs = [i for i in range(len(header)) if i not in nonParamsIdxs]
                         samps = np.array(lines).astype(float)
