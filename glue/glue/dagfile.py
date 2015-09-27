@@ -1,4 +1,4 @@
-# Copyright (C) 2011--2014  Kipp Cannon
+# Copyright (C) 2011--2015  Kipp Cannon
 # Copyright (C) 2004--2006  Brian Moe
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -105,6 +105,15 @@ class progress_wrapper(object):
 	def __del__(self):
 		if self.callback is not None:
 			self.callback(self.f, self.n, True)
+
+
+class nofile(object):
+	"""
+	Object providing a no-op .write() method to fake a file.  For
+	internal use only.
+	"""
+	def write(self, *args):
+		pass
 
 
 #
@@ -827,9 +836,6 @@ class DAG(object):
 		# if needed, create a dummy object to allow .write() method
 		# calls
 		if f is None and rescue is not None:
-			class nofile(object):
-				def write(self, *args):
-					pass
 			f = nofile()
 
 		# DOT ...
@@ -928,7 +934,7 @@ class DAG(object):
 		# set up renaming map
 
 		if rename:
-			namemap = dict((name, str(n + 1)) for n, name in enumerate(sorted(self.nodes)))
+			namemap = dict((name, str(n)) for n, name in enumerate(sorted(self.nodes), start = 1))
 		else:
 			namemap = dict((name, name) for name in self.nodes)
 
