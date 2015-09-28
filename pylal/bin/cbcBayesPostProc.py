@@ -40,6 +40,7 @@ import cPickle as pickle
 from time import strftime
 
 #related third party imports
+import numpy as np
 from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit,correlate,log,dot,power,squeeze,sort
 from scipy import stats
 
@@ -591,20 +592,25 @@ def cbcBayesPostProc(
       
     wftd=html_wf.insert_td(row,'',label='PSDs',legend=legend)
     wfsection=html.add_section_to_element('PSDs',wftd)
-    psd_pointer=None
     if psd_files is not None:
       psd_files=list(psd_files.split(','))
       psddir=os.path.join(outdir,'PSDs')
       if not os.path.isdir(psddir):
         os.makedirs(psddir)
       try:
-        psd_pointer=bppu.plot_psd(psd_files,outpath=psddir)    
+        freqs = bppu.plot_psd(psd_files,outpath=psddir)
+        wfsection.write('<a href="PSDs/PSD.png" target="_blank"><img src="PSDs/PSD.png"/></a>')
       except:
-        psd_pointer=None
-    if psd_pointer:
-      wfsection.write('<a href="PSDs/PSD.png" target="_blank"><img src="PSDs/PSD.png"/></a>')
-    else:
-      wfsection.write("<b>No PSD file found!</b>")
+        freqs = None
+        wfsection.write("<b>No PSD file found!</b>")
+
+      # Add plots for calibration estimates
+      wftd=html_wf.insert_td(row,'',label='Calibration',legend=legend)
+      wfsection=html.add_section_to_element('Calibration',wftd)
+      if np.any(['spcal_amp' in param for param in pos.names]) or np.any(['spcal_phase' in param for param in pos.names]):
+        wfsection.write('<a href="calibration.png" target="_blank"><img src="calibration.png"/></a>')
+        bppu.plot_calibration_pos(freqs, pos, outpath=outdir)
+
     #==================================================================#
     #1D posteriors
     #==================================================================#

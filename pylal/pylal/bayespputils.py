@@ -51,6 +51,7 @@ from scipy import stats
 from scipy import special
 from scipy import signal
 from scipy.optimize import newton
+from scipy import interpolate
 from numpy import linspace
 import random
 import socket
@@ -6274,7 +6275,6 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
   return 1
   
 def plot_psd(psd_files,outpath=None):
-  
   f_min=30.
   myfig2=plt.figure(figsize=(15,15),dpi=500)
   ax=plt.subplot(1,1,1)  
@@ -6292,14 +6292,15 @@ def plot_psd(psd_files,outpath=None):
      return None
   else:
     psd_files=tmp
-    
+
+  freqs = {}
   for f in psd_files:
-    
     data=np.loadtxt(f)
     freq=data[:,0]
     data=data[:,1]
     idx=f.find('-PSD.dat')
     ifo=f[idx-2:idx]
+    freqs[ifo.lower()] = freq
     fr=[]
     da=[]
     for (f,d) in zip(freq,data):
@@ -6316,4 +6317,89 @@ def plot_psd(psd_files,outpath=None):
   myfig2.savefig(os.path.join(outpath,'PSD.png'),bbox_inches='tight')
   myfig2.clf()
 
-  return 1
+  return freqs
+
+cred_level = lambda cl, x: np.sort(x, axis=0)[int(cl*len(x))]
+
+def cred_interval(x, cl=.9, lower=True):
+    """Return location of lower or upper confidence levels
+    Args:
+        x: List of samples.
+        cl: Confidence level to return the bound of.
+        lower: If ``True``, return the lower bound, otherwise return the upper bound.
+    """
+    if lower:
+        return cred_level((1.-cl)/2, x)
+    else:
+        return cred_level((1.+cl)/2, x)
+
+def plot_spline_pos(logf, ys, nf=100, level=0.9, color='k', label=None):
+    """Plot calibration posterior estimates for a spline model in log space.
+    Args:
+        logf: The (log) location of spline control points.
+        ys: List of posterior draws of function at control points ``logf``
+        nx: Number of points to evaluate spline at for plotting.
+        level: Credible level to fill in.
+        color: Color to plot with.
+        label: Label for plot.
+    """
+    f = np.exp(logf)
+    fs = np.linspace(f.min(), f.max(), nf)
+
+    data = np.zeros((ys.shape[0], nf))
+
+    for i, samp in enumerate(ys):
+        data[i] = interpolate.spline(logf, samp, np.log(fs))
+
+    line, = plt.plot(fs, np.mean(data, axis=0), color=color, label=label)
+    color = line.get_color()
+    plt.fill_between(fs, cred_interval(data, level), cred_interval(data, level, lower=False), color=color, alpha=.1, linewidth=0.1)
+    plt.xlim(f.min(), f.max())
+
+def plot_calibration_pos(freqs, pos, fmin=30., level=.9, outpath=None):
+    fig, [ax1, ax2] = plt.subplots(2, 1, figsize=(15, 15), dpi=500)
+
+    font_size = 32
+    if outpath is None:
+        outpath=os.getcwd()
+
+    params = pos.names
+    ifos = freqs.keys()
+    for ifo in ifos:
+        ifo = ifo.lower()
+        if ifo=='h1': color = 'r'
+        elif ifo=='l1': color = 'g'
+        elif ifo=='v1': color = 'm'
+        else: color = 'c'
+
+        amp_params = np.sort([param for param in params if
+                              '{}_spcal_amp'.format(ifo) in param])
+        phase_params = np.sort([param for param in params if
+                                '{}_spcal_phase'.format(ifo) in param])
+
+        amp = 100*np.column_stack([pos[param].samples for param in amp_params])
+        phase = 180./np.pi*np.column_stack([pos[param].samples for param in phase_params])
+
+        ncal = len(amp_params)
+
+        logfreqs = np.log(np.logspace(np.log(fmin),
+                                      np.log(max(freqs[ifo])), ncal, base=np.exp(1)))
+
+        plt.sca(ax1)
+        plot_spline_pos(logfreqs, amp, color=color, level=level, label="{} ({}%)".format(ifo.upper(), int(level*100)))
+
+        plt.sca(ax2)
+        plot_spline_pos(logfreqs, phase, color=color, level=level, label="{} ({}%)".format(ifo.upper(), int(level*100)))
+
+    ax1.tick_params(labelsize=.75*font_size)
+    ax2.tick_params(labelsize=.75*font_size)
+    plt.legend(loc='upper right', fontsize=.75*font_size)
+    ax1.set_xscale('log')
+    ax2.set_xscale('log')
+
+    ax2.set_xlabel('Frequency (Hz)', fontsize=font_size)
+    ax1.set_ylabel('Amplitude (%)', fontsize=font_size)
+    ax2.set_ylabel('Phase (deg)', fontsize=font_size)
+    fig.tight_layout()
+    fig.savefig(os.path.join(outpath, 'calibration.png'), bbox_inches='tight')
+    plt.close(fig)
