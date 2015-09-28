@@ -1083,9 +1083,12 @@ def cbcBayesPostProc(
                     html_tcmp_write+='</tr>'
                     row_count=0
 
-                myfig.savefig(twoDKdePath)
-                if(savepdfs): myfig.savefig(twoDKdePath.replace('.png','.pdf'))
-                plt.close(myfig)
+                if myfig:
+                  myfig.savefig(twoDKdePath)
+                  if(savepdfs): myfig.savefig(twoDKdePath.replace('.png','.pdf'))
+                  plt.close(myfig)
+                else:
+                  print 'Unable to generate 2D kde levels for %s-%s'%(par1_name,par2_name)
 
 
     #Finish off the BCI table and write it into the etree

@@ -4052,10 +4052,10 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
     
     try:
       kde=stats.kde.gaussian_kde(samp)
-    except np.linalg.linalg.LinAlgError:
+      den=kde(samp)
+    except:
       return None
       
-    den=kde(samp)
     #grid_coords = np.append(x.reshape(-1,1),y.reshape(-1,1),axis=1)
     Nx=Npixels
     Ny=Npixels
