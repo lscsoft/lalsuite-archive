@@ -714,7 +714,7 @@ XLALSpinHcapNumericalDerivative(
     if (values[9]!=0. && values[10]!=0. && values[11]!=0.) {
         S2Norm = sqrt( values[9]*values[9] + values[10]*values[10] + values[11]*values[11] );
     }
-    for(i=6; i<9; i++) {
+    /*for(i=6; i<9; i++) {
         if(fabs(values[i])<=1e-4 && fabs(dvalues[i])<=1e-4) {
         dvalues[i]=0.;
         }
@@ -733,7 +733,7 @@ XLALSpinHcapNumericalDerivative(
                 dvalues[i]=0.;
             }
         }
-    }
+    }*/
 
     if(debugPK){
   for(i=0; i<14; i++)
