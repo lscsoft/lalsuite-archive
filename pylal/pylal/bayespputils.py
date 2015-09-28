@@ -3967,24 +3967,24 @@ def getDecString(radians,accuracy='auto'):
 def plot_corner(posterior,levels,parnames=None):
   """
   Make a corner plot using the triangle module
-  (See http://github.com/dfm/triangle.py)
+  (See http://github.com/dfm/corner.py)
   @param posterior: The Posterior object
   @param levels: a list of confidence levels
   @param parnames: list of parameters to include
   """
   try:
-    import triangle
+    import corner
   except ImportError:
-    print 'Cannot load triangle module. Try running\n\t$ pip install triangle_plot'
+    print 'Cannot load corner module. Try running\n\t$ pip install corner'
     return None
   parnames=filter(lambda x: x in posterior.names, parnames)
   labels = [plot_label(parname) for parname in parnames]
   data = np.hstack([posterior[p].samples for p in parnames])
   if posterior.injection:
     injvals=[posterior[p].injval for p in parnames]
-    myfig=triangle.corner(data,labels=labels,truths=injvals,quantiles=levels,plot_datapoints=False,bins=20)
+    myfig=corner.corner(data,labels=labels,truths=injvals,quantiles=levels,plot_datapoints=False,bins=20)
   else:
-    myfig=triangle.corner(data,labels=labels,quantiles=levels,plot_datapoints=False,bins=20)
+    myfig=corner.corner(data,labels=labels,quantiles=levels,plot_datapoints=False,bins=20)
   return(myfig)
 
 
