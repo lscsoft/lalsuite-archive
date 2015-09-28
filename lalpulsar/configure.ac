@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([LALPulsar],[1.10.4.1],[lal-discuss@ligo.org])
+AC_INIT([LALPulsar],[1.12.0.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([src/config.h src/LALPulsarConfig.h])
 AC_CONFIG_SRCDIR([src/ComputeFstat.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -45,7 +45,7 @@ LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 #    then increment age.
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
-AC_SUBST([LIBCURRENT],[10])
+AC_SUBST([LIBCURRENT],[12])
 AC_SUBST([LIBREVISION],[0])
 AC_SUBST([LIBAGE],[0])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
@@ -81,7 +81,8 @@ AM_SILENT_RULES([yes])
 LALSUITE_PROG_COMPILERS
 
 # check for SIMD extensions
-LALPULSAR_WITH_SIMD
+LALSUITE_CHECK_SIMD
+LALPULSAR_CHECK_ALTIVEC
 
 # checks for programs
 AC_PROG_INSTALL
@@ -98,9 +99,38 @@ LALSUITE_USE_LIBTOOL
 
 # check for header files
 AC_HEADER_STDC
+AC_CHECK_HEADERS([unistd.h])
 
 # check for required libraries
 AC_CHECK_LIB([m],[main],,[AC_MSG_ERROR([could not find the math library])])
+
+# check for OpenMP
+AC_OPENMP
+
+# check that compiler supports C99 variable length arrays in OpenMP for loops.
+# Apple's llvm-gcc-4.2 is buggy and does not.
+AS_IF([test "x$OPENMP_CFLAGS" != "x"],
+  [
+    AC_MSG_CHECKING([if compiler supports C99 VLAs in OpenMP for loops])
+    LALSUITE_PUSH_UVARS
+    CFLAGS="$OPENMP_CFLAGS"
+    AC_LINK_IFELSE([
+        AC_LANG_PROGRAM(, [
+          int i, n = 10;
+          #pragma omp parallel for
+          for (i = 0; i < 10; i ++)
+          { int a@<:@n@:>@; }
+        ])
+      ],
+      [AC_MSG_RESULT([yes])],
+      [
+        AC_MSG_RESULT([no, disabling OpenMP])
+        OPENMP_CFLAGS=
+      ]
+    )
+    LALSUITE_POP_UVARS
+  ]
+)
 
 # check for gsl
 PKG_CHECK_MODULES([GSL],[gsl],[true],[false])
@@ -112,6 +142,15 @@ LALSUITE_ENABLE_FAST_GSL
 
 # check for gsl headers
 AC_CHECK_HEADERS([gsl/gsl_errno.h],,[AC_MSG_ERROR([could not find the gsl/gsl_errno.h header])])
+
+# check for fftw
+PKG_CHECK_MODULES([FFTW3],[fftw3 fftw3f],[true],[false])
+LALSUITE_ADD_FLAGS([C],[${FFTW3_CFLAGS}],[${FFTW3_LIBS}])
+AC_CHECK_LIB([fftw3f],[fftwf_execute_dft],,[AC_MSG_ERROR([could not find the fftw3f library])],[-lm])
+AC_CHECK_LIB([fftw3],[fftw_execute_dft],,[AC_MSG_ERROR([could not find the fftw3 library])],[-lm])
+
+# check for fft headers
+AC_CHECK_HEADERS([fftw3.h],,[AC_MSG_ERROR([could not find the fftw3.h header])])
 
 if test "$lalxml" = "true"; then
   # check for libxml2
@@ -126,16 +165,16 @@ if test "${boinc}" = "true" ; then
 fi
 
 # check for lal libraries and headers
-LALSUITE_CHECK_LIB([LAL],[6.13.0],[LALVersion],[lal/LALStdio.h])
+LALSUITE_CHECK_LIB([LAL],[6.15.0],[LALVersion],[lal/LALStdio.h])
 
 # check that lal was built with BOINC support, if required
 LALSUITE_CHECK_BOINC
 
 # check for lalsupport, needed for test suite
-LALSUITE_CHECK_LIB([LALSupport],[6.13.0],[XLALCacheImport],[lal/LALCache.h])
+LALSUITE_CHECK_LIB([LALSupport],[6.15.0],[XLALCacheImport],[lal/LALCache.h])
 
 # check for lalxml
-LALSUITE_CHECK_OPT_LIB([LALXML],[1.1.5],[XLALXMLFilePrintElements],[lal/LALXML.h])
+LALSUITE_CHECK_OPT_LIB([LALXML],[1.2.0],[XLALXMLFilePrintElements],[lal/LALXML.h])
 
 # back to c mode
 if test "${boinc}" = "true" ; then
@@ -147,6 +186,25 @@ LALSUITE_USE_SWIG
 
 # configure Doxygen documentation
 LALSUITE_USE_DOXYGEN
+
+# Disable OpenMP by default.
+# FIXME: OpenMP should be on by default, but it breaks condor_compiling lalapps.
+AS_IF(
+  [test "x$enable_openmp" = "x"],
+  [OPENMP_CFLAGS=]
+)
+# add compiler flags for OpenMP
+AS_IF(
+  [test "x$OPENMP_CFLAGS" = "x"],
+  [
+    OPENMP_ENABLE_VAL="DISABLED"
+    LALSUITE_ADD_FLAGS([C],[-Wno-unknown-pragmas],[])
+  ],
+  [
+    OPENMP_ENABLE_VAL="ENABLED"
+    LALSUITE_ADD_FLAGS([C],[${OPENMP_CFLAGS}],[])
+  ]
+)
 
 # add gcc specific flags
 LALSUITE_ADD_GCC_FLAGS
@@ -173,12 +231,11 @@ AC_MSG_NOTICE([
 LALPulsar has now been successfully configured:
 
 * Python support is $PYTHON_ENABLE_VAL
-* SIMD extensions are $SIMD_ENABLE_VAL
 * LALXML library support is $LALXML_ENABLE_VAL
 * BOINC support is $BOINC_ENABLE_VAL
-* SWIG binding generation is $SWIG_GENERATE_ENABLE_VAL
 * SWIG bindings for Octave are $SWIG_BUILD_OCTAVE_ENABLE_VAL
 * SWIG bindings for Python are $SWIG_BUILD_PYTHON_ENABLE_VAL
+* OpenMP acceleration is $OPENMP_ENABLE_VAL
 * Doxygen documentation is $DOXYGEN_ENABLE_VAL
 
 and will be installed under the directory:

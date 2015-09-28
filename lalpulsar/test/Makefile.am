@@ -5,6 +5,7 @@ include $(top_srcdir)/gnuscripts/lalsuite_test.am
 test_programs += BinarySSBTimesTest
 test_programs += ComputeFstatTest
 test_programs += ConstructPLUTTest
+test_programs += DopplerScanTest
 test_programs += DriveHoughTest
 test_programs += DriveNDHoughTest
 test_programs += ExtrapolatePulsarSpinsTest
@@ -20,6 +21,7 @@ test_programs += LALBarycenterTest
 test_programs += LFTandTSutilsTest
 test_programs += LatticeTilingTest
 test_programs += LineRobustStatsTest
+test_programs += MetricUtilsTest
 test_programs += NDConstructPLUTTest
 test_programs += NDHoughMapTest
 test_programs += NDPeak2PHMDTest
@@ -34,11 +36,13 @@ test_programs += SimulateTaylorCWTest
 test_programs += SkyMetricTest
 test_programs += StackMetricTest
 test_programs += StatisticsTest
+test_programs += SuperskyMetricsTest
 test_programs += TwoDMeshTest
 test_programs += UniversalDopplerMetricTest
 test_programs += VelocityTest
 test_programs += XLALComputeAMTest
 test_programs += XLALMultiNoiseWeightsTest
+test_programs += ComputeFstatBenchmark
 
 #test_programs += XLALLoadSFTsTest
 #test_programs += SFTCleanTest
@@ -47,10 +51,11 @@ test_programs += LALPulsarXMLTest
 endif
 
 # Add shell, Python, etc. test scripts to this variable
-test_scripts +=
+test_scripts += pulsar_toa_test.sh
 
 # Add any helper programs required by tests to this variable
 test_helpers += TEMPOcomparison
+test_helpers += PulsarTOATest
 
 TwoDMeshTest_SOURCES = \
 	TwoDMeshPlot.c \
@@ -87,6 +92,7 @@ pkgdata_DATA = \
 	tdb_2000-2019.dat.gz \
 	te405_2000-2019.dat.gz \
 	testTimestamps.dat \
+	testTimestampsNew.dat \
 	$(END_OF_LIST)
 
 EXTRA_DIST += \
@@ -125,4 +131,8 @@ EXTRA_DIST += \
 	inputsft.1 \
 	sun98.dat \
 	testTimestamps.dat \
+	testTimestampsNew.dat \
+	TOAtest.par \
+	TOAtest.simulate \
+	pks2gps.clk \
 	$(END_OF_LIST)

@@ -104,9 +104,8 @@ def parse_COMPLEX16FrequencySeries(elem):
 	f0 = ligolw_param.get_param(elem, u"f0")
 	return COMPLEX16FrequencySeries(
 		name = a.Name,
-		# FIXME:  make Time class smart so we don't have to parse
-		# it by hand
-		epoch = LIGOTimeGPS(t.pcdata),
+		# FIXME:  remove type cast when epoch can be a swig LIGOTimeGPS
+		epoch = LIGOTimeGPS(str(t.pcdata)),
 		f0 = f0.pcdata * float(LALUnit(f0.Unit) / LALUnit("s^-1")),
 		deltaF = dims[0].Scale * float(LALUnit(dims[0].Unit) / LALUnit("s^-1")),
 		sampleUnits = LALUnit(a.Unit),
@@ -144,9 +143,8 @@ def parse_COMPLEX16TimeSeries(elem):
 	f0 = ligolw_param.get_param(elem, u"f0")
 	return COMPLEX16TimeSeries(
 		name = a.Name,
-		# FIXME:  make Time class smart so we don't have to parse
-		# it by hand
-		epoch = LIGOTimeGPS(t.pcdata),
+		# FIXME:  remove type cast when epoch can be a swig LIGOTimeGPS
+		epoch = LIGOTimeGPS(str(t.pcdata)),
 		f0 = f0.pcdata * float(LALUnit(f0.Unit) / LALUnit("s^-1")),
 		deltaT = dims[0].Scale * float(LALUnit(dims[0].Unit) / LALUnit("s")),
 		sampleUnits = LALUnit(a.Unit),
@@ -184,9 +182,8 @@ def parse_REAL8FrequencySeries(elem):
 	f0 = ligolw_param.get_param(elem, u"f0")
 	return REAL8FrequencySeries(
 		name = a.Name,
-		# FIXME:  make Time class smart so we don't have to parse
-		# it by hand
-		epoch = LIGOTimeGPS(t.pcdata),
+		# FIXME:  remove type cast when epoch can be a swig LIGOTimeGPS
+		epoch = LIGOTimeGPS(str(t.pcdata)),
 		f0 = f0.pcdata * float(LALUnit(f0.Unit) / LALUnit("s^-1")),
 		deltaF = dims[0].Scale * float(LALUnit(dims[0].Unit) / LALUnit("s^-1")),
 		sampleUnits = LALUnit(a.Unit),
@@ -224,9 +221,8 @@ def parse_REAL8TimeSeries(elem):
 	f0 = ligolw_param.get_param(elem, u"f0")
 	return REAL8TimeSeries(
 		name = a.Name,
-		# FIXME:  make Time class smart so we don't have to parse
-		# it by hand
-		epoch = LIGOTimeGPS(t.pcdata),
+		# FIXME:  remove type cast when epoch can be a swig LIGOTimeGPS
+		epoch = LIGOTimeGPS(str(t.pcdata)),
 		f0 = f0.pcdata * float(LALUnit(f0.Unit) / LALUnit("s^-1")),
 		deltaT = dims[0].Scale * float(LALUnit(dims[0].Unit) / LALUnit("s")),
 		sampleUnits = LALUnit(a.Unit),

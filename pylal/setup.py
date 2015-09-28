@@ -197,7 +197,7 @@ class pylal_sdist(sdist.sdist):
 
 setup(
 	name = "pylal",
-	version = "0.6.0",
+	version = "0.8.1",
 	author = "Kipp Cannon and Nickolas Fotopoulos",
 	author_email = "lal-discuss@ligo.org",
 	description = "Python LIGO Algorithm Library",
@@ -207,7 +207,7 @@ setup(
 		"pylal",
 		"pylal.xlal",
 		"pylal.xlal.datatypes",
-                "pylal.dq"
+		"pylal.dq"
 	],
 	cmdclass = {
 		"build_py": pylal_build_py,
@@ -307,15 +307,6 @@ setup(
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
-			"pylal.xlal.datatypes.real8window",
-			["src/xlal/datatypes/real8window.c"],
-			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
-			libraries = lal_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs,
-			extra_compile_args = lal_pkg_config.extra_cflags
-		),
-		Extension(
 			"pylal.xlal.datatypes.simburst",
 			["src/xlal/datatypes/simburst.c", "src/xlal/misc.c"],
 			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
@@ -385,15 +376,6 @@ setup(
 			libraries = lal_pkg_config.libs + lalsimulation_pkg_config.libs + lalburst_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs + lalsimulation_pkg_config.libdirs + lalburst_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs + lalsimulation_pkg_config.libdirs + lalburst_pkg_config.libdirs,
-			extra_compile_args = lal_pkg_config.extra_cflags
-		),
-		Extension(
-			"pylal.xlal.noisemodels",
-			["src/xlal/noisemodels.c"],
-			include_dirs = lal_pkg_config.incdirs,
-			libraries = lal_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs,
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
@@ -484,13 +466,13 @@ setup(
 		os.path.join("bin", "plot_medianmax_sngl_inspiral"),
 		os.path.join("bin", "plot_num_sngl_inspiral"),
 		os.path.join("bin", "plot_tmpltbank_range"),
-		os.path.join("bin", "pylal_cache_to_mvsc.py"),
-		os.path.join("bin", "pylal_mvsc_player.py"),
+		os.path.join("bin", "pylal_cache_to_mvsc"),
+		os.path.join("bin", "pylal_mvsc_player"),
 		os.path.join("bin", "pylal_cbc_dq_page"),
-		os.path.join("bin", "mvsc_plots.py"),
-		os.path.join("bin", "mvsc_ROC_and_histograms.py"),
-		os.path.join("bin", "mvsc_plot_cuts.py"),
-		os.path.join("bin", "mvsc_htmlwriter.py"),
+		os.path.join("bin", "mvsc_plot"),
+		os.path.join("bin", "mvsc_plot_ringdown"),
+		os.path.join("bin", "mvsc_ROC_and_histograms"),
+		os.path.join("bin", "mvsc_plot_cuts"),
 		os.path.join("bin", "pylal_combine_posteriors"),
 		os.path.join("bin", "pylal_followup_missed"),
 		os.path.join("bin", "pylal_exttrig_summary"),
@@ -528,6 +510,7 @@ setup(
 		os.path.join("bin", "WOD_Bologna.py"),
 		os.path.join("bin", "lalapps_likeliness"),
 		os.path.join("bin", "lalapps_newcorse"),
+		os.path.join("bin", "lalapps_cbc_volmc"),
 		os.path.join("bin", "lalapps_cbc_svim"),
 		os.path.join("bin", "lalapps_cbc_sink"),
 		os.path.join("bin", "lalapps_plot_tisi"),
@@ -561,7 +544,6 @@ setup(
 		os.path.join("bin", "ligolw_tisi"),
 		os.path.join("bin", "ligolw_thinca"),
 		os.path.join("bin", "ligolw_sstinca"),
-		os.path.join("bin", "ligolw_thinca_to_coinc"),
 		os.path.join("bin", "ligolw_veto"),
 		os.path.join("bin", "ligolw_cbc_hardware_inj_page"),
 		os.path.join("bin", "ligolw_fr_to_science"),
@@ -588,7 +570,7 @@ setup(
 		os.path.join("bin", "ligolw_cbc_plotfm"),
 		os.path.join("bin", "ligolw_cbc_plotvt"),
 		os.path.join("bin", "lalapps_cbc_plotrates"),
-                os.path.join("bin", "pylal_cbc_extended_background"),
+		os.path.join("bin", "pylal_cbc_extended_background"),
 		os.path.join("bin", "ligolw_cbc_compute_durations"),
 		os.path.join("bin", "ligolw_cbc_repop_coinc"),
 		os.path.join("bin", "ligolw_segments_compat"),
@@ -653,7 +635,7 @@ setup(
 		os.path.join("bin", "cbcBayesInjProc.py"),
 		os.path.join("bin", "cbcBayesThermoInt.py"),
 		os.path.join("bin", "cbcBayesPPAnalysis.py"),
-        os.path.join("bin", "cbcBayesPosToSimInspiral.py"),
+		os.path.join("bin", "cbcBayesPosToSimInspiral.py"),
 		os.path.join("bin", "pulsarBayesPostProc.py"),
 		os.path.join("bin", "processing_kdtreeSky.py"),
 		os.path.join("bin", "ligo_channel_query"),

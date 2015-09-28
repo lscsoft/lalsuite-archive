@@ -17,13 +17,96 @@
 *  MA  02111-1307  USA
 */
 
+/**
+ * @defgroup lalsim_bh_sphwf lalsim-bh-sphwf
+ * @ingroup lalsimulation_programs
+ *
+ * @brief Evaluates a spin-weighted spheroidal wave function
+ *
+ * ### Synopsis
+ *
+ *     lalsim-bh-sphwf [-h] [-i theta] -a a -l l -m m -s s
+ *
+ * ### Description
+ *
+ * The `lalsim-bh-sphwf` utility prints the value of the spin-weighted
+ * spheroidal wave function \f$ {}_{s}S_{\ell,m}(\cos\theta, a) \f$
+ * for the specified dimensionless spin parameter @p a, spin weight @p s
+ * mode numbers @p l and @p m, and polar angle @p theta.  If the parameter
+ * @p theta is not given, the utility prints a table of the values of
+ * the spin-weighted spheroidal wave function.
+ * 
+ * ### Options
+ *
+ * <DL>
+ * <DT>`-h`, `--help`</DT>
+ * <DD>print a help message and exit</DD>
+ * <DT>`-i` theta</DT>
+ * <DD>(optional) set the polar angle (degrees)</DD>
+ * <DT>`-a` a</DT>
+ * <DD>(required) set value of dimensionless spin parameter a/M, |a/M|<1</DD>
+ * <DT>`-l` l</DT>
+ * <DD>(required) set value of mode number l, l>=0</DD>
+ * <DT>`-m` m</DT>
+ * <DD>(required) set value of mode number m, abs(m)<=l</DD>
+ * <DT>`-s` s</DT>
+ * <DD>(required) set value of spin weight s, s<=0</DD>
+ * </DL>
+ *
+ * ### Environment
+ *
+ * The `LAL_DEBUG_LEVEL` can used to control the error and warning reporting of
+ * `lalsim-bh-sphwf`.  Common values are: `LAL_DEBUG_LEVEL=0` which suppresses
+ * error messages, `LAL_DEBUG_LEVEL=1`  which prints error messages alone,
+ * `LAL_DEBUG_LEVEL=3` which prints both error messages and warning messages,
+ * and `LAL_DEBUG_LEVEL=7` which additionally prints informational messages.
+ *
+ * ### Exit Status
+ *
+ * The `lalsim-bh-sphwf` utility exits 0 on success, and >0 if an error
+ * occurs.
+ *
+ * ### Example
+ *
+ * The command:
+ *
+ *     lalsim-bh-sphwf -a 0.97 -l 2 -m 2 -s -2
+ *
+ * prints a table of the spin-weighted spheroidal harmonic for
+ * spin weight -2 (gravitational perturbations) in the l = m = 2 quasinormal
+ * mode for black hole with Kerr spin parameter a/M = 0.97:
+ *
+@verbatim
+# theta(deg)	    Re(S)   	    Im(S)
+       0	1.872344e+00	-6.463929e-02
+      10	1.827823e+00	-6.206959e-02
+      20	1.694394e+00	-5.225983e-02
+      30	1.504102e+00	-4.281635e-02
+      40	1.273225e+00	-3.208053e-02
+      50	1.027770e+00	-2.170445e-02
+      60	7.909086e-01	-1.294164e-02
+      70	5.808472e-01	-6.804991e-03
+      80	4.043798e-01	-2.360517e-03
+      90	2.668276e-01	-8.673617e-19
+     100	1.656352e-01	9.846400e-04
+     110	9.604459e-02	1.063797e-03
+     120	5.104255e-02	8.091283e-04
+     130	2.420241e-02	4.838700e-04
+     140	9.739511e-03	2.305645e-04
+     150	3.034816e-03	8.061289e-05
+     160	5.924425e-04	1.697014e-05
+     170	3.675324e-05	1.099041e-06
+     180	0.000000e+00	0.000000e+00
+@endverbatim
+ */
+
 #include <limits.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <getopt.h>
 
 #include <lal/LALStdlib.h>
+#include <lal/LALgetopt.h>
 #include <lal/LALConstants.h>
 #include <lal/LALSimBlackHoleRingdown.h>
 
@@ -65,7 +148,7 @@ int main( int argc, char *argv[] )
 
 int parseargs(int argc, char **argv)
 {
-	struct option long_options[] = {
+	struct LALoption long_options[] = {
 			{ "help", no_argument, 0, 'h' },
 			{ "spin", required_argument, 0, 'a' },
 			{ "inclination", required_argument, 0, 'i' },
@@ -79,7 +162,7 @@ int parseargs(int argc, char **argv)
 		int option_index = 0;
 		int c;
 
-		c = getopt_long_only(argc, argv, args, long_options, &option_index);
+		c = LALgetopt_long_only(argc, argv, args, long_options, &option_index);
 		if (c == -1) /* end of options */
 			break;
 
@@ -88,26 +171,26 @@ int parseargs(int argc, char **argv)
 				if (long_options[option_index].flag)
 					break;
 				else {
-					fprintf(stderr, "error parsing option %s with argument %s\n", long_options[option_index].name, optarg);
+					fprintf(stderr, "error parsing option %s with argument %s\n", long_options[option_index].name, LALoptarg);
 					exit(1);
 				}
 			case 'h': /* help */
 				usage(argv[0]);
 				exit(0);
 			case 'a': /* spin */
-				a = atof(optarg);
+				a = atof(LALoptarg);
 				break;
 			case 'i': /* inclination */
-				theta = atof(optarg);
+				theta = atof(LALoptarg);
 				break;
 			case 'l':
-				l = atoi(optarg);
+				l = atoi(LALoptarg);
 				break;
 			case 'm':
-				m = atoi(optarg);
+				m = atoi(LALoptarg);
 				break;
 			case 's':
-				s = atoi(optarg);
+				s = atoi(LALoptarg);
 				break;
 			case '?':
 			default:
@@ -116,10 +199,10 @@ int parseargs(int argc, char **argv)
 		}
 	}
 
-	if (optind < argc) {
+	if (LALoptind < argc) {
 		fprintf( stderr, "extraneous command line arguments:\n" );
-		while (optind < argc)
-			fprintf(stderr, "%s\n", argv[optind++]);
+		while (LALoptind < argc)
+			fprintf(stderr, "%s\n", argv[LALoptind++]);
 		exit(1);
 	}
 

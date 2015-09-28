@@ -30,7 +30,7 @@ from time import time as time_now
 from os.path import basename
 
 from pylal import (git_version, coh_PTF_pyutils)
-from pylal.xlal.date import XLALGPSTimeNow
+from lal import GPSTimeNow
 
 from glue.segments import (segment as Segment, segmentlist as SegmentList,
                            segmentlistdict as SegmentListDict)
@@ -254,7 +254,7 @@ if __name__ == "__main__":
     outxml.childNodes[-1].appendChild(expr_table)
     outxml.childNodes[-1].appendChild(expr_summ_table)
     outxml.childNodes[-1].appendChild(out_table)
-    process.end_time = XLALGPSTimeNow().seconds
+    process.end_time = int(GPSTimeNow())
     ligolw_utils.write_filename(outxml, opts.output_file,
                                 gz=opts.output_file.endswith(".gz"),
                                 verbose=opts.verbose)

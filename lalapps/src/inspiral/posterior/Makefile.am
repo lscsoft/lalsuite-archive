@@ -5,14 +5,11 @@ include $(top_srcdir)/gnuscripts/lalsuite_python.am
 include $(top_srcdir)/gnuscripts/lalapps.am
 
 SUBDIRS = \
-	SPINspiral \
 	mpi
-
-if LALINSPIRAL
-if LALFRAME
 
 if LALPULSAR
 if LALINFERENCE
+
 pulsar_progs = lalinference_nest #lalinference_mcmcmpi
 lalinference_nest_SOURCES = LALInferenceNest.c
 if HAVE_BAMBI
@@ -26,11 +23,11 @@ endif # bambi
 endif # lalinference
 endif # lalpulsar
 
-endif # lalframe
-endif # lalinspiral
-
 #bayesline_SOURCES = \
 #	BayesLine.c
+
+dist_bin_SCRIPTS = \
+	lalinference_mpi_wrapper
 
 bin_PROGRAMS = \
 	$(metaio_progs) \
@@ -52,7 +49,8 @@ pybin_scripts = \
 	lalapps_nest2pos \
 	lalapps_merge_nested_sampling_runs \
 	lalinference_pp_pipe \
-	lalapps_compute_roq_weights
+	lalapps_compute_roq_weights \
+	lalapps_merge_posteriors
 pkgpython_PYTHON = \
 	nest_utils.py \
 	combine_evidence.py \

@@ -90,6 +90,8 @@ class SBankJob(inspiral.InspiralAnalysisJob):
         self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
         self.add_condor_cmd('getenv','True')
         self.add_condor_cmd('request_memory', '1999')
+        if "OMP_NUM_THREADS" in os.environ:
+            self.add_condor_cmd('request_cpus', os.environ["OMP_NUM_THREADS"])
 
 
 class SBankNode(pipeline.CondorDAGNode):
@@ -212,6 +214,8 @@ class BankSimJob(inspiral.InspiralAnalysisJob):
         self.add_condor_cmd('getenv','True')
         self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
         self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
+        if "OMP_NUM_THREADS" in os.environ:
+            self.add_condor_cmd('request_cpus', os.environ["OMP_NUM_THREADS"])
 
 
 class BankSimNode(pipeline.CondorDAGNode):
@@ -339,82 +343,86 @@ You can also add --template-bank BANK.xml to run only the sims. To do
 so, you have to remove the "template-weight" option from the [split]
 section.
 
-;;; EXAMPLE INI ;;;
+;;; BEGIN EXAMPLE INI ;;;
 
 [condor] ; This section points to the executables, and provides condor options
 universe = vanilla
-lalapps_cbc_sbank = /home/sprivite/local/opt/lalsuite/bin/lalapps_cbc_sbank
-lalapps_cbc_sbank_splitter = /home/sprivite/local/opt/lalsuite/bin/lalapps_cbc_sbank_splitter
-lalapps_cbc_sbank_choose_mchirp_boundaries = /home/sprivite/local/opt/lalsuite/bin/lalapps_cbc_sbank_choose_mchirp_boundaries
-lalapps_cbc_sbank_sim = /home/sprivite/local/opt/lalsuite/bin/lalapps_cbc_sbank_sim
-lalapps_cbc_sbank_plot_sim = /home/sprivite/local/opt/lalsuite/bin/lalapps_cbc_sbank_plot_sim
-lalapps_cbc_sbank_merge_sims = /home/sprivite/local/opt/lalsuite/bin/lalapps_cbc_sbank_merge_sims
-lalapps_inspinj = /home/sprivite/local/opt/lalsuite/bin/lalapps_inspinj
+lalapps_cbc_sbank = /home/sprivite/local/opt/master/bin/lalapps_cbc_sbank
+lalapps_cbc_sbank_splitter = /home/sprivite/local/opt/master/bin/lalapps_cbc_sbank_splitter
+lalapps_cbc_sbank_choose_mchirp_boundaries = /home/sprivite/local/opt/master/bin/lalapps_cbc_sbank_choose_mchirp_boundaries
+lalapps_cbc_sbank_sim = /home/sprivite/local/opt/master/bin/lalapps_cbc_sbank_sim
+lalapps_cbc_sbank_plot_sim = /home/sprivite/local/opt/master/bin/lalapps_cbc_sbank_plot_sim
+lalapps_cbc_sbank_merge_sims = /home/sprivite/local/opt/master/bin/lalapps_cbc_sbank_merge_sims
+lalapps_inspinj = /home/sprivite/local/opt/master/bin/lalapps_inspinj
 
 [sbank]
 ; This section contains the parameters of the entire bank parameter
 ; space you wish to cover. sbank_pipe will divide the space for you.
-approximant = IMRPhenomC
+approximant = SEOBNRv2_ROM_DoubleSpin
 match-min = 0.97
-flow = 40.0
+flow = 30.0
 noise-model = aLIGOZeroDetHighPower
 instrument = H1
 mass1-min = 2.0
-mass1-max = 98.0
+mass1-max = 296.0
 mass2-min = 2.0
-mass2-max = 98.0
-mtotal-min = 15.0
-mtotal-max = 100.0
+mass2-max = 296.0
+mtotal-min = 4.0
+mtotal-max = 350.0
 mratio-min = 1.0
-mratio-max = 4.0
-spin1-max = 0.9
-spin1-min = -0.9
-spin2-max = 0.9
-spin2-min = -0.9
+mratio-max = 14.0
+spin1-max = 0.98
+spin1-min = -0.98
+spin2-max = 0.98
+spin2-min = -0.98
 aligned-spin =
 gps-start-time = 1000000000
 gps-end-time =  1000050000
+neighborhood-param = dur
+neighborhood-size = 0.5
+checkpoint = 500
+;cache-waveforms =
+; please check your memory requirements before setting this option
+; if jobs use too much memory, they will swap and run forever
+coarse-match-df = 4.0
+iterative-match-df-max= 1.0
 
 [coarse-sbank]
-
 ; This section is for planning the splitting of the parameter
 ; space. To do so, we generate a "coarse" bank, i.e., a bank on the
-; same parameter space but with much weaker convergence criteria. This
-; process gives a very rough measure of the density of templates the
-; final bank will require. I suggest to choose the right parameters by
-; trial and error -- you don't want this step to take too long, but
-; you want to have enough templates to accurate sample the space. My
-; rule of thumb is that you want ~100 templates per split bank.
-match-min = 0.8
-convergence-threshold = 50
+; same parameter space but with a weaker convergence criteria. This
+; process gives a rough measure of the density of templates the final
+; bank will require. Use the templates-max option to prevent the job
+; from running forever, but the more templates you have in the coarse
+; bank, the less "over-coverage" you will incur from the bank
+; splitting process. A good rule of thumb is that you want ~1000
+; templates per split bank.
+templates-max = 15000
+match-min = 0.93
+convergence-threshold = 1000
 
 [split]
 ; This section configures the parallelization. nbanks are how many
 ; splits (in chirp mass) you want. You can crank it to infinity at the
-; cost of overcoverage. template-weight is used internally to
-; determine where to put the chirp mass boundaries. When you have a
-; metric, set it to "equal", otherwise set to "duration". See the sbank_pipe
-; help for more information.
-nbanks = 100
-template-weight = duration
+; cost of overcoverage.
+nbanks = 15
+template-weight = equal
 
 ;
 ; FOR BANK SIMS ONLY
 ;
 [injections]
-
 ; As in the classic IHOPE style, this section is a list of injection
 ; runs in the format "name" = "seed".
-nonspin_e = 2345
-aligned_c = 1234
+seobnr = 1234
+imrc = 1234
 
 [inspinj]
 ; This section gives options that are common to all injection runs,
 ; regardless of name or seed. Be careful, since flag options (those
-; that set a value to true) can't be overridden below (unless you want
-; to write the patch :).
-f-lower = 40.0
-waveform = IMRPhenomC
+; that set a value to true) cannot be overridden below.
+f-lower = 25.0
+waveform = SEOBNRv2_ROM_DoubleSpin
 l-distr = random
 d-distr = volume
 i-distr = uniform
@@ -422,33 +430,35 @@ max-inc = 179.99
 polarization = uniform
 min-distance = 10000
 max-distance = 1000000
-m-distr = totalMassRatio
+m-distr = componentMass
 taper-injection = startend
-min-mtotal = 15.0
-max-mtotal = 350.0
-min-mratio = 1.0
-max-mratio = 8.0
+min-mass1 = 2.0
+max-mass1 = 296.0
+min-mass2 = 2.0
+max-mass2 = 296.0
 gps-start-time = 1000000000
 gps-end-time =  1000010000
 time-step = 1
 
-[nonspin_e]
+[seobnr]
 ; This section overrides the generic inspinj options from the section
-; above. If an option isn't included here, it will be taken from the
+; above. If an option is not included here, it will be taken from the
 ; [inspinj] section. The options in this section apply only to the
-; [nonspin_e] run, in this example.
-waveform = EOBNRv2
-disable-spin =
-m-distr = componentMass
-min-mass1 = 2.0
-max-mass1 = 98.0
-min-mass2 = 2.0
-max-mass2 = 98.0
+; [seobnr] run, in this example.
+waveform = SEOBNRv2_ROM_DoubleSpin
+enable-spin =
+min-spin1 = 0.0
+max-spin1 = 0.98
+min-spin2 = 0.0
+max-spin2 = 0.98
+aligned =
 
-[aligned_c]
-; See [nonspin_e]. Same thing here, but for the [aligned_c] injection
-; seed.
-waveform = IMRPhenomC
+[imrc]
+; This section overrides the generic inspinj options from the section
+; above. If an option is not included here, it will be taken from the
+; [inspinj] section. The options in this section apply only to the
+; [imrc] run, in this example.
+waveform = SEOBNRv2_ROM_DoubleSpin
 enable-spin =
 min-spin1 = 0.0
 max-spin1 = 0.9
@@ -464,8 +474,9 @@ aligned =
 ; lalapps_cbc_sbank_sim for available options. Any option set here
 ; applies to every injection run.
 noise-model = aLIGOZeroDetHighPower
-mtotal-max = 100
-mtotal-min = 15
+mtotal-max = 350
+mtotal-min = 4
+mratio-max = 14
 
 ;;; END EXAMPLE INI ;;;
 
@@ -535,8 +546,18 @@ else:
         coarse_sbank_node.add_var_opt("match-min", coarse_mm)
         coarse_thresh = cp.get("coarse-sbank", "convergence-threshold")
         coarse_sbank_node.add_var_arg("--convergence-threshold %s" % coarse_thresh)
+
+        if cp.has_option("coarse-sbank", "templates-max"):
+            templates_max = cp.get("coarse-sbank", "templates-max")
+            assert templates_max >= 3*nbanks # you need at least a few templates per bank
+        else:
+            templates_max = 15*nbanks  # to prevent the coarse bank from running forever
+        coarse_sbank_node.add_var_arg("--templates-max %s" % templates_max)
+
         xmlCoarse, = coarse_sbank_node.get_output_files()
         pnode = [coarse_sbank_node]
+        bank_names.append(xmlCoarse)
+        bank_nodes.append(coarse_sbank_node)
 
     # use coarse bank to choose mchirp regions of roughly equal template number
     sbankChooseMchirpBoundariesJob = SBankChooseMchirpBoundariesJob(cp)
@@ -545,7 +566,7 @@ else:
 
     # generate a bank for each mchirp region
     for j in xrange(nbanks):
-        bank_node = SBankNode(sbankJob, dag, "%04d"%j, seed="%d" % (j*nbanks+1), mchirp_boundaries_file=mchirp_boundaries_fname, mchirp_boundaries_index=str(j), p_node=[sbankChooseMchirpBoundariesNode], bank_seed=options.bank_seed)
+        bank_node = SBankNode(sbankJob, dag, "%04d"%j, seed="%d" % (j*nbanks+1), mchirp_boundaries_file=mchirp_boundaries_fname, mchirp_boundaries_index=str(j), p_node=[sbankChooseMchirpBoundariesNode], bank_seed=xmlCoarse)
         bank_node.add_var_opt("match-min", mm)
         bank_node.set_priority(1)  # want complete bank before sims
         bank_nodes.append(bank_node)
@@ -555,7 +576,7 @@ else:
 # recombine bank fragments under a common name
 if not options.template_bank:
     lwaddJob = LWAddJob(tag_base=options.user_tag + "_lwadd")
-    lwaddNode = LWAddNode(lwaddJob, dag, bank_names, "H1-SBANK_COMBINED-%s.xml"%options.user_tag,bank_nodes)
+    lwaddNode = LWAddNode(lwaddJob, dag, bank_names, "H1-SBANK_COMBINED-%s.xml.gz"%options.user_tag,bank_nodes)
 
 # set up banksim parameters according to sbank parameters (if not provided)
 if not cp.has_option("banksim","flow"):
@@ -564,6 +585,14 @@ if not cp.has_option("banksim","flow"):
 # you could want change the template waveform I guess...
 if not cp.has_option("banksim","template-approx"):
     cp.set("banksim","template-approx",cp.get("sbank","approximant"))
+
+# copy over PSD if not specified
+if not cp.has_option("banksim","reference-psd") and not cp.has_option("banksim","noise-model"):
+    if cp.has_option("sbank","reference-psd"):
+        cp.set("banksim","reference-psd",cp.get("sbank","reference-psd"))
+        cp.set("banksim","instrument",cp.get("sbank","instrument"))
+    else:
+        cp.set("banksim","noise-model",cp.get("sbank","noise-model"))
 
 # sim nodes
 banksimJob = BankSimJob(cp)
@@ -599,11 +628,12 @@ for inj_run in cp.options("injections"):
     inj_name, = inj_node.get_output_files()
     waveform = cp.get(inj_run, "waveform")
     sim_nodes = []
-    for bank_name, bank_node in izip(bank_names, cycle(bank_nodes)):
-        ind = bank_name.index("-", 3)  # start searching for hyphens after ind 3
-        base, _ = os.path.splitext(bank_name)
-        sim_name = "%s_%s-%s" % (base[:ind], "SIM_%s"%inj_run.upper(), base[ind + 1:])
-        sim_nodes.append(BankSimNode(banksimJob, dag, inj_name, waveform, bank_name, sim_name.replace(".h5",""), [inj_node, bank_node]))
+    for bank_node in bank_nodes:
+        for bank_name in bank_node.get_output_files():
+            ind = bank_name.index("-", 3)  # start searching for hyphens after ind 3
+            base, _ = os.path.splitext(bank_name)
+            sim_name = "%s_%s-%s" % (base[:ind], "SIM_%s"%inj_run.upper(), base[ind + 1:])
+            sim_nodes.append(BankSimNode(banksimJob, dag, inj_name, waveform, bank_name, sim_name.replace(".h5",""), [inj_node, bank_node]))
 
     # merge and plot the partial sims
     sim_names = [node.get_output_files()[0] for node in sim_nodes]

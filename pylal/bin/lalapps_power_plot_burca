@@ -243,7 +243,7 @@ def magnitude_a(burst):
 
 
 def magnitude_b(burst):
-	gmst = date.XLALGreenwichMeanSiderealTime(burst.get_peak())
+	gmst = date.XLALGreenwichMeanSiderealTime(burst.peak)
 	fplus, fcross = inject.XLALComputeDetAMResponse(inject.cached_detector[inject.prefix_to_name[burst.ifo]].response, SimBurstUtils.MW_CENTER_J2000_RA_RAD, SimBurstUtils.MW_CENTER_J2000_DEC_RAD, 0.0, gmst)
 	return (burst.ms_hrss**2.0 / (fplus**2.0 + fcross**2.0))**0.5
 

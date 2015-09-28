@@ -15,6 +15,8 @@
 # ==============================================================================
 date=`git log -1 --date=short --pretty="format:%cd" HEAD`
 git log -1 --summary --find-renames HEAD | sed -n "s|^ delete mode [0-9]* |# ${date} |p" | LC_ALL=C sort | uniq | tee -a $0
+git add $0
+git commit --amend
 # ==============================================================================
 # Deleted    File
 # ---------- -------------------------------------------------------------------
@@ -46,3 +48,7 @@ git log -1 --summary --find-renames HEAD | sed -n "s|^ delete mode [0-9]* |# ${d
 # 2014-05-14 lalpulsar/src/ComputeFstat_Demod_precalc.i
 # 2014-05-14 lalpulsar/src/ComputeFstat_Demod_sse.i
 # 2014-05-14 lalpulsar/src/ComputeFstat_Demod_sse_msc.i
+# 2015-04-09 lalpulsar/src/LALDemod.c
+# 2015-04-09 lalpulsar/src/LALDemod.h
+# 2015-04-09 lalpulsar/src/LALDemodFAST.c
+# 2015-04-09 lalpulsar/test/LALDemodTest.c

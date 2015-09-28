@@ -9,6 +9,11 @@
 
 #include "ppe_likelihood.h"
 
+#ifndef _OPENMP
+#define omp ignore
+#endif
+
+
 /******************************************************************************/
 /*                     LIKELIHOOD AND PRIOR FUNCTIONS                         */
 /******************************************************************************/
@@ -31,9 +36,7 @@
  * where \f$\mathbf{B}\f$ is a vector of the complex data, \f$y(\mathbf{\theta})\f$ is the model for a set of parameters
  * \f$\mathbf{\theta}\f$, \f$M\f$ is the total number of independent data chunks with lengths \f$m_j\f$ and \f$k_0 =
  * \sum_{i=1}^j 1 + m_{i-1}\f$ (with \f$m_0 = 0\f$) is the index of the first data point in each chunk. The product of
- * this for each detector will give the full joint likelihood. In the calculation here the unnecessary proportionality
- * factors are left out (this would effect the actual value of the marginal likelihood/evidence, but since we are only
- * interested in evidence ratios/Bayes factors these factors would cancel out anyway. See \cite DupuisWoan2005 for a
+ * this for each detector will give the full joint likelihood. See \cite DupuisWoan2005 for a
  * more detailed description.
  *
  * In this function data in chunks smaller than a certain minimum length \c chunkMin are ignored.
@@ -79,7 +82,7 @@ REAL8 pulsar_log_likelihood( LALInferenceVariables *vars, LALInferenceIFOData *d
     if ( !roq ){ /* not using reduced order quadrature to calculate likelihood */
       UINT4 length = 0;
       REAL8 sumModel = 0., sumDataModel = 0.;
-      COMPLEX16 B = 0., M = 0., Mp = 0., Mc = 0.;
+      COMPLEX16 B = 0., M = 0., Mp = 0., Mc = 0., vari = 0.;
 
       REAL8Vector *sumP = NULL, *sumC = NULL, *sumX = NULL, *sumY = NULL, *sumB = NULL, *sumL = NULL;
       REAL8Vector *sumPC = NULL, *sumPX = NULL, *sumPY = NULL, *sumPB = NULL, *sumPL = NULL;
@@ -147,15 +150,19 @@ REAL8 pulsar_log_likelihood( LALInferenceVariables *vars, LALInferenceIFOData *d
         cl = i + (INT4)chunkLength;
 
         if ( varyphase ){ /* not using pre-summed values */
+          #pragma omp parallel for default(shared) private(B, M) reduction(+:sumModel,sumDataModel)
           for( j = i ; j < cl ; j++ ){
             B = tempdata->compTimeData->data->data[j];
             M = ifomodeltemp->compTimeSignal->data->data[j];
 
+            vari = 1.;
+            if ( gaussianLike ) { vari = tempdata->varTimeData->data->data[j]; }
+
             /* sum over the model */
-            sumModel += creal(M)*creal(M) + cimag(M)*cimag(M);
+            sumModel += (creal(M)*creal(M) + cimag(M)*cimag(M))/vari;
 
             /* sum over that data and model */
-            sumDataModel += creal(B)*creal(M) + cimag(B)*cimag(M);
+            sumDataModel += (creal(B)*creal(M) + cimag(B)*cimag(M))/vari;
           }
         }
         else{ /* using pre-summed data */
@@ -208,11 +215,11 @@ REAL8 pulsar_log_likelihood( LALInferenceVariables *vars, LALInferenceIFOData *d
         chiSquare = sumDat->data[count] - 2.*sumDataModel + sumModel;
 
         if ( !gaussianLike ){ /* using Students-t likelihood */
-          logliketmp -= chunkLength*log(chiSquare) + LAL_LN2 * (chunkLength-1.) + gsl_sf_lnfact(chunkLength);
+          logliketmp += (gsl_sf_lnfact(chunkLength-1) - LAL_LN2 - chunkLength*LAL_LNPI);
+          logliketmp -= chunkLength*log(chiSquare);
         }
         else{ /* using Gaussian likelihood */
-          REAL8 logGaussianNorm = *(REAL8 *)LALInferenceGetVariable( ifomodeltemp->params,  "logGaussianNorm" );
-          logliketmp += logGaussianNorm - 0.5*chiSquare;
+          logliketmp -= 0.5*chiSquare;
         }
 
         count++;
@@ -249,17 +256,23 @@ REAL8 pulsar_log_likelihood( LALInferenceVariables *vars, LALInferenceIFOData *d
         chiSquare = sumDat->data[count] - 2.*creal(dm) + creal(mm);
 
         if ( !gaussianLike ){ /* using Students-t likelihood */
-          logliketmp -= chunkLength*log(chiSquare) + LAL_LN2 * (chunkLength-1.) + gsl_sf_lnfact(chunkLength);
+          logliketmp += (gsl_sf_lnfact(chunkLength-1) - LAL_LN2 - chunkLength*LAL_LNPI);
+          logliketmp -= chunkLength*log(chiSquare);
         }
         else{ /* using Gaussian likelihood */
-          REAL8 logGaussianNorm = *(REAL8 *)LALInferenceGetVariable( ifomodeltemp->params,  "logGaussianNorm" );
-          logliketmp += logGaussianNorm - 0.5*chiSquare;
+          logliketmp -= 0.5*chiSquare;
         }
 
         /* shift start indices */
         vstart += numbases->data[i];
         mstart += numbases->data[i]*numbases->data[i];
       }
+    }
+
+    /* add normalisation constant for the Gaussian likelihoods */
+    if ( gaussianLike ){
+      REAL8 logGaussianNorm = *(REAL8 *)LALInferenceGetVariable( ifomodeltemp->params,  "logGaussianNorm" );
+      logliketmp += logGaussianNorm;
     }
 
     get_model->ifo_loglikelihoods[ifo] = logliketmp;
@@ -335,14 +348,15 @@ REAL8 noise_only_likelihood( LALInferenceRunState *runState ){
     if ( !gaussianLike ){
       for (i=0; i<chunkLengths->length; i++){
         chunkLength = (REAL8)chunkLengths->data[i];
-
-        logLtmp -= chunkLength * log(sumDat->data[i]) + LAL_LN2 * (chunkLength-1.) + gsl_sf_lnfact(chunkLength);
+        logLtmp += (gsl_sf_lnfact(chunkLength-1) - LAL_LN2 - chunkLength*LAL_LNPI);
+        logLtmp -= chunkLength * log(sumDat->data[i]);
       }
     }
     else{
       /* for Gaussian likelihood there's only one chunk */
       REAL8 logGaussianNorm = *(REAL8 *)LALInferenceGetVariable( ifo->params,  "logGaussianNorm" );
-      logLtmp -= logGaussianNorm -0.5*sumDat->data[0];
+      logLtmp += logGaussianNorm;
+      logLtmp -= 0.5*sumDat->data[0];
     }
 
     data->nullloglikelihood = logLtmp;
@@ -385,13 +399,13 @@ REAL8 priorFunction( LALInferenceRunState *runState, LALInferenceVariables *para
   LALInferenceIFOModel *ifo = runState->model->ifo;
   (void)runState;
   LALInferenceVariableItem *item = params->head;
-  REAL8 min, max, mu, sigma, prior = 0, value = 0.;
+  REAL8 prior = 0, value = 0.;
 
   REAL8Vector *corVals = NULL;
   UINT4 cori = 0;
 
   /* check that parameters are within their prior ranges */
-  if( !in_range( runState->priorArgs, params ) ) { return -INFINITY; }
+  if( !in_range( runState->priorArgs, params ) ) { return -DBL_MAX; }
 
   /* if a k-d tree prior exists ONLY use that */
   if( LALInferenceCheckVariable( runState->priorArgs, "kDTreePrior" ) &&
@@ -416,8 +430,7 @@ REAL8 priorFunction( LALInferenceRunState *runState, LALInferenceVariables *para
 
     REAL8 *pt = XLALCalloc(tree->dim, sizeof(REAL8));
 
-    /* Get the coordinates of the current point - points in the tree are
-       already scaled, so there's no need to rescale the current point */
+    /* Get the coordinates of the current point */
     LALInferenceKDVariablesToREAL8(params, pt, template);
 
     /* find cell of current point */
@@ -425,7 +438,6 @@ REAL8 priorFunction( LALInferenceRunState *runState, LALInferenceVariables *para
 
     /* get log probability of current point - taken from the function LALInferenceKDLogProposalRatio() in LALInference.c */
     REAL8 logVolume = LALInferenceKDLogCellEigenVolume(currentCell);
-    // REAL8 logVolume = LALInferenceKDLogCellVolume(currentCell);
     REAL8 logCellFactor = log((REAL8)currentCell->npts / (REAL8)tree->npts);
 
     /* probability is proportional to the inverse of the cell volume */
@@ -440,35 +452,23 @@ REAL8 priorFunction( LALInferenceRunState *runState, LALInferenceVariables *para
   /* I31 and I21 values required to check/set I31 >= I21 */
   REAL8 I31 = -INFINITY, I21 = -INFINITY;
 
-  /* C21 and C22 values to required to check/set that they are either both positive or both
+  /* C21 and C22 values required to check/set that they are either both positive or both
    * negative for the case of a biaxial star */
   REAL8 C21 = -INFINITY, C22 = -INFINITY;
 
   for(; item; item = item->next ){
     /* get scale factor */
-    CHAR scalePar[VARNAME_MAX] = "";
-    CHAR scaleMinPar[VARNAME_MAX] = "";
-    REAL8 scale = 0., scaleMin = 0.;
-
     if( item->vary == LALINFERENCE_PARAM_FIXED || item->vary == LALINFERENCE_PARAM_OUTPUT ){ continue; }
 
-    sprintf(scalePar, "%s_scale", item->name);
-
-    scale = *(REAL8 *)LALInferenceGetVariable( ifo->params, scalePar );
-
-    sprintf(scaleMinPar, "%s_scale_min", item->name);
-    scaleMin = *(REAL8 *)LALInferenceGetVariable( ifo->params, scaleMinPar );
-
     if( item->vary == LALINFERENCE_PARAM_LINEAR || item->vary == LALINFERENCE_PARAM_CIRCULAR ){
-      /* Check for a gaussian */
-      if ( LALInferenceCheckGaussianPrior(runState->priorArgs, item->name) ){
-        LALInferenceGetGaussianPrior( runState->priorArgs, item->name, &mu, &sigma );
+      /* Check for a gaussian (note that this is also set if using a correlation coefficient, so
+       * also check that is not being used) */
+      if ( LALInferenceCheckGaussianPrior(runState->priorArgs, item->name) && !LALInferenceCheckCorrelatedPrior(runState->priorArgs, item->name) ){
+        REAL8 mu = 0., sigma = 0.;
+        LALInferenceGetGaussianPrior(runState->priorArgs, item->name, &mu, &sigma);
 
-        value = (*(REAL8 *)item->value) * scale + scaleMin;
-        mu += scaleMin;
-        sigma *= scale;
-        prior -= log(sqrt(2.*LAL_PI)*sigma);
-        prior -= (value - mu)*(value - mu) / (2.*sigma*sigma);
+        value = (*(REAL8 *)item->value);
+        prior -= 0.5*((*(REAL8 *)item->value - mu)*(*(REAL8 *)item->value - mu))/sigma;
 
         if ( !strcmp(item->name, "I21") ){ I21 = value; }
         if ( !strcmp(item->name, "I31") ){ I31 = value; }
@@ -477,17 +477,28 @@ REAL8 priorFunction( LALInferenceRunState *runState, LALInferenceVariables *para
       }
       /* check for a flat prior */
       else if( LALInferenceCheckMinMaxPrior(runState->priorArgs, item->name) ){
-        LALInferenceGetMinMaxPrior( runState->priorArgs, item->name, &min, &max );
-        prior -= log( (max - min) * scale );
+        value = (*(REAL8 *)item->value);
 
-        if ( !strcmp(item->name, "I21") ){ I21 = (*(REAL8 *)item->value) * scale + scaleMin; }
-        if ( !strcmp(item->name, "I31") ){ I31 = (*(REAL8 *)item->value) * scale + scaleMin; }
+        /* check if either using theta or iota rather than their cosines */
+        if ( !strcmp(item->name, "IOTA") || !strcmp(item->name, "THETA") ){
+          prior += theta_prior( value );
+        }
+        else { /* note: we don't need to update the prior as it is a constant */
+          if ( !strcmp(item->name, "I21") ){ I21 = value; }
+          if ( !strcmp(item->name, "I31") ){ I31 = value; }
+          if ( !strcmp(item->name, "C21") ){ C21 = value; }
+          if ( !strcmp(item->name, "C22") ){ C22 = value; }
+        }
       }
       else if( LALInferenceCheckCorrelatedPrior(runState->priorArgs, item->name) && corlist ){
         /* set item in correct position given the order of the correlation matrix given by corlist */
+        REAL8 mu = 0., sigma = 0.;
+        LALInferenceGetGaussianPrior(runState->priorArgs, item->name, &mu, &sigma);
+
         for( cori = 0; cori < corlist->length; cori++ ){
           if( !strcmp(item->name, corlist->data[cori]) ){
-            corVals->data[cori] = *(REAL8 *)item->value;
+            /* scale to a zero mean and unit variance Gaussian */
+            corVals->data[cori] = (*(REAL8 *)item->value - mu)/sigma;
             break;
           }
         }
@@ -509,7 +520,7 @@ REAL8 priorFunction( LALInferenceRunState *runState, LALInferenceVariables *para
     /* in case one parameter is fixed check that */
     if ( C21 == -INFINITY ){ C21 = LALInferenceGetREAL8Variable( runState->currentParams, "C21" ); }
     if ( C22 == -INFINITY ){ C22 = LALInferenceGetREAL8Variable( runState->currentParams, "C22" ); }
-    if ( C21/C22 < 0. ) { return -DBL_MAX; } /* if same sign this will be positive */
+    if ( (C21 < 0. && C22 > 0.) || (C21 > 0. && C22 < 0.) ) { return -DBL_MAX; } /* if same sign this will be positive */
   }
 
   /* if there are values for which the priors are defined by a correlation
@@ -549,11 +560,10 @@ REAL8 priorFunction( LALInferenceRunState *runState, LALInferenceVariables *para
       gsl_permutation_free( p );
 
       LALInferenceAddVariable( runState->priorArgs, "matrix_inverse", &cor, LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_FIXED );
-
     }
 
     /* get the log prior (this only works properly if the parameter values have been prescaled so as to be from a
-     * Gaussian of zero mean and unit variance, which should be the case in this code) */
+     * Gaussian of zero mean and unit variance, which happens on line 501) */
     vals = gsl_vector_view_array( corVals->data, corVals->length );
 
     XLAL_CALLGSL( gsl_blas_dgemv(CblasNoTrans, 1., cor, &vals.vector, 0., vm) );
@@ -567,6 +577,24 @@ REAL8 priorFunction( LALInferenceRunState *runState, LALInferenceVariables *para
 
   return prior;
 }
+
+
+/**
+ * \brief Prior for angle that is equivalent to an latitude value to give a uniform prior on a sphere
+ *
+ * If you have two angles that define spherical polar coordinates and you want these to have a prior
+ * that is uniform over the sphere then you can instead work with the cosine of the latitude-like angle
+ * and have this to be uniform between -1 and 1. However, if you want to work in the actual angle then
+ * you need to set the correct prior which will be \f$p(\theta) \propto \sin{\theta)\f$.
+ *
+ * \param theta [in] The angle in radians
+ *
+ * \return The log prior as defined above.
+ */
+REAL8 theta_prior( REAL8 theta ){
+  return log(sin(theta));
+}
+
 
 /**
  * \brief Convert an array of nested samples to posterior samples
@@ -749,16 +777,6 @@ void create_kdtree_prior( LALInferenceRunState *runState ){
       REAL8 posthigh = 0., postlow = 0., difflh = 0.;
       REAL8 lowr = 0., highr = 0.;
 
-      /* get the original scale factors */
-      CHAR scalePar[VARNAME_MAX] = "";
-      CHAR scaleMinPar[VARNAME_MAX] = "";
-      REAL8 scale = 0., scaleMin = 0.;
-
-      sprintf(scalePar, "%s_scale", samp->name);
-      scale = *(REAL8 *)LALInferenceGetVariable( runState->model->ifo->params, scalePar );
-      sprintf(scaleMinPar, "%s_scale_min", samp->name);
-      scaleMin = *(REAL8 *)LALInferenceGetVariable( runState->model->ifo->params, scaleMinPar );
-
       for ( UINT4 k = 0; k < nsamp; k++ ){
         REAL8 val = *(REAL8 *)LALInferenceGetVariable( posterior[k], samp->name );
 
@@ -781,9 +799,6 @@ void create_kdtree_prior( LALInferenceRunState *runState ){
       /* if there's a minmax prior check the ranges */
       if( LALInferenceCheckMinMaxPrior( runState->priorArgs, samp->name ) ){
         LALInferenceGetMinMaxPrior( runState->priorArgs, samp->name, &lowr, &highr );
-
-        highr = scaleMin + highr*scale;
-        lowr = scaleMin;
 
         /* check how far min and max samples are from the prior ranges */
         if( posthigh > highr || posthigh < lowr ){
@@ -824,8 +839,6 @@ void create_kdtree_prior( LALInferenceRunState *runState ){
       /* change the prior ranges, the scale factors and the current params */
       if( change != 0 ){
         LALInferenceIFOModel *ifo = runState->model->ifo;
-        fprintf(stderr, "Here\n");
-        REAL8 newscale = high[cnt] - low[cnt], newscaleMin = low[cnt];
 
         /* with the scaled parameters the k-D tree ranges will be between 0 and 1 */
         lownew[cnt] = 0.;
@@ -839,21 +852,8 @@ void create_kdtree_prior( LALInferenceRunState *runState ){
           /* rescale current parameter value */
           if ( ii == 0 ){
             ii++;
-
-            var = scaleMin + var*scale;
-            var = (var-newscaleMin)/newscale;
-
             LALInferenceSetVariable( runState->currentParams, samp->name, &var );
           }
-
-          /* change the scale factors */
-          LALInferenceRemoveVariable( ifo->params, scalePar );
-          LALInferenceRemoveVariable( ifo->params, scaleMinPar );
-
-          LALInferenceAddVariable( ifo->params, scalePar, &newscale, LALINFERENCE_REAL8_t,
-                                   LALINFERENCE_PARAM_FIXED );
-          LALInferenceAddVariable( ifo->params, scaleMinPar, &newscaleMin, LALINFERENCE_REAL8_t,
-                                   LALINFERENCE_PARAM_FIXED );
 
           ifo = ifo->next;
         }
@@ -863,8 +863,8 @@ void create_kdtree_prior( LALInferenceRunState *runState ){
                                     LALINFERENCE_REAL8_t );
       }
       else{
-        lownew[cnt] = (low[cnt] - scaleMin)/scale;
-        highnew[cnt] = (high[cnt] - scaleMin)/scale;
+        lownew[cnt] = low[cnt];
+        highnew[cnt] = high[cnt];
       }
 
       cnt++;
@@ -888,15 +888,10 @@ void create_kdtree_prior( LALInferenceRunState *runState ){
 
     cnt = 0;
 
-    /* rescale samples with new scales */
     while( samp ){
       if ( samp->vary != LALINFERENCE_PARAM_FIXED && samp->vary != LALINFERENCE_PARAM_OUTPUT ) {
-        REAL8 newscale = high[cnt] - low[cnt], newscaleMin = low[cnt];
         REAL8 val = *(REAL8 *)samp->value;
-        val = (val - newscaleMin)/newscale;
-
         LALInferenceSetVariable( posterior[i], samp->name, &val );
-
         cnt++;
       }
 

@@ -25,7 +25,7 @@
 #include <lal/SinCosLUT.h>
 #include <lal/DetectorStates.h>
 #include <lal/LISAspecifics.h>
-#include <lal/ConfigFile.h>
+#include <lal/UserInputParse.h>
 
 /*---------- local DEFINES ----------*/
 #define TRUE (1==1)
@@ -531,13 +531,13 @@ XLALCreateDetectorStateSeries ( UINT4 length )		/**< number of entries */
   DetectorStateSeries *ret = NULL;
 
   if ( (ret = LALCalloc(1, sizeof(DetectorStateSeries) )) == NULL ) {
-    XLALPrintError ("%s: failed to LALCalloc(1, %lu)\n", __func__, sizeof(DetectorStateSeries) );
+    XLALPrintError ("%s: failed to LALCalloc(1, %zu)\n", __func__, sizeof(DetectorStateSeries) );
     XLAL_ERROR_NULL ( XLAL_ENOMEM );
   }
 
   if ( (ret->data = LALCalloc (length, sizeof(DetectorState) )) == NULL ) {
     XLALFree (ret);
-    XLALPrintError ("%s: failed to LALCalloc(%d, %lu)\n", __func__, length, sizeof(DetectorState) );
+    XLALPrintError ("%s: failed to LALCalloc(%d, %zu)\n", __func__, length, sizeof(DetectorState) );
     XLAL_ERROR_NULL ( XLAL_ENOMEM );
   }
 
@@ -691,12 +691,12 @@ XLALGetMultiDetectorStates( const MultiLIGOTimeGPSVector *multiTS, /**< [in] mul
   /* prepare return-structure */
   MultiDetectorStateSeries *ret = NULL;
   if ( ( ret = LALCalloc ( 1, sizeof( *ret ) )) == NULL ) {
-    XLALPrintError ("%s: LALCalloc ( 1, %lu ) failed\n", __func__, sizeof(*ret) );
+    XLALPrintError ("%s: LALCalloc ( 1, %zu ) failed\n", __func__, sizeof(*ret) );
     XLAL_ERROR_NULL ( XLAL_ENOMEM );
   }
   if ( ( ret->data = LALCalloc ( numDetectors, sizeof( *(ret->data) ) )) == NULL ) {
     XLALFree ( ret );
-    XLALPrintError ("%s: LALCalloc ( %d, %lu ) failed\n", __func__, numDetectors, sizeof(*(ret->data)) );
+    XLALPrintError ("%s: LALCalloc ( %d, %zu ) failed\n", __func__, numDetectors, sizeof(*(ret->data)) );
     XLAL_ERROR_NULL ( XLAL_ENOMEM );
   }
   ret->length = numDetectors;
@@ -778,7 +778,7 @@ XLALParseMultiNoiseFloor ( MultiNoiseFloor *multiNoiseFloor,	/**< [out] parsed m
       UINT4 X0 = X % numSqrtSX;		// always = 0 if (numSqrtSX == 1), otherwise = X if (numSqrtSX==numDetectors)
       const char *sqrtSnStr = sqrtSX->data[X0];
       REAL8 sqrtSn;
-      XLAL_CHECK ( XLALParseStringValueToREAL8 ( &sqrtSn, sqrtSnStr ) == XLAL_SUCCESS, XLAL_EFUNC );
+      XLAL_CHECK ( XLALParseStringValueAsREAL8 ( &sqrtSn, sqrtSnStr ) == XLAL_SUCCESS, XLAL_EFUNC );
       XLAL_CHECK ( sqrtSn >= 0, XLAL_EDOM );
       multiNoiseFloor->sqrtSn[X] = sqrtSn;
     } /* for X < numDetectors */

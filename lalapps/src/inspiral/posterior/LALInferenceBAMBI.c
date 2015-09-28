@@ -275,12 +275,27 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
     } else
         Ntrain=50;
 
+    INT4 SKY_FRAME=0;
+    if(LALInferenceCheckVariable(runState->currentParams,"SKY_FRAME"))
+      SKY_FRAME=*(INT4 *)LALInferenceGetVariable(runState->currentParams,"SKY_FRAME");
     REAL8 tmin,tmax,tmid;
-    if (LALInferenceCheckVariable(runState->priorArgs,"time"))
+    if (SKY_FRAME==1)
     {
-        LALInferenceGetMinMaxPrior(runState->priorArgs, "time", (void *)&tmin, (void *)&tmax);
-        tmid=(tmax+tmin)/2.0;
-        LALInferenceAddVariable(runState->priorArgs,"trigtime",&tmid,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
+        if (LALInferenceCheckVariable(runState->priorArgs,"t0"))
+        {
+            LALInferenceGetMinMaxPrior(runState->priorArgs, "t0", (void *)&tmin, (void *)&tmax);
+            tmid=(tmax+tmin)/2.0;
+            LALInferenceAddVariable(runState->priorArgs,"trigtime",&tmid,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
+        }
+    }
+    else
+    {
+        if (LALInferenceCheckVariable(runState->priorArgs,"time"))
+        {
+            LALInferenceGetMinMaxPrior(runState->priorArgs, "time", (void *)&tmin, (void *)&tmax);
+            tmid=(tmax+tmin)/2.0;
+            LALInferenceAddVariable(runState->priorArgs,"trigtime",&tmid,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
+        }
     }
 
     runStateGlobal = runState;
@@ -328,6 +343,7 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
     int ndims = ND;
     int nPar = ndims + 3;
     if (LALInferenceCheckVariable(runState->currentParams,"f_ref")) nPar++;  // add space for f_ref
+    if (SKY_FRAME==1) nPar += 3;
     int nClsPar = fmin(2,ND);
     int updInt = Ntrain;
     double Ztol = -1.e90;
@@ -396,48 +412,6 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
     strcpy(&info[1][0],"DONOTWRITE");
     strcpy(&info[2][0],"-1");
     void *context = (void *)info;
-
-    /* Read injection XML file for parameters if specified */
-    /* Used to print injection likelihood and prior */
-    /*ppt=LALInferenceGetProcParamVal(runState->commandLine,"--inj");
-    if(ppt){
-      SimInspiralTable *injTable=NULL;
-      SimInspiralTableFromLIGOLw(&injTable,ppt->value,0,0);
-      if(!injTable){
-        fprintf(stderr,"Unable to open injection file %s\n",ppt->value);
-        exit(1);
-      }
-      ppt=LALInferenceGetProcParamVal(runState->commandLine,"--event");
-      if(ppt){
-        int event= atoi(ppt->value);
-        int i=0;
-        while(i<event) {i++; injTable=injTable->next;} // select event
-       LALInferenceVariables tempParams;
-    memset(&tempParams,0,sizeof(tempParams));
-    LALInferenceInjectionToVariables(injTable,&tempParams);
-    LALInferenceVariableItem *node=NULL;
-    item=runState->currentParams->head;
-    for(;item;item=item->next) {
-      node=LALInferenceGetItem(&tempParams,item->name);
-      if(node) {
-        LALInferenceSetVariable(runState->currentParams,node->name,node->value);
-      }
-    }
-    double linj,pinj,lz;
-        char finjname[150];
-        sprintf(finjname,"%sinjlike.txt",root);
-    linj=runState->likelihood(runState->currentParams, runState->data, runState->model);
-        lz = (*(REAL8 *)LALInferenceGetVariable(runState->algorithmParams, "logZnoise"));
-    linj -= lz;
-    pinj = runState->prior(runState,runState->currentParams);
-    FILE *finj=fopen(finjname,"w");
-    fprintf(finj,"Log-likelihood value returned = %g\n",linj);
-    fprintf(finj,"Log-prior value returned = %g\n",pinj);
-    fprintf(finj,"Log-posterior value returned = %g\n",linj+pinj);
-    fprintf(finj,"Noise log-evidence value = %g\n",lz);
-    fclose(finj);
-      }
-    }*/
 
     BAMBIRun(mmodal, ceff, nlive, mntol, efr, ndims, nPar, nClsPar, maxModes, updInt, Ztol, root, rseed, pWrap, fb,
     bresume, outfile, initMPI, logZero, maxiter, LogLike, dumper, bambi, context);
@@ -811,10 +785,12 @@ Arguments for each section follow:\n\n";
     else
         state->model = LALInferenceInitCBCModel(state);
 
-    state->currentParams = XLALMalloc(sizeof(LALInferenceVariables));
-    memset(state->currentParams, 0, sizeof(LALInferenceVariables));
-    LALInferenceCopyVariables(state->model->params, state->currentParams);
-    state->templt = state->model->templt;
+    if (state->model) {
+        state->currentParams = XLALMalloc(sizeof(LALInferenceVariables));
+        memset(state->currentParams, 0, sizeof(LALInferenceVariables));
+        LALInferenceCopyVariables(state->model->params, state->currentParams);
+        state->templt = state->model->templt;
+    }
 
     /* Choose the likelihood */
     LALInferenceInitLikelihood(state);

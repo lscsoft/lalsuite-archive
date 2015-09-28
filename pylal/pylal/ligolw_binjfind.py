@@ -320,8 +320,8 @@ class DocContents(object):
 		# time-ordered)
 		#
 
-		self.snglbursttable = dict((instrument, sorted((event for event in self.snglbursttable if event.ifo == instrument), lambda a, b: cmp(a.peak_time, b.peak_time) or cmp(a.peak_time_ns, b.peak_time_ns))) for instrument in set(self.snglbursttable.getColumnByName("ifo")))
-		self.coincs.sort(lambda (id_a, events_a), (id_b, events_b): cmp(events_a[0].peak_time, events_b[0].peak_time) or cmp(events_a[0].peak_time_ns, events_b[0].peak_time_ns))
+		self.snglbursttable = dict((instrument, sorted((event for event in self.snglbursttable if event.ifo == instrument), key = lambda event: event.peak)) for instrument in set(self.snglbursttable.getColumnByName("ifo")))
+		self.coincs.sort(key = lambda (coinc_id, events): events[0].peak)
 
 	def bursts_near_peaktime(self, t, window, offsetvector):
 		"""
@@ -423,7 +423,7 @@ def StringCuspSnglCompare(sim, burst, offsetvector):
 	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector)
 	window = SimBurstUtils.stringcusp_autocorrelation_width / 2
 	# uncomment last part of expression to impose an amplitude cut
-	return segments.segment(tinj - window, tinj + window).disjoint(burst.get_period()) #or abs(sim.amplitude / SimBurstUtils.string_amplitude_in_instrument(sim, burst.ifo, offsetvector)) > 3
+	return segments.segment(tinj - window, tinj + window).disjoint(burst.period) #or abs(sim.amplitude / SimBurstUtils.string_amplitude_in_instrument(sim, burst.ifo, offsetvector)) > 3
 
 
 def ExcessPowerSnglCompare(sim, burst, offsetvector):
@@ -431,7 +431,7 @@ def ExcessPowerSnglCompare(sim, burst, offsetvector):
 	Return False (injection matches event) if the peak time and centre
 	frequency of sim lie within the time-frequency tile of burst.
 	"""
-	return (SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector) not in burst.get_period()) or (sim.frequency not in burst.get_band())
+	return (SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector) not in burst.period) or (sim.frequency not in burst.band)
 
 
 def OmegaSnglCompare(sim, burst, offsetvector, delta_t = 10.0):
@@ -440,7 +440,7 @@ def OmegaSnglCompare(sim, burst, offsetvector, delta_t = 10.0):
 	the peak time of the burst event differ by less than or equal to
 	delta_t seconds.
 	"""
-	return abs(float(SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector) - burst.get_peak())) > delta_t
+	return abs(float(SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector) - burst.peak)) > delta_t
 
 def CWBSnglCompare(sim, burst, offsetvector, delta_t = 10.0):
 	"""
@@ -448,7 +448,7 @@ def CWBSnglCompare(sim, burst, offsetvector, delta_t = 10.0):
 	the peak time of the burst event differ by less than or equal to
 	delta_t seconds.
 	"""
-	return abs(float(SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector) - burst.get_peak())) > delta_t
+	return abs(float(SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector) - burst.peak)) > delta_t
 
 
 def StringCuspNearCoincCompare(sim, burst, offsetvector):
@@ -458,7 +458,7 @@ def StringCuspNearCoincCompare(sim, burst, offsetvector):
 	"""
 	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector)
 	window = SimBurstUtils.stringcusp_autocorrelation_width / 2 + SimBurstUtils.burst_is_near_injection_window
-	return segments.segment(tinj - window, tinj + window).disjoint(burst.get_period())
+	return segments.segment(tinj - window, tinj + window).disjoint(burst.period)
 
 
 def ExcessPowerNearCoincCompare(sim, burst, offsetvector):
@@ -468,7 +468,7 @@ def ExcessPowerNearCoincCompare(sim, burst, offsetvector):
 	"""
 	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector)
 	window = SimBurstUtils.burst_is_near_injection_window
-	return segments.segment(tinj - window, tinj + window).disjoint(burst.get_period())
+	return segments.segment(tinj - window, tinj + window).disjoint(burst.period)
 
 
 def OmegaNearCoincCompare(sim, burst, offsetvector):
@@ -505,7 +505,7 @@ def find_sngl_burst_matches(contents, sim, comparefunc, sieve_window):
 	the geocentre and the two still be considered a match.
 	"""
 	offsetvector = contents.offsetvectors[sim.time_slide_id]
-	return [burst for burst in contents.bursts_near_peaktime(sim.get_time_geocent(), sieve_window, offsetvector) if not comparefunc(sim, burst, offsetvector)]
+	return [burst for burst in contents.bursts_near_peaktime(sim.time_geocent, sieve_window, offsetvector) if not comparefunc(sim, burst, offsetvector)]
 
 
 def add_sim_burst_coinc(contents, sim, events, coinc_def_id):
@@ -756,7 +756,7 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 			if verbose:
 				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
 			offsetvector = contents.offsetvectors[sim.time_slide_id]
-			coincs = contents.coincs_near_peaktime(sim.get_time_geocent(), coinc_peak_time_window, offsetvector)
+			coincs = contents.coincs_near_peaktime(sim.time_geocent, coinc_peak_time_window, offsetvector)
 			exact_coinc_event_ids = find_exact_coinc_matches(coincs, sim, snglcomparefunc, contents.seglists, offsetvector)
 			near_coinc_event_ids = find_near_coinc_matches(coincs, sim, nearcoinccomparefunc, offsetvector)
 			assert exact_coinc_event_ids.issubset(near_coinc_event_ids)
@@ -801,7 +801,7 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 			if verbose:
 				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
 			offsetvector = contents.offsetvectors[sim.time_slide_id]
-			coincs = contents.coincs_near_peaktime(sim.get_time_geocent(), coinc_peak_time_window, offsetvector)
+			coincs = contents.coincs_near_peaktime(sim.time_geocent, coinc_peak_time_window, offsetvector)
 			exact_coinc_event_ids = find_exact_coinc_matches(coincs, sim, snglcomparefunc, contents.seglists, offsetvector)
 			near_coinc_event_ids = find_near_coinc_matches(coincs, sim, nearcoinccomparefunc, offsetvector)
 			assert exact_coinc_event_ids.issubset(near_coinc_event_ids)

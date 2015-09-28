@@ -592,7 +592,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   REAL8 y_1, y_2, z1, z2;
 
   /* Variables for the integrator */
-  ark4GSLIntegrator       *integrator = NULL;
+  LALAdaptiveRungeKutta4Integrator       *integrator = NULL;
   REAL8Array              *dynamics   = NULL;
   REAL8Array              *dynamicsHi = NULL;
   INT4                    retLen;
@@ -1442,14 +1442,14 @@ int XLALSimIMRSpinAlignedEOBWaveform(
  * Currently, only h2m harmonics will be generated. 
  * 
  * Input conventions:
- * Cartesian coordinate system: initial \vec{L} is along the z-axis
+ * Cartesian coordinate system: initial \f$\vec{L}\f$ is along the z-axis
  * phiC       : in radians
  * deltaT     : in SI units (Hz)
  * m1SI, m2SI : in SI units (kg)
  * fMin       : in SI units (Hz)
  * r          : in SI units (m)
  * inc        : in radians
- * INspin{1,2}: in dimensionless units of m{1,2}^2
+ * INspin{1,2}: in dimensionless units of \f$m{1,2}^2\f$
  * 
  * Evolution conventions:
  * values[0-2]: r in units of total mass
@@ -1632,7 +1632,8 @@ int XLALSimIMRSpinEOBWaveformAll(
     }
     if ( INspin2[0] == 0. && INspin2[1] == 0. && INspin2[2] == 0. ) {
         spin2Norm = 0.;
-    }  if ( debugPK ) {
+    }
+    if ( debugPK ) {
     printf( "theta1Ini, theta2Ini =  %3.10f, %3.10f\n", theta1Ini, theta2Ini );
     printf( "INspin1 = {%3.10f, %3.10f, %3.10f}\n", 
             INspin1[0], INspin1[1], INspin1[2] );
@@ -1653,6 +1654,7 @@ int XLALSimIMRSpinEOBWaveformAll(
                                                0., 0., SpinAlignedEOBversion);
         return ret;
     }
+  
   /* *******************************************************************/
   /* ********************** Memory Allocation **************************/
   /* *******************************************************************/
@@ -1802,7 +1804,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   REAL8 LframeEx[3] = {0,0,0}, LframeEy[3] = {0,0,0}, LframeEz[3] = {0,0,0};
   
   /* Variables for the integrator */
-  ark4GSLIntegrator       *integrator = NULL;
+  LALAdaptiveRungeKutta4Integrator       *integrator = NULL;
   REAL8Array              *dynamics   = NULL;//, *dynamicsHi = NULL;
   INT4                    retLen = 0, retLenLow = 0, retLenHi = 0;
   INT4                    retLenRDPatch = 0, retLenRDPatchLow = 0;

@@ -35,6 +35,11 @@
 #define CVS_DATE "$Date$"
 #define CVS_NAME_STRING "$Name$"
 
+#ifndef _OPENMP
+#define omp ignore
+#endif
+
+
 void ensemble_sampler(struct tagLALInferenceRunState *run_state) {
     INT4 mpi_rank, mpi_size;
     INT4 walker, nwalkers_per_thread;
@@ -297,6 +302,11 @@ void parallel_incremental_kmeans(LALInferenceRunState *run_state,
 
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+
+    /* Try atleast as many clusterings as there are MPI threads,
+     * so everyone has something to do. */
+    if (mpi_size > kmax)
+        kmax = mpi_size;
 
     bics = XLALCalloc(mpi_size, sizeof(REAL8));
 

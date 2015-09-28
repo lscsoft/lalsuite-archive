@@ -270,7 +270,7 @@ def get_mean_mchirp(coinc):
 
 def load_external_triggers(filename):
     doc = ligolw_add.ligolw_add(ligolw.Document(), [filename])
-    ext_trigger_tables = lsctables.getTablesByType(doc, lsctables.ExtTriggersTable)
+    ext_trigger_tables = lsctables.table.getTablesByName(doc, lsctables.ExtTriggersTable.tableName)
     if ext_trigger_tables is None:
         print >>sys.stderr, "No tables named external_trigger:table found in " + filename
     else:

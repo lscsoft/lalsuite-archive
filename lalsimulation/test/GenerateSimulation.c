@@ -20,6 +20,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <time.h>
+#include <sys/types.h>
 
 #include <lal/LALConstants.h>
 #include <lal/LALDatatypes.h>
@@ -79,6 +80,7 @@ const char * usage =
 "                             TaylorT3\n"
 "                             TaylorT4\n"
 "                             TaylorEt\n"
+"                             EccentricTD\n"
 "                             IMRPhenomA\n"
 "                             IMRPhenomB\n"
 "                             IMRPhenomC\n"
@@ -98,9 +100,10 @@ const char * usage =
 "                             IMRPhenomB\n"
 "                             IMRPhenomC\n"
 "                             IMRPhenomP\n"
-"                             SEOBNRv1_ROM_SingleSpin\n"
+"                             IMRPhenomPv2\n"
+"                             SEOBNRv1_ROM_EffectiveSpin\n"
 "                             SEOBNRv1_ROM_DoubleSpin\n"
-"                             SEOBNRv2_ROM_SingleSpin\n"
+"                             SEOBNRv2_ROM_EffectiveSpin\n"
 "                             SEOBNRv2_ROM_DoubleSpin\n"
 "                             TaylorF2\n"
 "                             SpinTaylorF2\n"

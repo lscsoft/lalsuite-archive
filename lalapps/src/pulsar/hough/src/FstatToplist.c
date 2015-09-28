@@ -17,7 +17,11 @@
 *  MA  02111-1307  USA
 */
 
+#include <config.h>
+
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include "FstatToplist.h"
 #include "HeapToplist.h"
 #include <lal/StringInput.h> /* for LAL_REAL8_FORMAT etc. */
@@ -158,7 +162,7 @@ int read_fstat_toplist_from_fp(toplist_t*l, FILE*fp, UINT4*checksum, UINT4 maxby
 	return -2;
 
     /* make sure the line buffer is terminated correctly */
-    line[sizeof(line)-1]='\0';
+    XLAL_LAST_ELEM(line)='\0';
 
     /* init the checksum if given */
     if(checksum)
@@ -185,7 +189,7 @@ int read_fstat_toplist_from_fp(toplist_t*l, FILE*fp, UINT4*checksum, UINT4 maxby
 	}
 	else if (line[len-1] != '\n') {
 	  LogPrintf (LOG_CRITICAL, 
-		     "Line %d is too long or has no NEWLINE. First %lu chars are:\n'%s'\n",
+		     "Line %d is too long or has no NEWLINE. First %zu chars are:\n'%s'\n",
 		     lines,sizeof(line)-1, line);
 	  return -1;
 	}
@@ -223,7 +227,7 @@ int read_fstat_toplist_from_fp(toplist_t*l, FILE*fp, UINT4*checksum, UINT4 maxby
 	    ) {
 	    LogPrintf (LOG_CRITICAL, 
 		       "Line %d has invalid values.\n"
-		       "First %lu chars are:\n"
+		       "First %zu chars are:\n"
 		       "%s\n"
 		       "All fields should be finite\n"
 		       "1st field should be positive.\n" 
@@ -307,7 +311,7 @@ int write_fstat_toplist_item_to_fp(FstatOutputEntry fline, FILE*fp, UINT4*checks
 	for(i=0;i<length;i++)
 	    *checksum += linebuf[i];
 
-    linebuf[sizeof(linebuf)-1] = '\0';
+    XLAL_LAST_ELEM(linebuf) = '\0';
 
     return(fprintf(fp,"%s",linebuf));
 }
@@ -776,7 +780,7 @@ int write_hs_checkpoint(const char*filename, toplist_t*tl, UINT4 counter, BOOLEA
   len = fwrite(tl->data, tl->size, tl->elems, fp);
   if(len != tl->elems) {
     LOGIOERROR("Couldn't write data to", tmpfilename);
-    LogPrintf(LOG_CRITICAL,"fwrite() returned %d, length was %lu\n", len, tl->elems);
+    LogPrintf(LOG_CRITICAL,"fwrite() returned %d, length was %zu\n", len, tl->elems);
     if(fclose(fp))
       LOGIOERROR("In addition: couldn't close", tmpfilename);
     return(-1);

@@ -67,7 +67,7 @@ class SkyPositionTable(table.Table):
         for row in self:
             row.normalize()
 
-    def parseTimeDelayDegeneracy(self, ifos, gpstime=date.XLALGPSTimeNow(),\
+    def parseTimeDelayDegeneracy(self, ifos, gpstime=lal.GPSTimeNow(),\
                                  dt=0.0005):
      
         # get detectors

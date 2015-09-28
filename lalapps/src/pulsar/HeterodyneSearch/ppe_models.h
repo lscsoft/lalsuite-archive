@@ -35,24 +35,28 @@ extern "C" {
 /* model functions */
 void get_pulsar_model( LALInferenceModel *model );
 
-REAL8 rescale_parameter( LALInferenceModel *model, LALInferenceIFOModel *ifo, const CHAR *parname );
+void add_pulsar_parameter( LALInferenceVariables *var, PulsarParameters *params, const CHAR *parname );
 
-void pulsar_model( BinaryPulsarParams params, LALInferenceIFOModel *ifo );
+void add_variable_parameter( PulsarParameters *params, LALInferenceVariables *var, const CHAR *parname, LALInferenceParamVaryType vary );
 
-REAL8Vector *get_phase_model( BinaryPulsarParams params, LALInferenceIFOModel *ifo, REAL8 freqFactor );
+void pulsar_model( PulsarParameters *params, LALInferenceIFOModel *ifo );
 
-REAL8Vector *get_ssb_delay( BinaryPulsarParams pars, LIGOTimeGPSVector *datatimes, EphemerisData *ephem,
+void set_nonGR_model_parameters( PulsarParameters *pars, char* nonGRmodel );
+
+REAL8Vector *get_phase_model( PulsarParameters *params, LALInferenceIFOModel *ifo, REAL8 freqFactor );
+
+REAL8Vector *get_ssb_delay( PulsarParameters *pars, LIGOTimeGPSVector *datatimes, EphemerisData *ephem,
                             TimeCorrectionData *tdat, TimeCorrectionType ttype, LALDetector *detector,
                             REAL8 interptime );
 
-REAL8Vector *get_bsb_delay( BinaryPulsarParams pars, LIGOTimeGPSVector *datatimes, REAL8Vector *dts,
+REAL8Vector *get_bsb_delay( PulsarParameters *pars, LIGOTimeGPSVector *datatimes, REAL8Vector *dts,
                             EphemerisData *ephem );
 
 void get_triaxial_amplitude_model( BinaryPulsarParams pars, LALInferenceIFOModel *ifo );
 
 void get_pinsf_amplitude_model( BinaryPulsarParams pars, LALInferenceIFOModel *ifo );
 
-void get_amplitude_model( BinaryPulsarParams pars, LALInferenceIFOModel *ifo );
+void get_amplitude_model( PulsarParameters *pars, LALInferenceIFOModel *ifo );
 
 REAL8 get_phase_mismatch( REAL8Vector *phi1, REAL8Vector *phi2, LIGOTimeGPSVector *ts );
 
@@ -63,11 +67,8 @@ void response_lookup_table( REAL8 t0, LALDetAndSource detNSource, INT4 timeSteps
                             REAL8Vector *a3, REAL8Vector *b3 );
 
 /* functions to convert between parameters */
-void phi0_psi_transform( REAL8 phi0, REAL8 psi, REAL8 *phi0prime, REAL8 *psiprime );
 
-void inverse_phi0_psi_transform( REAL8 phi0prime, REAL8 psiprime, REAL8 *phi0, REAL8 *psi );
-
-void invert_source_params( BinaryPulsarParams *params );
+void invert_source_params( PulsarParameters *params );
 
 #ifdef __cplusplus
 }

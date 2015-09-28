@@ -172,6 +172,15 @@ class test_segment(unittest.TestCase):
 			False
 		)
 		map(lambda i, r, a, b: self.assertEqual((i, r), (i, a.__contains__(b))), xrange(len(results)), results, set1(), set2())
+		self.assertEqual(True, [1, 2] in segments.segment(0, 4))
+		self.assertEqual(False, [1, 6] in segments.segment(0, 4))
+		self.assertEqual(False, [-1, 2] in segments.segment(0, 4))
+		self.assertEqual(False, [-1, 6] in segments.segment(0, 4))
+		self.assertEqual(True, 2 in segments.segment(0, 4))
+		self.assertEqual(False, [] in segments.segment(0, 4))
+		self.assertEqual(False, [0] in segments.segment(0, 4))
+		self.assertEqual(False, [2] in segments.segment(0, 4))
+		self.assertEqual(False, [1, 2, 3] in segments.segment(0, 4))
 
 	def testdisjoint(self):
 		results = (

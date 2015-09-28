@@ -46,6 +46,7 @@ except ImportError:
 import itertools
 import math
 import numpy
+import pickle
 import random
 import scipy
 __numpy__version__ = tuple(map(int, numpy.__version__.strip().split(".")))
@@ -63,8 +64,8 @@ from glue import iterutils
 from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import array as ligolw_array
-from glue.ligolw import table as ligolw_table
-from glue.ligolw import lsctables
+from glue.ligolw import param as ligolw_param
+from glue.ligolw import types as ligolw_types
 import lal
 from pylal import git_version
 
@@ -101,6 +102,8 @@ class Bins(object):
 		# input checking
 		if not isinstance(n, int):
 			raise TypeError(n)
+		if n < 1:
+			raise ValueError(n)
 		if max <= min:
 			raise ValueError((min, max))
 		self.min = min
@@ -167,6 +170,10 @@ class Bins(object):
 		"""
 		raise NotImplementedError
 
+	#
+	# Sample from the binning
+	#
+
 	def randcoord(self, n = 1., domain = slice(None, None)):
 		"""
 		Generator yielding a sequence of x, ln(P(x)) tuples where x
@@ -194,9 +201,9 @@ class Bins(object):
 		>>> # natural log of 1/10
 		>>> print "%.15g" % math.log(1./10)
 		-2.30258509299405
-		>>> # linear bins spanning [1, 10]
+		>>> # linear bins spanning [0, 10]
 		>>> x = LinearBins(0, 10, 5).randcoord().next
-		>>> # draw a random value, P(value) = 1/10
+		>>> # draw a random value, ln P(value) = ln 1/10
 		>>> x()	# doctest: +ELLIPSIS
 		(..., -2.3025850929940455)
 		>>> # binning with infinite boundaries
@@ -253,6 +260,75 @@ class Bins(object):
 		for i, ln_Pi in iterutils.randindex(lo, hi, n = n):
 			yield uniform(l[i], u[i]), ln_Pi - ln_dx[i]
 
+	#
+	# XML I/O related methods and data
+	#
+
+	@staticmethod
+	def xml_bins_name_enc(name, suffix = u"pylal_rate_bins"):
+		"""
+		For internal use by XML I/O code.
+		"""
+		return u"%s:%s" % (name, suffix)
+
+	@staticmethod
+	def xml_bins_name_dec(name, suffix = u"pylal_rate_bins"):
+		"""
+		For internal use by XML I/O code.
+		"""
+		name = name.rsplit(u":", 1)
+		if name[-1] != suffix:
+			raise ValueError(name)
+		return name[0]
+
+	@classmethod
+	def xml_bins_check(cls, elem, name):
+		"""
+		For internal use by XML I/O code.
+		"""
+		return elem.tagName == ligolw.Param.tagName and elem.hasAttribute(u"Name") and name == cls.xml_bins_name_dec(elem.Name)
+
+	def to_xml(self):
+		"""
+		Construct a LIGO Light Weight XML representation of the
+		Bins instance.
+		"""
+		raise NotImplementedError
+
+	@classmethod
+	def from_xml(cls, xml):
+		"""
+		From the XML Param element at xml, return the Bins object
+		it describes.
+		"""
+		raise NotImplementedError
+
+
+class LoHiCountToFromXMLMixin(object):
+	"""
+	For internal use by XML I/O code.
+	"""
+	def to_xml(self):
+		"""
+		Construct a LIGO Light Weight XML representation of the
+		Bins instance.
+		"""
+		return ligolw_param.from_pyvalue(self.xml_bins_name_enc(self.xml_bins_name), u"%s,%s,%s" % (ligolw_types.FormatFunc[u"real_8"](self.min), ligolw_types.FormatFunc[u"real_8"](self.max), ligolw_types.FormatFunc[u"int_8s"](self.n)))
+
+	@classmethod
+	def from_xml(cls, xml):
+		"""
+		From the XML Param element at xml, return the Bins object
+		it describes.
+		"""
+		if not cls.xml_bins_check(xml, cls.xml_bins_name):
+			raise ValueError("not a %s" % repr(cls))
+		lo, hi, n = xml.pcdata.split(u",")
+		lo = ligolw_types.ToPyType[u"real_8"](lo)
+		hi = ligolw_types.ToPyType[u"real_8"](hi)
+		n = ligolw_types.ToPyType[u"int_8s"](n)
+		return cls(lo, hi, n)
+
 
 class IrregularBins(Bins):
 	"""
@@ -281,6 +357,11 @@ class IrregularBins(Bins):
 	>>> y = IrregularBins([0.0, 11.0, 15.0, numpy.inf])
 	>>> x == y
 	True
+	>>> import sys
+	>>> x.to_xml().write(sys.stdout)	# doctest: +NORMALIZE_WHITESPACE
+	<Param Type="lstring" Name="irregularbins:pylal_rate_bins:param">0,11,15,inf</Param>
+	>>> IrregularBins.from_xml(x.to_xml()) == x
+	True
 	"""
 	def __init__(self, boundaries):
 		"""
@@ -297,9 +378,6 @@ class IrregularBins(Bins):
 			raise ValueError("non-monotonic boundaries provided")
 
 		self.boundaries = boundaries
-		self.n = len(boundaries) - 1
-		self.min = boundaries[0]
-		self.max = boundaries[-1]
 
 	def __cmp__(self, other):
 		"""
@@ -310,13 +388,16 @@ class IrregularBins(Bins):
 			return -1
 		return cmp(self.boundaries, other.boundaries)
 
+	def __len__(self):
+		return len(self.boundaries) - 1
+
 	def __getitem__(self, x):
 		if isinstance(x, slice):
 			return super(IrregularBins, self).__getitem__(x)
-		if self.min <= x < self.max:
+		if self.boundaries[0] <= x < self.boundaries[-1]:
 			return bisect_right(self.boundaries, x) - 1
 		# special measure-zero edge case
-		if x == self.max:
+		if x == self.boundaries[-1]:
 			return len(self.boundaries) - 2
 		raise IndexError(x)
 
@@ -329,8 +410,31 @@ class IrregularBins(Bins):
 	def centres(self):
 		return (self.lower() + self.upper()) / 2.0
 
+	#
+	# XML I/O related methods and data
+	#
 
-class LinearBins(Bins):
+	xml_bins_name = u"irregularbins"
+
+	def to_xml(self):
+		"""
+		Construct a LIGO Light Weight XML representation of the
+		Bins instance.
+		"""
+		return ligolw_param.from_pyvalue(self.xml_bins_name_enc(self.xml_bins_name), u",".join(map(ligolw_types.FormatFunc[u"real_8"], self.boundaries)))
+
+	@classmethod
+	def from_xml(cls, xml):
+		"""
+		From the XML Param element at xml, return the Bins object
+		it describes.
+		"""
+		if not cls.xml_bins_check(xml, cls.xml_bins_name):
+			raise ValueError("not a %s" % repr(cls))
+		return cls(map(ligolw_types.ToPyType[u"real_8"], xml.pcdata.split(u",")))
+
+
+class LinearBins(LoHiCountToFromXMLMixin, Bins):
 	"""
 	Linearly-spaced bins.  There are n bins of equal size, the first
 	bin starts on the lower bound and the last bin ends on the upper
@@ -367,9 +471,14 @@ class LinearBins(Bins):
 	slice(1, 3, None)
 	>>> x[10:]
 	slice(1, 3, None)
+	>>> import sys
+	>>> x.to_xml().write(sys.stdout)	# doctest: +NORMALIZE_WHITESPACE
+	<Param Type="lstring" Name="linbins:pylal_rate_bins:param">1,25,3</Param>
+	>>> LinearBins.from_xml(x.to_xml()) == x
+	True
 	"""
 	def __init__(self, min, max, n):
-		Bins.__init__(self, min, max, n)
+		super(LinearBins, self).__init__(min, max, n)
 		self.delta = float(max - min) / n
 
 	def __getitem__(self, x):
@@ -391,14 +500,20 @@ class LinearBins(Bins):
 	def upper(self):
 		return numpy.linspace(self.min + self.delta, self.max, len(self))
 
+	#
+	# XML I/O related methods and data
+	#
 
-class LinearPlusOverflowBins(Bins):
+	xml_bins_name = u"linbins"
+
+
+class LinearPlusOverflowBins(LoHiCountToFromXMLMixin, Bins):
 	"""
-	Linearly-spaced bins with overflow at the edges.  There are n-2 bins of
-	equal size. The n+1 bin starts on the lower bound and the n-1 bin ends
-	on the upper bound inclusively.  The 0 and n bins are overflow going
-	from -infinity to the n+1 boundary and the n-1 boundary to +infinity
-	respectively.
+	Linearly-spaced bins with overflow at the edges.  There are n-2
+	bins of equal size.  The bin 1 starts on the lower bound and bin
+	n-2 ends on the upper bound.  Bins 0 and n-1 are overflow going
+	from -infinity to the lower bound and from the upper bound to
+	+infinity respectively.  Must have n >= 3.
 
 	Example:
 
@@ -429,11 +544,16 @@ class LinearPlusOverflowBins(Bins):
 	slice(0, 3, None)
 	>>> x[9:float("+inf")]
 	slice(2, 5, None)
+	>>> import sys
+	>>> x.to_xml().write(sys.stdout)	# doctest: +NORMALIZE_WHITESPACE
+	<Param Type="lstring" Name="linplusoverflowbins:pylal_rate_bins:param">1,25,5</Param>
+	>>> LinearPlusOverflowBins.from_xml(x.to_xml()) == x
+	True
 	"""
 	def __init__(self, min, max, n):
 		if n < 3:
 			raise ValueError("n must be >= 3")
-		Bins.__init__(self, min, max, n)
+		super(LinearPlusOverflowBins, self).__init__(min, max, n)
 		self.delta = float(max - min) / (n - 2)
 
 	def __getitem__(self, x):
@@ -458,8 +578,14 @@ class LinearPlusOverflowBins(Bins):
 	def upper(self):
 		return numpy.concatenate((numpy.array([self.min]), self.min + self.delta * (numpy.arange(len(self) - 2) + 1), numpy.array([PosInf])))
 
+	#
+	# XML I/O related methods and data
+	#
 
-class LogarithmicBins(Bins):
+	xml_bins_name = u"linplusoverflowbins"
+
+
+class LogarithmicBins(LoHiCountToFromXMLMixin, Bins):
 	"""
 	Logarithmically-spaced bins.  There are n bins, each of whose upper
 	and lower bounds differ by the same factor.  The first bin starts
@@ -475,9 +601,14 @@ class LogarithmicBins(Bins):
 	1
 	>>> x[25]
 	2
+	>>> import sys
+	>>> x.to_xml().write(sys.stdout)	# doctest: +NORMALIZE_WHITESPACE
+	<Param Type="lstring" Name="logbins:pylal_rate_bins:param">1,25,3</Param>
+	>>> LogarithmicBins.from_xml(x.to_xml()) == x
+	True
 	"""
 	def __init__(self, min, max, n):
-		Bins.__init__(self, min, max, n)
+		super(LogarithmicBins, self).__init__(min, max, n)
 		self.delta = (math.log(max) - math.log(min)) / n
 
 	def __getitem__(self, x):
@@ -499,15 +630,22 @@ class LogarithmicBins(Bins):
 	def upper(self):
 		return numpy.exp(numpy.linspace(math.log(self.min) + self.delta, math.log(self.max), len(self)))
 
+	#
+	# XML I/O related methods and data
+	#
 
-class LogarithmicPlusOverflowBins(Bins):
+	xml_bins_name = u"logbins"
+
+
+class LogarithmicPlusOverflowBins(LoHiCountToFromXMLMixin, Bins):
 	"""
-	Logarithmically-spaced bins plus one bin at each end that goes to zero
-	and positive infinity respectively.  There are n bins, The [n+1,n-1]
-	bins have each of their upper and lower bounds differ by the same
-	factor.  The second bin starts on the lower bound, and the n-1 bin ends
-	on the upper bound inclusively.  The first bin goes to zero and the
-	last bin goes to infinity.  Must have n >= 3.
+	Logarithmically-spaced bins plus one bin at each end that goes to
+	zero and positive infinity respectively.  There are n-2 bins each
+	of whose upper and lower bounds differ by the same factor.  Bin 1
+	starts on the lower bound, and bin n-2 ends on the upper bound
+	inclusively.  Bins 0 and n-1 are overflow bins extending from 0 to
+	the lower bound and from the upper bound to +infinity respectively.
+	Must have n >= 3.
 
 	Example:
 
@@ -530,11 +668,16 @@ class LogarithmicPlusOverflowBins(Bins):
 	array([  1.        ,   2.92401774,   8.54987973,  25.        ,          inf])
 	>>> x.centres()
 	array([  0.        ,   1.70997595,   5.        ,  14.62008869,          inf])
+	>>> import sys
+	>>> x.to_xml().write(sys.stdout)	# doctest: +NORMALIZE_WHITESPACE
+	<Param Type="lstring" Name="logplusoverflowbins:pylal_rate_bins:param">1,25,5</Param>
+	>>> LogarithmicPlusOverflowBins.from_xml(x.to_xml()) == x
+	True
 	"""
 	def __init__(self, min, max, n):
 		if n < 3:
 			raise ValueError("n must be >= 3")
-		Bins.__init__(self, min, max, n)
+		super(LogarithmicPlusOverflowBins, self).__init__(min, max, n)
 		self.delta = (math.log(max) - math.log(min)) / (n - 2)
 
 	def __getitem__(self, x):
@@ -559,8 +702,14 @@ class LogarithmicPlusOverflowBins(Bins):
 	def upper(self):
 		return numpy.concatenate((numpy.exp(numpy.linspace(math.log(self.min), math.log(self.max), len(self) - 1)), numpy.array([PosInf])))
 
+	#
+	# XML I/O related methods and data
+	#
 
-class ATanBins(Bins):
+	xml_bins_name = u"logplusoverflowbins"
+
+
+class ATanBins(LoHiCountToFromXMLMixin, Bins):
 	"""
 	Bins spaced uniformly in tan^-1 x.  Provides approximately linear
 	binning in the middle portion, with the bin density dropping
@@ -583,9 +732,14 @@ class ATanBins(Bins):
 	array([-4.42778777, -1.39400285, -0.73469838, -0.40913068, -0.18692843,
 	        0.        ,  0.18692843,  0.40913068,  0.73469838,  1.39400285,
                 4.42778777])
+	>>> import sys
+	>>> x.to_xml().write(sys.stdout)	# doctest: +NORMALIZE_WHITESPACE
+	<Param Type="lstring" Name="atanbins:pylal_rate_bins:param">-1,1,11</Param>
+	>>> ATanBins.from_xml(x.to_xml()) == x
+	True
 	"""
 	def __init__(self, min, max, n):
-		Bins.__init__(self, min, max, n)
+		super(ATanBins, self).__init__(min, max, n)
 		self.mid = (min + max) / 2.0
 		self.scale = math.pi / float(max - min)
 		self.delta = 1.0 / n
@@ -615,8 +769,14 @@ class ATanBins(Bins):
 		x[-1] = PosInf
 		return x
 
+	#
+	# XML I/O related methods and data
+	#
 
-class ATanLogarithmicBins(IrregularBins):
+	xml_bins_name = u"atanbins"
+
+
+class ATanLogarithmicBins(LoHiCountToFromXMLMixin, IrregularBins):
 	"""
 	Provides the same binning as the ATanBins class but in the
 	logarithm of the variable.  The min and max parameters set the
@@ -639,6 +799,11 @@ class ATanLogarithmicBins(IrregularBins):
 		 7.69668960e+00,   1.65808715e+01,   3.16227766e+01,
 		 6.03104608e+01,   1.29925988e+02,   3.99988563e+02,
 		 3.89945831e+03,   1.38573971e+08])
+	>>> import sys
+	>>> x.to_xml().write(sys.stdout)	# doctest: +NORMALIZE_WHITESPACE
+	<Param Type="lstring" Name="atanlogbins:pylal_rate_bins:param">1,1000,11</Param>
+	>>> ATanLogarithmicBins.from_xml(x.to_xml()) == x
+	True
 
 	It is relatively easy to choose limits and a count of bins that
 	result in numerical overflows and underflows when computing bin
@@ -650,6 +815,12 @@ class ATanLogarithmicBins(IrregularBins):
 	how large an array the binning corresponds to.
 	"""
 	def __init__(self, min, max, n):
+		if not isinstance(n, int):
+			raise TypeError(n)
+		if n < 1:
+			raise ValueError(n)
+		if max <= min:
+			raise ValueError((min, max))
 		self.mid = (math.log(min) + math.log(max)) / 2.0
 		self.scale = math.pi / (math.log(max) - math.log(min))
 		self.delta = 1.0 / n
@@ -660,15 +831,21 @@ class ATanLogarithmicBins(IrregularBins):
 		keepers = boundaries[:-1] != boundaries[1:]
 		super(ATanLogarithmicBins, self).__init__(boundaries[keepers])
 		self.keepers = keepers[:-1]
-		self._real_min = min
-		self._real_max = max
-		self._real_n = n
+		self.min = min
+		self.max = max
+		self.n = n
 
 	def centres(self):
 		offset = 0.5 * math.pi * self.delta
-		centres = numpy.tan(numpy.linspace(-math.pi / 2. + offset, +math.pi / 2. + offset, self._real_n, endpoint = False)) / self.scale + self.mid
+		centres = numpy.tan(numpy.linspace(-math.pi / 2. + offset, +math.pi / 2. + offset, self.n, endpoint = False)) / self.scale + self.mid
 		with numpy.errstate(over = "ignore"):
 			return numpy.exp(centres)[self.keepers]
+
+	#
+	# XML I/O related methods and data
+	#
+
+	xml_bins_name = u"atanlogbins"
 
 
 class Categories(Bins):
@@ -720,12 +897,9 @@ class Categories(Bins):
 		integer index of the container that contains them.
 		"""
 		self.containers = tuple(categories)  # need to set an order and len
-		self.n = len(self.containers)
 
-		# enable NDBins to read range, but do not enable treatment
-		# as numbers
-		self.min = None
-		self.max = None
+	def __len__(self):
+		return len(self.containers)
 
 	def __getitem__(self, value):
 		"""
@@ -745,6 +919,31 @@ class Categories(Bins):
 
 	def centres(self):
 		return self.containers
+
+	#
+	# XML I/O related methods and data
+	#
+
+	xml_bins_name = u"categorybins"
+
+	def to_xml(self):
+		"""
+		Construct a LIGO Light Weight XML representation of the
+		Bins instance.
+		"""
+		# can't use ligolw_param.pickle_to_param() because it
+		# mangles the name encoding
+		return ligolw_param.from_pyvalue(self.xml_bins_name_enc(self.xml_bins_name), pickle.dumps(self.containers))
+
+	@classmethod
+	def from_xml(cls, xml):
+		"""
+		From the XML Param element at xml, return the Bins object
+		it describes.
+		"""
+		if not cls.xml_bins_check(xml, cls.xml_bins_name):
+			raise ValueError("not a %s" % repr(cls))
+		return cls(pickle.loads(xml.pcdata))
 
 
 class NDBins(tuple):
@@ -775,17 +974,29 @@ class NDBins(tuple):
 	(0, slice(0, 2, None))
 	>>> x.centres()
 	(array([  5.,  13.,  21.]), array([  1.70997595,   5.        ,  14.62008869]))
+	>>> y = NDBins((LinearBins(1, 25, 3), LogarithmicBins(1, 25, 3)))
+	>>> x == y
+	True
+	>>> y = NDBins((LinearBins(1, 25, 4), LogarithmicBins(1, 25, 3)))
+	>>> x == y
+	False
+	>>> y = NDBins((LogarithmicBins(1, 25, 3), LogarithmicBins(1, 25, 3)))
+	>>> x == y
+	False
+	>>> from glue.ligolw.ligolw import LIGO_LW
+	>>> import sys
+	>>> elem = x.to_xml(LIGO_LW())
+	>>> elem.write(sys.stdout)	# doctest: +NORMALIZE_WHITESPACE
+	<LIGO_LW>
+		<Param Type="lstring" Name="linbins:pylal_rate_bins:param">1,25,3</Param>
+		<Param Type="lstring" Name="logbins:pylal_rate_bins:param">1,25,3</Param>
+	</LIGO_LW>
+	>>> NDBins.from_xml(elem) == x
+	True
 
 	Note that the co-ordinates to be converted must be a tuple, even if
 	it is only a 1-dimensional co-ordinate.
 	"""
-	def __new__(cls, *args):
-		new = tuple.__new__(cls, *args)
-		new.min = tuple(b.min for b in new)
-		new.max = tuple(b.max for b in new)
-		new.shape = tuple(len(b) for b in new)
-		return new
-
 	def __getitem__(self, coords):
 		"""
 		When coords is a tuple, it is interpreted as an
@@ -814,6 +1025,10 @@ class NDBins(tuple):
 			return tuple(map(lambda b, c: b[c], self, coords))
 		else:
 			return tuple.__getitem__(self, coords)
+
+	@property
+	def shape(self):
+		return tuple(len(b) for b in self)
 
 	def lower(self):
 		"""
@@ -898,70 +1113,54 @@ class NDBins(tuple):
 			seq = sum((coordgen() for coordgen in coordgens), ())
 			yield seq[0::2], sum(seq[1::2])
 
-	class BinsTable(ligolw_table.Table):
-		"""
-		LIGO Light Weight XML table defining a binning.
-		"""
-		tableName = "pylal_rate_bins:table"
-		validcolumns = {
-			"order": "int_4u",
-			"type": "lstring",
-			"min": "real_8",
-			"max": "real_8",
-			"n": "int_4u"
-		}
+	#
+	# XML I/O methods and data
+	#
 
-	def to_xml(self):
+	xml_bins_name_mapping = dict((cls.xml_bins_name, cls) for cls in (LinearBins, LinearPlusOverflowBins, LogarithmicBins, LogarithmicPlusOverflowBins, ATanBins, ATanLogarithmicBins, Categories))
+	xml_bins_name_mapping.update(zip(xml_bins_name_mapping.values(), xml_bins_name_mapping.keys()))
+
+	def to_xml(self, elem):
 		"""
-		Construct a LIGO Light Weight XML table representation of the
-		NDBins instance.
+		Construct a LIGO Light Weight XML representation of the
+		NDBins instance.  The representation is an in-order list of
+		Param elements, typically inserted inside a LIGO_LW
+		element.  The elem argument provides the XML element to
+		which the Param elements should be appended as children.
+
+		NOTE:  The decoding process will require a specific parent
+		element to be provided, and all Param elements that are
+		immediate children of that element and contain the correct
+		suffix will be used to reconstruct the NDBins.  At this
+		time the suffix is undocumented, so to guarantee
+		compatibility the Param elements should not be inserted
+		into an element that might contain other, unrelated, Params
+		among its immediate children.
 		"""
-		xml = lsctables.New(self.BinsTable)
-		for order, binning in enumerate(self):
-			row = xml.RowType()
-			row.order = order
-			row.type = {
-				LinearBins: "lin",
-				LinearPlusOverflowBins: "linplusoverflow",
-				LogarithmicBins: "log",
-				ATanBins: "atan",
-				ATanLogarithmicBins: "atanlog",
-				LogarithmicPlusOverflowBins: "logplusoverflow"
-			}[type(binning)]
-			if isinstance(binning, ATanLogarithmicBins):
-				row.min = binning._real_min
-				row.max = binning._real_max
-				row.n = binning._real_n
-			else:
-				row.min = binning.min
-				row.max = binning.max
-				row.n = len(binning)
-			xml.append(row)
-		return xml
+		for binning in self:
+			elem.appendChild(binning.to_xml())
+		return elem
 
 	@classmethod
 	def from_xml(cls, xml):
 		"""
-		From the XML document tree rooted at xml, retrieve the table
-		describing a binning, and construct and return a rate.NDBins object
-		from it.
+		From the XML document tree rooted at xml construct an
+		return an NDBins object described by the Param elements
+		therein.  Note, the XML element must be the immediate
+		parent of the Param elements describing the NDBins.
 		"""
-		xml = cls.BinsTable.get_table(xml)
-		binnings = [None] * (len(xml) and (max(xml.getColumnByName("order")) + 1))
-		for row in xml:
-			if binnings[row.order] is not None:
-				raise ValueError("duplicate binning for dimension %d" % row.order)
-			binnings[row.order] = {
-				"lin": LinearBins,
-				"linplusoverflow": LinearPlusOverflowBins,
-				"log": LogarithmicBins,
-				"atan": ATanBins,
-				"atanlog": ATanLogarithmicBins,
-				"logplusoverflow": LogarithmicPlusOverflowBins
-			}[row.type](row.min, row.max, row.n)
-		if None in binnings:
-			raise ValueError("no binning for dimension %d" % binnings.find(None))
-		return cls(binnings)
+		params = []
+		for elem in xml.childNodes:
+			if elem.tagName != ligolw.Param.tagName:
+				continue
+			try:
+				Bins.xml_bins_name_dec(elem.Name)
+			except ValueError:
+				continue
+			params.append(elem)
+		if not params:
+			raise ValueError("no Param elements found at '%s'" % repr(xml))
+		return cls([cls.xml_bins_name_mapping[Bins.xml_bins_name_dec(elem.Name)].from_xml(elem) for elem in params])
 
 
 #
@@ -1068,6 +1267,40 @@ class BinnedArray(object):
 	(0.0, 0.0)
 	>>> x.argmax()
 	(1.0, 1.0)
+
+	A BinnedArray can be initialized from an existing array if the
+	array's shape is the same as the binning's.
+
+	>>> import numpy
+	>>> x = BinnedArray(NDBins((LinearBins(0, 10, 5),)), array = numpy.zeros((5,)))
+	>>> x = BinnedArray(NDBins((LinearBins(0, 10, 5),)), array = numpy.zeros((5,1)))
+	Traceback (most recent call last):
+		...
+	ValueError: input array and input bins must have the same shape:  (5, 1) != (5,)
+
+	A BinnedArray can be serialized to LIGO Light Weight XML.
+
+	>>> import sys
+	>>> x = BinnedArray(NDBins((LinearBins(-0.5, 1.5, 2), LinearBins(-0.5, 1.5, 2))))
+	>>> elem = x.to_xml(u"test")
+	>>> elem.write(sys.stdout)	# doctest: +NORMALIZE_WHITESPACE
+	<LIGO_LW Name="test:pylal_rate_binnedarray">
+		<Param Type="lstring" Name="linbins:pylal_rate_bins:param">-0.5,1.5,2</Param>
+		<Param Type="lstring" Name="linbins:pylal_rate_bins:param">-0.5,1.5,2</Param>
+		<Array Type="real_8" Name="array:array">
+			<Dim>2</Dim>
+			<Dim>2</Dim>
+			<Stream Delimiter=" " Type="Local">
+				0 0
+				0 0
+			</Stream>
+		</Array>
+	</LIGO_LW>
+	>>> y = BinnedArray.from_xml(elem, u"test")
+	>>> y.bins == x.bins
+	True
+	>>> (y.array == x.array).all()
+	True
 	"""
 	def __init__(self, bins, array = None, dtype = "double"):
 		self.bins = bins
@@ -1075,7 +1308,7 @@ class BinnedArray(object):
 			self.array = numpy.zeros(bins.shape, dtype = dtype)
 		else:
 			if array.shape != bins.shape:
-				raise ValueError("input array and input bins must have the same shape")
+				raise ValueError("input array and input bins must have the same shape:  %s != %s" % (str(array.shape), str(bins.shape)))
 			self.array = array
 
 	def __getitem__(self, coords):
@@ -1090,20 +1323,21 @@ class BinnedArray(object):
 	def __iadd__(self, other):
 		"""
 		Add the contents of another BinnedArray object to this one.
-		It is not necessary for the binnings to be identical, but
-		an integer number of the bins in other must fit into each
-		bin in self.
+		Both must have identical binnings.
 		"""
-		# identical binning? (fast path)
-		if not cmp(self.bins, other.bins):
-			self.array += other.array
-			return self
-		# can other's bins be put into ours?
-		if self.bins.min != other.bins.min or self.bins.max != other.bins.max or False in map(lambda a, b: (b % a) == 0, self.bins.shape, other.bins.shape):
+		if self.bins != other.bins:
 			raise TypeError("incompatible binning: %s" % repr(other))
-		for coords in iterutils.MultiIter(*other.bins.centres()):
-			self[coords] += other[coords]
+		self.array += other.array
 		return self
+		# here's an implementation that allows the binnings to
+		# differ.  each bin in other is added to whichever bin in
+		# self its centre is found in.  this behaviour probably
+		# leads to undesirable results if other's binning is less
+		# dense than self's.  would need to spread other's bins'
+		# contents out somehow.  probably there's no behaviour that
+		# is correct for all use cases.
+		#for coords in iterutils.MultiIter(*other.bins.centres()):
+		#	self[coords] += other[coords]
 
 	def copy(self):
 		"""
@@ -1159,32 +1393,38 @@ class BinnedArray(object):
 
 	def to_xml(self, name):
 		"""
-		Retrun an XML document tree describing a rate.BinnedArray object.
+		Retrun an XML document tree describing a rate.BinnedArray
+		object.
 		"""
-		xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_rate_binnedarray" % name})
-		xml.appendChild(self.bins.to_xml())
-		xml.appendChild(ligolw_array.from_array(u"array", self.array))
-		return xml
+		elem = ligolw.LIGO_LW()
+		elem.Name = u"%s:pylal_rate_binnedarray" % name
+		self.bins.to_xml(elem)
+		elem.appendChild(ligolw_array.from_array(u"array", self.array))
+		return elem
 
 	@classmethod
 	def from_xml(cls, xml, name):
 		"""
-		Search for the description of a rate.BinnedArray object named
-		"name" in the XML document tree rooted at xml, and construct and
-		return a new rate.BinnedArray object from the data contained
-		therein.
+		Search for the description of a rate.BinnedArray object
+		named "name" in the XML document tree rooted at xml, and
+		construct and return a new rate.BinnedArray object from the
+		data contained therein.
+
+		NOTE:  the .array attribute is a reference to the .array
+		attribute of the XML element.  Changes to the contents of
+		the BinnedArray object affect the XML document tree.
 		"""
-		xml = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == u"%s:pylal_rate_binnedarray" % name]
+		name = u"%s:pylal_rate_binnedarray" % name
+		elem = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == name]
 		try:
-			xml, = xml
+			elem, = elem
 		except ValueError:
-			raise ValueError("document must contain exactly 1 BinnedArray named '%s'" % name)
-		# an empty binning is used for the initial object creation instead
-		# of using the real binning to avoid the creation of a (possibly
-		# large) array that would otherwise accompany this step
-		self = cls(NDBins())
-		self.bins = NDBins.from_xml(xml)
-		self.array = ligolw_array.get_array(xml, u"array").array
+			raise ValueError("XML tree at '%s' must contain exactly one '%s' LIGO_LW element" % (repr(xml), name))
+		self = cls(NDBins.from_xml(elem), array = ligolw_array.get_array(elem, u"array").array)
+		# sanity check
+		if self.bins.shape != self.array.shape:
+			raise ValueError("'%s' binning shape does not match array shape:  %s != %s" % (name, self.bins.shape, self.array.shape))
+		# done
 		return self
 
 
@@ -1617,7 +1857,7 @@ def tophat_window2d(bins_x, bins_y):
 #
 
 
-def filter_array(a, window, cyclic = False):
+def filter_array(a, window, cyclic = False, use_fft = True):
 	"""
 	Filter an array using the window function.  The transformation is
 	done in place.  The data are assumed to be 0 outside of their
@@ -1630,6 +1870,15 @@ def filter_array(a, window, cyclic = False):
 	This is done silently;  to determine if window function truncation
 	will occur, check for yourself that your window function is smaller
 	than your data in all dimensions.
+
+	If use_fft is True, the window is convolved with the array using
+	FFT convolution.  This is done by processing the array in bands of
+	relatively small dynamic range each to work around numerical
+	dynamic range limitation in the FFTs, but the window function is
+	not treated similarly.  As a result the window is effectively
+	limited to a few orders of magnitude of dynamic range.  If use_fft
+	is False there are no dynamic range issues but the convolution can
+	be quite slow.
 	"""
 	assert not cyclic	# no longer supported, maybe in future
 	# check that the window and the data have the same number of
@@ -1652,43 +1901,46 @@ def filter_array(a, window, cyclic = False):
 			window_slices.append(slice(0, window.shape[d]))
 	window = window[window_slices]
 
-	# this loop works around dynamic range limits in the FFT
-	# convolution code.  we move data 4 orders of magnitude at a time
-	# from the original array into a work space, convolve the work
-	# space with the filter, zero the workspace in any elements that
-	# are more than 14 orders of magnitude below the maximum value in
-	# the result, and add the result to the total.
-	result = numpy.zeros_like(a)
-	while a.any():
-		# copy contents of input array to work space
-		workspace = numpy.copy(a)
+	if use_fft:
+		# this loop works around dynamic range limits in the FFT
+		# convolution code.  we move data 4 orders of magnitude at a time
+		# from the original array into a work space, convolve the work
+		# space with the filter, zero the workspace in any elements that
+		# are more than 14 orders of magnitude below the maximum value in
+		# the result, and add the result to the total.
+		result = numpy.zeros_like(a)
+		while a.any():
+			# copy contents of input array to work space
+			workspace = numpy.copy(a)
 
-		# mask = indexes of elements of work space not more than 4
-		# orders of magnitude larger than the smallest non-zero
-		# element.  these are the elements to be processed in this
-		# iteration
-		abs_workspace = abs(workspace)
-		mask = abs_workspace <= abs_workspace[abs_workspace > 0].min() * 1e4
-		del abs_workspace
+			# mask = indexes of elements of work space not more than 4
+			# orders of magnitude larger than the smallest non-zero
+			# element.  these are the elements to be processed in this
+			# iteration
+			abs_workspace = abs(workspace)
+			mask = abs_workspace <= abs_workspace[abs_workspace > 0].min() * 1e4
+			del abs_workspace
 
-		# zero the masked elements in the input array, zero
-		# everything except the masked elements in the work space
-		a[mask] = 0.
-		workspace[~mask] = 0.
-		del mask
+			# zero the masked elements in the input array, zero
+			# everything except the masked elements in the work space
+			a[mask] = 0.
+			workspace[~mask] = 0.
+			del mask
 
-		# convolve the work space with the kernel
-		workspace = signaltools.fftconvolve(workspace, window, mode = "same")
+			# convolve the work space with the kernel
+			workspace = signaltools.fftconvolve(workspace, window, mode = "same")
 
-		# determine the largest value in the work space, and set to
-		# zero anything more than 14 orders of magnitude smaller
-		abs_workspace = abs(workspace)
-		workspace[abs_workspace < abs_workspace.max() * 1e-14] = 0.
-		del abs_workspace
+			# determine the largest value in the work space, and set to
+			# zero anything more than 14 orders of magnitude smaller
+			abs_workspace = abs(workspace)
+			workspace[abs_workspace < abs_workspace.max() * 1e-14] = 0.
+			del abs_workspace
 
-		# sum what remains into the result
-		result += workspace
-		del workspace
+			# sum what remains into the result
+			result += workspace
+			del workspace
+	else:
+		result = signaltools.convolve(a, window, mode = "same")
 	# overwrite the input with the result
 	# FIXME:  in numpy >= 1.7.0 there is a copyto() function
 	a.flat = result.flat

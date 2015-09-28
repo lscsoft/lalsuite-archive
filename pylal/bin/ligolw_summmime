@@ -183,13 +183,7 @@ if os.path.isfile(xmlFile):
     #Open the xml doc object and select the table to append to
     xmlDoc=utils.load_filename(xmlFile,gz = (xmlFile or "stdin").endswith(".gz"))
     #Select the SummMimeTable
-    xmlTable=lsctables.getTablesByType(xmlDoc,lsctables.SummMimeTable)
-    if len(xmlTable) > 1:
-        sys.stderr.write(\
-            "XML file %s seems to have more than one SummMimeTable!\n"\
-                %(xmlFile))
-    else:
-        xmlTable=xmlTable[0]
+    xmlTable=lsctables.SummMimeTable.get_table(xmlDoc)
 else:
     #Create an XML Table object since xmlFile does not exist
     xmlTable=lsctables.New(lsctables.SummMimeTable)

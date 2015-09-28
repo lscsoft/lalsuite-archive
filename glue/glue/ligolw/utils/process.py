@@ -1,4 +1,4 @@
-# Copyright (C) 2006--2013  Kipp Cannon
+# Copyright (C) 2006--2013,2015  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -135,7 +135,7 @@ def append_process(xmldoc, program = None, version = None, cvs_repository = None
 	process.end_time = None
 	process.jobid = jobid
 	process.domain = domain
-	process.set_ifos(ifos)
+	process.instruments = ifos
 	process.process_id = proctable.get_next_id()
 	proctable.append(process)
 	return process
@@ -163,13 +163,13 @@ def append_process_params(xmldoc, process, params):
 		paramtable = lsctables.New(lsctables.ProcessParamsTable)
 		xmldoc.childNodes[0].appendChild(paramtable)
 
-	for name, type, value in params:
+	for name, typ, value in params:
 		row = paramtable.RowType()
 		row.program = process.program
 		row.process_id = process.process_id
 		row.param = unicode(name)
-		if type is not None:
-			row.type = unicode(type)
+		if typ is not None:
+			row.type = unicode(typ)
 			if row.type not in ligolwtypes.Types:
 				raise ValueError("invalid type '%s' for parameter '%s'" % (row.type, row.param))
 		else:
@@ -206,7 +206,7 @@ def doc_includes_process(xmldoc, program):
 	Return True if the process table in xmldoc includes entries for a
 	program named program.
 	"""
-	return program in lsctables.ProcessTable.get_table(xmldoc).getColumnByName("program")
+	return program in lsctables.ProcessTable.get_table(xmldoc).getColumnByName(u"program")
 
 
 def process_params_from_dict(paramdict):
@@ -224,11 +224,11 @@ def process_params_from_dict(paramdict):
 	Example:
 
 	>>> list(process_params_from_dict({"verbose": True, "window": 4.0, "include": ["/tmp", "/var/tmp"]}))
-	[('--window', u'real_8', 4.0), ('--verbose', None, None), ('--include', u'lstring', '/tmp'), '--include', u'lstring', '/var/tmp')]
+	[(u'--window', u'real_8', 4.0), (u'--verbose', None, None), (u'--include', u'lstring', '/tmp'), (u'--include', u'lstring', '/var/tmp')]
 	"""
 	for name, values in paramdict.items():
 		# change the name back to the form it had on the command line
-		name = "--%s" % name.replace("_", "-")
+		name = u"--%s" % name.replace("_", "-")
 
 		if values is True or values is False:
 			yield (name, None, None)

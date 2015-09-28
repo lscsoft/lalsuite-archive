@@ -1,14 +1,13 @@
 BUILT_SOURCES =
 include $(top_srcdir)/gnuscripts/lalapps.am
 
-if LALFRAME
-frameprogs = lalapps_psinject
+progs = lalapps_psinject
+
 if GDS
-frameprogs += online_psinject
-endif
+progs += online_psinject
 endif
 
-bin_PROGRAMS = $(frameprogs)
+bin_PROGRAMS = $(progs)
 
 lalapps_psinject_SOURCES = psinject.c
 

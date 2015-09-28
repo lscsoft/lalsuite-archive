@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Karl Wette
+ * Copyright (C) 2012--2015 Karl Wette
  * Copyright (C) 2008, 2009 Reinhard Prix
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -102,14 +102,6 @@ typedef enum {
 } DetectorMotionType;
 
 
-typedef enum {
-  METRIC_TYPE_PHASE = 0,	/**< compute phase metric only */
-  METRIC_TYPE_FSTAT = 1,	/**< compute full F-metric only */
-  METRIC_TYPE_ALL   = 2,	/**< compute both F-metric and phase-metric */
-  METRIC_TYPE_LAST
-} MetricType_t;
-
-
 /**
  * enum listing symbolic 'names' for all Doppler Coordinates
  * supported by the metric codes in FstatMetric
@@ -121,6 +113,8 @@ typedef enum {
   DOPPLERCOORD_F1DOT,		/**< First spindown [Units: Hz/s]. */
   DOPPLERCOORD_F2DOT,		/**< Second spindown [Units: Hz/s^2]. */
   DOPPLERCOORD_F3DOT,		/**< Third spindown [Units: Hz/s^3]. */
+
+  DOPPLERCOORD_LASTFDOT = DOPPLERCOORD_F3DOT,
 
   DOPPLERCOORD_GC_NU0,		/**< Global correlation frequency [Units: Hz]. Activates 'reduced' detector position. */
   DOPPLERCOORD_GC_NU1,		/**< Global correlation first spindown [Units: Hz/s]. Activates 'reduced' detector position. */
@@ -151,6 +145,12 @@ typedef enum {
   DOPPLERCOORD_N3OY_ECL,	/**< Y orbit-component of unconstrained super-sky position in ecliptic coordinates [Units: none]. */
   DOPPLERCOORD_N3OZ_ECL,	/**< Z orbit-component of unconstrained super-sky position in ecliptic coordinates [Units: none]. */
 
+  DOPPLERCOORD_ASINI,		/**< Projected semimajor axis of binary orbit in small-eccentricy limit (ELL1 model) [Units: light seconds]. */
+  DOPPLERCOORD_TASC,		/**< Time of ascension (neutron star crosses line of nodes moving away from observer) for binary orbit (ELL1 model) [Units: GPS seconds]. */
+  DOPPLERCOORD_PORB,		/**< Period of binary orbit (ELL1 model) [Units: s]. */
+  DOPPLERCOORD_KAPPA,		/**< Lagrange parameter 'kappa = ecc * cos(argp)', ('ecc' = eccentricity, 'argp' = argument of periapse) of binary orbit (ELL1 model) [Units: none] */
+  DOPPLERCOORD_ETA,		/**< Lagrange parameter 'eta = ecc * sin(argp) of binary orbit (ELL1 model) [Units: none] */
+
   DOPPLERCOORD_LAST
 } DopplerCoordinateID;
 
@@ -180,9 +180,7 @@ typedef struct tagDopplerMetricParams
   PulsarParams signalParams;			/**< parameter-space point to compute metric for (doppler + amplitudes) */
   INT4 projectCoord;				/**< project metric onto subspace orthogonal to this axis (-1 = none, 0 = 1st coordinate, etc) */
 
-  MetricType_t metricType;			/**< switch controlling which types of metric to compute: 0 = PhaseMetric g_ij, 1 = Fmetrics gF.., 2=BOTH */
   BOOLEAN approxPhase;				/**< use an approximate phase-model, neglecting Roemer delay in spindown coordinates */
-  UINT4 nonposEigValThresh;			/**< if >0, and metric has this or more non-positive eigenvalues, recompute using smaller error tolerances */
 } DopplerMetricParams;
 
 
@@ -212,15 +210,12 @@ typedef struct tagFmetricAtoms_t
 
 
 /**
- * struct to hold a DopplerMetric, including meta-info on the number of
+ * Struct to hold the output of XLALComputeDopplerFstatMetric(), including meta-info on the number of
  * dimensions, the coordinate-system and type of metric.
  */
-typedef struct tagDopplerMetric
+typedef struct tagDopplerFstatMetric
 {
   DopplerMetricParams meta;		/**< "meta-info" describing/specifying the type of Doppler metric */
-
-  gsl_matrix *g_ij;			/**< symmetric matrix holding the usual Phase-metric */
-  double maxrelerr_gPh;			/**< estimate for largest relative error in phase-metric component integrations */
 
   gsl_matrix *gF_ij;			/**< full F-statistic metric gF_ij, including antenna-pattern effects (see \cite Prix07) */
   gsl_matrix *gFav_ij;			/**< 'average' Fstat-metric */
@@ -228,30 +223,34 @@ typedef struct tagDopplerMetric
 
   gsl_matrix *Fisher_ab;		/**< Full 4+n dimensional Fisher matrix, ie amplitude + Doppler space */
 
-  double maxrelerr_gF;			/**< estimate for largest relative error in Fmetric component integrations */
-
   REAL8 rho2;				/**< signal SNR rho^2 = A^mu M_mu_nu A^nu */
-} DopplerMetric;
+
+  double maxrelerr;			/**< estimate for largest relative error in Fmetric component integrations */
+} DopplerFstatMetric;
+
+
+/**
+ * Struct to hold the output of XLALComputeDopplerPhaseMetric(), including meta-info on the number of
+ * dimensions, the coordinate-system and type of metric.
+ */
+typedef struct tagDopplerPhaseMetric
+{
+  DopplerMetricParams meta;		/**< "meta-info" describing/specifying the type of Doppler metric */
+
+  gsl_matrix *g_ij;			/**< symmetric matrix holding the phase-metric, averaged over segments */
+
+  double maxrelerr;			/**< estimate for largest relative error in phase-metric component integrations */
+} DopplerPhaseMetric;
 
 
 /*---------- Global variables ----------*/
 
 /*---------- exported prototypes [API] ----------*/
-gsl_matrix *
-XLALDopplerPhaseMetric ( const DopplerMetricParams *metricParams,
-			 const EphemerisData *edat,
-                         double *relerr_max
-			 );
+DopplerFstatMetric* XLALComputeDopplerFstatMetric ( const DopplerMetricParams *metricParams, const EphemerisData *edat );
+void XLALDestroyDopplerFstatMetric ( DopplerFstatMetric *metric );
 
-DopplerMetric*
-XLALDopplerFstatMetric ( const DopplerMetricParams *metricParams,
-			 const EphemerisData *edat
-			 );
-
-DopplerMetric*
-XLALDopplerFstatMetricCoh ( const DopplerMetricParams *metricParams,
-                            const EphemerisData *edat
-                            );
+DopplerPhaseMetric* XLALComputeDopplerPhaseMetric ( const DopplerMetricParams *metricParams, const EphemerisData *edat );
+void XLALDestroyDopplerPhaseMetric ( DopplerPhaseMetric *metric );
 
 FmetricAtoms_t*
 XLALComputeAtomsForFmetric ( const DopplerMetricParams *metricParams,
@@ -269,7 +268,6 @@ XLALDetectorPosVel (PosVel3D_t *spin_posvel,
 		    );
 
 int XLALPtolemaicPosVel ( PosVel3D_t *posvel, const LIGOTimeGPS *tGPS );
-gsl_matrix *XLALProjectMetric ( const gsl_matrix * g_ij, const UINT4 c );
 
 void XLALequatorialVect2ecliptic ( vect3D_t out, const vect3D_t in );
 void XLALeclipticVect2equatorial ( vect3D_t out, const vect3D_t in );
@@ -278,10 +276,7 @@ void XLALmatrix33_in_vect3 ( vect3D_t out, mat33_t mat, const vect3D_t in );
 vect3Dlist_t *
 XLALComputeOrbitalDerivatives ( UINT4 maxorder, const LIGOTimeGPS *tGPS, const EphemerisData *edat );
 
-FmetricAtoms_t* XLALCreateFmetricAtoms ( UINT4 dim );
 void XLALDestroyFmetricAtoms ( FmetricAtoms_t *atoms );
-
-void XLALDestroyDopplerMetric ( DopplerMetric *metric );
 
 int XLALParseDetectorMotionString ( const CHAR *detMotionString );
 int XLALParseDopplerCoordinateString ( const CHAR *coordName );
@@ -292,11 +287,10 @@ const CHAR *XLALDopplerCoordinateName ( DopplerCoordinateID coordID );
 const CHAR *XLALDopplerCoordinateHelp ( DopplerCoordinateID coordID );
 CHAR *XLALDopplerCoordinateHelpAll ( void );
 
-gsl_matrix* XLALNaturalizeMetric( const gsl_matrix* g_ij, const DopplerMetricParams *metricParams );
+REAL8
+XLALComputePhaseDerivative ( REAL8 t, const PulsarDopplerParams *dopplerPoint, DopplerCoordinateID coordID, const EphemerisData *edat, const LALDetector *site, BOOLEAN includeRoemer );
 
-gsl_matrix *XLALDiagNormalizeMetric ( const gsl_matrix * g_ij );
-int XLALAddDopplerMetric ( DopplerMetric **metric1, const DopplerMetric *metric2 );
-int XLALScaleDopplerMetric ( DopplerMetric *m, REAL8 scale );
+
 // destructor for vect3Dlist_t type
 void XLALDestroyVect3Dlist ( vect3Dlist_t *list );
 

@@ -1,4 +1,4 @@
-# Copyright (C) 2006--2014  Kipp Cannon
+# Copyright (C) 2006--2015  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -45,6 +45,7 @@ columns of the table.
 
 
 import copy
+import itertools
 import re
 import sys
 import warnings
@@ -81,15 +82,17 @@ __date__ = git_version.date
 #
 # but people are putting upper case letters in names!!!!!  Someone is going
 # to get the beats.  There is a reason for requiring names to be all lower
-# case:  SQL table and column names are case insensitive, therefore (i) in
-# general it is not possible to preserve case when documents are converted
-# into SQL databases and then converted back again, and (ii) when converted
-# to SQL the columns "Rho" and "rho" become indistinguishable and so it is
-# impossible to convert a document into an SQL database that has degenerate
-# names like this.  Requiring names to be all lower-case breaks the
-# degeneracy, helping to ensure that XML documents can be safely converted
-# to SQL databases (other rules can be imagined that would work as well,
-# this is the one that got chosen).
+# case:  SQL table and column names are case insensitive, therefore (i)
+# when converting a document to SQL the columns "Rho" and "rho" would
+# become indistinguishable and so it would be impossible to convert a
+# document with columns having names like this into an SQL database;  and
+# (ii) even if that degeneracy is not encountered the case cannot be
+# preserved and so when converting back to XML the correct capitalization
+# is lost.  Requiring names to be all lower-case creates the same
+# degeneracies in XML representations that exist in SQL representations
+# ensuring compatibility and defines the correct case to restore the names
+# to when converting to XML.  Other rules can be imagined that would work
+# as well, this is the one that got chosen.
 
 
 ColumnPattern = re.compile(r"(?:\A\w+:|\A)(?P<FullName>(?:(?P<Table>\w+):|\A)(?P<Name>\w+))\Z")
@@ -125,8 +128,10 @@ def CompareColumnNames(name1, name2):
 
 	Example:
 
+	>>> # compare as equal
 	>>> CompareColumnNames("process_params:program", "process:program")
 	0
+	>>> # not equal
 	>>> CompareColumnNames("program", "start_time")
 	-1
 
@@ -192,8 +197,10 @@ def CompareTableNames(name1, name2):
 
 	Example:
 
+	>>> # compare as equal
 	>>> CompareTableNames("sngl_inspiral:table", "sngl_inspiral")
 	0
+	>>> # not equal
 	>>> CompareTableNames("sngl_burst_group:sngl_burst:table", "sngl_inspiral")
 	-1
 	"""
@@ -231,11 +238,15 @@ def get_table(xmldoc, name):
 	"""
 	Scan xmldoc for a Table element named name.  The comparison is done
 	using CompareTableNames().  Raises ValueError if not exactly 1 such
-	table is found.  See the glue.ligolw.lsctables module for classes
-	whose .tableName class attributes provide the names of standard LSC
-	table definitions.  It is recommended to always use these to
-	retrieve standard tables instead of hard-coding table names as
-	inline strings.
+	table is found.
+
+	NOTE:  if a Table sub-class has its .tableName attribute set, then
+	its .get_table() class method can be used instead.  This is true
+	for all Table classes in the glue.ligolw.lsctables module, and it
+	is recommended to always use the .get_table() class method of those
+	classes to retrieve those standard tables instead of calling this
+	function and passing the .tableName attribute.  The example below
+	shows both techniques.
 
 	Example:
 
@@ -244,7 +255,10 @@ def get_table(xmldoc, name):
 	>>> xmldoc = ligolw.Document()
 	>>> xmldoc.appendChild(ligolw.LIGO_LW()).appendChild(lsctables.New(lsctables.SnglInspiralTable))
 	[]
+	>>> # find table with this function
 	>>> sngl_inspiral_table = get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+	>>> # find table with .get_table() class method (preferred)
+	>>> sngl_inspiral_table = lsctables.SnglInspiralTable.get_table(xmldoc)
 
 	See also the .get_table() class method of the Table class.
 	"""
@@ -324,12 +338,82 @@ class Column(ligolw.Column):
 	"""
 	High-level column element that provides list-like access to the
 	values in a column.
+
+	Example:
+
+	>>> from xml.sax.xmlreader import AttributesImpl
+	>>> import sys
+	>>> tbl = Table(AttributesImpl({u"Name": u"test"}))
+	>>> col = tbl.appendChild(Column(AttributesImpl({u"Name": u"test:snr", u"Type": u"real_8"})))
+	>>> tbl.appendChild(TableStream(AttributesImpl({u"Name": u"test"})))	# doctest: +ELLIPSIS
+	<glue.ligolw.table.TableStream object at ...>
+	>>> tbl._update_column_info()
+	>>> col.Name
+	u'snr'
+	>>> col.Type
+	u'real_8'
+	>>> # append 3 rows (with nothing in them)
+	>>> tbl.append(tbl.RowType())
+	>>> tbl.append(tbl.RowType())
+	>>> tbl.append(tbl.RowType())
+	>>> # assign values to the rows, in order, in this column
+	>>> col[:] = [8.0, 10.0, 12.0]
+	>>> col[:]
+	[8.0, 10.0, 12.0]
+	>>> col.asarray()
+	array([  8.,  10.,  12.])
+	>>> tbl.write(sys.stdout)	# doctest: +NORMALIZE_WHITESPACE
+	<Table Name="test">
+		<Column Type="real_8" Name="test:snr"/>
+		<Stream Name="test">
+			8,
+			10,
+			12
+		</Stream>
+	</Table>
+	>>> col.index(10)
+	1
+	>>> col[0] = 9.
+	>>> col[1] = 9.
+	>>> col[2] = 9.
+	>>> tbl.write(sys.stdout)		# doctest: +NORMALIZE_WHITESPACE
+	<Table Name="test">
+		<Column Type="real_8" Name="test:snr"/>
+		<Stream Name="test">
+			9,
+			9,
+			9
+		</Stream>
+	</Table>
+	>>> col.count(9)
+	3
+
+	NOTE:  the .Name attribute returns the stripped "Name" attribute of
+	the element, e.g. as would be obtained with StripColumnName(), but
+	when assigning to the .Name attribute the value provided is stored
+	without modification, i.e. there is no attempt to reattach the
+	table's name to the string.  The calling code is responsible for
+	doing the correct manipulations.  Therefore, the assignment
+	operation below
+
+	>>> col.Name, col.getAttribute("Name")
+	(u'snr', u'test:snr')
+	>>> col.Name = col.Name
+	>>> col.Name, col.getAttribute("Name")
+	(u'snr', u'snr')
+
+	does not preserve the value of the "Name" attribute (though it does
+	preserve the stripped form reported by the .Name property).  This
+	asymmetry is necessary because the correct table name string to
+	reattach to the attribute's value cannot always be known, e.g., if
+	the Column object is not part of an XML tree and does not have a
+	parent node.
 	"""
 	Name = ligolw.attributeproxy(u"Name", dec = StripColumnName)
 
 	def __len__(self):
 		"""
-		Return the number of values in this column.
+		The number of values in this column.
 		"""
 		return len(self.parentNode)
 
@@ -344,12 +428,25 @@ class Column(ligolw.Column):
 
 	def __setitem__(self, i, value):
 		"""
-		Set the value in this column in row i.
+		Set the value in this column in row i.  i may be a slice.
+
+		NOTE:  Unlike normal Python lists, the length of the Column
+		cannot be changed as it is tied to the number of rows in
+		the Table.  Therefore, if i is a slice, value should be an
+		iterable with exactly the correct number of items.  No
+		check is performed to ensure that this is true:  if value
+		contains too many items the extras will be ignored, and if
+		value contains too few items only as many rows will be
+		updated as there are items.
 		"""
 		if isinstance(i, slice):
-			map(lambda r: setattr(r, self.Name, value), self.parentNode[i])
+			for r, val in itertools.izip(self.parentNode[i], value):
+				setattr(r, self.Name, val)
 		else:
 			setattr(self.parentNode[i], self.Name, value)
+
+	def __delitem__(self, *args):
+		raise NotImplementedError
 
 	def __iter__(self):
 		"""
@@ -363,11 +460,7 @@ class Column(ligolw.Column):
 		"""
 		Return the number of rows with this column equal to value.
 		"""
-		n = 0
-		for row in self.parentNode:
-			if getattr(row, self.Name) == value:
-				n += 1
-		return n
+		return sum(getattr(row, self.Name) == value for row in self.parentNode)
 
 	def index(self, value):
 		"""
@@ -395,10 +488,15 @@ class Column(ligolw.Column):
 		creates a copy of the data, so modifications made to the
 		array will *not* be recorded in the original document.
 		"""
-		if self.Type not in ligolwtypes.NumericTypes:
-			raise TypeError("Column '%s' does not have numeric type" % self.getAttribute("Name"))
+		# most codes don't use this feature, this is the only place
+		# numpy is used here, and importing numpy can be
+		# time-consuming, so we derfer the import until needed.
 		import numpy
-		return numpy.fromiter(self, dtype = ligolwtypes.ToNumPyType[self.Type])
+		try:
+			dtype = ligolwtypes.ToNumPyType[self.Type]
+		except KeyError as e:
+			raise TypeError("cannot determine numpy dtype for Column '%s': %s" % (self.getAttribute("Name"), e))
+		return numpy.fromiter(self, dtype = dtype)
 
 
 #
@@ -453,15 +551,17 @@ class InterningRowBuilder(tokenizer.RowBuilder):
 	>>> InterningRowBuilder.strings.clear()
 
 	to reset the dictionary at appropriate points in the application.
-	Typically this would be dome immediately after each document is
+	Typically this would be done immediately after each document is
 	loaded.
 	"""
 	strings = {}
 	def append(self, tokens):
+		interns = self.interns
+		setdefault = self.strings.setdefault
 		for row in super(InterningRowBuilder, self).append(tokens):
-			for col in self.interns:
+			for col in interns:
 				val = getattr(row, col)
-				setattr(row, col, self.strings.setdefault(val, val))
+				setattr(row, col, setdefault(val, val))
 			yield row
 
 
@@ -499,7 +599,7 @@ class TableStream(ligolw.Stream):
 			# FIXME:  convert loadcolumns attributes to sets to
 			# avoid the conversion.
 			loadcolumns &= set(parentNode.loadcolumns)
-		self._tokenizer.set_types([(colname in loadcolumns) and pytype or None for pytype, colname in zip(parentNode.columnpytypes, parentNode.columnnames)])
+		self._tokenizer.set_types([(pytype if colname in loadcolumns else None) for pytype, colname in zip(parentNode.columnpytypes, parentNode.columnnames)])
 		columnnames = [name for name in parentNode.columnnames if name in loadcolumns]
 		# FIXME:  convert interncolumns attributes to sets to
 		# simplify computing the intersection
@@ -521,7 +621,7 @@ class TableStream(ligolw.Stream):
 		"""
 		self._tokenizer = None
 		self._rowbuilder = None
-		ligolw.Stream.unlink(self)
+		super(TableStream, self).unlink()
 
 	def endElement(self):
 		# stream tokenizer uses delimiter to identify end of each
@@ -662,6 +762,38 @@ class Table(ligolw.Table, list):
 		return new
 
 
+	@classmethod
+	def CheckElement(cls, elem):
+		"""
+		Return True if element is a Table element whose Name
+		attribute matches the .tableName attribute of this class
+		according to CompareTableNames();  return False otherwise.
+		See also .CheckProperties().
+		"""
+		return cls.CheckProperties(elem.tagName, elem.attributes)
+
+
+	@classmethod
+	def CheckProperties(cls, tagname, attrs):
+		"""
+		Return True if tagname and attrs are the XML tag name and
+		element attributes, respectively, of a Table element whose
+		Name attribute matches the .tableName attribute of this
+		class according to CompareTableNames();  return False
+		otherwise.  The Table parent class does not provide a
+		.tableName attribute, but sub-classes, especially those in
+		lsctables.py, do provide a value for that attribute.  See
+		also .CheckElement()
+
+		Example:
+
+		>>> import lsctables
+		>>> lsctables.ProcessTable.CheckProperties(u"Table", {u"Name": u"process:table"})
+		True
+		"""
+		return tagname == cls.tagName and not CompareTableNames(attrs[u"Name"], cls.tableName)
+
+
 	#
 	# Column access
 	#
@@ -726,6 +858,22 @@ class Table(ligolw.Table, list):
 
 
 	#
+	# Row access
+	#
+
+	def appendRow(self, *args, **kwargs):
+		"""
+		Create and append a new row to this table, then return it
+
+		All positional and keyword arguments are passed to the RowType
+		constructor for this table.
+		"""
+		row = self.RowType(*args, **kwargs)
+		self.append(row)
+		return row
+
+
+	#
 	# Element methods
 	#
 
@@ -758,7 +906,7 @@ class Table(ligolw.Table, list):
 		Used for validation during parsing, and additional
 		book-keeping.  For internal use only.
 		"""
-		ligolw.Table._verifyChildren(self, i)
+		super(Table, self)._verifyChildren(i)
 		child = self.childNodes[i]
 		if child.tagName == ligolw.Column.tagName:
 			self._update_column_info()
@@ -823,6 +971,7 @@ class Table(ligolw.Table, list):
 		ValueError if the table does not have an ID generator
 		associated with it.
 		"""
+		# = None if no ID generator
 		id = cls.next_id
 		cls.next_id += 1
 		return id
@@ -939,8 +1088,7 @@ def use_in(ContentHandler):
 	>>> class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
 	...	pass
 	...
-	>>> from glue.ligolw import table
-	>>> table.use_in(LIGOLWContentHandler)
+	>>> use_in(LIGOLWContentHandler)
 	<class 'glue.ligolw.table.LIGOLWContentHandler'>
 	"""
 	def startColumn(self, parent, attrs):

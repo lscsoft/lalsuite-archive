@@ -315,11 +315,13 @@ void LALInferenceApplyCalibrationErrors(LALInferenceRunState *state, ProcessPara
  * Constant Calibration Model \n\
   (--MarginalizeConstantCalAmp ) If given, will add a constant value of Amplitude CE per each IFO on the top of the CBC parameters.\n\
   (--MarginalizeConstantCalPha ) If given, will add a constant value of Phase CE per each IFO on the top of the CBC parameters.\n\
+  (--constcal_ampsigma ) If given, will use gaussian prior on the constant amplitude error with this sigma (e.g. 0.05=5%) .\n\
+  (--constcal_phasigma ) If given, will use gaussian prior on the constant phase error with this sigma (e.g. 5=5degs).\n\
  * Spline Calibration Model \n\
   (--enable-spline-calibration)            Enable cubic-spline calibration error model.\n\
-  (--spline-calibration-nodes N)           Set the number of spline nodes per detector (default 5)\n\
-  (--spline-calibration-amp-uncertainty X) Set the prior on relative amplitude uncertainty (default 0.1)\n\
-  (--spline-calibration-phase-uncertainty X) Set the prior on phase uncertanity in degrees (default 5)\n\n\n";
+  (--spcal-nodes N)           Set the number of spline nodes per detector (default 5)\n\
+  (--spcal-amp-uncertainty X) Set the prior on relative amplitude uncertainty (default 0.1)\n\
+  (--spcal-phase-uncertainty X) Set the prior on phase uncertanity in degrees (default 5)\n\n\n";
 
     static LALStatus   status;
       /* Print command line arguments if state was not allocated */

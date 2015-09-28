@@ -23,11 +23,14 @@ class heterodyneJob(pipeline.CondorDAGJob, pipeline.AnalysisJob):
   """
   A lalapps_heterodyne_pulsar job to coarse heterodyne the data.
   """
-  def __init__(self,execu,univ='standard'):
+  def __init__(self, execu, univ, accgroup, accuser):
     self.__executable = execu # gets the executable from .ini
     self.__universe = univ
     pipeline.CondorDAGJob.__init__(self, self.__universe, self.__executable)
     pipeline.AnalysisJob.__init__(self, None)
+
+    self.add_condor_cmd('accounting_group', accgroup)
+    self.add_condor_cmd('accounting_group_user', accuser)
 
     # set log files for job
     self.set_stdout_file('logs/heterodyne_pulsar-$(cluster).out')
@@ -197,7 +200,7 @@ class ppeJob(pipeline.CondorDAGJob, pipeline.AnalysisJob):
   """
   A parameter estimation job
   """
-  def __init__(self,execu,univ,logpath):
+  def __init__(self,execu,univ,logpath,subfile='ppe.sub'):
     self.__executable = execu # set executable
     self.__universe = univ # set condor universe
     pipeline.CondorDAGJob.__init__(self, self.__universe, self.__executable)
@@ -208,7 +211,7 @@ class ppeJob(pipeline.CondorDAGJob, pipeline.AnalysisJob):
     # set log files for job
     self.set_stdout_file(logpath+'/ppe-$(cluster).out')
     self.set_stderr_file(logpath+'/ppe-$(cluster).err')
-    self.set_sub_file('ppe.sub')
+    self.set_sub_file(subfile)
 
 class ppeNode(pipeline.CondorDAGNode, pipeline.AnalysisNode):
   """
@@ -226,7 +229,6 @@ class ppeNode(pipeline.CondorDAGNode, pipeline.AnalysisNode):
     self.__par_file = None
     self.__cor_file = None
     self.__input_files = None
-    self.__downsample_factor = None
     self.__outfile = None
     self.__outXML = None
     self.__chunk_min = None
@@ -238,9 +240,12 @@ class ppeNode(pipeline.CondorDAGNode, pipeline.AnalysisNode):
     self.__ephem_sun = None
     self.__ephem_time = None
     self.__harmonics = None
+    self.__biaxial = False
+    self.__gaussian_like = False
 
     self.__Nlive = None
     self.__Nmcmc = None
+    self.__Nmcmcinitial = None
     self.__Nruns = None
     self.__tolerance = None
     self.__randomseed = None
@@ -265,8 +270,6 @@ class ppeNode(pipeline.CondorDAGNode, pipeline.AnalysisNode):
     self.__sample_nlives = None
     self.__prior_cell = None
 
-    self.__mismatch = None
-    self.__mm_factor = None
     self.__nonfixedonly = False
     self.__gzip = False
 
@@ -300,11 +303,6 @@ class ppeNode(pipeline.CondorDAGNode, pipeline.AnalysisNode):
     # set data files for analysing
     self.add_var_opt('input-files', inputfiles)
     self.__input_files = inputfiles
-
-  def set_downsample_factor(self, ds):
-    # set downsampling factor for input files
-    self.add_var_opt('downsample-factor', ds)
-    self.__downsample_factor = ds
 
   def set_outfile(self, of):
     # set the output file
@@ -370,6 +368,11 @@ class ppeNode(pipeline.CondorDAGNode, pipeline.AnalysisNode):
     # set number of MCMC iterations
     self.add_var_opt('Nmcmc',nm)
     self.__Nmcmc = nm
+
+  def set_Nmcmcinitial(self,nm):
+    # set number of MCMC iterations
+    self.add_var_opt('Nmcmcinitial',nm)
+    self.__Nmcmcinitial = nm
 
   def set_Nruns(self,nr):
     # set number of internal nested sample runs
@@ -476,16 +479,6 @@ class ppeNode(pipeline.CondorDAGNode, pipeline.AnalysisNode):
     self.add_var_opt('prior-cell',pc)
     self.__prior_cell = pc
 
-  def set_mismatch(self,mm):
-    # set maximum phase mismatch at which to recalculate the phase model
-    self.add_var_opt('mismatch',mm)
-    self.__mismatch = mm
-
-  def set_mm_factor(self,mmf):
-    # set the downsampling factor of the phase model when calculating mismatch
-    self.add_var_opt('mm-factor',mmf)
-    self.__mm_factor = mmf
-
   def set_gzip(self):
     # set to gzip the output file
     self.add_var_opt('gzip', '')
@@ -506,17 +499,29 @@ class ppeNode(pipeline.CondorDAGNode, pipeline.AnalysisNode):
     self.add_var_opt('jones-model', '')
     self.__jonesModel = True
 
+  def set_biaxial(self):
+    # the model is a biaxial star using the amplitude/phase waveform parameterisation
+    self.add_var_opt('biaxial', '')
+    self.__biaxial = True
+
+  def set_gaussian_like(self):
+    # use a Gaussian likelihood rather than the Students-t likelihood
+    self.add_var_opt('gaussian-like', '')
+    self.__gaussian_like = True
+
 class createresultspageJob(pipeline.CondorDAGJob, pipeline.AnalysisJob):
   """
   A job to create an individual pulsar results page
   """
-  def __init__(self,execu,logpath):
+  def __init__(self,execu,logpath,accgroup,accuser):
     self.__executable = execu
     self.__universe  = 'vanilla'
     pipeline.CondorDAGJob.__init__(self, self.__universe, self.__executable)
     pipeline.AnalysisJob.__init__(self, None)
 
     self.add_condor_cmd('getenv','True')
+    self.add_condor_cmd('accounting_group', accgroup)
+    self.add_condor_cmd('accounting_group_user', accuser)
 
     self.set_stdout_file(logpath+'/create_results_page-$(cluster).out')
     self.set_stderr_file(logpath+'/create_results_page-$(cluster).err')
@@ -527,6 +532,8 @@ class createresultspageJob(pipeline.CondorDAGJob, pipeline.AnalysisJob):
     self.add_arg('$(macrobk)') # macro for Bk (fine heterodyne file) directories
     self.add_arg('$(macroi)') # macro for IFOs
     self.add_arg('$(macrof)') # macro for nested sampling files
+    self.add_arg('$(macrow)') # macro to say if a hardware injection
+    self.add_arg('$(macros)') # macro to say if a software injection
 
 class createresultspageNode(pipeline.CondorDAGNode, pipeline.AnalysisNode):
   """
@@ -545,15 +552,12 @@ class createresultspageNode(pipeline.CondorDAGNode, pipeline.AnalysisNode):
     self.__mcmcdirs = []
     self.__donested = False
     self.__nestedfiles = []
-    self.__nlive = None
     self.__parfile = None
     self.__Bkfiles = []
     self.__priorfile = None
     self.__ifos = []
     self.__histbins = None
     self.__epsout = False
-    self.__swinj = False
-    self.__hwinj = False
 
   def set_outpath(self,val):
     # set the detector
@@ -585,10 +589,6 @@ class createresultspageNode(pipeline.CondorDAGNode, pipeline.AnalysisNode):
     self.add_macro('macrof', macroval)
     self.add_macro('macrom', '') # empty macro for mcmc directories
     self.__nestedfiles = val
-  def set_nlive(self,val):
-    # set number of nested sampling live points
-    self.add_var_opt('l', val, short=True)
-    self.__nlive = val
   def set_parfile(self,val):
     # set the pulsar parameter file
     self.add_var_opt('p', val, short=True)
@@ -621,27 +621,32 @@ class createresultspageNode(pipeline.CondorDAGNode, pipeline.AnalysisNode):
     # set to output eps figs
     self.add_var_opt('e', '', short=True)
     self.__epsout = True
-  def set_swinj(self):
+  def set_swinj(self, isswinj):
     # set to say that analysing software injection
-    self.add_var_opt('s', '', short=True)
-    self.__swinj = True
-  def set_hwinj(self):
+    if isswinj:
+      self.add_macro('macros', '--sw-inj')
+    else:
+      self.add_macro('macros', '')
+  def set_hwinj(self, ishwinj):
     # set to say that analysing hardware injection
-    self.add_var_opt('w', '', short=True)
-    self.__hwinj = True
-
+    if ishwinj:
+      self.add_macro('macrow', '--hw-inj')
+    else:
+      self.add_macro('macrow', '')
 
 class collateresultsJob(pipeline.CondorDAGJob, pipeline.AnalysisJob):
   """
   A job to collate all the individual pulsar results pages
   """
-  def __init__(self,execu,logpath):
+  def __init__(self,execu,logpath,accgroup,accuser):
     self.__executable = execu
     self.__universe  = 'vanilla'
     pipeline.CondorDAGJob.__init__(self, self.__universe, self.__executable)
     pipeline.AnalysisJob.__init__(self, None)
 
     self.add_condor_cmd('getenv','True')
+    self.add_condor_cmd('accounting_group', accgroup)
+    self.add_condor_cmd('accounting_group_user', accuser)
 
     self.set_stdout_file(logpath+'/collate_results-$(cluster).out')
     self.set_stderr_file(logpath+'/collate_results-$(cluster).err')

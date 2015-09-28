@@ -4,47 +4,24 @@ include $(top_srcdir)/gnuscripts/lalsuite_header_links.am
 include $(top_srcdir)/gnuscripts/lalsuite_vcs_info.am
 
 pkginclude_HEADERS = \
-	CLR.h \
 	EPSearch.h \
 	GenerateBurst.h \
 	LALBurstConfig.h \
 	LALBurstVCSInfo.h \
 	LALBurstVCSInfoHeader.h \
 	LIGOLwXMLBurstRead.h \
-	LIGOMetadataBurstUtils.h \
-	TFTransform.h \
-	TSData.h \
-	TSSearch.h \
-	Thresholds.h \
-	TimeFreq.h \
-	TrackSearch.h \
+	SnglBurstUtils.h \
 	cs_cosmo.h \
 	cs_lambda_cosmo.h
 
 lib_LTLIBRARIES = liblalburst.la
 liblalburst_la_SOURCES = \
-	CleanAll.c \
-	CreateTFPlane.c \
-	CreateTimeFreqParam.c \
-	CreateTimeFreqRep.c \
-	DestroyTimeFreqParam.c \
-	DestroyTimeFreqRep.c \
-	Dwindow.c \
+	EPFilters.c \
 	EPSearch.c \
-	FreqSeriesToTFPlane.c \
 	GenerateBurst.c \
-	HarmonicFinder.c \
 	LALBurstVCSInfo.c \
 	LIGOLwXMLBurstRead.c \
-	RefInterference.c \
 	SnglBurstUtils.c \
-	TSData.c \
-	TfrPswv.c \
-	TfrRsp.c \
-	TfrSp.c \
-	TfrWv.c \
-	Thresholds.c \
-	TrackSearch.c \
 	cs_lambda_cosmo.c
 nodist_liblalburst_la_SOURCES = LALBurstBuildInfo.c
 

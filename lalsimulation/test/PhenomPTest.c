@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 2013 Michael Puerrer
- *  Test code for LALSimIMRPhenomP
+ *  Test code for LALSimIMRPhenomP(v1)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -35,14 +35,14 @@
 #include <lal/LALSimNoise.h>
 #include <lal/ComplexFFT.h>
 
-#include <fftw3.h>
+#include <lal/ComplexFFT.h>
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_spline.h>
 #include <gsl/gsl_math.h>
 
 #include "../src/LALSimIMRPhenomP.c" /* Include source directly so we can carry out unit tests for internal functions */
 
-#define UNUSED(expr) do { (void)(expr); } while (0)
+#define MYUNUSED(expr) do { (void)(expr); } while (0)
 
 void prC(const char *name, COMPLEX16 x);
 void prC(const char *name, COMPLEX16 x) {
@@ -65,8 +65,7 @@ REAL8 MatchSI(COMPLEX16FrequencySeries **htilde1, COMPLEX16FrequencySeries **hti
   }
   int n = len1;
 
-  fftw_complex *integrand;
-  integrand = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * n);
+  COMPLEX16Vector *integrand = XLALCreateCOMPLEX16Vector(n);
   REAL8 PSDfact = XLALSimNoisePSDaLIGOZeroDetHighPower((fMax-fMin)/4.);
   REAL8 tableS;
   COMPLEX16 h1,h2;
@@ -82,7 +81,7 @@ REAL8 MatchSI(COMPLEX16FrequencySeries **htilde1, COMPLEX16FrequencySeries **hti
     tableS = PSDfact / XLALSimNoisePSDaLIGOZeroDetHighPower(f);
     h1 = ((*htilde1)->data->data)[i];
     h2 = ((*htilde2)->data->data)[i];
-    integrand[i] = h1 * conj(h2) * tableS;
+    integrand->data[i] = h1 * conj(h2) * tableS;
     norm1 += sqr(cabs(h1)) * tableS;
     norm2 += sqr(cabs(h2)) * tableS;
     // printf("f = %g\tnoise(f) = %g\ttableS[i] = %g\tintegrand[i] = %g\n", f, XLALSimNoisePSDaLIGOZeroDetHighPower(f), tableS, creal(integrand[i]));
@@ -93,31 +92,31 @@ REAL8 MatchSI(COMPLEX16FrequencySeries **htilde1, COMPLEX16FrequencySeries **hti
   int zpf = 10;
   int m = n + 2*zpf*n; // zero-pad on both sides
   //printf("Total length %d\n", m);
-  fftw_complex *array;
-  fftw_plan p;
-  array = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * m);
-  p = fftw_plan_dft_1d(m, array, array, FFTW_FORWARD, FFTW_ESTIMATE); // prepare in-place FFT
+
+  COMPLEX16FFTPlan *myplan = XLALCreateForwardCOMPLEX16FFTPlan(m, 0);
+  COMPLEX16Vector *array_in = XLALCreateCOMPLEX16Vector(m);
+  COMPLEX16Vector *array_out = XLALCreateCOMPLEX16Vector(m);
 
   // fill input array
   for (int i=0; i<zpf*n; i++)
-    array[i] = 0.0;
+    array_in->data[i] = 0.0;
   for (int i=zpf*n; i<(zpf*n + n); i++)
-    array[i] = integrand[iStart + i-zpf*n];
+    array_in->data[i] = integrand->data[iStart + i-zpf*n];
   for (int i=zpf*n + n; i<m; i++)
-    array[i] = 0.0;
+    array_in->data[i] = 0.0;
 
-  fftw_execute(p);
+  XLALCOMPLEX16VectorFFT(array_out, array_in, myplan);
 
   REAL8 match=0; REAL8 val;
   for (int i=0; i<m; i++) {
-    val = cabs(array[i]);
+    val = cabs(array_out->data[i]);
     if (val > match)
       match = val;
   }
 
-  fftw_destroy_plan(p);
-  fftw_free(array);
-  fftw_free(integrand);
+  XLALFree(array_in);
+  XLALFree(array_out);
+  XLALDestroyCOMPLEX16FFTPlan(myplan);
 
   return match / sqrt(norm1*norm2);
 }
@@ -300,7 +299,7 @@ static void Test_PhenomC(void) {
   printf("LAL_MRSUN_SI, LAL_MTSUN_SI, LAL_PC_SI: %g\t%g\t%g\n",LAL_MRSUN_SI, LAL_MTSUN_SI, LAL_PC_SI);
   prC("hPC", hPC);
 
-  COMPLEX16 hPC_expected = -4.08272e-23 - I * 8.89604e-23;
+  COMPLEX16 hPC_expected = -4.08291e-23 - I * 8.89596e-23;
 
   const REAL8 eps = 1e-5;
 
@@ -345,8 +344,13 @@ static void Test_PhenomPCore(void) {
   Y2m.Y22  = XLALSpinWeightedSphericalHarmonic(ytheta, yphi, -2, 2,  2);
 
   COMPLEX16 hp, hc;
+  REAL8 phasing;
   REAL8 fHz = 40.6051; // Mf = 0.01 for M=50Msun
-  int ret = PhenomPCore(
+  const UINT4 version = 1;
+  IMRPhenomDAmplitudeCoefficients *pAmp = NULL;
+  IMRPhenomDPhaseCoefficients *pPhi = NULL;
+
+  int ret = PhenomPCoreOneFrequency(
     fHz,                     /**< frequency (Hz) */
     0.16,                    /**< symmetric mass ratio */
     0.45,                    /**< dimensionless effective total aligned spin */
@@ -354,18 +358,23 @@ static void Test_PhenomPCore(void) {
     100 * 1e6 * LAL_PC_SI,   /**< distance of source (m) */
     50,                      /**< total mass (Solar masses) */
     0,                       /**< orbital coalescence phase (rad) */
+    pAmp,                    /**< Internal IMRPhenomD amplitude coefficients */
+    pPhi,                    /**< Internal IMRPhenomD phase coefficients */
     PCparams,                /**< internal PhenomC parameters */
     &angcoeffs,              /**< struct with PN coeffs for the NNLO angles */
     &Y2m,                    /**< struct of l=2 spherical harmonics of spin weight -2 */
     0,0,
     &hp,                     /**< output: \f$\tilde h_+\f$ */
-    &hc);                    /**< output: \f$\tilde h_+\f$ */
-  UNUSED(ret);
+    &hc,                     /**< output: \f$\tilde h_+\f$ */
+    &phasing,                /**< Output: overall phasing */
+    version);
+
+  MYUNUSED(ret);
   prC("hp", hp);
   prC("hc", hc);
 
-  COMPLEX16 hp_expected = 2.06987e-23 - I*9.29351e-23;
-  COMPLEX16 hc_expected = -9.29438e-23 - I*2.06629e-23;
+  COMPLEX16 hp_expected = 2.06975e-23 - I * 9.29353e-23;
+  COMPLEX16 hc_expected = -9.29441e-23 - I * 2.06616e-23;
   const REAL8 eps = 1e-5;
 
   assert(
@@ -422,6 +431,7 @@ static void Test_XLALSimIMRPhenomP(void) {
   REAL8 deltaF = 0.06;
   REAL8 f_max = 0; // 8000;
   REAL8 distance = 100 * 1e6 * LAL_PC_SI;
+  const UINT4 version = 1;
 
   int ret = XLALSimIMRPhenomP(
     &hptilde,                 /**< Frequency-domain waveform h+ */
@@ -437,17 +447,19 @@ static void Test_XLALSimIMRPhenomP(void) {
     deltaF,                   /**< Sampling frequency (Hz) */
     f_min,                    /**< Starting GW frequency (Hz) */
     f_max,                    /**< End frequency; 0 defaults to ringdown cutoff freq */
-    f_ref);                   /**< Reference frequency */
+    f_ref,                    /**< Reference frequency */
+    version);
 
   dump_file("PhenomP_Test1.dat", hptilde, hctilde, m1+m2);
-  UNUSED(ret);
+  MYUNUSED(ret);
   COMPLEX16 hp = (hptilde->data->data)[1000];
   COMPLEX16 hc = (hctilde->data->data)[1000];
   prC("hp", hp);
   prC("hc", hc);
 
-  COMPLEX16 hp_expected = 1.00825e-23 - I*5.79215e-23;
-  COMPLEX16 hc_expected = -5.7913e-23 - I*1.00782e-23;
+  COMPLEX16 hp_expected = -8.90294e-24 + I * 5.81145e-23;
+  COMPLEX16 hc_expected =  5.81059e-23 + I * 8.89877e-24;
+
   const REAL8 eps = 1e-5;
 
   assert(
@@ -486,6 +498,7 @@ static void Test_PhenomC_PhenomP(void) {
   REAL8 lnhatx = 0;
   REAL8 lnhaty = 0;
   REAL8 lnhatz = 1;
+  const UINT4 version = 1;
 
   REAL8 chi_eff, chip, thetaJ, alpha0;
 
@@ -527,7 +540,8 @@ static void Test_PhenomC_PhenomP(void) {
     deltaF,                   /**< Sampling frequency (Hz) */
     f_min,                    /**< Starting GW frequency (Hz) */
     f_max,                    /**< End frequency; 0 defaults to ringdown cutoff freq */
-    f_ref);                   /**< Reference frequency */
+    f_ref,                    /**< Reference frequency */
+    version);
 
   int wflen = hptilde->data->length;
   REAL8 f_max_prime = 0;
@@ -571,7 +585,7 @@ static void Test_PhenomC_PhenomP(void) {
 
   // Now compute match between PhenomC and PhenomP for this aligned configuration
   REAL8 match = MatchSI(&hptilde, &htildePC, f_min, f_max_prime, deltaF);
-  REAL8 match_expected = 0.999443;
+  REAL8 match_expected = 0.999465;
 
   const REAL8 eps = 1e-5;
 
@@ -581,7 +595,7 @@ static void Test_PhenomC_PhenomP(void) {
   );
 
   printf("match(PhenomP_aligned, PhenomC) = %g\n", match);
-  UNUSED(ret);
+  MYUNUSED(ret);
 }
 
 static void Test_XLALSimIMRPhenomP_f_ref(void);
@@ -632,6 +646,7 @@ static void Test_XLALSimIMRPhenomP_f_ref(void) {
   REAL8 deltaF = 0.06;
   REAL8 f_max = 0; // 8000;
   REAL8 distance = 100 * 1e6 * LAL_PC_SI;
+  const UINT4 version = 1;
 
   int ret = XLALSimIMRPhenomP(
     &hptilde,                 /**< Frequency-domain waveform h+ */
@@ -647,10 +662,11 @@ static void Test_XLALSimIMRPhenomP_f_ref(void) {
     deltaF,                   /**< Sampling frequency (Hz) */
     f_min,                    /**< Starting GW frequency (Hz) */
     f_max,                    /**< End frequency; 0 defaults to ringdown cutoff freq */
-    f_ref);                   /**< Reference frequency */
+    f_ref,                    /**< Reference frequency */
+    version);
 
   dump_file("PhenomP_Test_f_ref1.dat", hptilde, hctilde, m1+m2);
-  UNUSED(ret);
+  MYUNUSED(ret);
   COMPLEX16 hp = (hptilde->data->data)[1000];
   COMPLEX16 hc = (hctilde->data->data)[1000];
   printf("f_ref = %g\n", f_ref);
@@ -696,10 +712,12 @@ static void Test_XLALSimIMRPhenomP_f_ref(void) {
     deltaF,                   /**< Sampling frequency (Hz) */
     f_min,                    /**< Starting GW frequency (Hz) */
     f_max,                    /**< End frequency; 0 defaults to ringdown cutoff freq */
-    f_ref);                   /**< Reference frequency */
+    f_ref,                    /**< Reference frequency */
+    version);
+
 
   dump_file("PhenomP_Test_f_ref2.dat", hptilde2, hctilde2, m1+m2);
-  UNUSED(ret);
+  MYUNUSED(ret);
   COMPLEX16 hp2 = (hptilde2->data->data)[1000];
   COMPLEX16 hc2 = (hctilde2->data->data)[1000];
   printf("f_ref = %g\n", f_ref);
@@ -716,9 +734,10 @@ static void Test_XLALSimIMRPhenomP_f_ref(void) {
 }
 
 int main(int argc, char *argv[]) {
-  UNUSED(argc);
-  UNUSED(argv);
+  MYUNUSED(argc);
+  MYUNUSED(argv);
 
+#ifndef _OPENMP
   Test_alpha_epsilon();
   Test_XLALSimIMRPhenomPCalculateModelParameters();
   Test_PhenomC();
@@ -726,6 +745,15 @@ int main(int argc, char *argv[]) {
   Test_XLALSimIMRPhenomP();
   Test_PhenomC_PhenomP();
   Test_XLALSimIMRPhenomP_f_ref();
+#else
+  MYUNUSED(Test_alpha_epsilon);
+  MYUNUSED(Test_XLALSimIMRPhenomPCalculateModelParameters);
+  MYUNUSED(Test_PhenomC);
+  MYUNUSED(Test_PhenomPCore);
+  MYUNUSED(Test_XLALSimIMRPhenomP);
+  MYUNUSED(Test_PhenomC_PhenomP);
+  MYUNUSED(Test_XLALSimIMRPhenomP_f_ref);
+#endif
 
   printf("\nAll done!\n");
   return 0;

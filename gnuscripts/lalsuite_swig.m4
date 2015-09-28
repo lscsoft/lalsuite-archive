@@ -2,7 +2,7 @@
 # lalsuite_swig.m4 - SWIG configuration
 # Author: Karl Wette, 2011--2014
 #
-# serial 74
+# serial 81
 
 AC_DEFUN([_LALSUITE_CHECK_SWIG_VERSION],[
   # $0: check the version of $1, and store it in ${swig_version}
@@ -15,27 +15,6 @@ AC_DEFUN([_LALSUITE_CHECK_SWIG_VERSION],[
   AS_IF([test "x${swig_version}" = x],[
     AC_MSG_ERROR([could not determine version of $1])
   ])
-  # end $0
-])
-
-AC_DEFUN([_LALSUITE_SWIG_CHECK_COMPILER_FLAGS],[
-  # $0: check flags used to compile SWIG bindings
-  LALSUITE_PUSH_UVARS
-  LALSUITE_CLEAR_UVARS
-  for flag in m4_normalize($2); do
-    AC_MSG_CHECKING([if ]_AC_LANG[ compiler supports ${flag}])
-    CFLAGS="-Werror ${flag}"
-    CXXFLAGS="${CFLAGS}"
-    AC_COMPILE_IFELSE([
-      AC_LANG_PROGRAM([AC_INCLUDES_DEFAULT],[])
-    ],[
-      AC_MSG_RESULT([yes])
-      $1="${$1} ${flag}"
-    ],[
-      AC_MSG_RESULT([no])
-    ])
-  done
-  LALSUITE_POP_UVARS
   # end $0
 ])
 
@@ -119,7 +98,7 @@ AC_DEFUN([LALSUITE_USE_SWIG],[
       ])
       AC_MSG_RESULT([yes (${swig_version})])
     ],[
-      AC_PATH_PROGS_FEATURE_CHECK([SWIG],[swig swig2.0],[
+      AC_PATH_PROGS_FEATURE_CHECK([SWIG],[swig swig2.0 swig3.0],[
         AC_MSG_CHECKING([if ${ac_path_SWIG} version is at least ${swig_min_version}])
         _LALSUITE_CHECK_SWIG_VERSION([${ac_path_SWIG}])
         LALSUITE_VERSION_COMPARE([${swig_version}],[>=],[${swig_min_version}],[
@@ -133,7 +112,7 @@ AC_DEFUN([LALSUITE_USE_SWIG],[
       ],[
         AC_MSG_ERROR([SWIG version ${swig_min_version} or later is required ${swig_min_version_info}])
       ])
-      SWIG="${ac_cv_path_SWIG}"
+      SWIG="env CCACHE_DISABLE=1 ${ac_cv_path_SWIG}"
     ])
 
     # extract -I and -D flags from LALSuite library preprocessor flags
@@ -181,9 +160,11 @@ AC_DEFUN([LALSUITE_USE_SWIG_LANGUAGE],[
   m4_pushdef([uppercase],m4_translit([$1],[a-z],[A-Z]))
   m4_pushdef([lowercase],m4_translit([$1],[A-Z],[a-z]))
   AS_IF([test "${swig_build_]lowercase[}" = true],[
+    AC_LANG_PUSH([$2])
     swig_build=true
-    swig_src_files="${swig_src_files} swiglal_[]lowercase[].$2"
-    $3
+    swig_src_files="${swig_src_files} swiglal_[]lowercase[].$3"
+    $4
+    AC_LANG_POP([$2])
   ])
   m4_popdef([uppercase])
   m4_popdef([lowercase])
@@ -192,7 +173,7 @@ AC_DEFUN([LALSUITE_USE_SWIG_LANGUAGE],[
 
 AC_DEFUN([LALSUITE_USE_SWIG_OCTAVE],[
   # $0: configure SWIG Octave bindings
-  LALSUITE_USE_SWIG_LANGUAGE([Octave],[cpp],[
+  LALSUITE_USE_SWIG_LANGUAGE([Octave],[C++],[cpp],[
 
     # check for Octave
     AC_PATH_PROG(OCTAVE,[octave],[],[])
@@ -280,41 +261,47 @@ AC_DEFUN([LALSUITE_USE_SWIG_OCTAVE],[
 
     # determine Octave compiler flags
     AC_SUBST([SWIG_OCTAVE_CXXFLAGS],[])
+    swig_octave_cxxflags=
     for arg in CXXPICFLAG ALL_CXXFLAGS; do
       for flag in `${mkoctfile} -p ${arg} 2>/dev/null`; do
-        SWIG_OCTAVE_CXXFLAGS="${SWIG_OCTAVE_CXXFLAGS} ${flag}"
+        swig_octave_cxxflags="${swig_octave_cxxflags} ${flag}"
       done
     done
-    AC_LANG_PUSH([C++])
-    _LALSUITE_SWIG_CHECK_COMPILER_FLAGS([SWIG_OCTAVE_CXXFLAGS],[
+    LALSUITE_CHECK_COMPILE_FLAGS([
+      ${swig_octave_cxxflags}
       -Wno-uninitialized -Wno-unused-variable -Wno-unused-but-set-variable
-      -Wno-tautological-compare -fno-strict-aliasing -g
+      -Wno-format-extra-args -Wno-tautological-compare -fno-strict-aliasing
       -O0 -Wp[,]-U_FORTIFY_SOURCE
-    ])
-    AC_LANG_POP([C++])
+      ],[SWIG_OCTAVE_CXXFLAGS="${SWIG_OCTAVE_CXXFLAGS} ${flag}"]
+    )
 
     # determine Octave linker flags
     AC_SUBST([SWIG_OCTAVE_LDFLAGS],[])
+    swig_octave_ldflags=
     for arg in LFLAGS LIBOCTINTERP LIBOCTAVE LIBCRUFT OCT_LINK_OPTS OCT_LINK_DEPS; do
+      sep=""
       for flag in `${mkoctfile} -p ${arg} 2>/dev/null`; do
         AS_CASE([${flag}],
           [-L/usr/lib|-L/usr/lib64],[:],
-          [SWIG_OCTAVE_LDFLAGS="${SWIG_OCTAVE_LDFLAGS} ${flag}"]
+          [-Xlinker],[swig_octave_ldflags="${swig_octave_ldflags} -Wl"; sep=","; continue],
+          [swig_octave_ldflags="${swig_octave_ldflags}${sep}${flag}"; sep=" "]
         )
       done
     done
+    LALSUITE_CHECK_LINK_FLAGS([
+      ${swig_octave_ldflags}
+      ],[SWIG_OCTAVE_LDFLAGS="${SWIG_OCTAVE_LDFLAGS} ${flag}"]
+    )
 
     # check for Octave headers
-    AC_LANG_PUSH([C++])
     LALSUITE_PUSH_UVARS
     CPPFLAGS="${SWIG_OCTAVE_CPPFLAGS_IOCTAVE} ${SWIG_OCTAVE_CPPFLAGS}"
-    AC_CHECK_HEADERS([octave/oct.h],[],[
+    AC_CHECK_HEADER([octave/oct.h],[],[
       AC_MSG_ERROR([could not find the header "octave/oct.h"])
     ],[
       AC_INCLUDES_DEFAULT
     ])
     LALSUITE_POP_UVARS
-    AC_LANG_POP([C++])
 
   ])
   # end $0
@@ -322,7 +309,7 @@ AC_DEFUN([LALSUITE_USE_SWIG_OCTAVE],[
 
 AC_DEFUN([LALSUITE_USE_SWIG_PYTHON],[
   # $0: configure SWIG Python bindings
-  LALSUITE_USE_SWIG_LANGUAGE([Python],[c],[
+  LALSUITE_USE_SWIG_LANGUAGE([Python],[C],[c],[
 
     # check for distutils
     AC_MSG_CHECKING([for distutils])
@@ -383,14 +370,14 @@ EOD`]
       AC_MSG_ERROR([could not determine Python compiler flags])
     ])
     for flag in ${python_out}; do
-      SWIG_PYTHON_CFLAGS="${SWIG_PYTHON_CFLAGS} ${flag}"
+      swig_python_cflags="${swig_python_cflags} ${flag}"
     done
-    AC_LANG_PUSH([C])
-    _LALSUITE_SWIG_CHECK_COMPILER_FLAGS([SWIG_PYTHON_CFLAGS],[
+    LALSUITE_CHECK_COMPILE_FLAGS([
+      ${swig_python_cflags}
       -Wno-uninitialized -Wno-unused-variable -Wno-unused-but-set-variable
-      -Wno-tautological-compare -fno-strict-aliasing -g
-    ])
-    AC_LANG_POP([C])
+      -Wno-format-extra-args -Wno-tautological-compare -fno-strict-aliasing
+      ],[SWIG_PYTHON_CFLAGS="${SWIG_PYTHON_CFLAGS} ${flag}"]
+    )
 
     # determine Python linker flags
     AC_SUBST([SWIG_PYTHON_LDFLAGS],[])
@@ -406,45 +393,56 @@ EOD`]
     AS_IF([test $? -ne 0],[
       AC_MSG_ERROR([could not determine Python linker flags])
     ])
+    sep=""
     for flag in ${python_out}; do
       AS_CASE([${flag}],
         [-L/usr/lib|-L/usr/lib64],[:],
-        [SWIG_PYTHON_LDFLAGS="${SWIG_PYTHON_LDFLAGS} ${flag}"]
+        [-Xlinker],[swig_python_ldflags="${swig_python_ldflags} -Wl"; sep=","; continue],
+        [swig_python_ldflags="${swig_python_ldflags}${sep}${flag}"; sep=" "]
       )
     done
+    LALSUITE_CHECK_LINK_FLAGS([
+      ${swig_python_ldflags}
+      ],[SWIG_PYTHON_LDFLAGS="${SWIG_PYTHON_LDFLAGS} ${flag}"]
+    )
 
     # check for Python and NumPy headers
-    AC_LANG_PUSH([C])
     LALSUITE_PUSH_UVARS
     CPPFLAGS="${SWIG_PYTHON_CPPFLAGS}"
-    AC_CHECK_HEADERS([Python.h],[],[
+    AC_CHECK_HEADER([Python.h],[],[
       AC_MSG_ERROR([could not find the header "Python.h"])
     ],[
       AC_INCLUDES_DEFAULT
     ])
-    AC_CHECK_HEADERS([numpy/arrayobject.h],[],[
+    AC_CHECK_HEADER([numpy/arrayobject.h],[],[
       AC_MSG_ERROR([could not find the header "numpy/arrayobject.h"])
     ],[
       AC_INCLUDES_DEFAULT
       #include <Python.h>
     ])
     LALSUITE_POP_UVARS
-    AC_LANG_POP([C])
 
     # remove deprecated code in NumPy API >= 1.7
     SWIG_PYTHON_CPPFLAGS="${SWIG_PYTHON_CPPFLAGS} -DNPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION"
 
     # check for declarations which may need compatibility code for NumPy API < 1.7
-    AC_LANG_PUSH([C])
     LALSUITE_PUSH_UVARS
     CPPFLAGS="${SWIG_PYTHON_CPPFLAGS}"
-    AC_CHECK_DECLS([NPY_ARRAY_WRITEABLE,PyArray_SetBaseObject],,,[
+    AC_CHECK_DECL([NPY_ARRAY_WRITEABLE],[
+      SWIG_PYTHON_CPPFLAGS="${SWIG_PYTHON_CPPFLAGS} -DSWIGLAL_HAVE_NPY_ARRAY_WRITEABLE"
+    ],[],[
+      AC_INCLUDES_DEFAULT
+      #include <Python.h>
+      #include <numpy/arrayobject.h>
+    ])
+    AC_CHECK_DECL([PyArray_SetBaseObject],[
+      SWIG_PYTHON_CPPFLAGS="${SWIG_PYTHON_CPPFLAGS} -DSWIGLAL_HAVE_PyArray_SetBaseObject"
+    ],[],[
       AC_INCLUDES_DEFAULT
       #include <Python.h>
       #include <numpy/arrayobject.h>
     ])
     LALSUITE_POP_UVARS
-    AC_LANG_POP([C])
 
   ])
   # end $0

@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/python
 
 #
 # =============================================================================
@@ -178,7 +178,8 @@ parser.add_option("", "--x-max", type = "float", help = "Set maximum x value.")
 parser.add_option("", "--y-min", type = "float", help = "Set minimum y value.")
 parser.add_option("", "--y-max", type = "float", help = "Set maximum y value.")
 parser.add_option("", "--linear-y", action = "store_true", default = False, help = "Make y-axis linear. Default is for y-axis to be log scale.")
-parser.add_option("", "--no-title", action = "store_true", default = False, help = "Do not add a title to the plot. Default is to add a title. If an SNR is given, the title will print that SNR; if a distance is given, the title will print that distance.")
+parser.add_option("", "--title", type = "string", help = "Specify the plot title (in quotation marks). If none provided and an SNR is given, the title will print that SNR; if a distance is given, the title will print that distance.")
+parser.add_option("", "--no-title", action = "store_true", default = False, help = "Do not add a title to the plot. Default is to add a title.")
 parser.add_option("", "--legend-loc", default = "lower right", help = "Where to put the legend. Options are 'upper right', 'upper left', 'lower right', 'lower right'. Default is lower right.")
 parser.add_option("", "--num-points", type = "int", default = 40, help = "number of points to use to generate plot; default is 40")
 parser.add_option("", "--dpi", type = "int", default = 200, help = "dots-per-inch to use for plot; default is 200")
@@ -345,18 +346,24 @@ fig = pyplot.figure()
 ax = fig.add_subplot(111)
 for waveform in waveforms:
     if opts.linear_y:
-        ax.plot(xvals[waveform], yvals[waveform], lw = 2, label = waveform)
+        ax.plot(xvals[waveform], yvals[waveform], lw = 2, label = waveform.replace('_','\\_'))
     else:
-        ax.semilogy(xvals[waveform], yvals[waveform], lw = 2, label = waveform)
+        ax.semilogy(xvals[waveform], yvals[waveform], lw = 2, label = waveform.replace('_','\\_'))
 ax.set_xlabel('%s total mass ($\mathrm{M}_\odot$)' %(opts.de_redshift and 'source rest-frame' or 'red-shifted'))
 if plot_distance:
     ax.set_ylabel('%s distance (Mpc)' %(opts.de_redshift and 'proper' or 'luminosity'))
     if not opts.no_title:
-        ax.set_title(r'$\rho = %.2f,~ q = %.2f %s$' % (snr, q, opts.de_redshift and r',~H_0 = %.2f\,\mathrm{km/s/Mpc}' % opts.hubble_constant or ''))
+        if opts.title is None:
+            ax.set_title(r'$\rho = %.2f,~ q = %.2f %s$' % (snr, q, opts.de_redshift and r',~H_0 = %.2f\,\mathrm{km/s/Mpc}' % opts.hubble_constant or ''))
+        else:
+            ax.set_title(opts.title)
 else:
     ax.set_ylabel(r'$\rho$')
     if not opts.no_title:
-        ax.set_title('$D%s = %i\,\mathrm{Mpc},~ q = %.2f %s$' %(not opts.de_redshift and '_L' or '', distance, q, opts.de_redshift and r',~H_0 = %.2f\,\mathrm{km/s/Mpc}' % opts.hubble_constant or ''))
+        if opts.title is None:
+            ax.set_title('$D%s = %i\,\mathrm{Mpc},~ q = %.2f %s$' %(not opts.de_redshift and '_L' or '', distance, q, opts.de_redshift and r',~H_0 = %.2f\,\mathrm{km/s/Mpc}' % opts.hubble_constant or ''))
+        else:
+            ax.set_title(opts.title)
 plt_xmin, plt_xmax = ax.get_xlim()
 plt_ymin, plt_ymax = ax.get_ylim()
 if opts.x_min is not None:

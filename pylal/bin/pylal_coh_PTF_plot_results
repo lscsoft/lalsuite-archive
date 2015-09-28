@@ -41,7 +41,7 @@ if not os.getenv("DISPLAY", None):
 from pylal import (antenna, date, git_version, plotutils, MultiInspiralUtils,
                    coh_PTF_pyutils, htmlutils, ligolw_tisi)
 from pylal.dq import dqSegmentUtils
-from pylal.xlal.date import XLALGPSTimeNow
+from lal import GPSTimeNow
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 from glue import iterutils, markup, segments, lal as cache
@@ -222,7 +222,7 @@ def write_multi_inspiral_table(mi_table, outfile, search):
     xmldoc.childNodes[-1].appendChild(
         lsctables.New(lsctables.SearchSummaryTable))
     ligolw_search_summary.append_search_summary(xmldoc, process)
-    process.end_time = XLALGPSTimeNow().seconds
+    process.end_time = int(GPSTimeNow())
     xmldoc.childNodes[-1].appendChild(mi_table)
     ligolw_utils.write_filename(xmldoc, outfile, gz=outfile.endswith(".gz"))
 
@@ -240,7 +240,7 @@ def write_sim_inspiral_table(sim_table, outfile, search):
     xmldoc.childNodes[-1].appendChild(
         lsctables.New(lsctables.SearchSummaryTable))
     ligolw_search_summary.append_search_summary(xmldoc, process)
-    process.end_time = XLALGPSTimeNow().seconds
+    process.end_time = int(GPSTimeNow())
     xmldoc.childNodes[-1].appendChild(sim_table)
     ligolw_utils.write_filename(xmldoc, outfile, gz=outfile.endswith(".gz"))
 

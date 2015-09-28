@@ -1,4 +1,4 @@
-# Copyright (C) 2006  Kipp Cannon
+# Copyright (C) 2006--2015  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -32,6 +32,7 @@ Maintenance of the table definitions is left to the conscience of
 interested users.
 """
 
+
 import numpy
 from xml import sax
 
@@ -49,6 +50,7 @@ from . import ligolw
 from . import table
 from . import types as ligolwtypes
 from . import ilwd
+
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id
@@ -98,8 +100,17 @@ def New(Type, columns = None, **kwargs):
 
 	Example:
 
-	>>> tbl = New(ProcessTable)
-	>>> tbl.write()
+	>>> import sys
+	>>> tbl = New(ProcessTable, [u"process_id", u"start_time", u"end_time", u"comment"])
+	>>> tbl.write(sys.stdout)	# doctest: +NORMALIZE_WHITESPACE
+	<Table Name="process:table">
+		<Column Type="ilwd:char" Name="process:process_id"/>
+		<Column Type="int_4s" Name="process:start_time"/>
+		<Column Type="int_4s" Name="process:end_time"/>
+		<Column Type="lstring" Name="process:comment"/>
+		<Stream Delimiter="," Type="Local" Name="process:table">
+		</Stream>
+	</Table>
 	"""
 	new = Type(sax.xmlreader.AttributesImpl({u"Name": Type.tableName}), **kwargs)
 	colnamefmt = u":".join(Type.tableName.split(":")[:-1]) + u":%s"
@@ -116,29 +127,14 @@ def New(Type, columns = None, **kwargs):
 	return new
 
 
-def IsTableElement(Type, elem):
-	"""
-	Convenience function to check that an element is a Table of type
-	Type.
-	"""
-	return elem.tagName == ligolw.Table.tagName and elem.Name == table.StripTableName(Type.tableName)
-
-
 def IsTableProperties(Type, tagname, attrs):
 	"""
-	Convenience function to check that the given tag name and
-	attributes match those of a Table of type Type.
+	obsolete.  see .CheckProperties() method of glue.ligolw.table.Table
+	class.
 	"""
-	if tagname != ligolw.Table.tagName:
-		return False
-	return table.CompareTableNames(attrs[u"Name"], Type.tableName) == 0
-
-
-def getTablesByType(elem, Type):
-	"""
-	Return a list of tables of type Type under elem.
-	"""
-	return table.getTablesByName(elem, Type.tableName)
+	import warnings
+	warnings.warn("lsctables.IsTableProperties() is deprecated.  use glue.ligolw.table.Table.CheckProperties() instead", DeprecationWarning)
+	return Type.CheckProperties(tagname, attrs)
 
 
 def HasNonLSCTables(elem):
@@ -153,9 +149,9 @@ def instrument_set_from_ifos(ifos):
 	"""
 	Parse the values stored in the "ifos" and "instruments" columns
 	found in many tables.  This function is mostly for internal use by
-	the .get_ifos() and .get_instruments() methods of the corresponding
-	row classes.  The mapping from input to output is as follows (rules
-	are applied in order):
+	the .instruments properties of the corresponding row classes.  The
+	mapping from input to output is as follows (rules are applied in
+	order):
 
 	input is None --> output is None
 
@@ -190,6 +186,27 @@ def instrument_set_from_ifos(ifos):
 	into two-character pieces, add a "," or "+" character to the end to
 	force the comma- or plus-delimited decoding to be used.
 	ifos_from_instrument_set() does this for you.
+
+	Example:
+
+	>>> print instrument_set_from_ifos(None)
+	None
+	>>> instrument_set_from_ifos(u"")
+	set([])
+	>>> instrument_set_from_ifos(u"  ,  ,,")
+	set([])
+	>>> instrument_set_from_ifos(u"H1")
+	set([u'H1'])
+	>>> instrument_set_from_ifos(u"SWIFT")
+	set([u'SWIFT'])
+	>>> instrument_set_from_ifos(u"H1L1")
+	set([u'H1', u'L1'])
+	>>> instrument_set_from_ifos(u"H1L1,")
+	set([u'H1L1'])
+	>>> instrument_set_from_ifos(u"H1,L1")
+	set([u'H1', u'L1'])
+	>>> instrument_set_from_ifos(u"H1+L1")
+	set([u'H1', u'L1'])
 	"""
 	if ifos is None:
 		return None
@@ -217,14 +234,15 @@ def ifos_from_instrument_set(instruments):
 	"""
 	Convert an iterable of instrument names into a value suitable for
 	storage in the "ifos" column found in many tables.  This function
-	is mostly for internal use by the .set_ifos() methods of the
-	corresponding row classes.  The input can be None or an iterable
-	of zero or more instrument names, none of which may contain "," or
-	"+" characters.  The output is a single string containing the
-	instrument names concatenated using "," as a delimiter.
-	instruments will only be iterated over once and so can be a
-	generator expression.  Whitespace is allowed in instrument names
-	but might not be preserved.
+	is mostly for internal use by the .instruments properties of the
+	corresponding row classes.  The input can be None or an iterable of
+	zero or more instrument names, none of which may be zero-length,
+	consist exclusively of spaces, or contain "," or "+" characters.
+	The output is a single string containing the unique instrument
+	names concatenated using "," as a delimiter.  instruments will only
+	be iterated over once and so can be a generator expression.
+	Whitespace is allowed in instrument names but might not be
+	preserved.  Repeated names will not be preserved.
 
 	NOTE:  in the special case that there is 1 instrument name in the
 	iterable and it has an even number of characters > 2 in it, the
@@ -235,17 +253,37 @@ def ifos_from_instrument_set(instruments):
 	comma-delimited encoding.  This behaviour will be discontinued at
 	that time.  DO NOT WRITE CODE THAT RELIES ON THIS!  You have been
 	warned.
+
+	Example:
+
+	>>> print ifos_from_instrument_set(None)
+	None
+	>>> ifos_from_instrument_set(())
+	u''
+	>>> ifos_from_instrument_set((u"H1",))
+	u'H1'
+	>>> ifos_from_instrument_set((u"H1",u"H1",u"H1"))
+	u'H1'
+	>>> ifos_from_instrument_set((u"H1",u"L1"))
+	u'H1,L1'
+	>>> ifos_from_instrument_set((u"SWIFT",))
+	u'SWIFT'
+	>>> ifos_from_instrument_set((u"H1L1",))
+	u'H1L1,'
 	"""
 	if instruments is None:
 		return None
-	instruments = sorted(instrument.strip() for instrument in instruments)
-	if any(u"," in instrument or u"+" in instrument for instrument in instruments):
+	_instruments = sorted(set(instrument.strip() for instrument in instruments))
+	# safety check:  refuse to accept blank names, or names with commas
+	# or pluses in them as they cannot survive the encode/decode
+	# process
+	if not all(_instruments) or any(u"," in instrument or u"+" in instrument for instrument in _instruments):
 		raise ValueError(instruments)
-	if len(instruments) == 1 and len(instruments[0]) > 2 and not len(instruments[0]) % 2:
+	if len(_instruments) == 1 and len(_instruments[0]) > 2 and not len(_instruments[0]) % 2:
 		# special case disambiguation.  FIXME:  remove when
 		# everything uses the comma-delimited encoding
-		return u"%s," % instruments[0]
-	return u",".join(instruments)
+		return u"%s," % _instruments[0]
+	return u",".join(_instruments)
 
 
 #
@@ -291,13 +329,31 @@ class ProcessTable(table.Table):
 
 
 class Process(object):
+	"""
+	Example:
+
+	>>> x = Process()
+	>>> x.instruments = (u"H1", u"L1")
+	>>> x.ifos
+	u'H1,L1'
+	>>> x.instruments
+	set([u'H1', u'L1'])
+	"""
 	__slots__ = ProcessTable.validcolumns.keys()
+
+	@property
+	def instruments(self):
+		return instrument_set_from_ifos(self.ifos)
+
+	@instruments.setter
+	def instruments(self, instruments):
+		self.ifos = ifos_from_instrument_set(instruments)
 
 	def get_ifos(self):
 		"""
 		Return a set of the instruments for this row.
 		"""
-		return instrument_set_from_ifos(self.ifos)
+		return self.instruments
 
 	def set_ifos(self, instruments):
 		"""
@@ -305,7 +361,7 @@ class Process(object):
 		attribute.  The instrument names must not contain the ","
 		character.
 		"""
-		self.ifos = ifos_from_instrument_set(instruments)
+		self.instruments = instruments
 
 
 ProcessTable.RowType = Process
@@ -377,18 +433,61 @@ class ProcessParamsTable(table.Table):
 
 
 class ProcessParams(object):
+	"""
+	Example:
+
+	>>> x = ProcessParams()
+	>>> x.pyvalue = u"test"
+	>>> x.type
+	u'lstring'
+	>>> x.value
+	u'test'
+	>>> x.pyvalue
+	u'test'
+	>>> x.pyvalue = 6.
+	>>> x.type
+	u'real_8'
+	>>> x.value
+	u'6'
+	>>> x.pyvalue
+	6.0
+	>>> x.pyvalue = None
+	>>> print x.type
+	None
+	>>> print x.value
+	None
+	>>> print x.pyvalue
+	None
+	>>> x.pyvalue = True
+	>>> x.type
+	u'int_4s'
+	>>> x.value
+	u'1'
+	>>> x.pyvalue
+	1
+	"""
 	__slots__ = ProcessParamsTable.validcolumns.keys()
 
 	@property
 	def pyvalue(self):
 		if self.value is None:
 			return None
-		return ligolwtypes.ToPyType[self.type or "lstring"](self.value)
+		try:
+			parsefunc = ligolwtypes.ToPyType[self.type]
+		except KeyError:
+			raise ValueError("invalid type '%s'" % self.type)
+		return parsefunc(self.value)
 
 	@pyvalue.setter
 	def pyvalue(self, value):
-		self.type = ligolwtypes.FromPyType[type(value)]
-		self.value = ligolwtypes.FormatFunc[self.type](value)
+		if value is None:
+			self.type = self.value = None
+		else:
+			try:
+				self.type = ligolwtypes.FromPyType[type(value)]
+			except KeyError:
+				raise ValueError("type not supported: %s" % repr(type(value)))
+			self.value = value if self.type in ligolwtypes.StringTypes else ligolwtypes.FormatFunc[self.type](value)
 
 
 ProcessParamsTable.RowType = ProcessParams
@@ -435,7 +534,7 @@ class SearchSummaryTable(table.Table):
 		Note:  the result is not coalesced, the segmentlist
 		contains the segments as they appear in the table.
 		"""
-		return segments.segmentlist(row.get_in() for row in self)
+		return segments.segmentlist(row.in_segment for row in self)
 
 	def get_outlist(self):
 		"""
@@ -445,7 +544,7 @@ class SearchSummaryTable(table.Table):
 		Note:  the result is not coalesced, the segmentlist
 		contains the segments as they appear in the table.
 		"""
-		return segments.segmentlist(row.get_out() for row in self)
+		return segments.segmentlist(row.out_segment for row in self)
 
 	def get_in_segmentlistdict(self, process_ids = None):
 		"""
@@ -460,11 +559,9 @@ class SearchSummaryTable(table.Table):
 		"""
 		seglists = segments.segmentlistdict()
 		for row in self:
-			ifos = row.get_ifos()
-			if ifos is None:
-				ifos = (None,)
+			ifos = row.instruments or (None,)
 			if process_ids is None or row.process_id in process_ids:
-				seglists.extend(dict((ifo, segments.segmentlist([row.get_in()])) for ifo in ifos))
+				seglists.extend(dict((ifo, segments.segmentlist([row.in_segment])) for ifo in ifos))
 		return seglists
 
 	def get_out_segmentlistdict(self, process_ids = None):
@@ -480,22 +577,129 @@ class SearchSummaryTable(table.Table):
 		"""
 		seglists = segments.segmentlistdict()
 		for row in self:
-			ifos = row.get_ifos()
-			if ifos is None:
-				ifos = (None,)
+			ifos = row.instruments or (None,)
 			if process_ids is None or row.process_id in process_ids:
-				seglists.extend(dict((ifo, segments.segmentlist([row.get_out()])) for ifo in ifos))
+				seglists.extend(dict((ifo, segments.segmentlist([row.out_segment])) for ifo in ifos))
 		return seglists
 
 
 class SearchSummary(object):
+	"""
+	Example:
+
+	>>> x = SearchSummary()
+	>>> x.instruments = (u"H1", u"L1")
+	>>> x.ifos
+	u'H1,L1'
+	>>> x.instruments
+	set([u'H1', u'L1'])
+	>>> x.in_start = x.out_start = LIGOTimeGPS(0)
+	>>> x.in_end = x.out_end = LIGOTimeGPS(10)
+	>>> x.in_segment
+	segment(LIGOTimeGPS(0,0), LIGOTimeGPS(10,0))
+	>>> x.out_segment
+	segment(LIGOTimeGPS(0,0), LIGOTimeGPS(10,0))
+	>>> x.in_segment = x.out_segment = None
+	>>> print x.in_segment
+	None
+	>>> print x.out_segment
+	None
+	"""
 	__slots__ = SearchSummaryTable.validcolumns.keys()
+
+	@property
+	def instruments(self):
+		return instrument_set_from_ifos(self.ifos)
+
+	@instruments.setter
+	def instruments(self, instruments):
+		self.ifos = ifos_from_instrument_set(instruments)
+
+	@property
+	def in_start(self):
+		if self.in_start_time is None and self.in_start_time_ns is None:
+			return None
+		return LIGOTimeGPS(self.in_start_time, self.in_start_time_ns)
+
+	@in_start.setter
+	def in_start(self, gps):
+		if gps is None:
+			self.in_start_time = self.in_start_time_ns = None
+		else:
+			self.in_start_time, self.in_start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+
+	@property
+	def in_end(self):
+		if self.in_end_time is None and self.in_end_time_ns is None:
+			return None
+		return LIGOTimeGPS(self.in_end_time, self.in_end_time_ns)
+
+	@in_end.setter
+	def in_end(self, gps):
+		if gps is None:
+			self.in_end_time = self.in_end_time_ns = None
+		else:
+			self.in_end_time, self.in_end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+
+	@property
+	def out_start(self):
+		if self.out_start_time is None and self.out_start_time_ns is None:
+			return None
+		return LIGOTimeGPS(self.out_start_time, self.out_start_time_ns)
+
+	@out_start.setter
+	def out_start(self, gps):
+		if gps is None:
+			self.out_start_time = self.out_start_time_ns = None
+		else:
+			self.out_start_time, self.out_start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+
+	@property
+	def out_end(self):
+		if self.out_end_time is None and self.out_end_time_ns is None:
+			return None
+		return LIGOTimeGPS(self.out_end_time, self.out_end_time_ns)
+
+	@out_end.setter
+	def out_end(self, gps):
+		if gps is None:
+			self.out_end_time = self.out_end_time_ns = None
+		else:
+			self.out_end_time, self.out_end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+
+	@property
+	def in_segment(self):
+		start, end = self.in_start, self.in_end
+		if start is None and end is None:
+			return None
+		return segments.segment(start, end)
+
+	@in_segment.setter
+	def in_segment(self, seg):
+		if seg is None:
+			self.in_start = self.in_end = None
+		else:
+			self.in_start, self.in_end = seg
+
+	@property
+	def out_segment(self):
+		start, end = self.out_start, self.out_end
+		if start is None and end is None:
+			return None
+		return segments.segment(start, end)
+
+	@out_segment.setter
+	def out_segment(self, seg):
+		if seg is None:
+			self.out_start = self.out_end = None
+		else:
+			self.out_start, self.out_end = seg
 
 	def get_ifos(self):
 		"""
 		Return a set of the instruments for this row.
 		"""
-		return instrument_set_from_ifos(self.ifos)
+		return self.instruments
 
 	def set_ifos(self, instruments):
 		"""
@@ -503,61 +707,31 @@ class SearchSummary(object):
 		attribute.  The instrument names must not contain the ","
 		character.
 		"""
-		self.ifos = ifos_from_instrument_set(instruments)
+		self.instruments = instruments
 
 	def get_in(self):
 		"""
-		Get the input segment.  Returns a segment with both
-		boundaries set to None if all four input segment boundary
-		attributes are None.
+		Get the input segment.
 		"""
-		try:
-			return segments.segment(LIGOTimeGPS(self.in_start_time, self.in_start_time_ns), LIGOTimeGPS(self.in_end_time, self.in_end_time_ns))
-		except:
-			if (self.in_start_time, self.in_start_time_ns, self.in_end_time, self.in_end_time_ns) == (None, None, None, None):
-				return segments.segment(None, None)
-			raise
+		return self.in_segment
 
 	def set_in(self, seg):
 		"""
-		Set the input segment.  If seg's boundaries are both None
-		then all four input segment boundary attributes are set to
-		None.
+		Set the input segment.
 		"""
-		try:
-			self.in_start_time, self.in_start_time_ns = seg[0].seconds, seg[0].nanoseconds
-			self.in_end_time, self.in_end_time_ns = seg[1].seconds, seg[1].nanoseconds
-		except:
-			if seg != segments.segment(None, None):
-				raise
-			self.in_start_time = self.in_start_time_ns = self.in_end_time = self.in_end_time_ns = None
+		self.in_segment = seg
 
 	def get_out(self):
 		"""
-		Get the output segment.  Returns a segment with both
-		boundaries set to None if all four output segment boundary
-		attributes are None.
+		Get the output segment.
 		"""
-		try:
-			return segments.segment(LIGOTimeGPS(self.out_start_time, self.out_start_time_ns), LIGOTimeGPS(self.out_end_time, self.out_end_time_ns))
-		except:
-			if (self.out_start_time, self.out_start_time_ns, self.out_end_time, self.out_end_time_ns) == (None, None, None, None):
-				return segments.segment(None, None)
-			raise
+		return self.out_segment
 
 	def set_out(self, seg):
 		"""
-		Set the output segment.  If seg's boundaries are both None
-		then all four output segment boundary attributes are set to
-		None.
+		Set the output segment.
 		"""
-		try:
-			self.out_start_time, self.out_start_time_ns = seg[0].seconds, seg[0].nanoseconds
-			self.out_end_time, self.out_end_time_ns = seg[1].seconds, seg[1].nanoseconds
-		except:
-			if seg != segments.segment(None, None):
-				raise
-			self.out_start_time = self.out_start_time_ns = self.out_end_time = self.out_end_time_ns = None
+		self.out_segment = seg
 
 
 SearchSummaryTable.RowType = SearchSummary
@@ -1131,7 +1305,7 @@ class SnglBurstTable(table.Table):
 		table
 		@returntype: numpy.ndarray
 		"""
-		return numy.asarray([row.get_z() for row in self])
+		return numpy.asarray([row.get_z() for row in self])
 
 	def get_period(self):
 		"""@returns: the period segment of each row in the table
@@ -1162,7 +1336,7 @@ class SnglBurstTable(table.Table):
 		"""@returns: those rows of the table that don't lie within a
 		given seglist
 		"""
-		keep = table.new_from_template(self)
+		keep = self.copy()
 		for row in self:
 			time = row.get_peak()
 			if time not in seglist:
@@ -1173,7 +1347,7 @@ class SnglBurstTable(table.Table):
 		"""@returns: those rows of the table that lie within a given
 		seglist
 		"""
-		vetoed = table.new_from_template(self)
+		vetoed = self.copy()
 		for row in self:
 			time = row.get_peak()
 			if time in seglist:
@@ -1181,7 +1355,7 @@ class SnglBurstTable(table.Table):
 		return vetoed
 
 	def veto_seglistdict(self, seglistdict):
-		keep = table.new_from_template(self)
+		keep = self.copy()
 		for row in self:
 			time = row.get_peak()
 			if time not in seglistdict[row.ifo]:
@@ -1189,7 +1363,7 @@ class SnglBurstTable(table.Table):
 		return keep
 
 	def vetoed_seglistdict(self, seglistdict):
-		vetoed = table.new_from_template(self)
+		vetoed = self.copy()
 		for row in self:
 			time = row.get_peak()
 			if time in seglistdict[row.ifo]:
@@ -1204,70 +1378,219 @@ class SnglBurst(object):
 	# Tile properties
 	#
 
-	def get_start(self):
+	@property
+	def start(self):
+		if self.start_time is None and self.start_time_ns is None:
+			return None
 		return LIGOTimeGPS(self.start_time, self.start_time_ns)
 
-	def set_start(self, gps):
-		self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
+	@start.setter
+	def start(self, gps):
+		if gps is None:
+			self.start_time = self.start_time_ns = None
+		else:
+			self.start_time, self.start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
 
-	def get_stop(self):
+	@property
+	def stop(self):
+		if self.stop_time is None and self.stop_time_ns is None:
+			return None
 		return LIGOTimeGPS(self.stop_time, self.stop_time_ns)
 
-	def set_stop(self, gps):
-		self.stop_time, self.stop_time_ns = gps.seconds, gps.nanoseconds
+	@stop.setter
+	def stop(self, gps):
+		if gps is None:
+			self.stop_time = self.stop_time_ns = None
+		else:
+			self.stop_time, self.stop_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
 
-	def get_peak(self):
+	@property
+	def peak(self):
+		if self.peak_time is None and self.peak_time_ns is None:
+			return None
 		return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
 
-	def set_peak(self, gps):
-		self.peak_time, self.peak_time_ns = gps.seconds, gps.nanoseconds
+	@peak.setter
+	def peak(self, gps):
+		if gps is None:
+			self.peak_time = self.peak_time_ns = None
+		else:
+			self.peak_time, self.peak_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
 
-	def get_period(self):
-		start = self.get_start()
-		return segments.segment(start, start + self.duration)
+	@property
+	def period(self):
+		start = self.start
+		stop = self.stop
+		# special case:  use duration if stop is not recorded
+		if start is not None and stop is None and self.duration is not None:
+			stop = start + self.duration
+		if start is None and stop is None:
+			return None
+		return segments.segment(start, stop)
 
-	def set_period(self, period):
-		self.start_time, self.start_time_ns = period[0].seconds, period[0].nanoseconds
-		self.duration = float(abs(period))
+	@period.setter
+	def period(self, seg):
+		if seg is None:
+			self.start = self.stop = self.duration = None
+		else:
+			self.start, self.stop = seg
+			self.duration = float(abs(seg))
 
-	def get_band(self):
-		low = self.central_freq - self.bandwidth / 2
-		return segments.segment(low, low + self.bandwidth)
+	@property
+	def band(self):
+		if self.central_freq is None and self.bandwidth is None:
+			return None
+		return segments.segment(self.central_freq - self.bandwidth / 2., self.central_freq + self.bandwidth / 2.)
 
-	def set_band(self, band):
-		self.central_freq = (band[0] + band[1])/2.0
-		self.bandwidth = abs(band)
+	@band.setter
+	def band(self, seg):
+		if seg is None:
+			try:
+				self.flow = self.fhigh = None
+			except AttributeError:
+				# not in LAL C version
+				pass
+			self.central_freq = self.bandwidth = None
+		else:
+			try:
+				self.flow, self.fhigh = seg
+			except AttributeError:
+				# not in LAL C version
+				pass
+			self.central_freq = sum(seg) / 2.
+			self.bandwidth = abs(seg)
 
 	#
 	# "Most significant pixel" properties
 	#
 
-	def get_ms_start(self):
+	@property
+	def ms_start(self):
+		if self.ms_start_time is None and self.ms_start_time_ns is None:
+			return None
 		return LIGOTimeGPS(self.ms_start_time, self.ms_start_time_ns)
 
-	def set_ms_start(self, gps):
-		self.ms_start_time, self.ms_start_time_ns = gps.seconds, gps.nanoseconds
+	@ms_start.setter
+	def ms_start(self, gps):
+		if gps is None:
+			self.ms_start_time = self.ms_start_time_ns = None
+		else:
+			self.ms_start_time, self.ms_start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
 
-	def get_ms_stop(self):
+	@property
+	def ms_stop(self):
+		if self.ms_stop_time is None and self.ms_stop_time_ns is None:
+			return None
 		return LIGOTimeGPS(self.ms_stop_time, self.ms_stop_time_ns)
 
-	def set_ms_stop(self, gps):
-		self.ms_stop_time, self.ms_stop_time_ns = gps.seconds, gps.nanoseconds
+	@ms_stop.setter
+	def ms_stop(self, gps):
+		if gps is None:
+			self.ms_stop_time = self.ms_stop_time_ns = None
+		else:
+			self.ms_stop_time, self.ms_stop_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
 
-	def get_ms_period(self):
-		start = self.get_ms_start()
-		return segments.segment(start, start + self.ms_duration)
+	@property
+	def ms_peak(self):
+		if self.ms_peak_time is None and self.ms_peak_time_ns is None:
+			return None
+		return LIGOTimeGPS(self.ms_peak_time, self.ms_peak_time_ns)
 
-	def set_ms_period(self, period):
-		self.ms_start_time, self.ms_start_time_ns = period[0].seconds, period[0].nanoseconds
-		self.ms_duration = float(abs(period))
+	@ms_peak.setter
+	def ms_peak(self, gps):
+		if gps is None:
+			self.ms_peak_time = self.ms_peak_time_ns = None
+		else:
+			self.ms_peak_time, self.ms_peak_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
 
-	def get_ms_band(self):
+	@property
+	def ms_period(self):
+		start = self.ms_start
+		stop = self.ms_stop
+		# special case:  use duration if stop is not recorded
+		if start is not None and stop is None and self.ms-duration is not None:
+			stop = start + self.ms_duration
+		if start is None and stop is None:
+			return None
+		return segments.segment(start, stop)
+
+	@ms_period.setter
+	def ms_period(self, seg):
+		if seg is None:
+			self.ms_start = self.ms_stop = self.ms_duration = None
+		else:
+			self.ms_start, self.ms_stop = seg
+			self.ms_duration = float(abs(seg))
+
+	@property
+	def ms_band(self):
+		if self.ms_flow is None and self.ms_bandwidth is None:
+			return None
 		return segments.segment(self.ms_flow, self.ms_flow + self.ms_bandwidth)
 
+	@ms_band.setter
+	def ms_band(self, seg):
+		if seg is None:
+			self.ms_bandwidth = self.ms_flow = self.ms_fhigh = None
+		else:
+			self.ms_flow, self.ms_fhigh = seg
+			self.ms_bandwidth = abs(seg)
+
+	# legacy compatibility.  DO NOT USE
+
+	def get_start(self):
+		return self.start
+
+	def set_start(self, gps):
+		self.start = gps
+
+	def get_stop(self):
+		return self.stop
+
+	def set_stop(self, gps):
+		self.stop = gps
+
+	def get_peak(self):
+		return self.peak
+
+	def set_peak(self, gps):
+		self.peak = gps
+
+	def get_period(self):
+		return self.period
+
+	def set_period(self, period):
+		self.period = period
+
+	def get_band(self):
+		return self.band
+
+	def set_band(self, band):
+		self.band = band
+
+	def get_ms_start(self):
+		return self.ms_start
+
+	def set_ms_start(self, gps):
+		self.ms_start = gps
+
+	def get_ms_stop(self):
+		return self.ms_stop
+
+	def set_ms_stop(self, gps):
+		self.ms_stop = gps
+
+	def get_ms_period(self):
+		return self.ms_period
+
+	def set_ms_period(self, period):
+		self.ms_period = period
+
+	def get_ms_band(self):
+		return self.ms_band
+
 	def set_ms_band(self, band):
-		self.ms_flow = band[0]
-		self.ms_bandwidth = abs(band)
+		self.ms_band = band
 
 	#
 	# Omega-Pipeline properties
@@ -1335,25 +1658,82 @@ class MultiBurstTable(table.Table):
 class MultiBurst(object):
 	__slots__ = MultiBurstTable.validcolumns.keys()
 
-	def get_ifos(self):
-		"""
-		Return a set of the instruments for this row.
-		"""
+	@property
+	def instruments(self):
 		return instrument_set_from_ifos(self.ifos)
 
-	def set_ifos(self, instruments):
-		"""
-		Serialize a sequence of instruments into the ifos
-		attribute.  The instrument names must not contain the ","
-		character.
-		"""
+	@instruments.setter
+	def instruments(self, instruments):
 		self.ifos = ifos_from_instrument_set(instruments)
 
-	def get_peak(self):
+	@property
+	def start(self):
+		if self.start_time is None and self.start_time_ns is None:
+			return None
+		return LIGOTimeGPS(self.start_time, self.start_time_ns)
+
+	@start.setter
+	def start(self, gps):
+		if gps is None:
+			self.start_time = self.start_time_ns = None
+		else:
+			self.start_time, self.start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+
+	@property
+	def peak(self):
+		if self.peak_time is None and self.peak_time_ns is None:
+			return None
 		return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
 
+	@peak.setter
+	def peak(self, gps):
+		if gps is None:
+			self.peak_time = self.peak_time_ns = None
+		else:
+			self.peak_time, self.peak_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+
+	@property
+	def period(self):
+		start = self.start
+		if start is None and self.duration is None:
+			return None
+		return segments.segment(start, start + self.duration)
+
+	@period.setter
+	def period(self, seg):
+		if seg is None:
+			self.start = self.duration = None
+		else:
+			self.start = seg[0]
+			self.duration = float(abs(seg))
+
+	@property
+	def band(self):
+		if self.central_freq is None and self.bandwidth is None:
+			return None
+		return segments.segment(self.central_freq - self.bandwidth / 2., self.central_freq + self.bandwidth / 2.)
+
+	@band.setter
+	def band(self, seg):
+		if seg is None:
+			self.central_freq = self.bandwidth = None
+		else:
+			self.central_freq = sum(seg) / 2.
+			self.bandwidth = abs(seg)
+
+	# legacy compatibility.  DO NOT USE
+
+	def get_ifos(self):
+		return self.instruments
+
+	def set_ifos(self, instruments):
+		self.instruments = instruments
+
+	def get_peak(self):
+		return self.peak
+
 	def set_peak(self, gps):
-		self.peak_time, self.peak_time_ns = gps.seconds, gps.nanoseconds
+		self.peak = gps
 
 
 MultiBurstTable.RowType = MultiBurst
@@ -1541,13 +1921,13 @@ class SnglInspiralTable(table.Table):
 			iterutils.inplace_filter(lambda row: row.ifo == ifo, self)
 			return self
 		else:
-			ifoTrigs = table.new_from_template(self)
+			ifoTrigs = self.copy()
 			ifoTrigs.extend([row for row in self if row.ifo == ifo])
 			return ifoTrigs
 
 	def veto(self,seglist):
-		vetoed = table.new_from_template(self)
-		keep = table.new_from_template(self)
+		vetoed = self.copy()
+		keep = self.copy()
 		for row in self:
 			time = row.get_end()
 			if time in seglist:
@@ -1561,8 +1941,8 @@ class SnglInspiralTable(table.Table):
 		Return the inverse of what veto returns, i.e., return the triggers
 		that lie within a given seglist.
 		"""
-		vetoed = table.new_from_template(self)
-		keep = table.new_from_template(self)
+		vetoed = self.copy()
+		keep = self.copy()
 		for row in self:
 			time = row.get_end()
 			if time in seglist:
@@ -1572,8 +1952,8 @@ class SnglInspiralTable(table.Table):
 		return vetoed
 	
 	def veto_seglistdict(self, seglistdict):
-		vetoed = table.new_from_template(self)
-		keep = table.new_from_template(self)
+		vetoed = self.copy()
+		keep = self.copy()
 		for row in self:
 			time = row.get_end()
 			if time in seglistdict[row.ifo]:
@@ -1583,8 +1963,8 @@ class SnglInspiralTable(table.Table):
 		return keep
 	
 	def vetoed_seglistdict(self, seglistdict):
-		vetoed = table.new_from_template(self)
-		keep = table.new_from_template(self)
+		vetoed = self.copy()
+		keep = self.copy()
 		for row in self:
 			time = row.get_end()
 			if time in seglistdict[row.ifo]:
@@ -1598,7 +1978,7 @@ class SnglInspiralTable(table.Table):
 		Return the triggers with a specific slide number.
 		@param slide_num: the slide number to recover (contained in the event_id)
 		"""
-		slideTrigs = table.new_from_template(self)
+		slideTrigs = self.copy()
 		slideTrigs.extend(row for row in self if row.get_slide_number() == slide_num)
 		return slideTrigs
 
@@ -1606,11 +1986,30 @@ class SnglInspiralTable(table.Table):
 class SnglInspiral(object):
 	__slots__ = SnglInspiralTable.validcolumns.keys()
 
-	def get_end(self):
+	@staticmethod
+	def chirp_distance(dist, mchirp, ref_mass=1.4):
+		return dist * (2.**(-1./5) * ref_mass / mchirp)**(5./6)
+
+	#
+	# Properties
+	#
+
+	@property
+	def end(self):
+		if self.end_time is None and self.end_time_ns is None:
+			return None
 		return LIGOTimeGPS(self.end_time, self.end_time_ns)
 
-	def set_end(self, gps):
-		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+	@end.setter
+	def end(self, gps):
+		if gps is None:
+			self.end_time = self.end_time_ns = None
+		else:
+			self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+
+	#
+	# Methods
+	#
 
 	def get_reduced_chisq(self):
 		return float(self.chisq)/ (2*self.chisq_dof - 2)
@@ -1665,40 +2064,25 @@ class SnglInspiral(object):
 	def get_lvS5stat(self):
 		return self.beta
 
-	def get_id_parts(self):
-		"""
-		Return the three pieces of the int_8s-style sngl_inspiral
-		event_id.
-		"""
-		int_event_id = int(self.event_id)
-		a = int_event_id // 1000000000
-		slidenum = (int_event_id % 1000000000) // 100000
-		b = int_event_id % 100000
-		return int(a), int(slidenum), int(b)
-
-	def get_slide_number(self):
-		"""
-		Return the slide-number for this trigger
-		"""
-		a, slide_number, b = self.get_id_parts()
-		if slide_number > 5000:
-			slide_number = 5000 - slide_number
-		return slide_number
-
 	# FIXME: how are two inspiral events defined to be the same?
 	def __eq__(self, other):
 		return not (
 			cmp(self.ifo, other.ifo) or
-			cmp(self.end_time, other.end_time) or
-			cmp(self.end_time_ns, other.end_time_ns) or
+			cmp(self.end, other.end) or
 			cmp(self.mass1, other.mass1) or
 			cmp(self.mass2, other.mass2) or
 			cmp(self.search, other.search)
 		)
 
-	@staticmethod
-	def chirp_distance(dist, mchirp, ref_mass=1.4):
-		return dist * (2.**(-1./5) * ref_mass / mchirp)**(5./6)
+	#
+	# Legacy
+	#
+
+	def get_end(self):
+		return self.end
+
+	def set_end(self, gps):
+		self.end = gps
 
 
 SnglInspiralTable.RowType = SnglInspiral
@@ -1739,19 +2123,56 @@ class CoincInspiralTable(table.Table):
 
 
 class CoincInspiral(object):
+	"""
+	Example:
+
+	>>> x = CoincInspiral()
+	>>> x.instruments = (u"H1", u"L1")
+	>>> x.ifos
+	u'H1,L1'
+	>>> x.instruments
+	set([u'H1', u'L1'])
+	>>> x.end = LIGOTimeGPS(10)
+	>>> x.end
+	LIGOTimeGPS(10,0)
+	>>> x.end = None
+	>>> print x.end
+	None
+	"""
 	__slots__ = CoincInspiralTable.validcolumns.keys()
 
-	def get_end(self):
+	@property
+	def instruments(self):
+		return instrument_set_from_ifos(self.ifos)
+
+	@instruments.setter
+	def instruments(self, instruments):
+		self.ifos = ifos_from_instrument_set(instruments)
+
+	@property
+	def end(self):
+		if self.end_time is None and self.end_time_ns is None:
+			return None
 		return LIGOTimeGPS(self.end_time, self.end_time_ns)
 
-	def set_end(self, gps):
-		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+	@end.setter
+	def end(self, gps):
+		if gps is None:
+			self.end_time = self.end_time_ns = None
+		else:
+			self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
 
-	def set_ifos(self, ifos):
-		self.ifos = ifos_from_instrument_set(ifos)
+	def get_end(self):
+		return self.end
+
+	def set_end(self, gps):
+		self.end = gps
 
 	def get_ifos(self):
-		return instrument_set_from_ifos(self.ifos)
+		return self.instruments
+
+	def set_ifos(self, ifos):
+		self.instruments = ifos
 
 
 CoincInspiralTable.RowType = CoincInspiral
@@ -2216,8 +2637,8 @@ class MultiInspiralTable(table.Table):
 		return self.get_column('snr')
 
 	def veto(self,seglist):
-		vetoed = table.new_from_template(self)
-		keep = table.new_from_template(self)
+		vetoed = self.copy()
+		keep = self.copy()
 		for row in self:
 			time = row.get_end()
 			if time in seglist:
@@ -2231,8 +2652,8 @@ class MultiInspiralTable(table.Table):
 		Return the inverse of what veto returns, i.e., return the triggers
 		that lie within a given seglist.
 		"""
-		vetoed = table.new_from_template(self)
-		keep = table.new_from_template(self)
+		vetoed = self.copy()
+		keep = self.copy()
 		for row in self:
 			time = row.get_end()
 			if time in seglist:
@@ -2246,7 +2667,7 @@ class MultiInspiralTable(table.Table):
 		Return the triggers with a specific slide number.
 		@param slide_num: the slide number to recover (contained in the event_id)
 		"""
-		slideTrigs = table.new_from_template(self)
+		slideTrigs = self.copy()
 		slideTrigs.extend(row for row in self if row.get_slide_number() == slide_num)
 		return slideTrigs
 
@@ -2599,13 +3020,13 @@ class SimInspiralTable(table.Table):
 		return (sx**2 + sy**2 + sz**2)**(0.5)
 
 	def veto(self,seglist,site=None):
-		keep = table.new_from_template(self)
+		keep = self.copy()
 		keep.extend(row for row in self if row.get_end(site) not in seglist)
 		return keep
 
 	def veto(self,seglist):
-		vetoed = table.new_from_template(self)
-		keep = table.new_from_template(self)
+		vetoed = self.copy()
+		keep = self.copy()
 		for row in self:
 			time = row.get_end()
 			if time in seglist:
@@ -2619,8 +3040,8 @@ class SimInspiralTable(table.Table):
 		Return the inverse of what veto returns, i.e., return the triggers
 		that lie within a given seglist.
 		"""
-		vetoed = table.new_from_template(self)
-		keep = table.new_from_template(self)
+		vetoed = self.copy()
+		keep = self.copy()
 		for row in self:
 			time = row.get_end()
 			if time in seglist:
@@ -2634,20 +3055,68 @@ class SimInspiralTable(table.Table):
 
 
 class SimInspiral(object):
+	"""
+	Example:
+
+	>>> x = SimInspiral()
+	>>> x.ra_dec = 0., 0.
+	>>> x.ra_dec
+	(0.0, 0.0)
+	>>> x.ra_dec = None
+	>>> print x.ra_dec
+	None
+	>>> x.time_geocent = None
+	>>> print x.time_geocent
+	None
+	>>> print x.end_time_gmst
+	None
+	>>> x.time_geocent = LIGOTimeGPS(6e8)
+	>>> print x.time_geocent
+	600000000
+	"""
 	__slots__ = SimInspiralTable.validcolumns.keys()
 
-	def get_time_geocent(self):
+	@property
+	def time_geocent(self):
+		if self.geocent_end_time is None and self.geocent_end_time_ns is None:
+			return None
 		return LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
 
+	@time_geocent.setter
+	def time_geocent(self, gps):
+		if gps is None:
+			self.geocent_end_time = self.geocent_end_time_ns = self.end_time_gmst = None
+		else:
+			self.geocent_end_time, self.geocent_end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			# FIXME:  also do this when we switch to swig
+			# binding version of LIGOTimeGPS
+			#self.end_time_gmst = lal.GreenwichMeanSiderealTime(gps)
+
+	@property
+	def ra_dec(self):
+		if self.longitude is None and self.latitude is None:
+			return None
+		return self.longitude, self.latitude
+
+	@ra_dec.setter
+	def ra_dec(self, radec):
+		if radec is None:
+			self.longitude = self.latitude = None
+		else:
+			self.longitude, self.latitude = radec
+
+	def get_time_geocent(self):
+		return self.time_geocent
+
 	def set_time_geocent(self, gps):
-		self.geocent_end_time, self.geocent_end_time_ns = gps.seconds, gps.nanoseconds
+		self.time_geocent = gps
 
 	def get_ra_dec(self):
-		return self.longitude, self.latitude
+		return self.ra_dec
 
 	def get_end(self, site = None):
 		if site is None:
-			return self.get_time_geocent()
+			return self.time_geocent
 		else:
 			return LIGOTimeGPS(getattr(self, "%s_end_time" % site.lower()), getattr(self, "%s_end_time_ns" % site.lower()))
 
@@ -2709,16 +3178,64 @@ class SimBurstTable(table.Table):
 
 
 class SimBurst(TableRow):
+	"""
+	Example:
+
+	>>> x = SimBurst()
+	>>> x.ra_dec = 0., 0.
+	>>> x.ra_dec
+	(0.0, 0.0)
+	>>> x.ra_dec = None
+	>>> print x.ra_dec
+	None
+	>>> x.time_geocent = None
+	>>> print x.time_geocent
+	None
+	>>> print x.time_geocent_gmst
+	None
+	>>> x.time_geocent = LIGOTimeGPS(6e8)
+	>>> print x.time_geocent
+	600000000
+	"""
 	__slots__ = SimBurstTable.validcolumns.keys()
 
-	def get_time_geocent(self):
+	@property
+	def time_geocent(self):
+		if self.time_geocent_gps is None and self.time_geocent_gps_ns is None:
+			return None
 		return LIGOTimeGPS(self.time_geocent_gps, self.time_geocent_gps_ns)
 
+	@time_geocent.setter
+	def time_geocent(self, gps):
+		if gps is None:
+			self.time_geocent_gps = self.time_geocent_gps_ns = self.time_geocent_gmst = None
+		else:
+			self.time_geocent_gps, self.time_geocent_gps_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			# FIXME:  also do this when we switch to swig
+			# binding version of LIGOTimeGPS
+			#self.time_geocent_gmst = lal.GreenwichMeanSiderealTime(gps)
+
+	@property
+	def ra_dec(self):
+		if self.ra is None and self.dec is None:
+			return None
+		return self.ra, self.dec
+
+	@ra_dec.setter
+	def ra_dec(self, radec):
+		if radec is None:
+			self.ra = self.dec = None
+		else:
+			self.ra, self.dec = radec
+
+	def get_time_geocent(self):
+		return self.time_geocent
+
 	def set_time_geocent(self, gps):
-		self.time_geocent_gps, self.time_geocent_gps_ns = gps.seconds, gps.nanoseconds
+		self.time_geocent = gps
 
 	def get_ra_dec(self):
-		return self.ra, self.dec
+		return self.ra_dec
 
 
 SimBurstTable.RowType = SimBurst
@@ -2828,6 +3345,23 @@ class SummValueTable(table.Table):
 
 
 class SummValue(object):
+	"""
+	Example:
+
+	>>> x = SummValue()
+	>>> x.instruments = (u"H1", u"L1")
+	>>> x.ifo
+	u'H1,L1'
+	>>> x.instruments
+	set([u'H1', u'L1'])
+	>>> x.start = LIGOTimeGPS(0)
+	>>> x.end = LIGOTimeGPS(10)
+	>>> x.segment
+	segment(LIGOTimeGPS(0,0), LIGOTimeGPS(10,0))
+	>>> x.segment = None
+	>>> print x.segment
+	None
+	"""
 	__slots__ = SummValueTable.validcolumns.keys()
 
 	@property
@@ -2849,7 +3383,7 @@ class SummValue(object):
 		if gps is None:
 			self.start_time = self.start_time_ns = None
 		else:
-			self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
+			self.start_time, self.start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
 
 	@property
 	def end(self):
@@ -2862,7 +3396,7 @@ class SummValue(object):
 		if gps is None:
 			self.end_time = self.end_time_ns = None
 		else:
-			self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+			self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
 
 	@property
 	def segment(self):
@@ -3113,23 +3647,144 @@ class SegmentTable(table.Table):
 
 
 class Segment(object):
+	"""
+	Example:
+
+	>>> x = Segment()
+	>>> x.start = LIGOTimeGPS(0)
+	>>> x.end = LIGOTimeGPS(10)
+	>>> x.segment
+	segment(LIGOTimeGPS(0,0), LIGOTimeGPS(10,0))
+	>>> x.segment = None
+	>>> print x.segment
+	None
+	>>> print x.start
+	None
+	>>> # non-LIGOTimeGPS times are converted to LIGOTimeGPS
+	>>> x.segment = (20, 30.125)
+	>>> x.end
+	LIGOTimeGPS(30,125000000)
+	>>> # initialization from a tuple or with arguments
+	>>> Segment((20, 30)).segment
+	segment(LIGOTimeGPS(20,0), LIGOTimeGPS(30,0))
+	>>> Segment(20, 30).segment
+	segment(LIGOTimeGPS(20,0), LIGOTimeGPS(30,0))
+	>>> # use as a segment object in segmentlist operations
+	>>> from glue import segments
+	>>> x = segments.segmentlist([Segment(0, 10), Segment(20, 30)])
+	>>> abs(x)
+	LIGOTimeGPS(20,0)
+	>>> y = segments.segmentlist([Segment(5, 15), Segment(25, 35)])
+	>>> abs(x & y)
+	LIGOTimeGPS(10,0)
+	>>> abs(x | y)
+	LIGOTimeGPS(30,0)
+	>>> 8.0 in x
+	True
+	>>> 12 in x
+	False
+	>>> Segment(2, 3) in x
+	True
+	>>> Segment(2, 12) in x
+	False
+	>>> segments.segment(2, 3) in x
+	True
+	>>> segments.segment(2, 12) in x
+	False
+	>>> # make sure results are segment table row objects
+	>>> segments.segmentlist(map(Segment, x & y))	# doctest: +ELLIPSIS
+	[<glue.ligolw.lsctables.Segment object at 0x...>, <glue.ligolw.lsctables.Segment object at 0x...>]
+	"""
 	__slots__ = SegmentTable.validcolumns.keys()
 
-	def __cmp__(self, other):
-		return cmp(self.get(), other.get())
+	@property
+	def start(self):
+		if self.start_time is None and self.start_time_ns is None:
+			return None
+		return LIGOTimeGPS(self.start_time, self.start_time_ns)
+
+	@start.setter
+	def start(self, gps):
+		if gps is None:
+			self.start_time = self.start_time_ns = None
+		else:
+			try:
+				self.start_time, self.start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				# try converting and going again
+				self.start = LIGOTimeGPS(gps)
+
+	@property
+	def end(self):
+		if self.end_time is None and self.end_time_ns is None:
+			return None
+		return LIGOTimeGPS(self.end_time, self.end_time_ns)
+
+	@end.setter
+	def end(self, gps):
+		if gps is None:
+			self.end_time = self.end_time_ns = None
+		else:
+			try:
+				self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				# try converting and going again
+				self.end = LIGOTimeGPS(gps)
+
+	@property
+	def segment(self):
+		start, end = self.start, self.end
+		if start is None and end is None:
+			return None
+		return segments.segment(start, end)
+
+	@segment.setter
+	def segment(self, seg):
+		if seg is None:
+			self.start = self.end = None
+		else:
+			self.start, self.end = seg
 
 	def get(self):
 		"""
 		Return the segment described by this row.
 		"""
-		return segments.segment(LIGOTimeGPS(self.start_time, self.start_time_ns), LIGOTimeGPS(self.end_time, self.end_time_ns))
+		return self.segment
 
 	def set(self, segment):
 		"""
 		Set the segment described by this row.
 		"""
-		self.start_time, self.start_time_ns = segment[0].seconds, segment[0].nanoseconds
-		self.end_time, self.end_time_ns = segment[1].seconds, segment[1].nanoseconds
+		self.segment = segment
+
+	# emulate a glue.segments.segment object
+
+	def __abs__(self):
+		return abs(self.segment)
+
+	def __cmp__(self, other):
+		return cmp(self.segment, other)
+
+	def __contains__(self, other):
+		return other in self.segment
+
+	def __getitem__(self, i):
+		return self.segment[i]
+
+	def __init__(self, *args):
+		if args:
+			try:
+				# first try unpacking arguments
+				self.segment = args
+			except ValueError:
+				# didn't work, try unpacking 0th argument
+				self.segment, = args
+
+	def __len__(self):
+		return len(self.segment)
+
+	def __nonzero__(self):
+		return bool(self.segment)
 
 
 SegmentTable.RowType = Segment
@@ -3165,13 +3820,31 @@ class SegmentDefTable(table.Table):
 
 
 class SegmentDef(object):
+	"""
+	Example:
+
+	>>> x = SegmentDef()
+	>>> x.instruments = (u"H1", u"L1")
+	>>> x.ifos
+	u'H1,L1'
+	>>> x.instruments
+	set([u'H1', u'L1'])
+	"""
 	__slots__ = SegmentDefTable.validcolumns.keys()
+
+	@property
+	def instruments(self):
+		return instrument_set_from_ifos(self.ifos)
+
+	@instruments.setter
+	def instruments(self, instruments):
+		self.ifos = ifos_from_instrument_set(instruments)
 
 	def get_ifos(self):
 		"""
 		Return a set of the instruments for this row.
 		"""
-		return instrument_set_from_ifos(self.ifos)
+		return self.instruments
 
 	def set_ifos(self, instruments):
 		"""
@@ -3179,7 +3852,7 @@ class SegmentDef(object):
 		attribute.  The instrument names must not contain the ","
 		character.
 		"""
-		self.ifos = ifos_from_instrument_set(instruments)
+		self.instruments = instruments
 
 
 SegmentDefTable.RowType = SegmentDef
@@ -3225,25 +3898,78 @@ class SegmentSumTable(table.Table):
 		contains the segments as they appear in the table.
 		"""
 		if segment_def_id is None:
-			return segments.segmentlist(row.get() for row in self)
-		return segments.segmentlist(row.get() for row in self if row.segment_def_id == segment_def_id)
+			return segments.segmentlist(row.segment for row in self)
+		return segments.segmentlist(row.segment for row in self if row.segment_def_id == segment_def_id)
 
 
 class SegmentSum(object):
+	"""
+	Example:
+
+	>>> x = SegmentSum()
+	>>> x.start = LIGOTimeGPS(0)
+	>>> x.end = LIGOTimeGPS(10)
+	>>> x.segment
+	segment(LIGOTimeGPS(0,0), LIGOTimeGPS(10,0))
+	>>> x.segment = None
+	>>> print x.segment
+	None
+	>>> print x.start
+	None
+	"""
 	__slots__ = SegmentSumTable.validcolumns.keys()
+
+	@property
+	def start(self):
+		if self.start_time is None and self.start_time_ns is None:
+			return None
+		return LIGOTimeGPS(self.start_time, self.start_time_ns)
+
+	@start.setter
+	def start(self, gps):
+		if gps is None:
+			self.start_time = self.start_time_ns = None
+		else:
+			self.start_time, self.start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+
+	@property
+	def end(self):
+		if self.end_time is None and self.end_time_ns is None:
+			return None
+		return LIGOTimeGPS(self.end_time, self.end_time_ns)
+
+	@end.setter
+	def end(self, gps):
+		if gps is None:
+			self.end_time = self.end_time_ns = None
+		else:
+			self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+
+	@property
+	def segment(self):
+		start, end = self.start, self.end
+		if start is None and end is None:
+			return None
+		return segments.segment(start, end)
+
+	@segment.setter
+	def segment(self, seg):
+		if seg is None:
+			self.start = self.end = None
+		else:
+			self.start, self.end = seg
 
 	def get(self):
 		"""
 		Return the segment described by this row.
 		"""
-		return segments.segment(LIGOTimeGPS(self.start_time, self.start_time_ns), LIGOTimeGPS(self.end_time, self.end_time_ns))
+		return self.segment
 
 	def set(self, segment):
 		"""
 		Set the segment described by this row.
 		"""
-		self.start_time, self.start_time_ns = segment[0].seconds, segment[0].nanoseconds
-		self.end_time, self.end_time_ns = segment[1].seconds, segment[1].nanoseconds
+		self.segment = segment
 
 
 SegmentSumTable.RowType = SegmentSum
@@ -3698,6 +4424,7 @@ class SummMime(object):
 
 SummMimeTable.RowType = SummMime
 
+
 #
 # =============================================================================
 #
@@ -3792,16 +4519,16 @@ def use_in(ContentHandler):
 	"""
 	Modify ContentHandler, a sub-class of
 	glue.ligolw.LIGOLWContentHandler, to cause it to use the Table
-	class defined in this module when parsing XML documents.
+	classes defined in this module when parsing XML documents.
 
 	Example:
 
 	>>> from glue.ligolw import ligolw
-	>>> def MyContentHandler(ligolw.LIGOLWContentHandler):
+	>>> class MyContentHandler(ligolw.LIGOLWContentHandler):
 	...	pass
 	...
-	>>> from glue.ligolw import lsctables
-	>>> lsctables.use_in(MyContentHandler)
+	>>> use_in(MyContentHandler)
+	<class 'glue.ligolw.lsctables.MyContentHandler'>
 	"""
 	ContentHandler = table.use_in(ContentHandler)
 

@@ -43,9 +43,13 @@
  * obscure a mystery factor in command-line record even if given with long option --factor
  */
 
+#include <config.h>
+
 #include <math.h>
 #include <time.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -384,11 +388,11 @@ int main(int argc, char**argv) {
 
     /* get the detector name from SFT header if present there (in v2 SFTs),
        or else it needs to have been set on the command-line */
-    if(hd.detector[0] != 0)
+    if(*hd.detector)
       detector = hd.detector;
 
     /* if no detector has been specified, issue an error */
-    TRY( detector[0] != 0, "When reading v1 SFTs a detector needs to be specified with -d",12);
+    TRY(!detector || !*detector, "When reading v1 SFTs a detector needs to be specified with -d",12);
 
     /* calculate number of bins to actually read (from width + overlap) */
     /* add width-overlap samples as lon as they are < the total number og bins to write */

@@ -4,13 +4,11 @@ SUBDIRS = \
 	Fstatistic \
 	hough \
 	GCT \
-	SideBand \
-	templateBanks \
 	crosscorr \
 	HeterodyneSearch \
 	fscan \
 	TwoSpect \
-	CombSearch \
 	SFTReferenceLibrary \
+	SidebandSearch \
 	CreateEphemeris \
 	Tools

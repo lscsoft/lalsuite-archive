@@ -25,7 +25,6 @@
 #define _HIERARCHSEARCHGCTH
 
 /* standard includes */
-#include <unistd.h>
 #include <sys/types.h>
 #include <fcntl.h>
 #include <string.h>
@@ -46,7 +45,6 @@
 #include <lal/ComputeSky.h>
 #include <lal/LALInitBarycenter.h>
 #include <lal/Velocity.h>
-#include <lal/LALDemod.h>
 #include <lal/ExtrapolatePulsarSpins.h>
 #include <lal/Date.h>
 #include <lal/LALHough.h>

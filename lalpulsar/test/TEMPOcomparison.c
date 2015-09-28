@@ -36,12 +36,12 @@
 #include <lal/AVFactories.h>
 #include <lal/SeqFactories.h>
 #include <lal/PulsarDataTypes.h>
-#include <lal/UserInput.h>
 #include <lal/LALInitBarycenter.h>
-#include <lal/BinaryPulsarTiming.h>
 #include <lal/GeneratePulsarSignal.h>
 #include <lal/Random.h>
 #include <lal/LALString.h>
+#include <lal/UserInput.h>
+#include <lal/TranslateAngles.h>
 
 /*---------- local defines ---------- */
 #define TRUE (1==1)
@@ -196,8 +196,6 @@ extern int vrbflg;
 
 /* ---------- local prototypes ---------- */
 int initUserVars ( int argc, char *argv[], UserVariables_t *uvar );
-CHAR *XLALRadsToHMS ( REAL8 rads);
-CHAR *XLALRadsToDMS ( REAL8 rads);
 
 void TDBMJDtoGPS ( LIGOTimeGPS *GPS, MJDTime MJD );
 void AddIntervaltoMJD (double interval, MJDTime *MJDout, MJDTime MJDin);
@@ -267,23 +265,23 @@ main(int argc, char *argv[])
   BOOLEAN have_DECJ = XLALUserVarWasSet ( &uvar.DECJ );
   if ( have_RAJ )
     {
-      alpha = XLALhmsToRads ( uvar.RAJ );
+      XLAL_CHECK ( XLALTranslateHMStoRAD ( &alpha, uvar.RAJ ) == XLAL_SUCCESS, XLAL_EFUNC );
       RAJ = XLALStringDuplicate ( uvar.RAJ );
     }
   else
     { // pick randomly
       alpha = LAL_TWOPI * (1.0 * rand() / ( RAND_MAX + 1.0 ) );  // alpha uniform in [0, 2pi)
-      XLAL_CHECK ( (RAJ = XLALRadsToHMS ( alpha )) != NULL, XLAL_EFUNC );
+      XLAL_CHECK ( (RAJ = XLALTranslateRADtoHMS ( alpha )) != NULL, XLAL_EFUNC );
     }
   if ( have_DECJ )
     {
-      delta = XLALdmsToRads ( uvar.DECJ );
+      XLAL_CHECK ( XLALTranslateDMStoRAD ( &delta, uvar.DECJ ) == XLAL_SUCCESS, XLAL_EFUNC );
       DECJ = XLALStringDuplicate ( uvar.DECJ );
     }
   else
     { // pick randomly
       delta = LAL_PI_2 - acos ( 1 - 2.0 * rand()/RAND_MAX );	// sin(delta) uniform in [-1,1]
-      XLAL_CHECK ( (DECJ = XLALRadsToDMS ( delta )) != NULL, XLAL_EFUNC );
+      XLAL_CHECK ( (DECJ = XLALTranslateRADtoDMS ( delta )) != NULL, XLAL_EFUNC );
     }
 
   /* define start time in an MJD structure */
@@ -936,58 +934,3 @@ TDBGPStoMJD ( MJDTime *MJD, LIGOTimeGPS GPS, INT4 leap )
   } while (diff >= 2e-9);
 
 } // TDBGPStoMJD()
-
-/// Convert radians into hours:minutes:seconds (HMS) format
-CHAR *
-XLALRadsToHMS ( REAL8 rads )
-{
-  CHAR buf[256];
-  INT4 hours, mins, secs, fracsecs;
-  REAL8 x;
-
-  XLAL_CHECK_NULL ( (rads>=0.0) && (rads < LAL_TWOPI), XLAL_EDOM, "RA not in range [0, 2pi)\n" );
-
-  x = rads*24.0/LAL_TWOPI;
-  hours = (INT4)floor(x);
-  x = 60.0*(x - (REAL8)hours);
-  mins = (INT4)floor(x);
-  x = 60.0*(x - (REAL8)mins);
-  secs = (INT4)floor(x);
-  x = x - (REAL8)secs;
-  fracsecs = (INT4)floor(1e8*x + 0.5);
-
-  snprintf ( buf, sizeof(buf)-1, "%d:%02d:%02d.%08d", hours, mins, secs, fracsecs);
-
-  return XLALStringDuplicate ( buf );
-
-} // XLALRadsToHMS()
-
-/// Convert radians into degrees:minutes:seconds (DMS) format
-CHAR *
-XLALRadsToDMS ( REAL8 rads)
-{
-  CHAR buf[256];
-  INT4 degs, arcmins, arcsecs, fracarcsecs;
-  REAL8 x;
-  INT4 sign = 1;
-
-  XLAL_CHECK_NULL ( (rads >= -LAL_PI_2) && (rads < LAL_PI_2), XLAL_EDOM, "DEC not in range [-pi/2, pi/2)\n");
-
-  if (rads<0.0) {
-    sign = -1;
-  }
-
-  x = fabs(rads)*360.0/LAL_TWOPI;
-  degs = (INT4)floor(x);
-  x = 60.0*(x - (REAL8)degs);
-  arcmins = (INT4)floor(x);
-  x = 60.0*(x - (REAL8)arcmins);
-  arcsecs = (INT4)floor(x);
-  x = x - (REAL8)arcsecs;
-  fracarcsecs = (INT4)floor(1e7*x + 0.5);
-
-  snprintf ( buf, sizeof(buf)-1, "%d:%02d:%02d.%07d", sign*degs, arcmins, arcsecs, fracarcsecs);
-
-  return XLALStringDuplicate ( buf );
-
-} // XLALRadsToDMS()

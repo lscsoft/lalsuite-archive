@@ -30,7 +30,7 @@ from time import time as time_now
 warnings.filterwarnings("ignore", "column name", UserWarning)
 
 from pylal import (git_version, coh_PTF_pyutils)
-from pylal.xlal.date import XLALGPSTimeNow
+from lal import GPSTimeNow
 
 from glue.ligolw import (ligolw, table, lsctables, utils as ligolw_utils)
 from glue.ligolw.utils import (process as ligolw_process,
@@ -289,7 +289,7 @@ if __name__ == "__main__":
     outxml.childNodes[-1].appendChild(pass_mi_table)
 
     # finish up
-    process.end_time = XLALGPSTimeNow().seconds
+    process.end_time = int(GPSTimeNow())
     ligolw_utils.write_filename(outxml, opts.output_file,
                                 gz=opts.output_file.endswith(".gz"),
                                 verbose=opts.verbose)

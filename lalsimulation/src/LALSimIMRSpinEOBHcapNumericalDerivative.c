@@ -712,6 +712,7 @@ XLALSpinHcapNumericalDerivative(
       break;
     }
     }
+    
   return XLAL_SUCCESS;
 }
 

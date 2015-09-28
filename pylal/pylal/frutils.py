@@ -98,10 +98,19 @@ Removing /tmp/H-H1_RDS_C03_L2-861417967-128.gwf.
         newentries = [entry for entry in cache_entries \
                     if entry.path not in self._remotefiles]
         newfiles = [entry.path for entry in newentries]
-        newsegs = segmentlist([entry.segment for entry in newentries])
-        self._remotefiles.extend(newfiles)
-        self._remotesegs.extend(newsegs)
-        self._remotecoverage |= segmentlist(newsegs)
+
+        # We iterate here to prevent the segment and files from getting added in
+        # an unsorted manner
+        for entry in cache_entries:
+            # We already have it, skip it
+            if entry.path in self._remotefiles:
+                continue
+            newseg, newfile = entry.segment, entry.path
+            insert_idx = bisect_right(self._remotesegs, newseg)
+            self._remotesegs.insert(insert_idx, newseg)
+            self._remotefiles.insert(insert_idx, newfile)
+            self._remotecoverage |= segmentlist([newseg])
+
         self._remotecoverage.coalesce()
 
     def __del__(self):
@@ -157,6 +166,9 @@ Removing /tmp/H-H1_RDS_C03_L2-861417967-128.gwf.
 
         # Find first frame
         try:
+            #tmp = sorted(zip(self._cachedsegs, self._cachedfiles))
+            #self._cachedsegs = segmentlist([seg for seg, frfile in tmp])
+            #self._cachedfiles = [frfile for seg, frfile in tmp]
             index = self._cachedsegs.find(start)
         except ValueError:
             print >>sys.stderr, "Couldn't find any frame files to cover",\

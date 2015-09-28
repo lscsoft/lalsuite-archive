@@ -17,9 +17,12 @@
 *  MA  02111-1307  USA
 */
 
+#include <config.h>
 
 #include <stdio.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include "HoughFstatToplist.h"
 #include "HeapToplist.h"
 #include <lal/StringInput.h> /* for LAL_REAL8_FORMAT etc. */
@@ -187,7 +190,7 @@ int read_houghFstat_toplist_from_fp(toplist_t*l, FILE*fp, UINT4*checksum, UINT4 
 	return -2;
 
     /* make sure the line buffer is terminated correctly */
-    line[sizeof(line)-1]='\0';
+    XLAL_LAST_ELEM(line)='\0';
 
     /* init the checksum if given */
     if(checksum)
@@ -214,7 +217,7 @@ int read_houghFstat_toplist_from_fp(toplist_t*l, FILE*fp, UINT4*checksum, UINT4 
 	}
 	else if (line[len-1] != '\n') {
 	  LogPrintf (LOG_CRITICAL, 
-		     "Line %d is too long or has no NEWLINE. First %lu chars are:\n'%s'\n",
+		     "Line %d is too long or has no NEWLINE. First %zu chars are:\n'%s'\n",
 		     lines,sizeof(line)-1, line);
 	  return -1;
 	}
@@ -252,7 +255,7 @@ int read_houghFstat_toplist_from_fp(toplist_t*l, FILE*fp, UINT4*checksum, UINT4 
 	    ) {
 	    LogPrintf (LOG_CRITICAL, 
 		       "Line %d has invalid values.\n"
-		       "First %lu chars are:\n"
+		       "First %zu chars are:\n"
 		       "%s\n"
 		       "All fields should be finite\n"
 		       "1st field should be positive.\n" 
@@ -318,7 +321,7 @@ static int print_houghFstatline_to_str(HoughFstatOutputEntry fline, char* buf, i
           snprintf ( buf0, sizeof(buf0), " %7.6f", fline.sumTwoFX->data[X] );
           UINT4 len1 = strlen ( extraFStr ) + strlen ( buf0 ) + 1;
           if ( len1 > sizeof ( extraFStr ) ) {
-            XLALPrintError ("%s: assembled output string too long! (%d > %lu)\n", fn, len1, sizeof(extraFStr ));
+            XLALPrintError ("%s: assembled output string too long! (%d > %zu)\n", fn, len1, sizeof(extraFStr ));
             break;	/* we can't really terminate with error in this function, but at least we avoid crashing */
           }
           strcat ( extraFStr, buf0 );
@@ -364,7 +367,7 @@ int write_houghFstat_toplist_item_to_fp(HoughFstatOutputEntry fline, FILE*fp, UI
 	for(i=0;i<length;i++)
 	    *checksum += linebuf[i];
 
-    linebuf[sizeof(linebuf)-1] = '\0';
+    XLAL_LAST_ELEM(linebuf) = '\0';
 
     return(fprintf(fp,"%s",linebuf));
 }

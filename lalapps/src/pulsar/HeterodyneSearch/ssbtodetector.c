@@ -42,13 +42,14 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <getopt.h>
 
 #include <lal/LALInitBarycenter.h>
+#include <lal/LALgetopt.h>
 #include <lal/GeneratePulsarSignal.h>
 #include <lal/BinaryPulsarTiming.h>
 #include <lal/SFTutils.h>
 #include <lal/LALString.h>
+#include <lal/TranslateAngles.h>
 
 /* define the radio telescope positions */
 typedef enum{
@@ -114,7 +115,7 @@ int main( int argc, char *argv[] ){
   EphemerisData *edat;
   Scopes sn = NUMSCOPES;
 
-  struct option long_options[] =
+  struct LALoption long_options[] =
   {
     { "help",      no_argument,       0, 'h' },
     { "telescope", required_argument, 0, 't' },
@@ -133,7 +134,7 @@ int main( int argc, char *argv[] ){
     int option_index = 0;
     int c;
 
-    c = getopt_long( argc, argv, args, long_options, &option_index );
+    c = LALgetopt_long( argc, argv, args, long_options, &option_index );
     if ( c == -1 ) /* end of options */
       break;
 
@@ -142,24 +143,24 @@ int main( int argc, char *argv[] ){
         if ( long_options[option_index].flag )
           break;
         else
-          fprintf(stderr, "Error parsing option %s with argument %s\n", long_options[option_index].name, optarg );
+          fprintf(stderr, "Error parsing option %s with argument %s\n", long_options[option_index].name, LALoptarg );
       case 'h': /* help message */
         fprintf(stderr, USAGE, program);
         exit(0);
       case 't': /* the detector */
-        det = XLALStringDuplicate( optarg );
+        det = XLALStringDuplicate( LALoptarg );
         break;
       case 'r': /* the right ascension */
-        ra = XLALStringDuplicate( optarg );
+        ra = XLALStringDuplicate( LALoptarg );
         break;
       case 'd': /* the declination */
-        dec = XLALStringDuplicate( optarg );
+        dec = XLALStringDuplicate( LALoptarg );
         break;
       case 'm': /* the mjd time */
-        mjdtime = atof(optarg);
+        mjdtime = atof(LALoptarg);
         break;
       case 'g': /* the gps time */
-        gpstime = atof(optarg);
+        gpstime = atof(LALoptarg);
       case '?':
         fprintf(stderr, "Unknown error while parsing options\n" );
         exit(0);
@@ -217,8 +218,8 @@ int main( int argc, char *argv[] ){
   }
   else{ params.site = XLALGetSiteInfo( det ); } /* try a GW detector */
 
-  params.pulsar.position.latitude = XLALdmsToRads( dec );
-  params.pulsar.position.longitude = XLALhmsToRads( ra );
+  XLAL_CHECK_MAIN ( XLALTranslateDMStoRAD( &params.pulsar.position.latitude, dec ) == XLAL_SUCCESS, XLAL_EFUNC );
+  XLAL_CHECK_MAIN ( XLALTranslateHMStoRAD( &params.pulsar.position.longitude, ra ) == XLAL_SUCCESS, XLAL_EFUNC );
   params.pulsar.position.system = COORDINATESYSTEM_EQUATORIAL;
 
   /* get the Earth and Sun ephemeris files - note yo may have to change this for different systems */

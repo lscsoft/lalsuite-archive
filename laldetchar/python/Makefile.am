@@ -6,9 +6,7 @@ include $(top_srcdir)/gnuscripts/lalsuite_python.am
 SUBDIRS = laldetchar
 
 dist_bin_SCRIPTS = \
-	laldetchar-idq-append-file-to-cache \
-	laldetchar-idq-post-svm-train
-
+	laldetchar-idq-append-file-to-cache
 if HAVE_PYTHON
 
 pybin_scripts = \
@@ -18,10 +16,10 @@ pybin_scripts = \
 	laldetchar-idq-build-auxmvc-vectors \
 	laldetchar-idq-convertkwtosb \
 	laldetchar-idq-evaluate-times \
-	laldetchar-idq-fap-calibration \
-        laldetchar-idq-gdb-alert-handler \
+	laldetchar-idq-calibration \
+	laldetchar-idq-gdb-alert-handler \
 	laldetchar-idq-gdb-glitch-tables \
-        laldetchar-idq-gdb-processor \
+	laldetchar-idq-gdb-processor \
 	laldetchar-idq-gdb-timeseries \
 	laldetchar-idq-prepare-training-auxmvc-samples \
 	laldetchar-idq-realtime \
@@ -31,6 +29,12 @@ pybin_scripts = \
 	laldetchar-idq-svm-train \
 	laldetchar-idq-train \
 	laldetchar-segments-from-data \
+	laldetchar-idq-ann-convert \
+	laldetchar-idq-ann-train \
+	laldetchar-idq-ann-evaluate \
+	laldetchar-idq-gst-sender \
+	laldetchar-idq-gst-relay \
+	laldetchar-idq-gst-listener \
 	$(END_OF_LIST)
 
 endif

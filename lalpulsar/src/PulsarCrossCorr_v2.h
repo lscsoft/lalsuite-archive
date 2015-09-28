@@ -34,7 +34,6 @@ extern "C" {
  */
 /*@{*/
 
-#include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -69,6 +68,7 @@ extern "C" {
 #include <lal/Sequence.h>
 #include <lal/SinCosLUT.h>
 #include <lal/LogPrintf.h>
+#include <lal/UniversalDopplerMetric.h>
 
 /* ******************************************************************
  *  Structure, enum, union, etc., typdefs.
@@ -137,9 +137,10 @@ int XLALCreateSFTPairIndexList
    )
   ;
 
-int XLALCalculateAveCurlyGAmpUnshifted
+int XLALCalculateCrossCorrGammas
   (
-   REAL8Vector            **G_alpha,
+   REAL8Vector          **Gamma_ave,
+   REAL8Vector         **Gamma_circ,
    SFTPairIndexList  *pairIndexList,
    SFTIndexList          *indexList,
    MultiAMCoeffs       *multiCoeffs
@@ -162,7 +163,30 @@ int XLALCalculatePulsarCrossCorrStatistic
    )
   ;
 
-int XLALFindLMXBCrossCorrDiagMetric
+int XLALCalculateCrossCorrPhaseDerivatives
+  (
+   REAL8VectorSequence        **phaseDerivs,
+   const PulsarDopplerParams  *dopplerPoint,
+   const EphemerisData                *edat,
+   SFTIndexList                  *indexList,
+   MultiSSBtimes                *multiTimes,
+   const DopplerCoordinateSystem  *coordSys
+   )
+  ;
+
+int XLALCalculateCrossCorrPhaseMetric
+  (
+   gsl_matrix                        **g_ij,
+   gsl_vector                       **eps_i,
+   REAL8                        *sumGammaSq,
+   const REAL8VectorSequence   *phaseDerivs,
+   const SFTPairIndexList    *pairIndexList,
+   const REAL8Vector             *Gamma_ave,
+   const REAL8Vector            *Gamma_circ,
+   const DopplerCoordinateSystem  *coordSys
+   );
+
+int XLALCalculateLMXBCrossCorrDiagMetric
   (
    REAL8                      *hSens,
    REAL8                       *g_ff,
@@ -179,7 +203,6 @@ int XLALFindLMXBCrossCorrDiagMetric
    )
   ;
 
-  ;
 /*@}*/
 
 void XLALDestroySFTIndexList ( SFTIndexList *sftIndices );

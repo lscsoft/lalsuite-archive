@@ -127,6 +127,33 @@ static struct PyGetSetDef getset[] = {
 };
 
 
+static Py_ssize_t getreadbuffer(PyObject *self, Py_ssize_t segment, void **ptrptr)
+{
+	if(segment) {
+		PyErr_SetString(PyExc_SystemError, "bad segment");
+		return -1;
+	}
+	*ptrptr = &((pylal_SimInspiralTable*)self)->sim_inspiral;
+	return sizeof(((pylal_SimInspiralTable*)self)->sim_inspiral);
+}
+
+
+static Py_ssize_t getsegcount(PyObject *self, Py_ssize_t *lenp)
+{
+	if(lenp)
+		*lenp = sizeof(((pylal_SimInspiralTable*)self)->sim_inspiral);
+	return 1;
+}
+
+
+static PyBufferProcs as_buffer = {
+	.bf_getreadbuffer = getreadbuffer,
+	.bf_getsegcount = getsegcount,
+	.bf_getwritebuffer = NULL,
+	.bf_getcharbuffer = NULL
+};
+
+
 /*
  * Methods
  */
@@ -152,40 +179,10 @@ static PyObject *__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 }
 
 
-/*
- * Type
- */
-
-
-PyTypeObject pylal_siminspiraltable_type = {
-	PyObject_HEAD_INIT(NULL)
-	.tp_basicsize = sizeof(pylal_SimInspiralTable),
-	.tp_doc = "LAL's SimInspiralTable structure",
-	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES,
-	.tp_members = members,
-	.tp_getset = getset,
-	.tp_name = MODULE_NAME ".SimInspiralTable",
-	.tp_new = __new__,
-};
-
-
-/*
- * ============================================================================
- *
- *                                 Functions
- *
- * ============================================================================
- */
-
-
-static PyObject *from_buffer(PyObject *self, PyObject *args)
+static PyObject *from_buffer(PyObject *cls, PyObject *args)
 {
 	const SimInspiralTable *data;
-#if PY_VERSION_HEX < 0x02050000
-	int length;
-#else
 	Py_ssize_t length;
-#endif
 	unsigned i;
 	PyObject *result;
 
@@ -202,16 +199,46 @@ static PyObject *from_buffer(PyObject *self, PyObject *args)
 	if(!result)
 		return NULL;
 	for(i = 0; i < length; i++) {
-		PyObject *item = pylal_SimInspiralTable_new(data++);
+		PyObject *item = PyType_GenericNew((PyTypeObject *) cls, NULL, NULL);
 		if(!item) {
 			Py_DECREF(result);
 			return NULL;
 		}
+		/* memcpy sim_inspiral row */
+		((pylal_SimInspiralTable*)item)->sim_inspiral = *data++;
+		/* repoint event_id to event_id structure */
+		((pylal_SimInspiralTable*)item)->sim_inspiral.event_id = &((pylal_SimInspiralTable*)item)->event_id;
+
 		PyTuple_SET_ITEM(result, i, item);
 	}
 
 	return result;
 }
+
+
+static struct PyMethodDef methods[] = {
+	{"from_buffer", from_buffer, METH_VARARGS | METH_CLASS, "Construct a tuple of SimInspiralTable objects from a buffer object.  The buffer is interpreted as a C array of SimInspiralTable structures."},
+	{NULL,}
+};
+
+
+/*
+ * Type
+ */
+
+
+PyTypeObject pylal_siminspiraltable_type = {
+	PyObject_HEAD_INIT(NULL)
+	.tp_basicsize = sizeof(pylal_SimInspiralTable),
+	.tp_doc = "LAL's SimInspiralTable structure",
+	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES,
+	.tp_members = members,
+	.tp_methods = methods,
+	.tp_getset = getset,
+	.tp_as_buffer = &as_buffer,
+	.tp_name = MODULE_NAME ".SimInspiralTable",
+	.tp_new = __new__,
+};
 
 
 /*
@@ -223,15 +250,9 @@ static PyObject *from_buffer(PyObject *self, PyObject *args)
  */
 
 
-static struct PyMethodDef functions[] = {
-	{"from_buffer", from_buffer, METH_VARARGS, "Construct a tuple of SimInspiralTable objects from a buffer object.  The buffer is interpreted as a C array of SimInspiralTable structures."},
-	{NULL, }
-};
-
-
 PyMODINIT_FUNC initsiminspiraltable(void)
 {
-	PyObject *module = Py_InitModule3(MODULE_NAME, functions, "Wrapper for LAL's SimInspiralTable type.");
+	PyObject *module = Py_InitModule3(MODULE_NAME, NULL, "Wrapper for LAL's SimInspiralTable type.");
 
 	/* Cached ID types */
 	sim_inspiral_simulation_id_type = pylal_get_ilwdchar_class("sim_inspiral", "simulation_id");

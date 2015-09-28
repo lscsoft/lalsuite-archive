@@ -223,7 +223,7 @@ class GWDataFindHTTPConnection(httplib.HTTPConnection):
         @type     gpsend: L{int}
         """
         if gpsstart and gpsend:
-            url = ("%s/gwf/%s/%s/segments/%s,%s.json"
+            url = ("%s/gwf/%s/%s/segments/%d,%d.json"
                    % (_url_prefix, site, frametype, gpsstart, gpsend))
         else:
             url = ("%s/gwf/%s/%s/segments.json"

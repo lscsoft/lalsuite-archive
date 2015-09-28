@@ -36,7 +36,6 @@ example$ ./lalapps_sw_inj_frames -p /Users/erinmacdonald/lsc/analyses/test_par_f
 /* 27/06/13 v.13: Allow 2nd and 3rd frequency derivatives and make compatible with new frame functions */
 
 #include <stdio.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -88,6 +87,7 @@ typedef struct{
   CHAR *ephemSun;		/**< Sun ephemeris file to use */
   CHAR *IFO; /*detector */
   CHAR *logDir; /*directory for the log files */
+  CHAR *outputdir;
 } UserInput_t;
 
 UserInput_t uvar_struct;
@@ -326,14 +326,14 @@ int main(int argc, char **argv)
 	/** extract epoch and duration from gwf file name **/
 
 	strncpy(strepoch, strchr(gwfnamelist[k]->d_name, '9'), 9 ); /*All epochs in S6 begin with 9... potential problem in future */
-	strepoch[sizeof(strepoch)-1] = '\0'; /*Null terminate the string*/
+	XLAL_LAST_ELEM(strepoch) = '\0'; /*Null terminate the string*/
 	epoch.gpsSeconds = atoi(strepoch);  /* convert to integer from string */
 	epoch.gpsNanoSeconds = 0; /* no nanosecond precision */
 	/*	fprintf(stderr, "epoch = %i\n", epoch.gpsSeconds);*/
 
 	char strdur[4];
 	strncpy(strdur, (strrchr(gwfnamelist[k]->d_name, '-')+1), 3); /* duration is last number in frame file */
-	strdur[sizeof(strdur)-1] = '\0';
+	XLAL_LAST_ELEM(strdur) = '\0';
 	/* assigns duration from .gwf frame */
 	ndata = atoi(strdur);
 
@@ -487,8 +487,8 @@ int main(int argc, char **argv)
 	    /*if binary */
 	    if (pulparams[h].model != NULL) {
 	      /*fprintf(stderr, "You have a binary! %s", pulin);*/
-	      params.orbit->asini = pulparams[h].x;
-	      params.orbit->period = pulparams[h].Pb*86400;
+	      params.orbit.asini = pulparams[h].x;
+	      params.orbit.period = pulparams[h].Pb*86400;
 
 	      /*Taking into account ELL1 model option */
 	      if (strstr(pulparams[h].model,"ELL1") != NULL) {
@@ -497,26 +497,27 @@ int main(int argc, char **argv)
 		eps2 = pulparams[h].eps2;
 		w = atan2(eps1,eps2);
 		e = sqrt(eps1*eps1+eps2*eps2);
-		params.orbit->argp = w;
-		params.orbit->ecc = e;
+		params.orbit.argp = w;
+		params.orbit.ecc = e;
 	      }
 	      else {
-		params.orbit->argp = pulparams[h].w0;
-		params.orbit->ecc = pulparams[h].e;
+		params.orbit.argp = pulparams[h].w0;
+		params.orbit.ecc = pulparams[h].e;
 	      }
 	      if (strstr(pulparams[h].model,"ELL1") != NULL) {
 		REAL8 fe, uasc, Dt;
-		fe = sqrt((1.0-params.orbit->ecc)/(1.0+params.orbit->ecc));
-		uasc = 2.0*atan(fe*tan(params.orbit->argp/2.0));
-		Dt = (params.orbit->period/LAL_TWOPI)*(uasc-params.orbit->ecc*sin(uasc));
+		fe = sqrt((1.0-params.orbit.ecc)/(1.0+params.orbit.ecc));
+		uasc = 2.0*atan(fe*tan(params.orbit.argp/2.0));
+		Dt = (params.orbit.period/LAL_TWOPI)*(uasc-params.orbit.ecc*sin(uasc));
 		pulparams[h].T0 = pulparams[h].Tasc + Dt;
 	      }
 
-	      params.orbit->tp.gpsSeconds = (UINT4)floor(pulparams[h].T0);
-	      params.orbit->tp.gpsNanoSeconds = (UINT4)floor((pulparams[h].T0 - params.orbit->tp.gpsSeconds)*1e9);
+	      params.orbit.tp.gpsSeconds = (UINT4)floor(pulparams[h].T0);
+	      params.orbit.tp.gpsNanoSeconds = (UINT4)floor((pulparams[h].T0 - params.orbit.tp.gpsSeconds)*1e9);
 	    } /* if pulparams.model is BINARY */
-	    else
-	      params.orbit = NULL; /*if pulparams.model = NULL -- isolated pulsar*/
+	    else {
+	      XLAL_INIT_MEM(params.orbit); /*if pulparams.model = NULL -- isolated pulsar*/
+            }
 	    params.site = site;
 	    params.ephemerides = edat;
 	    params.startTimeGPS = epoch;

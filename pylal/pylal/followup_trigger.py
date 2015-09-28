@@ -269,7 +269,7 @@ class FollowupTrigger:
 
     # read in the 'converted' injection
     doc = ligolw_add.ligolw_add(ligolw.Document(), [file2])
-    inj_sned = lsctables.getTablesByType(doc, lsctables.SimInspiralTable)
+    inj_sned = lsctables.table.getTablesByName(doc, lsctables.SimInspiralTable.tableName)
 
     # return a single SimInspiral table
     return inj_sned[0]
@@ -1269,7 +1269,6 @@ class FollowupTrigger:
     # set the time
     self.followup_time = trigger_time
     self.injection_id = injection_id
-    self.flag_followup = False
 
     # do the followup
     return self.followup(page)
