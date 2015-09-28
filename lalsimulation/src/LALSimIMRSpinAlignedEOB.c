@@ -336,12 +336,13 @@ XLALEOBSpinAlignedStopCondition(double UNUSED t,  /**< UNUSED */
                            void *funcParams       /**< physical parameters */
                           )
 {
-
+  int debugPK = 0;
   REAL8 omega, r;
   SpinEOBParams *params = (SpinEOBParams *)funcParams;
-
+  
   r     = values[0];
   omega = dvalues[1];
+    if (debugPK){  printf("XLALEOBSpinAlignedStopCondition:: r = %e\n", r);}
 
   //if ( omega < params->eobParams->omega )
   if ( r < 6. && omega < params->eobParams->omega )
@@ -368,6 +369,12 @@ XLALSpinAlignedHiSRStopCondition(double UNUSED t,  /**< UNUSED */
                            void UNUSED *funcParams       /**< physical parameters */
                           )
 {
+    int debugPK = 0;
+    if (debugPK){
+        printf("XLALSpinAlignedHiSRStopCondition:: r = %e\n", values[0]);
+//        printf("values[0], values[1], values[2], values[3], dvalues[0], dvalues[1], dvalues[2], dvalues[3] = %e %e %e %e %e %e %e %e\n", values[0], values[1], values[2], values[3], dvalues[0], dvalues[1], dvalues[2], dvalues[3]);
+    }
+
   if ( dvalues[2] >= 0. || isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) )
   {
       //XLALPrintError( "XLAL Error - %s: nan in dvalues \n", __func__);
@@ -1597,7 +1604,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   INT4 SpinAlignedEOBversion =2;
 
   /* Vector to store the initial spins */
-  REAL8 spin1[3] = {0,0,0}, spin2[3] = {0,0,0};
+    REAL8 spin1[3] = {0,0,0}, spin2[3] = {0,0,0}, InitLhat[3] = {sin(inc),0.,cos(inc)};
   memcpy( spin1, INspin1, 3*sizeof(REAL8));
   memcpy( spin2, INspin2, 3*sizeof(REAL8));
   
@@ -1609,23 +1616,11 @@ int XLALSimIMRSpinEOBWaveformAll(
   REAL8 spin1Norm = -1, spin2Norm = -1;
   if( INspin1[0] != 0 || INspin1[1] != 0 || INspin1[2] != 0 ) {
     spin1Norm = sqrt( INspin1[0]*INspin1[0] + INspin1[1]*INspin1[1] +                          INspin1[2]*INspin1[2] );
-    theta1Ini = acos( INspin1[2] / spin1Norm );
-  
-    if ( fabs(theta1Ini) <= 1.0e-4  || fabs(theta1Ini) >= LAL_PI - 1.0e-4) {
-      spin1[0] = 0.;
-      spin1[1] = 0.;
-      spin1[2] = spin1Norm * INspin1[2] / fabs(INspin1[2]);
+    theta1Ini = acos( (InitLhat[0]*INspin1[0] + InitLhat[1]*INspin1[1] + InitLhat[2]*INspin1[2])/ spin1Norm );
     }
-  }
   if( INspin2[0] != 0 || INspin2[1] != 0 || INspin2[2] != 0 ) {
     spin2Norm = sqrt( INspin2[0]*INspin2[0] + INspin2[1]*INspin2[1] +                          INspin2[2]*INspin2[2] );
-    theta2Ini = acos( INspin2[2] / spin2Norm );
-  
-    if ( fabs(theta2Ini) <= 1.0e-4 || fabs(theta2Ini) >= LAL_PI - 1.0e-4) {
-      spin2[0] = 0.;
-      spin2[1] = 0.;
-      spin2[2] = spin2Norm * INspin2[2] / fabs(INspin2[2]);
-    }
+    theta2Ini = acos( (InitLhat[0]*INspin2[0] + InitLhat[1]*INspin2[1] + InitLhat[2]*INspin2[2]) / spin2Norm );
   }
     if ( INspin1[0] == 0. && INspin1[1] == 0. && INspin1[2] == 0. ) {
         spin1Norm = 0.;
@@ -1633,7 +1628,25 @@ int XLALSimIMRSpinEOBWaveformAll(
     if ( INspin2[0] == 0. && INspin2[1] == 0. && INspin2[2] == 0. ) {
         spin2Norm = 0.;
     }
+    
+    REAL8 EPS_ALIGN = 1.0e-4, incA = inc;
+    if ( (fabs(theta1Ini) <= EPS_ALIGN  || fabs(theta1Ini) >= LAL_PI - EPS_ALIGN) && (fabs(theta2Ini) <= EPS_ALIGN || fabs(theta2Ini) >= LAL_PI - EPS_ALIGN) ) {
+        if (debugPK) {printf("Both spins are almost aligned/antialigned to initial LNhat: we use V2 dynamics\n");
+            printf("spin1Norm spin2Norm %e %e\n", spin1Norm, spin2Norm);
+        }
+        spin1[0] = 0.;
+        spin1[1] = 0.;
+        spin1[2] = spin1Norm*cos(theta1Ini)/fabs(cos(theta1Ini));
+        spin2[0] = 0.;
+        spin2[1] = 0.;
+        spin2[2] = spin2Norm*cos(theta2Ini)/fabs(cos(theta2Ini));
+        incA = 0.;
+    }
+    
     if ( debugPK ) {
+        printf( "InitLhat = {%3.10f, %3.10f, %3.10f}\n",
+               InitLhat[0], InitLhat[1], InitLhat[2] );
+
     printf( "theta1Ini, theta2Ini =  %3.10f, %3.10f\n", theta1Ini, theta2Ini );
     printf( "INspin1 = {%3.10f, %3.10f, %3.10f}\n", 
             INspin1[0], INspin1[1], INspin1[2] );
@@ -2050,11 +2063,11 @@ int XLALSimIMRSpinEOBWaveformAll(
 
   REAL8Vector* tmpValues2 = NULL;
   tmpValues2 = XLALCreateREAL8Vector( 14 ); 
-    if (( fabs(theta1Ini) <= 1.0e-5  || fabs(theta1Ini) >= LAL_PI - 1.0e-5) && ( fabs(theta2Ini) <= 1.0e-5 || fabs(theta2Ini) >= LAL_PI - 1.0e-5) ) {
+    if (( fabs(theta1Ini) <= EPS_ALIGN  || fabs(theta1Ini) >= LAL_PI - EPS_ALIGN) && ( fabs(theta2Ini) <= EPS_ALIGN || fabs(theta2Ini) >= LAL_PI - EPS_ALIGN) ) {
         seobParams.alignedSpins = 1;
-        seobParams.chi1 = spin1[2];
-        seobParams.chi2 = spin2[2];
-        if ( XLALSimIMRSpinEOBInitialConditionsV2( tmpValues2, m1, m2, fMin, inc,
+        seobParams.chi1 = spin1Norm*cos(theta1Ini)/fabs(cos(theta1Ini));
+        seobParams.chi2 = spin2Norm*cos(theta2Ini)/fabs(cos(theta2Ini));
+        if ( XLALSimIMRSpinEOBInitialConditionsV2( tmpValues2, m1, m2, fMin, incA,
                                                 mSpin1, mSpin2, &seobParams ) == XLAL_FAILURE )
         {
             XLAL_ERROR( XLAL_EFUNC );
@@ -2431,7 +2444,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     }
     memset( valuesV2->data, 0, valuesV2->length * sizeof( REAL8 ));
 
-    if (( fabs(theta1Ini) <= 1.0e-5  || fabs(theta1Ini) >= LAL_PI - 1.0e-5) && ( fabs(theta2Ini) <= 1.0e-5 || fabs(theta2Ini) >= LAL_PI - 1.0e-5) ) {
+    if (( fabs(theta1Ini) <= EPS_ALIGN  || fabs(theta1Ini) >= LAL_PI - EPS_ALIGN) && ( fabs(theta2Ini) <= EPS_ALIGN || fabs(theta2Ini) >= LAL_PI - EPS_ALIGN) ) {
         valuesV2->data[0] = tmpValues2->data[0];
         valuesV2->data[1] = 0.;
         valuesV2->data[2] = tmpValues2->data[3];
@@ -2439,8 +2452,8 @@ int XLALSimIMRSpinEOBWaveformAll(
 //        printf("valuesV2->data[0], valuesV2->data[1], valuesV2->data[2], valuesV2->data[3] %e %e %e %e\n", valuesV2->data[0], valuesV2->data[1], valuesV2->data[2], valuesV2->data[3] );
 
         seobParams.alignedSpins = 1;
-        seobParams.chi1 = spin1[2];
-        seobParams.chi2 = spin2[2];
+        seobParams.chi1 = spin1Norm*cos(theta1Ini)/fabs(cos(theta1Ini));
+        seobParams.chi2 = spin2Norm*cos(theta2Ini)/fabs(cos(theta2Ini));
         if (!(integrator = XLALAdaptiveRungeKutta4Init(4, XLALSpinAlignedHcapDerivative, XLALEOBSpinAlignedStopCondition, EPS_ABS, EPS_REL)))
         {
             XLALDestroyREAL8Vector( valuesV2 );
@@ -2462,7 +2475,8 @@ int XLALSimIMRSpinEOBWaveformAll(
 
   /* Ensure that integration stops ONLY when the stopping condition is True */
   integrator->stopontestonly = 1;
- 
+  integrator->retries = 1;
+
   if( debugPK ){
     printf("\n r = {%f,%f,%f}\n",
       values->data[0], values->data[1], values->data[2]);
@@ -2473,11 +2487,12 @@ int XLALSimIMRSpinEOBWaveformAll(
 
     REAL8Vector rVec, phiVec, prVec, pPhiVec;
   /* Call the integrator */
-    if (( fabs(theta1Ini) <= 1.0e-5  || fabs(theta1Ini) >= LAL_PI - 1.0e-5) && ( fabs(theta2Ini) <= 1.0e-5 || fabs(theta2Ini) >= LAL_PI - 1.0e-5) ) {
+    if (( fabs(theta1Ini) <= EPS_ALIGN  || fabs(theta1Ini) >= LAL_PI - EPS_ALIGN) && ( fabs(theta2Ini) <= EPS_ALIGN || fabs(theta2Ini) >= LAL_PI - EPS_ALIGN) ) {
         REAL8Array              *dynamicsV2   = NULL;
         seobParams.alignedSpins = 1;
-        seobParams.chi1 = spin1[2];
-        seobParams.chi2 = spin2[2];
+        seobParams.chi1 = spin1Norm*cos(theta1Ini)/fabs(cos(theta1Ini));
+        seobParams.chi2 = spin2Norm*cos(theta2Ini)/fabs(cos(theta2Ini));
+
         retLen = XLALAdaptiveRungeKutta4( integrator, &seobParams, valuesV2->data,
                                          0., 20./mTScaled, deltaT/mTScaled, &dynamicsV2 );
         seobParams.alignedSpins = 0;
@@ -2518,7 +2533,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     REAL8 phiDModData[retLen], phiModData[retLen];
 
     
-    if (( fabs(theta1Ini) <= 1.0e-5  || fabs(theta1Ini) >= LAL_PI - 1.0e-5) && ( fabs(theta2Ini) <= 1.0e-5 || fabs(theta2Ini) >= LAL_PI - 1.0e-5) ) {
+    if (( fabs(theta1Ini) <= EPS_ALIGN  || fabs(theta1Ini) >= LAL_PI - EPS_ALIGN) && ( fabs(theta2Ini) <= EPS_ALIGN || fabs(theta2Ini) >= LAL_PI - EPS_ALIGN) ) {
         posVecx.data = posVecxData;
         posVecy.data = posVecyData;
         posVecz.data = posVeczData;
@@ -2679,21 +2694,19 @@ int XLALSimIMRSpinEOBWaveformAll(
     REAL8Vector rVecHi, phiVecHi, prVecHi, pPhiVecHi;
     REAL8Array              *dynamicsV2Hi   = NULL;
 
-    if (( fabs(theta1Ini) <= 1.0e-5  || fabs(theta1Ini) >= LAL_PI - 1.0e-5) && ( fabs(theta2Ini) <= 1.0e-5 || fabs(theta2Ini) >= LAL_PI - 1.0e-5) ) {
+    if (( fabs(theta1Ini) <= EPS_ALIGN  || fabs(theta1Ini) >= LAL_PI - EPS_ALIGN) && ( fabs(theta2Ini) <= EPS_ALIGN || fabs(theta2Ini) >= LAL_PI - EPS_ALIGN) ) {
         seobParams.alignedSpins = 1;
-        seobParams.chi1 = spin1[2];
-        seobParams.chi2 = spin2[2];
+        seobParams.chi1 = spin1Norm*cos(theta1Ini)/fabs(cos(theta1Ini));
+        seobParams.chi2 = spin2Norm*cos(theta2Ini)/fabs(cos(theta2Ini));
 
         valuesV2->data[0] = rVec.data[hiSRndx];
         valuesV2->data[1] = phiVec.data[hiSRndx];
         valuesV2->data[2] = prVec.data[hiSRndx];
         valuesV2->data[3] = pPhiVec.data[hiSRndx];
-        if (!(integrator = XLALAdaptiveRungeKutta4Init(4, XLALSpinAlignedHcapDerivative, XLALSpinAlignedHiSRStopCondition, EPS_ABS, EPS_REL)))
-        {
-            XLALDestroyREAL8Vector( values );
-            XLAL_ERROR( XLAL_EFUNC );
-        }
-        
+        if (debugPK) {printf("Start high SR integration at: valuesV2->data[0], valuesV2->data[1], valuesV2->data[2], valuesV2->data[3] %e %e %e %e\n", valuesV2->data[0], valuesV2->data[1], valuesV2->data[2], valuesV2->data[3]);}
+
+        integrator->stop = XLALSpinAlignedHiSRStopCondition;
+
         retLen = XLALAdaptiveRungeKutta4( integrator, &seobParams, valuesV2->data, 0., 20./mTScaled, deltaTHigh/mTScaled, &dynamicsV2Hi );
 
         seobParams.alignedSpins = 0;
@@ -2733,7 +2746,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     REAL8 phiDModDataHi[retLen], phiModDataHi[retLen];
     
     
-    if (( fabs(theta1Ini) <= 1.0e-5  || fabs(theta1Ini) >= LAL_PI - 1.0e-5) && ( fabs(theta2Ini) <= 1.0e-5 || fabs(theta2Ini) >= LAL_PI - 1.0e-5) ) {
+    if (( fabs(theta1Ini) <= EPS_ALIGN  || fabs(theta1Ini) >= LAL_PI - EPS_ALIGN) && ( fabs(theta2Ini) <= EPS_ALIGN || fabs(theta2Ini) >= LAL_PI - EPS_ALIGN) ) {
         posVecxHi.data = posVecxDataHi;
         posVecyHi.data = posVecyDataHi;
         posVeczHi.data = posVeczDataHi;
