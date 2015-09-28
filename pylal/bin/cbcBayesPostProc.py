@@ -86,10 +86,12 @@ __date__= git_version.date
 def email_notify(address,path):
     import smtplib
     import subprocess
+    import socket
+    import os
     address=address.split(',')
     SERVER="localhost"
     USER=os.environ['USER']
-    HOST=os.environ['HOSTNAME']
+    HOST=socket.getfqdn()
     FROM=USER+'@'+HOST
     SUBJECT="LALInference result is ready at "+HOST+"!"
     # Guess the web space path for the clusters
@@ -110,16 +112,15 @@ def email_notify(address,path):
     else:
         webpath=os.path.join(fslocation,'posplots.html')
         onweb=False
-
-    if 'atlas.aei.uni-hannover.de' in HOST:
+    if 'atlas' in HOST:
         url="https://atlas1.atlas.aei.uni-hannover.de/"
-    elif 'ligo.caltech.edu' in HOST:
+    elif 'cit' in HOST or 'caltech' in HOST:
         url="https://ldas-jobs.ligo.caltech.edu/"
-    elif 'ligo-wa.caltech.edu' in HOST:
+    elif 'ligo-wa' in HOST:
         url="https://ldas-jobs.ligo-wa.caltech.edu/"
-    elif 'ligo-la.caltech.edu' in HOST:
+    elif 'ligo-la' in HOST:
         url="https://ldas-jobs.ligo-la.caltech.edu/"
-    elif 'phys.uwm.edu' in HOST:
+    elif 'uwm' in HOST or 'nemo' in HOST:
         url="https://ldas-jobs.phys.uwm.edu/"
     elif 'phy.syr.edu' in HOST:
         url="https://sugar-jobs.phy.syr.edu/"
@@ -133,10 +134,10 @@ def email_notify(address,path):
     url=url+webpath
 
     TEXT="Hi "+USER+",\nYou have a new parameter estimation result on "+HOST+".\nYou can view the result at "+url+"\n"
-    message="From: %s\nTo: %s\nSubject: %s\n\n%s"%(FROM,', '.join(address),SUBJECT,TEXT)
-    server=smtplib.SMTP(SERVER)
-    server.sendmail(FROM,address,message)
-    server.quit()
+    cmd='echo "%s" | mail -s "%s" "%s"'%(TEXT,SUBJECT,', '.join(address))
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,stderr=subprocess.STDOUT, shell=True)
+    (out, err) = proc.communicate()
+    #print "program output %s error %s:"%(out,err)
 
 #Import content handler 
 from pylal.SimInspiralUtils import ExtractSimInspiralTableLIGOLWContentHandler
@@ -1436,6 +1437,7 @@ if __name__=='__main__':
     if opts.email:
         try:
             email_notify(opts.email,opts.outpath)
-        except:
+        except Exception,e:
             print 'Unable to send notification email'
+            print "The error was %s\n"%str(e)
 #
