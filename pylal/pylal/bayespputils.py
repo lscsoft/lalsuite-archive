@@ -6391,29 +6391,29 @@ def plot_calibration_pos(pos, level=.9, outpath=None):
 
         # Assume spline control frequencies are constant
         freq_params = np.sort([param for param in params if
-                               '{}_spcal_freq'.format(ifo) in param])
+                               '{0}_spcal_freq'.format(ifo) in param])
 
         logfreqs = np.log([pos[param].median for param in freq_params])
 
         # Amplitude calibration model
         plt.sca(ax1)
         amp_params = np.sort([param for param in params if
-                              '{}_spcal_amp'.format(ifo) in param])
+                              '{0}_spcal_amp'.format(ifo) in param])
         if len(amp_params) > 0:
             amp = 100*np.column_stack([pos[param].samples for param in amp_params])
-            plot_spline_pos(logfreqs, amp, color=color, level=level, label="{} (mean, {}%)".format(ifo.upper(), int(level*100)))
+            plot_spline_pos(logfreqs, amp, color=color, level=level, label="{0} (mean, {0}%)".format(ifo.upper(), int(level*100)))
 
         # Phase calibration model
         plt.sca(ax2)
         phase_params = np.sort([param for param in params if
-                                '{}_spcal_phase'.format(ifo) in param])
+                                '{0}_spcal_phase'.format(ifo) in param])
         if len(phase_params) > 0:
             phase = 180./np.pi*np.column_stack([pos[param].samples for param in phase_params])
-            plot_spline_pos(logfreqs, phase, color=color, level=level, label="{} (mean, {}%)".format(ifo.upper(), int(level*100)))
+            plot_spline_pos(logfreqs, phase, color=color, level=level, label="{0} (mean, {1}%)".format(ifo.upper(), int(level*100)))
 
     ax1.tick_params(labelsize=.75*font_size)
     ax2.tick_params(labelsize=.75*font_size)
-    plt.legend(loc='upper right', fontsize=.75*font_size)
+    plt.legend(loc='upper right', prop={'size':.75*font_size})
     ax1.set_xscale('log')
     ax2.set_xscale('log')
 
