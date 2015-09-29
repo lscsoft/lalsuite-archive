@@ -602,16 +602,21 @@ def cbcBayesPostProc(
         freqs = bppu.plot_psd(psd_files,outpath=psddir)
         wfsection.write('<a href="PSDs/PSD.png" target="_blank"><img src="PSDs/PSD.png"/></a>')
       except  Exception,e:
-        print "Could not create PSD file. The error was: %s\n"%str(e)
+        print "Could not create PSD plot. The error was: %s\n"%str(e)
         freqs = None
         wfsection.write("<b>No PSD file found!</b>")
 
       # Add plots for calibration estimates
-      wftd=html_wf.insert_td(row,'',label='Calibration',legend=legend)
-      wfsection=html.add_section_to_element('Calibration',wftd)
       if np.any(['spcal_amp' in param for param in pos.names]) or np.any(['spcal_phase' in param for param in pos.names]):
-        wfsection.write('<a href="calibration.png" target="_blank"><img src="calibration.png"/></a>')
-        bppu.plot_calibration_pos(freqs, pos, outpath=outdir)
+        wftd=html_wf.insert_td(row,'',label='Calibration',legend=legend)
+        wfsection=html.add_section_to_element('Calibration',wftd)
+        try:
+          bppu.plot_calibration_pos(freqs, pos, outpath=outdir)
+          wfsection.write('<a href="calibration.png" target="_blank"><img src="calibration.png"/></a>')
+        except Exception,e:
+          wfsection.write("<b> No calibration plots </b>")
+          print "Could not create calibration errors plot. The error was: %s\n"%str(e)
+
 
     #==================================================================#
     #1D posteriors
