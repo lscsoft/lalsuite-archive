@@ -707,13 +707,13 @@ XLALSpinHcapNumericalDerivative(
           }
     }
 
-    double S1Norm = 0., S2Norm = 0.;
-    if (values[6]!=0. && values[7]!=0. && values[8]!=0.) {
-        S1Norm = sqrt( values[6]*values[6] + values[7]*values[7] + values[8]*values[8] );
-    }
-    if (values[9]!=0. && values[10]!=0. && values[11]!=0.) {
-        S2Norm = sqrt( values[9]*values[9] + values[10]*values[10] + values[11]*values[11] );
-    }
+//    double S1Norm = 0., S2Norm = 0.;
+//    if (values[6]!=0. && values[7]!=0. && values[8]!=0.) {
+//        S1Norm = sqrt( values[6]*values[6] + values[7]*values[7] + values[8]*values[8] );
+//    }
+//    if (values[9]!=0. && values[10]!=0. && values[11]!=0.) {
+//        S2Norm = sqrt( values[9]*values[9] + values[10]*values[10] + values[11]*values[11] );
+//    }
 
 
     if(debugPK){
