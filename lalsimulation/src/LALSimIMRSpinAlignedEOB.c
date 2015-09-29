@@ -2507,7 +2507,7 @@ int XLALSimIMRSpinEOBWaveformAll(
 
   if(debugPK) { printf("\n\n BEGINNING THE EVOLUTION\n\n"); fflush(NULL); }
 
-    REAL8Vector rVec, phiVec, prVec, pPhiVec;
+    REAL8Vector *rVec=NULL, phiVec, prVec, pPhiVec;
   /* Call the integrator */
     if (( fabs(theta1Ini) <= EPS_ALIGN  || fabs(theta1Ini) >= LAL_PI - EPS_ALIGN) && ( fabs(theta2Ini) <= EPS_ALIGN || fabs(theta2Ini) >= LAL_PI - EPS_ALIGN) ) {
         REAL8Array              *dynamicsV2   = NULL;
@@ -2523,9 +2523,9 @@ int XLALSimIMRSpinEOBWaveformAll(
         {
             XLAL_ERROR( XLAL_EFUNC );
         }
-        tVec.length=rVec.length = phiVec.length = prVec.length = pPhiVec.length = retLen;
+        tVec.length=/*rVec->length =*/ phiVec.length = prVec.length = pPhiVec.length = retLen;
         tVec.data   = dynamicsV2->data;
-        rVec.data    = dynamicsV2->data+retLen;
+        rVec->data    = dynamicsV2->data+retLen;
         phiVec.data  = dynamicsV2->data+2*retLen;
         prVec.data   = dynamicsV2->data+3*retLen;
         pPhiVec.data = dynamicsV2->data+4*retLen;
@@ -2571,11 +2571,11 @@ int XLALSimIMRSpinEOBWaveformAll(
         phiDMod.data = phiDModData;
         phiMod.data = phiModData;
         for (i = 0; i < retLen; i++) {
-            posVecxData[i] = rVec.data[i]*cos(phiVec.data[i]);
-            posVecyData[i] = rVec.data[i]*sin(phiVec.data[i]);
+            posVecxData[i] = rVec->data[i]*cos(phiVec.data[i]);
+            posVecyData[i] = rVec->data[i]*sin(phiVec.data[i]);
             posVeczData[i] = 0.;
-            momVecxData[i] = prVec.data[i]*cos(phiVec.data[i]) - pPhiVec.data[i]/rVec.data[i]*sin(phiVec.data[i]);
-            momVecyData[i] = prVec.data[i]*sin(phiVec.data[i]) + pPhiVec.data[i]/rVec.data[i]*cos(phiVec.data[i]);
+            momVecxData[i] = prVec.data[i]*cos(phiVec.data[i]) - pPhiVec.data[i]/rVec->data[i]*sin(phiVec.data[i]);
+            momVecyData[i] = prVec.data[i]*sin(phiVec.data[i]) + pPhiVec.data[i]/rVec->data[i]*cos(phiVec.data[i]);
             momVeczData[i] = 0.;
             s1VecxData[i] = 0.;
             s1VecyData[i] = 0.;
@@ -2721,7 +2721,7 @@ int XLALSimIMRSpinEOBWaveformAll(
         seobParams.chi1 = spin1Norm*cos(theta1Ini)/fabs(cos(theta1Ini));
         seobParams.chi2 = spin2Norm*cos(theta2Ini)/fabs(cos(theta2Ini));
 
-        valuesV2->data[0] = rVec.data[hiSRndx];
+        valuesV2->data[0] = rVec->data[hiSRndx];
         valuesV2->data[1] = phiVec.data[hiSRndx];
         valuesV2->data[2] = prVec.data[hiSRndx];
         valuesV2->data[3] = pPhiVec.data[hiSRndx];
