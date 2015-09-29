@@ -162,7 +162,7 @@ XLALSimIMREOBCalcSpinFacWaveformCoefficients(
 	coeffs->delta22vh9 = -2203. / 81. + (1712. * LAL_PI * LAL_PI) / 315.;
 	coeffs->delta22v5 = -24. * eta;
 	coeffs->delta22v6 = 0.0;
-	if (SpinAlignedEOBversion == 2 /*&& chiS + chiA * dM / (1. - 2. * eta) > 0.*/) {
+	if (SpinAlignedEOBversion == 2 && chiS + chiA * dM / (1. - 2. * eta) > 0.) {
 		coeffs->delta22v6 = -540. * eta * (chiS + chiA * dM / (1. - 2. * eta));
 //        double chi = (chiS + chiA * dM / (1. - 2. * eta));
 //        coeffs->delta22v6 = eta*(1./4.*(1. - 1080.*chi - sqrt((1. - 1080.*chi)*(1. - 1080*chi) + 8.*(13.5 +270.*chi +13.5*chi*chi))));
@@ -1265,7 +1265,7 @@ XLALSimIMREOBCalcPrecSpinFacWaveformCoefficients(
 	//coeffs->delta22vh9 = -2203. / 81. + (1712. * LAL_PI * LAL_PI) / 315.;
 	//coeffs->delta22v5 = -24. * eta;
 	//coeffs->delta22v6 = 0.0;
-	if (SpinAlignedEOBversion == 2 /*&& chiS + chiA * dM / (1. - 2. * eta) > 0.*/) {
+	if (SpinAlignedEOBversion == 2 && chiS + chiA * dM / (1. - 2. * eta) > 0.) {
 		coeffs->delta22v6S = -540. * eta * (chiS + chiA * dM / (1. - 2. * eta));
 //        double chi = (chiS + chiA * dM / (1. - 2. * eta));
 //        coeffs->delta22v6 = eta*(1./4.*(1. - 1080.*chi - sqrt((1. - 1080.*chi)*(1. - 1080*chi) + 8.*(13.5 +270.*chi +13.5*chi*chi))));
