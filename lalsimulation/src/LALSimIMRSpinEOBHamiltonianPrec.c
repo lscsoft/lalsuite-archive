@@ -649,6 +649,7 @@ static int XLALSimIMRCalculateSpinPrecEOBHCoeffs(
   // RH: negative for SpinAlignedEOBversion==2
   // RH: SpinAlignedEOBversion-1.5 is reversed
 
+  // RH: TODO check if b3 can ever be non-zero. If not remove all terms using b3.
   coeffs->b3  = 0.;
   coeffs->bb3 = 0.;
 #define ifthenelse(cond, ifvalue, elsevalue) ((elsevalue) + (0.5 + copysign(0.5, cond)) * ((ifvalue)-(elsevalue)))
@@ -1421,24 +1422,76 @@ UNUSED static int XLALSpinPrecHcapRvecDerivative(
 //}
 
   /* Now calculate derivatives w.r.t. each parameter */
+  // RH: Check if components i=0..5 (position and momenta) do not change the a parameter used for spin
+  // RH: this breaks the loop below for i>=6
+  SpinEOBHCoeffs tmpCoeffs;
+  {
+    // RH: taken from GSLSpinHamiltonianWrapperForRvecDerivs
+    /* These are the vectors which will be used in the call to the Hamiltonian */
+    REAL8Vector spin1, spin2;
+    REAL8Vector sigmaKerr;
+    REAL8 tmpVec[12]= {0.};
+    REAL8 tmpsKerrData[3]= {0.};
+    REAL8 mT2 = (mass1+mass2)*(mass1+mass2);
+
+    /* Use a temporary vector to avoid corrupting the main function */
+    memcpy( tmpVec, values, sizeof(tmpVec) );
+
+    /* Set the LAL-style vectors to point to the appropriate things */
+    sigmaKerr.length = 3;
+    spin1.length = 3;
+    spin2.length = 3;
+
+    spin1.data = tmpVec+6;
+    spin2.data = tmpVec+9;
+    sigmaKerr.data = tmpsKerrData;
+
+    /* To compute the SigmaKerr and SigmaStar, we need the non-normalized
+     * spin values, i.e. S_i. The spins being evolved are S_i/M^2. */
+    for ( i = 0; i < 3; i++ )
+    {
+           spin1.data[i]  *= mT2;
+           spin2.data[i]  *= mT2;
+    }
+
+    /* Calculate various spin parameters */
+    XLALSimIMRSpinEOBCalculateSigmaKerr( &sigmaKerr, mass1, mass2,
+                                         &spin1, &spin2 );
+
+    REAL8 tmpa;
+    tmpa = sqrt(sigmaKerr.data[0]*sigmaKerr.data[0]
+                + sigmaKerr.data[1]*sigmaKerr.data[1]
+                + sigmaKerr.data[2]*sigmaKerr.data[2]);
+    if ( XLALSimIMRCalculateSpinPrecEOBHCoeffs( &tmpCoeffs, eta,
+          tmpa, coeffs->SpinAlignedEOBversion ) == XLAL_FAILURE )
+    {
+      XLAL_ERROR( XLAL_EFUNC );
+    }
+    tmpCoeffs.SpinAlignedEOBversion = params.params->seobCoeffs->SpinAlignedEOBversion;
+    tmpCoeffs.updateHCoeffs = 0;
+  }
+  SpinEOBHCoeffs *oldCoeffs = params.params->seobCoeffs;
+  params.params->seobCoeffs = &tmpCoeffs;
   for ( i = 3; i < 6; i++ )
   {
     params.varyParam = i;
     if ( i >=6 && i < 9 )
     {
+      XLAL_ERROR( XLAL_EFUNC ); // this should never happen
       params.params->seobCoeffs->updateHCoeffs = 1;
       XLAL_CALLGSL( gslStatus = gsl_deriv_central( &F, values[i],
                       STEP_SIZE*mass1*mass1, &tmpDValues[i], &absErr ) );
     }
     else if ( i >= 9 )
     {
+      XLAL_ERROR( XLAL_EFUNC ); // this should never happen
       params.params->seobCoeffs->updateHCoeffs = 1;
       XLAL_CALLGSL( gslStatus = gsl_deriv_central( &F, values[i],
                       STEP_SIZE*mass2*mass2, &tmpDValues[i], &absErr ) );
     }
     else if ( i < 3 )
     {
-	    params.params->seobCoeffs->updateHCoeffs = 1;
+        XLAL_ERROR( XLAL_EFUNC ); // this should never happen
       	params.params->tortoise = 2;
 		memcpy( tmpValues, params.values, sizeof(tmpValues) );
 		tmpValues[3] = tmpP[0]; tmpValues[4] = tmpP[1]; tmpValues[5] = tmpP[2];
@@ -1452,7 +1505,6 @@ UNUSED static int XLALSpinPrecHcapRvecDerivative(
 	}
     else
     {
-      params.params->seobCoeffs->updateHCoeffs = 1;
       XLAL_CALLGSL( gslStatus = gsl_deriv_central( &F, values[i], 
                       STEP_SIZE, &tmpDValues[i], &absErr ) );
     }
@@ -1462,6 +1514,7 @@ UNUSED static int XLALSpinPrecHcapRvecDerivative(
       XLAL_ERROR( XLAL_EFUNC );
     }
   }
+  params.params->seobCoeffs = oldCoeffs;
   if (debugPK){
     for( i =0; i < 12; i++)
       if( isnan(tmpDValues[i]) ) {
