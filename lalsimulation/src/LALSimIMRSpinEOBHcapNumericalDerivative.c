@@ -714,26 +714,7 @@ XLALSpinHcapNumericalDerivative(
     if (values[9]!=0. && values[10]!=0. && values[11]!=0.) {
         S2Norm = sqrt( values[9]*values[9] + values[10]*values[10] + values[11]*values[11] );
     }
-    /*for(i=6; i<9; i++) {
-        if(fabs(values[i])<=1e-4 && fabs(dvalues[i])<=1e-4) {
-        dvalues[i]=0.;
-        }
-        if(S1Norm!=0.) {
-            if (fabs(values[i]/S1Norm)<=1e-4 && fabs(dvalues[i])<=1e-4) {
-            dvalues[i]=0.;
-            }
-        }
-    }
-    for(i=9; i<12; i++) {
-        if(fabs(values[i])<=1e-4 && fabs(dvalues[i])<=1e-4) {
-            dvalues[i]=0.;
-        }
-        if(S2Norm!=0.) {
-            if (fabs(values[i]/S2Norm)<=1e-4 && fabs(dvalues[i])<=1e-4) {
-                dvalues[i]=0.;
-            }
-        }
-    }*/
+
 
     if(debugPK){
   for(i=0; i<14; i++)
