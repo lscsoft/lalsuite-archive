@@ -6074,7 +6074,14 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
       q=pos['q'].samples[which][0]
       mc=pos['mc'].samples[which][0]
       M1,M2=bppu.q2ms(mc,q)
-      D=pos['dist'].samples[which][0]
+      if 'dist' in pos.names:
+        D=pos['dist'].samples[which][0]
+      elif 'distance' in pos.names:
+        D=pos['distance'].samples[which][0]
+      elif 'logdistance' in pos.names:
+        D=exp(pos['distance'].samples[which][0])
+
+
       m1=M1*LAL_MSUN_SI
       m2=M2*LAL_MSUN_SI
       if 'phi_orb' in pos.names:
@@ -6316,8 +6323,11 @@ def plot_psd(psd_files,outpath=None):
   plt.ylabel("PSD",fontsize=26)
   plt.legend(loc='best')
   plt.grid(which='both')
-  plt.tight_layout()
-  myfig2.savefig(os.path.join(outpath,'PSD.png'),bbox_inches='tight')
+  try: 
+    plt.tight_layout()
+    myfig2.savefig(os.path.join(outpath,'PSD.png'),bbox_inches='tight')
+  except:
+    myfig2.savefig(os.path.join(outpath,'PSD.png'))
   myfig2.clf()
 
   return freqs

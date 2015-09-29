@@ -581,13 +581,14 @@ def cbcBayesPostProc(
         os.makedirs(wfdir)
     try:
         wfpointer= bppu.plot_waveform(pos=pos,siminspiral=injfile,event=eventnum,path=wfdir)
-    except:
+    except  Exception,e:
         wfpointer = None
     wftd=html_wf.insert_td(row,'',label='Waveform',legend=legend)
     wfsection=html.add_section_to_element('Waveforms',wftd)
     if wfpointer:
       wfsection.write('<a href="Waveform/WF_DetFrame.png" target="_blank"><img src="Waveform/WF_DetFrame.png"/></a>')
     else:
+      print "Could not create WF plot. The error was: %s\n"%str(e)
       wfsection.write("<b>No Waveform generated!</b>")
       
     wftd=html_wf.insert_td(row,'',label='PSDs',legend=legend)
@@ -600,7 +601,8 @@ def cbcBayesPostProc(
       try:
         freqs = bppu.plot_psd(psd_files,outpath=psddir)
         wfsection.write('<a href="PSDs/PSD.png" target="_blank"><img src="PSDs/PSD.png"/></a>')
-      except:
+      except  Exception,e:
+        print "Could not create PSD file. The error was: %s\n"%str(e)
         freqs = None
         wfsection.write("<b>No PSD file found!</b>")
 
