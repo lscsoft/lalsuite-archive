@@ -6420,6 +6420,11 @@ def plot_calibration_pos(pos, level=.9, outpath=None):
     ax2.set_xlabel('Frequency (Hz)', fontsize=font_size)
     ax1.set_ylabel('Amplitude (%)', fontsize=font_size)
     ax2.set_ylabel('Phase (deg)', fontsize=font_size)
-    fig.tight_layout()
-    fig.savefig(os.path.join(outpath, 'calibration.png'), bbox_inches='tight')
+
+    outp = os.path.join(outpath, 'calibration.png')
+    try:
+        fig.tight_layout()
+        fig.savefig(outp, bbox_inches='tight')
+    except:
+        fig.savefig(outp)
     plt.close(fig)
