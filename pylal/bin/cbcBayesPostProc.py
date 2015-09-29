@@ -613,7 +613,6 @@ def cbcBayesPostProc(
         wfsection.write('<a href="calibration.png" target="_blank"><img src="calibration.png"/></a>')
       else:
         wfsection.write("<b> No calibration plots </b>")
-        print "Could not create calibration errors plot. The error was: %s\n"%str(e)
 
 
     #==================================================================#
