@@ -1495,12 +1495,12 @@ int XLALSimIMRSpinEOBWaveform(
     SphHarmTimeSeries *hlmPTSHi = NULL;
     SphHarmTimeSeries *hlmPTSout = NULL;
     SphHarmTimeSeries *hIMRlmJTSHi = NULL;
+    SphHarmTimeSeries *hIMR = NULL;
 
-    XLALSimIMRSpinEOBWaveformAll(hplus, hcross, &dynamicsHi, &hlmPTSout, &hlmPTSHi, &hIMRlmJTSHi, &AttachPars, 
+    XLALSimIMRSpinEOBWaveformAll(hplus, hcross, &dynamicsHi, &hlmPTSout, &hlmPTSHi, &hIMRlmJTSHi, &hIMR, &AttachPars, 
                         phiC, deltaT, m1SI, m2SI, fMin, r, inc, INspin1[0],
                         INspin1[1], INspin1[2], INspin2[0], INspin2[1],
-                        INspin2[2]);
-
+                        INspin2[2]);   
 
     //int i;
     
@@ -1522,6 +1522,7 @@ int XLALSimIMRSpinEOBWaveform(
     //}else{
     //    printf("Stas: attach pars is cleaned \n");
     //}
+                                            
     XLALDestroyREAL8Vector( dynamicsHi );
     
     XLALDestroyREAL8Vector( AttachPars );
@@ -1535,6 +1536,8 @@ int XLALSimIMRSpinEOBWaveform(
 
     XLALDestroySphHarmTimeSeries(hIMRlmJTSHi);
     //printf("Stas: J wave IMR is cleaned \n");
+    
+    XLALDestroySphHarmTimeSeries(hIMR);
 
     return XLAL_SUCCESS;
 
@@ -1548,6 +1551,7 @@ int XLALSimIMRSpinEOBWaveformAll(
         SphHarmTimeSeries **hlmPTSoutput, /**<< Here we store and return the PWave (high sampling) */
         SphHarmTimeSeries **hlmPTSHiOutput, /**<< Here we store and return the JWave (high sampling) */
         SphHarmTimeSeries **hIMRlmJTSHiOutput, /**<< Here we store and return the JWaveIMR (high sampling) */
+        SphHarmTimeSeries **hIMRoutput,       /** Here we store and retiurn the IWave (full) */
         REAL8Vector     **AttachPars,   /**<< Parameters of RD attachment: */ 
         //LIGOTimeGPS     *tc,
         const REAL8      phiC,      /**<< intitial orbital phase */
@@ -1578,8 +1582,8 @@ int XLALSimIMRSpinEOBWaveformAll(
   INspin2[2] = INspin2z;
 
   INT4 UNUSED ret;
-  INT4 debugPK = 0, debugCustomIC = 0, debugNoNQC = 0;
-  INT4 debugRD = 0;
+  INT4 debugPK = 1, debugCustomIC = 0, debugNoNQC = 0;
+  INT4 debugRD = 1;
   FILE *out = NULL;
   INT4 i=0;
   INT4 k=0;
@@ -1851,6 +1855,8 @@ int XLALSimIMRSpinEOBWaveformAll(
   SphHarmTimeSeries *hlmPTSHi = NULL;
   SphHarmTimeSeries *hlmPTSout = NULL;
   SphHarmTimeSeries *hIMRlmJTSHi = NULL;
+  //SphHarmTimeSeries *hIMRlmout = NULL;
+  
   
   REAL8Sequence *tlistHi        = NULL;
   REAL8Sequence *tlistRDPatchHi = NULL;
@@ -2050,11 +2056,13 @@ int XLALSimIMRSpinEOBWaveformAll(
 
   REAL8Vector* tmpValues2 = NULL;
   tmpValues2 = XLALCreateREAL8Vector( 14 ); 
+  REAL8 incl_temp = 0.0;  // !!!! For comparison with C++ and NR we need inc = 0 for initial conditions
+  //incl_temp = inc;
     if (( fabs(theta1Ini) <= 1.0e-5  || fabs(theta1Ini) >= LAL_PI - 1.0e-5) && ( fabs(theta2Ini) <= 1.0e-5 || fabs(theta2Ini) >= LAL_PI - 1.0e-5) ) {
         seobParams.alignedSpins = 1;
         seobParams.chi1 = spin1[2];
         seobParams.chi2 = spin2[2];
-        if ( XLALSimIMRSpinEOBInitialConditionsV2( tmpValues2, m1, m2, fMin, inc,
+        if ( XLALSimIMRSpinEOBInitialConditionsV2( tmpValues2, m1, m2, fMin, incl_temp,
                                                 mSpin1, mSpin2, &seobParams ) == XLAL_FAILURE )
         {
             XLAL_ERROR( XLAL_EFUNC );
@@ -2062,7 +2070,7 @@ int XLALSimIMRSpinEOBWaveformAll(
         seobParams.alignedSpins = 0;
     }
     else {
-    if ( XLALSimIMRSpinEOBInitialConditions( tmpValues2, m1, m2, fMin, inc,
+    if ( XLALSimIMRSpinEOBInitialConditions( tmpValues2, m1, m2, fMin, incl_temp,
        	mSpin1, mSpin2, &seobParams ) == XLAL_FAILURE )
         {
             XLAL_ERROR( XLAL_EFUNC );
@@ -2213,8 +2221,22 @@ int XLALSimIMRSpinEOBWaveformAll(
   //tmpValues2->data[3] *= 1.02;
   //tmpValues2->data[4] *= 1.02;
   //tmpValues2->data[5] *= -0.01;
+      tmpValues2->data[0]= 15.4898001256;
+      tmpValues2->data[1]= 0.;
+      tmpValues2->data[2]= -4.272074867808132e-19;
+      tmpValues2->data[3]= -0.0009339635043526475;
+      tmpValues2->data[4]= 0.2802596444562164;
+      tmpValues2->data[5]= -0.0001262371378125648;
+      tmpValues2->data[6]= 0.03950299224160406;
+      tmpValues2->data[7]= 0.1033495061350166;
+      tmpValues2->data[8]= 0.02382287037711037;
+      tmpValues2->data[9]= 0.07463668902857602;
+      tmpValues2->data[10]= 0.001769731591445356;
+      tmpValues2->data[11]= 0.04303525354405329;
   }
   
+  
+      
   if(debugPK)
   {
     printf("Setting up initial conditions, returned values are:\n");
@@ -4534,7 +4556,8 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   hIMRlmITS = XLALSphHarmTimeSeriesAddMode( hIMRlmITS, hIMR2m1JTS, 2, -1 );
   hIMRlmITS = XLALSphHarmTimeSeriesAddMode( hIMRlmITS, hIMR2m2JTS, 2, -2 );
   XLALSphHarmTimeSeriesSetTData( hIMRlmITS, tlistRDPatch );
-
+  
+  
   if (debugPK){ printf("Rotation to inertial I-frame\n"); fflush(NULL); }
   if ( XLALSimInspiralPrecessionRotateModes( hIMRlmITS, 
                 alpI, betI, gamI ) == XLAL_FAILURE )
@@ -4546,6 +4569,18 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   hIMR20ITS  = XLALSphHarmTimeSeriesGetMode( hIMRlmITS, 2, 0 );
   hIMR2m1ITS = XLALSphHarmTimeSeriesGetMode( hIMRlmITS, 2, -1);
   hIMR2m2ITS = XLALSphHarmTimeSeriesGetMode( hIMRlmITS, 2, -2);
+  
+  *hIMRoutput = XLALSphHarmTimeSeriesAddMode( *hIMRoutput, hIMR22ITS, 2, 2 );
+  *hIMRoutput = XLALSphHarmTimeSeriesAddMode( *hIMRoutput, hIMR21ITS, 2, 1 );
+  *hIMRoutput = XLALSphHarmTimeSeriesAddMode( *hIMRoutput, hIMR20ITS, 2, 0 );
+  *hIMRoutput = XLALSphHarmTimeSeriesAddMode( *hIMRoutput, hIMR2m1ITS, 2, -1 );
+  *hIMRoutput = XLALSphHarmTimeSeriesAddMode( *hIMRoutput, hIMR2m2ITS, 2, -2 );
+  //hIMRlmout = XLALSphHarmTimeSeriesAddMode( hIMRlmout, hIMR20ITS, 2, 0 );
+  //hIMRlmout = XLALSphHarmTimeSeriesAddMode( hIMRlmout, hIMR2m1ITS, 2, -1 );
+  //hIMRlmout = XLALSphHarmTimeSeriesAddMode( hIMRlmout, hIMR2m2ITS, 2, -2 );
+  //XLALSphHarmTimeSeriesSetTData( hIMRlmout, tlistRDPatch );
+  XLALSphHarmTimeSeriesSetTData( *hIMRoutput, tlistRDPatch );
+  //*hIMRoutput = hIMRlmout;
 
   if (debugPK){
     out = fopen( "IWaves.dat", "w" );
@@ -4624,7 +4659,13 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   //printf("Memory cleanup 2 done.\n"); fflush(NULL); 
   XLALDestroySphHarmTimeSeries(hlmPTS);
   // printf("Memory cleanup 2.5 done.\n"); fflush(NULL); 
-  XLALDestroySphHarmTimeSeries(hIMRlmJTS);
+  //XLALDestroySphHarmTimeSeries(hIMRlmJTS);
+  XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 2 ));
+  XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 1 ));
+  XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 0 ));
+  XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, -1 ));
+  XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, -2 ));
+  
   //printf("Memory cleanup 2.6 done.\n"); fflush(NULL); 
   //XLALDestroySphHarmTimeSeries(hIMRlmJTS);
   //XLALDestroySphHarmTimeSeries(hIMRlmITS);
@@ -4729,6 +4770,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   }
   *dynHi = tmp_vec;
   XLALDestroyREAL8Array( dynamicsHi );
+  
 
   return XLAL_SUCCESS;
 }
