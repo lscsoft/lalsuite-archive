@@ -6374,7 +6374,7 @@ def plot_spline_pos(logf, ys, nf=100, level=0.9, color='k', label=None):
     plt.fill_between(fs, cred_interval(data, level), cred_interval(data, level, lower=False), color=color, alpha=.1, linewidth=0.1)
     plt.xlim(f.min()-.5, f.max()+50)
 
-def plot_calibration_pos(freqs, pos, fmin=30., level=.9, outpath=None):
+def plot_calibration_pos(pos, level=.9, outpath=None):
     fig, [ax1, ax2] = plt.subplots(2, 1, figsize=(15, 15), dpi=500)
 
     font_size = 32
@@ -6382,32 +6382,34 @@ def plot_calibration_pos(freqs, pos, fmin=30., level=.9, outpath=None):
         outpath=os.getcwd()
 
     params = pos.names
-    ifos = freqs.keys()
+    ifos = np.unique([param.split('_')[0] for param in params if 'spcal' in param])
     for ifo in ifos:
-        ifo = ifo.lower()
         if ifo=='h1': color = 'r'
         elif ifo=='l1': color = 'g'
         elif ifo=='v1': color = 'm'
         else: color = 'c'
 
+        # Assume spline control frequencies are constant
+        freq_params = np.sort([param for param in params if
+                               '{}_spcal_freq'.format(ifo) in param])
+
+        logfreqs = np.log([pos[param].median for param in freq_params])
+
+        # Amplitude calibration model
+        plt.sca(ax1)
         amp_params = np.sort([param for param in params if
                               '{}_spcal_amp'.format(ifo) in param])
+        if len(amp_params) > 0:
+            amp = 100*np.column_stack([pos[param].samples for param in amp_params])
+            plot_spline_pos(logfreqs, amp, color=color, level=level, label="{} (mean, {}%)".format(ifo.upper(), int(level*100)))
+
+        # Phase calibration model
+        plt.sca(ax2)
         phase_params = np.sort([param for param in params if
                                 '{}_spcal_phase'.format(ifo) in param])
-
-        amp = 100*np.column_stack([pos[param].samples for param in amp_params])
-        phase = 180./np.pi*np.column_stack([pos[param].samples for param in phase_params])
-
-        ncal = len(amp_params)
-
-        logfreqs = np.log(np.logspace(np.log(fmin),
-                                      np.log(max(freqs[ifo])), ncal, base=np.exp(1)))
-
-        plt.sca(ax1)
-        plot_spline_pos(logfreqs, amp, color=color, level=level, label="{} (mean, {}%)".format(ifo.upper(), int(level*100)))
-
-        plt.sca(ax2)
-        plot_spline_pos(logfreqs, phase, color=color, level=level, label="{} (mean, {}%)".format(ifo.upper(), int(level*100)))
+        if len(phase_params) > 0:
+            phase = 180./np.pi*np.column_stack([pos[param].samples for param in phase_params])
+            plot_spline_pos(logfreqs, phase, color=color, level=level, label="{} (mean, {}%)".format(ifo.upper(), int(level*100)))
 
     ax1.tick_params(labelsize=.75*font_size)
     ax2.tick_params(labelsize=.75*font_size)
