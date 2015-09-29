@@ -6348,13 +6348,18 @@ def plot_spline_pos(logf, ys, nf=100, level=0.9, color='k', label=None):
 
     data = np.zeros((ys.shape[0], nf))
 
+    mu = np.mean(ys, axis=0)
+    lower_cl = mu - cred_interval(ys, level, lower=True)
+    upper_cl = cred_interval(ys, level, lower=False) - mu
+    plt.errorbar(np.exp(logf), mu, yerr=[lower_cl, upper_cl], fmt='.', color=color, lw=4, alpha=0.5, capsize=0)
+
     for i, samp in enumerate(ys):
         data[i] = interpolate.spline(logf, samp, np.log(fs))
 
     line, = plt.plot(fs, np.mean(data, axis=0), color=color, label=label)
     color = line.get_color()
     plt.fill_between(fs, cred_interval(data, level), cred_interval(data, level, lower=False), color=color, alpha=.1, linewidth=0.1)
-    plt.xlim(f.min(), f.max())
+    plt.xlim(f.min()-.5, f.max()+50)
 
 def plot_calibration_pos(freqs, pos, fmin=30., level=.9, outpath=None):
     fig, [ax1, ax2] = plt.subplots(2, 1, figsize=(15, 15), dpi=500)
@@ -6386,10 +6391,10 @@ def plot_calibration_pos(freqs, pos, fmin=30., level=.9, outpath=None):
                                       np.log(max(freqs[ifo])), ncal, base=np.exp(1)))
 
         plt.sca(ax1)
-        plot_spline_pos(logfreqs, amp, color=color, level=level, label="{} ({}%)".format(ifo.upper(), int(level*100)))
+        plot_spline_pos(logfreqs, amp, color=color, level=level, label="{} (mean, {}%)".format(ifo.upper(), int(level*100)))
 
         plt.sca(ax2)
-        plot_spline_pos(logfreqs, phase, color=color, level=level, label="{} ({}%)".format(ifo.upper(), int(level*100)))
+        plot_spline_pos(logfreqs, phase, color=color, level=level, label="{} (mean, {}%)".format(ifo.upper(), int(level*100)))
 
     ax1.tick_params(labelsize=.75*font_size)
     ax2.tick_params(labelsize=.75*font_size)
