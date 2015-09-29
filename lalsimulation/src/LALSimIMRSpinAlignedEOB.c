@@ -4612,11 +4612,11 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
     fclose( out );
   }
 
-  Y22 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, 2 );
-  Y2m2 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, -2 );
-  Y21 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, 1 );
-  Y2m1 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, -1 );
-  Y20 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, 0 );
+  Y22 = XLALSpinWeightedSphericalHarmonic( -inc, phiC, -2, 2, 2 );
+  Y2m2 = XLALSpinWeightedSphericalHarmonic( -inc, phiC, -2, 2, -2 );
+  Y21 = XLALSpinWeightedSphericalHarmonic( -inc, phiC, -2, 2, 1 );
+  Y2m1 = XLALSpinWeightedSphericalHarmonic( -inc, phiC, -2, 2, -1 );
+  Y20 = XLALSpinWeightedSphericalHarmonic( -inc, phiC, -2, 2, 0 );
  
   for ( i = 0; i < (INT4)hIMR22ITS->data->length; i++ )
   {
