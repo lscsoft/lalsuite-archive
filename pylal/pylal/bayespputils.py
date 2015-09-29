@@ -3976,8 +3976,11 @@ def plot_corner(posterior,levels,parnames=None):
   try:
     import corner
   except ImportError:
-    print 'Cannot load corner module. Try running\n\t$ pip install corner'
-    return None
+          try:
+                  import triangle as corner
+          except ImportError:
+                  print 'Cannot load corner module. Try running\n\t$ pip install corner'
+                  return None
   parnames=filter(lambda x: x in posterior.names, parnames)
   labels = [plot_label(parname) for parname in parnames]
   data = np.hstack([posterior[p].samples for p in parnames])
