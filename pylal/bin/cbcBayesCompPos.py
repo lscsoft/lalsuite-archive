@@ -698,7 +698,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
             for name,infolder in names_and_pos_folders:
                 #color_by_name=cmap_array[color_idx]
                 color_by_name[name]=cmap_array[int(floor(color_idx*cmap_size/color_idx_max)),:]
-                color_idx+=1
+                color_idx=(color_idx+1) % color_idx_max
                 hatches_by_name[name]=hatches[color_idx]
 
             for i,j in all_pairs(temp):#Iterate over all unique pairs in the set of common parameters
