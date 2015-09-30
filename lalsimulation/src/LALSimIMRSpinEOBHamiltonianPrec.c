@@ -445,11 +445,10 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
      (24.*b13P5 - 24.*b33P5 - 16.*eta + 21.*eta*eta + bbb*(-2. + 30.*eta))*pp*
      r))/(72.*r*r);
   */
-  const REAL8 invr2 = u*u;
   sMultiplier1 = -(2.*eta*(-353. + 27.*eta) + 2.*(103.*eta - 60.*eta*eta)*pp*r 
                + (120.*(-3.))*(eta*eta)*(pn2*pn2)*(r*r) + (eta*(23. + 3.*eta))*(pp*pp)*(r*r )
                + 6.*pn2*r*(- 47.*eta + 54.*(eta*eta) + (- 16.*eta + 21.*(eta*eta))*pp*r))
-               * (1./72.) * invr2;
+               * (1./72.) * u2;
   /* Eq. 52 of BB2, (YP) simplified for zero gauge parameters */       
   /*
   sMultiplier2 = (-16.*(6.*a23P5 + 7.*eta*(8. + 3.*eta) + aaa*(14. + 15.*eta)) +
@@ -463,20 +462,19 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
   sMultiplier2 = (-16.*(7.*eta*(8. + 3.*eta)) + 4.*(- 109.*eta + 51.*eta*eta)*pp*r 
                + 810.*(eta*eta)*(pn2*pn2)*(r*r) - 45.*eta*(pp*pp)*(r*r)
                - 6.*pn2*r*(16.*eta + 147.*eta*eta + (- 6.*eta + 39.*(eta*eta))*pp*r))
-               * (1./144.) * invr2;
+               * (1./144.) * u2;
   /* Eq. 52 of BB2 */                     
   deltaSigmaStar_x += sMultiplier1*sigmaStar->data[0] + sMultiplier2*sigmaKerr->data[0];
   deltaSigmaStar_y += sMultiplier1*sigmaStar->data[1] + sMultiplier2*sigmaKerr->data[1];
   deltaSigmaStar_z += sMultiplier1*sigmaStar->data[2] + sMultiplier2*sigmaKerr->data[2];
 
   /* And now the (calibrated) 4.5PN term */
-  const REAL8 invr3 = invr2*u;
-  deltaSigmaStar_x += coeffs->d1 * eta * sigmaStar->data[0] * invr3;
-  deltaSigmaStar_y += coeffs->d1 * eta * sigmaStar->data[1] * invr3;
-  deltaSigmaStar_z += coeffs->d1 * eta * sigmaStar->data[2] * invr3;
-  deltaSigmaStar_x += coeffs->d1v2 * eta * sigmaKerr->data[0] * invr3;
-  deltaSigmaStar_y += coeffs->d1v2 * eta * sigmaKerr->data[1] * invr3;
-  deltaSigmaStar_z += coeffs->d1v2 * eta * sigmaKerr->data[2] * invr3;
+  deltaSigmaStar_x += coeffs->d1 * eta * sigmaStar->data[0] * u3;
+  deltaSigmaStar_y += coeffs->d1 * eta * sigmaStar->data[1] * u3;
+  deltaSigmaStar_z += coeffs->d1 * eta * sigmaStar->data[2] * u3;
+  deltaSigmaStar_x += coeffs->d1v2 * eta * sigmaKerr->data[0] * u3;
+  deltaSigmaStar_y += coeffs->d1v2 * eta * sigmaKerr->data[1] * u3;
+  deltaSigmaStar_z += coeffs->d1v2 * eta * sigmaKerr->data[2] * u3;
 
 
   if(debugPK)printf( "deltaSigmaStar_x = %.16e, deltaSigmaStar_y = %.16e, deltaSigmaStar_z = %.16e\n", 
@@ -514,14 +512,13 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
   H = Hns + Hs + Hss;
 
   /* Add the additional calibrated term */
-  const REAL8 invr4 = invr2 * invr2;
-  H += coeffs->dheffSS * eta * (sKerr_x*sStar_x + sKerr_y*sStar_y + sKerr_z*sStar_z) *invr4;
+  H += coeffs->dheffSS * eta * (sKerr_x*sStar_x + sKerr_y*sStar_y + sKerr_z*sStar_z) *u4;
   /* One more calibrated term proportional to S1^2+S2^2. Note that we use symmetric exp2ressions of m1,m2 and S1,S2 */
   /*H += coeffs->dheffSSv2 * eta / (r*r*r*r) / (1.-4.*eta)
                          * ( (sKerr_x*sKerr_x + sKerr_y*sKerr_y + sKerr_z*sKerr_z)*(1.-4.*eta+2.*eta*eta)
                             +(sKerr_x*sStar_x + sKerr_y*sStar_y + sKerr_z*sStar_z)*(-2.*eta+4.*eta*eta)
                             +(sStar_x*sStar_x + sStar_y*sStar_y + sStar_z*sStar_z)*(2.*eta*eta) );*/
-  H += coeffs->dheffSSv2 * eta * invr4
+  H += coeffs->dheffSSv2 * eta * u4
                          * (s1Vec->data[0]*s1Vec->data[0] + s1Vec->data[1]*s1Vec->data[1] + s1Vec->data[2]*s1Vec->data[2]
                            +s2Vec->data[0]*s2Vec->data[0] + s2Vec->data[1]*s2Vec->data[1] + s2Vec->data[2]*s2Vec->data[2]);
   if(debugPK){
