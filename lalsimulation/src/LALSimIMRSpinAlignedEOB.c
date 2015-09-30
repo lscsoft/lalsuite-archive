@@ -2070,7 +2070,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   REAL8Vector* tmpValues2 = NULL;
   tmpValues2 = XLALCreateREAL8Vector( 14 ); 
   REAL8 incl_temp = 0.0;  // !!!! For comparison with C++ and NR we need inc = 0 for initial conditions
-  //incl_temp = inc;
+  incl_temp = inc;
   if (( fabs(theta1Ini) <= EPS_ALIGN  || fabs(theta1Ini) >= LAL_PI - EPS_ALIGN) && ( fabs(theta2Ini) <= EPS_ALIGN || fabs(theta2Ini) >= LAL_PI - EPS_ALIGN) ) {
         seobParams.alignedSpins = 1;
         seobParams.chi1 = spin1Norm*cos(theta1Ini)/fabs(cos(theta1Ini));
