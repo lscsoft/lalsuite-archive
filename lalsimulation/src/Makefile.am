@@ -158,7 +158,6 @@ liblalsimulation_la_SOURCES = \
 	check_series_macros.h \
 	check_waveform_macros.h \
 	unicorn.xpm \
-	LALSimInspiralHGimri.c \
         LALSimFindAttachTime.c \
 	LALSimInspiralHGimri.c
 
