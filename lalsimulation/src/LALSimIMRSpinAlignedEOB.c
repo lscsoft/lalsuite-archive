@@ -3301,9 +3301,9 @@ int XLALSimIMRSpinEOBWaveformAll(
   Jx = eta*Lx + values->data[6] + values->data[9];
   Jy = eta*Ly + values->data[7] + values->data[10];
   Jz = eta*Lz + values->data[8] + values->data[11];
-    Jx = eta*Lx ;
-    Jy = eta*Ly ;
-    Jz = eta*Lz ;
+//    Jx = eta*Lx ;
+//    Jy = eta*Ly ;
+//    Jz = eta*Lz ;
   magJ = sqrt( Jx*Jx + Jy*Jy + Jz*Jz );
   
   if(debugPK){ 
