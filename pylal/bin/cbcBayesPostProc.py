@@ -583,12 +583,13 @@ def cbcBayesPostProc(
         wfpointer= bppu.plot_waveform(pos=pos,siminspiral=injfile,event=eventnum,path=wfdir)
     except  Exception,e:
         wfpointer = None
+        print "Could not create WF plot. The error was: %s\n"%str(e)
     wftd=html_wf.insert_td(row,'',label='Waveform',legend=legend)
     wfsection=html.add_section_to_element('Waveforms',wftd)
     if wfpointer:
       wfsection.write('<a href="Waveform/WF_DetFrame.png" target="_blank"><img src="Waveform/WF_DetFrame.png"/></a>')
     else:
-      print "Could not create WF plot. The error was: %s\n"%str(e)
+      print "Could not create WF plot.\n"
       wfsection.write("<b>No Waveform generated!</b>")
       
     wftd=html_wf.insert_td(row,'',label='PSDs',legend=legend)
