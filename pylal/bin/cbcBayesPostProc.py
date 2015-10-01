@@ -1306,7 +1306,7 @@ if __name__=='__main__':
     bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
     massiveGravitonParams=['lambdaG']
     tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat']
-    statsParams=['logprior','logl','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','deltaloglh2','deltaloglg1','flow']
+    statsParams=['logprior','logl','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','deltaloglh2','deltaloglg1']
     calibParams=['calpha_l1','calpha_h1','calpha_v1','calamp_l1','calamp_h1','calamp_v1']
     snrParams=bppu.snrParams
     oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams + ppEParams + tigerParams + bransDickeParams + massiveGravitonParams + tidalParams + statsParams + snrParams + calibParams
