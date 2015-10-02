@@ -4616,11 +4616,20 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
     fclose( out );
   }
 
-  Y22 = XLALSpinWeightedSphericalHarmonic( -inc, phiC, -2, 2, 2 );
-  Y2m2 = XLALSpinWeightedSphericalHarmonic( -inc, phiC, -2, 2, -2 );
-  Y21 = XLALSpinWeightedSphericalHarmonic( -inc, phiC, -2, 2, 1 );
-  Y2m1 = XLALSpinWeightedSphericalHarmonic( -inc, phiC, -2, 2, -1 );
-  Y20 = XLALSpinWeightedSphericalHarmonic( -inc, phiC, -2, 2, 0 );
+    if (( fabs(theta1Ini) <= EPS_ALIGN  || fabs(theta1Ini) >= LAL_PI - EPS_ALIGN) && ( fabs(theta2Ini) <= EPS_ALIGN || fabs(theta2Ini) >= LAL_PI - EPS_ALIGN) ) {
+        Y22 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, 2 );
+        Y2m2 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, -2 );
+        Y21 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, 1 );
+        Y2m1 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, -1 );
+        Y20 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, 0 );
+    }
+    else {
+        Y22 = XLALSpinWeightedSphericalHarmonic( 0, phiC, -2, 2, 2 );
+        Y2m2 = XLALSpinWeightedSphericalHarmonic( 0, phiC, -2, 2, -2 );
+        Y21 = XLALSpinWeightedSphericalHarmonic( 0, phiC, -2, 2, 1 );
+        Y2m1 = XLALSpinWeightedSphericalHarmonic( 0, phiC, -2, 2, -1 );
+        Y20 = XLALSpinWeightedSphericalHarmonic( 0, phiC, -2, 2, 0 );
+    }
  
   for ( i = 0; i < (INT4)hIMR22ITS->data->length; i++ )
   {
