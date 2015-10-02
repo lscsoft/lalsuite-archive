@@ -202,13 +202,12 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   REAL8 w2, rho2;
   REAL8 u, u2, u3, u4, u5;
   REAL8 bulk, deltaT, deltaR, Lambda;
-  REAL8 D, qq, ww, B, w, expMU, expnu, BR, wr, nur, mur;
+  REAL8 D, qq, ww, B, w, BR, wr, nur, mur;
   REAL8 wcos, nucos, mucos, ww_r, Lambda_r;
   REAL8 logTerms, deltaU, deltaU_u, Q, deltaT_r, pn2, pp;
   REAL8 deltaSigmaStar_x, deltaSigmaStar_y, deltaSigmaStar_z;
   REAL8 sx, sy, sz, sxi, sv, sn, s3;
   REAL8 H, Hns, Hs, Hss, Hreal, Hwcos, Hwr, HSOL, HSONL;
-  REAL8 invm1PlusetaKK;
 
   /* Terms which come into the 3.5PN mapping of the spins */
   //REAL8 aaa, bbb, a13P5, a23P5, a33P5, b13P5, b23P5, b33P5;
@@ -300,7 +299,7 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   rho2 = r2 + a2*costheta*costheta;
 
   if(debugPK)printf( "KK = %.16e\n", coeffs->KK );
-  invm1PlusetaKK = 1./(-1. + eta * coeffs->KK);
+  const REAL8 invm1PlusetaKK = 1./(-1. + eta * coeffs->KK);
   /* Eq. 5.75 of BB1 */
   bulk = invm1PlusetaKK*(invm1PlusetaKK + (2.*u)) + a2*u2;
   /* Eq. 5.73 of BB1 */
@@ -395,8 +394,8 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   w = ww*invLambda;
   //nu = 0.5 * log(deltaT*rho2/Lambda);
   //MU = 0.5 * log(rho2);  
-  expnu = sqrt(deltaT*rho2*invLambda);
-  expMU = sqrt(rho2);
+  const REAL8 expnu = sqrt(deltaT*rho2*invLambda);
+  const REAL8 expMU = sqrt(rho2);
   // RH: this is horrible but faster than 2 divisions
   const REAL8 invexpnuexpMU = 1./(expnu*expMU);
   const REAL8 invexpnu = expMU*invexpnuexpMU;
