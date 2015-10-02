@@ -5327,7 +5327,8 @@ class PEOutputParser(object):
                             splineParams.append(k+'_spcal_freq'+str(i))
                             splineParams.append(k+'_spcal_logfreq'+str(i))
                         nonParams = ["logpost", "cycle", "timestamp", "snrh1", "snrl1", "snrv1",
-                                     "time_mean", "time_maxl","sky_frame","psdscaleflag","flow","f_ref","lal_amporder","lal_pnorder","lal_approximant","signalmodelflag"] + logParams + snrParams
+                                     "time_mean", "time_maxl","sky_frame","psdscaleflag","logdeltaf","flow","f_ref",
+                                     "lal_amporder","lal_pnorder","lal_approximant","signalmodelflag"] + logParams + snrParams + splineParams
                         nonParamsIdxs = [header.index(name) for name in nonParams if name in header]
                         paramIdxs = [i for i in range(len(header)) if i not in nonParamsIdxs]
                         samps = np.array(lines).astype(float)
