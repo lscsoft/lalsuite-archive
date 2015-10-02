@@ -527,9 +527,9 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   const REAL8 sqrtQ = sqrt(Q);
   const REAL8 inv2B1psqrtQsqrtQ = 1./(2.*B*(1. + sqrtQ)*sqrtQ);
   Hwr = ((invexpMU*invexpMU*invexpMU*invexpnu)*sqrtdeltaR*((expMU*expMU*expnu*expnu)*pxir*pxir*sv - B*(expMU*expnu)*pvr*pxir*sxi +
-                                                       deltaT*xi2*((expMU*expMU)*(sqrtQ + Q)*sv + pn*pvr*sn*sqrtdeltaR - pn*pn*sv*deltaR)))*inv2B1psqrtQsqrtQ*invxi2;
+                                                       B*B*xi2*((expMU*expMU)*(sqrtQ + Q)*sv + pn*pvr*sn*sqrtdeltaR - pn*pn*sv*deltaR)))*inv2B1psqrtQsqrtQ*invxi2;
   /* Eq. 3.45 of BB1, third term */     
-  Hwcos = ((invexpMU*invexpMU*invexpMU*invexpnu)*(sn*(-(expMU*expMU*expnu*expnu*pxir*pxir) + deltaT*(pvr*pvr - (expMU*expMU)*(sqrtQ + Q)*xi2)) -
+  Hwcos = ((invexpMU*invexpMU*invexpMU*invexpnu)*(sn*(-(expMU*expMU*expnu*expnu*pxir*pxir) + B*B*(pvr*pvr - (expMU*expMU)*(sqrtQ + Q)*xi2)) -
                                             B*pn*(B*pvr*sv - (expMU*expnu)*pxir*sxi)*sqrtdeltaR))*inv2B1psqrtQsqrtQ;
   /* Eq. 3.44 of BB1, leading term */     
   HSOL = ((expnu*expnu*invexpMU)*(-B + (expMU*expnu))*pxir*s3)/(deltaT*sqrtQ)*invxi2;
