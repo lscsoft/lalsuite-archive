@@ -1632,6 +1632,7 @@ UNUSED static int XLALSpinHcapRvecDerivative(
     }
     else if ( i < 3 )
     {
+        XLAL_ERROR( XLAL_EFUNC ); // this should never happen
       	params.params->tortoise = 2;
 		memcpy( tmpValues, params.values, sizeof(tmpValues) );
 		tmpValues[3] = tmpP[0]; tmpValues[4] = tmpP[1]; tmpValues[5] = tmpP[2];
