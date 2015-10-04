@@ -266,8 +266,8 @@ def compute_search_efficiency_in_bins(found, total, ndbins, sim_to_bins_function
 	# increment the denominator with the total injections
 	[input.incdenominator(sim_to_bins_function(sim)) for sim in total]
 
-	# regularize by setting denoms to 1 to avoid nans
-	input.regularize()
+	# regularize by setting empty bins to zero efficiency
+	input.denominator.array[input.numerator.array < 1] = 1e35
 
 	# pull out the efficiency array, it is the ratio
 	eff = rate.BinnedArray(rate.NDBins(ndbins), array = input.ratio())
