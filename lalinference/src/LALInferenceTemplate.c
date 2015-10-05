@@ -1292,7 +1292,7 @@ void LALInferenceTemplatePrincipalComp(LALInferenceModel *model)
     /* Build Template */
     for(i=0; i<model->freqhPlus->data->length; i++){
 
-        model->freqhPlus->data->data[i] =
+        model->freqhPlus->data->data[i] = 
             betas[0] * (GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 0)) + I*GSL_IMAG(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 0)))
             + betas[1] * (GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 1)) + I*GSL_IMAG(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 1)))
             + betas[2] * (GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 2)) + I*GSL_IMAG(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 2)))
