@@ -309,8 +309,9 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   // result returned by Maple.
   const REAL8 invlog_2e = 0.69314718055994530941723212145817656807550013436026;
   logu = log2(u)*invlog_2e;
-  logTerms = 1. + eta*coeffs->k0 + eta*log1p(coeffs->k1*u + coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4
-                                             + coeffs->k5*u5 + coeffs->k5l*u5*logu);
+  const REAL8 logarg = coeffs->k1*u + coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4
+                                             + coeffs->k5*u5 + coeffs->k5l*u5*logu;
+  logTerms = 1. + eta*coeffs->k0 + eta*log1p(logarg);
   if(debugPK)printf( "bulk = %.16e, logTerms = %.16e\n", bulk, logTerms );
   /* Eq. 5.73 of BB1 */
   deltaU = bulk*logTerms;
@@ -319,7 +320,7 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   /* ddeltaU/du */
   deltaU_u = 2.*(invm1PlusetaKK + a2*u)*logTerms +
 	  bulk * (eta*(coeffs->k1 + u*(2.*coeffs->k2 + u*(3.*coeffs->k3 + u*(4.*coeffs->k4 + 5.*(coeffs->k5+coeffs->k5l*logu)*u)))))
-          / (1. + coeffs->k1*u + coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4 + (coeffs->k5+coeffs->k5l*logu)*u5);
+          / (1. + logarg);
   /* ddeltaT/dr */
   deltaT_r = 2.*r*deltaU - deltaU_u;
   /* Eq. 5.39 of BB1 */
