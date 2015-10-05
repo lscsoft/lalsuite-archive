@@ -217,7 +217,7 @@ def plot_label(param):
   ra_names = ['rightascension','ra']
   dec_names = ['declination','dec']
   phase_names = ['phi_orb', 'phi', 'phase', 'phi0']
-  gr_test_names = ['dchi%d'%i for i in range(8)]+['dchil%d'%i for i in [5,6]]+['dxi%d'%(i+1) for i in range(6)]
+  gr_test_names = ['dchi%d'%i for i in range(8)]+['dchil%d'%i for i in [5,6]]+['dxi%d'%(i+1) for i in range(6)]+['dalpha%d'%(i+1) for i in range(5)]
 
   labels={
       'm1':r'$m_1\,(\mathrm{M}_\odot)$',
@@ -297,6 +297,11 @@ def plot_label(param):
       'dxi4':r'$d\xi_4$',
       'dxi5':r'$d\xi_5$',
       'dxi6':r'$d\xi_6$',
+      'dalpha1':r'$d\alpha_1$',
+      'dalpha2':r'$d\alpha_2$',
+      'dalpha3':r'$d\alpha_3$',
+      'dalpha4':r'$d\alpha_4$',
+      'dalpha5':r'$d\alpha_5$',
     }
 
   # Handle cases where multiple names have been used
