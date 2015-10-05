@@ -51,6 +51,7 @@ from scipy import stats
 from scipy import special
 from scipy import signal
 from scipy.optimize import newton
+from scipy import interpolate
 from numpy import linspace
 import random
 import socket
@@ -97,6 +98,7 @@ __date__= git_version.date
 #===============================================================================
 #Parameters which are not to be exponentiated when found
 logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior']
+snrParams=['snr','optimal_snr','matched_filter_snr'] + ['%s_optimal_snr'%(i) for i in ['h1','l1','v1']]
 #Pre-defined ordered list of line styles for use in matplotlib contour plots.
 __default_line_styles=['solid', 'dashed', 'dashdot', 'dotted']
 #Pre-defined ordered list of matplotlib colours for use in plots.
@@ -237,8 +239,9 @@ def plot_label(param):
       'theta2':r'$\theta_2\,(\mathrm{rad})$',
       'phi1':r'$\phi_1\,(\mathrm{rad})$',
       'phi2':r'$\phi_2\,(\mathrm{rad})$',
-      'chi':r'$\chi$',
-      'chi_p':r'$\chi_P$',
+      'chi_eff':r'$\chi_\mathrm{eff}$',
+      'chi_tot':r'$\chi_\mathrm{total}$',
+      'chi_p':r'$\chi_\mathrm{P}$',
       'tilt1':r'$t_1\,(\mathrm{rad})$',
       'tilt2':r'$t_2\,(\mathrm{rad})$',
       'costilt1':r'$\mathrm{cos}(t_1)$',
@@ -706,13 +709,6 @@ class Posterior(object):
       if ('m1' in pos.names and 'm2' in pos.names and not 'mtotal' in pos.names ):
           pos.append_mapping('mtotal', lambda m1,m2: m1+m2, ('m1','m2') )
 
-      if ('spin1' in pos.names and 'm1' in pos.names) and \
-       ('spin2' in pos.names and 'm2' in pos.names):
-         pos.append_mapping('chi', lambda m1,s1z,m2,s2z: (m1*s1z + m2*s2z) / (m1 + m2), ('m1','spin1','m2','spin2'))
-      elif ('a1' in pos.names and 'm1' in pos.names) and ('a2' in pos.names and 'm2' in pos.names):
-         pos.append_mapping('chi', lambda m1,s1z,m2,s2z: (m1*s1z + m2*s2z) / (m1 + m2), ('m1','a1','m2','a2'))
-        
-
       if('a_spin1' in pos.names): pos.append_mapping('a1',lambda a:a,'a_spin1')
       if('a_spin2' in pos.names): pos.append_mapping('a2',lambda a:a,'a_spin2')
       if('phi_spin1' in pos.names): pos.append_mapping('phi1',lambda a:a,'phi_spin1')
@@ -781,16 +777,27 @@ class Posterior(object):
               pos.append_mapping(new_spin_params, spin_angles, old_params)
           except KeyError:
               print "Warning: Cannot find spin parameters.  Skipping spin angle calculations."
-                
+      
+      #If aligned spins, calculate effective spin parallel to L
+      if ('m1' in pos.names and 'spin1' in pos.names and not 'tilt1' in pos.names) and ('m2' in pos.names and 'spin2' in pos.names and not 'tilt2' in pos.names):
+         pos.append_mapping('chi_eff', lambda m1,spin1,m2,spin2: (m1*spin1 + m2*spin2) / (m1 + m2), ('m1','spin1','m2','spin2'))
+      elif ('m1' in pos.names and 'a1' in pos.names and not 'tilt1' in pos.names) and ('m2' in pos.names and 'a2' in pos.names and not 'tilt2' in pos.names):
+         pos.append_mapping('chi_eff', lambda m1,a1,m2,a2: (m1*a1 + m2*a2) / (m1 + m2), ('m1','a1','m2','a2'))
+      
+      #If precessing spins calculate effective spin parallel to L
+      # and total effective spin
+      if ('m1' in pos.names and 'a1' in pos.names and 'tilt1' in pos.names) and ('m2' in pos.names and 'a2' in pos.names and 'tilt2' in pos.names):
+         pos.append_mapping('chi_eff', lambda m1,a1,tilt1,m2,a2,tilt2: (m1*a1*np.cos(tilt1) + m2*a2*np.cos(tilt2)) / (m1 + m2), ('m1','a1','tilt1','m2','a2','tilt2'))
+         pos.append_mapping('chi_tot', lambda m1,a1,m2,a2: (m1*a1 + m2*a2) / (m1 + m2), ('m1','a1','m2','a2'))
+      
       #Calculate effective precessing spin magnitude
-      if ('a1' in pos.names and 'tilt1' in pos.names and 'm1' in pos.names ) and ('a2' in pos.names and 'tilt2' in pos.names and 'm2' in pos.names):
-          pos.append_mapping('chi_p', chi_precessing, ['a1', 'tilt1', 'm1', 'a2', 'tilt2', 'm2'])
-
-
+      if ('m1' in pos.names and 'a1' in pos.names and 'tilt1' in pos.names) and ('m2' in pos.names and 'a2' in pos.names and 'tilt2' in pos.names):
+          pos.append_mapping('chi_p', chi_precessing, ['m1', 'a1', 'tilt1', 'm2', 'a2', 'tilt2'])
+      
       # Calculate redshift from luminosity distance measurements
       if('distance' in pos.names):
           pos.append_mapping('redshift', calculate_redshift, 'distance')
-     
+
       # Calculate source mass parameters
       if ('m1' in pos.names) and ('redshift' in pos.names):
           pos.append_mapping('m1_source', source_mass, ['m1', 'redshift'])
@@ -3530,7 +3537,7 @@ def spin_angles(fref,mc,eta,incl,a1,theta1,phi1,a2=None,theta2=None,phi2=None):
     beta  = array_ang_sep(J,L)
     return tilt1, tilt2, theta_jn, beta
 #
-def chi_precessing(a1, tilt1, m1, a2, tilt2, m2):
+def chi_precessing(m1, a1, tilt1, m2, a2, tilt2):
 	"""
 	Calculate the magnitude of the effective precessing spin
 	following convention from Phys. Rev. D 91, 024043   --   arXiv:1408.1810
@@ -3978,24 +3985,27 @@ def getDecString(radians,accuracy='auto'):
 def plot_corner(posterior,levels,parnames=None):
   """
   Make a corner plot using the triangle module
-  (See http://github.com/dfm/triangle.py)
+  (See http://github.com/dfm/corner.py)
   @param posterior: The Posterior object
   @param levels: a list of confidence levels
   @param parnames: list of parameters to include
   """
   try:
-    import triangle
+    import corner
   except ImportError:
-    print 'Cannot load triangle module. Try running\n\t$ pip install triangle_plot'
-    return None
+          try:
+                  import triangle as corner
+          except ImportError:
+                  print 'Cannot load corner module. Try running\n\t$ pip install corner'
+                  return None
   parnames=filter(lambda x: x in posterior.names, parnames)
   labels = [plot_label(parname) for parname in parnames]
   data = np.hstack([posterior[p].samples for p in parnames])
   if posterior.injection:
     injvals=[posterior[p].injval for p in parnames]
-    myfig=triangle.corner(data,labels=labels,truths=injvals,quantiles=levels,plot_datapoints=False,bins=20)
+    myfig=corner.corner(data,labels=labels,truths=injvals,quantiles=levels,plot_datapoints=False,bins=20)
   else:
-    myfig=triangle.corner(data,labels=labels,quantiles=levels,plot_datapoints=False,bins=20)
+    myfig=corner.corner(data,labels=labels,quantiles=levels,plot_datapoints=False,bins=20)
   return(myfig)
 
 
@@ -4063,10 +4073,10 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
     
     try:
       kde=stats.kde.gaussian_kde(samp)
-    except np.linalg.linalg.LinAlgError:
+      den=kde(samp)
+    except:
       return None
       
-    den=kde(samp)
     #grid_coords = np.append(x.reshape(-1,1),y.reshape(-1,1),axis=1)
     Nx=Npixels
     Ny=Npixels
@@ -5328,8 +5338,14 @@ class PEOutputParser(object):
                 ntots.append(ntot)
                 if nDownsample is None:
                     try:
+                        splineParams=["spcal_npts", "spcal_active","constantcal_active"]
+                        for i in np.arange(5):
+                          for k in ['h1','l1']:
+                            splineParams.append(k+'_spcal_freq'+str(i))
+                            splineParams.append(k+'_spcal_logfreq'+str(i))
                         nonParams = ["logpost", "cycle", "timestamp", "snrh1", "snrl1", "snrv1",
-                                     "snr", "time_mean", "time_maxl", "matched_filter_snr", "optimal_snr"] + logParams
+                                     "time_mean", "time_maxl","sky_frame","psdscaleflag","logdeltaf","flow","f_ref",
+                                     "lal_amporder","lal_pnorder","lal_approximant","signalmodelflag"] + logParams + snrParams + splineParams
                         nonParamsIdxs = [header.index(name) for name in nonParams if name in header]
                         paramIdxs = [i for i in range(len(header)) if i not in nonParamsIdxs]
                         samps = np.array(lines).astype(float)
@@ -6081,7 +6097,14 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
       q=pos['q'].samples[which][0]
       mc=pos['mc'].samples[which][0]
       M1,M2=bppu.q2ms(mc,q)
-      D=pos['dist'].samples[which][0]
+      if 'dist' in pos.names:
+        D=pos['dist'].samples[which][0]
+      elif 'distance' in pos.names:
+        D=pos['distance'].samples[which][0]
+      elif 'logdistance' in pos.names:
+        D=exp(pos['distance'].samples[which][0])
+
+
       m1=M1*LAL_MSUN_SI
       m2=M2*LAL_MSUN_SI
       if 'phi_orb' in pos.names:
@@ -6285,7 +6308,6 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
   return 1
   
 def plot_psd(psd_files,outpath=None):
-  
   f_min=30.
   myfig2=plt.figure(figsize=(15,15),dpi=500)
   ax=plt.subplot(1,1,1)  
@@ -6303,14 +6325,15 @@ def plot_psd(psd_files,outpath=None):
      return None
   else:
     psd_files=tmp
-    
+
+  freqs = {}
   for f in psd_files:
-    
     data=np.loadtxt(f)
     freq=data[:,0]
     data=data[:,1]
     idx=f.find('-PSD.dat')
     ifo=f[idx-2:idx]
+    freqs[ifo.lower()] = freq
     fr=[]
     da=[]
     for (f,d) in zip(freq,data):
@@ -6323,8 +6346,108 @@ def plot_psd(psd_files,outpath=None):
   plt.ylabel("PSD",fontsize=26)
   plt.legend(loc='best')
   plt.grid(which='both')
-  plt.tight_layout()
-  myfig2.savefig(os.path.join(outpath,'PSD.png'),bbox_inches='tight')
+  try: 
+    plt.tight_layout()
+    myfig2.savefig(os.path.join(outpath,'PSD.png'),bbox_inches='tight')
+  except:
+    myfig2.savefig(os.path.join(outpath,'PSD.png'))
   myfig2.clf()
 
-  return 1
+  return freqs
+
+cred_level = lambda cl, x: np.sort(x, axis=0)[int(cl*len(x))]
+
+def cred_interval(x, cl=.9, lower=True):
+    """Return location of lower or upper confidence levels
+    Args:
+        x: List of samples.
+        cl: Confidence level to return the bound of.
+        lower: If ``True``, return the lower bound, otherwise return the upper bound.
+    """
+    if lower:
+        return cred_level((1.-cl)/2, x)
+    else:
+        return cred_level((1.+cl)/2, x)
+
+def plot_spline_pos(logf, ys, nf=100, level=0.9, color='k', label=None):
+    """Plot calibration posterior estimates for a spline model in log space.
+    Args:
+        logf: The (log) location of spline control points.
+        ys: List of posterior draws of function at control points ``logf``
+        nx: Number of points to evaluate spline at for plotting.
+        level: Credible level to fill in.
+        color: Color to plot with.
+        label: Label for plot.
+    """
+    f = np.exp(logf)
+    fs = np.linspace(f.min(), f.max(), nf)
+
+    data = np.zeros((ys.shape[0], nf))
+
+    mu = np.mean(ys, axis=0)
+    lower_cl = mu - cred_interval(ys, level, lower=True)
+    upper_cl = cred_interval(ys, level, lower=False) - mu
+    plt.errorbar(np.exp(logf), mu, yerr=[lower_cl, upper_cl], fmt='.', color=color, lw=4, alpha=0.5, capsize=0)
+
+    for i, samp in enumerate(ys):
+        data[i] = interpolate.spline(logf, samp, np.log(fs))
+
+    line, = plt.plot(fs, np.mean(data, axis=0), color=color, label=label)
+    color = line.get_color()
+    plt.fill_between(fs, cred_interval(data, level), cred_interval(data, level, lower=False), color=color, alpha=.1, linewidth=0.1)
+    plt.xlim(f.min()-.5, f.max()+50)
+
+def plot_calibration_pos(pos, level=.9, outpath=None):
+    fig, [ax1, ax2] = plt.subplots(2, 1, figsize=(15, 15), dpi=500)
+
+    font_size = 32
+    if outpath is None:
+        outpath=os.getcwd()
+
+    params = pos.names
+    ifos = np.unique([param.split('_')[0] for param in params if 'spcal' in param])
+    for ifo in ifos:
+        if ifo=='h1': color = 'r'
+        elif ifo=='l1': color = 'g'
+        elif ifo=='v1': color = 'm'
+        else: color = 'c'
+
+        # Assume spline control frequencies are constant
+        freq_params = np.sort([param for param in params if
+                               '{0}_spcal_freq'.format(ifo) in param])
+
+        logfreqs = np.log([pos[param].median for param in freq_params])
+
+        # Amplitude calibration model
+        plt.sca(ax1)
+        amp_params = np.sort([param for param in params if
+                              '{0}_spcal_amp'.format(ifo) in param])
+        if len(amp_params) > 0:
+            amp = 100*np.column_stack([pos[param].samples for param in amp_params])
+            plot_spline_pos(logfreqs, amp, color=color, level=level, label="{0} (mean, {0}%)".format(ifo.upper(), int(level*100)))
+
+        # Phase calibration model
+        plt.sca(ax2)
+        phase_params = np.sort([param for param in params if
+                                '{0}_spcal_phase'.format(ifo) in param])
+        if len(phase_params) > 0:
+            phase = 180./np.pi*np.column_stack([pos[param].samples for param in phase_params])
+            plot_spline_pos(logfreqs, phase, color=color, level=level, label="{0} (mean, {1}%)".format(ifo.upper(), int(level*100)))
+
+    ax1.tick_params(labelsize=.75*font_size)
+    ax2.tick_params(labelsize=.75*font_size)
+    plt.legend(loc='upper right', prop={'size':.75*font_size})
+    ax1.set_xscale('log')
+    ax2.set_xscale('log')
+
+    ax2.set_xlabel('Frequency (Hz)', fontsize=font_size)
+    ax1.set_ylabel('Amplitude (%)', fontsize=font_size)
+    ax2.set_ylabel('Phase (deg)', fontsize=font_size)
+
+    outp = os.path.join(outpath, 'calibration.png')
+    try:
+        fig.tight_layout()
+        fig.savefig(outp, bbox_inches='tight')
+    except:
+        fig.savefig(outp)
+    plt.close(fig)

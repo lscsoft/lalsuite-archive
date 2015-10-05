@@ -40,6 +40,7 @@ import cPickle as pickle
 from time import strftime
 
 #related third party imports
+import numpy as np
 from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit,correlate,log,dot,power,squeeze,sort
 from scipy import stats
 
@@ -86,10 +87,12 @@ __date__= git_version.date
 def email_notify(address,path):
     import smtplib
     import subprocess
+    import socket
+    import os
     address=address.split(',')
     SERVER="localhost"
     USER=os.environ['USER']
-    HOST=os.environ['HOSTNAME']
+    HOST=socket.getfqdn()
     FROM=USER+'@'+HOST
     SUBJECT="LALInference result is ready at "+HOST+"!"
     # Guess the web space path for the clusters
@@ -110,16 +113,15 @@ def email_notify(address,path):
     else:
         webpath=os.path.join(fslocation,'posplots.html')
         onweb=False
-
-    if 'atlas.aei.uni-hannover.de' in HOST:
+    if 'atlas' in HOST:
         url="https://atlas1.atlas.aei.uni-hannover.de/"
-    elif 'ligo.caltech.edu' in HOST:
+    elif 'cit' in HOST or 'caltech' in HOST:
         url="https://ldas-jobs.ligo.caltech.edu/"
-    elif 'ligo-wa.caltech.edu' in HOST:
+    elif 'ligo-wa' in HOST:
         url="https://ldas-jobs.ligo-wa.caltech.edu/"
-    elif 'ligo-la.caltech.edu' in HOST:
+    elif 'ligo-la' in HOST:
         url="https://ldas-jobs.ligo-la.caltech.edu/"
-    elif 'phys.uwm.edu' in HOST:
+    elif 'uwm' in HOST or 'nemo' in HOST:
         url="https://ldas-jobs.phys.uwm.edu/"
     elif 'phy.syr.edu' in HOST:
         url="https://sugar-jobs.phy.syr.edu/"
@@ -133,10 +135,10 @@ def email_notify(address,path):
     url=url+webpath
 
     TEXT="Hi "+USER+",\nYou have a new parameter estimation result on "+HOST+".\nYou can view the result at "+url+"\n"
-    message="From: %s\nTo: %s\nSubject: %s\n\n%s"%(FROM,', '.join(address),SUBJECT,TEXT)
-    server=smtplib.SMTP(SERVER)
-    server.sendmail(FROM,address,message)
-    server.quit()
+    cmd='echo "%s" | mail -s "%s" "%s"'%(TEXT,SUBJECT,', '.join(address))
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,stderr=subprocess.STDOUT, shell=True)
+    (out, err) = proc.communicate()
+    #print "program output %s error %s:"%(out,err)
 
 #Import content handler 
 from pylal.SimInspiralUtils import ExtractSimInspiralTableLIGOLWContentHandler
@@ -579,31 +581,41 @@ def cbcBayesPostProc(
         os.makedirs(wfdir)
     try:
         wfpointer= bppu.plot_waveform(pos=pos,siminspiral=injfile,event=eventnum,path=wfdir)
-    except:
+    except  Exception,e:
         wfpointer = None
+        print "Could not create WF plot. The error was: %s\n"%str(e)
     wftd=html_wf.insert_td(row,'',label='Waveform',legend=legend)
     wfsection=html.add_section_to_element('Waveforms',wftd)
     if wfpointer:
       wfsection.write('<a href="Waveform/WF_DetFrame.png" target="_blank"><img src="Waveform/WF_DetFrame.png"/></a>')
     else:
+      print "Could not create WF plot.\n"
       wfsection.write("<b>No Waveform generated!</b>")
       
     wftd=html_wf.insert_td(row,'',label='PSDs',legend=legend)
     wfsection=html.add_section_to_element('PSDs',wftd)
-    psd_pointer=None
     if psd_files is not None:
       psd_files=list(psd_files.split(','))
       psddir=os.path.join(outdir,'PSDs')
       if not os.path.isdir(psddir):
         os.makedirs(psddir)
       try:
-        psd_pointer=bppu.plot_psd(psd_files,outpath=psddir)    
-      except:
-        psd_pointer=None
-    if psd_pointer:
-      wfsection.write('<a href="PSDs/PSD.png" target="_blank"><img src="PSDs/PSD.png"/></a>')
+        bppu.plot_psd(psd_files,outpath=psddir)
+        wfsection.write('<a href="PSDs/PSD.png" target="_blank"><img src="PSDs/PSD.png"/></a>')
+      except  Exception,e:
+        print "Could not create PSD plot. The error was: %s\n"%str(e)
+        wfsection.write("<b>No PSD file found!</b>")
+
+    # Add plots for calibration estimates
+    if np.any(['spcal_amp' in param for param in pos.names]) or np.any(['spcal_phase' in param for param in pos.names]):
+      wftd=html_wf.insert_td(row,'',label='Calibration',legend=legend)
+      wfsection=html.add_section_to_element('Calibration',wftd)
+      bppu.plot_calibration_pos(pos, outpath=outdir)
+      wfsection.write('<a href="calibration.png" target="_blank"><img src="calibration.png"/></a>')
     else:
-      wfsection.write("<b>No PSD file found!</b>")
+      wfsection.write("<b> No calibration plots </b>")
+
+
     #==================================================================#
     #1D posteriors
     #==================================================================#
@@ -863,7 +875,7 @@ def cbcBayesPostProc(
     polParams=['psi','polarisation','polarization']
     skyParams=['ra','rightascension','declination','dec']
     timeParams=['time']
-    spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','chi','effectivespin','chi_p','beta','tilt1','tilt2','phi_jl','theta_jn','phi12']
+    spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','chi','effectivespin','chi_eff','chi_tot','chi_p','beta','tilt1','tilt2','phi_jl','theta_jn','phi12']
     intrinsicParams=massParams+spinParams
     extrinsicParams=incParams+distParams+polParams+skyParams
     try:
@@ -1083,9 +1095,12 @@ def cbcBayesPostProc(
                     html_tcmp_write+='</tr>'
                     row_count=0
 
-                myfig.savefig(twoDKdePath)
-                if(savepdfs): myfig.savefig(twoDKdePath.replace('.png','.pdf'))
-                plt.close(myfig)
+                if myfig:
+                  myfig.savefig(twoDKdePath)
+                  if(savepdfs): myfig.savefig(twoDKdePath.replace('.png','.pdf'))
+                  plt.close(myfig)
+                else:
+                  print 'Unable to generate 2D kde levels for %s-%s'%(par1_name,par2_name)
 
 
     #Finish off the BCI table and write it into the etree
@@ -1284,7 +1299,7 @@ if __name__=='__main__':
     polParams=['psi','polarisation','polarization']
     skyParams=['ra','rightascension','declination','dec']
     timeParams=['time','time_mean']
-    spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','chi_p','costheta_jn','cosbeta','tilt1','tilt2','phi_jl','theta_jn','phi12']
+    spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','chi_eff','chi_tot','chi_p','costheta_jn','cosbeta','tilt1','tilt2','phi_jl','theta_jn','phi12']
     phaseParams=['phase', 'phi0','phase_maxl']
     endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
     ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB','alphaPPE','aPPE','betaPPE','bPPE']
@@ -1292,9 +1307,10 @@ if __name__=='__main__':
     bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
     massiveGravitonParams=['lambdaG']
     tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat']
-    statsParams=['logprior','logl','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','deltaloglh2','deltaloglg1','flow']
-    snrParams=['optimal_snr','matched_filter_snr']
-    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams + ppEParams + tigerParams + bransDickeParams + massiveGravitonParams + tidalParams + statsParams + snrParams
+    statsParams=['logprior','logl','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','deltaloglh2','deltaloglg1']
+    calibParams=['calpha_l1','calpha_h1','calpha_v1','calamp_l1','calamp_h1','calamp_v1']
+    snrParams=bppu.snrParams
+    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams + ppEParams + tigerParams + bransDickeParams + massiveGravitonParams + tidalParams + statsParams + snrParams + calibParams
     # ['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
     ifos_menu=['h1','l1','v1']
     from itertools import combinations
@@ -1348,10 +1364,11 @@ if __name__=='__main__':
              for tp in tidalParams:
                  if not (mp == tp):
                      twoDGreedyMenu.append([mp, tp])
+        for sp1,sp2 in combinations(snrParams,2):
+                twoDGreedyMenu.append([sp1,sp2])
         twoDGreedyMenu.append(['lambda1','lambda2'])
         twoDGreedyMenu.append(['lam_tilde','dlam_tilde'])
         twoDGreedyMenu.append(['lambdat','dlambdat'])
-        twoDGreedyMenu.append(['optimal_snr','matched_filter_snr'])
         for psip in polParams:
             for phip in phaseParams:
                 twoDGreedyMenu.append([psip,phip])
@@ -1360,9 +1377,14 @@ if __name__=='__main__':
             for sp in spinParams:
                 twoDGreedyMenu.append([psip,sp])
 
+        for i in calibParams[3:]:
+          twoDGreedyMenu.append([i,'distance'])
+
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'mc_source':0.025,'m1_source':0.1,'m2_source':0.1,'mtotal_source':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'time_mean':1e-4,'distance':1.0,'dist':1.0,'redshift':0.01,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'chi_p':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costheta_jn':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01,'phase':0.05,'tilt1':0.05,'tilt2':0.05,'phi_jl':0.05,'theta_jn':0.05,'phi12':0.05,'flow':1.0,'phase_maxl':0.05,'optimal_snr':0.05,'matched_filter_snr':0.05}
+    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'mc_source':0.025,'m1_source':0.1,'m2_source':0.1,'mtotal_source':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'time_mean':1e-4,'distance':1.0,'dist':1.0,'redshift':0.01,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'chi_eff':0.05,'chi_tot':0.05,'chi_p':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costheta_jn':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01,'phase':0.05,'tilt1':0.05,'tilt2':0.05,'phi_jl':0.05,'theta_jn':0.05,'phi12':0.05,'flow':1.0,'phase_maxl':0.05,'calamp_l1':0.01,'calamp_h1':0.01,'calamp_v1':0.01,'calpha_h1':0.01,'calpha_l1':0.01,'calpha_v1':0.01}
+    for s in snrParams:
+            greedyBinSizes[s]=0.05
     for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
         greedyBinSizes[derived_time]=greedyBinSizes['time']
     if not opts.no2D:
@@ -1435,6 +1457,7 @@ if __name__=='__main__':
     if opts.email:
         try:
             email_notify(opts.email,opts.outpath)
-        except:
+        except Exception,e:
             print 'Unable to send notification email'
+            print "The error was %s\n"%str(e)
 #
