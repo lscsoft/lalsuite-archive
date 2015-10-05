@@ -330,7 +330,7 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   const REAL8 invxi2 = rho2 * (Lambda*invrho2xi2Lambda);
   const REAL8 invLambda = xi2*rho2*invrho2xi2Lambda;
   /* Eq. 5.83 of BB1, inverse */
-  D = 1. + log2(1. + 6.*eta*u2 + 2.*(26. - 3.*eta)*eta*u3)*invlog_2e;
+  D = 1. + log1p(6.*eta*u2 + 2.*(26. - 3.*eta)*eta*u3);
   /* Eq. 5.38 of BB1 */
   deltaR = deltaT*D;
   /* See Hns below, Eq. 4.34 of Damour et al. PRD 62, 084011 (2000) */
