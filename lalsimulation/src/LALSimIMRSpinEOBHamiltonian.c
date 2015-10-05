@@ -351,9 +351,9 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
 
   prT = (p->data[0]*nx + p->data[1]*ny + p->data[2]*nz)*csi2;
   /* p->data is BL momentum vector; tmpP is tortoise momentum vector */
-  tmpP[0] = p->data[0] - nx * prT * ((csi1 - 1.)/csi1);
-  tmpP[1] = p->data[1] - ny * prT * ((csi1 - 1.)/csi1);
-  tmpP[2] = p->data[2] - nz * prT * ((csi1 - 1.)/csi1);
+  tmpP[0] = p->data[0] - nx * prT * (1. - 1./csi1);
+  tmpP[1] = p->data[1] - ny * prT * (1. - 1./csi1);
+  tmpP[2] = p->data[2] - nz * prT * (1. - 1./csi1);
   
   pxir = (tmpP[0]*xi_x + tmpP[1]*xi_y + tmpP[2]*xi_z) * r;
   pvr  = (tmpP[0]*vx + tmpP[1]*vy + tmpP[2]*vz) * r;
