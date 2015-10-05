@@ -96,6 +96,7 @@ int XLALSimIMRSpinEOBWaveformAll(
         SphHarmTimeSeries **hlmPTSout, /**<< Here we store and return the PWave (high sampling) */
         SphHarmTimeSeries **hlmPTSHi, /**<< Here we store and return the JWave (high sampling) */
         SphHarmTimeSeries **hIMRlmJTSHi, /**<< Here we store and return the JWaveIMR (high sampling) */
+        SphHarmTimeSeries **hIMRoutput,       /** Here we store and retiurn the IWave (full) */
         REAL8Vector     **AttachParams,   /**<< Parameters of RD attachment: */ 
         //LIGOTimeGPS     *tc,
         const REAL8      phiC,

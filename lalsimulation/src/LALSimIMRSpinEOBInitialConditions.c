@@ -1014,11 +1014,11 @@ XLALSimIMRSpinEOBInitialConditions(
       
       /* Print Step sizes in each of function variables */
       finalValues = gsl_multiroot_fsolver_dx(rootSolver);
-      printf("Stepsizes in each dimension:\n");
-      printf(" x = %.16e, py = %.16e, pz = %.16e\n", 
-          gsl_vector_get(finalValues, 0)/scale1,
-		       gsl_vector_get(finalValues, 1)/scale2,
-            gsl_vector_get(finalValues, 2)/scale3);
+//      printf("Stepsizes in each dimension:\n");
+//      printf(" x = %.16e, py = %.16e, pz = %.16e\n", 
+//          gsl_vector_get(finalValues, 0)/scale1,
+//		       gsl_vector_get(finalValues, 1)/scale2,
+//            gsl_vector_get(finalValues, 2)/scale3);
       
       /* Only allow this flag to be caught MAXcntGslNoProgress no. of times */
       cntGslNoProgress += 1;
@@ -1108,6 +1108,7 @@ XLALSimIMRSpinEOBInitialConditions(
 	qCart[0] = gsl_vector_get(finalValues, 0)/scale1;
 	pCart[1] = gsl_vector_get(finalValues, 1)/scale2;
 	pCart[2] = gsl_vector_get(finalValues, 2)/scale3;
+
 
 	/* Free the GSL root finder, since we're done with it */
 	gsl_multiroot_fsolver_free(rootSolver);
@@ -1377,12 +1378,20 @@ XLALSimIMRSpinEOBInitialConditions(
 			pCart[i] = pCart[i] + qCart[i] * pr * (csi - 1.) / r;
 		}
 	}
-	/* Now copy the initial conditions back to the return vector */
+    
+
+    /* Now copy the initial conditions back to the return vector */
 	memcpy(initConds->data, qCart, sizeof(qCart));
 	memcpy(initConds->data + 3, pCart, sizeof(pCart));
 	memcpy(initConds->data + 6, tmpS1Norm, sizeof(tmpS1Norm));
 	memcpy(initConds->data + 9, tmpS2Norm, sizeof(tmpS2Norm));
-
+    
+    for (i=0; i<12; i++) {
+        if (fabs(initConds->data[i]) <=1.0e-15) {
+            initConds->data[i] = 0.;
+        }
+    }
+    
 	if (debugPK) {
 		printf("THE FINAL INITIAL CONDITIONS:\n");
 		printf(" %.16e %.16e %.16e\n%.16e %.16e %.16e\n%.16e %.16e %.16e\n%.16e %.16e %.16e\n", initConds->data[0], initConds->data[1], initConds->data[2],
@@ -1885,7 +1894,11 @@ XLALSimIMRSpinEOBInitialConditionsV2(
 	memcpy(initConds->data + 3, pCart, sizeof(pCart));
 	memcpy(initConds->data + 6, tmpS1Norm, sizeof(tmpS1Norm));
 	memcpy(initConds->data + 9, tmpS2Norm, sizeof(tmpS2Norm));
-
+    for (i=0; i<12; i++) {
+        if (fabs(initConds->data[i]) <=1.0e-15) {
+            initConds->data[i] = 0.;
+        }
+    }
         //gsl_multiroot_fsolver_free(rootSolver);
 	//printf("THE FINAL INITIAL CONDITIONS:\n");
 	/*

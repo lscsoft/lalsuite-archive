@@ -162,11 +162,16 @@ XLALSimIMREOBCalcSpinFacWaveformCoefficients(
 	coeffs->delta22vh9 = -2203. / 81. + (1712. * LAL_PI * LAL_PI) / 315.;
 	coeffs->delta22v5 = -24. * eta;
 	coeffs->delta22v6 = 0.0;
-	if (SpinAlignedEOBversion == 2 /*&& chiS + chiA * dM / (1. - 2. * eta) > 0.*/) {
-//		coeffs->delta22v6 = -540. * eta * (chiS + chiA * dM / (1. - 2. * eta));
+	if (SpinAlignedEOBversion == 2 && chiS + chiA * dM / (1. - 2. * eta) > 0.) {
+		coeffs->delta22v6 = -540. * eta * (chiS + chiA * dM / (1. - 2. * eta));
+//        double chi = (chiS + chiA * dM / (1. - 2. * eta));
+//        coeffs->delta22v6 = eta*(1./4.*(1. - 1080.*chi - sqrt((1. - 1080.*chi)*(1. - 1080*chi) + 8.*(13.5 +270.*chi +13.5*chi*chi))));
+        }
+    if (SpinAlignedEOBversion == 3 /*&& chiS + chiA * dM / (1. - 2. * eta) > 0.*/) {
+//        		coeffs->delta22v6 = -540. * eta * (chiS + chiA * dM / (1. - 2. * eta));
         double chi = (chiS + chiA * dM / (1. - 2. * eta));
         coeffs->delta22v6 = eta*(1./4.*(1. - 1080.*chi - sqrt((1. - 1080.*chi)*(1. - 1080*chi) + 8.*(13.5 +270.*chi +13.5*chi*chi))));
-        }
+    }
 	coeffs->rho22v2 = -43. / 42. + (55. * eta) / 84.;
 	coeffs->rho22v3 = (-2. * (chiS + chiA * dM - chiS * eta)) / 3.;
 	switch (SpinAlignedEOBversion) {
@@ -178,6 +183,10 @@ XLALSimIMREOBCalcSpinFacWaveformCoefficients(
 		coeffs->rho22v4 = -20555. / 10584. + 0.5 * (chiS + chiA * dM) * (chiS + chiA * dM)
 			- (33025. * eta) / 21168. + (19583. * eta2) / 42336.;
 		break;
+    case 3:
+        coeffs->rho22v4 = -20555. / 10584. + 0.5 * (chiS + chiA * dM) * (chiS + chiA * dM)
+        - (33025. * eta) / 21168. + (19583. * eta2) / 42336.;
+        break;
 	default:
 		XLALPrintError("XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2!\n", __func__);
 		XLAL_ERROR(XLAL_EINVAL);
@@ -196,6 +205,9 @@ XLALSimIMREOBCalcSpinFacWaveformCoefficients(
 	case 2:
 		coeffs->rho22v8 = -387216563023. / 160190110080. + (18353. * a2) / 21168. - a2 * a2 / 8.;
 		break;
+    case 3:
+        coeffs->rho22v8 = -387216563023. / 160190110080. + (18353. * a2) / 21168. - a2 * a2 / 8.;
+        break;
 	default:
 		XLALPrintError("XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2!\n", __func__);
 		XLAL_ERROR(XLAL_EINVAL);
@@ -232,6 +244,10 @@ XLALSimIMREOBCalcSpinFacWaveformCoefficients(
 			coeffs->rho21v2 = -59. / 56 + (23. * eta) / 84.;
 			coeffs->rho21v3 = 0.0;
 			break;
+        case 3:
+            coeffs->rho21v2 = -59. / 56 + (23. * eta) / 84.;
+            coeffs->rho21v3 = 0.0;
+            break;
 		default:
 			XLALPrintError("XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2!\n", __func__);
 			XLAL_ERROR(XLAL_EINVAL);
@@ -265,6 +281,9 @@ XLALSimIMREOBCalcSpinFacWaveformCoefficients(
 		case 2:
 			coeffs->f21v3 = (chiS * dM * (427. + 79. * eta) + chiA * (147. + 280. * dM * dM + 1251. * eta)) / 84. / dM;
 			break;
+        case 3:
+            coeffs->f21v3 = (chiS * dM * (427. + 79. * eta) + chiA * (147. + 280. * dM * dM + 1251. * eta)) / 84. / dM;
+            break;
 		default:
 			XLALPrintError("XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2!\n", __func__);
 			XLAL_ERROR(XLAL_EINVAL);
@@ -279,6 +298,9 @@ XLALSimIMREOBCalcSpinFacWaveformCoefficients(
 		case 2:
 			coeffs->f21v3 = (chiS * dM * (427. + 79. * eta) + chiA * (147. + 280. * dM * dM + 1251. * eta)) / 84.;
 			break;
+        case 3:
+            coeffs->f21v3 = (chiS * dM * (427. + 79. * eta) + chiA * (147. + 280. * dM * dM + 1251. * eta)) / 84.;
+            break;
 		default:
 			XLALPrintError("XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2!\n", __func__);
 			XLAL_ERROR(XLAL_EINVAL);
@@ -1243,13 +1265,16 @@ XLALSimIMREOBCalcPrecSpinFacWaveformCoefficients(
 	//coeffs->delta22vh9 = -2203. / 81. + (1712. * LAL_PI * LAL_PI) / 315.;
 	//coeffs->delta22v5 = -24. * eta;
 	//coeffs->delta22v6 = 0.0;
-	if (SpinAlignedEOBversion == 2 /*&& chiS + chiA * dM / (1. - 2. * eta) > 0.*/) {
-//		coeffs->delta22v6S = -540. * eta * (chiS + chiA * dM / (1. - 2. * eta));
+	if (SpinAlignedEOBversion == 2 && chiS + chiA * dM / (1. - 2. * eta) > 0.) {
+		coeffs->delta22v6S = -540. * eta * (chiS + chiA * dM / (1. - 2. * eta));
+//        double chi = (chiS + chiA * dM / (1. - 2. * eta));
+//        coeffs->delta22v6 = eta*(1./4.*(1. - 1080.*chi - sqrt((1. - 1080.*chi)*(1. - 1080*chi) + 8.*(13.5 +270.*chi +13.5*chi*chi))));
+	}
+    if (SpinAlignedEOBversion == 3 /*&& chiS + chiA * dM / (1. - 2. * eta) > 0.*/) {
+//        		coeffs->delta22v6S = -540. * eta * (chiS + chiA * dM / (1. - 2. * eta));
         double chi = (chiS + chiA * dM / (1. - 2. * eta));
         coeffs->delta22v6 = eta*(1./4.*(1. - 1080.*chi - sqrt((1. - 1080.*chi)*(1. - 1080*chi) + 8.*(13.5 +270.*chi +13.5*chi*chi))));
-
-	}
-	//coeffs->rho22v2 = -43. / 42. + (55. * eta) / 84.;
+    }	//coeffs->rho22v2 = -43. / 42. + (55. * eta) / 84.;
 	coeffs->rho22v3S = (-2. * (chiS + chiA * dM - chiS * eta)) / 3.;
 	switch (SpinAlignedEOBversion) {
 	case 1:

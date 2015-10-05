@@ -1742,10 +1742,18 @@ UNUSED static int XLALSpinHcapRvecDerivative(
   //params.params->sigmaKerr = &sKerr;
   params.params->a         = a;
  
-  XLALSimIMREOBCalcSpinFacWaveformCoefficients( 
-		params.params->eobParams->hCoeffs, mass1, mass2, eta, tplspin, 
-		chiS, chiA, SpinAlignedEOBversion );
-  XLALSimIMRCalculateSpinEOBHCoeffs( params.params->seobCoeffs, eta, a, 
+    if (params.params->alignedSpins==1) {
+        XLALSimIMREOBCalcSpinFacWaveformCoefficients(
+                                                     params.params->eobParams->hCoeffs, mass1, mass2, eta, tplspin,
+                                                     chiS, chiA, SpinAlignedEOBversion);
+    }
+    else {
+        XLALSimIMREOBCalcSpinFacWaveformCoefficients(
+                                                     params.params->eobParams->hCoeffs, mass1, mass2, eta, tplspin,
+                                                     chiS, chiA, 3);
+    }
+
+    XLALSimIMRCalculateSpinEOBHCoeffs( params.params->seobCoeffs, eta, a, 
       SpinAlignedEOBversion );
 
   H = XLALSimIMRSpinEOBHamiltonian( eta, &rVec, &pVec, &s1norm, &s2norm, 

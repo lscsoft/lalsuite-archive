@@ -510,10 +510,16 @@ XLALSpinHcapNumericalDerivative(
 	//params.params->sigmaStar = &sStar;
 	//params.params->sigmaKerr = &sKerr;
 	params.params->a = a;
-
+    if (params.params->alignedSpins==1) {
 	XLALSimIMREOBCalcSpinFacWaveformCoefficients(
 	      params.params->eobParams->hCoeffs, mass1, mass2, eta, tplspin,
 					 chiS, chiA, SpinAlignedEOBversion);
+    }
+    else {
+        XLALSimIMREOBCalcSpinFacWaveformCoefficients(
+                                                     params.params->eobParams->hCoeffs, mass1, mass2, eta, tplspin,
+                                                     chiS, chiA, 3);
+    }
 	XLALSimIMRCalculateSpinEOBHCoeffs(params.params->seobCoeffs, eta, a,
 					  SpinAlignedEOBversion);
 
@@ -700,6 +706,14 @@ XLALSpinHcapNumericalDerivative(
             dvalues[i] = 1.;
           }
     }
+
+//    double S1Norm = 0., S2Norm = 0.;
+//    if (values[6]!=0. && values[7]!=0. && values[8]!=0.) {
+//        S1Norm = sqrt( values[6]*values[6] + values[7]*values[7] + values[8]*values[8] );
+//    }
+//    if (values[9]!=0. && values[10]!=0. && values[11]!=0.) {
+//        S2Norm = sqrt( values[9]*values[9] + values[10]*values[10] + values[11]*values[11] );
+//    }
 
 
     if(debugPK){
@@ -1133,9 +1147,16 @@ XLALSpinHcapNumericalDerivativeNoFlux(
 	//params.params->sigmaKerr = &sKerr;
 	params.params->a = a;
 
-	XLALSimIMREOBCalcSpinFacWaveformCoefficients(
-	      params.params->eobParams->hCoeffs, mass1, mass2, eta, tplspin,
-					 chiS, chiA, SpinAlignedEOBversion);
+    if (params.params->alignedSpins==1) {
+        XLALSimIMREOBCalcSpinFacWaveformCoefficients(
+                                                     params.params->eobParams->hCoeffs, mass1, mass2, eta, tplspin,
+                                                     chiS, chiA, SpinAlignedEOBversion);
+    }
+    else {
+        XLALSimIMREOBCalcSpinFacWaveformCoefficients(
+                                                     params.params->eobParams->hCoeffs, mass1, mass2, eta, tplspin,
+                                                     chiS, chiA, 3);
+    }
 	XLALSimIMRCalculateSpinEOBHCoeffs(params.params->seobCoeffs, eta, a,
 					  SpinAlignedEOBversion);
 
