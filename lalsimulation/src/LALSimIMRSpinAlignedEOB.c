@@ -225,10 +225,11 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
 //    return 1;
 //  }
     
-//    if(r2 < 16. && ( dvalues[12] < 0. || dvalues[13] < 0.)  ) {
-//        if(debugPK)printf("\n Integration stopping, psiDot<0.01\n");
-//        return 1;
-//    }
+    if(r2 < 16. && ( sqrt(values[3]*values[3] + values[4]*values[4] + values[5]*values[5]) > 10. )) {
+        if(debugPK)printf("\n Integration stopping |pvec|> 10\n");
+        fflush(NULL);
+        return 1;
+    }
 
   /* **************************************************************** */
   /*                         Omega related                            */
@@ -2544,18 +2545,37 @@ int XLALSimIMRSpinEOBWaveformAll(
         tVec.data   = dynamics->data;
     }
     
-    posVecx.length = posVecy.length = posVecz.length =
-    momVecx.length = momVecy.length = momVecz.length =
-    s1Vecx.length = s1Vecy.length = s1Vecz.length =
-    s2Vecx.length = s2Vecy.length = s2Vecz.length =
-    phiDMod.length = phiMod.length = retLen;
-    
-    REAL8 posVecxData[retLen], posVecyData[retLen], posVeczData[retLen];
-    REAL8 momVecxData[retLen], momVecyData[retLen], momVeczData[retLen];
-    REAL8 s1VecxData[retLen], s1VecyData[retLen], s1VeczData[retLen];
-    REAL8 s2VecxData[retLen], s2VecyData[retLen], s2VeczData[retLen];
-    REAL8 phiDModData[retLen], phiModData[retLen];
+//    posVecx.length = posVecy.length = posVecz.length =
+//    momVecx.length = momVecy.length = momVecz.length =
+//    s1Vecx.length = s1Vecy.length = s1Vecz.length =
+//    s2Vecx.length = s2Vecy.length = s2Vecz.length =
+//    phiDMod.length = phiMod.length = retLen;
+//    
+//    REAL8 posVecxData[retLen], posVecyData[retLen], posVeczData[retLen];
+//    REAL8 momVecxData[retLen], momVecyData[retLen], momVeczData[retLen];
+//    REAL8 s1VecxData[retLen], s1VecyData[retLen], s1VeczData[retLen];
+//    REAL8 s2VecxData[retLen], s2VecyData[retLen], s2VeczData[retLen];
+//    REAL8 phiDModData[retLen], phiModData[retLen];
 
+    REAL8 *posVecxData, *posVecyData, *posVeczData;
+    REAL8 *momVecxData, *momVecyData, *momVeczData;
+    REAL8 *s1VecxData, *s1VecyData, *s1VeczData;
+    REAL8 *s2VecxData, *s2VecyData, *s2VeczData;
+    REAL8 *phiDModData, *phiModData;
+    posVecxData = malloc(retLen);
+    posVecyData = malloc(retLen);
+    posVeczData = malloc(retLen);
+    momVecxData = malloc(retLen);
+    momVecyData = malloc(retLen);
+    momVeczData = malloc(retLen);
+    s1VecxData = malloc(retLen);
+    s1VecyData = malloc(retLen);
+    s1VeczData = malloc(retLen);
+    s2VecxData = malloc(retLen);
+    s2VecyData = malloc(retLen);
+    s2VeczData = malloc(retLen);
+    phiModData = malloc(retLen);
+    phiDModData = malloc(retLen);
     
     if (( fabs(theta1Ini) <= EPS_ALIGN  || fabs(theta1Ini) >= LAL_PI - EPS_ALIGN) && ( fabs(theta2Ini) <= EPS_ALIGN || fabs(theta2Ini) >= LAL_PI - EPS_ALIGN) ) {
         posVecx.data = posVecxData;
@@ -2751,7 +2771,6 @@ int XLALSimIMRSpinEOBWaveformAll(
     else {
         retLen = XLALAdaptiveRungeKutta4( integrator, &seobParams, values->data,
                                          0., 20./mTScaled, deltaTHigh/mTScaled, &dynamicsHi );
-        retLenHi = retLen;
         if ( retLen == XLAL_FAILURE )
         {
             XLAL_ERROR( XLAL_EFUNC );
@@ -2759,18 +2778,46 @@ int XLALSimIMRSpinEOBWaveformAll(
         timeHi.length = retLen;
         timeHi.data   = dynamicsHi->data;
     }
+    retLenHi = retLen;
+
      posVecxHi.length = posVecyHi.length = posVeczHi.length =
     momVecxHi.length = momVecyHi.length = momVeczHi.length =
     s1VecxHi.length = s1VecyHi.length = s1VeczHi.length =
     s2VecxHi.length = s2VecyHi.length = s2VeczHi.length =
     phiDModHi.length = phiModHi.length = retLen;
     
-    REAL8 posVecxDataHi[retLen], posVecyDataHi[retLen], posVeczDataHi[retLen];
-    REAL8 momVecxDataHi[retLen], momVecyDataHi[retLen], momVeczDataHi[retLen];
-    REAL8 s1VecxDataHi[retLen], s1VecyDataHi[retLen], s1VeczDataHi[retLen];
-    REAL8 s2VecxDataHi[retLen], s2VecyDataHi[retLen], s2VeczDataHi[retLen];
-    REAL8 phiDModDataHi[retLen], phiModDataHi[retLen];
-    
+
+//    REAL8 posVecxDataHi[retLen], posVecyDataHi[retLen], posVeczDataHi[retLen];
+//    REAL8 momVecxDataHi[retLen], momVecyDataHi[retLen], momVeczDataHi[retLen];
+//    REAL8 s1VecxDataHi[retLen], s1VecyDataHi[retLen], s1VeczDataHi[retLen];
+//    REAL8 s2VecxDataHi[retLen], s2VecyDataHi[retLen], s2VeczDataHi[retLen];
+//    REAL8 phiDModDataHi[retLen], phiModDataHi[retLen];
+    REAL8 *posVecxDataHi, *posVecyDataHi, *posVeczDataHi;
+    REAL8 *momVecxDataHi, *momVecyDataHi, *momVeczDataHi;
+    REAL8 *s1VecxDataHi, *s1VecyDataHi, *s1VeczDataHi;
+    REAL8 *s2VecxDataHi, *s2VecyDataHi, *s2VeczDataHi;
+    REAL8 *phiDModDataHi, *phiModDataHi;
+
+//    REAL8 posVecxDataHi[retLen], posVecyDataHi[retLen], posVeczDataHi[retLen];
+//    REAL8 momVecxDataHi[retLen], momVecyDataHi[retLen], momVeczDataHi[retLen];
+//    REAL8 s1VecxDataHi[retLen], s1VecyDataHi[retLen], s1VeczDataHi[retLen];
+//    REAL8 s2VecxDataHi[retLen], s2VecyDataHi[retLen], s2VeczDataHi[retLen];
+//    REAL8 phiDModDataHi[retLen], phiModDataHi[retLen];
+    posVecxDataHi = malloc(retLen);
+    posVecyDataHi = malloc(retLen);
+    posVeczDataHi = malloc(retLen);
+    momVecxDataHi = malloc(retLen);
+    momVecyDataHi = malloc(retLen);
+    momVeczDataHi = malloc(retLen);
+     s1VecxDataHi = malloc(retLen);
+     s1VecyDataHi = malloc(retLen);
+     s1VeczDataHi = malloc(retLen);
+    s2VecxDataHi = malloc(retLen);
+    s2VecyDataHi = malloc(retLen);
+    s2VeczDataHi = malloc(retLen);
+    phiModDataHi = malloc(retLen);
+    phiDModDataHi = malloc(retLen);
+
     
     if (( fabs(theta1Ini) <= EPS_ALIGN  || fabs(theta1Ini) >= LAL_PI - EPS_ALIGN) && ( fabs(theta2Ini) <= EPS_ALIGN || fabs(theta2Ini) >= LAL_PI - EPS_ALIGN) ) {
         posVecxHi.data = posVecxDataHi;
@@ -2840,7 +2887,8 @@ int XLALSimIMRSpinEOBWaveformAll(
 //        dynamicsHi->data[13] = *phiDModDataHi;
 //        dynamicsHi->data[14] = *phiModDataHi;
     }
-    else {
+    else {  if(debugPK) { printf( "Finished high SR integration... \n" ); fflush(NULL); }
+
         posVecxHi.data = dynamicsHi->data+retLen;
         posVecyHi.data = dynamicsHi->data+2*retLen;
         posVeczHi.data = dynamicsHi->data+3*retLen;
@@ -2855,6 +2903,8 @@ int XLALSimIMRSpinEOBWaveformAll(
         s2VeczHi.data = dynamicsHi->data+12*retLen;
         phiDModHi.data= dynamicsHi->data+13*retLen;
         phiModHi.data = dynamicsHi->data+14*retLen;
+        if(debugPK) { printf( "Finished high SR integration... \n" ); fflush(NULL); }
+
     }
 
     
