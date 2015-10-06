@@ -59,6 +59,11 @@
 #include <gsl/gsl_sf_gamma.h>
 #include <gsl/gsl_integration.h>
 
+#ifdef SEOBV3_TIME_WAVEFORM
+#include <sys/time.h>
+#define dt(a,b) (((a).tv_sec - (b).tv_sec)+((a).tv_usec - (b).tv_usec)*1e-6)
+#endif
+
 #include "LALSimIMREOBNRv2.h"
 #include "LALSimIMRSpinEOB.h"
 #include "LALSimInspiralPrecess.h"
@@ -1822,6 +1827,12 @@ int XLALSimIMRSpinEOBWaveformAll(
   REAL8 LframeEx[3] = {0,0,0}, LframeEy[3] = {0,0,0}, LframeEz[3] = {0,0,0};
   
   /* Variables for the integrator */
+  double integration_time = 0.;
+#ifdef SEOBV3_TIME_WAVEFORM
+  struct timeval start, stop;
+  struct timeval fn_start, fn_cur;
+  gettimeofday(&fn_start, NULL);
+#endif
   LALAdaptiveRungeKutta4Integrator       *integrator = NULL;
   REAL8Array              *dynamics   = NULL;//, *dynamicsHi = NULL;
   INT4                    retLen = 0, retLenLow = 0, retLenHi = 0;
@@ -2513,6 +2524,9 @@ int XLALSimIMRSpinEOBWaveformAll(
     rVec.length = phiVec.length = prVec.length = pPhiVec.length = 0;
     rVec.data = 0; phiVec.data = 0; prVec.data = 0; pPhiVec.data = 0;
   /* Call the integrator */
+#ifdef SEOBV3_TIME_WAVEFORM
+  gettimeofday(&start, NULL);
+#endif
     if (( fabs(theta1Ini) <= EPS_ALIGN  || fabs(theta1Ini) >= LAL_PI - EPS_ALIGN) && ( fabs(theta2Ini) <= EPS_ALIGN || fabs(theta2Ini) >= LAL_PI - EPS_ALIGN) ) {
         REAL8Array              *dynamicsV2   = NULL;
         seobParams.alignedSpins = 1;
@@ -2545,6 +2559,10 @@ int XLALSimIMRSpinEOBWaveformAll(
         tVec.length = retLen;
         tVec.data   = dynamics->data;
     }
+#ifdef SEOBV3_TIME_WAVEFORM
+  gettimeofday(&stop, NULL);
+  integration_time += dt(stop, start);
+#endif
     
 
     
@@ -2662,6 +2680,9 @@ int XLALSimIMRSpinEOBWaveformAll(
     rVecHi.length = phiVecHi.length = prVecHi.length = pPhiVecHi.length = 0;
     rVecHi.data = 0; phiVecHi.data = 0; prVecHi.data = 0; pPhiVecHi.data = 0;
 
+#ifdef SEOBV3_TIME_WAVEFORM
+  gettimeofday(&start, NULL);
+#endif
     if (( fabs(theta1Ini) <= EPS_ALIGN  || fabs(theta1Ini) >= LAL_PI - EPS_ALIGN) && ( fabs(theta2Ini) <= EPS_ALIGN || fabs(theta2Ini) >= LAL_PI - EPS_ALIGN) ) {
         seobParams.alignedSpins = 1;
         seobParams.chi1 = spin1Norm*cos(theta1Ini)/fabs(cos(theta1Ini));
@@ -2700,7 +2721,17 @@ int XLALSimIMRSpinEOBWaveformAll(
         timeHi.length = retLen;
         timeHi.data   = dynamicsHi->data;
     }
+#ifdef SEOBV3_TIME_WAVEFORM
+  gettimeofday(&stop, NULL);
+  integration_time += dt(stop, start);
+  printf ("# Time to integrate dynamics: %g s\n", integration_time);
+#endif
     retLenHi = retLen;
+
+#ifdef SEOBV3_TIME_WAVEFORM
+  double spline_time = 0.;
+  gettimeofday(&start, NULL);
+#endif
 
      posVecxHi.length = posVecyHi.length = posVeczHi.length =
     momVecxHi.length = momVecyHi.length = momVeczHi.length =
@@ -3401,6 +3432,13 @@ int XLALSimIMRSpinEOBWaveformAll(
     out = fopen( "rotDynamics.dat", "w" );
   }
   
+#ifdef SEOBV3_TIME_WAVEFORM
+  gettimeofday(&stop, NULL);
+  spline_time += dt(stop, start);
+  printf ("# Time to create spline: %g s\n", __LINE__, spline_time);
+  double waveform_time = 0.;
+  gettimeofday(&start, NULL);
+#endif
   for ( i = 0; i < retLen; i++ )
   {
     for ( j = 0; j < values->length; j++ )
@@ -3613,6 +3651,10 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
                             - amp * sin(2.*vphi[i]) * cos(2.*alpha) * LNhz;*/
 
   }
+#ifdef SEOBV3_TIME_WAVEFORM
+  gettimeofday(&stop, NULL);
+  waveform_time += dt(stop, start);
+#endif
   if(debugPK) {
       fclose( out );
       printf("YP: quasi-nonprecessing modes generated.\n"); fflush(NULL);
@@ -3737,6 +3779,9 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
     fflush(NULL);
   }
   if (debugPK) out = fopen( "rotDynamicsHi.dat", "w" );
+#ifdef SEOBV3_TIME_WAVEFORM
+  gettimeofday(&start, NULL);
+#endif
   for ( i = 0; i < retLen; i++ )
   {
     for ( j = 0; j < values->length; j++ )
@@ -3941,6 +3986,11 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
                             - amp * sin(2.*vphi[i]) * cos(2.*alpha) * LNhz;*/
 
   }
+#ifdef SEOBV3_TIME_WAVEFORM
+  gettimeofday(&stop, NULL);
+  waveform_time += dt(stop, start);
+  printf ("# Time to generate waveform: %g s\n", waveform_time);
+#endif
   if (debugPK){
       fclose( out );
       printf("YP: quasi-nonprecessing modes generated.for High SR\n");
@@ -4056,10 +4106,18 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   /* WaveStep 3
    * Generate IMR waveforms in the merger J (~ final spin) -frame
    */
+#ifdef SEOBV3_TIME_WAVEFORM
+  double rotatewaveform_time = 0.;
+  gettimeofday(&start, NULL);
+#endif
   if ( XLALSimInspiralPrecessionRotateModes( hlmPTS, alphaP2JTS, betaP2JTS, gammaP2JTS ) == XLAL_FAILURE )
   {
     XLAL_ERROR( XLAL_EFUNC );
   }
+#ifdef SEOBV3_TIME_WAVEFORM
+  gettimeofday(&stop, NULL);
+  rotatewaveform_time += dt(stop, start);
+#endif
   h22JTS  = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, 2 );
   h21JTS  = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, 1 );
   h20JTS  = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, 0 );
@@ -4088,11 +4146,21 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   }
 
   /* Stas: Rotating the high sampling part */  
+#ifdef SEOBV3_TIME_WAVEFORM
+  gettimeofday(&start, NULL);
+#endif
   if ( XLALSimInspiralPrecessionRotateModes( hlmPTSHi, 
         alphaP2JTSHi, betaP2JTSHi, gammaP2JTSHi ) == XLAL_FAILURE )
   {
     XLAL_ERROR( XLAL_EFUNC );
   }
+#ifdef SEOBV3_TIME_WAVEFORM
+  gettimeofday(&stop, NULL);
+  rotatewaveform_time += dt(stop, start);
+  printf ("# Time to rotate waveform: %g s\n", rotatewaveform_time);
+  double ringdowncleanup_time = 0.;
+  gettimeofday(&start, NULL);
+#endif
   h22JTSHi  = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, 2 );
   h21JTSHi  = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, 1 );
   h20JTSHi  = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, 0 );
@@ -4662,6 +4730,12 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   }
   *dynHi = tmp_vec;
   XLALDestroyREAL8Array( dynamicsHi );
+#ifdef SEOBV3_TIME_WAVEFORM
+  gettimeofday(&stop, NULL);
+  ringdowncleanup_time += dt(stop, start);
+  printf ("# Time to attach ringdown and cleanup: %g s\n", __LINE__, ringdowncleanup_time);
+#endif
+
   
 
   return XLAL_SUCCESS;
