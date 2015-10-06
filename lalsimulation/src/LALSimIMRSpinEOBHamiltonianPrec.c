@@ -383,7 +383,7 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
   mucos = (a2*costheta)*invrho2;
   /* Eq. 5.52 of BB1, (YP) simplified */
   //Q = 1. + pvr*pvr/(exp(2.*MU)*xi2) + exp(2.*nu)*pxir*pxir/(B*B*xi2) + pn*pn*deltaR/exp(2.*MU);
-  Q = 1. + pvr*pvr*invrho2*invxi2 + pxir*pxir*deltaT*rho2*invLambda*invdeltaT*invxi2 + pn*pn*deltaR*invrho2;
+  Q = 1. + pvr*pvr*invrho2*invxi2 + pxir*pxir*rho2*invLambda*invxi2 + pn*pn*deltaR*invrho2;
    if(debugPK){
        printf( "Q = %.16e, pvr = %.16e, xi2 = %.16e , deltaT = %.16e, rho2 = %.16e, Lambda = %.16e, pxir = %.16e, B = %.16e\n", Q, pvr, xi2, deltaT, rho2, Lambda, pxir, B );
    }
