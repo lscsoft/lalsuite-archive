@@ -741,14 +741,16 @@ INT4 XLALSimCheckRDattachment(
         XLAL_ERROR( XLAL_EFUNC );
     }
     Amp[0] = sqrt(signal1->data[0]*signal1->data[0] + signal2->data[0]*signal2->data[0]);
-    for (i=1; i<timeVec->length; i++){
+    for (i=1; i<signal1->length; i++){
         Amp[i] = sqrt(signal1->data[i]*signal1->data[i] + signal2->data[i]*signal2->data[i]);
-        if (timeVec->data[i-1] <= tAtt && timeVec->data[i] > tAtt){
-            i_att = i;
-            //if (debugPK){
-            //    printf(" the attachment index = %d, time = %f, %f \n", i_att, timeVec->data[i_att], tAtt);
-            //}
-        } 
+        if ( i < timeVec->length){
+            if (timeVec->data[i-1] <= tAtt && timeVec->data[i] > tAtt){
+                i_att = i;
+                //if (debugPK){
+                //    printf(" the attachment index = %d, time = %f, %f \n", i_att, timeVec->data[i_att], tAtt);
+                //}
+            }
+        }
     }
     REAL8 maxL = Amp[0];
     for (i=0; i<i_att; i++){
