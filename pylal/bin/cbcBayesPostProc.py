@@ -495,6 +495,11 @@ def cbcBayesPostProc(
     # Create a section for the DIC
     html_dic = html.add_section('Deviance Information Criterion', legend=legend)
     html_dic.p('DIC = %.1f'%pos.DIC)
+    dicout = open(os.path.join(outdir, 'dic.dat'), 'w')
+    try:
+        dicout.write('%.1f\n'%pos.DIC)
+    finally:
+        dicout.close()
 
     #Create a section for summary statistics
     # By default collapse section are collapsed when the page is opened or reloaded. Use start_closed=False option as here below to change this
