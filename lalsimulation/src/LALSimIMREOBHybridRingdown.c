@@ -903,8 +903,8 @@ XLALSimIMREOBHybridAttachRingdown(
                   modefreqs->data[7] += I * 5.0 * cimag(modefreqs->data[0]) - I * cimag(modefreqs->data[7]);
             }
 			//The last line of T1400476 - v3
-				matchrange->data[0] -= sh;
-			matchrange->data[1] -= sh;
+//				matchrange->data[0] -= sh;
+//			matchrange->data[1] -= sh;
 
 			/*
 			 * This is a v1 of pQNM in RD attachment if (m<0){
@@ -954,7 +954,7 @@ XLALSimIMREOBHybridAttachRingdown(
              //modefreqs->data[5] = modefreqs_xtr->data[1];
              XLALSimIMREOBGenerateQNMFreqV2(modefreqs_xtr, mass1, mass2, spin1, spin2, l, -2, nmodes, approximant);
              //XLALSimIMREOBGenerateQNMFreqV2(modefreqs_xtr, mass1, mass2, spin1, spin2, l, -1, nmodes, approximant);
-             if (JLN > 0.0){
+             if (JLN > 0.0 && JLN < 0.98){
                  modefreqs->data[5] =  modefreqs_xtr->data[0];
                  //modefreqs->data[7] =  modefreqs_xtr->data[1];
                  //modefreqs->data[5] =  modefreqs_xtr->data[2];
@@ -981,7 +981,7 @@ XLALSimIMREOBHybridAttachRingdown(
                  //modefreqs->data[6] =  conjl(-1.0 * modefreqs_xtr->data[0]);
              //    modefreqs->data[7] =  conjl(-1.0 *  modefreqs_xtr->data[0]);
              //}
-             if (JLN < 0.0){
+             if (JLN < 0.0 && JLN > -0.98){
                  XLALSimIMREOBGenerateQNMFreqV2(modefreqs_xtr, mass1, mass2, spin1, spin2, l,  2, nmodes, approximant);
                  modefreqs->data[5] =  modefreqs_xtr->data[0];
                  //modefreqs->data[6] =  modefreqs_xtr->data[1];

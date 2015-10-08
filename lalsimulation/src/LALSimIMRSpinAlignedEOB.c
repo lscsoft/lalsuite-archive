@@ -156,7 +156,9 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
   cross_product( values, dvalues, omega_xyz );
   omega = sqrt(inner_product( omega_xyz, omega_xyz )) / r2;
   pDotr = inner_product( p, r ) / sqrt(r2);
-    if (debugPK){  printf("XLALEOBSpinStopConditionBasedOnPR:: r = %e\n", sqrt(r2));}
+    if (debugPK){  printf("XLALEOBSpinStopConditionBasedOnPR:: r = %e %e\n", sqrt(r2), omega);}
+    if (debugPK){  printf("XLALEOBSpinStopConditionBasedOnPR:: values = %e %e %e %e %e %e %e %e %e %e %e %e\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);}
+    if (debugPK){  printf("XLALEOBSpinStopConditionBasedOnPR:: dvalues = %e %e %e %e %e %e %e %e %e %e %e %e\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3], dvalues[4], dvalues[5], dvalues[6], dvalues[7], dvalues[8], dvalues[9], dvalues[10], dvalues[11]);}
   REAL8 rdot;
   rdot = inner_product(rdotVec, r) / sqrt(r2);
   double prDot = - inner_product( p, r )*rdot/r2
@@ -232,6 +234,12 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
     
     if(r2 < 16. && ( sqrt(values[3]*values[3] + values[4]*values[4] + values[5]*values[5]) > 10. )) {
         if(debugPK)printf("\n Integration stopping |pvec|> 10\n");
+        fflush(NULL);
+        return 1;
+    }
+
+    if(r2 < 16. && ( sqrt(values[3]*values[3] + values[4]*values[4] + values[5]*values[5]) < 1.e-10 )) {
+        if(debugPK)printf("\n Integration stopping |pvec|<1e-10\n");
         fflush(NULL);
         return 1;
     }
@@ -378,7 +386,7 @@ XLALSpinAlignedHiSRStopCondition(double UNUSED t,  /**< UNUSED */
     int debugPK = 0;
     if (debugPK){
         printf("XLALSpinAlignedHiSRStopCondition:: r = %e\n", values[0]);
-//        printf("values[0], values[1], values[2], values[3], dvalues[0], dvalues[1], dvalues[2], dvalues[3] = %e %e %e %e %e %e %e %e\n", values[0], values[1], values[2], values[3], dvalues[0], dvalues[1], dvalues[2], dvalues[3]);
+        printf("values[0], values[1], values[2], values[3], dvalues[0], dvalues[1], dvalues[2], dvalues[3] = %e %e %e %e %e %e %e %e\n", values[0], values[1], values[2], values[3], dvalues[0], dvalues[1], dvalues[2], dvalues[3]);
     }
 
   if ( dvalues[2] >= 0. || isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) )
@@ -2727,12 +2735,12 @@ int XLALSimIMRSpinEOBWaveformAll(
   printf ("# Time to integrate dynamics: %g s\n", integration_time);
 #endif
     retLenHi = retLen;
-
 #ifdef SEOBV3_TIME_WAVEFORM
   double spline_time = 0.;
   gettimeofday(&start, NULL);
 #endif
 
+    if(debugPK){printf("retLenHi = %d\n", retLenHi);}
      posVecxHi.length = posVecyHi.length = posVeczHi.length =
     momVecxHi.length = momVecyHi.length = momVeczHi.length =
     s1VecxHi.length = s1VecyHi.length = s1VeczHi.length =
@@ -2756,7 +2764,7 @@ int XLALSimIMRSpinEOBWaveformAll(
             dynamicsHi->data[11*retLen + i] = 0.;
             dynamicsHi->data[12*retLen + i] = spin2[2]*(m2*m2/mTotal/mTotal);
             dynamicsHi->data[13*retLen + i]= phiVecHi.data[i];
-            dynamicsHi->data[14*retLen + i]  = phiVecHi.data[i];
+            dynamicsHi->data[14*retLen + i]  = 0.;
         }
     }
 
@@ -2883,11 +2891,11 @@ int XLALSimIMRSpinEOBWaveformAll(
 		}
     
     if(debugPK) {
-      fprintf( out, "%.16e %.16e %.16e %d %d %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n", 
+      fprintf( out, "%.16e %.16e %.16e %d %d %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
       tVec.data[i], Alpha->data[i], Beta->data[i], 
       phaseCounterA, phaseCounterB, tmpR[0], tmpR[1], tmpR[2], 
       tmpRdot[0], tmpRdot[1], tmpRdot[2],
-      LN_x->data[i], LN_y->data[i], LN_z->data[i] );
+      LN_x->data[i], LN_y->data[i], LN_z->data[i], rVec.data[i], phiVec.data[i] );
     }
 	}
   if (debugPK) fclose(out);
@@ -3301,7 +3309,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   JframeEz[0] = Jx / magJ;
   JframeEz[1] = Jy / magJ;
   JframeEz[2] = Jz / magJ;
-  if ( 1.-JframeEz[2] < 1.0e-13 )
+  if ( 1.-fabs(JframeEz[2]) < 1.0e-13 )
   { JframeEx[0] = 1.; JframeEx[1] = 0.; JframeEx[2] = 0.; }
   else {
     JframeEx[0] = JframeEz[1];
@@ -4225,13 +4233,11 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
 
   // FIXME Here I'll try to make a loop to check if tAttach is good or not
   //
-  int CheckRDAttachment = 0;
-  double S1amp = sqrt(spin1[0]*spin1[0] + spin1[1]*spin1[1] +spin1[2]*spin1[2]);
+  int CheckRDAttachment = 1;
 
+  if (CheckRDAttachment ){
 
-  if (CheckRDAttachment || S1amp >= 0.0){
-
-      if (debugPK) printf("Stas: checking the RD attachment point....\n");
+      if (debugPK) printf("Stas: checking the RD attachment point....\n");fflush(NULL);
 
       int pass = 0;
       rdMatchPoint->data[0] = combSize < tAttach ? tAttach - combSize : 0;
@@ -4239,7 +4245,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
       rdMatchPoint->data[2] = (retLenHi-1)*deltaTHigh/mTScaled;
       rdMatchPoint->data[0] -= fmod( rdMatchPoint->data[0], deltaTHigh/mTScaled );
       rdMatchPoint->data[1] -= fmod( rdMatchPoint->data[1], deltaTHigh/mTScaled );
-
+      
       REAL8 thr = 1.;
       REAL8 ratio22 = 1.0;
       REAL8 ratio2m2 = 1.0;
@@ -4252,16 +4258,18 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
           sigReHi->data[i] = creal(h22JTSHi->data->data[i]);
           sigImHi->data[i] = cimag(h22JTSHi->data->data[i]);
         }
+
       if( XLALSimCheckRDattachment(sigReHi, sigImHi, &ratio22, tAttach, 2, 2,
                     deltaTHigh, m1, m2, 0.0, 0.0, chi1J, 0.0, 0.0, chi2J,
                     &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL ) == XLAL_FAILURE )
       {
           XLAL_ERROR( XLAL_EFUNC );
       }
-      
+
       memset( sigReHi->data, 0, sigReHi->length * sizeof( sigReHi->data[0] ));
       memset( sigImHi->data, 0, sigImHi->length * sizeof( sigImHi->data[0] ));
       
+
       //hJTSHi  = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, -2 );
 
       for ( i = 0; i < retLenHi; i++ )
@@ -4269,6 +4277,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
           sigReHi->data[i] = creal(h2m2JTSHi->data->data[i]);
           sigImHi->data[i] = cimag(h2m2JTSHi->data->data[i]);
         }
+
       if( XLALSimCheckRDattachment(sigReHi, sigImHi, &ratio2m2, tAttach, 2, -2,
                     deltaTHigh, m1, m2, 0.0, 0.0, chi1J, 0.0, 0.0, chi2J,
                     &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL ) == XLAL_FAILURE )
@@ -4282,7 +4291,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
 
       if (pass == 0){
 
-           if (debugPK) printf("Adjusting RD attachment point... \n");
+           if (debugPK) printf("Adjusting RD attachment point... \n");fflush(NULL);
            memset( sigReHi->data, 0, sigReHi->length * sizeof( sigReHi->data[0] ));
            memset( sigImHi->data, 0, sigImHi->length * sizeof( sigImHi->data[0] ));
             
@@ -4294,16 +4303,16 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
            if (debugPK){
              if (found_att == 1){
                  printf("we have found new attachment point tAtt = %f, with ratios %f, %f \n",
-                       tAttach, ratio22, ratio2m2);
+                       tAttach, ratio22, ratio2m2);fflush(NULL);
              }
                else if (found_att == 2) {
                    printf("we haven't found proper attachment point, we picked the best point at tAtt = %f\n",
-                          tAttach);
+                          tAttach);fflush(NULL);
 
                }
                else{
                  printf("we haven't found proper attachment point, best ratios are %f, %f at tAtt = %f \n",
-                       ratio22, ratio2m2, tAttach);
+                       ratio22, ratio2m2, tAttach);fflush(NULL);
              }
            }
 
@@ -4564,12 +4573,15 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
         Y2m1 = XLALSpinWeightedSphericalHarmonic( 0, phiC, -2, 2, -1 );
         Y20 = XLALSpinWeightedSphericalHarmonic( 0, phiC, -2, 2, 0 );
     }
- 
+    
+    if(debugPK){ printf("Ylm %e %e %e %e %e %e %e %e %e %e \n", creal(Y22), cimag(Y22), creal(Y2m2), cimag(Y2m2), creal(Y21), cimag(Y21), creal(Y2m1), cimag(Y2m1), creal(Y20), cimag (Y20)); fflush(NULL); }
+
   for ( i = 0; i < (INT4)hIMR22ITS->data->length; i++ )
   {
-    x11 = Y22*hIMR22ITS->data->data[i] + Y21*hIMR21ITS->data->data[i] 
+    x11 = Y22*hIMR22ITS->data->data[i] + Y21*hIMR21ITS->data->data[i]
           + Y20*hIMR20ITS->data->data[i] + Y2m1*hIMR2m1ITS->data->data[i] 
-          + Y2m2*hIMR2m2ITS->data->data[i];    
+          + Y2m2*hIMR2m2ITS->data->data[i];
+//      printf("h+,x %e %e\n",creal(x11), cimag(x11));
     hPlusTS->data->data[i]  = amp0*creal(x11);
     hCrossTS->data->data[i] = -amp0*cimag(x11);
   }

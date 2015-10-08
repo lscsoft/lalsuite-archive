@@ -716,10 +716,10 @@ INT4 XLALSimCheckRDattachment(
     // sanity check 
     int ind_att = (int) matchrange->data[1]*(((mass1 + mass2) * LAL_MTSUN_SI / dt)) + 1;
     if (debugPK){
-        printf("attach_ind = %d, t =%f, %f \n", ind_att, matchrange->data[1], timeVec->data[ind_att]); 
+        printf("attach_ind = %d, t =%f, %f \n", ind_att, matchrange->data[1], timeVec->data[ind_att]); fflush(NULL);
     } 
     if (signal1->data[ind_att] == 0.0 && signal2->data[ind_att] == 0.0){
-        printf("Opyat' signal = 0 \n");
+        printf("Opyat' signal = 0 \n");fflush(NULL);
         //FILE *out1 = fopen( "Andrea1.dat","w");
         //for (i = 0; i < timeVec->length; i++) {
         //    fprintf(out1, "%.16e   %.16e   %.16e\n", timeVec->data[i], signal1->data[i], signal2->data[i]);
@@ -732,7 +732,7 @@ INT4 XLALSimCheckRDattachment(
 
     }
  
-    
+
     if ( XLALSimIMREOBHybridAttachRingdown( signal1, signal2, l, m,
                 dt, mass1, mass2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z,
                 timeVec, matchrange, approximant, JLN )
@@ -740,19 +740,19 @@ INT4 XLALSimCheckRDattachment(
     {
         XLAL_ERROR( XLAL_EFUNC );
     }
-   
     Amp[0] = sqrt(signal1->data[0]*signal1->data[0] + signal2->data[0]*signal2->data[0]);
     for (i=1; i<signal1->length; i++){
         Amp[i] = sqrt(signal1->data[i]*signal1->data[i] + signal2->data[i]*signal2->data[i]);
-        if (timeVec->data[i-1] <= tAtt && timeVec->data[i] > tAtt){
-            i_att = i;
-            //if (debugPK){
-            //    printf(" the attachment index = %d, time = %f, %f \n", i_att, timeVec->data[i_att], tAtt);
-            //}
-        } 
+        if ( i < timeVec->length){
+            if (timeVec->data[i-1] <= tAtt && timeVec->data[i] > tAtt){
+                i_att = i;
+                //if (debugPK){
+                //    printf(" the attachment index = %d, time = %f, %f \n", i_att, timeVec->data[i_att], tAtt);
+                //}
+            }
+        }
     }
-
-    REAL8 maxL = Amp[0]; 
+    REAL8 maxL = Amp[0];
     for (i=0; i<i_att; i++){
         if (Amp[i] >= maxL){
            maxL = Amp[i];
@@ -766,7 +766,7 @@ INT4 XLALSimCheckRDattachment(
     }  
      
     if (debugPK){
-        printf(" the ratio of amplitudes = %f  , ampls = %f, %f \n", maxR/maxL, maxR, maxL);
+        printf(" the ratio of amplitudes = %f  , ampls = %f, %f \n", maxR/maxL, maxR, maxL);fflush(NULL);
     }
 
     *ratio = maxR/maxL;
