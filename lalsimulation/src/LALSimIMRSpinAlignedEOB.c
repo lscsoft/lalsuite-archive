@@ -1838,8 +1838,6 @@ int XLALSimIMRSpinEOBWaveformAll(
   double integration_time = 0.;
 #ifdef SEOBV3_TIME_WAVEFORM
   struct timeval start, stop;
-  struct timeval fn_start, fn_cur;
-  gettimeofday(&fn_start, NULL);
 #endif
   LALAdaptiveRungeKutta4Integrator       *integrator = NULL;
   REAL8Array              *dynamics   = NULL;//, *dynamicsHi = NULL;

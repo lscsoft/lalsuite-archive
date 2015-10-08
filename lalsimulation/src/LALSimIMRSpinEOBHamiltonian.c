@@ -1585,7 +1585,7 @@ UNUSED static int XLALSpinHcapRvecDerivative(
     REAL8Vector spin1, spin2;
     REAL8Vector sigmaKerr;
     REAL8 tmpVec[12]= {0.};
-    REAL8 sKerrData[3]= {0.};
+    REAL8 tmpsKerrData[3]= {0.};
     REAL8 mT2 = (mass1+mass2)*(mass1+mass2);
 
     /* Use a temporary vector to avoid corrupting the main function */
@@ -1598,7 +1598,7 @@ UNUSED static int XLALSpinHcapRvecDerivative(
 
     spin1.data = tmpVec+6;
     spin2.data = tmpVec+9;
-    sigmaKerr.data = sKerrData;
+    sigmaKerr.data = tmpsKerrData;
 
     /* To compute the SigmaKerr and SigmaStar, we need the non-normalized
      * spin values, i.e. S_i. The spins being evolved are S_i/M^2. */
