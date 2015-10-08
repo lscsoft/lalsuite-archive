@@ -3441,7 +3441,7 @@ int XLALSimIMRSpinEOBWaveformAll(
 #ifdef SEOBV3_TIME_WAVEFORM
   gettimeofday(&stop, NULL);
   spline_time += dt(stop, start);
-  printf ("# Time to create spline: %g s\n", __LINE__, spline_time);
+  printf ("# Time to create spline: %g s\n", spline_time);
   double waveform_time = 0.;
   gettimeofday(&start, NULL);
 #endif
@@ -4743,7 +4743,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
 #ifdef SEOBV3_TIME_WAVEFORM
   gettimeofday(&stop, NULL);
   ringdowncleanup_time += dt(stop, start);
-  printf ("# Time to attach ringdown and cleanup: %g s\n", __LINE__, ringdowncleanup_time);
+  printf ("# Time to attach ringdown and cleanup: %g s\n", ringdowncleanup_time);
 #endif
 
   
