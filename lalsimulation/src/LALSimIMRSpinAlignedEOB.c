@@ -152,8 +152,8 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
   omega = sqrt(inner_product( omega_xyz, omega_xyz )) / r2;
   pDotr = inner_product( p, r ) / sqrt(r2);
     if (debugPK){  printf("XLALEOBSpinStopConditionBasedOnPR:: r = %e %e\n", sqrt(r2), omega);}
-    if (debugPK){  printf("XLALEOBSpinStopConditionBasedOnPR:: values = %e %e %e %e %e %e %e %e %e %e %e %e\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);}
-    if (debugPK){  printf("XLALEOBSpinStopConditionBasedOnPR:: dvalues = %e %e %e %e %e %e %e %e %e %e %e %e\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3], dvalues[4], dvalues[5], dvalues[6], dvalues[7], dvalues[8], dvalues[9], dvalues[10], dvalues[11]);}
+    if (debugPK){  printf("XLALEOBSpinStopConditionBasedOnPR:: values = %e %e %e %e %e %e\n", values[6], values[7], values[8], values[9], values[10], values[11]);}
+    if (debugPK){  printf("XLALEOBSpinStopConditionBasedOnPR:: dvalues = %e %e %e %e %e %e\n",dvalues[6], dvalues[7], dvalues[8], dvalues[9], dvalues[10], dvalues[11]);}
   REAL8 rdot;
   rdot = inner_product(rdotVec, r) / sqrt(r2);
   double prDot = - inner_product( p, r )*rdot/r2
@@ -1840,10 +1840,15 @@ int XLALSimIMRSpinEOBWaveformAll(
   gsl_interp_accel *acc = NULL;
 
   /* Accuracies of adaptive Runge-Kutta integrator */
-  const REAL8 EPS_ABS = 1.0e-8;
+   REAL8 EPS_ABS = 1.0e-8;
   const REAL8 EPS_REL = 1.0e-8;
+  if (/*fabs(theta1Ini - LAL_PI/2.) < 1.0e-6 && fabs(theta2Ini - LAL_PI/2.) < 1.0e-6 && */sqrt((INspin1[0] + INspin2[0])*(INspin1[0] + INspin2[0]) + (INspin1[1] + INspin2[1])*(INspin1[1] + INspin2[1]) + 0*(INspin1[2] + INspin2[2])*(INspin1[2] + INspin2[2])) < 1.0e-10)
+  {
+      if (debugPK) printf("EPS_ABS is decreased!\n");
+      EPS_ABS = 1.0e-4;//abort();
+  }
 
-  /* Memory for the calculation of the alpha(t) and beta(t) angles */
+    /* Memory for the calculation of the alpha(t) and beta(t) angles */
   REAL8 tmpR[3], tmpRdot[3];
   INT4 phaseCounterA = 0, phaseCounterB = 0;
   
@@ -2816,13 +2821,14 @@ int XLALSimIMRSpinEOBWaveformAll(
     fflush(NULL);
     out = fopen( "alphaANDbeta.dat","w");
   }
+
   for( i=0; i < retLenLow; i++ )
   {
-    tmpR[0] = posVecx.data[i]; tmpR[1] = posVecy.data[i]; tmpR[2] = posVecz.data[i];
+        tmpR[0] = posVecx.data[i]; tmpR[1] = posVecy.data[i]; tmpR[2] = posVecz.data[i];
 		tmpRdot[0] = gsl_spline_eval_deriv( x_spline, tVec.data[i], x_acc );
 		tmpRdot[1] = gsl_spline_eval_deriv( y_spline, tVec.data[i], y_acc );
 		tmpRdot[2] = gsl_spline_eval_deriv( z_spline, tVec.data[i], z_acc );
-		
+
 		LN_x->data[i] = tmpR[1] * tmpRdot[2] - tmpR[2] * tmpRdot[1];
 		LN_y->data[i] = tmpR[2] * tmpRdot[0] - tmpR[0] * tmpRdot[2];
 		LN_z->data[i] = tmpR[0] * tmpRdot[1] - tmpR[1] * tmpRdot[0];
@@ -2830,7 +2836,7 @@ int XLALSimIMRSpinEOBWaveformAll(
 		magLN = sqrt(LN_x->data[i] * LN_x->data[i] + LN_y->data[i] * LN_y->data[i] 
               + LN_z->data[i] * LN_z->data[i]);
 		LN_x->data[i] /= magLN; LN_y->data[i] /= magLN; LN_z->data[i] /= magLN;
-		
+
 		/* Unwrap the two angles */
     if (fabs(LN_x->data[i]) <= 1.e-7 && fabs(LN_y->data[i]) <=1.e-7){
       Alpha->data[i] = 0.0;
@@ -2838,7 +2844,7 @@ int XLALSimIMRSpinEOBWaveformAll(
       Alpha->data[i] = atan2( LN_y->data[i], LN_x->data[i] ) 
                       + phaseCounterA * LAL_TWOPI;
     }
-    
+
     if( i && Alpha->data[i] - Alpha->data[i-1] > 5. )
 		{
 			phaseCounterA--; 
@@ -2848,7 +2854,7 @@ int XLALSimIMRSpinEOBWaveformAll(
 			phaseCounterA++;
 			Alpha->data[i] += LAL_TWOPI;
 		}
-    
+      
     /* FIXME: Why is there a "0" multiplying phaseCounterB ?? */
 		Beta->data[i] = acos( LN_z->data[i] ) + 0*phaseCounterB * LAL_TWOPI;
     
@@ -2857,13 +2863,13 @@ int XLALSimIMRSpinEOBWaveformAll(
 			phaseCounterB--;
 			//Beta->data[i] -= LAL_TWOPI;
 		}
-    
+      
     if(debugPK) {
-      fprintf( out, "%.16e %.16e %.16e %d %d %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
+      fprintf( out, "%.16e %.16e %.16e %d %d %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
       tVec.data[i], Alpha->data[i], Beta->data[i], 
-      phaseCounterA, phaseCounterB, tmpR[0], tmpR[1], tmpR[2], 
+      phaseCounterA, phaseCounterB, tmpR[0], tmpR[1], tmpR[2],
       tmpRdot[0], tmpRdot[1], tmpRdot[2],
-      LN_x->data[i], LN_y->data[i], LN_z->data[i], rVec.data[i], phiVec.data[i] );
+      LN_x->data[i], LN_y->data[i], LN_z->data[i] );
     }
 	}
   if (debugPK) fclose(out);
