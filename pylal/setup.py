@@ -34,6 +34,8 @@ class PkgConfig(object):
 		self.extra_cflags = os.popen("pkg-config --cflags-only-other %s" % names).read().split()
 
 gsl_pkg_config = PkgConfig("gsl")
+glib_pkg_config = PkgConfig("glib")
+libxml2_pkg_config = PkgConfig("libxml-2.0")
 lal_pkg_config = PkgConfig("lal")
 lalsupport_pkg_config = PkgConfig("lalsupport")
 lalburst_pkg_config = PkgConfig("lalburst")
@@ -340,6 +342,15 @@ setup(
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags + ["-DPY_SSIZE_T_CLEAN"]
+		),
+		Extension(
+			"pylal.xlal.datatypes.postcohinspiraltable",
+			["src/xlal/datatypes/postcohinspiraltable.c", "src/xlal/misc.c"],
+			include_dirs = glib_pkg_config.incdirs + libxml2_pkg_config.incdirs + lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
+			libraries = glib_pkg_config.libs + libxml2_pkg_config.libs + lal_pkg_config.libs,
+			library_dirs = glib_pkg_config.libdirs + libxml2_pkg_config.libdirs + lal_pkg_config.libdirs,
+			runtime_library_dirs = glib_pkg_config.libdirs + libxml2_pkg_config.libdirs + lal_pkg_config.libdirs,
 			extra_compile_args = lal_pkg_config.extra_cflags + ["-DPY_SSIZE_T_CLEAN"]
 		),
 		Extension(
