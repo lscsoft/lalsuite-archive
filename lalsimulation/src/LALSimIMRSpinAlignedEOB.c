@@ -73,6 +73,7 @@
 #include "LALSimIMREOBHybridRingdown.c"
 #include "LALSimIMRSpinEOBAuxFuncs.c"
 #include "LALSimIMRSpinEOBFactorizedWaveformCoefficients.c"
+#include "LALSimIMRSpinEOBHamiltonianPrec.c"
 #include "LALSimIMRSpinEOBHamiltonian.c"
 #include "LALSimIMRSpinEOBFactorizedWaveform.c"
 #include "LALSimIMRSpinEOBFactorizedFlux.c"
@@ -815,7 +816,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   seobParams.chi2 = spin2[2];
 
   /* Now compute the spinning H coefficients and store them in seobCoeffs */
-  if ( XLALSimIMRCalculateSpinEOBHCoeffs( &seobCoeffs, eta, a, SpinAlignedEOBversion ) == XLAL_FAILURE )
+  if ( XLALSimIMRCalculateSpinPrecEOBHCoeffs( &seobCoeffs, eta, a, SpinAlignedEOBversion ) == XLAL_FAILURE )
   {
     XLALDestroyREAL8Vector( sigmaKerr );
     XLALDestroyREAL8Vector( sigmaStar );
@@ -1067,7 +1068,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
     cartMomVec.data[0] = values->data[2];
     cartMomVec.data[1] = values->data[3] / values->data[0];
 
-    ham = XLALSimIMRSpinEOBHamiltonian( eta, &cartPosVec, &cartMomVec, &s1VecOverMtMt, &s2VecOverMtMt, sigmaKerr, sigmaStar, seobParams.tortoise, &seobCoeffs );
+    ham = XLALSimIMRSpinPrecEOBHamiltonian( eta, &cartPosVec, &cartMomVec, &s1VecOverMtMt, &s2VecOverMtMt, sigmaKerr, sigmaStar, seobParams.tortoise, &seobCoeffs );
 
     if ( XLALSimIMRSpinEOBGetSpinFactorizedWaveform( &hLM, values, v, ham, 2, 2, &seobParams )
            == XLAL_FAILURE )
@@ -1357,7 +1358,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
     cartMomVec.data[0] = values->data[2];
     cartMomVec.data[1] = values->data[3] / values->data[0];
 
-    ham = XLALSimIMRSpinEOBHamiltonian( eta, &cartPosVec, &cartMomVec, &s1VecOverMtMt, &s2VecOverMtMt, sigmaKerr, sigmaStar, seobParams.tortoise, &seobCoeffs );
+    ham = XLALSimIMRSpinPrecEOBHamiltonian( eta, &cartPosVec, &cartMomVec, &s1VecOverMtMt, &s2VecOverMtMt, sigmaKerr, sigmaStar, seobParams.tortoise, &seobCoeffs );
 
     if ( XLALSimIMRSpinEOBGetSpinFactorizedWaveform( &hLM, values, v, ham, 2, 2, &seobParams )
            == XLAL_FAILURE )
@@ -1598,7 +1599,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   INspin2[2] = INspin2z;
 
   INT4 UNUSED ret;
-  INT4 debugPK = 0, debugCustomIC = 0, debugNoNQC = 0;
+  INT4 debugPK = 1, debugCustomIC = 0, debugNoNQC = 0;
   INT4 debugRD = 0;
   FILE *out = NULL;
   INT4 i=0;
@@ -2045,7 +2046,7 @@ int XLALSimIMRSpinEOBWaveformAll(
 
   /* ************************************************* */
   /* Pre-compute the Hamiltonian coefficients          */
-  if ( XLALSimIMRCalculateSpinEOBHCoeffs( &seobCoeffs, eta, a,
+  if ( XLALSimIMRCalculateSpinPrecEOBHCoeffs( &seobCoeffs, eta, a,
                           SpinAlignedEOBversion ) == XLAL_FAILURE )
   {
     XLALDestroyREAL8Vector( sigmaKerr );
@@ -2282,7 +2283,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   if(debugPK)printf("\nReached the point where LN is to be calculated\n");
 
   memset( dvalues->data, 0, 14 * sizeof(REAL8) );
-  if( XLALSpinHcapRvecDerivative( 0, values->data, dvalues->data,
+  if( XLALSpinPrecHcapRvecDerivative( 0, values->data, dvalues->data,
           (void*) &seobParams) == XLAL_FAILURE )
   {
     XLAL_ERROR( XLAL_EFUNC );
@@ -3160,7 +3161,7 @@ int XLALSimIMRSpinEOBWaveformAll(
 
   /* Calculate dr/dt */
   memset( dvalues->data, 0, 14*sizeof(dvalues->data[0]));
-  if( XLALSpinHcapRvecDerivative( 0, values->data, dvalues->data, 
+  if( XLALSpinPrecHcapRvecDerivative( 0, values->data, dvalues->data, 
         &seobParams) != XLAL_SUCCESS )
   {
     printf( " Calculation of dr/dt at t = tPeakOmega \n");
@@ -3423,7 +3424,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     
     /* Calculate dr/dt */
     memset( dvalues->data, 0, 14*sizeof(dvalues->data[0]));
-    if( XLALSpinHcapRvecDerivative( 0, values->data, dvalues->data, 
+    if( XLALSpinPrecHcapRvecDerivative( 0, values->data, dvalues->data, 
           &seobParams) != XLAL_SUCCESS )
     {
       printf( " Calculation of dr/dt at t = tPeakOmega \n");
@@ -3545,18 +3546,18 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
        break;
     }
 
-    if ( XLALSimIMRCalculateSpinEOBHCoeffs( &seobCoeffs, eta, a, 
+    if ( XLALSimIMRCalculateSpinPrecEOBHCoeffs( &seobCoeffs, eta, a, 
                           SpinAlignedEOBversion ) == XLAL_FAILURE )
-      printf("\nSomething went wrong evaluating XLALSimIMRCalculateSpinEOBHCoeffs in step %d of coarse dynamics\n", 
+      printf("\nSomething went wrong evaluating XLALSimIMRCalculateSpinPrecEOBHCoeffs in step %d of coarse dynamics\n", 
 			i );
 
     /* Update hlm coefficients */
     if ( XLALSimIMREOBCalcSpinFacWaveformCoefficients( &hCoeffs, m1, m2, eta, 
         tplspin, chiS, chiA, 3 ) == XLAL_FAILURE )
-      printf("\nSomething went wrong evaluating XLALSimIMRCalculateSpinEOBHCoeffs in step %d of coarse dynamics\n", 
+      printf("\nSomething went wrong evaluating XLALSimIMRCalculateSpinPrecEOBHCoeffs in step %d of coarse dynamics\n", 
 			i );
     
-    ham = XLALSimIMRSpinEOBHamiltonian( eta, &cartPosVec, &cartMomVec,
+    ham = XLALSimIMRSpinPrecEOBHamiltonian( eta, &cartPosVec, &cartMomVec,
                   &s1VecOverMtMt, &s2VecOverMtMt,
                   sigmaKerr, sigmaStar, seobParams.tortoise, &seobCoeffs );
 
@@ -3760,7 +3761,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
 
     /* Calculate dr/dt */
     memset( dvalues->data, 0, 14*sizeof(dvalues->data[0]));
-    if( XLALSpinHcapRvecDerivative( 0, values->data, dvalues->data, 
+    if( XLALSpinPrecHcapRvecDerivative( 0, values->data, dvalues->data, 
           &seobParams) != XLAL_SUCCESS )
     {
       printf( " Calculation of dr/dt at t = tPeakOmega \n");
@@ -3878,18 +3879,18 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
        break;
     }
 
-    if ( XLALSimIMRCalculateSpinEOBHCoeffs( &seobCoeffs, eta, a, 
+    if ( XLALSimIMRCalculateSpinPrecEOBHCoeffs( &seobCoeffs, eta, a, 
                           SpinAlignedEOBversion ) == XLAL_FAILURE )
-      printf("\nSomething went wrong evaluating XLALSimIMRCalculateSpinEOBHCoeffs in step %d of coarse dynamics\n", 
+      printf("\nSomething went wrong evaluating XLALSimIMRCalculateSpinPrecEOBHCoeffs in step %d of coarse dynamics\n", 
 			i );
 
     /* Update hlm coefficients */
     if ( XLALSimIMREOBCalcSpinFacWaveformCoefficients( &hCoeffs, m1, m2, eta, 
         tplspin, chiS, chiA, 3 ) == XLAL_FAILURE )
-      printf("\nSomething went wrong evaluating XLALSimIMRCalculateSpinEOBHCoeffs in step %d of coarse dynamics\n", 
+      printf("\nSomething went wrong evaluating XLALSimIMRCalculateSpinPrecEOBHCoeffs in step %d of coarse dynamics\n", 
 			i );
     
-    ham = XLALSimIMRSpinEOBHamiltonian( eta, &cartPosVec, &cartMomVec,
+    ham = XLALSimIMRSpinPrecEOBHamiltonian( eta, &cartPosVec, &cartMomVec,
                   &s1VecOverMtMt, &s2VecOverMtMt,
                   sigmaKerr, sigmaStar, seobParams.tortoise, &seobCoeffs );
 

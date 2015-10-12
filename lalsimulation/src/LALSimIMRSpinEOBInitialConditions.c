@@ -11,6 +11,7 @@
 #include "LALSimIMRSpinEOB.h"
 #include "LALSimIMRSpinEOBHcapNumericalDerivative.c"
 #include "LALSimIMRSpinEOBHamiltonian.c"
+#include "LALSimIMRSpinEOBHamiltonianPrec.c"
 #include "LALSimIMREOBFactorizedWaveform.c"
 
 #ifndef _LALSIMIMRSPINEOBINITIALCONDITIONS_C
@@ -1249,8 +1250,8 @@ XLALSimIMRSpinEOBInitialConditions(
 		 */
 		a = sqrt(sKerr.data[0] * sKerr.data[0] + sKerr.data[1] * sKerr.data[1] + sKerr.data[2] * sKerr.data[2]);
 		//XLALSimIMREOBCalcSpinFacWaveformCoefficients(params->eobParams->hCoeffs, mass1, mass2, eta, /* a */ 0.0, chiS, chiA);
-		//XLALSimIMRCalculateSpinEOBHCoeffs(params->seobCoeffs, eta, a);
-		ham = XLALSimIMRSpinEOBHamiltonian(eta, &qCartVec, &pCartVec, &s1VecNorm, &s2VecNorm, &sKerr, &sStar, params->tortoise, params->seobCoeffs);
+		//XLALSimIMRCalculateSpinPrecEOBHCoeffs(params->seobCoeffs, eta, a);
+		ham = XLALSimIMRSpinPrecEOBHamiltonian(eta, &qCartVec, &pCartVec, &s1VecNorm, &s2VecNorm, &sKerr, &sStar, params->tortoise, params->seobCoeffs);
 
 		if (printPK)
 			printf("Stas: hamiltonian in ICs at this point is %.16e\n", ham);
@@ -1308,7 +1309,7 @@ XLALSimIMRSpinEOBInitialConditions(
 			cartValues[i + 6] *= mTotal * mTotal;
 			cartValues[i + 9] *= mTotal * mTotal;
 		}
-        REAL8		csi = sqrt(XLALSimIMRSpinEOBHamiltonianDeltaT(params->seobCoeffs, qSph[0], eta, a)*XLALSimIMRSpinEOBHamiltonianDeltaR(params->seobCoeffs, qSph[0], eta, a)) / (qSph[0] * qSph[0] + a * a);
+        REAL8		csi = sqrt(XLALSimIMRSpinPrecEOBHamiltonianDeltaT(params->seobCoeffs, qSph[0], eta, a)*XLALSimIMRSpinPrecEOBHamiltonianDeltaR(params->seobCoeffs, qSph[0], eta, a)) / (qSph[0] * qSph[0] + a * a);
 
 		dHdpr = csi*tmpDValues[0];
 		//XLALSpinHcapNumDerivWRTParam(3, cartValues, params);
@@ -1368,8 +1369,8 @@ XLALSimIMRSpinEOBInitialConditions(
         /* If required, apply the tortoise transform */
 	if (tmpTortoise) {
 		REAL8		r = sqrt(qCart[0] * qCart[0] + qCart[1] * qCart[1] + qCart[2] * qCart[2]);
-		REAL8		deltaR = XLALSimIMRSpinEOBHamiltonianDeltaR(params->seobCoeffs, r, eta, a);
-		REAL8		deltaT = XLALSimIMRSpinEOBHamiltonianDeltaT(params->seobCoeffs, r, eta, a);
+		REAL8		deltaR = XLALSimIMRSpinPrecEOBHamiltonianDeltaR(params->seobCoeffs, r, eta, a);
+		REAL8		deltaT = XLALSimIMRSpinPrecEOBHamiltonianDeltaT(params->seobCoeffs, r, eta, a);
 		REAL8		csi = sqrt(deltaT * deltaR) / (r * r + a * a);
 
 		REAL8		pr = (qCart[0] * pCart[0] + qCart[1] * pCart[1] + qCart[2] * pCart[2]) / r;
@@ -1792,8 +1793,8 @@ XLALSimIMRSpinEOBInitialConditionsV2(
 		 */
 		a = sqrt(sKerr.data[0] * sKerr.data[0] + sKerr.data[1] * sKerr.data[1] + sKerr.data[2] * sKerr.data[2]);
 		//XLALSimIMREOBCalcSpinFacWaveformCoefficients(params->eobParams->hCoeffs, mass1, mass2, eta, /* a */ 0.0, chiS, chiA);
-		//XLALSimIMRCalculateSpinEOBHCoeffs(params->seobCoeffs, eta, a);
-		ham = XLALSimIMRSpinEOBHamiltonian(eta, &qCartVec, &pCartVec, &s1VecNorm, &s2VecNorm, &sKerr, &sStar, params->tortoise, params->seobCoeffs);
+		//XLALSimIMRCalculateSpinPrecEOBHCoeffs(params->seobCoeffs, eta, a);
+		ham = XLALSimIMRSpinPrecEOBHamiltonian(eta, &qCartVec, &pCartVec, &s1VecNorm, &s2VecNorm, &sKerr, &sStar, params->tortoise, params->seobCoeffs);
 
 		//printf("hamiltonian at this point is %.16e\n", ham);
 
@@ -1819,7 +1820,7 @@ XLALSimIMRSpinEOBInitialConditionsV2(
 		 * to a pr of 1.0e-3
 		 */
 		cartValues[3] = 1.0e-3;
-        REAL8		csi = sqrt(XLALSimIMRSpinEOBHamiltonianDeltaT(params->seobCoeffs, qSph[0], eta, a)*XLALSimIMRSpinEOBHamiltonianDeltaR(params->seobCoeffs, qSph[0], eta, a)) / (qSph[0] * qSph[0] + a * a);
+        REAL8		csi = sqrt(XLALSimIMRSpinPrecEOBHamiltonianDeltaT(params->seobCoeffs, qSph[0], eta, a)*XLALSimIMRSpinPrecEOBHamiltonianDeltaR(params->seobCoeffs, qSph[0], eta, a)) / (qSph[0] * qSph[0] + a * a);
 
         dHdpr = csi*csi*XLALSpinHcapNumDerivWRTParam(3, cartValues, params);
 
@@ -1878,8 +1879,8 @@ XLALSimIMRSpinEOBInitialConditionsV2(
 	/* If required, apply the tortoise transform */
 	if (tmpTortoise) {
 		REAL8		r = sqrt(qCart[0] * qCart[0] + qCart[1] * qCart[1] + qCart[2] * qCart[2]);
-		REAL8		deltaR = XLALSimIMRSpinEOBHamiltonianDeltaR(params->seobCoeffs, r, eta, a);
-		REAL8		deltaT = XLALSimIMRSpinEOBHamiltonianDeltaT(params->seobCoeffs, r, eta, a);
+		REAL8		deltaR = XLALSimIMRSpinPrecEOBHamiltonianDeltaR(params->seobCoeffs, r, eta, a);
+		REAL8		deltaT = XLALSimIMRSpinPrecEOBHamiltonianDeltaT(params->seobCoeffs, r, eta, a);
 		REAL8		csi = sqrt(deltaT * deltaR) / (r * r + a * a);
 
 		REAL8		pr = (qCart[0] * pCart[0] + qCart[1] * pCart[1] + qCart[2] * pCart[2]) / r;

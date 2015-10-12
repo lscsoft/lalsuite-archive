@@ -133,7 +133,7 @@ double  XLALSimLocateOmegaTime(
     
         /* Calculate dr/dt */
         memset( dvalues->data, 0, numdynvars*sizeof(dvalues->data[0]));
-        if( XLALSpinHcapRvecDerivative( 0, values->data, dvalues->data, 
+        if( XLALSpinPrecHcapRvecDerivative( 0, values->data, dvalues->data, 
             &seobParams) != XLAL_SUCCESS )
         {
                 printf(

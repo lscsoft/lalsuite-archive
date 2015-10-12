@@ -43,6 +43,7 @@
 #include <lal/LALSimIMR.h>
 
 /*#include "LALSimIMRSpinEOB.h"*/
+//#include "LALSimIMRSpinEOBHamiltonianPrec.c"
 #include "LALSimIMRSpinEOBHamiltonian.c"
 #include "LALSimIMRSpinEOBFactorizedFlux.c"
 
@@ -164,8 +165,8 @@ static int XLALSpinAlignedHcapDerivative(
 
   /* Calculate the potential functions and the tortoise coordinate factor csi,
      given by Eq. 28 of Pan et al. PRD 81, 084041 (2010) */
-  DeltaT = XLALSimIMRSpinEOBHamiltonianDeltaT( params.params->seobCoeffs, r, eta, a );
-  DeltaR = XLALSimIMRSpinEOBHamiltonianDeltaR( params.params->seobCoeffs, r, eta, a );
+  DeltaT = XLALSimIMRSpinPrecEOBHamiltonianDeltaT( params.params->seobCoeffs, r, eta, a );
+  DeltaR = XLALSimIMRSpinPrecEOBHamiltonianDeltaR( params.params->seobCoeffs, r, eta, a );
   csi    = sqrt( DeltaT * DeltaR ) / (r*r + a*a);
   //printf("DeltaT = %.16e, DeltaR = %.16e, a = %.16e\n",DeltaT,DeltaR,a);
   //printf( "csi in derivatives function = %.16e\n", csi );
@@ -208,7 +209,7 @@ static int XLALSpinAlignedHcapDerivative(
   pData[0] = values[2];
   pData[1] = values[3] / values[0];
   /* Calculate Hamiltonian using Cartesian vectors rVec and pVec */
-  H =  XLALSimIMRSpinEOBHamiltonian( eta, &rVec, &pVec, s1Vec, s2Vec, sKerr, sStar, params.params->tortoise, params.params->seobCoeffs );
+  H =  XLALSimIMRSpinPrecEOBHamiltonian( eta, &rVec, &pVec, s1Vec, s2Vec, sKerr, sStar, params.params->tortoise, params.params->seobCoeffs );
 
   //printf( "csi = %.16e, ham = %.16e ( tortoise = %d)\n", csi, H, params.params->tortoise );
   //exit(1);

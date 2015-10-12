@@ -30,8 +30,8 @@
  * PRD 81, 084024 (2010) and PRD 84, 104027 (2011), henceforth BB1 and BB2
  */
 
-#ifndef _LALSIMIMRSPINEOBHAMILTONIAN_C
-#define _LALSIMIMRSPINEOBHAMILTONIAN_C
+#ifndef _LALSIMIMRSPINPRECEOBHAMILTONIAN_C
+#define _LALSIMIMRSPINPRECEOBHAMILTONIAN_C
 
 #include <stdio.h>
 #include <math.h>
@@ -56,14 +56,14 @@
 /**
  * This function calculates the DeltaR potential function in the spin EOB Hamiltonian
  */
-static REAL8 XLALSimIMRSpinEOBHamiltonianDeltaR(
+static REAL8 XLALSimIMRSpinPrecEOBHamiltonianDeltaR(
         SpinEOBHCoeffs *coeffs, /**<< Pre-computed coefficients which appear in the function */
         const REAL8    r,       /**<< Current orbital radius (in units of total mass) */
         const REAL8    eta,     /**<< Symmetric mass ratio */
         const REAL8    a        /**<< Normalized deformed Kerr spin */
         );
 
-static REAL8 XLALSimIMRSpinEOBHamiltonian(
+static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
                const REAL8    eta,
                REAL8Vector    * restrict x,
                REAL8Vector    * restrict p,
@@ -74,31 +74,19 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
                int                       tortoise,
                SpinEOBHCoeffs *coeffs);
 
-static int XLALSimIMRCalculateSpinEOBHCoeffs(
+static int XLALSimIMRCalculateSpinPrecEOBHCoeffs(
         SpinEOBHCoeffs *coeffs,
         const REAL8    eta,
         const REAL8    a,
         const UINT4    SpinAlignedEOBversion
         );
 
-static REAL8 XLALSimIMRSpinEOBHamiltonianDeltaT( 
+static REAL8 XLALSimIMRSpinPrecEOBHamiltonianDeltaT(
         SpinEOBHCoeffs *coeffs,
         const REAL8    r,
         const REAL8    eta,
         const REAL8    a
         );
-
-static REAL8 XLALSimIMRSpinAlignedEOBCalcOmega(
-                      const REAL8          values[],
-                      SpinEOBParams        *funcParams
-                      );
-
-static REAL8 XLALSimIMRSpinAlignedEOBNonKeplerCoeff(
-                      const REAL8           values[],
-                      SpinEOBParams         *funcParams
-                      );
-
-static double GSLSpinAlignedHamiltonianWrapper( double x, void *params );
 
 /* Precessing EOB's function declarations below */
 UNUSED static REAL8 inner_product( const REAL8 values1[], 
@@ -109,26 +97,26 @@ UNUSED static REAL8* cross_product( const REAL8 values1[],
                               const REAL8 values2[],
                               REAL8 result[] );
 
-static REAL8 UNUSED XLALSimIMRSpinEOBNonKeplerCoeff(
+static REAL8 UNUSED XLALSimIMRSpinPrecEOBNonKeplerCoeff(
                       const REAL8           values[],   /**<< Dynamical variables */
                       SpinEOBParams         *funcParams /**<< EOB parameters */
                       );
 
-static REAL8 XLALSimIMRSpinEOBCalcOmega(
+static REAL8 XLALSimIMRSpinPrecEOBCalcOmega(
                       const REAL8           values[],   /**<< Dynamical variables */
                       SpinEOBParams         *funcParams /**<< EOB parameters */
                       );
 
-UNUSED static int XLALSpinHcapRvecDerivative(
+UNUSED static int XLALSpinPrecHcapRvecDerivative(
                  double UNUSED     t,         /**<< UNUSED */
                  const  REAL8      values[],  /**<< Dynamical variables */
                  REAL8             dvalues[], /**<< Time derivatives of variables (returned) */
                  void             *funcParams /**<< EOB parameters */
                                );
 
-static double GSLSpinHamiltonianWrapperForRvecDerivs( double x, void *params );
+static double GSLSpinPrecHamiltonianWrapperForRvecDerivs( double x, void *params );
 
-static double GSLSpinHamiltonianWrapperFordHdpphi( double x, void *params );
+static double GSLSpinPrecHamiltonianWrapperFordHdpphi( double x, void *params );
 
 
 /*------------------------------------------------------------------------------------------
@@ -154,7 +142,7 @@ static double GSLSpinHamiltonianWrapperFordHdpphi( double x, void *params );
  * The function returns a REAL8, which will be the value of the Hamiltonian if all goes well;
  * otherwise, it will return the XLAL REAL8 failure NaN.
  */
-static REAL8 XLALSimIMRSpinEOBHamiltonian( 
+static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
                const REAL8    eta,                  /**<< Symmetric mass ratio */
                REAL8Vector    * restrict x,         /**<< Position vector */
                REAL8Vector    * restrict p,	    /**<< Momentum vector (tortoise radial component pr*) */
@@ -180,7 +168,7 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
                 + sigmaKerr->data[1]*sigmaKerr->data[1]
                 + sigmaKerr->data[2]*sigmaKerr->data[2]);
 
-    if ( XLALSimIMRCalculateSpinEOBHCoeffs( &tmpCoeffs, eta, 
+    if ( XLALSimIMRCalculateSpinPrecEOBHCoeffs( &tmpCoeffs, eta, 
           tmpa, coeffs->SpinAlignedEOBversion ) == XLAL_FAILURE )
     {
       XLAL_ERROR( XLAL_EFUNC );
@@ -605,7 +593,7 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
  *
  * If all goes well, the function will return XLAL_SUCCESS. Otherwise, XLAL_FAILURE is returned.
  */
-static int XLALSimIMRCalculateSpinEOBHCoeffs(
+static int XLALSimIMRCalculateSpinPrecEOBHCoeffs(
         SpinEOBHCoeffs *coeffs, /**<< OUTPUT, EOB parameters including pre-computed coefficients */
         const REAL8    eta,     /**<< symmetric mass ratio */
         const REAL8    a,       /**<< Normalized deformed Kerr spin */
@@ -621,7 +609,7 @@ static int XLALSimIMRCalculateSpinEOBHCoeffs(
   int debugPK = 0;
   if( debugPK )
   {
-    printf("In XLALSimIMRCalculateSpinEOBHCoeffs: SpinAlignedEOBversion = %d,%d\n",
+    printf("In XLALSimIMRCalculateSpinPrecEOBHCoeffs: SpinAlignedEOBversion = %d,%d\n",
         (int) SpinAlignedEOBversion, (int) coeffs->SpinAlignedEOBversion );
     fflush( NULL );
   }
@@ -703,7 +691,7 @@ static int XLALSimIMRCalculateSpinEOBHCoeffs(
  * This function calculates the function \f$\Delta_t(r)\f$ which appears in the spinning EOB
  * potential function. Eqs. 7a and 8.
  */
-static REAL8 XLALSimIMRSpinEOBHamiltonianDeltaT( 
+static REAL8 XLALSimIMRSpinPrecEOBHamiltonianDeltaT(
         SpinEOBHCoeffs *coeffs, /**<< Pre-computed coefficients which appear in the function */
         const REAL8    r,       /**<< Current orbital radius (in units of total mass) */
         const REAL8    eta,     /**<< Symmetric mass ratio */
@@ -751,7 +739,7 @@ static REAL8 XLALSimIMRSpinEOBHamiltonianDeltaT(
  * This function calculates the function \f$\Delta_r(r)\f$ which appears in the spinning EOB
  * potential function. Eqs. 10a and 10b
  */
-UNUSED static REAL8 XLALSimIMRSpinEOBHamiltonianDeltaR(
+UNUSED static REAL8 XLALSimIMRSpinPrecEOBHamiltonianDeltaR(
         SpinEOBHCoeffs *coeffs, /**<< Pre-computed coefficients which appear in the function */
         const REAL8    r,       /**<< Current orbital radius (in units of total mass) */
         const REAL8    eta,     /**<< Symmetric mass ratio */
@@ -770,134 +758,10 @@ UNUSED static REAL8 XLALSimIMRSpinEOBHamiltonianDeltaR(
 
   D = 1. + log(1. + 6.*eta*u2 + 2.*(26. - 3.*eta)*eta*u3);
 
-  deltaT = XLALSimIMRSpinEOBHamiltonianDeltaT( coeffs, r, eta, a );
+  deltaT = XLALSimIMRSpinPrecEOBHamiltonianDeltaT( coeffs, r, eta, a );
 
   deltaR = deltaT*D;
   return deltaR;
-}
-
-/**
- * Function to calculate the value of omega for the spin-aligned EOB waveform.
- * Can NOT be used in precessing cases. This omega is defined as \f$\dot{y}/r\f$ by setting \f$y=0\f$.
- * The function calculates omega = v/r, by first converting (r,phi,pr,pphi) to Cartesian coordinates
- * in which rVec={r,0,0} and pVec={0,pphi/r,0}, i.e. the effective-test-particle is positioned at x=r,
- * and its velocity along y-axis. Then it computes omega, which is now given by dydt/r = (dH/dp_y)/r.
- */
-static REAL8
-XLALSimIMRSpinAlignedEOBCalcOmega(
-                      const REAL8           values[],   /**<< Dynamical variables */
-                      SpinEOBParams         *funcParams /**<< EOB parameters */
-                      )
-{
-  static const REAL8 STEP_SIZE = 1.0e-4;
-
-  HcapDerivParams params;
-
-  /* Cartesian values for calculating the Hamiltonian */
-    REAL8 cartValues[6] = {0.};
-
-  gsl_function F;
-  INT4         gslStatus;
-
-  REAL8 omega;
-  REAL8 r;
-
-  /* The error in a derivative as measured by GSL */
-  REAL8 absErr;
-
-  /* Set up pointers for GSL */
-  params.values  = cartValues;
-  params.params  = funcParams;
-
-  F.function = &GSLSpinAlignedHamiltonianWrapper;
-  F.params   = &params;
-
-  /* Populate the Cartesian values vector */
-  /* We can assume phi is zero wlog */
-  memset( cartValues, 0, sizeof( cartValues ) );
-  cartValues[0] = r = values[0];
-  cartValues[3] = values[2];
-  cartValues[4] = values[3] / values[0];
-
-  /* Now calculate omega. In the chosen co-ordinate system, */
-  /* we need dH/dpy to calculate this, i.e. varyParam = 4   */
-  params.varyParam = 4;
-  XLAL_CALLGSL( gslStatus = gsl_deriv_central( &F, cartValues[4],
-                  STEP_SIZE, &omega, &absErr ) );
-
-  if ( gslStatus != GSL_SUCCESS )
-  {
-    XLALPrintError( "XLAL Error - %s: Failure in GSL function\n", __func__ );
-    XLAL_ERROR_REAL8( XLAL_EFUNC );
-  }
-  
-  omega = omega / r;
-
-  return omega;
-}
-
-/**
- * Function to calculate the non-Keplerian coefficient for the spin-aligned EOB model.
- * radius \f$r\f$ times the cuberoot of the returned number is \f$r_\Omega\f$ defined in Eq. A2.
- * i.e. the function returns \f$(r_{\Omega} / r)^3\f$.
- */
-UNUSED static REAL8
-XLALSimIMRSpinAlignedEOBNonKeplerCoeff(
-                      const REAL8           values[],   /**<< Dynamical variables */
-                      SpinEOBParams         *funcParams /**<< EOB parameters */
-                      )
-{
-
-  REAL8 omegaCirc;
-
-  REAL8 tmpValues[4]= {0.};
-
-  REAL8 r3;
-
-  /* We need to find the values of omega assuming pr = 0 */
-  memcpy( tmpValues, values, sizeof(tmpValues) );
-  tmpValues[2] = 0.0;
-
-  omegaCirc = XLALSimIMRSpinAlignedEOBCalcOmega( tmpValues, funcParams );
-  if ( XLAL_IS_REAL8_FAIL_NAN( omegaCirc ) )
-  {
-    XLAL_ERROR_REAL8( XLAL_EFUNC );
-  }
-
-  r3 = values[0]*values[0]*values[0];
-
-  return 1.0/(omegaCirc*omegaCirc*r3);
-}
-  
-/* Wrapper for GSL to call the Hamiltonian function */
-static double GSLSpinAlignedHamiltonianWrapper( double x, void *params )
-{
-  HcapDerivParams *dParams = (HcapDerivParams *)params;
-
-  EOBParams *eobParams = dParams->params->eobParams;
-
-  REAL8 tmpVec[6]= {0.};
-
-  /* These are the vectors which will be used in the call to the Hamiltonian */
-  REAL8Vector r, p;
-  REAL8Vector *s1Vec = dParams->params->s1Vec;
-  REAL8Vector *s2Vec = dParams->params->s2Vec;
-  REAL8Vector *sigmaKerr = dParams->params->sigmaKerr;
-  REAL8Vector *sigmaStar = dParams->params->sigmaStar;
-
-  /* Use a temporary vector to avoid corrupting the main function */
-  memcpy( tmpVec, dParams->values, 
-               sizeof(tmpVec) );
-
-  /* Set the relevant entry in the vector to the correct value */
-  tmpVec[dParams->varyParam] = x;
-
-  /* Set the LAL-style vectors to point to the appropriate things */
-  r.length = p.length = 3;
-  r.data     = tmpVec;
-  p.data     = tmpVec+3;
-
-  return XLALSimIMRSpinEOBHamiltonian( eobParams->eta, &r, &p, s1Vec, s2Vec, sigmaKerr, sigmaStar, dParams->params->tortoise, dParams->params->seobCoeffs ) / eobParams->eta;
 }
 
 
@@ -952,7 +816,7 @@ UNUSED static REAL8* cross_product( const REAL8 values1[],
  * are used to compute the derivative
  * \f$\partial Hreal/\partial p_\phi |p_r=0\f$.
  */
-static REAL8 XLALSimIMRSpinEOBCalcOmega(
+static REAL8 XLALSimIMRSpinPrecEOBCalcOmega(
                       const REAL8           values[],   /**<< Dynamical variables */
                       SpinEOBParams         *funcParams /**<< EOB parameters */
                       )
@@ -961,7 +825,7 @@ static REAL8 XLALSimIMRSpinEOBCalcOmega(
   if (debugPK){
     for(int i =0; i < 12; i++)
       if( isnan(values[i]) ) {
-        printf("XLALSimIMRSpinEOBCalcOmega::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
+        printf("XLALSimIMRSpinPrecEOBCalcOmega::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
           XLALPrintError( "XLAL Error - %s: nan in input values  \n", __func__);
           XLAL_ERROR( XLAL_EINVAL );
       }
@@ -1024,7 +888,7 @@ static REAL8 XLALSimIMRSpinEOBCalcOmega(
 
   /* Calculate rDot = \f$\partial Hreal / \partial p_r\f$ */
   memset( dvalues, 0, 14 * sizeof(REAL8) );
-  if( XLALSpinHcapRvecDerivative( 0, values, dvalues, 
+  if( XLALSpinPrecHcapRvecDerivative( 0, values, dvalues, 
                                   (void*) funcParams) == XLAL_FAILURE )
   {
     XLAL_ERROR( XLAL_EFUNC );
@@ -1034,7 +898,7 @@ static REAL8 XLALSimIMRSpinEOBCalcOmega(
   if (debugPK){
     for(int ii =0; ii < 12; ii++)
       if( isnan(dvalues[ii]) ) {
-        printf("XLALSimIMRSpinEOBCalcOmega::dvalues %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3], dvalues[4], dvalues[5], dvalues[6], dvalues[7], dvalues[8], dvalues[9], dvalues[10], dvalues[11]);
+        printf("XLALSimIMRSpinPrecEOBCalcOmega::dvalues %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3], dvalues[4], dvalues[5], dvalues[6], dvalues[7], dvalues[8], dvalues[9], dvalues[10], dvalues[11]);
           XLALPrintError( "XLAL Error - %s: nan in dvalues \n", __func__);
           XLAL_ERROR( XLAL_EINVAL );
       }
@@ -1174,7 +1038,7 @@ static REAL8 XLALSimIMRSpinEOBCalcOmega(
   params.values  = polarRPcartSvalues;
   params.params  = funcParams;
 
-  F.function = &GSLSpinHamiltonianWrapperFordHdpphi;
+  F.function = &GSLSpinPrecHamiltonianWrapperFordHdpphi;
   F.params   = &params;
 
   /* Now calculate omega. In the chosen co-ordinate system, */
@@ -1203,7 +1067,7 @@ static REAL8 XLALSimIMRSpinEOBCalcOmega(
  *     = \f$1/(r^3 (\partial Hreal/\partial p_\phi |p_r=0)^2)\f$.
  */
 static REAL8 
-XLALSimIMRSpinEOBNonKeplerCoeff(
+XLALSimIMRSpinPrecEOBNonKeplerCoeff(
                       const REAL8           values[],   /**<< Dynamical variables */
                       SpinEOBParams         *funcParams /**<< EOB parameters */
                       )
@@ -1212,7 +1076,7 @@ XLALSimIMRSpinEOBNonKeplerCoeff(
   if (debugPK){
     for(int i =0; i < 12; i++)
       if( isnan(values[i]) ) {
-        printf("XLALSimIMRSpinEOBNonKeplerCoeff::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n",
+        printf("XLALSimIMRSpinPrecEOBNonKeplerCoeff::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n",
         values[0], values[1], values[2], values[3], values[4], values[5],
         values[6], values[7], values[8], values[9], values[10], values[11]);
           XLALPrintError( "XLAL Error - %s: nan in values  \n", __func__);
@@ -1226,7 +1090,7 @@ XLALSimIMRSpinEOBNonKeplerCoeff(
       
   /* We need to find the values of omega assuming pr = 0 */
   memcpy( tmpValues, values, sizeof(tmpValues) );
-  omegaCirc = XLALSimIMRSpinEOBCalcOmega( tmpValues, funcParams );
+  omegaCirc = XLALSimIMRSpinPrecEOBCalcOmega( tmpValues, funcParams );
   
   if ( XLAL_IS_REAL8_FAIL_NAN( omegaCirc ) )
   {
@@ -1243,7 +1107,7 @@ XLALSimIMRSpinEOBNonKeplerCoeff(
  * Pan et al. PRD 81, 084041 (2010)
  * This function is not used by the spin-aligned SEOBNRv1 model.
  */
-UNUSED static int XLALSpinHcapRvecDerivative(
+UNUSED static int XLALSpinPrecHcapRvecDerivative(
                  double UNUSED     t,         /**<< UNUSED */
                  const  REAL8      values[],  /**<< Dynamical variables */
                  REAL8             dvalues[], /**<< Time derivatives of variables (returned) */
@@ -1254,13 +1118,13 @@ UNUSED static int XLALSpinHcapRvecDerivative(
   //if (debugPK){
     for(int i =0; i < 12; i++){
       if( isnan(values[i]) ) {
-        printf("XLALSpinHcapRvecDerivative::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
+        printf("XLALSpinPrecHcapRvecDerivative::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
           XLALPrintError( "XLAL Error - %s: nan in input values \n", __func__);
           XLAL_ERROR( XLAL_EINVAL );
         }
         
       if( isnan(dvalues[i]) ) {
-        printf("XLALSpinHcapRvecDerivative::dvalues %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3], dvalues[4], dvalues[5], dvalues[6], dvalues[7], dvalues[8], dvalues[9], dvalues[10], dvalues[11]);
+        printf("XLALSpinPrecHcapRvecDerivative::dvalues %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3], dvalues[4], dvalues[5], dvalues[6], dvalues[7], dvalues[8], dvalues[9], dvalues[10], dvalues[11]);
           XLALPrintError( "XLAL Error - %s: nan in the input dvalues \n", __func__);
           XLAL_ERROR( XLAL_EINVAL );
         }
@@ -1332,7 +1196,7 @@ UNUSED static int XLALSpinHcapRvecDerivative(
   params.values  = values;
   params.params  = (SpinEOBParams *)funcParams;
 
-  F.function = &GSLSpinHamiltonianWrapperForRvecDerivs;
+  F.function = &GSLSpinPrecHamiltonianWrapperForRvecDerivs;
   F.params   = &params;
 
   mass1 = params.params->eobParams->m1;
@@ -1393,7 +1257,7 @@ UNUSED static int XLALSpinHcapRvecDerivative(
 				+ tmpsigmaKerr->data[1]*tmpsigmaKerr->data[1]
 				+ tmpsigmaKerr->data[2]*tmpsigmaKerr->data[2] );
     //tmpsigmaKerr->data[2];
-    if ( XLALSimIMRCalculateSpinEOBHCoeffs( params.params->seobCoeffs, eta,
+    if ( XLALSimIMRCalculateSpinPrecEOBHCoeffs( params.params->seobCoeffs, eta,
 			params.params->a, SpinAlignedEOBversion ) == XLAL_FAILURE )
     {
       XLALDestroyREAL8Vector( params.params->sigmaKerr );
@@ -1414,7 +1278,6 @@ UNUSED static int XLALSpinHcapRvecDerivative(
 
   /* We need to re-calculate the parameters at each step as precessing
    * spins will not be constant */
-  /* TODO: Modify so that only spin terms get re-calculated */
 
   /* We cannot point to the values vector directly as it leads to a warning */
   s1.length = s2.length = s1norm.length = s2norm.length = 3;
@@ -1450,7 +1313,7 @@ UNUSED static int XLALSpinHcapRvecDerivative(
       XLAL_ERROR( XLAL_EINVAL );
   } 
   if(debugPK && isnan(a))
-    printf("a is nan in XLALSpinHcapRvecDerivative \n");
+    printf("a is nan in XLALSpinPrecHcapRvecDerivative \n");
     
   ///* set the tortoise flag to 2 */
   //INT4 oldTortoise = params.params->tortoise;
@@ -1540,13 +1403,13 @@ UNUSED static int XLALSpinHcapRvecDerivative(
   //if (debugPK){
     for(i =0; i < 12; i++){
       if( isnan(values[i]) ) {
-        printf("XLALSpinHcapRvecDerivative (just before diff)::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
+        printf("XLALSpinPrecHcapRvecDerivative (just before diff)::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
           XLALPrintError( "XLAL Error - %s: values = nan   \n", __func__);
           XLAL_ERROR( XLAL_EINVAL );
         }
         
       if( isnan(dvalues[i]) ) {
-        printf("XLALSpinHcapRvecDerivative (just before diff)::dvalues %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3], dvalues[4], dvalues[5], dvalues[6], dvalues[7], dvalues[8], dvalues[9], dvalues[10], dvalues[11]);
+        printf("XLALSpinPrecHcapRvecDerivative (just before diff)::dvalues %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3], dvalues[4], dvalues[5], dvalues[6], dvalues[7], dvalues[8], dvalues[9], dvalues[10], dvalues[11]);
           XLALPrintError( "XLAL Error - %s: dvalues = nan   \n", __func__);
           XLAL_ERROR( XLAL_EINVAL );
         }
@@ -1598,7 +1461,7 @@ UNUSED static int XLALSpinHcapRvecDerivative(
   if (debugPK){
     for( i =0; i < 12; i++)
       if( isnan(tmpDValues[i]) ) {
-        printf("XLALSpinHcapRvecDerivative (just after diff)::tmpDValues %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", tmpDValues[0], tmpDValues[1], tmpDValues[2], tmpDValues[3], tmpDValues[4], tmpDValues[5], tmpDValues[6], tmpDValues[7], tmpDValues[8], tmpDValues[9], tmpDValues[10], tmpDValues[11]);
+        printf("XLALSpinPrecHcapRvecDerivative (just after diff)::tmpDValues %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", tmpDValues[0], tmpDValues[1], tmpDValues[2], tmpDValues[3], tmpDValues[4], tmpDValues[5], tmpDValues[6], tmpDValues[7], tmpDValues[8], tmpDValues[9], tmpDValues[10], tmpDValues[11]);
         }
     }
 
@@ -1652,7 +1515,6 @@ UNUSED static int XLALSpinHcapRvecDerivative(
   chiA = 0.5 * (s1dotLN - s2dotLN);
 
   /* Compute the test-particle limit spin of the deformed-Kerr background */
-  /* TODO: Check this is actually the way it works in LAL */
   switch ( SpinAlignedEOBversion )
   {
      case 1:
@@ -1692,10 +1554,10 @@ UNUSED static int XLALSpinHcapRvecDerivative(
                                                      chiS, chiA, 3);
     }
 
-    XLALSimIMRCalculateSpinEOBHCoeffs( params.params->seobCoeffs, eta, a, 
+    XLALSimIMRCalculateSpinPrecEOBHCoeffs( params.params->seobCoeffs, eta, a, 
       SpinAlignedEOBversion );
 
-  H = XLALSimIMRSpinEOBHamiltonian( eta, &rVec, &pVec, &s1norm, &s2norm, 
+  H = XLALSimIMRSpinPrecEOBHamiltonian( eta, &rVec, &pVec, &s1norm, &s2norm, 
 	&sKerr, &sStar, params.params->tortoise, params.params->seobCoeffs ); 
   H = H * (mass1 + mass2);
   
@@ -1705,7 +1567,7 @@ UNUSED static int XLALSpinHcapRvecDerivative(
 	  for( j = 0, dvalues[i] = 0.; j < 3; j++ )
 		  dvalues[i] += tmpDValues[j+3]*Tmatrix[i][j];
     
-    //if (debugPK) printf("XLALSpinHcapRvecDerivative::tmpDValues = %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n",tmpDValues[0],tmpDValues[1],tmpDValues[2],tmpDValues[3],tmpDValues[4],tmpDValues[5]);
+    //if (debugPK) printf("XLALSpinPrecHcapRvecDerivative::tmpDValues = %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n",tmpDValues[0],tmpDValues[1],tmpDValues[2],tmpDValues[3],tmpDValues[4],tmpDValues[5]);
 
 
   return XLAL_SUCCESS;
@@ -1716,7 +1578,7 @@ UNUSED static int XLALSpinHcapRvecDerivative(
  * GSLSpinHamiltonianWrapper copied over. The alternative was to make it non-static
  * which increases runtime as static functions can be better optimized.
  */
-static double GSLSpinHamiltonianWrapperForRvecDerivs( double x, void *params )
+static double GSLSpinPrecHamiltonianWrapperForRvecDerivs( double x, void *params )
 {
   int debugPK = 1;
   HcapDerivParams *dParams = (HcapDerivParams *)params;
@@ -1745,7 +1607,7 @@ static double GSLSpinHamiltonianWrapperForRvecDerivs( double x, void *params )
   if (debugPK){
     for( i =0; i < 12; i++)
       if( isnan(tmpVec[i]) ) {
-        printf("GSLSpinHamiltonianWrapperForRvecDerivs (from input)::tmpVec %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", tmpVec[0], tmpVec[1], tmpVec[2], tmpVec[3], tmpVec[4], tmpVec[5], tmpVec[6], tmpVec[7], tmpVec[8], tmpVec[9], tmpVec[10], tmpVec[11]);
+        printf("GSLSpinPrecHamiltonianWrapperForRvecDerivs (from input)::tmpVec %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", tmpVec[0], tmpVec[1], tmpVec[2], tmpVec[3], tmpVec[4], tmpVec[5], tmpVec[6], tmpVec[7], tmpVec[8], tmpVec[9], tmpVec[10], tmpVec[11]);
         }
     }
 
@@ -1791,11 +1653,11 @@ static double GSLSpinHamiltonianWrapperForRvecDerivs( double x, void *params )
   //printf( "aStar = %e\n", sqrt( sigmaStar.data[0]*sigmaStar.data[0] + sigmaStar.data[1]*sigmaStar.data[1] + sigmaStar.data[2]*sigmaStar.data[2]) );
   if ( isnan( a ) )
   {
-      printf( "a is nan in GSLSpinHamiltonianWrapperForRvecDerivs!!\n");
+      printf( "a is nan in GSLSpinPrecHamiltonianWrapperForRvecDerivs!!\n");
       XLALPrintError( "XLAL Error - %s: a = nan   \n", __func__);
       XLAL_ERROR( XLAL_EINVAL );
   }
-  //XLALSimIMRCalculateSpinEOBHCoeffs( dParams->params->seobCoeffs, eobParams->eta, a );
+  //XLALSimIMRCalculateSpinPrecEOBHCoeffs( dParams->params->seobCoeffs, eobParams->eta, a );
   /* If computing the derivative w.r.t. the position vector, we need to 
    * pass p and not p* to the Hamiltonian. This is so because we want to 
    * hold p constant as we compute dH/dx. The way to do this is set the
@@ -1853,24 +1715,24 @@ static double GSLSpinHamiltonianWrapperForRvecDerivs( double x, void *params )
 	  memcpy( p.data, tmpP, sizeof(tmpP) );
   }
 #endif
-//  printf( "Hamiltonian = %e\n", XLALSimIMRSpinEOBHamiltonian( eobParams->eta, &r, &p, &sigmaKerr, &sigmaStar, dParams->params->seobCoeffs ) );
+//  printf( "Hamiltonian = %e\n", XLALSimIMRSpinPrecEOBHamiltonian( eobParams->eta, &r, &p, &sigmaKerr, &sigmaStar, dParams->params->seobCoeffs ) );
     double magR = r.data[0]*r.data[0] + r.data[1]*r.data[1] + r.data[2]*r.data[2];
 
   if(debugPK) {
     if(0 && magR < 1.96 * 1.96) {
-      printf("GSLSpinHamiltonianWrapperForRvecDerivs (JUST inputs)::tmpVec %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", tmpVec[0], tmpVec[1], tmpVec[2], tmpVec[3], tmpVec[4], tmpVec[5], tmpVec[6], tmpVec[7], tmpVec[8], tmpVec[9], tmpVec[10], tmpVec[11]);
+      printf("GSLSpinPrecHamiltonianWrapperForRvecDerivs (JUST inputs)::tmpVec %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", tmpVec[0], tmpVec[1], tmpVec[2], tmpVec[3], tmpVec[4], tmpVec[5], tmpVec[6], tmpVec[7], tmpVec[8], tmpVec[9], tmpVec[10], tmpVec[11]);
       
       printf(" R = %3.10f\n\n", sqrt(magR));
     }
   }
   
-  REAL8 SpinEOBH = XLALSimIMRSpinEOBHamiltonian( eobParams->eta, &r, &p, &spin1norm, &spin2norm, &sigmaKerr, &sigmaStar, dParams->params->tortoise, dParams->params->seobCoeffs ) / eobParams->eta;
+  REAL8 SpinEOBH = XLALSimIMRSpinPrecEOBHamiltonian( eobParams->eta, &r, &p, &spin1norm, &spin2norm, &sigmaKerr, &sigmaStar, dParams->params->tortoise, dParams->params->seobCoeffs ) / eobParams->eta;
   
   if( isnan(SpinEOBH) )
     {
-      printf("H is nan in GSLSpinHamiltonianWrapperForRvecDerivs. \n");
+      printf("H is nan in GSLSpinPrecHamiltonianWrapperForRvecDerivs. \n");
     
-      printf("GSLSpinHamiltonianWrapperForRvecDerivs (JUST inputs)::tmpVec %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", tmpVec[0], tmpVec[1], tmpVec[2], tmpVec[3], tmpVec[4], tmpVec[5], tmpVec[6], tmpVec[7], tmpVec[8], tmpVec[9], tmpVec[10], tmpVec[11]);
+      printf("GSLSpinPrecHamiltonianWrapperForRvecDerivs (JUST inputs)::tmpVec %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", tmpVec[0], tmpVec[1], tmpVec[2], tmpVec[3], tmpVec[4], tmpVec[5], tmpVec[6], tmpVec[7], tmpVec[8], tmpVec[9], tmpVec[10], tmpVec[11]);
       
       printf(" R = %3.10f\n\n", sqrt(magR));
       XLALPrintError( "XLAL Error - %s: H = nan   \n", __func__);
@@ -1887,7 +1749,7 @@ static double GSLSpinHamiltonianWrapperForRvecDerivs( double x, void *params )
  * GSLSpinHamiltonianWrapper copied over. The alternative was to make it non-static
  * which increases runtime as static functions can be better optimized.
  */
-static double GSLSpinHamiltonianWrapperFordHdpphi( double x, void *params )
+static double GSLSpinPrecHamiltonianWrapperFordHdpphi( double x, void *params )
 {
   HcapDerivParams *dParams = (HcapDerivParams *)params;
 
@@ -1991,13 +1853,13 @@ static double GSLSpinHamiltonianWrapperFordHdpphi( double x, void *params )
   //printf( "aStar = %e\n", sqrt( sigmaStar.data[0]*sigmaStar.data[0] + sigmaStar.data[1]*sigmaStar.data[1] + sigmaStar.data[2]*sigmaStar.data[2]) );
   if ( isnan( a ) )
   {
-    printf( "a is nan in GSLSpinHamiltonianWrapperFordHdpphi !!\n");
+    printf( "a is nan in GSLSpinPrecHamiltonianWrapperFordHdpphi !!\n");
       printf("rpolar, ppolar = %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", rpolar[0], rpolar[1], rpolar[2], ppolar[0], ppolar[1], ppolar[2]);
       printf("rcart, pcart = %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", rcart[0], rcart[1], rcart[2], pcart[0], pcart[1], pcart[2]);
       XLALPrintError( "XLAL Error - %s: a = nan   \n", __func__);
       XLAL_ERROR( XLAL_EINVAL );
   }
-  //XLALSimIMRCalculateSpinEOBHCoeffs( dParams->params->seobCoeffs, eobParams->eta, a );
+  //XLALSimIMRCalculateSpinPrecEOBHCoeffs( dParams->params->seobCoeffs, eobParams->eta, a );
   /* If computing the derivative w.r.t. the position vector, we need to 
    * pass p and not p* to the Hamiltonian. This is so because we want to 
    * hold p constant as we compute dH/dx. The way to do this is set the
@@ -2055,10 +1917,10 @@ static double GSLSpinHamiltonianWrapperFordHdpphi( double x, void *params )
 	  memcpy( p.data, tmpP, sizeof(tmpP) );
   }
 #endif
-  //printf( "Hamiltonian = %e\n", XLALSimIMRSpinEOBHamiltonian( eobParams->eta, &r, &p, &sigmaKerr, &sigmaStar, dParams->params->seobCoeffs ) );
-  REAL8 SpinEOBH = XLALSimIMRSpinEOBHamiltonian( eobParams->eta, &r, &p, &spin1norm, &spin2norm, &sigmaKerr, &sigmaStar, dParams->params->tortoise, dParams->params->seobCoeffs ) / eobParams->eta;
+  //printf( "Hamiltonian = %e\n", XLALSimIMRSpinPrecEOBHamiltonian( eobParams->eta, &r, &p, &sigmaKerr, &sigmaStar, dParams->params->seobCoeffs ) );
+  REAL8 SpinEOBH = XLALSimIMRSpinPrecEOBHamiltonian( eobParams->eta, &r, &p, &spin1norm, &spin2norm, &sigmaKerr, &sigmaStar, dParams->params->tortoise, dParams->params->seobCoeffs ) / eobParams->eta;
   
   return SpinEOBH;
 }
 
-#endif /*_LALSIMIMRSPINEOBHAMILTONIAN_C*/
+#endif /*_LALSIMIMRSPINPRECEOBHAMILTONIAN_C*/

@@ -50,6 +50,7 @@
 #include "LALSimIMRSpinEOBAuxFuncs.c"
 #include "LALSimIMRSpinAlignedEOBHcapDerivative.c"
 #include "LALSimIMRSpinEOBHamiltonian.c"
+#include "LALSimIMRSpinEOBHamiltonianPrec.c"
 #include "LALSimIMRSpinEOBFactorizedWaveform.c"
 #include "LALSimIMRSpinEOBFactorizedFlux.c"
 
@@ -381,7 +382,7 @@ int XLALSimIMRSpinEOBWaveform(
   }
 
   /* Populate the initial structures */
-  if ( XLALSimIMRCalculateSpinEOBHCoeffs( &seobCoeffs, eta, a,
+  if ( XLALSimIMRCalculateSpinPrecEOBHCoeffs( &seobCoeffs, eta, a,
                           SpinAlignedEOBversion ) == XLAL_FAILURE )
   {
     XLALDestroyREAL8Vector( sigmaKerr );
@@ -557,7 +558,7 @@ int XLALSimIMRSpinEOBWaveform(
     omega = XLALSimIMRSpinAlignedEOBCalcOmega( values->data, &seobParams );
     v = cbrt( omega );
 
-    ham = XLALSimIMRSpinEOBHamiltonian( eta, &cartPosVec, &cartMomVec,
+    ham = XLALSimIMRSpinPrecEOBHamiltonian( eta, &cartPosVec, &cartMomVec,
                   &s1VecOverMtMt, &s2VecOverMtMt,
                   sigmaKerr, sigmaStar, seobParams.tortoise, &seobCoeffs );
 

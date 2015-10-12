@@ -49,6 +49,8 @@
 #include "LALSimIMRSpinEOBAuxFuncs.c"
 #include "LALSimIMREOBNQCCorrection.c"
 #include "LALSimIMRSpinEOBHamiltonian.c"
+#include "LALSimIMRSpinEOBHamiltonianPrec.c"
+
 /* #include "LALSimIMRSpinEOBFactorizedWaveform.c" */
 /*------------------------------------------------------------------------------------------
  *
@@ -211,7 +213,7 @@ XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform(
 		vPhi *= Omega;
 		vPhi2 = vPhi * vPhi;
 	} else {
-		vPhi = XLALSimIMRSpinEOBNonKeplerCoeff(values->data, params);
+		vPhi = XLALSimIMRSpinPrecEOBNonKeplerCoeff(values->data, params);
 
 		if (XLAL_IS_REAL8_FAIL_NAN(vPhi)) {
 			XLAL_ERROR(XLAL_EFUNC);
@@ -643,7 +645,7 @@ XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
 		vPhi *= Omega;
 		vPhi2 = vPhi * vPhi;
 	} else {
-		vPhi = XLALSimIMRSpinEOBNonKeplerCoeff(cartvalues->data, params);
+		vPhi = XLALSimIMRSpinPrecEOBNonKeplerCoeff(cartvalues->data, params);
 
 		if (XLAL_IS_REAL8_FAIL_NAN(vPhi)) {
 			XLAL_ERROR(XLAL_EFUNC);
@@ -1076,7 +1078,7 @@ XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
 		vPhi *= Omega;
 		vPhi2 = vPhi * vPhi;
 	} else {
-		vPhi = XLALSimIMRSpinEOBNonKeplerCoeff(cartvalues->data, params);
+		vPhi = XLALSimIMRSpinPrecEOBNonKeplerCoeff(cartvalues->data, params);
 
 
 		if (XLAL_IS_REAL8_FAIL_NAN(vPhi)) {
