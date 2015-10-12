@@ -10,6 +10,7 @@
 
 #include "LALSimIMRSpinEOB.h"
 #include "LALSimIMRSpinEOBHcapNumericalDerivative.c"
+#include "LALSimIMRSpinEOBHcapNumericalDerivativePrec.c"
 #include "LALSimIMRSpinEOBHamiltonian.c"
 #include "LALSimIMRSpinEOBHamiltonianPrec.c"
 #include "LALSimIMREOBFactorizedWaveform.c"
@@ -318,7 +319,7 @@ XLALFindSphericalOrbitV2(const gsl_vector * x,	/**<< Parameters requested by gsl
 	pphi = r * py;
 
 	/* dHdR */
-	dHdx = XLALSpinHcapNumDerivWRTParam(0, rootParams->values, rootParams->params);
+	dHdx = XLALSpinPrecHcapNumDerivWRTParam(0, rootParams->values, rootParams->params);
 	if (XLAL_IS_REAL8_FAIL_NAN(dHdx)) {
 		XLAL_ERROR(XLAL_EFUNC);
 	}
@@ -326,13 +327,13 @@ XLALFindSphericalOrbitV2(const gsl_vector * x,	/**<< Parameters requested by gsl
 
 	/* dHdPphi (I think we can use dHdPy in this coord system) */
 	/* TODO: Check this is okay */
-	dHdpy = XLALSpinHcapNumDerivWRTParam(4, rootParams->values, rootParams->params);
+	dHdpy = XLALSpinPrecHcapNumDerivWRTParam(4, rootParams->values, rootParams->params);
 	if (XLAL_IS_REAL8_FAIL_NAN(dHdpy)) {
 		XLAL_ERROR(XLAL_EFUNC);
 	}
 	/* dHdPtheta (I think we can use dHdPz in this coord system) */
 	/* TODO: Check this is okay */
-	dHdpz = XLALSpinHcapNumDerivWRTParam(5, rootParams->values, rootParams->params);
+	dHdpz = XLALSpinPrecHcapNumDerivWRTParam(5, rootParams->values, rootParams->params);
 	if (XLAL_IS_REAL8_FAIL_NAN(dHdpz)) {
 		XLAL_ERROR(XLAL_EFUNC);
 	}
@@ -415,7 +416,7 @@ XLALFindSphericalOrbit(
 		rootParams->values[i + 6] /= mTotal * mTotal;
 		rootParams->values[i + 9] /= mTotal * mTotal;
 	}
-	status = XLALSpinHcapNumericalDerivativeNoFlux(0, rootParams->values, tmpDValues, rootParams->params);
+	status = XLALSpinPrecHcapNumericalDerivativeNoFlux(0, rootParams->values, tmpDValues, rootParams->params);
 	for (int i = 0; i < 3; i++) {
 		rootParams->values[i + 6] *= mTotal * mTotal;
 		rootParams->values[i + 9] *= mTotal * mTotal;
@@ -457,11 +458,11 @@ XLALFindSphericalOrbit(
 		//rootParams->values[10]= 0.;
 		//rootParams->values[11]= sqrt(CalculateDotProduct(chi2vec, chi2vec));
 
-		dHdx = XLALSpinHcapNumDerivWRTParam(0, 
+		dHdx = XLALSpinPrecHcapNumDerivWRTParam(0, 
                   rootParams->values, rootParams->params);
-		dHdpy = XLALSpinHcapNumDerivWRTParam(4, 
+		dHdpy = XLALSpinPrecHcapNumDerivWRTParam(4, 
                   rootParams->values, rootParams->params);
-		dHdpz = XLALSpinHcapNumDerivWRTParam(5, 
+		dHdpz = XLALSpinPrecHcapNumDerivWRTParam(5, 
                   rootParams->values, rootParams->params);
 	}
 
@@ -533,7 +534,7 @@ GSLSpinHamiltonianDerivWrapper(double x,	/**<< Derivative at x */
 		cartValues[i + 6] /= mTotal * mTotal;
 		cartValues[i + 9] /= mTotal * mTotal;
 	}
-	status = XLALSpinHcapNumericalDerivativeNoFlux(0, cartValues, tmpDValues, dParams->params);
+	status = XLALSpinPrecHcapNumericalDerivativeNoFlux(0, cartValues, tmpDValues, dParams->params);
 	for (int i = 0; i < 3; i++) {
 		cartValues[i + 6] *= mTotal * mTotal;
 		cartValues[i + 9] *= mTotal * mTotal;
@@ -558,11 +559,11 @@ GSLSpinHamiltonianDerivWrapper(double x,	/**<< Derivative at x */
 		case 0:
 			/* dHdr */
 			dHdx = -tmpDValues[3];
-			//XLALSpinHcapNumDerivWRTParam(0, cartValues, dParams->params);
+			//XLALSpinPrecHcapNumDerivWRTParam(0, cartValues, dParams->params);
 			dHdpy = tmpDValues[1];
-			//XLALSpinHcapNumDerivWRTParam(4, cartValues, dParams->params);
+			//XLALSpinPrecHcapNumDerivWRTParam(4, cartValues, dParams->params);
 			dHdpz = tmpDValues[2];
-			//XLALSpinHcapNumDerivWRTParam(5, cartValues, dParams->params);
+			//XLALSpinPrecHcapNumDerivWRTParam(5, cartValues, dParams->params);
 
 			dHdr = dHdx - dHdpy * pphi / (r * r) + dHdpz * ptheta / (r * r);
 			//printf("dHdr = %.16e\n", dHdr);
@@ -572,13 +573,13 @@ GSLSpinHamiltonianDerivWrapper(double x,	/**<< Derivative at x */
 		case 4:
 			/* dHdptheta */
 			dHdpz = tmpDValues[2];
-			//XLALSpinHcapNumDerivWRTParam(5, cartValues, dParams->params);
+			//XLALSpinPrecHcapNumDerivWRTParam(5, cartValues, dParams->params);
 			return -dHdpz / r;
 			break;
 		case 5:
 			/* dHdpphi */
 			dHdpy = tmpDValues[1];
-			//XLALSpinHcapNumDerivWRTParam(4, cartValues, dParams->params);
+			//XLALSpinPrecHcapNumDerivWRTParam(4, cartValues, dParams->params);
 			return dHdpy / r;
 			break;
 		default:
@@ -590,9 +591,9 @@ GSLSpinHamiltonianDerivWrapper(double x,	/**<< Derivative at x */
 		switch (dParams->varyParam2) {
 		case 0:
 			/* dHdr */
-			dHdx = XLALSpinHcapNumDerivWRTParam(0, cartValues, dParams->params);
-			dHdpy = XLALSpinHcapNumDerivWRTParam(4, cartValues, dParams->params);
-			dHdpz = XLALSpinHcapNumDerivWRTParam(5, cartValues, dParams->params);
+			dHdx = XLALSpinPrecHcapNumDerivWRTParam(0, cartValues, dParams->params);
+			dHdpy = XLALSpinPrecHcapNumDerivWRTParam(4, cartValues, dParams->params);
+			dHdpz = XLALSpinPrecHcapNumDerivWRTParam(5, cartValues, dParams->params);
 
 			dHdr = dHdx - dHdpy * pphi / (r * r) + dHdpz * ptheta / (r * r);
 			//printf("dHdr = %.16e\n", dHdr);
@@ -601,12 +602,12 @@ GSLSpinHamiltonianDerivWrapper(double x,	/**<< Derivative at x */
 			break;
 		case 4:
 			/* dHdptheta */
-			dHdpz = XLALSpinHcapNumDerivWRTParam(5, cartValues, dParams->params);
+			dHdpz = XLALSpinPrecHcapNumDerivWRTParam(5, cartValues, dParams->params);
 			return -dHdpz / r;
 			break;
 		case 5:
 			/* dHdpphi */
-			dHdpy = XLALSpinHcapNumDerivWRTParam(4, cartValues, dParams->params);
+			dHdpy = XLALSpinPrecHcapNumDerivWRTParam(4, cartValues, dParams->params);
 			return dHdpy / r;
 			break;
 		default:
@@ -1203,14 +1204,14 @@ XLALSimIMRSpinEOBInitialConditions(
 		cartValues[i + 6] /= mTotal * mTotal;
 		cartValues[i + 9] /= mTotal * mTotal;
 	}
-	status = XLALSpinHcapNumericalDerivativeNoFlux(0, cartValues, tmpDValues, params);
+	status = XLALSpinPrecHcapNumericalDerivativeNoFlux(0, cartValues, tmpDValues, params);
 	for (i = 0; i < 3; i++) {
 		cartValues[i + 6] *= mTotal * mTotal;
 		cartValues[i + 9] *= mTotal * mTotal;
 	}
 
 	dHdpphi = tmpDValues[1] / sqrt(cartValues[0] * cartValues[0] + cartValues[1] * cartValues[1] + cartValues[2] * cartValues[2]);
-	//XLALSpinHcapNumDerivWRTParam(4, cartValues, params) / sphValues[0];
+	//XLALSpinPrecHcapNumDerivWRTParam(4, cartValues, params) / sphValues[0];
 
 	dEdr = -dHdpphi * d2Hdr2 / d2Hdrdpphi;
 
@@ -1304,7 +1305,7 @@ XLALSimIMRSpinEOBInitialConditions(
 			cartValues[i + 6] /= mTotal * mTotal;
 			cartValues[i + 9] /= mTotal * mTotal;
 		}
-		status = XLALSpinHcapNumericalDerivativeNoFlux(0, cartValues, tmpDValues, params);
+		status = XLALSpinPrecHcapNumericalDerivativeNoFlux(0, cartValues, tmpDValues, params);
 		for (i = 0; i < 3; i++) {
 			cartValues[i + 6] *= mTotal * mTotal;
 			cartValues[i + 9] *= mTotal * mTotal;
@@ -1312,7 +1313,7 @@ XLALSimIMRSpinEOBInitialConditions(
         REAL8		csi = sqrt(XLALSimIMRSpinPrecEOBHamiltonianDeltaT(params->seobCoeffs, qSph[0], eta, a)*XLALSimIMRSpinPrecEOBHamiltonianDeltaR(params->seobCoeffs, qSph[0], eta, a)) / (qSph[0] * qSph[0] + a * a);
 
 		dHdpr = csi*tmpDValues[0];
-		//XLALSpinHcapNumDerivWRTParam(3, cartValues, params);
+		//XLALSpinPrecHcapNumDerivWRTParam(3, cartValues, params);
 
 		if (debugPK) {
 			printf("Ingredients going into prDot:\n");
@@ -1756,7 +1757,7 @@ XLALSimIMRSpinEOBInitialConditionsV2(
 
 	//printf("d2Hdr2 = %.16e, d2Hdrdpphi = %.16e\n", d2Hdr2, d2Hdrdpphi);
 
-	dHdpphi = XLALSpinHcapNumDerivWRTParam(4, cartValues, params) / sphValues[0];
+	dHdpphi = XLALSpinPrecHcapNumDerivWRTParam(4, cartValues, params) / sphValues[0];
 
 	dEdr = -dHdpphi * d2Hdr2 / d2Hdrdpphi;
 
@@ -1822,7 +1823,7 @@ XLALSimIMRSpinEOBInitialConditionsV2(
 		cartValues[3] = 1.0e-3;
         REAL8		csi = sqrt(XLALSimIMRSpinPrecEOBHamiltonianDeltaT(params->seobCoeffs, qSph[0], eta, a)*XLALSimIMRSpinPrecEOBHamiltonianDeltaR(params->seobCoeffs, qSph[0], eta, a)) / (qSph[0] * qSph[0] + a * a);
 
-        dHdpr = csi*csi*XLALSpinHcapNumDerivWRTParam(3, cartValues, params);
+        dHdpr = csi*csi*XLALSpinPrecHcapNumDerivWRTParam(3, cartValues, params);
 
 		
 //		  printf( "Ingredients going into prDot:\n" ); printf( "flux= %.16e, dEdr = %.16e, dHdpr = %.16e\n", flux, dEdr, dHdpr);

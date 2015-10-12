@@ -1,34 +1,9 @@
-/*
- * Copyright (C) 2010 Craig Robinson, Yi Pan
- * 
- * This program is free software; you can redistribute it and/or modify it under
- * the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- * 
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- * 
- * You should have received a copy of the GNU General Public License along with
- * with program; see the file COPYING. If not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
- */
-
-
 /**
- * \author Craig Robinson, Yi Pan
- *
- * \brief In newer versions of the EOBNR approximant, we
- * do not have an analytic expression for the derivative of the waveform.
- * As such, it is necessary to calculate the derivatives numerically. This
- * function provides the means to do just that.
- *
+ * \author Craig Robinson, Yi Pan, Stas Babak, Prayush Kumar, Andrea Taracchini
  */
 
-#ifndef _LALSIMIMRSPINEOBHCAPNUMERICALDERIVATIVE_C
-#define _LALSIMIMRSPINEOBHCAPNUMERICALDERIVATIVE_C
+#ifndef _LALSIMIMRSPINPRECEOBHCAPNUMERICALDERIVATIVE_C
+#define _LALSIMIMRSPINPRECEOBHCAPNUMERICALDERIVATIVE_C
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -62,25 +37,25 @@
  *------------------------------------------------------------------------------------------
  */
 
-static UNUSED REAL8 GSLSpinHamiltonianWrapper(double x, void *params);
+static UNUSED REAL8 GSLSpinPrecHamiltonianWrapper(double x, void *params);
 
-static double	GSLSpinHamiltonianWrapperV2(double x, void *params);
+static double	GSLSpinPrecHamiltonianWrapperV2(double x, void *params);
 
 static int 
-XLALSpinHcapNumericalDerivative(
+XLALSpinPrecHcapNumericalDerivative(
 				double UNUSED t,	/**<< UNUSED */
 				const REAL8 values[],	/**<< Dynamical variables */
 				REAL8 dvalues[],	/**<< Time derivatives of variables (returned) */
 				void *funcParams	/**<< EOB parameters */
 );
 
-	static UNUSED REAL8 XLALSpinHcapNumDerivWRTParam(
+	static UNUSED REAL8 XLALSpinPrecHcapNumDerivWRTParam(
 			    		const		INT4	paramIdx,	/**<< Index of the parameters */
 			    		const		REAL8	values[],	/**<< Dynamical variables */
 				   		SpinEOBParams * funcParams	/**<< EOB Parameters */
 );
 
-	static int	XLALSpinHcapNumericalDerivativeNoFlux(
+	static int	XLALSpinPrecHcapNumericalDerivativeNoFlux(
 					   		double	UNUSED	t,	/**<< UNUSED */
 			    		const		REAL8	values[],	/**<< Dynamical variables */
 				   		REAL8		dvalues[],	/**<< Time derivatives of variables (returned) */
@@ -105,7 +80,7 @@ XLALSpinHcapNumericalDerivative(
  * Pan et al. PRD 81, 084041 (2010)
  * This function is not used by the spin-aligned SEOBNRv1 model.
  */
-	static int	XLALSpinHcapNumericalDerivative(
+	static int	XLALSpinPrecHcapNumericalDerivative(
 					     		double	UNUSED	t,	/**<< UNUSED */
 			      		const		REAL8	values[],	/**<< Dynamical variables */
 				     		REAL8		dvalues[],	/**<< Time derivatives of variables (returned) */
@@ -184,7 +159,7 @@ XLALSpinHcapNumericalDerivative(
 	params.params = (SpinEOBParams *) funcParams;
 	nqcCoeffs = params.params->nqcCoeffs;
 
-	F.function = &GSLSpinHamiltonianWrapper;
+	F.function = &GSLSpinPrecHamiltonianWrapper;
 	F.params = &params;
 
 	mass1 = params.params->eobParams->m1;
@@ -664,7 +639,7 @@ XLALSpinHcapNumericalDerivative(
 	dvalues[13] = alphadotcosi;
 
 	if (debugPK) {
-    printf("\nIn XLALSpinHcapNumericalDerivative:\n");
+    printf("\nIn XLALSpinPrecHcapNumericalDerivative:\n");
 		/* Print out all mass parameters */
 		printf("m1 = %12.12lf, m2 = %12.12lf, eta = %12.12lf\n", 
           (double)mass1, (double)mass2, (double)eta);
@@ -720,7 +695,7 @@ XLALSpinHcapNumericalDerivative(
     if(debugPK){
   for(i=0; i<14; i++)
     if(dvalues[i] > 1e3){
-      printf("\nIn XLALSpinHcapNumericalDerivative:\n");
+      printf("\nIn XLALSpinPrecHcapNumericalDerivative:\n");
       printf("Derivatives have blown up!\n");
       for(j=0; j<14; printf("dvalues[%d] = %3.12f\n", j, dvalues[j]), j++);
       printf("Flux = %3.12f\n\n", flux);
@@ -740,7 +715,7 @@ XLALSpinHcapNumericalDerivative(
  * This function is not used by the spin-aligned SEOBNRv1 model.
  */
 static int 
-XLALSpinHcapNumericalDerivativeNoFlux(
+XLALSpinPrecHcapNumericalDerivativeNoFlux(
 				      double UNUSED t,	/**<< UNUSED */
 				      const REAL8 values[],	/**<< Dynamical variables */
 				      REAL8 dvalues[],	/**<< Time derivatives of variables (returned) */
@@ -819,7 +794,7 @@ XLALSpinHcapNumericalDerivativeNoFlux(
 	params.params = (SpinEOBParams *) funcParams;
 	nqcCoeffs = params.params->nqcCoeffs;
 
-	F.function = &GSLSpinHamiltonianWrapper;
+	F.function = &GSLSpinPrecHamiltonianWrapper;
 	F.params = &params;
 
 	mass1 = params.params->eobParams->m1;
@@ -1311,7 +1286,7 @@ XLALSpinHcapNumericalDerivativeNoFlux(
 	if (debugPK) {
 #if 0
 		/* Print out all mass parameters */
-		printf("\nIn XLALSpinHcapNumericalDerivative:\n");
+		printf("\nIn XLALSpinPrecHcapNumericalDerivative:\n");
 		printf("m1 = %12.12lf, m2 = %12.12lf, eta = %12.12lf\n", (double)mass1,
 		       (double)mass2, (double)eta);
 		/* Print out all spin parameters */
@@ -1368,7 +1343,7 @@ XLALSpinHcapNumericalDerivativeNoFlux(
  * Used by generic spin EOB model, including initial conditions solver.
  */
 static REAL8 
-XLALSpinHcapNumDerivWRTParam(
+XLALSpinPrecHcapNumDerivWRTParam(
 			     const INT4 paramIdx,	/**<< Index of the parameters */
 			     const REAL8 values[],	/**<< Dynamical variables */
 			     SpinEOBParams * funcParams	/**<< EOB Parameters */
@@ -1392,7 +1367,7 @@ XLALSpinHcapNumDerivWRTParam(
 	params.values = values;
 	params.params = funcParams;
 
-	F.function = &GSLSpinHamiltonianWrapperV2;
+	F.function = &GSLSpinPrecHamiltonianWrapperV2;
 	F.params = &params;
 	params.varyParam = paramIdx;
 
@@ -1425,7 +1400,7 @@ XLALSpinHcapNumDerivWRTParam(
  */
 /* static */
 REAL8 
-GSLSpinHamiltonianWrapper(double x, void *params)
+GSLSpinPrecHamiltonianWrapper(double x, void *params)
 {
 	int		debugPK = 0;
 	HcapDerivParams *dParams = (HcapDerivParams *) params;
@@ -1573,7 +1548,7 @@ GSLSpinHamiltonianWrapper(double x, void *params)
  * Wrapper for GSL to call the Hamiltonian function
  */
 static double 
-GSLSpinHamiltonianWrapperV2(double x, void *params)
+GSLSpinPrecHamiltonianWrapperV2(double x, void *params)
 {
 	bool		UsePrec = false;
 	HcapDerivParams *dParams = (HcapDerivParams *) params;
@@ -1668,4 +1643,4 @@ GSLSpinHamiltonianWrapperV2(double x, void *params)
 }
 
 
-#endif				/* _LALSIMIMRSPINEOBHCAPNUMERICALDERIVATIVE_C */
+#endif				/* _LALSIMIMRSPINPRECEOBHCAPNUMERICALDERIVATIVE_C */

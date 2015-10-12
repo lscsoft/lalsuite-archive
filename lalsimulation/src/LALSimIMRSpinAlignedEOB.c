@@ -78,6 +78,7 @@
 #include "LALSimIMRSpinEOBFactorizedWaveform.c"
 #include "LALSimIMRSpinEOBFactorizedFlux.c"
 #include "LALSimIMRSpinEOBHcapNumericalDerivative.c"
+#include "LALSimIMRSpinEOBHcapNumericalDerivativePrec.c"
 #include "LALSimIMRSpinAlignedEOBHcapDerivative.c"
 #include "LALSimIMRSpinEOBInitialConditions.c"
 
@@ -346,7 +347,7 @@ XLALEOBSpinAlignedStopCondition(double UNUSED t,  /**< UNUSED */
                            void *funcParams       /**< physical parameters */
                           )
 {
-  int debugPK = 0;
+  int debugPK = 1;
   REAL8 omega, r;
   SpinEOBParams *params = (SpinEOBParams *)funcParams;
   
@@ -1599,7 +1600,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   INspin2[2] = INspin2z;
 
   INT4 UNUSED ret;
-  INT4 debugPK = 1, debugCustomIC = 0, debugNoNQC = 0;
+  INT4 debugPK = 01, debugCustomIC = 0, debugNoNQC = 0;
   INT4 debugRD = 0;
   FILE *out = NULL;
   INT4 i=0;
@@ -2500,7 +2501,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     }
     else {
         if (!(integrator = XLALAdaptiveRungeKutta4Init(14,
-                                                       XLALSpinHcapNumericalDerivative, XLALEOBSpinStopConditionBasedOnPR,
+                                                       XLALSpinPrecHcapNumericalDerivative, XLALEOBSpinStopConditionBasedOnPR,
                                                        EPS_ABS, EPS_REL)))
         {
             XLALDestroyREAL8Vector( values );

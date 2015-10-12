@@ -1555,7 +1555,7 @@ UNUSED static int XLALSpinPrecHcapRvecDerivative(
 
 /**
  * Wrapper for GSL to call the Hamiltonian function. This is simply the function
- * GSLSpinHamiltonianWrapper copied over. The alternative was to make it non-static
+ * GSLSpinPrecHamiltonianWrapper copied over. The alternative was to make it non-static
  * which increases runtime as static functions can be better optimized.
  */
 static double GSLSpinPrecHamiltonianWrapperForRvecDerivs( double x, void *params )
@@ -1726,7 +1726,7 @@ static double GSLSpinPrecHamiltonianWrapperForRvecDerivs( double x, void *params
 
 /**
  * Wrapper for GSL to call the Hamiltonian function. This is simply the function
- * GSLSpinHamiltonianWrapper copied over. The alternative was to make it non-static
+ * GSLSpinPrecHamiltonianWrapper copied over. The alternative was to make it non-static
  * which increases runtime as static functions can be better optimized.
  */
 static double GSLSpinPrecHamiltonianWrapperFordHdpphi( double x, void *params )

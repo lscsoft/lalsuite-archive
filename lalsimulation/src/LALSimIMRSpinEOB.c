@@ -457,7 +457,7 @@ int XLALSimIMRSpinEOBWaveform(
 #endif
 
   /* Initialize the GSL integrator */
-  if (!(integrator = XLALAdaptiveRungeKutta4Init(14, XLALSpinHcapNumericalDerivative, XLALEOBSpinStopCondition, EPS_ABS, EPS_REL)))
+  if (!(integrator = XLALAdaptiveRungeKutta4Init(14, XLALSpinPrecHcapNumericalDerivative, XLALEOBSpinStopCondition, EPS_ABS, EPS_REL)))
   {
     XLALDestroyREAL8Vector( values );
     XLAL_ERROR( XLAL_EFUNC );
@@ -511,9 +511,9 @@ int XLALSimIMRSpinEOBWaveform(
       values->data[j] = dynamics->data[(j+1)*retLen + i];
     }
 
-    vX = XLALSpinHcapNumDerivWRTParam( 3, values->data, &seobParams );
-    vY = XLALSpinHcapNumDerivWRTParam( 4, values->data, &seobParams );
-    vZ = XLALSpinHcapNumDerivWRTParam( 5, values->data, &seobParams );
+    vX = XLALSpinPrecHcapNumDerivWRTParam( 3, values->data, &seobParams );
+    vY = XLALSpinPrecHcapNumDerivWRTParam( 4, values->data, &seobParams );
+    vZ = XLALSpinPrecHcapNumDerivWRTParam( 5, values->data, &seobParams );
 
   /* Cartesian vectors needed to calculate Hamiltonian */
   cartPosVec.length = cartMomVec.length = 3;
