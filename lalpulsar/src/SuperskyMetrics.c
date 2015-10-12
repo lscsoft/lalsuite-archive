@@ -512,6 +512,9 @@ static int SM_ExtractReducedSuperskyMetric(
     XLAL_CHECK(det_s > 0, XLAL_EFAILED, "Reduced supersky metric is not positive definite (s=%zu, det_s=%0.3e)", s, det_s);
   }
 
+  // Cleanup
+  GFMAT(aln_metric);
+
   return XLAL_SUCCESS;
 
 }
@@ -555,23 +558,6 @@ static int SM_ComputeSuperskyMetrics(
   XLAL_CHECK(SM_ComputeDecoupledSuperskyMetric(interm_ssky_metric, rssky_transf, interm_ssky_metric, spindowns) == XLAL_SUCCESS, XLAL_EFUNC);
   XLAL_CHECK(SM_ComputeAlignedSuperskyMetric(interm_ssky_metric, rssky_transf, interm_ssky_metric, spindowns) == XLAL_SUCCESS, XLAL_EFUNC);
   XLAL_CHECK(SM_ExtractReducedSuperskyMetric(rssky_metric, rssky_transf, interm_ssky_metric) == XLAL_SUCCESS, XLAL_EFUNC);
-
-  // Rescale metrics to input 'fiducial_freq' based on known scalings
-  const double fiducial_scale = fiducial_freq / fiducial_calc_freq;
-  {
-    gsl_matrix_view sky_sky = gsl_matrix_submatrix(ussky_metric, 0, 0, 3, 3);
-    gsl_matrix_scale(&sky_sky.matrix, SQR(fiducial_scale));
-    gsl_matrix_view sky_freq = gsl_matrix_submatrix(ussky_metric, 0, 3, 3, fsize);
-    gsl_matrix_scale(&sky_freq.matrix, fiducial_scale);
-    gsl_matrix_view freq_sky = gsl_matrix_submatrix(ussky_metric, 3, 0, fsize, 3);
-    gsl_matrix_scale(&freq_sky.matrix, fiducial_scale);
-  }
-  {
-    gsl_matrix_view sky_sky = gsl_matrix_submatrix(rssky_metric, 0, 0, 2, 2);
-    gsl_matrix_scale(&sky_sky.matrix, SQR(fiducial_scale));
-    gsl_matrix_view sky_offsets = gsl_matrix_submatrix(rssky_transf, 3, 0, fsize, 3);
-    gsl_matrix_scale(&sky_offsets.matrix, fiducial_scale);
-  }
 
   // Cleanup
   GFMAT(interm_ssky_metric);
@@ -638,6 +624,11 @@ SuperskyMetrics *XLALComputeSuperskyMetrics(
   SuperskyMetrics *metrics = XLALCalloc(1, sizeof(*metrics));
   XLAL_CHECK_NULL(metrics != NULL, XLAL_ENOMEM);
   metrics->num_segments = segments->length;
+
+  // Set fiducial frequency at which metrics are numerically calculated
+  metrics->fiducial_freq = fiducial_calc_freq;
+
+  // Allocate memory for arrays of per-segment metrics
   metrics->ussky_metric_seg = XLALCalloc(metrics->num_segments, sizeof(*metrics->ussky_metric_seg));
   XLAL_CHECK_NULL(metrics->ussky_metric_seg != NULL, XLAL_ENOMEM);
   metrics->rssky_metric_seg = XLALCalloc(metrics->num_segments, sizeof(*metrics->rssky_metric_seg));
@@ -691,6 +682,9 @@ SuperskyMetrics *XLALComputeSuperskyMetrics(
     XLAL_CHECK_NULL(SM_ComputeSuperskyMetrics(metrics->ussky_metric_avg, metrics->rssky_metric_avg, metrics->rssky_transf_avg, orbital_metric_avg, &ocoords, spindowns, ref_time, start_time, end_time, fiducial_freq) == XLAL_SUCCESS, XLAL_EFUNC);
   }
 
+  // Rescale metrics to input fiducial frequency
+  XLALScaleSuperskyMetricsFiducialFreq(metrics, fiducial_freq);
+
   // Cleanup
   GFMAT(orbital_metric_avg);
 
@@ -712,6 +706,98 @@ void XLALDestroySuperskyMetrics(
     XLALFree(metrics->rssky_transf_seg);
     XLALFree(metrics);
   }
+}
+
+int XLALScaleSuperskyMetricsFiducialFreq(
+  SuperskyMetrics *metrics,
+  const double fiducial_freq
+  )
+{
+
+  // Check input
+  XLAL_CHECK(metrics != NULL, XLAL_EFAULT);
+  XLAL_CHECK(metrics->num_segments > 0, XLAL_EINVAL);
+  XLAL_CHECK(metrics->fiducial_freq > 0, XLAL_EINVAL);
+  XLAL_CHECK(metrics->rssky_metric_avg != NULL && metrics->rssky_metric_avg->size1 > 2, XLAL_EINVAL);
+  XLAL_CHECK(fiducial_freq > 0, XLAL_EINVAL);
+
+  // Size of the frequency+spindowns block
+  const size_t fsize = metrics->rssky_metric_avg->size1 - 2;
+
+  // Rescale metrics to 'fiducial_freq' based on known scalings
+  const double fiducial_scale = fiducial_freq / metrics->fiducial_freq;
+  for (size_t n = 0; n < metrics->num_segments; ++n) {
+    {
+      gsl_matrix_view sky_sky = gsl_matrix_submatrix(metrics->ussky_metric_seg[n], 0, 0, 3, 3);
+      gsl_matrix_scale(&sky_sky.matrix, SQR(fiducial_scale));
+      gsl_matrix_view sky_freq = gsl_matrix_submatrix(metrics->ussky_metric_seg[n], 0, 3, 3, fsize);
+      gsl_matrix_scale(&sky_freq.matrix, fiducial_scale);
+      gsl_matrix_view freq_sky = gsl_matrix_submatrix(metrics->ussky_metric_seg[n], 3, 0, fsize, 3);
+      gsl_matrix_scale(&freq_sky.matrix, fiducial_scale);
+    }
+    {
+      gsl_matrix_view sky_sky = gsl_matrix_submatrix(metrics->rssky_metric_seg[n], 0, 0, 2, 2);
+      gsl_matrix_scale(&sky_sky.matrix, SQR(fiducial_scale));
+      gsl_matrix_view sky_offsets = gsl_matrix_submatrix(metrics->rssky_transf_seg[n], 3, 0, fsize, 3);
+      gsl_matrix_scale(&sky_offsets.matrix, fiducial_scale);
+    }
+  }
+  {
+    gsl_matrix_view sky_sky = gsl_matrix_submatrix(metrics->ussky_metric_avg, 0, 0, 3, 3);
+    gsl_matrix_scale(&sky_sky.matrix, SQR(fiducial_scale));
+    gsl_matrix_view sky_freq = gsl_matrix_submatrix(metrics->ussky_metric_avg, 0, 3, 3, fsize);
+    gsl_matrix_scale(&sky_freq.matrix, fiducial_scale);
+    gsl_matrix_view freq_sky = gsl_matrix_submatrix(metrics->ussky_metric_avg, 3, 0, fsize, 3);
+    gsl_matrix_scale(&freq_sky.matrix, fiducial_scale);
+  }
+  {
+    gsl_matrix_view sky_sky = gsl_matrix_submatrix(metrics->rssky_metric_avg, 0, 0, 2, 2);
+    gsl_matrix_scale(&sky_sky.matrix, SQR(fiducial_scale));
+    gsl_matrix_view sky_offsets = gsl_matrix_submatrix(metrics->rssky_transf_avg, 3, 0, fsize, 3);
+    gsl_matrix_scale(&sky_offsets.matrix, fiducial_scale);
+  }
+
+  // Set new fiducial frequency
+  metrics->fiducial_freq = fiducial_freq;
+
+  return XLAL_SUCCESS;
+
+}
+
+int XLALEqualizeReducedSuperskyMetricsFreqSpacing(
+  SuperskyMetrics *metrics,
+  const double coh_max_mismatch,
+  const double semi_max_mismatch
+  )
+{
+
+  // Check input
+  XLAL_CHECK(metrics != NULL, XLAL_EFAULT);
+  XLAL_CHECK(metrics->num_segments > 0, XLAL_EINVAL);
+  XLAL_CHECK(metrics->fiducial_freq > 0, XLAL_EINVAL);
+  XLAL_CHECK(metrics->rssky_metric_avg != NULL && metrics->rssky_metric_avg->size1 > 2, XLAL_EINVAL);
+  XLAL_CHECK(coh_max_mismatch > 0, XLAL_EINVAL);
+  XLAL_CHECK(semi_max_mismatch > 0, XLAL_EINVAL);
+
+  // Index of reduced supersky frequency dimension
+  const size_t ifreq = metrics->rssky_metric_avg->size1 - 1;
+
+  // Check frequency-frequency elements of per-segment reduced supersky metrics are the same
+  const double rssky_metric_seg_ff = gsl_matrix_get(metrics->rssky_metric_seg[0], ifreq, ifreq);
+  for (size_t n = 1; n < metrics->num_segments; ++n) {
+    const double rssky_metric_seg_ff_n = gsl_matrix_get(metrics->rssky_metric_seg[n], ifreq, ifreq);
+    const double tol = 1e-8;
+    XLAL_CHECK(fabs(rssky_metric_seg_ff - rssky_metric_seg_ff_n) < tol * rssky_metric_seg_ff, XLAL_ETOL, "%s: Frequency-frequency elements outside tol=%g: segment #1=%0.15e, segment #%zu=%0.15e", __func__, tol, rssky_metric_seg_ff, n, rssky_metric_seg_ff_n);
+  }
+
+  // Project averaged reduced supersky metrics
+  XLAL_CHECK(XLALProjectMetric(&metrics->rssky_metric_avg, metrics->rssky_metric_avg, ifreq) == XLAL_SUCCESS, XLAL_EFUNC);
+
+  // Rescale frequency-frequency element of averaged reduced supersky metric
+  gsl_matrix_set(metrics->rssky_metric_avg, ifreq, ifreq, rssky_metric_seg_ff * semi_max_mismatch / coh_max_mismatch);
+
+  return XLAL_SUCCESS;
+
 }
 
 /**
