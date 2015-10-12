@@ -63,7 +63,7 @@ static int IMRPhenomDGenerateFD(
  * @author Michael Puerrer, Sebastian Khan, Frank Ohme
  *
  * @brief C code for IMRPhenomD phenomenological waveform model.
- * See Husa et al, arXiv:1508.07250 and Kahn et al, arXiv:1508.07253 for details.
+ * See Husa et al, arXiv:1508.07250 and Khan et al, arXiv:1508.07253 for details.
  *
  * This is an aligned-spin frequency domain model.
  *
@@ -87,8 +87,8 @@ static int IMRPhenomDGenerateFD(
  * phenomenological waveform IMRPhenomD in the frequency domain.
  *
  * Reference:
- * - Waveform: Eq.
- * - Coefficients: Eq. and Table xyz
+ * - Waveform: Eq. 35 and 36 in arXiv:1508.07253
+ * - Coefficients: Eq. 31 and Table V in arXiv:1508.07253
  *
  *  All input parameters should be in SI units. Angles should be in radians.
  */
@@ -177,6 +177,7 @@ static int IMRPhenomDGenerateFD(
   const REAL8 M = m1 + m2;
   REAL8 eta = m1 * m2 / (M * M);
   const REAL8 M_sec = M * LAL_MTSUN_SI;
+  REAL8 t0;
 
   REAL8 chi1, chi2;
   if (m1>m2) { // swap spins
@@ -204,13 +205,18 @@ static int IMRPhenomDGenerateFD(
   size_t ind_max = (size_t) (f_max / deltaF);
 
   // Calculate phenomenological parameters
-  REAL8 finspin = FinalSpin0714(eta, chi1, chi2);
+  REAL8 finspin = FinalSpin0815(eta, chi1, chi2);
   IMRPhenomDAmplitudeCoefficients *pAmp = ComputeIMRPhenomDAmplitudeCoefficients(eta, chi1, chi2, finspin);
   IMRPhenomDPhaseCoefficients *pPhi = ComputeIMRPhenomDPhaseCoefficients(eta, chi1, chi2, finspin);
-  if (!pAmp || !pPhi) XLAL_ERROR(XLAL_EFUNC);
+  PNPhasingSeries *pn = NULL;
+  XLALSimInspiralTaylorF2AlignedPhasing(&pn, m1, m2, chi1_in, chi2_in, 1.0, 1.0, LAL_SIM_INSPIRAL_SPIN_ORDER_35PN);
+  if (!pAmp || !pPhi || !pn) XLAL_ERROR(XLAL_EFUNC);
 
   // Compute coefficients to make phase C^1
-  ComputeIMRPhenDPhaseConnectionCoefficients(pPhi);
+  ComputeIMRPhenDPhaseConnectionCoefficients(pPhi, pn);
+
+  //time shift so that peak amplitude is approximately at t=0
+  t0 = DPhiMRD(0.8*(pPhi->fRD), pPhi);
 
   /* Now generate the waveform */
   #pragma omp parallel for
@@ -219,15 +225,18 @@ static int IMRPhenomDGenerateFD(
     REAL8 Mf = M_sec * i * deltaF; // geometric frequency
 
     REAL8 amp = IMRPhenDAmplitude(Mf, pAmp);
-    REAL8 phi = IMRPhenDPhase(Mf, pPhi);
+    REAL8 phi = IMRPhenDPhase(Mf, pPhi, pn);
 
-    phi -= 2.*phi0; // factor of 2 b/c phi0 is orbital phase
+    phi -= 2.*phi0 + t0*Mf; // factor of 2 b/c phi0 is orbital phase
+
+
 
     ((*htilde)->data->data)[i] = amp0 * amp * cexp(-I * phi);
   }
 
   LALFree(pAmp);
   LALFree(pPhi);
+  LALFree(pn);
 
   return XLAL_SUCCESS;
 }

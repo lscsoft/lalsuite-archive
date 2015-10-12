@@ -11,6 +11,7 @@ import os
 import operator
 import gzip 
 from math import sqrt, sin, cos, modf
+import numpy
 from numpy import pi, linspace, interp, sum as npsum, exp, asarray
 from bisect import bisect
 
@@ -22,7 +23,8 @@ from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.sphericalutils import angle_between_points
 
 import glue.iterutils
-from glue.ligolw import utils, table as tab, lsctables
+from glue.ligolw import utils, table as tab, lsctables, ligolw
+lsctables.use_in(ligolw.LIGOLWContentHandler)
 
 
 
@@ -546,7 +548,7 @@ class Coincidences(list):
     """
     for file in files:
       coinc = CoincData()
-      xmldoc = utils.load_filename(file)
+      xmldoc = utils.load_filename(file, contenthandler=ligolw.LIGOLWContentHandler)
       sngltab = tab.get_table(xmldoc,lsctables.SnglInspiralTable.tableName)
       coinc.set_snr(dict((row.ifo, row.snr) for row in sngltab))
       coinc.set_gps(dict((row.ifo, LIGOTimeGPS(row.get_end())) for row in sngltab))

@@ -31,7 +31,10 @@ behind a ldbd interface
 """
 
 import os
-import pyRXP
+try:
+    import pyRXP
+except ImportError:
+    import pyRXPU as pyRXP
 from glue import ldbd
 
 from glue import git_version

@@ -43,6 +43,9 @@ from xml.dom import minidom
 from operator import itemgetter
 
 #related third party imports
+import healpy as hp
+import lalinference.cmap
+import lalinference.plot as lp
 import numpy as np
 from numpy import fmod
 import matplotlib
@@ -97,6 +100,7 @@ __date__= git_version.date
 #===============================================================================
 #Parameters which are not to be exponentiated when found
 logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior']
+snrParams=['snr','optimal_snr','matched_filter_snr'] + ['%s_optimal_snr'%(i) for i in ['H1','L1','V1']]
 #Pre-defined ordered list of line styles for use in matplotlib contour plots.
 __default_line_styles=['solid', 'dashed', 'dashdot', 'dotted']
 #Pre-defined ordered list of matplotlib colours for use in plots.
@@ -1458,6 +1462,41 @@ class Posterior(object):
         else:
             raise RuntimeError('could not find necessary column header "chain" in posterior samples')
 
+    def healpix_map(self, resol, nest=True):
+        """Returns a healpix map in the pixel ordering that represents the
+        posterior density (per square degree) on the sky.  The pixels
+        will be chosen to have at least the given resolution (in
+        degrees).
+
+        """
+
+        # Ensure that the resolution is twice the desired
+        nside = 2
+        while hp.nside2resol(nside, arcmin=True) > resol*60.0/2.0:
+            nside *= 2
+
+        ras = self['ra'].samples.squeeze()
+        decs = self['dec'].samples.squeeze()
+
+        phis = ras
+        thetas = np.pi/2.0 - decs
+
+        # Create the map in ring ordering
+        inds = hp.ang2pix(nside, thetas, phis, nest=False)
+        counts = np.bincount(inds)
+        if counts.shape[0] < hp.nside2npix(nside):
+            counts = np.concatenate((counts, np.zeros(hp.nside2npix(nside) - counts.shape[0])))
+
+        # Smooth the map a bit (Gaussian sigma = resol)
+        hpmap = hp.sphtfunc.smoothing(counts, sigma=resol*np.pi/180.0)
+
+        hpmap = hpmap / (np.sum(hpmap)*hp.nside2pixarea(nside, degrees=True))
+
+        if nest:
+            hpmap = hp.reorder(hpmap, r2n=True)
+
+        return hpmap
+        
     def __str__(self):
         """
         Define a string representation of the Posterior class ; returns
@@ -3119,71 +3158,69 @@ def greedy_bin_sky(posterior,skyres,confidence_levels):
 
     return _greedy_bin(shist,skypoints,injbin,float(skyres)*float(skyres),len(skypos),confidence_levels)
 
+def plot_sky_map(hpmap, outdir, inj=None, nest=True):
+    """Plots a sky map from a healpix map, optionally including an
+    injected position.
 
-def plot_sky_map(inj_pos,top_ranked_pixels,outdir):
+    :param hpmap: An array representing a healpix map (in nested
+      ordering if ``nest = True``).
+
+    :param outdir: The output directory.
+
+    :param inj: If not ``None``, then ``[ra, dec]`` of the injection
+      associated with the posterior map.
+
+    :param nest: Flag indicating the pixel ordering in healpix.
+
     """
-    Plots a sky map using the Mollweide projection in the Basemap package.
 
-    @inj_pos: injected position in the sky in the form [dec,ra]
+    fig = plt.figure(frameon=False, figsize=(8,6))
+    ax = plt.subplot(111, projection='astro mollweide')
+    ax.cla()
+    ax.grid()
+    lp.healpix_heatmap(hpmap, nest=nest, vmin=0.0, vmax=np.max(hpmap), cmap=plt.get_cmap('cylon'))
 
-    @param top_ranked_pixels: the top-ranked sky pixels as determined by greedy_bin_sky.
+    if inj is not None:
+        ax.plot(inj[0], inj[1], '*', markerfacecolor='white', markeredgecolor='black', markersize=10)
 
-    @param outdir: Output directory in which to save skymap.png image.
+    plt.savefig(os.path.join(outdir, 'skymap.png'))
+
+    return fig
+
+def skymap_confidence_areas(hpmap, cls):
+    """Returns the area (in square degrees) for each confidence level with
+    a greedy binning algorithm for the given healpix map.
+
     """
-    from mpl_toolkits.basemap import Basemap
 
-    np.seterr(under='ignore')
+    hpmap = hpmap / np.sum(hpmap) # Normalise to sum to one.
 
-    myfig=plt.figure(1,figsize=(13,18),dpi=200)
-    plt.clf()
-    m=Basemap(projection='moll',lon_0=180.0,lat_0=0.0)
+    hpmap = np.sort(hpmap)[::-1] # Sort from largest to smallest
+    cum_hpmap = np.cumsum(hpmap)
+
+    pixarea = hp.nside2pixarea(hp.npix2nside(hpmap.shape[0]))
+    pixarea = pixarea*(180.0/np.pi)**2 # In square degrees
     
-    # Plot an X on the injected position
-    if (inj_pos is not None and inj_pos[1] is not None and inj_pos[0] is not None):
-        ra_inj_rev=2*pi_constant - inj_pos[1]*57.296
-        inj_plx,inj_ply=m(ra_inj_rev, inj_pos[0]*57.296)
-        plt.plot(inj_plx,inj_ply,'wx',linewidth=12, markersize=22,mew=2,alpha=0.6)
-    
-    ra_reverse = 2*pi_constant - np.asarray(top_ranked_pixels)[::-1,1]*57.296
+    areas = []
+    for cl in cls:
+        npix = np.sum(cum_hpmap < cl) # How many pixels to sum before cl?
+        areas.append(npix*pixarea)
 
-    plx,ply=m(
-              ra_reverse,
-              np.asarray(top_ranked_pixels)[::-1,0]*57.296
-              )
+    return np.array(areas)
 
-    cnlevel=[1-tp for tp in np.asarray(top_ranked_pixels)[::-1,3]]
-    plt.scatter(plx,ply,s=5,c=cnlevel,faceted=False,cmap=mpl_cm.jet)
-    m.drawmapboundary()
-    m.drawparallels(np.arange(-90.,120.,45.),labels=[1,0,0,0],labelstyle='+/-')
-    # draw parallels
-    m.drawmeridians(np.arange(0.,360.,90.),labels=[0,0,0,1],labelstyle='+/-')
-    # draw meridians
-    plt.title("Skymap") # add a title
-    plt.colorbar(pad=0.05,orientation='horizontal')
-    myfig.savefig(os.path.join(outdir,'skymap.png'),bbox_inches='tight')
-    plt.clf()
+def skymap_inj_pvalue(hpmap, inj, nest=True):
+    """Returns the greedy p-value estimate for the given injection.
 
-    #Save skypoints
-    
-    fid = open( os.path.join(outdir,'ranked_sky_pixels.dat'), 'w' ) 
-    fid.write( 'dec(deg.)\tra(h.)\tprob.\tcumul.\n' ) 
-    np.savetxt(
-               fid,
-               #os.path.join(outdir,'ranked_sky_pixels.dat'),
-               np.column_stack(
-                               [
-                                np.asarray(top_ranked_pixels)[:,0]*57.296,
-                                np.asarray(top_ranked_pixels)[:,1]*3.820,
-                                np.append(np.asarray(top_ranked_pixels)[0,3],np.asarray(top_ranked_pixels)[1:,3]-np.asarray(top_ranked_pixels)[:-1,3]),
-                                np.asarray(top_ranked_pixels)[:,3]
-                                ]
-                               ),
-               fmt='%.4f',
-               delimiter='\t'
-               )
-    fid.close() 
+    """
 
-    return myfig
+    nside = hp.npix2nside(hpmap.shape[0])
+    hpmap = hpmap / np.sum(hpmap) # Normalise to sum to one
+
+    injpix = hp.ang2pix(nside, np.pi/2.0-inj[1], inj[0], nest=nest)
+    injvalue = hpmap[injpix]
+
+    return np.sum(hpmap[hpmap >= injvalue])
+
 #
 
 def mc2ms(mc,eta):
@@ -5187,7 +5224,8 @@ class PEOutputParser(object):
                 ntots.append(ntot)
                 if nDownsample is None:
                     try:
-                        nonParams = ["logpost", "cycle", "logprior", "logl", "loglh1", "logll1", "loglv1", "timestamp", "snrh1", "snrl1", "snrv1", "snr", "time_mean", "time_maxl"]
+                        nonParams = ["logpost", "cycle", "timestamp", "snrh1", "snrl1", "snrv1",
+                                     "time_mean", "time_maxl"] + logParams + snrParams
                         nonParamsIdxs = [header.index(name) for name in nonParams if name in header]
                         paramIdxs = [i for i in range(len(header)) if i not in nonParamsIdxs]
                         samps = np.array(lines).astype(float)
