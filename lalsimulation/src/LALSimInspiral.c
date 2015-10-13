@@ -37,6 +37,7 @@
 #include <lal/Units.h>
 #include <lal/SphericalHarmonics.h>
 #include <lal/LALSimBlackHoleRingdown.h>
+#include <LALSimBlackHoleRingdownPrec.h>
 
 #include "check_series_macros.h"
 
@@ -208,7 +209,7 @@ double XLALSimInspiralGetFrequency(
 
             modefreqVec.length = 1;
             modefreqVec.data   = &modeFreq;
-            if ( XLALSimIMREOBGenerateQNMFreqV2( &modefreqVec, m1Msun, m2Msun, spin1, spin2, modeL, modeM, 1, approximant) != XLAL_SUCCESS )
+            if ( XLALSimIMREOBGenerateQNMFreqV2Prec( &modefreqVec, m1Msun, m2Msun, spin1, spin2, modeL, modeM, 1, approximant) != XLAL_SUCCESS )
             {
                 XLAL_ERROR( XLAL_EFUNC );
             }

@@ -969,7 +969,7 @@ XLALSimIMREOBNRv2Generator(
      modeL = lmModes[currentMode][0];
      modeM = lmModes[currentMode][1];
      /* Get QNM frequencies */
-     xlalStatus = XLALSimIMREOBGenerateQNMFreqV2( modefreqs, mass1, mass2, NULL, NULL, modeL, modeM, 3, EOBNRv2);
+     xlalStatus = XLALSimIMREOBGenerateQNMFreqV2Prec( modefreqs, mass1, mass2, NULL, NULL, modeL, modeM, 3, EOBNRv2);
      if ( xlalStatus != XLAL_SUCCESS )
      {
        XLALDestroyCOMPLEX16Vector( modefreqs );
