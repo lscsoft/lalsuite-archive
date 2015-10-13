@@ -420,7 +420,7 @@ int XLALSimIMRSpinEOBWaveform(
 
   /* TODO: Set the initial conditions */
 
-  if ( XLALSimIMRSpinEOBInitialConditions( values, m1, m2, fMin, inc, mSpin1, mSpin2, &seobParams ) == XLAL_FAILURE )
+  if ( XLALSimIMRSpinEOBInitialConditionsPrec( values, m1, m2, fMin, inc, mSpin1, mSpin2, &seobParams ) == XLAL_FAILURE )
   {
     XLAL_ERROR( XLAL_EFUNC );
   }

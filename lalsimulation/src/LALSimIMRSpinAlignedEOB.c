@@ -2072,7 +2072,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   
   if( debugPK )
   {
-    printf("Calling the XLALSimIMRSpinEOBInitialConditions function!\n");
+    printf("Calling the XLALSimIMRSpinEOBInitialConditionsPrec function!\n");
     printf(
       "Inputs: m1 = %.16e, m2 = %.16e, fMin = %.16e, inclination = %.16e\n",
                       m1, m2, (double) fMin, (double) inc );
@@ -2099,7 +2099,7 @@ int XLALSimIMRSpinEOBWaveformAll(
         seobParams.alignedSpins = 0;
     }
     else {
-    if ( XLALSimIMRSpinEOBInitialConditions( tmpValues2, m1, m2, fMin, incl_temp,
+    if ( XLALSimIMRSpinEOBInitialConditionsPrec( tmpValues2, m1, m2, fMin, incl_temp,
        	mSpin1, mSpin2, &seobParams ) == XLAL_FAILURE )
         {
             XLAL_ERROR( XLAL_EFUNC );
