@@ -845,8 +845,9 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
             
     # Watch out---using private variable _logL
     max_logls = [[name,max(pos._logL)] for name,pos in pos_list.items()]
+    dics = [pos.DIC for name, pos in pos_list.items()]
 
-    return greedy2savepaths,oned_data,confidence_uncertainty,confidence_levels,max_logls
+    return greedy2savepaths,oned_data,confidence_uncertainty,confidence_levels,max_logls,dics
 
 def output_confidence_levels_tex(clevels,outpath):
     """Outputs a LaTeX table of parameter and run medians and confidence levels."""
@@ -998,7 +999,7 @@ if __name__ == '__main__':
     if len(opts.pos_list)!=len(names):
         print "Either add names for all posteriors or dont put any at all!"
 
-    greedy2savepaths,oned_data,confidence_uncertainty,confidence_levels,max_logls=compare_bayes(outpath,zip(names,opts.pos_list),opts.inj,opts.eventnum,opts.username,opts.password,opts.reload_flag,opts.clf,opts.ldg_flag,contour_figsize=(float(opts.cw),float(opts.ch)),contour_dpi=int(opts.cdpi),contour_figposition=[0.15,0.15,float(opts.cpw),float(opts.cph)],fail_on_file_err=not opts.readFileErr,covarianceMatrices=opts.covarianceMatrices,meanVectors=opts.meanVectors,Npixels2D=int(opts.npixels_2d))
+    greedy2savepaths,oned_data,confidence_uncertainty,confidence_levels,max_logls,dics=compare_bayes(outpath,zip(names,opts.pos_list),opts.inj,opts.eventnum,opts.username,opts.password,opts.reload_flag,opts.clf,opts.ldg_flag,contour_figsize=(float(opts.cw),float(opts.ch)),contour_dpi=int(opts.cdpi),contour_figposition=[0.15,0.15,float(opts.cpw),float(opts.cph)],fail_on_file_err=not opts.readFileErr,covarianceMatrices=opts.covarianceMatrices,meanVectors=opts.meanVectors,Npixels2D=int(opts.npixels_2d))
 
     ####Print Confidence Levels######
     output_confidence_levels_tex(confidence_levels,outpath)    
@@ -1015,9 +1016,9 @@ if __name__ == '__main__':
 
     param_section_write='<div><p>This comparison was created from the following analyses</p>'
     param_section_write+='<table border="1">'
-    param_section_write+='<th>Analysis</th> <th> max(log(L)) </th>'
-    for name,logl_max in max_logls:
-        param_section_write+='<tr><td><a href="%s">%s</a></td> <td>%g</td></tr>'%(dict(zip(names,opts.pos_list))[name],name,logl_max)
+    param_section_write+='<th>Analysis</th> <th> max(log(L)) </th> <th> DIC </th>'
+    for (name,logl_max), dic in zip(max_logls, dics):
+        param_section_write+='<tr><td><a href="%s">%s</a></td> <td>%g</td> <td>%.1f</td></tr>'%(dict(zip(names,opts.pos_list))[name],name,logl_max,dic)
     param_section_write+='</table></div>'
 
     param_section.write(param_section_write)
