@@ -85,7 +85,7 @@ const char *const GlitchMorletReverseJumpName = "glitchMorletReverseJump";
 const char *const ensembleWalkFullName = "EnsembleWalkFull";
 const char *const ensembleWalkIntrinsicName = "EnsembleWalkIntrinsic";
 const char *const ensembleWalkExtrinsicName = "EnsembleWalkExtrinsic";
-//const char *const clusteredKDEProposalName = "ClusteredKDEProposal";
+const char *const clusteredKDEProposalName = "ClusteredKDEProposal";
 const char *const splineCalibrationProposalName = "SplineCalibration";
 const char *const distanceLikelihoodProposalName = "DistanceLikelihood";
 
