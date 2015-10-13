@@ -24,7 +24,7 @@
 #include "LALSimIMRSpinEOBAuxFuncs.c"
 #include "LALSimIMRSpinEOBHamiltonian.c"
 #include "LALSimIMRSpinEOBHamiltonianPrec.c"
-#include "LALSimIMRSpinEOBFactorizedFlux.c"
+#include "LALSimIMRSpinEOBFactorizedFluxPrec.c"
 #include "LALSimIMRSpinEOBFactorizedWaveformCoefficients.c"
 #include "LALSimIMRSpinEOBFactorizedWaveformCoefficientsPrec.c"
 #include "LALSimIMREOBFactorizedWaveform.c"

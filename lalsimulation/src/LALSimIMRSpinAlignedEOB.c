@@ -79,6 +79,7 @@
 #include "LALSimIMRSpinEOBHamiltonian.c"
 #include "LALSimIMRSpinEOBFactorizedWaveform.c"
 #include "LALSimIMRSpinEOBFactorizedFlux.c"
+#include "LALSimIMRSpinEOBFactorizedFluxPrec.c"
 #include "LALSimIMRSpinEOBHcapNumericalDerivative.c"
 #include "LALSimIMRSpinEOBHcapNumericalDerivativePrec.c"
 #include "LALSimIMRSpinAlignedEOBHcapDerivative.c"
