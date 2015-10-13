@@ -70,6 +70,7 @@
 #include "LALSimInspiraldEnergyFlux.c"
 #include "LALSimIMREOBNewtonianMultipole.c"
 #include "LALSimIMREOBFactorizedWaveform.c"
+#include "LALSimIMRSpinEOBFactorizedWaveformPrec.c"
 #include "LALSimIMREOBHybridRingdown.c"
 #include "LALSimIMRSpinEOBAuxFuncs.c"
 #include "LALSimIMRSpinEOBFactorizedWaveformCoefficients.c"

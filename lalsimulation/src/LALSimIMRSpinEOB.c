@@ -44,6 +44,7 @@
 /* Include all the static function files we need */
 #include "LALSimIMREOBHybridRingdown.c"
 #include "LALSimIMREOBFactorizedWaveform.c"
+#include "LALSimIMRSpinEOBFactorizedWaveformPrec.c"
 #include "LALSimIMREOBNewtonianMultipole.c"
 #include "LALSimIMREOBNQCCorrection.c"
 #include "LALSimIMRSpinEOBInitialConditions.c"
