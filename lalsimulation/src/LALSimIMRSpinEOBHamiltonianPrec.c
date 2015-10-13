@@ -25,6 +25,7 @@
 
 #include "LALSimIMRSpinEOBAuxFuncs.c"
 #include "LALSimIMRSpinEOBFactorizedWaveformCoefficients.c"
+#include "LALSimIMRSpinEOBFactorizedWaveformCoefficientsPrec.c"
 
 /*------------------------------------------------------------------------------------------
  *
@@ -1524,12 +1525,12 @@ UNUSED static int XLALSpinPrecHcapRvecDerivative(
   params.params->a         = a;
  
     if (params.params->alignedSpins==1) {
-        XLALSimIMREOBCalcSpinFacWaveformCoefficients(
+        XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients(
                                                      params.params->eobParams->hCoeffs, mass1, mass2, eta, tplspin,
                                                      chiS, chiA, SpinAlignedEOBversion);
     }
     else {
-        XLALSimIMREOBCalcSpinFacWaveformCoefficients(
+        XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients(
                                                      params.params->eobParams->hCoeffs, mass1, mass2, eta, tplspin,
                                                      chiS, chiA, 3);
     }

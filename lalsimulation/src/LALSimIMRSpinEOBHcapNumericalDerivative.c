@@ -51,6 +51,7 @@
 #include "LALSimIMRSpinEOBHamiltonianPrec.c"
 #include "LALSimIMRSpinEOBFactorizedFlux.c"
 #include "LALSimIMRSpinEOBFactorizedWaveformCoefficients.c"
+#include "LALSimIMRSpinEOBFactorizedWaveformCoefficientsPrec.c"
 #include "LALSimIMREOBFactorizedWaveform.c"
 
 

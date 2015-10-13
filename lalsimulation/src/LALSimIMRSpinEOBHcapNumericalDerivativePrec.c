@@ -26,6 +26,7 @@
 #include "LALSimIMRSpinEOBHamiltonianPrec.c"
 #include "LALSimIMRSpinEOBFactorizedFlux.c"
 #include "LALSimIMRSpinEOBFactorizedWaveformCoefficients.c"
+#include "LALSimIMRSpinEOBFactorizedWaveformCoefficientsPrec.c"
 #include "LALSimIMREOBFactorizedWaveform.c"
 
 // int		UsePrec = 1;
@@ -487,12 +488,12 @@ XLALSpinPrecHcapNumericalDerivative(
 	//params.params->sigmaKerr = &sKerr;
 	params.params->a = a;
     if (params.params->alignedSpins==1) {
-	XLALSimIMREOBCalcSpinFacWaveformCoefficients(
+	XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients(
 	      params.params->eobParams->hCoeffs, mass1, mass2, eta, tplspin,
 					 chiS, chiA, SpinAlignedEOBversion);
     }
     else {
-        XLALSimIMREOBCalcSpinFacWaveformCoefficients(
+        XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients(
                                                      params.params->eobParams->hCoeffs, mass1, mass2, eta, tplspin,
                                                      chiS, chiA, 3);
     }
@@ -1123,12 +1124,12 @@ XLALSpinPrecHcapNumericalDerivativeNoFlux(
 	params.params->a = a;
 
     if (params.params->alignedSpins==1) {
-        XLALSimIMREOBCalcSpinFacWaveformCoefficients(
+        XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients(
                                                      params.params->eobParams->hCoeffs, mass1, mass2, eta, tplspin,
                                                      chiS, chiA, SpinAlignedEOBversion);
     }
     else {
-        XLALSimIMREOBCalcSpinFacWaveformCoefficients(
+        XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients(
                                                      params.params->eobParams->hCoeffs, mass1, mass2, eta, tplspin,
                                                      chiS, chiA, 3);
     }

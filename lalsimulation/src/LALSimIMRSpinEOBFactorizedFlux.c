@@ -183,7 +183,7 @@ XLALInspiralSpinFactorizedFlux(
 		printf("Changed them to the correct values = %e, %e!\n", chiS, chiA);
 
 
-		if (XLALSimIMREOBCalcSpinFacWaveformCoefficients(ak->eobParams->hCoeffs,
+		if (XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients(ak->eobParams->hCoeffs,
 		   ak->eobParams->m1, ak->eobParams->m2, ak->eobParams->eta,
 								 tplspin, chiS, chiA, SpinAlignedEOBversion) == XLAL_FAILURE) {
 			XLALDestroyREAL8Vector(values);
@@ -365,7 +365,7 @@ XLALInspiralPrecSpinFactorizedFlux(
 		printf("Changed them to the correct values = %e, %e!\n", chiS, chiA);
 
         if (ak->alignedSpins==1) {
-		if (XLALSimIMREOBCalcSpinFacWaveformCoefficients(ak->eobParams->hCoeffs,
+		if (XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients(ak->eobParams->hCoeffs,
 		   ak->eobParams->m1, ak->eobParams->m2, ak->eobParams->eta,
 								 tplspin, chiS, chiA, SpinAlignedEOBversion) == XLAL_FAILURE) {
 			XLALDestroyREAL8Vector(values);
@@ -373,7 +373,7 @@ XLALInspiralPrecSpinFactorizedFlux(
 		}
         }
         else {
-            if (XLALSimIMREOBCalcSpinFacWaveformCoefficients(ak->eobParams->hCoeffs,
+            if (XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients(ak->eobParams->hCoeffs,
                                                              ak->eobParams->m1, ak->eobParams->m2, ak->eobParams->eta,
                                                              tplspin, chiS, chiA, 3) == XLAL_FAILURE) {
                 XLALDestroyREAL8Vector(values);

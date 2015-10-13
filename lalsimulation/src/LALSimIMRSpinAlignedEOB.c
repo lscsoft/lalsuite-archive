@@ -73,6 +73,7 @@
 #include "LALSimIMREOBHybridRingdown.c"
 #include "LALSimIMRSpinEOBAuxFuncs.c"
 #include "LALSimIMRSpinEOBFactorizedWaveformCoefficients.c"
+#include "LALSimIMRSpinEOBFactorizedWaveformCoefficientsPrec.c"
 #include "LALSimIMRSpinEOBHamiltonianPrec.c"
 #include "LALSimIMRSpinEOBHamiltonian.c"
 #include "LALSimIMRSpinEOBFactorizedWaveform.c"
@@ -825,7 +826,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
     XLAL_ERROR( XLAL_EFUNC );
   }
 
-  if ( XLALSimIMREOBCalcSpinFacWaveformCoefficients( &hCoeffs, m1, m2, eta, tplspin, chiS, chiA, SpinAlignedEOBversion ) == XLAL_FAILURE )
+  if ( XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients( &hCoeffs, m1, m2, eta, tplspin, chiS, chiA, SpinAlignedEOBversion ) == XLAL_FAILURE )
   {
     XLALDestroyREAL8Vector( sigmaKerr );
     XLALDestroyREAL8Vector( sigmaStar );
@@ -2344,7 +2345,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     fflush(NULL);
   }
   
-  if ( XLALSimIMREOBCalcSpinFacWaveformCoefficients( &hCoeffs, m1, m2, eta,
+  if ( XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients( &hCoeffs, m1, m2, eta,
         tplspin, chiS, chiA, 3 ) == XLAL_FAILURE )
   {
     XLALDestroyREAL8Vector( sigmaKerr );
@@ -3553,7 +3554,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
 			i );
 
     /* Update hlm coefficients */
-    if ( XLALSimIMREOBCalcSpinFacWaveformCoefficients( &hCoeffs, m1, m2, eta, 
+    if ( XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients( &hCoeffs, m1, m2, eta, 
         tplspin, chiS, chiA, 3 ) == XLAL_FAILURE )
       printf("\nSomething went wrong evaluating XLALSimIMRCalculateSpinPrecEOBHCoeffs in step %d of coarse dynamics\n", 
 			i );
@@ -3886,7 +3887,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
 			i );
 
     /* Update hlm coefficients */
-    if ( XLALSimIMREOBCalcSpinFacWaveformCoefficients( &hCoeffs, m1, m2, eta, 
+    if ( XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients( &hCoeffs, m1, m2, eta, 
         tplspin, chiS, chiA, 3 ) == XLAL_FAILURE )
       printf("\nSomething went wrong evaluating XLALSimIMRCalculateSpinPrecEOBHCoeffs in step %d of coarse dynamics\n", 
 			i );

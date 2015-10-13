@@ -1191,7 +1191,7 @@ XLALSimIMRSpinEOBInitialConditionsPrec(
 		 * Hamiltonian
 		 */
 		a = sqrt(sKerr.data[0] * sKerr.data[0] + sKerr.data[1] * sKerr.data[1] + sKerr.data[2] * sKerr.data[2]);
-		//XLALSimIMREOBCalcSpinFacWaveformCoefficients(params->eobParams->hCoeffs, mass1, mass2, eta, /* a */ 0.0, chiS, chiA);
+		//XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients(params->eobParams->hCoeffs, mass1, mass2, eta, /* a */ 0.0, chiS, chiA);
 		//XLALSimIMRCalculateSpinPrecEOBHCoeffs(params->seobCoeffs, eta, a);
 		ham = XLALSimIMRSpinPrecEOBHamiltonian(eta, &qCartVec, &pCartVec, &s1VecNorm, &s2VecNorm, &sKerr, &sStar, params->tortoise, params->seobCoeffs);
 

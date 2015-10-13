@@ -44,6 +44,7 @@
 
 #include "LALSimIMRSpinEOBAuxFuncs.c"
 #include "LALSimIMRSpinEOBFactorizedWaveformCoefficients.c"
+#include "LALSimIMRSpinEOBFactorizedWaveformCoefficientsPrec.c"
 /*#include "LALSimIMRSpinEOBFactorizedWaveform.c"*/
 
 /*------------------------------------------------------------------------------------------
