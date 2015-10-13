@@ -60,14 +60,6 @@ XLALSimIMRSpinEOBCalculateSigmaStar(
  *
  *------------------------------------------------------------------------------------------
  */
-/* Calculate the kronecker delta */
-static REAL8 
-XLALKronecker(const INT4 i, const INT4 j)
-{
-	REAL8		d = ((i == j) ? 1. : 0.);
-	return d;
-}
-
 /**
  * Function to calculate normalized spin of the deformed-Kerr background in SEOBNRv1.
  * Eq. 5.2 of Barausse and Buonanno PRD 81, 084024 (2010).
