@@ -134,7 +134,8 @@ static int PhenomPCoreOneFrequency(
   COMPLEX16 *hp,                          /**< Output: \f$\tilde h_+\f$ */
   COMPLEX16 *hc,                          /**< Output: \f$\tilde h_+\f$ */
   REAL8 *phasing,                         /**< Output: overall phasing */
-  const UINT4 IMRPhenomP_version          /**< Version number: 1 uses IMRPhenomC, 2 uses IMRPhenomD */
+  const UINT4 IMRPhenomP_version,         /**< Version number: 1 uses IMRPhenomC, 2 uses IMRPhenomD */
+  const LALSimInspiralTestGRParam *extraParams /**< linked list containing the extra testing GR parameters */
 );
 
 /* Simple 2PN version of L, without any spin terms expressed as a function of v */
