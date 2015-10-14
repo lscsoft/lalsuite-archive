@@ -128,7 +128,8 @@ static int PhenomPCoreOneFrequency(
   COMPLEX16 *hp,                          /**< Output: \f$\tilde h_+\f$ */
   COMPLEX16 *hc,                          /**< Output: \f$\tilde h_+\f$ */
   REAL8 *phasing,                         /**< Output: overall phasing */
-  const UINT4 IMRPhenomP_version          /**< Version number: 1 uses IMRPhenomC, 2 uses IMRPhenomD */
+  const UINT4 IMRPhenomP_version,         /**< Version number: 1 uses IMRPhenomC, 2 uses IMRPhenomD */
+  const LALSimInspiralTestGRParam *extraParams /**< linked list containing the extra testing GR parameters */
 );
 
 /* Simple 2PN version of L, without any spin terms expressed as a function of v */
@@ -615,7 +616,6 @@ switch (IMRPhenomP_version) {
 
   REAL8 *phis = XLALMalloc(L_fCut*sizeof(REAL8)); // array for waveform phase
   REAL8 phasing = 0;
-
   /*
     We can't call XLAL_ERROR() directly with OpenMP on.
     Keep track of return codes for each thread and in addition use flush to get out of
@@ -638,7 +638,7 @@ switch (IMRPhenomP_version) {
     per_thread_errcode = PhenomPCoreOneFrequency(f, eta, chi_eff, chip, distance, M, phic,
                               pAmp, pPhi, PCparams, pn, &angcoeffs, &Y2m,
                               alphaNNLOoffset - alpha0, epsilonNNLOoffset,
-                              &hp_val, &hc_val, &phasing, IMRPhenomP_version);
+						 &hp_val, &hc_val, &phasing, IMRPhenomP_version, extraParams);
 
     if (per_thread_errcode != XLAL_SUCCESS) {
       errcode = per_thread_errcode;
@@ -709,7 +709,6 @@ switch (IMRPhenomP_version) {
       break;
   }
   XLALDestroyREAL8Sequence(freqs);
-
   if( errcode != XLAL_SUCCESS )
     XLAL_ERROR(errcode);
   else
@@ -738,7 +737,9 @@ static int PhenomPCoreOneFrequency(
   COMPLEX16 *hp,                          /**< Output: \tilde h_+ */
   COMPLEX16 *hc,                          /**< Output: \tilde h_+ */
   REAL8 *phasing,                         /**< Output: overall phasing */
-  const UINT4 IMRPhenomP_version)         /**< Version number: 1 uses IMRPhenomC, 2 uses IMRPhenomD */
+  const UINT4 IMRPhenomP_version,       /**< Version number: 1 uses IMRPhenomC, 2 uses IMRPhenomD */
+  const LALSimInspiralTestGRParam *extraParams /**<linked list containing the extra testing GR parameters */
+  )
 {
   REAL8 f = fHz*LAL_MTSUN_SI*M; /* Frequency in geometric units */
 
@@ -761,6 +762,18 @@ static int PhenomPCoreOneFrequency(
       break;
   }
 
+  /* Propagation correction for alternative gravity (e.g. massive graviton) */
+  // if (extraParams!=NULL && XLALSimInspiralTestGRParamExists(extraParams,"betaPPE") && XLALSimInspiralTestGRParamExists(extraParams,"bPPE"))
+  if (extraParams!=NULL && XLALSimInspiralTestGRParamExists(extraParams,"loglambda_g"))
+    {
+      REAL8 loglambdag = XLALSimInspiralGetTestGRParam(extraParams,"loglambda_g");
+      REAL8 betaPPE = - LAL_PI*LAL_PI*distance*M*LAL_MRSUN_SI*pow(eta, 0.6)/pow(10,2.0*loglambdag);
+      REAL8 bPPE = -1.0;
+      REAL8 dPhiPPE = betaPPE*pow(LAL_PI*f*pow(eta, 0.6), bPPE);
+      phPhenom += dPhiPPE;
+      // fprintf(stderr, "In the massive graviton generator: d=%e, M=%e, lambda_g=%e, beta=%e, dPhi=%e \n", 
+      //      distance, M, pow(10,loglambdag), betaPPE, dPhiPPE);
+    }
   phPhenom -= 2.*phic; /* Note: phic is orbital phase */
   REAL8 amp0 = M * LAL_MRSUN_SI * M * LAL_MTSUN_SI / distance;
   COMPLEX16 hP = amp0 * aPhenom * cexp(-I*phPhenom); /* Assemble IMRPhenom waveform. */
