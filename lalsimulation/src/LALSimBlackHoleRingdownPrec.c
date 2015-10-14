@@ -9,7 +9,7 @@
 #include <lal/TimeSeries.h>
 #include <lal/Units.h>
 
-#include <lal/LALSimBlackHoleRingdown.h>
+#include <LALSimBlackHoleRingdown.h>
 
 /* note: use double-precision variables, but demand single-precision accuracy */
 #define EPS LAL_REAL4_EPS

@@ -43,6 +43,7 @@
 
 /* Include all the static function files we need */
 #include "LALSimIMREOBHybridRingdown.c"
+#include "LALSimIMREOBHybridRingdownPrec.c"
 #include "LALSimIMREOBFactorizedWaveform.c"
 #include "LALSimIMRSpinEOBFactorizedWaveformPrec.c"
 #include "LALSimIMREOBNewtonianMultipole.c"

@@ -46,7 +46,7 @@
 #include "LALSimIMREOBFactorizedFlux.c"
 #include "LALSimIMREOBNQCCorrection.c"
 #include "LALSimIMREOBNewtonianMultipole.c"
-#include "LALSimIMREOBHybridRingdown.c"
+#include "LALSimIMREOBHybridRingdownPrec.c"
 #include "LALSimInspiraldEnergyFlux.c"
 
 /*#include "LALSimIMRSpinEOB.h"*/
@@ -1580,7 +1580,7 @@ XLALSimIMREOBNRv2Generator(
      rdMatchPoint->data[0] -= fmod( rdMatchPoint->data[0], dt/m );
      rdMatchPoint->data[1] -= fmod( rdMatchPoint->data[1], dt/m );
  
-     xlalStatus = XLALSimIMREOBHybridAttachRingdown(sigReHi, sigImHi,
+     xlalStatus = XLALSimIMREOBHybridAttachRingdownPrec(sigReHi, sigImHi,
                    modeL, modeM, dt, mass1, mass2, 0, 0, 0, 0, 0, 0, &tVecHi, rdMatchPoint, EOBNRv2, 1.0 );
      if (xlalStatus != XLAL_SUCCESS )
      {

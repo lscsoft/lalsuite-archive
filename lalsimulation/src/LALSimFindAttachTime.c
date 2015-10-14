@@ -733,7 +733,7 @@ INT4 XLALSimCheckRDattachment(
     }
  
 
-    if ( XLALSimIMREOBHybridAttachRingdown( signal1, signal2, l, m,
+    if ( XLALSimIMREOBHybridAttachRingdownPrec( signal1, signal2, l, m,
                 dt, mass1, mass2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z,
                 timeVec, matchrange, approximant, JLN )
             == XLAL_FAILURE )

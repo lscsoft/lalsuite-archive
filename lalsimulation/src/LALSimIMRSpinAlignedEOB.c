@@ -71,7 +71,7 @@
 #include "LALSimIMREOBNewtonianMultipole.c"
 #include "LALSimIMREOBFactorizedWaveform.c"
 #include "LALSimIMRSpinEOBFactorizedWaveformPrec.c"
-#include "LALSimIMREOBHybridRingdown.c"
+#include "LALSimIMREOBHybridRingdownPrec.c"
 #include "LALSimIMRSpinEOBAuxFuncs.c"
 #include "LALSimIMRSpinEOBFactorizedWaveformCoefficients.c"
 #include "LALSimIMRSpinEOBFactorizedWaveformCoefficientsPrec.c"
@@ -1326,7 +1326,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   #endif
   rdMatchPoint->data[0] -= fmod( rdMatchPoint->data[0], deltaTHigh/mTScaled );
   rdMatchPoint->data[1] -= fmod( rdMatchPoint->data[1], deltaTHigh/mTScaled );
-  if ( XLALSimIMREOBHybridAttachRingdown( sigReHi, sigImHi, 2, 2,
+  if ( XLALSimIMREOBHybridAttachRingdownPrec( sigReHi, sigImHi, 2, 2,
               deltaTHigh, m1, m2, spin1[0], spin1[1], spin1[2], spin2[0], spin2[1], spin2[2],
               &timeHi, rdMatchPoint, SpinAlignedEOBapproximant, 1.0 )
           == XLAL_FAILURE ) 
@@ -3266,7 +3266,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   //longCombSize = combSize;
   deltaNQC    += 10.0 * (1.0 - fabs(kappaJL));*/
   
-  // (Stas) !!! NOTE: tAttach is further modified by small shift "sh" computed and applied in XLALSimIMREOBHybridAttachRingdown !!!
+  // (Stas) !!! NOTE: tAttach is further modified by small shift "sh" computed and applied in XLALSimIMREOBHybridAttachRingdownPrec !!!
   // FIXME
   tAttach = tPeakOmega - deltaNQC; //- 1.0;
   
@@ -3276,7 +3276,7 @@ int XLALSimIMRSpinEOBWaveformAll(
 
   if (debugPK){
     printf("For RD: DeltaNQC = %3.10f, comb = %3.10f \n", deltaNQC, combSize);
-    printf("NOTE! that additional shift (sh) is computed and added in XLALSimIMREOBHybridAttachRingdown\n");
+    printf("NOTE! that additional shift (sh) is computed and added in XLALSimIMREOBHybridAttachRingdownPrec\n");
 	  fflush(NULL);
   } 
 
@@ -4293,7 +4293,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
       sigReHi->data[i] = creal(hJTSHi->data->data[i]);
       sigImHi->data[i] = cimag(hJTSHi->data->data[i]);
     }
-    if ( XLALSimIMREOBHybridAttachRingdown( sigReHi, sigImHi, 2, k,
+    if ( XLALSimIMREOBHybridAttachRingdownPrec( sigReHi, sigImHi, 2, k,
                 deltaTHigh, m1, m2, 0.0, 0.0, chi1J, 0.0, 0.0, chi2J,
                 &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL )
                 //&timeHi, rdMatchPoint, spinEOBApproximant, JLN )

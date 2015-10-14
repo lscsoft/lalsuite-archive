@@ -40,7 +40,7 @@
 
 //#include "LALSimIMREOBNRv2.h"
 #include "LALSimIMRSpinEOB.h"
-#include "LALSimIMREOBHybridRingdown.c"
+#include "LALSimIMREOBHybridRingdownPrec.c"
 
 
 #include <gsl/gsl_linalg.h>
