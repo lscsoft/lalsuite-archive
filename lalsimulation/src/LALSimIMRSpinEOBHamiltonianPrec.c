@@ -352,7 +352,7 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
   /* Eqs. 5.30 - 5.33 of BB1 */
   B = sqrt(deltaT);
   // RH: this is horrible but faster than 3 divisions
-  const REAL8 sqrtdeltaT = sqrt(deltaT);
+  const REAL8 sqrtdeltaT = B;
   const REAL8 sqrtdeltaR = sqrt(deltaR);
   const REAL8 invdeltaTsqrtdeltaTsqrtdeltaR = 1./(sqrtdeltaT*deltaT*sqrtdeltaR);
   const REAL8 invdeltaT = sqrtdeltaT*(sqrtdeltaR*invdeltaTsqrtdeltaTsqrtdeltaR);
