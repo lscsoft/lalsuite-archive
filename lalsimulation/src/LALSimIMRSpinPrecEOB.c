@@ -1,6 +1,6 @@
     /*
 *  Copyright (C) 2011 Craig Robinson, Enrico Barausse, Yi Pan, 
-*                2014 Prayush Kumar (Precessing EOB)
+*                2014 Prayush Kumar, Stas Babak, Andrea Taracchini (Precessing EOB)
 *
 *  This program is free software; you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -17,32 +17,14 @@
 *  Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
 *  MA  02111-1307  USA
 */
-
+#ifndef _LALSIMIMRSPINPRECEOB_C
+#define _LALSIMIMRSPINPRECEOB_C
 /**
- * @addtogroup LALSimIMRSpinAlignedEOB_c
+ * @addtogroup LALSimIMRSpinPrecEOB_c
  *
  * @author Craig Robinson, Yi Pan, Prayush Kumar, Stas Babak, Andrea Taracchini
  *
- * @brief Functions for producing SEOBNRv1 waveforms for
- * spinning binaries, as described in
- * Taracchini et al. ( PRD 86, 024011 (2012), arXiv 1202.0790 ).
- * All equation numbers in this file refer to equations of this paper,
- * unless otherwise specified.
- * 
- * @review SEOBNRv1 has been reviewd by Riccardo Sturani, B. Sathyaprakash and
- * Prayush Kumar.
- * The review concluded in fall 2012.  
- *
- * \brief Functions for producing SEOBNRv2 waveforms for
- * spinning binaries, as described in
- * Taracchini et al. ( arXiv 1311.2544 ).
- * 
- * @review SEOBNRv2 has been reviewed by Riccardo Sturani, Prayush Kumar and
- * Stas Babak.
- * The review concluded with git hash 
- * 5bc6bb861de2eb72ca403b9e0f529d83080490fe (August 2014).
- *
- * \brief Functions for producing SEOBNRv3 waveforms for 
+ * \brief Functions for producing SEOBNRv3 waveforms for
  * precessing binaries of spinning compact objects, as described
  * in Pan et al. ( arXiv 1307.6232 ) == YPP.
  */
@@ -74,7 +56,7 @@
 #include "LALSimIMRSpinEOBFactorizedWaveformPrec.c"
 #include "LALSimIMREOBHybridRingdownPrec.c"
 #include "LALSimIMRSpinEOBAuxFuncs.c"
-#include "LALSimIMRSpinEOBFactorizedWaveformCoefficients.c"
+//#include "LALSimIMRSpinEOBFactorizedWaveformCoefficients.c"
 #include "LALSimIMRSpinEOBFactorizedWaveformCoefficientsPrec.c"
 #include "LALSimIMRSpinEOBHamiltonianPrec.c"
 #include "LALSimIMRSpinEOBHamiltonian.c"
@@ -85,6 +67,7 @@
 #include "LALSimIMRSpinEOBHcapNumericalDerivativePrec.c"
 #include "LALSimIMRSpinAlignedEOBHcapDerivative.c"
 #include "LALSimIMRSpinEOBInitialConditions.c"
+#include "LALSimIMRSpinEOBInitialConditionsPrec.c"
 
 
 #define debugOutput 1
@@ -401,85 +384,6 @@ XLALSpinPrecAlignedHiSRStopCondition(double UNUSED t,  /**< UNUSED */
 
 
 /**
- * This function returns the frequency at which the peak amplitude occurs
- * in SEOBNRv(x)
- *
- */
-double XLALSimIMRSpinPrecAlignedEOBPeakFrequency(
-    REAL8 m1SI,                 /**< mass of companion 1 (kg) */
-    REAL8 m2SI,                 /**< mass of companion 2 (kg) */
-    const REAL8 spin1z,         /**< z-component of the dimensionless spin of object 1 */
-    const REAL8 spin2z,         /**< z-component of the dimensionless spin of object 2 */
-    UINT4 SpinAlignedEOBversion /**< 1 for SEOBNRv1, 2 for SEOBNRv2 */
-    )
-{
-
-  /* The return variable, frequency in Hz */
-  double retFreq;
-
-  REAL8 nrOmega;
-
-  /* The mode to use; currently, only l=2, m=2 is supported */
-  INT4  ll = 2;
-  INT4  mm = 2;
-
-  /* Mass parameters (we'll work in units of solar mass) */
-  REAL8  m1 = m1SI / LAL_MSUN_SI;
-  REAL8  m2 = m2SI / LAL_MSUN_SI;
-  REAL8  Mtotal = m1+m2;
-  REAL8  eta = m1*m2 / (Mtotal * Mtotal);
-
-  /* We need spin vectors for the SigmaKerr function */
-  REAL8Vector *sigmaKerr = XLALCreateREAL8Vector( 3 );
-  int ii;
-  REAL8  aa;
-
-  REAL8Vector s1Vec, s2Vec;
-  s1Vec.length = s2Vec.length = 3;
-  REAL8 spin1[3] = {0., 0., spin1z};
-  REAL8 spin2[3] = {0., 0., spin2z};
-  s1Vec.data = spin1;
-  s2Vec.data = spin2;
-  /* the SigmaKerr function uses spins, not chis */
-  for( ii = 0; ii < 3; ii++ )
-  {
-    s1Vec.data[ii] *= m1*m1;
-    s2Vec.data[ii] *= m2*m2;
-  }
-
-  /* Calculate the normalized spin of the deformed-Kerr background */ 
-  if ( XLALSimIMRSpinEOBCalculateSigmaKerr( sigmaKerr, m1, m2, &s1Vec, &s2Vec ) == XLAL_FAILURE )
-  {
-    XLALDestroyREAL8Vector( sigmaKerr );
-    XLAL_ERROR( XLAL_EFUNC );
-  }
-
-  aa = sigmaKerr->data[2];
-
- /* Now get the frequency at the peak amplitude */
-  switch ( SpinAlignedEOBversion )
-  {
-   case 1:
-     nrOmega = GetNRSpinPeakOmega( ll, mm, eta, aa );
-     break;
-   case 2:
-     nrOmega = GetNRSpinPeakOmegav2( ll, mm, eta, aa );
-     break;
-   default:
-     XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
-     XLAL_ERROR( XLAL_EINVAL );
-     break;
-  }
-
-  retFreq = nrOmega / (2 * LAL_PI * Mtotal * LAL_MTSUN_SI);
-
-  /* Free memory */
-  XLALDestroyREAL8Vector( sigmaKerr );
-
-  return retFreq;
-}
-
-/**
  * This function generates spin-aligned SEOBNRv1 waveforms h+ and hx.
  * Currently, only the h22 harmonic is available.
  * STEP 0) Prepare parameters, including pre-computed coefficients
@@ -495,7 +399,7 @@ double XLALSimIMRSpinPrecAlignedEOBPeakFrequency(
  * STEP 8) Generate full IMR modes -- attaching ringdown to inspiral
  * STEP 9) Generate full IMR hp and hx waveforms
  */
-int XLALSimIMRSpinPrecAlignedEOBWaveform(
+static int XLALSimIMRSpinPrecAlignedEOBWaveform(
         REAL8TimeSeries **hplus,     /**<< OUTPUT, +-polarization waveform */
         REAL8TimeSeries **hcross,    /**<< OUTPUT, x-polarization waveform */
         const REAL8     phiC,        /**<< coalescence orbital phase (rad) */ 
@@ -614,7 +518,7 @@ int XLALSimIMRSpinPrecAlignedEOBWaveform(
   REAL8 y_1, y_2, z1, z2;
 
   /* Variables for the integrator */
-  ark4GSLIntegrator       *integrator = NULL;
+  LALAdaptiveRungeKutta4Integrator       *integrator = NULL;
   REAL8Array              *dynamics   = NULL;
   REAL8Array              *dynamicsHi = NULL;
   INT4                    retLen;
@@ -886,7 +790,8 @@ int XLALSimIMRSpinPrecAlignedEOBWaveform(
   /* We set inc zero here to make it easier to go from Cartesian to spherical coords */
   /* No problem setting inc to zero in solving spin-aligned initial conditions. */
   /* inc is not zero in generating the final h+ and hx */
-  if ( XLALSimIMRSpinEOBInitialConditionsV2( tmpValues, m1, m2, fMin, 0, s1Data, s2Data, &seobParams ) == XLAL_FAILURE )
+  if ( XLALSimIMRSpinEOBInitialConditions
+( tmpValues, m1, m2, fMin, 0, s1Data, s2Data, &seobParams ) == XLAL_FAILURE )
   {
     XLALDestroyREAL8Vector( tmpValues );
     XLALDestroyREAL8Vector( sigmaKerr );
@@ -1835,7 +1740,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   REAL8 LframeEx[3] = {0,0,0}, LframeEy[3] = {0,0,0}, LframeEz[3] = {0,0,0};
   
   /* Variables for the integrator */
-  ark4GSLIntegrator       *integrator = NULL;
+  LALAdaptiveRungeKutta4Integrator       *integrator = NULL;
   REAL8Array              *dynamics   = NULL;//, *dynamicsHi = NULL;
   INT4                    retLen = 0, retLenLow = 0, retLenHi = 0;
   INT4                    retLenRDPatch = 0, retLenRDPatchLow = 0;
@@ -2095,7 +2000,7 @@ int XLALSimIMRSpinEOBWaveformAll(
         seobParams.alignedSpins = 1;
         seobParams.chi1 = spin1Norm*cos(theta1Ini)/fabs(cos(theta1Ini));
         seobParams.chi2 = spin2Norm*cos(theta2Ini)/fabs(cos(theta2Ini));
-        if ( XLALSimIMRSpinEOBInitialConditionsV2( tmpValues2, m1, m2, fMin, incA,
+        if ( XLALSimIMRSpinEOBInitialConditions( tmpValues2, m1, m2, fMin, incA,
                                                 mSpin1, mSpin2, &seobParams ) == XLAL_FAILURE )
         {
             XLAL_ERROR( XLAL_EFUNC );
@@ -4691,3 +4596,4 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
 }
 
 
+#endif
