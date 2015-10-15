@@ -19,6 +19,7 @@
 
 #ifndef _LALSIMIMRSPINPRECEOBFACTORIZEDWAVEFORM_C
 #define _LALSIMIMRSPINPRECEOBFACTORIZEDWAVEFORM_C
+#include <gsl/gsl_deriv.h>
 #include <complex.h>
 #include <lal/LALSimInspiral.h>
 #include <lal/LALSimIMR.h>
