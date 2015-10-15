@@ -25,7 +25,7 @@
 #include "LALSimIMRSpinEOBHamiltonian.c"
 #include "LALSimIMRSpinEOBHamiltonianPrec.c"
 #include "LALSimIMRSpinEOBFactorizedFluxPrec.c"
-#include "LALSimIMRSpinEOBFactorizedWaveformCoefficients.c"
+//#include "LALSimIMRSpinEOBFactorizedWaveformCoefficients.c"
 #include "LALSimIMRSpinEOBFactorizedWaveformCoefficientsPrec.c"
 #include "LALSimIMREOBFactorizedWaveform.c"
 
@@ -1551,7 +1551,7 @@ GSLSpinPrecHamiltonianWrapper(double x, void *params)
 static double 
 GSLSpinPrecHamiltonianWrapperV2(double x, void *params)
 {
-	bool		UsePrec = false;
+	bool		UsePrecBool = false;
 	HcapDerivParams *dParams = (HcapDerivParams *) params;
 
 	EOBParams      *eobParams = dParams->params->eobParams;
@@ -1613,7 +1613,7 @@ GSLSpinPrecHamiltonianWrapperV2(double x, void *params)
           XLAL_ERROR( XLAL_EINVAL );
 	}
 	//XLALSimIMRCalculateSpinPrecEOBHCoeffs(dParams->params->seobCoeffs, eobParams->eta, a);
-	if (UsePrec) {
+	if (UsePrecBool) {
 		/* Set up structures and calculate necessary PN parameters */
 		/*
 		 * Due to precession, these need to get calculated in every
