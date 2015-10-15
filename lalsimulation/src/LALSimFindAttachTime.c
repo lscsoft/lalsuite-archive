@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <gsl/gsl_vector.h>
+#include <gsl/gsl_deriv.h>
 
 
 
@@ -19,8 +20,7 @@
 #include "LALSimIMREOBNRv2.h"
 #include "LALSimIMRSpinEOB.h"
 #include "LALSimFindAttachTime.h"
-#include "LALSimIMRSpinEOBHamiltonian.c"
-
+#include "LALSimIMRSpinEOBHamiltonianPrec.c"
 
 
 
