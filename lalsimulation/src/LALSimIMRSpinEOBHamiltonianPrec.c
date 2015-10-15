@@ -25,7 +25,7 @@
 
 #include "LALSimIMRSpinEOBAuxFuncs.c"
 #include "LALSimIMRSpinEOBAuxFuncsPrec.c"
-#include "LALSimIMRSpinEOBFactorizedWaveformCoefficients.c"
+//#include "LALSimIMRSpinEOBFactorizedWaveformCoefficients.c"
 #include "LALSimIMRSpinEOBFactorizedWaveformCoefficientsPrec.c"
 
 /*------------------------------------------------------------------------------------------
@@ -140,9 +140,9 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
 //    if(isnan(p->data[0]) || isnan(p->data[1]) || isnan(p->data[2])) {p->data[0] = 0.1;p->data[1] = 0.1;p->data[2] = 0.1;}
   int debugPK = 0;
   /* Update the Hamiltonian coefficients, if spins are evolving */
-  int UsePrec = 1;
+  int UsePrecH = 1;
   SpinEOBHCoeffs tmpCoeffs; 
-  if ( UsePrec && coeffs->updateHCoeffs )
+  if ( UsePrecH && coeffs->updateHCoeffs )
   {
     REAL8 tmpa;
     
