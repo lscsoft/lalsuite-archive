@@ -39,6 +39,7 @@ extern "C" {
  * @defgroup LALSimIMRPhenom_c                   LALSimIMRPhenom.c
  * @defgroup LALSimIMREOBNRv2_c                  LALSimIMREOBNRv2.c
  * @defgroup LALSimIMRSpinAlignedEOB_c           LALSimIMRSpinAlignedEOB.c
+ * @defgroup LALSimIMRSpinPrecEOB_c           LALSimIMRSpinPrecEOB.c
  * @defgroup LALSimIMRSEOBNRROM_c                LALSimIMRSEOBNRvxROMXXX.c
  * @defgroup LALSimIMRSEOBNRv2ChirpTime_c        LALSimIMRSEOBNRv2ChirpTime.c
  * @defgroup LALSimIMRPSpinInspiralRD_c          LALSimIMRPSpinInspiralRD.c
@@ -88,6 +89,45 @@ SphHarmTimeSeries *XLALSimIMREOBNRv2Modes(const REAL8 phiRef, const REAL8 deltaT
 double XLALSimIMRSpinAlignedEOBPeakFrequency(REAL8 m1SI, REAL8 m2SI, const REAL8 spin1z, const REAL8 spin2z, UINT4 SpinAlignedEOBversion);
 int XLALSimIMRSpinAlignedEOBWaveform(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, const REAL8 phiC, REAL8 deltaT, const REAL8 m1SI, const REAL8 m2SI, const REAL8 fMin, const REAL8 r, const REAL8 inc, const REAL8 spin1z, const REAL8 spin2z, UINT4 SpinAlignedEOBversion);
 //int XLALSimIMRSpinEOBWaveform(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, const REAL8 phiC, const REAL8 deltaT, const REAL8 m1SI, const REAL8 m2SI, const REAL8 fMin, const REAL8 r, const REAL8 inc, const REAL8 spin1[], const REAL8 spin2[]);
+
+/* in module LALSimIMRSpinPrecEOB.c */
+int XLALSimIMRSpinEOBWaveform(
+                              REAL8TimeSeries **hplus,
+                              REAL8TimeSeries **hcross,
+                              const REAL8     phiC,
+                              const REAL8     deltaT,
+                              const REAL8     m1SI,
+                              const REAL8     m2SI,
+                              const REAL8     fMin,
+                              const REAL8     r,
+                              const REAL8     inc,
+                              const REAL8     spin1[],
+                              const REAL8     spin2[]
+                              );
+
+int XLALSimIMRSpinEOBWaveformAll(
+                                 REAL8TimeSeries **hplus,
+                                 REAL8TimeSeries **hcross,
+                                 REAL8Vector     **dynamicsHi,
+                                 SphHarmTimeSeries **hlmPTSout,
+                                 SphHarmTimeSeries **hlmPTSHi,
+                                 SphHarmTimeSeries **hIMRlmJTSHi,
+                                 SphHarmTimeSeries **hIMRoutput,
+                                 REAL8Vector     **AttachParams,
+                                 const REAL8      phiC,
+                                 const REAL8     deltaT,
+                                 const REAL8     m1SI,
+                                 const REAL8     m2SI,
+                                 const REAL8     fMin,
+                                 const REAL8     r,
+                                 const REAL8     inc,
+                                 const REAL8     INspin1x,
+                                 const REAL8     INspin1y,
+                                 const REAL8     INspin1z,
+                                 const REAL8     INspin2x,
+                                 const REAL8     INspin2y,
+                                 const REAL8     INspin2z
+                                 );
 
 /* in module LALSimIMREOBNRv2HMROM.c */
 
