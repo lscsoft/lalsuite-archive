@@ -25,16 +25,6 @@
 REAL8 scale1 = 1, scale2 = 2, scale3 = 200;
 
 /**
- * Structure consisting SEOBNR parameters that can be used by gsl root finders
- */
-typedef
-struct tagSEOBRootParams {
-	REAL8		values   [12];	/**<< Dynamical variables, x, y, z, px, py, pz, S1x, S1y, S1z, S2x, S2y and S2z */
-	SpinEOBParams  *params;	/**<< Spin EOB parameters -- physical, pre-computed, etc. */
-	REAL8		omega;	/**<< Orbital frequency */
-}		SEOBRootParams;
-
-/**
  * Calculates the dot product of two vectors
  */
 static		inline
