@@ -102,6 +102,9 @@ __date__= git_version.date
 #Parameters which are not to be exponentiated when found
 logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior']
 snrParams=['snr','optimal_snr','matched_filter_snr'] + ['%s_optimal_snr'%(i) for i in ['h1','l1','v1']]
+calAmpParams=['calamp_%s'%(ifo) for ifo in ['h1','l1','v1']]
+calPhaseParams=['calpha_%s'%(ifo) for ifo in ['h1','l1','v1']]
+calParams = calAmpParams + calPhaseParams
 #Pre-defined ordered list of line styles for use in matplotlib contour plots.
 __default_line_styles=['solid', 'dashed', 'dashdot', 'dotted']
 #Pre-defined ordered list of matplotlib colours for use in plots.
