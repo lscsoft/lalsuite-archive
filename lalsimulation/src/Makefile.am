@@ -75,6 +75,7 @@ noinst_HEADERS = \
 	LALSimIMREOBHybridRingdown.c \
 	LALSimIMREOBNQCCorrection.c \
 	LALSimIMREOBNRv2.h \
+	LALSimFindAttachTime.h\
 	LALSimIMREOBNewtonianMultipole.c \
 	LALSimInspiralPNCoefficients.c \
 	LALSimInspiraldEnergyFlux.c \
@@ -103,6 +104,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimBurstImg.c \
 	LALSimIMREOBNRv2.c \
 	LALSimIMRSpinAlignedEOB.c \
+	LALSimIMRSpinPrecEOB.c \
 	LALSimIMRSEOBNRv1ROMEffectiveSpin.c \
 	LALSimIMRSEOBNRv1ROMDoubleSpin.c \
 	LALSimIMRSEOBNRv2ROMEffectiveSpin.c \
@@ -157,7 +159,8 @@ liblalsimulation_la_SOURCES = \
 	check_series_macros.h \
 	check_waveform_macros.h \
 	unicorn.xpm \
-	LALSimInspiralHGimri.c
+	LALSimInspiralHGimri.c \
+	LALSimFindAttachTime.c
 
 nodist_liblalsimulation_la_SOURCES = LALSimulationBuildInfo.c
 
