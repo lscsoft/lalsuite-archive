@@ -7,7 +7,7 @@
 
 #include <complex.h>
 #include <lal/LALSimInspiral.h>
-#include <lal/LALSimIMR.h>
+//#include <lal/LALSimIMR.h>
 
 #include "LALSimIMREOBNRv2.h"
 #include "LALSimIMRSpinEOB.h"
