@@ -6400,7 +6400,6 @@ def plot_psd(psd_files,outpath=None):
     myfig2.savefig(os.path.join(outpath,'PSD.png'))
   myfig2.clf()
 
-<<<<<<< HEAD
   return freqs
 
 cred_level = lambda cl, x: np.sort(x, axis=0)[int(cl*len(x))]
