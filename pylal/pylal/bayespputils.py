@@ -6326,37 +6326,37 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
       if rec_strains[i]["T"]['strain'] is not None or rec_strains[i]["F"]['strain'] is not None:
         if c==0:
           if global_domain=="T":
-            ax.plot(rec_strains[i]["T"]['x'],rec_strains[i]["T"]['strain'],colors_rec[i],label='%s maP'%i)
+            ax.plot(rec_strains[i]["T"]['x'],rec_strains[i]["T"]['strain'],colors_rec[i],alpha=0.5,label='%s maP'%i)
           else:
             data=rec_strains[i]["F"]['strain']
             f=rec_strains[i]["F"]['x']
             mask=np.logical_and(f>=f_min,f<=plot_fmax)
             ys=data
-            ax.plot(f[mask],ys[mask].real,'.-',color=colors_rec[i],label='%s maP'%i)
+            ax.semilogx(f[mask],ys[mask].real,'.-',color=colors_rec[i],alpha=0.5,label='%s maP'%i)
         else:
             data=rec_strains[i]["F"]['strain']
             f=rec_strains[i]["F"]['x']
             mask=np.logical_and(f>=f_min,f<=plot_fmax)
             ys=data
-            ax.loglog(f[mask],abs(ys[mask]),'--',color=colors_rec[i],linewidth=4)
+            ax.loglog(f[mask],abs(ys[mask]),'--',color=colors_rec[i],alpha=0.5,linewidth=4)
             ax.set_xlim([min(f[mask]),max(f[mask])])
             ax.grid(True,which='both')
       if inj_strains[i]["T"]['strain'] is not None or inj_strains[i]["F"]['strain'] is not None:
         if c==0:
           if global_domain=="T":
-            ax.plot(inj_strains[i]["T"]['x'],inj_strains[i]["T"]['strain'],colors_inj[i],label='%s inj'%i)
+            ax.plot(inj_strains[i]["T"]['x'],inj_strains[i]["T"]['strain'],colors_inj[i],alpha=0.5,label='%s inj'%i)
           else:
             data=inj_strains[i]["F"]['strain']
             f=inj_strains[i]["F"]['x']
             mask=np.logical_and(f>=f_min,f<=plot_fmax)
             ys=data
-            ax.plot(f[mask],ys[mask].real,'.-',color=colors_inj[i],label='%s inj'%i)
+            ax.plot(f[mask],ys[mask].real,'.-',color=colors_inj[i],alpha=0.5,label='%s inj'%i)
         else:
             data=inj_strains[i]["F"]['strain']
             f=inj_strains[i]["F"]['x']
             mask=np.logical_and(f>=f_min,f<=plot_fmax)
             ys=data
-            ax.loglog(f[mask],abs(ys[mask]),'--',color=colors_inj[i],linewidth=4)
+            ax.loglog(f[mask],abs(ys[mask]),'--',color=colors_inj[i],alpha=0.5,linewidth=4)
             ax.set_xlim([min(f[mask]),max(f[mask])])
             ax.grid(True,which='both')
 
@@ -6417,7 +6417,7 @@ def plot_psd(psd_files,outpath=None):
       if f>f_min and d!=0.0:
         fr.append(f)
         da.append(d)
-    plt.loglog(fr,da,colors[ifo],label=ifo,linewidth=3)
+    plt.loglog(fr,da,colors[ifo],label=ifo,alpha=0.5,linewidth=3)
   plt.xlim([min(freq),max(freq)])
   plt.xlabel("Frequency [Hz]",fontsize=26)
   plt.ylabel("PSD",fontsize=26)
