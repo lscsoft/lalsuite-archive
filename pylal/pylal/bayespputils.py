@@ -766,6 +766,28 @@ class Posterior(object):
               pos.append_mapping(new_spin_params, spin_angles, old_params)
           except KeyError:
               print "Warning: Cannot find spin parameters.  Skipping spin angle calculations."
+                
+      #Calculate effective precessing spin magnitude
+      if ('a1' in pos.names and 'tilt1' in pos.names and 'm1' in pos.names ) and ('a2' in pos.names and 'tilt2' in pos.names and 'm2' in pos.names):
+          pos.append_mapping('chi_p', chi_precessing, ['a1', 'tilt1', 'm1', 'a2', 'tilt2', 'm2'])
+
+
+      # Calculate redshift from luminosity distance measurements
+      if('distance' in pos.names):
+          pos.append_mapping('redshift', calculate_redshift, 'distance')
+     
+      # Calculate source mass parameters
+      if ('m1' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('m1_source', source_mass, ['m1', 'redshift'])
+
+      if ('m2' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('m2_source', source_mass, ['m2', 'redshift'])
+        
+      if ('mtotal' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('mtotal_source', source_mass, ['mtotal', 'redshift'])
+
+      if ('mc' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('mc_source', source_mass, ['mc', 'redshift'])
 
       #If aligned spins, calculate effective spin parallel to L
       if ('m1' in pos.names and 'spin1' in pos.names and not 'tilt1' in pos.names) and ('m2' in pos.names and 'spin2' in pos.names and not 'tilt2' in pos.names):
@@ -6378,6 +6400,7 @@ def plot_psd(psd_files,outpath=None):
     myfig2.savefig(os.path.join(outpath,'PSD.png'))
   myfig2.clf()
 
+<<<<<<< HEAD
   return freqs
 
 cred_level = lambda cl, x: np.sort(x, axis=0)[int(cl*len(x))]
