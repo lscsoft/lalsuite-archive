@@ -6185,13 +6185,13 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
         print "WARNING: Could not read fref from posterior file! Defaulting to 100 Hz\n"
 
       try:
-        a = pos['a_spin1'].samples[which][0]
+        a = pos['a1'].samples[which][0]
         the = pos['theta_spin1'].samples[which][0]
         phi = pos['phi_spin1'].samples[which][0]
         s1x = (a * sin(the) * cos(phi));
         s1y = (a * sin(the) * sin(phi));
         s1z = (a * cos(the));
-        a = pos['a_spin2'].samples[which][0]
+        a = pos['a2'].samples[which][0]
         the = pos['theta_spin2'].samples[which][0]
         phi = pos['phi_spin2'].samples[which][0]
         s2x = (a * sin(the) * cos(phi));
@@ -6200,7 +6200,7 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
         iota=pos['inclination'].samples[which][0]
       except:
         try:
-          iota, s1x, s1y, s1z, s2x, s2y, s2z=lalsim.SimInspiralTransformPrecessingInitialConditions(pos['theta_JN'].samples[which][0], pos['phi_JL'].samples[which][0], pos['tilt1'].samples[which][0], pos['tilt2'].samples[which][0], pos['phi12'].samples[which][0], pos['a1'].samples[which][0], pos['a2'].samples[which][0], m1, m2, f_ref)
+          iota, s1x, s1y, s1z, s2x, s2y, s2z=lalsim.SimInspiralTransformPrecessingInitialConditions(pos['theta_jn'].samples[which][0], pos['phi_JL'].samples[which][0], pos['tilt1'].samples[which][0], pos['tilt2'].samples[which][0], pos['phi12'].samples[which][0], pos['a1'].samples[which][0], pos['a2'].samples[which][0], m1, m2, f_ref)
         except:
           s1x=s1y=s1z=s2x=s2y=s2z=0.0
           try:
