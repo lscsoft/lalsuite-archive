@@ -6220,11 +6220,23 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
         try:
           iota, s1x, s1y, s1z, s2x, s2y, s2z=lalsim.SimInspiralTransformPrecessingInitialConditions(pos['theta_jn'].samples[which][0], pos['phi_JL'].samples[which][0], pos['tilt1'].samples[which][0], pos['tilt2'].samples[which][0], pos['phi12'].samples[which][0], pos['a1'].samples[which][0], pos['a2'].samples[which][0], m1, m2, f_ref)
         except:
-          s1x=s1y=s1z=s2x=s2y=s2z=0.0
-          try:
-            iota=pos['inclination'].samples[which][0]
-          except:
-            iota=pos['theta_jn'].samples[which][0]
+            if 'a1z' in pos.names:
+                s1z=pos['a1z'].samples[which][0]
+            elif 'a1' in pos.names:
+                s1z=pos['a1'].samples[which][0]
+            else:
+                s1z=0
+            if 'a2z' in pos.names:
+                s2z=pos['a2z'].samples[which][0]
+            elif 'a2' in pos.names:
+                s2z=pos['a2'].samples[which][0]
+            else:
+                s2z=0
+            s1x=s1y=s2x=s2y=0.0
+            if 'inclination' in pos.names:
+                iota=pos['inclination'].samples[which][0]
+            else:
+                iota=pos['theta_jn'].samples[which][0]
 
       r=D*LAL_PC_SI*1.0e6
 
