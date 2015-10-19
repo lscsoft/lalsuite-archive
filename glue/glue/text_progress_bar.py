@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -83,8 +84,7 @@ class ProgressBar:
 
     def __init__(
             self, text='Working', max=1, value=0, textwidth=24, fid=None,
-            sequence=u' \u258f\u258e\u258d\u258c\u258b\u258a\u2589\u2588',
-            twiddle_sequence=u'        \u258f\u258e\u258d\u258c\u258b\u258a\u2589\u2588\u2588\u2589\u258a\u258b\u258c\u258d\u258e\u258f'):
+            sequence=u' ▏▎▍▌▋▊▉█', twiddle_sequence=u'       ▏▎▍▌▋▊▉██▉▊▋▌▍▎▏ '):
         if fid is None:
             self.fid = sys.stderr
         self.isatty = os.isatty(self.fid.fileno())
@@ -161,8 +161,8 @@ class ProgressBar:
             progressFractionText = ('%.1f%%' % (100*progressFraction)).rjust(6)
 
         print >>self.fid, (
-            '\r\x1B[1m' + label + u'\x1b[0m\u2590\x1b[36m'
-            + barSymbols + u'\x1b[0m\u258c' + progressFractionText),
+            '\r\x1B[1m' + label + u'\x1B[0m▐\x1B[36m'
+            + barSymbols + u'\x1B[0m▌' + progressFractionText),
         self.fid.flush()
         self.linefed = False
 
