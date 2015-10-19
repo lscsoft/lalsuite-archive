@@ -241,6 +241,8 @@ def plot_label(param):
       'spin2':r'$S_2$',
       'a1':r'$a_1$',
       'a2':r'$a_2$',
+      'a1z':r'$a_{1z}$',
+      'a2z':r'$a_{2z}$',
       'theta1':r'$\theta_1\,(\mathrm{rad})$',
       'theta2':r'$\theta_2\,(\mathrm{rad})$',
       'phi1':r'$\phi_1\,(\mathrm{rad})$',
@@ -795,11 +797,44 @@ class Posterior(object):
               pos.append_mapping(new_spin_params, spin_angles, old_params)
           except KeyError:
               print "Warning: Cannot find spin parameters.  Skipping spin angle calculations."
+                
+      #Calculate effective precessing spin magnitude
+      if ('a1' in pos.names and 'tilt1' in pos.names and 'm1' in pos.names ) and ('a2' in pos.names and 'tilt2' in pos.names and 'm2' in pos.names):
+          pos.append_mapping('chi_p', chi_precessing, ['a1', 'tilt1', 'm1', 'a2', 'tilt2', 'm2'])
+
+
+      # Calculate redshift from luminosity distance measurements
+      if('distance' in pos.names):
+          pos.append_mapping('redshift', calculate_redshift, 'distance')
+     
+      # Calculate source mass parameters
+      if ('m1' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('m1_source', source_mass, ['m1', 'redshift'])
+
+      if ('m2' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('m2_source', source_mass, ['m2', 'redshift'])
+        
+      if ('mtotal' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('mtotal_source', source_mass, ['mtotal', 'redshift'])
+
+      if ('mc' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('mc_source', source_mass, ['mc', 'redshift'])
+
+      #If a1,a2 go negative, store in a separate parameter and make a1,a2 magnitudes
+      if 'a1' in pos.names and min(pos['a1'].samples) < 0.:
+          pos.append_mapping('a1z', lambda x: x, 'a1')
+          pos['a1z'].set_injval(injection.spin1z)
+          pos.pop('a1')
+          pos.append_mapping('a1', lambda x: np.abs(x), 'a1z')
+
+      if 'a2' in pos.names and min(pos['a2'].samples) < 0.:
+          pos.append_mapping('a2z', lambda x: x, 'a2')
+          pos['a2z'].set_injval(injection.spin2z)
+          pos.pop('a2')
+          pos.append_mapping('a2', lambda x: np.abs(x), 'a2z')
 
       #If aligned spins, calculate effective spin parallel to L
-      if ('m1' in pos.names and 'spin1' in pos.names and not 'tilt1' in pos.names) and ('m2' in pos.names and 'spin2' in pos.names and not 'tilt2' in pos.names):
-         pos.append_mapping('chi_eff', lambda m1,spin1,m2,spin2: (m1*spin1 + m2*spin2) / (m1 + m2), ('m1','spin1','m2','spin2'))
-      elif ('m1' in pos.names and 'a1' in pos.names and not 'tilt1' in pos.names) and ('m2' in pos.names and 'a2' in pos.names and not 'tilt2' in pos.names):
+      elif ('m1' in pos.names and 'a1z' in pos.names and not 'tilt1' in pos.names) and ('m2' in pos.names and 'a2z' in pos.names and not 'tilt2' in pos.names):
          pos.append_mapping('chi_eff', lambda m1,a1,m2,a2: (m1*a1 + m2*a2) / (m1 + m2), ('m1','a1','m2','a2'))
 
       #If precessing spins calculate effective spin parallel to L
@@ -1683,6 +1718,11 @@ class Posterior(object):
             spins = {'a1':a1, 'theta1':theta1, 'phi1':phi1,
                      'a2':a2, 'theta2':theta2, 'phi2':phi2,
                      'iota':iota}
+
+            # If spins are aligned, save the sign of the z-component
+            if inj.spin1x == inj.spin1y == inj.spin2x == inj.spin2y == 0.:
+                spins['a1z'] = inj.spin1z
+                spins['a2z'] = inj.spin2z
 
             L  = orbital_momentum(f_ref, mc, iota)
             S1 = np.hstack((s1x, s1y, s1z))
@@ -4206,7 +4246,7 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
   fig_actor_lst = [cs.collections[0] for cs in CSlst]
   fig_actor_lst.extend(dummy_lines)
   if legend is not None:
-    twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
+    twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right',framealpha=0.1)
     for text in twodcontour_legend.get_texts():
       text.set_fontsize('small')
 
@@ -4455,7 +4495,7 @@ def plot_two_param_greedy_bins_contourf(posteriors_by_name,greedy2Params,confide
         fig_actor_lst = [cs.collections[0] for cs in CSlst]
         fig_actor_lst.extend(dummy_lines)
     if legend is not None:
-      twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
+      twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right',framealpha=0.1)
       for text in twodcontour_legend.get_texts():
           text.set_fontsize('small')
     fix_axis_names(plt,par1_name,par2_name)
@@ -4672,7 +4712,7 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     fig_actor_lst.extend(dummy_lines)
 
     if legend is not None:
-      twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
+      twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right',framealpha=0.1)
       for text in twodcontour_legend.get_texts():
         text.set_fontsize('small')
 
@@ -6192,13 +6232,13 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
         print "WARNING: Could not read fref from posterior file! Defaulting to 100 Hz\n"
 
       try:
-        a = pos['a_spin1'].samples[which][0]
+        a = pos['a1'].samples[which][0]
         the = pos['theta_spin1'].samples[which][0]
         phi = pos['phi_spin1'].samples[which][0]
         s1x = (a * sin(the) * cos(phi));
         s1y = (a * sin(the) * sin(phi));
         s1z = (a * cos(the));
-        a = pos['a_spin2'].samples[which][0]
+        a = pos['a2'].samples[which][0]
         the = pos['theta_spin2'].samples[which][0]
         phi = pos['phi_spin2'].samples[which][0]
         s2x = (a * sin(the) * cos(phi));
@@ -6207,13 +6247,25 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
         iota=pos['inclination'].samples[which][0]
       except:
         try:
-          iota, s1x, s1y, s1z, s2x, s2y, s2z=lalsim.SimInspiralTransformPrecessingInitialConditions(pos['theta_JN'].samples[which][0], pos['phi_JL'].samples[which][0], pos['tilt1'].samples[which][0], pos['tilt2'].samples[which][0], pos['phi12'].samples[which][0], pos['a1'].samples[which][0], pos['a2'].samples[which][0], m1, m2, f_ref)
+          iota, s1x, s1y, s1z, s2x, s2y, s2z=lalsim.SimInspiralTransformPrecessingInitialConditions(pos['theta_jn'].samples[which][0], pos['phi_JL'].samples[which][0], pos['tilt1'].samples[which][0], pos['tilt2'].samples[which][0], pos['phi12'].samples[which][0], pos['a1'].samples[which][0], pos['a2'].samples[which][0], m1, m2, f_ref)
         except:
-          s1x=s1y=s1z=s2x=s2y=s2z=0.0
-          try:
-            iota=pos['inclination'].samples[which][0]
-          except:
-            iota=pos['theta_jn'].samples[which][0]
+            if 'a1z' in pos.names:
+                s1z=pos['a1z'].samples[which][0]
+            elif 'a1' in pos.names:
+                s1z=pos['a1'].samples[which][0]
+            else:
+                s1z=0
+            if 'a2z' in pos.names:
+                s2z=pos['a2z'].samples[which][0]
+            elif 'a2' in pos.names:
+                s2z=pos['a2'].samples[which][0]
+            else:
+                s2z=0
+            s1x=s1y=s2x=s2y=0.0
+            if 'inclination' in pos.names:
+                iota=pos['inclination'].samples[which][0]
+            else:
+                iota=pos['theta_jn'].samples[which][0]
 
       r=D*LAL_PC_SI*1.0e6
 
@@ -6303,37 +6355,37 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
       if rec_strains[i]["T"]['strain'] is not None or rec_strains[i]["F"]['strain'] is not None:
         if c==0:
           if global_domain=="T":
-            ax.plot(rec_strains[i]["T"]['x'],rec_strains[i]["T"]['strain'],colors_rec[i],label='%s maP'%i)
+            ax.plot(rec_strains[i]["T"]['x'],rec_strains[i]["T"]['strain'],colors_rec[i],alpha=0.5,label='%s maP'%i)
           else:
             data=rec_strains[i]["F"]['strain']
             f=rec_strains[i]["F"]['x']
             mask=np.logical_and(f>=f_min,f<=plot_fmax)
             ys=data
-            ax.plot(f[mask],ys[mask].real,'.-',color=colors_rec[i],label='%s maP'%i)
+            ax.semilogx(f[mask],ys[mask].real,'.-',color=colors_rec[i],alpha=0.5,label='%s maP'%i)
         else:
             data=rec_strains[i]["F"]['strain']
             f=rec_strains[i]["F"]['x']
             mask=np.logical_and(f>=f_min,f<=plot_fmax)
             ys=data
-            ax.loglog(f[mask],abs(ys[mask]),'--',color=colors_rec[i],linewidth=4)
+            ax.loglog(f[mask],abs(ys[mask]),'--',color=colors_rec[i],alpha=0.5,linewidth=4)
             ax.set_xlim([min(f[mask]),max(f[mask])])
             ax.grid(True,which='both')
       if inj_strains[i]["T"]['strain'] is not None or inj_strains[i]["F"]['strain'] is not None:
         if c==0:
           if global_domain=="T":
-            ax.plot(inj_strains[i]["T"]['x'],inj_strains[i]["T"]['strain'],colors_inj[i],label='%s inj'%i)
+            ax.plot(inj_strains[i]["T"]['x'],inj_strains[i]["T"]['strain'],colors_inj[i],alpha=0.5,label='%s inj'%i)
           else:
             data=inj_strains[i]["F"]['strain']
             f=inj_strains[i]["F"]['x']
             mask=np.logical_and(f>=f_min,f<=plot_fmax)
             ys=data
-            ax.plot(f[mask],ys[mask].real,'.-',color=colors_inj[i],label='%s inj'%i)
+            ax.plot(f[mask],ys[mask].real,'.-',color=colors_inj[i],alpha=0.5,label='%s inj'%i)
         else:
             data=inj_strains[i]["F"]['strain']
             f=inj_strains[i]["F"]['x']
             mask=np.logical_and(f>=f_min,f<=plot_fmax)
             ys=data
-            ax.loglog(f[mask],abs(ys[mask]),'--',color=colors_inj[i],linewidth=4)
+            ax.loglog(f[mask],abs(ys[mask]),'--',color=colors_inj[i],alpha=0.5,linewidth=4)
             ax.set_xlim([min(f[mask]),max(f[mask])])
             ax.grid(True,which='both')
 
@@ -6394,7 +6446,7 @@ def plot_psd(psd_files,outpath=None):
       if f>f_min and d!=0.0:
         fr.append(f)
         da.append(d)
-    plt.loglog(fr,da,colors[ifo],label=ifo,linewidth=3)
+    plt.loglog(fr,da,colors[ifo],label=ifo,alpha=0.5,linewidth=3)
   plt.xlim([min(freq),max(freq)])
   plt.xlabel("Frequency [Hz]",fontsize=26)
   plt.ylabel("PSD",fontsize=26)
@@ -6490,7 +6542,7 @@ def plot_calibration_pos(pos, level=.9, outpath=None):
 
     ax1.tick_params(labelsize=.75*font_size)
     ax2.tick_params(labelsize=.75*font_size)
-    plt.legend(loc='upper right', prop={'size':.75*font_size})
+    plt.legend(loc='upper right', prop={'size':.75*font_size}, framealpha=0.1)
     ax1.set_xscale('log')
     ax2.set_xscale('log')
 

@@ -29,7 +29,10 @@ import os
 import sys
 import re
 import types
-import pyRXP
+try:
+    import pyRXP
+except ImportError:
+    import pyRXPU as pyRXP
 import exceptions
 import socket
 import SocketServer
