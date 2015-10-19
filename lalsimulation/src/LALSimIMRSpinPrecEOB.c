@@ -1538,12 +1538,13 @@ int XLALSimIMRSpinEOBWaveformAll(
    * */ 
   REAL8 theta1Ini = 0, theta2Ini = 0;
   REAL8 spin1Norm = -1, spin2Norm = -1;
-  if( INspin1[0] != 0 || INspin1[1] != 0 || INspin1[2] != 0 ) {
-    spin1Norm = sqrt( INspin1[0]*INspin1[0] + INspin1[1]*INspin1[1] +                          INspin1[2]*INspin1[2] );
+  spin1Norm = sqrt( INspin1[0]*INspin1[0] + INspin1[1]*INspin1[1] + INspin1[2]*INspin1[2] );
+  spin2Norm = sqrt( INspin2[0]*INspin2[0] + INspin2[1]*INspin2[1] + INspin2[2]*INspin2[2] );
+
+  if( spin1Norm > 1.0e-5 && (INspin1[0] != 0 || INspin1[1] != 0 || INspin1[2] != 0) ) {
     theta1Ini = acos( (InitLhat[0]*INspin1[0] + InitLhat[1]*INspin1[1] + InitLhat[2]*INspin1[2])/ spin1Norm );
     }
-  if( INspin2[0] != 0 || INspin2[1] != 0 || INspin2[2] != 0 ) {
-    spin2Norm = sqrt( INspin2[0]*INspin2[0] + INspin2[1]*INspin2[1] +                          INspin2[2]*INspin2[2] );
+  if( spin2Norm > 1.0e-5 && (INspin2[0] != 0 || INspin2[1] != 0 || INspin2[2] != 0) ) {
     theta2Ini = acos( (InitLhat[0]*INspin2[0] + InitLhat[1]*INspin2[1] + InitLhat[2]*INspin2[2]) / spin2Norm );
   }
     if ( INspin1[0] == 0. && INspin1[1] == 0. && INspin1[2] == 0. ) {
