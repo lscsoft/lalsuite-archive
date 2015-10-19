@@ -399,7 +399,7 @@ XLALSpinPrecAlignedHiSRStopCondition(double UNUSED t,  /**< UNUSED */
  * STEP 8) Generate full IMR modes -- attaching ringdown to inspiral
  * STEP 9) Generate full IMR hp and hx waveforms
  */
-static int XLALSimIMRSpinPrecAlignedEOBWaveform(
+UNUSED static int XLALSimIMRSpinPrecAlignedEOBWaveform(
         REAL8TimeSeries **hplus,     /**<< OUTPUT, +-polarization waveform */
         REAL8TimeSeries **hcross,    /**<< OUTPUT, x-polarization waveform */
         const REAL8     phiC,        /**<< coalescence orbital phase (rad) */ 
@@ -1585,12 +1585,12 @@ int XLALSimIMRSpinEOBWaveformAll(
 //          spin1Norm*cos(theta1Ini), spin2Norm*cos(theta2Ini), SpinAlignedEOBversion);
 //    return ret;
 //  }
-  if ( INspin1[0] == 0. && INspin1[1] == 0. && INspin1[2] == 0. && INspin2[0] == 0. && INspin2[1] == 0. && INspin2[2] == 0. ) {
-        ret = XLALSimIMRSpinPrecAlignedEOBWaveform(
-                                               hplus, hcross, phiC, deltaT, m1SI, m2SI, fMin, r, inc,
-                                               0., 0., SpinAlignedEOBversion);
-        return ret;
-    }
+//  if ( INspin1[0] == 0. && INspin1[1] == 0. && INspin1[2] == 0. && INspin2[0] == 0. && INspin2[1] == 0. && INspin2[2] == 0. ) {
+//        ret = XLALSimIMRSpinPrecAlignedEOBWaveform(
+//                                               hplus, hcross, phiC, deltaT, m1SI, m2SI, fMin, r, inc,
+//                                               0., 0., SpinAlignedEOBversion);
+//        return ret;
+//    }
   /* *******************************************************************/
   /* ********************** Memory Allocation **************************/
   /* *******************************************************************/
@@ -1753,7 +1753,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   /* Accuracies of adaptive Runge-Kutta integrator */
    REAL8 EPS_ABS = 1.0e-8;
   const REAL8 EPS_REL = 1.0e-8;
-  if (/*fabs(theta1Ini - LAL_PI/2.) < 1.0e-6 && fabs(theta2Ini - LAL_PI/2.) < 1.0e-6 && */sqrt((INspin1[0] + INspin2[0])*(INspin1[0] + INspin2[0]) + (INspin1[1] + INspin2[1])*(INspin1[1] + INspin2[1]) + 0*(INspin1[2] + INspin2[2])*(INspin1[2] + INspin2[2])) < 1.0e-10)
+  if (/*fabs(theta1Ini - LAL_PI/2.) < 1.0e-6 && fabs(theta2Ini - LAL_PI/2.) < 1.0e-6 && */sqrt((INspin1[0] + INspin2[0])*(INspin1[0] + INspin2[0]) + (INspin1[1] + INspin2[1])*(INspin1[1] + INspin2[1]) + 0*(INspin1[2] + INspin2[2])*(INspin1[2] + INspin2[2])) < 1.0e-10 && (theta1Ini >= 1e-4 && theta2Ini >= 1e-4))
   {
       if (debugPK) printf("EPS_ABS is decreased!\n");
       EPS_ABS = 1.0e-4;//abort();
@@ -2171,10 +2171,29 @@ int XLALSimIMRSpinEOBWaveformAll(
       tmpValues2->data[9]= 0.07463668902857602;
       tmpValues2->data[10]= 0.001769731591445356;
       tmpValues2->data[11]= 0.04303525354405329;
-  }
-  
-  
       
+  }
+//  
+//    tmpValues2->data[0]=2.4000463143017267e+01;
+//    tmpValues2->data[1]= 0.;
+//    tmpValues2->data[2]= 0.;
+//    tmpValues2->data[3]=-2.3261929826497678e-04;
+//    tmpValues2->data[4]=2.1559757713540095e-01;
+//    tmpValues2->data[5]= 0.;
+
+//    tmpValues2->data[0]=-1.8801327380701445e+00;
+//    tmpValues2->data[1]=0.0000000000000000e+00;
+//    tmpValues2->data[2]=9.8357869228657506e+00;
+//    tmpValues2->data[3]=-1.0570274923386538e-02;
+//    tmpValues2->data[4]= -3.5342944772792023e-01;
+//    tmpValues2->data[5]=-2.6295929021147818e-03;
+//    tmpValues2->data[6]=6.3720886501781782e-01;
+//    tmpValues2->data[7]=5.0949235278028726e-01;
+//    tmpValues2->data[8]=-4.3251561297952823e-03;
+//    tmpValues2->data[9]=-1.4118692634180656e-06;
+//    tmpValues2->data[10]=4.2413644561966518e-06;
+//    tmpValues2->data[11]=-5.6616846904456627e-06;
+    
   if(debugPK)
   {
     printf("Setting up initial conditions, returned values are:\n");
