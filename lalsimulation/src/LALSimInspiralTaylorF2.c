@@ -348,8 +348,9 @@ int XLALSimInspiralTaylorF2Core(
         phase3p5 = phasing/v5;
 
         /* Eccentricity terms in phasing */
+        memset(ecc_phase_order, 0x00, (LAL_MAX_ECC_PN_ORDER+1)*sizeof(double));
+        phaseEcc = 0;
         if( ecc > 0 && f_ecc > 0) {
-          memset(ecc_phase_order, 0x00, (LAL_MAX_ECC_PN_ORDER+1)*sizeof(double));
           phaseEcc = eccentricityPhasing_F2(v, v_ecc_ref, ecc, eta, eccOrder, ecc_phase_order);
           phasing += phaseEcc;
           phaseEcc /=v5;
@@ -415,6 +416,7 @@ int XLALSimInspiralTaylorF2Core(
           for(int j =0; j<=LAL_MAX_ECC_PN_ORDER; j++) {
             fprintf(outPhase, " %16.8e", ecc_phase_order[j]); 
           }
+          fprintf(outPhase," %16.8e",shft*f);
           fprintf(outPhase, "\n");
         }
     }
