@@ -63,12 +63,15 @@ static PyObject *process_id_type = NULL;
 static struct PyMemberDef members[] = {
 	{"end_time", T_INT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.end_time.gpsSeconds), 0, "end_time"},
 	{"end_time_ns", T_INT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.end_time.gpsNanoSeconds), 0, "end_time_ns"},
-	{"chisq", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.chisq), 0, "chisq"},
 	{"tmplt_idx", T_INT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.tmplt_idx), 0, "tmplt_idx"},
 	{"pix_idx", T_INT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.pix_idx), 0, "pix_idx"},
 	{"maxsnglsnr", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.maxsnglsnr), 0, "maxsnglsnr"},
 	{"cohsnr", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.cohsnr), 0, "cohsnr"},
 	{"nullsnr", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.nullsnr), 0, "nullsnr"},
+	{"chisq", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.chisq), 0, "chisq"},
+	{"spearman_pval", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.spearman_pval), 0, "spearman_pval"},
+	{"fap", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.fap), 0, "fap"},
+	{"far", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.far), 0, "far"},
 	{NULL,}
 };
 

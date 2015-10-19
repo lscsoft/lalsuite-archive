@@ -31,7 +31,7 @@
 
 
 #include <Python.h>
-#include <gstlal-ugly/postcoh_table.h>
+#include <gstlal-ugly/postcohinspiral_table.h>
 #include <lal/LIGOMetadataTables.h>
 
 
