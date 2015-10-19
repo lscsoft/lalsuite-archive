@@ -2006,6 +2006,8 @@ int XLALSimIMRSpinEOBWaveformAll(
             XLAL_ERROR( XLAL_EFUNC );
         }
         seobParams.alignedSpins = 0;
+      REAL8		csi = sqrt(XLALSimIMRSpinPrecEOBHamiltonianDeltaT(seobParams.seobCoeffs, tmpValues2->data[0], eta, a)*XLALSimIMRSpinPrecEOBHamiltonianDeltaR(seobParams.seobCoeffs, tmpValues2->data[0], eta, a)) / (tmpValues2->data[0] * tmpValues2->data[0] + a * a);
+      tmpValues2->data[3] *= csi*csi;
     }
     else {
     if ( XLALSimIMRSpinEOBInitialConditionsPrec( tmpValues2, m1, m2, fMin, incl_temp,
