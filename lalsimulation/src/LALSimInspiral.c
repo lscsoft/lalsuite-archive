@@ -3637,7 +3637,7 @@ int XLALSimInspiralImplementedTDApproximants(
         case SEOBNRv1:
         case SpinDominatedWf:
         case SEOBNRv2:
-        // case SEOBNRv3:
+        case SEOBNRv3:
             return 1;
 
         default:
