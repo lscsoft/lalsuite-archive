@@ -63,6 +63,8 @@ static PyObject *process_id_type = NULL;
 static struct PyMemberDef members[] = {
 	{"end_time", T_INT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.end_time.gpsSeconds), 0, "end_time"},
 	{"end_time_ns", T_INT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.end_time.gpsNanoSeconds), 0, "end_time_ns"},
+	{"is_background", T_INT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.is_background), 0, "is_background"},
+	{"livetime", T_INT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.livetime), 0, "livetime"},
 	{"tmplt_idx", T_INT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.tmplt_idx), 0, "tmplt_idx"},
 	{"pix_idx", T_INT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.pix_idx), 0, "pix_idx"},
 	{"maxsnglsnr", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.maxsnglsnr), 0, "maxsnglsnr"},
@@ -114,7 +116,6 @@ static int end_set(PyObject *obj, PyObject *val, void *data)
 static struct PyGetSetDef getset[] = {
 	{"ifos", pylal_inline_string_get, pylal_inline_string_set, "ifos", &(struct pylal_inline_string_description) {offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.ifos), MAX_ALLIFO_LEN}},
 	{"pivotal_ifo", pylal_inline_string_get, pylal_inline_string_set, "pivotal_ifo", &(struct pylal_inline_string_description) {offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.pivotal_ifo), MAX_IFO_LEN}},
-	{"is_background", pylal_inline_string_get, pylal_inline_string_set, "is_background", &(struct pylal_inline_string_description) {offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.is_background), 1}},
 	{"skymap_fname", pylal_inline_string_get, pylal_inline_string_set, "skymap_fname", &(struct pylal_inline_string_description) {offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.skymap_fname), MAX_SKYMAP_FNAME_LEN}},
 	{"end", end_get, end_set, "end", NULL},
 	{NULL,}
