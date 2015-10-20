@@ -17,6 +17,7 @@
 Text-mode progress bars
 """
 from __future__ import division
+from __future__ import print_function
 __copyright__ = "Copyright 2010, Leo Singer"
 __author__ = "Leo Singer <leo.singer@ligo.org>"
 __all__ = ["ProgressBar", "ProgressBarTheme"]
@@ -195,9 +196,10 @@ class ProgressBar:
                 (self.sequence[1] * (barWidth - iMajorMinor)))
             progressFractionText = ('%.1f%%' % (100*progressFraction)).rjust(6)
 
-        print >>self.fid, (
-            '\r\x1B[1m' + label + '\x1B[0m' + self.left_border + '\x1B[36m'
-            + barSymbols + '\x1B[0m' + self.right_border + progressFractionText),
+        print(
+            '\r\x1B[1m', label, '\x1B[0m', self.left_border, '\x1B[36m',
+            barSymbols, '\x1B[0m', self.right_border, progressFractionText,
+            sep='', end='', file=self.fid)
         self.fid.flush()
         self.linefed = False
 
@@ -230,7 +232,7 @@ class ProgressBar:
         if not self.isatty:
             return
         if not self.linefed:
-            print >>self.fid
+            print(file=self.fid)
             self.fid.flush()
             self.linefed = True
 
