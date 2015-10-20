@@ -241,6 +241,22 @@ make_plot("snr_improvement_vs_dist_zoomed")
 ComparisonPlot(I(pmin(snr_output/snr_input, 3))~dist(ra_output, dec_output, ra_inj_input, dec_inj_input), auto.key=FALSE, xlab="dist_output", ylab="SNR Output/SNR input", pch=3)
 dev.off()
 
+make_plot("snr_improvement_vs_dist_rel_zoomed")
+ComparisonPlot(I(pmin(snr_output/snr_input, 3))~dist(ra_output, dec_output, ra_inj_input, dec_inj_input)*(f0_inj_input/400.0), auto.key=FALSE, xlab="dist_output", ylab="SNR Output/SNR input", pch=3)
+dev.off()
+
+make_plot("ecl_cos_large_vs_dist_rel")
+ComparisonPlot(I(ecl_cos_large_input)~dist(ra_output, dec_output, ra_inj_input, dec_inj_input)*(f0_inj_input/400.0), auto.key=FALSE, xlab="dist_output", ylab="SNR Output/SNR input", pch=3)
+dev.off()
+
+make_plot("ecl_cos_large_vs_ecldist_rel")
+ComparisonPlot(I(ecl_cos_large_input)~ecliptic_dist(ra_output, dec_output, ra_inj_input, dec_inj_input)*(f0_inj_input/400.0), auto.key=FALSE, xlab="dist_output", ylab="Ecliptic distance, large signals", pch=3)
+dev.off()
+
+make_plot("spindown_mismatch_vs_ecl_cos_large")
+ComparisonPlot(I(spindown_input-spindown_inj_input)~I(ecl_cos_large_input), auto.key=FALSE, xlab="ecliptic_distance, large signals", ylab="Spindown distance", pch=3, ylim=c(-2e-10, 2e-10))
+dev.off()
+
 make_plot("f0_improvement")
 ComparisonPlot(I(abs(f0_input-f0_inj_input))+I(abs(f0_output-f0_inj_input))~h0_input, xlab="h0", ylab="Frequency mismatch, Hz", best.snr=TRUE)
 dev.off()
@@ -302,6 +318,14 @@ dev.off()
 
 make_plot("missing_injections_alignment")
 ComparisonPlot(iota_inj_input~psi_inj_input, xlab="psi", ylab="iota", best.snr=TRUE, omit.found=TRUE, pch=3)
+dev.off()
+
+make_plot("rejected_injections_dist_fdot")
+ComparisonPlot(I(spindown_input-spindown_inj_input)~dist(ra_inj_input, dec_inj_input, ra_input, dec_input), xlab="Distance, rad", ylab="spindown", best.snr=TRUE, omit.found=TRUE, pch=3)
+dev.off()
+
+make_plot("rejected_injections_snr_fdot")
+ComparisonPlot(I(spindown_input-spindown_inj_input)~snr_input, xlab="SNR, input", ylab="spindown", best.snr=TRUE, omit.found=TRUE, pch=3)
 dev.off()
 
 #

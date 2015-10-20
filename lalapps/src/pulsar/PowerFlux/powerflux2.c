@@ -191,6 +191,7 @@ PLOT *plot;
 char s[20000];
 int i, j;
 struct rlimit rl;
+double r;
 
 /* INIT stage */
 
@@ -252,10 +253,10 @@ if(args_info.flat_output_given){
 if(args_info.output_given) {
 	mkdir(args_info.output_arg, 0777);
 	output_dir=do_alloc(strlen(args_info.output_arg)+30, sizeof(*output_dir));
-	sprintf(output_dir, "%s/%d-%f/", args_info.output_arg, args_info.first_bin_arg,args_info.first_bin_arg/1800.0);
+	sprintf(output_dir, "%s/%d-%f/", args_info.output_arg, args_info.first_bin_arg,args_info.first_bin_arg/args_info.sft_coherence_time_arg);
 	} else {
 	output_dir=do_alloc(30, sizeof(*output_dir));
-	sprintf(output_dir, "%d-%f/", args_info.first_bin_arg,args_info.first_bin_arg/1800.0);
+	sprintf(output_dir, "%d-%f/", args_info.first_bin_arg,args_info.first_bin_arg/args_info.sft_coherence_time_arg);
 	}
 mkdir(output_dir, 0777);
 
@@ -390,8 +391,20 @@ if(!strcasecmp("plain_rectangular", args_info.sky_grid_arg)){
 if(!strcasecmp("targeted_rectangular", args_info.sky_grid_arg)){
 	if(!(args_info.focus_ra_given && args_info.focus_dec_given && args_info.focus_radius_given)) {
 		fprintf(stderr, "*** ERROR: focus* options are required for targeted rectangular grid\n"); 
+		exit(-1);
 		}
-	patch_grid=make_targeted_rect_grid(args_info.focus_ra_arg, args_info.focus_dec_arg, args_info.focus_radius_arg, ceil(2*args_info.focus_radius_arg/(resolution*args_info.fine_factor_arg))+1);
+	r=args_info.focus_radius_arg;
+	if(!strncasecmp("ecliptic", args_info.focus_type_arg, 8)) {
+		if(args_info.focus_radius_arg>=1) {
+			/* Technically the computation also completes for r=2, but you should get the entire sky which is not possible with targeted grid, in fact this only makes sense for small radii */
+			fprintf(stderr, "*** ERROR: ecliptic focus only works with radius<1\n"); 
+			exit(-1);
+			}
+		/* This is a gross overestimate - assume the disk is next to the edge and compute the spherical distance corresponding to the diameter of the inner disk. Then double it because the disk can wrap around. */
+		r=2*acos(1-2*args_info.focus_radius_arg);
+		}
+	
+	patch_grid=make_targeted_rect_grid(args_info.focus_ra_arg, args_info.focus_dec_arg, r, ceil(2*r/(resolution*args_info.fine_factor_arg))+1);
 	proto_super_grid=make_targeted_rect_supergrid(patch_grid, args_info.fine_factor_arg);
 	} else
 if(!strcasecmp("arcsin", args_info.sky_grid_arg)){
@@ -459,12 +472,16 @@ free_values(fine_grid);
 side_cut=args_info.side_cut_arg;
 if(!args_info.side_cut_given){
 	double max_spindown;
+	double max_freq_depth;
 	
 	max_spindown=fabs(args_info.spindown_start_arg+(args_info.spindown_count_arg-1)*args_info.spindown_step_arg);
 	if(fabs(args_info.spindown_start_arg)>max_spindown)max_spindown=fabs(args_info.spindown_start_arg);
 	/* determine side cut from resolution, 6.0 factor is empirical */
 	/* also add in spindown contribution - for now just plan for 4 months of data */
-	side_cut=50+args_info.extra_side_cut_arg+ceil((args_info.first_bin_arg+args_info.nbins_arg)*1e-4)+ceil(1800.0*max_spindown*args_info.expected_timebase_arg*3600*24*31);
+
+	max_freq_depth=fabs(args_info.freq_modulation_depth_arg+(args_info.freq_modulation_depth_count_arg-1)*args_info.freq_modulation_depth_step_arg);
+	if(fabs(args_info.freq_modulation_depth_arg)>max_freq_depth)max_freq_depth=fabs(args_info.freq_modulation_depth_arg);
+	side_cut=50+args_info.extra_side_cut_arg+ceil((args_info.first_bin_arg+args_info.nbins_arg)*1e-4)+ceil(args_info.sft_coherence_time_arg*max_spindown*args_info.expected_timebase_arg*3600*24*31)+args_info.sft_coherence_time_arg*fabs(args_info.freq_modulation_depth_arg);
 	/* round it up to a multiple of 450 */
 /*	side_cut=450*ceil(side_cut/450.0);*/
 	}
@@ -519,11 +536,12 @@ if(no_am_response){
 	fprintf(stderr,"NO_AM_RESPONSE flag passed\n");
 	}
 fprintf(LOG,"firstbin  : %d\n",first_bin);
-fprintf(LOG,"band start: %g Hz\n",first_bin/1800.0);
+fprintf(LOG,"SFT coherence time: %g\n",args_info.sft_coherence_time_arg);
+fprintf(LOG,"band start: %g Hz\n",first_bin/args_info.sft_coherence_time_arg);
 fprintf(LOG,"nbins     : %d\n",nbins);
 fprintf(LOG,"side_cut  : %d\n",side_cut);
 fprintf(LOG,"useful bins : %d\n",useful_bins);
-fprintf(LOG,"useful band start: %g Hz\n",(first_bin+side_cut)/1800.0);
+fprintf(LOG,"useful band start: %g Hz\n",(first_bin+side_cut)/args_info.sft_coherence_time_arg);
 fprintf(LOG,"averaging mode: %s\n", args_info.averaging_mode_arg);
 
 fprintf(LOG,"patch_type: %s\n", patch_grid->name);
@@ -538,9 +556,17 @@ fprintf(LOG,"first spindown: %g\n", args_info.spindown_start_arg);
 fprintf(LOG,"spindown step : %g\n", args_info.spindown_step_arg);
 fprintf(LOG,"spindown count: %d\n", args_info.spindown_count_arg);
 fprintf(LOG,"fdotdot: %g\n", args_info.fdotdot_arg);
-fprintf(LOG,"freq_modulation_depth: %g\n", args_info.freq_modulation_depth_arg);
-fprintf(LOG,"freq_modulation_freq: %g\n", args_info.freq_modulation_freq_arg);
-fprintf(LOG,"freq_modulation_phase: %g\n", args_info.freq_modulation_phase_arg);
+fprintf(LOG,"fdotdot_step: %g\n", args_info.fdotdot_step_arg);
+fprintf(LOG,"fdotdot_count: %d\n", args_info.fdotdot_count_arg);
+fprintf(LOG,"freq_modulation_depth: %.16g\n", args_info.freq_modulation_depth_arg);
+fprintf(LOG,"freq_modulation_freq: %.16g\n", args_info.freq_modulation_freq_arg);
+fprintf(LOG,"freq_modulation_phase: %.16g\n", args_info.freq_modulation_phase_arg);
+fprintf(LOG,"freq_modulation_depth_step: %.16g\n", args_info.freq_modulation_depth_step_arg);
+fprintf(LOG,"freq_modulation_freq_step: %.16g\n", args_info.freq_modulation_freq_step_arg);
+fprintf(LOG,"freq_modulation_phase_step: %.16g\n", args_info.freq_modulation_phase_step_arg);
+fprintf(LOG,"freq_modulation_depth_count: %d\n", args_info.freq_modulation_depth_count_arg);
+fprintf(LOG,"freq_modulation_freq_count: %d\n", args_info.freq_modulation_freq_count_arg);
+fprintf(LOG,"freq_modulation_phase_count: %d\n", args_info.freq_modulation_phase_count_arg);
 fprintf(LOG,"niota: %d\n", args_info.niota_arg);
 fprintf(LOG,"npsi: %d\n", args_info.npsi_arg);
 fprintf(LOG,"nfshift: %d\n", args_info.nfshift_arg);
@@ -580,12 +606,12 @@ if(args_info.fake_freq_given) {
 	fprintf(LOG,"fake reference time: %f\n", args_info.fake_ref_time_arg);
 
 	fprintf(LOG,"fake dInv: %g\n", args_info.fake_dInv_arg);
-	fprintf(LOG,"fake frequency modulation depth: %f\n", args_info.fake_freq_modulation_depth_arg);
-	fprintf(LOG,"fake frequency modulation frequency: %f\n", args_info.fake_freq_modulation_freq_arg);
-	fprintf(LOG,"fake frequency modulation phase: %f\n", args_info.fake_freq_modulation_phase_arg);
-	fprintf(LOG,"fake phase modulation depth: %f\n", args_info.fake_phase_modulation_depth_arg);
-	fprintf(LOG,"fake phase modulation frequency: %f\n", args_info.fake_phase_modulation_freq_arg);
-	fprintf(LOG,"fake phase modulation phase: %f\n", args_info.fake_phase_modulation_phase_arg);
+	fprintf(LOG,"fake frequency modulation depth: %.16g\n", args_info.fake_freq_modulation_depth_arg);
+	fprintf(LOG,"fake frequency modulation frequency: %.16g\n", args_info.fake_freq_modulation_freq_arg);
+	fprintf(LOG,"fake frequency modulation phase: %.16g\n", args_info.fake_freq_modulation_phase_arg);
+	fprintf(LOG,"fake phase modulation depth: %.16g\n", args_info.fake_phase_modulation_depth_arg);
+	fprintf(LOG,"fake phase modulation frequency: %.16g\n", args_info.fake_phase_modulation_freq_arg);
+	fprintf(LOG,"fake phase modulation phase: %.16g\n", args_info.fake_phase_modulation_phase_arg);
 	fprintf(LOG,"fake injection window: %d\n", args_info.fake_injection_window_arg);
 
    	} else {
@@ -737,7 +763,7 @@ if(band_axis_norm<=0.0){
 band_axis_norm*=2.0*M_PI/(365.0*24.0*3600.0);
 
 fprintf(LOG, "auto band axis norm: %g\n", band_axis_norm);
-fprintf(LOG, "maximum S contribution from Doppler shifts: %g\n", band_axis_norm*(first_bin+nbins*0.5)/1800.0);
+fprintf(LOG, "maximum S contribution from Doppler shifts: %g\n", band_axis_norm*(first_bin+nbins*0.5)/args_info.sft_coherence_time_arg);
 
 if(args_info.band_axis_norm_given) {
 	band_axis_norm=args_info.band_axis_norm_arg;
@@ -745,7 +771,7 @@ if(args_info.band_axis_norm_given) {
 
 fprintf(LOG, "actual band axis norm: %g\n", band_axis_norm);
 
-large_S=6.0/(1800.0*(max_gps()-min_gps()+1800.0));
+large_S=6.0/(args_info.sft_coherence_time_arg*(max_gps()-min_gps()+args_info.sft_coherence_time_arg));
 
 fprintf(LOG, "auto large S: %g\n", large_S);
 
@@ -838,8 +864,8 @@ if(sky_marks!=NULL) {
 	} else {
 	/* assign bands */
 	if(!strcasecmp("S", args_info.skyband_method_arg)) {
-		S_assign_bands(patch_grid, args_info.nskybands_arg, large_S, spindown, (first_bin+nbins*0.5)/1800.0);
-		S_assign_bands(fine_grid, args_info.nskybands_arg, large_S, spindown, (first_bin+nbins*0.5)/1800.0);
+		S_assign_bands(patch_grid, args_info.nskybands_arg, large_S, spindown, (first_bin+nbins*0.5)/args_info.sft_coherence_time_arg);
+		S_assign_bands(fine_grid, args_info.nskybands_arg, large_S, spindown, (first_bin+nbins*0.5)/args_info.sft_coherence_time_arg);
 		} else 
 	if(!strcasecmp("angle", args_info.skyband_method_arg)) {
 		angle_assign_bands(patch_grid, args_info.nskybands_arg);

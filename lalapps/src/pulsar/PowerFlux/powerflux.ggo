@@ -38,6 +38,7 @@ option "sun-ephemeris" 	- "Sun ephemeris file, overrides ephemeris-path argument
 option "first-bin"   	f "first frequency bin in the band to be analyzed" int no
 option "nbins"   	n "number of frequency bins to analyze" int default="501" no
 option "side-cut"    	- "number of extra bins to load to accomodate doppler shifts and spindown" int no
+option "sft-coherence-time" - "coherence time of input SFTs" double default="1800.0" no
 option "extra-side-cut"    	- "number of extra bins to load in addition to side-cut computed automatically" int default="0" no
 option "expected-timebase"    	- "expected timebase in months" double default="6" no
 option "hist-bins"      - "number of bins to use when producing histograms" int default="200" no
@@ -53,9 +54,21 @@ option "spindown-start"	- "first spindown value to process" double default="0.0"
 option "spindown-step"	- "step for processing multiple spindown values" double default="5e-10" no
 option "spindown-count" - "how many separate spindown values to process" int default="1" no
 option "fdotdot"  - "second frequency derivative" double default="0.0" no
+option "fdotdot_step"  - "second frequency derivative step size" double default="0.0" no
+option "fdotdot_count"  - "second frequency derivative step count" int default="1" no
+
 option "freq-modulation-depth" - "depth of additional sinusoidal frequency modulation in Hz" double default="0.0" no
 option "freq-modulation-freq" - "frequency of additional sinusoidal frequency modulation" double default="1.0" no
 option "freq-modulation-phase" - "phase of additional sinusoidal frequency modulation" double default="0.0" no
+
+option "freq-modulation-depth-step" - "depth of additional sinusoidal frequency modulation step" double default="0.0" no
+option "freq-modulation-freq-step" - "frequency of additional sinusoidal frequency modulation step" double default="0.0" no
+option "freq-modulation-phase-step" - "phase of additional sinusoidal frequency modulation step" double default="0.0" no
+
+option "freq-modulation-depth-count" - "depth of additional sinusoidal frequency modulation count" int default="1" no
+option "freq-modulation-freq-count" - "frequency of additional sinusoidal frequency modulation count" int default="1" no
+option "freq-modulation-phase-count" - "phase of additional sinusoidal frequency modulation count" int default="1" no
+
 
 option "orientation"    - "additional orientation phase, specifying 0.7853 will turn plus into cross" double default="0" no
 option "nlinear-polarizations" - "even number of linear polarizations to profile, distributed uniformly between 0 and PI/2" int default="4" no
@@ -117,7 +130,7 @@ option "output-initial" - "write initial candidates into log file" int default="
 option "output-optimized" - "write optimized (second pass) candidates into log file" int default="0" no
 option "output-cache" - "write out all candidates in cache to log file" int default="0" no
 
-option "extended-test" - "Perform extended self test" int default="0" no
+option "extended-test" - "Perform extended self test functions given by this bitmask" int default="1" no
 option "max-sft-report" - "Maximum count of SFTs to report with veto information" int default="100" no
 
 option "num-threads"  - "Use that many threads for computation" int default="-1" no

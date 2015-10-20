@@ -275,6 +275,46 @@ int sm_free=0;
 sm_size=10;
 sm=do_alloc(sm_size, sizeof(*sm));
 
+/* First handle command-line focus commands */
+
+if(args_info.focus_radius_given && args_info.focus_dec_given && 
+	args_info.focus_ra_given) {
+		
+
+	if(!strncasecmp("ecliptic", args_info.focus_type_arg, 8)) {
+		sm->type=SKYMARK_FOCUS_ECLIPTIC_DISK;
+		} else
+	if(!strncasecmp("equatorial", args_info.focus_type_arg, 10)) {
+		sm->type=SKYMARK_FOCUS_DISK;
+		} else 
+		{
+		fprintf(stderr, "*** INTERNAL ERROR: unrecognized focus type \"%s\"\n", args_info.focus_type_arg);
+		exit(-1);
+		}
+	sm->p.disk.ra=args_info.focus_ra_arg;
+	sm->p.disk.dec=args_info.focus_dec_arg;
+	sm->p.disk.radius=args_info.focus_radius_arg;
+
+	sm->p.disk.closest_point=find_closest(sky_grid, sm->p.disk.ra, sm->p.disk.dec);
+	if(sm->p.disk.radius<0)sm->p.disk.cos_radius=100;
+		else
+	if(sm->p.disk.radius>M_PI)sm->p.disk.cos_radius=-100.0;
+		else
+		sm->p.disk.cos_radius=cos(sm->p.disk.radius);
+
+	sm_free++;
+	}
+
+/* TODO:
+if(args_info.only_large_cos_given) {
+	fprintf(LOG, "only large cos level: %f\n", args_info.only_large_cos_arg);
+	mask_small_cos(fine_grid, band_axis[0], band_axis[1], band_axis[3], args_info.only_large_cos_arg);
+	propagate_far_points_from_super_grid(patch_grid, proto_super_grid);
+	}
+*/
+
+
+
 while(aj<length) {
 	ai=aj;
 	while(s[aj] && s[aj]!='\n' && (aj<length))aj++;
@@ -360,23 +400,6 @@ int skyband=-1;
 float ds;
 double S;
 
-if(args_info.focus_radius_given) {
-	if(args_info.focus_dec_given && 
-	args_info.focus_ra_given) {
-
-		if((sin(dec)*sin((float)args_info.focus_dec_arg)+
-			cos(dec)*cos((float)args_info.focus_dec_arg)*
-			cos(ra-(float)args_info.focus_ra_arg)) < cos((float)args_info.focus_radius_arg)) return -1;
-		}
-	}
-
-/* TODO:
-if(args_info.only_large_cos_given) {
-	fprintf(LOG, "only large cos level: %f\n", args_info.only_large_cos_arg);
-	mask_small_cos(fine_grid, band_axis[0], band_axis[1], band_axis[3], args_info.only_large_cos_arg);
-	propagate_far_points_from_super_grid(patch_grid, proto_super_grid);
-	}
-*/
 
 while(sm->type!=SKYMARK_END) {
 	if((sm->band_from>=0) && skyband!=sm->band_from) {
@@ -399,6 +422,17 @@ while(sm->type!=SKYMARK_END) {
 				skyband=sm->band_to;
 				}
 			break;
+		case SKYMARK_FOCUS_DISK:
+			/* This directive is used to restrict search region and is an AND with all other skymarks */
+			if(point==sm->p.disk.closest_point) {
+				break;
+				}
+			if((sin(dec)*sin(sm->p.disk.dec)+
+				cos(dec)*cos(sm->p.disk.dec)*
+				cos(ra-sm->p.disk.ra))>sm->p.disk.cos_radius) {
+				break;
+				}
+			return -1;
 		case SKYMARK_ECLIPTIC_DISK:
 			if(point==sm->p.disk.closest_point) {
 				skyband=sm->band_to;
@@ -408,6 +442,15 @@ while(sm->type!=SKYMARK_END) {
 				skyband=sm->band_to;
 				}
 			break;
+		case SKYMARK_FOCUS_ECLIPTIC_DISK:
+			/* This directive is used to restrict search region and is an AND with all other skymarks */
+			if(point==sm->p.disk.closest_point) {
+				break;
+				}
+			if(ecliptic_distance(ra, dec, sm->p.disk.ra, sm->p.disk.dec)<sm->p.disk.radius) {
+				break;
+				}
+			return -1;
 		case SKYMARK_BAND:
 			ds=cos(dec)*cos(ra)*sm->p.band.x0+
 				cos(dec)*sin(ra)*sm->p.band.y0+
@@ -440,7 +483,7 @@ while(sm->type!=SKYMARK_END) {
 					e[0]*sm->p.band_axis.band_axis[0]+
 					e[1]*sm->p.band_axis.band_axis[1]+
 					e[2]*sm->p.band_axis.band_axis[2]
-					)/1800.0;
+					)/args_info.sft_coherence_time_arg;
 
 			S=fabs(S);
 						

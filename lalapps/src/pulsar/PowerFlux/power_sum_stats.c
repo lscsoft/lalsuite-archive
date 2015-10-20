@@ -844,7 +844,7 @@ for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 inv_count=1.0/count;
 M=sum*inv_count;
 
-normalizer=1.0/max_dx;
+normalizer=1.0/fabsf(max_dx);
 
 sum_sq=0.0;
 sum1=0.0;
@@ -874,7 +874,7 @@ for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 	sum4+=b*b;
 	}
 
-S=sqrt(sum_sq/(count-1))*max_dx;
+S=sqrt(sum_sq/(count-1))*fabsf(max_dx);
 inv_S=1.0/S;
 
 /* convert to SNR from the highest power */
@@ -1063,7 +1063,7 @@ for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 inv_count=1.0/count;
 M=sum*inv_count;
 
-normalizer=1.0/max_dx;
+normalizer=1.0/fabsf(max_dx);
 
 sum_sq=0.0;
 sum1=0.0;
@@ -1093,7 +1093,7 @@ for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 	sum4+=b*b;
 	}
 
-S=sqrt(sum_sq/(count-1))*max_dx;
+S=sqrt(sum_sq/(count-1))*fabsf(max_dx);
 inv_S=1.0/S;
 
 /* convert to SNR from the highest power */
@@ -1434,7 +1434,7 @@ count+=i-max_dx_bin-half_window-1;
 inv_count=1.0/count;
 M=sum*inv_count;
 
-normalizer=1.0/max_dx;
+normalizer=1.0/fabsf(max_dx);
 
 sum_sq=0.0;
 sum1=0.0;
@@ -1520,7 +1520,7 @@ sum3+=tmp2[0]+tmp2[1]+tmp2[2]+tmp2[3];
 _mm_store_ps(tmp2, v4sum4);
 sum4+=tmp2[0]+tmp2[1]+tmp2[2]+tmp2[3];
 
-S=sqrt(sum_sq/(count-1))*max_dx;
+S=sqrt(sum_sq/(count-1))*fabsf(max_dx);
 inv_S=1.0/S;
 
 /* convert to SNR from the highest power */
@@ -1682,7 +1682,7 @@ for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 inv_count=1.0/count;
 M=sum*inv_count;
 
-normalizer=1.0/max_dx;
+normalizer=1.0/fabsf(max_dx);
 
 sum_sq=0.0;
 sum1=0.0;
@@ -1720,7 +1720,7 @@ for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 //inv_S=1.0/S;
 
 // abs-based
-S=sum_abs*max_dx*SQRT_PI_2/count;
+S=sum_abs*fabsf(max_dx)*SQRT_PI_2/count;
 inv_S=1.0/S;
 
 /* convert to SNR from the highest power */
@@ -1909,7 +1909,7 @@ for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 inv_count=1.0/count;
 M=sum*inv_count;
 
-normalizer=1.0/max_dx;
+normalizer=1.0/fabsf(max_dx);
 
 sum_sq=0.0;
 sum1=0.0;
@@ -1947,7 +1947,7 @@ for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 //inv_S=1.0/S;
 
 // use lower tail only
-S=sum1*max_dx*SQRT_2PI/count;
+S=sum1*fabsf(max_dx)*SQRT_2PI/count;
 inv_S=1.0/S;
 
 /* convert to SNR from the highest power */
@@ -2319,7 +2319,7 @@ count+=i-max_dx_bin-half_window-1;
 inv_count=1.0/count;
 M=sum*inv_count;
 
-normalizer=1.0/max_dx;
+normalizer=1.0/fabsf(max_dx);
 
 sum_sq=0.0;
 sum1=0.0;
@@ -2406,7 +2406,7 @@ _mm_store_ps(tmp2, v4sum4);
 sum4+=tmp2[0]+tmp2[1]+tmp2[2]+tmp2[3];
 
 // S=sqrt(sum_sq/(count-1))*max_dx;
-S=sum1*max_dx*SQRT_2PI/count;
+S=sum1*fabsf(max_dx)*SQRT_2PI/count;
 inv_S=1.0/S;
 
 /* convert to SNR from the highest power */
@@ -2799,7 +2799,7 @@ fprintf(LOG, "upper limit compensation factor: %8f\n", upper_limit_comp);
 	/* New AM response correctly computes expected power from h0 */
 strain_comp=1.0;
 	/* Extra factor to convert to strain from raw SFT units */
-strain_comp/=(1800.0*16384.0);
+strain_comp/=(args_info.sft_coherence_time_arg*16384.0);
 	/* Extra factor to account for the fact that only half of SFT
 	   coefficients is stored */
 strain_comp*=sqrt(2.0);

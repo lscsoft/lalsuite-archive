@@ -666,7 +666,7 @@ int type=0;
 if(!strncasecmp("ecliptic", args_info.focus_type_arg, 8)) {
 	type=TYPE_ECLIPTIC;
 	} else
-if(!strncasecmp("equatorial", args_info.focus_type_arg, 8)) {
+if(!strncasecmp("equatorial", args_info.focus_type_arg, 10)) {
 	type=TYPE_EQUATORIAL;
 	}
 	
@@ -834,7 +834,7 @@ for(i=0;i<sky_grid->npoints;i++) {
 
 	S=spindown+
 		band_axis_norm*(args_info.first_bin_arg+0.5*args_info.nbins_arg)*
-			(x*band_axis[0]+y*band_axis[1]+z*band_axis[2])/1800.0;
+			(x*band_axis[0]+y*band_axis[1]+z*band_axis[2])/args_info.sft_coherence_time_arg;
 
 	S=fabs(S);
 	

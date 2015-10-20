@@ -232,7 +232,9 @@ if(fabs(p->freq_modulation_freq)>1e-28) {
 	   --------- =  ------------- +   ------------- 
 	       w             w                 w        
 	*/
-	phase_freq+=p->freq_modulation_depth*sin(fmodomega_t)*cos(p->freq_modulation_phase)/(2*M_PI*p->freq_modulation_freq);
+	a=p->freq_modulation_depth*sin(fmodomega_t)*cos(p->freq_modulation_phase)/(2*M_PI*p->freq_modulation_freq);
+	phase_freq+=a-floor(a);
+	
 	a=p->freq_modulation_depth*cos(fmodomega_t)*sin(p->freq_modulation_phase)/(2*M_PI*p->freq_modulation_freq);
 	phase_freq+=a-floor(a);
 	} else {
@@ -243,7 +245,8 @@ if(fabs(p->freq_modulation_freq)>1e-28) {
 	   --------- =  ------------- +   ------------- = t cos(a) +  ------ -   ----------- + o(w^2)
 	       w             w                 w                        w             2
 	*/
-	phase_freq+=p->freq_modulation_depth*cos(p->freq_modulation_phase)*te;
+	a=p->freq_modulation_depth*cos(p->freq_modulation_phase)*te;
+	phase_freq+=a-floor(a);
 	}
 
 omega_t=2.0*M_PI*((phase_freq-floor(phase_freq))+(phase_spindown-floor(phase_spindown))+(phase_dotdot-floor(phase_dotdot)))+p->phi;
@@ -507,11 +510,10 @@ p->segment_start=d->gps[segment];
 p->coherence_time=d->coherence_time;
 p->detector=d->detector;
 
-
 compute_signal(&re, &im, &f, d->gps[segment]+(int)(d->coherence_time/2), p);
 
 
-bin=round(f*1800.0-d->first_bin);
+bin=round(f*d->coherence_time-d->first_bin);
 if((bin+window>nbins) || (bin<window))fprintf(stderr, "Injected signal outside loaded band: bin=%d, segment=%d\n", bin, segment);
 if(bin+window>nbins)bin=nbins-window;
 if(bin<window)bin=window;
@@ -593,7 +595,7 @@ d->detector="unknown";
 d->gps_start=0;
 d->gps_stop=-1;
 
-d->coherence_time=1800.0;
+d->coherence_time=args_info.sft_coherence_time_arg;
 d->nbins=nbins;
 d->first_bin=first_bin;
 
@@ -1247,6 +1249,10 @@ fread(&timebase, sizeof(timebase), 1, fin);
 fread(&bin_start, sizeof(bin_start), 1, fin);
 fread(&nbins, sizeof(nbins), 1, fin);
 
+if(timebase!=args_info.sft_coherence_time_arg) {
+	fprintf(stderr, "*** WARNING: SFT timebase is different from expected coherence time (%g vs %g)\n", timebase, args_info.sft_coherence_time_arg);
+	}
+
 tmp=do_alloc(count*2, sizeof(*tmp));
 
 fseek(fin, (startbin-bin_start)*8,SEEK_CUR);
@@ -1262,7 +1268,7 @@ if(timebase < 0) {
 	fprintf(stderr,"** Timebase is negative, assuming unnormalized data\n");
 	fprintf(LOG,"** Timebase is negative, assuming unnormalized data\n");
 	} else {
-	factor=(0.5*1800.0*16384.0)/(args_info.strain_norm_factor_arg*nbins); /* use fixed normalization for 1800 sec SFTs .. */
+	factor=(0.5*args_info.sft_coherence_time_arg*16384.0)/(args_info.strain_norm_factor_arg*nbins); 
 	}
 factor*=d->dc_factor;
 for(i=0;i<count;i++){
@@ -2611,7 +2617,7 @@ double total_weight=0.0, w, fdiff, f1, f2, c1, c2;
 DATASET *d;
 float e1[26], e2[26], ed[26];
 double offset, fdot;
-double timebase=max_gps()-min_gps()+1800.0;
+double timebase=max_gps()-min_gps()+args_info.sft_coherence_time_arg;
 double inv_timebase=1.0/timebase;
 double max_fdot;
 double delta_spindown=spindown-source_spindown;
@@ -2850,14 +2856,14 @@ for(i=0;i<d_free;i++) {
 			d->detector_velocity[3*j+2]
 			);
 		for(k=0;k<d->nbins;k++) {
-			fprintf(fout, "\t%8g", d->re[j*d->nbins+k]*args_info.strain_norm_factor_arg/(0.5*1800.0*16384.0));
+			fprintf(fout, "\t%8g", d->re[j*d->nbins+k]*args_info.strain_norm_factor_arg/(0.5*args_info.sft_coherence_time_arg*16384.0));
 			}
 		for(k=0;k<d->nbins;k++) {
-			fprintf(fout, "\t%8g",d->im[j*d->nbins+k]*args_info.strain_norm_factor_arg/(0.5*1800.0*16384.0));
+			fprintf(fout, "\t%8g",d->im[j*d->nbins+k]*args_info.strain_norm_factor_arg/(0.5*args_info.sft_coherence_time_arg*16384.0));
 			}
 		for(k=0;k<d->nbins;k++) {
-			x=d->re[j*d->nbins+k]*args_info.strain_norm_factor_arg/(0.5*1800.0*16384.0);
-			y=d->im[j*d->nbins+k]*args_info.strain_norm_factor_arg/(0.5*1800.0*16384.0);
+			x=d->re[j*d->nbins+k]*args_info.strain_norm_factor_arg/(0.5*args_info.sft_coherence_time_arg*16384.0);
+			y=d->im[j*d->nbins+k]*args_info.strain_norm_factor_arg/(0.5*args_info.sft_coherence_time_arg*16384.0);
 			fprintf(fout, "\t%8g", x*x+y*y);
 			}
 		fprintf(fout, "\n");
@@ -2897,7 +2903,7 @@ for(i=0;i<d_free;i++) {
 
 	if(d->free<1)continue;
 
-	snprintf(filename+1, 999, "-%s-%lld-%lld.sft", d->name, d->gps[0], (d->gps[d->free-1]-d->gps[0]+1800));
+	snprintf(filename+1, 999, "-%s-%f-%f.sft", d->name, (double)d->gps[0], (d->gps[d->free-1]-d->gps[0]+args_info.sft_coherence_time_arg));
 	if(!strcasecmp(d->detector, "LHO"))filename[0]='H';
 		else
 	if(!strcasecmp(d->detector, "LLO"))filename[0]='L';
@@ -3023,11 +3029,17 @@ if(!pass)exit(-1);
 void test_datasets(void)
 {
 test_compute_median();
-test_inject_fake_signal09();
 
-if(args_info.extended_test_arg) {
-	fake_dataset_test();
+if(args_info.extended_test_arg & (1<<0)) {
+	test_inject_fake_signal09();
+	}
+
+if(args_info.extended_test_arg & (1<<1)) {
 	test_inject_fake_signal05();
+	}
+
+if(args_info.extended_test_arg & (1<<2)) {
+	fake_dataset_test();
 	}
 }
 

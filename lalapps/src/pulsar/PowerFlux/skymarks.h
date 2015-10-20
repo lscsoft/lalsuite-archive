@@ -14,6 +14,9 @@ typedef struct {
 	#define SKYMARK_LINE_RESPONSE  6
 	#define SKYMARK_BAND_AXIS  7
 	#define SKYMARK_ECLIPTIC_DISK 8
+	
+	#define SKYMARK_FOCUS_DISK  102
+	#define SKYMARK_FOCUS_ECLIPTIC_DISK  108
 
 	#define SKYMARK_END 255
 

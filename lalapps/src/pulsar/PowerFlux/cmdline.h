@@ -141,6 +141,9 @@ struct gengetopt_args_info
   int side_cut_arg;	/**< @brief number of extra bins to load to accomodate doppler shifts and spindown.  */
   char * side_cut_orig;	/**< @brief number of extra bins to load to accomodate doppler shifts and spindown original value given at command line.  */
   const char *side_cut_help; /**< @brief number of extra bins to load to accomodate doppler shifts and spindown help description.  */
+  double sft_coherence_time_arg;	/**< @brief coherence time of input SFTs (default='1800.0').  */
+  char * sft_coherence_time_orig;	/**< @brief coherence time of input SFTs original value given at command line.  */
+  const char *sft_coherence_time_help; /**< @brief coherence time of input SFTs help description.  */
   int extra_side_cut_arg;	/**< @brief number of extra bins to load in addition to side-cut computed automatically (default='0').  */
   char * extra_side_cut_orig;	/**< @brief number of extra bins to load in addition to side-cut computed automatically original value given at command line.  */
   const char *extra_side_cut_help; /**< @brief number of extra bins to load in addition to side-cut computed automatically help description.  */
@@ -177,6 +180,12 @@ struct gengetopt_args_info
   double fdotdot_arg;	/**< @brief second frequency derivative (default='0.0').  */
   char * fdotdot_orig;	/**< @brief second frequency derivative original value given at command line.  */
   const char *fdotdot_help; /**< @brief second frequency derivative help description.  */
+  double fdotdot_step_arg;	/**< @brief second frequency derivative step size (default='0.0').  */
+  char * fdotdot_step_orig;	/**< @brief second frequency derivative step size original value given at command line.  */
+  const char *fdotdot_step_help; /**< @brief second frequency derivative step size help description.  */
+  int fdotdot_count_arg;	/**< @brief second frequency derivative step count (default='1').  */
+  char * fdotdot_count_orig;	/**< @brief second frequency derivative step count original value given at command line.  */
+  const char *fdotdot_count_help; /**< @brief second frequency derivative step count help description.  */
   double freq_modulation_depth_arg;	/**< @brief depth of additional sinusoidal frequency modulation in Hz (default='0.0').  */
   char * freq_modulation_depth_orig;	/**< @brief depth of additional sinusoidal frequency modulation in Hz original value given at command line.  */
   const char *freq_modulation_depth_help; /**< @brief depth of additional sinusoidal frequency modulation in Hz help description.  */
@@ -186,6 +195,24 @@ struct gengetopt_args_info
   double freq_modulation_phase_arg;	/**< @brief phase of additional sinusoidal frequency modulation (default='0.0').  */
   char * freq_modulation_phase_orig;	/**< @brief phase of additional sinusoidal frequency modulation original value given at command line.  */
   const char *freq_modulation_phase_help; /**< @brief phase of additional sinusoidal frequency modulation help description.  */
+  double freq_modulation_depth_step_arg;	/**< @brief depth of additional sinusoidal frequency modulation step (default='0.0').  */
+  char * freq_modulation_depth_step_orig;	/**< @brief depth of additional sinusoidal frequency modulation step original value given at command line.  */
+  const char *freq_modulation_depth_step_help; /**< @brief depth of additional sinusoidal frequency modulation step help description.  */
+  double freq_modulation_freq_step_arg;	/**< @brief frequency of additional sinusoidal frequency modulation step (default='0.0').  */
+  char * freq_modulation_freq_step_orig;	/**< @brief frequency of additional sinusoidal frequency modulation step original value given at command line.  */
+  const char *freq_modulation_freq_step_help; /**< @brief frequency of additional sinusoidal frequency modulation step help description.  */
+  double freq_modulation_phase_step_arg;	/**< @brief phase of additional sinusoidal frequency modulation step (default='0.0').  */
+  char * freq_modulation_phase_step_orig;	/**< @brief phase of additional sinusoidal frequency modulation step original value given at command line.  */
+  const char *freq_modulation_phase_step_help; /**< @brief phase of additional sinusoidal frequency modulation step help description.  */
+  int freq_modulation_depth_count_arg;	/**< @brief depth of additional sinusoidal frequency modulation count (default='1').  */
+  char * freq_modulation_depth_count_orig;	/**< @brief depth of additional sinusoidal frequency modulation count original value given at command line.  */
+  const char *freq_modulation_depth_count_help; /**< @brief depth of additional sinusoidal frequency modulation count help description.  */
+  int freq_modulation_freq_count_arg;	/**< @brief frequency of additional sinusoidal frequency modulation count (default='1').  */
+  char * freq_modulation_freq_count_orig;	/**< @brief frequency of additional sinusoidal frequency modulation count original value given at command line.  */
+  const char *freq_modulation_freq_count_help; /**< @brief frequency of additional sinusoidal frequency modulation count help description.  */
+  int freq_modulation_phase_count_arg;	/**< @brief phase of additional sinusoidal frequency modulation count (default='1').  */
+  char * freq_modulation_phase_count_orig;	/**< @brief phase of additional sinusoidal frequency modulation count original value given at command line.  */
+  const char *freq_modulation_phase_count_help; /**< @brief phase of additional sinusoidal frequency modulation count help description.  */
   double orientation_arg;	/**< @brief additional orientation phase, specifying 0.7853 will turn plus into cross (default='0').  */
   char * orientation_orig;	/**< @brief additional orientation phase, specifying 0.7853 will turn plus into cross original value given at command line.  */
   const char *orientation_help; /**< @brief additional orientation phase, specifying 0.7853 will turn plus into cross help description.  */
@@ -332,9 +359,9 @@ struct gengetopt_args_info
   int output_cache_arg;	/**< @brief write out all candidates in cache to log file (default='0').  */
   char * output_cache_orig;	/**< @brief write out all candidates in cache to log file original value given at command line.  */
   const char *output_cache_help; /**< @brief write out all candidates in cache to log file help description.  */
-  int extended_test_arg;	/**< @brief Perform extended self test (default='0').  */
-  char * extended_test_orig;	/**< @brief Perform extended self test original value given at command line.  */
-  const char *extended_test_help; /**< @brief Perform extended self test help description.  */
+  int extended_test_arg;	/**< @brief Perform extended self test functions given by this bitmask (default='1').  */
+  char * extended_test_orig;	/**< @brief Perform extended self test functions given by this bitmask original value given at command line.  */
+  const char *extended_test_help; /**< @brief Perform extended self test functions given by this bitmask help description.  */
   int max_sft_report_arg;	/**< @brief Maximum count of SFTs to report with veto information (default='100').  */
   char * max_sft_report_orig;	/**< @brief Maximum count of SFTs to report with veto information original value given at command line.  */
   const char *max_sft_report_help; /**< @brief Maximum count of SFTs to report with veto information help description.  */
@@ -471,6 +498,7 @@ struct gengetopt_args_info
   unsigned int first_bin_given ;	/**< @brief Whether first-bin was given.  */
   unsigned int nbins_given ;	/**< @brief Whether nbins was given.  */
   unsigned int side_cut_given ;	/**< @brief Whether side-cut was given.  */
+  unsigned int sft_coherence_time_given ;	/**< @brief Whether sft-coherence-time was given.  */
   unsigned int extra_side_cut_given ;	/**< @brief Whether extra-side-cut was given.  */
   unsigned int expected_timebase_given ;	/**< @brief Whether expected-timebase was given.  */
   unsigned int hist_bins_given ;	/**< @brief Whether hist-bins was given.  */
@@ -483,9 +511,17 @@ struct gengetopt_args_info
   unsigned int spindown_step_given ;	/**< @brief Whether spindown-step was given.  */
   unsigned int spindown_count_given ;	/**< @brief Whether spindown-count was given.  */
   unsigned int fdotdot_given ;	/**< @brief Whether fdotdot was given.  */
+  unsigned int fdotdot_step_given ;	/**< @brief Whether fdotdot_step was given.  */
+  unsigned int fdotdot_count_given ;	/**< @brief Whether fdotdot_count was given.  */
   unsigned int freq_modulation_depth_given ;	/**< @brief Whether freq-modulation-depth was given.  */
   unsigned int freq_modulation_freq_given ;	/**< @brief Whether freq-modulation-freq was given.  */
   unsigned int freq_modulation_phase_given ;	/**< @brief Whether freq-modulation-phase was given.  */
+  unsigned int freq_modulation_depth_step_given ;	/**< @brief Whether freq-modulation-depth-step was given.  */
+  unsigned int freq_modulation_freq_step_given ;	/**< @brief Whether freq-modulation-freq-step was given.  */
+  unsigned int freq_modulation_phase_step_given ;	/**< @brief Whether freq-modulation-phase-step was given.  */
+  unsigned int freq_modulation_depth_count_given ;	/**< @brief Whether freq-modulation-depth-count was given.  */
+  unsigned int freq_modulation_freq_count_given ;	/**< @brief Whether freq-modulation-freq-count was given.  */
+  unsigned int freq_modulation_phase_count_given ;	/**< @brief Whether freq-modulation-phase-count was given.  */
   unsigned int orientation_given ;	/**< @brief Whether orientation was given.  */
   unsigned int nlinear_polarizations_given ;	/**< @brief Whether nlinear-polarizations was given.  */
   unsigned int no_demodulation_given ;	/**< @brief Whether no-demodulation was given.  */

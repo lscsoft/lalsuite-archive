@@ -25,7 +25,7 @@
 #include <sys/types.h>
 #include <regex.h>
 
-#include <lal/LALRCSID.h>
+//#include <lal/LALRCSID.h>
 #include <lal/LALInitBarycenter.h>
 #include <lal/DetResponse.h>
 #include <lal/Velocity.h>
@@ -393,7 +393,7 @@ X=gsl_matrix_alloc(sample_grid->npoints, GRID_FIT_COUNT);
 
 for(k=0;k<count;k++){
 	for(i=0;i<sample_grid->npoints;i++){
-		get_AM_response(gps[k]+900, 
+		get_AM_response(gps[k]+0.5*args_info.sft_coherence_time_arg, 
 			sample_grid->latitude[i], sample_grid->longitude[i], 
 			orientation,
 			&plus, &cross);
@@ -455,7 +455,7 @@ for(i=0;i<count;i++){
 	for(j=0;j<20;j++){
 		/* test in random grid points */
 		offset=floor(sample_grid->npoints*gsl_rng_uniform(rng));
-		get_AM_response(gps[i]+900, 
+		get_AM_response(gps[i]+0.5*args_info.sft_coherence_time_arg, 
 			sample_grid->latitude[offset], sample_grid->longitude[offset], 
 			orientation,
 			&plus, &cross);
