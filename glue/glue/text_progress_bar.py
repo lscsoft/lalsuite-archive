@@ -126,6 +126,9 @@ class ProgressBar:
 
     def show(self):
         """Redraw the text progress bar."""
+        # Be silent if writing to a tty
+        if not self.isatty:
+            return
 
         if len(self.text) > self.textwidth:
             label = self.text[0:self.textwidth]
@@ -181,10 +184,7 @@ class ProgressBar:
                 round(self.value/(0.0003*self.max))
             self.value = value
         if redraw:
-            if self.isatty:
-                self.show()
-            else:
-                print >>self.fid, self.text
+            self.show()
         return self.value
 
     def increment(self, delta=1, text=None):
@@ -194,6 +194,9 @@ class ProgressBar:
         return self.update(value=min(self.max, self.value + delta), text=text)
 
     def linefeed(self):
+        # Be silent if writing to a tty
+        if not self.isatty:
+            return
         if not self.linefed:
             print >>self.fid
             self.fid.flush()
