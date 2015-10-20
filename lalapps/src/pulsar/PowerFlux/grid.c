@@ -26,6 +26,7 @@
 #include "util.h"
 #include "dataset.h"
 #include "jobs.h"
+#include "cmdline.h"
 
 extern FILE *LOG;
 
@@ -33,6 +34,8 @@ extern double average_det_velocity[3];
 extern double band_axis_norm;
 extern double band_axis[3];
 extern double spindown;
+
+extern struct gengetopt_args_info args_info;
 
 SKY_GRID_TYPE spherical_distance(SKY_GRID_TYPE ra0, SKY_GRID_TYPE dec0,
 			  SKY_GRID_TYPE ra1, SKY_GRID_TYPE dec1)
@@ -47,6 +50,32 @@ SKY_GRID_TYPE fast_spherical_distance(SKY_GRID_TYPE ra0, SKY_GRID_TYPE dec0,
 {
 SKY_GRID_TYPE ds;
 ds=1.0-(sin(dec0)*sin(dec1)+cos(dec0)*cos(dec1)*cos(ra0-ra1));
+return ds;
+}
+
+#define EPSILON  (23.439281*M_PI/180)
+
+SKY_GRID_TYPE ecliptic_pole[3]={0, -sin(EPSILON), cos(EPSILON)};
+
+SKY_GRID_TYPE ecliptic_distance(SKY_GRID_TYPE ra0, SKY_GRID_TYPE dec0,
+			  SKY_GRID_TYPE ra1, SKY_GRID_TYPE dec1)
+{
+SKY_GRID_TYPE x, y, z, a, ds;
+
+//fprintf(stderr, "ecliptic_pole=(%f, %f, %f)\n", ecliptic_pole[0], ecliptic_pole[1], ecliptic_pole[2]);
+
+x=cos(ra1)*cos(dec1)-cos(ra0)*cos(dec0);
+y=sin(ra1)*cos(dec1)-sin(ra0)*cos(dec0);
+z=sin(dec1)-sin(dec0);
+
+a=x*ecliptic_pole[0]+y*ecliptic_pole[1]+z*ecliptic_pole[2];
+
+x-=a*ecliptic_pole[0];
+y-=a*ecliptic_pole[1];
+z-=a*ecliptic_pole[2];
+
+ds=sqrt(x*x+y*y+z*z);
+ 
 return ds;
 }
 
@@ -630,10 +659,35 @@ void mask_far_points(SKY_GRID *grid, SKY_GRID_TYPE ra, SKY_GRID_TYPE dec, SKY_GR
 {
 int i;
 SKY_GRID_TYPE ds;
+int type=0;
+#define TYPE_EQUATORIAL 1
+#define TYPE_ECLIPTIC 2
+
+if(!strncasecmp("ecliptic", args_info.focus_type_arg, 8)) {
+	type=TYPE_ECLIPTIC;
+	} else
+if(!strncasecmp("equatorial", args_info.focus_type_arg, 10)) {
+	type=TYPE_EQUATORIAL;
+	}
+	
+if(!type) {
+	fprintf(stderr, "*** INTERNAL ERROR: type=0\n");
+	exit(-1);
+	}
+
 for(i=0;i<grid->npoints;i++){
-	ds=acos(sin(grid->latitude[i])*sin(dec)+
-		cos(grid->latitude[i])*cos(dec)*
-		cos(grid->longitude[i]-ra));
+	switch(type) {
+		case TYPE_EQUATORIAL:
+			ds=acos(sin(grid->latitude[i])*sin(dec)+
+				cos(grid->latitude[i])*cos(dec)*
+				cos(grid->longitude[i]-ra));
+			break;
+		case TYPE_ECLIPTIC:
+			ds=ecliptic_distance(grid->longitude[i], grid->latitude[i], ra, dec);
+			break;
+		default:
+			ds=0;
+		}
 	if(ds>radius){
 		grid->band[i]=-1;
 		grid->band_f[i]=-1;
@@ -765,6 +819,32 @@ for(i=0;i<sky_grid->npoints;i++) {
 	}
 }
 
+void band_axis_sweep(SKY_GRID *sky_grid, int band_to, int band_from, double *band_axis, double band_axis_norm, double S_lower, double S_upper)
+{
+int i;
+double S, x, y, z;
+
+for(i=0;i<sky_grid->npoints;i++) {
+	if((band_from>=0) && sky_grid->band[i]!=band_from)continue;
+
+	/* convert into 3d */
+	x=cos(sky_grid->longitude[i])*cos(sky_grid->latitude[i]);
+	y=sin(sky_grid->longitude[i])*cos(sky_grid->latitude[i]);
+	z=sin(sky_grid->latitude[i]);
+
+	S=spindown+
+		band_axis_norm*(args_info.first_bin_arg+0.5*args_info.nbins_arg)*
+			(x*band_axis[0]+y*band_axis[1]+z*band_axis[2])/args_info.sft_coherence_time_arg;
+
+	S=fabs(S);
+	
+	if(S>S_lower && S<=S_upper) {
+		sky_grid->band[i]=band_to;
+		sky_grid->band_f[i]=band_to;
+		}
+	}
+}
+
 void process_band_definition_line(SKY_GRID *sky_grid, char *line, int length)
 {
 int ai,aj, i;
@@ -813,6 +893,37 @@ if(!strncasecmp(line, "disk", 4)) {
 		ds=acos(sin(sky_grid->latitude[i])*sin(dec)+
 			cos(sky_grid->latitude[i])*cos(dec)*
 			cos(sky_grid->longitude[i]-ra));
+		if(ds<radius) {
+			count++;
+			sky_grid->band[i]=band_to;
+			sky_grid->band_f[i]=band_to;
+			}
+		}
+
+	/* if the grid was too coarse and the radius too small just mark the closest point */
+	if(count<1)mark_closest(sky_grid, band_to, band_from, ra, dec);
+	} else
+if(!strncasecmp(line, "ecliptic_disk", 4)) {
+	int count;
+	
+	locate_arg(line, length, 3, &ai, &aj);
+	sscanf(&(line[ai]), "%g", &ra);
+
+	locate_arg(line, length, 4, &ai, &aj);
+	sscanf(&(line[ai]), "%g", &dec);
+
+	locate_arg(line, length, 5, &ai, &aj);
+	sscanf(&(line[ai]), "%g", &radius);
+
+	fprintf(stderr, "Marking ecliptic disk (%d <- %d) around (%g, %g) with radius %g\n", band_to, band_from, ra, dec, radius);
+	fprintf(LOG, "Marking ecliptic disk (%d <- %d) around (%g, %g) with radius %g\n", band_to, band_from, ra, dec, radius);
+
+	count=0;
+	/* mark disk */
+	for(i=0;i<sky_grid->npoints;i++){
+		if((band_from>=0) && sky_grid->band[i]!=band_from)continue;
+
+		ds=ecliptic_distance(sky_grid->longitude[i], sky_grid->latitude[i], ra, dec);
 		if(ds<radius) {
 			count++;
 			sky_grid->band[i]=band_to;
@@ -930,6 +1041,46 @@ if(!strncasecmp(line, "line_response", 13)) {
 	fprintf(LOG, "Marking points (%d <- %d) swept by lines weight_ratio=%g bin_width=%g\n", band_to, band_from, weight_ratio_level, bin_tolerance);
 
 	stationary_sweep(sky_grid, band_to, band_from, weight_ratio_level, bin_tolerance);
+	} else
+if(!strncasecmp(line, "auto_band_axis", 14)) {
+	double S_lower, S_upper;
+
+	locate_arg(line, length, 3, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &S_lower);
+
+	locate_arg(line, length, 4, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &S_upper);
+
+	fprintf(stderr, "Marking auto_band_axis (%d <- %d) given by norm=%g vector=(%f, %f, %f) within bounds [%g, %g]\n", band_to, band_from, band_axis_norm, band_axis[0], band_axis[1], band_axis[2], S_lower, S_upper);
+	fprintf(LOG, "Marking auto_band_axis (%d <- %d) given by norm=%g vector=(%f, %f, %f) within bounds [%g, %g]\n", band_to, band_from, band_axis_norm, band_axis[0], band_axis[1], band_axis[2], S_lower, S_upper);
+	
+	band_axis_sweep(sky_grid, band_to, band_from, band_axis, band_axis_norm, S_lower, S_upper);
+	} else
+if(!strncasecmp(line, "explicit_band_axis", 18)) {
+	double S_lower, S_upper, local_band_axis[3], local_band_axis_norm;
+
+	locate_arg(line, length, 3, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &S_lower);
+
+	locate_arg(line, length, 4, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &S_upper);
+
+	locate_arg(line, length, 5, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &local_band_axis_norm);
+	
+	locate_arg(line, length, 6, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &local_band_axis[0]);
+	
+	locate_arg(line, length, 7, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &local_band_axis[1]);
+	
+	locate_arg(line, length, 8, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &local_band_axis[2]);
+	
+	fprintf(stderr, "Marking auto_band_axis (%d <- %d) given by norm=%g vector=(%f, %f, %f) within bounds [%g, %g]\n", band_to, band_from, local_band_axis_norm, local_band_axis[0], local_band_axis[1], local_band_axis[2], S_lower, S_upper);
+	fprintf(LOG, "Marking auto_band_axis (%d <- %d) given by norm=%g vector=(%f, %f, %f) within bounds [%g, %g]\n", band_to, band_from, local_band_axis_norm, local_band_axis[0], local_band_axis[1], local_band_axis[2], S_lower, S_upper);
+	
+	band_axis_sweep(sky_grid, band_to, band_from, local_band_axis, local_band_axis_norm, S_lower, S_upper);
 	} else
 	{
 	fprintf(stderr, "*** UNKNOWN masking command \"%s\"\n", line);

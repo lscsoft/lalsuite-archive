@@ -5,6 +5,7 @@
 #define __USE_ISOC99
 #include <math.h>
 #include <gsl/gsl_cblas.h>
+#include <gsl/gsl_cdf.h>
 #include <xmmintrin.h>
 
 #include "global.h"
@@ -535,6 +536,54 @@ TEST(dec, "%g", 1e-4)
 return 0;
 }
 
+/* Special version for testing universal statistics 
+ * 
+ * Ignore m1_neg field (used for diagnostics) as it can jump due to floating point errors.
+ * 
+ */
+int compare_point_stats_universal(char *prefix, POINT_STATS *ref, POINT_STATS *test)
+{
+
+#define TEST(field, format, tolerance) \
+	if( (ref->field!=test->field) && !(fabs(test->field-ref->field)<tolerance*(fabs(ref->field)+fabs(test->field)))) { \
+		fprintf(stderr, "%s" #field " fields do not match ref=" format " test=" format " test-ref=" format "\n", \
+			prefix, \
+			ref->field, test->field, test->field-ref->field); \
+		return -1; \
+		}
+
+TEST(iota, "%g", 1e-4)
+TEST(psi, "%g", 1e-4)
+
+TEST(ul, "%g", 1e-4)
+TEST(ll, "%g", 1e-4)
+TEST(centroid, "%g", 1e-4)
+TEST(snr, "%g", 1e-4)
+
+TEST(M, "%g", 1e-4)
+TEST(S, "%g", 1e-4)
+TEST(ks_value, "%g", 1e-4)
+TEST(m3_neg, "%g", 1e-4)
+TEST(m4, "%g", 1e-4)
+TEST(max_weight, "%g", 1e-4)
+TEST(weight_loss_fraction, "%g", 1e-4)
+
+TEST(ks_count, "%d", -1)
+
+TEST(bin, "%d", -1)
+
+/* the following fields are for convenience and are filled in by outside code based on value of bin */
+TEST(frequency, "%g", 1e-4)
+TEST(spindown, "%g", 1e-4)
+TEST(ra, "%g", 1e-4)
+TEST(dec, "%g", 1e-4)
+
+
+#undef TEST
+
+return 0;
+}
+
 
 void point_power_sum_stats_sorted(PARTIAL_POWER_SUM_F *pps, ALIGNMENT_COEFFS *ag, POINT_STATS *pst)
 {
@@ -795,7 +844,7 @@ for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 inv_count=1.0/count;
 M=sum*inv_count;
 
-normalizer=1.0/max_dx;
+normalizer=1.0/fabsf(max_dx);
 
 sum_sq=0.0;
 sum1=0.0;
@@ -825,7 +874,7 @@ for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 	sum4+=b*b;
 	}
 
-S=sqrt(sum_sq/(count-1))*max_dx;
+S=sqrt(sum_sq/(count-1))*fabsf(max_dx);
 inv_S=1.0/S;
 
 /* convert to SNR from the highest power */
@@ -1014,7 +1063,7 @@ for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 inv_count=1.0/count;
 M=sum*inv_count;
 
-normalizer=1.0/max_dx;
+normalizer=1.0/fabsf(max_dx);
 
 sum_sq=0.0;
 sum1=0.0;
@@ -1044,7 +1093,7 @@ for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 	sum4+=b*b;
 	}
 
-S=sqrt(sum_sq/(count-1))*max_dx;
+S=sqrt(sum_sq/(count-1))*fabsf(max_dx);
 inv_S=1.0/S;
 
 /* convert to SNR from the highest power */
@@ -1385,7 +1434,7 @@ count+=i-max_dx_bin-half_window-1;
 inv_count=1.0/count;
 M=sum*inv_count;
 
-normalizer=1.0/max_dx;
+normalizer=1.0/fabsf(max_dx);
 
 sum_sq=0.0;
 sum1=0.0;
@@ -1471,7 +1520,7 @@ sum3+=tmp2[0]+tmp2[1]+tmp2[2]+tmp2[3];
 _mm_store_ps(tmp2, v4sum4);
 sum4+=tmp2[0]+tmp2[1]+tmp2[2]+tmp2[3];
 
-S=sqrt(sum_sq/(count-1))*max_dx;
+S=sqrt(sum_sq/(count-1))*fabsf(max_dx);
 inv_S=1.0/S;
 
 /* convert to SNR from the highest power */
@@ -1516,6 +1565,968 @@ pst->ks_value=0;
 pst->ks_count=0;
 }
 
+void point_power_sum_stats_universal(PARTIAL_POWER_SUM_F *pps, ALIGNMENT_COEFFS *ag, POINT_STATS *pst)
+{
+int i, count;
+float M, S, a, b, s3, inv_S, inv_weight, inv_count, normalizer;
+float *tmp=NULL;
+float max_dx;
+int max_dx_bin;
+float weight, min_weight, max_weight;
+float sum, sum_sq, sum1, sum3, sum4, sum_abs, sum_c;
+int half_window=args_info.half_window_arg;
+
+/* allocate on stack, for speed */
+tmp=aligned_alloca(useful_bins*sizeof(*tmp));
+
+if(pps->power_im_pc==NULL) {
+	fprintf(stderr, "*** INTERNAL ERROR: %s requires pps->power_im_pc!=NULL\n", __FUNCTION__);
+	exit(-1);
+	}
+
+if(pps->weight_arrays_non_zero) {
+	max_weight=0;
+	min_weight=1e50;
+
+	if(!pps->collapsed_weight_arrays) {
+		for(i=0;i<useful_bins;i++) {
+			pps->weight_pppp[i]+=pps->c_weight_pppp;
+			pps->weight_pppc[i]+=pps->c_weight_pppc;
+			pps->weight_ppcc[i]+=pps->c_weight_ppcc;
+			pps->weight_pccc[i]+=pps->c_weight_pccc;
+			pps->weight_cccc[i]+=pps->c_weight_cccc;
+			}
+		pps->c_weight_pppp=0;
+		pps->c_weight_pppc=0;
+		pps->c_weight_ppcc=0;
+		pps->c_weight_pccc=0;
+		pps->c_weight_cccc=0;
+		pps->collapsed_weight_arrays=1;
+		}
+
+	for(i=0;i<useful_bins;i++) {
+		weight=(pps->weight_pppp[i]*ag->pppp+
+			pps->weight_pppc[i]*ag->pppc+
+			pps->weight_ppcc[i]*ag->ppcc+
+			pps->weight_pccc[i]*ag->pccc+
+			pps->weight_cccc[i]*ag->cccc);
+	
+		if(weight>max_weight)max_weight=weight;
+		if(weight<min_weight)min_weight=weight;
+
+		tmp[i]=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc+pps->power_im_pc[i]*ag->im_pc)/weight;
+			
+		}
+	} else {
+	weight=(pps->c_weight_pppp*ag->pppp+
+		pps->c_weight_pppc*ag->pppc+
+		pps->c_weight_ppcc*ag->ppcc+
+		pps->c_weight_pccc*ag->pccc+
+		pps->c_weight_cccc*ag->cccc+
+		pps->c_weight_im_ppcc*ag->im_ppcc);
+	max_weight=weight;
+	min_weight=weight;
+
+	inv_weight=1.0/weight;
+
+	for(i=0;i<useful_bins;i++) {
+		tmp[i]=((float)pps->power_pp[i]*ag->pp+(float)pps->power_pc[i]*ag->pc+(float)pps->power_cc[i]*ag->cc+(float)pps->power_im_pc[i]*ag->im_pc)*inv_weight;
+		}
+	}
+
+/* 0 weight can happen due to extreme line veto at low frequencies and small spindowns */
+if(min_weight<= args_info.small_weight_ratio_arg*max_weight) {
+	set_missing_point_stats(pst);
+	return;
+	}
+	
+/* find highest bin */
+max_dx=tmp[0];
+max_dx_bin=0;
+
+for(i=1;i<useful_bins;i++) {
+	a=tmp[i];
+	if(a>max_dx) {
+		max_dx=a;
+		max_dx_bin=i;
+		}
+	}
+
+/* Constants for 0.95 confidence level */
+#define LEVEL 0.95
+#define SIGMA 1.644854
+
+/* Constant for mean(|x|) */
+#define SQRT_PI_2   1.253314
+
+/* doing everything in one pass and then subtracting does not work due to precision errors if we chance upon a very high max_dx and because float does not keep many digits */
+
+/* there is also a possible issue with normalization, fortunately we have a ready constant now to normalize with: max_dx */
+
+
+count=0;
+sum=0.0;
+
+for(i=0;i<max_dx_bin-half_window;i++) {
+	a=tmp[i];
+	sum+=a;
+	count++;
+	}
+
+for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
+	a=tmp[i];
+	sum+=a;
+	count++;
+	}
+
+inv_count=1.0/count;
+M=sum*inv_count;
+
+normalizer=1.0/fabsf(max_dx);
+
+sum_sq=0.0;
+sum1=0.0;
+sum3=0.0;
+sum4=0.0;
+sum_abs=0.0;
+for(i=0;i<max_dx_bin-half_window;i++) {
+	a=(tmp[i]-M)*normalizer;
+	b=a*a;
+	/* collect negative first and second moment statistics - these would describe background behaviour */
+	if(a<0) {
+		sum1-=a;
+		sum3-=a*b;
+		}
+	sum_abs+=fabs(a);
+	sum_sq+=b;
+	sum4+=b*b;
+	}
+
+for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
+	a=(tmp[i]-M)*normalizer;
+	b=a*a;
+	/* collect negative first and second moment statistics - these would describe background behaviour */
+	if(a<0) {
+		sum1-=a;
+		sum3-=a*b;
+		}
+	sum_abs+=fabs(a);
+	sum_sq+=b;
+	sum4+=b*b;
+	}
+
+// sqrt-based
+//S=sqrt(sum_sq/(count-1))*max_dx;
+//inv_S=1.0/S;
+
+// abs-based
+S=sum_abs*fabsf(max_dx)*SQRT_PI_2/count;
+inv_S=1.0/S;
+
+/* convert to SNR from the highest power */
+max_dx=(max_dx-M)*inv_S;
+
+if(max_dx<=0 || !isfinite(max_dx)) {
+	/* In theory we could have max_dx=0 because the distribution is flat, but we really should not have this */
+	fprintf(stderr, "***ERROR - irregular max_dx  max_dx=%g max_dx_bin=%d M=%g S=%g inv_S=%g tmp=%p\n",
+			max_dx,
+			max_dx_bin,
+			M,
+			S,
+			inv_S,
+			tmp);
+	/* this is not fatal - complain, but continue */
+	}
+	
+/* Third pass - compute c */
+	
+sum_c=0.0;
+for(i=0;i<max_dx_bin-half_window;i++) {
+	a=(M-tmp[i]);
+	/* collect negative threshold statistics */
+	if(a>S*SIGMA) {
+		b=a/(S*SIGMA);
+		sum_c+=(b-1.0)/(b+3.0);
+		}
+	}
+
+for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
+	a=(M-tmp[i]);
+	/* collect negative threshold statistics */
+	if(a>S*SIGMA) {
+		b=a/(S*SIGMA);
+		sum_c+=(b-1.0)/(b+3.0);
+		}
+	}
+sum_c=sum_c/count;
+	
+s3=SIGMA/(1.0-sum_c/(1.0-LEVEL));
+
+pst->bin=max_dx_bin;
+pst->iota=ag->iota;
+pst->psi=ag->psi;
+
+/* convert to upper limit units */
+pst->S=sqrt(S)*strain_comp;
+pst->M=sqrt(M)*strain_comp;
+
+pst->ul=sqrt(S*(max_dx+s3))*strain_comp*upper_limit_comp;
+/* for debugging store s3 in lower limit variable */
+pst->ll=s3;
+pst->centroid=sqrt(max_dx*S)*strain_comp*upper_limit_comp;
+pst->snr=max_dx;
+
+pst->max_weight=max_weight;
+pst->weight_loss_fraction=(max_weight-min_weight)/max_weight;
+
+/* Apply normalization */
+S*=normalizer;
+//pst->ks_value=(sum4*inv_count-4*sum3*inv_count*M+6*sum_sq*inv_count*M*M-3*M*M*M*M)/(S*S*S*S);
+pst->m1_neg=(sum1*inv_count)/S;
+pst->m3_neg=(sum3*inv_count)/(S*S*S);
+pst->m4=(sum4*inv_count)/(S*S*S*S);
+//fprintf(stderr, "%g = %g %g %g %g (%d %g %g)\n", pst->ks_value, M, sum_sq*inv_count, sum3*inv_count, sum4*inv_count, count, inv_count, S);
+pst->ks_value=0;
+pst->ks_count=0;
+}
+
+double x_epsilon=0.0;
+
+void point_power_sum_stats_universal_piecewise_linear(PARTIAL_POWER_SUM_F *pps, ALIGNMENT_COEFFS *ag, POINT_STATS *pst)
+{
+int i, count;
+float M, S, a, b, s3, inv_S, inv_weight, inv_count, normalizer;
+float *tmp=NULL;
+float max_dx;
+int max_dx_bin;
+float weight, min_weight, max_weight;
+float sum, sum_sq, sum1, sum3, sum4, sum_abs, sum_c;
+int half_window=args_info.half_window_arg;
+
+/* allocate on stack, for speed */
+tmp=aligned_alloca(useful_bins*sizeof(*tmp));
+
+if(pps->power_im_pc==NULL) {
+	fprintf(stderr, "*** INTERNAL ERROR: %s requires pps->power_im_pc!=NULL\n", __FUNCTION__);
+	exit(-1);
+	}
+
+if(pps->weight_arrays_non_zero) {
+	max_weight=0;
+	min_weight=1e50;
+
+	if(!pps->collapsed_weight_arrays) {
+		for(i=0;i<useful_bins;i++) {
+			pps->weight_pppp[i]+=pps->c_weight_pppp;
+			pps->weight_pppc[i]+=pps->c_weight_pppc;
+			pps->weight_ppcc[i]+=pps->c_weight_ppcc;
+			pps->weight_pccc[i]+=pps->c_weight_pccc;
+			pps->weight_cccc[i]+=pps->c_weight_cccc;
+			}
+		pps->c_weight_pppp=0;
+		pps->c_weight_pppc=0;
+		pps->c_weight_ppcc=0;
+		pps->c_weight_pccc=0;
+		pps->c_weight_cccc=0;
+		pps->collapsed_weight_arrays=1;
+		}
+
+	for(i=0;i<useful_bins;i++) {
+		weight=(pps->weight_pppp[i]*ag->pppp+
+			pps->weight_pppc[i]*ag->pppc+
+			pps->weight_ppcc[i]*ag->ppcc+
+			pps->weight_pccc[i]*ag->pccc+
+			pps->weight_cccc[i]*ag->cccc);
+	
+		if(weight>max_weight)max_weight=weight;
+		if(weight<min_weight)min_weight=weight;
+
+		tmp[i]=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc+pps->power_im_pc[i]*ag->im_pc)/weight;
+			
+		}
+	} else {
+	weight=(pps->c_weight_pppp*ag->pppp+
+		pps->c_weight_pppc*ag->pppc+
+		pps->c_weight_ppcc*ag->ppcc+
+		pps->c_weight_pccc*ag->pccc+
+		pps->c_weight_cccc*ag->cccc+
+		pps->c_weight_im_ppcc*ag->im_ppcc);
+	max_weight=weight;
+	min_weight=weight;
+
+	inv_weight=1.0/weight;
+
+	for(i=0;i<useful_bins;i++) {
+		tmp[i]=((float)pps->power_pp[i]*ag->pp+(float)pps->power_pc[i]*ag->pc+(float)pps->power_cc[i]*ag->cc+(float)pps->power_im_pc[i]*ag->im_pc)*inv_weight;
+		}
+	}
+
+/* 0 weight can happen due to extreme line veto at low frequencies and small spindowns */
+if(min_weight<= args_info.small_weight_ratio_arg*max_weight) {
+	set_missing_point_stats(pst);
+	return;
+	}
+	
+/* find highest bin */
+max_dx=tmp[0];
+max_dx_bin=0;
+
+for(i=1;i<useful_bins;i++) {
+	a=tmp[i];
+	if(a>max_dx) {
+		max_dx=a;
+		max_dx_bin=i;
+		}
+	}
+
+/* Constant for mean(|x|) */
+#define SQRT_PI_2   1.253314
+
+#define SQRT_2PI    2.506628
+
+#define UNIV_INV_B  2.0
+
+/* doing everything in one pass and then subtracting does not work due to precision errors if we chance upon a very high max_dx and because float does not keep many digits */
+
+/* there is also a possible issue with normalization, fortunately we have a ready constant now to normalize with: max_dx */
+
+
+count=0;
+sum=0.0;
+
+for(i=0;i<max_dx_bin-half_window;i++) {
+	a=tmp[i];
+	sum+=a;
+	count++;
+	}
+
+for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
+	a=tmp[i];
+	sum+=a;
+	count++;
+	}
+
+inv_count=1.0/count;
+M=sum*inv_count;
+
+normalizer=1.0/fabsf(max_dx);
+
+sum_sq=0.0;
+sum1=0.0;
+sum3=0.0;
+sum4=0.0;
+sum_abs=0.0;
+for(i=0;i<max_dx_bin-half_window;i++) {
+	a=(tmp[i]-M)*normalizer;
+	b=a*a;
+	/* collect negative first and second moment statistics - these would describe background behaviour */
+	if(a<0) {
+		sum1-=a;
+		sum3-=a*b;
+		}
+	sum_abs+=fabs(a);
+	sum_sq+=b;
+	sum4+=b*b;
+	}
+
+for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
+	a=(tmp[i]-M)*normalizer;
+	b=a*a;
+	/* collect negative first and second moment statistics - these would describe background behaviour */
+	if(a<0) {
+		sum1-=a;
+		sum3-=a*b;
+		}
+	sum_abs+=fabs(a);
+	sum_sq+=b;
+	sum4+=b*b;
+	}
+
+// sqrt-based
+//S=sqrt(sum_sq/(count-1))*max_dx;
+//inv_S=1.0/S;
+
+// use lower tail only
+S=sum1*fabsf(max_dx)*SQRT_2PI/count;
+inv_S=1.0/S;
+
+/* convert to SNR from the highest power */
+max_dx=(max_dx-M)*inv_S;
+
+if(max_dx<=0 || !isfinite(max_dx)) {
+	/* In theory we could have max_dx=0 because the distribution is flat, but we really should not have this */
+	fprintf(stderr, "***ERROR - irregular max_dx  max_dx=%g max_dx_bin=%d M=%g S=%g inv_S=%g tmp=%p\n",
+			max_dx,
+			max_dx_bin,
+			M,
+			S,
+			inv_S,
+			tmp);
+	/* this is not fatal - complain, but continue */
+	}
+	
+/* Third pass - compute delta */
+	
+sum_c=0.0;
+
+for(i=0;i<max_dx_bin-half_window;i++) {
+	a=(M-x_epsilon*S)-tmp[i];
+	/* collect negative threshold statistics */
+	if(a>=0) {
+		sum_c+=a+UNIV_INV_B*S;
+		}
+	}
+
+for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
+	a=(M-x_epsilon*S)-tmp[i];
+	/* collect negative threshold statistics */
+	if(a>=0) {
+		sum_c+=a+UNIV_INV_B*S;
+		}
+	}
+
+// fprintf(stderr, "___ sum_c=%g inv_S=%g count=%d max_dx_bin=%d %f M=%g\n", sum_c*inv_S, inv_S, count, max_dx_bin, UNIV_INV_B, M);
+sum_c=sum_c*inv_S/(UNIV_INV_B*count*(1.0-args_info.confidence_level_arg));
+
+if(sum_c<=1)
+	s3=x_epsilon;
+	else
+	s3=x_epsilon+(sum_c-1)*UNIV_INV_B;
+
+pst->bin=max_dx_bin;
+pst->iota=ag->iota;
+pst->psi=ag->psi;
+
+/* convert to upper limit units */
+pst->S=sqrt(S)*strain_comp;
+pst->M=sqrt(M)*strain_comp;
+
+pst->ul=sqrt(S*(max_dx+s3))*strain_comp*upper_limit_comp;
+/* for debugging store s3 in lower limit variable */
+pst->ll=s3;
+pst->centroid=sqrt(max_dx*S)*strain_comp*upper_limit_comp;
+pst->snr=max_dx;
+
+pst->max_weight=max_weight;
+pst->weight_loss_fraction=(max_weight-min_weight)/max_weight;
+
+/* Apply normalization */
+S*=normalizer;
+//pst->ks_value=(sum4*inv_count-4*sum3*inv_count*M+6*sum_sq*inv_count*M*M-3*M*M*M*M)/(S*S*S*S);
+pst->m1_neg=sum_c;
+pst->m3_neg=(sum3*inv_count)/(S*S*S);
+pst->m4=(sum4*inv_count)/(S*S*S*S);
+//fprintf(stderr, "%g = %g %g %g %g (%d %g %g)\n", pst->ks_value, M, sum_sq*inv_count, sum3*inv_count, sum4*inv_count, count, inv_count, S);
+pst->ks_value=0;
+pst->ks_count=0;
+}
+
+void sse_point_power_sum_stats_universal_piecewise_linear(PARTIAL_POWER_SUM_F *pps, ALIGNMENT_COEFFS *ag, POINT_STATS *pst)
+{
+int i, count;
+float M, S, a, b, s3, inv_S, inv_weight, inv_count, normalizer;
+float *tmp=NULL;
+NORMAL_STATS nstats;
+float max_dx;
+int max_dx_bin;
+float weight, min_weight, max_weight;
+float sum, sum_sq, sum1, sum3, sum4, sum_c;
+int half_window=args_info.half_window_arg;
+float *tmp2=NULL;
+__m128 v4a,v4b, v4c, v4d, v4weight, v4tmp, v4sum, v4sum_sq, v4sum3, v4sum4, v4zero, v4_max_weight, v4_min_weight;
+
+/* allocate on stack, for speed */
+tmp=aligned_alloca(useful_bins*sizeof(*tmp));
+tmp2=aligned_alloca(4*sizeof(tmp2));
+
+memset(&nstats, 0, sizeof(nstats));
+
+/* sort to compute robust estimates */
+nstats.flag= STAT_FLAG_ESTIMATE_MEAN
+	| STAT_FLAG_ESTIMATE_SIGMA;
+
+if(args_info.ks_test_arg){
+	nstats.flag|=STAT_FLAG_ESTIMATE_KS_LEVEL
+		| STAT_FLAG_COMPUTE_KS_TEST;
+	}
+
+
+if(pps->power_im_pc==NULL) {
+	fprintf(stderr, "*** INTERNAL ERROR: %s requires pps->power_im_pc!=NULL\n", __FUNCTION__);
+	exit(-1);
+	}
+
+if(pps->weight_arrays_non_zero) {
+	max_weight=0;
+	min_weight=1e50;
+	
+	v4_max_weight=_mm_load1_ps(&max_weight);
+	v4_min_weight=_mm_load1_ps(&min_weight);
+
+	if(!pps->collapsed_weight_arrays) {
+		for(i=0;i<useful_bins;i++) {
+			pps->weight_pppp[i]+=pps->c_weight_pppp;
+			pps->weight_pppc[i]+=pps->c_weight_pppc;
+			pps->weight_ppcc[i]+=pps->c_weight_ppcc;
+			pps->weight_pccc[i]+=pps->c_weight_pccc;
+			pps->weight_cccc[i]+=pps->c_weight_cccc;
+			}
+		pps->c_weight_pppp=0;
+		pps->c_weight_pppc=0;
+		pps->c_weight_ppcc=0;
+		pps->c_weight_pccc=0;
+		pps->c_weight_cccc=0;
+		pps->collapsed_weight_arrays=1;
+		}
+
+	for(i=0;i<(useful_bins-3);i+=4) {
+		/* compute weight */
+		v4a=_mm_load_ps(&(pps->weight_pppp[i]));
+		v4b=_mm_load1_ps(&ag->pppp);
+		v4weight=_mm_mul_ps(v4a, v4b);
+
+		v4a=_mm_load_ps(&(pps->weight_pppc[i]));
+		v4b=_mm_load1_ps(&ag->pppc);
+		v4c=_mm_mul_ps(v4a, v4b);
+
+		v4weight=_mm_add_ps(v4weight, v4c);
+
+		v4a=_mm_load_ps(&(pps->weight_ppcc[i]));
+		v4b=_mm_load1_ps(&ag->ppcc);
+		v4c=_mm_mul_ps(v4a, v4b);
+
+		v4weight=_mm_add_ps(v4weight, v4c);
+
+		v4a=_mm_load_ps(&(pps->weight_pccc[i]));
+		v4b=_mm_load1_ps(&ag->pccc);
+		v4c=_mm_mul_ps(v4a, v4b);
+
+		v4weight=_mm_add_ps(v4weight, v4c);
+
+		v4a=_mm_load_ps(&(pps->weight_cccc[i]));
+		v4b=_mm_load1_ps(&ag->cccc);
+		v4c=_mm_mul_ps(v4a, v4b);
+
+		v4weight=_mm_add_ps(v4weight, v4c);
+
+		/* update max and min weight variables */
+
+		v4_max_weight=_mm_max_ps(v4_max_weight, v4weight);
+		v4_min_weight=_mm_min_ps(v4_min_weight, v4weight);
+
+		/* compute power sum */
+
+		v4a=_mm_load_ps(&(pps->power_pp[i]));
+		v4b=_mm_load1_ps(&ag->pp);
+		v4tmp=_mm_mul_ps(v4a, v4b);
+
+		v4a=_mm_load_ps(&(pps->power_pc[i]));
+		v4b=_mm_load1_ps(&ag->pc);
+		v4c=_mm_mul_ps(v4a, v4b);
+
+		v4tmp=_mm_add_ps(v4tmp, v4c);
+
+		v4a=_mm_load_ps(&(pps->power_cc[i]));
+		v4b=_mm_load1_ps(&ag->cc);
+		v4c=_mm_mul_ps(v4a, v4b);
+
+		v4tmp=_mm_add_ps(v4tmp, v4c);
+
+		v4a=_mm_load_ps(&(pps->power_im_pc[i]));
+		v4b=_mm_load1_ps(&ag->im_pc);
+		v4c=_mm_mul_ps(v4a, v4b);
+
+		v4tmp=_mm_add_ps(v4tmp, v4c);
+
+		v4tmp=_mm_div_ps(v4tmp, v4weight);
+
+		_mm_store_ps(&(tmp[i]), v4tmp);
+
+		}
+
+	_mm_store_ps(tmp2, v4_max_weight);
+	
+	for(i=0;i<4;i++) {
+		weight=tmp2[i];
+		if(weight>max_weight)max_weight=weight;
+		}	
+
+	_mm_store_ps(tmp2, v4_min_weight);
+	
+	for(i=0;i<4;i++) {
+		weight=tmp2[i];
+		if(weight<min_weight)min_weight=weight;
+		}	
+
+	for(;i<useful_bins;i++) {
+		weight=(pps->weight_pppp[i]*ag->pppp+
+			pps->weight_pppc[i]*ag->pppc+
+			pps->weight_ppcc[i]*ag->ppcc+
+			pps->weight_pccc[i]*ag->pccc+
+			pps->weight_cccc[i]*ag->cccc);
+	
+		if(weight>max_weight)max_weight=weight;
+		if(weight<min_weight)min_weight=weight;
+
+		tmp[i]=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc+pps->power_im_pc[i]*ag->im_pc)/weight;
+			
+		}
+
+	/* verify */
+	#if 0
+	if(0){
+		float a1, a2, m1, m2;
+		int *b1=&a1, *b2=&a2;
+		m1=0;
+		m2=1e50;
+		for(i=0;i<useful_bins;i++) {
+			weight=(pps->weight_pppp[i]*ag->pppp+
+				pps->weight_pppc[i]*ag->pppc+
+				pps->weight_ppcc[i]*ag->ppcc+
+				pps->weight_pccc[i]*ag->pccc+
+				pps->weight_cccc[i]*ag->cccc);
+		
+			if(weight>max_weight) fprintf(stderr, "*1*  %d %g %g %g\n", i, weight, max_weight, tmp[i]);
+			if(weight<min_weight) fprintf(stderr, "*2*  %d %g %g %g\n", i, weight, min_weight, tmp[i]);
+	
+			if(weight>m1) m1=weight;
+			if(weight<m2) m2=weight;
+	
+			a1=tmp[i];
+			a2=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc)/weight;
+	
+			if(*b1!=*b2){
+				fprintf(stderr, " *3* %d %g %g %g %g %g\n", i, (pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc)/weight, tmp[i], weight, min_weight, max_weight);
+				}
+				
+			}
+		a1=m1;
+		a2=max_weight;
+	
+		if(*b1!=*b2){
+			fprintf(stderr, " *4* %g %g %g %g\n", m2, m1, min_weight, max_weight);
+			}
+	
+		a1=m2;
+		a2=min_weight;
+	
+		if(*b1!=*b2) {
+			fprintf(stderr, " *5* %g %g %g %g\n", m2, m1, min_weight, max_weight);
+			}
+		}
+	#endif
+	} else {
+	weight=(pps->c_weight_pppp*ag->pppp+
+		pps->c_weight_pppc*ag->pppc+
+		pps->c_weight_ppcc*ag->ppcc+
+		pps->c_weight_pccc*ag->pccc+
+		pps->c_weight_cccc*ag->cccc+
+		pps->c_weight_im_ppcc*ag->im_ppcc);
+	max_weight=weight;
+	min_weight=weight;
+
+	inv_weight=1.0/weight;
+
+	for(i=0;i<(useful_bins-3);i+=4) {
+		/* compute power sum */
+
+		v4a=_mm_load_ps(&(pps->power_pp[i]));
+		v4b=_mm_load1_ps(&ag->pp);
+		v4tmp=_mm_mul_ps(v4a, v4b);
+
+		v4a=_mm_load_ps(&(pps->power_pc[i]));
+		v4b=_mm_load1_ps(&ag->pc);
+		v4c=_mm_mul_ps(v4a, v4b);
+
+		v4tmp=_mm_add_ps(v4tmp, v4c);
+
+		v4a=_mm_load_ps(&(pps->power_cc[i]));
+		v4b=_mm_load1_ps(&ag->cc);
+		v4c=_mm_mul_ps(v4a, v4b);
+
+		v4tmp=_mm_add_ps(v4tmp, v4c);
+
+		v4a=_mm_load_ps(&(pps->power_im_pc[i]));
+		v4b=_mm_load1_ps(&ag->im_pc);
+		v4c=_mm_mul_ps(v4a, v4b);
+
+		v4tmp=_mm_add_ps(v4tmp, v4c);
+
+		v4a=_mm_load1_ps(&inv_weight);
+
+		v4tmp=_mm_mul_ps(v4tmp, v4a);
+
+		_mm_store_ps(&(tmp[i]), v4tmp);
+		}
+
+	for(;i<useful_bins;i++) {
+		tmp[i]=((float)pps->power_pp[i]*ag->pp+(float)pps->power_pc[i]*ag->pc+(float)pps->power_cc[i]*ag->cc+pps->power_im_pc[i]*ag->im_pc)*inv_weight;
+		}
+	}
+
+/* 0 weight can happen due to extreme line veto at low frequencies and small spindowns */
+if(min_weight<= args_info.small_weight_ratio_arg*max_weight) {
+	set_missing_point_stats(pst);
+	return;
+	}
+	
+/* find highest bin */
+max_dx=tmp[0];
+max_dx_bin=0;
+
+for(i=1;i<useful_bins;i++) {
+	a=tmp[i];
+	if(a>max_dx) {
+		max_dx=a;
+		max_dx_bin=i;
+		}
+	}
+
+
+/* doing everything in one pass and then subtracting does not work due to precision errors if we chance upon a very high max_dx and because float does not keep many digits */
+
+/* there is also a possible issue with normalization, fortunately we have a ready constant now to normalize with: max_dx */
+
+
+sum=0.0;
+
+v4sum=_mm_setzero_ps();
+for(i=0;i<max_dx_bin-half_window-3;i+=4) {
+	v4sum=_mm_add_ps(v4sum, _mm_load_ps(&(tmp[i])));
+	}
+
+for(;i<max_dx_bin-half_window;i++) {
+	sum+=tmp[i];
+	}
+
+count=i;
+for(i=max_dx_bin+half_window+1;(i& 3) && (i<useful_bins);i++) {
+	sum+=tmp[i];
+	}
+
+for(;i<useful_bins-3;i+=4) {
+	v4sum=_mm_add_ps(v4sum, _mm_load_ps(&(tmp[i])));
+	}
+
+for(;i<useful_bins;i++) {
+	sum+=tmp[i];
+	}
+_mm_store_ps(tmp2, v4sum);
+sum+=tmp2[0]+tmp2[1]+tmp2[2]+tmp2[3];
+
+count+=i-max_dx_bin-half_window-1;
+
+inv_count=1.0/count;
+M=sum*inv_count;
+
+normalizer=1.0/fabsf(max_dx);
+
+sum_sq=0.0;
+sum1=0.0;
+sum3=0.0;
+sum4=0.0;
+v4sum=_mm_setzero_ps();
+v4sum_sq=_mm_setzero_ps();
+v4sum3=_mm_setzero_ps();
+v4sum4=_mm_setzero_ps();
+v4zero=_mm_setzero_ps();
+
+v4a=_mm_load1_ps(&M);
+v4b=_mm_load1_ps(&normalizer);
+for(i=0;i<max_dx_bin-half_window-3;i+=4) {
+	v4tmp=_mm_mul_ps(_mm_sub_ps(_mm_load_ps(&(tmp[i])), v4a), v4b);
+	v4c=_mm_mul_ps(v4tmp, v4tmp);
+	/* collect negative first and second moment statistics - these would describe background behaviour */
+	v4d=_mm_min_ps(v4tmp, v4zero);
+	v4sum=_mm_sub_ps(v4sum, v4d);
+	v4sum3=_mm_sub_ps(v4sum3, _mm_mul_ps(v4d, v4c));
+
+	v4sum_sq=_mm_add_ps(v4sum_sq, v4c);
+	v4sum4=_mm_add_ps(v4sum4, _mm_mul_ps(v4c, v4c));
+	}
+
+for(;i<max_dx_bin-half_window;i++) {
+	a=(tmp[i]-M)*normalizer;
+	b=a*a;
+	/* collect negative first and second moment statistics - these would describe background behaviour */
+	if(a<0) {
+		sum1-=a;
+		sum3-=a*b;
+		}
+	sum_sq+=b;
+	sum4+=b*b;
+	}
+
+for(i=max_dx_bin+half_window+1;(i & 3) && (i<useful_bins);i++) {
+	a=(tmp[i]-M)*normalizer;
+	b=a*a;
+	/* collect negative first and second moment statistics - these would describe background behaviour */
+	if(a<0) {
+		sum1-=a;
+		sum3-=a*b;
+		}
+	sum_sq+=b;
+	sum4+=b*b;
+	}
+
+for(;i<useful_bins-3;i+=4) {
+	v4tmp=_mm_mul_ps(_mm_sub_ps(_mm_load_ps(&(tmp[i])), v4a), v4b);
+	v4c=_mm_mul_ps(v4tmp, v4tmp);
+	/* collect negative first and second moment statistics - these would describe background behaviour */
+	v4d=_mm_min_ps(v4tmp, v4zero);
+	v4sum=_mm_sub_ps(v4sum, v4d);
+	v4sum3=_mm_sub_ps(v4sum3, _mm_mul_ps(v4d, v4c));
+
+	v4sum_sq=_mm_add_ps(v4sum_sq, v4c);
+	v4sum4=_mm_add_ps(v4sum4, _mm_mul_ps(v4c, v4c));
+	}
+
+for(;i<useful_bins;i++) {
+	a=(tmp[i]-M)*normalizer;
+	b=a*a;
+	/* collect negative first and second moment statistics - these would describe background behaviour */
+	if(a<0) {
+		sum1-=a;
+		sum3-=a*b;
+		}
+	sum_sq+=b;
+	sum4+=b*b;
+	}
+
+_mm_store_ps(tmp2, v4sum);
+sum1+=tmp2[0]+tmp2[1]+tmp2[2]+tmp2[3];
+
+_mm_store_ps(tmp2, v4sum_sq);
+sum_sq+=tmp2[0]+tmp2[1]+tmp2[2]+tmp2[3];
+
+_mm_store_ps(tmp2, v4sum3);
+sum3+=tmp2[0]+tmp2[1]+tmp2[2]+tmp2[3];
+
+_mm_store_ps(tmp2, v4sum4);
+sum4+=tmp2[0]+tmp2[1]+tmp2[2]+tmp2[3];
+
+// S=sqrt(sum_sq/(count-1))*max_dx;
+S=sum1*fabsf(max_dx)*SQRT_2PI/count;
+inv_S=1.0/S;
+
+/* convert to SNR from the highest power */
+max_dx=(max_dx-M)*inv_S;
+
+if(max_dx<=0 || !isfinite(max_dx)) {
+	/* In theory we could have max_dx=0 because the distribution is flat, but we really should not have this */
+	fprintf(stderr, "***ERROR - irregular max_dx  max_dx=%g max_dx_bin=%d M=%g S=%g inv_S=%g tmp=%p\n",
+			max_dx,
+			max_dx_bin,
+			M,
+			S,
+			inv_S,
+			tmp);
+	/* this is not fatal - complain, but continue */
+	}
+
+/* Third pass - compute delta */
+
+/* Original code */
+
+// sum_c=0.0;
+// for(i=0;i<max_dx_bin-half_window;i++) {
+// 	a=(M-tmp[i])-x_epsilon*S;
+// 	/* collect negative threshold statistics */
+// 	if(a>=0) {
+// 		sum_c+=a+UNIV_INV_B*S;
+// 		}
+// 	}
+// 
+// for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
+// 	a=(M-tmp[i])-x_epsilon*S;
+// 	/* collect negative threshold statistics */
+// 	if(a>=0) {
+// 		sum_c+=a+UNIV_INV_B*S;
+// 		}
+// 	}
+
+a=M-x_epsilon*S;
+b=UNIV_INV_B*S;
+
+v4a=_mm_load1_ps(&a);
+v4b=_mm_load1_ps(&b);
+v4sum=_mm_setzero_ps();
+
+sum_c=0;
+for(i=0;i<max_dx_bin-half_window-3;i+=4) {
+	v4tmp=_mm_sub_ps(v4a, _mm_load_ps(&(tmp[i])));
+	v4sum=_mm_add_ps(v4sum, _mm_add_ps(_mm_max_ps(v4tmp, v4zero), _mm_and_ps(_mm_cmpge_ps(v4tmp, v4zero), v4b)));
+	}
+
+for(;i<max_dx_bin-half_window;i++) {
+	a=(M-x_epsilon*S)-tmp[i];
+	/* collect negative threshold statistics */
+	if(a>=0) {
+		sum_c+=a+UNIV_INV_B*S;
+		}
+	}
+
+for(i=max_dx_bin+half_window+1;(i & 3) && (i<useful_bins);i++) {
+	a=(M-x_epsilon*S)-tmp[i];
+	/* collect negative threshold statistics */
+	if(a>=0) {
+		sum_c+=a+UNIV_INV_B*S;
+		}
+	}
+
+for(;i<useful_bins-3;i+=4) {
+	v4tmp=_mm_sub_ps(v4a, _mm_load_ps(&(tmp[i])));
+	v4sum=_mm_add_ps(v4sum, _mm_add_ps(_mm_max_ps(v4tmp, v4zero), _mm_and_ps(_mm_cmpge_ps(v4tmp, v4zero), v4b)));
+	}
+	
+for(;i<useful_bins;i++) {
+	a=(M-x_epsilon*S)-tmp[i];
+	/* collect negative threshold statistics */
+	if(a>=0) {
+		sum_c+=a+UNIV_INV_B*S;
+		}
+	}
+
+_mm_store_ps(tmp2, v4sum);
+//fprintf(stderr, "sum_c=%g tmp2 %g %g %g %g max_dx_bin=%d\n", sum_c, tmp2[0], tmp2[1], tmp2[2], tmp2[3], max_dx_bin);
+sum_c+=tmp2[0]+tmp2[1]+tmp2[2]+tmp2[3];
+
+//fprintf(stderr, "sse sum_c=%g inv_S=%g count=%d max_dx_bin=%d %f M=%g\n", sum_c*inv_S, inv_S, count, max_dx_bin, UNIV_INV_B, M);
+
+sum_c=sum_c*inv_S/(UNIV_INV_B*count*(1.0-args_info.confidence_level_arg));
+
+if(sum_c<=1)
+	s3=x_epsilon;
+	else
+	s3=x_epsilon+(sum_c-1)*UNIV_INV_B;
+
+pst->bin=max_dx_bin;
+pst->iota=ag->iota;
+pst->psi=ag->psi;
+
+/* convert to upper limit units */
+pst->S=sqrt(S)*strain_comp;
+pst->M=sqrt(M)*strain_comp;
+
+pst->ul=sqrt(S*(max_dx+s3))*strain_comp*upper_limit_comp;
+/* for debugging store s3 in lower limit variable */
+pst->ll=s3;
+pst->centroid=sqrt(max_dx*S)*strain_comp*upper_limit_comp;
+pst->snr=max_dx;
+
+pst->max_weight=max_weight;
+pst->weight_loss_fraction=(max_weight-min_weight)/max_weight;
+
+/* Apply normalization */
+S*=normalizer;
+//pst->ks_value=(sum4*inv_count-4*sum3*inv_count*M+6*sum_sq*inv_count*M*M-3*M*M*M*M)/(S*S*S*S);
+pst->m1_neg=sum_c;
+pst->m3_neg=(sum3*inv_count)/(S*S*S);
+pst->m4=(sum4*inv_count)/(S*S*S*S);
+//fprintf(stderr, "%g = %g %g %g %g (%d %g %g)\n", pst->ks_value, M, sum_sq*inv_count, sum3*inv_count, sum4*inv_count, count, inv_count, S);
+pst->ks_value=0;
+pst->ks_count=0;
+}
 
 void (*point_power_sum_stats)(PARTIAL_POWER_SUM_F *pps, ALIGNMENT_COEFFS *ag, POINT_STATS *pst)=sse_point_power_sum_stats_linear;
 
@@ -1624,10 +2635,10 @@ for(k=0;k<ps1->nbins;k++) {
 
 
 for(k=0;k<alignment_grid_free;k++) {
-	zero_partial_power_sum_F(ps2);
-	accumulate_partial_power_sum_F(ps2, ps1);
 
 	/* reference */
+	zero_partial_power_sum_F(ps2);
+	accumulate_partial_power_sum_F(ps2, ps1);
 	point_power_sum_stats_linear(ps2, &(alignment_grid[k]), &(pst_ref));
 
 	/* cblas */
@@ -1636,11 +2647,22 @@ for(k=0;k<alignment_grid_free;k++) {
 	cblas_point_power_sum_stats_linear(ps2, &(alignment_grid[k]), &(pst_test));
 	result+=compare_point_stats("cblas1:", &pst_ref, &pst_test);
 
-	/* cblas */
+	/* sse */
 	zero_partial_power_sum_F(ps2);
 	accumulate_partial_power_sum_F(ps2, ps1);
 	sse_point_power_sum_stats_linear(ps2, &(alignment_grid[k]), &(pst_test));
 	result+=compare_point_stats("sse1:", &pst_ref, &pst_test);
+	
+	/* piecewise linear stats */
+	zero_partial_power_sum_F(ps2);
+	accumulate_partial_power_sum_F(ps2, ps1);
+	point_power_sum_stats_universal_piecewise_linear(ps2, &(alignment_grid[k]), &(pst_ref));
+
+	zero_partial_power_sum_F(ps2);
+	accumulate_partial_power_sum_F(ps2, ps1);
+	sse_point_power_sum_stats_universal_piecewise_linear(ps2, &(alignment_grid[k]), &(pst_test));
+	result+=compare_point_stats_universal("universal sse1:", &pst_ref, &pst_test);
+	
 	}
 
 ps1->weight_arrays_non_zero=0;
@@ -1664,6 +2686,16 @@ for(k=0;k<alignment_grid_free;k++) {
 	sse_point_power_sum_stats_linear(ps2, &(alignment_grid[k]), &(pst_test));
 	result+=compare_point_stats("sse2:", &pst_ref, &pst_test);
 
+	/* piecewise linear stats */
+	zero_partial_power_sum_F(ps2);
+	accumulate_partial_power_sum_F(ps2, ps1);
+	point_power_sum_stats_universal_piecewise_linear(ps2, &(alignment_grid[k]), &(pst_ref));
+
+	zero_partial_power_sum_F(ps2);
+	accumulate_partial_power_sum_F(ps2, ps1);
+	sse_point_power_sum_stats_universal_piecewise_linear(ps2, &(alignment_grid[k]), &(pst_test));
+	result+=compare_point_stats_universal("universal sse2:", &pst_ref, &pst_test);
+
 	fprintf(stderr, "%d %f %f %d\n", k, alignment_grid[k].iota, alignment_grid[k].psi, result);
 	}
 
@@ -1679,13 +2711,21 @@ free_partial_power_sum_F(ps1);
 free_partial_power_sum_F(ps2);
 }
 
+#define MODE(a)	(args_info.sse_arg ? (sse_ ## a) : (a) )
+
 void init_power_sum_stats(void)
 {
+double eta;
 
 if(!strcmp(args_info.statistics_function_arg , "linear")) {
-	point_power_sum_stats=sse_point_power_sum_stats_linear;
+	point_power_sum_stats=MODE(point_power_sum_stats_linear);
 	fprintf(stderr, "point_power_sum_stats: linear\n");
 	fprintf(LOG, "point_power_sum_stats: linear\n");
+	} else
+if(!strcmp(args_info.statistics_function_arg , "universal")) {
+	point_power_sum_stats=MODE(point_power_sum_stats_universal_piecewise_linear);
+	fprintf(stderr, "point_power_sum_stats: universal\n");
+	fprintf(LOG, "point_power_sum_stats: universal\n");
 	} else
 if(!strcmp(args_info.statistics_function_arg , "sorted")) {
 	point_power_sum_stats=point_power_sum_stats_sorted;
@@ -1700,6 +2740,18 @@ init_fc_ul();
 init_fc_ll();
 verify_limits();
 
+/* Precompute x_epsilon for the universal upper limit function */
+eta=0.04*(sqrt(log(args_info.nbins_arg*args_info.nbins_arg/(2*M_PI)))+gsl_cdf_gaussian_Pinv(args_info.confidence_level_arg, 1.0));
+
+if(5.0/sqrt(args_info.nbins_arg)>eta)eta=5.0/sqrt(args_info.nbins_arg);
+
+x_epsilon=gsl_cdf_gaussian_Pinv(args_info.confidence_level_arg, 1.0)+eta;
+
+
+if(args_info.x_epsilon_given)x_epsilon=args_info.x_epsilon_arg;
+
+fprintf(LOG, "confidence_level: %g\n", args_info.confidence_level_arg);
+fprintf(LOG, "x_epsilon: %g\n", x_epsilon);
 
 /* Account for power loss due to Hann windowing */
 if(!strcasecmp("Hann", args_info.upper_limit_comp_arg)){
@@ -1747,7 +2799,7 @@ fprintf(LOG, "upper limit compensation factor: %8f\n", upper_limit_comp);
 	/* New AM response correctly computes expected power from h0 */
 strain_comp=1.0;
 	/* Extra factor to convert to strain from raw SFT units */
-strain_comp/=(1800.0*16384.0);
+strain_comp/=(args_info.sft_coherence_time_arg*16384.0);
 	/* Extra factor to account for the fact that only half of SFT
 	   coefficients is stored */
 strain_comp*=sqrt(2.0);

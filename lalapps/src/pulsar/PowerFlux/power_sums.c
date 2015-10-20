@@ -29,7 +29,7 @@ INT64 spindown_start;
 void generate_patch_templates(SUMMING_CONTEXT *ctx, int pi, POWER_SUM **ps, int *count)
 {
 POWER_SUM *p;
-int i, j, k, kk;
+int i, j, k, kk, ifmf, ifmd, ifmp, idd;
 int skyband;
 int fshift_count=args_info.nfshift_arg; /* number of frequency offsets */
 
@@ -38,9 +38,18 @@ float patch_e[GRID_E_COUNT];
 
 *count=0;
 
-p=do_alloc(super_grid->max_npatch*args_info.spindown_count_arg*fshift_count, sizeof(*p));
+p=do_alloc(super_grid->max_npatch*args_info.spindown_count_arg*
+	args_info.freq_modulation_freq_count_arg*
+	args_info.freq_modulation_depth_count_arg*
+	args_info.freq_modulation_phase_count_arg*
+	args_info.fdotdot_count_arg*
+	fshift_count, sizeof(*p));
 *ps=p;
 
+for(ifmf=0;ifmf<args_info.freq_modulation_freq_count_arg;ifmf++)
+for(ifmd=0;ifmd<args_info.freq_modulation_depth_count_arg;ifmd++)
+for(ifmp=0;ifmp<args_info.freq_modulation_phase_count_arg;ifmp++)
+for(idd=0;idd<args_info.fdotdot_count_arg;idd++)
 for(i=0;i<args_info.spindown_count_arg;i++) {
 	for(kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk]) {
 		for(k=0;k<GRID_E_COUNT;k++) {
@@ -54,8 +63,12 @@ for(i=0;i<args_info.spindown_count_arg;i++) {
 		if(skyband<0)continue;
 
 		for(j=0;j<fshift_count;j++) {
-			p->freq_shift=args_info.frequency_offset_arg+j/(1800.0*fshift_count);
+			p->freq_shift=args_info.frequency_offset_arg+j/(args_info.sft_coherence_time_arg*fshift_count);
 			p->spindown=args_info.spindown_start_arg+i*args_info.spindown_step_arg;
+			p->fdotdot=args_info.fdotdot_arg+idd*args_info.fdotdot_step_arg;
+			p->freq_modulation_freq=args_info.freq_modulation_freq_arg+ifmf*args_info.freq_modulation_freq_step_arg;
+			p->freq_modulation_depth=args_info.freq_modulation_depth_arg+ifmd*args_info.freq_modulation_depth_step_arg;
+			p->freq_modulation_phase=args_info.freq_modulation_phase_arg+ifmp*args_info.freq_modulation_phase_step_arg;
 			p->ra=fine_grid->longitude[kk];
 			p->dec=fine_grid->latitude[kk];
 			p->min_gps=-1;
@@ -87,6 +100,10 @@ int i, k;
 for(i=0;i<count;i++) {
 	(*ps_out)[i].freq_shift=ps[i].freq_shift;
 	(*ps_out)[i].spindown=ps[i].spindown;
+	(*ps_out)[i].fdotdot=ps[i].fdotdot;
+	(*ps_out)[i].freq_modulation_freq=ps[i].freq_modulation_freq;
+	(*ps_out)[i].freq_modulation_depth=ps[i].freq_modulation_depth;
+	(*ps_out)[i].freq_modulation_phase=ps[i].freq_modulation_phase;
 	(*ps_out)[i].ra=ps[i].ra;
 	(*ps_out)[i].dec=ps[i].dec;
 	(*ps_out)[i].min_gps=ps[i].min_gps;
@@ -125,13 +142,17 @@ DATASET *d;
 POLARIZATION *pl;
 int gps_step=ctx->summing_step;
 int i, j, k;
-float min_shift, max_shift, a;
+//float min_shift, max_shift;
+float a;
 double gps_idx, gps_idx_next;
 float center_frequency=(first_bin+nbins*0.5);
+float mid_t;
 int group_count=ctx->sidereal_group_count;
 SEGMENT_INFO **groups;
 int *group_segment_count;
 float avg_spindown=args_info.spindown_start_arg+0.5*args_info.spindown_step_arg*(args_info.spindown_count_arg-1);
+float avg_fdotdot=args_info.fdotdot_arg+0.5*args_info.fdotdot_step_arg*(args_info.fdotdot_count_arg-1);
+double fmodomega_t;
 
 float *patch_e=ps[0].patch_e; /* set of coefficients for this patch, used for amplitude response and bin shift estimation */
 
@@ -150,8 +171,8 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 	TODO: make this assumption automatic in the data layout.
 	 */
 	si_local=si;
-	min_shift=1000000; /* we should never load this many bins */
-	max_shift=-1000000;
+// 	min_shift=1000000; /* we should never load this many bins */
+// 	max_shift=-1000000;
 	for(j=0;j<segment_count;j++) {
 
 		d=&(datasets[si_local->dataset]);
@@ -160,13 +181,23 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 		si_local->f_plus=F_plus_coeff(si_local->segment,  patch_e, d->AM_coeffs_plus);
 		si_local->f_cross=F_plus_coeff(si_local->segment,  patch_e, d->AM_coeffs_cross);
 
-
+#if 0
 		a=center_frequency*(float)args_info.doppler_multiplier_arg*(patch_e[0]*si_local->detector_velocity[0]
 						+patch_e[1]*si_local->detector_velocity[1]
 						+patch_e[2]*si_local->detector_velocity[2])
-			+si_local->coherence_time*avg_spindown*(float)(si_local->gps-spindown_start);
+			+si_local->coherence_time*(avg_spindown+0.5*avg_fdotdot*(float)(si_local->gps-spindown_start))*(float)(si_local->gps-spindown_start);
+		/* This computation involves doubles and trigonometric functions. Avoid it if there is no modulation */
+		if(ps_local->freq_modulation_freq>0) {
+			fmodomega_t=(si_local->gps-spindown_start+0.5*si_local->coherence_time)*ps_local->freq_modulation_freq;
+			fmodomega_t=fmodomega_t-floor(fmodomega_t);
+								
+			a+=si_local->coherence_time*ps_local->freq_modulation_depth*cosf(2.0*M_PI*fmodomega_t+ps_local->freq_modulation_phase)*(1.0+(float)args_info.doppler_multiplier_arg*(ps_local->e[0]*si_local->detector_velocity[0]
+				+ps_local->e[1]*si_local->detector_velocity[1]
+				+ps_local->e[2]*si_local->detector_velocity[2]));
+			}
 		if(a<min_shift)min_shift=a;
 		if(a>max_shift)max_shift=a;
+#endif
 		si_local++;
 		}
 
@@ -190,7 +221,16 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 		a=(center_frequency*(float)args_info.doppler_multiplier_arg*(patch_e[0]*si_local->detector_velocity[0]
 						+patch_e[1]*si_local->detector_velocity[1]
 						+patch_e[2]*si_local->detector_velocity[2])
-			+si_local->coherence_time*avg_spindown*(float)(si_local->gps-spindown_start));
+			+si_local->coherence_time*(avg_spindown+0.5*avg_fdotdot*(float)(si_local->gps-spindown_start))*(float)(si_local->gps-spindown_start));
+		/* This computation involves doubles and trigonometric functions. Avoid it if there is no modulation */
+		if(ps_local->freq_modulation_freq>0) {
+			fmodomega_t=(si_local->gps-spindown_start+0.5*si_local->coherence_time)*ps_local->freq_modulation_freq;
+			fmodomega_t=fmodomega_t-floor(fmodomega_t);
+								
+			a+=si_local->coherence_time*ps_local->freq_modulation_depth*cosf(2.0*M_PI*fmodomega_t+ps_local->freq_modulation_phase)*(1.0+(float)args_info.doppler_multiplier_arg*(ps_local->e[0]*si_local->detector_velocity[0]
+				+ps_local->e[1]*si_local->detector_velocity[1]
+				+ps_local->e[2]*si_local->detector_velocity[2]));
+			}
 		//a*=0.25;
 		k=floorf((a-floorf(a))*group_count);
 		if(k<0)k=0;
@@ -219,10 +259,23 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 			/* fill in segment info appropriate to this template */
 			si_local=groups[k];
 			for(j=0;j<group_segment_count[k];j++) {	
-				si_local->bin_shift=si_local->coherence_time*(ps_local->freq_shift+ps_local->spindown*(float)(si_local->gps-spindown_start))+
+				
+				mid_t=(float)(si_local->gps-spindown_start);
+
+				si_local->bin_shift=si_local->coherence_time*(ps_local->freq_shift+ps_local->spindown*mid_t+0.5*ps_local->fdotdot*mid_t*mid_t)+
 					center_frequency*(float)args_info.doppler_multiplier_arg*(ps_local->e[0]*si_local->detector_velocity[0]
 						+ps_local->e[1]*si_local->detector_velocity[1]
 						+ps_local->e[2]*si_local->detector_velocity[2]);
+					
+				/* This computation involves doubles and trigonometric functions. Avoid it if there is no modulation */
+				if(ps_local->freq_modulation_freq>0) {
+					fmodomega_t=(si_local->gps-spindown_start+0.5*si_local->coherence_time)*ps_local->freq_modulation_freq;
+					fmodomega_t=fmodomega_t-floor(fmodomega_t);
+										
+					si_local->bin_shift+=si_local->coherence_time*ps_local->freq_modulation_depth*cosf(2.0*M_PI*fmodomega_t+ps_local->freq_modulation_phase)*(1.0+(float)args_info.doppler_multiplier_arg*(ps_local->e[0]*si_local->detector_velocity[0]
+						+ps_local->e[1]*si_local->detector_velocity[1]
+						+ps_local->e[2]*si_local->detector_velocity[2]));
+					}
 				si_local++;
 				}
 	
@@ -253,12 +306,15 @@ DATASET *d;
 POLARIZATION *pl;
 int gps_step=ctx->summing_step;
 int i, j;
-float min_shift, max_shift, a;
+//float min_shift, max_shift;
+float a;
+float mid_t;
 double gps_idx, gps_idx_next;
 float center_frequency=(first_bin+nbins*0.5);
 float avg_spindown=args_info.spindown_start_arg+0.5*args_info.spindown_step_arg*(args_info.spindown_count_arg-1);
 
 float *patch_e=ps[0].patch_e; /* set of coefficients for this patch, used for amplitude response and bin shift estimation */
+double fmodomega_t;
 
 //fprintf(stderr, "%p %p %d %lf %lf 0x%08x\n", ctx, ps, count, gps_start, gps_stop, veto_mask);
 
@@ -275,8 +331,8 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 	TODO: make this assumption automatic in the data layout.
 	 */
 	si_local=si;
-	min_shift=1000000; /* we should never load this many bins */
-	max_shift=-1000000;
+// 	min_shift=1000000; /* we should never load this many bins */
+// 	max_shift=-1000000;
 	for(j=0;j<segment_count;j++) {
 
 		d=&(datasets[si_local->dataset]);
@@ -286,12 +342,14 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 		si_local->f_cross=F_plus_coeff(si_local->segment,  patch_e, d->AM_coeffs_cross);
 
 
+#if 0
 		a=center_frequency*(float)args_info.doppler_multiplier_arg*(patch_e[0]*si_local->detector_velocity[0]
 						+patch_e[1]*si_local->detector_velocity[1]
 						+patch_e[2]*si_local->detector_velocity[2])
-			+si_local->coherence_time*avg_spindown*(float)(si_local->gps-spindown_start);
+			+si_local->coherence_time*(avg_spindown+0.5*args_info.fdotdot_arg*(float)(si_local->gps-spindown_start))*(float)(si_local->gps-spindown_start);
 		if(a<min_shift)min_shift=a;
 		if(a>max_shift)max_shift=a;
+#endif
 		si_local++;
 		}
 
@@ -306,10 +364,21 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 			si_local=si;
 			for(j=0;j<segment_count;j++) {
 	
-				si_local->bin_shift=si_local->coherence_time*(ps_local->freq_shift+ps_local->spindown*(float)(si_local->gps-spindown_start))+
+				mid_t=(float)(si_local->gps-spindown_start);
+				si_local->bin_shift=si_local->coherence_time*(ps_local->freq_shift+ps_local->spindown*mid_t+0.5*(float)args_info.fdotdot_arg*mid_t*mid_t)+
 					center_frequency*(float)args_info.doppler_multiplier_arg*(ps_local->e[0]*si_local->detector_velocity[0]
 						+ps_local->e[1]*si_local->detector_velocity[1]
 						+ps_local->e[2]*si_local->detector_velocity[2]);
+
+				/* This computation involves doubles and trigonometric functions. Avoid it if there is no modulation */
+				if(ps_local->freq_modulation_freq>0) {
+					fmodomega_t=(si_local->gps-spindown_start)*ps_local->freq_modulation_freq;
+
+					si_local->bin_shift+=si_local->coherence_time*ps_local->freq_modulation_depth*cos(2.0*M_PI*(fmodomega_t-floor(fmodomega_t))+ps_local->freq_modulation_phase)*(1.0+(float)args_info.doppler_multiplier_arg*(ps_local->e[0]*si_local->detector_velocity[0]
+						+ps_local->e[1]*si_local->detector_velocity[1]
+						+ps_local->e[2]*si_local->detector_velocity[2]));
+					}
+
 				si_local++;
 				}
 	
