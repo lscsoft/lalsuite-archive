@@ -207,6 +207,80 @@ from glue.ligolw import lsctables
 lsctables.use_in(ExtractSimInspiralTableLIGOLWContentHandler)
 
 #===============================================================================
+# Function to return the correct prior distribution for selected parameters
+#===============================================================================
+def get_prior(name):
+    distributions={
+      'm1':'uniform',
+      'm2':'uniform',
+      'mc':None,
+      'eta':None,
+      'q':None,
+      'mtotal':'uniform',
+      'm1_source':None,
+      'm2_source':None,
+      'mtotal_source':None,
+      'mc_source':None,
+      'redshift':None,
+      'spin1':'uniform',
+      'spin2':'uniform',
+      'a1':'uniform',
+      'a2':'uniform',
+      'a1z':'uniform',
+      'a2z':'uniform',
+      'theta1':'uniform',
+      'theta2':'uniform',
+      'phi1':'uniform',
+      'phi2':'uniform',
+      'chi_eff':None,
+      'chi_tot':None,
+      'chi_p':None,
+      'tilt1':None,
+      'tilt2':None,
+      'costilt1':'uniform',
+      'costilt2':'uniform',
+      'iota':'np.cos',
+      'cosiota':'uniform',
+      'time':'uniform',
+      'time_mean':'uniform',
+      'dist':'x**2',
+      'ra':'uniform',
+      'dec':'np.cos',
+      'phase':'uniform',
+      'psi':'uniform',
+      'theta_jn':'np.sin',
+      'costheta_jn':'uniform',
+      'beta':None,
+      'cosbeta':None,
+      'phi_jl':None,
+      'phi12':None,
+      'logl':None,
+      'h1_end_time':None,
+      'l1_end_time':None,
+      'v1_end_time':None,
+      'h1l1_delay':None,
+      'h1v1_delay':None,
+      'l1v1_delay':None,
+      'lambdat' :None,
+      'dlambdat':None,
+      'lambda1' : 'uniform',
+      'lambda2': 'uniform',
+      'lam_tilde' : None,
+      'dlam_tilde': None,
+      'calamp_h1' : 'uniform',
+      'calamp_l1' : 'uniform',
+      'calpha_h1' : 'uniform',
+      'calpha_l1' : 'uniform',
+      'polar_eccentricity':'uniform',
+      'polar_angle':'uniform',
+      'alpha':'uniform'
+    }
+    try:
+        return distributions(name)
+    except:
+        return None
+
+#===============================================================================
 # Function used to generate plot labels.
 #===============================================================================
 def plot_label(param):
@@ -508,6 +582,37 @@ class PosteriorOneDPDF(object):
 
         return return_value
 
+    @property
+    def KL(self):
+        """Returns the KL divergence between the prior and the posterior.
+        It measures the relative information content in nats. The prior is evaluated
+        at run time. It defaults to None. If None is passed, it just returns the information content 
+        of the posterior."
+        """
+        
+        def uniform(x):
+            return np.array([1./(np.max(x)-np.min(x)) for _ in x])
+        
+        posterior, dx = np.histogram(self.samples,bins=36,normed=True)
+        from scipy.stats import entropy
+        # check the kind of prior and process the string accordingly
+        if prior=='uniform':
+            prior+='(self.samples)'
+        elif x in prior:
+            prior.replace('x','self.samples')
+        elif not(prior.startswith('np.')):
+            prior = 'np.'+prior
+            prior+='(self.samples)'
+        else:
+            print "prior type %s not understood, ignoring"%prior
+        try:
+            prior_dist = eval(prior)
+        except:
+            print "failed to evaluate the prior distribution, reverting to the information content"
+            prior_dist = None
+        
+        return entropy(posterior, qk=prior_dist)
+    
     def prob_interval(self,intervals):
         """
         Evaluate probability intervals.
@@ -940,7 +1045,7 @@ class Posterior(object):
         """
 
         return -2.0*(np.mean(self._logL) - np.var(self._logL))
-
+    
     @property
     def injection(self):
         """
