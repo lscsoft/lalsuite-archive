@@ -16,8 +16,7 @@
 """
 Text-mode progress bars
 """
-from __future__ import division
-from __future__ import print_function
+from __future__ import division, print_function, unicode_literals
 __copyright__ = "Copyright 2010, Leo Singer"
 __author__ = "Leo Singer <leo.singer@ligo.org>"
 __all__ = ["ProgressBar", "ProgressBarTheme"]
@@ -83,7 +82,7 @@ class ProgressBarTheme(collections.namedtuple(
 
 
 default_unicode_theme = ProgressBarTheme(
-    u' ▏▎▍▌▋▊▉█', u'       ▏▎▍▌▋▊▉██▉▊▋▌▍▎▏ ', u'▐', u'▌')
+    ' ▏▎▍▌▋▊▉█', '       ▏▎▍▌▋▊▉██▉▊▋▌▍▎▏ ', '▐', '▌')
 
 
 default_ascii_theme = ProgressBarTheme(
