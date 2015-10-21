@@ -22,6 +22,7 @@ __author__ = "Leo Singer <leo.singer@ligo.org>"
 __all__ = ["ProgressBar", "ProgressBarTheme"]
 
 
+import locale
 import math
 import os
 import struct
@@ -69,6 +70,8 @@ class ProgressBarTheme(collections.namedtuple(
     '_ProgressBarTheme', 'sequence twiddle_sequence left_border right_border')):
 
     def is_compatible_with_encoding(self, coding):
+        if not coding:
+            coding = locale.getpreferredencoding()
         try:
             for string in self:
                 string.encode(coding)
