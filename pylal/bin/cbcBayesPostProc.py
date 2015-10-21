@@ -514,7 +514,10 @@ def cbcBayesPostProc(
 
       statmax_pos,max_i=pos._posMaxL()
       statmaxL=statoned_pos.samples[max_i][0]
-      statKL = statoned_pos.KL()
+      try:
+          statKL = statoned_pos.KL()
+      except:
+          statKL = None
       statmax_pos,max_j=pos._posMap()
       statmaxP=statoned_pos.samples[max_j][0]
       statmean=str(statoned_pos.mean)
@@ -608,9 +611,6 @@ def cbcBayesPostProc(
       wfsection=html.add_section_to_element('Calibration',wftd)
       bppu.plot_calibration_pos(pos, outpath=outdir)
       wfsection.write('<a href="calibration.png" target="_blank"><img src="calibration.png"/></a>')
-    else:
-      wfsection.write("<b> No calibration plots </b>")
-
 
     #==================================================================#
     #1D posteriors
