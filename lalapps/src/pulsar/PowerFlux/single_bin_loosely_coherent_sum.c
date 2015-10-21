@@ -1148,8 +1148,8 @@ for(k=0;k<count1;k++) {
 return(0);
 }
 
-#define KEY_MULT 8388623
-#define KEY_DIV ((1<<31)-1)
+#define KEY_MULT 8388623u
+#define KEY_DIV ((1u<<31)-1)
 
 /* Note: si is modified in place to have bin_shift rounded as appropriate to the power generating algorithm */
 void accumulate_power_sum_cached_diff(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps)
@@ -1189,7 +1189,7 @@ for(i=0;i<count;i++) {
 	key=((int)a)+(key*KEY_MULT);
 	si_local->diff_bin_shift=a*ctx->inv_diff_shift_granularity;
 
-	key=(key*KEY_MULT) & KEY_DIV;
+	key=((unsigned)key*KEY_MULT) & KEY_DIV;
 
 	si_local++;
 	//fprintf(stderr, "%0.1f ", a);
@@ -1294,7 +1294,6 @@ if(ctx->patch_private_data!=NULL) {
 	}
 
 //fprintf(stderr, "%p %p %d %lf %lf 0x%08x\n", ctx, ps, count, gps_start, gps_stop, veto_mask);
-
 for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 
 	gps_idx_next=gps_idx+gps_step;
@@ -1388,6 +1387,9 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 						+patch_e[1]*si_local->detector_velocity[1]
 						+patch_e[2]*si_local->detector_velocity[2])
 			+si_local->coherence_time*(avg_spindown+0.5*avg_fdotdot*(float)(si_local->gps-spindown_start))*(float)(si_local->gps-spindown_start));
+		/* Approximate */
+		ps_local=ps;
+
 		if(ps_local->freq_modulation_freq>0) {
 			fmodomega_t=(si_local->gps-spindown_start+0.5*si_local->coherence_time)*ps_local->freq_modulation_freq;
 			fmodomega_t=fmodomega_t-floor(fmodomega_t);

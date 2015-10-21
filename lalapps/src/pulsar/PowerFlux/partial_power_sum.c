@@ -1,6 +1,8 @@
+
 SUFFIX(PARTIAL_POWER_SUM) *SUFFIX(allocate_partial_power_sum)(int pps_bins, int cross_terms_present)
 {
 SUFFIX(PARTIAL_POWER_SUM) *r;
+REAL *p;
 int i;
 
 r=do_alloc(1, sizeof(*r));
@@ -9,33 +11,59 @@ r->type=sizeof(REAL);
 r->nbins=pps_bins;
 r->offset=(pps_bins-useful_bins)>>1;
 
-r->weight_pppp=do_alloc(pps_bins, sizeof(*(r->weight_pppp)));
-r->weight_pppc=do_alloc(pps_bins, sizeof(*(r->weight_pppc)));
-r->weight_ppcc=do_alloc(pps_bins, sizeof(*(r->weight_ppcc)));
-r->weight_pccc=do_alloc(pps_bins, sizeof(*(r->weight_pccc)));
-r->weight_cccc=do_alloc(pps_bins, sizeof(*(r->weight_cccc)));
+if(cross_terms_present)
+	r->memory_pool_size=(pps_bins*sizeof(*(r->memory_pool))+ALIGNMENT)*9;
+	else
+	r->memory_pool_size=(pps_bins*sizeof(*(r->memory_pool))+ALIGNMENT)*8;
 
-r->power_pp=do_alloc(pps_bins, sizeof(*(r->power_pp)));
-r->power_pc=do_alloc(pps_bins, sizeof(*(r->power_pc)));
-r->power_cc=do_alloc(pps_bins, sizeof(*(r->power_cc)));
+//fprintf(stderr, "memory_pool_size=%d pps_bins=%d\n", r->memory_pool_size, pps_bins);
+r->memory_pool=do_alloc(r->memory_pool_size, 1);
 
-for(i=0;i<pps_bins;i++) {
-	r->weight_pppp[i]=NAN;
-	r->weight_pppc[i]=NAN;
-	r->weight_ppcc[i]=NAN;
-	r->weight_pccc[i]=NAN;
-	r->weight_cccc[i]=NAN;
+p=r->memory_pool;
 
-	r->power_pp[i]=NAN;
-	r->power_pc[i]=NAN;
-	r->power_cc[i]=NAN;
+for(i=0;i<r->memory_pool_size/sizeof(REAL);i++) {
+	p[i]=NAN;
 	}
+
+// r->weight_pppp=do_alloc(pps_bins, sizeof(*(r->weight_pppp)));
+// r->weight_pppc=do_alloc(pps_bins, sizeof(*(r->weight_pppc)));
+// r->weight_ppcc=do_alloc(pps_bins, sizeof(*(r->weight_ppcc)));
+// r->weight_pccc=do_alloc(pps_bins, sizeof(*(r->weight_pccc)));
+// r->weight_cccc=do_alloc(pps_bins, sizeof(*(r->weight_cccc)));
+// 
+// r->power_pp=do_alloc(pps_bins, sizeof(*(r->power_pp)));
+// r->power_pc=do_alloc(pps_bins, sizeof(*(r->power_pc)));
+// r->power_cc=do_alloc(pps_bins, sizeof(*(r->power_cc)));
+
+r->weight_pppp=ALIGN_POINTER(p); p=&(r->weight_pppp[pps_bins]);
+r->weight_pppc=ALIGN_POINTER(p); p=&(r->weight_pppc[pps_bins]);
+r->weight_ppcc=ALIGN_POINTER(p); p=&(r->weight_ppcc[pps_bins]);
+r->weight_pccc=ALIGN_POINTER(p); p=&(r->weight_pccc[pps_bins]);
+r->weight_cccc=ALIGN_POINTER(p); p=&(r->weight_cccc[pps_bins]);
+
+r->power_pp=ALIGN_POINTER(p); p=&(r->power_pp[pps_bins]);
+r->power_pc=ALIGN_POINTER(p); p=&(r->power_pc[pps_bins]);
+r->power_cc=ALIGN_POINTER(p); p=&(r->power_cc[pps_bins]);
+
+	
+// for(i=0;i<pps_bins;i++) {
+// 	r->weight_pppp[i]=NAN;
+// 	r->weight_pppc[i]=NAN;
+// 	r->weight_ppcc[i]=NAN;
+// 	r->weight_pccc[i]=NAN;
+// 	r->weight_cccc[i]=NAN;
+// 
+// 	r->power_pp[i]=NAN;
+// 	r->power_pc[i]=NAN;
+// 	r->power_cc[i]=NAN;
+// 	}
 	
 if(cross_terms_present) {
-	r->power_im_pc=do_alloc(pps_bins, sizeof(*(r->power_pc)));
-	for(i=0;i<pps_bins;i++) {
-		r->power_im_pc[i]=NAN;
-		}
+// 	r->power_im_pc=do_alloc(pps_bins, sizeof(*(r->power_pc)));
+	r->power_im_pc=ALIGN_POINTER(p); p=&(r->power_im_pc[pps_bins]);
+// 	for(i=0;i<pps_bins;i++) {
+// 		r->power_im_pc[i]=NAN;
+// 		}
 	} else 
 	r->power_im_pc=NULL;
 
@@ -483,17 +511,19 @@ if(pps->type!=sizeof(REAL)) {
 	exit(-1);
 	}
 
-free(pps->weight_pppp);
-free(pps->weight_pppc);
-free(pps->weight_ppcc);
-free(pps->weight_pccc);
-free(pps->weight_cccc);
+// free(pps->weight_pppp);
+// free(pps->weight_pppc);
+// free(pps->weight_ppcc);
+// free(pps->weight_pccc);
+// free(pps->weight_cccc);
+// 
+// free(pps->power_pp);
+// free(pps->power_pc);
+// free(pps->power_cc);
+// 
+// if(pps->power_im_pc!=NULL)free(pps->power_im_pc);
 
-free(pps->power_pp);
-free(pps->power_pc);
-free(pps->power_cc);
-
-if(pps->power_im_pc!=NULL)free(pps->power_im_pc);
+free(pps->memory_pool);
 
 memset(pps, 0, sizeof(*pps));
 free(pps);
