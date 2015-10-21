@@ -596,6 +596,7 @@ class PosteriorOneDPDF(object):
         posterior, dx = np.histogram(self.samples,bins=36,normed=True)
         from scipy.stats import entropy
         # check the kind of prior and process the string accordingly
+        prior = get_prior(self.name)
         if prior=='uniform':
             prior+='(self.samples)'
         elif x in prior:
