@@ -82,6 +82,11 @@ if(!strcasecmp(args_info.averaging_mode_arg, "1") || !strcasecmp(args_info.avera
 	ctx->cache_granularity=1;
 	ctx->sidereal_group_count=24;
 	ctx->summing_step=864000; /* ten days */
+	
+	if(args_info.freq_modulation_depth_arg!=0 || args_info.freq_modulation_depth_count_arg>1) {
+		fprintf(stderr, "*** WARNING: single-bin mode uses approximation to binary evolution equation that usually requires scanning over freq_modulation_phase\n");
+		}
+	
 	} else {
 	fprintf(stderr, "Unrecognized averaging mode: %s\n", args_info.averaging_mode_arg);
 	exit(-1);
@@ -93,6 +98,15 @@ if(args_info.cache_granularity_given) {
 	if(ctx->cache_granularity<1) {
 		fprintf(stderr, "*** ERROR: cache granularity must be positive\n");
 		fprintf(LOG, "*** ERROR: cache granularity must be positive\n");
+		exit(-1);
+		}
+	}
+
+if(args_info.diff_shift_granularity_given) {
+	ctx->diff_shift_granularity=args_info.diff_shift_granularity_arg;
+	if(ctx->diff_shift_granularity<1) {
+		fprintf(stderr, "*** ERROR: diff shift granularity must be positive\n");
+		fprintf(LOG, "*** ERROR: diff shift granularity must be positive\n");
 		exit(-1);
 		}
 	}
