@@ -597,9 +597,11 @@ class PosteriorOneDPDF(object):
         from scipy.stats import entropy
         # check the kind of prior and process the string accordingly
         prior = get_prior(self.name)
-        if prior=='uniform':
+        if prior is None:
+            print "prior not found, ignoring"
+        elif prior=='uniform':
             prior+='(self.samples)'
-        elif x in prior:
+        elif 'x' in prior:
             prior.replace('x','self.samples')
         elif not(prior.startswith('np.')):
             prior = 'np.'+prior
