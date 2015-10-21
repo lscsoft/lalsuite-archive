@@ -6554,7 +6554,16 @@ def cred_interval(x, cl=.9, lower=True):
     else:
         return cred_level((1.+cl)/2, x)
 
-def plot_spline_pos(logf, ys, nf=100, level=0.9, color='k', label=None):
+def spline_angle_xform(delta_psi):
+    """Returns the angle in degrees corresponding to the spline
+    calibration parameters delta_psi.
+
+    """
+    rot = (2.0 + 1.0j*delta_psi)/(2.0 - 1.0j*delta_psi)
+
+    return 180.0/np.pi*np.arctan2(np.imag(rot), np.real(rot))
+    
+def plot_spline_pos(logf, ys, nf=100, level=0.9, color='k', label=None, xform=None):
     """Plot calibration posterior estimates for a spline model in log space.
     Args:
         logf: The (log) location of spline control points.
@@ -6563,19 +6572,29 @@ def plot_spline_pos(logf, ys, nf=100, level=0.9, color='k', label=None):
         level: Credible level to fill in.
         color: Color to plot with.
         label: Label for plot.
+        xform: Function to transform the spline into plotted values.
     """
     f = np.exp(logf)
     fs = np.linspace(f.min(), f.max(), nf)
 
     data = np.zeros((ys.shape[0], nf))
 
-    mu = np.mean(ys, axis=0)
-    lower_cl = mu - cred_interval(ys, level, lower=True)
-    upper_cl = cred_interval(ys, level, lower=False) - mu
+    if xform is None:
+        zs = ys
+    else:
+        zs = xform(ys)
+        
+    mu = np.mean(zs, axis=0)
+    lower_cl = mu - cred_interval(zs, level, lower=True)
+    upper_cl = cred_interval(zs, level, lower=False) - mu
     plt.errorbar(np.exp(logf), mu, yerr=[lower_cl, upper_cl], fmt='.', color=color, lw=4, alpha=0.5, capsize=0)
 
     for i, samp in enumerate(ys):
-        data[i] = interpolate.spline(logf, samp, np.log(fs))
+        temp = interpolate.spline(logf, samp, np.log(fs))
+        if xform is None:
+            data[i] = temp
+        else:
+            data[i] = xform(temp)
 
     line, = plt.plot(fs, np.mean(data, axis=0), color=color, label=label)
     color = line.get_color()
@@ -6616,8 +6635,9 @@ def plot_calibration_pos(pos, level=.9, outpath=None):
         phase_params = np.sort([param for param in params if
                                 '{0}_spcal_phase'.format(ifo) in param])
         if len(phase_params) > 0:
-            phase = 180./np.pi*np.column_stack([pos[param].samples for param in phase_params])
-            plot_spline_pos(logfreqs, phase, color=color, level=level, label="{0} (mean, {1}%)".format(ifo.upper(), int(level*100)))
+            phase = np.column_stack([pos[param].samples for param in phase_params])
+
+            plot_spline_pos(logfreqs, phase, color=color, level=level, label="{0} (mean, {1}%)".format(ifo.upper(), int(level*100)), xform=spline_angle_xform)
 
     ax1.tick_params(labelsize=.75*font_size)
     ax2.tick_params(labelsize=.75*font_size)
