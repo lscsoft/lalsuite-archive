@@ -112,12 +112,12 @@ class ProgressBar:
             theme=None):
         if fid is None:
             self.fid = sys.stderr
+        self.isatty = os.isatty(self.fid.fileno())
         if theme is None:
-            if default_unicode_theme.is_compatible_with_stream(self.fid) and 'xterm' in os.environ.get('TERM', ''):
+            if self.isatty and default_unicode_theme.is_compatible_with_stream(self.fid) and 'xterm' in os.environ.get('TERM', ''):
                 theme = default_unicode_theme
             else:
                 theme = default_ascii_theme
-        self.isatty = os.isatty(self.fid.fileno())
         self.text = text
         self.max = max
         self.value = value
