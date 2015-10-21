@@ -1,8 +1,10 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.55-64
+VERSION=1.4.56-64
+# This version is developed against LAL-6.30
 LALROOT=./../../../../
 LALROOT=/home/vdergach/opt/
 LALROOT=/opt/lalsuite/
+LALROOT=/opt/lscsoft/
 LALINCLUDE=-I$(LALROOT)/include/
 #LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -L/opt/zlib/lib -L/opt/png/lib -llalsupport -llalpulsar -llal -lm -lz
 LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -L/opt/zlib/lib -L/opt/png/lib -llalpulsar -llalsupport  -llal -lm -lz
@@ -16,8 +18,11 @@ OPTFLAGS=-O -march=opteron -fno-stack-protector
 OPTFLAGS=-O6 -msse2 -funroll-loops -fno-stack-protector
 #OPTFLAGS=-O6 -mtune=opteron -mfpmath=sse -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE
 OPTFLAGS=-O6 -mtune=nocona -funroll-loops -fno-stack-protector -msse3 -U_FORTIFY_SOURCE
+OPTFLAGS=-O -mtune=core2 -funroll-loops -fno-stack-protector -msse3 -U_FORTIFY_SOURCE
 #OPTFLAGS=-O6 -funroll-loops -msse3
-CFLAGS=-Wall -Wconversion-extra -Wconversion -g $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=\"$(VERSION)\" \
+CONVERSION=-Wconversion-extra -Wconversion
+CONVERSION=
+CFLAGS=-Wall $(CONVERSION) -g $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=\"$(VERSION)\" \
 	$(LALINCLUDE) -fPIC -std=gnu99
 CC=gcc $(CFLAGS)
 
@@ -513,6 +518,12 @@ upload.c: powerflux-condor powerflux-mt powerflux-condor2 powerflux-mt2
 	gsiscp -C powerflux-condor2 ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-condor2.$(VERSION)
 	gsiscp -C powerflux-mt2 ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt2.$(VERSION)
 	gsiscp -C $(FILES) ldas-grid.ligo.caltech.edu:PowerFlux/
+
+upload.c2:  powerflux-mt powerflux-mt2
+	gsiscp -C powerflux-mt ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt.$(VERSION)
+	gsiscp -C powerflux-mt2 ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt2.$(VERSION)
+	gsiscp -C $(FILES) ldas-grid.ligo.caltech.edu:PowerFlux/
+
 
 upload.m: powerflux-condor powerflux-mt
 	gsiscp -C powerflux-condor vdergach@morgane.aei.mpg.de:PowerFlux/powerflux-condor.$(VERSION)

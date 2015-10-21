@@ -22,6 +22,7 @@ __author__ = "Leo Singer <leo.singer@ligo.org>"
 __all__ = ["ProgressBar", "ProgressBarTheme"]
 
 
+import locale
 import math
 import os
 import struct
@@ -69,6 +70,8 @@ class ProgressBarTheme(collections.namedtuple(
     '_ProgressBarTheme', 'sequence twiddle_sequence left_border right_border')):
 
     def is_compatible_with_encoding(self, coding):
+        if not coding:
+            coding = locale.getpreferredencoding()
         try:
             for string in self:
                 string.encode(coding)
@@ -112,12 +115,12 @@ class ProgressBar:
             theme=None):
         if fid is None:
             self.fid = sys.stderr
+        self.isatty = os.isatty(self.fid.fileno())
         if theme is None:
-            if default_unicode_theme.is_compatible_with_stream(self.fid):
+            if self.isatty and default_unicode_theme.is_compatible_with_stream(self.fid) and 'xterm' in os.environ.get('TERM', ''):
                 theme = default_unicode_theme
             else:
                 theme = default_ascii_theme
-        self.isatty = os.isatty(self.fid.fileno())
         self.text = text
         self.max = max
         self.value = value
