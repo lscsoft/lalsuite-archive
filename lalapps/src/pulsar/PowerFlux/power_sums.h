@@ -7,6 +7,14 @@
 typedef struct S_POWER_SUM {
 	float freq_shift; /* additional shift e.g. for half-bin sampling */
 	float spindown;
+	
+	/* These are double so we can follow parameters of observed source, e.g. Sco-X1
+	   It is possible that depth does not need to be a float */
+	double freq_modulation_freq;
+	double freq_modulation_phase;
+	double freq_modulation_depth;
+	
+	float fdotdot;
 	float ra;
 	float dec;
 	float patch_ra;

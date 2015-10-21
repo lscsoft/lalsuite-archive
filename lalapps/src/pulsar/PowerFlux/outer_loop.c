@@ -250,7 +250,11 @@ for(i=0;i<count;i++) {
 		target.ra=ps[0][i].ra; \
 		target.dec=ps[0][i].dec; \
 		target.spindown=ps[0][i].spindown; \
-		target.frequency=(double)ps[0][i].freq_shift+((target).bin+first_bin+side_cut)/(double)1800.0; \
+		target.fdotdot=ps[0][i].fdotdot; \
+		target.freq_modulation_freq=ps[0][i].freq_modulation_freq; \
+		target.freq_modulation_depth=ps[0][i].freq_modulation_depth; \
+		target.freq_modulation_phase=ps[0][i].freq_modulation_phase; \
+		target.frequency=(double)ps[0][i].freq_shift+((target).bin+first_bin+side_cut)/args_info.sft_coherence_time_arg; \
 		}
 
 	#define FILL_POINT_STATS(target, source)	{\
@@ -354,12 +358,12 @@ free_partial_power_sum_F(pps);
 if(write_data_log_header) {
 	write_data_log_header=0;
 	/* we write this into the main log file so that data.log files can simply be concatenated together */
-	fprintf(LOG, "data_log: kind label index set pi pps_count template_count first_bin min_gps max_gps skyband frequency spindown ra dec iota psi snr ul ll M S ks_value ks_count m1_neg m3_neg m4 frequency_bin max_weight weight_loss_fraction max_ks_value max_m1_neg min_m1_neg max_m3_neg min_m3_neg max_m4 min_m4 max_weight_loss_fraction\n");
+	fprintf(LOG, "data_log: kind label index set pi pps_count template_count first_bin min_gps max_gps skyband frequency spindown fdotdot freq_modulation_freq freq_modulation_depth freq_modulation_phase ra dec iota psi snr ul ll M S ks_value ks_count m1_neg m3_neg m4 frequency_bin max_weight weight_loss_fraction max_ks_value max_m1_neg min_m1_neg max_m3_neg min_m3_neg max_m4 min_m4 max_weight_loss_fraction\n");
 	}
 
 /* now that we know extreme points go and characterize them */
 #define WRITE_POINT(psum, pstat, kind)	{\
-	fprintf(DATA_LOG, "%s \"%s\" %d %s %d %d %d %d %lf %lf %d %lf %lg %lf %lf %lf %lf %lf %lg %lg %lg %lg %lf %d %lf %lf %lf %d %lg %lf %lf %lf %lf %lf %lf %lf %lf %lf\n", \
+	fprintf(DATA_LOG, "%s \"%s\" %d %s %d %d %d %d %lf %lf %d %lf %lg %lg %lg %lg %lg %lf %lf %lf %lf %lf %lg %lg %lg %lg %lf %d %lf %lf %lf %d %lg %lf %lf %lf %lf %lf %lf %lf %lf %lf\n", \
 		kind, \
 		args_info.label_arg, \
 		data_log_index, \
@@ -371,8 +375,12 @@ if(write_data_log_header) {
 		psum.min_gps, \
 		psum.max_gps, \
 		psum.skyband, \
-		(pstat.bin+first_bin+side_cut)/(double)1800.0+psum.freq_shift, \
+		(pstat.bin+first_bin+side_cut)/args_info.sft_coherence_time_arg+psum.freq_shift, \
 		psum.spindown, \
+		psum.fdotdot, \
+		psum.freq_modulation_freq, \
+		psum.freq_modulation_depth, \
+		psum.freq_modulation_phase, \
 		psum.ra, \
 		psum.dec, \
 		pstat.iota, \
@@ -411,14 +419,14 @@ if((pstats_accum.highest_snr.snr>args_info.min_candidate_snr_arg) &
 #define FILL_SKYMAP(skymap, value)	if(ei->skymap!=NULL)ei->skymap[pi]=value;
 
 FILL_SKYMAP(ul_skymap, pstats_accum.highest_ul.ul);
-FILL_SKYMAP(ul_freq_skymap, (pstats_accum.highest_ul.bin)/1800.0+ps[0][highest_ul_idx].freq_shift);
+FILL_SKYMAP(ul_freq_skymap, (pstats_accum.highest_ul.bin)/args_info.sft_coherence_time_arg+ps[0][highest_ul_idx].freq_shift);
 
 FILL_SKYMAP(circ_ul_skymap, pstats_accum.highest_circ_ul.ul);
-FILL_SKYMAP(circ_ul_freq_skymap, (pstats_accum.highest_circ_ul.bin)/1800.0+ps[0][highest_circ_ul_idx].freq_shift);
+FILL_SKYMAP(circ_ul_freq_skymap, (pstats_accum.highest_circ_ul.bin)/args_info.sft_coherence_time_arg+ps[0][highest_circ_ul_idx].freq_shift);
 
 FILL_SKYMAP(snr_skymap, pstats_accum.highest_snr.snr);
 FILL_SKYMAP(snr_ul_skymap, pstats_accum.highest_snr.ul);
-FILL_SKYMAP(snr_freq_skymap, (pstats_accum.highest_snr.bin)/1800.0+ps[0][highest_snr_idx].freq_shift);
+FILL_SKYMAP(snr_freq_skymap, (pstats_accum.highest_snr.bin)/args_info.sft_coherence_time_arg+ps[0][highest_snr_idx].freq_shift);
 
 FILL_SKYMAP(max_weight_skymap, pstats_accum.max_weight);
 FILL_SKYMAP(min_weight_skymap, pstats_accum.min_weight);
@@ -497,11 +505,11 @@ void output_extreme_info(RGBPic *p, EXTREME_INFO *ei)
 {
 int skyband;
 
-fprintf(LOG, "tag: kind label skyband skyband_name set first_bin frequency spindown ra dec iota psi snr ul ll M S ks_value ks_count m1_neg m3_neg m4 frequency_bin max_weight weight_loss_fraction max_ks_value max_m1_neg min_m1_neg max_m3_neg min_m3_neg max_m4 min_m4 max_weight_loss_fraction valid_count masked_count template_count\n");
+fprintf(LOG, "tag: kind label skyband skyband_name set first_bin frequency spindown fdotdot freq_modulation_freq freq_modulation_depth freq_modulation_phase ra dec iota psi snr ul ll M S ks_value ks_count m1_neg m3_neg m4 frequency_bin max_weight weight_loss_fraction max_ks_value max_m1_neg min_m1_neg max_m3_neg min_m3_neg max_m4 min_m4 max_weight_loss_fraction valid_count masked_count template_count\n");
 
 /* now that we know extreme points go and characterize them */
 #define WRITE_SKYBAND_POINT(pstat, kind)	\
-	fprintf(LOG, "band_info: %s \"%s\" %d %s %s %d %lf %lg %lf %lf %lf %lf %lf %lg %lg %lg %lg %lf %d %lf %lf %lf %d %lg %lf %lf %lf %lf %lf %lf %lf %lf %lf %d %d %d\n", \
+	fprintf(LOG, "band_info: %s \"%s\" %d %s %s %d %lf %lg %lg %lg %lg %lg %lf %lf %lf %lf %lf %lg %lg %lg %lg %lf %d %lf %lf %lf %d %lg %lf %lf %lf %lf %lf %lf %lf %lf %lf %d %d %d\n", \
 		kind, \
 		args_info.label_arg, \
 		skyband, \
@@ -510,6 +518,10 @@ fprintf(LOG, "tag: kind label skyband skyband_name set first_bin frequency spind
 		first_bin+side_cut, \
 		pstat.frequency, \
 		pstat.spindown, \
+		pstat.fdotdot, \
+		pstat.freq_modulation_freq, \
+		pstat.freq_modulation_depth, \
+		pstat.freq_modulation_phase, \
 		pstat.ra, \
 		pstat.dec, \
 		pstat.iota, \

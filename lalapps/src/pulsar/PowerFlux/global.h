@@ -31,6 +31,9 @@ typedef long long INT64;
 typedef float SUM_TYPE;
 typedef short COUNT_TYPE;
 
+#define M_1_3 0.333333333333333333333333333333
+#define M_1_6 0.166666666666666666666666666666666
+
 #define MEMUSAGE	((long)sbrk(0))
 
 #define TRACE(a)	{fprintf(stderr,"TRACE(__FUNCTION__):" a); \

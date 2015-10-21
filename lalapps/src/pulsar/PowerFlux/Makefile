@@ -1,10 +1,11 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.48-64
+VERSION=1.4.55-64
 LALROOT=./../../../../
 LALROOT=/home/vdergach/opt/
 LALROOT=/opt/lalsuite/
 LALINCLUDE=-I$(LALROOT)/include/
-LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -L/opt/zlib/lib -L/opt/png/lib -llalsupport -llalpulsar -llal -lm -lz
+#LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -L/opt/zlib/lib -L/opt/png/lib -llalsupport -llalpulsar -llal -lm -lz
+LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -L/opt/zlib/lib -L/opt/png/lib -llalpulsar -llalsupport  -llal -lm -lz
 LDFLAGS=$(LALLDFLAGS) -L. -lpng
 #OPTFLAGS=-O2 -funroll-loops 
 OPTFLAGS=-O6 -mmmx -msse -mcpu=i686
@@ -16,8 +17,8 @@ OPTFLAGS=-O6 -msse2 -funroll-loops -fno-stack-protector
 #OPTFLAGS=-O6 -mtune=opteron -mfpmath=sse -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE
 OPTFLAGS=-O6 -mtune=nocona -funroll-loops -fno-stack-protector -msse3 -U_FORTIFY_SOURCE
 #OPTFLAGS=-O6 -funroll-loops -msse3
-CFLAGS=-Wall -g $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=\"$(VERSION)\" \
-	$(LALINCLUDE) -fPIC
+CFLAGS=-Wall -Wconversion-extra -Wconversion -g $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=\"$(VERSION)\" \
+	$(LALINCLUDE) -fPIC -std=gnu99
 CC=gcc $(CFLAGS)
 
 COMMON_OBJS=cmdline.o rastermagic.o hookup.o lines.o grid.o \
@@ -29,7 +30,7 @@ OBJS=$(COMMON_OBJS) fine_grid.o candidates.o powerflux.o
 
 OBJS2=$(COMMON_OBJS) power_cache.o power_sums.o outer_loop.o power_sum_stats.o skymarks.o powerflux2.o summing_context.o  single_bin_loosely_coherent_sum.o matched_loosely_coherent_sum.o
 
-FILES=no_marks.txt sky_marks.txt all_sky_marks_*.txt
+FILES=no_marks.txt sky_marks.txt all_sky_marks_*.txt S_veto_marks*.txt
 
 # 50 hz
 #BAND=90000
@@ -300,11 +301,68 @@ test5c: powerflux-mt2
         	--sun-ephemeris=/home/volodya/LIGO/PowerFlux/testsuite/sun05-09.dat  \
 		--max-candidates=10000 --skymap-resolution-ratio=1 \
   		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=0.5e2 \
-		--extra-phase "H1 45" --extra-phase "L1 90" --extra-phase "test 180"
+		--extra-phase "H1 45" --extra-phase "L1 90" --extra-phase "test 180" \
+		--output test5c --preallocate-memory=0.5 --expected-timebase 14
 
-#  		--fake-ref-time=793154935 \
-#  		--fake-ra=$(RA) --fake-dec=$(DEC) --fake-freq=200.10027777 --fake-strain=10e-24 \
-#  		--fake-spindown=2e-10 --fake-iota=1.57 --fake-psi=0.0 \
+test6a: powerflux-mt2
+	 ./powerflux-mt2 --dataset=random.dst -f 180002 -n 501 \
+		--ephemeris-path=/home/volodya/LIGO/PowerFlux/testsuite \
+		--averaging-mode=1 --do-cutoff=1 --lock-file=test.lock \
+		--subtract-background=1 --ks-test=1 --filter-lines=0 \
+		--spindown-start=0.0 --spindown-step=2e-8 --spindown-count=1 \
+		--compute-skymaps=1 \
+		--dump-candidates=0 \
+		--dump-points=0 --no-secondary-skymaps=1 \
+		--sky-marks-file=all_sky_marks.txt \
+	        --earth-ephemeris=/home/volodya/LIGO/PowerFlux/testsuite/earth05-09.dat \
+        	--sun-ephemeris=/home/volodya/LIGO/PowerFlux/testsuite/sun05-09.dat  \
+		--max-candidates=10000 --skymap-resolution-ratio=1 \
+		--expected-timebase 14 \
+		--output test6a
+
+test6b: powerflux-mt2
+	 ./powerflux-mt2 --dataset=random.dst -f 180002 -n 501 \
+		--ephemeris-path=/home/volodya/LIGO/PowerFlux/testsuite \
+		--averaging-mode=1 --do-cutoff=1 --lock-file=test.lock \
+		--subtract-background=1 --ks-test=1 --filter-lines=0 \
+		--spindown-start=0.0 --spindown-step=2e-8 --spindown-count=1 \
+		--compute-skymaps=1 \
+		--dump-candidates=0 \
+		--dump-points=0 --no-secondary-skymaps=1 \
+		--sky-marks-file=all_sky_marks.txt \
+	        --earth-ephemeris=/home/volodya/LIGO/PowerFlux/testsuite/earth05-09.dat \
+        	--sun-ephemeris=/home/volodya/LIGO/PowerFlux/testsuite/sun05-09.dat  \
+		--max-candidates=10000 --skymap-resolution-ratio=1 \
+		--statistics-function=universal \
+		--expected-timebase 14 \
+		--output test6b --num-threads=1
+
+test7a: powerflux-mt2
+	 ./powerflux-mt2 --dataset=random.dst -f 2700000 -n 501 \
+		--ephemeris-path=/home/volodya/LIGO/PowerFlux/testsuite \
+		--averaging-mode=single_bin_loose --do-cutoff=1 --lock-file=test.lock \
+		--subtract-background=0 --ks-test=1 --filter-lines=0 \
+		--spindown-start=0.0 --spindown-step=2e-8 --spindown-count=1 \
+		--compute-skymaps=1 \
+		--sky-grid=targeted_rectangular \
+		--focus-ra=0 --focus-dec=0 --focus-radius=0.01 \
+		--dump-candidates=0 \
+  		--fake-ref-time=793154935 \
+  		--fake-ra=0 --fake-dec=0 --fake-freq=1500.005 --fake-strain=1e-22 \
+  		--fake-spindown=0e-10 --fake-iota=1.5707 --fake-psi=0.0 \
+		--dump-points=0 --no-secondary-skymaps=1 \
+		--sky-marks-file=all_sky_marks.txt \
+	        --earth-ephemeris=/home/volodya/LIGO/PowerFlux/testsuite/earth05-09.dat \
+        	--sun-ephemeris=/home/volodya/LIGO/PowerFlux/testsuite/sun05-09.dat  \
+		--max-candidates=10000 \
+		--expected-timebase 14 \
+		--skymap-resolution-ratio=0.1666666 \
+		--split-ifos=0 --compute-cross-terms=0 --mixed-dataset-only=1 \
+		--cache-granularity=12 --nfshift=12 --npsi=24 --niota=8 --phase-mismatch=1.0471976 \
+		--nchunks=1 \
+		--skymap-resolution=0.000278 \
+		--output test7a
+
 
 
 # 		--write-dat=NONE \
@@ -363,8 +421,8 @@ S3.H1.silver: powerflux
 
 WL=-Wl,--rpath -Wl,/home/volodya/LIGO/LAL/support-lib/.libs -Wl,--rpath -Wl,/home/volodya/LIGO/LAL/lib/.libs -Wl,--rpath -Wl,/usr/local/lib -Wl,--rpath -Wl,/usr/local/lib
 
-dat2skymap: grid.o rastermagic.o dat2skymap.o png.o
-	$(CC) grid.o rastermagic.o dat2skymap.o png.o -o dat2skymap -static $(LDFLAGS)
+dat2skymap: grid.o rastermagic.o dat2skymap.o png.o util.o jobs.o
+	$(CC) grid.o rastermagic.o dat2skymap.o png.o util.o jobs.o -o dat2skymap -static $(LDFLAGS) -lz -lgsl -lm
 
 python.o: python.c *.h
 	$(CC) -c `python-config --includes` python.c

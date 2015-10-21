@@ -508,12 +508,13 @@ def cbcBayesPostProc(
     html_stats.write(str(pos))
     statfilename=os.path.join(outdir,"summary_statistics.dat")
     statout=open(statfilename,"w")
-    statout.write("\tmaP\tmaxL\tstdev\tmean\tmedian\tstacc\tinjection\tvalue\n")
+    statout.write("\tmaP\tmaxL\tKL\tstdev\tmean\tmedian\tstacc\tinjection\tvalue\n")
     
     for statname,statoned_pos in pos:
 
       statmax_pos,max_i=pos._posMaxL()
       statmaxL=statoned_pos.samples[max_i][0]
+      statKL = statoned_pos.KL()
       statmax_pos,max_j=pos._posMap()
       statmaxP=statoned_pos.samples[max_j][0]
       statmean=str(statoned_pos.mean)
@@ -522,7 +523,7 @@ def cbcBayesPostProc(
       statstacc=str(statoned_pos.stacc)
       statinjval=str(statoned_pos.injval)
       
-      statarray=[str(i) for i in [statname,statmaxP,statmaxL,statstdev,statmean,statmedian,statstacc,statinjval]]
+      statarray=[str(i) for i in [statname,statmaxP,statmaxL,statKL,statstdev,statmean,statmedian,statstacc,statinjval]]
       statout.write("\t".join(statarray))
       statout.write("\n")
       
@@ -1305,6 +1306,7 @@ if __name__=='__main__':
     snrParams=bppu.snrParams
     oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams + ppEParams + tigerParams + bransDickeParams + massiveGravitonParams + tidalParams + statsParams + snrParams + calibParams
     # ['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
+
     ifos_menu=['h1','l1','v1']
     from itertools import combinations
     for ifo1,ifo2 in combinations(ifos_menu,2):
