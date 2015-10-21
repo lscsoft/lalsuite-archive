@@ -598,7 +598,9 @@ def cbcBayesPostProc(
         wfsection.write('<a href="PSDs/PSD.png" target="_blank"><img src="PSDs/PSD.png"/></a>')
       except  Exception,e:
         print "Could not create PSD plot. The error was: %s\n"%str(e)
-        wfsection.write("<b>No PSD file found!</b>")
+        wfsection.write("<b>PSD plotting failed</b>")
+    else:
+        wfsection.write("<b>No PSD files provided</b>")
 
     # Add plots for calibration estimates
     if np.any(['spcal_amp' in param for param in pos.names]) or np.any(['spcal_phase' in param for param in pos.names]):
