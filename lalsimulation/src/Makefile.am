@@ -94,8 +94,7 @@ noinst_HEADERS = \
 	LALSimIMRPhenomD.h \
 	LALSimIMRPhenomP.c \
 	LALSimIMRSEOBNRROMUtilities.c \
-	LALSimIMREOBNRv2HMROMUtilities.c \
-        LALSimInspiralNRWaveformUtilities.c
+	LALSimIMREOBNRv2HMROMUtilities.c
 
 lib_LTLIBRARIES = liblalsimulation.la
 liblalsimulation_la_SOURCES = \
