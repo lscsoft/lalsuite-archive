@@ -70,7 +70,7 @@
 #include "LALSimIMRSpinEOBInitialConditionsPrec.c"
 
 
-#define debugOutput 1
+#define debugOutput 0
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -334,7 +334,7 @@ XLALEOBSpinPrecAlignedStopCondition(double UNUSED t,  /**< UNUSED */
                            void *funcParams       /**< physical parameters */
                           )
 {
-  int debugPK = 1;
+  int debugPK = 0;
   REAL8 omega, r;
   SpinEOBParams *params = (SpinEOBParams *)funcParams;
   
@@ -1509,7 +1509,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   INspin2[2] = INspin2z;
 
   INT4 UNUSED ret;
-  INT4 debugPK = 01, debugCustomIC = 0, debugNoNQC = 0;
+  INT4 debugPK = 0, debugCustomIC = 0, debugNoNQC = 0;
   INT4 debugRD = 0;
   FILE *out = NULL;
   INT4 i=0;
