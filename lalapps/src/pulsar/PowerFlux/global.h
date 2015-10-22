@@ -39,9 +39,13 @@ typedef short COUNT_TYPE;
 #define TRACE(a)	{fprintf(stderr,"TRACE(__FUNCTION__):" a); \
 			fprintf(stderr,"\n");}
 
+#define ALIGNMENT  (64ul)
+			
 void *do_alloc(long a, long b);
 
-#define aligned_alloca(a) ((void *)(((unsigned long)(alloca(a+63))+63) & ~63))
+#define ALIGN_POINTER(ptr)	((void *)(((unsigned long)(ptr)+(ALIGNMENT-1)) & ~(ALIGNMENT-1)))
+
+#define aligned_alloca(a) ((void *)(((unsigned long)(alloca(a+(ALIGNMENT-1)))+(ALIGNMENT-1)) & ~(ALIGNMENT-1)))
 
 #define TESTSTATUS( status ) \
   { if ( (status)->statusCode ) { \

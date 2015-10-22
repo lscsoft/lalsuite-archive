@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -15,16 +16,18 @@
 """
 Text-mode progress bars
 """
-from __future__ import division
+from __future__ import division, print_function, unicode_literals
 __copyright__ = "Copyright 2010, Leo Singer"
 __author__ = "Leo Singer <leo.singer@ligo.org>"
-__all__ = ["ProgressBar"]
+__all__ = ["ProgressBar", "ProgressBarTheme"]
 
 
+import locale
 import math
 import os
 import struct
 import sys
+import collections
 
 
 # From http://stackoverflow.com/questions/566746
@@ -63,6 +66,32 @@ def getTerminalSize():
     return (25, 80)
 
 
+class ProgressBarTheme(collections.namedtuple(
+    '_ProgressBarTheme', 'sequence twiddle_sequence left_border right_border')):
+
+    def is_compatible_with_encoding(self, coding):
+        if not coding:
+            coding = locale.getpreferredencoding()
+        try:
+            for string in self:
+                string.encode(coding)
+        except UnicodeEncodeError:
+            return False
+        else:
+            return True
+
+    def is_compatible_with_stream(self, stream):
+        return self.is_compatible_with_encoding(stream.encoding)
+
+
+default_unicode_theme = ProgressBarTheme(
+    ' ▏▎▍▌▋▊▉█', '       ▏▎▍▌▋▊▉██▉▊▋▌▍▎▏ ', '▐', '▌')
+
+
+default_ascii_theme = ProgressBarTheme(
+    ' .:!|', ' ..', ' |', u'| ')
+
+
 class ProgressBar:
     """Display a text progress bar.
 
@@ -83,19 +112,25 @@ class ProgressBar:
 
     def __init__(
             self, text='Working', max=1, value=0, textwidth=24, fid=None,
-            sequence=u' \u258f\u258e\u258d\u258c\u258b\u258a\u2589\u2588',
-            twiddle_sequence=u'        \u258f\u258e\u258d\u258c\u258b\u258a\u2589\u2588\u2588\u2589\u258a\u258b\u258c\u258d\u258e\u258f'):
+            theme=None):
         if fid is None:
             self.fid = sys.stderr
         self.isatty = os.isatty(self.fid.fileno())
+        if theme is None:
+            if self.isatty and default_unicode_theme.is_compatible_with_stream(self.fid) and 'xterm' in os.environ.get('TERM', ''):
+                theme = default_unicode_theme
+            else:
+                theme = default_ascii_theme
         self.text = text
         self.max = max
         self.value = value
         self.textwidth = textwidth
-        self.sequence = ('',) + tuple(sequence)
+        self.sequence = ('',) + tuple(theme.sequence)
         self.twiddle_sequence = tuple(
-            twiddle_sequence[-i:] + twiddle_sequence[:-i]
-            for i in range(len(twiddle_sequence)))
+            theme.twiddle_sequence[-i:] + theme.twiddle_sequence[:-i]
+            for i in range(len(theme.twiddle_sequence)))
+        self.left_border = theme.left_border
+        self.right_border = theme.right_border
         self.twiddle = 0
         self.linefed = False
 
@@ -126,6 +161,9 @@ class ProgressBar:
 
     def show(self):
         """Redraw the text progress bar."""
+        # Be silent if writing to a tty
+        if not self.isatty:
+            return
 
         if len(self.text) > self.textwidth:
             label = self.text[0:self.textwidth]
@@ -138,7 +176,7 @@ class ProgressBar:
         else:
             terminalSize = terminalSize[1]
 
-        barWidth = terminalSize - self.textwidth - 9
+        barWidth = terminalSize - self.textwidth - len(self.left_border) - len(self.right_border) - 7
 
         if self.value is None or self.value < 0:
             pattern = self.twiddle_sequence[
@@ -160,9 +198,10 @@ class ProgressBar:
                 (self.sequence[1] * (barWidth - iMajorMinor)))
             progressFractionText = ('%.1f%%' % (100*progressFraction)).rjust(6)
 
-        print >>self.fid, (
-            '\r\x1B[1m' + label + u'\x1b[0m\u2590\x1b[36m'
-            + barSymbols + u'\x1b[0m\u258c' + progressFractionText),
+        print(
+            '\r\x1B[1m', label, '\x1B[0m', self.left_border, '\x1B[36m',
+            barSymbols, '\x1B[0m', self.right_border, progressFractionText,
+            sep='', end='', file=self.fid)
         self.fid.flush()
         self.linefed = False
 
@@ -181,10 +220,7 @@ class ProgressBar:
                 round(self.value/(0.0003*self.max))
             self.value = value
         if redraw:
-            if self.isatty:
-                self.show()
-            else:
-                print >>self.fid, self.text
+            self.show()
         return self.value
 
     def increment(self, delta=1, text=None):
@@ -194,8 +230,11 @@ class ProgressBar:
         return self.update(value=min(self.max, self.value + delta), text=text)
 
     def linefeed(self):
+        # Be silent if writing to a tty
+        if not self.isatty:
+            return
         if not self.linefed:
-            print >>self.fid
+            print(file=self.fid)
             self.fid.flush()
             self.linefed = True
 

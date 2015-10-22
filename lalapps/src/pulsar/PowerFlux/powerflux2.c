@@ -288,6 +288,15 @@ if(args_info.label_given){
 	fprintf(stderr, "label: \"%s\"\n", args_info.label_arg);
 	}
 	
+fprintf(LOG, "cmdline:");
+fprintf(stderr, "cmdline:");
+for(i=0;i<argc;i++) {
+	fprintf(LOG, "\t%s", argv[i]);
+	fprintf(stderr, "\t%s", argv[i]);
+	}
+fprintf(LOG, "\n");
+fprintf(stderr, "\n");
+	
 if(gethostname(s, 19999)>=0){
 	fprintf(stderr, "Running on %s\n", s);
 	fprintf(LOG, "node: %s\n", s);

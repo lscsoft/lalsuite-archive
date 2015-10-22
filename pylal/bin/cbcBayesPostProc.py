@@ -514,7 +514,10 @@ def cbcBayesPostProc(
 
       statmax_pos,max_i=pos._posMaxL()
       statmaxL=statoned_pos.samples[max_i][0]
-      statKL = statoned_pos.KL()
+      try:
+          statKL = statoned_pos.KL()
+      except:
+          statKL = None
       statmax_pos,max_j=pos._posMap()
       statmaxP=statoned_pos.samples[max_j][0]
       statmean=str(statoned_pos.mean)
@@ -598,7 +601,9 @@ def cbcBayesPostProc(
         wfsection.write('<a href="PSDs/PSD.png" target="_blank"><img src="PSDs/PSD.png"/></a>')
       except  Exception,e:
         print "Could not create PSD plot. The error was: %s\n"%str(e)
-        wfsection.write("<b>No PSD file found!</b>")
+        wfsection.write("<b>PSD plotting failed</b>")
+    else:
+        wfsection.write("<b>No PSD files provided</b>")
 
     # Add plots for calibration estimates
     if np.any(['spcal_amp' in param for param in pos.names]) or np.any(['spcal_phase' in param for param in pos.names]):
@@ -606,9 +611,6 @@ def cbcBayesPostProc(
       wfsection=html.add_section_to_element('Calibration',wftd)
       bppu.plot_calibration_pos(pos, outpath=outdir)
       wfsection.write('<a href="calibration.png" target="_blank"><img src="calibration.png"/></a>')
-    else:
-      wfsection.write("<b> No calibration plots </b>")
-
 
     #==================================================================#
     #1D posteriors
