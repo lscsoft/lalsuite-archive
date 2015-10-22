@@ -997,13 +997,17 @@ if __name__ == '__main__':
     else:
         names=opts.names
 
-    if opts.no2d:
-        twoDplots=[]
-
     if len(opts.pos_list)!=len(names):
         print "Either add names for all posteriors or dont put any at all!"
 
-    greedy2savepaths,oned_data,confidence_uncertainty,confidence_levels,max_logls,dics=compare_bayes(outpath,zip(names,opts.pos_list),opts.inj,opts.eventnum,opts.username,opts.password,opts.reload_flag,opts.clf,opts.ldg_flag,contour_figsize=(float(opts.cw),float(opts.ch)),contour_dpi=int(opts.cdpi),contour_figposition=[0.15,0.15,float(opts.cpw),float(opts.cph)],fail_on_file_err=not opts.readFileErr,covarianceMatrices=opts.covarianceMatrices,meanVectors=opts.meanVectors,Npixels2D=int(opts.npixels_2d))
+    # Sort inputs alphabetically
+    names,pos_list = zip(*sorted(zip(names,opts.pos_list)))
+    
+    if opts.no2d:
+        twoDplots=[]
+
+
+    greedy2savepaths,oned_data,confidence_uncertainty,confidence_levels,max_logls,dics=compare_bayes(outpath,zip(names,pos_list),opts.inj,opts.eventnum,opts.username,opts.password,opts.reload_flag,opts.clf,opts.ldg_flag,contour_figsize=(float(opts.cw),float(opts.ch)),contour_dpi=int(opts.cdpi),contour_figposition=[0.15,0.15,float(opts.cpw),float(opts.cph)],fail_on_file_err=not opts.readFileErr,covarianceMatrices=opts.covarianceMatrices,meanVectors=opts.meanVectors,Npixels2D=int(opts.npixels_2d))
 
     ####Print Confidence Levels######
     output_confidence_levels_tex(confidence_levels,outpath)    
@@ -1022,7 +1026,7 @@ if __name__ == '__main__':
     param_section_write+='<table border="1">'
     param_section_write+='<th>Analysis</th> <th> max(log(L)) </th> <th> DIC </th>'
     for (name,logl_max), dic in zip(max_logls, dics):
-        param_section_write+='<tr><td><a href="%s">%s</a></td> <td>%g</td> <td>%.1f</td></tr>'%(dict(zip(names,opts.pos_list))[name],name,logl_max,dic)
+        param_section_write+='<tr><td><a href="%s">%s</a></td> <td>%g</td> <td>%.1f</td></tr>'%(dict(zip(names,pos_list))[name],name,logl_max,dic)
     param_section_write+='</table></div>'
 
     param_section.write(param_section_write)
