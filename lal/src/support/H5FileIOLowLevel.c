@@ -814,6 +814,27 @@ LALH5File * XLALH5GroupOpen(LALH5File *file, const char *name)
 #endif
 }
 
+/**
+ * @brief Checks for existence of a Group in a LALH5File object #LALH5File
+ * @details
+ * Checks if group with name @p exists in the HDF5 files associated with the
+ * #LALH5File file. If the group exists the return code is XLAL_SUCCESS
+ * if the group does not exist a return code value of 1 is used.
+ * 
+ * @param file Pointer to a #LALH5File structure to check for group in
+ * @param name Pointer to a string with the name of the group to check.
+ * @returns UINT4, 0 if group exists. 1 if not.
+ * @retval NULL An error occurred opening the group.
+ */
+UINT4 XLALH5CheckGroupExists(LALH5File *file, const char *name)
+{
+#ifndef HAVE_HDF5
+        XLAL_ERROR_NULL(XLAL_EFAILED, "HDF5 support not implemented");
+#else
+        return H5Gget_objinfo(file->file_id, name, 0, NULL);
+#endif
+}
+
 /** @} */
 
 /**
