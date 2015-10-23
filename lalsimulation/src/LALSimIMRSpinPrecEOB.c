@@ -1540,6 +1540,9 @@ int XLALSimIMRSpinEOBWaveformAll(
   REAL8 spin1Norm = -1, spin2Norm = -1;
   spin1Norm = sqrt( INspin1[0]*INspin1[0] + INspin1[1]*INspin1[1] + INspin1[2]*INspin1[2] );
   spin2Norm = sqrt( INspin2[0]*INspin2[0] + INspin2[1]*INspin2[1] + INspin2[2]*INspin2[2] );
+    
+    if (spin1Norm <= 1.0e-5) {INspin1[0]=0.;INspin1[1]=0.;INspin1[2]=0.;}
+    if (spin2Norm <= 1.0e-5) {INspin2[0]=0.;INspin2[1]=0.;INspin2[2]=0.;}
 
   if( spin1Norm > 1.0e-5 && (INspin1[0] != 0 || INspin1[1] != 0 || INspin1[2] != 0) ) {
     theta1Ini = acos( (InitLhat[0]*INspin1[0] + InitLhat[1]*INspin1[1] + InitLhat[2]*INspin1[2])/ spin1Norm );
@@ -3749,7 +3752,17 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
     bP2J = acos( JframeEz[0]*LframeEz[0]+JframeEz[1]*LframeEz[1]+JframeEz[2]*LframeEz[2]);
     gP2J = atan2(  JframeEy[0]*LframeEz[0]+JframeEy[1]*LframeEz[1]+JframeEy[2]*LframeEz[2],
                  -(JframeEx[0]*LframeEz[0]+JframeEx[1]*LframeEz[1]+JframeEx[2]*LframeEz[2]));
-
+      
+      if ( fabs(bP2J-LAL_PI) < 1.e-10){
+          gP2J = 0.0;
+          aP2J = atan2( JframeEx[1], JframeEx[0]);
+      }
+      
+      if ( fabs(bP2J) < 1.e-10){
+          gP2J = 0.0;
+          aP2J = atan2( JframeEx[1], JframeEx[0]);
+      }
+      
 /*if (i==0||i==1900) printf("{{%f,%f,%f},{%f,%f,%f},{%f,%f,%f}}\n",JframeEx[0],JframeEx[1],JframeEx[2],JframeEy[0],JframeEy[1],JframeEy[2],JframeEz[0],JframeEz[1],JframeEz[2]);
 if (i==0||i==1900) printf("{{%f,%f,%f},{%f,%f,%f},{%f,%f,%f}}\n",LframeEx[0],LframeEx[1],LframeEx[2],LframeEy[0],LframeEy[1],LframeEy[2],LframeEz[0],LframeEz[1],LframeEz[2]);
 if (i==0||i==1900) printf("YP: study time = %f\n",i*deltaTHigh/mTScaled);
@@ -4350,8 +4363,17 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   /**** First atempt to compute Euler Angles and rotate to I frame */  
   gamJtoI = atan2(JframeEz[1], -JframeEz[0]);
   betJtoI = acos(JframeEz[2]);
-  alJtoI = atan2(JframeEy[2], -JframeEx[2]);
-
+    //alJtoI = atan2(JframeEy[2], -JframeEx[2]);
+    alJtoI = atan2(JframeEy[2], JframeEx[2]);
+    if (fabs(betJtoI - LAL_PI) < 1.e-10){
+        gamJtoI = 0.0;
+        alJtoI = atan2(JframeEx[1], JframeEx[0]);
+    }
+    if (fabs(betJtoI) < 1.e-10){
+        gamJtoI = 0.0;
+        alJtoI = atan2(JframeEx[1], JframeEx[0]);
+    }
+    
   if (debugPK){
     printf("Stas: J->I EA = %.16e, %.16e, %.16e \n", alJtoI, betJtoI, gamJtoI);
     fflush(NULL); 
