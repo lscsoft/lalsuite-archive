@@ -276,12 +276,12 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
   // result returned by Maple.
   const REAL8 invlog_2e = 0.69314718055994530941723212145817656807550013436026;
   logu = log2(u)*invlog_2e;
-  const REAL8 logarg = coeffs->k1*u + coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4
-                                             + coeffs->k5*u5 + coeffs->k5l*u5*logu;
+  const REAL8 logarg = fabs(coeffs->k1*u + coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4
+                                             + coeffs->k5*u5 + coeffs->k5l*u5*logu);
   logTerms = 1. + eta*coeffs->k0 + eta*log1p(logarg);
   if(debugPK)printf( "bulk = %.16e, logTerms = %.16e\n", bulk, logTerms );
   /* Eq. 5.73 of BB1 */
-  deltaU = bulk*logTerms;
+  deltaU = fabs(bulk*logTerms);
   /* Eq. 5.71 of BB1 */
   deltaT = r2*deltaU;
   /* ddeltaU/du */
@@ -291,7 +291,7 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
   /* ddeltaT/dr */
   deltaT_r = 2.*r*deltaU - deltaU_u;
   /* Eq. 5.39 of BB1 */
-  Lambda = w2*w2 - a2*deltaT*xi2;
+  Lambda = fabs(w2*w2 - a2*deltaT*xi2);
   // RH: this is horrible, but faster than 3 divisions
   const REAL8 invrho2xi2Lambda = 1./(rho2*xi2*Lambda);
   const REAL8 invrho2 = xi2 * (Lambda*invrho2xi2Lambda);
@@ -309,7 +309,7 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
   /* We need to transform the momentum to get the tortoise co-ord */
   /* Eq. 28 of Pan et al. PRD 81, 084041 (2010) */
   // RH: this assumes that tortoise can be 0 or 1 or 2.
-  csi = sqrt( deltaT * deltaR )/ w2;
+  csi = sqrt( fabs(deltaT * deltaR) )/ w2;
   // non-unity only for tortoise==1
   const REAL8 csi1 = 1.0 + (1.-fabs(1.-tortoise)) * (csi - 1.0);
   // non-unity only for tortoise==2
@@ -538,7 +538,7 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
 	  printf( "Hns = %.16e, Hs = %.16e, Hss = %.16e\n", Hns, Hs, Hss );
 	  printf( "H = %.16e\n", H );}
   /* Real Hamiltonian given by Eq. 2, ignoring the constant -1. */
-  Hreal = sqrt(1. + 2.*eta *(H - 1.));
+  Hreal = sqrt(1. + 2.*eta *(fabs(H) - 1.));
   if(debugPK)printf( "Hreal = %.16e\n", Hreal );
   
   if(isnan(Hreal)) {
