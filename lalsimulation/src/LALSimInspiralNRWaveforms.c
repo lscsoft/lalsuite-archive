@@ -91,14 +91,15 @@ static UINT4 XLALSimInspiralNRWaveformGetDataFromHDF5File(
 
 
 int XLALSimInspiralNRWaveformGetHplusHcross(
-        REAL8TimeSeries **hplus,                /**< Output h_+ vector */
-        REAL8TimeSeries **hcross,               /**< Output h_x vector */
-        REAL8 phiRef,                   /**< orbital phase at reference pt. */
-        REAL8 inclination,              /**< inclination angle */
-        REAL8 deltaT,                   /**< sampling interval (s) */
-        REAL8 m1,                       /**< mass of companion 1 (kg) */
-        REAL8 m2,                       /**< mass of companion 2 (kg) */
-        REAL8 fStart,                   /**< start GW frequency (Hz) */
+        REAL8TimeSeries **hplus,               /**< Output h_+ vector */
+        REAL8TimeSeries **hcross,              /**< Output h_x vector */
+        REAL8 phiRef,                          /**< orbital phase at reference pt. */
+        REAL8 inclination,                     /**< inclination angle */
+        REAL8 deltaT,                          /**< sampling interval (s) */
+        REAL8 m1,                              /**< mass of companion 1 (kg) */
+        REAL8 m2,                              /**< mass of companion 2 (kg) */
+        REAL8 r,                               /**< distance of source (m) */
+        REAL8 fStart,                          /**< start GW frequency (Hz) */
         UNUSED REAL8 fRef,                     /**< reference GW frequency (Hz) */
         UNUSED REAL8 s1x,                      /**< initial value of S1x */
         UNUSED REAL8 s1y,                      /**< initial value of S1y */
@@ -106,7 +107,7 @@ int XLALSimInspiralNRWaveformGetHplusHcross(
         UNUSED REAL8 s2x,                      /**< initial value of S2x */
         UNUSED REAL8 s2y,                      /**< initial value of S2y */
         UNUSED REAL8 s2z,                      /**< initial value of S2z */
-        const char *NRDataFile         /**< Location of NR HDF file */
+        const char *NRDataFile                 /**< Location of NR HDF file */
         )
 {
   /* Declarations */
@@ -200,7 +201,7 @@ int XLALSimInspiralNRWaveformGetHplusHcross(
   }
 
   /* Create the distance scale factor */
-  distance_scale_fac = (m1 + m2) * LAL_MRSUN_SI / (LAL_PC_SI * 1.0e6);
+  distance_scale_fac = (m1 + m2) * LAL_MRSUN_SI / r;
 
   /* Generate the waveform */
   for (model=2; model < 9 ; model++)

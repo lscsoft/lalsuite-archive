@@ -146,13 +146,14 @@ int XLALSimIMRPhenSpinInspiralRDGenerator(REAL8TimeSeries **hplus, REAL8TimeSeri
 /* in module LALSimInspiralNRWaveforms.c */
 
 int XLALSimInspiralNRWaveformGetHplusHcross(
-        REAL8TimeSeries **hplus,                /**< OUTPUT h_+ vector */
-        REAL8TimeSeries **hcross,               /**< OUTPUT h_x vector */
+        REAL8TimeSeries **hplus,        /**< OUTPUT h_+ vector */
+        REAL8TimeSeries **hcross,       /**< OUTPUT h_x vector */
         REAL8 phiRef,                   /**< orbital phase at reference pt. */
         REAL8 inclination,              /**< inclination angle */
         REAL8 deltaT,                   /**< sampling interval (s) */
         REAL8 m1,                       /**< mass of companion 1 (kg) */
         REAL8 m2,                       /**< mass of companion 2 (kg) */
+        REAL8 r,                        /**< distance of source (m) */
         REAL8 fStart,                   /**< start GW frequency (Hz) */
         REAL8 fRef,                     /**< reference GW frequency (Hz) */
         REAL8 s1x,                      /**< initial value of S1x */
