@@ -4325,7 +4325,10 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
   fig_actor_lst = [cs.collections[0] for cs in CSlst]
   fig_actor_lst.extend(dummy_lines)
   if legend is not None:
-    twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right',framealpha=0.1)
+    try:
+      twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right',framealpha=0.1)
+    except:
+      twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
     for text in twodcontour_legend.get_texts():
       text.set_fontsize('small')
 
@@ -4574,7 +4577,10 @@ def plot_two_param_greedy_bins_contourf(posteriors_by_name,greedy2Params,confide
         fig_actor_lst = [cs.collections[0] for cs in CSlst]
         fig_actor_lst.extend(dummy_lines)
     if legend is not None:
-      twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right',framealpha=0.1)
+      try:
+        twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right',framealpha=0.1)
+      except:
+        twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
       for text in twodcontour_legend.get_texts():
           text.set_fontsize('small')
     fix_axis_names(plt,par1_name,par2_name)
@@ -4791,7 +4797,10 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     fig_actor_lst.extend(dummy_lines)
 
     if legend is not None:
-      twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right',framealpha=0.1)
+      try:
+        twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right',framealpha=0.1)
+      except:
+        twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
       for text in twodcontour_legend.get_texts():
         text.set_fontsize('small')
 
@@ -6641,7 +6650,10 @@ def plot_calibration_pos(pos, level=.9, outpath=None):
 
     ax1.tick_params(labelsize=.75*font_size)
     ax2.tick_params(labelsize=.75*font_size)
-    plt.legend(loc='upper right', prop={'size':.75*font_size}, framealpha=0.1)
+    try:
+      plt.legend(loc='upper right', prop={'size':.75*font_size}, framealpha=0.1)
+    except:
+      plt.legend(loc='upper right', prop={'size':.75*font_size})
     ax1.set_xscale('log')
     ax2.set_xscale('log')
 
