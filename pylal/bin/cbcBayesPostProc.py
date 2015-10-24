@@ -1355,8 +1355,8 @@ if __name__=='__main__':
                     twoDGreedyMenu.append([sp1, sp2])
         for sp1,sp2 in combinations(spinParams,2):
           twoDGreedyMenu.append([sp1, sp2])
-          for dchi in tigerParams:
-            twoDGreedyMenu.append([mp,dchi])
+        for dc1,dc2 in combinations(tigerParams,2):
+            twoDGreedyMenu.append([dc1,dc2])
         for mp in massParams:
              for tp in tidalParams:
                  if not (mp == tp):
