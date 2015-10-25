@@ -212,7 +212,11 @@ if( ((long)accum & 0x0f) == ((long)partial & 0x0f)) sse_sum_aligned_F(count, par
 #define REAL float
 #define SUFFIX(a) a##_F
 #define CBLAS_AXPY cblas_saxpy
+#if MANUAL_SSE
 #define SSE_SUM sse_sum_F
+#else
+#define SSE_SUM sum_F
+#endif
 #include "partial_power_sum.c"
 
 #undef SSE_SUM
