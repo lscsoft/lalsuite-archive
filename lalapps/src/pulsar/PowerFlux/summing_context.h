@@ -3,6 +3,8 @@
 
 #include "power_cache.h"
 
+struct S_POWER_SUM;
+
 typedef struct S_SUMMING_CONTEXT {
 	void (*get_uncached_power_sum)(struct S_SUMMING_CONTEXT  *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps);
 	void (*accumulate_power_sum_cached)(struct S_SUMMING_CONTEXT  *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps);
@@ -40,6 +42,8 @@ typedef struct S_SUMMING_CONTEXT {
 	int loose_first_half_count;
 
 	} SUMMING_CONTEXT;
+
+#include "power_sums.h"
 
 #define PATCH_PRIVATE_SINGLE_BIN_LOOSELY_COHERENT_SIGNATURE 1
 #define PATCH_PRIVATE_MATCHED_LOOSELY_COHERENT_SIGNATURE 2

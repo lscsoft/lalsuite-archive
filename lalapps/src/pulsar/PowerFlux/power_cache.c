@@ -438,11 +438,17 @@ for(k=0;k<count;k++) {
 	sum=0.0;
 	sum_sq=0.0;
 	p=power;
+	
 PRAGMA_IVDEP
 	for(i=0;i<pps_bins;i++) {
 		a=(re[i]*re[i]+im[i]*im[i]-TM*fm[i]);
 		//if(a>pmax)pmax=a;
 		p[i]=a;
+		}
+		
+PRAGMA_IVDEP
+	for(i=0;i<pps_bins;i++) {
+		a=p[i];
 		sum+=a;
 		sum_sq+=a*a;
 		}
@@ -480,6 +486,7 @@ PRAGMA_IVDEP
 	pp=pps->power_pp;
 	pc=pps->power_pc;
 	cc=pps->power_cc;
+	
 PRAGMA_IVDEP
 	for(i=0;i<pps_bins;i++) {
 		a=p[i];
@@ -1381,7 +1388,11 @@ for(k=0;k<sc->free;k++) {
 			sc->hits++;
 			/*  align pps with stored data */
 			pps->offset-=first_shift;
+#if MANUAL_SSE
 			sse_accumulate_partial_power_sum_F(pps, sc->pps[k]);
+#else
+			accumulate_partial_power_sum_F(pps, sc->pps[k]);
+#endif
 			pps->offset+=first_shift;
 			//fprintf(stderr, "hit\n");
 			return;
@@ -1410,7 +1421,11 @@ sc->key[k]=key;
 memcpy(sc->si[k], si, sc->segment_count*sizeof(*si));
 
 ctx->get_uncached_power_sum(ctx, sc->si[k], sc->segment_count, sc->pps[k]);
+#if MANUAL_SSE
 sse_accumulate_partial_power_sum_F(pps, sc->pps[k]);
+#else
+accumulate_partial_power_sum_F(pps, sc->pps[k]);
+#endif
 }
 
 void power_cache_selftest(void)

@@ -9,6 +9,7 @@ LALINCLUDE=-I$(LALROOT)/include/
 #LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -L/opt/zlib/lib -L/opt/png/lib -llalsupport -llalpulsar -llal -lm -lz
 LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -L/opt/zlib/lib -L/opt/png/lib -llalpulsar -llalsupport  -llal -lm -lz
 LDFLAGS=$(LALLDFLAGS) -g -ggdb -L. -lpng
+VALGRIND_LDFLAGS=/opt/lscsoft/lib/liblalpulsar.a /opt/lscsoft/lib/liblalxml.a /opt/lscsoft/lib/liblalsupport.a /opt/lscsoft/lib/liblal.a  -lm -lz -g -ggdb -L. -lpng /usr/lib/gcc/x86_64-linux-gnu/4.9/libasan.a /usr/lib/gcc/x86_64-linux-gnu/4.9/libubsan.a -ldl
 #OPTFLAGS=-O2 -funroll-loops 
 OPTFLAGS=-O6 -mmmx -msse -mcpu=i686
 OPTFLAGS=-O6 -march=i686 -funroll-loops
@@ -24,7 +25,11 @@ OPTFLAGS=-O3 -mtune=core2 -mavx -ftree-vectorize -fopt-info-vec-missed=vec_info.
 #OPTFLAGS=-O6 -funroll-loops -msse3
 CONVERSION=-Wconversion-extra -Wconversion
 CONVERSION=
-CFLAGS=-Wall $(CONVERSION) -g -ggdb $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=\"$(VERSION)\" \
+#SANITIZE=-fsanitize=thread  -pie 
+#SANITIZE=  -fsanitize=leak -fsanitize=undefined 
+#SANITIZE= -fsanitize=address -fsanitize=leak -fsanitize=undefined
+SANITIZE=
+CFLAGS=-Wall $(CONVERSION) $(SANITIZE) -g -ggdb $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=\"$(VERSION)\" \
 	$(LALINCLUDE) -fPIC -std=gnu99
 CC=gcc $(CFLAGS)
 
@@ -463,7 +468,7 @@ powerflux-condor2: $(OBJS2) jobs.o util-condor.o
 	ls -l powerflux-condor2
 
 powerflux-valgrind2: $(OBJS2) jobs-mt.o util.o
-	$(CC) $(OBJS2) jobs-mt.o util.o -o powerflux-valgrind2 $(LDFLAGS) -lgsl -lgslcblas -lm -lpthread -lz
+	$(CC) $(OBJS2) jobs-mt.o util.o -o powerflux-valgrind2 $(VALGRIND_LDFLAGS) -lgsl -lgslcblas -lm -lpthread -lz
 	ls -l powerflux-valgrind2
 
 
@@ -526,6 +531,8 @@ upload.c2:  powerflux-mt powerflux-mt2
 	gsiscp -C powerflux-mt2 ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt2.$(VERSION)
 	gsiscp -C $(FILES) ldas-grid.ligo.caltech.edu:PowerFlux/
 
+upload.v2:  powerflux-valgrind2
+	gsiscp -C powerflux-valgrind2 ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt2.$(VERSION)
 
 upload.m: powerflux-condor powerflux-mt
 	gsiscp -C powerflux-condor vdergach@morgane.aei.mpg.de:PowerFlux/powerflux-condor.$(VERSION)

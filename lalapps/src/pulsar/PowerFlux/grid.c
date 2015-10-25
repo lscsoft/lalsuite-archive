@@ -1370,11 +1370,13 @@ for(k=1;k<sg->super_grid->npoints-1;k++){
 	
 	i=pk-2*grid->max_n_ra-1;
 	if(i<0)i=0;
-	for(;(i<(pk+2*grid->max_n_ra+1)) && (i<grid->npoints);i++){
+	for(;(i<(pk+2*grid->max_n_ra+1)) && (i<grid->npoints);i++) {
 		/* Try approximate comparison first */
 		ds=fabs(grid->longitude[i]-sg->super_grid->longitude[k]);
 		/* check that we are not far enough in RA */
 		/* The (ds<1.0) is to check that we are not jumping 2*PI */
+		if((fabs(grid->latitude[i])<1.2) && (0.36*ds>best_ds)&&(ds<6.0))continue;
+		if((fabs(grid->latitude[i])<1.47) && (0.1*ds>best_ds)&&(ds<6.0))continue;
 		if((cos(grid->latitude[i])*ds>best_ds)&&(ds<6.0))continue;
 		ds=spherical_distance(grid->longitude[i], grid->latitude[i],
 				sg->super_grid->longitude[k], sg->super_grid->latitude[k]);

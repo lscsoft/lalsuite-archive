@@ -226,7 +226,11 @@ pstats_accum.max_weight=-1;
 for(i=0;i<count;i++) {
 	zero_partial_power_sum_F(pps);
 	for(k=0;k<nchunks;k++) {
+#if MANUAL_SSE
 		sse_accumulate_partial_power_sum_F(pps, (ps[k][i].pps));
+#else
+		accumulate_partial_power_sum_F(pps, (ps[k][i].pps));
+#endif
 		}
 	power_sum_stats(pps, &(pstats));
 

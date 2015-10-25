@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 /* We need this define to get NAN values */
-#define __USE_ISOC99
+// #define __USE_ISOC99
 #include <math.h>
 
 #include "global.h"
@@ -236,6 +236,8 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 						+patch_e[2]*si_local->detector_velocity[2])
 			+si_local->coherence_time*(avg_spindown+0.5*avg_fdotdot*(float)(si_local->gps-spindown_start))*(float)(si_local->gps-spindown_start));
 		/* This computation involves doubles and trigonometric functions. Avoid it if there is no modulation */
+		/* Approximate */
+		ps_local=ps;
 		if(ps_local->freq_modulation_freq>0) {
 			fmodomega_t=(si_local->gps-spindown_start+0.5*si_local->coherence_time)*ps_local->freq_modulation_freq;
 			fmodomega_t=fmodomega_t-floor(fmodomega_t);
