@@ -213,7 +213,7 @@ if(args_info.tmedian_noise_level_arg) {
 	}
 
 #else
-fprintf(stderr, "**** MANUAL_SSE disabled\n");
+fprintf(stderr, "**** MANUAL_SSE disabled in %s\n", __FUNCTION__);
 exit(-2);
 #endif
 }
@@ -342,7 +342,7 @@ if(args_info.tmedian_noise_level_arg) {
 	}
 
 #else
-fprintf(stderr, "**** MANUAL_SSE disabled\n");
+fprintf(stderr, "**** MANUAL_SSE disabled in %s\n", __FUNCTION__);
 exit(-2);
 #endif
 }

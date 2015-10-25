@@ -108,7 +108,7 @@ for(;i<count;i++) {
 	accum[i]+=partial[i];
 	}
 #else
-fprintf(stderr, "**** MANUAL_SSE disabled\n");
+fprintf(stderr, "**** MANUAL_SSE disabled in %s\n", __FUNCTION__);
 exit(-2);
 #endif
 }
@@ -154,7 +154,7 @@ for(;i<count;i++) {
 	accum[i]+=partial[i];
 	}
 #else
-fprintf(stderr, "**** MANUAL_SSE disabled\n");
+fprintf(stderr, "**** MANUAL_SSE disabled in %s\n", __FUNCTION__);
 exit(-2);
 #endif
 }
@@ -182,7 +182,7 @@ for(;i<count;i++) {
 	accum[i]+=partial[i];
 	}
 #else
-fprintf(stderr, "**** MANUAL_SSE disabled\n");
+fprintf(stderr, "**** MANUAL_SSE disabled in %s\n", __FUNCTION__);
 exit(-2);
 #endif
 }
@@ -774,7 +774,7 @@ pps->c_weight_cccc=weight_cccc;
 
 pps->collapsed_weight_arrays=0;
 #else
-fprintf(stderr, "**** MANUAL_SSE disabled\n");
+fprintf(stderr, "**** MANUAL_SSE disabled in %s\n", __FUNCTION__);
 exit(-2);
 #endif
 }
@@ -1225,7 +1225,7 @@ pps->c_weight_cccc=weight_cccc;
 
 pps->collapsed_weight_arrays=0;
 #else
-fprintf(stderr, "**** MANUAL_SSE disabled\n");
+fprintf(stderr, "**** MANUAL_SSE disabled in %s\n", __FUNCTION__);
 exit(-2);
 #endif
 }

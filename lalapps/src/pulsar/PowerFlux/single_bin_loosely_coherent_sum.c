@@ -928,6 +928,7 @@ pps->collapsed_weight_arrays=0;
 
 void sse_get_uncached_loose_single_bin_partial_power_sum(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps)
 {
+#if MANUAL_SSE
 int i,k,n,m;
 int bin_shift, bin_shift2;
 SEGMENT_INFO *si_local, *si_local2;
@@ -1509,6 +1510,10 @@ pps->c_weight_cccc=weight_cccc;
 pps->c_weight_im_ppcc=weight_im_ppcc;
 
 pps->collapsed_weight_arrays=0;
+#else
+fprintf(stderr, "**** MANUAL_SSE disabled in %s\n", __FUNCTION__);
+exit(-2);
+#endif
 }
 
 static int is_nonzero_loose_partial_power_sum(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si1, int count1, SEGMENT_INFO *si2, int count2)
@@ -1632,7 +1637,11 @@ for(k=0;k<sc->free;k++) {
 			sc->hits++;
 			/*  align pps with stored data */
 			pps->offset-=first_shift;
+#if MANUAL_SSE
 			sse_accumulate_partial_power_sum_F(pps, sc->pps[k]);
+#else
+			accumulate_partial_power_sum_F(pps, sc->pps[k]);
+#endif
 			pps->offset+=first_shift;
 			//fprintf(stderr, "hit\n");
 			return;
@@ -1660,7 +1669,11 @@ sc->key[k]=key;
 memcpy(sc->si[k], si, sc->segment_count*sizeof(*si));
 
 ctx->get_uncached_power_sum(ctx, sc->si[k], sc->segment_count, sc->pps[k]);
+#if MANUAL_SSE
 sse_accumulate_partial_power_sum_F(pps, sc->pps[k]);
+#else
+accumulate_partial_power_sum_F(pps, sc->pps[k]);
+#endif
 }
 
 extern EphemerisData ephemeris;
@@ -1987,8 +2000,10 @@ ctx->patch_private_data=priv;
 get_uncached_loose_single_bin_partial_power_sum(ctx, si, count, ps1);
 
 /* sse implementation */
+#if MANUAL_SSE
 sse_get_uncached_loose_single_bin_partial_power_sum(ctx, si, count, ps2);
 result+=compare_partial_power_sums_F("sse_get_uncached_single_bin_power_sum:", ps1, ps2, 1, 2e-5);
+#endif
 
 if(result<0) {
 	dump_partial_power_sum_F(stderr, ps1);
