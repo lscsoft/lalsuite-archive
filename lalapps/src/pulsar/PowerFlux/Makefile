@@ -8,7 +8,7 @@ LALROOT=/opt/lscsoft/
 LALINCLUDE=-I$(LALROOT)/include/
 #LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -L/opt/zlib/lib -L/opt/png/lib -llalsupport -llalpulsar -llal -lm -lz
 LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -L/opt/zlib/lib -L/opt/png/lib -llalpulsar -llalsupport  -llal -lm -lz
-LDFLAGS=$(LALLDFLAGS) -L. -lpng
+LDFLAGS=$(LALLDFLAGS) -g -ggdb -L. -lpng
 #OPTFLAGS=-O2 -funroll-loops 
 OPTFLAGS=-O6 -mmmx -msse -mcpu=i686
 OPTFLAGS=-O6 -march=i686 -funroll-loops
@@ -18,11 +18,13 @@ OPTFLAGS=-O -march=opteron -fno-stack-protector
 OPTFLAGS=-O6 -msse2 -funroll-loops -fno-stack-protector
 #OPTFLAGS=-O6 -mtune=opteron -mfpmath=sse -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE
 OPTFLAGS=-O6 -mtune=nocona -funroll-loops -fno-stack-protector -msse3 -U_FORTIFY_SOURCE
-OPTFLAGS=-O -mtune=core2 -funroll-loops -fno-stack-protector -msse3 -U_FORTIFY_SOURCE
+OPTFLAGS=-O3 -mtune=core2 -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -msse3 -U_FORTIFY_SOURCE
+OPTFLAGS=-O3 -mtune=core2 -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -mavx -U_FORTIFY_SOURCE
+OPTFLAGS=-O3 -mtune=core2 -mavx -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=0
 #OPTFLAGS=-O6 -funroll-loops -msse3
 CONVERSION=-Wconversion-extra -Wconversion
 CONVERSION=
-CFLAGS=-Wall $(CONVERSION) -g $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=\"$(VERSION)\" \
+CFLAGS=-Wall $(CONVERSION) -g -ggdb $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=\"$(VERSION)\" \
 	$(LALINCLUDE) -fPIC -std=gnu99
 CC=gcc $(CFLAGS)
 
@@ -481,7 +483,7 @@ cmdline2.c: powerflux2.ggo
 	gengetopt  --string-parser --conf-parser --file-name=cmdline2 < powerflux2.ggo
 
 clean:
-	rm -f core *.bck *.o
+	rm -f core *.bck *.o vec_info.txt
 
 upload: powerflux-condor powerflux-mt powerflux-condor2 powerflux-mt2
 	gsiscp -C powerflux-condor hydra.phys.uwm.edu:PowerFlux/powerflux-condor.$(VERSION)

@@ -30,7 +30,11 @@ fprintf(LOG, "SSE: %d\n", args_info.sse_arg);
 
 ctx->diff_shift_granularity=0; 
 
+#if MANUAL_SSE
 #define MODE(a)	(args_info.sse_arg ? (sse_ ## a) : (a) )
+#else
+#define MODE(a)	(a)
+#endif
 
 /* default values appropriate for particular averaging mode */
 if(!strcasecmp(args_info.averaging_mode_arg, "matched")) {

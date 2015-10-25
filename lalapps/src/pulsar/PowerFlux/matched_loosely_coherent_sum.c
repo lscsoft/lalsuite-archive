@@ -108,6 +108,7 @@ return(sinc_kernel(delta, gps_delta)*sinc_kernel(delta, gps_delta/2.0));
 /* This helper function populates real and imaginary part of an FFT array, and also computes weight */
 void sse_compute_matched_fft(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int offset, int pps_bins, float *out_re, float *out_im, float *out_w)
 {
+#if MANUAL_SSE
 int i;
 int bin_shift;
 DATASET *d;
@@ -211,6 +212,10 @@ if(args_info.tmedian_noise_level_arg) {
 	*out_w=1.0/sum_sq;
 	}
 
+#else
+fprintf(stderr, "**** MANUAL_SSE disabled\n");
+exit(-2);
+#endif
 }
 
 
@@ -220,6 +225,7 @@ if(args_info.tmedian_noise_level_arg) {
 
 void sse_compute_matched_floating_fft(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int offset, int pps_bins, float *out_re, float *out_im, float *out_w)
 {
+#if MANUAL_SSE
 int i;
 int bin_shift;
 DATASET *d;
@@ -335,6 +341,10 @@ if(args_info.tmedian_noise_level_arg) {
 	*out_w=1.0/sum_sq;
 	}
 
+#else
+fprintf(stderr, "**** MANUAL_SSE disabled\n");
+exit(-2);
+#endif
 }
 
 void get_uncached_loose_matched_partial_power_sum(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps)
