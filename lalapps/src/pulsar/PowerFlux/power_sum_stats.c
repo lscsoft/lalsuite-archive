@@ -1821,6 +1821,7 @@ if(pps->weight_arrays_non_zero) {
 	min_weight=1e50;
 
 	if(!pps->collapsed_weight_arrays) {
+		PRAGMA_IVDEP
 		for(i=0;i<useful_bins;i++) {
 			pps->weight_pppp[i]+=pps->c_weight_pppp;
 			pps->weight_pppc[i]+=pps->c_weight_pppc;
@@ -1836,6 +1837,7 @@ if(pps->weight_arrays_non_zero) {
 		pps->collapsed_weight_arrays=1;
 		}
 
+		PRAGMA_IVDEP
 	for(i=0;i<useful_bins;i++) {
 		weight=(pps->weight_pppp[i]*ag->pppp+
 			pps->weight_pppc[i]*ag->pppc+
@@ -1861,6 +1863,7 @@ if(pps->weight_arrays_non_zero) {
 
 	inv_weight=1.0/weight;
 
+	PRAGMA_IVDEP
 	for(i=0;i<useful_bins;i++) {
 		tmp[i]=((float)pps->power_pp[i]*ag->pp+(float)pps->power_pc[i]*ag->pc+(float)pps->power_cc[i]*ag->cc+(float)pps->power_im_pc[i]*ag->im_pc)*inv_weight;
 		}
@@ -1876,6 +1879,7 @@ if(min_weight<= args_info.small_weight_ratio_arg*max_weight) {
 max_dx=tmp[0];
 max_dx_bin=0;
 
+PRAGMA_IVDEP
 for(i=1;i<useful_bins;i++) {
 	a=tmp[i];
 	if(a>max_dx) {
@@ -1899,12 +1903,14 @@ for(i=1;i<useful_bins;i++) {
 count=0;
 sum=0.0;
 
+PRAGMA_IVDEP
 for(i=0;i<max_dx_bin-half_window;i++) {
 	a=tmp[i];
 	sum+=a;
 	count++;
 	}
 
+PRAGMA_IVDEP
 for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 	a=tmp[i];
 	sum+=a;
@@ -1921,6 +1927,7 @@ sum1=0.0;
 sum3=0.0;
 sum4=0.0;
 sum_abs=0.0;
+PRAGMA_IVDEP
 for(i=0;i<max_dx_bin-half_window;i++) {
 	a=(tmp[i]-M)*normalizer;
 	b=a*a;
@@ -1934,6 +1941,7 @@ for(i=0;i<max_dx_bin-half_window;i++) {
 	sum4+=b*b;
 	}
 
+PRAGMA_IVDEP
 for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 	a=(tmp[i]-M)*normalizer;
 	b=a*a;
@@ -1974,6 +1982,7 @@ if(max_dx<=0 || !isfinite(max_dx)) {
 	
 sum_c=0.0;
 
+PRAGMA_IVDEP
 for(i=0;i<max_dx_bin-half_window;i++) {
 	a=(M-x_epsilon*S)-tmp[i];
 	/* collect negative threshold statistics */
@@ -1982,6 +1991,7 @@ for(i=0;i<max_dx_bin-half_window;i++) {
 		}
 	}
 
+PRAGMA_IVDEP
 for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 	a=(M-x_epsilon*S)-tmp[i];
 	/* collect negative threshold statistics */

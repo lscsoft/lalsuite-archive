@@ -28,6 +28,13 @@ typedef struct S_SUMMING_CONTEXT {
 	void (*reset_cache)(struct S_SUMMING_CONTEXT *ctx, int segment_count, int template_count);
 
 	void *patch_private_data;
+	
+	PARTIAL_POWER_SUM_F **partial_power_sum_pool;
+	int pps_pool_size;
+	int pps_pool_free;
+	long pps_hits;
+	long pps_misses;
+	long pps_rollbacks;
 
 	/* dynamic parameters */
 	int loose_first_half_count;
@@ -39,5 +46,8 @@ typedef struct S_SUMMING_CONTEXT {
 
 SUMMING_CONTEXT *create_summing_context(void);
 void free_summing_context(SUMMING_CONTEXT *ctx);
+
+PARTIAL_POWER_SUM_F * get_partial_power_sum_F(SUMMING_CONTEXT *ctx, int pps_bins, int cross_terms_present);
+void put_partial_power_sum_F(SUMMING_CONTEXT *ctx, PARTIAL_POWER_SUM_F *pps);
 
 #endif

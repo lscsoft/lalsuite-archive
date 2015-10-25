@@ -142,6 +142,13 @@ ctx->half_inv_cache_granularity=0.5/ctx->cache_granularity;
 ctx->inv_diff_shift_granularity=1.0/ctx->diff_shift_granularity;
 ctx->half_inv_diff_shift_granularity=0.5/ctx->diff_shift_granularity;
 
+ctx->pps_pool_size=20000;
+ctx->pps_pool_free=0;
+ctx->partial_power_sum_pool=do_alloc(ctx->pps_pool_size, sizeof(*ctx->partial_power_sum_pool));
+ctx->pps_hits=0;
+ctx->pps_misses=0;
+ctx->pps_rollbacks=0;
+
 fprintf(LOG, "summing_step: %g\n", ctx->summing_step);
 fprintf(LOG, "cache_granularity: %d\n", ctx->cache_granularity);
 fprintf(LOG, "diff_shift_granularity: %d\n", ctx->diff_shift_granularity);
@@ -160,6 +167,57 @@ return(ctx);
 
 void free_summing_context(SUMMING_CONTEXT *ctx)
 {
+int i;
+
+fprintf(stderr, "pps_hits=%ld pps_misses=%ld pps_rollbacks=%ld\n", ctx->pps_hits, ctx->pps_misses, ctx->pps_rollbacks);
+
 if(ctx->free_cache!=NULL)ctx->free_cache(ctx);
+
+for(i=0;i<ctx->pps_pool_free;i++)free_partial_power_sum_F(ctx->partial_power_sum_pool[i]);
+free(ctx->partial_power_sum_pool);
+
 free(ctx);
 }
+
+PARTIAL_POWER_SUM_F * get_partial_power_sum_F(SUMMING_CONTEXT *ctx, int pps_bins, int cross_terms_present)
+{
+PARTIAL_POWER_SUM_F * p;
+while(ctx->pps_pool_free>0) {
+	ctx->pps_pool_free--;
+	
+	p=ctx->partial_power_sum_pool[ctx->pps_pool_free];
+	ctx->partial_power_sum_pool[ctx->pps_pool_free]=NULL;
+	
+	if(p->nbins!=pps_bins) {
+		free_partial_power_sum_F(p);
+		ctx->pps_rollbacks++;
+		continue;
+		}
+		
+	if(p->power_im_pc==NULL && cross_terms_present) {
+		free_partial_power_sum_F(p);
+		ctx->pps_rollbacks++;
+		continue;
+		}
+	ctx->pps_hits++;
+	return(p);
+	}
+ctx->pps_misses++;
+return(allocate_partial_power_sum_F(pps_bins, cross_terms_present));
+}
+
+void put_partial_power_sum_F(SUMMING_CONTEXT *ctx, PARTIAL_POWER_SUM_F *pps)
+{
+PARTIAL_POWER_SUM_F ** p;
+
+if(ctx->pps_pool_free>=ctx->pps_pool_size) {
+	ctx->pps_pool_size*=2;
+	p=do_alloc(ctx->pps_pool_size, sizeof(*ctx->partial_power_sum_pool));
+	memcpy(p, ctx->partial_power_sum_pool, ctx->pps_pool_free*sizeof(*ctx->partial_power_sum_pool));
+	free(ctx->partial_power_sum_pool);
+	ctx->partial_power_sum_pool=p;
+	}
+ctx->partial_power_sum_pool[ctx->pps_pool_free]=pps;
+ctx->pps_pool_free++;
+}
+

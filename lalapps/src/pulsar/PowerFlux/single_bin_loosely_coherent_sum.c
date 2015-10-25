@@ -1661,7 +1661,8 @@ if(k>=sc->size) {
 
 if(k>=sc->free) {
 	sc->si[k]=do_alloc(sc->segment_count, sizeof(*si));
-	sc->pps[k]=allocate_partial_power_sum_F(useful_bins+2*max_shift, ctx->cross_terms_present);
+	//sc->pps[k]=allocate_partial_power_sum_F(useful_bins+2*max_shift, ctx->cross_terms_present);
+	sc->pps[k]=get_partial_power_sum_F(ctx, useful_bins+2*max_shift, ctx->cross_terms_present);
 	sc->free++;
 	}
 

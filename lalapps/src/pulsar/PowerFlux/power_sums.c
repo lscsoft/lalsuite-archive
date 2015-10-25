@@ -82,7 +82,9 @@ for(i=0;i<args_info.spindown_count_arg;i++) {
 			/* TODO - this effectively requires skybands do not depend on spindown it would be nice if that was not so */			
 			p->skyband=skyband;
 
-			p->pps=allocate_partial_power_sum_F(useful_bins, ctx->cross_terms_present);
+			//p->pps=allocate_partial_power_sum_F(useful_bins, ctx->cross_terms_present);
+			p->pps=get_partial_power_sum_F(ctx, useful_bins, ctx->cross_terms_present);
+			
 			zero_partial_power_sum_F(p->pps);
 
 			(*count)++;
@@ -118,7 +120,8 @@ for(i=0;i<count;i++) {
 
 	(*ps_out)[i].skyband=ps[i].skyband;
 
-	(*ps_out)[i].pps=allocate_partial_power_sum_F(useful_bins, ctx->cross_terms_present);
+	//(*ps_out)[i].pps=allocate_partial_power_sum_F(useful_bins, ctx->cross_terms_present);
+	(*ps_out)[i].pps=get_partial_power_sum_F(ctx, useful_bins, ctx->cross_terms_present);
 	zero_partial_power_sum_F((*ps_out)[i].pps);
 	}
 }
@@ -128,6 +131,16 @@ void free_templates(POWER_SUM *ps, int count)
 int i;
 for(i=0;i<count;i++) {
 	free_partial_power_sum_F(ps[i].pps);
+	ps[i].pps=NULL;
+	}
+free(ps);
+}
+
+void free_templates_ctx(SUMMING_CONTEXT *ctx, POWER_SUM *ps, int count)
+{
+int i;
+for(i=0;i<count;i++) {
+	put_partial_power_sum_F(ctx, ps[i].pps);
 	ps[i].pps=NULL;
 	}
 free(ps);

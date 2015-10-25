@@ -708,9 +708,11 @@ for(i=0;i<nei;i++) {
 	}
 
 for(i=0;i<nchunks;i++) {
-	free_templates(ps[i], count);
+	free_templates_ctx(ctx, ps[i], count);
 	ps[i]=NULL;
 	}
+//fprintf(stderr, "pps_hits=%ld pps_misses=%ld pps_rollbacks=%ld\n", ctx->pps_hits, ctx->pps_misses, ctx->pps_rollbacks);
+
 }
 
 void outer_loop(void)

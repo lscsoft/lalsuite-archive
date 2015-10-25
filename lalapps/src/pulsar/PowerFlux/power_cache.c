@@ -1280,7 +1280,8 @@ if((sc==NULL) || (sc->id!=SIMPLE_CACHE_ID)) {
 	}
 if(sc->free>sc->max_size)sc->max_size=sc->free;
 for(i=0;i<sc->free;i++) {
-	free_partial_power_sum_F(sc->pps[i]);
+	//free_partial_power_sum_F(sc->pps[i]);
+	put_partial_power_sum_F(ctx, sc->pps[i]);
 	free(sc->si[i]);
 	}
 free(sc->pps);
@@ -1400,7 +1401,8 @@ if(k>=sc->size) {
 
 if(k>=sc->free) {
 	sc->si[k]=do_alloc(sc->segment_count, sizeof(*si));
-	sc->pps[k]=allocate_partial_power_sum_F(useful_bins+2*max_shift, 0);
+	//sc->pps[k]=allocate_partial_power_sum_F(useful_bins+2*max_shift, 0);
+	sc->pps[k]=get_partial_power_sum_F(ctx, useful_bins+2*max_shift, 0);
 	sc->free++;
 	}
 
