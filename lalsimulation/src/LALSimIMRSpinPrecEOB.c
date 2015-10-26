@@ -3419,6 +3419,15 @@ if (i==0||i==1900) printf("YP: study time = %f\n",i*deltaT/mTScaled);
 if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+JframeEy[1]*LframeEz[1]+JframeEy[2]*LframeEz[2], JframeEx[0]*LframeEz[0]+JframeEx[1]*LframeEz[1]+JframeEx[2]*LframeEz[2], gP2J, atan2(-0.365446,-0.378524));
     */
     /* I2P Euler angles are stored only for debugging purposes */
+      if ( fabs(bP2J-LAL_PI) < 1.e-10){
+          gP2J = 0.0;
+          aP2J = atan2( JframeEx[1], JframeEx[0]);
+      }
+      
+      if ( fabs(bP2J) < 1.e-10){
+          gP2J = 0.0;
+          aP2J = atan2( JframeEx[1], JframeEx[0]);
+      }
     alphaI2PTS->data->data[i] = -aI2P;
      betaI2PTS->data->data[i] = bI2P;
     gammaI2PTS->data->data[i] = -gI2P;
@@ -3426,6 +3435,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
     /*betaP2JTS->data->data[i] = 0.*LAL_PI/2.-bP2J;*/
     betaP2JTS->data->data[i] = bP2J;
     gammaP2JTS->data->data[i] = -gP2J;
+      
 
     /* Calculate the value of the Hamiltonian */
     memcpy( cartPosVec.data, values->data,   3*sizeof(REAL8) );
