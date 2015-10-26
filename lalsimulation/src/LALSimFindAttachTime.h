@@ -25,7 +25,6 @@
 #include <lal/LALGSL.h>
 
 #include <lal/LALDatatypes.h>
-//#include <lal/LALSimInspiral.h>
 #include <lal/TimeSeries.h>
 #include <lal/LALStdlib.h>
 #include <lal/LALConstants.h>
@@ -38,7 +37,6 @@
 #include <lal/Units.h>
 #include <lal/SeqFactories.h>
 
-//#include "LALSimIMREOBNRv2.h"
 #include "LALSimIMRSpinEOB.h"
 #include "LALSimIMREOBHybridRingdownPrec.c"
 

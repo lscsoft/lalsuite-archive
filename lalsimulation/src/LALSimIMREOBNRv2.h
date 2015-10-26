@@ -1,5 +1,5 @@
 /*
-*  Copyright (C) 2010 Craig Robinson 
+*  Copyright (C) 2010 Craig Robinson
 *
 *  This program is free software; you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -478,7 +478,7 @@ typedef struct tagPr3In {
   REAL8 r;                   /**<< Orbital separation (units of total mass) */
   REAL8 q;                   /**<< Momentum pphi */
   EOBACoefficients *aCoeffs; /**<< Pre-computed coefficients of EOB A function */
-  
+
 } pr3In;
 
 
