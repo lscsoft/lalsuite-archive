@@ -43,7 +43,7 @@
 static INT4
 XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
 					       COMPLEX16 * restrict hlm,	/**< OUTPUT, hlm waveforms */
-					       REAL8Vector * restrict values,	/**< dyanmical variables: (r,\phi,p_r,p_\phi) */
+					       REAL8Vector * restrict values,	/**< dyanmical variables: \f$(r,\phi,p_r,p_\phi)\f$ */
 					  REAL8Vector * restrict cartvalues,	/**< dyanmical variables */
 					       const REAL8 v,	/**< velocity */
 					       const REAL8 Hreal,	/**< real Hamiltonian */
@@ -55,7 +55,7 @@ XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
 static INT4
 XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
 						   COMPLEX16 * restrict hlmTab,	/**< OUTPUT, hlm waveforms */
-					      REAL8Vector * restrict values,	/**< dyanmical variables: (r,\phi,p_r,p_\phi) */
+					      REAL8Vector * restrict values,	/**< dyanmical variables: \f$(r,\phi,p_r,p_\phi)\f$ */
 					  REAL8Vector * restrict cartvalues,	/**< dyanmical variables */
 						   const REAL8 v,	/**< velocity */
 						   const REAL8 Hreal,	/**< real Hamiltonian */
@@ -83,13 +83,13 @@ XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
  * by ignoring complex arguments and keeping only absolute values.
  * Changes:
  * (i) Complex Argument of Tlm not exponentiated.
- * (ii) exp(\ii deltalm) set to 1.
+ * (ii) exp(i deltalm) set to 1.
  * Eq. 17 and the entire Appendix of the paper.
  */
 static INT4
 XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
 						   COMPLEX16 * restrict hlmTab,	/**< OUTPUT, hlm waveforms */
-					      REAL8Vector * restrict values,	/**< dyanmical variables: (r,\phi,p_r,p_\phi) */
+					      REAL8Vector * restrict values,	/**< dyanmical variables: \f$(r,\phi,p_r,p_\phi)\f$ */
 					  REAL8Vector * restrict cartvalues,	/**< dyanmical variables */
 						   const REAL8 v,	/**< velocity */
 						   const REAL8 Hreal,	/**< real Hamiltonian */
@@ -518,7 +518,7 @@ XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
 static INT4
 XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
 					       COMPLEX16 * restrict hlm,	/**< OUTPUT, hlm waveforms */
-					       REAL8Vector * restrict values,	/**< dyanmical variables: (r,\phi,p_r,p_\phi) */
+					       REAL8Vector * restrict values,	/**< dyanmical variables: \f$(r,\phi,p_r,p_\phi)\f$ */
 					  REAL8Vector * restrict cartvalues,	/**< dyanmical variables */
 					       const REAL8 v,	/**< velocity */
 					       const REAL8 Hreal,	/**< real Hamiltonian */

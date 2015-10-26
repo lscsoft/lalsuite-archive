@@ -37,7 +37,7 @@
 #include <lal/Units.h>
 #include <lal/SeqFactories.h>
 
-#include "LALSimIMRSpinEOB.h"
+//#include "LALSimIMRSpinEOB.h"
 #include "LALSimIMREOBHybridRingdownPrec.c"
 
 
@@ -79,50 +79,50 @@ double XLALSimLocateAmplTime(
 );
 
 INT4 XLALSimCheckRDattachment(
-    REAL8Vector * signal1,	/**<< Real of inspiral waveform to which we attach ringdown */
-    REAL8Vector * signal2,	/**<< Imag of inspiral waveform to which we attach ringdown */
-    REAL8* ratio,           /**<< output ratio  */
-    const REAL8 tAtt,       /**<< time of RD attachment */
-    const INT4 l,	/**<< Current mode l */
-    const INT4 m,	/**<< Current mode m */
-    const REAL8 dt,	/**<< Sample time step (in seconds) */
-    const REAL8 mass1,	/**<< First component mass (in Solar masses) */
-    const REAL8 mass2,	/**<< Second component mass (in Solar masses) */
-    const REAL8 spin1x,	/**<<The spin of the first object; only needed for spin waveforms */
-    const REAL8 spin1y,	/**<<The spin of the first object; only needed for spin waveforms */
-    const REAL8 spin1z,	/**<<The spin of the first object; only needed for spin waveforms */
-    const REAL8 spin2x,	/**<<The spin of the second object; only needed for spin waveforms */
-    const REAL8 spin2y,	/**<<The spin of the second object; only needed for spin waveforms */
-    const REAL8 spin2z,	/**<<The spin of the second object; only needed for spin waveforms */
-    REAL8Vector * timeVec,	/**<< Vector containing the time values */
-    REAL8Vector * matchrange,	/**<< Time values chosen as points for performing comb matching */
-    Approximant approximant,	/**<<The waveform approximant being used */
-    const REAL8 JLN           /**<< cosine of the angle between J and LN at the light ring */
+    REAL8Vector * signal1,
+    REAL8Vector * signal2,
+    REAL8* ratio,
+    const REAL8 tAtt,
+    const INT4 l,
+    const INT4 m,
+    const REAL8 dt,
+    const REAL8 mass1,
+    const REAL8 mass2,
+    const REAL8 spin1x,
+    const REAL8 spin1y,
+    const REAL8 spin1z,
+    const REAL8 spin2x,
+    const REAL8 spin2y,
+    const REAL8 spin2z,
+    REAL8Vector * timeVec,
+    REAL8Vector * matchrange,
+    Approximant approximant,
+    const REAL8 JLN
 );
 
 int XLALSimAdjustRDattachmentTime(
-    REAL8Vector * signal1,	/**<< Output Real of inspiral waveform to which we attach ringdown */
-    REAL8Vector * signal2,	/**<< Output Imag of inspiral waveform to which we attach ringdown */
-    COMPLEX16TimeSeries* h22,   /**<< input time series (inspiral) */
-    COMPLEX16TimeSeries* h2m2,  /**<< input time series (inspiral) */
-    REAL8* ratio22,      /**<< output ratio for 2,2 mode */
-    REAL8* ratio2m2,     /**<< output ratio  for 2,-2 mode*/
-    REAL8* tAtt,       /**<< output/input time of RD attachment */
-    const REAL8 thr,        /**<< threshold on the ratio */
-    const REAL8 dt,	/**<< Sample time step (in seconds) */
-    const REAL8 mass1,	/**<< First component mass (in Solar masses) */
-    const REAL8 mass2,	/**<< Second component mass (in Solar masses) */
-    const REAL8 spin1x,	/**<<The spin of the first object; only needed for spin waveforms */
-    const REAL8 spin1y,	/**<<The spin of the first object; only needed for spin waveforms */
-    const REAL8 spin1z,	/**<<The spin of the first object; only needed for spin waveforms */
-    const REAL8 spin2x,	/**<<The spin of the second object; only needed for spin waveforms */
-    const REAL8 spin2y,	/**<<The spin of the second object; only needed for spin waveforms */
-    const REAL8 spin2z,	/**<<The spin of the second object; only needed for spin waveforms */
-    REAL8Vector * timeVec,	/**<< Vector containing the time values */
-    REAL8Vector * matchrange,	/**<< Time values chosen as points for performing comb matching */
-    Approximant approximant,	/**<<The waveform approximant being used */
-    const REAL8 JLN,           /**<< cosine of the angle between J and LN at the light ring */
-    const REAL8 combsize,        /**<< combsize for RD attachment */
+    REAL8Vector * signal1,
+    REAL8Vector * signal2,
+    COMPLEX16TimeSeries* h22,
+    COMPLEX16TimeSeries* h2m2,
+    REAL8* ratio22,
+    REAL8* ratio2m2,
+    REAL8* tAtt,
+    const REAL8 thr,
+    const REAL8 dt,
+    const REAL8 mass1,
+    const REAL8 mass2,
+    const REAL8 spin1x,
+    const REAL8 spin1y,
+    const REAL8 spin1z,
+    const REAL8 spin2x,
+    const REAL8 spin2y,
+    const REAL8 spin2z,
+    REAL8Vector * timeVec,
+    REAL8Vector * matchrange,
+    Approximant approximant,
+    const REAL8 JLN,
+    const REAL8 combsize,
     const REAL8 tMaxOmega,
     const REAL8 tMaxAmp
 );

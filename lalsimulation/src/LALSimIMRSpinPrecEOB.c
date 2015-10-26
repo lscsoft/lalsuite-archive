@@ -1369,7 +1369,7 @@ UNUSED static int XLALSimIMRSpinPrecAlignedEOBWaveform(
  * Currently, only h2m harmonics will be generated.
  *
  * Input conventions:
- * Cartesian coordinate system: initial \vec{L} is along the z-axis
+ * Cartesian coordinate system: initial \f$\vec{L}\f$ is along the z-axis
  * phiC       : in radians
  * deltaT     : in SI units (Hz)
  * m1SI, m2SI : in SI units (kg)
@@ -1402,18 +1402,18 @@ UNUSED static int XLALSimIMRSpinPrecAlignedEOBWaveform(
  */
 
 int XLALSimIMRSpinEOBWaveform(
-        REAL8TimeSeries **hplus,
-         REAL8TimeSeries **hcross,
+        REAL8TimeSeries **hplus, /**<< OUTPUT, +-polarization waveform */
+         REAL8TimeSeries **hcross, /**<< OUTPUT, x-polarization waveform */
         //LIGOTimeGPS     *tc,
-        const REAL8      phiC,
-        const REAL8     deltaT,
-        const REAL8     m1SI,
-        const REAL8     m2SI,
-        const REAL8     fMin,
-        const REAL8     r,
-        const REAL8     inc,
-        const REAL8     INspin1[],
-        const REAL8     INspin2[]
+        const REAL8      phiC, /**<< coalescence orbital phase (rad) */
+        const REAL8     deltaT, /**<< sampling time step */
+        const REAL8     m1SI, /**<< mass-1 in SI unit */
+        const REAL8     m2SI, /**<< mass-2 in SI unit */
+        const REAL8     fMin, /**<< starting frequency (Hz) */
+        const REAL8     r, /**<< distance in SI unit */
+        const REAL8     inc, /**<< inclination angle */
+        const REAL8     INspin1[],  /**<< spin1 */
+        const REAL8     INspin2[] /**<< spin2 */
      )
 
 {
@@ -1478,7 +1478,7 @@ int XLALSimIMRSpinEOBWaveformAll(
         SphHarmTimeSeries **hlmPTSoutput, /**<< Here we store and return the PWave (high sampling) */
         SphHarmTimeSeries **hlmPTSHiOutput, /**<< Here we store and return the JWave (high sampling) */
         SphHarmTimeSeries **hIMRlmJTSHiOutput, /**<< Here we store and return the JWaveIMR (high sampling) */
-        SphHarmTimeSeries **hIMRoutput,       /** Here we store and retiurn the IWave (full) */
+        SphHarmTimeSeries **hIMRoutput,       /**<< Here we store and retiurn the IWave (full) */
         REAL8Vector     **AttachPars,   /**<< Parameters of RD attachment: */
         //LIGOTimeGPS     *tc,
         const REAL8      phiC,      /**<< intitial orbital phase */
@@ -2213,7 +2213,7 @@ int XLALSimIMRSpinEOBWaveformAll(
 
   /* ************************************************************************ */
   /* Calculate the values of chiS and chiA, as given in Eq.16 in YPP
-   * Assuming \vec{L} to be pointing in the direction of \vec{r}\times\vec{p} */
+   * Assuming \f$\vec{L}\f$ to be pointing in the direction of \f$\vec{r}\times\vec{p}\f$ */
 
   if(debugPK)printf("\nReached the point where LN is to be calculated\n");
 
@@ -3423,7 +3423,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
           gP2J = 0.0;
           aP2J = atan2( JframeEx[1], JframeEx[0]);
       }
-      
+
       if ( fabs(bP2J) < 1.e-10){
           gP2J = 0.0;
           aP2J = atan2( JframeEx[1], JframeEx[0]);
@@ -3435,7 +3435,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
     /*betaP2JTS->data->data[i] = 0.*LAL_PI/2.-bP2J;*/
     betaP2JTS->data->data[i] = bP2J;
     gammaP2JTS->data->data[i] = -gP2J;
-      
+
 
     /* Calculate the value of the Hamiltonian */
     memcpy( cartPosVec.data, values->data,   3*sizeof(REAL8) );

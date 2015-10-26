@@ -804,8 +804,8 @@ int XLALSimAdjustRDattachmentTime(
     Approximant approximant,	/**<<The waveform approximant being used */
     const REAL8 JLN,            /**<< cosine of the angle between J and LN at the light ring */
     const REAL8 combSize,        /**<< combsize for RD attachment */
-    const REAL8 tMaxOmega,
-    const REAL8 tMaxAmp
+    const REAL8 tMaxOmega, /**<< Time up to which we can trust dynamics */
+    const REAL8 tMaxAmp /**<< Time up to which we can trust waveform */
     )
 {
     int debugPK = 0;
