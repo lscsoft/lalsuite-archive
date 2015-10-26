@@ -20,8 +20,8 @@
 #ifndef _LALSIMBLACKHOLERINGDOWNPREC_H
 #define _LALSIMBLACKHOLERINGDOWNPREC_H
 
-//#include <lal/LALDatatypes.h>
-//#include <lal/LALSimInspiral.h>
+#include <lal/LALDatatypes.h>
+#include <lal/LALSimInspiral.h>
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_interp.h>
 #include <gsl/gsl_spline.h>
