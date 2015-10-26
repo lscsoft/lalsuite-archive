@@ -42,7 +42,7 @@ static UNUSED REAL8 GSLSpinPrecHamiltonianWrapper(double x, void *params);
 
 static double	GSLSpinPrecHamiltonianWrapperV2(double x, void *params);
 
-static int 
+static int
 XLALSpinPrecHcapNumericalDerivative(
 				double UNUSED t,	/**<< UNUSED */
 				const REAL8 values[],	/**<< Dynamical variables */
@@ -422,7 +422,7 @@ XLALSpinPrecHcapNumericalDerivative(
 	 * rcrossrDot[2] = values[0]*tmpDValues[4] - values[1]*tmpDValues[3];
 	 * rcrossrDotMag = sqrt( rcrossrDot[0]*rcrossrDot[0] +
 	 * rcrossrDot[1]*rcrossrDot[1]	+ rcrossrDot[2]*rcrossrDot[2] );
-	 * 
+	 *
 	 * rcrossrDot[0] /= rcrossrDotMag; rcrossrDot[1] /= rcrossrDotMag;
 	 * rcrossrDot[2] /= rcrossrDotMag;
 	 */
@@ -642,7 +642,7 @@ XLALSpinPrecHcapNumericalDerivative(
 	if (debugPK) {
     printf("\nIn XLALSpinPrecHcapNumericalDerivative:\n");
 		/* Print out all mass parameters */
-		printf("m1 = %12.12lf, m2 = %12.12lf, eta = %12.12lf\n", 
+		printf("m1 = %12.12lf, m2 = %12.12lf, eta = %12.12lf\n",
           (double)mass1, (double)mass2, (double)eta);
 		/* Print out all spin parameters */
 		printf("spin1 = {%12.12lf,%12.12lf,%12.12lf}, spin2 = {%12.12lf,%12.12lf,%12.12lf}\n",
@@ -652,9 +652,9 @@ XLALSpinPrecHcapNumericalDerivative(
 		       (double)sStar.data[0], (double)sStar.data[1],
 		       (double)sStar.data[2], (double)sKerr.data[0],
 		       (double)sKerr.data[1], (double)sKerr.data[2]);
-		printf("L = {%12.12lf,%12.12lf,%12.12lf}, |L| = %12.12lf\n", 
+		printf("L = {%12.12lf,%12.12lf,%12.12lf}, |L| = %12.12lf\n",
         (double)Lx, (double)Ly, (double)Lz, (double)magL);
-		printf("dLdt = {%12.12lf,%12.12lf,%12.12lf}, d|L|dt = %12.12lf\n", 
+		printf("dLdt = {%12.12lf,%12.12lf,%12.12lf}, d|L|dt = %12.12lf\n",
         (double)dLx, (double)dLy, (double)dLz, (double)dMagL);
 		printf("Polar coordinates = {%12.12lf, %12.12lf, %12.12lf, %12.12lf}\n",
 		       (double)polData[0], (double)polData[1], (double)polData[2],
@@ -662,8 +662,8 @@ XLALSpinPrecHcapNumericalDerivative(
 
 		printf("Cartesian coordinates: {%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf}\n",
 		       (double)values[0], (double)values[1], (double)values[2],
-           (double)values[3], (double)values[4], (double)values[5], 
-           (double)values[6], (double)values[7], (double)values[8], 
+           (double)values[3], (double)values[4], (double)values[5],
+           (double)values[6], (double)values[7], (double)values[8],
            (double)values[9], (double)values[10], (double)values[11],
 		       (double)values[12], (double)values[13]);
 		printf("Cartesian derivatives: {%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf}\n",
@@ -673,11 +673,11 @@ XLALSpinPrecHcapNumericalDerivative(
            (double)dvalues[9], (double)dvalues[10], (double)dvalues[11],
            (double)dvalues[12], (double)dvalues[13]);
 
-     printf("Hamiltonian = %12.12lf, Flux = %12.12lf, Omega = %12.12lf\n", 
+     printf("Hamiltonian = %12.12lf, Flux = %12.12lf, Omega = %12.12lf\n",
               H/ (mass1 + mass2), eta*flux, omega);
 		fflush(NULL);
 	}
-	
+
     for(i=0; i<14; i++){
         if(isnan(dvalues[i])){
             dvalues[i] = 1.;
@@ -715,7 +715,7 @@ XLALSpinPrecHcapNumericalDerivative(
  * Pan et al. PRD 81, 084041 (2010)
  * This function is not used by the spin-aligned SEOBNRv1 model.
  */
-static int 
+static int
 XLALSpinPrecHcapNumericalDerivativeNoFlux(
 				      double UNUSED t,	/**<< UNUSED */
 				      const REAL8 values[],	/**<< Dynamical variables */
@@ -1057,7 +1057,7 @@ XLALSpinPrecHcapNumericalDerivativeNoFlux(
 	 * rcrossrDot[2] = values[0]*tmpDValues[4] - values[1]*tmpDValues[3];
 	 * rcrossrDotMag = sqrt( rcrossrDot[0]*rcrossrDot[0] +
 	 * rcrossrDot[1]*rcrossrDot[1]	+ rcrossrDot[2]*rcrossrDot[2] );
-	 * 
+	 *
 	 * rcrossrDot[0] /= rcrossrDotMag; rcrossrDot[1] /= rcrossrDotMag;
 	 * rcrossrDot[2] /= rcrossrDotMag;
 	 */
@@ -1343,7 +1343,7 @@ XLALSpinPrecHcapNumericalDerivativeNoFlux(
  * Calculate the derivative of the Hamiltonian w.r.t. a specific parameter
  * Used by generic spin EOB model, including initial conditions solver.
  */
-static REAL8 
+static REAL8
 XLALSpinPrecHcapNumDerivWRTParam(
 			     const INT4 paramIdx,	/**<< Index of the parameters */
 			     const REAL8 values[],	/**<< Dynamical variables */
@@ -1400,7 +1400,7 @@ XLALSpinPrecHcapNumDerivWRTParam(
  * Wrapper for GSL to call the Hamiltonian function
  */
 /* static */
-REAL8 
+REAL8
 GSLSpinPrecHamiltonianWrapper(double x, void *params)
 {
 	int		debugPK = 0;
@@ -1548,7 +1548,7 @@ GSLSpinPrecHamiltonianWrapper(double x, void *params)
 /*
  * Wrapper for GSL to call the Hamiltonian function
  */
-static double 
+static double
 GSLSpinPrecHamiltonianWrapperV2(double x, void *params)
 {
 	bool		UsePrecBool = false;

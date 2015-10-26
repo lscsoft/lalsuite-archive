@@ -18,8 +18,8 @@
 #ifndef _LALSIMIMRSPINPRECEOBINITIALCONDITIONS_C
 #define _LALSIMIMRSPINPRECEOBINITIALCONDITIONS_C
 
-/* The following values are used to scale the inputs to the equations being 
- * solved to get the initial spherical orbit. By scaling we bring different 
+/* The following values are used to scale the inputs to the equations being
+ * solved to get the initial spherical orbit. By scaling we bring different
  * inputs to the same scale, and drastically increase the rate of convergence.
  * */
 REAL8 scale1 = 1, scale2 = 2, scale3 = 200;
@@ -193,7 +193,7 @@ ApplyRotationMatrixPrec(
  * This special transformation is a static function called only by
  * GSLSpinHamiltonianDerivWrapperPrec and XLALSimIMRSpinEOBInitialConditionsPrec
  */
-static int 
+static int
 SphericalToCartesianPrec(
 		     REAL8 qCart[],	/**<< OUTPUT, position vector in Cartesean coordinates */
 		     REAL8 pCart[],	/**<< OUTPUT, momentum vector in Cartesean coordinates */
@@ -238,7 +238,7 @@ SphericalToCartesianPrec(
  * In the code from Tyson Littenberg, this was only applicable to the special theta=pi/2, phi=0 case.
  * This special transformation is a static function called only by XLALSimIMRSpinEOBInitialConditionsPrec
  */
-static int 
+static int
 CartesianToSphericalPrec(
 		     REAL8 qSph[],	/**<< OUTPUT, position vector in spherical coordinates */
 		     REAL8 pSph[],	/**<< OUTPUT, momentum vector in Cartesean coordinates */
@@ -321,7 +321,7 @@ XLALFindSphericalOrbitPrec(
         rootParams->values[5] = 0.01;
     }
 	if (debugPK) {
-    printf("%3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", 
+    printf("%3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n",
       rootParams->values[0], rootParams->values[1], rootParams->values[2],
       rootParams->values[3], rootParams->values[4], rootParams->values[5]);
     printf("Values r = %.16e, py = %.16e, pz = %.16e\n", r, py, pz);
@@ -346,30 +346,30 @@ XLALFindSphericalOrbitPrec(
 		rootParams->values[i + 6] *= mTotal * mTotal;
 		rootParams->values[i + 9] *= mTotal * mTotal;
 	}
-	REAL8	rvec[3] = 
+	REAL8	rvec[3] =
         {rootParams->values[0], rootParams->values[1], rootParams->values[2]};
-	REAL8	pvec[3] = 
+	REAL8	pvec[3] =
         {rootParams->values[3], rootParams->values[4], rootParams->values[5]};
-	REAL8	chi1vec[3] = 
+	REAL8	chi1vec[3] =
         {rootParams->values[6], rootParams->values[7], rootParams->values[8]};
-	REAL8	chi2vec[3] = 
+	REAL8	chi2vec[3] =
         {rootParams->values[9], rootParams->values[10], rootParams->values[11]};
-	REAL8	Lvec[3] = {CalculateCrossProductPrec(0, rvec, pvec), 
+	REAL8	Lvec[3] = {CalculateCrossProductPrec(0, rvec, pvec),
     CalculateCrossProductPrec(1, rvec, pvec), CalculateCrossProductPrec(2, rvec, pvec)};
 	REAL8	theta1 = acos(CalculateDotProductPrec(chi1vec, Lvec)
-                / sqrt(CalculateDotProductPrec(chi1vec, chi1vec)) 
+                / sqrt(CalculateDotProductPrec(chi1vec, chi1vec))
                 / sqrt(CalculateDotProductPrec(Lvec, Lvec)));
-	REAL8	theta2 = acos(CalculateDotProductPrec(chi2vec, Lvec) 
-                / sqrt(CalculateDotProductPrec(chi2vec, chi2vec)) 
+	REAL8	theta2 = acos(CalculateDotProductPrec(chi2vec, Lvec)
+                / sqrt(CalculateDotProductPrec(chi2vec, chi2vec))
                 / sqrt(CalculateDotProductPrec(Lvec, Lvec)));
-	
+
   if (debugPK) {
 		printf("rvec = %.16e %.16e %.16e\n", rvec[0], rvec[1], rvec[2]);
 		printf("pvec = %.16e %.16e %.16e\n", pvec[0], pvec[1], pvec[2]);
 		printf("theta1 = %.16e\n", theta1);
 		printf("theta2 = %.16e\n", theta2);
 	}
-	
+
   if (theta1 > 1.0e-6 && theta2 >= 1.0e-6) {
 		dHdx = -tmpDValues[3];
 		dHdpy = tmpDValues[1];
@@ -383,11 +383,11 @@ XLALFindSphericalOrbitPrec(
 		//rootParams->values[10]= 0.;
 		//rootParams->values[11]= sqrt(CalculateDotProductPrec(chi2vec, chi2vec));
 
-		dHdx = XLALSpinPrecHcapNumDerivWRTParam(0, 
+		dHdx = XLALSpinPrecHcapNumDerivWRTParam(0,
                   rootParams->values, rootParams->params);
-		dHdpy = XLALSpinPrecHcapNumDerivWRTParam(4, 
+		dHdpy = XLALSpinPrecHcapNumDerivWRTParam(4,
                   rootParams->values, rootParams->params);
-		dHdpz = XLALSpinPrecHcapNumDerivWRTParam(5, 
+		dHdpz = XLALSpinPrecHcapNumDerivWRTParam(5,
                   rootParams->values, rootParams->params);
 	}
 
@@ -403,7 +403,7 @@ XLALFindSphericalOrbitPrec(
 	dHdpphi   = dHdpy / r;
 
 	if (debugPK)
-		printf("dHdr = %.16e dHdptheta = %.16e dHdpphi = %.16e\n", 
+		printf("dHdr = %.16e dHdptheta = %.16e dHdpphi = %.16e\n",
             dHdr, dHdptheta, dHdpphi);
 	/* populate the function vector */
 	gsl_vector_set(f, 0, dHdr);
@@ -411,14 +411,14 @@ XLALFindSphericalOrbitPrec(
 	gsl_vector_set(f, 2, dHdpphi - rootParams->omega);
 
 	if (debugPK)
-		printf("Current funcvals = %.16e %.16e %.16e\n", 
+		printf("Current funcvals = %.16e %.16e %.16e\n",
         gsl_vector_get(f, 0), gsl_vector_get(f, 1), gsl_vector_get(f, 2) );
-  
+
   /* Rescale back */
   rootParams->values[0] *= scale1;
   rootParams->values[4] *= scale2;
   rootParams->values[5] *= scale3;
-  
+
 	return XLAL_SUCCESS;
 }
 
@@ -428,7 +428,7 @@ XLALFindSphericalOrbitPrec(
  * dH/dr, dH/dptheta and dH/dpphi.
  * It only works for the specific co-ord system we use here
  */
-static double 
+static double
 GSLSpinHamiltonianDerivWrapperPrec(double x,	/**<< Derivative at x */
 			       void *params /**<< Function parameters */ )
 {
@@ -546,7 +546,7 @@ GSLSpinHamiltonianDerivWrapperPrec(double x,	/**<< Derivative at x */
 
 /* Function to calculate the second derivative of the Hamiltonian. */
 /* The derivatives are taken with respect to indices idx1, idx2    */
-static REAL8 
+static REAL8
 XLALCalculateSphHamiltonianDeriv2Prec(
 				  const int idx1,	/**<< Derivative w.r.t. index 1 */
 				  const int idx2,	/**<< Derivative w.r.t. index 2 */
@@ -585,7 +585,7 @@ XLALCalculateSphHamiltonianDeriv2Prec(
 	 * GSLSpinHamiltonianDerivWrapperPrec( values[idx1] + STEP_SIZE, &dParams
 	 * ), GSLSpinHamiltonianDerivWrapperPrec( values[idx1] - STEP_SIZE,
 	 * &dParams ) );
-	 * 
+	 *
 	 * result = result / ( 2.*STEP_SIZE );
 	 */
 
@@ -607,16 +607,16 @@ XLALCalculateSphHamiltonianDeriv2Prec(
  * quasi-spherical initial conditions described in Sec. IV A of
  * Buonanno, Chen & Damour PRD 74, 104005 (2006).
  * All equation numbers in the comments of this function refer to this paper.
- * 
+ *
  * Inputs are binary parameters (masses, spin vectors and inclination),
  * EOB model parameters and initial frequency.
- * 
+ *
  * Outputs are initial dynamical variables in a vector
  * (x, y, z, px, py, pz, S1x, S1y, S1z, S2x, S2y, S2z).
- * 
+ *
  * In the paper, the initial conditions are solved for a given initial radius,
  * while in this function, they are solved for a given inital orbital frequency.
- * 
+ *
  * This difference is reflected in solving Eq. (4.8).
  * The calculation is done in 5 steps:
  * STEP 1) Rotate to LNhat0 along z-axis and N0 along x-axis frame, where
@@ -636,7 +636,7 @@ XLALCalculateSphHamiltonianDeriv2Prec(
  * then inverting the rotation of STEP 1.
  */
 
-static int 
+static int
 XLALSimIMRSpinEOBInitialConditionsPrec(
 				   REAL8Vector * initConds,	/**<< OUTPUT, Initial dynamical variables */
 				   const REAL8 mass1,	/**<< mass 1 */
@@ -663,9 +663,9 @@ XLALSimIMRSpinEOBInitialConditionsPrec(
 		printf(
     "Inputs: m1 = %.16e, m2 = %.16e, fMin = %.16e, inclination = %.16e\n",
       mass1, mass2, (double)fMin, (double)inc);
-		printf("Inputs: mSpin1 = {%.16e, %.16e, %.16e}\n", 
+		printf("Inputs: mSpin1 = {%.16e, %.16e, %.16e}\n",
       spin1[0], spin1[1], spin1[2]);
-		printf("Inputs: mSpin2 = {%.16e, %.16e, %.16e}\n", 
+		printf("Inputs: mSpin2 = {%.16e, %.16e, %.16e}\n",
       spin2[0], spin2[1], spin2[2]);
 		fflush(NULL);
 	}
@@ -805,7 +805,7 @@ XLALSimIMRSpinEOBInitialConditionsPrec(
 			printf(" s1[%d] = %.16e, s2[%d] = %.16e\n", i, tmpS1[i], i, tmpS2[i]);
     fflush(NULL);
 	}
-  
+
 	/* Allocate and compute the rotation matrices */
 	XLAL_CALLGSL(rotMatrix = gsl_matrix_alloc(3, 3));
 	XLAL_CALLGSL(invMatrix = gsl_matrix_alloc(3, 3));
@@ -834,14 +834,14 @@ XLALSimIMRSpinEOBInitialConditionsPrec(
 	if (printPK) {
 		printf("\nAfter applying rotation matrix:\n\n");
 		for (i = 0; i < 3; i++)
-			printf(" LnHat[%d] = %.16e, rHat[%d] = %.16e, vHat[%d] = %.16e\n", 
+			printf(" LnHat[%d] = %.16e, rHat[%d] = %.16e, vHat[%d] = %.16e\n",
                 i, LnHat[i], i, rHat[i], i, vHat[i]);
 
 		printf("\n");
 		for (i = 0; i < 3; i++)
 			printf(" s1[%d] = %.16e, s2[%d] = %.16e\n", i, tmpS1[i], i, tmpS2[i]);
-    
-    fflush(NULL);  
+
+    fflush(NULL);
 	}
 	/*
 	 * STEP 2) After rotation in STEP 1, in spherical coordinates, phi0
@@ -850,7 +850,7 @@ XLALSimIMRSpinEOBInitialConditionsPrec(
 	 * gsl_multiroot_fsolver). At this step, we find initial conditions
 	 * for a spherical orbit without radiation reaction.
 	 */
-	
+
   /* Initialise the gsl stuff */
 	XLAL_CALLGSL(rootSolver = gsl_multiroot_fsolver_alloc(T, 3));
 	if (!rootSolver) {
@@ -888,7 +888,7 @@ XLALSimIMRSpinEOBInitialConditionsPrec(
 	memcpy(rootParams.values + 9, tmpS2, sizeof(tmpS2));
 
 	if (printPK) {
-    printf("ICs guess: x = %.16e, py = %.16e, pz = %.16e\n", 
+    printf("ICs guess: x = %.16e, py = %.16e, pz = %.16e\n",
       rootParams.values[0]/scale1, rootParams.values[4]/scale2,
       rootParams.values[5]/scale3);
     fflush(NULL);
@@ -907,52 +907,52 @@ XLALSimIMRSpinEOBInitialConditionsPrec(
 	do {
 		XLAL_CALLGSL(gslStatus = gsl_multiroot_fsolver_iterate(rootSolver));
 		if (debugPK) {
-      fprintf( out, "%d\t", i ); 
-      
+      fprintf( out, "%d\t", i );
+
       /* Write to file */
       fprintf( out, "%.16e\t%.16e\t%.16e\t",
         rootParams.values[0]/scale1, rootParams.values[4]/scale2,
         rootParams.values[5]/scale3 );
-      
+
       /* Residual Function values whose roots we are trying to find */
       finalValues = gsl_multiroot_fsolver_f(rootSolver);
-      
+
       /* Write to file */
-      fprintf( out, "%.16e\t%.16e\t%.16e\t", 
+      fprintf( out, "%.16e\t%.16e\t%.16e\t",
         gsl_vector_get(finalValues, 0),
         gsl_vector_get(finalValues, 1),
         gsl_vector_get(finalValues, 2) );
-      
+
       /* Step sizes in each of function variables */
       finalValues = gsl_multiroot_fsolver_dx(rootSolver);
-      
+
       /* Write to file */
-      fprintf( out, "%.16e\t%.16e\t%.16e\t%d\n", 
+      fprintf( out, "%.16e\t%.16e\t%.16e\t%d\n",
         gsl_vector_get(finalValues, 0)/scale1,
         gsl_vector_get(finalValues, 1)/scale2,
         gsl_vector_get(finalValues, 2)/scale3,
-        gslStatus );        
+        gslStatus );
 		}
 
     if (gslStatus == GSL_ENOPROG || gslStatus == GSL_ENOPROGJ) {
       printf(
         "\n NO PROGRESS being made by Spherical orbit root solver\n");
-      
+
       /* Print Residual Function values whose roots we are trying to find */
       finalValues = gsl_multiroot_fsolver_f(rootSolver);
       printf("Function value here given by the following:\n");
-      printf(" F1 = %.16e, F2 = %.16e, F3 = %.16e\n", 
+      printf(" F1 = %.16e, F2 = %.16e, F3 = %.16e\n",
           gsl_vector_get(finalValues, 0),
 		       gsl_vector_get(finalValues, 1), gsl_vector_get(finalValues, 2));
-      
+
       /* Print Step sizes in each of function variables */
       finalValues = gsl_multiroot_fsolver_dx(rootSolver);
 //      printf("Stepsizes in each dimension:\n");
-//      printf(" x = %.16e, py = %.16e, pz = %.16e\n", 
+//      printf(" x = %.16e, py = %.16e, pz = %.16e\n",
 //          gsl_vector_get(finalValues, 0)/scale1,
 //		       gsl_vector_get(finalValues, 1)/scale2,
 //            gsl_vector_get(finalValues, 2)/scale3);
-      
+
       /* Only allow this flag to be caught MAXcntGslNoProgress no. of times */
       cntGslNoProgress += 1;
       if (cntGslNoProgress >= MAXcntGslNoProgress) {
@@ -964,26 +964,26 @@ XLALSimIMRSpinEOBInitialConditionsPrec(
         gsl_matrix_free(invMatrix);
         XLAL_ERROR(XLAL_EFUNC);
       }
-      
+
       /* Now that no progress is being made, we need to reset the initial guess
        * for the (r,pPhi, pTheta) and reset the integrator */
       rootParams.values[0] = scale1 * 1. / (v0 * v0);	/* Initial r */
-      rootParams.values[4] = scale2 * v0;	            /* Initial p */      
+      rootParams.values[4] = scale2 * v0;	            /* Initial p */
       if( cntGslNoProgress % 2 )
         rootParams.values[5] = scale3 * 1e-3 / multFacGslNoProgress;
-      else 
-        rootParams.values[5] = scale3 * 1e-3 * multFacGslNoProgress;        
+      else
+        rootParams.values[5] = scale3 * 1e-3 * multFacGslNoProgress;
       //PK
       memcpy(rootParams.values + 6, tmpS1, sizeof(tmpS1));
       memcpy(rootParams.values + 9, tmpS2, sizeof(tmpS2));
-      
+
       if (printPK) {
-        printf("New ICs guess: x = %.16e, py = %.16e, pz = %.16e\n", 
+        printf("New ICs guess: x = %.16e, py = %.16e, pz = %.16e\n",
                 rootParams.values[0]/scale1, rootParams.values[4]/scale2,
                 rootParams.values[5]/scale3);
         fflush(NULL);
       }
-      
+
       gsl_vector_set(initValues, 0, rootParams.values[0]);
       gsl_vector_set(initValues, 1, rootParams.values[4]);
       gsl_vector_set(initValues, 2, rootParams.values[5]);
@@ -1006,7 +1006,7 @@ XLALSimIMRSpinEOBInitialConditionsPrec(
 			gsl_matrix_free(invMatrix);
 			XLAL_ERROR(XLAL_EFUNC);
 		}
-    
+
     /* different ways to test convergence of the method */
 		XLAL_CALLGSL(gslStatus = gsl_multiroot_test_residual(rootSolver->f, 1.0e-8));
     /*XLAL_CALLGSL(gslStatus= gsl_multiroot_test_delta(
@@ -1016,7 +1016,7 @@ XLALSimIMRSpinEOBInitialConditionsPrec(
 		i++;
 	}
 	while (gslStatus == GSL_CONTINUE && i <= maxIter);
-  
+
   if(debugPK) { fflush(NULL); fclose(out); }
 
 	if (i > maxIter && gslStatus != GSL_SUCCESS) {
@@ -1030,7 +1030,7 @@ XLALSimIMRSpinEOBInitialConditionsPrec(
 
 	if (printPK) {
 		printf("Spherical orbit conditions here given by the following:\n");
-		printf(" x = %.16e, py = %.16e, pz = %.16e\n", 
+		printf(" x = %.16e, py = %.16e, pz = %.16e\n",
            gsl_vector_get(finalValues, 0)/scale1,
 		       gsl_vector_get(finalValues, 1)/scale2,
            gsl_vector_get(finalValues, 2)/scale3);
@@ -1087,7 +1087,7 @@ XLALSimIMRSpinEOBInitialConditionsPrec(
 
         gsl_matrix_free(rotMatrix);
         gsl_matrix_free(rotMatrix2);
-	
+
         if (printPK) {
 		printf("qCart after rotation2 %3.10f %3.10f %3.10f\n", qCart[0], qCart[1], qCart[2]);
 		printf("pCart after rotation2 %3.10f %3.10f %3.10f\n", pCart[0], pCart[1], pCart[2]);
@@ -1291,7 +1291,7 @@ XLALSimIMRSpinEOBInitialConditionsPrec(
 
         gsl_matrix_free(invMatrix);
         gsl_matrix_free(invMatrix2);
-	
+
         /* If required, apply the tortoise transform */
 	if (tmpTortoise) {
 		REAL8		r = sqrt(qCart[0] * qCart[0] + qCart[1] * qCart[1] + qCart[2] * qCart[2]);
@@ -1311,20 +1311,20 @@ XLALSimIMRSpinEOBInitialConditionsPrec(
 			pCart[i] = pCart[i] + qCart[i] * pr * (csi - 1.) / r;
 		}
 	}
-    
+
 
     /* Now copy the initial conditions back to the return vector */
 	memcpy(initConds->data, qCart, sizeof(qCart));
 	memcpy(initConds->data + 3, pCart, sizeof(pCart));
 	memcpy(initConds->data + 6, tmpS1Norm, sizeof(tmpS1Norm));
 	memcpy(initConds->data + 9, tmpS2Norm, sizeof(tmpS2Norm));
-    
+
     for (i=0; i<12; i++) {
         if (fabs(initConds->data[i]) <=1.0e-15) {
             initConds->data[i] = 0.;
         }
     }
-    
+
 	if (debugPK) {
 		printf("THE FINAL INITIAL CONDITIONS:\n");
 		printf(" %.16e %.16e %.16e\n%.16e %.16e %.16e\n%.16e %.16e %.16e\n%.16e %.16e %.16e\n", initConds->data[0], initConds->data[1], initConds->data[2],

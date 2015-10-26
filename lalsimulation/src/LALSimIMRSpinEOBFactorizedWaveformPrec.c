@@ -52,7 +52,7 @@ XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
 					     SpinEOBParams * restrict params	/**< Spin EOB parameters */
 );
 
-static INT4 
+static INT4
 XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
 						   COMPLEX16 * restrict hlmTab,	/**< OUTPUT, hlm waveforms */
 					      REAL8Vector * restrict values,	/**< dyanmical variables: (r,\phi,p_r,p_\phi) */
@@ -86,7 +86,7 @@ XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
  * (ii) exp(\ii deltalm) set to 1.
  * Eq. 17 and the entire Appendix of the paper.
  */
-static INT4 
+static INT4
 XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
 						   COMPLEX16 * restrict hlmTab,	/**< OUTPUT, hlm waveforms */
 					      REAL8Vector * restrict values,	/**< dyanmical variables: (r,\phi,p_r,p_\phi) */
@@ -97,7 +97,7 @@ XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
 					     SpinEOBParams * restrict params	/**< Spin EOB parameters */
 )
 {
-    int		debugPK = 0;   
+    int		debugPK = 0;
 	const	REAL8 vPhiKepler = params->alignedSpins ?
 					XLALSimIMRSpinAlignedEOBNonKeplerCoeff(values->data, params) :
 					XLALSimIMRSpinPrecEOBNonKeplerCoeff(cartvalues->data, params);
@@ -515,7 +515,7 @@ XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
  * This function calculates hlm mode factorized-resummed waveform
  * for given dynamical variables.
  */
-static INT4 
+static INT4
 XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
 					       COMPLEX16 * restrict hlm,	/**< OUTPUT, hlm waveforms */
 					       REAL8Vector * restrict values,	/**< dyanmical variables: (r,\phi,p_r,p_\phi) */

@@ -37,24 +37,24 @@ double  XLALSimLocateOmegaTime(
     int *found,
     REAL8* tMaxOmega
         )
-{        
-    /* 
-    * Locate merger point (max omega), 
+{
+    /*
+    * Locate merger point (max omega),
     * WaveStep 1.1: locate merger point */
     int debugPK = 0;
     int debugRD = 0;
-    FILE *out = NULL; 
+    FILE *out = NULL;
     gsl_spline    *spline = NULL;
     gsl_interp_accel *acc = NULL;
-    
+
     if (debugPK) {debugRD = 0;}
-    
+
     unsigned int peakIdx, i, j;
     REAL8Vector *values = NULL;
     REAL8Vector *dvalues = NULL;
     REAL8Vector *omegaHi = NULL;
 
-    
+
     if ( !(values = XLALCreateREAL8Vector( numdynvars )) )
     {
         XLAL_ERROR(  XLAL_ENOMEM );
@@ -71,10 +71,10 @@ double  XLALSimLocateOmegaTime(
     REAL8 rvec[3] = {0,0,0};
     REAL8 rcrossrdot[3] = {0,0,0};
     REAL8Vector timeHi;
-  
+
     timeHi.length = retLenHi;
     timeHi.data = dynamicsHi->data;
-    
+
     double dt = timeHi.data[1] - timeHi.data[0];
     double ddradiusVec[timeHi.length - 2];
     unsigned int k;
@@ -111,12 +111,12 @@ double  XLALSimLocateOmegaTime(
     if ( debugPK ) {
         printf("tMin, tMax = %3.10f %3.10f\n", tMin, tMax);
     }
-    
+
     double omega  = 0.0;
 
     double magR;
     double time1, time2, omegaDeriv, omegaDerivMid, tPeakOmega;
-  
+
     if(debugPK) {
         out = fopen( "omegaHi.dat", "w" );
         printf("length of values = %d, retLenHi = %d\n", values->length, retLenHi);
@@ -125,36 +125,36 @@ double  XLALSimLocateOmegaTime(
     if(debugRD) {
         out = fopen( "omegaHi.dat", "w" );
     }
-  
+
     for ( i = 0; i < retLenHi; i++ )
     {
         for ( j = 0; j < values->length; j++ )
             { values->data[j] = *(dynamicsHi->data+(j+1)*retLenHi+i); }
-    
+
         /* Calculate dr/dt */
         memset( dvalues->data, 0, numdynvars*sizeof(dvalues->data[0]));
-        if( XLALSpinPrecHcapRvecDerivative( 0, values->data, dvalues->data, 
+        if( XLALSpinPrecHcapRvecDerivative( 0, values->data, dvalues->data,
             &seobParams) != XLAL_SUCCESS )
         {
                 printf(
                     " Calculation of dr/dt failed while computing omegaHi time series\n");
                 XLAL_ERROR( XLAL_EFUNC );
         }
-    
+
         /* Calculare r x dr/dt */
         for (j=0; j<3; j++){
             rvec[j] = values->data[j];
             rdotvec[j] = dvalues->data[j];
         }
-    
+
         //memcpy(rdotvec, dvalues->data, 3*sizeof(REAL8));
-        //rvec[0] = posVecxHi.data[i]; rvec[1] = posVecyHi.data[i]; 
+        //rvec[0] = posVecxHi.data[i]; rvec[1] = posVecyHi.data[i];
         //rvec[2] = posVeczHi.data[i];
-        cross_product( rvec, rdotvec, rcrossrdot );        
-   
+        cross_product( rvec, rdotvec, rcrossrdot );
+
         /* Calculate omega = |r x dr/dt| / r*r */
         magR = sqrt(inner_product(rvec, rvec));
-        omegaHi->data[i] = sqrt(inner_product(rcrossrdot, rcrossrdot)) / (magR*magR); 
+        omegaHi->data[i] = sqrt(inner_product(rcrossrdot, rcrossrdot)) / (magR*magR);
         if(debugPK || debugRD){
             fprintf( out, "%.16e\t%.16e\n", timeHi.data[i], omegaHi->data[i]);
         }
@@ -171,14 +171,14 @@ double  XLALSimLocateOmegaTime(
             peakIdx = i;
             *found = 1;
             if (debugPK){
-                printf("PK: Crude peak of Omega is at idx = %d. t = %f,  OmegaPeak = %.16e\n", 
+                printf("PK: Crude peak of Omega is at idx = %d. t = %f,  OmegaPeak = %.16e\n",
                     peakIdx, timeHi.data[peakIdx], omega);
                 fflush(NULL);
 
             }
-        }  
+        }
     }
-    
+
     if(debugPK) {
         fclose(out);
         if (peakIdx ==0){
@@ -189,7 +189,7 @@ double  XLALSimLocateOmegaTime(
     if(debugRD) {
         fclose(out);
     }
-  
+
     // refining the omega_max search (if it is found)
     tPeakOmega = 0.0;
     if(peakIdx != 0){
@@ -198,20 +198,20 @@ double  XLALSimLocateOmegaTime(
         time1 = timeHi.data[peakIdx-2];
         gsl_spline_init( spline, timeHi.data, omegaHi->data, retLenHi );
         omegaDeriv = gsl_spline_eval_deriv( spline, time1, acc );
-   
+
         if ( omegaDeriv > 0. ) { time2 = timeHi.data[peakIdx+2]; }
         else{
             time2 = time1;
             peakIdx = peakIdx-2;
-	        time1 = timeHi.data[peakIdx-2];	      
+	        time1 = timeHi.data[peakIdx-2];
 	        omegaDeriv = gsl_spline_eval_deriv( spline, time1, acc );
         }
-   
+
         do
         {
             tPeakOmega = ( time1 + time2 ) / 2.;
 	        omegaDerivMid = gsl_spline_eval_deriv( spline, tPeakOmega, acc );
-	   
+
 	        if ( omegaDerivMid * omegaDeriv < 0.0 ) { time2 = tPeakOmega; }
 	        else
 	        {
@@ -227,11 +227,11 @@ double  XLALSimLocateOmegaTime(
           fflush(NULL);
         }
     }
-  
+
     if(*found == 0 || debugRD || debugPK){
         if(debugPK){
             printf("Stas: We couldn't find the maximum of orbital frequency, search for maximum of A(r)/r^2 \n");
-        }   
+        }
         REAL8 rad, rad2, m1PlusetaKK, bulk, logTerms, deltaU, u, u2, u3, u4, u5;
         REAL8 listAOverr2[retLenHi];
         REAL8 Aoverr2;
@@ -253,8 +253,8 @@ double  XLALSimLocateOmegaTime(
         REAL8 mTotal = m1 + m2;
         REAL8 a;
         REAL8 eta = m1*m2/(mTotal*mTotal);
-        
-        if(debugPK || debugRD){ 
+
+        if(debugPK || debugRD){
             out = fopen( "OutAofR.dat", "w" );
         }
         for ( i = 0; i < retLenHi; i++ )
@@ -274,7 +274,7 @@ double  XLALSimLocateOmegaTime(
             s2Vec.data = s2Data;
             XLALSimIMRSpinEOBCalculateSigmaStar( sigmaStar, m1, m2, &s1Vec, &s2Vec );
             XLALSimIMRSpinEOBCalculateSigmaKerr( sigmaKerr, m1, m2, &s1Vec, &s2Vec );
-            
+
             seobParams.a = a = sqrt(inner_product(sigmaKerr->data, sigmaKerr->data));
             m1PlusetaKK = -1. + eta * seobCoeffs.KK;
             rad2 =  values->data[0]*values->data[0] + values->data[1]*values->data[1] + values->data[2]*values->data[2];
@@ -291,7 +291,7 @@ double  XLALSimLocateOmegaTime(
             if(debugPK || debugRD){
                 fprintf(out, "%3.10f %3.10f\n", timeHi.data[i], listAOverr2[i]);
             }
-            
+
         }
         if(debugPK || debugRD ) fclose(out);
         if (*found == 0){
@@ -306,16 +306,16 @@ double  XLALSimLocateOmegaTime(
                         tPeakOmega = timeHi.data[i];
                         *found = 1;
                         if (debugPK){
-                            printf("PK: Peak of A(r)/r^2 is at idx = %d. t = %f, Peak ampl. = %.16e\n", 
+                            printf("PK: Peak of A(r)/r^2 is at idx = %d. t = %f, Peak ampl. = %.16e\n",
                                 peakIdx, timeHi.data[peakIdx], Aoverr2);
                             fflush(NULL);
                         }
                         break;
                     }
-                }  
+                }
             }
         }
-    
+
         if(debugPK) {
             if (peakIdx ==0){
                 printf("Stas: peak of A(r)/r^2 was not found. \
@@ -340,9 +340,9 @@ double  XLALSimLocateOmegaTime(
         return(tPeakOmega);
     }
 }
-  
+
 double XLALSimLocateAmplTime(
-    REAL8Vector *timeHi, 
+    REAL8Vector *timeHi,
     COMPLEX16Vector *hP22,
     REAL8 *radiusVec,
     int *found,
@@ -350,11 +350,11 @@ double XLALSimLocateAmplTime(
 {
     int debugPK = 0;
     int debugRD = 0;
-    FILE *out = NULL; 
+    FILE *out = NULL;
     gsl_spline    *spline = NULL;
     gsl_interp_accel *acc = NULL;
     if (debugPK) {debugRD = 0;}
-    
+
     double dt = timeHi->data[1] - timeHi->data[0];
     double ddradiusVec[timeHi->length - 2];
     unsigned int k;
@@ -379,13 +379,13 @@ double XLALSimLocateAmplTime(
         printf("Change of sign in ddr %3.10f M before the end\n", minoff );
     }
     // First we search for the maximum (extremum) of amplitude
-    unsigned int i, peakIdx; 
+    unsigned int i, peakIdx;
     double maxoff = 20.0;
-    unsigned int Nps = timeHi->length; 
+    unsigned int Nps = timeHi->length;
     // this definesthe search interval for maximum (we might use min0ff= 0.051 instead)
-    
+
     //FIXME
-    //minoff = 0.0; 
+    //minoff = 0.0;
     double tMin  = timeHi->data[Nps-1] - maxoff;
     double tMax = timeHi->data[Nps-1] - minoff;
     *tMaxAmp = tMax;
@@ -402,7 +402,7 @@ double XLALSimLocateAmplTime(
     double tAmpMax, AmpMax, tAmp;
     tAmpMax = 0.;
     REAL8 tSeries[NpsSmall], Ampl[NpsSmall];
-    
+
     if(debugPK || debugRD) {
             out = fopen( "AmpPHi.dat", "w" );
     }
@@ -426,17 +426,17 @@ double XLALSimLocateAmplTime(
                     peakIdx = iMin + i;
                 }else{
                     if (debugPK){
-                        printf("Stas dismissing time %3.10f outside limits %3.10f, %3.10f \n", 
+                        printf("Stas dismissing time %3.10f outside limits %3.10f, %3.10f \n",
                             tAmp, tMin, tMax);
                     }
                 }
-            }        
+            }
         }
         AmplO = Ampl[i];
-        Ampl[i+1] = AmplN;                
+        Ampl[i+1] = AmplN;
     }
-    
-    if (debugPK) 
+
+    if (debugPK)
     {
         fclose(out);
         if (*found ==0){
@@ -446,7 +446,7 @@ double XLALSimLocateAmplTime(
             printf("Stas: we have found maximum of amplitude %3.10f at t = %3.10f \n", AmpMax, tAmpMax);
         }
     }
-    if (debugRD) 
+    if (debugRD)
     {
         fclose(out);
     }
@@ -456,19 +456,19 @@ double XLALSimLocateAmplTime(
 //        spline = gsl_spline_alloc( gsl_interp_cspline, NpsSmall );
 //        acc    = gsl_interp_accel_alloc();
 //        gsl_spline_init( spline, tSeries, Ampl, NpsSmall );
-        
+
         REAL8 AmpDot[NpsSmall];
         REAL8 AmpDDot[NpsSmall];
-        
+
         for (i=1; i<NpsSmall-2; i++){
 //            AmpDot[i] = gsl_spline_eval_deriv(spline, tSeries[i] , acc);
             AmpDot[i] = (Ampl[i+1] - Ampl[i-1])/2./dt;
             AmpDDot[i] = (Ampl[i+1] - 2.0*Ampl[i] + Ampl[i-1])/(dt*dt);
         }
-        AmpDot[0] = AmpDot[1]; 
+        AmpDot[0] = AmpDot[1];
         AmpDot[NpsSmall -2] = AmpDot[NpsSmall-3];
         AmpDot[NpsSmall -1] = AmpDot[NpsSmall-2];
-        AmpDDot[0] = AmpDDot[1]; 
+        AmpDDot[0] = AmpDDot[1];
         AmpDDot[NpsSmall -2] = AmpDDot[NpsSmall-3];
         AmpDDot[NpsSmall -1] = AmpDDot[NpsSmall-2];
         //printf("Stas, check AmDot %f, %f, %f \n", AmpDot[NpsSmall -3],  AmpDot[NpsSmall -2],  AmpDot[NpsSmall -1]);
@@ -493,12 +493,12 @@ double XLALSimLocateAmplTime(
         }
 
         for (i=win+1; i<NpsSmall-1 -win; i++){
-            AmpDotSmooth[i] = AmpDotSmooth[i-1] + norm*(AmpDot[i+win] - AmpDot[i-win-1]);             
+            AmpDotSmooth[i] = AmpDotSmooth[i-1] + norm*(AmpDot[i+win] - AmpDot[i-win-1]);
         }
         for (i=0; i<win; i++){
             AmpDotSmooth[NpsSmall-win-1+i] = AmpDotSmooth[NpsSmall-win-2];
         }
-        
+
         // second deriv (in case)
         REAL8 AmpDDotSmooth[NpsSmall];
         unsigned int win2 = 100;
@@ -516,18 +516,18 @@ double XLALSimLocateAmplTime(
         }
 
         for (i=win2+1; i<NpsSmall-1 -win2; i++){
-            AmpDDotSmooth[i] = AmpDDotSmooth[i-1] + norm*(AmpDDot[i+win2] - AmpDDot[i-win2-1]);             
+            AmpDDotSmooth[i] = AmpDDotSmooth[i-1] + norm*(AmpDDot[i+win2] - AmpDDot[i-win2-1]);
         }
         for (i=0; i<win2; i++){
             AmpDDotSmooth[NpsSmall-win2-1+i] = AmpDDotSmooth[NpsSmall-win2-2];
         }
 
-        
+
         if(debugPK || debugRD) {
             out = fopen( "DotAmpPHi.dat", "w" );
             for (i=0; i<NpsSmall - 1; i++){
                 fprintf(out, "%3.10f %3.10f %3.10f %3.10f %3.10f\n", tSeries[i], AmpDot[i], AmpDotSmooth[i], AmpDDot[i], AmpDDotSmooth[i]);
-            } 
+            }
 
         }
         if (*found ==0){
@@ -551,12 +551,12 @@ double XLALSimLocateAmplTime(
                             //break;
                         }else{
                             if (debugPK){
-                                printf("Stas, AmplDot - dismissing time %3.10f outside limits %3.10f, %3.10f \n", 
+                                printf("Stas, AmplDot - dismissing time %3.10f outside limits %3.10f, %3.10f \n",
                                     tAmp, tMin, tMax);
                             }
-                        }                              
-                   
-                   }  
+                        }
+
+                   }
             }
         }
         if (*found ==0){
@@ -575,14 +575,14 @@ double XLALSimLocateAmplTime(
                             //break;
                         }else{
                             if (debugPK){
-                                printf("Stas, AmplDDot - dismissing time %3.10f outside limits %3.10f, %3.10f \n", 
+                                printf("Stas, AmplDDot - dismissing time %3.10f outside limits %3.10f, %3.10f \n",
                                     tAmp, tMin, tMax);
                             }
-                        }                              
-                   }  
+                        }
+                   }
             }
         }
-        
+
 //        if(*found==0){
 //            REAL8 hRe[NpsSmall], hIm[NpsSmall];
 //            REAL8 dhRe[NpsSmall], dhIm[NpsSmall];
@@ -598,7 +598,7 @@ double XLALSimLocateAmplTime(
 //            dhIm[0]=dhIm[1];
 //            dhRe[NpsSmall-1]=dhRe[NpsSmall-2];
 //            dhIm[NpsSmall-1]=dhIm[NpsSmall-2];
-//            
+//
 //            REAL8 OmegaWave[NpsSmall], dOmegaWave[NpsSmall];
 //            double hNorm2;
 //            for (i=0; i<NpsSmall - 1; i++) {
@@ -611,7 +611,7 @@ double XLALSimLocateAmplTime(
 //            }
 //            dOmegaWave[0]=dOmegaWave[1];
 //            dOmegaWave[NpsSmall-1]=dOmegaWave[NpsSmall-2];
-//            
+//
 //            if(debugPK || debugRD) {
 //                out = fopen( "OmegaW.dat", "w" );
 //                for (i=0; i<NpsSmall - 1; i++){
@@ -621,7 +621,7 @@ double XLALSimLocateAmplTime(
 //            fclose(out);
 //
 //        }
-        
+
         /*
         for (i=1; i<Nps-3; i++){
             AmplDerivN2 = gsl_spline_eval_deriv(spline, timeHi->data[i+2], acc);
@@ -641,10 +641,10 @@ double XLALSimLocateAmplTime(
                         //break;
                     }else{
                         if (debugPK){
-                            printf("Stas dismissing time %3.10f outside limits %3.10f, %3.10f \n", 
+                            printf("Stas dismissing time %3.10f outside limits %3.10f, %3.10f \n",
                                 tAmp, tMin, tMax);
                         }
-                    }                              
+                    }
                 }
             }
             AmplDerivO2 = AmplDerivO1;
@@ -652,8 +652,8 @@ double XLALSimLocateAmplTime(
             AmplDeriv = AmplDerivN1;
             AmplDerivN1 = AmplDerivN2;
         }
-        
-        if (debugPK) 
+
+        if (debugPK)
         {
             fclose(out);
             if (*found ==0){
@@ -663,16 +663,16 @@ double XLALSimLocateAmplTime(
                 printf("Stas: we have found maximum of amplitude %3.10f at t = %3.10f \n", AmpMax, tAmpMax);
             }
         }
-         if (debugRD) 
+         if (debugRD)
         {
             fclose(out);
         }
         */
-        
-    }
-    
 
-    
+    }
+
+
+
     if (spline != NULL)
         gsl_spline_free(spline);
     if (acc != NULL)
@@ -683,8 +683,8 @@ double XLALSimLocateAmplTime(
     else{
         return(tAmpMax);
     }
-     
-}   
+
+}
 
 
 INT4 XLALSimCheckRDattachment(
@@ -713,11 +713,11 @@ INT4 XLALSimCheckRDattachment(
     unsigned int i;
     unsigned int i_att = 0;
     REAL8 Amp[signal1->length];
-    // sanity check 
+    // sanity check
     int ind_att = (int) matchrange->data[1]*(((mass1 + mass2) * LAL_MTSUN_SI / dt)) + 1;
     if (debugPK){
         printf("attach_ind = %d, t =%f, %f \n", ind_att, matchrange->data[1], timeVec->data[ind_att]); fflush(NULL);
-    } 
+    }
     if (signal1->data[ind_att] == 0.0 && signal2->data[ind_att] == 0.0){
         printf("Opyat' signal = 0 \n");fflush(NULL);
         //FILE *out1 = fopen( "Andrea1.dat","w");
@@ -731,7 +731,7 @@ INT4 XLALSimCheckRDattachment(
 
 
     }
- 
+
 
     if ( XLALSimIMREOBHybridAttachRingdownPrec( signal1, signal2, l, m,
                 dt, mass1, mass2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z,
@@ -756,15 +756,15 @@ INT4 XLALSimCheckRDattachment(
     for (i=0; i<i_att; i++){
         if (Amp[i] >= maxL){
            maxL = Amp[i];
-        } 
-    }  
+        }
+    }
     REAL8 maxR = Amp[i_att];
     for (i=i_att; i<signal1->length; i++){
         if (Amp[i] >= maxR){
            maxR = Amp[i];
-        } 
-    }  
-     
+        }
+    }
+
     if (debugPK){
         printf(" the ratio of amplitudes = %f  , ampls = %f, %f \n", maxR/maxL, maxR, maxL);fflush(NULL);
     }
@@ -777,11 +777,11 @@ INT4 XLALSimCheckRDattachment(
 
 
     return XLAL_SUCCESS;
-   
+
 }
 
 
-int XLALSimAdjustRDattachmentTime( 
+int XLALSimAdjustRDattachmentTime(
     REAL8Vector * signal1,	/**<< Output Real of inspiral waveform to which we attach ringdown */
     REAL8Vector * signal2,	/**<< Output Imag of inspiral waveform to which we attach ringdown */
     COMPLEX16TimeSeries* h22,   /**<< input time series (inspiral) */
@@ -835,7 +835,7 @@ int XLALSimAdjustRDattachmentTime(
     }
     if (debugPK){
         printf("tmax = %f, tAtt = %f, tmaxAmp = %f, tmaxOm = %f\n", tMax, tAtt, tMaxAmp, tMaxOmega);
-    }  
+    }
 //    printf("tAtt, tMax = %f %f\n", tAtt, tMax);
     while(pass == 0 && (tAtt >= *tAttach - maxDeltaT)){
         tAtt = tAtt - 0.5;
@@ -846,19 +846,19 @@ int XLALSimAdjustRDattachmentTime(
             signal1->data[i] = creal(h22->data->data[i]);
             signal2->data[i] = cimag(h22->data->data[i]);
         }
-       
+
         matchrange->data[0] = combSize < tAtt ? tAtt - combSize : 0;
         matchrange->data[1] = tAtt;
         matchrange->data[0] -= fmod( matchrange->data[0], dt/mTScaled );
         matchrange->data[1] -= fmod( matchrange->data[1], dt/mTScaled );
-        if (debugPK) printf("left 2,2 mode tAtt = %f     ", tAtt); 
+        if (debugPK) printf("left 2,2 mode tAtt = %f     ", tAtt);
         if( XLALSimCheckRDattachment(signal1, signal2, ratio22, tAtt, 2, 2,
                         dt, m1, m2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z,
                         timeVec, matchrange, approximant, JLN ) == XLAL_FAILURE )
         {
               XLAL_ERROR( XLAL_EFUNC );
         }
-     
+
         memset( signal1->data, 0, signal1->length * sizeof( signal1->data[0] ));
         memset( signal2->data, 0, signal2->length * sizeof( signal2->data[0] ));
         for ( i = 0; i < retLenHi; i++ )
@@ -866,7 +866,7 @@ int XLALSimAdjustRDattachmentTime(
             signal1->data[i] = creal(h2m2->data->data[i]);
             signal2->data[i] = cimag(h2m2->data->data[i]);
         }
-       
+
         if (debugPK) printf("left 2,-2 mode tAtt = %f     ", tAtt);
         if( XLALSimCheckRDattachment(signal1, signal2, ratio2m2, tAtt, 2, -2,
                         dt, m1, m2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z,
@@ -875,7 +875,7 @@ int XLALSimAdjustRDattachmentTime(
               XLAL_ERROR( XLAL_EFUNC );
         }
         if (debugPK) printf("Quality  %f\n", (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr));
-        
+
         if ( thrStore22L != 0. && thrStore2m2L != 0. ) {
             if ( (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr) < (thrStore22L - thr)*(thrStore22L - thr) + (thrStore2m2L - thr)*(thrStore2m2L - thr)  ) {
                 thrStore22L = *ratio22;
@@ -904,7 +904,7 @@ int XLALSimAdjustRDattachmentTime(
         }else{
             printf("Going left did nto find the best attachment point\n");
         }
-                
+
     }
     //REAL8 left_r22 = *ratio22;
     //REAL8 left_r2m2 = *ratio2m2;
@@ -948,7 +948,7 @@ int XLALSimAdjustRDattachmentTime(
         //    signal2->data[i] = 0.;
         //}
 
-        
+
         if (debugPK) printf("right 2,2 mode tAtt = %f     ", tAtt);
         if (matchrange->data[1] < iBad){
             if( XLALSimCheckRDattachment(signal1, signal2, ratio22, tAtt, 2, 2,
@@ -958,7 +958,7 @@ int XLALSimAdjustRDattachmentTime(
                   XLAL_ERROR( XLAL_EFUNC );
             }
 
-     
+
             memset( signal1->data, 0, signal1->length * sizeof( signal1->data[0] ));
             memset( signal2->data, 0, signal2->length * sizeof( signal2->data[0] ));
             for ( i = 0; i < retLenHi; i++ )
@@ -966,7 +966,7 @@ int XLALSimAdjustRDattachmentTime(
                 signal1->data[i] = creal(h2m2->data->data[i]);
                 signal2->data[i] = cimag(h2m2->data->data[i]);
             }
-       
+
             if (debugPK) printf("right 2,-2 mode tAtt = %f     ", tAtt);
             if( XLALSimCheckRDattachment(signal1, signal2, ratio2m2, tAtt, 2, -2,
                             dt, m1, m2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z,
@@ -990,8 +990,8 @@ int XLALSimAdjustRDattachmentTime(
                 tRBest = tAtt;
             }
         }
-        
-        
+
+
 //        if (*ratio22 <= thr && *ratio2m2 <= thr){
 //            pass = 1;
 //        }
@@ -1003,10 +1003,10 @@ int XLALSimAdjustRDattachmentTime(
         }else{
             printf("Going right did nto find the best attachment point\n");
         }
-                
+
     }
     int pass_right = pass;
-    
+
     if (1==1 || (pass_right == 0 && pass_left == 0) ) {
         if ( debugPK ) {
             printf("Cannot go below required threshold on RD/insp amplitude\n");
@@ -1038,7 +1038,7 @@ int XLALSimAdjustRDattachmentTime(
        return(1);
     }
     if (pass_left == 1 && pass_right == 1){
-   
+
         // hard choice
         if (left_r22 <= 1.0 || left_r2m2 <= 1.0){
             if (*ratio22 <= 1.0 || *ratio2m2 <= 1.0){
@@ -1072,6 +1072,6 @@ int XLALSimAdjustRDattachmentTime(
     }*/
     return(0);
 
-} 
+}
 
 

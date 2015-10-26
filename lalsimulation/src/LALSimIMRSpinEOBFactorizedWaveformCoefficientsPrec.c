@@ -17,7 +17,7 @@
  * Spin Factors
  */
 
-static int 
+static int
 XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients(
 					   FacWaveformCoeffs * const coeffs,	/**< OUTPUT, pre-computed waveform coefficients */
 					     const REAL8 m1,	/**< mass 1 */
@@ -41,7 +41,7 @@ XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients(
  * Appendix of the paper, and papers DIN (PRD 79, 064004 (2009)) and PBFRT (PRD 83, 064003 (2011)).
  */
 
-static int 
+static int
 XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients(
 					   FacWaveformCoeffs * const coeffs,	/**< OUTPUT, pre-computed waveform coefficients */
 					     const REAL8 m1,	/**< mass 1 */
