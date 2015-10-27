@@ -80,23 +80,23 @@ double  XLALSimLocateOmegaTime(
     unsigned int k;
     for (k = 1; k < timeHi.length-1; k++) {
         ddradiusVec[k] = (radiusVec[k+1] - 2.*radiusVec[k] + radiusVec[k-1])/dt/dt;
-        //        printf("%3.10f %3.10f\n", timeHi->data[k], ddradiusVec[k]);
+        //        XLAL_PRINT_INFO("%3.10f %3.10f\n", timeHi->data[k], ddradiusVec[k]);
     }
     //    for (k = timeHi->length-3; k>=1; k--) {
-    //        printf("%3.10f %3.10f\n", timeHi->data[k], ddradiusVec[k]);
+    //        XLAL_PRINT_INFO("%3.10f %3.10f\n", timeHi->data[k], ddradiusVec[k]);
     //        if (ddradiusVec[k] < 0) {
     //            break;
     //        }
     //    }
     for (k = 0; k < timeHi.length-2; k++) {
-        //        printf("%3.10f %3.10f\n", timeHi->data[k], ddradiusVec[k]);
+        //        XLAL_PRINT_INFO("%3.10f %3.10f\n", timeHi->data[k], ddradiusVec[k]);
         if (dt*k > dt*( timeHi.length-2)-20 && ddradiusVec[k] > 0) {
             break;
         }
     }
     double minoff = dt*( timeHi.length-2 - k) > 0.2 ? dt*( timeHi.length-2 - k) : 0.2;
     if (debugPK) {
-        printf("Change of sign in ddr %3.10f M before the end\n", minoff );
+        XLAL_PRINT_INFO("Change of sign in ddr %3.10f M before the end\n", minoff );
     }
     // First we search for the maximum (extremum) of amplitude
     double maxoff = 20.0;
@@ -109,7 +109,7 @@ double  XLALSimLocateOmegaTime(
     *tMaxOmega = tMax;
     tMin = tMax - 20.;
     if ( debugPK ) {
-        printf("tMin, tMax = %3.10f %3.10f\n", tMin, tMax);
+        XLAL_PRINT_INFO("tMin, tMax = %3.10f %3.10f\n", tMin, tMax);
     }
 
     double omega  = 0.0;
@@ -119,7 +119,7 @@ double  XLALSimLocateOmegaTime(
 
     if(debugPK) {
         out = fopen( "omegaHi.dat", "w" );
-        printf("length of values = %d, retLenHi = %d\n", values->length, retLenHi);
+        XLAL_PRINT_INFO("length of values = %d, retLenHi = %d\n", values->length, retLenHi);
         fflush(NULL);
     }
     if(debugRD) {
@@ -136,7 +136,7 @@ double  XLALSimLocateOmegaTime(
         if( XLALSpinPrecHcapRvecDerivative( 0, values->data, dvalues->data,
             &seobParams) != XLAL_SUCCESS )
         {
-                printf(
+                XLAL_PRINT_INFO(
                     " Calculation of dr/dt failed while computing omegaHi time series\n");
                 XLAL_ERROR( XLAL_EFUNC );
         }
@@ -171,7 +171,7 @@ double  XLALSimLocateOmegaTime(
             peakIdx = i;
             *found = 1;
             if (debugPK){
-                printf("PK: Crude peak of Omega is at idx = %d. t = %f,  OmegaPeak = %.16e\n",
+                XLAL_PRINT_INFO("PK: Crude peak of Omega is at idx = %d. t = %f,  OmegaPeak = %.16e\n",
                     peakIdx, timeHi.data[peakIdx], omega);
                 fflush(NULL);
 
@@ -182,7 +182,7 @@ double  XLALSimLocateOmegaTime(
     if(debugPK) {
         fclose(out);
         if (peakIdx ==0){
-            printf("Stas: peak of orbital frequency was not found. peakIdx = %d, retLenHi = %d, i at exit = %d\n", peakIdx, retLenHi, i);
+            XLAL_PRINT_INFO("Stas: peak of orbital frequency was not found. peakIdx = %d, retLenHi = %d, i at exit = %d\n", peakIdx, retLenHi, i);
             fflush(NULL);
         }
     }
@@ -219,18 +219,18 @@ double  XLALSimLocateOmegaTime(
 		        time1 = tPeakOmega;
 		    }
             if (debugPK){
-                printf("Stas: searching for orbital max: %f, %f, %f, %f \n", time1, time2, omegaDeriv, omegaDerivMid);
+                XLAL_PRINT_INFO("Stas: searching for orbital max: %f, %f, %f, %f \n", time1, time2, omegaDeriv, omegaDerivMid);
             }
         } while ( time2 - time1 > 1.0e-5 );
         if(debugPK) {
-          printf( "Estimation of the orbital peak is now at time %.16e \n", tPeakOmega);
+          XLAL_PRINT_INFO( "Estimation of the orbital peak is now at time %.16e \n", tPeakOmega);
           fflush(NULL);
         }
     }
 
     if(*found == 0 || debugRD || debugPK){
         if(debugPK){
-            printf("Stas: We couldn't find the maximum of orbital frequency, search for maximum of A(r)/r^2 \n");
+            XLAL_PRINT_INFO("Stas: We couldn't find the maximum of orbital frequency, search for maximum of A(r)/r^2 \n");
         }
         REAL8 rad, rad2, m1PlusetaKK, bulk, logTerms, deltaU, u, u2, u3, u4, u5;
         REAL8 listAOverr2[retLenHi];
@@ -306,7 +306,7 @@ double  XLALSimLocateOmegaTime(
                         tPeakOmega = timeHi.data[i];
                         *found = 1;
                         if (debugPK){
-                            printf("PK: Peak of A(r)/r^2 is at idx = %d. t = %f, Peak ampl. = %.16e\n",
+                            XLAL_PRINT_INFO("PK: Peak of A(r)/r^2 is at idx = %d. t = %f, Peak ampl. = %.16e\n",
                                 peakIdx, timeHi.data[peakIdx], Aoverr2);
                             fflush(NULL);
                         }
@@ -318,7 +318,7 @@ double  XLALSimLocateOmegaTime(
 
         if(debugPK) {
             if (peakIdx ==0){
-                printf("Stas: peak of A(r)/r^2 was not found. \
+                XLAL_PRINT_INFO("Stas: peak of A(r)/r^2 was not found. \
                     peakIdx = %d, retLenHi = %d, i at exit = %d\n", peakIdx, retLenHi, i);
                 fflush(NULL);
             }
@@ -360,23 +360,23 @@ double XLALSimLocateAmplTime(
     unsigned int k;
     for (k = 1; k < timeHi->length-1; k++) {
         ddradiusVec[k] = (radiusVec[k+1] - 2.*radiusVec[k] + radiusVec[k-1])/dt/dt;
-//        printf("%3.10f %3.10f\n", timeHi->data[k], ddradiusVec[k]);
+//        XLAL_PRINT_INFO("%3.10f %3.10f\n", timeHi->data[k], ddradiusVec[k]);
     }
 //    for (k = timeHi->length-3; k>=1; k--) {
-//        printf("%3.10f %3.10f\n", timeHi->data[k], ddradiusVec[k]);
+//        XLAL_PRINT_INFO("%3.10f %3.10f\n", timeHi->data[k], ddradiusVec[k]);
 //        if (ddradiusVec[k] < 0) {
 //            break;
 //        }
 //    }
     for (k = 0; k < timeHi->length-2; k++) {
-//        printf("%3.10f %3.10f\n", timeHi->data[k], ddradiusVec[k]);
+//        XLAL_PRINT_INFO("%3.10f %3.10f\n", timeHi->data[k], ddradiusVec[k]);
         if (dt*k > dt*( timeHi->length-2)-20 && ddradiusVec[k] > 0) {
             break;
         }
     }
     double minoff = dt*( timeHi->length-2 - k) > 0.2 ? dt*( timeHi->length-2 - k) : 0.2;
     if (debugPK) {
-        printf("Change of sign in ddr %3.10f M before the end\n", minoff );
+        XLAL_PRINT_INFO("Change of sign in ddr %3.10f M before the end\n", minoff );
     }
     // First we search for the maximum (extremum) of amplitude
     unsigned int i, peakIdx;
@@ -391,7 +391,7 @@ double XLALSimLocateAmplTime(
     *tMaxAmp = tMax;
     tMin = tMax - maxoff;
     if ( debugPK ) {
-        printf("tMin, tMax = %3.10f %3.10f \n", tMin, tMax);
+        XLAL_PRINT_INFO("tMin, tMax = %3.10f %3.10f \n", tMin, tMax);
     }
     unsigned int iMin = ceil(tMin/dt);
     unsigned int iMax = floor(tMax/dt);
@@ -426,7 +426,7 @@ double XLALSimLocateAmplTime(
                     peakIdx = iMin + i;
                 }else{
                     if (debugPK){
-                        printf("Stas dismissing time %3.10f outside limits %3.10f, %3.10f \n",
+                        XLAL_PRINT_INFO("Stas dismissing time %3.10f outside limits %3.10f, %3.10f \n",
                             tAmp, tMin, tMax);
                     }
                 }
@@ -440,10 +440,10 @@ double XLALSimLocateAmplTime(
     {
         fclose(out);
         if (*found ==0){
-            printf("Stas: peak of 2,2 mode in P-frame was not found. peakIdx = %d, retLenHi = %d, i at exit = %d\n", peakIdx, Nps, i);
+            XLAL_PRINT_INFO("Stas: peak of 2,2 mode in P-frame was not found. peakIdx = %d, retLenHi = %d, i at exit = %d\n", peakIdx, Nps, i);
             fflush(NULL);
         }else{
-            printf("Stas: we have found maximum of amplitude %3.10f at t = %3.10f \n", AmpMax, tAmpMax);
+            XLAL_PRINT_INFO("Stas: we have found maximum of amplitude %3.10f at t = %3.10f \n", AmpMax, tAmpMax);
         }
     }
     if (debugRD)
@@ -471,8 +471,8 @@ double XLALSimLocateAmplTime(
         AmpDDot[0] = AmpDDot[1];
         AmpDDot[NpsSmall -2] = AmpDDot[NpsSmall-3];
         AmpDDot[NpsSmall -1] = AmpDDot[NpsSmall-2];
-        //printf("Stas, check AmDot %f, %f, %f \n", AmpDot[NpsSmall -3],  AmpDot[NpsSmall -2],  AmpDot[NpsSmall -1]);
-        //printf("Stas, check AmDDot %f, %f, %f \n", AmpDDot[NpsSmall -3],  AmpDDot[NpsSmall -2],  AmpDDot[NpsSmall -1]);
+        //XLAL_PRINT_INFO("Stas, check AmDot %f, %f, %f \n", AmpDot[NpsSmall -3],  AmpDot[NpsSmall -2],  AmpDot[NpsSmall -1]);
+        //XLAL_PRINT_INFO("Stas, check AmDDot %f, %f, %f \n", AmpDDot[NpsSmall -3],  AmpDDot[NpsSmall -2],  AmpDDot[NpsSmall -1]);
 
 
 
@@ -532,13 +532,13 @@ double XLALSimLocateAmplTime(
         }
         if (*found ==0){
             if (debugPK || debugRD){
-                printf("Max of Amplitude is not found, looking for min of dot{Ampl} %d \n", iMin);
+                XLAL_PRINT_INFO("Max of Amplitude is not found, looking for min of dot{Ampl} %d \n", iMin);
             }
             for (i=1; i<NpsSmall-1-win; i++){
                    if (AmpDotSmooth[i] < AmpDotSmooth[i-1] && AmpDotSmooth[i] < AmpDotSmooth[i+1]){
                         tAmp = tSeries[i];
                         //tAmp = tSeries[i-iMin];
-                        //printf("Stas check i = %d, tSeries = %3.10f, tAmp = %3.10f \n", i, tSeries[i], tAmp);
+                        //XLAL_PRINT_INFO("Stas check i = %d, tSeries = %3.10f, tAmp = %3.10f \n", i, tSeries[i], tAmp);
                         if (tAmp >=tMin && tAmp <= tMax  && *found==0){
                             *found = 1;
                             tAmpMax = tAmp;
@@ -546,12 +546,12 @@ double XLALSimLocateAmplTime(
                             //AmpMax = AmpDotSmooth[i-iMin];
                             peakIdx = i;
                             if (debugPK || debugRD){
-                                printf("we have found min of Adot at t= %f\n", tAmpMax);
+                                XLAL_PRINT_INFO("we have found min of Adot at t= %f\n", tAmpMax);
                             }
                             //break;
                         }else{
                             if (debugPK){
-                                printf("Stas, AmplDot - dismissing time %3.10f outside limits %3.10f, %3.10f \n",
+                                XLAL_PRINT_INFO("Stas, AmplDot - dismissing time %3.10f outside limits %3.10f, %3.10f \n",
                                     tAmp, tMin, tMax);
                             }
                         }
@@ -561,11 +561,11 @@ double XLALSimLocateAmplTime(
         }
         if (*found ==0){
             if (debugPK || debugRD)
-                printf("Min of Adot is not found, looking for min of ddot{Ampl} \n");
+                XLAL_PRINT_INFO("Min of Adot is not found, looking for min of ddot{Ampl} \n");
             for (i=win2*2; i<NpsSmall-1-win2; i++){
                    if (AmpDDotSmooth[i] < AmpDDotSmooth[i-1] && AmpDDotSmooth[i] < AmpDDotSmooth[i+1]){
                         tAmp = tSeries[i];
-                        //printf("Stas check i = %d, tSeries = %3.10f, tAmp = %3.10f,  %3.10f, %3.10f, %3.10f \n", i, tSeries[i], tAmp,  AmpDDotSmooth[i-1], AmpDDotSmooth[i], AmpDDotSmooth[i+1]);
+                        //XLAL_PRINT_INFO("Stas check i = %d, tSeries = %3.10f, tAmp = %3.10f,  %3.10f, %3.10f, %3.10f \n", i, tSeries[i], tAmp,  AmpDDotSmooth[i-1], AmpDDotSmooth[i], AmpDDotSmooth[i+1]);
                         //if (tAmp >=tMin && tAmp <= tMax  && *found==0)
                         if (tAmp >=tMin && tAmp <= tMax){
                             *found = 1;
@@ -575,7 +575,7 @@ double XLALSimLocateAmplTime(
                             //break;
                         }else{
                             if (debugPK){
-                                printf("Stas, AmplDDot - dismissing time %3.10f outside limits %3.10f, %3.10f \n",
+                                XLAL_PRINT_INFO("Stas, AmplDDot - dismissing time %3.10f outside limits %3.10f, %3.10f \n",
                                     tAmp, tMin, tMax);
                             }
                         }
@@ -631,7 +631,7 @@ double XLALSimLocateAmplTime(
 
             if (*found == 0){
                 if ((AmplDeriv  <= AmplDerivO1 && AmplDeriv < AmplDerivN1) && (AmplDerivO2 > AmplDerivO1 && AmplDerivN2>=AmplDerivN1) ){
-                    printf("check %.16e, %.16e, %.16e, %.16e, %.16e \n", AmplDerivO2, AmplDerivO1, AmplDeriv, AmplDerivN1, AmplDerivN2);
+                    XLAL_PRINT_INFO("check %.16e, %.16e, %.16e, %.16e, %.16e \n", AmplDerivO2, AmplDerivO1, AmplDeriv, AmplDerivN1, AmplDerivN2);
                     tAmp = timeHi->data[i];
                     if (tAmp >=tMin && tAmp <= tMax  && *found==0){
                         *found = 1;
@@ -641,7 +641,7 @@ double XLALSimLocateAmplTime(
                         //break;
                     }else{
                         if (debugPK){
-                            printf("Stas dismissing time %3.10f outside limits %3.10f, %3.10f \n",
+                            XLAL_PRINT_INFO("Stas dismissing time %3.10f outside limits %3.10f, %3.10f \n",
                                 tAmp, tMin, tMax);
                         }
                     }
@@ -657,10 +657,10 @@ double XLALSimLocateAmplTime(
         {
             fclose(out);
             if (*found ==0){
-                printf("Stas: peak of 2,2 mode in P-frame was not found. peakIdx = %d, retLenHi = %d, i at exit = %d\n", peakIdx, Nps, i);
+                XLAL_PRINT_INFO("Stas: peak of 2,2 mode in P-frame was not found. peakIdx = %d, retLenHi = %d, i at exit = %d\n", peakIdx, Nps, i);
                 fflush(NULL);
             }else{
-                printf("Stas: we have found maximum of amplitude %3.10f at t = %3.10f \n", AmpMax, tAmpMax);
+                XLAL_PRINT_INFO("Stas: we have found maximum of amplitude %3.10f at t = %3.10f \n", AmpMax, tAmpMax);
             }
         }
          if (debugRD)
@@ -716,14 +716,14 @@ INT4 XLALSimCheckRDattachment(
     // sanity check
     int ind_att = (int) matchrange->data[1]*(((mass1 + mass2) * LAL_MTSUN_SI / dt)) + 1;
     if (debugPK){
-        printf("attach_ind = %d, t =%f, %f \n", ind_att, matchrange->data[1], timeVec->data[ind_att]); fflush(NULL);
+        XLAL_PRINT_INFO("attach_ind = %d, t =%f, %f \n", ind_att, matchrange->data[1], timeVec->data[ind_att]); fflush(NULL);
     }
     if (signal1->data[ind_att] == 0.0 && signal2->data[ind_att] == 0.0){
-        printf("Opyat' signal = 0 \n");fflush(NULL);
+        XLAL_PRINT_INFO("Opyat' signal = 0 \n");fflush(NULL);
         //FILE *out1 = fopen( "Andrea1.dat","w");
         //for (i = 0; i < timeVec->length; i++) {
         //    fprintf(out1, "%.16e   %.16e   %.16e\n", timeVec->data[i], signal1->data[i], signal2->data[i]);
-            //printf("%.16e %.16e\n", timeVec->data[j], y[j]);
+            //XLAL_PRINT_INFO("%.16e %.16e\n", timeVec->data[j], y[j]);
         //}
         //fclose(out1);
         //exit(0);
@@ -747,7 +747,7 @@ INT4 XLALSimCheckRDattachment(
             if (timeVec->data[i-1] <= tAtt && timeVec->data[i] > tAtt){
                 i_att = i;
                 //if (debugPK){
-                //    printf(" the attachment index = %d, time = %f, %f \n", i_att, timeVec->data[i_att], tAtt);
+                //    XLAL_PRINT_INFO(" the attachment index = %d, time = %f, %f \n", i_att, timeVec->data[i_att], tAtt);
                 //}
             }
         }
@@ -766,7 +766,7 @@ INT4 XLALSimCheckRDattachment(
     }
 
     if (debugPK){
-        printf(" the ratio of amplitudes = %f  , ampls = %f, %f \n", maxR/maxL, maxR, maxL);fflush(NULL);
+        XLAL_PRINT_INFO(" the ratio of amplitudes = %f  , ampls = %f, %f \n", maxR/maxL, maxR, maxL);fflush(NULL);
     }
 
     *ratio = maxR/maxL;
@@ -821,7 +821,7 @@ int XLALSimAdjustRDattachmentTime(
     REAL8 tMax = timeVec->data[retLenHi - 2] - 0.5 ;
     double hNorm2, dsignal1, dsignal2;    double omegaVec[retLenHi - 1];
 
-//    printf("tMaxOmega, tMaxAmp %f %f %f\n", tMaxOmega, tMaxAmp, tMax);
+//    XLAL_PRINT_INFO("tMaxOmega, tMaxAmp %f %f %f\n", tMaxOmega, tMaxAmp, tMax);
 
     if ( tMaxAmp < tMax) {
         tMax = tMaxAmp;
@@ -834,9 +834,9 @@ int XLALSimAdjustRDattachmentTime(
         tMax = tAtt + 5.0;
     }
     if (debugPK){
-        printf("tmax = %f, tAtt = %f, tmaxAmp = %f, tmaxOm = %f\n", tMax, tAtt, tMaxAmp, tMaxOmega);
+        XLAL_PRINT_INFO("tmax = %f, tAtt = %f, tmaxAmp = %f, tmaxOm = %f\n", tMax, tAtt, tMaxAmp, tMaxOmega);
     }
-//    printf("tAtt, tMax = %f %f\n", tAtt, tMax);
+//    XLAL_PRINT_INFO("tAtt, tMax = %f %f\n", tAtt, tMax);
     while(pass == 0 && (tAtt >= *tAttach - maxDeltaT)){
         tAtt = tAtt - 0.5;
         memset( signal1->data, 0, signal1->length * sizeof( signal1->data[0] ));
@@ -851,7 +851,7 @@ int XLALSimAdjustRDattachmentTime(
         matchrange->data[1] = tAtt;
         matchrange->data[0] -= fmod( matchrange->data[0], dt/mTScaled );
         matchrange->data[1] -= fmod( matchrange->data[1], dt/mTScaled );
-        if (debugPK) printf("left 2,2 mode tAtt = %f     ", tAtt);
+        if (debugPK) XLAL_PRINT_INFO("left 2,2 mode tAtt = %f     ", tAtt);
         if( XLALSimCheckRDattachment(signal1, signal2, ratio22, tAtt, 2, 2,
                         dt, m1, m2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z,
                         timeVec, matchrange, approximant, JLN ) == XLAL_FAILURE )
@@ -867,21 +867,21 @@ int XLALSimAdjustRDattachmentTime(
             signal2->data[i] = cimag(h2m2->data->data[i]);
         }
 
-        if (debugPK) printf("left 2,-2 mode tAtt = %f     ", tAtt);
+        if (debugPK) XLAL_PRINT_INFO("left 2,-2 mode tAtt = %f     ", tAtt);
         if( XLALSimCheckRDattachment(signal1, signal2, ratio2m2, tAtt, 2, -2,
                         dt, m1, m2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z,
                         timeVec, matchrange, approximant, JLN ) == XLAL_FAILURE )
         {
               XLAL_ERROR( XLAL_EFUNC );
         }
-        if (debugPK) printf("Quality  %f\n", (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr));
+        if (debugPK) XLAL_PRINT_INFO("Quality  %f\n", (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr));
 
         if ( thrStore22L != 0. && thrStore2m2L != 0. ) {
             if ( (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr) < (thrStore22L - thr)*(thrStore22L - thr) + (thrStore2m2L - thr)*(thrStore2m2L - thr)  ) {
                 thrStore22L = *ratio22;
                 thrStore2m2L = *ratio2m2;
                 tLBest = tAtt;
-                if(debugPK)printf("tLBest is now %f %f %f %f\n", tLBest, *ratio22 ,*ratio2m2, (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr));
+                if(debugPK)XLAL_PRINT_INFO("tLBest is now %f %f %f %f\n", tLBest, *ratio22 ,*ratio2m2, (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr));
             }
         }
         else {
@@ -900,9 +900,9 @@ int XLALSimAdjustRDattachmentTime(
     memset( signal2->data, 0, signal2->length * sizeof( signal2->data[0] ));
     if(debugPK){
         if (pass == 1){
-            printf("Going left, we have found better attachment point: new tAtt = %f, old = %f, ratios = %f, %f \n", tAtt, *tAttach, *ratio22, *ratio2m2);
+            XLAL_PRINT_INFO("Going left, we have found better attachment point: new tAtt = %f, old = %f, ratios = %f, %f \n", tAtt, *tAttach, *ratio22, *ratio2m2);
         }else{
-            printf("Going left did nto find the best attachment point\n");
+            XLAL_PRINT_INFO("Going left did nto find the best attachment point\n");
         }
 
     }
@@ -915,7 +915,7 @@ int XLALSimAdjustRDattachmentTime(
     pass = 0;
     tAtt = *tAttach;
     while(pass == 0 && (tAtt < tMax-0.5)){
-//        printf("tAtt tMax %f %f\n", tAtt, tMax);
+//        XLAL_PRINT_INFO("tAtt tMax %f %f\n", tAtt, tMax);
         tAtt = tAtt + 0.5;
         memset( signal1->data, 0, signal1->length * sizeof( signal1->data[0] ));
         memset( signal2->data, 0, signal2->length * sizeof( signal2->data[0] ));
@@ -949,7 +949,7 @@ int XLALSimAdjustRDattachmentTime(
         //}
 
 
-        if (debugPK) printf("right 2,2 mode tAtt = %f     ", tAtt);
+        if (debugPK) XLAL_PRINT_INFO("right 2,2 mode tAtt = %f     ", tAtt);
         if (matchrange->data[1] < iBad){
             if( XLALSimCheckRDattachment(signal1, signal2, ratio22, tAtt, 2, 2,
                             dt, m1, m2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z,
@@ -967,21 +967,21 @@ int XLALSimAdjustRDattachmentTime(
                 signal2->data[i] = cimag(h2m2->data->data[i]);
             }
 
-            if (debugPK) printf("right 2,-2 mode tAtt = %f     ", tAtt);
+            if (debugPK) XLAL_PRINT_INFO("right 2,-2 mode tAtt = %f     ", tAtt);
             if( XLALSimCheckRDattachment(signal1, signal2, ratio2m2, tAtt, 2, -2,
                             dt, m1, m2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z,
                             timeVec, matchrange, approximant, JLN ) == XLAL_FAILURE )
             {
                   XLAL_ERROR( XLAL_EFUNC );
             }
-            if (debugPK) printf("Quality  %f\n", (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr));
+            if (debugPK) XLAL_PRINT_INFO("Quality  %f\n", (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr));
 
             if ( thrStore22R != 0. && thrStore2m2R != 0. ) {
                 if ( tRBest < timeVec->data[iBad] && (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr) < (thrStore22R - thr)*(thrStore22R - thr) + (thrStore2m2R - thr)*(thrStore2m2R - thr)  ) {
                     thrStore22R = *ratio22;
                     thrStore2m2R = *ratio2m2;
                     tRBest = tAtt;
-                    if(debugPK)printf("tRBest is now %f %f %f %f\n", tRBest, *ratio22 , *ratio2m2, (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr));
+                    if(debugPK)XLAL_PRINT_INFO("tRBest is now %f %f %f %f\n", tRBest, *ratio22 , *ratio2m2, (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr));
                 }
             }
             else {
@@ -999,9 +999,9 @@ int XLALSimAdjustRDattachmentTime(
     }
     if(debugPK){
         if (pass == 1){
-            printf("Going right, we have found better attachment point: new tAtt = %f, old = %f, ratios = %f, %f \n", tAtt, *tAttach, *ratio22, *ratio2m2);
+            XLAL_PRINT_INFO("Going right, we have found better attachment point: new tAtt = %f, old = %f, ratios = %f, %f \n", tAtt, *tAttach, *ratio22, *ratio2m2);
         }else{
-            printf("Going right did nto find the best attachment point\n");
+            XLAL_PRINT_INFO("Going right did nto find the best attachment point\n");
         }
 
     }
@@ -1009,18 +1009,18 @@ int XLALSimAdjustRDattachmentTime(
 
     if (1==1 || (pass_right == 0 && pass_left == 0) ) {
         if ( debugPK ) {
-            printf("Cannot go below required threshold on RD/insp amplitude\n");
+            XLAL_PRINT_INFO("Cannot go below required threshold on RD/insp amplitude\n");
         }
         if ( (thrStore22L - thr)*(thrStore22L - thr) + (thrStore2m2L - thr)*(thrStore2m2L - thr) < (thrStore22R - thr)*(thrStore22R - thr) + (thrStore2m2R - thr)*(thrStore2m2R - thr)) {
             *tAttach = tLBest;
             if ( debugPK ) {
-                printf("tLBest %f\n", tLBest);
+                XLAL_PRINT_INFO("tLBest %f\n", tLBest);
             }
         }
         else {
             *tAttach = tRBest;
             if ( debugPK ) {
-                printf("tRBest %f\n", tRBest);
+                XLAL_PRINT_INFO("tRBest %f\n", tRBest);
             }
 
         }

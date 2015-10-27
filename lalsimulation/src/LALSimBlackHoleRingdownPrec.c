@@ -79,7 +79,7 @@ INT4 XLALSimIMREOBFinalMassSpinPrec(
   eta = mass1 * mass2 / (totalMass*totalMass);
   eta2 = eta * eta;
   eta3 = eta2 * eta;
-//printf("Approximant: %d\n",approximant);
+//XLAL_PRINT_INFO("Approximant: %d\n",approximant);
 
   switch ( approximant )
   {
@@ -187,14 +187,14 @@ INT4 XLALSimIMREOBFinalMassSpinPrec(
       *finalSpin = 1. / (1.+q) / (1.+q)
                * sqrt(a1a2norm +2.*a1a2L*lnorm*q+lnorm*lnorm*q2);*/
       if (debugout)
-          printf("final spin variables: %e, %e, %e, %e, %e, %e\n",chi1,chi2,theta1,theta2,phi1,phi2);
+          XLAL_PRINT_INFO("final spin variables: %e, %e, %e, %e, %e, %e\n",chi1,chi2,theta1,theta2,phi1,phi2);
     break;
     default:
       XLALPrintError( "XLAL Error %s - Unsupported approximant.\n", __func__ );
       XLAL_ERROR( XLAL_EINVAL );
   }
 
-  //printf( "Final mass = %e, Final spin = %e\n", *finalMass, *finalSpin );
+  //XLAL_PRINT_INFO( "Final mass = %e, Final spin = %e\n", *finalMass, *finalSpin );
   return XLAL_SUCCESS;
 }
 

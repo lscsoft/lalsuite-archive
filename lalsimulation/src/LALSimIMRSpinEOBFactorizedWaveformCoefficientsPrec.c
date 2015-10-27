@@ -55,9 +55,9 @@ XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients(
 {
 	int		debugPK = 0;
 	if (debugPK) {
-		printf("In XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients: Renewing hlm coefficients.\n");
+		XLAL_PRINT_INFO("In XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients: Renewing hlm coefficients.\n");
 		//FIXME
-			printf("PK:: chiS = %.12e, chiA = %.12e, a = %.12e (UNUSED), EOBVERSION = %d\n",
+			XLAL_PRINT_INFO("PK:: chiS = %.12e, chiA = %.12e, a = %.12e (UNUSED), EOBVERSION = %d\n",
 			       chiS, chiA, tmpa, SpinAlignedEOBversion);
 	}
 	REAL8		a = tmpa;
@@ -73,7 +73,7 @@ XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients(
 
 	dM2 = 1. - 4. * eta;
 
-	//printf("****************************** a = %e *********************************\n", a);
+	//XLAL_PRINT_INFO("****************************** a = %e *********************************\n", a);
 
 	/* Check that deltaM has a reasonable value */
 	if (dM2 < 0) {
@@ -167,9 +167,9 @@ XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients(
 	coeffs->rho22v10l = 439877. / 55566.;
 
 	if (debugPK) {
-		printf("\nPK:: dM, eta, chiS, chiA while renewing hlm coeffs: %e, %e, %e, %e\n",
+		XLAL_PRINT_INFO("\nPK:: dM, eta, chiS, chiA while renewing hlm coeffs: %e, %e, %e, %e\n",
 		       dM, eta, chiS, chiA);
-		printf("PK:: Renewed rho-lm coeffs: v2 = %.16e, v3 = %.16e, v4 = %.16e, v5 = %.16e\nv6 = %.16e, v6l = %.16e v7 = %.16e v8 = %.16e, v8l = %.16e v10 = %.16e v10l = %.16e\n",
+		XLAL_PRINT_INFO("PK:: Renewed rho-lm coeffs: v2 = %.16e, v3 = %.16e, v4 = %.16e, v5 = %.16e\nv6 = %.16e, v6l = %.16e v7 = %.16e v8 = %.16e, v8l = %.16e v10 = %.16e v10l = %.16e\n",
 		       coeffs->rho22v2, coeffs->rho22v3, coeffs->rho22v4, coeffs->rho22v5,
 		       coeffs->rho22v6, coeffs->rho22v6l, coeffs->rho22v7, coeffs->rho22v8,
 		     coeffs->rho22v8l, coeffs->rho22v10, coeffs->rho22v10l);

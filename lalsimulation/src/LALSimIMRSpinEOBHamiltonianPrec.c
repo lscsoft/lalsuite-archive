@@ -193,12 +193,12 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
   /* Spin gauge parameters. (YP) simplified, since both are zero. */
   // static const double aa=0., bb=0.;
   if(debugPK){
-  printf( "In Hamiltonian: tortoise flag = %d\n", (int) tortoise );
-  printf( "x = %.16e\t%.16e\t%.16e\n", x->data[0], x->data[1], x->data[2] );
-  printf( "p = %.16e\t%.16e\t%.16e\n", p->data[0], p->data[1], p->data[2] );
-  printf( "sStar = %.16e\t%.16e\t%.16e\n", sigmaStar->data[0],
+  XLAL_PRINT_INFO( "In Hamiltonian: tortoise flag = %d\n", (int) tortoise );
+  XLAL_PRINT_INFO( "x = %.16e\t%.16e\t%.16e\n", x->data[0], x->data[1], x->data[2] );
+  XLAL_PRINT_INFO( "p = %.16e\t%.16e\t%.16e\n", p->data[0], p->data[1], p->data[2] );
+  XLAL_PRINT_INFO( "sStar = %.16e\t%.16e\t%.16e\n", sigmaStar->data[0],
 		sigmaStar->data[1], sigmaStar->data[2] );
-  printf( "sKerr = %.16e\t%.16e\t%.16e\n", sigmaKerr->data[0],
+  XLAL_PRINT_INFO( "sKerr = %.16e\t%.16e\t%.16e\n", sigmaKerr->data[0],
 		sigmaKerr->data[1], sigmaKerr->data[2] );}
 
 
@@ -238,16 +238,16 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
     e3_y = 1./sqrt(3.);
     e3_z = 1./sqrt(3.);
   }
-//   printf("e3_x*nx + e3_y*ny + e3_z*nz %e = \n",e3_x*nx + e3_y*ny + e3_z*nz);
+//   XLAL_PRINT_INFO("e3_x*nx + e3_y*ny + e3_z*nz %e = \n",e3_x*nx + e3_y*ny + e3_z*nz);
     if (1. - fabs(e3_x*nx + e3_y*ny + e3_z*nz) <= 1.e-4) {
-//        printf("BEFORE e3_x*nx + e3_y*ny + e3_z*nz, e3_x, e3_y, e3_z  = %.16e %.16e %.16e %.16e\n", e3_x*nx + e3_y*ny + e3_z*nz, e3_x, e3_y, e3_z );
+//        XLAL_PRINT_INFO("BEFORE e3_x*nx + e3_y*ny + e3_z*nz, e3_x, e3_y, e3_z  = %.16e %.16e %.16e %.16e\n", e3_x*nx + e3_y*ny + e3_z*nz, e3_x, e3_y, e3_z );
         e3_x = e3_x+0.1;
         e3_y = e3_y+0.1;
         const REAL8 invnorm = 1./sqrt(e3_x*e3_x + e3_y*e3_y + e3_z*e3_z);
         e3_x = e3_x*invnorm;
         e3_y = e3_y*invnorm;
         e3_z = e3_z*invnorm;
-//        printf("AFTER e3_x*nx + e3_y*ny + e3_z*nz, e3_x, e3_y, e3_z  = %.16e %.16e %.16e %.16e\n", e3_x*nx + e3_y*ny + e3_z*nz, e3_x, e3_y, e3_z );
+//        XLAL_PRINT_INFO("AFTER e3_x*nx + e3_y*ny + e3_z*nz, e3_x, e3_y, e3_z  = %.16e %.16e %.16e %.16e\n", e3_x*nx + e3_y*ny + e3_z*nz, e3_x, e3_y, e3_z );
     }
 
   costheta = e3_x*nx + e3_y*ny + e3_z*nz;
@@ -265,7 +265,7 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
   w2 = r2 + a2;
   rho2 = r2 + a2*costheta*costheta;
 
-  if(debugPK)printf( "KK = %.16e\n", coeffs->KK );
+  if(debugPK)XLAL_PRINT_INFO( "KK = %.16e\n", coeffs->KK );
   const REAL8 invm1PlusetaKK = 1./(-1. + eta * coeffs->KK);
   /* Eq. 5.75 of BB1 */
   bulk = invm1PlusetaKK*(invm1PlusetaKK + (2.*u)) + a2*u2;
@@ -279,7 +279,7 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
   const REAL8 logarg = coeffs->k1*u + coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4
                                              + coeffs->k5*u5 + coeffs->k5l*u5*logu;
   logTerms = 1. + eta*coeffs->k0 + eta*log1p(fabs(1. + logarg) - 1.);
-  if(debugPK)printf( "bulk = %.16e, logTerms = %.16e\n", bulk, logTerms );
+  if(debugPK)XLAL_PRINT_INFO( "bulk = %.16e, logTerms = %.16e\n", bulk, logTerms );
   /* Eq. 5.73 of BB1 */
   deltaU = fabs(bulk*logTerms);
   /* Eq. 5.71 of BB1 */
@@ -314,8 +314,8 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
   const REAL8 csi1 = 1.0 + (1.-fabs(1.-tortoise)) * (csi - 1.0);
   // non-unity only for tortoise==2
   const REAL8 csi2 = 1.0 + (0.5-copysign(0.5, 1.5-tortoise)) * (csi - 1.0);
-  if(debugPK)printf( "csi1(miami) = %.16e\n", csi1 );
-  if(debugPK)printf( "csi2(miami) = %.16e\n", csi2 );
+  if(debugPK)XLAL_PRINT_INFO( "csi1(miami) = %.16e\n", csi1 );
+  if(debugPK)XLAL_PRINT_INFO( "csi2(miami) = %.16e\n", csi2 );
 
   prT = (p->data[0]*nx + p->data[1]*ny + p->data[2]*nz)*csi2;
   /* p->data is BL momentum vector; tmpP is tortoise momentum vector */
@@ -332,10 +332,10 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
   ptheta2 = pvr * pvr *invxi2;
 
   if(debugPK)
-  {printf( "pr = %.16e, prT = %.16e\n", pr, prT );
+  {XLAL_PRINT_INFO( "pr = %.16e, prT = %.16e\n", pr, prT );
 
-  printf( " a = %.16e, r = %.16e\n", a, r );
-  printf( "D = %.16e, ww = %.16e, rho = %.16e, Lambda = %.16e, xi = %.16e\npr = %.16e, pf = %.16e, deltaR = %.16e, deltaT = %.16e\n",
+  XLAL_PRINT_INFO( " a = %.16e, r = %.16e\n", a, r );
+  XLAL_PRINT_INFO( "D = %.16e, ww = %.16e, rho = %.16e, Lambda = %.16e, xi = %.16e\npr = %.16e, pf = %.16e, deltaR = %.16e, deltaT = %.16e\n",
       D, ww, sqrt(rho2), Lambda, sqrt(xi2), pr, pf, deltaR, deltaT );}
 
   /* Eqs. 5.36 - 5.46 of BB1 */
@@ -344,12 +344,12 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
              * (rho2*deltaT) * invLambda) + pf*ww*invLambda;
 
   if(debugPK){
-  printf( "term 1 in Hns: %.16e\n",  prT*prT*prT*prT*qq*u2 );
-  printf( "term 2 in Hns: %.16e\n", ptheta2/rho2 );
-  printf( "term 3 in Hns = %.16e\n", pf*pf*rho2/(Lambda*xi2) );
-  printf( "term 4 in Hns = %.16e\n", pr*pr*deltaR/rho2 );
-  printf( "term 5 in Hns = %.16e\n", Lambda/(rho2*deltaT) );
-  printf( "term 6 in Hns = %.16e\n", pf*ww/Lambda );}
+  XLAL_PRINT_INFO( "term 1 in Hns: %.16e\n",  prT*prT*prT*prT*qq*u2 );
+  XLAL_PRINT_INFO( "term 2 in Hns: %.16e\n", ptheta2/rho2 );
+  XLAL_PRINT_INFO( "term 3 in Hns = %.16e\n", pf*pf*rho2/(Lambda*xi2) );
+  XLAL_PRINT_INFO( "term 4 in Hns = %.16e\n", pr*pr*deltaR/rho2 );
+  XLAL_PRINT_INFO( "term 5 in Hns = %.16e\n", Lambda/(rho2*deltaT) );
+  XLAL_PRINT_INFO( "term 6 in Hns = %.16e\n", pf*ww/Lambda );}
   /* Eqs. 5.30 - 5.33 of BB1 */
   B = sqrt(deltaT);
   // RH: this is horrible but faster than 3 divisions
@@ -385,13 +385,13 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
   //Q = 1. + pvr*pvr/(exp(2.*MU)*xi2) + exp(2.*nu)*pxir*pxir/(B*B*xi2) + pn*pn*deltaR/exp(2.*MU);
   Q = 1. + pvr*pvr*invrho2*invxi2 + pxir*pxir*rho2*invLambda*invxi2 + pn*pn*deltaR*invrho2;
    if(debugPK){
-       printf( "Q = %.16e, pvr = %.16e, xi2 = %.16e , deltaT = %.16e, rho2 = %.16e, Lambda = %.16e, pxir = %.16e, B = %.16e\n", Q, pvr, xi2, deltaT, rho2, Lambda, pxir, B );
+       XLAL_PRINT_INFO( "Q = %.16e, pvr = %.16e, xi2 = %.16e , deltaT = %.16e, rho2 = %.16e, Lambda = %.16e, pxir = %.16e, B = %.16e\n", Q, pvr, xi2, deltaT, rho2, Lambda, pxir, B );
    }
   pn2 = pr * pr * deltaR * invrho2;
   pp  = Q - 1.;
 
-  if(debugPK){printf( "pn2 = %.16e, pp = %.16e\n", pn2, pp );
-  printf( "sigmaKerr = %.16e, sigmaStar = %.16e\n", sKerr_z, sStar_z );}
+  if(debugPK){XLAL_PRINT_INFO( "pn2 = %.16e, pp = %.16e\n", pn2, pp );
+  XLAL_PRINT_INFO( "sigmaKerr = %.16e, sigmaStar = %.16e\n", sKerr_z, sStar_z );}
   /* Eq. 5.68 of BB1, (YP) simplified for aa=bb=0. */
   /*
   deltaSigmaStar_x=(- 8.*aa*(1. + 3.*pn2*r - pp*r)*sKerr_x - 8.*bb*(1. + 3.*pn2*r - pp*r)*sStar_x +
@@ -490,7 +490,7 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
   deltaSigmaStar_z += coeffs->d1v2 * eta * sigmaKerr->data[2] * u3;
 
 
-  if(debugPK)printf( "deltaSigmaStar_x = %.16e, deltaSigmaStar_y = %.16e, deltaSigmaStar_z = %.16e\n",
+  if(debugPK)XLAL_PRINT_INFO( "deltaSigmaStar_x = %.16e, deltaSigmaStar_y = %.16e, deltaSigmaStar_z = %.16e\n",
      deltaSigmaStar_x, deltaSigmaStar_y, deltaSigmaStar_z );
 
   sx = sStar_x + deltaSigmaStar_x;
@@ -535,54 +535,54 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
                          * (s1Vec->data[0]*s1Vec->data[0] + s1Vec->data[1]*s1Vec->data[1] + s1Vec->data[2]*s1Vec->data[2]
                            +s2Vec->data[0]*s2Vec->data[0] + s2Vec->data[1]*s2Vec->data[1] + s2Vec->data[2]*s2Vec->data[2]);
   if(debugPK){
-	  printf( "Hns = %.16e, Hs = %.16e, Hss = %.16e\n", Hns, Hs, Hss );
-	  printf( "H = %.16e\n", H );}
+	  XLAL_PRINT_INFO( "Hns = %.16e, Hs = %.16e, Hss = %.16e\n", Hns, Hs, Hss );
+	  XLAL_PRINT_INFO( "H = %.16e\n", H );}
   /* Real Hamiltonian given by Eq. 2, ignoring the constant -1. */
   Hreal = sqrt(1. + 2.*eta *(fabs(H) - 1.));
-  if(debugPK)printf( "Hreal = %.16e\n", Hreal );
+  if(debugPK)XLAL_PRINT_INFO( "Hreal = %.16e\n", Hreal );
 
   if(isnan(Hreal)) {
-    printf(
+    XLAL_PRINT_INFO(
     "\n\nInside Hamiltonian: Hreal is a NAN. Printing its components below:\n");
-      printf( "(deltaU, bulk, logTerms, log arg) = (%.16e, %.16e, %.16e, %.16e)\n", deltaU, bulk, logTerms, 1. + coeffs->k1*u + coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4
+      XLAL_PRINT_INFO( "(deltaU, bulk, logTerms, log arg) = (%.16e, %.16e, %.16e, %.16e)\n", deltaU, bulk, logTerms, 1. + coeffs->k1*u + coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4
              + coeffs->k5*u5 + coeffs->k5l*u5*logu);
 
-    printf( "In Hamiltonian: tortoise flag = %d\n", (int) tortoise );
-    printf( "x = %.16e\t%.16e\t%.16e\n", x->data[0], x->data[1], x->data[2] );
-    printf( "p = %.16e\t%.16e\t%.16e\n", p->data[0], p->data[1], p->data[2] );
-    printf( "sStar = %.16e\t%.16e\t%.16e\n", sigmaStar->data[0],
+    XLAL_PRINT_INFO( "In Hamiltonian: tortoise flag = %d\n", (int) tortoise );
+    XLAL_PRINT_INFO( "x = %.16e\t%.16e\t%.16e\n", x->data[0], x->data[1], x->data[2] );
+    XLAL_PRINT_INFO( "p = %.16e\t%.16e\t%.16e\n", p->data[0], p->data[1], p->data[2] );
+    XLAL_PRINT_INFO( "sStar = %.16e\t%.16e\t%.16e\n", sigmaStar->data[0],
       sigmaStar->data[1], sigmaStar->data[2] );
-    printf( "sKerr = %.16e\t%.16e\t%.16e\n", sigmaKerr->data[0],
+    XLAL_PRINT_INFO( "sKerr = %.16e\t%.16e\t%.16e\n", sigmaKerr->data[0],
       sigmaKerr->data[1], sigmaKerr->data[2] );
-      printf("csi = %.16e, Q = %.16e, pvr = %.16e, xi2 = %.16e , deltaT = %.16e, rho2 = %.16e, Lambda = %.16e, pxir = %.16e, B = %.16e\n", csi,Q, pvr, xi2, deltaT, rho2, Lambda, pxir, B );
+      XLAL_PRINT_INFO("csi = %.16e, Q = %.16e, pvr = %.16e, xi2 = %.16e , deltaT = %.16e, rho2 = %.16e, Lambda = %.16e, pxir = %.16e, B = %.16e\n", csi,Q, pvr, xi2, deltaT, rho2, Lambda, pxir, B );
 
-    printf( "KK = %.16e\n", coeffs->KK );
-    printf( "bulk = %.16e, logTerms = %.16e\n", bulk, logTerms );
-    printf("csi(miami) = %.16e\n", csi);
-    printf( " a = %.16e, r = %.16e\n", a, r );
-    printf( "D = %.16e, ww = %.16e, rho = %.16e, Lambda = %.16e, xi = %.16e\npr = %.16e, pf = %.16e, deltaR = %.16e, deltaT = %.16e\n",
+    XLAL_PRINT_INFO( "KK = %.16e\n", coeffs->KK );
+    XLAL_PRINT_INFO( "bulk = %.16e, logTerms = %.16e\n", bulk, logTerms );
+    XLAL_PRINT_INFO("csi(miami) = %.16e\n", csi);
+    XLAL_PRINT_INFO( " a = %.16e, r = %.16e\n", a, r );
+    XLAL_PRINT_INFO( "D = %.16e, ww = %.16e, rho = %.16e, Lambda = %.16e, xi = %.16e\npr = %.16e, pf = %.16e, deltaR = %.16e, deltaT = %.16e\n",
         D, ww, sqrt(rho2), Lambda, sqrt(xi2), pr, pf, deltaR, deltaT );
-    printf( "pr = %.16e, prT = %.16e\n", pr, prT );
+    XLAL_PRINT_INFO( "pr = %.16e, prT = %.16e\n", pr, prT );
 
-    printf( " a = %.16e, r = %.16e\n", a, r );
-    printf( "D = %.16e, ww = %.16e, rho = %.16e, Lambda = %.16e, xi = %.16e\npr = %.16e, pf = %.16e, deltaR = %.16e, deltaT = %.16e\n",
+    XLAL_PRINT_INFO( " a = %.16e, r = %.16e\n", a, r );
+    XLAL_PRINT_INFO( "D = %.16e, ww = %.16e, rho = %.16e, Lambda = %.16e, xi = %.16e\npr = %.16e, pf = %.16e, deltaR = %.16e, deltaT = %.16e\n",
         D, ww, sqrt(rho2), Lambda, sqrt(xi2), pr, pf, deltaR, deltaT );
-    printf( "pr = %.16e, prT = %.16e\n", pr, prT );
-    printf( "pn2 = %.16e, pp = %.16e\n", pn2, pp );
-    printf( "deltaSigmaStar_x = %.16e, deltaSigmaStar_y = %.16e, deltaSigmaStar_z = %.16e\n",
+    XLAL_PRINT_INFO( "pr = %.16e, prT = %.16e\n", pr, prT );
+    XLAL_PRINT_INFO( "pn2 = %.16e, pp = %.16e\n", pn2, pp );
+    XLAL_PRINT_INFO( "deltaSigmaStar_x = %.16e, deltaSigmaStar_y = %.16e, deltaSigmaStar_z = %.16e\n",
      deltaSigmaStar_x, deltaSigmaStar_y, deltaSigmaStar_z );
 
-    printf( "term 1 in Hns: %.16e\n",  prT*prT*prT*prT*qq*u2 );
-    printf( "term 2 in Hns: %.16e\n", ptheta2/rho2 );
-    printf( "term 3 in Hns = %.16e\n", pf*pf*rho2/(Lambda*xi2) );
-    printf( "term 4 in Hns = %.16e\n", pr*pr*deltaR/rho2 );
-    printf( "term 5 in Hns = %.16e\n", Lambda/(rho2*deltaT) );
-    printf( "term 6 in Hns = %.16e\n", pf*ww/Lambda );
+    XLAL_PRINT_INFO( "term 1 in Hns: %.16e\n",  prT*prT*prT*prT*qq*u2 );
+    XLAL_PRINT_INFO( "term 2 in Hns: %.16e\n", ptheta2/rho2 );
+    XLAL_PRINT_INFO( "term 3 in Hns = %.16e\n", pf*pf*rho2/(Lambda*xi2) );
+    XLAL_PRINT_INFO( "term 4 in Hns = %.16e\n", pr*pr*deltaR/rho2 );
+    XLAL_PRINT_INFO( "term 5 in Hns = %.16e\n", Lambda/(rho2*deltaT) );
+    XLAL_PRINT_INFO( "term 6 in Hns = %.16e\n", pf*ww/Lambda );
 
-    printf( "Hns = %.16e, Hs = %.16e, Hss = %.16e\n", Hns, Hs, Hss );
-	  printf( "H = %.16e\n", H );
+    XLAL_PRINT_INFO( "Hns = %.16e, Hs = %.16e, Hss = %.16e\n", Hns, Hs, Hss );
+	  XLAL_PRINT_INFO( "H = %.16e\n", H );
 
-    printf("Done printing components.\n\n");
+    XLAL_PRINT_INFO("Done printing components.\n\n");
     XLALPrintError( "XLAL Error - %s: Hreal = nan in Hamiltonian \n", __func__);
     XLAL_ERROR( XLAL_EINVAL );
   }
@@ -624,7 +624,7 @@ static int XLALSimIMRCalculateSpinPrecEOBHCoeffs(
   const int debugPK = 0;
   if( debugPK )
   {
-    printf("In XLALSimIMRCalculateSpinPrecEOBHCoeffs: SpinAlignedEOBversion = %d,%d\n",
+    XLAL_PRINT_INFO("In XLALSimIMRCalculateSpinPrecEOBHCoeffs: SpinAlignedEOBversion = %d,%d\n",
         (int) SpinAlignedEOBversion, (int) coeffs->SpinAlignedEOBversion );
     fflush( NULL );
   }
@@ -678,7 +678,7 @@ static int XLALSimIMRCalculateSpinPrecEOBHCoeffs(
                     );
   coeffs->k5l= k5l= ifthenelsezero(SpinAlignedEOBversion-1.5, (m1PlusEtaKK*m1PlusEtaKK) * (64./5.));
 
-  /*printf( "a = %.16e, k0 = %.16e, k1 = %.16e, k2 = %.16e, k3 = %.16e, k4 = %.16e, b3 = %.16e, bb3 = %.16e, KK = %.16e\n",
+  /*XLAL_PRINT_INFO( "a = %.16e, k0 = %.16e, k1 = %.16e, k2 = %.16e, k3 = %.16e, k4 = %.16e, b3 = %.16e, bb3 = %.16e, KK = %.16e\n",
             a, coeffs->k0, coeffs->k1, coeffs->k2, coeffs->k3, coeffs->k4, coeffs->b3, coeffs->bb3, coeffs->KK );
   */
 
@@ -728,10 +728,10 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonianDeltaT(
 
   logTerms = 1. + eta*coeffs->k0 + eta*log(fabs(1. + coeffs->k1*u + coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4
                                               + coeffs->k5*u5 + coeffs->k5l*u5*log(u)));
-  /*printf(" a = %.16e, u = %.16e\n",a,u);
-  printf( "k0 = %.16e, k1 = %.16e, k2 = %.16e, k3 = %.16e , k4 = %.16e, k5 = %.16e, k5l = %.16e\n",coeffs->k0,
+  /*XLAL_PRINT_INFO(" a = %.16e, u = %.16e\n",a,u);
+  XLAL_PRINT_INFO( "k0 = %.16e, k1 = %.16e, k2 = %.16e, k3 = %.16e , k4 = %.16e, k5 = %.16e, k5l = %.16e\n",coeffs->k0,
          coeffs->k1,coeffs->k2,coeffs->k3,coeffs->k4,coeffs->k5,coeffs->k5l);
-  printf( "bulk = %.16e, logTerms = %.16e\n", bulk, logTerms );*/
+  XLAL_PRINT_INFO( "bulk = %.16e, logTerms = %.16e\n", bulk, logTerms );*/
   deltaU = bulk*logTerms;
   deltaU = fabs(deltaU);
   deltaT = r*r*deltaU;
@@ -830,7 +830,7 @@ static REAL8 XLALSimIMRSpinPrecEOBCalcOmega(
   if (debugPK){
     for(int i =0; i < 12; i++)
       if( isnan(values[i]) ) {
-        printf("XLALSimIMRSpinPrecEOBCalcOmega::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
+        XLAL_PRINT_INFO("XLALSimIMRSpinPrecEOBCalcOmega::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
           XLALPrintError( "XLAL Error - %s: nan in input values  \n", __func__);
           XLAL_ERROR( XLAL_EINVAL );
       }
@@ -903,7 +903,7 @@ static REAL8 XLALSimIMRSpinPrecEOBCalcOmega(
   if (debugPK){
     for(int ii =0; ii < 12; ii++)
       if( isnan(dvalues[ii]) ) {
-        printf("XLALSimIMRSpinPrecEOBCalcOmega::dvalues %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3], dvalues[4], dvalues[5], dvalues[6], dvalues[7], dvalues[8], dvalues[9], dvalues[10], dvalues[11]);
+        XLAL_PRINT_INFO("XLALSimIMRSpinPrecEOBCalcOmega::dvalues %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3], dvalues[4], dvalues[5], dvalues[6], dvalues[7], dvalues[8], dvalues[9], dvalues[10], dvalues[11]);
           XLALPrintError( "XLAL Error - %s: nan in dvalues \n", __func__);
           XLAL_ERROR( XLAL_EINVAL );
       }
@@ -1081,7 +1081,7 @@ XLALSimIMRSpinPrecEOBNonKeplerCoeff(
   if (debugPK){
     for(int i =0; i < 12; i++)
       if( isnan(values[i]) ) {
-        printf("XLALSimIMRSpinPrecEOBNonKeplerCoeff::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n",
+        XLAL_PRINT_INFO("XLALSimIMRSpinPrecEOBNonKeplerCoeff::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n",
         values[0], values[1], values[2], values[3], values[4], values[5],
         values[6], values[7], values[8], values[9], values[10], values[11]);
           XLALPrintError( "XLAL Error - %s: nan in values  \n", __func__);
@@ -1123,13 +1123,13 @@ UNUSED static int XLALSpinPrecHcapRvecDerivative(
   //if (debugPK){
     for(int i =0; i < 12; i++){
       if( isnan(values[i]) ) {
-        printf("XLALSpinPrecHcapRvecDerivative::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
+        XLAL_PRINT_INFO("XLALSpinPrecHcapRvecDerivative::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
           XLALPrintError( "XLAL Error - %s: nan in input values \n", __func__);
           XLAL_ERROR( XLAL_EINVAL );
         }
 
       if( isnan(dvalues[i]) ) {
-        printf("XLALSpinPrecHcapRvecDerivative::dvalues %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3], dvalues[4], dvalues[5], dvalues[6], dvalues[7], dvalues[8], dvalues[9], dvalues[10], dvalues[11]);
+        XLAL_PRINT_INFO("XLALSpinPrecHcapRvecDerivative::dvalues %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3], dvalues[4], dvalues[5], dvalues[6], dvalues[7], dvalues[8], dvalues[9], dvalues[10], dvalues[11]);
           XLALPrintError( "XLAL Error - %s: nan in the input dvalues \n", __func__);
           XLAL_ERROR( XLAL_EINVAL );
         }
@@ -1318,7 +1318,7 @@ UNUSED static int XLALSpinPrecHcapRvecDerivative(
       XLAL_ERROR( XLAL_EINVAL );
   }
   if(debugPK && isnan(a))
-    printf("a is nan in XLALSpinPrecHcapRvecDerivative \n");
+    XLAL_PRINT_INFO("a is nan in XLALSpinPrecHcapRvecDerivative \n");
 
   ///* set the tortoise flag to 2 */
   //INT4 oldTortoise = params.params->tortoise;
@@ -1408,13 +1408,13 @@ UNUSED static int XLALSpinPrecHcapRvecDerivative(
   //if (debugPK){
     for(i =0; i < 12; i++){
       if( isnan(values[i]) ) {
-        printf("XLALSpinPrecHcapRvecDerivative (just before diff)::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
+        XLAL_PRINT_INFO("XLALSpinPrecHcapRvecDerivative (just before diff)::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
           XLALPrintError( "XLAL Error - %s: values = nan   \n", __func__);
           XLAL_ERROR( XLAL_EINVAL );
         }
 
       if( isnan(dvalues[i]) ) {
-        printf("XLALSpinPrecHcapRvecDerivative (just before diff)::dvalues %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3], dvalues[4], dvalues[5], dvalues[6], dvalues[7], dvalues[8], dvalues[9], dvalues[10], dvalues[11]);
+        XLAL_PRINT_INFO("XLALSpinPrecHcapRvecDerivative (just before diff)::dvalues %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3], dvalues[4], dvalues[5], dvalues[6], dvalues[7], dvalues[8], dvalues[9], dvalues[10], dvalues[11]);
           XLALPrintError( "XLAL Error - %s: dvalues = nan   \n", __func__);
           XLAL_ERROR( XLAL_EINVAL );
         }
@@ -1518,7 +1518,7 @@ UNUSED static int XLALSpinPrecHcapRvecDerivative(
   if (debugPK){
     for( i =0; i < 12; i++)
       if( isnan(tmpDValues[i]) ) {
-        printf("XLALSpinPrecHcapRvecDerivative (just after diff)::tmpDValues %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", tmpDValues[0], tmpDValues[1], tmpDValues[2], tmpDValues[3], tmpDValues[4], tmpDValues[5], tmpDValues[6], tmpDValues[7], tmpDValues[8], tmpDValues[9], tmpDValues[10], tmpDValues[11]);
+        XLAL_PRINT_INFO("XLALSpinPrecHcapRvecDerivative (just after diff)::tmpDValues %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", tmpDValues[0], tmpDValues[1], tmpDValues[2], tmpDValues[3], tmpDValues[4], tmpDValues[5], tmpDValues[6], tmpDValues[7], tmpDValues[8], tmpDValues[9], tmpDValues[10], tmpDValues[11]);
         }
     }
 
@@ -1624,7 +1624,7 @@ UNUSED static int XLALSpinPrecHcapRvecDerivative(
 	  for( j = 0, dvalues[i] = 0.; j < 3; j++ )
 		  dvalues[i] += tmpDValues[j+3]*Tmatrix[i][j];
 
-    //if (debugPK) printf("XLALSpinPrecHcapRvecDerivative::tmpDValues = %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n",tmpDValues[0],tmpDValues[1],tmpDValues[2],tmpDValues[3],tmpDValues[4],tmpDValues[5]);
+    //if (debugPK) XLAL_PRINT_INFO("XLALSpinPrecHcapRvecDerivative::tmpDValues = %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n",tmpDValues[0],tmpDValues[1],tmpDValues[2],tmpDValues[3],tmpDValues[4],tmpDValues[5]);
 
 
   return XLAL_SUCCESS;
@@ -1664,7 +1664,7 @@ static double GSLSpinPrecHamiltonianWrapperForRvecDerivs( double x, void *params
   if (debugPK){
     for( i =0; i < 12; i++)
       if( isnan(tmpVec[i]) ) {
-        printf("GSLSpinPrecHamiltonianWrapperForRvecDerivs (from input)::tmpVec %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", tmpVec[0], tmpVec[1], tmpVec[2], tmpVec[3], tmpVec[4], tmpVec[5], tmpVec[6], tmpVec[7], tmpVec[8], tmpVec[9], tmpVec[10], tmpVec[11]);
+        XLAL_PRINT_INFO("GSLSpinPrecHamiltonianWrapperForRvecDerivs (from input)::tmpVec %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", tmpVec[0], tmpVec[1], tmpVec[2], tmpVec[3], tmpVec[4], tmpVec[5], tmpVec[6], tmpVec[7], tmpVec[8], tmpVec[9], tmpVec[10], tmpVec[11]);
         }
     }
 
@@ -1706,11 +1706,11 @@ static double GSLSpinPrecHamiltonianWrapperForRvecDerivs( double x, void *params
   a = sqrt( sigmaKerr.data[0]*sigmaKerr.data[0]
 			+ sigmaKerr.data[1]*sigmaKerr.data[1]
             + sigmaKerr.data[2]*sigmaKerr.data[2] );
-  //printf( "a = %e\n", a );
-  //printf( "aStar = %e\n", sqrt( sigmaStar.data[0]*sigmaStar.data[0] + sigmaStar.data[1]*sigmaStar.data[1] + sigmaStar.data[2]*sigmaStar.data[2]) );
+  //XLAL_PRINT_INFO( "a = %e\n", a );
+  //XLAL_PRINT_INFO( "aStar = %e\n", sqrt( sigmaStar.data[0]*sigmaStar.data[0] + sigmaStar.data[1]*sigmaStar.data[1] + sigmaStar.data[2]*sigmaStar.data[2]) );
   if ( isnan( a ) )
   {
-      printf( "a is nan in GSLSpinPrecHamiltonianWrapperForRvecDerivs!!\n");
+      XLAL_PRINT_INFO( "a is nan in GSLSpinPrecHamiltonianWrapperForRvecDerivs!!\n");
       XLALPrintError( "XLAL Error - %s: a = nan   \n", __func__);
       XLAL_ERROR( XLAL_EINVAL );
   }
@@ -1772,14 +1772,14 @@ static double GSLSpinPrecHamiltonianWrapperForRvecDerivs( double x, void *params
 	  memcpy( p.data, tmpP, sizeof(tmpP) );
   }
 #endif
-//  printf( "Hamiltonian = %e\n", XLALSimIMRSpinPrecEOBHamiltonian( eobParams->eta, &r, &p, &sigmaKerr, &sigmaStar, dParams->params->seobCoeffs ) );
+//  XLAL_PRINT_INFO( "Hamiltonian = %e\n", XLALSimIMRSpinPrecEOBHamiltonian( eobParams->eta, &r, &p, &sigmaKerr, &sigmaStar, dParams->params->seobCoeffs ) );
     double magR = r.data[0]*r.data[0] + r.data[1]*r.data[1] + r.data[2]*r.data[2];
 
   if(debugPK) {
     if(0 && magR < 1.96 * 1.96) {
-      printf("GSLSpinPrecHamiltonianWrapperForRvecDerivs (JUST inputs)::tmpVec %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", tmpVec[0], tmpVec[1], tmpVec[2], tmpVec[3], tmpVec[4], tmpVec[5], tmpVec[6], tmpVec[7], tmpVec[8], tmpVec[9], tmpVec[10], tmpVec[11]);
+      XLAL_PRINT_INFO("GSLSpinPrecHamiltonianWrapperForRvecDerivs (JUST inputs)::tmpVec %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", tmpVec[0], tmpVec[1], tmpVec[2], tmpVec[3], tmpVec[4], tmpVec[5], tmpVec[6], tmpVec[7], tmpVec[8], tmpVec[9], tmpVec[10], tmpVec[11]);
 
-      printf(" R = %3.10f\n\n", sqrt(magR));
+      XLAL_PRINT_INFO(" R = %3.10f\n\n", sqrt(magR));
     }
   }
 
@@ -1787,11 +1787,11 @@ static double GSLSpinPrecHamiltonianWrapperForRvecDerivs( double x, void *params
 
   if( isnan(SpinEOBH) )
     {
-      printf("H is nan in GSLSpinPrecHamiltonianWrapperForRvecDerivs. \n");
+      XLAL_PRINT_INFO("H is nan in GSLSpinPrecHamiltonianWrapperForRvecDerivs. \n");
 
-      printf("GSLSpinPrecHamiltonianWrapperForRvecDerivs (JUST inputs)::tmpVec %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", tmpVec[0], tmpVec[1], tmpVec[2], tmpVec[3], tmpVec[4], tmpVec[5], tmpVec[6], tmpVec[7], tmpVec[8], tmpVec[9], tmpVec[10], tmpVec[11]);
+      XLAL_PRINT_INFO("GSLSpinPrecHamiltonianWrapperForRvecDerivs (JUST inputs)::tmpVec %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", tmpVec[0], tmpVec[1], tmpVec[2], tmpVec[3], tmpVec[4], tmpVec[5], tmpVec[6], tmpVec[7], tmpVec[8], tmpVec[9], tmpVec[10], tmpVec[11]);
 
-      printf(" R = %3.10f\n\n", sqrt(magR));
+      XLAL_PRINT_INFO(" R = %3.10f\n\n", sqrt(magR));
       XLALPrintError( "XLAL Error - %s: H = nan   \n", __func__);
       XLAL_ERROR( XLAL_EINVAL );
     }
@@ -1906,13 +1906,13 @@ static double GSLSpinPrecHamiltonianWrapperFordHdpphi( double x, void *params )
   a = sqrt( sigmaKerr.data[0]*sigmaKerr.data[0]
 			+ sigmaKerr.data[1]*sigmaKerr.data[1]
             + sigmaKerr.data[2]*sigmaKerr.data[2] );
-  //printf( "a = %e\n", a );
-  //printf( "aStar = %e\n", sqrt( sigmaStar.data[0]*sigmaStar.data[0] + sigmaStar.data[1]*sigmaStar.data[1] + sigmaStar.data[2]*sigmaStar.data[2]) );
+  //XLAL_PRINT_INFO( "a = %e\n", a );
+  //XLAL_PRINT_INFO( "aStar = %e\n", sqrt( sigmaStar.data[0]*sigmaStar.data[0] + sigmaStar.data[1]*sigmaStar.data[1] + sigmaStar.data[2]*sigmaStar.data[2]) );
   if ( isnan( a ) )
   {
-    printf( "a is nan in GSLSpinPrecHamiltonianWrapperFordHdpphi !!\n");
-      printf("rpolar, ppolar = %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", rpolar[0], rpolar[1], rpolar[2], ppolar[0], ppolar[1], ppolar[2]);
-      printf("rcart, pcart = %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", rcart[0], rcart[1], rcart[2], pcart[0], pcart[1], pcart[2]);
+    XLAL_PRINT_INFO( "a is nan in GSLSpinPrecHamiltonianWrapperFordHdpphi !!\n");
+      XLAL_PRINT_INFO("rpolar, ppolar = %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", rpolar[0], rpolar[1], rpolar[2], ppolar[0], ppolar[1], ppolar[2]);
+      XLAL_PRINT_INFO("rcart, pcart = %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", rcart[0], rcart[1], rcart[2], pcart[0], pcart[1], pcart[2]);
       XLALPrintError( "XLAL Error - %s: a = nan   \n", __func__);
       XLAL_ERROR( XLAL_EINVAL );
   }
@@ -1974,7 +1974,7 @@ static double GSLSpinPrecHamiltonianWrapperFordHdpphi( double x, void *params )
 	  memcpy( p.data, tmpP, sizeof(tmpP) );
   }
 #endif
-  //printf( "Hamiltonian = %e\n", XLALSimIMRSpinPrecEOBHamiltonian( eobParams->eta, &r, &p, &sigmaKerr, &sigmaStar, dParams->params->seobCoeffs ) );
+  //XLAL_PRINT_INFO( "Hamiltonian = %e\n", XLALSimIMRSpinPrecEOBHamiltonian( eobParams->eta, &r, &p, &sigmaKerr, &sigmaStar, dParams->params->seobCoeffs ) );
   REAL8 SpinEOBH = XLALSimIMRSpinPrecEOBHamiltonian( eobParams->eta, &r, &p, &spin1norm, &spin2norm, &sigmaKerr, &sigmaStar, dParams->params->tortoise, dParams->params->seobCoeffs ) / eobParams->eta;
 
   return SpinEOBH;
