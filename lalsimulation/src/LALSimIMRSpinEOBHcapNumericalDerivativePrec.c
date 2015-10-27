@@ -305,7 +305,7 @@ XLALSpinPrecHcapNumericalDerivative(
 		for (j = 0; j < 3; j++)
 			for (k = 0; k < 3; k++) {
 				dTijdXk[i][j][k] =
-					(rData[i] * XLALKronecker(j, k) + XLALKronecker(i, k) * rData[j])
+					(rData[i] * KRONECKER_DELTA(j, k) + KRONECKER_DELTA(i, k) * rData[j])
 					* (csi - 1.) / rMag2
 					+ rData[i] * rData[j] * rData[k] / rMag2 / rMag * (-2. / rMag * (csi - 1.) + dcsi);
 			}
@@ -940,7 +940,7 @@ XLALSpinPrecHcapNumericalDerivativeNoFlux(
 		for (j = 0; j < 3; j++)
 			for (k = 0; k < 3; k++) {
 				dTijdXk[i][j][k] =
-					(rData[i] * XLALKronecker(j, k) + XLALKronecker(i, k) * rData[j])
+					(rData[i] * KRONECKER_DELTA(j, k) + KRONECKER_DELTA(i, k) * rData[j])
 					* (csi - 1.) / rMag2
 					+ rData[i] * rData[j] * rData[k] / rMag2 / rMag * (-2. / rMag * (csi - 1.) + dcsi);
 			}
