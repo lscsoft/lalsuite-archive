@@ -38,7 +38,6 @@
 #include <lal/SeqFactories.h>
 
 //#include "LALSimIMRSpinEOB.h"
-#include "LALSimIMREOBHybridRingdownPrec.c"
 
 
 #include <gsl/gsl_linalg.h>

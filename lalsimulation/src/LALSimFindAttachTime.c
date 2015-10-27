@@ -21,6 +21,7 @@
 #include "LALSimIMRSpinEOB.h"
 #include "LALSimFindAttachTime.h"
 #include "LALSimIMRSpinEOBHamiltonianPrec.c"
+#include "LALSimIMREOBHybridRingdownPrec.c"
 
 
 
