@@ -930,7 +930,7 @@ static REAL8 XLALSimIMRSpinPrecEOBCalcOmega(
 	  Rot1[1][0] = 0.; Rot1[1][1] = 1; Rot1[1][2] = 0;
 	  Rot1[2][0] = 0.; Rot1[2][1] = 0; Rot1[2][2] = 1;
 
- 	  memcpy(Xprime, LNhat, 3 * sizeof(REAL8));
+	  memcpy(Xprime, LNhat, 3 * sizeof(REAL8));
 	  cross_product( Xprime, Xhat, Yprime );
 	  tmpvar = sqrt(inner_product(Yprime, Yprime));
 
@@ -1492,7 +1492,7 @@ UNUSED static int XLALSpinPrecHcapRvecDerivative(
     else if ( i < 3 )
     {
         XLAL_ERROR( XLAL_EFUNC ); // this should never happen
-      	params.params->tortoise = 2;
+	params.params->tortoise = 2;
 		memcpy( tmpValues, params.values, sizeof(tmpValues) );
 		tmpValues[3] = tmpP[0]; tmpValues[4] = tmpP[1]; tmpValues[5] = tmpP[2];
 		params.values = tmpValues;
@@ -1566,7 +1566,7 @@ UNUSED static int XLALSpinPrecHcapRvecDerivative(
   s1dotLN = (s1Data[0]*rcrossrDot[0] + s1Data[1]*rcrossrDot[1]
 		        + s1Data[2]*rcrossrDot[2]) / (mass1*mass1);
   s2dotLN = (s2Data[0]*rcrossrDot[0] + s2Data[1]*rcrossrDot[1]
-                	+ s2Data[2]*rcrossrDot[2]) / (mass2*mass2);
+			+ s2Data[2]*rcrossrDot[2]) / (mass2*mass2);
 
   chiS = 0.5 * (s1dotLN + s2dotLN);
   chiA = 0.5 * (s1dotLN - s2dotLN);

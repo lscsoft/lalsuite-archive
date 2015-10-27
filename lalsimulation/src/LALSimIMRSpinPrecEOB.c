@@ -2015,7 +2015,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     }
     else {
     if ( XLALSimIMRSpinEOBInitialConditionsPrec( tmpValues2, m1, m2, fMin, incl_temp,
-       	mSpin1, mSpin2, &seobParams ) == XLAL_FAILURE )
+	mSpin1, mSpin2, &seobParams ) == XLAL_FAILURE )
         {
             XLAL_ERROR( XLAL_EFUNC );
         }

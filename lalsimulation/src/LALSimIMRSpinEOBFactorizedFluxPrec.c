@@ -233,7 +233,7 @@ XLALInspiralPrecSpinFactorizedFlux(
 
       if((m * m) * omegaSq * (creal(hLM) * creal(hLM) + cimag(hLM) * cimag(hLM)) > 5.) {
 
-        	XLAL_PRINT_INFO("\tl = %d, m = %d, mag(hLM) = %.17e, mag(hNQC) = %.17e, omega = %.16e\n",
+		XLAL_PRINT_INFO("\tl = %d, m = %d, mag(hLM) = %.17e, mag(hNQC) = %.17e, omega = %.16e\n",
           l, m, sqrt(creal(hLM) * creal(hLM) + cimag(hLM) * cimag(hLM)),
           sqrt(creal(hNQC) * creal(hNQC) + cimag(hNQC) * cimag(hNQC)), omega);
 

@@ -51,16 +51,16 @@ XLALSpinPrecHcapNumericalDerivative(
 );
 
 	static UNUSED REAL8 XLALSpinPrecHcapNumDerivWRTParam(
-			    		const		INT4	paramIdx,	/**<< Index of the parameters */
-			    		const		REAL8	values[],	/**<< Dynamical variables */
-				   		SpinEOBParams * funcParams	/**<< EOB Parameters */
+					const		INT4	paramIdx,	/**<< Index of the parameters */
+					const		REAL8	values[],	/**<< Dynamical variables */
+						SpinEOBParams * funcParams	/**<< EOB Parameters */
 );
 
 	static int	XLALSpinPrecHcapNumericalDerivativeNoFlux(
-					   		double	UNUSED	t,	/**<< UNUSED */
-			    		const		REAL8	values[],	/**<< Dynamical variables */
-				   		REAL8		dvalues[],	/**<< Time derivatives of variables (returned) */
-				     		void         *funcParams	/**<< EOB parameters */
+							double	UNUSED	t,	/**<< UNUSED */
+					const		REAL8	values[],	/**<< Dynamical variables */
+						REAL8		dvalues[],	/**<< Time derivatives of variables (returned) */
+						void         *funcParams	/**<< EOB parameters */
 );
 
 
@@ -82,10 +82,10 @@ XLALSpinPrecHcapNumericalDerivative(
  * This function is not used by the spin-aligned SEOBNRv1 model.
  */
 	static int	XLALSpinPrecHcapNumericalDerivative(
-					     		double	UNUSED	t,	/**<< UNUSED */
-			      		const		REAL8	values[],	/**<< Dynamical variables */
-				     		REAL8		dvalues[],	/**<< Time derivatives of variables (returned) */
-				       		void         *funcParams	/**<< EOB parameters */
+							double	UNUSED	t,	/**<< UNUSED */
+					const		REAL8	values[],	/**<< Dynamical variables */
+						REAL8		dvalues[],	/**<< Time derivatives of variables (returned) */
+						void         *funcParams	/**<< EOB parameters */
 )
 {
 	int		debugPK = 0;

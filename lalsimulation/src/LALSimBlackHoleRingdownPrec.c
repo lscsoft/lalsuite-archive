@@ -1793,5 +1793,3 @@ INT4 XLALSimIMREOBGenerateQNMFreqV2Prec(
 
   return XLAL_SUCCESS;
 }
-
-
