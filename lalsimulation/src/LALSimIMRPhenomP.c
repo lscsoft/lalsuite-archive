@@ -134,8 +134,7 @@ static int PhenomPCoreOneFrequency(
   COMPLEX16 *hp,                          /**< Output: \f$\tilde h_+\f$ */
   COMPLEX16 *hc,                          /**< Output: \f$\tilde h_+\f$ */
   REAL8 *phasing,                         /**< Output: overall phasing */
-  const UINT4 IMRPhenomP_version,         /**< Version number: 1 uses IMRPhenomC, 2 uses IMRPhenomD */
-  const LALSimInspiralTestGRParam *extraParams /**< linked list containing the extra testing GR parameters */
+  const UINT4 IMRPhenomP_version          /**< Version number: 1 uses IMRPhenomC, 2 uses IMRPhenomD */
 );
 
 /* Simple 2PN version of L, without any spin terms expressed as a function of v */
@@ -832,9 +831,8 @@ static int PhenomPCoreOneFrequency(
   REAL8 *phasing,                             /**< Output: overall phasing */
   IMRPhenomP_version_type IMRPhenomP_version, /**< IMRPhenomPv1 uses IMRPhenomC, IMRPhenomPv2 uses IMRPhenomD */
   AmpInsPrefactors *amp_prefactors,           /**< pre-calculated (cached for saving runtime) coefficients for amplitude. See LALSimIMRPhenomD_internals.c*/
-  PhiInsPrefactors *phi_prefactors,           /**< pre-calculated (cached for saving runtime) coefficients for phase. See LALSimIMRPhenomD_internals.*/
-  const LALSimInspiralTestGRParam *extraParams /**<linked list containing the extra testing GR parameters */
-)
+  PhiInsPrefactors *phi_prefactors           /**< pre-calculated (cached for saving runtime) coefficients for phase. See LALSimIMRPhenomD_internals.*/
+  )
 {
   XLAL_CHECK(angcoeffs != NULL, XLAL_EFAULT);
   XLAL_CHECK(hp != NULL, XLAL_EFAULT);
@@ -896,7 +894,7 @@ static int PhenomPCoreOneFrequency(
 
   /* Propagation correction for alternative gravity (e.g. massive graviton) */
   // if (extraParams!=NULL && XLALSimInspiralTestGRParamExists(extraParams,"betaPPE") && XLALSimInspiralTestGRParamExists(extraParams,"bPPE"))
-  if (extraParams!=NULL && XLALSimInspiralTestGRParamExists(extraParams,"loglambda_g"))
+  /*  if (extraParams!=NULL && XLALSimInspiralTestGRParamExists(extraParams,"loglambda_g"))
     {
       REAL8 loglambdag = XLALSimInspiralGetTestGRParam(extraParams,"loglambda_g");
       REAL8 betaPPE = - LAL_PI*LAL_PI*distance*M*LAL_MRSUN_SI*pow(eta, 0.6)/pow(10,2.0*loglambdag);
@@ -905,7 +903,7 @@ static int PhenomPCoreOneFrequency(
       phPhenom += dPhiPPE;
       // fprintf(stderr, "In the massive graviton generator: d=%e, M=%e, lambda_g=%e, beta=%e, dPhi=%e \n", 
       //      distance, M, pow(10,loglambdag), betaPPE, dPhiPPE);
-    }
+      }  */
   phPhenom -= 2.*phic; /* Note: phic is orbital phase */
   REAL8 amp0 = M * LAL_MRSUN_SI * M * LAL_MTSUN_SI / distance;
   COMPLEX16 hP = amp0 * aPhenom * cexp(-I*phPhenom); /* Assemble IMRPhenom waveform. */
