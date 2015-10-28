@@ -74,6 +74,19 @@ static struct PyMemberDef members[] = {
 	{"spearman_pval", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.spearman_pval), 0, "spearman_pval"},
 	{"fap", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.fap), 0, "fap"},
 	{"far", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.far), 0, "far"},
+	{"template_duration", T_DOUBLE, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.template_duration), 0, "template_duration"},
+	{"mass1", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.mass1), 0, "mass1"},
+	{"mass2", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.mass2), 0, "mass2"},
+	{"mchirp", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.mchirp), 0, "mchirp"},
+	{"mtotal", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.mtotal), 0, "mtotal"},
+	{"spin1x", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.spin1x), 0, "spin1x"},
+	{"spin1y", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.spin1y), 0, "spin1y"},
+	{"spin1z", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.spin1z), 0, "spin1z"},
+	{"spin2x", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.spin2x), 0, "spin2x"},
+	{"spin2y", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.spin2y), 0, "spin2y"},
+	{"spin2z", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.spin2z), 0, "spin2z"},
+	{"ra", T_DOUBLE, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.ra), 0, "ra"},
+	{"dec", T_DOUBLE, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.dec), 0, "dec"},
 	{NULL,}
 };
 
