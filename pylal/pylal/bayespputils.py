@@ -106,7 +106,7 @@ __date__= git_version.date
 # Constants
 #===============================================================================
 #Parameters which are not to be exponentiated when found
-logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior']
+logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior','loglambda_g','loggraviton_mass','loggraviton_lambda']
 #Parameters known to cbcBPP
 relativePhaseParams=[ a+b+'_relative_phase' for a,b in combinations(['h1','l1','v1'],2)]
 snrParams=['snr','optimal_snr','matched_filter_snr'] + ['%s_optimal_snr'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_amp'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_arg'%(i) for i in ['h1', 'l1', 'v1']] + relativePhaseParams
@@ -126,7 +126,7 @@ cosmoParam=['m1_source','m2_source','mtotal_source','mc_source','redshift','mf_s
 ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB','alphaPPE','aPPE','betaPPE','bPPE']
 tigerParams=['dchi%i'%(i) for i in range(7)] + ['dchi%il'%(i) for i in [5,6] ] + ['dxi%d'%(i+1) for i in range(6)] + ['dalpha%i'%(i+1) for i in range(5)] + ['dbeta%i'%(i+1) for i in range(3)] + ['dsigma%i'%(i+1) for i in range(4)]
 bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
-massiveGravitonParams=['lambdaG']
+massiveGravitonParams=['loglambda_g','lambda_g','graviton_mass','graviton_lambda','loggraviton_mass','loggraviton_lambda']
 tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat']
 strongFieldParams=ppEParams+tigerParams+bransDickeParams+massiveGravitonParams+tidalParams
 
@@ -356,7 +356,6 @@ def plot_label(param):
   ra_names = ['rightascension','ra']
   dec_names = ['declination','dec']
   phase_names = ['phi_orb', 'phi', 'phase', 'phi0']
-  gr_test_names = ['dchi%d'%i for i in range(8)]+['dchil%d'%i for i in [5,6]]+['dxi%d'%(i+1) for i in range(6)]+['dalpha%d'%(i+1) for i in range(5)]+['dbeta%d'%(i+1) for i in range(3)]+['dsigma%d'%(i+1) for i in range(4)] + ['loglambda_g']
 
   labels={
       'm1':r'$m_1\,(\mathrm{M}_\odot)$',
@@ -405,7 +404,7 @@ def plot_label(param):
       'cosbeta':r'$\mathrm{cos}(\beta)$',
       'phi_jl':r'$\phi_\mathrm{JL}\,(\mathrm{rad})$',
       'phi12':r'$\phi_\mathrm{12}\,(\mathrm{rad})$',
-      'logl':r'$\mathrm{log}(\mathcal{L})$',
+      'logl':r'$\log(\mathcal{L})$',
       'h1_end_time':r'$t_\mathrm{H}$',
       'l1_end_time':r'$t_\mathrm{L}$',
       'v1_end_time':r'$t_\mathrm{V}$',
@@ -453,9 +452,14 @@ def plot_label(param):
       'dsigma2':r'$d\sigma_2$',
       'dsigma3':r'$d\sigma_3$',
       'dsigma4':r'$d\sigma_4$',
-      'loglambda_g':r'$\log\lambda_g$',
+      'loglambda_g':r'$\log l_g [\mathrm{m}]$',
+      'lambda_g':r'$l_g\,[\mathrm{m}]$',
+      'graviton_lambda':r'$\lambda_g\,[\mathrm{m}]$',
+      'graviton_mass':r'$m_g\,[\mathrm{eV}]$',
+      'loggraviton_lambda':r'$\log\lambda_g\,[\mathrm{m}]$',
+      'loggraviton_mass':r'$\log m_g\,[\mathrm{eV}]$',
     }
-
+  print param
   # Handle cases where multiple names have been used
   if param in m1_names:
     param = 'm1'
@@ -477,12 +481,15 @@ def plot_label(param):
     param = 'dec'
   elif param in phase_names:
     param = 'phase'
+  #elif param in snrParams:
+  #  param = 'snr'
 
   try:
-    label = labels[param]
-  except KeyError:
-    # Use simple string if no formated label is available for param
-    label = param
+      label = labels[param]
+  except:
+      # Use simple string if no formated label is available for param
+      print "Setting label to " + param.replace('_',' ')
+      label = param.replace('_',' ')
 
   return label
 
@@ -1098,6 +1105,18 @@ class Posterior(object):
               pos.append(a2_pos)
           except KeyError:
               print "Warning: no spin2 values found."
+
+      #if ('loglambda_g' in pos.names):
+      #    print "Entering loglambda_g code"
+      #    pos.append_mapping('lambda_g', lambda a:10**a, 'loglambda_g')
+      if ('loglambda_g' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('loggraviton_mass', lambda l,r:np.log10(GravitonMass(10**l,r)), ['loglambda_g', 'redshift'])
+      if ('loglambda_g' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('loggraviton_lambda', lambda l,r:np.log10(GComptonWavelength(10**l,r)), ['loglambda_g', 'redshift'])
+      if ('lambda_g' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('graviton_mass', GravitonMass, ['lambda_g', 'redshift'])
+      if ('lambda_g' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('graviton_lambda', GComptonWavelength, ['lambda_g', 'redshift'])
 
       # Calculate mass and spin of final merged system
       if ('m1' in pos.names) and ('m2' in pos.names):
@@ -3908,6 +3927,22 @@ def source_mass(mass, redshift):
     """
     return mass / (1.0 + redshift)
 
+def GComptonWavelength(lambda_g, redshift):
+    """
+    Calculate Compton wavelength of the graviton in m as:
+    lambda_g * sqrt((1 + (2+z)*(1+z+sqrt(1+z)))/(5*(1+z)^3))
+    Valid for \Omega_0 = 1 and for all z.
+    """
+    return lambda_g*np.sqrt((1 + (2+redshift)*(1+redshift+np.sqrt(1+redshift)))/(5*(1+redshift)**3))
+
+def GravitonMass(lambda_g, redshift):
+    """
+    Calculate graviton mass in eV as:
+    m c^2 = h c / \lambda
+    Valid for \Omega_0 = 1 and for all z.
+    """
+    return 1.23982e-6/(lambda_g*np.sqrt((1 + (2+redshift)*(1+redshift+np.sqrt(1+redshift)))/(5*(1+redshift)**3)))
+
 def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m2, fref):
     """
     Wrapper function for SimInspiralTransformPrecessingNewInitialConditions().
@@ -4057,8 +4092,8 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
       pos_samps=pos_samps-offset
       if injpar is not None:
         injpar=injpar-offset
-      ax1_name=param+' + %i'%(int(offset))
-    else: ax1_name=param
+      ax1_name=plot_label(param)+'$ + %i$'%(int(offset))
+    else: ax1_name=plot_label(param)
 
     (n, bins, patches)=plt.hist(pos_samps,histbins,normed='true',facecolor='grey')
     Nchars=max(map(lambda d:len(majorFormatterX.format_data(d)),axes.get_xticks()))
@@ -4131,7 +4166,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
                 plt.axvline(trigval, color=color, linestyle='-.')
     #
     plt.grid()
-    plt.xlabel(plot_label(ax1_name))
+    plt.xlabel(ax1_name)
     plt.ylabel('Probability Density')
 
     # For RA and dec set custom labels and for RA reverse
@@ -4392,16 +4427,16 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
       a=a-offset
     if par1_injvalue:
       par1_injvalue=par1_injvalue-offset
-      ax1_name=par1_name+' + %i'%(int(offset))
-    else: ax1_name=par1_name
+      ax1_name=plot_label(par1_name)+'$ + %i$'%(int(offset))
+    else: ax1_name=plot_label(par1_name)
 
     if par2_name.find('time')!=-1:
       offset=floor(min(b))
       b=b-offset
     if par2_injvalue:
       par2_injvalue=par2_injvalue-offset
-      ax2_name=par2_name+' + %i'%(int(offset))
-    else: ax2_name=par2_name
+      ax2_name=plot_label(par2_name)+'$ + %i$'%(int(offset))
+    else: ax2_name=plot_label(par2_name)
 
     samp=np.transpose(np.column_stack((xdat,ydat)))
 
@@ -4849,16 +4884,16 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
           a=a-offset
           if par1_injvalue:
             par1_injvalue=par1_injvalue-offset
-          ax1_name=par1_name+' + %i'%(int(offset))
-        else: ax1_name=par1_name
+          ax1_name=plot_label(par1_name)+'$ + %i$'%(int(offset))
+        else: ax1_name=plot_label(par1_name)
 
         if par2_name.find('time')!=-1:
           offset=floor(min(b))
           b=b-offset
           if par2_injvalue:
             par2_injvalue=par2_injvalue-offset
-          ax2_name=par2_name+' + %i'%(int(offset))
-        else: ax2_name=par2_name
+          ax2_name=plot_label(par2_name)+'$ + %i$'%(int(offset))
+        else: ax2_name=plot_label(par2_name)
 
 
         majorFormatterX=ScalarFormatter(useMathText=True)
@@ -4941,8 +4976,8 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     	axes.xaxis.set_major_locator(locatorX)
 
     #plt.title("%s-%s confidence contours (greedy binning)"%(par1_name,par2_name)) # add a title
-    plt.xlabel(plot_label(ax2_name))
-    plt.ylabel(plot_label(ax1_name))
+    plt.xlabel(ax2_name)
+    plt.ylabel(ax1_name)
 
     if len(name_list)!=len(CSlst):
         raise RuntimeError("Error number of contour objects does not equal number of names! Use only *one* contour from each set to associate a name.")
@@ -5047,16 +5082,16 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
       a=a-offset
       if par1_injvalue:
         par1_injvalue=par1_injvalue-offset
-      ax1_name=par1_name+' + %i'%(int(offset))
-    else: ax1_name=par1_name
+      ax1_name=plot_label(par1_name)+'$ + %i$'%(int(offset))
+    else: ax1_name=plot_label(par1_name)
 
     if par2_name.find('time')!=-1:
       offset=floor(min(b))
       b=b-offset
       if par2_injvalue:
         par2_injvalue=par2_injvalue-offset
-      ax2_name=par2_name+' + %i'%(int(offset))
-    else: ax2_name=par2_name
+      ax2_name=plot_label(par2_name)+'$ + %i$'%(int(offset))
+    else: ax2_name=plot_label(par2_name)
 
 
     #Extract trigger information
@@ -5068,8 +5103,8 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     myfig.add_axes(axes)
 
     #plt.clf()
-    plt.xlabel(plot_label(ax2_name))
-    plt.ylabel(plot_label(ax1_name))
+    plt.xlabel(ax2_name)
+    plt.ylabel(ax1_name)
 
     #bins=(par1pos_Nbins,par2pos_Nbins)
     bins=(50,50) # Matches plot_one_param_pdf

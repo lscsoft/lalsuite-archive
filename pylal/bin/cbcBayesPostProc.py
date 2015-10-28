@@ -57,18 +57,18 @@ fig_height = fig_width*golden_mean      # height in inches
 fig_size =  [fig_width,fig_height]
 matplotlib.rcParams.update(
         {'axes.labelsize': 16,
-        'font.size':       16,
-        'legend.fontsize': 16,
-        'xtick.labelsize': 16,
-        'ytick.labelsize': 16,
-        'text.usetex': False,
-        'figure.figsize': fig_size,
-        'font.family': "serif",
-        'font.serif': ['Times','Palatino','New Century Schoolbook','Bookman','Computer Modern Roman','Times New Roman','Liberation Serif'],
-        'font.weight':'normal',
-        'font.size':16,
-        'savefig.dpi': 120
-        })
+         'font.size':       16,
+         'legend.fontsize': 16,
+         'xtick.labelsize': 16,
+         'ytick.labelsize': 16,
+         'text.usetex': True,
+         'figure.figsize': fig_size,
+         'font.family': "serif",
+         'font.serif': ['Times','Palatino','New Century Schoolbook','Bookman','Computer Modern Roman','Times New Roman','Liberation Serif'],
+         'font.weight':'normal',
+         'font.size':16,
+         'savefig.dpi': 120
+         })
 
 #local application/library specific imports
 from pylal import SimInspiralUtils
@@ -1225,6 +1225,9 @@ if __name__=='__main__':
           twoDGreedyMenu.append([sp1, sp2])
         for dc1,dc2 in combinations(tigerParams,2):
             twoDGreedyMenu.append([dc1,dc2])
+        for lg in massiveGravitonParams:
+            for d in distParams:
+                twoDGreedyMenu.append([lg,d])
         for mp in massParams:
              for tp in tidalParams:
                  if not (mp == tp):
