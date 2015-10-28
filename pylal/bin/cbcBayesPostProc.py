@@ -57,18 +57,18 @@ fig_height = fig_width*golden_mean      # height in inches
 fig_size =  [fig_width,fig_height]
 matplotlib.rcParams.update(
         {'axes.labelsize': 16,
-        'font.size':       16,
-        'legend.fontsize': 16,
-        'xtick.labelsize': 16,
-        'ytick.labelsize': 16,
-        'text.usetex': False,
-        'figure.figsize': fig_size,
-        'font.family': "serif",
-        'font.serif': ['Times','Palatino','New Century Schoolbook','Bookman','Computer Modern Roman','Times New Roman','Liberation Serif'],
-        'font.weight':'normal',
-        'font.size':16,
-        'savefig.dpi': 120
-        })
+         'font.size':       16,
+         'legend.fontsize': 16,
+         'xtick.labelsize': 16,
+         'ytick.labelsize': 16,
+         'text.usetex': True,
+         'figure.figsize': fig_size,
+         'font.family': "serif",
+         'font.serif': ['Times','Palatino','New Century Schoolbook','Bookman','Computer Modern Roman','Times New Roman','Liberation Serif'],
+         'font.weight':'normal',
+         'font.size':16,
+         'savefig.dpi': 120
+         })
 
 #local application/library specific imports
 from pylal import SimInspiralUtils
@@ -676,7 +676,7 @@ def cbcBayesPostProc(
         try:
             pos[par_name.lower()]
         except KeyError:
-            #print "No input chain for %s, skipping binning."%par_name
+            print "No input chain for %s, skipping binning."%par_name
             continue
         try:
             par_bin=GreedyRes[par_name]
@@ -1305,7 +1305,7 @@ if __name__=='__main__':
     ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB','alphaPPE','aPPE','betaPPE','bPPE']
     tigerParams=['dchi%i'%(i) for i in range(7)] + ['dchi%il'%(i) for i in [5,6] ] + ['dxi%d'%(i+1) for i in range(6)] + ['dalpha%i'%(i+1) for i in range(5)] + ['dbeta%i'%(i+1) for i in range(3)] + ['dsigma%i'%(i+1) for i in range(4)]
     bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
-    massiveGravitonParams=['lambdaG','loglambda_g']
+    massiveGravitonParams=['loglambda_g','lambda_g','graviton_mass','graviton_lambda','loggraviton_mass','loggraviton_lambda']
     tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat']
     statsParams=['logprior','logl','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','deltaloglh2','deltaloglg1']
     calibParams=['calpha_l1','calpha_h1','calpha_v1','calamp_l1','calamp_h1','calamp_v1']
@@ -1358,8 +1358,11 @@ if __name__=='__main__':
                     twoDGreedyMenu.append([sp1, sp2])
         for sp1,sp2 in combinations(spinParams,2):
           twoDGreedyMenu.append([sp1, sp2])
-          for dchi in tigerParams:
-            twoDGreedyMenu.append([mp,dchi])
+        for dc1,dc2 in combinations(tigerParams,2):
+            twoDGreedyMenu.append([dc1,dc2])
+        for lg in massiveGravitonParams:
+            for d in distParams:
+                twoDGreedyMenu.append([lg,d])
         for mp in massParams:
              for tp in tidalParams:
                  if not (mp == tp):
