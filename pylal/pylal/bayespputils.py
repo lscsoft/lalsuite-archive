@@ -356,7 +356,6 @@ def plot_label(param):
   ra_names = ['rightascension','ra']
   dec_names = ['declination','dec']
   phase_names = ['phi_orb', 'phi', 'phase', 'phi0']
-  gr_test_names = ['dchi%d'%i for i in range(8)]+['dchil%d'%i for i in [5,6]]+['dxi%d'%(i+1) for i in range(6)]+['dalpha%d'%(i+1) for i in range(5)]+['dbeta%d'%(i+1) for i in range(3)]+['dsigma%d'%(i+1) for i in range(4)] + ['loglambda_g']
 
   labels={
       'm1':r'$m_1\,(\mathrm{M}_\odot)$',
