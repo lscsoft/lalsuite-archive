@@ -2033,6 +2033,12 @@ static void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenc
 	    LALInferenceRegisterUniformVariableREAL8(state, model->params, "loglambda_g", 20.0, loglambda_g_min, loglambda_g_max, LALINFERENCE_PARAM_LINEAR);
 	    //LALInferenceAddVariable(model->params, "bPPE", &bPPE, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
 	  }
+	if (checkParamInList(ppt->value,"lambda_g")) 
+	  {
+	    REAL8 lambda_g_min = 1E15;
+	    REAL8 lambda_g_max = 1E18;
+	    LALInferenceRegisterUniformVariableREAL8(state, model->params, "lambda_g", 1E16, lambda_g_min, lambda_g_max, LALINFERENCE_PARAM_LINEAR);
+	  }
     }
     
     ppt=LALInferenceGetProcParamVal(commandLine,"--ppe-parameters");
