@@ -2007,6 +2007,32 @@ class SnglInspiral(object):
 		else:
 			self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
 
+	@property
+	def spin1(self):
+		if self.spin1x is None and self.spin1y is None and self.spin1z is None:
+			return None
+		return numpy.array((self.spin1x, self.spin1y, self.spin1z), dtype = "double")
+
+	@spin1.setter
+	def spin1(self, spin):
+		if spin is None:
+			self.spin1x, self.spin1y, self.spin1z = None, None, None
+		else:
+			self.spin1x, self.spin1y, self.spin1z = spin
+
+	@property
+	def spin2(self):
+		if self.spin2x is None and self.spin2y is None and self.spin2z is None:
+			return None
+		return numpy.array((self.spin2x, self.spin2y, self.spin2z), dtype = "double")
+
+	@spin2.setter
+	def spin2(self, spin):
+		if spin is None:
+			self.spin2x, self.spin2y, self.spin2z = None, None, None
+		else:
+			self.spin2x, self.spin2y, self.spin2z = spin
+
 	#
 	# Methods
 	#
@@ -2071,6 +2097,8 @@ class SnglInspiral(object):
 			cmp(self.end, other.end) or
 			cmp(self.mass1, other.mass1) or
 			cmp(self.mass2, other.mass2) or
+			cmp(self.spin1, other.spin1) or
+			cmp(self.spin2, other.spin2) or
 			cmp(self.search, other.search)
 		)
 
