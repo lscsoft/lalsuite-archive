@@ -74,14 +74,10 @@ lsctables.CoincMapTable.RowType = lsctables.CoincMap = xlaltools.CoincMap
 class SnglInspiral(snglinspiraltable.SnglInspiralTable):
 	__slots__ = ()
 
-	def __eq__(self, other):
-		return not (
-			cmp(self.ifo, other.ifo) or
-			cmp(self.end, other.end) or
-			cmp(self.mass1, other.mass1) or
-			cmp(self.mass2, other.mass2) or
-			cmp(self.search, other.search)
-		)
+	spin1 = lsctables.SnglInspiral.spin1
+	spin2 = lsctables.SnglInspiral.spin2
+
+	__eq__ = lsctables.SnglInspiral.__eq__
 
 	def __cmp__(self, other):
 		# compare self's end time to the LIGOTimeGPS instance
