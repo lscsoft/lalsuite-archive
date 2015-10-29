@@ -77,7 +77,9 @@
 #else
 #define UNUSED
 #endif
-
+/**
+ * Computes RHS of ODE for gamma. Eq. 10 of PRD 89, 084006 (2014)
+ */
 static double f_alphadotcosi( double x, void * inparams )
 {
 	PrecEulerAnglesIntegration* params = (PrecEulerAnglesIntegration*) inparams;
@@ -89,6 +91,9 @@ static double f_alphadotcosi( double x, void * inparams )
 
 }
 
+/**
+ * Stopping condition for dynamics integration based on decrease in omega (NOT USED)
+ */
 static int UNUSED
 XLALEOBSpinPrecStopCondition(double UNUSED t,
                            const double values[],
@@ -116,6 +121,9 @@ XLALEOBSpinPrecStopCondition(double UNUSED t,
   return GSL_SUCCESS;
 }
 
+/**
+ * Stopping conditions for dynamics integration for SEOBNRv3
+ */
 UNUSED static int
 XLALEOBSpinPrecStopConditionBasedOnPR(double UNUSED t,
                            const double values[],
@@ -321,7 +329,7 @@ XLALEOBSpinPrecStopConditionBasedOnPR(double UNUSED t,
 
 
 /**
- * Stopping condition for the regular resolution EOB orbital evolution
+ * Stopping condition for the regular resolution SEOBNRv1/2 orbital evolution
  * -- stop when reaching max orbital frequency in strong field.
  * At each test,
  * if omega starts to decrease, return 1 to stop evolution;
@@ -353,7 +361,7 @@ XLALEOBSpinPrecAlignedStopCondition(double UNUSED t,  /**< UNUSED */
 }
 
 /**
- * Stopping condition for the high resolution EOB orbital evolution
+ * Stopping condition for the high resolution SEOBNRv1/2 orbital evolution
  * -- stop when reaching a minimum radius 0.3M out of the EOB horizon (Eqs. 9b, 37)
  * or when getting nan in any of the four ODE equations
  * At each test,
@@ -384,7 +392,7 @@ XLALSpinPrecAlignedHiSRStopCondition(double UNUSED t,  /**< UNUSED */
 
 
 /**
- * This function generates spin-aligned SEOBNRv1 waveforms h+ and hx.
+ * This function generates spin-aligned SEOBNRv2 waveforms h+ and hx.
  * Currently, only the h22 harmonic is available.
  * STEP 0) Prepare parameters, including pre-computed coefficients
  * for EOB Hamiltonian, flux and waveform
@@ -1354,63 +1362,19 @@ UNUSED static int XLALSimIMRSpinPrecAlignedEOBWaveform(
 }
 
 
-
-
-
-
-
-
-/** ********************************************************************
- *  THE FOLLOWING HAS FUNCTIONS FOR THE PRECESSING EOB MODEL
- *  ********************************************************************
- * */
 /**
- * This function generates precessing spinning SEOBNRv3 waveforms h+ and hx.
- * Currently, only h2m harmonics will be generated.
- *
- * Input conventions:
- * Cartesian coordinate system: initial \f$\vec{L}\f$ is along the z-axis
- * phiC       : in radians
- * deltaT     : in SI units (Hz)
- * m1SI, m2SI : in SI units (kg)
- * fMin       : in SI units (Hz)
- * r          : in SI units (m)
- * inc        : in radians
- * INspin{1,2}: in dimensionless units of m{1,2}^2
- *
- * Evolution conventions:
- * values[0-2]: r in units of total mass
- * values[3-5]: dimensionless units
- * values[6-8]:
- * values[9-11]:
- *
- * STEP 0) Prepare parameters, including pre-computed coefficients
- * for EOB Hamiltonian, flux and waveform
- * STEP 1) Solve for initial conditions
- * STEP 2) Evolve EOB trajectory until reaching the peak of orbital frequency
- * STEP 3) Step back in time by tStepBack and volve EOB trajectory again
- * using high sampling rate, stop at UNDECIDED.
- * STEP 4) Locate the peak of orbital frequency for NQC and QNM calculations
- * STEP 4.5) Rotation of waveform as per the alpha(t) and iota(t)
- *
- * (Following under construction)
- * STEP 5) Calculate NQC correction using hi-sampling data
- * STEP 6) Calculate QNM excitation coefficients using hi-sampling data
- * STEP 7) Generate full inspiral waveform using desired sampling frequency
- * STEP 8) Generate full IMR modes -- attaching ringdown to inspiral
- * STEP 9) Generate full IMR hp and hx waveforms
+ * Standard interface for SEOBNRv3 waveform generator: calls XLALSimIMRSpinEOBWaveformAll
  */
-
 int XLALSimIMRSpinEOBWaveform(
         REAL8TimeSeries **hplus, /**<< OUTPUT, +-polarization waveform */
          REAL8TimeSeries **hcross, /**<< OUTPUT, x-polarization waveform */
         //LIGOTimeGPS     *tc,
         const REAL8      phiC, /**<< coalescence orbital phase (rad) */
         const REAL8     deltaT, /**<< sampling time step */
-        const REAL8     m1SI, /**<< mass-1 in SI unit */
-        const REAL8     m2SI, /**<< mass-2 in SI unit */
+        const REAL8     m1SI, /**<< mass-1 in SI unit (kg) */
+        const REAL8     m2SI, /**<< mass-2 in SI unit (kg) 8*/
         const REAL8     fMin, /**<< starting frequency (Hz) */
-        const REAL8     r, /**<< distance in SI unit */
+        const REAL8     r, /**<< luminosity distance in SI unit (m) */
         const REAL8     inc, /**<< inclination angle */
         const REAL8     INspin1[],  /**<< spin1 */
         const REAL8     INspin2[] /**<< spin2 */
@@ -1470,7 +1434,42 @@ int XLALSimIMRSpinEOBWaveform(
 
 }
 
-
+/**
+ * This function generates precessing spinning SEOBNRv3 waveforms h+ and hx.
+ * Currently, only h2m harmonics will be generated.
+ *
+ * Input conventions:
+ * Cartesian coordinate system: initial \f$\vec{L}_N\f$ is in the xz plane, rotated away from
+ * the z-axis by an angle inc
+ * phiC       : in radians
+ * deltaT     : in SI units (s)
+ * m1SI, m2SI : in SI units (kg)
+ * fMin       : in SI units (Hz)
+ * r          : in SI units (m)
+ * inc        : in radians
+ * INspin{1,2}: in dimensionless units of m{1,2}^2
+ *
+ * Evolution conventions:
+ * values[0-2]: r vector in units of total mass
+ * values[3-5]: pstar vector in units of reduced mass
+ * values[6-8]: S1 vector in units of (total mass)^2
+ * values[9-11]: S2 vector in units of (total mass)^2
+ * values[12-13]: phases in rads
+ *
+ * STEP 0) Prepare parameters, including pre-computed coefficients
+ * for EOB Hamiltonian, flux and waveform
+ * STEP 1) Solve for initial conditions
+ * STEP 2) Evolve EOB trajectory both at low and high sampling rate
+ * STEP 3) Compute Euler angles to go from initial inertial frame to
+ * precessing frame
+ * STEP 4) Locate merger point and at that time calculate J, chi and kappa, 
+ * and construct final J frame
+ * STEP 5) Generate quasi-nonprecessing waveforms in precessing frame
+ * STEP 6) Rotate quasi-nonprecessing waveforms from precessing to final-J-frame
+ * STEP 7) Attach ringdown to final-J-frame modes
+ * STEP 8) Rotate modes from final final-J-frame to initial inertial frame
+ * STEP 9) Compute h+, hx
+ */
 int XLALSimIMRSpinEOBWaveformAll(
         REAL8TimeSeries **hplus,  /**<< output: hplus GW polarization */
         REAL8TimeSeries **hcross, /**<< output: hcross GW polarization */
@@ -1486,7 +1485,7 @@ int XLALSimIMRSpinEOBWaveformAll(
         const REAL8     m1SI,       /**<< mass of first object in SI */
         const REAL8     m2SI,       /**<< mass of second object in SI */
         const REAL8     fMin,       /**<< fMin */
-        const REAL8     r,          /**<< initial separation */
+        const REAL8     r,          /**<< luminosity distance in SI */
         const REAL8     inc,        /**<< inclination */
         const REAL8     INspin1x,   /**<< spin1 x-component */
         const REAL8     INspin1y,   /**<< spin1 y-component */
@@ -1497,8 +1496,6 @@ int XLALSimIMRSpinEOBWaveformAll(
      )
 
 {
-  /* TODO: Insert potentially necessary checks on the arguments */
-
   /* FIXME: Moved this definition out of prototype to allow SWIG interaction*/
   REAL8 INspin1[3], INspin2[3];
   INspin1[0] = INspin1x;
@@ -1509,7 +1506,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   INspin2[2] = INspin2z;
 
   INT4 UNUSED ret;
-  INT4 debugPK = 0, debugCustomIC = 0, debugNoNQC = 0;
+  INT4 debugPK = 1, debugCustomIC = 0, debugNoNQC = 0;
   INT4 debugRD = 0;
   FILE *out = NULL;
   INT4 i=0;
@@ -1521,11 +1518,9 @@ int XLALSimIMRSpinEOBWaveformAll(
   REAL8Vector *AttachParams;
   REAL8Array  *dynamicsHi;
 
-  /* SEOBNRv3 model */
   Approximant spinEOBApproximant = SEOBNRv3;
-  /* FIXME: The underlying aligned spin EOB model is hard-coded here.
-   * This should be reflected in the name, e.g. SPEOBNRv2 ? */
-  INT4 SpinAlignedEOBversion =2;
+  /* The underlying aligned-spin EOB model is hard-coded here */
+  INT4 SpinAlignedEOBversion = 2;
 
   /* Vector to store the initial spins */
     REAL8 spin1[3] = {0,0,0}, spin2[3] = {0,0,0}, InitLhat[3] = {sin(inc),0.,cos(inc)};
@@ -1534,7 +1529,6 @@ int XLALSimIMRSpinEOBWaveformAll(
 
   /* Check the initial misalignment of component spins, w.r.t. the z-axis
    * theta{1,2}Ini measure the angle w.r.t. the orbital ang. momentum
-   * If these angles are < 1.e-3 radians, call the aligned-spin model directly
    * */
   REAL8 theta1Ini = 0, theta2Ini = 0;
   REAL8 spin1Norm = -1, spin2Norm = -1;
@@ -1601,13 +1595,13 @@ int XLALSimIMRSpinEOBWaveformAll(
 
   /* Allocate the values vector to contain the ICs            */
   /* Throughout the code, there are 12 dynamical variables:   */
-  /* values[0-2]  - x (Cartesian tortoise separation vector)  */
-  /* values[3-5]  - p (Cartesian momentum)                    */
-  /* values[6-8]  - spin of body 1                            */
-  /* values[9-11] - spin of body 2                            */
+  /* values[0-2]  is x (Cartesian tortoise separation vector)  */
+  /* values[3-5]  is p (Cartesian momentum)                    */
+  /* values[6-8]  is spin of body 1                            */
+  /* values[9-11] is spin of body 2                            */
   /* Two additional orbital quantities are evolved            */
-  /* values[12]   - orbital phase                             */
-  /* values[13]   - alpha dot cos(inclination)                */
+  /* values[12]   is orbital phase                             */
+  /* values[13]   is alpha dot cos(inclination)                */
   REAL8Vector *values = NULL;
   if ( !(values = XLALCreateREAL8Vector( 14 )) )
   {
@@ -1757,6 +1751,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   /* Accuracies of adaptive Runge-Kutta integrator */
    REAL8 EPS_ABS = 1.0e-8;
   const REAL8 EPS_REL = 1.0e-8;
+  /* Relax abs accuracy in case of highly symmetric case that would otherwise slow down significantly */
   if (/*fabs(theta1Ini - LAL_PI/2.) < 1.0e-6 && fabs(theta2Ini - LAL_PI/2.) < 1.0e-6 && */sqrt((INspin1[0] + INspin2[0])*(INspin1[0] + INspin2[0]) + (INspin1[1] + INspin2[1])*(INspin1[1] + INspin2[1]) + 0*(INspin1[2] + INspin2[2])*(INspin1[2] + INspin2[2])) < 1.0e-10 && (theta1Ini >= 1e-4 && theta2Ini >= 1e-4))
   {
       if (debugPK) XLAL_PRINT_INFO("EPS_ABS is decreased!\n");
@@ -1882,13 +1877,17 @@ int XLALSimIMRSpinEOBWaveformAll(
     XLAL_PRINT_INFO("Inputs: s2V = {%.16e, %.16e, %.16e}\n",
             s2Vec.data[0], s2Vec.data[1], s2Vec.data[2]);
   }
-
+    
+/* *********************************************************************************
+ * *********************************************************************************
+ * STEP 0) Prepare parameters, including pre-computed coefficients
+ * for EOB Hamiltonian, flux and waveform
+ * *********************************************************************************
+ * ********************************************************************************* */
   /* ************************************************* */
   /* Populate the initial structures                   */
   /* ************************************************* */
-
-  /* ************************************************* */
-  /* Spin parameters                                   */
+  /* Spin parameters */
   if ( XLALSimIMRSpinEOBCalculateSigmaStar(
           sigmaStar, m1, m2, &s1Vec, &s2Vec ) == XLAL_FAILURE )
   {
@@ -1906,7 +1905,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     XLAL_ERROR( XLAL_EFUNC );
   }
 
-  /* Calculate the value of a */
+  /* Calculate the value of a, that is magnitude of Eq. 31 in PRD 86, 024011 (2012) */
   seobParams.a = a = sqrt( inner_product(sigmaKerr->data, sigmaKerr->data) );
   seobParams.s1Vec = &s1VecOverMtMt;
   seobParams.s2Vec = &s2VecOverMtMt;
@@ -1928,10 +1927,8 @@ int XLALSimIMRSpinEOBWaveformAll(
     XLAL_ERROR( XLAL_ENOMEM );
   }
   *AttachPars = AttachParams;
-  /* ************************************************* */
-  /* Cartesian position and momentum vectors           */
 
-  /* Cartesian vectors needed to calculate Hamiltonian */
+   /* Cartesian vectors needed to calculate Hamiltonian */
   cartPosVec.length = cartMomVec.length = 3;
   cartPosVec.data = cartPosData;
   cartMomVec.data = cartMomData;
@@ -1940,8 +1937,8 @@ int XLALSimIMRSpinEOBWaveformAll(
 
 
   /* ************************************************* */
-  /* Waveform parameter structures                     */
-
+  /* Waveform parameter structures              */
+  /* ************************************************* */
   /* Spin-EOB parameters */
   seobParams.alignedSpins = 0;
   seobParams.tortoise     = 1;
@@ -1958,8 +1955,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   eobParams.m2  = m2;
   eobParams.eta = eta;
 
-  /* ************************************************* */
-  /* Pre-compute the Hamiltonian coefficients          */
+  /* Pre-compute the Hamiltonian coefficients */
   if ( XLALSimIMRCalculateSpinPrecEOBHCoeffs( &seobCoeffs, eta, a,
                           SpinAlignedEOBversion ) == XLAL_FAILURE )
   {
@@ -1969,7 +1965,8 @@ int XLALSimIMRSpinEOBWaveformAll(
     XLAL_ERROR( XLAL_EFUNC );
   }
 
-  /* Pre-compute the coefficients for the Newtonian factor of hLM */
+  /* Pre-compute the coefficients for the Newtonian factor of hLM 
+     Eq. A1 of PRD 86, 024011 (2012)  */
   if ( XLALSimIMREOBComputeNewtonMultipolePrefixes( &prefixes, eobParams.m1,
 			eobParams.m2 ) == XLAL_FAILURE )
   {
@@ -1979,10 +1976,12 @@ int XLALSimIMRSpinEOBWaveformAll(
     XLAL_ERROR( XLAL_EFUNC );
   }
 
-  /* ************************************************* */
-  /* ***** Get    the INITIAL CONDITIONS               */
-  /* ************************************************* */
-
+/* *********************************************************************************
+ * *********************************************************************************
+ * STEP 1) Solve for initial conditions, according to Sec. IV A of
+ * PRD 74, 104005 (2006)
+ * *********************************************************************************
+ * ********************************************************************************* */
   if( debugPK )
   {
     XLAL_PRINT_INFO("Calling the XLALSimIMRSpinEOBInitialConditionsPrec function!\n");
@@ -2020,151 +2019,12 @@ int XLALSimIMRSpinEOBWaveformAll(
             XLAL_ERROR( XLAL_EFUNC );
         }
   }
+  /* Initial phases */
   tmpValues2->data[12] = 0.;
   tmpValues2->data[13] = 0.;
 
   if(debugCustomIC) {
-//    //v2 0.8 .06
-//    tmpValues2->data[0]=  2.4947503693442151e+01;
-//    tmpValues2->data[1]= 0.0000000000000000e+00;
-//    tmpValues2->data[2]= 0.0000000000000000e+00;
-//    tmpValues2->data[3]= -1.1443986771509659e-04;
-//    tmpValues2->data[4]= 2.0974358101454393e-01;
-//    tmpValues2->data[5]= 0.0000000000000000e+00;
-//    tmpValues2->data[6]= 0.0000000000000000e+00;
-//    tmpValues2->data[7]=  0.0000000000000000e+00;
-//    tmpValues2->data[8]= 5.5555555555555558e-01;
-//    tmpValues2->data[9]= 0.0000000000000000e+00;
-//    tmpValues2->data[10]= 0.0000000000000000e+00;
-//    tmpValues2->data[11]= 1.6666666666666666e-02;
-//
-//    //v1 0.5 0.5
-//    tmpValues2->data[0]=  2.4977926627506903e+01;
-//    tmpValues2->data[1]= 0.0000000000000000e+00;
-//    tmpValues2->data[2]= 0.0000000000000000e+00;
-//    tmpValues2->data[3]= -1.1624761163076212e-04;
-//    tmpValues2->data[4]= 2.1082424860474935e-01;
-//    tmpValues2->data[5]= 0.0000000000000000e+00;
-//    tmpValues2->data[6]= 0.0000000000000000e+00;
-//    tmpValues2->data[7]=  0.0000000000000000e+00;
-//    tmpValues2->data[8]= 3.4722222222222221e-01;
-//    tmpValues2->data[9]= 0.0000000000000000e+00;
-//    tmpValues2->data[10]= 0.0000000000000000e+00;
-//    tmpValues2->data[11]= 1.3888888888888888e-02;
-
-//    v2devel 0.8 0.6
-//    tmpValues2->data[0]=  2.4947499317612962e+01;
-//    tmpValues2->data[1]= 0.0000000000000000e+00;
-//    tmpValues2->data[2]= 0.0000000000000000e+00;
-//    tmpValues2->data[3]= -9.7392171179022500e-05;
-//    tmpValues2->data[4]= 2.0974360118734747e-01;
-//    tmpValues2->data[5]= 0.0000000000000000e+00;
-//    tmpValues2->data[6]= 0.0000000000000000e+00;
-//    tmpValues2->data[7]=  0.0000000000000000e+00;
-//    tmpValues2->data[8]= 5.5555555555555558e-01;
-//    tmpValues2->data[9]= 0.0000000000000000e+00;
-//    tmpValues2->data[10]= 0.0000000000000000e+00;
-//    tmpValues2->data[11]= 1.6666666666666666e-02;
-//  v1devel 0.5 0.5
-//    tmpValues2->data[0]=  2.4977922258283822e+01;
-//    tmpValues2->data[1]= 0.0000000000000000e+00;
-//    tmpValues2->data[2]= 0.0000000000000000e+00;
-//    tmpValues2->data[3]= -9.8650292751988489e-05;
-//    tmpValues2->data[4]= 2.1082427042465196e-01;
-//    tmpValues2->data[5]= 0.0000000000000000e+00;
-//    tmpValues2->data[6]= 0.0000000000000000e+00;
-//    tmpValues2->data[7]=  0.0000000000000000e+00;
-//    tmpValues2->data[8]= 3.4722222222222221e-01;
-//    tmpValues2->data[9]= 0.0000000000000000e+00;
-//    tmpValues2->data[10]= 0.0000000000000000e+00;
-//    tmpValues2->data[11]= 1.3888888888888888e-02;
-//
-//    //  v1devel 0.5 0.5 short
-//    tmpValues2->data[0]=  1.4210453570976361e+01;
-//    tmpValues2->data[1]= 0.0000000000000000e+00;
-//    tmpValues2->data[2]= 0.0000000000000000e+00;
-//    tmpValues2->data[3]= -4.9684240542886924e-04;
-//    tmpValues2->data[4]= 2.9021826002997486e-01;
-//    tmpValues2->data[5]= 0.0000000000000000e+00;
-//    tmpValues2->data[6]= 0.0000000000000000e+00;
-//    tmpValues2->data[7]=  0.0000000000000000e+00;
-//    tmpValues2->data[8]= 3.4722222222222221e-01;
-//    tmpValues2->data[9]= 0.0000000000000000e+00;
-//    tmpValues2->data[10]= 0.0000000000000000e+00;
-//    tmpValues2->data[11]= 1.3888888888888888e-02;
-
-    //  v1devel 0.5 0.5 long
-//    tmpValues2->data[0]=  3.5925771624136843e+01;
-//    tmpValues2->data[1]= 0.0000000000000000e+00;
-//    tmpValues2->data[2]= 0.0000000000000000e+00;
-//    tmpValues2->data[3]= -3.4725194158512486e-05;
-//    tmpValues2->data[4]= 1.7311431867161625e-01;
-//    tmpValues2->data[5]= 0.0000000000000000e+00;
-//    tmpValues2->data[6]= 0.0000000000000000e+00;
-//    tmpValues2->data[7]=  0.0000000000000000e+00;
-//    tmpValues2->data[8]= 3.4722222222222221e-01;
-//    tmpValues2->data[9]= 0.0000000000000000e+00;
-//    tmpValues2->data[10]= 0.0000000000000000e+00;
-//    tmpValues2->data[11]= 1.3888888888888888e-02;
-//
-//    //  v1devel 0.5 0.5 medium
-//    tmpValues2->data[0]=  2.2611498964597168e+01;
-//    tmpValues2->data[1]= 0.0000000000000000e+00;
-//    tmpValues2->data[2]= 0.0000000000000000e+00;
-//    tmpValues2->data[3]= -1.3187256837094701e-04;
-//    tmpValues2->data[4]= 2.2274218670264384e-01;
-//    tmpValues2->data[5]= 0.0000000000000000e+00;
-//    tmpValues2->data[6]= 0.0000000000000000e+00;
-//    tmpValues2->data[7]=  0.0000000000000000e+00;
-//    tmpValues2->data[8]= 3.4722222222222221e-01;
-//    tmpValues2->data[9]= 0.0000000000000000e+00;
-//    tmpValues2->data[10]= 0.0000000000000000e+00;
-//    tmpValues2->data[11]= 1.3888888888888888e-02;
-
-
-//    tmpValues2->data[0]=  1.8656971023349701e+01;
-//    tmpValues2->data[1]= 0;
-//    tmpValues2->data[2]= 0;
-//    tmpValues2->data[3]= -4.8895110550351657e-04;
-//    tmpValues2->data[4]= 2.4619856470732523e-01;
-//    tmpValues2->data[5]= -2.6870560011919208e-05;
-//    tmpValues2->data[6]= 2.9451156124040437e-02;
-//    tmpValues2->data[7]= -1.1434246556844330e-02;
-//    tmpValues2->data[8]= 2.3068072871192638e-01;
-//    tmpValues2->data[9]= 6.2954182743516019e-03;
-//    tmpValues2->data[10]= 8.8246456372334629e-03;
-//    tmpValues2->data[11]= 1.5200695012151960e-01;
-
-
-//      tmpValues2->data[0]=  1.2791153581349091e+01;
-//    tmpValues2->data[1]= 0.;
-//    tmpValues2->data[2]= 0.;
-//    tmpValues2->data[3]= -1.4835177245908124e-03;
-//    tmpValues2->data[4]= 3.8696129848416980e+00/1.2791153581349091e+01;
-//    tmpValues2->data[5]= 0;
-//    tmpValues2->data[6]= 0;
-//    tmpValues2->data[7]= 0;
-//    tmpValues2->data[8]= 2.9387755102040819e-01;
-//    tmpValues2->data[9]= 0;
-//    tmpValues2->data[10]= 0;
-//    tmpValues2->data[11]= 1.6530612244897960e-01;
-
-      tmpValues2->data[0]=  2.0388097469001991e+01;
-      tmpValues2->data[1]= 0.;
-      tmpValues2->data[2]= 0.;
-      tmpValues2->data[3]= -3.6459245552132851e-04;
-      tmpValues2->data[4]= 4.7623374020896696e+00/2.0388097469001991e+01;
-      tmpValues2->data[5]= 0;
-//      tmpValues2->data[6]= 0;
-//      tmpValues2->data[7]= 0.;
-//      tmpValues2->data[8]= 2.9387755102040819e-01;
-//      tmpValues2->data[9]= 0;
-//      tmpValues2->data[10]= 0.;
-//      tmpValues2->data[11]= 1.6530612244897960e-01;
-
-  //tmpValues2->data[3] *= 1.02;
-  //tmpValues2->data[4] *= 1.02;
-  //tmpValues2->data[5] *= -0.01;
+      /* Hardcode initial conditions for debugging purposes here */
       tmpValues2->data[0]= 15.4898001256;
       tmpValues2->data[1]= 0.;
       tmpValues2->data[2]= -4.272074867808132e-19;
@@ -2177,28 +2037,7 @@ int XLALSimIMRSpinEOBWaveformAll(
       tmpValues2->data[9]= 0.07463668902857602;
       tmpValues2->data[10]= 0.001769731591445356;
       tmpValues2->data[11]= 0.04303525354405329;
-
   }
-//
-//    tmpValues2->data[0]=2.4000463143017267e+01;
-//    tmpValues2->data[1]= 0.;
-//    tmpValues2->data[2]= 0.;
-//    tmpValues2->data[3]=-2.3261929826497678e-04;
-//    tmpValues2->data[4]=2.1559757713540095e-01;
-//    tmpValues2->data[5]= 0.;
-
-//    tmpValues2->data[0]=-1.8801327380701445e+00;
-//    tmpValues2->data[1]=0.0000000000000000e+00;
-//    tmpValues2->data[2]=9.8357869228657506e+00;
-//    tmpValues2->data[3]=-1.0570274923386538e-02;
-//    tmpValues2->data[4]= -3.5342944772792023e-01;
-//    tmpValues2->data[5]=-2.6295929021147818e-03;
-//    tmpValues2->data[6]=6.3720886501781782e-01;
-//    tmpValues2->data[7]=5.0949235278028726e-01;
-//    tmpValues2->data[8]=-4.3251561297952823e-03;
-//    tmpValues2->data[9]=-1.4118692634180656e-06;
-//    tmpValues2->data[10]=4.2413644561966518e-06;
-//    tmpValues2->data[11]=-5.6616846904456627e-06;
 
   if(debugPK)
   {
@@ -2210,10 +2049,6 @@ int XLALSimIMRSpinEOBWaveformAll(
   /* Copy over the IC to values */
   for (j = 0; j < tmpValues2->length; j++)
     values->data[j] = tmpValues2->data[j];
-
-  /* ************************************************************************ */
-  /* Calculate the values of chiS and chiA, as given in Eq.16 in YPP
-   * Assuming \f$\vec{L}\f$ to be pointing in the direction of \f$\vec{r}\times\vec{p}\f$ */
 
   if(debugPK)XLAL_PRINT_INFO("\nReached the point where LN is to be calculated\n");
 
@@ -2234,11 +2069,13 @@ int XLALSimIMRSpinEOBWaveformAll(
   rcrossrdotNorm = sqrt(inner_product( rcrossrdot, rcrossrdot ));
   for( i = 0; i < 3; i++ ) { rcrossrdot[i] /= rcrossrdotNorm; }
 
+/* Calculate the values of chiS and chiA, as given in Eq. 17 of
+ * PRD 89, 084006 (2014) */
   s1dotLN = inner_product( spin1, rcrossrdot );
   s2dotLN = inner_product( spin2, rcrossrdot );
 
-  /* Why are we calculating s{1,2} dot L ? */
-  cross_product( rvec, pvec, rcrossp );
+/* An alternative is to project the spins onto L = rXp */
+ cross_product( rvec, pvec, rcrossp );
   rcrosspMag = sqrt(inner_product(rcrossp, rcrossp));
   for( i = 0; i < 3; i++ ) { rcrossp[i] /= rcrosspMag; }
 
@@ -2254,7 +2091,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   chiS = 0.5 * (s1dotLN + s2dotLN);
   chiA = 0.5 * (s1dotLN - s2dotLN);
 
-  /* Compute the test-particle limit spin of the deformed-Kerr background */
+  /* Compute the test-particle limit spin of the deformed-Kerr background: (S1+S2).LNhat/Mtot^2 */
   switch ( SpinAlignedEOBversion )
   {
     case 1:
@@ -2270,7 +2107,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   }
 
   /* ************************************************* */
-  /* Populate the Waveform initial structures          */
+  /* Populate the Waveform initial structures  */
   /* ************************************************* */
   /* Pre-compute the non-spinning and spinning coefficients for hLM factors */
   if( debugPK ) {
@@ -2290,11 +2127,9 @@ int XLALSimIMRSpinEOBWaveformAll(
   /* ************************************************* */
   /* Compute the coefficients for the NQC Corrections  */
   /* ************************************************* */
-  /* FIXME check NQC version used */
   spinNQC = (1.-2.*eta) * chiS + (m1 - m2)/(m1 + m2) * chiA;
 
-  //Stas: Check if initial frequency is too high
-  //
+  // Check if initial frequency is too high
   REAL8 NRPeakOmega22 = GetNRSpinPeakOmegav2(2, 2, eta, spinNQC) / mTScaled;
   REAL8 freqMinRad = pow(10.0, -1.5)/(LAL_PI*mTScaled);
   REAL8 signOfa = spinNQC/fabs(spinNQC);
@@ -2348,7 +2183,7 @@ int XLALSimIMRSpinEOBWaveformAll(
 	    break;
   }
 
-  /* FIXME NOTE the lines below, NQC coeffs are put to zero for debugging */
+  /* NQC coeffs can be put to zero for debugging here */
   if (debugNoNQC) {
     nqcCoeffs.a1 = nqcCoeffs.a2 = nqcCoeffs.a3 = nqcCoeffs.a3S = nqcCoeffs.a4 =
       nqcCoeffs.a5 = nqcCoeffs.b1 = nqcCoeffs.b2 = nqcCoeffs.b3 = nqcCoeffs.b4 =
@@ -2401,13 +2236,12 @@ int XLALSimIMRSpinEOBWaveformAll(
     fflush(NULL);
   }
 
-  /* ***************************************************************** */
-  /* ******** Integrate the Hamiltonian Equations ******************** */
-  /* ***************************************************************** */
-
-  /* ************************************** */
-  /* Low Sampling-rate integration          */
-
+/* *********************************************************************************
+ * *********************************************************************************
+ * STEP 2) Evolve EOB trajectory both at low and high sampling rate
+ * *********************************************************************************
+ * ********************************************************************************* */
+  /* Low Sampling-rate integration */
   /* Initialize the GSL integrator */
     REAL8Vector *valuesV2 = NULL;
     if ( !(valuesV2 = XLALCreateREAL8Vector( 4 )) )
@@ -2415,13 +2249,12 @@ int XLALSimIMRSpinEOBWaveformAll(
         XLAL_ERROR(  XLAL_ENOMEM );
     }
     memset( valuesV2->data, 0, valuesV2->length * sizeof( REAL8 ));
-
+    /* If spins are almost aligned with LNhat, use SEOBNRv2 dynamics */
     if (( fabs(theta1Ini) <= EPS_ALIGN  || fabs(theta1Ini) >= LAL_PI - EPS_ALIGN) && ( fabs(theta2Ini) <= EPS_ALIGN || fabs(theta2Ini) >= LAL_PI - EPS_ALIGN) ) {
         valuesV2->data[0] = tmpValues2->data[0];
         valuesV2->data[1] = 0.;
         valuesV2->data[2] = tmpValues2->data[3];
         valuesV2->data[3] = tmpValues2->data[0] * tmpValues2->data[4];
-//        XLAL_PRINT_INFO("valuesV2->data[0], valuesV2->data[1], valuesV2->data[2], valuesV2->data[3] %e %e %e %e\n", valuesV2->data[0], valuesV2->data[1], valuesV2->data[2], valuesV2->data[3] );
 
         seobParams.alignedSpins = 1;
         seobParams.chi1 = spin1Norm*cos(theta1Ini)/fabs(cos(theta1Ini));
@@ -2443,10 +2276,9 @@ int XLALSimIMRSpinEOBWaveformAll(
         }
     }
 
-
-
   /* Ensure that integration stops ONLY when the stopping condition is True */
   integrator->stopontestonly = 1;
+  /* When this option is set to 0, the integration can be exceeddingly slow for spin-aligned systems */
   integrator->retries = 1;
 
   if( debugPK ){
@@ -2461,6 +2293,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     rVec.length = phiVec.length = prVec.length = pPhiVec.length = 0;
     rVec.data = 0; phiVec.data = 0; prVec.data = 0; pPhiVec.data = 0;
   /* Call the integrator */
+    /* If spins are almost aligned with LNhat, use SEOBNRv2 dynamics */
     if (( fabs(theta1Ini) <= EPS_ALIGN  || fabs(theta1Ini) >= LAL_PI - EPS_ALIGN) && ( fabs(theta2Ini) <= EPS_ALIGN || fabs(theta2Ini) >= LAL_PI - EPS_ALIGN) ) {
         REAL8Array              *dynamicsV2   = NULL;
         seobParams.alignedSpins = 1;
@@ -2495,7 +2328,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     }
 
 
-
+    /* If spins are almost aligned with LNhat, use SEOBNRv2 dynamics */
     if (( fabs(theta1Ini) <= EPS_ALIGN  || fabs(theta1Ini) >= LAL_PI - EPS_ALIGN) && ( fabs(theta2Ini) <= EPS_ALIGN || fabs(theta2Ini) >= LAL_PI - EPS_ALIGN) ) {
         dynamics = XLALCreateREAL8ArrayL( 2, 15, (UINT4)retLenLow );
         for (i = 0; i < retLen; i++) {
@@ -2516,6 +2349,7 @@ int XLALSimIMRSpinEOBWaveformAll(
             dynamics->data[14*retLen + i]= 0.;
         }
     }
+    /* This is common to all cases, even when we use SEOBNRv2 dynamics */
         posVecx.data = dynamics->data+retLen;
         posVecy.data = dynamics->data+2*retLen;
         posVecz.data = dynamics->data+3*retLen;
@@ -2557,9 +2391,8 @@ int XLALSimIMRSpinEOBWaveformAll(
     fflush(NULL);
   }
 
-  /* ************************************** */
-  /* High Sampling-rate integration         */
-
+  /* High Sampling-rate integration  */
+  /* Stepback by 150M wrt the ending time of the low-sampling-rate trajecotry */
   /* If 150M of step back > actual time of evolution, step back 50% of that */
   if (tStepBack > retLen*deltaT)
   {
@@ -2610,6 +2443,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     rVecHi.length = phiVecHi.length = prVecHi.length = pPhiVecHi.length = 0;
     rVecHi.data = 0; phiVecHi.data = 0; prVecHi.data = 0; pPhiVecHi.data = 0;
 
+    /* If spins are almost aligned with LNhat, use SEOBNRv2 dynamics */
     if (( fabs(theta1Ini) <= EPS_ALIGN  || fabs(theta1Ini) >= LAL_PI - EPS_ALIGN) && ( fabs(theta2Ini) <= EPS_ALIGN || fabs(theta2Ini) >= LAL_PI - EPS_ALIGN) ) {
         seobParams.alignedSpins = 1;
         seobParams.chi1 = spin1Norm*cos(theta1Ini)/fabs(cos(theta1Ini));
@@ -2656,6 +2490,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     s2VecxHi.length = s2VecyHi.length = s2VeczHi.length =
     phiDModHi.length = phiModHi.length = retLen;
 
+    /* If spins are almost aligned with LNhat, use SEOBNRv2 dynamics */
     if (( fabs(theta1Ini) <= EPS_ALIGN  || fabs(theta1Ini) >= LAL_PI - EPS_ALIGN) && ( fabs(theta2Ini) <= EPS_ALIGN || fabs(theta2Ini) >= LAL_PI - EPS_ALIGN) ) {
         dynamicsHi = XLALCreateREAL8ArrayL( 2, 15, (UINT4)retLenHi );
         for (i = 0; i < retLen; i++) {
@@ -2677,7 +2512,7 @@ int XLALSimIMRSpinEOBWaveformAll(
         }
     }
 
-
+    /* This is common to all cases, even when we use SEOBNRv2 dynamics */
         posVecxHi.data = dynamicsHi->data+retLen;
         posVecyHi.data = dynamicsHi->data+2*retLen;
         posVeczHi.data = dynamicsHi->data+3*retLen;
@@ -2722,12 +2557,15 @@ int XLALSimIMRSpinEOBWaveformAll(
     fclose( out );
   }
 
-  /* ************************************************************************ */
-  /* **************     Compute alpha (t) and beta (t).  ******************** */
-  /* ************************************************************************ */
-
-  /* Interpolate trajectories to compute L_N (t) in order to get alpha (t) and
-   * beta (t). */
+    
+/* *********************************************************************************
+ * *********************************************************************************
+ * STEP 3) Compute Euler angles to go from initial inertial frame to
+ * precessing frame: Eqs. 19-20 of PRD 89, 084006 (2014)
+* *********************************************************************************
+* **********************************************************************************/
+/* Interpolate trajectories to compute L_N (t) in order to get alpha(t) and
+   * beta(t). */
   if(debugPK){
     fprintf( stderr, "Generating Alpha and Beta angle timeseries at low SR\n" );
     fflush(NULL);
@@ -2753,7 +2591,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   gsl_spline_init( z_spline, tVec.data, posVecz.data, retLenLow );
 
   if (debugPK){
-    fprintf( stderr, "WRiting Alpha and Beta angle timeseries at low SR to alphaANDbeta.dat\n" );
+    fprintf( stderr, "Writing Alpha and Beta angle timeseries at low SR to alphaANDbeta.dat\n" );
     fflush(NULL);
     out = fopen( "alphaANDbeta.dat","w");
   }
@@ -2773,7 +2611,8 @@ int XLALSimIMRSpinEOBWaveformAll(
               + LN_z->data[i] * LN_z->data[i]);
 		LN_x->data[i] /= magLN; LN_y->data[i] /= magLN; LN_z->data[i] /= magLN;
 
-		/* Unwrap the two angles */
+    /*  Eq. 19 of PRD 89, 084006 (2014) */
+    /*  Also unwrap the two angles */
     if (fabs(LN_x->data[i]) <= 1.e-7 && fabs(LN_y->data[i]) <=1.e-7){
       Alpha->data[i] = 0.0;
     } else {
@@ -2810,7 +2649,8 @@ int XLALSimIMRSpinEOBWaveformAll(
 	}
   if (debugPK) fclose(out);
 
-  /* Integrate \dot{\alpha} \cos{\beta} to get the final Euler angle*/
+  /* Integrate \dot{\alpha} \cos{\beta} to get the final Euler angle
+      Eq. 20 of PRD 89, 084006 (2014) */
   //gsl_spline_free(x_spline);
   //gsl_interp_accel_free(x_acc);
   //x_spline = gsl_spline_alloc( gsl_interp_cspline, retLenLow );
@@ -2832,7 +2672,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   precEulerF.params   = &precEulerparams;
 
   if (debugPK) {
-    fprintf( stderr,"WRiting Gamma angle timeseries at low SR to gamma.dat\n");
+    fprintf( stderr,"Writing Gamma angle timeseries at low SR to gamma.dat\n");
     fflush(NULL);
     out = fopen( "gamma.dat","w");
   }
@@ -2852,12 +2692,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   }
   if (debugPK) fclose(out);
 
-/*
- * STEP 4.2) Interpolate trajectories to compute L_N (t) in order to get alpha (t) and beta (t)
- *
- *fprintf( stderr, "Generating Alpha and Beta angle timeseries at high SR\n" );*/
-
-
+/* Same as above, but now for the high-sampling-rate portion of the trajectory */
   LN_xHi = XLALCreateREAL8Vector( retLenHi );
   LN_yHi = XLALCreateREAL8Vector( retLenHi );
   LN_zHi = XLALCreateREAL8Vector( retLenHi );
@@ -2998,8 +2833,8 @@ int XLALSimIMRSpinEOBWaveformAll(
   gsl_interp_accel_free( x_acc );
   gsl_interp_accel_free( y_acc );
   gsl_interp_accel_free( z_acc );
-
-  /* WaveStep 1.5: moved to here  */
+    
+    
   modefreqVec.length = 1;
   modefreqVec.data   = &modeFreq;
 
@@ -3024,17 +2859,14 @@ int XLALSimIMRSpinEOBWaveformAll(
 
   /*memset( sigReHi->data, 0, sigReHi->length * sizeof( sigReHi->data[0] ));
   memset( sigImHi->data, 0, sigImHi->length * sizeof( sigImHi->data[0] ));*/
-
-
-
-  /* ************************************************************************ */
-  /* **************     Waveform Generation  ******************************** */
-  /* ************************************************************************ */
-
-  /* WaveStep 1
-   * Locate merger point (max omega), calculate J, chi and kappa at merger, and construct final J frame
-   */
-  /* WaveStep 1.1: locate merger point */
+    
+/* *********************************************************************************
+ * *********************************************************************************
+ * STEP 4) Locate merger point and at that time calculate J, chi and kappa, 
+ * and construct final J frame
+ * *********************************************************************************
+ * **********************************************************************************/
+  /* Locate merger point */
     // Find tAmpMax to determin the tAttachment
     REAL8 *radiusVec;
     REAL8 radiusData[retLenHi];
@@ -3051,9 +2883,6 @@ int XLALSimIMRSpinEOBWaveformAll(
             values->data[j] = dynamicsHi->data[(j+1)*retLenHi + i];
         }
         radiusData[i] = sqrt(values->data[0]*values->data[0] + values->data[1]*values->data[1] + values->data[2]*values->data[2]);
-    }
-    if (debugPK){
-        XLAL_PRINT_INFO("Andrea the attachment time based on Omega is %f \n", tAttach);
     }
 
 
@@ -3082,7 +2911,7 @@ int XLALSimIMRSpinEOBWaveformAll(
 
     //exit(0);
 
-  /* WaveStep 1.2: calculate J at merger */
+  /* Calculate J at merger */
   spline = gsl_spline_alloc( gsl_interp_cspline, retLen );
   acc    = gsl_interp_accel_alloc();
 
@@ -3103,7 +2932,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     XLAL_ERROR( XLAL_EFUNC );
   }
 
-  /* Calculare Omega = r x dr/dt */
+  /* Calculate Omega = r x dr/dt */
   memcpy( rdotvec, dvalues->data, 3*sizeof(REAL8));
   memcpy( rvec,    values->data,  3*sizeof(REAL8));
   memcpy( pvec,    values->data+3,3*sizeof(REAL8));
@@ -3126,22 +2955,14 @@ int XLALSimIMRSpinEOBWaveformAll(
     fflush(NULL);
   }
 
-  /* WaveStep 1.3: calculate chi and kappa at merger */
-//    if (( fabs(theta1Ini) <= 1.0e-5  || fabs(theta1Ini) >= LAL_PI - 1.0e-5) && ( fabs(theta2Ini) <= 1.0e-5 || fabs(theta2Ini) >= LAL_PI - 1.0e-5) ) {
-//        chi1J = values->data[8];
-//        chi2J = values->data[11];
-//     }
-//    else{
-        chi1J = values->data[6]*Jx + values->data[7] *Jy + values->data[8] *Jz;
-        chi2J = values->data[9]*Jx + values->data[10]*Jy + values->data[11]*Jz;
-//    }
+  /* Calculate chi and kappa at merger: Eq. 26 and 27 of PRD 89, 084006 (2014).
+   Here we project the spins onto J */
+  chi1J = values->data[6]*Jx + values->data[7] *Jy + values->data[8] *Jz;
+  chi2J = values->data[9]*Jx + values->data[10]*Jy + values->data[11]*Jz;
   chi1J/= magJ*m1*m1/mTotal/mTotal;
   chi2J/= magJ*m2*m2/mTotal/mTotal;
-  /*chiJ = (chi1J+chi2J)/2. + (chi1J-chi2J)/2.*sqrt(1. - 4.*eta)/(1. - 2.*eta);*/
-
-    chiJ = (chi1J+chi2J)/2. + (chi1J-chi2J)/2.*((m1-m2)/(m1+m2))/(1. - 2.*eta);
-    kappaJL = (Lx*Jx + Ly*Jy + Lz*Jz) / magL / magJ;
-
+  chiJ = (chi1J+chi2J)/2. + (chi1J-chi2J)/2.*((m1-m2)/(m1+m2))/(1. - 2.*eta);
+  kappaJL = (Lx*Jx + Ly*Jy + Lz*Jz) / magL / magJ;
   magLN = sqrt(inner_product(rcrossrdot, rcrossrdot));
   JLN =  (Jx*rcrossrdot[0] + Jy*rcrossrdot[1] + Jz*rcrossrdot[2])/magLN/magJ;
 
@@ -3155,9 +2976,10 @@ int XLALSimIMRSpinEOBWaveformAll(
 
 
   sh = 0.0;
-  /* WaveStep 1.4: calculate combsize and deltaNQC */
+  /* Calculate combsize and deltaNQC */
   switch ( SpinAlignedEOBversion )
   {
+    /* Eqs. 33-34 of PRD 86, 024011 (2012) */
     case 1:
       combSize = 7.5;
       deltaNQC = XLALSimIMREOBGetNRSpinPeakDeltaT(2, 2, eta,  chiJ);
@@ -3167,6 +2989,7 @@ int XLALSimIMRSpinEOBWaveformAll(
         fflush(NULL);
       }
       break;
+     /* Sections "DeltaNQC" and "￼PseudoQNM prescriptions" of  https://dcc.ligo.org/T1400476 */
     case 2:
       combSize = 12.;
       if ( chi1J == 0. && chi2J == 0. ) combSize = 11.;
@@ -3174,7 +2997,6 @@ int XLALSimIMRSpinEOBWaveformAll(
       if (chiJ >= 0.9 && eta < 30./(31.*31.)) combSize = 12.0;
       if (chiJ >= 0.8 && eta > 10./121.) combSize = 8.5;
       deltaNQC = XLALSimIMREOBGetNRSpinPeakDeltaTv2(2, 2, m1, m2, chi1J, chi2J );
-      // FIXME !!!!!
       if ( debugPK ) {
         XLAL_PRINT_INFO("v2 RD prescriptions are used! %3.10f %3.10f\n",
                 combSize, deltaNQC);
@@ -3214,8 +3036,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   // FIXME
   //combSize = 40.0;
 
-  /* WaveStep 1.5: get  */
-  /* WaveStep 1.6: construct J-frame */
+  /* Construct J-frame */
   JframeEz[0] = Jx / magJ;
   JframeEz[1] = Jy / magJ;
   JframeEz[2] = Jz / magJ;
@@ -3252,11 +3073,13 @@ int XLALSimIMRSpinEOBWaveformAll(
     XLAL_PRINT_INFO("J-frameEx = [%e\t%e\t%e]\n", JframeEx[0], JframeEx[1], JframeEx[2]);XLAL_PRINT_INFO("J-frameEy = [%e\t%e\t%e]\n", JframeEy[0], JframeEy[1], JframeEy[2]);
     XLAL_PRINT_INFO("J-frameEz = [%e\t%e\t%e]\n", JframeEz[0], JframeEz[1], JframeEz[2]);fflush(NULL);
   }
-
-  /* WaveStep 2
-   * Calculate quasi-nonprecessing waveforms
-   */
-  /* WaveStep 2.1: create time-series containers for euler angles and hlm harmonics */
+    
+/* *********************************************************************************
+ * *********************************************************************************
+ * STEP 5) Generate quasi-nonprecessing waveforms in precessing frame
+ * *********************************************************************************
+ * **********************************************************************************/
+  /* Create time-series containers for euler angles and hlm harmonics */
   retLen = retLenLow;
 
   REAL8TimeSeries *alphaI2PTS = XLALCreateREAL8TimeSeries( "alphaI2P",
@@ -3342,7 +3165,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     tlistRDPatch->data[i] = i * deltaT/mTScaled;
   }
 
-  /* WaveStep 2.3.1: main loop for quasi-nonprecessing waveform generation */
+  /* Main loop for quasi-nonprecessing waveform generation */
   // Generating modes for coarsely sampled portion
   if(debugPK){
     XLAL_PRINT_INFO("Generating precessing-frame modes for coarse dynamics\n");
@@ -3428,6 +3251,7 @@ if (i==1900) XLAL_PRINT_INFO("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz
           gP2J = 0.0;
           aP2J = atan2( JframeEx[1], JframeEx[0]);
       }
+      /* Euler angles to go from precessing to J-frame */
     alphaI2PTS->data->data[i] = -aI2P;
      betaI2PTS->data->data[i] = bI2P;
     gammaI2PTS->data->data[i] = -gI2P;
@@ -3577,7 +3401,7 @@ if (i==1900) XLAL_PRINT_INFO("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz
       XLAL_PRINT_INFO("YP: quasi-nonprecessing modes generated.\n"); fflush(NULL);
   }
 
-  /* WaveStep 2.4.1: add quasi-nonprecessing spherical harmonic modes to the SphHarmTimeSeries structure */
+  /* Add quasi-nonprecessing spherical harmonic modes to the SphHarmTimeSeries structure */
   hlmPTS = XLALSphHarmTimeSeriesAddMode( hlmPTS, h22TS, 2, 2 );
   hlmPTS = XLALSphHarmTimeSeriesAddMode( hlmPTS, h21TS, 2, 1 );
   hlmPTS = XLALSphHarmTimeSeriesAddMode( hlmPTS, h20TS, 2, 0 );
@@ -3612,7 +3436,7 @@ if (i==1900) XLAL_PRINT_INFO("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz
   }
 
 
-  /* WaveStep 2.3.2: main loop for quasi-nonprecessing waveform generation -- HIGH SR */
+  /* Main loop for quasi-nonprecessing waveform generation -- HIGH SR */
   retLen = retLenHi;
 
   REAL8TimeSeries *alphaI2PTSHi = XLALCreateREAL8TimeSeries( "alphaI2P",
@@ -3915,7 +3739,7 @@ if (i==1900) XLAL_PRINT_INFO("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz
       XLAL_PRINT_INFO("YP: quasi-nonprecessing modes generated.for High SR\n");
   }
 
-  /* WaveStep 2.4.2: add quasi-nonprecessing spherical harmonic modes to the SphHarmTimeSeries structure */
+  /* Add quasi-nonprecessing spherical harmonic modes to the SphHarmTimeSeries structure */
   hlmPTSHi = XLALSphHarmTimeSeriesAddMode( hlmPTSHi, h22TSHi, 2, 2 );
   hlmPTSHi = XLALSphHarmTimeSeriesAddMode( hlmPTSHi, h21TSHi, 2, 1 );
   hlmPTSHi = XLALSphHarmTimeSeriesAddMode( hlmPTSHi, h20TSHi, 2, 0 );
@@ -4022,9 +3846,11 @@ if (i==1900) XLAL_PRINT_INFO("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz
   /* Changing retLen back to the Low SR value */
   retLen = retLenLow;
 
-  /* WaveStep 3
-   * Generate IMR waveforms in the merger J (~ final spin) -frame
-   */
+/* *********************************************************************************
+ * *********************************************************************************
+ * STEP 6) Rotate quasi-nonprecessing waveforms from precessing to final J-frame
+ * *********************************************************************************
+ * **********************************************************************************/
   if ( XLALSimInspiralPrecessionRotateModes( hlmPTS, alphaP2JTS, betaP2JTS, gammaP2JTS ) == XLAL_FAILURE )
   {
     XLAL_ERROR( XLAL_EFUNC );
@@ -4096,6 +3922,12 @@ if (i==1900) XLAL_PRINT_INFO("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz
   memset( sigReHi->data, 0, sigReHi->length * sizeof( sigReHi->data[0] ));
   memset( sigImHi->data, 0, sigImHi->length * sizeof( sigImHi->data[0] ));
 
+    
+/* *********************************************************************************
+ * *********************************************************************************
+ * STEP 7) Attach ringdown to J-frame modes
+ * *********************************************************************************
+ * **********************************************************************************/
   if ( combSize > tAttach )
   {
       XLALPrintError( "Function: %s, The comb size looks to be too big!!!\n", __func__ );
@@ -4123,11 +3955,8 @@ if (i==1900) XLAL_PRINT_INFO("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz
     fflush(NULL);
   }
 
-
-  // FIXME Here I'll try to make a loop to check if tAttach is good or not
-  //
+  /* Self-adjusting ringdown attachment. See XXX */
   int CheckRDAttachment = 1;
-
   if (CheckRDAttachment ){
 
       if (debugPK) XLAL_PRINT_INFO("Stas: checking the RD attachment point....\n");fflush(NULL);
@@ -4370,7 +4199,13 @@ if (i==1900) XLAL_PRINT_INFO("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz
      fflush(NULL);
   }
 
-  /**** First atempt to compute Euler Angles and rotate to I frame */
+    
+/* *********************************************************************************
+ * *********************************************************************************
+ * STEP 8) Rotate modes from final final-J-frame to initial inertial frame
+ * *********************************************************************************
+ * **********************************************************************************/
+ /* Euler Angles to go from final-J-frame to initial inertial frame  */
   gamJtoI = atan2(JframeEz[1], -JframeEz[0]);
   betJtoI = acos(JframeEz[2]);
     //alJtoI = atan2(JframeEy[2], -JframeEx[2]);
@@ -4419,7 +4254,7 @@ if (i==1900) XLAL_PRINT_INFO("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz
   hIMRlmITS = XLALSphHarmTimeSeriesAddMode( hIMRlmITS, hIMR2m2JTS, 2, -2 );
   XLALSphHarmTimeSeriesSetTData( hIMRlmITS, tlistRDPatch );
 
-
+  /* Rotate J-frame modes */
   if (debugPK){ XLAL_PRINT_INFO("Rotation to inertial I-frame\n"); fflush(NULL); }
   if ( XLALSimInspiralPrecessionRotateModes( hIMRlmITS,
                 alpI, betI, gamI ) == XLAL_FAILURE )
@@ -4461,6 +4296,11 @@ if (i==1900) XLAL_PRINT_INFO("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz
     fclose( out );
   }
 
+/* *********************************************************************************
+ * *********************************************************************************
+ * STEP 9) Compute h+, hx
+ * *********************************************************************************
+ * **********************************************************************************/
     if (( fabs(theta1Ini) <= EPS_ALIGN  || fabs(theta1Ini) >= LAL_PI - EPS_ALIGN) && ( fabs(theta2Ini) <= EPS_ALIGN || fabs(theta2Ini) >= LAL_PI - EPS_ALIGN) ) {
         Y22 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, 2 );
         Y2m2 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, -2 );
