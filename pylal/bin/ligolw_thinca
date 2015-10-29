@@ -90,6 +90,8 @@ def parse_command_line():
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
+	process_params = options.__dict__.copy()
+
 	#
 	# check arguments
 	#
@@ -110,45 +112,19 @@ def parse_command_line():
 	# done
 	#
 
-	return options, (filenames or [None])
+	return options, process_params, (filenames or [None])
 
 
 #
 # =============================================================================
 #
-#                           Add Process Information
+#                             Process Information
 #
 # =============================================================================
 #
 
 
-process_program_name = "ligolw_thinca"
-
-
-def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = None, exact_mass = None, vetoes_name = None, trigger_program = None, coinc_end_time_segment = None, verbose = None):
-	process = ligolw_process.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
-
-	params = [
-		(u"--e-thinca-parameter", u"real_8", e_thinca_parameter)
-	]
-	if comment is not None:
-		params += [(u"--comment", u"lstring", comment)]
-	if force is not None:
-		params += [(u"--force", None, None)]
-	if vetoes_name is not None:
-		params += [(u"--vetoes-name", u"lstring", vetoes_name)]
-	if trigger_program is not None:
-		params += [(u"--trigger-program", u"lstring", trigger_program)]
-	if coinc_end_time_segment is not None:
-		params += [(u"--coinc-end-time-segment", u"lstring", coinc_end_time_segment)]
-	if exact_mass is not None:
-		params += [(u"--exact-mass", None, None)]
-	if verbose is not None:
-		params += [(u"--verbose", None, None)]
-
-	ligolw_process.append_process_params(xmldoc, process, params)
-
-	return process
+process_program_name = u"ligolw_thinca"
 
 
 #
@@ -165,7 +141,7 @@ def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = No
 #
 
 
-options, filenames = parse_command_line()
+options, process_params, filenames = parse_command_line()
 
 
 #
@@ -232,16 +208,14 @@ for n, filename in enumerate(filenames):
 	# Add an entry to the process table.
 	#
 
-	process = append_process(
+	process = ligolw_process.register_to_xmldoc(
 		xmldoc,
+		process_program_name,
+		process_params,
 		comment = options.comment,
-		force = options.force,
-		e_thinca_parameter = options.e_thinca_parameter,
-		exact_mass = options.exact_mass,
-		vetoes_name = options.vetoes_name,
-		trigger_program = options.trigger_program,
-		coinc_end_time_segment = options.coinc_end_time_segment,
-		verbose = options.verbose
+		version = __version__,
+		cvs_repository = u"lscsoft",
+		cvs_entry_time = __date__
 	)
 
 	#
