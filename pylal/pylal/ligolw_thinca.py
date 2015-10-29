@@ -269,7 +269,7 @@ class InspiralEventList(snglcoinc.EventList):
 		# avoid doing type conversion in loops
 		self.dt = LIGOTimeGPS(dt * 1.01)
 
-	def get_coincs(self, event_a, offset_a, light_travel_time, e_thinca_parameter, comparefunc):
+	def get_coincs(self, event_a, offset_a, light_travel_time, threshold, comparefunc):
 		#
 		# event_a's end time, with time shift applied
 		#
@@ -283,7 +283,7 @@ class InspiralEventList(snglcoinc.EventList):
 		# a subset of the full list)
 		#
 
-		return [event_b for event_b in self[bisect.bisect_left(self, end - self.dt) : bisect.bisect_right(self, end + self.dt)] if not comparefunc(event_a, offset_a, event_b, self.offset, light_travel_time, e_thinca_parameter)]
+		return [event_b for event_b in self[bisect.bisect_left(self, end - self.dt) : bisect.bisect_right(self, end + self.dt)] if not comparefunc(event_a, offset_a, event_b, self.offset, light_travel_time, threshold)]
 
 
 #
@@ -359,7 +359,7 @@ def default_ntuple_comparefunc(events, offset_vector):
 #
 
 
-def replicate_threshold(e_thinca_parameter, instruments):
+def replicate_threshold(threshold, instruments):
 	"""
 	From a single threshold and a list of instruments, return a
 	dictionary whose keys are every instrument pair (both orders), and
@@ -371,9 +371,9 @@ def replicate_threshold(e_thinca_parameter, instruments):
 	{("H1", "H2"): 6, ("H2", "H1"): 6}
 	"""
 	instruments = sorted(instruments)
-	thresholds = dict((pair, e_thinca_parameter) for pair in iterutils.choices(instruments, 2))
+	thresholds = dict((pair, threshold) for pair in iterutils.choices(instruments, 2))
 	instruments.reverse()
-	thresholds.update(dict((pair, e_thinca_parameter) for pair in iterutils.choices(instruments, 2)))
+	thresholds.update(dict((pair, threshold) for pair in iterutils.choices(instruments, 2)))
 	return thresholds
 
 
