@@ -88,8 +88,6 @@ def parse_command_line():
 	parser.add_option("-f", "--force", action = "store_true", help = "Process document even if it has already been processed.")
 	parser.add_option("-t", "--e-thinca-parameter", metavar = "float", type = "float", help = "Set the ellipsoidal coincidence algorithm's threshold (required).")
 	parser.add_option("--exact-mass", action = "store_true", help = "Use the ellipsoidal coincidence algorithm and require exact mass coincidence.")
-	parser.add_option("-a", "--effective-snr", metavar = "{inspiral|gstlal}", help = "Select effective SNR algorithm (required).  \"inspiral\" reproduces the algorithm used by lalapps_thinca, \"gstlal\" is an algorithm appropriate for use with gstlal_inspiral.")
-	parser.add_option("--effective-snr-factor", metavar = "float", type = "float", default = 250.0, help = "Set the effective SNR factor used with the \"inspiral\" effective SNR (default = 250.0).")
 	parser.add_option("--vetoes-name", metavar = "string", default = "vetoes", help = "From the input document, exatract the segment list having this name to use as the veto segments (default = \"vetoes\").  Warning:  if no segments by this name are found in the document then vetoes will not be applied, this is not an error condition.")
 	parser.add_option("--trigger-program", metavar = "name", default = "inspiral", help = "Set the name of the program that generated the event list as it appears in the process table (default = \"inspiral\").")
 	parser.add_option("--coinc-end-time-segment", metavar = "seg", help = "The segment of time to retain coincident triggers from. Uses segmentUtils.from_range_strings() format \"START:END\" for an interval of the form [START,END), \"START:\" for an interval of the form [START,INF), and \":END\" for an interval of the form (-INF,END).")
@@ -100,12 +98,10 @@ def parse_command_line():
 	# check arguments
 	#
 
-	required_options = ["e_thinca_parameter", "effective_snr"]
+	required_options = ["e_thinca_parameter"]
 	missing_options = [option for option in required_options if getattr(options, option) is None]
 	if missing_options:
 		raise ValueError("missing required option(s) %s" % ", ".join("--%s" % option.replace("_", "-") for option in missing_options))
-	if options.effective_snr not in ("inspiral", "gstlal"):
-		raise ValueError("unrecognized --effective-snr %s" % options.effective_snr)
 
 	if options.coinc_end_time_segment is not None:
 		if ',' in options.coinc_end_time_segment:
@@ -133,7 +129,7 @@ def parse_command_line():
 process_program_name = "ligolw_thinca"
 
 
-def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = None, exact_mass = None, vetoes_name = None, trigger_program = None, effective_snr = None, coinc_end_time_segment = None, verbose = None):
+def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = None, exact_mass = None, vetoes_name = None, trigger_program = None, coinc_end_time_segment = None, verbose = None):
 	process = ligolw_process.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 
 	params = [
@@ -147,8 +143,6 @@ def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = No
 		params += [(u"--vetoes-name", u"lstring", vetoes_name)]
 	if trigger_program is not None:
 		params += [(u"--trigger-program", u"lstring", trigger_program)]
-	if effective_snr is not None:
-		params += [(u"--effective-snr", u"lstring", effective_snr)]
 	if coinc_end_time_segment is not None:
 		params += [(u"--coinc-end-time-segment", u"lstring", coinc_end_time_segment)]
 	if exact_mass is not None:
@@ -176,15 +170,6 @@ def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = No
 
 
 options, filenames = parse_command_line()
-
-
-#
-# Select effective SNR form
-#
-
-
-if options.effective_snr == "gstlal":
-	ligolw_thinca.SnglInspiral.get_effective_snr = lambda self, fac: self.snr / math.sqrt(self.chisq)
 
 
 #
@@ -259,7 +244,6 @@ for n, filename in enumerate(filenames):
 		exact_mass = options.exact_mass,
 		vetoes_name = options.vetoes_name,
 		trigger_program = options.trigger_program,
-		effective_snr = options.effective_snr,
 		coinc_end_time_segment = options.coinc_end_time_segment,
 		verbose = options.verbose
 	)
