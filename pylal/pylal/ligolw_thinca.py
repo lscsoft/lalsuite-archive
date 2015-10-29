@@ -221,13 +221,15 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 
 		return coinc
 
+
 #
 # Custom function to compute the coinc_inspiral.end_time
 #
 
+
 def coinc_inspiral_end_time(events, offset_vector):
 	"""
-	A custom function to compute the end_time of a coinc_inspiral trigger
+	Function to compute the end time of an inspiral coincidence.
 	@events: a tuple of sngl_inspiral triggers making up a single
 	coinc_inspiral trigger
 	@offset_vector: a dictionary of offsets to apply to different
