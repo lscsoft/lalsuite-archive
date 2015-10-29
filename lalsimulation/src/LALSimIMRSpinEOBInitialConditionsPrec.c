@@ -549,7 +549,7 @@ GSLSpinHamiltonianDerivWrapperPrec(double x,	/**<< Derivative at x */
 }
 
 
-/** 
+/**
  * Function to calculate the second derivative of the Hamiltonian.
 * The derivatives are taken with respect to indices idx1, idx2    */
 static REAL8

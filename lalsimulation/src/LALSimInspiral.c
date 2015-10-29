@@ -452,7 +452,7 @@ int XLALSimInspiralChooseTDWaveform(
 	    if( !checkSpinsZero(S1x, S1y, S1z, S2x, S2y, S2z) )
     		ABORT_NONZERO_SPINS(waveFlags);
 	    if( !checkTidesZero(lambda1, lambda2) )
-    		ABORT_NONZERO_TIDES(waveFlags);
+		ABORT_NONZERO_TIDES(waveFlags);
 	    /* Call the waveform driver routine */
 	    ret = XLALSimInspiralEccentricTDPNGenerator(hplus, hcross, phiRef,
 		    deltaT, m1, m2, f_min, f_ref, r, i, (REAL8) XLALSimInspiralGetTestGRParam( nonGRparams, "e_min"),

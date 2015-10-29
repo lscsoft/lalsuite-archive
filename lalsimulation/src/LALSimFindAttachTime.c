@@ -1074,5 +1074,3 @@ int XLALSimAdjustRDattachmentTime(
     return(0);
 
 }
-
-

@@ -1462,7 +1462,7 @@ int XLALSimIMRSpinEOBWaveform(
  * STEP 2) Evolve EOB trajectory both at low and high sampling rate
  * STEP 3) Compute Euler angles to go from initial inertial frame to
  * precessing frame
- * STEP 4) Locate merger point and at that time calculate J, chi and kappa, 
+ * STEP 4) Locate merger point and at that time calculate J, chi and kappa,
  * and construct final J frame
  * STEP 5) Generate quasi-nonprecessing waveforms in precessing frame
  * STEP 6) Rotate quasi-nonprecessing waveforms from precessing to final-J-frame
@@ -1877,7 +1877,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     XLAL_PRINT_INFO("Inputs: s2V = {%.16e, %.16e, %.16e}\n",
             s2Vec.data[0], s2Vec.data[1], s2Vec.data[2]);
   }
-    
+
 /* *********************************************************************************
  * *********************************************************************************
  * STEP 0) Prepare parameters, including pre-computed coefficients
@@ -1965,7 +1965,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     XLAL_ERROR( XLAL_EFUNC );
   }
 
-  /* Pre-compute the coefficients for the Newtonian factor of hLM 
+  /* Pre-compute the coefficients for the Newtonian factor of hLM
      Eq. A1 of PRD 86, 024011 (2012)  */
   if ( XLALSimIMREOBComputeNewtonMultipolePrefixes( &prefixes, eobParams.m1,
 			eobParams.m2 ) == XLAL_FAILURE )
@@ -2557,7 +2557,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     fclose( out );
   }
 
-    
+
 /* *********************************************************************************
  * *********************************************************************************
  * STEP 3) Compute Euler angles to go from initial inertial frame to
@@ -2833,8 +2833,8 @@ int XLALSimIMRSpinEOBWaveformAll(
   gsl_interp_accel_free( x_acc );
   gsl_interp_accel_free( y_acc );
   gsl_interp_accel_free( z_acc );
-    
-    
+
+
   modefreqVec.length = 1;
   modefreqVec.data   = &modeFreq;
 
@@ -2859,10 +2859,10 @@ int XLALSimIMRSpinEOBWaveformAll(
 
   /*memset( sigReHi->data, 0, sigReHi->length * sizeof( sigReHi->data[0] ));
   memset( sigImHi->data, 0, sigImHi->length * sizeof( sigImHi->data[0] ));*/
-    
+
 /* *********************************************************************************
  * *********************************************************************************
- * STEP 4) Locate merger point and at that time calculate J, chi and kappa, 
+ * STEP 4) Locate merger point and at that time calculate J, chi and kappa,
  * and construct final J frame
  * *********************************************************************************
  * **********************************************************************************/
@@ -3073,7 +3073,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     XLAL_PRINT_INFO("J-frameEx = [%e\t%e\t%e]\n", JframeEx[0], JframeEx[1], JframeEx[2]);XLAL_PRINT_INFO("J-frameEy = [%e\t%e\t%e]\n", JframeEy[0], JframeEy[1], JframeEy[2]);
     XLAL_PRINT_INFO("J-frameEz = [%e\t%e\t%e]\n", JframeEz[0], JframeEz[1], JframeEz[2]);fflush(NULL);
   }
-    
+
 /* *********************************************************************************
  * *********************************************************************************
  * STEP 5) Generate quasi-nonprecessing waveforms in precessing frame
@@ -3922,7 +3922,7 @@ if (i==1900) XLAL_PRINT_INFO("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz
   memset( sigReHi->data, 0, sigReHi->length * sizeof( sigReHi->data[0] ));
   memset( sigImHi->data, 0, sigImHi->length * sizeof( sigImHi->data[0] ));
 
-    
+
 /* *********************************************************************************
  * *********************************************************************************
  * STEP 7) Attach ringdown to J-frame modes
@@ -4199,7 +4199,7 @@ if (i==1900) XLAL_PRINT_INFO("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz
      fflush(NULL);
   }
 
-    
+
 /* *********************************************************************************
  * *********************************************************************************
  * STEP 8) Rotate modes from final final-J-frame to initial inertial frame

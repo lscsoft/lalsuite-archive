@@ -124,7 +124,7 @@ static double GSLSpinPrecHamiltonianWrapperFordHdpphi( double x, void *params );
  * The function returns a REAL8, which will be the value of the Hamiltonian if all goes well;
  * otherwise, it will return the XLAL REAL8 failure NaN.
  * The Hamiltonian function is described in PRD 81, 084024 (2010) and
- * PRD 84, 104027 (2011) 
+ * PRD 84, 104027 (2011)
  */
 static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
                const REAL8    eta,                  /**<< Symmetric mass ratio */
@@ -696,7 +696,7 @@ static int XLALSimIMRCalculateSpinPrecEOBHCoeffs(
 
 /**
  * This function calculates the function \f$\Delta_t(r)\f$ which appears in the spinning EOB
- * potential function. Eqs. 5.73 of PRD 81, 084024 (2010) augmented by 4PN, linear-in-eta corrections: 
+ * potential function. Eqs. 5.73 of PRD 81, 084024 (2010) augmented by 4PN, linear-in-eta corrections:
  * see also section "New 4PN term in the radial potential" of https://dcc.ligo.org/T1400476
  */
 static REAL8 XLALSimIMRSpinPrecEOBHamiltonianDeltaT(
