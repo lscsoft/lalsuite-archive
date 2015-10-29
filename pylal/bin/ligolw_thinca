@@ -82,8 +82,8 @@ def parse_command_line():
 	)
 	parser.add_option("-c", "--comment", metavar = "text", help = "Set comment string in process table (default = None).")
 	parser.add_option("-f", "--force", action = "store_true", help = "Process document even if it has already been processed.")
-	parser.add_option("-t", "--e-thinca-parameter", metavar = "float", type = "float", help = "Set the ellipsoidal coincidence algorithm's threshold (required).")
-	parser.add_option("--exact-mass", action = "store_true", help = "Use the ellipsoidal coincidence algorithm and require exact mass coincidence.")
+	parser.add_option("-m", "--match", metavar = "algorithm", default = "e-thinca", help = "Select the coincidence test.  Allowed values are \"e-thinca\" (use lalinspiral's e-thinca test, the default), \"exact\" (require exact template match).")
+	parser.add_option("-t", "--threshold", metavar = "float", type = "float", help = "Set the coincidence threshold (required).  The meaning is defined by the match algorithm.  For --match=e-thinca this sets the ellipsoidal coincidence algorithm's threshold.  For --match=exact this sets the Delta t window in seconds.")
 	parser.add_option("--vetoes-name", metavar = "string", default = "vetoes", help = "From the input document, exatract the segment list having this name to use as the veto segments (default = \"vetoes\").  Warning:  if no segments by this name are found in the document then vetoes will not be applied, this is not an error condition.")
 	parser.add_option("--trigger-program", metavar = "name", default = "inspiral", help = "Set the name of the program that generated the event list as it appears in the process table (default = \"inspiral\").")
 	parser.add_option("--coinc-end-time-segment", metavar = "seg", help = "The segment of time to retain coincident triggers from. Uses segmentUtils.from_range_strings() format \"START:END\" for an interval of the form [START,END), \"START:\" for an interval of the form [START,INF), and \":END\" for an interval of the form (-INF,END).")
@@ -96,10 +96,12 @@ def parse_command_line():
 	# check arguments
 	#
 
-	required_options = ["e_thinca_parameter"]
+	required_options = ["threshold"]
 	missing_options = [option for option in required_options if getattr(options, option) is None]
 	if missing_options:
 		raise ValueError("missing required option(s) %s" % ", ".join("--%s" % option.replace("_", "-") for option in missing_options))
+	if options.match not in ("e-thinca", "exact"):
+		raise ValueError("unrecognized value for --match: \"%s\"" % options.match)
 
 	if options.coinc_end_time_segment is not None:
 		if ',' in options.coinc_end_time_segment:
@@ -149,11 +151,13 @@ options, process_params, filenames = parse_command_line()
 #
 
 
-if options.exact_mass:
-	# Require exact mass coincidence
+if options.match == "e-thinca":
+	event_comparefunc = ligolw_thinca.inspiral_coinc_compare
+elif options.match == "exact":
 	event_comparefunc = ligolw_thinca.inspiral_coinc_compare_exact
 else:
-	event_comparefunc = ligolw_thinca.inspiral_coinc_compare
+	# not possible
+	assert False
 
 
 #
@@ -263,7 +267,7 @@ for n, filename in enumerate(filenames):
 		process_id = process.process_id,
 		coinc_definer_row = ligolw_thinca.InspiralCoincDef,
 		event_comparefunc = event_comparefunc,
-		thresholds = options.e_thinca_parameter,
+		thresholds = options.threshold,
 		ntuple_comparefunc = ntuple_comparefunc,
 		veto_segments = vetoes,
 		trigger_program = options.trigger_program,

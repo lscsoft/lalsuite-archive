@@ -326,12 +326,13 @@ def inspiral_coinc_compare(a, offseta, b, offsetb, light_travel_time, e_thinca_p
 	return not coincident
 
 
-def inspiral_coinc_compare_exact(a, offseta, b, offsetb, light_travel_time, e_thinca_parameter):
+def inspiral_coinc_compare_exact(a, offseta, b, offsetb, light_travel_time, delta_t):
 	"""
-	Returns False (a & b are coincident) if they pass the ellipsoidal
-	thinca test and their test masses are equal.
+	Returns False (a & b are coincident) if they have the same masses
+	and spins (assumed to indicate the templates are identical) and
+	their end times are within delta_t of each other.
 	"""
-	return (a.mass1 != b.mass1) or (a.mass2 != b.mass2) or inspiral_coinc_compare(a, offseta, b, offsetb, light_travel_time, e_thinca_parameter)
+	return abs(a.end + offseta - b.end - offsetb) > light_travel_time + delta_t or (a.mass1 != b.mass1) or (a.mass2 != b.mass2) or (a.spin1 != b.spin1).any() or (a.spin2 != b.spin2).any()
 
 
 #
