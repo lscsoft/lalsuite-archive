@@ -642,7 +642,7 @@ static int XLALSimIMRCalculateSpinPrecEOBHCoeffs(
 
   static const REAL8 third = 1./3.;
   static const REAL8 fifth = 1./5.;
-  static const REAL8 log2 = 0.6931471805599453094172321214581765680755; // log(2.)
+  static const REAL8 ln2 = 0.6931471805599453094172321214581765680755; // log(2.)
 
   // RH: this assumes that SpinAlignedEOBversion is either 1 or 2
   // RH: the ifthenelse macros return their ifvalue if cond>=0 (specifically
@@ -676,7 +676,7 @@ static int XLALSimIMRCalculateSpinPrecEOBHCoeffs(
                      * (-4237./60.+128./5.*LAL_GAMMA+2275.*LAL_PI*LAL_PI/512.
                      - third*(a*a)*(k1p3-3.*(k1*k2)+3.*k3)
                      - ((k1p3*k1p2)-5.*(k1p3*k2)+5.*k1*k2*k2+5.*k1p2*k3-5.*k2*k3-5.*k1*k4)*fifth*invm1PlusEtaKK*invm1PlusEtaKK
-                     + ((k1p2*k1p2)-4.*(k1p2*k2)+2.*k2*k2+4.*k1*k3-4.*k4)*0.5*invm1PlusEtaKK+(256./5.)*log2)
+                     + ((k1p2*k1p2)-4.*(k1p2*k2)+2.*k2*k2+4.*k1*k3-4.*k4)*0.5*invm1PlusEtaKK+(256./5.)*ln2)
                     );
   coeffs->k5l= k5l= ifthenelsezero(SpinAlignedEOBversion-1.5, (m1PlusEtaKK*m1PlusEtaKK) * (64./5.));
 
