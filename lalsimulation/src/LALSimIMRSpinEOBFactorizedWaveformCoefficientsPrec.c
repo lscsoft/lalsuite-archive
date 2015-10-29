@@ -38,7 +38,8 @@ XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients(
 /**
  * This function calculates coefficients for hlm mode factorized-resummed waveform.
  * The coefficients are pre-computed and stored in the SpinEOBParams structure.
- * Appendix of the paper, and papers DIN (PRD 79, 064004 (2009)) and PBFRT (PRD 83, 064003 (2011)).
+ * Eq. 17 and the entire Appendix of PRD 86, 024011 (2012) + changes
+ * described in ￼the section "Factorized waveforms" of https://dcc.ligo.org/T1400476
  */
 
 static int

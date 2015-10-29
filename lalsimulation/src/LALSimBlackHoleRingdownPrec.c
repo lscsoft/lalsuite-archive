@@ -30,7 +30,7 @@
  * for EOBNR, Table I of Buonanno et al. PRD76, 104049;
  * for EOBNRv2 and EOBNRv2HM, Eqs. 29a and 29b of Pan et al. PRD84, 124052;
  * for SEOBNRv1, SEOBNRv2, Eq. 8 of Tichy and Marronetti PRD78, 081501 and
- * Eqs. 1 and 3 of Barausse and Rezzolla ApJ704, L40.
+ * Eqs. 1 and 3 of Barausse and Rezzolla ApJ704, L40. Complemented by https://dcc.ligo.org/T1400476
  */
 INT4 XLALSimIMREOBFinalMassSpinPrec(
 	REAL8    *finalMass,  /**<< OUTPUT, the final mass (scaled by original total mass) */

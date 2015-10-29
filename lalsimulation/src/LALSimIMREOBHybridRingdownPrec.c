@@ -381,6 +381,8 @@ static INT4 XLALGenerateHybridWaveDerivatives (
  * STEP 3) Get values and derivatives of inspiral waveforms at matching comb points
  * STEP 4) Solve QNM coefficients and generate ringdown waveforms
  * STEP 5) Stitch inspiral and ringdown waveoforms
+ * SEOBNRv2 prescriptions can be found in  https://dcc.ligo.org/T1400476
+ * SEONBRv3 prescriptions can be found in XXX
  */
 static INT4
 XLALSimIMREOBHybridAttachRingdownPrec(

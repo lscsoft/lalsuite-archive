@@ -75,11 +75,11 @@ XLALSpinPrecHcapNumericalDerivative(
 /**
  * Function to calculate numerical derivatives of the spin EOB Hamiltonian,
  * which correspond to time derivatives of the dynamical variables in conservative dynamcis.
- * All derivatives, including those on two terms of the orbital phase, are returned together.
+ * All derivatives are returned together.
  * The derivatives are combined with energy flux to give right hand side of the ODEs
- * of a generic spin EOB model, as decribed in Eqs. 21, 22, 26 and 27 of
+ * of a generic spin EOB model, as decribed in Eqs. A4, A5, 26 and 27 of
  * Pan et al. PRD 81, 084041 (2010)
- * This function is not used by the spin-aligned SEOBNRv1 model.
+ * This function is not used by the spin-aligned model.
  */
 	static int	XLALSpinPrecHcapNumericalDerivative(
 							double	UNUSED	t,	/**<< UNUSED */
@@ -709,11 +709,9 @@ XLALSpinPrecHcapNumericalDerivative(
 /**
  * Function to calculate numerical derivatives of the spin EOB Hamiltonian,
  * which correspond to time derivatives of the dynamical variables in conservative dynamcis.
- * All derivatives, including those on two terms of the orbital phase, are returned together.
- * The derivatives are combined with energy flux to give right hand side of the ODEs
- * of a generic spin EOB model, as decribed in Eqs. 21, 22, 26 and 27 of
- * Pan et al. PRD 81, 084041 (2010)
- * This function is not used by the spin-aligned SEOBNRv1 model.
+ * All derivatives are returned together and are decribed in Eqs. A4, A5, 26 and 27 of
+ * Pan et al. PRD 81, 084041 (2010). Here we out the GW to 0.
+ * This function is not used by the spin-aligned model.
  */
 static int
 XLALSpinPrecHcapNumericalDerivativeNoFlux(
@@ -1546,7 +1544,7 @@ GSLSpinPrecHamiltonianWrapper(double x, void *params)
 
 
 /*
- * Wrapper for GSL to call the Hamiltonian function
+ * Wrapper for GSL to call the aligned-spin Hamiltonian function
  */
 static double
 GSLSpinPrecHamiltonianWrapperV2(double x, void *params)

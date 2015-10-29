@@ -84,7 +84,8 @@ XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
  * Changes:
  * (i) Complex Argument of Tlm not exponentiated.
  * (ii) exp(i deltalm) set to 1.
- * Eq. 17 and the entire Appendix of the paper.
+ * Eq. 17 and the entire Appendix of PRD 86, 024011 (2012) + changes 
+ * described in ￼the section "Factorized waveforms" of https://dcc.ligo.org/T1400476
  */
 static INT4
 XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
@@ -514,6 +515,8 @@ XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
 /**
  * This function calculates hlm mode factorized-resummed waveform
  * for given dynamical variables.
+ * Eq. 17 and the entire Appendix of PRD 86, 024011 (2012) + changes
+ * described in ￼the section "Factorized waveforms" of https://dcc.ligo.org/T1400476
  */
 static INT4
 XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(

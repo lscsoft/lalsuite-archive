@@ -46,6 +46,7 @@ XLALInspiralPrecSpinFactorizedFlux(
 /**
  * This function calculates the spin factorized-resummed GW energy flux
  * for given dynamical variables.
+ * Eq. 12 of PRD 86, 024011 (2012)
  */
 
 static REAL8

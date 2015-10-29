@@ -25,23 +25,28 @@
 REAL8 scale1 = 1, scale2 = 2, scale3 = 200;
 
 /**
- * Calculates the dot product of two vectors
+ *  Calculate the dot product of two vectors
  */
 static		inline
 		REAL8
-CalculateDotProductPrec(const REAL8 a[], const REAL8 b[])
+CalculateDotProductPrec(
+                        const REAL8 a[], /**<< first vector */
+                        const REAL8 b[] /**<< second vector */)
 {
 	return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 }
 
 
 /**
- * calculates the ith component of the cross product of two vectors,
+ * Calculates the ith component of the cross product of two vectors,
  * where i is in the range 0-2.
  */
 static		inline
 		REAL8
-CalculateCrossProductPrec(const INT4 i, const REAL8 a[], const REAL8 b[])
+CalculateCrossProductPrec(
+                          const INT4 i, /**<< i-th component of cross product */
+                          const REAL8 a[],  /**<< first vector */
+                          const REAL8 b[] /**<< second vector */)
 {
 	return a[(i + 1) % 3] * b[(i + 2) % 3] - a[(i + 2) % 3] * b[(i + 1) % 3];
 }
@@ -280,7 +285,7 @@ CartesianToSphericalPrec(
 
 /**
  * Root function for gsl root finders.
- * The gsl root finder with look for gsl_vector *x position in parameter space
+ * The gsl root finder will look for gsl_vector *x position in parameter space
  * where the returned values in gsl_vector *f are zero.
  * The functions on which we search for roots are:
  * dH/dr, dH/dptheta and dH/dpphi-omega,
@@ -544,8 +549,9 @@ GSLSpinHamiltonianDerivWrapperPrec(double x,	/**<< Derivative at x */
 }
 
 
-/* Function to calculate the second derivative of the Hamiltonian. */
-/* The derivatives are taken with respect to indices idx1, idx2    */
+/** 
+ * Function to calculate the second derivative of the Hamiltonian.
+* The derivatives are taken with respect to indices idx1, idx2    */
 static REAL8
 XLALCalculateSphHamiltonianDeriv2Prec(
 				  const int idx1,	/**<< Derivative w.r.t. index 1 */

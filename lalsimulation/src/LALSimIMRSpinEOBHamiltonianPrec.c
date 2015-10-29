@@ -123,6 +123,8 @@ static double GSLSpinPrecHamiltonianWrapperFordHdpphi( double x, void *params );
  *
  * The function returns a REAL8, which will be the value of the Hamiltonian if all goes well;
  * otherwise, it will return the XLAL REAL8 failure NaN.
+ * The Hamiltonian function is described in PRD 81, 084024 (2010) and
+ * PRD 84, 104027 (2011) 
  */
 static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
                const REAL8    eta,                  /**<< Symmetric mass ratio */
@@ -694,7 +696,8 @@ static int XLALSimIMRCalculateSpinPrecEOBHCoeffs(
 
 /**
  * This function calculates the function \f$\Delta_t(r)\f$ which appears in the spinning EOB
- * potential function. Eqs. 7a and 8.
+ * potential function. Eqs. 5.73 of PRD 81, 084024 (2010) augmented by 4PN, linear-in-eta corrections: 
+ * see also section "New 4PN term in the radial potential" of https://dcc.ligo.org/T1400476
  */
 static REAL8 XLALSimIMRSpinPrecEOBHamiltonianDeltaT(
         SpinEOBHCoeffs *coeffs, /**<< Pre-computed coefficients which appear in the function */
@@ -742,7 +745,7 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonianDeltaT(
 
 /**
  * This function calculates the function \f$\Delta_r(r)\f$ which appears in the spinning EOB
- * potential function. Eqs. 10a and 10b
+ * potential function. Eqs. 5.83 of PRD 81, 084024 (2010)
  */
 UNUSED static REAL8 XLALSimIMRSpinPrecEOBHamiltonianDeltaR(
         SpinEOBHCoeffs *coeffs, /**<< Pre-computed coefficients which appear in the function */
@@ -1108,8 +1111,7 @@ XLALSimIMRSpinPrecEOBNonKeplerCoeff(
 
 /**
  * Function to calculate numerical derivatives of the spin EOB Hamiltonian,
- * to get \f$dr/dt\f$, as decribed in Eqs. 21, 22, 26 and 27 of
- * Pan et al. PRD 81, 084041 (2010)
+ * to get \f$dr/dt\f$, as decribed in Eqs. A4 of PRD 81, 084041 (2010)
  * This function is not used by the spin-aligned SEOBNRv1 model.
  */
 UNUSED static int XLALSpinPrecHcapRvecDerivative(
