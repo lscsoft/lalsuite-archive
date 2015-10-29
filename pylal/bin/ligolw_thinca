@@ -133,7 +133,7 @@ def parse_command_line():
 process_program_name = "ligolw_thinca"
 
 
-def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = None, exact_mass = None, effective_snr_factor = None, vetoes_name = None, trigger_program = None, effective_snr = None, coinc_end_time_segment = None, verbose = None):
+def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = None, exact_mass = None, vetoes_name = None, trigger_program = None, effective_snr = None, coinc_end_time_segment = None, verbose = None):
 	process = ligolw_process.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 
 	params = [
@@ -143,8 +143,6 @@ def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = No
 		params += [(u"--comment", u"lstring", comment)]
 	if force is not None:
 		params += [(u"--force", None, None)]
-	if effective_snr_factor is not None:
-		params += [(u"--effective-snr-factor", u"real_8", effective_snr_factor)]
 	if vetoes_name is not None:
 		params += [(u"--vetoes-name", u"lstring", vetoes_name)]
 	if trigger_program is not None:
@@ -259,7 +257,6 @@ for n, filename in enumerate(filenames):
 		force = options.force,
 		e_thinca_parameter = options.e_thinca_parameter,
 		exact_mass = options.exact_mass,
-		effective_snr_factor = options.effective_snr_factor,
 		vetoes_name = options.vetoes_name,
 		trigger_program = options.trigger_program,
 		effective_snr = options.effective_snr,
@@ -314,7 +311,6 @@ for n, filename in enumerate(filenames):
 		event_comparefunc = event_comparefunc,
 		thresholds = options.e_thinca_parameter,
 		ntuple_comparefunc = ntuple_comparefunc,
-		effective_snr_factor = options.effective_snr_factor,
 		veto_segments = vetoes,
 		trigger_program = options.trigger_program,
 		verbose = options.verbose

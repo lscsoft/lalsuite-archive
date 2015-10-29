@@ -157,7 +157,7 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		if vetoes is not None:
 			self.seglists -= vetoes
 
-	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events, effective_snr_factor):
+	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events):
 		#
 		# populate the coinc_event and coinc_event_map tables
 		#
@@ -386,7 +386,6 @@ def ligolw_thinca(
 	event_comparefunc,
 	thresholds,
 	ntuple_comparefunc = default_ntuple_comparefunc,
-	effective_snr_factor = 250.0,
 	veto_segments = None,
 	trigger_program = u"inspiral",
 	likelihood_func = None,
@@ -447,7 +446,7 @@ def ligolw_thinca(
 	for node, coinc in time_slide_graph.get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose):
 		coinc = tuple(sngl_index[event_id] for event_id in coinc)
 		if not ntuple_comparefunc(coinc, node.offset_vector):
-			coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, coinc, effective_snr_factor)
+			coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, coinc)
 
 	#
 	# remove time offsets from events
