@@ -378,10 +378,7 @@ def cbcBayesPostProc(
             except KeyError:
                 print "Warning: No 'time' column!"
 
-    try:
-      pos.extend_posterior()
-    except:
-      pass
+    pos.extend_posterior()
 
     #Perform necessary mappings
     functions = {'cos':cos,'sin':sin,'exp':exp,'log':log}
