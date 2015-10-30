@@ -900,17 +900,23 @@ class Posterior(object):
           pos.append_mapping('mc_source', source_mass, ['mc', 'redshift'])
 
       #If a1,a2 go negative, store in a separate parameter and make a1,a2 magnitudes
-      if 'a1' in pos.names and min(pos['a1'].samples) < 0.:
-          pos.append_mapping('a1z', lambda x: x, 'a1')
-          pos['a1z'].set_injval(injection.spin1z)
-          pos.pop('a1')
-          pos.append_mapping('a1', lambda x: np.abs(x), 'a1z')
+      if 'a1' in pos.names:
+          if min(pos['a1'].samples.flatten()) < 0.:
+              pos.append_mapping('a1z', lambda x: x, 'a1')
+              pos['a1z'].set_injval(injection.spin1z)
+              pos.pop('a1')
+              pos.append_mapping('a1', lambda x: np.abs(x), 'a1z')
+          elif 'tilt1' in pos.names:
+              pos.append_mapping('a1z', lambda a, tilt: a*np.cos(tilt), ('a1','tilt1'))
 
-      if 'a2' in pos.names and min(pos['a2'].samples) < 0.:
-          pos.append_mapping('a2z', lambda x: x, 'a2')
-          pos['a2z'].set_injval(injection.spin2z)
-          pos.pop('a2')
-          pos.append_mapping('a2', lambda x: np.abs(x), 'a2z')
+      if 'a2' in pos.names:
+          if min(pos['a2'].samples.flatten()) < 0.:
+              pos.append_mapping('a2z', lambda x: x, 'a2')
+              pos['a2z'].set_injval(injection.spin2z)
+              pos.pop('a2')
+              pos.append_mapping('a2', lambda x: np.abs(x), 'a2z')
+          elif 'tilt2' in pos.names:
+              pos.append_mapping('a2z', lambda a, tilt: a*np.cos(tilt), ('a2','tilt2'))
 
       #If aligned spins, calculate effective spin parallel to L
       elif ('m1' in pos.names and 'a1z' in pos.names and not 'tilt1' in pos.names) and ('m2' in pos.names and 'a2z' in pos.names and not 'tilt2' in pos.names):
