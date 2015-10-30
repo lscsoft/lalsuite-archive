@@ -507,14 +507,19 @@ def cbcBayesPostProc(
     statout=open(statfilename,"w")
     statout.write("\tmaP\tmaxL\tKL\tstdev\tmean\tmedian\tstacc\tinjection\tvalue\n")
     
+    warned_about_kl = False
     for statname,statoned_pos in pos:
 
       statmax_pos,max_i=pos._posMaxL()
       statmaxL=statoned_pos.samples[max_i][0]
       try:
           statKL = statoned_pos.KL()
-      except:
+      except ValueError:
+          if not warned_about_kl:
+              print("Unable to compute KL divergence")
+              warned_about_kl = True
           statKL = None
+
       statmax_pos,max_j=pos._posMap()
       statmaxP=statoned_pos.samples[max_j][0]
       statmean=str(statoned_pos.mean)

@@ -598,7 +598,7 @@ class PosteriorOneDPDF(object):
         # check the kind of prior and process the string accordingly
         prior = get_prior(self.name)
         if prior is None:
-            print "prior not found, ignoring"
+            raise ValueError
         elif prior=='uniform':
             prior+='(self.samples)'
         elif 'x' in prior:
@@ -607,12 +607,12 @@ class PosteriorOneDPDF(object):
             prior = 'np.'+prior
             prior+='(self.samples)'
         else:
-            print "prior type %s not understood, ignoring"%prior
+            raise ValueError
+
         try:
             prior_dist = eval(prior)
         except:
-            print "failed to evaluate the prior distribution, reverting to the information content"
-            prior_dist = None
+            raise ValueError
         
         return entropy(posterior, qk=prior_dist)
     
