@@ -903,7 +903,10 @@ class Posterior(object):
       if 'a1' in pos.names:
           if min(pos['a1'].samples.flatten()) < 0.:
               pos.append_mapping('a1z', lambda x: x, 'a1')
-              pos['a1z'].set_injval(injection.spin1z)
+              inj_az = None
+              if injection is not None:
+                  inj_az = injection.spin1z
+              pos['a1z'].set_injval(inj_az)
               pos.pop('a1')
               pos.append_mapping('a1', lambda x: np.abs(x), 'a1z')
           elif 'tilt1' in pos.names:
@@ -912,7 +915,10 @@ class Posterior(object):
       if 'a2' in pos.names:
           if min(pos['a2'].samples.flatten()) < 0.:
               pos.append_mapping('a2z', lambda x: x, 'a2')
-              pos['a2z'].set_injval(injection.spin2z)
+              inj_az = None
+              if injection is not None:
+                  inj_az = injection.spin2z
+              pos['a2z'].set_injval(inj_az)
               pos.pop('a2')
               pos.append_mapping('a2', lambda x: np.abs(x), 'a2z')
           elif 'tilt2' in pos.names:
