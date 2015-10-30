@@ -3759,7 +3759,7 @@ def source_mass(mass, redshift):
 
 def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m2, fref):
     """
-    Wrapper function for SimInspiralTransformPrecessingInitialConditions().
+    Wrapper function for SimInspiralTransformPrecessingNewInitialConditions().
     Vectorizes function for use in append_mapping() methods of the posterior class.
     """
     try:
@@ -3769,7 +3769,7 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
       print 'frame angles, did you remember to use --enable-swig-python when ./configuring lalsimulation?'
       return None
     from numpy import shape
-    transformFunc = lalsim.SimInspiralTransformPrecessingInitialConditions
+    transformFunc = lalsim.SimInspiralTransformPrecessingNewInitialConditions
 
     # Convert component masses to SI units
     m1_SI = m1*lal.MSUN_SI
@@ -6347,7 +6347,7 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
         iota=pos['inclination'].samples[which][0]
       except:
         try:
-          iota, s1x, s1y, s1z, s2x, s2y, s2z=lalsim.SimInspiralTransformPrecessingInitialConditions(pos['theta_jn'].samples[which][0], pos['phi_JL'].samples[which][0], pos['tilt1'].samples[which][0], pos['tilt2'].samples[which][0], pos['phi12'].samples[which][0], pos['a1'].samples[which][0], pos['a2'].samples[which][0], m1, m2, f_ref)
+          iota, s1x, s1y, s1z, s2x, s2y, s2z=lalsim.SimInspiralTransformPrecessingNewInitialConditions(pos['theta_jn'].samples[which][0], pos['phi_JL'].samples[which][0], pos['tilt1'].samples[which][0], pos['tilt2'].samples[which][0], pos['phi12'].samples[which][0], pos['a1'].samples[which][0], pos['a2'].samples[which][0], m1, m2, f_ref)
         except:
             if 'a1z' in pos.names:
                 s1z=pos['a1z'].samples[which][0]
