@@ -149,7 +149,6 @@ if __name__ == "__main__":
                     help="Taper methods for injections"),
                 Option("--flow", metavar="FLOW", type=float, default=None,
                     help="Taper methods for injections"),
-
                 Option("--amporder", metavar="AMPORDER", type=int, default=0,
                     help="pN order in amplitude for injection")
             ]
@@ -164,8 +163,12 @@ if __name__ == "__main__":
         standardize_param_names(params)
         samples = np.loadtxt(inp, dtype=[(p, np.float) for p in params])
 
-    # Choose subset for sim_inspiral_table
     N = opts.num_of_injs
+    if len(samples) < N:
+        raise ValueError("{} injections requested, but only {} \
+                          samples were provided.".format(N, len(samples)))
+
+    # Choose subset for sim_inspiral_table
     selection = np.arange(len(samples))
     np.random.shuffle(selection)
     samples = samples[selection[:N]]
