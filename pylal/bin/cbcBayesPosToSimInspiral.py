@@ -165,8 +165,7 @@ if __name__ == "__main__":
 
     N = opts.num_of_injs
     if len(samples) < N:
-        raise ValueError("{} injections requested, but only {} \
-                          samples were provided.".format(N, len(samples)))
+        raise ValueError("{} injections requested, but {} samples were provided.".format(N, len(samples)))
 
     # Choose subset for sim_inspiral_table
     selection = np.arange(len(samples))
