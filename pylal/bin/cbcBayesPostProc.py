@@ -1246,7 +1246,7 @@ if __name__=='__main__':
     
     parser.add_option('--ellipticEvidence', action='store_true', default=False,help='Estimate the evidence by fitting ellipse to highest-posterior points.', dest='ellevidence')
 
-    parser.add_option("--no2D",action="store_true",default=False,help="Skip 2-D plotting.")
+    parser.add_option("--plot-2d", action="store_true", default=False,help="Make individual 2-D plots.")
     parser.add_option("--header",action="store",default=None,help="Optional file containing the header line for posterior samples",type="string")
     #NS
     parser.add_option("--ns",action="store_true",default=False,help="(inspnest) Parse input as if it was output from parallel nested sampling runs.")
@@ -1317,7 +1317,7 @@ if __name__=='__main__':
       oneDMenu.append(ifo1+ifo2+'_delay')
     #oneDMenu=[]
     twoDGreedyMenu=[]
-    if not opts.no2D:
+    if opts.plot_2d:
         for mp1,mp2 in combinations(massParams,2):
           twoDGreedyMenu.append([mp1, mp2])
         for mp in massParams:
@@ -1381,7 +1381,7 @@ if __name__=='__main__':
             greedyBinSizes[s]=0.05
     for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
         greedyBinSizes[derived_time]=greedyBinSizes['time']
-    if not opts.no2D:
+    if opts.plot_2d:
         for dt1,dt2 in combinations(['h1_end_time','l1_end_time','v1_end_time'],2):
           twoDGreedyMenu.append([dt1,dt2])
         for dt1,dt2 in combinations( ['h1l1_delay','l1v1_delay','h1v1_delay'],2):
