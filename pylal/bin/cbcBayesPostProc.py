@@ -867,15 +867,17 @@ def cbcBayesPostProc(
     # Corner plots
     #===============================#
 
-    massParams=['mtotal','m1','m2','mc','m1_source','m2_source','mtotal_source','mc_source']
-    distParams=['distance','distMPC','dist','redshift']
+    massParams=['mtotal','m1','m2','mc']
+    distParams=['distance','distMPC','dist']
     incParams=['iota','inclination','theta_jn']
     polParams=['psi','polarisation','polarization']
     skyParams=['ra','rightascension','declination','dec']
     timeParams=['time']
     spinParams=['spin1','spin2','a1','a2','a1z','a2z','phi1','theta1','phi2','theta2','chi','effectivespin','chi_eff','chi_tot','chi_p','beta','tilt1','tilt2','phi_jl','theta_jn','phi12']
+    sourceParams=['m1_source','m2_source','mtotal_source','mc_source','redshift']
     intrinsicParams=massParams+spinParams
     extrinsicParams=incParams+distParams+polParams+skyParams
+    sourceFrameParams=sourceParams+distParams
     try:
       myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=intrinsicParams)
     except:
@@ -898,6 +900,17 @@ def cbcBayesPostProc(
       myfig.savefig(os.path.join(cornerdir,'extrinsic.pdf'))
       html_corner+='<tr><td width="100%"><a href="corner/extrinsic.png" target="_blank"><img width="70%" src="corner/extrinsic.png"/></a></td></tr>'
       got_any+=1
+    try:
+      myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=sourceFrameParams)
+    except:
+      myfig=None
+
+    if myfig:
+      myfig.savefig(os.path.join(cornerdir,'sourceFrame.png'))
+      myfig.savefig(os.path.join(cornerdir,'sourceFrame.pdf'))
+      html_corner+='<tr><td width="100%"><a href="corner/sourceFrame.png" target="_blank"><img width="70%" src="corner/sourceFrame.png"/></a></td></tr>'
+      got_any+=1
+
     if got_any>0:
       html_corner='<table id="%s" border="1">'%tabid+html_corner
       html_corner+='</table>'
