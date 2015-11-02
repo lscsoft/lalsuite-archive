@@ -43,7 +43,7 @@
 static INT4
 XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
 					       COMPLEX16 * restrict hlm,	/**< OUTPUT, hlm waveforms */
-					       REAL8Vector * restrict values,	/**< dyanmical variables: (r,\phi,p_r,p_\phi) */
+					       REAL8Vector * restrict values,	/**< dyanmical variables: \f$(r,\phi,p_r,p_\phi)\f$ */
 					  REAL8Vector * restrict cartvalues,	/**< dyanmical variables */
 					       const REAL8 v,	/**< velocity */
 					       const REAL8 Hreal,	/**< real Hamiltonian */
@@ -52,10 +52,10 @@ XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
 					     SpinEOBParams * restrict params	/**< Spin EOB parameters */
 );
 
-static INT4 
+static INT4
 XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
 						   COMPLEX16 * restrict hlmTab,	/**< OUTPUT, hlm waveforms */
-					      REAL8Vector * restrict values,	/**< dyanmical variables: (r,\phi,p_r,p_\phi) */
+					      REAL8Vector * restrict values,	/**< dyanmical variables: \f$(r,\phi,p_r,p_\phi)\f$ */
 					  REAL8Vector * restrict cartvalues,	/**< dyanmical variables */
 						   const REAL8 v,	/**< velocity */
 						   const REAL8 Hreal,	/**< real Hamiltonian */
@@ -83,13 +83,14 @@ XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
  * by ignoring complex arguments and keeping only absolute values.
  * Changes:
  * (i) Complex Argument of Tlm not exponentiated.
- * (ii) exp(\ii deltalm) set to 1.
- * Eq. 17 and the entire Appendix of the paper.
+ * (ii) exp(i deltalm) set to 1.
+ * Eq. 17 and the entire Appendix of PRD 86, 024011 (2012) + changes
+ * described in ￼the section "Factorized waveforms" of https://dcc.ligo.org/T1400476
  */
-static INT4 
+static INT4
 XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
 						   COMPLEX16 * restrict hlmTab,	/**< OUTPUT, hlm waveforms */
-					      REAL8Vector * restrict values,	/**< dyanmical variables: (r,\phi,p_r,p_\phi) */
+					      REAL8Vector * restrict values,	/**< dyanmical variables: \f$(r,\phi,p_r,p_\phi)\f$ */
 					  REAL8Vector * restrict cartvalues,	/**< dyanmical variables */
 						   const REAL8 v,	/**< velocity */
 						   const REAL8 Hreal,	/**< real Hamiltonian */
@@ -97,7 +98,7 @@ XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
 					     SpinEOBParams * restrict params	/**< Spin EOB parameters */
 )
 {
-    int		debugPK = 0;   
+    int		debugPK = 0;
 	const	REAL8 vPhiKepler = params->alignedSpins ?
 					XLALSimIMRSpinAlignedEOBNonKeplerCoeff(values->data, params) :
 					XLALSimIMRSpinPrecEOBNonKeplerCoeff(cartvalues->data, params);
@@ -175,7 +176,7 @@ XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
 			vPhi = r * cbrt(vPhi);
 
 			if (debugPK)
-				printf("In XLALSimIMRSpinEOBFluxCalculateNewtonianMultipole, getting rW = %.12e\n",
+				XLAL_PRINT_INFO("In XLALSimIMRSpinEOBFluxCalculateNewtonianMultipole, getting rW = %.12e\n",
 				       vPhi);
 			vPhi *= Omega;
 			vPhi2 = vPhi * vPhi;
@@ -186,11 +187,11 @@ XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
 			 */
 			//debugPK
 			if (debugPK) {
-//				printf("\nValues inside XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform:\n");
+//				XLAL_PRINT_INFO("\nValues inside XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform:\n");
 //				for (i = 0; i < 14; i++)
-//					printf("values[%d] = %.12e\n", i, values->data[i]);
+//					XLAL_PRINT_INFO("values[%d] = %.12e\n", i, values->data[i]);
 
-				printf("Calculating hNewton, with v = %.12e, vPhi = %.12e, r = %.12e, Phi = %.12e, l = %d, m = %d\n",
+				XLAL_PRINT_INFO("Calculating hNewton, with v = %.12e, vPhi = %.12e, r = %.12e, Phi = %.12e, l = %d, m = %d\n",
 				       v, vPhi, r, values->data[1], (UINT4) l, (UINT4) m);
 			}
 			status = XLALSimIMRSpinEOBFluxCalculateNewtonianMultipole(&hNewton,
@@ -206,7 +207,7 @@ XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
 				//Slm = v * sqrt(rcrossp_x * rcrossp_x + rcrossp_y * rcrossp_y + rcrossp_z * rcrossp_z);
 			}
 			if (debugPK)
-				printf("In XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform: Hreal = %e, Slm = %e, eta = %e\n", Hreal, Slm, eta);
+				XLAL_PRINT_INFO("In XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform: Hreal = %e, Slm = %e, eta = %e\n", Hreal, Slm, eta);
 
 			/*
 			 * Calculate the absolute value of the Tail term, 3rd term in Eq. 17,
@@ -269,7 +270,7 @@ XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
 															     + (hCoeffs->rho22v10 + hCoeffs->rho22v10l * eulerlogxabs) * v2)))))));
 					//FIXME
 						if (debugPK)
-						printf("PK:: rho22v2 = %.12e, rho22v3 = %.12e, rho22v4 = %.12e,\n rho22v5 = %.16e, rho22v6 = %.16e, rho22v6LOG = %.16e, \n rho22v7 = %.12e, rho22v8 = %.16e, rho22v8LOG = %.16e, \n rho22v10 = %.16e, rho22v10LOG = %.16e\n, rho22v6 = %.12e, rho22v8 = %.12e, rho22v10 = %.12e\n",
+						XLAL_PRINT_INFO("PK:: rho22v2 = %.12e, rho22v3 = %.12e, rho22v4 = %.12e,\n rho22v5 = %.16e, rho22v6 = %.16e, rho22v6LOG = %.16e, \n rho22v7 = %.12e, rho22v8 = %.16e, rho22v8LOG = %.16e, \n rho22v10 = %.16e, rho22v10LOG = %.16e\n, rho22v6 = %.12e, rho22v8 = %.12e, rho22v10 = %.12e\n",
 						       hCoeffs->rho22v2, hCoeffs->rho22v3, hCoeffs->rho22v4,
 						       hCoeffs->rho22v5, hCoeffs->rho22v6, hCoeffs->rho22v6l,
 						       hCoeffs->rho22v7, hCoeffs->rho22v8, hCoeffs->rho22v8l,
@@ -474,7 +475,7 @@ XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
 
 			//debugPK
 				if (debugPK)
-				printf("rho_%d_%d = %.12e \n", l, m, rholm);
+				XLAL_PRINT_INFO("rho_%d_%d = %.12e \n", l, m, rholm);
 			/* Raise rholm to the lth power */
 			rholmPwrl = 1.0;
 			i = l;
@@ -496,14 +497,14 @@ XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
 			}
 
 			if (r > 0.0 && debugPK) {
-				printf("YP::dynamics variables in waveform: %i, %i, r = %.12e, v = %.12e\n", l, m, r, v);
-				printf("rholm^l = %.16e, Tlm = %.16e + i %.16e, \nSlm = %.16e, hNewton = %.16e + i %.16e, delta = %.16e\n", rholmPwrl, Tlm, 0.0, Slm, creal(hNewton), cimag(hNewton), 0.0);
+				XLAL_PRINT_INFO("YP::dynamics variables in waveform: %i, %i, r = %.12e, v = %.12e\n", l, m, r, v);
+				XLAL_PRINT_INFO("rholm^l = %.16e, Tlm = %.16e + i %.16e, \nSlm = %.16e, hNewton = %.16e + i %.16e, delta = %.16e\n", rholmPwrl, Tlm, 0.0, Slm, creal(hNewton), cimag(hNewton), 0.0);
 			}
 			/* Put all factors in Eq. 17 together */
 			*hlm = Tlm * Slm * rholmPwrl;
 			*hlm *= hNewton;
 			/*
-			 * if (r > 8.5) { printf("YP::FullWave: %.16e,%.16e,
+			 * if (r > 8.5) { XLAL_PRINT_INFO("YP::FullWave: %.16e,%.16e,
 			 * %.16e\n",hlm->re,hlm->im,sqrt(hlm->re*hlm->re+hlm->im*hlm->im)); }
 			 */
 		}
@@ -514,11 +515,13 @@ XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
 /**
  * This function calculates hlm mode factorized-resummed waveform
  * for given dynamical variables.
+ * Eq. 17 and the entire Appendix of PRD 86, 024011 (2012) + changes
+ * described in ￼the section "Factorized waveforms" of https://dcc.ligo.org/T1400476
  */
-static INT4 
+static INT4
 XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
 					       COMPLEX16 * restrict hlm,	/**< OUTPUT, hlm waveforms */
-					       REAL8Vector * restrict values,	/**< dyanmical variables: (r,\phi,p_r,p_\phi) */
+					       REAL8Vector * restrict values,	/**< dyanmical variables: \f$(r,\phi,p_r,p_\phi)\f$ */
 					  REAL8Vector * restrict cartvalues,	/**< dyanmical variables */
 					       const REAL8 v,	/**< velocity */
 					       const REAL8 Hreal,	/**< real Hamiltonian */
@@ -596,7 +599,7 @@ XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
 		vPhi = r * cbrt(vPhi);
 
 		if (debugPK)
-			printf("In XLALSimIMRSpinEOBFluxCalculateNewtonianMultipole, getting rW = %.12e\n",
+			XLAL_PRINT_INFO("In XLALSimIMRSpinEOBFluxCalculateNewtonianMultipole, getting rW = %.12e\n",
 			       vPhi);
 		vPhi *= Omega;
 		vPhi2 = vPhi * vPhi;
@@ -610,7 +613,7 @@ XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
 		vPhi = r * cbrt(vPhi);
 
 		if (debugPK)
-			printf("In XLALSimIMRSpinEOBFluxCalculateNewtonianMultipole, getting rW = %.12e\n",
+			XLAL_PRINT_INFO("In XLALSimIMRSpinEOBFluxCalculateNewtonianMultipole, getting rW = %.12e\n",
 			       vPhi);
 		vPhi *= Omega;
 		vPhi2 = vPhi * vPhi;
@@ -621,11 +624,11 @@ XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
 	 * Eq. A1
 	 */
 	if (debugPK) {
-		printf("\nValues inside XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform:\n");
+		XLAL_PRINT_INFO("\nValues inside XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform:\n");
 		for (i = 0; i < 11; i++)
-			printf("values[%d] = %.12e\n", i, cartvalues->data[i]);
+			XLAL_PRINT_INFO("values[%d] = %.12e\n", i, cartvalues->data[i]);
 
-		printf("Calculating hNewton, with v = %.12e, vPhi = %.12e, r = %.12e, Phi = %.12e, l = %d, m = %d\n",
+		XLAL_PRINT_INFO("Calculating hNewton, with v = %.12e, vPhi = %.12e, r = %.12e, Phi = %.12e, l = %d, m = %d\n",
 		       v, vPhi, r, values->data[1], (UINT4) l, (UINT4) m);
 	}
 	status = XLALSimIMRSpinEOBCalculateNewtonianMultipole(&hNewton,
@@ -641,7 +644,7 @@ XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
 		//Slm = v * sqrt(rcrossp_x * rcrossp_x + rcrossp_y * rcrossp_y + rcrossp_z * rcrossp_z);
 	}
 	if (debugPK)
-		printf("In XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform: Hreal = %e, Slm = %e, eta = %e\n", Hreal, Slm, eta);
+		XLAL_PRINT_INFO("In XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform: Hreal = %e, Slm = %e, eta = %e\n", Hreal, Slm, eta);
 
 	/*
 	 * Calculate the absolute value of the Tail term, 3rd term in Eq. 17,
@@ -680,7 +683,7 @@ XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
 	Tlmold = Tlmprefac * sqrt(Tlmprodfac);
 
 	if (debugPK)
-		printf("Tlm = %e + i%e, |Tlm| = %.16e (should be %.16e)\n", creal(Tlm), cimag(Tlm), cabs(Tlm), Tlmold);
+		XLAL_PRINT_INFO("Tlm = %e + i%e, |Tlm| = %.16e (should be %.16e)\n", creal(Tlm), cimag(Tlm), cabs(Tlm), Tlmold);
 
 	/* Calculate the residue phase and amplitude terms */
 	/*
@@ -711,7 +714,7 @@ XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
 													     + (hCoeffs->rho22v10 + hCoeffs->rho22v10l * eulerlogxabs) * v2)))))));
 			//FIXME
 				if (debugPK)
-				printf("PK:: rho22v2 = %.12e, rho22v3 = %.12e, rho22v4 = %.12e,\n rho22v5 = %.16e, rho22v6 = %.16e, rho22v6LOG = %.16e, \n rho22v7 = %.12e, rho22v8 = %.16e, rho22v8LOG = %.16e, \n rho22v10 = %.16e, rho22v10LOG = %.16e\n, rho22v6 = %.12e, rho22v8 = %.12e, rho22v10 = %.12e\n",
+				XLAL_PRINT_INFO("PK:: rho22v2 = %.12e, rho22v3 = %.12e, rho22v4 = %.12e,\n rho22v5 = %.16e, rho22v6 = %.16e, rho22v6LOG = %.16e, \n rho22v7 = %.12e, rho22v8 = %.16e, rho22v8LOG = %.16e, \n rho22v10 = %.16e, rho22v10LOG = %.16e\n, rho22v6 = %.12e, rho22v8 = %.12e, rho22v10 = %.12e\n",
 				       hCoeffs->rho22v2, hCoeffs->rho22v3, hCoeffs->rho22v4,
 				       hCoeffs->rho22v5, hCoeffs->rho22v6, hCoeffs->rho22v6l,
 				       hCoeffs->rho22v7, hCoeffs->rho22v8, hCoeffs->rho22v8l,
@@ -959,9 +962,9 @@ XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
 
 	//debugPK
 		if (debugPK)
-		printf("rho_%d_%d = %.12e \n", l, m, rholm);
+		XLAL_PRINT_INFO("rho_%d_%d = %.12e \n", l, m, rholm);
 	if (debugPK)
-		printf("exp(delta_%d_%d) = %.16e + i%.16e (abs=%e)\n", l, m, creal(cexp(I * deltalm)),
+		XLAL_PRINT_INFO("exp(delta_%d_%d) = %.16e + i%.16e (abs=%e)\n", l, m, creal(cexp(I * deltalm)),
 		       cimag(cexp(I * deltalm)), cabs(cexp(I * deltalm)));
 	/* Raise rholm to the lth power */
 	rholmPwrl = 1.0;
@@ -984,14 +987,14 @@ XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
 	}
 
 	if (r > 0.0 && debugPK) {
-		printf("YP::dynamics variables in waveform: %i, %i, r = %.12e, v = %.12e\n", l, m, r, v);
-		printf("rholm^l = %.16e, Tlm = %.16e + i %.16e, \nSlm = %.16e, hNewton = %.16e + i %.16e, delta = %.16e\n", rholmPwrl, creal(Tlm), cimag(Tlm), Slm, creal(hNewton), cimag(hNewton), 0.0);
+		XLAL_PRINT_INFO("YP::dynamics variables in waveform: %i, %i, r = %.12e, v = %.12e\n", l, m, r, v);
+		XLAL_PRINT_INFO("rholm^l = %.16e, Tlm = %.16e + i %.16e, \nSlm = %.16e, hNewton = %.16e + i %.16e, delta = %.16e\n", rholmPwrl, creal(Tlm), cimag(Tlm), Slm, creal(hNewton), cimag(hNewton), 0.0);
 	}
 	/* Put all factors in Eq. 17 together */
 	*hlm = Tlm * cexp(I * deltalm) * Slm * rholmPwrl;
 	*hlm *= hNewton;
 	if (r > 8.5 && debugPK) {
-		printf("YP::FullWave: %.16e,%.16e, %.16e\n", creal(*hlm), cimag(*hlm), cabs(*hlm));
+		XLAL_PRINT_INFO("YP::FullWave: %.16e,%.16e, %.16e\n", creal(*hlm), cimag(*hlm), cabs(*hlm));
 	}
 	return XLAL_SUCCESS;
 }

@@ -26,9 +26,9 @@
  *------------------------------------------------------------------------------------------
  */
 
-static REAL8 
+static REAL8
 XLALInspiralPrecSpinFactorizedFlux(
-				   REAL8Vector * polvalues,	/**< (r,\phi,p_r,p_\phi) */
+				   REAL8Vector * polvalues,	/**< \f$(r,\phi,p_r,p_\phi)\f$ */
 				   REAL8Vector * values,	/**< dynamical variables */
 				   EOBNonQCCoeffs * nqcCoeffs,	/**< pre-computed NQC coefficients */
 				   const REAL8 omega,	/**< orbital frequency */
@@ -46,11 +46,12 @@ XLALInspiralPrecSpinFactorizedFlux(
 /**
  * This function calculates the spin factorized-resummed GW energy flux
  * for given dynamical variables.
+ * Eq. 12 of PRD 86, 024011 (2012)
  */
 
-static REAL8 
+static REAL8
 XLALInspiralPrecSpinFactorizedFlux(
-				   REAL8Vector * polvalues,	/**< (r,\phi,p_r,p_\phi) */
+				   REAL8Vector * polvalues,	/**< \f$(r,\phi,p_r,p_\phi)\f$ */
 				   REAL8Vector * values,	/**< dynamical variables */
 				   EOBNonQCCoeffs * nqcCoeffs,	/**< pre-computed NQC coefficients */
 				   const REAL8 omega,	/**< orbital frequency */
@@ -69,19 +70,19 @@ XLALInspiralPrecSpinFactorizedFlux(
   if (1){
     for( i =0; i < 4; i++)
       if( isnan(polvalues->data[i]) ) {
-          printf("XLALInspiralPrecSpinFactorizedFlux (from input)::polvalues %3.10f %3.10f %3.10f %3.10f\n", polvalues->data[0], polvalues->data[1], polvalues->data[2], polvalues->data[3]);
+          XLAL_PRINT_INFO("XLALInspiralPrecSpinFactorizedFlux (from input)::polvalues %3.10f %3.10f %3.10f %3.10f\n", polvalues->data[0], polvalues->data[1], polvalues->data[2], polvalues->data[3]);
           XLALPrintError( "XLAL Error - %s: nan polvalues:  %3.10f %3.10f %3.10f %3.10f  \n", __func__, polvalues->data[0], polvalues->data[1], polvalues->data[2], polvalues->data[3] );
           XLAL_ERROR( XLAL_EINVAL );
       }
-    
+
     for( i =0; i < 12; i++)
       if( isnan(values->data[i]) ) {
-        printf("XLALInspiralPrecSpinFactorizedFlux (from input)::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values->data[0], values->data[1], values->data[2], values->data[3], values->data[4], values->data[5], values->data[6], values->data[7], values->data[8], values->data[9], values->data[10], values->data[11]);
+        XLAL_PRINT_INFO("XLALInspiralPrecSpinFactorizedFlux (from input)::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values->data[0], values->data[1], values->data[2], values->data[3], values->data[4], values->data[5], values->data[6], values->data[7], values->data[8], values->data[9], values->data[10], values->data[11]);
           XLALPrintError( "XLAL Error - %s: nan  in input values:  %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f  \n", __func__,  values->data[0], values->data[1], values->data[2], values->data[3], values->data[4], values->data[5], values->data[6], values->data[7], values->data[8], values->data[9], values->data[10], values->data[11] );
           XLAL_ERROR( XLAL_EINVAL );
       }
   }
-    
+
 	REAL8		flux = 0.0;
 	REAL8		v;
 	REAL8		omegaSq;
@@ -106,9 +107,9 @@ XLALInspiralPrecSpinFactorizedFlux(
 
 	/* Update the factorized multipole coefficients, w.r.t. new spins */
 	if (0) {		/* {{{ */
-		printf("\nValues inside Flux:\n");
+		XLAL_PRINT_INFO("\nValues inside Flux:\n");
 		for (i = 0; i < 11; i++)
-			printf("values[%d] = %.12e\n", i, values->data[i]);
+			XLAL_PRINT_INFO("values[%d] = %.12e\n", i, values->data[i]);
 		/*
 		 * Assume that initial conditions are available at this
 		 * point, to compute the chiS and chiA parameters. Calculate
@@ -163,10 +164,10 @@ XLALInspiralPrecSpinFactorizedFlux(
 
 		/* Re-compute the spinning coefficients for hLM */
 		//debugPK
-			printf("Re-calculating waveform coefficients in the Flux function with chiS, chiA = %e, %e!\n", chiS, chiA);
+			XLAL_PRINT_INFO("Re-calculating waveform coefficients in the Flux function with chiS, chiA = %e, %e!\n", chiS, chiA);
 		chiS = 0.3039435650957116;
 		chiA = -0.2959424290852973;
-		printf("Changed them to the correct values = %e, %e!\n", chiS, chiA);
+		XLAL_PRINT_INFO("Changed them to the correct values = %e, %e!\n", chiS, chiA);
 
         if (ak->alignedSpins==1) {
 		if (XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients(ak->eobParams->hCoeffs,
@@ -185,7 +186,7 @@ XLALInspiralPrecSpinFactorizedFlux(
             }
         }
 	}			/* }}} */
-	//printf("v = %.16e\n", v);
+	//XLAL_PRINT_INFO("v = %.16e\n", v);
 	COMPLEX16 hLMTab[lMax+1][lMax+1];
 	if (XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(&hLMTab[0][0], polvalues, values, v, H,
 				lMax, ak) == XLAL_FAILURE) {
@@ -196,10 +197,10 @@ XLALInspiralPrecSpinFactorizedFlux(
 		for (m = 1; m <= l; m++) {
 
 			if (debugPK)
-				printf("\nGetting (%d, %d) mode for flux!\n", l, m);
-			//printf("Stas, computing the waveform l = %d, m =%d\n", l, m);
+				XLAL_PRINT_INFO("\nGetting (%d, %d) mode for flux!\n", l, m);
+			//XLAL_PRINT_INFO("Stas, computing the waveform l = %d, m =%d\n", l, m);
 			hLM = hLMTab[l][m];
-			//printf("Stas: done\n");
+			//XLAL_PRINT_INFO("Stas: done\n");
 			/*
 			 * For the 2,2 mode, we apply NQC correction to the
 			 * flux
@@ -223,44 +224,44 @@ XLALInspiralPrecSpinFactorizedFlux(
 				 * XLAL_ERROR( XLAL_EINVAL ); break; }
 				 */
 				if (debugPK)
-					printf("\tl = %d, m = %d, NQC: a1 = %.16e, a2 = %.16e, a3 = %.16e, a3S = %.16e, a4 = %.16e, a5 = %.16e\n\tb1 = %.16e, b2 = %.16e, b3 = %.16e, b4 = %.16e\n",
+					XLAL_PRINT_INFO("\tl = %d, m = %d, NQC: a1 = %.16e, a2 = %.16e, a3 = %.16e, a3S = %.16e, a4 = %.16e, a5 = %.16e\n\tb1 = %.16e, b2 = %.16e, b3 = %.16e, b4 = %.16e\n",
 					       2, 2, nqcCoeffs->a1, nqcCoeffs->a2, nqcCoeffs->a3, nqcCoeffs->a3S, nqcCoeffs->a4, nqcCoeffs->a5,
 					       nqcCoeffs->b1, nqcCoeffs->b2, nqcCoeffs->b3, nqcCoeffs->b4);
 				XLALSimIMREOBNonQCCorrection(&hNQC, polvalues, omega, nqcCoeffs);
 				if (debugPK)
-					printf("\tl = %d, m = %d, hNQC = %.16e + i%.16e, |hNQC| = %.16e\n", l, m,
+					XLAL_PRINT_INFO("\tl = %d, m = %d, hNQC = %.16e + i%.16e, |hNQC| = %.16e\n", l, m,
 					       creal(hNQC), cimag(hNQC), sqrt(creal(hNQC) * creal(hNQC) + cimag(hLM) * cimag(hLM)));
 
       if((m * m) * omegaSq * (creal(hLM) * creal(hLM) + cimag(hLM) * cimag(hLM)) > 5.) {
-        
-        	printf("\tl = %d, m = %d, mag(hLM) = %.17e, mag(hNQC) = %.17e, omega = %.16e\n", 
-          l, m, sqrt(creal(hLM) * creal(hLM) + cimag(hLM) * cimag(hLM)), 
+
+		XLAL_PRINT_INFO("\tl = %d, m = %d, mag(hLM) = %.17e, mag(hNQC) = %.17e, omega = %.16e\n",
+          l, m, sqrt(creal(hLM) * creal(hLM) + cimag(hLM) * cimag(hLM)),
           sqrt(creal(hNQC) * creal(hNQC) + cimag(hNQC) * cimag(hNQC)), omega);
-      
-      printf("XLALInspiralPrecSpinFactorizedFlux (from input)::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values->data[0], values->data[1], values->data[2], values->data[3], values->data[4], values->data[5], values->data[6], values->data[7], values->data[8], values->data[9], values->data[10], values->data[11]);
+
+      XLAL_PRINT_INFO("XLALInspiralPrecSpinFactorizedFlux (from input)::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values->data[0], values->data[1], values->data[2], values->data[3], values->data[4], values->data[5], values->data[6], values->data[7], values->data[8], values->data[9], values->data[10], values->data[11]);
     }
-    
+
 				/* Eq. 16 */
 				//FIXME
 					hLM *= hNQC;
 			}
 			if (debugPK)
-				printf("\tl = %d, m = %d, mag(hLM) = %.17e, omega = %.16e\n", l, m, sqrt(creal(hLM) * creal(hLM) + cimag(hLM) * cimag(hLM)), omega);
-      
+				XLAL_PRINT_INFO("\tl = %d, m = %d, mag(hLM) = %.17e, omega = %.16e\n", l, m, sqrt(creal(hLM) * creal(hLM) + cimag(hLM) * cimag(hLM)), omega);
+
 			/* Eq. 13 */
 			flux += (REAL8) (m * m) * omegaSq * (creal(hLM) * creal(hLM) + cimag(hLM) * cimag(hLM));
 		}
 	}
     if( (omegaSq > 1 || flux > 5) ) {
         if(debugPK) {
-            printf("In XLALInspiralPrecSpinFactorizedFlux: omegaSq = %3.12f, FLUX = %3.12f, r = %3.12f\n",
+            XLAL_PRINT_INFO("In XLALInspiralPrecSpinFactorizedFlux: omegaSq = %3.12f, FLUX = %3.12f, r = %3.12f\n",
                    omegaSq, flux,radius);
         }
         flux = 0.;
     }
-    
+
 	if (debugPK)
-		printf("\tStas, FLUX = %.16e\n", flux * LAL_1_PI / 8.0);
+		XLAL_PRINT_INFO("\tStas, FLUX = %.16e\n", flux * LAL_1_PI / 8.0);
 	return flux * LAL_1_PI / 8.0;
 }
 #endif				/* _LALSIMIMRSPINPRECEOBFACTORIZEDFLUX_C */

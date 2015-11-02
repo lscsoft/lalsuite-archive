@@ -42,7 +42,7 @@ static UNUSED REAL8 GSLSpinPrecHamiltonianWrapper(double x, void *params);
 
 static double	GSLSpinPrecHamiltonianWrapperV2(double x, void *params);
 
-static int 
+static int
 XLALSpinPrecHcapNumericalDerivative(
 				double UNUSED t,	/**<< UNUSED */
 				const REAL8 values[],	/**<< Dynamical variables */
@@ -51,16 +51,16 @@ XLALSpinPrecHcapNumericalDerivative(
 );
 
 	static UNUSED REAL8 XLALSpinPrecHcapNumDerivWRTParam(
-			    		const		INT4	paramIdx,	/**<< Index of the parameters */
-			    		const		REAL8	values[],	/**<< Dynamical variables */
-				   		SpinEOBParams * funcParams	/**<< EOB Parameters */
+					const		INT4	paramIdx,	/**<< Index of the parameters */
+					const		REAL8	values[],	/**<< Dynamical variables */
+						SpinEOBParams * funcParams	/**<< EOB Parameters */
 );
 
 	static int	XLALSpinPrecHcapNumericalDerivativeNoFlux(
-					   		double	UNUSED	t,	/**<< UNUSED */
-			    		const		REAL8	values[],	/**<< Dynamical variables */
-				   		REAL8		dvalues[],	/**<< Time derivatives of variables (returned) */
-				     		void         *funcParams	/**<< EOB parameters */
+							double	UNUSED	t,	/**<< UNUSED */
+					const		REAL8	values[],	/**<< Dynamical variables */
+						REAL8		dvalues[],	/**<< Time derivatives of variables (returned) */
+						void         *funcParams	/**<< EOB parameters */
 );
 
 
@@ -75,17 +75,17 @@ XLALSpinPrecHcapNumericalDerivative(
 /**
  * Function to calculate numerical derivatives of the spin EOB Hamiltonian,
  * which correspond to time derivatives of the dynamical variables in conservative dynamcis.
- * All derivatives, including those on two terms of the orbital phase, are returned together.
+ * All derivatives are returned together.
  * The derivatives are combined with energy flux to give right hand side of the ODEs
- * of a generic spin EOB model, as decribed in Eqs. 21, 22, 26 and 27 of
+ * of a generic spin EOB model, as decribed in Eqs. A4, A5, 26 and 27 of
  * Pan et al. PRD 81, 084041 (2010)
- * This function is not used by the spin-aligned SEOBNRv1 model.
+ * This function is not used by the spin-aligned model.
  */
 	static int	XLALSpinPrecHcapNumericalDerivative(
-					     		double	UNUSED	t,	/**<< UNUSED */
-			      		const		REAL8	values[],	/**<< Dynamical variables */
-				     		REAL8		dvalues[],	/**<< Time derivatives of variables (returned) */
-				       		void         *funcParams	/**<< EOB parameters */
+							double	UNUSED	t,	/**<< UNUSED */
+					const		REAL8	values[],	/**<< Dynamical variables */
+						REAL8		dvalues[],	/**<< Time derivatives of variables (returned) */
+						void         *funcParams	/**<< EOB parameters */
 )
 {
 	int		debugPK = 0;
@@ -275,9 +275,9 @@ XLALSpinPrecHcapNumericalDerivative(
 	}
 
 	if (debugPK) {
-		printf("csi = %.12e\n", csi);
+		XLAL_PRINT_INFO("csi = %.12e\n", csi);
 		for (i = 0; i < 3; i++)
-			printf("p,p*: %.12e\t%.12e\n", pData[i], tmpP[i]);
+			XLAL_PRINT_INFO("p,p*: %.12e\t%.12e\n", pData[i], tmpP[i]);
 	}
 	/*
 	 * Calculate the T-matrix, required to convert P from tortoise to
@@ -305,23 +305,23 @@ XLALSpinPrecHcapNumericalDerivative(
 		for (j = 0; j < 3; j++)
 			for (k = 0; k < 3; k++) {
 				dTijdXk[i][j][k] =
-					(rData[i] * XLALKronecker(j, k) + XLALKronecker(i, k) * rData[j])
+					(rData[i] * KRONECKER_DELTA(j, k) + KRONECKER_DELTA(i, k) * rData[j])
 					* (csi - 1.) / rMag2
 					+ rData[i] * rData[j] * rData[k] / rMag2 / rMag * (-2. / rMag * (csi - 1.) + dcsi);
 			}
 
 	//Print out the T - matrix for comparison
 		if (debugPK) {
-			printf("\nT-Matrix:\n");
+			XLAL_PRINT_INFO("\nT-Matrix:\n");
 			for (i = 0; i < 3; i++)
-				printf("%le\t%le\t%le\n", Tmatrix[i][0], Tmatrix[i][1], Tmatrix[i][2]);
+				XLAL_PRINT_INFO("%le\t%le\t%le\n", Tmatrix[i][0], Tmatrix[i][1], Tmatrix[i][2]);
 
 			for (i = 0; i < 3; i++) {
-				printf("dT[%d][j]dX[k]:\n", i);
+				XLAL_PRINT_INFO("dT[%d][j]dX[k]:\n", i);
 				for (j = 0; j < 3; j++)
-					printf("%.12e\t%.12e\t%.12e\n", dTijdXk[i][j][0],
+					XLAL_PRINT_INFO("%.12e\t%.12e\t%.12e\n", dTijdXk[i][j][0],
 					dTijdXk[i][j][1], dTijdXk[i][j][2]);
-				printf("\n");
+				XLAL_PRINT_INFO("\n");
 			}
 		}
 	/* Now calculate derivatives w.r.t. each parameter */
@@ -422,7 +422,7 @@ XLALSpinPrecHcapNumericalDerivative(
 	 * rcrossrDot[2] = values[0]*tmpDValues[4] - values[1]*tmpDValues[3];
 	 * rcrossrDotMag = sqrt( rcrossrDot[0]*rcrossrDot[0] +
 	 * rcrossrDot[1]*rcrossrDot[1]	+ rcrossrDot[2]*rcrossrDot[2] );
-	 * 
+	 *
 	 * rcrossrDot[0] /= rcrossrDotMag; rcrossrDot[1] /= rcrossrDotMag;
 	 * rcrossrDot[2] /= rcrossrDotMag;
 	 */
@@ -436,7 +436,7 @@ XLALSpinPrecHcapNumericalDerivative(
 	chiA = 0.5 * (s1dotLN - s2dotLN);
 
 	if (debugPK) {
-		printf("chiS = %.12e, chiA = %.12e\n", chiS, chiA);
+		XLAL_PRINT_INFO("chiS = %.12e, chiA = %.12e\n", chiS, chiA);
 		fflush(NULL);
 	}
 	REAL8		sscaling1 = 1;
@@ -445,13 +445,13 @@ XLALSpinPrecHcapNumericalDerivative(
 	//(mass1 + mass2) * (mass1 + mass2) / (mass2 * mass2);
 
 	if (debugPK) {
-		printf("Computing derivatives for values\n%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\n\n",
+		XLAL_PRINT_INFO("Computing derivatives for values\n%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\n\n",
 		    (double)values[0], (double)values[1], (double)values[2],
 		    (double)values[3], (double)values[4], (double)values[5],
 		(double)sscaling1 * values[6], (double)sscaling1 * values[7],
 		(double)sscaling1 * values[8], (double)sscaling2 * values[9],
 		       (double)sscaling2 * values[10], (double)sscaling2 * values[11]);
-		printf("tmpDvalues\n%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t\n",
+		XLAL_PRINT_INFO("tmpDvalues\n%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t\n",
 		       (double)tmpDValues[0], (double)tmpDValues[1], (double)tmpDValues[2],
 		       (double)tmpDValues[3], (double)tmpDValues[4], (double)tmpDValues[5],
 		       (double)tmpDValues[6], (double)tmpDValues[7], (double)tmpDValues[8],
@@ -508,7 +508,7 @@ XLALSpinPrecHcapNumericalDerivative(
 	memcpy(tmpValues, values, 12 * sizeof(REAL8));
 	cartDynamics.data = tmpValues;
 	if (debugPK) {
-		printf("params.params->a = %.12e, %.12e\n", a, params.params->a);
+		XLAL_PRINT_INFO("params.params->a = %.12e, %.12e\n", a, params.params->a);
 		fflush(NULL);
 	}
 	flux = XLALInspiralPrecSpinFactorizedFlux(&polarDynamics, &cartDynamics,
@@ -525,8 +525,8 @@ XLALSpinPrecHcapNumericalDerivative(
 	rrTerm2 = 8. / 15. * eta * eta * pow(omega, 8. / 3.) / (magL * magL * r) * ((61. + 48. * mass2 / mass1) * pDotS1 + (61. + 48. * mass1 / mass2) * pDotS2);
 
 	if (debugPK) {
-		printf("omega = %.12e \n flux = %.12e \n Lmag = %.12e\n", omega, flux, magL);
-		printf("rrForce = %.12e %.12e %.12e\n", -flux * values[3] / (omega * magL), -flux * values[4] / (omega * magL), -flux * values[5] / (omega * magL));
+		XLAL_PRINT_INFO("omega = %.12e \n flux = %.12e \n Lmag = %.12e\n", omega, flux, magL);
+		XLAL_PRINT_INFO("rrForce = %.12e %.12e %.12e\n", -flux * values[3] / (omega * magL), -flux * values[4] / (omega * magL), -flux * values[5] / (omega * magL));
 	}
 	/* Now pDot */
 	/* Compute the first and second terms in eq. A5 of 0912.3466 */
@@ -553,23 +553,23 @@ XLALSpinPrecHcapNumericalDerivative(
 					double		sum = 0;
 					for (k = 0; k < 3; k++)
 						sum += dTijdXk[i][k][j] * invTmatrix[k][l];
-					printf("\n sum[%d][%d][%d] = %.12e", i, j, l, sum);
+					XLAL_PRINT_INFO("\n sum[%d][%d][%d] = %.12e", i, j, l, sum);
 
 				}
-		printf("\n\n Printing dTdX * Tinverse:\n");
+		XLAL_PRINT_INFO("\n\n Printing dTdX * Tinverse:\n");
 		for (l = 0; l < 3; l++) {
 			for (i = 0; i < 3; i++)
 				for (j = 0; j < 3; j++) {
 					double		sum = 0;
 					for (k = 0; k < 3; k++) {
 						sum += dTijdXk[i][k][l] * invTmatrix[k][j];
-						printf("\n sum[%d][%d][%d] = %.12e", l, i, j, sum);
+						XLAL_PRINT_INFO("\n sum[%d][%d][%d] = %.12e", l, i, j, sum);
 					}
 				}
 		}
 	}
 	if (debugPK)
-		printf("\npData: {%.12e, %.12e, %.12e}\n", pData[0], pData[1], pData[2]);
+		XLAL_PRINT_INFO("\npData: {%.12e, %.12e, %.12e}\n", pData[0], pData[1], pData[2]);
 	for (i = 0; i < 3; i++)
 		for (j = 0; j < 3; j++)
 			for (k = 0, tmpPdotT3T12[i][j] = 0.; k < 3; k++)
@@ -588,10 +588,10 @@ XLALSpinPrecHcapNumericalDerivative(
 		dvalues[i + 3] = tmpPdotT1[i] + tmpPdotT2[i] + tmpPdotT3[i];
 
 	if (debugPK) {
-		printf("\ntmpPdotT3 = ");
+		XLAL_PRINT_INFO("\ntmpPdotT3 = ");
 		for (i = 0; i < 3; i++)
-			printf("%.12e ", tmpPdotT3[i]);
-		printf("\n");
+			XLAL_PRINT_INFO("%.12e ", tmpPdotT3[i]);
+		XLAL_PRINT_INFO("\n");
 	}
 	//dvalues[3] = -tmpDValues[0] - flux * values[3] / (omega * magL) + rrTerm2 * Lx;
 	//dvalues[4] = -tmpDValues[1] - flux * values[4] / (omega * magL) + rrTerm2 * Ly;
@@ -599,8 +599,8 @@ XLALSpinPrecHcapNumericalDerivative(
 
 	/* spin1 */
 	if (debugPK) {
-		printf("Raw spin1 derivatives = %.12e %.12e %.12e\n", tmpDValues[6], tmpDValues[7], tmpDValues[8]);
-		printf("Raw spin2 derivatives = %.12e %.12e %.12e\n", tmpDValues[9], tmpDValues[10], tmpDValues[11]);
+		XLAL_PRINT_INFO("Raw spin1 derivatives = %.12e %.12e %.12e\n", tmpDValues[6], tmpDValues[7], tmpDValues[8]);
+		XLAL_PRINT_INFO("Raw spin2 derivatives = %.12e %.12e %.12e\n", tmpDValues[9], tmpDValues[10], tmpDValues[11]);
 	}
 	dvalues[6] = eta * (tmpDValues[7] * values[8] - tmpDValues[8] * values[7]);
 	dvalues[7] = eta * (tmpDValues[8] * values[6] - tmpDValues[6] * values[8]);
@@ -640,44 +640,44 @@ XLALSpinPrecHcapNumericalDerivative(
 	dvalues[13] = alphadotcosi;
 
 	if (debugPK) {
-    printf("\nIn XLALSpinPrecHcapNumericalDerivative:\n");
+    XLAL_PRINT_INFO("\nIn XLALSpinPrecHcapNumericalDerivative:\n");
 		/* Print out all mass parameters */
-		printf("m1 = %12.12lf, m2 = %12.12lf, eta = %12.12lf\n", 
+		XLAL_PRINT_INFO("m1 = %12.12lf, m2 = %12.12lf, eta = %12.12lf\n",
           (double)mass1, (double)mass2, (double)eta);
 		/* Print out all spin parameters */
-		printf("spin1 = {%12.12lf,%12.12lf,%12.12lf}, spin2 = {%12.12lf,%12.12lf,%12.12lf}\n",
+		XLAL_PRINT_INFO("spin1 = {%12.12lf,%12.12lf,%12.12lf}, spin2 = {%12.12lf,%12.12lf,%12.12lf}\n",
             (double)s1.data[0], (double)s1.data[1], (double)s1.data[2],
             (double)s2.data[0], (double)s2.data[1], (double)s2.data[2]);
-		printf("sigmaStar = {%12.12lf,%12.12lf,%12.12lf}, sigmaKerr = {%12.12lf,%12.12lf,%12.12lf}\n",
+		XLAL_PRINT_INFO("sigmaStar = {%12.12lf,%12.12lf,%12.12lf}, sigmaKerr = {%12.12lf,%12.12lf,%12.12lf}\n",
 		       (double)sStar.data[0], (double)sStar.data[1],
 		       (double)sStar.data[2], (double)sKerr.data[0],
 		       (double)sKerr.data[1], (double)sKerr.data[2]);
-		printf("L = {%12.12lf,%12.12lf,%12.12lf}, |L| = %12.12lf\n", 
+		XLAL_PRINT_INFO("L = {%12.12lf,%12.12lf,%12.12lf}, |L| = %12.12lf\n",
         (double)Lx, (double)Ly, (double)Lz, (double)magL);
-		printf("dLdt = {%12.12lf,%12.12lf,%12.12lf}, d|L|dt = %12.12lf\n", 
+		XLAL_PRINT_INFO("dLdt = {%12.12lf,%12.12lf,%12.12lf}, d|L|dt = %12.12lf\n",
         (double)dLx, (double)dLy, (double)dLz, (double)dMagL);
-		printf("Polar coordinates = {%12.12lf, %12.12lf, %12.12lf, %12.12lf}\n",
+		XLAL_PRINT_INFO("Polar coordinates = {%12.12lf, %12.12lf, %12.12lf, %12.12lf}\n",
 		       (double)polData[0], (double)polData[1], (double)polData[2],
            (double)polData[3]);
 
-		printf("Cartesian coordinates: {%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf}\n",
+		XLAL_PRINT_INFO("Cartesian coordinates: {%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf}\n",
 		       (double)values[0], (double)values[1], (double)values[2],
-           (double)values[3], (double)values[4], (double)values[5], 
-           (double)values[6], (double)values[7], (double)values[8], 
+           (double)values[3], (double)values[4], (double)values[5],
+           (double)values[6], (double)values[7], (double)values[8],
            (double)values[9], (double)values[10], (double)values[11],
 		       (double)values[12], (double)values[13]);
-		printf("Cartesian derivatives: {%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf}\n",
+		XLAL_PRINT_INFO("Cartesian derivatives: {%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf}\n",
 		       (double)dvalues[0], (double)dvalues[1], (double)dvalues[2],
            (double)dvalues[3], (double)dvalues[4], (double)dvalues[5],
            (double)dvalues[6], (double)dvalues[7], (double)dvalues[8],
            (double)dvalues[9], (double)dvalues[10], (double)dvalues[11],
            (double)dvalues[12], (double)dvalues[13]);
 
-     printf("Hamiltonian = %12.12lf, Flux = %12.12lf, Omega = %12.12lf\n", 
+     XLAL_PRINT_INFO("Hamiltonian = %12.12lf, Flux = %12.12lf, Omega = %12.12lf\n",
               H/ (mass1 + mass2), eta*flux, omega);
 		fflush(NULL);
 	}
-	
+
     for(i=0; i<14; i++){
         if(isnan(dvalues[i])){
             dvalues[i] = 1.;
@@ -696,10 +696,10 @@ XLALSpinPrecHcapNumericalDerivative(
     if(debugPK){
   for(i=0; i<14; i++)
     if(dvalues[i] > 1e3){
-      printf("\nIn XLALSpinPrecHcapNumericalDerivative:\n");
-      printf("Derivatives have blown up!\n");
-      for(j=0; j<14; printf("dvalues[%d] = %3.12f\n", j, dvalues[j]), j++);
-      printf("Flux = %3.12f\n\n", flux);
+      XLAL_PRINT_INFO("\nIn XLALSpinPrecHcapNumericalDerivative:\n");
+      XLAL_PRINT_INFO("Derivatives have blown up!\n");
+      for(j=0; j<14; XLAL_PRINT_INFO("dvalues[%d] = %3.12f\n", j, dvalues[j]), j++);
+      XLAL_PRINT_INFO("Flux = %3.12f\n\n", flux);
       break;
     }
     }
@@ -709,13 +709,11 @@ XLALSpinPrecHcapNumericalDerivative(
 /**
  * Function to calculate numerical derivatives of the spin EOB Hamiltonian,
  * which correspond to time derivatives of the dynamical variables in conservative dynamcis.
- * All derivatives, including those on two terms of the orbital phase, are returned together.
- * The derivatives are combined with energy flux to give right hand side of the ODEs
- * of a generic spin EOB model, as decribed in Eqs. 21, 22, 26 and 27 of
- * Pan et al. PRD 81, 084041 (2010)
- * This function is not used by the spin-aligned SEOBNRv1 model.
+ * All derivatives are returned together and are decribed in Eqs. A4, A5, 26 and 27 of
+ * Pan et al. PRD 81, 084041 (2010). Here we out the GW to 0.
+ * This function is not used by the spin-aligned model.
  */
-static int 
+static int
 XLALSpinPrecHcapNumericalDerivativeNoFlux(
 				      double UNUSED t,	/**<< UNUSED */
 				      const REAL8 values[],	/**<< Dynamical variables */
@@ -910,9 +908,9 @@ XLALSpinPrecHcapNumericalDerivativeNoFlux(
 	}
 
 	if (debugPK) {
-		printf("csi = %.12e\n", csi);
+		XLAL_PRINT_INFO("csi = %.12e\n", csi);
 		for (i = 0; i < 3; i++)
-			printf("p,p*: %.12e\t%.12e\n", pData[i], tmpP[i]);
+			XLAL_PRINT_INFO("p,p*: %.12e\t%.12e\n", pData[i], tmpP[i]);
 	}
 	/*
 	 * Calculate the T-matrix, required to convert P from tortoise to
@@ -940,23 +938,23 @@ XLALSpinPrecHcapNumericalDerivativeNoFlux(
 		for (j = 0; j < 3; j++)
 			for (k = 0; k < 3; k++) {
 				dTijdXk[i][j][k] =
-					(rData[i] * XLALKronecker(j, k) + XLALKronecker(i, k) * rData[j])
+					(rData[i] * KRONECKER_DELTA(j, k) + KRONECKER_DELTA(i, k) * rData[j])
 					* (csi - 1.) / rMag2
 					+ rData[i] * rData[j] * rData[k] / rMag2 / rMag * (-2. / rMag * (csi - 1.) + dcsi);
 			}
 
 	//Print out the T - matrix for comparison
 		if (debugPK) {
-			printf("\nT-Matrix:\n");
+			XLAL_PRINT_INFO("\nT-Matrix:\n");
 			for (i = 0; i < 3; i++)
-				printf("%le\t%le\t%le\n", Tmatrix[i][0], Tmatrix[i][1], Tmatrix[i][2]);
+				XLAL_PRINT_INFO("%le\t%le\t%le\n", Tmatrix[i][0], Tmatrix[i][1], Tmatrix[i][2]);
 
 			for (i = 0; i < 3; i++) {
-				printf("dT[%d][j]dX[k]:\n", i);
+				XLAL_PRINT_INFO("dT[%d][j]dX[k]:\n", i);
 				for (j = 0; j < 3; j++)
-					printf("%.12e\t%.12e\t%.12e\n", dTijdXk[i][j][0],
+					XLAL_PRINT_INFO("%.12e\t%.12e\t%.12e\n", dTijdXk[i][j][0],
 					dTijdXk[i][j][1], dTijdXk[i][j][2]);
-				printf("\n");
+				XLAL_PRINT_INFO("\n");
 			}
 		}
 	/* Now calculate derivatives w.r.t. each parameter */
@@ -1057,7 +1055,7 @@ XLALSpinPrecHcapNumericalDerivativeNoFlux(
 	 * rcrossrDot[2] = values[0]*tmpDValues[4] - values[1]*tmpDValues[3];
 	 * rcrossrDotMag = sqrt( rcrossrDot[0]*rcrossrDot[0] +
 	 * rcrossrDot[1]*rcrossrDot[1]	+ rcrossrDot[2]*rcrossrDot[2] );
-	 * 
+	 *
 	 * rcrossrDot[0] /= rcrossrDotMag; rcrossrDot[1] /= rcrossrDotMag;
 	 * rcrossrDot[2] /= rcrossrDotMag;
 	 */
@@ -1071,7 +1069,7 @@ XLALSpinPrecHcapNumericalDerivativeNoFlux(
 	chiA = 0.5 * (s1dotLN - s2dotLN);
 
 	if (debugPK) {
-		printf("chiS = %.12e, chiA = %.12e\n", chiS, chiA);
+		XLAL_PRINT_INFO("chiS = %.12e, chiA = %.12e\n", chiS, chiA);
 		fflush(NULL);
 	}
 	REAL8		sscaling1 = 1;
@@ -1080,13 +1078,13 @@ XLALSpinPrecHcapNumericalDerivativeNoFlux(
 	//(mass1 + mass2) * (mass1 + mass2) / (mass2 * mass2);
 
 	if (debugPK) {
-		printf("Computing derivatives for values\n%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\n\n",
+		XLAL_PRINT_INFO("Computing derivatives for values\n%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\n\n",
 		    (double)values[0], (double)values[1], (double)values[2],
 		    (double)values[3], (double)values[4], (double)values[5],
 		(double)sscaling1 * values[6], (double)sscaling1 * values[7],
 		(double)sscaling1 * values[8], (double)sscaling2 * values[9],
 		       (double)sscaling2 * values[10], (double)sscaling2 * values[11]);
-		printf("tmpDvalues\n%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t\n",
+		XLAL_PRINT_INFO("tmpDvalues\n%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t\n",
 		       (double)tmpDValues[0], (double)tmpDValues[1], (double)tmpDValues[2],
 		       (double)tmpDValues[3], (double)tmpDValues[4], (double)tmpDValues[5],
 		       (double)tmpDValues[6], (double)tmpDValues[7], (double)tmpDValues[8],
@@ -1144,7 +1142,7 @@ XLALSpinPrecHcapNumericalDerivativeNoFlux(
 	memcpy(tmpValues, values, 12 * sizeof(REAL8));
 	cartDynamics.data = tmpValues;
 	if (debugPK) {
-		printf("params.params->a = %.12e, %.12e\n", a, params.params->a);
+		XLAL_PRINT_INFO("params.params->a = %.12e, %.12e\n", a, params.params->a);
 		fflush(NULL);
 	}
 	flux = 0 * XLALInspiralPrecSpinFactorizedFlux(&polarDynamics, &cartDynamics,
@@ -1161,8 +1159,8 @@ XLALSpinPrecHcapNumericalDerivativeNoFlux(
 	rrTerm2 = 8. / 15. * eta * eta * pow(omega, 8. / 3.) / (magL * magL * r) * ((61. + 48. * mass2 / mass1) * pDotS1 + (61. + 48. * mass1 / mass2) * pDotS2);
 
 	if (debugPK) {
-		printf("omega = %.12e \n flux = %.12e \n Lmag = %.12e\n", omega, flux, magL);
-		printf("rrForce = %.12e %.12e %.12e\n", -flux * values[3] / (omega * magL), -flux * values[4] / (omega * magL), -flux * values[5] / (omega * magL));
+		XLAL_PRINT_INFO("omega = %.12e \n flux = %.12e \n Lmag = %.12e\n", omega, flux, magL);
+		XLAL_PRINT_INFO("rrForce = %.12e %.12e %.12e\n", -flux * values[3] / (omega * magL), -flux * values[4] / (omega * magL), -flux * values[5] / (omega * magL));
 	}
 	/* Now pDot */
 	/* Compute the first and second terms in eq. A5 of 0912.3466 */
@@ -1189,23 +1187,23 @@ XLALSpinPrecHcapNumericalDerivativeNoFlux(
 					double		sum = 0;
 					for (k = 0; k < 3; k++)
 						sum += dTijdXk[i][k][j] * invTmatrix[k][l];
-					printf("\n sum[%d][%d][%d] = %.12e", i, j, l, sum);
+					XLAL_PRINT_INFO("\n sum[%d][%d][%d] = %.12e", i, j, l, sum);
 
 				}
-		printf("\n\n Printing dTdX * Tinverse:\n");
+		XLAL_PRINT_INFO("\n\n Printing dTdX * Tinverse:\n");
 		for (l = 0; l < 3; l++) {
 			for (i = 0; i < 3; i++)
 				for (j = 0; j < 3; j++) {
 					double		sum = 0;
 					for (k = 0; k < 3; k++) {
 						sum += dTijdXk[i][k][l] * invTmatrix[k][j];
-						printf("\n sum[%d][%d][%d] = %.12e", l, i, j, sum);
+						XLAL_PRINT_INFO("\n sum[%d][%d][%d] = %.12e", l, i, j, sum);
 					}
 				}
 		}
 	}
 	if (debugPK)
-		printf("\npData: {%.12e, %.12e, %.12e}\n", pData[0], pData[1], pData[2]);
+		XLAL_PRINT_INFO("\npData: {%.12e, %.12e, %.12e}\n", pData[0], pData[1], pData[2]);
 	for (i = 0; i < 3; i++)
 		for (j = 0; j < 3; j++)
 			for (k = 0, tmpPdotT3T12[i][j] = 0.; k < 3; k++)
@@ -1224,10 +1222,10 @@ XLALSpinPrecHcapNumericalDerivativeNoFlux(
 		dvalues[i + 3] = tmpPdotT1[i] + tmpPdotT2[i] + tmpPdotT3[i];
 
 	if (debugPK) {
-		printf("\ntmpPdotT3 = ");
+		XLAL_PRINT_INFO("\ntmpPdotT3 = ");
 		for (i = 0; i < 3; i++)
-			printf("%.12e ", tmpPdotT3[i]);
-		printf("\n");
+			XLAL_PRINT_INFO("%.12e ", tmpPdotT3[i]);
+		XLAL_PRINT_INFO("\n");
 	}
 	//dvalues[3] = -tmpDValues[0] - flux * values[3] / (omega * magL) + rrTerm2 * Lx;
 	//dvalues[4] = -tmpDValues[1] - flux * values[4] / (omega * magL) + rrTerm2 * Ly;
@@ -1235,8 +1233,8 @@ XLALSpinPrecHcapNumericalDerivativeNoFlux(
 
 	/* spin1 */
 	if (debugPK) {
-		printf("Raw spin1 derivatives = %.12e %.12e %.12e\n", tmpDValues[6], tmpDValues[7], tmpDValues[8]);
-		printf("Raw spin2 derivatives = %.12e %.12e %.12e\n", tmpDValues[9], tmpDValues[10], tmpDValues[11]);
+		XLAL_PRINT_INFO("Raw spin1 derivatives = %.12e %.12e %.12e\n", tmpDValues[6], tmpDValues[7], tmpDValues[8]);
+		XLAL_PRINT_INFO("Raw spin2 derivatives = %.12e %.12e %.12e\n", tmpDValues[9], tmpDValues[10], tmpDValues[11]);
 	}
 	dvalues[6] = eta * (tmpDValues[7] * values[8] - tmpDValues[8] * values[7]);
 	dvalues[7] = eta * (tmpDValues[8] * values[6] - tmpDValues[6] * values[8]);
@@ -1276,51 +1274,51 @@ XLALSpinPrecHcapNumericalDerivativeNoFlux(
 	dvalues[13] = alphadotcosi;
 
 	if (debugPK) {
-		printf(" r = %e %e %e (mag = %e)\n", values[0], values[1], values[2], sqrt(values[0] * values[0] + values[1] * values[1] + values[2] * values[2]));
-		printf(" p = %e %e %e (mag = %e)\n", values[3], values[4], values[5], sqrt(values[3] * values[3] + values[4] * values[4] + values[5] * values[5]));
-		printf("Derivatives:\n");
+		XLAL_PRINT_INFO(" r = %e %e %e (mag = %e)\n", values[0], values[1], values[2], sqrt(values[0] * values[0] + values[1] * values[1] + values[2] * values[2]));
+		XLAL_PRINT_INFO(" p = %e %e %e (mag = %e)\n", values[3], values[4], values[5], sqrt(values[3] * values[3] + values[4] * values[4] + values[5] * values[5]));
+		XLAL_PRINT_INFO("Derivatives:\n");
 		for (i = 0; i < 12; i++) {
-			printf("%.12e\n", dvalues[i]);
+			XLAL_PRINT_INFO("%.12e\n", dvalues[i]);
 		}
-		printf("\n");
+		XLAL_PRINT_INFO("\n");
 	}
 	if (debugPK) {
 #if 0
 		/* Print out all mass parameters */
-		printf("\nIn XLALSpinPrecHcapNumericalDerivative:\n");
-		printf("m1 = %12.12lf, m2 = %12.12lf, eta = %12.12lf\n", (double)mass1,
+		XLAL_PRINT_INFO("\nIn XLALSpinPrecHcapNumericalDerivative:\n");
+		XLAL_PRINT_INFO("m1 = %12.12lf, m2 = %12.12lf, eta = %12.12lf\n", (double)mass1,
 		       (double)mass2, (double)eta);
 		/* Print out all spin parameters */
-		printf("spin1 = {%12.12lf,%12.12lf,%12.12lf}, spin2 = {%12.12lf,%12.12lf,%12.12lf}\n",
+		XLAL_PRINT_INFO("spin1 = {%12.12lf,%12.12lf,%12.12lf}, spin2 = {%12.12lf,%12.12lf,%12.12lf}\n",
 		 (double)s1.data[0], (double)s1.data[1], (double)s1.data[2],
 		(double)s2.data[0], (double)s2.data[1], (double)s2.data[2]);
-		printf("sigmaStar = {%12.12lf,%12.12lf,%12.12lf}, sigmaKerr = {%12.12lf,%12.12lf,%12.12lf}\n",
+		XLAL_PRINT_INFO("sigmaStar = {%12.12lf,%12.12lf,%12.12lf}, sigmaKerr = {%12.12lf,%12.12lf,%12.12lf}\n",
 		       (double)sStar.data[0], (double)sStar.data[1],
 		       (double)sStar.data[2], (double)sKerr.data[0],
 		       (double)sKerr.data[1], (double)sKerr.data[2]);
-		printf("L = {%12.12lf,%12.12lf,%12.12lf}, |L| = %12.12lf\n", (double)Lx, (double)Ly,
+		XLAL_PRINT_INFO("L = {%12.12lf,%12.12lf,%12.12lf}, |L| = %12.12lf\n", (double)Lx, (double)Ly,
 		       (double)Lz, (double)magL);
-		printf("dLdt = {%12.12lf,%12.12lf,%12.12lf}, d|L|dt = %12.12lf\n", (double)dLx,
+		XLAL_PRINT_INFO("dLdt = {%12.12lf,%12.12lf,%12.12lf}, d|L|dt = %12.12lf\n", (double)dLx,
 		       (double)dLy, (double)dLz, (double)dMagL);
-		printf("Polar coordinates = {%12.12lf, %12.12lf, %12.12lf, %12.12lf}\n",
+		XLAL_PRINT_INFO("Polar coordinates = {%12.12lf, %12.12lf, %12.12lf, %12.12lf}\n",
 		       (double)polData[0], (double)polData[1], (double)polData[2], (double)polData[3]);
 
-		printf("Cartesian coordinates: {%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf}\n",
+		XLAL_PRINT_INFO("Cartesian coordinates: {%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf}\n",
 		       (double)values[0], (double)values[1], (double)values[2], (double)values[3],
 		       (double)values[4], (double)values[5], (double)values[6], (double)values[7],
 		       (double)values[8], (double)values[9], (double)values[10], (double)values[11],
 		       (double)values[12], (double)values[13]);
-		printf("Cartesian derivatives: {%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf}\n",
+		XLAL_PRINT_INFO("Cartesian derivatives: {%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf}\n",
 		       (double)dvalues[0], (double)dvalues[1], (double)dvalues[2], (double)dvalues[3],
 		       (double)dvalues[4], (double)dvalues[5], (double)dvalues[6], (double)dvalues[7],
 		       (double)dvalues[8], (double)dvalues[9], (double)dvalues[10], (double)dvalues[11],
 		       (double)dvalues[12], (double)dvalues[13]);
 
-		printf("Hamiltonian = %12.12lf, Flux = %12.12lf, Omega = %12.12lf\n", H, flux, omega);
+		XLAL_PRINT_INFO("Hamiltonian = %12.12lf, Flux = %12.12lf, Omega = %12.12lf\n", H, flux, omega);
 #endif
 #if 1
 		if (debugPK)
-			printf("%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\n\n",
+			XLAL_PRINT_INFO("%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\n\n",
 			       (double)values[0], (double)values[1], (double)values[2],
 			       (double)values[3], (double)values[4], (double)values[5],
 			       (double)sscaling1 * values[6], (double)sscaling1 * values[7],
@@ -1343,7 +1341,7 @@ XLALSpinPrecHcapNumericalDerivativeNoFlux(
  * Calculate the derivative of the Hamiltonian w.r.t. a specific parameter
  * Used by generic spin EOB model, including initial conditions solver.
  */
-static REAL8 
+static REAL8
 XLALSpinPrecHcapNumDerivWRTParam(
 			     const INT4 paramIdx,	/**<< Index of the parameters */
 			     const REAL8 values[],	/**<< Dynamical variables */
@@ -1390,7 +1388,7 @@ XLALSpinPrecHcapNumDerivWRTParam(
 		XLALPrintError("XLAL Error %s - Failure in GSL function\n", __func__);
 		XLAL_ERROR_REAL8(XLAL_EFUNC);
 	}
-	//printf("Abserr = %e\n", absErr);
+	//XLAL_PRINT_INFO("Abserr = %e\n", absErr);
 
 	return result;
 }
@@ -1400,7 +1398,7 @@ XLALSpinPrecHcapNumDerivWRTParam(
  * Wrapper for GSL to call the Hamiltonian function
  */
 /* static */
-REAL8 
+REAL8
 GSLSpinPrecHamiltonianWrapper(double x, void *params)
 {
 	int		debugPK = 0;
@@ -1469,14 +1467,14 @@ GSLSpinPrecHamiltonianWrapper(double x, void *params)
 	a = sqrt(sigmaKerr.data[0] * sigmaKerr.data[0]
 		 + sigmaKerr.data[1] * sigmaKerr.data[1]
 		 + sigmaKerr.data[2] * sigmaKerr.data[2]);
-	//printf("a = %e\n", a);
-	//printf("aStar = %e\n", sqrt(sigmaStar.data[0] * sigmaStar.data[0] + sigmaStar.data[1] * sigmaStar.data[1] + sigmaStar.data[2] * sigmaStar.data[2]));
+	//XLAL_PRINT_INFO("a = %e\n", a);
+	//XLAL_PRINT_INFO("aStar = %e\n", sqrt(sigmaStar.data[0] * sigmaStar.data[0] + sigmaStar.data[1] * sigmaStar.data[1] + sigmaStar.data[2] * sigmaStar.data[2]));
 	if (isnan(a) ) {
           XLALPrintError( "XLAL Error - %s: a = nan  \n", __func__);
           XLAL_ERROR( XLAL_EINVAL );
 	}
 	if (isnan(a) && debugPK) {
-		printf("a is nan!!\n");
+		XLAL_PRINT_INFO("a is nan!!\n");
 	}
 	//XLALSimIMRCalculateSpinPrecEOBHCoeffs(dParams->params->seobCoeffs, eobParams->eta, a);
 	/*
@@ -1536,7 +1534,7 @@ GSLSpinPrecHamiltonianWrapper(double x, void *params)
 		memcpy(p.data, tmpP, sizeof(tmpP));
 	}
 #endif
-	//printf("Hamiltonian = %e\n", XLALSimIMRSpinPrecEOBHamiltonian(eobParams->eta, &r, &p, &sigmaKerr, &sigmaStar, dParams->params->seobCoeffs));
+	//XLAL_PRINT_INFO("Hamiltonian = %e\n", XLALSimIMRSpinPrecEOBHamiltonian(eobParams->eta, &r, &p, &sigmaKerr, &sigmaStar, dParams->params->seobCoeffs));
 	REAL8		SpinEOBH = XLALSimIMRSpinPrecEOBHamiltonian(eobParams->eta, &r, &p, &spin1norm, &spin2norm, &sigmaKerr, &sigmaStar, dParams->params->tortoise, dParams->params->seobCoeffs) / eobParams->eta;
 
 	if (dParams->varyParam < 3)
@@ -1546,9 +1544,9 @@ GSLSpinPrecHamiltonianWrapper(double x, void *params)
 
 
 /*
- * Wrapper for GSL to call the Hamiltonian function
+ * Wrapper for GSL to call the aligned-spin Hamiltonian function
  */
-static double 
+static double
 GSLSpinPrecHamiltonianWrapperV2(double x, void *params)
 {
 	bool		UsePrecBool = false;
@@ -1605,10 +1603,10 @@ GSLSpinPrecHamiltonianWrapperV2(double x, void *params)
 					    eobParams->m2, &spin1, &spin2);
 	a = sqrt(sigmaKerr.data[0] * sigmaKerr.data[0] + sigmaKerr.data[1] * sigmaKerr.data[1]
 		 + sigmaKerr.data[2] * sigmaKerr.data[2]);
-	//printf("a = %e\n", a);
-	//printf("aStar = %e\n", sqrt(sigmaStar.data[0] * sigmaStar.data[0] + sigmaStar.data[1] * sigmaStar.data[1] + sigmaStar.data[2] * sigmaStar.data[2]));
+	//XLAL_PRINT_INFO("a = %e\n", a);
+	//XLAL_PRINT_INFO("aStar = %e\n", sqrt(sigmaStar.data[0] * sigmaStar.data[0] + sigmaStar.data[1] * sigmaStar.data[1] + sigmaStar.data[2] * sigmaStar.data[2]));
 	if (isnan(a)) {
-		  printf("a is nan!!\n");
+		  XLAL_PRINT_INFO("a is nan!!\n");
           XLALPrintError( "XLAL Error - %s: a = nan  \n", __func__);
           XLAL_ERROR( XLAL_EINVAL );
 	}
@@ -1639,7 +1637,7 @@ GSLSpinPrecHamiltonianWrapperV2(double x, void *params)
 		/* Release the old memory */
 		XLALDestroyREAL8Vector(delsigmaKerr);
 	}
-	//printf("Hamiltonian = %e\n", XLALSimIMRSpinPrecEOBHamiltonian(eobParams->eta, &r, &p, &sigmaKerr, &sigmaStar, dParams->params->seobCoeffs));
+	//XLAL_PRINT_INFO("Hamiltonian = %e\n", XLALSimIMRSpinPrecEOBHamiltonian(eobParams->eta, &r, &p, &sigmaKerr, &sigmaStar, dParams->params->seobCoeffs));
 	return XLALSimIMRSpinPrecEOBHamiltonian(eobParams->eta, &r, &p, &spin1norm, &spin2norm, &sigmaKerr, &sigmaStar, dParams->params->tortoise, dParams->params->seobCoeffs) / eobParams->eta;
 }
 

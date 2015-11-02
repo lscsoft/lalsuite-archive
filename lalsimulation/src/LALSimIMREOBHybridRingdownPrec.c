@@ -61,15 +61,15 @@ static INT4 XLALSimIMREOBHybridRingdownWave(
                                             REAL8Vector          *matchrange /**<< Times which determine the comb of ringdown attachment */
 )
 {
-    
+
     /* XLAL error handling */
     INT4 errcode = XLAL_SUCCESS;
-    
+
     /* For checking GSL return codes */
     INT4 gslStatus;
-    
+
     UINT4 i, j, k, nmodes = 8;
-    
+
     /* Sampling rate from input */
     REAL8 t1, t2, t3, t4, t5, rt;
     gsl_matrix *coef;
@@ -80,30 +80,30 @@ static INT4 XLALSimIMREOBHybridRingdownWave(
     int s;
     REAL8 tj;
     REAL8 m;
-    
+
     /* mass in geometric units */
     m  = (mass1 + mass2) * LAL_MTSUN_SI;
     t5 = (matchrange->data[0] - matchrange->data[1]) * m;
     rt = -t5 / 5.;
-    
+
     t4 = t5 + rt;
     t3 = t4 + rt;
     t2 = t3 + rt;
     t1 = t2 + rt;
-    
+
     if ( inspwave1->length != 3 || inspwave2->length != 3 ||
         modefreqs->length != nmodes )
     {
         XLAL_ERROR( XLAL_EBADLEN );
     }
-    
+
     /* Solving the linear system for QNMs amplitude coefficients using gsl routine */
     /* Initiate matrices and supporting variables */
     XLAL_CALLGSL( coef = (gsl_matrix *) gsl_matrix_alloc(2 * nmodes, 2 * nmodes) );
     XLAL_CALLGSL( hderivs = (gsl_vector *) gsl_vector_alloc(2 * nmodes) );
     XLAL_CALLGSL( x = (gsl_vector *) gsl_vector_alloc(2 * nmodes) );
     XLAL_CALLGSL( p = (gsl_permutation *) gsl_permutation_alloc(2 * nmodes) );
-    
+
     /* Check all matrices and variables were allocated */
     if ( !coef || !hderivs || !x || !p )
     {
@@ -111,10 +111,10 @@ static INT4 XLALSimIMREOBHybridRingdownWave(
         if (hderivs) gsl_vector_free(hderivs);
         if (x)       gsl_vector_free(x);
         if (p)       gsl_permutation_free(p);
-        
+
         XLAL_ERROR( XLAL_ENOMEM );
     }
-    
+
     /* Define the linear system Ax=y */
     /* Matrix A (2*n by 2*n) has block symmetry. Define half of A here as "coef" */
     /* The half of A defined here corresponds to matrices M1 and -M2 in the DCC document T1100433 */
@@ -157,7 +157,7 @@ static INT4 XLALSimIMREOBHybridRingdownWave(
     gsl_vector_set(hderivs, 4 + nmodes, inspwave2->data[2]);
     gsl_vector_set(hderivs, 5, inspwave1->data[1]);
     gsl_vector_set(hderivs, 5 + nmodes, inspwave2->data[1]);
-    
+
     /* Complete the definition for the rest half of A */
     for (i = 0; i < nmodes; ++i)
     {
@@ -167,26 +167,26 @@ static INT4 XLALSimIMREOBHybridRingdownWave(
             gsl_matrix_set(coef, i + nmodes, k + nmodes, gsl_matrix_get(coef, i, k));
         }
     }
-    
+
 #if 0
     /* print ringdown-matching linear system: coefficient matrix and RHS vector */
-    printf("\nRingdown matching matrix:\n");
+    XLAL_PRINT_INFO("\nRingdown matching matrix:\n");
     for (i = 0; i < 16; ++i)
     {
         for (j = 0; j < 16; ++j)
         {
-            printf("%.12e ",gsl_matrix_get(coef,i,j));
+            XLAL_PRINT_INFO("%.12e ",gsl_matrix_get(coef,i,j));
         }
-        printf("\n");
+        XLAL_PRINT_INFO("\n");
     }
-    printf("RHS:  ");
+    XLAL_PRINT_INFO("RHS:  ");
     for (i = 0; i < 16; ++i)
     {
-        printf("%.12e   ",gsl_vector_get(hderivs,i));
+        XLAL_PRINT_INFO("%.12e   ",gsl_vector_get(hderivs,i));
     }
-    printf("\n");
+    XLAL_PRINT_INFO("\n");
 #endif
-    
+
     /* Call gsl LU decomposition to solve the linear system */
     XLAL_CALLGSL( gslStatus = gsl_linalg_LU_decomp(coef, p, &s) );
     if ( gslStatus == GSL_SUCCESS )
@@ -201,10 +201,10 @@ static INT4 XLALSimIMREOBHybridRingdownWave(
         gsl_permutation_free(p);
         XLAL_ERROR( XLAL_EFUNC );
     }
-    
+
     /* Putting solution to an XLAL vector */
     modeamps = XLALCreateREAL8Vector(2 * nmodes);
-    
+
     if ( !modeamps )
     {
         gsl_matrix_free(coef);
@@ -213,23 +213,23 @@ static INT4 XLALSimIMREOBHybridRingdownWave(
         gsl_permutation_free(p);
         XLAL_ERROR( XLAL_ENOMEM );
     }
-    
+
     for (i = 0; i < nmodes; ++i)
     {
         modeamps->data[i] = gsl_vector_get(x, i);
         modeamps->data[i + nmodes] = gsl_vector_get(x, i + nmodes);
     }
-    
+
     /* Free all gsl linear algebra objects */
     gsl_matrix_free(coef);
     gsl_vector_free(hderivs);
     gsl_vector_free(x);
     gsl_permutation_free(p);
-    
+
     /* Build ring-down waveforms */
-    
+
     REAL8 timeOffset = fmod( matchrange->data[1], dt/m) * dt;
-    
+
     for (j = 0; j < rdwave1->length; ++j)
     {
         tj = j * dt - timeOffset;
@@ -245,7 +245,7 @@ static INT4 XLALSimIMREOBHybridRingdownWave(
                +   modeamps->data[i + nmodes] * cos(tj * creal(modefreqs->data[i])) );
         }
     }
-    
+
     XLALDestroyREAL8Vector(modeamps);
     return errcode;
 }
@@ -267,13 +267,13 @@ static INT4 XLALGenerateHybridWaveDerivatives (
                                                REAL8           mass2        /**<< Second component mass (in Solar masses) */
 )
 {
-    
+
     /* XLAL error handling */
     INT4 errcode = XLAL_SUCCESS;
-    
+
     /* For checking GSL return codes */
     INT4 gslStatus;
-    
+
     UINT4 j;
     UINT4 vecLength;
     REAL8 m;
@@ -283,10 +283,10 @@ static INT4 XLALGenerateHybridWaveDerivatives (
     double *tlist;
     gsl_interp_accel *acc;
     gsl_spline *spline;
-    
+
     /* Total mass in geometric units */
     m  = (mass1 + mass2) * LAL_MTSUN_SI;
-    
+
     tlist = (double *) LALMalloc(6 * sizeof(double));
     rt = (matchrange->data[1] - matchrange->data[0]) / 5.;
     tlist[0] = matchrange->data[0];
@@ -295,25 +295,25 @@ static INT4 XLALGenerateHybridWaveDerivatives (
     tlist[3] = tlist[2] + rt;
     tlist[4] = tlist[3] + rt;
     tlist[5] = matchrange->data[1];
-    
+
     /* Set the length of the interpolation vectors */
     vecLength = ( m * matchrange->data[2] / dt ) + 1;
-    
+
     /* Getting interpolation and derivatives of the waveform using gsl spline routine */
     /* Initiate arrays and supporting variables for gsl */
     y = (double *) LALMalloc(vecLength * sizeof(double));
-    
+
     if ( !y )
     {
         XLAL_ERROR( XLAL_ENOMEM );
     }
-    
+
     for (j = 0; j < vecLength; ++j)
     {
         y[j] = wave->data[j];
     }
-    
-    
+
+
     XLAL_CALLGSL( acc = (gsl_interp_accel*) gsl_interp_accel_alloc() );
     XLAL_CALLGSL( spline = (gsl_spline*) gsl_spline_alloc(gsl_interp_cspline, vecLength) );
     if ( !acc || !spline )
@@ -323,17 +323,17 @@ static INT4 XLALGenerateHybridWaveDerivatives (
         LALFree( y );
         XLAL_ERROR( XLAL_ENOMEM );
     }
-    
+
     /* Gall gsl spline interpolation */
     gslStatus = gsl_spline_init(spline, timeVec->data, y, vecLength);
     if ( gslStatus != GSL_SUCCESS )
-    { 
+    {
         gsl_spline_free(spline);
         gsl_interp_accel_free(acc);
         LALFree( y );
         XLAL_ERROR( XLAL_EFUNC );
     }
-    
+
     /* Getting first and second order time derivatives from gsl interpolations */
     for (j = 0; j < 6; ++j)
     {
@@ -353,15 +353,15 @@ static INT4 XLALGenerateHybridWaveDerivatives (
         rwave->data[j]  = (REAL8)(ry);
         dwave->data[j]  = (REAL8)(dy/m);
         ddwave->data[j] = (REAL8)(dy2/m/m);
-        
+
     }
-    
+
     /* Free gsl variables */
     gsl_spline_free(spline);
     gsl_interp_accel_free(acc);
     LALFree( tlist );
     LALFree(y);
-    
+
     return errcode;
 }
 
@@ -381,8 +381,10 @@ static INT4 XLALGenerateHybridWaveDerivatives (
  * STEP 3) Get values and derivatives of inspiral waveforms at matching comb points
  * STEP 4) Solve QNM coefficients and generate ringdown waveforms
  * STEP 5) Stitch inspiral and ringdown waveoforms
+ * SEOBNRv2 prescriptions can be found in  https://dcc.ligo.org/T1400476
+ * SEONBRv3 prescriptions can be found in XXX
  */
-static INT4 
+static INT4
 XLALSimIMREOBHybridAttachRingdownPrec(
 				  REAL8Vector * signal1,	/**<< OUTPUT, Real of inspiral waveform to which we attach ringdown */
 				  REAL8Vector * signal2,	/**<< OUTPUT, Imag of inspiral waveform to which we attach ringdown */
@@ -427,7 +429,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 	REAL8		finalMass, finalSpin;
 	REAL8		chi1    , chi2, theta1, theta2;
     INT4 mHere = 0;
-    
+
     mTot = (mass1 + mass2) * LAL_MTSUN_SI;
 	eta = mass1 * mass2 / ((mass1 + mass2) * (mass1 + mass2));
 
@@ -483,7 +485,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 		XLAL_ERROR(XLAL_EFUNC);
 	}
 	if (debugout) {
-		printf("(Mf, af) = (%3.10f, %3.10f)\n", finalMass, finalSpin);
+		XLAL_PRINT_INFO("(Mf, af) = (%3.10f, %3.10f)\n", finalMass, finalSpin);
 	}
 	if (approximant == SEOBNRv1) {
 		/* Replace the last QNM with pQNM */
@@ -491,7 +493,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 		a = (spin1[2] + spin2[2]) / 2. * (1.0 - 2.0 * eta) + (spin1[2] - spin2[2]) / 2. * (mass1 - mass2) / (mass1 + mass2);
 		NRPeakOmega22 = GetNRSpinPeakOmega(l, m, eta, a) / mTot;
 		/*
-		 * printf("a and NRomega in QNM freq: %.16e %.16e %.16e %.16e
+		 * XLAL_PRINT_INFO("a and NRomega in QNM freq: %.16e %.16e %.16e %.16e
 		 * %.16e\n",spin1[2],spin2[2],
 		 * mTot/LAL_MTSUN_SI,a,NRPeakOmega22*mTot);
 		 */
@@ -511,7 +513,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 			 */
 			a = (spin1[2] + spin2[2]) / 2. * (1.0 - 2.0 * eta) + (spin1[2] - spin2[2]) / 2. * (mass1 - mass2) / (mass1 + mass2);
 			NRPeakOmega22 = GetNRSpinPeakOmegav2(l, m, eta, a) / mTot;
-            
+
 			/* Define chi */
 			chi = (spin1[2] + spin2[2]) / 2. + (spin1[2] - spin2[2]) / 2. * ((mass1 - mass2) / (mass1 + mass2)) / (1. - 2. * eta);
 
@@ -529,7 +531,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 			}
 			//Above definitions of kk, kt1 and kt2 are likely obsolete
 			/*
-			 * printf("a, chi and NRomega in QNM freq: %.16e
+			 * XLAL_PRINT_INFO("a, chi and NRomega in QNM freq: %.16e
 			 * %.16e %.16e %.16e %.16e %.16e\n",
 			 * spin1[2],spin2[2],mTot/LAL_MTSUN_SI,a,chi,NRPeakOme
 			 * ga22*mTot);
@@ -601,17 +603,17 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 			 * 0.37007703/mTot + I/1.3359367/mTot;
 			 * modefreqs->data[5] = 0.36980703/mTot +
 			 * I/1.7791212/mTot; modefreqs->data[4] =
-			 * 0.3595034/mTot + I/2.6989764/mTot; printf("sh =
-			 * %f\n",sh); printf("PeakOmega = %f, mTot =
-			 * %f\n",NRPeakOmega22,mTot); printf("w0 = %f, t0 =
+			 * 0.3595034/mTot + I/2.6989764/mTot; XLAL_PRINT_INFO("sh =
+			 * %f\n",sh); XLAL_PRINT_INFO("PeakOmega = %f, mTot =
+			 * %f\n",NRPeakOmega22,mTot); XLAL_PRINT_INFO("w0 = %f, t0 =
 			 * %f\n",creal(modefreqs->data[0])*mTot,
-			 * 1./cimag(modefreqs->data[0])/mTot); printf("w1 =
+			 * 1./cimag(modefreqs->data[0])/mTot); XLAL_PRINT_INFO("w1 =
 			 * %f, t1 = %f\n",creal(modefreqs->data[6])*mTot,
-			 * 1./cimag(modefreqs->data[6])/mTot); printf("w2 =
+			 * 1./cimag(modefreqs->data[6])/mTot); XLAL_PRINT_INFO("w2 =
 			 * %f, t2 = %f\n",creal(modefreqs->data[7])*mTot,
-			 * 1./cimag(modefreqs->data[7])/mTot); printf("w3 =
+			 * 1./cimag(modefreqs->data[7])/mTot); XLAL_PRINT_INFO("w3 =
 			 * %f, t3 = %f\n",creal(modefreqs->data[4])*mTot,
-			 * 1./cimag(modefreqs->data[4])/mTot); printf("w4 =
+			 * 1./cimag(modefreqs->data[4])/mTot); XLAL_PRINT_INFO("w4 =
 			 * %f, t4 = %f\n",creal(modefreqs->data[5])*mTot,
 			 * 1./cimag(modefreqs->data[5])/mTot);
 			 */
@@ -653,7 +655,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
         for (j = 0; j < timeVec->length; ++j) {
             y[j] = signal1->data[j];
             //fprintf(out1, "%.16e %.16e\n", timeVec->data[j], y[j]);
-            //printf("%.16e %.16e\n", timeVec->data[j], y[j]);
+            //XLAL_PRINT_INFO("%.16e %.16e\n", timeVec->data[j], y[j]);
         }
         //fclose(out1);
         //exit(0);
@@ -669,8 +671,8 @@ XLALSimIMREOBHybridAttachRingdownPrec(
             LALFree(y);
             XLAL_ERROR(XLAL_ENOMEM);
         }
-        
-        //printf("here1....  last point %f, match_t %f \n", timeVec->data[timeVec->length-1], matchrange->data[1]);
+
+        //XLAL_PRINT_INFO("here1....  last point %f, match_t %f \n", timeVec->data[timeVec->length-1], matchrange->data[1]);
         //INT4 gslStatus = gsl_spline_init(spline, timeVec->data, y, vecLength);
         INT4 gslStatus = gsl_spline_init(spline, timeVec->data, y, timeVec->length);
         if (gslStatus != GSL_SUCCESS) {
@@ -680,11 +682,11 @@ XLALSimIMREOBHybridAttachRingdownPrec(
             XLAL_ERROR(XLAL_EFUNC);
         }
         gslStatus = gsl_spline_eval_e(spline, matchrange->data[1], acc, &ry);
-        //int ind_stas = (int) matchrange->data[1]*(((mass1 + mass2) * LAL_MTSUN_SI / dt)); 
-        //printf("here2.... %f,  %f,  %f, %f \n", ry, timeVec->data[ind_stas], matchrange->data[1], y[ind_stas]);
+        //int ind_stas = (int) matchrange->data[1]*(((mass1 + mass2) * LAL_MTSUN_SI / dt));
+        //XLAL_PRINT_INFO("here2.... %f,  %f,  %f, %f \n", ry, timeVec->data[ind_stas], matchrange->data[1], y[ind_stas]);
         if (gslStatus == GSL_SUCCESS) {
             gslStatus = gsl_spline_eval_deriv_e(spline, matchrange->data[1], acc, &dy);
-            //printf("here2.... ");
+            //XLAL_PRINT_INFO("here2.... ");
         }
         if (gslStatus != GSL_SUCCESS) {
             gsl_spline_free(spline);
@@ -695,8 +697,8 @@ XLALSimIMREOBHybridAttachRingdownPrec(
         hRe = (REAL8) (ry);
         dhRe = (REAL8) (dy);
 
-        //printf("here hRe = %f, dhRe = %f \n", hRe, dhRe);
-        
+        //XLAL_PRINT_INFO("here hRe = %f, dhRe = %f \n", hRe, dhRe);
+
         //FILE *out2 = fopen( "Andrea2.dat","w");
         //for (j = 0; j < vecLength; ++j) {
         for (j = 0; j < timeVec->length; ++j) {
@@ -735,19 +737,19 @@ XLALSimIMREOBHybridAttachRingdownPrec(
         }
         hIm = (REAL8) (ry);
         dhIm = (REAL8) (dy);
-        
-        //printf("Stas, check hRe = %f, dhRe = %f, hIm = %f, dhIm = %f \n", hRe, dhRe, hIm, dhIm);
+
+        //XLAL_PRINT_INFO("Stas, check hRe = %f, dhRe = %f, hIm = %f, dhIm = %f \n", hRe, dhRe, hIm, dhIm);
         double hNorm2 = hRe*hRe + hIm*hIm;
         double omegaWavePeak = creal(modefreqs->data[0]);
         if (hNorm2 != 0.0){
             omegaWavePeak = ((-dhRe*hIm + dhIm*hRe)/hNorm2) / mTot;
         }
         else{
-            if(debugout) {printf("hNorm=0.0 for (l,m)=(%d,%d)\n",l,m);}
+            if(debugout) {XLAL_PRINT_INFO("hNorm=0.0 for (l,m)=(%d,%d)\n",l,m);}
 //            XLAL_ERROR(XLAL_EFAILED);
         }
 
-         
+
 		a = (chi1 + chi2) / 2. * (1.0 - 2.0 * eta) + (chi1 - chi2) / 2. * (mass1 - mass2) / (mass1 + mass2);
         NRPeakOmega22 = fabs(omegaWavePeak);
         gsl_spline_free(spline);
@@ -757,9 +759,9 @@ XLALSimIMREOBHybridAttachRingdownPrec(
         //NRPeakOmega22 = 0.3;
 		//NRPeakOmega22 = GetNRSpinPeakOmegav2(l, m, eta, a) / mTot;
 //        NRPeakOmega22 = omegaWavePeak/mTot;
-//        printf("(hRe, hIm, dhRe, dhIm)=(%.16e, %.16e, %.16e, %.16e)\n", hRe, hIm, dhRe, dhIm);
-//        printf("hNorm %.16e, tmatch %.16e\n",sqrt(hNorm2), matchrange->data[1]);
-//        printf("NRPeakOmega22 %.16e, omegaWavePeak %.16e\n",NRPeakOmega22,omegaWavePeak);
+//        XLAL_PRINT_INFO("(hRe, hIm, dhRe, dhIm)=(%.16e, %.16e, %.16e, %.16e)\n", hRe, hIm, dhRe, dhIm);
+//        XLAL_PRINT_INFO("hNorm %.16e, tmatch %.16e\n",sqrt(hNorm2), matchrange->data[1]);
+//        XLAL_PRINT_INFO("NRPeakOmega22 %.16e, omegaWavePeak %.16e\n",NRPeakOmega22,omegaWavePeak);
 		chi = (chi1 + chi2) / 2. + (chi1 - chi2) / 2. * ((mass1 - mass2) / (mass1 + mass2)) / (1. - 2. * eta);
 
 		sh = 0.;
@@ -787,7 +789,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 			 * kt2 describe those factors.
 			 */
 			/*
-			 * printf("Stas: a, chi and NRomega in QNM freq:
+			 * XLAL_PRINT_INFO("Stas: a, chi and NRomega in QNM freq:
 			 * %.16e %.16e %.16e %.16e %.16e %.16e\n",
 			 * spin1[2],spin2[2],mTot/LAL_MTSUN_SI,a,chi,NRPeakOme
 			 * ga22*mTot);
@@ -808,7 +810,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 			} else {
 				modefreqs->data[6] = (3. / 4. * NRPeakOmega22 / finalMass) + (1. / 4. * creal(modefreqs->data[0]));
 				modefreqs->data[7] = (2. / 3. * NRPeakOmega22 / finalMass) + (1. / 3. * creal(modefreqs->data[0]));
-                //printf("Stas , here m = %d modes: 0 = %4.10f, 6 = %4.10f, 7 = %4.10f \n", m, creal(modefreqs->data[0])*mTot, creal(modefreqs->data[6])*mTot, creal(modefreqs->data[7])*mTot);   
+                //XLAL_PRINT_INFO("Stas , here m = %d modes: 0 = %4.10f, 6 = %4.10f, 7 = %4.10f \n", m, creal(modefreqs->data[0])*mTot, creal(modefreqs->data[6])*mTot, creal(modefreqs->data[7])*mTot);
 			}
 
 			modefreqs->data[7] += I * 3.5 / 0.9 * cimag(modefreqs->data[0]);
@@ -817,7 +819,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 			if ((eta > 30. / 31. / 31. && eta <= 10. / 121. && chi >= 0.8) || (eta <= 30. / 31. / 31. && chi >= 0.8 && chi < 0.9)) {
 				//This is case 4 in T1400476 - v3
                 if (debugout)
-                    printf("Stas, this is case4 for pQNM eta = %f, chi = %f \n", eta, chi);
+                    XLAL_PRINT_INFO("Stas, this is case4 for pQNM eta = %f, chi = %f \n", eta, chi);
 					sh = -9. * (eta - 0.25) * (1. + 2. * exp(-(chi - 0.85) * (chi - 0.85) / 0.05 / 0.05)) * (1. + 1. / (1. + exp((eta - 0.01) / 0.001)));
 				kk = 0.7 + 0.3 * exp(100. * (eta - 0.25));
 				kt1 = 0.5 * sqrt(1. + 800.0 * eta * eta / 3.0) - 0.125;
@@ -833,7 +835,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 			if (eta < 30. / 31. / 31. && chi >= 0.9) {
 				//This is case 5 in T1400476 - v3
                 if (debugout)
-                    printf("Stas, this is case5 for pQNM eta = %f, chi = %f \n", eta, chi);
+                    XLAL_PRINT_INFO("Stas, this is case5 for pQNM eta = %f, chi = %f \n", eta, chi);
 					sh = 0.55 - 9. * (eta - 0.25) * (1. + 2. * exp(-(chi - 0.85) * (chi - 0.85) / 0.05 / 0.05)) * (1. + 1. / (1. + exp((eta - 0.01) / 0.001)));
 				kk = 0.7 + 0.3 * exp(100. * (eta - 0.25));
 				kt1 = 0.5 * sqrt(1. + 800.0 * eta * eta / 3.0) - 0.125;
@@ -848,7 +850,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 			if (eta > 10. / 121. && chi >= 0.8) {
 				//This is case 6 in T1400476 - v3
                 if (debugout)
-                    printf("Stas, this is case6 for pQNM eta = %f, chi = %f \n", eta, chi);
+                    XLAL_PRINT_INFO("Stas, this is case6 for pQNM eta = %f, chi = %f \n", eta, chi);
 					sh = 1. - 9. * (eta - 0.25) * (1. + 2. * exp(-(chi - 0.85) * (chi - 0.85) / 0.05 / 0.05)) * (1. + 1. / (1. + exp((eta - 0.01) / 0.001)));
 				kk = 0.7 + 0.3 * exp(100. * (eta - 0.25));
 				kt1 = 0.45 * sqrt(1. + 200.0 * eta * eta / 3.0) - 0.125;
@@ -857,13 +859,13 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 				modefreqs->data[7] = kk * creal(modefreqs->data[7]) + I * cimag(modefreqs->data[7]) / kt1;
 			}
             if (debugout)
-                printf("Stas, default (if nothing specified above) for pQNM eta = %f, chi = %f chi1 = %f \n", eta, chi,  chi1);
+                XLAL_PRINT_INFO("Stas, default (if nothing specified above) for pQNM eta = %f, chi = %f chi1 = %f \n", eta, chi,  chi1);
 
             // FIXME It is not compatible with v2!!!!
             if (chi1 >= 0.96){//  && eta < 10.0/11./11.){
             //    modefreqs->data[7] += I * 3.5 / 0.9 * cimag(modefreqs->data[0]) - I * cimag(modefreqs->data[7]);
                 if (debugout){
-                    printf("Stas, the decay time will be modified for pQNM  chi1 = %f, from %f to %f \n", chi1, 1.0/cimag(modefreqs->data[7])/mTot,   1.0/(5.0 * cimag(modefreqs->data[0]))/mTot );
+                    XLAL_PRINT_INFO("Stas, the decay time will be modified for pQNM  chi1 = %f, from %f to %f \n", chi1, 1.0/cimag(modefreqs->data[7])/mTot,   1.0/(5.0 * cimag(modefreqs->data[0]))/mTot );
                 }
                   modefreqs->data[7] += I * 5.0 * cimag(modefreqs->data[0]) - I * cimag(modefreqs->data[7]);
             }
@@ -880,14 +882,14 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 			 * modefreqs->data[7] += I * 10./3. *
 			 * cimag(modefreqs->data[0]);
 			 */
-             
-             // FIXME 
+
+             // FIXME
              // {{{
             if (debugout) {
-                printf("Stas: JLN*eta = %f, \n", JLN*eta);
-                printf("NRPeakOmega22 = %3.10f,  %3.10f,  %3.10f,  %3.10f\n", NRPeakOmega22 * mTot /finalMass, NRPeakOmega22 / finalMass,  finalMass,  mTot);
+                XLAL_PRINT_INFO("Stas: JLN*eta = %f, \n", JLN*eta);
+                XLAL_PRINT_INFO("NRPeakOmega22 = %3.10f,  %3.10f,  %3.10f,  %3.10f\n", NRPeakOmega22 * mTot /finalMass, NRPeakOmega22 / finalMass,  finalMass,  mTot);
                 for (j = 0; j < nmodes; j++) {
-                    printf("QNM frequencies: %d %d %d %3.10f %3.10f\n", l, m, j, creal(modefreqs->data[j]) * mTot, 1. / cimag(modefreqs->data[j]) / mTot);
+                    XLAL_PRINT_INFO("QNM frequencies: %d %d %d %3.10f %3.10f\n", l, m, j, creal(modefreqs->data[j]) * mTot, 1. / cimag(modefreqs->data[j]) / mTot);
                 }
             }
 
@@ -897,7 +899,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 			 } else {
 				modefreqs->data[5] = (3. / 4. * NRPeakOmega22 / finalMass) + (1. / 4. * creal(modefreqs->data[0]));
 				modefreqs->data[4] = (2. / 3. * NRPeakOmega22 / finalMass) + (1. / 3. * creal(modefreqs->data[0]));
-                //printf("Stas , here m = %d modes: 0 = %4.10f, 6 = %4.10f, 7 = %4.10f \n", m, creal(modefreqs->data[0])*mTot, creal(modefreqs->data[6])*mTot, creal(modefreqs->data[7])*mTot);   
+                //XLAL_PRINT_INFO("Stas , here m = %d modes: 0 = %4.10f, 6 = %4.10f, 7 = %4.10f \n", m, creal(modefreqs->data[0])*mTot, creal(modefreqs->data[6])*mTot, creal(modefreqs->data[7])*mTot);
 			 }
 			 modefreqs->data[5] += I * 3.5 / 0.9 * cimag(modefreqs->data[0]);
 			 modefreqs->data[4] += I * 3.5 * cimag(modefreqs->data[0]);*/
@@ -906,13 +908,13 @@ XLALSimIMREOBHybridAttachRingdownPrec(
              modefreqs_xtr = XLALCreateCOMPLEX16Vector(nmodes);
              if (!modefreqs_xtr) {
                  XLAL_ERROR(XLAL_ENOMEM);
-             }   
+             }
              //modefreqs->data[4] =    ;
              //modefreqs->data[5] =  0.0;
              //modefreqs->data[6] =   0.0;
              //modefreqs->data[7] =  0.0;
              //XLALSimIMREOBGenerateQNMFreqV2Prec(modefreqs_xtr, mass1, mass2, spin1, spin2, l, 1, nmodes, approximant);
-             //if (m == -2){ 
+             //if (m == -2){
              //    XLALSimIMREOBGenerateQNMFreqV2Prec(modefreqs_xtr, mass1, mass2, spin1, spin2, l, -1, nmodes, approximant);
              //}
              //modefreqs->data[4] = modefreqs_xtr->data[0];
@@ -927,7 +929,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
                      modefreqs->data[6] =  modefreqs_xtr->data[1];
                      //modefreqs->data[7] =  modefreqs_xtr->data[2];
                  }
-                 if (m == -2){ 
+                 if (m == -2){
                      //XLALSimIMREOBGenerateQNMFreqV2Prec(modefreqs_xtr, mass1, mass2, spin1, spin2, l, 2, nmodes, approximant);
                      modefreqs->data[5] =  conjl(-1.0 * modefreqs_xtr->data[0]);
                      //modefreqs->data[7] =  conjl(-1.0 * modefreqs_xtr->data[1]);
@@ -941,7 +943,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
              //XLALSimIMREOBGenerateQNMFreqV2Prec(modefreqs_xtr, mass1, mass2, spin1, spin2, l, -1, nmodes, approximant);
              //modefreqs->data[6] =  modefreqs_xtr->data[0];
              //modefreqs->data[7] =  modefreqs_xtr->data[0];
-             //if (m == -2){ 
+             //if (m == -2){
                  //XLALSimIMREOBGenerateQNMFreqV2Prec(modefreqs_xtr, mass1, mass2, spin1, spin2, l, 2, nmodes, approximant);
                  //modefreqs->data[6] =  conjl(-1.0 * modefreqs_xtr->data[0]);
              //    modefreqs->data[7] =  conjl(-1.0 *  modefreqs_xtr->data[0]);
@@ -955,8 +957,8 @@ XLALSimIMREOBHybridAttachRingdownPrec(
                      modefreqs->data[6] =  modefreqs_xtr->data[1];
                      //modefreqs->data[7] =  modefreqs_xtr->data[2];
                  }
-                 //printf("Stas, %f, %f \n", creal(modefreqs->data[6]), creal(modefreqs_xtr->data[0]) );
-                 if (m == -2){ 
+                 //XLAL_PRINT_INFO("Stas, %f, %f \n", creal(modefreqs->data[6]), creal(modefreqs_xtr->data[0]) );
+                 if (m == -2){
                      //XLALSimIMREOBGenerateQNMFreqV2Prec(modefreqs_xtr, mass1, mass2, spin1, spin2, l, 2, nmodes, approximant);
                      modefreqs->data[5] =  conjl(-1.0 * modefreqs_xtr->data[0]);
                      //modefreqs->data[7] =  conjl(-1.0 * modefreqs_xtr->data[1]);
@@ -969,7 +971,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
                  //XLALSimIMREOBGenerateQNMFreqV2Prec(modefreqs_xtr, mass1, mass2, spin1, spin2, l,  1, nmodes, approximant);
                  //modefreqs->data[6] =  modefreqs_xtr->data[0];
                  //modefreqs->data[7] =  modefreqs_xtr->data[1];
-                 //if (m == -2){ 
+                 //if (m == -2){
                      //XLALSimIMREOBGenerateQNMFreqV2Prec(modefreqs_xtr, mass1, mass2, spin1, spin2, l, 2, nmodes, approximant);
                  //    modefreqs->data[6] =  conjl(-1.0 * modefreqs_xtr->data[0]);
                      //modefreqs->data[7] =  conjl(-1.0 *  modefreqs_xtr->data[1]);
@@ -978,11 +980,11 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 
 
              XLALDestroyCOMPLEX16Vector(modefreqs_xtr);
-             
-             /*XLALSimIMREOBGenerateQNMFreqV2Prec(modefreqs_xtr, mass1, mass2, spin1, spin2, l, 1, nmodes, approximant);
-             
 
-               
+             /*XLALSimIMREOBGenerateQNMFreqV2Prec(modefreqs_xtr, mass1, mass2, spin1, spin2, l, 1, nmodes, approximant);
+
+
+
              modefreqs->data[6] =  modefreqs_xtr->data[0];
              modefreqs->data[7] =  modefreqs_xtr->data[1];
              //modefreqs->data[6] =  conjl(-1.0 * modefreqs->data[0]);
@@ -1000,7 +1002,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 
 
              // }}}
-             
+
 		} //end if m= 2, l = 2
 
             // FIXME
@@ -1013,7 +1015,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
                  } else {
                     modefreqs->data[5] = (3. / 4. * NRPeakOmega22 / finalMass) + (1. / 4. * creal(modefreqs->data[0]));
                     modefreqs->data[4] = (2. / 3. * NRPeakOmega22 / finalMass) + (1. / 3. * creal(modefreqs->data[0]));
-                    //printf("Stas , here m = %d modes: 0 = %4.10f, 6 = %4.10f, 7 = %4.10f \n", m, creal(modefreqs->data[0])*mTot, creal(modefreqs->data[6])*mTot, creal(modefreqs->data[7])*mTot);   
+                    //XLAL_PRINT_INFO("Stas , here m = %d modes: 0 = %4.10f, 6 = %4.10f, 7 = %4.10f \n", m, creal(modefreqs->data[0])*mTot, creal(modefreqs->data[6])*mTot, creal(modefreqs->data[7])*mTot);
                  }
                  modefreqs->data[5] += I * 3.5 / 0.9 * cimag(modefreqs->data[0]);
                  modefreqs->data[4] += I * 3.5 * cimag(modefreqs->data[0]);*/
@@ -1022,11 +1024,11 @@ XLALSimIMREOBHybridAttachRingdownPrec(
                  modefreqs_xtr = XLALCreateCOMPLEX16Vector(nmodes);
                  if (!modefreqs_xtr) {
                      XLAL_ERROR(XLAL_ENOMEM);
-                 }  
-                 //printf("Stas, generating QNM freqs... "); 
+                 }
+                 //XLAL_PRINT_INFO("Stas, generating QNM freqs... ");
                  if (JLN > 0.0){
                      XLALSimIMREOBGenerateQNMFreqV2Prec(modefreqs_xtr, mass1, mass2, spin1, spin2, l, -1, nmodes, approximant);
-                     //printf("done\n"); 
+                     //XLAL_PRINT_INFO("done\n");
                      modefreqs->data[5] =  modefreqs_xtr->data[0];
                      //modefreqs->data[6] =  modefreqs_xtr->data[1];
                      //modefreqs->data[7] =  modefreqs_xtr->data[2];
@@ -1034,7 +1036,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
                          modefreqs->data[6] =  modefreqs_xtr->data[1];
                          modefreqs->data[7] =  modefreqs_xtr->data[2];
                      }
-                     if (m == -1){ 
+                     if (m == -1){
                          //XLALSimIMREOBGenerateQNMFreqV2Prec(modefreqs_xtr, mass1, mass2, spin1, spin2, l, -1, nmodes, approximant);
                          modefreqs->data[5] =  conjl(-1.0 * modefreqs_xtr->data[0]);
                          //modefreqs->data[6] =  conjl(-1.0 * modefreqs_xtr->data[1]);
@@ -1049,7 +1051,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
                  //if (JLN > 0.0){
                  //    modefreqs->data[6] =  modefreqs_xtr->data[0];
                      //modefreqs->data[5] =  modefreqs_xtr->data[1];
-                //     if (m == -1){ 
+                //     if (m == -1){
                          //XLALSimIMREOBGenerateQNMFreqV2Prec(modefreqs_xtr, mass1, mass2, spin1, spin2, l, 2, nmodes, approximant);
                 //         modefreqs->data[6] =  conjl(-1.0 * modefreqs_xtr->data[0]);
                          //modefreqs->data[5] =  conjl(-1.0 *  modefreqs_xtr->data[1]);
@@ -1059,7 +1061,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
                      //modefreqs->data[4] =  conjl(-1.0 * modefreqs->data[4]);
                      //modefreqs->data[5] =  conjl(-1.0 *  modefreqs->data[5]);
                      XLALSimIMREOBGenerateQNMFreqV2Prec(modefreqs_xtr, mass1, mass2, spin1, spin2, l, 1, nmodes, approximant);
-                     //printf("done\n"); 
+                     //XLAL_PRINT_INFO("done\n");
                      modefreqs->data[5] =  modefreqs_xtr->data[0];
                      //modefreqs->data[6] =  modefreqs_xtr->data[1];
                      //modefreqs->data[7] =  modefreqs_xtr->data[2];
@@ -1067,7 +1069,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
                          modefreqs->data[6] =  modefreqs_xtr->data[1];
                          modefreqs->data[7] =  modefreqs_xtr->data[2];
                      }
-                     if (m == -1){ 
+                     if (m == -1){
                          //XLALSimIMREOBGenerateQNMFreqV2Prec(modefreqs_xtr, mass1, mass2, spin1, spin2, l, -1, nmodes, approximant);
                          modefreqs->data[5] =  conjl(-1.0 * modefreqs_xtr->data[0]);
                          //modefreqs->data[6] =  conjl(-1.0 * modefreqs_xtr->data[1]);
@@ -1080,7 +1082,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
                      //XLALSimIMREOBGenerateQNMFreqV2Prec(modefreqs_xtr, mass1, mass2, spin1, spin2, l, 2, nmodes, approximant);
                      //modefreqs->data[6] =  modefreqs_xtr->data[0];
                      //modefreqs->data[5] =  modefreqs_xtr->data[1];
-                     //if (m == -1){ 
+                     //if (m == -1){
                          //XLALSimIMREOBGenerateQNMFreqV2Prec(modefreqs_xtr, mass1, mass2, spin1, spin2, l, 2, nmodes, approximant);
                      //    modefreqs->data[6] =  conjl(-1.0 * modefreqs_xtr->data[0]);
                          //modefreqs->data[5] =  conjl(-1.0 *  modefreqs_xtr->data[1]);
@@ -1107,9 +1109,9 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 				matchrange->data[0] -= fmod(matchrange->data[0], dt / mTot);
 		matchrange->data[1] -= fmod(matchrange->data[1], dt / mTot);
 		if (debugout) {
-			printf("NRPeakOmega22 = %3.10f,  %3.10f,  %3.10f,  %3.10f\n", NRPeakOmega22 * mTot /finalMass, NRPeakOmega22 / finalMass,  finalMass,  mTot);
+			XLAL_PRINT_INFO("NRPeakOmega22 = %3.10f,  %3.10f,  %3.10f,  %3.10f\n", NRPeakOmega22 * mTot /finalMass, NRPeakOmega22 / finalMass,  finalMass,  mTot);
 			for (j = 0; j < nmodes; j++) {
-				printf("QNM frequencies: %d %d %d %3.10f %3.10f\n", l, m, j, creal(modefreqs->data[j]) * mTot, 1. / cimag(modefreqs->data[j]) / mTot);
+				XLAL_PRINT_INFO("QNM frequencies: %d %d %d %3.10f %3.10f\n", l, m, j, creal(modefreqs->data[j]) * mTot, 1. / cimag(modefreqs->data[j]) / mTot);
 			}
 		}
 		/*
@@ -1117,7 +1119,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 		 * mode
 		 */
 		Nrdwave = (INT4) (EOB_RD_EFOLDS / cimag(modefreqs->data[0]) / dt);
-        //printf("STas, EOB_RD_EFOLDS = %f, freq = %f \n", EOB_RD_EFOLDS, cimag(modefreqs->data[0])*dt);
+        //XLAL_PRINT_INFO("STas, EOB_RD_EFOLDS = %f, freq = %f \n", EOB_RD_EFOLDS, cimag(modefreqs->data[0])*dt);
 
 		/*
 		 * Check the value of attpos, to prevent memory access
@@ -1125,7 +1127,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 		 */
 		if (matchrange->data[0] * mTot / dt < 5 || matchrange->data[1] * mTot / dt > matchrange->data[2] * mTot / dt - 2) {
 			XLALPrintError("More inspiral points needed for ringdown matching.\n");
-			printf("%.16e,%.16e,%.16e\n", matchrange->data[0] * mTot / dt, matchrange->data[1] * mTot / dt, matchrange->data[2] * mTot / dt - 2);
+			XLAL_PRINT_INFO("%.16e,%.16e,%.16e\n", matchrange->data[0] * mTot / dt, matchrange->data[1] * mTot / dt, matchrange->data[2] * mTot / dt - 2);
 			XLALDestroyCOMPLEX16Vector(modefreqs);
 			XLAL_ERROR(XLAL_EFAILED);
 		}
@@ -1234,7 +1236,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 			XLAL_ERROR(XLAL_EFUNC);
 		}
 
-        //printf("Stas we're down with RD solving, attaching it now....");
+        //XLAL_PRINT_INFO("Stas we're down with RD solving, attaching it now....");
 		/*
 		 * STEP 5) Stitch inspiral and ringdown waveoforms
 		 */
@@ -1249,12 +1251,12 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 			signal1->data[j + attachIdx] = rdwave1->data[j];
 			signal2->data[j + attachIdx] = rdwave2->data[j];
 		}
-        //printf(" Stas, done 1 length = %d, Nrdwave = %d, attachIdx = %d \n", signal1->length, Nrdwave, attachIdx);
+        //XLAL_PRINT_INFO(" Stas, done 1 length = %d, Nrdwave = %d, attachIdx = %d \n", signal1->length, Nrdwave, attachIdx);
 
 		memset(signal1->data + Nrdwave + attachIdx, 0, (signal1->length - Nrdwave - attachIdx) * sizeof(REAL8));
 		memset(signal2->data + Nrdwave + attachIdx, 0, (signal2->length - Nrdwave - attachIdx) * sizeof(REAL8));
-        
-        //printf(" Stas, done 2 \n");
+
+        //XLAL_PRINT_INFO(" Stas, done 2 \n");
 
 		/* Free memory */
 		XLALDestroyCOMPLEX16Vector(modefreqs);
@@ -1265,8 +1267,8 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 		XLALDestroyREAL8Vector(ddinspwave);
 		XLALDestroyREAL8VectorSequence(inspwaves1);
 		XLALDestroyREAL8VectorSequence(inspwaves2);
-        
-        //printf(" Stas, done 3 \n");
+
+        //XLAL_PRINT_INFO(" Stas, done 3 \n");
 
 		return XLAL_SUCCESS;
 	}

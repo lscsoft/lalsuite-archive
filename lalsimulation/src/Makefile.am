@@ -95,7 +95,17 @@ noinst_HEADERS = \
 	LALSimIMRPhenomD.h \
 	LALSimIMRPhenomP.c \
 	LALSimIMRSEOBNRROMUtilities.c \
-	LALSimIMREOBNRv2HMROMUtilities.c
+	LALSimIMREOBNRv2HMROMUtilities.c \
+	LALSimBlackHoleRingdownPrec.c \
+	LALSimBlackHoleRingdownPrec.h \
+	LALSimIMRSpinEOBFactorizedWaveformPrec.c \
+	LALSimIMRSpinEOBHamiltonianPrec.c \
+	LALSimIMRSpinEOBAuxFuncsPrec.c \
+	LALSimIMRSpinEOBFactorizedWaveformCoefficientsPrec.c \
+	LALSimIMREOBHybridRingdownPrec.c \
+	LALSimIMRSpinEOBFactorizedFluxPrec.c \
+	LALSimIMRSpinEOBHcapNumericalDerivativePrec.c \
+	LALSimIMRSpinEOBInitialConditionsPrec.c
 
 lib_LTLIBRARIES = liblalsimulation.la
 liblalsimulation_la_SOURCES = \
