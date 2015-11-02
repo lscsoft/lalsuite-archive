@@ -3144,10 +3144,17 @@ int XLALSimIMRSpinEOBWaveformAll(
 
   magLN = sqrt(inner_product(rcrossrdot, rcrossrdot));
   JLN =  (Jx*rcrossrdot[0] + Jy*rcrossrdot[1] + Jz*rcrossrdot[2])/magLN/magJ;
+  // Stas: here is attampt to use projection of the spin on L at l.r. projection on J doesn't work for anti-aligned system
+  double chi1L = values->data[6]*Lx + values->data[7] *Ly + values->data[8] *Lz;
+  double chi2L = values->data[9]*Lx + values->data[10]*Ly + values->data[11]*Lz;
+  chi1L /=  magL*m1*m1/mTotal/mTotal;
+  chi2L /=  magL*m2*m2/mTotal/mTotal;
+  double chiL = (chi1L+chi2L)/2. + (chi1L-chi2L)/2.*((m1-m2)/(m1+m2))/(1. - 2.*eta);
 
   
   if(debugPK) { 
       printf("chi1J,chi2J,chiJ = %3.10f %3.10f %3.10f\n", chi1J,chi2J,chiJ); fflush(NULL); fflush(NULL);
+      printf("chi1L,chi2L, chiL = %3.10f %3.10f %3.10f \n", chi1L,chi2L, chiL); fflush(NULL); fflush(NULL);
       printf("J.L = %4.11f \n", kappaJL); fflush(NULL); 
       printf("J.LN = %4.11f \n", JLN);
       printf("L.LN = %4.11f \n", (Lx*rcrossrdot[0] + Ly*rcrossrdot[1] + Lz*rcrossrdot[2])/magL/magLN);
@@ -3169,11 +3176,16 @@ int XLALSimIMRSpinEOBWaveformAll(
       break;
     case 2:
       combSize = 12.;       
-      if ( chi1J == 0. && chi2J == 0. ) combSize = 11.;
-      if (chiJ >= 0.8 && eta >30.0/(31.*31) && eta <10.0/121.) combSize = 13.5;
-      if (chiJ >= 0.9 && eta < 30./(31.*31.)) combSize = 12.0;
-      if (chiJ >= 0.8 && eta > 10./121.) combSize = 8.5;       
-      deltaNQC = XLALSimIMREOBGetNRSpinPeakDeltaTv2(2, 2, m1, m2, chi1J, chi2J );
+      //if ( chi1J == 0. && chi2J == 0. ) combSize = 11.;
+      //if (chiJ >= 0.8 && eta >30.0/(31.*31) && eta <10.0/121.) combSize = 13.5;
+      //if (chiJ >= 0.9 && eta < 30./(31.*31.)) combSize = 12.0;
+      //if (chiJ >= 0.8 && eta > 10./121.) combSize = 8.5;       
+      //deltaNQC = XLALSimIMREOBGetNRSpinPeakDeltaTv2(2, 2, m1, m2, chi1J, chi2J );
+      if ( chi1L == 0. && chi2L == 0. ) combSize = 11.;
+      if (chiL >= 0.8 && eta >30.0/(31.*31) && eta <10.0/121.) combSize = 13.5;
+      if (chiL >= 0.9 && eta < 30./(31.*31.)) combSize = 12.0;
+      if (chiL >= 0.8 && eta > 10./121.) combSize = 8.5;       
+      deltaNQC = XLALSimIMREOBGetNRSpinPeakDeltaTv2(2, 2, m1, m2, chi1L, chi2L );
       // FIXME !!!!! 
       if ( debugPK ) {       
         printf("v2 RD prescriptions are used! %3.10f %3.10f\n", 
@@ -3219,12 +3231,17 @@ int XLALSimIMRSpinEOBWaveformAll(
   JframeEz[0] = Jx / magJ;
   JframeEz[1] = Jy / magJ;
   JframeEz[2] = Jz / magJ;
-  if ( 1.-fabs(JframeEz[2]) < 1.0e-13 )
-  { JframeEx[0] = 1.; JframeEx[1] = 0.; JframeEx[2] = 0.; }
-  else {
-    JframeEx[0] = JframeEz[1];
-    JframeEx[1] = -JframeEz[0];
-    JframeEx[2] = 0.;
+  
+  if ( fabs(1.+ JframeEz[2]) <= 1.0e-13 )
+  { JframeEx[0] = -1.; JframeEx[1] = 0.; JframeEx[2] = 0.; } // anti-aligned
+  else { 
+      if ( fabs(1. - JframeEz[2]) <= 1.0e-13 )
+          { JframeEx[0] = 1.; JframeEx[1] = 0.; JframeEx[2] = 0.; }  // aligned
+      else {
+            JframeEx[0] = JframeEz[1];
+            JframeEx[1] = -JframeEz[0];
+            JframeEx[2] = 0.;
+      }
   }
   // FIXME try to change the sign of x:
   //if (JframeEx[0] < 0.0){
@@ -3412,6 +3429,15 @@ int XLALSimIMRSpinEOBWaveformAll(
     bP2J = acos( JframeEz[0]*LframeEz[0]+JframeEz[1]*LframeEz[1]+JframeEz[2]*LframeEz[2]);
           gP2J = atan2(  JframeEy[0]*LframeEz[0]+JframeEy[1]*LframeEz[1]+JframeEy[2]*LframeEz[2],
                  -(JframeEx[0]*LframeEz[0]+JframeEx[1]*LframeEz[1]+JframeEx[2]*LframeEz[2]));
+    if ( fabs(bP2J-LAL_PI) < 1.e-10){
+      gP2J = 0.0;
+      aP2J = atan2( JframeEx[1], JframeEx[0]);
+    }
+
+    if ( fabs(bP2J) < 1.e-10){
+      gP2J = 0.0;
+      aP2J = atan2( JframeEx[1], JframeEx[0]);
+    }
 
 /*if (i==0||i==1900) printf("{{%f,%f,%f},{%f,%f,%f},{%f,%f,%f}}\n",JframeEx[0],JframeEx[1],JframeEx[2],JframeEy[0],JframeEy[1],JframeEy[2],JframeEz[0],JframeEz[1],JframeEz[2]);
 if (i==0||i==1900) printf("{{%f,%f,%f},{%f,%f,%f},{%f,%f,%f}}\n",LframeEx[0],LframeEx[1],LframeEx[2],LframeEy[0],LframeEy[1],LframeEy[2],LframeEz[0],LframeEz[1],LframeEz[2]);
@@ -4142,8 +4168,11 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
           sigImHi->data[i] = cimag(h22JTSHi->data->data[i]);
         }
 
+      //if( XLALSimCheckRDattachment(sigReHi, sigImHi, &ratio22, tAttach, 2, 2,
+      //              deltaTHigh, m1, m2, 0.0, 0.0, chi1J, 0.0, 0.0, chi2J,
+      //              &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL ) == XLAL_FAILURE )
       if( XLALSimCheckRDattachment(sigReHi, sigImHi, &ratio22, tAttach, 2, 2,
-                    deltaTHigh, m1, m2, 0.0, 0.0, chi1J, 0.0, 0.0, chi2J,
+                    deltaTHigh, m1, m2, 0.0, 0.0, chi1L, 0.0, 0.0, chi2L,
                     &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL ) == XLAL_FAILURE )
       {
           XLAL_ERROR( XLAL_EFUNC );
@@ -4161,8 +4190,11 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
           sigImHi->data[i] = cimag(h2m2JTSHi->data->data[i]);
         }
 
+      //if( XLALSimCheckRDattachment(sigReHi, sigImHi, &ratio2m2, tAttach, 2, -2,
+      //              deltaTHigh, m1, m2, 0.0, 0.0, chi1J, 0.0, 0.0, chi2J,
+      //              &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL ) == XLAL_FAILURE )
       if( XLALSimCheckRDattachment(sigReHi, sigImHi, &ratio2m2, tAttach, 2, -2,
-                    deltaTHigh, m1, m2, 0.0, 0.0, chi1J, 0.0, 0.0, chi2J,
+                    deltaTHigh, m1, m2, 0.0, 0.0, chi1L, 0.0, 0.0, chi2L,
                     &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL ) == XLAL_FAILURE )
       {
           XLAL_ERROR( XLAL_EFUNC );
@@ -4178,9 +4210,13 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
            memset( sigReHi->data, 0, sigReHi->length * sizeof( sigReHi->data[0] ));
            memset( sigImHi->data, 0, sigImHi->length * sizeof( sigImHi->data[0] ));
             
+           //int found_att = XLALSimAdjustRDattachmentTime( sigReHi, sigImHi, h22JTSHi, h2m2JTSHi,  
+           //         &ratio22, &ratio2m2, &tAttach, thr,
+           //         deltaTHigh, m1, m2, 0.0, 0.0, chi1J, 0.0, 0.0, chi2J,
+           //         &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL, combSize, tMaxOmega, tMaxAmp);
            int found_att = XLALSimAdjustRDattachmentTime( sigReHi, sigImHi, h22JTSHi, h2m2JTSHi,  
                     &ratio22, &ratio2m2, &tAttach, thr,
-                    deltaTHigh, m1, m2, 0.0, 0.0, chi1J, 0.0, 0.0, chi2J,
+                    deltaTHigh, m1, m2, 0.0, 0.0, chi1L, 0.0, 0.0, chi2L,
                     &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL, combSize, tMaxOmega, tMaxAmp);
              
            if (debugPK){
@@ -4234,8 +4270,12 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
       sigReHi->data[i] = creal(hJTSHi->data->data[i]);
       sigImHi->data[i] = cimag(hJTSHi->data->data[i]);
     }
+    //if ( XLALSimIMREOBHybridAttachRingdownPrec( sigReHi, sigImHi, 2, k,
+    //            deltaTHigh, m1, m2, 0.0, 0.0, chi1J, 0.0, 0.0, chi2J,
+    //            &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL )
+                //&timeHi, rdMatchPoint, spinEOBApproximant, JLN )
     if ( XLALSimIMREOBHybridAttachRingdownPrec( sigReHi, sigImHi, 2, k,
-                deltaTHigh, m1, m2, 0.0, 0.0, chi1J, 0.0, 0.0, chi2J,
+                deltaTHigh, m1, m2, 0.0, 0.0, chi1L, 0.0, 0.0, chi2L,
                 &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL )
                 //&timeHi, rdMatchPoint, spinEOBApproximant, JLN )
             == XLAL_FAILURE )
