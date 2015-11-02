@@ -3746,7 +3746,10 @@ def calculate_redshift(distance,h=0.7,om=0.3,ol=0.7,w0=-1.0):
         return dl - lal.LuminosityDistance(omega,z)
 
     omega = lal.CreateCosmologicalParameters(h,om,ol,w0,0.0,0.0)
-    z = np.array([newton(find_z_root,np.random.uniform(0.0,2.0),args = (d,omega)) for d in distance[:,0]])
+    if isinstance(distance,float):
+        z = np.array([newton(find_z_root,np.random.uniform(0.0,2.0),args = (distance,omega))])
+    else:
+        z = np.array([newton(find_z_root,np.random.uniform(0.0,2.0),args = (d,omega)) for d in distance[:,0]])
     return z.reshape(z.shape[0],1)
 
 def source_mass(mass, redshift):
