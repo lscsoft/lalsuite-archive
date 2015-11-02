@@ -23,6 +23,10 @@ typedef struct {
 	REAL *power_cc;
 	REAL *power_im_pc; /* imaginary part for loosely coherent statistic */
 
+	REAL *memory_pool;
+	
+	int memory_pool_size;
+	
 	int offset; /* this is the index of the bin with index 0 in the output (i.e. firstbin) */
 
 	int weight_arrays_non_zero;

@@ -378,10 +378,7 @@ def cbcBayesPostProc(
             except KeyError:
                 print "Warning: No 'time' column!"
 
-    try:
-      pos.extend_posterior()
-    except:
-      pass
+    pos.extend_posterior()
 
     #Perform necessary mappings
     functions = {'cos':cos,'sin':sin,'exp':exp,'log':log}
@@ -510,11 +507,19 @@ def cbcBayesPostProc(
     statout=open(statfilename,"w")
     statout.write("\tmaP\tmaxL\tKL\tstdev\tmean\tmedian\tstacc\tinjection\tvalue\n")
     
+    warned_about_kl = False
     for statname,statoned_pos in pos:
 
       statmax_pos,max_i=pos._posMaxL()
       statmaxL=statoned_pos.samples[max_i][0]
-      statKL = statoned_pos.KL()
+      try:
+          statKL = statoned_pos.KL()
+      except ValueError:
+          if not warned_about_kl:
+              print("Unable to compute KL divergence")
+              warned_about_kl = True
+          statKL = None
+
       statmax_pos,max_j=pos._posMap()
       statmaxP=statoned_pos.samples[max_j][0]
       statmean=str(statoned_pos.mean)
@@ -598,7 +603,9 @@ def cbcBayesPostProc(
         wfsection.write('<a href="PSDs/PSD.png" target="_blank"><img src="PSDs/PSD.png"/></a>')
       except  Exception,e:
         print "Could not create PSD plot. The error was: %s\n"%str(e)
-        wfsection.write("<b>No PSD file found!</b>")
+        wfsection.write("<b>PSD plotting failed</b>")
+    else:
+        wfsection.write("<b>No PSD files provided</b>")
 
     # Add plots for calibration estimates
     if np.any(['spcal_amp' in param for param in pos.names]) or np.any(['spcal_phase' in param for param in pos.names]):
@@ -606,9 +613,6 @@ def cbcBayesPostProc(
       wfsection=html.add_section_to_element('Calibration',wftd)
       bppu.plot_calibration_pos(pos, outpath=outdir)
       wfsection.write('<a href="calibration.png" target="_blank"><img src="calibration.png"/></a>')
-    else:
-      wfsection.write("<b> No calibration plots </b>")
-
 
     #==================================================================#
     #1D posteriors
@@ -863,15 +867,17 @@ def cbcBayesPostProc(
     # Corner plots
     #===============================#
 
-    massParams=['mtotal','m1','m2','mc','m1_source','m2_source','mtotal_source','mc_source']
-    distParams=['distance','distMPC','dist','redshift']
+    massParams=['mtotal','m1','m2','mc']
+    distParams=['distance','distMPC','dist']
     incParams=['iota','inclination','theta_jn']
     polParams=['psi','polarisation','polarization']
     skyParams=['ra','rightascension','declination','dec']
     timeParams=['time']
     spinParams=['spin1','spin2','a1','a2','a1z','a2z','phi1','theta1','phi2','theta2','chi','effectivespin','chi_eff','chi_tot','chi_p','beta','tilt1','tilt2','phi_jl','theta_jn','phi12']
+    sourceParams=['m1_source','m2_source','mtotal_source','mc_source','redshift']
     intrinsicParams=massParams+spinParams
     extrinsicParams=incParams+distParams+polParams+skyParams
+    sourceFrameParams=sourceParams+distParams
     try:
       myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=intrinsicParams)
     except:
@@ -894,6 +900,17 @@ def cbcBayesPostProc(
       myfig.savefig(os.path.join(cornerdir,'extrinsic.pdf'))
       html_corner+='<tr><td width="100%"><a href="corner/extrinsic.png" target="_blank"><img width="70%" src="corner/extrinsic.png"/></a></td></tr>'
       got_any+=1
+    try:
+      myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=sourceFrameParams)
+    except:
+      myfig=None
+
+    if myfig:
+      myfig.savefig(os.path.join(cornerdir,'sourceFrame.png'))
+      myfig.savefig(os.path.join(cornerdir,'sourceFrame.pdf'))
+      html_corner+='<tr><td width="100%"><a href="corner/sourceFrame.png" target="_blank"><img width="70%" src="corner/sourceFrame.png"/></a></td></tr>'
+      got_any+=1
+
     if got_any>0:
       html_corner='<table id="%s" border="1">'%tabid+html_corner
       html_corner+='</table>'
@@ -1242,7 +1259,7 @@ if __name__=='__main__':
     
     parser.add_option('--ellipticEvidence', action='store_true', default=False,help='Estimate the evidence by fitting ellipse to highest-posterior points.', dest='ellevidence')
 
-    parser.add_option("--no2D",action="store_true",default=False,help="Skip 2-D plotting.")
+    parser.add_option("--plot-2d", action="store_true", default=False,help="Make individual 2-D plots.")
     parser.add_option("--header",action="store",default=None,help="Optional file containing the header line for posterior samples",type="string")
     #NS
     parser.add_option("--ns",action="store_true",default=False,help="(inspnest) Parse input as if it was output from parallel nested sampling runs.")
@@ -1313,7 +1330,7 @@ if __name__=='__main__':
       oneDMenu.append(ifo1+ifo2+'_delay')
     #oneDMenu=[]
     twoDGreedyMenu=[]
-    if not opts.no2D:
+    if opts.plot_2d:
         for mp1,mp2 in combinations(massParams,2):
           twoDGreedyMenu.append([mp1, mp2])
         for mp in massParams:
@@ -1377,7 +1394,7 @@ if __name__=='__main__':
             greedyBinSizes[s]=0.05
     for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
         greedyBinSizes[derived_time]=greedyBinSizes['time']
-    if not opts.no2D:
+    if opts.plot_2d:
         for dt1,dt2 in combinations(['h1_end_time','l1_end_time','v1_end_time'],2):
           twoDGreedyMenu.append([dt1,dt2])
         for dt1,dt2 in combinations( ['h1l1_delay','l1v1_delay','h1v1_delay'],2):

@@ -596,20 +596,23 @@ class PosteriorOneDPDF(object):
         posterior, dx = np.histogram(self.samples,bins=36,normed=True)
         from scipy.stats import entropy
         # check the kind of prior and process the string accordingly
-        if prior=='uniform':
+        prior = get_prior(self.name)
+        if prior is None:
+            raise ValueError
+        elif prior=='uniform':
             prior+='(self.samples)'
-        elif x in prior:
+        elif 'x' in prior:
             prior.replace('x','self.samples')
         elif not(prior.startswith('np.')):
             prior = 'np.'+prior
             prior+='(self.samples)'
         else:
-            print "prior type %s not understood, ignoring"%prior
+            raise ValueError
+
         try:
             prior_dist = eval(prior)
         except:
-            print "failed to evaluate the prior distribution, reverting to the information content"
-            prior_dist = None
+            raise ValueError
         
         return entropy(posterior, qk=prior_dist)
     
@@ -897,17 +900,29 @@ class Posterior(object):
           pos.append_mapping('mc_source', source_mass, ['mc', 'redshift'])
 
       #If a1,a2 go negative, store in a separate parameter and make a1,a2 magnitudes
-      if 'a1' in pos.names and min(pos['a1'].samples) < 0.:
-          pos.append_mapping('a1z', lambda x: x, 'a1')
-          pos['a1z'].set_injval(injection.spin1z)
-          pos.pop('a1')
-          pos.append_mapping('a1', lambda x: np.abs(x), 'a1z')
+      if 'a1' in pos.names:
+          if min(pos['a1'].samples.flatten()) < 0.:
+              pos.append_mapping('a1z', lambda x: x, 'a1')
+              inj_az = None
+              if injection is not None:
+                  inj_az = injection.spin1z
+              pos['a1z'].set_injval(inj_az)
+              pos.pop('a1')
+              pos.append_mapping('a1', lambda x: np.abs(x), 'a1z')
+          elif 'tilt1' in pos.names:
+              pos.append_mapping('a1z', lambda a, tilt: a*np.cos(tilt), ('a1','tilt1'))
 
-      if 'a2' in pos.names and min(pos['a2'].samples) < 0.:
-          pos.append_mapping('a2z', lambda x: x, 'a2')
-          pos['a2z'].set_injval(injection.spin2z)
-          pos.pop('a2')
-          pos.append_mapping('a2', lambda x: np.abs(x), 'a2z')
+      if 'a2' in pos.names:
+          if min(pos['a2'].samples.flatten()) < 0.:
+              pos.append_mapping('a2z', lambda x: x, 'a2')
+              inj_az = None
+              if injection is not None:
+                  inj_az = injection.spin2z
+              pos['a2z'].set_injval(inj_az)
+              pos.pop('a2')
+              pos.append_mapping('a2', lambda x: np.abs(x), 'a2z')
+          elif 'tilt2' in pos.names:
+              pos.append_mapping('a2z', lambda a, tilt: a*np.cos(tilt), ('a2','tilt2'))
 
       #If aligned spins, calculate effective spin parallel to L
       elif ('m1' in pos.names and 'a1z' in pos.names and not 'tilt1' in pos.names) and ('m2' in pos.names and 'a2z' in pos.names and not 'tilt2' in pos.names):
@@ -3744,7 +3759,7 @@ def source_mass(mass, redshift):
 
 def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m2, fref):
     """
-    Wrapper function for SimInspiralTransformPrecessingInitialConditions().
+    Wrapper function for SimInspiralTransformPrecessingNewInitialConditions().
     Vectorizes function for use in append_mapping() methods of the posterior class.
     """
     try:
@@ -3754,7 +3769,7 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
       print 'frame angles, did you remember to use --enable-swig-python when ./configuring lalsimulation?'
       return None
     from numpy import shape
-    transformFunc = lalsim.SimInspiralTransformPrecessingInitialConditions
+    transformFunc = lalsim.SimInspiralTransformPrecessingNewInitialConditions
 
     # Convert component masses to SI units
     m1_SI = m1*lal.MSUN_SI
@@ -4322,7 +4337,10 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
   fig_actor_lst = [cs.collections[0] for cs in CSlst]
   fig_actor_lst.extend(dummy_lines)
   if legend is not None:
-    twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right',framealpha=0.1)
+    try:
+      twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right',framealpha=0.1)
+    except:
+      twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
     for text in twodcontour_legend.get_texts():
       text.set_fontsize('small')
 
@@ -4571,7 +4589,10 @@ def plot_two_param_greedy_bins_contourf(posteriors_by_name,greedy2Params,confide
         fig_actor_lst = [cs.collections[0] for cs in CSlst]
         fig_actor_lst.extend(dummy_lines)
     if legend is not None:
-      twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right',framealpha=0.1)
+      try:
+        twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right',framealpha=0.1)
+      except:
+        twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
       for text in twodcontour_legend.get_texts():
           text.set_fontsize('small')
     fix_axis_names(plt,par1_name,par2_name)
@@ -4788,7 +4809,10 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     fig_actor_lst.extend(dummy_lines)
 
     if legend is not None:
-      twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right',framealpha=0.1)
+      try:
+        twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right',framealpha=0.1)
+      except:
+        twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
       for text in twodcontour_legend.get_texts():
         text.set_fontsize('small')
 
@@ -6323,7 +6347,7 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
         iota=pos['inclination'].samples[which][0]
       except:
         try:
-          iota, s1x, s1y, s1z, s2x, s2y, s2z=lalsim.SimInspiralTransformPrecessingInitialConditions(pos['theta_jn'].samples[which][0], pos['phi_JL'].samples[which][0], pos['tilt1'].samples[which][0], pos['tilt2'].samples[which][0], pos['phi12'].samples[which][0], pos['a1'].samples[which][0], pos['a2'].samples[which][0], m1, m2, f_ref)
+          iota, s1x, s1y, s1z, s2x, s2y, s2z=lalsim.SimInspiralTransformPrecessingNewInitialConditions(pos['theta_jn'].samples[which][0], pos['phi_JL'].samples[which][0], pos['tilt1'].samples[which][0], pos['tilt2'].samples[which][0], pos['phi12'].samples[which][0], pos['a1'].samples[which][0], pos['a2'].samples[which][0], m1, m2, f_ref)
         except:
             if 'a1z' in pos.names:
                 s1z=pos['a1z'].samples[which][0]
@@ -6551,7 +6575,16 @@ def cred_interval(x, cl=.9, lower=True):
     else:
         return cred_level((1.+cl)/2, x)
 
-def plot_spline_pos(logf, ys, nf=100, level=0.9, color='k', label=None):
+def spline_angle_xform(delta_psi):
+    """Returns the angle in degrees corresponding to the spline
+    calibration parameters delta_psi.
+
+    """
+    rot = (2.0 + 1.0j*delta_psi)/(2.0 - 1.0j*delta_psi)
+
+    return 180.0/np.pi*np.arctan2(np.imag(rot), np.real(rot))
+    
+def plot_spline_pos(logf, ys, nf=100, level=0.9, color='k', label=None, xform=None):
     """Plot calibration posterior estimates for a spline model in log space.
     Args:
         logf: The (log) location of spline control points.
@@ -6560,19 +6593,29 @@ def plot_spline_pos(logf, ys, nf=100, level=0.9, color='k', label=None):
         level: Credible level to fill in.
         color: Color to plot with.
         label: Label for plot.
+        xform: Function to transform the spline into plotted values.
     """
     f = np.exp(logf)
     fs = np.linspace(f.min(), f.max(), nf)
 
     data = np.zeros((ys.shape[0], nf))
 
-    mu = np.mean(ys, axis=0)
-    lower_cl = mu - cred_interval(ys, level, lower=True)
-    upper_cl = cred_interval(ys, level, lower=False) - mu
+    if xform is None:
+        zs = ys
+    else:
+        zs = xform(ys)
+        
+    mu = np.mean(zs, axis=0)
+    lower_cl = mu - cred_interval(zs, level, lower=True)
+    upper_cl = cred_interval(zs, level, lower=False) - mu
     plt.errorbar(np.exp(logf), mu, yerr=[lower_cl, upper_cl], fmt='.', color=color, lw=4, alpha=0.5, capsize=0)
 
     for i, samp in enumerate(ys):
-        data[i] = interpolate.spline(logf, samp, np.log(fs))
+        temp = interpolate.spline(logf, samp, np.log(fs))
+        if xform is None:
+            data[i] = temp
+        else:
+            data[i] = xform(temp)
 
     line, = plt.plot(fs, np.mean(data, axis=0), color=color, label=label)
     color = line.get_color()
@@ -6613,12 +6656,16 @@ def plot_calibration_pos(pos, level=.9, outpath=None):
         phase_params = np.sort([param for param in params if
                                 '{0}_spcal_phase'.format(ifo) in param])
         if len(phase_params) > 0:
-            phase = 180./np.pi*np.column_stack([pos[param].samples for param in phase_params])
-            plot_spline_pos(logfreqs, phase, color=color, level=level, label="{0} (mean, {1}%)".format(ifo.upper(), int(level*100)))
+            phase = np.column_stack([pos[param].samples for param in phase_params])
+
+            plot_spline_pos(logfreqs, phase, color=color, level=level, label="{0} (mean, {1}%)".format(ifo.upper(), int(level*100)), xform=spline_angle_xform)
 
     ax1.tick_params(labelsize=.75*font_size)
     ax2.tick_params(labelsize=.75*font_size)
-    plt.legend(loc='upper right', prop={'size':.75*font_size}, framealpha=0.1)
+    try:
+      plt.legend(loc='upper right', prop={'size':.75*font_size}, framealpha=0.1)
+    except:
+      plt.legend(loc='upper right', prop={'size':.75*font_size})
     ax1.set_xscale('log')
     ax2.set_xscale('log')
 
