@@ -4483,12 +4483,12 @@ int XLALSimMassiveGravitonDispersionEffect(
 {
   REAL8 f0, f, df;
   COMPLEX16 hplus, hcross;
-  REAL8 M, eta, betaPPE, dPhiPref;
+  REAL8 M, eta, beta, dPhiPref;
   UINT4 len, i;
   M = m1+m2;
   eta = m1*m2/(M*M);
-  betaPPE = - LAL_PI*LAL_PI*r*M*LAL_MRSUN_SI*pow(eta, 0.6)/(lambda_g*lambda_g);
-  dPhiPref = betaPPE/(LAL_PI*M*LAL_MTSUN_SI*pow(eta, 0.6));
+  beta = - LAL_PI*LAL_PI*r*M*LAL_MRSUN_SI*pow(eta, 0.6)/(lambda_g*lambda_g);
+  dPhiPref = beta/(LAL_PI*M*LAL_MTSUN_SI*pow(eta, 0.6));
 
   len = (*hptilde)->data->length;
   if ((*hctilde)->data->length != len) {
@@ -4509,9 +4509,9 @@ int XLALSimMassiveGravitonDispersionEffect(
 
   for (i=0; i<len; i++) {
     f = f0 + i*df;
-    hplus = (*hptilde)->data->data[i] * cexp(I*dPhiPref/f);
+    hplus = (*hptilde)->data->data[i] * cexp(-I*dPhiPref/f);
     (*hptilde)->data->data[i] = hplus;
-    hcross = (*hctilde)->data->data[i] * cexp(I*dPhiPref/f);
+    hcross = (*hctilde)->data->data[i] * cexp(-I*dPhiPref/f);
     (*hctilde)->data->data[i] = hcross;
   }
   return XLAL_SUCCESS;
