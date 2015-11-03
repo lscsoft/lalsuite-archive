@@ -3746,7 +3746,10 @@ def calculate_redshift(distance,h=0.7,om=0.3,ol=0.7,w0=-1.0):
         return dl - lal.LuminosityDistance(omega,z)
 
     omega = lal.CreateCosmologicalParameters(h,om,ol,w0,0.0,0.0)
-    z = np.array([newton(find_z_root,np.random.uniform(0.0,2.0),args = (d,omega)) for d in distance[:,0]])
+    if isinstance(distance,float):
+        z = np.array([newton(find_z_root,np.random.uniform(0.0,2.0),args = (distance,omega))])
+    else:
+        z = np.array([newton(find_z_root,np.random.uniform(0.0,2.0),args = (d,omega)) for d in distance[:,0]])
     return z.reshape(z.shape[0],1)
 
 def source_mass(mass, redshift):
@@ -5418,7 +5421,10 @@ class PEOutputParser(object):
                 runfile.write('Chain '+str(i)+':\n')
                 runfile.writelines(runInfo)
                 print "Processing file %s to %s"%(infilename,outfile.name)
-                f_ref=self._find_infmcmc_f_ref(runInfo)
+                write_fref = False
+                if 'f_ref' not in header:
+                    write_fref = True
+                    f_ref=self._find_infmcmc_f_ref(runInfo)
                 if oldMassConvention:
                     # Swap #1 for #2 because our old mass convention
                     # has m2 > m1, while the common convention has m1
@@ -5428,7 +5434,8 @@ class PEOutputParser(object):
                     for label in header:
                         outfile.write(label)
                         outfile.write(" ")
-                    outfile.write("f_ref")
+                    if write_fref:
+                        outfile.write("f_ref")
                     outfile.write(" ")
                     outfile.write("chain")
                     outfile.write("\n")
@@ -5453,8 +5460,9 @@ class PEOutputParser(object):
                                 # names above
                                 outfile.write(lineParams[header.index(label)])
                                 outfile.write("\t")
-                            outfile.write(f_ref)
-                            outfile.write("\t")
+                            if write_fref:
+                                outfile.write(f_ref)
+                                outfile.write("\t")
                             outfile.write(str(i))
                             outfile.write("\n")
                         nRead=nRead+1
