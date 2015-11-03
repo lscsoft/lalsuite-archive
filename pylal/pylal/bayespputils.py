@@ -5421,7 +5421,10 @@ class PEOutputParser(object):
                 runfile.write('Chain '+str(i)+':\n')
                 runfile.writelines(runInfo)
                 print "Processing file %s to %s"%(infilename,outfile.name)
-                f_ref=self._find_infmcmc_f_ref(runInfo)
+                write_fref = False
+                if 'f_ref' not in header:
+                    write_fref = True
+                    f_ref=self._find_infmcmc_f_ref(runInfo)
                 if oldMassConvention:
                     # Swap #1 for #2 because our old mass convention
                     # has m2 > m1, while the common convention has m1
@@ -5431,7 +5434,8 @@ class PEOutputParser(object):
                     for label in header:
                         outfile.write(label)
                         outfile.write(" ")
-                    outfile.write("f_ref")
+                    if write_fref:
+                        outfile.write("f_ref")
                     outfile.write(" ")
                     outfile.write("chain")
                     outfile.write("\n")
@@ -5456,8 +5460,9 @@ class PEOutputParser(object):
                                 # names above
                                 outfile.write(lineParams[header.index(label)])
                                 outfile.write("\t")
-                            outfile.write(f_ref)
-                            outfile.write("\t")
+                            if write_fref:
+                                outfile.write(f_ref)
+                                outfile.write("\t")
                             outfile.write(str(i))
                             outfile.write("\n")
                         nRead=nRead+1
