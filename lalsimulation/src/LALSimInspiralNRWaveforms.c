@@ -159,8 +159,6 @@ int XLALSimInspiralNRWaveformGetHplusHcross(
   gsl_vector_free(tmpVector);
   time_start_s = time_start_M * (m1 + m2) * LAL_MTSUN_SI;
   time_end_s = time_end_M * (m1 + m2) * LAL_MTSUN_SI;
-  fprintf(stderr, "hybrid start time in M: %f \n", time_start_M);
-  fprintf(stderr, "hybrid start time in s: %f \n" , time_start_s);
 
   /* We don't want to return the *entire* waveform if it will be much longer
    * than the specified f_lower. Therefore guess waveform length using
@@ -168,12 +166,9 @@ int XLALSimInspiralNRWaveformGetHplusHcross(
    * FIXME: Is this relevant for precessing waveforms?
    */
   chi = XLALSimIMRPhenomBComputeChi(m1, m2, s1z, s2z);
-  fprintf(stderr, "Chi: %f\n", chi);
   est_start_time = XLALSimIMRSEOBNRv2ChirpTimeSingleSpin(m1 * LAL_MSUN_SI,
                                                 m2 * LAL_MSUN_SI, chi, fStart);
   est_start_time = (-est_start_time) * 1.1;
-  fprintf(stderr, "Estimated start, real start: %f %f\n", est_start_time, time_start_s);
-  fflush(stderr);
   if (est_start_time > time_start_s)
   {
     /* Restrict start time of waveform */
@@ -206,10 +201,8 @@ int XLALSimInspiralNRWaveformGetHplusHcross(
   /* Generate the waveform */
   for (model=2; model < 9 ; model++)
   {
-    fprintf(stderr, "MODE %d\n", model);
     for (modem=-model; modem < (model+1); modem++)
     {
-      fprintf(stderr, "MODES %d %d\n", modem, model);
       sprintf(amp_key, "amp_l%d_m%d", model, modem);
       sprintf(phase_key, "phase_l%d_m%d", model, modem);
 
@@ -222,25 +215,16 @@ int XLALSimInspiralNRWaveformGetHplusHcross(
       {
         continue;
       }
-      fprintf(stderr, "Using %d, %d mode.\n", model, modem);
-      fflush(stderr);
 
       /* Get amplitude and phase from file */
-      fprintf(stderr, "Reading amplitude. \n");
       XLALSimInspiralNRWaveformGetDataFromHDF5File(&curr_amp, file, (m1 + m2),
                                   time_start_s, array_length, deltaT, amp_key);
-      fprintf(stderr, "Reading phase. \n");
       XLALSimInspiralNRWaveformGetDataFromHDF5File(&curr_phase, file, (m1 + m2),
                                 time_start_s, array_length, deltaT, phase_key);
-      fprintf(stderr, "DONE. \n");
-      fflush(stderr);
 
       /* FIXME: Why is this -2? It is also in the python code */
-      fprintf(stderr, "Getting YLM\n");
       curr_ylm = XLALSpinWeightedSphericalHarmonic(inclination, phiRef, -2,
                                                    model, modem);
-      fprintf(stderr, "DONE. \n");
-      fflush(stderr);
       for (curr_idx = 0; curr_idx < array_length; curr_idx++)
       {
         curr_h_real = curr_amp->data[curr_idx]
@@ -248,12 +232,12 @@ int XLALSimInspiralNRWaveformGetHplusHcross(
         curr_h_imag = curr_amp->data[curr_idx] 
                     * sin(curr_phase->data[curr_idx]) * distance_scale_fac;
         (*hplus)->data->data[curr_idx] = (*hplus)->data->data[curr_idx]
-               + curr_h_real * creal(curr_ylm) - curr_h_imag * cimag(curr_ylm);
+               + curr_h_real * creal(curr_ylm) + curr_h_imag * cimag(curr_ylm);
         /* FIXME: No idea whether these should be minus or plus, guessing
          *        minus for now. Only affects some polarization phase.
          */
         (*hcross)->data->data[curr_idx] = (*hcross)->data->data[curr_idx]
-               - curr_h_real * cimag(curr_ylm) - curr_h_imag * creal(curr_ylm);
+               + curr_h_real * cimag(curr_ylm) - curr_h_imag * creal(curr_ylm);
       }
       XLALDestroyREAL8Vector(curr_amp);
       XLALDestroyREAL8Vector(curr_phase);
