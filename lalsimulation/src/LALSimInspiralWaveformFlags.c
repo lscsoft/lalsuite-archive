@@ -34,6 +34,7 @@ struct tagLALSimInspiralWaveformFlags
     LALSimInspiralTidalOrder tideO; /**< PN order of spin effects */
     LALSimInspiralFrameAxis axisChoice; /**< Flag to set frame z-axis convention */
     LALSimInspiralModesChoice modesChoice; /**< Flag to control which modes are included in IMR models */
+    char numreldata[1024]; /**< Location of NR data file for NR waveforms */
 };
 
 /**
@@ -288,6 +289,32 @@ bool XLALSimInspiralModesChoiceIsDefault(
         return true;
     else 
         return false;
+}
+
+/**
+ * Set the numreldata string within a LALSimInspiralWaveformFlags struct
+ */
+void XLALSimInspiralSetNumrelData(
+        LALSimInspiralWaveformFlags *waveFlags, /**< Struct whose value will be set */
+        const char* numreldata /**< value to set numreldata to */
+        )
+{
+    strncpy(waveFlags->numreldata, numreldata, 1024);
+    return;
+}
+
+/**
+ * Get the numreldata path within a LALSimInspiralWaveformFlags struct,
+ * or an empty string if waveFlags is NULL
+ */
+const char* XLALSimInspiralGetNumrelData(
+        LALSimInspiralWaveformFlags *waveFlags
+        )
+{
+    if ( waveFlags )
+        return waveFlags->numreldata;
+    else
+        return "";
 }
 
 /** @} */

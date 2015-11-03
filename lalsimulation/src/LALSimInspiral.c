@@ -142,6 +142,7 @@ static const char *lalSimulationApproximantNames[] = {
     INITIALIZE_NAME(SpinTaylorT4Fourier),
     INITIALIZE_NAME(SpinTaylorT2Fourier),
     INITIALIZE_NAME(SpinDominatedWf),
+    INITIALIZE_NAME(NR_hdf5),
 };
 #undef INITIALIZE_NAME
 
@@ -743,6 +744,16 @@ int XLALSimInspiralChooseTDWaveform(
 	     /* Call the waveform driver */
 	     ret = XLALHGimriGenerator(hplus, hcross, phiRef, deltaT, m1, m2, f_min, r, i, S1z);
 	     break;
+
+        case NR_hdf5:
+            /* Waveform-specific sanity checks */
+
+            /* Call the waveform driver routine */
+            ret = XLALSimInspiralNRWaveformGetHplusHcross(hplus, hcross,
+                    phiRef, i, deltaT, m1, m2, r, f_min, f_ref, S1x, S1y, S1z,
+                    S2x, S2y, S2z, XLALSimInspiralGetNumrelData(waveFlags));
+            break;
+
 
         default:
             XLALPrintError("TD version of approximant not implemented in lalsimulation\n");
@@ -3641,6 +3652,7 @@ int XLALSimInspiralImplementedTDApproximants(
         case SpinDominatedWf:
         case SEOBNRv2:
         // case SEOBNRv3:
+        case NR_hdf5:
             return 1;
 
         default:
@@ -4065,6 +4077,7 @@ int XLALSimInspiralGetSpinSupportFromApproximant(Approximant approx){
     case SpinTaylorT2Fourier:
     case SpinTaylorT4Fourier:
     case SpinDominatedWf:
+    case NR_hdf5:
       spin_support=LAL_SIM_INSPIRAL_PRECESSINGSPIN;
       break;
     case SpinTaylorF2:
@@ -4180,6 +4193,7 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
     case TaylorN:
     case SpinDominatedWf:
     case NumApproximants:
+    case NR_hdf5:
       testGR_accept=LAL_SIM_INSPIRAL_NO_TESTGR_PARAMS;
       break;
     case SpinTaylorF2:
@@ -4613,6 +4627,8 @@ double XLALSimInspiralGetFinalFreq(
         case PhenSpinTaylorRD:
         /* Spinning inspiral-only frequency domain */
         case SpinTaylorF2:
+        /* NR waveforms */
+        case NR_hdf5:
             XLALPrintError("I don't know how to calculate final freq. for this approximant, sorry!\n");
             XLAL_ERROR(XLAL_EINVAL);
             break;

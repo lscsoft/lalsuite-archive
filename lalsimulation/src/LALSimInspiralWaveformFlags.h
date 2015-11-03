@@ -19,6 +19,7 @@
 #ifndef _LALSIMINSPIRALWAVEFORMFLAGS_H
 #define _LALSIMINSPIRALWAVEFORMFLAGS_H
 
+#include <string.h>
 #include <stdbool.h>
 #include <lal/LALMalloc.h>
 #include <lal/LALError.h>
@@ -136,5 +137,7 @@ bool XLALSimInspiralFrameAxisIsDefault(LALSimInspiralFrameAxis axisChoice);
 void XLALSimInspiralSetModesChoice(LALSimInspiralWaveformFlags *waveFlags, LALSimInspiralModesChoice modesChoice);
 LALSimInspiralModesChoice XLALSimInspiralGetModesChoice(LALSimInspiralWaveformFlags *waveFlags);
 bool XLALSimInspiralModesChoiceIsDefault(LALSimInspiralModesChoice modesChoice);
+void XLALSimInspiralSetNumrelData(LALSimInspiralWaveformFlags *waveFlags, const char* numreldata);
+const char* XLALSimInspiralGetNumrelData(LALSimInspiralWaveformFlags *waveFlags);
 
 #endif /* _LALSIMINSPIRALWAVEFORMFLAGS_H */
