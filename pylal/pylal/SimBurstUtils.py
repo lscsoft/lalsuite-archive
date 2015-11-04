@@ -29,7 +29,9 @@ import numpy
 import sys
 
 
-from pylal import date
+import lal
+
+
 from pylal import git_version
 from pylal import inject
 from pylal import rate
@@ -74,7 +76,9 @@ def time_at_instrument(sim, instrument, offsetvector):
 	# times the triggers will form a coinc
 	t_geocent = sim.time_geocent - offsetvector[instrument]
 	ra, dec = sim.ra_dec
-	return t_geocent + date.XLALTimeDelayFromEarthCenter(inject.cached_detector[inject.prefix_to_name[instrument]].location, ra, dec, t_geocent)
+	# FIXME:  remove the LIGOTimeGPS typecast when lsctables ported to
+	# lal's swig bindings
+	return t_geocent + lal.TimeDelayFromEarthCenter(inject.cached_detector_by_prefix[instrument].location, ra, dec, lal.LIGOTimeGPS(t_geocent))
 
 
 def on_instruments(sim, seglists, offsetvector):
@@ -131,12 +135,14 @@ def hrss_in_instrument(sim, instrument, offsetvector):
 
 	# antenna response factors
 
-	fplus, fcross = inject.XLALComputeDetAMResponse(
-		inject.cached_detector[inject.prefix_to_name[instrument]].response,
+	# FIXME:  remove the LIGOTimeGPS typecast when lsctables port to
+	# lal's swig bindings
+	fplus, fcross = lal.ComputeDetAMResponse(
+		inject.cached_detector_by_prefix[instrument].response,
 		sim.ra,
 		sim.dec,
 		sim.psi,
-		date.XLALGreenwichMeanSiderealTime(time_at_instrument(sim, instrument, offsetvector))
+		lal.GreenwichMeanSiderealTime(lal.LIGOTimeGPS(time_at_instrument(sim, instrument, offsetvector)))
 	)
 
 	# hrss in detector
@@ -154,12 +160,14 @@ def string_amplitude_in_instrument(sim, instrument, offsetvector):
 
 	# antenna response factors
 
-	fplus, fcross = inject.XLALComputeDetAMResponse(
-		inject.cached_detector[inject.prefix_to_name[instrument]].response,
+	# FIXME:  remove the LIGOTimeGPS typecast when lsctables port to
+	# lal's swig bindings
+	fplus, fcross = lal.ComputeDetAMResponse(
+		inject.cached_detector_by_prefix[instrument].response,
 		sim.ra,
 		sim.dec,
 		sim.psi,
-		date.XLALGreenwichMeanSiderealTime(time_at_instrument(sim, instrument, offsetvector))
+		lal.GreenwichMeanSiderealTime(lal.LIGOTimeGPS(time_at_instrument(sim, instrument, offsetvector)))
 	)
 
 	# amplitude in detector
