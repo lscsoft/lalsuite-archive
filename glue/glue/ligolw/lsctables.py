@@ -66,7 +66,7 @@ __date__ = git_version.date
 #
 
 
-class TableRow(object):
+class TableRow(table.TableRow):
 	# FIXME:  figure out what needs to be done to allow the C row
 	# classes that are floating around to be derived from this easily
 
@@ -81,9 +81,6 @@ class TableRow(object):
 	pickleable).
 	"""
 	__slots__ = ()
-	def __init__(self, **kwargs):
-		for key, value in kwargs.items():
-			setattr(self, key, value)
 	def __getstate__(self):
 		return dict((key, getattr(self, key)) for key in self.__slots__ if hasattr(self, key))
 	def __setstate__(self, state):
@@ -328,7 +325,7 @@ class ProcessTable(table.Table):
 		return set(row.process_id for row in self if row.program == program)
 
 
-class Process(object):
+class Process(table.TableRow):
 	"""
 	Example:
 
@@ -393,7 +390,7 @@ class LfnTable(table.Table):
 	next_id = LfnID(0)
 
 
-class Lfn(object):
+class Lfn(table.TableRow):
 	__slots__ = LfnTable.validcolumns.keys()
 
 
@@ -432,7 +429,7 @@ class ProcessParamsTable(table.Table):
 		table.Table.append(self, row)
 
 
-class ProcessParams(object):
+class ProcessParams(table.TableRow):
 	"""
 	Example:
 
@@ -583,7 +580,7 @@ class SearchSummaryTable(table.Table):
 		return seglists
 
 
-class SearchSummary(object):
+class SearchSummary(table.TableRow):
 	"""
 	Example:
 
@@ -762,7 +759,7 @@ class SearchSummVarsTable(table.Table):
 	next_id = SearchSummVarsID(0)
 
 
-class SearchSummVars(object):
+class SearchSummVars(table.TableRow):
 	__slots__ = SearchSummVarsTable.validcolumns.keys()
 
 
@@ -867,7 +864,7 @@ class ExperimentTable(table.Table):
 		return row[0]
 
 
-class Experiment(object):
+class Experiment(table.TableRow):
 	__slots__ = ExperimentTable.validcolumns.keys()
 
 	def get_instruments(self):
@@ -1045,7 +1042,7 @@ class ExperimentSummaryTable(table.Table):
 		raise ValueError("'%s' could not be found in the table" % (str(experiment_summ_id)))
 
 
-class ExperimentSummary(object):
+class ExperimentSummary(table.TableRow):
 	__slots__ = ExperimentSummaryTable.validcolumns.keys()
 
 
@@ -1085,7 +1082,7 @@ class ExperimentMapTable(table.Table):
 		return experiment_summ_ids
 
 
-class ExperimentMap(object):
+class ExperimentMap(table.TableRow):
 	__slots__ = ExperimentMapTable.validcolumns.keys()
 
 
@@ -1140,7 +1137,7 @@ class GDSTriggerTable(table.Table):
 	interncolumns = ("process_id", "ifo", "subtype")
 
 
-class GDSTrigger(object):
+class GDSTrigger(table.TableRow):
 	__slots__ = GDSTriggerTable.validcolumns.keys()
 
 	#
@@ -1371,7 +1368,7 @@ class SnglBurstTable(table.Table):
 		return vetoed
 
 
-class SnglBurst(object):
+class SnglBurst(table.TableRow):
 	__slots__ = SnglBurstTable.validcolumns.keys()
 
 	#
@@ -1655,7 +1652,7 @@ class MultiBurstTable(table.Table):
 	}
 
 
-class MultiBurst(object):
+class MultiBurst(table.TableRow):
 	__slots__ = MultiBurstTable.validcolumns.keys()
 
 	@property
@@ -1983,7 +1980,7 @@ class SnglInspiralTable(table.Table):
 		return slideTrigs
 
 
-class SnglInspiral(object):
+class SnglInspiral(table.TableRow):
 	__slots__ = SnglInspiralTable.validcolumns.keys()
 
 	@staticmethod
@@ -2150,7 +2147,7 @@ class CoincInspiralTable(table.Table):
 	interncolumns = ("coinc_event_id", "ifos")
 
 
-class CoincInspiral(object):
+class CoincInspiral(table.TableRow):
 	"""
 	Example:
 
@@ -2254,7 +2251,7 @@ class SnglRingdownTable(table.Table):
 		return [row.get_start() for row in self]
 
 
-class SnglRingdown(object):
+class SnglRingdown(table.TableRow):
 	__slots__ = SnglRingdownTable.validcolumns.keys()
 
 	def get_start(self):
@@ -2314,7 +2311,7 @@ class CoincRingdownTable(table.Table):
 	interncolumns = ("coinc_event_id", "ifos")
 
 
-class CoincRingdown(object):
+class CoincRingdown(table.TableRow):
 	__slots__ = CoincRingdownTable.validcolumns.keys()
 
 	def get_start(self):
@@ -2741,7 +2738,7 @@ class MultiInspiralTable(table.Table):
 		return newsnr
 
 
-class MultiInspiral(object):
+class MultiInspiral(table.TableRow):
 	__slots__ = MultiInspiralTable.validcolumns.keys()
 	instrument_id = MultiInspiralTable.instrument_id
 
@@ -3082,7 +3079,7 @@ class SimInspiralTable(table.Table):
 		return numpy.asarray([row.get_end(site=site) for row in self])
 
 
-class SimInspiral(object):
+class SimInspiral(table.TableRow):
 	"""
 	Example:
 
@@ -3322,7 +3319,7 @@ class SimRingdownTable(table.Table):
 	interncolumns = ("process_id", "waveform", "coordinates")
 
 
-class SimRingdown(object):
+class SimRingdown(table.TableRow):
 	__slots__ = SimRingdownTable.validcolumns.keys()
 
 	def get_start(self, site = None):
@@ -3372,7 +3369,7 @@ class SummValueTable(table.Table):
 	interncolumns = ("program", "process_id", "ifo", "name", "comment")
 
 
-class SummValue(object):
+class SummValue(table.TableRow):
 	"""
 	Example:
 
@@ -3467,7 +3464,7 @@ class SimInstParamsTable(table.Table):
 	next_id = SimInstParamsID(0)
 
 
-class SimInstParams(object):
+class SimInstParams(table.TableRow):
 	__slots__ = SimInstParamsTable.validcolumns.keys()
 
 
@@ -3502,7 +3499,7 @@ class StochasticTable(table.Table):
 	}
 
 
-class Stochastic(object):
+class Stochastic(table.TableRow):
 	__slots__ = StochasticTable.validcolumns.keys()
 
 
@@ -3537,7 +3534,7 @@ class StochSummTable(table.Table):
 	}
 
 
-class StochSumm(object):
+class StochSumm(table.TableRow):
 	__slots__ = StochSummTable.validcolumns.keys()
 
 
@@ -3603,7 +3600,7 @@ class ExtTriggersTable(table.Table):
 	}
 
 
-class ExtTriggers(object):
+class ExtTriggers(table.TableRow):
 	__slots__ = ExtTriggersTable.validcolumns.keys()
 
 
@@ -3637,7 +3634,7 @@ class FilterTable(table.Table):
 	next_id = FilterID(0)
 
 
-class Filter(object):
+class Filter(table.TableRow):
 	__slots__ = FilterTable.validcolumns.keys()
 
 
@@ -3674,7 +3671,7 @@ class SegmentTable(table.Table):
 	interncolumns = ("process_id",)
 
 
-class Segment(object):
+class Segment(table.TableRow):
 	"""
 	Example:
 
@@ -3847,7 +3844,7 @@ class SegmentDefTable(table.Table):
 	interncolumns = ("process_id",)
 
 
-class SegmentDef(object):
+class SegmentDef(table.TableRow):
 	"""
 	Example:
 
@@ -3930,7 +3927,7 @@ class SegmentSumTable(table.Table):
 		return segments.segmentlist(row.segment for row in self if row.segment_def_id == segment_def_id)
 
 
-class SegmentSum(object):
+class SegmentSum(table.TableRow):
 	"""
 	Example:
 
@@ -4121,7 +4118,7 @@ class TimeSlideTable(table.Table):
 		return self.append_offsetvector(offsetdict, create_new)
 
 
-class TimeSlide(object):
+class TimeSlide(table.TableRow):
 	__slots__ = TimeSlideTable.validcolumns.keys()
 
 
@@ -4187,12 +4184,8 @@ class CoincDefTable(table.Table):
 		return row.coinc_def_id
 
 
-class CoincDef(object):
+class CoincDef(table.TableRow):
 	__slots__ = CoincDefTable.validcolumns.keys()
-
-	def __init__(self, **kwargs):
-		for name, value in kwargs.items():
-			setattr(self, name, value)
 
 
 CoincDefTable.RowType = CoincDef
@@ -4230,7 +4223,7 @@ class CoincTable(table.Table):
 	}
 
 
-class Coinc(object):
+class Coinc(table.TableRow):
 	__slots__ = CoincTable.validcolumns.keys()
 
 	def get_instruments(self):
@@ -4274,7 +4267,7 @@ class CoincMapTable(table.Table):
 	}
 
 
-class CoincMap(object):
+class CoincMap(table.TableRow):
 	__slots__ = CoincMapTable.validcolumns.keys()
 
 
@@ -4308,7 +4301,7 @@ class DQSpecListTable(table.Table):
 	next_id = DQSpecListID(0)
 
 
-class DQSpec(object):
+class DQSpec(table.TableRow):
 	__slots__ = DQSpecListTable.validcolumns.keys()
 
 	def apply_to_segmentlist(self, seglist):
@@ -4352,7 +4345,7 @@ class LIGOLWMonTable(table.Table):
 	next_id = LIGOLWMonID(0)
 
 
-class LIGOLWMon(object):
+class LIGOLWMon(table.TableRow):
 	__slots__ = LIGOLWMonTable.validcolumns.keys()
 
 	def get_time(self):
@@ -4391,8 +4384,9 @@ class VetoDefTable(table.Table):
 	interncolumns = ("process_id","ifo")
 
 
-class VetoDef(object):
+class VetoDef(table.TableRow):
 	__slots__ = VetoDefTable.validcolumns.keys()
+
 
 VetoDefTable.RowType = VetoDef
 
@@ -4434,7 +4428,7 @@ class SummMimeTable(table.Table):
 	next_id = SummMimeID(0)
 
 
-class SummMime(object):
+class SummMime(table.TableRow):
 	__slots__ = SummMimeTable.validcolumns.keys()
 
 	def get_start(self):
@@ -4468,7 +4462,7 @@ class TimeSlideSegmentMapTable(table.Table):
 		"time_slide_id": "ilwd:char",
 	}
 
-class TimeSlideSegmentMap(object):
+class TimeSlideSegmentMap(table.TableRow):
 	__slots__ = TimeSlideSegmentMapTable.validcolumns.keys()
 
 TimeSlideSegmentMapTable.RowType = TimeSlideSegmentMap
