@@ -224,19 +224,12 @@ for n, filename in enumerate(filenames):
 	)
 
 	#
-	# Hack the IDs.  LAL writes all triggers with event_id = 0.  This
-	# value is used by other LAL programs to check if coincidence has
-	# been performed yet so that behaviour cannot be changed but we
-	# need the IDs to be unique before starting the coincidence engine.
-	#
-	# FIXME:  remove this when LAL writes trigger files with unique
-	# IDs (unique within the output of lalapps_inspiral).
+	# LAL writes all triggers with event_id = 0.  Detect this and barf
+	# on it.
 	#
 
 	tbl = lsctables.SnglInspiralTable.get_table(xmldoc)
-	tbl.set_next_id(lsctables.SnglInspiralID(0))
-	for row in tbl:
-		row.event_id = tbl.get_next_id()
+	assert len(set(tbl.getColumnByName("event_id"))) == len(tbl), "degenerate sngl_inspiral event_id detected"
 
 	#
 	# Set max_dt.  Upper bound on maximum time that can separate two
