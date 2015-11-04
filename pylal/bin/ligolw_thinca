@@ -36,6 +36,7 @@ from glue.ligolw import utils as ligolw_utils
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import segments as ligolw_segments
 from glue import segmentsUtils
+import lal
 from pylal import git_version
 from pylal import ligolw_thinca
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -238,6 +239,21 @@ for n, filename in enumerate(filenames):
 		row.event_id = tbl.get_next_id()
 
 	#
+	# Set max_dt.  Upper bound on maximum time that can separate two
+	# triggers and they still pass coincidence.
+	#
+
+	if options.match == "e-thinca":
+		max_dt = ligolw_thinca.inspiral_ethinca_max_dt(lsctables.SnglInspiralTable.get_table(xmldoc), options.threshold)
+	elif options.match == "exact":
+		# add 10% to coincidence window for safety + the
+		# light-crossing time of the Earth
+		max_dt = 1.1 * options.threshold + 2. * lal.REARTH_SI / lal.C_SI
+	else:
+		# not possible
+		assert False
+
+	#
 	# Extract veto segments if present.
 	#
 	# FIXME:  using the tools in the glue.ligolw.utils.segments module
@@ -268,6 +284,7 @@ for n, filename in enumerate(filenames):
 		coinc_definer_row = ligolw_thinca.InspiralCoincDef,
 		event_comparefunc = event_comparefunc,
 		thresholds = options.threshold,
+		max_dt = max_dt,
 		ntuple_comparefunc = ntuple_comparefunc,
 		veto_segments = vetoes,
 		trigger_program = options.trigger_program,

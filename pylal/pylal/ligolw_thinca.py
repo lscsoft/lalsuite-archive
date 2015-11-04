@@ -295,7 +295,7 @@ class InspiralEventList(snglcoinc.EventList):
 #
 
 
-def inspiral_max_dt(events, e_thinca_parameter):
+def inspiral_ethinca_max_dt(events, e_thinca_parameter):
 	"""
 	Given an e-thinca parameter and a list of sngl_inspiral events,
 	return the greatest \Delta t that can separate two events and they
@@ -384,13 +384,13 @@ def ligolw_thinca(
 	coinc_definer_row,
 	event_comparefunc,
 	thresholds,
+	max_dt,
 	ntuple_comparefunc = default_ntuple_comparefunc,
 	veto_segments = None,
 	trigger_program = u"inspiral",
 	likelihood_func = None,
 	likelihood_params_func = None,
-	verbose = False,
-	max_dt = None
+	verbose = False
 ):
 	#
 	# prepare the coincidence table interface.
@@ -417,8 +417,6 @@ def ligolw_thinca(
 	# set the \Delta t parameter on all the event lists
 	#
 
-	if max_dt is None:
-		max_dt = inspiral_max_dt(lsctables.SnglInspiralTable.get_table(xmldoc), thresholds)
 	if verbose:
 		print >>sys.stderr, "event bisection search window will be %.16g s" % max_dt
 	for eventlist in eventlists.values():
