@@ -44,9 +44,15 @@ from glue import offsetvector
 from glue import segments
 try:
 	from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+	from pylal import inject
 except ImportError:
 	# pylal is optional
 	from glue.lal import LIGOTimeGPS
+try:
+	import lal
+except ImportError:
+	# lal is optional
+	pass
 from . import ligolw
 from . import table
 from . import types as ligolwtypes
@@ -3157,6 +3163,33 @@ class SimInspiral(table.TableRow):
 		else:
 			self.spin2x, self.spin2y, self.spin2z = spin
 
+	def time_at_instrument(self, instrument, offsetvector):
+		"""
+		Return the "time" of the injection, delay corrected for the
+		displacement from the geocentre to the given instrument.
+
+		NOTE:  this method does not account for the rotation of the
+		Earth that occurs during the transit of the plane wave from
+		the detector to the geocentre.  That is, it is assumed the
+		Earth is in the same orientation with respect to the
+		celestial sphere when the wave passes through the detector
+		as when it passes through the geocentre.  The Earth rotates
+		by about 1.5 urad during the 21 ms it takes light to travel
+		the radius of the Earth, which corresponds to 10 m of
+		displacement at the equator, or 33 light-ns.  Therefore,
+		the failure to do a proper retarded time calculation here
+		results in errors as large as 33 ns.  This is insignificant
+		for burst searches, but be aware that this approximation is
+		being made if the return value is used in other contexts.
+		"""
+		# the offset is subtracted from the time of the injection.
+		# injections are done this way so that when the triggers
+		# that result from an injection have the offset vector
+		# added to their times the triggers will form a coinc
+		t_geocent = self.time_geocent - offsetvector[instrument]
+		ra, dec = self.ra_dec
+		return t_geocent + lal.TimeDelayFromEarthCenter(inject.cached_detector_by_prefix[instrument].location, ra, dec, t_geocent)
+
 	def get_time_geocent(self):
 		return self.time_geocent
 
@@ -3277,6 +3310,33 @@ class SimBurst(TableRow):
 			self.ra = self.dec = None
 		else:
 			self.ra, self.dec = radec
+
+	def time_at_instrument(self, instrument, offsetvector):
+		"""
+		Return the "time" of the injection, delay corrected for the
+		displacement from the geocentre to the given instrument.
+
+		NOTE:  this method does not account for the rotation of the
+		Earth that occurs during the transit of the plane wave from
+		the detector to the geocentre.  That is, it is assumed the
+		Earth is in the same orientation with respect to the
+		celestial sphere when the wave passes through the detector
+		as when it passes through the geocentre.  The Earth rotates
+		by about 1.5 urad during the 21 ms it takes light to travel
+		the radius of the Earth, which corresponds to 10 m of
+		displacement at the equator, or 33 light-ns.  Therefore,
+		the failure to do a proper retarded time calculation here
+		results in errors as large as 33 ns.  This is insignificant
+		for burst searches, but be aware that this approximation is
+		being made if the return value is used in other contexts.
+		"""
+		# the offset is subtracted from the time of the injection.
+		# injections are done this way so that when the triggers
+		# that result from an injection have the offset vector
+		# added to their times the triggers will form a coinc
+		t_geocent = self.time_geocent - offsetvector[instrument]
+		ra, dec = self.ra_dec
+		return t_geocent + lal.TimeDelayFromEarthCenter(inject.cached_detector_by_prefix[instrument].location, ra, dec, t_geocent)
 
 	def get_time_geocent(self):
 		return self.time_geocent
