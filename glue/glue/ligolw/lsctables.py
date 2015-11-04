@@ -33,6 +33,7 @@ interested users.
 """
 
 
+import math
 import numpy
 from xml import sax
 
@@ -3130,6 +3131,32 @@ class SimInspiral(table.TableRow):
 		else:
 			self.longitude, self.latitude = radec
 
+	@property
+	def spin1(self):
+		if self.spin1x is None and self.spin1y is None and self.spin1z is None:
+			return None
+		return numpy.array((self.spin1x, self.spin1y, self.spin1z), dtype = "double")
+
+	@spin1.setter
+	def spin1(self, spin):
+		if spin is None:
+			self.spin1x, self.spin1y, self.spin1z = None, None, None
+		else:
+			self.spin1x, self.spin1y, self.spin1z = spin
+
+	@property
+	def spin2(self):
+		if self.spin2x is None and self.spin2y is None and self.spin2z is None:
+			return None
+		return numpy.array((self.spin2x, self.spin2y, self.spin2z), dtype = "double")
+
+	@spin2.setter
+	def spin2(self, spin):
+		if spin is None:
+			self.spin2x, self.spin2y, self.spin2z = None, None, None
+		else:
+			self.spin2x, self.spin2y, self.spin2z = spin
+
 	def get_time_geocent(self):
 		return self.time_geocent
 
@@ -3152,10 +3179,8 @@ class SimInspiral(table.TableRow):
 		return SnglInspiral.chirp_distance(self.get_eff_dist(instrument), self.mchirp, ref_mass)
 
 	def get_spin_mag(self, objectnumber):
-		sx = getattr(self, "spin%dx" % objectnumber)
-		sy = getattr(self, "spin%dy" % objectnumber)
-		sz = getattr(self, "spin%dz" % objectnumber)
-		return (sx**2 + sy**2 + sz**2)**(0.5)
+		s = getattr(self, "spin%d" % objectnumber)
+		return math.sqrt(numpy.dot(s, s))
 
 
 SimInspiralTable.RowType = SimInspiral
