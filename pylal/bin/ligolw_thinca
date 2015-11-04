@@ -185,13 +185,13 @@ else:
 #
 
 
-for n, filename in enumerate(filenames):
+for n, filename in enumerate(filenames, start = 1):
 	#
 	# Load the file.
 	#
 
 	if options.verbose:
-		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+		print >>sys.stderr, "%d/%d:" % (n, len(filenames)),
 	xmldoc = ligolw_utils.load_filename(filename, verbose = options.verbose, contenthandler = ligolw.LIGOLWContentHandler)
 	lsctables.table.InterningRowBuilder.strings.clear()
 
