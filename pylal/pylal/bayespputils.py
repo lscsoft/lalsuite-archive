@@ -899,9 +899,11 @@ class Posterior(object):
       if ('mc' in pos.names) and ('redshift' in pos.names):
           pos.append_mapping('mc_source', source_mass, ['mc', 'redshift'])
 
-      #If a1,a2 go negative, store in a separate parameter and make a1,a2 magnitudes
+      #Store signed spin magnitudes in separate parameters and make a1,a2 magnitudes
       if 'a1' in pos.names:
-          if min(pos['a1'].samples.flatten()) < 0.:
+          if 'tilt1' in pos.names:
+              pos.append_mapping('a1z', lambda a, tilt: a*np.cos(tilt), ('a1','tilt1'))
+          else:
               pos.append_mapping('a1z', lambda x: x, 'a1')
               inj_az = None
               if injection is not None:
@@ -909,11 +911,11 @@ class Posterior(object):
               pos['a1z'].set_injval(inj_az)
               pos.pop('a1')
               pos.append_mapping('a1', lambda x: np.abs(x), 'a1z')
-          elif 'tilt1' in pos.names:
-              pos.append_mapping('a1z', lambda a, tilt: a*np.cos(tilt), ('a1','tilt1'))
 
       if 'a2' in pos.names:
-          if min(pos['a2'].samples.flatten()) < 0.:
+          if 'tilt2' in pos.names:
+              pos.append_mapping('a2z', lambda a, tilt: a*np.cos(tilt), ('a2','tilt2'))
+          else:
               pos.append_mapping('a2z', lambda x: x, 'a2')
               inj_az = None
               if injection is not None:
@@ -921,8 +923,6 @@ class Posterior(object):
               pos['a2z'].set_injval(inj_az)
               pos.pop('a2')
               pos.append_mapping('a2', lambda x: np.abs(x), 'a2z')
-          elif 'tilt2' in pos.names:
-              pos.append_mapping('a2z', lambda a, tilt: a*np.cos(tilt), ('a2','tilt2'))
 
       #If aligned spins, calculate effective spin parallel to L
       elif ('m1' in pos.names and 'a1z' in pos.names and not 'tilt1' in pos.names) and ('m2' in pos.names and 'a2z' in pos.names and not 'tilt2' in pos.names):
