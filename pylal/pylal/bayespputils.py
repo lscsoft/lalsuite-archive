@@ -627,7 +627,7 @@ class PosteriorOneDPDF(object):
         # check the kind of prior and process the string accordingly
         prior = get_prior(self.name)
         if prior is None:
-            print "prior not found, ignoring"
+            raise ValueError
         elif prior=='uniform':
             prior+='(self.samples)'
         elif 'x' in prior:
@@ -636,12 +636,12 @@ class PosteriorOneDPDF(object):
             prior = 'np.'+prior
             prior+='(self.samples)'
         else:
-            print "prior type %s not understood, ignoring"%prior
+            raise ValueError
+
         try:
             prior_dist = eval(prior)
         except:
-            print "failed to evaluate the prior distribution, reverting to the information content"
-            prior_dist = None
+            raise ValueError
         
         return entropy(posterior, qk=prior_dist)
     
@@ -697,7 +697,7 @@ class Posterior(object):
         self._injection=SimInspiralTableEntry
 
         self._triggers=SnglInpiralList
-        self._loglaliases=['posterior', 'logl','logL','likelihood', 'deltalogl']
+        self._loglaliases=['deltalogl', 'posterior', 'logl','logL','likelihood']
         self._logpaliases=['logp', 'logP','prior','logprior','Prior','logPrior']
         self._votfile=votfile
 
@@ -928,18 +928,30 @@ class Posterior(object):
       if ('mc' in pos.names) and ('redshift' in pos.names):
           pos.append_mapping('mc_source', source_mass, ['mc', 'redshift'])
 
-      #If a1,a2 go negative, store in a separate parameter and make a1,a2 magnitudes
-      if 'a1' in pos.names and min(pos['a1'].samples) < 0.:
-          pos.append_mapping('a1z', lambda x: x, 'a1')
-          pos['a1z'].set_injval(injection.spin1z)
-          pos.pop('a1')
-          pos.append_mapping('a1', lambda x: np.abs(x), 'a1z')
+      #Store signed spin magnitudes in separate parameters and make a1,a2 magnitudes
+      if 'a1' in pos.names:
+          if 'tilt1' in pos.names:
+              pos.append_mapping('a1z', lambda a, tilt: a*np.cos(tilt), ('a1','tilt1'))
+          else:
+              pos.append_mapping('a1z', lambda x: x, 'a1')
+              inj_az = None
+              if injection is not None:
+                  inj_az = injection.spin1z
+              pos['a1z'].set_injval(inj_az)
+              pos.pop('a1')
+              pos.append_mapping('a1', lambda x: np.abs(x), 'a1z')
 
-      if 'a2' in pos.names and min(pos['a2'].samples) < 0.:
-          pos.append_mapping('a2z', lambda x: x, 'a2')
-          pos['a2z'].set_injval(injection.spin2z)
-          pos.pop('a2')
-          pos.append_mapping('a2', lambda x: np.abs(x), 'a2z')
+      if 'a2' in pos.names:
+          if 'tilt2' in pos.names:
+              pos.append_mapping('a2z', lambda a, tilt: a*np.cos(tilt), ('a2','tilt2'))
+          else:
+              pos.append_mapping('a2z', lambda x: x, 'a2')
+              inj_az = None
+              if injection is not None:
+                  inj_az = injection.spin2z
+              pos['a2z'].set_injval(inj_az)
+              pos.pop('a2')
+              pos.append_mapping('a2', lambda x: np.abs(x), 'a2z')
 
       #If aligned spins, calculate effective spin parallel to L
       elif ('m1' in pos.names and 'a1z' in pos.names and not 'tilt1' in pos.names) and ('m2' in pos.names and 'a2z' in pos.names and not 'tilt2' in pos.names):
@@ -3763,7 +3775,10 @@ def calculate_redshift(distance,h=0.7,om=0.3,ol=0.7,w0=-1.0):
         return dl - lal.LuminosityDistance(omega,z)
 
     omega = lal.CreateCosmologicalParameters(h,om,ol,w0,0.0,0.0)
-    z = np.array([newton(find_z_root,np.random.uniform(0.0,2.0),args = (d,omega)) for d in distance[:,0]])
+    if isinstance(distance,float):
+        z = np.array([newton(find_z_root,np.random.uniform(0.0,2.0),args = (distance,omega))])
+    else:
+        z = np.array([newton(find_z_root,np.random.uniform(0.0,2.0),args = (d,omega)) for d in distance[:,0]])
     return z.reshape(z.shape[0],1)
 
 def source_mass(mass, redshift):
@@ -3776,7 +3791,7 @@ def source_mass(mass, redshift):
 
 def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m2, fref):
     """
-    Wrapper function for SimInspiralTransformPrecessingInitialConditions().
+    Wrapper function for SimInspiralTransformPrecessingNewInitialConditions().
     Vectorizes function for use in append_mapping() methods of the posterior class.
     """
     try:
@@ -3786,7 +3801,7 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
       print 'frame angles, did you remember to use --enable-swig-python when ./configuring lalsimulation?'
       return None
     from numpy import shape
-    transformFunc = lalsim.SimInspiralTransformPrecessingInitialConditions
+    transformFunc = lalsim.SimInspiralTransformPrecessingNewInitialConditions
 
     # Convert component masses to SI units
     m1_SI = m1*lal.MSUN_SI
@@ -5435,7 +5450,10 @@ class PEOutputParser(object):
                 runfile.write('Chain '+str(i)+':\n')
                 runfile.writelines(runInfo)
                 print "Processing file %s to %s"%(infilename,outfile.name)
-                f_ref=self._find_infmcmc_f_ref(runInfo)
+                write_fref = False
+                if 'f_ref' not in header:
+                    write_fref = True
+                    f_ref=self._find_infmcmc_f_ref(runInfo)
                 if oldMassConvention:
                     # Swap #1 for #2 because our old mass convention
                     # has m2 > m1, while the common convention has m1
@@ -5445,7 +5463,8 @@ class PEOutputParser(object):
                     for label in header:
                         outfile.write(label)
                         outfile.write(" ")
-                    outfile.write("f_ref")
+                    if write_fref:
+                        outfile.write("f_ref")
                     outfile.write(" ")
                     outfile.write("chain")
                     outfile.write("\n")
@@ -5470,8 +5489,9 @@ class PEOutputParser(object):
                                 # names above
                                 outfile.write(lineParams[header.index(label)])
                                 outfile.write("\t")
-                            outfile.write(f_ref)
-                            outfile.write("\t")
+                            if write_fref:
+                                outfile.write(f_ref)
+                                outfile.write("\t")
                             outfile.write(str(i))
                             outfile.write("\n")
                         nRead=nRead+1
@@ -6364,7 +6384,7 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
         iota=pos['inclination'].samples[which][0]
       except:
         try:
-          iota, s1x, s1y, s1z, s2x, s2y, s2z=lalsim.SimInspiralTransformPrecessingInitialConditions(pos['theta_jn'].samples[which][0], pos['phi_JL'].samples[which][0], pos['tilt1'].samples[which][0], pos['tilt2'].samples[which][0], pos['phi12'].samples[which][0], pos['a1'].samples[which][0], pos['a2'].samples[which][0], m1, m2, f_ref)
+          iota, s1x, s1y, s1z, s2x, s2y, s2z=lalsim.SimInspiralTransformPrecessingNewInitialConditions(pos['theta_jn'].samples[which][0], pos['phi_JL'].samples[which][0], pos['tilt1'].samples[which][0], pos['tilt2'].samples[which][0], pos['phi12'].samples[which][0], pos['a1'].samples[which][0], pos['a2'].samples[which][0], m1, m2, f_ref)
         except:
             if 'a1z' in pos.names:
                 s1z=pos['a1z'].samples[which][0]
