@@ -273,7 +273,8 @@ def plot_label(param):
       'lambda1' : r'$\lambda_1$',
       'lambda2': r'$\lambda_2$',
       'lam_tilde' : r'$\tilde{\Lambda}$',
-      'dlam_tilde': r'$\delta \tilde{\Lambda}$'}
+      'dlam_tilde': r'$\delta \tilde{\Lambda}$'.
+      'eccentricity': r'$e$'}
 
   # Handle cases where multiple names have been used
   if param in m1_names:
