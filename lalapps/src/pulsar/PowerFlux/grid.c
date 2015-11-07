@@ -55,7 +55,9 @@ return ds;
 
 #define EPSILON  (23.439281*M_PI/180)
 
-SKY_GRID_TYPE ecliptic_pole[3]={0, -sin(EPSILON), cos(EPSILON)};
+//SKY_GRID_TYPE ecliptic_pole[3]={0, -sin(EPSILON), cos(EPSILON)};
+/* explicit constants for Intel compiler compatibility */
+SKY_GRID_TYPE ecliptic_pole[3]={0, -0.397776994021848, 0.9174821322657694};
 
 SKY_GRID_TYPE ecliptic_distance(SKY_GRID_TYPE ra0, SKY_GRID_TYPE dec0,
 			  SKY_GRID_TYPE ra1, SKY_GRID_TYPE dec1)
