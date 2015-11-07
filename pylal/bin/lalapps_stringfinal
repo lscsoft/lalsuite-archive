@@ -680,7 +680,7 @@ FROM
 			for instrument in self.seglists:
 				print >>f, "In %s:" % instrument
 				print >>f, "\tInjected amplitude:\t%.16g" % SimBurstUtils.string_amplitude_in_instrument(sim, instrument, offsetvector)
-				print >>f, "\tTime of injection:\t%s s" % SimBurstUtils.time_at_instrument(sim, instrument, offsetvector)
+				print >>f, "\tTime of injection:\t%s s" % sim.time_at_instrument(instrument, offsetvector)
 			print >>f, "Amplitude in waveframe:\t%.16g" % sim.amplitude
 			t = sim.get_time_geocent()
 			print >>f, "Time at geocentre:\t%s s" % t
@@ -700,7 +700,7 @@ FROM
 			for instrument in self.seglists:
 				print >>f, "In %s:" % instrument
 				print >>f, "\tInjected amplitude:\t%.16g" % SimBurstUtils.string_amplitude_in_instrument(sim, instrument, offsetvector)
-				print >>f, "\tTime of injection:\t%s s" % SimBurstUtils.time_at_instrument(sim, instrument, offsetvector)
+				print >>f, "\tTime of injection:\t%s s" % sim.time_at_instrument(instrument, offsetvector)
 			print >>f, "Amplitude in waveframe:\t%.16g" % sim.amplitude
 			t = sim.get_time_geocent()
 			print >>f, "Time at geocentre:\t%s s" % t
