@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.56-64
+VERSION=1.4.57-64
 # This version is developed against LAL-6.30
 LALROOT=./../../../../
 LALROOT=/home/vdergach/opt/
@@ -21,7 +21,10 @@ OPTFLAGS=-O6 -msse2 -funroll-loops -fno-stack-protector
 OPTFLAGS=-O6 -mtune=nocona -funroll-loops -fno-stack-protector -msse3 -U_FORTIFY_SOURCE
 OPTFLAGS=-O3 -mtune=core2 -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -msse3 -U_FORTIFY_SOURCE
 OPTFLAGS=-O3 -mtune=core2 -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -mavx -U_FORTIFY_SOURCE
-OPTFLAGS=-O3 -mtune=core2 -mavx -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=0
+#OPTFLAGS=-O3 -mtune=core2 -msse3 -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=0
+OPTFLAGS=-O3 -fopenmp -flto -mtune=core2 -mavx -ftree-loop-im -fvariable-expansion-in-unroller -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=1 -fno-associative-math -fno-math-errno -ffinite-math-only -fno-signed-zeros -fcx-limited-range
+#OPTFLAGS=-O3 -march=haswell -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=0
+#OPTFLAGS=-fopenmp -O3 -march=haswell -fno-tree-vectorize -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=0
 #OPTFLAGS=-O6 -funroll-loops -msse3
 CONVERSION=-Wconversion-extra -Wconversion
 CONVERSION=
@@ -460,7 +463,7 @@ powerflux-condor: $(OBJS) jobs.o util-condor.o
 	ls -l powerflux-condor
 
 powerflux-mt2: $(OBJS2) jobs-mt.o util.o
-	$(CC) $(OBJS2) jobs-mt.o util.o -o powerflux-mt2 -static $(LDFLAGS) -lgsl -lgslcblas -lm -lpthread -lz
+	$(CC) $(CFLAGS) $(OBJS2) jobs-mt.o util.o -o powerflux-mt2 -static $(LDFLAGS) -lgsl -lgslcblas -lm -lpthread -lz
 	ls -l powerflux-mt2
 
 powerflux-condor2: $(OBJS2) jobs.o util-condor.o
@@ -503,6 +506,13 @@ upload.a: powerflux-condor powerflux-mt powerflux-condor2 powerflux-mt2
 	gsiscp -C powerflux-condor2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor2.$(VERSION)
 	gsiscp -C powerflux-mt2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt2.$(VERSION)
 	gsiscp -C $(FILES) h2.atlas.aei.uni-hannover.de:PowerFlux/
+	
+upload.a2: powerflux-mt2
+#	gsiscp -C powerflux-condor h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor.$(VERSION)
+#	gsiscp -C powerflux-mt h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt.$(VERSION)
+#	gsiscp -C powerflux-condor2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor2.$(VERSION)
+	gsiscp -C powerflux-mt2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt2.$(VERSION)
+#	gsiscp -C $(FILES) h2.atlas.aei.uni-hannover.de:PowerFlux/
 	
 upload.g: powerflux-condor powerflux-mt
 	scp -C powerflux-condor gallatin.physics.lsa.umich.edu:PowerFlux/powerflux-condor.$(VERSION)
