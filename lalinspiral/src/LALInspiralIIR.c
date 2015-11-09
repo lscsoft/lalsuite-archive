@@ -42,7 +42,7 @@ static REAL8 clogabs(COMPLEX16 z)
 
 int XLALInspiralGenerateIIRSet(REAL8Vector *amp, REAL8Vector *phase, double epsilon, double alpha, double beta, double padding, COMPLEX16Vector **a1, COMPLEX16Vector **b0, INT4Vector **delay, UINT8 iir_type_flag)
 {  
-	/* default iir_type_flag = 0,
+	/* default iir_type_flag = 1,
 	   other options TBD */
 	int j = amp->length-1, jstep, k, nfilters = 0;
 	// INT4 decimationFactor = 1;
@@ -121,11 +121,7 @@ int XLALInspiralGenerateIIRSet(REAL8Vector *amp, REAL8Vector *phase, double epsi
 		else {
 			phase_dot = (-11.0/6.0*phase->data[k] + 3.0*phase->data[k+1] - 1.5*phase->data[k+2] + 1.0/3.0*phase->data[k+3]);
 		}
-		//fprintf(stderr, "%3.0d, %6.0d, %3.0d, %11.2f, %11.8f\n",nfilters, amp->length-1-j, decimationFactor, ((double) (amp->length-1-j))/((double) decimationFactor), phase_dot/(2.0*LAL_PI)*2048.0);
-		// decimationFactor = ((int ) pow(2.0,-ceil(log(2.0*padding*phase_dot/(2.0*LAL_PI))/log(2.0))));
-		// if (decimationFactor < 1 ) decimationFactor = 1;
-
-		//fprintf(stderr, "filter = %d, prej = %d, j = %d, k=%d, jstep = %d, decimation rate = %d, nFreq = %e, phase[k] = %e\n", nfilters, prej, j, k, jstep, decimationFactor, phase_dot/(2.0*LAL_PI), phase->data[k]);
+		
 		/* FIXME: Should think about being smarter about allocating memory for these (linked list??) */
 		*a1 = XLALResizeCOMPLEX16Vector(*a1, nfilters);
 		*b0 = XLALResizeCOMPLEX16Vector(*b0, nfilters);
@@ -166,8 +162,7 @@ int XLALInspiralIIRSetResponse(COMPLEX16Vector *a1, COMPLEX16Vector *b0, INT4Vec
 	for (a1_last = a1f + numFilters; a1f < a1_last; a1f++)
 		{
 			y = *b0f / *a1f;
-			length = (int) (logf(1e-13))/(logf(cabs(*a1f)));// + *delayf;
-			//length = (int) (logf((1e-13)/cabs(*b0f)))/(logf(cabs(*a1f)));// + *delayf;
+			length = (int) (logf(1e-13))/(logf(cabs(*a1f)));
 			int maxlength = response->length - *delayf;
 			if (length > maxlength)
 				length = maxlength;
