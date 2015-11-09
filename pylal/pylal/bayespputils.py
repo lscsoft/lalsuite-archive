@@ -372,7 +372,7 @@ def plot_label(param):
       'dchi5l':r'$d\chi_{5}^{(l)}$',
       'dchi6':r'$d\chi_6$',
       'dchi6l':r'$d\chi_{6}^{(l)}$',
-      'dchi7':r'$d\xi_7$',
+      'dchi7':r'$d\chi_7$',
       'dxi1':r'$d\xi_1$',
       'dxi2':r'$d\xi_2$',
       'dxi3':r'$d\xi_3$',
