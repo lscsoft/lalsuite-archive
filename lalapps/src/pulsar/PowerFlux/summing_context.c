@@ -14,7 +14,7 @@
 extern struct gengetopt_args_info args_info;
 
 extern FILE * DATA_LOG, * LOG, *FILE_LOG;
-
+extern int useful_bins;
 
 SUMMING_CONTEXT *create_summing_context(void)
 {
@@ -149,6 +149,8 @@ ctx->pps_hits=0;
 ctx->pps_misses=0;
 ctx->pps_rollbacks=0;
 
+ctx->log_extremes_pps=allocate_partial_power_sum_F(useful_bins, 1);
+
 fprintf(LOG, "summing_step: %g\n", ctx->summing_step);
 fprintf(LOG, "cache_granularity: %d\n", ctx->cache_granularity);
 fprintf(LOG, "diff_shift_granularity: %d\n", ctx->diff_shift_granularity);
@@ -175,6 +177,8 @@ if(ctx->free_cache!=NULL)ctx->free_cache(ctx);
 
 for(i=0;i<ctx->pps_pool_free;i++)free_partial_power_sum_F(ctx->partial_power_sum_pool[i]);
 free(ctx->partial_power_sum_pool);
+
+free_partial_power_sum_F(ctx->log_extremes_pps);
 
 free(ctx);
 }

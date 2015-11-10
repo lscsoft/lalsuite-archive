@@ -23,7 +23,8 @@ OPTFLAGS=-O6 -mtune=nocona -funroll-loops -fno-stack-protector -msse3 -U_FORTIFY
 OPTFLAGS=-O3 -mtune=core2 -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -msse3 -U_FORTIFY_SOURCE
 OPTFLAGS=-O3 -mtune=core2 -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -mavx -U_FORTIFY_SOURCE
 OPTFLAGS=-O3 -mtune=core2 -mavx -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=0
-OPTFLAGS=-mmic -DMANUAL_SSE=0 -O3 -mkl=sequential -fma -funroll-loops -fno-math-errno -fp-model fast -ipo-jobs32 -finline -inline-forceinline -inline-level=2 -ipo  
+OPTFLAGS=-DLINUX_THREADS -pthread -mmic -fopenmp -mkl=sequential -DMANUAL_SSE=0 -O3 -fma -funroll-loops -fno-math-errno -fp-model fast -ipo-jobs32 -finline -inline-forceinline -inline-level=2 -ipo  
+#OPTFLAGS=-pthread -mmic -mkl=sequential -DMANUAL_SSE=0 -O3 -fma -funroll-loops -fno-math-errno -fp-model fast -ipo-jobs32 -finline -inline-forceinline -inline-level=2 -ipo
 #OPTFLAGS=-O6 -funroll-loops -msse3
 CONVERSION=-Wconversion-extra -Wconversion
 CONVERSION=
@@ -462,7 +463,7 @@ powerflux-condor: $(OBJS) jobs.o util-condor.o
 	ls -l powerflux-condor
 
 powerflux-mt2: $(OBJS2) jobs-mt.o util.o
-	$(CC) $(OBJS2) jobs-mt.o util.o -o powerflux-mt2 -static $(LDFLAGS) -lgsl -lgslcblas -lm -lpthread -lz
+	$(CC) $(OBJS2) jobs-mt.o util.o -o powerflux-mt2 -static $(LDFLAGS) -lgsl -lgslcblas -lm  -lz
 	ls -l powerflux-mt2
 
 powerflux-condor2: $(OBJS2) jobs.o util-condor.o
@@ -476,6 +477,7 @@ powerflux-valgrind2: $(OBJS2) jobs-mt.o util.o
 
 jobs-mt.o: jobs.c jobs.h
 	$(CC) $(CFLAGS) -DLINUX_THREADS -c jobs.c -o jobs-mt.o
+#	$(CC) -pthread -O3 -mmic  -DLINUX_THREADS -c jobs.c -o jobs-mt.o
 
 util-condor.o: util.c util.h
 	$(CC) $(CFLAGS) -DCONDOR -c util.c -o util-condor.o

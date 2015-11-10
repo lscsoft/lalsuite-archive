@@ -810,7 +810,7 @@ units=NULL;
 void stationary_sweep(SKY_GRID *sky_grid, int band_to, int band_from, float weight_ratio_level, float tolerance)
 {
 
-#pragma omp parallel for schedule(dynamic, 100)
+#pragma omp parallel for schedule(dynamic, 128)
 for(int i=0;i<sky_grid->npoints;i++) {
 	if((band_from>=0) && sky_grid->band[i]!=band_from)continue;
 
@@ -824,7 +824,7 @@ for(int i=0;i<sky_grid->npoints;i++) {
 void band_axis_sweep(SKY_GRID *sky_grid, int band_to, int band_from, double *band_axis, double band_axis_norm, double S_lower, double S_upper)
 {
 
-#pragma omp parallel for schedule(dynamic, 100)
+#pragma omp parallel for schedule(dynamic, 128)
 for(int i=0;i<sky_grid->npoints;i++) {
 	double S, x, y, z;
 	if((band_from>=0) && sky_grid->band[i]!=band_from)continue;
@@ -1431,7 +1431,7 @@ sg->first_map[0]=0;
 sg->first_map[grid->npoints-1]=sg->super_grid->npoints-1;
 sg->reverse_map[sg->super_grid->npoints-1]=grid->npoints-1;
 sg->reverse_map[0]=0;
-#pragma omp parallel for schedule(dynamic, 100)
+#pragma omp parallel for schedule(dynamic, 128)
 for(int k=1;k<sg->super_grid->npoints-1;k++){
 	int pi, pk, ra_pk, i, j;
 	SKY_GRID_TYPE ds, best_ds, longitude, latitude;

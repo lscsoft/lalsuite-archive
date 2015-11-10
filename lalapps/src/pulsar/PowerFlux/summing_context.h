@@ -38,6 +38,9 @@ typedef struct S_SUMMING_CONTEXT {
 	long pps_misses;
 	long pps_rollbacks;
 
+	/* log_extremes private vars */
+	PARTIAL_POWER_SUM_F *log_extremes_pps;
+
 	/* dynamic parameters */
 	int loose_first_half_count;
 

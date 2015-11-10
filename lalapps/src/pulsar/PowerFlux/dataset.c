@@ -2317,39 +2317,41 @@ if(fabs(err)>1e-6)exit(-1);
 void compute_noise_curves(DATASET *dataset)
 {
 float *tmp;
-float *x, *y, *t;
-float a;
-int i,j;
 double b, b_initial;
 int nsegments=dataset->free;
 int nbins=dataset->nbins;
 HISTOGRAM *hist;
 
 tmp=do_alloc(nsegments*nbins,sizeof(float));
-for(i=0;i<nsegments;i++) {
-	t=&(tmp[i*nbins]);
-	x=&(dataset->re[i*nbins]);
-	y=&(dataset->im[i*nbins]);
-	for(j=0;j<nbins;j++) {
+#pragma omp parallel for schedule(dynamic, 128)
+for(int i=0;i<nsegments;i++) {
+	float * t=&(tmp[i*nbins]);
+	float * x=&(dataset->re[i*nbins]);
+	float *y=&(dataset->im[i*nbins]);
+	for(int j=0;j<nbins;j++) {
 		t[j]=log10(x[j]*x[j]+y[j]*y[j]);
 		}
 	}
 b=0;
-for(i=0;i<nsegments;i++){
-	a=compute_median(tmp+i*nbins,1,nbins);
+#pragma omp parallel for schedule(dynamic, 128)
+for(int i=0;i<nsegments;i++){
+	float a=compute_median(tmp+i*nbins,1,nbins);
 	dataset->TMedians[i]=a;
+	#pragma omp critical
 	b+=a*a;
-	t=&(tmp[i*nbins]);
-	for(j=0;j<nbins;j++){
+	float *t=&(tmp[i*nbins]);
+	for(int j=0;j<nbins;j++){
 		t[j]-=a;
 		}
 	}
-for(j=0;j<nbins;j++){
-	a=compute_median(tmp+j,nbins,nsegments);
+#pragma omp parallel for schedule(dynamic, 128)
+for(int j=0;j<nbins;j++){
+	float a=compute_median(tmp+j,nbins,nsegments);
 	dataset->FMedians[j]=a;
+	#pragma omp critical
 	b+=a*a;
-	t=&(tmp[j]);
-	for(i=0;i<nsegments;i++){
+	float *t=&(tmp[j]);
+	for(int i=0;i<nsegments;i++){
 		t[i*nbins]-=a;
 		}
 	}
@@ -2357,21 +2359,24 @@ b_initial=b;
 fprintf(stderr,"%g\n",b);
 while(b>0){
 	b=0;
-	for(i=0;i<nsegments;i++){
-		a=compute_median(tmp+i*nbins,1,nbins);
+	#pragma omp parallel for schedule(dynamic, 128)
+	for(int i=0;i<nsegments;i++){
+		float a=compute_median(tmp+i*nbins,1,nbins);
 		dataset->TMedians[i]+=a;
+		#pragma omp critical
 		b+=a*a;
-		t=&(tmp[i*nbins]);
-		for(j=0;j<nbins;j++){
+		float *t=&(tmp[i*nbins]);
+		for(int j=0;j<nbins;j++){
 			t[j]-=a;
 			}
 		}
-	for(j=0;j<nbins;j++){
-		a=compute_median(tmp+j,nbins,nsegments);
+	#pragma omp parallel for schedule(dynamic, 128)
+	for(int j=0;j<nbins;j++){
+		float a=compute_median(tmp+j,nbins,nsegments);
 		dataset->FMedians[j]+=a;
 		b+=a*a;
-		t=&(tmp[j]);
-		for(i=0;i<nsegments;i++){
+		float *t=&(tmp[j]);
+		for(int i=0;i<nsegments;i++){
 			t[i*nbins]-=a;
 			}
 		}

@@ -23,7 +23,7 @@ OPTFLAGS=-O6 -mtune=nocona -funroll-loops -fno-stack-protector -msse3 -U_FORTIFY
 OPTFLAGS=-O3 -mtune=core2 -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -msse3 -U_FORTIFY_SOURCE
 OPTFLAGS=-O3 -mtune=core2 -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -mavx -U_FORTIFY_SOURCE
 OPTFLAGS=-O3 -mtune=core2 -mavx -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=0
-OPTFLAGS=-O3 -mkl=sequential -fma -funroll-loops -fno-math-errno -fp-model fast -ipo-jobs32 -finline -inline-forceinline -inline-level=2 -ipo  
+OPTFLAGS=-O3 -fopenmp -mkl=parallel -fma -funroll-loops -fno-math-errno -fp-model fast -ipo-jobs32 -finline -inline-forceinline -inline-level=2 -ipo  
 #OPTFLAGS=-O6 -funroll-loops -msse3
 CONVERSION=-Wconversion-extra -Wconversion
 CONVERSION=

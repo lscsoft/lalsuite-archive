@@ -208,10 +208,11 @@ for(k=0;k<d_free;k++) {
 free(w);
 }
 
+MUTEX data_logging_mutex;
 
-void log_extremes(EXTREME_INFO *ei, int pi, POWER_SUM **ps, int nchunks, int count)
+void log_extremes(SUMMING_CONTEXT *ctx, POWER_SUM_STATS *tmp_pstat, EXTREME_INFO *ei, int pi, POWER_SUM **ps, int nchunks, int count)
 {
-PARTIAL_POWER_SUM_F *pps;
+PARTIAL_POWER_SUM_F *pps=ctx->log_extremes_pps;
 POWER_SUM_STATS pstats, pstats_accum;
 int i, k;
 int highest_ul_idx=0;
@@ -219,7 +220,8 @@ int highest_circ_ul_idx=0;
 int highest_snr_idx=0;
 int skyband;
 
-pps=allocate_partial_power_sum_F(useful_bins, 1);
+//fprintf(stderr, "count=%d\n", count);
+//pps=allocate_partial_power_sum_F(useful_bins, 1);
 memset(&pstats_accum, 0, sizeof(pstats_accum));
 pstats_accum.max_weight=-1;
 
@@ -232,7 +234,12 @@ for(i=0;i<count;i++) {
 		accumulate_partial_power_sum_F(pps, (ps[k][i].pps));
 #endif
 		}
-	power_sum_stats(pps, &(pstats));
+	power_sum_stats(pps, &(tmp_pstat[i]));
+	}
+
+thread_mutex_lock(&data_logging_mutex);
+for(i=0;i<count;i++) {
+	memcpy(&pstats, &(tmp_pstat[i]), sizeof(POWER_SUM_STATS));
 
 	if(args_info.dump_power_sums_arg) {
 		fprintf(DATA_LOG, "power_sum %s %d %d %lf %lf %lf %lg ", ei->name, pi, first_bin+side_cut, ps[0][i].ra, ps[0][i].dec, ps[0][i].freq_shift, ps[0][i].spindown);
@@ -357,7 +364,7 @@ for(i=0;i<count;i++) {
 	UPDATE_MIN(pstats_accum, min_m4);
 
 	}
-free_partial_power_sum_F(pps);
+//free_partial_power_sum_F(pps);
 
 if(write_data_log_header) {
 	write_data_log_header=0;
@@ -419,6 +426,8 @@ if(args_info.output_cache_arg) {
 if((pstats_accum.highest_snr.snr>args_info.min_candidate_snr_arg) &
    (pstats_accum.highest_snr.bin>=args_info.tail_veto_arg) &
    (pstats_accum.highest_snr.bin<(useful_bins-args_info.tail_veto_arg)))WRITE_POINT(ps[0][highest_snr_idx], pstats_accum.highest_snr, "snr");
+
+thread_mutex_unlock(&data_logging_mutex);
 
 #define FILL_SKYMAP(skymap, value)	if(ei->skymap!=NULL)ei->skymap[pi]=value;
 
@@ -650,7 +659,6 @@ SUMMING_CONTEXT **summing_contexts=NULL;
 struct {
 	POWER_SUM **ps;
 	POWER_SUM **ps_tmp;
-	
 	} *cruncher_contexts=NULL;
 int n_contexts=0;
 
@@ -661,8 +669,6 @@ int nchunks;
 double gps_start;
 double gps_stop;
 
-MUTEX data_logging_mutex;
-
 
 void outer_loop_cruncher(int thread_id, void *data)
 {
@@ -672,9 +678,11 @@ int ps_tmp_len;
 int i,k,m,count;
 POWER_SUM **ps=cruncher_contexts[thread_id+1].ps;
 POWER_SUM **ps_tmp=cruncher_contexts[thread_id+1].ps_tmp;
+POWER_SUM_STATS *le_pstats;
 
 //fprintf(stderr, "%d ", pi);
 generate_patch_templates(ctx, pi, &(ps[0]), &count);
+le_pstats=do_alloc(count, sizeof(*le_pstats));
 
 if(count<1) {
 	free(ps[0]);
@@ -706,9 +714,7 @@ for(i=0;i<nei;i++) {
 			}
 		}
 
-	thread_mutex_lock(data_logging_mutex);
-	log_extremes(ei[i], pi, ps_tmp, ps_tmp_len, count);
-	thread_mutex_unlock(data_logging_mutex);
+	log_extremes(ctx, le_pstats, ei[i], pi, ps_tmp, ps_tmp_len, count);
 	}
 
 for(i=0;i<nchunks;i++) {
@@ -716,7 +722,7 @@ for(i=0;i<nchunks;i++) {
 	ps[i]=NULL;
 	}
 //fprintf(stderr, "pps_hits=%ld pps_misses=%ld pps_rollbacks=%ld\n", ctx->pps_hits, ctx->pps_misses, ctx->pps_rollbacks);
-
+free(le_pstats);
 }
 
 void outer_loop(void)
@@ -741,6 +747,7 @@ summing_contexts=do_alloc(n_contexts, sizeof(*summing_contexts));
 for(i=0;i<n_contexts;i++)
 	summing_contexts[i]=create_summing_context();
 
+fprintf(stderr, "veto_free=%d\n", veto_free);
 cruncher_contexts=do_alloc(n_contexts, sizeof(*cruncher_contexts));
 for(i=0;i<n_contexts;i++) {
 	cruncher_contexts[i].ps=do_alloc(nchunks, sizeof(*cruncher_contexts[i].ps));
