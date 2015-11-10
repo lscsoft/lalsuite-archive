@@ -3796,6 +3796,9 @@ def bbh_final_mass_non_spinning(m1, m2):
     ------
     final mass, mf
     """
+    m1 = np.array(m1)
+    m2 = np.array(m2)
+    
     m = m1 + m2
     eta = m1*m2/(m1+m2)**2.
     return m*(1. + (np.sqrt(8./9.)-1.)*eta - 0.4333*(eta**2.) - (0.4392*(eta**3)))
@@ -3812,6 +3815,9 @@ def bbh_final_spin_non_spinning(m1, m2):
     ------
     final spin, sf
     """
+    m1 = np.array(m1)
+    m2 = np.array(m2)
+    
     eta = m1*m2/(m1+m2)**2.
     return np.sqrt(12.)*eta - 3.871*(eta**2.) + 4.028*(eta**3)
 
@@ -3827,7 +3833,8 @@ def calc_isco_radius(a):
     -------
     ISCO radius
     """
-    
+    a = np.array(a)
+     
     # Ref. Eq. (2.5) of Ori, Thorne Phys Rev D 62 124022 (2000)
     z1 = 1.+(1.-a**2.)**(1./3)*((1.+a)**(1./3) + (1.-a)**(1./3))
     z2 = np.sqrt(3.*a**2 + z1**2)
@@ -3887,8 +3894,13 @@ def bbh_final_spin_non_precessing(m1, m2, a1, a2):
     -------
     dimensionless final spin, af
     """
+    m1 = np.array(m1)
+    m2 = np.array(m2)
+    a1 = np.array(a1)
+    a2 = np.array(a2)
+    
     # Vectorize the function if arrays are provided as input
-    if hasattr(m1, '__len__'):
+    if hasattr(m1, '__len__') or hasattr(m2, '__len__') or hasattr(a1, '__len__') or hasattr(a2, '__len__'):
         return np.vectorize(bbh_final_spin_non_precessing)(m1, m2, a1, a2)
     
     # binary parameters
@@ -3925,6 +3937,10 @@ def bbh_final_mass_non_precessing(m1, m2, a1, a2, af=None):
     -------
     final mass, mf
     """
+    m1 = np.array(m1)
+    m2 = np.array(m2)
+    a1 = np.array(a1)
+    a2 = np.array(a2)
     
     # binary parameters
     m = m1+m2
@@ -3939,6 +3955,8 @@ def bbh_final_mass_non_precessing(m1, m2, a1, a2, af=None):
     
     if af is None:
         af = bbh_final_spin_non_precessing(m1, m2, a1, a2)
+    else:
+        af = np.array(af)
     
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # now compute the final mass
