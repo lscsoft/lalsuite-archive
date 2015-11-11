@@ -239,6 +239,7 @@ typedef enum {
                          * @remarks Implemented in lalsimulation (frequency domain). */
    TaylorF2,		/**< The standard stationary phase approximation; Outputs a frequency-domain wave.
                          * @remarks Implemented in lalsimulation (frequency domain). */
+   EccTF2,              /**< Toy model including leading-order eccentricity corrections up to 3PN order in TaylorF2 phasing */
    TaylorR2F4,		/**< A frequency domain model closely related to TaylorT4
                          * @attention Not implemented in lalsimulation. */
    TaylorF2RedSpin,		/**< TaylorF2 waveforms for non-precessing spins, defined in terms of a single (reduced-spin) parameter [Ajith_2011ec].
@@ -337,6 +338,7 @@ typedef enum {
                          * @remarks Implemented in lalsimulation (time domain and frequency domain). */
    IMRPhenomD,		/**< Frequency domain (non-precessing spins) inspiral-merger-ringdown templates of Husa et al, arXiv:1508.07250 and Kahn et al, arXiv:1508.07253 with phenomenological coefficients defined in the Table ...
                          * @remarks Implemented in lalsimulation (frequency domain). */
+   IMRPhenomEccD,       /**< Toy model for `eccentric` IMRPhenomD variant, using eccentric TaylorF2 variant EccTF2 as inspiral model */
    IMRPhenomP,		/**< Frequency domain (generic spins) inspiral-merger-ringdown templates of Hannam et al., arXiv:1308.3271 [gr-qc]. Based on IMRPhenomC.
                          * @remarks Implemented in lalsimulation (frequency domain).  */
    IMRPhenomPv2,		/**< Frequency domain (generic spins) inspiral-merger-ringdown templates of Hannam et al., arXiv:1308.3271 [gr-qc]. Based on IMRPhenomD, arXiv:1508.07250 and arXiv:1508.07253.
@@ -599,6 +601,14 @@ int XLALHGimriGenerator(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, REAL8
 int XLALSimInspiralTaylorF2AlignedPhasing(PNPhasingSeries **pfa, const REAL8 m1, const REAL8 m2, const REAL8 chi1, const REAL8 chi2, const REAL8 qm_def1, const REAL8 qm_def2, const LALSimInspiralSpinOrder spinO);
 int XLALSimInspiralTaylorF2Core(COMPLEX16FrequencySeries **htilde, const REAL8Sequence *freqs, const REAL8 phi_ref, const REAL8 m1_SI, const REAL8 m2_SI, const REAL8 S1z, const REAL8 S2z, const REAL8 f_ref, const REAL8 shft, const REAL8 r, const REAL8 quadparam1, const REAL8 quadparam2, const REAL8 lambda1, const REAL8 lambda2, const LALSimInspiralSpinOrder spinO, const LALSimInspiralTidalOrder tideO, const INT4 phaseO, const INT4 amplitudeO);
 int XLALSimInspiralTaylorF2(COMPLEX16FrequencySeries **htilde, const REAL8 phi_ref, const REAL8 deltaF, const REAL8 m1_SI, const REAL8 m2_SI, const REAL8 S1z, const REAL8 S2z, const REAL8 fStart, const REAL8 fEnd, const REAL8 f_ref, const REAL8 r, const REAL8 quadparam1, const REAL8 quadparam2, const REAL8 lambda1, const REAL8 lambda2, const LALSimInspiralSpinOrder spinO, LALSimInspiralTidalOrder tideO, const INT4 phaseO, const INT4 amplitudeO);
+
+
+/* EccTF2 functions */
+/* in module LALSimInspiralEccTF2.c */
+
+int XLALSimInspiralEccTF2AlignedPhasing(PNPhasingSeries **pfcir, PNPhasingSeries **pfeccA, PNPhasingSeries **pfeccB, PNPhasingSeries **pfeccC, PNPhasingSeries **pfeccD, PNPhasingSeries **pfeccE, PNPhasingSeries **pfeccF, const REAL8 m1, const REAL8 m2, const REAL8 chi1, const REAL8 chi2, const REAL8 qm_def1, const REAL8 qm_def2, const REAL8 e_min, const REAL8 f_min, const LALSimInspiralSpinOrder spinO);
+int XLALSimInspiralEccTF2Core(COMPLEX16FrequencySeries **htilde, const REAL8Sequence *freqs, const REAL8 phi_ref, const REAL8 m1_SI, const REAL8 m2_SI, const REAL8 S1z, const REAL8 S2z, const REAL8 f_ref, const REAL8 shft, const REAL8 r, const REAL8 quadparam1, const REAL8 quadparam2, const REAL8 lambda1, const REAL8 lambda2, const REAL8 f_min, const REAL8 e_min, const LALSimInspiralSpinOrder spinO, const LALSimInspiralTidalOrder tideO, const INT4 phaseO, const INT4 amplitudeO);
+int XLALSimInspiralEccTF2(COMPLEX16FrequencySeries **htilde, const REAL8 phi_ref, const REAL8 deltaF, const REAL8 m1_SI, const REAL8 m2_SI, const REAL8 S1z, const REAL8 S2z, const REAL8 fStart, const REAL8 fEnd, const REAL8 f_ref, const REAL8 r, const REAL8 quadparam1, const REAL8 quadparam2, const REAL8 lambda1, const REAL8 lambda2, const REAL8 e_min, const LALSimInspiralSpinOrder spinO, LALSimInspiralTidalOrder tideO, const INT4 phaseO, const INT4 amplitudeO);
 
 
 /* SpinTaylor precessing waveform functions */

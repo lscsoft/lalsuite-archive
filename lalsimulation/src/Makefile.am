@@ -135,6 +135,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimIMRPhenom.c \
 	LALSimIMRPhenomC.c \
 	LALSimIMRPhenomD.c \
+        LALSimIMRPhenomEccD.c \
 	LALSimIMRPhenomP.c \
 	LALSimIMRPSpinInspiralRD.c \
 	LALSimPhenSpinRingDown.c \
@@ -149,6 +150,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimInspiralOptimizedCoefficientsEccentricityFD.c \
 	LALSimInspiralTaylorEt.c \
 	LALSimInspiralTaylorF2.c \
+        LALSimInspiralEccTF2.c \
 	LALSimInspiralTaylorF2ReducedSpin.c \
 	LALSimInspiralTaylorF2ReducedSpinMetric.c \
 	LALSimInspiralTaylorF2ReducedSpinTidal.c \
