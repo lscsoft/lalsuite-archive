@@ -150,6 +150,8 @@ ctx->pps_misses=0;
 ctx->pps_rollbacks=0;
 
 ctx->log_extremes_pps=allocate_partial_power_sum_F(useful_bins, 1);
+ctx->log_extremes_pstats_scratch_size=10;
+ctx->log_extremes_pstats_scratch=do_alloc(ctx->log_extremes_pstats_scratch_size, sizeof(*ctx->log_extremes_pstats_scratch));
 
 fprintf(LOG, "summing_step: %g\n", ctx->summing_step);
 fprintf(LOG, "cache_granularity: %d\n", ctx->cache_granularity);

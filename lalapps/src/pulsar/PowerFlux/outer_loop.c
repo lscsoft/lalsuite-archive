@@ -682,7 +682,14 @@ POWER_SUM_STATS *le_pstats;
 
 //fprintf(stderr, "%d ", pi);
 generate_patch_templates(ctx, pi, &(ps[0]), &count);
-le_pstats=do_alloc(count, sizeof(*le_pstats));
+if(ctx->log_extremes_pstats_scratch_size<count*sizeof(*le_pstats)) {
+	free(ctx->log_extremes_pstats_scratch);
+
+	ctx->log_extremes_pstats_scratch_size=count*sizeof(*le_pstats);
+
+	ctx->log_extremes_pstats_scratch=do_alloc(count, sizeof(*le_pstats));
+	}
+le_pstats=(POWER_SUM_STATS *)ctx->log_extremes_pstats_scratch;
 
 if(count<1) {
 	free(ps[0]);
@@ -722,7 +729,6 @@ for(i=0;i<nchunks;i++) {
 	ps[i]=NULL;
 	}
 //fprintf(stderr, "pps_hits=%ld pps_misses=%ld pps_rollbacks=%ld\n", ctx->pps_hits, ctx->pps_misses, ctx->pps_rollbacks);
-free(le_pstats);
 }
 
 void outer_loop(void)

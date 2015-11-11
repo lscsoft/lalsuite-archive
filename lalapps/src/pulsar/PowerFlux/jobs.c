@@ -213,19 +213,23 @@ thread_mutex_unlock(&jobs_mutex);
 
 int do_single_job(int thread_id)
 {
-long i;
+long i, count, stop;
 thread_mutex_lock(&jobs_mutex);
 i=next_job_to_do;
 if(i>=jobs_free){
 	thread_mutex_unlock(&jobs_mutex);
 	return 0;
 	}
-next_job_to_do++;
+if(jobs_free>i+1000)count=5;
+	else count=1;
+next_job_to_do+=count;
 thread_mutex_unlock(&jobs_mutex);
 //fprintf(stderr, "Running job %ld on thread %d\n", i, thread_id);
-job[i].job(thread_id, job[i].data);
+stop=count+i;
+for(;i<stop;i++)
+	job[i].job(thread_id, job[i].data);
 thread_mutex_lock(&jobs_mutex);
-jobs_done++;
+jobs_done+=count;
 if(jobs_done==jobs_submitted) {
 	//fprintf(stderr, "jobs_done=%ld tid=%d i=%ld\n", jobs_done, thread_id, i);
 	thread_cond_broadcast(&all_done_condition);

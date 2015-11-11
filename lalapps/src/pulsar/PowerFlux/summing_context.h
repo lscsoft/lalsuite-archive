@@ -40,6 +40,8 @@ typedef struct S_SUMMING_CONTEXT {
 
 	/* log_extremes private vars */
 	PARTIAL_POWER_SUM_F *log_extremes_pps;
+	char *log_extremes_pstats_scratch;
+	long log_extremes_pstats_scratch_size;
 
 	/* dynamic parameters */
 	int loose_first_half_count;
