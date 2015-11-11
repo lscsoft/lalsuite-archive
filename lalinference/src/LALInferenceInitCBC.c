@@ -604,11 +604,11 @@ where the known names have been listed above.\n\
       PhaseOrder=-1;
     }
       /* check whether we are dealing with an eccentric approximant and add the eccentricity as a model parameters */
-      if (approx==NAME_OF_YOUR_APPROXIMANT_HERE)
+      if (approx==IMRPhenomEccD || approx==EccTF2 || approx==EccentricTD || approx==EccentricFD)
       {
-          REAL8 estart = 0.5;
-          REAL8 emin = 0.0, emax = 0.99;
-          LALInferenceRegisterUniformVariableREAL8(state, model->params, "eccentricity", estart, emin, emax, LALINFERENCE_PARAM_LINEAR);
+          REAL8 estart = 0.05;
+          REAL8 emin = 0.0, emax = 0.1;
+          LALInferenceRegisterUniformVariableREAL8(state, model->params, "e_min", estart, emin, emax, LALINFERENCE_PARAM_LINEAR);
       }
   }
 
