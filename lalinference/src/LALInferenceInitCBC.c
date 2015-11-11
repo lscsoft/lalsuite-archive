@@ -603,6 +603,7 @@ where the known names have been listed above.\n\
     if( (int) PhaseOrder == XLAL_FAILURE || errnum) {
       PhaseOrder=-1;
     }
+<<<<<<< HEAD
       /* check whether we are dealing with an eccentric approximant and add the eccentricity as a model parameters */
       if (approx==IMRPhenomEccD || approx==EccTF2 || approx==EccentricTD || approx==EccentricFD)
       {
@@ -610,6 +611,8 @@ where the known names have been listed above.\n\
           REAL8 emin = 0.0, emax = 0.1;
           LALInferenceRegisterUniformVariableREAL8(state, model->params, "e_min", estart, emin, emax, LALINFERENCE_PARAM_LINEAR);
       }
+=======
+>>>>>>> eccentric_approximants
   }
 
   ppt=LALInferenceGetProcParamVal(commandLine,"--amporder");

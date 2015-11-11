@@ -55,7 +55,9 @@ return ds;
 
 #define EPSILON  (23.439281*M_PI/180)
 
-SKY_GRID_TYPE ecliptic_pole[3]={0, -sin(EPSILON), cos(EPSILON)};
+//SKY_GRID_TYPE ecliptic_pole[3]={0, -sin(EPSILON), cos(EPSILON)};
+/* explicit constants for Intel compiler compatibility */
+SKY_GRID_TYPE ecliptic_pole[3]={0, -0.397776994021848, 0.9174821322657694};
 
 SKY_GRID_TYPE ecliptic_distance(SKY_GRID_TYPE ra0, SKY_GRID_TYPE dec0,
 			  SKY_GRID_TYPE ra1, SKY_GRID_TYPE dec1)
@@ -807,9 +809,9 @@ units=NULL;
 
 void stationary_sweep(SKY_GRID *sky_grid, int band_to, int band_from, float weight_ratio_level, float tolerance)
 {
-int i;
 
-for(i=0;i<sky_grid->npoints;i++) {
+#pragma omp parallel for schedule(dynamic, 100)
+for(int i=0;i<sky_grid->npoints;i++) {
 	if((band_from>=0) && sky_grid->band[i]!=band_from)continue;
 
 	if(stationary_effective_weight_ratio(sky_grid->longitude[i], sky_grid->latitude[i], tolerance)>weight_ratio_level) {
@@ -821,10 +823,10 @@ for(i=0;i<sky_grid->npoints;i++) {
 
 void band_axis_sweep(SKY_GRID *sky_grid, int band_to, int band_from, double *band_axis, double band_axis_norm, double S_lower, double S_upper)
 {
-int i;
-double S, x, y, z;
 
-for(i=0;i<sky_grid->npoints;i++) {
+#pragma omp parallel for schedule(dynamic, 100)
+for(int i=0;i<sky_grid->npoints;i++) {
+	double S, x, y, z;
 	if((band_from>=0) && sky_grid->band[i]!=band_from)continue;
 
 	/* convert into 3d */
@@ -1273,7 +1275,7 @@ fprintf(stderr, "\n");*/
 return sg;
 }
 
-SKY_SUPERGRID *make_sin_theta_supergrid(SKY_GRID *grid, int factor)
+SKY_SUPERGRID *make_sin_theta_supergrid1(SKY_GRID *grid, int factor)
 {
 SKY_SUPERGRID *sg;
 SIN_THETA_SKY_GRID_PRIV *priv;
@@ -1392,6 +1394,95 @@ for(k=1;k<sg->super_grid->npoints-1;k++){
 
 	#endif
 
+	}
+compute_list_map(sg);
+return sg;
+}
+
+SKY_SUPERGRID *make_sin_theta_supergrid(SKY_GRID *grid, int factor)
+{
+SKY_SUPERGRID *sg;
+SIN_THETA_SKY_GRID_PRIV *priv;
+if(strcmp(grid->name,"sin theta")){
+   	fprintf(stderr,"** Internal error: cannot make sin theta supergrid from %s\n", grid->name);
+	exit(-1);
+   	}
+priv=grid->grid_priv;
+
+sg=do_alloc(1, sizeof(*sg));
+sg->super_grid=make_sin_theta_grid(priv->resolution/factor);
+
+sg->subgrid_npoints=grid->npoints;
+sg->first_map=do_alloc(grid->npoints, sizeof(*sg->first_map));
+sg->reverse_map=do_alloc(sg->super_grid->npoints, sizeof(*sg->reverse_map));
+sg->list_map=do_alloc(sg->super_grid->npoints, sizeof(*sg->list_map));
+
+fprintf(stderr,"npoints=%d super grid npoints=%d\n", grid->npoints, sg->super_grid->npoints);
+/* clear the arrays */
+#pragma ivdep
+for(int i=0;i<grid->npoints;i++)sg->first_map[i]=-1;
+#pragma ivdep
+for(int i=0;i<sg->super_grid->npoints;i++){
+	sg->reverse_map[i]=-1;
+	sg->list_map[i]=-1;
+	}
+
+sg->first_map[0]=0;
+sg->first_map[grid->npoints-1]=sg->super_grid->npoints-1;
+sg->reverse_map[sg->super_grid->npoints-1]=grid->npoints-1;
+sg->reverse_map[0]=0;
+#pragma omp parallel for schedule(dynamic, 100)
+for(int k=1;k<sg->super_grid->npoints-1;k++){
+	int pi, pk, ra_pk, i, j;
+	SKY_GRID_TYPE ds, best_ds, longitude, latitude;
+	
+	longitude=sg->super_grid->longitude[k];
+	latitude=sg->super_grid->latitude[k];
+
+	best_ds=10.0;
+	pi=0;
+	ra_pk=0;
+	pk=0;
+	while(1) {
+		//ds=spherical_distance(grid->longitude[ra_pk], grid->latitude[ra_pk],
+		//		longitude, latitude);
+		//if(ds>best_ds)break;
+		//best_ds=ds;
+		pk=ra_pk;
+		ra_pk+=priv->num_ra[pi];
+		pi++;
+		if(grid->latitude[ra_pk]>=latitude)break;
+		if(pi>=priv->num_dec)break;
+		}
+		
+
+	best_ds=10.0;
+	j=pk;
+	
+	i=pk-2*grid->max_n_ra-1;
+	if(i<0)i=0;
+	for(;(i<(pk+2*grid->max_n_ra+1)) && (i<grid->npoints);i++) {
+		/* Try approximate comparison first */
+		ds=fabs(grid->longitude[i]-sg->super_grid->longitude[k]);
+		/* check that we are not far enough in RA */
+		/* The (ds<1.0) is to check that we are not jumping 2*PI */
+		if((fabs(grid->latitude[i])<1.2) && (0.36*ds>best_ds)&&(ds<6.0))continue;
+		if((fabs(grid->latitude[i])<1.47) && (0.1*ds>best_ds)&&(ds<6.0))continue;
+		if((cos(grid->latitude[i])*ds>best_ds)&&(ds<6.0))continue;
+		ds=spherical_distance(grid->longitude[i], grid->latitude[i],
+				sg->super_grid->longitude[k], sg->super_grid->latitude[k]);
+		if(ds<best_ds){
+			j=i;
+			best_ds=ds;
+			}
+		}
+
+	//if(pk!=j)fprintf(stderr, "k=%d pk=%d pi=%d j=%d  %d\n", k, pk, pi, j, pk-j);
+	sg->reverse_map[k]=j;	
+	}
+	
+for(int k=1;k<sg->super_grid->npoints-1;k++) {
+	sg->first_map[sg->reverse_map[k]]=k;
 	}
 compute_list_map(sg);
 return sg;

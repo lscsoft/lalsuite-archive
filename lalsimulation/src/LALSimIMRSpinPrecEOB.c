@@ -1,4 +1,4 @@
-    /*
+/*
 *  Copyright (C) 2011 Craig Robinson, Enrico Barausse, Yi Pan,
 *                2014 Prayush Kumar, Stas Babak, Andrea Taracchini (Precessing EOB)
 *
@@ -808,7 +808,7 @@ UNUSED static int XLALSimIMRSpinPrecAlignedEOBWaveform(
   /* No problem setting inc to zero in solving spin-aligned initial conditions. */
   /* inc is not zero in generating the final h+ and hx */
   if ( XLALSimIMRSpinEOBInitialConditions
-( tmpValues, m1, m2, fMin, 0, s1Data, s2Data, &seobParams ) == XLAL_FAILURE )
+( tmpValues, m1, m2, fMin, 0, s1Data, s2Data, &seobParams, /* use_optimized_v2 = */ 0 ) == XLAL_FAILURE )
   {
     XLALDestroyREAL8Vector( tmpValues );
     XLALDestroyREAL8Vector( sigmaKerr );
@@ -997,7 +997,7 @@ UNUSED static int XLALSimIMRSpinPrecAlignedEOBWaveform(
 
     ham = XLALSimIMRSpinPrecEOBHamiltonian( eta, &cartPosVec, &cartMomVec, &s1VecOverMtMt, &s2VecOverMtMt, sigmaKerr, sigmaStar, seobParams.tortoise, &seobCoeffs );
 
-    if ( XLALSimIMRSpinEOBGetSpinFactorizedWaveform( &hLM, values, v, ham, 2, 2, &seobParams )
+    if ( XLALSimIMRSpinEOBGetSpinFactorizedWaveform( &hLM, values, v, ham, 2, 2, &seobParams, /* use_optimized_v2 = */ 0 )
            == XLAL_FAILURE )
     {
       /* TODO: Clean-up */
@@ -1287,7 +1287,7 @@ UNUSED static int XLALSimIMRSpinPrecAlignedEOBWaveform(
 
     ham = XLALSimIMRSpinPrecEOBHamiltonian( eta, &cartPosVec, &cartMomVec, &s1VecOverMtMt, &s2VecOverMtMt, sigmaKerr, sigmaStar, seobParams.tortoise, &seobCoeffs );
 
-    if ( XLALSimIMRSpinEOBGetSpinFactorizedWaveform( &hLM, values, v, ham, 2, 2, &seobParams )
+    if ( XLALSimIMRSpinEOBGetSpinFactorizedWaveform( &hLM, values, v, ham, 2, 2, &seobParams, /* use_optimized_v2 = */ 0 )
            == XLAL_FAILURE )
     {
       /* TODO: Clean-up */
@@ -1826,6 +1826,8 @@ int XLALSimIMRSpinEOBWaveformAll(
 
   REAL8Sequence *tlistHi        = NULL;
   REAL8Sequence *tlistRDPatchHi = NULL;
+  REAL8Sequence *timeJFull = NULL;
+  REAL8Sequence *timeIFull = NULL;
 
   /* Memory for ringdown attachment */
   REAL8Vector *rdMatchPoint = XLALCreateREAL8Vector( 3 );
@@ -2033,7 +2035,7 @@ int XLALSimIMRSpinEOBWaveformAll(
         seobParams.chi1 = spin1Norm*cos(theta1Ini)/fabs(cos(theta1Ini));
         seobParams.chi2 = spin2Norm*cos(theta2Ini)/fabs(cos(theta2Ini));
         if ( XLALSimIMRSpinEOBInitialConditions( tmpValues2, m1, m2, fMin, incA,
-                                                mSpin1, mSpin2, &seobParams ) == XLAL_FAILURE )
+                                                mSpin1, mSpin2, &seobParams, /* use_optimized_v2 = */ 0 ) == XLAL_FAILURE )
         {
             XLAL_ERROR( XLAL_EFUNC );
         }
@@ -2316,6 +2318,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     fflush(NULL);
   }
 
+  REAL8Array              *dynamicsV2   = NULL;
   if(debugPK) { XLAL_PRINT_INFO("\n\n BEGINNING THE EVOLUTION\n\n"); fflush(NULL); }
 
     REAL8Vector rVec, phiVec, prVec, pPhiVec;
@@ -2324,7 +2327,6 @@ int XLALSimIMRSpinEOBWaveformAll(
   /* Call the integrator */
     /* If spins are almost aligned with LNhat, use SEOBNRv2 dynamics */
     if (( fabs(theta1Ini) <= EPS_ALIGN  || fabs(theta1Ini) >= LAL_PI - EPS_ALIGN) && ( fabs(theta2Ini) <= EPS_ALIGN || fabs(theta2Ini) >= LAL_PI - EPS_ALIGN) ) {
-        REAL8Array              *dynamicsV2   = NULL;
         seobParams.alignedSpins = 1;
         seobParams.chi1 = spin1Norm*cos(theta1Ini)/fabs(cos(theta1Ini));
         seobParams.chi2 = spin2Norm*cos(theta2Ini)/fabs(cos(theta2Ini));
@@ -3202,8 +3204,20 @@ int XLALSimIMRSpinEOBWaveformAll(
   {
     XLAL_ERROR(  XLAL_ENOMEM );
   }
+  // timeJFullHi will be a copy  of tlistRDPatchHi which will be  returned together with J-frame modes
+  if ( !(timeJFull = XLALCreateREAL8Vector( retLen + retLenRDPatchLow )) )
+  {
+    XLAL_ERROR(  XLAL_ENOMEM );
+  }
+  // timeIFullHi will be a copy  of tlistRDPatchHi which will be  returned together with I-frame modes
+  if ( !(timeIFull = XLALCreateREAL8Vector( retLen + retLenRDPatchLow )) )
+  {
+    XLAL_ERROR(  XLAL_ENOMEM );
+  }
   memset( tlist->data, 0, tlist->length * sizeof( REAL8 ));
   memset( tlistRDPatch->data, 0, tlistRDPatch->length * sizeof( REAL8 ));
+  memset( timeJFull->data, 0, timeJFull->length * sizeof( REAL8 ));
+  memset( timeIFull->data, 0, timeIFull->length * sizeof( REAL8 ));
   for ( i = 0; i < retLen; i++ )
   {
     tlist->data[i] = i * deltaT/mTScaled;
@@ -4138,6 +4152,7 @@ if (i==1900) XLAL_PRINT_INFO("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz
     hIMRlmJTSHi = XLALSphHarmTimeSeriesAddMode( hIMRlmJTSHi, hIMRJTSHi, 2, k );
   }
   XLALSphHarmTimeSeriesSetTData( hIMRlmJTSHi, tlistRDPatchHi );
+  //XLALSphHarmTimeSeriesSetTData( hIMRlmJTSHi, timeJFullHi );
   if (debugPK){ XLAL_PRINT_INFO("YP: J wave RD attachment done.\n"); fflush(NULL); }
 
   hIMR22JTSHi  = XLALSphHarmTimeSeriesGetMode( hIMRlmJTSHi, 2, 2 );
@@ -4221,7 +4236,11 @@ if (i==1900) XLAL_PRINT_INFO("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz
      hIMRlmJTS = XLALSphHarmTimeSeriesAddMode( hIMRlmJTS, hIMRJTS, 2, k );
      /*if (k==1) exit(0);*/
   }
-  XLALSphHarmTimeSeriesSetTData( hIMRlmJTS, tlistRDPatch );
+  for (i=0; i<(int)tlistRDPatch->length; i++){
+      timeJFull->data[i] = tlistRDPatch->data[i];    
+  }
+  //XLALSphHarmTimeSeriesSetTData( hIMRlmJTS, tlistRDPatch );
+  XLALSphHarmTimeSeriesSetTData( hIMRlmJTS, timeJFull );
   if (debugPK){ XLAL_PRINT_INFO("Stas: J-wave with RD  generated.\n"); fflush(NULL); }
 
   hIMR22JTS  = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 2 );
@@ -4295,13 +4314,17 @@ if (i==1900) XLAL_PRINT_INFO("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz
       betI->data->data[i] = betJtoI;
       gamI->data->data[i] = -gamJtoI;
   }
+  for (i=0; i<(int)tlistRDPatch->length; i++){
+      timeIFull->data[i] = tlistRDPatch->data[i];    
+  }
 
   hIMRlmITS = XLALSphHarmTimeSeriesAddMode( hIMRlmITS, hIMR22JTS, 2, 2 );
   hIMRlmITS = XLALSphHarmTimeSeriesAddMode( hIMRlmITS, hIMR21JTS, 2, 1 );
   hIMRlmITS = XLALSphHarmTimeSeriesAddMode( hIMRlmITS, hIMR20JTS, 2, 0 );
   hIMRlmITS = XLALSphHarmTimeSeriesAddMode( hIMRlmITS, hIMR2m1JTS, 2, -1 );
   hIMRlmITS = XLALSphHarmTimeSeriesAddMode( hIMRlmITS, hIMR2m2JTS, 2, -2 );
-  XLALSphHarmTimeSeriesSetTData( hIMRlmITS, tlistRDPatch );
+  XLALSphHarmTimeSeriesSetTData( hIMRlmITS, timeIFull );
+  //XLALSphHarmTimeSeriesSetTData( hIMRlmITS, tlistRDPatch );
 
   /* Rotate J-frame modes */
   if (debugPK){ XLAL_PRINT_INFO("Rotation to inertial I-frame\n"); fflush(NULL); }
@@ -4422,27 +4445,28 @@ if (i==1900) XLAL_PRINT_INFO("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz
   //XLAL_PRINT_INFO("Memory cleanup 2 done.\n"); fflush(NULL);
   XLALDestroySphHarmTimeSeries(hlmPTS);
   // XLAL_PRINT_INFO("Memory cleanup 2.5 done.\n"); fflush(NULL);
+  
   //XLALDestroySphHarmTimeSeries(hIMRlmJTS);
-  XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 2 ));
-  XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 1 ));
-  XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 0 ));
-  XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, -1 ));
-  XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, -2 ));
+  //XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 2 ));
+  //XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 1 ));
+  //XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 0 ));
+  //XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, -1 ));
+  //XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, -2 ));
 
   //XLAL_PRINT_INFO("Memory cleanup 2.6 done.\n"); fflush(NULL);
-  //XLALDestroySphHarmTimeSeries(hIMRlmJTS);
-  //XLALDestroySphHarmTimeSeries(hIMRlmITS);
+  XLALDestroySphHarmTimeSeries(hIMRlmJTS);
   //XLALDestroyCOMPLEX16TimeSeries(hIMR22ITS);
   //XLALDestroyCOMPLEX16TimeSeries(hIMR21ITS);
   //XLALDestroyCOMPLEX16TimeSeries(hIMR20ITS);
   //XLALDestroyCOMPLEX16TimeSeries(hIMR2m1ITS);
   //XLALDestroyCOMPLEX16TimeSeries(hIMR2m2ITS);
 
-  XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmITS, 2, 2 ));
-  XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmITS, 2, 1 ));
-  XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmITS, 2, 0 ));
-  XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmITS, 2, -1 ));
-  XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmITS, 2, -2 ));
+  XLALDestroySphHarmTimeSeries(hIMRlmITS);
+  //XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmITS, 2, 2 ));
+  //XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmITS, 2, 1 ));
+  //XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmITS, 2, 0 ));
+  //XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmITS, 2, -1 ));
+  //XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmITS, 2, -2 ));
   //XLAL_PRINT_INFO("Memory cleanup 2.7 done.\n"); fflush(NULL);
 
   //XLALDestroyCOMPLEX16TimeSeries(hIMR22JTS);
@@ -4533,6 +4557,13 @@ if (i==1900) XLAL_PRINT_INFO("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz
   }
   *dynHi = tmp_vec;
   XLALDestroyREAL8Array( dynamicsHi );
+  XLALDestroyREAL8Vector( valuesV2 );
+  if (dynamicsV2 != NULL){
+      XLALDestroyREAL8Array( dynamicsV2 );
+  }
+  if (dynamicsV2Hi != NULL){
+      XLALDestroyREAL8Array( dynamicsV2Hi );
+  }
 
   return XLAL_SUCCESS;
 }

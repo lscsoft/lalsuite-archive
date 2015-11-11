@@ -3,6 +3,10 @@ MOSTLYCLEANFILES =
 include $(top_srcdir)/gnuscripts/lalsuite_header_links.am
 include $(top_srcdir)/gnuscripts/lalsuite_vcs_info.am
 
+SUBDIRS = \
+	mathematica_codes \
+	$(END_OF_LIST)
+
 LDADD = liblalsimulation.la
 
 NOISEPSDFILES = \
@@ -80,13 +84,19 @@ noinst_HEADERS = \
 	LALSimInspiralPNCoefficients.c \
 	LALSimInspiraldEnergyFlux.c \
 	LALSimIMRSpinEOBHamiltonian.c \
+	LALSimIMRSpinEOBHamiltonianOptimized.c \
+	LALSimIMRSpinEOBComputeAmpPhasefromEOMSoln.c \
 	LALSimIMRSpinEOBHcapNumericalDerivative.c \
+	LALSimIMRSpinEOBHcapExactDerivative.c \
 	LALSimIMRSpinAlignedEOBHcapDerivative.c \
+	LALSimIMRSpinAlignedEOBHcapDerivativeOptimized.c \
+	LALSimIMRSpinAlignedEOBGSLOptimizedInterpolation.c \
 	LALSimIMRSpinEOB.h \
 	LALSimIMRSpinEOBInitialConditions.c \
 	LALSimIMRSpinEOBAuxFuncs.c \
 	LALSimIMRSpinEOBFactorizedWaveform.c \
 	LALSimIMRSpinEOBFactorizedFlux.c \
+	LALSimIMRSpinEOBFactorizedFluxOptimized.c \
 	LALSimIMREOBFactorizedFlux.c \
 	LALSimNeutronStarEOSPiecewisePolytrope.c \
 	LALSimNeutronStarEOSTabular.c \
@@ -125,6 +135,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimIMRPhenom.c \
 	LALSimIMRPhenomC.c \
 	LALSimIMRPhenomD.c \
+        LALSimIMRPhenomEccD.c \
 	LALSimIMRPhenomP.c \
 	LALSimIMRPSpinInspiralRD.c \
 	LALSimPhenSpinRingDown.c \
@@ -139,6 +150,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimInspiralOptimizedCoefficientsEccentricityFD.c \
 	LALSimInspiralTaylorEt.c \
 	LALSimInspiralTaylorF2.c \
+        LALSimInspiralEccTF2.c \
 	LALSimInspiralTaylorF2ReducedSpin.c \
 	LALSimInspiralTaylorF2ReducedSpinMetric.c \
 	LALSimInspiralTaylorF2ReducedSpinTidal.c \
