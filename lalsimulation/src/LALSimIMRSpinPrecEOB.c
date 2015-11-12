@@ -131,7 +131,7 @@ XLALEOBSpinPrecStopConditionBasedOnPR(double UNUSED t,
                            void UNUSED *funcParams
                           )
 {
-  int debugPK = 01; int debugPKverbose = 0;
+  int debugPK = 0; int debugPKverbose = 0;
   INT4 i;
   SpinEOBParams UNUSED *params = (SpinEOBParams *)funcParams;
 
@@ -1515,7 +1515,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   INspin2[2] = INspin2z;
 
   INT4 UNUSED ret;
-  INT4 debugPK = 0, debugCustomIC = 0, debugNoNQC = 0;
+  INT4 debugPK = 1, debugCustomIC = 0, debugNoNQC = 0;
   INT4 debugRD = 0;
   FILE *out = NULL;
   INT4 i=0;
