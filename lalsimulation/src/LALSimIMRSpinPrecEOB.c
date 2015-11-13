@@ -4201,7 +4201,7 @@ if (i==1900) XLAL_PRINT_INFO("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz
      /* recycling h20PTS */
      hJTS = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, k );
      for (i = 0; i< retLenLow; i++){
-         if (i*deltaT/mTScaled > rdMatchPoint->data[1]+HiSRstart) break;//Andrea
+         if (i*deltaT/mTScaled > HiSRstart) break;//Andrea
          hIMRJTS->data->data[i] = hJTS->data->data[i];
      }
       int idxRD = i; //Andrea
