@@ -539,7 +539,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
     XLALPrintError(" ERROR in templateLALGenerateInspiral(): (INT4) \"LAL_APPROXIMANT\" parameter not provided!\n");
     XLAL_ERROR_VOID(XLAL_EDATA);
   }
-	
+
   if (LALInferenceCheckVariable(model->params, "LAL_PNORDER"))
     order = *(INT4*) LALInferenceGetVariable(model->params, "LAL_PNORDER");
   else {

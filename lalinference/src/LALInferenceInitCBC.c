@@ -591,6 +591,7 @@ where the known names have been listed above.\n\
 
   /* Over-ride approximant if user specifies */
   ppt=LALInferenceGetProcParamVal(commandLine,"--approximant");
+
   if(ppt){
     approx = XLALGetApproximantFromString(ppt->value);
     ppt_order=LALInferenceGetProcParamVal(commandLine,"--order");
@@ -604,6 +605,8 @@ where the known names have been listed above.\n\
       PhaseOrder=-1;
     }
 //<<<<<<< HEAD
+      printf("approximant --> %s %d\n",XLALGetStringFromApproximant(approx),XLALGetApproximantFromString(ppt->value));
+      exit(0);
       /* check whether we are dealing with an eccentric approximant and add the eccentricity as a model parameters */
       if (approx==IMRPhenomEccD || approx==EccTF2 || approx==EccentricTD || approx==EccentricFD)
       {

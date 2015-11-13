@@ -3900,7 +3900,7 @@ int XLALSimInspiralImplementedFDApproximants(
         //case TaylorR2F4:
         case TaylorF2:
         case EccTF2:
-	case EccentricFD:
+        case EccentricFD:
         case SpinTaylorF2:
         case TaylorF2RedSpin:
         case TaylorF2RedSpinTidal:
