@@ -679,7 +679,12 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
 
   /* Only use GR templates */
   LALSimInspiralTestGRParam *nonGRparams = NULL;
-  
+  /* check whether we are dealing with an eccentric approximant and add the eccentricity as a model parameters */
+  if (approximant==IMRPhenomEccD || approximant==EccTF2 || approximant==EccentricTD || approximant==EccentricFD)
+  {
+      REAL8 eccentricity = LALInferenceGetREAL8Variable(model->params, "e_min");
+      XLALSimInspiralAddTestGRParam(&nonGRparams,"e_min",eccentricity);
+  }
   
 
   /* ==== Call the waveform generator ==== */
