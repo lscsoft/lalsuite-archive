@@ -5,7 +5,7 @@
 
 struct S_POWER_SUM;
 
-typedef __declspec(align(64)) struct S_SUMMING_CONTEXT {
+typedef ALIGN_DECLSPEC struct S_SUMMING_CONTEXT {
 	void (*get_uncached_power_sum)(struct S_SUMMING_CONTEXT  *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps);
 	void (*accumulate_power_sum_cached)(struct S_SUMMING_CONTEXT  *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps);
 	void (*accumulate_power_sums)(struct S_SUMMING_CONTEXT *ctx, struct S_POWER_SUM *ps, int count, double gps_start, double gps_stop, int veto_mask);

@@ -49,8 +49,19 @@ void *do_alloc(long a, long b);
 
 #ifndef PRAGMA_IVDEP
 //#define PRAGMA_IVDEP    #pragma GCC ivdep
-//#define PRAGMA_IVDEP    _Pragma("GCC ivdep")
+#ifdef __INTEL_COMPILER
 #define PRAGMA_IVDEP	_Pragma("ivdep")
+#else
+#define PRAGMA_IVDEP    _Pragma("GCC ivdep")
+#endif
+#endif
+
+#ifndef ALIGN_DECLSPEC
+#ifdef __INTEL_COMPILER
+#define ALIGN_DECLSPEC __declspec(align(64))
+#else
+#define ALIGN_DECLSPEC
+#endif
 #endif
 
 #ifndef MANUAL_SSE

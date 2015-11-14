@@ -4,7 +4,7 @@
 #include "power_sum_stats.h"
 #include "jobs.h"
 
-typedef __declspec(align(64)) struct {
+typedef ALIGN_DECLSPEC struct {
 	MUTEX mutex;
 	char *name;
 
