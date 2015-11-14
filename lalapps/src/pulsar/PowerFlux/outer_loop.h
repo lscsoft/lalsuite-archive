@@ -2,8 +2,10 @@
 #define __OUTER_LOOP_H__
 
 #include "power_sum_stats.h"
+#include "jobs.h"
 
-typedef struct {
+typedef __declspec(align(64)) struct {
+	MUTEX mutex;
 	char *name;
 
 	float *ul_skymap;

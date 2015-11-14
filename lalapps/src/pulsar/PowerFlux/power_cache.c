@@ -1289,18 +1289,32 @@ if(sc->free>sc->max_size)sc->max_size=sc->free;
 for(i=0;i<sc->free;i++) {
 	//free_partial_power_sum_F(sc->pps[i]);
 	put_partial_power_sum_F(ctx, sc->pps[i]);
-	free(sc->si[i]);
 	}
-free(sc->pps);
-free(sc->si);
-free(sc->key);
 
-sc->segment_count=segment_count;
-sc->size=template_count;
+if(segment_count>sc->segment_size || template_count>sc->size) {
+
+	for(i=0;i<sc->size;i++) {
+		if(sc->si[i]!=NULL)free(sc->si[i]);
+		sc->si[i]=NULL;
+		}
+	}
+
+if(template_count>sc->size) {
+	free(sc->pps);
+	free(sc->si);
+	free(sc->key);
+
+	sc->size=template_count;
+	sc->key=do_alloc(sc->size, sizeof(*sc->key));
+	sc->pps=do_alloc(sc->size, sizeof(*sc->pps));
+	sc->si=do_alloc(sc->size, sizeof(*sc->si));
+	}
+
+if(segment_count>sc->segment_size)sc->segment_size=segment_count;
+
 sc->free=0;
-sc->key=do_alloc(sc->size, sizeof(*sc->key));
-sc->pps=do_alloc(sc->size, sizeof(*sc->pps));
-sc->si=do_alloc(sc->size, sizeof(*sc->si));
+sc->segment_count=segment_count;
+
 }
 
 void allocate_simple_cache(SUMMING_CONTEXT *ctx)
@@ -1411,7 +1425,9 @@ if(k>=sc->size) {
 	}
 
 if(k>=sc->free) {
-	sc->si[k]=do_alloc(sc->segment_count, sizeof(*si));
+	if(sc->si[k]==NULL) {
+		sc->si[k]=do_alloc(sc->segment_size, sizeof(*si));
+		}
 	//sc->pps[k]=allocate_partial_power_sum_F(useful_bins+2*max_shift, 0);
 	sc->pps[k]=get_partial_power_sum_F(ctx, useful_bins+2*max_shift, 0);
 	sc->free++;

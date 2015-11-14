@@ -32,18 +32,35 @@ POWER_SUM *p;
 int i, j, k, kk, ifmf, ifmd, ifmp, idd;
 int skyband;
 int fshift_count=args_info.nfshift_arg; /* number of frequency offsets */
+long p_size;
 
 float e[GRID_E_COUNT];
 float patch_e[GRID_E_COUNT];
 
 *count=0;
 
-p=do_alloc(super_grid->max_npatch*args_info.spindown_count_arg*
+p_size=ctx->nchunks*super_grid->max_npatch*args_info.spindown_count_arg*
+        args_info.freq_modulation_freq_count_arg*
+        args_info.freq_modulation_depth_count_arg*
+        args_info.freq_modulation_phase_count_arg*
+        args_info.fdotdot_count_arg*
+        fshift_count*sizeof(*p);
+
+if(p_size>ctx->power_sums_scratch_size) {
+	free(ctx->power_sums_scratch);
+	ctx->power_sums_scratch_size=p_size;
+	ctx->power_sums_scratch=do_alloc(p_size, 1);
+	}
+
+p=(POWER_SUM *)ctx->power_sums_scratch;
+/*p=do_alloc(super_grid->max_npatch*args_info.spindown_count_arg*
 	args_info.freq_modulation_freq_count_arg*
 	args_info.freq_modulation_depth_count_arg*
 	args_info.freq_modulation_phase_count_arg*
 	args_info.fdotdot_count_arg*
 	fshift_count, sizeof(*p));
+*/
+
 *ps=p;
 
 for(ifmf=0;ifmf<args_info.freq_modulation_freq_count_arg;ifmf++)
@@ -97,7 +114,8 @@ for(i=0;i<args_info.spindown_count_arg;i++) {
 void clone_templates(SUMMING_CONTEXT *ctx, POWER_SUM *ps, int count, POWER_SUM **ps_out)
 {
 int i, k;
-*ps_out=do_alloc(count, sizeof(POWER_SUM));
+//*ps_out=do_alloc(count, sizeof(POWER_SUM));
+*ps_out=&(((POWER_SUM *)(ctx->power_sums_scratch))[count*ctx->power_sums_idx]);
 
 for(i=0;i<count;i++) {
 	(*ps_out)[i].freq_shift=ps[i].freq_shift;
@@ -143,7 +161,7 @@ for(i=0;i<count;i++) {
 	put_partial_power_sum_F(ctx, ps[i].pps);
 	ps[i].pps=NULL;
 	}
-free(ps);
+//free(ps);
 }
 
 void accumulate_power_sums_sidereal_step(SUMMING_CONTEXT *ctx, POWER_SUM *ps, int count, double gps_start, double gps_stop, int veto_mask)

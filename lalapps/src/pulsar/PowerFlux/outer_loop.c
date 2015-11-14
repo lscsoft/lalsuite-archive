@@ -237,7 +237,7 @@ for(i=0;i<count;i++) {
 	power_sum_stats(pps, &(tmp_pstat[i]));
 	}
 
-thread_mutex_lock(&data_logging_mutex);
+thread_mutex_lock(&(ei->mutex));
 for(i=0;i<count;i++) {
 	memcpy(&pstats, &(tmp_pstat[i]), sizeof(POWER_SUM_STATS));
 
@@ -365,6 +365,9 @@ for(i=0;i<count;i++) {
 
 	}
 //free_partial_power_sum_F(pps);
+thread_mutex_unlock(&(ei->mutex));
+
+thread_mutex_lock(&data_logging_mutex);
 
 if(write_data_log_header) {
 	write_data_log_header=0;
@@ -459,6 +462,8 @@ ei=do_alloc(1, sizeof(*ei));
 memset(ei, 0, sizeof(*ei));
 
 ei->name=strdup(name);
+
+thread_mutex_init(&(ei->mutex));
 
 if(args_info.compute_skymaps_arg) {
 	ei->ul_skymap=do_alloc(patch_grid->npoints, sizeof(float));
@@ -680,6 +685,9 @@ POWER_SUM **ps=cruncher_contexts[thread_id+1].ps;
 POWER_SUM **ps_tmp=cruncher_contexts[thread_id+1].ps_tmp;
 POWER_SUM_STATS *le_pstats;
 
+ctx->nchunks=nchunks;
+ctx->power_sums_idx=0;
+
 //fprintf(stderr, "%d ", pi);
 generate_patch_templates(ctx, pi, &(ps[0]), &count);
 if(ctx->log_extremes_pstats_scratch_size<count*sizeof(*le_pstats)) {
@@ -692,12 +700,13 @@ if(ctx->log_extremes_pstats_scratch_size<count*sizeof(*le_pstats)) {
 le_pstats=(POWER_SUM_STATS *)ctx->log_extremes_pstats_scratch;
 
 if(count<1) {
-	free(ps[0]);
+	//free(ps[0]);
 	ps[0]=NULL;
 	return;
 	}
 
 for(i=1;i<nchunks;i++) {
+	ctx->power_sums_idx=i;
 	clone_templates(ctx, ps[0], count, &(ps[i]));
 	}
 for(i=0;i<args_info.nchunks_arg;i++) {

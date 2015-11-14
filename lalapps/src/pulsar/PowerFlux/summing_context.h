@@ -5,7 +5,7 @@
 
 struct S_POWER_SUM;
 
-typedef struct S_SUMMING_CONTEXT {
+typedef __declspec(align(64)) struct S_SUMMING_CONTEXT {
 	void (*get_uncached_power_sum)(struct S_SUMMING_CONTEXT  *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps);
 	void (*accumulate_power_sum_cached)(struct S_SUMMING_CONTEXT  *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps);
 	void (*accumulate_power_sums)(struct S_SUMMING_CONTEXT *ctx, struct S_POWER_SUM *ps, int count, double gps_start, double gps_stop, int veto_mask);
@@ -38,6 +38,12 @@ typedef struct S_SUMMING_CONTEXT {
 	long pps_misses;
 	long pps_rollbacks;
 
+	/* templates memory pool */
+	char * power_sums_scratch;
+	long power_sums_scratch_size;
+	int nchunks;
+	int power_sums_idx;
+
 	/* log_extremes private vars */
 	PARTIAL_POWER_SUM_F *log_extremes_pps;
 	char *log_extremes_pstats_scratch;
@@ -45,7 +51,6 @@ typedef struct S_SUMMING_CONTEXT {
 
 	/* dynamic parameters */
 	int loose_first_half_count;
-
 	} SUMMING_CONTEXT;
 
 #include "power_sums.h"
