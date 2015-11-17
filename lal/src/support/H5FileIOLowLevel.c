@@ -829,7 +829,7 @@ LALH5File * XLALH5GroupOpen(LALH5File *file, const char *name)
 UINT4 XLALH5CheckGroupExists(LALH5File *file, const char *name)
 {
 #ifndef HAVE_HDF5
-        XLAL_ERROR_NULL(XLAL_EFAILED, "HDF5 support not implemented");
+        XLAL_ERROR(XLAL_EFAILED, "HDF5 support not implemented");
 #else
         return H5Gget_objinfo(file->file_id, name, 0, NULL);
 #endif

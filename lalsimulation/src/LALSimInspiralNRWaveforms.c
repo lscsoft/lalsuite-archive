@@ -54,7 +54,6 @@
 #include <lal/LALConfig.h>
 #include <lal/SphericalHarmonics.h>
 
-#include <hdf5.h>
 #include <lal/H5FileIO.h>
 
 #include "LALSimIMRSEOBNRROMUtilities.c"
@@ -73,6 +72,9 @@ static UINT4 XLALSimInspiralNRWaveformGetDataFromHDF5File(
   const char *keyName                     /**< Name of vector to uncompress */
   )
 {
+  #ifndef LAL_HDF5_ENABLED
+  XLAL_ERROR(XLAL_EFAILED, "HDF5 support not enabled");
+  #else
   UINT4 idx;
   size_t comp_data_length;
   REAL8 massTime;
@@ -106,6 +108,7 @@ static UINT4 XLALSimInspiralNRWaveformGetDataFromHDF5File(
   gsl_interp_accel_free (acc);
 
   return XLAL_SUCCESS;
+  #endif
 }
 
 
@@ -121,14 +124,17 @@ int XLALSimInspiralNRWaveformGetHplusHcross(
         REAL8 fStart,                          /**< start GW frequency (Hz) */
         UNUSED REAL8 fRef,                     /**< reference GW frequency (Hz) */
         REAL8 s1x,                             /**< initial value of S1x */
-        UNUSED REAL8 s1y,                             /**< initial value of S1y */
-        UNUSED REAL8 s1z,                             /**< initial value of S1z */
-        UNUSED REAL8 s2x,                             /**< initial value of S2x */
-        UNUSED REAL8 s2y,                             /**< initial value of S2y */
-        UNUSED REAL8 s2z,                             /**< initial value of S2z */
+        REAL8 s1y,                             /**< initial value of S1y */
+        REAL8 s1z,                             /**< initial value of S1z */
+        REAL8 s2x,                             /**< initial value of S2x */
+        REAL8 s2y,                             /**< initial value of S2y */
+        REAL8 s2z,                             /**< initial value of S2z */
         const char *NRDataFile                 /**< Location of NR HDF file */
         )
 {
+  #ifndef LAL_HDF5_ENABLED
+  XLAL_ERROR(XLAL_EFAILED, "HDF5 support not enabled");
+  #else
   /* Declarations */
   UINT4 curr_idx;
   INT4 model, modem;
@@ -218,7 +224,7 @@ int XLALSimInspiralNRWaveformGetHplusHcross(
   /* We don't want to return the *entire* waveform if it will be much longer
    * than the specified f_lower. Therefore guess waveform length using
    * the SEOBNR_ROM function and add 10% for safety.
-   * FIXME: Is this relevant for precessing waveforms?
+   * FIXME: Is this correct for precessing waveforms?
    */
   chi = XLALSimIMRPhenomBComputeChi(m1, m2, s1z, s2z);
   est_start_time = XLALSimIMRSEOBNRv2ChirpTimeSingleSpin(m1 * LAL_MSUN_SI,
@@ -308,4 +314,5 @@ int XLALSimInspiralNRWaveformGetHplusHcross(
   XLALH5FileClose(file);
 
   return XLAL_SUCCESS;
+  #endif
 }
