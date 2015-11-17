@@ -4036,10 +4036,7 @@ if (i==1900) XLAL_PRINT_INFO("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz
         //This is case 6 in T1400476 - v3
         sh = 1. - 9. * (eta - 0.25) * (1. + 2. * exp(-(chi - 0.85) * (chi - 0.85) / 0.05 / 0.05)) * (1. + 1. / (1. + exp((eta - 0.01) / 0.001)));
     }
-    
-    if (debugPK) {
-        XLAL_PRINT_INFO("tAttach, sh = %f %f\n", tAttach- sh);;fflush(NULL);
-    }
+
 
   /* Self-adjusting ringdown attachment. See XXX */
   int CheckRDAttachment = 1;
