@@ -1,3 +1,22 @@
+/*
+* Copyright (C) 2015 Ian Harry, Patricia Schmidt
+*
+*  This program is free software; you can redistribute it and/or modify
+*  it under the terms of the GNU General Public License as published by
+*  the Free Software Foundation; either version 2 of the License, or
+*  (at your option) any later version.
+*
+*  This program is distributed in the hope that it will be useful,
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*  GNU General Public License for more details.
+*
+*  You should have received a copy of the GNU General Public License
+*  along with with program; see the file COPYING. If not, write to the
+*  Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+*  MA  02111-1307  USA
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -101,12 +120,12 @@ int XLALSimInspiralNRWaveformGetHplusHcross(
         REAL8 r,                               /**< distance of source (m) */
         REAL8 fStart,                          /**< start GW frequency (Hz) */
         UNUSED REAL8 fRef,                     /**< reference GW frequency (Hz) */
-        UNUSED REAL8 s1x,                      /**< initial value of S1x */
-        UNUSED REAL8 s1y,                      /**< initial value of S1y */
-        UNUSED REAL8 s1z,                      /**< initial value of S1z */
-        UNUSED REAL8 s2x,                      /**< initial value of S2x */
-        UNUSED REAL8 s2y,                      /**< initial value of S2y */
-        UNUSED REAL8 s2z,                      /**< initial value of S2z */
+        REAL8 s1x,                             /**< initial value of S1x */
+        UNUSED REAL8 s1y,                             /**< initial value of S1y */
+        UNUSED REAL8 s1z,                             /**< initial value of S1z */
+        UNUSED REAL8 s2x,                             /**< initial value of S2x */
+        UNUSED REAL8 s2y,                             /**< initial value of S2y */
+        UNUSED REAL8 s2z,                             /**< initial value of S2z */
         const char *NRDataFile                 /**< Location of NR HDF file */
         )
 {
@@ -114,8 +133,9 @@ int XLALSimInspiralNRWaveformGetHplusHcross(
   UINT4 curr_idx;
   INT4 model, modem;
   size_t array_length;
+  REAL8 nrEta, nrSpin1x, nrSpin1y, nrSpin1z, nrSpin2x, nrSpin2y, nrSpin2z; 
   REAL8 Mflower, time_start_M, time_start_s, time_end_M, time_end_s;
-  REAL8 chi, est_start_time, curr_h_real, curr_h_imag;
+  REAL8 chi, est_start_time, nrPhiRef, curr_h_real, curr_h_imag;
   REAL8 distance_scale_fac;
   COMPLEX16 curr_ylm;
   /* These keys follow a strict formulation and cannot be longer than 11
@@ -129,7 +149,7 @@ int XLALSimInspiralNRWaveformGetHplusHcross(
   tmpEpoch.gpsNanoSeconds = 0;
   REAL8Vector *curr_amp, *curr_phase;
 
-  /* I can't understand mass in seconds, so use solar masses. NR files will use
+  /* Use solar masses for units. NR files will use
    * solar masses as well, so easier for that conversion
    */
   m1 = m1 / LAL_MSUN_SI;
@@ -137,16 +157,51 @@ int XLALSimInspiralNRWaveformGetHplusHcross(
 
   file = XLALH5FileOpen(NRDataFile, "r");
 
-  /* FIXME: Add here some sanity checks that input is sane.
-   *        Examples, are m1, m2 s1, s2 consistent with file?
-   *        Something like
-   * XLALH5FileQueryScalarAttributeValue(&nrMass1, file, "mass1')
-   * if fabs((mass1 - m1)/mass1) < 1E-4
-   * {
-   *    XLALERROR()
-   * }
+  /* Sanity checks on physical parameters passed to waveform
+   * generator to guarantee consistency with NR data file.
    */
+  XLALH5FileQueryScalarAttributeValue(&nrEta, file, "eta");
+  if (fabs((m1 * m2) / pow((m1 + m2),2.0) - nrEta) > 1E-3)
+  {  
+     XLAL_ERROR(XLAL_EDOM, "MASSES ARE INCONSISTENT WITH THE MASS RATIO OF THE NR SIMULATION.\n");
+  }
+  
+  XLALH5FileQueryScalarAttributeValue(&nrSpin1x, file, "spin1x");
+  if (fabs(nrSpin1x - s1x) > 1E-3)
+  {
+     XLAL_ERROR(XLAL_EDOM, "SPIN1X IS INCONSISTENT WITH THE NR SIMULATION.\n");
+  } 
+  
+  XLALH5FileQueryScalarAttributeValue(&nrSpin1y, file, "spin1y");
+  if (fabs(nrSpin1y - s1y) > 1E-3)
+  {
+     XLAL_ERROR(XLAL_EDOM, "SPIN1Y IS INCONSISTENT WITH THE NR SIMULATION.\n");
+  }
+ 
+  XLALH5FileQueryScalarAttributeValue(&nrSpin1z, file, "spin1z");
+  if (fabs(nrSpin1z - s1z) > 1E-3)
+  {
+     XLAL_ERROR(XLAL_EDOM, "SPIN1Z IS INCONSISTENT WITH THE NR SIMULATION.\n");
+  }
 
+  XLALH5FileQueryScalarAttributeValue(&nrSpin2x, file, "spin2x");
+  if (fabs(nrSpin2x - s2x) > 1E-3)
+  {
+     XLAL_ERROR(XLAL_EDOM, "SPIN2X IS INCONSISTENT WITH THE NR SIMULATION.\n");
+  }
+
+  XLALH5FileQueryScalarAttributeValue(&nrSpin2y, file, "spin2y");
+  if (fabs(nrSpin2y - s2y) > 1E-3)
+  {
+     XLAL_ERROR(XLAL_EDOM, "SPIN2Y IS INCONSISTENT WITH THE NR SIMULATION.\n");
+  }
+
+  XLALH5FileQueryScalarAttributeValue(&nrSpin2z, file, "spin2z");
+  if (fabs(nrSpin2z - s2z) > 1E-3)
+  {
+     XLAL_ERROR(XLAL_EDOM, "SPIN2Z IS INCONSISTENT WITH THE NR SIMULATION.\n");
+  }
+  
   /* First figure out time series that is needed.
    * Demand that 22 mode that is present and use that to figure this out
    */
@@ -223,7 +278,8 @@ int XLALSimInspiralNRWaveformGetHplusHcross(
                                 time_start_s, array_length, deltaT, phase_key);
 
       /* FIXME: Why is this -2? It is also in the python code */
-      curr_ylm = XLALSpinWeightedSphericalHarmonic(inclination, phiRef, -2,
+      XLALH5FileQueryScalarAttributeValue(&nrPhiRef, file, "coa_phase");
+      curr_ylm = XLALSpinWeightedSphericalHarmonic(inclination, nrPhiRef + phiRef, -2,
                                                    model, modem);
       for (curr_idx = 0; curr_idx < array_length; curr_idx++)
       {
