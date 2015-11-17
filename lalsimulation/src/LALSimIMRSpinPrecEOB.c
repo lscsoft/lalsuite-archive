@@ -4102,9 +4102,8 @@ if (i==1900) XLAL_PRINT_INFO("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz
       if(ratio22 <= thr && ratio2m2 <=thr){
           pass = 1;
       }
-      thr = 1.;
       if (pass == 0){
-
+          thr = 1.;
            if (debugPK){
                XLAL_PRINT_INFO("Adjusting RD attachment point... \n");fflush(NULL);
                XLAL_PRINT_INFO("initial ratios: %f,  %f \n", ratio22,  ratio2m2);
