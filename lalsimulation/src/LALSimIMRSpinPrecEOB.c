@@ -3074,6 +3074,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   }
 
   if (debugPK){
+     XLAL_PRINT_INFO("tPeakOmega - deltaNQC, tPeakOmega, deltaNQC %e %e %e\n", tPeakOmega - deltaNQC + HiSRstart, tPeakOmega + HiSRstart, deltaNQC);
     XLAL_PRINT_INFO("For RD: DeltaNQC = %3.10f, comb = %3.10f \n", deltaNQC, combSize);
     XLAL_PRINT_INFO("NOTE! that additional shift (sh) is computed and added in XLALSimIMREOBHybridAttachRingdownPrec\n");
 	  fflush(NULL);
@@ -4018,6 +4019,28 @@ if (i==1900) XLAL_PRINT_INFO("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz
     fflush(NULL);
   }
 
+    sh = 0.;
+    REAL8 chi = tplspin/(1. - 2.*eta);
+    if (chi >= 0.7 && chi < 0.8) {
+        sh = -9. * (eta - 0.25);
+    }
+    if ((eta > 30. / 31. / 31. && eta <= 10. / 121. && chi >= 0.8) || (eta <= 30. / 31. / 31. && chi >= 0.8 && chi < 0.9)) {
+        //This is case 4 in T1400476 - v3
+        sh = -9. * (eta - 0.25) * (1. + 2. * exp(-(chi - 0.85) * (chi - 0.85) / 0.05 / 0.05)) * (1. + 1. / (1. + exp((eta - 0.01) / 0.001)));
+    }
+    if (eta < 30. / 31. / 31. && chi >= 0.9) {
+        //This is case 5 in T1400476 - v3
+        sh = 0.55 - 9. * (eta - 0.25) * (1. + 2. * exp(-(chi - 0.85) * (chi - 0.85) / 0.05 / 0.05)) * (1. + 1. / (1. + exp((eta - 0.01) / 0.001)));
+    }
+    if (eta > 10. / 121. && chi >= 0.8) {
+        //This is case 6 in T1400476 - v3
+        sh = 1. - 9. * (eta - 0.25) * (1. + 2. * exp(-(chi - 0.85) * (chi - 0.85) / 0.05 / 0.05)) * (1. + 1. / (1. + exp((eta - 0.01) / 0.001)));
+    }
+    
+    if (debugPK) {
+        XLAL_PRINT_INFO("tAttach, sh = %f %f\n", tAttach- sh);;fflush(NULL);
+    }
+
   /* Self-adjusting ringdown attachment. See XXX */
   int CheckRDAttachment = 1;
   if (CheckRDAttachment ){
@@ -4027,6 +4050,8 @@ if (i==1900) XLAL_PRINT_INFO("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz
       int pass = 0;
       rdMatchPoint->data[0] = combSize < tAttach ? tAttach - combSize : 0;
       rdMatchPoint->data[1] = tAttach;
+      rdMatchPoint->data[0] = rdMatchPoint->data[0] - sh;
+      rdMatchPoint->data[1] = rdMatchPoint->data[1] - sh;
       rdMatchPoint->data[2] = (retLenHi-1)*deltaTHigh/mTScaled;
       rdMatchPoint->data[0] -= fmod( rdMatchPoint->data[0], deltaTHigh/mTScaled );
       rdMatchPoint->data[1] -= fmod( rdMatchPoint->data[1], deltaTHigh/mTScaled );
@@ -4071,6 +4096,9 @@ if (i==1900) XLAL_PRINT_INFO("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz
           XLAL_ERROR( XLAL_EFUNC );
       }
 
+      if (debugPK){
+          XLAL_PRINT_INFO("At first check: ratio22 ratio2m2 %e %e\n", ratio22, ratio2m2);fflush(NULL);
+      }
       if(ratio22 <= thr && ratio2m2 <=thr){
           pass = 1;
       }
@@ -4128,6 +4156,8 @@ if (i==1900) XLAL_PRINT_INFO("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz
 
   rdMatchPoint->data[0] = combSize < tAttach ? tAttach - combSize : 0;
   rdMatchPoint->data[1] = tAttach;
+    rdMatchPoint->data[0] = rdMatchPoint->data[0] - sh;
+    rdMatchPoint->data[1] = rdMatchPoint->data[1] - sh;
   rdMatchPoint->data[2] = (retLenHi-1)*deltaTHigh/mTScaled;
   rdMatchPoint->data[0] -= fmod( rdMatchPoint->data[0], deltaTHigh/mTScaled );
   rdMatchPoint->data[1] -= fmod( rdMatchPoint->data[1], deltaTHigh/mTScaled );
