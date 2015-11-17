@@ -135,7 +135,7 @@ int XLALSimInspiralNRWaveformGetHplusHcross(
   size_t array_length;
   REAL8 nrEta, nrSpin1x, nrSpin1y, nrSpin1z, nrSpin2x, nrSpin2y, nrSpin2z; 
   REAL8 Mflower, time_start_M, time_start_s, time_end_M, time_end_s;
-  REAL8 chi, est_start_time, nrPhiRef, curr_h_real, curr_h_imag;
+  REAL8 chi, est_start_time, nrPhiRef, phi, curr_h_real, curr_h_imag;
   REAL8 distance_scale_fac;
   COMPLEX16 curr_ylm;
   /* These keys follow a strict formulation and cannot be longer than 11
@@ -202,7 +202,7 @@ int XLALSimInspiralNRWaveformGetHplusHcross(
      XLAL_ERROR(XLAL_EDOM, "SPIN2Z IS INCONSISTENT WITH THE NR SIMULATION.\n");
   }
   
-  /* First figure out time series that is needed.
+  /* First estimate the length of time series that is needed.
    * Demand that 22 mode that is present and use that to figure this out
    */
   XLALH5FileQueryScalarAttributeValue(&Mflower, file, "f_lower_at_1MSUN");
@@ -277,9 +277,12 @@ int XLALSimInspiralNRWaveformGetHplusHcross(
       XLALSimInspiralNRWaveformGetDataFromHDF5File(&curr_phase, file, (m1 + m2),
                                 time_start_s, array_length, deltaT, phase_key);
 
-      /* FIXME: Why is this -2? It is also in the python code */
+      /* FIXME: Why is this -2? It is also in the python code 
+       * PS: it's the spin weight in the Ylm's
+      */
       XLALH5FileQueryScalarAttributeValue(&nrPhiRef, file, "coa_phase");
-      curr_ylm = XLALSpinWeightedSphericalHarmonic(inclination, nrPhiRef + phiRef, -2,
+      phi = nrPhiRef + phiRef;
+      curr_ylm = XLALSpinWeightedSphericalHarmonic(inclination, phi, -2,
                                                    model, modem);
       for (curr_idx = 0; curr_idx < array_length; curr_idx++)
       {
