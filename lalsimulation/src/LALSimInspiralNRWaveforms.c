@@ -62,14 +62,15 @@ static const INT4 ROMDataHDF5_VERSION_MAJOR = 1;
 static const INT4 ROMDataHDF5_VERSION_MINOR = 0;
 static const INT4 ROMDataHDF5_VERSION_MICRO = 0;
 
-static UINT4 XLALSimInspiralNRWaveformGetDataFromHDF5File(
-  REAL8Vector** output,                    /**< Returned vector uncompressed */
-  LALH5File* pointer,                     /**< Pointer to HDF5 file */
-  REAL8 totalMass,                        /**< Total mass of system for scaling */
-  REAL8 startTime,                        /**< Start time of veturn vector */
-  size_t length,                          /**< Length of returned vector */
-  REAL8 deltaT,                           /**< Sample rate of returned vector */
-  const char *keyName                     /**< Name of vector to uncompress */
+/* Everything needs to be declared as unused in case HDF is not enabled. */
+UNUSED static UINT4 XLALSimInspiralNRWaveformGetDataFromHDF5File(
+  UNUSED REAL8Vector** output,            /**< Returned vector uncompressed */
+  UNUSED LALH5File* pointer,              /**< Pointer to HDF5 file */
+  UNUSED REAL8 totalMass,                 /**< Total mass of system for scaling */
+  UNUSED REAL8 startTime,                 /**< Start time of veturn vector */
+  UNUSED size_t length,                   /**< Length of returned vector */
+  UNUSED REAL8 deltaT,                    /**< Sample rate of returned vector */
+  UNUSED const char *keyName              /**< Name of vector to uncompress */
   )
 {
   #ifndef LAL_HDF5_ENABLED
@@ -111,25 +112,25 @@ static UINT4 XLALSimInspiralNRWaveformGetDataFromHDF5File(
   #endif
 }
 
-
+/* Everything needs to be declared as unused in case HDF is not enabled. */
 int XLALSimInspiralNRWaveformGetHplusHcross(
-        REAL8TimeSeries **hplus,               /**< Output h_+ vector */
-        REAL8TimeSeries **hcross,              /**< Output h_x vector */
-        REAL8 phiRef,                          /**< orbital phase at reference pt. */
-        REAL8 inclination,                     /**< inclination angle */
-        REAL8 deltaT,                          /**< sampling interval (s) */
-        REAL8 m1,                              /**< mass of companion 1 (kg) */
-        REAL8 m2,                              /**< mass of companion 2 (kg) */
-        REAL8 r,                               /**< distance of source (m) */
-        REAL8 fStart,                          /**< start GW frequency (Hz) */
+        UNUSED REAL8TimeSeries **hplus,        /**< Output h_+ vector */
+        UNUSED REAL8TimeSeries **hcross,       /**< Output h_x vector */
+        UNUSED REAL8 phiRef,                   /**< orbital phase at reference pt. */
+        UNUSED REAL8 inclination,              /**< inclination angle */
+        UNUSED REAL8 deltaT,                   /**< sampling interval (s) */
+        UNUSED REAL8 m1,                       /**< mass of companion 1 (kg) */
+        UNUSED REAL8 m2,                       /**< mass of companion 2 (kg) */
+        UNUSED REAL8 r,                        /**< distance of source (m) */
+        UNUSED REAL8 fStart,                   /**< start GW frequency (Hz) */
         UNUSED REAL8 fRef,                     /**< reference GW frequency (Hz) */
-        REAL8 s1x,                             /**< initial value of S1x */
-        REAL8 s1y,                             /**< initial value of S1y */
-        REAL8 s1z,                             /**< initial value of S1z */
-        REAL8 s2x,                             /**< initial value of S2x */
-        REAL8 s2y,                             /**< initial value of S2y */
-        REAL8 s2z,                             /**< initial value of S2z */
-        const char *NRDataFile                 /**< Location of NR HDF file */
+        UNUSED REAL8 s1x,                      /**< initial value of S1x */
+        UNUSED REAL8 s1y,                      /**< initial value of S1y */
+        UNUSED REAL8 s1z,                      /**< initial value of S1z */
+        UNUSED REAL8 s2x,                      /**< initial value of S2x */
+        UNUSED REAL8 s2y,                      /**< initial value of S2y */
+        UNUSED REAL8 s2z,                      /**< initial value of S2z */
+        UNUSED const char *NRDataFile          /**< Location of NR HDF file */
         )
 {
   #ifndef LAL_HDF5_ENABLED
