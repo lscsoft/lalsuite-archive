@@ -65,7 +65,7 @@
 #define Pi_p2by3 2.1450293971110256000774441009412356
 #define log4 1.3862943611198906188344642429163531
 
-static void q2eta(double q, double *eta);
+//static void q2eta(double q, double *eta);
 static void q2masses(double mc, double q, double *m1, double *m2);
 
 
@@ -128,14 +128,14 @@ static void mc2masses(double mc, double eta, double *m1, double *m2)
   return;
 }
 
-static void q2eta(double q, double *eta)
+//static void q2eta(double q, double *eta)
 /* Compute symmetric mass ratio (eta) for a given  */
 /* asymmetric mass ratio (q).                       */
 /* (note: q = m2/m1, where m1 >= m2)               */
-{
-  *eta = q/pow(1+q,2.0);
-  return;
-}
+//{
+//  *eta = q/pow(1+q,2.0);
+//  return;
+//}
 
 static void q2masses(double mc, double q, double *m1, double *m2)
 /*  Compute individual companion masses (m1, m2)   */
@@ -146,136 +146,6 @@ static void q2masses(double mc, double q, double *m1, double *m2)
   *m2 = (*m1) * q;
   return;
 }
-
-void LALInferenceTemplateROQ(LALInferenceModel *model)
-{
-double m1,m2,mc,eta,q,iota=0;
-/* Prefer m1 and m2 if available (i.e. for injection template) */
-  if(LALInferenceCheckVariable(model->params,"mass1")&&LALInferenceCheckVariable(model->params,"mass2"))
-  {
-    m1=*(REAL8 *)LALInferenceGetVariable(model->params,"mass1");
-    m2=*(REAL8 *)LALInferenceGetVariable(model->params,"mass2");
-    eta=m1*m2/((m1+m2)*(m1+m2));
-    mc=pow(eta , 0.6)*(m1+m2);
-  }
-  else
-  {
-    if (LALInferenceCheckVariable(model->params,"q")) {
-      q = *(REAL8 *)LALInferenceGetVariable(model->params,"q");
-      q2eta(q, &eta);
-    }
-    else
-      eta = *(REAL8*) LALInferenceGetVariable(model->params, "eta");
-    mc       = *(REAL8*) LALInferenceGetVariable(model->params, "chirpmass");
-    mc2masses(mc, eta, &m1, &m2);
-  }
-
-  iota = acos(LALInferenceGetREAL8Variable(model->params, "costheta_jn"));     /* zenith angle between J and N in radians */
-
-  double cosiota = cos(iota);
-  double plusCoef  = 0.5 * (1.0 + cosiota*cosiota);
-  double crossCoef = cosiota;
-  /* external: SI; internal: solar masses */
-  const REAL8 m = m1 + m2;
-  const REAL8 m_sec = m * LAL_MTSUN_SI;  /* total mass in seconds */
-  const REAL8 etap2 = eta * eta;
-  const REAL8 etap3 = etap2 * eta;
-  const REAL8 piM = LAL_PI * m_sec;
-  const REAL8 mSevenBySix = -7./6.;
-  const REAL8 phic = *(REAL8 *)LALInferenceGetVariable(model->params,"phase");
-  const REAL8 r = 1e6*LAL_PC_SI;
-  REAL8 logv0 = log(1.); //the standard tf2 definition is log(v0), but I've changed it to reflect Scott's convention
-  REAL8 shft, amp0;//, f_max;
-  REAL8 psiNewt, psi2, psi3, psi4, psi5, psi6, psi6L, psi7, psi3S, psi4S, psi5S;
-  REAL8 eta_fac = -113. + 76. * eta;
-  REAL8 chi=0; //NOTE: chi isn't used here yet, so we just set it to zero
-  gsl_complex h_i;
-
-  /* extrinsic parameters */
-  amp0 = -pow(m_sec, 5./6.) * sqrt(5.*eta / 24.) / (Pi_p2by3 * r / LAL_C_SI);
-  shft = 0;//LAL_TWOPI * (tStart.gpsSeconds + 1e-9 * tStart.gpsNanoSeconds);
-
-  /* spin terms in the amplitude and phase (in terms of the reduced
-   * spin parameter */
-  psi3S = 113.*chi/3.;
-  psi4S = 63845.*(-81. + 4.*eta)*chi*chi/(8. * eta_fac * eta_fac);
-  psi5S = -565.*(-146597. + 135856.*eta + 17136.*etap2)*chi/(2268.*eta_fac);
-
-  /* coefficients of the phase at PN orders from 0 to 3.5PN */
-  psiNewt = 3./(128.*eta);
-  psi2 = 3715./756. + 55.*eta/9.;
-  psi3 = psi3S - 16.*LAL_PI;
-  psi4 = 15293365./508032. + 27145.*eta/504. + 3085.*eta*eta/72. + psi4S;
-  psi5 = (38645.*LAL_PI/756. - 65.*LAL_PI*eta/9. + psi5S);
-  psi6 = 11583231236531./4694215680. - (640.*Pi_p2)/3. - (6848.*LAL_GAMMA)/21.
-           + (-5162.983708047263 + 2255.*Pi_p2/12.)*eta
-           + (76055.*etap2)/1728. - (127825.*etap3)/1296.;
-  psi6L = -6848./21.;
-  psi7 = (77096675.*LAL_PI)/254016. + (378515.*LAL_PI*eta)/1512.
-           - (74045.*LAL_PI*eta*eta)/756.;
-
-  for (unsigned int i = 0; i < model->roq->frequencyNodes->size; i++) {
-    /* fourier frequency corresponding to this bin */
-    const REAL8 f = gsl_vector_get(model->roq->frequencyNodes, i);
-    const REAL8 v3 = piM*f;
-
-    /* PN expansion parameter */
-    REAL8 v, v2, v4, v5, v6, v7, logv, Psi, amp;
-    v = cbrt(v3);
-    v2 = v*v; v4 = v3*v; v5 = v4*v; v6 = v3*v3; v7 = v6*v;
-    logv = log(v);
-
-    /* compute the phase and amplitude */
-    Psi = psiNewt / v5 * (1.
-         + psi2 * v2 + psi3 * v3 + psi4 * v4
-         + psi5 * v5 * (1. + 3. * (logv - logv0))
-         + (psi6 + psi6L * (log4 + logv)) * v6 + psi7 * v7);
-
-    amp = amp0 * pow(f, mSevenBySix);
-
-    GSL_SET_COMPLEX(&h_i, amp * cos(Psi + shft * f - 2.*phic - LAL_PI_4), - amp * sin(Psi + shft * f - 2.*phic - LAL_PI_4));
-
-    gsl_vector_complex_set(model->roq->hplus, i, gsl_complex_mul_real(h_i,plusCoef));
-    gsl_vector_complex_set(model->roq->hcross, i, gsl_complex_mul_real(gsl_complex_mul_imag(h_i,-1.0),crossCoef));
-
-  }
-	return;
-}
-void LALInferenceTemplateROQ_amp_squared(LALInferenceModel *model)
-{
-
-double m1,m2,mc,eta,q;
-/* Prefer m1 and m2 if available (i.e. for injection template) */
- if(LALInferenceCheckVariable(model->params,"mass1")&&LALInferenceCheckVariable(model->params,"mass2"))
-    {
-      m1=*(REAL8 *)LALInferenceGetVariable(model->params,"mass1");
-      m2=*(REAL8 *)LALInferenceGetVariable(model->params,"mass2");
-      eta=m1*m2/((m1+m2)*(m1+m2));
-      mc=pow(eta , 0.6)*(m1+m2);
-    }
-  else
-    {
-      if (LALInferenceCheckVariable(model->params,"q")) {
-        q = *(REAL8 *)LALInferenceGetVariable(model->params,"q");
-        q2eta(q, &eta);
-      }
-      else
-        eta = *(REAL8*) LALInferenceGetVariable(model->params, "eta");
-        mc       = *(REAL8*) LALInferenceGetVariable(model->params, "chirpmass");
-      mc2masses(mc, eta, &m1, &m2);
-    } 
-    /* external: SI; internal: solar masses */
-    const REAL8 m = m1 + m2;
-    const REAL8 m_sec = m * LAL_MTSUN_SI;  /* total mass in seconds */
-    const REAL8 r = 1e6*LAL_PC_SI;
-    double amp_squared;
-
-    amp_squared = pow( pow(m_sec, 5./6.) * sqrt(5.*eta / 24.) / (Pi_p2by3 * r / LAL_C_SI), 2. );
-  
-    *(model->roq->amp_squared) = amp_squared;
-
-}
-
 
 REAL8 fLow2fStart(REAL8 fLow, INT4 ampOrder, INT4 approximant)
 /*  Compute the minimum frequency for waveform generation */
@@ -296,9 +166,6 @@ REAL8 fLow2fStart(REAL8 fLow, INT4 ampOrder, INT4 approximant)
     fStart = fLow * 2./(ampOrder+2);
     return fStart;
 }
-
-
-
 
 void LALInferenceTemplateSineGaussian(LALInferenceModel *model)
 /*****************************************************/
@@ -341,7 +208,7 @@ void LALInferenceTemplateSineGaussian(LALInferenceModel *model)
     tsigma = t/sigma;                                             /* (t-mu)/sigma */
     if (fabs(tsigma) < 5.0)   /*  (only do computations within a 10 sigma range)  */
       model->timehPlus->data->data[i] = a * exp(-0.5*tsigma*tsigma) * sin(twopif*t+phi);
-    else 
+    else
       model->timehPlus->data->data[i] = 0.0;
     model->timehCross->data->data[i] = 0.0;
   }
@@ -385,7 +252,7 @@ void LALInferenceTemplateDampedSinusoid(LALInferenceModel *model)
     t = ((double)i)*model->deltaT + (epochGPS-endtime);  /* t-mu       */
     if ((t>0.0) && ((ttau=t/tau) < 10.0)) /*  (only do computations within a 10 tau range)  */
       model->timehPlus->data->data[i] = a * exp(-ttau) * sin(twopif*t);
-    else 
+    else
       model->timehPlus->data->data[i] = 0.0;
     model->timehCross->data->data[i] = 0.0;
   }
@@ -425,7 +292,7 @@ void LALInferenceTemplateSinc(LALInferenceModel *model)
   for (i=0; i<model->timehPlus->data->length; ++i){
     t = ((double)i)*model->deltaT + (epochGPS-endtime);  /* t-mu       */
     sinArg = twopif*t;
-    sinc = (sinArg==0.0) ? 1.0 : sin(sinArg)/sinArg;    
+    sinc = (sinArg==0.0) ? 1.0 : sin(sinArg)/sinArg;
     model->timehPlus->data->data[i] = a * sinc;
     model->timehCross->data->data[i] = 0.0;
   }
@@ -445,11 +312,11 @@ void LALInferenceTemplateASinOmegaT(LALInferenceModel *model)
   double A		= *(REAL8*) LALInferenceGetVariable(model->params, "A");				/* dim-less	   */
   double Omega	= *(REAL8*) LALInferenceGetVariable(model->params, "Omega");			/* rad/sec     */
   double t;
-  double epochGPS = XLALGPSGetREAL8(&(model->timehPlus->epoch));	
+  double epochGPS = XLALGPSGetREAL8(&(model->timehPlus->epoch));
 
   unsigned long i;
   for (i=0; i<model->timehPlus->data->length; ++i){
-    t = ((double)i)*model->deltaT + (epochGPS);  /* t-mu       */   
+    t = ((double)i)*model->deltaT + (epochGPS);  /* t-mu       */
     model->timehPlus->data->data[i] = A * sin(Omega*t);
     model->timehCross->data->data[i] = 0.0;
   }
@@ -522,26 +389,26 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
   static int sizeWarning = 0;
   int ret=0;
   INT4 errnum=0;
-  
+
   REAL8TimeSeries *hplus=NULL;  /**< +-polarization waveform [returned] */
   REAL8TimeSeries *hcross=NULL; /**< x-polarization waveform [returned] */
   COMPLEX16FrequencySeries *hptilde=NULL, *hctilde=NULL;
   REAL8 mc;
   REAL8 phi0, deltaT, m1, m2, f_low, f_start, distance, inclination;
-  
+
   REAL8 *m1_p,*m2_p;
   REAL8 deltaF, f_max;
-  
+
   /* Sampling rate for time domain models */
   deltaT = model->deltaT;
-  
+
   if (LALInferenceCheckVariable(model->params, "LAL_APPROXIMANT"))
     approximant = *(Approximant*) LALInferenceGetVariable(model->params, "LAL_APPROXIMANT");
   else {
     XLALPrintError(" ERROR in templateLALGenerateInspiral(): (INT4) \"LAL_APPROXIMANT\" parameter not provided!\n");
     XLAL_ERROR_VOID(XLAL_EDATA);
   }
-	
+
   if (LALInferenceCheckVariable(model->params, "LAL_PNORDER"))
     order = *(INT4*) LALInferenceGetVariable(model->params, "LAL_PNORDER");
   else {
@@ -557,7 +424,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
     amporder = *(INT4*) LALInferenceGetVariable(model->params, "LAL_AMPORDER");
   else
     amporder = -1;
-    
+
   REAL8 f_ref = 100.0;
   if (LALInferenceCheckVariable(model->params, "f_ref")) f_ref = *(REAL8 *)LALInferenceGetVariable(model->params, "f_ref");
 
@@ -586,9 +453,9 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
     }
 
   distance	= exp(LALInferenceGetREAL8Variable(model->params, "logdistance"))* LAL_PC_SI * 1.0e6;        /* distance (1 Mpc) in units of metres */
-  
+
   phi0		= LALInferenceGetREAL8Variable(model->params, "phase"); /* START phase as per lalsimulation convention, radians*/
-  
+
   /* Zenith angle between J and N in radians. Also known as inclination angle when spins are aligned */
   REAL8 thetaJN = acos(LALInferenceGetREAL8Variable(model->params, "costheta_jn"));     /* zenith angle between J and N in radians */
 
@@ -613,11 +480,11 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
   REAL8 spin2x = 0.0;
   REAL8 spin2y = 0.0;
   REAL8 spin2z = 0.0;
-  
+
   /* System frame coordinates as used for jump proposals */
   REAL8 a_spin1 = 0.0;  /* Magnitude of spin1 */
   REAL8 a_spin2 = 0.0;  /* Magnitude of spin2 */
-  REAL8 phiJL  = 0.0;  /* azimuthal angle of L_N on its cone about J radians */ 
+  REAL8 phiJL  = 0.0;  /* azimuthal angle of L_N on its cone about J radians */
   REAL8 tilt1   = 0.0;  /* zenith angle between S1 and LNhat in radians */
   REAL8 tilt2   = 0.0;  /* zenith angle between S2 and LNhat in radians */
   REAL8 phi12   = 0.0;  /* difference in azimuthal angle btwn S1, S2 in radians */
@@ -662,8 +529,8 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
       }
   }
 
-  
-  /* ==== TIDAL PARAMETERS ==== */  
+
+  /* ==== TIDAL PARAMETERS ==== */
   REAL8 lambda1 = 0.;
   if(LALInferenceCheckVariable(model->params, "lambda1")) lambda1 = *(REAL8*) LALInferenceGetVariable(model->params, "lambda1");
   REAL8 lambda2 = 0.;
@@ -681,19 +548,19 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
 
   /* Only use GR templates */
   LALSimInspiralTestGRParam *nonGRparams = NULL;
-  
-  
+
+
 
   /* ==== Call the waveform generator ==== */
   if(model->domain == LAL_SIM_DOMAIN_FREQUENCY) {
     deltaF = model->deltaF;
-    
+
 	XLAL_TRY(ret=XLALSimInspiralChooseFDWaveformFromCache(&hptilde, &hctilde, phi0,
             deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
             spin2x, spin2y, spin2z, f_start, f_max, f_ref, distance, inclination,lambda1, lambda2, model->waveFlags, nonGRparams, amporder, order,
             approximant,model->waveformCache, NULL), errnum);
 
-     
+
     /* if the waveform failed to generate, fill the buffer with zeros
      * so that the previous waveform is not left there
      */
@@ -737,14 +604,14 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
     memcpy(model->freqhCross->data->data,hctilde->data->data,sizeof(hctilde->data->data[0])*size);
     if( (rem=(model->freqhCross->data->length - size)) > 0)
         memset(&(model->freqhCross->data->data[size]),0, rem*sizeof(hctilde->data->data[0]) );
-    
-    
+
+
     /* Destroy the nonGr params */
     XLALSimInspiralDestroyTestGRParam(nonGRparams);
-    
+
     REAL8 instant = model->freqhPlus->epoch.gpsSeconds + 1e-9*model->freqhPlus->epoch.gpsNanoSeconds;
     LALInferenceSetVariable(model->params, "time", &instant);
-    
+
   } else {
 
     XLAL_TRY(ret=XLALSimInspiralChooseTDWaveformFromCache(&hplus, &hcross, phi0, deltaT,
@@ -775,7 +642,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
     }
 
     /* The following complicated mess is a result of the following considerations:
-       
+
        1) The discrete time samples of the template and the timeModel
        buffers will not, in general line up.
 
@@ -808,7 +675,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
        overlaps the tapered region, plus a safety buffer corresponding
        to a conservative estimate of the largest geocenter <-->
        detector timeshift.
-       
+
          a) If there is no overlap at the start or end of the buffer,
          we're done.
 
@@ -822,11 +689,11 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
 
     /* 2*Rearth/(c*deltaT)---2 is safety factor---is the maximum time
        shift for any earth-based detector. */
-    size_t maxShift = (size_t)lround(4.255e-2/deltaT); 
+    size_t maxShift = (size_t)lround(4.255e-2/deltaT);
 
     /* Taper 0.4 seconds at start and end (hard-coded! in
        LALInferenceReadData.c, around line 233). */
-    size_t taperLength = (size_t)lround(0.4/deltaT); 
+    size_t taperLength = (size_t)lround(0.4/deltaT);
 
     /* Within unsafeLength of ends of buffer, possible danger of
        wrapping and/or tapering interactions. */
@@ -860,7 +727,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
     size_t bufStartIndex = (tcSample >= waveTcSample ? tcSample - waveTcSample : 0);
     size_t bufEndIndex = (wavePostTc + tcSample <= bufLength ? wavePostTc + tcSample : bufLength);
     size_t bufWaveLength = bufEndIndex - bufStartIndex;
-    size_t waveStartIndex = (tcSample >= waveTcSample ? 0 : waveTcSample - tcSample);    
+    size_t waveStartIndex = (tcSample >= waveTcSample ? 0 : waveTcSample - tcSample);
 
     if (bufStartIndex < unsafeLength || (bufLength - bufEndIndex) <= unsafeLength) {
       /* The waveform could be timeshifted into a region where it will
@@ -881,7 +748,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
     /* Clear model buffers */
     memset(model->timehPlus->data->data, 0, sizeof(REAL8)*model->timehPlus->data->length);
     memset(model->timehCross->data->data, 0, sizeof(REAL8)*model->timehCross->data->length);
-    
+
     /* Inject */
     memcpy(model->timehPlus->data->data + bufStartIndex,
 	   hplus->data->data + waveStartIndex,
@@ -900,6 +767,197 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
   XLALSimInspiralDestroyTestGRParam(nonGRparams);
 
   return;
+}
+
+void LALInferenceROQWrapperForXLALSimInspiralChooseFDWaveformSequence(LALInferenceModel *model){
+/*************************************************************************************************************************/
+  gsl_complex hh;
+  Approximant approximant = (Approximant) 0;
+  INT4 order=-1;
+  INT4 amporder;
+
+  int ret=0;
+  INT4 errnum=0;
+
+  COMPLEX16FrequencySeries *hptildeLinear=NULL, *hctildeLinear=NULL;
+  COMPLEX16FrequencySeries *hptildeQuadratic=NULL, *hctildeQuadratic=NULL;
+  REAL8 mc;
+  REAL8 phi0, m1, m2, distance, inclination;
+
+  REAL8 *m1_p,*m2_p;
+
+  if (LALInferenceCheckVariable(model->params, "LAL_APPROXIMANT"))
+    approximant = *(Approximant*) LALInferenceGetVariable(model->params, "LAL_APPROXIMANT");
+  else {
+    XLALPrintError(" ERROR in templateLALGenerateInspiral(): (INT4) \"LAL_APPROXIMANT\" parameter not provided!\n");
+    XLAL_ERROR_VOID(XLAL_EDATA);
+  }
+
+  if (LALInferenceCheckVariable(model->params, "LAL_PNORDER"))
+    order = *(INT4*) LALInferenceGetVariable(model->params, "LAL_PNORDER");
+  else {
+    XLALPrintError(" ERROR in templateLALGenerateInspiral(): (INT4) \"LAL_PNORDER\" parameter not provided!\n");
+    XLAL_ERROR_VOID(XLAL_EDATA);
+  }
+
+  /* Explicitly set the default amplitude order if one is not specified.
+   *   This serves two purposes:
+   *     1) The default behavior of the code won't change unexpectedly due to changes in LALSimulation.
+   *     2) We need to know the amplitude order in order to set the starting frequency of the waveform properly. */
+  if (LALInferenceCheckVariable(model->params, "LAL_AMPORDER"))
+    amporder = *(INT4*) LALInferenceGetVariable(model->params, "LAL_AMPORDER");
+  else
+    amporder = -1;
+  REAL8 f_ref = 100.0;
+  if (LALInferenceCheckVariable(model->params, "f_ref")) f_ref = *(REAL8 *)LALInferenceGetVariable(model->params, "f_ref");
+
+  REAL8 fTemp = f_ref;
+  if(LALInferenceCheckVariable(model->params,"chirpmass"))
+    {
+      mc  = *(REAL8*) LALInferenceGetVariable(model->params, "chirpmass");
+      if (LALInferenceCheckVariable(model->params,"q")) {
+	REAL8 q = *(REAL8 *)LALInferenceGetVariable(model->params,"q");
+	q2masses(mc, q, &m1, &m2);
+      } else {
+	REAL8 eta = *(REAL8*) LALInferenceGetVariable(model->params, "eta");
+	mc2masses(mc, eta, &m1, &m2);
+      }
+    }
+  else if((m1_p=(REAL8 *)LALInferenceGetVariable(model->params, "mass1")) && (m2_p=(REAL8 *)LALInferenceGetVariable(model->params, "mass2")))
+    {
+      m1=*m1_p;
+      m2=*m2_p;
+    }
+  else
+    {
+      fprintf(stderr,"No mass parameters found!");
+      exit(0);
+    }
+
+  distance = exp(LALInferenceGetREAL8Variable(model->params, "logdistance"))* LAL_PC_SI * 1.0e6;        /* distance (1 Mpc) in units of metres */
+
+  phi0 = LALInferenceGetREAL8Variable(model->params, "phase"); /* START phase as per lalsimulation convention, radians*/
+  /* Zenith angle between J and N in radians. Also known as inclination angle when spins are aligned */
+  REAL8 thetaJN = acos(LALInferenceGetREAL8Variable(model->params, "costheta_jn"));     /* zenith angle between J and N in radians */
+
+  /* ==== SPINS ==== */
+  /* We will default to spinless signal and then add in the spin components if required */
+  /* If there are non-aligned spins, we must convert between the System Frame coordinates
+   * and the cartestian coordinates */
+
+  /* The cartesian spin coordinates (default 0), as passed to LALSimulation */
+  REAL8 spin1x = 0.0;
+  REAL8 spin1y = 0.0;
+  REAL8 spin1z = 0.0;
+  REAL8 spin2x = 0.0;
+  REAL8 spin2y = 0.0;
+  REAL8 spin2z = 0.0;
+
+  /* System frame coordinates as used for jump proposals */
+  REAL8 a_spin1 = 0.0;  /* Magnitude of spin1 */
+  REAL8 a_spin2 = 0.0;  /* Magnitude of spin2 */
+  REAL8 phiJL  = 0.0;  /* azimuthal angle of L_N on its cone about J radians */
+  REAL8 tilt1   = 0.0;  /* zenith angle between S1 and LNhat in radians */
+  REAL8 tilt2   = 0.0;  /* zenith angle between S2 and LNhat in radians */
+  REAL8 phi12   = 0.0;  /* difference in azimuthal angle btwn S1, S2 in radians */
+
+  /* Now check if we have spin amplitudes */
+  if(LALInferenceCheckVariable(model->params, "a_spin1"))    a_spin1   = *(REAL8*) LALInferenceGetVariable(model->params, "a_spin1");
+  if(LALInferenceCheckVariable(model->params, "a_spin2"))    a_spin2   = *(REAL8*) LALInferenceGetVariable(model->params, "a_spin2");
+
+  /* Check if we have spin angles too */
+  if(LALInferenceCheckVariable(model->params, "phi_jl"))
+      phiJL = LALInferenceGetREAL8Variable(model->params, "phi_jl");
+  if(LALInferenceCheckVariable(model->params, "tilt_spin1"))
+      tilt1 = LALInferenceGetREAL8Variable(model->params, "tilt_spin1");
+  if(LALInferenceCheckVariable(model->params, "tilt_spin2"))
+      tilt2 = LALInferenceGetREAL8Variable(model->params, "tilt_spin2");
+  if(LALInferenceCheckVariable(model->params, "phi12"))
+      phi12 = LALInferenceGetREAL8Variable(model->params, "phi12");
+
+  /* If we have tilt angles zero, then the spins are aligned and we just set the z component */
+  /* However, if the waveform supports precession then we still need to get the right coordinate components */
+  SpinSupport spin_support=XLALSimInspiralGetSpinSupportFromApproximant(approximant);
+  if(tilt1==0.0 && tilt2==0.0 && (spin_support==LAL_SIM_INSPIRAL_SPINLESS || spin_support==LAL_SIM_INSPIRAL_ALIGNEDSPIN))
+  {
+      spin1z=a_spin1;
+      spin2z=a_spin2;
+      inclination = thetaJN; /* Inclination angle is just thetaJN */
+  }
+  else
+  {   /* Template is not aligned-spin only. */
+      /* Set all the other spin components according to the angles we received above */
+      /* The transformation function doesn't know fLow, so f_ref==0 isn't interpretted as a request to use the starting frequency for reference. */
+      XLAL_TRY(ret=XLALSimInspiralTransformPrecessingNewInitialConditions(
+                    &inclination, &spin1x, &spin1y, &spin1z, &spin2x, &spin2y, &spin2z,
+                    thetaJN, phiJL, tilt1, tilt2, phi12, a_spin1, a_spin2, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, fTemp), errnum);
+      if (ret == XLAL_FAILURE)
+      {
+        XLALPrintError(" ERROR in XLALSimInspiralTransformPrecessingNewInitialConditions(): error converting angles. errnum=%d\n",errnum );
+        return;
+      }
+  }
+
+
+  /* ==== TIDAL PARAMETERS ==== */
+  REAL8 lambda1 = 0.;
+  if(LALInferenceCheckVariable(model->params, "lambda1")) lambda1 = *(REAL8*) LALInferenceGetVariable(model->params, "lambda1");
+  REAL8 lambda2 = 0.;
+  if(LALInferenceCheckVariable(model->params, "lambda2")) lambda2 = *(REAL8*) LALInferenceGetVariable(model->params, "lambda2");
+  REAL8 lambdaT = 0.;
+  REAL8 dLambdaT = 0.;
+  REAL8 sym_mass_ratio_eta = 0.;
+  if(LALInferenceCheckVariable(model->params, "lambdaT")&&LALInferenceCheckVariable(model->params, "dLambdaT")){
+    lambdaT = *(REAL8*) LALInferenceGetVariable(model->params, "lambdaT");
+    dLambdaT = *(REAL8*) LALInferenceGetVariable(model->params, "dLambdaT");
+    sym_mass_ratio_eta = m1*m2/((m1+m2)*(m1+m2));
+    LALInferenceLambdaTsEta2Lambdas(lambdaT,dLambdaT,sym_mass_ratio_eta,&lambda1,&lambda2);
+  }
+
+
+  /* Only use GR templates */
+  LALSimInspiralTestGRParam *nonGRparams = NULL;
+
+
+
+  /* ==== Call the waveform generator ==== */
+  XLAL_TRY(ret=XLALSimInspiralChooseFDWaveformSequence (&hptildeLinear, &hctildeLinear, phi0, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI,
+                spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_ref, distance, inclination, lambda1, lambda2,
+                model->waveFlags, nonGRparams, amporder, order, approximant, (model->roq->frequencyNodesLinear)), errnum);
+
+  XLAL_TRY(ret=XLALSimInspiralChooseFDWaveformSequence (&hptildeQuadratic, &hctildeQuadratic, phi0, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI,
+                  spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_ref, distance, inclination, lambda1, lambda2,
+                  model->waveFlags, nonGRparams, amporder, order, approximant, (model->roq->frequencyNodesQuadratic)), errnum);
+    /* Destroy the nonGr params */
+    XLALSimInspiralDestroyTestGRParam(nonGRparams);
+
+    //REAL8 instant = model->freqhPlus->epoch.gpsSeconds + 1e-9*model->freqhPlus->epoch.gpsNanoSeconds;
+    //LALInferenceSetVariable(model->params, "time", &instant);
+
+    /* copy over hptildeLinear, hptildeQuadratic and hcrossL/Q into model->LALInferenceROQModel */
+
+    for (unsigned int i=0; i<hptildeLinear->data->length; ++i){
+      GSL_SET_COMPLEX(&hh, creal(hptildeLinear->data->data[i]), cimag(hptildeLinear->data->data[i]));
+      gsl_vector_complex_set(model->roq->hplusLinear, i, hh);
+      GSL_SET_COMPLEX(&hh, creal(hctildeLinear->data->data[i]), cimag(hctildeLinear->data->data[i]));
+      gsl_vector_complex_set(model->roq->hcrossLinear, i, hh);
+    }
+
+    for (unsigned int i=0; i<hptildeQuadratic->data->length; ++i){
+      GSL_SET_COMPLEX(&hh, creal(hptildeQuadratic->data->data[i]), cimag(hptildeQuadratic->data->data[i]));
+      gsl_vector_complex_set(model->roq->hplusQuadratic, i, hh );
+	GSL_SET_COMPLEX(&hh, creal(hctildeQuadratic->data->data[i]), cimag(hctildeQuadratic->data->data[i]));
+      gsl_vector_complex_set(model->roq->hcrossQuadratic, i, hh );
+    }
+
+
+
+
+    if ( hptildeLinear ) XLALDestroyCOMPLEX16FrequencySeries(hptildeLinear);
+    if ( hctildeLinear ) XLALDestroyCOMPLEX16FrequencySeries(hctildeLinear);
+    if ( hptildeQuadratic ) XLALDestroyCOMPLEX16FrequencySeries(hptildeQuadratic);
+    if ( hctildeQuadratic ) XLALDestroyCOMPLEX16FrequencySeries(hctildeQuadratic);
+        return;
 }
 
 void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model)
@@ -925,31 +983,31 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model)
   int ret=0;
   INT4 errnum=0;
   REAL8 instant;
-  
-  
+
+
   REAL8TimeSeries *hplus=NULL;  /**< +-polarization waveform [returned] */
   REAL8TimeSeries *hcross=NULL; /**< x-polarization waveform [returned] */
   COMPLEX16FrequencySeries *hptilde=NULL, *hctilde=NULL;
-  REAL8 deltaT,deltaF, 
+  REAL8 deltaT,deltaF,
   freq=0.0,
   quality=0.0,
   duration=0.0,
   f_low, f_max,
   hrss=1.0,
-  polar_ecc=1.0,polar_angle=LAL_PI/2.; 
+  polar_ecc=1.0,polar_angle=LAL_PI/2.;
   LALSimBurstExtraParam *extraParams = NULL;
-  
+
   if (LALInferenceCheckVariable(model->params, "LAL_APPROXIMANT"))
     approximant = *(BurstApproximant*) LALInferenceGetVariable(model->params, "LAL_APPROXIMANT");
   else {
     XLALPrintError(" ERROR in LALInferenceTemplateXLALSimBurstChooseWaveform(): (INT4) \"LAL_APPROXIMANT\" parameter not provided!\n");
     XLAL_ERROR_VOID(XLAL_EDATA);
   }
-	
+
   if(LALInferenceCheckVariable(model->params,"frequency"))
     {
       freq=*(REAL8*) LALInferenceGetVariable(model->params, "frequency");
-  } 
+  }
 
   if(LALInferenceCheckVariable(model->params,"quality"))
     {
@@ -958,7 +1016,7 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model)
   if(LALInferenceCheckVariable(model->params,"duration"))
     {
       duration=*(REAL8*) LALInferenceGetVariable(model->params, "duration");
-  } 
+  }
   /*
    * not needed since template is calculated at hrss=1 and scaled back in the likelihood
     if(LALInferenceCheckVariable(model->params,"hrss"))
@@ -966,14 +1024,14 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model)
         hrss=*(REAL8*) LALInferenceGetVariable(model->params, "hrss");
     } else if (LALInferenceCheckVariable(model->params,"loghrss"))
         hrss=exp(*(REAL8*) LALInferenceGetVariable(model->params, "hrss"));
-  
+
   if(LALInferenceCheckVariable(model->params,"alpha"))
     {
       alpha=*(REAL8*) LALInferenceGetVariable(model->params, "alpha");
       if (!extraParams) extraParams=XLALSimBurstCreateExtraParam("alpha",alpha);
       else XLALSimBurstAddExtraParam(&extraParams,"alpha",alpha);
       polar_angle=alpha;
-  } 
+  }
   */
   /* If someone wants to use old parametrization, allow for */
   if(LALInferenceCheckVariable(model->params,"polar_angle"))
@@ -990,7 +1048,7 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model)
     XLAL_ERROR_VOID(XLAL_EFAULT);
   }
   deltaT = model->timehCross->deltaT;
-  
+
   if(model->domain == LAL_SIM_DOMAIN_FREQUENCY) {
     if (model->freqhCross==NULL) {
       XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'freqhCross'.\n");
@@ -998,10 +1056,10 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model)
     }
 
     deltaF = model->deltaF;
-    
-	/*Create BurstExtra params here and set depending on approx or let chooseFD do that*/ 
-  
-  
+
+	/*Create BurstExtra params here and set depending on approx or let chooseFD do that*/
+
+
   XLAL_TRY(ret=XLALSimBurstChooseFDWaveformFromCache(&hptilde, &hctilde, deltaF,deltaT,freq,quality,duration,f_low,f_max,hrss,polar_angle,polar_ecc,extraParams,approximant,model->burstWaveformCache), errnum);
   //XLAL_TRY(ret=XLALSimBurstChooseFDWaveform(&hptilde, &hctilde, deltaF,deltaT,freq,quality,duration,f_low,f_max,hrss,polar_angle,polar_ecc,extraParams,approximant), errnum);
   if (ret == XLAL_FAILURE)
@@ -1017,7 +1075,7 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model)
 	  XLALPrintError(" ERROR in LALInferenceTemplateXLALSimBurstChooseWaveform: encountered unallocated 'hctilde'.\n");
 	  XLAL_ERROR_VOID(XLAL_EFAULT);
 	}
-      
+
 	COMPLEX16 *dataPtr = hptilde->data->data;
 
     for (i=0; i<model->freqhCross->data->length; ++i) {
@@ -1039,9 +1097,9 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model)
 
     /* Destroy the extra params */
     XLALSimBurstDestroyExtraParam(extraParams);
-    
+
     instant= (model->timehCross->epoch.gpsSeconds + 1e-9*model->timehCross->epoch.gpsNanoSeconds);
-    LALInferenceSetVariable(model->params, "time", &instant);    
+    LALInferenceSetVariable(model->params, "time", &instant);
   }
  else {
     /*Time domain WF*/
@@ -1060,7 +1118,7 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model)
       }
 
     /* The following complicated mess is a result of the following considerations:
-       
+
        1) The discrete time samples of the template and the timeModel
        buffers will not, in general line up.
 
@@ -1093,7 +1151,7 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model)
        overlaps the tapered region, plus a safety buffer corresponding
        to a conservative estimate of the largest geocenter <-->
        detector timeshift.
-       
+
          a) If there is no overlap at the start or end of the buffer,
          we're done.
 
@@ -1107,12 +1165,12 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model)
 
     /* 2*Rearth/(c*deltaT)---2 is safety factor---is the maximum time
        shift for any earth-based detector. */
-    size_t maxShift = (size_t)lround(4.255e-2/hplus->deltaT); 
+    size_t maxShift = (size_t)lround(4.255e-2/hplus->deltaT);
 
     /* Taper 0.4 seconds at start and end (hard-coded! in
        LALInferenceReadData.c, around line 233). */
     REAL8 pad=model->padding;
-    size_t taperLength = (size_t)lround(pad/hplus->deltaT); 
+    size_t taperLength = (size_t)lround(pad/hplus->deltaT);
 
     /* Within unsafeLength of ends of buffer, possible danger of
        wrapping and/or tapering interactions. */
@@ -1146,7 +1204,7 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model)
     size_t bufStartIndex = (tcSample >= waveTcSample ? tcSample - waveTcSample : 0);
     size_t bufEndIndex = (wavePostTc + tcSample <= bufLength ? wavePostTc + tcSample : bufLength);
     size_t bufWaveLength = bufEndIndex - bufStartIndex;
-    size_t waveStartIndex = (tcSample >= waveTcSample ? 0 : waveTcSample - tcSample);    
+    size_t waveStartIndex = (tcSample >= waveTcSample ? 0 : waveTcSample - tcSample);
 
     if (bufStartIndex < unsafeLength || (bufLength - bufEndIndex) <= unsafeLength) {
       /* The waveform could be timeshifted into a region where it will
@@ -1168,7 +1226,7 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model)
     /* Clear IFOdata buffers */
     memset(model->timehPlus->data->data, 0, sizeof(REAL8)*model->timehPlus->data->length);
     memset(model->timehCross->data->data, 0, sizeof(REAL8)*model->timehCross->data->length);
-    
+
     /* Inject */
     memcpy(model->timehPlus->data->data + bufStartIndex,
 	   hplus->data->data + waveStartIndex,
@@ -1179,13 +1237,13 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model)
 
     LALInferenceSetVariable(model->params, "time", &injTc);
   }
-  
-  
+
+
   if ( hplus ) XLALDestroyREAL8TimeSeries(hplus);
   if ( hcross ) XLALDestroyREAL8TimeSeries(hcross);
   if ( hptilde ) XLALDestroyCOMPLEX16FrequencySeries(hptilde);
   if ( hctilde ) XLALDestroyCOMPLEX16FrequencySeries(hctilde);
-  
+
   return;
 }
 
@@ -1211,15 +1269,15 @@ void LALInferenceTemplateXLALSimBurstSineGaussianF(LALInferenceModel *model)
   int ret=0;
   INT4 errnum=0;
   REAL8 instant;
-  
-  
+
+
   REAL8TimeSeries *hplus=NULL;  /**< +-polarization waveform [returned] */
   REAL8TimeSeries *hcross=NULL; /**< x-polarization waveform [returned] */
   COMPLEX16FrequencySeries *hptilde=NULL, *hctilde=NULL;
-  REAL8 deltaT,deltaF, 
+  REAL8 deltaT,deltaF,
   freq=0.0,
   quality=0.0,tau=0.0,
-  hrss=1.0; 
+  hrss=1.0;
 
   freq=*(REAL8*) LALInferenceGetVariable(model->params, "frequency");
   quality=*(REAL8*) LALInferenceGetVariable(model->params, "quality");
@@ -1232,13 +1290,13 @@ void LALInferenceTemplateXLALSimBurstSineGaussianF(LALInferenceModel *model)
   REAL8 polar_angle=*(REAL8*) LALInferenceGetVariable(model->params, "polar_angle");
   /* If someone wants to use old parametrization, allow for */
   REAL8 polar_ecc=*(REAL8*) LALInferenceGetVariable(model->params, "polar_eccentricity");
-  
+
   if (model->timehCross==NULL) {
     XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'timeData'.\n");
     XLAL_ERROR_VOID(XLAL_EFAULT);
   }
   deltaT = model->timehCross->deltaT;
-  
+
   if (model->freqhCross==NULL) {
       XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'freqhCross'.\n");
       XLAL_ERROR_VOID(XLAL_EFAULT);
@@ -1259,7 +1317,7 @@ void LALInferenceTemplateXLALSimBurstSineGaussianF(LALInferenceModel *model)
 	  XLALPrintError(" ERROR in LALInferenceTemplateXLALInferenceBurstChooseWaveform: encountered unallocated 'hctilde'.\n");
 	  XLAL_ERROR_VOID(XLAL_EFAULT);
 	}
-  size_t lower =(size_t) ( hctilde->f0/hctilde->deltaF);    
+  size_t lower =(size_t) ( hctilde->f0/hctilde->deltaF);
   size_t upper= (size_t) ( hctilde->data->length + lower);
   COMPLEX16 *dataPtrP = hptilde->data->data;
   COMPLEX16 *dataPtrC = hctilde->data->data;
@@ -1267,7 +1325,7 @@ void LALInferenceTemplateXLALSimBurstSineGaussianF(LALInferenceModel *model)
     model->freqhPlus->data->data[i] = 0.0;
     model->freqhCross->data->data[i] = 0.0;
   }
-  
+
   if (upper>model->freqhPlus->data->length)
     upper=model->freqhPlus->data->length;
   else{
@@ -1280,16 +1338,16 @@ void LALInferenceTemplateXLALSimBurstSineGaussianF(LALInferenceModel *model)
     model->freqhPlus->data->data[i] = dataPtrP[i-lower];
     model->freqhCross->data->data[i] = dataPtrC[i-lower];
   }
-  
+
   instant= (model->timehCross->epoch.gpsSeconds + 1e-9*model->timehCross->epoch.gpsNanoSeconds);
-  LALInferenceSetVariable(model->params, "time", &instant);    
+  LALInferenceSetVariable(model->params, "time", &instant);
 
 
   if ( hplus ) XLALDestroyREAL8TimeSeries(hplus);
   if ( hcross ) XLALDestroyREAL8TimeSeries(hcross);
   if ( hptilde ) XLALDestroyCOMPLEX16FrequencySeries(hptilde);
   if ( hctilde ) XLALDestroyCOMPLEX16FrequencySeries(hctilde);
-  
+
   return;
 }
 
@@ -1301,7 +1359,7 @@ void LALInferenceDumptemplateFreqDomain(LALInferenceVariables *currentParams,
 /* File contains real & imaginary parts of plus & cross components.      */
 /* Template amplitude is scaled to 1Mpc distance.                        */
 {
-  FILE *outfile=NULL; 
+  FILE *outfile=NULL;
   REAL8 f;
   UINT4 i;
 
@@ -1336,7 +1394,7 @@ void LALInferenceDumptemplateTimeDomain(LALInferenceVariables *currentParams,
 /* File contains real & imaginary parts of plus & cross components.      */
 /* Template amplitude is scaled to 1Mpc distance.                        */
 {
-  FILE *outfile=NULL; 
+  FILE *outfile=NULL;
   REAL8 deltaT, t, epoch; // deltaF - set but not used
   UINT4 i;
 
@@ -1359,4 +1417,3 @@ void LALInferenceDumptemplateTimeDomain(LALInferenceVariables *currentParams,
   fclose(outfile);
   fprintf(stdout, " wrote (time-domain) template to CSV file \"%s\".\n", filename);
 }
-

@@ -1226,10 +1226,14 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
         node.add_input_file(os.path.join(roqeventpath,'weights_'+ifo+'.dat'))
       node.add_var_arg('--roqtime_steps '+os.path.join(roqeventpath,'roq_sizes.dat'))
       node.add_input_file(os.path.join(roqeventpath,'roq_sizes.dat'))
-      if self.config.has_option('paths','rom_nodes'):
-        nodes_path=self.config.get('paths','rom_nodes')
-        node.add_var_arg('--roqnodes '+nodes_path)
-        node.add_input_file(nodes_path)
+      if self.config.has_option('paths','rom_nodes_linear'):
+        nodes_path_linear=self.config.get('paths','rom_nodes_linear')
+        node.add_var_arg('--roqnodesLinear '+nodes_path_linear)
+        node.add_input_file(nodes_path_linear)
+      if self.config.has_option('paths','rom_nodes_quadratic'):
+        nodes_path_quadratic=self.config.get('paths','rom_nodes_quadratic')
+        node.add_var_arg('--roqnodesQuadratic` '+nodes_path_quadratic)
+        node.add_input_file(nodes_path_quadratic)
       else:
         print 'No nodes specified for ROM likelihood'
         return None

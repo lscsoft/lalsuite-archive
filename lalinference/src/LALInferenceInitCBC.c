@@ -180,6 +180,9 @@ void LALInferenceInitCBCThreads(LALInferenceRunState *run_state, INT4 nthreads) 
     LALInferenceInitCBCModel(run_state);
     return;
   }
+
+  ProcessParamsTable *commandLine=run_state->commandLine;
+
   LALInferenceThreadState *thread;
   INT4 t, nifo;
   INT4 randomseed;
@@ -189,13 +192,12 @@ void LALInferenceInitCBCThreads(LALInferenceRunState *run_state, INT4 nthreads) 
 
   for (t = 0; t < nthreads; t++) {
     thread = run_state->threads[t];
-
     /* Link back to run-state */
     thread->parent = run_state;
 
     /* Set up CBC model and parameter array */
     thread->model = LALInferenceInitCBCModel(run_state);
-
+    thread->model->roq_flag = 0;
     /* Allocate IFO likelihood holders */
     nifo = 0;
     while (data != NULL) {
@@ -203,13 +205,15 @@ void LALInferenceInitCBCThreads(LALInferenceRunState *run_state, INT4 nthreads) 
         nifo++;
     }
     thread->currentIFOLikelihoods = XLALCalloc(nifo, sizeof(REAL8));
-
     /* Setup ROQ */
-    LALInferenceSetupROQ(run_state->data, thread->model, run_state->commandLine);
+    if (LALInferenceGetProcParamVal(commandLine, "--roq")){
 
+	LALInferenceSetupROQ(run_state->data, thread->model, run_state->commandLine);
+	fprintf(stderr, "done LALInferenceSetupROQ\n");
+
+     }
     LALInferenceCopyVariables(thread->model->params, thread->currentParams);
     LALInferenceCopyVariables(run_state->proposalArgs, thread->proposalArgs);
-
     /* Link thread-state prior-args to the parent run-state's */
     thread->priorArgs = run_state->priorArgs;
 
@@ -256,7 +260,8 @@ LALInferenceTemplateFunction LALInferenceInitCBCTemplate(LALInferenceRunState *r
                     --template LAL (for frequency-domain templates)\n");
   }
   else if(LALInferenceGetProcParamVal(commandLine,"--roq")){
-  templt=&LALInferenceTemplateROQ;
+  templt=&LALInferenceROQWrapperForXLALSimInspiralChooseFDWaveformSequence;
+	fprintf(stderr, "template is LALInferenceROQWrapperForXLALSimInspiralChooseFDWaveformSequence");
   }
   else {
     fprintf(stdout,"Template function called is \"LALInferenceTemplateXLALSimInspiralChooseWaveform\"\n");

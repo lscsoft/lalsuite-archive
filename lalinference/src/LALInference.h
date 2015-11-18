@@ -447,6 +447,7 @@ typedef struct tagLALInferenceModel
   REAL8Window                 *window;        /** A window */
   REAL8                        padding; /** The padding of the above window */
   struct tagLALInferenceROQModel *roq; /** ROQ data */
+  int roq_flag;
 } LALInferenceModel;
 
 
@@ -639,9 +640,8 @@ tagLALInferenceIFOData
 typedef struct
 tagLALInferenceROQData
 {
-  gsl_matrix_complex *weights; /** weights for the likelihood: NOTE: needs to be stored from data read from command line */
-  gsl_matrix_complex *mmweights; /** weights for calculating <h|h> if not using analytical formula */
-  double int_f_7_over_3; /** /int_{fmin}^{fmax} df f^(-7/3)/psd...for <h|h> part of the likelihood */
+  gsl_matrix_complex *weightsLinear; /** weights for the likelihood: NOTE: needs to be stored from data read from command line */
+  gsl_matrix_complex *weightsQuadratic; /** weights for calculating <h|h> if not using analytical formula */
   REAL8 time_weights_width;
 } LALInferenceROQData;
 
@@ -652,11 +652,19 @@ tagLALInferenceROQData
 typedef struct
 tagLALInferenceROQModel
 {
-  gsl_vector_complex *hplus; /** waveform at frequency nodes. */
-  gsl_vector_complex *hcross;
-  gsl_vector_complex *hstrain;
-  gsl_vector         *frequencyNodes; /** empirical frequency nodes for the likelihood. NOTE: needs to be stored from data read from command line */
-  REAL8* amp_squared;
+  gsl_vector_complex *hplusLinear; /** waveform at frequency nodes for (h|d) term */
+  gsl_vector_complex *hcrossLinear;
+  gsl_vector_complex *hstrainLinear;
+
+  gsl_vector_complex *hplusQuadratic; /** waveform at frequency nodes for (h|h) term **/
+  gsl_vector_complex *hcrossQuadratic;
+  gsl_vector_complex *hstrainQuadratic;
+
+  gsl_vector *frequencyNodesLinearGSL;
+  gsl_vector *frequencyNodesQuadraticGSL;
+
+  REAL8Sequence  * frequencyNodesLinear; /** empirical frequency nodes for the likelihood. NOTE: needs to be stored from data read from command line */
+  REAL8Sequence * frequencyNodesQuadratic;
   REAL8 trigtime;
 } LALInferenceROQModel;
 

@@ -447,17 +447,17 @@ void generate_interpolant( LALInferenceRunState *runState ){
       XLAL_CHECK_VOID( fwrite(mmweights, sizeof(COMPLEX16), mmlength, fpout) == mmlength, XLAL_EIO, "Could not output model-model product weights" );
     }
 
-    /* fill in data/model weights into roq->weights complex matrix */
+    /* fill in data/model weights into roq->weightsLinear complex matrix */
     gsl_matrix_complex_view dmview;
     XLAL_CALLGSL( dmview = gsl_matrix_complex_view_array((double*)dmweights, 1, dmlength) );
-    XLAL_CALLGSL( data->roq->weights = gsl_matrix_complex_alloc(1, dmlength) );
-    XLAL_CALLGSL( gsl_matrix_complex_memcpy(data->roq->weights, &dmview.matrix) );
+    XLAL_CALLGSL( data->roq->weightsLinear = gsl_matrix_complex_alloc(1, dmlength) );
+    XLAL_CALLGSL( gsl_matrix_complex_memcpy(data->roq->weightsLinear, &dmview.matrix) );
     XLALFree( dmweights );
 
     gsl_matrix_complex_view mmview;
     XLAL_CALLGSL( mmview = gsl_matrix_complex_view_array((double*)mmweights, 1, mmlength) );
-    XLAL_CALLGSL( data->roq->mmweights = gsl_matrix_complex_alloc(1, mmlength) );
-    XLAL_CALLGSL( gsl_matrix_complex_memcpy(data->roq->mmweights, &mmview.matrix) );
+    XLAL_CALLGSL( data->roq->weightsQuadratic = gsl_matrix_complex_alloc(1, mmlength) );
+    XLAL_CALLGSL( gsl_matrix_complex_memcpy(data->roq->weightsQuadratic, &mmview.matrix) );
     XLALFree( mmweights );
 
     /* add interpolation weights and nodes to a variable in runState->threads[0]->model->ifo->params */
