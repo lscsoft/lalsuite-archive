@@ -98,7 +98,7 @@ for ifo in options.IFOs:
 
 	tc_shifted_data = []  # array to be filled with data, shifted by discrete time tc
 
-	tcs = np.linspace(relative_tc_shift - options.dt - 0.022, relative_tc_shift + options.dt + 0.022, ceil(2.*(options.dt+0.022) / options.delta_tc) )# array of relative time shifts to be applied to the data
+	tcs = np.linspace(relative_tc_shift - options.dt - 0.026, relative_tc_shift + options.dt + 0.026, ceil(2.*(options.dt+0.026) / options.delta_tc) )# array of relative time shifts to be applied to the data
         #tcs = np.linspace(relative_tc_shift - options.dt, relative_tc_shift + options.dt , ceil(2.*(options.dt) / options.delta_tc) )# array of relative time shifts to be applied to the data
 	print "time steps = "+str(len(tcs))
 	for j in range(len(tcs)):
@@ -120,10 +120,10 @@ for ifo in options.IFOs:
         weights_file_linear.close()
 	#size_file_path = os.path.join(options.outpath,"roq_sizes_linear.dat")
 	#np.savetxt(size_file_path,np.array((B_linear.shape[0],B_linear.shape[1])),fmt='%u')
-	#*************************************************************************** #
+	#*************************************************************************** #	
 	weights_path_quadratic = os.path.join(options.outpath,"weights_quadratic_%s.dat"%ifo)
         weights_file_quadratic = open(weights_path_quadratic, "wb")
-	weights_quadratic = BuildWeights(1./psd, B_quadratic, deltaF)
+	weights_quadratic = BuildWeights(1./psd, B_quadratic, deltaF) 
 	weights_quadratic += 1j*np.zeros(weights_quadratic.shape) # this is done because the lalinference data structures expect a complex matrix
 	(weights_quadratic).tofile(weights_file_quadratic)
         weights_file_quadratic.close()
@@ -137,14 +137,6 @@ for ifo in options.IFOs:
 
 fnodes_linear = np.load(options.b_matrix_directory + "/fnodes_linear.npy")
 fnodes_quadratic = np.load(options.b_matrix_directory + "/fnodes_quadratic.npy")
-
-if options.fLow != 40:
-
-	scale_factor = int(40./options.fLow)
-
-	fnodes_linear /= scale_factor
-	fnodes_quadratic /= scale_factor
-
 
 fnodes_linear_path = os.path.join(options.outpath,"fnodes_linear.dat")
 fnodes_linear_file = open(fnodes_linear_path, "wb")
