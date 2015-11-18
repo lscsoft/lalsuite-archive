@@ -980,6 +980,19 @@ class Posterior(object):
       if ('mc' in pos.names) and ('redshift' in pos.names):
           pos.append_mapping('mc_source', source_mass, ['mc', 'redshift'])
 
+      #Calculate massive graviton parameters
+      #if ('loglambda_g' in pos.names):
+      #    print "Entering loglambdaG code"
+      #    pos.append_mapping('lambda_g', lambda a:10**a, 'loglambda_g')
+      if ('loglambda_g' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('loggraviton_mass', lambda l,r:np.log10(GravitonMass(10**l,r)), ['loglambda_g', 'redshift'])
+      if ('loglambda_g' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('loggraviton_lambda', lambda l,r:np.log10(GComptonWavelength(10**l,r)), ['loglambda_g', 'redshift'])
+      if ('lambda_g' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('graviton_mass', GravitonMass, ['lambda_g', 'redshift'])
+      if ('lambda_g' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('graviton_lambda', GComptonWavelength, ['lambda_g', 'redshift'])
+
       #Calculate new tidal parameters
       new_tidal_params = ['lam_tilde','dlam_tilde']
       old_tidal_params = ['lambda1','lambda2','eta']
@@ -1015,18 +1028,6 @@ class Posterior(object):
               pos.append(a2_pos)
           except KeyError:
               print "Warning: no spin2 values found."
-
-      #if ('loglambda_g' in pos.names):
-      #    print "Entering loglambdaG code"
-      #    pos.append_mapping('lambda_g', lambda a:10**a, 'loglambda_g')
-      if ('loglambda_g' in pos.names) and ('redshift' in pos.names):
-          pos.append_mapping('loggraviton_mass', lambda l,r:np.log10(GravitonMass(10**l,r)), ['loglambda_g', 'redshift'])
-      if ('loglambda_g' in pos.names) and ('redshift' in pos.names):
-          pos.append_mapping('loggraviton_lambda', lambda l,r:np.log10(GComptonWavelength(10**l,r)), ['loglambda_g', 'redshift'])
-      if ('lambda_g' in pos.names) and ('redshift' in pos.names):
-          pos.append_mapping('graviton_mass', GravitonMass, ['lambda_g', 'redshift'])
-      if ('lambda_g' in pos.names) and ('redshift' in pos.names):
-          pos.append_mapping('graviton_lambda', GComptonWavelength, ['lambda_g', 'redshift'])
 
     def bootstrap(self):
         """
