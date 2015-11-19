@@ -19,7 +19,6 @@
 #ifndef _LALSIMINSPIRALWAVEFORMFLAGS_H
 #define _LALSIMINSPIRALWAVEFORMFLAGS_H
 
-#include <string.h>
 #include <stdbool.h>
 #include <lal/LALMalloc.h>
 #include <lal/LALError.h>

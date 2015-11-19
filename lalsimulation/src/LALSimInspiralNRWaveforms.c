@@ -24,7 +24,6 @@
 #include <time.h>
 #include <stdbool.h>
 #include <alloca.h>
-#include <string.h>
 #include <libgen.h>
 
 #ifdef __GNUC__
@@ -57,10 +56,6 @@
 #include <lal/H5FileIO.h>
 
 #include "LALSimIMRSEOBNRROMUtilities.c"
-
-static const INT4 ROMDataHDF5_VERSION_MAJOR = 1;
-static const INT4 ROMDataHDF5_VERSION_MINOR = 0;
-static const INT4 ROMDataHDF5_VERSION_MICRO = 0;
 
 /* Everything needs to be declared as unused in case HDF is not enabled. */
 UNUSED static UINT4 XLALSimInspiralNRWaveformGetDataFromHDF5File(
