@@ -305,6 +305,7 @@ int XLALSimInspiralChooseTDWaveform(
     )
 {
     REAL8 LNhatx, LNhaty, LNhatz, E1x, E1y, E1z;
+    char* numrel_data_path;
     //REAL8 tmp1, tmp2;
     int ret;
     /* N.B. the quadrupole of a spinning compact body labeled by A is 
@@ -749,9 +750,11 @@ int XLALSimInspiralChooseTDWaveform(
             /* Waveform-specific sanity checks */
 
             /* Call the waveform driver routine */
+            numrel_data_path = XLALSimInspiralGetNumrelData(waveFlags);
             ret = XLALSimInspiralNRWaveformGetHplusHcross(hplus, hcross,
                     phiRef, i, deltaT, m1, m2, r, f_min, f_ref, S1x, S1y, S1z,
-                    S2x, S2y, S2z, XLALSimInspiralGetNumrelData(waveFlags));
+                    S2x, S2y, S2z, numrel_data_path);
+            XLALFree(numrel_data_path);
             break;
 
 

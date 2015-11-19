@@ -16,8 +16,9 @@
  *  MA  02111-1307  USA
  */
 
-#include <string.h>
-#include  <lal/LALSimInspiralWaveformFlags.h>
+#include <stdio.h>
+#include <lal/LALString.h>
+#include <lal/LALSimInspiralWaveformFlags.h>
 
 /**
  * Struct containing several enumerated flags that control specialized behavior
@@ -300,27 +301,31 @@ void XLALSimInspiralSetNumrelData(
         const char* numreldata /**< value to set numreldata to */
         )
 {
-    strncpy(waveFlags->numreldata, numreldata, sizeof(*waveFlags->numreldata));
-    waveFlags->numreldata[sizeof(*waveFlags->numreldata) - 1] = '\0';
+    XLALStringCopy(waveFlags->numreldata, numreldata, sizeof(waveFlags->numreldata));
     return;
 }
 
 /**
- * Returns the shallow pointer of the numeraldata attribute of the waveFlags
- * structure. If this is NULL then NULL will be returned. Do not attempt to
- * free or change the value of the data this points to!
- * The pointer should be freed along with the rest of the waveFlags
- * structure using XLALSimInspiralDestroyWaveformFlags or edited using
- * XLALSimInspiralSetNumrelData
+ * Returns a deepcopy of the pointer of the numeraldata attribute of the
+ * waveFlags structure. If this is NULL then NULL will be returned.
+ * The returned value is independent of the waveFlags structure and will
+ * need to be LALFree-d.
  */
 char* XLALSimInspiralGetNumrelData(
         LALSimInspiralWaveformFlags *waveFlags
         )
 {
+    char *ret_string;
     if ( waveFlags )
-        return waveFlags->numreldata;
+    {
+        ret_string = XLALMalloc(FILENAME_MAX * sizeof(char));
+        XLALStringCopy(ret_string, waveFlags->numreldata, sizeof(waveFlags->numreldata));
+        return ret_string;
+    }
     else
+    {
         return NULL;
+    }
 }
 
 /** @} */
