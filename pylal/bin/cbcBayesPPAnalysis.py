@@ -7,6 +7,7 @@
 #       Benjamin Farr <bfarr@u.northwestern.edu>,
 #       Will M. Farr <will.farr@ligo.org>,
 #       SalvatoreVitale <salvatore.vitale@ligo.org>
+#       Vivien Raymond <vivien.raymond@ligo.org>
 #
 #       This program is free software; you can redistribute it and/or modify
 #       it under the terms of the GNU General Public License as published by
@@ -46,7 +47,7 @@ posterior_name_to_latex_name = {
     'eta' : r'$\eta$',
     'q' : r'$q$',
     'mc' : r'$\mathcal{M}$',
-    'dist' : r'$d$',
+    'distance' : r'$d$',
     'time' : r'$t$',
     'ra' : r'$\alpha$',
     'dec' : r'$\delta$',
@@ -220,7 +221,7 @@ if __name__ == '__main__':
     injs = table.get_table(utils.load_filename(options.injxml,contenthandler=ExtractSimInspiralTableLIGOLWContentHandler),lsctables.SimInspiralTable.tableName)
 
     if options.par == []:
-        parameters = ['m1', 'm2', 'mc', 'eta', 'q',  'theta_jn', 'a1', 'a2', 'tilt1', 'tilt2', 'phi12', 'phi_jl', 'ra', 'dec', 'dist', 'time', 'phi_orb', 'psi']
+        parameters = ['m1', 'm2', 'mc', 'eta', 'q',  'theta_jn', 'a1', 'a2', 'tilt1', 'tilt2', 'phi12', 'phi_jl', 'ra', 'dec', 'distance', 'time', 'phi_orb', 'psi']
     else:
         parameters = options.par
 
