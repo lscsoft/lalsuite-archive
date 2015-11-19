@@ -138,6 +138,6 @@ void XLALSimInspiralSetModesChoice(LALSimInspiralWaveformFlags *waveFlags, LALSi
 LALSimInspiralModesChoice XLALSimInspiralGetModesChoice(LALSimInspiralWaveformFlags *waveFlags);
 bool XLALSimInspiralModesChoiceIsDefault(LALSimInspiralModesChoice modesChoice);
 void XLALSimInspiralSetNumrelData(LALSimInspiralWaveformFlags *waveFlags, const char* numreldata);
-const char* XLALSimInspiralGetNumrelData(LALSimInspiralWaveformFlags *waveFlags);
+char* XLALSimInspiralGetNumrelData(LALSimInspiralWaveformFlags *waveFlags);
 
 #endif /* _LALSIMINSPIRALWAVEFORMFLAGS_H */

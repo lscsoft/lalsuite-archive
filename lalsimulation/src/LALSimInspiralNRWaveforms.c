@@ -147,8 +147,8 @@ int XLALSimInspiralNRWaveformGetHplusHcross(
   COMPLEX16 curr_ylm;
   /* These keys follow a strict formulation and cannot be longer than 11
    * characters */
-  char *amp_key = XLALMalloc(20);
-  char *phase_key = XLALMalloc(20);
+  char amp_key[20];
+  char phase_key[20];
   gsl_vector *tmpVector=NULL;
   LALH5File *file, *group;
   LIGOTimeGPS tmpEpoch;
@@ -265,15 +265,15 @@ int XLALSimInspiralNRWaveformGetHplusHcross(
   {
     for (modem=-model; modem < (model+1); modem++)
     {
-      sprintf(amp_key, "amp_l%d_m%d", model, modem);
-      sprintf(phase_key, "phase_l%d_m%d", model, modem);
+      snprintf(amp_key, sizeof(amp_key), "amp_l%d_m%d", model, modem);
+      snprintf(phase_key, sizeof(phase_key), "phase_l%d_m%d", model, modem);
 
       /* Check that both groups exist */
-      if (XLALH5CheckGroupExists(file, amp_key))
+      if (XLALH5CheckGroupExists(file, amp_key) == 0)
       {
         continue;
       }
-      if (XLALH5CheckGroupExists(file, phase_key))
+      if (XLALH5CheckGroupExists(file, phase_key) == 0)
       {
         continue;
       }
@@ -284,9 +284,6 @@ int XLALSimInspiralNRWaveformGetHplusHcross(
       XLALSimInspiralNRWaveformGetDataFromHDF5File(&curr_phase, file, (m1 + m2),
                                 time_start_s, array_length, deltaT, phase_key);
 
-      /* FIXME: Why is this -2? It is also in the python code 
-       * PS: it's the spin weight in the Ylm's
-      */
       XLALH5FileQueryScalarAttributeValue(&nrPhiRef, file, "coa_phase");
       phi = nrPhiRef + phiRef;
       curr_ylm = XLALSpinWeightedSphericalHarmonic(inclination, phi, -2,
@@ -299,9 +296,6 @@ int XLALSimInspiralNRWaveformGetHplusHcross(
                     * sin(curr_phase->data[curr_idx]) * distance_scale_fac;
         (*hplus)->data->data[curr_idx] = (*hplus)->data->data[curr_idx]
                + curr_h_real * creal(curr_ylm) + curr_h_imag * cimag(curr_ylm);
-        /* FIXME: No idea whether these should be minus or plus, guessing
-         *        minus for now. Only affects some polarization phase.
-         */
         (*hcross)->data->data[curr_idx] = (*hcross)->data->data[curr_idx]
                + curr_h_real * cimag(curr_ylm) - curr_h_imag * creal(curr_ylm);
       }
@@ -310,8 +304,6 @@ int XLALSimInspiralNRWaveformGetHplusHcross(
     }
   }
 
-  XLALFree(phase_key);
-  XLALFree(amp_key);
   XLALH5FileClose(file);
 
   return XLAL_SUCCESS;

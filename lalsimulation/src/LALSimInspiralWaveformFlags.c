@@ -16,6 +16,7 @@
  *  MA  02111-1307  USA
  */
 
+#include <string.h>
 #include  <lal/LALSimInspiralWaveformFlags.h>
 
 /**
@@ -34,7 +35,7 @@ struct tagLALSimInspiralWaveformFlags
     LALSimInspiralTidalOrder tideO; /**< PN order of spin effects */
     LALSimInspiralFrameAxis axisChoice; /**< Flag to set frame z-axis convention */
     LALSimInspiralModesChoice modesChoice; /**< Flag to control which modes are included in IMR models */
-    char numreldata[1024]; /**< Location of NR data file for NR waveforms */
+    char numreldata[FILENAME_MAX]; /**< Location of NR data file for NR waveforms */
 };
 
 /**
@@ -299,22 +300,27 @@ void XLALSimInspiralSetNumrelData(
         const char* numreldata /**< value to set numreldata to */
         )
 {
-    strncpy(waveFlags->numreldata, numreldata, 1024);
+    strncpy(waveFlags->numreldata, numreldata, sizeof(*waveFlags->numreldata));
+    waveFlags->numreldata[sizeof(*waveFlags->numreldata) - 1] = '\0';
     return;
 }
 
 /**
- * Get the numreldata path within a LALSimInspiralWaveformFlags struct,
- * or an empty string if waveFlags is NULL
+ * Returns the shallow pointer of the numeraldata attribute of the waveFlags
+ * structure. If this is NULL then NULL will be returned. Do not attempt to
+ * free or change the value of the data this points to!
+ * The pointer should be freed along with the rest of the waveFlags
+ * structure using XLALSimInspiralDestroyWaveformFlags or edited using
+ * XLALSimInspiralSetNumrelData
  */
-const char* XLALSimInspiralGetNumrelData(
+char* XLALSimInspiralGetNumrelData(
         LALSimInspiralWaveformFlags *waveFlags
         )
 {
     if ( waveFlags )
         return waveFlags->numreldata;
     else
-        return "";
+        return NULL;
 }
 
 /** @} */
