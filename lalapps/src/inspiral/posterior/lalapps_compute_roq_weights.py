@@ -51,6 +51,7 @@ parser.add_option("-o", "--out", type='string',
 
 B_linear = np.load(options.b_matrix_directory + "/B_linear.npy")
 B_quadratic = np.load(options.b_matrix_directory + "/B_quadratic.npy")
+basis_params = np.loadtxt(options.b_matrix_directory + "/params.dat").T
 
 def BuildWeights(data, B, deltaF):
 
@@ -72,6 +73,7 @@ relative_tc_shift = options.seglen - 2.
 # loop over ifos 
 
 i=0
+scale_factor = 0
 
 for ifo in options.IFOs:
 
@@ -79,15 +81,27 @@ for ifo in options.IFOs:
 	data = dat_file[1] + 1j*dat_file[2]
 	fseries = dat_file[0]
         deltaF = fseries[1] - fseries[0]
-	fseries = fseries[int(options.fLow/deltaF):len(fseries)+1]
-	data = data[int(options.fLow/deltaF):len(data)+1]
 	fHigh = fseries[-1]
+	
+	if options.fLow: 
+		fLow = options.fLow
+		scale_factor = int(basis_params[0] / fLow)
+
+	else:
+		fLow = basis_params[0]
+
+		assert fHigh == basis_params[1]
+
+	fseries = fseries[int(fLow/deltaF):len(fseries)+1]
+	data = data[int(fLow/deltaF):len(data)+1]
+
+
 	psdfile = np.column_stack( np.loadtxt(options.psd_file[i]) )
 	psd = psdfile[1]
 
 	psd[-1] = psd[-1 -1 ]
 
-	psd = psd[int(options.fLow/deltaF):len(psd)+1]
+	psd = psd[int(fLow/deltaF):len(psd)+1]
 	data /= psd
 
 	assert len(data) == len(psd) == B_linear.shape[1] == B_quadratic.shape[1]
@@ -99,7 +113,7 @@ for ifo in options.IFOs:
 	tc_shifted_data = []  # array to be filled with data, shifted by discrete time tc
 
 	tcs = np.linspace(relative_tc_shift - options.dt - 0.026, relative_tc_shift + options.dt + 0.026, ceil(2.*(options.dt+0.026) / options.delta_tc) )# array of relative time shifts to be applied to the data
-        #tcs = np.linspace(relative_tc_shift - options.dt, relative_tc_shift + options.dt , ceil(2.*(options.dt) / options.delta_tc) )# array of relative time shifts to be applied to the data
+
 	print "time steps = "+str(len(tcs))
 	for j in range(len(tcs)):
 
@@ -135,8 +149,15 @@ for ifo in options.IFOs:
 
 	#save the fnodes as a dat file if they're not already:
 
+
 fnodes_linear = np.load(options.b_matrix_directory + "/fnodes_linear.npy")
 fnodes_quadratic = np.load(options.b_matrix_directory + "/fnodes_quadratic.npy")
+
+if scale_factor:
+
+	fnodes_linear /= scale_factor
+	fnodes_quadratic /= scale_factor
+
 
 fnodes_linear_path = os.path.join(options.outpath,"fnodes_linear.dat")
 fnodes_linear_file = open(fnodes_linear_path, "wb")

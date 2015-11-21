@@ -148,7 +148,12 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
 
    /* Try to determine a model-less likelihood, if such a thing makes sense */
    if (runState->likelihood==&LALInferenceUndecomposedFreqDomainLogLikelihood){
-       nullLikelihood = LALInferenceNullLogLikelihood(runState->data);
+	if (LALInferenceGetProcParamVal(commandLine, "--roq")) {
+		nullLikelihood = 0;
+	}
+	else{
+		nullLikelihood = LALInferenceNullLogLikelihood(runState->data);
+	}
    } else if (runState->likelihood==&LALInferenceFreqDomainStudentTLogLikelihood ||
        runState->likelihood==&LALInferenceMarginalisedTimeLogLikelihood ||
        runState->likelihood==&LALInferenceMarginalisedTimePhaseLogLikelihood ||
