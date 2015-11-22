@@ -130,6 +130,8 @@ prior2injjob.set_sub_file(convertsub)
 prior2injjob.set_stderr_file(converterr)
 prior2injjob.set_stdout_file(convertout)
 prior2injjob.add_condor_cmd('getenv','True')
+if main_cp.has_option('analysis','accounting_group'):
+  prior2injjob.add_condor_cmd('accounting_group',main_cp.get('analysis','accounting_group'))
 prior2injnode=pipeline.CondorDAGNode(prior2injjob)
 prior2injnode.add_var_opt('output',injfile)
 prior2injnode.add_var_opt('num-of-injs',str(opts.trials))
@@ -170,7 +172,8 @@ ppjob.set_sub_file(ppsub)
 ppjob.set_stderr_file(pperr)
 ppjob.set_stdout_file(ppout)
 ppjob.add_condor_cmd('getenv','True')
-
+if main_cp.has_option('analysis','accounting_group'):
+  ppjob.add_condor_cmd('accounting_group',main_cp.get('analysis','accounting_group'))
 ppnode=pipeline.CondorDAGNode(ppjob)
 ppnode.add_var_opt('injXML',injfile)
 if main_cp.has_option('ppanalysis','webdir'):
