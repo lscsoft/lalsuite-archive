@@ -508,10 +508,12 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
               this_ifo+=1
               timeslidedtimes.append(time-ts)
             this_time+=1
+      gotts=True
       if timeslidedtimes==[]:
         timeslidedtimes=self.times
+        gotts=False
   
-      (mintime,maxtime)=self.get_required_data(timeslidedtimes)
+      (mintime,maxtime)=self.get_required_data(timeslidedtimes,got_time_slides=gotts)
     if not self.config.has_option('input','gps-start-time'):
       self.config.set('input','gps-start-time',str(int(floor(mintime))))
     if not self.config.has_option('input','gps-end-time'):
@@ -526,7 +528,10 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     for event in self.events: self.add_full_analysis(event)
     self.add_skyarea_followup()
     #self.add_gracedb_FITSskymap_upload(self.events[0],engine=self.engine)
-    self.add_gracedb_info_node(None,event.GID,analysis='LIB',issky=True)
+     
+    if self.config.has_option('analysis','upload-to-gracedb'):
+      if  self.config.getboolean('analysis','upload-to-gracedb') and self.config.has_option('analysis','ugid'):
+        self.add_gracedb_info_node(None,event.GID,analysis='LIB',issky=True)
 
     self.dagfilename="lalinference_%s-%s"%(self.config.get('input','gps-start-time'),self.config.get('input','gps-end-time'))
     self.set_dag_file(self.dagfilename)
@@ -569,7 +574,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     pfnfile=iu.create_frame_pfn_file(self.frtypes,gpsstart,gpsend)
     return pfnfile
    
-  def get_required_data(self,times):
+  def get_required_data(self,times,got_time_slides=False):
     """
     Calculate the data that will be needed to process all events
     """
@@ -580,21 +585,29 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
         seglen = self.config.getfloat('engine','seglen')
       if self.config.has_option('lalinference','seglen'):
         seglen = self.config.getfloat('lalinference','seglen')
+      if self.config.has_option('input','max-psd-length'):
+        maxpsd=self.config.getfloat('input','max-psd-length')
+      else:
+        maxpsd=32*seglen
 
       if os.path.exists("psd.xml.gz"):
         psdlength = 0
       else:
-        psdlength = 32*seglen
+        psdlength = maxpsd
     else:
       seglen = max(e.duration for e in self.events)
       if os.path.exists("psd.xml.gz"):
         psdlength = 0
       else:
-        psdlength = 32*seglen
+        psdlength = maxpsd
     # Assume that the data interval is (end_time - seglen -padding , end_time + psdlength +padding )
     # -> change to (trig_time - seglen - padding - psdlength + 2 , trig_time + padding + 2) to estimate the psd before the trigger for online follow-up.
     # Also require padding before start time
-    return (min(times)-padding-seglen-psdlength+2,max(times)+padding+2+psdlength)
+    if got_time_slides:
+      extra_time_future=psdlength
+    else:
+      extra_time_future=0.0
+    return (min(times)-padding-seglen-psdlength+2,max(times)+padding+2+extra_time_future)
 
   def setup_from_times(self,times):
     """
@@ -1248,6 +1261,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       return None
     if issky is False:
       node=PostRunInfoNode(self.postruninfojob,parent=respagenode,gid=gid,samples=samples)
+      node.set_email("salvatore.vitale@ligo.mit.edu")
     else:
       skynodes=filter(lambda x: isinstance(x,SkyAreaNode) ,self.get_nodes())
       for sk in skynodes:
@@ -1781,7 +1795,7 @@ class ResultsPageJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
     self.set_stdout_file(os.path.join(logdir,'resultspage-$(cluster)-$(process).out'))
     self.set_stderr_file(os.path.join(logdir,'resultspage-$(cluster)-$(process).err'))
     self.add_condor_cmd('getenv','True')
-    self.add_condor_cmd('RequestMemory','2000')
+    self.add_condor_cmd('RequestMemory','4000')
     self.add_ini_opts(cp,'resultspage')
     # self.add_opt('Nlive',cp.get('analysis','nlive'))
     
@@ -2168,6 +2182,8 @@ class PostRunInfoNode(pipeline.CondorDAGNode):
         self.add_var_arg('--skymap %s'%skymap)
     def set_message(self,message):
         self.add_var_arg('--message %s'%message)
+    def set_email(self,email):
+      self.add_var_arg('--email %s'%email) 
     def set_gid(self,gid):
       self.add_var_opt('gid',gid)
     def set_bci(self,bci):
