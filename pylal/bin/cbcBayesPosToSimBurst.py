@@ -35,6 +35,9 @@ import numpy as np
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import ilwd
+import matplotlib
+matplotlib.use("Agg") # Needed to run on the CIT cluster
+
 from pylal import bayespputils as bppu
 
 # Create a datatype for all relavent fields to be filled in the sim_inspiral table
