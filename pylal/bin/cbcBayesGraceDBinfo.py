@@ -101,7 +101,7 @@ def cbcBayesGraceDBinfo(gid=None,samples=None,skymap=None,analysis='LALInference
       SERVER="localhost"
       USER=os.environ['USER']
       import socket
-      HOST=socket.gethostbyaddr(socket.gethostname())[0]
+      HOST=socket.getfqdn()#socket.gethostbyaddr(socket.gethostname())[0]
       pref=""
       if bci>3 and bci<6:
         pref="A promising"
@@ -109,15 +109,20 @@ def cbcBayesGraceDBinfo(gid=None,samples=None,skymap=None,analysis='LALInference
         pref="A very interesting"
       elif bci>10:
         pref="A SPECTACULAR"
-      FROM="salvatore.vitale@ligo.org"
+      FROM="salvatore.vitale@"+HOST
       SUBJECT="%s LIB result page is ready at "%pref+HOST+" for graceID %s!"%(gid)
       TEXT="LIB run for graceID %s is done on "%gid+HOST+".\nThe BCI is %lf\n"%bci
       if bci>10:
         TEXT+="RUN!!!!!!!!!!\n"
       message="From: %s\nTo: %s\nSubject: %s\n\n%s"%(FROM,', '.join(address),SUBJECT,TEXT)
-      server=smtplib.SMTP(SERVER)
-      server.sendmail(FROM,address,message)
-      server.quit()
+      try:
+        import os
+        os.system('echo "%s" | mail -s "%s" "%s"'%(TEXT,SUBJECT,', '.join(address)))
+        server=smtplib.SMTP(SERVER)
+        server.sendmail(FROM,address,message)
+        server.quit()
+      except:
+        print "Cound not send email\n"
 
     g.writeLog(gid,outstr,filename=None,tagname='pe')
   elif skymap is not None:
