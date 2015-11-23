@@ -1452,7 +1452,7 @@ REAL8 LALInferenceCorrelatedAnalyticLogLikelihood(LALInferenceVariables *current
   }
   else if ( LALInferenceCheckVariable(currentParams, "hrss") ||LALInferenceCheckVariable(currentParams, "loghrss")){
     /* We are dealing with a  burst SG. Set dimensions and CVM accordinly*/
-    tmpdim = 8;
+    tmpdim = 9;
     cm=&(bCM[0][0]);
     cbc=0;
   }
