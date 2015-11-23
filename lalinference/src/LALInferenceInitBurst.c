@@ -422,6 +422,7 @@ LALInferenceModel * LALInferenceInitBurstModel(LALInferenceRunState *state)
   return model;
 }
 
+
 LALInferenceModel *LALInferenceInitModelReviewBurstEvidence_unimod(LALInferenceRunState *state)
 {
   ProcessParamsTable *commandLine=state->commandLine;
@@ -446,6 +447,7 @@ LALInferenceModel *LALInferenceInitModelReviewBurstEvidence_unimod(LALInferenceR
     nifo++;
   }
 
+  model->ifo_SNRs = XLALCalloc(nifo, sizeof(REAL8));
   model->ifo_loglikelihoods = XLALCalloc(nifo, sizeof(REAL8));
 
   i=0;
@@ -462,6 +464,7 @@ LALInferenceModel *LALInferenceInitModelReviewBurstEvidence_unimod(LALInferenceR
     {.name="rightascension", .val=LAL_PI, .min=2.864650, .max=3.418535},
     {.name="declination", .val=0.04, .min=-0.306437, .max=0.306437},
     {.name="alpha", .val=0.58, .min=0.224279, .max=0.775721},
+    {.name="polar_eccentricity",.val=0.3,.min=0.0760747287,.max=0.4239252713},
     {.name="END", .val=0., .min=0., .max=0.}
   };
   
@@ -498,7 +501,7 @@ LALInferenceModel *LALInferenceInitModelReviewBurstEvidence_bimod(LALInferenceRu
     dataPtr = dataPtr->next;
     nifo++;
   }
-
+  model->ifo_SNRs = XLALCalloc(nifo, sizeof(REAL8));
   model->ifo_loglikelihoods = XLALCalloc(nifo, sizeof(REAL8));
   i=0;
   
@@ -506,17 +509,17 @@ LALInferenceModel *LALInferenceInitModelReviewBurstEvidence_bimod(LALInferenceRu
  
   struct varSettings setup[]=
   {
-    {.name="time", .val=0.001, .min= -0.006410, .max=0.020266},
-    {.name="frequency", .val=211., .min=205.560916, .max=225.141619},
-    {.name="quality", .val=6.0, .min=5.252647, .max=7.943119},
-    {.name="loghrss", .val=-46., .min=-46.964458, .max=-43.492410},
-    {.name="polarisation", .val=0.73, .min=0.425622,.max=1.413383},
+    {.name="time", .val=0.0061, .min= -0.006410, .max=0.020266},
+    {.name="frequency", .val=215., .min=205.560916, .max=225.141619},
+    {.name="quality", .val=6.50, .min=5.252647, .max=7.943119},
+    {.name="loghrss", .val=-45., .min=-46.964458, .max=-43.492410},
+    {.name="polarisation", .val=0.93, .min=0.425622,.max=1.413383},
     {.name="rightascension", .val=LAL_PI, .min=2.864650, .max=3.861644},
     {.name="declination", .val=0.0, .min=-0.306437, .max=0.796736},
-    {.name="alpha", .val=0.5, .min=0.224279, .max=1.216874},
+    {.name="alpha", .val=0.75, .min=0.224279, .max=1.216874},
+    {.name="polar_eccentricity",.val=0.4,.min=0.076075,.max=0.702206},
     {.name="END", .val=0., .min=0., .max=0.}
   };
-  
   while(strcmp("END",setup[i].name))
   {
     LALInferenceParamVaryType type=LALINFERENCE_PARAM_CIRCULAR;
@@ -527,3 +530,5 @@ LALInferenceModel *LALInferenceInitModelReviewBurstEvidence_bimod(LALInferenceRu
   }
   return(model);
 }
+
+

@@ -161,25 +161,29 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
 
 /* Scaling used for the burst analytic likelihood parameters */
 // sqrt(bCM)/(scaling) is the sigma
-  static const REAL8 burst_scaling[8] = {
-    0.1,
-    1.0,
-    1.0,
-    100.0,
-    10.0/M_PI,
-    10.0/M_PI,
-    10.0/M_PI,
-    10.0/M_PI};
+static const REAL8 burst_scaling[9] = {
+0.1,
+1.0,
+1.0,
+100.0,
+10.0/M_PI,
+10.0/M_PI,
+10.0/M_PI,
+10.0/M_PI,
+10.0};
 
 /* burst covariance matrix used in analyic likelihoods */
-static const REAL8 bCM[8][8] = {{0.0118334553095770112635110,0.0101244893662672322265372,0.0164254129963652163726184,0.0112088766770308614906249,0.0148945067729633826014712,0.0176503111361420127189970,0.0122199881064022214394171,0.0139749282535349579614792},
-{0.0101244893662672322265372,0.0223414853900214364912369,0.0223978018917797665199299,0.0155692879011910430275822,0.0201008529429579502201264,0.0229538138342478409414937,0.0180642089428136622120125,0.0155199853453866446623133},
-{0.0164254129963652163726184,0.0223978018917797665199299,0.0372071319249132337336761,0.0269434973389567240797948,0.0277259617613290071380661,0.0321217958436038619751685,0.0325568864053485881870920,0.0283379829772117813879717},
-{0.0112088766770308614906249,0.0155692879011910430275822,0.0269434973389567240797948,0.0219637138989302732605680,0.0202889296069694510804560,0.0225846698886396080041550,0.0238719578697630489816373,0.0197015389277761104880327},
-{0.0148945067729633826014712,0.0201008529429579502201264,0.0277259617613290071380661,0.0202889296069694510804560,0.0310842562371710651181189,0.0334804433939082934923448,0.0233839662218643419555608,0.0266660912253427265228289},
-{0.0176503111361420127189970,0.0229538138342478409414937,0.0321217958436038619751685,0.0225846698886396080041550,0.0334804433939082934923448,0.0380576501276081793911921,0.0264526579842353157245860,0.0312117893830374908137326},
-{0.0122199881064022214394171,0.0180642089428136622120125,0.0325568864053485881870920,0.0238719578697630489816373,0.0233839662218643419555608,0.0264526579842353157245860,0.0305112248863869672810267,0.0256577816309597056543268},
-{0.0139749282535349579614792,0.0155199853453866446623133,0.0283379829772117813879717,0.0197015389277761104880327,0.0266660912253427265228289,0.0312117893830374908137326,0.0256577816309597056543268,0.0308105179275282164974570}};
+/* Unimodal should give evidence -21.3,bimodal  -25.9 */
+static const REAL8 bCM[9][9] = {{0.0118334553095770112635110,0.0101244893662672322265372,0.0164254129963652163726184,0.0112088766770308614906249,0.0148945067729633826014712,0.0176503111361420127189970,0.0122199881064022214394171,0.0139749282535349579614792,0.0},
+{0.0101244893662672322265372,0.0223414853900214364912369,0.0223978018917797665199299,0.0155692879011910430275822,0.0201008529429579502201264,0.0229538138342478409414937,0.0180642089428136622120125,0.0155199853453866446623133,0.0},
+{0.0164254129963652163726184,0.0223978018917797665199299,0.0372071319249132337336761,0.0269434973389567240797948,0.0277259617613290071380661,0.0321217958436038619751685,0.0325568864053485881870920,0.0283379829772117813879717,0.0},
+{0.0112088766770308614906249,0.0155692879011910430275822,0.0269434973389567240797948,0.0219637138989302732605680,0.0202889296069694510804560,0.0225846698886396080041550,0.0238719578697630489816373,0.0197015389277761104880327,0.0},
+{0.0148945067729633826014712,0.0201008529429579502201264,0.0277259617613290071380661,0.0202889296069694510804560,0.0310842562371710651181189,0.0334804433939082934923448,0.0233839662218643419555608,0.0266660912253427265228289,0.0},
+{0.0176503111361420127189970,0.0229538138342478409414937,0.0321217958436038619751685,0.0225846698886396080041550,0.0334804433939082934923448,0.0380576501276081793911921,0.0264526579842353157245860,0.0312117893830374908137326,0.0},
+{0.0122199881064022214394171,0.0180642089428136622120125,0.0325568864053485881870920,0.0238719578697630489816373,0.0233839662218643419555608,0.0264526579842353157245860,0.0305112248863869672810267,0.0256577816309597056543268,0.0},
+{0.0139749282535349579614792,0.0155199853453866446623133,0.0283379829772117813879717,0.0197015389277761104880327,0.0266660912253427265228289,0.0312117893830374908137326,0.0256577816309597056543268,0.0308105179275282164974570,0.0},
+{0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.121}
+};
 
 /* Covariance matrix for use in analytic likelihoods */
   static const REAL8 CM[15][15] = {{0.045991865933182365, -0.005489748382557155, -0.01025067223674548, 0.0020087713726603213, -0.0032648855847982987, -0.0034218261781145264, -0.0037173401838545774, -0.007694897715679858, 0.005260905282822458, 0.0013607957548231718, 0.001970785895702776, 0.006708452591621081, -0.005107684668720825, 0.004402554308030673, -0.00334987648531921},
@@ -1365,22 +1369,23 @@ static void extractDimensionlessVariableVector(LALInferenceVariables *currentPar
 }
 
 static void extractBurstDimensionlessVariableVector(LALInferenceVariables *currentParams, REAL8 *x, INT4 mode) {
-  REAL8 frequency=100.,q=1.0,loghrss, psi, ra, dec, t,alpha=0.0;
+  REAL8 frequency=100.,q=1.0,loghrss, psi, ra, dec, t,alpha=0.0,polar_eccentricity=0.0;
+  const UINT4 nparams=9;
+  REAL8 mean[nparams];
   
-  REAL8 mean[8];
-  
-  memset(x, 0, 8*sizeof(REAL8));
-  memset(mean, 0, 8*sizeof(REAL8));
+  memset(x, 0, nparams*sizeof(REAL8));
+  memset(mean, 0, nparams*sizeof(REAL8));
 
   if (mode==0) {
-    mean[0] = 211.0;
-    mean[1] = 6.0;
-    mean[2] = -46.;
-    mean[3] = 0.001;
-    mean[4] = M_PI;
-    mean[5] = 0.0;
-    mean[6] = 0.7;
-    mean[7] =0.5;
+    mean[0] = 211.0; // freq
+    mean[1] = 6.0;  //quality
+    mean[2] = -46.; //loghrss
+    mean[3] = 0.001; //time
+    mean[4] = M_PI; //ra
+    mean[5] = 0.0;   //dec
+    mean[6] = 0.7; //psi
+    mean[7] =0.5; // alpha (polar_angle)
+    mean[8] =0.25;    // polar_eccentricity 
   } else if (mode==1) {
     mean[0] = 211.0;
     mean[1] = 6.0;
@@ -1390,6 +1395,7 @@ static void extractBurstDimensionlessVariableVector(LALInferenceVariables *curre
     mean[5] = 0.0;
     mean[6] = 0.7;
     mean[7] =0.5;
+    mean[8]= 0.25;
   } else if (mode==2) {
     /* set means of second mode to be 8 sigma from first mode */
     mean[0] = 211 + 8./burst_scaling[0]*sqrt(bCM[0][0]);
@@ -1400,20 +1406,21 @@ static void extractBurstDimensionlessVariableVector(LALInferenceVariables *curre
     mean[5] = 0.0 + 8./burst_scaling[5]*sqrt(bCM[5][5]);
     mean[6] = 0.7 + 8./burst_scaling[7]*sqrt(bCM[6][6]);
     mean[7] = 0.5 + 8./burst_scaling[7]*sqrt(bCM[7][7]);
+    mean[8] = 0.25 + 8./burst_scaling[8]*sqrt(bCM[8][8]);
   } else {
     printf("Error!  Unrecognized mode in analytic likelihood!\n");
     exit(1);
   }
  
-  loghrss = (*(REAL8 *)LALInferenceGetVariable(currentParams, "loghrss"));
-  frequency = *(REAL8 *)LALInferenceGetVariable(currentParams, "frequency");
-  q = *(REAL8 *)LALInferenceGetVariable(currentParams, "quality");
-  psi = *(REAL8 *)LALInferenceGetVariable(currentParams, "polarisation");
-  alpha = *(REAL8 *)LALInferenceGetVariable(currentParams, "alpha");
-  ra = *(REAL8 *)LALInferenceGetVariable(currentParams, "rightascension");
-  dec = *(REAL8 *)LALInferenceGetVariable(currentParams, "declination");
-  t = *(REAL8 *)LALInferenceGetVariable(currentParams, "time");
-
+  loghrss = LALInferenceGetREAL8Variable(currentParams, "loghrss");
+  frequency = LALInferenceGetREAL8Variable(currentParams, "frequency");
+  q = LALInferenceGetREAL8Variable(currentParams, "quality");
+  psi = LALInferenceGetREAL8Variable(currentParams, "polarisation");
+  alpha = LALInferenceGetREAL8Variable(currentParams, "alpha");
+  ra = LALInferenceGetREAL8Variable(currentParams, "rightascension");
+  dec = LALInferenceGetREAL8Variable(currentParams, "declination");
+  t = LALInferenceGetREAL8Variable(currentParams, "time");
+  polar_eccentricity= LALInferenceGetREAL8Variable(currentParams, "polar_eccentricity");
   x[0] = burst_scaling[0] * (frequency    - mean[0]);
   x[1] = burst_scaling[1] * (q   - mean[1]);
   x[2] = burst_scaling[2] * (loghrss  - mean[2]);
@@ -1422,7 +1429,7 @@ static void extractBurstDimensionlessVariableVector(LALInferenceVariables *curre
   x[5] = burst_scaling[5] * (dec    - mean[5]);
   x[6] = burst_scaling[6] * (psi     - mean[6]);
   x[7] = burst_scaling[7] * (alpha     - mean[7]);
-  
+  x[8] = burst_scaling[8] * (polar_eccentricity - mean[8]);  
 }
 
 REAL8 LALInferenceCorrelatedAnalyticLogLikelihood(LALInferenceVariables *currentParams, 
@@ -1509,7 +1516,7 @@ REAL8 LALInferenceBimodalCorrelatedAnalyticLogLikelihood(LALInferenceVariables *
   }
   else if ( LALInferenceCheckVariable(currentParams, "hrss") ||LALInferenceCheckVariable(currentParams, "loghrss")){
      /* We are dealing with a SG burst. Set dimensions and CVM accordingly*/
-    tmpdim = 8;
+    tmpdim = 9;
     cm=&(bCM[0][0]);
     cbc=0;
   }
