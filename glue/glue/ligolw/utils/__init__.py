@@ -487,12 +487,46 @@ def write_fileobj(xmldoc, fileobj, gz = False, trap_signals = (signal.SIGTERM, s
 	return md5obj.hexdigest()
 
 
-def write_filename(xmldoc, filename, verbose = False, gz = False, **kwargs):
+class tildefile(object):
+	def __init__(self, filename):
+		if not filename:
+			raise ValueError(filename)
+		self.filename = filename
+
+	def __enter__(self):
+		try:
+			self.tildefilename = self.filename + "~"
+			self.fobj = open(self.tildefilename, "w")
+		except IOError:
+			self.tildefilename = None
+			self.fobj = open(self.filename, "w")
+		return self.fobj
+
+	def __exit__(self, exc_type, exc_val, exc_tb):
+		self.fobj.close()
+		del self.fobj
+
+		#
+		# only rename the "~" version to the final destination if
+		# no exception has occurred.
+		#
+
+		if exc_type is None and self.tildefilename is not None:
+			os.rename(self.tildefilename, self.filename)
+
+		return False
+
+
+def write_filename(xmldoc, filename, verbose = False, gz = False, with_mv = True, **kwargs):
 	"""
 	Writes the LIGO Light Weight document tree rooted at xmldoc to the
-	file name filename.  Friendly verbosity messages are printed while
-	doing so if verbose is True.  The output data is gzip compressed on
-	the fly if gz is True.
+	file name filename.  If filename is None the file is written to
+	stdout, otherwise it is written to the named file.  Friendly
+	verbosity messages are printed while writing the file if verbose is
+	True.  The output data is gzip compressed on the fly if gz is True.
+	If with_mv is True and filename is not None the filename has a "~"
+	appended to it and the file is written to that name then moved to
+	the requested name once the write has completed successfully.
 
 	Internally, write_fileobj() is used to perform the write.  All
 	additional keyword arguments are passed to write_fileobj().
@@ -504,15 +538,13 @@ def write_filename(xmldoc, filename, verbose = False, gz = False, **kwargs):
 	"""
 	if verbose:
 		print >>sys.stderr, "writing %s ..." % (("'%s'" % filename) if filename is not None else "stdout")
-	if filename is not None:
+	if filename is None:
+		hexdigest = write_fileobj(xmldoc, sys.stdout, gz = gz, **kwargs)
+	else:
 		if not gz and filename.endswith(".gz"):
 			warnings.warn("filename '%s' ends in '.gz' but file is not being gzip-compressed" % filename, UserWarning)
-		fileobj = open(filename, "w")
-	else:
-		fileobj = sys.stdout
-	hexdigest = write_fileobj(xmldoc, fileobj, gz = gz, **kwargs)
-	if not fileobj is sys.stdout:
-		fileobj.close()
+		with open(filename) if not with_mv else tildefile(filename) as fileobj:
+			hexdigest = write_fileobj(xmldoc, fileobj, gz = gz, **kwargs)
 	if verbose:
 		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, (filename if filename is not None else ""))
 
