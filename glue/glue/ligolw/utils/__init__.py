@@ -476,7 +476,7 @@ def write_fileobj(xmldoc, fileobj, gz = False, trap_signals = (signal.SIGTERM, s
 			with codecs.getwriter("utf_8")(fileobj) as fileobj:
 				xmldoc.write(fileobj, **kwargs)
 
-	# restore original handlers, and send outselves any trapped signals
+	# restore original handlers, and send ourselves any trapped signals
 	# in order
 	for sig, oldhandler in oldhandlers.iteritems():
 		signal.signal(sig, oldhandler)
