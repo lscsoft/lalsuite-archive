@@ -62,8 +62,20 @@ tagPostcohInspiralTable
   REAL4		spin2x;
   REAL4		spin2y;
   REAL4		spin2z;
+  REAL4		eta;
   REAL8		ra;
   REAL8		dec;
+  LIGOTimeGPS	end_time_L;
+  LIGOTimeGPS	end_time_H;
+  LIGOTimeGPS	end_time_V;
+  REAL4		snglsnr_L;
+  REAL4		snglsnr_H;
+  REAL4		snglsnr_V;
+  REAL4		coa_phase_L;
+  REAL4		coa_phase_H;
+  REAL4		coa_phase_V;
 }
+
+
 PostcohInspiralTable;
 #endif /* __POSTCOH_TABLE_H */

@@ -63,6 +63,19 @@ static PyObject *process_id_type = NULL;
 static struct PyMemberDef members[] = {
 	{"end_time", T_INT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.end_time.gpsSeconds), 0, "end_time"},
 	{"end_time_ns", T_INT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.end_time.gpsNanoSeconds), 0, "end_time_ns"},
+	{"end_time_L", T_INT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.end_time_L.gpsSeconds), 0, "end_time_L"},
+	{"end_time_ns_L", T_INT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.end_time_L.gpsNanoSeconds), 0, "end_time_ns_L"},
+	{"end_time_H", T_INT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.end_time_H.gpsSeconds), 0, "end_time_H"},
+	{"end_time_ns_H", T_INT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.end_time_H.gpsNanoSeconds), 0, "end_time_ns_H"},
+	{"end_time_V", T_INT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.end_time_V.gpsSeconds), 0, "end_time_V"},
+	{"end_time_ns_V", T_INT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.end_time_V.gpsNanoSeconds), 0, "end_time_ns_V"},
+	{"snglsnr_L", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.snglsnr_L), 0, "snglsnr_L"},
+	{"snglsnr_H", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.snglsnr_H), 0, "snglsnr_H"},
+	{"snglsnr_V", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.snglsnr_V), 0, "snglsnr_V"},
+	{"coa_phase_L", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.coa_phase_L), 0, "coa_phase_L"},
+	{"coa_phase_H", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.coa_phase_H), 0, "coa_phase_H"},
+	{"coa_phase_V", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.coa_phase_V), 0, "coa_phase_V"},
+	
 	{"is_background", T_INT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.is_background), 0, "is_background"},
 	{"livetime", T_INT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.livetime), 0, "livetime"},
 	{"tmplt_idx", T_INT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.tmplt_idx), 0, "tmplt_idx"},
@@ -79,6 +92,7 @@ static struct PyMemberDef members[] = {
 	{"mass2", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.mass2), 0, "mass2"},
 	{"mchirp", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.mchirp), 0, "mchirp"},
 	{"mtotal", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.mtotal), 0, "mtotal"},
+	{"eta", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.eta), 0, "eta"},
 	{"spin1x", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.spin1x), 0, "spin1x"},
 	{"spin1y", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.spin1y), 0, "spin1y"},
 	{"spin1z", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.spin1z), 0, "spin1z"},
@@ -89,7 +103,6 @@ static struct PyMemberDef members[] = {
 	{"dec", T_DOUBLE, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.dec), 0, "dec"},
 	{NULL,}
 };
-
 
 static PyObject *end_get(PyObject *obj, void *data)
 {
@@ -124,7 +137,6 @@ static int end_set(PyObject *obj, PyObject *val, void *data)
 
 	return 0;
 }
-
 
 static struct PyGetSetDef getset[] = {
 	{"ifos", pylal_inline_string_get, pylal_inline_string_set, "ifos", &(struct pylal_inline_string_description) {offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.ifos), MAX_ALLIFO_LEN}},
