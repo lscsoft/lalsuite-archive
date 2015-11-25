@@ -156,7 +156,7 @@ fnodes_quadratic = np.load(options.b_matrix_directory + "/fnodes_quadratic.npy")
 if scale_factor:
 
 	fnodes_linear /= scale_factor
-	fnodes_quadratic /= scale_factor
+	fnodes_quadratic  /= scale_factor
 
 
 fnodes_linear_path = os.path.join(options.outpath,"fnodes_linear.dat")

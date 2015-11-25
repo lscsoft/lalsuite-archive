@@ -941,7 +941,10 @@ void LALInferenceROQWrapperForXLALSimInspiralChooseFDWaveformSequence(LALInferen
       gsl_vector_complex_set(model->roq->hplusLinear, i, hh);
       GSL_SET_COMPLEX(&hh, creal(hctildeLinear->data->data[i]), cimag(hctildeLinear->data->data[i]));
       gsl_vector_complex_set(model->roq->hcrossLinear, i, hh);
+
     }
+
+
 
     for (unsigned int i=0; i<hptildeQuadratic->data->length; ++i){
       GSL_SET_COMPLEX(&hh, creal(hptildeQuadratic->data->data[i]), cimag(hptildeQuadratic->data->data[i]));

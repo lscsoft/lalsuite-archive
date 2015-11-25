@@ -1012,7 +1012,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 		h_quad_squared = gsl_vector_complex_get(model->roq->hstrainQuadratic, ii);
 		GSL_SET_COMPLEX(&h_quad_squared, GSL_REAL(h_quad_squared)*GSL_REAL(h_quad_squared) + GSL_IMAG(h_quad_squared)*GSL_IMAG(h_quad_squared), 0);
 		gsl_vector_complex_set(model->roq->hstrainQuadratic, ii, h_quad_squared);
-
+		//fprintf(stderr, "%f %f %f %f %f %f\n", GSL_REAL(h_quad_squared), GSL_IMAG(h_quad_squared), GSL_REAL(gsl_vector_complex_get(model->roq->hstrainLinear, ii)), GSL_IMAG(gsl_vector_complex_get(model->roq->hstrainLinear, ii)), gsl_vector_get(model->roq->frequencyNodesLinearGSL, ii), gsl_vector_get(model->roq->frequencyNodesQuadraticGSL, ii)) ;
 		}
 
 	// then compute w_i * (h^2)_i

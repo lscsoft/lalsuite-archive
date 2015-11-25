@@ -2820,7 +2820,7 @@ void LALInferenceSetupROQ(LALInferenceIFOData *IFOdata, LALInferenceModel *model
 
       fprintf(stderr, "loaded Quadratic weights\n");
 
-      thisData->roq->time_weights_width = 2*dt + 2*0.022;
+      thisData->roq->time_weights_width = 2*dt + 2*0.026;
 
           /*** compute the weights ***/
           if (LALInferenceGetProcParamVal(commandLine, "--data-dump")) {
