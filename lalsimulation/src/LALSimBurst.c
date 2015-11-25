@@ -352,7 +352,7 @@ int XLALGenerateBurstFromFile(
     LIGOTimeGPS epoch;
     char labelplus[FILENAME_MAX+1];
     char labelcross[FILENAME_MAX+1];
-    char **labels;
+    char **labels = NULL;
     char *header;
     char buffer[1024];
     unsigned int i;
@@ -392,7 +392,7 @@ int XLALGenerateBurstFromFile(
     header = XLALMalloc((i+1)*sizeof(header));
     XLALFileRead(header, sizeof(char), i, fp);
     header[i] = '\0';
-    char *tmpbuf = strdup(header);
+    char *tmpbuf = XLALStringDuplicate(header);
     XLALFileRewind(fp);
 
     int pol_2 = 0;
@@ -400,16 +400,14 @@ int XLALGenerateBurstFromFile(
         ndat = XLALSimReadDataFile2Col(&hplusdat, &hcrossdat, fp);
         pol_2 = 1;
     } else {
-        char* tok = strtok(tmpbuf, "# \t");
+        char* tok = XLALStringToken(&tmpbuf, "# \t", 0);
         i = 0;
 
         if (!strstr(tok, "time")) {
             XLAL_ERROR(XLAL_EINVAL, "First column must be time");
         }
         
-        //labels = XLALMalloc(sizeof(*labels));
-        labels = NULL;
-        while ((tok = strtok(NULL, " "))) {
+        while ((tok = XLALStringToken(NULL, " ", 0))) {
             labels = XLALRealloc(labels, (i+1)*sizeof(*labels));
             labels[i] = XLALStringDuplicate(tok);
             i++;
@@ -419,7 +417,7 @@ int XLALGenerateBurstFromFile(
         ncol = 2 * i + 1;
         ndat = XLALSimReadDataFileNCol(&data, &ncol, fp);
     }
-    free(tmpbuf);
+    XLALFree(tmpbuf);
 
 
     XLALFileClose(fp);
