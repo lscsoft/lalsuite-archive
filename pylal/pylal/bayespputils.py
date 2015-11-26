@@ -6223,4 +6223,121 @@ def plot_psd(psd_files,outpath=None):
   myfig2.savefig(os.path.join(outpath,'PSD.png'),bbox_inches='tight')
   myfig2.clf()
 
-  return 1
+  return freqs
+
+cred_level = lambda cl, x: np.sort(x, axis=0)[int(cl*len(x))]
+
+def cred_interval(x, cl=.9, lower=True):
+    """Return location of lower or upper confidence levels
+    Args:
+        x: List of samples.
+        cl: Confidence level to return the bound of.
+        lower: If ``True``, return the lower bound, otherwise return the upper bound.
+    """
+    if lower:
+        return cred_level((1.-cl)/2, x)
+    else:
+        return cred_level((1.+cl)/2, x)
+
+def spline_angle_xform(delta_psi):
+    """Returns the angle in degrees corresponding to the spline
+    calibration parameters delta_psi.
+
+    """
+    rot = (2.0 + 1.0j*delta_psi)/(2.0 - 1.0j*delta_psi)
+
+    return 180.0/np.pi*np.arctan2(np.imag(rot), np.real(rot))
+    
+def plot_spline_pos(logf, ys, nf=100, level=0.9, color='k', label=None, xform=None):
+    """Plot calibration posterior estimates for a spline model in log space.
+    Args:
+        logf: The (log) location of spline control points.
+        ys: List of posterior draws of function at control points ``logf``
+        nx: Number of points to evaluate spline at for plotting.
+        level: Credible level to fill in.
+        color: Color to plot with.
+        label: Label for plot.
+        xform: Function to transform the spline into plotted values.
+    """
+    f = np.exp(logf)
+    fs = np.linspace(f.min(), f.max(), nf)
+
+    data = np.zeros((ys.shape[0], nf))
+
+    if xform is None:
+        zs = ys
+    else:
+        zs = xform(ys)
+        
+    mu = np.mean(zs, axis=0)
+    lower_cl = mu - cred_interval(zs, level, lower=True)
+    upper_cl = cred_interval(zs, level, lower=False) - mu
+    plt.errorbar(np.exp(logf), mu, yerr=[lower_cl, upper_cl], fmt='.', color=color, lw=4, alpha=0.5, capsize=0)
+
+    for i, samp in enumerate(ys):
+        temp = interpolate.spline(logf, samp, np.log(fs))
+        if xform is None:
+            data[i] = temp
+        else:
+            data[i] = xform(temp)
+
+    line, = plt.plot(fs, np.mean(data, axis=0), color=color, label=label)
+    color = line.get_color()
+    plt.fill_between(fs, cred_interval(data, level), cred_interval(data, level, lower=False), color=color, alpha=.1, linewidth=0.1)
+    plt.xlim(f.min()-.5, f.max()+50)
+
+def plot_calibration_pos(pos, level=.9, outpath=None):
+    fig, [ax1, ax2] = plt.subplots(2, 1, figsize=(15, 15), dpi=500)
+
+    font_size = 32
+    if outpath is None:
+        outpath=os.getcwd()
+
+    params = pos.names
+    ifos = np.unique([param.split('_')[0] for param in params if 'spcal' in param])
+    for ifo in ifos:
+        if ifo=='h1': color = 'r'
+        elif ifo=='l1': color = 'g'
+        elif ifo=='v1': color = 'm'
+        else: color = 'c'
+
+        # Assume spline control frequencies are constant
+        freq_params = np.sort([param for param in params if
+                               '{0}_spcal_freq'.format(ifo) in param])
+
+        logfreqs = np.log([pos[param].median for param in freq_params])
+
+        # Amplitude calibration model
+        plt.sca(ax1)
+        amp_params = np.sort([param for param in params if
+                              '{0}_spcal_amp'.format(ifo) in param])
+        if len(amp_params) > 0:
+            amp = 100*np.column_stack([pos[param].samples for param in amp_params])
+            plot_spline_pos(logfreqs, amp, color=color, level=level, label="{0} (mean, {0}%)".format(ifo.upper(), int(level*100)))
+
+        # Phase calibration model
+        plt.sca(ax2)
+        phase_params = np.sort([param for param in params if
+                                '{0}_spcal_phase'.format(ifo) in param])
+        if len(phase_params) > 0:
+            phase = np.column_stack([pos[param].samples for param in phase_params])
+
+            plot_spline_pos(logfreqs, phase, color=color, level=level, label="{0} (mean, {1}%)".format(ifo.upper(), int(level*100)), xform=spline_angle_xform)
+
+    ax1.tick_params(labelsize=.75*font_size)
+    ax2.tick_params(labelsize=.75*font_size)
+    plt.legend(loc='upper right', prop={'size':.75*font_size}, framealpha=0.1)
+    ax1.set_xscale('log')
+    ax2.set_xscale('log')
+
+    ax2.set_xlabel('Frequency (Hz)', fontsize=font_size)
+    ax1.set_ylabel('Amplitude (%)', fontsize=font_size)
+    ax2.set_ylabel('Phase (deg)', fontsize=font_size)
+
+    outp = os.path.join(outpath, 'calibration.png')
+    try:
+        fig.tight_layout()
+        fig.savefig(outp, bbox_inches='tight')
+    except:
+        fig.savefig(outp)
+    plt.close(fig)

@@ -899,6 +899,9 @@ static int SEOBNRv2ROMDoubleSpinCore(
     UINT4 iStart = (UINT4) ceil(fLow_geom / deltaF_geom);
     UINT4 iStop = (UINT4) ceil(fHigh_geom / deltaF_geom);
     freqs = XLALCreateREAL8Sequence(iStop - iStart);
+    if (!freqs) {
+      XLAL_ERROR(XLAL_EFUNC, "Frequency array allocation failed.");
+    }
     for (UINT4 i=iStart; i<iStop; i++)
       freqs->data[i-iStart] = i*deltaF_geom;
 
@@ -910,10 +913,12 @@ static int SEOBNRv2ROMDoubleSpinCore(
     offset = 0;
 
     freqs = XLALCreateREAL8Sequence(freqs_in->length);
+    if (!freqs) {
+      XLAL_ERROR(XLAL_EFUNC, "Frequency array allocation failed.");
+    }
     for (UINT4 i=0; i<freqs_in->length; i++)
       freqs->data[i] = freqs_in->data[i] * Mtot_sec;
   }
-
 
   if (!(*hptilde) || !(*hctilde))
   {
@@ -962,12 +967,7 @@ static int SEOBNRv2ROMDoubleSpinCore(
   /* Correct phasing so we coalesce at t=0 (with the definition of the epoch=-1/deltaF above) */
 
   // Get SEOBNRv2 ringdown frequency for 22 mode
-  // XLALSimInspiralGetFinalFreq wants masses in SI units, so unfortunately we need to convert back
-  double q = (1.0 + sqrt(1.0 - 4.0*eta) - 2.0*eta) / (2.0*eta);
-  double Mtot_SI = Mtot_sec / LAL_MTSUN_SI * LAL_MSUN_SI;
-  double m1_SI = Mtot_SI * 1.0/(1.0+q);
-  double m2_SI = Mtot_SI * q/(1.0+q);
-  double Mf_final = XLALSimInspiralGetFinalFreq(m1_SI, m2_SI, 0,0,chi1, 0,0,chi2, SEOBNRv2) * Mtot_sec;
+  double Mf_final = SEOBNRROM_Ringdown_Mf_From_Mtot_Eta(Mtot_sec, eta, chi1, chi2, SEOBNRv2);
 
   UINT4 L = freqs->length;
   // prevent gsl interpolation errors
@@ -1438,11 +1438,7 @@ static int SEOBNRv2ROMDoubleSpinTimeFrequencySetup(
   gsl_spline_init(*spline_phi, submodel->gPhi, gsl_vector_const_ptr(phi_f,0), submodel->nk_phi);
 
   // Get SEOBNRv2 ringdown frequency for 22 mode
-  double q = (1.0 + sqrt(1.0 - 4.0*eta) - 2.0*eta) / (2.0*eta);
-  double Mtot_SI = *Mtot_sec / LAL_MTSUN_SI * LAL_MSUN_SI;
-  double m1_SI = Mtot_SI * 1.0/(1.0+q);
-  double m2_SI = Mtot_SI * q/(1.0+q);
-  *Mf_final = XLALSimInspiralGetFinalFreq(m1_SI, m2_SI, 0,0,chi1, 0,0,chi2, SEOBNRv2) * (*Mtot_sec);
+  *Mf_final = SEOBNRROM_Ringdown_Mf_From_Mtot_Eta(*Mtot_sec, eta, chi1, chi2, SEOBNRv2);
 
   gsl_vector_free(phi_f);
   SEOBNRROMdataDS_coeff_Cleanup(romdata_coeff);
