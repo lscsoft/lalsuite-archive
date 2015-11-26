@@ -419,6 +419,8 @@ class DAG(object):
 		# building a new object so that if external code is holding
 		# a reference to it that code sees the new index as well
 		nodes = dict((node.name, node) for node in self.nodes.values())
+		if len(nodes) != len(self.nodes):
+			raise ValueError("node names are not unique")
 		self.nodes.clear()
 		self.nodes.update(nodes)
 
