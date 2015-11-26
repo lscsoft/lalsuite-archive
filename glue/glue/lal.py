@@ -130,15 +130,20 @@ class LIGOTimeGPS(object):
 				except:
 					raise TypeError("invalid literal for LIGOTimeGPS(): %s" % seconds)
 				nanoseconds += ns
+			elif hasattr(seconds, "gpsSeconds") and hasattr(seconds, "gpsNanoSeconds"):
+				# handle LIGOTimeGPS(x) where x is an
+				# object with gpsSeconds and gpsNanoSeconds
+				# fields.
+				nanoseconds += seconds.gpsNanoSeconds
+				seconds = seconds.gpsSeconds
+			elif hasattr(seconds, "seconds") and hasattr(seconds, "nanoseconds"):
+				# handle LIGOTimeGPS(x) where x is an
+				# object with seconds and nanoseconds
+				# fields.
+				nanoseconds += seconds.nanoseconds
+				seconds = seconds.seconds
 			else:
-				try:
-					# handle LIGOTimeGPS(x) where x is an
-					# object with seconds and nanoseconds
-					# fields.
-					nanoseconds += seconds.nanoseconds
-					seconds = seconds.seconds
-				except:
-					raise TypeError(seconds)
+				raise TypeError(seconds)
 		self.__seconds = seconds + int(nanoseconds // 1000000000)
 		self.__nanoseconds = int(nanoseconds % 1000000000)
 

@@ -88,6 +88,7 @@ void post_init_alpha_beta(void);
 void calibrate_fft(COMPLEX8Vector *fft, long first_sample);
 
 #include "op_method.h"
+#include "lal_port.h"
 
 void compute_Phi(PHI_DATA3 *phi_data);
 void compute_phi_r(PHI_RESPONSE3 *phi_response, long n);
