@@ -935,14 +935,12 @@ class Posterior(object):
               pos.pop('a2')
               pos.append_mapping('a2', lambda x: np.abs(x), 'a2z')
 
-      #If aligned spins, calculate effective spin parallel to L
-      elif ('m1' in pos.names and 'a1z' in pos.names and not 'tilt1' in pos.names) and ('m2' in pos.names and 'a2z' in pos.names and not 'tilt2' in pos.names):
-         pos.append_mapping('chi_eff', lambda m1,a1,m2,a2: (m1*a1 + m2*a2) / (m1 + m2), ('m1','a1','m2','a2'))
+      #Calculate effective spin parallel to L
+      if ('m1' in pos.names and 'a1z' in pos.names) and ('m2' in pos.names and 'a2z' in pos.names):
+         pos.append_mapping('chi_eff', lambda m1,a1z,m2,a2z: (m1*a1z + m2*a2z) / (m1 + m2), ('m1','a1z','m2','a2z'))
 
-      #If precessing spins calculate effective spin parallel to L
-      # and total effective spin
+      #If precessing spins calculate total effective spin
       if ('m1' in pos.names and 'a1' in pos.names and 'tilt1' in pos.names) and ('m2' in pos.names and 'a2' in pos.names and 'tilt2' in pos.names):
-         pos.append_mapping('chi_eff', lambda m1,a1,tilt1,m2,a2,tilt2: (m1*a1*np.cos(tilt1) + m2*a2*np.cos(tilt2)) / (m1 + m2), ('m1','a1','tilt1','m2','a2','tilt2'))
          pos.append_mapping('chi_tot', lambda m1,a1,m2,a2: (m1*a1 + m2*a2) / (m1 + m2), ('m1','a1','m2','a2'))
 
       #Calculate effective precessing spin magnitude
