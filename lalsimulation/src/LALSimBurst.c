@@ -406,8 +406,8 @@ int XLALGenerateBurstFromFile(
         if (!strstr(tok, "time")) {
             XLAL_ERROR(XLAL_EINVAL, "First column must be time");
         }
-        
-        while ((tok = XLALStringToken(NULL, " ", 0))) {
+
+        while ((tok = XLALStringToken(&tmpbuf, " ", 0))) {
             labels = XLALRealloc(labels, (i+1)*sizeof(*labels));
             labels[i] = XLALStringDuplicate(tok);
             i++;
