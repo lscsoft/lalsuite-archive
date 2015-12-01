@@ -2718,23 +2718,11 @@ void LALInferenceSetupROQ(LALInferenceIFOData *IFOdata, LALInferenceModel *model
 
   endtime=XLALGPSGetREAL8(&GPStrig);
 
-  /*ppt=LALInferenceGetProcParamVal(commandLine,"--dt");
+  ppt=LALInferenceGetProcParamVal(commandLine,"--dt");
   if(ppt){
     dt=atof(ppt->value);
   }
-  ppt=LALInferenceGetProcParamVal(commandLine,"--delta_tc");
-  if(ppt){
-    delta_tc=atof(ppt->value);
-  }
-
-  timeMin=endtime-dt;//-0.022; timeMax=endtime+dt+0.022;
-  timeMax=endtime+dt;
-
-  timeMin -= XLALGPSGetREAL8(&IFOdata[0].whiteFreqData->epoch);
-  timeMax -= XLALGPSGetREAL8(&IFOdata[0].whiteFreqData->epoch);
-
-  //time_steps = (unsigned int)((timeMax-timeMin)/delta_tc)+1;
-  */
+ 
   if(LALInferenceGetProcParamVal(commandLine,"--roqtime_steps")){
     ppt=LALInferenceGetProcParamVal(commandLine,"--roqtime_steps");
     tempfp = fopen (ppt->value,"r");

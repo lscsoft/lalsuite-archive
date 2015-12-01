@@ -752,12 +752,12 @@ static int PhenomPCore(
     XLAL_PRINT_INFO("Time correction: t_corr = %g", t_corr);
 
     /* Now correct phase */
-    for (UINT4 i=0; i<L_fCut; i++) { // loop over frequency points in sequence
+    /*for (UINT4 i=0; i<L_fCut; i++) { // loop over frequency points in sequence
       double f = freqs->data[i];
       int j = i + offset; // shift index for frequency series if needed
       ((*hptilde)->data->data)[j] *= cexp(-2*LAL_PI * I * f * t_corr);
       ((*hctilde)->data->data)[j] *= cexp(-2*LAL_PI * I * f * t_corr);
-    }
+    }*/
 
   }
 

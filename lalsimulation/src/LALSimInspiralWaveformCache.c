@@ -1167,10 +1167,10 @@ int XLALSimInspiralChooseFDWaveformSequence(
 	    /* Tranform to model parameters */
             if(f_ref==0.0)
                 f_ref = f_min; /* Default reference frequency is minimum frequency */
+	   
 
-	    chi1_l = S1z;
-	    chi2_l = S2z;
-
+  	    chi1_l = S1z;
+	    chi2_l = S2z; 
             /* Call the waveform driver routine */
             ret = XLALSimIMRPhenomPFrequencySequence(hptilde, hctilde, frequencies,
               chi1_l, chi2_l, 0, i,
