@@ -61,8 +61,8 @@ __date__ = git_version.date
 # Use C row classes for memory and speed
 #
 
-
-lsctables.CoincMapTable.RowType = lsctables.CoincMap = xlaltools.CoincMap
+# FIXME: this must be comment out for the gracedb event CoincMap assembling in postcoh_finalsink.py to work
+#lsctables.CoincMapTable.RowType = lsctables.CoincMap = xlaltools.CoincMap
 
 
 #
