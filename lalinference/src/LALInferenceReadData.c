@@ -2661,7 +2661,7 @@ void LALInferenceSetupROQ(LALInferenceIFOData *IFOdata, LALInferenceModel *model
   n_basis_quadratic = 0;
   n_samples = 31489;
   //REAL8 delta_tc = 0.0001;
-  float dt=0.1;
+  float dt=0;
   LIGOTimeGPS GPStrig;
   REAL8 endtime=0.0;
   //REAL8 timeMin=0.0,timeMax=0.0;
