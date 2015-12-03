@@ -66,7 +66,7 @@ except ImportError:
     raise
 
 try:
-    from lalinference.imrtgr.nrutils import bbh_final_mass_non_spinning_Healyetal, bbh_final_spin_non_spinning_Healyetal, bbh_final_spin_non_precessing_Healyetal, bbh_final_mass_non_precessing_Healyetal, bbh_final_spin_projected_spin_Healyetal, bbh_final_mass_projected_spin_Healyetal
+    from lalinference.imrtgr.nrutils import bbh_final_mass_non_spinning_Panetal, bbh_final_spin_non_spinning_Panetal, bbh_final_spin_non_precessing_Healyetal, bbh_final_mass_non_precessing_Healyetal, bbh_final_spin_projected_spin_Healyetal, bbh_final_mass_projected_spin_Healyetal
 except ImportError:
     print('Cannot import lalinference.imrtgr.nrutils. Will suppress final parameter calculations.')
 
@@ -1020,8 +1020,8 @@ class Posterior(object):
           else:
               print "Using non-spinning fit formula [Pan at al (2010)] for final mass and spin."
               try:
-                  pos.append_mapping('af', bbh_final_spin_non_spinning_Healyetal, ['m1', 'm2'])
-                  pos.append_mapping('mf', bbh_final_mass_non_spinning_Healyetal, ['m1', 'm2'])
+                  pos.append_mapping('af', bbh_final_spin_non_spinning_Panetal, ['m1', 'm2'])
+                  pos.append_mapping('mf', bbh_final_mass_non_spinning_Panetal, ['m1', 'm2'])
               except Exception,e:
                   print "Could not calculate final parameters. The error was: %s"%(str(e))
       if ('mf' in pos.names) and ('redshift' in pos.names):
