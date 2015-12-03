@@ -792,6 +792,9 @@ class Posterior(object):
       else:
           eta_name='eta'
 
+      if 'mass1' in pos.names and 'mass2' in pos.names :
+	  pos.append_mapping(('m1','m2'),lambda x,y:(x,y) ,('mass1','mass2'))
+
       if (mchirp_name in pos.names and eta_name in pos.names) and \
       ('mass1' not in pos.names or 'm1' not in pos.names) and \
       ('mass2' not in pos.names or 'm2' not in pos.names):
