@@ -585,7 +585,7 @@ def cbcBayesPostProc(
         print "Could not create WF plot. The error was: %s\n"%str(e)
     wftd=html_wf.insert_td(row,'',label='Waveform',legend=legend)
     wfsection=html.add_section_to_element('Waveforms',wftd)
-    if wfpointer:
+    if wfpointer is not None:
       wfsection.write('<a href="Waveform/WF_DetFrame.png" target="_blank"><img src="Waveform/WF_DetFrame.png"/></a>')
     else:
       print "Could not create WF plot.\n"
