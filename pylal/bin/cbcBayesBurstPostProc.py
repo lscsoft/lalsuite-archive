@@ -596,43 +596,32 @@ def cbcBayesBurstPostProc(
     html_sky=html.add_section_to_element('SkyMap',skytd)
     #If sky resolution parameter has been specified try and create sky map...
     if skyres is not None and \
-       (('ra' in pos.names and 'dec' in pos.names) or \
-        ('rightascension' in pos.names and 'declination' in pos.names)):
-        #Greedy bin sky samples (ra,dec) into a grid on the sky which preserves
-        #?
-        if ('ra' in pos.names and 'dec' in pos.names):
-            inj_position=[pos['dec'].injval,pos['ra'].injval]
-        elif ('rightascension' in pos.names and 'declination' in pos.names):
-            inj_position=[pos['declination'].injval,pos['rightascension'].injval]
-        top_ranked_sky_pixels,sky_injection_cl,skyreses,injection_area=bppu.greedy_bin_sky(pos,skyres,confidence_levels)
-        print "BCI for sky area:"
-        print skyreses
-        #Create sky map in outdir
-        bppu.plot_sky_map(inj_position,top_ranked_sky_pixels,outdir)
-        
-        #Create a web page section for sky localization results/plots (if defined)
+       ('ra' in pos.names and 'dec' in pos.names):
 
-        #html_sky=html.add_section('Sky Localization',legend=legend)
-        if injection:
-            if sky_injection_cl:
-                html_sky.p('Injection found at confidence interval %f in sky location'%(sky_injection_cl))
-            else:
-                html_sky.p('Injection not found in posterior bins in sky location!')
+        if pos['dec'].injval is not None and pos['ra'].injval is not None:
+            inj_position=[pos['ra'].injval,pos['dec'].injval]
+        else:
+            inj_position=None
+
+        hpmap = pos.healpix_map(float(skyres), nest=True)
+        bppu.plot_sky_map(hpmap, outdir, inj=inj_position, nest=True)
+        
+        if inj_position is not None:
+            html_sky.p('Injection found at p = %g'%bppu.skymap_inj_pvalue(hpmap, inj_position, nest=True))
+            
         html_sky.write('<a href="skymap.png" target="_blank"><img src="skymap.png"/></a>')
 
         html_sky_write='<table border="1" id="statstable"><tr><th>Confidence region</th><th>size (sq. deg)</th></tr>'
 
-        fracs=skyreses.keys()
-        fracs.sort()
-
-        skysizes=[skyreses[frac] for frac in fracs]
-        for frac,skysize in zip(fracs,skysizes):
-            html_sky_write+=('<tr><td>%f</td><td>%f</td></tr>'%(frac,skysize))
+        areas = bppu.skymap_confidence_areas(hpmap, confidence_levels)
+        for cl, area in zip(confidence_levels, areas):
+            html_sky_write+='<tr><td>%g</td><td>%g</td></tr>'%(cl, area)
         html_sky_write+=('</table>')
 
         html_sky.write(html_sky_write)
     else:
         html_sky.write('<b>No skymap generated!</b>')
+
     wfdir=os.path.join(outdir,'Waveform')
     if not os.path.isdir(wfdir):
         os.makedirs(wfdir)
@@ -642,7 +631,7 @@ def cbcBayesBurstPostProc(
         wfpointer = None
     wftd=html_wf.insert_td(row,'',label='Waveform',legend=legend)
     wfsection=html.add_section_to_element('Waveforms',wftd)
-    if wfpointer:
+    if wfpointer is not None:
       wfsection.write('<a href="Waveform/WF_DetFrame.png" target="_blank"><img src="Waveform/WF_DetFrame.png"/></a>')
     else:
       wfsection.write("<b>No Waveform generated!</b>")
