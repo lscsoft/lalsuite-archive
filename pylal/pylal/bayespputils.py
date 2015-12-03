@@ -3733,11 +3733,13 @@ def chi_precessing(m1, a1, tilt1, m2, a2, tilt2):
 	chi_p = Sp/(A2*m1*m1)
 	return chi_p
 
-def calculate_redshift(distance,h=0.7,om=0.3,ol=0.7,w0=-1.0):
+def calculate_redshift(distance,h=0.6790,om=0.3065,ol=0.6935,w0=-1.0):
     """
     Calculate the redshift from the luminosity distance measurement using the
     Cosmology Calculator provided in LAL.
-    Currently assumes Omega_M = 0.3, Omega_Lambda = 0.7, H_0 = 70 km s^-1 Mpc^-1
+    By default assuming cosmological parameters from arXiv:1502.01589 - 'Planck 2015 results. XIII. Cosmological parameters'
+    Using parameters from table 4, column 'TT+lowP+lensing+ext'
+    This corresponds to Omega_M = 0.3065, Omega_Lambda = 0.6935, H_0 = 67.90 km s^-1 Mpc^-1
     Returns an array of redshifts
     """
     def find_z_root(z,dl,omega):
