@@ -66,7 +66,7 @@ except ImportError:
     raise
 
 try:
-    from lalinference.imrtgr.nrutils import bbh_final_mass_non_spinning, bbh_final_spin_non_spinning, bbh_final_spin_non_precessing, bbh_final_mass_non_precessing, bbh_final_spin_projected_spin, bbh_final_mass_projected_spin
+    from lalinference.imrtgr.nrutils import bbh_final_mass_non_spinning_Healyetal, bbh_final_spin_non_spinning_Healyetal, bbh_final_spin_non_precessing_Healyetal, bbh_final_mass_non_precessing_Healyetal, bbh_final_spin_projected_spin_Healyetal, bbh_final_mass_projected_spin_Healyetal
 except ImportError:
     print('Cannot import lalinference.imrtgr.nrutils. Will suppress final parameter calculations.')
 
@@ -1006,22 +1006,22 @@ class Posterior(object):
               if ('tilt1' in pos.names) and ('tilt2' in pos.names):
                   print "Projecting spin and using non-precessing fit formula [Healy at al (2014)] for final mass and spin."
                   try:
-                      pos.append_mapping('af', bbh_final_spin_projected_spin, ['m1', 'm2', 'a1', 'a2', 'tilt1', 'tilt2'])
-                      pos.append_mapping('mf', bbh_final_mass_projected_spin, ['m1', 'm2', 'a1', 'a2', 'tilt1', 'tilt2', 'af'])
+                      pos.append_mapping('af', bbh_final_spin_projected_spin_Healyetal, ['m1', 'm2', 'a1', 'a2', 'tilt1', 'tilt2'])
+                      pos.append_mapping('mf', bbh_final_mass_projected_spin_Healyetal, ['m1', 'm2', 'a1', 'a2', 'tilt1', 'tilt2', 'af'])
                   except Exception,e:
                       print "Could not calculate final parameters. The error was: %s"%(str(e))
               else:
                   print "Using non-precessing fit formula [Healy at al (2014)] for final mass and spin."
                   try:
-                      pos.append_mapping('af', bbh_final_spin_non_precessing, ['m1', 'm2', 'a1', 'a2'])
-                      pos.append_mapping('mf', bbh_final_mass_non_precessing, ['m1', 'm2', 'a1', 'a2', 'af'])
+                      pos.append_mapping('af', bbh_final_spin_non_precessing_Healyetal, ['m1', 'm2', 'a1', 'a2'])
+                      pos.append_mapping('mf', bbh_final_mass_non_precessing_Healyetal, ['m1', 'm2', 'a1', 'a2', 'af'])
                   except Exception,e:
                       print "Could not calculate final parameters. The error was: %s"%(str(e))
           else:
               print "Using non-spinning fit formula [Pan at al (2010)] for final mass and spin."
               try:
-                  pos.append_mapping('af', bbh_final_spin_non_spinning, ['m1', 'm2'])
-                  pos.append_mapping('mf', bbh_final_mass_non_spinning, ['m1', 'm2'])
+                  pos.append_mapping('af', bbh_final_spin_non_spinning_Healyetal, ['m1', 'm2'])
+                  pos.append_mapping('mf', bbh_final_mass_non_spinning_Healyetal, ['m1', 'm2'])
               except Exception,e:
                   print "Could not calculate final parameters. The error was: %s"%(str(e))
       if ('mf' in pos.names) and ('redshift' in pos.names):
