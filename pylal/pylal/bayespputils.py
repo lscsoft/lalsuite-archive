@@ -1356,6 +1356,7 @@ class Posterior(object):
                             new_trigs[param][IFO] = newval
                 else:
                     new_trigs = [None for param in range(len(new_param_names))]
+                if not samps: return() # Something went wrong
                 new_posts = [PosteriorOneDPDF(new_param_name,samp,injected_value=inj,trigger_values=new_trigs) for (new_param_name,samp,inj,new_trigs) in zip(new_param_names,samps,injs,new_trigs)]
                 for post in new_posts:
                     if post.samples.ndim is 0:
@@ -3811,7 +3812,7 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
             beta = array_ang_sep(J,L)
 
             return iota, theta1, phi1, theta2, phi2, beta
-        except TypeError:
+        except: # Catch all exceptions, including failure for the transformFunc
          # Something went wrong, returning None
           return None
 
