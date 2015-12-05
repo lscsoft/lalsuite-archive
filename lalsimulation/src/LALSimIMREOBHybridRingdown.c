@@ -416,6 +416,8 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
   const REAL8  spin2z,     /**<<The spin of the second object; only needed for spin waveforms */
   REAL8Vector *timeVec,    /**<< Vector containing the time values */
   REAL8Vector *matchrange, /**<< Time values chosen as points for performing comb matching */
+  const REAL8 finalSpin,   /**<< Spin of the  remnant BH (in untis M^2) in the range [-1,1] */
+  const REAL8 finalMass,   /**<< mass of the final BH scaled by mTotal=m1, m2 in the range (0, 1) */
   Approximant  approximant /**<<The waveform approximant being used */
   )
 {
@@ -438,10 +440,13 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
       REAL8 mTot; /* In geometric units */
       REAL8 spin1[3] = { spin1x, spin1y, spin1z };
       REAL8 spin2[3] = { spin2x, spin2y, spin2z };
-      REAL8 finalMass, finalSpin;
+      //REAL8 finalMass, finalSpin;
 
       mTot  = (mass1 + mass2) * LAL_MTSUN_SI;
       eta       = mass1 * mass2 / ( (mass1 + mass2) * (mass1 + mass2) );
+
+      // Check the sanity of the given final mass and final spin */
+      if (finalSpin <= -1.0 || 
 
       /*
        * STEP 1) Get mass and spin of the final black hole and the complex ringdown frequencies

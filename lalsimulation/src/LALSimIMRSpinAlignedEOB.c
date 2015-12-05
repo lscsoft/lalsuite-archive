@@ -279,7 +279,9 @@ int XLALSimIMRSpinAlignedEOBWaveform(
         const REAL8     inc,         /**<< inclination angle */
         const REAL8     spin1z,      /**<< z-component of spin-1, dimensionless */
         const REAL8     spin2z,       /**<< z-component of spin-2, dimensionless */
-        UINT4           SpinAlignedEOBversion /**<< 1 for SEOBNRv1, 2 for SEOBNRv2 */
+        const REAL8     aFinal,      /**<< spin (in units M^2) of the remnant BH */
+        const REAL8     mFinal,      /**<< mass (scaled by mTotal=m1+m2) of the remnant BH */
+        UINT4           SpinAlignedEOBversion /**<< 1 for SEOBNRv1, 2 for SEOBNRv2  */
      )
 {
 
@@ -1154,7 +1156,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   rdMatchPoint->data[1] -= fmod( rdMatchPoint->data[1], deltaTHigh/mTScaled );
   if ( XLALSimIMREOBHybridAttachRingdown( sigReHi, sigImHi, 2, 2,
               deltaTHigh, m1, m2, spin1[0], spin1[1], spin1[2], spin2[0], spin2[1], spin2[2],
-              &timeHi, rdMatchPoint, SpinAlignedEOBapproximant )
+              &timeHi, rdMatchPoint, aFinal, mFinal, SpinAlignedEOBapproximant )
           == XLAL_FAILURE ) 
   {
     XLAL_ERROR( XLAL_EFUNC );
