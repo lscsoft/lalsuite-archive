@@ -101,7 +101,7 @@ __date__= git_version.date
 #===============================================================================
 #Parameters which are not to be exponentiated when found
 logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior']
-snrParams=['snr','optimal_snr','matched_filter_snr'] + ['%s_optimal_snr'%(i) for i in ['h1','l1','v1']]
+snrParams=['snr','optimal_snr','matched_filter_snr'] + ['%s_optimal_snr'%(i) for i in ['h1','l1','v1'] + ['%s_cplx_snr_amp'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_arg'%(i) for i in ['h1', 'l1', 'v1']]
 calAmpParams=['calamp_%s'%(ifo) for ifo in ['h1','l1','v1']]
 calPhaseParams=['calpha_%s'%(ifo) for ifo in ['h1','l1','v1']]
 calParams = calAmpParams + calPhaseParams
