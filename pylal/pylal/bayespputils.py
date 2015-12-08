@@ -106,7 +106,7 @@ __date__= git_version.date
 #===============================================================================
 #Parameters which are not to be exponentiated when found
 logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior']
-snrParams=['snr','optimal_snr','matched_filter_snr'] + ['%s_optimal_snr'%(i) for i in ['h1','l1','v1']]
+snrParams=['snr','optimal_snr','matched_filter_snr'] + ['%s_optimal_snr'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_amp'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_arg'%(i) for i in ['h1', 'l1', 'v1']]
 calAmpParams=['calamp_%s'%(ifo) for ifo in ['h1','l1','v1']]
 calPhaseParams=['calpha_%s'%(ifo) for ifo in ['h1','l1','v1']]
 calParams = calAmpParams + calPhaseParams
@@ -803,6 +803,9 @@ class Posterior(object):
       else:
           eta_name='eta'
 
+      if 'mass1' in pos.names and 'mass2' in pos.names :
+	  pos.append_mapping(('m1','m2'),lambda x,y:(x,y) ,('mass1','mass2'))
+
       if (mchirp_name in pos.names and eta_name in pos.names) and \
       ('mass1' not in pos.names or 'm1' not in pos.names) and \
       ('mass2' not in pos.names or 'm2' not in pos.names):
@@ -1401,6 +1404,7 @@ class Posterior(object):
                             new_trigs[param][IFO] = newval
                 else:
                     new_trigs = [None for param in range(len(new_param_names))]
+                if not samps: return() # Something went wrong
                 new_posts = [PosteriorOneDPDF(new_param_name,samp,injected_value=inj,trigger_values=new_trigs) for (new_param_name,samp,inj,new_trigs) in zip(new_param_names,samps,injs,new_trigs)]
                 for post in new_posts:
                     if post.samples.ndim is 0:
@@ -3856,7 +3860,7 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
             beta = array_ang_sep(J,L)
 
             return iota, theta1, phi1, theta2, phi2, beta
-        except TypeError:
+        except: # Catch all exceptions, including failure for the transformFunc
          # Something went wrong, returning None
           return None
 
@@ -3990,12 +3994,12 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
         x = np.linspace(xmin,xmax,2*len(bins))
         plt.plot(x, analyticPDF(x+offset), color='r', linewidth=2, linestyle='dashed')
         if analyticCDF:
-            try:
-                D,p = stats.kstest(pos_samps.flatten()+offset, analyticCDF)
+                # KS underflows with too many samples
+                max_samps=1000
+                from numpy.random import permutation
+                samps = permutation(pos_samps)[:max_samps,:].flatten()
+                D,p = stats.kstest(samps+offset, analyticCDF, mode='asymp')
                 plt.title("%s: ks p-value %.3f"%(param,p))
-            except FloatingPointError:
-                print 'Underflow when calculating KS for %s, setting to 0'%(param)
-                p=0.0
 
     rbins=None
 
