@@ -41,8 +41,6 @@ For example,
  
     gw_data_find --server=HOST:PORT --show-times --type TYPE --observatory OBS
  
-    gw_data_find --server=HOST:PORT --observatory OBS --summary
-
     gw_data_find --server=HOST:PORT --ping
 
     gw_data_find --server=HOST:PORT --help"""
@@ -105,27 +103,12 @@ def parse_command_line():
     qopts.add_option("-y", "--show-types", action="store_true",\
                      default=False,
                      help="list avilable types, default: %default.")
-    qopts.add_option("-S", "--summary", action="store_true",\
-                     default=False,
-                     help="list a summary of available frame types. "+\
-                          "Can be used with --observatory foo, where foo is"+\
-                          "an observatory. Optionally supports one or "+\
-                          "both of --gps-start-time and --gps-end-time to "+\
-                          "restrict returned time ranges.")
-    qopts.add_option("-F", "--full-summary", action="store_true",\
-                     default=False,
-                     help="list a summary of available frame types, even if "+\
-                          "no description is available. "+\
-                          "Can be used with --observatory foo, where foo is"+\
-                          "an observatory. Optionally supports one or "+\
-                          "both of --gps-start-time and --gps-end-time to "+\
-                          "restrict returned time ranges.")
     qopts.add_option("-a", "--show-times", action="store_true",\
                      default=False,
                      help="list gps-second segments for all data of type "+\
                           "specified. Must be used with --type foo and "+\
                           "--observatory bar, where foo is a frame type and "+\
-                          "bar is an observatory. Optionally supports one or "+\
+                          "bar is an observatory. Optionall supports one or "+\
                           "both of --gps-start-time and --gps-end-time to "+\
                           "restrict returned time ranges.")
     qopts.add_option("-f", "--filename", action="store", type="string",\
@@ -202,11 +185,11 @@ def sanity_check_command_line(opts, args):
     """
     # make sure only one of the query types was given
     if sum([opts.ping, opts.show_observatories, opts.show_types,\
-            opts.show_times, opts.summary, opts.full_summary, opts.filename is not None]) > 1:
+            opts.show_times, opts.filename is not None]) > 1:
         raise optparse.OptionValueError("Only one of --ping, "+\
                                       "--show-observatories, --show-types, "+\
-                                      "--show-times, --summary, --filename "+\
-                                      "should be given.")
+                                      "--show-times, --filename should be "+\
+                                      "given.")
 
     # get the default server if it wasn't given
     if not opts.server and not os.environ.has_key("LIGO_DATAFIND_SERVER"):
@@ -226,7 +209,7 @@ def sanity_check_command_line(opts, args):
     # verify options for finding frames
     if (not opts.show_observatories and not opts.show_types and\
         not opts.show_times and not opts.ping and not opts.filename and\
-        not opts.summary and not opts.full_summary and not opts.latest):
+        not opts.latest):
         if not opts.observatory or not opts.type or not opts.gps_start_time\
         or not opts.gps_end_time:
             raise optparse.OptionValueError("--observatory and --type and "+\
@@ -318,17 +301,6 @@ if __name__ == "__main__":
                                         gpsend=opts.gps_end_time)
         connection.close()
         segmentsUtils.tosegwizard(out, seglist)
-        out.close()
-        sys.exit(0)
-
-    # show summary and exit
-    elif opts.summary or opts.full_summary:
-        frsumm = connection.summary(site=opts.observatory,\
-                                        gpsstart=opts.gps_start_time,\
-                                        gpsend=opts.gps_end_time,\
-                                        full_summ = opts.full_summary)
-        connection.close()
-        out.write(frsumm)
         out.close()
         sys.exit(0)
 
