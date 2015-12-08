@@ -65,6 +65,11 @@ except ImportError:
     print('Cannot import lalsimulation SWIG bindings')
     raise
 
+try:
+    from lalinference.imrtgr.nrutils import bbh_final_mass_non_spinning_Panetal, bbh_final_spin_non_spinning_Panetal, bbh_final_spin_non_precessing_Healyetal, bbh_final_mass_non_precessing_Healyetal, bbh_final_spin_projected_spin_Healyetal, bbh_final_mass_projected_spin_Healyetal
+except ImportError:
+    print('Cannot import lalinference.imrtgr.nrutils. Will suppress final parameter calculations.')
+
 from matplotlib.ticker import FormatStrFormatter,ScalarFormatter,AutoMinorLocator
 
 try:
@@ -222,6 +227,9 @@ def get_prior(name):
       'mtotal_source':None,
       'mc_source':None,
       'redshift':None,
+      'mf':None,
+      'mf_source':None,
+      'af':None,
       'spin1':'uniform',
       'spin2':'uniform',
       'a1':'uniform',
@@ -310,6 +318,9 @@ def plot_label(param):
       'mtotal_source':r'$M_\mathrm{total}^\mathrm{source}\,(\mathrm{M}_\odot)$',
       'mc_source':r'$\mathcal{M}^\mathrm{source}\,(\mathrm{M}_\odot)$',
       'redshift':r'$z$',
+      'mf':r'$M_\mathrm{final}\,(\mathrm{M}_\odot)$',
+      'mf_source':r'$M_\mathrm{final}^\mathrm{source}\,(\mathrm{M}_\odot)$',
+      'af':r'$a_\mathrm{final}$',
       'spin1':r'$S_1$',
       'spin2':r'$S_2$',
       'a1':r'$a_1$',
@@ -998,6 +1009,43 @@ class Posterior(object):
               pos.append(a2_pos)
           except KeyError:
               print "Warning: no spin2 values found."
+
+      # Calculate mass and spin of final merged system
+      if ('m1' in pos.names) and ('m2' in pos.names):
+          if ('a1z' in pos.names) and ('a2z' in pos.names):
+              print "Using non-precessing fit formula [Healy at al (2014)] for final mass and spin (on masses and projected spin components)."
+              try:
+                  pos.append_mapping('af', bbh_final_spin_non_precessing_Healyetal, ['m1', 'm2', 'a1z', 'a2z'])
+                  pos.append_mapping('mf', bbh_final_mass_non_precessing_Healyetal, ['m1', 'm2', 'a1z', 'a2z', 'af'])
+              except Exception,e:
+                  print "Could not calculate final parameters. The error was: %s"%(str(e))
+          elif ('a1' in pos.names) and ('a2' in pos.names):
+              if ('tilt1' in pos.names) and ('tilt2' in pos.names):
+                  print "Projecting spin and using non-precessing fit formula [Healy at al (2014)] for final mass and spin."
+                  try:
+                      pos.append_mapping('af', bbh_final_spin_projected_spin_Healyetal, ['m1', 'm2', 'a1', 'a2', 'tilt1', 'tilt2'])
+                      pos.append_mapping('mf', bbh_final_mass_projected_spin_Healyetal, ['m1', 'm2', 'a1', 'a2', 'tilt1', 'tilt2', 'af'])
+                  except Exception,e:
+                      print "Could not calculate final parameters. The error was: %s"%(str(e))
+              else:
+                  print "Using non-precessing fit formula [Healy at al (2014)] for final mass and spin (on masses and spin magnitudes)."
+                  try:
+                      pos.append_mapping('af', bbh_final_spin_non_precessing_Healyetal, ['m1', 'm2', 'a1', 'a2'])
+                      pos.append_mapping('mf', bbh_final_mass_non_precessing_Healyetal, ['m1', 'm2', 'a1', 'a2', 'af'])
+                  except Exception,e:
+                      print "Could not calculate final parameters. The error was: %s"%(str(e))
+          else:
+              print "Using non-spinning fit formula [Pan at al (2010)] for final mass and spin."
+              try:
+                  pos.append_mapping('af', bbh_final_spin_non_spinning_Panetal, ['m1', 'm2'])
+                  pos.append_mapping('mf', bbh_final_mass_non_spinning_Panetal, ['m1', 'm2'])
+              except Exception,e:
+                  print "Could not calculate final parameters. The error was: %s"%(str(e))
+      if ('mf' in pos.names) and ('redshift' in pos.names):
+          try:
+              pos.append_mapping('mf_source', source_mass, ['mf', 'redshift'])
+          except Exception,e:
+              print "Could not calculate final source frame mass. The error was: %s"%(str(e))
 
     def bootstrap(self):
         """
