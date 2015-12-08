@@ -140,6 +140,8 @@ int XLALSimInspiralChooseTDWaveformFromCache(
         LALSimInspiralTestGRParam *nonGRparams, /**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
         int amplitudeO,                         /**< twice post-Newtonian amplitude order */
         int phaseO,                             /**< twice post-Newtonian order */
+        REAL8 aFinal,                           /**< spin of the remnant BH (in mFinal^2) */
+        REAL8 mFinal,                           /**< mass of the remnant BH (scaled by m1+m2) */
         Approximant approximant,                /**< post-Newtonian approximant to use for waveform production */
         LALSimInspiralWaveformCache *cache      /**< waveform cache structure; use NULL for no caching */
         )
@@ -154,7 +156,7 @@ int XLALSimInspiralChooseTDWaveformFromCache(
     if ( nonGRparams != NULL || (!cache) )
         return XLALSimInspiralChooseTDWaveform(hplus, hcross, phiRef, deltaT,
                 m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, i,
-                lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO,
+                lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, aFinal, mFinal,
                 approximant);
 
     // Check which parameters have changed
@@ -183,7 +185,7 @@ int XLALSimInspiralChooseTDWaveformFromCache(
     if( (changedParams & INTRINSIC) != 0 ) {
         status = XLALSimInspiralChooseTDWaveform(hplus, hcross, phiRef, deltaT,
                 m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, i,
-                lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO,
+                lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, aFinal, mFinal,
                 approximant);
         if (status == XLAL_FAILURE) return status;
 
@@ -201,7 +203,7 @@ int XLALSimInspiralChooseTDWaveformFromCache(
             status = XLALSimInspiralChooseTDWaveform(hplus, hcross, phiRef,
                     deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref,
                     r, i, lambda1, lambda2, waveFlags, nonGRparams,
-                    amplitudeO, phaseO, approximant);
+                    amplitudeO, phaseO, aFinal, mFinal, approximant);
             if (status == XLAL_FAILURE) return status;
 
             // FIXME: Need to add hlms, dynamic variables, etc. in cache
@@ -217,7 +219,7 @@ int XLALSimInspiralChooseTDWaveformFromCache(
             status = XLALSimInspiralChooseTDWaveform(hplus, hcross, phiRef,
                     deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref,
                     r, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO,
-                    phaseO, approximant);
+                    phaseO, aFinal, mFinal, approximant);
             if (status == XLAL_FAILURE) return status;
 
             // FIXME: Need to add hlms, dynamic variables, etc. in cache
@@ -232,7 +234,7 @@ int XLALSimInspiralChooseTDWaveformFromCache(
             status = XLALSimInspiralChooseTDWaveform(hplus, hcross, phiRef,
                     deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref,
                     r, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO,
-                    phaseO, approximant);
+                    phaseO, aFinal, mFinal, approximant);
             if (status == XLAL_FAILURE) return status;
 
             // FIXME: Need to add hlms, dynamic variables, etc. in cache
@@ -280,7 +282,7 @@ int XLALSimInspiralChooseTDWaveformFromCache(
             status = XLALSimInspiralChooseTDWaveform(hplus, hcross, phiRef,
                     deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref,
                     r, i, lambda1, lambda2, waveFlags, nonGRparams,
-                    amplitudeO, phaseO, approximant);
+                    amplitudeO, phaseO, aFinal, mFinal, approximant);
             if (status == XLAL_FAILURE) return status;
 
             // FIXME: Need to add hlms, dynamic variables, etc. in cache
@@ -356,7 +358,7 @@ int XLALSimInspiralChooseTDWaveformFromCache(
             status = XLALSimInspiralChooseTDWaveform(hplus, hcross, phiRef,
                     deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref,
                     r, i, lambda1, lambda2, waveFlags, nonGRparams,
-                    amplitudeO, phaseO, approximant);
+                    amplitudeO, phaseO, aFinal, mFinal, approximant);
             if (status == XLAL_FAILURE) return status;
 
             // FIXME: Need to add hlms, dynamic variables, etc. in cache
@@ -372,7 +374,7 @@ int XLALSimInspiralChooseTDWaveformFromCache(
             status = XLALSimInspiralChooseTDWaveform(hplus, hcross, phiRef,
                     deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref,
                     r, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO,
-                    phaseO, approximant);
+                    phaseO, aFinal, mFinal, approximant);
             if (status == XLAL_FAILURE) return status;
 
             // FIXME: Need to add hlms, dynamic variables, etc. in cache
@@ -388,7 +390,7 @@ int XLALSimInspiralChooseTDWaveformFromCache(
             status = XLALSimInspiralChooseTDWaveform(hplus, hcross, phiRef,
                     deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref,
                     r, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO,
-                    phaseO, approximant);
+                    phaseO, aFinal, mFinal, approximant);
             if (status == XLAL_FAILURE) return status;
 
             // FIXME: Need to add hlms, dynamic variables, etc. in cache
@@ -435,7 +437,7 @@ int XLALSimInspiralChooseTDWaveformFromCache(
         return XLALSimInspiralChooseTDWaveform(hplus, hcross, phiRef, deltaT,
                 m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, i,
                 lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO,
-                approximant);
+                aFinal, mFinal, approximant);
     }
 }
 

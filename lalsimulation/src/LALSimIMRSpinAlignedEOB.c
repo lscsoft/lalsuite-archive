@@ -279,7 +279,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
         const REAL8     inc,         /**<< inclination angle */
         const REAL8     spin1z,      /**<< z-component of spin-1, dimensionless */
         const REAL8     spin2z,       /**<< z-component of spin-2, dimensionless */
-        const REAL8     aFinal,      /**<< spin (in units M^2) of the remnant BH */
+        const REAL8     aFinal,      /**<< spin (in units mFinal^2) of the remnant BH */
         const REAL8     mFinal,      /**<< mass (scaled by mTotal=m1+m2) of the remnant BH */
         UINT4           SpinAlignedEOBversion /**<< 1 for SEOBNRv1, 2 for SEOBNRv2  */
      )
@@ -298,6 +298,18 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   }
 
   Approximant SpinAlignedEOBapproximant = (SpinAlignedEOBversion == 1) ? SEOBNRv1 : SEOBNRv2;
+
+  // Check the final spin values
+  if (aFinal <= -1.0 || aFinal >= 1.0){
+       XLALPrintError("XLAL Error - %s, spin of remnant outside allowed (-1, 1) range\n", __func__);
+       XLAL_ERROR( XLAL_EINVAL );
+  }
+  //Check the final mass
+  if (mFinal >= 1.0 || mFinal <= 0.0){
+       XLALPrintError("XLAL Error - %s, mass of remnant is above 1 or below 0 \n", __func__);
+       XLAL_ERROR( XLAL_EINVAL );
+  }
+
 
   /* 
    * Check spins

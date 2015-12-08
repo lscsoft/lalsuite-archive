@@ -264,8 +264,8 @@ static double fixReferenceFrequency(double f_ref, double f_min, Approximant appr
 /*
  * some helper routines for XLALSimInspiralTD
  */
-static int XLALSimInspiralTDFromTD(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, REAL8 phiRef, REAL8 deltaT, REAL8 m1, REAL8 m2, REAL8 S1x, REAL8 S1y, REAL8 S1z, REAL8 S2x, REAL8 S2y, REAL8 S2z, REAL8 f_min, REAL8 f_ref, REAL8 r, REAL8 z, REAL8 i, REAL8 lambda1, REAL8 lambda2, LALSimInspiralWaveformFlags *waveFlags, LALSimInspiralTestGRParam *nonGRparams, int amplitudeO, int phaseO, Approximant approximant);
-static int XLALSimInspiralTDFromFD(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, REAL8 phiRef, REAL8 deltaT, REAL8 m1, REAL8 m2, REAL8 S1x, REAL8 S1y, REAL8 S1z, REAL8 S2x, REAL8 S2y, REAL8 S2z, REAL8 f_min, REAL8 f_ref, REAL8 r, REAL8 z, REAL8 i, REAL8 lambda1, REAL8 lambda2, LALSimInspiralWaveformFlags *waveFlags, LALSimInspiralTestGRParam *nonGRparams, int amplitudeO, int phaseO, Approximant approximant);
+static int XLALSimInspiralTDFromTD(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, REAL8 phiRef, REAL8 deltaT, REAL8 m1, REAL8 m2, REAL8 S1x, REAL8 S1y, REAL8 S1z, REAL8 S2x, REAL8 S2y, REAL8 S2z, REAL8 f_min, REAL8 f_ref, REAL8 r, REAL8 z, REAL8 i, REAL8 lambda1, REAL8 lambda2, LALSimInspiralWaveformFlags *waveFlags, LALSimInspiralTestGRParam *nonGRparams, int amplitudeO, int phaseO, REAL8 aFinal, REAL8 mFinal, Approximant approximant);
+static int XLALSimInspiralTDFromFD(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, REAL8 phiRef, REAL8 deltaT, REAL8 m1, REAL8 m2, REAL8 S1x, REAL8 S1y, REAL8 S1z, REAL8 S2x, REAL8 S2y, REAL8 S2z, REAL8 f_min, REAL8 f_ref, REAL8 r, REAL8 z, REAL8 i, REAL8 lambda1, REAL8 lambda2, LALSimInspiralWaveformFlags *waveFlags, LALSimInspiralTestGRParam *nonGRparams, int amplitudeO, int phaseO,  REAL8 aFinal, REAL8 mFinal, Approximant approximant);
 
 
 /**
@@ -310,6 +310,8 @@ int XLALSimInspiralChooseTDWaveform(
     LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
     int phaseO,                                 /**< twice post-Newtonian order */
+    REAL8 aFinal,                               /**< spin of the remnant BH (in mFinal^2) */
+    REAL8 mFinal,                               /**< mass of the remnant BH (scaled by m1+m2) */
     Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
     )
 {
@@ -690,7 +692,7 @@ int XLALSimInspiralChooseTDWaveform(
 	    // in loop below
 	    ret = XLALSimInspiralTDFromFD(hplus, hcross, phiRef, deltaT, m1, m2, S1x, S1y, S1z,
 			    S2x, S2y, S2z, f_min, f_ref, r, 0, 0, lambda1, lambda2,
-			    waveFlags, nonGRparams, amplitudeO, phaseO, approximant);
+			    waveFlags, nonGRparams, amplitudeO, phaseO, aFinal, mFinal, approximant);
 	    REAL8 maxamp=0;
 	    REAL8TimeSeries *hp = *hplus;
 	    REAL8TimeSeries *hc = *hcross;
@@ -740,7 +742,7 @@ int XLALSimInspiralChooseTDWaveform(
             /* Call the waveform driver routine */
             SpinAlignedEOBversion = 1;
             ret = XLALSimIMRSpinAlignedEOBWaveform(hplus, hcross, phiRef,
-                    deltaT, m1, m2, f_min, r, i, S1z, S2z, SpinAlignedEOBversion);
+                    deltaT, m1, m2, f_min, r, i, S1z, S2z, 0.0, 0.0, SpinAlignedEOBversion);
             break;
 
         case SEOBNRv2:
@@ -756,7 +758,7 @@ int XLALSimInspiralChooseTDWaveform(
             /* Call the waveform driver routine */
             SpinAlignedEOBversion = 2;
             ret = XLALSimIMRSpinAlignedEOBWaveform(hplus, hcross, phiRef,
-                    deltaT, m1, m2, f_min, r, i, S1z, S2z, SpinAlignedEOBversion);
+                    deltaT, m1, m2, f_min, r, i, S1z, S2z, aFinal, mFinal, SpinAlignedEOBversion);
             break;
 
          case SEOBNRv2_opt:
@@ -772,7 +774,7 @@ int XLALSimInspiralChooseTDWaveform(
              /* Call the waveform driver routine */
              SpinAlignedEOBversion = 200;
              ret = XLALSimIMRSpinAlignedEOBWaveform(hplus, hcross, phiRef,
-                     deltaT, m1, m2, f_min, r, i, S1z, S2z, SpinAlignedEOBversion);
+                     deltaT, m1, m2, f_min, r, i, S1z, S2z, aFinal, mFinal, SpinAlignedEOBversion);
              break;
 
         case SEOBNRv3:
@@ -1446,6 +1448,8 @@ SphHarmTimeSeries* XLALSimInspiralTDModesFromPolarizations(
     LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
     int phaseO,                                 /**< twice post-Newtonian order */
+    REAL8 aFinal,                               /**< spin of the remnant BH (in mFinal^2) */
+    REAL8 mFinal,                               /**< mass of the remnant BH (scaled by m1+m2) */
     Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
     )
 {
@@ -1457,7 +1461,7 @@ SphHarmTimeSeries* XLALSimInspiralTDModesFromPolarizations(
     float fac = XLALSpinWeightedSphericalHarmonic(0., 0., -2, 2,2); 
 
     /* Generate waveform via on-axis emission. Assumes only (2,2) and (2,-2) emission */
-    retval = XLALSimInspiralTD(&hplus, &hcross, 0.0, deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, z, 0.0, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, approximant);
+    retval = XLALSimInspiralTD(&hplus, &hcross, 0.0, deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, z, 0.0, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, aFinal, mFinal, approximant);
     if (retval < 0)
         XLAL_ERROR_NULL(XLAL_EFUNC);
 
@@ -1507,6 +1511,8 @@ static int XLALSimInspiralTDFromTD(
     LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
     int phaseO,                                 /**< twice post-Newtonian order */
+    REAL8 aFinal,                               /**< spin of the remnant BH (in mFinal^2) */
+    REAL8 mFinal,                               /**< mass of the remnant BH (scaled by m1+m2) */
     Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
 )
 {
@@ -1562,7 +1568,7 @@ static int XLALSimInspiralTDFromTD(
     fstart = XLALSimInspiralChirpStartFrequencyBound((1.0 + extra_time_fraction) * tchirp + tmerge + textra, m1, m2);
     
     /* generate the waveform in the time domain starting at fstart */
-    retval = XLALSimInspiralChooseTDWaveform(hplus, hcross, phiRef, deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, fstart, f_ref, r, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, approximant);
+    retval = XLALSimInspiralChooseTDWaveform(hplus, hcross, phiRef, deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, fstart, f_ref, r, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, aFinal, mFinal, approximant);
     if (retval < 0)
         XLAL_ERROR(XLAL_EFUNC);
 
@@ -1606,6 +1612,8 @@ static int XLALSimInspiralTDFromFD(
     LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
     int phaseO,                                 /**< twice post-Newtonian order */
+    REAL8 aFinal,                               /**< spin of the remnant BH (in mFinal^2) */
+    REAL8 mFinal,                               /**< mass of the remnant BH (scaled by m1+m2) */
     Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
 )
 {
@@ -1662,7 +1670,7 @@ static int XLALSimInspiralTDFromFD(
     /* generate the conditioned waveform in the frequency domain */
     /* note: redshift factor has already been applied above */
     /* set deltaF = 0 to get a small enough resolution */
-    retval = XLALSimInspiralFD(&hptilde, &hctilde, phiRef, 0.0, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, 0.5/deltaT, f_ref, r, 0.0, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, approximant);
+    retval = XLALSimInspiralFD(&hptilde, &hctilde, phiRef, 0.0, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, 0.5/deltaT, f_ref, r, 0.0, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, aFinal, mFinal, approximant);
     if (retval < 0)
         XLAL_ERROR(XLAL_EFUNC);
 
@@ -1779,15 +1787,17 @@ int XLALSimInspiralTD(
     LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
     int phaseO,                                 /**< twice post-Newtonian order */
+    REAL8 aFinal,                               /**< spin of the remnant BH (in mFinal^2) */
+    REAL8 mFinal,                               /**< mass of the remnant BH (scaled by m1+m2) */
     Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
     )
 {
     /* call the appropriate helper routine */
     if (XLALSimInspiralImplementedTDApproximants(approximant)) {
-        if (XLALSimInspiralTDFromTD(hplus, hcross, phiRef, deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, z, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, approximant) < 0)
+        if (XLALSimInspiralTDFromTD(hplus, hcross, phiRef, deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, z, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, aFinal, mFinal, approximant) < 0)
             XLAL_ERROR(XLAL_EFUNC);
     } else if (XLALSimInspiralImplementedFDApproximants(approximant)) {
-        if (XLALSimInspiralTDFromFD(hplus, hcross, phiRef, deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, z, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, approximant) < 0)
+        if (XLALSimInspiralTDFromFD(hplus, hcross, phiRef, deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, z, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, aFinal, mFinal, approximant) < 0)
             XLAL_ERROR(XLAL_EFUNC);
     } else
         XLAL_ERROR(XLAL_EINVAL, "Invalid approximant");
@@ -1855,6 +1865,8 @@ int XLALSimInspiralFD(
     LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
     int phaseO,                                 /**< twice post-Newtonian order */
+    REAL8 aFinal,                               /**< spin of the remnant BH (in mFinal^2) */
+    REAL8 mFinal,                               /**< mass of the remnant BH (scaled by m1+m2) */
     Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
     )
 {
@@ -1994,7 +2006,7 @@ int XLALSimInspiralFD(
 
         /* generate conditioned waveform in time domain */
         /* note: redshift factor has already been applied */
-        retval = XLALSimInspiralTD(&hplus, &hcross, phiRef, deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, 0.0, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, approximant);
+        retval = XLALSimInspiralTD(&hplus, &hcross, phiRef, deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, 0.0, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, aFinal, mFinal, approximant);
         if (retval < 0)
             XLAL_ERROR(XLAL_EFUNC);
 
@@ -2076,6 +2088,8 @@ int XLALSimInspiralChooseWaveform(
     LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
     int phaseO,                                 /**< twice post-Newtonian order */
+    REAL8 aFinal,                               /**< spin of the remnant BH (in mFinal^2) */
+    REAL8 mFinal,                               /**< mass of the remnant BH (scaled by m1+m2) */
     Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
     )
 {
@@ -2083,7 +2097,7 @@ int XLALSimInspiralChooseWaveform(
 
     return XLALSimInspiralChooseTDWaveform(hplus, hcross, phiRef, deltaT, m1,
         m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, i, lambda1, lambda2,
-        waveFlags, nonGRparams, amplitudeO, phaseO, approximant);
+        waveFlags, nonGRparams, amplitudeO, phaseO, aFinal, mFinal, approximant);
 }
 
 /** @} */

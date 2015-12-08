@@ -76,6 +76,7 @@
 #include <lal/LALInferenceTemplate.h>
 #include <lal/LALSimNoise.h>
 #include <LALInferenceRemoveLines.h>
+#include <lal/LALSimBlackHoleRingdown.h>
 
 struct fvec {
 	REAL8 f;
@@ -1671,13 +1672,24 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
       /* ChooseWaveform starts the (2,2) mode of the waveform at the given minimum frequency.  We want the highest order contribution to start at the f_lower of the injection file */
       REAL8 f_min = fLow2fStart(injEvent->f_lower, amporder, approximant);
       printf("Injecting with f_min = %f.\n", f_min);
+      
+      REAL8 finalMass; 
+      REAL8 finalSpin;
+      REAL8 spin1[3] = {injEvent->spin1x, injEvent->spin1y, injEvent->spin1z};
+      REAL8 spin2[3] = {injEvent->spin2x, injEvent->spin2y, injEvent->spin2z};
+      if ( XLALSimIMREOBFinalMassSpin(&finalMass, &finalSpin, injEvent->mass1, injEvent->mass2, spin1, spin2, approximant) == XLAL_FAILURE )
+      {
+        fprintf(stderr,"Error: XLALSimInspiralChooseWaveform() failed to compute final spin and mass.\n");
+        exit(-1);
+      }
+
 
       XLALSimInspiralChooseTDWaveform(&hplus, &hcross, injEvent->coa_phase, 1.0/InjSampleRate,
                                       injEvent->mass1*LAL_MSUN_SI, injEvent->mass2*LAL_MSUN_SI, injEvent->spin1x,
                                       injEvent->spin1y, injEvent->spin1z, injEvent->spin2x, injEvent->spin2y,
                                       injEvent->spin2z, f_min, fref, injEvent->distance*LAL_PC_SI * 1.0e6,
                                       injEvent->inclination, lambda1, lambda2, waveFlags,
-                                      nonGRparams, amporder, order, approximant);
+                                      nonGRparams, amporder, order, finalSpin, finalMass, approximant);
       if(!hplus || !hcross) {
         fprintf(stderr,"Error: XLALSimInspiralChooseWaveform() failed to produce waveform.\n");
         exit(-1);

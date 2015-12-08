@@ -39,6 +39,7 @@
 #include <lal/LIGOMetadataRingdownUtils.h>
 #include <lal/LALSimInspiral.h>
 #include <lal/LALInferenceTemplate.h>
+#include <lal/LALSimBlackHoleRingdown.h>
 
 #define PROGRAM_NAME "LALInferenceTemplate.c"
 #define CVS_ID_STRING "$Id$"
@@ -497,7 +498,10 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
 /*   - "lambda1"            tidal parameter of object 1; REAL8  OPTIONAL (0.0)                                           */
 /*   - "lambda2"            tidal parameter of object 1; REAL8  OPTIONAL (0.0)                                           */
 /*                                                                                                                       */
-/*   - "time"               used as an OUTPUT only; REAL8								                                 */
+/*   - "time"               used as an OUTPUT only; REAL8
+ *
+ *   - aFinal         spin of the remnant BH (in mFinal^2) used to test GR
+ *   - mFinal         mass of the remnant BH (scaled by m1+m2) used to test GR 					                         */
 /*                                                                                                                       */
 /*                                                                                                                       */
 /*   model needs to also contain:                                                                                        */
@@ -611,6 +615,10 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
   REAL8 spin2x = 0.0;
   REAL8 spin2y = 0.0;
   REAL8 spin2z = 0.0;
+
+  REAL8 aFinal = 0.0;
+  REAL8 mFinal = 0.0;
+
   
   /* System frame coordinates as used for jump proposals */
   REAL8 a_spin1 = 0.0;  /* Magnitude of spin1 */
@@ -619,6 +627,8 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
   REAL8 tilt1   = 0.0;  /* zenith angle between S1 and LNhat in radians */
   REAL8 tilt2   = 0.0;  /* zenith angle between S2 and LNhat in radians */
   REAL8 phi12   = 0.0;  /* difference in azimuthal angle btwn S1, S2 in radians */
+
+  
 
   /* Now check if we have spin amplitudes */
   if(LALInferenceCheckVariable(model->params, "a_spin1"))    a_spin1   = *(REAL8*) LALInferenceGetVariable(model->params, "a_spin1");
@@ -659,6 +669,32 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
         return;
       }
   }
+  /* Check if we have final spin and mass */
+  if(LALInferenceCheckVariable(model->params, "aFinal")){
+      aFinal   = *(REAL8*) LALInferenceGetVariable(model->params, "aFinal");
+  }else{
+      REAL8 spin1[3] = {spin1x, spin1y, spin1z};
+      REAL8 spin2[3] = {spin2x, spin2y, spin2z};
+
+      if ( XLALSimIMREOBFinalMassSpin(&mFinal, &aFinal, m1, m2, spin1, spin2, approximant) == XLAL_FAILURE )
+      {
+           fprintf(stderr,"Error: XLALSimInspiralChooseWaveform() failed to compute final spin and mass.\n");
+           return;
+      }
+  }
+  if(LALInferenceCheckVariable(model->params, "mFinal")){
+      mFinal   = *(REAL8*) LALInferenceGetVariable(model->params, "mFinal");
+  }else{
+      REAL8 spin1[3] = {spin1x, spin1y, spin1z};
+      REAL8 spin2[3] = {spin2x, spin2y, spin2z};
+
+      if ( XLALSimIMREOBFinalMassSpin(&mFinal, &aFinal, m1, m2, spin1, spin2, approximant) == XLAL_FAILURE )
+      {
+           fprintf(stderr,"Error: XLALSimInspiralChooseWaveform() failed to compute final spin and mass.\n");
+           return;
+      }
+  }
+
 
   
   /* ==== TIDAL PARAMETERS ==== */  
@@ -688,7 +724,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
     
 	XLAL_TRY(ret=XLALSimInspiralChooseFDWaveformFromCache(&hptilde, &hctilde, phi0,
             deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
-            spin2x, spin2y, spin2z, f_start, f_max, f_ref, distance, inclination,lambda1, lambda2, model->waveFlags, nonGRparams, amporder, order,
+            spin2x, spin2y, spin2z, f_start, f_max, f_ref, distance, inclination,lambda1, lambda2, model->waveFlags, nonGRparams, amporder, order, 
             approximant,model->waveformCache, NULL), errnum);
 
      
@@ -740,7 +776,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
             m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
             spin2x, spin2y, spin2z, f_start, f_ref, distance,
             inclination, lambda1, lambda2, model->waveFlags, nonGRparams,
-            amporder, order, approximant,model->waveformCache), errnum);
+            amporder, order, aFinal, mFinal, approximant,model->waveformCache), errnum);
     XLALSimInspiralDestroyTestGRParam(nonGRparams);
     if (ret == XLAL_FAILURE || hplus == NULL || hcross == NULL)
     {

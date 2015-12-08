@@ -446,7 +446,7 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
       eta       = mass1 * mass2 / ( (mass1 + mass2) * (mass1 + mass2) );
 
       // Check the sanity of the given final mass and final spin */
-      if (finalSpin <= -1.0 || 
+      //if (finalSpin <= -1.0 || 
 
       /*
        * STEP 1) Get mass and spin of the final black hole and the complex ringdown frequencies
@@ -460,17 +460,18 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
         XLAL_ERROR( XLAL_ENOMEM );
       }
 
-      if ( XLALSimIMREOBGenerateQNMFreqV2( modefreqs, mass1, mass2, spin1, spin2, l, m, nmodes, approximant ) == XLAL_FAILURE )
+      //if ( XLALSimIMREOBGenerateQNMFreqV2( modefreqs, mass1, mass2, spin1, spin2, l, m, nmodes, approximant ) == XLAL_FAILURE )
+      if ( XLALSimIMREOBGetQNM( modefreqs, mass1, mass2, finalMass, finalSpin, l, m, nmodes ) == XLAL_FAILURE )
       {
         XLALDestroyCOMPLEX16Vector( modefreqs );
         XLAL_ERROR( XLAL_EFUNC );
       }
 
       /* Call XLALSimIMREOBFinalMassSpin() to get mass and spin of the final black hole */
-      if ( XLALSimIMREOBFinalMassSpin(&finalMass, &finalSpin, mass1, mass2, spin1, spin2, approximant) == XLAL_FAILURE )
-      {
-        XLAL_ERROR( XLAL_EFUNC );
-      }
+      //if ( XLALSimIMREOBFinalMassSpin(&finalMass, &finalSpin, mass1, mass2, spin1, spin2, approximant) == XLAL_FAILURE )
+      //{
+      //  XLAL_ERROR( XLAL_EFUNC );
+      //}
 
       if ( approximant == SEOBNRv1 )
       {

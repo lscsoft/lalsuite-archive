@@ -58,6 +58,9 @@ int XLALSimBlackHoleRingdown(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, 
 INT4 XLALSimIMREOBFinalMassSpin(REAL8 *finalMass, REAL8 *finalSpin, const REAL8 mass1, const REAL8 mass2, const REAL8 spin1[3], const REAL8 spin2[3], Approximant approximant);
 INT4 XLALSimIMREOBGenerateQNMFreqV2(COMPLEX16Vector *modefreqs, const REAL8 mass1, const REAL8 mass2, const REAL8 spin1[3], const REAL8 spin2[3], UINT4 l, INT4 m, UINT4 nmodes, Approximant approximant);
 
+INT4 XLALSimIMREOBGetQNM(  COMPLEX16Vector *modefreqs,  const REAL8      mass1,  const REAL8      mass2,  const REAL8      finalMass, const REAL8  finalSpin, UINT4   l,  INT4  m, UINT4  nmodes);//,  Approximant  approximant);
+
+
 #if 0
 { /* so that editors will match succeeding brace */
 #elif defined(__cplusplus)

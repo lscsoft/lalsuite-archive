@@ -1449,7 +1449,7 @@ static void test_signal_amplitude_model(
         ret = XLALSimInspiralFD(
             &Htemplate, &Hcross, 0, 1, 1.4 * LAL_MSUN_SI, 1.4 * LAL_MSUN_SI,
             0, 0, 0, 0, 0, 0, 100, 101, 100, 1, 0, 0, 0, 0,
-            NULL, NULL, LAL_PNORDER_NEWTONIAN, LAL_PNORDER_NEWTONIAN, TaylorF2);
+            NULL, NULL, LAL_PNORDER_NEWTONIAN, LAL_PNORDER_NEWTONIAN, 0.0, 0.0, TaylorF2);
         assert(ret == XLAL_SUCCESS);
 
         /* Discard any non-quadrature phase component of "template" */
@@ -1471,7 +1471,7 @@ static void test_signal_amplitude_model(
         ret = XLALSimInspiralFD(
             &Hsignal, &Hcross, 0, 1, 1.4 * LAL_MSUN_SI, 1.4 * LAL_MSUN_SI,
             0, 0, 0, 0, 0, 0, 100, 101, 100, 1, 0, inclination, 0, 0,
-            NULL, NULL, LAL_PNORDER_NEWTONIAN, LAL_PNORDER_NEWTONIAN, TaylorF2);
+            NULL, NULL, LAL_PNORDER_NEWTONIAN, LAL_PNORDER_NEWTONIAN, 0.0, 0.0, TaylorF2);
         assert(ret == XLAL_SUCCESS);
 
         /* Project "signal" using antenna factors */
