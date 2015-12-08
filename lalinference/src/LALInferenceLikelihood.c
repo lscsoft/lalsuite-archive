@@ -1038,7 +1038,8 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
     COMPLEX16 template=0.0;
     REAL8 templatesq=0.0;
     REAL8 this_ifo_S=0.0;
-
+    COMPLEX16 this_ifo_Rcplx=0.0;
+    
     for (i=lower,chisq=0.0,re = cos(twopit*deltaF*i),im = -sin(twopit*deltaF*i);
          i<=upper;
          i++, psd++, hptilde++, hctilde++, dtilde++,
@@ -1113,6 +1114,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
       D+=TwoDeltaToverN*datasq/sigmasq;
       this_ifo_S+=TwoDeltaToverN*templatesq/sigmasq;
       COMPLEX16 dhstar = TwoDeltaToverN*d*conj(template)/sigmasq;
+      this_ifo_Rcplx+=dhstar;
       Rcplx+=dhstar;
 
       switch(marginalisationflags)
@@ -1186,6 +1188,12 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
     sprintf(varname,"%s_optimal_snr",dataPtr->name);
     LALInferenceAddREAL8Variable(currentParams,varname,sqrt(2.0*this_ifo_S),LALINFERENCE_PARAM_OUTPUT);
 
+    sprintf(varname,"%s_cplx_snr_amp",dataPtr->name);
+    LALInferenceAddREAL8Variable(currentParams,varname,2.0*this_ifo_Rcplx/sqrt(2.0*this_ifo_S),LALINFERENCE_PARAM_OUTPUT);
+
+    sprintf(varname,"%s_cplx_snr_arg",dataPtr->name);
+    LALInferenceAddREAL8Variable(currentParams,varname,carg(this_ifo_Rcplx),LALINFERENCE_PARAM_OUTPUT);
+    
    /* Clean up calibration if necessary */
     if (!(calFactor == NULL)) {
       XLALDestroyCOMPLEX16FrequencySeries(calFactor);

@@ -940,7 +940,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
                 }*/
                 PSDtimeSeries=readTseries(cache,channels[i],GPSstart,PSDdatalength);
                 //GPSstart=trueGPSstart;
-                if(!PSDtimeSeries) {XLALPrintError("Error reading PSD data for %s\n",IFOnames[i]); XLAL_ERROR_NULL(XLAL_EFUNC);}
+                if(!PSDtimeSeries) {XLALPrintError("Error reading PSD data for %s\n",IFOnames[i]); exit(1);}
                 XLALResampleREAL8TimeSeries(PSDtimeSeries,1.0/SampleRate);
                 PSDtimeSeries=(REAL8TimeSeries *)XLALShrinkREAL8TimeSeries(PSDtimeSeries,(size_t) 0, (size_t) seglen*nSegs);
                 if(!PSDtimeSeries) {
@@ -2671,118 +2671,118 @@ void LALInferenceSetupROQ(LALInferenceIFOData *IFOdata, LALInferenceModel *model
 	char tmp[128];
   REAL8 fnode=0.;
 
-  model->roq = XLALMalloc(sizeof(LALInferenceROQModel));
-  model->roq_flag = 1;
-  while(thisData){
-    thisData=thisData->next;
-    Nifo++;
-  }
+	  model->roq = XLALMalloc(sizeof(LALInferenceROQModel));
+	  model->roq_flag = 1;
+	  while(thisData){
+	    thisData=thisData->next;
+	    Nifo++;
+	  }
 
-  procparam=LALInferenceGetProcParamVal(commandLine,"--inj");
-  if(procparam){
-    SimInspiralTableFromLIGOLw(&injTable,procparam->value,0,0);
-    if(!injTable){
-      fprintf(stderr,"Unable to open injection file(LALInferenceReadData) %s\n",procparam->value);
-      exit(1);
-    }
-    procparam=LALInferenceGetProcParamVal(commandLine,"--event");
-    if(procparam) {
-      event=atoi(procparam->value);
-      while(q<event) {q++; injTable=injTable->next;}
-    }
-    else if ((procparam=LALInferenceGetProcParamVal(commandLine,"--event-id")))
-    {
-      while(injTable)
-      {
-        if(injTable->event_id->id == (UINT4)atoi(procparam->value)) break;
-        else injTable=injTable->next;
-      }
-      if(!injTable){
-        fprintf(stderr,"Error, cannot find simulation id %s in injection file\n",procparam->value);
-        exit(1);
-      }
-    }
-  }
+	  procparam=LALInferenceGetProcParamVal(commandLine,"--inj");
+	  if(procparam){
+	    SimInspiralTableFromLIGOLw(&injTable,procparam->value,0,0);
+	    if(!injTable){
+	      fprintf(stderr,"Unable to open injection file(LALInferenceReadData) %s\n",procparam->value);
+	      exit(1);
+	    }
+	    procparam=LALInferenceGetProcParamVal(commandLine,"--event");
+	    if(procparam) {
+	      event=atoi(procparam->value);
+	      while(q<event) {q++; injTable=injTable->next;}
+	    }
+	    else if ((procparam=LALInferenceGetProcParamVal(commandLine,"--event-id")))
+	    {
+	      while(injTable)
+	      {
+		if(injTable->event_id->id == (UINT4)atoi(procparam->value)) break;
+		else injTable=injTable->next;
+	      }
+	      if(!injTable){
+		fprintf(stderr,"Error, cannot find simulation id %s in injection file\n",procparam->value);
+		exit(1);
+	      }
+	    }
+	  }
 
-  if(LALInferenceGetProcParamVal(commandLine,"--trigtime")){
-    procparam=LALInferenceGetProcParamVal(commandLine,"--trigtime");
-    LALStringToGPS(&status,&GPStrig,procparam->value,&chartmp);
-  }
-  else{
-    if(injTable) memcpy(&GPStrig,&(injTable->geocent_end_time),sizeof(GPStrig));
-    else {
-      fprintf(stderr,">>> Error: No trigger time specifed and no injection given \n");
-      exit(1);
-    }
-  }
+	  if(LALInferenceGetProcParamVal(commandLine,"--trigtime")){
+	    procparam=LALInferenceGetProcParamVal(commandLine,"--trigtime");
+	    LALStringToGPS(&status,&GPStrig,procparam->value,&chartmp);
+	  }
+	  else{
+	    if(injTable) memcpy(&GPStrig,&(injTable->geocent_end_time),sizeof(GPStrig));
+	    else {
+	      fprintf(stderr,">>> Error: No trigger time specifed and no injection given \n");
+	      exit(1);
+	    }
+	  }
 
-  endtime=XLALGPSGetREAL8(&GPStrig);
+	  endtime=XLALGPSGetREAL8(&GPStrig);
 
-  ppt=LALInferenceGetProcParamVal(commandLine,"--dt");
-  if(ppt){
-    dt=atof(ppt->value);
-  }
- 
-  if(LALInferenceGetProcParamVal(commandLine,"--roqtime_steps")){
-    ppt=LALInferenceGetProcParamVal(commandLine,"--roqtime_steps");
-    tempfp = fopen (ppt->value,"r");
-    fscanf (tempfp, "%u", &time_steps);
-    fscanf (tempfp, "%u", &n_basis_linear);
-    fscanf (tempfp, "%u", &n_basis_quadratic);
-    fscanf (tempfp, "%u", &n_samples);
-    fprintf(stderr, "loaded --roqtime_steps\n");
-  }
+	  ppt=LALInferenceGetProcParamVal(commandLine,"--dt");
+	  if(ppt){
+	    dt=atof(ppt->value);
+	  }
+	 
+	  if(LALInferenceGetProcParamVal(commandLine,"--roqtime_steps")){
+	    ppt=LALInferenceGetProcParamVal(commandLine,"--roqtime_steps");
+	    tempfp = fopen (ppt->value,"r");
+	    fscanf (tempfp, "%u", &time_steps);
+	    fscanf (tempfp, "%u", &n_basis_linear);
+	    fscanf (tempfp, "%u", &n_basis_quadratic);
+	    fscanf (tempfp, "%u", &n_samples);
+	    fprintf(stderr, "loaded --roqtime_steps\n");
+	  }
 
-  model->roq->frequencyNodesLinearGSL = gsl_vector_calloc(n_basis_linear);
-  model->roq->frequencyNodesQuadraticGSL = gsl_vector_calloc(n_basis_quadratic);
+	  model->roq->frequencyNodesLinearGSL = gsl_vector_calloc(n_basis_linear);
+	  model->roq->frequencyNodesQuadraticGSL = gsl_vector_calloc(n_basis_quadratic);
 
-  model->roq->frequencyNodesLinear = XLALCreateREAL8Sequence(n_basis_linear);
-  model->roq->frequencyNodesQuadratic = XLALCreateREAL8Sequence(n_basis_quadratic);
+	  model->roq->frequencyNodesLinear = XLALCreateREAL8Sequence(n_basis_linear);
+	  model->roq->frequencyNodesQuadratic = XLALCreateREAL8Sequence(n_basis_quadratic);
 
-  model->roq->hplusLinear = gsl_vector_complex_calloc(n_basis_linear);
-  model->roq->hcrossLinear = gsl_vector_complex_calloc(n_basis_linear);
-  model->roq->hstrainLinear = gsl_vector_complex_calloc(n_basis_linear);
+	  model->roq->hplusLinear = gsl_vector_complex_calloc(n_basis_linear);
+	  model->roq->hcrossLinear = gsl_vector_complex_calloc(n_basis_linear);
+	  model->roq->hstrainLinear = gsl_vector_complex_calloc(n_basis_linear);
 
-  model->roq->hplusQuadratic = gsl_vector_complex_calloc(n_basis_quadratic);
-  model->roq->hcrossQuadratic = gsl_vector_complex_calloc(n_basis_quadratic);
-  model->roq->hstrainQuadratic = gsl_vector_complex_calloc(n_basis_quadratic);
+	  model->roq->hplusQuadratic = gsl_vector_complex_calloc(n_basis_quadratic);
+	  model->roq->hcrossQuadratic = gsl_vector_complex_calloc(n_basis_quadratic);
+	  model->roq->hstrainQuadratic = gsl_vector_complex_calloc(n_basis_quadratic);
 
-  model->roq->trigtime = endtime;
+	  model->roq->trigtime = endtime;
 
-  if(LALInferenceGetProcParamVal(commandLine,"--roqnodesLinear")){
-    ppt=LALInferenceGetProcParamVal(commandLine,"--roqnodesLinear");
+	  if(LALInferenceGetProcParamVal(commandLine,"--roqnodesLinear")){
+	    ppt=LALInferenceGetProcParamVal(commandLine,"--roqnodesLinear");
 
-    // open file containing the set of frequency points associated
-    // with the given weights
-    tempfp = fopen(ppt->value, "rb");
-    if (!tempfp) {
-        fprintf(stderr,"Error: cannot find file %s \n", ppt->value);
-        exit(1);} // check file exists
-    gsl_vector_fread(tempfp, model->roq->frequencyNodesLinearGSL);
-    fprintf(stderr, "read model->roq->frequencyNodesLinearGSL");
+	    // open file containing the set of frequency points associated
+	    // with the given weights
+	    tempfp = fopen(ppt->value, "rb");
+	    if (!tempfp) {
+		fprintf(stderr,"Error: cannot find file %s \n", ppt->value);
+		exit(1);} // check file exists
+	    gsl_vector_fread(tempfp, model->roq->frequencyNodesLinearGSL);
+	    fprintf(stderr, "read model->roq->frequencyNodesLinearGSL");
 
-    for(unsigned int linsize = 0; linsize < model->roq->frequencyNodesLinearGSL->size; linsize++){
-      fnode = gsl_vector_get(model->roq->frequencyNodesLinearGSL, linsize);
-      model->roq->frequencyNodesLinear->data[linsize] = fnode;
-    }
-	fprintf(stderr, "loaded --roqnodesLinear\n");
-  }
+	    for(unsigned int linsize = 0; linsize < model->roq->frequencyNodesLinearGSL->size; linsize++){
+	      fnode = gsl_vector_get(model->roq->frequencyNodesLinearGSL, linsize);
+	      model->roq->frequencyNodesLinear->data[linsize] = fnode;
+	    }
+		fprintf(stderr, "loaded --roqnodesLinear\n");
+	  }
 
-  if(LALInferenceGetProcParamVal(commandLine,"--roqnodesQuadratic")){
-    ppt=LALInferenceGetProcParamVal(commandLine,"--roqnodesQuadratic");
+	  if(LALInferenceGetProcParamVal(commandLine,"--roqnodesQuadratic")){
+	    ppt=LALInferenceGetProcParamVal(commandLine,"--roqnodesQuadratic");
 
-    //open file containing the set of frequency points associated
-    // with the given weights
-    tempfp = fopen(ppt->value, "rb");
-    if (!tempfp) {
-      fprintf(stderr,"Error: cannot find file %s \n", ppt->value);
-      exit(1);} // check file exists
-    gsl_vector_fread(tempfp, model->roq->frequencyNodesQuadraticGSL);
+	    //open file containing the set of frequency points associated
+	    // with the given weights
+	    tempfp = fopen(ppt->value, "rb");
+	    if (!tempfp) {
+	      fprintf(stderr,"Error: cannot find file %s \n", ppt->value);
+	      exit(1);} // check file exists
+	    gsl_vector_fread(tempfp, model->roq->frequencyNodesQuadraticGSL);
 
-    for(unsigned int quadsize = 0; quadsize < model->roq->frequencyNodesQuadraticGSL->size; quadsize++){
-      fnode = gsl_vector_get(model->roq->frequencyNodesQuadraticGSL, quadsize);
-      model->roq->frequencyNodesQuadratic->data[quadsize] = fnode;
-    }
+	    for(unsigned int quadsize = 0; quadsize < model->roq->frequencyNodesQuadraticGSL->size; quadsize++){
+	      fnode = gsl_vector_get(model->roq->frequencyNodesQuadraticGSL, quadsize);
+	      model->roq->frequencyNodesQuadratic->data[quadsize] = fnode;
+	    }
 	fprintf(stderr, "loaded --roqnodesQuadratic\n");
   }
 
