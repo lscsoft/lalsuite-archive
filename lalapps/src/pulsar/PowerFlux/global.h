@@ -47,6 +47,27 @@ void *do_alloc(long a, long b);
 
 #define aligned_alloca(a) ((void *)(((unsigned long)(alloca(a+(ALIGNMENT-1)))+(ALIGNMENT-1)) & ~(ALIGNMENT-1)))
 
+#ifndef PRAGMA_IVDEP
+//#define PRAGMA_IVDEP    #pragma GCC ivdep
+#ifdef __INTEL_COMPILER
+#define PRAGMA_IVDEP	_Pragma("ivdep")
+#else
+#define PRAGMA_IVDEP    _Pragma("GCC ivdep")
+#endif
+#endif
+
+#ifndef ALIGN_DECLSPEC
+#ifdef __INTEL_COMPILER
+#define ALIGN_DECLSPEC __declspec(align(64))
+#else
+#define ALIGN_DECLSPEC
+#endif
+#endif
+
+#ifndef MANUAL_SSE
+#define MANUAL_SSE 1
+#endif
+
 #define TESTSTATUS( status ) \
   { if ( (status)->statusCode ) { \
   	fprintf(stderr,"** LAL status encountered in file \"%s\" function \"%s\" line %d\n", __FILE__, __FUNCTION__, __LINE__);\

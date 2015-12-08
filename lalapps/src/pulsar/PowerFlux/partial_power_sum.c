@@ -1,8 +1,8 @@
 
 SUFFIX(PARTIAL_POWER_SUM) *SUFFIX(allocate_partial_power_sum)(int pps_bins, int cross_terms_present)
 {
-SUFFIX(PARTIAL_POWER_SUM) *r;
-REAL *p;
+SUFFIX(PARTIAL_POWER_SUM) * __restrict__ r;
+REAL * __restrict__ p;
 int i;
 
 r=do_alloc(1, sizeof(*r));
@@ -21,6 +21,7 @@ r->memory_pool=do_alloc(r->memory_pool_size, 1);
 
 p=r->memory_pool;
 
+PRAGMA_IVDEP
 for(i=0;i<r->memory_pool_size/sizeof(REAL);i++) {
 	p[i]=NAN;
 	}
@@ -79,7 +80,7 @@ r->collapsed_weight_arrays=0;
 return r;
 }
 
-void SUFFIX(zero_partial_power_sum)(SUFFIX(PARTIAL_POWER_SUM) *pps)
+void SUFFIX(zero_partial_power_sum)(SUFFIX(PARTIAL_POWER_SUM) * __restrict__ pps)
 {
 int i;
 int pps_bins=pps->nbins;
@@ -90,6 +91,7 @@ if(pps->type!=sizeof(REAL)) {
 	exit(-1);
 	}
 
+PRAGMA_IVDEP
 for(i=0;i<pps_bins;i++) {
 	pps->weight_pppp[i]=0;
 	pps->weight_pppc[i]=0;
@@ -103,6 +105,7 @@ for(i=0;i<pps_bins;i++) {
 	}
 	
 if(pps->power_im_pc!=NULL) {
+PRAGMA_IVDEP
 	for(i=0;i<pps_bins;i++) {
 		pps->power_im_pc[i]=0;
 		}
@@ -160,10 +163,10 @@ pps->collapsed_weight_arrays=0;
 }
 
 
-void SUFFIX(accumulate_partial_power_sum)(SUFFIX(PARTIAL_POWER_SUM) *accum, SUFFIX(PARTIAL_POWER_SUM) *partial)
+void SUFFIX(accumulate_partial_power_sum)(SUFFIX(PARTIAL_POWER_SUM) * __restrict__  accum, SUFFIX(PARTIAL_POWER_SUM) * __restrict__ partial)
 {
 int i;
-REAL *a1, *a2, *a3, *a4, *a5, *p1, *p2, *p3, *p4, *p5;
+SUFFIX(REALPTR) a1, a2, a3, a4, a5, p1, p2, p3, p4, p5;
 int pps_bins=accum->nbins;
 int shift;
 if(accum->type!=sizeof(REAL)) {
@@ -194,17 +197,24 @@ p1=&(partial->power_pp[shift]);
 p2=&(partial->power_pc[shift]);
 p3=&(partial->power_cc[shift]);
 
+// PRAGMA_IVDEP
+// for(i=0;i<pps_bins;i++) {
+// 	(*a1)+=*p1;
+// 	(*a2)+=*p2;
+// 	(*a3)+=*p3;
+// 
+// 	a1++;
+// 	p1++;
+// 	a2++;
+// 	p2++;
+// 	a3++;
+// 	p3++;
+// 	}
+PRAGMA_IVDEP
 for(i=0;i<pps_bins;i++) {
-	(*a1)+=*p1;
-	(*a2)+=*p2;
-	(*a3)+=*p3;
-
-	a1++;
-	p1++;
-	a2++;
-	p2++;
-	a3++;
-	p3++;
+	a1[i]+=p1[i];
+	a2[i]+=p2[i];
+	a3[i]+=p3[i];
 	}
 
 if(partial->power_im_pc!=NULL) {
@@ -214,11 +224,16 @@ if(partial->power_im_pc!=NULL) {
 		}
 	a1=accum->power_im_pc;
 	p1=&(partial->power_im_pc[shift]);
+// PRAGMA_IVDEP
+// 	for(i=0;i<pps_bins;i++) {
+// 		(*a1)+=*p1;
+// 		
+// 		a1++;
+// 		p1++;
+// 		}
+PRAGMA_IVDEP
 	for(i=0;i<pps_bins;i++) {
-		(*a1)+=*p1;
-		
-		a1++;
-		p1++;
+		a1[i]+=p1[i];
 		}
 	accum->c_weight_im_ppcc+=partial->c_weight_im_ppcc;
 	}
@@ -236,23 +251,31 @@ if(partial->weight_arrays_non_zero) {
 	p4=&(partial->weight_pccc[shift]);
 	p5=&(partial->weight_cccc[shift]);
 
+// 	for(i=0;i<pps_bins;i++) {
+// 		(*a1)+=*p1;
+// 		(*a2)+=*p2;
+// 		(*a3)+=*p3;
+// 		(*a4)+=*p4;
+// 		(*a5)+=*p5;
+// 	
+// 		a1++;
+// 		p1++;
+// 		a2++;
+// 		p2++;
+// 		a3++;
+// 		p3++;
+// 		a4++;
+// 		p4++;
+// 		a5++;
+// 		p5++;
+// 		}
+PRAGMA_IVDEP
 	for(i=0;i<pps_bins;i++) {
-		(*a1)+=*p1;
-		(*a2)+=*p2;
-		(*a3)+=*p3;
-		(*a4)+=*p4;
-		(*a5)+=*p5;
-	
-		a1++;
-		p1++;
-		a2++;
-		p2++;
-		a3++;
-		p3++;
-		a4++;
-		p4++;
-		a5++;
-		p5++;
+		a1[i]+=p1[i];
+		a2[i]+=p2[i];
+		a3[i]+=p3[i];
+		a4[i]+=p4[i];
+		a5[i]+=p5[i];
 		}
 	accum->weight_arrays_non_zero=1;
 	}

@@ -259,14 +259,6 @@ class CoincDatabase(object):
 #
 
 
-def sim_end_time(sim, instrument):
-	# this function requires .get_time_geocent() and .get_ra_dec()
-	# methods, and so can be used for both burst and inspiral
-	# injections.  FIXME:  update function call when inspiral
-	# injections carry offset vector information
-	SimBurstUtils.time_at_instrument(sim, instrument, {instrument: 0.0})
-
-
 def roman(i, arabics = (1000,900,500,400,100,90,50,40,10,9,5,4,1), romans = ("m","cm","d","cd","c","xc","l","xl","x","ix","v","iv","i")):
 	if not arabics:
 		return ""
@@ -733,7 +725,7 @@ FROM
 
 			fig, axes = create_plot(r"Injection End Time (GPS s)", r"Recovered End Time - Injection End Time (s)")
 			axes.set_title(r"End Time Accuracy in %s (%s Injections)" % (instrument, waveform))
-			axes.plot([sim_end_time(sim, instrument) for sim, sngl in pairs], [sngl.get_end() - sim_end_time(sim, instrument) for sim, sngl in pairs], "kx")
+			axes.plot([sim.time_at_instrument(instrument, {instrument: 0.0}) for sim, sngl in pairs], [sngl.end - sim.time_at_instrument(instrument, {instrument: 0.0}) for sim, sngl in pairs], "kx")
 			yield fig, "t_acc_%s_%s" % (waveform, instrument), False
 
 			fig, axes = create_plot(r"Injection $D_{\mathrm{eff}}$ ($\mathrm{Mpc}$)", r"(Recovered $D_{\mathrm{eff}}$ - Injection $D_{\mathrm{eff}}$) / Injection $D_{\mathrm{eff}}$")
