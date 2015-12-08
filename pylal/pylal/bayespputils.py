@@ -968,6 +968,13 @@ class Posterior(object):
       #If new spin params present, calculate old ones
       old_spin_params = ['iota', 'theta1', 'phi1', 'theta2', 'phi2', 'beta']
       new_spin_params = ['theta_jn', 'phi_jl', 'tilt1', 'tilt2', 'phi12', 'a1', 'a2', 'm1', 'm2', 'f_ref']
+      try:
+          if pos['f_ref'].samples[0][0]==0.0:
+              for name in ['flow','f_lower']:
+                  if name in pos.names:
+                      new_spin_params = ['theta_jn', 'phi_jl', 'tilt1', 'tilt2', 'phi12', 'a1', 'a2', 'm1', 'm2', name]
+      except:
+          print "No f_ref for SimInspiralTransformPrecessingNewInitialConditions()."
       if set(new_spin_params).issubset(set(pos.names)) and not set(old_spin_params).issubset(set(pos.names)):
         pos.append_mapping(old_spin_params, physical2radiationFrame, new_spin_params)
 
@@ -3845,7 +3852,7 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
 
             return iota, theta1, phi1, theta2, phi2, beta
 
-        except TypeError:
+        except: # Catch all exceptions, including failure for the transformFunc
             # Something went wrong, returning None
             return None
 #
