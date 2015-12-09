@@ -652,26 +652,27 @@ def cbcBayesPostProc(
     clasciiout+='\n'
     html_ogci_write+='</tr>'
     #Generate new BCI html table row
+    printed=0
     for par_name in oneDMenu:
-            par_name=par_name.lower()
-            try:
+      par_name=par_name.lower()
+      try:
               pos[par_name.lower()]
-            except KeyError:
-            #print "No input chain for %s, skipping binning."%par_name
-              continue
-            try:
+      except KeyError:
+      #print "No input chain for %s, skipping binning."%par_name
+             continue
+      try:
               par_bin=GreedyRes[par_name]
-            except KeyError:
+      except KeyError:
               print "Bin size is not set for %s, skipping binning."%par_name
               continue
-            binParams={par_name:par_bin}
-            injection_area=None
-            if greedy:
+      binParams={par_name:par_bin}
+      injection_area=None
+      if greedy:
                     if printed==0:
                         print "Using greedy 1-d binning credible regions\n"
                         printed=1
                     toppoints,injectionconfidence,reses,injection_area,cl_intervals=bppu.greedy_bin_one_param(pos,binParams,confidence_levels)
-            else:
+      else:
                     if printed==0:
                         print "Using 2-step KDE 1-d credible regions\n"
                         printed=1
@@ -686,12 +687,12 @@ def cbcBayesPostProc(
 
       BCItableline='<tr><td>%s</td>'%(par_name)
       clasciiout+="%s\t"%par_name
-      cls=reses[par_name].keys()
+      cls=reses.keys()
       cls.sort()
 
       for cl in cls:
-          BCItableline+='<td>%f</td>'%reses[par_name][cl]
-          clasciiout+="%f\t"%reses[par_name][cl]
+          BCItableline+='<td>%f</td>'%reses[cl]
+          clasciiout+="%f\t"%reses[cl]
       if injection is not None:
           if injectionconfidence is not None and injection_area is not None:
 
