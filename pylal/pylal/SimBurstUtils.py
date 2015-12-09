@@ -25,11 +25,12 @@
 
 
 import math
-import numpy
 import sys
 
 
-from pylal import date
+import lal
+
+
 from pylal import git_version
 from pylal import inject
 from pylal import rate
@@ -50,39 +51,12 @@ __date__ = git_version.date
 #
 
 
-def time_at_instrument(sim, instrument, offsetvector):
-	"""
-	Return the "time" of the injection, delay corrected for the
-	displacement from the geocentre to the given instrument.
-
-	NOTE:  this function does not account for the rotation of the Earth
-	that occurs during the transit of the plane wave from the detector
-	to the geocentre.  That is, it is assumed the Earth is in the same
-	orientation with respect to the celestial sphere when the wave
-	passes through the detector as when it passes through the
-	geocentre.  The Earth rotates by about 1.5 urad during the 21 ms it
-	takes light to travel the radius of the Earth, which corresponds to
-	10 m of displacement at the equator, or 33 light-ns.  Therefore,
-	the failure to do a proper retarded time calculation here results
-	in errors as large as 33 ns.  This is insignificant for burst
-	searches, but be aware that this approximation is being made if
-	this function is used in other contexts.
-	"""
-	# the offset is subtracted from the time of the injection.
-	# injections are done this way so that when the triggers that
-	# result from an injection have the offset vector added to their
-	# times the triggers will form a coinc
-	t_geocent = sim.time_geocent - offsetvector[instrument]
-	ra, dec = sim.ra_dec
-	return t_geocent + date.XLALTimeDelayFromEarthCenter(inject.cached_detector[inject.prefix_to_name[instrument]].location, ra, dec, t_geocent)
-
-
 def on_instruments(sim, seglists, offsetvector):
 	"""
 	Return a set of the names of the instruments that were on at the
 	time of the injection.
 	"""
-	return set(instrument for instrument, seglist in seglists.items() if time_at_instrument(sim, instrument, offsetvector) in seglist)
+	return set(instrument for instrument, seglist in seglists.items() if sim.time_at_instrument(instrument, offsetvector) in seglist)
 
 
 #
@@ -131,12 +105,14 @@ def hrss_in_instrument(sim, instrument, offsetvector):
 
 	# antenna response factors
 
-	fplus, fcross = inject.XLALComputeDetAMResponse(
-		inject.cached_detector[inject.prefix_to_name[instrument]].response,
+	# FIXME:  remove the LIGOTimeGPS typecast when lsctables port to
+	# lal's swig bindings
+	fplus, fcross = lal.ComputeDetAMResponse(
+		inject.cached_detector_by_prefix[instrument].response,
 		sim.ra,
 		sim.dec,
 		sim.psi,
-		date.XLALGreenwichMeanSiderealTime(time_at_instrument(sim, instrument, offsetvector))
+		lal.GreenwichMeanSiderealTime(lal.LIGOTimeGPS(sim.time_at_instrument(instrument, offsetvector)))
 	)
 
 	# hrss in detector
@@ -154,12 +130,14 @@ def string_amplitude_in_instrument(sim, instrument, offsetvector):
 
 	# antenna response factors
 
-	fplus, fcross = inject.XLALComputeDetAMResponse(
-		inject.cached_detector[inject.prefix_to_name[instrument]].response,
+	# FIXME:  remove the LIGOTimeGPS typecast when lsctables port to
+	# lal's swig bindings
+	fplus, fcross = lal.ComputeDetAMResponse(
+		inject.cached_detector_by_prefix[instrument].response,
 		sim.ra,
 		sim.dec,
 		sim.psi,
-		date.XLALGreenwichMeanSiderealTime(time_at_instrument(sim, instrument, offsetvector))
+		lal.GreenwichMeanSiderealTime(lal.LIGOTimeGPS(sim.time_at_instrument(instrument, offsetvector)))
 	)
 
 	# amplitude in detector
@@ -326,7 +304,7 @@ def plot_Efficiency_hrss_vs_freq(efficiency):
 
 	xcoords, ycoords = efficiency.efficiency.centres()
 	zvals = efficiency.efficiency.ratio()
-	cset = axes.contour(xcoords, ycoords, numpy.transpose(zvals), (.1, .2, .3, .4, .5, .6, .7, .8, .9))
+	cset = axes.contour(xcoords, ycoords, zvals.T, (.1, .2, .3, .4, .5, .6, .7, .8, .9))
 	cset.clabel(inline = True, fontsize = 5, fmt = r"$%%g \pm %g$" % efficiency.error, colors = "k")
 	axes.set_title(r"%s Injection Detection Efficiency (%d of %d Found)" % ("+".join(sorted(efficiency.instruments)), len(efficiency.found_x), len(efficiency.injected_x)))
 	return fig

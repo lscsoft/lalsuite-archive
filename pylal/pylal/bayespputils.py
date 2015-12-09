@@ -58,12 +58,18 @@ from scipy import interpolate
 from numpy import linspace
 import random
 import socket
+from itertools import combinations
 
 try:
     import lalsimulation as lalsim
 except ImportError:
     print('Cannot import lalsimulation SWIG bindings')
     raise
+
+try:
+    from lalinference.imrtgr.nrutils import bbh_final_mass_non_spinning_Panetal, bbh_final_spin_non_spinning_Panetal, bbh_final_spin_non_precessing_Healyetal, bbh_final_mass_non_precessing_Healyetal, bbh_final_spin_projected_spin_Healyetal, bbh_final_mass_projected_spin_Healyetal
+except ImportError:
+    print('Cannot import lalinference.imrtgr.nrutils. Will suppress final parameter calculations.')
 
 from matplotlib.ticker import FormatStrFormatter,ScalarFormatter,AutoMinorLocator
 
@@ -101,10 +107,60 @@ __date__= git_version.date
 #===============================================================================
 #Parameters which are not to be exponentiated when found
 logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior']
-snrParams=['snr','optimal_snr','matched_filter_snr'] + ['%s_optimal_snr'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_amp'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_arg'%(i) for i in ['h1', 'l1', 'v1']]
+#Parameters known to cbcBPP
+relativePhaseParams=[ a+b+'_relative_phase' for a,b in combinations(['h1','l1','v1'],2)]
+snrParams=['snr','optimal_snr','matched_filter_snr'] + ['%s_optimal_snr'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_amp'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_arg'%(i) for i in ['h1', 'l1', 'v1']] + relativePhaseParams
 calAmpParams=['calamp_%s'%(ifo) for ifo in ['h1','l1','v1']]
 calPhaseParams=['calpha_%s'%(ifo) for ifo in ['h1','l1','v1']]
 calParams = calAmpParams + calPhaseParams
+# Masses
+massParams=['m1','m2','chirpmass','mchirp','mc','eta','q','massratio','asym_massratio','mtotal','mf']
+#Spins
+spinParamsPrec=['a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','costheta_jn','cosbeta','tilt1','tilt2','phi_jl','theta_jn','phi12','af']
+spinParamsAli=['spin1','spin2','a1z','a2z']
+spinParamsEff=['chi','effectivespin','chi_eff','chi_tot','chi_p']
+spinParams=spinParamsPrec+spinParamsEff+spinParamsAli
+# Source frame params
+cosmoParam=['m1_source','m2_source','mtotal_source','mc_source','redshift','mf_source']
+#Strong Field
+ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB','alphaPPE','aPPE','betaPPE','bPPE']
+tigerParams=['dchi%i'%(i) for i in range(7)] + ['dchi%il'%(i) for i in [5,6] ] + ['dxi%d'%(i+1) for i in range(6)] + ['dalpha%i'%(i+1) for i in range(5)] + ['dbeta%i'%(i+1) for i in range(3)] + ['dsigma%i'%(i+1) for i in range(4)]
+bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
+massiveGravitonParams=['lambdaG']
+tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat']
+strongFieldParams=ppEParams+tigerParams+bransDickeParams+massiveGravitonParams+tidalParams
+
+#Extrinsic
+distParams=['distance','distMPC','dist']
+incParams=['iota','inclination','cosiota']
+polParams=['psi','polarisation','polarization']
+skyParams=['ra','rightascension','declination','dec']
+phaseParams=['phase', 'phi0','phase_maxl']
+#Times
+timeParams=['time','time_mean']
+endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
+#others
+statsParams=['logprior','logl','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','deltaloglh2','deltaloglg1']
+calibParams=['calpha_l1','calpha_h1','calpha_v1','calamp_l1','calamp_h1','calamp_v1']
+
+## Greedy bin sizes for cbcBPP and confidence leves used for the greedy bin intervals
+confidenceLevels=[0.67,0.9,0.95,0.99]
+
+greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'mc_source':0.025,'m1_source':0.1,'m2_source':0.1,'mtotal_source':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'time_mean':1e-4,'distance':1.0,'dist':1.0,'redshift':0.01,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1z':0.04,'a2z':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'chi_eff':0.05,'chi_tot':0.05,'chi_p':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costheta_jn':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01,'phase':0.05,'tilt1':0.05,'tilt2':0.05,'phi_jl':0.05,'theta_jn':0.05,'phi12':0.05,'flow':1.0,'phase_maxl':0.05,'calamp_l1':0.01,'calamp_h1':0.01,'calamp_v1':0.01,'calpha_h1':0.01,'calpha_l1':0.01,'calpha_v1':0.01,'logdistance':0.1,'psi':0.1,'costheta_jn':0.1,'mf':0.1,'mf_source':0.1,'af':0.02}
+for s in snrParams:
+  greedyBinSizes[s]=0.05
+for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
+  greedyBinSizes[derived_time]=greedyBinSizes['time']
+for derived_phase in relativePhaseParams:
+  greedyBinSizes[derived_phase]=0.05
+for param in tigerParams + bransDickeParams + massiveGravitonParams:
+  greedyBinSizes[param]=0.01
+for param in tidalParams:
+  greedyBinSizes[param]=2.5
+  #Confidence levels
+for loglname in statsParams:
+  greedyBinSizes[loglname]=0.1
+
 #Pre-defined ordered list of line styles for use in matplotlib contour plots.
 __default_line_styles=['solid', 'dashed', 'dashdot', 'dotted']
 #Pre-defined ordered list of matplotlib colours for use in plots.
@@ -222,6 +278,9 @@ def get_prior(name):
       'mtotal_source':None,
       'mc_source':None,
       'redshift':None,
+      'mf':None,
+      'mf_source':None,
+      'af':None,
       'spin1':'uniform',
       'spin2':'uniform',
       'a1':'uniform',
@@ -311,6 +370,9 @@ def plot_label(param):
       'mtotal_source':r'$M_\mathrm{total}^\mathrm{source}\,(\mathrm{M}_\odot)$',
       'mc_source':r'$\mathcal{M}^\mathrm{source}\,(\mathrm{M}_\odot)$',
       'redshift':r'$z$',
+      'mf':r'$M_\mathrm{final}\,(\mathrm{M}_\odot)$',
+      'mf_source':r'$M_\mathrm{final}^\mathrm{source}\,(\mathrm{M}_\odot)$',
+      'af':r'$a_\mathrm{final}$',
       'spin1':r'$S_1$',
       'spin2':r'$S_2$',
       'a1':r'$a_1$',
@@ -847,6 +909,14 @@ class Posterior(object):
       if('theta_spin1' in pos.names): pos.append_mapping('theta1',lambda a:a,'theta_spin1')
       if('theta_spin2' in pos.names): pos.append_mapping('theta2',lambda a:a,'theta_spin2')
 
+      my_ifos=['h1','l1','v1']
+      for ifo1,ifo2 in combinations(my_ifos,2):
+      	p1=ifo1+'_cplx_snr_arg'
+        p2=ifo2+'_cplx_snr_arg'
+        if p1 in pos.names and p2 in pos.names:
+          delta=np.mod(pos[p1].samples - pos[p2].samples + np.pi ,2.0*np.pi)-np.pi
+          pos.append(PosteriorOneDPDF(ifo1+ifo2+'_relative_phase',delta))
+
       # Ensure that both theta_jn and inclination are output for runs
       # with zero tilt (for runs with tilt, this will be taken care of
       # below when the old spin angles are computed as functions of the
@@ -997,6 +1067,13 @@ class Posterior(object):
       #If new spin params present, calculate old ones
       old_spin_params = ['iota', 'theta1', 'phi1', 'theta2', 'phi2', 'beta']
       new_spin_params = ['theta_jn', 'phi_jl', 'tilt1', 'tilt2', 'phi12', 'a1', 'a2', 'm1', 'm2', 'f_ref']
+      try:
+          if pos['f_ref'].samples[0][0]==0.0:
+              for name in ['flow','f_lower']:
+                  if name in pos.names:
+                      new_spin_params = ['theta_jn', 'phi_jl', 'tilt1', 'tilt2', 'phi12', 'a1', 'a2', 'm1', 'm2', name]
+      except:
+          print "No f_ref for SimInspiralTransformPrecessingNewInitialConditions()."
       if set(new_spin_params).issubset(set(pos.names)) and not set(old_spin_params).issubset(set(pos.names)):
         pos.append_mapping(old_spin_params, physical2radiationFrame, new_spin_params)
 
@@ -1020,6 +1097,43 @@ class Posterior(object):
               pos.append(a2_pos)
           except KeyError:
               print "Warning: no spin2 values found."
+
+      # Calculate mass and spin of final merged system
+      if ('m1' in pos.names) and ('m2' in pos.names):
+          if ('a1z' in pos.names) and ('a2z' in pos.names):
+              print "Using non-precessing fit formula [Healy at al (2014)] for final mass and spin (on masses and projected spin components)."
+              try:
+                  pos.append_mapping('af', bbh_final_spin_non_precessing_Healyetal, ['m1', 'm2', 'a1z', 'a2z'])
+                  pos.append_mapping('mf', bbh_final_mass_non_precessing_Healyetal, ['m1', 'm2', 'a1z', 'a2z', 'af'])
+              except Exception,e:
+                  print "Could not calculate final parameters. The error was: %s"%(str(e))
+          elif ('a1' in pos.names) and ('a2' in pos.names):
+              if ('tilt1' in pos.names) and ('tilt2' in pos.names):
+                  print "Projecting spin and using non-precessing fit formula [Healy at al (2014)] for final mass and spin."
+                  try:
+                      pos.append_mapping('af', bbh_final_spin_projected_spin_Healyetal, ['m1', 'm2', 'a1', 'a2', 'tilt1', 'tilt2'])
+                      pos.append_mapping('mf', bbh_final_mass_projected_spin_Healyetal, ['m1', 'm2', 'a1', 'a2', 'tilt1', 'tilt2', 'af'])
+                  except Exception,e:
+                      print "Could not calculate final parameters. The error was: %s"%(str(e))
+              else:
+                  print "Using non-precessing fit formula [Healy at al (2014)] for final mass and spin (on masses and spin magnitudes)."
+                  try:
+                      pos.append_mapping('af', bbh_final_spin_non_precessing_Healyetal, ['m1', 'm2', 'a1', 'a2'])
+                      pos.append_mapping('mf', bbh_final_mass_non_precessing_Healyetal, ['m1', 'm2', 'a1', 'a2', 'af'])
+                  except Exception,e:
+                      print "Could not calculate final parameters. The error was: %s"%(str(e))
+          else:
+              print "Using non-spinning fit formula [Pan at al (2010)] for final mass and spin."
+              try:
+                  pos.append_mapping('af', bbh_final_spin_non_spinning_Panetal, ['m1', 'm2'])
+                  pos.append_mapping('mf', bbh_final_mass_non_spinning_Panetal, ['m1', 'm2'])
+              except Exception,e:
+                  print "Could not calculate final parameters. The error was: %s"%(str(e))
+      if ('mf' in pos.names) and ('redshift' in pos.names):
+          try:
+              pos.append_mapping('mf_source', source_mass, ['mf', 'redshift'])
+          except Exception,e:
+              print "Could not calculate final source frame mass. The error was: %s"%(str(e))
 
     def bootstrap(self):
         """
@@ -3874,7 +3988,7 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
 
             return iota, theta1, phi1, theta2, phi2, beta
 
-        except TypeError:
+        except: # Catch all exceptions, including failure for the transformFunc
             # Something went wrong, returning None
             return None
 #
@@ -4208,6 +4322,7 @@ def plot_corner(posterior,levels,parnames=None):
   @param levels: a list of confidence levels
   @param parnames: list of parameters to include
   """
+  return None
   try:
     import corner
   except ImportError:
@@ -6672,7 +6787,7 @@ def plot_calibration_pos(pos, level=.9, outpath=None):
         outpath=os.getcwd()
 
     params = pos.names
-    ifos = np.unique([param.split('_')[0] for param in params if 'spcal' in param])
+    ifos = np.unique([param.split('_')[0] for param in params if 'spcal_freq' in param])
     for ifo in ifos:
         if ifo=='h1': color = 'r'
         elif ifo=='l1': color = 'g'
@@ -6691,7 +6806,7 @@ def plot_calibration_pos(pos, level=.9, outpath=None):
                               '{0}_spcal_amp'.format(ifo) in param])
         if len(amp_params) > 0:
             amp = 100*np.column_stack([pos[param].samples for param in amp_params])
-            plot_spline_pos(logfreqs, amp, color=color, level=level, label="{0} (mean, {0}%)".format(ifo.upper(), int(level*100)))
+            plot_spline_pos(logfreqs, amp, color=color, level=level, label="{0} (mean, {1}%)".format(ifo.upper(), int(level*100)))
 
         # Phase calibration model
         plt.sca(ax2)
@@ -7176,3 +7291,198 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
       #ax.tight_layout()
   A.savefig(os.path.join(path,'WF_DetFrame.png'),bbox_inches='tight')
   return inj_strains, rec_strains
+
+def make_1d_table(html,legend,label,pos,pars,noacf,GreedyRes,onepdfdir,sampsdir,savepdfs,greedy,analyticLikelihood,nDownsample):
+    
+    from numpy import unique, sort
+    global confidenceLevels
+    confidence_levels=confidenceLevels
+    
+    out={}
+    if pars==[]:
+      return out
+    if set(pos.names)-set(pars)==set(pos.names):
+      return out
+    
+    #2D plots list
+    tabid='onedmargtable_'+label.lower()
+    html_ompdf=html.add_collapse_section('1D marginal posterior PDFs (%s)'%label,legend=legend,innertable_id=tabid)
+    #Table matter
+    if not noacf:
+        html_ompdf_write= '<table id="%s"><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th><th>Autocorrelation</th></tr>'%tabid
+    else:
+        html_ompdf_write= '<table id="%s"><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th></tr>'%tabid
+
+    Nskip=0
+    if 'chain' in pos.names:
+        data,header=pos.samples()
+        par_index=pos.names.index('cycle')
+        chain_index=pos.names.index("chain")
+        chains=unique(pos["chain"].samples)
+        chainCycles = [sort(data[ data[:,chain_index] == chain, par_index ]) for chain in chains]
+        chainNcycles = [cycles[-1]-cycles[0] for cycles in chainCycles]
+        chainNskips = [cycles[1] - cycles[0] for cycles in chainCycles]
+    elif 'cycle' in pos.names:
+        cycles = sort(pos['cycle'].samples)
+        Ncycles = cycles[-1]-cycles[0]
+        Nskip = cycles[1]-cycles[0]
+    
+    printed=0
+    for par_name in pars:
+        par_name=par_name.lower()
+        try:
+            pos[par_name.lower()]
+        except KeyError:
+            #print "No input chain for %s, skipping binning."%par_name
+            continue
+        try:
+            par_bin=GreedyRes[par_name]
+        except KeyError:
+            print "Bin size is not set for %s, skipping binning."%par_name
+            continue
+
+        #print "Binning %s to determine confidence levels ..."%par_name
+        binParams={par_name:par_bin}
+        injection_area=None
+        injection_area=None
+        if greedy:
+          if printed==0:
+            print "Using greedy 1-d binning credible regions\n"
+            printed=1
+          toppoints,injectionconfidence,reses,injection_area,cl_intervals=greedy_bin_one_param(pos,binParams,confidence_levels)
+        else:
+          if printed==0:
+            print "Using 2-step KDE 1-d credible regions\n"
+            printed=1
+          if pos[par_name].injval is None:
+            injCoords=None
+          else:
+            injCoords=[pos[par_name].injval]
+          _,reses,injstats=kdtree_bin2Step(pos,[par_name],confidence_levels,injCoords=injCoords)
+          if injstats is not None:
+            injectionconfidence=injstats[3]
+            injection_area=injstats[4]
+        #Generate 1D histogram/kde plots
+        print "Generating 1D plot for %s."%par_name
+        out[par_name]=reses
+        #Get analytic description if given
+        pdf=cdf=None
+        if analyticLikelihood:
+            pdf = analyticLikelihood.pdf(par_name)
+            cdf = analyticLikelihood.cdf(par_name)
+
+        oneDPDFParams={par_name:50}
+        try:
+            rbins,plotFig=plot_one_param_pdf(pos,oneDPDFParams,pdf,cdf,plotkde=False)
+        except:
+            print "Failed to produce plot for %s."%par_name
+            continue
+
+        figname=par_name+'.png'
+        oneDplotPath=os.path.join(onepdfdir,figname)
+        plotFig.savefig(oneDplotPath)
+        if(savepdfs): plotFig.savefig(os.path.join(onepdfdir,par_name+'.pdf'))
+        plt.close(plotFig)
+
+        if rbins:
+            print "r of injected value of %s (bins) = %f"%(par_name, rbins)
+
+        ##Produce plot of raw samples
+        myfig=plt.figure(figsize=(4,3.5),dpi=200)
+        pos_samps=pos[par_name].samples
+        if not ("chain" in pos.names):
+            # If there is not a parameter named "chain" in the
+            # posterior, then just produce a plot of the samples.
+            plt.plot(pos_samps,'k.', markersize=5, alpha=0.5, linewidth=0.0, figure=myfig)
+            maxLen=len(pos_samps)
+        else:
+            # If there is a parameter named "chain", then produce a
+            # plot of the various chains in different colors, with
+            # smaller dots.
+            data,header=pos.samples()
+            par_index=pos.names.index(par_name)
+            chain_index=pos.names.index("chain")
+            chains=unique(pos["chain"].samples)
+            chainData=[data[ data[:,chain_index] == chain, par_index ] for chain in chains]
+            chainDataRanges=[range(len(cd)) for cd in chainData]
+            maxLen=max([len(cd) for cd in chainData])
+            for rng, data in zip(chainDataRanges, chainData):
+                plt.plot(rng, data, marker='.', markersize=1, alpha=0.5, linewidth=0.0,figure=myfig)
+            plt.title("Gelman-Rubin R = %g"%(pos.gelman_rubin(par_name)))
+
+            #dataPairs=[ [rng, data] for (rng,data) in zip(chainDataRanges, chainData)]
+            #flattenedData=[ item for pair in dataPairs for item in pair ]
+            #maxLen=max([len(data) for data in flattenedData])
+            #plt.plot(array(flattenedData),marker=',',linewidth=0.0,figure=myfig)
+
+
+        injpar=pos[par_name].injval
+
+        if injpar is not None:
+            # Allow injection to be 5% outside the posterior plot
+            minrange=min(pos_samps)-0.05*(max(pos_samps)-min(pos_samps))
+            maxrange=max(pos_samps)+0.05*(max(pos_samps)-min(pos_samps))
+            if minrange<injpar and maxrange>injpar:
+                plt.axhline(injpar, color='r', linestyle='-.',linewidth=4)
+        myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.png')))
+        if(savepdfs): myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.pdf')))
+        plt.close(myfig)
+        acfail=0
+        if not (noacf):
+            acffig=plt.figure(figsize=(4,3.5),dpi=200)
+            if not ("chain" in pos.names):
+                data=pos_samps[:,0]
+                try:
+                    (Neff, acl, acf) = effectiveSampleSize(data, Nskip)
+                    lines=plt.plot(acf, 'k.', marker='.', markersize=1, alpha=0.5, linewidth=0.0, figure=acffig)
+                    # Give ACL info if not already downsampled according to it
+                    if nDownsample is None:
+                        plt.title('Autocorrelation Function')
+                    elif 'cycle' in pos.names:
+                        last_color = lines[-1].get_color()
+                        plt.axvline(acl/Nskip, linestyle='-.', color=last_color)
+                        plt.title('ACL = %i   N = %i'%(acl,Neff))
+                except FloatingPointError:
+                    # Ignore
+                    acfail=1
+                    pass
+            else:
+                try:
+                    acls = []
+                    Nsamps = 0.0;
+                    for rng, data, Nskip, Ncycles in zip(chainDataRanges, chainData, chainNskips, chainNcycles):
+                        (Neff, acl, acf) = effectiveSampleSize(data, Nskip)
+                        acls.append(acl)
+                        Nsamps += Neff
+                        lines=plt.plot(acf,'k.', marker='.', markersize=1, alpha=0.5, linewidth=0.0, figure=acffig)
+                        # Give ACL info if not already downsampled according to it
+                        if nDownsample is not None:
+                            last_color = lines[-1].get_color()
+                            plt.axvline(acl/Nskip, linestyle='-.', color=last_color)
+                    if nDownsample is None:
+                        plt.title('Autocorrelation Function')
+                    else:
+                        plt.title('ACL = %i  N = %i'%(max(acls),Nsamps))
+                except FloatingPointError:
+                    # Ignore
+                    acfail=1
+                    pass
+
+            acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.png')))
+            if(savepdfs): acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.pdf')))
+            plt.close(acffig)
+
+        if not noacf:
+	  if not acfail:
+	    acfhtml='<td width="30%"><img width="100%" src="1Dsamps/'+figname.replace('.png', '_acf.png')+'"/></td>'
+	  else:
+	    acfhtml='<td>ACF generation failed!</td>'
+          html_ompdf_write+='<tr><td width="30%"><img width="100%" src="1Dpdf/'+figname+'"/></td><td width="30%"><img width="100%" src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td>'+acfhtml+'</tr>'
+        else:
+            html_ompdf_write+='<tr><td width="30%"><img width="100%" src="1Dpdf/'+figname+'"/></td><td width="30%"><img width="100%" src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td></tr>'
+    
+    html_ompdf_write+='</table>'
+    html_ompdf.write(html_ompdf_write)
+    
+    return out
+    

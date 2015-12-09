@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.56-64
+VERSION=1.4.57-64
 # This version is developed against LAL-6.30
 LALROOT=./../../../../
 LALROOT=/home/vdergach/opt/
@@ -8,7 +8,8 @@ LALROOT=/opt/lscsoft/
 LALINCLUDE=-I$(LALROOT)/include/
 #LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -L/opt/zlib/lib -L/opt/png/lib -llalsupport -llalpulsar -llal -lm -lz
 LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -L/opt/zlib/lib -L/opt/png/lib -llalpulsar -llalsupport  -llal -lm -lz
-LDFLAGS=$(LALLDFLAGS) -L. -lpng
+LDFLAGS=$(LALLDFLAGS) -g -ggdb -L. -lpng
+VALGRIND_LDFLAGS=/opt/lscsoft/lib/liblalpulsar.a /opt/lscsoft/lib/liblalxml.a /opt/lscsoft/lib/liblalsupport.a /opt/lscsoft/lib/liblal.a  -lm -lz -g -ggdb -L. -lpng /usr/lib/gcc/x86_64-linux-gnu/4.9/libasan.a /usr/lib/gcc/x86_64-linux-gnu/4.9/libubsan.a -ldl
 #OPTFLAGS=-O2 -funroll-loops 
 OPTFLAGS=-O6 -mmmx -msse -mcpu=i686
 OPTFLAGS=-O6 -march=i686 -funroll-loops
@@ -18,11 +19,20 @@ OPTFLAGS=-O -march=opteron -fno-stack-protector
 OPTFLAGS=-O6 -msse2 -funroll-loops -fno-stack-protector
 #OPTFLAGS=-O6 -mtune=opteron -mfpmath=sse -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE
 OPTFLAGS=-O6 -mtune=nocona -funroll-loops -fno-stack-protector -msse3 -U_FORTIFY_SOURCE
-OPTFLAGS=-O -mtune=core2 -funroll-loops -fno-stack-protector -msse3 -U_FORTIFY_SOURCE
+OPTFLAGS=-O3 -mtune=core2 -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -msse3 -U_FORTIFY_SOURCE
+OPTFLAGS=-O3 -mtune=core2 -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -mavx -U_FORTIFY_SOURCE
+#OPTFLAGS=-O3 -mtune=core2 -msse3 -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=0
+OPTFLAGS=-O3 -fopenmp -flto -mtune=core2 -mavx -ftree-loop-im -fvariable-expansion-in-unroller -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=1 -fno-associative-math -fno-math-errno -ffinite-math-only -fno-signed-zeros -fcx-limited-range -DLINUX_THREADS
+#OPTFLAGS=-O3 -march=haswell -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=0
+#OPTFLAGS=-fopenmp -O3 -march=haswell -fno-tree-vectorize -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=0
 #OPTFLAGS=-O6 -funroll-loops -msse3
 CONVERSION=-Wconversion-extra -Wconversion
 CONVERSION=
-CFLAGS=-Wall $(CONVERSION) -g $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=\"$(VERSION)\" \
+#SANITIZE=-fsanitize=thread  -pie 
+#SANITIZE=  -fsanitize=leak -fsanitize=undefined 
+#SANITIZE= -fsanitize=address -fsanitize=leak -fsanitize=undefined
+SANITIZE=
+CFLAGS=-Wall $(CONVERSION) $(SANITIZE) -g -ggdb $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=\"$(VERSION)\" \
 	$(LALINCLUDE) -fPIC -std=gnu99
 CC=gcc $(CFLAGS)
 
@@ -453,7 +463,7 @@ powerflux-condor: $(OBJS) jobs.o util-condor.o
 	ls -l powerflux-condor
 
 powerflux-mt2: $(OBJS2) jobs-mt.o util.o
-	$(CC) $(OBJS2) jobs-mt.o util.o -o powerflux-mt2 -static $(LDFLAGS) -lgsl -lgslcblas -lm -lpthread -lz
+	$(CC) $(CFLAGS) $(OBJS2) jobs-mt.o util.o -o powerflux-mt2 -static $(LDFLAGS) -lgsl -lgslcblas -lm -lpthread -lz
 	ls -l powerflux-mt2
 
 powerflux-condor2: $(OBJS2) jobs.o util-condor.o
@@ -461,7 +471,7 @@ powerflux-condor2: $(OBJS2) jobs.o util-condor.o
 	ls -l powerflux-condor2
 
 powerflux-valgrind2: $(OBJS2) jobs-mt.o util.o
-	$(CC) $(OBJS2) jobs-mt.o util.o -o powerflux-valgrind2 $(LDFLAGS) -lgsl -lgslcblas -lm -lpthread -lz
+	$(CC) $(OBJS2) jobs-mt.o util.o -o powerflux-valgrind2 $(VALGRIND_LDFLAGS) -lgsl -lgslcblas -lm -lpthread -lz
 	ls -l powerflux-valgrind2
 
 
@@ -481,7 +491,7 @@ cmdline2.c: powerflux2.ggo
 	gengetopt  --string-parser --conf-parser --file-name=cmdline2 < powerflux2.ggo
 
 clean:
-	rm -f core *.bck *.o
+	rm -f core *.bck *.o vec_info.txt
 
 upload: powerflux-condor powerflux-mt powerflux-condor2 powerflux-mt2
 	gsiscp -C powerflux-condor hydra.phys.uwm.edu:PowerFlux/powerflux-condor.$(VERSION)
@@ -496,6 +506,13 @@ upload.a: powerflux-condor powerflux-mt powerflux-condor2 powerflux-mt2
 	gsiscp -C powerflux-condor2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor2.$(VERSION)
 	gsiscp -C powerflux-mt2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt2.$(VERSION)
 	gsiscp -C $(FILES) h2.atlas.aei.uni-hannover.de:PowerFlux/
+	
+upload.a2: powerflux-mt2
+#	gsiscp -C powerflux-condor h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor.$(VERSION)
+#	gsiscp -C powerflux-mt h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt.$(VERSION)
+#	gsiscp -C powerflux-condor2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor2.$(VERSION)
+	gsiscp -C powerflux-mt2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt2.$(VERSION)
+#	gsiscp -C $(FILES) h2.atlas.aei.uni-hannover.de:PowerFlux/
 	
 upload.g: powerflux-condor powerflux-mt
 	scp -C powerflux-condor gallatin.physics.lsa.umich.edu:PowerFlux/powerflux-condor.$(VERSION)
@@ -520,10 +537,12 @@ upload.c: powerflux-condor powerflux-mt powerflux-condor2 powerflux-mt2
 	gsiscp -C $(FILES) ldas-grid.ligo.caltech.edu:PowerFlux/
 
 upload.c2:  powerflux-mt powerflux-mt2
-	gsiscp -C powerflux-mt ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt.$(VERSION)
+#	gsiscp -C powerflux-mt ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt.$(VERSION)
 	gsiscp -C powerflux-mt2 ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt2.$(VERSION)
 	gsiscp -C $(FILES) ldas-grid.ligo.caltech.edu:PowerFlux/
 
+upload.v2:  powerflux-valgrind2
+	gsiscp -C powerflux-valgrind2 ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt2.$(VERSION)
 
 upload.m: powerflux-condor powerflux-mt
 	gsiscp -C powerflux-condor vdergach@morgane.aei.mpg.de:PowerFlux/powerflux-condor.$(VERSION)

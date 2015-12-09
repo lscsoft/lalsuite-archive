@@ -2,7 +2,6 @@
 #define __POWER_SUMS_H__
 
 #include "power_cache.h"
-#include "summing_context.h"
 
 typedef struct S_POWER_SUM {
 	float freq_shift; /* additional shift e.g. for half-bin sampling */
@@ -31,9 +30,12 @@ typedef struct S_POWER_SUM {
 	PARTIAL_POWER_SUM_F *pps;
 	} POWER_SUM;
 
+#include "summing_context.h"
+	
 void generate_patch_templates(SUMMING_CONTEXT *ctx, int pi, POWER_SUM **ps, int *count);
 void clone_templates(SUMMING_CONTEXT *ctx, POWER_SUM *ps, int count, POWER_SUM **ps_out);
-void free_templates(POWER_SUM *ps, int count);
+//void free_templates(POWER_SUM *ps, int count);
+void free_templates_ctx(SUMMING_CONTEXT *ctx, POWER_SUM *ps, int count);
 
 void accumulate_power_sums_sidereal_step(SUMMING_CONTEXT *ctx, POWER_SUM *ps, int count, double gps_start, double gps_stop, int veto_mask);
 void accumulate_power_sums_plain(SUMMING_CONTEXT *ctx, POWER_SUM *ps, int count, double gps_start, double gps_stop, int veto_mask);
