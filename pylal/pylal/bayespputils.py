@@ -58,6 +58,7 @@ from scipy import interpolate
 from numpy import linspace
 import random
 import socket
+from itertools import combinations
 
 try:
     import lalsimulation as lalsim
@@ -107,7 +108,8 @@ __date__= git_version.date
 #Parameters which are not to be exponentiated when found
 logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior']
 #Parameters known to cbcBPP
-snrParams=['snr','optimal_snr','matched_filter_snr'] + ['%s_optimal_snr'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_amp'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_arg'%(i) for i in ['h1', 'l1', 'v1']]
+relativePhaseParams=[ a+b+'_relative_phase' for a,b in combinations(['h1','l1','v1'],2)]
+snrParams=['snr','optimal_snr','matched_filter_snr'] + ['%s_optimal_snr'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_amp'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_arg'%(i) for i in ['h1', 'l1', 'v1']] + relativePhaseParams
 calAmpParams=['calamp_%s'%(ifo) for ifo in ['h1','l1','v1']]
 calPhaseParams=['calpha_%s'%(ifo) for ifo in ['h1','l1','v1']]
 calParams = calAmpParams + calPhaseParams
@@ -149,6 +151,8 @@ for s in snrParams:
   greedyBinSizes[s]=0.05
 for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
   greedyBinSizes[derived_time]=greedyBinSizes['time']
+for derived_phase in relativePhaseParams:
+  greedyBinSizes[derived_phase]=0.05
 for param in tigerParams + bransDickeParams + massiveGravitonParams:
   greedyBinSizes[param]=0.01
 for param in tidalParams:
@@ -875,6 +879,14 @@ class Posterior(object):
       if('phi_spin2' in pos.names): pos.append_mapping('phi2',lambda a:a,'phi_spin2')
       if('theta_spin1' in pos.names): pos.append_mapping('theta1',lambda a:a,'theta_spin1')
       if('theta_spin2' in pos.names): pos.append_mapping('theta2',lambda a:a,'theta_spin2')
+
+      my_ifos=['h1','l1','v1']
+      for ifo1,ifo2 in combinations(my_ifos,2):
+      	p1=ifo1+'_cplx_snr_arg'
+        p2=ifo2+'_cplx_snr_arg'
+        if p1 in pos.names and p2 in pos.names:
+          delta=np.mod(pos[p1].samples - pos[p2].samples + np.pi ,2.0*np.pi)-np.pi
+          pos.append(PosteriorOneDPDF(ifo1+ifo2+'_relative_phase',delta))
 
       # Ensure that both theta_jn and inclination are output for runs
       # with zero tilt (for runs with tilt, this will be taken care of
