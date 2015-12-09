@@ -280,6 +280,10 @@ def cbcBayesPostProc(
     else:
         peparser=bppu.PEOutputParser('common')
         commonResultsObj=peparser.parse(open(data[0],'r'),info=[header,None])
+        # check if Nest (through nest2post) has produced an header file with git and CL info. If yes copy in outdir
+        if os.path.isfile(data[0]+"_header.txt"):
+          import shutil
+          shutil.copy2(data[0]+"_header.txt", os.path.join(outdir,'nest_headers.txt'))
     
     #Extract f_ref from CRO if present.  This is needed to calculate orbital angular momentum
     #  when converting spin parameters.  Ideally this info will be provided in the
