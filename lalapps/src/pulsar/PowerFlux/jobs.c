@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#define _GNU_SOURCE
 #include <pthread.h>
 #include <string.h>
 #include "global.h"
@@ -19,6 +20,7 @@ int num_threads=0;
 int threads_started=0;
 MUTEX thread_num_mutex;
 CONDITION thread_not_needed;
+cpu_set_t cpuset;
 
 int cpu_count(void)
 {
@@ -47,14 +49,17 @@ if(count<1) {
 return count;
 }
 
-void *thread_cruncher(int i)
+void *thread_cruncher(long i)
 {
 
 while(1) {
+	//fprintf(stderr, "Thread %d waiting\n", i);
 	wait_for_more_jobs();
 	thread_mutex_lock(&thread_num_mutex);
 	while(i>=num_threads)thread_cond_wait(&thread_not_needed, &thread_num_mutex);
 	thread_mutex_unlock(&thread_num_mutex);
+	//fprintf(stderr, "Thread %d running\n", i);
+	pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 	while(do_single_job(i));
 	}
 
@@ -68,6 +73,9 @@ if(max_threads<0) {
 	max_threads=cpu_count()-1;
 	}
 if(max_threads<0) max_threads=0;
+
+/* Store initial cpu set as Intel OpenMP compiler changes affinities for non-owned threads */
+pthread_getaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 
 thread_id=do_alloc(max_threads, sizeof(*thread_id));
 num_threads=0;
@@ -107,15 +115,16 @@ return (a+1);
 
 void set_concurrency(int num)
 {
-int i;
+long i;
 thread_mutex_lock(&thread_num_mutex);
+//fprintf(stderr, "set_concurrency(%d) max_threads=%d\n", num, max_threads);
 num_threads=num-1;
 if(num_threads>max_threads)num_threads=max_threads;
 for(i=threads_started;i<num_threads;i++)
 	if(pthread_create(&(thread_id[i]), NULL,(void * (*)(void *))  thread_cruncher, (void *)i)<0){
-		fprintf(stderr,"Could not spawn thread %d:", i);
+		fprintf(stderr,"Could not spawn thread %ld:", i);
 		perror("");
-		}
+		} // else fprintf(stderr, "Spawned thread %ld\n", i);
 if(num_threads>threads_started)
 	threads_started=num_threads;
 thread_cond_broadcast(&thread_not_needed);
@@ -197,25 +206,32 @@ jobs_submitted++;
 job[jobs_free].data=data;
 job[jobs_free].job=f;
 jobs_free++;
-thread_cond_broadcast(&wait_for_more_jobs_condition);
+//thread_cond_broadcast(&wait_for_more_jobs_condition);
+thread_cond_signal(&wait_for_more_jobs_condition);
 thread_mutex_unlock(&jobs_mutex);
 }
 
 int do_single_job(int thread_id)
 {
-long i;
+long i, count, stop;
 thread_mutex_lock(&jobs_mutex);
 i=next_job_to_do;
 if(i>=jobs_free){
 	thread_mutex_unlock(&jobs_mutex);
 	return 0;
 	}
-next_job_to_do++;
+if(jobs_free>i+1000)count=5;
+	else count=1;
+next_job_to_do+=count;
 thread_mutex_unlock(&jobs_mutex);
-job[i].job(thread_id, job[i].data);
+//fprintf(stderr, "Running job %ld on thread %d\n", i, thread_id);
+stop=count+i;
+for(;i<stop;i++)
+	job[i].job(thread_id, job[i].data);
 thread_mutex_lock(&jobs_mutex);
-jobs_done++;
+jobs_done+=count;
 if(jobs_done==jobs_submitted) {
+	//fprintf(stderr, "jobs_done=%ld tid=%d i=%ld\n", jobs_done, thread_id, i);
 	thread_cond_broadcast(&all_done_condition);
 	set_concurrency(1);
 	thread_mutex_unlock(&jobs_mutex);

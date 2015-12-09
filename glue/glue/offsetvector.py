@@ -157,6 +157,21 @@ class offsetvector(dict):
 		"""
 		return "%s(%s)" % (self.__class__.__name__, dict.__repr__(self))
 
+	def __abs__(self):
+		"""
+		Returns max(offset) - min(offset).
+
+		Example:
+
+		>>> abs(offsetvector({"H1": 0.0, "H2": 0.0, "L1": 0.0}))
+		0.0
+		>>> abs(offsetvector({"H1": 10.0, "H2": 10.0, "L1": 10.0}))
+		0.0
+		>>> abs(offsetvector({'H1': 10.0, 'L1': 0.0, 'V1': -10.0}))
+		20.0
+		"""
+		return max(self.values()) - min(self.values())
+
 	def __cmp__(self, other):
 		"""
 		Compare two offset vectors by their relative offsets.  The

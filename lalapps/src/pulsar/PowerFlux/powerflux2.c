@@ -200,6 +200,7 @@ time(&start_time);
 fedisableexcept(FE_ALL_EXCEPT);
 
 fprintf(stderr, "Initial memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+fprintf(stderr, "sizeof(SUMMING_CONTEXT)=%ld\n", sizeof(SUMMING_CONTEXT));
 
 if(getrlimit(RLIMIT_AS, &rl)<0) {
 	perror("Could not obtain virtual memory limit:");

@@ -71,6 +71,7 @@ typedef struct {
 	double max_m4;
 	double min_m4;
 	int ntemplates;
+	int reserved;
 	} POWER_SUM_STATS;
 
 void compute_alignment_coeffs(ALIGNMENT_COEFFS *ac);

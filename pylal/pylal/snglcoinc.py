@@ -1973,7 +1973,7 @@ class LnLikelihoodRatio(object):
 				warnings.warn("inf/inf encountered")
 		return  lnP_signal - lnP_noise
 
-	def samples(self, random_params_seq, **kwargs):
+	def samples(self, random_params_seq, sampler_coinc_params = None, **kwargs):
 		"""
 		Generator that yields an unending sequence of 3-element
 		tuples.  Each tuple's elements are a value of the natural
@@ -1994,14 +1994,14 @@ class LnLikelihoodRatio(object):
 		object with which this object is associated, followed by
 		any (optional) key-word arguments.
 		"""
-		lnP_noise_func = self.lnP_noise
-		lnP_signal_func = self.lnP_signal
+		if sampler_coinc_params is None:
+			lnP_noise_func = self.lnP_noise
+			lnP_signal_func = self.lnP_signal
+		else:
+			lnP_noise_func = sampler_coinc_params.lnP_noise
+			lnP_signal_func = sampler_coinc_params.lnP_signal
 		isinf = math.isinf
 		for params, lnP_params in random_params_seq:
 			lnP_noise = lnP_noise_func(params, **kwargs)
 			lnP_signal = lnP_signal_func(params, **kwargs)
-			# see above for description of special cases
-			if isinf(lnP_noise) and isinf(lnP_signal) and lnP_noise < 0. and lnP_signal < 0.:
-				yield NegInf, lnP_signal - lnP_params, lnP_noise - lnP_params
-			else:
-				yield lnP_signal - lnP_noise, lnP_signal - lnP_params, lnP_noise - lnP_params
+			yield self(params, **kwargs), lnP_signal - lnP_params, lnP_noise - lnP_params

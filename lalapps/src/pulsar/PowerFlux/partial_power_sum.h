@@ -1,4 +1,6 @@
 
+typedef REAL * __restrict__  SUFFIX(REALPTR);
+
 typedef struct {
 	int type;
 	int nbins;
@@ -10,20 +12,20 @@ typedef struct {
 	REAL c_weight_cccc;
 	REAL c_weight_im_ppcc;
 
-	REAL *weight_pppp;
-	REAL *weight_pppc;
-	REAL *weight_ppcc;
-	REAL *weight_pccc;
-	REAL *weight_cccc;
+	REAL * __restrict__ weight_pppp;
+	REAL * __restrict__ weight_pppc;
+	REAL * __restrict__ weight_ppcc;
+	REAL * __restrict__ weight_pccc;
+	REAL * __restrict__ weight_cccc;
 	/* REAL *weight_im_ppcc; commented out as loosely coherent search does not use bin-avoidance and does not use these arrays */	
 
 	/* power sums - plus^2, plus*cross and cross^2*/
-	REAL *power_pp;
-	REAL *power_pc;
-	REAL *power_cc;
-	REAL *power_im_pc; /* imaginary part for loosely coherent statistic */
+	REAL * __restrict__ power_pp;
+	REAL * __restrict__ power_pc;
+	REAL * __restrict__ power_cc;
+	REAL * __restrict__ power_im_pc; /* imaginary part for loosely coherent statistic */
 
-	REAL *memory_pool;
+	REAL * __restrict__ memory_pool;
 	
 	int memory_pool_size;
 	
