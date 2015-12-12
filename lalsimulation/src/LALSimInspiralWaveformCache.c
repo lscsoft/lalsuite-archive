@@ -1174,7 +1174,7 @@ int XLALSimInspiralChooseFDWaveformSequence(
             /* Call the waveform driver routine */
             ret = XLALSimIMRPhenomPFrequencySequence(hptilde, hctilde, frequencies,
               chi1_l, chi2_l, 0, i,
-              m1, m2, r, 0, phiRef, f_ref, 2);
+              m1, m2, r, 0, phiRef, f_ref, IMRPhenomPv2_V);
             if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
             break;
 

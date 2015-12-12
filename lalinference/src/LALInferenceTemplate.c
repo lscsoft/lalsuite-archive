@@ -933,8 +933,8 @@ void LALInferenceROQWrapperForXLALSimInspiralChooseFDWaveformSequence(LALInferen
     /* Destroy the nonGr params */
     XLALSimInspiralDestroyTestGRParam(nonGRparams);
 
-    //REAL8 instant = model->freqhPlus->epoch.gpsSeconds + 1e-9*model->freqhPlus->epoch.gpsNanoSeconds;
-    //LALInferenceSetVariable(model->params, "time", &instant);
+    REAL8 instant = model->freqhPlus->epoch.gpsSeconds + 1e-9*model->freqhPlus->epoch.gpsNanoSeconds;
+    LALInferenceSetVariable(model->params, "time", &instant);
 
     /* copy over hptildeLinear, hptildeQuadratic and hcrossL/Q into model->LALInferenceROQModel */
 

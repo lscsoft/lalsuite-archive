@@ -292,7 +292,7 @@ static int PhenomPCore(
   /* Check inputs for sanity */
   XLAL_CHECK(*hptilde == NULL, XLAL_EFAULT);
   XLAL_CHECK(*hctilde == NULL, XLAL_EFAULT);
-  XLAL_CHECK(deltaF > 0, XLAL_EDOM, "deltaF must be non-negative.\n");
+  XLAL_CHECK(deltaF >= 0, XLAL_EDOM, "deltaF must be non-negative.\n");
   XLAL_CHECK(m1_SI_in > 0, XLAL_EDOM, "m1 must be positive.\n");
   XLAL_CHECK(m2_SI_in > 0, XLAL_EDOM, "m2 must be positive.\n");
   XLAL_CHECK(f_ref > 0, XLAL_EDOM, "Reference frequency must be non-negative.\n");
@@ -625,7 +625,7 @@ static int PhenomPCore(
 
   /* Correct phasing so we coalesce at t=0 (with the definition of the epoch=-1/deltaF above) */
   /* We apply the same time shift to hptilde and hctilde based on the overall phasing returned by PhenomPCoreOneFrequency */
-  if (deltaF>0) {
+  if (deltaF>=0) {
     /* Set up spline for phase */
     acc = gsl_interp_accel_alloc();
     phiI = gsl_spline_alloc(gsl_interp_cspline, L_fCut);
@@ -649,7 +649,7 @@ static int PhenomPCore(
     XLAL_PRINT_INFO("Time correction: t_corr = %g", t_corr);
 
     /* Now correct phase */
-    for (UINT4 i=0; i<L_fCut; i++) { // loop over frequency points in sequence
+   for (UINT4 i=0; i<L_fCut; i++) { // loop over frequency points in sequence
       double f = freqs->data[i];
       COMPLEX16 phase_corr = cexp(-2*LAL_PI * I * f * t_corr);
       int j = i + offset; // shift index for frequency series if needed
