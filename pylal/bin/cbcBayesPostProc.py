@@ -280,6 +280,10 @@ def cbcBayesPostProc(
     else:
         peparser=bppu.PEOutputParser('common')
         commonResultsObj=peparser.parse(open(data[0],'r'),info=[header,None])
+        # check if Nest (through nest2post) has produced an header file with git and CL info. If yes copy in outdir
+        if os.path.isfile(data[0]+"_header.txt"):
+          import shutil
+          shutil.copy2(data[0]+"_header.txt", os.path.join(outdir,'nest_headers.txt'))
     
     #Extract f_ref from CRO if present.  This is needed to calculate orbital angular momentum
     #  when converting spin parameters.  Ideally this info will be provided in the
@@ -632,6 +636,7 @@ def cbcBayesPostProc(
     for i in oneDMenus.keys():
       rss=bppu.make_1d_table(html,legend,i,pos,oneDMenus[i],noacf,GreedyRes,onepdfdir,sampsdir,savepdfs,greedy,analyticLikelihood,nDownsample)
       reses.update(rss)
+
     
     
     
@@ -651,27 +656,47 @@ def cbcBayesPostProc(
     clasciiout+='\n'
     html_ogci_write+='</tr>'
     #Generate new BCI html table row
+    printed=0
     for par_name in oneDMenu:
       par_name=par_name.lower()
       try:
-          pos[par_name.lower()]
+              pos[par_name.lower()]
       except KeyError:
-          #print "No input chain for %s, skipping binning."%par_name
-          continue
+      #print "No input chain for %s, skipping binning."%par_name
+             continue
       try:
-          par_bin=GreedyRes[par_name]
+              par_bin=GreedyRes[par_name]
       except KeyError:
-          print "Bin size is not set for %s, skipping binning."%par_name
-          continue
+              print "Bin size is not set for %s, skipping binning."%par_name
+              continue
+      binParams={par_name:par_bin}
+      injection_area=None
+      if greedy:
+                    if printed==0:
+                        print "Using greedy 1-d binning credible regions\n"
+                        printed=1
+                    toppoints,injectionconfidence,reses,injection_area,cl_intervals=bppu.greedy_bin_one_param(pos,binParams,confidence_levels)
+      else:
+                    if printed==0:
+                        print "Using 2-step KDE 1-d credible regions\n"
+                        printed=1
+                    if pos[par_name].injval is None:
+                        injCoords=None
+                    else:
+                        injCoords=[pos[par_name].injval]
+                    _,reses,injstats=bppu.kdtree_bin2Step(pos,[par_name],confidence_levels,injCoords=injCoords)
+                    if injstats is not None:
+                        injectionconfidence=injstats[3]
+                        injection_area=injstats[4]
 
       BCItableline='<tr><td>%s</td>'%(par_name)
       clasciiout+="%s\t"%par_name
-      cls=reses[par_name].keys()
+      cls=reses.keys()
       cls.sort()
 
       for cl in cls:
-          BCItableline+='<td>%f</td>'%reses[par_name][cl]
-          clasciiout+="%f\t"%reses[par_name][cl]
+          BCItableline+='<td>%f</td>'%reses[cl]
+          clasciiout+="%f\t"%reses[cl]
       if injection is not None:
           if injectionconfidence is not None and injection_area is not None:
 
