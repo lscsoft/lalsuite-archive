@@ -75,7 +75,9 @@ static struct PyMemberDef members[] = {
 	{"coa_phase_L", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.coa_phase_L), 0, "coa_phase_L"},
 	{"coa_phase_H", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.coa_phase_H), 0, "coa_phase_H"},
 	{"coa_phase_V", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.coa_phase_V), 0, "coa_phase_V"},
-	
+	{"chisq_L", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.chisq_L), 0, "chisq_L"},
+	{"chisq_H", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.chisq_H), 0, "chisq_H"},
+	{"chisq_V", T_FLOAT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.chisq_V), 0, "chisq_V"},
 	{"is_background", T_INT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.is_background), 0, "is_background"},
 	{"livetime", T_INT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.livetime), 0, "livetime"},
 	{"tmplt_idx", T_INT, offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.tmplt_idx), 0, "tmplt_idx"},

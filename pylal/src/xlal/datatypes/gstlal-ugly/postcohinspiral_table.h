@@ -74,6 +74,9 @@ tagPostcohInspiralTable
   REAL4		coa_phase_L;
   REAL4		coa_phase_H;
   REAL4		coa_phase_V;
+  REAL4		chisq_L;
+  REAL4		chisq_H;
+  REAL4		chisq_V;
 }
 
 
