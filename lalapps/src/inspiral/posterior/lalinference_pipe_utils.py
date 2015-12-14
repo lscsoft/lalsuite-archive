@@ -485,7 +485,9 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     # Set up the segments
     if not (self.config.has_option('input','gps-start-time') and self.config.has_option('input','gps-end-time')) and len(self.times)>0:
       #This will set the min and max for the frames we'll put in the caches. Since we may be timeshifting, need to check before we s
+      # Note that timeslided times will only be consumed by self.get_required_data to decide how much data to aks for (trough gw_data_find). Thus we don't care which ifo is which and which event is which: only the range is important.
       timeslidedtimes=[]
+      allzero=True
       if cp.has_option('input','timeslides-ascii'):
         dest=cp.get('input','timeslides-ascii')
         if not os.path.isfile(dest):
@@ -507,9 +509,11 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
               ts=data[this_time,this_ifo]
               this_ifo+=1
               timeslidedtimes.append(time-ts)
+              if ts!=0.0:
+                allzero=False
             this_time+=1
       gotts=True
-      if timeslidedtimes==[]:
+      if timeslidedtimes==[] or allzero==True:
         timeslidedtimes=self.times
         gotts=False
   
@@ -596,6 +600,10 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
         psdlength = maxpsd
     else:
       seglen = max(e.duration for e in self.events)
+      if self.config.has_option('input','max-psd-length'):
+        maxpsd=self.config.getfloat('input','max-psd-length')
+      else:
+        maxpsd=32*seglen
       if os.path.exists("psd.xml.gz"):
         psdlength = 0
       else:
@@ -607,7 +615,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       extra_time_future=psdlength
     else:
       extra_time_future=0.0
-    return (min(times)-padding-seglen-psdlength+2,max(times)+padding+2+extra_time_future)
+    return (min(times)-padding-seglen-psdlength-2,max(times)+padding+2+extra_time_future)
 
   def setup_from_times(self,times):
     """
@@ -1666,26 +1674,41 @@ class EngineNode(pipeline.CondorDAGNode):
       # Used when we are running the coherence test.
       # Otherwise the noise evidence will differ.
       #if self.scisegs!={}:
-      starttime=max([int(self.scisegs[ifo].start()) for ifo in self.ifos])
-      endtime=min([int(self.scisegs[ifo].end()) for ifo in self.ifos])
+      #starttime=max([int(self.scisegs[ifo].start()) for ifo in self.ifos])
+      #endtime=min([int(self.scisegs[ifo].end()) for ifo in self.ifos])
       #else:
       #  (starttime,endtime)=self.get_required_data(self.get_trig_time())
       #  starttime=floor(starttime)
       #  endtime=ceil(endtime)
         #starttime=self.get_trig_time()-self.padding-self.seglen-self.psdlength#-0.5*self.maxlength
         #endtime=starttime+self.padding#+self.maxlength
-      self.GPSstart=starttime
-      self.__GPSend=endtime
-      length=endtime-starttime
+      #self.GPSstart=starttime
+      #self.__GPSend=endtime
+      #length=endtime-starttime
       
-      # Now we need to adjust the start time and length to make sure the maximum data length
-      # is not exceeded.
+      """ The logic here is the following:
+          The CBC code starts from the earliest commont time, but that means that if you run on *the same trigtime* the PSD start and PSDlength you'll get will be different, depending on wheather you are running on only one event or several, and the exact position of the event you are interested in in the list of times. 
+          Instead for each event (including single IFO runs) we do:
+          a) get its trigtime
+          b) set PSDlengh=maxPSD (requested by the user or equal to 32seglen)
+          c) go define GPSstart= trigtime - PSDlength - seglen - padding -2 
+          
+          By definition this means that GPSstart+ PSDlengh with never overlap with trigtime. Furthermore running on the same event will lead to the same PSDstart and lenght, no matter of whether that is a one-event or multi-event run.
+          We should check that the PSDstart so obtained is in science mode. This is what the while loop 9 lines below is meant for. However that part is not active yet because I need to learn how to use scisegs. That is not a problem right now since we do run with disable-science (Since Omicron will already have checked that the ~1-2 minutes of time prior to the event are in science).
+      """
       trig_time=self.get_trig_time()
       maxLength=self.maxlength
-      if(length > maxLength):
-        while(self.GPSstart+maxLength<trig_time and self.GPSstart+maxLength<self.__GPSend):
-          self.GPSstart+=maxLength/2.0
-      # Override calculated start time if requested by user in ini file
+      offset=(maxLength+self.seglen+2+self.padding)
+      self.GPSstart=trig_time-offset
+      self.__GPSend=0
+      length=maxLength
+      dt=self.seglen/4.
+      
+      while(self.GPSstart+length>=trig_time):
+      ### or self.GPSstart not in  Science) --><-- here we should also have checked that we are in science mode, but I'm not sure how to do that yet.
+        self.GPSstart+=dt
+        length-=dt
+
       if self.psdstart is not None:
         self.GPSstart=self.psdstart
         #print 'Over-riding start time to user-specified value %f'%(self.GPSstart)
@@ -1694,7 +1717,7 @@ class EngineNode(pipeline.CondorDAGNode):
         #  raise Exception('Bad psdstart specified') 
       self.add_var_opt('psdstart',str(self.GPSstart))
       if self.psdlength is None:
-        self.psdlength=self.__GPSend-self.GPSstart-2*self.padding-self.seglen-1
+        self.psdlength=length
         if(self.psdlength>self.maxlength):
           self.psdlength=self.maxlength
       self.add_var_opt('psdlength',self.psdlength)
