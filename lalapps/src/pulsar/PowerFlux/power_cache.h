@@ -72,6 +72,7 @@ typedef struct {
 	int max_size;
 
 	/* cache contents */
+	int segment_size;
 	int segment_count;
 	int size;
 	int free;

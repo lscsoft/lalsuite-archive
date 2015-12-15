@@ -79,8 +79,8 @@ static int pyobject_to_ligotimegps(PyObject *obj, LIGOTimeGPS *gps)
 		}
 		XLALGPSSetREAL8(gps, PyComplex_RealAsDouble(obj));
 	} else {
-		PyObject *s_attr = PyObject_GetAttrString(obj, "seconds");
-		PyObject *n_attr = PyObject_GetAttrString(obj, "nanoseconds");
+		PyObject *s_attr = PyObject_GetAttrString(obj, "gpsSeconds");
+		PyObject *n_attr = PyObject_GetAttrString(obj, "gpsNanoSeconds");
 		XLALGPSSet(gps, PyInt_AsLong(s_attr), PyInt_AsLong(n_attr));
 		Py_XDECREF(s_attr);
 		Py_XDECREF(n_attr);

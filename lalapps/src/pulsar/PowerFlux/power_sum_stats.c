@@ -1140,6 +1140,7 @@ pst->ks_count=0;
 
 void sse_point_power_sum_stats_linear(PARTIAL_POWER_SUM_F *pps, ALIGNMENT_COEFFS *ag, POINT_STATS *pst)
 {
+#if MANUAL_SSE
 int i, count;
 float M, S, a, b, inv_S, inv_weight, inv_count, normalizer;
 float *tmp=NULL;
@@ -1563,6 +1564,10 @@ pst->m4=(sum4*inv_count)/(S*S*S*S);
 //fprintf(stderr, "%g = %g %g %g %g (%d %g %g)\n", pst->ks_value, M, sum_sq*inv_count, sum3*inv_count, sum4*inv_count, count, inv_count, S);
 pst->ks_value=0;
 pst->ks_count=0;
+#else
+fprintf(stderr, "**** MANUAL_SSE disabled in %s\n", __FUNCTION__);
+exit(-2);
+#endif
 }
 
 void point_power_sum_stats_universal(PARTIAL_POWER_SUM_F *pps, ALIGNMENT_COEFFS *ag, POINT_STATS *pst)
@@ -1816,6 +1821,7 @@ if(pps->weight_arrays_non_zero) {
 	min_weight=1e50;
 
 	if(!pps->collapsed_weight_arrays) {
+		PRAGMA_IVDEP
 		for(i=0;i<useful_bins;i++) {
 			pps->weight_pppp[i]+=pps->c_weight_pppp;
 			pps->weight_pppc[i]+=pps->c_weight_pppc;
@@ -1831,6 +1837,7 @@ if(pps->weight_arrays_non_zero) {
 		pps->collapsed_weight_arrays=1;
 		}
 
+		PRAGMA_IVDEP
 	for(i=0;i<useful_bins;i++) {
 		weight=(pps->weight_pppp[i]*ag->pppp+
 			pps->weight_pppc[i]*ag->pppc+
@@ -1856,6 +1863,7 @@ if(pps->weight_arrays_non_zero) {
 
 	inv_weight=1.0/weight;
 
+	PRAGMA_IVDEP
 	for(i=0;i<useful_bins;i++) {
 		tmp[i]=((float)pps->power_pp[i]*ag->pp+(float)pps->power_pc[i]*ag->pc+(float)pps->power_cc[i]*ag->cc+(float)pps->power_im_pc[i]*ag->im_pc)*inv_weight;
 		}
@@ -1871,6 +1879,7 @@ if(min_weight<= args_info.small_weight_ratio_arg*max_weight) {
 max_dx=tmp[0];
 max_dx_bin=0;
 
+PRAGMA_IVDEP
 for(i=1;i<useful_bins;i++) {
 	a=tmp[i];
 	if(a>max_dx) {
@@ -1894,12 +1903,14 @@ for(i=1;i<useful_bins;i++) {
 count=0;
 sum=0.0;
 
+PRAGMA_IVDEP
 for(i=0;i<max_dx_bin-half_window;i++) {
 	a=tmp[i];
 	sum+=a;
 	count++;
 	}
 
+PRAGMA_IVDEP
 for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 	a=tmp[i];
 	sum+=a;
@@ -1916,6 +1927,7 @@ sum1=0.0;
 sum3=0.0;
 sum4=0.0;
 sum_abs=0.0;
+PRAGMA_IVDEP
 for(i=0;i<max_dx_bin-half_window;i++) {
 	a=(tmp[i]-M)*normalizer;
 	b=a*a;
@@ -1929,6 +1941,7 @@ for(i=0;i<max_dx_bin-half_window;i++) {
 	sum4+=b*b;
 	}
 
+PRAGMA_IVDEP
 for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 	a=(tmp[i]-M)*normalizer;
 	b=a*a;
@@ -1969,6 +1982,7 @@ if(max_dx<=0 || !isfinite(max_dx)) {
 	
 sum_c=0.0;
 
+PRAGMA_IVDEP
 for(i=0;i<max_dx_bin-half_window;i++) {
 	a=(M-x_epsilon*S)-tmp[i];
 	/* collect negative threshold statistics */
@@ -1977,6 +1991,7 @@ for(i=0;i<max_dx_bin-half_window;i++) {
 		}
 	}
 
+PRAGMA_IVDEP
 for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 	a=(M-x_epsilon*S)-tmp[i];
 	/* collect negative threshold statistics */
@@ -2023,6 +2038,7 @@ pst->ks_count=0;
 
 void sse_point_power_sum_stats_universal_piecewise_linear(PARTIAL_POWER_SUM_F *pps, ALIGNMENT_COEFFS *ag, POINT_STATS *pst)
 {
+#if MANUAL_SSE
 int i, count;
 float M, S, a, b, s3, inv_S, inv_weight, inv_count, normalizer;
 float *tmp=NULL;
@@ -2526,9 +2542,17 @@ pst->m4=(sum4*inv_count)/(S*S*S*S);
 //fprintf(stderr, "%g = %g %g %g %g (%d %g %g)\n", pst->ks_value, M, sum_sq*inv_count, sum3*inv_count, sum4*inv_count, count, inv_count, S);
 pst->ks_value=0;
 pst->ks_count=0;
+#else
+fprintf(stderr, "**** MANUAL_SSE disabled in %s\n", __FUNCTION__);
+exit(-2);
+#endif
 }
 
+#if MANUAL_SSE
 void (*point_power_sum_stats)(PARTIAL_POWER_SUM_F *pps, ALIGNMENT_COEFFS *ag, POINT_STATS *pst)=sse_point_power_sum_stats_linear;
+#else
+void (*point_power_sum_stats)(PARTIAL_POWER_SUM_F *pps, ALIGNMENT_COEFFS *ag, POINT_STATS *pst)=point_power_sum_stats_linear;
+#endif
 
 void power_sum_stats(PARTIAL_POWER_SUM_F *pps, POWER_SUM_STATS *stats)
 {
@@ -2648,20 +2672,24 @@ for(k=0;k<alignment_grid_free;k++) {
 	result+=compare_point_stats("cblas1:", &pst_ref, &pst_test);
 
 	/* sse */
+#if MANUAL_SSE
 	zero_partial_power_sum_F(ps2);
 	accumulate_partial_power_sum_F(ps2, ps1);
 	sse_point_power_sum_stats_linear(ps2, &(alignment_grid[k]), &(pst_test));
 	result+=compare_point_stats("sse1:", &pst_ref, &pst_test);
+#endif
 	
 	/* piecewise linear stats */
 	zero_partial_power_sum_F(ps2);
 	accumulate_partial_power_sum_F(ps2, ps1);
 	point_power_sum_stats_universal_piecewise_linear(ps2, &(alignment_grid[k]), &(pst_ref));
 
+#if MANUAL_SSE
 	zero_partial_power_sum_F(ps2);
 	accumulate_partial_power_sum_F(ps2, ps1);
 	sse_point_power_sum_stats_universal_piecewise_linear(ps2, &(alignment_grid[k]), &(pst_test));
 	result+=compare_point_stats_universal("universal sse1:", &pst_ref, &pst_test);
+#endif
 	
 	}
 
@@ -2680,21 +2708,25 @@ for(k=0;k<alignment_grid_free;k++) {
 	cblas_point_power_sum_stats_linear(ps2, &(alignment_grid[k]), &(pst_test));
 	result+=compare_point_stats("cblas2:", &pst_ref, &pst_test);
 
-	/* cblas */
+	/* sse */
+#if MANUAL_SSE
 	zero_partial_power_sum_F(ps2);
 	accumulate_partial_power_sum_F(ps2, ps1);
 	sse_point_power_sum_stats_linear(ps2, &(alignment_grid[k]), &(pst_test));
 	result+=compare_point_stats("sse2:", &pst_ref, &pst_test);
+#endif
 
 	/* piecewise linear stats */
 	zero_partial_power_sum_F(ps2);
 	accumulate_partial_power_sum_F(ps2, ps1);
 	point_power_sum_stats_universal_piecewise_linear(ps2, &(alignment_grid[k]), &(pst_ref));
 
+#if MANUAL_SSE
 	zero_partial_power_sum_F(ps2);
 	accumulate_partial_power_sum_F(ps2, ps1);
 	sse_point_power_sum_stats_universal_piecewise_linear(ps2, &(alignment_grid[k]), &(pst_test));
 	result+=compare_point_stats_universal("universal sse2:", &pst_ref, &pst_test);
+#endif
 
 	fprintf(stderr, "%d %f %f %d\n", k, alignment_grid[k].iota, alignment_grid[k].psi, result);
 	}
@@ -2711,7 +2743,11 @@ free_partial_power_sum_F(ps1);
 free_partial_power_sum_F(ps2);
 }
 
+#if MANUAL_SSE
 #define MODE(a)	(args_info.sse_arg ? (sse_ ## a) : (a) )
+#else
+#define MODE(a)	(a)
+#endif
 
 void init_power_sum_stats(void)
 {

@@ -21,6 +21,7 @@ void thread_mutex_init(MUTEX *mutex);
 
 #define thread_cond_wait  pthread_cond_wait
 #define thread_cond_broadcast  pthread_cond_broadcast
+#define thread_cond_signal pthread_cond_signal
 void thread_cond_init(CONDITION *cond);
 
 #ifdef __cplusplus
@@ -38,6 +39,7 @@ typedef int CONDITION;
 
 #define thread_cond_wait(cond, mutex)
 #define thread_cond_broadcast(cond)
+#define thread_cond_signal(cond)
 #define thread_cond_init(cond)
 
 
