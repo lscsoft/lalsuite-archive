@@ -957,7 +957,6 @@ void LALInferenceROQWrapperForXLALSimInspiralChooseFDWaveformSequence(LALInferen
 
 
 
-
     if ( hptildeLinear ) XLALDestroyCOMPLEX16FrequencySeries(hptildeLinear);
     if ( hctildeLinear ) XLALDestroyCOMPLEX16FrequencySeries(hctildeLinear);
     if ( hptildeQuadratic ) XLALDestroyCOMPLEX16FrequencySeries(hptildeQuadratic);

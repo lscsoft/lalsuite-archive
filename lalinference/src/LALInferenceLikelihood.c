@@ -1021,7 +1021,6 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 	model->ifo_loglikelihoods[ifo] += -0.5*(GSL_REAL(complex_h_dot_h));
 
 	loglikelihood += model->ifo_loglikelihoods[ifo];
-
 	S += (GSL_REAL(complex_h_dot_h));
 	d_inner_h += GSL_REAL(complex_d_dot_h);
 
