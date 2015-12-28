@@ -156,6 +156,11 @@ XLALDestroyREAL8Vector( timeIFull ); \
 XLALDestroyREAL8Vector( tlistRDPatch ); \
 XLALDestroyREAL8Vector( tlistRDPatchHi );
 
+#define PRINT_PARAMS do { \
+XLALPrintError("--approximant SEOBNRv3 --f-min %.16e --m1 %.16e --m2 %.16e --spin1x %.16e --spin1y %.16e --spin1z %.16e  --spin2x %.16e --spin2y %.16e --spin2z %.16e --inclination %.16e --distance %.16e --phiRef %.16e --sample-rate %.16e\n",\
+               fMin, m1SI/LAL_MSUN_SI, m2SI/LAL_MSUN_SI, INspin1x, INspin1y, INspin1z, INspin2x, INspin2y, INspin2z, inc, r/(1e6 * LAL_PC_SI), phiC, 1./deltaT);\
+} while(0);
+
 /**
  * Computes RHS of ODE for gamma. Eq. 10 of PRD 89, 084006 (2014)
  */
@@ -195,6 +200,7 @@ static int EulerAnglesI2P(REAL8Vector *Alpha, /**<< output: alpha Euler angle */
     gsl_integration_workspace * precEulerw = gsl_integration_workspace_alloc (1000);
     gsl_function precEulerF;
     PrecEulerAnglesIntegration precEulerparams;
+    REAL8 inGamma = InitialGamma; 
     
     LN_x = XLALCreateREAL8Vector( retLenLow );
     LN_y = XLALCreateREAL8Vector( retLenLow );
@@ -231,9 +237,13 @@ static int EulerAnglesI2P(REAL8Vector *Alpha, /**<< output: alpha Euler angle */
         /*  Also unwrap the two angles */
         if (fabs(LN_x->data[i]) <= 1.e-7 && fabs(LN_y->data[i]) <=1.e-7){
             Alpha->data[i] = 0.0;
+            inGamma = 0.0;
         } else {
             Alpha->data[i] = atan2( LN_y->data[i], LN_x->data[i] )
-            +  *phaseCounterA * LAL_TWOPI;
+                             +  *phaseCounterA * LAL_TWOPI;
+            if (i==0 && flag_highSR != 1){
+                inGamma = -Alpha->data[i];
+            }
         }
         
         if( i>0 && Alpha->data[i] - Alpha->data[i-1] > 5. ) {
@@ -274,7 +284,8 @@ static int EulerAnglesI2P(REAL8Vector *Alpha, /**<< output: alpha Euler angle */
     
     for( i = 0; i < retLenLow; i++ )
     {
-        if( i==0 ) { Gamma->data[i] = InitialGamma; }
+        //if( i==0 ) { Gamma->data[i] = InitialGamma; }
+        if( i==0 ) { Gamma->data[i] = inGamma; }
         else
         {
             gsl_integration_qags (&precEulerF, tVec.data[i-1], tVec.data[i], 1e-9, 1e-9, 1000, precEulerw, &precEulerresult, &precEulererror);
@@ -614,6 +625,7 @@ int XLALSimIMRSpinEOBWaveform(
      )
 
 {
+    int ret;
     REAL8Vector   *dynamicsHi = NULL;
     REAL8Vector  *AttachPars = NULL;
     /** This time series contains harmonics in precessing (P) frame, no RD, for the end of the signal (high samling part)*/
@@ -625,17 +637,34 @@ int XLALSimIMRSpinEOBWaveform(
     /** stores harmonics of the full waveform in I-frame */
     SphHarmTimeSeries *hIMR = NULL;
 
-    XLALSimIMRSpinEOBWaveformAll(hplus, hcross, &dynamicsHi, &hlmPTSout, &hlmPTSHi, &hIMRlmJTSHi, &hIMR, &AttachPars,
+    ret = XLALSimIMRSpinEOBWaveformAll(hplus, hcross, &dynamicsHi, &hlmPTSout, &hlmPTSHi, &hIMRlmJTSHi, &hIMR, &AttachPars,
                         phiC, deltaT, m1SI, m2SI, fMin, r, inc, INspin1[0], INspin1[1], INspin1[2], INspin2[0], INspin2[1], INspin2[2]);
+    if (ret == XLAL_SUCCESS){
+        if (*hplus == NULL || *hcross == NULL){
+             XLALPrintError("Houston-2, we've got a problem SOS, SOS, SOS, the waveform generator returns NULL!!!... m1 = %.18e, m2 = %.18e, fMin = %.18e, inclination = %.18e,   spin1 = {%.18e, %.18e, %.18e},   spin2 = {%.18e, %.18e, %.18e} \n", 
+                       m1SI/LAL_MSUN_SI, m2SI/LAL_MSUN_SI, (double)fMin, (double)inc,  INspin1[0], INspin1[1], INspin1[2], INspin2[0], INspin2[1], INspin2[2]);
+             XLAL_ERROR( XLAL_ENOMEM );
+        }
+        if ((*hplus)->data == NULL || (*hcross)->data == NULL){
+             XLALPrintError("Houston-3, we've got a problem SOS, SOS, SOS, the waveform generator returns NULL!!!... m1 = %.18e, m2 = %.18e, fMin = %.18e, inclination = %.18e,   spin1 = {%.18e, %.18e, %.18e},   spin2 = {%.18e, %.18e, %.18e} \n", 
+                       m1SI/LAL_MSUN_SI, m2SI/LAL_MSUN_SI, (double)fMin, (double)inc,  INspin1[0], INspin1[1], INspin1[2], INspin2[0], INspin2[1], INspin2[2]);
+             XLAL_ERROR( XLAL_ENOMEM );
+        }
+    }
 
-    XLALDestroyREAL8Vector( dynamicsHi );
-    XLALDestroyREAL8Vector( AttachPars );
-    XLALDestroySphHarmTimeSeries(hlmPTSout);
-    XLALDestroySphHarmTimeSeries(hlmPTSHi);
-    XLALDestroySphHarmTimeSeries(hIMRlmJTSHi);
-    XLALDestroySphHarmTimeSeries(hIMR);
-
-    return XLAL_SUCCESS;
+    if(dynamicsHi)
+          XLALDestroyREAL8Vector( dynamicsHi );
+    if(AttachPars)
+          XLALDestroyREAL8Vector( AttachPars );
+    if(hlmPTSout)
+          XLALDestroySphHarmTimeSeries(hlmPTSout);
+    if(hlmPTSHi)
+          XLALDestroySphHarmTimeSeries(hlmPTSHi);
+    if(hIMRlmJTSHi)
+          XLALDestroySphHarmTimeSeries(hIMRlmJTSHi);
+    if(hIMR)
+          XLALDestroySphHarmTimeSeries(hIMR);
+    return ret;
 }
 
 /**
@@ -719,7 +748,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   INT4 k=0;
   UINT4 j=0;
   LIGOTimeGPS tc = LIGOTIMEGPSZERO;
-  REAL8 coa_phase_offset = 0;
+  //REAL8 coa_phase_offset = 0;
 
   REAL8Vector *AttachParams = NULL;
 
@@ -728,7 +757,9 @@ int XLALSimIMRSpinEOBWaveformAll(
   INT4 SpinAlignedEOBversion = 2;
 
   /* Vector to store the initial spins */
-  REAL8 spin1[3] = {0,0,0}, spin2[3] = {0,0,0}, InitLhat[3] = {sin(inc),0.,cos(inc)};
+  //REAL8 spin1[3] = {0,0,0}, spin2[3] = {0,0,0}, InitLhat[3] = {sin(inc),0.,cos(inc)};
+  REAL8 spin1[3] = {0,0,0}, spin2[3] = {0,0,0}, InitLhat[3] = {0.0,0.0,1.0};
+  // FIXME
   memcpy( spin1, INspin1, 3*sizeof(REAL8));
   memcpy( spin2, INspin2, 3*sizeof(REAL8));
 
@@ -822,6 +853,8 @@ int XLALSimIMRSpinEOBWaveformAll(
     REAL8Vector *values = NULL;
   if ( !(values = XLALCreateREAL8Vector( 14 )) )
   {
+    XLALPrintError("Failed to allocate REAL8Vector values!\n");
+    PRINT_PARAMS
     XLAL_ERROR(  XLAL_ENOMEM );
   }
   memset( values->data, 0, values->length * sizeof( REAL8 ));
@@ -831,6 +864,8 @@ int XLALSimIMRSpinEOBWaveformAll(
   if ( !(dvalues = XLALCreateREAL8Vector( 14 )) )
   {
     XLALDestroyREAL8Vector( values );
+    XLALPrintError("Failed to allocate REAL8Vector dvalues!\n");
+    PRINT_PARAMS
     XLAL_ERROR(  XLAL_ENOMEM );
   }
   REAL8       rdotvec[3] = {0,0,0};
@@ -846,6 +881,8 @@ int XLALSimIMRSpinEOBWaveformAll(
     XLALDestroyREAL8Vector( sigmaStar );
     XLALDestroyREAL8Vector( values );
     XLALDestroyREAL8Vector( dvalues );
+    XLALPrintError("Failed to allocate REAL8Vector sigmaStar!\n");
+    PRINT_PARAMS
     XLAL_ERROR( XLAL_ENOMEM );
   }
   if ( !(sigmaKerr = XLALCreateREAL8Vector( 3 )) )
@@ -853,6 +890,8 @@ int XLALSimIMRSpinEOBWaveformAll(
     XLALDestroyREAL8Vector( sigmaStar );
     XLALDestroyREAL8Vector( values );
     XLALDestroyREAL8Vector( dvalues );
+    XLALPrintError("Failed to allocate REAL8Vector sigmaKerr!\n");
+    PRINT_PARAMS
     XLAL_ERROR( XLAL_ENOMEM );
   }
 
@@ -881,7 +920,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   REAL8Vector cartPosVec, cartMomVec;
   REAL8 cartPosData[3] = {0,0,0}, cartMomData[3] = {0,0,0};
   REAL8 rcrossrdotNorm = 0, rvec[3]    = {0,0,0}, rcrossrdot[3] = {0,0,0};
-    REAL8 pvec[3] = {0,0,0},  rcrossp[3] = {0,0,0};//, rcrosspMag    = 0;
+  REAL8 pvec[3] = {0,0,0},  rcrossp[3] = {0,0,0};//, rcrosspMag    = 0;
   REAL8 s1dotLN = 0, s2dotLN = 0;
 
   /* Polar vectors needed for waveform modes calculation */
@@ -1096,7 +1135,9 @@ int XLALSimIMRSpinEOBWaveformAll(
   REAL8Vector *rdMatchPoint = XLALCreateREAL8Vector( 3 );
   if ( !rdMatchPoint )
   {
-      XLAL_ERROR( XLAL_ENOMEM );
+    XLALPrintError("Failed to allocate REAL8Vector rdMatchPoint!\n");
+    PRINT_PARAMS
+    XLAL_ERROR( XLAL_ENOMEM );
   }
   REAL8 alJtoI = 0, betJtoI = 0, gamJtoI = 0;
   SphHarmTimeSeries *hIMRlmITS = NULL;
@@ -1193,7 +1234,9 @@ int XLALSimIMRSpinEOBWaveformAll(
     XLALDestroyREAL8Vector( values );
     XLALDestroyREAL8Vector( dvalues );
     XLALDestroyREAL8Vector( rdMatchPoint );
-    XLAL_ERROR( XLAL_EFUNC );
+    XLALPrintError("XLALSimIMRSpinEOBCalculateSigmaStar failed!\n");
+    PRINT_PARAMS
+    XLAL_ERROR( XLAL_EDOM );
   }
   if ( XLALSimIMRSpinEOBCalculateSigmaKerr(
           sigmaKerr, m1, m2, &s1Vec, &s2Vec ) == XLAL_FAILURE )
@@ -1203,7 +1246,9 @@ int XLALSimIMRSpinEOBWaveformAll(
     XLALDestroyREAL8Vector( values );
     XLALDestroyREAL8Vector( dvalues );
     XLALDestroyREAL8Vector( rdMatchPoint );
-    XLAL_ERROR( XLAL_EFUNC );
+    XLALPrintError("XLALSimIMRSpinEOBCalculateSigmaKerr failed!\n");
+    PRINT_PARAMS
+    XLAL_ERROR( XLAL_EDOM );
   }
 
   /* Calculate the value of a, that is magnitude of Eq. 31 in PRD 86, 024011 (2012) */
@@ -1227,6 +1272,8 @@ int XLALSimIMRSpinEOBWaveformAll(
     XLALDestroyREAL8Vector( values );
     XLALDestroyREAL8Vector( dvalues );
     XLALDestroyREAL8Vector( rdMatchPoint );
+    XLALPrintError("Failed to allocate REAL8Vector AttachParams!\n");
+    PRINT_PARAMS
     XLAL_ERROR( XLAL_ENOMEM );
   }
   *AttachPars = AttachParams;
@@ -1276,13 +1323,15 @@ int XLALSimIMRSpinEOBWaveformAll(
     double dheffSSv2; // spin-spin calibration in Hamiltonian for SEOBNRv1
    */
   if ( XLALSimIMRCalculateSpinPrecEOBHCoeffs( &seobCoeffs, eta, a,
-                          SpinAlignedEOBversion ) == XLAL_FAILURE )
+                          SpinAlignedEOBversion ) == XLAL_FAILURE ) /* This function returns XLAL_SUCCESS or calls XLAL_ERROR( XLAL_EINVAL ) */
   {
     XLALDestroyREAL8Vector( sigmaKerr );
     XLALDestroyREAL8Vector( sigmaStar );
     XLALDestroyREAL8Vector( values );
     XLALDestroyREAL8Vector( dvalues );
     XLALDestroyREAL8Vector( rdMatchPoint );
+    XLALPrintError("XLALSimIMRCalculateSpinPrecEOBHCoeffs failed!\n");
+    PRINT_PARAMS
     XLAL_ERROR( XLAL_EFUNC );
   }
 
@@ -1296,7 +1345,9 @@ int XLALSimIMRSpinEOBWaveformAll(
     XLALDestroyREAL8Vector( values );
     XLALDestroyREAL8Vector( dvalues );
     XLALDestroyREAL8Vector( rdMatchPoint );
-    XLAL_ERROR( XLAL_EFUNC );
+    XLALPrintError("XLALSimIMREOBComputeNewtonMultipolePrefixes failed!\n");
+    PRINT_PARAMS
+    XLAL_ERROR( XLAL_EDOM );
   }
 
 /* *********************************************************************************
@@ -1318,40 +1369,56 @@ int XLALSimIMRSpinEOBWaveformAll(
     fflush(NULL);
   }
 
-  values = XLALCreateREAL8Vector( 14 );
+  //values = XLALCreateREAL8Vector( 14 );
   REAL8 incl_temp = 0.0;  // !!!! For comparison with C++ and NR we need inc = 0 for initial conditions
-  incl_temp = inc;
+  
+  //incl_temp = inc; //FIXME
   /* The initial condition construction is based on PRD 74, 104005 (2006) */
   /* If the initial spin opening angles are small, then use SEOBNRv2 (aligned-spin) dyamics */
   if ( SpinsAlmostAligned ) {
         seobParams.alignedSpins = 1;
         seobParams.chi1 = copysign( spin1Norm, cos(theta1Ini) );
         seobParams.chi2 = copysign( spin2Norm, cos(theta2Ini) );
+        chiS = 0.5*(seobParams.chi1 + seobParams.chi2);
+        chiA = 0.5*(seobParams.chi1 - seobParams.chi2);
+        tplspin = (1.-2.*eta) * chiS + (m1 - m2)/(m1 + m2) * chiA;
+        if ( XLALSimIMREOBCalcSpinFacWaveformCoefficients( seobParams.eobParams->hCoeffs, m1, m2, eta, tplspin, chiS, chiA, SpinAlignedEOBversion ) == XLAL_FAILURE ) /* This function returns XLAL_SUCCESS or calls XLAL_ERROR( XLAL_EINVAL ) */
+      {
+            XLALDestroyREAL8Vector( sigmaKerr );
+            XLALDestroyREAL8Vector( sigmaStar );
+            XLALDestroyREAL8Vector( values );
+            XLALDestroyREAL8Vector( dvalues );
+            XLALDestroyREAL8Vector( rdMatchPoint );
+            XLALPrintError("XLALSimIMREOBCalcSpinFacWaveformCoefficients failed!\n");
+            PRINT_PARAMS
+            XLAL_ERROR( XLAL_EFUNC );
+        }
+
         if ( XLALSimIMRSpinEOBInitialConditions( values, m1, m2, fMin, incA,
-                                                mSpin1, mSpin2, &seobParams, /* use_optimized_v2 = */ 0 ) == XLAL_FAILURE )
+                                                mSpin1, mSpin2, &seobParams, /* use_optimized_v2 = */ 0 ) == XLAL_FAILURE ) /* This function returns XLAL_SUCCESS or calls XLAL_ERROR with XLAL_EINVAL, XLAL_ENOMEM, or XLAL_EMAXITER */
         {
             XLALDestroyREAL8Vector( sigmaKerr );
             XLALDestroyREAL8Vector( sigmaStar );
             XLALDestroyREAL8Vector( values );
             XLALDestroyREAL8Vector( dvalues );
             XLALDestroyREAL8Vector( rdMatchPoint );
+            XLALPrintError("XLALSimIMRSpinEOBInitialConditions failed!\n");
+            PRINT_PARAMS
             XLAL_ERROR( XLAL_EFUNC );
         }
         seobParams.alignedSpins = 0;
-      /* Note that the inital p_r returned by the SEOBNRv2 is off by a tortoise factor csi. 
-       * The factor csi is defined in Eq. 28 of PRD 81, 084041 (2010) */
-      REAL8 csi = sqrt(XLALSimIMRSpinPrecEOBHamiltonianDeltaT(seobParams.seobCoeffs, values->data[0], eta, a)*XLALSimIMRSpinPrecEOBHamiltonianDeltaR(seobParams.seobCoeffs, values->data[0], eta, a)) / (values->data[0] * values->data[0] + a * a);
-      values->data[3] *= csi*csi;
     }
     else {
         if ( XLALSimIMRSpinEOBInitialConditionsPrec( values, m1, m2, fMin, incl_temp,
-                                                    mSpin1, mSpin2, &seobParams ) == XLAL_FAILURE )
+                                                    mSpin1, mSpin2, &seobParams ) == XLAL_FAILURE ) /* This function returns XLAL_SUCCESS or calls XLAL_ERROR with XLAL_EINVAL, XLAL_ENOMEM, or XLAL_EMAXITER */
         {
             XLALDestroyREAL8Vector( sigmaKerr );
             XLALDestroyREAL8Vector( sigmaStar );
             XLALDestroyREAL8Vector( values );
             XLALDestroyREAL8Vector( dvalues );
             XLALDestroyREAL8Vector( rdMatchPoint );
+            XLALPrintError("XLALSimIMRSpinEOBInitialConditionsPrec failed!\n");
+            PRINT_PARAMS
             XLAL_ERROR( XLAL_EFUNC );
         }
   }
@@ -1393,7 +1460,9 @@ int XLALSimIMRSpinEOBWaveformAll(
     XLALDestroyREAL8Vector( values );
     XLALDestroyREAL8Vector( dvalues );
     XLALDestroyREAL8Vector( rdMatchPoint );
-    XLAL_ERROR( XLAL_EFUNC );
+    XLALPrintError("XLALSpinPrecHcapRvecDerivative failed!\n");
+    PRINT_PARAMS
+    XLAL_ERROR( XLAL_EDOM );
   }
   if(debugPK)XLAL_PRINT_INFO("\nCalculated Rdot\n");
 
@@ -1440,12 +1509,13 @@ int XLALSimIMRSpinEOBWaveformAll(
       tplspin = (1.-2.*eta) * chiS + (m1 - m2)/(m1 + m2) * chiA;
       break;
     default:
-      XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
+        XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
         XLALDestroyREAL8Vector( sigmaKerr );
         XLALDestroyREAL8Vector( sigmaStar );
         XLALDestroyREAL8Vector( values );
         XLALDestroyREAL8Vector( dvalues );
         XLALDestroyREAL8Vector( rdMatchPoint );
+        PRINT_PARAMS
         XLAL_ERROR( XLAL_EINVAL );
       break;
   }
@@ -1460,13 +1530,15 @@ int XLALSimIMRSpinEOBWaveformAll(
   }
 
   if ( XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients( eobParams.hCoeffs, m1, m2, eta,
-        tplspin, chiS, chiA, 3 ) == XLAL_FAILURE )
+        tplspin, chiS, chiA, 3 ) == XLAL_FAILURE ) /* This function returns XLAL_SUCCESS or calls XLAL_ERROR( XLAL_EINVAL ) */
   {
     XLALDestroyREAL8Vector( sigmaKerr );
     XLALDestroyREAL8Vector( sigmaStar );
     XLALDestroyREAL8Vector( values );
     XLALDestroyREAL8Vector( dvalues );
     XLALDestroyREAL8Vector( rdMatchPoint );
+    XLALPrintError("XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients failed!\n");
+    PRINT_PARAMS
     XLAL_ERROR( XLAL_EFUNC );
   }
 
@@ -1508,13 +1580,14 @@ int XLALSimIMRSpinEOBWaveformAll(
       XLAL_PRINT_WARNING("Waveform generation may fail due to high starting frequency. The starting frequency corresponds to a small initial radius of %.2fM. We recommend a lower starting frequency that corresponds to an estimated starting radius > 10M.", pow(LAL_PI*fMin*mTScaled,-2.0/3.0));
   }
   if (fMin > freqMinRad){
-      XLALPrintError("XLAL Error - %s: Intitial frequency is too high, the limit is %4.10f \n", __func__, freqMinRad);
+        XLALPrintError("XLAL Error - %s: Intitial frequency is too high, the limit is %4.10f \n", __func__, freqMinRad);
         XLALDestroyREAL8Vector( sigmaKerr );
         XLALDestroyREAL8Vector( sigmaStar );
         XLALDestroyREAL8Vector( values );
         XLALDestroyREAL8Vector( dvalues );
         XLALDestroyREAL8Vector( rdMatchPoint );
-        XLAL_ERROR (XLAL_EINVAL );
+        PRINT_PARAMS
+        XLAL_ERROR (XLAL_EDOM );
   }
 
   switch ( SpinAlignedEOBversion )
@@ -1528,12 +1601,13 @@ int XLALSimIMRSpinEOBWaveformAll(
 	    XLALSimIMRGetEOBCalibratedSpinNQC3D( &nqcCoeffs, 2, 2, m1, m2, spinNQC, chiA );
 	    break;
 	  default:
-	    XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
+        XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
         XLALDestroyREAL8Vector( sigmaKerr );
         XLALDestroyREAL8Vector( sigmaStar );
         XLALDestroyREAL8Vector( values );
         XLALDestroyREAL8Vector( dvalues );
         XLALDestroyREAL8Vector( rdMatchPoint );
+        PRINT_PARAMS
         XLAL_ERROR( XLAL_EINVAL );
 	    break;
   }
@@ -1606,6 +1680,8 @@ int XLALSimIMRSpinEOBWaveformAll(
         XLALDestroyREAL8Vector( values );
         XLALDestroyREAL8Vector( dvalues );
         XLALDestroyREAL8Vector( rdMatchPoint );
+        XLALPrintError("Failed to allocate REAL8Vector valuesV2!\n");
+        PRINT_PARAMS
         XLAL_ERROR(  XLAL_ENOMEM );
     }
     memset( valuesV2->data, 0, valuesV2->length * sizeof( REAL8 ));
@@ -1628,7 +1704,9 @@ int XLALSimIMRSpinEOBWaveformAll(
             XLALDestroyREAL8Vector( dvalues );
             XLALDestroyREAL8Vector( rdMatchPoint );
             XLALDestroyREAL8Vector( valuesV2 );
-            XLAL_ERROR( XLAL_EFUNC );
+            XLALPrintError("XLALAdaptiveRungeKutta4Init failed!\n");
+            PRINT_PARAMS
+            XLAL_ERROR( XLAL_EDOM );
         }
         seobParams.alignedSpins = 0;
     }
@@ -1643,7 +1721,9 @@ int XLALSimIMRSpinEOBWaveformAll(
             XLALDestroyREAL8Vector( dvalues );
             XLALDestroyREAL8Vector( rdMatchPoint );
             XLALDestroyREAL8Vector( valuesV2 );
-            XLAL_ERROR( XLAL_EFUNC );
+            XLALPrintError("XLALAdaptiveRungeKutta4Init failed!\n");
+            PRINT_PARAMS
+            XLAL_ERROR( XLAL_EDOM );
         }
     }
 
@@ -1685,7 +1765,9 @@ int XLALSimIMRSpinEOBWaveformAll(
             if (dynamicsV2 != NULL){
                 XLALDestroyREAL8Array( dynamicsV2 );
             }
-            XLAL_ERROR( XLAL_EFUNC );
+            XLALPrintError("XLALAdaptiveRungeKutta4 failed!\n");
+            PRINT_PARAMS
+            XLAL_ERROR( XLAL_EFAILED );
         }
         tVec.length=rVec.length = phiVec.length = prVec.length = pPhiVec.length = retLenLow;
         tVec.data   = dynamicsV2->data;
@@ -1718,7 +1800,9 @@ int XLALSimIMRSpinEOBWaveformAll(
         retLenLow = retLen;
         if ( retLenLow == XLAL_FAILURE )
         {
-            XLAL_ERROR( XLAL_EFUNC );
+            XLALPrintError("XLALAdaptiveRungeKutta4 failed!\n");
+            PRINT_PARAMS
+            XLAL_ERROR( XLAL_EFAILED );
         }
         tVec.length = retLenLow;
         tVec.data   = dynamics->data;
@@ -1826,7 +1910,7 @@ int XLALSimIMRSpinEOBWaveformAll(
 
         integrator->stop = XLALSpinPrecAlignedHiSRStopCondition;
 
-        retLen = XLALAdaptiveRungeKutta4( integrator, &seobParams, valuesV2->data, 0., 20./mTScaled, deltaTHigh/mTScaled, &dynamicsV2Hi );
+        retLen = XLALAdaptiveRungeKutta4( integrator, &seobParams, valuesV2->data, 0., tStepBack/mTScaled, deltaTHigh/mTScaled, &dynamicsV2Hi );
 
         seobParams.alignedSpins = 0;
         retLenHi = retLen;
@@ -1844,7 +1928,9 @@ int XLALSimIMRSpinEOBWaveformAll(
             if (dynamicsV2Hi != NULL){
                 XLALDestroyREAL8Array( dynamicsV2Hi );
             }
-            XLAL_ERROR( XLAL_EFUNC );
+            XLALPrintError("XLALAdaptiveRungeKutta4 failed!\n");
+            PRINT_PARAMS
+            XLAL_ERROR( XLAL_EFAILED );
         }
         timeHi.length = phiVecHi.length = prVecHi.length = pPhiVecHi.length = retLenHi;
         timeHi.data   = dynamicsV2Hi->data;
@@ -1873,7 +1959,7 @@ int XLALSimIMRSpinEOBWaveformAll(
      }
     else {
         retLen = XLALAdaptiveRungeKutta4( integrator, &seobParams, values->data,
-                                         0., 20./mTScaled, deltaTHigh/mTScaled, &dynamicsHi );
+                                         0., tStepBack/mTScaled, deltaTHigh/mTScaled, &dynamicsHi );
         retLenHi = retLen;
         if ( retLenHi == XLAL_FAILURE )
         {
@@ -1895,7 +1981,9 @@ int XLALSimIMRSpinEOBWaveformAll(
             if (dynamicsHi != NULL){
                 XLALDestroyREAL8Array( dynamicsHi );
             }
-            XLAL_ERROR( XLAL_EFUNC );
+            XLALPrintError("XLALAdaptiveRungeKutta4 failed!\n");
+            PRINT_PARAMS
+            XLAL_ERROR( XLAL_EFAILED );
         }
         timeHi.length = retLenHi;
         timeHi.data   = dynamicsHi->data;
@@ -1955,10 +2043,11 @@ int XLALSimIMRSpinEOBWaveformAll(
     Alpha = XLALCreateREAL8Vector( retLenLow );
     Beta   = XLALCreateREAL8Vector( retLenLow );
     Gamma = XLALCreateREAL8Vector( retLenLow );
-    EulerAnglesI2P(Alpha, Beta, Gamma, &phaseCounterA, &phaseCounterB, tVec, posVecx, posVecy, posVecz, retLenLow, 0., 0., 0);
+    EulerAnglesI2P(Alpha, Beta, Gamma, &phaseCounterA, &phaseCounterB, tVec, posVecx, posVecy, posVecz, retLenLow, 0., 0.5*LAL_PI, 0);
+    //EulerAnglesI2P(Alpha, Beta, Gamma, &phaseCounterA, &phaseCounterB, tVec, posVecx, posVecy, posVecz, retLenLow, 0., 0.0, 0);
 
     if (debugPK){
-        fprintf( stderr, "Writing Alpha and Beta angle timeseries at low SR to alphaANDbeta.dat\n" );
+        XLAL_PRINT_INFO("Writing Alpha and Beta angle timeseries at low SR to alphaANDbeta.dat\n" );
         fflush(NULL);
         out = fopen( "alphaANDbeta.dat","w");
         for( i = 0; i < retLenLow; i++ ) {
@@ -1966,7 +2055,7 @@ int XLALSimIMRSpinEOBWaveformAll(
         }
         fclose(out);
         
-        fprintf( stderr,"Writing Gamma angle timeseries at low SR to gamma.dat\n");
+        XLAL_PRINT_INFO("Writing Gamma angle timeseries at low SR to gamma.dat\n");
         fflush(NULL);
         out = fopen( "gamma.dat","w");
         for( i = 0; i < retLenLow; i++ ) {
@@ -1980,7 +2069,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     GammaHi = XLALCreateREAL8Vector( retLenHi );
     EulerAnglesI2P(AlphaHi, BetaHi, GammaHi, &phaseCounterA, &phaseCounterB, timeHi, posVecxHi, posVecyHi, posVeczHi, retLenHi, Alpha->data[hiSRndx], Gamma->data[hiSRndx], 1);
     if (debugPK){
-        fprintf( stderr, "Writing Alpha and Beta angle timeseries at high SR to alphaANDbetaHi.dat\n" );
+        XLAL_PRINT_INFO("Writing Alpha and Beta angle timeseries at high SR to alphaANDbetaHi.dat\n" );
         fflush(NULL);
         out = fopen( "alphaANDbetaHi.dat","w");
         for( i = 0; i < retLenHi; i++ ) {
@@ -1988,7 +2077,7 @@ int XLALSimIMRSpinEOBWaveformAll(
         }
         fclose(out);
         
-        fprintf( stderr,"Writing Gamma angle timeseries at high SR to gammaHi.dat\n");
+        XLAL_PRINT_INFO("Writing Gamma angle timeseries at high SR to gammaHi.dat\n");
         fflush(NULL);
         out = fopen( "gammaHi.dat","w");
         for( i = 0; i < retLenHi; i++ ) {
@@ -2001,10 +2090,12 @@ int XLALSimIMRSpinEOBWaveformAll(
   modefreqVec.length = 1;
   modefreqVec.data   = &modeFreq;
 
-  if ( XLALSimIMREOBGenerateQNMFreqV2Prec( &modefreqVec, m1, m2, spin1, spin2, 2, 2, 1, spinEOBApproximant ) == XLAL_FAILURE ) {
+  if ( XLALSimIMREOBGenerateQNMFreqV2Prec( &modefreqVec, m1, m2, spin1, spin2, 2, 2, 1, spinEOBApproximant ) == XLAL_FAILURE ) /* This function returns XLAL_SUCCESS or calls XLAL_ERROR( XLAL_EINVAL ). Internally, it calls XLALSimIMREOBFinalMassSpinPrec which has the same behavior */ {
      FREE_EVERYTHING
      FREE_SPHHARM
-     XLAL_ERROR( XLAL_EFUNC );
+      XLALPrintError("XLALSimIMREOBGenerateQNMFreqV2Prec failed!\n");
+      PRINT_PARAMS
+      XLAL_ERROR( XLAL_EFUNC );
   }
 
   retLenRDPatchHi= (UINT4)ceil( 40 / ( cimag(modeFreq) * deltaTHigh ));
@@ -2022,6 +2113,8 @@ int XLALSimIMRSpinEOBWaveformAll(
     if ( !(radiusVec = XLALCreateREAL8Vector( retLenHi )) ) {
         FREE_EVERYTHING
         FREE_SPHHARM
+        XLALPrintError("Failed to allocate REAL8Vector radiusVec!\n");
+        PRINT_PARAMS
         XLAL_ERROR( XLAL_ENOMEM );
     }
 
@@ -2058,8 +2151,6 @@ int XLALSimIMRSpinEOBWaveformAll(
       fflush(NULL);
     }
 
-  /* Having found the time of peak, we set the time of coalescence */
-  XLALGPSAdd(&tc, -mTScaled * (tPeakOmega + HiSRstart) );
 
   /* Calculate J at merger */
   spline = gsl_spline_alloc( gsl_interp_cspline, retLenHi );
@@ -2072,10 +2163,12 @@ int XLALSimIMRSpinEOBWaveformAll(
                     dynamicsHi->data, dynamicsHi->data+(j+1)*retLenHi, retLenHi );
     values->data[j] = gsl_spline_eval( spline, tPeakOmega, acc );
   }
+  gsl_spline_free(spline);
+  gsl_interp_accel_free(acc);
 
   /* Get the phase offset required to ensure that the orbital phase = phiC at
    * tPeakOmega */
-  coa_phase_offset = values->data[12] - phiC;
+  //coa_phase_offset = values->data[12] - phiC;
 
   /* Calculate dr/dt */
   memset( dvalues->data, 0, 14*sizeof(dvalues->data[0]));
@@ -2084,7 +2177,9 @@ int XLALSimIMRSpinEOBWaveformAll(
       XLAL_PRINT_INFO( " Calculation of dr/dt at t = tPeakOmega \n");
       FREE_EVERYTHING
       FREE_SPHHARM
-      XLAL_ERROR( XLAL_EFUNC );
+      XLALPrintError("XLALSpinPrecHcapRvecDerivative failed!\n");
+      PRINT_PARAMS
+      XLAL_ERROR( XLAL_EDOM );
   }
 
   /* Calculate Omega = r x dr/dt */
@@ -2167,6 +2262,7 @@ int XLALSimIMRSpinEOBWaveformAll(
       XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2!\n", __func__ );
       FREE_EVERYTHING
       FREE_SPHHARM
+      PRINT_PARAMS
       XLAL_ERROR( XLAL_EINVAL );
       break;
   }
@@ -2197,10 +2293,12 @@ int XLALSimIMRSpinEOBWaveformAll(
   JframeEz[2] = Jz / magJ;
 
   if ( fabs(1.+ JframeEz[2]) <= 1.0e-13 )
-  { JframeEx[0] = -1.; JframeEx[1] = 0.; JframeEx[2] = 0.; } // anti-aligned
+    { JframeEx[0] = -1.; JframeEx[1] = 0.; JframeEx[2] = 0.; } // anti-aligned
+   //{ JframeEx[0] = 0.0; JframeEx[1] = -1.0; JframeEx[2] = 0.; } // anti-aligned
   else {
       if ( fabs(1. - JframeEz[2]) <= 1.0e-13 )
-          { JframeEx[0] = 1.; JframeEx[1] = 0.; JframeEx[2] = 0.; }  // aligned
+          //{ JframeEx[0] = 1.; JframeEx[1] = 0.; JframeEx[2] = 0.; }  // aligned
+          { JframeEx[0] = 1.0; JframeEx[1] = 0.0; JframeEx[2] = 0.; }  // aligned
       else {
             JframeEx[0] = JframeEz[1];
             JframeEx[1] = -JframeEz[0];
@@ -2231,36 +2329,42 @@ int XLALSimIMRSpinEOBWaveformAll(
     if ( !(alphaI2PTS = XLALCreateREAL8TimeSeries( "alphaI2P", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow )) + !(betaI2PTS = XLALCreateREAL8TimeSeries(  "betaI2P", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow )) + !(gammaI2PTS = XLALCreateREAL8TimeSeries( "gammaI2P", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow )) + !(alphaP2JTS = XLALCreateREAL8TimeSeries( "alphaP2J", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow )) + !(betaP2JTS = XLALCreateREAL8TimeSeries(  "betaP2J", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow )) + !(gammaP2JTS = XLALCreateREAL8TimeSeries( "gammaP2J", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow )) ) {
         FREE_EVERYTHING
         FREE_SPHHARM
+        XLALPrintError("Failed to allocate alphaI2PTS or betaI2PTS or gammaI2PTS or alphaP2JTS or betaP2JTS or gammaP2JTS!\n");
+        PRINT_PARAMS
         XLAL_ERROR(  XLAL_ENOMEM );
     }
     
     if ( !(h22TS   = XLALCreateCOMPLEX16TimeSeries( "H_22",  &tc, 0.0, deltaT, &lalStrainUnit, retLenLow )) + !(h21TS   = XLALCreateCOMPLEX16TimeSeries( "H_21", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow )) + !(h20TS   = XLALCreateCOMPLEX16TimeSeries( "H_20",  &tc, 0.0, deltaT, &lalStrainUnit, retLenLow )) + !(h2m1TS  = XLALCreateCOMPLEX16TimeSeries( "H_2m1", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow )) + !(h2m2TS  = XLALCreateCOMPLEX16TimeSeries( "H_2m2", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow ))) {
         FREE_EVERYTHING
         FREE_SPHHARM
+        XLALPrintError("Failed to allocate h22TS or h21TS or h20TS or h2m1TS or h2m2TS!\n");
+        PRINT_PARAMS
         XLAL_ERROR(  XLAL_ENOMEM );
      }
 
   hIMRJTS    = XLALCreateCOMPLEX16TimeSeries( "HIMRJ",
               &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
 
-  hPlusTS  = XLALCreateREAL8TimeSeries( "H_PLUS",
-              &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
-  hCrossTS = XLALCreateREAL8TimeSeries( "H_CROSS",
-              &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
 
   if ( !(tlist = XLALCreateREAL8Vector( retLenLow ))
     || !(tlistRDPatch = XLALCreateREAL8Vector( retLenLow + retLenRDPatchLow )) )
   {
+    XLALPrintError("Failed to allocate REAL8Vector tlistRDPatch!\n");
+    PRINT_PARAMS
     XLAL_ERROR(  XLAL_ENOMEM );
   }
   // timeJFullHi will be a copy  of tlistRDPatchHi which will be  returned together with J-frame modes
   if ( !(timeJFull = XLALCreateREAL8Vector( retLenLow + retLenRDPatchLow )) )
   {
+    XLALPrintError("Failed to allocate REAL8Vector timeJFull!\n");
+    PRINT_PARAMS
     XLAL_ERROR(  XLAL_ENOMEM );
   }
   // timeIFullHi will be a copy  of tlistRDPatchHi which will be  returned together with I-frame modes
   if ( !(timeIFull = XLALCreateREAL8Vector( retLenLow + retLenRDPatchLow )) )
   {
+    XLALPrintError("Failed to allocate REAL8Vector timeIFull!\n");
+    PRINT_PARAMS
     XLAL_ERROR(  XLAL_ENOMEM );
   }
   memset( tlist->data, 0, tlist->length * sizeof( REAL8 ));
@@ -2279,6 +2383,7 @@ int XLALSimIMRSpinEOBWaveformAll(
 
   /* Main loop for quasi-nonprecessing waveform generation */
   // Generating modes for coarsely sampled portion
+  //FILE *out2 = fopen("Lframe.dat", "w");  //FIXME
   if(debugPK){
     XLAL_PRINT_INFO("Generating precessing-frame modes for coarse dynamics\n");
     fflush(NULL);
@@ -2300,7 +2405,9 @@ int XLALSimIMRSpinEOBWaveformAll(
       XLAL_PRINT_INFO( " Calculation of dr/dt at t = tPeakOmega \n");
         FREE_EVERYTHING
         FREE_SPHHARM
-        XLAL_ERROR( XLAL_EFUNC );
+        XLALPrintError("XLALSpinPrecHcapRvecDerivative failed!\n");
+        PRINT_PARAMS
+        XLAL_ERROR( XLAL_EDOM );
     }
 
     /* Calculate omega */
@@ -2331,6 +2438,24 @@ int XLALSimIMRSpinEOBWaveformAll(
     aI2P = Alpha->data[i];
     bI2P = Beta->data[i];
     gI2P = Gamma->data[i];
+
+    //if (debugPK){
+        //REAL8 LframeEx[3] = {0,0,0}, LframeEy[3] = {0,0,0}, LframeEz[3] = {0,0,0};
+        //LframeEx[0] =  cos(aI2P)*cos(bI2P)*cos(gI2P) - sin(aI2P)*sin(gI2P);
+       // LframeEx[1] =  sin(aI2P)*cos(bI2P)*cos(gI2P) + cos(aI2P)*sin(gI2P);
+        //LframeEx[2] = -sin(bI2P)*cos(gI2P);
+        //LframeEy[0] = -cos(aI2P)*cos(bI2P)*sin(gI2P) - sin(aI2P)*cos(gI2P);
+        //LframeEy[1] = -sin(aI2P)*cos(bI2P)*sin(gI2P) + cos(aI2P)*cos(gI2P);
+        //LframeEy[2] =  sin(bI2P)*sin(gI2P);
+        //LframeEz[0] =  LNhx;
+        //LframeEz[1] =  LNhy;
+        //LframeEz[2] =  LNhz;
+        
+        //fprintf(out2, "%.16e   %.16e  %.16e  %.16e    %.16e  %.16e  %.16e     %.16e  %.16e  %.16e \n",
+        //        i*deltaT/mTScaled, LframeEx[0],  LframeEx[1],  LframeEx[2],  LframeEy[0],  LframeEy[1], 
+        //         LframeEy[2],  LframeEz[0],  LframeEz[1],  LframeEz[2]);
+
+    //}
 
     EulerAnglesP2J(&aP2J, &bP2J, &gP2J, aI2P, bI2P, gI2P, LNhx, LNhy, LNhz, JframeEx, JframeEy, JframeEz);
                      
@@ -2406,9 +2531,12 @@ int XLALSimIMRSpinEOBWaveformAll(
 
     /* Update hlm coefficients */
     if ( XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients( eobParams.hCoeffs, m1, m2, eta,
-                                                          tplspin, chiS, chiA, 3 ) == XLAL_FAILURE ) {
+                                                          tplspin, chiS, chiA, 3 ) == XLAL_FAILURE ) /* This function returns XLAL_SUCCESS or calls XLAL_ERROR( XLAL_EINVAL ) */
+      {
       XLAL_PRINT_INFO("\nSomething went wrong evaluating XLALSimIMRCalculateSpinPrecEOBHCoeffs in step %d of coarse dynamics\n",
 			i );
+        XLALPrintError("XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients failed!\n");
+        PRINT_PARAMS
         XLAL_ERROR( XLAL_EFUNC );
     }
 
@@ -2434,14 +2562,18 @@ int XLALSimIMRSpinEOBWaveformAll(
     {
         FREE_EVERYTHING
         FREE_SPHHARM
-        XLAL_ERROR( XLAL_EFUNC );
+        XLALPrintError("XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform failed!\n");
+        PRINT_PARAMS
+        XLAL_ERROR( XLAL_EDOM );
     }
     if ( XLALSimIMRSpinEOBNonQCCorrection( &hNQC,
           values, omega, &nqcCoeffs ) == XLAL_FAILURE )
     {
         FREE_EVERYTHING
         FREE_SPHHARM
-        XLAL_ERROR( XLAL_EFUNC );
+        XLALPrintError("XLALSimIMRSpinEOBNonQCCorrection failed!\n");
+        PRINT_PARAMS
+        XLAL_ERROR( XLAL_EDOM );
     }
     hLM *= hNQC;
     h22TS->data->data[i]  = hLM;
@@ -2461,7 +2593,9 @@ int XLALSimIMRSpinEOBWaveformAll(
     {
         FREE_EVERYTHING
         FREE_SPHHARM
-        XLAL_ERROR( XLAL_EFUNC );
+        XLALPrintError("XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform failed!\n");
+        PRINT_PARAMS
+        XLAL_ERROR( XLAL_EDOM );
     }
     h21TS->data->data[i]  = hLM;
     h2m1TS->data->data[i] = conj(hLM);
@@ -2469,6 +2603,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   }
   if(debugPK) {
       fclose( out );
+      //fclose( out2 );
       XLAL_PRINT_INFO("YP: quasi-nonprecessing modes generated.\n"); fflush(NULL);
   }
 
@@ -2516,6 +2651,8 @@ int XLALSimIMRSpinEOBWaveformAll(
         XLALDestroyREAL8Vector( timeIFull );
         XLALDestroyREAL8Vector( tlistRDPatch );
         XLALDestroyREAL8Vector( tlistRDPatchHi );
+        XLALPrintError("Failed to allocate alphaI2PTSHi or betaI2PTSHi or gammaI2PTSHi or alphaP2JTSHi or betaP2JTSHi or gammaP2JTSHi!\n");
+        PRINT_PARAMS
         XLAL_ERROR(  XLAL_ENOMEM );
     }
     
@@ -2526,6 +2663,8 @@ int XLALSimIMRSpinEOBWaveformAll(
         XLALDestroyREAL8Vector( timeIFull );
         XLALDestroyREAL8Vector( tlistRDPatch );
         XLALDestroyREAL8Vector( tlistRDPatchHi );
+        XLALPrintError("Failed to allocate h22TSHi or h21TSHi or h20TSHi or h2m1TSHi or h2m2TSHi!\n");
+        PRINT_PARAMS
         XLAL_ERROR(  XLAL_ENOMEM );
     }
 
@@ -2534,6 +2673,8 @@ int XLALSimIMRSpinEOBWaveformAll(
 
   if ( !(tlistHi = XLALCreateREAL8Vector( retLenHi )) || !(tlistRDPatchHi = XLALCreateREAL8Vector( retLenHi + retLenRDPatchHi)) )
   {
+    XLALPrintError("Failed to allocate REAL8Vector tlistHi!\n");
+    PRINT_PARAMS
     XLAL_ERROR(  XLAL_ENOMEM );
   }
   memset( tlistHi->data, 0, tlistHi->length * sizeof( REAL8 ));
@@ -2574,7 +2715,9 @@ int XLALSimIMRSpinEOBWaveformAll(
         XLALDestroyREAL8Vector( timeIFull );
         XLALDestroyREAL8Vector( tlistRDPatch );
         XLALDestroyREAL8Vector( tlistRDPatchHi );
-        XLAL_ERROR( XLAL_EFUNC );
+        XLALPrintError("XLALSpinPrecHcapRvecDerivative failed!\n");
+        PRINT_PARAMS
+        XLAL_ERROR( XLAL_EDOM );
     }
 
     /* Calculate omega */
@@ -2667,6 +2810,7 @@ int XLALSimIMRSpinEOBWaveformAll(
         XLALDestroyREAL8Vector( timeIFull );
         XLALDestroyREAL8Vector( tlistRDPatch );
         XLALDestroyREAL8Vector( tlistRDPatchHi );
+        PRINT_PARAMS
         XLAL_ERROR( XLAL_EINVAL );
        break;
     }
@@ -2687,7 +2831,9 @@ int XLALSimIMRSpinEOBWaveformAll(
         XLALDestroyREAL8Vector( timeIFull );
         XLALDestroyREAL8Vector( tlistRDPatch );
         XLALDestroyREAL8Vector( tlistRDPatchHi );
-        XLAL_ERROR( XLAL_EFUNC );
+        XLALPrintError("XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients failed!\n");
+        PRINT_PARAMS
+        XLAL_ERROR( XLAL_EDOM );
     }
 
     ham = XLALSimIMRSpinPrecEOBHamiltonian( eta, &cartPosVec, &cartMomVec,
@@ -2716,7 +2862,9 @@ int XLALSimIMRSpinEOBWaveformAll(
         XLALDestroyREAL8Vector( timeIFull );
         XLALDestroyREAL8Vector( tlistRDPatch );
         XLALDestroyREAL8Vector( tlistRDPatchHi );
-        XLAL_ERROR( XLAL_EFUNC );
+        XLALPrintError("XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform failed!\n");
+        PRINT_PARAMS
+        XLAL_ERROR( XLAL_EDOM );
     }
     if ( XLALSimIMRSpinEOBNonQCCorrection( &hNQC, values, omega, &nqcCoeffs ) == XLAL_FAILURE )
     {
@@ -2726,7 +2874,9 @@ int XLALSimIMRSpinEOBWaveformAll(
         XLALDestroyREAL8Vector( timeIFull );
         XLALDestroyREAL8Vector( tlistRDPatch );
         XLALDestroyREAL8Vector( tlistRDPatchHi );
-        XLAL_ERROR( XLAL_EFUNC );
+        XLALPrintError("XLALSimIMRSpinEOBNonQCCorrection failed!\n");
+        PRINT_PARAMS
+        XLAL_ERROR( XLAL_EDOM );
     }
     hLM *= hNQC;
     h22TSHi->data->data[i]  = hLM;
@@ -2748,7 +2898,9 @@ int XLALSimIMRSpinEOBWaveformAll(
         XLALDestroyREAL8Vector( timeIFull );
         XLALDestroyREAL8Vector( tlistRDPatch );
         XLALDestroyREAL8Vector( tlistRDPatchHi );
-        XLAL_ERROR( XLAL_EFUNC );
+        XLALPrintError("XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform failed!\n");
+        PRINT_PARAMS
+        XLAL_ERROR( XLAL_EDOM );
     }
     h21TSHi->data->data[i]  = hLM;
     h2m1TSHi->data->data[i] = conj(hLM);
@@ -2813,15 +2965,20 @@ int XLALSimIMRSpinEOBWaveformAll(
           XLAL_PRINT_INFO("The Amplitude-related time is found and it's %f \n", tAmpMax);
       }
   }
+
   if( foundAmp==0 && foundPeakOmega == 0){
-      XLALPrintError("Houston, we've got a problem SOS, SOS, SOS, cannot find the RD attachment point... m1 = %.16e, m2 = %.16e, fMin = %.16e, inclination = %.16e,  Mtotal = %.16e, eta = %.16e, spin1 = {%.16e, %.16e, %.16e},   spin2 = {%.16e, %.16e, %.16e} \n", 
-               m1, m2, (double)fMin, (double)inc, mTotal, eta, spin1[0], spin1[1], spin1[2], spin2[0], spin2[1], spin2[2]);
-      FREE_EVERYTHING
-      XLALDestroyREAL8Vector( timeJFull );
-      XLALDestroyREAL8Vector( timeIFull );
-      XLALDestroyREAL8Vector( tlistRDPatch );
-      XLALDestroyREAL8Vector( tlistRDPatchHi );
-      XLAL_ERROR( XLAL_EINVAL );
+      if (debugPK){
+          XLALPrintError("Houston, we've got a problem SOS, SOS, SOS, cannot find the RD attachment point... m1 = %.16e, m2 = %.16e, fMin = %.16e, inclination = %.16e,  Mtotal = %.16e, eta = %.16e, spin1 = {%.16e, %.16e, %.16e},   spin2 = {%.16e, %.16e, %.16e} \n", 
+                   m1, m2, (double)fMin, (double)inc, mTotal, eta, spin1[0], spin1[1], spin1[2], spin2[0], spin2[1], spin2[2]);
+      }
+      
+      tAttach = tAttach -2.0;    
+      //FREE_EVERYTHING
+      //XLALDestroyREAL8Vector( timeJFull );
+      //XLALDestroyREAL8Vector( timeIFull );
+      //XLALDestroyREAL8Vector( tlistRDPatch );
+      //XLALDestroyREAL8Vector( tlistRDPatchHi );
+      //XLAL_ERROR( XLAL_EINVAL );
   }
 
 
@@ -2851,7 +3008,9 @@ int XLALSimIMRSpinEOBWaveformAll(
       XLALDestroyREAL8Vector( timeIFull );
       XLALDestroyREAL8Vector( tlistRDPatch );
       XLALDestroyREAL8Vector( tlistRDPatchHi );
-      XLAL_ERROR( XLAL_EFUNC );
+      XLALPrintError("XLALSimInspiralPrecessionRotateModes failed!\n");
+      PRINT_PARAMS
+      XLAL_ERROR( XLAL_EFAILED );
   }
   h22JTS  = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, 2 );
   h21JTS  = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, 1 );
@@ -2889,7 +3048,9 @@ int XLALSimIMRSpinEOBWaveformAll(
       XLALDestroyREAL8Vector( timeIFull );
       XLALDestroyREAL8Vector( tlistRDPatch );
       XLALDestroyREAL8Vector( tlistRDPatchHi );
-      XLAL_ERROR( XLAL_EFUNC );
+      XLALPrintError("XLALSimInspiralPrecessionRotateModes failed!\n");
+      PRINT_PARAMS
+      XLAL_ERROR( XLAL_EFAILED );
   }
   h22JTSHi  = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, 2 );
   h21JTSHi  = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, 1 );
@@ -2919,6 +3080,8 @@ int XLALSimIMRSpinEOBWaveformAll(
   sigImHi  = XLALCreateREAL8Vector( retLenHi + retLenRDPatchHi);
   if ( !sigReHi || !sigImHi )
   {
+    XLALPrintError("Failed to allocate REAL8Vector sigReHi or sigImHi!\n");
+    PRINT_PARAMS
     XLAL_ERROR( XLAL_ENOMEM );
   }
   memset( sigReHi->data, 0, sigReHi->length * sizeof( sigReHi->data[0] ));
@@ -2938,6 +3101,7 @@ int XLALSimIMRSpinEOBWaveformAll(
       XLALDestroyREAL8Vector( timeIFull );
       XLALDestroyREAL8Vector( tlistRDPatch );
       XLALDestroyREAL8Vector( tlistRDPatchHi );
+      PRINT_PARAMS
       XLAL_ERROR( XLAL_EINVAL );
   }
   rdMatchPoint->data[0] = combSize < tAttach ? tAttach - combSize : 0;
@@ -3016,7 +3180,9 @@ int XLALSimIMRSpinEOBWaveformAll(
           XLALDestroyREAL8Vector( timeIFull );
           XLALDestroyREAL8Vector( tlistRDPatch );
           XLALDestroyREAL8Vector( tlistRDPatchHi );
-          XLAL_ERROR( XLAL_EFUNC );
+          XLALPrintError("XLALSimCheckRDattachment failed!\n");
+          PRINT_PARAMS
+          XLAL_ERROR( XLAL_EDOM );
       }
 
       memset( sigReHi->data, 0, sigReHi->length * sizeof( sigReHi->data[0] ));
@@ -3036,7 +3202,9 @@ int XLALSimIMRSpinEOBWaveformAll(
           XLALDestroyREAL8Vector( timeIFull );
           XLALDestroyREAL8Vector( tlistRDPatch );
           XLALDestroyREAL8Vector( tlistRDPatchHi );
-          XLAL_ERROR( XLAL_EFUNC );
+          XLALPrintError("XLALSimCheckRDattachment failed!\n");
+          PRINT_PARAMS
+          XLAL_ERROR( XLAL_EDOM );
       }
 
       if (debugPK){
@@ -3067,8 +3235,7 @@ int XLALSimIMRSpinEOBWaveformAll(
                        tAttach, ratio22, ratio2m2);fflush(NULL);
              }
                else if (found_att == 2) {
-                   XLAL_PRINT_INFO("we haven't found proper attachment point, we picked the best point at tAtt = %f\n",
-                          tAttach);fflush(NULL);
+                   XLAL_PRINT_INFO("we haven't found proper attachment point, we picked the best point at tAtt = %f with ratios %f, %f\n", tAttach, ratio22, ratio2m2);fflush(NULL);
 
                }
                else{
@@ -3124,7 +3291,9 @@ int XLALSimIMRSpinEOBWaveformAll(
         XLALDestroyREAL8Vector( timeIFull );
         XLALDestroyREAL8Vector( tlistRDPatch );
         XLALDestroyREAL8Vector( tlistRDPatchHi );
-        XLAL_ERROR( XLAL_EFUNC );
+        XLALPrintError("XLALSimIMREOBHybridAttachRingdownPrec failed!\n");
+        PRINT_PARAMS
+        XLAL_ERROR( XLAL_EDOM );
     }
 
     for ( i = 0; i < (int)sigReHi->length; i++ )
@@ -3141,6 +3310,47 @@ int XLALSimIMRSpinEOBWaveformAll(
   hIMR20JTSHi  = XLALSphHarmTimeSeriesGetMode( hIMRlmJTSHi, 2, 0 );
   hIMR2m1JTSHi = XLALSphHarmTimeSeriesGetMode( hIMRlmJTSHi, 2, -1);
   hIMR2m2JTSHi = XLALSphHarmTimeSeriesGetMode( hIMRlmJTSHi, 2, -2);
+ 
+  /** We search for maximum of the frame-invariant amplitude and set its time as time of
+   * coalescence (or reference time) */ 
+  // find tc which is accosiated with max of invariant amplitude:
+  REAL8Vector *invAmp = XLALCreateREAL8Vector( hIMR22JTSHi->data->length ); 
+  for (i=0; i < retLenHi + retLenRDPatchHi; i++ ){
+      invAmp->data[i] =  creal(hIMR22JTSHi->data->data[i])*creal(hIMR22JTSHi->data->data[i]) + 
+          cimag(hIMR22JTSHi->data->data[i]) * cimag(hIMR22JTSHi->data->data[i])  + 
+           creal(hIMR21JTSHi->data->data[i])*creal(hIMR21JTSHi->data->data[i]) + 
+          cimag(hIMR21JTSHi->data->data[i]) * cimag(hIMR21JTSHi->data->data[i])  + 
+           creal(hIMR20JTSHi->data->data[i])*creal(hIMR20JTSHi->data->data[i]) + 
+          cimag(hIMR20JTSHi->data->data[i]) * cimag(hIMR20JTSHi->data->data[i])  + 
+           creal(hIMR2m1JTSHi->data->data[i])*creal(hIMR2m1JTSHi->data->data[i]) + 
+          cimag(hIMR2m1JTSHi->data->data[i]) * cimag(hIMR2m1JTSHi->data->data[i])  + 
+           creal(hIMR2m2JTSHi->data->data[i])*creal(hIMR2m2JTSHi->data->data[i]) + 
+          cimag(hIMR2m2JTSHi->data->data[i]) * cimag(hIMR2m2JTSHi->data->data[i]);
+  }
+  REAL8 invAmpmax = invAmp->data[0];
+  int i_maxiA = 0;
+  for (i=1; i < retLenHi + retLenRDPatchHi - 1; i++){
+      if ( invAmp->data[i] >= invAmp->data[i-1] && invAmp->data[i] > invAmp->data[i+1] && invAmp->data[i] > invAmpmax){
+          i_maxiA = i;
+          invAmpmax = invAmp->data[i];
+      }
+  } 
+  if(debugPK){  
+      XLAL_PRINT_INFO("We set tc = %.16e, %.16e \n", (tlistRDPatchHi->data[i_maxiA] ), -mTScaled * (tlistRDPatchHi->data[i_maxiA] ));
+  }
+
+
+  /* Having found the time of peak, we set the time of coalescence */
+  //XLALGPSAdd(&tc, -mTScaled * (tPeakOmega + HiSRstart) );
+  XLALGPSAdd( &tc, -mTScaled * (tlistRDPatchHi->data[i_maxiA] ));
+  XLALDestroyREAL8Vector( invAmp ); // we don't need it anymore
+
+  hPlusTS  = XLALCreateREAL8TimeSeries( "H_PLUS",
+              &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
+  hCrossTS = XLALCreateREAL8TimeSeries( "H_CROSS",
+              &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
+
+
 
   *hIMRlmJTSHiOutput = hIMRlmJTSHi;
   if (debugPK){
@@ -3162,8 +3372,7 @@ int XLALSimIMRSpinEOBWaveformAll(
      fflush(NULL);
   }
 
-  gsl_spline_free(spline);
-  gsl_interp_accel_free(acc);
+
   /*** attach hi sampling part and resample  */
   for ( k = 2; k > -3; k-- )
   {
@@ -3206,7 +3415,6 @@ int XLALSimIMRSpinEOBWaveformAll(
              hIMRJTS->data->data[i] += I*0.;
          }
      }
-
      gsl_spline_free(spline);
      gsl_interp_accel_free(acc);
 
@@ -3293,7 +3501,9 @@ int XLALSimIMRSpinEOBWaveformAll(
   if ( XLALSimInspiralPrecessionRotateModes( hIMRlmITS,
                 alpI, betI, gamI ) == XLAL_FAILURE ) {
       FREE_EVERYTHING
-      XLAL_ERROR( XLAL_EFUNC );
+      XLALPrintError("XLALSimInspiralPrecessionRotateModes failed!\n");
+      PRINT_PARAMS
+      XLAL_ERROR( XLAL_EFAILED );
   }
   hIMR22ITS  = XLALSphHarmTimeSeriesGetMode( hIMRlmITS, 2, 2 );
   hIMR21ITS  = XLALSphHarmTimeSeriesGetMode( hIMRlmITS, 2, 1 );
@@ -3327,9 +3537,20 @@ int XLALSimIMRSpinEOBWaveformAll(
 /* *********************************************************************************
  * *********************************************************************************
  * STEP 9) Compute h+, hx
- * *********************************************************************************
+ * ********************************************************************************
  * **********************************************************************************/
-    if ( SpinsAlmostAligned ) {
+    //incl_temp = inc;
+    //incl_temp = 0.0;
+    /** NOTE that we have use  now different convention: the phi_ref (or one might call it phi_c) is now
+     * the azimuthal phase of the observer in the source (I-)frame. Together with inclination angle it defines 
+     * the position of the observer in the (I-)frame associated with the source at t=0 */
+
+    Y22 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, 2 );
+    Y2m2 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, -2 );
+    Y21 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, 1 );
+    Y2m1 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, -1 );
+    Y20 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, 0 );
+    /*if ( SpinsAlmostAligned ) {
         Y22 = XLALSpinWeightedSphericalHarmonic( inc, coa_phase_offset, -2, 2, 2 );
         Y2m2 = XLALSpinWeightedSphericalHarmonic( inc, coa_phase_offset, -2, 2, -2 );
         Y21 = XLALSpinWeightedSphericalHarmonic( inc, coa_phase_offset, -2, 2, 1 );
@@ -3337,12 +3558,12 @@ int XLALSimIMRSpinEOBWaveformAll(
         Y20 = XLALSpinWeightedSphericalHarmonic( inc, coa_phase_offset, -2, 2, 0 );
     }
     else {
-        Y22 = XLALSpinWeightedSphericalHarmonic( 0, coa_phase_offset, -2, 2, 2 );
-        Y2m2 = XLALSpinWeightedSphericalHarmonic( 0, coa_phase_offset, -2, 2, -2 );
-        Y21 = XLALSpinWeightedSphericalHarmonic( 0, coa_phase_offset, -2, 2, 1 );
-        Y2m1 = XLALSpinWeightedSphericalHarmonic( 0, coa_phase_offset, -2, 2, -1 );
-        Y20 = XLALSpinWeightedSphericalHarmonic( 0, coa_phase_offset, -2, 2, 0 );
-    }
+        Y22 = XLALSpinWeightedSphericalHarmonic( incl_temp, coa_phase_offset, -2, 2, 2 );
+        Y2m2 = XLALSpinWeightedSphericalHarmonic( incl_temp, coa_phase_offset, -2, 2, -2 );
+        Y21 = XLALSpinWeightedSphericalHarmonic( incl_temp, coa_phase_offset, -2, 2, 1 );
+        Y2m1 = XLALSpinWeightedSphericalHarmonic( incl_temp, coa_phase_offset, -2, 2, -1 );
+        Y20 = XLALSpinWeightedSphericalHarmonic( incl_temp, coa_phase_offset, -2, 2, 0 );
+    }*/
 
     if(debugPK){ XLAL_PRINT_INFO("Ylm %e %e %e %e %e %e %e %e %e %e \n", creal(Y22), cimag(Y22), creal(Y2m2), cimag(Y2m2), creal(Y21), cimag(Y21), creal(Y2m1), cimag(Y2m1), creal(Y20), cimag (Y20)); fflush(NULL); }
 
@@ -3408,6 +3629,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     XLALDestroyREAL8TimeSeries( betI);
     XLALDestroyREAL8TimeSeries( gamI);
     XLALDestroyREAL8Vector( rdMatchPoint );
+    XLALDestroyREAL8Vector( radiusVec  );
     
   /* FIXME: Temporary code to convert REAL8Array to REAL8Vector because SWIG
    *        doesn't seem to like REAL8Array */

@@ -82,6 +82,14 @@ void XLALDestroySuperskyMetrics(
   SuperskyMetrics *metrics			///< [in] Supersky metrics struct
   );
 
+///
+/// Return dimensions of the supersky metrics.
+///
+int XLALSuperskyMetricsDimensions(
+  const SuperskyMetrics *metrics,		///< [in] Supersky metrics struct
+  size_t *spindowns				///< [out] Number of spindown dimensions
+  );
+
 #ifdef SWIG // SWIG interface directives
 SWIGLAL(COPYINOUT_ARRAYS(gsl_matrix, rssky_metric, rssky_transf));
 #endif // SWIG
@@ -108,8 +116,8 @@ int XLALScaleSuperskyMetricsFiducialFreq(
   );
 
 ///
-/// Project and rescale the semicoherent reduced supersky metric in the frequency dimension, such that
-/// all reduced supersky metrics have the same frequency spacing for the given maximum mismatches.
+/// Project and rescale the reduced supersky metrics in the frequency dimension, such that all
+/// reduced supersky metrics have the same frequency spacing for the given maximum mismatches.
 ///
 int XLALEqualizeReducedSuperskyMetricsFreqSpacing(
   SuperskyMetrics *metrics,			///< [in] Supersky metrics struct
