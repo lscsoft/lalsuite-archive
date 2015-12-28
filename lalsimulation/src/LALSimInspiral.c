@@ -144,6 +144,7 @@ static const char *lalSimulationApproximantNames[] = {
     INITIALIZE_NAME(SpinTaylorT4Fourier),
     INITIALIZE_NAME(SpinTaylorT2Fourier),
     INITIALIZE_NAME(SpinDominatedWf),
+    INITIALIZE_NAME(NR_hdf5),
 };
 #undef INITIALIZE_NAME
 
@@ -313,6 +314,7 @@ int XLALSimInspiralChooseTDWaveform(
     )
 {
     REAL8 LNhatx, LNhaty, LNhatz, E1x, E1y, E1z;
+    char* numrel_data_path;
     //REAL8 tmp1, tmp2;
     int ret;
     /* N.B. the quadrupole of a spinning compact body labeled by A is
@@ -785,7 +787,7 @@ int XLALSimInspiralChooseTDWaveform(
             spin1[0] = S1x; spin1[1] = S1y; spin1[2] = S1z;
             spin2[0] = S2x; spin2[1] = S2y; spin2[2] = S2z;
             iTmp=i;
-           XLALSimInspiralInitialConditionsPrecessingApproxs(&i,&S1x,&S1y,&S1z,&S2x,&S2y,&S2z,iTmp,spin1[0],spin1[1],spin1[2],spin2[0],spin2[1],spin2[2],m1,m2,f_ref,XLALSimInspiralGetFrameAxis(waveFlags));
+           //XLALSimInspiralInitialConditionsPrecessingApproxs(&i,&S1x,&S1y,&S1z,&S2x,&S2y,&S2z,iTmp,spin1[0],spin1[1],spin1[2],spin2[0],spin2[1],spin2[2],m1,m2,f_ref,XLALSimInspiralGetFrameAxis(waveFlags));
             spin1[0] = S1x; spin1[1] = S1y; spin1[2] = S1z;
             spin2[0] = S2x; spin2[1] = S2y; spin2[2] = S2z;
             ret = XLALSimIMRSpinEOBWaveform(hplus, hcross, /*&epoch,*/ phiRef,
@@ -801,6 +803,18 @@ int XLALSimInspiralChooseTDWaveform(
 	     /* Call the waveform driver */
 	     ret = XLALHGimriGenerator(hplus, hcross, phiRef, deltaT, m1, m2, f_min, r, i, S1z);
 	     break;
+
+        case NR_hdf5:
+            /* Waveform-specific sanity checks */
+
+            /* Call the waveform driver routine */
+            numrel_data_path = XLALSimInspiralGetNumrelData(waveFlags);
+            ret = XLALSimInspiralNRWaveformGetHplusHcross(hplus, hcross,
+                    phiRef, i, deltaT, m1, m2, r, f_min, f_ref, S1x, S1y, S1z,
+                    S2x, S2y, S2z, numrel_data_path);
+            XLALFree(numrel_data_path);
+            break;
+
 
         default:
             XLALPrintError("TD version of approximant not implemented in lalsimulation\n");
@@ -1265,11 +1279,11 @@ int XLALSimInspiralChooseFDWaveform(
                 m1, m2, f_ref,
                 LNhatx, LNhaty, LNhatz,
                 S1x, S1y, S1z,
-                S2x, S2y, S2z);
+                S2x, S2y, S2z, IMRPhenomPv1_V);
             /* Call the waveform driver routine */
             ret = XLALSimIMRPhenomP(hptilde, hctilde,
               chi1_l, chi2_l, chip, thetaJ,
-              m1, m2, r, alpha0, phiRef, deltaF, f_min, f_max, f_ref, 1);
+              m1, m2, r, alpha0, phiRef, deltaF, f_min, f_max, f_ref, IMRPhenomPv1_V);
             if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
             break;
 
@@ -1295,11 +1309,11 @@ int XLALSimInspiralChooseFDWaveform(
                 m1, m2, f_ref,
                 LNhatx, LNhaty, LNhatz,
                 S1x, S1y, S1z,
-                S2x, S2y, S2z);
+                S2x, S2y, S2z, IMRPhenomPv2_V);
             /* Call the waveform driver routine */
             ret = XLALSimIMRPhenomP(hptilde, hctilde,
               chi1_l, chi2_l, chip, thetaJ,
-              m1, m2, r, alpha0, phiRef, deltaF, f_min, f_max, f_ref, 2);
+              m1, m2, r, alpha0, phiRef, deltaF, f_min, f_max, f_ref, IMRPhenomPv2_V);
             if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
             break;
 
@@ -1389,10 +1403,10 @@ int XLALSimInspiralChooseFDWaveform(
 
     return ret;
 }
- 
+
 /**
  * @brief Generates an time domain inspiral waveform using the specified approximant; the
- * resulting waveform is appropriately conditioned, suitable for injection into data, 
+ * resulting waveform is appropriately conditioned, suitable for injection into data,
  * and decomposed into the (2, \f$\pm\f$ 2), spin -2 weighted spherical harmonic modes.
  * NOTE: This is an algebraic decomposition, and will only be correct for approximants
  * which use only the dominant 2, \f$\pm\f$ 2 mode.
@@ -1413,7 +1427,7 @@ int XLALSimInspiralChooseFDWaveform(
  * parameter r is the comoving (transverse) distance.  If the calling routine has already
  * applied cosmological "corrections" to m1 and m2 and regards r as a luminosity distance
  * then the redshift factor should again be set to zero.
- * 
+ *
  * @note The parameters passed must be in SI units.
  */
 SphHarmTimeSeries* XLALSimInspiralTDModesFromPolarizations(
@@ -1444,7 +1458,7 @@ SphHarmTimeSeries* XLALSimInspiralTDModesFromPolarizations(
     SphHarmTimeSeries *hlm;
     UINT4 j;
     int retval;
-    float fac = XLALSpinWeightedSphericalHarmonic(0., 0., -2, 2,2); 
+    float fac = XLALSpinWeightedSphericalHarmonic(0., 0., -2, 2,2);
 
     /* Generate waveform via on-axis emission. Assumes only (2,2) and (2,-2) emission */
     retval = XLALSimInspiralTD(&hplus, &hcross, 0.0, deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, z, 0.0, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, approximant);
@@ -1468,7 +1482,7 @@ SphHarmTimeSeries* XLALSimInspiralTDModesFromPolarizations(
     XLALDestroyREAL8TimeSeries(hcross);
     XLALDestroyCOMPLEX16TimeSeries(h22);
     XLALDestroyCOMPLEX16TimeSeries(h2m2);
-    
+
     return hlm;
 }
 
@@ -1550,7 +1564,7 @@ static int XLALSimInspiralTDFromTD(
      * region between that lower frequency and the requested
      * frequency f_min; here compute a new lower frequency */
     fstart = XLALSimInspiralChirpStartFrequencyBound((1.0 + extra_time_fraction) * tchirp + tmerge + textra, m1, m2);
-    
+
     /* generate the waveform in the time domain starting at fstart */
     retval = XLALSimInspiralChooseTDWaveform(hplus, hcross, phiRef, deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, fstart, f_ref, r, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, approximant);
     if (retval < 0)
@@ -1695,7 +1709,7 @@ static int XLALSimInspiralTDFromFD(
     /* revised estimate of chirp length from new start frequency */
     fstart = XLALSimInspiralChirpStartFrequencyBound((1.0 + extra_time_fraction) * tchirp, m1, m2);
     tchirp = XLALSimInspiralChirpTimeBound(fstart, m1, m2, S1z, S2z);
-        
+
     /* total expected chirp length includes merger */
     chirplen = round((tchirp + tmerge) / deltaT);
 
@@ -1742,7 +1756,7 @@ static int XLALSimInspiralTDFromFD(
  * parameter r is the comoving (transverse) distance.  If the calling routine has already
  * applied cosmological "corrections" to m1 and m2 and regards r as a luminosity distance
  * then the redshift factor should again be set to zero.
- * 
+ *
  * @note The parameters passed must be in SI units.
  */
 int XLALSimInspiralTD(
@@ -3900,6 +3914,7 @@ int XLALSimInspiralImplementedTDApproximants(
         case SEOBNRv2:
         case SEOBNRv2_opt:
         case SEOBNRv3:
+        case NR_hdf5:
             return 1;
 
         default:
@@ -4325,6 +4340,7 @@ int XLALSimInspiralGetSpinSupportFromApproximant(Approximant approx){
     case SpinTaylorT4Fourier:
     case SpinDominatedWf:
     case SEOBNRv3:
+    case NR_hdf5:
       spin_support=LAL_SIM_INSPIRAL_PRECESSINGSPIN;
       break;
     case SpinTaylorF2:
@@ -4441,6 +4457,7 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
     case TaylorN:
     case SpinDominatedWf:
     case NumApproximants:
+    case NR_hdf5:
       testGR_accept=LAL_SIM_INSPIRAL_NO_TESTGR_PARAMS;
       break;
     case SpinTaylorF2:
@@ -4675,6 +4692,9 @@ double XLALSimInspiralGetFrequency(
             chi = XLALSimIMRPhenomBComputeChi(m1Msun, m2Msun, S1z, S2z);
             freq = XLALSimIMRPhenomCGetFinalFreq(m1Msun, m2Msun, chi);
             break;
+		case fIMRPhenomDPeak:
+			freq = XLALIMRPhenomDGetPeakFreq(m1Msun, m2Msun, S1z, S2z);
+			break;
 
         /* EOBNR ringdown frequencies all come from the same code,
          * just with different inputs */
@@ -4875,6 +4895,8 @@ double XLALSimInspiralGetFinalFreq(
         case PhenSpinTaylorRD:
         /* Spinning inspiral-only frequency domain */
         case SpinTaylorF2:
+        /* NR waveforms */
+        case NR_hdf5:
             XLALPrintError("I don't know how to calculate final freq. for this approximant, sorry!\n");
             XLAL_ERROR(XLAL_EINVAL);
             break;
