@@ -28,7 +28,7 @@
 #include <lal/SuperskyMetrics.h>
 #include <lal/LALInitBarycenter.h>
 
-#include "../src/GSLHelpers.h"
+#include <lal/GSLHelpers.h>
 
 #define MISM_HIST_BINS 20
 
@@ -595,6 +595,12 @@ static int MultiSegSuperskyTest(void)
     const double tol = 1e-8;
     XLAL_CHECK(fabs(coh_dfreq - semi_dfreq) < tol * semi_dfreq, XLAL_EFAILED,
                "  ERROR: semi_dfreq=%0.15e, coh_dfreq[%zu]=%0.15e, |coh_dfreq - semi_dfreq| >= %g * semi_dfreq", semi_dfreq, n, coh_dfreq, tol);
+  }
+
+  // Check computation of spindown range for coherent tilings
+  for (size_t n = 0; n < metrics->num_segments; ++n) {
+    PulsarSpinRange spin_range;
+    XLAL_CHECK(XLALSuperskyLatticePulsarSpinRange(&spin_range, coh_tiling[n], metrics->coh_rssky_transf[n]) == XLAL_SUCCESS, XLAL_EFUNC);
   }
 
   // Cleanup

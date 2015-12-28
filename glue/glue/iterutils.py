@@ -303,9 +303,9 @@ def inorder(*iterables, **kwargs):
 		# all sequences are empty
 		return
 	if reverse:
-		select = max
+		select = lambda seq: max(seq, key = lambda elem: elem[0])
 	else:
-		select = min
+		select = lambda seq: min(seq, key = lambda elem: elem[0])
 	values = nextvals.itervalues
 	if len(nextvals) > 1:
 		while 1:

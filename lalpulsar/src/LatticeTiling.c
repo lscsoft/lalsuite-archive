@@ -28,7 +28,7 @@
 #include <lal/LALStdio.h>
 #include <lal/MetricUtils.h>
 
-#include "GSLHelpers.h"
+#include <lal/GSLHelpers.h>
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -866,6 +866,26 @@ REAL8 XLALLatticeTilingStepSizes(
 
   // Step size is the (dim)th diagonal element of 'phys_from_int'
   return gsl_matrix_get(tiling->phys_from_int, dim, dim);
+
+}
+
+REAL8 XLALLatticeTilingBoundingBox(
+  const LatticeTiling *tiling,
+  const size_t dim
+  )
+{
+
+  // Check input
+  XLAL_CHECK_REAL8(tiling != NULL, XLAL_EFAULT);
+  XLAL_CHECK_REAL8(tiling->lattice < TILING_LATTICE_MAX, XLAL_EINVAL);
+  XLAL_CHECK_REAL8(dim < tiling->ndim, XLAL_ESIZE);
+
+  // Return 0 for non-tiled dimensions
+  if (!tiling->bounds[dim].is_tiled) {
+    return 0.0;
+  }
+
+  return gsl_vector_get(tiling->phys_bbox, dim);
 
 }
 

@@ -254,7 +254,7 @@ FROM
 			instrument = values[-4]
 			burst_snr = values[-3]
 			burst_peak = LIGOTimeGPS(*values[-2:])
-			sim_peak = SimBurstUtils.time_at_instrument(sim, instrument, offsetvectors[sim.time_slide_id])
+			sim_peak = sim.time_at_instrument(instrument, offsetvectors[sim.time_slide_id])
 
 			try:
 				data = self.data[instrument]

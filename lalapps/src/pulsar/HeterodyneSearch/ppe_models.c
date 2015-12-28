@@ -38,7 +38,27 @@ void get_pulsar_model( LALInferenceModel *model ){
   /* set model parameters (including rescaling) */
   add_pulsar_parameter( model->params, pars, "PSI" );
 
-  if( ( LALInferenceCheckVariableNonFixed( model->params, "H0" ) || LALInferenceCheckVariable( model->ifo->params, "jones-model" ) ) && !LALInferenceCheckVariable( model->ifo->params, "nonGR" ) ){
+  if( ( LALInferenceCheckVariableNonFixed( model->params, "H0" ) || LALInferenceCheckVariableNonFixed( model->params, "Q22" ) || LALInferenceCheckVariable( model->ifo->params, "jones-model" ) ) && !LALInferenceCheckVariable( model->ifo->params, "nonGR" ) ){
+    /* if searching in mass quadrupole, Q22, then check for distance and f0 and convert to h0 */
+    if ( LALInferenceCheckVariableNonFixed( model->params, "Q22" ) && !LALInferenceCheckVariableNonFixed( model->params, "H0" ) ){
+      if ( LALInferenceCheckVariable( model->params, "F0" ) && LALInferenceCheckVariable( model->params, "DIST" ) ){
+        /* convert Q22, distance and frequency into strain h0 using eqn 3 of Aasi et al, Ap. J., 785, 119 (2014) */
+        REAL8 Q22 = LALInferenceGetREAL8Variable( model->params, "Q22" );
+        REAL8 dist = LALInferenceGetREAL8Variable( model->params, "DIST" );
+        REAL8 f0 = LALInferenceGetREAL8Variable( model->params, "F0" );
+        REAL8 h0val = Q22*sqrt(8.*LAL_PI/15.)*16.*LAL_PI*LAL_PI*LAL_G_SI*f0*f0/(LAL_C_SI*LAL_C_SI*LAL_C_SI*LAL_C_SI*dist);
+        PulsarAddParam( pars, "H0", &h0val, PULSARTYPE_REAL8_t );
+      }
+      else{
+        XLALPrintError("%s: Error... using mass quadrupole, Q22, but no distance or frequency given!\n", __func__ );
+        XLAL_ERROR_VOID( XLAL_EINVAL );
+      }
+    }
+    else if ( LALInferenceCheckVariableNonFixed( model->params, "Q22" ) && LALInferenceCheckVariableNonFixed( model->params, "H0" ) ) {
+      XLALPrintError("%s: Error... cannot have both h0 and Q22 as variables.\n", __func__);
+      XLAL_ERROR_VOID( XLAL_EINVAL );
+    }
+
     add_pulsar_parameter( model->params, pars, "H0" );
 
     /* use parameterisation from Ian Jones's original model */
@@ -1317,7 +1337,9 @@ void response_lookup_table( REAL8 t0, LALDetAndSource detNSource, INT4 timeSteps
  * Convert the physical source parameters into the amplitude and phase notation given in Eqns
  * 62-65 of \cite Jones:2015 .
  *
- * Note that \c phi0 is essentially the rotational phase of the pulsar.
+ * Note that \c phi0 is essentially the rotational phase of the pulsar. Also, note that if using \f$h_0\f$,
+ * and therefore the convention for a signal as defined in \cite JKS98 , the sign of the waveform model is
+ * the opposite of that in \cite Jones:2015 , and therefore a sign flip is required in the amplitudes.
  */
 void invert_source_params( PulsarParameters *params ){
   REAL8 sinlambda, coslambda, sinlambda2, coslambda2, sin2lambda;
@@ -1337,7 +1359,8 @@ void invert_source_params( PulsarParameters *params ){
     phi22 = 2.*phi0;
     phi22 = phi22 - LAL_TWOPI*floor(phi22/LAL_TWOPI);
     PulsarAddParam( params, "PHI22", &phi22, PULSARTYPE_REAL8_t );
-    C22 = 0.5*h0;
+
+    C22 = -0.5*h0; /* note the change in sign so that the triaxial model conforms to the convertion in JKS98 */
     PulsarAddParam( params, "C22", &C22, PULSARTYPE_REAL8_t );
   }
   else if ( ( I21 != 0. || I31 != 0. ) && ( C22 == 0. && C21 == 0. ) ) {
