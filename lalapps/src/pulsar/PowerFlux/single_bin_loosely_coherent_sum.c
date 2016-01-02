@@ -1653,14 +1653,15 @@ for(k=0;k<sc->free;k++) {
 
 sc->misses++;
 //fprintf(stderr, "miss\n");
-
 if(k>=sc->size) {
 	fprintf(stderr, "*** INTERNAL ERROR: cache overflow\n");
 	exit(-1);
 	}
 
 if(k>=sc->free) {
-	sc->si[k]=do_alloc(sc->segment_count, sizeof(*si));
+	if(sc->si[k]==NULL) {
+		sc->si[k]=do_alloc(sc->segment_size, sizeof(*si));
+		}
 	//sc->pps[k]=allocate_partial_power_sum_F(useful_bins+2*max_shift, ctx->cross_terms_present);
 	sc->pps[k]=get_partial_power_sum_F(ctx, useful_bins+2*max_shift, ctx->cross_terms_present);
 	sc->free++;
@@ -1739,8 +1740,11 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 
 		tGPS.gpsSeconds=si[j].gps+si[j].coherence_time*0.5;
 		tGPS.gpsNanoSeconds=0;
-		LALBarycenterEarth(&status, &earth_state, &tGPS, &ephemeris);
-		TESTSTATUS(&status);
+// 		LALBarycenterEarth(&status, &earth_state, &tGPS, &ephemeris);
+// 		TESTSTATUS(&status);
+		if(XLALBarycenterEarth(&earth_state, &tGPS, &ephemeris)!=XLAL_SUCCESS) {
+			fprintf(stderr, "XLALBarycenterEarth failed for seconds=%g index=%d\n", (double)tGPS.gpsSeconds, j);
+			}
 
 		for(i=0;i<count;i++) {
 			baryinput.tgps.gpsSeconds=si[j].gps+si[j].coherence_time*0.5;
@@ -1757,8 +1761,12 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 			if(baryinput.alpha>M_PI)baryinput.alpha-=2*M_PI;
 			
 
-			LALBarycenter(&status, &(priv->emission_time[i*segment_count+j]), &baryinput, &earth_state);
-			TESTSTATUS(&status);
+// 			LALBarycenter(&status, &(priv->emission_time[i*segment_count+j]), &baryinput, &earth_state);
+// 			TESTSTATUS(&status);
+			
+			if(XLALBarycenter(&(priv->emission_time[i*segment_count+j]), &baryinput, &earth_state)!=XLAL_SUCCESS) {
+				fprintf(stderr, "XLALBarycenter failed for seconds=%g index=%d count=%d\n", (double)tGPS.gpsSeconds, j, i);
+				}
 			}
 		}
 	
@@ -1976,8 +1984,11 @@ for(j=0;j<count;j++) {
 
 	tGPS.gpsSeconds=si[j].gps+si[j].coherence_time*0.5;
 	tGPS.gpsNanoSeconds=0;
-	LALBarycenterEarth(&status, &earth_state, &tGPS, &ephemeris);
-	TESTSTATUS(&status);
+// 	LALBarycenterEarth(&status, &earth_state, &tGPS, &ephemeris);
+// 	TESTSTATUS(&status);
+	if(XLALBarycenterEarth(&earth_state, &tGPS, &ephemeris)!=XLAL_SUCCESS) {
+		fprintf(stderr, "XLALBarycenterEarth failed for seconds=%g index=%d\n", (double)tGPS.gpsSeconds, j);
+		}
 
 	baryinput.tgps.gpsSeconds=si[j].gps+si[j].coherence_time*0.5;
 	baryinput.tgps.gpsNanoSeconds=0;
@@ -1990,8 +2001,11 @@ for(j=0;j<count;j++) {
 	baryinput.dInv=0;
 
 
-	LALBarycenter(&status, &(priv->emission_time[j]), &baryinput, &earth_state);
-	TESTSTATUS(&status);
+// 	LALBarycenter(&status, &(priv->emission_time[j]), &baryinput, &earth_state);
+// 	TESTSTATUS(&status);
+	if(XLALBarycenter(&(priv->emission_time[j]), &baryinput, &earth_state)!=XLAL_SUCCESS) {
+		fprintf(stderr, "XLALBarycenter failed for seconds=%g index=%d\n", (double)tGPS.gpsSeconds, j);
+		}
 	}
 
 ctx->patch_private_data=priv;
