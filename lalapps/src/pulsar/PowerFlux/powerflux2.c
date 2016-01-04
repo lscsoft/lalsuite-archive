@@ -950,9 +950,11 @@ dump_floats("fine_longitude.dat", fine_grid->longitude, fine_grid->npoints, 1);
 free_plot(plot);
 free_RGBPic(p);
 
-power_cache_selftest();
-single_bin_loosely_coherent_selftest();
-power_sum_stats_selftest();
+if(args_info.extended_test_arg) {
+	power_cache_selftest();
+	single_bin_loosely_coherent_selftest();
+	power_sum_stats_selftest();
+	}
 
 /* Check that expected timebase was sufficient */
 
