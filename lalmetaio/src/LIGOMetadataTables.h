@@ -585,6 +585,35 @@ tagSimInspiralTable
   INT4           amp_order;
   CHAR           taper[LIGOMETA_INSPIRALTAPER_MAX];
   INT4           bandpass;
+  /* Parameters for the GR test waveforms */
+  REAL4 dchi0;
+  REAL4 dchi1;
+  REAL4 dchi2;
+  REAL4 dchi3;
+  REAL4 dchi4;
+  REAL4 dchi5;
+  REAL4 dchi5l;
+  REAL4 dchi6;
+  REAL4 dchi6l;
+  REAL4 dchi7;
+  REAL4 dalpha1;
+  REAL4 dalpha2;
+  REAL4 dalpha3;
+  REAL4 dalpha4;
+  REAL4 dalpha5;
+  REAL4 dbeta1;
+  REAL4 dbeta2;
+  REAL4 dbeta3;
+  REAL4 dsigma1;
+  REAL4 dsigma2;
+  REAL4 dsigma3;
+  REAL4 dsigma4; 
+  REAL4 dxi1;
+  REAL4 dxi2;
+  REAL4 dxi3;
+  REAL4 dxi4;
+  REAL4 dxi5;
+  REAL4 dxi6;
 }
 SimInspiralTable;
 
@@ -969,7 +998,7 @@ tagSegmentTable
   LIGOTimeGPS start_time;
   LIGOTimeGPS end_time;
   long segment_def_id;
-  INT4 segment_def_cdb; 
+  INT4 segment_def_cdb;
 }
 SegmentTable;
 

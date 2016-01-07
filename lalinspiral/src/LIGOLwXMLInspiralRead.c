@@ -1433,6 +1433,34 @@ SimInspiralTableFromLIGOLw (
     {"amp_order",           -1, 53},
     {"taper",               -1, 54},
     {"bandpass",            -1, 55},
+    {"dchi0",               -1, 56}, 
+    {"dchi1",               -1, 57},
+    {"dchi2",               -1, 58},
+    {"dchi3",               -1, 59},
+    {"dchi4",               -1, 60},
+    {"dchi5",               -1, 61},
+    {"dchi5l",               -1, 62},
+    {"dchi6",               -1, 63},
+    {"dchi6l",               -1, 64},
+    {"dchi7",               -1, 65},
+    {"dalpha1",               -1, 66},
+    {"dalpha2",               -1, 67},
+    {"dalpha3",               -1, 68},
+    {"dalpha4",               -1, 69},
+    {"dalpha5",               -1, 70},
+    {"dbeta1",               -1, 71},
+    {"dbeta2",               -1, 72},
+    {"dbeta3",               -1, 73},
+    {"dsigma1",               -1, 74},
+    {"dsigma2",               -1, 75},
+    {"dsigma3",               -1, 76},
+    {"dsigma4",               -1, 77},
+    {"dxi1",                -1, 78},
+    {"dxi2",                -1, 79},
+    {"dxi3",                -1, 80},
+    {"dxi4",                -1, 81},
+    {"dxi5",                -1, 82},
+    {"dxi6",                -1, 83},
     {NULL,                   0, 0}
   };
 
@@ -1731,11 +1759,124 @@ SimInspiralTableFromLIGOLw (
         {
             thisSim->bandpass = i4colData;
         }
-        else if ( tableDir[j].idx == 56 ) {
-        	thisSim->qmParameter1 = r4colData;
+        //NOTE: These two were here, while they were not in the index table above.
+        //else if ( tableDir[j].idx == 56 ) {
+        //	thisSim->qmParameter1 = r4colData;
+        //}
+        //else if ( tableDir[j].idx == 57 ) {
+        //	thisSim->qmParameter2 = r4colData;
+        //}
+        else if ( tableDir[j].idx == 56 )
+        {
+          thisSim->dchi0 = r4colData; 
         }
-        else if ( tableDir[j].idx == 57 ) {
-        	thisSim->qmParameter2 = r4colData;
+        else if ( tableDir[j].idx == 57 )
+        {
+          thisSim->dchi1 = r4colData;
+        }
+        else if ( tableDir[j].idx == 58 )
+        {
+          thisSim->dchi2 = r4colData;                                                                                                 
+        }
+        else if ( tableDir[j].idx == 59 )
+        {
+          thisSim->dchi3 = r4colData;                                                                                                 
+        }
+        else if ( tableDir[j].idx == 60 )                                                                                             
+        {
+          thisSim->dchi4 = r4colData;
+        }
+        else if ( tableDir[j].idx == 61 )
+        {
+          thisSim->dchi5 = r4colData;
+        }
+        else if ( tableDir[j].idx == 62 )
+        {
+          thisSim->dchi5l = r4colData;
+        }
+        else if ( tableDir[j].idx == 63 )
+        {
+          thisSim->dchi6 = r4colData;
+        }
+        else if ( tableDir[j].idx == 64 )
+        {
+          thisSim->dchi6l = r4colData;                                                                                                
+        }
+        else if ( tableDir[j].idx == 65 )
+        {
+          thisSim->dchi7 = r4colData;                                                                                                 
+        }
+        else if ( tableDir[j].idx == 66 )
+        {
+          thisSim->dalpha1 = r4colData;                                                                                               
+        }
+        else if ( tableDir[j].idx == 67 )
+        {
+          thisSim->dalpha2 = r4colData;                                                                                               
+        }
+        else if ( tableDir[j].idx == 68 )                                                                                             
+        {
+          thisSim->dalpha3 = r4colData;
+        }
+        else if ( tableDir[j].idx == 69 )
+        {
+          thisSim->dalpha4 = r4colData;
+        }
+        else if ( tableDir[j].idx == 70 )
+        {
+          thisSim->dalpha5 = r4colData;
+        }
+        else if ( tableDir[j].idx == 71 )
+        {
+          thisSim->dbeta1 = r4colData;                                                                                                
+        }
+        else if ( tableDir[j].idx == 72 )
+        {
+          thisSim->dbeta2 = r4colData;                                                                                                
+        }
+        else if ( tableDir[j].idx == 73 )
+        {
+          thisSim->dbeta3 = r4colData;                                                                                                
+        }
+        else if ( tableDir[j].idx == 74 )
+        {
+          thisSim->dsigma1 = r4colData;                                                                                               
+        }
+        else if ( tableDir[j].idx == 75 )                                                                                             
+        {
+          thisSim->dsigma2 = r4colData;
+        }
+        else if ( tableDir[j].idx == 76 )
+        {
+          thisSim->dsigma3 = r4colData;
+        }
+        else if ( tableDir[j].idx == 77 )
+        {
+          thisSim->dsigma4 = r4colData;
+        }
+        else if ( tableDir[j].idx == 78 )
+        {
+          thisSim->dxi1 = r4colData;                                                                                                 
+        }
+        else if ( tableDir[j].idx == 79 )
+        {
+          thisSim->dxi2 = r4colData;                                                                                                 
+        }
+        else if ( tableDir[j].idx == 80 )
+        {
+          thisSim->dxi3 = r4colData;                                                                                                 
+        }
+        else if ( tableDir[j].idx == 81 )
+        {
+          thisSim->dxi4 = r4colData;                                                                                                  
+        }
+        else if ( tableDir[j].idx == 82 )
+        {
+          thisSim->dxi5 = r4colData;
+        }
+        else if ( tableDir[j].idx == 83 )
+        {
+          thisSim->dxi6 = r4colData;
         }
         else
         {

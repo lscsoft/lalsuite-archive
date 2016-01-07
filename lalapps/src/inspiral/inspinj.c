@@ -544,6 +544,38 @@ LALSimInspiralApplyTaper taperInj = LAL_SIM_INSPIRAL_TAPER_NONE;
 AlignmentType alignInj = notAligned;
 REAL8 redshift;
 
+//SPA nonGR parameters
+REAL8 dchi0=0.0;
+REAL8 dchi1=0.0;
+REAL8 dchi2=0.0;
+REAL8 dchi3=0.0;
+REAL8 dchi4=0.0;
+REAL8 dchi5=0.0;
+REAL8 dchi5l=0.0;
+REAL8 dchi6=0.0;
+REAL8 dchi6l=0.0;
+REAL8 dchi7=0.0;
+//IMRPhenomPv2 nonGR parameters
+REAL8 dalpha1=0.0;
+REAL8 dalpha2=0.0;
+REAL8 dalpha3=0.0;
+REAL8 dalpha4=0.0;
+REAL8 dalpha5=0.0;
+REAL8 dbeta1=0.0;
+REAL8 dbeta2=0.0;
+REAL8 dbeta3=0.0;
+REAL8 dsigma1=0.0;
+REAL8 dsigma2=0.0;
+REAL8 dsigma3=0.0;
+REAL8 dsigma4=0.0;
+//IMRPhenomPv1 nonGR parameters
+REAL8 dxi1=0.0;
+REAL8 dxi2=0.0;
+REAL8 dxi3=0.0;
+REAL8 dxi4=0.0;
+REAL8 dxi5=0.0;
+REAL8 dxi6=0.0;
+
 REAL8 single_IFO_SNR_threshold=0.0;
 char ** ifonames=NULL;
 int numifos=0;
@@ -1112,6 +1144,13 @@ static void print_usage(char *program)
       "                            (start|end|startend) \n"\
       "  [--band-pass-injection]  sets the tapering method of the injected waveform\n\n");
   fprintf(stderr,
+      "Test parameter information:\n"\
+      " --dchiX value             value of the dchiX parameter, where X={0-7,5l,6l}\n"\
+      " --dalphaX value           value of the dxiX parameter, where X={1-5}\n"\
+      " --dbetaX value            value of the dbetaX parameter, where X={1-3}\n"\
+      " --dsigmaX value           value of the dsigmaX parameter, where X={1-4}\n"\
+      " --dxiX value              value of the dxiX parameter, where X={1-6}\n");
+  fprintf(stderr,
       "Output:\n"\
       " [--write-sim-ring]        Writes a sim_ringdown table\n\n");
 }
@@ -1173,7 +1212,7 @@ void read_time_data( char* filename)
   FILE   *fp;
   int n = 0;
   INT4 this_time = 0;
-  
+
   fp=fopen( filename, "r" );
   if ( ! fp )
     {
@@ -1183,12 +1222,12 @@ void read_time_data( char* filename)
 	       filename );
       exit( 1 );
     }
-  
+
   /* count the number of lines in the file */
   n_times=0;
   while ( fgets( line, sizeof( line ), fp ) )
     ++n_times;
-  
+
   /* alloc space for the data */
   inj_times = LALCalloc( n_times, sizeof(*inj_times) );
   if ( !inj_times )
@@ -1196,10 +1235,10 @@ void read_time_data( char* filename)
       fprintf( stderr, "Allocation error for inj_times\n" );
       exit( 1 );
     }
-  
+
   /* 'rewind' the file */
   rewind( fp );
-  
+
   /* read the file finally */
   while ( fgets( line, sizeof( line ), fp ) )
     {
@@ -1218,7 +1257,7 @@ void read_time_data( char* filename)
       // printf("%d Time: %d\t%d\n", n, inj_times[n].gpsSeconds, inj_times[n].gpsNanoSeconds);
       n++;
     }
-  
+
   /* close the file */
   fclose( fp );
 }
@@ -2026,6 +2065,34 @@ int main( int argc, char *argv[] )
     {"stdev-spin2",             required_argument, 0,                 1004},
     {"mean-spin1",              required_argument, 0,                 1005},
     {"mean-spin2",              required_argument, 0,                 1006},
+    {"dchi0",                   required_argument, 0,                 1100},
+    {"dchi1",                   required_argument, 0,                 1101},
+    {"dchi2",                   required_argument, 0,                 1102},
+    {"dchi3",                   required_argument, 0,                 1103},
+    {"dchi4",                   required_argument, 0,                 1104},
+    {"dchi5",                   required_argument, 0,                 1105},
+    {"dchi5l",                  required_argument, 0,                 1106},
+    {"dchi6",                   required_argument, 0,                 1107},
+    {"dchi6l",                  required_argument, 0,                 1108},
+    {"dchi7",                   required_argument, 0,                 1109},
+    {"dalpha1",                 required_argument, 0,                 1110},
+    {"dalpha2",                 required_argument, 0,                 1111},
+    {"dalpha3",                 required_argument, 0,                 1112},
+    {"dalpha4",                 required_argument, 0,                 1113},
+    {"dalpha5",                 required_argument, 0,                 1114},
+    {"dbeta1",                  required_argument, 0,                 1115},
+    {"dbeta2",                  required_argument, 0,                 1116},
+    {"dbeta3",                  required_argument, 0,                 1117},
+    {"dsigma1",                 required_argument, 0,                 1118},
+    {"dsigma2",                 required_argument, 0,                 1119},
+    {"dsigma3",                 required_argument, 0,                 1120},
+    {"dsigma4",                 required_argument, 0,                 1121},
+    {"dxi1",                    required_argument, 0,                 1122},
+    {"dxi2",                    required_argument, 0,                 1123},
+    {"dxi3",                    required_argument, 0,                 1124},
+    {"dxi4",                    required_argument, 0,                 1125},
+    {"dxi5",                    required_argument, 0,                 1126},
+    {"dxi6",                    required_argument, 0,                 1127},
     {0, 0, 0, 0}
   };
   int c;
@@ -2772,7 +2839,7 @@ int main( int argc, char *argv[] )
         srcComplete = 1;
         srcCompleteDist = (REAL8) atof( LALoptarg );
         this_proc_param = this_proc_param->next =
-          next_process_param( long_options[option_index].name, 
+          next_process_param( long_options[option_index].name,
               "string", "%s", LALoptarg );
         break;
 
@@ -3199,6 +3266,178 @@ int main( int argc, char *argv[] )
           "float", "%le", meanSpin2 );
         break;
 
+      case 1100:
+        dchi0 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dchi0 );
+        break;
+      case 1101:
+        dchi1 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dchi1 );
+        break;
+      case 1102:
+        dchi2 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dchi2 );
+        break;
+      case 1103:
+        dchi3 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dchi3 );
+        break;
+      case 1104:
+        dchi4 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dchi4 );
+        break;
+      case 1105:
+        dchi5 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dchi5 );
+        break;
+      case 1106:
+        dchi5l = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dchi5l );
+        break;
+      case 1107:
+        dchi6 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dchi6 );
+        break;
+      case 1108:
+        dchi6l = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dchi6l );
+        break;
+      case 1109:
+        dchi7 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dchi7 );
+        break;
+
+      case 1110:
+        dalpha1 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dalpha1 );
+        break;
+      case 1111:
+        dalpha2 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dalpha2 );
+        break;
+      case 1112:
+        dalpha3 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dalpha3 );
+        break;
+      case 1113:
+        dalpha4 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dalpha4 );
+        break;
+      case 1114:
+        dalpha5 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dalpha5 );
+        break;
+
+      case 1115:
+        dbeta1 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dbeta1 );
+        break;
+      case 1116:
+        dbeta2 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dbeta2 );
+        break;
+      case 1117:
+        dbeta3 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dbeta3 );
+        break;
+
+      case 1118:
+        dsigma1 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dsigma1 );
+        break;
+      case 1119:
+        dsigma2 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dsigma2 );
+        break;
+      case 1120:
+        dsigma3 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dsigma3 );
+        break;
+      case 1121:
+        dsigma4 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dsigma4 );
+        break;
+
+      case 1122:
+        dxi1 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dxi1 );
+        break;
+      case 1123:
+        dxi2 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dxi2 );
+        break;
+      case 1124:
+        dxi3 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dxi3 );
+        break;
+      case 1125:
+        dxi4 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dxi4 );
+        break;
+      case 1126:
+        dxi5 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dxi5 );
+        break;
+      case 1127:
+        dxi6 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dxi6 );
+        break;
 
       default:
         fprintf( stderr, "unknown error while parsing options\n" );
@@ -3871,12 +4110,12 @@ int main( int argc, char *argv[] )
     if (spinDistr==gaussianSpinDist && ( minSpin1 - meanSpin1 > 2.0*Spin1Std || meanSpin1 - maxSpin1 > 2.0*Spin2Std ))
     {
       fprintf(stderr,"Mean of |spin1| distribution is way out of range.\n");
-      exit( 1 );		
+      exit( 1 );
 	}
     if (spinDistr==gaussianSpinDist && ( minSpin2 - meanSpin2 > 2.0*Spin2Std || meanSpin2 - maxSpin2 > 2.0*Spin2Std ))
     {
       fprintf(stderr,"Mean of |spin2| distribution is way out of range.\n");
-      exit( 1 );		
+      exit( 1 );
 	}
 
     /* check that selection criteria for kappa are unique */
@@ -3939,14 +4178,14 @@ int main( int argc, char *argv[] )
     {
       fprintf(stderr, "No filename for injection GPStimes is given. Use --time-file.\n");
     }
-  
+
   if ( injtimesFileName && tDistr != LALINSPIRAL_FILE_TIME_DIST )
     {
       fprintf( stderr,
 	       "Cannot specify an injection times file for your choice of --t-distr.\n" );
       exit( 1 );
     }
-  
+
   if (timeInterval > 0. && (tDistr == LALINSPIRAL_EXPONENTIAL_TIME_DIST || tDistr == LALINSPIRAL_FILE_TIME_DIST) )
   {
     fprintf( stderr,
@@ -4440,6 +4679,35 @@ int main( int argc, char *argv[] )
     /* populate the bandpass options */
     simTable->bandpass = bandPassInj;
 
+    /* populate the test parameters */
+    simTable->dchi0=dchi0;
+    simTable->dchi1=dchi1;
+    simTable->dchi2=dchi2;
+    simTable->dchi3=dchi3;
+    simTable->dchi4=dchi4;
+    simTable->dchi5=dchi5;
+    simTable->dchi5l=dchi5l;
+    simTable->dchi6=dchi6;
+    simTable->dchi6l=dchi6l;
+    simTable->dchi7=dchi7;
+    simTable->dalpha1=dalpha1;
+    simTable->dalpha2=dalpha2;
+    simTable->dalpha3=dalpha3;
+    simTable->dalpha4=dalpha4;
+    simTable->dalpha5=dalpha5;
+    simTable->dbeta1=dbeta1;
+    simTable->dbeta2=dbeta2;
+    simTable->dbeta3=dbeta3;
+    simTable->dsigma1=dsigma1;
+    simTable->dsigma2=dsigma2;
+    simTable->dsigma3=dsigma3;
+    simTable->dsigma4=dsigma4;
+    simTable->dxi1=dxi1;
+    simTable->dxi2=dxi2;
+    simTable->dxi3=dxi3;
+    simTable->dxi4=dxi4;
+    simTable->dxi5=dxi5;
+    simTable->dxi6=dxi6;
 
     /* populate the sim_ringdown table */
     if ( writeSimRing )
@@ -4663,7 +4931,7 @@ static void scale_lalsim_distance(SimInspiralTable *inj,
       if (SNRs[j]<single_IFO_SNR_threshold*ratio)
       above_threshold--;
     }
-    /* Set the min to the proposed SNR, so that next drawing for */ 
+    /* Set the min to the proposed SNR, so that next drawing for */
     /* this event (if necessary) will give higher SNR            */
     local_min=proposedSNR;
 
