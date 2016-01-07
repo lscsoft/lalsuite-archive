@@ -318,7 +318,7 @@ else:
 
 
 if type_inj=="MG":
-    dic_inj.update({'enable-dchi':''})
+    #dic_inj.update({'enable-dchi':''}) #no longer required
     for mgp,mgs in zip(mgpars,mgshifts):
         dic_inj.update({mgp:mgs})
         print 'modGR at ', mgp, ' by ', mgs
