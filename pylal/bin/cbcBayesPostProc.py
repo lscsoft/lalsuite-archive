@@ -61,7 +61,7 @@ matplotlib.rcParams.update(
          'legend.fontsize': 16,
          'xtick.labelsize': 16,
          'ytick.labelsize': 16,
-         'text.usetex': True,
+         'text.usetex': False,
          'figure.figsize': fig_size,
          'font.family': "serif",
          'font.serif': ['Times','Palatino','New Century Schoolbook','Bookman','Computer Modern Roman','Times New Roman','Liberation Serif'],
