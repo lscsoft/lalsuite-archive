@@ -2276,6 +2276,66 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
 
   LALSimInspiralTestGRParam *nonGRparams = NULL;
 
+  if (strstr(inj_table->waveform,"IMRPhenomP")){
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi0",inj_table->dchi0);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi1",inj_table->dchi1);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi2",inj_table->dchi2);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi3",inj_table->dchi3);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi4",inj_table->dchi4);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi5",inj_table->dchi5);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi5l",inj_table->dchi5l);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi6",inj_table->dchi6);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi6l",inj_table->dchi6l);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi7",inj_table->dchi7);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dalpha1",inj_table->dalpha1);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dalpha2",inj_table->dalpha2);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dalpha3",inj_table->dalpha3);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dalpha4",inj_table->dalpha4);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dalpha5",inj_table->dalpha5);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dbeta1",inj_table->dbeta1);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dbeta2",inj_table->dbeta2);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dbeta3",inj_table->dbeta3);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dsigma1",inj_table->dsigma1);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dsigma2",inj_table->dsigma2);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dsigma3",inj_table->dsigma3);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dsigma4",inj_table->dsigma4);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dxi1",inj_table->dxi1);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dxi2",inj_table->dxi2);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dxi3",inj_table->dxi3);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dxi4",inj_table->dxi4);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dxi5",inj_table->dxi5);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dxi6",inj_table->dxi6); 
+    fprintf(stdout,"Injecting %s in the frequency domain...\n",inj_table->waveform);
+    fprintf(stdout,"adding dchi0=%1.3f in the injection\n",inj_table->dchi0);
+    fprintf(stdout,"adding dchi1=%1.3f in the injection\n",inj_table->dchi1);
+    fprintf(stdout,"adding dchi2=%1.3f in the injection\n",inj_table->dchi2);
+    fprintf(stdout,"adding dchi3=%1.3f in the injection\n",inj_table->dchi3);
+    fprintf(stdout,"adding dchi4=%1.3f in the injection\n",inj_table->dchi4);
+    fprintf(stdout,"adding dchi5=%1.3f in the injection\n",inj_table->dchi5);
+    fprintf(stdout,"adding dchi5l=%1.3f in the injection\n",inj_table->dchi5l);
+    fprintf(stdout,"adding dchi6=%1.3f in the injection\n",inj_table->dchi6);
+    fprintf(stdout,"adding dchi6l=%1.3f in the injection\n",inj_table->dchi6l);
+    fprintf(stdout,"adding dchi7=%1.3f in the injection\n",inj_table->dchi7);
+    fprintf(stdout,"adding dalpha1=%1.3f in the injection\n",inj_table->dalpha1);
+    fprintf(stdout,"adding dalpha2=%1.3f in the injection\n",inj_table->dalpha2);
+    fprintf(stdout,"adding dalpha3=%1.3f in the injection\n",inj_table->dalpha3);
+    fprintf(stdout,"adding dalpha4=%1.3f in the injection\n",inj_table->dalpha4);
+    fprintf(stdout,"adding dalpha5=%1.3f in the injection\n",inj_table->dalpha5);
+    fprintf(stdout,"adding dbeta1=%1.3f in the injection\n",inj_table->dbeta1);
+    fprintf(stdout,"adding dbeta2=%1.3f in the injection\n",inj_table->dbeta2);
+    fprintf(stdout,"adding dbeta3=%1.3f in the injection\n",inj_table->dbeta3);
+    fprintf(stdout,"adding dsigma1=%1.3f in the injection\n",inj_table->dsigma1);
+    fprintf(stdout,"adding dsigma2=%1.3f in the injection\n",inj_table->dsigma2);
+    fprintf(stdout,"adding dsigma3=%1.3f in the injection\n",inj_table->dsigma3);
+    fprintf(stdout,"adding dsigma4=%1.3f in the injection\n",inj_table->dsigma4);
+    fprintf(stdout,"adding dxi1=%1.3f in the injection\n",inj_table->dxi1);
+    fprintf(stdout,"adding dxi2=%1.3f in the injection\n",inj_table->dxi2);
+    fprintf(stdout,"adding dxi3=%1.3f in the injection\n",inj_table->dxi3);
+    fprintf(stdout,"adding dxi4=%1.3f in the injection\n",inj_table->dxi4);
+    fprintf(stdout,"adding dxi5=%1.3f in the injection\n",inj_table->dxi5);
+    fprintf(stdout,"adding dxi6=%1.3f in the injection\n",inj_table->dxi6);
+  }
+
  /* Print a line with information about approximant, amp_order, phaseorder, tide order and spin order */
   fprintf(stdout,"\n\n---\t\t ---\n");
  fprintf(stdout,"Injection will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i, tidal order %i, in the frequency domain.\n",approximant,XLALGetStringFromApproximant(approximant),phase_order,amp_order,(int) spinO,(int) tideO);
