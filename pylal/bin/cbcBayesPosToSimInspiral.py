@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/software/tools/pyenv/versions/2.6.6-ligo/bin/python
 # -*- coding: utf-8 -*-
 #
 #       cbcBayesPosToSimInspiral.py
@@ -58,6 +58,28 @@ sim_inspiral_dt = [
         ('spin2x', 'f8'),
         ('spin2y', 'f8'),
         ('spin2z', 'f8'),
+    	('dchi0', 'f8'),
+        ('dchi1', 'f8'),
+        ('dchi2', 'f8'),
+        ('dchi3', 'f8'),
+        ('dchi4', 'f8'),
+        ('dchi5l', 'f8'),
+        ('dchi5', 'f8'),
+        ('dchi6l', 'f8'),
+        ('dchi6', 'f8'),
+        ('dchi7', 'f8'),
+        ('dsigma1', 'f8'),
+        ('dsigma2', 'f8'),
+        ('dsigma3', 'f8'),
+        ('dsigma4', 'f8'),
+        ('dalpha1', 'f8'),    
+        ('dalpha2', 'f8'),
+        ('dalpha3', 'f8'),
+        ('dalpha4', 'f8'),
+        ('dbeta1', 'f8'),
+        ('dbeta2', 'f8'),
+        ('dbeta3', 'f8'),
+        ('dbeta4', 'f8'),
         ('amp_order', 'i4'),
         ('numrel_data','|S64')
 ]
@@ -267,6 +289,23 @@ if __name__ == "__main__":
     injections['spin2x'] = s2x
     injections['spin2y'] = s2y
     injections['spin2z'] = s2z
+
+    for i in xrange(8):
+	n = 'dchi%d'%i
+        if n in samples.dtype.names: injections[n] = samples[n]
+    for i in [5,6]:
+	n = 'dchi%dl'%i
+        if n in samples.dtype.names: injections[n] = samples[n]    
+    for i in xrange(4):
+        n = 'dsigma%d'%(i+1)
+        if n in samples.dtype.names: injections[n] = samples[n]    
+    for i in xrange(4):
+        n = 'dalpha%d'%(i+1)
+        if n in samples.dtype.names: injections[n] = samples[n]    
+    for i in xrange(3):
+        n = 'dbeta%d'%(i+1)
+        if n in samples.dtype.names: injections[n] = samples[n]    
+
     injections['amp_order'] = [opts.amporder for i in xrange(N)]
     injections['numrel_data'] = [ "" for _ in xrange(N)]
 
