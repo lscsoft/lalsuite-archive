@@ -4343,7 +4343,6 @@ def plot_corner(posterior,levels,parnames=None):
   @param levels: a list of confidence levels
   @param parnames: list of parameters to include
   """
-  return None
   try:
     import corner
   except ImportError:
