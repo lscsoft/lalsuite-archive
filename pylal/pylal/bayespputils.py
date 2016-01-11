@@ -802,7 +802,28 @@ class Posterior(object):
                             'h1_end_time':lambda inj:float(inj.get_end('H')),
                             'l1_end_time':lambda inj:float(inj.get_end('L')),
                             'v1_end_time':lambda inj:float(inj.get_end('V')),
-                            'lal_amporder':lambda inj:inj.amp_order}
+                            'lal_amporder':lambda inj:inj.amp_order,
+                            'dchi0':lambda inj:inj.dchi0,
+                            'dchi1':lambda inj:inj.dchi1,
+                            'dchi2':lambda inj:inj.dchi2,
+                            'dchi3':lambda inj:inj.dchi3,
+                            'dchi4':lambda inj:inj.dchi4,
+                            'dchi5':lambda inj:inj.dchi5,
+                            'dchi5l':lambda inj:inj.dchi5l,
+                            'dchi6':lambda inj:inj.dchi6,
+                            'dchi6l':lambda inj:inj.dchi6l,
+                            'dchi7':lambda inj:inj.dchi7,
+                            'dsigma1':lambda inj:inj.dsigma1,
+                            'dsigma2':lambda inj:inj.dsigma2,
+                            'dsigma3':lambda inj:inj.dsigma3,
+                            'dsigma4':lambda inj:inj.dsigma4,
+                            'dbeta1':lambda inj:inj.dbeta1,
+                            'dbeta2':lambda inj:inj.dbeta2,
+                            'dbeta3':lambda inj:inj.dbeta3,
+                            'dalpha1':lambda inj:inj.dalpha1,
+                            'dalpha2':lambda inj:inj.dalpha2,
+                            'dalpha3':lambda inj:inj.dalpha3,
+                            'dalpha4':lambda inj:inj.dalpha4}
 
         # Add on all spin parameterizations
         for key, val in self._inj_spins(self._injection, frame=inj_spin_frame).items():
