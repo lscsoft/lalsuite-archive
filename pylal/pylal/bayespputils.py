@@ -1111,18 +1111,18 @@ class Posterior(object):
           except Exception,e:
               print "Could not calculate final source frame mass. The error was: %s"%(str(e))
     
-    # Calculate radiated energy and peak luminosity
-    if ('mtotal_source' in pos.names) and ('mf_source' in pos.names):
-        try:
-            pos.append_mapping('Erad', lambda mtot_s, mf_s: mtot_s-mf_s, ['mtotal_source', 'mf_source'])
-        except Exception,e:
-            print "Could not calculate radiated energy. The error was: %s"%(str(e))
-    
-    if ('q' in pos.names) and ('a1z' in pos.names) and ('a2z' in pos.names):
-        try:
-            pos.append_mapping('Lpeak', bbh_aligned_Lpeak_6mode_SHXJDK, ['q', 'a1z', 'a2z'])
-        except Exception,e:
-            print "Could not calculate peak luminosity. The error was: %s"%(str(e))
+      # Calculate radiated energy and peak luminosity
+      if ('mtotal_source' in pos.names) and ('mf_source' in pos.names):
+          try:
+              pos.append_mapping('Erad', lambda mtot_s, mf_s: mtot_s-mf_s, ['mtotal_source', 'mf_source'])
+          except Exception,e:
+              print "Could not calculate radiated energy. The error was: %s"%(str(e))
+      
+      if ('q' in pos.names) and ('a1z' in pos.names) and ('a2z' in pos.names):
+          try:
+              pos.append_mapping('Lpeak', bbh_aligned_Lpeak_6mode_SHXJDK, ['q', 'a1z', 'a2z'])
+          except Exception,e:
+              print "Could not calculate peak luminosity. The error was: %s"%(str(e))
 
     def bootstrap(self):
         """
