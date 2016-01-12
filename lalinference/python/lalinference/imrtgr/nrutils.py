@@ -350,3 +350,48 @@ def bbh_final_spin_non_precessing_Husaetal(m1, m2, chi1, chi2):
     chif = 3.4641016151377544*eta - 4.399247300629289*eta2 + 9.397292189321194*eta3 - 13.180949901606242*eta4 + (1 - 0.0850917821418767*eta - 5.837029316602263*eta2)*S + (0.1014665242971878*eta - 2.0967746996832157*eta2)*Ssq + (-1.3546806617824356*eta + 4.108962025369336*eta2)*Scu + (-0.8676969352555539*eta + 2.064046835273906*eta2)*Squ 
 
     return chif
+
+def bbh_aligned_Lpeak_6mode_SHXJDK(q, chi1para, chi2para):
+    """
+    Calculate the peak luminosity (using modes 22, 21, 33, 32, 44, and 43) in geometrized units of a binary black hole with aligned spins using the fit made by Sascha Husa, Xisco Jimenez Forteza, David Keitel
+    using 5th order in chieff
+
+    q: mass ratio (here m1/m2)
+    chi1para: the component of the dimensionless spin of m1 along the angular momentum (z)
+    chi2para: the component of the dimensionless spin of m2 along the angular momentum (z)
+    """
+    # Vectorize the function if arrays are provided as input
+    if hasattr(q, '__len__'):
+        return np.vectorize(bbh_aligned_Lpeak_6mode_SHXJDK)(q, chi1para, chi2para)
+
+    # Calculate eta and the effective spin
+
+    eta = q/(1.+q)**2.
+
+    eta2 = eta*eta
+    eta3 = eta2*eta
+    eta4 = eta3*eta
+
+    dm2 = 1. - 4.*eta
+
+    chi_eff = (q*chi1para + chi2para)/(1. + q)
+
+    chi_eff2 = chi_eff*chi_eff
+    chi_eff3 = chi_eff2*chi_eff
+    chi_eff4 = chi_eff3*chi_eff
+    chi_eff5 = chi_eff4*chi_eff
+
+    chi_diff = chi1para - chi2para
+    chi_diff2 = chi_diff*chi_diff
+
+    # Calculate best fit (from PeakLuminosityUIBCformFit.txt)
+
+    Lpeak = (0.012851338846828302 + 0.007968713156040435*chi_eff + 0.010073178258707259*chi_eff2 + 0.015375822174139051*chi_eff3 + 0.0013251913912536617*chi_eff4 - 0.009546715927910458*chi_eff5)*eta2 + (0.05681786589129071 - 0.005418699600266225*chi_eff - 0.09704281201543351*chi_eff2 - 0.22574616442033876*chi_eff3 + 0.010125963569243517*chi_eff4 + 0.1897015963072005*chi_eff5)*eta4 + 0.025031329595126803*dm2**0.5325655272026143*eta**3.1457532208993615*chi_diff + 0.0007207778024161375*dm2**0.4477054559535528*eta**1.7392009519203253*chi_diff2
+
+    # Convert to 10^56 ergs/s units
+    
+    # We first define the "Planck luminosity" of c^5/G in 10^56 ergs/s units, using the PDG2014 central value of G = 6.67384e-11
+    
+    LPl = 3628.505 
+    
+    return LPl*Lpeak
