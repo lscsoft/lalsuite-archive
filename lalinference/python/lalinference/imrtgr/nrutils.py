@@ -353,7 +353,7 @@ def bbh_final_spin_non_precessing_Husaetal(m1, m2, chi1, chi2):
 
 def bbh_aligned_Lpeak_6mode_SHXJDK(q, chi1para, chi2para):
     """
-    Calculate the peak luminosity (using modes 22, 21, 33, 32, 44, and 43) of a binary black hole with aligned spins using the fit made by Sascha Husa, Xisco Jimenez Forteza, David Keitel using 5th order in chieff and return results in units of 10^56 ergs/s
+    Calculate the peak luminosity (using modes 22, 21, 33, 32, 44, and 43) of a binary black hole with aligned spins using the fit made by Sascha Husa, Xisco Jimenez Forteza, David Keitel [LIGO-T1500598] using 5th order in chieff and return results in units of 10^56 ergs/s
 
     q: mass ratio (here m2/m1)
     chi1para: the component of the dimensionless spin of m1 along the angular momentum (z)
@@ -368,7 +368,7 @@ def bbh_aligned_Lpeak_6mode_SHXJDK(q, chi1para, chi2para):
 
     # Calculate eta and the effective spin
     
-    # This function is designed for bayespputils.py that expects q = m2/m1, where m1>m2. Expressions in references above are for q = m1/m2. Do the appropriate conversion.
+    # This function is designed for bayespputils.py that expects q = m2/m1, where m1>m2. Expressions in reference above are for q = m1/m2. Here we do the appropriate conversion.
     q = 1./q
 
     eta = q/(1.+q)**2.
