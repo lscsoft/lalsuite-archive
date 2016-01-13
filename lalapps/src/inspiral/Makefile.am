@@ -39,7 +39,7 @@ CORSESRC = corse.c
 SKYMAPSRC = skymap.c
 COINJSRC = coinj.c
 STOCHBANKSRC = stochasticbank.c
-
+SIMINSPTOFRAMESRC= siminspiral_to_frame_mg.c
 if LALMETAIO
 LALMETAIO_PROGS = \
 	lalapps_inspiral \
@@ -73,7 +73,8 @@ LALMETAIO_PROGS = \
 	lalapps_corse \
 	lalapps_skymap \
 	lalapps_coinj \
-	lalapps_cbc_stochasticbank
+	lalapps_cbc_stochasticbank \
+        lalapps_siminspiral_to_frame_mg
 lalapps_inspiral_SOURCES = $(INSPIRALSRC)
 lalapps_cohire_SOURCES = $(COHIRESRC)
 lalapps_coherentbank_SOURCES = $(COHEREBANK)
@@ -106,6 +107,7 @@ lalapps_corse_SOURCES = $(CORSESRC)
 lalapps_skymap_SOURCES = $(SKYMAPSRC)
 lalapps_coinj_SOURCES = $(COINJSRC)
 lalapps_cbc_stochasticbank_SOURCES = $(STOCHBANKSRC)
+lalapps_siminspiral_to_frame_mg_SOURCES= $(SIMINSPTOFRAMESRC)
 endif
 
 if LALMETAIO

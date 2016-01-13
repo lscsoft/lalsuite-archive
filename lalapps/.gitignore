@@ -111,6 +111,7 @@ src/inspiral/lalapps_plot_hipe
 src/inspiral/lalapps_populate_chisq
 src/inspiral/lalapps_randombank
 src/inspiral/lalapps_siminspiral_to_frame
+src/inspiral/lalapps_siminspiral_to_frame_mg
 src/inspiral/lalapps_sire
 src/inspiral/lalapps_siva
 src/inspiral/lalapps_skymap
