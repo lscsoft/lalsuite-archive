@@ -384,6 +384,7 @@
 #include <LALAppsVCSInfo.h>
 #include <lal/LALDatatypes.h>
 #include <lal/FrequencySeries.h>
+#include <lal/LALCosmologyCalculator.h>
 #include "inspiral.h"
 
 #define CVS_REVISION "$Revision$"
@@ -449,7 +450,8 @@ void adjust_snr_with_psds_real8(SimInspiralTable *inj, REAL8 target_snr, int num
 REAL8 probability_redshift(REAL8 rshift);
 REAL8 luminosity_distance(REAL8 rshift);
 REAL8 mean_time_step_sfr(REAL8 zmax, REAL8 rate_local);
-REAL8 drawRedshift(REAL8 zmin, REAL8 zmax, REAL8 pzmax);
+//REAL8 drawRedshift(REAL8 zmin, REAL8 zmax, REAL8 pzmax);
+REAL8 drawRedshift(LALCosmologicalParameters *params, double zmin, double zmax);
 REAL8 redshift_mass(REAL8 mass, REAL8 z);
 static void scale_lalsim_distance(SimInspiralTable *inj,char ** IFOnames, REAL8FrequencySeries **psds,REAL8 *start_freqs,LoudnessDistribution dDistr);
 static REAL8 draw_uniform_snr(REAL8 snrmin,REAL8 snrmax);
@@ -630,18 +632,28 @@ REAL8 mean_time_step_sfr(REAL8 zmax, REAL8 rate_local)
   return step;
 }
 
-REAL8 drawRedshift(REAL8 zmin, REAL8 zmax, REAL8 pzmax)
+//REAL8 drawRedshift(REAL8 zmin, REAL8 zmax, REAL8 pzmax)
+REAL8 drawRedshift(LALCosmologicalParameters *params, double zmin, double zmax)
 {
+//  REAL8 test,z,p;
+//  do
+//  {
+//    test = pzmax * XLALUniformDeviate(randParams);
+//    z = (zmax-zmin) * XLALUniformDeviate(randParams)+zmin;
+//    p = probability_redshift(z);
+//  }
+//  while (test>p);
+//
+//  return z;
   REAL8 test,z,p;
-  do
-  {
-    test = pzmax * XLALUniformDeviate(randParams);
-    z = (zmax-zmin) * XLALUniformDeviate(randParams)+zmin;
-    p = probability_redshift(z);
-  }
-  while (test>p);
-
-  return z;
+    do
+    {
+        test = XLALUniformDeviate(randParams);
+        z = zmin+(zmax-zmin) * XLALUniformDeviate(randParams);
+        //p=XLALUniformComovingVolumeDistribution(params, z, zmax);
+        p=XLALUniformComovingVolumeDistribution(params, z, -1.0); 
+    } while (test>p);
+    return z;
 }
 
 REAL8 redshift_mass(REAL8 mass, REAL8 z)
@@ -1827,7 +1839,7 @@ int main( int argc, char *argv[] )
   UINT4 useChirpDist = 0;
   REAL4 minMass10, maxMass10, minMass20, maxMass20, minMtotal0, maxMtotal0,
       meanMass10, meanMass20, massStdev10, massStdev20; /* masses at z=0 */
-  REAL8 pzmax=0; /* maximal value of the probability distribution of the redshift */
+//  REAL8 pzmax=0; /* maximal value of the probability distribution of the redshift */
   INT4 ncount;
   size_t ninj;
   int rand_seed = 1;
@@ -1865,7 +1877,7 @@ int main( int argc, char *argv[] )
   REAL8FrequencySeries *ligoPsd  = NULL;
   REAL8FrequencySeries *virgoPsd = NULL;
   status=blank_status;
-
+  LALCosmologicalParameters *omega = XLALCreateCosmologicalParameters(0.7,0.3,0.7,-1.0,0.0,0.0);  
   /* LALgetopt arguments */
   struct LALoption long_options[] =
   {
@@ -3235,7 +3247,8 @@ int main( int argc, char *argv[] )
 
   /* check compatibility of distance/loudness options */
   if ( ( dDistr == uniformDistance || dDistr == uniformDistanceSquared ||
-      dDistr == uniformLogDistance || dDistr == uniformVolume ) &&
+      //dDistr == uniformLogDistance || dDistr == uniformVolume ) &&
+      dDistr == uniformLogDistance) &&
       ( minD<=0.0 || maxD<=0.0 ) )
   {
     fprintf( stderr,
@@ -3243,8 +3256,9 @@ int main( int argc, char *argv[] )
     exit( 1 );
   }
   if ( dDistr == uniformDistance || dDistr == uniformDistanceSquared ||
-      dDistr == uniformLogDistance || dDistr == uniformVolume ||
-      dDistr == distFromSourceFile )
+      //dDistr == uniformLogDistance || dDistr == uniformVolume ||
+      //dDistr == distFromSourceFile )
+      dDistr == uniformLogDistance || dDistr == distFromSourceFile )
   {
     if ( minZ>0.0 || maxZ>0.0 || localRate>0.0 || ninjaSNR ||
         minSNR>0.0 || maxSNR>0.0 || ifos!=NULL )
@@ -3264,7 +3278,8 @@ int main( int argc, char *argv[] )
               "with --z-distr !\n");
       exit( 1 );
     }
-    if ( minZ<0.2 || maxZ>1.0 )
+    //if ( minZ<0.2 || maxZ>1.0 )
+    if ( minZ<0.0 || maxZ>1.0 )
     {
       fprintf( stderr,
           "Redshift can only take values between 0.2 and 1 for --z-distr=sfr\n");
@@ -3926,10 +3941,10 @@ int main( int argc, char *argv[] )
   massStdev20 = massStdev2;
 
   /* calculate the maximal value of the probability distribution of the redshift */
-  if (dDistr == starFormationRate)
-  {
-    pzmax = probability_redshift(maxZ);
-  }
+  //if (dDistr == starFormationRate)
+  //{
+  //  pzmax = probability_redshift(maxZ);
+  //}
 
   /* loop over parameter generation until end time is reached */
   ninj = 0;
@@ -4037,12 +4052,15 @@ int main( int argc, char *argv[] )
       }
       simTable->distance = drawnDistance;
     }
-    else if ( dDistr == starFormationRate )
+    //else if ( dDistr == starFormationRate )
+    else if ( dDistr == starFormationRate || dDistr==uniformVolume)
     {
        /* fit of luminosity distance  between z=0-1, in Mpc for h0=0.7, omega_m=0.3, omega_v=0.7*/
-       simTable->distance = luminosity_distance(redshift);
+       //simTable->distance = luminosity_distance(redshift);
+       simTable->distance = XLALLuminosityDistance(omega,redshift);
     }
-    else if (dDistr== uniformDistance || dDistr== uniformDistanceSquared || dDistr== uniformLogDistance || dDistr==uniformVolume)
+    //else if (dDistr== uniformDistance || dDistr== uniformDistanceSquared || dDistr== uniformLogDistance || dDistr==uniformVolume)
+    else if (dDistr== uniformDistance || dDistr== uniformDistanceSquared || dDistr== uniformLogDistance)
     {
       simTable=XLALRandomInspiralDistance(simTable, randParams,
           dDistr, minD/1000.0, maxD/1000.0);
@@ -4471,7 +4489,7 @@ int main( int argc, char *argv[] )
   if ( virgoPsd )
     XLALDestroyREAL8FrequencySeries( virgoPsd );
   if (ifonames) LALFree(ifonames);
-
+  XLALDestroyCosmologicalParameters(omega);
   LALCheckMemoryLeaks();
   return 0;
 }
