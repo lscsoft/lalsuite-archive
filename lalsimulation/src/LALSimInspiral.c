@@ -4487,7 +4487,7 @@ int XLALSimMassiveGravitonDispersionEffect(
   UINT4 len, i;
   M = m1+m2;
   eta = m1*m2/(M*M);
-  beta = - LAL_PI*LAL_PI*r*M*LAL_MRSUN_SI*pow(eta, 0.6)/(lambda_g*lambda_g);
+  beta = LAL_PI*LAL_PI*r*M*LAL_MRSUN_SI*pow(eta, 0.6)/(lambda_g*lambda_g);
   dPhiPref = beta/(LAL_PI*M*LAL_MTSUN_SI*pow(eta, 0.6));
 
   len = (*hptilde)->data->length;
