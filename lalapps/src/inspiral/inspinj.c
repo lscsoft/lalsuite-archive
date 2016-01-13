@@ -3966,9 +3966,11 @@ int main( int argc, char *argv[] )
     simTable->amp_order = amp_order;
 
     /* draw redshift and apply to mass parameters */
-    if (dDistr==starFormationRate)
+    //if (dDistr==starFormationRate)
+    if (dDistr==starFormationRate  || dDistr==uniformVolume)
     {
-      redshift = drawRedshift(minZ,maxZ,pzmax);
+      //redshift = drawRedshift(minZ,maxZ,pzmax);
+      redshift = drawRedshift(omega,minZ,maxZ);
 
       minMass1 = redshift_mass(minMass10, redshift);
       maxMass1 = redshift_mass(maxMass10, redshift);
