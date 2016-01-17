@@ -37,16 +37,27 @@ tagPostcohInspiralTable
 {
   struct tagPostcohInspiralTable *next;
   LIGOTimeGPS	end_time;
+  LIGOTimeGPS	end_time_L;
+  LIGOTimeGPS	end_time_H;
+  LIGOTimeGPS	end_time_V;
   INT4		is_background;
   INT4		livetime;
   CHAR		ifos[MAX_ALLIFO_LEN];
   CHAR		pivotal_ifo[MAX_IFO_LEN];
   INT4		tmplt_idx;
   INT4		pix_idx;
-  REAL4		maxsnglsnr;	
+  REAL4		snglsnr_L;
+  REAL4		snglsnr_H;
+  REAL4		snglsnr_V;
+  REAL4		coaphase_L;
+  REAL4		coaphase_H;
+  REAL4		coaphase_V;
+  REAL4		chisq_L;
+  REAL4		chisq_H;
+  REAL4		chisq_V;
   REAL4         cohsnr;
   REAL4         nullsnr;
-  REAL4         chisq;
+  REAL4         cmbchisq;
   REAL4		spearman_pval;
   REAL4		fap;
   REAL4		far;
@@ -65,18 +76,9 @@ tagPostcohInspiralTable
   REAL4		eta;
   REAL8		ra;
   REAL8		dec;
-  LIGOTimeGPS	end_time_L;
-  LIGOTimeGPS	end_time_H;
-  LIGOTimeGPS	end_time_V;
-  REAL4		snglsnr_L;
-  REAL4		snglsnr_H;
-  REAL4		snglsnr_V;
-  REAL4		coa_phase_L;
-  REAL4		coa_phase_H;
-  REAL4		coa_phase_V;
-  REAL4		chisq_L;
-  REAL4		chisq_H;
-  REAL4		chisq_V;
+  REAL8		deff_L;
+  REAL8		deff_H;
+  REAL8		deff_V;
 }
 
 
