@@ -273,9 +273,10 @@ LALInferenceRunState *initialize(ProcessParamsTable *commandLine)
 
   irs = XLALCalloc(1, sizeof(LALInferenceRunState));
   /* read data from files: */
-  fprintf(stdout, " ==== LALInferenceReadData(): started. ====\n");
+  fprintf(stdout, " ==== LALInferenceCheckOptionsConsistency(): started. ====\n");
   irs->commandLine=commandLine;
   LALInferenceCheckOptionsConsistency(commandLine);
+  fprintf(stdout, " ==== LALInferenceReadData(): started. ====\n");
   irs->data = LALInferenceReadData(commandLine);
   /* (this will already initialise each LALInferenceIFOData's following elements:  */
   /*     fLow, fHigh, detector, timeToFreqFFTPlan, freqToTimeFFTPlan,     */
