@@ -347,10 +347,24 @@ int LALInferenceCompareVariables(LALInferenceVariables *var1, LALInferenceVariab
     given values at the given frequencies.
 
 */
-int LALInferenceSplineCalibrationFactor(REAL8Vector *freqs,
+int LALInferenceSplineCalibrationFactor(REAL8Vector *logfreqs,
 					REAL8Vector *deltaAmps,
 					REAL8Vector *deltaPhases,
 					COMPLEX16FrequencySeries *calFactor);
+					
+					
+					
+/** Modified version of LALInferenceSplineCalibrationFactor to compute the 
+	calibration factors for the specific frequency nodes used for 
+	Reduced Order Quadrature likelihoods.
+
+*/
+
+int LALInferenceSplineCalibrationFactorROQ(REAL8Vector *logfreqs,
+					REAL8Vector *deltaAmps,
+					REAL8Vector *deltaPhases,
+					REAL8Sequence *freqNodes,
+					gsl_vector_complex *calFactorROQ);
 
 //Wrapper for template computation
 //(relies on LAL libraries for implementation) <- could be a #DEFINE ?

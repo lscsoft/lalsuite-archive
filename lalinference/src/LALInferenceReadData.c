@@ -2742,10 +2742,12 @@ void LALInferenceSetupROQ(LALInferenceIFOData *IFOdata, LALInferenceModel *model
 	  model->roq->hplusLinear = gsl_vector_complex_calloc(n_basis_linear);
 	  model->roq->hcrossLinear = gsl_vector_complex_calloc(n_basis_linear);
 	  model->roq->hstrainLinear = gsl_vector_complex_calloc(n_basis_linear);
+	  model->roq->calFactorLinear = gsl_vector_complex_calloc(n_basis_linear);
 
 	  model->roq->hplusQuadratic = gsl_vector_complex_calloc(n_basis_quadratic);
 	  model->roq->hcrossQuadratic = gsl_vector_complex_calloc(n_basis_quadratic);
 	  model->roq->hstrainQuadratic = gsl_vector_complex_calloc(n_basis_quadratic);
+	  model->roq->calFactorQuadratic = gsl_vector_complex_calloc(n_basis_quadratic);
 
 	  model->roq->trigtime = endtime;
 

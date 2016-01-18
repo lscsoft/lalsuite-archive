@@ -3960,6 +3960,89 @@ int LALInferenceSplineCalibrationFactor(REAL8Vector *logfreqs,
   }
 }
 
+int LALInferenceSplineCalibrationFactorROQ(REAL8Vector *logfreqs,
+					REAL8Vector *deltaAmps,
+					REAL8Vector *deltaPhases,
+					REAL8Sequence *freqNodes,
+					gsl_vector_complex *calFactorROQ) {
+
+  COMPLEX16 calF = 0.0;
+  gsl_interp_accel *ampAcc = NULL, *phaseAcc = NULL;
+  gsl_interp *ampInterp = NULL, *phaseInterp = NULL;
+  gsl_complex = calFROQ;
+
+  int status = XLAL_SUCCESS;
+  const char *fmt = "";
+
+  size_t N = 0;
+
+  if (logfreqs == NULL || deltaAmps == NULL || deltaPhases == NULL || freqNodes == NULL|| calFactorROQ == NULL) {
+    status = XLAL_EINVAL;
+    fmt = "bad input";
+    goto cleanup;
+  }
+
+  if (logfreqs->length != deltaAmps->length || deltaAmps->length != deltaPhases->length || freqNodes->length != calFactorROQ->size) {
+    status = XLAL_EINVAL;
+    fmt = "input lengths differ";
+    goto cleanup;
+  }
+
+  N = logfreqs->length;
+
+  ampInterp = gsl_interp_alloc(gsl_interp_cspline, N);
+  phaseInterp = gsl_interp_alloc(gsl_interp_cspline, N);
+
+  if (ampInterp == NULL || phaseInterp == NULL) {
+    status = XLAL_ENOMEM;
+    fmt = "could not allocate GSL interpolation objects";
+    goto cleanup;
+  }
+
+  ampAcc = gsl_interp_accel_alloc();
+  phaseAcc = gsl_interp_accel_alloc();
+
+  if (ampAcc == NULL || phaseAcc == NULL) {
+    status = XLAL_ENOMEM;
+    fmt = "could not allocate interpolation acceleration objects";
+    goto cleanup;
+  }
+
+  gsl_interp_init(ampInterp, logfreqs->data, deltaAmps->data, N);
+  gsl_interp_init(phaseInterp, logfreqs->data, deltaPhases->data, N);
+
+  REAL8 lowf = exp(logfreqs->data[0]);
+  REAL8 highf = exp(logfreqs->data[N-1]);
+  for (unsigned int i = 0; i < freqNodes->length; i++) {
+    REAL8 dA = 0.0, dPhi = 0.0;
+    REAL8 f = freqNodes->data[i];
+
+    if (f < lowf || f > highf) {
+      dA = 0.0;
+      dPhi = 0.0;
+    } else {
+      dA = gsl_interp_eval(ampInterp, logfreqs->data, deltaAmps->data, log(f), ampAcc);
+      dPhi = gsl_interp_eval(phaseInterp, logfreqs->data, deltaPhases->data, log(f), phaseAcc);
+    }
+
+    calF = (1.0 + dA)*(2.0 + I*dPhi)/(2.0 - I*dPhi);
+    GSL_SET_COMPLEX(&calFROQ, creal(calF), cimag(calF));
+    gsl_vector_complex_set(calFactorROQ, i, calFROQ );
+  }
+
+ cleanup:
+  if (ampInterp != NULL) gsl_interp_free(ampInterp);
+  if (phaseInterp != NULL) gsl_interp_free(phaseInterp);
+  if (ampAcc != NULL) gsl_interp_accel_free(ampAcc);
+  if (phaseAcc != NULL) gsl_interp_accel_free(phaseAcc);
+
+  if (status == XLAL_SUCCESS) {
+    return status;
+  } else {
+    XLAL_ERROR(status, "%s", fmt);
+  }
+}
+
 void LALInferenceFprintSplineCalibrationHeader(FILE *output, LALInferenceThreadState *thread) {
     INT4 i, nifo;
     char **ifo_names = NULL;

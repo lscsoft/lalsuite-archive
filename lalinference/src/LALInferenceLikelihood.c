@@ -581,14 +581,20 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
   double time_requested, time_min, time_step;
   unsigned int weight_index;
 
-
   gsl_complex h_quad_squared;
   gsl_complex complex_d_dot_h;
   gsl_complex complex_h_dot_h;
 
   gsl_complex gsl_fplus;
   gsl_complex gsl_fcross;
-
+  
+  gsl_complex h_roq_raw;
+  gsl_complex calF_roq;
+  gsl_complex h_roq_cal;
+  
+  
+  COMPLEX16Sequence *calFactor = NULL;
+  
   /* End ROQ likelihood stuff */
 
   REAL8 d_inner_h=0.0;
@@ -601,6 +607,10 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
   }
   if (spcal_active && constantcal_active){
     fprintf(stderr,"ERROR: cannot use spline and constant calibration error marginalization together. Exiting...\n");
+    exit(1);
+  }
+  if (model->roq_flag && constantcal_active){
+    fprintf(stderr,"ERROR: cannot use ROQ likelihood and constant calibration error marginalization together. Exiting...\n");
     exit(1);
   }
   REAL8 degreesOfFreedom=2.0;
@@ -876,15 +886,21 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
           amps = *(REAL8Vector **)LALInferenceGetVariable(currentParams, ampVarName);
           phases = *(REAL8Vector **)LALInferenceGetVariable(currentParams, phaseVarName);
 
-          if (calFactor == NULL) {
-            calFactor = XLALCreateCOMPLEX16FrequencySeries("calibration factors",
-                       &(dataPtr->freqData->epoch),
-                       0, dataPtr->freqData->deltaF,
-                       &lalDimensionlessUnit,
-                       dataPtr->freqData->data->length);
-          }
+          if (model->roq_flag) {
 
-          LALInferenceSplineCalibrationFactor(logfreqs, amps, phases, calFactor);
+             LALInferenceSplineCalibrationFactorROQ(logfreqs, amps, phases, model->roq->frequencyNodesLinear, model->roq->calFactorLinear);
+             LALInferenceSplineCalibrationFactorROQ(logfreqs, amps, phases, model->roq->frequencyNodesQuadratic, model->roq->calFactorQuadratic);
+          }
+          else{ 
+			  if (calFactor == NULL) {
+				calFactor = XLALCreateCOMPLEX16FrequencySeries("calibration factors",
+						   &(dataPtr->freqData->epoch),
+						   0, dataPtr->freqData->deltaF,
+						   &lalDimensionlessUnit,
+						   dataPtr->freqData->data->length);
+			  }
+
+			  LALInferenceSplineCalibrationFactor(logfreqs, amps, phases, calFactor);
         }
         /*constant*/
         if (constantcal_active){
@@ -998,12 +1014,26 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 	time_requested /= time_step;
 	time_requested = floor(time_requested + 0.5);
 
-	// then set tc in MCMC to be one of the discrete values
+	// then set tc in sampler to be one of the discrete values
 	weight_index = (unsigned int) (time_requested);
 
 	gsl_vector_complex_view weights_row = gsl_matrix_complex_column(dataPtr->roq->weightsLinear, weight_index);
-
-	// compute h_dot_h and d_dot_h
+	
+	if (spcal_active) {
+	     for (unsigned int ii = 0; ii < model->roq->calFactorLinear->size; ii++) {
+            h_roq_raw = gsl_vector_complex_get(model->roq->hstrainLinear, ii);
+            calF_roq = gsl_vector_complex_get(model->roq->calFactorLinear, ii);
+            h_roq_cal = gsl_complex_mul(h_roq_raw, calF_roq);
+            gsl_vector_complex_set(model->roq->hstrainLinear, ii, h_roq_cal);
+        }
+        for (unsigned int ii = 0; ii < model->roq->calFactorQuadratic->size; ii++) {
+            h_roq_raw = gsl_vector_complex_get(model->roq->hstrainQuadratic, ii);
+            calF_roq = gsl_vector_complex_get(model->roq->calFactorQuadratic, ii);
+            h_roq_cal = gsl_complex_mul(h_roq_raw, calF_roq);
+            gsl_vector_complex_set(model->roq->hstrainQuadratic, ii, h_roq_cal);
+        }
+    }
+    // compute h_dot_h and d_dot_h
 	gsl_blas_zdotu( &(weights_row.vector), model->roq->hstrainLinear, &complex_d_dot_h);
 	// first compute h^2
 	//
