@@ -354,11 +354,10 @@ int LALInferenceSplineCalibrationFactor(REAL8Vector *logfreqs,
 					
 					
 					
-/** Modified version of LALInferenceSplineCalibrationFactor to compute the 
-	calibration factors for the specific frequency nodes used for 
-	Reduced Order Quadrature likelihoods.
-
-*/
+ /** Modified version of LALInferenceSplineCalibrationFactor to compute the 
+ *	calibration factors for the specific frequency nodes used for 
+ *	Reduced Order Quadrature likelihoods.
+ */
 
 int LALInferenceSplineCalibrationFactorROQ(REAL8Vector *logfreqs,
 					REAL8Vector *deltaAmps,
