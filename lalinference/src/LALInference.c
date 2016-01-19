@@ -4029,7 +4029,7 @@ int LALInferenceSplineCalibrationFactorROQ(REAL8Vector *logfreqs,
 
     calF = (1.0 + dA)*(2.0 + I*dPhi)/(2.0 - I*dPhi);
     GSL_SET_COMPLEX(&calFROQ, creal(calF), cimag(calF));
-    gsl_vector_complex_set(calFactorROQ, i, calFROQ );
+    gsl_vector_complex_set(calFactorROQ, i, calFROQ);
   }
 
  cleanup:

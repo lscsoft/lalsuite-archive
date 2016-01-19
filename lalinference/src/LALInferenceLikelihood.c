@@ -885,8 +885,12 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 
           if (model->roq_flag) {
 
-             LALInferenceSplineCalibrationFactorROQ(logfreqs, amps, phases, model->roq->frequencyNodesLinear, model->roq->calFactorLinear);
-             LALInferenceSplineCalibrationFactorROQ(logfreqs, amps, phases, model->roq->frequencyNodesQuadratic, model->roq->calFactorQuadratic);
+             LALInferenceSplineCalibrationFactorROQ(logfreqs, amps, phases, 
+                        model->roq->frequencyNodesLinear, 
+                        model->roq->calFactorLinear);
+             LALInferenceSplineCalibrationFactorROQ(logfreqs, amps, phases, 
+                        model->roq->frequencyNodesQuadratic, 
+                        model->roq->calFactorQuadratic);
           }
           else{ 
 			  if (calFactor == NULL) {
@@ -1939,8 +1943,9 @@ void LALInferenceNetworkSNR(LALInferenceVariables *currentParams,
     dataPtr = dataPtr->next;
   }
 
-  if (remove_time && LALInferenceCheckVariable(currentParams, "time"))
+  if (remove_time && LALInferenceCheckVariable(currentParams, "time")) {
     LALInferenceRemoveVariable(currentParams, "time");
+    }
 
   model->SNR = sqrt(model->SNR);
 }
