@@ -3969,14 +3969,16 @@ int LALInferenceSplineCalibrationFactorROQ(REAL8Vector *logfreqs,
   COMPLEX16 calF = 0.0;
   gsl_interp_accel *ampAcc = NULL, *phaseAcc = NULL;
   gsl_interp *ampInterp = NULL, *phaseInterp = NULL;
-  gsl_complex = calFROQ;
+  gsl_complex calFROQ;
 
   int status = XLAL_SUCCESS;
   const char *fmt = "";
 
   size_t N = 0;
+  
+  /* should I check that calFactorROQ = NULL as well? */
 
-  if (logfreqs == NULL || deltaAmps == NULL || deltaPhases == NULL || freqNodes == NULL|| calFactorROQ == NULL) {
+  if (logfreqs == NULL || deltaAmps == NULL || deltaPhases == NULL || freqNodes == NULL) {
     status = XLAL_EINVAL;
     fmt = "bad input";
     goto cleanup;

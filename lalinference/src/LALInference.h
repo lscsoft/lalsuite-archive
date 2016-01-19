@@ -669,10 +669,12 @@ tagLALInferenceROQModel
   gsl_vector_complex *hplusLinear; /** waveform at frequency nodes for (h|d) term */
   gsl_vector_complex *hcrossLinear;
   gsl_vector_complex *hstrainLinear;
+  gsl_vector_complex *calFactorLinear;
 
   gsl_vector_complex *hplusQuadratic; /** waveform at frequency nodes for (h|h) term **/
   gsl_vector_complex *hcrossQuadratic;
   gsl_vector_complex *hstrainQuadratic;
+  gsl_vector_complex *calFactorQuadratic;
 
   gsl_vector *frequencyNodesLinearGSL;
   gsl_vector *frequencyNodesQuadraticGSL;

@@ -591,10 +591,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
   gsl_complex h_roq_raw;
   gsl_complex calF_roq;
   gsl_complex h_roq_cal;
-  
-  
-  COMPLEX16Sequence *calFactor = NULL;
-  
+
   /* End ROQ likelihood stuff */
 
   REAL8 d_inner_h=0.0;
