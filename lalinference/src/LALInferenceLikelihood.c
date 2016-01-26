@@ -1049,12 +1049,29 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 	// then compute w_i * (h^2)_i
 	weights_row = gsl_matrix_complex_column(dataPtr->roq->weightsQuadratic, 0);
 	gsl_blas_zdotu( &(weights_row.vector), model->roq->hstrainQuadratic, &complex_h_dot_h);
-	model->ifo_loglikelihoods[ifo] = GSL_REAL(complex_d_dot_h);
-	model->ifo_loglikelihoods[ifo] += -0.5*(GSL_REAL(complex_h_dot_h));
+	
+	REAL8 this_ifo_S = GSL_REAL(complex_h_dot_h);
+	REAL8 this_ifo_d_inner_h = GSL_REAL(complex_d_dot_h);
+
+	model->ifo_loglikelihoods[ifo] = this_ifo_d_inner_h;
+	model->ifo_loglikelihoods[ifo] += -0.5*this_ifo_S;
 
 	loglikelihood += model->ifo_loglikelihoods[ifo];
-	S += (GSL_REAL(complex_h_dot_h));
-	d_inner_h += GSL_REAL(complex_d_dot_h);
+	S += this_ifo_S;
+	d_inner_h += this_ifo_d_inner_h;
+	
+	char varname[VARNAME_MAX];
+    sprintf(varname,"%s_optimal_snr",dataPtr->name);
+    REAL8 this_ifo_snr = sqrt(this_ifo_S);   
+    LALInferenceAddREAL8Variable(currentParams,varname,this_ifo_snr,LALINFERENCE_PARAM_OUTPUT);
+
+    sprintf(varname,"%s_cplx_snr_amp",dataPtr->name);
+    REAL8 cplx_snr_amp = gsl_complex_abs(complex_d_dot_h)/this_ifo_snr;
+    LALInferenceAddREAL8Variable(currentParams,varname,cplx_snr_amp,LALINFERENCE_PARAM_OUTPUT);
+
+    sprintf(varname,"%s_cplx_snr_arg",dataPtr->name);
+    REAL8 cplx_snr_phase = gsl_complex_arg(complex_d_dot_h);
+    LALInferenceAddREAL8Variable(currentParams,varname,cplx_snr_phase,LALINFERENCE_PARAM_OUTPUT);
 
     }
 
@@ -1237,7 +1254,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 
   if (model->roq_flag){
 
-	REAL8 OptimalSNR=sqrt(S);
+	    REAL8 OptimalSNR=sqrt(S);
         REAL8 MatchedFilterSNR = d_inner_h/OptimalSNR;
         LALInferenceAddVariable(currentParams,"optimal_snr",&OptimalSNR,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
         LALInferenceAddVariable(currentParams,"matched_filter_snr",&MatchedFilterSNR,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
