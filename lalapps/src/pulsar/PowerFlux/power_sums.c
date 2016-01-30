@@ -50,6 +50,7 @@ if(p_size>ctx->power_sums_scratch_size) {
 	free(ctx->power_sums_scratch);
 	ctx->power_sums_scratch_size=p_size;
 	ctx->power_sums_scratch=do_alloc(p_size, 1);
+	fprintf(stderr, "Expanded context power sums scratch to %ld\n", p_size);
 	}
 
 p=(POWER_SUM *)ctx->power_sums_scratch;
