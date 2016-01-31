@@ -38,11 +38,11 @@ static double qInnerIntegrand(double M2, void *viData);
 static double etaInnerIntegrand(double M2, void *viData);
 static double outerIntegrand(double M1, void *voData);
 
-static REAL8 REAL8max(REAL8 a, REAL8 b);
-static REAL8 REAL8max(REAL8 a, REAL8 b)
-{
-  return (a>b?a:b);
-}
+//static REAL8 REAL8max(REAL8 a, REAL8 b);
+//static REAL8 REAL8max(REAL8 a, REAL8 b)
+//{
+//  return (a>b?a:b);
+//}
 
 void LALInferenceInitCBCPrior(LALInferenceRunState *runState)
 {
