@@ -53,6 +53,7 @@ typedef enum
   uniformDistanceSquared,
   uniformLogDistance,
   uniformVolume,
+  uniformComovingVolume,
   starFormationRate,
   uniformSnr,
   uniformLogSnr,
@@ -92,7 +93,8 @@ typedef enum
   logMassUniformTotalMassRatio,
   m1m2SquareGrid,
   fixMasses,
-  uniformTotalMassFraction
+  uniformTotalMassFraction,
+  uniformFinalMassRatio
 }
 MassDistribution;
 
@@ -117,7 +119,9 @@ typedef enum
 {
   unknownSpinDist,
   uniformSpinDist,
-  gaussianSpinDist
+  gaussianSpinDist,
+  rdUniformSpinDist,
+  rdGaussianSpinDist
 }
 SpinDistribution;
 
@@ -144,6 +148,23 @@ SimInspiralTable* XLALRandomInspiralDistance( SimInspiralTable *inj,
     LoudnessDistribution dDist,
     REAL4  distMin,
     REAL4  distMax );
+
+SimInspiralTable* XLALRandomLuminosityDistance( SimInspiralTable *inj,
+    RandomParams *randParams, REAL8 minZ, REAL8 maxZ );
+
+typedef struct
+tagCosmoV
+{
+    double thisVc;
+}
+CosmoV;
+    
+double CosmoVc(double);
+double CosmoVcdiff(double, void *);
+double CosmoDL(double);   
+double CosmoVcIntegrand(double, void *);
+double CosmoDLIntegrand(double, void *);    
+
 
 SimInspiralTable* XLALRandomInspiralSkyLocation( SimInspiralTable *inj,
     RandomParams *randParams);
@@ -187,6 +208,21 @@ SimInspiralTable* XLALRandomInspiralMasses( SimInspiralTable *inj,
     REAL4  mass2Max,
     REAL4  minTotalMass,
     REAL4  maxTotalMass  );
+
+SimInspiralTable* XLALRandomRingdownParameters(
+    SimInspiralTable *inj,
+    RandomParams *randParams,
+    MassDistribution massDistr,
+    SpinDistribution spinDistr,
+    REAL4  rdminMass,
+    REAL4  rdmaxMass,
+    REAL4  minMassRatio,
+    REAL4  maxMassRatio,
+    REAL4  rdminSpin,
+    REAL4  rdmaxSpin,
+    REAL4  rdmeanSpin,
+    REAL4  rdStdevSpin
+);
 
 SimInspiralTable* XLALGaussianInspiralMasses( SimInspiralTable *inj,
     RandomParams *randParams,
