@@ -470,7 +470,10 @@ LALInferenceVariables *LALInferenceParseProposalArgs(LALInferenceRunState *runSt
 
     /* Setup adaptive proposals */
     if (singleadapt){
-      LALInferenceModel *model = LALInferenceInitCBCModel(runState);
+      LALInferenceModel *model;
+      ppt = LALInferenceGetProcParamVal(runState->commandLine,"--ringdown");
+      if (ppt) model = LALInferenceInitRingdownModel(runState);
+      else model = LALInferenceInitCBCModel(runState);
       LALInferenceSetupAdaptiveProposals(propArgs, model->params);
       XLALFree(model);
     }

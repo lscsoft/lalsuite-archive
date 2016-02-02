@@ -50,6 +50,7 @@ liblalinference_la_SOURCES = \
 	LALInferenceKDE.c \
 	LALInferenceInitBurst.c \
 	LALInferenceInitCBC.c \
+	LALInferenceInitRingdown.c \
 	LALInferenceVCSInfo.c \
 	LALInferenceRemoveLines.c \
 	LALInferenceCalibrationErrors.c \

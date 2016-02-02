@@ -63,7 +63,7 @@ static int checkParamInList(const char *list, const char *param)
 static void print_flags_orders_warning(SimInspiralTable *injt, ProcessParamsTable *commline);
 static void LALInferenceInitSpinVariables(LALInferenceRunState *state, LALInferenceModel *model);
 static void LALInferenceInitMassVariables(LALInferenceRunState *state);
-static void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenceModel *model);
+// static void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenceModel *model);
 static void LALInferenceCheckApproximantNeeds(LALInferenceRunState *state,Approximant approx);
 
 
@@ -89,6 +89,8 @@ LALInferenceRunState *LALInferenceInitRunState(ProcessParamsTable *command_line)
 
     /* Read data from files or generate fake data */
     run_state->data = LALInferenceReadData(command_line);
+    if (run_state->data == NULL)
+      fprintf(stderr, "It returned NULL!\n");
     if (run_state->data == NULL)
         return(NULL);
 
@@ -253,7 +255,7 @@ void LALInferenceInitCBCThreads(LALInferenceRunState *run_state, INT4 nthreads) 
 /* Defaults to using LALSimulation */
 LALInferenceTemplateFunction LALInferenceInitCBCTemplate(LALInferenceRunState *runState)
 {
-  char help[]="(--template [LAL,PhenSpin,LALGenerateInspiral,LALSim]\tSpecify template (default LAL)\n";
+  char help[]="(--template [LAL,PhenSpin,LALGenerateInspiral,LALSim,LALSimRingdown]\tSpecify template (default LAL)\n";
   ProcessParamsTable *ppt=NULL;
   ProcessParamsTable *commandLine=runState->commandLine;
   /* Print command line arguments if help requested */
@@ -270,6 +272,10 @@ LALInferenceTemplateFunction LALInferenceInitCBCTemplate(LALInferenceRunState *r
   if(ppt) {
     if(!strcmp("LALSim",ppt->value))
       templt=&LALInferenceTemplateXLALSimInspiralChooseWaveform;
+    else if(!strcmp("LALSimRingdown", ppt->value)){
+      templt=&LALInferenceTemplateXLALSimBlackHoleRingdown;
+      fprintf(stdout,"Template function called is \"LALInferenceTemplateXLALSimBlackHoleRingdown\"\n");
+    }
     else {
       XLALPrintError("Error: unknown template %s\n",ppt->value);
       XLALPrintError("%s", help);
@@ -1968,7 +1974,7 @@ void LALInferenceCheckApproximantNeeds(LALInferenceRunState *state,Approximant a
  * Function to initialise either the TaylorF2Test of SpinTaylorT4Test waveform models
  * or the PPE waveform model
  *******************************************************************/
-static void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenceModel *model)
+void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenceModel *model)
 {
     ProcessParamsTable *commandLine = state->commandLine;
     ProcessParamsTable *ppt=NULL;
