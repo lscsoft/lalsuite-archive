@@ -712,6 +712,8 @@ class Posterior(object):
                             'm1':lambda inj:inj.mass1,
                             'mass2':lambda inj:inj.mass2,
                             'm2':lambda inj:inj.mass2,
+                            'rdmass':lambda inj:inj.rdMass,
+                            'rdspin':lambda inj:inj.rdSpin,
                             'mtotal':lambda inj:float(inj.mass1)+float(inj.mass2),
                             'eta':lambda inj:inj.eta,
                             'q':self._inj_q,
@@ -740,7 +742,16 @@ class Posterior(object):
                             'h1_end_time':lambda inj:float(inj.get_end('H')),
                             'l1_end_time':lambda inj:float(inj.get_end('L')),
                             'v1_end_time':lambda inj:float(inj.get_end('V')),
-                            'lal_amporder':lambda inj:inj.amp_order}
+                            'lal_amporder':lambda inj:inj.amp_order,
+                            'dtau21':lambda inj:inj.dtau21,
+                            'dtau22':lambda inj:inj.dtau22,
+                            'dtau33':lambda inj:inj.dtau33,
+                            'dtau44':lambda inj:inj.dtau44,
+                            'dfreq21':lambda inj:inj.dfreq21,
+                            'dfreq22':lambda inj:inj.dfreq22,
+                            'dfreq33':lambda inj:inj.dfreq33,
+                            'dfreq44':lambda inj:inj.dfreq44
+                            }
 
         # Add on all spin parameterizations
         for key, val in self._inj_spins(self._injection, frame=inj_spin_frame).items():
