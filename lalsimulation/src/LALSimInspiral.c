@@ -142,6 +142,8 @@ static const char *lalSimulationApproximantNames[] = {
     INITIALIZE_NAME(SpinTaylorT4Fourier),
     INITIALIZE_NAME(SpinTaylorT2Fourier),
     INITIALIZE_NAME(SpinDominatedWf),
+    INITIALIZE_NAME(RingdownTD),
+    INITIALIZE_NAME(RingdownFD),
 };
 #undef INITIALIZE_NAME
 
@@ -3641,6 +3643,7 @@ int XLALSimInspiralImplementedTDApproximants(
         case SpinDominatedWf:
         case SEOBNRv2:
         // case SEOBNRv3:
+        case RingdownTD:
             return 1;
 
         default:
@@ -3680,6 +3683,7 @@ int XLALSimInspiralImplementedFDApproximants(
         case TaylorF2RedSpinTidal:
         case SpinTaylorT4Fourier:
         case SpinTaylorT2Fourier:
+	//case RingdownFD:
             return 1;
 
         default:
@@ -4065,6 +4069,8 @@ int XLALSimInspiralGetSpinSupportFromApproximant(Approximant approx){
     case SpinTaylorT2Fourier:
     case SpinTaylorT4Fourier:
     case SpinDominatedWf:
+    case RingdownTD:
+    case RingdownFD:
       spin_support=LAL_SIM_INSPIRAL_PRECESSINGSPIN;
       break;
     case SpinTaylorF2:
@@ -4188,6 +4194,8 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
     case IMRPhenomD:
     case IMRPhenomP:
     case IMRPhenomPv2:
+    case RingdownTD:
+    case RingdownFD:
       testGR_accept=LAL_SIM_INSPIRAL_TESTGR_PARAMS;
       break;
     default:

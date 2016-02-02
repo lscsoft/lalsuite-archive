@@ -355,6 +355,10 @@ typedef enum {
                          * @remarks Implemented in lalsimulation (frequency domain). */
    SpinDominatedWf,     /**< Time domain, inspiral only, 1 spin, precessing waveform, Tapai et al, arXiv: 1209.1722
                          * @remarks Implemented in lalsimulation (time domain). */
+   RingdownTD,          /**< Time domain, ringdown only, multiple quasi-normal modes
+                         * @remarks Implemented in lalsimulation (time domain). */
+   RingdownFD,          /**< Frequency domain, ringdown only, multiple quasi-normal modes
+                         * @remarks Implemented in lalsimulation (time domain). */
    NumApproximants	/**< Number of elements in enum, useful for checking bounds */
  } Approximant;
 

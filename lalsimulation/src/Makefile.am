@@ -51,6 +51,7 @@ bin_PROGRAMS = \
 
 pkginclude_HEADERS = \
 	LALSimBlackHoleRingdown.h \
+	LALSimBlackHoleRingdownTiger.h \
 	LALSimBurst.h \
 	LALSimIMR.h \
 	LALSimInspiral.h \
@@ -99,6 +100,7 @@ noinst_HEADERS = \
 lib_LTLIBRARIES = liblalsimulation.la
 liblalsimulation_la_SOURCES = \
 	LALSimBlackHoleRingdown.c \
+	LALSimBlackHoleRingdownTiger.c \
 	LALSimBurst.c \
 	LALSimBurstImg.c \
 	LALSimIMREOBNRv2.c \
