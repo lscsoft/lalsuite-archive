@@ -68,9 +68,20 @@ int main(int argc, char *argv[]){
   /* And performing any injections specified */
   /* And allocating memory */
   state = LALInferenceInitRunState(procParams);
+  fprintf(stderr, "State: %p\n", &state);
   /* Perform injections if data successful read or created */
   if (state){
-    LALInferenceInjectInspiralSignal(state->data, state->commandLine);
+    fprintf(stdout, " initialize(): successfully read data.\n");    // FIXME: remove
+    if (LALInferenceGetProcParamVal(state->commandLine, "--ringdown")){  // TODO: Implement this function for injection!
+      fprintf(stdout, " LALInferenceInjectRingdownSignal(): started.\n"); // FIXME: remove after debug
+      LALInferenceInjectRingdownSignal(state->data, state->commandLine);
+      fprintf(stdout, " LALInferenceInjectRingdownSignal(): finished.\n"); //FM
+    }
+    else{
+      fprintf(stdout, " LALInferenceInjectInspiralSignal(): started.\n"); //FM
+      LALInferenceInjectInspiralSignal(state->data, state->commandLine);
+      fprintf(stdout, " LALInferenceInjectInspiralSignal(): finished.\n"); //FM
+    }
   }
 
   /* Set up the appropriate functions for the nested sampling algorithm */
@@ -82,7 +93,8 @@ int main(int argc, char *argv[]){
   }
 
   /* Set up the threads */
-  LALInferenceInitCBCThreads(state,1);
+  if (LALInferenceGetProcParamVal(state->commandLine, "--ringdown")) LALInferenceInitRingdownThreads(state,1);
+  else LALInferenceInitCBCThreads(state,1);
 
   /* Init the prior */
   LALInferenceInitCBCPrior(state);

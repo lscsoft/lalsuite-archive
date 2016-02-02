@@ -544,6 +544,23 @@ LALSimInspiralApplyTaper taperInj = LAL_SIM_INSPIRAL_TAPER_NONE;
 AlignmentType alignInj = notAligned;
 REAL8 redshift;
 
+REAL4 rdminMass = -1.0 ;
+REAL4 rdmaxMass = -1.0 ;
+REAL4 rdminSpin = -1.0 ;
+REAL4 rdmaxSpin = -1.0 ;
+REAL4 rdmeanSpin = -1.0 ;
+REAL4 rdStdevSpin = -1.0 ;
+
+REAL8 dtau22 = 0.0 ;
+REAL8 dtau21 = 0.0 ;
+REAL8 dtau33 = 0.0 ;
+REAL8 dtau44 = 0.0 ;
+REAL8 dfreq22 = 0.0 ;
+REAL8 dfreq21 = 0.0 ;
+REAL8 dfreq33 = 0.0 ;
+REAL8 dfreq44 = 0.0 ;
+
+
 REAL8 single_IFO_SNR_threshold=0.0;
 char ** ifonames=NULL;
 int numifos=0;
@@ -993,6 +1010,7 @@ static void print_usage(char *program)
       "                           distancesquared: uniform distribution in distance^2\n"\
       "                           log10: uniform distribution in log10(d) \n"\
       "                           volume: uniform distribution in volume\n"\
+      "                           covolume: uniform distribution in comoving volume\n"\
       "                           sfr: distribution derived from the SFR\n"\
       " [--min-distance] DMIN     set the minimum (chirp) distance to DMIN kpc\n"\
       " [--max-distance] DMAX     set the maximum (chirp) distance to DMAX kpc\n"\
@@ -1106,6 +1124,25 @@ static void print_usage(char *program)
       "  [--max-abskappa1] abskappa1max \n"\
       "                           Set the maximum absolute value of cos(S1.L_N) \n"\
       "                           to abskappa1max (1.0)\n\n");
+  fprintf(stderr,
+          "Ringdown information:\n"\
+          "  [--min-rdspin] rdspinmin   Set the minimum spin1 to spin1min (0.0)\n"\
+          "  [--max-rdspin] rdspinmax   Set the maximum spin1 to spin1max (0.0)\n"\
+          "  [--mean-rdspin] rdspinmean Set the mean for |spin1| distribution\n"\
+          "  [--stdev-rdspin] rdspinstd Set the standard deviation for |spin1|\n"\
+          
+          "  [--min-rdmass] rdmmin       set the min ringdown mass to rdmmin\n"\
+          "  [--max-rdmass] rdmmax       set the max ringdown mass to rdmmax\n");
+  fprintf(stderr,
+          "Ringdown test parameter information:\n"\
+          " --dtau21 value             value of the dtau21 parameter\n"\
+          " --dtau22 value             value of the dtau22 parameter\n"\
+          " --dtau33 value             value of the dtau33 parameter\n"\
+          " --dtau44 value             value of the dtau44 parameter\n"\
+          " --dfreq21 value             value of the dfreq21 parameter\n"\
+          " --dfreq22 value             value of the dfreq22 parameter\n"\
+          " --dfreq33 value            value of the dfreq33 parameter\n"\
+          " --dfreq44 value             value of the dfreq44 parameter\n\n");
   fprintf(stderr,
       "Tapering the injection waveform:\n"\
       "  [--taper-injection] OPT  Taper the inspiral template using option OPT\n"\
@@ -2015,7 +2052,7 @@ int main( int argc, char *argv[] )
     {"enable-spin",             no_argument,       0,                'T'},
     {"disable-spin",            no_argument,       0,                'W'},
     {"aligned",                 no_argument,       0,                '@'},
-    {"axis-choice",             required_argument, 0,               1009},
+    {"axis-choice",             required_argument, 0,               1024},
     {"write-compress",          no_argument,       &outCompress,       1},
     {"taper-injection",         required_argument, 0,                '*'},
     {"band-pass-injection",     no_argument,       0,                '}'},
@@ -2026,6 +2063,20 @@ int main( int argc, char *argv[] )
     {"stdev-spin2",             required_argument, 0,                 1004},
     {"mean-spin1",              required_argument, 0,                 1005},
     {"mean-spin2",              required_argument, 0,                 1006},
+    {"min-rdspin",           required_argument,       0,                 1009},
+    {"max-rdspin",             required_argument, 0,                 1010},
+    {"mean-rdspin",             required_argument, 0,                 1011},
+    {"stdev-rdspin",              required_argument, 0,                 1012},
+    {"min-rdmass",              required_argument, 0,                 1013},
+    {"max-rdmass",              required_argument, 0,                 1014},
+    {"dtau21",                   required_argument, 0,                 1016},
+    {"dtau22",                   required_argument, 0,                 1017},
+    {"dtau33",                   required_argument, 0,                 1018},
+    {"dtau44",                   required_argument, 0,                 1019},
+    {"dfreq21",                   required_argument, 0,                 1020},
+    {"dfreq22",                   required_argument, 0,                 1021},
+    {"dfreq33",                  required_argument, 0,                 1022},
+    {"dfreq44",                   required_argument, 0,                 1023},
     {0, 0, 0, 0}
   };
   int c;
@@ -2362,13 +2413,17 @@ int main( int argc, char *argv[] )
         {
           mDistr=uniformTotalMassFraction;
         }
+        else if (!strcmp(dummy, "finalMass"))
+        {
+          mDistr=uniformFinalMassRatio;
+        }
         else
         {
           fprintf( stderr, "invalid argument to --%s:\n"
               "unknown mass distribution: %s must be one of\n"
               "(source, nrwaves, totalMass, componentMass, gaussian, log,\n"
               "totalMassRatio, totalMassFraction, logTotalMassUniformMassRatio,\n"
-              "m1m2SquareGrid, fixMasses)\n",
+              "m1m2SquareGrid, fixMasses, finalMass)\n",
               long_options[option_index].name, LALoptarg );
           exit( 1 );
         }
@@ -2517,6 +2572,10 @@ int main( int argc, char *argv[] )
         else if (!strcmp(dummy, "volume"))
         {
           dDistr=uniformVolume;
+        }
+        else if (!strcmp(dummy, "covolume"))    
+        {
+          dDistr=uniformComovingVolume;
         }
         else
         {
@@ -3098,7 +3157,7 @@ int main( int argc, char *argv[] )
         spinAligned = 1;
         break;
 
-      case 1009:
+      case 1024:
         /* frame axis choice */
         snprintf( axisChoiceString, AXIS_MAX, "%s", LALoptarg );
         this_proc_param = this_proc_param->next =
@@ -3197,6 +3256,105 @@ int main( int argc, char *argv[] )
         this_proc_param = this_proc_param->next =
         next_process_param( long_options[option_index].name,
           "float", "%le", meanSpin2 );
+        break;
+
+      /* Ringdown */
+      case 1009:
+        rdminSpin = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", rdminSpin );
+        break;
+        
+      case 1010:
+        rdmaxSpin = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", rdmaxSpin );
+        break;
+        
+      case 1011:
+        rdmeanSpin = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", rdmeanSpin );
+        break;
+        
+      case 1012:
+        rdStdevSpin = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", rdStdevSpin );
+        break;
+        
+      case 1013:
+        rdminMass = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", rdminMass );
+        break;
+        
+      case 1014:
+        rdmaxMass = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", rdmaxMass );
+        break;
+        
+      case 1016:
+        dtau21 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dtau21 );
+        break;
+
+      case 1017:
+        dtau22 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dtau22 );
+        break;
+
+      case 1018:
+        dtau33 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dtau33 );
+        break;
+
+      case 1019:
+        dtau44 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dtau44 );
+        break;
+
+      case 1020:
+        dfreq21 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dfreq21 );
+        break;
+        
+      case 1021:
+        dfreq22 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dfreq22 );
+        break;
+        
+      case 1022:
+        dfreq33 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dfreq33 );
+        break;
+        
+      case 1023:
+        dfreq44 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dfreq44 );
         break;
 
 
@@ -3329,6 +3487,14 @@ int main( int argc, char *argv[] )
            "with --d-distr or --dchirp-distr !\n");
       exit( 1 );
     }
+  }
+  if ( dDistr == uniformComovingVolume )
+  {
+      if ( minZ<0.0 || maxZ<0.0 || maxZ<minZ )
+      {
+          fprintf(stderr, "Bad choices for redshift bounds!\n");    
+          exit( 1 );
+      }
   }
   if ( dDistr == starFormationRate )
   {
@@ -3811,6 +3977,72 @@ int main( int argc, char *argv[] )
     exit( 1 );
   }
 
+  /* Ringdown parameter checks */
+	  
+      /* checks for ringdown mass injections */
+  if ( mDistr==uniformFinalMassRatio )
+  {
+	  if ( rdminMass <= 0.0 || rdmaxMass <=0.0 ){
+		  fprintf( stderr, "Must specify positive minimum and maxium ringdown mass \n"
+		  "for your choice of --m-distr.\n" );
+		  exit(1);
+	  }
+	  if ( minMassRatio <= 0.0 || maxMassRatio <=0.0 ){
+		  fprintf( stderr, "Must specify positive minimum and maxium ringdown mass ratio \n"
+		  "for your choice of --m-distr.\n" );
+		  exit(1);
+	  }
+	  if ( strncmp(waveform, "Ringdown", 8) ){
+		  fprintf( stderr, "This choice of --m-distr is only supported by ringdown waveforms.\n");
+		  exit(1);
+	  }
+  } 
+
+  //} else {
+      //fprintf( stderr,
+               //"The choice of mass distribution is unavailable for ringdown injection.\n");
+      //exit( 1 );
+    //}
+  //}
+
+
+  if ( strncmp(waveform, "Ringdown", 8) && spinInjections==1 ){
+
+    /* check that spin stddev is positive */
+    if ( spinDistr==gaussianSpinDist && ( rdStdevSpin <= 0.0) )
+    {
+      fprintf( stderr,
+               "Must specify positive |spin| standard deviations when using"
+               " --spin-gaussian\n" );
+      exit( 1 );
+    }
+    
+    /* check that spins are in range 0 - 1 */
+    if ( rdminSpin < 0. || rdmaxSpin > 1. )
+    {
+      fprintf( stderr,
+               "Spins can only take values between 0 and 1.\n" );
+      exit( 1 );
+    }
+    
+    /* check max and mins are the correct way around */
+    if (rdminSpin > rdmaxSpin )
+    {
+      fprintf( stderr,
+               "Minimal spins must be less than or equal to maximal spins.\n" );
+      exit( 1 );
+    }
+    
+    /* check that spin means are within a reasonable range */
+    if (spinDistr==gaussianSpinDist && ( rdminSpin - rdmeanSpin > 2.0*rdStdevSpin || rdmeanSpin - rdmaxSpin > 2.0*rdStdevSpin ) )
+    {
+      fprintf(stderr,"Mean of |spin| distribution is way out of range.\n");
+      exit( 1 );
+    }
+    
+  }
+
+
   if ( spinInjections==-1 && mDistr != massFromNRFile )
   {
     fprintf( stderr,
@@ -4115,7 +4347,7 @@ int main( int argc, char *argv[] )
       simTable=XLALRandomInspiralTotalMassFraction(simTable, randParams,
           mDistr, minMtotal, maxMtotal, minMassRatio, maxMassRatio );
     }
-    else {
+    else if ( mDistr!=uniformFinalMassRatio ){
       simTable=XLALRandomInspiralMasses( simTable, randParams, mDistr,
           minMass1, maxMass1,
           minMass2, maxMass2,
@@ -4149,6 +4381,10 @@ int main( int argc, char *argv[] )
     {
       simTable=XLALRandomInspiralDistance(simTable, randParams,
           dDistr, minD/1000.0, maxD/1000.0);
+    }
+    else if ( dDistr == uniformComovingVolume )
+    {
+      simTable=XLALRandomLuminosityDistance(simTable, randParams, minZ, maxZ);
     }
     else if (dDistr==uniformSnr || dDistr==uniformLogSnr || dDistr==uniformVolumeSnr)
     {
@@ -4256,6 +4492,22 @@ int main( int argc, char *argv[] )
 					  alignInj, spinDistr,
 					  meanSpin1, Spin1Std,
 					  meanSpin2, Spin2Std );
+    }
+
+    if ( !strncmp(waveform, "Ringdown", 8) ){
+      simTable = XLALRandomRingdownParameters(
+        simTable,   /**< injection for which masses will be set*/
+        randParams,/**< random parameter details*/
+        mDistr,  /**< the mass distribution to use */
+        spinDistr,  /**< the spin distribution to use */
+        rdminMass,     /**< minimum total mass of binaty */
+        rdmaxMass,      /**< maximum total mass of binary */
+        minMassRatio,
+        maxMassRatio,
+        rdminSpin,
+        rdmaxSpin,
+        rdmeanSpin,
+        rdStdevSpin);
     }
 
     /* adjust SNR to desired distribution using NINJA calculation */
@@ -4439,6 +4691,16 @@ int main( int argc, char *argv[] )
 
     /* populate the bandpass options */
     simTable->bandpass = bandPassInj;
+
+    /* populate the test parameters */
+    simTable->dtau21 = dtau21 ;
+    simTable->dtau22 = dtau22 ;
+    simTable->dtau33 = dtau33 ;
+    simTable->dtau44 = dtau44 ;
+    simTable->dfreq21 = dfreq21 ;
+    simTable->dfreq22 = dfreq22 ;
+    simTable->dfreq33 = dfreq33 ;
+    simTable->dfreq44 = dfreq44 ;
 
 
     /* populate the sim_ringdown table */
