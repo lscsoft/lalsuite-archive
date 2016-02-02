@@ -568,6 +568,20 @@ tagSimInspiralTable
   REAL4          spin2z;
   REAL4          theta0;
   REAL4          phi0;
+
+  /* Ringdown Parameters */
+  REAL4          rdMass;
+  REAL4          rdSpin;
+  /* Parameters for the GR test waveforms */
+  REAL4 dtau21 ;
+  REAL4 dtau22 ;
+  REAL4 dtau33 ;
+  REAL4 dtau44 ;
+  REAL4 dfreq21 ;
+  REAL4 dfreq22 ;
+  REAL4 dfreq33 ;
+  REAL4 dfreq44 ;
+
   REAL4          f_lower;
   REAL4          f_final;
   REAL4          mchirp;
