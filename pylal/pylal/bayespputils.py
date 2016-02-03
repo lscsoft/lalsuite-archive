@@ -1076,6 +1076,8 @@ class Posterior(object):
 
       # Calculate mass and spin of final merged system
       if ('m1' in pos.names) and ('m2' in pos.names):
+          if ('tilt1' in pos.names) or ('tilt2' in pos.names):
+              print "A precessing fit formula is not available yet. Using a non-precessing fit formula on the aligned-spin components."
           if ('a1z' in pos.names) and ('a2z' in pos.names):
               print "Using non-precessing fit formula [Healy at al (2014)] for final mass and spin (on masses and projected spin components)."
               try:
