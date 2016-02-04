@@ -716,6 +716,7 @@ fprintf(LOG,"nsegments : %d\n", nsegments);
 
 fprintf(LOG,"first gps : %lld\n", min_gps());
 fprintf(LOG,"last gps  : %lld\n", max_gps());
+fprintf(LOG,"mid gps   : %lld\n", mid_gps());
 
 if(!args_info.spindown_start_time_given){
 	spindown_start=min_gps();
