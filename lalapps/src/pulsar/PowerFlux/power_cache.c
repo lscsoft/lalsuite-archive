@@ -1335,7 +1335,7 @@ ctx->cache=sc;
 
 
 #define KEY_MULT 8388623
-#define KEY_DIV ((1<<31)-1)
+#define KEY_DIV ((1u<<31)-1)
 
 /* Note: si is modified in place to have bin_shift rounded as appropriate to the power generating algorithm */
 void accumulate_power_sum_cached1(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps)
@@ -1495,7 +1495,7 @@ get_uncached_single_bin_power_sum(ctx, si, count, ps3);
 /* sse implementation */
 #if MANUAL_SSE
 sse_get_uncached_single_bin_power_sum(ctx, si, count, ps4);
-result+=compare_partial_power_sums_F("sse_get_uncached_single_bin_power_sum:", ps3, ps4, 1e-4, 1e-5);
+result+=compare_partial_power_sums_F("sse_get_uncached_single_bin_power_sum:", ps3, ps4, 1e-2, 2e-5);
 #endif
 
 /* reference implementation */
@@ -1504,7 +1504,7 @@ get_uncached_matched_power_sum(ctx, si, count, ps3);
 /* sse implementation */
 #if MANUAL_SSE
 sse_get_uncached_matched_power_sum(ctx, si, count, ps4);
-result+=compare_partial_power_sums_F("sse_get_uncached_matched_power_sum:", ps3, ps4, 1e-4, 1e-5);
+result+=compare_partial_power_sums_F("sse_get_uncached_matched_power_sum:", ps3, ps4, 1e-2, 2e-5);
 #endif
 
 free(si);

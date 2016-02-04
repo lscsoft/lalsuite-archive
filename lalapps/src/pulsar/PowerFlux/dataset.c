@@ -2577,6 +2577,26 @@ for(i=0;i<d_free;i++){
 return(max_gps);
 }
 
+INT64 mid_gps(void)
+{
+int i,j;
+double sum=0.0, weight, total_weight=0.0;
+INT64 min_gps=0;
+DATASET *d;
+
+for(i=0;i<d_free;i++){
+	d=&datasets[i];
+	for(j=0;j<datasets[i].free;j++) {
+		weight=d->expTMedians[j]*d->weight;
+		total_weight+=weight;
+		sum+=weight*d->gps[j];
+		}
+	}
+if(total_weight<=0)return -1;
+
+return((INT64)round(sum/total_weight));
+}
+
 void post_init_datasets(void)
 {
 float a, b;
