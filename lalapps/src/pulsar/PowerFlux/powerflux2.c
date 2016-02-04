@@ -716,6 +716,7 @@ fprintf(LOG,"nsegments : %d\n", nsegments);
 
 fprintf(LOG,"first gps : %lld\n", min_gps());
 fprintf(LOG,"last gps  : %lld\n", max_gps());
+fprintf(LOG,"mid gps   : %lld\n", mid_gps());
 
 if(!args_info.spindown_start_time_given){
 	spindown_start=min_gps();
@@ -950,9 +951,11 @@ dump_floats("fine_longitude.dat", fine_grid->longitude, fine_grid->npoints, 1);
 free_plot(plot);
 free_RGBPic(p);
 
-power_cache_selftest();
-single_bin_loosely_coherent_selftest();
-power_sum_stats_selftest();
+if(args_info.extended_test_arg) {
+	power_cache_selftest();
+	single_bin_loosely_coherent_selftest();
+	power_sum_stats_selftest();
+	}
 
 /* Check that expected timebase was sufficient */
 
