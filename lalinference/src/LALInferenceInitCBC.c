@@ -206,7 +206,7 @@ void LALInferenceInitCBCThreads(LALInferenceRunState *run_state, INT4 nthreads) 
     }
     thread->currentIFOLikelihoods = XLALCalloc(nifo, sizeof(REAL8));
     /* Setup ROQ */
-    if (LALInferenceGetProcParamVal(commandLine, "--roq")){
+    if (LALInferenceGetProcParamVal(commandLine, "--roqtime_steps")){
 
 	LALInferenceSetupROQ(run_state->data, thread->model, run_state->commandLine);
 	fprintf(stderr, "done LALInferenceSetupROQ\n");
@@ -262,9 +262,9 @@ LALInferenceTemplateFunction LALInferenceInitCBCTemplate(LALInferenceRunState *r
                     --template LALGenerateInspiral (for time-domain templates)\n\
                     --template LAL (for frequency-domain templates)\n");
   }
-  else if(LALInferenceGetProcParamVal(commandLine,"--roq")){
+  else if(LALInferenceGetProcParamVal(commandLine,"--roqtime_steps")){
   templt=&LALInferenceROQWrapperForXLALSimInspiralChooseFDWaveformSequence;
-	fprintf(stderr, "template is LALInferenceROQWrapperForXLALSimInspiralChooseFDWaveformSequence");
+	fprintf(stderr, "template is \"LALInferenceROQWrapperForXLALSimInspiralChooseFDWaveformSequence\"\n");
   }
   else {
     fprintf(stdout,"Template function called is \"LALInferenceTemplateXLALSimInspiralChooseWaveform\"\n");
@@ -1275,7 +1275,7 @@ LALInferenceModel *LALInferenceInitModelReviewEvidence(LALInferenceRunState *sta
 
 	i=0;
 
- 
+
   /* Parameter bounds at ±5 sigma */
   fprintf(stdout,"Setting up priors\n");
   LALInferenceParamVaryType type=LALINFERENCE_PARAM_LINEAR;
