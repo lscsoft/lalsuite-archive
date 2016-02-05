@@ -2539,6 +2539,10 @@ void LALInferencePrintInjectionSample(LALInferenceRunState *runState) {
 
     SimInspiralTable *injTable=NULL, *theEventTable=NULL;
     LALInferenceModel *model = LALInferenceInitCBCModel(runState);
+    model->roq_flag = 0;
+    LALInferenceSetupROQ(runState->data, model, runState->commandLine);
+    fprintf(stderr, "done LALInferenceSetupROQ\n");
+
     LALInferenceVariables *injparams = XLALCalloc(1, sizeof(LALInferenceVariables));
     LALInferenceCopyVariables(model->params, injparams);
 
@@ -2661,7 +2665,7 @@ void LALInferenceSetupROQ(LALInferenceIFOData *IFOdata, LALInferenceModel *model
   n_basis_quadratic = 0;
   n_samples = 31489;
   //REAL8 delta_tc = 0.0001;
-  float dt=0;
+  float dt=0.1;
   LIGOTimeGPS GPStrig;
   REAL8 endtime=0.0;
   //REAL8 timeMin=0.0,timeMax=0.0;
