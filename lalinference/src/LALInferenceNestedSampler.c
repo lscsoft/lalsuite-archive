@@ -1435,23 +1435,18 @@ void LALInferenceSetupLivePointsArray(LALInferenceRunState *runState){
 	LALInferenceVariables *curParsBackup=threadState->currentParams;
 	for(i=0;i<Nlive;i++)
 	{
-	  fprintf(stderr, "Nlive: %i, i: %i, size: %lu\n", Nlive, i, sizeof(LALInferenceVariables));
 	   /* Clone the currentParams into LivePoints[i] */
 	    runState->livePoints[i]=XLALCalloc(1,sizeof(LALInferenceVariables));
-	    printf("D");
 	    /* Copy the param structure */
 	    LALInferenceCopyVariables(threadState->currentParams,runState->livePoints[i]);
 
-	  printf("O");
 	  /* Sprinkle the varying points among prior */
 	  do{
 	    LALInferenceDrawFromPrior( runState->livePoints[i], runState->priorArgs, runState->GSLrandom );
 	    logPrior=runState->prior(runState,runState->livePoints[i],threadState->model);
 	  }while(logPrior==-DBL_MAX || isnan(logPrior));
 	  /* Populate log likelihood */
-	  printf("N");
 	  logLs->data[i]=runState->likelihood(runState->livePoints[i],runState->data,threadState->model);
-	  printf("E ");
 	  LALInferenceAddVariable(runState->livePoints[i],"logL",(void *)&(logLs->data[i]),LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
 	  LALInferenceAddVariable(runState->livePoints[i],"logPrior",(void*)&logPrior,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
 	}

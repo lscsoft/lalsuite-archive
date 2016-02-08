@@ -202,7 +202,7 @@ LALInferenceModel *LALInferenceInitRingdownModel(LALInferenceRunState *state)
   UINT4 i=0;
   REAL8 f_ref = 100.0;
   REAL8 Dmin=1.0;
-  REAL8 Dmax=100.0;
+  REAL8 Dmax=2000.0;
   REAL8 mMin=2.0,mMax=30.0;
   REAL8 etaMin=0.0312;
   REAL8 etaMax=0.25;
@@ -215,7 +215,7 @@ LALInferenceModel *LALInferenceInitRingdownModel(LALInferenceRunState *state)
   REAL8 phiMin=0.0,phiMax=LAL_TWOPI;
   REAL8 costhetaJNmin=-1.0 , costhetaJNmax=1.0;
   REAL8 amin=-1.0,amax=1.0;
-  REAL8 chiEffmin = -1.0;
+  REAL8 chiEffmin = 0.0;
   REAL8 chiEffmax = 1.0;
   REAL8 dt=0.1;            /* Width of time prior */
   gsl_rng *GSLrandom=state->GSLrandom;
@@ -1051,12 +1051,12 @@ LALInferenceModel *LALInferenceInitRingdownModel(LALInferenceRunState *state)
 
   ppt = LALInferenceGetProcParamVal(commandLine, "--fixMass");
   if (ppt) {
-	  LALInferenceRegisterUniformVariableREAL8(state, model->params, "rdMass", start_mass, mMin, mMax, LALINFERENCE_PARAM_FIXED);
+	  LALInferenceRegisterUniformVariableREAL8(state, model->params, "rd_mass", start_mass, mMin, mMax, LALINFERENCE_PARAM_FIXED);
 	  if (lalDebugLevel>0) fprintf(stdout, "final black hole mass fixed and set to %f\n", start_mass);
 	  fprintf(stdout, "final black hole mass fixed and set to %f\n", start_mass);
   } 
   else {
-	  LALInferenceRegisterUniformVariableREAL8(state, model->params, "rdMass", start_mass, mMin, mMax, LALINFERENCE_PARAM_LINEAR);
+	  LALInferenceRegisterUniformVariableREAL8(state, model->params, "rd_mass", start_mass, mMin, mMax, LALINFERENCE_PARAM_LINEAR);
   }
 
 
@@ -1089,7 +1089,7 @@ LALInferenceModel *LALInferenceInitRingdownModel(LALInferenceRunState *state)
   UINT4 getRDSpin = 0;
   ppt = LALInferenceGetProcParamVal(commandLine,"--enable-a");
   if (ppt){
-    LALInferenceRegisterUniformVariableREAL8(state, model->params, "rdSpin", start_a_spin, amin, amax, LALInferenceGetProcParamVal(commandLine,"--fixSpin")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
+    LALInferenceRegisterUniformVariableREAL8(state, model->params, "rd_spin", start_a_spin, amin, amax, LALInferenceGetProcParamVal(commandLine,"--fixSpin")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
     XLALPrintInfo("Adding final black hole spin to the template parameters \n");
   } else if (LALInferenceGetProcParamVal(commandLine, "--disable-a")) {
     getRDSpin = 1;
@@ -1098,7 +1098,7 @@ LALInferenceModel *LALInferenceInitRingdownModel(LALInferenceRunState *state)
   
   ppt = LALInferenceGetProcParamVal(commandLine,"--enable-chiEff");
   if (ppt){
-    LALInferenceRegisterUniformVariableREAL8(state, model->params, "rdChiEff", start_chiEff, chiEffmin, chiEffmax, LALInferenceGetProcParamVal(commandLine,"--fixChiEff")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
+    LALInferenceRegisterUniformVariableREAL8(state, model->params, "rd_chi_eff", start_chiEff, chiEffmin, chiEffmax, LALInferenceGetProcParamVal(commandLine,"--fixChiEff")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
     XLALPrintInfo("Adding effective spin to the template parameters \n");
   }
   

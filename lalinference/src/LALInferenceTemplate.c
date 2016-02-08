@@ -550,14 +550,14 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceModel *model)  // 
     deltaF = model->deltaF;
   }
     
-  if (LALInferenceCheckVariable(model->params,"rdChiEff"))
+  if (LALInferenceCheckVariable(model->params,"rd_chi_eff"))
     {
-      chiEff = *(REAL8*) LALInferenceGetVariable(model->params, "rdChiEff");
+      chiEff = *(REAL8*) LALInferenceGetVariable(model->params, "rd_chi_eff");
     }
   
-  if(LALInferenceCheckVariable(model->params,"rdMass"))
+  if(LALInferenceCheckVariable(model->params,"rd_mass"))
     {
-      mass = *(REAL8 *)LALInferenceGetVariable(model->params,"rdMass");
+      mass = *(REAL8 *)LALInferenceGetVariable(model->params,"rd_mass");
       if (LALInferenceCheckVariable(model->params,"asym_massratio")) 
 	{
 	  q = *(REAL8 *)LALInferenceGetVariable(model->params,"asym_massratio");
@@ -687,8 +687,8 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceModel *model)  // 
    * If --enable-a is used, with the related options, then 1) is chosen.
    * If --disable-a is used, then 2) or 3) is chosen, depending on spins being 0 or not. */
   
-  if(LALInferenceCheckVariable(model->params, "rdSpin")){
-    spin = *(REAL8*) LALInferenceGetVariable(model->params, "rdSpin");
+  if(LALInferenceCheckVariable(model->params, "rd_spin")){
+    spin = *(REAL8*) LALInferenceGetVariable(model->params, "rd_spin");
   }
   else if (LALInferenceCheckVariable(model->params, "spin_from_components") && (m1 > 0.0) && (m2 > 0.0)){
     if ( fabs(spin1x) + fabs(spin1y) + fabs(spin1z) + fabs(spin2x) + fabs(spin2y) + fabs(spin2z) != 0.0) {
