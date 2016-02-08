@@ -217,8 +217,10 @@ def get_prior(name):
       'eta':None,
       'q':None,
       'mtotal':'uniform',
+      'rd_mass':'uniform',
       'm1_source':None,
       'm2_source':None,
+      'rd_mass_source':None,
       'mtotal_source':None,
       'mc_source':None,
       'redshift':None,
@@ -228,6 +230,18 @@ def get_prior(name):
       'a2':'uniform',
       'a1z':'uniform',
       'a2z':'uniform',
+      'rd_spin':'uniform',
+      'rd_chi_eff':None,
+      'qnm22_rel_amp':None,
+      'qnm21_rel_amp':None,
+      'qnm33_rel_amp':None,
+      'qnm32_rel_amp':None,
+      'qnm44_rel_amp':None,
+      'qnm22_amp':None,
+      'qnm21_amp':None,
+      'qnm33_amp':None,
+      'qnm32_amp':None,
+      'qnm44_amp':None,
       'theta1':'uniform',
       'theta2':'uniform',
       'phi1':'uniform',
@@ -310,6 +324,20 @@ def plot_label(param):
       'm2_source':r'$m_{2}^\mathrm{source}\,(\mathrm{M}_\odot)$',
       'mtotal_source':r'$M_\mathrm{total}^\mathrm{source}\,(\mathrm{M}_\odot)$',
       'mc_source':r'$\mathcal{M}^\mathrm{source}\,(\mathrm{M}_\odot)$',
+      'rd_mass':r'$M_\mathrm{RD}\,(\mathrm{M}_\odot)$',
+      'rd_mass_source':r'$M_\mathrm{RD}^\mathrm{source}\,(\mathrm{M}_\odot)$',
+      'rd_spin':r'$a_\mathrm{RD}$',
+      'rd_chi_eff':r'$\chi_\mathrm{eff}$',
+      'qnm22_rel_amp':r'$\alpha_{22}$',
+      'qnm21_rel_amp':r'$\alpha_{21}$',
+      'qnm33_rel_amp':r'$\alpha_{33}$',
+      'qnm32_rel_amp':r'$\alpha_{32}$',
+      'qnm44_rel_amp':r'$\alpha_{44}$',
+      'qnm22_amp':r'$A_{22}$',
+      'qnm21_amp':r'$A_{21}$',
+      'qnm33_amp':r'$A_{33}$',
+      'qnm32_amp':r'$A_{32}$',
+      'qnm44_amp':r'$A_{44}$',
       'redshift':r'$z$',
       'spin1':r'$S_1$',
       'spin2':r'$S_2$',
@@ -712,8 +740,8 @@ class Posterior(object):
                             'm1':lambda inj:inj.mass1,
                             'mass2':lambda inj:inj.mass2,
                             'm2':lambda inj:inj.mass2,
-                            'rdmass':lambda inj:inj.rdMass,
-                            'rdspin':lambda inj:inj.rdSpin,
+                            'rd_mass':lambda inj:inj.rdMass,
+                            'rd_spin':lambda inj:inj.rdSpin,
                             'mtotal':lambda inj:float(inj.mass1)+float(inj.mass2),
                             'eta':lambda inj:inj.eta,
                             'q':self._inj_q,
@@ -980,8 +1008,31 @@ class Posterior(object):
       if ('mtotal' in pos.names) and ('redshift' in pos.names):
           pos.append_mapping('mtotal_source', source_mass, ['mtotal', 'redshift'])
 
+      if ('rd_mass' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('rd_mass_source', source_mass, ['rd_mass', 'redshift'])
+
       if ('mc' in pos.names) and ('redshift' in pos.names):
           pos.append_mapping('mc_source', source_mass, ['mc', 'redshift'])
+
+      if ('rd_mass' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('rd_mass_source', source_mass, ['rd_mass', 'redshift'])
+
+      if ('rd_chi_eff' in pos.names) and ('massratio' in pos.names):
+          pos.append_mapping('qnm22_rel_amp', qnm22Amplitude, 'massratio')
+          pos.append_mapping('qnm33_rel_amp', qnm33Amplitude, 'massratio')
+          pos.append_mapping('qnm32_rel_amp', qnm32Amplitude, 'massratio')
+          pos.append_mapping('qnm44_rel_amp', qnm44Amplitude, 'massratio')
+          pos.append_mapping('qnm21_rel_amp', qnm21Amplitude, ['massratio', 'rd_chi_eff'])
+      if ('qnm22_rel_amp' in pos.names) and ('rd_mass' in pos.names) and ('distance' in pos.names):
+          pos.append_mapping('qnm22_amp', lambda a,m,d:a*m*lal.MTSUN_SI*lal.C_SI/(d*lal.PC_SI*1.0e6), ('qnm22_rel_amp','rd_mass','distance'))
+      if ('qnm21_rel_amp' in pos.names) and ('rd_mass' in pos.names) and ('distance' in pos.names):
+          pos.append_mapping('qnm21_amp', lambda a,m,d:a*m*lal.MTSUN_SI*lal.C_SI/(d*lal.PC_SI*1.0e6), ('qnm21_rel_amp','rd_mass','distance'))
+      if ('qnm33_rel_amp' in pos.names) and ('rd_mass' in pos.names) and ('distance' in pos.names):
+          pos.append_mapping('qnm33_amp', lambda a,m,d:a*m*lal.MTSUN_SI*lal.C_SI/(d*lal.PC_SI*1.0e6), ('qnm33_rel_amp','rd_mass','distance'))
+      if ('qnm32_rel_amp' in pos.names) and ('rd_mass' in pos.names) and ('distance' in pos.names):
+          pos.append_mapping('qnm32_amp', lambda a,m,d:a*m*lal.MTSUN_SI*lal.C_SI/(d*lal.PC_SI*1.0e6), ('qnm32_rel_amp','rd_mass','distance'))
+      if ('qnm44_rel_amp' in pos.names) and ('rd_mass' in pos.names) and ('distance' in pos.names):
+          pos.append_mapping('qnm44_amp', lambda a,m,d:a*m*lal.MTSUN_SI*lal.C_SI/(d*lal.PC_SI*1.0e6), ('qnm44_rel_amp','rd_mass','distance'))
 
       #Calculate new tidal parameters
       new_tidal_params = ['lam_tilde','dlam_tilde']
@@ -1425,7 +1476,7 @@ class Posterior(object):
         posterior samples.
         """
         allowed_coord_names=["spin1", "spin2", "a1", "phi1", "theta1", "a2", "phi2", "theta2",
-                             "iota", "psi", "ra", "dec",
+                             "iota", "psi", "ra", "dec", "rd_mass", "rd_spin", "rd_chi_eff",
                              "phi_orb", "phi0", "dist", "time", "mc", "mchirp", "chirpmass", "q"]
         samples,header=self.samples()
         header=header.split()
@@ -1453,7 +1504,7 @@ class Posterior(object):
         Because the ellipse should be well-sampled, this provides a
         better approximation to the evidence than the full-domain HM."""
         allowed_coord_names=["spin1", "spin2", "a1", "phi1", "theta1", "a2", "phi2", "theta2",
-                             "iota", "psi", "ra", "dec",
+                             "iota", "psi", "ra", "dec", "rd_mass", "rd_spin", "rd_chi_eff",
                              "phi_orb", "phi0", "dist", "time", "mc", "mchirp", "chirpmass", "q"]
         samples,header=self.samples()
         header=header.split()
@@ -3785,6 +3836,27 @@ def source_mass(mass, redshift):
     """
     return mass / (1.0 + redshift)
 
+def qnm22Amplitude(eta):
+    return 0.8639*eta
+
+def qnm21Amplitude(eta, chiEff):
+    A = 0.8639*eta
+    return A*0.43*(np.sqrt(1.0 - 4.*eta) - chiEff)
+
+def qnm33Amplitude(eta):
+    A = 0.8639*eta
+    return A*0.44*np.power(1.0 - 4.*eta, 0.45)
+
+def qnm32Amplitude(eta):
+    A = 0.8639*eta
+    return A*3.69*(eta - 0.2)*(eta - 0.2) + 0.053
+
+def qnm44Amplitude(eta):
+    A = 0.8639*eta
+    return A*5.41*((eta - 0.22)*(eta - 0.22) + 0.04)
+
+
+
 def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m2, fref):
     """
     Wrapper function for SimInspiralTransformPrecessingInitialConditions().
@@ -4365,7 +4437,7 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
   fig_actor_lst = [cs.collections[0] for cs in CSlst]
   fig_actor_lst.extend(dummy_lines)
   if legend is not None:
-    twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right',framealpha=0.1)
+    twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
     for text in twodcontour_legend.get_texts():
       text.set_fontsize('small')
 
@@ -4614,7 +4686,7 @@ def plot_two_param_greedy_bins_contourf(posteriors_by_name,greedy2Params,confide
         fig_actor_lst = [cs.collections[0] for cs in CSlst]
         fig_actor_lst.extend(dummy_lines)
     if legend is not None:
-      twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right',framealpha=0.1)
+      twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
       for text in twodcontour_legend.get_texts():
           text.set_fontsize('small')
     fix_axis_names(plt,par1_name,par2_name)
@@ -4831,7 +4903,7 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     fig_actor_lst.extend(dummy_lines)
 
     if legend is not None:
-      twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right',framealpha=0.1)
+      twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
       for text in twodcontour_legend.get_texts():
         text.set_fontsize('small')
 
@@ -6138,7 +6210,7 @@ def confidence_interval_uncertainty(cl, cl_bounds, posteriors):
 
 def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V1']):
 
-  from lalsimulation.lalsimulation import SimInspiralChooseTDWaveform,SimInspiralChooseFDWaveform
+  from lalsimulation.lalsimulation import SimInspiralChooseTDWaveform,SimInspiralChooseFDWaveform,SimBlackHoleRingdownTiger
   from lalsimulation.lalsimulation import SimInspiralImplementedTDApproximants,SimInspiralImplementedFDApproximants
   from lal.lal import StrainUnit
   from lal.lal import CreateREAL8TimeSeries,CreateForwardREAL8FFTPlan,CreateTukeyREAL8Window,CreateCOMPLEX16FrequencySeries,DimensionlessUnit,REAL8TimeFreqFFT,CutREAL8TimeSeries
@@ -6308,8 +6380,17 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
       GPStime=LIGOTimeGPS(REAL8time)
 
       q=pos['q'].samples[which][0]
-      mc=pos['mc'].samples[which][0]
-      M1,M2=bppu.q2ms(mc,q)
+      if 'mc' in pos.names:
+          mc=pos['mc'].samples[which][0]
+          M1,M2=bppu.q2ms(mc,q)
+          m1=M1*LAL_MSUN_SI
+          m2=M2*LAL_MSUN_SI
+      if 'rd_mass' in pos.names:
+          rdmass=pos['rd_mass'].samples[which][0]
+      if 'rd_spin' in pos.names:
+          rdSpin=pos['rd_spin'].samples[which][0]
+      if 'rd_chi_eff' in pos.names:
+          rdChiEff=pos['rd_chi_eff'].samples[which][0]
       if 'dist' in pos.names:
         D=pos['dist'].samples[which][0]
       elif 'distance' in pos.names:
@@ -6317,9 +6398,6 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
       elif 'logdistance' in pos.names:
         D=exp(pos['distance'].samples[which][0])
 
-
-      m1=M1*LAL_MSUN_SI
-      m2=M2*LAL_MSUN_SI
       if 'phi_orb' in pos.names:
         phiRef=pos['phi_orb'].samples[which][0]
       elif 'phase_maxl' in pos.names:
@@ -6401,7 +6479,10 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
         [plus,cross]=SimInspiralChooseFDWaveform(phiRef, deltaF,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min, f_max,   f_ref,r,   iota, lambda1,   lambda2,waveFlags, nonGRparams, amplitudeO, phaseO, approximant)
       elif SimInspiralImplementedTDApproximants(approximant):
         rec_domain='T'
-        [plus,cross]=SimInspiralChooseTDWaveform(phiRef, deltaT,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min, f_ref,  r,   iota, lambda1,   lambda2,waveFlags, nonGRparams, amplitudeO, phaseO, approximant)
+        if 'rd_mass' in pos.names:
+            [plus,cross]=SimBlackHoleRingdownTiger(phiRef, deltaT,  rdMass, rdSpin, eta, rdChiEff, r, iota,waveFlags, nonGRparams, amplitudeO)
+        else:
+            [plus,cross]=SimInspiralChooseTDWaveform(phiRef, deltaT,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min, f_ref,  r,   iota, lambda1,   lambda2,waveFlags, nonGRparams, amplitudeO, phaseO, approximant)
       else:
         print "The approximant %s doesn't seem to be recognized by lalsimulation!\n Skipping WF plots\n"%approximant
         return None
@@ -6681,7 +6762,7 @@ def plot_calibration_pos(pos, level=.9, outpath=None):
 
     ax1.tick_params(labelsize=.75*font_size)
     ax2.tick_params(labelsize=.75*font_size)
-    plt.legend(loc='upper right', prop={'size':.75*font_size}, framealpha=0.1)
+    plt.legend(loc='upper right', prop={'size':.75*font_size})
     ax1.set_xscale('log')
     ax2.set_xscale('log')
 
