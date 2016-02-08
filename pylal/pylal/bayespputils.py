@@ -1928,8 +1928,6 @@ class Posterior(object):
             axis = lalsim.SimInspiralGetFrameAxisFromString(frame)
 
             m1, m2 = inj.mass1, inj.mass2
-            m1 *= lal.MSUN_SI
-            m2 *= lal.MSUN_SI
             mc, eta = inj.mchirp, inj.eta
 
             # Convert to radiation frame
@@ -1937,7 +1935,7 @@ class Posterior(object):
                 lalsim.SimInspiralInitialConditionsPrecessingApproxs(inj.inclination,
                                                                      inj.spin1x, inj.spin1y, inj.spin1z,
                                                                      inj.spin2x, inj.spin2y, inj.spin2z,
-                                                                     m1, m2, f_ref, axis)
+                                                                     m1*lal.MSUN_SI, m2*lal.MSUN_SI, f_ref, axis)
 
             a1, theta1, phi1 = cart2sph(s1x, s1y, s1z)
             a2, theta2, phi2 = cart2sph(s2x, s2y, s2z)
