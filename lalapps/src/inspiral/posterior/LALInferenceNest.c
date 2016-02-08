@@ -68,7 +68,6 @@ int main(int argc, char *argv[]){
   /* And performing any injections specified */
   /* And allocating memory */
   state = LALInferenceInitRunState(procParams);
-  fprintf(stderr, "State: %p\n", &state);
   /* Perform injections if data successful read or created */
   if (state){
     fprintf(stdout, " initialize(): successfully read data.\n");    // FIXME: remove
