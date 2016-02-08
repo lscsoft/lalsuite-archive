@@ -873,10 +873,10 @@ def cbcBayesPostProc(
     polParams=['psi','polarisation','polarization']
     skyParams=['ra','rightascension','declination','dec']
     timeParams=['time']
-    rampParams=['qnm22_rel_amp','qnm21_rel_amp','qnm33_rel_amp','qnm32_rel_amp','qnm44_rel_amp']
+    QNMParams=['qnm22_rel_amp','qnm21_rel_amp','qnm33_rel_amp','qnm32_rel_amp','qnm44_rel_amp','qnm22_f','qnm21_f','qnm33_f','qnm32_f','qnm44_f','qnm22_t','qnm21_t','qnm33_t','qnm32_t','qnm44_t']
     ampParams=['qnm22_amp','qnm21_amp','qnm33_amp','qnm32_amp','qnm44_amp']
     spinParams=['spin1','spin2','a1','a2','rd_spin','rd_chi_eff','chiEff','a1z','a2z','phi1','theta1','phi2','theta2','chi','effectivespin','chi_eff','chi_tot','chi_p','beta','tilt1','tilt2','phi_jl','theta_jn','phi12']
-    intrinsicParams=massParams+spinParams+rampParams
+    intrinsicParams=massParams+spinParams+QNMParams
     extrinsicParams=incParams+distParams+polParams+skyParams+ampParams
     try:
       myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=intrinsicParams)
@@ -1301,7 +1301,7 @@ if __name__=='__main__':
     timeParams=['time','time_mean']
     spinParams=['spin1','spin2','a1','a2','a1z','a2z','rd_spin','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','chi_eff','rd_chi_eff','chi_tot','chi_p','costheta_jn','cosbeta','tilt1','tilt2','phi_jl','theta_jn','phi12']
     phaseParams=['phase', 'phi0','phase_maxl']
-    rampParams=['qnm22_rel_amp','qnm21_rel_amp','qnm33_rel_amp','qnm32_rel_amp','qnm44_rel_amp']
+    QNMParams=['qnm22_rel_amp','qnm21_rel_amp','qnm33_rel_amp','qnm32_rel_amp','qnm44_rel_amp','qnm22_f','qnm21_f','qnm33_f','qnm32_f','qnm44_f','qnm22_t','qnm21_t','qnm33_t','qnm32_t','qnm44_t']
     ampParams=['qnm22_amp','qnm21_amp','qnm33_amp','qnm32_amp','qnm44_amp']
     endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
     ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB','alphaPPE','aPPE','betaPPE','bPPE']
@@ -1313,7 +1313,7 @@ if __name__=='__main__':
     statsParams=['logprior','logl','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','deltaloglh2','deltaloglg1']
     calibParams=['calpha_l1','calpha_h1','calpha_v1','calamp_l1','calamp_h1','calamp_v1']
     snrParams=bppu.snrParams
-    oneDMenu=massParams + distParams + incParams + rampParams + ampParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams + ppEParams + tigerParams + hairyParams + bransDickeParams + massiveGravitonParams + tidalParams + statsParams + snrParams + calibParams
+    oneDMenu=massParams + distParams + incParams + QNMParams + ampParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams + ppEParams + tigerParams + hairyParams + bransDickeParams + massiveGravitonParams + tidalParams + statsParams + snrParams + calibParams
     # ['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
 
     ifos_menu=['h1','l1','v1']
@@ -1410,7 +1410,7 @@ if __name__=='__main__':
         greedyBinSizes[param]=2.5
     for param in ampParams:
         greedyBinSizes[param]=lal.MTSUN_SI*lal.C_SI/(100*lal.PC_SI*1.0e6)
-    for param in rampParams:
+    for param in QNMParams:
         greedyBinSizes[param]=0.02
     #Confidence levels
     for loglname in ['logl','deltalogl','deltaloglh1','deltaloglv1','deltalogll1','logll1','loglh1','loglv1']:

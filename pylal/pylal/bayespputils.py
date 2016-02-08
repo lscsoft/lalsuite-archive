@@ -242,6 +242,11 @@ def get_prior(name):
       'qnm33_amp':None,
       'qnm32_amp':None,
       'qnm44_amp':None,
+      'qnm22_f':None,
+      'qnm21_f':None,
+      'qnm33_f':None,
+      'qnm32_f':None,
+      'qnm44_f':None,
       'theta1':'uniform',
       'theta2':'uniform',
       'phi1':'uniform',
@@ -338,6 +343,11 @@ def plot_label(param):
       'qnm33_amp':r'$A_{33}$',
       'qnm32_amp':r'$A_{32}$',
       'qnm44_amp':r'$A_{44}$',
+      'qnm22_f':r'$f_{22}$',
+      'qnm21_f':r'$f_{21}$',
+      'qnm33_f':r'$f_{33}$',
+      'qnm32_f':r'$f_{32}$',
+      'qnm44_f':r'$f_{44}$',
       'redshift':r'$z$',
       'spin1':r'$S_1$',
       'spin2':r'$S_2$',
@@ -1016,6 +1026,18 @@ class Posterior(object):
 
       if ('rd_mass' in pos.names) and ('redshift' in pos.names):
           pos.append_mapping('rd_mass_source', source_mass, ['rd_mass', 'redshift'])
+
+      if ('rd_spin' in pos.names) and ('rd_mass' in pos.names):
+          pos.append_mapping('qnm22_f', f_qnm_22, ['rd_mass', 'rd_spin'])
+          pos.append_mapping('qnm21_f', f_qnm_21, ['rd_mass', 'rd_spin'])
+          pos.append_mapping('qnm33_f', f_qnm_33, ['rd_mass', 'rd_spin'])
+          pos.append_mapping('qnm32_f', f_qnm_32, ['rd_mass', 'rd_spin'])
+          pos.append_mapping('qnm44_f', f_qnm_44, ['rd_mass', 'rd_spin'])
+          pos.append_mapping('qnm22_t', t_qnm_22, ['rd_mass', 'rd_spin'])
+          pos.append_mapping('qnm21_t', t_qnm_21, ['rd_mass', 'rd_spin'])
+          pos.append_mapping('qnm33_t', t_qnm_33, ['rd_mass', 'rd_spin'])
+          pos.append_mapping('qnm32_t', t_qnm_32, ['rd_mass', 'rd_spin'])
+          pos.append_mapping('qnm44_t', t_qnm_44, ['rd_mass', 'rd_spin'])
 
       if ('rd_chi_eff' in pos.names) and ('massratio' in pos.names):
           pos.append_mapping('qnm22_rel_amp', qnm22Amplitude, 'massratio')
@@ -3855,6 +3877,45 @@ def qnm44Amplitude(eta):
     A = 0.8639*eta
     return A*5.41*((eta - 0.22)*(eta - 0.22) + 0.04)
 
+def f_qnm_22(m,a):
+    return (1.5251 - 1.1568*np.power(1.0-a,0.1292))/(m*lal.MTSUN_SI)
+    #return lalsim.SimRingdownFitOmega(2,2,0,a).real()
+
+def f_qnm_21(m,a):
+    (0.6000 - 0.2339*np.power(1.0-a,0.4175))/(m*lal.MTSUN_SI)
+    #return lalsim.SimRingdownFitOmega(2,1,0,a).real()
+
+def f_qnm_33(m,a):
+    (1.8956 - 1.3043*np.power(1.0-a,0.1818))/(m*lal.MTSUN_SI)
+    #return lalsim.SimRingdownFitOmega(3,3,0,a).real()
+
+def f_qnm_32(m,a):
+    (1.1481 - 0.5552*np.power(1.0-a,0.3002))/(m*lal.MTSUN_SI)
+    #return lalsim.SimRingdownFitOmega(3,2,0,a).real()
+
+def f_qnm_44(m,a):
+    (2.3000 - 1.5056*np.power(1.0-a,0.2244))/(m*lal.MTSUN_SI)
+    #return lalsim.SimRingdownFitOmega(4,4,0,a).real()
+
+def t_qnm_22(m,a):
+    f_qnm_22(a)/(2.*(0.7000 + 1.4187*np.power(1.0-a,-0.4990)))
+    #return lalsim.SimRingdownFitOmega(2,2,0,a).imag()
+
+def t_qnm_21(m,a):
+    f_qnm_21(a)/(2.*(-0.3000 + 2.3561*np.power(1.0-a,-0.2277)))
+    #return lalsim.SimRingdownFitOmega(2,1,0,a).imag()
+
+def t_qnm_33(m,a):
+    f_qnm_33(a)/(2.*(0.9000 + 2.3430*np.power(1.0-a,-0.4810)))
+    #return lalsim.SimRingdownFitOmega(3,3,0,a).imag()
+
+def t_qnm_32(m,a):
+    f_qnm_32(a)/(2.*(0.8313 + 2.3773*np.power(1.0-a,-0.3655)))
+    #return lalsim.SimRingdownFitOmega(3,2,0,a).imag()
+
+def t_qnm_44(m,a):
+    f_qnm_44(a)/(2.*(1.1929 + 3.1191*np.power(1.0-a,-0.4825)))
+    #return lalsim.SimRingdownFitOmega(4,4,0,a).imag()
 
 
 def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m2, fref):
