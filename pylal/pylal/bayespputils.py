@@ -247,6 +247,11 @@ def get_prior(name):
       'qnm33_f':None,
       'qnm32_f':None,
       'qnm44_f':None,
+      'qnm22_t':None,
+      'qnm21_t':None,
+      'qnm33_t':None,
+      'qnm32_t':None,
+      'qnm44_t':None,
       'theta1':'uniform',
       'theta2':'uniform',
       'phi1':'uniform',
@@ -343,11 +348,16 @@ def plot_label(param):
       'qnm33_amp':r'$A_{33}$',
       'qnm32_amp':r'$A_{32}$',
       'qnm44_amp':r'$A_{44}$',
-      'qnm22_f':r'$f_{22}$',
-      'qnm21_f':r'$f_{21}$',
-      'qnm33_f':r'$f_{33}$',
-      'qnm32_f':r'$f_{32}$',
-      'qnm44_f':r'$f_{44}$',
+      'qnm22_f':r'$f_{22}\,(\mathrm{Hz})$',
+      'qnm21_f':r'$f_{21}\,(\mathrm{Hz})$',
+      'qnm33_f':r'$f_{33}\,(\mathrm{Hz})$',
+      'qnm32_f':r'$f_{32}\,(\mathrm{Hz})$',
+      'qnm44_f':r'$f_{44}\,(\mathrm{Hz})$',
+      'qnm22_t':r'$t_{22}\,(\mathrm{s})$',
+      'qnm21_t':r'$t_{21}\,(\mathrm{s})$',
+      'qnm33_t':r'$t_{33}\,(\mathrm{s})$',
+      'qnm32_t':r'$t_{32}\,(\mathrm{s})$',
+      'qnm44_t':r'$t_{44}\,(\mathrm{s})$',
       'redshift':r'$z$',
       'spin1':r'$S_1$',
       'spin2':r'$S_2$',
@@ -3882,39 +3892,39 @@ def f_qnm_22(m,a):
     #return lalsim.SimRingdownFitOmega(2,2,0,a).real()
 
 def f_qnm_21(m,a):
-    (0.6000 - 0.2339*np.power(1.0-a,0.4175))/(m*lal.MTSUN_SI)
+    return (0.6000 - 0.2339*np.power(1.0-a,0.4175))/(m*lal.MTSUN_SI)
     #return lalsim.SimRingdownFitOmega(2,1,0,a).real()
 
 def f_qnm_33(m,a):
-    (1.8956 - 1.3043*np.power(1.0-a,0.1818))/(m*lal.MTSUN_SI)
+    return (1.8956 - 1.3043*np.power(1.0-a,0.1818))/(m*lal.MTSUN_SI)
     #return lalsim.SimRingdownFitOmega(3,3,0,a).real()
 
 def f_qnm_32(m,a):
-    (1.1481 - 0.5552*np.power(1.0-a,0.3002))/(m*lal.MTSUN_SI)
+    return (1.1481 - 0.5552*np.power(1.0-a,0.3002))/(m*lal.MTSUN_SI)
     #return lalsim.SimRingdownFitOmega(3,2,0,a).real()
 
 def f_qnm_44(m,a):
-    (2.3000 - 1.5056*np.power(1.0-a,0.2244))/(m*lal.MTSUN_SI)
+    return (2.3000 - 1.5056*np.power(1.0-a,0.2244))/(m*lal.MTSUN_SI)
     #return lalsim.SimRingdownFitOmega(4,4,0,a).real()
 
 def t_qnm_22(m,a):
-    f_qnm_22(a)/(2.*(0.7000 + 1.4187*np.power(1.0-a,-0.4990)))
+    return f_qnm_22(m,a)/(2.*(0.7000 + 1.4187*np.power(1.0-a,-0.4990)))
     #return lalsim.SimRingdownFitOmega(2,2,0,a).imag()
 
 def t_qnm_21(m,a):
-    f_qnm_21(a)/(2.*(-0.3000 + 2.3561*np.power(1.0-a,-0.2277)))
+    return f_qnm_21(m,a)/(2.*(-0.3000 + 2.3561*np.power(1.0-a,-0.2277)))
     #return lalsim.SimRingdownFitOmega(2,1,0,a).imag()
 
 def t_qnm_33(m,a):
-    f_qnm_33(a)/(2.*(0.9000 + 2.3430*np.power(1.0-a,-0.4810)))
+    return f_qnm_33(m,a)/(2.*(0.9000 + 2.3430*np.power(1.0-a,-0.4810)))
     #return lalsim.SimRingdownFitOmega(3,3,0,a).imag()
 
 def t_qnm_32(m,a):
-    f_qnm_32(a)/(2.*(0.8313 + 2.3773*np.power(1.0-a,-0.3655)))
+    return f_qnm_32(m,a)/(2.*(0.8313 + 2.3773*np.power(1.0-a,-0.3655)))
     #return lalsim.SimRingdownFitOmega(3,2,0,a).imag()
 
 def t_qnm_44(m,a):
-    f_qnm_44(a)/(2.*(1.1929 + 3.1191*np.power(1.0-a,-0.4825)))
+    return f_qnm_44(m,a)/(2.*(1.1929 + 3.1191*np.power(1.0-a,-0.4825)))
     #return lalsim.SimRingdownFitOmega(4,4,0,a).imag()
 
 
