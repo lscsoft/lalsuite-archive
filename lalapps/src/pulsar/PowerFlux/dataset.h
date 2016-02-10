@@ -31,6 +31,9 @@ typedef struct {
 	/* name of the data set - for logging purposes */
 	char *name; 
 	char *lock_file[MAX_LOCKS];
+	
+	int buffer_size; /* when 0 use non-buffered stdio I/O */
+	char *buffer;
 
 	int validated; /* has this data set been validated ? see corresponding functions */
 
