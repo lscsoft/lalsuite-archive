@@ -1276,7 +1276,7 @@ for(i=0;i<count;i++){
 	im[i]=tmp[2*i+1]*factor;
 	if(!isfinite(re[i]) || !isfinite(im[i])) {
 		free(tmp);
-		fprintf(stderr, "Infinite value encountered in file \"%s\"\n", filename);
+		fprintf(stderr, "Infinite value (%g,%g) encountered in file \"%s\" gps=%lld\n", tmp[2*i], tmp[2*i+1], filename, *gps);
 		return -2;
 		}
 	}
@@ -1371,7 +1371,7 @@ for(i=0;i<count;i++){
 	im[i]=tmp[2*i+1]*factor;
 	if(!isfinite(re[i]) || !isfinite(im[i])) {
 		free(tmp);
-		fprintf(stderr, "Infinite value encountered in file \"%s\"\n", filename);
+		fprintf(stderr, "Infinite value (%g,%g) encountered in file \"%s\" gps=%lld\n", tmp[2*i], tmp[2*i+1], filename, *gps);
 		return -(48+ht.nsamples*8+ht.comment_length);
 		}
 	}
@@ -1424,6 +1424,13 @@ while((fin=fopen(filename,"r"))==NULL) {
 if(retries>0) {
 	fprintf(stderr, "Successfully opened file \"%s\" after %ld attempts.\n", filename, retries);
 	}
+	
+if(d->buffer_size==0) {
+	setvbuf(fin, NULL, _IONBF, 0);
+	} else {
+	setvbuf(fin, d->buffer, _IOFBF, d->buffer_size);
+	}
+	
 /* read header */
 header_offset=0;
 while(1) {
@@ -1743,6 +1750,15 @@ if(!strncasecmp(line, "lock_file", 9)) {
 if(!strncasecmp(line, "sleep", 5)) {
 	locate_arg(line, length, 1, &ai, &aj);
 	condor_safe_sleep(atoi(&(line[ai])));
+	} else 
+if(!strncasecmp(line, "buffer_size", 11)) {
+	locate_arg(line, length, 1, &ai, &aj);
+	datasets[d_free-1].buffer_size=atoll(&(line[ai]));
+	if(datasets[d_free-1].buffer!=NULL)free(datasets[d_free-1].buffer);
+	if(datasets[d_free-1].buffer_size<0)datasets[d_free-1].buffer_size=0;
+	if(datasets[d_free-1].buffer_size>0) {
+		datasets[d_free-1].buffer=do_alloc(1, datasets[d_free-1].buffer_size);
+		}
 	} else 
 if(!strncasecmp(line, "gps_start", 9)) {
 	locate_arg(line, length, 1, &ai, &aj);
