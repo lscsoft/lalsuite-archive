@@ -1222,21 +1222,16 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     node.set_output_file(os.path.join(out_dir,node.engine+'-'+str(event.event_id)+'-'+node.get_ifos()+'-'+str(node.get_trig_time())+'-'+str(node.id)))
     if self.config.has_option('condor','computeroqweights'):
       for ifo in ifos:
-        node.add_var_arg('--'+ifo+'-roqweights '+os.path.join(roqeventpath,'weights_'+ifo+'.dat'))
-        node.add_input_file(os.path.join(roqeventpath,'weights_'+ifo+'.dat'))
+        node.add_var_arg('--'+ifo+'-roqweightsLinear '+os.path.join(roqeventpath,'weights_linear_'+ifo+'.dat'))
+        node.add_input_file(os.path.join(roqeventpath,'weights_linear_'+ifo+'.dat'))
+        node.add_var_arg('--'+ifo+'-roqweightsQuadratic '+os.path.join(roqeventpath,'weights_quadratic_'+ifo+'.dat'))
+        node.add_input_file(os.path.join(roqeventpath,'weights_quadratic_'+ifo+'.dat'))
       node.add_var_arg('--roqtime_steps '+os.path.join(roqeventpath,'roq_sizes.dat'))
       node.add_input_file(os.path.join(roqeventpath,'roq_sizes.dat'))
-      if self.config.has_option('paths','rom_nodes_linear'):
-        nodes_path_linear=self.config.get('paths','rom_nodes_linear')
-        node.add_var_arg('--roqnodesLinear '+nodes_path_linear)
-        node.add_input_file(nodes_path_linear)
-      if self.config.has_option('paths','rom_nodes_quadratic'):
-        nodes_path_quadratic=self.config.get('paths','rom_nodes_quadratic')
-        node.add_var_arg('--roqnodesQuadratic` '+nodes_path_quadratic)
-        node.add_input_file(nodes_path_quadratic)
-      else:
-        print 'No nodes specified for ROM likelihood'
-        return None
+      node.add_var_arg('--roqnodesLinear '+os.path.join(roqeventpath,'fnodes_linear.dat'))
+      node.add_input_file(os.path.join(roqeventpath,'fnodes_linear.dat'))
+      node.add_var_arg('--roqnodesQuadratic '+os.path.join(roqeventpath,'fnodes_quadratic.dat'))
+      node.add_input_file(os.path.join(roqeventpath,'fnodes_quadratic.dat'))
     if self.config.has_option('condor','bayesline'):
       for ifo in ifos:
         node.psds[ifo]=os.path.join(roqeventpath,'BayesLine_PSD_'+ifo+'.dat')
@@ -2076,16 +2071,16 @@ class ROMJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
     self.set_stdout_file(os.path.join(logdir,'computeroqweights-$(cluster)-$(process).out'))
     self.set_stderr_file(os.path.join(logdir,'computeroqweights-$(cluster)-$(process).err'))
     self.add_condor_cmd('getenv','True')
-    self.add_arg('-B '+str(cp.get('paths','rom_b_matrix')))
+    self.add_arg('-B '+str(cp.get('paths','roq_b_matrix_directory')))
     if cp.has_option('engine','dt'):
       self.add_arg('-t '+str(cp.get('engine','dt')))
     else:
       self.add_arg('-t 0.1')
-    if cp.has_option('engine','dt'):
+    if cp.has_option('engine','time_step'):
       self.add_arg('-T '+str(cp.get('engine','time_step')))
     else:
-      self.add_arg('-T 0.0001')
-    self.add_condor_cmd('RequestMemory',str((os.path.getsize(str(cp.get('paths','rom_b_matrix')))/(1024*1024))*4))
+      self.add_arg('-T 0.000025')
+    self.add_condor_cmd('RequestMemory',str((os.path.getsize(str(cp.get('paths','roq_b_matrix_directory')+'/B_linear.npy'))/(1024*1024))*256)) # Check memory requirements
 
 class ROMNode(pipeline.CondorDAGNode):
   """

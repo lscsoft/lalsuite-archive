@@ -136,7 +136,7 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
      fprintf(stderr, "Using marginalised in time and phase likelihood.\n");
      runState->likelihood=&LALInferenceMarginalisedTimePhaseLogLikelihood;
      //LALInferenceAddVariable(runState->currentParams, "margtimephi", &margphi, LALINFERENCE_UINT4_t,LALINFERENCE_PARAM_FIXED);
-   } else if (LALInferenceGetProcParamVal(commandLine, "--roq")) {
+   } else if (LALInferenceGetProcParamVal(commandLine, "--roqtime_steps")) {
      fprintf(stderr, "Using ROQ in likelihood.\n");
      runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood;//&LALInferenceROQLogLikelihood;
    } else if (LALInferenceGetProcParamVal(commandLine, "--fastSineGaussianLikelihood")){
@@ -148,7 +148,7 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
 
    /* Try to determine a model-less likelihood, if such a thing makes sense */
    if (runState->likelihood==&LALInferenceUndecomposedFreqDomainLogLikelihood){
-	if (LALInferenceGetProcParamVal(commandLine, "--roq")) {
+	if (LALInferenceGetProcParamVal(commandLine, "--roqtime_steps")) {
 		nullLikelihood = 0;
 	}
 	else{
@@ -587,7 +587,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 
   gsl_complex gsl_fplus;
   gsl_complex gsl_fcross;
-  
+
   gsl_complex h_roq_raw;
   gsl_complex calF_roq;
   gsl_complex h_roq_cal;
@@ -695,7 +695,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
   deltaT = data->timeData->deltaT;
   REAL8 epoch = XLALGPSGetREAL8(&(data->freqData->epoch));
   desired_tc = epoch + (time_length-1)*deltaT - 2.0;
-  
+
   if(signalFlag)
   {
     if(LALInferenceCheckVariable(currentParams,"logmc")){
@@ -885,14 +885,14 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 
           if (model->roq_flag) {
 
-             LALInferenceSplineCalibrationFactorROQ(logfreqs, amps, phases, 
-                        model->roq->frequencyNodesLinear, 
+             LALInferenceSplineCalibrationFactorROQ(logfreqs, amps, phases,
+                        model->roq->frequencyNodesLinear,
                         model->roq->calFactorLinear);
-             LALInferenceSplineCalibrationFactorROQ(logfreqs, amps, phases, 
-                        model->roq->frequencyNodesQuadratic, 
+             LALInferenceSplineCalibrationFactorROQ(logfreqs, amps, phases,
+                        model->roq->frequencyNodesQuadratic,
                         model->roq->calFactorQuadratic);
           }
-          else{ 
+          else{
 			  if (calFactor == NULL) {
 				calFactor = XLALCreateCOMPLEX16FrequencySeries("calibration factors",
 						   &(dataPtr->freqData->epoch),
@@ -1020,7 +1020,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 	weight_index = (unsigned int) (time_requested);
 
 	gsl_vector_complex_view weights_row = gsl_matrix_complex_column(dataPtr->roq->weightsLinear, weight_index);
-	
+
 	if (spcal_active) {
 	     for (unsigned int ii = 0; ii < model->roq->calFactorLinear->size; ii++) {
             h_roq_raw = gsl_vector_complex_get(model->roq->hstrainLinear, ii);
@@ -1036,7 +1036,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
         }
     }
     // compute h_dot_h and d_dot_h
-	gsl_blas_zdotu( &(weights_row.vector), model->roq->hstrainLinear, &complex_d_dot_h);
+    gsl_blas_zdotc(model->roq->hstrainLinear, &(weights_row.vector), &complex_d_dot_h);
 	// first compute h^2
 	//
 	for (unsigned int ii = 0; ii < model->roq->hstrainQuadratic->size; ii++) {
@@ -1048,8 +1048,8 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 
 	// then compute w_i * (h^2)_i
 	weights_row = gsl_matrix_complex_column(dataPtr->roq->weightsQuadratic, 0);
-	gsl_blas_zdotu( &(weights_row.vector), model->roq->hstrainQuadratic, &complex_h_dot_h);
-	
+	gsl_blas_zdotc(model->roq->hstrainQuadratic, &(weights_row.vector), &complex_h_dot_h);
+
 	REAL8 this_ifo_S = GSL_REAL(complex_h_dot_h);
 	REAL8 this_ifo_d_inner_h = GSL_REAL(complex_d_dot_h);
 
@@ -1059,10 +1059,10 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 	loglikelihood += model->ifo_loglikelihoods[ifo];
 	S += this_ifo_S;
 	d_inner_h += this_ifo_d_inner_h;
-	
+
 	char varname[VARNAME_MAX];
     sprintf(varname,"%s_optimal_snr",dataPtr->name);
-    REAL8 this_ifo_snr = sqrt(this_ifo_S);   
+    REAL8 this_ifo_snr = sqrt(this_ifo_S);
     LALInferenceAddREAL8Variable(currentParams,varname,this_ifo_snr,LALINFERENCE_PARAM_OUTPUT);
 
     sprintf(varname,"%s_cplx_snr_amp",dataPtr->name);
@@ -1086,7 +1086,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
     REAL8 templatesq=0.0;
     REAL8 this_ifo_S=0.0;
     COMPLEX16 this_ifo_Rcplx=0.0;
-    
+
     for (i=lower,chisq=0.0,re = cos(twopit*deltaF*i),im = -sin(twopit*deltaF*i);
          i<=upper;
          i++, psd++, hptilde++, hctilde++, dtilde++,
@@ -1240,7 +1240,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 
     sprintf(varname,"%s_cplx_snr_arg",dataPtr->name);
     LALInferenceAddREAL8Variable(currentParams,varname,carg(this_ifo_Rcplx),LALINFERENCE_PARAM_OUTPUT);
-    
+
    /* Clean up calibration if necessary */
     if (!(calFactor == NULL)) {
       XLALDestroyCOMPLEX16FrequencySeries(calFactor);
