@@ -2540,8 +2540,6 @@ void LALInferencePrintInjectionSample(LALInferenceRunState *runState) {
     SimInspiralTable *injTable=NULL, *theEventTable=NULL;
     LALInferenceModel *model = LALInferenceInitCBCModel(runState);
     model->roq_flag = 0;
-    LALInferenceSetupROQ(runState->data, model, runState->commandLine);
-    fprintf(stderr, "done LALInferenceSetupROQ\n");
 
     LALInferenceVariables *injparams = XLALCalloc(1, sizeof(LALInferenceVariables));
     LALInferenceCopyVariables(model->params, injparams);
@@ -2648,12 +2646,10 @@ void enforce_m1_larger_m2(SimInspiralTable* injEvent){
     return ;
 }
 
-void LALInferenceSetupROQ(LALInferenceIFOData *IFOdata, LALInferenceModel *model, ProcessParamsTable *commandLine){
+void LALInferenceSetupROQmodel(LALInferenceModel *model, ProcessParamsTable *commandLine){
 
   LALStatus status;
   memset(&status,0,sizeof(status));
-  UINT4 Nifo=0;
-  LALInferenceIFOData *thisData=IFOdata;
   UINT4 q=0;
   UINT4 event=0;
   char *chartmp=NULL;
@@ -2677,10 +2673,6 @@ void LALInferenceSetupROQ(LALInferenceIFOData *IFOdata, LALInferenceModel *model
 
 	  model->roq = XLALMalloc(sizeof(LALInferenceROQModel));
 	  model->roq_flag = 1;
-	  while(thisData){
-	    thisData=thisData->next;
-	    Nifo++;
-	  }
 
 	  procparam=LALInferenceGetProcParamVal(commandLine,"--inj");
 	  if(procparam){
@@ -2791,6 +2783,92 @@ void LALInferenceSetupROQ(LALInferenceIFOData *IFOdata, LALInferenceModel *model
 	    }
 	fprintf(stderr, "loaded --roqnodesQuadratic\n");
   }
+
+    
+}
+
+void LALInferenceSetupROQdata(LALInferenceIFOData *IFOdata, ProcessParamsTable *commandLine){
+
+  LALStatus status;
+  memset(&status,0,sizeof(status));
+  LALInferenceIFOData *thisData=IFOdata;
+  UINT4 q=0;
+  UINT4 event=0;
+  char *chartmp=NULL;
+  ProcessParamsTable *procparam=NULL,*ppt=NULL;
+  SimInspiralTable *injTable=NULL;
+  FILE *tempfp;
+  unsigned int n_basis_linear, n_basis_quadratic, n_samples, time_steps;
+  n_basis_linear = 965;
+  n_basis_quadratic = 0;
+  n_samples = 31489;
+  //REAL8 delta_tc = 0.0001;
+  float dt=0.1;
+  LIGOTimeGPS GPStrig;
+  REAL8 endtime=0.0;
+  //REAL8 timeMin=0.0,timeMax=0.0;
+  const UINT4 nameLength=FILENAME_MAX;
+  char filename[nameLength];
+  FILE *out;
+	char tmp[128];
+  REAL8 fnode=0.;
+
+	  procparam=LALInferenceGetProcParamVal(commandLine,"--inj");
+	  if(procparam){
+	    SimInspiralTableFromLIGOLw(&injTable,procparam->value,0,0);
+	    if(!injTable){
+	      fprintf(stderr,"Unable to open injection file(LALInferenceReadData) %s\n",procparam->value);
+	      exit(1);
+	    }
+	    procparam=LALInferenceGetProcParamVal(commandLine,"--event");
+	    if(procparam) {
+	      event=atoi(procparam->value);
+	      while(q<event) {q++; injTable=injTable->next;}
+	    }
+	    else if ((procparam=LALInferenceGetProcParamVal(commandLine,"--event-id")))
+	    {
+	      while(injTable)
+	      {
+		if(injTable->event_id->id == (UINT4)atoi(procparam->value)) break;
+		else injTable=injTable->next;
+	      }
+	      if(!injTable){
+		fprintf(stderr,"Error, cannot find simulation id %s in injection file\n",procparam->value);
+		exit(1);
+	      }
+	    }
+	  }
+
+	  if(LALInferenceGetProcParamVal(commandLine,"--trigtime")){
+	    procparam=LALInferenceGetProcParamVal(commandLine,"--trigtime");
+	    LALStringToGPS(&status,&GPStrig,procparam->value,&chartmp);
+	  }
+	  else{
+	    if(injTable) memcpy(&GPStrig,&(injTable->geocent_end_time),sizeof(GPStrig));
+	    else {
+	      fprintf(stderr,">>> Error: No trigger time specifed and no injection given \n");
+	      exit(1);
+	    }
+	  }
+
+	  endtime=XLALGPSGetREAL8(&GPStrig);
+
+	  ppt=LALInferenceGetProcParamVal(commandLine,"--dt");
+	  if(ppt){
+	    dt=atof(ppt->value);
+	  }
+	 
+	  if(LALInferenceGetProcParamVal(commandLine,"--roqtime_steps")){
+	    ppt=LALInferenceGetProcParamVal(commandLine,"--roqtime_steps");
+	    tempfp = fopen (ppt->value,"r");
+	    fscanf (tempfp, "%u", &time_steps);
+	    fscanf (tempfp, "%u", &n_basis_linear);
+	    fscanf (tempfp, "%u", &n_basis_quadratic);
+	    fscanf (tempfp, "%u", &n_samples);
+	    fprintf(stderr, "loaded --roqtime_steps\n");
+	  }
+
+	  
 
     thisData=IFOdata;
     while (thisData) {

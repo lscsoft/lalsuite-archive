@@ -208,8 +208,8 @@ void LALInferenceInitCBCThreads(LALInferenceRunState *run_state, INT4 nthreads) 
     /* Setup ROQ */
     if (LALInferenceGetProcParamVal(commandLine, "--roqtime_steps")){
 
-	LALInferenceSetupROQ(run_state->data, thread->model, run_state->commandLine);
-	fprintf(stderr, "done LALInferenceSetupROQ\n");
+	LALInferenceSetupROQmodel(thread->model, run_state->commandLine);
+	fprintf(stderr, "done LALInferenceSetupROQmodel\n");
 
      }
     LALInferenceCopyVariables(thread->model->params, thread->currentParams);
