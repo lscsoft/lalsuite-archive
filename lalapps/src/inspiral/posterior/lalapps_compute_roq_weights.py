@@ -63,7 +63,7 @@ def BuildWeights(data, B, deltaF):
         deltaF: integration element df
 
         '''
-        weights = np.dot(B, data.conjugate()) * deltaF * 4.
+        weights = np.dot(B.conjugate(), data) * deltaF * 4.
 	#weights = np.einsum('ij,jk->ik', B, data.conjugate() * deltaF * 4)
         return weights
 ##################################

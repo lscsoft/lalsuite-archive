@@ -1036,7 +1036,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
         }
     }
     // compute h_dot_h and d_dot_h
-	gsl_blas_zdotu( &(weights_row.vector), model->roq->hstrainLinear, &complex_d_dot_h);
+    gsl_blas_zdotc(model->roq->hstrainLinear, &(weights_row.vector), &complex_d_dot_h);
 	// first compute h^2
 	//
 	for (unsigned int ii = 0; ii < model->roq->hstrainQuadratic->size; ii++) {
@@ -1048,7 +1048,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 
 	// then compute w_i * (h^2)_i
 	weights_row = gsl_matrix_complex_column(dataPtr->roq->weightsQuadratic, 0);
-	gsl_blas_zdotu( &(weights_row.vector), model->roq->hstrainQuadratic, &complex_h_dot_h);
+	gsl_blas_zdotc(model->roq->hstrainQuadratic, &(weights_row.vector), &complex_h_dot_h);
 
 	REAL8 this_ifo_S = GSL_REAL(complex_h_dot_h);
 	REAL8 this_ifo_d_inner_h = GSL_REAL(complex_d_dot_h);
