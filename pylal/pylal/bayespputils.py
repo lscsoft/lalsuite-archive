@@ -54,15 +54,22 @@ from scipy import stats
 from scipy import special
 from scipy import signal
 from scipy.optimize import newton
+from scipy import interpolate
 from numpy import linspace
 import random
 import socket
+from itertools import combinations
 
 try:
     import lalsimulation as lalsim
 except ImportError:
     print('Cannot import lalsimulation SWIG bindings')
     raise
+
+try:
+    from lalinference.imrtgr.nrutils import bbh_final_mass_non_spinning_Panetal, bbh_final_spin_non_spinning_Panetal, bbh_final_spin_non_precessing_Healyetal, bbh_final_mass_non_precessing_Healyetal, bbh_final_spin_projected_spin_Healyetal, bbh_final_mass_projected_spin_Healyetal, bbh_aligned_Lpeak_6mode_SHXJDK
+except ImportError:
+    print('Cannot import lalinference.imrtgr.nrutils. Will suppress final parameter calculations.')
 
 from matplotlib.ticker import FormatStrFormatter,ScalarFormatter,AutoMinorLocator
 
@@ -74,7 +81,7 @@ if hostname_short=='ligo.caltech.edu' or hostname_short=='cluster.ldas.cit': #Th
   matplotlib.rcParams.update(
                              {'mathtext.fontset' : "custom",
                              'mathtext.fallback_to_cm' : True
-                             }) 
+                             })
 
 try:
     from xml.etree.cElementTree import Element, SubElement, ElementTree, Comment, tostring, XMLParser
@@ -100,7 +107,61 @@ __date__= git_version.date
 #===============================================================================
 #Parameters which are not to be exponentiated when found
 logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior']
-snrParams=['snr','optimal_snr','matched_filter_snr'] + ['%s_optimal_snr'%(i) for i in ['H1','L1','V1']]
+#Parameters known to cbcBPP
+relativePhaseParams=[ a+b+'_relative_phase' for a,b in combinations(['h1','l1','v1'],2)]
+snrParams=['snr','optimal_snr','matched_filter_snr'] + ['%s_optimal_snr'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_amp'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_arg'%(i) for i in ['h1', 'l1', 'v1']] + relativePhaseParams
+calAmpParams=['calamp_%s'%(ifo) for ifo in ['h1','l1','v1']]
+calPhaseParams=['calpha_%s'%(ifo) for ifo in ['h1','l1','v1']]
+calParams = calAmpParams + calPhaseParams
+# Masses
+massParams=['m1','m2','chirpmass','mchirp','mc','eta','q','massratio','asym_massratio','mtotal','mf']
+#Spins
+spinParamsPrec=['a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','costheta_jn','cosbeta','tilt1','tilt2','phi_jl','theta_jn','phi12','af']
+spinParamsAli=['spin1','spin2','a1z','a2z']
+spinParamsEff=['chi','effectivespin','chi_eff','chi_tot','chi_p']
+spinParams=spinParamsPrec+spinParamsEff+spinParamsAli
+# Source frame params
+cosmoParam=['m1_source','m2_source','mtotal_source','mc_source','redshift','mf_source']
+#Strong Field
+ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB','alphaPPE','aPPE','betaPPE','bPPE']
+tigerParams=['dphi%i'%(i) for i in range(7)] + ['dphi%il'%(i) for i in [5,6] ]
+bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
+massiveGravitonParams=['lambdaG']
+tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat']
+energyParams=['e_rad', 'l_peak']
+strongFieldParams=ppEParams+tigerParams+bransDickeParams+massiveGravitonParams+tidalParams+energyParams
+
+#Extrinsic
+distParams=['distance','distMPC','dist']
+incParams=['iota','inclination','cosiota']
+polParams=['psi','polarisation','polarization']
+skyParams=['ra','rightascension','declination','dec']
+phaseParams=['phase', 'phi0','phase_maxl']
+#Times
+timeParams=['time','time_mean']
+endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
+#others
+statsParams=['logprior','logl','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','deltaloglh2','deltaloglg1']
+calibParams=['calpha_l1','calpha_h1','calpha_v1','calamp_l1','calamp_h1','calamp_v1']
+
+## Greedy bin sizes for cbcBPP and confidence leves used for the greedy bin intervals
+confidenceLevels=[0.67,0.9,0.95,0.99]
+
+greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'mc_source':0.025,'m1_source':0.1,'m2_source':0.1,'mtotal_source':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'time_mean':1e-4,'distance':1.0,'dist':1.0,'redshift':0.01,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1z':0.04,'a2z':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'chi_eff':0.05,'chi_tot':0.05,'chi_p':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costheta_jn':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01,'phase':0.05,'tilt1':0.05,'tilt2':0.05,'phi_jl':0.05,'theta_jn':0.05,'phi12':0.05,'flow':1.0,'phase_maxl':0.05,'calamp_l1':0.01,'calamp_h1':0.01,'calamp_v1':0.01,'calpha_h1':0.01,'calpha_l1':0.01,'calpha_v1':0.01,'logdistance':0.1,'psi':0.1,'costheta_jn':0.1,'mf':0.1,'mf_source':0.1,'af':0.02,'e_rad':0.1,'l_peak':0.1}
+for s in snrParams:
+  greedyBinSizes[s]=0.05
+for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
+  greedyBinSizes[derived_time]=greedyBinSizes['time']
+for derived_phase in relativePhaseParams:
+  greedyBinSizes[derived_phase]=0.05
+for param in tigerParams + bransDickeParams + massiveGravitonParams:
+  greedyBinSizes[param]=0.01
+for param in tidalParams:
+  greedyBinSizes[param]=2.5
+  #Confidence levels
+for loglname in statsParams:
+  greedyBinSizes[loglname]=0.1
+
 #Pre-defined ordered list of line styles for use in matplotlib contour plots.
 __default_line_styles=['solid', 'dashed', 'dashdot', 'dotted']
 #Pre-defined ordered list of matplotlib colours for use in plots.
@@ -197,10 +258,89 @@ function toggle_visibility(tbid,lnkid)
 
 '''
 
-#import sim inspiral table content handler 
+#import sim inspiral table content handler
 from pylal.SimInspiralUtils import ExtractSimInspiralTableLIGOLWContentHandler
 from glue.ligolw import lsctables
 lsctables.use_in(ExtractSimInspiralTableLIGOLWContentHandler)
+
+#===============================================================================
+# Function to return the correct prior distribution for selected parameters
+#===============================================================================
+def get_prior(name):
+    distributions={
+      'm1':'uniform',
+      'm2':'uniform',
+      'mc':None,
+      'eta':None,
+      'q':None,
+      'mtotal':'uniform',
+      'm1_source':None,
+      'm2_source':None,
+      'mtotal_source':None,
+      'mc_source':None,
+      'redshift':None,
+      'mf':None,
+      'mf_source':None,
+      'af':None,
+      'e_rad':None,
+      'l_peak':None,
+      'spin1':'uniform',
+      'spin2':'uniform',
+      'a1':'uniform',
+      'a2':'uniform',
+      'a1z':'uniform',
+      'a2z':'uniform',
+      'theta1':'uniform',
+      'theta2':'uniform',
+      'phi1':'uniform',
+      'phi2':'uniform',
+      'chi_eff':None,
+      'chi_tot':None,
+      'chi_p':None,
+      'tilt1':None,
+      'tilt2':None,
+      'costilt1':'uniform',
+      'costilt2':'uniform',
+      'iota':'np.cos',
+      'cosiota':'uniform',
+      'time':'uniform',
+      'time_mean':'uniform',
+      'dist':'x**2',
+      'ra':'uniform',
+      'dec':'np.cos',
+      'phase':'uniform',
+      'psi':'uniform',
+      'theta_jn':'np.sin',
+      'costheta_jn':'uniform',
+      'beta':None,
+      'cosbeta':None,
+      'phi_jl':None,
+      'phi12':None,
+      'logl':None,
+      'h1_end_time':None,
+      'l1_end_time':None,
+      'v1_end_time':None,
+      'h1l1_delay':None,
+      'h1v1_delay':None,
+      'l1v1_delay':None,
+      'lambdat' :None,
+      'dlambdat':None,
+      'lambda1' : 'uniform',
+      'lambda2': 'uniform',
+      'lam_tilde' : None,
+      'dlam_tilde': None,
+      'calamp_h1' : 'uniform',
+      'calamp_l1' : 'uniform',
+      'calpha_h1' : 'uniform',
+      'calpha_l1' : 'uniform',
+      'polar_eccentricity':'uniform',
+      'polar_angle':'uniform',
+      'alpha':'uniform'
+    }
+    try:
+        return distributions(name)
+    except:
+        return None
 
 #===============================================================================
 # Function used to generate plot labels.
@@ -232,16 +372,24 @@ def plot_label(param):
       'mtotal_source':r'$M_\mathrm{total}^\mathrm{source}\,(\mathrm{M}_\odot)$',
       'mc_source':r'$\mathcal{M}^\mathrm{source}\,(\mathrm{M}_\odot)$',
       'redshift':r'$z$',
+      'mf':r'$M_\mathrm{final}\,(\mathrm{M}_\odot)$',
+      'mf_source':r'$M_\mathrm{final}^\mathrm{source}\,(\mathrm{M}_\odot)$',
+      'af':r'$a_\mathrm{final}$',
+      'e_rad':r'$E_\mathrm{rad}\,(\mathrm{M}_\odot)$',
+      'l_peak':r'$L_\mathrm{peak}\,(10^{56}\,\mathrm{ergs}\,\mathrm{s}^{-1})$',
       'spin1':r'$S_1$',
       'spin2':r'$S_2$',
       'a1':r'$a_1$',
       'a2':r'$a_2$',
+      'a1z':r'$a_{1z}$',
+      'a2z':r'$a_{2z}$',
       'theta1':r'$\theta_1\,(\mathrm{rad})$',
       'theta2':r'$\theta_2\,(\mathrm{rad})$',
       'phi1':r'$\phi_1\,(\mathrm{rad})$',
       'phi2':r'$\phi_2\,(\mathrm{rad})$',
-      'chi':r'$\chi$',
-      'chi_p':r'$\chi_P$',
+      'chi_eff':r'$\chi_\mathrm{eff}$',
+      'chi_tot':r'$\chi_\mathrm{total}$',
+      'chi_p':r'$\chi_\mathrm{P}$',
       'tilt1':r'$t_1\,(\mathrm{rad})$',
       'tilt2':r'$t_2\,(\mathrm{rad})$',
       'costilt1':r'$\mathrm{cos}(t_1)$',
@@ -273,7 +421,15 @@ def plot_label(param):
       'lambda1' : r'$\lambda_1$',
       'lambda2': r'$\lambda_2$',
       'lam_tilde' : r'$\tilde{\Lambda}$',
-      'dlam_tilde': r'$\delta \tilde{\Lambda}$'}
+      'dlam_tilde': r'$\delta \tilde{\Lambda}$',
+      'calamp_h1' : r'$\delta A_{H1}$',
+      'calamp_l1' : r'$\delta A_{L1}$',
+      'calpha_h1' : r'$\delta \phi_{H1}$',
+      'calpha_l1' : r'$\delta \phi_{L1}$',
+      'polar_eccentricity':r'$\epsilon_{polar}$',
+      'polar_angle':r'$\alpha_{polar}$',
+      'alpha':r'$\alpha_{polar}$'
+    }
 
   # Handle cases where multiple names have been used
   if param in m1_names:
@@ -311,7 +467,7 @@ def plot_label(param):
 
 class PosteriorOneDPDF(object):
     """
-    A data structure representing one parameter in a chain of posterior samples. 
+    A data structure representing one parameter in a chain of posterior samples.
     The Posterior class generates instances of this class for pivoting onto a given
     parameter (the Posterior class is per-Sampler oriented whereas this class represents
     the same one parameter in successive samples in the chain).
@@ -348,12 +504,12 @@ class PosteriorOneDPDF(object):
         Container method . Returns posterior containing sample idx (allows slicing).
         """
         return PosteriorOneDPDF(self.__name, self.__posterior_samples[idx], injected_value=self.__injval, f_ref=self.__f_ref, trigger_values=self.__trigvals)
-        
+
     @property
     def name(self):
         """
         Return the string literal name of the parameter.
-        
+
         @rtype: string
         """
         return self.__name
@@ -362,7 +518,7 @@ class PosteriorOneDPDF(object):
     def mean(self):
         """
         Return the arithmetic mean for the marginal PDF on the parameter.
-        
+
         @rtype: number
         """
         return np.mean(self.__posterior_samples)
@@ -371,7 +527,7 @@ class PosteriorOneDPDF(object):
     def median(self):
         """
         Return the median value for the marginal PDF on the parameter.
-        
+
         @rtype: number
         """
         return np.median(self.__posterior_samples)
@@ -380,12 +536,12 @@ class PosteriorOneDPDF(object):
     def stdev(self):
         """
         Return the standard deviation of the marginal PDF on the parameter.
-        
+
         @rtype: number
         """
         try:
             stdev = sqrt(np.var(self.__posterior_samples))
-            if not np.isfinite(stdev): 
+            if not np.isfinite(stdev):
                 raise OverflowError
         except OverflowError:
             mean = np.mean(self.__posterior_samples)
@@ -395,16 +551,16 @@ class PosteriorOneDPDF(object):
     @property
     def stacc(self):
         """
-        Return the 'standard accuracy statistic' (stacc) of the marginal 
-        posterior of the parameter. 
-        
-        stacc is a standard deviant incorporating information about the 
-        accuracy of the waveform recovery. Defined as the mean of the sum 
-        of the squared differences between the points in the PDF 
-        (x_i - sampled according to the posterior) and the true value 
+        Return the 'standard accuracy statistic' (stacc) of the marginal
+        posterior of the parameter.
+
+        stacc is a standard deviant incorporating information about the
+        accuracy of the waveform recovery. Defined as the mean of the sum
+        of the squared differences between the points in the PDF
+        (x_i - sampled according to the posterior) and the true value
         (x_{\rm true}).  So for a marginalized one-dimensional PDF:
         stacc = \sqrt{\frac{1}{N}\sum_{i=1}^N (x_i-x_{\rm true})2}
-        
+
         @rtype: number
         """
         if self.__injval is None:
@@ -417,7 +573,7 @@ class PosteriorOneDPDF(object):
         """
         Return the injected value set at construction . If no value was set
         will return None .
-        
+
         @rtype: undefined
         """
         return self.__injval
@@ -427,7 +583,7 @@ class PosteriorOneDPDF(object):
         """
         Return the trigger values set at construction. If no value was set
         will return None .
-        
+
         @rtype: undefined
         """
         return self.__trigvals
@@ -457,7 +613,7 @@ class PosteriorOneDPDF(object):
     def samples(self):
         """
         Return a 1D numpy.array of the samples.
-        
+
         @rtype: numpy.array
         """
         return self.__posterior_samples
@@ -475,7 +631,7 @@ class PosteriorOneDPDF(object):
     def gaussian_kde(self):
         """
         Return a SciPy gaussian_kde (representing a Gaussian KDE) of the samples.
-        
+
         @rtype: scipy.stats.kde.gaussian_kde
         """
         from numpy import seterr as np_seterr
@@ -493,6 +649,40 @@ class PosteriorOneDPDF(object):
 
         return return_value
 
+    @property
+    def KL(self):
+        """Returns the KL divergence between the prior and the posterior.
+        It measures the relative information content in nats. The prior is evaluated
+        at run time. It defaults to None. If None is passed, it just returns the information content 
+        of the posterior."
+        """
+        
+        def uniform(x):
+            return np.array([1./(np.max(x)-np.min(x)) for _ in x])
+        
+        posterior, dx = np.histogram(self.samples,bins=36,normed=True)
+        from scipy.stats import entropy
+        # check the kind of prior and process the string accordingly
+        prior = get_prior(self.name)
+        if prior is None:
+            raise ValueError
+        elif prior=='uniform':
+            prior+='(self.samples)'
+        elif 'x' in prior:
+            prior.replace('x','self.samples')
+        elif not(prior.startswith('np.')):
+            prior = 'np.'+prior
+            prior+='(self.samples)'
+        else:
+            raise ValueError
+
+        try:
+            prior_dist = eval(prior)
+        except:
+            raise ValueError
+        
+        return entropy(posterior, qk=prior_dist)
+    
     def prob_interval(self,intervals):
         """
         Evaluate probability intervals.
@@ -522,7 +712,6 @@ class PosteriorOneDPDF(object):
 
         return list_of_ci
 
-
 class Posterior(object):
     """
     Data structure for a table of posterior samples .
@@ -538,7 +727,7 @@ class Posterior(object):
         @type SimInspiralTableEntry: glue.ligolw.lsctables.SimInspiral
         @param SnglInspiralList: A list of SnglInspiral objects containing the triggers.
         @type SnglInspiralList: list
-        
+
         """
         common_output_table_header,common_output_table_raw =commonResultsFormatData
         self._posterior={}
@@ -546,12 +735,12 @@ class Posterior(object):
         self._injection=SimInspiralTableEntry
 
         self._triggers=SnglInpiralList
-        self._loglaliases=['posterior', 'logl','logL','likelihood', 'deltalogl']
-        self._logpaliases=['logp', 'logP','prior','logprior','Prior','prior']
+        self._loglaliases=['deltalogl', 'posterior', 'logl','logL','likelihood']
+        self._logpaliases=['logp', 'logP','prior','logprior','Prior','logPrior']
         self._votfile=votfile
-        
+
         common_output_table_header=[i.lower() for i in common_output_table_header]
-        
+
         # Define XML mapping
         self._injXMLFuncMap={
                             'mchirp':lambda inj:inj.mchirp,
@@ -596,7 +785,7 @@ class Posterior(object):
             self._injXMLFuncMap[key] = val
 
         for one_d_posterior_samples,param_name in zip(np.hsplit(common_output_table_raw,common_output_table_raw.shape[1]),common_output_table_header):
-            
+
             self._posterior[param_name]=PosteriorOneDPDF(param_name.lower(),one_d_posterior_samples,injected_value=self._getinjpar(param_name),injFref=self._injFref,trigger_values=self._gettrigpar(param_name))
 
         if 'mchirp' in common_output_table_header and 'eta' in common_output_table_header \
@@ -609,11 +798,11 @@ class Posterior(object):
             except KeyError:
                 print 'Unable to deduce m1 and m2 from input columns'
 
-        
+
         logLFound=False
-        
+
         for loglalias in self._loglaliases:
-        
+
             if loglalias in common_output_table_header:
                 try:
                     self._logL=self._posterior[loglalias].samples
@@ -621,13 +810,12 @@ class Posterior(object):
                     print "No '%s' column in input table!"%loglalias
                     continue
                 logLFound=True
-                
+
         if not logLFound:
             raise RuntimeError("No likelihood/posterior values found!")
         self._logP=None
-        
+
         for logpalias in self._logpaliases:
-        
             if logpalias in common_output_table_header:
                 try:
                     self._logP=self._posterior[logpalias].samples
@@ -639,7 +827,7 @@ class Posterior(object):
 
         if name is not None:
             self.__name=name
-            
+
         if description is not None:
             self.__description=description
 
@@ -671,6 +859,9 @@ class Posterior(object):
       else:
           eta_name='eta'
 
+      if 'mass1' in pos.names and 'mass2' in pos.names :
+	  pos.append_mapping(('m1','m2'),lambda x,y:(x,y) ,('mass1','mass2'))
+
       if (mchirp_name in pos.names and eta_name in pos.names) and \
       ('mass1' not in pos.names or 'm1' not in pos.names) and \
       ('mass2' not in pos.names or 'm2' not in pos.names):
@@ -687,19 +878,20 @@ class Posterior(object):
       if ('m1' in pos.names and 'm2' in pos.names and not 'mtotal' in pos.names ):
           pos.append_mapping('mtotal', lambda m1,m2: m1+m2, ('m1','m2') )
 
-      if ('spin1' in pos.names and 'm1' in pos.names) and \
-       ('spin2' in pos.names and 'm2' in pos.names):
-         pos.append_mapping('chi', lambda m1,s1z,m2,s2z: (m1*s1z + m2*s2z) / (m1 + m2), ('m1','spin1','m2','spin2'))
-      elif ('a1' in pos.names and 'm1' in pos.names) and ('a2' in pos.names and 'm2' in pos.names):
-         pos.append_mapping('chi', lambda m1,s1z,m2,s2z: (m1*s1z + m2*s2z) / (m1 + m2), ('m1','a1','m2','a2'))
-        
-
       if('a_spin1' in pos.names): pos.append_mapping('a1',lambda a:a,'a_spin1')
       if('a_spin2' in pos.names): pos.append_mapping('a2',lambda a:a,'a_spin2')
       if('phi_spin1' in pos.names): pos.append_mapping('phi1',lambda a:a,'phi_spin1')
       if('phi_spin2' in pos.names): pos.append_mapping('phi2',lambda a:a,'phi_spin2')
       if('theta_spin1' in pos.names): pos.append_mapping('theta1',lambda a:a,'theta_spin1')
       if('theta_spin2' in pos.names): pos.append_mapping('theta2',lambda a:a,'theta_spin2')
+
+      my_ifos=['h1','l1','v1']
+      for ifo1,ifo2 in combinations(my_ifos,2):
+      	p1=ifo1+'_cplx_snr_arg'
+        p2=ifo2+'_cplx_snr_arg'
+        if p1 in pos.names and p2 in pos.names:
+          delta=np.mod(pos[p1].samples - pos[p2].samples + np.pi ,2.0*np.pi)-np.pi
+          pos.append(PosteriorOneDPDF(ifo1+ifo2+'_relative_phase',delta))
 
       # Ensure that both theta_jn and inclination are output for runs
       # with zero tilt (for runs with tilt, this will be taken care of
@@ -785,6 +977,60 @@ class Posterior(object):
       if ('mc' in pos.names) and ('redshift' in pos.names):
           pos.append_mapping('mc_source', source_mass, ['mc', 'redshift'])
 
+      #Store signed spin magnitudes in separate parameters and make a1,a2 magnitudes
+      if 'a1' in pos.names:
+          if 'tilt1' in pos.names:
+              pos.append_mapping('a1z', lambda a, tilt: a*np.cos(tilt), ('a1','tilt1'))
+          else:
+              pos.append_mapping('a1z', lambda x: x, 'a1')
+              inj_az = None
+              if injection is not None:
+                  inj_az = injection.spin1z
+              pos['a1z'].set_injval(inj_az)
+              pos.pop('a1')
+              pos.append_mapping('a1', lambda x: np.abs(x), 'a1z')
+
+      if 'a2' in pos.names:
+          if 'tilt2' in pos.names:
+              pos.append_mapping('a2z', lambda a, tilt: a*np.cos(tilt), ('a2','tilt2'))
+          else:
+              pos.append_mapping('a2z', lambda x: x, 'a2')
+              inj_az = None
+              if injection is not None:
+                  inj_az = injection.spin2z
+              pos['a2z'].set_injval(inj_az)
+              pos.pop('a2')
+              pos.append_mapping('a2', lambda x: np.abs(x), 'a2z')
+
+      #Calculate effective spin parallel to L
+      if ('m1' in pos.names and 'a1z' in pos.names) and ('m2' in pos.names and 'a2z' in pos.names):
+         pos.append_mapping('chi_eff', lambda m1,a1z,m2,a2z: (m1*a1z + m2*a2z) / (m1 + m2), ('m1','a1z','m2','a2z'))
+
+      #If precessing spins calculate total effective spin
+      if ('m1' in pos.names and 'a1' in pos.names and 'tilt1' in pos.names) and ('m2' in pos.names and 'a2' in pos.names and 'tilt2' in pos.names):
+         pos.append_mapping('chi_tot', lambda m1,a1,m2,a2: (m1*a1 + m2*a2) / (m1 + m2), ('m1','a1','m2','a2'))
+
+      #Calculate effective precessing spin magnitude
+      if ('m1' in pos.names and 'a1' in pos.names and 'tilt1' in pos.names) and ('m2' in pos.names and 'a2' in pos.names and 'tilt2' in pos.names):
+          pos.append_mapping('chi_p', chi_precessing, ['m1', 'a1', 'tilt1', 'm2', 'a2', 'tilt2'])
+
+      # Calculate redshift from luminosity distance measurements
+      if('distance' in pos.names):
+          pos.append_mapping('redshift', calculate_redshift, 'distance')
+
+      # Calculate source mass parameters
+      if ('m1' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('m1_source', source_mass, ['m1', 'redshift'])
+
+      if ('m2' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('m2_source', source_mass, ['m2', 'redshift'])
+
+      if ('mtotal' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('mtotal_source', source_mass, ['mtotal', 'redshift'])
+
+      if ('mc' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('mc_source', source_mass, ['mc', 'redshift'])
+
       #Calculate new tidal parameters
       new_tidal_params = ['lam_tilde','dlam_tilde']
       old_tidal_params = ['lambda1','lambda2','eta']
@@ -797,6 +1043,13 @@ class Posterior(object):
       #If new spin params present, calculate old ones
       old_spin_params = ['iota', 'theta1', 'phi1', 'theta2', 'phi2', 'beta']
       new_spin_params = ['theta_jn', 'phi_jl', 'tilt1', 'tilt2', 'phi12', 'a1', 'a2', 'm1', 'm2', 'f_ref']
+      try:
+          if pos['f_ref'].samples[0][0]==0.0:
+              for name in ['flow','f_lower']:
+                  if name in pos.names:
+                      new_spin_params = ['theta_jn', 'phi_jl', 'tilt1', 'tilt2', 'phi12', 'a1', 'a2', 'm1', 'm2', name]
+      except:
+          print "No f_ref for SimInspiralTransformPrecessingNewInitialConditions()."
       if set(new_spin_params).issubset(set(pos.names)) and not set(old_spin_params).issubset(set(pos.names)):
         pos.append_mapping(old_spin_params, physical2radiationFrame, new_spin_params)
 
@@ -821,11 +1074,63 @@ class Posterior(object):
           except KeyError:
               print "Warning: no spin2 values found."
 
+      # Calculate mass and spin of final merged system
+      if ('m1' in pos.names) and ('m2' in pos.names):
+          if ('tilt1' in pos.names) or ('tilt2' in pos.names):
+              print "A precessing fit formula is not available yet. Using a non-precessing fit formula on the aligned-spin components."
+          if ('a1z' in pos.names) and ('a2z' in pos.names):
+              print "Using non-precessing fit formula [Healy at al (2014)] for final mass and spin (on masses and projected spin components)."
+              try:
+                  pos.append_mapping('af', bbh_final_spin_non_precessing_Healyetal, ['m1', 'm2', 'a1z', 'a2z'])
+                  pos.append_mapping('mf', bbh_final_mass_non_precessing_Healyetal, ['m1', 'm2', 'a1z', 'a2z', 'af'])
+              except Exception,e:
+                  print "Could not calculate final parameters. The error was: %s"%(str(e))
+          elif ('a1' in pos.names) and ('a2' in pos.names):
+              if ('tilt1' in pos.names) and ('tilt2' in pos.names):
+                  print "Projecting spin and using non-precessing fit formula [Healy at al (2014)] for final mass and spin."
+                  try:
+                      pos.append_mapping('af', bbh_final_spin_projected_spin_Healyetal, ['m1', 'm2', 'a1', 'a2', 'tilt1', 'tilt2'])
+                      pos.append_mapping('mf', bbh_final_mass_projected_spin_Healyetal, ['m1', 'm2', 'a1', 'a2', 'tilt1', 'tilt2', 'af'])
+                  except Exception,e:
+                      print "Could not calculate final parameters. The error was: %s"%(str(e))
+              else:
+                  print "Using non-precessing fit formula [Healy at al (2014)] for final mass and spin (on masses and spin magnitudes)."
+                  try:
+                      pos.append_mapping('af', bbh_final_spin_non_precessing_Healyetal, ['m1', 'm2', 'a1', 'a2'])
+                      pos.append_mapping('mf', bbh_final_mass_non_precessing_Healyetal, ['m1', 'm2', 'a1', 'a2', 'af'])
+                  except Exception,e:
+                      print "Could not calculate final parameters. The error was: %s"%(str(e))
+          else:
+              print "Using non-spinning fit formula [Pan at al (2010)] for final mass and spin."
+              try:
+                  pos.append_mapping('af', bbh_final_spin_non_spinning_Panetal, ['m1', 'm2'])
+                  pos.append_mapping('mf', bbh_final_mass_non_spinning_Panetal, ['m1', 'm2'])
+              except Exception,e:
+                  print "Could not calculate final parameters. The error was: %s"%(str(e))
+      if ('mf' in pos.names) and ('redshift' in pos.names):
+          try:
+              pos.append_mapping('mf_source', source_mass, ['mf', 'redshift'])
+          except Exception,e:
+              print "Could not calculate final source frame mass. The error was: %s"%(str(e))
+    
+      # Calculate radiated energy and peak luminosity
+      if ('mtotal_source' in pos.names) and ('mf_source' in pos.names):
+          try:
+              pos.append_mapping('e_rad', lambda mtot_s, mf_s: mtot_s-mf_s, ['mtotal_source', 'mf_source'])
+          except Exception,e:
+              print "Could not calculate radiated energy. The error was: %s"%(str(e))
+      
+      if ('q' in pos.names) and ('a1z' in pos.names) and ('a2z' in pos.names):
+          try:
+              pos.append_mapping('l_peak', bbh_aligned_Lpeak_6mode_SHXJDK, ['q', 'a1z', 'a2z'])
+          except Exception,e:
+              print "Could not calculate peak luminosity. The error was: %s"%(str(e))
+
     def bootstrap(self):
         """
         Returns a new Posterior object that contains a bootstrap
         sample of self.
-        
+
         @rtype: Posterior
         """
         names=[]
@@ -890,12 +1195,12 @@ class Posterior(object):
         """
 
         return -2.0*(np.mean(self._logL) - np.var(self._logL))
-
+    
     @property
     def injection(self):
         """
         Return the injected values.
-        
+
         @rtype: glue.ligolw.lsctables.SimInspiral
         """
 
@@ -905,7 +1210,7 @@ class Posterior(object):
     def triggers(self):
         """
         Return the trigger values .
-        
+
         @rtype: list
         """
 
@@ -924,7 +1229,7 @@ class Posterior(object):
     def longest_chain_cycles(self):
         """
         Returns the number of cycles in the longest chain
-        
+
         @rtype: number
         """
         samps,header=self.samples()
@@ -1185,9 +1490,10 @@ class Posterior(object):
                             new_trigs[param][IFO] = newval
                 else:
                     new_trigs = [None for param in range(len(new_param_names))]
+                if not samps: return() # Something went wrong
                 new_posts = [PosteriorOneDPDF(new_param_name,samp,injected_value=inj,trigger_values=new_trigs) for (new_param_name,samp,inj,new_trigs) in zip(new_param_names,samps,injs,new_trigs)]
-                for post in new_posts: 
-                    if post.samples.ndim is 0: 
+                for post in new_posts:
+                    if post.samples.ndim is 0:
                         print "WARNING: No posterior calculated for %s ..." % post.name
                     else:
                         self.append(post)
@@ -1290,7 +1596,7 @@ class Posterior(object):
             if d <= d0:
                 ellipse_logl.append(logl)
                 ellipse_samples.append(sample)
-        
+
         if len(ellipse_samples) > 5*n:
             print 'WARNING: ellpise evidence region encloses significantly more samples than %d'%n
 
@@ -1348,7 +1654,7 @@ class Posterior(object):
           logp_vals=self._logP
         else:
           return None
-        
+
         max_i=0
         max_pos=logl_vals[0]+logp_vals[0]
         for i in range(len(logl_vals)):
@@ -1563,7 +1869,7 @@ class Posterior(object):
     #===============================================================================
     def _inj_m1(self,inj):
         """
-        Return the mapping of (mchirp,eta)->m1; m1>m2 i.e. return the greater of the mass 
+        Return the mapping of (mchirp,eta)->m1; m1>m2 i.e. return the greater of the mass
         components (m1) calculated from the chirp mass and the symmetric mass ratio.
 
         @type inj: glue.ligolw.lsctables.SimInspiral
@@ -1575,7 +1881,7 @@ class Posterior(object):
 
     def _inj_m2(self,inj):
         """
-        Return the mapping of (mchirp,eta)->m2; m1>m2 i.e. return the lesser of the mass 
+        Return the mapping of (mchirp,eta)->m2; m1>m2 i.e. return the lesser of the mass
         components (m2) calculated from the chirp mass and the symmetric mass ratio.
 
         @type inj: glue.ligolw.lsctables.SimInspiral
@@ -1591,7 +1897,7 @@ class Posterior(object):
 
         @type inj: glue.ligolw.lsctables.SimInspiral
         @param inj: a custom type with the attributes 'mchirp' and 'eta'.
-        @rtype: number 
+        @rtype: number
         """
         (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
         return mass2/mass1
@@ -1622,8 +1928,6 @@ class Posterior(object):
             axis = lalsim.SimInspiralGetFrameAxisFromString(frame)
 
             m1, m2 = inj.mass1, inj.mass2
-            m1 *= lal.MSUN_SI
-            m2 *= lal.MSUN_SI
             mc, eta = inj.mchirp, inj.eta
 
             # Convert to radiation frame
@@ -1631,7 +1935,7 @@ class Posterior(object):
                 lalsim.SimInspiralInitialConditionsPrecessingApproxs(inj.inclination,
                                                                      inj.spin1x, inj.spin1y, inj.spin1z,
                                                                      inj.spin2x, inj.spin2y, inj.spin2z,
-                                                                     m1, m2, f_ref, axis)
+                                                                     m1*lal.MSUN_SI, m2*lal.MSUN_SI, f_ref, axis)
 
             a1, theta1, phi1 = cart2sph(s1x, s1y, s1z)
             a2, theta2, phi2 = cart2sph(s2x, s2y, s2z)
@@ -1639,6 +1943,11 @@ class Posterior(object):
             spins = {'a1':a1, 'theta1':theta1, 'phi1':phi1,
                      'a2':a2, 'theta2':theta2, 'phi2':phi2,
                      'iota':iota}
+
+            # If spins are aligned, save the sign of the z-component
+            if inj.spin1x == inj.spin1y == inj.spin2x == inj.spin2y == 0.:
+                spins['a1z'] = inj.spin1z
+                spins['a2z'] = inj.spin2z
 
             L  = orbital_momentum(f_ref, mc, iota)
             S1 = np.hstack((s1x, s1y, s1z))
@@ -1707,10 +2016,125 @@ class Posterior(object):
                 phi12 = phi2 - phi1 + 2.*np.pi
             else:
                 phi12 = phi2 - phi1
-
             spins['phi12'] = phi12
 
         return spins
+
+class BurstPosterior(Posterior):
+    """
+    Data structure for a table of posterior samples .
+    """
+    def __init__(self,commonResultsFormatData,SimBurstTableEntry=None,injFref=None,SnglBurstList=None,name=None,description=None,votfile=None):
+        """
+        Constructor.
+
+        @param commonResultsFormatData: A 2D array containing the posterior
+            samples and related data. The samples chains form the columns.
+        @type commonResultsFormatData: custom type
+        @param SimInspiralTableEntry: A SimInspiralTable row containing the injected values.
+        @type SimInspiralTableEntry: glue.ligolw.lsctables.SimInspiral
+        @param SnglInspiralList: A list of SnglInspiral objects containing the triggers.
+        @type SnglInspiralList: list
+        """
+        common_output_table_header,common_output_table_raw =commonResultsFormatData
+        self._posterior={}
+        self._injFref=injFref
+        self._injection=SimBurstTableEntry
+        self._triggers=SnglBurstList
+        self._loglaliases=['posterior', 'logl','logL','likelihood', 'deltalogl']
+        self._logpaliases=['logp', 'logP','prior','logprior','Prior','logPrior']
+
+        self._votfile=votfile
+
+        common_output_table_header=[i.lower() for i in common_output_table_header]
+
+        # Define XML mapping
+        self._injXMLFuncMap={
+                            'f0':lambda inj:inj.frequency,
+                            'frequency':lambda inj:inj.frequency,
+                            'centre_frequency':lambda inj:inj.frequency,
+                            'quality':lambda inj:inj.q,
+                            'hrss':lambda inj:inj.hrss,
+                            'loghrss':lambda inj:log(inj.hrss),
+                            'polar_angle':lambda inj:inj.pol_ellipse_angle,
+                            'pol_ellipse_angle':lambda inj:inj.pol_ellipse_angle,
+                            'pol_ellipse_e':lambda inj:inj.pol_ellipse_e,
+                            'alpha':lambda inj:inj.pol_ellipse_angle,
+                            'polar_eccentricity':lambda inj:inj.pol_ellipse_e,
+                            'eccentricity':lambda inj:inj.pol_ellipse_e,
+                            'time': lambda inj:float(inj.get_end()),
+                            'end_time': lambda inj:float(inj.get_end()),
+                            'ra':self._inj_longitude,
+                            'rightascension':self._inj_longitude,
+                            'long':self._inj_longitude,
+                            'longitude':self._inj_longitude,
+                            'dec':lambda inj:inj.dec,
+                            'declination':lambda inj:inj.dec,
+                            'lat':lambda inj:inj.dec,
+                            'latitude':lambda inj:inj.dec,
+                            'psi': lambda inj: np.mod(inj.psi, np.pi),
+                            'f_ref': lambda inj: self._injFref,
+                            'polarisation':lambda inj:inj.psi,
+                            'polarization':lambda inj:inj.psi,
+                            'duration':lambda inj:inj.duration,
+                            'h1_end_time':lambda inj:float(inj.get_end('H')),
+                            'l1_end_time':lambda inj:float(inj.get_end('L')),
+                            'v1_end_time':lambda inj:float(inj.get_end('V')),
+                           }
+
+        for one_d_posterior_samples,param_name in zip(np.hsplit(common_output_table_raw,common_output_table_raw.shape[1]),common_output_table_header):
+
+            self._posterior[param_name]=PosteriorOneDPDF(param_name.lower(),one_d_posterior_samples,injected_value=self._getinjpar(param_name),injFref=self._injFref,trigger_values=self._gettrigpar(param_name))
+
+        logLFound=False
+
+        for loglalias in self._loglaliases:
+            if loglalias in common_output_table_header:
+                try:
+                    self._logL=self._posterior[loglalias].samples
+                except KeyError:
+                    print "No '%s' column in input table!"%loglalias
+                    continue
+                logLFound=True
+
+        if not logLFound:
+            raise RuntimeError("No likelihood/posterior values found!")
+
+        self._logP=None
+        for logpalias in self._logpaliases:
+            if logpalias in common_output_table_header:
+                try:
+                    self._logP=self._posterior[logpalias].samples
+                except KeyError:
+                    print "No '%s' column in input table!"%logpalias
+                    continue
+                if not 'log' in logpalias:
+                  self._logP=[np.log(i) for i in self._logP]
+        if name is not None:
+            self.__name=name
+
+        if description is not None:
+            self.__description=description
+
+        return
+    #===============================================================================
+    # Functions used to parse injection structure.
+    #===============================================================================
+
+    def _inj_longitude(self,inj):
+        """
+        Return the mapping of longitude found in inj to the interval [0,2*pi).
+
+        @type inj: glue.ligolw.lsctables.SimInspiral
+        @param inj: a custom type with the attribute 'longitude'.
+        @rtype: number
+        """
+        if inj.ra>2*pi_constant or inj.ra<0.0:
+            maplong=2*pi_constant*(((float(inj.ra)/(2*pi_constant)) - floor(((float(inj.ra))/(2*pi_constant)))))
+            print "Warning: Injected longitude/ra (%s) is not within [0,2\pi)! Angles are assumed to be in radians so this will be mapped to [0,2\pi). Mapped value is: %s."%(str(inj.ra),str(maplong))
+            return maplong
+        else:
+            return inj.ra
 
 class KDTree(object):
     """
@@ -1842,15 +2266,15 @@ class KDTree(object):
         #     return self.volume()*f(self._objects)
         # else:
         #     return self._left.integrate(f, boxing) + self._right.integrate(f, boxing)
-        
+
         def x(tree):
             return tree.volume()*f(tree._objects)
-            
+
         def y(a,b):
             return a+b
-        
+
         return self.operate(x,y,boxing=boxing)
-        
+
     def operate(self,f,g,boxing=64):
         """
         Operates on tree nodes exceeding boxing parameter depth.
@@ -1858,7 +2282,7 @@ class KDTree(object):
         if len(self._objects) <= boxing:
             return f(self)
         else:
-            
+
             return g(self._left.operate(f,g,boxing),self._right.operate(f,g,boxing))
 
 
@@ -2285,37 +2709,37 @@ class htmlChunk(object):
         Ea.text=linktext
         self._html.append(Ea)
         return Ea
-        
+
     def tab(self,idtable=None):
         args={}
         if idtable is not None:
           args={'id':idtable}
-        
+
         Etab=Element('table',args)
         self._html.append(Etab)
         return Etab
-        
+
     def insert_row(self,tab,label=None):
-        
+
         """
         Insert row in table tab.
         If given, label used as id for the table tag
         """
-        
+
         Etr=Element('tr')
         if label is not None:
             Etr.attrib['id']=label
         tab.append(Etr)
         return Etr
-        
+
     def insert_td(self,row,td,label=None,legend=None):
         """
         Insert cell td into row row.
         Sets id to label, if given
         """
-        
+
         Etd=Element('td')
-        
+
         if type(td) is str:
             Etd.text=td
         else:
@@ -2329,7 +2753,7 @@ class htmlChunk(object):
             legend.a('#%s'%label,'%s'%label)
             legend.br()
         row.append(Etd)
-        return Etd      
+        return Etd
 
     def append(self,element):
         self._html.append(element)
@@ -2361,7 +2785,7 @@ class htmlPage(htmlChunk):
             self._css=SubElement(self._head,'style')
             self._css.attrib['type']="text/css"
             self._css.text=str(css)
-        
+
     def __str__(self):
         return self.doctype_str+'\n'+self.toprettyxml()
 
@@ -2372,7 +2796,7 @@ class htmlPage(htmlChunk):
             legend.a('#%s'%section_name,'%s'%section_name)
             legend.br()
         return newSection
-        
+
     def add_collapse_section(self,section_name,legend=None,innertable_id=None,start_closed=True):
         """
         Create a section embedded into a table that can be collapsed with a button
@@ -2391,7 +2815,7 @@ class htmlPage(htmlChunk):
         newSection=htmlSection(section_name,htmlElement=parent,blank=True)
         parent.append(newSection._html)
         return newSection
-        
+
 
     @property
     def body():
@@ -2418,7 +2842,7 @@ class htmlCollapseSection(htmlChunk):
     """
     Represents a block of html fitting within a htmlPage. Inherits from htmlChunk.
     """
-    
+
     def __init__(self,section_name,htmlElement=None,table_id=None,start_closed=True):
         htmlChunk.__init__(self,'div',attrib={'class':'ppsection','id':section_name},parent=htmlElement)
         # if table id is none, generate a random id:
@@ -2426,7 +2850,7 @@ class htmlCollapseSection(htmlChunk):
             table_id=random.randint(1,10000000)
         self.table_id=table_id
         self._start_closed=start_closed
-        
+
     def write(self,string):
         k=random.randint(1,10000000)
         if self._start_closed:
@@ -2438,7 +2862,7 @@ class htmlCollapseSection(htmlChunk):
         st+=string
         st+='</td></tr></table>'
         htmlChunk.write(self,st)
-        
+
 #===============================================================================
 # Internal module functions
 #===============================================================================
@@ -2558,7 +2982,7 @@ def _greedy_bin(greedyHist,greedyPoints,injection_bin_index,bin_size,Nsamples,co
 
     return toppoints,injectionconfidence,reses,injection_area
 #
-#### functions used in 2stage kdtree 
+#### functions used in 2stage kdtree
 
 def skyArea(bounds):
     return - (cos(pi_constant/2. - bounds[0][1])-cos(pi_constant/2. - bounds[1][1]))*(bounds[1][0] - bounds[0][0])
@@ -2582,43 +3006,43 @@ def addSample(tree,coordinates):
 #===============================================================================
 
 def kdtree_bin_sky_volume(posterior,confidence_levels):
-    
+
     confidence_levels.sort()
-    
+
     class Harvester(list):
-        
+
         def __init__(self):
             list.__init__(self)
             self.unrho=0.
-            
+
         def __call__(self,tree):
             number_density=float(len(tree.objects()))/float(tree.volume())
             self.append([number_density,tree.volume(),tree.bounds()])
             self.unrho+=number_density
-            
+
         def close_ranks(self):
-            
+
             for i in range(len(self)):
                 self[i][0]/=self.unrho
-            
+
             return sorted(self,key=itemgetter(0))
-    
+
     def h(a,b):
         pass
-    
+
     samples,header=posterior.samples()
     header=header.split()
     coord_names=["ra","dec","dist"]
     coordinatized_samples=[PosteriorSample(row, header, coord_names) for row in samples]
     tree=KDTree(coordinatized_samples)
-    
+
     a=Harvester()
     samples_per_bin=10
     tree.operate(a,h,boxing=samples_per_bin)
-    
+
     b=a.close_ranks()
     b.reverse()
-    
+
     acc_rho=0.
     acc_vol=0.
     cl_idx=0
@@ -2626,13 +3050,13 @@ def kdtree_bin_sky_volume(posterior,confidence_levels):
     for rho,vol,bounds in b:
         acc_rho+=rho
         acc_vol+=vol
-    
+
         if acc_rho>confidence_levels[cl_idx]:
             confidence_intervals[acc_rho]=acc_vol
             cl_idx+=1
             if cl_idx==len(confidence_levels):
                 break
-    
+
     return confidence_intervals
 
 def kdtree_bin_sky_area(posterior,confidence_levels,samples_per_bin=10):
@@ -2884,7 +3308,7 @@ def kdtree_bin2Step(posterior,coord_names,confidence_levels,initial_boundingbox 
         samplesStructure = samples[:int(numberSamples*fraction)]
         samplesFill = samples[int(numberSamples*fraction):]
     samplesFillLen = len(samplesFill)
-    
+
     header=header.split()
     coordinatized_samples=[PosteriorSample(row, header, coord_names) for row in samplesStructure]
     #if initial bounding box is not provided, create it using max/min of sample coords.
@@ -2923,7 +3347,7 @@ def kdtree_bin2Step(posterior,coord_names,confidence_levels,initial_boundingbox 
     clSamples = []
     for cl in confidence_levels:
         clSamples.append(samplesFillLen*cl)
-    
+
     sortedLeavesList = sorted(listLeaves, key=lambda importance: importance[1])
     sortedLeavesList.reverse()
     runningTotalSamples = 0
@@ -2956,7 +3380,7 @@ def kdtree_bin2Step(posterior,coord_names,confidence_levels,initial_boundingbox 
         injInfo = None
 
 
-    #finds the confidence level of the injection and the volume of the associated contained region                                                         
+    #finds the confidence level of the injection and the volume of the associated contained region
     inj_confidence = None
     inj_confidence_area = None
     if injInfo is not None:
@@ -3101,7 +3525,7 @@ def cart2sph(x,y,z):
     r = np.sqrt(x*x + y*y + z*z)
     theta = np.arccos(z/r)
     phi = np.fmod(2*pi_constant + np.arctan2(y,x), 2*pi_constant)
-    
+
     return r,theta,phi
 
 
@@ -3362,13 +3786,13 @@ def rotate_vector(R, vec):
 #
 #
 def ROTATEZ(angle, vx, vy, vz):
-    # This is the ROTATEZ in LALSimInspiral.c. 
+    # This is the ROTATEZ in LALSimInspiral.c.
     tmp1 = vx*np.cos(angle) - vy*np.sin(angle);
     tmp2 = vx*np.sin(angle) + vy*np.cos(angle);
     return np.asarray([tmp1,tmp2,vz])
-    
+
 def ROTATEY(angle, vx, vy, vz):
-    # This is the ROTATEY in LALSimInspiral.c 
+    # This is the ROTATEY in LALSimInspiral.c
     tmp1 = vx*np.cos(angle) + vz*np.sin(angle);
     tmp2 = - vx*np.sin(angle) + vz*np.cos(angle);
     return np.asarray([tmp1,vy,tmp2])
@@ -3376,8 +3800,8 @@ def ROTATEY(angle, vx, vy, vz):
 def orbital_momentum(fref, mc, inclination):
     """
     Calculate orbital angular momentum vector.
-    Note: The units of Lmag are different than what used in lalsimulation. 
-    Mc must be called in units of Msun here. 
+    Note: The units of Lmag are different than what used in lalsimulation.
+    Mc must be called in units of Msun here.
 
     Note that if one wants to build J=L+S1+S2 with L returned by this function, S1 and S2
     must not get the Msun^2 factor.
@@ -3429,11 +3853,11 @@ def spin_angles(fref,mc,eta,incl,a1,theta1,phi1,a2=None,theta2=None,phi2=None):
     beta  = array_ang_sep(J,L)
     return tilt1, tilt2, theta_jn, beta
 #
-def chi_precessing(a1, tilt1, m1, a2, tilt2, m2):
+def chi_precessing(m1, a1, tilt1, m2, a2, tilt2):
 	"""
 	Calculate the magnitude of the effective precessing spin
 	following convention from Phys. Rev. D 91, 024043   --   arXiv:1408.1810
-	note: the paper uses naming convention where m1 < m2 
+	note: the paper uses naming convention where m1 < m2
 	(and similar for associated spin parameters) and q > 1
 	"""
 	q_inv = m1/m2
@@ -3445,18 +3869,23 @@ def chi_precessing(a1, tilt1, m1, a2, tilt2, m2):
 	chi_p = Sp/(A2*m1*m1)
 	return chi_p
 
-def calculate_redshift(distance,h=0.7,om=0.3,ol=0.7,w0=-1.0):
+def calculate_redshift(distance,h=0.6790,om=0.3065,ol=0.6935,w0=-1.0):
     """
     Calculate the redshift from the luminosity distance measurement using the
     Cosmology Calculator provided in LAL.
-    Currently assumes Omega_M = 0.3, Omega_Lambda = 0.7, H_0 = 70 km s^-1 Mpc^-1
+    By default assuming cosmological parameters from arXiv:1502.01589 - 'Planck 2015 results. XIII. Cosmological parameters'
+    Using parameters from table 4, column 'TT+lowP+lensing+ext'
+    This corresponds to Omega_M = 0.3065, Omega_Lambda = 0.6935, H_0 = 67.90 km s^-1 Mpc^-1
     Returns an array of redshifts
     """
     def find_z_root(z,dl,omega):
-        return dl - lal.LuminosityDistance(omega,z)    
+        return dl - lal.LuminosityDistance(omega,z)
 
     omega = lal.CreateCosmologicalParameters(h,om,ol,w0,0.0,0.0)
-    z = np.array([newton(find_z_root,np.random.uniform(0.0,2.0),args = (d,omega)) for d in distance[:,0]])
+    if isinstance(distance,float):
+        z = np.array([newton(find_z_root,np.random.uniform(0.0,2.0),args = (distance,omega))])
+    else:
+        z = np.array([newton(find_z_root,np.random.uniform(0.0,2.0),args = (d,omega)) for d in distance[:,0]])
     return z.reshape(z.shape[0],1)
 
 def source_mass(mass, redshift):
@@ -3469,7 +3898,7 @@ def source_mass(mass, redshift):
 
 def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m2, fref):
     """
-    Wrapper function for SimInspiralTransformPrecessingInitialConditions().
+    Wrapper function for SimInspiralTransformPrecessingNewInitialConditions().
     Vectorizes function for use in append_mapping() methods of the posterior class.
     """
     try:
@@ -3479,7 +3908,7 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
       print 'frame angles, did you remember to use --enable-swig-python when ./configuring lalsimulation?'
       return None
     from numpy import shape
-    transformFunc = lalsim.SimInspiralTransformPrecessingInitialConditions
+    transformFunc = lalsim.SimInspiralTransformPrecessingNewInitialConditions
 
     # Convert component masses to SI units
     m1_SI = m1*lal.MSUN_SI
@@ -3494,7 +3923,7 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
                 ins[p] = param.flatten()
         except:
             pass
- 
+
         try:
             results = np.array([transformFunc(t_jn, p_jl, t1, t2, p12, a1, a2, m1_SI, m2_SI, f) for (t_jn, p_jl, t1, t2, p12, a1, a2, m1_SI, m2_SI, f) in zip(*ins)])
             iota = results[:,0].reshape(-1,1)
@@ -3515,10 +3944,10 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
             beta = array_ang_sep(J,L)
 
             return iota, theta1, phi1, theta2, phi2, beta
-        except TypeError:
+        except: # Catch all exceptions, including failure for the transformFunc
          # Something went wrong, returning None
           return None
- 
+
     elif len(shape(ins))<=1:
        # ins is a list of floats (i.e. we are converting the injected values) or empty
         try:
@@ -3526,7 +3955,7 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
                 ins[p] = param
         except:
             pass
- 
+
         try:
             results = np.array(transformFunc(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1_SI, m2_SI, fref))
             iota = results[0]
@@ -3548,7 +3977,7 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
 
             return iota, theta1, phi1, theta2, phi2, beta
 
-        except TypeError:
+        except: # Catch all exceptions, including failure for the transformFunc
             # Something went wrong, returning None
             return None
 #
@@ -3589,9 +4018,9 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     @param analyticCDF: an analytic cumulative distribution function describing the distribution.
 
     """
-    
+
     # matplotlib.rcParams['text.usetex']=True
-    
+
     param=plot1DParams.keys()[0].lower()
     histbins=plot1DParams.values()[0]
 
@@ -3649,17 +4078,17 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
         x = np.linspace(xmin,xmax,2*len(bins))
         plt.plot(x, analyticPDF(x+offset), color='r', linewidth=2, linestyle='dashed')
         if analyticCDF:
-            try:
-                D,p = stats.kstest(pos_samps.flatten()+offset, analyticCDF)
+                # KS underflows with too many samples
+                max_samps=1000
+                from numpy.random import permutation
+                samps = permutation(pos_samps)[:max_samps,:].flatten()
+                D,p = stats.kstest(samps+offset, analyticCDF, mode='asymp')
                 plt.title("%s: ks p-value %.3f"%(param,p))
-            except FloatingPointError:
-                print 'Underflow when calculating KS for %s, setting to 0'%(param)
-                p=0.0
 
     rbins=None
 
     if injpar is not None:
-        # We will plot the injection if it is <5% outside the posterior 
+        # We will plot the injection if it is <5% outside the posterior
         delta_samps=max(pos_samps)-min(pos_samps)
         minrange=min(pos_samps)-0.05*delta_samps
         maxrange=max(pos_samps)+0.05*delta_samps
@@ -3726,7 +4155,7 @@ class RALocator(matplotlib.ticker.MultipleLocator):
         base=hour/2.0
       else:
         base=hour/4.0
-         
+
       matplotlib.ticker.MultipleLocator.__init__(self,base=base)
 
 class DecLocator(matplotlib.ticker.MultipleLocator):
@@ -3771,13 +4200,13 @@ def formatRATicks(locs, accuracy='auto'):
             acc='sec'
     else:
         acc=accuracy
-    
+
     if max(locs)>2*pi_constant: newmax=2.0*pi_constant
     if min(locs)<0.0: newmin=0.0
     locs=linspace(newmin,newmax,len(locs))
-    
+
     roundlocs=map(lambda a: roundRadAngle(a, accuracy=acc), locs)
-    
+
     newlocs=filter(lambda a:a>=0 and a<=2.0*pi_constant, roundlocs)
     return (list(newlocs), map(getRAString, list(newlocs) ) )
 
@@ -3800,7 +4229,7 @@ def formatDecTicks(locs, accuracy='auto'):
     if newmax>0.5*pi_constant: newmax=0.5*pi_constant
     if newmin<-0.5*pi_constant: newmin=-0.5*pi_constant
     locs=linspace(newmin,newmax,len(locs))
-    
+
     roundlocs=map(lambda a: roundRadAngle(a, accuracy=acc), locs)
     newlocs=filter(lambda a:a>=-pi_constant/2.0 and a<=pi_constant/2.0, roundlocs)
     return (list(newlocs), map(getDecString, list(newlocs) ) )
@@ -3839,11 +4268,11 @@ def getRAString(radians,accuracy='auto'):
         if abs(fmod(secs,60.0))>=0.5: return(getRAString(radians,accuracy='sec'))
         if abs(fmod(mins,60.0))>=0.5: return(getRAString(radians,accuracy='min'))
         else: return(getRAString(radians,accuracy='hour'))
-        
+
 def getDecString(radians,accuracy='auto'):
     # LaTeX doesn't like unicode degree symbols etc
     if matplotlib.rcParams['text.usetex']:
-        degsymb='^\circ'
+        degsymb='$^\circ$'
         minsymb="'"
         secsymb="''"
     else:
@@ -3877,36 +4306,39 @@ def getDecString(radians,accuracy='auto'):
 def plot_corner(posterior,levels,parnames=None):
   """
   Make a corner plot using the triangle module
-  (See http://github.com/dfm/triangle.py)
+  (See http://github.com/dfm/corner.py)
   @param posterior: The Posterior object
   @param levels: a list of confidence levels
   @param parnames: list of parameters to include
   """
   try:
-    import triangle
+    import corner
   except ImportError:
-    print 'Cannot load triangle module. Try running\n\t$ pip install triangle_plot'
-    return None
+          try:
+                  import triangle as corner
+          except ImportError:
+                  print 'Cannot load corner module. Try running\n\t$ pip install corner'
+                  return None
   parnames=filter(lambda x: x in posterior.names, parnames)
   labels = [plot_label(parname) for parname in parnames]
   data = np.hstack([posterior[p].samples for p in parnames])
   if posterior.injection:
     injvals=[posterior[p].injval for p in parnames]
-    myfig=triangle.corner(data,labels=labels,truths=injvals,quantiles=levels,plot_datapoints=False,bins=20)
+    myfig=corner.corner(data,labels=labels,truths=injvals,quantiles=levels,plot_datapoints=False,bins=20)
   else:
-    myfig=triangle.corner(data,labels=labels,quantiles=levels,plot_datapoints=False,bins=20)
+    myfig=corner.corner(data,labels=labels,quantiles=levels,plot_datapoints=False,bins=20)
   return(myfig)
 
 
 def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,colors_by_name,line_styles=__default_line_styles,figsize=(4,3),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right',hatches_by_name=None,Npixels=50):
   """
   Plots a 2D kernel density estimate of the 2-parameter marginal posterior.
-  
+
   @param posterior: an instance of the Posterior class.
-  
+
   @param plot2DkdeParams: a dict {param1Name:Nparam1Bins,param2Name:Nparam2Bins}
   """
-  
+
   from scipy import seterr as sp_seterr
   confidence_levels=levels
 
@@ -3918,23 +4350,23 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
   levels= levels
   np.seterr(under='ignore')
   sp_seterr(under='ignore')
-  
+
   fig=plt.figure(1,figsize=figsize,dpi=dpi)
   plt.clf()
   axes=fig.add_axes(figposition)
   name_list=[]
-  
+
   #This fixes the precedence of line styles in the plot
   if len(line_styles)<len(levels):
     raise RuntimeError("Error: Need as many or more line styles to choose from as confidence levels to plot!")
-  
+
   CSlst=[]
   for name,posterior in posteriors_by_name.items():
     print 'Plotting '+name
     name_list.append(name)
     par1_injvalue=posterior[par1_name].injval
     par2_injvalue=posterior[par2_name].injval
-    
+
     par_trigvalues1=posterior[par1_name].trigvals
     par_trigvalues2=posterior[par2_name].trigvals
     xdat=posterior[par1_name].samples
@@ -3957,15 +4389,15 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
       par2_injvalue=par2_injvalue-offset
       ax2_name=par2_name+' + %i'%(int(offset))
     else: ax2_name=par2_name
-    
+
     samp=np.transpose(np.column_stack((xdat,ydat)))
-    
+
     try:
       kde=stats.kde.gaussian_kde(samp)
-    except np.linalg.linalg.LinAlgError:
+      den=kde(samp)
+    except:
       return None
-      
-    den=kde(samp)
+
     #grid_coords = np.append(x.reshape(-1,1),y.reshape(-1,1),axis=1)
     Nx=Npixels
     Ny=Npixels
@@ -4010,10 +4442,10 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
       zvalues.append(densort[ilevel])
     CS=plt.contour(x, y, z, zvalues,colors=[colors_by_name[name]],linestyles=line_styles )
     CSlst.append(CS)
-    
+
     if par1_injvalue is not None and par2_injvalue is not None:
       plt.plot([par1_injvalue],[par2_injvalue],'b*',scalex=False,scaley=False,markersize=12)
-      
+
     if par_trigvalues1 is not None and par_trigvalues2 is not None:
 	par1IFOs = set([IFO for IFO in par_trigvalues1.keys()])
 	par2IFOs = set([IFO for IFO in par_trigvalues2.keys()])
@@ -4024,14 +4456,14 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
 	  elif IFO=='V1': color = 'm'
 	  else: color = 'c'
 	plt.plot([par_trigvalues1[IFO]],[par_trigvalues2[IFO]],color=color,marker='o',scalex=False,scaley=False)
-	
+
   plt.xlabel(plot_label(par1_name))
   plt.ylabel(plot_label(par2_name))
   plt.grid()
-  
+
   if len(name_list)!=len(CSlst):
     raise RuntimeError("Error number of contour objects does not equal number of names! Use only *one* contour from each set to associate a name.")
-  
+
   full_name_list=[]
   dummy_lines=[]
   for plot_name in name_list:
@@ -4040,11 +4472,14 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
     for ls_,cl in zip(line_styles[0:len(confidence_levels)],confidence_levels):
       dummy_lines.append(mpl_lines.Line2D(np.array([0.,1.]),np.array([0.,1.]),ls=ls_,color='k'))
       full_name_list.append('%s%%'%str(int(cl*100)))
-      
+
   fig_actor_lst = [cs.collections[0] for cs in CSlst]
   fig_actor_lst.extend(dummy_lines)
   if legend is not None:
-    twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
+    try:
+      twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right',framealpha=0.1)
+    except:
+      twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
     for text in twodcontour_legend.get_texts():
       text.set_fontsize('small')
 
@@ -4085,7 +4520,7 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
     locatorY=DecLocator(min=decmin,max=decmax)
     majorFormatterY=DecFormatter()
     axes.yaxis.set_major_locator(locatorY)
-      
+
   axes.yaxis.set_major_formatter(majorFormatterY)
   #locatorX.view_limits(bins[0],bins[-1])
   axes.xaxis.set_major_locator(locatorX)
@@ -4139,21 +4574,21 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
     samp=np.transpose(np.column_stack((xdat,ydat)))
 
     kde=stats.kde.gaussian_kde(samp)
-    
+
     grid_coords = np.append(x.reshape(-1,1),y.reshape(-1,1),axis=1)
 
     z = kde(grid_coords.T)
     z = z.reshape(Nx,Ny)
-    
+
     values=[]
     for level in levels:
       ilevel = int(Npts*level + 0.5)
       if ilevel >= Npts:
 	ilevel = Npts-1
 	zvalues.append(densort[ilevel])
-	
+
 	pp.contour(XS, YS, ZS, zvalues)
-    
+
     asp=xax.ptp()/yax.ptp()
 #    if(asp<0.8 or asp > 1.6): asp=1.4
     plt.imshow(z,extent=(xax[0],xax[-1],yax[0],yax[-1]),aspect=asp,origin='lower')
@@ -4260,8 +4695,8 @@ def plot_two_param_greedy_bins_contourf(posteriors_by_name,greedy2Params,confide
     """
     @param posteriors_by_name A dictionary of posterior objects indexed by name
     @param greedy2Params: a dict ;{param1Name:param1binSize,param2Name:param2binSize}
-    @param confidence_levels: a list of the required confidence levels to plot on the contour map. 
-    
+    @param confidence_levels: a list of the required confidence levels to plot on the contour map.
+
     """
     fig=plt.figure(1,figsize=figsize,dpi=dpi)
     plt.clf()
@@ -4276,7 +4711,7 @@ def plot_two_param_greedy_bins_contourf(posteriors_by_name,greedy2Params,confide
         CS2=plt.contourf(yedges[:-1],xedges[:-1],H,Hlasts,extend='max',colors=[colors_by_name[name]] ,alpha=0.3 )
         CS=plt.contour(yedges[:-1],xedges[:-1],H,Hlasts,extend='max',colors=[colors_by_name[name]] )
         CSlst.append(CS)
-    
+
     plt.title("%s-%s confidence contours (greedy binning)"%(par1_name,par2_name)) # add a title
     plt.xlabel(plot_label(par2_name))
     plt.ylabel(plot_label(par1_name))
@@ -4293,7 +4728,10 @@ def plot_two_param_greedy_bins_contourf(posteriors_by_name,greedy2Params,confide
         fig_actor_lst = [cs.collections[0] for cs in CSlst]
         fig_actor_lst.extend(dummy_lines)
     if legend is not None:
-      twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
+      try:
+        twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right',framealpha=0.1)
+      except:
+        twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
       for text in twodcontour_legend.get_texts():
           text.set_fontsize('small')
     fix_axis_names(plt,par1_name,par2_name)
@@ -4418,7 +4856,7 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
         majorFormatterY.set_scientific(True)
         axes.xaxis.set_major_formatter(majorFormatterX)
         axes.yaxis.set_major_formatter(majorFormatterY)
-        
+
         H, xedges, yedges = np.histogram2d(a,b, bins=(par1pos_Nbins, par2pos_Nbins),normed=True)
 
         extent = [xedges[0], yedges[-1], xedges[-1], xedges[0]]
@@ -4510,7 +4948,10 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     fig_actor_lst.extend(dummy_lines)
 
     if legend is not None:
-      twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
+      try:
+        twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right',framealpha=0.1)
+      except:
+        twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
       for text in twodcontour_legend.get_texts():
         text.set_fontsize('small')
 
@@ -4576,7 +5017,7 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     #Extract injection information
     par1_injvalue=posterior[par1_name.lower()].injval
     par2_injvalue=posterior[par2_name.lower()].injval
-    
+
     #Create 2D bin array
     par1pos_min=a.min()
     par2pos_min=b.min()
@@ -4612,14 +5053,14 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     myfig=plt.figure()
     axes=plt.Axes(myfig,[0.3,0.3,0.95-0.3,0.90-0.3])
     myfig.add_axes(axes)
-    
+
     #plt.clf()
     plt.xlabel(plot_label(ax2_name))
     plt.ylabel(plot_label(ax1_name))
 
     #bins=(par1pos_Nbins,par2pos_Nbins)
     bins=(50,50) # Matches plot_one_param_pdf
-    
+
     majorFormatterX=ScalarFormatter(useMathText=True)
     majorFormatterX.format_data=lambda data:'%.4g'%(data)
     majorFormatterY=ScalarFormatter(useMathText=True)
@@ -4630,14 +5071,14 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     axes.yaxis.set_major_formatter(majorFormatterY)
     H, xedges, yedges = np.histogram2d(a,b, bins,normed=False)
 
-      
+
     #Replace H with greedy bin confidence levels at each pixel...
     temp=np.copy(H)
     temp=temp.flatten()
 
     Hsum=0
     Hsum_actual=np.sum(H)
-    
+
     idxes=np.argsort(temp)
     j=len(idxes)-1
     while Hsum<Hsum_actual:
@@ -4655,9 +5096,9 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     plt.imshow(np.flipud(H), axes=axes, aspect='auto', extent=extent, interpolation='nearest',cmap='gray_r')
     plt.gca().autoscale_view()
     plt.colorbar()
-    
+
     #plt.hexbin(a,b,cmap='gray_r',axes=axes )
-    
+
     Nchars=max(map(lambda d:len(majorFormatterX.format_data(d)),axes.get_xticks()))
     if Nchars>8:
       Nticks=3
@@ -4927,7 +5368,7 @@ def autocorrelation(series):
     """Returns an estimate of the autocorrelation function of a given
     series.  Returns only the positive-lag portion of the ACF,
     normalized so that the zero-th element is 1."""
-    x=series-np.mean(series) 
+    x=series-np.mean(series)
     y=np.conj(x[::-1])
 
     acf=np.fft.ifftshift(signal.fftconvolve(y,x,mode='full'))
@@ -4941,7 +5382,7 @@ def autocorrelation(series):
 
 def autocorrelation_length_estimate(series, acf=None, M=5, K=2):
     """Attempts to find a self-consistent estimate of the
-    autocorrelation length of a given series.  
+    autocorrelation length of a given series.
 
     If C(tau) is the autocorrelation function (normalized so C(0) = 1,
     for example from the autocorrelation procedure in this module),
@@ -4968,7 +5409,7 @@ def autocorrelation_length_estimate(series, acf=None, M=5, K=2):
     acf[1:] *= 2.0
 
     imax=int(acf.shape[0]/K)
-    
+
     # Cumulative sum and ACL length associated with each window
     cacf=np.cumsum(acf)
     s=np.arange(1, cacf.shape[0]+1)/float(M)
@@ -5116,7 +5557,10 @@ class PEOutputParser(object):
                 runfile.write('Chain '+str(i)+':\n')
                 runfile.writelines(runInfo)
                 print "Processing file %s to %s"%(infilename,outfile.name)
-                f_ref=self._find_infmcmc_f_ref(runInfo)
+                write_fref = False
+                if 'f_ref' not in header:
+                    write_fref = True
+                    f_ref=self._find_infmcmc_f_ref(runInfo)
                 if oldMassConvention:
                     # Swap #1 for #2 because our old mass convention
                     # has m2 > m1, while the common convention has m1
@@ -5126,7 +5570,8 @@ class PEOutputParser(object):
                     for label in header:
                         outfile.write(label)
                         outfile.write(" ")
-                    outfile.write("f_ref")
+                    if write_fref:
+                        outfile.write("f_ref")
                     outfile.write(" ")
                     outfile.write("chain")
                     outfile.write("\n")
@@ -5151,8 +5596,9 @@ class PEOutputParser(object):
                                 # names above
                                 outfile.write(lineParams[header.index(label)])
                                 outfile.write("\t")
-                            outfile.write(f_ref)
-                            outfile.write("\t")
+                            if write_fref:
+                                outfile.write(f_ref)
+                                outfile.write("\t")
                             outfile.write(str(i))
                             outfile.write("\n")
                         nRead=nRead+1
@@ -5208,6 +5654,7 @@ class PEOutputParser(object):
                 iterindex = header.index("cycle")
                 deltaLburnedIn = False
                 fixedBurnedIn  = False
+                adapting = True
                 lines=[]
                 ntot=0
                 for line in infile:
@@ -5218,14 +5665,25 @@ class PEOutputParser(object):
                         fixedBurnedIn = True
                     if logL > logLthreshold:
                         deltaLburnedIn = True
-                    if fixedBurnedIn and deltaLburnedIn:
+                    if iter > 0:
+                        adapting = False
+                    if fixedBurnedIn and deltaLburnedIn and not adapting:
                         ntot += 1
                         lines.append(line)
                 ntots.append(ntot)
                 if nDownsample is None:
                     try:
+                        splineParams=["spcal_npts", "spcal_active","constantcal_active"]
+                        for i in np.arange(5):
+                          for k in ['h1','l1']:
+                            splineParams.append(k+'_spcal_freq'+str(i))
+                            splineParams.append(k+'_spcal_logfreq'+str(i))
+
                         nonParams = ["logpost", "cycle", "timestamp", "snrh1", "snrl1", "snrv1",
-                                     "time_mean", "time_maxl"] + logParams + snrParams
+                                     "margtime","margtimephi","margtime","time_max","time_min",
+                                     "time_mean", "time_maxl","sky_frame","psdscaleflag","logdeltaf","flow","f_ref",
+                                     "lal_amporder","lal_pnorder","lal_approximant","tideo","spino","signalmodelflag",
+                                     "t0", "phase_maxl", "azimuth", "cosalpha"] + logParams + snrParams + splineParams
                         nonParamsIdxs = [header.index(name) for name in nonParams if name in header]
                         paramIdxs = [i for i in range(len(header)) if i not in nonParamsIdxs]
                         samps = np.array(lines).astype(float)
@@ -5322,7 +5780,7 @@ class PEOutputParser(object):
 
     def _clear_infmcmc_header(self, infile):
         """
-        Reads lalinference_mcmcmpi file given, returning the run info and 
+        Reads lalinference_mcmcmpi file given, returning the run info and
         common output header information.
         """
         runInfo = []
@@ -5364,21 +5822,21 @@ class PEOutputParser(object):
 
         if Nlive is None:
             raise RuntimeError("Need to specify number of live points in positional arguments of parse!")
-     
+
         #posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t dec \t
         #psi \t iota \t likelihood \n')
         # get parameter list
         it = iter(files)
-        
+
         # check if there's a file containing the parameter names
         parsfilename = (it.next()).strip('.gz')+'_params.txt'
-        
+
         if os.path.isfile(parsfilename):
             print 'Looking for '+parsfilename
 
             if os.access(parsfilename,os.R_OK):
 
-                with open(parsfilename,'r') as parsfile: 
+                with open(parsfilename,'r') as parsfile:
                     outpars=parsfile.readline()+'\n'
             else:
                 raise RuntimeError('Cannot open parameters file %s!'%(parsfilename))
@@ -5404,17 +5862,17 @@ class PEOutputParser(object):
             pos=draw_N_posterior_many(inarrays,[Nlive for f in files],Npost,logLcols=[logLcol for f in files])
 
         with open(posfilename,'w') as posfile:
-            
+
             posfile.write(outpars)
-        
+
             for row in pos:
                 for i in row:
-                    posfile.write('%.12g\t' %(i))
+                  posfile.write('%10.12e\t' %(i))
                 posfile.write('\n')
-        
+
         with open(posfilename,'r') as posfile:
             return_val=self._common_to_pos(posfile)
-        
+
         return return_val
 
     def _followupmcmc_to_pos(self,files):
@@ -5443,7 +5901,7 @@ class PEOutputParser(object):
                     ET._namespace_map[uri]=prefix
         register_namespace('vot',xmlns)
         tree = ET.ElementTree()
-        
+
         tree.parse(infile)
         # Find the posterior table
         tables = tree.findall('.//{%s}TABLE'%(xmlns))
@@ -5455,7 +5913,7 @@ class PEOutputParser(object):
             nsresource=[node for node in tree.findall('{%s}RESOURCE'%(xmlns)) if node.get('utype')=='lalinference:results'][0]
             return(self._VOTTABLE2pos(vo_nest2pos(nsresource)))
         raise RuntimeError('Cannot find "Posterior Samples" TABLE element in XML input file %s'%(infile))
-        
+
     def _VOTTABLE2pos(self,table):
         """
         Parser for a VOT TABLE element with FIELDs and TABLEDATA elements
@@ -5507,7 +5965,7 @@ class PEOutputParser(object):
         samples and list of parameter names. Will apply inverse functions to
         columns with names containing sin,cos,log.
         """
-        
+
         [headerfile,delimiter]=info
 
         if headerfile==None:
@@ -5516,7 +5974,7 @@ class PEOutputParser(object):
         	hf=open(headerfile,'r')
         	formatstr=hf.readline().lstrip()
         	hf.close()
-        
+
         formatstr=formatstr.replace('#','')
         formatstr=formatstr.replace('"','')
 
@@ -5526,7 +5984,7 @@ class PEOutputParser(object):
         llines=[]
         import re
         dec=re.compile(r'^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$|^inf$')
-        
+
         for line_number,line in enumerate(infile):
             sline=line.split(delimiter)
             if sline[-1] == '\n':
@@ -5548,13 +6006,13 @@ class PEOutputParser(object):
                     proceed=False
 
             if proceed:
-                llines.append(map(float,sline))	
+                llines.append(map(float,sline))
 
         flines=np.array(llines)
 
         if not flines.any():
-            raise RuntimeError("ERROR: no lines read in!")	
-           
+            raise RuntimeError("ERROR: no lines read in!")
+
 
         for i in range(0,len(header)):
             if header[i].lower().find('log')!=-1 and header[i].lower() not in logParams:
@@ -5582,7 +6040,7 @@ def parse_converge_output_section(fo):
         lines=fo.split('\n')
         chain_line=False
         for line in lines:
-            
+
             if '[1]' in line:
                 key=line.replace('[1]','').strip(' ').strip('"')
                 result[key]={}
@@ -5625,7 +6083,7 @@ def vo_nest2pos(nsresource,Nlive=None):
         def register_namespace(prefix,uri):
             ET._namespace_map[uri]=prefix
     register_namespace('vot',xmlns)
-    
+
     postable=ET.Element("{%s}TABLE"%(xmlns),attrib={'name':'Posterior Samples','utype':'lalinference:results:posteriorsamples'})
     i=0
     nstables=[resource for resource in nsresource.findall("./{%s}TABLE"%(xmlns)) if resource.get("utype")=="lalinference:results:nestedsamples"]
@@ -5672,7 +6130,7 @@ class VOT2HTML:
     def __init__(self):
         self.html=htmlSection("VOTable information")
         self.skiptable=0
-        
+
     def start(self,tag,attrib):
         if tag=='{%s}TABLE'%(xmlns):
             if attrib['utype']=='lalinference:results:nestedsamples'\
@@ -5701,7 +6159,7 @@ class VOT2HTML:
             namenode.p(attrib['name'])
             valnode=htmlChunk('td',parent=pnode)
             valnode.p(attrib['value'])
-        
+
     def end(self,tag):
         if tag=='{%s}TABLE'%(xmlns):
             if not self.skiptable:
@@ -5713,7 +6171,7 @@ class VOT2HTML:
 
     def data(self,data):
         self.data=data
-  
+
     def close(self):
         return self.html.toprettyxml()
 
@@ -5726,13 +6184,13 @@ def _cl_width(cl_bound):
 def _cl_count(cl_bound, samples):
     """Returns the number of samples within the given confidence
     bounds."""
-    
+
     return np.sum((samples >= cl_bound[0]) & (samples <= cl_bound[1]))
 
 def confidence_interval_uncertainty(cl, cl_bounds, posteriors):
     """Returns a tuple (relative_change, fractional_uncertainty,
     percentile_uncertainty) giving the uncertainty in confidence
-    intervals from multiple posteriors.  
+    intervals from multiple posteriors.
 
     The uncertainty in the confidence intervals is the difference in
     length between the widest interval, formed from the smallest to
@@ -5775,13 +6233,13 @@ def confidence_interval_uncertainty(cl, cl_bounds, posteriors):
     N=all_samples.shape[0]
 
     alpha = (1.0 - cl)/2.0
-    
+
     wttotal = np.cumsum(weights)
     ilow = np.nonzero(wttotal >= alpha)[0][0]
     ihigh = np.nonzero(wttotal >= 1.0-alpha)[0][0]
 
     all_cl_bound = (all_samples[ilow], all_samples[ihigh])
-    
+
     low_bounds = np.array([l for (l,h) in cl_bounds])
     high_bounds = np.array([h for (l,h) in cl_bounds])
 
@@ -5804,7 +6262,7 @@ def confidence_interval_uncertainty(cl, cl_bounds, posteriors):
 
 
 def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V1']):
-  
+
   from lalsimulation.lalsimulation import SimInspiralChooseTDWaveform,SimInspiralChooseFDWaveform
   from lalsimulation.lalsimulation import SimInspiralImplementedTDApproximants,SimInspiralImplementedFDApproximants
   from lal.lal import StrainUnit
@@ -5829,31 +6287,31 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
     event=0
   colors_inj={'H1':'r','L1':'g','V1':'m','I1':'b','J1':'y'}
   colors_rec={'H1':'k','L1':'k','V1':'k','I1':'k','J1':'k'}
-  # time and freq data handling variables 
+  # time and freq data handling variables
   srate=4096.0
   seglen=60.
   length=srate*seglen # lenght of 60 secs, hardcoded. May call a LALSimRoutine to get an idea
   deltaT=1/srate
   deltaF = 1.0 / (length* deltaT);
-  
+
   # build window for FFT
   pad=0.4
   timeToFreqFFTPlan = CreateForwardREAL8FFTPlan(int(length), 1 );
   window=CreateTukeyREAL8Window(int(length),2.0*pad*srate/length);
   WinNorm = sqrt(window.sumofsquares/window.data.length);
   # time and freq domain strain:
-  segStart=100000000 
+  segStart=100000000
   strainT=CreateREAL8TimeSeries("strainT",segStart,0.0,1.0/srate,DimensionlessUnit,int(length));
   strainF= CreateCOMPLEX16FrequencySeries("strainF",segStart,	0.0,	deltaF,	DimensionlessUnit,int(length/2. +1));
-  
-  f_min=25 # hardcoded default (may be changed below) 
+
+  f_min=25 # hardcoded default (may be changed below)
   f_ref=100 # hardcoded default (may be changed below)
-  f_max=srate/2.0  
+  f_max=srate/2.0
   plot_fmax=f_max
-  
+
   inj_strains=dict((i,{"T":{'x':None,'strain':None},"F":{'x':None,'strain':None}}) for i in ifos)
   rec_strains=dict((i,{"T":{'x':None,'strain':None},"F":{'x':None,'strain':None}}) for i in ifos)
-  
+
   inj_domain=None
   rec_domain=None
   font_size=26
@@ -5878,29 +6336,29 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
       m1=M1*LAL_MSUN_SI
       m2=M2*LAL_MSUN_SI
       phiRef=tbl.coa_phase
-  
-      f_min = tbl.f_lower    
+
+      f_min = tbl.f_lower
       s1x = tbl.spin1x
       s1y = tbl.spin1y
       s1z = tbl.spin1z
       s2x = tbl.spin2x
       s2y = tbl.spin2y
       s2z = tbl.spin2z
-      
+
       r=D*LAL_PC_SI*1.0e6
       iota=tbl.inclination
       print "WARNING: Defaulting to inj_fref =100Hz to plot the injected WF. This is hardcoded since xml table does not carry this information\n"
-      
+
       lambda1=0
       lambda2=0
       waveFlags=None
       nonGRparams=None
       wf=str(tbl.waveform)
 
-      injapproximant=lalsim.GetApproximantFromString(wf)  
+      injapproximant=lalsim.GetApproximantFromString(wf)
       amplitudeO=int(tbl.amp_order )
       phaseO=lalsim.GetOrderFromString(wf)
-     
+
       ra=tbl.longitude
       dec=tbl.latitude
       psi=tbl.polarization
@@ -5914,7 +6372,7 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
       else:
         print "\nThe approximant %s doesn't seem to be recognized by lalsimulation!\n Skipping WF plots\n"%injapproximant
         return None
-        
+
       for ifo in ifos:
         (fp,fc,fa,qv)=ant.response(REAL8time,ra,dec,iota,psi,'radians',ifo)
         if inj_domain=='T':
@@ -5929,7 +6387,7 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
           # now copy in the dictionary only the part of strain which is not null (that is achieved using plus.data.length as length)
           inj_strains[ifo]["T"]['strain']=np.array([strainT.data.data[k] for k in arange(plus.data.length)])
           inj_strains[ifo]["T"]['x']=np.array([REAL8time - deltaT*(plus.data.length-1-k) for k in np.arange(plus.data.length)])
-          
+
           # Take the FFT
           for j in arange(strainF.data.length):
             strainF.data.data[j]=0.0
@@ -5949,10 +6407,10 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
           inj_strains[ifo]["F"]['strain']=np.array([strainF.data.data[k] for k in arange(int(strainF.data.length))])
           inj_strains[ifo]["F"]['x']=np.array([strainF.f0+ k*strainF.deltaF for k in arange(int(strainF.data.length))])
   if pos is not None:
-    
+
     # Select the maxP sample
     _,which=pos._posMap()
-    
+
     if 'time' in pos.names:
       REAL8time=pos['time'].samples[which][0]
     elif 'time_maxl' in pos.names:
@@ -5963,12 +6421,12 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
       print "ERROR: could not find any time parameter in the posterior file. Not plotting the WF...\n"
       return None
 
-    # first check we have approx in posterior samples, otherwise skip 
+    # first check we have approx in posterior samples, otherwise skip
     skip=0
     try:
       approximant=int(pos['LAL_APPROXIMANT'].samples[which][0])
       amplitudeO=int(pos['LAL_AMPORDER'].samples[which][0])
-      phaseO=int(pos['LAL_PNORDER'].samples[which][0])  
+      phaseO=int(pos['LAL_PNORDER'].samples[which][0])
     except:
       skip=1
     if skip==0:
@@ -5977,7 +6435,14 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
       q=pos['q'].samples[which][0]
       mc=pos['mc'].samples[which][0]
       M1,M2=bppu.q2ms(mc,q)
-      D=pos['dist'].samples[which][0]
+      if 'dist' in pos.names:
+        D=pos['dist'].samples[which][0]
+      elif 'distance' in pos.names:
+        D=pos['distance'].samples[which][0]
+      elif 'logdistance' in pos.names:
+        D=exp(pos['distance'].samples[which][0])
+
+
       m1=M1*LAL_MSUN_SI
       m2=M2*LAL_MSUN_SI
       if 'phi_orb' in pos.names:
@@ -5988,7 +6453,7 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
       else:
         print 'WARNING: phi_orb not found in posterior files. Defaulting to 0.0 which is probably *not* what you want\n'
         phiRef=0.0
- 
+
       try:
               for name in ['flow','f_lower']:
                       if name in pos.names:
@@ -6011,13 +6476,13 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
         print "WARNING: Could not read fref from posterior file! Defaulting to 100 Hz\n"
 
       try:
-        a = pos['a_spin1'].samples[which][0]
+        a = pos['a1'].samples[which][0]
         the = pos['theta_spin1'].samples[which][0]
         phi = pos['phi_spin1'].samples[which][0]
         s1x = (a * sin(the) * cos(phi));
         s1y = (a * sin(the) * sin(phi));
         s1z = (a * cos(the));
-        a = pos['a_spin2'].samples[which][0]
+        a = pos['a2'].samples[which][0]
         the = pos['theta_spin2'].samples[which][0]
         phi = pos['phi_spin2'].samples[which][0]
         s2x = (a * sin(the) * cos(phi));
@@ -6026,13 +6491,25 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
         iota=pos['inclination'].samples[which][0]
       except:
         try:
-          iota, s1x, s1y, s1z, s2x, s2y, s2z=lalsim.SimInspiralTransformPrecessingInitialConditions(pos['theta_JN'].samples[which][0], pos['phi_JL'].samples[which][0], pos['tilt1'].samples[which][0], pos['tilt2'].samples[which][0], pos['phi12'].samples[which][0], pos['a1'].samples[which][0], pos['a2'].samples[which][0], m1, m2, f_ref)
+          iota, s1x, s1y, s1z, s2x, s2y, s2z=lalsim.SimInspiralTransformPrecessingNewInitialConditions(pos['theta_jn'].samples[which][0], pos['phi_JL'].samples[which][0], pos['tilt1'].samples[which][0], pos['tilt2'].samples[which][0], pos['phi12'].samples[which][0], pos['a1'].samples[which][0], pos['a2'].samples[which][0], m1, m2, f_ref)
         except:
-          s1x=s1y=s1z=s2x=s2y=s2z=0.0
-          try:
-            iota=pos['inclination'].samples[which][0]
-          except:
-            iota=pos['theta_jn'].samples[which][0]
+            if 'a1z' in pos.names:
+                s1z=pos['a1z'].samples[which][0]
+            elif 'a1' in pos.names:
+                s1z=pos['a1'].samples[which][0]
+            else:
+                s1z=0
+            if 'a2z' in pos.names:
+                s2z=pos['a2z'].samples[which][0]
+            elif 'a2' in pos.names:
+                s2z=pos['a2'].samples[which][0]
+            else:
+                s2z=0
+            s1x=s1y=s2x=s2y=0.0
+            if 'inclination' in pos.names:
+                iota=pos['inclination'].samples[which][0]
+            else:
+                iota=pos['theta_jn'].samples[which][0]
 
       r=D*LAL_PC_SI*1.0e6
 
@@ -6093,10 +6570,10 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
           rec_strains[ifo]["F"]['x']=np.array([strainF.f0+ k*strainF.deltaF for k in arange(int(strainF.data.length))])
 
   myfig=plt.figure(1,figsize=(23,15))
-  
+
   rows=len(ifos)
   cols=2
-  
+
   #this variables decide which domain will be plotted on the left column of the plot.
   # only plot Time domain if both injections and recovery are TD
   global_domain="F"
@@ -6109,7 +6586,7 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
   elif inj_domain is not None:
     if inj_domain=="T":
       global_domain="T"
-  
+
   A,axes=plt.subplots(nrows=rows,ncols=cols,sharex=False,sharey=False)
   plt.setp(A,figwidth=23,figheight=15)
   for (r,i) in zip(np.arange(rows),ifos):
@@ -6122,40 +6599,40 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
       if rec_strains[i]["T"]['strain'] is not None or rec_strains[i]["F"]['strain'] is not None:
         if c==0:
           if global_domain=="T":
-            ax.plot(rec_strains[i]["T"]['x'],rec_strains[i]["T"]['strain'],colors_rec[i],label='%s maP'%i)
+            ax.plot(rec_strains[i]["T"]['x'],rec_strains[i]["T"]['strain'],colors_rec[i],alpha=0.5,label='%s maP'%i)
           else:
             data=rec_strains[i]["F"]['strain']
             f=rec_strains[i]["F"]['x']
             mask=np.logical_and(f>=f_min,f<=plot_fmax)
             ys=data
-            ax.plot(f[mask],ys[mask].real,'.-',color=colors_rec[i],label='%s maP'%i)
+            ax.semilogx(f[mask],ys[mask].real,'.-',color=colors_rec[i],alpha=0.5,label='%s maP'%i)
         else:
             data=rec_strains[i]["F"]['strain']
             f=rec_strains[i]["F"]['x']
             mask=np.logical_and(f>=f_min,f<=plot_fmax)
             ys=data
-            ax.loglog(f[mask],abs(ys[mask]),'--',color=colors_rec[i],linewidth=4)
+            ax.loglog(f[mask],abs(ys[mask]),'--',color=colors_rec[i],alpha=0.5,linewidth=4)
             ax.set_xlim([min(f[mask]),max(f[mask])])
             ax.grid(True,which='both')
       if inj_strains[i]["T"]['strain'] is not None or inj_strains[i]["F"]['strain'] is not None:
         if c==0:
           if global_domain=="T":
-            ax.plot(inj_strains[i]["T"]['x'],inj_strains[i]["T"]['strain'],colors_inj[i],label='%s inj'%i)
+            ax.plot(inj_strains[i]["T"]['x'],inj_strains[i]["T"]['strain'],colors_inj[i],alpha=0.5,label='%s inj'%i)
           else:
             data=inj_strains[i]["F"]['strain']
             f=inj_strains[i]["F"]['x']
             mask=np.logical_and(f>=f_min,f<=plot_fmax)
             ys=data
-            ax.plot(f[mask],ys[mask].real,'.-',color=colors_inj[i],label='%s inj'%i)
+            ax.plot(f[mask],ys[mask].real,'.-',color=colors_inj[i],alpha=0.5,label='%s inj'%i)
         else:
             data=inj_strains[i]["F"]['strain']
             f=inj_strains[i]["F"]['x']
             mask=np.logical_and(f>=f_min,f<=plot_fmax)
             ys=data
-            ax.loglog(f[mask],abs(ys[mask]),'--',color=colors_inj[i],linewidth=4)
+            ax.loglog(f[mask],abs(ys[mask]),'--',color=colors_inj[i],alpha=0.5,linewidth=4)
             ax.set_xlim([min(f[mask]),max(f[mask])])
             ax.grid(True,which='both')
-        
+
       if r==0:
         if c==0:
           if global_domain=="T":
@@ -6172,19 +6649,19 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
             ax.set_xlabel("frequency [Hz]",fontsize=font_size)
         else:
           ax.set_xlabel("frequency [Hz]",fontsize=font_size)
-      
+
       ax.legend(loc='best')
       ax.grid(True)
-      
+
       #ax.tight_layout()
   A.savefig(os.path.join(path,'WF_DetFrame.png'),bbox_inches='tight')
-  return 1
-  
+  return inj_strains,rec_strains
+
+
 def plot_psd(psd_files,outpath=None):
-  
   f_min=30.
   myfig2=plt.figure(figsize=(15,15),dpi=500)
-  ax=plt.subplot(1,1,1)  
+  ax=plt.subplot(1,1,1)
   colors={'H1':'r','L1':'g','V1':'m','I1':'k','J1':'y'}
 
   if outpath is None:
@@ -6199,28 +6676,32 @@ def plot_psd(psd_files,outpath=None):
      return None
   else:
     psd_files=tmp
-    
+
+  freqs = {}
   for f in psd_files:
-    
     data=np.loadtxt(f)
     freq=data[:,0]
     data=data[:,1]
     idx=f.find('-PSD.dat')
     ifo=f[idx-2:idx]
+    freqs[ifo.lower()] = freq
     fr=[]
     da=[]
     for (f,d) in zip(freq,data):
       if f>f_min and d!=0.0:
         fr.append(f)
         da.append(d)
-    plt.loglog(fr,da,colors[ifo],label=ifo,linewidth=3)
+    plt.loglog(fr,da,colors[ifo],label=ifo,alpha=0.5,linewidth=3)
   plt.xlim([min(freq),max(freq)])
   plt.xlabel("Frequency [Hz]",fontsize=26)
   plt.ylabel("PSD",fontsize=26)
   plt.legend(loc='best')
   plt.grid(which='both')
-  plt.tight_layout()
-  myfig2.savefig(os.path.join(outpath,'PSD.png'),bbox_inches='tight')
+  try:
+    plt.tight_layout()
+    myfig2.savefig(os.path.join(outpath,'PSD.png'),bbox_inches='tight')
+  except:
+    myfig2.savefig(os.path.join(outpath,'PSD.png'))
   myfig2.clf()
 
   return freqs
@@ -6294,7 +6775,7 @@ def plot_calibration_pos(pos, level=.9, outpath=None):
         outpath=os.getcwd()
 
     params = pos.names
-    ifos = np.unique([param.split('_')[0] for param in params if 'spcal' in param])
+    ifos = np.unique([param.split('_')[0] for param in params if 'spcal_freq' in param])
     for ifo in ifos:
         if ifo=='h1': color = 'r'
         elif ifo=='l1': color = 'g'
@@ -6313,7 +6794,7 @@ def plot_calibration_pos(pos, level=.9, outpath=None):
                               '{0}_spcal_amp'.format(ifo) in param])
         if len(amp_params) > 0:
             amp = 100*np.column_stack([pos[param].samples for param in amp_params])
-            plot_spline_pos(logfreqs, amp, color=color, level=level, label="{0} (mean, {0}%)".format(ifo.upper(), int(level*100)))
+            plot_spline_pos(logfreqs, amp, color=color, level=level, label="{0} (mean, {1}%)".format(ifo.upper(), int(level*100)))
 
         # Phase calibration model
         plt.sca(ax2)
@@ -6326,7 +6807,10 @@ def plot_calibration_pos(pos, level=.9, outpath=None):
 
     ax1.tick_params(labelsize=.75*font_size)
     ax2.tick_params(labelsize=.75*font_size)
-    plt.legend(loc='upper right', prop={'size':.75*font_size}, framealpha=0.1)
+    try:
+      plt.legend(loc='upper right', prop={'size':.75*font_size}, framealpha=0.1)
+    except:
+      plt.legend(loc='upper right', prop={'size':.75*font_size})
     ax1.set_xscale('log')
     ax2.set_xscale('log')
 
@@ -6341,3 +6825,652 @@ def plot_calibration_pos(pos, level=.9, outpath=None):
     except:
         fig.savefig(outp)
     plt.close(fig)
+
+
+def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1','V1']):
+  
+  from lalinference.lalinference import SimBurstChooseFDWaveform,SimBurstChooseTDWaveform
+  from lalinference.lalinference import SimBurstImplementedFDApproximants,SimBurstImplementedTDApproximants
+  from lal.lal import StrainUnit
+  from lal.lal import CreateREAL8TimeSeries,CreateForwardREAL8FFTPlan,CreateTukeyREAL8Window,CreateCOMPLEX16FrequencySeries,DimensionlessUnit,REAL8TimeFreqFFT,CutREAL8TimeSeries,ResampleREAL8TimeSeries,CreateReverseREAL8FFTPlan,REAL8FreqTimeFFT
+  from lal.lal import LIGOTimeGPS
+  from lal.lal import MSUN_SI as LAL_MSUN_SI
+  from lal.lal import PC_SI as LAL_PC_SI
+  import lalsimulation as lalsim
+  import lalinference as lalinf
+  from pylal import antenna as ant
+  from math import cos,sin,sqrt
+  from glue.ligolw import lsctables
+  from glue.ligolw import utils
+  import os
+  import numpy as np
+  from numpy import arange,real,imag,absolute,fabs,pi
+  from pylal import bayespputils as bppu
+  from matplotlib import pyplot as plt,cm as mpl_cm,lines as mpl_lines
+  import copy
+  if path is None:
+    path=os.getcwd()
+  if event is None:
+    event=0
+  colors_inj={'H1':'r','L1':'g','V1':'m','I1':'b','J1':'y'}
+  colors_rec={'H1':'k','L1':'k','V1':'k','I1':'k','J1':'k'}
+  #import sim inspiral table content handler 
+  from glue.ligolw import ligolw
+  from glue.ligolw import lsctables
+  from glue.ligolw import table
+  from glue.ligolw import utils
+  class LIGOLWContentHandlerExtractSimBurstTable(ligolw.LIGOLWContentHandler):
+    def __init__(self,document):
+      ligolw.LIGOLWContentHandler.__init__(self,document)
+      self.tabname=lsctables.SimBurstTable.tableName
+      self.intable=False
+      self.tableElementName=''
+    def startElement(self,name,attrs):
+      if attrs.has_key('Name') and attrs['Name']==self.tabname:
+        self.tableElementName=name
+        # Got the right table, let's see if it's the right event
+        ligolw.LIGOLWContentHandler.startElement(self,name,attrs)
+        self.intable=True
+      elif self.intable: # We are in the correct table
+        ligolw.LIGOLWContentHandler.startElement(self,name,attrs)
+    def endElement(self,name):
+      if self.intable: ligolw.LIGOLWContentHandler.endElement(self,name)
+      if self.intable and name==self.tableElementName: self.intable=False
+
+  lsctables.use_in(LIGOLWContentHandlerExtractSimBurstTable)
+  #from pylal.SimBurstUtils import ExtractSimBurstTableLIGOLWContentHandler
+  #lsctables.use_in(ExtractSimBurstTableLIGOLWContentHandler)
+  
+  # time and freq data handling variables 
+  srate=4096.0
+  seglen=10.
+  length=srate*seglen # lenght of 10 secs, hardcoded.
+  deltaT=1/srate
+  deltaF = 1.0 / (length* deltaT);
+
+  # build window for FFT
+  pad=0.4
+  timeToFreqFFTPlan = CreateForwardREAL8FFTPlan(int(length), 1 );
+  freqToTimeFFTPlan = CreateReverseREAL8FFTPlan(int(length), 1 );
+  window=CreateTukeyREAL8Window(int(length),2.0*pad*srate/length);
+  # A random GPS time to initialize arrays. Epoch will be overwritten with sensible times further down
+  segStart=939936910.000
+  strainFinj= CreateCOMPLEX16FrequencySeries("strainF",segStart,0.0,deltaF,DimensionlessUnit,int(length/2. +1));
+  strainTinj=CreateREAL8TimeSeries("strainT",segStart,0.0,1.0/srate,DimensionlessUnit,int(length));
+  strainFrec= CreateCOMPLEX16FrequencySeries("strainF",segStart,0.0,deltaF,DimensionlessUnit,int(length/2. +1));
+  strainTrec=CreateREAL8TimeSeries("strainT",segStart,0.0,1.0/srate,DimensionlessUnit,int(length));
+  GlobREAL8time=None
+  f_min=25 # hardcoded default (may be changed below) 
+  f_ref=100 # hardcoded default (may be changed below)
+  f_max=srate/2.0
+
+  plot_fmax=2048
+  plot_fmin=0.01
+  plot_tmin=1e11
+  plot_tmax=-1e11
+
+  inj_strains=dict((i,{"T":{'x':None,'strain':None},"F":{'x':None,'strain':None}}) for i in ifos)
+  rec_strains=dict((i,{"T":{'x':None,'strain':None},"F":{'x':None,'strain':None}}) for i in ifos)
+  
+  inj_domain=None
+  rec_domain=None
+  font_size=26
+  if simburst is not None:
+    skip=0
+    try:
+      xmldoc = utils.load_filename(simburst,contenthandler=LIGOLWContentHandlerExtractSimBurstTable)
+      tbl = lsctables.table.get_table(xmldoc,  lsctables.SimBurstTable.tableName)
+      if event>0:
+        tbl=tbl[event]
+      else:
+        tbl=tbl[0]
+    except:
+      print "Cannot read event %s from table %s. Won't plot injected waveform \n"%(event,simburst)
+      skip=1
+    if not skip:
+      REAL8time=tbl.time_geocent_gps+1e-9*tbl.time_geocent_gps_ns
+      GPStime=LIGOTimeGPS(REAL8time)
+      GlobREAL8time=(REAL8time)
+      strainTinj.epoch=LIGOTimeGPS(round(GlobREAL8time,0)-seglen/2.)
+      strainFinj.epoch=LIGOTimeGPS(round(GlobREAL8time,0)-seglen/2.)
+      f0=tbl.frequency
+      q=tbl.q
+      dur=tbl.duration
+      hrss=tbl.hrss
+      polar_e_angle=tbl.pol_ellipse_angle
+      polar_e_ecc=tbl.pol_ellipse_e
+  
+      BurstExtraParams=None
+      wf=str(tbl.waveform)
+
+      injapproximant=lalinf.GetBurstApproximantFromString(wf)  
+      ra=tbl.ra
+      dec=tbl.dec
+      psi=tbl.psi
+
+      if SimBurstImplementedFDApproximants(injapproximant):
+        inj_domain='F'
+        [plus,cross]=SimBurstChooseFDWaveform(deltaF, deltaT, f0, q,dur, f_min, f_max,hrss,polar_e_angle ,polar_e_ecc,BurstExtraParams, injapproximant)
+      elif SimBurstImplementedTDApproximants(injapproximant):
+        inj_domain='T'
+        [plus,cross]=SimBurstChooseTDWaveform(deltaT, f0, q,dur, f_min, f_max,hrss,polar_e_angle ,polar_e_ecc,BurstExtraParams, injapproximant)
+      else:
+        print "\nThe approximant %s doesn't seem to be recognized by lalinference!\n Skipping WF plots\n"%injapproximant
+        return None
+      
+      for ifo in ifos:
+        (fp,fc,fa,qv)=ant.response(REAL8time,ra,dec,0.0,psi,'radians',ifo)
+        if inj_domain=='T':
+          # bin of ref time as seen in strainT
+          tCinstrain=np.floor(REAL8time-float(strainTinj.epoch))/deltaT
+          # bin of strainT where we need to start copying the WF over
+          #tSinstrain=floor(tCinstrain-float(plus.data.length)/2.)+1 
+          tSinstrain=int(  (REAL8time-fabs(float(plus.epoch)) - fabs(float(strainTinj.epoch)))/deltaT)
+          rem=(REAL8time-fabs(float(plus.epoch)) - fabs(float(strainTinj.epoch)))/deltaT-tSinstrain
+          # strain is a temporary container for this IFO strain.
+          # Zero until tSinstrain
+          for k in np.arange(tSinstrain):
+            strainTinj.data.data[k]=0.0
+          # then copy plus/cross over
+          for k in np.arange(plus.data.length):
+            strainTinj.data.data[k+tSinstrain]=((fp*plus.data.data[k]+fc*cross.data.data[k]))
+          # Then zeros till the end (superfluous)
+          for k in np.arange(strainTinj.data.length- (tSinstrain +plus.data.length)):
+            strainTinj.data.data[k+tSinstrain+plus.data.length]=0.0
+          for k in np.arange(strainTinj.data.length):
+            strainTinj.data.data[k]*=window.data.data[k]
+          np.savetxt('file.out',zip(np.array([strainTinj.epoch + j*deltaT for j in arange(strainTinj.data.length)]),np.array([strainTinj.data.data[j] for j in arange(strainTinj.data.length)])))
+          # now copy in the dictionary
+          inj_strains[ifo]["T"]['strain']=np.array([strainTinj.data.data[j] for j in arange(strainTinj.data.length)])
+          inj_strains[ifo]["T"]['x']=np.array([strainTinj.epoch + j*deltaT for j in arange(strainTinj.data.length)])
+          # Take the FFT
+          for j in arange(strainFinj.data.length):
+            strainFinj.data.data[j]=0.0
+          REAL8TimeFreqFFT(strainFinj,strainTinj,timeToFreqFFTPlan);
+          twopit=2.*np.pi*(rem*deltaT)
+          for k in arange(strainFinj.data.length):
+            re = cos(twopit*deltaF*k)
+            im = -sin(twopit*deltaF*k)
+            strainFinj.data.data[k]*= (re + 1j*im);
+          # copy in the dictionary
+          inj_strains[ifo]["F"]['strain']=np.array([strainFinj.data.data[k] for k in arange(int(strainFinj.data.length))])
+          inj_strains[ifo]["F"]['x']=np.array([strainFinj.f0+ k*strainFinj.deltaF for k in arange(int(strainFinj.data.length))])
+        elif inj_domain=='F':
+          for k in np.arange(strainFinj.data.length):
+            if k<plus.data.length:
+              strainFinj.data.data[k]=((fp*plus.data.data[k]+fc*cross.data.data[k]))
+            else:
+              strainFinj.data.data[k]=0.0
+          twopit=2.*np.pi*(REAL8time-float(strainFinj.epoch))
+          for k in arange(strainFinj.data.length):
+            re = cos(twopit*deltaF*k)
+            im = -sin(twopit*deltaF*k)
+            strainFinj.data.data[k]*= (re + 1j*im);
+          # copy in the dictionary
+          inj_strains[ifo]["F"]['strain']=np.array([strainFinj.data.data[k] for k in arange(int(strainFinj.data.length))])
+          inj_strains[ifo]["F"]['x']=np.array([strainFinj.f0+ k*strainFinj.deltaF for k in arange(int(strainFinj.data.length))])
+        #update xlimits for plot, go 6 sigmas left and right of f0
+        # This should work for SineGaussians
+        if f0 is not None and f0 is not np.nan:
+          if q is not None and q is not np.nan:
+            sigmaF=f0/q
+            if f0-6.*sigmaF>plot_fmin:
+              plot_fmin=f0-6.*sigmaF
+            if f0+6.*sigmaF<plot_fmax:
+              plot_fmax=f0+6.*sigmaF
+            sigmaT=q/(2.*pi*f0)
+            if REAL8time-6.*sigmaT<plot_tmin:
+              plot_tmin=REAL8time-6.*sigmaT
+            if REAL8time+6.*sigmaT>plot_tmax:
+              plot_tmax=REAL8time+6.*sigmaT
+        # Now handle gaussians. For gaussians f0 is nan (FD centered at f=0)
+        if dur is not None and dur is not np.nan:
+          sigmaF=1./sqrt(2.)/pi/dur
+          if 0+6.*sigmaF<plot_fmax:
+            plot_fmax=0+6.*sigmaF
+          plot_fmin=0.0
+          sigmaT=dur/sqrt(2.)
+          if REAL8time-6.*sigmaT<plot_tmin:
+            plot_tmin=REAL8time-6.*sigmaT
+          if REAL8time+6.*sigmaT>plot_tmax:
+            plot_tmax=REAL8time+6.*sigmaT
+
+
+  if pos is not None:
+    
+    # Select the maxP sample
+    _,which=pos._posMap()
+    
+    if 'time' in pos.names:
+      REAL8time=pos['time'].samples[which][0]
+    elif 'time_maxl' in pos.names:
+      REAL8time=pos['time_maxl'].samples[which][0]
+    elif 'time_mean' in pos.names:
+      REAL8time=pos['time_mean'].samples[which][0]
+    elif 'time_min' in pos.names and 'time_max' in pos.names:
+      REAL8time=pos['time_min'].samples[which][0]+0.5*(pos['time_max'].samples[which][0]-pos['time_min'].samples[which][0])
+    else:
+      print "ERROR: could not find any time parameter in the posterior file. Not plotting the WF...\n"
+      return None
+
+    # first check we have approx in posterior samples, otherwise skip 
+    skip=0
+    
+    try:
+      approximant=int(pos['LAL_APPROXIMANT'].samples[which][0])
+    except:
+      skip=1
+    if skip==0:
+      GPStime=LIGOTimeGPS(REAL8time)
+      if GlobREAL8time is None:
+        GlobREAL8time=REAL8time
+      strainTrec.epoch=LIGOTimeGPS(round(GlobREAL8time,0)-seglen/2.)
+      strainFrec.epoch=LIGOTimeGPS(round(GlobREAL8time,0)-seglen/2.)
+      if "duration" in pos.names:
+        dur=pos["duration"].samples[which][0]
+      else:
+        dur=np.nan
+      if "quality" in pos.names:
+        q=pos['quality'].samples[which][0]
+      else:
+        q=np.nan
+      if 'frequency' in pos.names:
+        f0=pos['frequency'].samples[which][0]
+      else:
+        f0=np.nan
+      try:
+        hrss=pos['hrss'].samples[which][0]
+      except:
+        hrss=exp(pos['loghrss'].samples[which][0])
+      if np.isnan(q) and not np.isnan(dur):
+        q=sqrt(2)*pi*dur
+      alpha=None
+      if 'alpha' in pos.names:
+        alpha=pos['alpha'].samples[which][0]
+        polar_e_angle=alpha
+        polar_e_ecc=pos['polar_eccentricity'].samples[which][0]
+      elif 'polar_ellipse_angle' in pos.names:
+        polar_e_angle=pos['polar_ellipse_angle'].samples[which][0]
+        polar_e_ecc=pos['polar_eccentricity'].samples[which][0]
+
+      BurstExtraParams=None
+      #if alpha:
+      #  BurstExtraParams=lalsim.SimBurstCreateExtraParam("alpha",alpha)
+      
+      if SimBurstImplementedFDApproximants(approximant):
+        rec_domain='F'
+        [plus,cross]=SimBurstChooseFDWaveform(deltaF, deltaT, f0, q,dur, f_min, f_max,hrss,polar_e_angle ,polar_e_ecc,BurstExtraParams, approximant)
+      elif SimBurstImplementedTDApproximants(approximant):
+        rec_domain='T'
+        [plus,cross]=SimBurstChooseTDWaveform(deltaT, f0, q,dur, f_min, f_max,hrss,polar_e_angle ,polar_e_ecc,BurstExtraParams, approximant)
+      else:
+        print "The approximant %s doesn't seem to be recognized by lalinference!\n Skipping WF plots\n"%approximant
+        return None
+      ra=pos['ra'].samples[which][0]
+      dec=pos['dec'].samples[which][0]
+      psi=pos['psi'].samples[which][0]
+      fs={}
+      for ifo in ifos:
+        (fp,fc,fa,qv)=ant.response(REAL8time,ra,dec,0.0,psi,'radians',ifo)
+        if rec_domain=='T':
+          # bin of ref time as seen in strainT
+          tCinstrain=np.floor(REAL8time-float(strainTrec.epoch))/deltaT
+          # bin of strainT where we need to start copying the WF over
+          tSinstrain=int(  (REAL8time-fabs(float(plus.epoch)) - fabs(float(strainTrec.epoch)))/deltaT)
+          #tSinstrain=floor(tCinstrain-float(plus.data.length)/2.)+1
+          #reminder for fractions of bin, will be added back in the FD WF
+          rem=(REAL8time-fabs(float(plus.epoch)) - fabs(float(strainTrec.epoch)))/deltaT-tSinstrain
+
+          # strain is a temporary container for this IFO strain.
+          # Zero until tSinstrain
+          for k in np.arange(tSinstrain):
+            strainTrec.data.data[k]=0.0
+          # then copy plus/cross over
+          for k in np.arange(plus.data.length):
+            strainTrec.data.data[k+tSinstrain]=((fp*plus.data.data[k]+fc*cross.data.data[k]))
+          # Then zeros till the end (superfluous)
+          for k in np.arange(strainTrec.data.length- (tSinstrain +plus.data.length)):
+            strainTrec.data.data[k+tSinstrain+plus.data.length]=0.0
+          for k in np.arange(strainTrec.data.length):
+            strainTrec.data.data[k]*=window.data.data[k]
+          # now copy in the dictionary
+          rec_strains[ifo]["T"]['strain']=np.array([strainTrec.data.data[j] for j in arange(strainTrec.data.length)])
+          rec_strains[ifo]["T"]['x']=np.array([strainTrec.epoch + j*deltaT for j in arange(strainTrec.data.length)])
+          # Take the FFT
+          for j in arange(strainFrec.data.length):
+            strainFrec.data.data[j]=0.0
+          REAL8TimeFreqFFT(strainFrec,strainTrec,timeToFreqFFTPlan);
+          twopit=2.*np.pi*(rem*deltaT)
+          for k in arange(strainFrec.data.length):
+            re = cos(twopit*deltaF*k)
+            im = -sin(twopit*deltaF*k)
+            strainFrec.data.data[k]*= (re + 1j*im);
+          # copy in the dictionary
+          rec_strains[ifo]["F"]['strain']=np.array([strainFrec.data.data[k] for k in arange(int(strainFrec.data.length))])
+          rec_strains[ifo]["F"]['x']=np.array([strainFrec.f0+ k*strainFrec.deltaF for k in arange(int(strainFrec.data.length))])
+        elif rec_domain=='F':
+          for k in np.arange(strainFrec.data.length):
+            if k<plus.data.length:
+              strainFrec.data.data[k]=((fp*plus.data.data[k]+fc*cross.data.data[k]))
+            else:
+              strainFrec.data.data[k]=0.0
+          twopit=2.*np.pi*(REAL8time-float(strainFrec.epoch))
+          for k in arange(strainFrec.data.length):
+            re = cos(twopit*deltaF*k)
+            im = -sin(twopit*deltaF*k)
+            strainFrec.data.data[k]*= (re + 1j*im);
+          # copy in the dictionary
+          rec_strains[ifo]["F"]['strain']=np.array([strainFrec.data.data[k] for k in arange(int(strainFrec.data.length))])
+          rec_strains[ifo]["F"]['x']=np.array([strainFrec.f0+ k*strainFrec.deltaF for k in arange(int(strainFrec.data.length))])
+        #update xlimits for plot, go 6 sigmas left and right of f0
+        # This should work for SineGaussians
+        if f0 is not None and f0 is not np.nan:
+          if q is not None and q is not np.nan:
+            sigmaF=f0/q
+            if f0-6.*sigmaF>plot_fmin:
+              plot_fmin=f0-6.*sigmaF
+            if f0+6.*sigmaF<plot_fmax:
+              plot_fmax=f0+6.*sigmaF
+            sigmaT=q/(2.*pi*f0)
+            if REAL8time-6.*sigmaT<plot_tmin:
+              plot_tmin=REAL8time-6.*sigmaT
+            if REAL8time+6.*sigmaT>plot_tmax:
+              plot_tmax=REAL8time+6.*sigmaT
+        # Now handle gaussians. For gaussians f0 is nan (FD centered at f=0)
+        if dur is not None and dur is not np.nan:
+          sigmaF=1./sqrt(2.)/pi/dur
+          if 0+6.*sigmaF<plot_fmax:
+            plot_fmax=0+6.*sigmaF
+          plot_fmin=0.0
+          sigmaT=dur/sqrt(2.)
+          if REAL8time-6.*sigmaT<plot_tmin:
+            plot_tmin=REAL8time-6.*sigmaT
+          if REAL8time+6.*sigmaT>plot_tmax:
+            plot_tmax=REAL8time+6.*sigmaT
+
+  myfig=plt.figure(1,figsize=(10,7))
+  
+  rows=len(ifos)
+  cols=2
+  
+  #this variables decide which domain will be plotted on the left column of the plot.
+  # only plot Time domain if both injections and recovery are TD
+  global_domain="F"
+  if rec_domain is not None and inj_domain is not None:
+    if rec_domain=="T" and inj_domain=="T":
+      global_domain="T"
+  elif rec_domain is not None:
+    if rec_domain=="T":
+      global_domain="T"
+  elif inj_domain is not None:
+    if inj_domain=="T":
+      global_domain="T"
+  
+  A,axes=plt.subplots(nrows=rows,ncols=cols,sharex=False,sharey=False)
+  plt.setp(A,figwidth=10,figheight=7)
+  for (r,i) in zip(np.arange(rows),ifos):
+    for c in np.arange(cols):
+      ax=axes[r]
+      if type(ax)==np.ndarray:
+        ax=ax[c]
+      else:
+        ax=axes[c]
+      if rec_strains[i]["T"]['strain'] is not None or rec_strains[i]["F"]['strain'] is not None:
+        if c==0:
+          if global_domain=="T":
+            ax.plot(rec_strains[i]["T"]['x'],rec_strains[i]["T"]['strain'],colors_rec[i],label='%s maP'%i,linewidth=5)
+            ax.set_xlim([plot_tmin,plot_tmax])
+            #ax.vlines(GlobREAL8time,0.9*min(rec_strains[i]["T"]['strain']),1.1*max(rec_strains[i]["T"]['strain']),'k')
+          else:
+            data=rec_strains[i]["F"]['strain']
+            f=rec_strains[i]["F"]['x']
+            mask=np.logical_and(f>=plot_fmin,f<=plot_fmax)
+            ys=data
+            ax.plot(f[mask],real(ys[mask]),'-',color=colors_rec[i],label='%s maP'%i,linewidth=5)
+            ax.set_xlim([plot_fmin,plot_fmax])
+        else:
+            data=rec_strains[i]["F"]['strain']
+            f=rec_strains[i]["F"]['x']
+            mask=np.logical_and(f>=plot_fmin,f<=plot_fmax)
+            ys=data
+            ax.loglog(f[mask],absolute(ys[mask]),'--',color=colors_rec[i],linewidth=5)
+            ax.grid(True,which='both')
+            ax.set_xlim([plot_fmin,plot_fmax])
+      if inj_strains[i]["T"]['strain'] is not None or inj_strains[i]["F"]['strain'] is not None:
+        if c==0:
+          if global_domain=="T":
+            ax.plot(inj_strains[i]["T"]['x'],inj_strains[i]["T"]['strain'],colors_inj[i],label='%s inj'%i,linewidth=2)
+            ax.set_xlim([plot_tmin,plot_tmax])
+          else:
+            data=inj_strains[i]["F"]['strain']
+            f=inj_strains[i]["F"]['x']
+            mask=np.logical_and(f>=plot_fmin,f<=plot_fmax)
+            ys=data
+            ax.plot(f[mask],real(ys[mask]),'-',color=colors_inj[i],label='%s inj'%i,linewidth=2)
+            ax.set_xlim([plot_fmin,plot_fmax])
+        else:
+            data=inj_strains[i]["F"]['strain']
+            f=inj_strains[i]["F"]['x']
+            mask=np.logical_and(f>=plot_fmin,f<=plot_fmax)
+            ys=data
+            ax.loglog(f[mask],absolute(ys[mask]),'--',color=colors_inj[i],linewidth=2)
+            ax.grid(True,which='both')
+            ax.set_xlim([plot_fmin,plot_fmax])
+      if r==0:
+        if c==0:
+          if global_domain=="T":
+            ax.set_title(r"$h(t)$",fontsize=font_size)
+          else:
+            ax.set_title(r"$\Re[h(f)]$",fontsize=font_size)
+        else:
+          ax.set_title(r"$|h(f)|$",fontsize=font_size)
+      elif r==rows-1:
+        if c==0:
+          if global_domain=="T":
+            ax.set_xlabel("time [s]",fontsize=font_size)
+          else:
+            ax.set_xlabel("frequency [Hz]",fontsize=font_size)
+        else:
+          ax.set_xlabel("frequency [Hz]",fontsize=font_size)
+      
+      ax.legend(loc='best')
+      ax.grid(True)
+      
+      #ax.tight_layout()
+  A.savefig(os.path.join(path,'WF_DetFrame.png'),bbox_inches='tight')
+  return inj_strains, rec_strains
+
+def make_1d_table(html,legend,label,pos,pars,noacf,GreedyRes,onepdfdir,sampsdir,savepdfs,greedy,analyticLikelihood,nDownsample):
+    
+    from numpy import unique, sort
+    global confidenceLevels
+    confidence_levels=confidenceLevels
+    
+    out={}
+    if pars==[]:
+      return out
+    if set(pos.names)-set(pars)==set(pos.names):
+      return out
+    
+    #2D plots list
+    tabid='onedmargtable_'+label.lower()
+    html_ompdf=html.add_collapse_section('1D marginal posterior PDFs (%s)'%label,legend=legend,innertable_id=tabid)
+    #Table matter
+    if not noacf:
+        html_ompdf_write= '<table id="%s"><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th><th>Autocorrelation</th></tr>'%tabid
+    else:
+        html_ompdf_write= '<table id="%s"><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th></tr>'%tabid
+
+    Nskip=0
+    if 'chain' in pos.names:
+        data,header=pos.samples()
+        par_index=pos.names.index('cycle')
+        chain_index=pos.names.index("chain")
+        chains=unique(pos["chain"].samples)
+        chainCycles = [sort(data[ data[:,chain_index] == chain, par_index ]) for chain in chains]
+        chainNcycles = [cycles[-1]-cycles[0] for cycles in chainCycles]
+        chainNskips = [cycles[1] - cycles[0] for cycles in chainCycles]
+    elif 'cycle' in pos.names:
+        cycles = sort(pos['cycle'].samples)
+        Ncycles = cycles[-1]-cycles[0]
+        Nskip = cycles[1]-cycles[0]
+    
+    printed=0
+    for par_name in pars:
+        par_name=par_name.lower()
+        try:
+            pos[par_name.lower()]
+        except KeyError:
+            #print "No input chain for %s, skipping binning."%par_name
+            continue
+        try:
+            par_bin=GreedyRes[par_name]
+        except KeyError:
+            print "Bin size is not set for %s, skipping binning."%par_name
+            continue
+
+        #print "Binning %s to determine confidence levels ..."%par_name
+        binParams={par_name:par_bin}
+        injection_area=None
+        injection_area=None
+        if greedy:
+          if printed==0:
+            print "Using greedy 1-d binning credible regions\n"
+            printed=1
+          toppoints,injectionconfidence,reses,injection_area,cl_intervals=greedy_bin_one_param(pos,binParams,confidence_levels)
+        else:
+          if printed==0:
+            print "Using 2-step KDE 1-d credible regions\n"
+            printed=1
+          if pos[par_name].injval is None:
+            injCoords=None
+          else:
+            injCoords=[pos[par_name].injval]
+          _,reses,injstats=kdtree_bin2Step(pos,[par_name],confidence_levels,injCoords=injCoords)
+          if injstats is not None:
+            injectionconfidence=injstats[3]
+            injection_area=injstats[4]
+        #Generate 1D histogram/kde plots
+        print "Generating 1D plot for %s."%par_name
+        out[par_name]=reses
+        #Get analytic description if given
+        pdf=cdf=None
+        if analyticLikelihood:
+            pdf = analyticLikelihood.pdf(par_name)
+            cdf = analyticLikelihood.cdf(par_name)
+
+        oneDPDFParams={par_name:50}
+        try:
+            rbins,plotFig=plot_one_param_pdf(pos,oneDPDFParams,pdf,cdf,plotkde=False)
+        except:
+            print "Failed to produce plot for %s."%par_name
+            continue
+
+        figname=par_name+'.png'
+        oneDplotPath=os.path.join(onepdfdir,figname)
+        plotFig.savefig(oneDplotPath)
+        if(savepdfs): plotFig.savefig(os.path.join(onepdfdir,par_name+'.pdf'))
+        plt.close(plotFig)
+
+        if rbins:
+            print "r of injected value of %s (bins) = %f"%(par_name, rbins)
+
+        ##Produce plot of raw samples
+        myfig=plt.figure(figsize=(4,3.5),dpi=200)
+        pos_samps=pos[par_name].samples
+        if not ("chain" in pos.names):
+            # If there is not a parameter named "chain" in the
+            # posterior, then just produce a plot of the samples.
+            plt.plot(pos_samps,'k.', markersize=5, alpha=0.5, linewidth=0.0, figure=myfig)
+            maxLen=len(pos_samps)
+        else:
+            # If there is a parameter named "chain", then produce a
+            # plot of the various chains in different colors, with
+            # smaller dots.
+            data,header=pos.samples()
+            par_index=pos.names.index(par_name)
+            chain_index=pos.names.index("chain")
+            chains=unique(pos["chain"].samples)
+            chainData=[data[ data[:,chain_index] == chain, par_index ] for chain in chains]
+            chainDataRanges=[range(len(cd)) for cd in chainData]
+            maxLen=max([len(cd) for cd in chainData])
+            for rng, data in zip(chainDataRanges, chainData):
+                plt.plot(rng, data, marker='.', markersize=1, alpha=0.5, linewidth=0.0,figure=myfig)
+            plt.title("Gelman-Rubin R = %g"%(pos.gelman_rubin(par_name)))
+
+            #dataPairs=[ [rng, data] for (rng,data) in zip(chainDataRanges, chainData)]
+            #flattenedData=[ item for pair in dataPairs for item in pair ]
+            #maxLen=max([len(data) for data in flattenedData])
+            #plt.plot(array(flattenedData),marker=',',linewidth=0.0,figure=myfig)
+
+
+        injpar=pos[par_name].injval
+
+        if injpar is not None:
+            # Allow injection to be 5% outside the posterior plot
+            minrange=min(pos_samps)-0.05*(max(pos_samps)-min(pos_samps))
+            maxrange=max(pos_samps)+0.05*(max(pos_samps)-min(pos_samps))
+            if minrange<injpar and maxrange>injpar:
+                plt.axhline(injpar, color='r', linestyle='-.',linewidth=4)
+        myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.png')))
+        if(savepdfs): myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.pdf')))
+        plt.close(myfig)
+        acfail=0
+        if not (noacf):
+            acffig=plt.figure(figsize=(4,3.5),dpi=200)
+            if not ("chain" in pos.names):
+                data=pos_samps[:,0]
+                try:
+                    (Neff, acl, acf) = effectiveSampleSize(data, Nskip)
+                    lines=plt.plot(acf, 'k.', marker='.', markersize=1, alpha=0.5, linewidth=0.0, figure=acffig)
+                    # Give ACL info if not already downsampled according to it
+                    if nDownsample is None:
+                        plt.title('Autocorrelation Function')
+                    elif 'cycle' in pos.names:
+                        last_color = lines[-1].get_color()
+                        plt.axvline(acl/Nskip, linestyle='-.', color=last_color)
+                        plt.title('ACL = %i   N = %i'%(acl,Neff))
+                except FloatingPointError:
+                    # Ignore
+                    acfail=1
+                    pass
+            else:
+                try:
+                    acls = []
+                    Nsamps = 0.0;
+                    for rng, data, Nskip, Ncycles in zip(chainDataRanges, chainData, chainNskips, chainNcycles):
+                        (Neff, acl, acf) = effectiveSampleSize(data, Nskip)
+                        acls.append(acl)
+                        Nsamps += Neff
+                        lines=plt.plot(acf,'k.', marker='.', markersize=1, alpha=0.5, linewidth=0.0, figure=acffig)
+                        # Give ACL info if not already downsampled according to it
+                        if nDownsample is not None:
+                            last_color = lines[-1].get_color()
+                            plt.axvline(acl/Nskip, linestyle='-.', color=last_color)
+                    if nDownsample is None:
+                        plt.title('Autocorrelation Function')
+                    else:
+                        plt.title('ACL = %i  N = %i'%(max(acls),Nsamps))
+                except FloatingPointError:
+                    # Ignore
+                    acfail=1
+                    pass
+
+            acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.png')))
+            if(savepdfs): acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.pdf')))
+            plt.close(acffig)
+
+        if not noacf:
+	  if not acfail:
+	    acfhtml='<td width="30%"><img width="100%" src="1Dsamps/'+figname.replace('.png', '_acf.png')+'"/></td>'
+	  else:
+	    acfhtml='<td>ACF generation failed!</td>'
+          html_ompdf_write+='<tr><td width="30%"><img width="100%" src="1Dpdf/'+figname+'"/></td><td width="30%"><img width="100%" src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td>'+acfhtml+'</tr>'
+        else:
+            html_ompdf_write+='<tr><td width="30%"><img width="100%" src="1Dpdf/'+figname+'"/></td><td width="30%"><img width="100%" src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td></tr>'
+    
+    html_ompdf_write+='</table>'
+    html_ompdf.write(html_ompdf_write)
+    
+    return out
+    

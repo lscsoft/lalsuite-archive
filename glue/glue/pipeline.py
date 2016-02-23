@@ -2099,6 +2099,10 @@ class CondorDAG:
         for ccmd_key, ccmd_val in node.job().get_condor_cmds().items():
             workflow_job.addProfile(Pegasus.DAX3.Profile("condor", ccmd_key, ccmd_val))
 
+        # Add stdout and stderr
+        workflow_job.setStdout(node.job().get_stdout_file())
+        workflow_job.setStderr(node.job().get_stderr_file())
+
         # add any other user specified condor commands or classads
         for p in node.get_pegasus_profile():
             workflow_job.addProfile(Pegasus.DAX3.Profile(p[0],p[1],p[2]))
