@@ -3347,6 +3347,21 @@ class SimBurst(TableRow):
 	def get_ra_dec(self):
 		return self.ra_dec
 
+	def get_end(self, site = None):
+		if site is None:
+			return self.get_time_geocent()
+		else:
+			from pylal.xlal import tools
+			from pylal import date,inject
+			from pylal.date import XLALTimeDelayFromEarthCenter
+			from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+			detMap = {'H': 'LHO_4k', 'L': 'LLO_4k',
+                'G': 'GEO_600', 'V': 'VIRGO', 'T': 'TAMA_300'}
+			location=inject.cached_detector[detMap[site]].location
+			ra,dec=self.get_ra_dec()
+			time=self.get_time_geocent()
+			time=time+LIGOTimeGPS(XLALTimeDelayFromEarthCenter(location,ra,dec,LIGOTimeGPS(time)))
+			return LIGOTimeGPS(float(time))
 
 SimBurstTable.RowType = SimBurst
 
