@@ -1359,7 +1359,7 @@ static int SEOBNRv2ROMDoubleSpinCore(
 
   REAL8 s = 0.5; // Scale polarization amplitude so that strain agrees with FFT of SEOBNRv2
   double Mtot = Mtot_sec / LAL_MTSUN_SI;
-  double amp0 = Mtot * Mtot_sec * LAL_MRSUN_SI / (distance); // Correct overall amplitude to undo mass-dependent scaling used in ROM
+  double amp0 = Mtot * Mtot_sec * LAL_MRSUN_SI / distance; // Correct overall amplitude to undo mass-dependent scaling used in ROM
 
   // Evaluate reference phase for setting phiRef correctly
   double phase_change = gsl_spline_eval(spline_phi, fRef_geom, acc_phi) - 2*phiRef;
@@ -1431,12 +1431,12 @@ static int SEOBNRv2ROMDoubleSpinCore(
  *
  * \brief C code for SEOBNRv2 reduced order model
  * (double spin high resolution low mass version).
- * See CQG 31 195010, 2014, arXiv:1402.4146 for details.
- * Further details in M. Puerrer, https://dcc.ligo.org/P1500175.
+ * See M. Pürrer, CQG 31 195010, 2014, arXiv:1402.4146 for details.
+ * Further details in M. Pürrer, arXiv:1512.02248.
  *
  * This is a frequency domain model that approximates the time domain SEOBNRv2 model.
  *
- * The binary data HDF5 file (SEOBNRv2ROM_DS_HI_vXYZ.hdf5) and the gsl-binary data files (SEOBNRv2ROM_DS_HI_vXYZ.tar)
+ * The binary data HDF5 file (SEOBNRv2ROM_DS_HI_v1.0.hdf5) and the gsl-binary data files (SEOBNRv2ROM_DS_HI_v1.0.tar)
  * will be available at on LIGO clusters in /home/cbc/.
  * Make sure the files are in your LAL_DATA_PATH.
  *
@@ -1446,7 +1446,7 @@ static int SEOBNRv2ROMDoubleSpinCore(
  * @note Parameter ranges:
  *   * 0.01 <= eta <= 0.25
  *   * -1 <= chi_i <= 0.99
- *   * Mtot >= 3 Msun
+ *   * Mtot >= 2 Msun @ 10 Hz.
  *
  *  Aligned component spins chi1, chi2.
  *  Symmetric mass-ratio eta = m1*m2/(m1+m2)^2.
@@ -1485,7 +1485,7 @@ int XLALSimIMRSEOBNRv2ROMDoubleSpinHIFrequencySequence(
   REAL8 m2SI,                                   /**< Mass of companion 2 (kg) */
   REAL8 chi1,                                   /**< Dimensionless aligned component spin 1 */
   REAL8 chi2,                                   /**< Dimensionless aligned component spin 2 */
-  UINT4 nk_max)                                 /**< Truncate interpolants at SVD mode nk_max; don't truncate if nk_max == -1 */
+  INT4 nk_max)                                  /**< Truncate interpolants at SVD mode nk_max; don't truncate if nk_max == -1 */
 {
   /* Internally we need m1 > m2, so change around if this is not the case */
   if (m1SI < m2SI) {
@@ -1518,7 +1518,7 @@ int XLALSimIMRSEOBNRv2ROMDoubleSpinHIFrequencySequence(
 
   // Call the internal core function with deltaF = 0 to indicate that freqs is non-uniformly
   // spaced and we want the strain only at these frequencies
-  int retcode = SEOBNRv2ROMDoubleSpinCore(hptilde,hctilde,
+  int retcode = SEOBNRv2ROMDoubleSpinCore(hptilde, hctilde,
             phiRef, fRef, distance, inclination, Mtot_sec, eta, chi1, chi2, freqs, 0, nk_max);
 
   return(retcode);
@@ -1545,7 +1545,7 @@ int XLALSimIMRSEOBNRv2ROMDoubleSpinHI(
   REAL8 m2SI,                                   /**< Mass of companion 2 (kg) */
   REAL8 chi1,                                   /**< Dimensionless aligned component spin 1 */
   REAL8 chi2,                                   /**< Dimensionless aligned component spin 2 */
-  UINT4 nk_max)                                 /**< Truncate interpolants at SVD mode nk_max; don't truncate if nk_max == -1 */
+  INT4 nk_max)                                  /**< Truncate interpolants at SVD mode nk_max; don't truncate if nk_max == -1 */
 {
   /* Internally we need m1 > m2, so change around if this is not the case */
   if (m1SI < m2SI) {
@@ -1576,13 +1576,13 @@ int XLALSimIMRSEOBNRv2ROMDoubleSpinHI(
 #endif
 
   // Use fLow, fHigh, deltaF to compute freqs sequence
-  // Instead of building a full sequency we only transfer the boundaries and let
+  // Instead of building a full sequence we only transfer the boundaries and let
   // the internal core function do the rest (and properly take care of corner cases).
   REAL8Sequence *freqs = XLALCreateREAL8Sequence(2);
   freqs->data[0] = fLow;
   freqs->data[1] = fHigh;
 
-  int retcode = SEOBNRv2ROMDoubleSpinCore(hptilde,hctilde,
+  int retcode = SEOBNRv2ROMDoubleSpinCore(hptilde, hctilde,
             phiRef, fRef, distance, inclination, Mtot_sec, eta, chi1, chi2, freqs, deltaF, nk_max);
 
   XLALDestroyREAL8Sequence(freqs);
