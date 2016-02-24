@@ -58,7 +58,7 @@
 #define CVS_DATE "$Date$"
 #define CVS_NAME_STRING "$Name$"
 
-const char *const clusteredKDEProposalName = "ClusteredKDEProposal";
+//const char *const clusteredKDEProposalName = "ClusteredKDEProposal";
 
 static void
 thinDifferentialEvolutionPoints(LALInferenceThreadState *thread) {
