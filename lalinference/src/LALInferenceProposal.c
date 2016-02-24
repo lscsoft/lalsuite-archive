@@ -3766,10 +3766,10 @@ void LALInferenceUpdateMaxAutoCorrLen(LALInferenceThreadState *thread) {
   // Calculate ACL with latter half of data to avoid ACL overestimation from chain equilibrating after adaptation
   INT4 acl;
 
-  LALInferenceComputeMaxAutoCorrLenFromDE(therad, &acl);
+  LALInferenceComputeMaxAutoCorrLenFromDE(thread, &acl);
   /* Some case, calculated acl < 1, which causes program stop. 25 September 2015 by KGWG PE team. */
   //if(acl < 1) acl = 1; // set as master at 23 Feb. 2016
-  LALInferenceSetVariable(runState->algorithmParams, "acl", &acl);
+  LALInferenceSetVariable(thread->proposalArgs, "acl", &acl);
 
 }
 
