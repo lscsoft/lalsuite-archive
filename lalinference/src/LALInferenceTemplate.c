@@ -781,8 +781,8 @@ void LALInferenceROQWrapperForXLALSimInspiralChooseFDWaveformSequence(LALInferen
   int ret=0;
   INT4 errnum=0;
 
-  COMPLEX16FrequencySeries *hptildeLinear=NULL, *hctildeLinear=NULL;
-  COMPLEX16FrequencySeries *hptildeQuadratic=NULL, *hctildeQuadratic=NULL;
+  model->roq->hptildeLinear=NULL, model->roq->hctildeLinear=NULL;
+  model->roq->hptildeQuadratic=NULL, model->roq->hctildeQuadratic=NULL;
   REAL8 mc;
   REAL8 phi0, m1, m2, distance, inclination;
 
@@ -938,29 +938,11 @@ void LALInferenceROQWrapperForXLALSimInspiralChooseFDWaveformSequence(LALInferen
 
     /* copy over hptildeLinear, hptildeQuadratic and hcrossL/Q into model->LALInferenceROQModel */
 
-    for (unsigned int i=0; i<hptildeLinear->data->length; ++i){
-      GSL_SET_COMPLEX(&hh, creal(hptildeLinear->data->data[i]), cimag(hptildeLinear->data->data[i]));
-      gsl_vector_complex_set(model->roq->hplusLinear, i, hh);
-      GSL_SET_COMPLEX(&hh, creal(hctildeLinear->data->data[i]), cimag(hctildeLinear->data->data[i]));
-      gsl_vector_complex_set(model->roq->hcrossLinear, i, hh);
 
-    }
-
-
-
-    for (unsigned int i=0; i<hptildeQuadratic->data->length; ++i){
-      GSL_SET_COMPLEX(&hh, creal(hptildeQuadratic->data->data[i]), cimag(hptildeQuadratic->data->data[i]));
-      gsl_vector_complex_set(model->roq->hplusQuadratic, i, hh );
-	GSL_SET_COMPLEX(&hh, creal(hctildeQuadratic->data->data[i]), cimag(hctildeQuadratic->data->data[i]));
-      gsl_vector_complex_set(model->roq->hcrossQuadratic, i, hh );
-    }
-
-
-
-    if ( hptildeLinear ) XLALDestroyCOMPLEX16FrequencySeries(hptildeLinear);
+    /*if ( hptildeLinear ) XLALDestroyCOMPLEX16FrequencySeries(hptildeLinear);
     if ( hctildeLinear ) XLALDestroyCOMPLEX16FrequencySeries(hctildeLinear);
     if ( hptildeQuadratic ) XLALDestroyCOMPLEX16FrequencySeries(hptildeQuadratic);
-    if ( hctildeQuadratic ) XLALDestroyCOMPLEX16FrequencySeries(hctildeQuadratic);
+    if ( hctildeQuadratic ) XLALDestroyCOMPLEX16FrequencySeries(hctildeQuadratic);*/
         return;
 }
 

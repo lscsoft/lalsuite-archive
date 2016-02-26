@@ -653,8 +653,8 @@ tagLALInferenceIFOData
 typedef struct
 tagLALInferenceROQData
 {
-  gsl_matrix_complex *weightsLinear; /** weights for the likelihood: NOTE: needs to be stored from data read from command line */
-  gsl_matrix_complex *weightsQuadratic; /** weights for calculating <h|h> if not using analytical formula */
+  double complex **weightsLinear; /** weights for the likelihood: NOTE: needs to be stored from data read from command line */
+  double complex **weightsQuadratic; /** weights for calculating <h|h> if not using analytical formula */
   REAL8 time_weights_width;
 } LALInferenceROQData;
 
@@ -665,21 +665,20 @@ tagLALInferenceROQData
 typedef struct
 tagLALInferenceROQModel
 {
-  gsl_vector_complex *hplusLinear; /** waveform at frequency nodes for (h|d) term */
-  gsl_vector_complex *hcrossLinear;
-  gsl_vector_complex *hstrainLinear;
+  COMPLEX16FrequencySeries *hptildeLinear;
+  COMPLEX16FrequencySeries *hctildeLinear;
+  COMPLEX16FrequencySeries *hptildeQuadratic;
+  COMPLEX16FrequencySeries *hctildeQuadratic;
+
   gsl_vector_complex *calFactorLinear;
 
-  gsl_vector_complex *hplusQuadratic; /** waveform at frequency nodes for (h|h) term **/
-  gsl_vector_complex *hcrossQuadratic;
-  gsl_vector_complex *hstrainQuadratic;
   gsl_vector_complex *calFactorQuadratic;
 
-  gsl_vector *frequencyNodesLinearGSL;
-  gsl_vector *frequencyNodesQuadraticGSL;
+  double **frequencyNodesLinear;
+  double **frequencyNodesQuadratic;
 
-  REAL8Sequence  * frequencyNodesLinear; /** empirical frequency nodes for the likelihood. NOTE: needs to be stored from data read from command line */
-  REAL8Sequence * frequencyNodesQuadratic;
+  REAL8Sequence  * frequencyNodesLinearLAL; /** empirical frequency nodes for the likelihood. NOTE: needs to be stored from data read from command line */
+  REAL8Sequence * frequencyNodesQuadraticLAL;
   REAL8 trigtime;
 } LALInferenceROQModel;
 
@@ -704,6 +703,8 @@ ProcessParamsTable *LALInferenceGetProcParamVal(ProcessParamsTable *procparams,c
  * \c n UNDOCUMENTED
  */
 void LALInferenceParseCharacterOptionString(char *input, char **strings[], UINT4 *n);
+
+void LALInferenceLoadROQweights(LALInferenceIFOData *IFOdata);
 
 /** Return a ProcessParamsTable from the command line arguments */
 ProcessParamsTable *LALInferenceParseCommandLine(int argc, char *argv[]);

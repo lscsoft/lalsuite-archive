@@ -4101,3 +4101,75 @@ void LALInferencePrintSplineCalibration(FILE *output, LALInferenceThreadState *t
         }
     }
 }
+
+void LALInferenceLoadROQweights(LALInferenceIFOData *thisData, ProcessParamsTable *commandLine){
+
+      ppt=LALInferenceGetProcParamVal(commandLine,"--roqtime_steps");
+	    tempfp = fopen (ppt->value,"r");
+	    fscanf (tempfp, "%u", &time_steps);
+	    fscanf (tempfp, "%u", &n_basis_linear);
+	    fscanf (tempfp, "%u", &n_basis_quadratic);
+	    fscanf (tempfp, "%u", &n_samples);
+	    fprintf(stderr, "loaded --roqtime_steps\n");
+
+
+
+      double complex temp_weights_linear[n_basis_linear][time_steps];
+      double complex temp_weights_quadratic[n_basis_quadratic][time_steps];
+
+      sprintf(tmp, "--%s-roqweightsLinear", thisData->name);
+      ppt = LALInferenceGetProcParamVal(commandLine,tmp);
+
+      thisData->roq->weightsLinear = (double complex**)malloc(n_basis_linear*sizeof(double complex*));//gsl_matrix_complex_calloc(n_basis_linear, time_steps);
+      for(unsigned int tt=0; tt < n_basis_linear; tt++) { 
+
+	thisData->roq->weightsLinear[tt] = (double complex*)malloc(sizeof(double complex)*time_steps);
+      }
+
+      tempfp = fopen(ppt->value, "rb");
+      fread(temp_weights_linear, sizeof(temp_weights_linear), 1, tempfp);
+     
+      for(unsigned int ii=0; ii<n_basis_linear;i++){
+
+
+	for(unsigned int jj=0; jj<time_steps;jj++){
+		thisData->roq->weightsLinear[i][j] = temp_weights_linear[i][j];
+
+	}
+}
+
+      fprintf(stderr, "allocated %s->roq->weightsLinea\n", tmp);
+
+      tempfp = fopen(ppt->value, "rb");
+      fread(temp_weights_quadratic, sizeof(temp_weights_quadratic), 1, tempfp); 
+
+      fprintf(stderr, "loaded Linear weights\n");
+
+      sprintf(tmp, "--%s-roqweightsQuadratic", thisData->name);
+
+      ppt = LALInferenceGetProcParamVal(commandLine,tmp);
+
+      thisData->roq->weightsQuadratic = (double complex**)malloc(n_basis_quadratic*sizeof(double complex*));
+
+      for(unsigned int tt=0; tt < n_basis_quadratic; tt++) { 
+
+	thisData->roq->weightsLinear[tt] = (double complex*)malloc(sizeof(double complex)*time_steps);
+      }
+ 
+      tempfp = fopen(ppt->value, "rb");
+
+      for(unsigned int ii=0; ii<n_basis_linear;i++){
+
+
+	for(unsigned int jj=0; jj<time_steps;jj++){
+		thisData->roq->weightsQuadratic[i][j] = temp_weights_quadratic[i][j];
+
+	}
+} 
+
+      fprintf(stderr, "loaded Quadratic weights\n");
+
+      thisData->roq->time_weights_width = 2*dt + 2*0.026;
+
+
+}

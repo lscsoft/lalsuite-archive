@@ -2873,59 +2873,8 @@ void LALInferenceSetupROQdata(LALInferenceIFOData *IFOdata, ProcessParamsTable *
     thisData=IFOdata;
     while (thisData) {
       thisData->roq = XLALMalloc(sizeof(LALInferenceROQData));
-      fprintf(stderr, "allocated thisData->roq\n");
 
-      sprintf(tmp, "--%s-roqweightsLinear", thisData->name);
-      ppt = LALInferenceGetProcParamVal(commandLine,tmp);
-      thisData->roq->weightsLinear = gsl_matrix_complex_calloc(n_basis_linear, time_steps);
-      fprintf(stderr, "allocated %s->roq->weightsLinea\n", tmp);
-      tempfp = fopen(ppt->value, "rb");
-      gsl_matrix_complex_fread(tempfp, thisData->roq->weightsLinear);
-
-      fprintf(stderr, "loaded Linear weights\n");
-
-      sprintf(tmp, "--%s-roqweightsQuadratic", thisData->name);
-      ppt = LALInferenceGetProcParamVal(commandLine,tmp);
-      thisData->roq->weightsQuadratic = gsl_matrix_complex_calloc(n_basis_quadratic,1);
-      tempfp = fopen(ppt->value, "rb");
-      gsl_matrix_complex_fread(tempfp, thisData->roq->weightsQuadratic);
-
-      fprintf(stderr, "loaded Quadratic weights\n");
-
-      thisData->roq->time_weights_width = 2*dt + 2*0.026;
-
-          /*** compute the weights ***/
-          if (LALInferenceGetProcParamVal(commandLine, "--data-dump")) {
-            ppt=LALInferenceGetProcParamVal(commandLine,"--outfile");
-
-            if(ppt) {
-              snprintf(filename, nameLength, "%s%s-ROQWeightsLinear.dat", ppt->value, thisData->name);
-              snprintf(filename, nameLength, "%s%s-ROQWeightsQuadratic.dat", ppt->value, thisData->name);
-            }
-            //else if(strcmp(pptdatadump->value,"")) {
-            //  snprintf(filename, nameLength, "%s/%s-timeData.dat", pptdatadump->value, IFOdata[i].name);
-            //}
-            else
-              snprintf(filename, nameLength, "%.3f_%s-ROQWeightsLinear.dat",GPStrig.gpsSeconds+1e-9*GPStrig.gpsNanoSeconds, thisData->name);
-              snprintf(filename, nameLength, "%.3f_%s-ROQWeightsQuadratic.dat",GPStrig.gpsSeconds+1e-9*GPStrig.gpsNanoSeconds, thisData->name);
-            out = fopen(filename, "w");
-            if(!out){
-                fprintf(stderr,"Unable to open the path %s for writing ROQ weights files\n",filename);
-                exit(1);
-            }
-            for(unsigned int size2 = 0; size2 < thisData->roq->weightsLinear->size2; size2++){
-              for(unsigned int size1 = 0; size1 < thisData->roq->weightsLinear->size1; size1++){
-                fprintf(out,"(%g+%gj)\t",GSL_REAL(gsl_matrix_complex_get(thisData->roq->weightsLinear,size1,size2)),GSL_IMAG(gsl_matrix_complex_get(thisData->roq->weightsLinear,size1,size2)));
-              }
-              fprintf(out,"\n");
-            }
-            for(unsigned int size = 0; size < thisData->roq->weightsQuadratic->size1; size++){
-              gsl_vector_complex_view weights_row = gsl_matrix_complex_column(thisData->roq->weightsQuadratic, 0);
-              fprintf(out,"(%g+%gj)\t",GSL_REAL(gsl_vector_complex_get(&(weights_row.vector),size)),GSL_IMAG(gsl_vector_complex_get(&(weights_row.vector),size)));
-              fprintf(out,"\n");
-            }
-            fclose(out);
-          }
+      LALInferenceLoadROQweights(thisData, commandLine); 
 
       thisData = thisData->next;
 	fprintf(stderr, "loaded ROQ weights\n");
