@@ -2657,9 +2657,9 @@ void LALInferenceSetupROQmodel(LALInferenceModel *model, ProcessParamsTable *com
   SimInspiralTable *injTable=NULL;
   FILE *tempfp;
   unsigned int n_basis_linear, n_basis_quadratic, n_samples, time_steps;
-  n_basis_linear = 965;
-  n_basis_quadratic = 0;
-  n_samples = 31489;
+  //n_basis_linear = 965;
+  //n_basis_quadratic = 0;
+  //n_samples = 31489;
   //REAL8 delta_tc = 0.0001;
   float dt=0.1;
   LIGOTimeGPS GPStrig;
@@ -2669,11 +2669,10 @@ void LALInferenceSetupROQmodel(LALInferenceModel *model, ProcessParamsTable *com
   char filename[nameLength];
   FILE *out;
 	char tmp[128];
-  REAL8 fnode=0.;
 
 	  model->roq = XLALMalloc(sizeof(LALInferenceROQModel));
 	  model->roq_flag = 1;
-
+	fprintf(stderr, "entered model\n");
 	  procparam=LALInferenceGetProcParamVal(commandLine,"--inj");
 	  if(procparam){
 	    SimInspiralTableFromLIGOLw(&injTable,procparam->value,0,0);
@@ -2729,39 +2728,27 @@ void LALInferenceSetupROQmodel(LALInferenceModel *model, ProcessParamsTable *com
 	    fprintf(stderr, "loaded --roqtime_steps\n");
 	  }
 
-	  model->roq->frequencyNodesLinearGSL = gsl_vector_calloc(n_basis_linear);
-	  model->roq->frequencyNodesQuadraticGSL = gsl_vector_calloc(n_basis_quadratic);
+
+	  double temp_fnodes_linear[n_basis_linear];
+	  double temp_fnodes_quadratic[n_basis_quadratic];
 
 	  model->roq->frequencyNodesLinear = XLALCreateREAL8Sequence(n_basis_linear);
 	  model->roq->frequencyNodesQuadratic = XLALCreateREAL8Sequence(n_basis_quadratic);
 
-	  model->roq->hplusLinear = gsl_vector_complex_calloc(n_basis_linear);
-	  model->roq->hcrossLinear = gsl_vector_complex_calloc(n_basis_linear);
-	  model->roq->hstrainLinear = gsl_vector_complex_calloc(n_basis_linear);
-	  model->roq->calFactorLinear = gsl_vector_complex_calloc(n_basis_linear);
-
-	  model->roq->hplusQuadratic = gsl_vector_complex_calloc(n_basis_quadratic);
-	  model->roq->hcrossQuadratic = gsl_vector_complex_calloc(n_basis_quadratic);
-	  model->roq->hstrainQuadratic = gsl_vector_complex_calloc(n_basis_quadratic);
-	  model->roq->calFactorQuadratic = gsl_vector_complex_calloc(n_basis_quadratic);
 
 	  model->roq->trigtime = endtime;
 
 	  if(LALInferenceGetProcParamVal(commandLine,"--roqnodesLinear")){
 	    ppt=LALInferenceGetProcParamVal(commandLine,"--roqnodesLinear");
 
-	    // open file containing the set of frequency points associated
-	    // with the given weights
-	    tempfp = fopen(ppt->value, "rb");
-	    if (!tempfp) {
+	    model->roq->nodesFileLinear = fopen(ppt->value, "rb");
+	    if (!(model->roq->nodesFileLinear)) {
 		fprintf(stderr,"Error: cannot find file %s \n", ppt->value);
 		exit(1);} // check file exists
-	    gsl_vector_fread(tempfp, model->roq->frequencyNodesLinearGSL);
-	    fprintf(stderr, "read model->roq->frequencyNodesLinearGSL");
+	    fprintf(stderr, "read model->roq->frequencyNodesLinear");
 
-	    for(unsigned int linsize = 0; linsize < model->roq->frequencyNodesLinearGSL->size; linsize++){
-	      fnode = gsl_vector_get(model->roq->frequencyNodesLinearGSL, linsize);
-	      model->roq->frequencyNodesLinear->data[linsize] = fnode;
+	    for(unsigned int linsize = 0; linsize < n_basis_linear; linsize++){
+	      fread(&(model->roq->frequencyNodesLinear->data[linsize]), sizeof(REAL8), 1, model->roq->nodesFileLinear);
 	    }
 		fprintf(stderr, "loaded --roqnodesLinear\n");
 	  }
@@ -2769,17 +2756,13 @@ void LALInferenceSetupROQmodel(LALInferenceModel *model, ProcessParamsTable *com
 	  if(LALInferenceGetProcParamVal(commandLine,"--roqnodesQuadratic")){
 	    ppt=LALInferenceGetProcParamVal(commandLine,"--roqnodesQuadratic");
 
-	    //open file containing the set of frequency points associated
-	    // with the given weights
-	    tempfp = fopen(ppt->value, "rb");
-	    if (!tempfp) {
+	     model->roq->nodesFileQuadratic = fopen(ppt->value, "rb");
+	    if (!(model->roq->nodesFileQuadratic)) {
 	      fprintf(stderr,"Error: cannot find file %s \n", ppt->value);
 	      exit(1);} // check file exists
-	    gsl_vector_fread(tempfp, model->roq->frequencyNodesQuadraticGSL);
 
-	    for(unsigned int quadsize = 0; quadsize < model->roq->frequencyNodesQuadraticGSL->size; quadsize++){
-	      fnode = gsl_vector_get(model->roq->frequencyNodesQuadraticGSL, quadsize);
-	      model->roq->frequencyNodesQuadratic->data[quadsize] = fnode;
+	    for(unsigned int quadsize = 0; quadsize < n_basis_quadratic; quadsize++){
+	      fread(&(model->roq->frequencyNodesQuadratic->data[quadsize]), sizeof(REAL8), 1, model->roq->nodesFileQuadratic);
 	    }
 	fprintf(stderr, "loaded --roqnodesQuadratic\n");
   }
@@ -2797,11 +2780,10 @@ void LALInferenceSetupROQdata(LALInferenceIFOData *IFOdata, ProcessParamsTable *
   char *chartmp=NULL;
   ProcessParamsTable *procparam=NULL,*ppt=NULL;
   SimInspiralTable *injTable=NULL;
-  FILE *tempfp;
   unsigned int n_basis_linear, n_basis_quadratic, n_samples, time_steps;
-  n_basis_linear = 965;
-  n_basis_quadratic = 0;
-  n_samples = 31489;
+  //n_basis_linear = 965;
+  //n_basis_quadratic = 0;
+  //n_samples = 31489;
   //REAL8 delta_tc = 0.0001;
   float dt=0.1;
   LIGOTimeGPS GPStrig;
@@ -2809,7 +2791,7 @@ void LALInferenceSetupROQdata(LALInferenceIFOData *IFOdata, ProcessParamsTable *
   //REAL8 timeMin=0.0,timeMax=0.0;
   const UINT4 nameLength=FILENAME_MAX;
   char filename[nameLength];
-  FILE *out;
+  FILE *out, *tempfp;
 	char tmp[128];
   REAL8 fnode=0.;
 
@@ -2874,10 +2856,55 @@ void LALInferenceSetupROQdata(LALInferenceIFOData *IFOdata, ProcessParamsTable *
     while (thisData) {
       thisData->roq = XLALMalloc(sizeof(LALInferenceROQData));
 
-      LALInferenceLoadROQweights(thisData, commandLine); 
+      sprintf(tmp, "--%s-roqweightsLinear", thisData->name);
+      ppt = LALInferenceGetProcParamVal(commandLine,tmp);
+      
+      thisData->roq->weightsFileLinear = fopen(ppt->value, "rb");
+	fprintf(stderr, "about to malloc\n");
+      thisData->roq->weightsLinear = (double complex**)malloc(n_basis_linear*sizeof(double complex*));//gsl_matrix_complex_calloc(n_basis_linear, time_steps);
+      for(unsigned int tt=0; tt < n_basis_linear; tt++) { 
 
+	thisData->roq->weightsLinear[tt] = (double complex*)malloc(sizeof(double complex)*time_steps);
+      }
+
+      for(unsigned int ii=0; ii<n_basis_linear;ii++){
+
+
+	for(unsigned int jj=0; jj<time_steps;jj++){
+		fread(&(thisData->roq->weightsLinear[ii][jj]), sizeof(double complex), 1, thisData->roq->weightsFileLinear);
+	}
+}
+
+
+      fprintf(stderr, "allocated %s->roq->weightsLinear\n", tmp);
+
+      sprintf(tmp, "--%s-roqweightsQuadratic", thisData->name);
+	
+      ppt = LALInferenceGetProcParamVal(commandLine,tmp);
+	
+      thisData->roq->weightsQuadratic = (double complex**)malloc(n_basis_quadratic*sizeof(double complex*));
+      for(unsigned int tt=0; tt < n_basis_quadratic; tt++) { 
+
+	thisData->roq->weightsQuadratic[tt] = (double complex*)malloc(sizeof(double complex)*time_steps);
+      }
+        
+      thisData->roq->weightsFileQuadratic = fopen(ppt->value, "rb");
+
+      for(unsigned int ii=0; ii<n_basis_quadratic;ii++){
+
+
+	for(unsigned int jj=0; jj<time_steps;jj++){
+		fread(&(thisData->roq->weightsQuadratic[ii][jj]), sizeof(double complex), 1, thisData->roq->weightsFileQuadratic);
+	}
+} 
+
+      fprintf(stderr, "allocated %s Quadratic weights\n", tmp);
+
+      thisData->roq->time_weights_width = 2*dt + 2*0.026;
+      thisData->roq->time_step = thisData->roq->time_weights_width/time_steps;
+
+      fprintf(stderr, "loaded %s ROQ weights\n", thisData->name);
       thisData = thisData->next;
-	fprintf(stderr, "loaded ROQ weights\n");
     }
 }
 

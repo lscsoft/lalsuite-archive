@@ -656,6 +656,9 @@ tagLALInferenceROQData
   double complex **weightsLinear; /** weights for the likelihood: NOTE: needs to be stored from data read from command line */
   double complex **weightsQuadratic; /** weights for calculating <h|h> if not using analytical formula */
   REAL8 time_weights_width;
+  REAL8 time_step;
+  FILE *weightsFileLinear;
+  FILE *weightsFileQuadratic;
 } LALInferenceROQData;
 
 
@@ -674,12 +677,11 @@ tagLALInferenceROQModel
 
   gsl_vector_complex *calFactorQuadratic;
 
-  double **frequencyNodesLinear;
-  double **frequencyNodesQuadratic;
-
-  REAL8Sequence  * frequencyNodesLinearLAL; /** empirical frequency nodes for the likelihood. NOTE: needs to be stored from data read from command line */
-  REAL8Sequence * frequencyNodesQuadraticLAL;
+  REAL8Sequence  * frequencyNodesLinear; /** empirical frequency nodes for the likelihood. NOTE: needs to be stored from data read from command line */
+  REAL8Sequence * frequencyNodesQuadratic;
   REAL8 trigtime;
+  FILE *nodesFileLinear;
+  FILE *nodesFileQuadratic;
 } LALInferenceROQModel;
 
 /* Initialize an empty thread, saving a timestamp for benchmarking */
@@ -704,7 +706,6 @@ ProcessParamsTable *LALInferenceGetProcParamVal(ProcessParamsTable *procparams,c
  */
 void LALInferenceParseCharacterOptionString(char *input, char **strings[], UINT4 *n);
 
-void LALInferenceLoadROQweights(LALInferenceIFOData *IFOdata);
 
 /** Return a ProcessParamsTable from the command line arguments */
 ProcessParamsTable *LALInferenceParseCommandLine(int argc, char *argv[]);
