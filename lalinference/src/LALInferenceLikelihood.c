@@ -821,13 +821,13 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
     
          for(unsigned int iii=0; iii < model->roq->frequencyNodesLinear->length; iii++){
 
- 		d_inner_h += creal( dataPtr->roq->weightsLinear[weight_index][iii]*(Fplus*model->roq->hptildeLinear->data->data[iii] + Fcross*model->roq->hctildeLinear->data->data[iii]) );
+ 		d_inner_h += creal( dataPtr->roq->weightsLinear[weight_index][iii]*(dataPtr->fPlus*conj(model->roq->hptildeLinear->data->data[iii]) + dataPtr->fCross*conj(model->roq->hctildeLinear->data->data[iii])) );
 
 		model->ifo_loglikelihoods[ifo] += d_inner_h;
 	 }
 	for(unsigned int jjj=0; jjj < model->roq->frequencyNodesQuadratic->length; jjj++){
 
-   	 	 S += -0.5*creal( dataPtr->roq->weightsQuadratic[weight_index][jjj]*( Fplus*Fplus*creal(model->roq->hptildeQuadratic->data->data[jjj])*creal(model->roq->hptildeQuadratic->data->data[jjj]) + Fcross*Fcross*creal(model->roq->hctildeQuadratic->data->data[jjj]) + 2*Fplus*Fcross*creal( model->roq->hptildeQuadratic->data->data[jjj]*model->roq->hctildeQuadratic->data->data[jjj]  ) ) );
+   	 	 S += -0.5*creal( dataPtr->roq->weightsQuadratic[0][jjj]*( dataPtr->fPlus*dataPtr->fPlus*creal(conj(model->roq->hptildeQuadratic->data->data[jjj])*model->roq->hptildeQuadratic->data->data[jjj]) + dataPtr->fCross*dataPtr->fCross*creal(conj(model->roq->hctildeQuadratic->data->data[jjj])*model->roq->hctildeQuadratic->data->data[jjj]) + 2*dataPtr->fPlus*dataPtr->fCross*creal( conj(model->roq->hptildeQuadratic->data->data[jjj])*model->roq->hctildeQuadratic->data->data[jjj]  ) ) );
 
                 model->ifo_loglikelihoods[ifo] += S; 
 		
@@ -841,12 +841,13 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
     LALInferenceAddREAL8Variable(currentParams,varname,this_ifo_snr,LALINFERENCE_PARAM_OUTPUT);
 
     sprintf(varname,"%s_cplx_snr_amp",dataPtr->name);
-    REAL8 cplx_snr_amp = gsl_complex_abs(complex_d_dot_h)/this_ifo_snr;
+    REAL8 cplx_snr_amp = d_inner_h/this_ifo_snr;
     LALInferenceAddREAL8Variable(currentParams,varname,cplx_snr_amp,LALINFERENCE_PARAM_OUTPUT);
 
     sprintf(varname,"%s_cplx_snr_arg",dataPtr->name);
-    REAL8 cplx_snr_phase = gsl_complex_arg(complex_d_dot_h);
+    REAL8 cplx_snr_phase = 0;//gsl_complex_arg(complex_d_dot_h);
     LALInferenceAddREAL8Variable(currentParams,varname,cplx_snr_phase,LALINFERENCE_PARAM_OUTPUT);
+    
 
     }
 
