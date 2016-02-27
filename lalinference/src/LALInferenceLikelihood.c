@@ -590,7 +590,6 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
     /* Reset log-likelihood */
     model->ifo_loglikelihoods[ifo] = 0.0;
     model->ifo_SNRs[ifo] = 0.0;
-
     // Check if student-t likelihood is being used
     if(marginalisationflags==STUDENTT)
     {
@@ -818,7 +817,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
             gsl_vector_complex_set(model->roq->hstrainQuadratic, ii, h_roq_cal);
         }
     }*/
-    
+
          for(unsigned int iii=0; iii < model->roq->frequencyNodesLinear->length; iii++){
 
  		d_inner_h += creal( dataPtr->roq->weightsLinear[iii][weight_index]*(dataPtr->fPlus*conj(model->roq->hptildeLinear->data->data[iii]) + dataPtr->fCross*conj(model->roq->hctildeLinear->data->data[iii])) );
@@ -838,7 +837,6 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 	char varname[VARNAME_MAX];
     sprintf(varname,"%s_optimal_snr",dataPtr->name);
     REAL8 this_ifo_snr = sqrt(S);
-    fprintf(stderr, "%f %f\n", this_ifo_snr, d_inner_h);
     LALInferenceAddREAL8Variable(currentParams,varname,this_ifo_snr,LALINFERENCE_PARAM_OUTPUT);
 
     sprintf(varname,"%s_cplx_snr_amp",dataPtr->name);
