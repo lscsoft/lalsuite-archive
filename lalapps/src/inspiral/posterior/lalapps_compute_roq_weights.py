@@ -137,7 +137,7 @@ for ifo in options.IFOs:
 	#*************************************************************************** #	
 	weights_path_quadratic = os.path.join(options.outpath,"weights_quadratic_%s.dat"%ifo)
         weights_file_quadratic = open(weights_path_quadratic, "wb")
-	weights_quadratic = BuildWeights(1./psd, B_quadratic, deltaF) 
+	weights_quadratic = BuildWeights(1./psd, B_quadratic, deltaF).real
 
 	(weights_quadratic).tofile(weights_file_quadratic)
         weights_file_quadratic.close()

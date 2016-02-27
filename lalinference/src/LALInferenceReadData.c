@@ -2889,7 +2889,6 @@ void LALInferenceSetupROQdata(LALInferenceIFOData *IFOdata, ProcessParamsTable *
       for(unsigned int ii=0; ii<n_basis_quadratic;ii++){
 
 		fread(&(thisData->roq->weightsQuadratic[ii]), sizeof(double), 1, thisData->roq->weightsFileQuadratic);
-		fprintf(stderr, "%d %d %e\n", ii, creal(thisData->roq->weightsQuadratic[ii]));
 	} 
  
       fprintf(stderr, "allocated %s Quadratic weights\n", tmp);
