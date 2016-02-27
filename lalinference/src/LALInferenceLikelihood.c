@@ -821,17 +821,14 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
          for(unsigned int iii=0; iii < model->roq->frequencyNodesLinear->length; iii++){
 
  		d_inner_h += creal( dataPtr->roq->weightsLinear[iii][weight_index]*(dataPtr->fPlus*conj(model->roq->hptildeLinear->data->data[iii]) + dataPtr->fCross*conj(model->roq->hctildeLinear->data->data[iii])) );
-
-		model->ifo_loglikelihoods[ifo] += d_inner_h;
 	 }
 	for(unsigned int jjj=0; jjj < model->roq->frequencyNodesQuadratic->length; jjj++){
 
-   	 	 S += dataPtr->roq->weightsQuadratic[jjj]*( dataPtr->fPlus*dataPtr->fPlus*creal(conj(model->roq->hptildeQuadratic->data->data[jjj])*model->roq->hptildeQuadratic->data->data[jjj]) + dataPtr->fCross*dataPtr->fCross*creal(conj(model->roq->hctildeQuadratic->data->data[jjj])*model->roq->hctildeQuadratic->data->data[jjj]) + 2*dataPtr->fPlus*dataPtr->fCross*creal( conj(model->roq->hptildeQuadratic->data->data[jjj])*model->roq->hctildeQuadratic->data->data[jjj]  ) ) ;
-
-                model->ifo_loglikelihoods[ifo] += -0.5*S; 
+		S += dataPtr->roq->weightsQuadratic[jjj]* creal( conj(model->roq->hptildeQuadratic->data->data[jjj]*dataPtr->fPlus + model->roq->hctildeQuadratic->data->data[jjj]*dataPtr->fCross) * (model->roq->hptildeQuadratic->data->data[jjj]*dataPtr->fPlus + model->roq->hctildeQuadratic->data->data[jjj]*dataPtr->fCross) );
 		
         }
 
+	model->ifo_loglikelihoods[ifo] = d_inner_h -0.5*S;
 	loglikelihood += model->ifo_loglikelihoods[ifo];
 
 	char varname[VARNAME_MAX];
