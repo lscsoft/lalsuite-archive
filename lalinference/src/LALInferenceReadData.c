@@ -81,6 +81,7 @@
 /* LIB deps */
 #include <lal/LALInferenceBurstRoutines.h>
 #include <lal/LIGOLwXMLBurstRead.h>
+#include <assert.h>
 
 struct fvec {
   REAL8 f;
@@ -2860,13 +2861,14 @@ void LALInferenceSetupROQdata(LALInferenceIFOData *IFOdata, ProcessParamsTable *
       ppt = LALInferenceGetProcParamVal(commandLine,tmp);
       
       thisData->roq->weightsFileLinear = fopen(ppt->value, "rb");
-	fprintf(stderr, "about to malloc\n");
+	assert(thisData->roq->weightsFileLinear!=NULL);
       thisData->roq->weightsLinear = (double complex**)malloc(n_basis_linear*sizeof(double complex*));//gsl_matrix_complex_calloc(n_basis_linear, time_steps);
       for(unsigned int tt=0; tt < n_basis_linear; tt++) { 
 
 	thisData->roq->weightsLinear[tt] = (double complex*)malloc(sizeof(double complex)*time_steps);
       }
-
+      
+	fprintf(stderr, "about to malloc\n");
       for(unsigned int ii=0; ii<n_basis_linear;ii++){
 
 
@@ -2874,8 +2876,6 @@ void LALInferenceSetupROQdata(LALInferenceIFOData *IFOdata, ProcessParamsTable *
 		fread(&(thisData->roq->weightsLinear[ii][jj]), sizeof(double complex), 1, thisData->roq->weightsFileLinear);
 	}
 }
-
-
       fprintf(stderr, "allocated %s->roq->weightsLinear\n", tmp);
 
       sprintf(tmp, "--%s-roqweightsQuadratic", thisData->name);
@@ -2897,7 +2897,7 @@ void LALInferenceSetupROQdata(LALInferenceIFOData *IFOdata, ProcessParamsTable *
 		fread(&(thisData->roq->weightsQuadratic[ii][jj]), sizeof(double complex), 1, thisData->roq->weightsFileQuadratic);
 	}
 } 
-
+ 
       fprintf(stderr, "allocated %s Quadratic weights\n", tmp);
 
       thisData->roq->time_weights_width = 2*dt + 2*0.026;
