@@ -2882,21 +2882,15 @@ void LALInferenceSetupROQdata(LALInferenceIFOData *IFOdata, ProcessParamsTable *
 	
       ppt = LALInferenceGetProcParamVal(commandLine,tmp);
 	
-      thisData->roq->weightsQuadratic = (double complex**)malloc(n_basis_quadratic*sizeof(double complex*));
-      for(unsigned int tt=0; tt < n_basis_quadratic; tt++) { 
-
-	thisData->roq->weightsQuadratic[tt] = (double complex*)malloc(sizeof(double complex)*time_steps);
-      }
+      thisData->roq->weightsQuadratic = (double*)malloc(n_basis_quadratic*sizeof(double));
         
       thisData->roq->weightsFileQuadratic = fopen(ppt->value, "rb");
 
       for(unsigned int ii=0; ii<n_basis_quadratic;ii++){
 
-
-	for(unsigned int jj=0; jj<time_steps;jj++){
-		fread(&(thisData->roq->weightsQuadratic[ii][jj]), sizeof(double complex), 1, thisData->roq->weightsFileQuadratic);
-	}
-} 
+		fread(&(thisData->roq->weightsQuadratic[ii]), sizeof(double), 1, thisData->roq->weightsFileQuadratic);
+		fprintf(stderr, "%d %d %e\n", ii, creal(thisData->roq->weightsQuadratic[ii]));
+	} 
  
       fprintf(stderr, "allocated %s Quadratic weights\n", tmp);
 

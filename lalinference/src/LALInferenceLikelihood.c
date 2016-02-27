@@ -821,13 +821,13 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
     
          for(unsigned int iii=0; iii < model->roq->frequencyNodesLinear->length; iii++){
 
- 		d_inner_h += creal( dataPtr->roq->weightsLinear[weight_index][iii]*(dataPtr->fPlus*conj(model->roq->hptildeLinear->data->data[iii]) + dataPtr->fCross*conj(model->roq->hctildeLinear->data->data[iii])) );
+ 		d_inner_h += creal( dataPtr->roq->weightsLinear[iii][weight_index]*(dataPtr->fPlus*conj(model->roq->hptildeLinear->data->data[iii]) + dataPtr->fCross*conj(model->roq->hctildeLinear->data->data[iii])) );
 
 		model->ifo_loglikelihoods[ifo] += d_inner_h;
 	 }
 	for(unsigned int jjj=0; jjj < model->roq->frequencyNodesQuadratic->length; jjj++){
 
-   	 	 S += -0.5*creal( dataPtr->roq->weightsQuadratic[0][jjj]*( dataPtr->fPlus*dataPtr->fPlus*creal(conj(model->roq->hptildeQuadratic->data->data[jjj])*model->roq->hptildeQuadratic->data->data[jjj]) + dataPtr->fCross*dataPtr->fCross*creal(conj(model->roq->hctildeQuadratic->data->data[jjj])*model->roq->hctildeQuadratic->data->data[jjj]) + 2*dataPtr->fPlus*dataPtr->fCross*creal( conj(model->roq->hptildeQuadratic->data->data[jjj])*model->roq->hctildeQuadratic->data->data[jjj]  ) ) );
+   	 	 S += -0.5*creal( dataPtr->roq->weightsQuadratic[jjj]*( dataPtr->fPlus*dataPtr->fPlus*creal(conj(model->roq->hptildeQuadratic->data->data[jjj])*model->roq->hptildeQuadratic->data->data[jjj]) + dataPtr->fCross*dataPtr->fCross*creal(conj(model->roq->hctildeQuadratic->data->data[jjj])*model->roq->hctildeQuadratic->data->data[jjj]) + 2*dataPtr->fPlus*dataPtr->fCross*creal( conj(model->roq->hptildeQuadratic->data->data[jjj])*model->roq->hctildeQuadratic->data->data[jjj]  ) ) );
 
                 model->ifo_loglikelihoods[ifo] += S; 
 		
@@ -838,6 +838,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 	char varname[VARNAME_MAX];
     sprintf(varname,"%s_optimal_snr",dataPtr->name);
     REAL8 this_ifo_snr = sqrt(S);
+    fprintf(stderr, "%f %f\n", this_ifo_snr, d_inner_h);
     LALInferenceAddREAL8Variable(currentParams,varname,this_ifo_snr,LALINFERENCE_PARAM_OUTPUT);
 
     sprintf(varname,"%s_cplx_snr_amp",dataPtr->name);
