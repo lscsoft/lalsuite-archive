@@ -590,6 +590,8 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
     /* Reset log-likelihood */
     model->ifo_loglikelihoods[ifo] = 0.0;
     model->ifo_SNRs[ifo] = 0.0;
+    REAL8 this_ifo_d_inner_h = 0.0;
+    REAL8 this_ifo_S = 0.0;
     // Check if student-t likelihood is being used
     if(marginalisationflags==STUDENTT)
     {
@@ -775,23 +777,12 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
     }
 
     if (model->roq_flag) {
+
 	timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location, ra, dec, &GPSlal);
 	time_requested =  GPSdouble + timedelay;
 
 	dataPtr->timeshift = timeshift;
 
-	/*gsl_fplus = gsl_complex_rect(dataPtr->fPlus,0.0);
-	gsl_fcross = gsl_complex_rect(dataPtr->fCross,0.0);
-
-	gsl_vector_complex_set_zero(model->roq->hstrainLinear);
-	gsl_vector_complex_set_zero(model->roq->hstrainQuadratic);
-
-	gsl_blas_zaxpy(gsl_fplus,model->roq->hplusLinear,model->roq->hstrainLinear);
-	gsl_blas_zaxpy(gsl_fcross,model->roq->hcrossLinear,model->roq->hstrainLinear);
-
-	gsl_blas_zaxpy(gsl_fplus,model->roq->hplusQuadratic,model->roq->hstrainQuadratic);
-	gsl_blas_zaxpy(gsl_fcross,model->roq->hcrossQuadratic,model->roq->hstrainQuadratic);
-	*/
 	time_min = model->roq->trigtime - 0.5*dataPtr->roq->time_weights_width;
 
 	time_requested -= time_min;
@@ -802,42 +793,28 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 	// then set tc in sampler to be one of the discrete values
 	weight_index = (unsigned int) (time_requested);
 
-	/*
-	if (spcal_active) {
-	     for (unsigned int ii = 0; ii < model->roq->calFactorLinear->size; ii++) {
-            h_roq_raw = gsl_vector_complex_get(model->roq->hstrainLinear, ii);
-            calF_roq = gsl_vector_complex_get(model->roq->calFactorLinear, ii);
-            h_roq_cal = gsl_complex_mul(h_roq_raw, calF_roq);
-            gsl_vector_complex_set(model->roq->hstrainLinear, ii, h_roq_cal);
-        }
-        for (unsigned int ii = 0; ii < model->roq->calFactorQuadratic->size; ii++) {
-            h_roq_raw = gsl_vector_complex_get(model->roq->hstrainQuadratic, ii);
-            calF_roq = gsl_vector_complex_get(model->roq->calFactorQuadratic, ii);
-            h_roq_cal = gsl_complex_mul(h_roq_raw, calF_roq);
-            gsl_vector_complex_set(model->roq->hstrainQuadratic, ii, h_roq_cal);
-        }
-    }*/
+        for(unsigned int iii=0; iii < model->roq->frequencyNodesLinear->length; iii++){
 
-         for(unsigned int iii=0; iii < model->roq->frequencyNodesLinear->length; iii++){
-
- 		d_inner_h += creal( dataPtr->roq->weightsLinear[iii][weight_index]*(dataPtr->fPlus*conj(model->roq->hptildeLinear->data->data[iii]) + dataPtr->fCross*conj(model->roq->hctildeLinear->data->data[iii])) );
+ 		this_ifo_d_inner_h += creal( dataPtr->roq->weightsLinear[iii][weight_index]*(dataPtr->fPlus*conj(model->roq->hptildeLinear->data->data[iii]) + dataPtr->fCross*conj(model->roq->hctildeLinear->data->data[iii])) );
 	 }
 	for(unsigned int jjj=0; jjj < model->roq->frequencyNodesQuadratic->length; jjj++){
 
-		S += dataPtr->roq->weightsQuadratic[jjj]* creal( conj(model->roq->hptildeQuadratic->data->data[jjj]*dataPtr->fPlus + model->roq->hctildeQuadratic->data->data[jjj]*dataPtr->fCross) * (model->roq->hptildeQuadratic->data->data[jjj]*dataPtr->fPlus + model->roq->hctildeQuadratic->data->data[jjj]*dataPtr->fCross) );
+		this_ifo_S += dataPtr->roq->weightsQuadratic[jjj] * creal( conj(model->roq->hptildeQuadratic->data->data[jjj]*dataPtr->fPlus + model->roq->hctildeQuadratic->data->data[jjj]*dataPtr->fCross) * (model->roq->hptildeQuadratic->data->data[jjj]*dataPtr->fPlus + model->roq->hctildeQuadratic->data->data[jjj]*dataPtr->fCross) );
 		
         }
-
-	model->ifo_loglikelihoods[ifo] = d_inner_h -0.5*S;
+	
+	d_inner_h += this_ifo_d_inner_h;
+	S += this_ifo_S;
+	model->ifo_loglikelihoods[ifo] = this_ifo_d_inner_h - 0.5*this_ifo_S;
 	loglikelihood += model->ifo_loglikelihoods[ifo];
 
 	char varname[VARNAME_MAX];
     sprintf(varname,"%s_optimal_snr",dataPtr->name);
-    REAL8 this_ifo_snr = sqrt(S);
+    REAL8 this_ifo_snr = sqrt(this_ifo_S);
     LALInferenceAddREAL8Variable(currentParams,varname,this_ifo_snr,LALINFERENCE_PARAM_OUTPUT);
 
     sprintf(varname,"%s_cplx_snr_amp",dataPtr->name);
-    REAL8 cplx_snr_amp = d_inner_h/this_ifo_snr;
+    REAL8 cplx_snr_amp = this_ifo_d_inner_h/this_ifo_snr;
     LALInferenceAddREAL8Variable(currentParams,varname,cplx_snr_amp,LALINFERENCE_PARAM_OUTPUT);
 
     sprintf(varname,"%s_cplx_snr_arg",dataPtr->name);

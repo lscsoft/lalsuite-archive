@@ -773,7 +773,6 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
 
 void LALInferenceROQWrapperForXLALSimInspiralChooseFDWaveformSequence(LALInferenceModel *model){
 /*************************************************************************************************************************/
-  gsl_complex hh;
   Approximant approximant = (Approximant) 0;
   INT4 order=-1;
   INT4 amporder;
@@ -921,7 +920,6 @@ void LALInferenceROQWrapperForXLALSimInspiralChooseFDWaveformSequence(LALInferen
   LALSimInspiralTestGRParam *nonGRparams = NULL;
 
 
-
   /* ==== Call the waveform generator ==== */
   XLAL_TRY(ret=XLALSimInspiralChooseFDWaveformSequence (&(model->roq->hptildeLinear), &(model->roq->hctildeLinear), phi0, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI,
                 spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_ref, distance, inclination, lambda1, lambda2,
@@ -932,17 +930,34 @@ void LALInferenceROQWrapperForXLALSimInspiralChooseFDWaveformSequence(LALInferen
                   model->waveFlags, nonGRparams, amporder, order, approximant, (model->roq->frequencyNodesQuadratic)), errnum);
     /* Destroy the nonGr params */
     XLALSimInspiralDestroyTestGRParam(nonGRparams);
-
+    
     REAL8 instant = model->freqhPlus->epoch.gpsSeconds + 1e-9*model->freqhPlus->epoch.gpsNanoSeconds;
     LALInferenceSetVariable(model->params, "time", &instant);
 
-    /* copy over hptildeLinear, hptildeQuadratic and hcrossL/Q into model->LALInferenceROQModel */
+    /* Clear model buffers */
+    /*memset(model->roq->hptildeLinear->data->data, 0, sizeof(COMPLEX16)*model->roq->hptildeLinear->data->length);
+    memset(model->roq->hctildeLinear->data->data, 0, sizeof(COMPLEX16)*model->roq->hctildeLinear->data->length);
+    memset(model->roq->hptildeQuadratic->data->data, 0, sizeof(COMPLEX16)*model->roq->hptildeQuadratic->data->length);
+    memset(model->roq->hctildeQuadratic->data->data, 0, sizeof(COMPLEX16)*model->roq->hctildeQuadratic->data->length);
 
+    UINT4 size=hptildeLinear->data->length;
+    memcpy(model->roq->hptildeLinear->data->data,hptildeLinear->data->data,sizeof(hptildeLinear->data->data[0])*size);
 
-    /*if ( hptildeLinear ) XLALDestroyCOMPLEX16FrequencySeries(hptildeLinear);
+    size=hctildeLinear->data->length;
+    memcpy(model->roq->hctildeLinear->data->data,hctildeLinear->data->data,sizeof(hctildeLinear->data->data[0])*size);
+
+    size=hptildeQuadratic->data->length;
+    memcpy(model->roq->hptildeQuadratic->data->data,hptildeQuadratic->data->data,sizeof(hptildeQuadratic->data->data[0])*size);
+
+    size=hctildeQuadratic->data->length;
+    memcpy(model->roq->hctildeQuadratic->data->data,hctildeQuadratic->data->data,sizeof(hctildeQuadratic->data->data[0])*size);
+    if ( hptildeLinear ) XLALDestroyCOMPLEX16FrequencySeries(hptildeLinear);
     if ( hctildeLinear ) XLALDestroyCOMPLEX16FrequencySeries(hctildeLinear);
-    if ( hptildeQuadratic ) XLALDestroyCOMPLEX16FrequencySeries(hptildeQuadratic);
-    if ( hctildeQuadratic ) XLALDestroyCOMPLEX16FrequencySeries(hctildeQuadratic);*/
+    if (hptildeQuadratic ) XLALDestroyCOMPLEX16FrequencySeries(hptildeQuadratic);
+    if ( hctildeQuadratic ) XLALDestroyCOMPLEX16FrequencySeries(hctildeQuadratic);
+    */
+
+ 
         return;
 }
 

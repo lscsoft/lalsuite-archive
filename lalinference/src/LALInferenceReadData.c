@@ -2670,10 +2670,10 @@ void LALInferenceSetupROQmodel(LALInferenceModel *model, ProcessParamsTable *com
   char filename[nameLength];
   FILE *out;
 	char tmp[128];
+  LIGOTimeGPS epoch=LIGOTIMEGPSZERO;
 
 	  model->roq = XLALMalloc(sizeof(LALInferenceROQModel));
 	  model->roq_flag = 1;
-	fprintf(stderr, "entered model\n");
 	  procparam=LALInferenceGetProcParamVal(commandLine,"--inj");
 	  if(procparam){
 	    SimInspiralTableFromLIGOLw(&injTable,procparam->value,0,0);
@@ -2730,13 +2730,17 @@ void LALInferenceSetupROQmodel(LALInferenceModel *model, ProcessParamsTable *com
 	  }
 
 
-	  double temp_fnodes_linear[n_basis_linear];
-	  double temp_fnodes_quadratic[n_basis_quadratic];
-
 	  model->roq->frequencyNodesLinear = XLALCreateREAL8Sequence(n_basis_linear);
 	  model->roq->frequencyNodesQuadratic = XLALCreateREAL8Sequence(n_basis_quadratic);
 
+	  /*model->roq->hptildeLinear = XLALCreateCOMPLEX16FrequencySeries("hptildeLinear",&epoch,0.0,0,&lalDimensionlessUnit, model->roq->frequencyNodesLinear->length);
+	
+	  model->roq->hctildeLinear = XLALCreateCOMPLEX16FrequencySeries("hctildeLinear",&epoch,0.0,0,&lalDimensionlessUnit, model->roq->frequencyNodesLinear->length);
 
+          model->roq->hptildeQuadratic = XLALCreateCOMPLEX16FrequencySeries("hptildeQuadratic",&epoch,0.0,0,&lalDimensionlessUnit, model->roq->frequencyNodesQuadratic->length);
+
+	  model->roq->hctildeQuadratic = XLALCreateCOMPLEX16FrequencySeries("hctildeQuadratic",&epoch,0.0,0,&lalDimensionlessUnit, model->roq->frequencyNodesQuadratic->length);
+	*/
 	  model->roq->trigtime = endtime;
 
 	  if(LALInferenceGetProcParamVal(commandLine,"--roqnodesLinear")){
@@ -2766,6 +2770,9 @@ void LALInferenceSetupROQmodel(LALInferenceModel *model, ProcessParamsTable *com
 	      fread(&(model->roq->frequencyNodesQuadratic->data[quadsize]), sizeof(REAL8), 1, model->roq->nodesFileQuadratic);
 	    }
 	fprintf(stderr, "loaded --roqnodesQuadratic\n");
+
+	
+
   }
 
     
