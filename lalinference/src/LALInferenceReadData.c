@@ -2865,17 +2865,14 @@ void LALInferenceSetupROQdata(LALInferenceIFOData *IFOdata, ProcessParamsTable *
       
       thisData->roq->weightsFileLinear = fopen(ppt->value, "rb");
 	assert(thisData->roq->weightsFileLinear!=NULL);
-      thisData->roq->weightsLinear = (double complex**)malloc(n_basis_linear*sizeof(double complex*));
+      thisData->roq->weightsLinear = (double complex*)malloc(n_basis_linear*time_steps*(sizeof(double complex)));
       
       for(unsigned int ii=0; ii<n_basis_linear;ii++){
-	
-	thisData->roq->weightsLinear[ii] = (double complex*)malloc(sizeof(double complex)*time_steps);
-
 		for(unsigned int jj=0; jj<time_steps;jj++){
-			fread(&(thisData->roq->weightsLinear[ii][jj]), sizeof(double complex), 1, thisData->roq->weightsFileLinear);
-		}
-      }
 
+      		fread(&(thisData->roq->weightsLinear[ii*time_steps + jj]), sizeof(double complex), 1, thisData->roq->weightsFileLinear);
+      		}
+      }
 
       sprintf(tmp, "--%s-roqweightsQuadratic", thisData->name);
 	
@@ -2888,11 +2885,13 @@ void LALInferenceSetupROQdata(LALInferenceIFOData *IFOdata, ProcessParamsTable *
       for(unsigned int ii=0; ii<n_basis_quadratic;ii++){
 
 		fread(&(thisData->roq->weightsQuadratic[ii]), sizeof(double), 1, thisData->roq->weightsFileQuadratic);
+		fprintf(stderr, "wQ: %f\n", thisData->roq->weightsQuadratic[ii]);
 	} 
  
 
       thisData->roq->time_weights_width = 2*dt + 2*0.026;
-      thisData->roq->time_step = thisData->roq->time_weights_width/time_steps;
+      thisData->roq->time_step_size = thisData->roq->time_weights_width/time_steps;
+      thisData->roq->n_time_steps = time_steps;
 
       fprintf(stderr, "loaded %s ROQ weights\n", thisData->name);
       thisData = thisData->next;

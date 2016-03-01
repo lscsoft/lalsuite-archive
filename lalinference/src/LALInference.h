@@ -653,10 +653,11 @@ tagLALInferenceIFOData
 typedef struct
 tagLALInferenceROQData
 {
-  double complex **weightsLinear; /** weights for the likelihood: NOTE: needs to be stored from data read from command line */
-  double *weightsQuadratic; /** weights for calculating <h|h> if not using analytical formula */
+  double complex *weightsLinear; /** weights for <d|h>: NOTE: needs to be stored from data read from command line */
+  double *weightsQuadratic; /** weights for calculating <h|h>*/
   REAL8 time_weights_width;
-  REAL8 time_step;
+  REAL8 time_step_size;
+  int n_time_steps;
   FILE *weightsFileLinear;
   FILE *weightsFileQuadratic;
 } LALInferenceROQData;

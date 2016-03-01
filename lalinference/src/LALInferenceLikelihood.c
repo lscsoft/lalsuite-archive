@@ -363,7 +363,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
   UINT4 constantcal_active=0;
 
   /* ROQ likelihood stuff */
-  double time_requested, time_min, time_step;
+  double time_requested, time_min;
   unsigned int weight_index;
 
   gsl_complex h_roq_raw;
@@ -780,14 +780,15 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 
 	time_requested -= time_min;
 
-	time_requested /= time_step;
+	time_requested /= dataPtr->roq->time_step_size;
+
 	weight_index = (unsigned int) floor(time_requested + 0.5);
 
 	// then set tc in sampler to be one of the discrete values
 
         for(unsigned int iii=0; iii < model->roq->frequencyNodesLinear->length; iii++){
 
- 		this_ifo_d_inner_h += creal( dataPtr->roq->weightsLinear[iii][weight_index]*(conj(dataPtr->fPlus*model->roq->hptildeLinear->data->data[iii] + dataPtr->fCross*model->roq->hctildeLinear->data->data[iii])) );
+ 		this_ifo_d_inner_h += creal( dataPtr->roq->weightsLinear[iii*dataPtr->roq->n_time_steps + weight_index]*( conj(dataPtr->fPlus*model->roq->hptildeLinear->data->data[iii] + dataPtr->fCross*model->roq->hctildeLinear->data->data[iii])) );
 	 }
 	for(unsigned int jjj=0; jjj < model->roq->frequencyNodesQuadratic->length; jjj++){
 
