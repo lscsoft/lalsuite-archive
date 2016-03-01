@@ -2667,8 +2667,6 @@ void LALInferenceSetupROQmodel(LALInferenceModel *model, ProcessParamsTable *com
   REAL8 endtime=0.0;
   //REAL8 timeMin=0.0,timeMax=0.0;
   const UINT4 nameLength=FILENAME_MAX;
-  char filename[nameLength];
-  FILE *out;
 	char tmp[128];
   LIGOTimeGPS epoch=LIGOTIMEGPSZERO;
 
@@ -2794,10 +2792,8 @@ void LALInferenceSetupROQdata(LALInferenceIFOData *IFOdata, ProcessParamsTable *
   REAL8 endtime=0.0;
   //REAL8 timeMin=0.0,timeMax=0.0;
   const UINT4 nameLength=FILENAME_MAX;
-  char filename[nameLength];
-  FILE *out, *tempfp;
-	char tmp[128];
-  REAL8 fnode=0.;
+  FILE *tempfp;
+  char tmp[128];
 
 	  procparam=LALInferenceGetProcParamVal(commandLine,"--inj");
 	  if(procparam){
