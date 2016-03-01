@@ -2789,10 +2789,6 @@ void LALInferenceSetupROQdata(LALInferenceIFOData *IFOdata, ProcessParamsTable *
   ProcessParamsTable *procparam=NULL,*ppt=NULL;
   SimInspiralTable *injTable=NULL;
   unsigned int n_basis_linear, n_basis_quadratic, n_samples, time_steps;
-  //n_basis_linear = 965;
-  //n_basis_quadratic = 0;
-  //n_samples = 31489;
-  //REAL8 delta_tc = 0.0001;
   float dt=0.1;
   LIGOTimeGPS GPStrig;
   REAL8 endtime=0.0;
@@ -2869,21 +2865,17 @@ void LALInferenceSetupROQdata(LALInferenceIFOData *IFOdata, ProcessParamsTable *
       
       thisData->roq->weightsFileLinear = fopen(ppt->value, "rb");
 	assert(thisData->roq->weightsFileLinear!=NULL);
-      thisData->roq->weightsLinear = (double complex**)malloc(n_basis_linear*sizeof(double complex*));//gsl_matrix_complex_calloc(n_basis_linear, time_steps);
-      for(unsigned int tt=0; tt < n_basis_linear; tt++) { 
-
-	thisData->roq->weightsLinear[tt] = (double complex*)malloc(sizeof(double complex)*time_steps);
-      }
+      thisData->roq->weightsLinear = (double complex**)malloc(n_basis_linear*sizeof(double complex*));
       
-	fprintf(stderr, "about to malloc\n");
       for(unsigned int ii=0; ii<n_basis_linear;ii++){
+	
+	thisData->roq->weightsLinear[ii] = (double complex*)malloc(sizeof(double complex)*time_steps);
 
+		for(unsigned int jj=0; jj<time_steps;jj++){
+			fread(&(thisData->roq->weightsLinear[ii][jj]), sizeof(double complex), 1, thisData->roq->weightsFileLinear);
+		}
+      }
 
-	for(unsigned int jj=0; jj<time_steps;jj++){
-		fread(&(thisData->roq->weightsLinear[ii][jj]), sizeof(double complex), 1, thisData->roq->weightsFileLinear);
-	}
-}
-      fprintf(stderr, "allocated %s->roq->weightsLinear\n", tmp);
 
       sprintf(tmp, "--%s-roqweightsQuadratic", thisData->name);
 	
@@ -2898,7 +2890,6 @@ void LALInferenceSetupROQdata(LALInferenceIFOData *IFOdata, ProcessParamsTable *
 		fread(&(thisData->roq->weightsQuadratic[ii]), sizeof(double), 1, thisData->roq->weightsFileQuadratic);
 	} 
  
-      fprintf(stderr, "allocated %s Quadratic weights\n", tmp);
 
       thisData->roq->time_weights_width = 2*dt + 2*0.026;
       thisData->roq->time_step = thisData->roq->time_weights_width/time_steps;
