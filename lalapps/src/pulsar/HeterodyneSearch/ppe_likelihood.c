@@ -231,8 +231,8 @@ REAL8 pulsar_log_likelihood( LALInferenceVariables *vars, LALInferenceIFOData *d
       size_t vstart = 0, mstart = 0;
 
       gsl_vector_complex_view dmview, mmview;
-      XLAL_CALLGSL( dmview = gsl_matrix_complex_row(tempdata->roq->weightsLinear, 0) );
-      XLAL_CALLGSL( mmview = gsl_matrix_complex_row(tempdata->roq->weightsQuadratic, 0) );
+      //XLAL_CALLGSL( dmview = gsl_matrix_complex_row(tempdata->roq->weightsLinear, 0) );
+      //XLAL_CALLGSL( mmview = gsl_matrix_complex_row(tempdata->roq->weightsQuadratic, 0) );
 
       /* loop over chunks */
       for ( i = 0; i < chunkLengths->length; i++ ){

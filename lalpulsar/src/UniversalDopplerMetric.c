@@ -1007,11 +1007,11 @@ XLALCovariance_Phi_ij ( const MultiLALDetector *multiIFO,		//!< [in] detectors t
   saveGSLErrorHandler = gsl_set_error_handler_off();
 
   // loop over segments, detectors, and integration 'units'
-#pragma omp parallel for
+/*#pragma omp parallel for*/
   for ( size_t k = 0; k < Nseg; ++k ) {
-#pragma omp parallel for
+/*#pragma omp parallel for*/
     for ( size_t X = 0; X < numDet; ++X ) {
-#pragma omp parallel for
+/*#pragma omp parallel for*/
       for ( size_t n = 0; n < intN[k][X]; ++n ) {
 
         InputOutputInfo *io = &intInOut[k][X][n];
@@ -1067,7 +1067,7 @@ XLALCovariance_Phi_ij ( const MultiLALDetector *multiIFO,		//!< [in] detectors t
       } /* for n < intN */
     } // for X < numDet
   } // for k < Nseg
-
+  
   // restore GSL error handling
   gsl_set_error_handler( saveGSLErrorHandler );
 

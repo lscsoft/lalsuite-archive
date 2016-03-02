@@ -584,7 +584,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
     model->ifo_loglikelihoods[ifo] = 0.0;
     model->ifo_SNRs[ifo] = 0.0;
     REAL8 this_ifo_d_inner_h = 0.0;
-    REAL8 this_ifo_S = 0.0;
+    REAL8 this_ifo_s = 0.0;
     // Check if student-t likelihood is being used
     if(marginalisationflags==STUDENTT)
     {
@@ -792,22 +792,22 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 	 }
 	for(unsigned int jjj=0; jjj < model->roq->frequencyNodesQuadratic->length; jjj++){
 
-		this_ifo_S += dataPtr->roq->weightsQuadratic[jjj] * creal( conj(model->roq->hptildeQuadratic->data->data[jjj]*dataPtr->fPlus + model->roq->hctildeQuadratic->data->data[jjj]*dataPtr->fCross) * (model->roq->hptildeQuadratic->data->data[jjj]*dataPtr->fPlus + model->roq->hctildeQuadratic->data->data[jjj]*dataPtr->fCross) );
+		this_ifo_s += dataPtr->roq->weightsQuadratic[jjj] * creal( conj(model->roq->hptildeQuadratic->data->data[jjj]*dataPtr->fPlus + model->roq->hctildeQuadratic->data->data[jjj]*dataPtr->fCross) * (model->roq->hptildeQuadratic->data->data[jjj]*dataPtr->fPlus + model->roq->hctildeQuadratic->data->data[jjj]*dataPtr->fCross) );
 		
         }
 	
 	d_inner_h += this_ifo_d_inner_h;
-	S += this_ifo_S;
-	model->ifo_loglikelihoods[ifo] = this_ifo_d_inner_h - 0.5*this_ifo_S;
+	S += this_ifo_s;
+	model->ifo_loglikelihoods[ifo] = this_ifo_d_inner_h - (0.5*this_ifo_s);
 	loglikelihood += model->ifo_loglikelihoods[ifo];
 
 	char varname[VARNAME_MAX];
     sprintf(varname,"%s_optimal_snr",dataPtr->name);
-    REAL8 this_ifo_snr = sqrt(this_ifo_S);
+    REAL8 this_ifo_snr = sqrt(this_ifo_s);
     LALInferenceAddREAL8Variable(currentParams,varname,this_ifo_snr,LALINFERENCE_PARAM_OUTPUT);
 
-    sprintf(varname,"%s_cplx_snr_amp",dataPtr->name);
-    REAL8 cplx_snr_amp = this_ifo_d_inner_h/this_ifo_snr;
+	    sprintf(varname,"%s_cplx_snr_amp",dataPtr->name);
+	    REAL8 cplx_snr_amp = this_ifo_d_inner_h/this_ifo_snr;
     LALInferenceAddREAL8Variable(currentParams,varname,cplx_snr_amp,LALINFERENCE_PARAM_OUTPUT);
 
     sprintf(varname,"%s_cplx_snr_arg",dataPtr->name);
