@@ -4101,3 +4101,4 @@ void LALInferencePrintSplineCalibration(FILE *output, LALInferenceThreadState *t
         }
     }
 }
+
