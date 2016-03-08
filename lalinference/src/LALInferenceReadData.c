@@ -2662,13 +2662,9 @@ void LALInferenceSetupROQmodel(LALInferenceModel *model, ProcessParamsTable *com
   //n_basis_quadratic = 0;
   //n_samples = 31489;
   //REAL8 delta_tc = 0.0001;
-  float dt=0.1;
   LIGOTimeGPS GPStrig;
   REAL8 endtime=0.0;
   //REAL8 timeMin=0.0,timeMax=0.0;
-  const UINT4 nameLength=FILENAME_MAX;
-	char tmp[128];
-  LIGOTimeGPS epoch=LIGOTIMEGPSZERO;
 
 	  model->roq = XLALMalloc(sizeof(LALInferenceROQModel));
 	  model->roq_flag = 1;
@@ -2712,11 +2708,6 @@ void LALInferenceSetupROQmodel(LALInferenceModel *model, ProcessParamsTable *com
 
 	  endtime=XLALGPSGetREAL8(&GPStrig);
 
-	  ppt=LALInferenceGetProcParamVal(commandLine,"--dt");
-	  if(ppt){
-	    dt=atof(ppt->value);
-	  }
-	 
 	  if(LALInferenceGetProcParamVal(commandLine,"--roqtime_steps")){
 	    ppt=LALInferenceGetProcParamVal(commandLine,"--roqtime_steps");
 	    tempfp = fopen (ppt->value,"r");
@@ -2732,7 +2723,7 @@ void LALInferenceSetupROQmodel(LALInferenceModel *model, ProcessParamsTable *com
 	  model->roq->frequencyNodesQuadratic = XLALCreateREAL8Sequence(n_basis_quadratic);
 
 	  /*model->roq->hptildeLinear = XLALCreateCOMPLEX16FrequencySeries("hptildeLinear",&epoch,0.0,0,&lalDimensionlessUnit, model->roq->frequencyNodesLinear->length);
-	
+
 	  model->roq->hctildeLinear = XLALCreateCOMPLEX16FrequencySeries("hctildeLinear",&epoch,0.0,0,&lalDimensionlessUnit, model->roq->frequencyNodesLinear->length);
 
           model->roq->hptildeQuadratic = XLALCreateCOMPLEX16FrequencySeries("hptildeQuadratic",&epoch,0.0,0,&lalDimensionlessUnit, model->roq->frequencyNodesQuadratic->length);
@@ -2769,11 +2760,11 @@ void LALInferenceSetupROQmodel(LALInferenceModel *model, ProcessParamsTable *com
 	    }
 	fprintf(stderr, "loaded --roqnodesQuadratic\n");
 
-	
+
 
   }
 
-    
+
 }
 
 void LALInferenceSetupROQdata(LALInferenceIFOData *IFOdata, ProcessParamsTable *commandLine){
@@ -2783,15 +2774,11 @@ void LALInferenceSetupROQdata(LALInferenceIFOData *IFOdata, ProcessParamsTable *
   LALInferenceIFOData *thisData=IFOdata;
   UINT4 q=0;
   UINT4 event=0;
-  char *chartmp=NULL;
   ProcessParamsTable *procparam=NULL,*ppt=NULL;
   SimInspiralTable *injTable=NULL;
   unsigned int n_basis_linear, n_basis_quadratic, n_samples, time_steps;
   float dt=0.1;
-  LIGOTimeGPS GPStrig;
-  REAL8 endtime=0.0;
   //REAL8 timeMin=0.0,timeMax=0.0;
-  const UINT4 nameLength=FILENAME_MAX;
   FILE *tempfp;
   char tmp[128];
 
@@ -2821,25 +2808,11 @@ void LALInferenceSetupROQdata(LALInferenceIFOData *IFOdata, ProcessParamsTable *
 	    }
 	  }
 
-	  if(LALInferenceGetProcParamVal(commandLine,"--trigtime")){
-	    procparam=LALInferenceGetProcParamVal(commandLine,"--trigtime");
-	    LALStringToGPS(&status,&GPStrig,procparam->value,&chartmp);
-	  }
-	  else{
-	    if(injTable) memcpy(&GPStrig,&(injTable->geocent_end_time),sizeof(GPStrig));
-	    else {
-	      fprintf(stderr,">>> Error: No trigger time specifed and no injection given \n");
-	      exit(1);
-	    }
-	  }
-
-	  endtime=XLALGPSGetREAL8(&GPStrig);
-
 	  ppt=LALInferenceGetProcParamVal(commandLine,"--dt");
 	  if(ppt){
 	    dt=atof(ppt->value);
 	  }
-	 
+
 	  if(LALInferenceGetProcParamVal(commandLine,"--roqtime_steps")){
 	    ppt=LALInferenceGetProcParamVal(commandLine,"--roqtime_steps");
 	    tempfp = fopen (ppt->value,"r");
@@ -2850,7 +2823,7 @@ void LALInferenceSetupROQdata(LALInferenceIFOData *IFOdata, ProcessParamsTable *
 	    fprintf(stderr, "loaded --roqtime_steps\n");
 	  }
 
-	  
+
 
     thisData=IFOdata;
     while (thisData) {
@@ -2858,11 +2831,11 @@ void LALInferenceSetupROQdata(LALInferenceIFOData *IFOdata, ProcessParamsTable *
 
       sprintf(tmp, "--%s-roqweightsLinear", thisData->name);
       ppt = LALInferenceGetProcParamVal(commandLine,tmp);
-      
+
       thisData->roq->weightsFileLinear = fopen(ppt->value, "rb");
 	assert(thisData->roq->weightsFileLinear!=NULL);
       thisData->roq->weightsLinear = (double complex*)malloc(n_basis_linear*time_steps*(sizeof(double complex)));
-      
+
       for(unsigned int ii=0; ii<n_basis_linear;ii++){
 		for(unsigned int jj=0; jj<time_steps;jj++){
 
@@ -2871,18 +2844,18 @@ void LALInferenceSetupROQdata(LALInferenceIFOData *IFOdata, ProcessParamsTable *
       }
 
       sprintf(tmp, "--%s-roqweightsQuadratic", thisData->name);
-	
+
       ppt = LALInferenceGetProcParamVal(commandLine,tmp);
-	
+
       thisData->roq->weightsQuadratic = (double*)malloc(n_basis_quadratic*sizeof(double));
-        
+
       thisData->roq->weightsFileQuadratic = fopen(ppt->value, "rb");
 
       for(unsigned int ii=0; ii<n_basis_quadratic;ii++){
 
 		fread(&(thisData->roq->weightsQuadratic[ii]), sizeof(double), 1, thisData->roq->weightsFileQuadratic);
-	} 
- 
+	}
+
 
       thisData->roq->time_weights_width = 2*dt + 2*0.026;
       thisData->roq->time_step_size = thisData->roq->time_weights_width/time_steps;

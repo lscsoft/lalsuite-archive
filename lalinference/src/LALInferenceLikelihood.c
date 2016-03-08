@@ -366,10 +366,6 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
   double time_requested, time_min;
   unsigned int weight_index;
 
-  gsl_complex h_roq_raw;
-  gsl_complex calF_roq;
-  gsl_complex h_roq_cal;
-
   /* End ROQ likelihood stuff */
 
   REAL8 d_inner_h=0.0;
@@ -793,9 +789,9 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 	for(unsigned int jjj=0; jjj < model->roq->frequencyNodesQuadratic->length; jjj++){
 
 		this_ifo_s += dataPtr->roq->weightsQuadratic[jjj] * creal( conj(model->roq->hptildeQuadratic->data->data[jjj]*dataPtr->fPlus + model->roq->hctildeQuadratic->data->data[jjj]*dataPtr->fCross) * (model->roq->hptildeQuadratic->data->data[jjj]*dataPtr->fPlus + model->roq->hctildeQuadratic->data->data[jjj]*dataPtr->fCross) );
-		
+
         }
-	
+
 	d_inner_h += this_ifo_d_inner_h;
 	S += this_ifo_s;
 	model->ifo_loglikelihoods[ifo] = this_ifo_d_inner_h - (0.5*this_ifo_s);
@@ -813,7 +809,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
     sprintf(varname,"%s_cplx_snr_arg",dataPtr->name);
     REAL8 cplx_snr_phase = 0;//gsl_complex_arg(complex_d_dot_h);
     LALInferenceAddREAL8Variable(currentParams,varname,cplx_snr_phase,LALINFERENCE_PARAM_OUTPUT);
-    
+
 
     }
 
@@ -996,7 +992,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 
   if (model->roq_flag){
 
-	
+
 
 	    REAL8 OptimalSNR=sqrt(S);
         REAL8 MatchedFilterSNR = d_inner_h/OptimalSNR;
