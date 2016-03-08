@@ -448,7 +448,7 @@ void generate_interpolant( LALInferenceRunState *runState ){
     }
 
     /* fill in data/model weights into roq->weightsLinear complex matrix */
-    gsl_matrix_complex_view dmview;
+    //gsl_matrix_complex_view dmview;
    /// XLAL_CALLGSL( dmview = gsl_matrix_complex_view_array((double*)dmweights, 1, dmlength) );
     ///XLAL_CALLGSL( data->roq->weightsLinear = gsl_matrix_complex_alloc(1, dmlength) );
     //XLAL_CALLGSL( gsl_matrix_complex_memcpy(data->roq->weightsLinear, &dmview.matrix) );
