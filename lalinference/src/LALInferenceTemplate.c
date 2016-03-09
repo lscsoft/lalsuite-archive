@@ -570,6 +570,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
       mc  = *(REAL8*) LALInferenceGetVariable(model->params, "chirpmass");
       if (LALInferenceCheckVariable(model->params,"q")) {
 	REAL8 q = *(REAL8 *)LALInferenceGetVariable(model->params,"q");
+	printf("I am here: q = %f", q);
 	q2masses(mc, q, &m1, &m2);
       } else {
 	REAL8 eta = *(REAL8*) LALInferenceGetVariable(model->params, "eta");
@@ -580,6 +581,8 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
     {
       m1=*m1_p;
       m2=*m2_p;
+      printf("I am here: m1 = %f", m1);
+      printf("I am here: m2 = %f", m2);
     }
   else
     {
@@ -627,12 +630,15 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
   /* Now check if we have spin amplitudes */
   if(LALInferenceCheckVariable(model->params, "a_spin1"))    a_spin1   = *(REAL8*) LALInferenceGetVariable(model->params, "a_spin1");
   if(LALInferenceCheckVariable(model->params, "a_spin2"))    a_spin2   = *(REAL8*) LALInferenceGetVariable(model->params, "a_spin2");
+  printf("I am here: chi1 = %f", a_spin1);
+  printf("I am here: chi2 = %f", a_spin2);
 
   /* Check if we have spin angles too */
   if(LALInferenceCheckVariable(model->params, "phi_jl"))
       phiJL = LALInferenceGetREAL8Variable(model->params, "phi_jl");
   if(LALInferenceCheckVariable(model->params, "tilt_spin1"))
       tilt1 = LALInferenceGetREAL8Variable(model->params, "tilt_spin1");
+      printf("I am here: tilt1 = %f", tilt1);
   if(LALInferenceCheckVariable(model->params, "tilt_spin2")){
       // tilt2 = LALInferenceGetREAL8Variable(model->params, "tilt_spin2");
       REAL8 (*SORFunction)(REAL8, void *);
@@ -641,6 +647,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
       REAL8 tilt2_acc = 1.0e-12;
       SORFunction = SORFUNC;
       tilt2 = XLALDBisectionFindRoot(SORFunction, tilt2_min, tilt2_max, tilt2_acc, model);
+      printf("I am here: tilt2 = %f", tilt2);
       }
   if(LALInferenceCheckVariable(model->params, "phi12"))
       // phi12 = LALInferenceGetREAL8Variable(model->params, "phi12");
