@@ -1606,12 +1606,6 @@ void LALInferenceInitMassVariables(LALInferenceRunState *state){
     m2_max=atof(ppt->value);
   }
 
-<<<<<<< HEAD
-  ppt=LALInferenceGetProcParamVal(commandLine,"--mtotal-min");
-  if(ppt)	MTotMin=atof(ppt->value);
-  LALInferenceAddVariable(priorArgs,"component_min",&mMin,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
-  LALInferenceAddVariable(priorArgs,"component_max",&mMax,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
-=======
   /* Set the total mass bounds based on m1,m2 */
   MTotMin=m1_min + m2_min;
   MTotMax=m1_max + m2_max;
@@ -1631,7 +1625,6 @@ void LALInferenceInitMassVariables(LALInferenceRunState *state){
   LALInferenceAddREAL8Variable(priorArgs,"mass2_min",m2_min,LALINFERENCE_PARAM_FIXED);
   LALInferenceAddREAL8Variable(priorArgs,"mass2_max",m2_max,LALINFERENCE_PARAM_FIXED);
 
->>>>>>> master
   LALInferenceAddVariable(priorArgs,"MTotMax",&MTotMax,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(priorArgs,"MTotMin",&MTotMin,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
   

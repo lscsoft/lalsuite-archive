@@ -614,15 +614,10 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
     }
     psi       = *(REAL8*) LALInferenceGetVariable(currentParams, "polarisation");   /* radian      */
     if(!margtime)
-<<<<<<< HEAD
-      GPSdouble = *(REAL8*) LALInferenceGetVariable(currentParams, "time");           /* GPS seconds */
-=======
 	      GPSdouble = *(REAL8*) LALInferenceGetVariable(currentParams, "time");           /* GPS seconds */
     else
 	      GPSdouble = XLALGPSGetREAL8(&(data->freqData->epoch));
 
-
->>>>>>> master
     // Add phase parameter set to 0 for calculation
     if(margphi ){
       REAL8 phi0=0.0;
@@ -914,10 +909,6 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
       }
 
       diff = (d - template);
-<<<<<<< HEAD
-=======
-
->>>>>>> master
       }//end signal subtraction
 
       //subtract glitch model from residual
@@ -978,15 +969,6 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
         }
         case MARGPHI:
         {
-<<<<<<< HEAD
-          templatesq=creal(template)*creal(template) + cimag(template)*cimag(template);
-          REAL8 datasq = creal(d)*creal(d)+cimag(d)*cimag(d);
-          D+=TwoDeltaToverN*datasq/sigmasq;
-          S+=TwoDeltaToverN*templatesq/sigmasq;
-          COMPLEX16 dhstar =( TwoDeltaToverN*d*conj(template)/sigmasq);
-          Rcplx+=dhstar;
-=======
->>>>>>> master
           break;
         }
         default:

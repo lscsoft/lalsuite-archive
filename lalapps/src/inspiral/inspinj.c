@@ -1862,15 +1862,10 @@ int main( int argc, char *argv[] )
   REAL8FrequencySeries *ligoPsd  = NULL;
   REAL8FrequencySeries *virgoPsd = NULL;
   status=blank_status;
-<<<<<<< HEAD
   LALCosmologicalParameters *omega = XLALCreateCosmologicalParameters(0.7,0.3,0.7,-1.0,0.0,0.0);
-  /* getopt arguments */
-  struct option long_options[] =
-=======
 
   /* LALgetopt arguments */
   struct LALoption long_options[] =
->>>>>>> master
   {
     {"help",                    no_argument,       0,                'h'},
     {"verbose",                 no_argument,       &vrbflg,           1 },

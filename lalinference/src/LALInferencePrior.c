@@ -291,7 +291,6 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
   }
   if(LALInferenceCheckVariable(params,"flow"))
     logPrior+=log(*(REAL8 *)LALInferenceGetVariable(params,"flow"));
-<<<<<<< HEAD
   if (!LALInferenceGetProcParamVal(runState->commandLine,"--marginal-distance"))
   {
     if(LALInferenceCheckVariable(params,"logdistance"))
@@ -301,13 +300,7 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
   }
   if(LALInferenceCheckVariable(params,"theta_jn"))
     logPrior+=log(fabs(sin(*(REAL8 *)LALInferenceGetVariable(params,"theta_jn"))));
-=======
 
-  if(LALInferenceCheckVariable(params,"logdistance"))
-    logPrior+=3.0* *(REAL8 *)LALInferenceGetVariable(params,"logdistance");
-  else if(LALInferenceCheckVariable(params,"distance"))
-    logPrior+=2.0*log(*(REAL8 *)LALInferenceGetVariable(params,"distance"));
->>>>>>> master
   if(LALInferenceCheckVariable(params,"declination"))
   {
     /* Check that this is not an output variable */
@@ -356,13 +349,6 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
     else
       logPrior+=log(((m1+m2)*(m1+m2))/((m1-m2)*pow(eta,3.0/5.0)));
   }
-<<<<<<< HEAD
-  /* Check for component masses in range, if specified */
-  if(LALInferenceCheckVariable(priorParams,"component_min"))
-    if(*(REAL8 *)LALInferenceGetVariable(priorParams,"component_min") > m1
-       || *(REAL8 *)LALInferenceGetVariable(priorParams,"component_min") > m2)
-      return -DBL_MAX;
-=======
 
   /* Check for individual mass priors */
   if(LALInferenceCheckVariable(priorParams,"mass1_min"))
@@ -377,8 +363,6 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
   if(LALInferenceCheckVariable(priorParams,"mass2_max"))
 		  if(LALInferenceGetREAL8Variable(priorParams,"mass2_max") < m2)
 				  return -DBL_MAX;
->>>>>>> master
-
 
   if(LALInferenceCheckVariable(priorParams,"MTotMax"))
     if(*(REAL8 *)LALInferenceGetVariable(priorParams,"MTotMax") < m1+m2)
