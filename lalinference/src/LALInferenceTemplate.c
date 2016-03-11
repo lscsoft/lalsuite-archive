@@ -1152,6 +1152,15 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveformPhaseInterpolated(LALInfer
         LALInferenceLambdaTsEta2Lambdas(lambdaT,dLambdaT,sym_mass_ratio_eta,&lambda1,&lambda2);
     }
     
+  /* ==== ECCENTRICITY PARAMETERS ==== */  
+  /* if we do not add ecc and f_ecc to model parameteres ecc and f_ecc wouild be zero */
+  REAL8 ecc = 0.;
+  if(LALInferenceCheckVariable(model->params, "ecc")) ecc = *(REAL8*) LALInferenceGetVariable(model->params, "ecc");
+  INT4 eccOrder = 0.;
+  if(LALInferenceCheckVariable(model->params, "eccOrder")) eccOrder = *(INT4*) LALInferenceGetVariable(model->params, "eccOrder");
+  REAL8 f_ecc = 0.;
+  if(LALInferenceCheckVariable(model->params, "f_ecc")) f_ecc = *(REAL8*) LALInferenceGetVariable(model->params, "f_ecc");
+
     /* Only use GR templates */
     LALSimInspiralTestGRParam *nonGRparams = NULL;
     
@@ -1169,7 +1178,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveformPhaseInterpolated(LALInfer
         XLAL_TRY(ret=XLALSimInspiralChooseFDWaveformFromCache(&hptilde, &hctilde, phi0,
                                                               0.0, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
                                                               spin2x, spin2y, spin2z, f_start, f_max, f_ref, distance, 
-                                                              inclination,lambda1, lambda2, 0, 0, 0, 
+                                                              inclination,lambda1, lambda2, ecc, eccOrder, f_ecc, 
                                                               model->waveFlags, nonGRparams, amporder, order,
                                                               approximant,model->waveformCache, frequencies), errnum);
         
