@@ -70,9 +70,17 @@ const double sqrt_6 = 2.44948974278317788;
  * as described in Hannam et al., arXiv:1308.3271 [gr-qc].
  *
  * @note Two versions of IMRPhenomP are available (selected by IMRPhenomP_version):
- *    * version 1: based on IMRPhenomC
- *    * version 2: based on IMRPhenomD
- * IMRPhenomP inherits its range of validity over the parameter space from the respective aligned-spin waveform.
+ * version 1 ("IMRPhenomP"): based on IMRPhenomC
+ *      (outdated, not reviewed!)
+ *    * version 2 ("IMRPhenomPv2"): based on IMRPhenomD
+ *      (to be used, currently under review as of Dec 2015)
+ *
+ * Each IMRPhenomP version inherits its range of validity
+ * over the parameter space from the respective aligned-spin waveform.
+ *
+ * @attention A time-domain implementation of IMRPhenomPv2 is available in XLALChooseTDWaveform().
+ * This is based on a straight-forward inverse Fourier transformation via XLALSimInspiralTDfromFD(),
+ * but it was not included in the IMRPhenomPv2 review. Use it at your own risk. 
  */
 
 int XLALSimIMRPhenomPCalculateModelParameters(
