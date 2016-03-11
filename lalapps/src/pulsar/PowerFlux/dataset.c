@@ -501,7 +501,7 @@ double re, im, f;
 gsl_function F; 
 gsl_integration_workspace *w;
 gsl_integration_qawo_table *t_sine, *t_cosine;
-int w_size=1024*32;
+int w_size=args_info.fake_injection_w_size_arg;
 
 F.params=p;
 p->bin=0;
@@ -612,8 +612,8 @@ d->dc_factor_blocked=0;
 d->re=do_alloc(d->size*d->nbins, sizeof(*d->re));
 d->im=do_alloc(d->size*d->nbins, sizeof(*d->im));
 d->sft_veto=NULL;
-d->veto_level=1e-2; /* this takes care of SFTs that have 1/100 weight... */
-d->veto_spike_level=1.7; /* this takes care of SFTs with spikes 50 times median level */
+d->veto_level=args_info.default_dataset_veto_level_arg; /* this takes care of SFTs that have 1/100 weight... */
+d->veto_spike_level=args_info.default_dataset_veto_spike_level_arg; /* this takes care of SFTs with spikes 50 times median level */
 
 d->weight=1.0;
 
