@@ -227,7 +227,7 @@ void LALInferenceInitCBCThreads(LALInferenceRunState *run_state, INT4 nthreads) 
 /* Defaults to using LALSimulation */
 LALInferenceTemplateFunction LALInferenceInitCBCTemplate(LALInferenceRunState *runState)
 {
-  char help[]="(--template [LAL,PhenSpin,LALGenerateInspiral,LALSim]\tSpecify template (default LAL)\n";
+  char help[]="(--template [LAL,PhenSpin,LALGenerateInspiral,LALSim,multiband]\tSpecify template (default LAL)\n";
   ProcessParamsTable *ppt=NULL;
   ProcessParamsTable *commandLine=runState->commandLine;
   /* Print command line arguments if help requested */
@@ -244,14 +244,17 @@ LALInferenceTemplateFunction LALInferenceInitCBCTemplate(LALInferenceRunState *r
   if(ppt) {
     if(!strcmp("LALSim",ppt->value))
       templt=&LALInferenceTemplateXLALSimInspiralChooseWaveform;
-    else
-      if(!strcmp("null",ppt->value))
+	else if(!strcmp("null",ppt->value))
         templt=&LALInferenceTemplateNullFreqdomain;
-      else {
+	else if(!strcmp("multiband",ppt->value)){
+        templt=&LALInferenceTemplateXLALSimInspiralChooseWaveformPhaseInterpolated;
+        fprintf(stdout,"Template function called is \"LALInferenceTemplateXLALSimInspiralChooseWaveformPhaseInterpolated\"\n");
+    }
+    else {
         XLALPrintError("Error: unknown template %s\n",ppt->value);
         XLALPrintError("%s", help);
         XLAL_ERROR_NULL(XLAL_EINVAL);
-      }
+    }
   }
   else if(LALInferenceGetProcParamVal(commandLine,"--LALSimulation")){
     fprintf(stderr,"Warning: --LALSimulation is deprecated, the LALSimulation package is now the default. To use LALInspiral specify:\n\
