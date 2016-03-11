@@ -1398,13 +1398,30 @@ static REAL8 SORFUNC (REAL8 x, void *params)
        LALInferenceModel *parameters;
        parameters = ( LALInferenceModel *) params;
 
-       REAL8 m1 = *(REAL8*) LALInferenceGetVariable(parameters->params, "mass1");
-       REAL8 m2 = *(REAL8*) LALInferenceGetVariable(parameters->params, "mass2");
+//       REAL8 m1 = *(REAL8*) LALInferenceGetVariable(parameters->params, "mass1");
+//       REAL8 m2 = *(REAL8*) LALInferenceGetVariable(parameters->params, "mass2");
+       REAL8 m1, m2, mc, q, eta;
+       if(LALInferenceCheckVariable(parameters->params,"mass1")&&LALInferenceCheckVariable(parameters->params,"mass2"))
+       {
+        m1=*(REAL8 *)LALInferenceGetVariable(parameters->params,"mass1");
+        m2=*(REAL8 *)LALInferenceGetVariable(parameters->params,"mass2");
+       }
+       else
+       {
+        if (LALInferenceCheckVariable(parameters->params,"q"))
+       {
+        q = *(REAL8 *)LALInferenceGetVariable(parameters->params,"q");
+        q2eta(q, &eta);
+       }
+       else eta = *(REAL8*) LALInferenceGetVariable(parameters->params, "eta");
+       mc = *(REAL8*) LALInferenceGetVariable(parameters->params, "chirpmass");
+       mc2masses(mc, eta, &m1, &m2);
+       }
 
        REAL8 mtotal = m1+m2;
        REAL8 m1m = m1/mtotal;
        REAL8 m2m = m2/mtotal;
-       REAL8 eta = m1*m2/mtotal/mtotal;
+             eta = m1*m2/mtotal/mtotal;
        REAL8 delta1 = eta/2. + 3*(1.-sqrt(1.-4*eta))/4.;
        REAL8 delta2 = eta/2. + 3*(1.+sqrt(1.-4*eta))/4.;
 
