@@ -507,7 +507,7 @@ int XLALSimInspiralChooseFDWaveformFromCache(
         if (frequencies != NULL)
             return XLALSimInspiralChooseFDWaveformSequence(hptilde, hctilde, phiRef,
                                                            m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_ref,
-                                                           r, i, lambda1, lambda2, 0, 0, 0, 
+                                                           r, i, lambda1, lambda2, ecc, eccOrder, f_ecc, 
                                                            waveFlags, nonGRparams, amplitudeO,
                                                            phaseO, approximant,frequencies);
         else

@@ -1168,7 +1168,9 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveformPhaseInterpolated(LALInfer
         
         XLAL_TRY(ret=XLALSimInspiralChooseFDWaveformFromCache(&hptilde, &hctilde, phi0,
                                                               0.0, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
-                                                              spin2x, spin2y, spin2z, f_start, f_max, f_ref, distance, inclination,lambda1, lambda2, model->waveFlags, nonGRparams, amporder, order,
+                                                              spin2x, spin2y, spin2z, f_start, f_max, f_ref, distance, 
+                                                              inclination,lambda1, lambda2, 0, 0, 0, 
+                                                              model->waveFlags, nonGRparams, amporder, order,
                                                               approximant,model->waveformCache, frequencies), errnum);
         
         /* if the waveform failed to generate, fill the buffer with zeros
