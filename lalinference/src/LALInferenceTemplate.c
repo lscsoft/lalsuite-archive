@@ -651,7 +651,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
       }
   if(LALInferenceCheckVariable(model->params, "phi12"))
       // phi12 = LALInferenceGetREAL8Variable(model->params, "phi12");
-      phi12 = 0.0;    /* phi12 = pi for pi SOR */
+      phi12 = LAL_PI;    /* phi12 = pi for pi SOR */
 
   /* If we have tilt angles zero, then the spins are aligned and we just set the z component */
   /* However, if the waveform supports precession then we still need to get the right coordinate components */
@@ -1443,8 +1443,8 @@ static REAL8 SORFUNC (REAL8 x, void *params)
        REAL8 Ly = 0.0;
        REAL8 Lz = eta/sqrt(xx);
 
-       REAL8 phi12 = 0.0;          /* 0 deg SOR*/
-       //REAL8 phi12 = LAL_PI;           /* 180 deg SOR*/
+       //REAL8 phi12 = 0.0;          /* 0 deg SOR*/
+       REAL8 phi12 = LAL_PI;           /* 180 deg SOR*/
        REAL8 phi1 = LAL_PI/4.;     /* some value to phi1 */
 
        /* unit spin vectors */
