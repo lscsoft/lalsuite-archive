@@ -83,7 +83,7 @@ void LALInferenceInitCBCPrior(LALInferenceRunState *runState)
         runState->CubeToPrior = &LALInferenceInspiralCubeToPrior;
 
     }
-    
+
     /* Optional uniform prior on distance */
     INT4 uniform_distance = 0;
     if (LALInferenceGetProcParamVal(commandLine, "--distance-prior-uniform"))
@@ -92,7 +92,7 @@ void LALInferenceInitCBCPrior(LALInferenceRunState *runState)
                                 "uniform_distance", &uniform_distance,
                                 LALINFERENCE_INT4_t,
                                 LALINFERENCE_PARAM_OUTPUT);
-    
+
 
     /* Set up malmquist prior */
     INT4 malmquist = 0;
@@ -145,7 +145,7 @@ void LALInferenceInitCBCPrior(LALInferenceRunState *runState)
 }
 
 void LALInferenceInitLIBPrior(LALInferenceRunState *runState)
-{   
+{
     /*Call CBC prior first, in case CBC approx is used, then check for burst approx and eventually overwrite runState->prior */
     LALInferenceInitCBCPrior(runState);
     /*LIB specific call in case of burst approximant */
@@ -165,7 +165,7 @@ void LALInferenceInitLIBPrior(LALInferenceRunState *runState)
            runState->prior = &LALInferenceSineGaussianPrior;
          }
       }
-    }  
+    }
 }
 
 static REAL8 LALInferenceConstantCalibrationPrior(LALInferenceRunState *runState, LALInferenceVariables *params) {
@@ -199,12 +199,12 @@ static REAL8 LALInferenceConstantCalibrationPrior(LALInferenceRunState *runState
       if (phaseWidth>0){
 	      char phaseVarName[VARNAME_MAX];
 	      REAL8 phase = 0.0;
-	      snprintf(phaseVarName, VARNAME_MAX, "calpha_%s", ifo->name);   
+	      snprintf(phaseVarName, VARNAME_MAX, "calpha_%s", ifo->name);
 	      phase = *(REAL8 *)LALInferenceGetVariable(params, phaseVarName);
 	      logPrior += -0.5*log(2.0*M_PI) - log(phaseWidth) - 0.5*phase*phase/phaseWidth/phaseWidth;
       }
     }
-   
+
     ifo = ifo->next;
   } while (ifo);
 
@@ -540,7 +540,7 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
     LALInferenceParamVaryType vtype=LALInferenceGetVariableVaryType(params,"tilt_spin2");
     if(vtype!=LALINFERENCE_PARAM_FIXED && vtype!=LALINFERENCE_PARAM_OUTPUT)
     {
-      // logPrior+=log(fabs(sin(*(REAL8 *)LALInferenceGetVariable(params,"tilt_spin2"))));
+      logPrior+=log(fabs(sin(*(REAL8 *)LALInferenceGetVariable(params,"tilt_spin2"))));
     }
   }
 
@@ -592,7 +592,7 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
   if(LALInferenceCheckVariable(priorParams,"MTotMin"))
     if(*(REAL8 *)LALInferenceGetVariable(priorParams,"MTotMin") > m1+m2)
       return -DBL_MAX;
-  
+
   if(model != NULL &&
         LALInferenceCheckVariable(priorParams,"malmquist") &&
         *(UINT4 *)LALInferenceGetVariable(priorParams,"malmquist") &&
@@ -621,9 +621,9 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
       z=LALInferenceGetREAL8Variable(params,"a_spin2");
       logPrior += -log(2.0) - log(R) + log(-log(fabs(z) / R));
     }
-    
+
   }
-  
+
   /* Calibration priors. */
   logPrior += LALInferenceSplineCalibrationPrior(runState, params);
   logPrior += LALInferenceConstantCalibrationPrior(runState, params);
@@ -811,7 +811,7 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
         REAL8 m2_min = *(REAL8 *)LALInferenceGetVariable(priorParams,"mass2_min");
         REAL8 m1_max = *(REAL8 *)LALInferenceGetVariable(priorParams,"mass1_max");
         REAL8 m2_max = *(REAL8 *)LALInferenceGetVariable(priorParams,"mass2_max");
-      
+
         if( m1_min == m1_max && m2_min==m2_max)
         {
           m1 = m1_min;
@@ -2577,7 +2577,7 @@ REAL8 LALInferenceSineGaussianPrior(LALInferenceRunState *runState, LALInference
     logPrior+=-4.0* log(*(REAL8 *)LALInferenceGetVariable(params,"hrss"));
   if(LALInferenceCheckVariable(params,"declination"))
     logPrior+=log(fabs(cos(*(REAL8 *)LALInferenceGetVariable(params,"declination"))));
-  logPrior += LALInferenceConstantCalibrationPrior(runState, params); 
+  logPrior += LALInferenceConstantCalibrationPrior(runState, params);
   return(logPrior);
 }
 
