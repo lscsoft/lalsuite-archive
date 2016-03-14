@@ -533,10 +533,10 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     # Set up the segments
     if not (self.config.has_option('input','gps-start-time') and self.config.has_option('input','gps-end-time')) and len(self.times)>0:
       (mintime,maxtime)=self.get_required_data(self.times)
-    if not self.config.has_option('input','gps-start-time'):
-      self.config.set('input','gps-start-time',str(int(floor(mintime))))
-    if not self.config.has_option('input','gps-end-time'):
-      self.config.set('input','gps-end-time',str(int(ceil(maxtime))))
+      if not self.config.has_option('input','gps-start-time'):
+        self.config.set('input','gps-start-time',str(int(floor(mintime))))
+      if not self.config.has_option('input','gps-end-time'):
+        self.config.set('input','gps-end-time',str(int(ceil(maxtime))))
     self.add_science_segments()
 
     # Save the final configuration that is being used
@@ -793,9 +793,10 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     enginenodes=[]
     for i in range(Npar):
       n=self.add_engine_node(event)
-      if i>0:
-        n.add_var_arg('--dont-dump-extras')
-      if n is not None: enginenodes.append(n)
+      if n is not None:
+        enginenodes.append(n)
+        if i>0:
+          n.add_var_arg('--dont-dump-extras')
     if len(enginenodes)==0:
       return False
     myifos=enginenodes[0].get_ifos()
@@ -836,7 +837,10 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
             par_mergenodes.append(pmergenode)
             presultsdir=os.path.join(pagedir,ifo)
             mkdirs(presultsdir)
-            pzipfilename='postproc_'+evstring+'_'+ifo+'.tar.gz'
+            if self.site!='local':
+              pzipfilename='postproc_'+evstring+'_'+ifo+'.tar.gz'
+            else:
+              pzipfilename=None
             subresnode=self.add_results_page_node(outdir=presultsdir,parent=pmergenode, gzip_output=pzipfilename,ifos=ifo)
             subresnode.set_psd_files(cotest_nodes[0].get_psd_files())
             subresnode.set_snr_file(cotest_nodes[0].get_snr_file())
@@ -1239,7 +1243,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
           nodes=[]
           for sk in skynodes:
             if len(sk.ifos)>1:
-              node=GraceDBNode(self.gracedbjob,parent=sk,gid=gid)
+              node=GraceDBNode(self.gracedbjob,parent=sk,gid=gid,tag='sky_loc,lvem')
               #for p in sk.__parents:
               #  if isinstance(p,ResultPageNode):
               #    resultpagenode=p

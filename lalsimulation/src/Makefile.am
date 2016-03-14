@@ -93,7 +93,8 @@ noinst_HEADERS = \
 	LALSimIMRPhenomD_internals.c \
 	LALSimIMRPhenomD.h \
 	LALSimIMRPhenomP.c \
-	LALSimIMRSEOBNRROMUtilities.c
+	LALSimIMRSEOBNRROMUtilities.c \
+	LALSimIMREOBNRv2HMROMUtilities.c
 
 lib_LTLIBRARIES = liblalsimulation.la
 liblalsimulation_la_SOURCES = \
@@ -106,7 +107,9 @@ liblalsimulation_la_SOURCES = \
 	LALSimIMRSEOBNRv1ROMDoubleSpin.c \
 	LALSimIMRSEOBNRv2ROMEffectiveSpin.c \
 	LALSimIMRSEOBNRv2ROMDoubleSpin.c \
+	LALSimIMRSEOBNRv2ROMDoubleSpinHI.c \
 	LALSimIMRSEOBNRv2ChirpTime.c \
+	LALSimIMREOBNRv2HMROM.c \
 	LALSimIMRPhenom.c \
 	LALSimIMRPhenomC.c \
 	LALSimIMRPhenomD.c \
@@ -184,6 +187,8 @@ EXTRA_DIST = \
 	lalsimburst_btlwnbexamples.svg \
 	lalsimburst_sinegaussianexamples.svg \
 	lalsimburst_stringcuspexamples.svg \
+	lalsiminspiral_orbitelements.svg \
+	lalsimulation_inject.svg \
 	$(NOISEPSDFILES) \
 	$(EOSDATAFILES)
 

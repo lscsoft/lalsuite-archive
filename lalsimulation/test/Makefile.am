@@ -16,14 +16,14 @@ test_programs += WaveformFromCacheTest
 test_programs += XLALSimAddInjectionTest
 #test_programs += TestTaylorTFourier
 #test_programs += SpinTaylorT4DynamicsTest
-if HAVE_OPENMP
-test_programs += OpenMPTest
-endif
+#if HAVE_OPENMP
+#test_programs += OpenMPTest
+#endif
 
 # Add shell, Python, etc. test scripts to this variable
 test_scripts += AllApproximantsTest.sh
 if SWIG_BUILD_PYTHON
-#test_scripts += LALSimWaveformReferenceTest.py
+test_scripts += LALSimWaveformReferenceTest.py
 endif
 
 # Add any helper programs required by tests to this variable

@@ -43,6 +43,9 @@ from xml.dom import minidom
 from operator import itemgetter
 
 #related third party imports
+import healpy as hp
+import lalinference.cmap
+import lalinference.plot as lp
 import numpy as np
 from numpy import fmod
 import matplotlib
@@ -50,6 +53,7 @@ from matplotlib import pyplot as plt,cm as mpl_cm,lines as mpl_lines
 from scipy import stats
 from scipy import special
 from scipy import signal
+from scipy.optimize import newton
 from numpy import linspace
 import random
 import socket
@@ -96,6 +100,7 @@ __date__= git_version.date
 #===============================================================================
 #Parameters which are not to be exponentiated when found
 logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior']
+snrParams=['snr','optimal_snr','matched_filter_snr'] + ['%s_optimal_snr'%(i) for i in ['H1','L1','V1']]
 #Pre-defined ordered list of line styles for use in matplotlib contour plots.
 __default_line_styles=['solid', 'dashed', 'dashdot', 'dotted']
 #Pre-defined ordered list of matplotlib colours for use in plots.
@@ -222,6 +227,11 @@ def plot_label(param):
       'eta':r'$\eta$',
       'q':r'$q$',
       'mtotal':r'$M_\mathrm{total}\,(\mathrm{M}_\odot)$',
+      'm1_source':r'$m_{1}^\mathrm{source}\,(\mathrm{M}_\odot)$',
+      'm2_source':r'$m_{2}^\mathrm{source}\,(\mathrm{M}_\odot)$',
+      'mtotal_source':r'$M_\mathrm{total}^\mathrm{source}\,(\mathrm{M}_\odot)$',
+      'mc_source':r'$\mathcal{M}^\mathrm{source}\,(\mathrm{M}_\odot)$',
+      'redshift':r'$z$',
       'spin1':r'$S_1$',
       'spin2':r'$S_2$',
       'a1':r'$a_1$',
@@ -231,6 +241,7 @@ def plot_label(param):
       'phi1':r'$\phi_1\,(\mathrm{rad})$',
       'phi2':r'$\phi_2\,(\mathrm{rad})$',
       'chi':r'$\chi$',
+      'chi_p':r'$\chi_P$',
       'tilt1':r'$t_1\,(\mathrm{rad})$',
       'tilt2':r'$t_2\,(\mathrm{rad})$',
       'costilt1':r'$\mathrm{cos}(t_1)$',
@@ -681,6 +692,7 @@ class Posterior(object):
          pos.append_mapping('chi', lambda m1,s1z,m2,s2z: (m1*s1z + m2*s2z) / (m1 + m2), ('m1','spin1','m2','spin2'))
       elif ('a1' in pos.names and 'm1' in pos.names) and ('a2' in pos.names and 'm2' in pos.names):
          pos.append_mapping('chi', lambda m1,s1z,m2,s2z: (m1*s1z + m2*s2z) / (m1 + m2), ('m1','a1','m2','a2'))
+        
 
       if('a_spin1' in pos.names): pos.append_mapping('a1',lambda a:a,'a_spin1')
       if('a_spin2' in pos.names): pos.append_mapping('a2',lambda a:a,'a_spin2')
@@ -750,6 +762,28 @@ class Posterior(object):
               pos.append_mapping(new_spin_params, spin_angles, old_params)
           except KeyError:
               print "Warning: Cannot find spin parameters.  Skipping spin angle calculations."
+                
+      #Calculate effective precessing spin magnitude
+      if ('a1' in pos.names and 'tilt1' in pos.names and 'm1' in pos.names ) and ('a2' in pos.names and 'tilt2' in pos.names and 'm2' in pos.names):
+          pos.append_mapping('chi_p', chi_precessing, ['a1', 'tilt1', 'm1', 'a2', 'tilt2', 'm2'])
+
+
+      # Calculate redshift from luminosity distance measurements
+      if('distance' in pos.names):
+          pos.append_mapping('redshift', calculate_redshift, 'distance')
+     
+      # Calculate source mass parameters
+      if ('m1' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('m1_source', source_mass, ['m1', 'redshift'])
+
+      if ('m2' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('m2_source', source_mass, ['m2', 'redshift'])
+        
+      if ('mtotal' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('mtotal_source', source_mass, ['mtotal', 'redshift'])
+
+      if ('mc' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('mc_source', source_mass, ['mc', 'redshift'])
 
       #Calculate new tidal parameters
       new_tidal_params = ['lam_tilde','dlam_tilde']
@@ -846,6 +880,16 @@ class Posterior(object):
                 print "\t%i NaNs in %s."%(nan_dict[param],param)
             self.delete_samples_by_idx(nan_idxs)
         return
+
+    @property
+    def DIC(self):
+        """Returns the Deviance Information Criterion estimated from the
+        posterior samples.  The DIC is defined as -2*(<log(L)> -
+        Var(log(L))); smaller values are "better."
+
+        """
+
+        return -2.0*(np.mean(self._logL) - np.var(self._logL))
 
     @property
     def injection(self):
@@ -954,6 +998,8 @@ class Posterior(object):
                         vals = dict([(trig.ifo,self._injXMLFuncMap[key](trig)) for trig in self._triggers])
                     except TypeError:
                         return self._injXMLFuncMap[key]
+                    except AttributeError:
+                        return None
         return vals
 
     def __getitem__(self,key):
@@ -1416,6 +1462,41 @@ class Posterior(object):
         else:
             raise RuntimeError('could not find necessary column header "chain" in posterior samples')
 
+    def healpix_map(self, resol, nest=True):
+        """Returns a healpix map in the pixel ordering that represents the
+        posterior density (per square degree) on the sky.  The pixels
+        will be chosen to have at least the given resolution (in
+        degrees).
+
+        """
+
+        # Ensure that the resolution is twice the desired
+        nside = 2
+        while hp.nside2resol(nside, arcmin=True) > resol*60.0/2.0:
+            nside *= 2
+
+        ras = self['ra'].samples.squeeze()
+        decs = self['dec'].samples.squeeze()
+
+        phis = ras
+        thetas = np.pi/2.0 - decs
+
+        # Create the map in ring ordering
+        inds = hp.ang2pix(nside, thetas, phis, nest=False)
+        counts = np.bincount(inds)
+        if counts.shape[0] < hp.nside2npix(nside):
+            counts = np.concatenate((counts, np.zeros(hp.nside2npix(nside) - counts.shape[0])))
+
+        # Smooth the map a bit (Gaussian sigma = resol)
+        hpmap = hp.sphtfunc.smoothing(counts, sigma=resol*np.pi/180.0)
+
+        hpmap = hpmap / (np.sum(hpmap)*hp.nside2pixarea(nside, degrees=True))
+
+        if nest:
+            hpmap = hp.reorder(hpmap, r2n=True)
+
+        return hpmap
+        
     def __str__(self):
         """
         Define a string representation of the Posterior class ; returns
@@ -3077,71 +3158,69 @@ def greedy_bin_sky(posterior,skyres,confidence_levels):
 
     return _greedy_bin(shist,skypoints,injbin,float(skyres)*float(skyres),len(skypos),confidence_levels)
 
+def plot_sky_map(hpmap, outdir, inj=None, nest=True):
+    """Plots a sky map from a healpix map, optionally including an
+    injected position.
 
-def plot_sky_map(inj_pos,top_ranked_pixels,outdir):
+    :param hpmap: An array representing a healpix map (in nested
+      ordering if ``nest = True``).
+
+    :param outdir: The output directory.
+
+    :param inj: If not ``None``, then ``[ra, dec]`` of the injection
+      associated with the posterior map.
+
+    :param nest: Flag indicating the pixel ordering in healpix.
+
     """
-    Plots a sky map using the Mollweide projection in the Basemap package.
 
-    @inj_pos: injected position in the sky in the form [dec,ra]
+    fig = plt.figure(frameon=False, figsize=(8,6))
+    ax = plt.subplot(111, projection='astro mollweide')
+    ax.cla()
+    ax.grid()
+    lp.healpix_heatmap(hpmap, nest=nest, vmin=0.0, vmax=np.max(hpmap), cmap=plt.get_cmap('cylon'))
 
-    @param top_ranked_pixels: the top-ranked sky pixels as determined by greedy_bin_sky.
+    if inj is not None:
+        ax.plot(inj[0], inj[1], '*', markerfacecolor='white', markeredgecolor='black', markersize=10)
 
-    @param outdir: Output directory in which to save skymap.png image.
+    plt.savefig(os.path.join(outdir, 'skymap.png'))
+
+    return fig
+
+def skymap_confidence_areas(hpmap, cls):
+    """Returns the area (in square degrees) for each confidence level with
+    a greedy binning algorithm for the given healpix map.
+
     """
-    from mpl_toolkits.basemap import Basemap
 
-    np.seterr(under='ignore')
+    hpmap = hpmap / np.sum(hpmap) # Normalise to sum to one.
 
-    myfig=plt.figure(1,figsize=(13,18),dpi=200)
-    plt.clf()
-    m=Basemap(projection='moll',lon_0=180.0,lat_0=0.0)
+    hpmap = np.sort(hpmap)[::-1] # Sort from largest to smallest
+    cum_hpmap = np.cumsum(hpmap)
+
+    pixarea = hp.nside2pixarea(hp.npix2nside(hpmap.shape[0]))
+    pixarea = pixarea*(180.0/np.pi)**2 # In square degrees
     
-    # Plot an X on the injected position
-    if (inj_pos is not None and inj_pos[1] is not None and inj_pos[0] is not None):
-        ra_inj_rev=2*pi_constant - inj_pos[1]*57.296
-        inj_plx,inj_ply=m(ra_inj_rev, inj_pos[0]*57.296)
-        plt.plot(inj_plx,inj_ply,'wx',linewidth=12, markersize=22,mew=2,alpha=0.6)
-    
-    ra_reverse = 2*pi_constant - np.asarray(top_ranked_pixels)[::-1,1]*57.296
+    areas = []
+    for cl in cls:
+        npix = np.sum(cum_hpmap < cl) # How many pixels to sum before cl?
+        areas.append(npix*pixarea)
 
-    plx,ply=m(
-              ra_reverse,
-              np.asarray(top_ranked_pixels)[::-1,0]*57.296
-              )
+    return np.array(areas)
 
-    cnlevel=[1-tp for tp in np.asarray(top_ranked_pixels)[::-1,3]]
-    plt.scatter(plx,ply,s=5,c=cnlevel,faceted=False,cmap=mpl_cm.jet)
-    m.drawmapboundary()
-    m.drawparallels(np.arange(-90.,120.,45.),labels=[1,0,0,0],labelstyle='+/-')
-    # draw parallels
-    m.drawmeridians(np.arange(0.,360.,90.),labels=[0,0,0,1],labelstyle='+/-')
-    # draw meridians
-    plt.title("Skymap") # add a title
-    plt.colorbar(pad=0.05,orientation='horizontal')
-    myfig.savefig(os.path.join(outdir,'skymap.png'),bbox_inches='tight')
-    plt.clf()
+def skymap_inj_pvalue(hpmap, inj, nest=True):
+    """Returns the greedy p-value estimate for the given injection.
 
-    #Save skypoints
-    
-    fid = open( os.path.join(outdir,'ranked_sky_pixels.dat'), 'w' ) 
-    fid.write( 'dec(deg.)\tra(h.)\tprob.\tcumul.\n' ) 
-    np.savetxt(
-               fid,
-               #os.path.join(outdir,'ranked_sky_pixels.dat'),
-               np.column_stack(
-                               [
-                                np.asarray(top_ranked_pixels)[:,0]*57.296,
-                                np.asarray(top_ranked_pixels)[:,1]*3.820,
-                                np.append(np.asarray(top_ranked_pixels)[0,3],np.asarray(top_ranked_pixels)[1:,3]-np.asarray(top_ranked_pixels)[:-1,3]),
-                                np.asarray(top_ranked_pixels)[:,3]
-                                ]
-                               ),
-               fmt='%.4f',
-               delimiter='\t'
-               )
-    fid.close() 
+    """
 
-    return myfig
+    nside = hp.npix2nside(hpmap.shape[0])
+    hpmap = hpmap / np.sum(hpmap) # Normalise to sum to one
+
+    injpix = hp.ang2pix(nside, np.pi/2.0-inj[1], inj[0], nest=nest)
+    injvalue = hpmap[injpix]
+
+    return np.sum(hpmap[hpmap >= injvalue])
+
 #
 
 def mc2ms(mc,eta):
@@ -3350,7 +3429,43 @@ def spin_angles(fref,mc,eta,incl,a1,theta1,phi1,a2=None,theta2=None,phi2=None):
     beta  = array_ang_sep(J,L)
     return tilt1, tilt2, theta_jn, beta
 #
-#
+def chi_precessing(a1, tilt1, m1, a2, tilt2, m2):
+	"""
+	Calculate the magnitude of the effective precessing spin
+	following convention from Phys. Rev. D 91, 024043   --   arXiv:1408.1810
+	note: the paper uses naming convention where m1 < m2 
+	(and similar for associated spin parameters) and q > 1
+	"""
+	q_inv = m1/m2
+	A1 = 2. + (3.*q_inv/2.)
+	A2 = 2. + 3./(2.*q_inv)
+	S1_perp = a1*np.sin(tilt1)*m1*m1
+	S2_perp = a2*np.sin(tilt2)*m2*m2
+	Sp = np.maximum(A1*S2_perp, A2*S1_perp)
+	chi_p = Sp/(A2*m1*m1)
+	return chi_p
+
+def calculate_redshift(distance,h=0.7,om=0.3,ol=0.7,w0=-1.0):
+    """
+    Calculate the redshift from the luminosity distance measurement using the
+    Cosmology Calculator provided in LAL.
+    Currently assumes Omega_M = 0.3, Omega_Lambda = 0.7, H_0 = 70 km s^-1 Mpc^-1
+    Returns an array of redshifts
+    """
+    def find_z_root(z,dl,omega):
+        return dl - lal.LuminosityDistance(omega,z)    
+
+    omega = lal.CreateCosmologicalParameters(h,om,ol,w0,0.0,0.0)
+    z = np.array([newton(find_z_root,np.random.uniform(0.0,2.0),args = (d,omega)) for d in distance[:,0]])
+    return z.reshape(z.shape[0],1)
+
+def source_mass(mass, redshift):
+    """
+    Calculate source mass parameter for mass m as:
+    m_source = m / (1.0 + z)
+    For a parameter m.
+    """
+    return mass / (1.0 + redshift)
 
 def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m2, fref):
     """
@@ -5109,7 +5224,8 @@ class PEOutputParser(object):
                 ntots.append(ntot)
                 if nDownsample is None:
                     try:
-                        nonParams = ["logpost", "cycle", "logprior", "logl", "loglh1", "logll1", "loglv1", "timestamp", "snrh1", "snrl1", "snrv1", "snr", "time_mean", "time_maxl"]
+                        nonParams = ["logpost", "cycle", "timestamp", "snrh1", "snrl1", "snrv1",
+                                     "time_mean", "time_maxl"] + logParams + snrParams
                         nonParamsIdxs = [header.index(name) for name in nonParams if name in header]
                         paramIdxs = [i for i in range(len(header)) if i not in nonParamsIdxs]
                         samps = np.array(lines).astype(float)
@@ -6108,4 +6224,3 @@ def plot_psd(psd_files,outpath=None):
   myfig2.clf()
 
   return 1
-

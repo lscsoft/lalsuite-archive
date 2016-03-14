@@ -58,7 +58,8 @@ sim_inspiral_dt = [
         ('spin2x', 'f8'),
         ('spin2y', 'f8'),
         ('spin2z', 'f8'),
-        ('amp_order', 'i4')
+        ('amp_order', 'i4'),
+        ('numrel_data','|S64')
 ]
 
 def get_input_filename(parser, args):
@@ -265,6 +266,7 @@ if __name__ == "__main__":
     injections['spin2y'] = s2y
     injections['spin2z'] = s2z
     injections['amp_order'] = [opts.amporder for i in xrange(N)]
+    injections['numrel_data'] = [ "" for _ in xrange(N)]
 
     # Create a new XML document
     xmldoc = ligolw.Document()

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
 #
 #       cbcBayesPostProc.py
@@ -490,6 +490,15 @@ def cbcBayesPostProc(
         html_snr=html.add_section('Signal to noise ratio(s)',legend=legend)
         html_snr.p('%s'%snrstring)
 
+    # Create a section for the DIC
+    html_dic = html.add_section('Deviance Information Criterion', legend=legend)
+    html_dic.p('DIC = %.1f'%pos.DIC)
+    dicout = open(os.path.join(outdir, 'dic.dat'), 'w')
+    try:
+        dicout.write('%.1f\n'%pos.DIC)
+    finally:
+        dicout.close()
+
     #Create a section for summary statistics
     # By default collapse section are collapsed when the page is opened or reloaded. Use start_closed=False option as here below to change this
     tabid='statstable'
@@ -533,38 +542,26 @@ def cbcBayesPostProc(
     html_sky=html.add_section_to_element('SkyMap',skytd)
     #If sky resolution parameter has been specified try and create sky map...
     if skyres is not None and \
-       (('ra' in pos.names and 'dec' in pos.names) or \
-        ('rightascension' in pos.names and 'declination' in pos.names)):
-        #Greedy bin sky samples (ra,dec) into a grid on the sky which preserves
-        #?
-        if ('ra' in pos.names and 'dec' in pos.names):
-            inj_position=[pos['dec'].injval,pos['ra'].injval]
-        elif ('rightascension' in pos.names and 'declination' in pos.names):
-            inj_position=[pos['declination'].injval,pos['rightascension'].injval]
-        top_ranked_sky_pixels,sky_injection_cl,skyreses,injection_area=bppu.greedy_bin_sky(pos,skyres,confidence_levels)
-        print "BCI for sky area:"
-        print skyreses
-        #Create sky map in outdir
-        bppu.plot_sky_map(inj_position,top_ranked_sky_pixels,outdir)
-        
-        #Create a web page section for sky localization results/plots (if defined)
+       ('ra' in pos.names and 'dec' in pos.names):
 
-        #html_sky=html.add_section('Sky Localization',legend=legend)
-        if injection:
-            if sky_injection_cl:
-                html_sky.p('Injection found at confidence interval %f in sky location'%(sky_injection_cl))
-            else:
-                html_sky.p('Injection not found in posterior bins in sky location!')
+        if pos['dec'].injval is not None and pos['ra'].injval is not None:
+            inj_position=[pos['ra'].injval,pos['dec'].injval]
+        else:
+            inj_position=None
+
+        hpmap = pos.healpix_map(float(skyres), nest=True)
+        bppu.plot_sky_map(hpmap, outdir, inj=inj_position, nest=True)
+        
+        if inj_position is not None:
+            html_sky.p('Injection found at p = %g'%bppu.skymap_inj_pvalue(hpmap, inj_position, nest=True))
+            
         html_sky.write('<a href="skymap.png" target="_blank"><img src="skymap.png"/></a>')
 
         html_sky_write='<table border="1" id="statstable"><tr><th>Confidence region</th><th>size (sq. deg)</th></tr>'
 
-        fracs=skyreses.keys()
-        fracs.sort()
-
-        skysizes=[skyreses[frac] for frac in fracs]
-        for frac,skysize in zip(fracs,skysizes):
-            html_sky_write+=('<tr><td>%f</td><td>%f</td></tr>'%(frac,skysize))
+        areas = bppu.skymap_confidence_areas(hpmap, confidence_levels)
+        for cl, area in zip(confidence_levels, areas):
+            html_sky_write+='<tr><td>%g</td><td>%g</td></tr>'%(cl, area)
         html_sky_write+=('</table>')
 
         html_sky.write(html_sky_write)
@@ -853,13 +850,13 @@ def cbcBayesPostProc(
     # Corner plots
     #===============================#
 
-    massParams=['mtotal','m1','m2','mc']
-    distParams=['distance','distMPC','dist']
+    massParams=['mtotal','m1','m2','mc','m1_source','m2_source','mtotal_source','mc_source']
+    distParams=['distance','distMPC','dist','redshift']
     incParams=['iota','inclination','theta_jn']
     polParams=['psi','polarisation','polarization']
     skyParams=['ra','rightascension','declination','dec']
     timeParams=['time']
-    spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','chi','effectivespin','beta','tilt1','tilt2','phi_jl','theta_jn','phi12']
+    spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','chi','effectivespin','chi_p','beta','tilt1','tilt2','phi_jl','theta_jn','phi12']
     intrinsicParams=massParams+spinParams
     extrinsicParams=incParams+distParams+polParams+skyParams
     try:
@@ -1274,13 +1271,13 @@ if __name__=='__main__':
       fixedBurnins = None
 
     #List of parameters to plot/bin . Need to match (converted) column names.
-    massParams=['m1','m2','chirpmass','mchirp','mc','eta','q','massratio','asym_massratio','mtotal']
-    distParams=['distance','distMPC','dist']
+    massParams=['m1','m2','chirpmass','mchirp','mc','eta','q','massratio','asym_massratio','mtotal','m1_source','m2_source','mtotal_source','mc_source']
+    distParams=['distance','distMPC','dist','redshift']
     incParams=['iota','inclination','cosiota']
     polParams=['psi','polarisation','polarization']
     skyParams=['ra','rightascension','declination','dec']
     timeParams=['time','time_mean']
-    spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','costheta_jn','cosbeta','tilt1','tilt2','phi_jl','theta_jn','phi12']
+    spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','chi_p','costheta_jn','cosbeta','tilt1','tilt2','phi_jl','theta_jn','phi12']
     phaseParams=['phase', 'phi0','phase_maxl']
     endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
     ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB','alphaPPE','aPPE','betaPPE','bPPE']
@@ -1289,7 +1286,7 @@ if __name__=='__main__':
     massiveGravitonParams=['lambdaG']
     tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat']
     statsParams=['logprior','logl','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','deltaloglh2','deltaloglg1','flow']
-    snrParams=['optimal_snr','matched_filter_snr']
+    snrParams=bppu.snrParams
     oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams + ppEParams + tigerParams + bransDickeParams + massiveGravitonParams + tidalParams + statsParams + snrParams
     # ['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
     ifos_menu=['h1','l1','v1']
@@ -1339,10 +1336,11 @@ if __name__=='__main__':
              for tp in tidalParams:
                  if not (mp == tp):
                      twoDGreedyMenu.append([mp, tp])
+        for sp1,sp2 in combinations(snrParams,2):
+                twoDGreedyMenu.append([sp1,sp2])
         twoDGreedyMenu.append(['lambda1','lambda2'])
         twoDGreedyMenu.append(['lam_tilde','dlam_tilde'])
         twoDGreedyMenu.append(['lambdat','dlambdat'])
-        twoDGreedyMenu.append(['optimal_snr','matched_filter_snr'])
         for psip in polParams:
             for phip in phaseParams:
                 twoDGreedyMenu.append([psip,phip])
@@ -1353,7 +1351,9 @@ if __name__=='__main__':
 
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'time_mean':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costheta_jn':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01,'phase':0.05,'tilt1':0.05,'tilt2':0.05,'phi_jl':0.05,'theta_jn':0.05,'phi12':0.05,'flow':1.0,'phase_maxl':0.05,'optimal_snr':0.05,'matched_filter_snr':0.05}
+    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'mc_source':0.025,'m1_source':0.1,'m2_source':0.1,'mtotal_source':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'time_mean':1e-4,'distance':1.0,'dist':1.0,'redshift':0.01,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'chi_eff':0.05,'chi_tot':0.05,'chi_p':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costheta_jn':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01,'phase':0.05,'tilt1':0.05,'tilt2':0.05,'phi_jl':0.05,'theta_jn':0.05,'phi12':0.05,'flow':1.0,'phase_maxl':0.05}
+    for s in snrParams:
+            greedyBinSizes[s]=0.05
     for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
         greedyBinSizes[derived_time]=greedyBinSizes['time']
     if not opts.no2D:

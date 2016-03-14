@@ -2983,22 +2983,26 @@ REAL8 LALInferenceDistanceLikelihoodProposal(LALInferenceRunState *runState, LAL
   REAL8 xsigma = 1.0/(OptimalSNR*old_d);
   REAL8 old_x = 1.0/old_d;
   
-  /* Sample new x, cutting off the part of the Gaussian that extends
-     to new_x < 0.  (Since the proposal density remains fixed for new
-     and old x, this just introduces a constant normalisation factor
-     that cancels in the proposal ratio.) */
+  /* Sample new x. Do not check for x<0 since that can throw the code
+   * into a difficult-to-terminate loop */
   REAL8 new_x;
-  do {
-    new_x = xmean + gsl_ran_gaussian(runState->GSLrandom,xsigma);
-  } while (new_x <= 0.0);
+  new_x = xmean + gsl_ran_gaussian(runState->GSLrandom,xsigma);
   REAL8 new_d = 1.0/new_x;
-  
-  /* Adjust SNRs */
-  OptimalSNR*= new_x / old_x;
-  
-  
+
   LALInferenceCopyVariables(currentParams,proposedParams);
-  LALInferenceSetVariable(proposedParams,"optimal_snr",&OptimalSNR);
+  /* Adjust SNRs */
+  OptimalSNR *= new_x / old_x;
+  MatchedFilterSNR *= new_x/old_x;
+  LALInferenceSetREAL8Variable(proposedParams,"optimal_snr",OptimalSNR);
+  LALInferenceSetREAL8Variable(proposedParams,"matched_filter_snr",MatchedFilterSNR);
+  REAL8 *snr_ptr=NULL;
+  if((snr_ptr=LALInferenceGetVariable(currentParams,"H1_optimal_snr")))
+    LALInferenceSetREAL8Variable(proposedParams,"H1_optimal_snr",*snr_ptr * (new_x/old_x));
+  if((snr_ptr=LALInferenceGetVariable(currentParams,"L1_optimal_snr")))
+    LALInferenceSetREAL8Variable(proposedParams,"L1_optimal_snr",*snr_ptr * (new_x/old_x));
+  if((snr_ptr=LALInferenceGetVariable(currentParams,"V1_optimal_snr")))
+    LALInferenceSetREAL8Variable(proposedParams,"V1_optimal_snr",*snr_ptr * (new_x/old_x));
+  
   
   REAL8 logxdjac;
   /* Set distance */
