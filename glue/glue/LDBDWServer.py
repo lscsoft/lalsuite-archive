@@ -584,7 +584,7 @@ class Server(object):
             rmv_idx.append(row_idx)
           else:
             # multiple entries for this process, needs human assistance
-            raise ServerHandlerException, "multiple entries for dmt process"
+            raise ServerHandlerException("multiple entries for dmt process")
 
       # delete the duplicate processs rows and clear the table if necessary
       newstream = []

@@ -234,7 +234,7 @@ def coalesce_seg(database, start_time, end_time):
       pass
     curs.close()
 
-  except Exception,e:
+  except Exception as e:
     ret = str(e)
     print >> sys.stdout, ("%s" % ret)
 

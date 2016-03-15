@@ -39,8 +39,8 @@ def get_lock(lockfile):
     # stale lock at the same time, and both trying to run
     try:
         fcntl.flock(pidfile.fileno(), fcntl.LOCK_EX|fcntl.LOCK_NB)
-    except IOError,e:
-        raise RuntimeError, "failed to lock %s: %s" % (lockfile, e)
+    except IOError as e:
+        raise RuntimeError("failed to lock %s: %s" % (lockfile, e))
 
     # we got the file lock, so check for a pid therein
     pidfile.seek(0)
@@ -48,8 +48,8 @@ def get_lock(lockfile):
 
     if pidfile_pid.isdigit():
         if glue.utils.pid_exists(int(pidfile_pid)):
-            raise RuntimeError, ("pidfile %s contains pid (%s) of a running "
-                                 "process" % (lockfile, pidfile_pid))
+            raise RuntimeError("pidfile %s contains pid (%s) of a running "
+                               "process" % (lockfile, pidfile_pid))
         else:
             print ("pidfile %s contains stale pid %s; writing new lock" %
                    (lockfile, pidfile_pid))
@@ -73,6 +73,6 @@ def confirm_lock(lockfile):
     pidfile_pid = pidfile.readline().strip()
     pidfile.close()
     if int(pidfile_pid) != os.getpid():
-        raise RuntimeError, ("pidfile %s contains pid %s; expected pid %s!" %
-                             (lockfile, os.getpid(), pidfile_pid))
+        raise RuntimeError("pidfile %s contains pid %s; expected pid %s!" %
+                           (lockfile, os.getpid(), pidfile_pid))
     return True

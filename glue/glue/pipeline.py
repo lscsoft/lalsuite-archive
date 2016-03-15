@@ -712,32 +712,32 @@ class CondorJob:
     Write a submit file for this Condor job.
     """
     if not self.__log_file:
-      raise CondorSubmitError, "Log file not specified."
+      raise CondorSubmitError("Log file not specified.")
     if not self.__err_file:
-      raise CondorSubmitError, "Error file not specified."
+      raise CondorSubmitError("Error file not specified.")
     if not self.__out_file:
-      raise CondorSubmitError, "Output file not specified."
+      raise CondorSubmitError("Output file not specified.")
 
     if not self.__sub_file_path:
-      raise CondorSubmitError, 'No path for submit file.'
+      raise CondorSubmitError('No path for submit file.')
     try:
       subfile = open(self.__sub_file_path, 'w')
     except:
-      raise CondorSubmitError, "Cannot open file " + self.__sub_file_path
+      raise CondorSubmitError("Cannot open file " + self.__sub_file_path)
 
     if self.__universe == 'grid':
       if self.__grid_type == None:
-        raise CondorSubmitError, 'No grid type specified.'
+        raise CondorSubmitError('No grid type specified.')
       elif self.__grid_type == 'gt2':
         if self.__grid_server == None:
-          raise CondorSubmitError, 'No server specified for grid resource.'
+          raise CondorSubmitError('No server specified for grid resource.')
       elif self.__grid_type == 'gt4':
         if self.__grid_server == None:
-          raise CondorSubmitError, 'No server specified for grid resource.'
+          raise CondorSubmitError('No server specified for grid resource.')
         if self.__grid_scheduler == None:
-          raise CondorSubmitError, 'No scheduler specified for grid resource.'
+          raise CondorSubmitError('No scheduler specified for grid resource.')
       else:
-        raise CondorSubmitError, 'Unsupported grid resource.'
+        raise CondorSubmitError('Unsupported grid resource.')
 
     subfile.write( 'universe = ' + self.__universe + '\n' )
     subfile.write( 'executable = ' + self.__executable + '\n' )
@@ -879,7 +879,7 @@ class CondorDAGJob(CondorJob):
       self.__var_args[arg_index]
     except IndexError:
       if arg_index != self.__arg_index:
-        raise CondorDAGJobError, "mismatch between job and node var_arg index"
+        raise CondorDAGJobError("mismatch between job and node var_arg index")
       if quote:
           self.__var_args.append("'$(macroargument%s)'" % str(arg_index))
       else:
@@ -999,8 +999,8 @@ class CondorDAGNode:
     """
     if not isinstance(job, CondorDAGJob) and \
         not isinstance(job,CondorDAGManJob):
-      raise CondorDAGNodeError, \
-          "A DAG node must correspond to a Condor DAG job or Condor DAGMan job"
+      raise CondorDAGNodeError(
+          "A DAG node must correspond to a Condor DAG job or Condor DAGMan job")
     self.__name = None
     self.__job = job
     self.__category = None
@@ -1490,7 +1490,7 @@ class CondorDAGNode:
     @param node: CondorDAGNode to add as a parent.
     """
     if not isinstance(node, (CondorDAGNode,CondorDAGManNode) ):
-      raise CondorDAGNodeError, "Parent must be a CondorDAGNode or a CondorDAGManNode"
+      raise CondorDAGNodeError("Parent must be a CondorDAGNode or a CondorDAGManNode")
     self.__parents.append( node )
 
   def get_cmd_tuple_list(self):
@@ -1717,7 +1717,7 @@ class CondorDAG:
     Return the path to the DAG file.
     """
     if not self.__log_file_path:
-      raise CondorDAGError, "No path for DAG file"
+      raise CondorDAGError("No path for DAG file")
     else:
       return self.__dag_file_path
 
@@ -1733,7 +1733,7 @@ class CondorDAG:
     Return the path to the DAG file.
     """
     if not self.__log_file_path:
-      raise CondorDAGError, "No path for DAX file"
+      raise CondorDAGError("No path for DAX file")
     else:
       return self.__dax_file_path
 
@@ -1746,7 +1746,7 @@ class CondorDAG:
     @param node: CondorDAGNode to add to the CondorDAG.
     """
     if not isinstance(node, CondorDAGNode):
-      raise CondorDAGError, "Nodes must be class CondorDAGNode or subclass"
+      raise CondorDAGError("Nodes must be class CondorDAGNode or subclass")
     if not isinstance(node.job(), CondorDAGManJob):
       node.set_log_file(self.__log_file_path)
     self.__nodes.append(node)
@@ -1821,11 +1821,11 @@ class CondorDAG:
     Write all the nodes in the DAG to the DAG file.
     """
     if not self.__dag_file_path:
-      raise CondorDAGError, "No path for DAG file"
+      raise CondorDAGError("No path for DAG file")
     try:
       dagfile = open( self.__dag_file_path, 'w' )
     except:
-      raise CondorDAGError, "Cannot open file " + self.__dag_file_path
+      raise CondorDAGError("Cannot open file " + self.__dag_file_path)
     for node in self.__nodes:
       node.write_job(dagfile)
       node.write_vars(dagfile)
@@ -2172,13 +2172,13 @@ class CondorDAG:
     dependencies should be handled correctly.
     """
     if not self.__dag_file_path:
-      raise CondorDAGError, "No path for DAG file"
+      raise CondorDAGError("No path for DAG file")
     try:
       dfp = self.__dag_file_path
       outfilename = ".".join(dfp.split(".")[:-1]) + ".sh"
       outfile = open(outfilename, "w")
     except:
-      raise CondorDAGError, "Cannot open file " + self.__dag_file_path
+      raise CondorDAGError("Cannot open file " + self.__dag_file_path)
 
     for node in self.__nodes:
         outfile.write("# Job %s\n" % node.get_name())
@@ -2699,8 +2699,8 @@ class AnalysisNode(CondorDAGNode):
       # only add the LFNs that actually overlap with this job
       # XXX FIXME this is a very slow algorithm
       if len(filename) == 0:
-        raise CondorDAGNodeError, \
-          "LDR did not return any LFNs for query: check ifo and frame type"
+        raise CondorDAGNodeError(
+          "LDR did not return any LFNs for query: check ifo and frame type")
       for lfn in filename:
         a, b, c, d = lfn.split('.')[0].split('-')
         t_start = int(c)
@@ -2711,7 +2711,7 @@ class AnalysisNode(CondorDAGNode):
       # set the frame type based on the LFNs returned by datafind
       self.add_var_opt('frame-type',b)
     else:
-      raise CondorDAGNodeError, "Unknown LFN cache format"
+      raise CondorDAGNodeError("Unknown LFN cache format")
 
   def calibration_cache_path(self):
     """
@@ -2736,7 +2736,7 @@ class AnalysisNode(CondorDAGNode):
         self.__calibration_cache = cal
     else:
        msg = "IFO and start-time must be set first"
-       raise CondorDAGNodeError, msg
+       raise CondorDAGNodeError(msg)
 
   def calibration(self):
     """
@@ -2827,7 +2827,7 @@ class AnalysisChunk:
       x = self.__end - self.__start
 
     if x < 0:
-      raise SegmentError, self + 'has negative length'
+      raise SegmentError(self + 'has negative length')
     else:
       return x
 
@@ -2906,7 +2906,7 @@ class ScienceSegment:
     Allows iteration over and direct access to the AnalysisChunks contained
     in this ScienceSegment.
     """
-    if i < 0: raise IndexError, "list index out of range"
+    if i < 0: raise IndexError("list index out of range")
     return self.__chunks[i]
 
   def __len__(self):
@@ -3466,7 +3466,7 @@ class ScienceData:
       start = seg.start()
       stop = seg.end()
       if start < 0 or stop < start or start < ostart:
-        raise SegmentError, "Invalid list"
+        raise SegmentError("Invalid list")
       if start > 0:
         x = ScienceSegment(tuple([0,ostart,start,start-ostart]))
         outlist.append(x)
@@ -3667,7 +3667,7 @@ class LsyncCache:
       if gwfDict[site][frameType].has_key(key):
         msg = "The combination %s is not unique in the frame cache file" \
           % str(key)
-        raise RuntimeError, msg
+        raise RuntimeError(msg)
 
       gwfDict[site][frameType][key] = glue.segments.segmentlist(segments)
     f.close()
@@ -3921,8 +3921,8 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
           try:
             server = os.environ['LIGO_DATAFIND_SERVER']
           except KeyError:
-            raise RuntimeError, \
-              "Environment variable LIGO_DATAFIND_SERVER is not set"
+            raise RuntimeError(
+              "Environment variable LIGO_DATAFIND_SERVER is not set")
 
           try:
             h = httplib.HTTPConnection(server)
@@ -3961,7 +3961,7 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
             msg = "Server returned code %d: %s" % (response.status, response.reason)
             body = response.read()
             msg += body
-            raise RuntimeError, msg
+            raise RuntimeError(msg)
 
           # since status is 200 OK read the URLs
           body = response.read()
@@ -4330,7 +4330,7 @@ class LigolwSqliteNode(SqliteNode):
     Tell ligolw_sqlite to dump the contents of the database to a file.
     """
     if self.get_database() is None:
-      raise ValueError, "no database specified"
+      raise ValueError("no database specified")
     self.add_file_opt('extract', xml_file)
     self.__xml_output = xml_file
 
@@ -4344,7 +4344,7 @@ class LigolwSqliteNode(SqliteNode):
     elif self.get_database():
       return self.get_database()
     else:
-      raise ValueError, "no output xml file or database specified"
+      raise ValueError("no output xml file or database specified")
 
 class DeepCopyableConfigParser(ConfigParser.SafeConfigParser):
     """

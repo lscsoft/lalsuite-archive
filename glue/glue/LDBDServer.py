@@ -175,7 +175,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       # check if the last byte is a null byte
       if input[-1] != '\0':
         logger.error("Bad input on socket: %s" % input)
-        raise ServerHandlerException, "Last byte of input is not null byte"
+        raise ServerHandlerException("Last byte of input is not null byte")
     #except Exception, e:
     #  logger.error("Error reading input on socket: %s" %  e)
     #  return
@@ -205,7 +205,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
         msg += '\nFor example, "--segment-url https://segdb.ligo.caltech.edu"'
         logger.error(msg) 
         self.__reply__(1,msg)
-        raise ServerHandlerException, msg 
+        raise ServerHandlerException(msg)
       # list allowed sql commands when methodString is QUERY
       if methodString=='QUERY':
         # get the sql command, for example "SELECT, UPDATE, INSERT"
@@ -217,7 +217,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
            msg = 'ldbd server on port %d DO NOT support "%s"' % (port, dbcommand)
            logger.error(msg) 
            self.__reply__(1,msg)
-           raise ServerHandlerException, msg
+           raise ServerHandlerException(msg)
     except Exception, e:
       logger.error("Error filtering allowed commands: %s" % e) 
       return
