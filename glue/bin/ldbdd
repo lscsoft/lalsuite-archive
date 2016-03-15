@@ -308,11 +308,11 @@ class LDBDDaemon(object):
 
     if self.serverName is None:
       msg = "Error: the server name is not configured"
-      raise LDBDDaemonException, msg
+      raise LDBDDaemonException(msg)
     if self.serverName != configuration["server"]:
       msg = "Error: attempt to change service %s into service %s" % \
         ( self.serverName, configuration["server"] )
-      raise LDBDDaemonException, msg
+      raise LDBDDaemonException(msg)
 
     try:
       self.certFilePath = configuration["certfile"]
@@ -343,7 +343,7 @@ class LDBDDaemon(object):
       self.logger = myLogger
       logger = myLogger
 
-    except Exception, e:
+    except Exception as e:
       print >>sys.__stderr__, "Unable to start logging: %s" % e
         
     for k in configuration.keys():
@@ -515,7 +515,7 @@ class LDBDDaemon(object):
         self.stopNow = 0
         self.dieNow = 0
                         
-      except Exception, e:
+      except Exception as e:
         self.logger.warning("Error starting server: %s" % e)
         self.logger.warning("Will retry in %d seconds" % self.nap)
 
@@ -573,7 +573,7 @@ class LDBDDaemon(object):
           (request, client_address) = self.server.socket.accept(
             self.server.attr)
           process = 1
-        except io.GSITCPSocketException, ex:
+        except io.GSITCPSocketException as ex:
           self.server.socket.shutdown(2)
           process = 0
 
@@ -582,7 +582,7 @@ class LDBDDaemon(object):
             self.logger.debug("processing request on socket now...")
             self.server.process_request(request, client_address)
             self.logger.debug("finished processing request")
-          except Exception, e: 
+          except Exception as e:
             self.logger.error("Error during server.process_request(): %s" % e)
             self.server.handle_error(request, client_address)
             self.server.close_request(request)
@@ -646,7 +646,7 @@ except KeyboardInterrupt:
   logger.info("ldbdd shutting down")
   sys.exit()
 
-except Exception, e:
+except Exception as e:
   try:
     ServerModule.shutdown()
   except:
