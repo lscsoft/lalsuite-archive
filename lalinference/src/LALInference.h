@@ -363,7 +363,7 @@ int LALInferenceSplineCalibrationFactorROQ(REAL8Vector *logfreqs,
 					REAL8Vector *deltaAmps,
 					REAL8Vector *deltaPhases,
 					REAL8Sequence *freqNodes,
-					gsl_vector_complex *calFactorROQ);
+					COMPLEX16Sequence *calFactorROQ);
 
 //Wrapper for template computation
 //(relies on LAL libraries for implementation) <- could be a #DEFINE ?
@@ -674,9 +674,9 @@ tagLALInferenceROQModel
   COMPLEX16FrequencySeries *hptildeQuadratic;
   COMPLEX16FrequencySeries *hctildeQuadratic;
 
-  gsl_vector_complex *calFactorLinear;
+  COMPLEX16Sequence *calFactorLinear;
 
-  gsl_vector_complex *calFactorQuadratic;
+  COMPLEX16Sequence *calFactorQuadratic;
 
   REAL8Sequence  * frequencyNodesLinear; /** empirical frequency nodes for the likelihood. NOTE: needs to be stored from data read from command line */
   REAL8Sequence * frequencyNodesQuadratic;

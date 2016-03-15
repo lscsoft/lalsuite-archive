@@ -2658,13 +2658,9 @@ void LALInferenceSetupROQmodel(LALInferenceModel *model, ProcessParamsTable *com
   SimInspiralTable *injTable=NULL;
   FILE *tempfp;
   unsigned int n_basis_linear, n_basis_quadratic, n_samples, time_steps;
-  //n_basis_linear = 965;
-  //n_basis_quadratic = 0;
-  //n_samples = 31489;
-  //REAL8 delta_tc = 0.0001;
+ 
   LIGOTimeGPS GPStrig;
   REAL8 endtime=0.0;
-  //REAL8 timeMin=0.0,timeMax=0.0;
 
 	  model->roq = XLALMalloc(sizeof(LALInferenceROQModel));
 	  model->roq_flag = 1;
@@ -2721,15 +2717,7 @@ void LALInferenceSetupROQmodel(LALInferenceModel *model, ProcessParamsTable *com
 
 	  model->roq->frequencyNodesLinear = XLALCreateREAL8Sequence(n_basis_linear);
 	  model->roq->frequencyNodesQuadratic = XLALCreateREAL8Sequence(n_basis_quadratic);
-
-	  /*model->roq->hptildeLinear = XLALCreateCOMPLEX16FrequencySeries("hptildeLinear",&epoch,0.0,0,&lalDimensionlessUnit, model->roq->frequencyNodesLinear->length);
-
-	  model->roq->hctildeLinear = XLALCreateCOMPLEX16FrequencySeries("hctildeLinear",&epoch,0.0,0,&lalDimensionlessUnit, model->roq->frequencyNodesLinear->length);
-
-          model->roq->hptildeQuadratic = XLALCreateCOMPLEX16FrequencySeries("hptildeQuadratic",&epoch,0.0,0,&lalDimensionlessUnit, model->roq->frequencyNodesQuadratic->length);
-
-	  model->roq->hctildeQuadratic = XLALCreateCOMPLEX16FrequencySeries("hctildeQuadratic",&epoch,0.0,0,&lalDimensionlessUnit, model->roq->frequencyNodesQuadratic->length);
-	*/
+	  
 	  model->roq->trigtime = endtime;
 
 	  if(LALInferenceGetProcParamVal(commandLine,"--roqnodesLinear")){

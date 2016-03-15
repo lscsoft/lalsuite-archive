@@ -369,6 +369,10 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
   /* End ROQ likelihood stuff */
 
   REAL8 d_inner_h=0.0;
+  REAL8 OptimalSNR=0;
+  REAL8 MatchedFilterSNR=0;
+  REAL8 this_ifo_s = 0;
+  REAL8 this_ifo_d_inner_h = 0;
 
   if (LALInferenceCheckVariable(currentParams, "spcal_active") && (*(UINT4 *)LALInferenceGetVariable(currentParams, "spcal_active"))) {
     spcal_active = 1;
@@ -579,8 +583,8 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
     /* Reset log-likelihood */
     model->ifo_loglikelihoods[ifo] = 0.0;
     model->ifo_SNRs[ifo] = 0.0;
-    REAL8 this_ifo_d_inner_h = 0.0;
-    REAL8 this_ifo_s = 0.0;
+    this_ifo_d_inner_h = 0.0;
+    this_ifo_s = 0.0;
     // Check if student-t likelihood is being used
     if(marginalisationflags==STUDENTT)
     {
@@ -994,8 +998,11 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 
 
 
-	    REAL8 OptimalSNR=sqrt(S);
-        REAL8 MatchedFilterSNR = d_inner_h/OptimalSNR;
+	OptimalSNR=sqrt(S);
+        MatchedFilterSNR = d_inner_h/OptimalSNR;
+
+	
+	
         LALInferenceAddVariable(currentParams,"optimal_snr",&OptimalSNR,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
         LALInferenceAddVariable(currentParams,"matched_filter_snr",&MatchedFilterSNR,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
 
@@ -1003,7 +1010,8 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
   	if ( model->roq->hctildeLinear ) XLALDestroyCOMPLEX16FrequencySeries(model->roq->hctildeLinear);
   	if ( model->roq->hptildeQuadratic ) XLALDestroyCOMPLEX16FrequencySeries(model->roq->hptildeQuadratic);
   	if ( model->roq->hctildeQuadratic ) XLALDestroyCOMPLEX16FrequencySeries(model->roq->hctildeQuadratic);
-
+        if ( model->roq->calFactorLinear ) XLALDestroyCOMPLEX16Sequence(model->roq->calFactorLinear);
+        if ( model->roq->calFactorQuadratic ) XLALDestroyCOMPLEX16Sequence(model->roq->calFactorQuadratic);
 	return(loglikelihood); /* The ROQ isn't compatible with the stuff below, so we can just exit here */
 
 
@@ -1109,8 +1117,8 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 
   }
   /* SNR variables */
-  REAL8 OptimalSNR=sqrt(2.0*S);
-  REAL8 MatchedFilterSNR = 0.;
+  OptimalSNR=sqrt(2.0*S);
+  MatchedFilterSNR = 0.;
 
   /* Avoid nan's, since noise-only model has OptimalSNR == 0. */
   if (OptimalSNR > 0.)

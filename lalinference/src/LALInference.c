@@ -32,6 +32,7 @@
 #include <lal/VectorOps.h>
 #include <lal/Date.h>
 #include <lal/XLALError.h>
+#include <lal/Sequence.h>
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_eigen.h>
@@ -3964,12 +3965,12 @@ int LALInferenceSplineCalibrationFactorROQ(REAL8Vector *logfreqs,
 					REAL8Vector *deltaAmps,
 					REAL8Vector *deltaPhases,
 					REAL8Sequence *freqNodes,
-					gsl_vector_complex *calFactorROQ) {
+					COMPLEX16Sequence *calFactorROQ) {
 
   COMPLEX16 calF = 0.0;
   gsl_interp_accel *ampAcc = NULL, *phaseAcc = NULL;
   gsl_interp *ampInterp = NULL, *phaseInterp = NULL;
-  gsl_complex calFROQ;
+  calFactorROQ = XLALCreateCOMPLEX16Sequence(freqNodes->length);
 
   int status = XLAL_SUCCESS;
   const char *fmt = "";
@@ -3984,12 +3985,11 @@ int LALInferenceSplineCalibrationFactorROQ(REAL8Vector *logfreqs,
     goto cleanup;
   }
 
-  if (logfreqs->length != deltaAmps->length || deltaAmps->length != deltaPhases->length || freqNodes->length != calFactorROQ->size) {
+  if (logfreqs->length != deltaAmps->length || deltaAmps->length != deltaPhases->length || freqNodes->length != calFactorROQ->length) {
     status = XLAL_EINVAL;
     fmt = "input lengths differ";
     goto cleanup;
   }
-
   N = logfreqs->length;
 
   ampInterp = gsl_interp_alloc(gsl_interp_cspline, N);
@@ -4027,9 +4027,8 @@ int LALInferenceSplineCalibrationFactorROQ(REAL8Vector *logfreqs,
       dPhi = gsl_interp_eval(phaseInterp, logfreqs->data, deltaPhases->data, log(f), phaseAcc);
     }
 
-    calF = (1.0 + dA)*(2.0 + I*dPhi)/(2.0 - I*dPhi);
-    GSL_SET_COMPLEX(&calFROQ, creal(calF), cimag(calF));
-    gsl_vector_complex_set(calFactorROQ, i, calFROQ);
+    calFactorROQ->data[i] = (1.0 + dA)*(2.0 + I*dPhi)/(2.0 - I*dPhi);
+
   }
 
  cleanup:
