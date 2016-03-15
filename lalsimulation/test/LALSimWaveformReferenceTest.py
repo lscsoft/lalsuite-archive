@@ -262,7 +262,7 @@ class CheckReferenceWaveforms(unittest.TestCase):
                          'ampOrder', 'phaseOrder'],
                   'FD': ['phiref', 'deltaF', 'm1', 'm2', 'spin1x', 'spin1y', 'spin1z',
                          'spin2x', 'spin2y', 'spin2z', 'fmin', 'fmax', 'fref', 'distance',
-                         'inclination', 'lambda1', 'lambda2', 'waveformFlags',
+                         'inclination', 'lambda1', 'lambda2', 'ecc', 'eccOrder', 'f_ecc', 'waveformFlags',
                          'nonGRparams', 'ampOrder', 'phaseOrder']}
 
     paramtype = {'phiref':float, 'deltaT':float, 'deltaF':float,
@@ -271,6 +271,7 @@ class CheckReferenceWaveforms(unittest.TestCase):
                  'spin2x':float, 'spin2y':float, 'spin2z':float,
                  'fmin':float, 'fref':float, 'distance':float, 'fmax':float,
                  'inclination':float, 'lambda1':float, 'lambda2':float,
+                 'ecc':float, 'eccOrder':int, 'f_ecc':float,
                  'waveformFlags':lambda x: x, 'nonGRparams':lambda x: x,
                  'ampOrder':int, 'phaseOrder':int}
     #TODO: introduce function that properly handles waveformFlags and nonGRparams
