@@ -362,8 +362,10 @@ int LALInferenceSplineCalibrationFactor(REAL8Vector *logfreqs,
 int LALInferenceSplineCalibrationFactorROQ(REAL8Vector *logfreqs,
 					REAL8Vector *deltaAmps,
 					REAL8Vector *deltaPhases,
-					REAL8Sequence *freqNodes,
-					COMPLEX16Sequence *calFactorROQ);
+					REAL8Sequence *freqNodesLin,
+					COMPLEX16Sequence *calFactorROQLin,
+					REAL8Sequence *freqNodesQuad,
+					COMPLEX16Sequence *calFactorROQQuad)
 
 //Wrapper for template computation
 //(relies on LAL libraries for implementation) <- could be a #DEFINE ?

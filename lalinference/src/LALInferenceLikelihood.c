@@ -369,10 +369,6 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
   /* End ROQ likelihood stuff */
 
   REAL8 d_inner_h=0.0;
-  REAL8 OptimalSNR=0;
-  REAL8 MatchedFilterSNR=0;
-  REAL8 this_ifo_s = 0;
-  REAL8 this_ifo_d_inner_h = 0;
 
   if (LALInferenceCheckVariable(currentParams, "spcal_active") && (*(UINT4 *)LALInferenceGetVariable(currentParams, "spcal_active"))) {
     spcal_active = 1;
@@ -583,8 +579,8 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
     /* Reset log-likelihood */
     model->ifo_loglikelihoods[ifo] = 0.0;
     model->ifo_SNRs[ifo] = 0.0;
-    this_ifo_d_inner_h = 0.0;
-    this_ifo_s = 0.0;
+    COMPLEX16 this_ifo_d_inner_h = 0.0;
+    REAL8 this_ifo_s = 0.0;
     // Check if student-t likelihood is being used
     if(marginalisationflags==STUDENTT)
     {
@@ -665,11 +661,10 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
           if (model->roq_flag) {
 
              LALInferenceSplineCalibrationFactorROQ(logfreqs, amps, phases,
-                        model->roq->frequencyNodesLinear,
-                        model->roq->calFactorLinear);
-             LALInferenceSplineCalibrationFactorROQ(logfreqs, amps, phases,
-                        model->roq->frequencyNodesQuadratic,
-                        model->roq->calFactorQuadratic);
+						model->roq->frequencyNodesLinear,
+						model->roq->calFactorLinear,
+						model->roq->frequencyNodesQuadratic,
+						model->roq->calFactorQuadratic)
           }
           else{
 			  if (calFactor == NULL) {
@@ -785,20 +780,35 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 	weight_index = (unsigned int) floor(time_requested + 0.5);
 
 	// then set tc in sampler to be one of the discrete values
+	
+	if (spcal_active){
+	
+	    for(unsigned int iii=0; iii < model->roq->frequencyNodesLinear->length; iii++){
 
-        for(unsigned int iii=0; iii < model->roq->frequencyNodesLinear->length; iii++){
+			this_ifo_d_inner_h += ( dataPtr->roq->weightsLinear[iii*dataPtr->roq->n_time_steps + weight_index] * ( conj( model->roq->calFactorLinear->data->data[iii] * (dataPtr->fPlus*model->roq->hptildeLinear->data->data[iii] + dataPtr->fCross*model->roq->hctildeLinear->data->data[iii]) ) ) );
+		}
+		
+		for(unsigned int jjj=0; jjj < model->roq->frequencyNodesQuadratic->length; jjj++){
 
- 		this_ifo_d_inner_h += creal( dataPtr->roq->weightsLinear[iii*dataPtr->roq->n_time_steps + weight_index]*( conj(dataPtr->fPlus*model->roq->hptildeLinear->data->data[iii] + dataPtr->fCross*model->roq->hctildeLinear->data->data[iii])) );
-	 }
-	for(unsigned int jjj=0; jjj < model->roq->frequencyNodesQuadratic->length; jjj++){
+			this_ifo_s += dataPtr->roq->weightsQuadratic[jjj] * creal( conj( model->roq->calFactorQuadratic->data->data[jjj] * (model->roq->hptildeQuadratic->data->data[jjj]*dataPtr->fPlus + model->roq->hctildeQuadratic->data->data[jjj]*dataPtr->fCross) ) * ( model->roq->calFactorQuadratic->data->data[jjj] * (model->roq->hptildeQuadratic->data->data[jjj]*dataPtr->fPlus + model->roq->hctildeQuadratic->data->data[jjj]*dataPtr->fCross) ) );
+		}
+	}
+	else{
+	
+		for(unsigned int iii=0; iii < model->roq->frequencyNodesLinear->length; iii++){
 
-		this_ifo_s += dataPtr->roq->weightsQuadratic[jjj] * creal( conj(model->roq->hptildeQuadratic->data->data[jjj]*dataPtr->fPlus + model->roq->hctildeQuadratic->data->data[jjj]*dataPtr->fCross) * (model->roq->hptildeQuadratic->data->data[jjj]*dataPtr->fPlus + model->roq->hctildeQuadratic->data->data[jjj]*dataPtr->fCross) );
+			this_ifo_d_inner_h += ( dataPtr->roq->weightsLinear[iii*dataPtr->roq->n_time_steps + weight_index]*( conj(dataPtr->fPlus*model->roq->hptildeLinear->data->data[iii] + dataPtr->fCross*model->roq->hctildeLinear->data->data[iii])) );
+		}
+		 
+		for(unsigned int jjj=0; jjj < model->roq->frequencyNodesQuadratic->length; jjj++){
 
-        }
+			this_ifo_s += dataPtr->roq->weightsQuadratic[jjj] * creal( conj(model->roq->hptildeQuadratic->data->data[jjj]*dataPtr->fPlus + model->roq->hctildeQuadratic->data->data[jjj]*dataPtr->fCross) * (model->roq->hptildeQuadratic->data->data[jjj]*dataPtr->fPlus + model->roq->hctildeQuadratic->data->data[jjj]*dataPtr->fCross) );
+		}
+	}
 
-	d_inner_h += this_ifo_d_inner_h;
+	d_inner_h += creal(this_ifo_d_inner_h);
 	S += this_ifo_s;
-	model->ifo_loglikelihoods[ifo] = this_ifo_d_inner_h - (0.5*this_ifo_s);
+	model->ifo_loglikelihoods[ifo] = creal(this_ifo_d_inner_h) - (0.5*this_ifo_s);
 	loglikelihood += model->ifo_loglikelihoods[ifo];
 
 	char varname[VARNAME_MAX];
@@ -806,12 +816,12 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
     REAL8 this_ifo_snr = sqrt(this_ifo_s);
     LALInferenceAddREAL8Variable(currentParams,varname,this_ifo_snr,LALINFERENCE_PARAM_OUTPUT);
 
-	    sprintf(varname,"%s_cplx_snr_amp",dataPtr->name);
-	    REAL8 cplx_snr_amp = this_ifo_d_inner_h/this_ifo_snr;
+	sprintf(varname,"%s_cplx_snr_amp",dataPtr->name);
+	REAL8 cplx_snr_amp = this_ifo_d_inner_h/this_ifo_snr;
     LALInferenceAddREAL8Variable(currentParams,varname,cplx_snr_amp,LALINFERENCE_PARAM_OUTPUT);
 
     sprintf(varname,"%s_cplx_snr_arg",dataPtr->name);
-    REAL8 cplx_snr_phase = 0;//gsl_complex_arg(complex_d_dot_h);
+    REAL8 cplx_snr_phase = carg(this_ifo_d_inner_h);
     LALInferenceAddREAL8Variable(currentParams,varname,cplx_snr_phase,LALINFERENCE_PARAM_OUTPUT);
 
 
@@ -998,11 +1008,8 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 
 
 
-	OptimalSNR=sqrt(S);
-        MatchedFilterSNR = d_inner_h/OptimalSNR;
-
-	
-	
+	    REAL8 OptimalSNR=sqrt(S);
+        REAL8 MatchedFilterSNR = d_inner_h/OptimalSNR;
         LALInferenceAddVariable(currentParams,"optimal_snr",&OptimalSNR,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
         LALInferenceAddVariable(currentParams,"matched_filter_snr",&MatchedFilterSNR,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
 
@@ -1010,8 +1017,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
   	if ( model->roq->hctildeLinear ) XLALDestroyCOMPLEX16FrequencySeries(model->roq->hctildeLinear);
   	if ( model->roq->hptildeQuadratic ) XLALDestroyCOMPLEX16FrequencySeries(model->roq->hptildeQuadratic);
   	if ( model->roq->hctildeQuadratic ) XLALDestroyCOMPLEX16FrequencySeries(model->roq->hctildeQuadratic);
-        if ( model->roq->calFactorLinear ) XLALDestroyCOMPLEX16Sequence(model->roq->calFactorLinear);
-        if ( model->roq->calFactorQuadratic ) XLALDestroyCOMPLEX16Sequence(model->roq->calFactorQuadratic);
+
 	return(loglikelihood); /* The ROQ isn't compatible with the stuff below, so we can just exit here */
 
 
@@ -1117,8 +1123,8 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 
   }
   /* SNR variables */
-  OptimalSNR=sqrt(2.0*S);
-  MatchedFilterSNR = 0.;
+  REAL8 OptimalSNR=sqrt(2.0*S);
+  REAL8 MatchedFilterSNR = 0.;
 
   /* Avoid nan's, since noise-only model has OptimalSNR == 0. */
   if (OptimalSNR > 0.)

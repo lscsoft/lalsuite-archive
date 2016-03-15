@@ -3964,13 +3964,15 @@ int LALInferenceSplineCalibrationFactor(REAL8Vector *logfreqs,
 int LALInferenceSplineCalibrationFactorROQ(REAL8Vector *logfreqs,
 					REAL8Vector *deltaAmps,
 					REAL8Vector *deltaPhases,
-					REAL8Sequence *freqNodes,
-					COMPLEX16Sequence *calFactorROQ) {
+					REAL8Sequence *freqNodesLin,
+					COMPLEX16Sequence *calFactorROQLin,
+					REAL8Sequence *freqNodesQuad,
+					COMPLEX16Sequence *calFactorROQQuad) {
 
-  COMPLEX16 calF = 0.0;
   gsl_interp_accel *ampAcc = NULL, *phaseAcc = NULL;
   gsl_interp *ampInterp = NULL, *phaseInterp = NULL;
-  calFactorROQ = XLALCreateCOMPLEX16Sequence(freqNodes->length);
+  calFactorROQLin = XLALCreateCOMPLEX16Sequence(freqNodesLin->length);
+  calFactorROQQuad = XLALCreateCOMPLEX16Sequence(freqNodesQuad->length);
 
   int status = XLAL_SUCCESS;
   const char *fmt = "";
@@ -3979,17 +3981,19 @@ int LALInferenceSplineCalibrationFactorROQ(REAL8Vector *logfreqs,
   
   /* should I check that calFactorROQ = NULL as well? */
 
-  if (logfreqs == NULL || deltaAmps == NULL || deltaPhases == NULL || freqNodes == NULL) {
+  if (logfreqs == NULL || deltaAmps == NULL || deltaPhases == NULL || freqNodesLin == NULL || freqNodesQuad == NULL) {
     status = XLAL_EINVAL;
     fmt = "bad input";
     goto cleanup;
   }
 
-  if (logfreqs->length != deltaAmps->length || deltaAmps->length != deltaPhases->length || freqNodes->length != calFactorROQ->length) {
+  if (logfreqs->length != deltaAmps->length || deltaAmps->length != deltaPhases->length || freqNodesLin->length != calFactorROQLin->length || freqNodesQuad->length != calFactorROQQuad->length) {
     status = XLAL_EINVAL;
     fmt = "input lengths differ";
     goto cleanup;
   }
+  
+  
   N = logfreqs->length;
 
   ampInterp = gsl_interp_alloc(gsl_interp_cspline, N);
@@ -4015,10 +4019,23 @@ int LALInferenceSplineCalibrationFactorROQ(REAL8Vector *logfreqs,
 
   REAL8 lowf = exp(logfreqs->data[0]);
   REAL8 highf = exp(logfreqs->data[N-1]);
-  for (unsigned int i = 0; i < freqNodes->length; i++) {
-    REAL8 dA = 0.0, dPhi = 0.0;
-    REAL8 f = freqNodes->data[i];
-
+  REAL8 dA = 0.0, dPhi = 0.0;
+  
+  for (unsigned int i = 0; i < freqNodesLin->length; i++) {
+    REAL8 f = freqNodesLin->data[i];
+    if (f < lowf || f > highf) {
+      dA = 0.0;
+      dPhi = 0.0;
+    } else {
+      dA = gsl_interp_eval(ampInterp, logfreqs->data, deltaAmps->data, log(f), ampAcc);
+      dPhi = gsl_interp_eval(phaseInterp, logfreqs->data, deltaPhases->data, log(f), phaseAcc);
+    }
+    
+    calFactorROQLin->data[i] = (1.0 + dA)*(2.0 + I*dPhi)/(2.0 - I*dPhi);
+  }
+  
+  for (unsigned int j = 0; j < freqNodesQuad->length; j++) {
+    REAL8 f = freqNodesQuad->data[j];
     if (f < lowf || f > highf) {
       dA = 0.0;
       dPhi = 0.0;
@@ -4027,7 +4044,7 @@ int LALInferenceSplineCalibrationFactorROQ(REAL8Vector *logfreqs,
       dPhi = gsl_interp_eval(phaseInterp, logfreqs->data, deltaPhases->data, log(f), phaseAcc);
     }
 
-    calFactorROQ->data[i] = (1.0 + dA)*(2.0 + I*dPhi)/(2.0 - I*dPhi);
+    calFactorROQQuad->data[j] = (1.0 + dA)*(2.0 + I*dPhi)/(2.0 - I*dPhi);
 
   }
 
