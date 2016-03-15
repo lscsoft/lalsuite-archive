@@ -164,7 +164,7 @@ def daemon():
       # exit first parent
       sys.exit(0)
   except OSError as e:
-    print >>sys.stderr, "fork #1 failed: %d (%s)" % (e.errno, e.strerror)
+    sys.stderr.write("fork #1 failed: %d (%s)\n" % (e.errno, e.strerror))
     sys.exit(1)
         
   # decouple from parent environment
@@ -179,7 +179,7 @@ def daemon():
       # exit from second parent
       sys.exit(0)
   except OSError as e:
-    print >>sys.stderr, "fork #2 failed: %d (%s)" % (e.errno, e.strerror)
+    sys.stderr.write("fork #2 failed: %d (%s)\n" % (e.errno, e.strerror))
     sys.exit(1)
         
   # send stdout and stderr to /dev/null
@@ -188,7 +188,7 @@ def daemon():
     sys.stdout = devnull
     sys.stderr = devnull
   except Exception as e:
-    print >>sys.__stderr__, "Unable to direct to /dev/null: %s" % e
+    sys.__stderr__.write("Unable to direct to /dev/null: %s\n" % e)
     sys.exit(1)
 
 
@@ -201,9 +201,8 @@ def checkCredentials():
     try:
       proxyText = security.grid_proxy_info()
     except Exception as e:
-      print >>sys.stderr, "Error verifying credentials: %s" % e
-      print >>sys.stderr, \
-        "Run 'grid-proxy-init' to generate a proxy certificate"
+      sys.stderr.write("Error verifying credentials: %s\n" % e)
+      sys.stderr.write("Run 'grid-proxy-init' to generate a proxy certificate\n")
       return False
 
     pat = re.compile(r'timeleft : (\d{1,3}):(\d\d):(\d\d)')
@@ -218,15 +217,14 @@ def checkCredentials():
       hours, minutes, seconds = map(int, m.groups())
 
     except Exception as e:
-      print >>sys.stderr, "Error parsing proxy information: %s" % e
+      sys.stderr.write("Error parsing proxy information: %s\n" % e)
       return False
 
     timeleft = seconds + 60 * minutes + 3600 * hours
 
     if timeleft < 300:
-      print >>sys.stderr, "Less than 5 minutes left for proxy certificate."
-      print >>sys.stderr, \
-        "Run 'grid-proxy-init' to generate a new proxy certificate"
+      sys.stderr.write("Less than 5 minutes left for proxy certificate.\n")
+      sys.stderr.write("Run 'grid-proxy-init' to generate a new proxy certificate\n")
       return False
 
     return True

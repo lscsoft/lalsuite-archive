@@ -65,14 +65,14 @@ try:
     config_file = os.path.join(ldbdserver_ini, "ldbdserver.ini")
     myConfigParser.read(config_file)
 except Exception, e:
-    print >> sys.stderr, "Error: unable to read configuration file : %s" % config_file
+    sys.stder.write("Error: unable to read configuration file : %s\n" % config_file)
     sys.exit(1)
 
 for k in configuration.keys():
     try:
         value = myConfigParser.get('ldbdd',k)
     except ConfigParser.NoOptionError, e:
-        print >> sys.stderr, "Error: missing configuration option %s: %s" % (k, e)
+        sys.stderr.write("Error: missing configuration option %s: %s\n" % (k, e))
         sys.exit(1)
     try:
         configuration[k] = eval(value)

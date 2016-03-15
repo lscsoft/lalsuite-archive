@@ -35,7 +35,7 @@ try:
     import M2Crypto
     import cjson
 except ImportError, e:
-    print >> sys.stderr, """
+    sys.stderr.write("""
 ligo_data_find requires the M2Crypto and cjson
 modules.
 
@@ -56,7 +56,7 @@ Mac OS X users can find these packages in
 MacPorts.
 
 %s
-""" % e
+""" % e)
     sys.exit(1)
 
 
@@ -198,8 +198,8 @@ def validateProxy(path):
     try:
         proxy = M2Crypto.X509.load_cert(path)
     except Exception as e:
-        msg = "Unable to load proxy from path %s : %s" % (path, e)
-        print >>sys.stderr, msg
+        msg = "Unable to load proxy from path %s : %s\n" % (path, e)
+        sys.stderr.write(msg)
         sys.exit(1)
 
     # make sure the proxy is RFC 3820 compliant
@@ -234,7 +234,7 @@ Your proxy certificate is expired.
 Please generate a new proxy certificate and
 try again.
 """
-        print >>sys.stderr, msg
+        sys.stderr.write(msg)
         sys.exit(1)
 
     if secondsLeft < (60 * 15):
@@ -245,7 +245,7 @@ Your proxy certificate expires in less than
 Please generate a new proxy certificate and
 try again.
 """
-        print >>sys.stderr, msg
+        sys.stderr.write(msg)
         sys.exit(1)
 
     # return True to indicate validated proxy
@@ -263,7 +263,7 @@ LIGO users, please run 'ligo-proxy-init' and try again.
 Others, please run 'grid-proxy-init' and try again.
 """
 
-    print >>sys.stderr, msg
+    sys.stderr.write(msg)
 
 
 class LDBDClientException(Exception):
