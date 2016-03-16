@@ -1411,10 +1411,10 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficients(
 //  coeffs->b3 = 41583.9402122;
 //  coeffs->b4 = 68359.70064;
 
-  /*printf( "NQC coefficients:\n" );
+  printf( "NQC coefficients:\n" );
   printf( "{%f,%f,%f,%f,%f,%f}\n",  coeffs->a1, coeffs->a2, coeffs->a3, coeffs->a3S, coeffs->a4, coeffs->a5 );
 
-  printf( "{%f,%f,%f,%f}\n",  coeffs->b1, coeffs->b2, coeffs->b3, coeffs->b4 );*/
+  printf( "{%f,%f,%f,%f}\n",  coeffs->b1, coeffs->b2, coeffs->b3, coeffs->b4 );
 
   /* Free memory and exit */
   gsl_matrix_free( qMatrix );
@@ -1444,6 +1444,491 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficients(
   XLALDestroyREAL8Vector( qNSLM );
 
   return XLAL_SUCCESS;
+}
+
+/**
+ * This function computes the coefficients a3s, a4, etc. used in the
+ * non-quasicircular correction. The details of the calculation of these
+ * coefficients are found in the DCC document T1100433.
+ * In brief, this function populates and solves the linear equations
+ * Eq. 18 (for amplitude) and Eq. 19 (for phase) of the DCC document T1100433v2.
+ */
+UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
+                                                            REAL8Vector    * restrict amplitude,   /**<< Waveform amplitude, func of time */
+                                                            REAL8Vector    * restrict phase,       /**<< Waveform phase(rad), func of time */
+                                                            REAL8Vector    * restrict rVec,        /**<< Position-vector, function of time */
+                                                            REAL8Vector    * restrict prVec,       /**<< Momentum vector, function of time */
+                                                            REAL8Vector    * restrict orbOmegaVec, /**<< Orbital frequency, func of time */
+                                                            INT4                      l,           /**<< Mode index l */
+                                                            INT4                      m,           /**<< Mode index m */
+                                                            REAL8                     timePeak,    /**<< Time of peak orbital frequency */
+                                                            REAL8                     deltaT,      /**<< Sampling interval */
+                                                            REAL8                     m1,          /**<< Component mass 1 */
+                                                            REAL8                     m2,          /**<< Component mass 2 */
+                                                            REAL8                     a,           /**<< Normalized spin of deformed-Kerr */
+                                                            REAL8                     chiA,        /**<< Assymmetric dimensionless spin combination */
+                                                            REAL8                     chiS,        /**<< Symmetric dimensionless spin combination */
+                                                            EOBNonQCCoeffs * restrict coeffs,      /**<< OUTPUT, NQC coefficients */
+                                                            UINT4                     SpinAlignedEOBversion  /**<< 1 for SEOBNRv1, 2 for SEOBNRv2 */
+)
+{
+    
+    /* For gsl permutation stuff */
+    
+    int signum;
+    
+    REAL8Vector * restrict timeVec = NULL;
+    
+    /* Vectors which are used in the computation of the NQC coefficients */
+    REAL8Vector *q3 = NULL, *q4 = NULL, *q5 = NULL;
+    REAL8Vector *p3 = NULL, *p4 = NULL;
+    
+    REAL8Vector *qNS = NULL, *pNS = NULL;
+    
+    /* Since the vectors we actually want are q etc * A, we will have to generate them here */
+    REAL8Vector *q3LM  = NULL;
+    REAL8Vector *q4LM  = NULL;
+    REAL8Vector *q5LM  = NULL;
+    REAL8Vector *qNSLM = NULL;
+    
+    REAL8 eta = (m1*m2)/((m1+m2)*(m1+m2));
+    REAL8 amp, aDot, aDDot;
+    REAL8 omega, omegaDot;
+    
+    REAL8 qNSLMPeak, qNSLMDot, qNSLMDDot;
+    REAL8 pNSLMDot, pNSLMDDot;
+    
+    REAL8 nra, nraDDot;
+    REAL8 nromega, nromegaDot;
+    
+    REAL8 nrDeltaT, nrTimePeak;
+    REAL8 chi1 = chiS + chiA;
+    REAL8 chi2 = chiS - chiA;
+    
+    /* Stuff for finding numerical derivatives */
+    gsl_spline    *spline = NULL;
+    gsl_interp_accel *acc = NULL;
+    
+    /* Matrix stuff for calculating coefficients */
+    gsl_matrix *qMatrix = NULL, *pMatrix = NULL;
+    gsl_vector *aCoeff  = NULL, *bCoeff  = NULL;
+    
+    gsl_vector *amps = NULL, *omegaVec = NULL;
+    
+    gsl_permutation *perm1 = NULL, *perm2 = NULL;
+    
+    memset( coeffs, 0, sizeof( EOBNonQCCoeffs ) );
+    
+    /* Populate the time vector */
+    /* It is okay to assume initial t = 0 */
+    timeVec = XLALCreateREAL8Vector( rVec->length );
+    q3    = XLALCreateREAL8Vector( rVec->length );
+    q4    = XLALCreateREAL8Vector( rVec->length );
+    q5    = XLALCreateREAL8Vector( rVec->length );
+    p3    = XLALCreateREAL8Vector( rVec->length );
+    p4    = XLALCreateREAL8Vector( rVec->length );
+    qNS   = XLALCreateREAL8Vector( rVec->length );
+    pNS   = XLALCreateREAL8Vector( rVec->length );
+    q3LM  = XLALCreateREAL8Vector( rVec->length );
+    q4LM  = XLALCreateREAL8Vector( rVec->length );
+    q5LM  = XLALCreateREAL8Vector( rVec->length );
+    qNSLM = XLALCreateREAL8Vector( rVec->length );
+    
+    if ( !timeVec || !q3 || !q4 || !q5 || !p3 || !p4 || !qNS || !pNS || !q3LM
+        || !q4LM || !q5LM || !qNSLM )
+    {
+        XLALDestroyREAL8Vector( timeVec );
+        XLALDestroyREAL8Vector( q3 );
+        XLALDestroyREAL8Vector( q4 );
+        XLALDestroyREAL8Vector( q5 );
+        XLALDestroyREAL8Vector( p3 );
+        XLALDestroyREAL8Vector( p4 );
+        XLALDestroyREAL8Vector( qNS );
+        XLALDestroyREAL8Vector( pNS );
+        XLALDestroyREAL8Vector( q3LM );
+        XLALDestroyREAL8Vector( q4LM );
+        XLALDestroyREAL8Vector( q5LM );
+        XLALDestroyREAL8Vector( qNSLM );
+        XLAL_ERROR( XLAL_EFUNC );
+    }
+    
+    /* We need the calibrated non-spinning NQC coefficients */
+    switch ( SpinAlignedEOBversion)
+    {
+        case 1:
+            if ( XLALSimIMRGetEOBCalibratedSpinNQC( coeffs, l, m, eta, a ) == XLAL_FAILURE )
+            {
+                XLALDestroyREAL8Vector( timeVec );
+                XLALDestroyREAL8Vector( q3 );
+                XLALDestroyREAL8Vector( q4 );
+                XLALDestroyREAL8Vector( q5 );
+                XLALDestroyREAL8Vector( p3 );
+                XLALDestroyREAL8Vector( p4 );
+                XLALDestroyREAL8Vector( qNS );
+                XLALDestroyREAL8Vector( pNS );
+                XLALDestroyREAL8Vector( q3LM );
+                XLALDestroyREAL8Vector( q4LM );
+                XLALDestroyREAL8Vector( q5LM );
+                XLALDestroyREAL8Vector( qNSLM );
+                XLAL_ERROR( XLAL_EFUNC );
+            }
+            break;
+        case 2:
+            // if ( XLALSimIMRGetEOBCalibratedSpinNQCv2( coeffs, l, m, eta, a ) == XLAL_FAILURE )
+            if ( XLALSimIMRGetEOBCalibratedSpinNQC3D( coeffs, l, m, m1, m2, a, chiA ) == XLAL_FAILURE )
+            {
+                XLALDestroyREAL8Vector( timeVec );
+                XLALDestroyREAL8Vector( q3 );
+                XLALDestroyREAL8Vector( q4 );
+                XLALDestroyREAL8Vector( q5 );
+                XLALDestroyREAL8Vector( p3 );
+                XLALDestroyREAL8Vector( p4 );
+                XLALDestroyREAL8Vector( qNS );
+                XLALDestroyREAL8Vector( pNS );
+                XLALDestroyREAL8Vector( q3LM );
+                XLALDestroyREAL8Vector( q4LM );
+                XLALDestroyREAL8Vector( q5LM );
+                XLALDestroyREAL8Vector( qNSLM );
+                XLAL_ERROR( XLAL_EFUNC );
+            }
+            break;
+        default:
+            XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
+            XLAL_ERROR( XLAL_EINVAL );
+            break;
+    }
+    
+    /* Populate vectors as necessary. Eqs. 14 - 17 of the LIGO DCC document T1100433v2 */
+    for ( unsigned int i = 0; i < timeVec->length; i++ )
+    {
+        
+        REAL8 rootR  = sqrt(rVec->data[i]);
+        REAL8 rOmega = rVec->data[i] * orbOmegaVec->data[i];
+        
+        /* We don't need these as vectors as their coefficients are calibrated */
+        REAL8 q1, q2, p1, p2;
+        
+        timeVec->data[i] = i * deltaT;
+        q1            = prVec->data[i]*prVec->data[i] / (rOmega*rOmega);
+        q2            = q1 / rVec->data[i];
+        q3->data[i]   = q1;
+        q4->data[i]   = q2;
+        q5->data[i]   = q1 / rootR;
+        
+        p1          = prVec->data[i] / rOmega;
+        p2          = p1 * prVec->data[i] * prVec->data[i];
+        p3->data[i] = p1;
+        p4->data[i] = p2;
+        
+        qNS->data[i]  = 0.;
+        pNS->data[i]  = 0.;
+        q3LM->data[i] = q3->data[i] * amplitude->data[i];
+        q4LM->data[i] = q4->data[i] * amplitude->data[i];
+        q5LM->data[i] = q5->data[i] * amplitude->data[i];
+        
+        qNSLM->data[i] = 0.;
+    }
+    /* Allocate all the memory we need */
+    XLAL_CALLGSL(
+                 /* a stuff */
+                 qMatrix = gsl_matrix_alloc( 3, 3 );
+                 aCoeff  = gsl_vector_alloc( 3 );
+                 amps    = gsl_vector_alloc( 3 );
+                 perm1   = gsl_permutation_alloc( 3 );
+                 
+                 /* b stuff */
+                 pMatrix  = gsl_matrix_alloc( 2, 2 );
+                 bCoeff   = gsl_vector_alloc( 2 );
+                 omegaVec = gsl_vector_alloc( 2 );
+                 perm2    = gsl_permutation_alloc( 2 );
+                 );
+    
+    if ( !qMatrix || !aCoeff || !amps || !pMatrix || !bCoeff || !omegaVec )
+    {
+        XLALDestroyREAL8Vector( timeVec );
+        XLALDestroyREAL8Vector( q3 );
+        XLALDestroyREAL8Vector( q4 );
+        XLALDestroyREAL8Vector( q5 );
+        XLALDestroyREAL8Vector( p3 );
+        XLALDestroyREAL8Vector( p4 );
+        XLALDestroyREAL8Vector( qNS );
+        XLALDestroyREAL8Vector( pNS );
+        XLALDestroyREAL8Vector( q3LM );
+        XLALDestroyREAL8Vector( q4LM );
+        XLALDestroyREAL8Vector( q5LM );
+        XLALDestroyREAL8Vector( qNSLM );
+        XLAL_ERROR( XLAL_ENOMEM );
+    }
+    
+    /* The time we want to take as the peak time depends on l and m */
+    /* Calculate the adjustment we need to make here */
+    switch ( SpinAlignedEOBversion )
+    {
+        case 1:
+            nrDeltaT   = XLALSimIMREOBGetNRSpinPeakDeltaT( l, m, eta, a );
+            break;
+        case 2:
+            nrDeltaT   = XLALSimIMREOBGetNRSpinPeakDeltaTv2( l, m, m1, m2, chi1, chi2 );
+            break;
+        default:
+            XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
+            XLAL_ERROR( XLAL_EINVAL );
+            break;
+    }
+    
+    
+    if ( XLAL_IS_REAL8_FAIL_NAN( nrDeltaT ) )
+    {
+        XLALDestroyREAL8Vector( timeVec );
+        XLALDestroyREAL8Vector( q3 );
+        XLALDestroyREAL8Vector( q4 );
+        XLALDestroyREAL8Vector( q5 );
+        XLALDestroyREAL8Vector( p3 );
+        XLALDestroyREAL8Vector( p4 );
+        XLALDestroyREAL8Vector( qNS );
+        XLALDestroyREAL8Vector( pNS );
+        XLALDestroyREAL8Vector( q3LM );
+        XLALDestroyREAL8Vector( q4LM );
+        XLALDestroyREAL8Vector( q5LM );
+        XLALDestroyREAL8Vector( qNSLM );
+        XLAL_ERROR( XLAL_EFUNC );
+    }
+    
+    /* nrDeltaT defined in XLALSimIMREOBGetNRSpinPeakDeltaT is a minus sign different from Eq. (33) of Taracchini et al.
+     * Therefore, the plus sign in Eq. (21) of Taracchini et al and Eq. (18) of DCC document T1100433v2 is
+     * changed to a minus sign here.
+     */
+    nrTimePeak = timePeak - nrDeltaT;
+    
+    /* We are now in a position to use the interp stuff to calculate the derivatives we need */
+    /* We will start with the quantities used in the calculation of the a coefficients */
+    spline = gsl_spline_alloc( gsl_interp_cspline, amplitude->length );
+    acc    = gsl_interp_accel_alloc();
+    
+    /* Populate the Q matrix in Eq. 18 of the LIGO DCC document T1100433v2 */
+    /* Q3 */
+    gsl_spline_init( spline, timeVec->data, q3LM->data, q3LM->length );
+    gsl_matrix_set( qMatrix, 0, 0, gsl_spline_eval( spline, nrTimePeak, acc ) );
+    gsl_matrix_set( qMatrix, 1, 0, gsl_spline_eval_deriv( spline, nrTimePeak, acc ) );
+    gsl_matrix_set( qMatrix, 2, 0, gsl_spline_eval_deriv2( spline, nrTimePeak, acc ) );
+    
+    /* Q4 */
+    gsl_spline_init( spline, timeVec->data, q4LM->data, q4LM->length );
+    gsl_interp_accel_reset( acc );
+    gsl_matrix_set( qMatrix, 0, 1, gsl_spline_eval( spline, nrTimePeak, acc ) );
+    gsl_matrix_set( qMatrix, 1, 1, gsl_spline_eval_deriv( spline, nrTimePeak, acc ) );
+    gsl_matrix_set( qMatrix, 2, 1, gsl_spline_eval_deriv2( spline, nrTimePeak, acc ) );
+    
+    /* Q5 */
+    gsl_spline_init( spline, timeVec->data, q5LM->data, q5LM->length );
+    gsl_interp_accel_reset( acc );
+    gsl_matrix_set( qMatrix, 0, 2, gsl_spline_eval( spline, nrTimePeak, acc ) );
+    gsl_matrix_set( qMatrix, 1, 2, gsl_spline_eval_deriv( spline, nrTimePeak, acc ) );
+    gsl_matrix_set( qMatrix, 2, 2, gsl_spline_eval_deriv2( spline, nrTimePeak, acc ) );
+    
+    /* Populate the r.h.s vector of Eq. 18 of the LIGO DCC document T1100433v2 */
+    /* Amplitude */
+    gsl_spline_init( spline, timeVec->data, amplitude->data, amplitude->length );
+    gsl_interp_accel_reset( acc );
+    amp   = gsl_spline_eval( spline, nrTimePeak, acc );
+    aDot  = gsl_spline_eval_deriv( spline, nrTimePeak, acc );
+    aDDot = gsl_spline_eval_deriv2( spline, nrTimePeak, acc );
+    
+    /* qNSLM */
+    gsl_spline_init( spline, timeVec->data, qNSLM->data, qNSLM->length );
+    gsl_interp_accel_reset( acc );
+    qNSLMPeak = gsl_spline_eval( spline, nrTimePeak, acc );
+    qNSLMDot  = gsl_spline_eval_deriv( spline, nrTimePeak, acc );
+    qNSLMDDot = gsl_spline_eval_deriv2( spline, nrTimePeak, acc );
+    
+    nra = GetNRSpinPeakAmplitude( l, m, eta, a );
+    nraDDot = - GetNRSpinPeakADDot( l, m, eta, a );
+    
+    if ( XLAL_IS_REAL8_FAIL_NAN( nra ) || XLAL_IS_REAL8_FAIL_NAN( nraDDot ) )
+    {
+        XLALDestroyREAL8Vector( timeVec );
+        XLALDestroyREAL8Vector( q3 );
+        XLALDestroyREAL8Vector( q4 );
+        XLALDestroyREAL8Vector( q5 );
+        XLALDestroyREAL8Vector( p3 );
+        XLALDestroyREAL8Vector( p4 );
+        XLALDestroyREAL8Vector( qNS );
+        XLALDestroyREAL8Vector( pNS );
+        XLALDestroyREAL8Vector( q3LM );
+        XLALDestroyREAL8Vector( q4LM );
+        XLALDestroyREAL8Vector( q5LM );
+        XLALDestroyREAL8Vector( qNSLM );
+        XLAL_ERROR( XLAL_EFUNC );
+    }
+    
+    gsl_vector_set( amps, 0, nra - amp - qNSLMPeak );
+    gsl_vector_set( amps, 1, - aDot - qNSLMDot );
+    gsl_vector_set( amps, 2, nraDDot - aDDot - qNSLMDDot );
+    
+    /* We have now set up all the stuff to calculate the a coefficients */
+    /* So let us do it! */
+    gsl_linalg_LU_decomp( qMatrix, perm1, &signum );
+    gsl_linalg_LU_solve( qMatrix, perm1, amps, aCoeff );
+    
+    /* Now we (should) have calculated the a values. Now we can do the b values */
+    
+    /* Populate the P matrix in Eq. 18 of the LIGO DCC document T1100433v2 */
+    /* P3 */
+    gsl_spline_init( spline, timeVec->data, p3->data, p3->length );
+    gsl_interp_accel_reset( acc );
+    gsl_matrix_set( pMatrix, 0, 0, - gsl_spline_eval_deriv( spline, nrTimePeak, acc ) );
+    gsl_matrix_set( pMatrix, 1, 0, - gsl_spline_eval_deriv2( spline, nrTimePeak, acc ) );
+    
+    /* P4 */
+    gsl_spline_init( spline, timeVec->data, p4->data, p4->length );
+    gsl_interp_accel_reset( acc );
+    gsl_matrix_set( pMatrix, 0, 1, - gsl_spline_eval_deriv( spline, nrTimePeak, acc ) );
+    gsl_matrix_set( pMatrix, 1, 1, - gsl_spline_eval_deriv2( spline, nrTimePeak, acc ) );
+    
+    /* Populate the r.h.s vector of Eq. 18 of the LIGO DCC document T1100433v2 */
+    /* Phase */
+    gsl_spline_init( spline, timeVec->data, phase->data, phase->length );
+    gsl_interp_accel_reset( acc );
+    omega    = gsl_spline_eval_deriv( spline, nrTimePeak, acc );
+    omegaDot = gsl_spline_eval_deriv2( spline, nrTimePeak, acc );
+    
+    /* pNSLM */
+    gsl_spline_init( spline, timeVec->data, pNS->data, pNS->length );
+    gsl_interp_accel_reset( acc );
+    pNSLMDot  = gsl_spline_eval_deriv( spline, nrTimePeak, acc );
+    pNSLMDDot = gsl_spline_eval_deriv2( spline, nrTimePeak, acc );
+    
+    /* Since the phase can be decreasing, we need to take care not to have a -ve frequency */
+    if ( omega * omegaDot > 0.0 )
+    {
+        omega    = fabs( omega );
+        omegaDot = fabs( omegaDot );
+    }
+    else
+    {
+        omega    = fabs( omega );
+        omegaDot = - fabs( omegaDot );
+    }
+    
+    //nromega = GetNRPeakOmega( l, m, eta );
+    //nromegaDot = GetNRPeakOmegaDot( l, m, eta );
+    switch ( SpinAlignedEOBversion )
+    {
+        case 1:
+            nromega = GetNRSpinPeakOmega( l, m, eta, a );
+            nromegaDot = GetNRSpinPeakOmegaDot( l, m, eta, a );
+            break;
+        case 2:
+            nromega = GetNRSpinPeakOmegav2( l, m, eta, a );
+            nromegaDot = GetNRSpinPeakOmegaDotv2( l, m, eta, a );
+            break;
+        default:
+            XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
+            XLAL_ERROR( XLAL_EINVAL );
+            break;
+    }
+    
+    printf("NR inputs: %.16e, %.16e, %.16e, %.16e\n",nra,nraDDot,nromega,nromegaDot);
+/*     printf("NR inputs: %.16e, %.16e, %.16e, %.16e\n",pNSLMDot, pNSLMDDot,omega,omegaDot);*/
+    
+    if ( XLAL_IS_REAL8_FAIL_NAN( nromega ) || XLAL_IS_REAL8_FAIL_NAN( nromegaDot ) )
+    {
+        XLALDestroyREAL8Vector( timeVec );
+        XLALDestroyREAL8Vector( q3 );
+        XLALDestroyREAL8Vector( q4 );
+        XLALDestroyREAL8Vector( q5 );
+        XLALDestroyREAL8Vector( p3 );
+        XLALDestroyREAL8Vector( p4 );
+        XLALDestroyREAL8Vector( qNS );
+        XLALDestroyREAL8Vector( pNS );
+        XLALDestroyREAL8Vector( q3LM );
+        XLALDestroyREAL8Vector( q4LM );
+        XLALDestroyREAL8Vector( q5LM );
+        XLALDestroyREAL8Vector( qNSLM );
+        XLAL_ERROR( XLAL_EFUNC );
+    }
+    
+    gsl_vector_set( omegaVec, 0, nromega - omega + pNSLMDot );
+    gsl_vector_set( omegaVec, 1, nromegaDot - omegaDot + pNSLMDDot );
+    
+    /*printf( "P MATRIX\n" );
+     for (unsigned int i = 0; i < 2; i++ )
+     {
+     for (unsigned int j = 0; j < 2; j++ )
+     {
+     printf( "%.12e\t", gsl_matrix_get( pMatrix, i, j ));
+     }
+     printf( "= %.12e\n", gsl_vector_get( omegaVec, i ) );
+     }*/
+    
+    /* And now solve for the b coefficients */
+    gsl_linalg_LU_decomp( pMatrix, perm2, &signum );
+    gsl_linalg_LU_solve( pMatrix, perm2, omegaVec, bCoeff );
+    
+    /* We can now populate the coefficients structure */
+    /*  coeffs->a3S = gsl_vector_get( aCoeff, 0 );
+     coeffs->a4  = gsl_vector_get( aCoeff, 1 );
+     coeffs->a5  = gsl_vector_get( aCoeff, 2 );*/
+    switch ( SpinAlignedEOBversion )
+    {
+        case 1:
+            coeffs->b3  = gsl_vector_get( bCoeff, 0 );
+            coeffs->b4  = gsl_vector_get( bCoeff, 1 );
+            break;
+        case 2:
+            coeffs->a1  = gsl_vector_get( aCoeff, 0 );
+            coeffs->a2  = gsl_vector_get( aCoeff, 1 );
+            coeffs->a3  = gsl_vector_get( aCoeff, 2 );
+            coeffs->b1  = gsl_vector_get( bCoeff, 0 );
+            coeffs->b2  = gsl_vector_get( bCoeff, 1 );
+            break;
+        default:
+            XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
+            XLAL_ERROR( XLAL_EINVAL );
+            break;
+    }
+    coeffs->b3  *= 1.0;
+    coeffs->b4  *= 1.0;
+    //  coeffs->b3  = -778.891568845;
+    //  coeffs->b4  = 1237.46952422;
+    //  coeffs->b3  = -876.669217307;
+    //  coeffs->b4  = 1386.13223658;
+    //  coeffs->b3 = 41583.9402122;
+    //  coeffs->b4 = 68359.70064;
+    
+    printf( "NQC coefficients:\n" );
+     printf( "{%f,%f,%f,%f,%f,%f}\n",  coeffs->a1, coeffs->a2, coeffs->a3, coeffs->a3S, coeffs->a4, coeffs->a5 );
+     
+     printf( "{%f,%f,%f,%f}\n",  coeffs->b1, coeffs->b2, coeffs->b3, coeffs->b4 );
+    
+    /* Free memory and exit */
+    gsl_matrix_free( qMatrix );
+    gsl_vector_free( amps );
+    gsl_vector_free( aCoeff );
+    gsl_permutation_free( perm1 );
+    
+    gsl_matrix_free( pMatrix );
+    gsl_vector_free( omegaVec );
+    gsl_vector_free( bCoeff );
+    gsl_permutation_free( perm2 );
+    
+    gsl_spline_free( spline );
+    gsl_interp_accel_free( acc );
+    
+    XLALDestroyREAL8Vector( timeVec );
+    XLALDestroyREAL8Vector( q3 );
+    XLALDestroyREAL8Vector( q4 );
+    XLALDestroyREAL8Vector( q5 );
+    XLALDestroyREAL8Vector( p3 );
+    XLALDestroyREAL8Vector( p4 );
+    XLALDestroyREAL8Vector( qNS );
+    XLALDestroyREAL8Vector( pNS );
+    XLALDestroyREAL8Vector( q3LM );
+    XLALDestroyREAL8Vector( q4LM );
+    XLALDestroyREAL8Vector( q5LM );
+    XLALDestroyREAL8Vector( qNSLM );
+    
+    return XLAL_SUCCESS;
 }
 
 #endif /*_LALSIMIMRNQCCORRECTION_C*/

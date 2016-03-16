@@ -52,7 +52,7 @@
 #include "LALSimIMRSpinAlignedEOBHcapDerivativeOptimized.c"
 /* END OPTIMIZED */
 
-#define debugOutput 0
+#define debugOutput 1
 
 //static int debugPK = 0;
 
@@ -648,6 +648,16 @@ int XLALSimIMRSpinAlignedEOBWaveform(
        XLAL_ERROR( XLAL_EINVAL );
        break;
   }
+    nqcCoeffs.a1 = 0.;
+    nqcCoeffs.a2 = 0.;
+    nqcCoeffs.a3 = 0.;
+    nqcCoeffs.a3S = 0.;
+    nqcCoeffs.a4 = 0.;
+    nqcCoeffs.a5 = 0.;
+    nqcCoeffs.b1 = 0.;
+    nqcCoeffs.b2 = 0.;
+    nqcCoeffs.b3 = 0.;
+    nqcCoeffs.b4 = 0.;
 
   /*
    * STEP 1) Solve for initial conditions
@@ -1030,7 +1040,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   }*/
 
   /* Calculate phase NQC coefficients */
-  if ( XLALSimIMRSpinEOBCalculateNQCCoefficients( ampNQC, phaseNQC, &rHi, &prHi, omegaHi,
+  if ( XLALSimIMRSpinEOBCalculateNQCCoefficientsV4( ampNQC, phaseNQC, &rHi, &prHi, omegaHi,
           2, 2, timePeak, deltaTHigh/mTScaled, m1, m2, a, chiA, chiS, &nqcCoeffs, SpinAlignedEOBversion ) == XLAL_FAILURE )
   {
     XLAL_ERROR( XLAL_EFUNC );
