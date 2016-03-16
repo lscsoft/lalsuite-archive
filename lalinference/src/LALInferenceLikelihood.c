@@ -664,7 +664,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 						model->roq->frequencyNodesLinear,
 						model->roq->calFactorLinear,
 						model->roq->frequencyNodesQuadratic,
-						model->roq->calFactorQuadratic)
+						model->roq->calFactorQuadratic);
           }
           else{
 			  if (calFactor == NULL) {
@@ -785,12 +785,12 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 	
 	    for(unsigned int iii=0; iii < model->roq->frequencyNodesLinear->length; iii++){
 
-			this_ifo_d_inner_h += ( dataPtr->roq->weightsLinear[iii*dataPtr->roq->n_time_steps + weight_index] * ( conj( model->roq->calFactorLinear->data->data[iii] * (dataPtr->fPlus*model->roq->hptildeLinear->data->data[iii] + dataPtr->fCross*model->roq->hctildeLinear->data->data[iii]) ) ) );
+			this_ifo_d_inner_h += ( dataPtr->roq->weightsLinear[iii*dataPtr->roq->n_time_steps + weight_index] * ( conj( model->roq->calFactorLinear->data[iii] * (dataPtr->fPlus*model->roq->hptildeLinear->data->data[iii] + dataPtr->fCross*model->roq->hctildeLinear->data->data[iii]) ) ) );
 		}
 		
 		for(unsigned int jjj=0; jjj < model->roq->frequencyNodesQuadratic->length; jjj++){
 
-			this_ifo_s += dataPtr->roq->weightsQuadratic[jjj] * creal( conj( model->roq->calFactorQuadratic->data->data[jjj] * (model->roq->hptildeQuadratic->data->data[jjj]*dataPtr->fPlus + model->roq->hctildeQuadratic->data->data[jjj]*dataPtr->fCross) ) * ( model->roq->calFactorQuadratic->data->data[jjj] * (model->roq->hptildeQuadratic->data->data[jjj]*dataPtr->fPlus + model->roq->hctildeQuadratic->data->data[jjj]*dataPtr->fCross) ) );
+			this_ifo_s += dataPtr->roq->weightsQuadratic[jjj] * creal( conj( model->roq->calFactorQuadratic->data[jjj] * (model->roq->hptildeQuadratic->data->data[jjj]*dataPtr->fPlus + model->roq->hctildeQuadratic->data->data[jjj]*dataPtr->fCross) ) * ( model->roq->calFactorQuadratic->data[jjj] * (model->roq->hptildeQuadratic->data->data[jjj]*dataPtr->fPlus + model->roq->hctildeQuadratic->data->data[jjj]*dataPtr->fCross) ) );
 		}
 	}
 	else{
