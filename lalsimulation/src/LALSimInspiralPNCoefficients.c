@@ -1783,7 +1783,8 @@ eccentricityPhasing_F2(REAL8 v, REAL8 v0, REAL8 ecc, REAL8 eta, INT4 eccOrder, R
     {
       v0_power[i] = v0_power[i-1]*v0;
     }
-    int ret = eccentricityPNCoeffs_F2(eta, eccPNCoeffs);
+    eccentricityPNCoeffs_F2(eta, eccPNCoeffs);
+    //int ret = eccentricityPNCoeffs_F2(eta, eccPNCoeffs);
     //printPNCoeffs_F2(eccPNCoeffs);
   }
   v_power[0] = 1.0;
