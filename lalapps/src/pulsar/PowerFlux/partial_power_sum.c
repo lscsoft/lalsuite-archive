@@ -1,6 +1,8 @@
+
 SUFFIX(PARTIAL_POWER_SUM) *SUFFIX(allocate_partial_power_sum)(int pps_bins, int cross_terms_present)
 {
-SUFFIX(PARTIAL_POWER_SUM) *r;
+SUFFIX(PARTIAL_POWER_SUM) * __restrict__ r;
+REAL * __restrict__ p;
 int i;
 
 r=do_alloc(1, sizeof(*r));
@@ -9,33 +11,60 @@ r->type=sizeof(REAL);
 r->nbins=pps_bins;
 r->offset=(pps_bins-useful_bins)>>1;
 
-r->weight_pppp=do_alloc(pps_bins, sizeof(*(r->weight_pppp)));
-r->weight_pppc=do_alloc(pps_bins, sizeof(*(r->weight_pppc)));
-r->weight_ppcc=do_alloc(pps_bins, sizeof(*(r->weight_ppcc)));
-r->weight_pccc=do_alloc(pps_bins, sizeof(*(r->weight_pccc)));
-r->weight_cccc=do_alloc(pps_bins, sizeof(*(r->weight_cccc)));
+if(cross_terms_present)
+	r->memory_pool_size=(pps_bins*sizeof(*(r->memory_pool))+ALIGNMENT)*9;
+	else
+	r->memory_pool_size=(pps_bins*sizeof(*(r->memory_pool))+ALIGNMENT)*8;
 
-r->power_pp=do_alloc(pps_bins, sizeof(*(r->power_pp)));
-r->power_pc=do_alloc(pps_bins, sizeof(*(r->power_pc)));
-r->power_cc=do_alloc(pps_bins, sizeof(*(r->power_cc)));
+//fprintf(stderr, "memory_pool_size=%d pps_bins=%d\n", r->memory_pool_size, pps_bins);
+r->memory_pool=do_alloc(r->memory_pool_size, 1);
 
-for(i=0;i<pps_bins;i++) {
-	r->weight_pppp[i]=NAN;
-	r->weight_pppc[i]=NAN;
-	r->weight_ppcc[i]=NAN;
-	r->weight_pccc[i]=NAN;
-	r->weight_cccc[i]=NAN;
+p=r->memory_pool;
 
-	r->power_pp[i]=NAN;
-	r->power_pc[i]=NAN;
-	r->power_cc[i]=NAN;
+PRAGMA_IVDEP
+for(i=0;i<r->memory_pool_size/sizeof(REAL);i++) {
+	p[i]=NAN;
 	}
+
+// r->weight_pppp=do_alloc(pps_bins, sizeof(*(r->weight_pppp)));
+// r->weight_pppc=do_alloc(pps_bins, sizeof(*(r->weight_pppc)));
+// r->weight_ppcc=do_alloc(pps_bins, sizeof(*(r->weight_ppcc)));
+// r->weight_pccc=do_alloc(pps_bins, sizeof(*(r->weight_pccc)));
+// r->weight_cccc=do_alloc(pps_bins, sizeof(*(r->weight_cccc)));
+// 
+// r->power_pp=do_alloc(pps_bins, sizeof(*(r->power_pp)));
+// r->power_pc=do_alloc(pps_bins, sizeof(*(r->power_pc)));
+// r->power_cc=do_alloc(pps_bins, sizeof(*(r->power_cc)));
+
+r->weight_pppp=ALIGN_POINTER(p); p=&(r->weight_pppp[pps_bins]);
+r->weight_pppc=ALIGN_POINTER(p); p=&(r->weight_pppc[pps_bins]);
+r->weight_ppcc=ALIGN_POINTER(p); p=&(r->weight_ppcc[pps_bins]);
+r->weight_pccc=ALIGN_POINTER(p); p=&(r->weight_pccc[pps_bins]);
+r->weight_cccc=ALIGN_POINTER(p); p=&(r->weight_cccc[pps_bins]);
+
+r->power_pp=ALIGN_POINTER(p); p=&(r->power_pp[pps_bins]);
+r->power_pc=ALIGN_POINTER(p); p=&(r->power_pc[pps_bins]);
+r->power_cc=ALIGN_POINTER(p); p=&(r->power_cc[pps_bins]);
+
+	
+// for(i=0;i<pps_bins;i++) {
+// 	r->weight_pppp[i]=NAN;
+// 	r->weight_pppc[i]=NAN;
+// 	r->weight_ppcc[i]=NAN;
+// 	r->weight_pccc[i]=NAN;
+// 	r->weight_cccc[i]=NAN;
+// 
+// 	r->power_pp[i]=NAN;
+// 	r->power_pc[i]=NAN;
+// 	r->power_cc[i]=NAN;
+// 	}
 	
 if(cross_terms_present) {
-	r->power_im_pc=do_alloc(pps_bins, sizeof(*(r->power_pc)));
-	for(i=0;i<pps_bins;i++) {
-		r->power_im_pc[i]=NAN;
-		}
+// 	r->power_im_pc=do_alloc(pps_bins, sizeof(*(r->power_pc)));
+	r->power_im_pc=ALIGN_POINTER(p); p=&(r->power_im_pc[pps_bins]);
+// 	for(i=0;i<pps_bins;i++) {
+// 		r->power_im_pc[i]=NAN;
+// 		}
 	} else 
 	r->power_im_pc=NULL;
 
@@ -51,7 +80,7 @@ r->collapsed_weight_arrays=0;
 return r;
 }
 
-void SUFFIX(zero_partial_power_sum)(SUFFIX(PARTIAL_POWER_SUM) *pps)
+void SUFFIX(zero_partial_power_sum)(SUFFIX(PARTIAL_POWER_SUM) * __restrict__ pps)
 {
 int i;
 int pps_bins=pps->nbins;
@@ -62,6 +91,7 @@ if(pps->type!=sizeof(REAL)) {
 	exit(-1);
 	}
 
+PRAGMA_IVDEP
 for(i=0;i<pps_bins;i++) {
 	pps->weight_pppp[i]=0;
 	pps->weight_pppc[i]=0;
@@ -75,6 +105,7 @@ for(i=0;i<pps_bins;i++) {
 	}
 	
 if(pps->power_im_pc!=NULL) {
+PRAGMA_IVDEP
 	for(i=0;i<pps_bins;i++) {
 		pps->power_im_pc[i]=0;
 		}
@@ -132,10 +163,10 @@ pps->collapsed_weight_arrays=0;
 }
 
 
-void SUFFIX(accumulate_partial_power_sum)(SUFFIX(PARTIAL_POWER_SUM) *accum, SUFFIX(PARTIAL_POWER_SUM) *partial)
+void SUFFIX(accumulate_partial_power_sum)(SUFFIX(PARTIAL_POWER_SUM) * __restrict__  accum, SUFFIX(PARTIAL_POWER_SUM) * __restrict__ partial)
 {
 int i;
-REAL *a1, *a2, *a3, *a4, *a5, *p1, *p2, *p3, *p4, *p5;
+SUFFIX(REALPTR) a1, a2, a3, a4, a5, p1, p2, p3, p4, p5;
 int pps_bins=accum->nbins;
 int shift;
 if(accum->type!=sizeof(REAL)) {
@@ -166,17 +197,24 @@ p1=&(partial->power_pp[shift]);
 p2=&(partial->power_pc[shift]);
 p3=&(partial->power_cc[shift]);
 
+// PRAGMA_IVDEP
+// for(i=0;i<pps_bins;i++) {
+// 	(*a1)+=*p1;
+// 	(*a2)+=*p2;
+// 	(*a3)+=*p3;
+// 
+// 	a1++;
+// 	p1++;
+// 	a2++;
+// 	p2++;
+// 	a3++;
+// 	p3++;
+// 	}
+PRAGMA_IVDEP
 for(i=0;i<pps_bins;i++) {
-	(*a1)+=*p1;
-	(*a2)+=*p2;
-	(*a3)+=*p3;
-
-	a1++;
-	p1++;
-	a2++;
-	p2++;
-	a3++;
-	p3++;
+	a1[i]+=p1[i];
+	a2[i]+=p2[i];
+	a3[i]+=p3[i];
 	}
 
 if(partial->power_im_pc!=NULL) {
@@ -186,11 +224,16 @@ if(partial->power_im_pc!=NULL) {
 		}
 	a1=accum->power_im_pc;
 	p1=&(partial->power_im_pc[shift]);
+// PRAGMA_IVDEP
+// 	for(i=0;i<pps_bins;i++) {
+// 		(*a1)+=*p1;
+// 		
+// 		a1++;
+// 		p1++;
+// 		}
+PRAGMA_IVDEP
 	for(i=0;i<pps_bins;i++) {
-		(*a1)+=*p1;
-		
-		a1++;
-		p1++;
+		a1[i]+=p1[i];
 		}
 	accum->c_weight_im_ppcc+=partial->c_weight_im_ppcc;
 	}
@@ -208,23 +251,31 @@ if(partial->weight_arrays_non_zero) {
 	p4=&(partial->weight_pccc[shift]);
 	p5=&(partial->weight_cccc[shift]);
 
+// 	for(i=0;i<pps_bins;i++) {
+// 		(*a1)+=*p1;
+// 		(*a2)+=*p2;
+// 		(*a3)+=*p3;
+// 		(*a4)+=*p4;
+// 		(*a5)+=*p5;
+// 	
+// 		a1++;
+// 		p1++;
+// 		a2++;
+// 		p2++;
+// 		a3++;
+// 		p3++;
+// 		a4++;
+// 		p4++;
+// 		a5++;
+// 		p5++;
+// 		}
+PRAGMA_IVDEP
 	for(i=0;i<pps_bins;i++) {
-		(*a1)+=*p1;
-		(*a2)+=*p2;
-		(*a3)+=*p3;
-		(*a4)+=*p4;
-		(*a5)+=*p5;
-	
-		a1++;
-		p1++;
-		a2++;
-		p2++;
-		a3++;
-		p3++;
-		a4++;
-		p4++;
-		a5++;
-		p5++;
+		a1[i]+=p1[i];
+		a2[i]+=p2[i];
+		a3[i]+=p3[i];
+		a4[i]+=p4[i];
+		a5[i]+=p5[i];
 		}
 	accum->weight_arrays_non_zero=1;
 	}
@@ -280,7 +331,7 @@ TEST(c_weight_im_ppcc, "%g", rel_tolerance)
 	{ \
 	REAL max_field=0.0; \
 	for(i=0;i<pps_bins;i++) { \
-		if((ref->field[i]!=test->field[i]) && !(fabs(test->field[i]-ref->field[i])<rel_tolerance*(fabs(test->field[i])+fabs(ref->field[i])))) { \
+		if((rel_tolerance<1.0) && (ref->field[i]!=test->field[i]) && !(fabs(test->field[i]-ref->field[i])<rel_tolerance*(fabs(test->field[i])+fabs(ref->field[i])))) { \
 			fprintf(stderr, "%s" #field "[%d] fields mismatch ref=%g test=%g test-ref=%g\n", prefix, i, ref->field[i], test->field[i], test->field[i]-ref->field[i]); \
 			return -4; \
 			} \
@@ -483,17 +534,19 @@ if(pps->type!=sizeof(REAL)) {
 	exit(-1);
 	}
 
-free(pps->weight_pppp);
-free(pps->weight_pppc);
-free(pps->weight_ppcc);
-free(pps->weight_pccc);
-free(pps->weight_cccc);
+// free(pps->weight_pppp);
+// free(pps->weight_pppc);
+// free(pps->weight_ppcc);
+// free(pps->weight_pccc);
+// free(pps->weight_cccc);
+// 
+// free(pps->power_pp);
+// free(pps->power_pc);
+// free(pps->power_cc);
+// 
+// if(pps->power_im_pc!=NULL)free(pps->power_im_pc);
 
-free(pps->power_pp);
-free(pps->power_pc);
-free(pps->power_cc);
-
-if(pps->power_im_pc!=NULL)free(pps->power_im_pc);
+free(pps->memory_pool);
 
 memset(pps, 0, sizeof(*pps));
 free(pps);

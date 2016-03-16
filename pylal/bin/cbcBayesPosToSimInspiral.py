@@ -149,7 +149,6 @@ if __name__ == "__main__":
                     help="Taper methods for injections"),
                 Option("--flow", metavar="FLOW", type=float, default=None,
                     help="Taper methods for injections"),
-
                 Option("--amporder", metavar="AMPORDER", type=int, default=0,
                     help="pN order in amplitude for injection")
             ]
@@ -164,8 +163,11 @@ if __name__ == "__main__":
         standardize_param_names(params)
         samples = np.loadtxt(inp, dtype=[(p, np.float) for p in params])
 
-    # Choose subset for sim_inspiral_table
     N = opts.num_of_injs
+    if len(samples) < N:
+        raise ValueError("{} injections requested, but {} samples were provided.".format(N, len(samples)))
+
+    # Choose subset for sim_inspiral_table
     selection = np.arange(len(samples))
     np.random.shuffle(selection)
     samples = samples[selection[:N]]
@@ -182,8 +184,8 @@ if __name__ == "__main__":
     # Compute cartesian spins
     if 'a1' in params and 'theta1' in params and 'phi1' in params:
         s1x, s1y, s1z = bppu.sph2cart(samples['a1'], samples['theta1'], samples['phi1'])
-    elif 'a1' in params:
-        s1z = samples['a1']
+    elif 'a1z' in params:
+        s1z = samples['a1z']
         s1x = np.zeros_like(s1z)
         s1y = np.zeros_like(s1z)
     else:
@@ -194,8 +196,8 @@ if __name__ == "__main__":
 
     if 'a2' in params and 'theta2' in params and 'phi2' in params:
         s2x, s2y, s2z = bppu.sph2cart(samples['a2'], samples['theta2'], samples['phi2'])
-    elif 'a2' in params:
-        s2z = samples['a2']
+    elif 'a2z' in params:
+        s2z = samples['a2z']
         s2x = np.zeros_like(s2z)
         s2y = np.zeros_like(s2z)
     else:
@@ -234,14 +236,21 @@ if __name__ == "__main__":
         inclination = theta_jn
 
     print s1x.shape
-    # Check if f_low is a parameter, if not take from command line options
-    try:
-        flow = samples['flow']
-    except ValueError:
-        if opts.flow:
-            flow = [opts.flow for i in xrange(N)]
-        else:
+    # Check if f_low is given on the command line. If not, try to take if from 'samples'.
+    if opts.flow is None:
+        try:
+            flow = samples['flow']
+        except:
             raise ValueError("No f_low found in input file or command line arguments.")
+    else:
+        try:
+            samples['flow']
+        except:
+            pass
+        else:  # executed if no exception is raised
+            print('f_low given in both input file and command line.'
+                  ' Using command line argument: %r' % opts.flow)
+        flow = [opts.flow for i in xrange(N)]
 
     # Populate structured array
     injections['waveform'] = [opts.approx for i in xrange(N)]

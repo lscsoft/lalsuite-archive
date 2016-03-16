@@ -151,6 +151,7 @@ typedef struct {
 
 	double freq;
 	double spindown;
+	double fdotdot;
 	double dInv; /* Inverse distance to source in seconds */
 
 	double ra;
@@ -191,7 +192,7 @@ float f_plus, f_cross;
 EmissionTime emission_time;
 LIGOTimeGPS tGPS;
 EarthState earth_state;
-double te, phase_spindown, phase_freq;
+double te, phase_spindown, phase_dotdot, phase_freq;
 LALStatus status={level:0, statusPtr:NULL};
 
 tGPS.gpsSeconds=floor(t);
@@ -213,10 +214,12 @@ te=(emission_time.te.gpsSeconds-p->ref_time)+((double)(1e-9))*emission_time.te.g
 
 fmodomega_t=2.0*M_PI*(te*p->freq_modulation_freq-floor(te*p->freq_modulation_freq));
 
-*f=(p->freq+p->spindown*te+p->freq_modulation_depth*cos(fmodomega_t+p->freq_modulation_phase))*(1.0+doppler);
+*f=(p->freq+p->spindown*te+0.5*te*te*p->fdotdot+p->freq_modulation_depth*cos(fmodomega_t+p->freq_modulation_phase))*(1.0+doppler);
 
 phase_spindown=0.5*te*te*p->spindown;
 
+phase_dotdot=M_1_6*te*te*te*p->fdotdot;
+//fprintf(stderr, "dotdot %.20g %.20g %.20g\n", phase_dotdot, te*te*p->fdotdot*0.5, te*p->fdotdot);
 
 phase_freq=(p->freq-(double)(p->bin)/(double)(p->coherence_time))*te
 	+(double)p->bin*(te-(t-p->segment_start))/(double)(p->coherence_time);
@@ -229,7 +232,9 @@ if(fabs(p->freq_modulation_freq)>1e-28) {
 	   --------- =  ------------- +   ------------- 
 	       w             w                 w        
 	*/
-	phase_freq+=p->freq_modulation_depth*sin(fmodomega_t)*cos(p->freq_modulation_phase)/(2*M_PI*p->freq_modulation_freq);
+	a=p->freq_modulation_depth*sin(fmodomega_t)*cos(p->freq_modulation_phase)/(2*M_PI*p->freq_modulation_freq);
+	phase_freq+=a-floor(a);
+	
 	a=p->freq_modulation_depth*cos(fmodomega_t)*sin(p->freq_modulation_phase)/(2*M_PI*p->freq_modulation_freq);
 	phase_freq+=a-floor(a);
 	} else {
@@ -240,10 +245,11 @@ if(fabs(p->freq_modulation_freq)>1e-28) {
 	   --------- =  ------------- +   ------------- = t cos(a) +  ------ -   ----------- + o(w^2)
 	       w             w                 w                        w             2
 	*/
-	phase_freq+=p->freq_modulation_depth*cos(p->freq_modulation_phase)*te;
+	a=p->freq_modulation_depth*cos(p->freq_modulation_phase)*te;
+	phase_freq+=a-floor(a);
 	}
 
-omega_t=2.0*M_PI*((phase_freq-floor(phase_freq))+(phase_spindown-floor(phase_spindown)))+p->phi;
+omega_t=2.0*M_PI*((phase_freq-floor(phase_freq))+(phase_spindown-floor(phase_spindown))+(phase_dotdot-floor(phase_dotdot)))+p->phi;
 
 /* add contribution from sinusoidal phase modulation */
 modomega_t=2.0*M_PI*(te*p->phase_modulation_freq-floor(te*p->phase_modulation_freq))+p->phase_modulation_phase;
@@ -337,6 +343,7 @@ p->ra=args_info.fake_ra_arg;
 p->dec=args_info.fake_dec_arg;
 p->freq=args_info.fake_freq_arg;
 p->spindown=args_info.fake_spindown_arg;
+p->fdotdot=args_info.fake_fdotdot_arg;
 p->ref_time=args_info.fake_ref_time_arg;
 p->strain=args_info.fake_strain_arg;
 p->iota=args_info.fake_iota_arg;
@@ -494,7 +501,7 @@ double re, im, f;
 gsl_function F; 
 gsl_integration_workspace *w;
 gsl_integration_qawo_table *t_sine, *t_cosine;
-int w_size=1024*32;
+int w_size=args_info.fake_injection_w_size_arg;
 
 F.params=p;
 p->bin=0;
@@ -503,11 +510,10 @@ p->segment_start=d->gps[segment];
 p->coherence_time=d->coherence_time;
 p->detector=d->detector;
 
-
 compute_signal(&re, &im, &f, d->gps[segment]+(int)(d->coherence_time/2), p);
 
 
-bin=round(f*1800.0-d->first_bin);
+bin=round(f*d->coherence_time-d->first_bin);
 if((bin+window>nbins) || (bin<window))fprintf(stderr, "Injected signal outside loaded band: bin=%d, segment=%d\n", bin, segment);
 if(bin+window>nbins)bin=nbins-window;
 if(bin<window)bin=window;
@@ -589,7 +595,7 @@ d->detector="unknown";
 d->gps_start=0;
 d->gps_stop=-1;
 
-d->coherence_time=1800.0;
+d->coherence_time=args_info.sft_coherence_time_arg;
 d->nbins=nbins;
 d->first_bin=first_bin;
 
@@ -606,8 +612,8 @@ d->dc_factor_blocked=0;
 d->re=do_alloc(d->size*d->nbins, sizeof(*d->re));
 d->im=do_alloc(d->size*d->nbins, sizeof(*d->im));
 d->sft_veto=NULL;
-d->veto_level=1e-2; /* this takes care of SFTs that have 1/100 weight... */
-d->veto_spike_level=1.7; /* this takes care of SFTs with spikes 50 times median level */
+d->veto_level=args_info.default_dataset_veto_level_arg; /* this takes care of SFTs that have 1/100 weight... */
+d->veto_spike_level=args_info.default_dataset_veto_spike_level_arg; /* this takes care of SFTs with spikes 50 times median level */
 
 d->weight=1.0;
 
@@ -1201,6 +1207,7 @@ for(i=0;i<d_free;i++)output_dataset_info(&(datasets[i]));
 static int gps_exists(DATASET *d, INT64 gps)
 {
 int i;
+if(gps>d->max_gps)return 0;
 for(i=0;i<d->free;i++) {
 	if(d->gps[i]==gps)return 1;
 	}
@@ -1242,6 +1249,10 @@ fread(&timebase, sizeof(timebase), 1, fin);
 fread(&bin_start, sizeof(bin_start), 1, fin);
 fread(&nbins, sizeof(nbins), 1, fin);
 
+if(timebase!=args_info.sft_coherence_time_arg) {
+	fprintf(stderr, "*** WARNING: SFT timebase is different from expected coherence time (%g vs %g)\n", timebase, args_info.sft_coherence_time_arg);
+	}
+
 tmp=do_alloc(count*2, sizeof(*tmp));
 
 fseek(fin, (startbin-bin_start)*8,SEEK_CUR);
@@ -1257,7 +1268,7 @@ if(timebase < 0) {
 	fprintf(stderr,"** Timebase is negative, assuming unnormalized data\n");
 	fprintf(LOG,"** Timebase is negative, assuming unnormalized data\n");
 	} else {
-	factor=(0.5*1800.0*16384.0)/(args_info.strain_norm_factor_arg*nbins); /* use fixed normalization for 1800 sec SFTs .. */
+	factor=(0.5*args_info.sft_coherence_time_arg*16384.0)/(args_info.strain_norm_factor_arg*nbins); 
 	}
 factor*=d->dc_factor;
 for(i=0;i<count;i++){
@@ -1265,7 +1276,7 @@ for(i=0;i<count;i++){
 	im[i]=tmp[2*i+1]*factor;
 	if(!isfinite(re[i]) || !isfinite(im[i])) {
 		free(tmp);
-		fprintf(stderr, "Infinite value encountered in file \"%s\"\n", filename);
+		fprintf(stderr, "Infinite value (%g,%g) encountered in file \"%s\" gps=%lld\n", tmp[2*i], tmp[2*i+1], filename, *gps);
 		return -2;
 		}
 	}
@@ -1360,7 +1371,7 @@ for(i=0;i<count;i++){
 	im[i]=tmp[2*i+1]*factor;
 	if(!isfinite(re[i]) || !isfinite(im[i])) {
 		free(tmp);
-		fprintf(stderr, "Infinite value encountered in file \"%s\"\n", filename);
+		fprintf(stderr, "Infinite value (%g,%g) encountered in file \"%s\" gps=%lld\n", tmp[2*i], tmp[2*i+1], filename, *gps);
 		return -(48+ht.nsamples*8+ht.comment_length);
 		}
 	}
@@ -1413,6 +1424,13 @@ while((fin=fopen(filename,"r"))==NULL) {
 if(retries>0) {
 	fprintf(stderr, "Successfully opened file \"%s\" after %ld attempts.\n", filename, retries);
 	}
+	
+if(d->buffer_size==0) {
+	setvbuf(fin, NULL, _IONBF, 0);
+	} else {
+	setvbuf(fin, d->buffer, _IOFBF, d->buffer_size);
+	}
+	
 /* read header */
 header_offset=0;
 while(1) {
@@ -1440,6 +1458,8 @@ while(1) {
 		fclose(fin);
 		if(!i)d->free++;
 			else if(i< -1)fprintf(stderr, "Skipped file %s (%lld)\n", filename, d->gps[d->free]);
+		if(d->free>0 && d->gps[d->free-1]>d->max_gps)
+			d->max_gps=d->gps[d->free-1];
 		return;
 		} else
 	if(a==2.0) {
@@ -1454,6 +1474,8 @@ while(1) {
 			d->free++;
 			} else 
 			header_offset+=-i;
+		if(d->free>0 && d->gps[d->free-1]>d->max_gps)
+			d->max_gps=d->gps[d->free-1];
 		} else {
 		if(!header_offset)fprintf(stderr,"Cannot read file \"%s\": wrong endianness or invalid data\n", filename);
 		fclose(fin);
@@ -1646,6 +1668,11 @@ for(i=d->free;i<(d->free+count);i++) {
 	}
 d->free+=count;
 
+if(d->free>0 && d->gps[d->free-1]>d->max_gps)
+	d->max_gps=d->gps[d->free-1];
+
+if(gps_start>d->max_gps)d->max_gps=gps_start;
+
 fill_seed=gsl_rng_get(rng);
 gsl_rng_free(rng);
 }
@@ -1723,6 +1750,15 @@ if(!strncasecmp(line, "lock_file", 9)) {
 if(!strncasecmp(line, "sleep", 5)) {
 	locate_arg(line, length, 1, &ai, &aj);
 	condor_safe_sleep(atoi(&(line[ai])));
+	} else 
+if(!strncasecmp(line, "buffer_size", 11)) {
+	locate_arg(line, length, 1, &ai, &aj);
+	datasets[d_free-1].buffer_size=atoll(&(line[ai]));
+	if(datasets[d_free-1].buffer!=NULL)free(datasets[d_free-1].buffer);
+	if(datasets[d_free-1].buffer_size<0)datasets[d_free-1].buffer_size=0;
+	if(datasets[d_free-1].buffer_size>0) {
+		datasets[d_free-1].buffer=do_alloc(1, datasets[d_free-1].buffer_size);
+		}
 	} else 
 if(!strncasecmp(line, "gps_start", 9)) {
 	locate_arg(line, length, 1, &ai, &aj);
@@ -2297,39 +2333,41 @@ if(fabs(err)>1e-6)exit(-1);
 void compute_noise_curves(DATASET *dataset)
 {
 float *tmp;
-float *x, *y, *t;
-float a;
-int i,j;
 double b, b_initial;
 int nsegments=dataset->free;
 int nbins=dataset->nbins;
 HISTOGRAM *hist;
 
 tmp=do_alloc(nsegments*nbins,sizeof(float));
-for(i=0;i<nsegments;i++) {
-	t=&(tmp[i*nbins]);
-	x=&(dataset->re[i*nbins]);
-	y=&(dataset->im[i*nbins]);
-	for(j=0;j<nbins;j++) {
+#pragma omp parallel for schedule(dynamic, 128)
+for(int i=0;i<nsegments;i++) {
+	float * t=&(tmp[i*nbins]);
+	float * x=&(dataset->re[i*nbins]);
+	float *y=&(dataset->im[i*nbins]);
+	for(int j=0;j<nbins;j++) {
 		t[j]=log10(x[j]*x[j]+y[j]*y[j]);
 		}
 	}
 b=0;
-for(i=0;i<nsegments;i++){
-	a=compute_median(tmp+i*nbins,1,nbins);
+#pragma omp parallel for schedule(dynamic, 128)
+for(int i=0;i<nsegments;i++){
+	float a=compute_median(tmp+i*nbins,1,nbins);
 	dataset->TMedians[i]=a;
+	#pragma omp critical
 	b+=a*a;
-	t=&(tmp[i*nbins]);
-	for(j=0;j<nbins;j++){
+	float *t=&(tmp[i*nbins]);
+	for(int j=0;j<nbins;j++){
 		t[j]-=a;
 		}
 	}
-for(j=0;j<nbins;j++){
-	a=compute_median(tmp+j,nbins,nsegments);
+#pragma omp parallel for schedule(dynamic, 128)
+for(int j=0;j<nbins;j++){
+	float a=compute_median(tmp+j,nbins,nsegments);
 	dataset->FMedians[j]=a;
+	#pragma omp critical
 	b+=a*a;
-	t=&(tmp[j]);
-	for(i=0;i<nsegments;i++){
+	float *t=&(tmp[j]);
+	for(int i=0;i<nsegments;i++){
 		t[i*nbins]-=a;
 		}
 	}
@@ -2337,21 +2375,24 @@ b_initial=b;
 fprintf(stderr,"%g\n",b);
 while(b>0){
 	b=0;
-	for(i=0;i<nsegments;i++){
-		a=compute_median(tmp+i*nbins,1,nbins);
+	#pragma omp parallel for schedule(dynamic, 128)
+	for(int i=0;i<nsegments;i++){
+		float a=compute_median(tmp+i*nbins,1,nbins);
 		dataset->TMedians[i]+=a;
+		#pragma omp critical
 		b+=a*a;
-		t=&(tmp[i*nbins]);
-		for(j=0;j<nbins;j++){
+		float *t=&(tmp[i*nbins]);
+		for(int j=0;j<nbins;j++){
 			t[j]-=a;
 			}
 		}
-	for(j=0;j<nbins;j++){
-		a=compute_median(tmp+j,nbins,nsegments);
+	#pragma omp parallel for schedule(dynamic, 128)
+	for(int j=0;j<nbins;j++){
+		float a=compute_median(tmp+j,nbins,nsegments);
 		dataset->FMedians[j]+=a;
 		b+=a*a;
-		t=&(tmp[j]);
-		for(i=0;i<nsegments;i++){
+		float *t=&(tmp[j]);
+		for(int i=0;i<nsegments;i++){
 			t[i*nbins]-=a;
 			}
 		}
@@ -2552,6 +2593,26 @@ for(i=0;i<d_free;i++){
 return(max_gps);
 }
 
+INT64 mid_gps(void)
+{
+int i,j;
+double sum=0.0, weight, total_weight=0.0;
+INT64 min_gps=0;
+DATASET *d;
+
+for(i=0;i<d_free;i++){
+	d=&datasets[i];
+	for(j=0;j<datasets[i].free;j++) {
+		weight=d->expTMedians[j]*d->weight;
+		total_weight+=weight;
+		sum+=weight*d->gps[j];
+		}
+	}
+if(total_weight<=0)return -1;
+
+return((INT64)round(sum/total_weight));
+}
+
 void post_init_datasets(void)
 {
 float a, b;
@@ -2562,7 +2623,7 @@ DATASET *d;
 a=datasets_normalizing_weight();
 for(i=0;i<d_free;i++){
 	d=&(datasets[i]);
-	b=a*exp(M_LN10*d->TMedian); 
+	b=a*exp(M_LN10*d->TMedian);
 	d->weight/=b*b;
 	}
 }
@@ -2597,7 +2658,7 @@ double total_weight=0.0, w, fdiff, f1, f2, c1, c2;
 DATASET *d;
 float e1[26], e2[26], ed[26];
 double offset, fdot;
-double timebase=max_gps()-min_gps()+1800.0;
+double timebase=max_gps()-min_gps()+args_info.sft_coherence_time_arg;
 double inv_timebase=1.0/timebase;
 double max_fdot;
 double delta_spindown=spindown-source_spindown;
@@ -2836,14 +2897,14 @@ for(i=0;i<d_free;i++) {
 			d->detector_velocity[3*j+2]
 			);
 		for(k=0;k<d->nbins;k++) {
-			fprintf(fout, "\t%8g", d->re[j*d->nbins+k]*args_info.strain_norm_factor_arg/(0.5*1800.0*16384.0));
+			fprintf(fout, "\t%8g", d->re[j*d->nbins+k]*args_info.strain_norm_factor_arg/(0.5*args_info.sft_coherence_time_arg*16384.0));
 			}
 		for(k=0;k<d->nbins;k++) {
-			fprintf(fout, "\t%8g",d->im[j*d->nbins+k]*args_info.strain_norm_factor_arg/(0.5*1800.0*16384.0));
+			fprintf(fout, "\t%8g",d->im[j*d->nbins+k]*args_info.strain_norm_factor_arg/(0.5*args_info.sft_coherence_time_arg*16384.0));
 			}
 		for(k=0;k<d->nbins;k++) {
-			x=d->re[j*d->nbins+k]*args_info.strain_norm_factor_arg/(0.5*1800.0*16384.0);
-			y=d->im[j*d->nbins+k]*args_info.strain_norm_factor_arg/(0.5*1800.0*16384.0);
+			x=d->re[j*d->nbins+k]*args_info.strain_norm_factor_arg/(0.5*args_info.sft_coherence_time_arg*16384.0);
+			y=d->im[j*d->nbins+k]*args_info.strain_norm_factor_arg/(0.5*args_info.sft_coherence_time_arg*16384.0);
 			fprintf(fout, "\t%8g", x*x+y*y);
 			}
 		fprintf(fout, "\n");
@@ -2883,7 +2944,7 @@ for(i=0;i<d_free;i++) {
 
 	if(d->free<1)continue;
 
-	snprintf(filename+1, 999, "-%s-%lld-%lld.sft", d->name, d->gps[0], (d->gps[d->free-1]-d->gps[0]+1800));
+	snprintf(filename+1, 999, "-%s-%f-%f.sft", d->name, (double)d->gps[0], (d->gps[d->free-1]-d->gps[0]+args_info.sft_coherence_time_arg));
 	if(!strcasecmp(d->detector, "LHO"))filename[0]='H';
 		else
 	if(!strcasecmp(d->detector, "LLO"))filename[0]='L';
@@ -3009,11 +3070,17 @@ if(!pass)exit(-1);
 void test_datasets(void)
 {
 test_compute_median();
-test_inject_fake_signal09();
 
-if(args_info.extended_test_arg) {
-	fake_dataset_test();
+if(args_info.extended_test_arg & (1<<0)) {
+	test_inject_fake_signal09();
+	}
+
+if(args_info.extended_test_arg & (1<<1)) {
 	test_inject_fake_signal05();
+	}
+
+if(args_info.extended_test_arg & (1<<2)) {
+	fake_dataset_test();
 	}
 }
 

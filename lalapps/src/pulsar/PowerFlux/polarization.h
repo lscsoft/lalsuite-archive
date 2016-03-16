@@ -33,7 +33,7 @@ typedef struct S_POLARIZATION {
 	float plus_factor;
 	float cross_factor;
 	
-	SKY_GRID_TYPE *AM_coeffs;
+	SKY_GRID_TYPE * __restrict__ AM_coeffs;
 	float *patch_CutOff;
 	
 	char *name;

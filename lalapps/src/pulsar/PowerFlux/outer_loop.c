@@ -208,10 +208,11 @@ for(k=0;k<d_free;k++) {
 free(w);
 }
 
+MUTEX data_logging_mutex;
 
-void log_extremes(EXTREME_INFO *ei, int pi, POWER_SUM **ps, int nchunks, int count)
+void log_extremes(SUMMING_CONTEXT *ctx, POWER_SUM_STATS *tmp_pstat, EXTREME_INFO *ei, int pi, POWER_SUM **ps, int nchunks, int count)
 {
-PARTIAL_POWER_SUM_F *pps;
+PARTIAL_POWER_SUM_F *pps=ctx->log_extremes_pps;
 POWER_SUM_STATS pstats, pstats_accum;
 int i, k;
 int highest_ul_idx=0;
@@ -219,16 +220,26 @@ int highest_circ_ul_idx=0;
 int highest_snr_idx=0;
 int skyband;
 
-pps=allocate_partial_power_sum_F(useful_bins, 1);
+//fprintf(stderr, "count=%d\n", count);
+//pps=allocate_partial_power_sum_F(useful_bins, 1);
 memset(&pstats_accum, 0, sizeof(pstats_accum));
 pstats_accum.max_weight=-1;
 
 for(i=0;i<count;i++) {
 	zero_partial_power_sum_F(pps);
 	for(k=0;k<nchunks;k++) {
+#if MANUAL_SSE
 		sse_accumulate_partial_power_sum_F(pps, (ps[k][i].pps));
+#else
+		accumulate_partial_power_sum_F(pps, (ps[k][i].pps));
+#endif
 		}
-	power_sum_stats(pps, &(pstats));
+	power_sum_stats(pps, &(tmp_pstat[i]));
+	}
+
+thread_mutex_lock(&(ei->mutex));
+for(i=0;i<count;i++) {
+	memcpy(&pstats, &(tmp_pstat[i]), sizeof(POWER_SUM_STATS));
 
 	if(args_info.dump_power_sums_arg) {
 		fprintf(DATA_LOG, "power_sum %s %d %d %lf %lf %lf %lg ", ei->name, pi, first_bin+side_cut, ps[0][i].ra, ps[0][i].dec, ps[0][i].freq_shift, ps[0][i].spindown);
@@ -250,7 +261,11 @@ for(i=0;i<count;i++) {
 		target.ra=ps[0][i].ra; \
 		target.dec=ps[0][i].dec; \
 		target.spindown=ps[0][i].spindown; \
-		target.frequency=(double)ps[0][i].freq_shift+((target).bin+first_bin+side_cut)/(double)1800.0; \
+		target.fdotdot=ps[0][i].fdotdot; \
+		target.freq_modulation_freq=ps[0][i].freq_modulation_freq; \
+		target.freq_modulation_depth=ps[0][i].freq_modulation_depth; \
+		target.freq_modulation_phase=ps[0][i].freq_modulation_phase; \
+		target.frequency=(double)ps[0][i].freq_shift+((target).bin+first_bin+side_cut)/args_info.sft_coherence_time_arg; \
 		}
 
 	#define FILL_POINT_STATS(target, source)	{\
@@ -349,17 +364,20 @@ for(i=0;i<count;i++) {
 	UPDATE_MIN(pstats_accum, min_m4);
 
 	}
-free_partial_power_sum_F(pps);
+//free_partial_power_sum_F(pps);
+thread_mutex_unlock(&(ei->mutex));
+
+thread_mutex_lock(&data_logging_mutex);
 
 if(write_data_log_header) {
 	write_data_log_header=0;
 	/* we write this into the main log file so that data.log files can simply be concatenated together */
-	fprintf(LOG, "data_log: kind label index set pi pps_count template_count first_bin min_gps max_gps skyband frequency spindown ra dec iota psi snr ul ll M S ks_value ks_count m1_neg m3_neg m4 frequency_bin max_weight weight_loss_fraction max_ks_value max_m1_neg min_m1_neg max_m3_neg min_m3_neg max_m4 min_m4 max_weight_loss_fraction\n");
+	fprintf(LOG, "data_log: kind label index set pi pps_count template_count first_bin min_gps max_gps skyband frequency spindown fdotdot freq_modulation_freq freq_modulation_depth freq_modulation_phase ra dec iota psi snr ul ll M S ks_value ks_count m1_neg m3_neg m4 frequency_bin max_weight weight_loss_fraction max_ks_value max_m1_neg min_m1_neg max_m3_neg min_m3_neg max_m4 min_m4 max_weight_loss_fraction\n");
 	}
 
 /* now that we know extreme points go and characterize them */
 #define WRITE_POINT(psum, pstat, kind)	{\
-	fprintf(DATA_LOG, "%s \"%s\" %d %s %d %d %d %d %lf %lf %d %lf %lg %lf %lf %lf %lf %lf %lg %lg %lg %lg %lf %d %lf %lf %lf %d %lg %lf %lf %lf %lf %lf %lf %lf %lf %lf\n", \
+	fprintf(DATA_LOG, "%s \"%s\" %d %s %d %d %d %d %lf %lf %d %lf %lg %lg %lg %lg %lg %lf %lf %lf %lf %lf %lg %lg %lg %lg %lf %d %lf %lf %lf %d %lg %lf %lf %lf %lf %lf %lf %lf %lf %lf\n", \
 		kind, \
 		args_info.label_arg, \
 		data_log_index, \
@@ -371,8 +389,12 @@ if(write_data_log_header) {
 		psum.min_gps, \
 		psum.max_gps, \
 		psum.skyband, \
-		(pstat.bin+first_bin+side_cut)/(double)1800.0+psum.freq_shift, \
+		(pstat.bin+first_bin+side_cut)/args_info.sft_coherence_time_arg+psum.freq_shift, \
 		psum.spindown, \
+		psum.fdotdot, \
+		psum.freq_modulation_freq, \
+		psum.freq_modulation_depth, \
+		psum.freq_modulation_phase, \
 		psum.ra, \
 		psum.dec, \
 		pstat.iota, \
@@ -408,17 +430,19 @@ if((pstats_accum.highest_snr.snr>args_info.min_candidate_snr_arg) &
    (pstats_accum.highest_snr.bin>=args_info.tail_veto_arg) &
    (pstats_accum.highest_snr.bin<(useful_bins-args_info.tail_veto_arg)))WRITE_POINT(ps[0][highest_snr_idx], pstats_accum.highest_snr, "snr");
 
+thread_mutex_unlock(&data_logging_mutex);
+
 #define FILL_SKYMAP(skymap, value)	if(ei->skymap!=NULL)ei->skymap[pi]=value;
 
 FILL_SKYMAP(ul_skymap, pstats_accum.highest_ul.ul);
-FILL_SKYMAP(ul_freq_skymap, (pstats_accum.highest_ul.bin)/1800.0+ps[0][highest_ul_idx].freq_shift);
+FILL_SKYMAP(ul_freq_skymap, (pstats_accum.highest_ul.bin)/args_info.sft_coherence_time_arg+ps[0][highest_ul_idx].freq_shift);
 
 FILL_SKYMAP(circ_ul_skymap, pstats_accum.highest_circ_ul.ul);
-FILL_SKYMAP(circ_ul_freq_skymap, (pstats_accum.highest_circ_ul.bin)/1800.0+ps[0][highest_circ_ul_idx].freq_shift);
+FILL_SKYMAP(circ_ul_freq_skymap, (pstats_accum.highest_circ_ul.bin)/args_info.sft_coherence_time_arg+ps[0][highest_circ_ul_idx].freq_shift);
 
 FILL_SKYMAP(snr_skymap, pstats_accum.highest_snr.snr);
 FILL_SKYMAP(snr_ul_skymap, pstats_accum.highest_snr.ul);
-FILL_SKYMAP(snr_freq_skymap, (pstats_accum.highest_snr.bin)/1800.0+ps[0][highest_snr_idx].freq_shift);
+FILL_SKYMAP(snr_freq_skymap, (pstats_accum.highest_snr.bin)/args_info.sft_coherence_time_arg+ps[0][highest_snr_idx].freq_shift);
 
 FILL_SKYMAP(max_weight_skymap, pstats_accum.max_weight);
 FILL_SKYMAP(min_weight_skymap, pstats_accum.min_weight);
@@ -438,6 +462,8 @@ ei=do_alloc(1, sizeof(*ei));
 memset(ei, 0, sizeof(*ei));
 
 ei->name=strdup(name);
+
+thread_mutex_init(&(ei->mutex));
 
 if(args_info.compute_skymaps_arg) {
 	ei->ul_skymap=do_alloc(patch_grid->npoints, sizeof(float));
@@ -497,11 +523,11 @@ void output_extreme_info(RGBPic *p, EXTREME_INFO *ei)
 {
 int skyband;
 
-fprintf(LOG, "tag: kind label skyband skyband_name set first_bin frequency spindown ra dec iota psi snr ul ll M S ks_value ks_count m1_neg m3_neg m4 frequency_bin max_weight weight_loss_fraction max_ks_value max_m1_neg min_m1_neg max_m3_neg min_m3_neg max_m4 min_m4 max_weight_loss_fraction valid_count masked_count template_count\n");
+fprintf(LOG, "tag: kind label skyband skyband_name set first_bin frequency spindown fdotdot freq_modulation_freq freq_modulation_depth freq_modulation_phase ra dec iota psi snr ul ll M S ks_value ks_count m1_neg m3_neg m4 frequency_bin max_weight weight_loss_fraction max_ks_value max_m1_neg min_m1_neg max_m3_neg min_m3_neg max_m4 min_m4 max_weight_loss_fraction valid_count masked_count template_count\n");
 
 /* now that we know extreme points go and characterize them */
 #define WRITE_SKYBAND_POINT(pstat, kind)	\
-	fprintf(LOG, "band_info: %s \"%s\" %d %s %s %d %lf %lg %lf %lf %lf %lf %lf %lg %lg %lg %lg %lf %d %lf %lf %lf %d %lg %lf %lf %lf %lf %lf %lf %lf %lf %lf %d %d %d\n", \
+	fprintf(LOG, "band_info: %s \"%s\" %d %s %s %d %lf %lg %lg %lg %lg %lg %lf %lf %lf %lf %lf %lg %lg %lg %lg %lf %d %lf %lf %lf %d %lg %lf %lf %lf %lf %lf %lf %lf %lf %lf %d %d %d\n", \
 		kind, \
 		args_info.label_arg, \
 		skyband, \
@@ -510,6 +536,10 @@ fprintf(LOG, "tag: kind label skyband skyband_name set first_bin frequency spind
 		first_bin+side_cut, \
 		pstat.frequency, \
 		pstat.spindown, \
+		pstat.fdotdot, \
+		pstat.freq_modulation_freq, \
+		pstat.freq_modulation_depth, \
+		pstat.freq_modulation_phase, \
 		pstat.ra, \
 		pstat.dec, \
 		pstat.iota, \
@@ -634,7 +664,6 @@ SUMMING_CONTEXT **summing_contexts=NULL;
 struct {
 	POWER_SUM **ps;
 	POWER_SUM **ps_tmp;
-	
 	} *cruncher_contexts=NULL;
 int n_contexts=0;
 
@@ -645,8 +674,6 @@ int nchunks;
 double gps_start;
 double gps_stop;
 
-MUTEX data_logging_mutex;
-
 
 void outer_loop_cruncher(int thread_id, void *data)
 {
@@ -656,17 +683,30 @@ int ps_tmp_len;
 int i,k,m,count;
 POWER_SUM **ps=cruncher_contexts[thread_id+1].ps;
 POWER_SUM **ps_tmp=cruncher_contexts[thread_id+1].ps_tmp;
+POWER_SUM_STATS *le_pstats;
+
+ctx->nchunks=nchunks;
+ctx->power_sums_idx=0;
 
 //fprintf(stderr, "%d ", pi);
 generate_patch_templates(ctx, pi, &(ps[0]), &count);
+if(ctx->log_extremes_pstats_scratch_size<count*sizeof(*le_pstats)) {
+	free(ctx->log_extremes_pstats_scratch);
+
+	ctx->log_extremes_pstats_scratch_size=count*sizeof(*le_pstats);
+
+	ctx->log_extremes_pstats_scratch=do_alloc(count, sizeof(*le_pstats));
+	}
+le_pstats=(POWER_SUM_STATS *)ctx->log_extremes_pstats_scratch;
 
 if(count<1) {
-	free(ps[0]);
+	//free(ps[0]);
 	ps[0]=NULL;
 	return;
 	}
 
 for(i=1;i<nchunks;i++) {
+	ctx->power_sums_idx=i;
 	clone_templates(ctx, ps[0], count, &(ps[i]));
 	}
 for(i=0;i<args_info.nchunks_arg;i++) {
@@ -690,15 +730,14 @@ for(i=0;i<nei;i++) {
 			}
 		}
 
-	thread_mutex_lock(data_logging_mutex);
-	log_extremes(ei[i], pi, ps_tmp, ps_tmp_len, count);
-	thread_mutex_unlock(data_logging_mutex);
+	log_extremes(ctx, le_pstats, ei[i], pi, ps_tmp, ps_tmp_len, count);
 	}
 
 for(i=0;i<nchunks;i++) {
-	free_templates(ps[i], count);
+	free_templates_ctx(ctx, ps[i], count);
 	ps[i]=NULL;
 	}
+//fprintf(stderr, "pps_hits=%ld pps_misses=%ld pps_rollbacks=%ld\n", ctx->pps_hits, ctx->pps_misses, ctx->pps_rollbacks);
 }
 
 void outer_loop(void)
@@ -723,6 +762,7 @@ summing_contexts=do_alloc(n_contexts, sizeof(*summing_contexts));
 for(i=0;i<n_contexts;i++)
 	summing_contexts[i]=create_summing_context();
 
+fprintf(stderr, "veto_free=%d\n", veto_free);
 cruncher_contexts=do_alloc(n_contexts, sizeof(*cruncher_contexts));
 for(i=0;i<n_contexts;i++) {
 	cruncher_contexts[i].ps=do_alloc(nchunks, sizeof(*cruncher_contexts[i].ps));

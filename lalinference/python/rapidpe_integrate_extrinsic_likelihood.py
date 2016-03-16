@@ -79,6 +79,11 @@ t_ref_wind = 50e-3 # Interpolate in a window +/- this width about event time.
 T_safety = 2. # Safety buffer (in sec) for wraparound corruption
 
 #
+# Set distance maximum
+#
+param_limits["distance"] = (param_limits["distance"][0], opts.distance_maximum)
+
+#
 # Inverse spectrum truncation control
 #
 T_spec = opts.inv_spec_trunc_time
@@ -142,7 +147,7 @@ lambda1, lambda2 = 0, 0
 if opts.eff_lambda is not None:
     lambda1, lambda2 = lalsimutils.tidal_lambda_from_tilde(opts.mass1, opts.mass2, opts.eff_lambda, opts.deff_lambda or 0)
 
-print "Performing integration for intrinsic parameters mass 1: %f, mass 2 %f, lambda1: %f, lambda2: %f" % (m1, m2, lambda1, lambda2)
+print "Performing integration for intrinsic parameters mass 1: %f, mass 2 %f, lambda1: %f, lambda2: %f, spin1z: %1.3f, spin2z: %1.3f" % (m1, m2, lambda1, lambda2, opts.spin1z or 0, opts.spin2z or 0)
 
 #
 # Template descriptors
@@ -179,6 +184,8 @@ if opts.spin1z is not None or opts.spin2z is not None:
             setattr(P, a, getattr(opts, a))
         else:
             setattr(P, a, 0.0)
+# FIXME: We need to somehow be consistent here. Either use SpinTaylorT4, or set spins explicitly to zero.
+"""
 elif opts.coinc_xml is not None:
     xmldoc = utils.load_filename(opts.coinc_xml, contenthandler=ligolw.LIGOLWContentHandler)
     sngl_inspiral_table = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
@@ -187,6 +194,7 @@ elif opts.coinc_xml is not None:
             setattr(P, a, getattr(sngl_inspiral_table[0], a))
         else:
             setattr(P, a, 0.0)
+"""
 
 # User requested bounds for data segment
 if opts.data_start_time is not None and opts.data_end_time is not None:
@@ -212,13 +220,27 @@ else:
 #
 data_dict, psd_dict = {}, {}
 
-for inst, chan in map(lambda c: c.split("="), opts.channel_name):
-    print "Reading channel %s from cache %s" % (inst+":"+chan, opts.cache_file)
-    data_dict[inst] = lalsimutils.frame_data_to_non_herm_hoff(opts.cache_file,
-            inst+":"+chan, start=start_time, stop=end_time,
-            window_shape=opts.window_shape)
-    print "Frequency binning: %f, length %d" % (data_dict[inst].deltaF,
-            data_dict[inst].data.length)
+if opts.zero_noise:
+    if not opts.pin_to_sim:
+        exit("--pin-to-sim must be provided with zero noise to do an injection.")
+    for inst, _ in map(lambda c: c.split("="), opts.psd_file):
+        print "Adding injections from sim inspiral row for instrument %s" % inst
+        P_inj = lalsimutils.ChooseWaveformParams()
+        P_inj.copy_lsctables_sim_inspiral(sim_row)
+        P_inj.detector = inst
+        P_inj.radec = True # Get the right antenna patterns
+        P_inj.deltaF, P_inj.fmax = 0.125/16, 2048
+        data_dict[inst] = lalsimutils.non_herm_hoff(P_inj)
+        print "Frequency binning: %f, length %d" % (data_dict[inst].deltaF,
+                data_dict[inst].data.length)
+else:
+    for inst, chan in map(lambda c: c.split("="), opts.channel_name):
+        print "Reading channel %s from cache %s" % (inst+":"+chan, opts.cache_file)
+        data_dict[inst] = lalsimutils.frame_data_to_non_herm_hoff(opts.cache_file,
+                inst+":"+chan, start=start_time, stop=end_time,
+                window_shape=opts.window_shape)
+        print "Frequency binning: %f, length %d" % (data_dict[inst].deltaF,
+                data_dict[inst].data.length)
 
 for inst, psdf in map(lambda c: c.split("="), opts.psd_file):
     print "Reading PSD for instrument %s from %s" % (inst, psdf)
@@ -228,9 +250,9 @@ for inst, psdf in map(lambda c: c.split("="), opts.psd_file):
     # Highest freq. at which PSD is defined
     if isinstance(psd_dict[inst],
             pylal.xlal.datatypes.real8frequencyseries.REAL8FrequencySeries):
-        fmax = psd_dict[inst].f0 + deltaF * (len(psd_dict[inst].data) - 1)
+        fmax = psd_dict[inst].f0 + psd_dict[inst].deltaF * (len(psd_dict[inst].data) - 1)
     elif isinstance(psd_dict[inst], lal.REAL8FrequencySeries):
-        fmax = psd_dict[inst].f0 + deltaF * (psd_dict[inst].data.length - 1)
+        fmax = psd_dict[inst].f0 + psd_dict[inst].deltaF * (psd_dict[inst].data.length - 1)
 
     # Assert upper limit of IP integral does not go past where PSD defined
     assert opts.fmax is None or opts.fmax<= fmax
@@ -242,7 +264,6 @@ for inst, psdf in map(lambda c: c.split("="), opts.psd_file):
     print "PSD deltaF after interpolation %f" % psd_dict[inst].deltaF
 
     assert psd_dict[inst].deltaF == deltaF
-
 
 # Ensure data and PSDs keyed to same detectors
 if sorted(psd_dict.keys()) != sorted(data_dict.keys()):
@@ -271,7 +292,7 @@ P.deltaF = deltaF
 t_window = 0.15
 rholms_intp, cross_terms, rholms = factored_likelihood.precompute_likelihood_terms(fiducial_epoch, t_window, P, data_dict, psd_dict, opts.l_max, fmax, False, inv_spec_trunc_Q, T_spec)
 
-if opts.pin_to_sim:
+if opts.pin_to_sim and not opts.zero_noise:
     P.copy_lsctables_sim_inspiral(sim_row)
     print "Pinned parameters from sim_inspiral"
     print "\tRA", P.phi, sim_row.longitude 
@@ -427,7 +448,7 @@ pinned_params.update({
     "neff": opts.n_eff, # Total number of effective samples to collect before termination
 
     # Adaptive sampling settings
-    "tempering_exp": opts.adapt_weight_exponent if not opts.no_adapt else 0.0, # Weights will be raised to this power to prevent overconvergence
+    "tempering_exp": opts.adapt_weight_exponent if not opts.no_adapt else 1.0, # Weights will be raised to this power to prevent overconvergence
     "floor_level": opts.adapt_floor_level if not opts.no_adapt else 0.0, # The new sampling distribution at the end of each chunk will be floor_level-weighted average of a uniform distribution and the (L^tempering_exp p/p_s)-weighted histogram of sampled points.
     "history_mult": 10, # Multiplier on 'n' - number of samples to estimate marginalized 1-D histograms
     "n_adapt": 100 if not opts.no_adapt else 0, # Number of chunks to allow adaption over

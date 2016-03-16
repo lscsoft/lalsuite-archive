@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013  Leo Singer
+ * Copyright (C) 2013-2015  Leo Singer
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -118,7 +118,7 @@ my_gsl_error (const char * reason, const char * file, int line, int gsl_errno)
 
 #define INPUT_LIST_OF_ARRAYS(NAME, NPYTYPE, DEPTH, CHECK) \
 { \
-    const Py_ssize_t n = PySequence_Length(acors_obj); \
+    const Py_ssize_t n = PySequence_Length(NAME##_obj); \
     if (n < 0) \
         goto fail; \
     else if (n != nifos) { \

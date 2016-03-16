@@ -202,6 +202,12 @@ void LALInferenceTemplateASinOmegaT(LALInferenceModel *model);
  */
 void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model);
 
+void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model);
+
+void LALInferenceTemplateXLALSimInspiralChooseWaveformPhaseInterpolated(LALInferenceModel *model);
+
+void LALInferenceTemplateXLALSimBurstSineGaussianF(LALInferenceModel *model);
+
 
 /*@}*/
 

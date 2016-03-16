@@ -420,7 +420,7 @@ def StringCuspSnglCompare(sim, burst, offsetvector):
 	window centred on the injection is continuous with the time
 	interval of the burst.
 	"""
-	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector)
+	tinj = sim.time_at_instrument(burst.ifo, offsetvector)
 	window = SimBurstUtils.stringcusp_autocorrelation_width / 2
 	# uncomment last part of expression to impose an amplitude cut
 	return segments.segment(tinj - window, tinj + window).disjoint(burst.period) #or abs(sim.amplitude / SimBurstUtils.string_amplitude_in_instrument(sim, burst.ifo, offsetvector)) > 3
@@ -431,7 +431,7 @@ def ExcessPowerSnglCompare(sim, burst, offsetvector):
 	Return False (injection matches event) if the peak time and centre
 	frequency of sim lie within the time-frequency tile of burst.
 	"""
-	return (SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector) not in burst.period) or (sim.frequency not in burst.band)
+	return (sim.time_at_instrument(burst.ifo, offsetvector) not in burst.period) or (sim.frequency not in burst.band)
 
 
 def OmegaSnglCompare(sim, burst, offsetvector, delta_t = 10.0):
@@ -440,7 +440,7 @@ def OmegaSnglCompare(sim, burst, offsetvector, delta_t = 10.0):
 	the peak time of the burst event differ by less than or equal to
 	delta_t seconds.
 	"""
-	return abs(float(SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector) - burst.peak)) > delta_t
+	return abs(float(sim.time_at_instrument(burst.ifo, offsetvector) - burst.peak)) > delta_t
 
 def CWBSnglCompare(sim, burst, offsetvector, delta_t = 10.0):
 	"""
@@ -448,7 +448,7 @@ def CWBSnglCompare(sim, burst, offsetvector, delta_t = 10.0):
 	the peak time of the burst event differ by less than or equal to
 	delta_t seconds.
 	"""
-	return abs(float(SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector) - burst.peak)) > delta_t
+	return abs(float(sim.time_at_instrument(burst.ifo, offsetvector) - burst.peak)) > delta_t
 
 
 def StringCuspNearCoincCompare(sim, burst, offsetvector):
@@ -456,7 +456,7 @@ def StringCuspNearCoincCompare(sim, burst, offsetvector):
 	Return False (injection matches coinc) if the peak time of the sim
 	is "near" the burst event.
 	"""
-	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector)
+	tinj = sim.time_at_instrument(burst.ifo, offsetvector)
 	window = SimBurstUtils.stringcusp_autocorrelation_width / 2 + SimBurstUtils.burst_is_near_injection_window
 	return segments.segment(tinj - window, tinj + window).disjoint(burst.period)
 
@@ -466,7 +466,7 @@ def ExcessPowerNearCoincCompare(sim, burst, offsetvector):
 	Return False (injection matches coinc) if the peak time of the sim
 	is "near" the burst event.
 	"""
-	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector)
+	tinj = sim.time_at_instrument(burst.ifo, offsetvector)
 	window = SimBurstUtils.burst_is_near_injection_window
 	return segments.segment(tinj - window, tinj + window).disjoint(burst.period)
 

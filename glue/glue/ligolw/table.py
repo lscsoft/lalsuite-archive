@@ -686,7 +686,9 @@ class TableRow(object):
 	Helpful parent class for row objects.  Also used as the default row
 	class by Table instances.
 	"""
-	pass
+	def __init__(self, **kwargs):
+		for key, value in kwargs.items():
+			setattr(self, key, value)
 
 
 class Table(ligolw.Table, list):

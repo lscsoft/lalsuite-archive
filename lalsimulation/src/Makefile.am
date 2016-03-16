@@ -3,6 +3,10 @@ MOSTLYCLEANFILES =
 include $(top_srcdir)/gnuscripts/lalsuite_header_links.am
 include $(top_srcdir)/gnuscripts/lalsuite_vcs_info.am
 
+SUBDIRS = \
+	mathematica_codes \
+	$(END_OF_LIST)
+
 LDADD = liblalsimulation.la
 
 NOISEPSDFILES = \
@@ -55,10 +59,9 @@ pkginclude_HEADERS = \
 	LALSimIMR.h \
 	LALSimInspiral.h \
 	LALSimInspiralPrecess.h \
-	LALSimInspiralWaveformFlags.h \
 	LALSimInspiralTestGRParams.h \
 	LALSimInspiralWaveformCache.h \
-	LALSimulation.h \
+	LALSimInspiralWaveformFlags.h \
 	LALSimNeutronStar.h \
 	LALSimNoise.h \
 	LALSimReadData.h \
@@ -66,35 +69,57 @@ pkginclude_HEADERS = \
 	LALSimSphHarmMode.h \
 	LALSimSphHarmSeries.h \
 	LALSimUtils.h \
+	LALSimulation.h \
 	LALSimulationConfig.h \
 	LALSimulationVCSInfo.h \
 	LALSimulationVCSInfoHeader.h
 
 noinst_HEADERS = \
+	LALSimBlackHoleRingdownPrec.c \
+	LALSimBlackHoleRingdownPrec.h \
+	LALSimFindAttachTime.h \
+	LALSimIMREOBFactorizedFlux.c \
 	LALSimIMREOBFactorizedWaveform.c \
 	LALSimIMREOBHybridRingdown.c \
+	LALSimIMREOBHybridRingdownPrec.c \
 	LALSimIMREOBNQCCorrection.c \
+	LALSimIMREOBNQCTables.c \
 	LALSimIMREOBNRv2.h \
+	LALSimIMREOBNRv2HMROMUtilities.c \
 	LALSimIMREOBNewtonianMultipole.c \
+	LALSimIMRPhenomC_internals.c \
+	LALSimIMRPhenomC_internals.h \
+	LALSimIMRPhenomD.h \
+	LALSimIMRPhenomD_internals.c \
+	LALSimIMRPhenomD_internals.h \
+	LALSimIMRPhenomP.c \
+	LALSimIMRPhenomP.h \
+	LALSimIMRSEOBNRROMUtilities.c \
+	LALSimIMRSpinAlignedEOBGSLOptimizedInterpolation.c \
+	LALSimIMRSpinAlignedEOBHcapDerivative.c \
+	LALSimIMRSpinAlignedEOBHcapDerivativeOptimized.c \
+	LALSimIMRSpinEOB.h \
+	LALSimIMRSpinEOBAuxFuncs.c \
+	LALSimIMRSpinEOBAuxFuncsPrec.c \
+	LALSimIMRSpinEOBComputeAmpPhasefromEOMSoln.c \
+	LALSimIMRSpinEOBFactorizedFlux.c \
+	LALSimIMRSpinEOBFactorizedFluxOptimized.c \
+	LALSimIMRSpinEOBFactorizedFluxPrec.c \
+	LALSimIMRSpinEOBFactorizedWaveform.c \
+	LALSimIMRSpinEOBFactorizedWaveformCoefficientsPrec.c \
+	LALSimIMRSpinEOBFactorizedWaveformPrec.c \
+	LALSimIMRSpinEOBHamiltonian.c \
+	LALSimIMRSpinEOBHamiltonianOptimized.c \
+	LALSimIMRSpinEOBHamiltonianPrec.c \
+	LALSimIMRSpinEOBHcapExactDerivative.c \
+	LALSimIMRSpinEOBHcapNumericalDerivative.c \
+	LALSimIMRSpinEOBHcapNumericalDerivativePrec.c \
+	LALSimIMRSpinEOBInitialConditions.c \
+	LALSimIMRSpinEOBInitialConditionsPrec.c \
 	LALSimInspiralPNCoefficients.c \
 	LALSimInspiraldEnergyFlux.c \
-	LALSimIMRSpinEOBHamiltonian.c \
-	LALSimIMRSpinEOBHcapNumericalDerivative.c \
-	LALSimIMRSpinAlignedEOBHcapDerivative.c \
-	LALSimIMRSpinEOB.h \
-	LALSimIMRSpinEOBInitialConditions.c \
-	LALSimIMRSpinEOBAuxFuncs.c \
-	LALSimIMRSpinEOBFactorizedWaveform.c \
-	LALSimIMRSpinEOBFactorizedFlux.c \
-	LALSimIMREOBFactorizedFlux.c \
 	LALSimNeutronStarEOSPiecewisePolytrope.c \
-	LALSimNeutronStarEOSTabular.c \
-	LALSimIMRPhenomC_internals.c \
-	LALSimIMRPhenomD_internals.c \
-	LALSimIMRPhenomD.h \
-	LALSimIMRPhenomP.c \
-	LALSimIMRSEOBNRROMUtilities.c \
-	LALSimIMREOBNRv2HMROMUtilities.c
+	LALSimNeutronStarEOSTabular.c
 
 lib_LTLIBRARIES = liblalsimulation.la
 liblalsimulation_la_SOURCES = \
@@ -103,6 +128,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimBurstImg.c \
 	LALSimIMREOBNRv2.c \
 	LALSimIMRSpinAlignedEOB.c \
+	LALSimIMRSpinPrecEOB.c \
 	LALSimIMRSEOBNRv1ROMEffectiveSpin.c \
 	LALSimIMRSEOBNRv1ROMDoubleSpin.c \
 	LALSimIMRSEOBNRv2ROMEffectiveSpin.c \
@@ -140,6 +166,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimInspiralTaylorLength.c \
 	LALSimInspiralWaveformCache.c \
 	LALSimInspiralWaveformTaper.c \
+        LALSimIMRNRWaveforms.c \
 	LALSimulation.c \
 	LALSimulationVCSInfo.c \
 	LALSimNeutronStarEOS.c \
@@ -157,7 +184,8 @@ liblalsimulation_la_SOURCES = \
 	check_series_macros.h \
 	check_waveform_macros.h \
 	unicorn.xpm \
-	LALSimInspiralHGimri.c
+	LALSimInspiralHGimri.c \
+	LALSimFindAttachTime.c
 
 nodist_liblalsimulation_la_SOURCES = LALSimulationBuildInfo.c
 

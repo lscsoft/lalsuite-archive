@@ -120,6 +120,7 @@ test/tools/IndependentDetResponseTest
 test/tools/LanczosTriggerInterpolantTest
 test/tools/NearestNeighborTriggerInterpolantTest
 test/tools/QuadraticFitTriggerInterpolantTest
+test/tools/SegmentsTest
 test/tools/SequenceTest
 test/tools/SkymapTest
 test/tools/TimeSeriesInterpTest
@@ -134,6 +135,9 @@ test/utilities/EigenTest
 test/utilities/FindRootTest
 test/utilities/IntegrateTest
 test/utilities/InterpolateTest
+test/utilities/LALHashFuncTest
+test/utilities/LALHashTblTest
+test/utilities/LALHeapTest
 test/utilities/LALRunningMedianTest
 test/utilities/MersenneRandomTest
 test/utilities/ODETest

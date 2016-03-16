@@ -787,7 +787,7 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 
 			freq_f=do_alloc(useful_bins, sizeof(*freq_f));
 			for(j=0;j<useful_bins;j++) {
-				freq_f[j]=(first_bin+side_cut+j)/1800.0;
+				freq_f[j]=(first_bin+side_cut+j)/args_info.sft_coherence_time_arg;
 				}
 		
 			if(fine_grid->max_n_dec<800)
@@ -829,7 +829,7 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 		a=upper_limit95(dx)*S;
 		if(a>pol->skymap.max_upper_limit[offset]) {
 			pol->skymap.max_upper_limit[offset]=a;
-			pol->skymap.freq_map[offset]=(first_bin+side_cut+k)/1800.0;
+			pol->skymap.freq_map[offset]=(first_bin+side_cut+k)/args_info.sft_coherence_time_arg;
 			}
 		if(a>pol->spectral_plot.max_upper_limit[k+band*useful_bins]){
 			pol->spectral_plot.max_upper_limit[k+band*useful_bins]=a;
@@ -852,7 +852,7 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 			a*=1.0/(1.0+pol->skymap.beta2[offset]);
 			if(a<circ_ul[i*useful_bins+k]){
 				circ_ul[i*useful_bins+k]=a;
-				circ_ul_freq[i*useful_bins+k]=(first_bin+side_cut+k)/1800.0;
+				circ_ul_freq[i*useful_bins+k]=(first_bin+side_cut+k)/args_info.sft_coherence_time_arg;
 				}
 			}
 
@@ -918,7 +918,7 @@ float max_ratio;
 HISTOGRAM *hist;
 
 freq_f=do_alloc(useful_bins, sizeof(*freq_f));
-for(i=0;i<useful_bins;i++)freq_f[i]=(first_bin+side_cut+i)/1800.0;
+for(i=0;i<useful_bins;i++)freq_f[i]=(first_bin+side_cut+i)/args_info.sft_coherence_time_arg;
 
 max_band=do_alloc(fine_grid->nbands, sizeof(*max_band));
 masked_max_band=do_alloc(fine_grid->nbands, sizeof(*max_band));
@@ -1255,7 +1255,7 @@ SUM_TYPE *max_dx_band;
 int *max_dx_band_index;
 
 freq_f=do_alloc(useful_bins, sizeof(*freq_f));
-for(i=0;i<useful_bins;i++)freq_f[i]=(first_bin+side_cut+i)/1800.0;
+for(i=0;i<useful_bins;i++)freq_f[i]=(first_bin+side_cut+i)/args_info.sft_coherence_time_arg;
 
 max_dx_band=do_alloc(fine_grid->nbands, sizeof(*max_dx_band));
 max_dx_band_index=do_alloc(fine_grid->nbands, sizeof(*max_dx_band_index));
@@ -1614,7 +1614,7 @@ fprintf(LOG, "upper limit compensation factor: %8f\n", upper_limit_comp);
 	/* Extra factor to convert to amplitude from RMS power */
 upper_limit_comp*=sqrt(2.0);
 	/* Extra factor to convert to strain from raw SFT units */
-upper_limit_comp/=(1800.0*16384.0);
+upper_limit_comp/=(args_info.sft_coherence_time_arg*16384.0);
 	/* Extra factor to account for the fact that only half of SFT
 	   coefficients is stored */
 upper_limit_comp*=sqrt(2.0);
@@ -1639,7 +1639,7 @@ fprintf(LOG, "lower limit compensation factor: %8f\n", lower_limit_comp);
 	/* Extra factor to  convert to amplitude from RMS power */
 lower_limit_comp*=sqrt(2.0);
 	/* Extra factor to convert to strain from raw SFT units */
-lower_limit_comp/=(1800.0*16384.0);
+lower_limit_comp/=(args_info.sft_coherence_time_arg*16384.0);
 	/* Extra factor to account for the fact that only half of SFT
 	   coefficients is stored */
 lower_limit_comp*=sqrt(2.0);

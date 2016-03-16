@@ -199,7 +199,7 @@ class pylal_sdist(sdist.sdist):
 
 setup(
 	name = "pylal",
-	version = "0.8.1",
+	version = "0.9.0",
 	author = "Kipp Cannon and Nickolas Fotopoulos",
 	author_email = "lal-discuss@ligo.org",
 	description = "Python LIGO Algorithm Library",
@@ -641,11 +641,14 @@ setup(
 		os.path.join("bin", "ring_post"),
 		os.path.join("bin", "ligolw_rinca_to_coinc"),
 		os.path.join("bin", "cbcBayesPostProc.py"),
+                os.path.join("bin", "cbcBayesBurstPostProc.py"),
 		os.path.join("bin", "cbcBayesCompPos.py"),
 		os.path.join("bin", "cbcBayesDIEvidence.py"),
 		os.path.join("bin", "cbcBayesInjProc.py"),
 		os.path.join("bin", "cbcBayesThermoInt.py"),
+                os.path.join("bin", "cbcBayesBurstPPAnalysis.py"),
 		os.path.join("bin", "cbcBayesPPAnalysis.py"),
+                os.path.join("bin", "cbcBayesPosToSimBurst.py"),
 		os.path.join("bin", "cbcBayesPosToSimInspiral.py"),
 		os.path.join("bin", "pulsarBayesPostProc.py"),
 		os.path.join("bin", "processing_kdtreeSky.py"),
