@@ -250,8 +250,8 @@ int XLALSimInspiralTaylorF2Core(
 
     data = htilde->data->data;
 
-    REAL8 v_power[LAL_MAX_ECC_PN_ORDER+1];
-    REAL8 ecc_phasing = 0.0;
+    //REAL8 v_power[LAL_MAX_ECC_PN_ORDER+1];
+    //REAL8 ecc_phasing = 0.0;
     REAL8 v_ecc_ref = 0.0;
     if( ecc > 0 && f_ecc > 0) {
         v_ecc_ref = cbrt(piM*f_ecc);
@@ -330,7 +330,7 @@ int XLALSimInspiralTaylorF2Core(
         REAL8 dEnergy = 0.;
         REAL8 flux = 0.;
         REAL8 amp;
-        REAL8 v_ecc_ref_over_v = v_ecc_ref/v;
+        //REAL8 v_ecc_ref_over_v = v_ecc_ref/v;
         REAL8 phase3p5, phaseEcc, phaseTotal;
 
         phasing += pfa7 * v7;
