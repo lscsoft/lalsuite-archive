@@ -52,7 +52,7 @@
 #include "LALSimIMRSpinAlignedEOBHcapDerivativeOptimized.c"
 /* END OPTIMIZED */
 
-#define debugOutput 1
+#define debugOutput 0
 
 //static int debugPK = 0;
 
@@ -1038,14 +1038,19 @@ int XLALSimIMRSpinAlignedEOBWaveform(
        XLAL_ERROR( XLAL_EINVAL );
        break;
   }*/
-
+#if debugOutput
+    printf("%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n", nqcCoeffs.a1, nqcCoeffs.a2, nqcCoeffs.a3, nqcCoeffs.a3S, nqcCoeffs.a4, nqcCoeffs.a5, nqcCoeffs.b1, nqcCoeffs.b2, nqcCoeffs.b3, nqcCoeffs.b4);
+    printf("timePeak %.16e\n",timePeak);
+#endif
   /* Calculate phase NQC coefficients */
   if ( XLALSimIMRSpinEOBCalculateNQCCoefficientsV4( ampNQC, phaseNQC, &rHi, &prHi, omegaHi,
           2, 2, timePeak, deltaTHigh/mTScaled, m1, m2, a, chiA, chiS, &nqcCoeffs, SpinAlignedEOBversion ) == XLAL_FAILURE )
   {
     XLAL_ERROR( XLAL_EFUNC );
   }
-
+#if debugOutput
+    printf("%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n", nqcCoeffs.a1, nqcCoeffs.a2, nqcCoeffs.a3, nqcCoeffs.a3S, nqcCoeffs.a4, nqcCoeffs.a5, nqcCoeffs.b1, nqcCoeffs.b2, nqcCoeffs.b3, nqcCoeffs.b4);
+#endif
   /* Calculate the time of amplitude peak. Despite the name, this is in fact the shift in peak time from peak orb freq time */
   switch ( SpinAlignedEOBversion )
   {
@@ -1080,10 +1085,11 @@ int XLALSimIMRSpinAlignedEOBWaveform(
     hLM = sigReHi->data[i];
     hLM += I * sigImHi->data[i];
     #if debugOutput
-    fprintf( out, "%.16e %.16e %.16e %.16e %.16e\n", timeHi.data[i], creal(hLM), cimag(hLM), creal(hNQC), cimag(hNQC) );
+      fprintf( out, "%.16e %.16e %.16e %.16e %.16e\n", timeHi.data[i], creal(hLM*hNQC)/amp0, cimag(hLM*hNQC)/amp0, creal(hLM)/amp0, cimag(hLM)/amp0);
     #endif
 
     hLM *= hNQC;
+
     sigReHi->data[i] = (REAL4) creal(hLM);
     sigImHi->data[i] = (REAL4) cimag(hLM);
     sigAmpSqHi = creal(hLM)*creal(hLM)+cimag(hLM)*cimag(hLM);
