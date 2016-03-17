@@ -461,6 +461,7 @@ printf("b1 = %.16e, b2 = %.16e, b3 = %.16e, b4 = %.16e\n",coeffs->b1,coeffs->b2,
   *nqc += I * mag * sin(phase);
 /*printf("r = %.16e, pr = %.16e, omega = %.16e\n",r,p,omega);
 printf("NQC mag = %.16e, arg = %.16e\n",mag,phase);*/
+ 
   return XLAL_SUCCESS;
 
 }
@@ -511,7 +512,6 @@ UNUSED static int  XLALSimIMRSpinEOBNonQCCorrection(
 
   *nqc = mag * cos(phase);
   *nqc += I * mag * sin(phase);
-
   return XLAL_SUCCESS;
 
 }
@@ -1613,7 +1613,7 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
         q2            = q1 / rVec->data[i];
         q3->data[i]   = q1;
         q4->data[i]   = q2;
-        q5->data[i]   = q1 / rootR;
+        q5->data[i]   = q2 / rootR;
         
         p1          = prVec->data[i] / rOmega;
         p2          = p1 * prVec->data[i] * prVec->data[i];
@@ -1705,27 +1705,32 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
     spline = gsl_spline_alloc( gsl_interp_cspline, amplitude->length );
     acc    = gsl_interp_accel_alloc();
     
+//    printf("Matrix\n");
     /* Populate the Q matrix in Eq. 18 of the LIGO DCC document T1100433v2 */
     /* Q3 */
     gsl_spline_init( spline, timeVec->data, q3LM->data, q3LM->length );
     gsl_matrix_set( qMatrix, 0, 0, gsl_spline_eval( spline, nrTimePeak, acc ) );
     gsl_matrix_set( qMatrix, 1, 0, gsl_spline_eval_deriv( spline, nrTimePeak, acc ) );
     gsl_matrix_set( qMatrix, 2, 0, gsl_spline_eval_deriv2( spline, nrTimePeak, acc ) );
-    
+//    printf("%.16e %.16e %.16e\n",  gsl_spline_eval( spline, nrTimePeak, acc ), gsl_spline_eval_deriv( spline, nrTimePeak, acc ), gsl_spline_eval_deriv2( spline, nrTimePeak, acc ));
+
     /* Q4 */
     gsl_spline_init( spline, timeVec->data, q4LM->data, q4LM->length );
     gsl_interp_accel_reset( acc );
     gsl_matrix_set( qMatrix, 0, 1, gsl_spline_eval( spline, nrTimePeak, acc ) );
     gsl_matrix_set( qMatrix, 1, 1, gsl_spline_eval_deriv( spline, nrTimePeak, acc ) );
     gsl_matrix_set( qMatrix, 2, 1, gsl_spline_eval_deriv2( spline, nrTimePeak, acc ) );
-    
+//    printf("%.16e %.16e %.16e\n",  gsl_spline_eval( spline, nrTimePeak, acc ), gsl_spline_eval_deriv( spline, nrTimePeak, acc ), gsl_spline_eval_deriv2( spline, nrTimePeak, acc ));
+
     /* Q5 */
     gsl_spline_init( spline, timeVec->data, q5LM->data, q5LM->length );
     gsl_interp_accel_reset( acc );
     gsl_matrix_set( qMatrix, 0, 2, gsl_spline_eval( spline, nrTimePeak, acc ) );
     gsl_matrix_set( qMatrix, 1, 2, gsl_spline_eval_deriv( spline, nrTimePeak, acc ) );
     gsl_matrix_set( qMatrix, 2, 2, gsl_spline_eval_deriv2( spline, nrTimePeak, acc ) );
-    
+//    printf("%.16e %.16e %.16e\n",  gsl_spline_eval( spline, nrTimePeak, acc ), gsl_spline_eval_deriv( spline, nrTimePeak, acc ), gsl_spline_eval_deriv2( spline, nrTimePeak, acc ));
+
+
     /* Populate the r.h.s vector of Eq. 18 of the LIGO DCC document T1100433v2 */
     /* Amplitude */
     gsl_spline_init( spline, timeVec->data, amplitude->data, amplitude->length );
@@ -1764,6 +1769,9 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
     gsl_vector_set( amps, 0, nra - amp - qNSLMPeak );
     gsl_vector_set( amps, 1, - aDot - qNSLMDot );
     gsl_vector_set( amps, 2, nraDDot - aDDot - qNSLMDDot );
+//    printf("Amps %.16e %.16e %.16e\n", nra, amp, qNSLMPeak);
+//    printf("dAmps %.16e %.16e\n", aDot, qNSLMDot);
+//    printf("ddAmps %.16e %.16e %.16e\n", nraDDot, aDDot, qNSLMDDot);
     
     /* We have now set up all the stuff to calculate the a coefficients */
     /* So let us do it! */
@@ -1828,7 +1836,7 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
             break;
     }
     
-    printf("NR inputs: %.16e, %.16e, %.16e, %.16e\n",nra,nraDDot,nromega,nromegaDot);
+//    printf("NR inputs: %.16e, %.16e, %.16e, %.16e\n",nra,nraDDot,nromega,nromegaDot);
 /*     printf("NR inputs: %.16e, %.16e, %.16e, %.16e\n",pNSLMDot, pNSLMDDot,omega,omegaDot);*/
     
     if ( XLAL_IS_REAL8_FAIL_NAN( nromega ) || XLAL_IS_REAL8_FAIL_NAN( nromegaDot ) )
@@ -1896,10 +1904,10 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
     //  coeffs->b3 = 41583.9402122;
     //  coeffs->b4 = 68359.70064;
     
-    printf( "NQC coefficients:\n" );
-     printf( "{%f,%f,%f,%f,%f,%f}\n",  coeffs->a1, coeffs->a2, coeffs->a3, coeffs->a3S, coeffs->a4, coeffs->a5 );
-     
-     printf( "{%f,%f,%f,%f}\n",  coeffs->b1, coeffs->b2, coeffs->b3, coeffs->b4 );
+//    printf( "NQC coefficients:\n" );
+//     printf( "{%f,%f,%f,%f,%f,%f}\n",  coeffs->a1, coeffs->a2, coeffs->a3, coeffs->a3S, coeffs->a4, coeffs->a5 );
+//     
+//     printf( "{%f,%f,%f,%f}\n",  coeffs->b1, coeffs->b2, coeffs->b3, coeffs->b4 );
     
     /* Free memory and exit */
     gsl_matrix_free( qMatrix );
