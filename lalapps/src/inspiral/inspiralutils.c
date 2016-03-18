@@ -1148,9 +1148,6 @@ REAL8 calculate_lalsim_snr(SimInspiralTable *inj, char *IFOname, REAL8FrequencyS
   polarization=inj->polarization;
   REAL8 latitude=inj->latitude;
   REAL8 longitude=inj->longitude;
-  REAL8 ecc=inj->ecc;
-  INT4 eccOrder=inj->eccOrder;
-  REAL8 f_ecc=inj->f_ecc;
 
   LIGOTimeGPS epoch;
   memcpy(&epoch,&(inj->geocent_end_time),sizeof(LIGOTimeGPS));
@@ -1195,7 +1192,7 @@ REAL8 calculate_lalsim_snr(SimInspiralTable *inj, char *IFOname, REAL8FrequencyS
     COMPLEX16FrequencySeries *hctilde=NULL;
     XLAL_TRY(ret=XLALSimInspiralChooseFDWaveform(&hptilde,&hctilde, phi0, deltaF, m1, m2,
       s1x, s1y, s1z, s2x, s2y, s2z, f_min, 0.0, 0.0, LAL_PC_SI * 1.0e6,
-      iota, lambda1, lambda2, ecc, eccOrder, f_ecc, waveFlags, nonGRparams, 
+      iota, lambda1, lambda2, waveFlags, nonGRparams,
       amporder, order, approx),errnum
     );
 
