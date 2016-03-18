@@ -127,7 +127,6 @@ int XLALSimInspiralTaylorF2Core(
     COMPLEX16 *data = NULL;
     LIGOTimeGPS tC = {0, 0};
     INT4 iStart = 0;
-    static int called = 0;
 
     COMPLEX16FrequencySeries *htilde = NULL;
 
@@ -250,8 +249,6 @@ int XLALSimInspiralTaylorF2Core(
 
     data = htilde->data->data;
 
-    //REAL8 v_power[LAL_MAX_ECC_PN_ORDER+1];
-    //REAL8 ecc_phasing = 0.0;
     REAL8 v_ecc_ref = 0.0;
     if( ecc > 0 && f_ecc > 0) {
         v_ecc_ref = cbrt(piM*f_ecc);
@@ -265,7 +262,6 @@ int XLALSimInspiralTaylorF2Core(
      * evaluated at f_ref, store it as ref_phasing and subtract it off.
      */
     REAL8 ref_phasing = 0.;
-    double ecc_phase_order[LAL_MAX_ECC_PN_ORDER+1]; // save ecc phase terms for each PN orders
     if( f_ref != 0. ) {
         const REAL8 vref = cbrt(piM*f_ref);
         const REAL8 logvref = log(vref);
@@ -293,24 +289,12 @@ int XLALSimInspiralTaylorF2Core(
 
         /* Eccentricity terms in phasing */
         if( ecc > 0 && f_ecc > 0) {
-          ref_phasing += eccentricityPhasing_F2(vref, v_ecc_ref, ecc, eta, eccOrder, ecc_phase_order);
+          ref_phasing += eccentricityPhasing_F2(vref, v_ecc_ref, ecc, eta, eccOrder);
         }
 
         ref_phasing /= v5ref;
     } /* End of if(f_ref != 0) block */
 
-    /* debug file output for eccentricity phase calculation bu hwlee */
-    char PhasePath[FILENAME_MAX];
-    sprintf(PhasePath, "phase_%06.5f_%04d_%06.1f(%.3fM_%.3fM).dat", ecc, eccOrder, f_ecc, m1, m2);
-    FILE *outPhase = NULL;
-    if(called == 0) {
-      outPhase = fopen(PhasePath, "w");
-      fprintf(outPhase, "#  (i+iStart)*deltaF, f, amp, phasing, phaseTotal, phase3p5, phaseEcc, ref_phasing, phi_ref, red_phaseTotal, red_phase3p5, red_phaseEcc");
-      for(int j =0; j<=LAL_MAX_ECC_PN_ORDER; j++) {
-        fprintf(outPhase, ", eccPhase%d", j); 
-      }
-      fprintf(outPhase, "\n");
-    }
     #pragma omp parallel for
     for (i = 0; i < freqs->length; i++) {
         const REAL8 f = freqs->data[i];
@@ -330,8 +314,6 @@ int XLALSimInspiralTaylorF2Core(
         REAL8 dEnergy = 0.;
         REAL8 flux = 0.;
         REAL8 amp;
-        //REAL8 v_ecc_ref_over_v = v_ecc_ref/v;
-        REAL8 phase3p5, phaseEcc, phaseTotal;
 
         phasing += pfa7 * v7;
         phasing += (pfa6 + pfl6 * logv) * v6;
@@ -345,20 +327,11 @@ int XLALSimInspiralTaylorF2Core(
         phasing += pft12 * v12;
         phasing += pft10 * v10;
 
-        phase3p5 = phasing/v5;
-
         /* Eccentricity terms in phasing */
-        memset(ecc_phase_order, 0x00, (LAL_MAX_ECC_PN_ORDER+1)*sizeof(double));
-        phaseEcc = 0;
         if( ecc > 0 && f_ecc > 0) {
-          phaseEcc = eccentricityPhasing_F2(v, v_ecc_ref, ecc, eta, eccOrder, ecc_phase_order);
-          phasing += phaseEcc;
-          phaseEcc /=v5;
-          for(int j =0; j <= LAL_MAX_ECC_PN_ORDER; j++) {
-            ecc_phase_order[j] /= v5;
-          }
-          //phasing += eccentricityPhasing_F2(v, v_ecc_ref, ecc, eta, eccOrder);
+          phasing += eccentricityPhasing_F2(v, v_ecc_ref, ecc, eta, eccOrder);
         }
+        phasing /= v5;
 
     /* WARNING! Amplitude orders beyond 0 have NOT been reviewed!
      * Use at your own risk. The default is to turn them off.
@@ -391,8 +364,6 @@ int XLALSimInspiralTaylorF2Core(
                 dEnergy += 1.;
         }
 
-        phasing /= v5;
-        phaseTotal = phasing;
         flux *= FTaN * v10;
         dEnergy *= dETaN * v;
         // Note the factor of 2 b/c phi_ref is orbital phase
@@ -400,31 +371,8 @@ int XLALSimInspiralTaylorF2Core(
         amp = amp0 * sqrt(-dEnergy/flux) * v;
         data[i+iStart] = amp * cos(phasing - LAL_PI_4)
                 - amp * sin(phasing - LAL_PI_4) * 1.0j;
-        if(called == 0) {
-          INT4 factor;
-          REAL8 redTotal, red3p5, redEcc;
-          factor = (int)(phaseTotal/LAL_TWOPI);
-          redTotal = phaseTotal - factor*LAL_TWOPI;
-          if(redTotal < 0.0) redTotal += LAL_TWOPI;
-          factor = (int)(phase3p5/LAL_TWOPI);
-          red3p5 = phase3p5 - factor*LAL_TWOPI;
-          if(red3p5 < 0.0) red3p5 += LAL_TWOPI;
-          factor = (int)(phaseEcc/LAL_TWOPI);
-          redEcc = phaseEcc - factor*LAL_TWOPI;
-          if(redEcc < 0.0) redEcc += LAL_TWOPI;
-          fprintf(outPhase, "%10.6f %10.6f %16.8e %16.8e %16.8e %16.8e %16.8e %16.8e %16.8e %16.8e %16.8e %16.8e", (i+iStart)*(freqs->data[2]-freqs->data[1]), f, amp, phasing, phaseTotal, phase3p5, phaseEcc, ref_phasing, phi_ref, redTotal, red3p5, redEcc);
-          for(int j =0; j<=LAL_MAX_ECC_PN_ORDER; j++) {
-            fprintf(outPhase, " %16.8e", ecc_phase_order[j]); 
-          }
-          fprintf(outPhase," %16.8e",shft*f);
-          fprintf(outPhase, "\n");
-        }
     }
 
-    if(called == 0) {
-      fclose(outPhase);
-      called = 1;
-    }
     *htilde_out = htilde;
     return XLAL_SUCCESS;
 }
