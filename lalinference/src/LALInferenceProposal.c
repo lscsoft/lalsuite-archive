@@ -3767,8 +3767,6 @@ void LALInferenceUpdateMaxAutoCorrLen(LALInferenceThreadState *thread) {
   INT4 acl;
 
   LALInferenceComputeMaxAutoCorrLenFromDE(thread, &acl);
-  /* Some case, calculated acl < 1, which causes program stop. 25 September 2015 by KGWG PE team. */
-  //if(acl < 1) acl = 1; // set as master at 23 Feb. 2016
   LALInferenceSetVariable(thread->proposalArgs, "acl", &acl);
 
 }
