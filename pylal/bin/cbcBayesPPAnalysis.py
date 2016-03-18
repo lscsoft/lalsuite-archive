@@ -64,30 +64,7 @@ posterior_name_to_latex_name = {
     'phi_jl':r'$\phi_{jl}$',
     'theta_jn':r'$\theta_{jn}$',
     'tilt1':r'$\tau_1$',
-    'tilt2':r'$\tau_2$',
-    'dchi0':r'$d\chi_0$',
-    'dchi1':r'$d\chi_1$',
-    'dchi2':r'$d\chi_2$',
-    'dchi3':r'$d\chi_3$',
-    'dchi4':r'$d\chi_4$',
-    'dchi5':r'$d\chi_5$',
-    'dchi5l':r'$d\chi_5^l$',
-    'dchi6':r'$d\chi_6$',
-    'dchi6l':r'$d\chi_6^l$',
-    'dchi7':r'$d\chi_7$',
-    'dsigma1':r'$d\sigma_1$',
-    'dsigma2':r'$d\sigma_2$',
-    'dsigma3':r'$d\sigma_3$',
-    'dsigma4':r'$d\sigma_4$',
-    'dalpha1':r'$d\alpha_1$',
-    'dalpha2':r'$d\alpha_2$',
-    'dalpha3':r'$d\alpha_3$',
-    'dalpha4':r'$d\alpha_4$',
-    'dalpha5':r'$d\alpha_5$',
-    'dbeta1':r'$d\beta_1$',
-    'dbeta2':r'$d\beta_2$',
-    'dbeta3':r'$d\beta_3$',
-    'dbeta4':r'$d\beta_4$'
+    'tilt2':r'$\tau_2$'
 }
 
 def fractional_rank(x, xs):
