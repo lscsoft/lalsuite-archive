@@ -3767,8 +3767,8 @@ void LALInferenceUpdateMaxAutoCorrLen(LALInferenceThreadState *thread) {
   INT4 acl;
 
   LALInferenceComputeMaxAutoCorrLenFromDE(thread, &acl);
-  LALInferenceSetVariable(thread->proposalArgs, "acl", &acl);
 
+  LALInferenceSetVariable(thread->proposalArgs, "acl", &acl);
 }
 
 /**
