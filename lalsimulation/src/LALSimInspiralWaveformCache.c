@@ -920,7 +920,6 @@ static int StoreFDHCache(LALSimInspiralWaveformCache *cache,
     cache->waveFlags = waveFlags;
     cache->nonGRparams = nonGRparams;
     cache->ecc = ecc;
-    cache->eccOrder = eccOrder;
     cache->f_ecc = f_ecc;
     cache->amplitudeO = amplitudeO;
     cache->phaseO = phaseO;
