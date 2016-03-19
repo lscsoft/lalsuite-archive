@@ -733,6 +733,7 @@ printf("w4 = %f, t4 = %f\n",creal(modefreqs->data[5])*mTot, 1./cimag(modefreqs->
  * STEP 4) Constructing the RD stitched to the inspiral-merger
  */
 static UNUSED INT4 XLALSimIMREOBAttachFitRingdown(
+//static INT4 XLALSimIMREOBAttachFitRingdown(
   REAL8Vector *signal1,    /**<< OUTPUT, Real of inspiral waveform to which we attach ringdown */
   REAL8Vector *signal2,    /**<< OUTPUT, Imag of inspiral waveform to which we attach ringdown */
   const INT4   l,          /**<< Current mode l */
@@ -758,8 +759,6 @@ static UNUSED INT4 XLALSimIMREOBAttachFitRingdown(
     REAL8 finalMass, finalSpin;
     REAL8Vector		*ampWave;
     REAL8Vector		*phWave;
-    REAL8Vector		*rdwave1;
-    REAL8Vector		*rdwave2;
     REAL8Vector		*rdtime;
     COMPLEX16Vector *modefreqs;
 
@@ -871,9 +870,8 @@ static UNUSED INT4 XLALSimIMREOBAttachFitRingdown(
     UINT4 Nrdwave = (INT4) (EOB_RD_EFOLDS / cimag(modefreqs->data[0]) / dt);
 
      
-    rdwave1 = XLALCreateREAL8Vector( Nrdwave );
-    rdwave2 = XLALCreateREAL8Vector( Nrdwave );
 
+    // FIXME Alejandra started from dt not from 0, is it important?
     rdtime = XLALCreateREAL8Vector( Nrdwave );
     for (i=0; i<Nrdwave; i++){
          rdtime->data[i] = i*dt; // this time for RD and it starts with 0 (Alejandro's time starts with 
@@ -899,17 +897,76 @@ static UNUSED INT4 XLALSimIMREOBAttachFitRingdown(
     REAL8 A2coeff21 = -5.25339;
     REAL8 ampcf2;
     ampcf2 = A2coeff00  + A2coeff01*chi  + A2coeff10*eta  + A2coeff11*eta*chi  + A2coeff20*eta*eta  + 
-        A2coeff21*eta*eta*chi; 
+        A2coeff21*eta*eta*chi;
 
+    REAL8 P1coeff00 = 0.147584;
+    REAL8 P1coeff01 = 0.00779176;
+    REAL8 P1coeff02 = -0.0244358;
+    REAL8 P1coeff10 = 0.263456;
+    REAL8 P1coeff11 = -0.120853;
+    REAL8 P1coeff20 = -0.808987;
+
+    REAL8 phasecf1;
+    phasecf1 = P1coeff00  + P1coeff01*chi  + P1coeff02*chi*chi  + P1coeff10*eta  + P1coeff11*eta*chi  + \
+               P1coeff20*eta*eta;
+
+    REAL8 P2coeff00 = 2.46654;
+    REAL8 P2coeff01 = 3.13067;
+    REAL8 P2coeff02 = 0.581626;
+    REAL8 P2coeff10 = -6.99396;
+    REAL8 P2coeff11 = -9.61861;
+    REAL8 P2coeff20 = 17.5646;
+    REAL8 phasecf2;
+ 
+    phasecf2 = P2coeff00  + P2coeff01*chi  + P2coeff02*chi*chi  + P2coeff10*eta  + P2coeff11*eta*chi  +\
+               P2coeff20*eta*eta;
+
+    REAL8 tcons = 0.; //attachment point relative to peak; possibility for non zero values not fully implemented
+    
+    REAL8 Arescaledtcons = valAmax * exp(-creal(sigma220)*tcons)/eta;
+    REAL8 dtArescaledtcons = (0.-creal(sigma220)*valAmax)*exp(-creal(sigma220)*tcons)/eta; // 0 - assumes extermum (max) of peak amplitude
+    REAL8 ampcc1 = dtArescaledtcons * pow(cosh(ampcf2),2)/ampcf1;
+    REAL8 ampcc2 = (Arescaledtcons*ampcf1 - dtArescaledtcons*cosh(ampcf2)*sinh(ampcf2))/ampcf1;
+
+
+    REAL8Vector		*ampRD;
+    REAL8Vector		*phRD;
+    ampRD =  XLALCreateREAL8Vector( Nrdwave );
+    phRD = XLALCreateREAL8Vector( Nrdwave );
+
+    for (i=0; i<Nrdwave; i++){
+        ampRD->data[i] = eta*exp( creal(sigma220)* rdtime->data[i] )*
+            (ampcc1*tanh(ampcf1*rdtime->data[i]+ampcf2)+ampcc2);
+
+    }
+
+    // check taht we have indAmax-1
+    REAL8 omegarescaledtcons = (phWave->data[indAmax] - phWave->data[indAmax-1])/dt -cimag(sigma220); 
+    //    (phasecutatpeak[-1]-phasecutatpeak[-2])/dt - sigma220.imag
+    REAL8 phasecc1 = omegarescaledtcons * ( phasecf2 + 1.0)/phasecf2/phasecf1;
+    REAL8 phi0 = phWave->data[indAmax];
+    REAL8 logargnum, logargden;
+
+    for (i=0; i<Nrdwave; i++){
+        logargnum = 1. + phasecf2*exp(-phasecf1*rdtime->data[i]);
+        logargden = 1. + phasecf2;
+        phRD->data[i] = phi0-phasecc1*log(logargnum/logargden)+cimag(sigma220)*rdtime->data[i];
+    }
+    
+    //FIXME check the size of signal1, signal2 
+    //FIXME check continuity at the attachment point (max of amplitude) 
+    for (i=0; i<Nrdwave; i++){
+        signal1->data[i+indAmax] = ampRD->data[i]*cos(phRD->data[i]);
+        signal2->data[i+indAmax] = ampRD->data[i]*sin(phRD->data[i]);
+    }
    
-
    
     XLALDestroyREAL8Vector( ampWave );
     XLALDestroyREAL8Vector( phWave );
     XLALDestroyCOMPLEX16Vector( modefreqs );
-    XLALDestroyREAL8Vector( rdwave1 );
-    XLALDestroyREAL8Vector( rdwave2 );
     XLALDestroyREAL8Vector( rdtime );
+    XLALDestroyREAL8Vector( ampRD );
+    XLALDestroyREAL8Vector( phRD );
 
     return XLAL_SUCCESS;
 
