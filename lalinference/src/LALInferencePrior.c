@@ -267,9 +267,6 @@ static REAL8 LALInferenceSplineCalibrationPrior(LALInferenceRunState *runState, 
     return logPrior;
   }
 
-  ampWidth = *(REAL8 *)LALInferenceGetVariable(runState->priorArgs, "spcal_amp_uncertainty");
-  phaseWidth = *(REAL8 *)LALInferenceGetVariable(runState->priorArgs, "spcal_phase_uncertainty");
-
   ifo = runState->data;
   do {
     size_t i;
@@ -285,7 +282,12 @@ static REAL8 LALInferenceSplineCalibrationPrior(LALInferenceRunState *runState, 
 
     amps = *(REAL8Vector **)LALInferenceGetVariable(params, ampVarName);
     phase = *(REAL8Vector **)LALInferenceGetVariable(params, phaseVarName);
-
+    char amp_uncert[VARNAME_MAX];
+    char pha_uncert[VARNAME_MAX];
+    snprintf(amp_uncert, VARNAME_MAX, "%s_spcal_amp_uncertainty", ifo->name);
+    snprintf(pha_uncert, VARNAME_MAX, "%s_spcal_phase_uncertainty", ifo->name);
+    ampWidth = *(REAL8 *)LALInferenceGetVariable(runState->priorArgs, amp_uncert);
+    phaseWidth = *(REAL8 *)LALInferenceGetVariable(runState->priorArgs, pha_uncert);
     for (i = 0; i < amps->length; i++) {
       logPrior += -0.5*log(2.0*M_PI) - log(ampWidth) - 0.5*amps->data[i]*amps->data[i]/ampWidth/ampWidth;
       logPrior += -0.5*log(2.0*M_PI) - log(phaseWidth) - 0.5*phase->data[i]*phase->data[i]/phaseWidth/phaseWidth;
@@ -1814,10 +1816,8 @@ REAL8 LALInferenceComputePriorMassNorm(const double MMin, const double MMax, con
         oData.innerIntegrand.function = &qInnerIntegrand;
     else if(!strcmp(massRatioName,"eta"))
         oData.innerIntegrand.function = &etaInnerIntegrand;
-    else if ((MMin<0.0)||(MMax<0.0)||(MTotMax<0.0)||(McMin<0.0)||(McMax<0.0)||(massRatioMin<0.0)||(massRatioMax<0.0))
-        XLAL_ERROR_REAL8(XLAL_EFUNC | XLAL_EINVAL, "Invalid mass values specified");
     else
-        XLAL_ERROR_REAL8(XLAL_EFUNC | XLAL_ENAME, "Invalid mass ratio name specified");
+        XLAL_ERROR_REAL8(XLAL_ENAME, "Invalid mass ratio name specified");
 
     // Disable GSL error reporting in favour of XLAL (the integration routines are liable to fail).
     gsl_error_handler_t *oldHandler = gsl_set_error_handler_off();
@@ -1843,7 +1843,7 @@ REAL8 LALInferenceComputePriorMassNorm(const double MMin, const double MMax, con
                         &result, &err);
 
     if (status)
-        XLAL_ERROR_REAL8(XLAL_EFUNC | XLAL_EDATA , "Bad data; GSL integration failed.");
+        XLAL_ERROR_REAL8(XLAL_EFUNC | XLAL_EDATA, "Bad data; GSL integration failed.");
 
     gsl_set_error_handler(oldHandler);
 
