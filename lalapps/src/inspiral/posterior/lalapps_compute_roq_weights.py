@@ -3,6 +3,7 @@ import sys
 from math import ceil
 from optparse import OptionParser
 import os
+import scipy.integrate as integrate
 
 data_dir = './'
 # load in data from file
@@ -102,6 +103,9 @@ for ifo in options.IFOs:
 	psd[-1] = psd[-1 -1 ]
 
 	psd = psd[int(fLow/deltaF):len(psd)+1]
+	
+	d_d = 4.*integrate.simps(data*np.conjugate(data)/psd, fseries).real
+
 	data /= psd
 
 	assert len(data) == len(psd) == B_linear.shape[1] == B_quadratic.shape[1]
@@ -143,6 +147,9 @@ for ifo in options.IFOs:
         weights_file_quadratic.close()
 	size_file_path = os.path.join(options.outpath,"roq_sizes.dat")
         np.savetxt(size_file_path,np.array((len(tcs),B_linear.shape[0],B_quadratic.shape[0],B_linear.shape[1])),fmt='%u')
+	d_d_path = os.path.join(options.outpath,"dd_%s.dat"%ifo)
+	np.savetxt(d_d_path, np.array((d_d)), fmt='%.8f')
+
 	print "Weights have been computed for "+ifo
 
 	i += 1
