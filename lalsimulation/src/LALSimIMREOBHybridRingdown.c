@@ -400,7 +400,8 @@ static INT4 XLALGenerateHybridWaveDerivatives (
  * STEP 4) Solve QNM coefficients and generate ringdown waveforms
  * STEP 5) Stitch inspiral and ringdown waveoforms
  */
-static INT4 XLALSimIMREOBHybridAttachRingdown(
+//static INT4 XLALSimIMREOBHybridAttachRingdown(
+static UNUSED INT4 XLALSimIMREOBHybridAttachRingdown(
   REAL8Vector *signal1,    /**<< OUTPUT, Real of inspiral waveform to which we attach ringdown */
   REAL8Vector *signal2,    /**<< OUTPUT, Imag of inspiral waveform to which we attach ringdown */
   const INT4   l,          /**<< Current mode l */
@@ -871,7 +872,7 @@ static UNUSED INT4 XLALSimIMREOBAttachFitRingdown(
 
      
 
-    // FIXME Alejandra started from dt not from 0, is it important?
+    // FIXME Alejandro started from dt not from 0, is it important?
     rdtime = XLALCreateREAL8Vector( Nrdwave );
     for (i=0; i<Nrdwave; i++){
          rdtime->data[i] = i*dt; // this time for RD and it starts with 0 (Alejandro's time starts with 
