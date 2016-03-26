@@ -227,7 +227,7 @@ XLAL_FAIL:
 
 }
 
-int XLALFITSHeaderWriteBoolean(FITSFile *file, const CHAR *keyword, const BOOLEAN value, const CHAR *comment)
+int XLALFITSHeaderWriteBOOLEAN(FITSFile *file, const CHAR *keyword, const BOOLEAN value, const CHAR *comment)
 {
   int UNUSED status = 0;
 
@@ -254,7 +254,7 @@ XLAL_FAIL:
 
 }
 
-int XLALFITSHeaderReadBoolean(FITSFile *file, const CHAR *keyword, BOOLEAN *value)
+int XLALFITSHeaderReadBOOLEAN(FITSFile *file, const CHAR *keyword, BOOLEAN *value)
 {
   int UNUSED status = 0;
 
@@ -314,7 +314,7 @@ int XLALFITSHeaderReadINT4(FITSFile *file, const CHAR *keyword, INT4 *value)
   XLAL_CHECK_FAIL(keyword != NULL, XLAL_EFAULT);
   XLAL_CHECK_FAIL(value != NULL, XLAL_EFAULT);
 
-  // Read 32-bit integer from current header
+  // Read 32-bit integer value from current header
   LONGLONG val = 0;
   CHAR comment[FLEN_COMMENT];
   CALL_FITS(fits_read_key_lnglng, file->ff, keyword, &val, comment);
@@ -365,7 +365,7 @@ int XLALFITSHeaderReadINT8(FITSFile *file, const CHAR *keyword, INT8 *value)
   XLAL_CHECK_FAIL(keyword != NULL, XLAL_EFAULT);
   XLAL_CHECK_FAIL(value != NULL, XLAL_EFAULT);
 
-  // Read 64-bit integer from current header
+  // Read 64-bit integer value from current header
   LONGLONG val = 0;
   CHAR comment[FLEN_COMMENT];
   CALL_FITS(fits_read_key_lnglng, file->ff, keyword, &val, comment);
@@ -389,7 +389,7 @@ int XLALFITSHeaderWriteREAL4(FITSFile *file, const CHAR *keyword, const REAL4 va
   XLAL_CHECK_FAIL(keyword != NULL, XLAL_EFAULT);
   XLAL_CHECK_FAIL(comment != NULL, XLAL_EFAULT);
 
-  // Write integer value to current header
+  // Write 32-bit floating-point value to current header
   CALL_FITS(fits_write_key_flt, file->ff, keyword, value, FLT_DIG, comment);
 
   return XLAL_SUCCESS;
@@ -416,7 +416,7 @@ int XLALFITSHeaderReadREAL4(FITSFile *file, const CHAR *keyword, REAL4 *value)
   XLAL_CHECK_FAIL(keyword != NULL, XLAL_EFAULT);
   XLAL_CHECK_FAIL(value != NULL, XLAL_EFAULT);
 
-  // Read 64-bit integer from current header
+  // Read 32-bit floating-point value from current header
   CHAR comment[FLEN_COMMENT];
   CALL_FITS(fits_read_key_flt, file->ff, keyword, value, comment);
 
@@ -437,7 +437,7 @@ int XLALFITSHeaderWriteREAL8(FITSFile *file, const CHAR *keyword, const REAL8 va
   XLAL_CHECK_FAIL(keyword != NULL, XLAL_EFAULT);
   XLAL_CHECK_FAIL(comment != NULL, XLAL_EFAULT);
 
-  // Write integer value to current header
+  // Write 64-bit floating-point value to current header
   CALL_FITS(fits_write_key_dbl, file->ff, keyword, value, DBL_DIG, comment);
 
   return XLAL_SUCCESS;
@@ -464,9 +464,111 @@ int XLALFITSHeaderReadREAL8(FITSFile *file, const CHAR *keyword, REAL8 *value)
   XLAL_CHECK_FAIL(keyword != NULL, XLAL_EFAULT);
   XLAL_CHECK_FAIL(value != NULL, XLAL_EFAULT);
 
-  // Read 64-bit integer from current header
+  // Read 64-bit floating-point value from current header
   CHAR comment[FLEN_COMMENT];
   CALL_FITS(fits_read_key_dbl, file->ff, keyword, value, comment);
+
+  return XLAL_SUCCESS;
+
+XLAL_FAIL:
+  return XLAL_FAILURE;
+
+}
+
+int XLALFITSHeaderWriteCOMPLEX8(FITSFile *file, const CHAR *keyword, const COMPLEX8 value, const CHAR *comment)
+{
+  int UNUSED status = 0;
+
+  // Check input
+  XLAL_CHECK_FAIL(file != NULL, XLAL_EFAULT);
+  XLAL_CHECK_FAIL(file->write, XLAL_EINVAL, "FITS file is not open for writing");
+  XLAL_CHECK_FAIL(keyword != NULL, XLAL_EFAULT);
+  XLAL_CHECK_FAIL(comment != NULL, XLAL_EFAULT);
+
+  // Write 64-bit complex floating-point value to current header
+  REAL4 val[2] = {crealf(value), cimagf(value)};
+  CALL_FITS(fits_write_key_cmp, file->ff, keyword, val, FLT_DIG, comment);
+
+  return XLAL_SUCCESS;
+
+XLAL_FAIL:
+
+  // Delete FITS file on error
+  if (file != NULL && file->ff != NULL) {
+    fits_delete_file(file->ff, &status);
+    file->ff = NULL;
+  }
+
+  return XLAL_FAILURE;
+
+}
+
+int XLALFITSHeaderReadCOMPLEX8(FITSFile *file, const CHAR *keyword, COMPLEX8 *value)
+{
+  int UNUSED status = 0;
+
+  // Check input
+  XLAL_CHECK_FAIL(file != NULL, XLAL_EFAULT);
+  XLAL_CHECK_FAIL(!file->write, XLAL_EINVAL, "FITS file is not open for reading");
+  XLAL_CHECK_FAIL(keyword != NULL, XLAL_EFAULT);
+  XLAL_CHECK_FAIL(value != NULL, XLAL_EFAULT);
+
+  // Read 64-bit floating-point value from current header
+  CHAR comment[FLEN_COMMENT];
+  REAL4 val[2] = {0, 0};
+  CALL_FITS(fits_read_key_cmp, file->ff, keyword, val, comment);
+  *value = crectf(val[0], val[1]);
+
+  return XLAL_SUCCESS;
+
+XLAL_FAIL:
+  return XLAL_FAILURE;
+
+}
+
+int XLALFITSHeaderWriteCOMPLEX16(FITSFile *file, const CHAR *keyword, const COMPLEX16 value, const CHAR *comment)
+{
+  int UNUSED status = 0;
+
+  // Check input
+  XLAL_CHECK_FAIL(file != NULL, XLAL_EFAULT);
+  XLAL_CHECK_FAIL(file->write, XLAL_EINVAL, "FITS file is not open for writing");
+  XLAL_CHECK_FAIL(keyword != NULL, XLAL_EFAULT);
+  XLAL_CHECK_FAIL(comment != NULL, XLAL_EFAULT);
+
+  // Write 128-bit complex floating-point value to current header
+  REAL8 val[2] = {creal(value), cimag(value)};
+  CALL_FITS(fits_write_key_dblcmp, file->ff, keyword, val, DBL_DIG, comment);
+
+  return XLAL_SUCCESS;
+
+XLAL_FAIL:
+
+  // Delete FITS file on error
+  if (file != NULL && file->ff != NULL) {
+    fits_delete_file(file->ff, &status);
+    file->ff = NULL;
+  }
+
+  return XLAL_FAILURE;
+
+}
+
+int XLALFITSHeaderReadCOMPLEX16(FITSFile *file, const CHAR *keyword, COMPLEX16 *value)
+{
+  int UNUSED status = 0;
+
+  // Check input
+  XLAL_CHECK_FAIL(file != NULL, XLAL_EFAULT);
+  XLAL_CHECK_FAIL(!file->write, XLAL_EINVAL, "FITS file is not open for reading");
+  XLAL_CHECK_FAIL(keyword != NULL, XLAL_EFAULT);
+  XLAL_CHECK_FAIL(value != NULL, XLAL_EFAULT);
+
+  // Read 128-bit floating-point value from current header
+  CHAR comment[FLEN_COMMENT];
+  REAL8 val[2] = {0, 0};
+  CALL_FITS(fits_read_key_dblcmp, file->ff, keyword, val, comment);
+  *value = crect(val[0], val[1]);
 
   return XLAL_SUCCESS;
 
@@ -1204,6 +1306,12 @@ XLAL_FAIL:
 
 }
 
+int XLALFITSTableColumnAddBOOLEAN(FITSFile *file, const CHAR *col_name, const void *record, const size_t record_size, const BOOLEAN *field, const size_t field_size)
+{
+  XLAL_CHECK(XLALFITSTableColumnAdd(file, col_name, "", record, record_size, field, field_size, sizeof(BOOLEAN), 'L', TLOGICAL) == XLAL_SUCCESS, XLAL_EFUNC);
+  return XLAL_SUCCESS;
+}
+
 int XLALFITSTableColumnAddINT2(FITSFile *file, const CHAR *col_name, const void *record, const size_t record_size, const INT2 *field, const size_t field_size)
 {
   XLAL_CHECK(XLALFITSTableColumnAdd(file, col_name, "", record, record_size, field, field_size, sizeof(INT2), 'I', TSHORT) == XLAL_SUCCESS, XLAL_EFUNC);
@@ -1225,6 +1333,18 @@ int XLALFITSTableColumnAddREAL4(FITSFile *file, const CHAR *col_name, const void
 int XLALFITSTableColumnAddREAL8(FITSFile *file, const CHAR *col_name, const void *record, const size_t record_size, const REAL8 *field, const size_t field_size)
 {
   XLAL_CHECK(XLALFITSTableColumnAdd(file, col_name, "", record, record_size, field, field_size, sizeof(REAL8), 'D', TDOUBLE) == XLAL_SUCCESS, XLAL_EFUNC);
+  return XLAL_SUCCESS;
+}
+
+int XLALFITSTableColumnAddCOMPLEX8(FITSFile *file, const CHAR *col_name, const void *record, const size_t record_size, const COMPLEX8 *field, const size_t field_size)
+{
+  XLAL_CHECK(XLALFITSTableColumnAdd(file, col_name, "", record, record_size, field, field_size, sizeof(COMPLEX8), 'C', TCOMPLEX) == XLAL_SUCCESS, XLAL_EFUNC);
+  return XLAL_SUCCESS;
+}
+
+int XLALFITSTableColumnAddCOMPLEX16(FITSFile *file, const CHAR *col_name, const void *record, const size_t record_size, const COMPLEX16 *field, const size_t field_size)
+{
+  XLAL_CHECK(XLALFITSTableColumnAdd(file, col_name, "", record, record_size, field, field_size, sizeof(COMPLEX16), 'M', TDBLCOMPLEX) == XLAL_SUCCESS, XLAL_EFUNC);
   return XLAL_SUCCESS;
 }
 

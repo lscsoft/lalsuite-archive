@@ -51,6 +51,7 @@ const CHAR *longstring_ref = \
 
 typedef struct {
   INT4 index;
+  BOOLEAN flag;
   CHAR name[8];
   LIGOTimeGPS epoch;
   struct {
@@ -59,12 +60,14 @@ typedef struct {
     REAL8 fkdot[5];
   } pos;
   REAL8 values[2];
+  COMPLEX8 phasef;
+  COMPLEX16 phase;
 } TestRecord;
 
 const TestRecord testtable[] = {
-  { .index = 3, .name = "CasA", .epoch = { 123456789, 5 }, .pos = { .sky = 5.4321, .freq = 100.999, .fkdot = { 1e-9, 5e-20 } }, .values = { 13.24, 43.234 } },
-  { .index = 2, .name = "Vela", .epoch = { 452456245, 9 }, .pos = { .sky = 34.454, .freq = 1345.34, .fkdot = { 2e-8, 6e-21 } }, .values = { 14.35, 94.128 } },
-  { .index = 1, .name = "Crab", .epoch = { 467846774, 4 }, .pos = { .sky = 64.244, .freq = 15.6463, .fkdot = { 4e-6,     0 } }, .values = { 153.4, 3.0900 } },
+  { .index=3, .flag=1, .name="CasA", .epoch={123456789, 5}, .pos={.sky=5.4321, .freq=100.999, .fkdot={1e-9, 5e-20}}, .values={13.24, 43.234}, .phasef=crectf(1.2, 3.4), .phase=crect(4.5, 0.2) },
+  { .index=2, .flag=0, .name="Vela", .epoch={452456245, 9}, .pos={.sky=34.454, .freq=1345.34, .fkdot={2e-8, 6e-21}}, .values={14.35, 94.128}, .phasef=crectf(3.6, 9.3), .phase=crect(8.3, 4.0) },
+  { .index=1, .flag=1, .name="Crab", .epoch={467846774, 4}, .pos={.sky=64.244, .freq=15.6463, .fkdot={4e-6,     0}}, .values={153.4, 3.0900}, .phasef=crectf(6.7, 4.4), .phase=crect(5.6, 6.3) },
 };
 
 int main(void)
@@ -77,7 +80,7 @@ int main(void)
     XLAL_CHECK_MAIN(XLALFITSHeaderWriteComment(file, "This is a test comment") == XLAL_SUCCESS, XLAL_EFUNC);
     fprintf(stderr, "PASSED: opened 'FITSFileIOTest.fits' for writing\n");
 
-    XLAL_CHECK_MAIN(XLALFITSHeaderWriteBoolean(file, "testbool", 1, "This is a test BOOLEAN") == XLAL_SUCCESS, XLAL_EFUNC);
+    XLAL_CHECK_MAIN(XLALFITSHeaderWriteBOOLEAN(file, "testbool", 1, "This is a test BOOLEAN") == XLAL_SUCCESS, XLAL_EFUNC);
     fprintf(stderr, "PASSED: wrote a BOOLEAN\n");
 
     XLAL_CHECK_MAIN(XLALFITSHeaderWriteINT4(file, "testint", 2345, "This is a test INT4") == XLAL_SUCCESS, XLAL_EFUNC);
@@ -91,6 +94,12 @@ int main(void)
 
     XLAL_CHECK_MAIN(XLALFITSHeaderWriteREAL8(file, "testdbl", LAL_E, "This is a test REAL8") == XLAL_SUCCESS, XLAL_EFUNC);
     fprintf(stderr, "PASSED: wrote a REAL8\n");
+
+    XLAL_CHECK_MAIN(XLALFITSHeaderWriteCOMPLEX8(file, "testcmp", crectf(LAL_PI_2, LAL_PI_4), "This is a test COMPLEX8") == XLAL_SUCCESS, XLAL_EFUNC);
+    fprintf(stderr, "PASSED: wrote a COMPLEX8\n");
+
+    XLAL_CHECK_MAIN(XLALFITSHeaderWriteCOMPLEX16(file, "testdblcmp", crect(LAL_LOG2E, LAL_LOG10E), "This is a test COMPLEX16") == XLAL_SUCCESS, XLAL_EFUNC);
+    fprintf(stderr, "PASSED: wrote a COMPLEX16\n");
 
     XLAL_CHECK_MAIN(XLALFITSHeaderWriteString(file, "teststr", "This is a short string", "This is a test string") == XLAL_SUCCESS, XLAL_EFUNC);
     fprintf(stderr, "PASSED: wrote a string\n");
@@ -152,6 +161,7 @@ int main(void)
     {
       XLAL_FITS_TABLE_COLUMN_BEGIN(TestRecord);
       XLAL_CHECK_MAIN(XLAL_FITS_TABLE_COLUMN_ADD(file, INT4, index) == XLAL_SUCCESS, XLAL_EFUNC);
+      XLAL_CHECK_MAIN(XLAL_FITS_TABLE_COLUMN_ADD(file, BOOLEAN, flag) == XLAL_SUCCESS, XLAL_EFUNC);
       XLAL_CHECK_MAIN(XLAL_FITS_TABLE_COLUMN_ADD_ARRAY(file, CHAR, name) == XLAL_SUCCESS, XLAL_EFUNC);
       XLAL_CHECK_MAIN(XLAL_FITS_TABLE_COLUMN_ADD(file, GPSTime, epoch) == XLAL_SUCCESS, XLAL_EFUNC);
       XLAL_CHECK_MAIN(XLAL_FITS_TABLE_COLUMN_ADD(file, REAL4, pos.sky) == XLAL_SUCCESS, XLAL_EFUNC);
@@ -159,6 +169,8 @@ int main(void)
       XLAL_CHECK_MAIN(XLAL_FITS_TABLE_COLUMN_ADD_NAMED(file, REAL8, pos.fkdot[0], "f1dot") == XLAL_SUCCESS, XLAL_EFUNC);
       XLAL_CHECK_MAIN(XLAL_FITS_TABLE_COLUMN_ADD_NAMED(file, REAL8, pos.fkdot[1], "f2dot") == XLAL_SUCCESS, XLAL_EFUNC);
       XLAL_CHECK_MAIN(XLAL_FITS_TABLE_COLUMN_ADD_ARRAY(file, REAL8, values) == XLAL_SUCCESS, XLAL_EFUNC);
+      XLAL_CHECK_MAIN(XLAL_FITS_TABLE_COLUMN_ADD(file, COMPLEX8, phasef) == XLAL_SUCCESS, XLAL_EFUNC);
+      XLAL_CHECK_MAIN(XLAL_FITS_TABLE_COLUMN_ADD(file, COMPLEX16, phase) == XLAL_SUCCESS, XLAL_EFUNC);
     }
     for (size_t i = 0; i < XLAL_NUM_ELEM(testtable); ++i) {
       XLAL_CHECK_MAIN(XLALFITSTableWriteRow(file, &testtable[i]) == XLAL_SUCCESS, XLAL_EFUNC);
@@ -180,7 +192,7 @@ int main(void)
 
     {
       BOOLEAN testbool;
-      XLAL_CHECK_MAIN(XLALFITSHeaderReadBoolean(file, "testbool", &testbool) == XLAL_SUCCESS, XLAL_EFUNC);
+      XLAL_CHECK_MAIN(XLALFITSHeaderReadBOOLEAN(file, "testbool", &testbool) == XLAL_SUCCESS, XLAL_EFUNC);
       XLAL_CHECK_MAIN(testbool, XLAL_EFAILED, "testbool is not true");
     }
     fprintf(stderr, "PASSED: read and verified a BOOLEAN\n");
@@ -228,6 +240,26 @@ int main(void)
     fprintf(stderr, "PASSED: read and verified a REAL8\n");
 
     {
+      const COMPLEX8 testcmp_ref = crectf(LAL_PI_2, LAL_PI_4);
+      COMPLEX8 testcmp;
+      XLAL_CHECK_MAIN(XLALFITSHeaderReadCOMPLEX8(file, "testcmp", &testcmp) == XLAL_SUCCESS, XLAL_EFUNC);
+      const REAL4 err = cabsf(testcmp - testcmp_ref), err_tol = 5*FLT_EPSILON;
+      XLAL_CHECK_MAIN(err < err_tol, XLAL_EFAILED, "|testcmp - testcmp_ref| = |(%0.*g,%0.*g) - (%0.*g,%0.*g)| = %0.*g >= %0.*g",
+                      FLT_DIG, crealf(testcmp), FLT_DIG, cimagf(testcmp), FLT_DIG, crealf(testcmp_ref), FLT_DIG, cimagf(testcmp_ref), FLT_DIG, err, FLT_DIG, err_tol);
+    }
+    fprintf(stderr, "PASSED: read and verified a COMPLEX8\n");
+
+    {
+      const COMPLEX16 testdblcmp_ref = crect(LAL_LOG2E, LAL_LOG10E);
+      COMPLEX16 testdblcmp;
+      XLAL_CHECK_MAIN(XLALFITSHeaderReadCOMPLEX16(file, "testdblcmp", &testdblcmp) == XLAL_SUCCESS, XLAL_EFUNC);
+      const REAL8 err = cabs(testdblcmp - testdblcmp_ref), err_tol = 5*DBL_EPSILON;
+      XLAL_CHECK_MAIN(err < err_tol, XLAL_EFAILED, "|testdblcmp - testdblcmp_ref| = |(%0.*g,%0.*g) - (%0.*g,%0.*g)| = %0.*g >= %0.*g",
+                      DBL_DIG, creal(testdblcmp), DBL_DIG, cimag(testdblcmp), DBL_DIG, creal(testdblcmp_ref), DBL_DIG, cimag(testdblcmp_ref), DBL_DIG, err, DBL_DIG, err_tol);
+    }
+    fprintf(stderr, "PASSED: read and verified a COMPLEX16\n");
+
+    {
       const CHAR *teststr_ref = "This is a short string";
       CHAR *teststr = NULL;
       XLAL_CHECK_MAIN(XLALFITSHeaderReadString(file, "teststr", &teststr) == XLAL_SUCCESS, XLAL_EFUNC);
@@ -245,7 +277,7 @@ int main(void)
     fprintf(stderr, "PASSED: read and verified a long string\n");
 
     {
-      LALStringVector *testsv = NULL; //XLALCreateStringVector("abc", "def", "ghij", NULL);
+      LALStringVector *testsv = NULL;
       XLAL_CHECK_MAIN(XLALFITSHeaderReadStringVector(file, "testsv", &testsv) == XLAL_SUCCESS, XLAL_EFUNC);
       XLAL_CHECK_MAIN(testsv->length == 3, XLAL_EFAILED, "testsv->length = %u != 3", testsv->length);
       XLAL_CHECK_MAIN(strcmp(testsv->data[0], "abc") == 0, XLAL_EFAILED, "testsv->data[0] = '%s' != 'abc'", testsv->data[0]);
@@ -321,6 +353,7 @@ int main(void)
     {
       XLAL_FITS_TABLE_COLUMN_BEGIN(TestRecord);
       XLAL_CHECK_MAIN(XLAL_FITS_TABLE_COLUMN_ADD(file, INT4, index) == XLAL_SUCCESS, XLAL_EFUNC);
+      XLAL_CHECK_MAIN(XLAL_FITS_TABLE_COLUMN_ADD(file, BOOLEAN, flag) == XLAL_SUCCESS, XLAL_EFUNC);
       {
         int errnum = 0;
         XLAL_TRY_SILENT(XLAL_FITS_TABLE_COLUMN_ADD(file, INT4, index), errnum);
@@ -343,6 +376,8 @@ int main(void)
       XLAL_CHECK_MAIN(XLAL_FITS_TABLE_COLUMN_ADD_NAMED(file, REAL8, pos.fkdot[0], "f1dot") == XLAL_SUCCESS, XLAL_EFUNC);
       XLAL_CHECK_MAIN(XLAL_FITS_TABLE_COLUMN_ADD_NAMED(file, REAL8, pos.fkdot[1], "f2dot") == XLAL_SUCCESS, XLAL_EFUNC);
       XLAL_CHECK_MAIN(XLAL_FITS_TABLE_COLUMN_ADD_ARRAY(file, REAL8, values) == XLAL_SUCCESS, XLAL_EFUNC);
+      XLAL_CHECK_MAIN(XLAL_FITS_TABLE_COLUMN_ADD(file, COMPLEX8, phasef) == XLAL_SUCCESS, XLAL_EFUNC);
+      XLAL_CHECK_MAIN(XLAL_FITS_TABLE_COLUMN_ADD(file, COMPLEX16, phase) == XLAL_SUCCESS, XLAL_EFUNC);
     }
     TestRecord XLAL_INIT_DECL(record);
     size_t i = 0;
@@ -350,6 +385,7 @@ int main(void)
       XLAL_CHECK_MAIN(XLALFITSTableReadRow(file, &record, &nrows) == XLAL_SUCCESS, XLAL_EFUNC);
       XLAL_CHECK_MAIN(nrows == XLAL_NUM_ELEM(testtable) - i - 1, XLAL_EFAILED);
       XLAL_CHECK_MAIN(record.index == testtable[i].index, XLAL_EFAILED);
+      XLAL_CHECK_MAIN(record.flag == testtable[i].flag, XLAL_EFAILED);
       XLAL_CHECK_MAIN(strcmp(record.name, testtable[i].name) == 0, XLAL_EFAILED);
       XLAL_CHECK_MAIN(XLALGPSCmp(&record.epoch, &testtable[i].epoch) == 0, XLAL_EFAILED);
       XLAL_CHECK_MAIN(record.pos.sky == testtable[i].pos.sky, XLAL_EFAILED);
@@ -360,6 +396,8 @@ int main(void)
       for (size_t j = 0; j < XLAL_NUM_ELEM(record.values); ++j) {
         XLAL_CHECK_MAIN(record.values[j] == testtable[i].values[j], XLAL_EFAILED);
       }
+      XLAL_CHECK_MAIN(record.phasef == testtable[i].phasef, XLAL_EFAILED);
+      XLAL_CHECK_MAIN(record.phase == testtable[i].phase, XLAL_EFAILED);
       ++i;
     }
     XLAL_CHECK_MAIN(i == XLAL_NUM_ELEM(testtable), XLAL_EFAILED);
