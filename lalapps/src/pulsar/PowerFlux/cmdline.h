@@ -341,6 +341,9 @@ struct gengetopt_args_info
   int fake_injection_window_arg;	/**< @brief compute this number of frequency bins to the left and right of the central frequency (default='5').  */
   char * fake_injection_window_orig;	/**< @brief compute this number of frequency bins to the left and right of the central frequency original value given at command line.  */
   const char *fake_injection_window_help; /**< @brief compute this number of frequency bins to the left and right of the central frequency help description.  */
+  int fake_injection_w_size_arg;	/**< @brief internal parameter specifying integration workspace size (default='32768').  */
+  char * fake_injection_w_size_orig;	/**< @brief internal parameter specifying integration workspace size original value given at command line.  */
+  const char *fake_injection_w_size_help; /**< @brief internal parameter specifying integration workspace size help description.  */
   double snr_precision_arg;	/**< @brief Assumed level of error in detection strength - used for listing candidates (default='0.2').  */
   char * snr_precision_orig;	/**< @brief Assumed level of error in detection strength - used for listing candidates original value given at command line.  */
   const char *snr_precision_help; /**< @brief Assumed level of error in detection strength - used for listing candidates help description.  */
@@ -383,6 +386,12 @@ struct gengetopt_args_info
   int split_ifos_arg;	/**< @brief Split interferometers in separate chunks (default='1').  */
   char * split_ifos_orig;	/**< @brief Split interferometers in separate chunks original value given at command line.  */
   const char *split_ifos_help; /**< @brief Split interferometers in separate chunks help description.  */
+  double default_dataset_veto_level_arg;	/**< @brief Default value for veto_level dataset parameter (default='1e-2').  */
+  char * default_dataset_veto_level_orig;	/**< @brief Default value for veto_level dataset parameter original value given at command line.  */
+  const char *default_dataset_veto_level_help; /**< @brief Default value for veto_level dataset parameter help description.  */
+  double default_dataset_veto_spike_level_arg;	/**< @brief Default value for veto_spike_level dataset parameter (default='1.7').  */
+  char * default_dataset_veto_spike_level_orig;	/**< @brief Default value for veto_spike_level dataset parameter original value given at command line.  */
+  const char *default_dataset_veto_spike_level_help; /**< @brief Default value for veto_spike_level dataset parameter help description.  */
   double weight_cutoff_fraction_arg;	/**< @brief Discard sfts with small weights that contribute this fraction of total weight (default='0.04').  */
   char * weight_cutoff_fraction_orig;	/**< @brief Discard sfts with small weights that contribute this fraction of total weight original value given at command line.  */
   const char *weight_cutoff_fraction_help; /**< @brief Discard sfts with small weights that contribute this fraction of total weight help description.  */
@@ -566,6 +575,7 @@ struct gengetopt_args_info
   unsigned int fake_phase_modulation_freq_given ;	/**< @brief Whether fake-phase-modulation-freq was given.  */
   unsigned int fake_phase_modulation_phase_given ;	/**< @brief Whether fake-phase-modulation-phase was given.  */
   unsigned int fake_injection_window_given ;	/**< @brief Whether fake-injection-window was given.  */
+  unsigned int fake_injection_w_size_given ;	/**< @brief Whether fake-injection-w-size was given.  */
   unsigned int snr_precision_given ;	/**< @brief Whether snr-precision was given.  */
   unsigned int max_candidates_given ;	/**< @brief Whether max-candidates was given.  */
   unsigned int min_candidate_snr_given ;	/**< @brief Whether min-candidate-snr was given.  */
@@ -580,6 +590,8 @@ struct gengetopt_args_info
   unsigned int nfshift_given ;	/**< @brief Whether nfshift was given.  */
   unsigned int nchunks_given ;	/**< @brief Whether nchunks was given.  */
   unsigned int split_ifos_given ;	/**< @brief Whether split-ifos was given.  */
+  unsigned int default_dataset_veto_level_given ;	/**< @brief Whether default-dataset-veto-level was given.  */
+  unsigned int default_dataset_veto_spike_level_given ;	/**< @brief Whether default-dataset-veto-spike-level was given.  */
   unsigned int weight_cutoff_fraction_given ;	/**< @brief Whether weight-cutoff-fraction was given.  */
   unsigned int per_dataset_weight_cutoff_fraction_given ;	/**< @brief Whether per-dataset-weight-cutoff-fraction was given.  */
   unsigned int power_max_median_factor_given ;	/**< @brief Whether power-max-median-factor was given.  */

@@ -6,6 +6,15 @@
 # Do not forget to change the parameters in params.tcl
 #
 #
+# Assign defaults
+foreach {var value} {
+        SFT_LENGTH 1800
+        } {
+        global $var
+        set $var $value
+        }
+
+
 source params.tcl
 
 foreach $PARAMS_FORMAT $PARAMS {
@@ -27,7 +36,7 @@ return [expr $a+rand()*($b-$a)]
 set i 0	
 set last_i 0
 for { set band $FREQ_START } { $band < $FREQ_END } { set band [expr $band+$FREQ_STEP] } {
-	set firstbin [expr round($band*1800)]
+	set firstbin [expr round($band*$SFT_LENGTH)]
 
 	set DATASET [GET_DATASET $firstbin]
 

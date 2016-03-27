@@ -7,6 +7,7 @@
 #       Benjamin Farr <bfarr@u.northwestern.edu>,
 #       Will M. Farr <will.farr@ligo.org>,
 #       SalvatoreVitale <salvatore.vitale@ligo.org>
+#       Vivien Raymond <vivien.raymond@ligo.org>
 #
 #       This program is free software; you can redistribute it and/or modify
 #       it under the terms of the GNU General Public License as published by
@@ -46,7 +47,7 @@ posterior_name_to_latex_name = {
     'eta' : r'$\eta$',
     'q' : r'$q$',
     'mc' : r'$\mathcal{M}$',
-    'dist' : r'$d$',
+    'distance' : r'$d$',
     'time' : r'$t$',
     'ra' : r'$\alpha$',
     'dec' : r'$\delta$',
@@ -134,10 +135,13 @@ def read_posterior_samples(f,injrow):
     commonResultsObj=peparser.parse(open(f,'r'))
     data = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injrow,injFref=100.0)
     # add tilts, comp masses, tidal...
-    data.extend_posterior()
+    try:
+      data.extend_posterior()
+    except Exception,e:
+      pass 
     return data
 
-def output_html(outdir, ks_pvalues, injnum):
+def output_html(outdir, ks_pvalues, injnum,skypp=False):
     """Outputs the HTML page summarizing the results.
 
     """
@@ -164,7 +168,7 @@ def output_html(outdir, ks_pvalues, injnum):
     </tr>
 
     ${tablerows}
-
+    ${skypp}
     </table>
 
     </body>
@@ -185,7 +189,12 @@ def output_html(outdir, ks_pvalues, injnum):
         tablerows.append(table_row_template.substitute(name=par, pvalue=str(pv)))
     tablerows = '\n'.join(tablerows)
 
-    html = html_template.substitute(tablerows=tablerows, injnum=str(injnum), linkstr=links)
+    if skypp is False:
+      skysub=''
+    else:
+      skysub='<tr> <td> sky </td> <td> See Plot </td> <td> <img src="sky_p-p.png" alt="sky p-p plot" width="300" height="300" /> </td> <td> <a href="sky_p-p.png">PNG</a> <a href="sky_p-p.pdf">PDF</a></td>  </tr>'
+
+    html = html_template.substitute(tablerows=tablerows, injnum=str(injnum), linkstr=links,skypp=skysub)
 
     with open(os.path.join(outdir, 'index.html'), 'w') as out:
         out.write(html)
@@ -205,13 +214,14 @@ if __name__ == '__main__':
 
     parser.add_option('--par', action='append', default=[], type='string', 
                       help='parameter names for the p-p plot')
+    parser.add_option('--skyPPfolder', action='store',dest='skypp',type='string',default=None,help='Path to folder containing png/pdf with 2D skyarea PP plots')
 
     (options, args) = parser.parse_args()
 
     injs = table.get_table(utils.load_filename(options.injxml,contenthandler=ExtractSimInspiralTableLIGOLWContentHandler),lsctables.SimInspiralTable.tableName)
 
     if options.par == []:
-        parameters = ['m1', 'm2', 'mc', 'eta', 'q',  'theta_jn', 'a1', 'a2', 'tilt1', 'tilt2', 'phi12', 'phi_jl', 'ra', 'dec', 'dist', 'time', 'phi_orb', 'psi']
+        parameters = ['m1', 'm2', 'mc', 'eta', 'q',  'theta_jn', 'a1', 'a2', 'tilt1', 'tilt2', 'phi12', 'phi_jl', 'ra', 'dec', 'distance', 'time', 'phi_orb', 'psi']
     else:
         parameters = options.par
 
@@ -256,5 +266,23 @@ if __name__ == '__main__':
         except:
           print "Could not create the plot for",par,"!!!"
 
-    output_html(options.outdir, ks_pvalues, Ninj )
+    skypp=False
+    if options.skypp is not None:
+      found=0
+      if os.path.isdir(options.skypp):
+        for i in ['png','pdf']:
+          if os.path.isfile(os.path.join(options.skypp,'p-p.%s'%i)):
+            inf=os.path.join(os.path.realpath(options.skypp),'p-p.%s'%i)
+            outf=os.path.join(options.outdir,'sky_p-p.%s'%i)
+            os.system('cp %s %s'%(inf,outf))
+            found+=1
+          else:
+            print "could not find %s\n"%os.path.join(options.skypp,'p-p.%s'%i)
+      else:
+        print "skyPPfolder %s doesn't seem to be a valid folder or cannot be read. Skipping skyPP plot\n"%os.path.realpath(options.skypp)
+
+      if found>0:
+        skypp=True
+
+    output_html(options.outdir, ks_pvalues, Ninj ,skypp=skypp )
 

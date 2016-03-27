@@ -17,10 +17,10 @@ pkginclude_HEADERS = \
 	FitToPulsar.h \
 	FlatMesh.h \
 	FlatPulsarMetric.h \
+	GSLHelpers.h \
 	GeneratePulsarSignal.h \
 	GenerateSpinOrbitCW.h \
 	GenerateTaylorCW.h \
-	GSLHelpers.h \
 	HoughMap.h \
 	LALBarycenter.h \
 	LALComputeAM.h \
@@ -144,6 +144,15 @@ nodist_liblalpulsar_la_SOURCES = LALPulsarBuildInfo.c
 if LALXML
 pkginclude_HEADERS += LALXMLVOTableSerializersPulsar.h
 liblalpulsar_la_SOURCES += LALXMLVOTableSerializersPulsar.c
+endif
+
+if CFITSIO
+pkginclude_HEADERS += \
+	FITSFileIO.h \
+	$(END_OF_LIST)
+liblalpulsar_la_SOURCES += \
+	FITSFileIO.c \
+	$(END_OF_LIST)
 endif
 
 noinst_LTLIBRARIES =

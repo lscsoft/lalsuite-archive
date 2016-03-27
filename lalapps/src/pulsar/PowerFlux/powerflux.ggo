@@ -122,6 +122,8 @@ option "fake-phase-modulation-depth" - "depth of additional sinusoidal phase mod
 option "fake-phase-modulation-freq" - "frequency of additional sinusoidal phase modulation" double default="0.0" no
 option "fake-phase-modulation-phase" - "phase of additional sinusoidal phase modulation" double default="0.0" no
 option "fake-injection-window"	- "compute this number of frequency bins to the left and right of the central frequency" int default="5" no
+option "fake-injection-w-size" - "internal parameter specifying integration workspace size" int default="32768" no
+
 
 option "snr-precision"	- "Assumed level of error in detection strength - used for listing candidates" double default="0.2" no
 option "max-candidates"	- "Do not optimize more than this number of candidates" int default="-1" no
@@ -143,6 +145,8 @@ option "npsi" - "Number of psi values to use in alignment grid" int default="6" 
 option "nfshift" - "Number of sub-bin frequency shifts to sample" int default="2" no
 option "nchunks" - "Partition the timebase into this many chunks for sub period analysis" int default="5" no
 option "split-ifos" - "Split interferometers in separate chunks" int default="1" no
+option "default-dataset-veto-level" - "Default value for veto_level dataset parameter" double default="1e-2" no
+option "default-dataset-veto-spike-level" - "Default value for veto_spike_level dataset parameter" double default="1.7" no
 option "weight-cutoff-fraction" - "Discard sfts with small weights that contribute this fraction of total weight" double default="0.04" no
 option "per-dataset-weight-cutoff-fraction" - "Discard sfts with small weights that contribute this fraction of total weight in each dataset" double default="0.04" no
 option "power-max-median-factor" - "This determines scaling factor between median and maximum of exponentially distributed variable. Used for computing power sum weights" double default="0.1" no

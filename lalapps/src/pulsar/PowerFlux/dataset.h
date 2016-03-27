@@ -31,6 +31,9 @@ typedef struct {
 	/* name of the data set - for logging purposes */
 	char *name; 
 	char *lock_file[MAX_LOCKS];
+	
+	int buffer_size; /* when 0 use non-buffered stdio I/O */
+	char *buffer;
 
 	int validated; /* has this data set been validated ? see corresponding functions */
 
@@ -49,7 +52,7 @@ typedef struct {
 	
 	INT64 max_gps; /* maximum GPS loaded, used for existing gps checks during dataset loading */
 
-	INT64 *gps;
+	INT64 * __restrict__ gps;
 
 	float veto_level;
 	float veto_spike_level;
@@ -61,8 +64,8 @@ typedef struct {
 	int dc_factor_blocked;
 
 	/* real and imaginary parts - they are separate to facilitate use of vectorized operations */
-	float *re; 
-	float *im;
+	float * __restrict__ re; 
+	float * __restrict__ im;
 
 	int size;
 	int free;	/* this used to be called nsegments */
@@ -102,11 +105,11 @@ typedef struct {
 	double weight; /* additional, user-specified weight factor */
 
 	/* results of noise decomposition - TMedian and LogMedians are log10(power) */
-	float *TMedians;
-	float *FMedians;
+	float * __restrict__ TMedians;
+	float * __restrict__ FMedians;
 
-	float *expTMedians; /* squared relative exponentiated TMedians */
-	float *expTMedians_plain; /* plain exponentiated TMedians */
+	float * __restrict__ expTMedians; /* squared relative exponentiated TMedians */
+	float * __restrict__ expTMedians_plain; /* plain exponentiated TMedians */
 
 	float *expFMedians_plain; /* plain exponentiated TMedians */
 
@@ -119,11 +122,11 @@ typedef struct {
 	double *hours_d;
 	double *freq_d;
 
-	SKY_GRID_TYPE *AM_coeffs_plus;
-	SKY_GRID_TYPE *AM_coeffs_cross;
+	SKY_GRID_TYPE * __restrict__ AM_coeffs_plus;
+	SKY_GRID_TYPE * __restrict__ AM_coeffs_cross;
 	long AM_coeffs_size;
 
-	POLARIZATION *polarizations;
+	POLARIZATION * __restrict__ polarizations;
 	} DATASET;
 
 void output_dataset_info(DATASET *d);
@@ -136,6 +139,7 @@ long vetoed_segments(void);
 float datasets_normalizing_weight(void);
 INT64 min_gps(void);
 INT64 max_gps(void);
+INT64 mid_gps(void);
 void post_init_datasets(void);
 void datasets_average_detector_speed(double *average_det_velocity);
 float effective_weight_ratio(float target_ra, float target_dec, float source_ra, float source_dec, float source_spindown, float bin_tolerance, float spindown_tolerance);

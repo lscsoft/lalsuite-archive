@@ -203,9 +203,7 @@ REAL8 pulsar_log_likelihood( LALInferenceVariables *vars, LALInferenceIFOData *d
                         sumYL->data[count]*(creal(My)*creal(Ml) + cimag(My)*cimag(Ml)) +
                         sumBL->data[count]*(creal(Mb)*creal(Ml) + cimag(Mb)*cimag(Ml)));
 
-            sumDataModel += creal(sumDataP->data[count])*creal(Mp) + cimag(sumDataP->data[count])*cimag(Mp) +
-                            creal(sumDataC->data[count])*creal(Mc) + cimag(sumDataC->data[count])*cimag(Mc) +
-                            creal(sumDataX->data[count])*creal(Mx) + cimag(sumDataX->data[count])*cimag(Mx) +
+            sumDataModel += creal(sumDataX->data[count])*creal(Mx) + cimag(sumDataX->data[count])*cimag(Mx) +
                             creal(sumDataY->data[count])*creal(My) + cimag(sumDataY->data[count])*cimag(My) +
                             creal(sumDataB->data[count])*creal(Mb) + cimag(sumDataB->data[count])*cimag(Mb) +
                             creal(sumDataL->data[count])*creal(Ml) + cimag(sumDataL->data[count])*cimag(Ml);
@@ -301,8 +299,10 @@ REAL8 pulsar_log_likelihood( LALInferenceVariables *vars, LALInferenceIFOData *d
  * \return The natural logarithm of the noise only evidence
  */
 REAL8 noise_only_likelihood( LALInferenceRunState *runState ){
+  /* Single thread code */
+  LALInferenceThreadState *threadState=runState->threads[0];
   LALInferenceIFOData *data = runState->data;
-  LALInferenceIFOModel *ifo = runState->model->ifo;
+  LALInferenceIFOModel *ifo = threadState->model->ifo;
 
   REAL8 logL = 0.0;
   UINT4 i = 0;
@@ -396,7 +396,9 @@ REAL8 noise_only_likelihood( LALInferenceRunState *runState ){
  * \return The natural logarithm of the prior value for a set of parameters
  */
 REAL8 priorFunction( LALInferenceRunState *runState, LALInferenceVariables *params, UNUSED LALInferenceModel *model ){
-  LALInferenceIFOModel *ifo = runState->model->ifo;
+  /* Single thread */
+  LALInferenceThreadState *threadState=runState->threads[0];
+  LALInferenceIFOModel *ifo = threadState->model->ifo;
   (void)runState;
   LALInferenceVariableItem *item = params->head;
   REAL8 prior = 0, value = 0.;
@@ -490,6 +492,14 @@ REAL8 priorFunction( LALInferenceRunState *runState, LALInferenceVariables *para
           if ( !strcmp(item->name, "C22") ){ C22 = value; }
         }
       }
+      else if( LALInferenceCheckFermiDiracPrior(runState->priorArgs, item->name) ){
+        REAL8 r = 0., sigma = 0.;
+        LALInferenceGetFermiDiracPrior(runState->priorArgs, item->name, &sigma, &r);
+
+        value = (*(REAL8 *)item->value);
+        if ( value < 0. ) { return -DBL_MAX; } /* value must be positive */
+        prior += LALInferenceFermiDiracPrior(value, sigma, r);
+      }
       else if( LALInferenceCheckCorrelatedPrior(runState->priorArgs, item->name) && corlist ){
         /* set item in correct position given the order of the correlation matrix given by corlist */
         REAL8 mu = 0., sigma = 0.;
@@ -518,8 +528,8 @@ REAL8 priorFunction( LALInferenceRunState *runState, LALInferenceVariables *para
   /* if a biaxial star check that C21 and C22 are the same sign */
   if ( LALInferenceCheckVariable( ifo->params, "biaxial" ) ){
     /* in case one parameter is fixed check that */
-    if ( C21 == -INFINITY ){ C21 = LALInferenceGetREAL8Variable( runState->currentParams, "C21" ); }
-    if ( C22 == -INFINITY ){ C22 = LALInferenceGetREAL8Variable( runState->currentParams, "C22" ); }
+    if ( C21 == -INFINITY ){ C21 = LALInferenceGetREAL8Variable( threadState->currentParams, "C21" ); }
+    if ( C22 == -INFINITY ){ C22 = LALInferenceGetREAL8Variable( threadState->currentParams, "C22" ); }
     if ( (C21 < 0. && C22 > 0.) || (C21 > 0. && C22 < 0.) ) { return -DBL_MAX; } /* if same sign this will be positive */
   }
 
@@ -736,6 +746,7 @@ void ns_to_posterior( LALInferenceRunState *runState ){
  * \param runState [in] A pointer to the LALInferenceRunState
  */
 void create_kdtree_prior( LALInferenceRunState *runState ){
+  LALInferenceThreadState *threadState = runState->threads[0];
   LALInferenceKDTree *priortree = NULL;
   LALInferenceVariables **posterior = NULL; /* use these samples as prior */
   UINT4 nsamp = 0, i = 0, cnt = 0;
@@ -841,7 +852,7 @@ void create_kdtree_prior( LALInferenceRunState *runState ){
 
       /* change the prior ranges, the scale factors and the current params */
       if( change != 0 ){
-        LALInferenceIFOModel *ifo = runState->model->ifo;
+        LALInferenceIFOModel *ifo = threadState->model->ifo;
 
         /* with the scaled parameters the k-D tree ranges will be between 0 and 1 */
         lownew[cnt] = 0.;
@@ -850,12 +861,13 @@ void create_kdtree_prior( LALInferenceRunState *runState ){
         INT4 ii = 0;
 
         /* now change the current param to reflect new ranges */
-        REAL8 var = *(REAL8 *)LALInferenceGetVariable( runState->currentParams, samp->name );
+        REAL8 var = *(REAL8 *)LALInferenceGetVariable( threadState->currentParams, samp->name );
         while( ifo ){
           /* rescale current parameter value */
           if ( ii == 0 ){
             ii++;
-            LALInferenceSetVariable( runState->currentParams, samp->name, &var );
+
+            LALInferenceSetVariable( threadState->currentParams, samp->name, &var );
           }
 
           ifo = ifo->next;

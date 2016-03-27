@@ -1005,6 +1005,31 @@ int XLALConvertSuperskyToPhysicalPoint(
 
 }
 
+int XLALConvertSuperskyToSuperskyPoint(
+  gsl_vector *out_rssky,
+  const gsl_matrix *out_rssky_transf,
+  const gsl_vector *in_rssky,
+  const gsl_matrix *in_rssky_transf
+  )
+{
+
+  // Check input
+  XLAL_CHECK(out_rssky != NULL, XLAL_EFAULT);
+  XLAL_CHECK(CHECK_RSSKY_TRANSF(out_rssky_transf), XLAL_EFAULT);
+  XLAL_CHECK(in_rssky != NULL, XLAL_EFAULT);
+  XLAL_CHECK(CHECK_RSSKY_TRANSF(in_rssky_transf), XLAL_EFAULT);
+
+  // Convert input reduced supersky point to physical coordinates
+  PulsarDopplerParams XLAL_INIT_DECL(phys);
+  XLAL_CHECK( XLALConvertSuperskyToPhysicalPoint( &phys, in_rssky, in_rssky_transf ) == XLAL_SUCCESS, XLAL_EINVAL );
+
+  // Convert physical point to output reduced supersky coordinates
+  XLAL_CHECK( XLALConvertPhysicalToSuperskyPoint( out_rssky, &phys, out_rssky_transf ) == XLAL_SUCCESS, XLAL_EINVAL );
+
+  return XLAL_SUCCESS;
+
+}
+
 int XLALConvertPhysicalToSuperskyPoints(
   gsl_matrix **out_rssky,
   const gsl_matrix *in_phys,
@@ -1963,7 +1988,7 @@ int XLALSuperskyLatticePulsarSpinRange(
   for (size_t s = 0; s <= smax; ++s) {
     const LatticeTilingStats *stats = XLALLatticeTilingStatistics(tiling, RSSKY_FKDOT_DIM(s));
     XLAL_CHECK(stats != NULL, XLAL_EFUNC);
-    fkdotMax[s] += stats->max_value_pass - stats->min_value_pass;
+    fkdotMax[s] += stats->max_value - stats->min_value;
   }
 
   // Initialise 'spin_range' to zero

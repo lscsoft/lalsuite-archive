@@ -136,7 +136,8 @@ void read_pulsar_data( LALInferenceRunState *runState ){
   runState->data = NULL;
 
   /* Initialize the model, as it will hold IFO params and signal buffers */
-  runState->model = XLALMalloc(sizeof(LALInferenceModel));
+  /* single thread */
+  runState->threads[0]->model = XLALMalloc(sizeof(LALInferenceModel));
 
   /* timing values */
   struct timeval time1, time2;
@@ -377,8 +378,8 @@ number of detectors specified (no. dets =%d)\n", ml, ml, numDets);
     exit(0);
   }
 
-  runState->model->ifo_loglikelihoods = XLALMalloc( sizeof(REAL8)*ml*numDets );
-  runState->model->ifo_SNRs = XLALMalloc( sizeof(REAL8)*ml*numDets );
+  runState->threads[0]->model->ifo_loglikelihoods = XLALMalloc( sizeof(REAL8)*ml*numDets );
+  runState->threads[0]->model->ifo_SNRs = XLALMalloc( sizeof(REAL8)*ml*numDets );
 
   UINT4 nstreams = ml*numDets;
   LALInferenceAddVariable( runState->algorithmParams, "numstreams", &nstreams, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED );
@@ -483,7 +484,7 @@ detectors specified (no. dets =%d)\n", ml, ml, numDets);
 
     if( i == 0 ) {
         runState->data = ifodata;
-        runState->model->ifo = ifomodel;
+        runState->threads[0]->model->ifo = ifomodel;
     }
     if( i > 0 ) {
         prev->next = ifodata;
@@ -561,6 +562,8 @@ detectors specified (no. dets =%d)\n", ml, ml, numDets);
             fprintf(stderr, "Error... unrecognised number of values in first line of data file %s.\n", datafile);
             exit(3);
           }
+          /* ignore excessively large spurious values as they can screw things up */
+          if ( fabs(dataValsRe) > 1e-18 || fabs(dataValsIm) > 1e-18 ){ continue; }
         }
         j++;
 
@@ -627,7 +630,11 @@ detectors specified (no. dets =%d)\n", ml, ml, numDets);
       /* check whether to randomise the data by shuffling the time stamps (this will preserve the order of
        * the data for working out stationary chunk, but randomise the signal) */
       if ( LALInferenceGetProcParamVal( commandLine, "--randomise" ) ){
-        gsl_ran_shuffle( runState->GSLrandom, &ifomodel->times->data[0], (size_t)datalength, sizeof(LIGOTimeGPS) );
+        INT4 randshufseed = atoi(LALInferenceGetProcParamVal( commandLine, "--randomise" )->value);
+        INT4 prevseed = gsl_rng_get( runState->GSLrandom );  // get previous RNG value
+        gsl_rng_set( runState->GSLrandom, randshufseed ); // set to value from randomise
+        gsl_ran_shuffle( runState->GSLrandom, &ifomodel->times->data[0], (size_t)datalength, sizeof(LIGOTimeGPS) ); // shuffle data times
+        gsl_rng_set( runState->GSLrandom, prevseed );     // reset to previous value
       }
 
       /* add data sample interval */
@@ -759,7 +766,7 @@ detectors specified (no. dets =%d)\n", ml, ml, numDets);
   else { chunkMax = CHUNKMAX; } /* default maximum chunk length */
 
   LALInferenceIFOData *datatmp = runState->data;
-  LALInferenceIFOModel *modeltmp = runState->model->ifo;
+  LALInferenceIFOModel *modeltmp = runState->threads[0]->model->ifo;
   while ( modeltmp ){
     UINT4Vector *chunkLength = NULL;
 
@@ -920,25 +927,25 @@ void setup_from_par_file( LALInferenceRunState *runState )
   /* Setup lookup tables for amplitudes */
   setup_lookup_tables( runState, &psr );
 
-  runState->model->params = XLALCalloc( 1, sizeof(LALInferenceVariables) );
-  runState->model->domain = LAL_SIM_DOMAIN_TIME;
+  runState->threads[0]->model->params = XLALCalloc( 1, sizeof(LALInferenceVariables) );
+  runState->threads[0]->model->domain = LAL_SIM_DOMAIN_TIME;
 
-  runState->currentParams = XLALCalloc( 1, sizeof(LALInferenceVariables) );
+  runState->threads[0]->currentParams = XLALCalloc( 1, sizeof(LALInferenceVariables) );
 
   /* Add initial (unchanging) variables for the model from the par file */
-  add_initial_variables( runState->currentParams, pulsar );
+  add_initial_variables( runState->threads[0]->currentParams, pulsar );
 
   /* check for binary model */
   CHAR *binarymodel = NULL;
-  if ( LALInferenceCheckVariable( runState->currentParams, "BINARY") ){
-    binarymodel = XLALStringDuplicate(*(CHAR**)LALInferenceGetVariable( runState->currentParams, "BINARY" ));
+  if ( LALInferenceCheckVariable( runState->threads[0]->currentParams, "BINARY") ){
+    binarymodel = XLALStringDuplicate(*(CHAR**)LALInferenceGetVariable( runState->threads[0]->currentParams, "BINARY" ));
 
     /* now remove from runState->params (as it conflict with calls to LALInferenceCompareVariables in the proposal) */
-    LALInferenceRemoveVariable( runState->currentParams, "BINARY" );
+    LALInferenceRemoveVariable( runState->threads[0]->currentParams, "BINARY" );
   }
 
   /* Setup initial phase, and barycentring delays */
-  LALInferenceIFOModel *ifo_model = runState->model->ifo;
+  LALInferenceIFOModel *ifo_model = runState->threads[0]->model->ifo;
   while( data ){
     REAL8Vector *freqFactors = NULL;
     UINT4 j = 0;
@@ -952,12 +959,12 @@ void setup_from_par_file( LALInferenceRunState *runState )
       UINT4 i = 0;
       REAL8Vector *dts = NULL, *bdts = NULL;
 
-      /* check whether using original Jones (2010) signal model or a biaxial model (in the amplitude/phase parameterisation) */
+      /* check whether using original Jones (2010) signal source model or a biaxial model (in the amplitude/phase parameterisation) */
       if ( freqFactors->length == 2 ){
         UINT4 dummyvar = 1;
 
-        if ( LALInferenceGetProcParamVal( runState->commandLine, "--jones-model" ) ){
-          LALInferenceAddVariable( ifo_model->params, "jones-model", &dummyvar, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED );
+        if ( LALInferenceGetProcParamVal( runState->commandLine, "--source-model" ) ){
+          LALInferenceAddVariable( ifo_model->params, "source_model", &dummyvar, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED );
         }
         else if ( LALInferenceGetProcParamVal( runState->commandLine, "--biaxial" ) ){
           LALInferenceAddVariable( ifo_model->params, "biaxial", &dummyvar, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED );
@@ -989,7 +996,7 @@ void setup_from_par_file( LALInferenceRunState *runState )
 
   /* set frequency bin step from longest data time span */
   REAL8 df = 1./(2.*DeltaT);
-  LALInferenceAddVariable( runState->currentParams, "df", &df, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED );
+  LALInferenceAddVariable( runState->threads[0]->currentParams, "df", &df, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED );
 
   return;
 }
@@ -1133,8 +1140,8 @@ void samples_prior( LALInferenceRunState *runState ){
            and par file, otherwise set the parameter to fixed */
         LALInferenceParamVaryType vary;
 
-        if ( LALInferenceCheckVariable( runState->currentParams, paramNames->data[j] ) ){
-          vary = LALInferenceGetVariableVaryType( runState->currentParams, paramNames->data[j] );
+        if ( LALInferenceCheckVariable( runState->threads[0]->currentParams, paramNames->data[j] ) ){
+          vary = LALInferenceGetVariableVaryType( runState->threads[0]->currentParams, paramNames->data[j] );
         }
         else { vary = LALINFERENCE_PARAM_FIXED; }
 
