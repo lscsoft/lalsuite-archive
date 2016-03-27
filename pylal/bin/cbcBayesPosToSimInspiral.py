@@ -236,14 +236,21 @@ if __name__ == "__main__":
         inclination = theta_jn
 
     print s1x.shape
-    # Check if f_low is a parameter, if not take from command line options
-    try:
-        flow = samples['flow']
-    except ValueError:
-        if opts.flow:
-            flow = [opts.flow for i in xrange(N)]
-        else:
+    # Check if f_low is given on the command line. If not, try to take if from 'samples'.
+    if opts.flow is None:
+        try:
+            flow = samples['flow']
+        except:
             raise ValueError("No f_low found in input file or command line arguments.")
+    else:
+        try:
+            samples['flow']
+        except:
+            pass
+        else:  # executed if no exception is raised
+            print('f_low given in both input file and command line.'
+                  ' Using command line argument: %r' % opts.flow)
+        flow = [opts.flow for i in xrange(N)]
 
     # Populate structured array
     injections['waveform'] = [opts.approx for i in xrange(N)]
