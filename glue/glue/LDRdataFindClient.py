@@ -442,7 +442,7 @@ class LDRdataFindClient(object):
                 if not mytype:
                         msg = "A frame type, --type, must be specified."
                         raise LSCdataFindClientException(msg)
-                if long(end) < long(start):
+                if int(end) < int(start):
                         msg = "Supplied start time, %s, is later than supplied end time, %s" % (start,end)
                         raise LSCdataFindClientException(msg)
 
@@ -822,7 +822,7 @@ be present when searching for groups of files
                 self.__check_gps(start)
                 self.__check_gps(end)
                 
-                if long(end) < long(start):
+                if int(end) < int(start):
                         msg = "Supplied start time, %s, is later than supplied end time, %s" % (start,end)
                         raise LSCdataFindClientException(msg)
 
@@ -885,7 +885,7 @@ be present when searching for groups of files
                 self.__check_gps(start)
                 self.__check_gps(end)
                 
-                if long(end) < long(start):
+                if int(end) < int(start):
                         msg = "Supplied start time, %s, is later than supplied end time, %s" % (start,end)
                         raise LSCdataFindClientException(msg)
                 q1 = LDRMetadataQuery()
@@ -954,7 +954,7 @@ be present when searching for groups of files
                 self.__check_gps(start)
                 self.__check_gps(end)
 
-                if long(end) < long(start):
+                if int(end) < int(start):
                         msg = "Supplied start time, %s, is later than supplied end time, %s" % (start,end)
                         raise LSCdataFindClientException(msg)
 

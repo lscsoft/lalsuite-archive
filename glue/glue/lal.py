@@ -37,6 +37,10 @@ import sys
 import urlparse
 import warnings
 
+try:  # python < 3
+    long
+except NameError:  # python >= 3
+    long = int
 
 from glue import git_version
 from glue import segments
@@ -93,7 +97,7 @@ class LIGOTimeGPS(object):
 		LIGOTimeGPS(100, 500000000)
 		>>> LIGOTimeGPS(100, 500000000)
 		LIGOTimeGPS(100, 500000000)
-		>>> LIGOTimeGPS(0, 100500000000L)
+		>>> LIGOTimeGPS(0, 100500000000)
 		LIGOTimeGPS(100, 500000000)
 		>>> LIGOTimeGPS(100.2, 300000000)
 		LIGOTimeGPS(100, 500000000)
@@ -207,9 +211,9 @@ class LIGOTimeGPS(object):
 		Example:
 
 		>>> LIGOTimeGPS(100.5).ns()
-		100500000000L
+		100500000000
 		"""
-		return self.__seconds * 1000000000L + self.__nanoseconds
+		return self.__seconds * 1000000000 + self.__nanoseconds
 
 	# comparison
 
