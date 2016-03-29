@@ -112,17 +112,17 @@ class LIGOTimeGPS(object):
 		>>> LIGOTimeGPS("-1.2")
 		LIGOTimeGPS(-2, 800000000)
 		"""
-		if type(nanoseconds) not in (float, int, long):
+		if not isinstance(nanoseconds, (float, int, long)):
 			try:
 				nanoseconds = float(nanoseconds)
 			except:
 				raise TypeError(nanoseconds)
-		if type(seconds) is float:
+		if isinstance(seconds, float):
 			ns, seconds = math.modf(seconds)
 			seconds = int(seconds)
 			nanoseconds += ns * 1e9
-		elif type(seconds) not in (int, long):
-			if type(seconds) in (str, unicode):
+		elif not isinstance(seconds, (int, long)):
+			if isinstance(seconds, (str, unicode)):
 				sign = -1 if seconds.lstrip().startswith("-") else +1
 				try:
 					if "." in seconds:
@@ -235,7 +235,7 @@ class LIGOTimeGPS(object):
 		>>> LIGOTimeGPS(100.5) < "200"
 		True
 		"""
-		if not type(other) == LIGOTimeGPS:
+		if not isinstance(other, LIGOTimeGPS):
 			try:
 				other = LIGOTimeGPS(other)
 			except TypeError:
@@ -270,7 +270,7 @@ class LIGOTimeGPS(object):
 		>>> LIGOTimeGPS(100.5) + "3"
 		LIGOTimeGPS(103, 500000000)
 		"""
-		if not type(other) == LIGOTimeGPS:
+		if not isinstance(other, LIGOTimeGPS):
 			other = LIGOTimeGPS(other)
 		return LIGOTimeGPS(self.__seconds + other.seconds, self.__nanoseconds + other.nanoseconds)
 
@@ -292,7 +292,7 @@ class LIGOTimeGPS(object):
 		>>> LIGOTimeGPS(100.5) - "3"
 		LIGOTimeGPS(97, 500000000)
 		"""
-		if not type(other) == LIGOTimeGPS:
+		if not isinstance(other, LIGOTimeGPS):
 			other = LIGOTimeGPS(other)
 		return LIGOTimeGPS(self.__seconds - other.seconds, self.__nanoseconds - other.nanoseconds)
 
@@ -300,7 +300,7 @@ class LIGOTimeGPS(object):
 		"""
 		Subtract a LIGOTimeGPS from a value.
 		"""
-		if not type(other) == LIGOTimeGPS:
+		if not isinstance(other, LIGOTimeGPS):
 			other = LIGOTimeGPS(other)
 		return LIGOTimeGPS(other.seconds - self.__seconds, other.nanoseconds - self.__nanoseconds)
 
@@ -556,7 +556,7 @@ class CacheEntry(object):
 		Compare two CacheEntry objects by observatory, then
 		description, then segment, then URL.
 		"""
-		if type(other) != CacheEntry:
+		if not isinstance(other, CacheEntry):
 			raise TypeError("can only compare CacheEntry to CacheEntry")
 		return cmp((self.observatory, self.description, self.segment, self.url), (other.observatory, other.description, other.segment, other.url))
 
