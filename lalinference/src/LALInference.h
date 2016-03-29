@@ -614,9 +614,14 @@ tagLALInferenceROQModel
 typedef struct
 tagLALInferencePCsModel
 {
-    INT4 nPCs; /** Number of PCs to use */
-    const gsl_matrix_complex *pcs_plus; /** Principle component matrix for hplus */
-    const gsl_matrix_complex *pcs_cross; /** Principle component matrix for hplus */
+  INT4 nPCs;
+  INT4 nAmpPCs; /** Number of PCs to use */
+  INT4 nPhasePCs; /** Number of PCs to use */
+  const gsl_matrix_complex *pcs_plus;   /** Principle component matrix for complex H freqseries*/
+  const gsl_matrix_complex *pcs_cross;  /** Principle component matrix for complex H freqseries*/
+  const gsl_matrix_complex *td_pcs;  /** Principle component matrix for complex h timeseries*/
+  const gsl_matrix *amp_pcs;    /** Principle component matrix for td amplitudes */
+  const gsl_matrix *phase_pcs;  /** Principle component matrix for td phases*/
 } LALInferencePCsModel;
 
 /** Returns the element of the process params table with "name" */
@@ -1021,6 +1026,11 @@ void LALInferenceSetstringVariable(LALInferenceVariables* vars,const char* name,
 gsl_matrix_complex* get_complex_matrix_from_file(const char *file_name, int M, int N);
 
 gsl_matrix_complex* copy_npcs_from_complex_matrix(gsl_matrix_complex *input_matrix, int nPCs_max, int nPCs, int nrows, int ncols);
+
+gsl_matrix* get_matrix_from_file(const char *file_name, int M, int N);
+
+gsl_matrix* copy_npcs_from_matrix(gsl_matrix *input_matrix, int nPCs_max, int nPCs, int nrows, int ncols);
+
 /**
  * Print spline calibration parameter names as tab-separated ASCII
  */

@@ -3664,6 +3664,52 @@ gsl_matrix_complex* copy_npcs_from_complex_matrix(gsl_matrix_complex *input_matr
     return output_matrix;
 }
 
+gsl_matrix* get_matrix_from_file(const char *file_name, int M, int N){
+ 
+	FILE *fp;
+ 
+	gsl_matrix *matrix_from_file = gsl_matrix_calloc(M, N);
+	fp = fopen(file_name, "rb");
+ 
+        if ( fp == NULL ){
+           fprintf(stderr, "Error... cannot open file containing PCs\n");
+           exit(1);
+        }
+
+	gsl_matrix_fread(fp, matrix_from_file); //NOTE: matrix_from_file must be in binary format
+	fprintf(stderr, "read in matrix\n");
+
+	fclose(fp);
+
+	return matrix_from_file;	
+}
+
+
+gsl_matrix* copy_npcs_from_matrix(gsl_matrix *input_matrix, int nPCs_max, int nPCs, int nrows, int ncols){
+
+    int i, j;
+
+    if (nPCs+1>nrows){
+        /* Remember that the first row contains the mean; PCs come after! */
+        fprintf(stderr, "Error... cannot copy %d PCs from %dx%d matrix\n", nPCs, nrows, ncols);
+        exit(1);
+    }
+    if (nPCs>nPCs_max){
+        fprintf(stderr, "Error... cannot copy %d PCs into %dx%d matrix\n", nPCs, nrows, nPCs_max);
+        exit(1);
+    }
+
+    gsl_matrix *output_matrix = gsl_matrix_calloc(nPCs_max, ncols);
+    for (i = 0; i<nPCs+1; i++){
+        /* Remember that the first row contains the mean; PCs come after! */
+        for (j=0; j<ncols; j++){
+            gsl_matrix_set(output_matrix, i, j, gsl_matrix_get(input_matrix, i, j));
+        }
+    }
+ 
+    gsl_matrix_free(input_matrix);
+    return output_matrix;
+ }
 
 
 
