@@ -24,6 +24,7 @@
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_odeiv.h>
+#include <gsl/gsl_integration.h>
 
 #include <lal/SphericalHarmonics.h>
 #include <lal/LALSimInspiral.h>
@@ -1399,6 +1400,8 @@ int XLALSimInspiralChooseFDWaveform(
     if (nonGRparams!=NULL) {
       if (XLALSimInspiralTestGRParamExists(nonGRparams, "loglambda_g")) ret = XLALSimMassiveGravitonDispersionEffect(hptilde, hctilde, m1/LAL_MSUN_SI, m2/LAL_MSUN_SI, r, pow(10, XLALSimInspiralGetTestGRParam(nonGRparams, "loglambda_g")));
       else if (XLALSimInspiralTestGRParamExists(nonGRparams, "lambda_g")) ret = XLALSimMassiveGravitonDispersionEffect(hptilde, hctilde, m1/LAL_MSUN_SI, m2/LAL_MSUN_SI, r, XLALSimInspiralGetTestGRParam(nonGRparams, "lambda_g"));
+      else if (XLALSimInspiralTestGRParamExists(nonGRparams, "loglambda_a_eff")) ret = XLALSimLorentzInvarianceViolationTerm(hptilde, hctilde, m1/LAL_MSUN_SI, m2/LAL_MSUN_SI, r, pow(10, XLALSimInspiralGetTestGRParam(nonGRparams, "loglambda_a_eff")), XLALSimInspiralGetTestGRParam(nonGRparams, "nonGR_alpha")); 
+      else if (XLALSimInspiralTestGRParamExists(nonGRparams, "lambda_a_eff")) ret = XLALSimLorentzInvarianceViolationTerm(hptilde, hctilde, m1/LAL_MSUN_SI, m2/LAL_MSUN_SI,  r, XLALSimInspiralGetTestGRParam(nonGRparams, "lambda_a_eff"), XLALSimInspiralGetTestGRParam(nonGRparams, "nonGR_alpha")); 
       if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);	
     }
     return ret;
@@ -4470,7 +4473,7 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
       XLAL_ERROR(XLAL_EINVAL);
     }
   return testGR_accept;
-};
+}
 
 int XLALSimMassiveGravitonDispersionEffect(
 					   COMPLEX16FrequencySeries **hptilde, /**< Frequency-domain waveform h+ */
@@ -4515,8 +4518,112 @@ int XLALSimMassiveGravitonDispersionEffect(
     (*hctilde)->data->data[i] = hcross;
   }
   return XLAL_SUCCESS;
-};
+}
 
+/* Started to make changes to include Lorentz invariance violation terms */
+
+
+/*REAL8 XLALDistanceAlphaIntegrand(
+                       	          REAL8 zp, 
+                                  void *paramsDAlpha) 
+{
+  dAlphaPars *dpars = (dAlphaPars *)paramsDAlpha;
+  //double Omega_m = dpars->Omega_m;
+  //double Omega_lambda = dpars->Omega_lambda;
+  //REAL8 nonGRalpha = dpars->nonGR_alpha;
+  return pow((1.0+zp), dpars->nonGR_alpha-2.0)/sqrt(dpars->Omega_m*pow((1.0+zp),3.0) + dpars->Omega_lambda);
+}
+REAL8 XLALDistanceMeasureLIV(
+                              REAL8 z,
+                              REAL8 nonGR_alpha
+                             )
+{
+  const REAL8 epsabs = 1e-8;
+  const REAL8 epsrel = 1e-8;
+  const size_t wsSize = 10000;
+  const REAL8 h = 0.7;
+  const REAL8 H0 = h*100e3*pow(1e6*LAL_PC_SI,-1.0);
+  double result, error;
+
+  gsl_integration_workspace *wsInt = gsl_integration_workspace_alloc (wsSize);
+  dAlphaPars dpars;
+  dpars.Omega_m=0.3;
+  dpars.Omega_lambda=0.7;
+  dpars.nonGR_alpha=nonGR_alpha;// ={0.3, 0.7, 3};
+
+  gsl_function F;
+  F.function = &XLALDistanceAlphaIntegrand;
+  F.params =  &dpars;
+  gsl_integration_qags (&F, 0, z, epsabs, epsrel, 1000,
+                        wsInt, &result, &error);
+  result *= LAL_C_SI*(1.0+z)/H0;
+  result /= (1e6*LAL_PC_SI);
+
+  gsl_integration_workspace_free (wsInt);
+  return result;
+}*/
+
+int XLALSimLorentzInvarianceViolationTerm(
+					  COMPLEX16FrequencySeries **hptilde, /**< Frequency-domain waveform h+ */
+					  COMPLEX16FrequencySeries **hctilde, /**< Frequency-domain waveform hx */
+					  REAL8 m1,                           /**< Mass 1 in solar masses */
+					  REAL8 m2,                           /**< Mass 2 in solar masses */
+                                          REAL8 r,
+					  REAL8 lambda_a_eff,                      /**< */
+                                          REAL8 nonGR_alpha                  /**< Exponent defined in terms of PN order? */
+					  ) 
+{
+  REAL8 f0, f, df;
+  COMPLEX16 hplus, hcross;
+  REAL8 M, eta, zeta, dPhiPref;
+  UINT4 len, i;
+  M = m1+m2;
+  eta = m1*m2/(M*M);
+  if (nonGR_alpha == 1) {
+    zeta = LAL_PI*r*r*lambda_a_eff;
+    dPhiPref = zeta*log(LAL_PI*M*LAL_MTSUN_SI*pow(eta, 0.6));
+  }
+  else {
+    zeta = pow(LAL_PI, (2. - nonGR_alpha))*pow(M*LAL_MRSUN_SI*pow(eta, 0.6), (1. - nonGR_alpha))/((1. - nonGR_alpha)*pow(lambda_a_eff, (2. - nonGR_alpha)));
+    dPhiPref = zeta/(pow(LAL_PI*M*LAL_MTSUN_SI*pow(eta, 0.6), (1. - nonGR_alpha)));
+  }
+
+  len = (*hptilde)->data->length;
+  if ((*hctilde)->data->length != len) {
+    XLALPrintError("Lengths of plus and cross polarization series do not agree \n");
+    XLAL_ERROR(XLAL_EBADLEN);
+  }
+
+  f0 = (*hptilde)->f0;
+  if ((*hctilde)->f0 != f0) {
+    XLALPrintError("Starting frequencies of plus and cross polarization series do not agree \n");
+    XLAL_ERROR(XLAL_EINVAL);
+  }
+  df = (*hptilde)->deltaF;
+  if ((*hctilde)->deltaF != df) {
+    XLALPrintError("Frequency steps of plus and cross polarization series do not agree \n");
+    XLAL_ERROR(XLAL_EINVAL);
+  }
+
+  for (i=0; i<len; i++) {
+    f = f0 + i*df;
+    if (nonGR_alpha == 1) {
+      hplus = (*hptilde)->data->data[i] * cexp(I*(dPhiPref + log(f)));
+      (*hptilde)->data->data[i] = hplus;
+      hcross = (*hctilde)->data->data[i] * cexp(I*(dPhiPref + log(f))) ;
+      (*hctilde)->data->data[i] = hcross;
+    }
+    else {
+      hplus = (*hptilde)->data->data[i] * cexp(-I*dPhiPref/pow(f, (1. - nonGR_alpha)));
+      (*hptilde)->data->data[i] = hplus;
+      hcross = (*hctilde)->data->data[i] * cexp(-I*dPhiPref/pow(f, (1. - nonGR_alpha)));
+      (*hctilde)->data->data[i] = hcross;
+    }
+  }
+  return XLAL_SUCCESS;
+}
+
+/* Changes made till this point for including Lorentz invariace violation effects */
 /** @} */
 
 /**
