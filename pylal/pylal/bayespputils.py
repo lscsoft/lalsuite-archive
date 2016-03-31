@@ -55,6 +55,7 @@ from scipy import special
 from scipy import signal
 from scipy.optimize import newton
 from scipy import interpolate
+from scipy import integrate
 from numpy import linspace
 import random
 import socket
@@ -106,7 +107,7 @@ __date__= git_version.date
 # Constants
 #===============================================================================
 #Parameters which are not to be exponentiated when found
-logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior','loglambda_g','loggraviton_mass','loggraviton_lambda']
+logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior','loglambda_g','loggraviton_mass','loggraviton_lambda','loglambda_a_eff','loglambda_a']
 #Parameters known to cbcBPP
 relativePhaseParams=[ a+b+'_relative_phase' for a,b in combinations(['h1','l1','v1'],2)]
 snrParams=['snr','optimal_snr','matched_filter_snr'] + ['%s_optimal_snr'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_amp'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_arg'%(i) for i in ['h1', 'l1', 'v1']] + relativePhaseParams
@@ -127,8 +128,9 @@ ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB',
 tigerParams=['dchi%i'%(i) for i in range(7)] + ['dchi%il'%(i) for i in [5,6] ] + ['dxi%d'%(i+1) for i in range(6)] + ['dalpha%i'%(i+1) for i in range(5)] + ['dbeta%i'%(i+1) for i in range(3)] + ['dsigma%i'%(i+1) for i in range(4)]
 bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
 massiveGravitonParams=['loglambda_g','lambda_g','graviton_mass','graviton_lambda','loggraviton_mass','loggraviton_lambda']
+lorentzInvarianceViolationParams=['loglambda_a','lambda_a','loglambda_a_eff','lambda_a_eff']
 tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat']
-strongFieldParams=ppEParams+tigerParams+bransDickeParams+massiveGravitonParams+tidalParams
+strongFieldParams=ppEParams+tigerParams+bransDickeParams+massiveGravitonParams+tidalParams+lorentzInvarianceViolationParams
 
 #Extrinsic
 distParams=['distance','distMPC','dist']
@@ -153,7 +155,7 @@ for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v
   greedyBinSizes[derived_time]=greedyBinSizes['time']
 for derived_phase in relativePhaseParams:
   greedyBinSizes[derived_phase]=0.05
-for param in tigerParams + bransDickeParams + massiveGravitonParams:
+for param in tigerParams + bransDickeParams + massiveGravitonParams + lorentzInvarianceViolationParams:
   greedyBinSizes[param]=0.01
 for param in tidalParams:
   greedyBinSizes[param]=2.5
@@ -458,6 +460,7 @@ def plot_label(param):
       'graviton_mass':r'$m_g\,[\mathrm{eV}]$',
       'loggraviton_lambda':r'$\log\lambda_g\,[\mathrm{m}]$',
       'loggraviton_mass':r'$\log m_g\,[\mathrm{eV}]$',
+      'loglambda_a':r'$\log\lambda_a [\mathrm{m}]$'
     }
   print param
   # Handle cases where multiple names have been used
