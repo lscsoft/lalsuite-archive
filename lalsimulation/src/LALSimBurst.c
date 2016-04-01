@@ -455,7 +455,10 @@ int XLALGenerateBurstFromFile(
         //XLALSimInspiralPolarizationsFromSphHarmTimeSeries(hplus, hcross, ts, incl, psi);
         *hplus = NULL;
         *hcross = NULL;
-        XLALSimInspiralPolarizationsFromSphHarmTimeSeries(hplus, hcross, ts, 1.5707963267948966, 0);
+	printf("%f", incl);
+	printf("%f", psi);
+	
+        XLALSimInspiralPolarizationsFromSphHarmTimeSeries(hplus, hcross, ts, incl, psi);
         XLALDestroyCOMPLEX16TimeSeries(tmp);
         XLALDestroySphHarmTimeSeries(ts);
 

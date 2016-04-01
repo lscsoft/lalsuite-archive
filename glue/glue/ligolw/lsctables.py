@@ -3170,6 +3170,8 @@ class SimBurstTable(table.Table):
 		"ra": "real_8",
 		"dec": "real_8",
 		"psi": "real_8",
+                "incl": "real_8",
+                "phi": "real_8",
 		"time_geocent_gps": "int_4s",
 		"time_geocent_gps_ns": "int_4s",
 		"time_geocent_gmst": "real_8",

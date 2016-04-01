@@ -642,6 +642,8 @@ tagSimBurst
 	REAL8 ra;
 	REAL8 dec;
 	REAL8 psi;
+        REAL8 incl;
+  REAL8 phi;
 	LIGOTimeGPS time_geocent_gps;
 	REAL8 time_geocent_gmst;
 	REAL8 duration;

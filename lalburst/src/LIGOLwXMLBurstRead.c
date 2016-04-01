@@ -202,6 +202,7 @@ SimBurst *XLALSimBurstTableFromLIGOLw(
 		int ra;
 		int dec;
 		int psi;
+                int incl;
 		int time_geocent_gps;
 		int time_geocent_gps_ns;
 		int time_geocent_gmst;
