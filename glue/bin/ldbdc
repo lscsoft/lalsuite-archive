@@ -29,7 +29,7 @@ import re
 
 try:
   from glue.segmentdb import segmentdb_utils
-except ImportError, e:
+except ImportError as e:
   print >> sys.stderr, """
 Error: unable to import modules from glue.
 
@@ -191,7 +191,7 @@ try:
     fh.write(myClient.query(squery))
     fh.close()
 
-except Exception, e:
+except Exception as e:
   print >>sys.stderr, "Error querying LDBD Server: %s" % str(e)
   print >>sys.stderr, "Enter 'ldbdc --help' for usage"
   sys.exit(1)

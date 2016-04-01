@@ -211,7 +211,7 @@ def print_tables(xmldoc, output, output_format, tableList = [], columnList = [],
 
     # set the title if desired
     if title is not None:
-        print >> output, "%s%s%s" %(ttx,str(title),xtt)
+        output.write("%s%s%s\n" %(ttx,str(title),xtt))
     # cycle over the tables in the xmldoc
     for table_name in tableList:
         this_table = table.get_table(xmldoc, table_name)
@@ -229,10 +229,10 @@ def print_tables(xmldoc, output, output_format, tableList = [], columnList = [],
         break_indices = [ n for n,col in enumerate(col_names) if col in rspan_break_columns or ':'.join([table_name,col]) in rspan_break_columns ] 
 
         # start the table and print table name
-        print >> output, tx
+        output.write('%s\n' % tx)
         if print_table_names:
-            print >> output, "%s%s%s" %(capx, table_name, xcap)
-        print >> output, "%s%s%s%s%s" %(rx, cx, (xc+cx).join(format_header_cell(val) for val in col_names), xc, xr)
+            output.write("%s%s%s\n" %(capx, table_name, xcap))
+        output.write("%s%s%s%s%s\n" %(rx, cx, (xc+cx).join(format_header_cell(val) for val in col_names), xc, xr))
 
         # format the data in the table
         out_table = []
@@ -282,7 +282,7 @@ def print_tables(xmldoc, output, output_format, tableList = [], columnList = [],
 
         # print the table to output
         for row in out_table:
-            print >> output, "%s%s%s" % (rx, ''.join(row), xr)
+            output.write("%s%s%s\n" % (rx, ''.join(row), xr))
 
         # close the table and go on to the next
-        print >> output, xt
+        output.write('%s\n' % xt)

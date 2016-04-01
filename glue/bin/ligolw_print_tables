@@ -115,7 +115,7 @@ def parse_command_line():
     (options, filenames) = parser.parse_args()
 
     if not options.output_format:
-        raise ValueError, "--output-format is a required option"
+        raise ValueError("--output-format is a required option")
 
     return options, filenames
 
