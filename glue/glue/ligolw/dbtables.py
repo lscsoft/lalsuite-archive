@@ -213,7 +213,7 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 			# hang onto reference to prevent its removal
 			temporary_files[filename] = temporary_file
 		if verbose:
-			print >>sys.stderr, "using '%s' as workspace" % filename
+			sys.stderr.write("using '%s' as workspace\n" % filename)
 		# mkstemp() ignores umask, creates all files accessible
 		# only by owner;  we should respect umask.  note that
 		# os.umask() sets it, too, so we have to set it back after
@@ -225,23 +225,23 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 
 	def truncate(filename, verbose = False):
 		if verbose:
-			print >>sys.stderr, "'%s' exists, truncating ..." % filename,
+			sys.stderr.write("'%s' exists, truncating ... " % filename)
 		try:
 			fd = os.open(filename, os.O_WRONLY | os.O_TRUNC)
 		except Exception as e:
 			if verbose:
-				print >>sys.stderr, "cannot truncate '%s': %s" % (filename, str(e))
+				sys.stderr.write("cannot truncate '%s': %s\n" % (filename, str(e)))
 			return
 		os.close(fd)
 		if verbose:
-			print >>sys.stderr, "done."
+			sys.stderr.write("done.\n")
 
 	def cpy(srcname, dstname, verbose = False):
 		if verbose:
-			print >>sys.stderr, "copying '%s' to '%s' ..." % (srcname, dstname),
+			sys.stderr.write("copying '%s' to '%s' ... " % (srcname, dstname))
 		shutil.copy2(srcname, dstname)
 		if verbose:
-			print >>sys.stderr, "done."
+			sys.stderr.write("done.\n")
 		try:
 			# try to preserve permission bits.  according to
 			# the documentation, copy() and copy2() are
@@ -251,7 +251,7 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 			shutil.copystat(srcname, dstname)
 		except Exception as e:
 			if verbose:
-				print >>sys.stderr, "warning: ignoring failure to copy permission bits from '%s' to '%s': %s" % (filename, target, str(e))
+				sys.stderr.write("warning: ignoring failure to copy permission bits from '%s' to '%s': %s\n" % (filename, target, str(e)))
 
 	database_exists = os.access(filename, os.F_OK)
 
@@ -282,12 +282,12 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 							raise
 						if i < 5:
 							if verbose:
-								print >>sys.stderr, "warning: attempt %d: %s, sleeping and trying again ..." % (i, errno.errorcode[e.errno])
+								sys.stderr.write("warning: attempt %d: %s, sleeping and trying again ...\n" % (i, errno.errorcode[e.errno]))
 							time.sleep(10)
 							i += 1
 							continue
 						if verbose:
-							print >>sys.stderr, "warning: attempt %d: %s: working with original file '%s'" % (i, errno.errorcode[e.errno], filename)
+							sys.stderr.write("warning: attempt %d: %s: working with original file '%s'\n" % (i, errno.errorcode[e.errno], filename))
 						with temporary_files_lock:
 							del temporary_files[target]
 						target = filename
@@ -314,12 +314,12 @@ def set_temp_store_directory(connection, temp_store_directory, verbose = False):
 	if temp_store_directory == "_CONDOR_SCRATCH_DIR":
 		temp_store_directory = os.getenv("_CONDOR_SCRATCH_DIR")
 	if verbose:
-		print >>sys.stderr, "setting the temp_store_directory to %s ..." % temp_store_directory,
+		sys.stderr.write("setting the temp_store_directory to %s ... " % temp_store_directory)
 	cursor = connection.cursor()
 	cursor.execute("PRAGMA temp_store_directory = '%s'" % temp_store_directory)
 	cursor.close()
 	if verbose:
-		print >>sys.stderr, "done"
+		sys.stderr.write("done\n")
 
 
 def put_connection_filename(filename, working_filename, verbose = False):
@@ -353,10 +353,10 @@ def put_connection_filename(filename, working_filename, verbose = False):
 
 		# replace document
 		if verbose:
-			print >>sys.stderr, "moving '%s' to '%s' ..." % (working_filename, filename),
+			sys.stderr.write("moving '%s' to '%s' ... " % (working_filename, filename))
 		shutil.move(working_filename, filename)
 		if verbose:
-			print >>sys.stderr, "done."
+			sys.stderr.write("done.\n")
 
 		# remove reference to tempfile.TemporaryFile object.
 		# because we've just deleted the file above, this would
@@ -403,11 +403,11 @@ def discard_connection_filename(filename, working_filename, verbose = False):
 		return
 	with temporary_files_lock:
 		if verbose:
-			print >>sys.stderr, "removing '%s' ..." % working_filename,
+			sys.stderr.write("removing '%s' ... " % working_filename)
 		# remove reference to tempfile.TemporaryFile object
 		del temporary_files[working_filename]
 		if verbose:
-			print >>sys.stderr, "done."
+			sys.stderr.write("done.")
 		# if there are no more temporary files in place, remove the
 		# temporary-file signal traps
 		if not temporary_files:
@@ -968,7 +968,7 @@ def build_indexes(connection, verbose = False):
 			continue
 		if how_to_index is not None:
 			if verbose:
-				print >>sys.stderr, "indexing %s table ..." % table_name
+				sys.stderr.write("indexing %s table ...\n" % table_name)
 			for index_name, cols in how_to_index.iteritems():
 				cursor.execute("CREATE INDEX IF NOT EXISTS %s ON %s (%s)" % (index_name, table_name, ",".join(cols)))
 	connection.commit()
