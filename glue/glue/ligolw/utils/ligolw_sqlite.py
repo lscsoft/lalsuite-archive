@@ -97,10 +97,10 @@ def update_ids(connection, xmldoc, verbose = False):
 	table_elems = xmldoc.getElementsByTagName(ligolw.Table.tagName)
 	for i, tbl in enumerate(table_elems):
 		if verbose:
-			print >>sys.stderr, "updating IDs: %d%%\r" % (100.0 * i / len(table_elems)),
+			sys.stderr.write("updating IDs: %d%%\r" % (100.0 * i / len(table_elems)))
 		tbl.applyKeyMapping()
 	if verbose:
-		print >>sys.stderr, "updating IDs: 100%"
+		sys.stderr.write("updating IDs: 100%\n")
 
 	# reset ID mapping for next document
 	dbtables.idmap_reset(connection)
@@ -283,7 +283,7 @@ def insert_from_urls(urls, contenthandler, **kwargs):
 
 	for n, url in enumerate(urls, 1):
 		if verbose:
-			print >>sys.stderr, "%d/%d:" % (n, len(urls)),
+			sys.stderr.write("%d/%d:" % (n, len(urls)))
 		insert_from_url(url, contenthandler = contenthandler, **kwargs)
 
 	#

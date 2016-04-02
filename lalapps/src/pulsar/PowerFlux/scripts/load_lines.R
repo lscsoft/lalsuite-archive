@@ -5,6 +5,10 @@ p<-function(...) {
 	return(paste(..., sep=""))
 	}
 
+sft_length<-as.numeric(read.table(pipe("grep 'SFT coherence time' 0/*/powerflux.log"), header=FALSE, sep=":")[1,2])
+if(is.na(sft_length))sft_length<-1800.0
+cat("Using sft coherence length of", sft_length, "\n")
+
 source("params.R")
 
 

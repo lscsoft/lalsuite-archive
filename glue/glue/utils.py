@@ -32,7 +32,7 @@ def pid_exists(pid):
         # signal 0 is harmless and can be safely used to probe pid existence
         # faster and more unix-portable than looking in /proc
         os.kill(pid, 0)
-    except OSError, e:
+    except OSError as e:
         # "permission denied" proves existence; otherwise, no such pid
         return e.errno == errno.EPERM
     else:
@@ -50,7 +50,7 @@ Inspired by Christos Georgiou
 def mkdir_p(path):
     try:
         os.makedirs(path)
-    except OSError, exc:
+    except OSError as exc:
         if exc.errno == errno.EEXIST:
             pass
         else: raise
