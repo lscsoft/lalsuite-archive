@@ -27,8 +27,12 @@
 # metadata
 __author__ = 'Adam Mercer <adam.mercer@ligo.org>'
 
+try:  # python 3
+    LookupError
+except NameError:  # python 2
+    from exceptions import LookupError
+
 # import required system modules
-import exceptions
 import os
 import sys
 import time
@@ -56,7 +60,7 @@ class git_info(object):
     status = None
 
 # git invocation error exception handler
-class GitInvocationError(exceptions.LookupError):
+class GitInvocationError(LookupError):
   pass
 
 #
@@ -120,9 +124,8 @@ def check_call_out(command):
 
   # throw exception if process failed
   if p.returncode != 0:
-    raise GitInvocationError, 'failed to run "%s"' % " ".join(command)
-
-  return out.strip()
+    raise GitInvocationError('failed to run "%s"' % " ".join(command))
+  return out.strip().decode()
 
 #
 # git version method
@@ -243,13 +246,13 @@ if __name__ == "__main__":
 
   if options.sed_file:
     # output sed command file to stdout
-    print 's/@ID@/%s/g' % info.id
-    print 's/@DATE@/%s/g' % info.date
-    print 's/@BRANCH@/%s/g' % info.branch
-    print 's/@TAG@/%s/g' % info.tag
-    print 's/@AUTHOR@/%s/g' % info.author
-    print 's/@COMMITTER@/%s/g' % info.committer
-    print 's/@STATUS@/%s/g' % info.status
+    print('s/@ID@/%s/g' % info.id)
+    print('s/@DATE@/%s/g' % info.date)
+    print('s/@BRANCH@/%s/g' % info.branch)
+    print('s/@TAG@/%s/g' % info.tag)
+    print('s/@AUTHOR@/%s/g' % info.author)
+    print('s/@COMMITTER@/%s/g' % info.committer)
+    print('s/@STATUS@/%s/g' % info.status)
   elif options.sed:
     # generate sed command line options
     sed_cmd = ('sed',
@@ -266,8 +269,9 @@ if __name__ == "__main__":
     # FIXME: subprocess.check_call becomes available in Python 2.5
     sed_retcode = subprocess.call(sed_cmd, stdout=open(tmpfile, "w"))
     if sed_retcode:
-      raise GitInvocationError, "Failed call (modulo quoting): " \
-          + " ".join(sed_cmd) + " > " + tmpfile
+      raise GitInvocationError(
+          "Failed call (modulo quoting): %s > %s"
+          % (" ".join(sed_cmd), tmpfile))
 
     # only update vcs header if appropriate
     if os.access(dstfile, os.F_OK) and filecmp.cmp(dstfile, tmpfile):
@@ -276,12 +280,12 @@ if __name__ == "__main__":
       os.rename(tmpfile, dstfile)
   else:
     # output version info
-    print 'Id: %s' % info.id
-    print 'Date: %s' % info.date
-    print 'Branch: %s' % info.branch
-    print 'Tag: %s' % info.tag
-    print 'Author: %s' % info.author
-    print 'Committer: %s' % info.committer
-    print 'Status: %s' % info.status
+    print('Id: %s' % info.id)
+    print('Date: %s' % info.date)
+    print('Branch: %s' % info.branch)
+    print('Tag: %s' % info.tag)
+    print('Author: %s' % info.author)
+    print('Committer: %s' % info.committer)
+    print('Status: %s' % info.status)
 
 # vim: syntax=python tw=72 ts=2 et

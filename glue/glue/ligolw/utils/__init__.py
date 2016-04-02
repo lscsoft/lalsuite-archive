@@ -86,9 +86,9 @@ def sort_files_by_size(filenames, verbose = False, reverse = False):
 	"""
 	if verbose:
 		if reverse:
-			print >>sys.stderr, "sorting files from largest to smallest ..."
+			sys.stderr.write("sorting files from largest to smallest ...\n")
 		else:
-			print >>sys.stderr, "sorting files from smallest to largest ..."
+			sys.stderr.write("sorting files from smallest to largest ...\n")
 	return sorted(filenames, key = (lambda filename: os.stat(filename)[stat.ST_SIZE] if filename is not None else 0), reverse = reverse)
 
 
@@ -374,14 +374,14 @@ def load_filename(filename, verbose = False, **kwargs):
 	>>> xmldoc = load_filename("demo.xml", contenthandler = ligolw.LIGOLWContentHandler, verbose = True)
 	"""
 	if verbose:
-		print >>sys.stderr, "reading %s ..." % (("'%s'" % filename) if filename is not None else "stdin")
+		sys.stderr.write("reading %s ...\n" % (("'%s'" % filename) if filename is not None else "stdin"))
 	if filename is not None:
 		fileobj = open(filename, "rb")
 	else:
 		fileobj = sys.stdin
 	xmldoc, hexdigest = load_fileobj(fileobj, **kwargs)
 	if verbose:
-		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, (filename if filename is not None else ""))
+		sys.stderr.write("md5sum: %s  %s\n" % (hexdigest, (filename if filename is not None else "")))
 	return xmldoc
 
 
@@ -402,7 +402,7 @@ def load_url(url, verbose = False, **kwargs):
 	>>> xmldoc = load_url("file://localhost/%s/demo.xml" % getcwd(), contenthandler = ligolw.LIGOLWContentHandler, verbose = True)
 	"""
 	if verbose:
-		print >>sys.stderr, "reading %s ..." % (("'%s'" % url) if url is not None else "stdin")
+		sys.stderr.write("reading %s ...\n" % (("'%s'" % url) if url is not None else "stdin"))
 	if url is not None:
 		scheme, host, path = urlparse.urlparse(url)[:3]
 		if scheme.lower() in ("", "file") and host.lower() in ("", "localhost"):
@@ -413,7 +413,7 @@ def load_url(url, verbose = False, **kwargs):
 		fileobj = sys.stdin
 	xmldoc, hexdigest = load_fileobj(fileobj, **kwargs)
 	if verbose:
-		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, (url if url is not None else ""))
+		sys.stderr.write("md5sum: %s  %s\n" % (hexdigest, (url if url is not None else "")))
 	return xmldoc
 
 
@@ -537,7 +537,7 @@ def write_filename(xmldoc, filename, verbose = False, gz = False, with_mv = True
 	>>> write_filename(xmldoc, "demo.xml.gz", gz = True)	# doctest: +SKIP
 	"""
 	if verbose:
-		print >>sys.stderr, "writing %s ..." % (("'%s'" % filename) if filename is not None else "stdout")
+		sys.stderr.write("writing %s ...\n" % (("'%s'" % filename) if filename is not None else "stdout"))
 	if filename is None:
 		hexdigest = write_fileobj(xmldoc, sys.stdout, gz = gz, **kwargs)
 	else:
@@ -546,7 +546,7 @@ def write_filename(xmldoc, filename, verbose = False, gz = False, with_mv = True
 		with open(filename) if not with_mv else tildefile(filename) as fileobj:
 			hexdigest = write_fileobj(xmldoc, fileobj, gz = gz, **kwargs)
 	if verbose:
-		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, (filename if filename is not None else ""))
+		sys.stderr.write("md5sum: %s  %s\n" % (hexdigest, (filename if filename is not None else "")))
 
 
 def write_url(xmldoc, url, **kwargs):

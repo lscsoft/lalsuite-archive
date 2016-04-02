@@ -62,7 +62,7 @@ class Gridmap(object):
     f = None
     try:
       f = open(self.path, 'r')
-    except Exception, e:
+    except Exception as e:
       if self.logger:
         self.logger.error("Error opening grid-mapfile %s: %s" % (self.path, e))
         self.logger.error("Authentication to server will fail for all subjects")
@@ -77,7 +77,7 @@ class Gridmap(object):
           else:
             subjects.append(b)
             break
-    except Exception, e:
+    except Exception as e:
       if self.logger:
         self.logger.error("Error parsing grid-mapfile %s: %s" % (self.path, e))
         self.logger.error("Authentication to server may fail for some subjects")
@@ -140,10 +140,10 @@ class AuthCallback(object):
         if self.callback:
           self.callback(arg, 0)
         return 0
-    except Exception, e:
+    except Exception as e:
       try:
         self.logger.error("Error within authentication callback: %s" % e)
-      except Exception, e:
+      except Exception as e:
         pass
       return 0
 
@@ -163,8 +163,8 @@ def daemon():
     if pid > 0:
       # exit first parent
       sys.exit(0)
-  except OSError, e:
-    print >>sys.stderr, "fork #1 failed: %d (%s)" % (e.errno, e.strerror)
+  except OSError as e:
+    sys.stderr.write("fork #1 failed: %d (%s)\n" % (e.errno, e.strerror))
     sys.exit(1)
         
   # decouple from parent environment
@@ -178,8 +178,8 @@ def daemon():
     if pid > 0:
       # exit from second parent
       sys.exit(0)
-  except OSError, e:
-    print >>sys.stderr, "fork #2 failed: %d (%s)" % (e.errno, e.strerror)
+  except OSError as e:
+    sys.stderr.write("fork #2 failed: %d (%s)\n" % (e.errno, e.strerror))
     sys.exit(1)
         
   # send stdout and stderr to /dev/null
@@ -187,8 +187,8 @@ def daemon():
     devnull = open("/dev/null", "w")
     sys.stdout = devnull
     sys.stderr = devnull
-  except Exception, e:
-    print >>sys.__stderr__, "Unable to direct to /dev/null: %s" % e
+  except Exception as e:
+    sys.__stderr__.write("Unable to direct to /dev/null: %s\n" % e)
     sys.exit(1)
 
 
@@ -200,10 +200,9 @@ def checkCredentials():
     # verify that we have access to credentials
     try:
       proxyText = security.grid_proxy_info()
-    except Exception, e:
-      print >>sys.stderr, "Error verifying credentials: %s" % e
-      print >>sys.stderr, \
-        "Run 'grid-proxy-init' to generate a proxy certificate"
+    except Exception as e:
+      sys.stderr.write("Error verifying credentials: %s\n" % e)
+      sys.stderr.write("Run 'grid-proxy-init' to generate a proxy certificate\n")
       return False
 
     pat = re.compile(r'timeleft : (\d{1,3}):(\d\d):(\d\d)')
@@ -214,19 +213,18 @@ def checkCredentials():
       elif isinstance(proxyText, tuple):
         m = pat.search(proxyText[0])
       else:
-        raise RuntimeError, "bad format for proxyText in checkCredentials"
+        raise RuntimeError("bad format for proxyText in checkCredentials")
       hours, minutes, seconds = map(int, m.groups())
 
-    except Exception, e:
-      print >>sys.stderr, "Error parsing proxy information: %s" % e
+    except Exception as e:
+      sys.stderr.write("Error parsing proxy information: %s\n" % e)
       return False
 
     timeleft = seconds + 60 * minutes + 3600 * hours
 
     if timeleft < 300:
-      print >>sys.stderr, "Less than 5 minutes left for proxy certificate."
-      print >>sys.stderr, \
-        "Run 'grid-proxy-init' to generate a new proxy certificate"
+      sys.stderr.write("Less than 5 minutes left for proxy certificate.\n")
+      sys.stderr.write("Run 'grid-proxy-init' to generate a new proxy certificate\n")
       return False
 
     return True

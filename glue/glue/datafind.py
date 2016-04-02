@@ -114,7 +114,7 @@ class GWDataFindHTTPConnection(httplib.HTTPConnection):
         try:
             self.request(method, url)
             response = self.getresponse()
-        except Exception,e:
+        except Exception as e:
             raise RuntimeError("Unable to query server %s: %s\n\n"
                                "Perhaps you need a valid proxy credential?\n"
                                % (self.host, e))
@@ -260,7 +260,7 @@ class GWDataFindHTTPConnection(httplib.HTTPConnection):
         # parse file name for site, frame type
         try:
             site,frametype,_,_ = framefile.split("-")
-        except Exception, e:
+        except Exception as e:
             raise RuntimeError("Error parsing filename %s: %s" % (framefile, e))
         url = ("%s/gwf/%s/%s/%s.json"
               % (_url_prefix, site, frametype, framefile))
@@ -418,7 +418,7 @@ def validate_proxy(path):
     # load the proxy from path
     try:
         proxy = M2Crypto.X509.load_cert(path)
-    except Exception, e:
+    except Exception as e:
         msg = "Unable to load proxy from path %s : %s" % (path, e)
         raise RuntimeError(msg)
 
@@ -439,7 +439,7 @@ def validate_proxy(path):
         expireUTC  = calendar.timegm(expireGMT)
         now = int(time.time())
         secondsLeft = expireUTC - now
-    except Exception, e:
+    except Exception as e:
         # problem getting or parsing time so just let the client
         # continue and pass the issue along to the server
         secondsLeft = 3600
