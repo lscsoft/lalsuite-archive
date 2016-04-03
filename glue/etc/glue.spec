@@ -56,7 +56,7 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root)
 %{glue_python_sitearch}/glue/
-%{_glue_prefix}/bin/
+%{_glue_prefix}/bin/*
 %exclude %{_glue_prefix}/etc/
 %exclude %{_glue_prefix}/var/
 %exclude %{_glue_prefix}/share/nmi/lalsuite-build*
