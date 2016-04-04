@@ -1766,7 +1766,7 @@ eccentricityPhasing_F2(REAL8 v, REAL8 v0, REAL8 ecc, REAL8 eta, INT4 eccOrder)
 //eccentricityPhasing_F2(REAL8 v, REAL8 v0, REAL8 ecc, REAL8 eta, INT4 eccOrder, REAL8 ecc_phase_order[])
 {
   static REAL8 v0_power[LAL_MAX_ECC_PN_ORDER+1];
-  /* folloeing code is not efficient in memory usage, need to be improved later */
+  /* following code is not efficient in memory usage, need to be improved later */
   static REAL8 eccPNCoeffs[LAL_MAX_ECC_PN_ORDER+1][LAL_MAX_ECC_PN_ORDER+1][LAL_MAX_ECC_PN_ORDER+1]; // we want to calculate just one time
   REAL8 v_power[LAL_MAX_ECC_PN_ORDER+1];
   REAL8 phasing = 0.0;
