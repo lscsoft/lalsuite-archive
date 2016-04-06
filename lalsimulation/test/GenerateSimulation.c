@@ -356,7 +356,7 @@ static int dump_FD(FILE *f, COMPLEX16FrequencySeries *hptilde,
 
     fprintf(f, "# f hptilde.re hptilde.im hctilde.re hctilde.im\n");
     for (i=0; i < hptilde->data->length; i++)
-        fprintf(f, "%.16e %.16e %.16e %.16e %.16e\n",
+        fprintf(f, "%25.16e %25.16e %25.16e %25.16e %25.16e\n",
                 hptilde->f0 + i * hptilde->deltaF,
                 creal(dataPtr1[i]), cimag(dataPtr1[i]), creal(dataPtr2[i]), cimag(dataPtr2[i]));
     return 0;
@@ -392,7 +392,7 @@ static int dump_FD2(FILE *f, COMPLEX16FrequencySeries *hptilde,
 
     fprintf(f, "# f amp_+ phase_+ amp_x phase_x\n");
     for (i=0; i < hptilde->data->length; i++)
-        fprintf(f, "%.16e %.16e %.16e %.16e %.16e\n",
+        fprintf(f, "%25.16e %25.16e %25.16e %25.16e %25.16e\n",
                 hptilde->f0 + i * hptilde->deltaF,
                 amp1[i], phaseUW1[i], amp2[i], phaseUW2[i]);
     return 0;
@@ -411,7 +411,7 @@ static int dump_TD(FILE *f, REAL8TimeSeries *hplus, REAL8TimeSeries *hcross) {
 
     fprintf(f, "# t hplus hcross\n");
     for (i=0; i < hplus->data->length; i++)
-        fprintf(f, "%.16e %.16e %.16e\n", t0 + i * hplus->deltaT, 
+        fprintf(f, "%25.16e %25.16e %25.16e\n", t0 + i * hplus->deltaT, 
                 hplus->data->data[i], hcross->data->data[i]);
     return 0;
 }
@@ -441,7 +441,7 @@ static int dump_TD2(FILE *f, REAL8TimeSeries *hplus, REAL8TimeSeries *hcross) {
 
     fprintf(f, "# t amp phase\n");
     for (i=0; i < hplus->data->length; i++)
-        fprintf(f, "%.16e %.16e %.16e\n", t0 + i * hplus->deltaT,
+        fprintf(f, "%25.16e %25.16e %25.16e\n", t0 + i * hplus->deltaT,
                 amp[i], phaseUW[i]);
     return 0;
 }
