@@ -754,7 +754,7 @@ class Cache(list):
 		write a cache object to the fileobj as a lal cache file
 		"""
 		for entry in self:
-			print >>fileobj, str(entry)
+			fileobj.write('%s\n' % str(entry))
 		fileobj.close()
 
 	def topfnfile(self, fileobj):
@@ -762,7 +762,7 @@ class Cache(list):
 		write a cache object to filename as a plain text pfn file
 		"""
 		for entry in self:
-			print >>fileobj, entry.path
+			fileobj.write('%s\n' % entry.path)
 		fileobj.close()
 
 	def to_segmentlistdict(self):
@@ -855,7 +855,7 @@ class Cache(list):
 			msg = "%d of %d files in the cache were not found "\
 			    "on disk" % (len(c_missed), len(self))
 			if on_missing == "warn":
-				print >>sys.stderr, "warning: " + msg
+				sys.stderr.write("warning: %s\n" % msg)
 			elif on_missing == "error":
 				raise ValueError(msg)
 			elif on_missing == "ignore":

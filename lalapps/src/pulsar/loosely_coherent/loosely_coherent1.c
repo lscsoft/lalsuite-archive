@@ -1,9 +1,3 @@
-/**
- * \file
- * \ingroup lalapps_pulsar_loosely_coherent
- * \author Vladimir Dergachev
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>

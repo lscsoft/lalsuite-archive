@@ -121,7 +121,7 @@ def parse_command_line():
     options, others = parser.parse_args()
 
     if not options.veto_file:
-        raise ValueError, "missing required argument --veto-file"
+        raise ValueError("missing required argument --veto-file")
    
     # User must specify how to treat the categories
     if not (options.cumulative_categories or options.separate_categories) or (options.cumulative_categories and options.separate_categories):
