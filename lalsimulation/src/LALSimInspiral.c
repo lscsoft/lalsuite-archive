@@ -4607,9 +4607,9 @@ int XLALSimLorentzInvarianceViolationTerm(
   for (i=0; i<len; i++) {
     f = f0 + i*df;
     if (nonGR_alpha == 1) {
-      hplus = (*hptilde)->data->data[i] * cexp(I*(dPhiPref + log(f)));
+      hplus = (*hptilde)->data->data[i] * cexp(I*(dPhiPref + zeta*log(f)));
       (*hptilde)->data->data[i] = hplus;
-      hcross = (*hctilde)->data->data[i] * cexp(I*(dPhiPref + log(f))) ;
+      hcross = (*hctilde)->data->data[i] * cexp(I*(dPhiPref + zeta*log(f))) ;
       (*hctilde)->data->data[i] = hcross;
     }
     else {
