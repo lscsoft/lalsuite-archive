@@ -128,7 +128,7 @@ ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB',
 tigerParams=['dchi%i'%(i) for i in range(7)] + ['dchi%il'%(i) for i in [5,6] ] + ['dxi%d'%(i+1) for i in range(6)] + ['dalpha%i'%(i+1) for i in range(5)] + ['dbeta%i'%(i+1) for i in range(3)] + ['dsigma%i'%(i+1) for i in range(4)]
 bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
 massiveGravitonParams=['loglambda_g','lambda_g','graviton_mass','graviton_lambda','loggraviton_mass','loggraviton_lambda']
-lorentzInvarianceViolationParams=['loglambda_a','lambda_a','loglambda_a_eff','lambda_a_eff']
+lorentzInvarianceViolationParams=['loglambda_a','lambda_a','loglambda_a_eff','lambda_a_eff','logAmp','Amp']
 tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat']
 strongFieldParams=ppEParams+tigerParams+bransDickeParams+massiveGravitonParams+tidalParams+lorentzInvarianceViolationParams
 
@@ -460,7 +460,12 @@ def plot_label(param):
       'graviton_mass':r'$m_g\,[\mathrm{eV}]$',
       'loggraviton_lambda':r'$\log\lambda_g\,[\mathrm{m}]$',
       'loggraviton_mass':r'$\log m_g\,[\mathrm{eV}]$',
-      'loglambda_a':r'$\log\lambda_a [\mathrm{m}]$'
+      'loglambda_a':r'$\log\lambda_{\mathbb{A}} [\mathrm{m}]$',
+      'loglambda_a_eff':r'$\log\lambda_{eff}$',
+      'lambda_a_eff':r'$\lambda_{eff}$',
+      'lambda_a':r'$\lambda_{\mathbb{A}} [\mathrm{m}]$',
+      'Amp':r'$\mathbb{A} [\mathrm{{eV}^{-1}}]$',
+      'logAmp':r'$\log \mathbb{A}[\mathrm{{eV}^{-1}}]$'
     }
   print param
   # Handle cases where multiple names have been used
@@ -1078,6 +1083,15 @@ class Posterior(object):
           pos.append_mapping('graviton_mass', GravitonMass, ['lambda_g', 'redshift'])
       if ('lambda_g' in pos.names) and ('redshift' in pos.names):
           pos.append_mapping('graviton_lambda', GComptonWavelength, ['lambda_g', 'redshift'])
+    
+      if ('loglambda_a_eff' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('loglambda_a', lambda z,nonGR_alpha,wl:np.log10(lambda_a(z, nonGR_alpha, 10**wl)), ['redshift', 'nonGR_alpha', 'loglambda_a_eff'])	
+      if ('loglambda_a_eff' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('logAmp', lambda z,nonGR_alpha,wl:np.log10(amplitudeMeasure(z, nonGR_alpha, 10**wl)), ['redshift','nonGR_alpha','loglambda_a_eff'])
+      if ('lambda_a_eff' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('lambda_a', lambda_a, ['redshift', 'nonGR_alpha', 'loglambda_a_eff'])  
+      if ('lambda_a_eff' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('Amp', amplitudeMeasure, ['redshift','nonGR_alpha','lambda_a_eff'])
 
       #Calculate new tidal parameters
       new_tidal_params = ['lam_tilde','dlam_tilde']
@@ -3958,6 +3972,30 @@ def GravitonMass(lambda_g, redshift):
     Valid for \Omega_0 = 1 and for all z.
     """
     return 1.23982e-6/(lambda_g*np.sqrt((1 + (2+redshift)*(1+redshift+np.sqrt(1+redshift)))/(5*(1+redshift)**3)))
+
+def integrand_distance(redshift,nonGR_alpha):
+    omega_m = 0.3
+    omega_lambda = 0.7
+    return (1.0+redshift)**(nonGR_alpha-2.0)/(np.sqrt(omega_m*(1.0+redshift)**3.0 + omega_lambda))
+
+def DistanceMeasure(redshift,nonGR_alpha):
+    from lal import C_SI as c
+    from lal import PC_SI as pc
+    mpc = pc*1e6
+    h = 0.75
+    H0 = h*100*1e3*mpc
+    dist = integrate.quad(integrand_distance, 0, redshift ,args=(nonGR_alpha))[0]
+    dist *= c*(1.0 + redshift)**(1.0 - nonGR_alpha)
+    dist /= H0
+    return dist
+
+def lambda_a(redshift, nonGR_alpha, lambda_eff):
+    D_alpha = DistanceMeasure(redshift, nonGR_alpha)
+    return lambda_eff*((1.0+redshift)**(1.0-nonGR_alpha)*D_alpha)**(1./(2.0-nonGR_alpha))
+
+def amplitudeMeasure(redshift, nonGR_alpha, lambda_eff):
+    hPlanck = 4.13567e-15
+    return (lambda_a(redshift, nonGR_alpha, lambda_eff)/hPlanck)**(nonGR_alpha - 2.0)
 
 def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m2, fref):
     """
