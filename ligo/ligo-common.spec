@@ -13,6 +13,8 @@ Group: Development/Libraries
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 Prefix: %{_prefix}
 BuildArch: noarch
+Requires: python
+BuildRequires: python
 Vendor: Brian Moe <brian.moe@ligo.org>
 
 %description
