@@ -15,6 +15,7 @@ Prefix: %{_prefix}
 BuildArch: noarch
 Vendor: Brian Moe <brian.moe@ligo.org>
 Requires: ligo-common glue-segments m2crypto
+BuildRequires: python
 Url: http://www.lsc-group.phys.uwm.edu/daswg/lars.html
 
 %description
@@ -34,4 +35,5 @@ rm -rf $RPM_BUILD_ROOT
 
 %files -f INSTALLED_FILES
 %defattr(-,root,root)
-%exclude %{python_sitelib}/ligo/lars/*pyo
+%exclude %{python_sitelib}/ligo/lars/*.pyo
+%exclude %{python_sitelib}/ligo/lars/cli/*.pyo
