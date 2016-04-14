@@ -1028,8 +1028,8 @@ class CondorDAGNode:
     self.__pegasus_profile = []
 
     # generate the md5 node name
-    t = str( long( time.time() * 1000 ) )
-    r = str( long( random.random() * 100000000000000000L ) )
+    t = str( int( time.time() * 1000 ) )
+    r = str( int( random.random() * 100000000000000000 ) )
     a = str( self.__class__ )
     self.__name = md5(t + r + a).hexdigest()
     self.__md5name = self.__name

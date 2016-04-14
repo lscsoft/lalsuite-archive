@@ -9,7 +9,7 @@ p<-function(...) {
 	}
 
 SkipLabel<- -1
-SkipLabel<-165600000
+#SkipLabel<-165600000
 
 sft_length<-as.numeric(read.table(pipe("grep 'SFT coherence time' 0/*/powerflux.log"), header=FALSE, sep=":")[1,2])
 if(is.na(sft_length))sft_length<-1800.0
@@ -424,21 +424,54 @@ ExtraStats[F,"Comment"]<-p(ExtraStats[F,"Comment"], "weight_loss_L1 ")
 F<- PrimaryMatches$skyband==Lines_skyband | PrimaryMatches$skyband_H1==Lines_skyband | PrimaryMatches$skyband_L1==Lines_skyband
 ExtraStats[F,"Comment"]<-p(ExtraStats[F,"Comment"], "lines ")
 
+# write.table(data.frame(ExtraStats[,"Idx",drop=FALSE], PrimaryMatches[,c("label", "F0INDEX", "frequency", "spindown", "ra", "dec", "set", "set_H1", "set_L1"), drop=FALSE]), p(output.dir, "/primary_matches0.csv"), col.names=TRUE, row.names=FALSE, sep="\t")
+# 
+# dbGetQuery(con, p("CREATE TEMPORARY TABLE tmp_matches0 (Idx INTEGER, `label` VARCHAR(300), F0INDEX INTEGER, frequency DOUBLE, spindown DOUBLE, ra DOUBLE, `dec` DOUBLE, `set` VARCHAR(255), `set_H1` VARCHAR(255), `set_L1` VARCHAR(255))"))
+# 
+# dbGetQuery(con, p("LOAD DATA LOCAL INFILE '", p(output.dir, "/primary_matches0.csv"), "' INTO TABLE tmp_matches0 FIELDS TERMINATED BY '\t' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n' IGNORE 1 LINES (Idx, `label`, F0INDEX, frequency, spindown, ra, `dec`, `set`, `set_H1`, `set_L1`)"))
+# 
+# dbGetQuery(con, p("ALTER TABLE tmp_matches0 ADD INDEX (`Idx`, `label`, `F0INDEX`)"))
+# 
+# L<-list()
+# for(i in (-MaxF0INDEXTolerance):MaxF0INDEXTolerance) {
+# 	cat(i, "\n")
+# 	L[[length(L)+1]]<-dbGetQuery(con, p("SELECT b.Idx, b.`label` as `label`, MAX(IF(a.`set`=b.`set`, a.snr, NULL)) as `Max.SNR.H1L1`, MAX(IF(a.`set`=b.`set_H1`, a.snr, NULL)) as `Max.SNR.H1`, MAX(IF(a.`set`=b.`set_L1`, a.snr, NULL)) as `Max.SNR.L1` FROM `", CoincTableName, "` as a RIGHT JOIN tmp_matches0 as b ON a.kind='snr' AND (sin(a.`dec`)*sin(b.`dec`)+ cos(a.`dec`)*cos(b.`dec`)*cos(a.ra-b.ra)>", cos(MaxLocationTolerance), ") AND a.label=b.label AND a.F0INDEX=b.F0INDEX+", i, " AND abs(a.frequency-b.frequency)<", MaxFrequencyTolerance, " AND abs(a.spindown-b.spindown)<", MaxSpindownTolerance, " GROUP BY b.`Idx`"))
+# 	}
+# 
+# MaxSNRL<-do.call(rbind, L)
+# MaxSNR<-aggregate(MaxSNRL[,c("Max.SNR.H1L1", "Max.SNR.H1", "Max.SNR.L1"),drop=FALSE], MaxSNRL[, c("Idx", "label"),drop=FALSE], max, na.rm=TRUE)
+
+
+MaxSNR_H1L1<-rep(0.0, dim(PrimaryMatches)[1])
+MaxSNR_H1<-rep(0.0, dim(PrimaryMatches)[1])
+MaxSNR_L1<-rep(0.0, dim(PrimaryMatches)[1])
+line.comment<-rep("", dim(PrimaryMatches)[1])
+line.f0<-rep(0.0, dim(PrimaryMatches)[1])
+
 for(i in 1:dim(ExtraStats)[1]) {
 
 	#if(ExtraStats[i, "Comment"]!="" && ExtraStats[i, "Primary"]<1)next
 	if(ExtraStats[i, "Primary"]<1)next
-	cat(".")
+	if(i %% 100==0) cat(".")
 	F0INDEX_list<- p((PrimaryMatches[i, "F0INDEX"]-MaxF0INDEXTolerance):(PrimaryMatches[i, "F0INDEX"]+MaxF0INDEXTolerance), collapse=", ")
 	ra<-PrimaryMatches[i, "ra"]
 	dec<-PrimaryMatches[i, "dec"]
 
-	ExtraStats[i, "Max.SNR.H1L1"]<-dbGetQuery(con, p("SELECT MAX(snr) FROM `", CoincTableName, "` WHERE kind='snr' AND `set`='", PrimaryMatches[i, 'set'], "' AND (sin(`dec`)*", sin(dec), " + cos(`dec`)*", cos(dec), "*cos(ra-", ra, ")>", cos(MaxLocationTolerance), ") AND label='", PrimaryMatches[i, "label"], "' AND F0INDEX IN (", F0INDEX_list, ") AND abs(frequency-", PrimaryMatches[i, "frequency"], ")<", MaxFrequencyTolerance, " AND abs(spindown-", PrimaryMatches[i, "spindown"], ")<", MaxSpindownTolerance))[1,1]
+# 	ExtraStats[i, "Max.SNR.H1L1"]<-dbGetQuery(con, p("SELECT MAX(snr) FROM `", CoincTableName, "` WHERE kind='snr' AND `set`='", PrimaryMatches[i, 'set'], "' AND (sin(`dec`)*", sin(dec), " + cos(`dec`)*", cos(dec), "*cos(ra-", ra, ")>", cos(MaxLocationTolerance), ") AND label='", PrimaryMatches[i, "label"], "' AND F0INDEX IN (", F0INDEX_list, ") AND abs(frequency-", PrimaryMatches[i, "frequency"], ")<", MaxFrequencyTolerance, " AND abs(spindown-", PrimaryMatches[i, "spindown"], ")<", MaxSpindownTolerance))[1,1]
+# 
+# 	ExtraStats[i, "Max.SNR.H1"]<-dbGetQuery(con, p("SELECT MAX(snr) FROM `", CoincTableName, "` WHERE kind='snr' AND `set`='", PrimaryMatches[i, 'set_H1'], "' AND (sin(`dec`)*", sin(dec), " + cos(`dec`)*", cos(dec), "*cos(ra-", ra, ")>", cos(MaxLocationTolerance), ") AND label='", PrimaryMatches[i, "label"], "' AND F0INDEX IN (", F0INDEX_list, ") AND abs(frequency-", PrimaryMatches[i, "frequency"], ")<", MaxFrequencyTolerance, " AND abs(spindown-", PrimaryMatches[i, "spindown"], ")<", MaxSpindownTolerance))[1,1]
+# 
+# 	ExtraStats[i, "Max.SNR.L1"]<-dbGetQuery(con, p("SELECT MAX(snr) FROM `", CoincTableName, "` WHERE kind='snr' AND `set`='", PrimaryMatches[i, 'set_L1'], "' AND (sin(`dec`)*", sin(dec), " + cos(`dec`)*", cos(dec), "*cos(ra-", ra, ")>", cos(MaxLocationTolerance), ") AND label='", PrimaryMatches[i, "label"], "' AND F0INDEX IN (", F0INDEX_list, ") AND abs(frequency-", PrimaryMatches[i, "frequency"], ")<", MaxFrequencyTolerance, " AND abs(spindown-", PrimaryMatches[i, "spindown"], ")<", MaxSpindownTolerance))[1,1]
 
-	ExtraStats[i, "Max.SNR.H1"]<-dbGetQuery(con, p("SELECT MAX(snr) FROM `", CoincTableName, "` WHERE kind='snr' AND `set`='", PrimaryMatches[i, 'set_H1'], "' AND (sin(`dec`)*", sin(dec), " + cos(`dec`)*", cos(dec), "*cos(ra-", ra, ")>", cos(MaxLocationTolerance), ") AND label='", PrimaryMatches[i, "label"], "' AND F0INDEX IN (", F0INDEX_list, ") AND abs(frequency-", PrimaryMatches[i, "frequency"], ")<", MaxFrequencyTolerance, " AND abs(spindown-", PrimaryMatches[i, "spindown"], ")<", MaxSpindownTolerance))[1,1]
-
-	ExtraStats[i, "Max.SNR.L1"]<-dbGetQuery(con, p("SELECT MAX(snr) FROM `", CoincTableName, "` WHERE kind='snr' AND `set`='", PrimaryMatches[i, 'set_L1'], "' AND (sin(`dec`)*", sin(dec), " + cos(`dec`)*", cos(dec), "*cos(ra-", ra, ")>", cos(MaxLocationTolerance), ") AND label='", PrimaryMatches[i, "label"], "' AND F0INDEX IN (", F0INDEX_list, ") AND abs(frequency-", PrimaryMatches[i, "frequency"], ")<", MaxFrequencyTolerance, " AND abs(spindown-", PrimaryMatches[i, "spindown"], ")<", MaxSpindownTolerance))[1,1]
-
+	MaxSNR<-dbGetQuery(con, p("SELECT `set`, MAX(snr) as `Max.SNR` FROM `", CoincTableName, "` WHERE kind='snr' AND `set` IN ('", PrimaryMatches[i, 'set'], "', '", PrimaryMatches[i, 'set_H1'], "', '", PrimaryMatches[i, 'set_L1'], "') AND (sin(`dec`)*(", sin(dec), ") + cos(`dec`)*(", cos(dec), ")*cos(ra-(", ra, "))>", cos(MaxLocationTolerance), ") AND label='", PrimaryMatches[i, "label"], "' AND F0INDEX IN (", F0INDEX_list, ") AND abs(frequency-", PrimaryMatches[i, "frequency"], ")<", MaxFrequencyTolerance, " AND abs(spindown-", PrimaryMatches[i, "spindown"], ")<", MaxSpindownTolerance, " GROUP BY `set`"))
+	
+	#ExtraStats[i, "Max.SNR.H1L1"]<-MaxSNR[MaxSNR[,"set"]==PrimaryMatches[i, 'set'], "Max.SNR"][1]
+	#ExtraStats[i, "Max.SNR.H1"]<-MaxSNR[MaxSNR[,"set"]==PrimaryMatches[i, 'set_H1'], "Max.SNR"][1]
+	#ExtraStats[i, "Max.SNR.L1"]<-MaxSNR[MaxSNR[,"set"]==PrimaryMatches[i, 'set_L1'], "Max.SNR"][1]
+	MaxSNR_H1L1[i]<-MaxSNR[MaxSNR[,"set"]==PrimaryMatches[i, 'set'], "Max.SNR"][1]
+	MaxSNR_H1[i]<-MaxSNR[MaxSNR[,"set"]==PrimaryMatches[i, 'set_H1'], "Max.SNR"][1]
+	MaxSNR_L1[i]<-MaxSNR[MaxSNR[,"set"]==PrimaryMatches[i, 'set_L1'], "Max.SNR"][1]
+	
 # 	ExtraStats[i, "OC.H1L1"]<-dbGetQuery(con, p("SELECT SUM(IF(`index`>=5, `count`, 0)) as OC3  FROM `", OutlierHistogramTableName, "` WHERE `label`='", PrimaryMatches[i, 'label'], "' AND `set`='", PrimaryMatches[i, 'set'], "'AND `skyband`!=", Lines_skyband))[1,1]
 # 
 # 	ExtraStats[i, "OC.H1"]<-dbGetQuery(con, p("SELECT SUM(IF(`index`>=5, `count`, 0)) as OC3  FROM `", OutlierHistogramTableName, "` WHERE `label`='", PrimaryMatches[i, 'label'], "' AND `set`='", PrimaryMatches[i, 'set_H1'], "' AND `skyband`!=", Lines_skyband))[1,1]
@@ -455,19 +488,29 @@ for(i in 1:dim(ExtraStats)[1]) {
 		" AND ( line_bin<", PrimaryMatches[i, "frequency"]*sft_length+joint_bin_width, ")"))
 
 	if(is.null(lines) || (dim(lines)[1]<1)) {
-		ExtraStats[i, "line.f0"]<- 0
-		ExtraStats[i, "line.comment"]<-""
+		#ExtraStats[i, "line.f0"]<- 0
+		#ExtraStats[i, "line.comment"]<-""
+		line.f0[i]<- 0.0
+		line.comment<- ""
 		} else {
 		X<-aggregate(lines[,'strength'], lines[,'dataset', drop=FALSE], max, na.rm=TRUE)
 		F<-X[,'x']>StrongLine
 		F[is.na(F)]<-FALSE
 		X<-X[F,,drop=FALSE]
 		
-		ExtraStats[i, "line.comment"]<-p(X[,'dataset'], "=", X[,'x']*LineStrengthToSNR, collapse=" ")
-		ExtraStats[i, "line.f0"]<- lines[which.min(abs(lines[,'line_bin']-PrimaryMatches[i, "frequency"]*sft_length)), "line_bin"]/sft_length
+# 		ExtraStats[i, "line.comment"]<-p(X[,'dataset'], "=", X[,'x']*LineStrengthToSNR, collapse=" ")
+# 		ExtraStats[i, "line.f0"]<- lines[which.min(abs(lines[,'line_bin']-PrimaryMatches[i, "frequency"]*sft_length)), "line_bin"]/sft_length
+		line.comment[i]<-p(X[,'dataset'], "=", X[,'x']*LineStrengthToSNR, collapse=" ")
+		line.f0[i]<- lines[which.min(abs(lines[,'line_bin']-PrimaryMatches[i, "frequency"]*sft_length)), "line_bin"]/sft_length
 		}
 	}
 cat("\n")
+
+ExtraStats[,"Max.SNR.H1L1"]<-MaxSNR_H1L1
+ExtraStats[,"Max.SNR.H1"]<-MaxSNR_H1
+ExtraStats[,"Max.SNR.L1"]<-MaxSNR_L1
+ExtraStats[,"line.f0"]<-line.f0
+ExtraStats[,"line.comment"]<-line.comment
 
 FullData<-data.frame(ExtraStats, PrimaryMatches)
 
