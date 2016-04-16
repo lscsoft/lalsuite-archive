@@ -6,13 +6,15 @@
 Summary: Empty LIGO modules
 Name: %{name}
 Version: %{version}
-Release: %{release}
+Release: %{release}%{?dist}
 Source0: %{name}-%{unmangled_version}.tar.gz
 License: GPL
 Group: Development/Libraries
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 Prefix: %{_prefix}
 BuildArch: noarch
+Requires: python
+BuildRequires: python
 Vendor: Brian Moe <brian.moe@ligo.org>
 
 %description
