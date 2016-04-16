@@ -9,13 +9,13 @@
 Name: 		glue
 Summary:	The Grid LSC User Environment
 Version:	1.49.1
-Release:	1.lscsoft
+Release:	1%{?dist}
 License:	None
 Group:		Development/Libraries
 Source:		%{name}-%{version}.tar.gz
 Url:		http://www.lsc-group.phys.uwm.edu/daswg/projects/glue.html
 BuildRoot:	%{_tmppath}/%{name}-%{version}-root
-Requires:	python-cjson m2crypto pyxmpp glue-common glue-segments python >= 2.6
+Requires:	python-cjson m2crypto glue-common glue-segments python >= 2.6
 BuildRequires:  python-devel
 Prefix:         %{_glue_prefix}
 %description
@@ -48,7 +48,7 @@ rm -rf %{buildroot}
         --skip-build \
         --root=%{buildroot} \
         --prefix=%{_glue_prefix}
-rm -rf $RPM_BUILD_ROOT/usr/lib64/python2.6/site-packages/glue-1.49.1-py2.6.egg-info
+rm -rf $RPM_BUILD_ROOT/usr/lib64/python2.?/site-packages/glue-1.49.1-py2.?.egg-info
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -56,7 +56,7 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root)
 %{glue_python_sitearch}/glue/
-%{_glue_prefix}/bin/
+%{_glue_prefix}/bin/*
 %exclude %{_glue_prefix}/etc/
 %exclude %{_glue_prefix}/var/
 %exclude %{_glue_prefix}/share/nmi/lalsuite-build*
