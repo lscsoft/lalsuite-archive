@@ -17,12 +17,6 @@
 *  MA  02111-1307  USA
 */
 
-/**
- * \file
- * \ingroup lalapps_pulsar_PowerFlux
- * \author Vladimir Dergachev
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
