@@ -10,6 +10,7 @@ if HAVE_PYTHON
 pybin_scripts = \
 	bayestar_aggregate_found_injections \
 	bayestar_bin_samples \
+	bayestar_contour_allsky \
 	bayestar_lattice_tmpltbank \
 	bayestar_localize_coincs \
 	bayestar_localize_lvalert \
@@ -23,8 +24,9 @@ pybin_scripts = \
 	bayestar_littlehope \
 	rapidpe_integrate_extrinsic_likelihood \
 	rapidpe_create_event_dag \
-    rapidpe_compute_intrinsic_fisher \
-    rapidpe_calculate_overlap \
+	rapidpe_compute_intrinsic_fisher \
+	rapidpe_compute_intrinsic_grid \
+	rapidpe_calculate_overlap \
 	$(END_OF_LIST)
 
 endif

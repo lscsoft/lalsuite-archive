@@ -47,7 +47,7 @@
 
 
 /*
- * Copyright (C) 2013  Leo Singer
+ * Copyright (C) 2013-2015  Leo Singer
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -74,6 +74,7 @@
 #if !defined(SWIG) && !defined(__cplusplus)
 
 #include <complex.h>
+#include <sys/types.h>
 
 
 /* Perform sky localization based on TDOAs, PHOAs, and amplitude. */
@@ -146,6 +147,14 @@ double bayestar_log_likelihood_toa_phoa_snr(
 /* Unit test suite. Return EXIT_SUCCESS if tests passed,
  * or otherwise EXIT_FAILURE. */
 int bayestar_test(void);
+
+typedef struct log_radial_integrator_t log_radial_integrator;
+
+log_radial_integrator *log_radial_integrator_init(double r1, double r2, int k, double pmax, size_t size);
+
+void log_radial_integrator_free(log_radial_integrator *integrator);
+
+double log_radial_integrator_eval(const log_radial_integrator *integrator, double p, double b);
 
 #endif /* !defined(SWIG) && !defined(__cplusplus) */
 

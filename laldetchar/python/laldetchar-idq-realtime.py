@@ -83,6 +83,8 @@ parser.add_option('', '--ignore-science-segments-training',
     help="forces training jobs to ignore science segments as well. \
     This should NOT be used to generate actual DQ information, but may be useful when debugging the pipeline."
     )
+parser.add_option('', '--lock-training', default=False, action="store_true", help="forces training jobs to use a lock file. Useful when preventing jobs from stacking up.")
+
 parser.add_option('', '--ignore-science-segments-summary', 
     default=False, action="store_true", 
     help="forces summary jobs to ignore science segments as well. \
@@ -90,6 +92,7 @@ parser.add_option('', '--ignore-science-segments-summary',
     )
 
 parser.add_option("", "--dont-cluster-summary", default=False, action="store_true")
+parser.add_option('', '--lock-summary', default=False, action="store_true", help="forces summary jobs to use a lock file. Useful when preventing jobs from stacking up.")
 
 parser.add_option('', '--ignore-science-segments-calibration',
     default=False, action="store_true",
@@ -98,6 +101,7 @@ parser.add_option('', '--ignore-science-segments-calibration',
     )
 
 parser.add_option("", "--dont-cluster-calibration", default=False, action="store_true")
+parser.add_option('', '--lock-calibration', default=False, action="store_true", help="forces calibration jobs to use a lock file. Useful when preventing jobs from stacking up.")
 
 parser.add_option("", "--no-robot-cert",
     default=False, action="store_true",
@@ -129,7 +133,7 @@ mainidqdir = config.get('general', 'idqdir') ### get the main directory where id
 if not opts.lockfile:
     opts.lockfile = "%s/.idq_realtime.lock"%mainidqdir
 
-idq.dieiflocked( opts.lockfile ) ### prevent multiple copies from running
+lockfp = idq.dieiflocked( opts.lockfile ) ### prevent multiple copies from running
 
 gchtag = "_glitch" ### used for xml filenames
 clntag = "_clean"
@@ -279,6 +283,8 @@ if calibration_lookback != "infinity":
 
 calibration_FAPthrs = [float(l) for l in config.get('calibration','FAP').split()]
 
+calibration_mode = config.get('calibration','mode')
+
 ### cache for uroc files
 calibration_cache = dict( (classifier, idq.Cachefile(idq.cache(calibrationdir, classifier, tag='_calibration%s'%usertag))) for classifier in classifiers+combiners )
 for cache in calibration_cache.values():
@@ -336,8 +342,10 @@ if initial_training:
 
     if opts.ignore_science_segments_training:
         train_command += " --ignore-science-segments" 
-    elif opts.no_robot_cert:
+    if opts.no_robot_cert:
         train_command += " --no-robot-cert"
+    if opts.lock_training:
+        train_command += " --lock-file %s/.idq_train.lock"%mainidqdir
 
     logger.info('Submiting training job with the following options:')
     logger.info(train_command)
@@ -370,13 +378,15 @@ if initial_calibration:
     initial_calibration_lookback = config.get("calibration", "initial-lookback")
 
     calibration_start_time = t - calibration_stride
-    calibration_command = "%s --config %s -l %s -s %d -e %d --lookback %s --force"%(calibration_script, opts.config_file, calibration_log, calibration_start_time, t, initial_calibration_lookback)
+    calibration_command = "%s --config %s -l %s -s %d -e %d --lookback %s --mode %s --force"%(calibration_script, opts.config_file, calibration_log, calibration_start_time, t, initial_calibration_lookback, calibration_mode)
     ### we skip validation (no FAPthr arguments) for the initial job
 
     if opts.ignore_science_segments_calibration:
         calibration_command += " --ignore-science-segments" 
-    elif opts.no_robot_cert:
+    if opts.no_robot_cert:
         calibration_command += " --no-robot-cert" 
+    if opts.lock_calibration:
+        calibration_command += " --lock-file %s/.idq_calibration.lock"%mainidqdir
 
     logger.info('Submiting calibration job with the following options:')
     logger.info(calibration_command) ### block
@@ -410,6 +420,8 @@ logger.info('Begin: realtime evaluation')
 train_template = "%s --config %s -l %s -s %d -e %d --lookback %d"
 if opts.ignore_science_segments_training:
     train_template += " --ignore-science-segments"
+if opts.lock_training:
+    train_template += " --lock-file %s/.idq_train.lock"%mainidqdir
 
 summary_template = "%s --config %s -l %s -s %d -e %d --lookback %d %s"
 for fap in summary_FAPthrs:
@@ -418,14 +430,18 @@ if opts.ignore_science_segments_summary:
     summary_template += " --ignore-science-segments"
 if opts.dont_cluster_summary:
     summary_template += " --dont-cluster"
+if opts.lock_summary:
+    summary_template += " --lock-file %s/.idq_summary.lock"%mainidqdir
 
-calibration_template = "%s --config %s -l %s -s %d -e %d --lookback %d" 
+calibration_template = "%s --config %s -l %s -s %d -e %d --lookback %d --mode %s" 
 for fap in calibration_FAPthrs:
     calibration_template += " --FAPthr %.6e"%fap
 if opts.ignore_science_segments_calibration:
     calibration_template += " --ignore-science-segments"
 if opts.dont_cluster_calibration:
     calibration_template += " --dont-cluster"
+if opts.lock_calibration:
+    calibration_template += " --lock-file %s/.idq_calibration.lock"%mainidqdir
 
 if opts.no_robot_cert:
     train_template += " --no-robot-cert"
@@ -512,7 +528,7 @@ while t  < opts.endgps:
 
         logger.info('Begin: launching calibration script for period: %s - %s'%(calibration_start_time, calibration_stop_time))
 
-        calibration_command = calibration_template%(calibration_script, opts.config_file, calibration_log, calibration_start_time, calibration_stop_time, lookback)
+        calibration_command = calibration_template%(calibration_script, opts.config_file, calibration_log, calibration_start_time, calibration_stop_time, lookback, calibration_mode)
 
         logger.info('Submiting calibration script with the following options:')
         logger.info(calibration_command)
@@ -1123,3 +1139,6 @@ while t  < opts.endgps:
 logger.info('End real-time evaluation')
 logger.info('t + stride = %d > %d = endgps'%(t+stride, opts.endgps))
 
+### unlock file
+idq.release(lockfp)
+os.remove( opts.lockfile )

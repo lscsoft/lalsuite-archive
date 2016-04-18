@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (C) 2013  Leo Singer
+# Copyright (C) 2013-2015  Leo Singer
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -67,6 +67,7 @@ import tempfile
 import healpy as hp
 from glue.ligolw import lsctables
 from healpy.fitsfunc import getformat, pixelfunc, standard_column_names, pf, np
+import time
 import lal
 
 
@@ -186,36 +187,106 @@ def write_map(filename,m,nest=False,dtype=np.float32,fits_IDL=True,coord=None,co
 
 
 def gps_to_iso8601(gps_time):
-    """Convert a floating-point GPS time in seconds to an ISO 8601 date string."""
+    """
+    Convert a floating-point GPS time in seconds to an ISO 8601 date string.
+
+    Parameters
+    ----------
+
+    gps : float
+        Time in seconds since GPS epoch
+
+    Returns
+    -------
+
+    iso8601 : str
+        ISO 8601 date string (with fractional seconds)
+
+    Example
+    -------
+
+    >>> gps_to_iso8601(1000000000.01)
+    '2011-09-14T01:46:25.010000'
+    >>> gps_to_iso8601(1000000000)
+    '2011-09-14T01:46:25.000000'
+    >>> gps_to_iso8601(1000000000.999999)
+    '2011-09-14T01:46:25.999999'
+    >>> gps_to_iso8601(1000000000.9999999)
+    '2011-09-14T01:46:26.000000'
+    >>> gps_to_iso8601(1000000814.999999)
+    '2011-09-14T01:59:59.999999'
+    >>> gps_to_iso8601(1000000814.9999999)
+    '2011-09-14T02:00:00.000000'
+    """
     gps_seconds_fraction, gps_seconds = math.modf(gps_time)
+    gps_seconds_fraction = '{0:6f}'.format(gps_seconds_fraction)
+    if gps_seconds_fraction[0] == '1':
+        gps_seconds += 1
+    else:
+        assert gps_seconds_fraction[0] == '0'
+    assert gps_seconds_fraction[1] == '.'
+    gps_seconds_fraction = gps_seconds_fraction[1:]
     year, month, day, hour, minute, second, _, _, _ = lal.GPSToUTC(int(gps_seconds))
-    ret = '{0:04d}-{1:02d}-{2:02d}T{3:02d}:{4:02d}:{5:02d}'.format(year, month, day, hour, minute, second, gps_seconds_fraction)
-    if gps_seconds_fraction:
-        ret += '{0:g}'.format(gps_seconds_fraction).lstrip('0')
-    return ret
+    return '{0:04d}-{1:02d}-{2:02d}T{3:02d}:{4:02d}:{5:02d}{6:s}'.format(
+        year, month, day, hour, minute, second, gps_seconds_fraction)
 
 
 def iso8601_to_gps(iso8601):
-    """Convert an ISO 8601 date string to a floating-point GPS time in seconds."""
-    date, time = iso8601.split('T')
-    year, month, day = (int(datepart) for datepart in date.split('-'))
-    hour, minute, second = time.split(':')
-    hour = int(hour)
-    minute = int(minute)
-    second = float(second)
-    second_fraction, second = math.modf(second)
-    second = int(second)
+    """
+    Convert an ISO 8601 date string to a floating-point GPS time in seconds.
 
-    tm = [year, month, day, hour, minute, second, -1, -1, -1]
+    Parameters
+    ----------
+
+    iso8601 : str
+        ISO 8601 date string (with fractional seconds)
+
+    Returns
+    -------
+
+    gps : float
+        Time in seconds since GPS epoch
+
+    Example
+    -------
+
+    >>> gps_to_iso8601(1129501781.2)
+    '2015-10-21T22:29:24.200000'
+    >>> iso8601_to_gps('2015-10-21T22:29:24.2')
+    1129501781.2
+    """
+    iso8601, _, second_fraction = iso8601.partition('.')
+    second_fraction = float('0.' + second_fraction)
+    tm = time.strptime(iso8601, "%Y-%m-%dT%H:%M:%S")
     gps_seconds = lal.UTCToGPS(tm)
     return gps_seconds + second_fraction
 
 
 def gps_to_mjd(gps_time):
-    """Convert a floating-point GPS time in seconds to a modified Julian day."""
+    """
+    Convert a floating-point GPS time in seconds to a modified Julian day.
+
+    Parameters
+    ----------
+
+    gps_time : float
+        Time in seconds since GPS epoch
+
+    Returns
+    -------
+
+    mjd : float
+        Modified Julian day
+
+    Example
+    -------
+
+    >>> '%.9f' % round(gps_to_mjd(1129501781.2), 9)
+    '57316.937085648'
+    """
     gps_seconds_fraction, gps_seconds = math.modf(gps_time)
-    jd = lal.JulianDayUTC(lal.GPSToUTC(int(gps_seconds)))
-    return jd - lal.MJD_REF + gps_seconds_fraction / 86400.
+    mjd = lal.ConvertCivilTimeToMJD(lal.GPSToUTC(int(gps_seconds)))
+    return mjd + gps_seconds_fraction / 86400.
 
 
 def write_sky_map(filename, prob, nest=False, objid=None, url=None, instruments=None,

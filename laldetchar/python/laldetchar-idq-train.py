@@ -58,6 +58,8 @@ parser = OptionParser(version='Name: %%prog\n%s'
                       , description=description)
 parser.add_option('-c', '--config', default='idq.ini', type='string', help='configuration file')
 
+parser.add_option('-k', '--lock-file', dest='lockfile', help='use custom lockfile', metavar='FILE', default=None )
+
 parser.add_option('-s', '--gpsstart', dest="gpsstart", default=False, type='int', help='a GPS start time for the analysis. If default, gpsstart is calculated from the current time.')
 parser.add_option('-e', '--gpsstop', dest="gpsstop", default=False, type='int', help='a GPS stop time for the analysis. If default, gpsstop is calculated from the current time.')
 parser.add_option('-b', '--lookback', default='0', type='string', help="Number of seconds to look back and get data for training. Default is zero.\
@@ -90,12 +92,15 @@ sys.stdout = idq.LogFile(logger)
 sys.stderr = idq.LogFile(logger)
 
 #===================================================================================================
+### check lockfile
+if opts.lockfile:
+    lockfp = idq.dieiflocked( opts.lockfile )
+
+#===================================================================================================
 ### read global configuration file
 
 config = ConfigParser.SafeConfigParser()
 config.read(opts.config)
-
-#mainidqdir = config.get('general', 'idqdir') ### get the main directory where idq pipeline is going to be running.
 
 ifo = config.get('general', 'ifo')
 
@@ -118,8 +123,8 @@ if mla:
     auxmvc_coinc_window = config.getfloat('realtime', 'padding')
     auxmc_gw_signif_thr = config.getfloat('general', 'gw_kwsignif_thr')
 
-    auxmvc_selected_channels = config.get('general','selected-channels')
-    auxmvc_unsafe_channels = config.get('general','unsafe-channels')
+auxmvc_selected_channels = config.get('general','selected-channels')
+auxmvc_unsafe_channels = config.get('general','unsafe-channels')
 
 #min_samples = config.getint('train', 'min_samples') ### minimum number of samples a training set should have
 #min_svm_samples = config.getint('idq_train', 'min_svm_samples')
@@ -266,7 +271,7 @@ while gpsstart < gpsstop:
 
     logger.info('----------------------------------------------------')
 
-    wait = gpsstart + stride + delay - t
+    wait = gpsstart + stride + delay - idq.nowgps()
     if wait > 0:
         logger.info('waiting %.1f seconds to reach gpsstart+stride+delay=%d' %(wait, gpsstart+stride+delay))
         time.sleep(wait)
@@ -376,7 +381,7 @@ while gpsstart < gpsstop:
                     for seg in idq_segs:
                         print >> f, seg[0], seg[1]
                     f.close()
-
+ ### we may want to remove the unsafe channels, but this could be tricky and we don't want to throw away GW channels accidentally
                     ovlsegs = idqseg_path
 
                 except Exception as e:
@@ -433,11 +438,6 @@ while gpsstart < gpsstop:
             if gwchannel not in trigger_dict:
                 trigger_dict[gwchannel] = []
 
-            ### keep only relevant gchs
-            if len(trigger_dict[gwchannel]) > max_gch_samples:
-                trgdict.resort() ### make sure they're in the correct order
-                trigger_dict[gwchannel] = trigger_dict[gwchannel][-max_gch_samples:]
-
             if not identical_trgfile: ### add AUX triggers
                 logger.info('looking for additional AUX triggers')
                 aux_trgdict = idq.retrieve_kwtrigs(AUXgdsdir, AUXkwbasename, gpsstart-lookback-padding, lookback+stride+padding, AUXkwstride, sleep=0, ntrials=1, logger=logger, segments=scisegs) ### find AUX kwtrgs
@@ -461,10 +461,6 @@ while gpsstart < gpsstop:
                 clean_gps = sorted(event.randomrate(clean_rate, [[gpsstart-lookback, gpsstart + stride]])) ### generate random clean times as a poisson time series within analysis range
             clean_gps = [ l[0] for l in event.exclude( [[gps] for gps in clean_gps], dirtyseg, tcent=0)] ### keep only those gps times that are outside of dirtyseg
 
-            ### keep only the most relevant cleans
-            if len(clean_gps) > max_cln_samples:
-                clean_gps = clean_gps[-max_cln_samples:]
-
             ### keep only times that are within science time
             if not opts.ignore_science_segments:
                 logger.info('  filtering trigger_dict through scisegs')
@@ -474,7 +470,8 @@ while gpsstart < gpsstop:
             logger.info('  writting %s'%pat)
             idq.build_auxmvc_vectors(trigger_dict, gwchannel, auxmvc_coinc_window, auxmc_gw_signif_thr, pat, gps_start_time=gpsstart-lookback,
                                 gps_end_time=gpsstart + stride,  channels=auxmvc_selected_channels, unsafe_channels=auxmvc_unsafe_channels, clean_times=clean_gps,
-                                clean_window=clean_window, filter_out_unclean=False )
+                                clean_window=clean_window, filter_out_unclean=False, max_glitch_samples=max_gch_samples, max_clean_samples=max_cln_samples ,
+                                science_segments=None ) ### we handle scisegs in this script rather than delegating to idq.build_auxmvc_vectors, so science_segments=None is appropriate
 
             ptas_exit_status = 0 ### used to check for success
 
@@ -515,6 +512,8 @@ while gpsstart < gpsstop:
 
         if flavor in idq.mla_flavors and ptas_exit_status:
             logger.warning("WARNING: mla training samples could not be built. skipping %s training"%classifier)
+            if opts.force:
+                raise StandardError("mla training samples could not be built.")
             continue
 
         min_num_cln = float(classD['min_num_cln'])
@@ -559,10 +558,22 @@ while gpsstart < gpsstop:
     ### a possible work around is to define yet another group of flavors to distinguish "blk_train" from "sngchn_train"
     if ovl:
         logger.info('generating single-channel summary files')
-    
-        new_dirs = idq.collect_sngl_chan_kw( gpsstart, gpsstart + stride, GWkwconfigpath, width=stride, source_dir=GWkwtrgdir, output_dir=snglchndir )
+
+        ### pull out only the channels we want to move   
+        file_obj = open(auxmvc_selected_channels, "r")
+        channels = [line.strip() for line in file_obj.readlines() if line.strip()] ### we may want to remove the unsafe channels, but this could be tricky and we don't want to throw away GW channels accidentally
+        file_obj.close()
+
+        ### pull out scisegs from ovlsegs. Will already contain any sciseg info and idq_seg info
+        if ovlsegs:
+            file_obj = open(ovlsegs, "r")
+            ovl_segments = [ [float(l) for l in line.strip().split()] for line in file_obj.readlines() ]
+            file_obj.close()
+        else:
+            ovl_segments = None
+        new_dirs = idq.collect_sngl_chan_kw( gpsstart, gpsstart + stride, GWkwconfigpath, width=stride, source_dir=GWkwtrgdir, output_dir=snglchndir, chans=channels, scisegs=ovl_segments )
         if not identical_trgfile:
-            new_dirs += idq.collect_sngl_chan_kw( gpsstart, gpsstart+stride, AUXkwconfigpath, width=stride, source_dir=AUXkwtrgdir, output_dir=snglchndir )
+            new_dirs += idq.collect_sngl_chan_kw( gpsstart, gpsstart+stride, AUXkwconfigpath, width=stride, source_dir=AUXkwtrgdir, output_dir=snglchndir, chans=channels, scisegs=ovl_segments )
 
     #=============================================
     # training on submit node
@@ -679,3 +690,7 @@ while gpsstart < gpsstop:
     ### continue onto the next stride
     gpsstart += stride
 
+#===================================================================================================
+if opts.lockfile:
+    idq.release(lockfp) ### unlock lockfile
+    os.remove( opts.lockfile )

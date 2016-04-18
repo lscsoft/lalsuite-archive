@@ -18,16 +18,6 @@
  *  MA  02111-1307  USA
  */
 
-/**
- * \author B.Krishnan, S.Larson, J.T.Whelan, Y.Zhang
- * \date 2013, 2014
- * \file pulsar_crosscorr_v2.c
- * \ingroup lalapps_pulsar_crosscorr
- * \brief Perform CW cross-correlation search - version 2
- *
- */
-
-
 /*lalapps includes */
 #include <lalapps.h>
 #include <lal/UserInput.h>
@@ -42,6 +32,19 @@
 #include <lal/LALString.h>
 #include <lal/PulsarCrossCorr_v2.h>
 #include "CrossCorrToplist.h"
+
+/**
+ * \author B.Krishnan, S.Larson, J.T.Whelan, Y.Zhang
+ * \date 2013, 2014, 2015
+ * \addtogroup lalapps_pulsar_crosscorr
+ * \brief Perform CW cross-correlation search - version 2
+ *
+ * This carries out the cross-correlation search defined in
+ * \cite Dhurandhar2007, and specifically the implementation detailed
+ * in \cite Whelan2015 .  The SFT-normalization routines described in
+ * \cite T0900149-v5 are leveraged.
+ */
+/** @{ */
 
 /* introduce mismatch in f and all 5 binary parameters */
 
@@ -83,6 +86,8 @@ typedef struct{
   CHAR    *pairListOutputFilename; /**< output filename to write list of sft index pairs */
   CHAR    *sftListOutputFilename;  /**< output filename to write list of sfts */
   CHAR    *sftListInputFilename;   /**< input filename to read in the  list of sfts and check the order of SFTs */
+  CHAR    *gammaAveOutputFilename; /**< output filename to write Gamma_ave = (aa+bb)/10 */
+  CHAR    *gammaCircOutputFilename; /**< output filename to write Gamma_circ = (ab-ba)/10 */
   CHAR    *toplistFilename;   /**< output filename containing candidates in toplist */
   BOOLEAN version;            /**<output version information*/
   CHAR    *logFilename;       /**< name of log file*/
@@ -92,6 +97,7 @@ typedef struct{
 typedef struct{
   SFTCatalog *catalog; /**< catalog of SFTs */
   EphemerisData *edat; /**< ephemeris data */
+  REAL8   refTime;     /**< reference time for pulsar phase definition */
 } ConfigVariables;
 
 #define TRUE (1==1)
@@ -104,6 +110,7 @@ int XLALInitializeConfigVars (ConfigVariables *config, const UserInput_t *uvar);
 int XLALDestroyConfigVars (ConfigVariables *config);
 int GetNextCrossCorrTemplate(BOOLEAN *binaryParamsFlag, BOOLEAN *firstPoint, PulsarDopplerParams *dopplerpos, PulsarDopplerParams *binaryTemplateSpacings, PulsarDopplerParams *minBinaryTemplate, PulsarDopplerParams *maxBinaryTemplate, UINT8 *fCount, UINT8 *aCount, UINT8 *tCount, UINT8 *pCount, UINT8 fSpacingNum, UINT8 aSpacingNum, UINT8 tSpacingNum, UINT8 pSpacingNum);
 
+/** @} */
 
 int main(int argc, char *argv[]){
 
@@ -128,7 +135,6 @@ int main(int argc, char *argv[]){
   PulsarDopplerParams thisBinaryTemplate, binaryTemplateSpacings;
   PulsarDopplerParams minBinaryTemplate, maxBinaryTemplate;
   SkyPosition XLAL_INIT_DECL(skyPos);
-  MultiSSBtimes *multiSSBTimes = NULL;
   MultiSSBtimes *multiBinaryTimes = NULL;
 
   INT4  k;
@@ -136,18 +142,18 @@ int main(int argc, char *argv[]){
   REAL8 fMin, fMax; /* min and max frequencies read from SFTs */
   REAL8 deltaF; /* frequency resolution associated with time baseline of SFTs */
 
-  REAL8Vector *curlyGUnshifted = NULL;
   REAL8 diagff = 0; /*diagonal metric components*/
   REAL8 diagaa = 0;
   REAL8 diagTT = 0;
-  REAL8 diagpp = 1;
+  REAL8 diagpp = 0;
   REAL8 ccStat = 0;
-  REAL8 evSquared=0;
-  REAL8 estSens=0; /*estimated sensitivity(4.13)*/
+  REAL8 evSquared = 0;
+  REAL8 estSens = 0; /*estimated sensitivity(4.13)*/
   BOOLEAN dopplerShiftFlag = TRUE;
   toplist_t *ccToplist=NULL;
   CrossCorrBinaryOutputEntry thisCandidate;
   UINT4 checksum;
+  CHARVector *dimName = NULL;
 
   LogPrintf (LOG_CRITICAL, "Starting time\n"); /*for debug convenience to record calculating time*/
   /* initialize and register user variables */
@@ -184,6 +190,15 @@ int main(int argc, char *argv[]){
 
   deltaF = config.catalog->data[0].header.deltaF;
   REAL8 Tsft = 1.0 / deltaF;
+
+  if (XLALUserVarWasSet(&uvar.spacingF) && XLALUserVarWasSet(&uvar.mismatchF))
+    LogPrintf (LOG_CRITICAL, "spacingF and mismatchF are both set, use spacingF %.9g by default\n\n", uvar.spacingF);
+  if (XLALUserVarWasSet(&uvar.spacingA) && XLALUserVarWasSet(&uvar.mismatchA))
+    LogPrintf (LOG_CRITICAL, "spacingA and mismatchA are both set, use spacingA %.9g by default\n\n", uvar.spacingA);
+  if (XLALUserVarWasSet(&uvar.spacingT) && XLALUserVarWasSet(&uvar.mismatchT))
+    LogPrintf (LOG_CRITICAL, "spacingT and mismatchT are both set, use spacingT %.9g by default\n\n", uvar.spacingT);
+  if (XLALUserVarWasSet(&uvar.spacingP) && XLALUserVarWasSet(&uvar.mismatchP))
+    LogPrintf (LOG_CRITICAL, "spacingP and mismatchP are both set, use spacingP %.9g by default\n\n", uvar.spacingP);
 
   /* create the toplist */
   create_crossCorrBinary_toplist( &ccToplist, uvar.numCand);
@@ -423,10 +438,38 @@ int main(int argc, char *argv[]){
   /* Get weighting factors for calculation of metric */
   /* note that the sigma-squared is now absorbed into the curly G
      because the AM coefficients are noise-weighted. */
-  if ( ( XLALCalculateAveCurlyGAmpUnshifted( &curlyGUnshifted, sftPairs, sftIndices, multiCoeffs)  != XLAL_SUCCESS ) ) {
-    LogPrintf ( LOG_CRITICAL, "%s: XLALCalculateAveCurlyGUnshifted() failed with errno=%d\n", __func__, xlalErrno );
+  REAL8Vector *GammaAve = NULL;
+  REAL8Vector *GammaCirc = NULL;
+  if ( ( XLALCalculateCrossCorrGammas( &GammaAve, &GammaCirc, sftPairs, sftIndices, multiCoeffs)  != XLAL_SUCCESS ) ) {
+    LogPrintf ( LOG_CRITICAL, "%s: XLALCalculateCrossCorrGammas() failed with errno=%d\n", __func__, xlalErrno );
     XLAL_ERROR( XLAL_EFUNC );
   }
+
+#define PCC_GAMMA_HEADER "# The normalization Sinv_Tsft is %g #\n"
+#define PCC_GAMMA_BODY "%.10g\n"
+  if (XLALUserVarWasSet(&uvar.gammaAveOutputFilename)) { /* Write the aa+bb weight for each pair to a file, if a name was provided */
+    if((fp = fopen(uvar.gammaAveOutputFilename, "w")) == NULL) {
+      LogPrintf ( LOG_CRITICAL, "Can't write in Gamma_ave list \n");
+      XLAL_ERROR( XLAL_EFUNC );
+    }
+    fprintf(fp,PCC_GAMMA_HEADER, multiWeights->Sinv_Tsft); /*output the normalization factor to the header*/
+    for(j = 0; j < sftPairs->length; j++){
+      fprintf(fp,PCC_GAMMA_BODY, GammaAve->data[j]);
+    }
+    fclose(fp);
+  }
+  if (XLALUserVarWasSet(&uvar.gammaCircOutputFilename)) { /* Write the ab-ba weight for each pair to a file, if a name was provided */
+    if((fp = fopen(uvar.gammaCircOutputFilename, "w")) == NULL) {
+      LogPrintf ( LOG_CRITICAL, "Can't write in Gamma_circ list \n");
+      XLAL_ERROR( XLAL_EFUNC );
+    }
+    fprintf(fp,PCC_GAMMA_HEADER, multiWeights->Sinv_Tsft); /*output the normalization factor to the header*/
+    for(j = 0; j < sftPairs->length; j++){
+      fprintf(fp,PCC_GAMMA_BODY, GammaCirc->data[j]);
+    }
+    fclose(fp);
+  }
+
   /*initialize binary parameters structure*/
   XLAL_INIT_MEM(minBinaryTemplate);
   XLAL_INIT_MEM(maxBinaryTemplate);
@@ -455,49 +498,13 @@ int main(int argc, char *argv[]){
   thisBinaryTemplate.fkdot[0]=0.5*(minBinaryTemplate.fkdot[0] + maxBinaryTemplate.fkdot[0]);
 
   /*Get metric diagonal components, also estimate sensitivity i.e. E[rho]/(h0)^2 (4.13)*/
-  if ( (XLALFindLMXBCrossCorrDiagMetric(&estSens, &diagff, &diagaa, &diagTT, thisBinaryTemplate, curlyGUnshifted, sftPairs, sftIndices, inputSFTs, multiWeights /*, kappaValues*/)  != XLAL_SUCCESS ) ) {
-    LogPrintf ( LOG_CRITICAL, "%s: XLALFindLMXBCrossCorrDiagMetric() failed with errno=%d\n", __func__, xlalErrno );
+  if ( (XLALCalculateLMXBCrossCorrDiagMetric(&estSens, &diagff, &diagaa, &diagTT, &diagpp, thisBinaryTemplate, GammaAve, sftPairs, sftIndices, inputSFTs, multiWeights /*, kappaValues*/)  != XLAL_SUCCESS ) ) {
+    LogPrintf ( LOG_CRITICAL, "%s: XLALCalculateLMXBCrossCorrDiagMetric() failed with errno=%d\n", __func__, xlalErrno );
     XLAL_ERROR( XLAL_EFUNC );
   }
 
-  /* spacing in frequency from diagff */ /* set spacings in new dopplerparams struct */
-  if (XLALUserVarWasSet(&uvar.spacingF)) /* If spacing was given by CMD line, use it, else calculate spacing by mismatch*/
-    binaryTemplateSpacings.fkdot[0] = uvar.spacingF;
-  else
-    binaryTemplateSpacings.fkdot[0] = sqrt(uvar.mismatchF / diagff);
-
-  if (XLALUserVarWasSet(&uvar.spacingA))
-    binaryTemplateSpacings.asini = uvar.spacingA;
-  else
-    binaryTemplateSpacings.asini = sqrt(uvar.mismatchA / diagaa);
-  /* this is annoying: tp is a GPS time while we want a difference
-     in time which should be just REAL8 */
-  if (XLALUserVarWasSet(&uvar.spacingT))
-    XLALGPSSetREAL8( &binaryTemplateSpacings.tp, uvar.spacingT);
-  else
-    XLALGPSSetREAL8( &binaryTemplateSpacings.tp, sqrt(uvar.mismatchT / diagTT));
-
-  if (XLALUserVarWasSet(&uvar.spacingP))
-    binaryTemplateSpacings.period = uvar.spacingP;
-  else
-    binaryTemplateSpacings.period = sqrt(uvar.mismatchP / diagpp);
-
-  /* metric elements for eccentric case not considered? */
-
-  UINT8 fCount = 0, aCount = 0, tCount = 0 , pCount = 0;
-  const UINT8 fSpacingNum = floor( uvar.fBand / binaryTemplateSpacings.fkdot[0]);
-  const UINT8 aSpacingNum = floor( uvar.orbitAsiniSecBand / binaryTemplateSpacings.asini);
-  const UINT8 tSpacingNum = floor( uvar.orbitTimeAscBand / XLALGPSGetREAL8(&binaryTemplateSpacings.tp));
-  const UINT8 pSpacingNum = floor( uvar.orbitPSecBand / binaryTemplateSpacings.period);
-
-  /*reset minbinaryOrbitParams to shift the first point a factor so as to make the center of all seaching points centers at the center of searching band*/
-  minBinaryTemplate.fkdot[0] = uvar.fStart + 0.5 * (uvar.fBand - fSpacingNum * binaryTemplateSpacings.fkdot[0]);
-  minBinaryTemplate.asini = uvar.orbitAsiniSec + 0.5 * (uvar.orbitAsiniSecBand - aSpacingNum * binaryTemplateSpacings.asini);
-  XLALGPSSetREAL8( &minBinaryTemplate.tp, uvar.orbitTimeAsc + 0.5 * (uvar.orbitTimeAscBand - tSpacingNum * XLALGPSGetREAL8(&binaryTemplateSpacings.tp)));
-  minBinaryTemplate.period = uvar.orbitPSec + 0.5 * (uvar.orbitPSecBand - pSpacingNum * binaryTemplateSpacings.period);
-
   /* initialize the doppler scan struct which stores the current template information */
-  XLALGPSSetREAL8(&dopplerpos.refTime, uvar.refTime);
+  XLALGPSSetREAL8(&dopplerpos.refTime, config.refTime);
   dopplerpos.Alpha = uvar.alphaRad;
   dopplerpos.Delta = uvar.deltaRad;
   dopplerpos.fkdot[0] = minBinaryTemplate.fkdot[0];
@@ -518,8 +525,8 @@ int main(int argc, char *argv[]){
   thisBinaryTemplate.argp = 0.0;*/
   /* copy to dopplerpos */
 
-
   /* Calculate SSB times (can do this once since search is currently only for one sky position, and binary doppler shift is added later) */
+  MultiSSBtimes *multiSSBTimes = NULL;
   if ((multiSSBTimes = XLALGetMultiSSBtimes ( multiStates, skyPos, dopplerpos.refTime, SSBPREC_RELATIVISTICOPT )) == NULL){
     LogPrintf ( LOG_CRITICAL, "%s: XLALGetMultiSSBtimes() failed with errno=%d\n", __func__, xlalErrno );
     XLAL_ERROR( XLAL_EFUNC );
@@ -550,6 +557,89 @@ int main(int argc, char *argv[]){
     XLAL_ERROR( XLAL_EFUNC );
   }
 
+   /* "New" general metric computation */
+  /* For now hard-code circular parameter space */
+
+  const DopplerCoordinateSystem coordSys = {
+    .dim = 4,
+    .coordIDs = { DOPPLERCOORD_FREQ,
+		  DOPPLERCOORD_ASINI,
+		  DOPPLERCOORD_TASC,
+		  DOPPLERCOORD_PORB, },
+  };
+
+  REAL8VectorSequence *phaseDerivs = NULL;
+  if ( ( XLALCalculateCrossCorrPhaseDerivatives ( &phaseDerivs, &thisBinaryTemplate, config.edat, sftIndices, multiSSBTimes, &coordSys )  != XLAL_SUCCESS ) ) {
+    LogPrintf ( LOG_CRITICAL, "%s: XLALCalculateCrossCorrPhaseDerivatives() failed with errno=%d\n", __func__, xlalErrno );
+    XLAL_ERROR( XLAL_EFUNC );
+  }
+
+  /* fill in metric and parameter offsets */
+  gsl_matrix *g_ij = NULL;
+  gsl_vector *eps_i = NULL;
+  REAL8 sumGammaSq = 0;
+  if ( ( XLALCalculateCrossCorrPhaseMetric ( &g_ij, &eps_i, &sumGammaSq, phaseDerivs, sftPairs, GammaAve, GammaCirc, &coordSys ) != XLAL_SUCCESS ) ) {
+    LogPrintf ( LOG_CRITICAL, "%s: XLALCalculateCrossCorrPhaseMetric() failed with errno=%d\n", __func__, xlalErrno );
+    XLAL_ERROR( XLAL_EFUNC );
+  }
+  XLALDestroyREAL8VectorSequence ( phaseDerivs );
+  XLALDestroyREAL8Vector ( GammaCirc );
+
+  /*  if ((fp = fopen("gsldata.dat","w"))==NULL){
+    LogPrintf ( LOG_CRITICAL, "Can't write in gsl matrix file");
+    XLAL_ERROR( XLAL_EFUNC );
+  }
+
+  XLALfprintfGSLvector(fp, "%g", eps_i);
+  XLALfprintfGSLmatrix(fp, "%g", g_ij);*/
+
+  diagff = gsl_matrix_get(g_ij, 0, 0);
+  diagaa = gsl_matrix_get(g_ij, 1, 1);
+  diagTT = gsl_matrix_get(g_ij, 2, 2);
+  diagpp = gsl_matrix_get(g_ij, 3, 3);
+
+  dimName = XLALCreateCHARVector(coordSys.dim);
+  dimName->data[0] = 'f';
+  dimName->data[1] = 'a';
+  dimName->data[2] = 'T';
+  dimName->data[3] = 'p';
+
+  /* spacing in frequency from diagff */ /* set spacings in new dopplerparams struct */
+  if (XLALUserVarWasSet(&uvar.spacingF)) /* If spacing was given by CMD line, use it, else calculate spacing by mismatch*/
+    binaryTemplateSpacings.fkdot[0] = uvar.spacingF;
+  else
+    binaryTemplateSpacings.fkdot[0] = sqrt(uvar.mismatchF / diagff);
+
+  if (XLALUserVarWasSet(&uvar.spacingA))
+    binaryTemplateSpacings.asini = uvar.spacingA;
+  else
+    binaryTemplateSpacings.asini = sqrt(uvar.mismatchA / diagaa);
+  /* this is annoying: tp is a GPS time while we want a difference
+     in time which should be just REAL8 */
+  if (XLALUserVarWasSet(&uvar.spacingT))
+    XLALGPSSetREAL8( &binaryTemplateSpacings.tp, uvar.spacingT);
+  else
+    XLALGPSSetREAL8( &binaryTemplateSpacings.tp, sqrt(uvar.mismatchT / diagTT));
+
+  if (XLALUserVarWasSet(&uvar.spacingP))
+    binaryTemplateSpacings.period = uvar.spacingP;
+  else
+    binaryTemplateSpacings.period = sqrt(uvar.mismatchP / diagpp);
+
+  /* metric elements for eccentric case not considered? */
+
+    UINT8 fCount = 0, aCount = 0, tCount = 0 , pCount = 0;
+  const UINT8 fSpacingNum = floor( uvar.fBand / binaryTemplateSpacings.fkdot[0]);
+  const UINT8 aSpacingNum = floor( uvar.orbitAsiniSecBand / binaryTemplateSpacings.asini);
+  const UINT8 tSpacingNum = floor( uvar.orbitTimeAscBand / XLALGPSGetREAL8(&binaryTemplateSpacings.tp));
+  const UINT8 pSpacingNum = floor( uvar.orbitPSecBand / binaryTemplateSpacings.period);
+
+  /*reset minbinaryOrbitParams to shift the first point a factor so as to make the center of all seaching points centers at the center of searching band*/
+  minBinaryTemplate.fkdot[0] = uvar.fStart + 0.5 * (uvar.fBand - fSpacingNum * binaryTemplateSpacings.fkdot[0]);
+  minBinaryTemplate.asini = uvar.orbitAsiniSec + 0.5 * (uvar.orbitAsiniSecBand - aSpacingNum * binaryTemplateSpacings.asini);
+  XLALGPSSetREAL8( &minBinaryTemplate.tp, uvar.orbitTimeAsc + 0.5 * (uvar.orbitTimeAscBand - tSpacingNum * XLALGPSGetREAL8(&binaryTemplateSpacings.tp)));
+  minBinaryTemplate.period = uvar.orbitPSec + 0.5 * (uvar.orbitPSecBand - pSpacingNum * binaryTemplateSpacings.period);
+
   /* args should be : spacings, min and max doppler params */
   BOOLEAN firstPoint = TRUE; /* a boolean to help to search at the beginning point in parameter space, after the search it is set to be FALSE to end the loop*/
   if ( (XLALAddMultiBinaryTimes( &multiBinaryTimes, multiSSBTimes, &dopplerpos )  != XLAL_SUCCESS ) ) {
@@ -576,7 +666,7 @@ int main(int argc, char *argv[]){
 	XLAL_ERROR( XLAL_EFUNC );
       }
 
-      if ( (XLALCalculatePulsarCrossCorrStatistic( &ccStat, &evSquared, curlyGUnshifted, expSignalPhases, lowestBins, sincList, sftPairs, sftIndices, inputSFTs, multiWeights, uvar.numBins)  != XLAL_SUCCESS ) ) {
+      if ( (XLALCalculatePulsarCrossCorrStatistic( &ccStat, &evSquared, GammaAve, expSignalPhases, lowestBins, sincList, sftPairs, sftIndices, inputSFTs, multiWeights, uvar.numBins)  != XLAL_SUCCESS ) ) {
 	LogPrintf ( LOG_CRITICAL, "%s: XLALCalculatePulsarCrossCorrStatistic() failed with errno=%d\n", __func__, xlalErrno );
 	XLAL_ERROR( XLAL_EFUNC );
       }
@@ -616,23 +706,44 @@ int main(int argc, char *argv[]){
     fprintf(fp, "[UserInput]\n\n");
     fprintf(fp, "%s\n", CMDInputStr);
     fprintf(fp, "[CalculatedValues]\n\n");
-    fprintf(fp, "g_ff = %.9f\n", diagff );
-    fprintf(fp, "g_aa = %.9f\n", diagaa );
-    fprintf(fp, "g_TT = %.9f\n", diagTT );
+    REAL8 g_lm, eps_n;
+    for (UINT4 l = 0; l < coordSys.dim; l++){
+      for (UINT4 m = 0; m < coordSys.dim; m++){
+	if (l == m){
+	  g_lm = gsl_matrix_get(g_ij, l, m);
+	  fprintf(fp, "g_%c%c = %.9"LAL_REAL8_FORMAT"\n", dimName->data[l], dimName->data[m], g_lm);
+	}
+      }
+    }
+    for (UINT4 l = 0; l < coordSys.dim; l++){
+      for (UINT4 m = 0; m < coordSys.dim; m++){
+	if (l < m){
+	  g_lm = gsl_matrix_get(g_ij, l, m);
+	  fprintf(fp, "g_%c%c = %.9"LAL_REAL8_FORMAT"\n", dimName->data[l], dimName->data[m], g_lm);
+	}
+      }
+    }
+    for (UINT4 n = 0; n < coordSys.dim; n++){
+      eps_n = gsl_vector_get(eps_i, n);
+      fprintf(fp, "eps_%c = %.9"LAL_REAL8_FORMAT"\n", dimName->data[n], eps_n);
+    }
     fprintf(fp, "FSpacing = %.9g\n", binaryTemplateSpacings.fkdot[0]);
     fprintf(fp, "ASpacing = %.9g\n", binaryTemplateSpacings.asini);
     fprintf(fp, "TSpacing = %.9g\n", XLALGPSGetREAL8(&binaryTemplateSpacings.tp));
-    /* fprintf(fp, "PSpacing = %.9g\n", binaryTemplateSpacings.period );*/
+    fprintf(fp, "PSpacing = %.9g\n", binaryTemplateSpacings.period);
     fprintf(fp, "TemplatenumF = %" LAL_UINT8_FORMAT "\n", (fSpacingNum + 1));
     fprintf(fp, "TemplatenumA = %" LAL_UINT8_FORMAT "\n", (aSpacingNum + 1));
     fprintf(fp, "TemplatenumT = %" LAL_UINT8_FORMAT "\n", (tSpacingNum + 1));
     fprintf(fp, "TemplatenumP = %" LAL_UINT8_FORMAT "\n", (pSpacingNum + 1));
     fprintf(fp, "TemplatenumTotal = %" LAL_UINT8_FORMAT "\n",(fSpacingNum + 1) * (aSpacingNum + 1) * (tSpacingNum + 1) * (pSpacingNum + 1));
-    fprintf(fp, "Sens = %.9g\n", estSens);/*(E[rho]/h0^2)^2*/
-    fprintf(fp, "h0_min_SNR10 = %.9g\n", h0Sens);/*for rho = 10 in our pipeline*/
-    fprintf(fp, "startTime = %" LAL_INT4_FORMAT "\n", computingStartGPSTime.gpsSeconds );/*start time in GPS-time*/
-    fprintf(fp, "endTime = %" LAL_INT4_FORMAT "\n", computingEndGPSTime.gpsSeconds );/*end time in GPS-time*/
-    fprintf(fp, "computingTime = %" LAL_UINT4_FORMAT "\n", computingTime );/*total time in sec*/
+    fprintf(fp, "Sens = %.9g\n", estSens); /*(E[rho]/h0^2)^2*/
+    fprintf(fp, "h0_min_SNR10 = %.9g\n", h0Sens); /*for rho = 10 in our pipeline*/
+    fprintf(fp, "startTime = %" LAL_INT4_FORMAT "\n", computingStartGPSTime.gpsSeconds); /*start time in GPS-time*/
+    fprintf(fp, "endTime = %" LAL_INT4_FORMAT "\n", computingEndGPSTime.gpsSeconds); /*end time in GPS-time*/
+    fprintf(fp, "computingTime = %" LAL_UINT4_FORMAT "\n", computingTime); /*total time in sec*/
+    fprintf(fp, "SFTnum = %" LAL_UINT4_FORMAT "\n", sftIndices->length); /*total number of SFT*/
+    fprintf(fp, "pairnum = %" LAL_UINT4_FORMAT "\n", sftPairs->length); /*total number of pair of SFT*/
+    fprintf(fp, "Tsft = %.6g\n", Tsft); /*SFT duration*/
     fprintf(fp, "\n[Version]\n\n");
     fprintf(fp, "%s",  VCSInfoString);
     fclose(fp);
@@ -646,7 +757,7 @@ int main(int argc, char *argv[]){
   XLALDestroyREAL8VectorSequence ( sincList );
   XLALDestroyMultiSSBtimes ( multiBinaryTimes );
   XLALDestroyMultiSSBtimes ( multiSSBTimes );
-  XLALDestroyREAL8Vector ( curlyGUnshifted );
+  XLALDestroyREAL8Vector ( GammaAve );
   XLALDestroySFTPairIndexList( sftPairs );
   XLALDestroySFTIndexList( sftIndices );
   XLALDestroyMultiAMCoeffs ( multiCoeffs );
@@ -655,7 +766,7 @@ int main(int argc, char *argv[]){
   XLALDestroyMultiNoiseWeights ( multiWeights );
   XLALDestroyMultiPSDVector ( multiPSDs );
   XLALDestroyMultiSFTVector ( inputSFTs );
-
+  XLALDestroyCHARVector ( dimName );
   /* de-allocate memory for configuration variables */
   XLALDestroyConfigVars ( &config );
 
@@ -682,8 +793,6 @@ int XLALInitUserVars (UserInput_t *uvar)
 
   /* initialize with some defaults */
   uvar->help = FALSE;
-  uvar->startTime = 814838413;	/* 1 Nov 2005, ~ start of S5 */
-  uvar->endTime = uvar->startTime + (INT4) round ( LAL_YRSID_SI ) ;	/* 1 year of data */
   uvar->maxLag = 0.0;
   uvar->inclAutoCorr = FALSE;
   uvar->fStart = 100.0;
@@ -692,11 +801,9 @@ int XLALInitUserVars (UserInput_t *uvar)
   /* uvar->fdotBand = 0.0; */
   uvar->alphaRad = 0.0;
   uvar->deltaRad = 0.0;
+  uvar->refTime = 0.0;
   uvar->rngMedBlock = 50;
   uvar->numBins = 1;
-
-  /* default for reftime is in the middle */
-  uvar->refTime = 0.5*(uvar->startTime + uvar->endTime);
 
   /* zero binary orbital parameters means not a binary */
   uvar->orbitAsiniSec = 0.0;
@@ -725,45 +832,47 @@ int XLALInitUserVars (UserInput_t *uvar)
   uvar->version = FALSE;
 
   /* register  user-variables */
-  XLALregBOOLUserStruct  ( help, 	   'h',  UVAR_HELP, "Print this message");
-  XLALregINTUserStruct   ( startTime,       0,  UVAR_OPTIONAL, "Desired start time of analysis in GPS seconds");
-  XLALregINTUserStruct   ( endTime,         0,  UVAR_OPTIONAL, "Desired end time of analysis in GPS seconds");
-  XLALregREALUserStruct  ( maxLag,          0,  UVAR_OPTIONAL, "Maximum lag time in seconds between SFTs in correlation");
-  XLALregBOOLUserStruct  ( inclAutoCorr,    0,  UVAR_OPTIONAL, "Include auto-correlation terms (an SFT with itself)");
-  XLALregREALUserStruct  ( fStart,          0,  UVAR_OPTIONAL, "Start frequency in Hz");
-  XLALregREALUserStruct  ( fBand,           0,  UVAR_OPTIONAL, "Frequency band to search over in Hz ");
-  /* XLALregREALUserStruct  ( fdotStart,     0,  UVAR_OPTIONAL, "Start value of spindown in Hz/s"); */
-  /* XLALregREALUserStruct  ( fdotBand,      0,  UVAR_OPTIONAL, "Band for spindown values in Hz/s"); */
-  XLALregREALUserStruct  ( alphaRad,        0,  UVAR_OPTIONAL, "Right ascension for directed search (radians)");
-  XLALregREALUserStruct  ( deltaRad,        0,  UVAR_OPTIONAL, "Declination for directed search (radians)");
-  XLALregREALUserStruct  ( refTime,         0,  UVAR_OPTIONAL, "SSB reference time for pulsar-parameters [Default: midPoint]");
-  XLALregREALUserStruct  ( orbitAsiniSec,   0,  UVAR_OPTIONAL, "Start of search band for projected semimajor axis (seconds) [0 means not a binary]");
-  XLALregREALUserStruct  ( orbitAsiniSecBand, 0,  UVAR_OPTIONAL, "Width of search band for projected semimajor axis (seconds)");
-  XLALregREALUserStruct  ( orbitPSec,       0,  UVAR_OPTIONAL, "Binary orbital period (seconds) [0 means not a binary]");
-  XLALregREALUserStruct  ( orbitPSecBand,       0,  UVAR_OPTIONAL, "Band for binary orbital period (seconds) ");
-  XLALregREALUserStruct  ( orbitTimeAsc,    0,  UVAR_OPTIONAL, "Start of orbital time-of-ascension band in GPS seconds");
-  XLALregREALUserStruct  ( orbitTimeAscBand, 0,  UVAR_OPTIONAL, "Width of orbital time-of-ascension band (seconds)");
-  XLALregSTRINGUserStruct( ephemEarth,      0,  UVAR_OPTIONAL, "Earth ephemeris file to use");
-  XLALregSTRINGUserStruct( ephemSun,        0,  UVAR_OPTIONAL, "Sun ephemeris file to use");
-  XLALregSTRINGUserStruct( sftLocation,     0,  UVAR_REQUIRED, "Filename pattern for locating SFT data");
-  XLALregINTUserStruct   ( rngMedBlock,     0,  UVAR_OPTIONAL, "Running median block size for PSD estimation");
-  XLALregINTUserStruct   ( numBins,         0,  UVAR_OPTIONAL, "Number of frequency bins to include in calculation");
-  XLALregREALUserStruct  ( mismatchF,       0,  UVAR_OPTIONAL, "Desired mismatch for frequency spacing");
-  XLALregREALUserStruct  ( mismatchA,       0,  UVAR_OPTIONAL, "Desired mismatch for asini spacing");
-  XLALregREALUserStruct  ( mismatchT,       0,  UVAR_OPTIONAL, "Desired mismatch for periapse passage time spacing");
-  XLALregREALUserStruct  ( mismatchP,       0,  UVAR_OPTIONAL, "Desired mismatch for period spacing");
-  XLALregREALUserStruct  ( spacingF,       0,  UVAR_OPTIONAL, "Desired frequency spacing");
-  XLALregREALUserStruct  ( spacingA,       0,  UVAR_OPTIONAL, "Desired asini spacing");
-  XLALregREALUserStruct  ( spacingT,       0,  UVAR_OPTIONAL, "Desired periapse passage time spacing");
-  XLALregREALUserStruct  ( spacingP,       0,  UVAR_OPTIONAL, "Desired period spacing");
-  XLALregINTUserStruct   ( numCand,         0,  UVAR_OPTIONAL, "Number of candidates to keep in toplist");
-  XLALregSTRINGUserStruct( pairListInputFilename, 0,  UVAR_OPTIONAL, "Name of file from which to read list of SFT pairs");
-  XLALregSTRINGUserStruct( pairListOutputFilename, 0,  UVAR_OPTIONAL, "Name of file to which to write list of SFT pairs");
-  XLALregSTRINGUserStruct( sftListOutputFilename, 0,  UVAR_OPTIONAL, "Name of file to which to write list of SFTs (for sanity checks)");
-  XLALregSTRINGUserStruct( sftListInputFilename, 0,  UVAR_OPTIONAL, "Name of file to which to read in list of SFTs (for sanity checks)");
-  XLALregSTRINGUserStruct( toplistFilename, 0,  UVAR_OPTIONAL, "Output filename containing candidates in toplist");
-  XLALregSTRINGUserStruct( logFilename, 0,  UVAR_OPTIONAL, "Output a meta-data file for the search");
-  XLALregBOOLUserStruct  ( version, 	   'V',  UVAR_SPECIAL, "Output version(VCS) information");
+  XLALRegisterUvarMember( help, 	   BOOLEAN, 'h',  HELP, "Print this message");
+  XLALRegisterUvarMember( startTime,       INT4, 0,  REQUIRED, "Desired start time of analysis in GPS seconds");
+  XLALRegisterUvarMember( endTime,         INT4, 0,  REQUIRED, "Desired end time of analysis in GPS seconds");
+  XLALRegisterUvarMember( maxLag,          REAL8, 0,  OPTIONAL, "Maximum lag time in seconds between SFTs in correlation");
+  XLALRegisterUvarMember( inclAutoCorr,    BOOLEAN, 0,  OPTIONAL, "Include auto-correlation terms (an SFT with itself)");
+  XLALRegisterUvarMember( fStart,          REAL8, 0,  OPTIONAL, "Start frequency in Hz");
+  XLALRegisterUvarMember( fBand,           REAL8, 0,  OPTIONAL, "Frequency band to search over in Hz ");
+  /* XLALRegisterUvarMember( fdotStart,     REAL8, 0,  OPTIONAL, "Start value of spindown in Hz/s"); */
+  /* XLALRegisterUvarMember( fdotBand,      REAL8, 0,  OPTIONAL, "Band for spindown values in Hz/s"); */
+  XLALRegisterUvarMember( alphaRad,        REAL8, 0,  OPTIONAL, "Right ascension for directed search (radians)");
+  XLALRegisterUvarMember( deltaRad,        REAL8, 0,  OPTIONAL, "Declination for directed search (radians)");
+  XLALRegisterUvarMember( refTime,         REAL8, 0,  OPTIONAL, "SSB reference time for pulsar-parameters [Default: midPoint]");
+  XLALRegisterUvarMember( orbitAsiniSec,   REAL8, 0,  OPTIONAL, "Start of search band for projected semimajor axis (seconds) [0 means not a binary]");
+  XLALRegisterUvarMember( orbitAsiniSecBand, REAL8, 0,  OPTIONAL, "Width of search band for projected semimajor axis (seconds)");
+  XLALRegisterUvarMember( orbitPSec,       REAL8, 0,  OPTIONAL, "Binary orbital period (seconds) [0 means not a binary]");
+  XLALRegisterUvarMember( orbitPSecBand,       REAL8, 0,  OPTIONAL, "Band for binary orbital period (seconds) ");
+  XLALRegisterUvarMember( orbitTimeAsc,    REAL8, 0,  OPTIONAL, "Start of orbital time-of-ascension band in GPS seconds");
+  XLALRegisterUvarMember( orbitTimeAscBand, REAL8, 0,  OPTIONAL, "Width of orbital time-of-ascension band (seconds)");
+  XLALRegisterUvarMember( ephemEarth,      STRING, 0,  OPTIONAL, "Earth ephemeris file to use");
+  XLALRegisterUvarMember( ephemSun,        STRING, 0,  OPTIONAL, "Sun ephemeris file to use");
+  XLALRegisterUvarMember( sftLocation,     STRING, 0,  REQUIRED, "Filename pattern for locating SFT data");
+  XLALRegisterUvarMember( rngMedBlock,     INT4, 0,  OPTIONAL, "Running median block size for PSD estimation");
+  XLALRegisterUvarMember( numBins,         INT4, 0,  OPTIONAL, "Number of frequency bins to include in calculation");
+  XLALRegisterUvarMember( mismatchF,       REAL8, 0,  OPTIONAL, "Desired mismatch for frequency spacing");
+  XLALRegisterUvarMember( mismatchA,       REAL8, 0,  OPTIONAL, "Desired mismatch for asini spacing");
+  XLALRegisterUvarMember( mismatchT,       REAL8, 0,  OPTIONAL, "Desired mismatch for periapse passage time spacing");
+  XLALRegisterUvarMember( mismatchP,       REAL8, 0,  OPTIONAL, "Desired mismatch for period spacing");
+  XLALRegisterUvarMember( spacingF,       REAL8, 0,  OPTIONAL, "Desired frequency spacing");
+  XLALRegisterUvarMember( spacingA,       REAL8, 0,  OPTIONAL, "Desired asini spacing");
+  XLALRegisterUvarMember( spacingT,       REAL8, 0,  OPTIONAL, "Desired periapse passage time spacing");
+  XLALRegisterUvarMember( spacingP,       REAL8, 0,  OPTIONAL, "Desired period spacing");
+  XLALRegisterUvarMember( numCand,         INT4, 0,  OPTIONAL, "Number of candidates to keep in toplist");
+  XLALRegisterUvarMember( pairListInputFilename, STRING, 0,  OPTIONAL, "Name of file from which to read list of SFT pairs");
+  XLALRegisterUvarMember( pairListOutputFilename, STRING, 0,  OPTIONAL, "Name of file to which to write list of SFT pairs");
+  XLALRegisterUvarMember( sftListOutputFilename, STRING, 0,  OPTIONAL, "Name of file to which to write list of SFTs (for sanity checks)");
+  XLALRegisterUvarMember( sftListInputFilename, STRING, 0,  OPTIONAL, "Name of file to which to read in list of SFTs (for sanity checks)");
+  XLALRegisterUvarMember( gammaAveOutputFilename, STRING, 0,  OPTIONAL, "Name of file to which to write aa+bb weights (for e.g., false alarm estimation)");
+  XLALRegisterUvarMember( gammaCircOutputFilename, STRING, 0,  OPTIONAL, "Name of file to which to write ab-ba weights (for e.g., systematic error)");
+  XLALRegisterUvarMember( toplistFilename, STRING, 0,  OPTIONAL, "Output filename containing candidates in toplist");
+  XLALRegisterUvarMember( logFilename, STRING, 0,  OPTIONAL, "Output a meta-data file for the search");
+  XLALRegisterUvarMember( version, 	   BOOLEAN, 'V',  SPECIAL, "Output version(VCS) information");
   if ( xlalErrno ) {
     XLALPrintError ("%s: user variable initialization failed with errno = %d.\n", __func__, xlalErrno );
     XLAL_ERROR ( XLAL_EFUNC );
@@ -786,8 +895,14 @@ int XLALInitializeConfigVars (ConfigVariables *config, const UserInput_t *uvar)
   constraints.timestamps = NULL;
   constraints.minStartTime = &startTime;
   constraints.maxStartTime = &endTime;
-  XLALGPSSet( constraints.minStartTime, uvar->startTime, 0);
-  XLALGPSSet( constraints.maxStartTime, uvar->endTime,0);
+  XLALGPSSet( constraints.minStartTime, uvar->startTime, 0 );
+  XLALGPSSet( constraints.maxStartTime, uvar->endTime, 0 );
+
+  if (XLALUserVarWasSet(&(uvar->refTime)))
+    config->refTime = uvar->refTime;
+  else
+    config->refTime = uvar->startTime + 0.5 * ( (REAL8) (uvar->endTime - uvar->startTime) );
+
 
   /* This check doesn't seem to work, since XLALGPSSet doesn't set its
      first argument.

@@ -17,6 +17,147 @@
 *  MA  02111-1307  USA
 */
 
+/**
+ * @defgroup lalsim_inspiral lalsim-inspiral
+ * @ingroup lalsimulation_programs
+ *
+ * @brief Simulates a gravitational waveform from binary inspiral
+ *
+ * ### Synopsis
+ *
+ *     lalsim-inspiral [options]
+ *
+ * ### Description
+ *
+ * The `lalsim-inspiral` utility produces a stream of a simulated
+ * gravitational waveform from a binary inspiral.  The output data is
+ * the gravitational waveform polarizations in the time domain, or
+ * in the frequency domain if the `-F` option is specified.  If the
+ * option `-Q` is specified, the output data is in amplitude and phase.
+ * This program uses XLALSimInspiralChooseTDWaveform() or
+ * XLALSimInspiralChooseFDWaveform() unless the `-c` waveform contitioning
+ * option is given, in which case it uses XLALSimInspiralTD() or
+ * XLALSimInspiralFD().  The output is written to standard output as a
+ * multicolumn ascii format.  The first column gives the time or frequency
+ * corresponding to each sample and the remaining columns give the
+ * gravitational waveform values for the two polarizations (real and
+ * imaginary parts, or amplitude and phase when complex).
+ *
+ * ### Options
+ * [default values in brackets]
+ *
+ * <DL>
+ * <DT>`-h`, `--help`
+ * <DD>print a help message and exit</DD>
+ * <DT>`-v`, `--verbose`
+ * <DD>verbose output</DD>
+ * <DT>`-F`, `--frequency-domain`
+ * <DD>output data in frequency domain</DD>
+ * <DT>`-c`, `--condition-waveform`
+ * <DD>apply waveform conditioning</DD>
+ * <DT>`-Q`, `--amp-phase`
+ * <DD>output data as amplitude and phase</DD>
+ * <DT>`-a` APPROX, `--approximant=`APPROX 
+ * <DD>approximant [TaylorT1]</DD>
+ * <DT>`-w` WAVEFORM, `--waveform=`WAVEFORM 
+ * <DD>waveform string giving both approximant and order</DD>
+ * <DT>`-D` domain, `--domain=`DOMAIN      
+ * <DD>domain for waveform generation when both are available {"time", "freq"}
+ * [use natural domain for output]</DD>
+ * <DT>`-O` PHASEO, `--phase-order=`PHASEO 
+ * <DD>twice pN order of phase (-1 == highest) [-1]</DD>
+ * <DT>`-o` AMPO, `--amp-order=`AMPO       
+ * <DD>twice pN order of amplitude (-1 == highest) [0]</DD>
+ * <DT>`-q` PHIREF, `--phiRef=`PHIREF      
+ * <DD>reference phase in degrees [0]</DD>
+ * <DT>`-R` SRATE, `--sample-rate=`SRATE   
+ * <DD>sample rate in Hertz [16384]</DD>
+ * <DT>`-M` M1, `--m1=`M1                  
+ * <DD>mass of primary in solar masses [1.4]</DD>
+ * <DT>`-m` M2, `--m2=`M2                  
+ * <DD>mass of secondary in solar masses [1.4]</DD>
+ * <DT>`-d` D, `--distance=`D              
+ * <DD>distance in Mpc [1]</DD>
+ * <DT>`-i` IOTA, `--inclination=`IOTA     
+ * <DD>inclination in degrees [0]</DD>
+ * <DT>`-X` S1X, `--spin1x=`S1X            
+ * <DD>x-component of dimensionless spin of primary [0]</DD>
+ * <DT>`-Y` S1Y, `--spin1y=`S1Y            
+ * <DD>y-component of dimensionless spin of primary [0]</DD>
+ * <DT>`-Z` S1Z, `--spin1z=`S1Z            
+ * <DD>z-component of dimensionless spin of primary [0]</DD>
+ * <DT>`-x` S2X, `--spin2x=`S2X            
+ * <DD>x-component of dimensionless spin of secondary [0]</DD>
+ * <DT>`-y` S2Y, `--spin2y=`S2Y            
+ * <DD>y-component of dimensionless spin of secondary [0]</DD>
+ * <DT>`-z` S2Z, `--spin2z=`S2Z            
+ * <DD>z-component of dimensionless spin of secondary [0]</DD>
+ * <DT>`-L` LAM1, `--tidal-lambda1=`LAM1   
+ * <DD>dimensionless tidal deformability of primary [0]</DD>
+ * <DT>`-l` LAM2, `--tidal-lambda2=`LAM2   
+ * <DD>dimensionless tidal deformability of secondary [0]</DD>
+ * <DT>`-s` SPINO, `--spin-order=`SPINO    
+ * <DD>twice pN order of spin effects (-1 == all) [-1]</DD>
+ * <DT>`-t` TIDEO, `--tidal-order=`TIDEO   
+ * <DD>twice pN order of tidal effects (-1 == all) [-1]</DD>
+ * <DT>`-f` FMIN, `--f-min=`FMIN           
+ * <DD>frequency to start waveform in Hertz [40]</DD>
+ * <DT>`-r` FREF, `--fRef=`FREF            
+ * <DD>reference frequency in Hertz [0]</DD>
+ * <DT>`-A` AXIS, `--axis=`AXIS            
+ * <DD>axis for PhenSpin {View, TotalJ, OrbitalL} [OrbitalL]</DD>
+ * <DT>`-n` MODES, `--modes=`MODES         
+ * <DD>allowed l modes {L2, L23, ..., ALL} [L2]</DD>
+ * <DT>`-p` KEY1`=`VAL1`,`KEY2`=`VAL2,...,
+ * `--nonGRpar=`KEY1`=`VAL1`,`KEY2`=`VAL2,...</DT>
+ * <DD>extra parameters as a key-value pair</DD>
+ * </DL>
+ *
+ * ### Environment
+ *
+ * The `LAL_DEBUG_LEVEL` can used to control the error and warning reporting of
+ * `lalsim-inspiral`.  Common values are: `LAL_DEBUG_LEVEL=0` which suppresses
+ * error messages, `LAL_DEBUG_LEVEL=1`  which prints error messages alone,
+ * `LAL_DEBUG_LEVEL=3` which prints both error messages and warning messages,
+ * and `LAL_DEBUG_LEVEL=7` which additionally prints informational messages.
+ *
+ * ### Exit Status
+ *
+ * The `lalsim-inspiral` utility exits 0 on success, and >0 if an error occurs.
+ *
+ * ### Example
+ *
+ * The command:
+ *
+ *     lalsim-inspiral --approx=TaylorT3
+ *
+ * produces a three-column ascii output to standard output; the rows are
+ * samples (at the default rate of 16384 Hz), and the three columns are 1. the
+ * time of each sample, 2. the plus-polarization strain, and 3.  the
+ * cross-polarization strain.  The waveform produced is for the TaylorT3
+ * post-Newtonian approximant for the default parameters of a 1.4 solar mass +
+ * 1.4 solar mass binary inspiral at 1 Mpc distance.
+ *
+ * The command:
+ *
+ *     lalsim-inspiral --m1=10 --m2=10 --approx=TaylorF2 --frequency-domain
+ *
+ * produces a frequency-domain waveform for a 10 solar mass + 10 solar mass
+ * binary inspiral at 1 Mpc distance using the TaylorF2 approximant.  The five
+ * columns written to standard output are the frequency of each sample, the
+ * real part of the plus-polarization, the imaginary part of the
+ * plus-polarization, the real part of the cross-polarization, and the
+ * imaginary part of the cross-polarization.
+ *
+ * The command:
+ *
+ *     lalsim-inspiral --m1=10 --m2=10 --approx=TaylorF2 --condition
+ *
+ * produces the same waveform as in the previous example, but in the
+ * time domain and conditioned so that it is suitable for injection
+ * into detector data.
+ */
+
 #include <complex.h>
 #include <math.h>
 #include <stdio.h>
@@ -35,6 +176,7 @@
 #include <lal/LALConstants.h>
 #include <lal/LALDatatypes.h>
 #include <lal/LALError.h>
+#include <lal/LALString.h>
 #include <lal/LALSimInspiral.h>
 #include <lal/LALSimIMR.h>
 
@@ -192,18 +334,18 @@ int output_td_waveform(REAL8TimeSeries * h_plus, REAL8TimeSeries * h_cross, stru
         /* extrapolate the end of the waveform using last and second last points */
         phi0 = 2 * phi->data[phi->length - 1] - phi->data[phi->length - 2];
         // phi0 = phi->data[phi->length - 1];
-        phi0 -= fmod(phi0 + copysign(M_PI, phi0), 2.0 * M_PI) - copysign(M_PI, phi0);
+        phi0 -= fmod(phi0 + copysign(LAL_PI, phi0), 2.0 * LAL_PI) - copysign(LAL_PI, phi0);
         for (j = 0; j < phi->length; ++j)
             phi->data[j] -= phi0;
 
-        fprintf(stdout, "# time (s)\t|h_+ - ih_x|\targ(h_+ - ih_x)\n");
+        fprintf(stdout, "# time (s)\th_abs (strain)\t h_arg (rad)\n");
         for (j = 0; j < h_plus->data->length; ++j)
             fprintf(stdout, "%.9f\t%e\t%e\n", t0 + j * h_plus->deltaT, amp->data[j], phi->data[j]);
 
         XLALDestroyREAL8Sequence(phi);
         XLALDestroyREAL8Sequence(amp);
     } else {
-        fprintf(stdout, "# time (s)\th_+         \th_x\n");
+        fprintf(stdout, "# time (s)\th_+ (strain)\th_x (strain)\n");
         for (j = 0; j < h_plus->data->length; ++j)
             fprintf(stdout, "%.9f\t%e\t%e\n", t0 + j * h_plus->deltaT, h_plus->data->data[j], h_cross->data->data[j]);
     }
@@ -235,16 +377,16 @@ int output_fd_waveform(COMPLEX16FrequencySeries * htilde_plus, COMPLEX16Frequenc
         /* make sure that unwound phases are in -pi to pi at fRef */
         kref = round((p.fRef > 0 ? p.fRef : p.f_min) / htilde_plus->deltaF);
         arg0 = arg_plus->data[kref];
-        arg0 -= fmod(arg0 + copysign(M_PI, arg0), 2.0 * M_PI) - copysign(M_PI, arg0);
+        arg0 -= fmod(arg0 + copysign(LAL_PI, arg0), 2.0 * LAL_PI) - copysign(LAL_PI, arg0);
         for (k = 0; k < arg_plus->length; ++k)
             arg_plus->data[k] -= arg0;
 
         arg0 = arg_cross->data[kref];
-        arg0 -= fmod(arg0 + copysign(M_PI, arg0), 2.0 * M_PI) - copysign(M_PI, arg0);
+        arg0 -= fmod(arg0 + copysign(LAL_PI, arg0), 2.0 * LAL_PI) - copysign(LAL_PI, arg0);
         for (k = 0; k < arg_cross->length; ++k)
             arg_cross->data[k] -= arg0;
 
-        fprintf(stdout, "# freq. (Hz)\tAbs h~_+ (s)\tArg h~_+    \tAbs h~_x (s)\tArg h~_x\n");
+        fprintf(stdout, "# freq (s^-1)\tabs_htilde_+ (strain s)\targ_htilde_+ (rad)\tabs_htilde_x (strain s)\targ_htilde_x (rad)\n");
         for (k = 0; k < htilde_plus->data->length; ++k)
             fprintf(stdout, "%f\t%e\t%e\t%e\t%e\n", k * htilde_plus->deltaF, abs_plus->data[k], arg_plus->data[k],
                 abs_cross->data[k], arg_cross->data[k]);
@@ -254,7 +396,7 @@ int output_fd_waveform(COMPLEX16FrequencySeries * htilde_plus, COMPLEX16Frequenc
         XLALDestroyREAL8Sequence(arg_plus);
         XLALDestroyREAL8Sequence(abs_plus);
     } else {
-        fprintf(stdout, "# freq. (Hz)\tRe h~_+ (s) \tIm h~_+  (s) \tRe h~_x (s) \tIm h~_x (s)\n");
+        fprintf(stdout, "# freq (s^-1)\treal_htilde_+ (strain s)\timag_htilde_+ (strain s)\treal_htilde_x (strain s)\timag_htilde_x (strain s)\n");
         for (k = 0; k < htilde_plus->data->length; ++k)
             fprintf(stdout, "%f\t%e\t%e\t%e\t%e\n", k * htilde_plus->deltaF, creal(htilde_plus->data->data[k]),
                 cimag(htilde_plus->data->data[k]), creal(htilde_cross->data->data[k]), cimag(htilde_cross->data->data[k]));
@@ -492,9 +634,7 @@ int print_params(struct params p)
         int tideO = XLALSimInspiralGetTidalOrder(p.waveFlags);
         int axis = XLALSimInspiralGetFrameAxis(p.waveFlags);
         int modes = XLALSimInspiralGetModesChoice(p.waveFlags);
-        char *s;
-        fprintf(stderr, "approximant:                                  %s\n", s = XLALGetStringFromApproximant(p.approx));
-        free(s);
+        fprintf(stderr, "approximant:                                  %s\n", XLALSimInspiralGetStringFromApproximant(p.approx));
         if (p.phaseO == -1)
             fprintf(stderr, "phase post-Newtonian order:                   highest available\n");
         else
@@ -547,7 +687,7 @@ int usage(const char *program)
     fprintf(stderr, "\t-Q, --amp-phase          \toutput data as amplitude and phase\n");
     fprintf(stderr, "\t-a APPROX, --approximant=APPROX \n\t\tapproximant [%s]\n", DEFAULT_APPROX);
     fprintf(stderr, "\t-w WAVEFORM, --waveform=WAVEFORM \n\t\twaveform string giving both approximant and order\n");
-    fprintf(stderr, "\t-d domain, --domain=DOMAIN      \n\t\tdomain for waveform generation when both are available\n\t\t{\"time\", \"freq\"} [use natural domain for output]\n");
+    fprintf(stderr, "\t-D domain, --domain=DOMAIN      \n\t\tdomain for waveform generation when both are available\n\t\t{\"time\", \"freq\"} [use natural domain for output]\n");
     fprintf(stderr, "\t-O PHASEO, --phase-order=PHASEO \n\t\ttwice pN order of phase (-1 == highest) [%d]\n", DEFAULT_PHASEO);
     fprintf(stderr, "\t-o AMPO, --amp-order=AMPO       \n\t\ttwice pN order of amplitude (-1 == highest) [%d]\n", DEFAULT_AMPO);
     fprintf(stderr, "\t-q PHIREF, --phiRef=PHIREF      \n\t\treference phase in degrees [%g]\n", DEFAULT_PHIREF);
@@ -575,9 +715,8 @@ int usage(const char *program)
     fprintf(stderr, "recognized time-domain approximants:");
     for (a = 0, c = 0; a < NumApproximants; ++a) {
         if (XLALSimInspiralImplementedTDApproximants(a)) {
-            char *s = XLALGetStringFromApproximant(a);
+            const char *s = XLALSimInspiralGetStringFromApproximant(a);
             c += fprintf(stderr, "%s%s", c ? ", " : "\n\t", s);
-            free(s);
             if (c > 50)
                 c = 0;
         }
@@ -586,9 +725,8 @@ int usage(const char *program)
     fprintf(stderr, "recognized frequency-domain approximants:");
     for (a = 0, c = 0; a < NumApproximants; ++a) {
         if (XLALSimInspiralImplementedFDApproximants(a)) {
-            char *s = XLALGetStringFromApproximant(a);
+            const char *s = XLALSimInspiralGetStringFromApproximant(a);
             c += fprintf(stderr, "%s%s", c ? ", " : "\n\t", s);
-            free(s);
             if (c > 50)
                 c = 0;
         }
@@ -603,7 +741,7 @@ struct params parseargs(int argc, char **argv)
     char *kv;
     struct params p = {
         .verbose = 0,
-        .approx = XLALGetApproximantFromString(DEFAULT_APPROX),
+        .approx = XLALSimInspiralGetApproximantFromString(DEFAULT_APPROX),
         .condition = 0,
         .freq_dom = 0,
         .amp_phase = 0,
@@ -698,19 +836,19 @@ struct params parseargs(int argc, char **argv)
             p.amp_phase = 1;
             break;
         case 'a':      /* approximant */
-            p.approx = XLALGetApproximantFromString(LALoptarg);
+            p.approx = XLALSimInspiralGetApproximantFromString(LALoptarg);
             if ((int)p.approx == XLAL_FAILURE) {
                 fprintf(stderr, "error: invalid value %s for %s\n", LALoptarg, long_options[option_index].name);
                 exit(1);
             }
             break;
         case 'w':      /* waveform */
-            p.approx = XLALGetApproximantFromString(LALoptarg);
+            p.approx = XLALSimInspiralGetApproximantFromString(LALoptarg);
             if ((int)p.approx == XLAL_FAILURE) {
                 fprintf(stderr, "error: could not parse approximant from %s for %s\n", LALoptarg, long_options[option_index].name);
                 exit(1);
             }
-            p.phaseO = XLALGetOrderFromString(LALoptarg);
+            p.phaseO = XLALSimInspiralGetPNOrderFromString(LALoptarg);
             if ((int)p.approx == XLAL_FAILURE) {
                 fprintf(stderr, "error: could not parse order from %s for %s\n", LALoptarg, long_options[option_index].name);
                 exit(1);
@@ -789,7 +927,7 @@ struct params parseargs(int argc, char **argv)
             p.f_min = atof(LALoptarg);
             break;
         case 'd':      /* distance */
-            p.distance = atof(LALoptarg);
+            p.distance = atof(LALoptarg) * 1e6 * LAL_PC_SI;
             break;
         case 'i':      /* inclination */
             p.inclination = atof(LALoptarg) * LAL_PI_180;
@@ -797,7 +935,7 @@ struct params parseargs(int argc, char **argv)
         case 'A':      /* axis */
             if (p.waveFlags == NULL)
                 p.waveFlags = XLALSimInspiralCreateWaveformFlags();
-            XLALSimInspiralSetFrameAxis(p.waveFlags, XLALGetFrameAxisFromString(LALoptarg));
+            XLALSimInspiralSetFrameAxis(p.waveFlags, XLALSimInspiralGetFrameAxisFromString(LALoptarg));
             if ((int)XLALSimInspiralGetFrameAxis(p.waveFlags) == XLAL_FAILURE) {
                 fprintf(stderr, "error: invalid value %s for %s\n", LALoptarg, long_options[option_index].name);
                 exit(1);
@@ -806,15 +944,15 @@ struct params parseargs(int argc, char **argv)
         case 'n':      /* modes */
             if (p.waveFlags == NULL)
                 p.waveFlags = XLALSimInspiralCreateWaveformFlags();
-            XLALSimInspiralSetModesChoice(p.waveFlags, XLALGetHigherModesFromString(LALoptarg));
-            if ((int)XLALSimInspiralGetModesChoice(p.waveFlags) == XLAL_FAILURE) {
+            XLALSimInspiralSetModesChoice(p.waveFlags, XLALSimInspiralGetHigherModesFromString(LALoptarg));
+            if (XLALSimInspiralGetModesChoice(p.waveFlags) == 0) {
                 fprintf(stderr, "error: invalid value %s for %s\n", LALoptarg, long_options[option_index].name);
                 exit(1);
             }
             break;
         case 'p':      /* nonGRpar */
-            while ((kv = strsep(&LALoptarg, ","))) {
-                char *key = strsep(&kv, "=");
+            while ((kv = XLALStringToken(&LALoptarg, ",", 0))) {
+                char *key = XLALStringToken(&kv, "=", 0);
                 if (kv == NULL || key == NULL || *key == '\0') {
                     fprintf(stderr, "error: invalid key-value pair for %s\n", long_options[option_index].name);
                     exit(1);

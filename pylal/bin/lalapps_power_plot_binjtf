@@ -42,7 +42,6 @@ import sys
 from glue import segments
 from glue.ligolw import dbtables
 from pylal import git_version
-from pylal import SimBurstUtils
 from pylal import SnglBurstUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
@@ -96,7 +95,7 @@ def time_freq_plot(database, instrument, sim):
 	# top plot --- triggers that matched injection
 	#
 
-	t_sim = SimBurstUtils.time_at_instrument(sim, instrument)
+	t_sim = sim.time_at_instrument(instrument)
 
 	axes = fig.add_subplot(211)
 	axes.grid(True)
@@ -306,7 +305,7 @@ for n, filename in enumerate(filenames):
 		SnglBurstUtils.summarize_coinc_database(database)
 	for instrument in database.instruments:
 		for sim in found_injections(database, instrument):
-			plotname = "%s%d_%s.%s" % (options.base, SimBurstUtils.time_at_instrument(sim, instrument).seconds, instrument, options.format)
+			plotname = "%s%d_%s.%s" % (options.base, sim.time_at_instrument(instrument).seconds, instrument, options.format)
 			if options.verbose:
 				print >>sys.stderr, "--> %s" % plotname
 			time_freq_plot(database, instrument, sim).savefig(plotname)

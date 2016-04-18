@@ -1,11 +1,15 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.48-64
+VERSION=1.4.57-64
+# This version is developed against LAL-6.30
 LALROOT=./../../../../
 LALROOT=/home/vdergach/opt/
 LALROOT=/opt/lalsuite/
+LALROOT=/opt/lscsoft/
 LALINCLUDE=-I$(LALROOT)/include/
-LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -L/opt/zlib/lib -L/opt/png/lib -llalsupport -llalpulsar -llal -lm -lz
-LDFLAGS=$(LALLDFLAGS) -L. -lpng
+#LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -L/opt/zlib/lib -L/opt/png/lib -llalsupport -llalpulsar -llal -lm -lz
+LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -L/opt/zlib/lib -L/opt/png/lib -llalpulsar -llalsupport  -llal -lm -lz
+LDFLAGS=$(LALLDFLAGS) -g -ggdb -L. -lpng
+VALGRIND_LDFLAGS=/opt/lscsoft/lib/liblalpulsar.a /opt/lscsoft/lib/liblalxml.a /opt/lscsoft/lib/liblalsupport.a /opt/lscsoft/lib/liblal.a  -lm -lz -g -ggdb -L. -lpng /usr/lib/gcc/x86_64-linux-gnu/4.9/libasan.a /usr/lib/gcc/x86_64-linux-gnu/4.9/libubsan.a -ldl
 #OPTFLAGS=-O2 -funroll-loops 
 OPTFLAGS=-O6 -mmmx -msse -mcpu=i686
 OPTFLAGS=-O6 -march=i686 -funroll-loops
@@ -15,9 +19,21 @@ OPTFLAGS=-O -march=opteron -fno-stack-protector
 OPTFLAGS=-O6 -msse2 -funroll-loops -fno-stack-protector
 #OPTFLAGS=-O6 -mtune=opteron -mfpmath=sse -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE
 OPTFLAGS=-O6 -mtune=nocona -funroll-loops -fno-stack-protector -msse3 -U_FORTIFY_SOURCE
+OPTFLAGS=-O3 -mtune=core2 -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -msse3 -U_FORTIFY_SOURCE
+OPTFLAGS=-O3 -mtune=core2 -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -mavx -U_FORTIFY_SOURCE
+#OPTFLAGS=-O3 -mtune=core2 -msse3 -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=0
+OPTFLAGS=-O3 -fopenmp -flto -mtune=core2 -mavx -ftree-loop-im -fvariable-expansion-in-unroller -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=1 -fno-associative-math -fno-math-errno -ffinite-math-only -fno-signed-zeros -fcx-limited-range -DLINUX_THREADS
+#OPTFLAGS=-O3 -march=haswell -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=0
+#OPTFLAGS=-fopenmp -O3 -march=haswell -fno-tree-vectorize -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=0
 #OPTFLAGS=-O6 -funroll-loops -msse3
-CFLAGS=-Wall -g $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=\"$(VERSION)\" \
-	$(LALINCLUDE) -fPIC
+CONVERSION=-Wconversion-extra -Wconversion
+CONVERSION=
+#SANITIZE=-fsanitize=thread  -pie 
+#SANITIZE=  -fsanitize=leak -fsanitize=undefined 
+#SANITIZE= -fsanitize=address -fsanitize=leak -fsanitize=undefined
+SANITIZE=
+CFLAGS=-Wall $(CONVERSION) $(SANITIZE) -g -ggdb $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=\"$(VERSION)\" \
+	$(LALINCLUDE) -fPIC -std=gnu99
 CC=gcc $(CFLAGS)
 
 COMMON_OBJS=cmdline.o rastermagic.o hookup.o lines.o grid.o \
@@ -29,7 +45,7 @@ OBJS=$(COMMON_OBJS) fine_grid.o candidates.o powerflux.o
 
 OBJS2=$(COMMON_OBJS) power_cache.o power_sums.o outer_loop.o power_sum_stats.o skymarks.o powerflux2.o summing_context.o  single_bin_loosely_coherent_sum.o matched_loosely_coherent_sum.o
 
-FILES=no_marks.txt sky_marks.txt all_sky_marks_*.txt
+FILES=no_marks.txt sky_marks.txt all_sky_marks_*.txt S_veto_marks*.txt
 
 # 50 hz
 #BAND=90000
@@ -300,11 +316,68 @@ test5c: powerflux-mt2
         	--sun-ephemeris=/home/volodya/LIGO/PowerFlux/testsuite/sun05-09.dat  \
 		--max-candidates=10000 --skymap-resolution-ratio=1 \
   		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=0.5e2 \
-		--extra-phase "H1 45" --extra-phase "L1 90" --extra-phase "test 180"
+		--extra-phase "H1 45" --extra-phase "L1 90" --extra-phase "test 180" \
+		--output test5c --preallocate-memory=0.5 --expected-timebase 14
 
-#  		--fake-ref-time=793154935 \
-#  		--fake-ra=$(RA) --fake-dec=$(DEC) --fake-freq=200.10027777 --fake-strain=10e-24 \
-#  		--fake-spindown=2e-10 --fake-iota=1.57 --fake-psi=0.0 \
+test6a: powerflux-mt2
+	 ./powerflux-mt2 --dataset=random.dst -f 180002 -n 501 \
+		--ephemeris-path=/home/volodya/LIGO/PowerFlux/testsuite \
+		--averaging-mode=1 --do-cutoff=1 --lock-file=test.lock \
+		--subtract-background=1 --ks-test=1 --filter-lines=0 \
+		--spindown-start=0.0 --spindown-step=2e-8 --spindown-count=1 \
+		--compute-skymaps=1 \
+		--dump-candidates=0 \
+		--dump-points=0 --no-secondary-skymaps=1 \
+		--sky-marks-file=all_sky_marks.txt \
+	        --earth-ephemeris=/home/volodya/LIGO/PowerFlux/testsuite/earth05-09.dat \
+        	--sun-ephemeris=/home/volodya/LIGO/PowerFlux/testsuite/sun05-09.dat  \
+		--max-candidates=10000 --skymap-resolution-ratio=1 \
+		--expected-timebase 14 \
+		--output test6a
+
+test6b: powerflux-mt2
+	 ./powerflux-mt2 --dataset=random.dst -f 180002 -n 501 \
+		--ephemeris-path=/home/volodya/LIGO/PowerFlux/testsuite \
+		--averaging-mode=1 --do-cutoff=1 --lock-file=test.lock \
+		--subtract-background=1 --ks-test=1 --filter-lines=0 \
+		--spindown-start=0.0 --spindown-step=2e-8 --spindown-count=1 \
+		--compute-skymaps=1 \
+		--dump-candidates=0 \
+		--dump-points=0 --no-secondary-skymaps=1 \
+		--sky-marks-file=all_sky_marks.txt \
+	        --earth-ephemeris=/home/volodya/LIGO/PowerFlux/testsuite/earth05-09.dat \
+        	--sun-ephemeris=/home/volodya/LIGO/PowerFlux/testsuite/sun05-09.dat  \
+		--max-candidates=10000 --skymap-resolution-ratio=1 \
+		--statistics-function=universal \
+		--expected-timebase 14 \
+		--output test6b --num-threads=1
+
+test7a: powerflux-mt2
+	 ./powerflux-mt2 --dataset=random.dst -f 2700000 -n 501 \
+		--ephemeris-path=/home/volodya/LIGO/PowerFlux/testsuite \
+		--averaging-mode=single_bin_loose --do-cutoff=1 --lock-file=test.lock \
+		--subtract-background=0 --ks-test=1 --filter-lines=0 \
+		--spindown-start=0.0 --spindown-step=2e-8 --spindown-count=1 \
+		--compute-skymaps=1 \
+		--sky-grid=targeted_rectangular \
+		--focus-ra=0 --focus-dec=0 --focus-radius=0.01 \
+		--dump-candidates=0 \
+  		--fake-ref-time=793154935 \
+  		--fake-ra=0 --fake-dec=0 --fake-freq=1500.005 --fake-strain=1e-22 \
+  		--fake-spindown=0e-10 --fake-iota=1.5707 --fake-psi=0.0 \
+		--dump-points=0 --no-secondary-skymaps=1 \
+		--sky-marks-file=all_sky_marks.txt \
+	        --earth-ephemeris=/home/volodya/LIGO/PowerFlux/testsuite/earth05-09.dat \
+        	--sun-ephemeris=/home/volodya/LIGO/PowerFlux/testsuite/sun05-09.dat  \
+		--max-candidates=10000 \
+		--expected-timebase 14 \
+		--skymap-resolution-ratio=0.1666666 \
+		--split-ifos=0 --compute-cross-terms=0 --mixed-dataset-only=1 \
+		--cache-granularity=12 --nfshift=12 --npsi=24 --niota=8 --phase-mismatch=1.0471976 \
+		--nchunks=1 \
+		--skymap-resolution=0.000278 \
+		--output test7a
+
 
 
 # 		--write-dat=NONE \
@@ -363,8 +436,8 @@ S3.H1.silver: powerflux
 
 WL=-Wl,--rpath -Wl,/home/volodya/LIGO/LAL/support-lib/.libs -Wl,--rpath -Wl,/home/volodya/LIGO/LAL/lib/.libs -Wl,--rpath -Wl,/usr/local/lib -Wl,--rpath -Wl,/usr/local/lib
 
-dat2skymap: grid.o rastermagic.o dat2skymap.o png.o
-	$(CC) grid.o rastermagic.o dat2skymap.o png.o -o dat2skymap -static $(LDFLAGS)
+dat2skymap: grid.o rastermagic.o dat2skymap.o png.o util.o jobs.o
+	$(CC) grid.o rastermagic.o dat2skymap.o png.o util.o jobs.o -o dat2skymap -static $(LDFLAGS) -lz -lgsl -lm
 
 python.o: python.c *.h
 	$(CC) -c `python-config --includes` python.c
@@ -390,7 +463,7 @@ powerflux-condor: $(OBJS) jobs.o util-condor.o
 	ls -l powerflux-condor
 
 powerflux-mt2: $(OBJS2) jobs-mt.o util.o
-	$(CC) $(OBJS2) jobs-mt.o util.o -o powerflux-mt2 -static $(LDFLAGS) -lgsl -lgslcblas -lm -lpthread -lz
+	$(CC) $(CFLAGS) $(OBJS2) jobs-mt.o util.o -o powerflux-mt2 -static $(LDFLAGS) -lgsl -lgslcblas -lm -lpthread -lz
 	ls -l powerflux-mt2
 
 powerflux-condor2: $(OBJS2) jobs.o util-condor.o
@@ -398,7 +471,7 @@ powerflux-condor2: $(OBJS2) jobs.o util-condor.o
 	ls -l powerflux-condor2
 
 powerflux-valgrind2: $(OBJS2) jobs-mt.o util.o
-	$(CC) $(OBJS2) jobs-mt.o util.o -o powerflux-valgrind2 $(LDFLAGS) -lgsl -lgslcblas -lm -lpthread -lz
+	$(CC) $(OBJS2) jobs-mt.o util.o -o powerflux-valgrind2 $(VALGRIND_LDFLAGS) -lgsl -lgslcblas -lm -lpthread -lz
 	ls -l powerflux-valgrind2
 
 
@@ -418,7 +491,7 @@ cmdline2.c: powerflux2.ggo
 	gengetopt  --string-parser --conf-parser --file-name=cmdline2 < powerflux2.ggo
 
 clean:
-	rm -f core *.bck *.o
+	rm -f core *.bck *.o vec_info.txt
 
 upload: powerflux-condor powerflux-mt powerflux-condor2 powerflux-mt2
 	gsiscp -C powerflux-condor hydra.phys.uwm.edu:PowerFlux/powerflux-condor.$(VERSION)
@@ -433,6 +506,13 @@ upload.a: powerflux-condor powerflux-mt powerflux-condor2 powerflux-mt2
 	gsiscp -C powerflux-condor2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor2.$(VERSION)
 	gsiscp -C powerflux-mt2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt2.$(VERSION)
 	gsiscp -C $(FILES) h2.atlas.aei.uni-hannover.de:PowerFlux/
+	
+upload.a2: powerflux-mt2
+#	gsiscp -C powerflux-condor h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor.$(VERSION)
+#	gsiscp -C powerflux-mt h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt.$(VERSION)
+#	gsiscp -C powerflux-condor2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor2.$(VERSION)
+	gsiscp -C powerflux-mt2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt2.$(VERSION)
+#	gsiscp -C $(FILES) h2.atlas.aei.uni-hannover.de:PowerFlux/
 	
 upload.g: powerflux-condor powerflux-mt
 	scp -C powerflux-condor gallatin.physics.lsa.umich.edu:PowerFlux/powerflux-condor.$(VERSION)
@@ -455,6 +535,14 @@ upload.c: powerflux-condor powerflux-mt powerflux-condor2 powerflux-mt2
 	gsiscp -C powerflux-condor2 ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-condor2.$(VERSION)
 	gsiscp -C powerflux-mt2 ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt2.$(VERSION)
 	gsiscp -C $(FILES) ldas-grid.ligo.caltech.edu:PowerFlux/
+
+upload.c2:  powerflux-mt powerflux-mt2
+#	gsiscp -C powerflux-mt ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt.$(VERSION)
+	gsiscp -C powerflux-mt2 ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt2.$(VERSION)
+	gsiscp -C $(FILES) ldas-grid.ligo.caltech.edu:PowerFlux/
+
+upload.v2:  powerflux-valgrind2
+	gsiscp -C powerflux-valgrind2 ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt2.$(VERSION)
 
 upload.m: powerflux-condor powerflux-mt
 	gsiscp -C powerflux-condor vdergach@morgane.aei.mpg.de:PowerFlux/powerflux-condor.$(VERSION)

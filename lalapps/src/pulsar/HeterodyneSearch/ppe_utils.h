@@ -47,11 +47,10 @@ UINT4 find_change_point( gsl_vector_complex *data, REAL8 *logodds, INT4 chunkMin
 void rechop_data( UINT4Vector *segs, INT4 chunkMax, INT4 chunkMin );
 void merge_data( COMPLEX16Vector *data, UINT4Vector *segs );
 
-void rescale_output( LALInferenceRunState *runState );
+void gzip_output( LALInferenceRunState *runState );
 INT4 count_csv( CHAR *csvline );
 INT4 recognised_parameter( CHAR *parname );
 void check_and_add_fixed_variable( LALInferenceVariables *vars, const char *name, void *value, LALInferenceVariableType type );
-void remove_variable_and_prior( LALInferenceRunState *runState, LALInferenceIFOModel *data, const CHAR *var );
 
 TimeCorrectionType XLALAutoSetEphemerisFiles( CHAR *efile, CHAR *sfile,
                                               CHAR *tfile,

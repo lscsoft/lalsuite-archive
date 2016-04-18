@@ -9,11 +9,11 @@ Build-Depends:
  python-all-dev,
  python-numpy,
  libframe-dev (>= 8.15),
- lal-dev (>= 6.13.0),
- lalburst-dev (>= 1.2.0),
- lalframe-dev (>= 1.2.0),
- lalinspiral-dev (>= 1.6.0),
- lalmetaio-dev (>= 1.2.0),
+ lal-dev (>= 6.14.0),
+ lalburst-dev (>= 1.3.0),
+ lalframe-dev (>= 1.2.5),
+ lalinspiral-dev (>= 1.6.5),
+ lalmetaio-dev (>= 1.2.6),
  debhelper (>= 7)
 Standards-Version: 3.9.3
 

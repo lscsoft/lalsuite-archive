@@ -37,7 +37,7 @@ from distutils import log
 
 from misc import generate_vcs_info as gvcsi
 
-ver = "1.47.1"
+ver = "1.49.1"
 
 def remove_root(path,root):
   if root:
@@ -297,7 +297,6 @@ setup(
     ),
     ( os.path.join( 'share','nmi' ),
       [ 
-        os.path.join('src', 'nmi', 'builds', 'lalsuite-build.spec'),
         os.path.join('src', 'nmi', 'builds', 'lalsuite-build-scripts.location'),
       ]
     ),

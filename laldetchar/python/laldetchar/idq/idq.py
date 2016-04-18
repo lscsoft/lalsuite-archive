@@ -38,6 +38,8 @@ import math
 import subprocess
 import tempfile
 
+from collections import defaultdict
+
 import ConfigParser
 
 from glue.ligolw import ligolw
@@ -79,11 +81,11 @@ __date__ = git_version.date
 
 #===================================================================================================
 ### hard coded magic numbers dependent on classifiers, ETG, etc
-traincache_nlines = { "ovl":1 , "forest": 1, "svm": 2}
+traincache_nlines = { "ovl":1 , "forest": 1, "svm": 2, "ann": 3}
 
-mla_flavors = ["forest", "svm"]
+mla_flavors = ["forest", "svm", "ann"]
 
-train_with_dag = ["forest", "svm"]
+train_with_dag = ["forest", "svm", "ann"]
 
 #===================================================================================================
 # DEPRECATED FUNCTIONS THAT SHOULD BE REMOVED
@@ -246,6 +248,27 @@ def classifier_specific_config( config, classifier, flavor ):
             if config.has_option(classifier, option):
                 cp.set( train_section, option, config.get(classifier, option) )
 
+    elif flavor == "ann":
+        convert_section = 'ann_convert'
+        eval_section = 'ann_evaluate'
+        train_section = 'train_ann'
+
+        cp.add_section(convert_section)
+        for option in "normalization-attributes transform-dt-function".split():
+            if config.has_option(classifier, option):
+                cp.set( convert_section, option, config.get(classifier, option) )
+
+        cp.add_section(eval_section)
+        for option in "training-machine".split():
+            if config.has_option(classifier, option):
+                cp.set( eval_section, option, config.get(classifier, option) )
+
+        cp.add_section(train_section)
+        for option in "training-machine hidden-neurons connection-rate steep-out max-epochs weights-min weights-max increase-factor desired-error".split():
+            if config.has_option(classifier, option):
+                cp.set( train_section, option, config.get(classifier, option) )
+
+
     else:
         raise ValueError('flavor=%s not understood for classifier=%s'%(flavor, classifier))
 
@@ -253,11 +276,17 @@ def classifier_specific_config( config, classifier, flavor ):
         raise ValueError('classifier=%s section has no option=condor'%classifier)
     condor_section = config.get(classifier, 'condor')
     if not config.has_section(condor_section):
-        raise ValueError('config has not section=%s'%condor_section)
+        raise ValueError('config has no section=%s'%condor_section)
 
     cp.add_section('condor')
     for option, value in config.items(condor_section):
         cp.set('condor', option, value)
+
+    ### add accounting tags if present
+    if config.has_option('general', 'accounting_group'):
+        cp.set('condor', 'accounting_group', config.get('general', 'accounting_group') )
+    if config.has_option('general', 'accounting_group_user'):
+        cp.set('condor', 'accounting_group_user', config.get('general', 'accounting_group_user') )
 
     cp.add_section('idq_train')
     cp.set('idq_train', 'condorlogs', config.get('train', 'condorlogs'))
@@ -399,6 +428,14 @@ def extract_trained_range(lines, flavor):
         svm_end_training_period = svm_start_training_period + int(svm_model.split('-')[-1].split('.')[0])
         trained_range = "%d_%d"%(svm_start_training_period,svm_end_training_period)
 
+    elif flavor == "ann":
+        trained_ann = lines[0]
+        ### getting start and end of training period from the name of the trained forest file
+        ann_start_training_period = int(trained_ann.split('-')[-2])
+        ann_end_training_period = ann_start_training_period + int(trained_ann.split('-')[-1].split('.')[0])
+        trained_range = "%d_%d"%(ann_start_training_period, ann_end_training_period)
+
+
     else:
         raise ValueError("do not know how to extract trained range for flavor=%s"%flavor)
 
@@ -459,8 +496,19 @@ def dieiflocked(lockfile='.idq.lock'):
     try:
         fcntl.lockf(lockfp, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except IOError:
+        lockfp.close()
         import sys
         sys.exit('ERROR: cannot establish lock on \'%s\', possible duplicate process, exiting..'%lockfile)
+
+    return lockfp
+
+def release(lockfp):
+    """
+    try to release a lockfile
+    """
+    import fcntl
+    fcntl.lockf(lockfp, fcntl.LOCK_UN)
+    lockfp.close()
 
 #=================================================
 ### reporting/logging utilities
@@ -1354,6 +1402,60 @@ def get_all_files_in_range(dirname, starttime, endtime, pad=0, suffix='.xml' ):
 
     return ret
 
+def extract_dmt_segments(xmlfiles, dq_name):
+    """
+....Loads the segments from the dmt xml files. Determines segments covered by dmt process from the file names
+....dq_name is the segment definer name.
+...."""
+
+    good = []
+    covered = []
+    lsctables.use_in(ligolw.LIGOLWContentHandler)
+    for file in xmlfiles:
+        print "load xmldoc"
+        xmldoc = ligolw_utils.load_filename(file, contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))  # load file
+        print "Done: load xmldoc"
+        # get segment tables
+
+        sdef = table.get_table(xmldoc,
+                               lsctables.SegmentDefTable.tableName)
+        print "Done: get sdef"
+        seg = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
+        print "Done: get seg"
+
+        # segment definer ID correspodning to dq_name
+        # FIX ME: in case of multiple segment versions this matching becomes ambiguous
+
+        dq_seg_def_id = next(a.segment_def_id for a in sdef if a.name
+                             == dq_name.split(":")[1])
+                             #== dq_name)
+        print "Done: dq_seg_def_id"
+
+        # get list of  segments
+
+        good.extend([[a.start_time, a.end_time] for a in seg
+                    if a.segment_def_id == dq_seg_def_id])
+        print "good"
+        print good
+
+    # coalesce segments....
+
+    good = event.fixsegments(good)
+    print "good=event.fixsegments(good)"
+    print good
+
+    # convert file names into segments
+
+    #covered = map(filename_to_segment, xmlfiles)
+    for xmlfile in xmlfiles:
+        covered.append(extract_start_stop(xmlfile,suffix='.xml'))
+
+    # coalesce segments
+
+    covered = event.fixsegments(covered)
+
+    return (good, covered)
+
 def get_scisegs(segments_location, dq_name, start, end, pad=0, logger=None):
     """
     finds and returns dq segments in this range
@@ -1399,7 +1501,7 @@ def retrieve_scisegs(segments_location, dq_name, start, stride, pad=0, sleep=0, 
 
     return good, covered
 
-def retrieve_kwtrig(gdsdir, kwbasename, t, stride, sleep=0, ntrials=1, logger=None):
+def retrieve_kwtrig(gdsdir, kwbasename, t, stride, sleep=0, ntrials=1, logger=None, delay=0, verbose=True):
     """
     looks for kwtriggers and includes logic about waiting.
     will wait "sleep" seconds between each check that the file has appeared. Will check "ntrials" times
@@ -1414,36 +1516,48 @@ def retrieve_kwtrig(gdsdir, kwbasename, t, stride, sleep=0, ntrials=1, logger=No
 
     for i in xrange(ntrials):
         if not os.path.exists(kwfilename):  ### kw files may not have appeared yet
-            if logger:
-                logger.info('  missing KW triggers, waiting additional %d seconds' % sleep)
-            else:
-                print '  missing KW triggers, waiting additional %d seconds' % sleep
-            time.sleep(sleep)
-            if sleep < stride: ### automatically increase sleep to 1 stride if needed
-                sleep = stride
+            if verbose:
+                if logger:
+                    logger.info('  missing KW triggers, waiting additional %d seconds' % sleep)
+                else:
+                    print '  missing KW triggers, waiting additional %d seconds' % sleep
+            if i < ntrials-1:
+                time.sleep(sleep)
+                if sleep < stride: ### automatically increase sleep to 1 stride if needed
+                    sleep = stride
         else:
             break
     else:
-        if logger:
-            logger.warning('  still missing KW triggers, skipping')
-        else:
-            print '  still missing KW triggers, skipping'
+        if verbose:
+            if logger:
+                logger.warning('  still missing KW triggers, skipping')
+            else:
+                print '  still missing KW triggers, skipping'
         return None
 
-    if logger:
-        logger.info('  loading KW triggers')
-    else:
-        print '  loading KW triggers'
+    if verbose:
+        if logger:
+            logger.info('  loading KW triggers : %s'%kwfilename)
+        else:
+            print '  loading KW triggers : %s'%kwfilename
+
+    if delay > 0:
+        if verbose:
+            if logger:
+                logger.info('    waiting %.3f seconds to ensure file is completely written'%delay)
+            else:
+                print '    waiting %.3f seconds to ensure file is completely written'%delay
+        time.sleep(delay)
 
     return event.loadkwm(kwfilename)
 
-def retrieve_kwtrigs(gdsdir, kwbasename, t, stride, kwstride, sleep=0, ntrials=1, logger=None, segments=None):
-    t_start = (t / kwstride) * kwstride
+def retrieve_kwtrigs(gdsdir, kwbasename, t, stride, kwstride, sleep=0, ntrials=1, logger=None, segments=None, verbose=True):
+    t_start = (int(t) / kwstride) * kwstride
 
     trgdicts = []
     while t_start < t+stride:
-        if (segments==None) or (event.livetime(event.andsegments([[t_start, t_start+kwstride], segments]))): ### only keep if we've got some overlap
-            trigger_dict = retrieve_kwtrig(gdsdir, kwbasename, t_start, kwstride, sleep=sleep, ntrials=ntrials, logger=logger)
+        if (segments==None) or (event.livetime(event.andsegments([[[t_start, t_start+kwstride]], segments]))): ### only keep if we've got some overlap
+            trigger_dict = retrieve_kwtrig(gdsdir, kwbasename, t_start, kwstride, sleep=sleep, ntrials=ntrials, logger=logger, verbose=verbose)
             if trigger_dict:
                 trgdicts.append( trigger_dict )
         t_start += kwstride
@@ -1456,7 +1570,218 @@ def retrieve_kwtrigs(gdsdir, kwbasename, t, stride, kwstride, sleep=0, ntrials=1
     else:
         return event.trigdict()
 #        return None
-    
+
+def retrieve_DMTOmegaTrig(gdsdir, t, stride, channels, sleep=0, ntrials=1, logger=None, delay=0, verbose=True):
+    """
+    looks for DMT-Omega triggers and includes logic about waiting.
+    will wait "sleep" seconds between each check that the file has appeared. Will check "ntrials" time
+    """
+    if ntrials<1:
+        raise ValueError("ntrials must be >= 1, otherwise we don't do anything....")
+    if sleep < 0:
+        sleep = 0
+
+    trgdict = event.trigdict()
+    for channel in channels:
+
+        filename = "%s/%d/%s-%d-%d.xml"%(gdsdir, t / 1e5, channel, t, stride)
+
+        for i in xrange(ntrials):
+            if not os.path.exists(filename):  ### kw files may not have appeared yet
+                if verbose:
+                    if logger:
+                        logger.info('  missing DMT-Omega triggers for %s, waiting additional %d seconds' % (channel, sleep) )
+                    else:
+                        print '  missing DMT-Omega triggers for %s, waiting additional %d seconds' % (channel, sleep)
+                if i < ntrials-1:
+                    time.sleep(sleep)
+                    if sleep < stride: ### automatically increase sleep to 1 stride if needed
+                        sleep = stride
+            else:
+                break
+        else:
+            if verbose:
+                if logger:
+                    logger.warning('  still missing DMT-Omega triggers for %s, skipping' % channel )
+                else:
+                    print '  still missing DMT-Omega triggers for %s, skipping' % channel
+            continue
+
+        if verbose:
+            if logger:
+                logger.info('  loading DMT-Omega triggers for %s : %s'%(channel, filename) )
+            else:
+                print '  loading DMT-Omega triggers for %s : %s'%(channel, filename)
+
+        if delay > 0:
+            if verbose:
+                if logger:
+                    logger.info('    waiting %.3f seconds to ensure file is completely written'%delay)
+                else:
+                    print '    waiting %.3f seconds to ensure file is completely written'%delay
+            time.sleep(delay)
+
+        trgdict.add( event.loadSingleBurst( filename ) )
+
+    return trgdict
+
+
+
+def retrieve_DMTOmegaTrigs(gdsdir, basename, t, stride, dmtostride, channels, sleep=0, ntrials=1, logger=None, segments=None, verbose=True):
+    """
+    discover and read in files from DMT-Omega processes
+    we require the argument "channels" because DMT-Omega triggers are stored in separate files for each file
+      -> we can save significant I/O if we only ever load a subset of these
+    also, the separate single-channel files may appear with different latencies and without a definitive list it is difficult to construct waiting logic
+    """
+    t_start = (int(t) / ostride) * ostride
+
+    trgdicts = []
+    while t_start < t+stride:
+        if (segments==None) or (event.livetime(event.andsegments([[[t_start, t_start+dmtostride]], segments]))): ### only keep if we've got some overlap
+            trigger_dict = retrieve_DMTOmegaTrig(gdsdir, basename, t_start, dmtostride, channels, sleep=sleep, ntrials=ntrials, logger=logger, verbose=verbose)
+            if trigger_dict:
+                trgdicts.append( trigger_dict )
+        t_start += ostride
+
+    if trgdicts:
+        trigger_dict = trgdicts[0]
+        for td in trgdicts[1:]:
+            trigger_dict.add( td )
+        return trigger_dict
+    else:
+        return event.trigdict()
+
+
+def retrieve_OmicronTrig(gdsdir, ifo, t, stride, channels, sleep=0, ntrials=1, logger=None, delay=0, verbose=True):
+    """
+    looks for Omicron triggers and includes logic about wiating.
+    will wait "sleep" seconds between each check that the file has appeared. Will check "ntrials" times
+    """
+
+    if ntrials < 1:
+        raise ValueError("ntrials must be >= 1, otherwise we don't do anything....")
+    if sleep < 0:
+        sleep = 0
+
+    trgdict = event.trigdict()
+    for channel in channels:
+        ### check if Omicron file is there
+        # /home/reed.essick/Omicron/test/triggers/H-11242/H1:GDS-CALIB_STRAIN/H1-GDS_CALIB_STRAIN_Omicron-1124203561-30.xml
+
+        ### fancy channel name used to predict filename directory structure...
+        fancy_channel = channel.split("-")[-1].split("_")[:-1] ### get rid of ifo and trailing _Omicron
+        fancy_channel = "%s-%s"%(fancy_channel[0], "_".join(fancy_channel[1:])) ### only "-" is after the subsys (for all channels?
+
+        filename = '%s/%s-%d/%s:%s/%s-%d-%d.xml' % ( gdsdir, ifo[0], t / 1e5, ifo, fancy_channel, channel, t+1, stride ) ### +1 is due to the way Omicron pads segments... this is fragile but should be relatively safe for the online Omicron processes managed by R. Essick (reed.essick@ligo.org)
+#        filename = '%s/%s-%d/%s:%s/%s-%d-%d.xml' % ( gdsdir, ifo[0], t / 1e5, ifo, fancy_channel, channel, t, stride )
+
+        for i in xrange(ntrials):
+            if not os.path.exists(filename):  ### omicron files may not have appeared yet
+                if verbose:
+                    if logger:
+                        logger.info('  missing Omicron triggers for %s, waiting additional %d seconds' % (channel, sleep) )
+                    else:
+                        print '  missing Omicron triggers for %s, waiting additional %d seconds' % (channel, sleep)
+                if i < ntrials-1:
+                    time.sleep(sleep)
+                    if sleep < stride: ### automatically increase sleep to 1 stride if needed
+                        sleep = stride
+            else:
+                break
+        else:
+            if verbose:
+                if logger:
+                    logger.warning('  still missing Omicront triggers for %s, skipping' % channel )
+                else:
+                    print '  still missing Omicron triggers for %s, skipping' % channel
+            continue
+
+        if verbose:
+            if logger:
+                logger.info('  loading Omicron triggers for %s : %s'%(channel, filename) )
+            else:
+                print '  loading Omicron triggers for %s : %s'%(channel, filename)
+
+        if delay > 0:
+            if verbose:
+                if logger:
+                    logger.info('    waiting %.3f seconds to ensure file is completely written'%delay)
+                else:
+                    print '    waiting %.3f seconds to ensure file is completely written'%delay
+            time.sleep(delay)
+
+        trgdict.add( event.loadSingleBurst( filename ) )
+
+    return trgdict
+
+def retrieve_OmicronTrigs(gdsdir, ifo, t, stride, ostride, channels, sleep=0, ntrials=1, logger=None, segments=None, verbose=True):
+    """
+    discover and read in files from "online" omicron processes
+    we require the argument "channels" because Omicron triggers are stored in separate files for each file
+      -> we can save significant I/O if we only ever load a subset of these
+    also, the separate single-channel files may appear with different latencies and without a definitive list it is difficult to construct waiting logic
+    """
+    t_start = (int(t) / ostride) * ostride
+   
+    trgdicts = []
+    while t_start < t+stride:
+        if (segments==None) or (event.livetime(event.andsegments([[[t_start, t_start+ostride]], segments]))): ### only keep if we've got some overlap
+            trigger_dict = retrieve_OmicronTrig(gdsdir, ifo, t_start, ostride, channels, sleep=sleep, ntrials=ntrials, logger=logger, verbose=verbose)
+            if trigger_dict:
+                trgdicts.append( trigger_dict )
+        t_start += ostride
+
+    if trgdicts:
+        trigger_dict = trgdicts[0]
+        for td in trgdicts[1:]:
+            trigger_dict.add( td )
+        return trigger_dict
+    else:
+        return event.trigdict()
+
+def retrieve_OfflineOmicronTrigs(gdsdir, ifo, t, stride, channels=None, logger=None, segments=None, verbose=True):
+    """
+    discover and read in files from "standard" /home/detchar/triggers directory structure
+    we allow the keyword argument "channels" because OfflienOmicron triggers are stored in separate files for each file
+      -> we can save significant I/O if we only ever load a subset of these
+    if we request a specific set of channels, this method will only load the necessary files and will ensure that trgdict has a key,value pair for every requested channel, even if no triggers are found.
+    """
+    xmlfiles = defaultdict( list )
+    for xmlfile in get_all_files_in_range("%s/%s/"%(gdsdir, ifo), t, t+stride, suffix=".xml.gz"):
+        if (segments==None) or (event.livetime(event.andsegments([ extract_start_stop(xmlfile, suffix=".xml.gz"), segments ] ))):
+            xmlfiles[ extract_OfflineOmicron_name( xmlfile ) ].append( xmlfile )
+
+    if channels!=None: ### only keep the relevant channels
+        for key in xmlfiles.keys():
+            if key not in channels:
+                xmlfiles.pop( key )
+
+    trgdict = event.trigdict()    
+    for chan in sorted(xmlfiles.keys()):
+        if verbose:
+            if logger:
+                logger.info('  loading OfflineOmicron triggers for : %s'%chan)
+            else:
+                print '  loading OfflineOmicron triggers for : %s'%chan
+        for xmlfile in sorted(xmlfiles[chan]):
+            if verbose:
+                if logger:
+                    logger.info("    loading Omicron triggers : %s"%xmlfile)
+                else:
+                    print "    loading Omicron triggers : %s"%xmlfile
+            trgdict.add( event.loadSingleBurst( xmlfile ) )
+
+    if channels!=None: ### ensure that we have a key,value pair for every requested channel
+        for chan in channels:
+            if not trgdict.has_key(chan):
+                trgdict[chan] = []
+
+    return trgdict
+
+
+def extract_Omicron_name( filename ):
+    return "-".join(filename.split("/")[-1].split("-")[:1])
 
 #=================================================
 # trigger generation algorithm interfaces
@@ -1498,13 +1823,15 @@ def collect_sngl_chan_kw(
     source_dir='./',
     output_dir='./',
     verbose=False,
+    chans=None,
+    scisegs=None,
+    include_all_found_channels=False
     ):
     """ 
 ....replicates the action of collect.py in that it moves KW triggers from multi-channel (low-latency) files to single channel files. These files will be written in to output_dir in a subdirecitory titled `gpsstart`_`gpsstop`
 ...."""
 
     # find the start time of the day which includes start
-
     if width:
         t0 = 847497600  # 00:00 GPS from a reference day?
         t = t0 + int((gpsstart - t0) / width) * width  # beginning time from reference time with strides of width
@@ -1513,7 +1840,6 @@ def collect_sngl_chan_kw(
         width = gpsstop - gpsstart
 
     # wait for previous jobs to finish
-
     if t + 128 > nowgps():  # wait 128sec after the start of a day before processing jobs
         if verbose:
             print 'sleeping ' + `wait` \
@@ -1524,7 +1850,6 @@ def collect_sngl_chan_kw(
 
     # add periods to process until we run into the end time
     # if a directory does not exist, we create it.
-
     if verbose:
         print t  # start of first day to be processed
     while t + width <= gpsstop:
@@ -1538,7 +1863,6 @@ def collect_sngl_chan_kw(
 
     # process channels (listed in confg file)
     # generate a list of channels in the config file
-
     if verbose:
         print 'processing configuration file ' + kw_config
     stride = False
@@ -1555,6 +1879,10 @@ def collect_sngl_chan_kw(
             channels.append([fields[1], (fields[1])[:2] + '_'
                             + (fields[1])[3:] + '_' + fields[2] + '_'
                             + fields[3]])
+    f.close()
+    
+    if chans: ### if supplied, only keep those channels that are specified
+        channels = [chan for chan in channels if chan[1] in chans]
 
     if not stride:
         print 'stride not defined in ' + config.kwconfig
@@ -1562,17 +1890,14 @@ def collect_sngl_chan_kw(
     if not basename:
         print 'basename not defined in ' + config.kwconfig
         sys.exit(1)
-    f.close()
 
     if verbose:
         print ' found ' + repr(len(channels)) + ' channels'
 
     # generate single-channel summary files
-
     new_dirs = []  # record which new directories are created (for training jobs)
 
     # iterate through new data sets
-
     for day_start in gps_start:
         triggers = dict()  # dictionary holding triggers
         for (channel, tag) in channels:
@@ -1580,7 +1905,6 @@ def collect_sngl_chan_kw(
         day_end = day_start + width
 
         # in case stride does not fit neatly into GPS day
-
         t = day_start - day_start % stride  # beginning time for this day
         range = repr(day_start) + '_' + repr(day_end)
         stride_S = int(stride)
@@ -1589,45 +1913,40 @@ def collect_sngl_chan_kw(
         new_dirs.append(output_dir + '/' + range)  # add new directory to list for training jobs (created in output_dir)
 
         # gather all the KW triggers and sort them by channel
-
         segments = []  # segment list for this day
         while t < day_end:
-            t_S = int(t + 0.0000001)  # make sure we don'ti have a rounding error?
+            t_S = int(t + 0.0000001)  # make sure we don't have a rounding error?
             t_dir = t_S / 100000  # the digits in the GPS time beyond 1e5, used for structure of KW output
             file = source_dir + '/' + basename + '-' + repr(t_dir) \
                 + '/' + basename + '-' + repr(t_S) + '-' \
                 + repr(stride_S) + '.trg'
 
-            # build segment list for this day
+            ### check sciseg overlap
+            if scisegs!=None and (not event.livetime( event.andsegments([scisegs, [[t, t+stride]]]) ) ): ### check for overlap with scisegs
+                if verbose:
+                    print "%s has no overlap with scisegs. Skipping"%file
+                t += stride
+                continue
 
+            # build segment list for this day
             if os.path.exists(file):
                 if len(segments) == 0:  # first segment
                     segments.append([t, t + stride])
                     lastt = t
-                elif segments[-1][1] == t:
-
-                                           # continuous data segment already generated
-
+                elif segments[-1][1] == t: # continuous data segment already generated
                     segments[-1][1] = t + stride
                     lastt = t
-                else:
-
-                      # discontinuous data, we skip one section of data to eschew filter transients
-
+                else: # discontinuous data, we skip one section of data to eschew filter transients
                     if lastt + stride == t:  # not continuous with anything in segments, but we've already skipped one section of data
                         if verbose:
                             print 'forming new segment at ' + `t`
                         segments.append([t, t + stride])
-                    else:
-
-                          # skip the first section of data in a new segment because of 'filter transients'
-
+                    else: # skip the first section of data in a new segment because of 'filter transients'
                         lastt = t
                         t += stride
                         continue
 
                 # read in triggers from file and sort by channel
-
                 if verbose:
                     print ' -> reading ' + file
                 try:
@@ -1640,13 +1959,16 @@ def collect_sngl_chan_kw(
                         fields = line.strip().split()
                         if len(fields) == 9 and fields[-1] != '':
                             tag = fields[-1]
-                            if not triggers.has_key(tag):
+                            if triggers.has_key(tag):
+                                triggers[tag].append(line.strip()[:-len(tag)
+                                    - 2])
+                            elif include_all_found_channels:
                                 if verbose:
                                     print ' -> WARNING: triggers ' \
     + tag + ' not in configuration file (t=' + repr(t) \
     + '). Adding it to the list of channels.'
                                 triggers[tag] = []
-                            triggers[tag].append(line.strip()[:-len(tag)
+                                triggers[tag].append(line.strip()[:-len(tag)
                                     - 2])
                         else:
                             if verbose:
@@ -1663,7 +1985,6 @@ def collect_sngl_chan_kw(
             t += stride
 
         # write the single-channel summary files
-
         for tag in triggers.keys():
             file = output_dir + '/' + range + '/' + tag + '.trg'
             if verbose:
@@ -1683,7 +2004,6 @@ def collect_sngl_chan_kw(
                     + file
 
         # write segment file
-
         file = output_dir + '/' + range + '/' + basename + '.seg'
         f = open(file, 'w')
         for segment in segments:
@@ -1926,6 +2246,18 @@ def evaluate(flavor, lines, dat, config, gps_start_time=-numpy.infty, gps_end_ti
             file.close()
             return 0
 
+    elif flavor == "ann":
+        pat = trgdict ### silly way I'm passing this
+        if len(auxmvc_vectors):
+            trained_ann = lines[0]
+            return ann_evaluate( pat, trained_ann, dat, config, gps_start_time=gps_start_time, gps_end_time=gps_end_time, dir=dir )[0]
+        else:
+            nonaux_vars = ['index', 'i', 'w', 'GPS_s', 'GPS_ms', 'signif', 'SNR', 'unclean', 'glitch-rank' ]
+            file = open(dat, 'w')
+            print >> file, 'GPS i w unclean signif SNR rank %s' % (' '.join([var for var in auxmvc_vectors.dtype.names if not var in nonaux_vars]))
+            file.close()
+            return 0
+
     else:
         raise ValueError("do not know how to execute for flavor=%s"%flavor)
 
@@ -1955,6 +2287,14 @@ def dag_train(flavor, pat, cache, config, train_dir='.', cwd='.'):
         os.chdir(cwd) ### switch back to the current directory
 
         return submit_dag_exit_status, "%s/%s"%(train_dir, dag_file)
+
+    elif flavor == "ann":
+        ### submit ann training job
+        (submit_dag_exit_status, dag_file, trained_file) = execute_ann_train(pat, cache.name, config, train_dir)
+        os.chdir(cwd) ### switch back to the current directory
+
+        return submit_dag_exit_status, "%s/%s"%(train_dir, dag_file)
+
 
     else:
         raise ValueError("do not know how to dag_train flavor=%s"%flavor)
@@ -2473,7 +2813,7 @@ def ovl_evaluate( vetolist, GPS_headers=False, GPStimes=False, allvtrg=False, kw
     gps_tcent = GPS_headers.index('GPS')
     return ovl.predict( vetolist, GPS_headers, GPStimes, gps_tcent, allvtrg=allvtrg, kw_trgfiles=kw_trgfiles, predict_filename=filename, output_dir=output_dir )
 
-def ovl_train(gpsstart, gpsstop, generalD, classifierD, scisegs=False, vetosegs=False, output_dir='./' , padding = 1.0 ):
+def ovl_train(gpsstart, gpsstop, generalD, classifierD, scisegs=False, vetosegs=False, output_dir='./' , padding=numpy.infty ):
     """ 
     builds an ovl.params object and launches ovl training jobs on the specified data.
     pulls many parameters from "cp" config object
@@ -2505,7 +2845,7 @@ def ovl_train(gpsstart, gpsstop, generalD, classifierD, scisegs=False, vetosegs=
     if channels:
         channels = False
     if notused:
-        notused = [l.strip('\n') for l in open(notused, 'r').readlines()]
+        notused = [l.strip('\n') for l in open(notused, 'r').readlines() if l.strip('\n')]
     else:
         notused = []
 
@@ -2523,6 +2863,9 @@ def ovl_train(gpsstart, gpsstop, generalD, classifierD, scisegs=False, vetosegs=
 
     # launch training job
     vetolists = ovl.train(params, num_runs=num_runs, incremental=incremental, output_dir=output_dir, verbose=False, write_channels=True )
+
+    ### run safety to get a vetolist file for "independent" application
+    ovl.vetolist_safety(params, output_dir=output_dir+"/ovl/", source_dir=output_dir+"/ovl/", verbose=False)
 
     return vetolists
 
@@ -2593,7 +2936,8 @@ def execute_forest_train(training_samples_file, cache, cp, submit_dir ):
     train_forest_job = auxmvc.train_forest_job(cp)
 
     # construct name for trained forest file
-    trained_forest_filename = os.path.split(training_samples_file)[0] + '/mvsc/' + os.path.split(training_samples_file)[1].replace('.pat', '.spr')
+    #trained_forest_filename = os.path.split(training_samples_file)[0] + '/mvsc/' + os.path.split(training_samples_file)[1].replace('.pat', '.spr')
+    trained_forest_filename = submit_dir +'/' + os.path.split(training_samples_file)[1].replace('.pat', '.spr')
 
     # create node for this job
     train_forest_node = auxmvc.train_forest_node(train_forest_job, training_samples_file, trained_forest_filename)
@@ -2715,5 +3059,118 @@ def execute_svm_train( cp, train_file, range_file, model_file, cache_file, submi
     exit_status = subprocess.Popen(dag_submit_cmd, cwd=submit_dir).wait() ### block!
 
     return (exit_status, dag_file, train_svm_node.get_output_files())
+
+#===================================================================================================
+# ANN WRAPPERS
+#===================================================================================================
+def ann_evaluate( patfile, trained_ann, ranked_file, cp, gps_start_time, gps_end_time, dir):
+    """
+    Submits job that evaluates samples of auxmvc feature vectors using random ann (ANN)
+    """
+
+    # initiate converting pat_file to ann file(FANN library type file) job
+    convert_annfile_job = auxmvc.convert_annfile_job(cp)
+
+    # create node for convert_annfile_job
+    convert_annfile_node = auxmvc.convert_annfile_node(convert_annfile_job, patfile)
+
+    # initiate use ann job
+    use_ann_job = auxmvc.use_ann_job(cp)
+
+    # create node for this job
+    use_ann_node = auxmvc.use_ann_node(use_ann_job, trained_ann, patfile, ranked_file)
+
+    # get full command line for convert_annfilejob
+    convert_annfile_command = auxmvc.construct_command(convert_annfile_node)
+
+    # submit process
+    #exit_status = submit_command(convert_annfile_command, 'ann_convert', dir)
+    exit_status = subprocess.Popen(convert_annfile_command, cwd=dir).wait() ### block
+
+    if exit_status == 0:
+        # get full command line for this job
+        use_ann_command = auxmvc.construct_command(use_ann_node)
+
+        # submit process
+        #exit_status = submit_command(use_ann_command, 'ann_evaluate', dir)
+        exit_status = subprocess.Popen(use_ann_command, cwd=dir).wait() ### block!
+
+        return (exit_status, use_ann_node.get_output_files())
+    else:
+        print "File conversion for ann is failed."
+        return (exit_status, use_ann_node.get_output_files())
+
+def execute_ann_train( training_samples_file, cache, cp, submit_dir ):
+    """
+    Builds small dag to train ANN and condor submits it.
+    """
+
+    # set current directory to submit_dir
+    os.chdir(submit_dir)
+
+    # set path to condor log
+    logpath = cp.get('idq_train', 'condorlogs')
+
+    # set basename for condor dag
+    basename = cp.get('general', 'ifo') + '_train_ann_' + cp.get('general', 'usertag') + '-' + training_samples_file.split('-')[-2] + '-' + training_samples_file.split('-')[-1].split('.')[0]
+
+    # creat directory for jobs .err and .out files
+    if not os.path.exists('logs'):
+        os.makedirs('logs')
+
+    # initiate dag
+    dag = auxmvc.auxmvc_DAG(basename, logpath)
+
+    # get dag file
+    dag_file = dag.get_dag_file()
+
+    # initiate convert_annfile_job
+    convert_annfile_job = auxmvc.convert_annfile_job(cp)
+
+    # create node for convert_annfile_job
+    convert_annfile_node = auxmvc.convert_annfile_node(convert_annfile_job, training_samples_file)
+
+    # append the node to dag
+    dag.add_node(convert_annfile_node)
+
+    # construct name for trained ann file
+    #training_samples_file_redirect = os.path.split(training_samples_file)[0] + '/ann/' + os.path.split(training_samples_file)[1].replace('.pat', '.ann')
+    training_samples_file_redirect = submit_dir +'/' + os.path.split(training_samples_file)[1].replace('.pat', '.ann')
+
+    trained_ann_filename = training_samples_file_redirect.replace('.ann','.net')
+
+    # initiate train ann job
+    train_ann_job = auxmvc.train_ann_job(cp)
+
+    # create node for this job
+    train_ann_node = auxmvc.train_ann_node(train_ann_job, training_samples_file_redirect, trained_ann_filename, p_node=[convert_annfile_node])
+
+    # append the node to dag
+    dag.add_node(train_ann_node)
+
+    # initiate add file to cache job
+    add_file_to_cache_job = auxmvc.add_file_to_cache_job(cp)
+
+    # create node for this job
+    add_file_to_cache_node = auxmvc.add_file_to_cache_node(add_file_to_cache_job, [train_ann_node.trained_ann], cache, p_node=[train_ann_node])
+
+    # add the node to dag
+    dag.add_node(add_file_to_cache_node)
+
+    # write dag
+
+    dag.write_sub_files()
+    dag.write_dag()
+    dag.write_script()
+
+    # condor dag submit command....
+
+    dag_submit_cmd = ['condor_submit_dag', dag_file]
+
+    # submit dag
+    #exit_status = submit_command(dag_submit_cmd, 'submit_ann_train_dag', submit_dir)
+    exit_status = subprocess.Popen(dag_submit_cmd, cwd=submit_dir).wait() ### block!
+
+    return (exit_status, dag_file, train_ann_node.get_output_files())
 
 ##@}

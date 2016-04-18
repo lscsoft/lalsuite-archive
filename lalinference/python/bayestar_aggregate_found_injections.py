@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2013-2014  Leo Singer
+# Copyright (C) 2013-2015  Leo Singer
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -35,40 +35,37 @@ from __future__ import print_function
 __author__ = "Leo Singer <leo.singer@ligo.org>"
 
 
-from lalinference.bayestar import command
-
 if __name__ == '__main__':
     # Command line interface.
-    from optparse import Option, OptionParser
+    import argparse
+    from lalinference.bayestar import command
 
-    parser = OptionParser(
-        formatter=command.NewlinePreservingHelpFormatter(),
-        description=__doc__,
-        usage="%prog [-o OUTPUT] DATABASE.sqlite FILE1.fits[.gz] FILE2.fits[.gz] ...",
-        option_list=[
-            Option("-o", "--output", default="/dev/stdout",
-                help="Name of output file [default: %default]"),
-            Option("-j", "--jobs", default=1, type=int,
-                help="Number of threads [default: %default]"),
-            Option("-p", "--contour", default=[], action="append",
-                type=float, metavar="PERCENT",
-                help="Report the area of the smallest contour and the number of modes "
-                + "containing this much probability. Can be repeated mulitple times"),
-            Option("--modes", default=False, action="store_true",
-                help="Compute number of disjoint modes [default: %default]")
-        ]
-    )
-    opts, args = parser.parse_args()
-
-    try:
-        dbfilename = args[0]
-        fitsfileglobs = args[1:]
-    except IndexError:
-        parser.error("not enough command line arguments")
-    if opts.jobs < 1:
-        parser.error("invalid value for -j, --jobs: must be >= 1")
-
-    outfile = open(opts.output, "w")
+    parser = command.ArgumentParser()
+    parser.add_argument(
+        '-o', '--output', metavar='OUT.dat',
+        type=argparse.FileType('w'), default='-',
+        help='Name of output file [default: stdout]')
+    parser.add_argument(
+        '-j', '--jobs', type=int, default=1, const=None, nargs='?',
+        help='Number of threads [default: %(default)s]')
+    parser.add_argument(
+        '-p', '--contour', default=[], nargs='+', type=float, metavar='PERCENT',
+        help='Report the area of the smallest contour and the number of modes '
+        'containing this much probability.')
+    parser.add_argument(
+        '-a', '--area', default=[], nargs='+', type=float, metavar='DEG2',
+        help='Report the largest probability contained within any region '
+        'of this area in square degrees. Can be repeated multiple times.')
+    parser.add_argument(
+        '--modes', default=False, action='store_true',
+        help='Compute number of disjoint modes [default: %(default)s]')
+    parser.add_argument(
+        'db', type=command.SQLiteType('r'), metavar='DB.sqlite',
+        help='Input SQLite database from search pipeline')
+    parser.add_argument(
+        'fitsfileglobs', metavar='GLOB.fits[.gz]', nargs='+',
+        help='Input FITS filenames and/or globs')
+    opts = parser.parse_args()
 
 
 # Imports.
@@ -77,11 +74,12 @@ from lalinference import fits
 from lalinference.bayestar import postprocess
 
 
-def startup(dbfilename, opts_contour, opts_modes):
-    global db, contours, modes
-    db = command.sqlite3_connect_nocreate(dbfilename)
+def startup(dbfilename, opts_contour, opts_modes, opts_area):
+    global db, contours, modes, areas
+    db = sqlite3.connect(dbfilename)
     contours = opts_contour
     modes = opts_modes
+    areas = opts_area
 
 
 def process(fitsfilename):
@@ -103,15 +101,16 @@ def process(fitsfilename):
         WHERE cem1.table_name = 'sim_inspiral'
         AND cem2.table_name = 'coinc_event' AND cem2.event_id = ?""",
         (coinc_event_id,)).fetchone()
-    searched_area, searched_prob, offset, searched_modes, contour_areas, contour_modes = postprocess.find_injection(
-        sky_map, true_ra, true_dec, contours=[0.01 * p for p in contours], modes=modes, nest=metadata['nest'])
+    searched_area, searched_prob, offset, searched_modes, contour_areas, area_probs, contour_modes = postprocess.find_injection(
+        sky_map, true_ra, true_dec, contours=[0.01 * p for p in contours],
+        areas=areas, modes=modes, nest=metadata['nest'])
 
     if snr is None:
         snr = float('nan')
     if far is None:
         far = float('nan')
 
-    ret = [coinc_event_id, simulation_id, far, snr, searched_area, searched_prob, offset, runtime] + contour_areas
+    ret = [coinc_event_id, simulation_id, far, snr, searched_area, searched_prob, offset, runtime] + contour_areas + area_probs
     if modes:
         ret += [searched_modes] + contour_modes
     return ret
@@ -121,28 +120,37 @@ if __name__ == '__main__':
     from glue.text_progress_bar import ProgressBar
     progress = ProgressBar()
 
-    progress.update(-1, 'spawning {0} workers'.format(opts.jobs))
-    startupargs = (dbfilename, opts.contour, opts.modes)
+    db = opts.db
+    contours = opts.contour
+    modes = opts.modes
+    areas = opts.area
+
+    progress.update(-1, 'spawning workers')
     if opts.jobs == 1:
         from itertools import imap
     else:
-        import multiprocessing
-        imap = multiprocessing.Pool(opts.jobs, startup, startupargs).imap_unordered
-    startup(*startupargs)
+        try:
+            from emcee.interruptible_pool import InterruptiblePool as Pool
+        except ImportError:
+            from multiprocessing import Pool
+        imap = Pool(
+            opts.jobs, startup,
+            (command.sqlite_get_filename(db), contours, modes, areas)
+            ).imap_unordered
 
     progress.update(-1, 'obtaining filenames of sky maps')
-    fitsfilenames = tuple(command.chainglob(fitsfileglobs))
+    fitsfilenames = tuple(command.chainglob(opts.fitsfileglobs))
 
     colnames = ['coinc_event_id', 'simulation_id', 'far', 'snr', 'searched_area',
         'searched_prob', 'offset', 'runtime'] + ["area({0:g})".format(p)
-        for p in contours]
+        for p in contours] + ["prob({0:g})".format(a) for a in areas]
     if modes:
         colnames += ['searched_modes'] + ["modes({0:g})".format(p) for p in contours]
-    print(*colnames, sep="\t", file=outfile)
+    print(*colnames, sep="\t", file=opts.output)
 
     count_records = 0
     progress.max = len(fitsfilenames)
     for record in imap(process, fitsfilenames):
         count_records += 1
         progress.update(count_records, record[0])
-        print(*record, sep="\t", file=outfile)
+        print(*record, sep="\t", file=opts.output)

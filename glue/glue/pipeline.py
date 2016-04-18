@@ -56,8 +56,7 @@ import ConfigParser
 
 
 # Some scripts that are used to set up a pegasus DAX
-PEGASUS_SCRIPT="""
-#!/bin/bash
+PEGASUS_SCRIPT="""#!/bin/bash
 TMP_EXEC_DIR=%s
 IHOPE_RUN_DIR=%s
 UEBER_CONCRETE_DAG=%s
@@ -122,8 +121,8 @@ fi
 # Condor and condor_dagman do not yet properly cache
 # and manage credentials to make them available to all
 # jobs in the workflow, and other tools make assumptions
-# about where a proxy, service, or user certificate is located 
-# on the file system and do not properly find valid 
+# about where a proxy, service, or user certificate is located
+# on the file system and do not properly find valid
 # existing credentials using the proper GSI search algorithm.
 #
 # This is not a great solution because there can be quite
@@ -149,7 +148,7 @@ if ! `/usr/bin/which grid-proxy-info > /dev/null 2>&1` ; then
 
 
 # if X509_USER_PROXY is defined and has a lifetime of > 1 hour
-# compare to any existing default and copy it into place if 
+# compare to any existing default and copy it into place if
 # and only if its lifetime is greater than the default
 
 if [ -n "$X509_USER_PROXY" ] ; then
@@ -202,7 +201,7 @@ if ! ${valid} ; then
     exit 1
 fi
 
-# if we get here valid proxy with lifetime > 1 hour was 
+# if we get here valid proxy with lifetime > 1 hour was
 # found so print out details for the record
 grid-proxy-info -file ${x509_default} -all
 
@@ -301,7 +300,7 @@ pegasus.transfer.links=true
 dagman.maxpre=1
 
 # number of times DAGMan retries the full job cycle from pre-script through
-# post-script, if failure was detected 
+# post-script, if failure was detected
 dagman.retry=3
 
 
@@ -309,7 +308,7 @@ dagman.retry=3
 # Site Selection Properties
 
 # Jobs will be assigned in a round robin manner amongst the sites that can
-# execute them. 
+# execute them.
 pegasus.selector.site=RoundRobin
 
 
@@ -812,7 +811,7 @@ class CondorDAGJob(CondorJob):
   def create_node(self):
     """
     Create a condor node from this job. This provides a basic interface to
-    the CondorDAGNode class. Most jobs in a workflow will subclass the 
+    the CondorDAGNode class. Most jobs in a workflow will subclass the
     CondorDAGNode class and overwrite this to give more details when
     initializing the node. However, this will work fine for jobs with very simp
     input/output.
@@ -871,7 +870,7 @@ class CondorDAGJob(CondorJob):
         macro = self.__bad_macro_chars.sub( r'', command )
         self.add_condor_cmd(command, '$(macro' + macro + ')')
 
-  def add_var_arg(self,arg_index):
+  def add_var_arg(self,arg_index,quote=False):
     """
     Add a command to the submit file to allow variable (macro) arguments
     to be passed to the executable.
@@ -881,7 +880,10 @@ class CondorDAGJob(CondorJob):
     except IndexError:
       if arg_index != self.__arg_index:
         raise CondorDAGJobError, "mismatch between job and node var_arg index"
-      self.__var_args.append('$(macroargument%s)' % str(arg_index))
+      if quote:
+          self.__var_args.append("'$(macroargument%s)'" % str(arg_index))
+      else:
+          self.__var_args.append('$(macroargument%s)' % str(arg_index))
       self.add_arg(self.__var_args[self.__arg_index])
       self.__arg_index += 1
 
@@ -906,7 +908,7 @@ class CondorDAGManJob:
   def create_node(self):
     """
     Create a condor node from this job. This provides a basic interface to
-    the CondorDAGManNode class. Most jobs in a workflow will subclass the 
+    the CondorDAGManNode class. Most jobs in a workflow will subclass the
     CondorDAGManNode class and overwrite this to give more details when
     initializing the node. However, this will work fine for jobs with very simp
     input/output.
@@ -1335,7 +1337,7 @@ class CondorDAGNode:
     if file_is_output_file: self.add_output_file(filename)
     else: self.add_input_file(filename)
 
-  def add_var_arg(self, arg):
+  def add_var_arg(self, arg,quote=False):
     """
     Add a variable (or macro) argument to the condor job. The argument is
     added to the submit file and a different value of the argument can be set
@@ -1343,7 +1345,7 @@ class CondorDAGNode:
     @param arg: name of option to add.
     """
     self.__args.append(arg)
-    self.__job.add_var_arg(self.__arg_index)
+    self.__job.add_var_arg(self.__arg_index,quote=quote)
     self.__arg_index += 1
 
   def add_file_arg(self, filename):
@@ -1536,7 +1538,7 @@ class CondorDAGNode:
     macros = self.get_args()
 
     for a in args:
-      m = pat.match(a)
+      m = pat.search(a)
       if m:
         arg_index = int(argpat.findall(a)[0])
         try:
@@ -1553,7 +1555,7 @@ class CondorDAGNode:
     Return the full command line that will be used when this node
     is run by DAGman.
     """
-    
+
     cmd = ""
     cmd_list = self.get_cmd_tuple_list()
     for argument in cmd_list:
@@ -1632,20 +1634,20 @@ class CondorDAGManNode(CondorDAGNode):
     @param rd: True or False
     """
     self.__reduce_dax = rd
-    
+
   def get_reduce_dax(self):
     """
     Return the flag that tells Pegasus to reduce the DAX based on existing PFNs
     """
     return self.__reduce_dax
-    
+
   def set_static_pfn_cache(self, file):
     """
     Use the --cache option to pass a static PFN cache to pegasus-plan
     @param cache: full path to the cache file
     """
     self.__static_pfn_cache = str(file)
-    
+
   def get_static_pfn_cache(self):
     """
     Return the path to a static PFN cache
@@ -1800,7 +1802,7 @@ class CondorDAG:
     if not self.is_dax():
       for job in self.__jobs:
         job.write_sub_file()
-  
+
   def add_pfn_cache(self,pfn_list):
     """
     Add an lfn pfn and pool tuple to the pfn cache
@@ -1930,7 +1932,7 @@ class CondorDAG:
           else:
             subdax_path = os.path.join(os.getcwd(),subdax_name)
             dax_subdir = '.'
-            
+
           subdax = Pegasus.DAX3.DAX(subdax_name,id=id_tag)
 
           # FIXME pegasus should ensure these are unique
@@ -1977,11 +1979,11 @@ class CondorDAG:
         id_tag = "ID%06d" % id
         node_job_object_dict[node_name] = id_tag
 
-        # get the name of the executable 
+        # get the name of the executable
         executable_namespace = 'ligo-' + str(node.job().__class__.__name__).lower()
         executable_base = os.path.basename(executable)
 
-        workflow_job = Pegasus.DAX3.Job( namespace=executable_namespace, 
+        workflow_job = Pegasus.DAX3.Job( namespace=executable_namespace,
           name=executable_base, version="1.0", id=id_tag)
 
         cmd_line = node.get_cmd_tuple_list()
@@ -1991,7 +1993,7 @@ class CondorDAG:
         input_node_file_dict = {}
         for f in node.get_input_files():
           input_node_file_dict[f] = 1
-        
+
         for f in input_node_file_dict.keys():
           workflow_job.uses(Pegasus.DAX3.File(os.path.basename(f)),link=Pegasus.DAX3.Link.INPUT,register=False,transfer=True)
 
@@ -2023,13 +2025,13 @@ class CondorDAG:
                     if node_file_dict.has_key(arg):
                         args.append(Pegasus.DAX3.File(os.path.basename(arg)))
                     else:
-                        args.append(arg)       
+                        args.append(arg)
                 workflow_job.addArguments(*args)
             else:
               workflow_job.addArguments(job_arg[0], job_arg[1])
           except IndexError:
             pass
-        
+
         # Check for desired grid site
         if node.job().get_grid_site():
             this_grid_site = node.job().get_grid_site()
@@ -2092,6 +2094,10 @@ class CondorDAG:
           workflow_job.addProfile(Pegasus.DAX3.Profile("condor","universe","vanilla"))
         else:
           workflow_job.addProfile(Pegasus.DAX3.Profile("condor","universe",node.job().get_universe()))
+
+        # Add condor commands to sub files
+        for ccmd_key, ccmd_val in node.job().get_condor_cmds().items():
+            workflow_job.addProfile(Pegasus.DAX3.Profile("condor", ccmd_key, ccmd_val))
 
         # add any other user specified condor commands or classads
         for p in node.get_pegasus_profile():
@@ -2256,7 +2262,7 @@ pegasus.data.configuration=nonsharedfs
 <sitecatalog xmlns="http://pegasus.isi.edu/schema/sitecatalog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi.edu/schema/sc-4.0.xsd" version="4.0">
   <site handle="local" arch="x86_64" os="LINUX">
-    <grid type="gt2" contact="%s/jobmanager-fork" scheduler="Fork" jobtype="auxillary" total-nodes="50"/> 
+    <grid type="gt2" contact="%s/jobmanager-fork" scheduler="Fork" jobtype="auxillary" total-nodes="50"/>
     <grid type="gt2" contact="%s/jobmanager-condor" scheduler="Condor" jobtype="compute" total-nodes="50"/>
     <directory  path="%s" type="shared-scratch" free-size="null" total-size="null">
         <file-server  operation="all" url="file://%s">
@@ -2309,9 +2315,9 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
   <site handle="bologna" arch="x86_64" os="LINUX">
     <grid type="cream" contact="https://ce01-lcg.cr.cnaf.infn.it:8443/ce-cream/services/CREAM2" scheduler="LSF" jobtype="compute" />
     <grid type="cream" contact="https://ce01-lcg.cr.cnaf.infn.it:8443/ce-cream/services/CREAM2" scheduler="LSF" jobtype="auxillary" />
-    <directory type="shared-scratch" path="/storage/gpfs_virgo4/virgo4/%s/"> 
-        <file-server operation="all" url="srm://storm-fe-archive.cr.cnaf.infn.it:8444/srm/managerv2?SFN=/virgo4/%s/"/> 
-    </directory> 
+    <directory type="shared-scratch" path="/storage/gpfs_virgo4/virgo4/%s/">
+        <file-server operation="all" url="srm://storm-fe-archive.cr.cnaf.infn.it:8444/srm/managerv2?SFN=/virgo4/%s/"/>
+    </directory>
     <profile namespace="pegasus" key="style">cream</profile>
     <profile namespace="globus" key="queue">virgo</profile>
   </site>
@@ -2384,7 +2390,7 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
 """
 
     print >> sitefile, """\
-</sitecatalog>""" 
+</sitecatalog>"""
     sitefile.close()
 
     # Write a help message telling the user how to run the workflow
@@ -3570,7 +3576,7 @@ class LsyncCache:
     self.__path = path
 
     # dictionary where the keys are data types like 'gwf', 'sft', 'xml'
-    # and the values are dictionaries 
+    # and the values are dictionaries
     self.cache = {'gwf': None, 'sft' : None, 'xml' : None}
 
     # for each type create a dictionary where keys are sites and values
@@ -3607,7 +3613,7 @@ class LsyncCache:
 
     We store the cache for each site and frameType combination
     as a dictionary where the keys are (directory, duration)
-    tuples and the values are segment lists. 
+    tuples and the values are segment lists.
 
     Since the cache file is already coalesced we do not
     have to call the coalesce method on the segment lists.
@@ -3658,8 +3664,8 @@ class LsyncCache:
         msg = "The combination %s is not unique in the frame cache file" \
           % str(key)
         raise RuntimeError, msg
-                
-      gwfDict[site][frameType][key] = glue.segments.segmentlist(segments)                    
+
+      gwfDict[site][frameType][key] = glue.segments.segmentlist(segments)
     f.close()
 
     cache['gwf'] = gwfDict
@@ -3669,7 +3675,7 @@ class LsyncCache:
     """
     # get the cache from the manager
     cache = self.cache
-            
+
     # if the cache does not contain any mappings for this site type return empty list
     if not cache['gwf'].has_key(site):
       return []
@@ -3703,12 +3709,12 @@ class LsyncCache:
           t1, t2 = s
           times = xrange(t1, t2, dur)
 
-          # loop through the times and create paths 
+          # loop through the times and create paths
           for t in times:
             if search.intersects(glue.segments.segment(t, t + dur)):
-              lfn =  "%s-%s-%d-%d.gwf" % (site, frameType, t, dur) 
+              lfn =  "%s-%s-%d-%d.gwf" % (site, frameType, t, dur)
               lfnDict[lfn] = None
-                
+
     # sort the LFNs to deliver URLs in GPS order
     lfns = lfnDict.keys()
     lfns.sort()
@@ -4182,7 +4188,7 @@ class SqliteJob(CondorDAGJob, AnalysisJob):
   A cbc sqlite job adds to CondorDAGJob and AnalysisJob features common to jobs
   which read or write to a sqlite database. Of note, the universe is always set to
   local regardless of what's in the cp file, the extension is set
-  to None so that it may be set by individual SqliteNodes, log files do not 
+  to None so that it may be set by individual SqliteNodes, log files do not
   have macrogpsstarttime and endtime in them, and get_env is set to True.
   """
   def __init__(self, cp, sections, exec_name, dax = False):
@@ -4254,7 +4260,7 @@ class SqliteNode(CondorDAGNode, AnalysisNode):
     """
     self.add_file_opt('database', database)
     self.__database = database
-    
+
   def get_database(self):
     """
     Gets database option.
@@ -4308,7 +4314,7 @@ class LigolwSqliteNode(SqliteNode):
     Gets input cache.
     """
     return self.__input_cache
-  
+
   def set_xml_input(self, xml_file):
     """
     Sets xml input file instead of cache

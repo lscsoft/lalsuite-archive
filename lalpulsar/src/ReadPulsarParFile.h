@@ -140,6 +140,9 @@ tagBinaryPulsarParams
   REAL8 posepoch; /**< position epoch */
   REAL8 pepoch;   /**< period/frequency epoch */
 
+  REAL8 startTime; /**< start of parfile applicable time */
+  REAL8 finishTime;   /**< finish of parfile applicable time */
+
   /* all parameters will be in the same units as used in TEMPO */
 
   /* Keplerian parameters */
@@ -216,6 +219,7 @@ tagBinaryPulsarParams
 
   /* gravitational wave parameters */
   REAL8 h0;     /**< gravitational wave amplitude */
+  REAL8 Q22;    /**< gravitational wave l=m=2 mass quadrupole moment */
   REAL8 cosiota;/**< cosine of the pulsars inclination angle */
   REAL8 iota;   /**< inclination angle */
   REAL8 psi;    /**< polarisation angle */
@@ -319,6 +323,7 @@ tagBinaryPulsarParams
 
   /* gravitational wave parameters */
   REAL8 h0Err;
+  REAL8 Q22Err;
   REAL8 cosiotaErr;
   REAL8 iotaErr;
   REAL8 psiErr;
@@ -407,9 +412,16 @@ PulsarParamType PulsarGetParamType( const PulsarParameters *pars, const char *na
  */
 REAL8 PulsarGetREAL8Param( const PulsarParameters *pars, const CHAR *name );
 
+/** \brief Return a \c REAL8 parameter if it exists, otherwise return zero
+ */
+REAL8 PulsarGetREAL8ParamOrZero( const PulsarParameters *pars, const CHAR *name );
+
 /** \brief Return a string parameter
  *
  * This function will call \c PulsarGetParam for a string parameter and properly cast it for returning.
+ * The return value should be copied e.g. with
+ * CHAR *str = XLALStringDuplicate( PulsarGetStringParam(pars, "NAME") );
+ * It also needs to be freed afterwards.
  */
 CHAR *PulsarGetStringParam( const PulsarParameters *pars, const CHAR *name );
 
@@ -458,7 +470,7 @@ void PulsarSetParam( PulsarParameters* pars, const CHAR *name, void *value );
 void PulsarSetParamErr( PulsarParameters* pars, const CHAR *name, void *value, UINT4 fitFlag, UINT4 nfits, UINT4 len );
 
 /** \brief Check for the existence of the parameter \c name in the \c PulsarParameters structure */
-int PulsarCheckParam( PulsarParameters *pars, const CHAR *name );
+int PulsarCheckParam( const PulsarParameters *pars, const CHAR *name );
 
 /** \brief Function to free memory from pulsar parameters */
 void PulsarFreeParams( PulsarParameters *par );
@@ -485,6 +497,8 @@ void ParConvMasToRads( const CHAR *in, void *out );
 void ParConvInvArcsecsToInvRads( const CHAR *in, void *out );
 /** Convert the input string from days to seconds */
 void ParConvDaysToSecs( const CHAR *in, void *out );
+/** Convert the input string from kiloparsecs to metres */
+void ParConvKpcToMetres( const CHAR *in, void *out );
 
 /** Convert the binary system parameter from a string to a double, but  make the check (as performed by TEMPO2)
  * that this is > 1e-7 then it's in units of 1e-12, so needs converting by that factor. It also checks if the

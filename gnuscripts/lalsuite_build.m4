@@ -1,7 +1,7 @@
 # -*- mode: autoconf; -*-
 # lalsuite_build.m4 - top level build macros
 #
-# serial 116
+# serial 119
 
 # restrict which LALSUITE_... patterns can appearing in output (./configure);
 # useful for debugging problems with unexpanded LALSUITE_... Autoconf macros
@@ -350,6 +350,9 @@ AC_DEFUN([LALSUITE_PROG_COMPILERS],[
   AS_IF([test "x${ac_cv_prog_cc_g}" = xyes],[
     CFLAGS="${CFLAGS} -g"
   ])
+
+  # only include ISO C99 definitions from system headers
+  CFLAGS="${CFLAGS} -D_ISOC99_SOURCE"
 
   # check for C++ compiler, if needed
   AS_IF([test "${lalsuite_require_cxx}" = true],[
@@ -1026,7 +1029,7 @@ AS_IF([test "x${osx_version_check}" = "xtrue"],[
       AC_MSG_RESULT([$MACOSX_VERSION])])
     AS_CASE(["$MACOSX_VERSION"],
       [10.0*|10.1|10.1.*|10.2*|10.3*],AC_MSG_ERROR([This version of Mac OS X is not supported]),
-      [10.4*|10.5*|10.6*|10.7*|10.8*|10.9*|10.10*],,
+      [10.4*|10.5*|10.6*|10.7*|10.8*|10.9*|10.10*|10.11*],,
       AC_MSG_WARN([Unknown Mac OS X version]))
 ])])])
 
@@ -1103,10 +1106,20 @@ AC_DEFUN([LALSUITE_USE_DOXYGEN],[
     # Python is required to run some scripts
     LALSUITE_REQUIRE_PYTHON([2.6])
 
+    # Perl and BibTeX are required to build the references
+    AC_PATH_PROG([PERL],[perl],[],[])
+    AS_IF([test "x${PERL}" = x],[
+      AC_MSG_ERROR([could not find 'perl' in PATH (required for Doxygen references)])
+    ])
+    AC_PATH_PROG([BIBTEX],[bibtex],[],[])
+    AS_IF([test "x${BIBTEX}" = x],[
+      AC_MSG_ERROR([could not find 'bibtex' in PATH (required for Doxygen references)])
+    ])
+
     # check for Doxygen
     AC_PATH_PROG([DOXYGEN],[doxygen],[],[])
     AS_IF([test "x${DOXYGEN}" = x],[
-      AC_MSG_ERROR([could not find Doxygen in PATH])
+      AC_MSG_ERROR([could not find 'doxygen' in PATH])
     ])
     doxygen_min_version=1.8.1.2   # minimum required Doxygen version
     AC_MSG_CHECKING([if ${DOXYGEN} version is at least ${doxygen_min_version}])

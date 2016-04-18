@@ -191,6 +191,12 @@ REAL8 PulsarGetREAL8Param( const PulsarParameters *pars, const CHAR *name ){
 }
 
 
+REAL8 PulsarGetREAL8ParamOrZero( const PulsarParameters *pars, const CHAR *name ){
+  /* if parameter is there return it otherwise return zero */
+  return PulsarCheckParam(pars, name) ? PulsarGetREAL8Param(pars, name) : 0.;
+}
+
+
 CHAR* PulsarGetStringParam( const PulsarParameters *pars, const CHAR *name ){
   /* check type is a string */
   if ( PulsarGetParamType( pars, name ) == PULSARTYPE_string_t ){ return (CHAR *)PulsarGetParam( pars, name ); }
@@ -332,8 +338,8 @@ void PulsarAddParam( PulsarParameters *pars, const CHAR *name, void *value, Puls
   }
 
   /* If we get this far it is safe to create a new node for this variable */
-  PulsarParam *new = XLALCalloc( sizeof( PulsarParam ), 1 );
-
+  PulsarParam *new = XLALMalloc(sizeof(PulsarParam));
+  memset(new,0,sizeof(PulsarParam));
   if( new ) {
     new->value = (void *)XLALMalloc( PulsarTypeSize[type] );
     new->err = NULL;
@@ -358,7 +364,7 @@ void PulsarAddParam( PulsarParameters *pars, const CHAR *name, void *value, Puls
 
 
 /* Check for existance of name */
-int PulsarCheckParam( PulsarParameters *pars, const CHAR *name ){
+int PulsarCheckParam( const PulsarParameters *pars, const CHAR *name ){
   /* convert name to uppercase */
   CHAR upperName[PULSAR_PARNAME_MAX];
   XLALStringCopy( upperName, name, PULSAR_PARNAME_MAX );
@@ -554,6 +560,7 @@ DEFINE_CONV_FACTOR_FUNCTION( ArcsecsToRads, LAL_PI_180/3600., CONVFLOAT ) /* con
 DEFINE_CONV_FACTOR_FUNCTION( MasToRads, LAL_PI_180/3600.0e3, CONVFLOAT ) /* convert milliarcseconds to radians */
 DEFINE_CONV_FACTOR_FUNCTION( InvArcsecsToInvRads, 3600./LAL_PI_180, CONVFLOAT ) /* convert 1/arcsec to 1/rads */
 DEFINE_CONV_FACTOR_FUNCTION( DaysToSecs, DAYSTOSECS, CONVFLOAT ) /* convert days to seconds */
+DEFINE_CONV_FACTOR_FUNCTION( KpcToMetres, LAL_PC_SI*1.e3, CONVFLOAT ) /* convert kiloparsecs to metres */
 DEFINE_CONV_FACTOR_FUNCTION( BinaryUnits, 1.e-12, CONVBINUNITS ) /* convert certain binary units as defined in TEMPO2 with factor */
 DEFINE_CONV_FACTOR_FUNCTION( MJDToGPS, 0, CONVMJD ) /* convert from MJD to GPS time */
 DEFINE_CONV_FACTOR_FUNCTION( DegPerYrToRadParSec, LAL_PI_180/(365.25*DAYSTOSECS), CONVFLOAT ) /* convert degs/year to rads/s */
@@ -575,7 +582,7 @@ typedef struct tagParConversion{
 }ParConversion;
 
 
-#define NUM_PARS 108 /* number of allowed parameters */
+#define NUM_PARS 109 /* number of allowed parameters */
 
 /** Initialise conversion structure with most allowed TEMPO2 parameter names and conversion functions
  * (convert all read in parameters to SI units where necessary). See http://arxiv.org/abs/astro-ph/0603381 and
@@ -595,7 +602,7 @@ ParConversion pc[NUM_PARS] = {
   { .name = "F7", .convfunc = ParConvToFloat, .converrfunc = ParConvToFloat, .ptype = PULSARTYPE_REAL8_t }, /* seventh frequency time derivative (Hz/s^7) */
   { .name = "F8", .convfunc = ParConvToFloat, .converrfunc = ParConvToFloat, .ptype = PULSARTYPE_REAL8_t }, /* eighth frequency time derivative (Hz/s^8) */
   { .name = "F9", .convfunc = ParConvToFloat, .converrfunc = ParConvToFloat, .ptype = PULSARTYPE_REAL8_t }, /* ninth frequency time derivative (Hz/s^9) */
-  { .name = "DIST", .convfunc = ParConvToFloat, .converrfunc = ParConvToFloat, .ptype = PULSARTYPE_REAL8_t }, /* distance to pulsar in kpc */
+  { .name = "DIST", .convfunc = ParConvKpcToMetres, .converrfunc = ParConvKpcToMetres, .ptype = PULSARTYPE_REAL8_t }, /* distance to pulsar in metres */
   { .name = "PX", .convfunc = ParConvMasToRads, .converrfunc = ParConvToFloat, .ptype = PULSARTYPE_REAL8_t }, /* parallax (converted to radians) */
   { .name = "DM", .convfunc = ParConvToFloat, .converrfunc = ParConvToFloat, .ptype = PULSARTYPE_REAL8_t }, /* dispersion measure */
   { .name = "DM1", .convfunc = ParConvToFloat, .converrfunc = ParConvToFloat, .ptype = PULSARTYPE_REAL8_t }, /*first derivative of the dispersion measure */
@@ -701,6 +708,7 @@ ParConversion pc[NUM_PARS] = {
   { .name = "THETA", .convfunc = ParConvToFloat, .converrfunc = ParConvToFloat, .ptype = PULSARTYPE_REAL8_t },
   { .name = "I21", .convfunc = ParConvToFloat, .converrfunc = ParConvToFloat, .ptype = PULSARTYPE_REAL8_t },
   { .name = "I31", .convfunc = ParConvToFloat, .converrfunc = ParConvToFloat, .ptype = PULSARTYPE_REAL8_t },
+  { .name = "Q22", .convfunc = ParConvToFloat, .converrfunc = ParConvToFloat, .ptype = PULSARTYPE_REAL8_t }, /* the l=m=2 mass quadrupole in kg m^2 */
 
   /* GW non-GR polarisation mode amplitude parameters */
   { .name = "HPLUS", .convfunc = ParConvToFloat, .converrfunc = ParConvToFloat, .ptype = PULSARTYPE_REAL8_t }, /* GW tensor plus polarisation amplitude */
@@ -938,7 +946,7 @@ PulsarParameters *XLALReadTEMPOParFileNew( const CHAR *pulsarAndPath ){
 
   /* check for linked parameters SINI and KIN */
   if ( PulsarCheckParam( par, "SINI" ) ){
-    CHAR* sini = *(CHAR **)PulsarGetParam( par, "SINI" );
+    CHAR* sini = XLALStringDuplicate(PulsarGetStringParam( par, "SINI" ));
     strtoupper( sini );
 
     REAL8 sinid;
@@ -947,7 +955,7 @@ PulsarParameters *XLALReadTEMPOParFileNew( const CHAR *pulsarAndPath ){
 
     if ( !strcmp(sini, "KIN") ){
       if ( PulsarCheckParam( par, "KIN" ) ){
-        sinid = sin(*(REAL8*)PulsarGetParam( par, "KIN" ));
+        sinid = sin(PulsarGetREAL8Param( par, "KIN" ));
         PulsarAddParam( par, "SINI", &sinid, PULSARTYPE_REAL8_t );
       }
       else{
@@ -959,6 +967,8 @@ PulsarParameters *XLALReadTEMPOParFileNew( const CHAR *pulsarAndPath ){
       sinid = atof(sini);
       PulsarAddParam( par, "SINI", &sinid, PULSARTYPE_REAL8_t );
     }
+
+    XLALFree(sini);
   }
 
   fclose(fp);
@@ -1086,6 +1096,9 @@ XLALReadTEMPOParFile( BinaryPulsarParams *output,
   output->posepochErr=0.0;
   output->pepochErr=0.0;
 
+  output->startTime=0.0;
+  output->finishTime=1./0.;
+
   output->xpbdotErr=0.0;  /* (10^-12) */
 
   output->eps1Err=0.0;        /* e*sin(w) */
@@ -1148,6 +1161,7 @@ XLALReadTEMPOParFile( BinaryPulsarParams *output,
   output->DM1Err=0.;
 
   output->h0=0.;
+  output->Q22=0.;
   output->cosiota=0.;
   output->iota=0.;
   output->psi=0.;
@@ -1178,6 +1192,7 @@ XLALReadTEMPOParFile( BinaryPulsarParams *output,
   output->phi0Vector=0.;
 
   output->h0Err=0.;
+  output->Q22Err=0.;
   output->cosiotaErr=0.;
   output->iotaErr=0.;
   output->psiErr=0.;
@@ -1312,6 +1327,17 @@ XLALReadTEMPOParFile( BinaryPulsarParams *output,
     }
     else if( !strcmp(val[i],"posepoch") || !strcmp(val[i],"POSEPOCH")){
       output->posepoch = XLALTTMJDtoGPS(atof(val[i+1]));
+      j++;
+      /* position epoch in GPS seconds TDB */
+    }
+    else if(!strcmp(val[i],"start") || !strcmp(val[i],"START")) {
+      output->startTime = XLALTTMJDtoGPS(atof(val[i+1])); /* convert all epochs to
+        from MJD to GPS seconds in TDB */
+      j++;
+
+    }
+    else if( !strcmp(val[i],"finish") || !strcmp(val[i],"FINISH")){
+      output->finishTime = XLALTTMJDtoGPS(atof(val[i+1]));
       j++;
       /* position epoch in GPS seconds TDB */
     }
@@ -2029,6 +2055,15 @@ XLALReadTEMPOParFile( BinaryPulsarParams *output,
         j+=2;
       }
     }
+    else if( !strcmp(val[i],"q22") || !strcmp(val[i],"Q22") ) {
+      output->Q22 = atof(val[i+1]);
+      j++;
+
+      if(atoi(val[i+2])==1 && i+2<k){
+        output->Q22Err = atof(val[i+3]);
+        j+=2;
+      }
+    }
     else if( !strcmp(val[i],"cosiota") || !strcmp(val[i],"COSIOTA") ||
       !strcmp(val[i],"ciota") || !strcmp(val[i],"CIOTA") ) {
       output->cosiota = atof(val[i+1]);
@@ -2424,10 +2459,10 @@ LALStringVector *XLALReadTEMPOCorFile( REAL8Array *cormat, CHAR *corfile ){
     tmpparams = XLALAppendString2Vector( tmpparams, tmpStr );
 
     /* convert some parameter names to a more common convention */
-    if ( !strcasecmp(tmpStr, "RAJ") ) /* convert RAJ to ra */
-      params = XLALAppendString2Vector( params, "ra" );
-    else if ( !strcasecmp(tmpStr, "DECJ") ) /* convert DECJ to dec */
-      params = XLALAppendString2Vector( params, "dec" );
+    if ( !XLALStringCaseCompare(tmpStr, "RAJ") ) /* convert RAJ to ra */
+      params = XLALAppendString2Vector( params, "RA" );
+    else if ( !XLALStringCaseCompare(tmpStr, "DECJ") ) /* convert DECJ to dec */
+      params = XLALAppendString2Vector( params, "DEC" );
     else
       params = XLALAppendString2Vector( params, tmpStr );
   }
@@ -2477,6 +2512,8 @@ Parameters not in consistent order!\n");
 
   return params;
 }
+
+
 /* functions for converting times given in Terrestrial time TT or TDB in MJD to
 times in GPS - this is important for epochs given in .par files which are in
 TDB. TT and GPS are different by a factor of 51.184 secs, this is just the

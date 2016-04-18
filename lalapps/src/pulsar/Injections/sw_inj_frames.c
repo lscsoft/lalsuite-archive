@@ -87,6 +87,7 @@ typedef struct{
   CHAR *ephemSun;		/**< Sun ephemeris file to use */
   CHAR *IFO; /*detector */
   CHAR *logDir; /*directory for the log files */
+  CHAR *outputdir;
 } UserInput_t;
 
 UserInput_t uvar_struct;
@@ -486,8 +487,8 @@ int main(int argc, char **argv)
 	    /*if binary */
 	    if (pulparams[h].model != NULL) {
 	      /*fprintf(stderr, "You have a binary! %s", pulin);*/
-	      params.orbit->asini = pulparams[h].x;
-	      params.orbit->period = pulparams[h].Pb*86400;
+	      params.orbit.asini = pulparams[h].x;
+	      params.orbit.period = pulparams[h].Pb*86400;
 
 	      /*Taking into account ELL1 model option */
 	      if (strstr(pulparams[h].model,"ELL1") != NULL) {
@@ -496,26 +497,27 @@ int main(int argc, char **argv)
 		eps2 = pulparams[h].eps2;
 		w = atan2(eps1,eps2);
 		e = sqrt(eps1*eps1+eps2*eps2);
-		params.orbit->argp = w;
-		params.orbit->ecc = e;
+		params.orbit.argp = w;
+		params.orbit.ecc = e;
 	      }
 	      else {
-		params.orbit->argp = pulparams[h].w0;
-		params.orbit->ecc = pulparams[h].e;
+		params.orbit.argp = pulparams[h].w0;
+		params.orbit.ecc = pulparams[h].e;
 	      }
 	      if (strstr(pulparams[h].model,"ELL1") != NULL) {
 		REAL8 fe, uasc, Dt;
-		fe = sqrt((1.0-params.orbit->ecc)/(1.0+params.orbit->ecc));
-		uasc = 2.0*atan(fe*tan(params.orbit->argp/2.0));
-		Dt = (params.orbit->period/LAL_TWOPI)*(uasc-params.orbit->ecc*sin(uasc));
+		fe = sqrt((1.0-params.orbit.ecc)/(1.0+params.orbit.ecc));
+		uasc = 2.0*atan(fe*tan(params.orbit.argp/2.0));
+		Dt = (params.orbit.period/LAL_TWOPI)*(uasc-params.orbit.ecc*sin(uasc));
 		pulparams[h].T0 = pulparams[h].Tasc + Dt;
 	      }
 
-	      params.orbit->tp.gpsSeconds = (UINT4)floor(pulparams[h].T0);
-	      params.orbit->tp.gpsNanoSeconds = (UINT4)floor((pulparams[h].T0 - params.orbit->tp.gpsSeconds)*1e9);
+	      params.orbit.tp.gpsSeconds = (UINT4)floor(pulparams[h].T0);
+	      params.orbit.tp.gpsNanoSeconds = (UINT4)floor((pulparams[h].T0 - params.orbit.tp.gpsSeconds)*1e9);
 	    } /* if pulparams.model is BINARY */
-	    else
-	      params.orbit = NULL; /*if pulparams.model = NULL -- isolated pulsar*/
+	    else {
+	      XLAL_INIT_MEM(params.orbit); /*if pulparams.model = NULL -- isolated pulsar*/
+            }
 	    params.site = site;
 	    params.ephemerides = edat;
 	    params.startTimeGPS = epoch;
@@ -655,19 +657,19 @@ InitUserVars ( UserInput_t *uvar,      /**< [out] UserInput structure to be fill
   uvar->ephemSun = XLALStringDuplicate("sun00-19-DE405.dat.gz");
 
   /* Register User Variables*/
-  XLALregBOOLUserStruct( help,            'h', UVAR_HELP, "Print this message");
-  /*    XLALregSTRINGUserStruct(out_chan,   'o', UVAR_OPTIONAL, "Output channel i.e. (IFO)_LDAS_C02_L2_CWINJ");*/
-  /*    XLALregSTRINGUserStruct(in_chan,        'i', UVAR_OPTIONAL, "Input channel from .gwf file, i.e. (IFO):LDAS-STRAIN");*/
-  XLALregREALUserStruct(srate,            'r', UVAR_OPTIONAL, "user defined sample rate, default = 16384");
-  /*  XLALregREALUserStruct(duration,       'd', UVAR_OPTIONAL, "duration of frame (sec)"); */
-  /*  XLALregREALUserStruct(start,            's', UVAR_OPTIONAL, "epoch in GPS Seconds"); */
-  XLALregSTRINGUserStruct(inputdir,       'p', UVAR_OPTIONAL, "directory for .par files");
-  XLALregSTRINGUserStruct(gwfdir,     'g', UVAR_OPTIONAL,"directory for .gwf files");
-  XLALregSTRINGUserStruct(outputdir,  'c', UVAR_OPTIONAL, "directory for CWINJ files");
-  XLALregSTRINGUserStruct( ephemEarth,   0,  UVAR_OPTIONAL,     "Earth ephemeris file to use");
-  XLALregSTRINGUserStruct( ephemSun,     0,  UVAR_OPTIONAL,     "Sun ephemeris file to use");
-  XLALregSTRINGUserStruct( IFO,       'I', UVAR_REQUIRED, "Detector: 'G1', 'L1', 'H1', 'H2', 'V1'...");
-  XLALregSTRINGUserStruct( logDir, 'L', UVAR_OPTIONAL, "Directory to put .log file");
+  XLALRegisterUvarMember( help,            BOOLEAN, 'h', HELP, "Print this message");
+  /*    XLALRegisterUvarMember(out_chan,   STRING, 'o', OPTIONAL, "Output channel i.e. (IFO)_LDAS_C02_L2_CWINJ");*/
+  /*    XLALRegisterUvarMember(in_chan,        STRING, 'i', OPTIONAL, "Input channel from .gwf file, i.e. (IFO):LDAS-STRAIN");*/
+  XLALRegisterUvarMember(srate,            REAL8, 'r', OPTIONAL, "user defined sample rate, default = 16384");
+  /*  XLALRegisterUvarMember(duration,       REAL8, 'd', OPTIONAL, "duration of frame (sec)"); */
+  /*  XLALRegisterUvarMember(start,            REAL8, 's', OPTIONAL, "epoch in GPS Seconds"); */
+  XLALRegisterUvarMember(inputdir,       STRING, 'p', OPTIONAL, "directory for .par files");
+  XLALRegisterUvarMember(gwfdir,     STRING, 'g', OPTIONAL,"directory for .gwf files");
+  XLALRegisterUvarMember(outputdir,  STRING, 'c', OPTIONAL, "directory for CWINJ files");
+  XLALRegisterUvarMember( ephemEarth,   STRING, 0,  OPTIONAL,     "Earth ephemeris file to use");
+  XLALRegisterUvarMember( ephemSun,     STRING, 0,  OPTIONAL,     "Sun ephemeris file to use");
+  XLALRegisterUvarMember( IFO,       STRING, 'I', REQUIRED, "Detector: 'G1', 'L1', 'H1', 'H2', 'V1'...");
+  XLALRegisterUvarMember( logDir, STRING, 'L', OPTIONAL, "Directory to put .log file");
 
   if (XLALUserVarReadAllInput (argc, argv ) != XLAL_SUCCESS) {
     XLALPrintError ("%s: XLALUserVarReadAllInput() failed with errno=%d\n", fn, xlalErrno);

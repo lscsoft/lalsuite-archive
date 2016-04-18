@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
 #
 #       cbcBayesPostProc.py
@@ -46,6 +46,28 @@ from scipy import stats
 import matplotlib
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt
+
+# Default font properties
+fig_width_pt = 246  # Get this from LaTeX using \showthe\columnwidth
+inches_per_pt = 1.0/72.27               # Convert pt to inch
+golden_mean = (2.236-1.0)/2.0         # Aesthetic ratio
+fig_width = fig_width_pt*inches_per_pt  # width in inches
+fig_height = fig_width*golden_mean      # height in inches
+fig_size =  [fig_width,fig_height]
+matplotlib.rcParams.update(
+        {'axes.labelsize': 16,
+        'font.size':       16,
+        'legend.fontsize': 16,
+        'xtick.labelsize': 16,
+        'ytick.labelsize': 16,
+        'text.usetex': False,
+        'figure.figsize': fig_size,
+        'font.family': "serif",
+        'font.serif': ['Times','Palatino','New Century Schoolbook','Bookman','Computer Modern Roman','Times New Roman','Liberation Serif'],
+        'font.weight':'normal',
+        'font.size':16,
+        'savefig.dpi': 120
+        })
 
 #local application/library specific imports
 from pylal import SimInspiralUtils
@@ -184,6 +206,8 @@ def cbcBayesPostProc(
                         li_flag=False,deltaLogL=None,fixedBurnins=None,nDownsample=None,oldMassConvention=False,
                         #followupMCMC options
                         fm_flag=False,
+                        #spin frame for the injection
+                        inj_spin_frame='OrbitalL',
                         # on ACF?
                         noacf=False,
                         #Turn on 2D kdes
@@ -199,6 +223,7 @@ def cbcBayesPostProc(
                         #header file
                         header=None,
                         psd_files=None,
+                        greedy=True ## If true will use greedy bin for 1-d credible regions. Otherwise use 2-steps KDE
                     ):
     """
     This is a demonstration script for using the functionality/data structures
@@ -318,7 +343,7 @@ def cbcBayesPostProc(
 
     #Create an instance of the posterior class using the posterior values loaded
     #from the file and any injection information (if given).
-    pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection,injFref=injFref,SnglInpiralList=triggers,votfile=votfile)
+    pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection,inj_spin_frame=inj_spin_frame, injFref=injFref,SnglInpiralList=triggers,votfile=votfile)
   
     #Create analytic likelihood functions if covariance matrices and mean vectors were given
     analyticLikelihood = None
@@ -465,6 +490,15 @@ def cbcBayesPostProc(
         html_snr=html.add_section('Signal to noise ratio(s)',legend=legend)
         html_snr.p('%s'%snrstring)
 
+    # Create a section for the DIC
+    html_dic = html.add_section('Deviance Information Criterion', legend=legend)
+    html_dic.p('DIC = %.1f'%pos.DIC)
+    dicout = open(os.path.join(outdir, 'dic.dat'), 'w')
+    try:
+        dicout.write('%.1f\n'%pos.DIC)
+    finally:
+        dicout.close()
+
     #Create a section for summary statistics
     # By default collapse section are collapsed when the page is opened or reloaded. Use start_closed=False option as here below to change this
     tabid='statstable'
@@ -508,38 +542,26 @@ def cbcBayesPostProc(
     html_sky=html.add_section_to_element('SkyMap',skytd)
     #If sky resolution parameter has been specified try and create sky map...
     if skyres is not None and \
-       (('ra' in pos.names and 'dec' in pos.names) or \
-        ('rightascension' in pos.names and 'declination' in pos.names)):
-        #Greedy bin sky samples (ra,dec) into a grid on the sky which preserves
-        #?
-        if ('ra' in pos.names and 'dec' in pos.names):
-            inj_position=[pos['dec'].injval,pos['ra'].injval]
-        elif ('rightascension' in pos.names and 'declination' in pos.names):
-            inj_position=[pos['declination'].injval,pos['rightascension'].injval]
-        top_ranked_sky_pixels,sky_injection_cl,skyreses,injection_area=bppu.greedy_bin_sky(pos,skyres,confidence_levels)
-        print "BCI for sky area:"
-        print skyreses
-        #Create sky map in outdir
-        bppu.plot_sky_map(inj_position,top_ranked_sky_pixels,outdir)
-        
-        #Create a web page section for sky localization results/plots (if defined)
+       ('ra' in pos.names and 'dec' in pos.names):
 
-        #html_sky=html.add_section('Sky Localization',legend=legend)
-        if injection:
-            if sky_injection_cl:
-                html_sky.p('Injection found at confidence interval %f in sky location'%(sky_injection_cl))
-            else:
-                html_sky.p('Injection not found in posterior bins in sky location!')
+        if pos['dec'].injval is not None and pos['ra'].injval is not None:
+            inj_position=[pos['ra'].injval,pos['dec'].injval]
+        else:
+            inj_position=None
+
+        hpmap = pos.healpix_map(float(skyres), nest=True)
+        bppu.plot_sky_map(hpmap, outdir, inj=inj_position, nest=True)
+        
+        if inj_position is not None:
+            html_sky.p('Injection found at p = %g'%bppu.skymap_inj_pvalue(hpmap, inj_position, nest=True))
+            
         html_sky.write('<a href="skymap.png" target="_blank"><img src="skymap.png"/></a>')
 
         html_sky_write='<table border="1" id="statstable"><tr><th>Confidence region</th><th>size (sq. deg)</th></tr>'
 
-        fracs=skyreses.keys()
-        fracs.sort()
-
-        skysizes=[skyreses[frac] for frac in fracs]
-        for frac,skysize in zip(fracs,skysizes):
-            html_sky_write+=('<tr><td>%f</td><td>%f</td></tr>'%(frac,skysize))
+        areas = bppu.skymap_confidence_areas(hpmap, confidence_levels)
+        for cl, area in zip(confidence_levels, areas):
+            html_sky_write+='<tr><td>%g</td><td>%g</td></tr>'%(cl, area)
         html_sky_write+=('</table>')
 
         html_sky.write(html_sky_write)
@@ -628,7 +650,8 @@ def cbcBayesPostProc(
         cycles = sort(pos['cycle'].samples)
         Ncycles = cycles[-1]-cycles[0]
         Nskip = cycles[1]-cycles[0]
-
+    
+    printed=0
     for par_name in oneDMenu:
         par_name=par_name.lower()
         try:
@@ -644,9 +667,26 @@ def cbcBayesPostProc(
 
         #print "Binning %s to determine confidence levels ..."%par_name
         binParams={par_name:par_bin}
-
-        toppoints,injectionconfidence,reses,injection_area,cl_intervals=bppu.greedy_bin_one_param(pos,binParams,confidence_levels)
-
+        injection_area=None
+        injection_area=None
+        if greedy:
+          if printed==0:
+            print "Using greedy 1-d binning credible regions\n"
+            printed=1
+          toppoints,injectionconfidence,reses,injection_area,cl_intervals=bppu.greedy_bin_one_param(pos,binParams,confidence_levels)
+        else:
+          if printed==0:
+            print "Using 2-step KDE 1-d credible regions\n"
+            printed=1
+          if pos[par_name].injval is None:
+            injCoords=None
+          else:
+            injCoords=[pos[par_name].injval]
+          _,reses,injstats=bppu.kdtree_bin2Step(pos,[par_name],confidence_levels,injCoords=injCoords)
+          if injstats is not None:
+            injectionconfidence=injstats[3]
+            injection_area=injstats[4]
+             
         #oneDContCL,oneDContInj = bppu.contigious_interval_one_param(pos,binParams,confidence_levels)
 
         #Generate new BCI html table row
@@ -686,7 +726,11 @@ def cbcBayesPostProc(
             cdf = analyticLikelihood.cdf(par_name)
 
         oneDPDFParams={par_name:50}
-        rbins,plotFig=bppu.plot_one_param_pdf(pos,oneDPDFParams,pdf,cdf,plotkde=False)
+        try:
+            rbins,plotFig=bppu.plot_one_param_pdf(pos,oneDPDFParams,pdf,cdf,plotkde=False)
+        except:
+            print "Failed to produce plot for %s."%par_name
+            continue
 
         figname=par_name+'.png'
         oneDplotPath=os.path.join(onepdfdir,figname)
@@ -806,13 +850,13 @@ def cbcBayesPostProc(
     # Corner plots
     #===============================#
 
-    massParams=['mtotal','m1','m2','mc']
-    distParams=['distance','distMPC','dist']
+    massParams=['mtotal','m1','m2','mc','m1_source','m2_source','mtotal_source','mc_source']
+    distParams=['distance','distMPC','dist','redshift']
     incParams=['iota','inclination','theta_jn']
     polParams=['psi','polarisation','polarization']
     skyParams=['ra','rightascension','declination','dec']
     timeParams=['time']
-    spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','chi','effectivespin','beta','tilt1','tilt2','phi_jl','theta_jn','phi12']
+    spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','chi','effectivespin','chi_p','beta','tilt1','tilt2','phi_jl','theta_jn','phi12']
     intrinsicParams=massParams+spinParams
     extrinsicParams=incParams+distParams+polParams+skyParams
     try:
@@ -1106,24 +1150,28 @@ def cbcBayesPostProc(
     pos_samples,table_header_string=pos.samples()
 
     #calculate cov matrix
-    cov_matrix=cov(pos_samples,rowvar=0,bias=1)
+    try:
+        cov_matrix=cov(pos_samples,rowvar=0,bias=1)
 
     #Create html table
-    table_header_list=table_header_string.split()
-    cov_table_string='<table border="1" id="%s"><tr><th/>'%tabid
-    for header in table_header_list:
-        cov_table_string+='<th>%s</th>'%header
-    cov_table_string+='</tr>'
-
-    cov_column_list=hsplit(cov_matrix,cov_matrix.shape[1])
-
-    for cov_column,cov_column_name in zip(cov_column_list,table_header_list):
-        cov_table_string+='<tr><th>%s</th>'%cov_column_name
-        for cov_column_element in cov_column:
-            cov_table_string+='<td>%.3e</td>'%(cov_column_element[0])
+        table_header_list=table_header_string.split()
+        cov_table_string='<table border="1" id="%s"><tr><th/>'%tabid
+        for header in table_header_list:
+            cov_table_string+='<th>%s</th>'%header
         cov_table_string+='</tr>'
-    cov_table_string+='</table>'
-    html_stats_cov.write(cov_table_string)
+
+        cov_column_list=hsplit(cov_matrix,cov_matrix.shape[1])
+
+        for cov_column,cov_column_name in zip(cov_column_list,table_header_list):
+            cov_table_string+='<tr><th>%s</th>'%cov_column_name
+            for cov_column_element in cov_column:
+                cov_table_string+='<td>%.3e</td>'%(cov_column_element[0])
+            cov_table_string+='</tr>'
+        cov_table_string+='</table>'
+        html_stats_cov.write(cov_table_string)
+
+    except:
+        print 'Unable to compute the covariance matrix.'
 
     #Create a section for run configuration information if it exists
     if pos._votfile is not None:
@@ -1189,6 +1237,7 @@ if __name__=='__main__':
     parser.add_option("--spin",action="store_true",default=False,help="(SPINspiral) Specify spin run (15 parameters). ")
     #LALInf
     parser.add_option("--lalinfmcmc",action="store_true",default=False,help="(LALInferenceMCMC) Parse input from LALInferenceMCMC.")
+    parser.add_option("--inj-spin-frame",default='OrbitalL', help="The reference frame used for the injection (default: OrbitalL)")
     parser.add_option("--downsample",action="store",default=None,help="(LALInferenceMCMC) approximate number of samples to record in the posterior",type="int")
     parser.add_option("--deltaLogL",action="store",default=None,help="(LALInferenceMCMC) Difference in logL to use for convergence test.",type="float")
     parser.add_option("--fixedBurnin",dest="fixedBurnin",action="callback",callback=multipleFileCB,help="(LALInferenceMCMC) Fixed number of iteration for burnin.")
@@ -1207,6 +1256,7 @@ if __name__=='__main__':
     parser.add_option("--email",action="store",default=None,type="string",metavar="user@ligo.org",help="Send an e-mail to the given address with a link to the finished page.")
     parser.add_option("--archive",action="store",default=None,type="string",metavar="results.tar.gz",help="Create the given tarball with all results")
     parser.add_option("--psdfiles",action="store",default=None,type="string",metavar="H1,L1,V1",help="comma separater list of ASCII files with PSDs, one per IFO")
+    parser.add_option("--kdecredibleregions",action="store_true",default=False,help="If given, will use 2-step KDE trees to estimate 1-d credible regions [default false: use greedy binning]")
     (opts,args)=parser.parse_args()
 
     datafiles=[]
@@ -1221,13 +1271,13 @@ if __name__=='__main__':
       fixedBurnins = None
 
     #List of parameters to plot/bin . Need to match (converted) column names.
-    massParams=['m1','m2','chirpmass','mchirp','mc','eta','q','massratio','asym_massratio','mtotal']
-    distParams=['distance','distMPC','dist']
+    massParams=['m1','m2','chirpmass','mchirp','mc','eta','q','massratio','asym_massratio','mtotal','m1_source','m2_source','mtotal_source','mc_source']
+    distParams=['distance','distMPC','dist','redshift']
     incParams=['iota','inclination','cosiota']
     polParams=['psi','polarisation','polarization']
     skyParams=['ra','rightascension','declination','dec']
     timeParams=['time','time_mean']
-    spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','costheta_jn','cosbeta','tilt1','tilt2','phi_jl','theta_jn','phi12']
+    spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','chi_p','costheta_jn','cosbeta','tilt1','tilt2','phi_jl','theta_jn','phi12']
     phaseParams=['phase', 'phi0','phase_maxl']
     endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
     ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB','alphaPPE','aPPE','betaPPE','bPPE']
@@ -1236,7 +1286,8 @@ if __name__=='__main__':
     massiveGravitonParams=['lambdaG']
     tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat']
     statsParams=['logprior','logl','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','deltaloglh2','deltaloglg1','flow']
-    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams + ppEParams + tigerParams + bransDickeParams + massiveGravitonParams + tidalParams + statsParams
+    snrParams=bppu.snrParams
+    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams + ppEParams + tigerParams + bransDickeParams + massiveGravitonParams + tidalParams + statsParams + snrParams
     # ['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
     ifos_menu=['h1','l1','v1']
     from itertools import combinations
@@ -1253,6 +1304,9 @@ if __name__=='__main__':
         for mp in massParams:
             for sp in spinParams:
                 twoDGreedyMenu.append([mp,sp])
+        for dp in distParams:
+            for sp in snrParams:
+                twoDGreedyMenu.append([dp,sp])
         for dp in distParams:
             for ip in incParams:
                 twoDGreedyMenu.append([dp,ip])
@@ -1282,6 +1336,8 @@ if __name__=='__main__':
              for tp in tidalParams:
                  if not (mp == tp):
                      twoDGreedyMenu.append([mp, tp])
+        for sp1,sp2 in combinations(snrParams,2):
+                twoDGreedyMenu.append([sp1,sp2])
         twoDGreedyMenu.append(['lambda1','lambda2'])
         twoDGreedyMenu.append(['lam_tilde','dlam_tilde'])
         twoDGreedyMenu.append(['lambdat','dlambdat'])
@@ -1295,7 +1351,9 @@ if __name__=='__main__':
 
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'time_mean':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costheta_jn':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01,'phase':0.05,'tilt1':0.05,'tilt2':0.05,'phi_jl':0.05,'theta_jn':0.05,'phi12':0.05,'flow':1.0,'phase_maxl':0.05}
+    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'mc_source':0.025,'m1_source':0.1,'m2_source':0.1,'mtotal_source':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'time_mean':1e-4,'distance':1.0,'dist':1.0,'redshift':0.01,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'chi_eff':0.05,'chi_tot':0.05,'chi_p':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costheta_jn':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01,'phase':0.05,'tilt1':0.05,'tilt2':0.05,'phi_jl':0.05,'theta_jn':0.05,'phi12':0.05,'flow':1.0,'phase_maxl':0.05}
+    for s in snrParams:
+            greedyBinSizes[s]=0.05
     for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
         greedyBinSizes[derived_time]=greedyBinSizes['time']
     if not opts.no2D:
@@ -1337,6 +1395,8 @@ if __name__=='__main__':
                         li_flag=opts.lalinfmcmc,deltaLogL=opts.deltaLogL,fixedBurnins=fixedBurnins,nDownsample=opts.downsample,oldMassConvention=opts.oldMassConvention,
                         #followupMCMC options
                         fm_flag=opts.fm,
+                        #injected spin frame
+                        inj_spin_frame=opts.inj_spin_frame,
                         # Turn of ACF?
                         noacf=opts.noacf,
                         #Turn on 2D kdes
@@ -1352,7 +1412,8 @@ if __name__=='__main__':
                         #header file for parameter names in posterior samples
                         header=opts.header,
                         # ascii files (one per IFO) containing  freq - PSD columns
-                        psd_files=opts.psdfiles 
+                        psd_files=opts.psdfiles,
+                        greedy=not(opts.kdecredibleregions)
                     )
 
     if opts.archive is not None:

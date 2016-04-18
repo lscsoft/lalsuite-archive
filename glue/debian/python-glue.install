@@ -1,6 +1,6 @@
 usr/bin/*
 usr/lib/py*/*/glue/cis.py
-#usr/lib/py*/*/glue/cbcwebpage.py*
+usr/lib/py*/*/glue/cbcwebpage.py*
 usr/lib/py*/*/glue/dagfile.py*
 usr/lib/py*/*/glue/datafind.py*
 usr/lib/py*/*/glue/gpstime.py*

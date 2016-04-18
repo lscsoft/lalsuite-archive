@@ -26,3 +26,4 @@ include etc/*
 include test/*
 include debian/*
 include debian/source/*
+exclude src/nmi/builds/lalsuite-build.spec

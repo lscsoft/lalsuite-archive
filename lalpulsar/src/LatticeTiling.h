@@ -65,9 +65,21 @@ typedef enum tagTilingLattice {
 } TilingLattice;
 
 ///
+/// Statistics related to the number/value of lattice tiling points in a dimension.
+///
+typedef struct tagLatticeTilingStats {
+  UINT8 total_points;			///< Total number of points up to this dimension
+  INT4 min_points_pass;			///< Minimum number of points per pass in this dimension
+  double avg_points_pass;		///< Average number of points per pass in this dimension
+  INT4 max_points_pass;			///< Maximum number of points per pass in this dimension
+  double min_value_pass;		///< Minimum value of points in this dimension
+  double max_value_pass;		///< Maximum value of points in this dimension
+} LatticeTilingStats;
+
+///
 /// Function which returns a bound on a dimension of the lattice tiling.
 ///
-typedef double( *LatticeTilingBound )(
+typedef double(*LatticeTilingBound)(
   const void *data,			///< [in] Arbitrary data describing parameter space bound
   const size_t dim,			///< [in] Dimension on which bound applies
   const gsl_vector *point		///< [in] Point at which to find bound
@@ -129,14 +141,14 @@ int XLALSetTilingLatticeAndMetric(
 ///
 /// Return the total number of dimensions of the lattice tiling.
 ///
-size_t XLALNumberOfLatticeTilingDimensions(
+size_t XLALTotalLatticeTilingDimensions(
   const LatticeTiling *tiling		///< [in] Lattice tiling
   );
 
 ///
-/// Return the number of tiled dimensions of the lattice tiling.
+/// Return the number of tiled (i.e. not a single point) dimensions of the lattice tiling.
 ///
-size_t XLALNumberOfTiledLatticeDimensions(
+size_t XLALTiledLatticeTilingDimensions(
   const LatticeTiling *tiling		///< [in] Lattice tiling
   );
 
@@ -146,6 +158,23 @@ size_t XLALNumberOfTiledLatticeDimensions(
 REAL8 XLALLatticeTilingStepSizes(
   const LatticeTiling *tiling,		///< [in] Lattice tiling
   const size_t dim			///< [in] Dimension of which to return step size
+  );
+
+///
+/// Return the bounding box extent of the lattice tiling in a given dimension, or 0 for non-tiled
+/// dimensions.
+///
+REAL8 XLALLatticeTilingBoundingBox(
+  const LatticeTiling *tiling,		///< [in] Lattice tiling
+  const size_t dim			///< [in] Dimension of which to return bounding box extent
+  );
+
+///
+/// Return statistics related to the number/value of lattice tiling points in a dimension.
+///
+const LatticeTilingStats *XLALLatticeTilingStatistics(
+  LatticeTiling *tiling,		///< [in] Lattice tiling
+  const size_t dim			///< [in] Dimension in which to return statistics
   );
 
 ///
@@ -161,8 +190,26 @@ int XLALRandomLatticeTilingPoints(
   );
 
 ///
+/// Allocate and return vectors containing the bounds on neighbouring dimesions of the lattice
+/// tiling parameter space.
+///
+int XLALLatticeTilingDimensionBounds(
+  const LatticeTiling *tiling,		///< [in] Lattice tiling
+  const bool padding,			///< [in] Whether padding is added to parameter space bounds
+  const gsl_vector *point,		///< [in] Point at which to return bounds
+  const size_t y_dim,			///< [in] Dimension 'y' of which to return bounds
+  const double x_scale,			///< [in] Scale of steps in 'x', in units of lattice step size
+  gsl_vector **y_lower,			///< [in] Lower bounds of dimension 'y' as function of 'x'
+  gsl_vector **y_upper,			///< [in] Upper bounds of dimension 'y' as function of 'x'
+  gsl_vector **x			///< [in] Values 'x' in dimension 'y-1'
+  );
+
+///
 /// Create a new lattice tiling iterator.
 ///
+#ifdef SWIG // SWIG interface directives
+SWIGLAL(OWNED_BY_1ST_ARG(int, XLALCreateLatticeTilingIterator));
+#endif
 LatticeTilingIterator *XLALCreateLatticeTilingIterator(
   const LatticeTiling *tiling,		///< [in] Lattice tiling
   const size_t itr_ndim			///< [in] Number of parameter-space dimensions to iterate over
@@ -176,6 +223,15 @@ void XLALDestroyLatticeTilingIterator(
   );
 
 ///
+/// Set whether the lattice tiling iterator should alternate its iteration direction (i.e. lower to
+/// upper bound, then upper to lower bound, and so on) after every pass over each dimension.
+///
+int XLALSetLatticeTilingAlternatingIterator(
+  LatticeTilingIterator *itr,		///< [in] Lattice tiling iterator
+  const bool alternating		///< [in] If true, set alternating iterator
+  );
+
+///
 /// Reset an iterator to the beginning of a lattice tiling.
 ///
 int XLALResetLatticeTilingIterator(
@@ -183,38 +239,58 @@ int XLALResetLatticeTilingIterator(
   );
 
 ///
-/// Advance lattice tiling iterator, and optionally return the current point in \c point. Returns >0
+/// Advance lattice tiling iterator, and optionally return the next point in \c point. Returns >0
 /// if there are points remaining, 0 if there are no more points, and XLAL_FAILURE on error.
 ///
 int XLALNextLatticeTilingPoint(
   LatticeTilingIterator *itr,		///< [in] Lattice tiling iterator
-  gsl_vector *point			///< [out] Current point
+  gsl_vector *point			///< [out] Next point in lattice tiling
   );
 
 ///
-/// Return the total number of points in the lattice tiling.
+/// Advance lattice tiling iterator, and optionally return the next set of points in \c points.
+/// Returns the number of points stored in \c points if there are points remaining, 0 if there
+/// are no more points, and XLAL_FAILURE on error.
 ///
-UINT8 XLALNumberOfLatticeTilingPoints(
+#ifdef SWIG // SWIG interface directives
+SWIGLAL(RETURN_VALUE(int, XLALNextLatticeTilingPoints));
+SWIGLAL(INOUT_STRUCTS(gsl_matrix **, points));
+#endif
+int XLALNextLatticeTilingPoints(
+  LatticeTilingIterator *itr,		///< [in] Lattice tiling iterator
+  gsl_matrix **points			///< [out] Columns are next set of points in lattice tiling
+  );
+
+///
+/// Return the number of points in the currently iterated pass over a given dimension.
+///
+UINT4 XLALLatticeTilingPointsInPass(
+  const LatticeTilingIterator *itr,	///< [in] Lattice tiling iterator
+  const size_t dim			///< [in] Dimension in which to return remaining points
+  );
+
+///
+/// Return the total number of points covered by the lattice tiling iterator.
+///
+UINT8 XLALTotalLatticeTilingPoints(
   LatticeTilingIterator *itr		///< [in] Lattice tiling iterator
   );
 
 ///
-/// Return ranges of the number of lattice tiling points per dimension.
+/// Return the index of the current point in the lattice tiling iterator.
 ///
-int XLALRangesOfLatticeTilingPoints(
-  LatticeTilingIterator *itr,		///< [in] Lattice tiling iterator
-  const size_t dim,			///< [in] Dimension in which to return ranges
-  long *min_points,			///< [out] Minimum number of points in this dimension
-  double *avg_points,			///< [out] Average number of points in this dimension
-  long *max_points			///< [out] Maximum number of points in this dimension
+UINT8 XLALCurrentLatticeTilingIndex(
+  const LatticeTilingIterator *itr	///< [in] Lattice tiling iterator
   );
 
 ///
-/// Create a new lattice tiling locator. If <tt>bound_ndim > 0</tt>, an index trie is internally built.
+/// Create a new lattice tiling locator. If there are tiled dimensions, an index trie is internally built.
 ///
+#ifdef SWIG // SWIG interface directives
+SWIGLAL(OWNED_BY_1ST_ARG(int, XLALCreateLatticeTilingLocator));
+#endif
 LatticeTilingLocator *XLALCreateLatticeTilingLocator(
-  const LatticeTiling *tiling,		///< [in] Lattice tiling
-  const size_t bound_ndim		///< [in] Number of parameter-space dimensions to enforce bounds over
+  const LatticeTiling *tiling		///< [in] Lattice tiling
   );
 
 ///
@@ -226,38 +302,55 @@ void XLALDestroyLatticeTilingLocator(
 
 ///
 /// Locate the nearest point in a lattice tiling to a given point. Return the nearest point in
-/// \c nearest_point, and optionally: its generating integers in \c nearest_int_point, and its
-/// unique index <i>over the bound-enforced dimensions</i> in \c nearest_index (requires \c loc
-/// to have been created with an index trie).
+/// \c nearest_point, and optionally: unique sequential indexes to the nearest point in
+/// \c nearest_seq_idxs, indexes of the nearest point within each pass in \c nearest_pass_idxs, and
+/// lengths of the passes containing the nearest point in \c nearest_pass_lens.
 ///
-#ifdef SWIG // SWIG interface directives
-SWIGLAL( INOUT_STRUCTS( gsl_vector **, nearest_point ) );
-SWIGLAL( INOUT_STRUCTS( gsl_vector_long **, nearest_int_point ) );
-SWIGLAL( INOUT_SCALARS( UINT8 *, nearest_index ) );
-#endif
 int XLALNearestLatticeTilingPoint(
   const LatticeTilingLocator *loc,	///< [in] Lattice tiling locator
   const gsl_vector *point,		///< [in] Point for which to find nearest point
-  gsl_vector **nearest_point,		///< [out] Corresponding nearest point
-  gsl_vector_long **nearest_int_point,	///< [out] Generating integers of nearest point
-  UINT8 *nearest_index			///< [out] Unique tiling index of nearest point
+  gsl_vector *nearest_point,		///< [out] Nearest point
+  UINT8Vector *nearest_seq_idxs,	///< [out] Unique sequential indexes of the nearest point
+  UINT4Vector *nearest_pass_idxs,	///< [out] Indexes of the nearest point in each pass
+  UINT4Vector *nearest_pass_lens	///< [out] Lengths of passes containing nearest point
   );
 
 ///
-/// Multi-point version of XLALNearestLatticeTilingPoint(): locate the nearest points in a lattice
-/// tiling to a given a set of points.
+/// Locate the nearest point in a lattice tiling to a given point. Return the nearest point in \c
+/// nearest_point, and optionally: the unique sequential index in dimension 'dim-1' to the nearest
+/// point in \c nearest_seq_idx, the index of the nearest point within the pass in dimension 'dim'
+/// in \c nearest_pass_idx, and the length of the pass in dimension 'dim' containing the nearest
+/// point in \c nearest_pass_len.
+///
+int XLALNearestLatticeTilingPass(
+  const LatticeTilingLocator *loc,	///< [in] Lattice tiling locator
+  const gsl_vector *point,		///< [in] Point for which to find nearest point
+  const size_t dim,			///< [in] Dimension for which to return indexes
+  gsl_vector *nearest_point,		///< [out] Nearest point
+  UINT8 *nearest_seq_idx,		///< [out] Unique sequential index of the nearest point in 'dim-1'
+  UINT4 *nearest_pass_idx,		///< [out] Index of the nearest point in 'dim'
+  UINT4 *nearest_pass_len		///< [out] Length of pass in 'dim' containing nearest point
+  );
+
+///
+/// Locate the nearest points in a lattice tiling to a given set of points. Return the nearest
+/// points in \c nearest_points, and optionally: unique sequential indexes to the nearest points in
+/// \c nearest_seqs_idxs, indexes of the nearest points within each pass in \c nearest_passes_idxs,
+/// and lengths of the passes containing the nearest points in \c nearest_passes_lens.
 ///
 #ifdef SWIG // SWIG interface directives
-SWIGLAL( INOUT_STRUCTS( gsl_matrix **, nearest_points ) );
-SWIGLAL( INOUT_STRUCTS( gsl_matrix_long **, nearest_int_points ) );
-SWIGLAL( INOUT_STRUCTS( UINT8Vector **, nearest_indexes ) );
+SWIGLAL(INOUT_STRUCTS(gsl_matrix **, nearest_points));
+SWIGLAL(INOUT_STRUCTS(UINT8VectorSequence **, nearest_seqs_idxs));
+SWIGLAL(INOUT_STRUCTS(UINT4VectorSequence **, nearest_passes_idxs));
+SWIGLAL(INOUT_STRUCTS(UINT4VectorSequence **, nearest_passes_lens));
 #endif
 int XLALNearestLatticeTilingPoints(
-  const LatticeTilingLocator *loc,	///< [in] Lattice tiling locator
-  const gsl_matrix *points,		///< [in] Columns are set of points for which to find nearest points
-  gsl_matrix **nearest_points,		///< [out] Columns are the corresponding nearest points
-  gsl_matrix_long **nearest_int_points,	///< [out] Columns are the generating integers of the nearest points
-  UINT8Vector **nearest_indexes		///< [out] Unique tiling indexes of nearest points
+  const LatticeTilingLocator *loc,		///< [in] Lattice tiling locator
+  const gsl_matrix *points,			///< [in] Columns are set of points for which to find nearest points
+  gsl_matrix **nearest_points,			///< [out] Columns are the corresponding nearest points
+  UINT8VectorSequence **nearest_seqs_idxs,	///< [out] Vectors are unique sequential indexes of the nearest points
+  UINT4VectorSequence **nearest_passes_idxs,	///< [out] Vectors are indexes of the nearest points in each pass
+  UINT4VectorSequence **nearest_passes_lens	///< [out] Vectors are lengths of passes containing nearest points
   );
 
 ///

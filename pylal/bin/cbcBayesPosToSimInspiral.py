@@ -58,7 +58,8 @@ sim_inspiral_dt = [
         ('spin2x', 'f8'),
         ('spin2y', 'f8'),
         ('spin2z', 'f8'),
-        ('amp_order', 'i4')
+        ('amp_order', 'i4'),
+        ('numrel_data','|S64')
 ]
 
 def get_input_filename(parser, args):
@@ -181,8 +182,8 @@ if __name__ == "__main__":
     # Compute cartesian spins
     if 'a1' in params and 'theta1' in params and 'phi1' in params:
         s1x, s1y, s1z = bppu.sph2cart(samples['a1'], samples['theta1'], samples['phi1'])
-    elif 'spin1' in params:
-        s1z = samples['spin1']
+    elif 'a1' in params:
+        s1z = samples['a1']
         s1x = np.zeros_like(s1z)
         s1y = np.zeros_like(s1z)
     else:
@@ -193,8 +194,8 @@ if __name__ == "__main__":
 
     if 'a2' in params and 'theta2' in params and 'phi2' in params:
         s2x, s2y, s2z = bppu.sph2cart(samples['a2'], samples['theta2'], samples['phi2'])
-    elif 'spin2' in params:
-        s2z = samples['spin2']
+    elif 'a2' in params:
+        s2z = samples['a2']
         s2x = np.zeros_like(s2z)
         s2y = np.zeros_like(s2z)
     else:
@@ -203,17 +204,17 @@ if __name__ == "__main__":
         s2z = np.zeros_like(m2)
 
     system_frame_params = set([ \
-            'theta_jn', \
+            'costheta_jn', \
             'phi_jl', \
             'tilt1', 'tilt2', \
             'phi12', \
             'a1','a2', \
             'f_ref' \
     ])
-
+    theta_jn=np.array([np.arccos(i) for i in samples['costheta_jn']])
     if set(params).intersection(system_frame_params) == system_frame_params:
         inclination, theta1, phi1, theta2, phi2, _ = bppu.physical2radiationFrame(
-                samples['theta_jn'],
+                theta_jn,
                 samples['phi_jl'],
                 samples['tilt1'],
                 samples['tilt2'],
@@ -230,7 +231,7 @@ if __name__ == "__main__":
         s1x, s1y, s1z = bppu.sph2cart(samples['a1'], theta1, phi1)
         s2x, s2y, s2z = bppu.sph2cart(samples['a2'], theta2, phi2)
     else:
-        inclination = samples['theta_jn']
+        inclination = theta_jn
 
     print s1x.shape
     # Check if f_low is a parameter, if not take from command line options
@@ -265,6 +266,7 @@ if __name__ == "__main__":
     injections['spin2y'] = s2y
     injections['spin2z'] = s2z
     injections['amp_order'] = [opts.amporder for i in xrange(N)]
+    injections['numrel_data'] = [ "" for _ in xrange(N)]
 
     # Create a new XML document
     xmldoc = ligolw.Document()

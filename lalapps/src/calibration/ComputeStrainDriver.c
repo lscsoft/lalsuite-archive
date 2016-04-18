@@ -32,6 +32,7 @@ int main(void) {fputs("disabled, no gsl or no lal frame library support.\n", std
 #else
 
 #ifdef HAVE_UNISTD_H
+#define _GNU_SOURCE   /* for getdomainname() */
 #include <unistd.h>
 #endif
 #include <sys/types.h>
@@ -227,7 +228,7 @@ int WriteFrame(int argc,char *argv[],struct CommandLineArgsTag CLA)
   INT4 t0;
   INT4 dt;
   INT4 FrDuration;
-  int detectorFlags;
+  INT8 detectorFlags;
   char hostnameanduser[4096];
   char hostname[1024];
   char domainname[1024];

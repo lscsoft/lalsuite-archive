@@ -28,7 +28,7 @@
  * \param [in] length Length of the candidateVector
  * \return Pointer to the allocated candidateVector
  */
-candidateVector * new_candidateVector(UINT4 length)
+candidateVector * createcandidateVector(const UINT4 length)
 {
 
    candidateVector *vector = NULL;
@@ -43,7 +43,7 @@ candidateVector * new_candidateVector(UINT4 length)
 
    return vector;
 
-} /* new_candidateVector() */
+} /* createcandidateVector() */
 
 
 /**
@@ -52,12 +52,12 @@ candidateVector * new_candidateVector(UINT4 length)
  * \param [in] length New length of candidateVector
  * \return Pointer to resized vector
  */
-candidateVector * resize_candidateVector(candidateVector *vector, UINT4 length)
+candidateVector * resizecandidateVector(candidateVector *vector, const UINT4 length)
 {
 
-   if (vector==NULL) return new_candidateVector(length);
+   if (vector==NULL) return createcandidateVector(length);
    if (length==0) {
-      free_candidateVector(vector);
+      destroycandidateVector(vector);
       return NULL;
    }
 
@@ -69,24 +69,22 @@ candidateVector * resize_candidateVector(candidateVector *vector, UINT4 length)
 
    return vector;
 
-} /* resize_candidateVector() */
+} /* resizecandidateVector() */
 
 
 /**
  * Free a candidateVector
  * \param [in] vector Pointer of candidateVector to be freed
  */
-void free_candidateVector(candidateVector *vector)
+void destroycandidateVector(candidateVector *vector)
 {
-
    if (vector==NULL) return;
    if ((!vector->length || !vector->data) && (vector->length || vector->data)) XLAL_ERROR_VOID(XLAL_EINVAL);
    if (vector->data) XLALFree((candidate*)vector->data);
    vector->data = NULL;
    XLALFree((candidateVector*)vector);
    return;
-
-} /* free_candidateVector() */
+} /* destroycandidateVector() */
 
 
 /**
@@ -103,10 +101,11 @@ void free_candidateVector(candidateVector *vector)
  * \param [in]  proberrcode         Davies' method error code
  * \param [in]  normalization       Time-frequency normalization
  * \param [in]  templateVectorIndex Index value of the template in a templateVector (can be -1 if not from a vector)
+ * \param [in]  lineContamination   Boolean flag to indicate 0 = no contamination from lines or 1 = likely contaminated by one or more lines
  */
-void loadCandidateData(candidate* output, REAL8 fsig, REAL8 period, REAL8 moddepth, REAL4 ra, REAL4 dec, REAL8 statval, REAL8 h0, REAL8 prob, INT4 proberrcode, REAL8 normalization, INT4 templateVectorIndex)
+void loadCandidateData(candidate *output, const REAL8 fsig, const REAL8 period, const REAL8 moddepth, const REAL4 ra, const REAL4 dec, const REAL8 statval, const REAL8 h0, const REAL8 prob, const INT4 proberrcode, const REAL8 normalization, const INT4 templateVectorIndex, const BOOLEAN lineContamination)
 {
-
+   XLAL_CHECK_VOID( output != NULL, XLAL_EINVAL );
    output->fsig = fsig;
    output->period = period;
    output->moddepth = moddepth;
@@ -118,8 +117,8 @@ void loadCandidateData(candidate* output, REAL8 fsig, REAL8 period, REAL8 moddep
    output->proberrcode = proberrcode;
    output->normalization = normalization;
    output->templateVectorIndex = templateVectorIndex;
-
-} /* loadCandidateData() */
+   output->lineContamination = lineContamination;
+} // loadCandidateData()
 
 
 /**
@@ -127,25 +126,26 @@ void loadCandidateData(candidate* output, REAL8 fsig, REAL8 period, REAL8 moddep
  * \param [out] output                 Pointer to candidate structure
  * \param [in]  input                  Pointer to candidate structure
  * \param [in]  ffdata                 Pointer to ffdataStruct
- * \param [in]  aveNoise               Pointer to REAL4Vector of expected 2nd FFT background powers
- * \param [in]  aveTFnoisePerFbinRatio Pointer to REAL4Vector of normalized power across the frequency band
+ * \param [in]  aveNoise               Pointer to REAL4VectorAligned of expected 2nd FFT background powers
+ * \param [in]  aveTFnoisePerFbinRatio Pointer to REAL4VectorAligned of normalized power across the frequency band
  * \param [in]  params                 Pointer to UserInput_t
- * \param [in]  sftexist               Pointer to INT4Vector of existing SFTs
  * \param [in]  plan                   Pointer to REAL4FFTPlan
  * \param [in]  rng                    Pointer to gsl_rng
  * \param [in]  exactflag              Boolean value to indicate using exact templates
  * \return Status value
  */
-INT4 analyzeOneTemplate(candidate *output, candidate *input, ffdataStruct *ffdata, REAL4Vector *aveNoise, REAL4Vector *aveTFnoisePerFbinRatio, UserInput_t *params, INT4Vector *sftexist, REAL4FFTPlan *plan, gsl_rng *rng, BOOLEAN exactflag)
+INT4 analyzeOneTemplate(candidate *output, const candidate *input, const ffdataStruct *ffdata, const REAL4VectorAligned *aveNoise, const REAL4VectorAligned *aveTFnoisePerFbinRatio, const UserInput_t *params, const REAL4FFTPlan *plan, const gsl_rng *rng, const BOOLEAN exactflag)
 {
+
+   XLAL_CHECK( output!=NULL && input!=NULL && ffdata!=NULL && aveNoise!=NULL && aveTFnoisePerFbinRatio!=NULL && params!=NULL && plan!=NULL && rng!=NULL, XLAL_EINVAL );
 
    INT4 proberrcode = 0;
 
    //Allocate and make the template
    TwoSpectTemplate *template = NULL;
-   XLAL_CHECK( (template = new_TwoSpectTemplate(params->maxTemplateLength)) != NULL, XLAL_EFUNC );
+   XLAL_CHECK( (template = createTwoSpectTemplate(params->maxTemplateLength)) != NULL, XLAL_EFUNC );
    resetTwoSpectTemplate(template);
-   if (exactflag) XLAL_CHECK( makeTemplate(template, *input, params, sftexist, plan) == XLAL_SUCCESS, XLAL_EFUNC );
+   if (exactflag) XLAL_CHECK( makeTemplate(template, *input, params, plan) == XLAL_SUCCESS, XLAL_EFUNC );
    else XLAL_CHECK( makeTemplateGaussians(template, *input, params) == XLAL_SUCCESS, XLAL_EFUNC );
 
    //Calculate R from the template and the data
@@ -160,13 +160,53 @@ INT4 analyzeOneTemplate(candidate *output, candidate *input, ffdataStruct *ffdat
    REAL8 h0 = 0.0;
    if ( R > 0.0 ) h0 = 2.7426*pow(R/(params->Tsft*params->Tobs),0.25);
 
-   loadCandidateData(output, input->fsig, input->period, input->moddepth, input->ra, input->dec, R, h0, prob, proberrcode, 1.0, -1);
+   loadCandidateData(output, input->fsig, input->period, input->moddepth, input->ra, input->dec, R, h0, prob, proberrcode, 1.0, -1, 0);
 
-   free_TwoSpectTemplate(template);
+   destroyTwoSpectTemplate(template);
 
    return XLAL_SUCCESS;
 }
 
+INT4 analyzeCandidatesTemplateFromVector(candidateVector *output, const candidateVector *input, const TwoSpectTemplateVector *vector, const ffdataStruct *ffdata, const REAL4VectorAligned *aveNoise, const REAL4VectorAligned *aveTFnoisePerFbinRatio, const UserInput_t *params, const gsl_rng *rng, const UINT4 templateLen)
+{
+
+   XLAL_CHECK( output!=NULL && input!=NULL && vector!=NULL && ffdata!=NULL && aveNoise!=NULL && aveTFnoisePerFbinRatio!=NULL && params!=NULL && rng!=NULL, XLAL_EINVAL );
+
+   TwoSpectTemplate *template = NULL;
+   XLAL_CHECK( (template = createTwoSpectTemplate(templateLen)) != NULL, XLAL_EFUNC );
+
+   for (UINT4 ii=0; ii<input->length; ii++) {
+      INT4 proberrcode = 0;
+
+      //First convert the template to the right pixels
+      resetTwoSpectTemplate(template);
+      XLAL_CHECK( convertTemplateForSpecificFbin(template, vector->data[input->data[ii].templateVectorIndex], input->data[ii].fsig, params) == XLAL_SUCCESS, XLAL_EFUNC );
+
+      //Calculate R from the template and the data
+      REAL8 R = calculateR(ffdata->ffdata, template, aveNoise, aveTFnoisePerFbinRatio);
+      XLAL_CHECK( xlalErrno == 0, XLAL_EFUNC );
+
+      //Calculate FAP
+      REAL8 prob = probR(template, aveNoise, aveTFnoisePerFbinRatio, R, params, rng, &proberrcode);
+      XLAL_CHECK( xlalErrno == 0, XLAL_EFUNC );
+
+      //Estimate the h0 if R>0.0
+      REAL8 h0 = 0.0;
+      if ( R > 0.0 ) h0 = 2.7426*pow(R/(params->Tsft*params->Tobs),0.25);
+
+      if (prob < output->data[output->length-1].prob) {
+         UINT4 insertionPoint = output->length - 1;
+         while(insertionPoint>0 && prob<output->data[insertionPoint - 1].prob) insertionPoint--;
+         for (INT4 kk=(INT4)output->length-2; kk>=(INT4)insertionPoint; kk--) loadCandidateData(&(output->data[kk+1]), output->data[kk].fsig, output->data[kk].period, output->data[kk].moddepth, output->data[kk].ra, output->data[kk].dec, output->data[kk].stat, output->data[kk].h0, output->data[kk].prob, output->data[kk].proberrcode, output->data[kk].normalization, output->data[kk].templateVectorIndex, 0);
+         loadCandidateData(&(output->data[insertionPoint]), template->f0, template->period, template->moddepth, input->data[ii].ra, input->data[ii].dec, R, h0, prob, proberrcode, ffdata->tfnormalization, input->data[ii].templateVectorIndex, 0);
+         if (output->numofcandidates<output->length) output->numofcandidates++;
+      }
+   }
+
+   destroyTwoSpectTemplate(template);
+
+   return XLAL_SUCCESS;
+}
 
 /**
  * A brute force template search to find the most significant template around a candidate
@@ -175,18 +215,17 @@ INT4 analyzeOneTemplate(candidate *output, candidate *input, ffdataStruct *ffdat
  * \param [in]  paramspace             Pointer to TwoSpectParamSpaceSearchVals containing the parameter space to be searched
  * \param [in]  params                 Pointer to UserInput_t
  * \param [in]  ffdata                 Pointer to ffdataStruct
- * \param [in]  sftexist               Pointer to INT4Vector of existing SFTs
- * \param [in]  aveNoise               Pointer to REAL4Vector of 2nd FFT background powers
- * \param [in]  aveTFnoisePerFbinRatio Pointer to REAL4Vector of normalized power across the frequency band
+ * \param [in]  aveNoise               Pointer to REAL4VectorAligned of 2nd FFT background powers
+ * \param [in]  aveTFnoisePerFbinRatio Pointer to REAL4VectorAligned of normalized power across the frequency band
  * \param [in]  secondFFTplan          Pointer to REAL4FFTPlan
  * \param [in]  rng                    Pointer to gsl_rng
  * \param [in]  useExactTemplates      Boolean of 0 (use Gaussian templates) or 1 (use exact templates)
  * \return Status value
  */
-INT4 bruteForceTemplateSearch(candidate *output, candidate input, TwoSpectParamSpaceSearchVals *paramspace, UserInput_t *params, REAL4Vector *ffdata, INT4Vector *sftexist, REAL4Vector *aveNoise, REAL4Vector *aveTFnoisePerFbinRatio, REAL4FFTPlan *secondFFTplan, gsl_rng *rng, BOOLEAN useExactTemplates)
+INT4 bruteForceTemplateSearch(candidate *output, const candidate input, const TwoSpectParamSpaceSearchVals *paramspace, const UserInput_t *params, const REAL4VectorAligned *ffdata, const REAL4VectorAligned *aveNoise, const REAL4VectorAligned *aveTFnoisePerFbinRatio, const REAL4FFTPlan *secondFFTplan, const gsl_rng *rng, const BOOLEAN useExactTemplates)
 {
 
-   XLAL_CHECK( output != NULL && params != NULL && sftexist != NULL && aveNoise != NULL && aveTFnoisePerFbinRatio != NULL && secondFFTplan != NULL, XLAL_EINVAL );
+   XLAL_CHECK( output != NULL && params != NULL && aveNoise != NULL && aveTFnoisePerFbinRatio != NULL && secondFFTplan != NULL, XLAL_EINVAL );
 
    fprintf(stderr, "Performing brute force template search... ");
 
@@ -196,30 +235,32 @@ INT4 bruteForceTemplateSearch(candidate *output, candidate input, TwoSpectParamS
    REAL4 alpha0 = 45.0*(params->Tsft/1800.0)+30.0;
    REAL8 log10templatefar = log10(params->tmplfar);
 
+   TwoSpectParamSpaceSearchVals search = {paramspace->fminimum, paramspace->fmaximum, paramspace->numfsteps, paramspace->numperiodslonger, paramspace->numperiodsshorter, paramspace->periodSpacingFactor, paramspace->dfmin, paramspace->dfmax, paramspace->numdfsteps};
+
    //Set up parameters of modulation depth search
-   if (paramspace->dfmin<params->dfmin) paramspace->dfmin = params->dfmin;
-   if (paramspace->dfmax>params->dfmax) paramspace->dfmax = params->dfmax;
-   XLAL_CHECK( (trialb = XLALCreateREAL8Vector(paramspace->numdfsteps)) != NULL, XLAL_EFUNC );
-   if (paramspace->numdfsteps>1) {
-      dfstepsize = (paramspace->dfmax-paramspace->dfmin)/(REAL8)(paramspace->numdfsteps-1);
-      for (UINT4 ii=0; ii<paramspace->numdfsteps; ii++) trialb->data[ii] = paramspace->dfmin + dfstepsize*ii;
+   if (search.dfmin<params->dfmin) search.dfmin = params->dfmin;
+   if (search.dfmax>params->dfmax) search.dfmax = params->dfmax;
+   XLAL_CHECK( (trialb = XLALCreateREAL8Vector(search.numdfsteps)) != NULL, XLAL_EFUNC );
+   if (search.numdfsteps>1) {
+      dfstepsize = (search.dfmax-search.dfmin)/(REAL8)(search.numdfsteps-1);
+      for (UINT4 ii=0; ii<search.numdfsteps; ii++) trialb->data[ii] = search.dfmin + dfstepsize*ii;
    } else {
-      trialb->data[0] = 0.5*(paramspace->dfmin+paramspace->dfmax);
+      trialb->data[0] = 0.5*(search.dfmin+search.dfmax);
    }
 
    //Set up parameters of signal frequency search
-   if (paramspace->fminimum<params->fmin) paramspace->fminimum = params->fmin;
-   if (paramspace->fmaximum>params->fmin+params->fspan) paramspace->fmaximum = params->fmin+params->fspan;
-   XLAL_CHECK( (trialf = XLALCreateREAL8Vector(paramspace->numfsteps)) != NULL, XLAL_EFUNC );
-   if (paramspace->numfsteps>1) {
-      fstepsize = (paramspace->fmaximum-paramspace->fminimum)/(REAL8)(paramspace->numfsteps-1);
-      for (UINT4 ii=0; ii<paramspace->numfsteps; ii++) trialf->data[ii] = paramspace->fminimum + fstepsize*ii;
+   if (search.fminimum<params->fmin) search.fminimum = params->fmin;
+   if (search.fmaximum>params->fmin+params->fspan) search.fmaximum = params->fmin+params->fspan;
+   XLAL_CHECK( (trialf = XLALCreateREAL8Vector(search.numfsteps)) != NULL, XLAL_EFUNC );
+   if (search.numfsteps>1) {
+      fstepsize = (search.fmaximum-search.fminimum)/(REAL8)(search.numfsteps-1);
+      for (UINT4 ii=0; ii<search.numfsteps; ii++) trialf->data[ii] = search.fminimum + fstepsize*ii;
    } else {
-      trialf->data[0] = 0.5*(paramspace->fminimum+paramspace->fmaximum);
+      trialf->data[0] = 0.5*(search.fminimum+search.fmaximum);
    }
 
    //Search over numperiods different periods
-   XLAL_CHECK( (trialp = XLALCreateREAL8Vector(paramspace->numperiodslonger+paramspace->numperiodsshorter+1)) != NULL, XLAL_EFUNC );
+   XLAL_CHECK( (trialp = XLALCreateREAL8Vector(search.numperiodslonger+search.numperiodsshorter+1)) != NULL, XLAL_EFUNC );
 
    //Now search over the parameter space. Frequency, then modulation depth, then period
    //Initialze best values as the initial point we are searching around
@@ -227,13 +268,13 @@ INT4 bruteForceTemplateSearch(candidate *output, candidate input, TwoSpectParamS
    REAL8 bestf = 0.0, bestp = 0.0, bestdf = 0.0, bestR = 0.0, besth0 = 0.0, bestProb = 0.0;
    candidate cand;
    TwoSpectTemplate *template = NULL;
-   XLAL_CHECK( (template = new_TwoSpectTemplate(params->maxTemplateLength)) != NULL, XLAL_EFUNC );
+   XLAL_CHECK( (template = createTwoSpectTemplate(params->maxTemplateLength)) != NULL, XLAL_EFUNC );
    farStruct *farval = NULL;
    if (params->calcRthreshold) {
-      XLAL_CHECK( (farval = new_farStruct()) != NULL, XLAL_EFUNC );
+      XLAL_CHECK( (farval = createfarStruct()) != NULL, XLAL_EFUNC );
    }
 
-   INT4 startposition = paramspace->numperiodsshorter, proberrcode = 0;
+   INT4 startposition = search.numperiodsshorter, proberrcode = 0;
    //Search over frequency
    for (UINT4 ii=0; ii<trialf->length; ii++) {
       //Search over modulation depth
@@ -243,12 +284,12 @@ INT4 bruteForceTemplateSearch(candidate *output, candidate input, TwoSpectParamS
          //are determined from simulation to scale the N.N. distance w.r.t. mod. depth with
          //20% mismatch parameter
          trialp->data[startposition] = input.period;
-         for (UINT4 kk=0; kk<paramspace->numperiodsshorter; kk++) {
-            REAL8 nnp = paramspace->periodSpacingFactor*trialp->data[startposition-kk]*trialp->data[startposition-kk]*(1+trialp->data[startposition-kk]/(alpha0*sqrt(trialb->data[jj])*params->Tobs))/(alpha0*params->Tobs*sqrt(trialb->data[jj]));
+         for (UINT4 kk=0; kk<search.numperiodsshorter; kk++) {
+            REAL8 nnp = search.periodSpacingFactor*trialp->data[startposition-kk]*trialp->data[startposition-kk]*(1+trialp->data[startposition-kk]/(alpha0*sqrt(trialb->data[jj])*params->Tobs))/(alpha0*params->Tobs*sqrt(trialb->data[jj]));
             trialp->data[startposition-(kk+1)] = trialp->data[startposition-kk] - nnp;
          }
-         for (UINT4 kk=0; kk<paramspace->numperiodslonger; kk++) {
-            REAL8 nnp = paramspace->periodSpacingFactor*trialp->data[startposition+kk]*trialp->data[startposition+kk]*(1+trialp->data[startposition+kk]/(alpha0*sqrt(trialb->data[jj])*params->Tobs))/(alpha0*params->Tobs*sqrt(trialb->data[jj]));
+         for (UINT4 kk=0; kk<search.numperiodslonger; kk++) {
+            REAL8 nnp = search.periodSpacingFactor*trialp->data[startposition+kk]*trialp->data[startposition+kk]*(1+trialp->data[startposition+kk]/(alpha0*sqrt(trialb->data[jj])*params->Tobs))/(alpha0*params->Tobs*sqrt(trialb->data[jj]));
             trialp->data[startposition+(kk+1)] = trialp->data[startposition+kk] + nnp;
          }
 
@@ -266,11 +307,11 @@ INT4 bruteForceTemplateSearch(candidate *output, candidate input, TwoSpectParamS
                 trialp->data[kk]<=params->Pmax &&
                 trialp->data[kk]>=params->Pmin ) {
 
-               loadCandidateData(&cand, trialf->data[ii], trialp->data[kk], trialb->data[jj], input.ra, input.dec, 0, 0, 0.0, 0, 0.0, -1);
+               loadCandidateData(&cand, trialf->data[ii], trialp->data[kk], trialb->data[jj], input.ra, input.dec, 0, 0, 0.0, 0, 0.0, -1, 0);
 
                resetTwoSpectTemplate(template);
 
-               if (useExactTemplates) XLAL_CHECK( makeTemplate(template, cand, params, sftexist, secondFFTplan) == XLAL_SUCCESS, XLAL_EFUNC );
+               if (useExactTemplates) XLAL_CHECK( makeTemplate(template, cand, params, secondFFTplan) == XLAL_SUCCESS, XLAL_EFUNC );
                else XLAL_CHECK( makeTemplateGaussians(template, cand, params) == XLAL_SUCCESS, XLAL_EFUNC );
 
                if (params->calcRthreshold && bestProb==0.0) XLAL_CHECK( numericFAR(farval, template, params->tmplfar, aveNoise, aveTFnoisePerFbinRatio, params, rng, params->BrentsMethod) == XLAL_SUCCESS, XLAL_EFUNC );
@@ -298,10 +339,10 @@ INT4 bruteForceTemplateSearch(candidate *output, candidate input, TwoSpectParamS
          } /* for kk < trialp */
       } /* for jj < trialb */
    } /* for ii < trialf */
-   free_TwoSpectTemplate(template);
+   destroyTwoSpectTemplate(template);
    template = NULL;
    if (params->calcRthreshold) {
-      free_farStruct(farval);
+      destroyfarStruct(farval);
       farval = NULL;
    }
    XLALDestroyREAL8Vector(trialf);
@@ -311,8 +352,8 @@ INT4 bruteForceTemplateSearch(candidate *output, candidate input, TwoSpectParamS
    trialb = NULL;
    trialp = NULL;
 
-   if (bestProb==0.0) loadCandidateData(output, input.fsig, input.period, input.moddepth, input.ra, input.dec, input.stat, input.h0, input.prob, input.proberrcode, input.normalization, input.templateVectorIndex);
-   else loadCandidateData(output, bestf, bestp, bestdf, input.ra, input.dec, bestR, besth0, bestProb, bestproberrcode, input.normalization, input.templateVectorIndex);
+   if (bestProb==0.0) loadCandidateData(output, input.fsig, input.period, input.moddepth, input.ra, input.dec, input.stat, input.h0, input.prob, input.proberrcode, input.normalization, input.templateVectorIndex, input.lineContamination);
+   else loadCandidateData(output, bestf, bestp, bestdf, input.ra, input.dec, bestR, besth0, bestProb, bestproberrcode, input.normalization, input.templateVectorIndex, input.lineContamination);
 
    fprintf(stderr, "done\n");
 
@@ -327,54 +368,55 @@ INT4 bruteForceTemplateSearch(candidate *output, candidate input, TwoSpectParamS
  * \param [in]  paramspace             Pointer to TwoSpectParamSpaceSearchVals containing the parameter space to be searched
  * \param [in]  params                 Pointer to UserInput_t
  * \param [in]  ffdata                 Pointer to ffdataStruct
- * \param [in]  sftexist               Pointer to INT4Vector of existing SFTs
- * \param [in]  aveNoise               Pointer to REAL4Vector of 2nd FFT background powers
- * \param [in]  aveTFnoisePerFbinRatio Pointer to REAL4Vector of normalized power across the frequency band
+ * \param [in]  aveNoise               Pointer to REAL4VectorAligned of 2nd FFT background powers
+ * \param [in]  aveTFnoisePerFbinRatio Pointer to REAL4VectorAligned of normalized power across the frequency band
  * \param [in]  secondFFTplan          Pointer to REAL4FFTPlan
  * \param [in]  rng                    Pointer to gsl_rng
  * \param [in]  useExactTemplates      Boolean of 0 (use Gaussian templates) or 1 (use exact templates)
  * \return Status value
  */
-INT4 bruteForceTemplateTest(candidateVector **output, candidate input, TwoSpectParamSpaceSearchVals *paramspace, UserInput_t *params, REAL4Vector *ffdata, INT4Vector *sftexist, REAL4Vector *aveNoise, REAL4Vector *aveTFnoisePerFbinRatio, REAL4FFTPlan *secondFFTplan, gsl_rng *rng, BOOLEAN useExactTemplates)
+INT4 bruteForceTemplateTest(candidateVector **output, const candidate input, const TwoSpectParamSpaceSearchVals *paramspace, const UserInput_t *params, const REAL4VectorAligned *ffdata, const REAL4VectorAligned *aveNoise, const REAL4VectorAligned *aveTFnoisePerFbinRatio, const REAL4FFTPlan *secondFFTplan, const gsl_rng *rng, const BOOLEAN useExactTemplates)
 {
 
-   XLAL_CHECK( output != NULL && params != NULL && sftexist != NULL && aveNoise != NULL && aveTFnoisePerFbinRatio != NULL && secondFFTplan != NULL, XLAL_EINVAL );
+   XLAL_CHECK( *output != NULL && paramspace!=NULL && params != NULL && ffdata!=NULL && aveNoise != NULL && aveTFnoisePerFbinRatio != NULL && secondFFTplan != NULL && rng!=NULL, XLAL_EINVAL );
 
    REAL8Vector *trialf, *trialb, *trialp;
    REAL8 fstepsize, dfstepsize;
    REAL4 tcohfactor = 1.49e-3*params->Tsft + 1.76;    //From in-text equation after Eq. 23 of E.G. and K.R. 2011
 
+   TwoSpectParamSpaceSearchVals search = {paramspace->fminimum, paramspace->fmaximum, paramspace->numfsteps, paramspace->numperiodslonger, paramspace->numperiodsshorter, paramspace->periodSpacingFactor, paramspace->dfmin, paramspace->dfmax, paramspace->numdfsteps};
+
    //Set up parameters of modulation depth search
-   if (paramspace->dfmin<params->dfmin) paramspace->dfmin = params->dfmin;
-   if (paramspace->dfmax>params->dfmax) paramspace->dfmax = params->dfmax;
-   XLAL_CHECK( (trialb = XLALCreateREAL8Vector(paramspace->numdfsteps)) != NULL, XLAL_EFUNC );
-   if (paramspace->numdfsteps>1) {
-      dfstepsize = (paramspace->dfmax-paramspace->dfmin)/(REAL8)(paramspace->numdfsteps-1);
-      for (UINT4 ii=0; ii<paramspace->numdfsteps; ii++) trialb->data[ii] = paramspace->dfmin + dfstepsize*ii;
+   if (search.dfmin<params->dfmin) search.dfmin = params->dfmin;
+   if (search.dfmax>params->dfmax) search.dfmax = params->dfmax;
+   XLAL_CHECK( (trialb = XLALCreateREAL8Vector(search.numdfsteps)) != NULL, XLAL_EFUNC );
+   if (search.numdfsteps>1) {
+      dfstepsize = (search.dfmax-search.dfmin)/(REAL8)(search.numdfsteps-1);
+      for (UINT4 ii=0; ii<search.numdfsteps; ii++) trialb->data[ii] = search.dfmin + dfstepsize*ii;
    } else {
-      trialb->data[0] = 0.5*(paramspace->dfmin+paramspace->dfmax);
+      trialb->data[0] = 0.5*(search.dfmin+search.dfmax);
    }
 
    //Set up parameters of signal frequency search
-   if (paramspace->fminimum<params->fmin) paramspace->fminimum = params->fmin;
-   if (paramspace->fmaximum>params->fmin+params->fspan) paramspace->fmaximum = params->fmin+params->fspan;
-   XLAL_CHECK( (trialf = XLALCreateREAL8Vector(paramspace->numfsteps)) != NULL, XLAL_EFUNC );
-   if (paramspace->numfsteps>1) {
-      fstepsize = (paramspace->fmaximum-paramspace->fminimum)/(REAL8)(paramspace->numfsteps-1);
-      for (UINT4 ii=0; ii<paramspace->numfsteps; ii++) trialf->data[ii] = paramspace->fminimum + fstepsize*ii;
+   if (search.fminimum<params->fmin) search.fminimum = params->fmin;
+   if (search.fmaximum>params->fmin+params->fspan) search.fmaximum = params->fmin+params->fspan;
+   XLAL_CHECK( (trialf = XLALCreateREAL8Vector(search.numfsteps)) != NULL, XLAL_EFUNC );
+   if (search.numfsteps>1) {
+      fstepsize = (search.fmaximum-search.fminimum)/(REAL8)(search.numfsteps-1);
+      for (UINT4 ii=0; ii<search.numfsteps; ii++) trialf->data[ii] = search.fminimum + fstepsize*ii;
    } else {
-      trialf->data[0] = 0.5*(paramspace->fminimum+paramspace->fmaximum);
+      trialf->data[0] = 0.5*(search.fminimum+search.fmaximum);
    }
 
    //Search over numperiods different periods
-   XLAL_CHECK( (trialp = XLALCreateREAL8Vector(paramspace->numperiodslonger+paramspace->numperiodsshorter+1)) != NULL, XLAL_EFUNC );
+   XLAL_CHECK( (trialp = XLALCreateREAL8Vector(search.numperiodslonger+search.numperiodsshorter+1)) != NULL, XLAL_EFUNC );
 
    //Now search over the parameter space. Frequency, then modulation depth, then period
    candidate cand;
    TwoSpectTemplate *template = NULL;
-   XLAL_CHECK( (template = new_TwoSpectTemplate(params->maxTemplateLength)) != NULL, XLAL_EFUNC );
+   XLAL_CHECK( (template = createTwoSpectTemplate(params->maxTemplateLength)) != NULL, XLAL_EFUNC );
 
-   INT4 startposition = paramspace->numperiodsshorter, proberrcode = 0;
+   INT4 startposition = search.numperiodsshorter, proberrcode = 0;
    //Search over frequency
    for (UINT4 ii=0; ii<trialf->length; ii++) {
       //Search over modulation depth
@@ -384,12 +426,12 @@ INT4 bruteForceTemplateTest(candidateVector **output, candidate input, TwoSpectP
          //are determined from simulation to scale the N.N. distance w.r.t. mod. depth with
          //20% mismatch parameter
          trialp->data[startposition] = input.period;
-         for (UINT4 kk=0; kk<paramspace->numperiodsshorter; kk++) {
-            REAL8 nnp = paramspace->periodSpacingFactor*trialp->data[startposition-kk]*trialp->data[startposition-kk]*(1+trialp->data[startposition-kk]/tcohfactor/params->Tobs)/tcohfactor/params->Tobs*sqrt(3.6e-3/trialb->data[jj]);
+         for (UINT4 kk=0; kk<search.numperiodsshorter; kk++) {
+            REAL8 nnp = search.periodSpacingFactor*trialp->data[startposition-kk]*trialp->data[startposition-kk]*(1+trialp->data[startposition-kk]/tcohfactor/params->Tobs)/tcohfactor/params->Tobs*sqrt(3.6e-3/trialb->data[jj]);
             trialp->data[startposition-(kk+1)] = trialp->data[startposition-kk] - nnp;
          }
-         for (UINT4 kk=0; kk<paramspace->numperiodslonger; kk++) {
-            REAL8 nnp = paramspace->periodSpacingFactor*trialp->data[startposition+kk]*trialp->data[startposition+kk]*(1+trialp->data[startposition+kk]/tcohfactor/params->Tobs)/tcohfactor/params->Tobs*sqrt(3.6e-3/trialb->data[jj]);
+         for (UINT4 kk=0; kk<search.numperiodslonger; kk++) {
+            REAL8 nnp = search.periodSpacingFactor*trialp->data[startposition+kk]*trialp->data[startposition+kk]*(1+trialp->data[startposition+kk]/tcohfactor/params->Tobs)/tcohfactor/params->Tobs*sqrt(3.6e-3/trialb->data[jj]);
             trialp->data[startposition+(kk+1)] = trialp->data[startposition+kk] + nnp;
          }
 
@@ -407,11 +449,11 @@ INT4 bruteForceTemplateTest(candidateVector **output, candidate input, TwoSpectP
                 trialp->data[kk]<=params->Pmax &&
                 trialp->data[kk]>=params->Pmin ) {
 
-               loadCandidateData(&cand, trialf->data[ii], trialp->data[kk], trialb->data[jj], input.ra, input.dec, 0, 0, 0.0, 0, 0.0, -1);
+               loadCandidateData(&cand, trialf->data[ii], trialp->data[kk], trialb->data[jj], input.ra, input.dec, 0, 0, 0.0, 0, 0.0, -1, 0);
 
                resetTwoSpectTemplate(template);
 
-               if (useExactTemplates) XLAL_CHECK( makeTemplate(template, cand, params, sftexist, secondFFTplan) == XLAL_SUCCESS, XLAL_EFUNC );
+               if (useExactTemplates) XLAL_CHECK( makeTemplate(template, cand, params, secondFFTplan) == XLAL_SUCCESS, XLAL_EFUNC );
                else XLAL_CHECK( makeTemplateGaussians(template, cand, params) == XLAL_SUCCESS, XLAL_EFUNC );
 
                REAL8 R = calculateR(ffdata, template, aveNoise, aveTFnoisePerFbinRatio);
@@ -422,16 +464,16 @@ INT4 bruteForceTemplateTest(candidateVector **output, candidate input, TwoSpectP
                if ( R > 0.0 ) h0 = 2.7426*pow(R/(params->Tsft*params->Tobs),0.25);
 
                //Resize the output candidate vector if necessary
-               if ((*output)->numofcandidates == (*output)->length-1) XLAL_CHECK( (*output = resize_candidateVector(*output, 2*(*output)->length)) != NULL, XLAL_EFUNC );
+               if ((*output)->numofcandidates == (*output)->length-1) XLAL_CHECK( (*output = resizecandidateVector(*output, 2*(*output)->length)) != NULL, XLAL_EFUNC );
 
-               loadCandidateData(&((*output)->data[(*output)->numofcandidates]), trialf->data[ii], trialp->data[kk], trialb->data[jj], input.ra, input.dec, R, h0, prob, proberrcode, input.normalization, input.templateVectorIndex);
+               loadCandidateData(&((*output)->data[(*output)->numofcandidates]), trialf->data[ii], trialp->data[kk], trialb->data[jj], input.ra, input.dec, R, h0, prob, proberrcode, input.normalization, input.templateVectorIndex, input.lineContamination);
                (*output)->numofcandidates++;
 
             } /* if within boundaries */
          } /* for kk < trialp */
       } /* for jj < trialb */
    } /* for ii < trialf */
-   free_TwoSpectTemplate(template);
+   destroyTwoSpectTemplate(template);
    XLALDestroyREAL8Vector(trialf);
    XLALDestroyREAL8Vector(trialb);
    XLALDestroyREAL8Vector(trialp);
@@ -452,18 +494,18 @@ INT4 bruteForceTemplateTest(candidateVector **output, candidate input, TwoSpectP
  * \param [in]  skypos                 SkyPosition struct of the sky position (in RA and DEC) being searched
  * \param [in]  params                 Pointer to UserInput_t
  * \param [in]  ffdata                 Pointer to ffdataStruct
- * \param [in]  sftexist               Pointer to INT4Vector of existing SFTs
- * \param [in]  aveNoise               Pointer to REAL4Vector of 2nd FFT background powers
- * \param [in]  aveTFnoisePerFbinRatio Pointer to REAL4Vector of normalized power across the frequency band
+ * \param [in]  aveNoise               Pointer to REAL4VectorAligned of 2nd FFT background powers
+ * \param [in]  aveTFnoisePerFbinRatio Pointer to REAL4VectorAligned of normalized power across the frequency band
+ * \param [in]  trackedlines           Pointer to REAL4VectorSequence of lines (allowed to be NULL if no lines)
  * \param [in]  secondFFTplan          Pointer to REAL4FFTPlan
  * \param [in]  rng                    Pointer to gsl_rng
  * \param [in]  useExactTemplates      Boolean of 0 (use Gaussian templates) or 1 (use exact templates)
  * \return Status value
  */
-INT4 templateSearch_scox1Style(candidateVector **output, REAL8 fminimum, REAL8 fspan, REAL8 period, REAL8 asini, REAL8 asinisigma, SkyPosition skypos, UserInput_t *params, REAL4Vector *ffdata, INT4Vector *sftexist, REAL4Vector *aveNoise, REAL4Vector *aveTFnoisePerFbinRatio, REAL4FFTPlan *secondFFTplan, gsl_rng *rng, BOOLEAN useExactTemplates)
+INT4 templateSearch_scox1Style(candidateVector **output, const REAL8 fminimum, const REAL8 fspan, const REAL8 period, const REAL8 asini, const REAL8 asinisigma, const SkyPosition skypos, const UserInput_t *params, const REAL4VectorAligned *ffdata, const REAL4VectorAligned *aveNoise, const REAL4VectorAligned *aveTFnoisePerFbinRatio, const REAL4VectorSequence *trackedlines, const REAL4FFTPlan *secondFFTplan, const gsl_rng *rng, BOOLEAN useExactTemplates)
 {
 
-   XLAL_CHECK( params != NULL && ffdata != NULL && sftexist != NULL && aveNoise != NULL && aveTFnoisePerFbinRatio != NULL && secondFFTplan != NULL, XLAL_EINVAL );
+   XLAL_CHECK( *output != NULL && params != NULL && ffdata != NULL && aveNoise != NULL && aveTFnoisePerFbinRatio != NULL && secondFFTplan != NULL && rng != NULL, XLAL_EINVAL );
 
    REAL8Vector *trialf;
    REAL8Vector *trialdf;
@@ -480,7 +522,7 @@ INT4 templateSearch_scox1Style(candidateVector **output, REAL8 fminimum, REAL8 f
    INT4 proberrcode = 0;
    candidate cand;
    TwoSpectTemplate *template = NULL;
-   XLAL_CHECK( (template = new_TwoSpectTemplate(params->maxTemplateLength)) != NULL, XLAL_EFUNC );
+   XLAL_CHECK( (template = createTwoSpectTemplate(params->maxTemplateLength)) != NULL, XLAL_EFUNC );
 
    //Search over frequency
    for (UINT4 ii=0; ii<trialf->length; ii++) {
@@ -524,15 +566,12 @@ INT4 templateSearch_scox1Style(candidateVector **output, REAL8 fminimum, REAL8 f
 
          //load candidate
          //printf(stderr,"Loading candidate. Remember to get the RA and dec from outside in production run\n");
-         loadCandidateData(&cand, trialf->data[ii], period, trialdf->data[jj], skypos.longitude, skypos.latitude, 0, 0, 0.0, 0, 0.0, -1);
+         loadCandidateData(&cand, trialf->data[ii], period, trialdf->data[jj], skypos.longitude, skypos.latitude, 0, 0, 0.0, 0, 0.0, -1, 0);
 
          //Make the template
          resetTwoSpectTemplate(template);
-         if (useExactTemplates!=0) {
-            XLAL_CHECK( makeTemplate(template, cand, params, sftexist, secondFFTplan) == XLAL_SUCCESS, XLAL_EFUNC );
-         } else {
-            XLAL_CHECK( makeTemplateGaussians(template, cand, params) == XLAL_SUCCESS, XLAL_EFUNC );
-         }
+         if (useExactTemplates!=0) XLAL_CHECK( makeTemplate(template, cand, params, secondFFTplan) == XLAL_SUCCESS, XLAL_EFUNC );
+         else XLAL_CHECK( makeTemplateGaussians(template, cand, params) == XLAL_SUCCESS, XLAL_EFUNC );
 
          REAL8 R = calculateR(ffdata, template, aveNoise, aveTFnoisePerFbinRatio);
          XLAL_CHECK( xlalErrno == 0, XLAL_EFUNC);
@@ -541,19 +580,40 @@ INT4 templateSearch_scox1Style(candidateVector **output, REAL8 fminimum, REAL8 f
          REAL8 h0 = 0.0;
          if ( R > 0.0 ) h0 = 2.7426*pow(R/(params->Tsft*params->Tobs),0.25);
 
+         //Line contamination?
+         BOOLEAN lineContamination = 0;
+         if (trackedlines!=NULL) {
+            UINT4 kk = 0;
+            while (kk<trackedlines->length && lineContamination==0) {
+               if (2.0*trialdf->data[jj]>=(trackedlines->data[kk*3+2]-trackedlines->data[kk*3+1])) {
+                  if ((trackedlines->data[kk*3+2]>=(REAL4)(trialf->data[ii]-trialdf->data[jj]) && trackedlines->data[kk*3+2]<=(REAL4)(trialf->data[ii]+trialdf->data[jj])) ||
+                      (trackedlines->data[kk*3+1]>=(REAL4)(trialf->data[ii]-trialdf->data[jj]) && trackedlines->data[kk*3+1]<=(REAL4)(trialf->data[ii]+trialdf->data[jj]))) {
+                     lineContamination = 1;
+                  }
+               } // if the band spanned by the line is smaller than the band spanned by the signal
+               else {
+                  if (((REAL4)(trialf->data[ii]+trialdf->data[jj])>=trackedlines->data[kk*3+1] && (REAL4)(trialf->data[ii]+trialdf->data[jj])<=trackedlines->data[kk*3+2]) ||
+                      ((REAL4)(trialf->data[ii]-trialdf->data[jj])>=trackedlines->data[kk*3+1] && (REAL4)(trialf->data[ii]-trialdf->data[jj])<=trackedlines->data[kk*3+2])) {
+                     lineContamination = 1;
+                  }
+               } // instead if the band spanned by the line is larger than the band spanned by the signal
+               kk++;
+            } // while kk < trackedlines->length && lineContamination==0
+         } // if trackedlines != NULL
+
          //Resize the output candidate vector if necessary
          if ((*output)->numofcandidates == (*output)->length-1) {
-            *output = resize_candidateVector(*output, 2*((*output)->length));
+            *output = resizecandidateVector(*output, 2*((*output)->length));
             XLAL_CHECK( *output != NULL, XLAL_EFUNC);
          }
 
-         loadCandidateData(&((*output)->data[(*output)->numofcandidates]), trialf->data[ii], period, trialdf->data[jj], skypos.longitude, skypos.latitude, R, h0, prob, proberrcode, 0.0, -1);
+         loadCandidateData(&((*output)->data[(*output)->numofcandidates]), trialf->data[ii], period, trialdf->data[jj], skypos.longitude, skypos.latitude, R, h0, prob, proberrcode, 0.0, -1, lineContamination);
          (*output)->numofcandidates++;
       } /* for jj < trialdf */   
       XLALDestroyREAL8Vector(trialdf);
       trialdf = NULL;
    } /* for ii < trialf */
-   free_TwoSpectTemplate(template);
+   destroyTwoSpectTemplate(template);
    template = NULL;
    XLALDestroyREAL8Vector(trialf);
    trialf = NULL;
@@ -569,17 +629,16 @@ INT4 templateSearch_scox1Style(candidateVector **output, REAL8 fminimum, REAL8 f
  * \param [in]  input         Pointer to a candidateVector
  * \param [in]  ffdata        Pointer to ffdataStruct
  * \param [in]  params        Pointer to UserInput_t
- * \param [in]  ffplanenoise  Pointer to REAL4Vector of 2nd FFT background powers
- * \param [in]  fbinaveratios Pointer to REAL4Vector of normalized SFT background
- * \param [in]  sftexist      Pointer to INT4Vector of existing SFTs
+ * \param [in]  ffplanenoise  Pointer to REAL4VectorAligned of 2nd FFT background powers
+ * \param [in]  fbinaveratios Pointer to REAL4VectorAligned of normalized SFT background
  * \param [in]  rng           Pointer to gsl_rng
- * \param [in]  option        Flag to use Gaussian templates (0) or exact templates (1)
+ * \param [in]  exactflag     Flag to use Gaussian templates (0) or exact templates (1)
  * \return Status value
  */
-INT4 clusterCandidates(candidateVector **output, candidateVector *input, ffdataStruct *ffdata, UserInput_t *params, REAL4Vector *ffplanenoise, REAL4Vector *fbinaveratios, INT4Vector *sftexist, gsl_rng *rng, INT4 option)
+INT4 clusterCandidates(candidateVector **output, const candidateVector *input, const ffdataStruct *ffdata, const UserInput_t *params, const REAL4VectorAligned *ffplanenoise, const REAL4VectorAligned *fbinaveratios, const gsl_rng *rng, const BOOLEAN exactflag)
 {
 
-   XLAL_CHECK( input != NULL && ffdata != NULL && params != NULL && ffplanenoise != NULL && fbinaveratios != NULL && sftexist != NULL, XLAL_EINVAL );
+   XLAL_CHECK( *output != NULL && input != NULL && ffdata != NULL && params != NULL && ffplanenoise != NULL && fbinaveratios != NULL && rng != NULL, XLAL_EINVAL );
 
    UINT4 loc, loc2, numcandoutlist;
    REAL8 avefsig, aveperiod, mindf, maxdf;
@@ -597,12 +656,9 @@ INT4 clusterCandidates(candidateVector **output, candidateVector *input, ffdataS
       usedcandidate->data[ii] = 0;
    }
 
-   //Set default if bad option given
-   if (option!=0 && option!=1) option = 0;
-
-   //Make FFT plan if option 1 is given
+   //Make FFT plan if exactflag is given
    REAL4FFTPlan *plan = NULL;
-   if (option==1) XLAL_CHECK( (plan = XLALCreateForwardREAL4FFTPlan(ffdata->numffts, 1)) != NULL, XLAL_EFUNC );
+   if (exactflag==1) XLAL_CHECK( (plan = XLALCreateForwardREAL4FFTPlan(ffdata->numffts, 1)) != NULL, XLAL_EFUNC );
 
    numcandoutlist = 0;
    for (UINT4 ii=0; ii<input->numofcandidates; ii++) {
@@ -695,18 +751,18 @@ INT4 clusterCandidates(candidateVector **output, candidateVector *input, ffdataS
 
             INT4 proberrcode = 0;
 
-            if (loc2 > 1 && aveperiod >= params->Pmin && aveperiod <= params->Pmax) {
+            if (loc2 > 1 && aveperiod >= params->Pmin-1.0 && aveperiod <= params->Pmax+1.0) {
                UINT4 numofmoddepths = (UINT4)floorf(2*(maxdf-mindf)*params->Tsft)+1;
                candidate cand;
                TwoSpectTemplate *template = NULL;
-               XLAL_CHECK( (template = new_TwoSpectTemplate(params->maxTemplateLength)) != NULL, XLAL_EFUNC );
+               XLAL_CHECK( (template = createTwoSpectTemplate(params->maxTemplateLength)) != NULL, XLAL_EFUNC );
 
                for (UINT4 kk=0; kk<numofmoddepths; kk++) {
                   if ((mindf+kk*0.5/params->Tsft)>=params->dfmin && (mindf+kk*0.5/params->Tsft)<=params->dfmax) {
 
-                     loadCandidateData(&cand, avefsig, aveperiod, mindf + kk*0.5/params->Tsft, input->data[0].ra, input->data[0].dec, 0, 0, 0.0, 0, 0.0, -1);
+                     loadCandidateData(&cand, avefsig, aveperiod, mindf + kk*0.5/params->Tsft, input->data[0].ra, input->data[0].dec, 0, 0, 0.0, 0, 0.0, -1, 0);
 
-                     if (option==1) XLAL_CHECK( makeTemplate(template, cand, params, sftexist, plan) == XLAL_SUCCESS, XLAL_EFUNC );
+                     if (exactflag==1) XLAL_CHECK( makeTemplate(template, cand, params, plan) == XLAL_SUCCESS, XLAL_EFUNC );
                      else XLAL_CHECK( makeTemplateGaussians(template, cand, params) == XLAL_SUCCESS, XLAL_EFUNC );
 
                      REAL8 R = calculateR(ffdata->ffdata, template, ffplanenoise, fbinaveratios);
@@ -723,7 +779,7 @@ INT4 clusterCandidates(candidateVector **output, candidateVector *input, ffdataS
                   } /* if test moddepth is within user specified range */
                } /* for kk < numofmoddepths */
 
-               free_TwoSpectTemplate(template);
+               destroyTwoSpectTemplate(template);
                template = NULL;
             } /* if loc2 > 1 ... */
 
@@ -731,8 +787,8 @@ INT4 clusterCandidates(candidateVector **output, candidateVector *input, ffdataS
                if (bestR > 0.0) besth0 = 2.7426*pow(bestR/(params->Tsft*params->Tobs),0.25);
                else besth0 = 0.0;
 
-               if ((*output)->numofcandidates == (*output)->length-1) XLAL_CHECK( (*output = resize_candidateVector(*output, 2*(*output)->length)) != NULL, XLAL_EFUNC );
-               loadCandidateData(&((*output)->data[(*output)->numofcandidates]), avefsig, aveperiod, bestmoddepth, input->data[0].ra, input->data[0].dec, bestR, besth0, bestProb, bestproberrcode, input->data[0].normalization, -1);
+               if ((*output)->numofcandidates == (*output)->length-1) XLAL_CHECK( (*output = resizecandidateVector(*output, 2*(*output)->length)) != NULL, XLAL_EFUNC );
+               loadCandidateData(&((*output)->data[(*output)->numofcandidates]), avefsig, aveperiod, bestmoddepth, input->data[0].ra, input->data[0].dec, bestR, besth0, bestProb, bestproberrcode, input->data[0].normalization, -1, 0);
                numcandoutlist++;
                (*output)->numofcandidates++;
             }
@@ -762,7 +818,7 @@ INT4 clusterCandidates(candidateVector **output, candidateVector *input, ffdataS
    XLALDestroyINT4Vector(locs);
    XLALDestroyINT4Vector(locs2);
    XLALDestroyINT4Vector(usedcandidate);
-   if (option==1) XLALDestroyREAL4FFTPlan(plan);
+   if (exactflag==1) XLALDestroyREAL4FFTPlan(plan);
 
    fprintf(stderr, "Clustering done with candidates = %d\n", (*output)->numofcandidates);
    fprintf(LOG, "Clustering done with candidates = %d\n", (*output)->numofcandidates);
@@ -777,28 +833,28 @@ INT4 clusterCandidates(candidateVector **output, candidateVector *input, ffdataS
  * \param [out] output                 Pointer to pointer of a candidateVector
  * \param [in]  ihsCandidates          Pointer to candidateVector of IHS candidates
  * \param [in]  ffdata                 Pointer to ffdataStruct
- * \param [in]  aveNoise               Pointer to REAL4Vector of 2nd FFT background powers
- * \param [in]  aveTFnoisePerFbinRatio Pointer to REAL4Vector of normalized SFT background spectra
+ * \param [in]  aveNoise               Pointer to REAL4VectorAligned of 2nd FFT background powers
+ * \param [in]  aveTFnoisePerFbinRatio Pointer to REAL4VectorAligned of normalized SFT background spectra
  * \param [in]  pos                    The current sky position
  * \param [in]  params                 Pointer to UserInput_t
  * \param [in]  rng                    Pointer to gsl_rng
  * \return Status value
  */
-INT4 testIHScandidates(candidateVector **output, candidateVector *ihsCandidates, ffdataStruct *ffdata, REAL4Vector *aveNoise, REAL4Vector *aveTFnoisePerFbinRatio, SkyPosition pos, UserInput_t *params, gsl_rng *rng)
+INT4 testIHScandidates(candidateVector **output, const candidateVector *ihsCandidates, const ffdataStruct *ffdata, const REAL4VectorAligned *aveNoise, const REAL4VectorAligned *aveTFnoisePerFbinRatio, const SkyPosition pos, const UserInput_t *params, const gsl_rng *rng)
 {
 
-   XLAL_CHECK( ihsCandidates != NULL && ffdata != NULL && aveNoise != NULL && aveTFnoisePerFbinRatio != NULL && params != NULL, XLAL_EINVAL );
+   XLAL_CHECK( *output != NULL && ihsCandidates != NULL && ffdata != NULL && aveNoise != NULL && aveTFnoisePerFbinRatio != NULL && params != NULL && rng != NULL, XLAL_EINVAL );
 
    //R probability calculator errorcode
    INT4 proberrcode = 0;
 
    //Allocate memory for FAR struct
    farStruct *farval = NULL;
-   XLAL_CHECK( (farval = new_farStruct()) != NULL, XLAL_EFUNC );
+   XLAL_CHECK( (farval = createfarStruct()) != NULL, XLAL_EFUNC );
 
    //Allocate memory for template
    TwoSpectTemplate *template = NULL;
-   XLAL_CHECK( (template = new_TwoSpectTemplate(params->maxTemplateLength)) != NULL, XLAL_EFUNC );
+   XLAL_CHECK( (template = createTwoSpectTemplate(params->maxTemplateLength)) != NULL, XLAL_EFUNC );
 
    INT4 candidatesoutsideofmainULrange = 0;
    REAL8 log10templatefar = log10(params->tmplfar);
@@ -839,7 +895,7 @@ INT4 testIHScandidates(candidateVector **output, candidateVector *ihsCandidates,
             REAL8 periodfact = 0.0;
             for (UINT4 jj=0; jj<=1; jj++) {
                //Shift by harmonics
-               for (INT4 kk=1; kk<=params->periodHarmToCheck; kk++) {
+               for (INT4 kk=2; kk<=params->periodHarmToCheck; kk++) {
                   if (jj==0) periodfact = 1.0/(REAL8)kk;
                   else periodfact = (REAL8)kk;
                   if (ihsCandidates->data[ii].period*periodfact>=fmax(params->Pmin, minPeriod(ihsCandidates->data[ii].moddepth, params->Tsft)) && ihsCandidates->data[ii].period*periodfact<=fmin(params->Pmax, params->Tobs*0.2)) {
@@ -887,8 +943,8 @@ INT4 testIHScandidates(candidateVector **output, candidateVector *ihsCandidates,
                REAL8 h0 = 0.0;
                if (bestR > 0.0) h0 = 2.7426*sqrt(sqrt(bestR/(params->Tsft*params->Tobs)));  //Now compute the h0 value
 
-               if ((*output)->numofcandidates == (*output)->length-1) XLAL_CHECK( (*output = resize_candidateVector(*output, 2*(*output)->length)) != NULL, XLAL_EFUNC );
-               loadCandidateData(&((*output)->data[(*output)->numofcandidates]), ihsCandidates->data[ii].fsig, bestPeriod, ihsCandidates->data[ii].moddepth, pos.longitude, pos.latitude, bestR, h0, bestProb, bestproberrcode, ihsCandidates->data[ii].normalization, -1);
+               if ((*output)->numofcandidates == (*output)->length-1) XLAL_CHECK( (*output = resizecandidateVector(*output, 2*(*output)->length)) != NULL, XLAL_EFUNC );
+               loadCandidateData(&((*output)->data[(*output)->numofcandidates]), ihsCandidates->data[ii].fsig, bestPeriod, ihsCandidates->data[ii].moddepth, pos.longitude, pos.latitude, bestR, h0, bestProb, bestproberrcode, ihsCandidates->data[ii].normalization, -1, ihsCandidates->data[ii].lineContamination);
                (*output)->numofcandidates++;
 
             } /* if bestR != 0.0, add candidate or replace if something better is found */
@@ -900,9 +956,9 @@ INT4 testIHScandidates(candidateVector **output, candidateVector *ihsCandidates,
    } /* for ii < numofcandidates */
 
    //Destroy allocated memory
-   free_TwoSpectTemplate(template);
+   destroyTwoSpectTemplate(template);
    template = NULL;
-   free_farStruct(farval);
+   destroyfarStruct(farval);
    farval = NULL;
 
    fprintf(stderr, "%d remaining candidate(s) inside UL range.\n", ihsCandidates->numofcandidates-candidatesoutsideofmainULrange);
@@ -920,25 +976,25 @@ INT4 testIHScandidates(candidateVector **output, candidateVector *ihsCandidates,
  * \param [out] output                 Pointer to pointer of a candidateVector storing a list of all candidates
  * \param [in]  templateVec            Pointer to a TwoSpectTemplateVector containing all the templates to be searched
  * \param [in]  ffdata                 Pointer to ffdataStruct
- * \param [in]  aveNoise               Pointer to REAL4Vector of 2nd FFT background powers
- * \param [in]  aveTFnoisePerFbinRatio Pointer to REAL4Vector of normalized SFT background spectra
+ * \param [in]  aveNoise               Pointer to REAL4VectorAligned of 2nd FFT background powers
+ * \param [in]  aveTFnoisePerFbinRatio Pointer to REAL4VectorAligned of normalized SFT background spectra
  * \param [in]  skypos                 The current sky position
  * \param [in]  params                 Pointer to UserInput_t
  * \param [in]  rng                    Pointer to gsl_rng
+ * \param [in]  templateLen            Maximum length of a template
  * \return Status value
  */
-INT4 testTwoSpectTemplateVector(candidateVector **output, TwoSpectTemplateVector *templateVec, ffdataStruct *ffdata, REAL4Vector *aveNoise, REAL4Vector *aveTFnoisePerFbinRatio, SkyPosition skypos, UserInput_t *params, gsl_rng *rng)
+INT4 testTwoSpectTemplateVector(candidateVector *output, const TwoSpectTemplateVector *templateVec, const ffdataStruct *ffdata, const REAL4VectorAligned *aveNoise, const REAL4VectorAligned *aveTFnoisePerFbinRatio, const SkyPosition skypos, const UserInput_t *params, const gsl_rng *rng, const UINT4 templateLen)
 {
+
+   XLAL_CHECK( output!=NULL && templateVec!=NULL && ffdata!=NULL && aveNoise!=NULL && aveTFnoisePerFbinRatio!=NULL && params!=NULL && rng!=NULL, XLAL_EINVAL );
+
    fprintf(stderr, "Testing TwoSpectTemplateVector... ");
    
    TwoSpectTemplate *template = NULL;
-   XLAL_CHECK( (template = new_TwoSpectTemplate(templateVec->data[0]->templatedata->length)) != NULL, XLAL_EFUNC );
+   XLAL_CHECK( (template = createTwoSpectTemplate(templateLen)) != NULL, XLAL_EFUNC );
 
    INT4 proberrcode = 0;
-   INT4 prevNumOfCandidates = (*output)->numofcandidates;
-
-   candidateVector *candVec = NULL;
-   XLAL_CHECK( (candVec = new_candidateVector(10)) != NULL, XLAL_EFUNC );
 
    FILE *RVALS = NULL;
    if (XLALUserVarWasSet(&params->saveRvalues)) XLAL_CHECK( (RVALS = fopen(params->saveRvalues, "w")) != NULL, XLAL_EIO, "Couldn't open %s for writing", params->saveRvalues );
@@ -962,31 +1018,24 @@ INT4 testTwoSpectTemplateVector(candidateVector **output, TwoSpectTemplateVector
 
          if (XLALUserVarWasSet(&params->saveRvalues)) fprintf(RVALS, "%g\n", R);
 
-         if (prob < candVec->data[candVec->length-1].prob) {
-            UINT4 insertionPoint = candVec->length - 1;
-            while(insertionPoint>0 && prob<candVec->data[insertionPoint - 1].prob) insertionPoint--;
-            for (INT4 kk=(INT4)candVec->length-2; kk>=(INT4)insertionPoint; kk--) loadCandidateData(&(candVec->data[kk+1]), candVec->data[kk].fsig, candVec->data[kk].period, candVec->data[kk].moddepth, candVec->data[kk].ra, candVec->data[kk].dec, candVec->data[kk].stat, candVec->data[kk].h0, candVec->data[kk].prob, candVec->data[kk].proberrcode, candVec->data[kk].normalization, candVec->data[kk].templateVectorIndex);
-            loadCandidateData(&(candVec->data[insertionPoint]), template->f0, template->period, template->moddepth, skypos.longitude, skypos.latitude, R, h0, prob, proberrcode, ffdata->tfnormalization, jj);
-            if (candVec->numofcandidates<candVec->length) candVec->numofcandidates++;
+         if (prob < output->data[output->length-1].prob) {
+            UINT4 insertionPoint = output->length - 1;
+            while(insertionPoint>0 && prob<output->data[insertionPoint - 1].prob) insertionPoint--;
+            for (INT4 kk=(INT4)output->length-2; kk>=(INT4)insertionPoint; kk--) loadCandidateData(&(output->data[kk+1]), output->data[kk].fsig, output->data[kk].period, output->data[kk].moddepth, output->data[kk].ra, output->data[kk].dec, output->data[kk].stat, output->data[kk].h0, output->data[kk].prob, output->data[kk].proberrcode, output->data[kk].normalization, output->data[kk].templateVectorIndex, output->data[kk].lineContamination);
+            loadCandidateData(&(output->data[insertionPoint]), template->f0, template->period, template->moddepth, skypos.longitude, skypos.latitude, R, h0, prob, proberrcode, ffdata->tfnormalization, jj, 0);
+            if (output->numofcandidates<output->length) output->numofcandidates++;
          }
       }
    }
 
-   if ((*output)->numofcandidates+candVec->numofcandidates > (*output)->length) XLAL_CHECK( (*output = resize_candidateVector(*output, (*output)->length + candVec->numofcandidates)) != NULL, XLAL_EFUNC );
-
-   for (UINT4 ii=0; ii<candVec->numofcandidates; ii++) {
-      loadCandidateData(&((*output)->data[(*output)->numofcandidates]), candVec->data[ii].fsig, candVec->data[ii].period, candVec->data[ii].moddepth, candVec->data[ii].ra, candVec->data[ii].dec, candVec->data[ii].stat, candVec->data[ii].h0, candVec->data[ii].prob, candVec->data[ii].proberrcode, candVec->data[ii].normalization, candVec->data[ii].templateVectorIndex);
-      (*output)->numofcandidates++;
-   }
-
-   free_TwoSpectTemplate(template);
-   free_candidateVector(candVec);
+   destroyTwoSpectTemplate(template);
 
    if (XLALUserVarWasSet(&params->saveRvalues)) fclose(RVALS);
 
    fprintf(stderr, "done\n");
 
-   return (*output)->numofcandidates - prevNumOfCandidates;
+   return XLAL_SUCCESS;
+
 }
 
 
@@ -996,7 +1045,7 @@ INT4 testTwoSpectTemplateVector(candidateVector **output, TwoSpectTemplateVector
  * \param [in] params Pointer to UserInput_t
  * \return Pointer to newly allocated candidateVector containing reduced number of candidates
  */
-candidateVector * keepMostSignificantCandidates(candidateVector *input, UserInput_t *params)
+candidateVector * keepMostSignificantCandidates(const candidateVector *input, const UserInput_t *params)
 {
 
    XLAL_CHECK_NULL( input != NULL && params != NULL, XLAL_EINVAL );
@@ -1009,17 +1058,17 @@ candidateVector * keepMostSignificantCandidates(candidateVector *input, UserInpu
    //If the number to keep is > 0 and the number of candidates is less than the number to keep,
    //just move the input vector to the output vector
    if (params->keepOnlyTopNumIHS>0 && (INT4)input->numofcandidates<=params->keepOnlyTopNumIHS) {
-      XLAL_CHECK_NULL( (output = new_candidateVector(input->numofcandidates)) != NULL, XLAL_EFUNC );
+      XLAL_CHECK_NULL( (output = createcandidateVector(input->numofcandidates)) != NULL, XLAL_EFUNC );
 
       for (UINT4 ii=0; ii<input->numofcandidates; ii++) {
-         loadCandidateData(&(output->data[ii]), input->data[ii].fsig, input->data[ii].period, input->data[ii].moddepth, input->data[ii].ra, input->data[ii].dec, input->data[ii].stat, input->data[ii].h0, input->data[ii].prob, input->data[ii].proberrcode, input->data[ii].normalization, input->data[ii].templateVectorIndex);
+         loadCandidateData(&(output->data[ii]), input->data[ii].fsig, input->data[ii].period, input->data[ii].moddepth, input->data[ii].ra, input->data[ii].dec, input->data[ii].stat, input->data[ii].h0, input->data[ii].prob, input->data[ii].proberrcode, input->data[ii].normalization, input->data[ii].templateVectorIndex, input->data[ii].lineContamination);
       }
       output->numofcandidates = input->numofcandidates;
 
    } else if (params->keepOnlyTopNumIHS>0 && (INT4)input->numofcandidates>params->keepOnlyTopNumIHS) {
       //If keep is > 0 and the number of candidates is > the number to keep,
       //we sort through the list and find the most significant candidates to keep
-      XLAL_CHECK_NULL( (output = new_candidateVector(params->keepOnlyTopNumIHS)) != NULL, XLAL_EFUNC );
+      XLAL_CHECK_NULL( (output = createcandidateVector(params->keepOnlyTopNumIHS)) != NULL, XLAL_EFUNC );
 
       for (UINT4 ii=0; ii<output->length; ii++) {
          REAL8 highestsignificance = 0.0;
@@ -1031,7 +1080,7 @@ candidateVector * keepMostSignificantCandidates(candidateVector *input, UserInpu
             }
          }
 
-         loadCandidateData(&(output->data[ii]), input->data[candidateWithHighestSignificance].fsig, input->data[candidateWithHighestSignificance].period, input->data[candidateWithHighestSignificance].moddepth, input->data[candidateWithHighestSignificance].ra, input->data[candidateWithHighestSignificance].dec, input->data[candidateWithHighestSignificance].stat, input->data[candidateWithHighestSignificance].h0, input->data[candidateWithHighestSignificance].prob, input->data[candidateWithHighestSignificance].proberrcode, input->data[candidateWithHighestSignificance].normalization, input->data[candidateWithHighestSignificance].templateVectorIndex);
+         loadCandidateData(&(output->data[ii]), input->data[candidateWithHighestSignificance].fsig, input->data[candidateWithHighestSignificance].period, input->data[candidateWithHighestSignificance].moddepth, input->data[candidateWithHighestSignificance].ra, input->data[candidateWithHighestSignificance].dec, input->data[candidateWithHighestSignificance].stat, input->data[candidateWithHighestSignificance].h0, input->data[candidateWithHighestSignificance].prob, input->data[candidateWithHighestSignificance].proberrcode, input->data[candidateWithHighestSignificance].normalization, input->data[candidateWithHighestSignificance].templateVectorIndex, input->data[candidateWithHighestSignificance].lineContamination);
 
          input->data[candidateWithHighestSignificance].prob = 0.0;
 
@@ -1051,13 +1100,13 @@ candidateVector * keepMostSignificantCandidates(candidateVector *input, UserInpu
 
 /**
  * Calculate the R statistic from equation 13 of E. Goetz and K. Riles (2011)
- * \param [in] ffdata Pointer to REAL4Vector of the 2nd FFT data
+ * \param [in] ffdata Pointer to REAL4VectorAligned of the 2nd FFT data
  * \param [in] template Pointer to the template
- * \param [in] noise Pointer to the REAL4Vector containing the background 2nd FFT powers
- * \param [in] fbinaveratios Pointer to the REAL4Vector of normalized SFT background powers
+ * \param [in] noise Pointer to the REAL4VectorAligned containing the background 2nd FFT powers
+ * \param [in] fbinaveratios Pointer to the REAL4VectorAligned of normalized SFT background powers
  * \return Value of the R statistic
  */
-REAL8 calculateR(REAL4Vector *ffdata, TwoSpectTemplate *template, REAL4Vector *noise, REAL4Vector *fbinaveratios)
+REAL8 calculateR(const REAL4VectorAligned *ffdata, const TwoSpectTemplate *template, const REAL4VectorAligned *noise, const REAL4VectorAligned *fbinaveratios)
 {
 
    XLAL_CHECK_REAL8( ffdata != NULL && template != NULL && noise != NULL && fbinaveratios != NULL, XLAL_EINVAL );
@@ -1089,7 +1138,7 @@ REAL8 calculateR(REAL4Vector *ffdata, TwoSpectTemplate *template, REAL4Vector *n
  * \param [in] cohtime SFT coherence length
  * \return Maximum modulation depth allowed
  */
-REAL8 maxModDepth(REAL8 period, REAL8 cohtime)
+REAL8 maxModDepth(const REAL8 period, const REAL8 cohtime)
 {
    REAL8 maxB = 0.5*period/(cohtime*cohtime);
    return maxB;
@@ -1102,7 +1151,7 @@ REAL8 maxModDepth(REAL8 period, REAL8 cohtime)
  * \param [in] cohtime  SFT coherence length
  * \return Maximum modulation depth allowed
  */
-REAL8 minPeriod(REAL8 moddepth, REAL8 cohtime)
+REAL8 minPeriod(const REAL8 moddepth, const REAL8 cohtime)
 {
    REAL8 minP = 2.0*moddepth*cohtime*cohtime;
    return minP;

@@ -3,6 +3,7 @@
 # and calculate the livetime.
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
+from glue.ligolw import table
 from glue.ligolw import utils
 from glue.ligolw.utils import process
 from glue import segmentsUtils
@@ -12,6 +13,28 @@ import glob
 import optparse
 import sys
 
+class DefaultContentHandler(ligolw.LIGOLWContentHandler):
+    pass
+lsctables.use_in(DefaultContentHandler)
+
+def get_segments_from_xml(filename):
+    """ Return a segmentlist of every segment in an XML file with a
+        segments table.
+    """
+
+    # read XML file
+    seg_xml = utils.load_filename(filename, contenthandler=DefaultContentHandler)
+
+    # get the segment table
+    seg_table = table.get_table(seg_xml, lsctables.SegmentTable.tableName)
+
+    # loop over segments table to get all the segments
+    segs = segments.segmentlist()
+    for seg in seg_table:
+        segs.append(segments.segment(seg.start_time, seg.end_time))
+
+    return segs
+
 def get_loud_trigs(fList, veto_file, new_snr_cut):
     """ Return a list(s) of single inspiral triggers that are above the
         new snr threshold for every combination of file in the file list
@@ -20,7 +43,7 @@ def get_loud_trigs(fList, veto_file, new_snr_cut):
     trigs = lsctables.New(lsctables.SnglInspiralTable)
     searched_segs = segments.segmentlist()
     for fname in fList:
-        xmldoc = utils.load_filename(fname, gz=True)
+        xmldoc = utils.load_filename(fname, gz=True, contenthandler=DefaultContentHandler)
         tbl = lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
         trigs.extend([tbl[i] for i in (tbl.get_new_snr() > new_snr_cut).nonzero()[0]])
         search_summary = lsctables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
@@ -31,14 +54,14 @@ def get_loud_trigs(fList, veto_file, new_snr_cut):
         lt = []
         tg = []
         for vf in veto_file:
-            veto_segs = segmentsUtils.fromsegwizard(open(vf))
+            veto_segs = get_segments_from_xml(vf)
             segs_after_veto = searched_segs - veto_segs
             print vf, 'livetime', abs(segs_after_veto)
             tg.append(trigs.veto(veto_segs))
             lt.append(abs(segs_after_veto))
         return tg, lt
     else:
-        veto_segs = segmentsUtils.fromsegwizard(open(veto_file))
+        veto_segs = get_segments_from_xml(veto_file)
         segs_after_veto = searched_segs - veto_segs
         print veto_file, 'livetime', abs(segs_after_veto)
         return trigs.veto(veto_segs), abs(segs_after_veto)

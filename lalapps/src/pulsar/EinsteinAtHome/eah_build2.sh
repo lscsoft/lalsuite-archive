@@ -250,8 +250,14 @@ log_and_show "Build start `date`"
 
 missing_wine_warning=false
 if [ ."$build_win32" = ."true" ] ; then
-    BUILD="${BUILD}_win32"
-    INSTALL="${INSTALL}_win32"
+    if echo "$LDFLAGS" | grep -w -e -m64 >/dev/null; then
+	platform=x86_64-pc-linux-gnu
+	BUILD="${BUILD}_win64"
+	INSTALL="${INSTALL}_win64"
+    else
+	BUILD="${BUILD}_win32"
+	INSTALL="${INSTALL}_win32"
+    fi
     export CC=${cross_prefix}-gcc
     export CXX=${cross_prefix}-g++
     export AR=${cross_prefix}-ar
@@ -290,6 +296,8 @@ else
 	Darwin)
             if echo "$LDFLAGS" | grep -w -e -m64 >/dev/null; then
 		platform=x86_64-apple-darwin
+		BUILD="${BUILD}_64"
+		INSTALL="${INSTALL}_64"
 	    else
 		platform=i686-apple-darwin
 	    fi
@@ -298,6 +306,8 @@ else
 	    LDFLAGS="-lpthread $LDFLAGS"
 	    if echo "$LDFLAGS" | grep -w -e -m64 >/dev/null; then
 	        platform=x86_64-pc-linux-gnu
+		BUILD="${BUILD}_64"
+		INSTALL="${INSTALL}_64"
 	    else
 	        platform=i686-pc-linux-gnu
 	    fi
@@ -357,6 +367,14 @@ echo BUILD_INFO="\"$BUILD_INFO\"" >> "$LOGFILE"
 if [ ."$missing_wine_warning" = ."true" ] ; then
     log_and_show "WARNING: 'wine' not found, disabling check as it won't work"
 fi
+# augment wine's PATH such that
+#   /usr/lib/gcc/i686-w64-mingw32/4.8/libstdc++-6.dll
+# and
+#   /usr/i686-w64-mingw32/lib/libwinpthread-1.dll
+# are found
+# test -r ~/.wine/system.reg && !fgrep i686-w64-mingw32 ~/.wine/system.reg &&
+#   sed -i~ 's/^\("PATH"=.*\)"$/\1;Z:\\\\usr\\\\i686-w64-mingw32\\\\lib;Z:\\\\usr\\\\lib\\\\gcc\\\\i686-w64-mingw32\\\\4.8/' ~/.wine/system.reg
+# see https://fedoraproject.org/wiki/MinGW/Configure_wine
 
 if ! [ .$check_only = .true ]; then
 
@@ -399,7 +417,9 @@ if test ."$build_zlib" = ."true"; then
     elif test -z "$noupdate"; then
         log_and_show "retrieving $zlib"
         download $zlib.tar.gz
-        log_and_do tar xzf "$zlib.tar.gz"
+        log_and_do cd "$BUILD"
+        log_and_do tar xzf "$SOURCE/$zlib.tar.gz"
+        log_and_do cd "$SOURCE"
     fi
 fi
 
@@ -452,7 +472,7 @@ if test ."$build_zlib" = ."true"; then
         log_and_show "using existing zlib"
     else
         log_and_show "compiling zlib"
-        log_and_do cd "$SOURCE/$zlib"
+        log_and_do cd "$BUILD/$zlib"
         if [ "$zlib_shared" = "--shared" -a "$zlib" = "zlib-1.2.3" ] && echo "$CFLAGS" | grep -w -e -m64 >/dev/null; then
             CC="gcc -m64" log_and_do "./configure" $zlib_shared --prefix="$INSTALL"
         else
@@ -512,6 +532,7 @@ if test -n "$build_binutils"; then
     log_and_do cd "$SOURCE/$binutils"
     log_and_do mkdir -p "$INSTALL/include/bfd"
     log_and_do cp -r include/* bfd/*.h "$BUILD/$binutils/binutils/config.h" "$INSTALL/include/bfd"
+    log_and_do rm -f "$INSTALL/include/bfd/getopt.h"
     if [ ."$build_win32" = ."true" ] ; then
 	log_and_do cd "$BUILD/$binutils"
 	log_and_do cp "intl/libintl.a" "$INSTALL/lib"
@@ -582,6 +603,7 @@ else
             log_and_do make -f "$makefile"
 	    log_and_do make -f "$makefile" install
         fi
+        sed -i~ '/#include "boinc_win.h"/d' "$INSTALL/include/boinc/filesys.h"
     else
 	log_and_do cd "$SOURCE/boinc"
 	log_and_do ./_autosetup
@@ -593,7 +615,10 @@ else
     fi
 fi
 
-lalsuite_copts="--disable-gcc-flags --disable-debug --disable-frame --disable-metaio --disable-lalsimulation --disable-lalxml --enable-boinc --disable-silent-rules --without-simd $shared_copt $cross_copt --prefix=$INSTALL"
+lalsuite_copts="--disable-gcc-flags --disable-debug --disable-frame --disable-metaio --disable-lalsimulation --disable-lalxml --enable-boinc --disable-silent-rules --disable-pthread-lock $shared_copt $cross_copt --prefix=$INSTALL"
+if [ ."$build_win32" = ."true" ] ; then
+    export BOINC_EXTRA_LIBS="-lpsapi"
+fi
 if test -z "$rebuild_lal" && pkg-config --exists lal; then
     log_and_show "using existing lal"
 else
@@ -605,6 +630,7 @@ else
     log_and_dont_fail make uninstall
     log_and_do make
     log_and_do make install
+    log_and_do sed -i~ 's/.*typedef .* UINT8 *;.*/#define UINT8 uint64_t/;s/.*typedef .* INT8 *;.*/#define INT8 int64_t/' "$INSTALL/include/lal/LALAtomicDatatypes.h"
 fi
 
 if test -z "$rebuild_lal" && pkg-config --exists lalpulsar; then

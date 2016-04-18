@@ -20,6 +20,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <time.h>
+#include <sys/types.h>
 
 #include <lal/LALConstants.h>
 #include <lal/LALDatatypes.h>
@@ -79,9 +80,11 @@ const char * usage =
 "                             TaylorT3\n"
 "                             TaylorT4\n"
 "                             TaylorEt\n"
+"                             EccentricTD\n"
 "                             IMRPhenomA\n"
 "                             IMRPhenomB\n"
 "                             IMRPhenomC\n"
+"                             IMRPhenomD\n"
 "                             EOBNRv2\n"
 "                             EOBNRv2HM\n"
 "                             SEOBNRv1\n"
@@ -97,10 +100,14 @@ const char * usage =
 "                             IMRPhenomA\n"
 "                             IMRPhenomB\n"
 "                             IMRPhenomC\n"
+"                             IMRPhenomD\n"
 "                             IMRPhenomP\n"
-"                             SEOBNRv1_ROM_SingleSpin\n"
+"                             IMRPhenomPv2\n"
+"                             EOBNRv2_ROM\n"
+"                             EOBNRv2HM_ROM\n"
+"                             SEOBNRv1_ROM_EffectiveSpin\n"
 "                             SEOBNRv1_ROM_DoubleSpin\n"
-"                             SEOBNRv2_ROM_SingleSpin\n"
+"                             SEOBNRv2_ROM_EffectiveSpin\n"
 "                             SEOBNRv2_ROM_DoubleSpin\n"
 "                             TaylorF2\n"
 "                             SpinTaylorF2\n"
@@ -192,7 +199,7 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
             XLALFree(params);
             exit(0);
         } else if (strcmp(argv[i], "--approximant") == 0) {
-            params->approximant = XLALGetApproximantFromString(argv[++i]);
+            params->approximant = XLALSimInspiralGetApproximantFromString(argv[++i]);
             if ( (int) params->approximant == XLAL_FAILURE) {
                 XLALPrintError("Error: invalid value %s for --interaction-flag\n", argv[i]);
                 goto fail;
@@ -469,17 +476,23 @@ int main (int argc , char **argv) {
 
     /* dump file */
     f = fopen(params->outname, "w");
-    if (params->domain == LAL_SIM_DOMAIN_FREQUENCY)
+    if (f==NULL) {
+      printf("**ERROR** Impossible to write file %s\n",params->outname);
+      exit(1);
+    }
+    else {
+      if (params->domain == LAL_SIM_DOMAIN_FREQUENCY)
         if (params->ampPhase == 1)
-            status = dump_FD2(f, hptilde, hctilde);
+	  status = dump_FD2(f, hptilde, hctilde);
         else
-            status = dump_FD(f, hptilde, hctilde);
-    else
+	  status = dump_FD(f, hptilde, hctilde);
+      else
         if (params->ampPhase == 1)
-            status = dump_TD2(f, hplus, hcross);
+	  status = dump_TD2(f, hplus, hcross);
         else
-            status = dump_TD(f, hplus, hcross);
-    fclose(f);
+	  status = dump_TD(f, hplus, hcross);
+      fclose(f);
+    }
     if (status) goto fail;
 
     /* clean up */

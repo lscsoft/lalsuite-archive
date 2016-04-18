@@ -30,7 +30,7 @@
 #include <lal/LogPrintf.h>
 #include <lal/Factorial.h>
 
-#include "GSLHelpers.h"
+#include <lal/GSLHelpers.h>
 
 // Shortcuts for integer powers
 #define POW2(a)  ( (a) * (a) )
@@ -546,8 +546,9 @@ XLALNaturalizeMetric(
       break;
 
     default:
-      XLAL_ERROR(XLAL_EINVAL, "Unknown phase-derivative type '%d'\n", coordID );
-    }
+      scale = 1;
+      break;
+    } // switch(coordID)
     gsl_matrix_set( transform, i, i, 1.0 / scale );
   }
 

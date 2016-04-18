@@ -22,6 +22,7 @@ import sys
 import math
 import bisect
 import itertools
+import time
 from collections import defaultdict
 
 import numpy
@@ -31,7 +32,8 @@ import functools
 
 import healpy
 
-from lalinference.rapid_pe.statutils import cumvar
+from lalinference.rapid_pe import statutils
+from pylal import rate
 
 class NanOrInf(Exception):
     def __init__(self, value):
@@ -115,7 +117,7 @@ class MCSampler(object):
         self.rlim = {}
         self.adaptive = []
 
-    def add_parameter(self, params, pdf,  cdf_inv=None, left_limit=None, right_limit=None, prior_pdf=None, adaptive_sampling=False):
+    def add_parameter(self, params, pdf, cdf_inv=None, left_limit=None, right_limit=None, prior_pdf=None, adaptive_sampling=False):
         """
         Add one (or more) parameters to sample dimensions. params is either a string describing the parameter, or a tuple of strings. The tuple will indicate to the sampler that these parameters must be sampled together. left_limit and right_limit are on the infinite interval by default, but can and probably should be specified. If several params are given, left_limit, and right_limit must be a set of tuples with corresponding length. Sampling PDF is required, and if not provided, the cdf inverse function will be determined numerically from the sampling PDF.
         """
@@ -141,6 +143,7 @@ class MCSampler(object):
             else:
                 self.rlim[params] = right_limit
         self.pdf[params] = pdf
+            
         # FIXME: This only works automagically for the 1d case currently
         self.cdf_inv[params] = cdf_inv or self.cdf_inverse(params)
         if not isinstance(params, tuple):
@@ -230,9 +233,9 @@ class MCSampler(object):
         # Cache the samples we chose
         #
         if len(self._rvs) == 0:
-            self._rvs = dict(zip(args, rvs_tmp.astype(numpy.float64)))
+            self._rvs = dict(zip(args, rvs_tmp))
         else:
-            rvs_tmp = dict(zip(args, rvs_tmp.astype(numpy.float64)))
+            rvs_tmp = dict(zip(args, rvs_tmp))
             #for p, ar in self._rvs.iteritems():
             for p in self.params:
                 self._rvs[p] = numpy.hstack( (self._rvs[p], rvs_tmp[p]) ).astype(numpy.float64)
@@ -258,14 +261,15 @@ class MCSampler(object):
 
         kwargs:
         nmax -- total allowed number of sample points, will throw a warning if this number is reached before neff.
+        nmin -- minimum number of samples to allow, by default will be set to the end of the 'burnin' at n_adapt * n
         neff -- Effective samples to collect before terminating. If not given, assume infinity
         n -- Number of samples to integrate in a 'chunk' -- default is 1000
         save_integrand -- Save the evaluated value of the integrand at the sample points with the sample point
         history_mult -- Number of chunks (of size n) to use in the adaptive histogramming: only useful if there are parameters with adaptation enabled
         tempering_exp -- Exponent to raise the weights of the 1-D marginalized histograms for adaptive sampling prior generation, by default it is 0 which will turn off adaptive sampling regardless of other settings
-        floor_level -- *total probability* of a uniform distribution, averaged with the weighted sampled distribution, to generate a new sampled distribution
         n_adapt -- number of chunks over which to allow the pdf to adapt. Default is zero, which will turn off adaptive sampling regardless of other settings
         convergence_tests - dictionary of function pointers, each accepting self._rvs and self.params as arguments. CURRENTLY ONLY USED FOR REPORTING
+        maxval - Guess at the maximum value of the integrand -- used as a seed for the maxval counter
 
         Pinning a value: By specifying a kwarg with the same of an existing parameter, it is possible to "pin" it. The sample draws will always be that value, and the sampling prior will use a delta function at that value.
         """
@@ -309,7 +313,8 @@ class MCSampler(object):
         n_history = int(kwargs["history_mult"]*n) if kwargs.has_key("history_mult") else None
         tempering_exp = kwargs["tempering_exp"] if kwargs.has_key("tempering_exp") else 0.0
         n_adapt = int(kwargs["n_adapt"]*n) if kwargs.has_key("n_adapt") else 0
-        floor_integrated_probability = kwargs["floor_level"] if kwargs.has_key("floor_level") else 0
+        nmax = kwargs["nmax"] if kwargs.has_key("nmax") else n_adapt
+        nmin = kwargs["nmin"] if kwargs.has_key("nmin") else n_adapt
 
         save_intg = kwargs["save_intg"] if kwargs.has_key("save_intg") else False
         # FIXME: The adaptive step relies on the _rvs cache, so this has to be
@@ -326,16 +331,17 @@ class MCSampler(object):
 
         int_val1 = numpy.float128(0)
         self.ntotal = 0
-        maxval = -float("Inf")
+        maxval = kwargs["maxval"] if "maxval" in kwargs else -float("Inf")
+        old_maxval = maxval
         maxlnL = -float("Inf")
         eff_samp = 0
         mean, var = None, None
         last_convergence_test = defaultdict(lambda: False)   # initialize record of tests
 
         if show_evaluation_log:
-            print "iteration Neff  sqrt(2*lnLmax) sqrt(2*lnLmarg) ln(Z/Lmax) int_var"
+            print "walltime : iteration Neff  ln(maxweight) lnLmarg ln(Z/Lmax) int_var"
 
-        while (eff_samp < neff and self.ntotal < nmax): #  and (not bConvergenceTests):
+        while self.ntotal < nmin or (eff_samp < neff and self.ntotal < nmax):
             # Draw our sample points
             p_s, p_prior, rv = self.draw(n, *self.params)
                         
@@ -416,7 +422,7 @@ class MCSampler(object):
                 maxval.append( v if v > maxval[-1] and v != 0 else maxval[-1] )
 
             # running variance
-            var = cumvar(int_val, mean, var, self.ntotal)[-1]
+            var = statutils.cumvar(int_val, mean, var, self.ntotal)[-1]
             # running integral
             int_val1 += int_val.sum()
             # running number of evaluations
@@ -434,9 +440,9 @@ class MCSampler(object):
                 raise NanOrInf("maxlnL = inf")
 
             if show_evaluation_log:
-                print " :",  self.ntotal, eff_samp, numpy.sqrt(2*maxlnL), numpy.sqrt(2*numpy.log(int_val1/self.ntotal)), numpy.log(int_val1/self.ntotal)-maxlnL, numpy.sqrt(var*self.ntotal)/int_val1
+                print int(time.time()), ": ", self.ntotal, eff_samp, math.log(maxval), numpy.log(int_val1/self.ntotal), numpy.log(int_val1/self.ntotal)-maxlnL, numpy.sqrt(var*self.ntotal)/int_val1
 
-            if (not convergence_tests) and self.ntotal >= nmax and neff != float("inf"):
+            if (not convergence_tests) and self.ntotal >= nmin and self.ntotal >= nmax and neff != float("inf"):
                 print >>sys.stderr, "WARNING: User requested maximum number of samples reached... bailing."
 
             #
@@ -456,8 +462,10 @@ class MCSampler(object):
             # The total number of adaptive steps is reached
             #
             # FIXME: We need a better stopping condition here
-            if self.ntotal > n_adapt:
+            #if self.ntotal > n_adapt or maxval == old_maxval:
+            if self.ntotal > n_adapt and maxval == old_maxval:
                 continue
+            old_maxval = maxval
 
             #
             # Iterate through each of the parameters, updating the sampling
@@ -469,26 +477,21 @@ class MCSampler(object):
                 if p not in self.adaptive or p in kwargs.keys():
                     continue
                 points = self._rvs[p][-n_history:]
-                weights = (self._rvs["integrand"][-n_history:]/self._rvs["joint_s_prior"][-n_history:]*self._rvs["joint_prior"][-n_history:])**tempering_exp
+                weights = (self._rvs["integrand"][-n_history:]*self._rvs["joint_prior"][-n_history:])**tempering_exp
 
-                self._hist[p], edges = numpy.histogram(points, bins = 100, range = (self.llim[p], self.rlim[p]), weights = weights, normed = True)
-                # FIXME: numpy.hist can't normalize worth a damn
-                self._hist[p] /= self._hist[p].sum()
+                self._hist[p] = statutils.get_adaptive_binning(points, (self.llim[p], self.rlim[p]))
+                for pt, w in zip(points, weights):
+                    self._hist[p][pt,] += w
+                self._hist[p].array += self._hist[p].array.mean()
+                rate.to_moving_mean_density(self._hist[p], rate.tophat_window(3))
+                norm = numpy.sum(self._hist[p].array * self._hist[p].bins.volumes())
+                self._hist[p].array /= norm
+                # FIXME: Stupid pet trick while numpy version is lacking
+                self.pdf[p] = numpy.frompyfunc(rate.InterpBinnedArray(self._hist[p]), 1, 1)
+                #with open("%s_%d_hist.txt" % (p, self.ntotal), "w") as fout:
+                    #for c, pdf in zip(self._hist[p].centres()[0], self._hist[p].array):
+                        #print >>fout, "%f %g" % (c, pdf)
 
-                # Mix with uniform distribution
-                self._hist[p] = (1-floor_integrated_probability)*self._hist[p] + numpy.ones(len(self._hist[p]))*floor_integrated_probability/len(self._hist[p])
-
-                # FIXME: These should be called the bin centers
-                edges = [(e0+e1)/2.0 for e0, e1 in zip(edges[:-1], edges[1:])]
-                edges.append(edges[-1] + (edges[-1] - edges[-2]))
-                edges.insert(0, edges[0] - (edges[-1] - edges[-2]))
-
-                # FIXME: KS test probably has a place here. Not sure yet where.
-                #from scipy.stats import kstest
-                #d, pval = kstest(self._rvs[p][-n_history:], self.cdf[p])
-                #print p, d, pval
-
-                self.pdf[p] = interpolate.interp1d(edges, [0] + list(self._hist[p]) + [0])
                 self.cdf[p] = self.cdf_function(p)
                 self.cdf_inv[p] = self.cdf_inverse(p)
 

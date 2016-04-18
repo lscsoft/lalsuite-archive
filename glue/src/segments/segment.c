@@ -196,8 +196,20 @@ static int __contains__(PyObject *self, PyObject *other)
 		PyObject *oa = PyTuple_GET_ITEM(other, 0);
 		PyObject *ob = PyTuple_GET_ITEM(other, 1);
 		return (PyObject_Compare(sa, oa) <= 0) && (PyObject_Compare(sb, ob) >= 0);
-	} else
+	} else {
+		PyObject *oa = PySequence_GetItem(other, 0);
+		PyObject *ob = PySequence_GetItem(other, 1);
+		if(oa && ob && PySequence_Length(other) == 2) {
+			int result = (PyObject_Compare(sa, oa) <= 0) && (PyObject_Compare(sb, ob) >= 0);
+			Py_DECREF(oa);
+			Py_DECREF(ob);
+			return result;
+		}
+		Py_XDECREF(oa);
+		Py_XDECREF(ob);
+		PyErr_Clear();
 		return (PyObject_Compare(sa, other) <= 0) && (PyObject_Compare(other, sb) < 0);
+	}
 }
 
 
