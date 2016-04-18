@@ -16,7 +16,7 @@
 """The Grid LSC User Environment (GLUE)
 """
 
-from . import git_version
+import git_version
 
 __author__ = 'Duncan Brown <dbrown@ligo.caltech.edu>'
 __version__ = git_version.version
