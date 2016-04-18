@@ -712,32 +712,32 @@ class CondorJob:
     Write a submit file for this Condor job.
     """
     if not self.__log_file:
-      raise CondorSubmitError, "Log file not specified."
+      raise CondorSubmitError("Log file not specified.")
     if not self.__err_file:
-      raise CondorSubmitError, "Error file not specified."
+      raise CondorSubmitError("Error file not specified.")
     if not self.__out_file:
-      raise CondorSubmitError, "Output file not specified."
+      raise CondorSubmitError("Output file not specified.")
 
     if not self.__sub_file_path:
-      raise CondorSubmitError, 'No path for submit file.'
+      raise CondorSubmitError('No path for submit file.')
     try:
       subfile = open(self.__sub_file_path, 'w')
     except:
-      raise CondorSubmitError, "Cannot open file " + self.__sub_file_path
+      raise CondorSubmitError("Cannot open file " + self.__sub_file_path)
 
     if self.__universe == 'grid':
       if self.__grid_type == None:
-        raise CondorSubmitError, 'No grid type specified.'
+        raise CondorSubmitError('No grid type specified.')
       elif self.__grid_type == 'gt2':
         if self.__grid_server == None:
-          raise CondorSubmitError, 'No server specified for grid resource.'
+          raise CondorSubmitError('No server specified for grid resource.')
       elif self.__grid_type == 'gt4':
         if self.__grid_server == None:
-          raise CondorSubmitError, 'No server specified for grid resource.'
+          raise CondorSubmitError('No server specified for grid resource.')
         if self.__grid_scheduler == None:
-          raise CondorSubmitError, 'No scheduler specified for grid resource.'
+          raise CondorSubmitError('No scheduler specified for grid resource.')
       else:
-        raise CondorSubmitError, 'Unsupported grid resource.'
+        raise CondorSubmitError('Unsupported grid resource.')
 
     subfile.write( 'universe = ' + self.__universe + '\n' )
     subfile.write( 'executable = ' + self.__executable + '\n' )
@@ -879,7 +879,7 @@ class CondorDAGJob(CondorJob):
       self.__var_args[arg_index]
     except IndexError:
       if arg_index != self.__arg_index:
-        raise CondorDAGJobError, "mismatch between job and node var_arg index"
+        raise CondorDAGJobError("mismatch between job and node var_arg index")
       if quote:
           self.__var_args.append("'$(macroargument%s)'" % str(arg_index))
       else:
@@ -999,8 +999,8 @@ class CondorDAGNode:
     """
     if not isinstance(job, CondorDAGJob) and \
         not isinstance(job,CondorDAGManJob):
-      raise CondorDAGNodeError, \
-          "A DAG node must correspond to a Condor DAG job or Condor DAGMan job"
+      raise CondorDAGNodeError(
+          "A DAG node must correspond to a Condor DAG job or Condor DAGMan job")
     self.__name = None
     self.__job = job
     self.__category = None
@@ -1028,8 +1028,8 @@ class CondorDAGNode:
     self.__pegasus_profile = []
 
     # generate the md5 node name
-    t = str( long( time.time() * 1000 ) )
-    r = str( long( random.random() * 100000000000000000L ) )
+    t = str( int( time.time() * 1000 ) )
+    r = str( int( random.random() * 100000000000000000 ) )
     a = str( self.__class__ )
     self.__name = md5(t + r + a).hexdigest()
     self.__md5name = self.__name
@@ -1464,7 +1464,7 @@ class CondorDAGNode:
     @param fh: descriptor of open DAG file.
     """
     for f in self.__input_files:
-        print >>fh, "## Job %s requires input file %s" % (self.__name, f)
+        fh.write("## Job %s requires input file %s\n" % (self.__name, f))
 
   def write_output_files(self, fh):
     """
@@ -1474,7 +1474,7 @@ class CondorDAGNode:
     @param fh: descriptor of open DAG file.
     """
     for f in self.__output_files:
-        print >>fh, "## Job %s generates output file %s" % (self.__name, f)
+        fh.write("## Job %s generates output file %s\n" % (self.__name, f))
 
   def set_log_file(self,log):
     """
@@ -1490,7 +1490,7 @@ class CondorDAGNode:
     @param node: CondorDAGNode to add as a parent.
     """
     if not isinstance(node, (CondorDAGNode,CondorDAGManNode) ):
-      raise CondorDAGNodeError, "Parent must be a CondorDAGNode or a CondorDAGManNode"
+      raise CondorDAGNodeError("Parent must be a CondorDAGNode or a CondorDAGManNode")
     self.__parents.append( node )
 
   def get_cmd_tuple_list(self):
@@ -1717,7 +1717,7 @@ class CondorDAG:
     Return the path to the DAG file.
     """
     if not self.__log_file_path:
-      raise CondorDAGError, "No path for DAG file"
+      raise CondorDAGError("No path for DAG file")
     else:
       return self.__dag_file_path
 
@@ -1733,7 +1733,7 @@ class CondorDAG:
     Return the path to the DAG file.
     """
     if not self.__log_file_path:
-      raise CondorDAGError, "No path for DAX file"
+      raise CondorDAGError("No path for DAX file")
     else:
       return self.__dax_file_path
 
@@ -1746,7 +1746,7 @@ class CondorDAG:
     @param node: CondorDAGNode to add to the CondorDAG.
     """
     if not isinstance(node, CondorDAGNode):
-      raise CondorDAGError, "Nodes must be class CondorDAGNode or subclass"
+      raise CondorDAGError("Nodes must be class CondorDAGNode or subclass")
     if not isinstance(node.job(), CondorDAGManJob):
       node.set_log_file(self.__log_file_path)
     self.__nodes.append(node)
@@ -1821,11 +1821,11 @@ class CondorDAG:
     Write all the nodes in the DAG to the DAG file.
     """
     if not self.__dag_file_path:
-      raise CondorDAGError, "No path for DAG file"
+      raise CondorDAGError("No path for DAG file")
     try:
       dagfile = open( self.__dag_file_path, 'w' )
     except:
-      raise CondorDAGError, "Cannot open file " + self.__dag_file_path
+      raise CondorDAGError("Cannot open file " + self.__dag_file_path)
     for node in self.__nodes:
       node.write_job(dagfile)
       node.write_vars(dagfile)
@@ -2099,6 +2099,10 @@ class CondorDAG:
         for ccmd_key, ccmd_val in node.job().get_condor_cmds().items():
             workflow_job.addProfile(Pegasus.DAX3.Profile("condor", ccmd_key, ccmd_val))
 
+        # Add stdout and stderr
+        workflow_job.setStdout(node.job().get_stdout_file())
+        workflow_job.setStderr(node.job().get_stderr_file())
+
         # add any other user specified condor commands or classads
         for p in node.get_pegasus_profile():
             workflow_job.addProfile(Pegasus.DAX3.Profile(p[0],p[1],p[2]))
@@ -2168,13 +2172,13 @@ class CondorDAG:
     dependencies should be handled correctly.
     """
     if not self.__dag_file_path:
-      raise CondorDAGError, "No path for DAG file"
+      raise CondorDAGError("No path for DAG file")
     try:
       dfp = self.__dag_file_path
       outfilename = ".".join(dfp.split(".")[:-1]) + ".sh"
       outfile = open(outfilename, "w")
     except:
-      raise CondorDAGError, "Cannot open file " + self.__dag_file_path
+      raise CondorDAGError("Cannot open file " + self.__dag_file_path)
 
     for node in self.__nodes:
         outfile.write("# Job %s\n" % node.get_name())
@@ -2201,7 +2205,7 @@ class CondorDAG:
     sitefile = open( 'sites.xml', 'w' )
 
     # write the default properties
-    print >> pegprop_fh, PEGASUS_PROPERTIES % (os.getcwd())
+    pegprop_fh.write(PEGASUS_PROPERTIES % (os.getcwd()))
 
     # set up site and dir options for pegasus-submit-dax
     dirs_entry='--relative-dir .'
@@ -2215,7 +2219,7 @@ class CondorDAG:
         else:
           dirs_entry += ' --staging-site %s=%s' % (site,site)
         if site == 'nikhef' or site == 'bologna':
-          print >> pegprop_fh, \
+          pegprop_fh.write(
 """
 ###############################################################################
 # Data Staging Configuration
@@ -2227,26 +2231,26 @@ class CondorDAG:
 pegasus.data.configuration=nonsharedfs
 
 
-"""
+""")
     else:
       exec_site='local'
 
     # write the pegasus_submit_dax and make it executable
-    print >> peg_fh,PEGASUS_SCRIPT % ( tmp_exec_dir, os.getcwd(),
+    peg_fh.write(PEGASUS_SCRIPT % ( tmp_exec_dir, os.getcwd(),
           dag.get_dax_file().replace('.dax','') + '-0.dag',
-          dag.get_dax_file(), dirs_entry, exec_site )
+          dag.get_dax_file(), dirs_entry, exec_site ))
     peg_fh.close()
     os.chmod("pegasus_submit_dax",0755)
 
     # if a frame cache has been specified, write it to the properties
     # however note that this is overridden by the --cache option to pegasus
     if peg_frame_cache:
-      print >> pegprop_fh, "pegasus.catalog.replica.file=%s" % (os.path.join(os.getcwd(),os.path.basename(peg_frame_cache)))
+      pegprop_fh.write("pegasus.catalog.replica.file=%s\n" % (os.path.join(os.getcwd(),os.path.basename(peg_frame_cache))))
     pegprop_fh.close()
 
     # write a shell script that can return the basedir and uber-concrete-dag
     basedir_fh = open("pegasus_basedir", "w")
-    print >> basedir_fh, PEGASUS_BASEDIR_SCRIPT % ( tmp_exec_dir, dag.get_dax_file().replace('.dax','') + '-0.dag' )
+    basedir_fh.write(PEGASUS_BASEDIR_SCRIPT % ( tmp_exec_dir, dag.get_dax_file().replace('.dax','') + '-0.dag' ))
     basedir_fh.close()
     os.chmod("pegasus_basedir",0755)
 
@@ -2257,7 +2261,7 @@ pegasus.data.configuration=nonsharedfs
     except:
       hostname = 'localhost'
 
-    print >> sitefile, """\
+    sitefile.write("""
 <?xml version="1.0" encoding="UTF-8"?>
 <sitecatalog xmlns="http://pegasus.isi.edu/schema/sitecatalog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi.edu/schema/sc-4.0.xsd" version="4.0">
@@ -2274,43 +2278,43 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
     </directory>
     <replica-catalog  type="LRC" url="rlsn://smarty.isi.edu">
     </replica-catalog>
-""" % (hostname,hostname,pwd,pwd,pwd,pwd)
+""" % (hostname,hostname,pwd,pwd,pwd,pwd))
 
     try:
-      print >> sitefile, """    <profile namespace="env" key="GLOBUS_LOCATION">%s</profile>""" % os.environ['GLOBUS_LOCATION']
+      sitefile.write("""    <profile namespace="env" key="GLOBUS_LOCATION">%s</profile>\n""" % os.environ['GLOBUS_LOCATION'])
     except:
       pass
     try:
-      print >> sitefile, """    <profile namespace="env" key="LD_LIBRARY_PATH">%s</profile>""" % os.environ['LD_LIBRARY_PATH']
+      sitefile.write("""    <profile namespace="env" key="LD_LIBRARY_PATH">%s</profile>\n""" % os.environ['LD_LIBRARY_PATH'])
     except:
       pass
     try:
-      print >> sitefile, """    <profile namespace="env" key="PYTHONPATH">%s</profile>""" % os.environ['PYTHONPATH']
+      sitefile.write("""    <profile namespace="env" key="PYTHONPATH">%s</profile>\n""" % os.environ['PYTHONPATH'])
     except:
       pass
     try:
-      print >> sitefile, """    <profile namespace="env" key="PEGASUS_HOME">%s</profile>""" % os.environ['PEGASUS_HOME']
+      sitefile.write("""    <profile namespace="env" key="PEGASUS_HOME">%s</profile>\n""" % os.environ['PEGASUS_HOME'])
     except:
       pass
     try:
-      print >> sitefile, """    <profile namespace="env" key="LIGO_DATAFIND_SERVER">%s</profile>""" % os.environ['LIGO_DATAFIND_SERVER']
+      sitefile.write("""    <profile namespace="env" key="LIGO_DATAFIND_SERVER">%s</profile>\n""" % os.environ['LIGO_DATAFIND_SERVER'])
     except:
       pass
     try:
-      print >> sitefile, """    <profile namespace="env" key="S6_SEGMENT_SERVER">%s</profile>""" % os.environ['S6_SEGMENT_SERVER']
+      sitefile.write("""    <profile namespace="env" key="S6_SEGMENT_SERVER">%s</profile>\n""" % os.environ['S6_SEGMENT_SERVER'])
     except:
       pass
 
-    print >> sitefile, """\
+    sitefile.write("""\
     <profile namespace="env" key="JAVA_HEAPMAX">4096</profile>
     <profile namespace="pegasus" key="style">condor</profile>
     <profile namespace="condor" key="getenv">True</profile>
     <profile namespace="condor" key="should_transfer_files">YES</profile>
     <profile namespace="condor" key="when_to_transfer_output">ON_EXIT_OR_EVICT</profile>
   </site>
-"""
+""")
 
-    print >> sitefile, """\
+    sitefile.write("""\
   <!-- Bologna cluster -->
   <site handle="bologna" arch="x86_64" os="LINUX">
     <grid type="cream" contact="https://ce01-lcg.cr.cnaf.infn.it:8443/ce-cream/services/CREAM2" scheduler="LSF" jobtype="compute" />
@@ -2321,9 +2325,9 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
     <profile namespace="pegasus" key="style">cream</profile>
     <profile namespace="globus" key="queue">virgo</profile>
   </site>
-""" % (os.path.basename(tmp_exec_dir),os.path.basename(tmp_exec_dir))
+""" % (os.path.basename(tmp_exec_dir),os.path.basename(tmp_exec_dir)))
 
-    print >> sitefile, """\
+    sitefile.write("""\
   <!-- Nikhef Big Grid -->
   <site handle="nikhef" arch="x86_64" os="LINUX">
     <grid type="cream" contact="https://klomp.nikhef.nl:8443/ce-cream/services/CREAM2" scheduler="PBS" jobtype="compute" />
@@ -2337,7 +2341,7 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
       <file-server operation="all" url="srm://tbn18.nikhef.nl:8446/srm/managerv2?SFN=/dpm/nikhef.nl/home/virgo/%s/" />
     </directory>
   </site>
-""" % (os.path.basename(tmp_exec_dir),os.path.basename(tmp_exec_dir))
+""" % (os.path.basename(tmp_exec_dir),os.path.basename(tmp_exec_dir)))
 
     try:
       stampede_home = subprocess.check_output(
@@ -2348,7 +2352,7 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
       shared_scratch = "/work/%s/%s/ihope-workflow/%s" % (
         stampede_magic_number,stampede_username,os.path.basename(tmp_exec_dir))
 
-      print >> sitefile, """\
+      sitefile.write("""\
   <!-- XSEDE Stampede Cluster at TACC Development Queue -->
   <site handle="stampede-dev" arch="x86_64" os="LINUX">
      <grid type="gt5" contact="login5.stampede.tacc.utexas.edu/jobmanager-fork" scheduler="Fork" jobtype="auxillary"/>
@@ -2364,9 +2368,9 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
      <profile namespace="globus" key="jobtype">single</profile>
      <profile namespace="globus" key="project">TG-PHY140012</profile>
    </site>
-""" % (shared_scratch,shared_scratch)
+""" % (shared_scratch,shared_scratch))
 
-      print >> sitefile, """\
+      sitefile.write("""\
   <!-- XSEDE Stampede Cluster at TACC Development Queue -->
   <site handle="stampede" arch="x86_64" os="LINUX">
      <grid type="gt5" contact="login5.stampede.tacc.utexas.edu/jobmanager-fork" scheduler="Fork" jobtype="auxillary"/>
@@ -2382,15 +2386,15 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
      <profile namespace="globus" key="jobtype">single</profile>
      <profile namespace="globus" key="project">TG-PHY140012</profile>
    </site>
-""" % (shared_scratch,shared_scratch)
+""" % (shared_scratch,shared_scratch))
 
     except:
-      print >> sitefile, """\
+      sitefile.write("""\
   <!-- XSEDE Stampede Cluster disabled as gsissh to TACC failed-->
-"""
+""")
 
-    print >> sitefile, """\
-</sitecatalog>"""
+    sitefile.write("""\
+</sitecatalog>""")
     sitefile.close()
 
     # Write a help message telling the user how to run the workflow
@@ -2695,8 +2699,8 @@ class AnalysisNode(CondorDAGNode):
       # only add the LFNs that actually overlap with this job
       # XXX FIXME this is a very slow algorithm
       if len(filename) == 0:
-        raise CondorDAGNodeError, \
-          "LDR did not return any LFNs for query: check ifo and frame type"
+        raise CondorDAGNodeError(
+          "LDR did not return any LFNs for query: check ifo and frame type")
       for lfn in filename:
         a, b, c, d = lfn.split('.')[0].split('-')
         t_start = int(c)
@@ -2707,7 +2711,7 @@ class AnalysisNode(CondorDAGNode):
       # set the frame type based on the LFNs returned by datafind
       self.add_var_opt('frame-type',b)
     else:
-      raise CondorDAGNodeError, "Unknown LFN cache format"
+      raise CondorDAGNodeError("Unknown LFN cache format")
 
   def calibration_cache_path(self):
     """
@@ -2732,7 +2736,7 @@ class AnalysisNode(CondorDAGNode):
         self.__calibration_cache = cal
     else:
        msg = "IFO and start-time must be set first"
-       raise CondorDAGNodeError, msg
+       raise CondorDAGNodeError(msg)
 
   def calibration(self):
     """
@@ -2823,7 +2827,7 @@ class AnalysisChunk:
       x = self.__end - self.__start
 
     if x < 0:
-      raise SegmentError, self + 'has negative length'
+      raise SegmentError(self + 'has negative length')
     else:
       return x
 
@@ -2902,7 +2906,7 @@ class ScienceSegment:
     Allows iteration over and direct access to the AnalysisChunks contained
     in this ScienceSegment.
     """
-    if i < 0: raise IndexError, "list index out of range"
+    if i < 0: raise IndexError("list index out of range")
     return self.__chunks[i]
 
   def __len__(self):
@@ -3462,7 +3466,7 @@ class ScienceData:
       start = seg.start()
       stop = seg.end()
       if start < 0 or stop < start or start < ostart:
-        raise SegmentError, "Invalid list"
+        raise SegmentError("Invalid list")
       if start > 0:
         x = ScienceSegment(tuple([0,ostart,start,start-ostart]))
         outlist.append(x)
@@ -3663,7 +3667,7 @@ class LsyncCache:
       if gwfDict[site][frameType].has_key(key):
         msg = "The combination %s is not unique in the frame cache file" \
           % str(key)
-        raise RuntimeError, msg
+        raise RuntimeError(msg)
 
       gwfDict[site][frameType][key] = glue.segments.segmentlist(segments)
     f.close()
@@ -3917,8 +3921,8 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
           try:
             server = os.environ['LIGO_DATAFIND_SERVER']
           except KeyError:
-            raise RuntimeError, \
-              "Environment variable LIGO_DATAFIND_SERVER is not set"
+            raise RuntimeError(
+              "Environment variable LIGO_DATAFIND_SERVER is not set")
 
           try:
             h = httplib.HTTPConnection(server)
@@ -3957,7 +3961,7 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
             msg = "Server returned code %d: %s" % (response.status, response.reason)
             body = response.read()
             msg += body
-            raise RuntimeError, msg
+            raise RuntimeError(msg)
 
           # since status is 200 OK read the URLs
           body = response.read()
@@ -4207,7 +4211,7 @@ class SqliteJob(CondorDAGJob, AnalysisJob):
       if cp.has_section(sec):
         self.add_ini_opts(cp, sec)
       else:
-        print >> sys.stderr, "warning: config file is missing section [" + sec + "]"
+        sys.stderr.write("warning: config file is missing section [" + sec + "]\n")
 
     self.add_condor_cmd('getenv', 'True')
     self.set_stdout_file('logs/' + exec_name + '-$(cluster)-$(process).out')
@@ -4326,7 +4330,7 @@ class LigolwSqliteNode(SqliteNode):
     Tell ligolw_sqlite to dump the contents of the database to a file.
     """
     if self.get_database() is None:
-      raise ValueError, "no database specified"
+      raise ValueError("no database specified")
     self.add_file_opt('extract', xml_file)
     self.__xml_output = xml_file
 
@@ -4340,7 +4344,7 @@ class LigolwSqliteNode(SqliteNode):
     elif self.get_database():
       return self.get_database()
     else:
-      raise ValueError, "no output xml file or database specified"
+      raise ValueError("no output xml file or database specified")
 
 class DeepCopyableConfigParser(ConfigParser.SafeConfigParser):
     """

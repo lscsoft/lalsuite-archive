@@ -16,8 +16,13 @@
  *  MA  02111-1307  USA
  */
 
+/**
+ * \defgroup lalapps_pulsar_Xray X-ray Search Applications
+ * \ingroup lalapps_pulsar_Apps
+ */
+
 /** \author C.Messenger
- * \ingroup pulsarApps
+ * \ingroup lalapps_pulsar_Xray
  * \file
  * \brief
  * This code is designed to compute the Bayes factor for a semi-coherent analysis
@@ -139,9 +144,6 @@ int main( int argc, char *argv[] )  {
 
   /* turn off default GSL error handler */
   gsl_set_error_handler_off();
-
-  /* setup LAL debug level */
-  LogSetLevel(lalDebugLevel);
 
   /* register and read all user-variables */
   if (XLALReadUserVars(argc,argv,&uvar,&clargs)) {

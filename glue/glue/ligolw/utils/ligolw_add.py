@@ -75,7 +75,7 @@ def remove_input(urls, preserves, verbose = False):
 		if any(os.path.samefile(path, preserve) for preserve in preserves):
 			continue
 		if verbose:
-			print >>sys.stderr, "removing \"%s\" ..." % path
+			sys.stderr.write("removing \"%s\" ...\n" % path)
 		try:
 			os.remove(path)
 		except:
@@ -100,11 +100,11 @@ def reassign_ids(doc, verbose = False):
 	# construct a fresh old --> new mapping within each LIGO_LW block.
 	for n, elem in enumerate(doc.childNodes):
 		if verbose:
-			print >>sys.stderr, "reassigning row IDs: %.1f%%\r" % (100.0 * (n + 1) / len(doc.childNodes)),
+			sys.stderr.write("reassigning row IDs: %.1f%%\r" % (100.0 * (n + 1) / len(doc.childNodes)))
 		if elem.tagName == ligolw.LIGO_LW.tagName:
 			table.reassign_ids(elem)
 	if verbose:
-		print >>sys.stderr, "reassigning row IDs: 100.0%"
+		sys.stderr.write("reassigning row IDs: 100.0%\n")
 	return doc
 
 
@@ -190,7 +190,7 @@ def ligolw_add(xmldoc, urls, non_lsc_tables_ok = False, verbose = False, content
 	# Input
 	for n, url in enumerate(urls):
 		if verbose:
-			print >>sys.stderr, "%d/%d:" % (n + 1, len(urls)),
+			sys.stderr.write("%d/%d:" % (n + 1, len(urls)))
 		utils.load_url(url, verbose = verbose, xmldoc = xmldoc, contenthandler = contenthandler)
 
 	# ID reassignment
@@ -200,7 +200,7 @@ def ligolw_add(xmldoc, urls, non_lsc_tables_ok = False, verbose = False, content
 
 	# Document merge
 	if verbose:
-		print >>sys.stderr, "merging elements ..."
+		sys.stderr.write("merging elements ...\n")
 	merge_ligolws(xmldoc)
 	merge_compatible_tables(xmldoc)
 

@@ -14,13 +14,12 @@ pkginclude_HEADERS = \
 	DopplerScan.h \
 	EstimateAmplitudeParams.h \
 	ExtrapolatePulsarSpins.h \
-	FitToPulsar.h \
 	FlatMesh.h \
 	FlatPulsarMetric.h \
+	GSLHelpers.h \
 	GeneratePulsarSignal.h \
 	GenerateSpinOrbitCW.h \
 	GenerateTaylorCW.h \
-	GSLHelpers.h \
 	HoughMap.h \
 	LALBarycenter.h \
 	LALComputeAM.h \
@@ -29,7 +28,6 @@ pkginclude_HEADERS = \
 	LALPulsarConfig.h \
 	LALPulsarVCSInfo.h \
 	LALPulsarVCSInfoHeader.h \
-	LALXMGRInterface.h \
 	LFTandTSutils.h \
 	LISAspecifics.h \
 	LUT.h \
@@ -84,7 +82,6 @@ liblalpulsar_la_SOURCES = \
 	DriveHough.c \
 	EstimateAmplitudeParams.c \
 	ExtrapolatePulsarSpins.c \
-	FitToPulsar.c \
 	FlatMesh.c \
 	FlatPulsarMetric.c \
 	GenerateEllipticSpinOrbitCW.c \
@@ -99,7 +96,6 @@ liblalpulsar_la_SOURCES = \
 	LALComputeAM.c \
 	LALInitBarycenter.c \
 	LALPulsarVCSInfo.c \
-	LALXMGRInterface.c \
 	LFTandTSutils.c \
 	LISAspecifics.c \
 	LatticeTiling.c \
@@ -144,6 +140,15 @@ nodist_liblalpulsar_la_SOURCES = LALPulsarBuildInfo.c
 if LALXML
 pkginclude_HEADERS += LALXMLVOTableSerializersPulsar.h
 liblalpulsar_la_SOURCES += LALXMLVOTableSerializersPulsar.c
+endif
+
+if CFITSIO
+pkginclude_HEADERS += \
+	FITSFileIO.h \
+	$(END_OF_LIST)
+liblalpulsar_la_SOURCES += \
+	FITSFileIO.c \
+	$(END_OF_LIST)
 endif
 
 noinst_LTLIBRARIES =

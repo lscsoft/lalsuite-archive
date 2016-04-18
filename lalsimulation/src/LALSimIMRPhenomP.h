@@ -144,6 +144,14 @@ static void WignerdCoefficients_SmallAngleApproximation(
   const REAL8 Sp        /**< Dimensionfull spin component in the orbital plane */
 );
 
+static void CheckMaxOpeningAngle(
+  const REAL8 m1,     /**< Mass of companion 1 (solar masses) */
+  const REAL8 m2,     /**< Mass of companion 2 (solar masses) */
+  const REAL8 chi1_l, /**< Aligned spin of BH 1 */
+  const REAL8 chi2_l, /**< Aligned spin of BH 2 */
+  const REAL8 chip    /**< Dimensionless spin in the orbital plane */
+);
+
 static REAL8 FinalSpinIMRPhenomD_all_in_plane_spin_on_larger_BH(
   const REAL8 m1,     /**< Mass of companion 1 (solar masses) */
   const REAL8 m2,     /**< Mass of companion 2 (solar masses) */
@@ -166,5 +174,8 @@ static REAL8 FinalSpinBarausse2009(  /* Barausse & Rezzolla, Astrophys.J.Lett.70
   const REAL8 cos_beta_tilde,   /**< cos(\\tilde beta)  = \\hat a_1 . \\hat L (Eq. 9) */
   const REAL8 cos_gamma_tilde   /**< cos(\\tilde gamma) = \\hat a_2 . \\hat L (Eq. 9)*/
 );
+
+static bool approximately_equal(REAL8 x, REAL8 y, REAL8 epsilon);
+static void nudge(REAL8 *x, REAL8 X, REAL8 epsilon);
 
 #endif	// of #ifndef _LALSIM_IMR_PHENOMP_H

@@ -92,7 +92,7 @@ parser.add_option("-d", "--dry-run", action = "store_true")
 options, filenames = parser.parse_args()
 
 if not options.segment_url:
-  raise ValueError, "missing argument --segment-url"
+  raise ValueError("missing argument --segment-url")
 
 # open connection to LDBDWClient
 myClient = segmentdb_utils.setup_database(options.segment_url)
@@ -104,15 +104,15 @@ if options.ping:
   sys.exit(0)
 
 if not options.state_file and not options.segments_file:
-  raise ValueError, "missing argument --state-file or --segments-file"
+  raise ValueError("missing argument --state-file or --segments-file")
 if options.state_file and options.segments_file:
-  raise ValueError, "incompatible arguments --state-file and --segments-file"  
+  raise ValueError("incompatible arguments --state-file and --segments-file")
 if not options.pid_file:
-  raise ValueError, "missing argument --pid-file"
+  raise ValueError("missing argument --pid-file")
 if not options.input_directory:
-  raise ValueError, "missing argument --input-directory"
+  raise ValueError("missing argument --input-directory")
 if not options.log_file:
-  raise ValueError, "missing argument --log-file"
+  raise ValueError("missing argument --log-file")
 
 # check if a valid lock file already exists, and create one if not
 pidfile.get_lock(options.pid_file)
@@ -194,7 +194,7 @@ try:
         logger.debug("published segment %s" % str(f.segment))
         published_segments |= segments.segmentlist([f.segment])
       die_now = True
-    except Exception, e:
+    except Exception as e:
       logger.error("failed to publish %s (%s)" % (infile, str(e)))
     else:
       logger.debug("published segment %s" % str(f.segment))
@@ -212,7 +212,7 @@ try:
     logger.debug("writing state to %s" % options.state_file)
     ligolw_utils.write_filename(outdoc, options.state_file)
 
-except Exception, e:
+except Exception as e:
   try:
     logger.error(str(e))
   except:

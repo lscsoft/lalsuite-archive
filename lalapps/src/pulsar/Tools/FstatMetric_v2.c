@@ -19,7 +19,7 @@
 
 /**
  * \file
- * \ingroup lalapps_pulsar_templateBanks
+ * \ingroup lalapps_pulsar_Fstatistic
  * \author Reinhard Prix
  * \brief
  * This module deals with calculating various F-statistic metric approximations,
@@ -209,10 +209,6 @@ main(int argc, char *argv[])
   lal_errhandler = LAL_ERR_EXIT;
 
   /* register user-variables */
-
-  /* set log-level */
-  LogSetLevel ( lalDebugLevel );
-
   if ( initUserVars(&uvar) != XLAL_SUCCESS ) {
     XLALPrintError( "%s(): initUserVars() failed\n", __func__ );
     return EXIT_FAILURE;

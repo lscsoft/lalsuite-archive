@@ -20,9 +20,14 @@
  */
 
 /**
- * \author L.Sammut, C. Messenger
+ * \defgroup lalapps_pulsar_SidebandSearch Sideband Search Application
+ * \ingroup lalapps_pulsar_Apps
+ */
+
+/*
  * \file
  * \ingroup lalapps_pulsar_SidebandSearch
+ * \author L.Sammut, C. Messenger
  * \brief
  * Calculates the C-statistic for a given parameter-space of GW signals from binary sources with known sky position.
  *
@@ -162,11 +167,6 @@ int main(int argc,char *argv[])
 
   vrbflg = 1;					/* verbose error-messages */
 
-
-  /* setup LAL debug level */
-  LogSetLevel(lalDebugLevel);
-  LogPrintf(LOG_DEBUG,"Debug level set to %d \n", lalDebugLevel);
-  
   /* register and read all user-variables */
   if (initUserVars(argc, argv, &uvar)) {
     LogPrintf(LOG_CRITICAL,"%s : initUserVars failed with error = %d\n",fn,xlalErrno);

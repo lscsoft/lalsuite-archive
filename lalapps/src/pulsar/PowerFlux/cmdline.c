@@ -137,6 +137,7 @@ const char *gengetopt_args_info_help[] = {
   "      --fake-phase-modulation-freq=DOUBLE\n                                frequency of additional sinusoidal phase\n                                  modulation  (default=`0.0')",
   "      --fake-phase-modulation-phase=DOUBLE\n                                phase of additional sinusoidal phase modulation\n                                  (default=`0.0')",
   "      --fake-injection-window=INT\n                                compute this number of frequency bins to the\n                                  left and right of the central frequency\n                                  (default=`5')",
+  "      --fake-injection-w-size=INT\n                                internal parameter specifying integration\n                                  workspace size  (default=`32768')",
   "      --snr-precision=DOUBLE    Assumed level of error in detection strength -\n                                  used for listing candidates  (default=`0.2')",
   "      --max-candidates=INT      Do not optimize more than this number of\n                                  candidates  (default=`-1')",
   "      --min-candidate-snr=DOUBLE\n                                Do not optimize candidates with SNR below this\n                                  level  (default=`5.0')",
@@ -151,6 +152,8 @@ const char *gengetopt_args_info_help[] = {
   "      --nfshift=INT             Number of sub-bin frequency shifts to sample\n                                  (default=`2')",
   "      --nchunks=INT             Partition the timebase into this many chunks\n                                  for sub period analysis  (default=`5')",
   "      --split-ifos=INT          Split interferometers in separate chunks\n                                  (default=`1')",
+  "      --default-dataset-veto-level=DOUBLE\n                                Default value for veto_level dataset parameter\n                                  (default=`1e-2')",
+  "      --default-dataset-veto-spike-level=DOUBLE\n                                Default value for veto_spike_level dataset\n                                  parameter  (default=`1.7')",
   "      --weight-cutoff-fraction=DOUBLE\n                                Discard sfts with small weights that contribute\n                                  this fraction of total weight\n                                  (default=`0.04')",
   "      --per-dataset-weight-cutoff-fraction=DOUBLE\n                                Discard sfts with small weights that contribute\n                                  this fraction of total weight in each dataset\n                                  (default=`0.04')",
   "      --power-max-median-factor=DOUBLE\n                                This determines scaling factor between median\n                                  and maximum of exponentially distributed\n                                  variable. Used for computing power sum\n                                  weights  (default=`0.1')",
@@ -330,6 +333,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->fake_phase_modulation_freq_given = 0 ;
   args_info->fake_phase_modulation_phase_given = 0 ;
   args_info->fake_injection_window_given = 0 ;
+  args_info->fake_injection_w_size_given = 0 ;
   args_info->snr_precision_given = 0 ;
   args_info->max_candidates_given = 0 ;
   args_info->min_candidate_snr_given = 0 ;
@@ -344,6 +348,8 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->nfshift_given = 0 ;
   args_info->nchunks_given = 0 ;
   args_info->split_ifos_given = 0 ;
+  args_info->default_dataset_veto_level_given = 0 ;
+  args_info->default_dataset_veto_spike_level_given = 0 ;
   args_info->weight_cutoff_fraction_given = 0 ;
   args_info->per_dataset_weight_cutoff_fraction_given = 0 ;
   args_info->power_max_median_factor_given = 0 ;
@@ -562,6 +568,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->fake_phase_modulation_phase_orig = NULL;
   args_info->fake_injection_window_arg = 5;
   args_info->fake_injection_window_orig = NULL;
+  args_info->fake_injection_w_size_arg = 32768;
+  args_info->fake_injection_w_size_orig = NULL;
   args_info->snr_precision_arg = 0.2;
   args_info->snr_precision_orig = NULL;
   args_info->max_candidates_arg = -1;
@@ -590,6 +598,10 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->nchunks_orig = NULL;
   args_info->split_ifos_arg = 1;
   args_info->split_ifos_orig = NULL;
+  args_info->default_dataset_veto_level_arg = 1e-2;
+  args_info->default_dataset_veto_level_orig = NULL;
+  args_info->default_dataset_veto_spike_level_arg = 1.7;
+  args_info->default_dataset_veto_spike_level_orig = NULL;
   args_info->weight_cutoff_fraction_arg = 0.04;
   args_info->weight_cutoff_fraction_orig = NULL;
   args_info->per_dataset_weight_cutoff_fraction_arg = 0.04;
@@ -751,46 +763,49 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->fake_phase_modulation_freq_help = gengetopt_args_info_help[100] ;
   args_info->fake_phase_modulation_phase_help = gengetopt_args_info_help[101] ;
   args_info->fake_injection_window_help = gengetopt_args_info_help[102] ;
-  args_info->snr_precision_help = gengetopt_args_info_help[103] ;
-  args_info->max_candidates_help = gengetopt_args_info_help[104] ;
-  args_info->min_candidate_snr_help = gengetopt_args_info_help[105] ;
-  args_info->output_initial_help = gengetopt_args_info_help[106] ;
-  args_info->output_optimized_help = gengetopt_args_info_help[107] ;
-  args_info->output_cache_help = gengetopt_args_info_help[108] ;
-  args_info->extended_test_help = gengetopt_args_info_help[109] ;
-  args_info->max_sft_report_help = gengetopt_args_info_help[110] ;
-  args_info->num_threads_help = gengetopt_args_info_help[111] ;
-  args_info->niota_help = gengetopt_args_info_help[112] ;
-  args_info->npsi_help = gengetopt_args_info_help[113] ;
-  args_info->nfshift_help = gengetopt_args_info_help[114] ;
-  args_info->nchunks_help = gengetopt_args_info_help[115] ;
-  args_info->split_ifos_help = gengetopt_args_info_help[116] ;
-  args_info->weight_cutoff_fraction_help = gengetopt_args_info_help[117] ;
-  args_info->per_dataset_weight_cutoff_fraction_help = gengetopt_args_info_help[118] ;
-  args_info->power_max_median_factor_help = gengetopt_args_info_help[119] ;
-  args_info->tmedian_noise_level_help = gengetopt_args_info_help[120] ;
-  args_info->summing_step_help = gengetopt_args_info_help[121] ;
-  args_info->max_first_shift_help = gengetopt_args_info_help[122] ;
-  args_info->statistics_function_help = gengetopt_args_info_help[123] ;
-  args_info->confidence_level_help = gengetopt_args_info_help[124] ;
-  args_info->x_epsilon_help = gengetopt_args_info_help[125] ;
-  args_info->dump_power_sums_help = gengetopt_args_info_help[126] ;
-  args_info->compute_skymaps_help = gengetopt_args_info_help[127] ;
-  args_info->fine_grid_skymarks_help = gengetopt_args_info_help[128] ;
-  args_info->half_window_help = gengetopt_args_info_help[129] ;
-  args_info->tail_veto_help = gengetopt_args_info_help[130] ;
-  args_info->cache_granularity_help = gengetopt_args_info_help[131] ;
-  args_info->diff_shift_granularity_help = gengetopt_args_info_help[132] ;
-  args_info->sidereal_group_count_help = gengetopt_args_info_help[133] ;
-  args_info->time_group_count_help = gengetopt_args_info_help[134] ;
-  args_info->phase_mismatch_help = gengetopt_args_info_help[135] ;
-  args_info->bypass_powersum_cache_help = gengetopt_args_info_help[136] ;
-  args_info->compute_cross_terms_help = gengetopt_args_info_help[137] ;
-  args_info->mixed_dataset_only_help = gengetopt_args_info_help[138] ;
-  args_info->preallocate_memory_help = gengetopt_args_info_help[139] ;
-  args_info->memory_allocation_retries_help = gengetopt_args_info_help[140] ;
-  args_info->sse_help = gengetopt_args_info_help[141] ;
-  args_info->extra_phase_help = gengetopt_args_info_help[142] ;
+  args_info->fake_injection_w_size_help = gengetopt_args_info_help[103] ;
+  args_info->snr_precision_help = gengetopt_args_info_help[104] ;
+  args_info->max_candidates_help = gengetopt_args_info_help[105] ;
+  args_info->min_candidate_snr_help = gengetopt_args_info_help[106] ;
+  args_info->output_initial_help = gengetopt_args_info_help[107] ;
+  args_info->output_optimized_help = gengetopt_args_info_help[108] ;
+  args_info->output_cache_help = gengetopt_args_info_help[109] ;
+  args_info->extended_test_help = gengetopt_args_info_help[110] ;
+  args_info->max_sft_report_help = gengetopt_args_info_help[111] ;
+  args_info->num_threads_help = gengetopt_args_info_help[112] ;
+  args_info->niota_help = gengetopt_args_info_help[113] ;
+  args_info->npsi_help = gengetopt_args_info_help[114] ;
+  args_info->nfshift_help = gengetopt_args_info_help[115] ;
+  args_info->nchunks_help = gengetopt_args_info_help[116] ;
+  args_info->split_ifos_help = gengetopt_args_info_help[117] ;
+  args_info->default_dataset_veto_level_help = gengetopt_args_info_help[118] ;
+  args_info->default_dataset_veto_spike_level_help = gengetopt_args_info_help[119] ;
+  args_info->weight_cutoff_fraction_help = gengetopt_args_info_help[120] ;
+  args_info->per_dataset_weight_cutoff_fraction_help = gengetopt_args_info_help[121] ;
+  args_info->power_max_median_factor_help = gengetopt_args_info_help[122] ;
+  args_info->tmedian_noise_level_help = gengetopt_args_info_help[123] ;
+  args_info->summing_step_help = gengetopt_args_info_help[124] ;
+  args_info->max_first_shift_help = gengetopt_args_info_help[125] ;
+  args_info->statistics_function_help = gengetopt_args_info_help[126] ;
+  args_info->confidence_level_help = gengetopt_args_info_help[127] ;
+  args_info->x_epsilon_help = gengetopt_args_info_help[128] ;
+  args_info->dump_power_sums_help = gengetopt_args_info_help[129] ;
+  args_info->compute_skymaps_help = gengetopt_args_info_help[130] ;
+  args_info->fine_grid_skymarks_help = gengetopt_args_info_help[131] ;
+  args_info->half_window_help = gengetopt_args_info_help[132] ;
+  args_info->tail_veto_help = gengetopt_args_info_help[133] ;
+  args_info->cache_granularity_help = gengetopt_args_info_help[134] ;
+  args_info->diff_shift_granularity_help = gengetopt_args_info_help[135] ;
+  args_info->sidereal_group_count_help = gengetopt_args_info_help[136] ;
+  args_info->time_group_count_help = gengetopt_args_info_help[137] ;
+  args_info->phase_mismatch_help = gengetopt_args_info_help[138] ;
+  args_info->bypass_powersum_cache_help = gengetopt_args_info_help[139] ;
+  args_info->compute_cross_terms_help = gengetopt_args_info_help[140] ;
+  args_info->mixed_dataset_only_help = gengetopt_args_info_help[141] ;
+  args_info->preallocate_memory_help = gengetopt_args_info_help[142] ;
+  args_info->memory_allocation_retries_help = gengetopt_args_info_help[143] ;
+  args_info->sse_help = gengetopt_args_info_help[144] ;
+  args_info->extra_phase_help = gengetopt_args_info_help[145] ;
   args_info->extra_phase_min = 0;
   args_info->extra_phase_max = 0;
   
@@ -1043,6 +1058,7 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->fake_phase_modulation_freq_orig));
   free_string_field (&(args_info->fake_phase_modulation_phase_orig));
   free_string_field (&(args_info->fake_injection_window_orig));
+  free_string_field (&(args_info->fake_injection_w_size_orig));
   free_string_field (&(args_info->snr_precision_orig));
   free_string_field (&(args_info->max_candidates_orig));
   free_string_field (&(args_info->min_candidate_snr_orig));
@@ -1057,6 +1073,8 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->nfshift_orig));
   free_string_field (&(args_info->nchunks_orig));
   free_string_field (&(args_info->split_ifos_orig));
+  free_string_field (&(args_info->default_dataset_veto_level_orig));
+  free_string_field (&(args_info->default_dataset_veto_spike_level_orig));
   free_string_field (&(args_info->weight_cutoff_fraction_orig));
   free_string_field (&(args_info->per_dataset_weight_cutoff_fraction_orig));
   free_string_field (&(args_info->power_max_median_factor_orig));
@@ -1325,6 +1343,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "fake-phase-modulation-phase", args_info->fake_phase_modulation_phase_orig, 0);
   if (args_info->fake_injection_window_given)
     write_into_file(outfile, "fake-injection-window", args_info->fake_injection_window_orig, 0);
+  if (args_info->fake_injection_w_size_given)
+    write_into_file(outfile, "fake-injection-w-size", args_info->fake_injection_w_size_orig, 0);
   if (args_info->snr_precision_given)
     write_into_file(outfile, "snr-precision", args_info->snr_precision_orig, 0);
   if (args_info->max_candidates_given)
@@ -1353,6 +1373,10 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "nchunks", args_info->nchunks_orig, 0);
   if (args_info->split_ifos_given)
     write_into_file(outfile, "split-ifos", args_info->split_ifos_orig, 0);
+  if (args_info->default_dataset_veto_level_given)
+    write_into_file(outfile, "default-dataset-veto-level", args_info->default_dataset_veto_level_orig, 0);
+  if (args_info->default_dataset_veto_spike_level_given)
+    write_into_file(outfile, "default-dataset-veto-spike-level", args_info->default_dataset_veto_spike_level_orig, 0);
   if (args_info->weight_cutoff_fraction_given)
     write_into_file(outfile, "weight-cutoff-fraction", args_info->weight_cutoff_fraction_orig, 0);
   if (args_info->per_dataset_weight_cutoff_fraction_given)
@@ -2078,6 +2102,7 @@ cmdline_parser_internal (
         { "fake-phase-modulation-freq",	1, NULL, 0 },
         { "fake-phase-modulation-phase",	1, NULL, 0 },
         { "fake-injection-window",	1, NULL, 0 },
+        { "fake-injection-w-size",	1, NULL, 0 },
         { "snr-precision",	1, NULL, 0 },
         { "max-candidates",	1, NULL, 0 },
         { "min-candidate-snr",	1, NULL, 0 },
@@ -2092,6 +2117,8 @@ cmdline_parser_internal (
         { "nfshift",	1, NULL, 0 },
         { "nchunks",	1, NULL, 0 },
         { "split-ifos",	1, NULL, 0 },
+        { "default-dataset-veto-level",	1, NULL, 0 },
+        { "default-dataset-veto-spike-level",	1, NULL, 0 },
         { "weight-cutoff-fraction",	1, NULL, 0 },
         { "per-dataset-weight-cutoff-fraction",	1, NULL, 0 },
         { "power-max-median-factor",	1, NULL, 0 },
@@ -3528,6 +3555,20 @@ cmdline_parser_internal (
               goto failure;
           
           }
+          /* internal parameter specifying integration workspace size.  */
+          else if (strcmp (long_options[option_index].name, "fake-injection-w-size") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->fake_injection_w_size_arg), 
+                 &(args_info->fake_injection_w_size_orig), &(args_info->fake_injection_w_size_given),
+                &(local_args_info.fake_injection_w_size_given), optarg, 0, "32768", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "fake-injection-w-size", '-',
+                additional_error))
+              goto failure;
+          
+          }
           /* Assumed level of error in detection strength - used for listing candidates.  */
           else if (strcmp (long_options[option_index].name, "snr-precision") == 0)
           {
@@ -3720,6 +3761,34 @@ cmdline_parser_internal (
                 &(local_args_info.split_ifos_given), optarg, 0, "1", ARG_INT,
                 check_ambiguity, override, 0, 0,
                 "split-ifos", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Default value for veto_level dataset parameter.  */
+          else if (strcmp (long_options[option_index].name, "default-dataset-veto-level") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->default_dataset_veto_level_arg), 
+                 &(args_info->default_dataset_veto_level_orig), &(args_info->default_dataset_veto_level_given),
+                &(local_args_info.default_dataset_veto_level_given), optarg, 0, "1e-2", ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "default-dataset-veto-level", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Default value for veto_spike_level dataset parameter.  */
+          else if (strcmp (long_options[option_index].name, "default-dataset-veto-spike-level") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->default_dataset_veto_spike_level_arg), 
+                 &(args_info->default_dataset_veto_spike_level_orig), &(args_info->default_dataset_veto_spike_level_given),
+                &(local_args_info.default_dataset_veto_spike_level_given), optarg, 0, "1.7", ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "default-dataset-veto-spike-level", '-',
                 additional_error))
               goto failure;
           

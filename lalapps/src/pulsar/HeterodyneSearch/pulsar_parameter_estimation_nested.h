@@ -12,6 +12,11 @@
 */
 
 /**
+ * \defgroup lalapps_pulsar_HeterodyneSearch Heterodyne Search Applications
+ * \ingroup lalapps_pulsar_Apps
+ */
+
+/**
  * \file
  * \ingroup lalapps_pulsar_HeterodyneSearch
  * \author Matthew Pitkin, John Veitch, Colin Gill
@@ -148,7 +153,7 @@ extern "C" {
  * the signal frequency and its time derivatives, and the frequency (period)
  * epoch.
  */
-#define NUMFREQPARS 8
+#define NUMFREQPARS 12
 
 /**
  * The total number of sky position parameters that can define a signal e.g.
@@ -185,6 +190,7 @@ extern "C" {
 " --output-all-params Output all stored parameters, otherwise the default will be\n\
                      to only output the non-fixed (i.e. variable) parameters\n\
                      specified in the prior and .par files\n"\
+" --output-chunks     Output lists of stationary chunks into which the data has been split\n"\
 " --gzip              gzip the output text file\n"\
 " --outXML            name of output XML file [not required]\n"\
 " --chunk-min         (INT4) minimum stationary length of data to be used in\n\
@@ -209,8 +215,8 @@ extern "C" {
                      otherwise the noise variance will be calculated from the data.\n"\
 " --nonGR             Set to allow non-GR polarisation modes and/or a variable\n\
                      speed of gravitational waves\n"\
-" --randomise         Set this to randomise the data (through permutations of the\n\
-                     time stamps) for use in Monte-Carlo studies. NOTE: this will not\n\
+" --randomise         Set this, with an INT seed, to randomise the data (through permutations\n\
+                     of the time stamps) for use in Monte-Carlo studies. NOTE: this will not\n\
                      work if using the code to create injections\n"\
 "\n"\
 " Nested sampling parameters:\n"\
@@ -311,8 +317,8 @@ extern "C" {
 " --oldChunks        Set if using fixed chunk sizes for dividing the data as\n\
                     in the old code, rather than the calculating chunks\n\
                     using the change point method\n"\
-" --jones-model      Set if using both 1 and 2 multiples of the frequency and\n\
-                    requiring the use of the original signal model parameters\n\
+" --source-model     Set if using both 1 and 2 multiples of the frequency and\n\
+                    requiring the use of the original source model parameters\n\
                     from Jones, MNRAS, 402 (2010)\n"\
 "\n"\
 " Benchmarking:\n"\
@@ -337,7 +343,7 @@ static const CHAR amppars[NUMAMPPARS][VARNAME_MAX] = { "H0", "PHI0", "PSI",
  * recognised within the code.
  */
 static const CHAR freqpars[NUMFREQPARS][VARNAME_MAX] = { "F0", "F1", "F2", "F3",
-"F4", "F5", "PEPOCH", "CGW" };
+"F4", "F5", "F6", "F7", "F8", "F9", "PEPOCH", "CGW" };
 
 /**
  * A list of the sky position parameters. The names given here are those that

@@ -26,6 +26,8 @@
  * ============================================================================
  */
 
+#ifndef _LALSIMBURST_H
+#define _LALSIMBURST_H
 
 #include <gsl/gsl_rng.h>
 #include <lal/LALDatatypes.h>
@@ -104,7 +106,6 @@ int XLALSimBurstGaussian(
 	REAL8 delta_t
 );
 
-
 int XLALSimBurstImg(
 	REAL8TimeSeries **hplus,
 	REAL8TimeSeries **hcross, 
@@ -142,3 +143,4 @@ REAL8 XLALMeasureEoverRsquared(REAL8TimeSeries *, REAL8TimeSeries *);
 #elif defined(__cplusplus)
 }
 #endif
+#endif /*_LALSIMBURST_H */

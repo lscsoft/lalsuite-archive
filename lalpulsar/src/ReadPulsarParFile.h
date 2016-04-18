@@ -21,7 +21,7 @@
  * \author Matt Pitkin
  * \date 2013
  * \file
- * \ingroup lalpulsar_UNCLASSIFIED
+ * \ingroup lalpulsar_general
  * \brief Functions to read TEMPO pulsar parameter files
  *
  * Here we define a function to read in pulsar parameters from a standard <tt>TEMPO(2)</tt> parameter
@@ -42,6 +42,7 @@
 #include <lal/StringVector.h>
 #include <lal/LALBarycenter.h>
 #include <lal/Date.h>
+#include <lal/LALHashTbl.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -101,7 +102,8 @@ typedef struct tagPulsarParam {
 typedef struct tagPulsarParameters {
   PulsarParam       *head;                              /**< A linked list of \c PulsarParam structures */
   INT4              nparams;                            /**< The total number of parameters in the structure */
-  PulsarParam       *hash_table[PULSAR_HASHTABLE_SIZE]; /**< Hash table of parameters */
+  /* PulsarParam       *hash_table[PULSAR_HASHTABLE_SIZE]; */ /**< Hash table of parameters */
+  LALHashTbl        *hash_table;
 } PulsarParameters;
 
 
@@ -508,7 +510,7 @@ void ParConvBinaryUnits( const CHAR *in, void *out );
 /** Convert the input string from a TT MJD value into a GPS time */
 void ParConvMJDToGPS( const CHAR *in, void *out );
 /** Convert the input string from degrees per year to radians per second */
-void ParConvDegPerYrToRadParSec( const CHAR *in, void *out );
+void ParConvDegPerYrToRadPerSec( const CHAR *in, void *out );
 /** Convert the input string from solar masses to kilograms */
 void ParConvSolarMassToKg( const CHAR *in, void *out );
 /** Convert a right ascension input string in the format "hh:mm:ss.s" into radians */

@@ -2634,8 +2634,8 @@ static int XLALSimInspiralSpinTaylorT2Derivatives(
             // Also note this is equivalent to Eqs. 9c + 9d of astro-ph/0504538
             wspin4 += (params->wdot4S1S1 + params->wdot4QMS1S1) * S1sq
 	      + (params->wdot4S2S2 + params->wdot4QMS2S2) * S2sq
-	      + (params->wdot4S1S1 + params->wdot4QMS1OS1O) * LNhdotS1 * LNhdotS1
-	      + (params->wdot4S2S2 + params->wdot4QMS2OS2O) * LNhdotS2 * LNhdotS2;
+	      + (params->wdot4S1OS1O + params->wdot4QMS1OS1O) * LNhdotS1 * LNhdotS1
+	      + (params->wdot4S2OS2O + params->wdot4QMS2OS2O) * LNhdotS2 * LNhdotS2;
         case LAL_SIM_INSPIRAL_SPIN_ORDER_15PN:
             // Compute 1.5PN SO correction to domega/dt
             wspin3 = params->wdot3S1O*LNhdotS1 + params->wdot3S2O*LNhdotS2;
@@ -3364,6 +3364,11 @@ int XLALSimInspiralTransformPrecessingNewInitialConditions(
 		XLALPrintError("XLAL Error - %s: fRef=0 is invalid. Please pass in the starting GW frequency instead.\n", __func__);
 		XLAL_ERROR(XLAL_EINVAL);
 	}
+	if( (chi1<0.) || (chi1>1.) || (chi2<0.) || (chi2>1.) )
+	{
+	  XLALPrintError("XLAL Error - %s: chi1,2=0  must be between 0 and 1, values %8.4f -- %8.4f passed.\n", __func__,chi1,chi2);
+		XLAL_ERROR(XLAL_EINVAL);
+	}
 
 	REAL8 m1, m2, eta, v0, theta0, phi0, Jnorm, tmp1, tmp2;
 	REAL8 Jhatx, Jhaty, Jhatz, LNhx, LNhy, LNhz, Jx, Jy, Jz, Lmag;
@@ -3424,8 +3429,8 @@ int XLALSimInspiralTransformPrecessingNewInitialConditions(
 	 * to put Jhat along z-axis
 	 */
 	ROTATEY(-theta0, LNhx, LNhy, LNhz);
-	ROTATEZ(-theta0, s1hatx, s1haty, s1hatz);
-	ROTATEZ(-theta0, s2hatx, s2haty, s2hatz);
+	ROTATEY(-theta0, s1hatx, s1haty, s1hatz);
+	ROTATEY(-theta0, s2hatx, s2haty, s2hatz);
 
 	/* Rotation 3: Rotate about new z-axis by phiJL to put L at desired
 	 * azimuth about J. Note that is currently in x-z plane towards -x
@@ -3518,8 +3523,8 @@ int XLALSimInspiralTransformPrecessingNewInitialConditions(
  * as required by precessing waveforms routines.
  *
  * NOTE: Here the \"total\" angular momentum is computed as
- * J = L_N(1+L_1PN) + S1 + S2
- * where L_N(1+L_1PN) is the 1PN-corrected orbital angular momentum,
+ * J = L_N(1+l_1PN) + S1 + S2
+ * where L_N(1+l_1PN) is the 1PN-corrected orbital angular momentum,
  * which is parallel to Newtonian angular momentum.
  * PN corrections to L from 1.5PN order on (wrt to Newtonian value)
  * are NOT ACCOUNTED FOR in this function.

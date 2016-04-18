@@ -714,7 +714,6 @@ int XLALGenerateBandAndTimeLimitedWhiteNoiseBurst(
 	/* force the sample rate incase round-off has shifted it a bit */
 
 	(*hplus)->deltaT = (*hcross)->deltaT = delta_t;
-
 	/* apply a Tukey window for continuity at the start and end of the
 	 * injection.  the window's shape parameter sets what fraction of
 	 * the window is used by the tapers */
@@ -737,15 +736,13 @@ int XLALGenerateBandAndTimeLimitedWhiteNoiseBurst(
 	return 0;
 }
 
-
 /*
  * ============================================================================
  *
- *                         Sine-Gaussian and Friends
+ *                         SineGaussian and Friends
  *
  * ============================================================================
  */
-
 
 /**
  * Input:
@@ -776,8 +773,6 @@ int XLALGenerateBandAndTimeLimitedWhiteNoiseBurst(
  * window with tapers covering 50% of the time series is applied to make
  * the waveform go to 0 smoothly at the start and end.
  */
-
-
 int XLALSimBurstSineGaussian(
 	REAL8TimeSeries **hplus,
 	REAL8TimeSeries **hcross,
@@ -920,7 +915,6 @@ int XLALSimBurstGaussian(
 
 	return 0;
 }
-
 
 /*
  * ============================================================================

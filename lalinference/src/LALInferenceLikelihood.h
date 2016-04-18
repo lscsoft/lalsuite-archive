@@ -46,6 +46,16 @@ SWIGLAL(
 #endif
 
 
+extern const char *LALInferenceAnalyticNamesCBC[15];
+
+extern const REAL8 LALInferenceAnalyticMeansCBC[15];
+
+/* Scaling used for the CBC analytic likelihood parameters */
+extern const REAL8 scaling[15];
+
+/* Covariance matrix for use in analytic likelihoods */
+extern const REAL8 CM[15][15];
+
 
 /**
  * \defgroup LALInferenceLikelihood_h Header LALInferenceLikelihood.h
@@ -88,9 +98,6 @@ SWIGLAL(
  *   - "time"            (REAL8, GPS sec.)                     
  ***************************************************************/
 REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *currentParams, LALInferenceIFOData *data, LALInferenceModel *model);
-
-REAL8 LALInferenceROQLogLikelihood(LALInferenceVariables *currentParams, LALInferenceIFOData * data,
-                              LALInferenceModel *model);
 
 /**
  * For testing purposes (for instance sampling the prior),
@@ -184,6 +191,10 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState);
 /** Get the intrinsic parameters from currentParams */
 LALInferenceVariables LALInferenceGetInstrinsicParams(LALInferenceVariables *currentParams);
 
+/** fast SineGaussian likelihood for LIB */
+REAL8 LALInferenceFastSineGaussianLogLikelihood(LALInferenceVariables *currentParams,
+                                                        LALInferenceIFOData *data,
+                                                        LALInferenceModel *model);
 
 /** Calculate the SNR across the network */
 void LALInferenceNetworkSNR(LALInferenceVariables *currentParams, LALInferenceIFOData *data, LALInferenceModel *model);
