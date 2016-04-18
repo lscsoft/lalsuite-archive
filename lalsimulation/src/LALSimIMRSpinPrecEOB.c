@@ -653,7 +653,16 @@ int XLALSimIMRSpinEOBWaveform(
     /** stores harmonics of the full waveform in I-frame */
     SphHarmTimeSeries *hIMR = NULL;
 
+    REAL8Vector *Alpha_out = NULL;
+    REAL8Vector *Beta_out = NULL;
+    REAL8Vector *Gamma_out = NULL;
+    REAL8Vector *t_AlphaBeta_out = NULL;
+    REAL8Vector *Omega_out = NULL;
+    REAL8Vector *t_Omega_out = NULL;
+    REAL8 tAttach_final;
+
     ret = XLALSimIMRSpinEOBWaveformAll(hplus, hcross, &dynamicsHi, &hlmPTSout, &hlmPTSHi, &hIMRlmJTSHi, &hIMR, &AttachPars,
+                        &Alpha_out, &Beta_out, &Gamma_out, &t_AlphaBeta_out, &Omega_out, &t_Omega_out, &tAttach_final,
                         phiC, deltaT, m1SI, m2SI, fMin, r, inc, INspin1[0], INspin1[1], INspin1[2], INspin2[0], INspin2[1], INspin2[2]);
     if (ret == XLAL_SUCCESS){
         if (*hplus == NULL || *hcross == NULL){
@@ -672,6 +681,14 @@ int XLALSimIMRSpinEOBWaveform(
           XLALDestroyREAL8Vector( dynamicsHi );
     if(AttachPars)
           XLALDestroyREAL8Vector( AttachPars );
+
+    if(Alpha_out) XLALDestroyREAL8Vector(Alpha_out);
+    if(Beta_out) XLALDestroyREAL8Vector(Beta_out);
+    if(Gamma_out) XLALDestroyREAL8Vector(Gamma_out);
+    if(t_AlphaBeta_out) XLALDestroyREAL8Vector(t_AlphaBeta_out);
+    if(Omega_out) XLALDestroyREAL8Vector(Omega_out);
+    if(t_Omega_out) XLALDestroyREAL8Vector(t_Omega_out);
+
     if(hlmPTSout)
           XLALDestroySphHarmTimeSeries(hlmPTSout);
     if(hlmPTSHi)
@@ -733,6 +750,13 @@ int XLALSimIMRSpinEOBWaveformAll(
         SphHarmTimeSeries **hIMRlmJTSHiOutput, /**<< Here we store and return the JWaveIMR (high sampling) */
         SphHarmTimeSeries **hIMRoutput,       /**<< Here we store and return the IWave (full) */
         REAL8Vector     **AttachPars,   /**<< Parameters of RD attachment: */
+        REAL8Vector **Alpha_out,
+        REAL8Vector **Beta_out,
+        REAL8Vector **Gamma_out,
+        REAL8Vector **t_AlphaBeta_out,
+        REAL8Vector **Omega_out,
+        REAL8Vector **t_Omega_out,
+        REAL8 *tAttach_final,
         const REAL8      phiC,      /**<< intitial orbital phase */
         const REAL8     deltaT,     /**<< sampling time step */
         const REAL8     m1SI,       /**<< mass of first object in SI */
@@ -757,7 +781,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   INspin2[1] = INspin2y;
   INspin2[2] = INspin2z;
 
-  INT4 debugPK = 0, debugCustomIC = 0, debugNoNQC = 0;
+  INT4 debugPK = 1, debugCustomIC = 0, debugNoNQC = 0;
   INT4 debugRD = 0;
   FILE *out = NULL;
   INT4 i=0;
@@ -1131,6 +1155,10 @@ int XLALSimIMRSpinEOBWaveformAll(
     /* Memory for the calculation of the alpha(t) and beta(t) angles */
   REAL8Vector *Alpha = NULL, *Beta = NULL, *Gamma = NULL;
   REAL8Vector *AlphaHi = NULL,  *BetaHi = NULL, *GammaHi = NULL;
+  REAL8Vector *t_AlphaBeta = NULL; // MP
+  REAL8Vector *Omega_MP = NULL; // MP
+  REAL8Vector *t_Omega_MP = NULL; // MP
+
   /* Memory to help with rotation of dynamics */
   REAL8 JExnorm = 0;
   SphHarmTimeSeries  *hlmPTS = NULL;
@@ -1139,7 +1167,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   REAL8Sequence *tlistRDPatch = NULL;
 
   SphHarmTimeSeries *hlmPTSHi = NULL;
-  SphHarmTimeSeries *hlmPTSout = NULL;
+  //SphHarmTimeSeries *hlmPTSout = NULL; // MP: don't need this
   SphHarmTimeSeries *hIMRlmJTSHi = NULL;
 
   REAL8Sequence *tlistHi        = NULL;
@@ -2067,6 +2095,19 @@ int XLALSimIMRSpinEOBWaveformAll(
     EulerAnglesI2P(Alpha, Beta, Gamma, &phaseCounterA, &phaseCounterB, tVec, posVecx, posVecy, posVecz, retLenLow, 0., 0.5*LAL_PI, 0);
     //EulerAnglesI2P(Alpha, Beta, Gamma, &phaseCounterA, &phaseCounterB, tVec, posVecx, posVecy, posVecz, retLenLow, 0., 0.0, 0);
 
+    t_AlphaBeta = XLALCreateREAL8Vector( retLenLow );
+    Omega_MP = XLALCreateREAL8Vector( retLenLow );
+    t_Omega_MP = XLALCreateREAL8Vector( retLenLow );
+
+    for( i = 0; i < retLenLow; i++ )
+      t_AlphaBeta->data[i] = tVec.data[i]; // MP save times
+
+    // MP save angles
+    *Alpha_out = Alpha;
+    *Beta_out = Beta;
+    *Gamma_out = Gamma;
+    *t_AlphaBeta_out = t_AlphaBeta;
+
     if (debugPK){
         XLAL_PRINT_INFO("Writing Alpha and Beta angle timeseries at low SR to alphaANDbeta.dat\n" );
         fflush(NULL);
@@ -2440,6 +2481,9 @@ int XLALSimIMRSpinEOBWaveformAll(
     omega = sqrt(inner_product(rcrossrdot, rcrossrdot)) / (magR*magR);
     v = cbrt( omega );
 
+    Omega_MP->data[i] =  omega; // MP
+    t_Omega_MP->data[i] =  i*deltaT/mTScaled; // MP
+
     /* Cartesian vectors needed to calculate Hamiltonian */
     cartPosVec.length = cartMomVec.length = 3;
     cartPosVec.data = cartPosData;
@@ -2642,6 +2686,34 @@ int XLALSimIMRSpinEOBWaveformAll(
   h2m1PTS = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, -1);
   h2m2PTS = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, -2);
 
+  // MP: make a deep copy of hlmPTS
+  // create new TSs and a SphHarmTS
+  COMPLEX16TimeSeries *h22TS_save   = XLALCreateCOMPLEX16TimeSeries( "H_22", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow );
+  COMPLEX16TimeSeries *h21TS_save   = XLALCreateCOMPLEX16TimeSeries( "H_21", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow );
+  COMPLEX16TimeSeries *h20TS_save   = XLALCreateCOMPLEX16TimeSeries( "H_20", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow );
+  COMPLEX16TimeSeries *h2m1TS_save  = XLALCreateCOMPLEX16TimeSeries( "H_2m1", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow );
+  COMPLEX16TimeSeries *h2m2TS_save  = XLALCreateCOMPLEX16TimeSeries( "H_2m2", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow );
+  for ( i = 0; i < retLenLow; i++ ) {
+    h22TS_save->data->data[i] = h22PTS->data->data[i];
+    h21TS_save->data->data[i] = h21PTS->data->data[i];
+    h20TS_save->data->data[i] = h20PTS->data->data[i];
+    h2m1TS_save->data->data[i] = h2m1PTS->data->data[i];
+    h2m2TS_save->data->data[i] = h2m2PTS->data->data[i];
+  }
+  SphHarmTimeSeries  *hlmPTS_save = NULL;
+  hlmPTS_save = XLALSphHarmTimeSeriesAddMode( hlmPTS_save, h22TS_save, 2, 2 );
+  hlmPTS_save = XLALSphHarmTimeSeriesAddMode( hlmPTS_save, h21TS_save, 2, 1 );
+  hlmPTS_save = XLALSphHarmTimeSeriesAddMode( hlmPTS_save, h20TS_save, 2, 0 );
+  hlmPTS_save = XLALSphHarmTimeSeriesAddMode( hlmPTS_save, h2m1TS_save, 2, -1 );
+  hlmPTS_save = XLALSphHarmTimeSeriesAddMode( hlmPTS_save, h2m2TS_save, 2, -2 );
+  REAL8Sequence *tlist_save = XLALCreateREAL8Vector( retLenLow );
+  for ( i = 0; i < retLenLow; i++ )
+    //tlist_save->data[i] = tlist->data[i];
+    tlist_save->data[i] = i*deltaT/mTScaled;
+  XLALSphHarmTimeSeriesSetTData( hlmPTS_save, tlist_save );
+  *hlmPTSoutput = hlmPTS_save; // MP: return this
+  // end MP
+
   /* Write waveforms in precessing frame */
   if (debugPK) {
     XLAL_PRINT_INFO("YP: SphHarmTS structures populated.\n"); fflush(NULL);
@@ -2662,6 +2734,8 @@ int XLALSimIMRSpinEOBWaveformAll(
     fflush(NULL);
   }
 
+  *Omega_out = Omega_MP; // MP
+  *t_Omega_out = t_Omega_MP; // MP
 
   /* Main loop for quasi-nonprecessing waveform generation -- HIGH SR */
     if ( !(alphaI2PTSHi = XLALCreateREAL8TimeSeries( "alphaI2P", &tc, 0.0, deltaT, &lalStrainUnit, retLenHi )) + !(betaI2PTSHi = XLALCreateREAL8TimeSeries(  "betaI2P", &tc, 0.0, deltaT, &lalStrainUnit, retLenHi )) + !(gammaI2PTSHi = XLALCreateREAL8TimeSeries( "gammaI2P", &tc, 0.0, deltaT, &lalStrainUnit, retLenHi )) + !(alphaP2JTSHi = XLALCreateREAL8TimeSeries( "alphaP2J", &tc, 0.0, deltaT, &lalStrainUnit, retLenHi )) + !(betaP2JTSHi = XLALCreateREAL8TimeSeries(  "betaP2J", &tc, 0.0, deltaT, &lalStrainUnit, retLenHi )) + !(gammaP2JTSHi = XLALCreateREAL8TimeSeries( "gammaP2J", &tc, 0.0, deltaT, &lalStrainUnit, retLenHi )) )
@@ -2940,12 +3014,14 @@ int XLALSimIMRSpinEOBWaveformAll(
   hlmPTSHi = XLALSphHarmTimeSeriesAddMode( hlmPTSHi, h2m2TSHi, 2, -2 );
   XLALSphHarmTimeSeriesSetTData( hlmPTSHi, tlistHi );
 
-  hlmPTSout = XLALSphHarmTimeSeriesAddMode( hlmPTSout, h22TSHi, 2, 2 );
-  hlmPTSout = XLALSphHarmTimeSeriesAddMode( hlmPTSout, h21TSHi, 2, 1 );
-  hlmPTSout = XLALSphHarmTimeSeriesAddMode( hlmPTSout, h20TSHi, 2, 0 );
-  hlmPTSout = XLALSphHarmTimeSeriesAddMode( hlmPTSout, h2m1TSHi, 2, -1 );
-  hlmPTSout = XLALSphHarmTimeSeriesAddMode( hlmPTSout, h2m2TSHi, 2, -2 );
-  *hlmPTSoutput = hlmPTSout;
+  // MP comment this out as we want to return low res PTS in hlmPTSoutput
+  // hlmPTSout = XLALSphHarmTimeSeriesAddMode( hlmPTSout, h22TSHi, 2, 2 );
+  // hlmPTSout = XLALSphHarmTimeSeriesAddMode( hlmPTSout, h21TSHi, 2, 1 );
+  // hlmPTSout = XLALSphHarmTimeSeriesAddMode( hlmPTSout, h20TSHi, 2, 0 );
+  // hlmPTSout = XLALSphHarmTimeSeriesAddMode( hlmPTSout, h2m1TSHi, 2, -1 );
+  // hlmPTSout = XLALSphHarmTimeSeriesAddMode( hlmPTSout, h2m2TSHi, 2, -2 );
+  // *hlmPTSoutput = hlmPTSout;
+  // end MP
 
   h22PTSHi  = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, 2 );
   h21PTSHi  = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, 1 );
@@ -3356,10 +3432,10 @@ int XLALSimIMRSpinEOBWaveformAll(
           invAmpmax = invAmp->data[i];
       }
   } 
-  if(debugPK){  
+  if(debugPK){
       XLAL_PRINT_INFO("We set tc = %.16e, %.16e \n", (tlistRDPatchHi->data[i_maxiA] ), -mTScaled * (tlistRDPatchHi->data[i_maxiA] ));
   }
-
+  *tAttach_final = tlistRDPatchHi->data[i_maxiA]; // MP: is this the correct expression for the final RD attachment time?
 
   /* Having found the time of peak, we set the time of coalescence */
   //XLALGPSAdd(&tc, -mTScaled * (tPeakOmega + HiSRstart) );
@@ -3409,7 +3485,9 @@ int XLALSimIMRSpinEOBWaveformAll(
          if (i*deltaT/mTScaled > HiSRstart) break;//Andrea
          hIMRJTS->data->data[i] = hJTS->data->data[i];
      }
-      int idxRD = i; //Andrea
+     int idxRD = i; //Andrea
+     // now fill values beyond attachment? point
+     // real part
      spline = gsl_spline_alloc( gsl_interp_cspline, retLenHi + retLenRDPatchHi);
      acc    = gsl_interp_accel_alloc();
      gsl_spline_init( spline, tlistRDPatchHi->data, sigReHi->data, retLenHi + retLenRDPatchHi);
@@ -3423,7 +3501,7 @@ int XLALSimIMRSpinEOBWaveformAll(
       }
      gsl_spline_free(spline);
      gsl_interp_accel_free(acc);
-
+     // imaginary part
      spline = gsl_spline_alloc( gsl_interp_cspline, retLenHi + retLenRDPatchHi);
      acc    = gsl_interp_accel_alloc();
      gsl_spline_init( spline,
@@ -3499,15 +3577,15 @@ int XLALSimIMRSpinEOBWaveformAll(
    betI        = XLALCreateREAL8TimeSeries( "betaJ2I", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
    gamI        = XLALCreateREAL8TimeSeries( "gammaJ2I", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
 
-  /** NOTE we are making again transformation between notations of Arun et. al adopted here and 
-   * Wiegner matrix (active rotation) coded up in LAL */
+  /** NOTE we are making again transformation between notations of Arun et. al adopted here and
+   * Wigner matrix (active rotation) coded up in LAL */
   for (i=0; i< retLenLow + retLenRDPatchLow; i++){
       alpI->data->data[i] = -alJtoI;
       betI->data->data[i] = betJtoI;
       gamI->data->data[i] = -gamJtoI;
   }
   for (i=0; i<(int)tlistRDPatch->length; i++){
-      timeIFull->data[i] = tlistRDPatch->data[i];    
+      timeIFull->data[i] = tlistRDPatch->data[i];
   }
 
   hIMRlmITS = XLALSphHarmTimeSeriesAddMode( hIMRlmITS, hIMR22JTS, 2, 2 );
@@ -3622,7 +3700,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     XLALDestroyCOMPLEX16TimeSeries(h20TS);
     XLALDestroyCOMPLEX16TimeSeries(h2m1TS);
     XLALDestroyCOMPLEX16TimeSeries(h2m2TS);
-    XLALDestroySphHarmTimeSeries(hlmPTS);
+    // XLALDestroySphHarmTimeSeries(hlmPTS); // MP keep this as we want to return a pointer to it
     XLALDestroySphHarmTimeSeries(hIMRlmJTS);
     XLALDestroySphHarmTimeSeries(hIMRlmITS);
     XLALDestroyCOMPLEX16TimeSeries(hIMRJTS);
@@ -3640,11 +3718,11 @@ int XLALSimIMRSpinEOBWaveformAll(
     XLALDestroyREAL8Vector( sigImHi );
     XLALAdaptiveRungeKutta4Free(integrator);
     XLALDestroyREAL8Array( dynamics );
-    XLALDestroyREAL8Vector( Alpha );
-    XLALDestroyREAL8Vector( Beta );
+    // XLALDestroyREAL8Vector( Alpha );
+    // XLALDestroyREAL8Vector( Beta );
     XLALDestroyREAL8Vector( AlphaHi );
     XLALDestroyREAL8Vector( BetaHi );
-    XLALDestroyREAL8Vector( Gamma );
+    // XLALDestroyREAL8Vector( Gamma );
     XLALDestroyREAL8Vector( GammaHi );
     XLALDestroyREAL8TimeSeries( alpI);
     XLALDestroyREAL8TimeSeries( betI);
