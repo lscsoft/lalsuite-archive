@@ -512,7 +512,7 @@ int coh_PTF_parse_options(struct coh_PTF_params *params,int argc,char **argv )
     localparams.analEndPoint -= floor(\
         0.5 * localparams.truncateDuration * localparams.sampleRate + 0.5); 
     /* Remove the buffer points */
-    localparams.analEndPoint -= localparams.numBufferPoints;
+    /*localparams.analEndPoint -= localparams.numBufferPoints;*/
     /* And set the start point */
     localparams.analStartPoint = localparams.analEndPoint - \
         0.5*localparams.numTimePoints;
