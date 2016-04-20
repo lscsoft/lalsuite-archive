@@ -52,7 +52,7 @@
 #include "LALSimIMRSpinAlignedEOBHcapDerivativeOptimized.c"
 /* END OPTIMIZED */
 
-#define debugOutput 0
+#define debugOutput 1
 
 //static int debugPK = 0;
 
@@ -1104,6 +1104,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   fclose(out);
   printf("NQCs entering hNQC: %f, %f, %f, %f, %f, %f\n", nqcCoeffs.a1, nqcCoeffs.a2,nqcCoeffs.a3, nqcCoeffs.a3S, nqcCoeffs.a4, nqcCoeffs.a5 );
   printf("NQCs entering hNQC: %f, %f, %f, %f\n", nqcCoeffs.b1, nqcCoeffs.b2,nqcCoeffs.b3, nqcCoeffs.b4 );
+  printf("Stas, again: timePeak = %f, timewavePeak = %f \n", timePeak, timewavePeak);
   #endif
   if (timewavePeak < 1.0e-16 || peakCount == 0)
   {
@@ -1160,7 +1161,8 @@ int XLALSimIMRSpinAlignedEOBWaveform(
     XLALPrintError( "The comb size looks to be too big!!!\n" );
   }
 
-  rdMatchPoint->data[0] = combSize < timePeak - timeshiftPeak ? timePeak - timeshiftPeak - combSize : 0;
+  //rdMatchPoint->data[0] = combSize < timePeak - timeshiftPeak ? timePeak - timeshiftPeak - combSize : 0;
+  rdMatchPoint->data[0] = timePeak + 2.0*deltaTHigh;
   rdMatchPoint->data[1] = timePeak - timeshiftPeak;
   rdMatchPoint->data[2] = dynamicsHi->data[finalIdx];
   #if debugOutput
@@ -1168,13 +1170,13 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   #endif
   rdMatchPoint->data[0] -= fmod( rdMatchPoint->data[0], deltaTHigh/mTScaled );
   rdMatchPoint->data[1] -= fmod( rdMatchPoint->data[1], deltaTHigh/mTScaled );
-  /*if ( XLALSimIMREOBHybridAttachRingdown( sigReHi, sigImHi, 2, 2,
-              deltaTHigh, m1, m2, spin1[0], spin1[1], spin1[2], spin2[0], spin2[1], spin2[2],
-              &timeHi, rdMatchPoint, SpinAlignedEOBapproximant )
-          == XLAL_FAILURE ) 
-  {
-    XLAL_ERROR( XLAL_EFUNC );
-  }*/
+  //if ( XLALSimIMREOBHybridAttachRingdown( sigReHi, sigImHi, 2, 2,
+  //            deltaTHigh, m1, m2, spin1[0], spin1[1], spin1[2], spin2[0], spin2[1], spin2[2],
+  //            &timeHi, rdMatchPoint, SpinAlignedEOBapproximant )
+  //        == XLAL_FAILURE ) 
+  //{
+  //  XLAL_ERROR( XLAL_EFUNC );
+  //}
   if ( XLALSimIMREOBAttachFitRingdown( sigReHi, sigImHi, 2, 2,
               deltaTHigh, m1, m2, spin1[0], spin1[1], spin1[2], spin2[0], spin2[1], spin2[2],
               &timeHi, rdMatchPoint, SpinAlignedEOBapproximant )

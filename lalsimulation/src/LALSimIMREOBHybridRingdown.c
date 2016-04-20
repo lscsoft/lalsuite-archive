@@ -461,6 +461,10 @@ static UNUSED INT4 XLALSimIMREOBHybridAttachRingdown(
         XLALDestroyCOMPLEX16Vector( modefreqs );
         XLAL_ERROR( XLAL_EFUNC );
       }
+      //UINT4 i;
+      //for (i=0; i<nmodes; i++){
+      //    printf("Stas mode %d: %f + i %f \n", i, creal(modefreqs->data[i]), cimag(modefreqs->data[i]));
+      //}
 
       /* Call XLALSimIMREOBFinalMassSpin() to get mass and spin of the final black hole */
       if ( XLALSimIMREOBFinalMassSpin(&finalMass, &finalSpin, mass1, mass2, spin1, spin2, approximant) == XLAL_FAILURE )
@@ -814,68 +818,99 @@ static UNUSED INT4 XLALSimIMREOBAttachFitRingdown(
     }
 
     COMPLEX16 sigma220;
-    sigma220 = -1.0*modefreqs->data[0];
+    //sigma220 = -1.0*modefreqs->data[0]*(mtot * LAL_MTSUN_SI);
+    //sigma220 = (I*modefreqs->data[0]*(mtot * LAL_MTSUN_SI));
+    //sigma220 = -0.0609 - I*0.8326;
+    sigma220 = (-cimag(modefreqs->data[0]) - I*creal(modefreqs->data[0])) * (mtot * LAL_MTSUN_SI);
      
-    
+    if (debugSB){
+        printf("Final mass = %f, final spin = %f\n", finalMass, finalSpin);
+        printf("matchpoints are: %f,  %f,   %f \n", matchrange->data[0], matchrange->data[1], matchrange->data[2]);
+        printf("the 0-overtone is: %f + i %f \n",  creal(sigma220), cimag(sigma220) );
+    }
     /*  Compute amplitude and the phase of the data */
     phasecount = 0;
     for (i=0; i<signal1->length; i++){
-        ampWave->data[i] = sqrt(signal1->data[i]*signal1->data[i] + signal2->data[i]*signal2->data[i]);
-        phWave->data[i] = atan2(signal2->data[i], signal1->data[1]);
-        if ( i>0){
-           if( i>0 && phWave->data[i] - phWave->data[i-1] > 1.01*LAL_PI){
-               phWave->data[i] -= LAL_TWOPI;
-               phasecount  = phasecount -1;
-           }
-           else if( i>0 && phWave->data[i] - phWave->data[i-1] < -1.01*LAL_PI){
-               phWave->data[i] += LAL_TWOPI;
-               phasecount  = phasecount +1;
-           }
-        }
-  
+        ampWave->data[i] = 0.0;
+        phWave->data[i] = 0.0;
     }
+    REAL8 prev, now, corph;
+    prev = atan2(signal2->data[0], signal1->data[0]);
+    phWave->data[0] = prev;
+    for (i=0; i<timeVec->length; i++){
+        if (timeVec->data[i] <= matchrange->data[0]){
+            ampWave->data[i] = sqrt(signal1->data[i]*signal1->data[i] + signal2->data[i]*signal2->data[i]);
+            now = atan2(signal2->data[i], signal1->data[i]);
+            if ( i>0 ){
+                corph = now-prev;
+                corph = corph > LAL_PI ? corph - LAL_TWOPI : (corph < -LAL_PI ? corph + LAL_TWOPI : corph);
+
+                phWave->data[i] = phWave->data[i-1] + corph;
+                prev = now; 
+            }
+            //phWave->data[i] = now;
+        }
+    }
+            //if ( i>0){
+            //   if( i>0 && phWave->data[i] - phWave->data[i-1] > LAL_PI){
+            //       phasecount  = phasecount -1;
+            //       //phWave->data[i] += (LAL_TWOPI*phasecount);
+            //       printf("Stas phasecount %d, %d %f  %f  %f\n", i, phasecount, 
+            //               timeVec->data[i], phWave->data[i], phWave->data[i-1]);
+            //       phWave->data[i] -= LAL_TWOPI;
+            //   }
+            //   else if( i>0 && phWave->data[i] - phWave->data[i-1] < -1.0*LAL_PI){
+            //       //phasecount  = phasecount +1;
+            //       //phWave->data[i] += (LAL_TWOPI*phasecount);
+            //       phWave->data[i] += LAL_TWOPI;
+    FILE *fout = NULL;
     if (debugSB){
-         FILE *out = NULL;
-         out = fopen("CheckStasAmplPhase.dat", "w");
+         fout = fopen("CheckStasAmplPhase.dat", "w");
          printf("Check the length: time %d, signal %d \n", timeVec->length, signal1->length);
-         for (i=0; i<signal1->length; i++){
-             fprintf(out, "%f   %f   %f \n", timeVec->data[i], ampWave->data[i], phWave->data[i]);
+         for (i=0; i<timeVec->length; i++){
+             fprintf(fout, "%f   %.16e   %.16e   %.16e   %.16e  \n", timeVec->data[i], ampWave->data[i], 
+                     phWave->data[i], signal1->data[i], signal2->data[i]);
          }
        
-         fclose(out);
+         fclose(fout);
     }
 
      /** Search for the maximum of the amplitude, which is not necessary (I think), since the rdMatch 
       * tells us where maximum is */
-    INT4 indAmax;
+    UINT4 indAmax;
     REAL8 valAmax;
     REAL8 tofAmax;
 
     indAmax = 0;
     valAmax = ampWave->data[0];
     tofAmax = timeVec->data[0];
-    for (i=1; i<ampWave->length-1; i++){
+    //for (i=1; i<ampWave->length-1; i++){
+    for (i=1; i<timeVec->length-1; i++){
          if (ampWave->data[i-1] <= ampWave->data[i] && ampWave->data[i] > ampWave->data[i+1]){
              indAmax = i;
              valAmax = ampWave->data[i];
              tofAmax= timeVec->data[i];
+             printf("max i=%d  t= %f, amp = %.16e \n", i, timeVec->data[i], ampWave->data[i]);
+             break;
          }
     }
     if(debugSB){
-         printf("Check: The maximum of amplitude is %f found at t=%f, index = %d (out of %d) \n", 
+         printf("Check: The maximum of amplitude is %.16e found at t=%f, index = %d (out of %d) \n", 
                 valAmax, tofAmax, indAmax, timeVec->length);
-         printf("compare it to the supplied time of peak: %f \n", matchrange->data[1]);
+         printf("compare it to the supplied time of peak: %f %f \n", matchrange->data[0], matchrange->data[1]);
     }
      
     /* Ringdown signal length: 10 times the decay time of the n=0 mode */
+    //UINT4 Nrdwave = (INT4) (EOB_RD_EFOLDS / (cimag(modefreqs->data[0])*(mtot * LAL_MTSUN_SI)) / dt);
     UINT4 Nrdwave = (INT4) (EOB_RD_EFOLDS / cimag(modefreqs->data[0]) / dt);
 
      
-
+    printf("Stas Nrdwave %d,  dt = %f", Nrdwave, dt);
     // FIXME Alejandro started from dt not from 0, is it important?
+    REAL8 dtM = dt/(mtot * LAL_MTSUN_SI);   // go to geometrica units
     rdtime = XLALCreateREAL8Vector( Nrdwave );
     for (i=0; i<Nrdwave; i++){
-         rdtime->data[i] = i*dt; // this time for RD and it starts with 0 (Alejandro's time starts with 
+         rdtime->data[i] = i*dtM; // this time for RD and it starts with 0 (Alejandro's time starts with 
     }
 
     /** Computing fit coefficients */ 
@@ -934,15 +969,36 @@ static UNUSED INT4 XLALSimIMREOBAttachFitRingdown(
     REAL8Vector		*phRD;
     ampRD =  XLALCreateREAL8Vector( Nrdwave );
     phRD = XLALCreateREAL8Vector( Nrdwave );
+    
 
     for (i=0; i<Nrdwave; i++){
         ampRD->data[i] = eta*exp( creal(sigma220)* rdtime->data[i] )*
             (ampcc1*tanh(ampcf1*rdtime->data[i]+ampcf2)+ampcc2);
 
     }
+    if (debugSB){
+        fout = fopen("StasAmpRD.dat", "w");
+        for (i=0; i<Nrdwave; i++){
+            fprintf(fout, "%.16e   %.16e   %.16e   %.16e \n", rdtime->data[i], ampRD->data[i],
+                    eta*exp( creal(sigma220)* rdtime->data[i] ), 
+                    (ampcc1*tanh(ampcf1*rdtime->data[i]+ampcf2)+ampcc2) );
+        }
+        fclose(fout);
+    }
+    if (debugSB){
+        fout = fopen("StasAmpRD_full.dat", "w");
+        for (i=0; i<indAmax; i++){
+            fprintf(fout, "%.16e    %.16e \n", timeVec->data[i]/(mtot * LAL_MTSUN_SI), ampWave->data[i]);
+        }
+        for (i=0; i<Nrdwave; i++){
+            fprintf(fout, "%.16e    %.16e \n", rdtime->data[i]+tofAmax/(mtot * LAL_MTSUN_SI), ampRD->data[i]);
+        }
+        fclose(fout);
+    }     
 
-    // check taht we have indAmax-1
-    REAL8 omegarescaledtcons = (phWave->data[indAmax] - phWave->data[indAmax-1])/dt -cimag(sigma220); 
+
+    // check that we have indAmax-1
+    REAL8 omegarescaledtcons = (phWave->data[indAmax] - phWave->data[indAmax-1])/dtM -cimag(sigma220); 
     //    (phasecutatpeak[-1]-phasecutatpeak[-2])/dt - sigma220.imag
     REAL8 phasecc1 = omegarescaledtcons * ( phasecf2 + 1.0)/phasecf2/phasecf1;
     REAL8 phi0 = phWave->data[indAmax];
@@ -953,6 +1009,65 @@ static UNUSED INT4 XLALSimIMREOBAttachFitRingdown(
         logargden = 1. + phasecf2;
         phRD->data[i] = phi0-phasecc1*log(logargnum/logargden)+cimag(sigma220)*rdtime->data[i];
     }
+
+    if (debugSB){
+        fout = fopen("StasPhRD_full.dat", "w");
+        for (i=0; i<indAmax; i++){
+            fprintf(fout, "%.16e    %.16e \n", timeVec->data[i], phWave->data[i]);
+        }
+        for (i=0; i<Nrdwave; i++){
+            fprintf(fout, "%.16e    %.16e \n", rdtime->data[i]+tofAmax, phRD->data[i]);
+        }
+        fclose(fout);
+
+        // Compute the frequency of the ful signal
+        UINT4 totSz = indAmax + Nrdwave;
+        REAL8Vector* PhFull;
+        PhFull = XLALCreateREAL8Vector( totSz );
+        REAL8Vector* tFull;
+        tFull = XLALCreateREAL8Vector( totSz );
+        REAL8Vector* frFull;
+        frFull = XLALCreateREAL8Vector( totSz );
+
+        
+        for (i=0; i<indAmax; i++){
+            tFull->data[i] =  timeVec->data[i];
+            PhFull->data[i] = phWave->data[i];
+        }
+        for (i=0; i<Nrdwave; i++){
+            tFull->data[i+indAmax] =  rdtime->data[i]+tofAmax;
+            PhFull->data[i+indAmax] = phRD->data[i];
+        }
+        fout = fopen("StasPhRD_full2.dat", "w");
+        for (i=0; i<totSz; i++){
+            fprintf(fout, "%.16e   %.16e \n", tFull->data[i], PhFull->data[i]);
+        }
+        fclose(fout);
+
+        gsl_spline    *spline = NULL;
+        gsl_interp_accel *acc = NULL;
+        spline = gsl_spline_alloc( gsl_interp_cspline, totSz );
+        acc  = gsl_interp_accel_alloc();
+        gsl_spline_init( spline, tFull->data, PhFull->data, totSz);
+        for (i=0; i<totSz; i++){
+                frFull->data[i] = gsl_spline_eval_deriv( spline, tFull->data[i], acc );
+        }
+        fout = fopen("StasFrRD_full.dat", "w");
+        for (i=0; i<totSz; i++){
+            fprintf(fout, "%.16e   %.16e \n", tFull->data[i], frFull->data[i]);
+        }
+        fclose(fout);
+
+
+        gsl_spline_free( spline );
+        gsl_interp_accel_free( acc );
+
+        XLALDestroyREAL8Vector( PhFull );
+        XLALDestroyREAL8Vector( tFull );
+        XLALDestroyREAL8Vector( frFull );
+
+    }     
+
     
     //FIXME check the size of signal1, signal2 
     //FIXME check continuity at the attachment point (max of amplitude) 
