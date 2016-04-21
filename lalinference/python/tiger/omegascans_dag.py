@@ -260,13 +260,17 @@ def get_framedir(trigtime,timeslide,ifo,frametype):
   datafind_stdout,datafind_stderr = system_call(command)
   if not datafind_stdout:
     print datafind_stderr
-    exit("gw_data_find failed, exiting...")
+    print "gw_data_find failed for %.3f"%scantime
+    return ""
+    #exit("gw_data_find failed, exiting...")
   gwf_file = datafind_stdout.replace("file://localhost","").strip()
   gwf_dir = os.path.dirname(gwf_file).strip()
 
   #An extra check to be sure the output was not gibberish
   if not os.path.isfile(gwf_file):
-    exit("%s is not a file or does not exist, exiting..."%gwf_file)
+    print "%s is not a file or does not exist, skipping..."%gwf_file
+    return ""
+    #exit("%s is not a file or does not exist, exiting..."%gwf_file)
 
   return gwf_dir
 
@@ -428,14 +432,16 @@ class OmegaScansDAG(pipeline.CondorDAG):
         if info['logodds'][n] > self.oddslimit['low'] and info['logodds'][n] < self.oddslimit['high']:
           for ifo in self.ifos:
             node = OmegaScanNode(info['trigtime'][n],info[ifo][n],ifo,self.frametypes[ifo],self.configfiles[ifo],self.outpath,job)
-            timeslides[ifo] = info[ifo][n]
-            self.add_node(node)
+            if node.framedir != "":
+              timeslides[ifo] = info[ifo][n]
+              self.add_node(node)
           self.add_table_entry(info['trigtime'][n],timeslides,self.ifos,info['logodds'][n])
       else:
         for ifo in self.ifos:
           node = OmegaScanNode(info['trigtime'][n],info[ifo][n],ifo,self.frametypes[ifo],self.configfiles[ifo],self.outpath,job)
-          timeslides[ifo] = info[ifo][n]
-          self.add_node(node)
+          if node.framedir != "":  
+            timeslides[ifo] = info[ifo][n]
+            self.add_node(node)
         self.add_table_entry(info['trigtime'][n],timeslides,self.ifos,0.0)
     print "succes!"
 
@@ -444,7 +450,10 @@ class OmegaScansDAG(pipeline.CondorDAG):
   def add_table_entry(self,trigtime,timeslides,ifos,logodds):
     table_entry = {}
     for ifo in ifos:
-      table_entry[ifo]=timeslides[ifo]
+      if timeslides.has_key(ifo):
+        table_entry[ifo]=timeslides[ifo]
+      else:
+        table_entry[ifo]=0.
     table_entry['trigtime']=trigtime
     table_entry['logodds']=logodds
 
@@ -604,21 +613,22 @@ class OmegaScanNode(pipeline.CondorDAGNode):
 
   def __init__(self,trigtime,timeslide,ifo,frametype,configfile,outdir,job,logodds=None):
     self.framedir=get_framedir(trigtime,timeslide,ifo,frametype)
-    pipeline.CondorDAGNode.__init__(self,job)
-    self.__finalized=False
-    scantime = trigtime+timeslide
+    if self.framedir != "":
+      pipeline.CondorDAGNode.__init__(self,job)
+      self.__finalized=False
+      scantime = trigtime+timeslide
 
-    #sometimes there are unwanted lockfiles lying around.
-    #they will be removed, but the user is warned
-    lockfile = os.path.join(outdir,"scan_%.0f"%trigtime,"%s_%.2f"%(ifo,scantime),"lock.txt")
-    if os.path.isfile(lockfile):
-      print "WARNING: lock file found in output directory.\n         Deleting it now, but check that you did not forget to stop some ongoing run."
-      system_call('rm %s'%lockfile)
+      #sometimes there are unwanted lockfiles lying around.
+      #they will be removed, but the user is warned
+      lockfile = os.path.join(outdir,"scan_%.0f"%trigtime,"%s_%.2f"%(ifo,scantime),"lock.txt")
+      if os.path.isfile(lockfile):
+        print "WARNING: lock file found in output directory.\n         Deleting it now, but check that you did not forget to stop some ongoing run."
+        system_call('rm %s'%lockfile)
 
-    self.add_var_arg('%.3f'%scantime)
-    self.add_var_opt("outdir",os.path.join(outdir,"scan_%.0f"%trigtime,"%s_%.2f"%(ifo,scantime)))
-    self.add_var_opt("configuration",configfile)
-    self.add_var_opt("framecache",self.framedir)
+      self.add_var_arg('%.3f'%scantime)
+      self.add_var_opt("outdir",os.path.join(outdir,"scan_%.0f"%trigtime,"%s_%.2f"%(ifo,scantime)))
+      self.add_var_opt("configuration",configfile)
+      self.add_var_opt("framecache",self.framedir)
 
   def finalize(self):
     if self.__finalized:
