@@ -28,6 +28,7 @@
 
 
 #include <math.h>
+#include <stdio.h>
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
 #include <lal/FileIO.h>
@@ -558,6 +559,7 @@ int XLALGenerateBandAndTimeLimitedWhiteNoiseBurst(
 {
 	int length;
 	LIGOTimeGPS epoch;
+	printf("Make tildes");
 	COMPLEX16FrequencySeries *tilde_hplus, *tilde_hcross;
 	REAL8Window *window;
 	REAL8FFTPlan *plan;
@@ -731,7 +733,6 @@ int XLALGenerateBandAndTimeLimitedWhiteNoiseBurst(
 		(*hcross)->data->data[i] *= window->data->data[i];
 	}
 	XLALDestroyREAL8Window(window);
-
 	/* done */
 
 	return 0;
