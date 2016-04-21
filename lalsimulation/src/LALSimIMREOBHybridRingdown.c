@@ -818,8 +818,6 @@ static UNUSED INT4 XLALSimIMREOBAttachFitRingdown(
     }
 
     COMPLEX16 sigma220;
-    //sigma220 = -1.0*modefreqs->data[0]*(mtot * LAL_MTSUN_SI);
-    //sigma220 = (I*modefreqs->data[0]*(mtot * LAL_MTSUN_SI));
     //sigma220 = -0.0609 - I*0.8326;
     sigma220 = (-cimag(modefreqs->data[0]) - I*creal(modefreqs->data[0])) * (mtot * LAL_MTSUN_SI);
      
@@ -838,31 +836,17 @@ static UNUSED INT4 XLALSimIMREOBAttachFitRingdown(
     prev = atan2(signal2->data[0], signal1->data[0]);
     phWave->data[0] = prev;
     for (i=0; i<timeVec->length; i++){
-        if (timeVec->data[i] <= matchrange->data[0]){
-            ampWave->data[i] = sqrt(signal1->data[i]*signal1->data[i] + signal2->data[i]*signal2->data[i]);
-            now = atan2(signal2->data[i], signal1->data[i]);
-            if ( i>0 ){
-                corph = now-prev;
-                corph = corph > LAL_PI ? corph - LAL_TWOPI : (corph < -LAL_PI ? corph + LAL_TWOPI : corph);
+        ampWave->data[i] = sqrt(signal1->data[i]*signal1->data[i] + signal2->data[i]*signal2->data[i]);
+        now = atan2(signal2->data[i], signal1->data[i]);
+        if ( i>0 ){
+            corph = now-prev;
+            corph = corph > LAL_PI ? corph - LAL_TWOPI : (corph < -LAL_PI ? corph + LAL_TWOPI : corph);
 
-                phWave->data[i] = phWave->data[i-1] + corph;
-                prev = now; 
-            }
-            //phWave->data[i] = now;
+            phWave->data[i] = phWave->data[i-1] + corph;
+            prev = now; 
         }
+            //phWave->data[i] = now;
     }
-            //if ( i>0){
-            //   if( i>0 && phWave->data[i] - phWave->data[i-1] > LAL_PI){
-            //       phasecount  = phasecount -1;
-            //       //phWave->data[i] += (LAL_TWOPI*phasecount);
-            //       printf("Stas phasecount %d, %d %f  %f  %f\n", i, phasecount, 
-            //               timeVec->data[i], phWave->data[i], phWave->data[i-1]);
-            //       phWave->data[i] -= LAL_TWOPI;
-            //   }
-            //   else if( i>0 && phWave->data[i] - phWave->data[i-1] < -1.0*LAL_PI){
-            //       //phasecount  = phasecount +1;
-            //       //phWave->data[i] += (LAL_TWOPI*phasecount);
-            //       phWave->data[i] += LAL_TWOPI;
     FILE *fout = NULL;
     if (debugSB){
          fout = fopen("CheckStasAmplPhase.dat", "w");
@@ -883,21 +867,37 @@ static UNUSED INT4 XLALSimIMREOBAttachFitRingdown(
 
     indAmax = 0;
     valAmax = ampWave->data[0];
-    tofAmax = timeVec->data[0];
+    //tofAmax = timeVec->data[0];
+    tofAmax = matchrange->data[1];
     //for (i=1; i<ampWave->length-1; i++){
+    INT4 found = 0;
     for (i=1; i<timeVec->length-1; i++){
-         if (ampWave->data[i-1] <= ampWave->data[i] && ampWave->data[i] > ampWave->data[i+1]){
+         
+         if (timeVec->data[i] == tofAmax){
+             found = 1;
              indAmax = i;
              valAmax = ampWave->data[i];
-             tofAmax= timeVec->data[i];
-             printf("max i=%d  t= %f, amp = %.16e \n", i, timeVec->data[i], ampWave->data[i]);
-             break;
          }
+         //if (ampWave->data[i-1] <= ampWave->data[i] && ampWave->data[i] > ampWave->data[i+1]){
+         //    indAmax = i;
+         //    valAmax = ampWave->data[i];
+         //    tofAmax= timeVec->data[i];
+         //    printf("max i=%d  t= %f, amp = %.16e \n", i, timeVec->data[i], ampWave->data[i]);
+         //    break;
+         //}
+    }
+    if (found == 0){
+        printf(" time of maximum amplitude is not found ");
+        exit(1);
+    }else{
+        if (debugSB){
+            printf(" found maximum times: %f,   %f \n", timeVec->data[indAmax], matchrange->data[1]);
+        }
     }
     if(debugSB){
          printf("Check: The maximum of amplitude is %.16e found at t=%f, index = %d (out of %d) \n", 
                 valAmax, tofAmax, indAmax, timeVec->length);
-         printf("compare it to the supplied time of peak: %f %f \n", matchrange->data[0], matchrange->data[1]);
+         //printf("compare it to the supplied time of peak: %f %f \n", matchrange->data[0], matchrange->data[1]);
     }
      
     /* Ringdown signal length: 10 times the decay time of the n=0 mode */
@@ -905,7 +905,7 @@ static UNUSED INT4 XLALSimIMREOBAttachFitRingdown(
     UINT4 Nrdwave = (INT4) (EOB_RD_EFOLDS / cimag(modefreqs->data[0]) / dt);
 
      
-    printf("Stas Nrdwave %d,  dt = %f", Nrdwave, dt);
+    //printf("Stas Nrdwave %d,  dt = %f", Nrdwave, dt);
     // FIXME Alejandro started from dt not from 0, is it important?
     REAL8 dtM = dt/(mtot * LAL_MTSUN_SI);   // go to geometrica units
     rdtime = XLALCreateREAL8Vector( Nrdwave );
@@ -976,22 +976,22 @@ static UNUSED INT4 XLALSimIMREOBAttachFitRingdown(
             (ampcc1*tanh(ampcf1*rdtime->data[i]+ampcf2)+ampcc2);
 
     }
-    if (debugSB){
-        fout = fopen("StasAmpRD.dat", "w");
-        for (i=0; i<Nrdwave; i++){
-            fprintf(fout, "%.16e   %.16e   %.16e   %.16e \n", rdtime->data[i], ampRD->data[i],
-                    eta*exp( creal(sigma220)* rdtime->data[i] ), 
-                    (ampcc1*tanh(ampcf1*rdtime->data[i]+ampcf2)+ampcc2) );
-        }
-        fclose(fout);
-    }
+    //if (debugSB){
+    //    fout = fopen("StasAmpRD.dat", "w");
+    //    for (i=0; i<Nrdwave; i++){
+    //        fprintf(fout, "%.16e   %.16e   %.16e   %.16e \n", rdtime->data[i], ampRD->data[i],
+    //                eta*exp( creal(sigma220)* rdtime->data[i] ), 
+    //                (ampcc1*tanh(ampcf1*rdtime->data[i]+ampcf2)+ampcc2) );
+    //    }
+    //    fclose(fout);
+    //}
     if (debugSB){
         fout = fopen("StasAmpRD_full.dat", "w");
         for (i=0; i<indAmax; i++){
-            fprintf(fout, "%.16e    %.16e \n", timeVec->data[i]/(mtot * LAL_MTSUN_SI), ampWave->data[i]);
+            fprintf(fout, "%.16e    %.16e \n", timeVec->data[i], ampWave->data[i]);
         }
         for (i=0; i<Nrdwave; i++){
-            fprintf(fout, "%.16e    %.16e \n", rdtime->data[i]+tofAmax/(mtot * LAL_MTSUN_SI), ampRD->data[i]);
+            fprintf(fout, "%.16e    %.16e \n", rdtime->data[i]+tofAmax, ampRD->data[i]);
         }
         fclose(fout);
     }     
