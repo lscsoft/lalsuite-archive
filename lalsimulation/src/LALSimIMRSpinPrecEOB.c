@@ -43,7 +43,7 @@
 #include "LALSimIMREOBNRv2.h"
 #include "LALSimIMRSpinEOB.h"
 #include "LALSimInspiralPrecess.h"
-#include "LALSimBlackHoleRingdownPrec.c"
+#include "LALSimBlackHoleRingdownPrec.h"
 #include "LALSimFindAttachTime.h"
 
 /* Include all the static function files we need */
@@ -350,7 +350,7 @@ static void EulerAnglesP2J(
                  JframeEz[0]*LframeEx[0]+JframeEz[1]*LframeEx[1]+JframeEz[2]*LframeEx[2]);
     *bP2J = acos( JframeEz[0]*LframeEz[0]+JframeEz[1]*LframeEz[1]+JframeEz[2]*LframeEz[2]);
     if (*bP2J < 1.e-4){
-        *bP2J = acos((JframeEz[0]*LframeEz[0]+JframeEz[1]*LframeEz[1]+JframeEz[2]*LframeEz[2]/sqrt(normJ*normLz)));
+        *bP2J = acos((JframeEz[0]*LframeEz[0]+JframeEz[1]*LframeEz[1]+JframeEz[2]*LframeEz[2])/sqrt(normJ*normLz));
 
     }
 
@@ -1119,8 +1119,8 @@ int XLALSimIMRSpinEOBWaveformAll(
   /* Accuracies of adaptive Runge-Kutta integrator */
     /* Note that this accuracies are lower than those used in SEOBNRv2: they allow reasonable runtimes for precessing systems */
     /* These accuracies can be adjusted according to desired accuracy and runtime */
-   REAL8 EPS_ABS = 1.0e-8;
-  const REAL8 EPS_REL = 1.0e-8;
+   REAL8 EPS_ABS = 1.0e-10;
+  const REAL8 EPS_REL = 1.0e-10;
   /* Relax abs accuracy in case of highly symmetric case that would otherwise slow down significantly */
   if (sqrt((INspin1[0] + INspin2[0])*(INspin1[0] + INspin2[0]) + (INspin1[1] + INspin2[1])*(INspin1[1] + INspin2[1])) < 1.0e-10 && !SpinsAlmostAligned)
   {
@@ -2454,6 +2454,13 @@ int XLALSimIMRSpinEOBWaveformAll(
     LNhx  = LNhx / magLN;
     LNhy  = LNhy / magLN;
     LNhz  = LNhz / magLN;
+
+    if (fabs(LNhx) < 1.e-7)
+      LNhx = 0.0;
+    if (fabs(LNhy) < 1.e-7)
+      LNhy = 0.0;
+    if (fabs(LNhz-1.0) < 1.e-7)
+      LNhz = 1.0;
 
     /* this one is defined w.r.t. L not LN*/
     aI2P = Alpha->data[i];

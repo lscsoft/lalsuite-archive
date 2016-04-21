@@ -75,7 +75,16 @@ pkginclude_HEADERS = \
 	LALSimulationVCSInfoHeader.h
 
 noinst_HEADERS = \
-	LALSimBlackHoleRingdownPrec.c \
+	LALSimIMRSpinPrecEOBWfGen.c \
+	LALSimIMRSpinPrecEOBEulerAngles_v3opt.c \
+	LALSimIMRSpinPrecEOBHcapExactDerivative.c \
+	LALSpinPrecHcapRvecDerivative_v3opt.c \
+	LALSimIMRSpinEOBHcapNumericalDerivativePrec_v3opt.c \
+	LALSimIMRSpinEOBInitialConditionsPrec_v3opt.c \
+	LALSimIMRSpinEOBHcapExactDerivativePrec_v3opt.c \
+	LALSimIMRSpinEOBFactorizedWaveformPrec_v3opt.c \
+	LALSimIMRSpinEOBFactorizedFluxPrec_v3opt.c \
+	LALSimFindAttachTime_v3opt.h \
 	LALSimBlackHoleRingdownPrec.h \
 	LALSimFindAttachTime.h \
 	LALSimIMREOBFactorizedFlux.c \
@@ -123,6 +132,9 @@ noinst_HEADERS = \
 
 lib_LTLIBRARIES = liblalsimulation.la
 liblalsimulation_la_SOURCES = \
+	LALSimFindAttachTime_v3opt.c \
+	LALSimIMRSpinPrecEOB_v3opt.c \
+	LALSimBlackHoleRingdownPrec.c \
 	LALSimBlackHoleRingdown.c \
 	LALSimBurst.c \
 	LALSimBurstImg.c \
@@ -166,7 +178,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimInspiralTaylorLength.c \
 	LALSimInspiralWaveformCache.c \
 	LALSimInspiralWaveformTaper.c \
-        LALSimIMRNRWaveforms.c \
+	LALSimIMRNRWaveforms.c \
 	LALSimulation.c \
 	LALSimulationVCSInfo.c \
 	LALSimNeutronStarEOS.c \
@@ -185,7 +197,8 @@ liblalsimulation_la_SOURCES = \
 	check_waveform_macros.h \
 	unicorn.xpm \
 	LALSimInspiralHGimri.c \
-	LALSimFindAttachTime.c
+	LALSimFindAttachTime.c \
+	LALSimIMRSpinEOB.c
 
 nodist_liblalsimulation_la_SOURCES = LALSimulationBuildInfo.c
 

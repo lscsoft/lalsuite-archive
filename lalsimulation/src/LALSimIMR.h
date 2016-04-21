@@ -143,6 +143,46 @@ int XLALSimIMRSpinEOBWaveformAll(
                                  const REAL8     INspin2y,
                                  const REAL8     INspin2z
                                  );
+/*OPTV3*/
+/* in module LALSimIMRSpinPrecEOB_opt.c */
+int XLALSimIMRSpinEOBWaveform_opt(
+                              REAL8TimeSeries **hplus,
+                              REAL8TimeSeries **hcross,
+                              const REAL8     phiC,
+                              const REAL8     deltaT,
+                              const REAL8     m1SI,
+                              const REAL8     m2SI,
+                              const REAL8     fMin,
+                              const REAL8     r,
+                              const REAL8     inc,
+                              const REAL8     spin1[],
+                              const REAL8     spin2[]
+                              );
+
+int XLALSimIMRSpinEOBWaveformAll_opt(
+                                 REAL8TimeSeries **hplus,
+                                 REAL8TimeSeries **hcross,
+                                 REAL8Vector     **dynamicsHi,
+                                 SphHarmTimeSeries **hlmPTSout,
+                                 SphHarmTimeSeries **hlmPTSHi,
+                                 SphHarmTimeSeries **hIMRlmJTSHi,
+                                 SphHarmTimeSeries **hIMRoutput,
+                                 REAL8Vector     **AttachParams,
+                                 const REAL8      phiC,
+                                 const REAL8     deltaT,
+                                 const REAL8     m1SI,
+                                 const REAL8     m2SI,
+                                 const REAL8     fMin,
+                                 const REAL8     r,
+                                 const REAL8     inc,
+                                 const REAL8     INspin1x,
+                                 const REAL8     INspin1y,
+                                 const REAL8     INspin1z,
+                                 const REAL8     INspin2x,
+                                 const REAL8     INspin2y,
+                                 const REAL8     INspin2z
+                                 );
+/*END OPTV3*/
 
 /* in module LALSimIMREOBNRv2HMROM.c */
 

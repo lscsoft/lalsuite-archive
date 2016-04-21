@@ -45,7 +45,7 @@
 #include "LALSimIMRSpinEOB.h"
 
 #include "LALSimIMRSpinEOBAuxFuncs.c"
-#include "LALSimIMRSpinEOBHamiltonianOptimized.c"
+//#include "LALSimIMRSpinEOBHamiltonianOptimized.c"
 
 //int UsePrec = 1;
 

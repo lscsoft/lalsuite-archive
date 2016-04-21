@@ -1,4 +1,4 @@
-/*
+\/*
 *  Copyright (C) 2007 Duncan Brown, Gareth Jones, Jolien Creighton, B.S. Sathyaprakash, Craig Robinson
 *
 *  This program is free software; you can redistribute it and/or modify
@@ -98,6 +98,7 @@ rk4GSLIntegrator * XLALRungeKutta4Init( INT4 n,
 
   /* Set the algorithm to 4th-order Runge-Kutta */
   integrator->type = gsl_odeiv_step_rkf45;
+
 
   /* Allocate memory for data values */
   if (!(integrator->y = (REAL8 *) LALMalloc(n * sizeof(REAL8))))

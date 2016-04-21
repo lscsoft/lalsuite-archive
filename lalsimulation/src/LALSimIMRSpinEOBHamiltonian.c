@@ -51,7 +51,7 @@
 /**
  * This function calculates the DeltaR potential function in the spin EOB Hamiltonian
  */
-static REAL8 XLALSimIMRSpinEOBHamiltonianDeltaR(
+UNUSED static REAL8 XLALSimIMRSpinEOBHamiltonianDeltaR(
         SpinEOBHCoeffs *coeffs, /**<< Pre-computed coefficients which appear in the function */
         const REAL8    r,       /**<< Current orbital radius (in units of total mass) */
         const REAL8    eta,     /**<< Symmetric mass ratio */
@@ -69,14 +69,7 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
                int                       tortoise,
                SpinEOBHCoeffs *coeffs);
 
-static int XLALSimIMRCalculateSpinEOBHCoeffs(
-        SpinEOBHCoeffs *coeffs,
-        const REAL8    eta,
-        const REAL8    a,
-        const UINT4    SpinAlignedEOBversion
-        );
-
-static REAL8 XLALSimIMRSpinEOBHamiltonianDeltaT( 
+static REAL8 XLALSimIMRSpinEOBHamiltonianDeltaT(
         SpinEOBHCoeffs *coeffs,
         const REAL8    r,
         const REAL8    eta,
@@ -119,7 +112,7 @@ static double GSLSpinAlignedHamiltonianWrapper( double x, void *params );
  * The function returns a REAL8, which will be the value of the Hamiltonian if all goes well;
  * otherwise, it will return the XLAL REAL8 failure NaN.
  */
-static REAL8 XLALSimIMRSpinEOBHamiltonian( 
+static REAL8 XLALSimIMRSpinEOBHamiltonian(
                const REAL8    eta,                  /**<< Symmetric mass ratio */
                REAL8Vector    * restrict x,         /**<< Position vector */
                REAL8Vector    * restrict p,	    /**<< Momentum vector (tortoise radial component pr*) */
@@ -169,8 +162,8 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   r  = sqrt(r2);
   nx = x->data[0] / r;
   ny = x->data[1] / r;
-  nz = x->data[2] / r;   
-     
+  nz = x->data[2] / r;
+
   sKerr_x = sigmaKerr->data[0];
   sKerr_y = sigmaKerr->data[1];
   sKerr_z = sigmaKerr->data[2];
@@ -178,26 +171,26 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   sStar_x = sigmaStar->data[0];
   sStar_y = sigmaStar->data[1];
   sStar_z = sigmaStar->data[2];
-     
+
   a2 = sKerr_x*sKerr_x + sKerr_y*sKerr_y + sKerr_z*sKerr_z;
   a  = sqrt( a2 );
 
-  if(a != 0.) 
+  if(a != 0.)
   {
     e3_x = sKerr_x / a;
     e3_y = sKerr_y / a;
     e3_z = sKerr_z / a;
   }
-  else 
+  else
   {
     e3_x = 0.;
     e3_y = 0.;
-    e3_z = 1.;	  
+    e3_z = 1.;
   }
-       
-  costheta = e3_x*nx + e3_y*ny + e3_z*nz; 
-    
-  xi2=1. - costheta*costheta; 
+
+  costheta = e3_x*nx + e3_y*ny + e3_z*nz;
+
+  xi2=1. - costheta*costheta;
 
   xi_x = -e3_z*ny + e3_y*nz;
   xi_y =  e3_z*nx - e3_x*nz;
@@ -229,7 +222,7 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   /* Eq. 5.71 of BB1 */
   deltaT = r2*deltaU;
   /* ddeltaU/du */
-  deltaU_u = 2.*(1./m1PlusetaKK + a2*u)*logTerms + 
+  deltaU_u = 2.*(1./m1PlusetaKK + a2*u)*logTerms +
 	  bulk * (eta*(coeffs->k1 + u*(2.*coeffs->k2 + u*(3.*coeffs->k3 + u*(4.*coeffs->k4 + 5.*(coeffs->k5+coeffs->k5l*log(u))*u)))))
           / (1. + coeffs->k1*u + coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4 + (coeffs->k5+coeffs->k5l*log(u))*u5);
   /* ddeltaT/dr */
@@ -257,7 +250,7 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   //printf( "csi(miami) = %.16e\n", csi );
 
   prT = p->data[0]*nx + p->data[1]*ny + p->data[2]*nz;
-  /* p->data is BL momentum vector; tmpP is tortoise momentum vector */ 
+  /* p->data is BL momentum vector; tmpP is tortoise momentum vector */
   tmpP[0] = p->data[0] - nx * prT * (csi - 1.)/csi;
   tmpP[1] = p->data[1] - ny * prT * (csi - 1.)/csi;
   tmpP[2] = p->data[2] - nz * prT * (csi - 1.)/csi;
@@ -265,7 +258,7 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   pxir = (tmpP[0]*xi_x + tmpP[1]*xi_y + tmpP[2]*xi_z) * r;
   pvr  = (tmpP[0]*vx + tmpP[1]*vy + tmpP[2]*vz) * r;
   pn   = tmpP[0]*nx + tmpP[1]*ny + tmpP[2]*nz;
-          
+
   pr = pn;
   pf = pxir;
   ptheta2 = pvr * pvr / xi2;
@@ -273,13 +266,13 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   //printf( "pr = %.16e, prT = %.16e\n", pr, prT );
 
   //printf( " a = %.16e, r = %.16e\n", a, r );
-  //printf( "D = %.16e, ww = %.16e, rho = %.16e, Lambda = %.16e, xi = %.16e\npr = %.16e, pf = %.16e, deltaR = %.16e, deltaT = %.16e\n", 
+  //printf( "D = %.16e, ww = %.16e, rho = %.16e, Lambda = %.16e, xi = %.16e\npr = %.16e, pf = %.16e, deltaR = %.16e, deltaT = %.16e\n",
       //D, ww, sqrt(rho2), Lambda, sqrt(xi2), pr, pf, deltaR, deltaT );
   /* Eqs. 5.36 - 5.46 of BB1 */
   /* Note that the tortoise prT appears only in the quartic term, explained in Eqs. 14 and 15 of Tarrachini et al. */
   Hns = sqrt(1. + prT*prT*prT*prT*qq*u2 + ptheta2/rho2 + pf*pf*rho2/(Lambda*xi2) + pr*pr*deltaR/rho2)
       / sqrt(Lambda/(rho2*deltaT)) + pf*ww/Lambda;
-  
+
   //printf( "term 1 in Hns: %.16e\n",  prT*prT*prT*prT*qq*u2 );
   //printf( "term 2 in Hns: %.16e\n", ptheta2/rho2 );
   //printf( "term 3 in Hns = %.16e\n", pf*pf*rho2/(Lambda*xi2) );
@@ -290,10 +283,10 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   B = sqrt(deltaT);
   w = ww/Lambda;
   nu = 0.5 * log(deltaT*rho2/Lambda);
-  MU = 0.5 * log(rho2);  
+  MU = 0.5 * log(rho2);
   /* dLambda/dr */
   Lambda_r = 4.*r*w2 - a2*deltaT_r*xi2;
-     
+
   ww_r=2.*a - (a2*a*coeffs->b3*eta)*u2 - coeffs->bb3*eta*a*u2;
   /* Eqs. 5.47a - 5.47d of BB1 */
   BR = (-2.*deltaT + sqrt(deltaR)*deltaT_r)/(2.*sqrt(deltaR*deltaT));
@@ -301,13 +294,13 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   nur = (r/rho2 + (w2 * (-4.*r*deltaT + w2*deltaT_r) ) / (2.*deltaT*Lambda) );
   mur = (r/rho2 - 1./sqrt(deltaR));
   /* Eqs. 5.47f - 5.47h of BB1 */
-  wcos  = -2.*a2*costheta*deltaT*ww/(Lambda*Lambda);  
-  nucos = a2*costheta*w2*(w2-deltaT)/(rho2*Lambda);  
+  wcos  = -2.*a2*costheta*deltaT*ww/(Lambda*Lambda);
+  nucos = a2*costheta*w2*(w2-deltaT)/(rho2*Lambda);
   mucos = a2*costheta/rho2;
   /* Eq. 5.52 of BB1, (YP) simplified */
   //Q = 1. + pvr*pvr/(exp(2.*MU)*xi2) + exp(2.*nu)*pxir*pxir/(B*B*xi2) + pn*pn*deltaR/exp(2.*MU);
   Q = 1. + pvr*pvr/(rho2*xi2) + deltaT*rho2/Lambda*pxir*pxir/(B*B*xi2) + pn*pn*deltaR/rho2;
-      
+
   pn2 = pr * pr * deltaR / rho2;
   pp  = Q - 1.;
 
@@ -315,13 +308,13 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   //printf( "sigmaKerr = %.16e, sigmaStar = %.16e\n", sKerr_z, sStar_z );
   /* Eq. 5.68 of BB1, (YP) simplified for aa=bb=0. */
   /*
-  deltaSigmaStar_x=(- 8.*aa*(1. + 3.*pn2*r - pp*r)*sKerr_x - 8.*bb*(1. + 3.*pn2*r - pp*r)*sStar_x + 
+  deltaSigmaStar_x=(- 8.*aa*(1. + 3.*pn2*r - pp*r)*sKerr_x - 8.*bb*(1. + 3.*pn2*r - pp*r)*sStar_x +
         eta*(-8.*sKerr_x - 36.*pn2*r*sKerr_x + 3.*pp*r*sKerr_x + 14.*sStar_x - 30.*pn2*r*sStar_x + 4.*pp*r*sStar_x))/(12.*r);
 
-  deltaSigmaStar_y=(-8.*aa*(1. + 3.*pn2*r - pp*r)*sKerr_y - 8.*bb*(1. + 3.*pn2*r - pp*r)*sStar_y + 
+  deltaSigmaStar_y=(-8.*aa*(1. + 3.*pn2*r - pp*r)*sKerr_y - 8.*bb*(1. + 3.*pn2*r - pp*r)*sStar_y +
         eta*(-8.*sKerr_y - 36.*pn2*r*sKerr_y + 3.*pp*r*sKerr_y + 14.*sStar_y - 30.*pn2*r*sStar_y + 4.*pp*r*sStar_y))/(12.*r);
 
-  deltaSigmaStar_z=(-8.*aa*(1. + 3.*pn2*r - pp*r)*sKerr_z - 8.*bb*(1. + 3.*pn2*r - pp*r)*sStar_z + 
+  deltaSigmaStar_z=(-8.*aa*(1. + 3.*pn2*r - pp*r)*sKerr_z - 8.*bb*(1. + 3.*pn2*r - pp*r)*sStar_z +
 	eta*(-8.*sKerr_z - 36.*pn2*r*sKerr_z + 3.*pp*r*sKerr_z + 14.*sStar_z - 30.*pn2*r*sStar_z + 4.*pp*r*sStar_z))/(12.*r);
   */
   deltaSigmaStar_x=eta*(-8.*sKerr_x - 36.*pn2*r*sKerr_x + 3.*pp*r*sKerr_x + 14.*sStar_x - 30.*pn2*r*sStar_x + 4.*pp*r*sStar_x)/(12.*r);
@@ -332,7 +325,7 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
 
 
   /* Now compute the additional 3.5PN terms. */
-  /* The following gauge parameters correspond to those given by 
+  /* The following gauge parameters correspond to those given by
    * Eqs. (69) and (70) of BB2 (aaa -> a0, bbb -> b0).
    * In SEOBNRv1 model, we chose to set all of them to zero,
    * described between Eqs. (3) and (4).
@@ -356,8 +349,8 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   b23P5 = 0.;
   b33P5 = 0.;
   */
-  /* Eq. 52 of BB2, (YP) simplified for zero gauge parameters */    
-  /* 
+  /* Eq. 52 of BB2, (YP) simplified for zero gauge parameters */
+  /*
   sMultiplier1 =-(2.*(24.*b23P5 + eta*(-353. + 27.*eta) + bbb*(56. + 60.*eta)) +
       2.*(24.*b13P5 - 24.*b23P5 + bbb*(14. - 66.*eta) + 103.*eta - 60.*eta*eta)*pp*
       r + 120.*(2.*b33P5 - 3.*eta*(bbb + eta))*pn2*pn2*r*r +
@@ -367,11 +360,11 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
      (24.*b13P5 - 24.*b33P5 - 16.*eta + 21.*eta*eta + bbb*(-2. + 30.*eta))*pp*
      r))/(72.*r*r);
   */
-  sMultiplier1 = -(2.*eta*(-353. + 27.*eta) + 2.*(103.*eta - 60.*eta*eta)*pp*r 
-               + 120.*(-3.*eta*eta)*pn2*pn2*r*r + (eta*(23. + 3.*eta))*pp*pp*r*r 
+  sMultiplier1 = -(2.*eta*(-353. + 27.*eta) + 2.*(103.*eta - 60.*eta*eta)*pp*r
+               + 120.*(-3.*eta*eta)*pn2*pn2*r*r + (eta*(23. + 3.*eta))*pp*pp*r*r
                + 6.*pn2*r*(- 47.*eta + 54.*eta*eta + (- 16.*eta + 21.*eta*eta)*pp*r))
-               / (72.*r*r);                        
-  /* Eq. 52 of BB2, (YP) simplified for zero gauge parameters */       
+               / (72.*r*r);
+  /* Eq. 52 of BB2, (YP) simplified for zero gauge parameters */
   /*
   sMultiplier2 = (-16.*(6.*a23P5 + 7.*eta*(8. + 3.*eta) + aaa*(14. + 15.*eta)) +
       4.*(-24.*a13P5 + 24.*a23P5 - 109.*eta + 51.*eta*eta + 2.*aaa*(-7. + 33.*eta))*
@@ -381,11 +374,11 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
       48.*aaa*(1. + eta) + (48.*a13P5 - 48.*a33P5 - 6.*eta + 39.*eta*eta +
       aaa*(-4. + 60.*eta))*pp*r))/(144.*r*r);
   */
-  sMultiplier2 = (-16.*(7.*eta*(8. + 3.*eta)) + 4.*(- 109.*eta + 51.*eta*eta)*pp*r 
-               + 810.*eta*eta*pn2*pn2*r*r - 45.*eta*pp*pp*r*r 
+  sMultiplier2 = (-16.*(7.*eta*(8. + 3.*eta)) + 4.*(- 109.*eta + 51.*eta*eta)*pp*r
+               + 810.*eta*eta*pn2*pn2*r*r - 45.*eta*pp*pp*r*r
                - 6.*pn2*r*(16.*eta + 147.*eta*eta + (- 6.*eta + 39.*eta*eta)*pp*r))
                / (144.*r*r);
-  /* Eq. 52 of BB2 */                     
+  /* Eq. 52 of BB2 */
   deltaSigmaStar_x += sMultiplier1*sigmaStar->data[0] + sMultiplier2*sigmaKerr->data[0];
   deltaSigmaStar_y += sMultiplier1*sigmaStar->data[1] + sMultiplier2*sigmaKerr->data[1];
   deltaSigmaStar_z += sMultiplier1*sigmaStar->data[2] + sMultiplier2*sigmaKerr->data[2];
@@ -399,34 +392,34 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   deltaSigmaStar_z += coeffs->d1v2 * eta * sigmaKerr->data[2] / (r*r*r);
 
 
-  //printf( "deltaSigmaStar_x = %.16e, deltaSigmaStar_y = %.16e, deltaSigmaStar_z = %.16e\n", 
+  //printf( "deltaSigmaStar_x = %.16e, deltaSigmaStar_y = %.16e, deltaSigmaStar_z = %.16e\n",
   //   deltaSigmaStar_x, deltaSigmaStar_y, deltaSigmaStar_z );
-	
+
   sx = sStar_x + deltaSigmaStar_x;
   sy = sStar_y + deltaSigmaStar_y;
-  sz = sStar_z + deltaSigmaStar_z;     
-     
-     
+  sz = sStar_z + deltaSigmaStar_z;
+
+
   sxi = sx*xi_x + sy*xi_y + sz*xi_z;
   sv  = sx*vx + sy*vy + sz*vz;
-  sn  = sx*nx + sy*ny + sz*nz; 
-     
-  s3 = sx*e3_x + sy*e3_y + sz*e3_z;  
-  /* Eq. 3.45 of BB1, second term */        
-  Hwr = (exp(-3.*MU - nu)*sqrt(deltaR)*(exp(2.*(MU + nu))*pxir*pxir*sv - B*exp(MU + nu)*pvr*pxir*sxi + 
+  sn  = sx*nx + sy*ny + sz*nz;
+
+  s3 = sx*e3_x + sy*e3_y + sz*e3_z;
+  /* Eq. 3.45 of BB1, second term */
+  Hwr = (exp(-3.*MU - nu)*sqrt(deltaR)*(exp(2.*(MU + nu))*pxir*pxir*sv - B*exp(MU + nu)*pvr*pxir*sxi +
         B*B*xi2*(exp(2.*MU)*(sqrt(Q) + Q)*sv + pn*pvr*sn*sqrt(deltaR) - pn*pn*sv*deltaR)))/(2.*B*(1. + sqrt(Q))*sqrt(Q)*xi2);
-  /* Eq. 3.45 of BB1, third term */     
-  Hwcos = (exp(-3.*MU - nu)*(sn*(-(exp(2.*(MU + nu))*pxir*pxir) + B*B*(pvr*pvr - exp(2.*MU)*(sqrt(Q) + Q)*xi2)) - 
+  /* Eq. 3.45 of BB1, third term */
+  Hwcos = (exp(-3.*MU - nu)*(sn*(-(exp(2.*(MU + nu))*pxir*pxir) + B*B*(pvr*pvr - exp(2.*MU)*(sqrt(Q) + Q)*xi2)) -
         B*pn*(B*pvr*sv - exp(MU + nu)*pxir*sxi)*sqrt(deltaR)))/(2.*B*(1. + sqrt(Q))*sqrt(Q));
-  /* Eq. 3.44 of BB1, leading term */     
+  /* Eq. 3.44 of BB1, leading term */
   HSOL = (exp(-MU + 2.*nu)*(-B + exp(MU + nu))*pxir*s3)/(B*B*sqrt(Q)*xi2);
   /* Eq. 3.44 of BB1, next-to-leading term */
-  HSONL = (exp(-2.*MU + nu)*(-(B*exp(MU + nu)*nucos*pxir*(1. + 2.*sqrt(Q))*sn*xi2) + 
-        (-(BR*exp(MU + nu)*pxir*(1. + sqrt(Q))*sv) + B*(exp(MU + nu)*nur*pxir*(1. + 2.*sqrt(Q))*sv + B*mur*pvr*sxi + 
-        B*sxi*(-(mucos*pn*xi2) + sqrt(Q)*(mur*pvr - nur*pvr + (-mucos + nucos)*pn*xi2))))*sqrt(deltaR)))/(B*B*(sqrt(Q) + Q)*xi2);   
+  HSONL = (exp(-2.*MU + nu)*(-(B*exp(MU + nu)*nucos*pxir*(1. + 2.*sqrt(Q))*sn*xi2) +
+        (-(BR*exp(MU + nu)*pxir*(1. + sqrt(Q))*sv) + B*(exp(MU + nu)*nur*pxir*(1. + 2.*sqrt(Q))*sv + B*mur*pvr*sxi +
+        B*sxi*(-(mucos*pn*xi2) + sqrt(Q)*(mur*pvr - nur*pvr + (-mucos + nucos)*pn*xi2))))*sqrt(deltaR)))/(B*B*(sqrt(Q) + Q)*xi2);
   /* Eq. 3.43 and 3.45 of BB1 */
   Hs = w*s3 + Hwr*wr + Hwcos*wcos + HSOL + HSONL;
-  /* Eq. 5.70 of BB1, last term */   
+  /* Eq. 5.70 of BB1, last term */
   Hss = -0.5*u3 * (sx*sx + sy*sy + sz*sz - 3.*sn*sn);
   /* Eq. 5.70 of BB1 */
   H = Hns + Hs + Hss;
@@ -449,111 +442,11 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   return Hreal;
 }
 
-
-/**
- *
- * This function is used to calculate some coefficients which will be used in the
- * spinning EOB Hamiltonian. It takes the following inputs:
- *
- * coeffs - a (non-null) pointer to a SpinEOBParams structure. This will be populated
- * with the output.
- * eta - the symmetric mass ratio.
- * sigmaKerr - the spin of the effective Kerr background (a combination of the individual spins).
- *
- * If all goes well, the function will return XLAL_SUCCESS. Otherwise, XLAL_FAILURE is returned.
- */
-static int XLALSimIMRCalculateSpinEOBHCoeffs(
-        SpinEOBHCoeffs *coeffs, /**<< OUTPUT, EOB parameters including pre-computed coefficients */
-        const REAL8    eta,     /**<< symmetric mass ratio */
-        const REAL8    a,       /**<< Normalized deformed Kerr spin */
-        const UINT4    SpinAlignedEOBversion  /**<< 1 for SEOBNRv1; 2 for SEOBNRv2 */
-        )
-{
-
-  REAL8 KK, k0, k1, k2, k3, k4, k5, k5l, k1p2, k1p3;
-  REAL8 m1PlusEtaKK;
-
-  coeffs->SpinAlignedEOBversion = SpinAlignedEOBversion;
-   
-  /* Constants are fits taken from Eq. 37 */
-  static const REAL8 c0  = 1.4467; /* needed to get the correct self-force results */
-  static const REAL8 c1  = -1.7152360250654402;
-  static const REAL8 c2  = -3.246255899738242;
-
-  static const REAL8 c20  = 1.712;
-  static const REAL8 c21  = -1.803949138004582;
-  static const REAL8 c22  = -39.77229225266885;
-  static const REAL8 c23  = 103.16588921239249;
-
-  if ( !coeffs )
-  {
-    XLAL_ERROR( XLAL_EINVAL );
-  }
-
-
-  coeffs->b3  = 0.;
-  coeffs->bb3 = 0.;
-  coeffs->KK = KK  = c0 + c1*eta + c2*eta*eta;
-  if ( SpinAlignedEOBversion == 2)
-  {
-     coeffs->KK = KK = c20 + c21*eta + c22*eta*eta + c23*eta*eta*eta;
-  }
-
-  m1PlusEtaKK = -1. + eta*KK;
-  /* Eqs. 5.77 - 5.81 of BB1 */
-  coeffs->k0 = k0 = KK*(m1PlusEtaKK - 1.);
-  coeffs->k1 = k1 = - 2.*(k0 + KK)*m1PlusEtaKK;
-  k1p2= k1*k1;
-  k1p3= k1*k1p2;
-  coeffs->k2 = k2 = (k1 * (k1 - 4.*m1PlusEtaKK)) / 2. - a*a*k0*m1PlusEtaKK*m1PlusEtaKK;
-  coeffs->k3 = k3 = -k1*k1*k1/3. + k1*k2 + k1*k1*m1PlusEtaKK - 2.*(k2 - m1PlusEtaKK)*m1PlusEtaKK - a*a*k1*m1PlusEtaKK*m1PlusEtaKK;
-  coeffs->k4 = k4 = (24.*k1*k1*k1*k1 - 96.*k1*k1*k2 + 48.*k2*k2 - 64.*k1*k1*k1*m1PlusEtaKK
-      + 48.*a*a*(k1*k1 - 2.*k2)*m1PlusEtaKK*m1PlusEtaKK +
-      96.*k1*(k3 + 2.*k2*m1PlusEtaKK) - m1PlusEtaKK*(192.*k3 + m1PlusEtaKK*(-3008. + 123.*LAL_PI*LAL_PI)))/96.;
-  coeffs->k5 = k5 = 0.0;
-  coeffs->k5l= k5l= 0.0;
-  if ( SpinAlignedEOBversion == 2 )
-  {
-    coeffs->k5 = k5 = m1PlusEtaKK*m1PlusEtaKK
-	       * (-4237./60.+128./5.*LAL_GAMMA+2275.*LAL_PI*LAL_PI/512.
-	       - 1./3.*a*a*(k1p3-3.*k1*k2+3.*k3)
-	       - (k1p3*k1p2-5.*k1p3*k2+5.*k1*k2*k2+5.*k1p2*k3-5.*k2*k3-5.*k1*k4)/5./m1PlusEtaKK/m1PlusEtaKK
-	       + (k1p2*k1p2-4.*k1p2*k2+2.*k2*k2+4.*k1*k3-4.*k4)/2./m1PlusEtaKK+256./5.*log(2.));
-    coeffs->k5l = k5l = m1PlusEtaKK*m1PlusEtaKK * 64./5.;
-  }
-
-  /*printf( "a = %.16e, k0 = %.16e, k1 = %.16e, k2 = %.16e, k3 = %.16e, k4 = %.16e, b3 = %.16e, bb3 = %.16e, KK = %.16e\n",
-            a, coeffs->k0, coeffs->k1, coeffs->k2, coeffs->k3, coeffs->k4, coeffs->b3, coeffs->bb3, coeffs->KK );
-  */
-
-  /* Now calibrated parameters for spin models */
-  coeffs->d1 = coeffs->d1v2 = 0.0;
-  coeffs->dheffSS = coeffs->dheffSSv2 = 0.0;
-  switch ( SpinAlignedEOBversion )
-  {
-     case 1:
-       coeffs->d1 = -69.5;
-       coeffs->dheffSS = 2.75;
-       break;
-     case 2:
-       coeffs->d1v2 = -74.71 - 156.*eta + 627.5*eta*eta;
-       coeffs->dheffSSv2 = 8.127 - 154.2*eta + 830.8*eta*eta;
-       break;
-     default:
-       XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2!\n", __func__ );
-       XLAL_ERROR( XLAL_EINVAL );
-       break;
-  }
-
-  return XLAL_SUCCESS;
-}
-
-
 /**
  * This function calculates the function \f$\Delta_t(r)\f$ which appears in the spinning EOB
  * potential function. Eqs. 7a and 8.
  */
-static REAL8 XLALSimIMRSpinEOBHamiltonianDeltaT( 
+static REAL8 XLALSimIMRSpinEOBHamiltonianDeltaT(
         SpinEOBHCoeffs *coeffs, /**<< Pre-computed coefficients which appear in the function */
         const REAL8    r,       /**<< Current orbital radius (in units of total mass) */
         const REAL8    eta,     /**<< Symmetric mass ratio */
@@ -609,7 +502,7 @@ static REAL8 XLALSimIMRSpinEOBHamiltonianDeltaR(
         )
 {
 
-  
+
   REAL8 u2, u3;
   REAL8 D;
   REAL8 deltaT; /* The potential function, not a time interval... */
@@ -680,7 +573,7 @@ XLALSimIMRSpinAlignedEOBCalcOmega(
     XLALPrintError( "XLAL Error - %s: Failure in GSL function\n", __func__ );
     XLAL_ERROR_REAL8( XLAL_EFUNC );
   }
-  
+
   omega = omega / r;
 
   return omega;
@@ -764,7 +657,7 @@ XLALSimIMRSpinEOBNonKeplerCoeff(
 }
 
 
-  
+
 /* Wrapper for GSL to call the Hamiltonian function */
 static double GSLSpinAlignedHamiltonianWrapper( double x, void *params )
 {
@@ -782,7 +675,7 @@ static double GSLSpinAlignedHamiltonianWrapper( double x, void *params )
   REAL8Vector *sigmaStar = dParams->params->sigmaStar;
 
   /* Use a temporary vector to avoid corrupting the main function */
-  memcpy( tmpVec, dParams->values, 
+  memcpy( tmpVec, dParams->values,
                sizeof(tmpVec) );
 
   /* Set the relevant entry in the vector to the correct value */

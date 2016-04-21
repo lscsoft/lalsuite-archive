@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2014 Craig Robinson, Enrico Barausse, Yi Pan, Prayush Kumar, 
+ *  Copyright (C) 2014 Craig Robinson, Enrico Barausse, Yi Pan, Prayush Kumar,
  *  Stanislav Babak, Andrea Taracchini
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -432,7 +432,7 @@ static REAL8 XLALSpinPrecHcapNumDerivWRTParam(
 	 * Compute \vec{L_N} = \vec{r} \times \.{\vec{r}}, \vec{S_i} \dot
 	 * \vec{L_N} and chiS and chiA
 	 */
-    
+
     /* Eq. 16 of PRD 89, 084006 (2014): it's S_{1,2}/m_{1,2}^2.LNhat */
 	s1dotLN = (s1.data[0] * rCrossV_x + s1.data[1] * rCrossV_y + s1.data[2] * rCrossV_z) /
 		(r * r * omega * mass1 * mass1);
@@ -634,7 +634,7 @@ static REAL8 XLALSpinPrecHcapNumDerivWRTParam(
 	dLhaty = (dLy * magL - Ly * dMagL) / (magL * magL);
 
 	/*
-	 * Finn Chernoff convention is used here. 
+	 * Finn Chernoff convention is used here.
      */
     /* Eqs. 19-20 of PRD 89, 084006 (2014) */
 	if (Lhatx == 0.0 && Lhaty == 0.0) {
@@ -726,7 +726,7 @@ XLALSpinPrecHcapNumDerivWRTParam(
 
 	/* Set up pointers for GSL */
 	params.params = funcParams;
-    
+
 
 	F.function = &GSLSpinPrecHamiltonianWrapper;
 	F.params = &params;
@@ -734,7 +734,7 @@ XLALSpinPrecHcapNumDerivWRTParam(
 
 	mass1 = params.params->eobParams->m1;
 	mass2 = params.params->eobParams->m2;
-    
+
     REAL8 mT2 = (mass1 + mass2) * (mass1 + mass2);
     REAL8 tmpValues[14];
     for (UINT4 i = 0; i < 3; i++) {

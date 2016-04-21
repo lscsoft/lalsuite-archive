@@ -14,7 +14,7 @@
 
 #include "LALSimIMRSpinEOBAuxFuncs.c"
 #include "LALSimIMREOBNQCCorrection.c"
-//#include "LALSimIMRSpinEOBFactorizedWaveform.c"
+#include "LALSimIMRSpinEOBFactorizedWaveform.c"
 #include "LALSimIMRSpinEOBFactorizedWaveformPrec.c"
 
 
@@ -48,7 +48,7 @@ XLALInspiralPrecSpinFactorizedFlux(
  * for given dynamical variables.
  * Eq. 12 of PRD 86, 024011 (2012)
  */
-
+UNUSED
 static REAL8
 XLALInspiralPrecSpinFactorizedFlux(
 				   REAL8Vector * polvalues,	/**< \f$(r,\phi,p_r,p_\phi)\f$ */

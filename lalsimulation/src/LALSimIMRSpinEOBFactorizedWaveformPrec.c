@@ -33,7 +33,7 @@
 #include "LALSimIMRSpinEOBHamiltonian.c"
 #include "LALSimIMRSpinEOBHamiltonianPrec.c"
 
-/* #include "LALSimIMRSpinEOBFactorizedWaveform.c" */
+//#include "LALSimIMRSpinEOBFactorizedWaveform.c"
 /*------------------------------------------------------------------------------------------
  *
  *          Prototypes of functions defined in this code.
@@ -62,9 +62,6 @@ XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
 						   const INT4 lMax,	/**< maximum l mode to compute, compute 0 < m <= lMax */
 					     SpinEOBParams * restrict params	/**< Spin EOB parameters */
 );
-
-
-
 
 
 
@@ -518,6 +515,7 @@ XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
  * Eq. 17 and the entire Appendix of PRD 86, 024011 (2012) + changes
  * described in ￼the section "Factorized waveforms" of https://dcc.ligo.org/T1400476
  */
+UNUSED
 static INT4
 XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
 					       COMPLEX16 * restrict hlm,	/**< OUTPUT, hlm waveforms */
@@ -699,7 +697,7 @@ XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
 	 */
 	/*
 	 * Actual values of the coefficients are defined in the another function
-	 * see file LALSimIMRSpinEOBFactorizedWaveformCoefficientsPrec.c 
+	 * see file LALSimIMRSpinEOBFactorizedWaveformCoefficientsPrec.c
 	 */
 	switch (l) {
 	case 2:

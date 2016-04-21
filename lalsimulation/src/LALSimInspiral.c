@@ -122,6 +122,7 @@ static const char *lalSimulationApproximantNames[] = {
     INITIALIZE_NAME(SEOBNRv2),
     INITIALIZE_NAME(SEOBNRv2_opt),
     INITIALIZE_NAME(SEOBNRv3),
+    INITIALIZE_NAME(SEOBNRv3_opt),
     INITIALIZE_NAME(SEOBNRv1_ROM_EffectiveSpin),
     INITIALIZE_NAME(SEOBNRv1_ROM_DoubleSpin),
     INITIALIZE_NAME(SEOBNRv2_ROM_EffectiveSpin),
@@ -781,6 +782,24 @@ int XLALSimInspiralChooseTDWaveform(
                      deltaT, m1, m2, f_min, r, i, S1z, S2z, SpinAlignedEOBversion);
              break;
 
+        case SEOBNRv3_opt:
+            /* Waveform-specific sanity checks */
+            if( !XLALSimInspiralWaveformFlagsIsDefault(waveFlags) )
+                ABORT_NONDEFAULT_WAVEFORM_FLAGS(waveFlags);
+            if( !checkTidesZero(lambda1, lambda2) )
+                ABORT_NONZERO_TIDES(waveFlags);
+            if( f_ref != 0.)
+                XLALPrintWarning("XLAL Warning - %s: This approximant does use f_ref. The reference phase will be defined at coalescence.\n", __func__);
+            /* Call the waveform driver routine */
+            spin1[0] = S1x; spin1[1] = S1y; spin1[2] = S1z;
+            spin2[0] = S2x; spin2[1] = S2y; spin2[2] = S2z;
+            iTmp=i;
+           //XLALSimInspiralInitialConditionsPrecessingApproxs(&i,&S1x,&S1y,&S1z,&S2x,&S2y,&S2z,iTmp,spin1[0],spin1[1],spin1[2],spin2[0],spin2[1],spin2[2],m1,m2,f_ref,XLALSimInspiralGetFrameAxis(waveFlags));
+            spin1[0] = S1x; spin1[1] = S1y; spin1[2] = S1z;
+            spin2[0] = S2x; spin2[1] = S2y; spin2[2] = S2z;
+            ret = XLALSimIMRSpinEOBWaveform_opt(hplus, hcross, /*&epoch,*/ phiRef,
+                    deltaT, m1, m2, f_min, r, i, spin1, spin2);
+            break;
         case SEOBNRv3:
             /* Waveform-specific sanity checks */
             if( !XLALSimInspiralWaveformFlagsIsDefault(waveFlags) )
@@ -799,7 +818,6 @@ int XLALSimInspiralChooseTDWaveform(
             ret = XLALSimIMRSpinEOBWaveform(hplus, hcross, /*&epoch,*/ phiRef,
                     deltaT, m1, m2, f_min, r, i, spin1, spin2);
             break;
-
 	case HGimri:
 	     /* Waveform-specific sanity checks */
 	     if( !checkTidesZero(lambda1, lambda2) )
@@ -3913,6 +3931,7 @@ int XLALSimInspiralImplementedTDApproximants(
         case SEOBNRv2:
         case SEOBNRv2_opt:
         case SEOBNRv3:
+        case SEOBNRv3_opt:
         case NR_hdf5:
             return 1;
 
@@ -4339,6 +4358,7 @@ int XLALSimInspiralGetSpinSupportFromApproximant(Approximant approx){
     case SpinTaylorT4Fourier:
     case SpinDominatedWf:
     case SEOBNRv3:
+    case SEOBNRv3_opt:
     case NR_hdf5:
       spin_support=LAL_SIM_INSPIRAL_PRECESSINGSPIN;
       break;
@@ -4435,6 +4455,7 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
     case SEOBNRv2:
     case SEOBNRv2_opt:
     case SEOBNRv3:
+    case SEOBNRv3_opt:
     case SEOBNRv1_ROM_EffectiveSpin:
     case SEOBNRv1_ROM_DoubleSpin:
     case SEOBNRv2_ROM_EffectiveSpin:

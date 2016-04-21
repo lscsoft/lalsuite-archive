@@ -106,13 +106,6 @@ static void GenerateAmpPhaseFromEOMSoln(UINT4 retLen,REAL8 *inputdata,SpinEOBPar
     REAL8 omega     = XLALSimIMRSpinAlignedEOBCalcOmegaOptimized   (yy,            seobParams);
     REAL8 omegaCirc = XLALSimIMRSpinAlignedEOBCalcOmegaOptimized   (yForOmegaCirc, seobParams);
 
-    //CALEBS: Consolidated variable declarations:
-    /* REAL8 rOmegaSq,rOmega,sqrtR,v,v2,vh,vh3,eulerlogxabs,deltalm,rholm,rholmPwrl,hlm0,hlmPhase,hlmMag,nqcMag,nqcPhase; */
-
-    /* REAL8 legendre; */
-    /* REAL8 vPhi2; */
-
-
     EOBNonQCCoeffs *nqcCoeffs = seobParams->nqcCoeffs;
     FacWaveformCoeffs *hCoeffs = seobParams->eobParams->hCoeffs;
     REAL8 eta = seobParams->eobParams->eta;

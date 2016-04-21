@@ -13,6 +13,11 @@
  * between the two models in ring-down waveform is the pseudo-QNM introduced
  * in the latter (see Taracchini et al. PRD 86, 024011 (2012) for more details).
  */
+
+#ifndef _LALSIMIMREOBHYBRIDRINGDOWNPREC_C
+#define _LALSIMIMREOBHYBRIDRINGDOWNPREC_C
+
+
 #include <math.h>
 #include <complex.h>
 #include <stdlib.h>
@@ -29,9 +34,6 @@
 #include "LALSimBlackHoleRingdownPrec.h"
 #include "LALSimIMREOBNQCCorrection.c"
 //#include "LALSimIMREOBHybridRingdown.c"
-
-#ifndef _LALSIMIMREOBHYBRIDRINGDOWNPREC_C
-#define _LALSIMIMREOBHYBRIDRINGDOWNPREC_C
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -232,9 +234,9 @@ static INT4 XLALSimIMREOBHybridRingdownWave(
     REAL8 timeOffset = fmod( matchrange->data[1], dt/m) * dt;
 
     if (debugSB){
-       /// Print the solution: 
+       /// Print the solution:
        for (i=0; i<nmodes; i++){
-           printf("RD info: QNM: (re) %.16e, (im) %.16e, Amp %16e \n", creal(modefreqs->data[i]), 
+           printf("RD info: QNM: (re) %.16e, (im) %.16e, Amp %16e \n", creal(modefreqs->data[i]),
                     cimag(modefreqs->data[i]), modeamps->data[i]);
        }
 
@@ -458,7 +460,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 		XLALDestroyCOMPLEX16Vector(modefreqs);
 		XLAL_ERROR(XLAL_EFUNC);
 	}
-	if (approximant == SEOBNRv3) {
+	if (approximant == SEOBNRv3 || approximant == SEOBNRv3_opt) {
 
         if (JLN > 0){
             mHere = (int)fabs((REAL8) m);
@@ -629,7 +631,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 			 * 1./cimag(modefreqs->data[5])/mTot);
 			 */
 		}
-	if (approximant == SEOBNRv3) {
+	if (approximant == SEOBNRv3 || approximant == SEOBNRv3_opt) {
         REAL8 kappa_thr = 0.175;
         //REAL8 eJL_thr = 7.5e-3;
         REAL8 eJL_thr = 5.0e-2;
@@ -903,7 +905,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 //                modefreqs->data[6] = -0.495264/mTot + I/mTot/3.716525;
 //                modefreqs->data[7] = -0.514602/mTot + I/mTot/3.344873;
 //            }
-            
+
 //            XLAL_PRINT_INFO("finalSpin = %f\n",finalSpin);
 //            XLAL_PRINT_INFO("finalMass = %f\n",finalMass);
 //            XLAL_PRINT_INFO("PeakOmega = %f\n",NRPeakOmega22*mTot);
@@ -916,7 +918,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 //            XLAL_PRINT_INFO("w6 = %f, t6 = %f\n",creal(modefreqs->data[6])*mTot, 1./cimag(modefreqs->data[6])/mTot);
 //            XLAL_PRINT_INFO("w7 = %f, t7 = %f\n",creal(modefreqs->data[7])*mTot, 1./cimag(modefreqs->data[7])/mTot);
 
-    
+
 
              // FIXME
              // {{{
@@ -977,7 +979,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
                                          modefreqs->data[5] =  conjl(-1.0 * modefreqs_xtr->data[0]);
                                      }
                              }
- 
+
              if ((JLN < 0.0 && JLN > -0.98) || (eta*JLN > -eJL_thr && eta*JLN<0.0) ){
                  spin1[0] *= -1;
                  spin1[1] *= -1;
@@ -1053,13 +1055,13 @@ XLALSimIMREOBHybridAttachRingdownPrec(
                     XLAL_PRINT_INFO("QNM frequencies: %d %d %d %3.10f %3.10f\n", l, m, j, creal(modefreqs->data[j]) * mTot, 1. / cimag(modefreqs->data[j]) / mTot);
                 }
             }
-            
+
             COMPLEX16Vector *modefreqs_xtr;
             modefreqs_xtr = XLALCreateCOMPLEX16Vector(nmodes);
             if (!modefreqs_xtr) {
                 XLAL_ERROR(XLAL_ENOMEM);
             }
-            
+
             if ( 1==1 || (JLN < 0.0 && eta <= 0.1)){
                 spin1[0] *= -1;
                 spin1[1] *= -1;

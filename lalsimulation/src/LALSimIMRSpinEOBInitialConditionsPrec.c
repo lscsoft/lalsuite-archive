@@ -975,7 +975,7 @@ XLALSimIMRSpinEOBInitialConditionsPrec(
         if(multFacGslNoProgress < 1.){ multFacGslNoProgress *= 1.02; }
         else{ multFacGslNoProgress /= 1.01; }
 
-      } 
+      }
       /* Now that no progress is being made, we need to reset the initial guess
        * for the (r,pPhi, pTheta) and reset the integrator */
       rootParams.values[0] = scale1 * 1. / (v0 * v0);	/* Initial r */
@@ -1192,8 +1192,7 @@ XLALSimIMRSpinEOBInitialConditionsPrec(
 		a = sqrt(sKerr.data[0] * sKerr.data[0] + sKerr.data[1] * sKerr.data[1] + sKerr.data[2] * sKerr.data[2]);
 		//XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients(params->eobParams->hCoeffs, mass1, mass2, eta, /* a */ 0.0, chiS, chiA);
 		//XLALSimIMRCalculateSpinPrecEOBHCoeffs(params->seobCoeffs, eta, a);
-		ham = XLALSimIMRSpinPrecEOBHamiltonian(eta, &qCartVec, &pCartVec, &s1VecNorm, &s2VecNorm, &sKerr, &sStar, params->tortoise, params->seobCoeffs);
-
+        ham = XLALSimIMRSpinPrecEOBHamiltonian(eta, &qCartVec, &pCartVec, &s1VecNorm, &s2VecNorm, &sKerr, &sStar, params->tortoise, params->seobCoeffs);
 		if (printPK)
 			XLAL_PRINT_INFO("Stas: hamiltonian in ICs at this point is %.16e\n", ham);
 

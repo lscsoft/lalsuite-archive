@@ -27,6 +27,9 @@
  */
 
 
+#ifndef _LALSIMIMRSPINEOB_C
+#define _LALSIMIMRSPINEOB_C
+
 #include <math.h>
 #include <complex.h>
 #include <lal/LALSimIMR.h>
@@ -38,20 +41,20 @@
 #include <lal/SphericalHarmonics.h>
 #include <gsl/gsl_sf_gamma.h>
 
-#include "LALSimIMREOBNRv2.h"
+//#include "LALSimIMREOBNRv2.h"
 #include "LALSimIMRSpinEOB.h"
 
 /* Include all the static function files we need */
-#include "LALSimIMREOBHybridRingdown.c"
-#include "LALSimIMREOBFactorizedWaveform.c"
-#include "LALSimIMREOBNewtonianMultipole.c"
-#include "LALSimIMREOBNQCCorrection.c"
-#include "LALSimIMRSpinEOBInitialConditions.c"
-#include "LALSimIMRSpinEOBAuxFuncs.c"
-#include "LALSimIMRSpinAlignedEOBHcapDerivative.c"
-#include "LALSimIMRSpinEOBHamiltonian.c"
-#include "LALSimIMRSpinEOBFactorizedWaveform.c"
-#include "LALSimIMRSpinEOBFactorizedFlux.c"
+//#include "LALSimIMREOBHybridRingdown.c"
+//#include "LALSimIMREOBFactorizedWaveform.c"
+//#include "LALSimIMREOBNewtonianMultipole.c"
+//#include "LALSimIMREOBNQCCorrection.c"
+//#include "LALSimIMRSpinEOBInitialConditions.c"
+//#include "LALSimIMRSpinEOBAuxFuncs.c"
+//#include "LALSimIMRSpinAlignedEOBHcapDerivative.c"
+//#include "LALSimIMRSpinEOBHamiltonian.c"
+//#include "LALSimIMRSpinEOBFactorizedWaveform.c"
+//#include "LALSimIMRSpinEOBFactorizedFlux.c"
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -59,6 +62,7 @@
 #define UNUSED
 #endif
 
+UNUSED
 static int
 XLALEOBSpinStopCondition(double UNUSED t,
                            const double values[],
@@ -89,6 +93,39 @@ XLALEOBSpinStopCondition(double UNUSED t,
 }
 
 
+SEOBHCoeffConstants XLALEOBSpinPrecCalcSEOBHCoeffConstants(REAL8 eta){
+
+    SEOBHCoeffConstants CoeffConsts;
+
+    REAL8 c20  = 1.712;
+    REAL8 c21  = -1.803949138004582;
+    REAL8 c22  = -39.77229225266885;
+    REAL8 c23  = 103.16588921239249;
+
+    /*
+    coeffsb3  = 0.;
+    coeffsbb3 = 0.;
+    */
+
+    REAL8 coeffsKK =  c20 + c21*eta + c22*eta*eta + c23*eta*eta*eta;
+    REAL8 m1PlusEtaKK = -1. + eta*coeffsKK;
+
+    #include "mathematica_codes/SEOBNRv3_opt/SEOBNRv3_opt_coeffs-kC-parsedfinal.h"
+    CoeffConsts.a0k2 = kC0;
+    CoeffConsts.a1k2 = kC1;
+    CoeffConsts.a0k3 = kC2;
+    CoeffConsts.a1k3 = kC3;
+    CoeffConsts.a0k4 = kC4;
+    CoeffConsts.a1k4 = kC5;
+    CoeffConsts.a2k4 = kC6;
+    CoeffConsts.a0k5 = kC7;
+    CoeffConsts.a1k5 = kC8;
+    CoeffConsts.a2k5 = kC9;
+
+    return CoeffConsts;
+}
+
+#if 0
 int XLALSimIMRSpinEOBWaveform(
         REAL8TimeSeries **hplus,
         REAL8TimeSeries **hcross,
@@ -473,7 +510,7 @@ int XLALSimIMRSpinEOBWaveform(
     status = XLALSimIMRSpinEOBGetSpinFactorizedWaveform( &hLM, values, v,
                   ham, 2, 2, &seobParams );
 
-    hPlusTS->data->data[i]  = - 0.5 * amp * cos( 2.*vphi[i]) * cos(2.*alpha) * (1. + LNhz*LNhz) 
+    hPlusTS->data->data[i]  = - 0.5 * amp * cos( 2.*vphi[i]) * cos(2.*alpha) * (1. + LNhz*LNhz)
                             + amp * sin(2.*vphi[i]) * sin(2.*alpha)*LNhz;
 
     hCrossTS->data->data[i] = - 0.5 * amp * cos( 2.*vphi[i]) * sin(2.*alpha) * (1. + LNhz*LNhz)
@@ -488,3 +525,6 @@ int XLALSimIMRSpinEOBWaveform(
 
   return XLAL_SUCCESS;
 }
+#endif // 0
+
+#endif // _LALSIMIMRSPINEOB_C

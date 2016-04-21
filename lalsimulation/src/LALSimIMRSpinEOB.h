@@ -1,4 +1,4 @@
-#include <lal/LALSimInspiral.h>
+ #include <lal/LALSimInspiral.h>
 #include <lal/LALSimIMR.h>
 #include <gsl/gsl_spline.h>
 #include <math.h>
@@ -20,8 +20,6 @@
  * Set the total number of multipoles
  * */
 #define MAX_NUM_MODES 7
-
-
 
 struct
 SpinEOBModes
@@ -73,6 +71,29 @@ tagSpinEOBHCoeffs
 }
 SpinEOBHCoeffs;
 
+typedef struct
+tagSEOBHCoeffConstants
+{
+
+  double a0k2; //Coefficient of a^0 in k2
+  double a1k2; //Coefficient of a^1 in k2
+
+  double a0k3; //Coefficient of a^0 in k3
+  double a1k3; //Coefficient of a^1 in k3
+
+  double a0k4; //Coefficient of a^0 in k4
+  double a1k4; //Coefficient of a^1 in k4
+  double a2k4; //Coefficient of a^2 in k4
+
+  double a0k5; //Coefficient of a^0 in k5
+  double a1k5; //Coefficient of a^1 in k5
+  double a2k5; //Coefficient of a^2 in k5
+
+}
+SEOBHCoeffConstants;
+
+SEOBHCoeffConstants XLALEOBSpinPrecCalcSEOBHCoeffConstants(REAL8 eta);
+
 /**
  * Parameters for the spinning EOB model.
  * 1) eobParams contains parameters common to nonspin and spin EOBNR models,
@@ -90,6 +111,7 @@ tagSpinEOBParams
 {
   EOBParams               *eobParams;
   SpinEOBHCoeffs          *seobCoeffs;
+  SEOBHCoeffConstants     *seobCoeffConsts;
   EOBNonQCCoeffs          *nqcCoeffs;
   REAL8Vector             *s1Vec;
   REAL8Vector             *s2Vec;
@@ -99,9 +121,11 @@ tagSpinEOBParams
   REAL8                   chi1;
   REAL8                   chi2;
   REAL8                   prev_dr;
-  int                     alignedSpins;
   int                     tortoise;
-  int ignoreflux;
+  int                     ignoreflux;
+  int                     alignedSpins;
+  bool                    almostAlignedSpins; /*OPTV3*/
+  Approximant             seobApproximant; /*OPTV3*/
 }
 SpinEOBParams;
 

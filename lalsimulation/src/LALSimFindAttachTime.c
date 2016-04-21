@@ -24,8 +24,6 @@
 #include "LALSimIMREOBHybridRingdownPrec.c"
 
 
-
-
 double  XLALSimLocateOmegaTime(
     REAL8Array *dynamicsHi,
     unsigned int numdynvars,

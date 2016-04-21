@@ -383,7 +383,6 @@ static double GSLSpinHamiltonianDerivWrapperHybrid( double x,    /**<< Derivativ
     {
     case 0:
       /* dHdr */
-      //CALEBS: Ham Path to Wrapper (next 3 lines)
       dHdx  = XLALSpinHcapHybDerivWRTParam( 0, cartValues, dParams->params );
       dHdpy = XLALSpinHcapHybDerivWRTParam( 4, cartValues, dParams->params );
       dHdpz = XLALSpinHcapHybDerivWRTParam( 5, cartValues, dParams->params );
@@ -395,13 +394,11 @@ static double GSLSpinHamiltonianDerivWrapperHybrid( double x,    /**<< Derivativ
       break;
     case 4:
       /* dHdptheta */
-      //CALEBS: Ham Path to Wrapper
       dHdpz = XLALSpinHcapHybDerivWRTParam( 5, cartValues, dParams->params );
       return - dHdpz / r;
       break;
     case 5:
       /* dHdpphi */
-      //CALEBS: Ham Path to Wrapper
       dHdpy = XLALSpinHcapHybDerivWRTParam( 4, cartValues, dParams->params );
       return dHdpy / r;
       break;
