@@ -1161,8 +1161,8 @@ int XLALSimIMRSpinAlignedEOBWaveform(
     XLALPrintError( "The comb size looks to be too big!!!\n" );
   }
 
-  //rdMatchPoint->data[0] = combSize < timePeak - timeshiftPeak ? timePeak - timeshiftPeak - combSize : 0;
-  rdMatchPoint->data[0] = timePeak + 2.0*deltaTHigh;
+  rdMatchPoint->data[0] = combSize < timePeak - timeshiftPeak ? timePeak - timeshiftPeak - combSize : 0;
+  //rdMatchPoint->data[0] = timePeak + 2.0*deltaTHigh;
   rdMatchPoint->data[1] = timePeak - timeshiftPeak;
   rdMatchPoint->data[2] = dynamicsHi->data[finalIdx];
   #if debugOutput
