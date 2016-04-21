@@ -1878,8 +1878,8 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
     qNSLMDot  = gsl_spline_eval_deriv( spline, nrTimePeak, acc );
     qNSLMDDot = gsl_spline_eval_deriv2( spline, nrTimePeak, acc );
     
-    nra = GetNRSpinPeakAmplitudeV4( l, m, eta, a );
-    nraDDot = - GetNRSpinPeakADDotV4( l, m, eta, a );
+    nra = GetNRSpinPeakAmplitudeV4( l, m, eta, a/(1. - 2.*eta) );
+    nraDDot = GetNRSpinPeakADDotV4( l, m, eta, a/(1. - 2.*eta) );
 
     if ( XLAL_IS_REAL8_FAIL_NAN( nra ) || XLAL_IS_REAL8_FAIL_NAN( nraDDot ) )
     {
@@ -1950,8 +1950,8 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
         omegaDot = - fabs( omegaDot );
     }
     
-    nromega = GetNRSpinPeakOmegaV4( l, m, eta, a );
-    nromegaDot = GetNRSpinPeakOmegaDotV4( l, m, eta, a );
+    nromega = GetNRSpinPeakOmegaV4( l, m, eta, a/(1. - 2.*eta) );
+    nromegaDot = GetNRSpinPeakOmegaDotV4( l, m, eta, a/(1. - 2.*eta) );
 
 //    printf("NR inputs: %.16e, %.16e, %.16e, %.16e\n",nra,nraDDot,nromega,nromegaDot);
 /*     printf("NR inputs: %.16e, %.16e, %.16e, %.16e\n",pNSLMDot, pNSLMDDot,omega,omegaDot);*/
@@ -1991,9 +1991,11 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
     gsl_linalg_LU_solve( pMatrix, perm2, omegaVec, bCoeff );
     
     /* We can now populate the coefficients structure */
-    /*  coeffs->a3S = gsl_vector_get( aCoeff, 0 );
-     coeffs->a4  = gsl_vector_get( aCoeff, 1 );
-     coeffs->a5  = gsl_vector_get( aCoeff, 2 );*/
+    coeffs->a3S = 0.;
+    coeffs->a4  = 0.;
+    coeffs->a5  = 0.;
+    coeffs->b3  = 0.;
+    coeffs->b4  = 0.;
     switch ( SpinAlignedEOBversion )
     {
         case 1:
