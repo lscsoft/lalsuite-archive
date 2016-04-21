@@ -18,13 +18,16 @@
 */
 
 #include <config.h>
+
+#ifdef HAVE_UNISTD_H
+#define _GNU_SOURCE   /* for gethostname() */
+#include <unistd.h>
+#endif
+
 #include <ctype.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
 
 #include <lal/LALDatatypes.h>
 #include <lal/LALDetectors.h>
@@ -41,10 +44,12 @@
 #define localtime_r(timep, result) memcpy((result), localtime(timep), sizeof(struct tm))
 #endif
 
+/** @cond */
 struct tagLALFrFile {
     LALFrameUFrFile *file;
     LALFrameUFrTOC *toc;
 };
+/** @endcond */
 
 int XLALFrFileClose(LALFrFile * frfile)
 {
@@ -413,7 +418,7 @@ void XLALFrameFree(LALFrameH * frame)
 }
 
 LALFrameH *XLALFrameNew(const LIGOTimeGPS * epoch, double duration,
-    const char *project, int run, int frnum, int detectorFlags)
+    const char *project, int run, int frnum, INT8 detectorFlags)
 {
     LALFrameH *frame = NULL;
     int detind;
@@ -431,7 +436,7 @@ LALFrameH *XLALFrameNew(const LIGOTimeGPS * epoch, double duration,
 
     /* add detectors */
     for (detind = 0; detind < LAL_NUM_DETECTORS; ++detind) {
-        int detflg = 1 << 2 * detind;
+        INT8 detflg = 1 << 2 * detind;
         if ((detflg & detectorFlags))   /* yes, one ampersand! */
             XLALFrameAddFrDetector(frame,
                 &lalCachedDetectors[detind].frDetector);

@@ -73,7 +73,9 @@ class upper_limit(object):
 
     # find out which instruments were on and when during search
     self.set_instruments(connection)
-    self.get_injected_mass_ranges(connection)
+    self.get_inspinj_mass_ranges(connection)
+    self.get_inspinj_mtotal_range(connection)
+    self.get_injected_mchirp_range(connection)
     self.get_segments(connection)
     self.get_zero_lag_segments()
     self.get_livetime()
@@ -112,19 +114,59 @@ class upper_limit(object):
       return
 
 
-  def get_injected_mass_ranges(self, connection):
+  def get_inspinj_mass_ranges(self, connection):
       '''
-      Find the component and total mass ranges for the search.
+      Find the component mass ranges for injections made using inspinj.
       '''
-      self.mintotal = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mtotal"').fetchone()[0])
-      self.maxtotal = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mtotal"').fetchone()[0])
-      minmass1 = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass1"').fetchone()[0])
-      minmass2 = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass2"').fetchone()[0])
-      maxmass1 = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass1"').fetchone()[0])
-      maxmass2 = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass2"').fetchone()[0])
+      self.minmass = None
+      self.maxmass = None
 
-      self.minmass = min(minmass1,minmass2)
-      self.maxmass = max(maxmass1,maxmass2)
+      minmass1 = connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass1"').fetchone()[0]
+      minmass2 = connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass2"').fetchone()[0]
+      maxmass1 = connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass1"').fetchone()[0]
+      maxmass2 = connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass2"').fetchone()[0]
+
+      # if inspinj did not have min / max-mass1,2 arguments the attributes remain None
+      if minmass1 is not None and minmass2 is not None:
+          self.minmass = min(float(minmass1), float(minmass2))
+      if maxmass1 is not None and maxmass2 is not None:
+          self.maxmass = max(float(maxmass1), float(maxmass2))
+
+      return True
+
+
+  def get_inspinj_mtotal_range(self, connection):
+      '''
+      Find the mtotal range for injections made using inspinj.
+      '''
+      self.mintotal = None
+      self.maxtotal = None
+
+      mintotal = connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mtotal"').fetchone()[0]
+      maxtotal = connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mtotal"').fetchone()[0]
+
+      # if inspinj did not have min / max-mtotal arguments the attributes remain None
+      if mintotal is not None:
+          self.mintotal = float(mintotal)
+      if maxtotal is not None:
+          self.maxtotal = float(maxtotal)
+
+      return True
+
+
+  def get_injected_mchirp_range(self, connection):
+      '''
+      Find the mchirp range actually injected.
+      '''
+      minchirp = connection.cursor().execute('SELECT MIN(mchirp) FROM sim_inspiral').fetchone()[0]
+      maxchirp = connection.cursor().execute('SELECT MAX(mchirp) FROM sim_inspiral').fetchone()[0]
+
+      # Injections must have chirp masses!
+      if minchirp is None or maxchirp is None:
+          raise RuntimeError("Can't find any injection mchirp values in database!")
+      else:
+          self.minchirp = float(minchirp)
+          self.maxchirp = float(maxchirp)
 
       return True
 
@@ -210,46 +252,49 @@ class upper_limit(object):
 
   def set_total_mass_bins(self):
     '''
-    Set the total mass bins to use based on what mass ranges were injected and specified user options.
+    Set the total mass bins to use based on what mass ranges were injected or user options.
     '''
-    # construct m1 bins
+    # find bin edges
     if self.opts.total_mass_bins is not None: # use user-specified bins if given
       binEdges = numpy.array([float(k) for k in self.opts.total_mass_bins.split(',')])
-      self.mintotal = max(numpy.min(binEdges), self.mintotal)
-      self.maxtotal = min(numpy.max(binEdges), self.maxtotal)
-    else: # otherwise, make bins based on what's in DB
-      binEdges = numpy.linspace(self.mintotal, self.maxtotal, self.opts.mass_bins)
+      self.mintotal = numpy.min(binEdges)
+      self.maxtotal = numpy.max(binEdges)
+    elif self.mintotal is not None and self.maxtotal is not None: # otherwise, make bins based on inspinj arguments
+      binEdges = numpy.linspace(self.mintotal, self.maxtotal, self.opts.mass_bins+1)
+    else:
+      raise RuntimeError("Can't find injection minimum and maximum total masses! Please specify --total-mass-bins")
 
     self.total_mass_bins = rate.NDBins((rate.IrregularBins(binEdges),))
-
     return self.total_mass_bins
 
 
   def set_component_mass_bins(self):
     '''
-    Set the component mass bins to use based what mass ranges were injected.
+    Set the component mass bins to use based on what mass ranges were injected or user options.
     '''
-    # construct m1 bins
+    # find bin edges
     if self.opts.component_mass1_bins is not None: # use user-specified bins if given
       binEdges1 = numpy.array([float(k) for k in self.opts.component_mass1_bins.split(',')])
-      self.minmass = max(numpy.min(binEdges1), self.minmass)
-      self.maxmass = min(numpy.max(binEdges1), self.maxmass)
-    else: # otherwise, make bins based on what's in DB
+      self.minmass = numpy.min(binEdges1)
+      self.maxmass = numpy.max(binEdges1)
+    elif self.minmass is not None and self.maxmass is not None: # otherwise, make bins based on inspinj arguments
       binEdges1 = numpy.linspace(self.minmass, self.maxmass, self.opts.mass_bins+1)
+    else:
+      raise RuntimeError("Can't find injection minimum and maximum component masses! Please specify --component-mass-bins")
 
     self.component_mass_bins = rate.NDBins((rate.IrregularBins(binEdges1),))
-
     return self.component_mass_bins
 
 
   def set_chirp_mass_bins(self):
+    '''
+    Set the chirp mass bins to use based on the injections present or user options.
+    '''
+    # find bin edges
     if self.opts.chirp_mass_bins is not None: # use user-specified bins if given
       binEdges = numpy.array([float(k) for k in self.opts.chirp_mass_bins.split(',')])
-    else: # otherwise, make bins based on what we know about total mass ranges
-      minchirp = numpy.min(chirp_mass(self.minmass, self.mintotal - self.minmass))
-      maxchirp = numpy.max(chirp_mass(self.maxtotal / 2., self.maxtotal / 2.))
-      binEdges = numpy.linspace(minchirp, maxchirp, self.opts.mass_bins)
-
+    else: # otherwise, make bins based on actual injected range with some small padding
+      binEdges = numpy.linspace(self.minchirp-0.01, self.maxchirp+0.01, self.opts.mass_bins+1)
     self.chirp_mass_bins = rate.NDBins((rate.IrregularBins(binEdges),))
 
     return self.chirp_mass_bins
@@ -258,16 +303,21 @@ class upper_limit(object):
   def set_bns_bbh_bins(self):
     binEdges = [self.opts.min_nsmass, self.opts.max_nsmass, self.opts.min_bhmass, self.opts.max_bhmass]
     self.bns_bbh_bins = rate.NDBins((rate.IrregularBins(binEdges),))
+
     return self.bns_bbh_bins
 
 
   def set_m1m2_bins(self):
-    bin1Edges = numpy.linspace(self.minmass, self.maxmass, self.opts.mass_bins)
-    m2bins = int(self.opts.mass_bins / 2.) + numpy.mod(self.opts.mass_bins, 2) # ensures equal bin width in m2 as in m1
-    bin2Edges = bin1Edges[:m2bins+1]
-    mass1Bin = rate.IrregularBins(bin1Edges)
-    mass2Bin = rate.IrregularBins(bin2Edges)
-    self.m1m2_bins = rate.NDBins((mass1Bin, mass2Bin))
+    if self.minmass is not None and self.maxmass is not None:
+      numedges = self.opts.mass_bins + 1
+      bin1Edges = numpy.linspace(self.minmass, self.maxmass, numedges)
+      m2bins = int(numedges / 2.) + numpy.mod(numedges, 2) # ensures equal bin width in m2 as in m1
+      bin2Edges = bin1Edges[:m2bins+1]
+      mass1Bin = rate.IrregularBins(bin1Edges)
+      mass2Bin = rate.IrregularBins(bin2Edges)
+      self.m1m2_bins = rate.NDBins((mass1Bin, mass2Bin))
+    else:
+      raise RuntimeError("Can't find injection minimum and maximum component masses! Without these I can't do --bin-by-mass1-mass2")
 
     return self.m1m2_bins
 
@@ -601,8 +651,8 @@ will compute the search volume using all injections with at least one component 
   # Bin injections by component mass, with one mass fixed
   parser.add_option("--bin-by-component-mass", default=False, action="store_true", help="Bin injections by the first component's mass with the second component restricted to a single bin specified by --min/max-mass2.")
   parser.add_option("--component-mass1-bins", default=None, metavar="\'m0,m1,...,mk''", help="Specify the boundaries of the first component's mass bins. Input should be a comma separated list of masses. Injections outside the range of the bins will be ignored. If given, --bin-by-component-mass will be set to True.")
-  parser.add_option("--min-mass2", metavar="m", type='float', default=1.0, help="Minimum second component mass when using --bin-by-component-mass.")
-  parser.add_option("--max-mass2", metavar="m", type='float', default=3.0, help="Maximum second component mass when using --bin-by-component-mass.")
+  parser.add_option("--min-mass2", metavar="m", type='float', default=1.0, help="Minimum second component mass in Msun when using --bin-by-component-mass. Default 1.")
+  parser.add_option("--max-mass2", metavar="m", type='float', default=3.0, help="Maximum second component mass in Msun when using --bin-by-component-mass. Default 3.")
 
   # Bin injections into three
   parser.add_option("--bin-by-bns-bbh", default=False, action="store_true", help="Compute the sensitive volume for three mass bins: BNS, NSBH, and BBH.")
@@ -627,7 +677,7 @@ will compute the search volume using all injections with at least one component 
 
   # Binning options. A large number of distance bins is needed for accurate numerical integration.
   parser.add_option("--dist-bins", default=15, metavar="integer", type="int", help="Space distance bins evenly and specify the number of distance bins to use.")
-  parser.add_option("--mass-bins", default=6, metavar="integer", type="int", help="If mass bin boundaries are not explicitly set, specify the number of mass bins to use along a single dimension. NOTE: the number of bins will be 1 less than the integer given!")
+  parser.add_option("--mass-bins", default=5, metavar="integer", type="int", help="If mass bin boundaries are not explicitly set, specify the number of mass bins to use along a single dimension. Default 5 bins")
 
   # Options to control the FAR used for computing the search volume. The default behavior is to use
   # the FAR of the loudest non-playground event.
@@ -671,11 +721,11 @@ will compute the search volume using all injections with at least one component 
   if opts.total_mass_bins:
     opts.bin_by_total_mass = True
 
-  if (not opts.bin_by_chirp_mass) and (not opts.bin_by_component_mass) and (not opts.bin_by_bns_bbh) and (not opts.bin_by_mass1_mass2):
-    opts.bin_by_total_mass = True # choose a default binning method
+  if (not opts.bin_by_total_mass) and (not opts.bin_by_chirp_mass) and (not opts.bin_by_component_mass) and (not opts.bin_by_bns_bbh) and (not opts.bin_by_mass1_mass2):
+    raise RuntimeError("Must specify at least one mass binning method!")
 
   if opts.min_mass_ratio < 1:
-      raise ValueError, "The maximum mass ratio must be >=1!"
+    raise ValueError, "The maximum mass ratio must be >=1!"
   if opts.max_mass_ratio and not opts.min_mass_ratio <= opts.max_mass_ratio:
     raise ValueError, "The maximum mass ratio must be >= minimum mass ratio!"
 
@@ -738,8 +788,10 @@ if opts.plot_volume_vs_far:
 
         lt = UL.livetime[instr] # preferred unit is Mpc^3*yr
 
-        minvol = 1e20  # dummy initialization for V*T plot axis limit
         for bin_type in UL.mass_bins:
+
+            minvol = 1e20  # dummy initialization for V*T plot axis limit
+            maxvol = 0
             vAs, vA2s = [], []
 
             for far in fars:
@@ -765,9 +817,11 @@ if opts.plot_volume_vs_far:
                 vols_errs = numpy.array([v2[mbin] for v2 in vA2s])
 
                 plt.figure(1)
+                print bin_type, vols
                 line, = plt.plot(fars, lt * vols, label=label)
                 plt.fill_between(fars, lt * (vols - vols_errs), lt * (vols + vols_errs), alpha=0.5, color=line.get_color())
                 minvol = min(minvol, min(lt * (vols - vols_errs))) # update minimum plotted value
+                maxvol = max(maxvol, max(lt * (vols + vols_errs)))
 
                 dists = (3. * vols / (4. * numpy.pi)) ** (1. / 3.)
                 dists_errs = dists * vols_errs / (3. * vols)
@@ -782,14 +836,15 @@ if opts.plot_volume_vs_far:
             plt.xlabel("False Alarm Rate (yr$^{-1}$)")
             plt.ylabel("Mean Sensitive 4-Volume (Mpc$^3\,$yr)")
             # prefer log y axis for V*T plot but if one or more volumes is =0 then loglog() will fail
-            try:
+            if minvol > 0 and maxvol > 0:
                 plt.loglog()
                 plt.ylim(ymin=0.7 * minvol)
-            except:
+            elif maxvol > 0:
                 plt.semilogx()
+            else:
+                plt.ylim(0,1)
             plt.grid()
             plt.xlim(min(fars), max(fars))
-            plt.ylim(ymin=0)
             plt.legend(loc="lower right")
             plt.savefig(opts.output_path + tag + ".png")
             plt.close()

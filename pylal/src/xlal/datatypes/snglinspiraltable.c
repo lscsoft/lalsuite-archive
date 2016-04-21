@@ -29,6 +29,7 @@
 #include <Python.h>
 #include <structmember.h>
 #include <lal/LIGOMetadataTables.h>
+#include <ligotimegps.h>
 #include <misc.h>
 #include <snglinspiraltable.h>
 
@@ -123,33 +124,67 @@ static struct PyMemberDef members[] = {
 };
 
 
+static PyObject *end_get(PyObject *obj, void *data)
+{
+	return pylal_LIGOTimeGPS_new(((pylal_SnglInspiralTable*)obj)->sngl_inspiral.end_time);
+}
+
+
+static int end_set(PyObject *obj, PyObject *val, void *data)
+{
+	int seconds = 0;
+	int nanoseconds = 0;
+
+	if(val != Py_None) {
+		PyObject *attr = PyObject_GetAttrString(val, "gpsSeconds");
+		if(!attr)
+			return -1;
+		seconds = PyInt_AsLong(attr);
+		Py_DECREF(attr);
+		if(PyErr_Occurred())
+			return -1;
+		attr = PyObject_GetAttrString(val, "gpsNanoSeconds");
+		if(!attr)
+			return -1;
+		nanoseconds = PyInt_AsLong(attr);
+		Py_DECREF(attr);
+		if(PyErr_Occurred())
+			return -1;
+	}
+
+	((pylal_SnglInspiralTable*)obj)->sngl_inspiral.end_time.gpsSeconds = seconds;
+	((pylal_SnglInspiralTable*)obj)->sngl_inspiral.end_time.gpsNanoSeconds = nanoseconds;
+
+	return 0;
+}
+
+
 static struct PyGetSetDef getset[] = {
 	{"ifo", pylal_inline_string_get, pylal_inline_string_set, "ifo", &(struct pylal_inline_string_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.ifo), LIGOMETA_IFO_MAX}},
 	{"search", pylal_inline_string_get, pylal_inline_string_set, "search", &(struct pylal_inline_string_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.search), LIGOMETA_SEARCH_MAX}},
 	{"channel", pylal_inline_string_get, pylal_inline_string_set, "channel", &(struct pylal_inline_string_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.channel), LIGOMETA_CHANNEL_MAX}},
+	{"end", end_get, end_set, "end", NULL},
 	{"process_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "process_id", &(struct pylal_ilwdchar_id_description) {offsetof(pylal_SnglInspiralTable, process_id_i), &process_id_type}},
 	{"event_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "event_id", &(struct pylal_ilwdchar_id_description) {offsetof(pylal_SnglInspiralTable, event_id.id), &sngl_inspiral_event_id_type}},
 	{NULL,}
 };
 
 
-#if PY_VERSION_HEX < 0x02050000
-static int getreadbuffer(PyObject *self, int segment, void **ptrptr)
-#else
 static Py_ssize_t getreadbuffer(PyObject *self, Py_ssize_t segment, void **ptrptr)
-#endif
 {
+	if(segment) {
+		PyErr_SetString(PyExc_SystemError, "bad segment");
+		return -1;
+	}
 	*ptrptr = &((pylal_SnglInspiralTable*)self)->sngl_inspiral;
 	return sizeof(((pylal_SnglInspiralTable*)self)->sngl_inspiral);
 }
 
 
-#if PY_VERSION_HEX < 0x02050000
-static int getsegcount(PyObject *self, int *lenp)
-#else
 static Py_ssize_t getsegcount(PyObject *self, Py_ssize_t *lenp)
-#endif
 {
+	if(lenp)
+		*lenp = sizeof(((pylal_SnglInspiralTable*)self)->sngl_inspiral);
 	return 1;
 }
 
@@ -186,41 +221,10 @@ static PyObject *__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 }
 
 
-/*
- * Type
- */
-
-
-static PyTypeObject pylal_snglinspiraltable_type = {
-	PyObject_HEAD_INIT(NULL)
-	.tp_basicsize = sizeof(pylal_SnglInspiralTable),
-	.tp_doc = "LAL's SnglInspiralTable structure",
-	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES,
-	.tp_members = members,
-	.tp_getset = getset,
-	.tp_as_buffer = &as_buffer,
-	.tp_name = MODULE_NAME ".SnglInspiralTable",
-	.tp_new = __new__,
-};
-
-
-/*
- * ============================================================================
- *
- *                                 Functions
- *
- * ============================================================================
- */
-
-
-static PyObject *from_buffer(PyObject *self, PyObject *args)
+static PyObject *from_buffer(PyObject *cls, PyObject *args)
 {
 	const SnglInspiralTable *data;
-#if PY_VERSION_HEX < 0x02050000
-	int length;
-#else
 	Py_ssize_t length;
-#endif
 	unsigned i;
 	PyObject *result;
 
@@ -237,16 +241,46 @@ static PyObject *from_buffer(PyObject *self, PyObject *args)
 	if(!result)
 		return NULL;
 	for(i = 0; i < length; i++) {
-		PyObject *item = pylal_SnglInspiralTable_new(data++);
+		PyObject *item = PyType_GenericNew((PyTypeObject *) cls, NULL, NULL);
 		if(!item) {
 			Py_DECREF(result);
 			return NULL;
 		}
+		/* memcpy sngl_inspiral row */
+		((pylal_SnglInspiralTable*)item)->sngl_inspiral = *data++;
+		/* repoint event_id to event_id structure */
+		((pylal_SnglInspiralTable*)item)->sngl_inspiral.event_id = &((pylal_SnglInspiralTable*)item)->event_id;
+
 		PyTuple_SET_ITEM(result, i, item);
 	}
 
 	return result;
 }
+
+
+static struct PyMethodDef methods[] = {
+	{"from_buffer", from_buffer, METH_VARARGS | METH_CLASS, "Construct a tuple of SnglInspiralTable objects from a buffer object.  The buffer is interpreted as a C array of SnglInspiralTable structures."},
+	{NULL,}
+};
+
+
+/*
+ * Type
+ */
+
+
+static PyTypeObject pylal_snglinspiraltable_type = {
+	PyObject_HEAD_INIT(NULL)
+	.tp_basicsize = sizeof(pylal_SnglInspiralTable),
+	.tp_doc = "LAL's SnglInspiralTable structure",
+	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES,
+	.tp_members = members,
+	.tp_methods = methods,
+	.tp_getset = getset,
+	.tp_as_buffer = &as_buffer,
+	.tp_name = MODULE_NAME ".SnglInspiralTable",
+	.tp_new = __new__,
+};
 
 
 /*
@@ -258,15 +292,11 @@ static PyObject *from_buffer(PyObject *self, PyObject *args)
  */
 
 
-static struct PyMethodDef functions[] = {
-	{"from_buffer", from_buffer, METH_VARARGS, "Construct a tuple of SnglInspiralTable objects from a buffer object.  The buffer is interpreted as a C array of SnglInspiralTable structures."},
-	{NULL, }
-};
-
-
 PyMODINIT_FUNC initsnglinspiraltable(void)
 {
-	PyObject *module = Py_InitModule3(MODULE_NAME, functions, "Wrapper for LAL's SnglInspiralTable type.");
+	PyObject *module = Py_InitModule3(MODULE_NAME, NULL, "Wrapper for LAL's SnglInspiralTable type.");
+
+	pylal_ligotimegps_import();
 
 	/* Cached ID types */
 	process_id_type = pylal_get_ilwdchar_class("process", "process_id");

@@ -6,6 +6,10 @@ p<-function(...) {
 	return(paste(..., sep=""))
 	}
 
+sft_length<-as.numeric(read.table(pipe("grep 'SFT coherence time' 0/*/powerflux.log"), header=FALSE, sep=":")[1,2])
+if(is.na(sft_length))sft_length<-1800.0
+cat("Using sft coherence length of", sft_length, "\n")
+
 source("params.R")
 
 fn<-p(prefix, "coinc1", suffix)
@@ -67,9 +71,18 @@ dbGetQuery(con, CreateQuery)
 cat("Loading table", CoincTableName, "\n")
 dbGetQuery(con, LoadQuery)
 
+epsilon<-23.439281*pi/180
+# x, y, z
+ecliptic_pole<-c(0, -sin(epsilon), cos(epsilon))
+ecliptic_x_axis<-c(1, 0, 0)
+ecliptic_y_axis<-c(0, cos(epsilon), sin(epsilon))
 
 cat("Adding index to table", CoincTableName, "\n")
-dbGetQuery(con, p("ALTER TABLE `", CoincTableName, "` ADD INDEX (first_bin)"))
+dbGetQuery(con, p("ALTER TABLE ", CoincTableName, " ADD COLUMN (ECL_X DOUBLE, ECL_Y DOUBLE, F0INDEX INTEGER NOT NULL)"))
+dbGetQuery(con, p("ALTER TABLE ", CoincTableName, " MODIFY COLUMN `set` VARCHAR(255)"))
+dbGetQuery(con, p("UPDATE ", CoincTableName, " SET ECL_X=cos(ra)*cos(`dec`), ECL_Y=sin(ra)*cos(`dec`)*", ecliptic_y_axis[2], "+sin(`dec`)*", ecliptic_y_axis[3], ", F0INDEX=ROUND(FREQUENCY/", FrequencyTolerance, ")"))
+dbGetQuery(con, p("ALTER TABLE ", CoincTableName, " ADD INDEX F0IDX(`label`, F0INDEX)"))
+dbGetQuery(con, p("ALTER TABLE ", CoincTableName, " ORDER BY `label`, F0INDEX"))
 
 
 cat("Warnings:\n")

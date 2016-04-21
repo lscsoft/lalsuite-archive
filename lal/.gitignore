@@ -20,12 +20,16 @@ Makefile.in
 config.lt
 doxygen/autogen.dox
 doxygen/doxygen.cfg
+doxygen/doxygen_objdb_*.tmp
+doxygen/doxygen_sqlite3.db
 doxygen/filter
+doxygen/in/
 doxygen/out/
+doxygen/test_doxygen.*
 include/lal/*.h
 include/lal/*.i
 include/lal/header-link-stamp
-lal-*.tar.gz
+lal-*.tar.xz
 lal-user-env.csh
 lal-user-env.sh
 lal-user-env.shell
@@ -63,6 +67,7 @@ test/date/JulianDayTest
 test/date/LMST2Test
 test/date/LMSTTest
 test/date/LeapSecsTest
+test/date/MultiplyGPSTest
 test/date/StrToGPSTest
 test/date/UTCtoGPSTest
 test/factories/ArrayFactoriesTest
@@ -83,12 +88,14 @@ test/stats/LALMomentTest
 test/stats/XLALChisqTest
 test/std/LALConstantsTest
 test/std/LALGSLTest
+test/std/LALMallocPerf
 test/std/LALMallocTest
 test/std/LALStringTest
 test/std/LALVersionTest
 test/std/StringConvertTest
 test/support/ConfigFileTest
 test/support/GzipTest
+test/support/H5FileIOTest
 test/support/LALMath3DPlotTest
 test/support/LALMathNDPlotTest
 test/support/Math3DNotebook.nb
@@ -105,6 +112,7 @@ test/support/TranslateAnglesTest
 test/support/TranslateMJDTest
 test/support/UserInputParseTest
 test/support/UserInputTest
+test/support/test.h5
 test/tdfilter/BandPassTest
 test/tdfilter/IIRFilterTest
 test/tools/ComputeTransferTest
@@ -116,6 +124,7 @@ test/tools/IndependentDetResponseTest
 test/tools/LanczosTriggerInterpolantTest
 test/tools/NearestNeighborTriggerInterpolantTest
 test/tools/QuadraticFitTriggerInterpolantTest
+test/tools/SegmentsTest
 test/tools/SequenceTest
 test/tools/SkymapTest
 test/tools/TimeSeriesInterpTest
@@ -130,6 +139,9 @@ test/utilities/EigenTest
 test/utilities/FindRootTest
 test/utilities/IntegrateTest
 test/utilities/InterpolateTest
+test/utilities/LALHashFuncTest
+test/utilities/LALHashTblTest
+test/utilities/LALHeapTest
 test/utilities/LALRunningMedianTest
 test/utilities/MersenneRandomTest
 test/utilities/ODETest

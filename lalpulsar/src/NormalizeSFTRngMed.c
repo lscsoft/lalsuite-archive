@@ -87,6 +87,13 @@ XLALNormalizeSFT ( REAL8FrequencySeries *rngmed, 	/**< [out] rng-median smoothed
     }
   else
     {
+      // copy whole SFT header info to be on the safe side (deltaF definitely needed for Tsft=1/deltaF later)
+      strcpy ( rngmed->name, sft->name );
+      rngmed->epoch 	 = sft->epoch;
+      rngmed->f0 	 = sft->f0;
+      rngmed->deltaF 	 = sft->deltaF;
+      rngmed->sampleUnits= sft->sampleUnits;
+
       /* set PSD to constant value: Tsft * S / 2 = Tsft * (sqrt(S))^2 / 2 */
       const REAL8 Tsft = 1.0 / sft->deltaF;
       const REAL8 assume_Tsft_Sn_b2 = Tsft * assumeSqrtS*assumeSqrtS / 2;
@@ -126,7 +133,7 @@ XLALNormalizeSFTVect ( SFTVector  *sftVect,		/**< [in/out] pointer to a vector o
 
   /* allocate memory for a single rngmed */
   REAL8FrequencySeries *rngmed;
-  XLAL_CHECK ( ( rngmed = XLALCalloc(1, sizeof(*rngmed))) != NULL, XLAL_ENOMEM, "Failed to XLALCalloc(1,%lu)", sizeof(*rngmed) );
+  XLAL_CHECK ( ( rngmed = XLALCalloc(1, sizeof(*rngmed))) != NULL, XLAL_ENOMEM, "Failed to XLALCalloc(1,%zu)", sizeof(*rngmed) );
   XLAL_CHECK ( ( rngmed->data = XLALCreateREAL8Vector ( lengthsft ) ) != NULL, XLAL_EFUNC, "XLALCreateREAL8Vector ( %d ) failed.", lengthsft );
 
   /* loop over sfts and normalize them */
@@ -168,7 +175,7 @@ XLALNormalizeMultiSFTVect ( MultiSFTVector *multsft,		/**< [in/out] multi-vector
 
   UINT4 numifo = multsft->length;
   multiPSD->length = numifo;
-  XLAL_CHECK_NULL ( ( multiPSD->data = XLALCalloc ( numifo, sizeof(*multiPSD->data))) != NULL, XLAL_ENOMEM, "Failed to XLALCalloc ( %d, %lu)", numifo, sizeof(*multiPSD->data) );
+  XLAL_CHECK_NULL ( ( multiPSD->data = XLALCalloc ( numifo, sizeof(*multiPSD->data))) != NULL, XLAL_ENOMEM, "Failed to XLALCalloc ( %d, %zu)", numifo, sizeof(*multiPSD->data) );
 
   /* loop over ifos */
   for ( UINT4 X = 0; X < numifo; X++ )
@@ -176,10 +183,10 @@ XLALNormalizeMultiSFTVect ( MultiSFTVector *multsft,		/**< [in/out] multi-vector
       UINT4 numsft = multsft->data[X]->length;
 
       /* allocation of psd vector over SFTs for this detector X */
-      XLAL_CHECK_NULL ( (multiPSD->data[X] = XLALCalloc(1, sizeof(*multiPSD->data[X]))) != NULL, XLAL_ENOMEM, "Failed to XLALCalloc(1, %lu)", sizeof(*multiPSD->data[X]));
+      XLAL_CHECK_NULL ( (multiPSD->data[X] = XLALCalloc(1, sizeof(*multiPSD->data[X]))) != NULL, XLAL_ENOMEM, "Failed to XLALCalloc(1, %zu)", sizeof(*multiPSD->data[X]));
 
       multiPSD->data[X]->length = numsft;
-      XLAL_CHECK_NULL ( (multiPSD->data[X]->data = XLALCalloc ( numsft, sizeof(*(multiPSD->data[X]->data)))) != NULL, XLAL_ENOMEM, "Failed to XLALCalloc ( %d, %lu)", numsft, sizeof(*(multiPSD->data[X]->data)) );
+      XLAL_CHECK_NULL ( (multiPSD->data[X]->data = XLALCalloc ( numsft, sizeof(*(multiPSD->data[X]->data)))) != NULL, XLAL_ENOMEM, "Failed to XLALCalloc ( %d, %zu)", numsft, sizeof(*(multiPSD->data[X]->data)) );
 
       /* loop over sfts for this IFO X */
       for ( UINT4 j = 0; j < numsft; j++ )

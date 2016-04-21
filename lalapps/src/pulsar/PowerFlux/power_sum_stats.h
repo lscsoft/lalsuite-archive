@@ -45,6 +45,10 @@ typedef struct {
 	/* the following fields are for convenience and are filled in by outside code based on value of bin */
 	double frequency;
 	double spindown;
+	double fdotdot;
+	double freq_modulation_freq;
+	double freq_modulation_phase;
+	double freq_modulation_depth;
 	double ra;
 	double dec;
 
@@ -67,6 +71,7 @@ typedef struct {
 	double max_m4;
 	double min_m4;
 	int ntemplates;
+	int reserved;
 	} POWER_SUM_STATS;
 
 void compute_alignment_coeffs(ALIGNMENT_COEFFS *ac);

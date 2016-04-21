@@ -51,7 +51,7 @@ def web_path_to_url(path):
 	if 'phys.uwm.edu' in host: return "https://ldas-jobs.phys.uwm.edu/~" + pl[pl.index('public_html')-1] + '/' + '/'.join(pl[pl.index('public_html')+1:])
 	if 'phy.syr.edu' in host: return "https://sugar-jobs.phy.syr.edu/~" + pl[pl.index('public_html')-1] + '/' + '/'.join(pl[pl.index('public_html')+1:])
 	if 'aei.uni-hannover.de' in host: return "https://atlas.atlas.aei.uni-hannover.de/~" + pl[pl.index('WWW')-1] + '/' + '/'.join(pl[pl.index('WWW')+1:])
-	print sys.stderr, "WARNING: could not find web server, returning empty string"
+	sys.stderr.write("WARNING: could not find web server, returning empty string\n")
 	return ''
 
 
@@ -78,6 +78,10 @@ function get_url_vars() {
     }
     return false;
 }
+
+$(document).ready(function() {
+$(".fancybox").fancybox();
+});
 
 window.onload = function () {
         var vars = get_url_vars(), prop;
@@ -127,7 +131,8 @@ def script_dict(fname):
 	script = {}
 	tog = os.path.split(create_toggle(fname))[1]
 	script[tog] = 'javascript'
-	script['https://ajax.googleapis.com/ajax/libs/jquery/1.2.6/jquery.min.js'] = 'javascript'
+	script['https://ldas-jobs.ligo-wa.caltech.edu/~detchar/html/fancybox/source/jquery.fancybox.pack.js?v=2.1.5'] = 'javascript'
+	script['https://ldas-jobs.ligo-wa.caltech.edu/~detchar/html/jquery-1.10.2.min.js'] = 'javascript'
 	return (script, [tog])
 
 
@@ -135,7 +140,7 @@ def which(prog):
 	which = subprocess.Popen(['which',prog], stdout=subprocess.PIPE)
 	out = which.stdout.read().strip()
 	if not out:
-		print >>sys.stderr, "ERROR: could not find %s in your path, have you built the proper software and source the proper env. scripts?" % (prog,prog)
+		sys.stderr.write("ERROR: could not find %s in your path, have you built the proper software and source the proper env. scripts?\n" % (prog,prog))
 		raise ValueError
 		sys.exit(1)
 	return out
@@ -224,7 +229,7 @@ class _text(markup.page):
 class _imagelink(markup.page):
 	def __init__(self, imageurl, thumburl, tag="img", width=240):
 		markup.page.__init__(self, mode="strict_html")
-		self.add('<a href=%s target="_blank"><img src=%s width=%d></a>' % (imageurl, thumburl, width))
+		self.add('<a class="fancybox" href=%s target="_blank"><img src=%s width=%d></a>' % (imageurl, thumburl, width))
 
 	def get_content(self):
 		return self.content
@@ -254,7 +259,7 @@ class _imagelinkcpy(markup.page):
 			shutil.copy(thumbpath, 'Images/')
 			thumbname = 'Images/' + thumbname
 			imgname = 'Images/' + imgname
-		self.add('<a href=%s target="_blank"><img src=%s width=%d></a>' % (imgname, thumbname, width))
+		self.add('<a class="fancybox" href=%s target="_blank"><img src=%s width=%d></a>' % (imgname, thumbname, width))
 
 	def get_content(self):
 		return self.content
@@ -337,7 +342,7 @@ class _section(markup.page):
 # MAIN CBC WEB PAGE CLASS 
 class cbcpage(markup.page):
 
-	def __init__(self, title="cbc web page", path='./', css="//www.lsc-group.phys.uwm.edu/cgit/lalsuite/plain/glue/etc/cbcwebpage.css", script=None, pagenum=1, verbose=False):
+	def __init__(self, title="cbc web page", path='./', css=["//versions.ligo.org/cgit/lalsuite/plain/glue/etc/cbcwebpage.css","https://ldas-jobs.ligo-wa.caltech.edu/~detchar/html/fancybox/source/jquery.fancybox.css?v=2.1.5"], script=None, pagenum=1, verbose=False):
 		"""
 		"""
 		scdict = script_dict(fname='%s/%s' % (path,"toggle.js"))

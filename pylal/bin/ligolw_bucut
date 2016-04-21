@@ -38,7 +38,6 @@ from glue.ligolw.utils import segments as ligolw_segments
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import git_version
-from pylal import SimBurstUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
@@ -323,7 +322,7 @@ def remove_skipped_injections(contents):
 	ids = set()
 	for i in xrange(len(contents.simbursttable) - 1, -1, -1):
 		sim = contents.simbursttable[i]
-		if True not in (SimBurstUtils.time_at_instrument(sim, instrument) in seglist for instrument, seglist in contents.outsegs.iteritems()):
+		if True not in (sim.time_at_instrument(instrument) in seglist for instrument, seglist in contents.outsegs.iteritems()):
 			ids.add(sim.simulation_id)
 			del contents.simbursttable[i]
 	return ids

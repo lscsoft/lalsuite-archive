@@ -29,7 +29,7 @@ extern "C" {
 
 /**
  * \defgroup ExtrapolatePulsarSpins_h Header ExtrapolatePulsarSpins.h
- * \ingroup lalpulsar_common
+ * \ingroup lalpulsar_general
  * \brief  Extrapolate the Pulsar spin-paramters
  * \f$\{f^{(k)}\}\equiv\{f, \dot{f},\ddot{f},...\}\f$, and "spin-ranges"
  * \f$\{ f^{(k)}, \Delta f^{(k)} \}\f$ from one SSB epoch to another.
@@ -105,6 +105,9 @@ extern "C" {
 /*---------- exported prototypes [API] ----------*/
 int XLALExtrapolatePulsarSpinRange(  PulsarSpinRange *range1, const PulsarSpinRange *range0, const REAL8 dtau );
 
+#ifdef SWIG // SWIG interface directives
+SWIGLAL(OUTPUT_ARRAY_1D(PulsarSpins, fkdot1));
+#endif // SWIG
 int XLALExtrapolatePulsarSpins ( PulsarSpins fkdot1, const PulsarSpins fkdot0, REAL8 dtau );
 
 int XLALExtrapolatePulsarPhase ( REAL8 *phi1, const PulsarSpins fkdot1, const REAL8 phi0, const REAL8 dtau );

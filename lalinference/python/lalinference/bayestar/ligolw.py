@@ -1,6 +1,5 @@
-#!/usr/bin/env python
 #
-# Copyright (C) 2013  Leo Singer
+# Copyright (C) 2013-2015  Leo Singer
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -36,7 +35,7 @@ from pylal import ligolw_thinca
 from glue.ligolw import lsctables
 
 
-def get_temlate_bank_f_low(xmldoc):
+def get_template_bank_f_low(xmldoc):
     """Determine the low frequency cutoff from a template bank file,
     whether the template bank was produced by lalapps_tmpltbank or
     lalapps_cbc_sbank. bayestar_sim_to_tmpltbank does not have a command
@@ -61,10 +60,10 @@ def get_temlate_bank_f_low(xmldoc):
     return template_bank_f_low
 
 
-def sim_and_sngl_inspirals_for_xmldoc(xmldoc):
+def sim_coinc_and_sngl_inspirals_for_xmldoc(xmldoc):
     """Retrieve (as a generator) all of the
-    (sim_inspiral, (sngl_inspiral, sngl_inspiral, ... sngl_inspiral) tuples from
-    found coincidences in a LIGO-LW XML document."""
+    (sim_inspiral, coinc_event, (sngl_inspiral, sngl_inspiral, ... sngl_inspiral)
+    tuples from found coincidences in a LIGO-LW XML document."""
 
     # Look up necessary tables.
     coinc_table = ligolw_table.get_table(xmldoc, lsctables.CoincTable.tableName)
@@ -110,7 +109,7 @@ def sim_and_sngl_inspirals_for_xmldoc(xmldoc):
         sngl_inspirals = tuple(event
             for event_id, event in events_for_coinc_event_id(coinc.coinc_event_id))
 
-        yield sim_inspiral, sngl_inspirals
+        yield sim_inspiral, coinc, sngl_inspirals
 
 
 def coinc_and_sngl_inspirals_for_xmldoc(xmldoc):

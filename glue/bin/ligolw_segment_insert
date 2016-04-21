@@ -15,7 +15,7 @@ from optparse import OptionParser
 
 try:
   import pyRXP
-except ImportError, e:
+except ImportError as e:
   print >> sys.stderr, """
 Error: unable to import the pyRXP module.
 
@@ -35,7 +35,7 @@ try:
   from glue.ligolw import ligolw 
   from glue.ligolw.utils import process
   from glue.ligolw import types as ligolwtypes 
-except ImportError, e:
+except ImportError as e:
   print >> sys.stderr, """
 Error: unable to import modules from glue.
 
@@ -137,7 +137,7 @@ myClient = segmentdb_utils.setup_database(options.segment_url)
 if options.ping:
    try:
      print myClient.ping()
-   except Exception, e:
+   except Exception as e:
      print "Error ping --segment-url", str(e)
      sys.exit(1)
 else:

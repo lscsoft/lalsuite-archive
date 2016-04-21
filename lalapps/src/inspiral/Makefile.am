@@ -1,8 +1,8 @@
-BUILT_SOURCES =
+include $(top_srcdir)/gnuscripts/lalapps.am
+
 MOSTLYCLEANFILES =
 EXTRA_DIST =
 include $(top_srcdir)/gnuscripts/lalsuite_python.am
-include $(top_srcdir)/gnuscripts/lalapps.am
 
 SUBDIRS = posterior
 
@@ -152,7 +152,8 @@ pybin_scripts = \
 	lalapps_cbc_sbank_merge_sims \
 	lalapps_cbc_sbank_pipe \
 	lalapps_cbc_sbank_plot_sim \
-	lalapps_cbc_sbank_sim
+	lalapps_cbc_sbank_sim \
+	lalapps_bank_plotter
 
 pkgpython_PYTHON = \
 	inspiral.py \

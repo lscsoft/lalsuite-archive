@@ -57,8 +57,7 @@ report_str = \
       difference = %.3e
    UL stated FAP = %.5e
      UL deadtime = %.5e
-   UL difference = %.5e
-"""
+   UL difference = %.5e"""
 
 #===================================================================================================
 # weight functions
@@ -114,9 +113,26 @@ known_weights = {"uniform":uniform_weights, "pareto":pareto_weights, "sigmoid":s
 #===================================================================================================
 # calibration 
 #===================================================================================================
+def timeseries_to_livetime(dt, ts, thr):
+    """
+    computes the livetime using truth arrays, rather than by creating segments. This should be faster than creating segments if you don't actually care about the segments
+    assumes dt is constant for all samples in ts
+    """
+    truth = ts >= thr
+    N = np.sum(truth)
+    if N:
+        return dt*N, np.min( ts[truth] )
+    else:
+        return dt*N, None
+
+
+###
 def check_calibration( segs, times, timeseries, FAPthrs):
     """
     checks the pipeline's calibration at each "FAPthr in FAPThrs"
+
+    this may be sped up with a call to timeseries_to_livetime() instead of idq.timeseries_to_segments() -> event.livetime
+    however, we currently use some segment logic and it is not clear that we can avoid actually generating segments
     """
     idq_livetime = event.livetime(segs)
 
@@ -162,5 +178,44 @@ def check_calibration( segs, times, timeseries, FAPthrs):
         errs.append( err )
 
     return segments, deadtimes, statedFAPs, errs
+
+###
+def check_calibration_FAST( livetime, timeseries, FAPthrs, dt=1.0):
+    """
+    check the pitpline's calibration at each "FAPthr in FAPThrs"
+    """
+    deadtimes = []
+    statedFAPs = []
+    errs = []
+    for FAPthr in FAPthrs:
+        deadtime = 0.0
+        statedFAP = 0.0
+        for ts in timeseries:
+            d, mF = timeseries_to_livetime(dt, -ts, -FAPthr) # we want FAP <= FAPthr <--> -FAP >= -FAPthr
+            deadtime += d
+            if mF != None:
+                mF = -mF
+                if mF > statedFAP:
+                    statedFAP = mF
+        
+        if not livetime:
+            if deadtime:
+                raise ValueError("something is weird with segments... livetime is zero but deadtime is not")
+#            else: deadtime = 0 ### not necessary because we know this must be the case from the first conditional
+        else:
+            deadtime /= 1.0*livetime
+        deadtimes.append( deadtime )
+
+        statedFAPs.append( statedFAP )
+
+        if statedFAP > 0:
+            err = deadtime/statedFAP - 1
+        elif deadtime:
+            err = 1
+        else:
+            err = 0
+        errs.append( err )
+       
+    return deadtimes, statedFAPs, errs
 
 ##@}

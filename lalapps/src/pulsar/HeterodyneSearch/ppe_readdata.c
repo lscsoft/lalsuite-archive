@@ -131,12 +131,13 @@ void read_pulsar_data( LALInferenceRunState *runState ){
   INT4 ml = 1;
 
   CHAR *parFile = NULL;
-  BinaryPulsarParams pulsar;
+  PulsarParameters *pulsar;
 
   runState->data = NULL;
 
   /* Initialize the model, as it will hold IFO params and signal buffers */
-  runState->model = XLALMalloc(sizeof(LALInferenceModel));
+  /* single thread */
+  runState->threads[0]->model = XLALMalloc(sizeof(LALInferenceModel));
 
   /* timing values */
   struct timeval time1, time2;
@@ -156,7 +157,7 @@ void read_pulsar_data( LALInferenceRunState *runState ){
 
   tmpharms = XLALStringDuplicate( harmonics );
   for( i = 0; i < ml; i++ ){
-    tmpharm = strsep( &tmpharms, "," );
+    tmpharm = XLALStringToken( &tmpharms, "," , 0);
     XLALStringCopy( harmval, tmpharm, strlen(tmpharm)+1 );
 
     modelFreqFactors->data[i] = atof(harmval);
@@ -167,7 +168,7 @@ void read_pulsar_data( LALInferenceRunState *runState ){
   parFile = XLALStringDuplicate( ppt->value );
 
   /* get the pulsar parameters to give a value of f */
-  XLALReadTEMPOParFile( &pulsar, parFile );
+  pulsar = XLALReadTEMPOParFileNew( parFile );
 
   /* get the detectors - must */
   ppt = LALInferenceGetProcParamVal( commandLine, "--detectors" );
@@ -184,7 +185,7 @@ void read_pulsar_data( LALInferenceRunState *runState ){
     }
 
     for( i = 0; i < numDets; i++ ){
-      tempdet = strsep( &tempdets, "," );
+      tempdet = XLALStringToken( &tempdets, "," , 0);
       XLALStringCopy( dets[i], tempdet, strlen(tempdet)+1 );
     }
   }
@@ -221,13 +222,13 @@ detectors specified (no. dets = %d)\n", ml, ml, numDets);
       for( i = 0; i < ml*numDets; i++ ){
         CHAR *tmpstr = NULL;
 
-        tmppsd = strsep( &tmppsds, "," );
+        tmppsd = XLALStringToken( &tmppsds, "," , 0);
         XLALStringCopy( psdval, tmppsd, strlen(tmppsd)+1 );
         fpsds[i] = atof(psdval);
 
         /* set detector */
         if ( i%ml == 0 ){
-          tempdet = strsep( &tempdets, "," );
+          tempdet = XLALStringToken( &tempdets, "," , 0);
 
           if( (tmpstr = strstr(tempdet, "A")) != NULL ){ /* have advanced */
             XLALStringCopy( dets[FACTOR(i,ml)], tmpstr+1, strlen(tmpstr)+1 );
@@ -241,7 +242,11 @@ detectors specified (no. dets = %d)\n", ml, ml, numDets);
       REAL8 pfreq = 0.;
 
       /* putting in pulsar frequency at f here */
-      pfreq = pulsar.f0;
+      if ( PulsarCheckParam(pulsar, "F0") ) { pfreq = PulsarGetREAL8Param( pulsar, "F0" ); }
+      else {
+        XLALPrintError("%s: No source frequency given in parameter file", __func__);
+        XLAL_ERROR_VOID( XLAL_EINVAL );
+      }
 
       tempdets = XLALStringDuplicate( detectors );
 
@@ -251,7 +256,7 @@ detectors specified (no. dets = %d)\n", ml, ml, numDets);
 
         numPsds++;
 
-        if( i%ml == 0 ) { tempdet = strsep( &tempdets, "," ); }
+        if( i%ml == 0 ) { tempdet = XLALStringToken( &tempdets, "," , 0); }
 
         if( (tmpstr = strstr(tempdet, "A")) != NULL ){ /* have Advanced */
           XLALStringCopy( dets[FACTOR(i,ml)], tmpstr+1, strlen(tmpstr)+1 );
@@ -311,7 +316,7 @@ of detectors specified (no. dets = %d)\n", ml, ml, numDets);
 
       tmpstarts = XLALStringDuplicate( fakestarts );
       for( i = 0; i < ml*numDets; i++ ){
-        tmpstart = strsep( &tmpstarts, "," );
+        tmpstart = XLALStringToken( &tmpstarts, "," , 0);
         XLALStringCopy( startval, tmpstart, strlen(tmpstart)+1 );
 
         fstarts[i] = atof(startval);
@@ -335,7 +340,7 @@ number of detectors specified (no. dets = %d)\n", ml, ml, numDets);
 
       tmplengths = XLALStringDuplicate( fakelengths );
       for( i = 0; i < ml*numDets; i++ ){
-        tmplength = strsep( &tmplengths, "," );
+        tmplength = XLALStringToken( &tmplengths, "," , 0);
         XLALStringCopy( lengthval, tmplength, strlen(tmplength)+1 );
         flengths[i] = atof(lengthval);
       }
@@ -359,7 +364,7 @@ number of detectors specified (no. dets =%d)\n", ml, ml, numDets);
       tmpdts = XLALStringDuplicate( fakedt );
 
       for( i = 0; i < ml*numDets; i++ ){
-        tmpdt = strsep( &tmpdts, "," );
+        tmpdt = XLALStringToken( &tmpdts, "," , 0);
         XLALStringCopy( dtval, tmpdt, strlen(tmpdt)+1 );
         fdt[i] = atof(dtval);
       }
@@ -377,8 +382,8 @@ number of detectors specified (no. dets =%d)\n", ml, ml, numDets);
     exit(0);
   }
 
-  runState->model->ifo_loglikelihoods = XLALMalloc( sizeof(REAL8)*ml*numDets );
-  runState->model->ifo_SNRs = XLALMalloc( sizeof(REAL8)*ml*numDets );
+  runState->threads[0]->model->ifo_loglikelihoods = XLALMalloc( sizeof(REAL8)*ml*numDets );
+  runState->threads[0]->model->ifo_SNRs = XLALMalloc( sizeof(REAL8)*ml*numDets );
 
   UINT4 nstreams = ml*numDets;
   LALInferenceAddVariable( runState->algorithmParams, "numstreams", &nstreams, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED );
@@ -483,7 +488,7 @@ detectors specified (no. dets =%d)\n", ml, ml, numDets);
 
     if( i == 0 ) {
         runState->data = ifodata;
-        runState->model->ifo = ifomodel;
+        runState->threads[0]->model->ifo = ifomodel;
     }
     if( i > 0 ) {
         prev->next = ifodata;
@@ -514,7 +519,7 @@ detectors specified (no. dets =%d)\n", ml, ml, numDets);
     /*============================ GET DATA ==================================*/
     /* get i'th filename from the comma separated list */
     if ( !ppt2 ){ /* if using real data read in from the file */
-      datafile = strsep(&filestr, ",");
+      datafile = XLALStringToken(&filestr, ",", 0);
 
       j=0;
 
@@ -561,6 +566,8 @@ detectors specified (no. dets =%d)\n", ml, ml, numDets);
             fprintf(stderr, "Error... unrecognised number of values in first line of data file %s.\n", datafile);
             exit(3);
           }
+          /* ignore excessively large spurious values as they can screw things up */
+          if ( fabs(dataValsRe) > 1e-18 || fabs(dataValsIm) > 1e-18 ){ continue; }
         }
         j++;
 
@@ -573,7 +580,7 @@ detectors specified (no. dets =%d)\n", ml, ml, numDets);
 
         // Note: j-1 because we added to j above (553)
         temptimes->data[j-1] = times;
-        
+
         /* reheterodyne data if required */
         if ( rehetfreq != 0 ) {
           /* create template */
@@ -603,6 +610,8 @@ detectors specified (no. dets =%d)\n", ml, ml, numDets);
       ifomodel->times = NULL;
       ifomodel->times = XLALCreateTimestampVector( datalength );
 
+      UINT4 epochint = 0; /* index of the earliest time in the data */
+
       /* fill in time stamps as LIGO Time GPS Vector */
       REAL8 sampledt = INFINITY; /* sample interval */
       for ( k = 0; k < datalength; k++ ) {
@@ -614,11 +623,23 @@ detectors specified (no. dets =%d)\n", ml, ml, numDets);
             sampledt = temptimes->data[k] - temptimes->data[k-1];
           }
         }
+
+        if ( temptimes->data[k] < temptimes->data[epochint] ){ epochint = k; }
       }
 
-      ifodata->compTimeData->epoch = ifomodel->times->data[0];
-      ifomodel->compTimeSignal->epoch = ifomodel->times->data[0];
-      ifodata->varTimeData->epoch = ifomodel->times->data[0];
+      ifodata->compTimeData->epoch = ifomodel->times->data[epochint];
+      ifomodel->compTimeSignal->epoch = ifomodel->times->data[epochint];
+      ifodata->varTimeData->epoch = ifomodel->times->data[epochint];
+
+      /* check whether to randomise the data by shuffling the time stamps (this will preserve the order of
+       * the data for working out stationary chunk, but randomise the signal) */
+      if ( LALInferenceGetProcParamVal( commandLine, "--randomise" ) ){
+        INT4 randshufseed = atoi(LALInferenceGetProcParamVal( commandLine, "--randomise" )->value);
+        INT4 prevseed = gsl_rng_get( runState->GSLrandom );  // get previous RNG value
+        gsl_rng_set( runState->GSLrandom, randshufseed ); // set to value from randomise
+        gsl_ran_shuffle( runState->GSLrandom, &ifomodel->times->data[0], (size_t)datalength, sizeof(LIGOTimeGPS) ); // shuffle data times
+        gsl_rng_set( runState->GSLrandom, prevseed );     // reset to previous value
+      }
 
       /* add data sample interval */
       ppt = LALInferenceGetProcParamVal( commandLine, "--sample-interval" );
@@ -691,8 +712,8 @@ detectors specified (no. dets =%d)\n", ml, ml, numDets);
       if ( pptt ){
         tfile = XLALStringDuplicate( pptt->value );
 
-        if ( pulsar.units != NULL ){
-          if( !strcmp(pulsar.units, "TDB") ) { ttype = TIMECORRECTION_TDB; }
+        if ( PulsarCheckParam( pulsar, "UNITS" ) ) {
+          if( !strcmp(PulsarGetStringParam(pulsar, "UNITS"), "TDB") ) { ttype = TIMECORRECTION_TDB; }
           else { ttype = TIMECORRECTION_TCB; } /* default to TCB otherwise */
         }
         else { ttype = TIMECORRECTION_TCB; }
@@ -701,25 +722,19 @@ detectors specified (no. dets =%d)\n", ml, ml, numDets);
         tfile = NULL;
         ttype = TIMECORRECTION_ORIGINAL;
       }
+
+      /* check ephemeris files exist and if not output an error message */
+      if( fopen(sfile, "r") == NULL || fopen(efile, "r") == NULL ){
+        fprintf(stderr, "Error... ephemeris files not, or incorrectly, defined!\n");
+        exit(3);
+      }
     }
     else{ /* try getting files automatically */
-      CHAR efiletmp[1024], sfiletmp[1024], tfiletmp[1024];
-
-      if( !( ttype = XLALAutoSetEphemerisFiles( efiletmp, sfiletmp, tfiletmp, pulsar,
+      if( !( ttype = XLALAutoSetEphemerisFiles( &efile, &sfile, &tfile, pulsar,
             ifomodel->times->data[0].gpsSeconds, ifomodel->times->data[datalength-1].gpsSeconds ) ) ){
         fprintf(stderr, "Error... not been able to set ephemeris files!\n");
         exit(3);
       }
-
-      efile = XLALStringDuplicate(efiletmp);
-      sfile = XLALStringDuplicate(sfiletmp);
-      tfile = XLALStringDuplicate(tfiletmp);
-    }
-
-    /* check ephemeris files exist and if not output an error message */
-    if( fopen(sfile, "r") == NULL || fopen(efile, "r") == NULL ){
-      fprintf(stderr, "Error... ephemeris files not, or incorrectly, defined!\n");
-      exit(3);
     }
 
     /* set up ephemeris information */
@@ -737,7 +752,7 @@ detectors specified (no. dets =%d)\n", ml, ml, numDets);
   /* chop the data into stationary chunks and also calculate the noise variance if required
    * (note that if there is going to be a signal injected then this variance will be recalculated
    * after the injection has been made to make the analysis most similar to a real case). */
-  INT4 chunkMin, chunkMax;
+  UINT4 chunkMin, chunkMax;
 
   /* Get chunk min and chunk max */
   ppt = LALInferenceGetProcParamVal( commandLine, "--chunk-min" );
@@ -749,12 +764,12 @@ detectors specified (no. dets =%d)\n", ml, ml, numDets);
   else { chunkMax = CHUNKMAX; } /* default maximum chunk length */
 
   LALInferenceIFOData *datatmp = runState->data;
-  LALInferenceIFOModel *modeltmp = runState->model->ifo;
+  LALInferenceIFOModel *modeltmp = runState->threads[0]->model->ifo;
   while ( modeltmp ){
     UINT4Vector *chunkLength = NULL;
 
-    LALInferenceAddVariable( modeltmp->params, "chunkMin", &chunkMin, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED );
-    LALInferenceAddVariable( modeltmp->params, "chunkMax", &chunkMax, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED );
+    LALInferenceAddVariable( modeltmp->params, "chunkMin", &chunkMin, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED );
+    LALInferenceAddVariable( modeltmp->params, "chunkMax", &chunkMax, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED );
 
     ppt = LALInferenceGetProcParamVal( commandLine, "--oldChunks" );
     if ( ppt ){ /* use old style quasi-fixed data chunk lengths */
@@ -772,7 +787,18 @@ detectors specified (no. dets =%d)\n", ml, ml, numDets);
       else{ chunkLength = get_chunk_lengths( modeltmp, chunkMax ); }
     }
     /* use new change points analysis to get chunks */
-    else { chunkLength = chop_n_merge( datatmp, chunkMin, chunkMax ); }
+    else {
+      /* if sigma's have been input then there is just one chunk with a length of the full dataset */
+      if ( inputsigma ){
+        chunkLength = XLALCreateUINT4Vector( 1 );
+        chunkLength->data[0] = datatmp->varTimeData->data->length;
+      }
+      else{
+        UINT4 outputchunks = 0;
+        if ( LALInferenceGetProcParamVal( commandLine, "--output-chunks" ) ){ outputchunks = 1; }
+        chunkLength = chop_n_merge( datatmp, chunkMin, chunkMax, outputchunks );
+      }
+    }
 
     LALInferenceAddVariable( modeltmp->params, "chunkLength", &chunkLength, LALINFERENCE_UINT4Vector_t,
                              LALINFERENCE_PARAM_FIXED );
@@ -807,6 +833,8 @@ detectors specified (no. dets =%d)\n", ml, ml, numDets);
   XLALFree( flengths );
   XLALFree( fstarts );
   XLALFree( fpsds );
+
+  PulsarFreeParams( pulsar );
 
   if ( LALInferenceCheckVariable( runState->algorithmParams, "timefile" ) ){
     gettimeofday(&time2, NULL);
@@ -869,10 +897,9 @@ void setup_from_par_file( LALInferenceRunState *runState )
 /* Generates lookup tables also */
 {
   LALSource psr;
-  BinaryPulsarParams pulsar;
+  PulsarParameters *pulsar;
   REAL8Vector *phase_vector = NULL;
   LALInferenceIFOData *data = runState->data;
-  LALInferenceVariables *scaletemp;
   ProcessParamsTable *ppt = NULL;
   REAL8 DeltaT = 0.; /* maximum data time span */
 
@@ -881,26 +908,48 @@ void setup_from_par_file( LALInferenceRunState *runState )
   CHAR *parFile = ppt->value;
 
   /* get the pulsar parameters */
-  XLALReadTEMPOParFile( &pulsar, parFile );
-  psr.equatorialCoords.longitude = pulsar.ra;
-  psr.equatorialCoords.latitude = pulsar.dec;
+  pulsar = XLALReadTEMPOParFileNew( parFile );
+
+  REAL8 ra = 0.;
+  if ( PulsarCheckParam( pulsar, "RA" ) ) { ra = PulsarGetREAL8Param( pulsar, "RA" ); }
+  else if ( PulsarCheckParam( pulsar, "RAJ" ) ) { ra = PulsarGetREAL8Param( pulsar, "RAJ" ); }
+  else {
+    XLALPrintError ("%s: No source right ascension specified!", __func__ );
+    XLAL_ERROR_VOID( XLAL_EINVAL );
+  }
+  REAL8 dec = 0.;
+  if ( PulsarCheckParam( pulsar, "DEC" ) ) { dec = PulsarGetREAL8Param( pulsar, "DEC" ); }
+  else if ( PulsarCheckParam( pulsar, "DECJ" ) ) { dec = PulsarGetREAL8Param( pulsar, "DECJ" ); }
+  else {
+    XLALPrintError ("%s: No source declination specified!", __func__ );
+    XLAL_ERROR_VOID( XLAL_EINVAL );
+  }
+  psr.equatorialCoords.longitude = ra;
+  psr.equatorialCoords.latitude = dec;
   psr.equatorialCoords.system = COORDINATESYSTEM_EQUATORIAL;
 
   /* Setup lookup tables for amplitudes */
   setup_lookup_tables( runState, &psr );
 
-  runState->model->params = XLALCalloc( 1, sizeof(LALInferenceVariables) );
-  runState->model->domain = LAL_SIM_DOMAIN_TIME;
+  runState->threads[0]->model->params = XLALCalloc( 1, sizeof(LALInferenceVariables) );
+  runState->threads[0]->model->domain = LAL_SIM_DOMAIN_TIME;
 
-  runState->currentParams = XLALCalloc( 1, sizeof(LALInferenceVariables) );
+  runState->threads[0]->currentParams = XLALCalloc( 1, sizeof(LALInferenceVariables) );
 
-  scaletemp = XLALCalloc( 1, sizeof(LALInferenceVariables) );
+  /* Add initial (unchanging) variables for the model from the par file */
+  add_initial_variables( runState->threads[0]->currentParams, pulsar );
 
-  /* Add initial (unchanging) variables for the model, initial (unity) scale factors, from the par file */
-  add_initial_variables( runState->currentParams, scaletemp, pulsar );
+  /* check for binary model */
+  CHAR *binarymodel = NULL;
+  if ( LALInferenceCheckVariable( runState->threads[0]->currentParams, "BINARY" ) ){
+    binarymodel = XLALStringDuplicate(*(CHAR**)LALInferenceGetVariable( runState->threads[0]->currentParams, "BINARY" ));
+
+    /* now remove from runState->params (as it conflict with calls to LALInferenceCompareVariables in the proposal) */
+    LALInferenceRemoveVariable( runState->threads[0]->currentParams, "BINARY" );
+  }
 
   /* Setup initial phase, and barycentring delays */
-  LALInferenceIFOModel *ifo_model = runState->model->ifo;
+  LALInferenceIFOModel *ifo_model = runState->threads[0]->model->ifo;
   while( data ){
     REAL8Vector *freqFactors = NULL;
     UINT4 j = 0;
@@ -912,19 +961,23 @@ void setup_from_par_file( LALInferenceRunState *runState )
 
     for( j = 0; j < freqFactors->length; j++ ){
       UINT4 i = 0;
-      LALInferenceVariableItem *scaleitem = scaletemp->head;
       REAL8Vector *dts = NULL, *bdts = NULL;
 
-      /* check whether using original Jones (2010) signal model or a biaxial model (in the amplitude/phase parameterisation) */
+      /* check whether using original Jones (2010) signal source model or a biaxial model (in the amplitude/phase parameterisation) */
       if ( freqFactors->length == 2 ){
         UINT4 dummyvar = 1;
 
-        if ( LALInferenceGetProcParamVal( runState->commandLine, "--jones-model" ) ){
-          LALInferenceAddVariable( ifo_model->params, "jones-model", &dummyvar, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED );
+        if ( LALInferenceGetProcParamVal( runState->commandLine, "--source-model" ) ){
+          LALInferenceAddVariable( ifo_model->params, "source_model", &dummyvar, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED );
         }
         else if ( LALInferenceGetProcParamVal( runState->commandLine, "--biaxial" ) ){
           LALInferenceAddVariable( ifo_model->params, "biaxial", &dummyvar, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED );
         }
+      }
+
+      /* add binary model to the general parameters */
+      if ( binarymodel != NULL ){
+        LALInferenceAddVariable( ifo_model->params, "BINARY", &binarymodel, LALINFERENCE_string_t, LALINFERENCE_PARAM_FIXED );
       }
 
       dts = get_ssb_delay( pulsar, ifo_model->times, ifo_model->ephem, ifo_model->tdat, ifo_model->ttype, data->detector, 0. );
@@ -940,11 +993,6 @@ void setup_from_par_file( LALInferenceRunState *runState )
 
       for ( i=0; i<phase_vector->length; i++ ) { ifo_model->timeData->data->data[i] = phase_vector->data[i]; }
 
-      /* add the scale factors from scaletemp into the ifo_model->params structure */
-      for( ; scaleitem; scaleitem = scaleitem->next ){
-        LALInferenceAddVariable( ifo_model->params, scaleitem->name, scaleitem->value, scaleitem->type, scaleitem->vary );
-      }
-
       data = data->next;
       ifo_model = ifo_model->next;
     }
@@ -952,7 +1000,7 @@ void setup_from_par_file( LALInferenceRunState *runState )
 
   /* set frequency bin step from longest data time span */
   REAL8 df = 1./(2.*DeltaT);
-  LALInferenceAddVariable( runState->currentParams, "df", &df, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED );
+  LALInferenceAddVariable( runState->threads[0]->currentParams, "df", &df, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED );
 
   return;
 }
@@ -1013,7 +1061,7 @@ void samples_prior( LALInferenceRunState *runState ){
     nsamps = count_csv( tempsamps );
 
     for( i = 0; i < nsamps; i++ ){
-      tempsamp = strsep( &tempsamps, "," );
+      tempsamp = XLALStringToken( &tempsamps, "," , 0);
       sampfilenames = XLALAppendString2Vector( sampfilenames, tempsamp );
     }
   }
@@ -1033,7 +1081,7 @@ void samples_prior( LALInferenceRunState *runState ){
     }
 
     for( i = 0; i < nnlive; i++ ){
-      templive = strsep( &templives, "," );
+      templive = XLALStringToken( &templives, "," , 0);
       nlive = XLALResizeUINT4Vector( nlive, i+1 );
       nlive->data[i] = atoi( templive );
     }
@@ -1096,8 +1144,8 @@ void samples_prior( LALInferenceRunState *runState ){
            and par file, otherwise set the parameter to fixed */
         LALInferenceParamVaryType vary;
 
-        if ( LALInferenceCheckVariable( runState->currentParams, paramNames->data[j] ) ){
-          vary = LALInferenceGetVariableVaryType( runState->currentParams, paramNames->data[j] );
+        if ( LALInferenceCheckVariable( runState->threads[0]->currentParams, paramNames->data[j] ) ){
+          vary = LALInferenceGetVariableVaryType( runState->threads[0]->currentParams, paramNames->data[j] );
         }
         else { vary = LALINFERENCE_PARAM_FIXED; }
 

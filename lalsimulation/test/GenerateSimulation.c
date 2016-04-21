@@ -20,6 +20,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <time.h>
+#include <sys/types.h>
 
 #include <lal/LALConstants.h>
 #include <lal/LALDatatypes.h>
@@ -79,9 +80,12 @@ const char * usage =
 "                             TaylorT3\n"
 "                             TaylorT4\n"
 "                             TaylorEt\n"
+"                             EccentricTD\n"
 "                             IMRPhenomA\n"
 "                             IMRPhenomB\n"
 "                             IMRPhenomC\n"
+"                             IMRPhenomD\n"
+"                             IMRPhenomPv2\n"
 "                             EOBNRv2\n"
 "                             EOBNRv2HM\n"
 "                             SEOBNRv1\n"
@@ -97,10 +101,14 @@ const char * usage =
 "                             IMRPhenomA\n"
 "                             IMRPhenomB\n"
 "                             IMRPhenomC\n"
+"                             IMRPhenomD\n"
 "                             IMRPhenomP\n"
-"                             SEOBNRv1_ROM_SingleSpin\n"
+"                             IMRPhenomPv2\n"
+"                             EOBNRv2_ROM\n"
+"                             EOBNRv2HM_ROM\n"
+"                             SEOBNRv1_ROM_EffectiveSpin\n"
 "                             SEOBNRv1_ROM_DoubleSpin\n"
-"                             SEOBNRv2_ROM_SingleSpin\n"
+"                             SEOBNRv2_ROM_EffectiveSpin\n"
 "                             SEOBNRv2_ROM_DoubleSpin\n"
 "                             TaylorF2\n"
 "                             SpinTaylorF2\n"
@@ -191,8 +199,14 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
             printf("%s", usage);
             XLALFree(params);
             exit(0);
+        } else if (strcmp(argv[i], "--verbose") == 0) {
+            params->verbose = 1;
+        } else if (strcmp(argv[i], "--amp-phase") == 0) {
+            params->ampPhase = 1;
+        } else if ( ( i == argc ) || ( !argv[i+1] ) ) {
+          XLALPrintError("Error: value required for option %s\n", argv[i]);
         } else if (strcmp(argv[i], "--approximant") == 0) {
-            params->approximant = XLALGetApproximantFromString(argv[++i]);
+            params->approximant = XLALSimInspiralGetApproximantFromString(argv[++i]);
             if ( (int) params->approximant == XLAL_FAILURE) {
                 XLALPrintError("Error: invalid value %s for --interaction-flag\n", argv[i]);
                 goto fail;
@@ -270,16 +284,15 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
         } else if (strcmp(argv[i], "--nonGRpar") == 0) {
 	    char name[100];
 	    strcpy(name,argv[++i]);
-	    if (params->nonGRparams==NULL)
+            if ( ( i == argc ) || ( !argv[i+1] ) ) {
+              XLALPrintError("Error: 'name value' pair required for option %s\n", argv[i-1]);
+            } else if (params->nonGRparams==NULL) {
 	      params->nonGRparams=XLALSimInspiralCreateTestGRParam(name,atof(argv[++i]));
-	    else
+            } else {
 	      XLALSimInspiralAddTestGRParam(&params->nonGRparams,name,atof(argv[++i]));
+            }
         } else if (strcmp(argv[i], "--outname") == 0) {
             strncpy(params->outname, argv[++i], 256);
-        } else if (strcmp(argv[i], "--verbose") == 0) {
-            params->verbose = 1;
-        } else if (strcmp(argv[i], "--amp-phase") == 0) {
-            params->ampPhase = 1;
         } else {
             XLALPrintError("Error: invalid option: %s\n", argv[i]);
             goto fail;
@@ -468,19 +481,27 @@ int main (int argc , char **argv) {
     }
 
     /* dump file */
-    f = fopen(params->outname, "w");
-    if (params->domain == LAL_SIM_DOMAIN_FREQUENCY)
-        if (params->ampPhase == 1)
+    if ( strlen(params->outname) > 0 ) {
+      f = fopen(params->outname, "w");
+      if (f==NULL) {
+        printf("**ERROR** Impossible to write file %s\n",params->outname);
+        exit(1);
+      }
+      else {
+        if (params->domain == LAL_SIM_DOMAIN_FREQUENCY)
+          if (params->ampPhase == 1)
             status = dump_FD2(f, hptilde, hctilde);
-        else
+          else
             status = dump_FD(f, hptilde, hctilde);
-    else
-        if (params->ampPhase == 1)
-            status = dump_TD2(f, hplus, hcross);
         else
+          if (params->ampPhase == 1)
+            status = dump_TD2(f, hplus, hcross);
+          else
             status = dump_TD(f, hplus, hcross);
-    fclose(f);
-    if (status) goto fail;
+        fclose(f);
+      }
+      if (status) goto fail;
+    }
 
     /* clean up */
     XLALSimInspiralDestroyWaveformFlags(params->waveFlags);

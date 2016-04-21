@@ -25,7 +25,6 @@
 #define LALInferencePrior_h
 
 #include <lal/LALInference.h>
-#include <lal/LALInferenceNestedSampler.h>
 
 #ifdef SWIG // SWIG interface directives
 SWIGLAL(
@@ -47,6 +46,17 @@ SWIGLAL(
 #ifdef SWIG /* SWIG interface directives */
 SWIGLAL(INPUT_SCALARS(REAL8*, min, max));
 #endif
+
+/**
+ * Initialize the prior based on command line arguments.
+*/
+void LALInferenceInitCBCPrior(LALInferenceRunState *runState);
+
+/**
+ * Initialize the LIB prior based on command line arguments.
+*/
+void LALInferenceInitLIBPrior(LALInferenceRunState *runState);
+
 
 /**
  * Return the log Prior for the glitch amplitude
@@ -125,14 +135,14 @@ void LALInferenceRemoveMinMaxPrior(LALInferenceVariables *priorArgs, const char 
 /**
  * Function to add the mu and sigma values for the Gaussian prior onto the \c priorArgs.
  */
-void LALInferenceAddGaussianPrior(LALInferenceVariables *priorArgs, 
+void LALInferenceAddGaussianPrior(LALInferenceVariables *priorArgs,
                                   const char *name, REAL8 *mu, REAL8 *sigma,
                                   LALInferenceVariableType type);
 
 /**
  * Get the mu and sigma values of the Gaussian prior from the \c priorArgs list, given a name.
  */
-void LALInferenceGetGaussianPrior(LALInferenceVariables *priorArgs, 
+void LALInferenceGetGaussianPrior(LALInferenceVariables *priorArgs,
                                   const char *name, REAL8 *mu, REAL8 *sigma);
 
 
@@ -141,11 +151,39 @@ void LALInferenceGetGaussianPrior(LALInferenceVariables *priorArgs,
  */
 void LALInferenceRemoveGaussianPrior(LALInferenceVariables *priorArgs, const char *name);
 
+/**
+ * \brief Add a Fermi-Dirac prior
+ *
+ * Add a prior defined by the Fermi-Dirac PDF
+ * \f[p(h|\sigma, r, I) = \frac{1}{\sigma\log{\left(1+e^{r} \right)}}\left(e^{((h/\sigma) - r)} + 1\right)^{-1},\f]
+ * where \f$r = \mu/\sigma\f$ to give a more familiar form of the function.
+ *
+ * This function adds \c sigma  and \c r values for the Fermi-Dirac prior onto the \c priorArgs.
+ */
+void LALInferenceAddFermiDiracPrior(LALInferenceVariables *priorArgs,
+                                    const char *name, REAL8 *sigma, REAL8 *r,
+                                    LALInferenceVariableType type);
+
+/**
+ * Get the r and sigma values of the Fermi-Dirac prior from the \c priorArgs list, given a name.
+ */
+void LALInferenceGetFermiDiracPrior(LALInferenceVariables *priorArgs,
+                                    const char *name, REAL8 *sigma, REAL8 *r);
+
+
+/**
+ * Function to remove the r and sigma values for the Fermi-Dirac prior onto the \c priorArgs.
+ */
+void LALInferenceRemoveFermiDiracPrior(LALInferenceVariables *priorArgs, const char *name);
+
 /** Check for types of standard prior */
 /** Check for a uniform prior (with mininum and maximum) */
 int LALInferenceCheckMinMaxPrior(LALInferenceVariables *priorArgs, const char *name);
 /** Check for a Gaussian prior (with a mean and variance) */
 int LALInferenceCheckGaussianPrior(LALInferenceVariables *priorArgs, const char *name);
+/** Check for a Fermi-Dirac prior (with a r and sigma parameter) */
+int LALInferenceCheckFermiDiracPrior(LALInferenceVariables *priorArgs, const char *name);
+
 
 /**
  * Function to add a correlation matrix and parameter index for a prior
@@ -153,41 +191,41 @@ int LALInferenceCheckGaussianPrior(LALInferenceVariables *priorArgs, const char 
  * priorArgs. The correlation coefficient matrix must be a gsl_matrix and the
  * index for the given parameter in the matrix must be supplied.
  */
-void LALInferenceAddCorrelatedPrior( LALInferenceVariables *priorArgs, 
-                                     const char *name, gsl_matrix **cor, 
+void LALInferenceAddCorrelatedPrior( LALInferenceVariables *priorArgs,
+                                     const char *name, gsl_matrix **cor,
                                      UINT4 *idx );
 
 /**
  * Get the correlation coefficient matrix and index for a parameter from the
  * \c priorArgs list.
  */
-void LALInferenceGetCorrelatedPrior( LALInferenceVariables *priorArgs, 
-                                     const char *name, gsl_matrix **cor, 
+void LALInferenceGetCorrelatedPrior( LALInferenceVariables *priorArgs,
+                                     const char *name, gsl_matrix **cor,
                                      UINT4 *idx );
 
 /**
  * Remove the correlation coefficient matrix and index for a parameter from the
  * \c priorArgs list.
  */
-void LALInferenceRemoveCorrelatedPrior( LALInferenceVariables *priorArgs, 
+void LALInferenceRemoveCorrelatedPrior( LALInferenceVariables *priorArgs,
                                         const char *name );
 
 /**
  * Check for the existance of a correlation coefficient matrix and index for
  * a parameter from the \c priorArgs list.
  */
-int LALInferenceCheckCorrelatedPrior( LALInferenceVariables *priorArgs, 
+int LALInferenceCheckCorrelatedPrior( LALInferenceVariables *priorArgs,
                                       const char *name );
 
 /** Draw variables from the prior ranges */
-void LALInferenceDrawFromPrior( LALInferenceVariables *output, 
-                                LALInferenceVariables *priorArgs, 
+void LALInferenceDrawFromPrior( LALInferenceVariables *output,
+                                LALInferenceVariables *priorArgs,
                                 gsl_rng *rdm );
 
 /** Draw an individual variable from its prior range */
-void LALInferenceDrawNameFromPrior( LALInferenceVariables *output, 
-                                    LALInferenceVariables *priorArgs, 
-                                    char *name, LALInferenceVariableType type, 
+void LALInferenceDrawNameFromPrior( LALInferenceVariables *output,
+                                    LALInferenceVariables *priorArgs,
+                                    char *name, LALInferenceVariableType type,
                                     gsl_rng *rdm );
 
 /* Switch reads true if parameters lie within Malmquist prior */
@@ -209,7 +247,7 @@ REAL8 LALInferenceNullPrior(LALInferenceRunState *runState, LALInferenceVariable
  * ratio limits.  Returns the integral of \f$\mathcal{M}^{-11/6}\f$ over the allowed
  * ranges in mass.
  */
-REAL8 LALInferenceComputePriorMassNorm(const double MMin, const double MMax, const double MTotMax, 
+REAL8 LALInferenceComputePriorMassNorm(const double MMin, const double MMax, const double MTotMax,
                     const double McMin, const double McMax,
                     const double massRatioMin, const double massRatioMax, const char *massRatioName);
 
@@ -221,7 +259,12 @@ REAL8 LALInferenceComputePriorMassNorm(const double MMin, const double MMax, con
  */
 REAL8 LALInferenceFlatBoundedPrior(LALInferenceRunState *runState, LALInferenceVariables *params);
 
+/**
+ * Utility CubeToPrior functions for psd-fit and both calibration models
+ */
 UINT4 LALInferenceCubeToPSDScaleParams(LALInferenceVariables *priorParams, LALInferenceVariables *params, INT4 *idx, double *Cube, void *context);
+UINT4 LALInferenceCubeToConstantCalibrationPrior(LALInferenceRunState *runState, LALInferenceVariables *params, INT4 *idx, double *Cube, void *context);
+UINT4 LALInferenceCubeToSplineCalibrationPrior(LALInferenceRunState *runState, LALInferenceVariables *params, INT4 *idx, double *Cube, void *context);
 
 /**
  * Prior that converts from a Cube parameter in [0,1] to the flat prior bounded by x1 and x2.
@@ -248,6 +291,12 @@ REAL8 LALInferenceCubeToGaussianPrior(double r, double mean, double sigma);
  * min (x1) and max (x2) values
  */
 REAL8 LALInferenceCubeToSinPrior(double r, double x1, double x2);
+
+/* Simple burst prior (only checks for dec and (log)hrss*/
+REAL8 LALInferenceSineGaussianPrior(LALInferenceRunState *runState, LALInferenceVariables *params, LALInferenceModel *model);
+
+/* return the log of the Fermi-Dirac prior */
+REAL8 LALInferenceFermiDiracPrior(double x, double sigma, double r);
 
 /*@}*/
 

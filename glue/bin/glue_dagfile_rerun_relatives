@@ -64,9 +64,9 @@ def parse_command_line():
 	#
 
 	if not (options.themselves or options.ancestors_of or options.descendants_of):
-		raise ValueError, "nothing to do!"
+		raise ValueError("nothing to do!")
 	if options.ancestors_of and options.descendants_of and not options.themselves:
-		raise ValueError, "cowardly refusing to rerun both the parents and children of the named nodes without also rerunning the named nodes themselves.  must include --themselves when both --ancestors-of and --descendants-of have been selected."
+		raise ValueError("cowardly refusing to rerun both the parents and children of the named nodes without also rerunning the named nodes themselves.  must include --themselves when both --ancestors-of and --descendants-of have been selected.")
 
 	#
 	# uniqueify the node names
@@ -112,7 +112,7 @@ else:
 	progress = None
 dag = dagfile.DAG.parse(sys.stdin, progress = progress)
 if not nodenames.issubset(set(dag.nodes)):
-	raise ValueError, "node(s) %s not found in dag" % ", ".join(sorted(nodenames - set(dag.nodes)))
+	raise ValueError("node(s) %s not found in dag" % ", ".join(sorted(nodenames - set(dag.nodes))))
 
 
 #

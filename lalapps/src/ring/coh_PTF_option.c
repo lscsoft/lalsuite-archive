@@ -208,58 +208,10 @@ int coh_PTF_parse_options(struct coh_PTF_params *params,int argc,char **argv )
         localparams.highpassFrequency = atof( LALoptarg );
         break;
       case 'C': /* waveform approximant */
-        if ( ! strcmp( "FindChirpSP", LALoptarg ) )
-        {
-          localparams.approximant = FindChirpSP;
-        }
-        else if ( ! strcmp( "FindChirpPTF", LALoptarg ) )
-        {
-          localparams.approximant = FindChirpPTF;
-        }
-        else if ( ! strcmp( "TaylorT1", LALoptarg) )
-        {
-          localparams.approximant = TaylorT1;
-        }
-        else if ( ! strcmp( "TaylorT2", LALoptarg) )
-        {
-          localparams.approximant = TaylorT2;
-        }
-        else if ( ! strcmp( "TaylorT3", LALoptarg) )
-        {
-          localparams.approximant = TaylorT3;
-        }
-        else if ( ! strcmp( "TaylorT4", LALoptarg) )
-        {
-          localparams.approximant = TaylorT4;
-        }
-        else if ( ! strcmp( "GeneratePPN", LALoptarg) )
-        {
-          localparams.approximant = GeneratePPN;
-        }
-        else if ( ! strcmp( "PadeT1", LALoptarg) )
-        {
-          localparams.approximant = PadeT1;
-        }
-        else if ( ! strcmp( "EOB", LALoptarg) )
-        {
-          localparams.approximant = EOB;
-        }
-        else if ( ! strcmp( "EOBNR", LALoptarg) )
-        {
-          localparams.approximant = EOBNR;
-        }
-        else if ( ! strcmp( "IMRPhenomB", LALoptarg) )
-        {
-          localparams.approximant = IMRPhenomB;
-        }
-        else
-        {
-          fprintf( stderr, "invalid argument to --%s:\n"
-              "unknown order specified: "
-              "%s (must be either FindChirpSP, FindChirpPTF or TaylorT4)\n",
-              long_options[option_index].name, LALoptarg );
-          exit( 1 );
-        }
+        /* This will directly fail if the approximant is not a valid one.
+           However the user may get to a call to FindChirpTDTemplate and find
+           out only then that the approximant is not supported in there. */
+        localparams.approximant =  XLALSimInspiralGetApproximantFromString(LALoptarg);
         break;
       case '6': /* Simulated data option */
         localparams.simData = 1;
@@ -602,8 +554,8 @@ int coh_PTF_parse_options(struct coh_PTF_params *params,int argc,char **argv )
   /* Set the template correction factor */
   if ( localparams.approximant == FindChirpSP)
   {
-    /* Most of this gets stored in fcTmplt->fcTmpltNorm which is computed on th
-     * fly. This is correction needed to that. */
+    /* Most of this gets stored in fcTmplt->fcTmpltNorm which is computed on
+     * the fly. This is the correction needed to that. */
     /* First need to add ( (df)**-7./6. )**2 */
     localparams.tempCorrFac = pow(localparams.segmentDuration,14./6.); 
     /* For some reason FindChirp multiplies by a dt factor, take this out */
@@ -612,8 +564,9 @@ int coh_PTF_parse_options(struct coh_PTF_params *params,int argc,char **argv )
   else
   {
     /* Sigmasq factors are not yet available for all approximants */
-    /* Set values to 0 to avoid confusion in this case */
-    localparams.tempCorrFac = 0;
+    /* Set values to 1 (so this factor has no effect) and warn user */
+    verbose("warning: Sigmasq correction factor is not yet available for this approximant: setting it to 1.\n");
+    localparams.tempCorrFac = 1.0;
   }
 
   *params = localparams;

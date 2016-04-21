@@ -31,14 +31,42 @@ typedef long long INT64;
 typedef float SUM_TYPE;
 typedef short COUNT_TYPE;
 
+#define M_1_3 0.333333333333333333333333333333
+#define M_1_6 0.166666666666666666666666666666666
+
 #define MEMUSAGE	((long)sbrk(0))
 
 #define TRACE(a)	{fprintf(stderr,"TRACE(__FUNCTION__):" a); \
 			fprintf(stderr,"\n");}
 
+#define ALIGNMENT  (64ul)
+			
 void *do_alloc(long a, long b);
 
-#define aligned_alloca(a) ((void *)(((unsigned long)(alloca(a+63))+63) & ~63))
+#define ALIGN_POINTER(ptr)	((void *)(((unsigned long)(ptr)+(ALIGNMENT-1)) & ~(ALIGNMENT-1)))
+
+#define aligned_alloca(a) ((void *)(((unsigned long)(alloca(a+(ALIGNMENT-1)))+(ALIGNMENT-1)) & ~(ALIGNMENT-1)))
+
+#ifndef PRAGMA_IVDEP
+//#define PRAGMA_IVDEP    #pragma GCC ivdep
+#ifdef __INTEL_COMPILER
+#define PRAGMA_IVDEP	_Pragma("ivdep")
+#else
+#define PRAGMA_IVDEP    _Pragma("GCC ivdep")
+#endif
+#endif
+
+#ifndef ALIGN_DECLSPEC
+#ifdef __INTEL_COMPILER
+#define ALIGN_DECLSPEC __declspec(align(64))
+#else
+#define ALIGN_DECLSPEC
+#endif
+#endif
+
+#ifndef MANUAL_SSE
+#define MANUAL_SSE 1
+#endif
 
 #define TESTSTATUS( status ) \
   { if ( (status)->statusCode ) { \

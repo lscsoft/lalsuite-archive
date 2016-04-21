@@ -86,9 +86,9 @@ def sort_files_by_size(filenames, verbose = False, reverse = False):
 	"""
 	if verbose:
 		if reverse:
-			print >>sys.stderr, "sorting files from largest to smallest ..."
+			sys.stderr.write("sorting files from largest to smallest ...\n")
 		else:
-			print >>sys.stderr, "sorting files from smallest to largest ..."
+			sys.stderr.write("sorting files from smallest to largest ...\n")
 	return sorted(filenames, key = (lambda filename: os.stat(filename)[stat.ST_SIZE] if filename is not None else 0), reverse = reverse)
 
 
@@ -374,14 +374,14 @@ def load_filename(filename, verbose = False, **kwargs):
 	>>> xmldoc = load_filename("demo.xml", contenthandler = ligolw.LIGOLWContentHandler, verbose = True)
 	"""
 	if verbose:
-		print >>sys.stderr, "reading %s ..." % (("'%s'" % filename) if filename is not None else "stdin")
+		sys.stderr.write("reading %s ...\n" % (("'%s'" % filename) if filename is not None else "stdin"))
 	if filename is not None:
 		fileobj = open(filename, "rb")
 	else:
 		fileobj = sys.stdin
 	xmldoc, hexdigest = load_fileobj(fileobj, **kwargs)
 	if verbose:
-		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, (filename if filename is not None else ""))
+		sys.stderr.write("md5sum: %s  %s\n" % (hexdigest, (filename if filename is not None else "")))
 	return xmldoc
 
 
@@ -402,7 +402,7 @@ def load_url(url, verbose = False, **kwargs):
 	>>> xmldoc = load_url("file://localhost/%s/demo.xml" % getcwd(), contenthandler = ligolw.LIGOLWContentHandler, verbose = True)
 	"""
 	if verbose:
-		print >>sys.stderr, "reading %s ..." % (("'%s'" % url) if url is not None else "stdin")
+		sys.stderr.write("reading %s ...\n" % (("'%s'" % url) if url is not None else "stdin"))
 	if url is not None:
 		scheme, host, path = urlparse.urlparse(url)[:3]
 		if scheme.lower() in ("", "file") and host.lower() in ("", "localhost"):
@@ -413,7 +413,7 @@ def load_url(url, verbose = False, **kwargs):
 		fileobj = sys.stdin
 	xmldoc, hexdigest = load_fileobj(fileobj, **kwargs)
 	if verbose:
-		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, (url if url is not None else ""))
+		sys.stderr.write("md5sum: %s  %s\n" % (hexdigest, (url if url is not None else "")))
 	return xmldoc
 
 
@@ -476,7 +476,7 @@ def write_fileobj(xmldoc, fileobj, gz = False, trap_signals = (signal.SIGTERM, s
 			with codecs.getwriter("utf_8")(fileobj) as fileobj:
 				xmldoc.write(fileobj, **kwargs)
 
-	# restore original handlers, and send outselves any trapped signals
+	# restore original handlers, and send ourselves any trapped signals
 	# in order
 	for sig, oldhandler in oldhandlers.iteritems():
 		signal.signal(sig, oldhandler)
@@ -487,12 +487,46 @@ def write_fileobj(xmldoc, fileobj, gz = False, trap_signals = (signal.SIGTERM, s
 	return md5obj.hexdigest()
 
 
-def write_filename(xmldoc, filename, verbose = False, gz = False, **kwargs):
+class tildefile(object):
+	def __init__(self, filename):
+		if not filename:
+			raise ValueError(filename)
+		self.filename = filename
+
+	def __enter__(self):
+		try:
+			self.tildefilename = self.filename + "~"
+			self.fobj = open(self.tildefilename, "w")
+		except IOError:
+			self.tildefilename = None
+			self.fobj = open(self.filename, "w")
+		return self.fobj
+
+	def __exit__(self, exc_type, exc_val, exc_tb):
+		self.fobj.close()
+		del self.fobj
+
+		#
+		# only rename the "~" version to the final destination if
+		# no exception has occurred.
+		#
+
+		if exc_type is None and self.tildefilename is not None:
+			os.rename(self.tildefilename, self.filename)
+
+		return False
+
+
+def write_filename(xmldoc, filename, verbose = False, gz = False, with_mv = True, **kwargs):
 	"""
 	Writes the LIGO Light Weight document tree rooted at xmldoc to the
-	file name filename.  Friendly verbosity messages are printed while
-	doing so if verbose is True.  The output data is gzip compressed on
-	the fly if gz is True.
+	file name filename.  If filename is None the file is written to
+	stdout, otherwise it is written to the named file.  Friendly
+	verbosity messages are printed while writing the file if verbose is
+	True.  The output data is gzip compressed on the fly if gz is True.
+	If with_mv is True and filename is not None the filename has a "~"
+	appended to it and the file is written to that name then moved to
+	the requested name once the write has completed successfully.
 
 	Internally, write_fileobj() is used to perform the write.  All
 	additional keyword arguments are passed to write_fileobj().
@@ -503,18 +537,16 @@ def write_filename(xmldoc, filename, verbose = False, gz = False, **kwargs):
 	>>> write_filename(xmldoc, "demo.xml.gz", gz = True)	# doctest: +SKIP
 	"""
 	if verbose:
-		print >>sys.stderr, "writing %s ..." % (("'%s'" % filename) if filename is not None else "stdout")
-	if filename is not None:
+		sys.stderr.write("writing %s ...\n" % (("'%s'" % filename) if filename is not None else "stdout"))
+	if filename is None:
+		hexdigest = write_fileobj(xmldoc, sys.stdout, gz = gz, **kwargs)
+	else:
 		if not gz and filename.endswith(".gz"):
 			warnings.warn("filename '%s' ends in '.gz' but file is not being gzip-compressed" % filename, UserWarning)
-		fileobj = open(filename, "w")
-	else:
-		fileobj = sys.stdout
-	hexdigest = write_fileobj(xmldoc, fileobj, gz = gz, **kwargs)
-	if not fileobj is sys.stdout:
-		fileobj.close()
+		with open(filename) if not with_mv else tildefile(filename) as fileobj:
+			hexdigest = write_fileobj(xmldoc, fileobj, gz = gz, **kwargs)
 	if verbose:
-		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, (filename if filename is not None else ""))
+		sys.stderr.write("md5sum: %s  %s\n" % (hexdigest, (filename if filename is not None else "")))
 
 
 def write_url(xmldoc, url, **kwargs):

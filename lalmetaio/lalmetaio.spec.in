@@ -4,16 +4,24 @@
 
 Name: @PACKAGE@
 Version: @VERSION@
-Release: 1
+Release: 1%{?dist}
 Summary: LSC Algorithm MetaIO Library
 License: GPL
 Group: LAL
-Source: %{name}-%{version}.tar.gz
-URL: https://www.lsc-group.phys.uwm.edu/daswg/projects/lalsuite.html
+Source: %{name}-%{version}.tar.xz
+URL: https://wiki.ligo.org/DASWG/LALSuite
 Packager: Adam Mercer <adam.mercer@ligo.org>
 BuildRoot: %{_tmppath}/%{name}-%{version}-root
-BuildRequires: swig python-devel octave-devel
-Requires: libmetaio lal
+BuildRequires: libmetaio-devel
+BuildRequires: numpy
+BuildRequires: octave-devel
+BuildRequires: python-devel
+BuildRequires: swig
+BuildRequires: lal-devel >= 6.16.0
+BuildRequires: lal-python >= 6.16.0
+BuildRequires: lal-octave >= 6.16.0
+Requires: libmetaio
+Requires: lal >= 6.16.0
 Prefix: %{_prefix}
 
 %description
@@ -25,7 +33,8 @@ that use the LAL MetaIO library.
 Summary: Files and documentation needed for compiling programs that use LAL MetaIO
 Group: LAL
 Requires: %{name} = %{version}
-Requires: libmetaio-devel lal-devel
+Requires: libmetaio-devel
+Requires: lal-devel >= 6.16.0
 %description devel
 The LSC Algorithm MetaIO Library for gravitational wave data analysis. This
 package contains files needed build applications that use the LAL MetaIO
@@ -35,7 +44,9 @@ library.
 Summary: Python Bindings for LALMetaIO
 Group: LAL
 Requires: %{name} = %{version}
-Requires: python numpy lal-python
+Requires: numpy
+Requires: python
+Requires: lal-python >= 6.16.0
 %description python
 The LSC Algorithm Library for gravitational wave data analysis.
 This package provides the Python bindings for LALMetaIO.
@@ -44,7 +55,8 @@ This package provides the Python bindings for LALMetaIO.
 Summary: Octave Bindings for LALMetaIO
 Group: LAL
 Requires: %{name} = %{version}
-Requires: octave lal-octave
+Requires: octave
+Requires: lal-octave >= 6.16.0
 %description octave
 The LSC Algorithm Library for gravitational wave data analysis.
 This package provides the Octave bindings for LALMetaIO.
@@ -55,6 +67,9 @@ This package provides the Octave bindings for LALMetaIO.
 %build
 %configure --disable-gcc-flags --enable-swig
 %{__make} V=1
+
+%check
+%{__make} V=1 check
 
 %install
 %make_install
@@ -90,5 +105,9 @@ rm -Rf ${RPM_BUILD_DIR}/%{name}-%{version}
 
 %files octave
 %defattr(-,root,root)
-%{_libexecdir}/octave/*/site/oct/*/lalmetaio.oct*
+%{_prefix}/lib*/octave/*/site/oct/*/lalmetaio.oct*
 
+# dates should be formatted using: 'date +"%a %b %d %Y"'
+%changelog
+* Fri Mar 25 2016 Adam Mercer <adam.mercer@ligo.org> 1.2.7-1
+- Pre O2 packaging test release

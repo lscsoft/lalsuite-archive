@@ -90,9 +90,9 @@ void compute_variance( LALInferenceIFOData *data, LALInferenceIFOModel *model ){
  *
  * \return A vector of chunk/segment lengths
  */
-UINT4Vector *get_chunk_lengths( LALInferenceIFOModel *ifo, INT4 chunkMax ){
-  INT4 i = 0, j = 0, count = 0;
-  INT4 length;
+UINT4Vector *get_chunk_lengths( LALInferenceIFOModel *ifo, UINT4 chunkMax ){
+  UINT4 i = 0, j = 0, count = 0;
+  UINT4 length;
 
   REAL8 t1, t2;
 
@@ -118,7 +118,7 @@ UINT4Vector *get_chunk_lengths( LALInferenceIFOModel *ifo, INT4 chunkMax ){
 
     i++;
 
-    t1 = XLALGPSGetREAL8( &ifo->times->data[i-1 ] );
+    t1 = XLALGPSGetREAL8( &ifo->times->data[i-1] );
     t2 = XLALGPSGetREAL8( &ifo->times->data[i] );
 
     /* if consecutive points are within two sample times of each other count as in the same chunk */
@@ -153,12 +153,13 @@ UINT4Vector *get_chunk_lengths( LALInferenceIFOModel *ifo, INT4 chunkMax ){
  * the data (e.g. those caused by a strong signal), which might affect the calculations (which assume the data is
  * Gaussian with zero mean).
  *
- * If the \c verbose flag is set then a list of the segments will be output to a file called \c data_segment_list.txt,
+ * If the \c outputchunks is non-zero then a list of the segments will be output to a file called \c data_segment_list.txt,
  * with a prefix of the detector name.
  *
  * \param data [in] A data structure
  * \param chunkMin [in] The minimum length of a segment
  * \param chunkMax [in] The maximum length of a segment
+ * \param outputchunks [in] A flag to check whether to output the segments
  *
  * \return A vector of segment/chunk lengths
  *
@@ -167,7 +168,7 @@ UINT4Vector *get_chunk_lengths( LALInferenceIFOModel *ifo, INT4 chunkMax ){
  * \sa merge_data
  * \sa rechop_data
  */
-UINT4Vector *chop_n_merge( LALInferenceIFOData *data, INT4 chunkMin, INT4 chunkMax ){
+UINT4Vector *chop_n_merge( LALInferenceIFOData *data, UINT4 chunkMin, UINT4 chunkMax, UINT4 outputchunks ){
   UINT4 j = 0;
 
   UINT4Vector *chunkLengths = NULL;
@@ -197,8 +198,8 @@ UINT4Vector *chop_n_merge( LALInferenceIFOData *data, INT4 chunkMin, INT4 chunkM
     else { chunkLengths->data[j] = chunkIndex->data[j] - chunkIndex->data[j-1]; }
   }
 
-  /* if verbose print out the segment end indices to a file */
-  if ( verbose_output ){
+  /* if required output the chunk end indices and lengths to a file */
+  if ( outputchunks ){
     FILE *fpsegs = NULL;
 
     CHAR *outfile = NULL;
@@ -208,12 +209,23 @@ UINT4Vector *chop_n_merge( LALInferenceIFOData *data, INT4 chunkMin, INT4 chunkM
 
     outfile = XLALStringAppend( outfile, "data_segment_list.txt" );
 
-    if ( (fpsegs = fopen(outfile, "w")) == NULL ){
-      fprintf(stderr, "Non-fatal error open file to output segment list.\n");
-      return chunkLengths;
+    /* check if file exists, i.e. given mutliple frequency harmonics, and if so open for appending */
+    FILE *fpcheck = NULL;
+    if ( (fpcheck = fopen(outfile, "r")) != NULL ){
+      fclose(fpcheck);
+      if ( (fpsegs = fopen(outfile, "a")) == NULL ){
+        fprintf(stderr, "Non-fatal error open file to output segment list.\n");
+        return chunkLengths;
+      }
+    }
+    else{
+      if ( (fpsegs = fopen(outfile, "w")) == NULL ){
+        fprintf(stderr, "Non-fatal error open file to output segment list.\n");
+        return chunkLengths;
+      }
     }
 
-    for ( j = 0; j < chunkIndex->length; j++ ) { fprintf(fpsegs, "%u\n", chunkIndex->data[j]); }
+    for ( j = 0; j < chunkIndex->length; j++ ) { fprintf(fpsegs, "%u\t%u\n", chunkIndex->data[j], chunkLengths->data[j]); }
 
     /* add space at the end so that you can separate lists from different detector data streams */
     fprintf(fpsegs, "\n");
@@ -315,7 +327,7 @@ COMPLEX16Vector *subtract_running_median( COMPLEX16Vector *data ){
  *
  * \sa find_change_point
  */
-UINT4Vector *chop_data( gsl_vector_complex *data, INT4 chunkMin ){
+UINT4Vector *chop_data( gsl_vector_complex *data, UINT4 chunkMin ){
   UINT4Vector *chunkIndex = NULL;
 
   UINT4 length = (UINT4)data->size;
@@ -382,7 +394,7 @@ UINT4Vector *chop_data( gsl_vector_complex *data, INT4 chunkMin ){
  *
  * \return The position of the change point
  */
-UINT4 find_change_point( gsl_vector_complex *data, REAL8 *logodds, INT4 minlength ){
+UINT4 find_change_point( gsl_vector_complex *data, REAL8 *logodds, UINT4 minlength ){
   UINT4 changepoint = 0, i = 0;
   UINT4 length = (UINT4)data->size, lsum = 0;
 
@@ -415,7 +427,7 @@ UINT4 find_change_point( gsl_vector_complex *data, REAL8 *logodds, INT4 minlengt
 
   for ( i = 0; i < length; i++ ){
     dval = gsl_vector_complex_get( data, i );
-    if ( i < (UINT4)minlength-1 ){ sumforward += SQUARE( gsl_complex_abs( dval ) ); }
+    if ( i < minlength-1 ){ sumforward += SQUARE( gsl_complex_abs( dval ) ); }
     else{ sumback += SQUARE( gsl_complex_abs( dval ) ); }
   }
 
@@ -468,10 +480,10 @@ UINT4 find_change_point( gsl_vector_complex *data, REAL8 *logodds, INT4 minlengt
  * \param chunkMax [in] the maximum allowed segment/chunk length
  * \param chunkMin [in] the minimum allowed segment/chunk length
  */
-void rechop_data( UINT4Vector *chunkIndex, INT4 chunkMax, INT4 chunkMin ){
-  INT4 i = 0, j = 0, count = 0;
-  INT4 length = chunkIndex->length;
-  INT4 endIndex = (INT4)chunkIndex->data[length-1];
+void rechop_data( UINT4Vector *chunkIndex, UINT4 chunkMax, UINT4 chunkMin ){
+  UINT4 i = 0, j = 0, count = 0;
+  UINT4 length = chunkIndex->length;
+  UINT4 endIndex = chunkIndex->data[length-1];
   UINT4 startindex = 0, chunklength = 0;
 
   UINT4Vector *newindex = NULL;
@@ -484,8 +496,8 @@ void rechop_data( UINT4Vector *chunkIndex, INT4 chunkMax, INT4 chunkMin ){
 
     chunklength = chunkIndex->data[i] - startindex;
 
-    if ( chunklength > (UINT4)chunkMax ){
-      INT4 remain = chunklength % chunkMax;
+    if ( chunklength > chunkMax ){
+      UINT4 remain = chunklength % chunkMax;
 
       /* cut segment into as many chunkMin chunks as possible */
       for ( j = 0; j < floor(chunklength / chunkMax); j++ ){
@@ -501,12 +513,12 @@ void rechop_data( UINT4Vector *chunkIndex, INT4 chunkMax, INT4 chunkMin ){
         if ( remain < chunkMin ){
           /* split the last two cells into one that is chunkMin long and one that is (chunkMax+remainder)-chunkMin long
            * - this may leave a cell shorter than chunkMin, but we'll have to live with that! */
-          INT4 n1 = (chunkMax + remain) - chunkMin;
+          UINT4 n1 = (chunkMax + remain) - chunkMin;
 
           /* reset second to last value two values */
           newindex->data[count-1] = newindex->data[count] - chunkMin;
 
-          if ( n1 < chunkMin && verbose_output ){
+          if ( n1 < chunkMin ){
             fprintf(stderr, "Non-fatal error... segment no. %d is %d long, which is less than chunkMin = %d.\n",
                     count, n1, chunkMin);
           }
@@ -605,42 +617,28 @@ void merge_data( COMPLEX16Vector *data, UINT4Vector *segs ){
 
 
 /**
- * \brief Rescale the values output by the Nested Sampling algorithm
+ * \brief Gzip the nested sample files
  *
- * This function reads in the file of samples output from the Nested Sampling algorithm (in the file specified by \c
- * outfile) and scales them back to their true values. It removes the string variable "model" from the output and shifts
- * the logPrior and logLikelihood values to the end of the parameter list.
- *
- * Note: The output may soon be in an XML format, so this function will need to be amended.
+ * This function gzips the output nested sample files. It will also strip unneccesary parameters
+ * from the header "_params.txt" file.
  *
  * \param runState [in] The analysis information structure
  */
-void rescale_output( LALInferenceRunState *runState ){
+void gzip_output( LALInferenceRunState *runState ){
+  /* Single thread here */
+  LALInferenceThreadState *threadState = runState->threads[0];
   /* Open original output output file */
-  CHAR *outfile, outfiletmp[256] = "";
-  CHAR outfilepars[256] = "", outfileparstmp[256] = "";
-  FILE *fp = NULL, *fptemp = NULL, *fppars = NULL, *fpparstmp = NULL;
-
-  LALStringVector *paramsStr = NULL;
-  UINT4Vector *paramsStrIdx = NULL;
-  UINT4 nonfixed = 0, k = 0;
-
+  CHAR *outfile = NULL;
   ProcessParamsTable *ppt1 = LALInferenceGetProcParamVal( runState->commandLine, "--outfile" );
 
   if( ppt1 ){
+    CHAR outfilepars[256] = "", outfileparstmp[256] = "";
+    FILE *fppars = NULL, *fpparstmp = NULL;
+    UINT4 nonfixed = 1;
+
     outfile = ppt1->value;
 
-    /* set temporary file for re-writing out samples */
-    sprintf(outfiletmp, "%s_tmp", outfile);
-
-    /* open temporary output file for reading */
-    if( (fptemp = fopen(outfiletmp, "w")) == NULL ){
-      XLALPrintError("Error... cannot open temporary output file %s.\n", outfile);
-      XLAL_ERROR_VOID(XLAL_EIO);
-    }
-
-    /* open file for printing out list of parameter names - this should already
-      exist */
+    /* open file for printing out list of parameter names - this should already exist */
     sprintf(outfilepars, "%s_params.txt", outfile);
     if( (fppars = fopen(outfilepars, "r")) == NULL ){
       XLALPrintError("Error... cannot open parameter name output file %s.\n", outfilepars);
@@ -653,32 +651,22 @@ void rescale_output( LALInferenceRunState *runState ){
       XLAL_ERROR_VOID(XLAL_EIO);
     }
 
-    if ( LALInferenceGetProcParamVal( runState->commandLine, "--non-fixed-only" ) ){ nonfixed = 1; }
+    if ( LALInferenceGetProcParamVal( runState->commandLine, "--output-all-params" ) ){ nonfixed = 0; }
 
     CHAR v[128] = "";
-    UINT4 idx = 0, counter = 0;
     while( fscanf(fppars, "%s", v) != EOF ){
       /* if outputing only non-fixed values then only re-output names of those non-fixed things */
       if ( nonfixed ){
-        if ( LALInferenceCheckVariable( runState->currentParams, v ) ){
-          if ( LALInferenceGetVariableVaryType( runState->currentParams, v ) != LALINFERENCE_PARAM_FIXED ){
+        if ( LALInferenceCheckVariable( threadState->currentParams, v ) ){
+          if ( LALInferenceGetVariableVaryType( threadState->currentParams, v ) != LALINFERENCE_PARAM_FIXED ){
             fprintf(fpparstmp, "%s\t", v);
-            paramsStrIdx = XLALResizeUINT4Vector( paramsStrIdx, counter+1 );
-            paramsStrIdx->data[counter] = idx;
-            counter++;
           }
         }
       }
       else{
-        /* re-output everything but the "model" value to a temporary file */
-        if( strcmp(v, "model") ) { fprintf(fpparstmp, "%s\t", v); }
-        paramsStrIdx = XLALResizeUINT4Vector( paramsStrIdx, counter+1 );
-        paramsStrIdx->data[counter] = idx;
-        counter++;
+        /* re-output everything to a temporary file */
+        fprintf(fpparstmp, "%s\t", v);
       }
-
-      paramsStr = XLALAppendString2Vector( paramsStr, v );
-      idx++;
     }
 
     fclose(fppars);
@@ -686,60 +674,6 @@ void rescale_output( LALInferenceRunState *runState ){
 
     /* move the temporary file name to the standard outfile_param name */
     rename( outfileparstmp, outfilepars );
-
-    CHAR *filebuf = NULL;
-    filebuf = XLALFileLoad( outfile );
-    TokenList *tlist = NULL;
-    if ( XLALCreateTokenList( &tlist, filebuf, "\n" ) != XLAL_SUCCESS ){
-      fprintf(stderr, "Error... could not convert data into separate lines.\n");
-      exit(3);
-    }
-
-    for ( k = 0; k < tlist->nTokens; k++ ){
-      UINT4 i = 0, j = 0;
-
-      TokenList *tline = NULL;
-      XLALCreateTokenList( &tline, tlist->tokens[k], " \t" );
-
-      /* scan through line, get value and reprint out scaled value to temporary file */
-      for( i = 0; i < paramsStrIdx->length; i++, j++ ){
-        CHAR scalename[VARNAME_MAX] = "";
-        CHAR scaleminname[VARNAME_MAX] = "";
-        REAL8 scalefac = 1., scalemin = 0.;
-
-        if ( !strcmp(paramsStr->data[paramsStrIdx->data[i]], "model") ){
-          j++;
-          continue;
-        }
-
-        sprintf(scalename, "%s_scale", paramsStr->data[paramsStrIdx->data[i]]);
-        sprintf(scaleminname, "%s_scale_min", paramsStr->data[paramsStrIdx->data[i]]);
-
-        if ( LALInferenceCheckVariable( runState->model->ifo->params, scalename ) &&
-          LALInferenceCheckVariable( runState->model->ifo->params, scaleminname ) ){
-          scalefac = *(REAL8 *)LALInferenceGetVariable( runState->model->ifo->params, scalename );
-          scalemin = *(REAL8 *)LALInferenceGetVariable( runState->model->ifo->params, scaleminname );
-
-          fprintf(fptemp, "%.12le\t", atof(tline->tokens[j])*scalefac + scalemin);
-        }
-        else{ fprintf(fptemp, "%.12le\t", atof(tline->tokens[j])); }
-      }
-
-      /* print out the last two items to be the logPrior and logLikelihood */
-      fprintf(fptemp, "\n");
-
-      XLALDestroyTokenList( tline );
-    }
-
-    fclose(fptemp);
-
-    XLALDestroyTokenList( tlist );
-    XLALDestroyStringVector( paramsStr );
-    XLALDestroyUINT4Vector( paramsStrIdx );
-    XLALFree( filebuf );
-
-    /* move the temporary file name to the standard outfile name */
-    rename( outfiletmp, outfile );
 
     /* gzip the output file if required */
     if( LALInferenceGetProcParamVal( runState->commandLine, "--gzip" ) ){
@@ -751,9 +685,10 @@ void rescale_output( LALInferenceRunState *runState ){
   }
 /* if we have XML enabled */
 #ifdef HAVE_LIBLALXML
-  ProcessParamsTable *ppt2 = LALInferenceGetProcParamVal( runState->commandLine, "--outXML" );
-  LALInferenceVariables *output_array = NULL;
-  UINT4 N_output_array = 0, i = 0;
+  ProcessParamsTable *ppt2 = LALInferenceGetProcParamVal( runState->commandLine, "--outxml" );
+  if(!ppt2){
+    ppt2=LALInferenceGetProcParamVal(runState->commandLine,"--outXML");
+  }
   CHAR *outVOTable = NULL;
 
   if ( !ppt2 && !ppt1 ){
@@ -761,75 +696,18 @@ void rescale_output( LALInferenceRunState *runState ){
     XLAL_ERROR_VOID( XLAL_EIO );
   }
 
-  /* rescale parameters held in array and recreate XML output - we don't need
-     to remove any variables. */
   if( ppt2 ){
     outVOTable = ppt2->value;
 
-    if( LALInferenceCheckVariable(runState->algorithmParams,"outputarray")
-      && LALInferenceCheckVariable(runState->algorithmParams,"N_outputarray")){
-      output_array = *(LALInferenceVariables **)LALInferenceGetVariable( runState->algorithmParams, "outputarray" );
-      N_output_array = *(UINT4 *)LALInferenceGetVariable( runState->algorithmParams, "N_outputarray" );
-    }
-
-    /* loop through output array and rescale values accordingly */
-    for( i = 0; i < N_output_array; i++ ){
-      LALInferenceVariableItem *scaleitem = NULL;
-
-      scaleitem = output_array[i].head;
-
-      /* loop through tmparr parameters and scale if necessary */
-      for( ; scaleitem; scaleitem = scaleitem->next ){
-        CHAR scalename[VARNAME_MAX] = "";
-        CHAR scaleminname[VARNAME_MAX] = "";
-        REAL8 scalefac = 1., scalemin = 0., value = 0;
-
-        sprintf(scalename, "%s_scale", scaleitem->name);
-        sprintf(scaleminname, "%s_scale_min", scaleitem->name);
-
-        /* check if scale values are present */
-        if ( LALInferenceCheckVariable( runState->model->ifo->params, scalename ) &&
-          LALInferenceCheckVariable( runState->model->ifo->params, scaleminname ) ){
-          scalefac = *(REAL8 *)LALInferenceGetVariable( runState->model->ifo->params, scalename );
-          scalemin = *(REAL8 *)LALInferenceGetVariable( runState->model->ifo->params, scaleminname );
-
-          /* get the value and scale it */
-          value = *(REAL8 *)LALInferenceGetVariable( &output_array[i], scaleitem->name );
-          value = value*scalefac + scalemin;
-
-          /* reset the value */
-          LALInferenceSetVariable( &output_array[i], scaleitem->name, &value );
-
-          /* change type to be REAL8 */
-          scaleitem->type = LALINFERENCE_REAL8_t;
-        }
+    /* gzip the output file if required */
+    if( LALInferenceGetProcParamVal( runState->commandLine, "--gzip" ) ){
+      if ( XLALGzipTextFile( outVOTable ) != XLAL_SUCCESS ){
+        XLAL_PRINT_ERROR( "Error... Could not gzip the output file!\n" );
+        XLAL_ERROR_VOID( XLAL_EIO );
       }
-    }
-
-    if( output_array && outVOTable && N_output_array > 0 ){
-      xmlNodePtr votable = XLALInferenceVariablesArray2VOTTable( output_array, N_output_array, "Nested Samples");
-      xmlNewProp( votable, CAST_CONST_XMLCHAR("utype"), CAST_CONST_XMLCHAR("lalinference:results:nestedsamples") );
-
-      xmlNodePtr stateResource = XLALInferenceStateVariables2VOTResource(runState, "Run State Configuration");
-
-      xmlNodePtr nestResource = XLALCreateVOTResourceNode("lalinference:results", "Nested sampling run", votable);
-
-      if( stateResource ) { xmlAddChild( nestResource, stateResource ); }
-
-      CHAR *xmlString = XLALCreateVOTStringFromTree( nestResource );
-
-      /* Write to disk */
-      if ( (fp = fopen(outVOTable, "w")) == NULL ){
-        XLALPrintError("Error... can't open output XML file\n");
-        XLAL_ERROR_VOID(XLAL_EIO);
-      }
-
-      fprintf(fp, "%s", xmlString);
-      fclose(fp);
     }
   }
 
-  if( output_array ) { XLALFree( output_array ); }
 #else
   if ( !ppt1 ){
     XLALPrintError("Error... --outfile not defined!\n");
@@ -858,7 +736,7 @@ INT4 count_csv( CHAR *csvline ){
 
   /* count number of commas */
   while(1){
-    if( strsep(&inputstr, ",") == NULL ){
+    if( XLALStringToken(&inputstr, ",", 0) == NULL ){
       XLALPrintError("Error... problem counting number of commas!\n");
       XLAL_ERROR( XLAL_EFUNC );
     }
@@ -897,10 +775,10 @@ INT4 recognised_parameter( CHAR *parname ){
 /**
  * \brief Automatically set the solar system ephemeris file based on environment variables and data time span
  *
- * This function will attempt to find Earth and Sun ephemeris files based on LAL environment variables (as set up by
- * <code> lalpulsar-user-env.(c)sh </code>) and a given start and end GPS time (presumably taken from the data that is
- * to be analysed). It requires \c LALPULSAR is installed and the \c LALPULSAR_PREFIX variable is set, which should mean
- * that ephemeris files are installed in the directory \c ${LALPULSAR_PREFIX}/share/lalpulsar/.
+ * This function will attempt to construct the file name for Sun, Earth and time correction ephemeris files
+ * based on the ephemeris used for the equivalent TEMPO(2) pulsar timing information. It assumes that the
+ * ephemeris files are those constructed between 2000 and 2020. The path to the file is not required as this
+ * will be found in \c XLALInitBarycenter.
  *
  * \param efile [in] a string that will return the Earth ephemeris file
  * \param sfile [in] a string that will return the Sun ephemeris file
@@ -911,94 +789,60 @@ INT4 recognised_parameter( CHAR *parname ){
  *
  * \return The TimeCorrectionType e.g. TDB or TCB
  */
-TimeCorrectionType XLALAutoSetEphemerisFiles( CHAR *efile, CHAR *sfile, CHAR *tfile, BinaryPulsarParams  pulsar,
+TimeCorrectionType XLALAutoSetEphemerisFiles( CHAR **efile, CHAR **sfile, CHAR **tfile, PulsarParameters *pulsar,
                                               INT4 gpsstart, INT4 gpsend ){
   /* set the times that the ephemeris files span */
   INT4 ephemstart = 630720013; /* GPS time of Jan 1, 2000, 00:00:00 UTC */
   INT4 ephemend = 1261872015; /* GPS time of Jan 1, 2020, 00:00:00 UTC */
-  CHAR *eftmp = NULL, *sftmp = NULL, *tftmp = NULL;
   TimeCorrectionType ttype = TIMECORRECTION_NONE;
-
-  CHAR *lalpath = NULL, *lalpulsarpath = NULL;
 
   if( gpsstart < ephemstart || gpsend < ephemstart || gpsstart > ephemend || gpsend > ephemend ){
     XLALPrintError("Start and end times are outside the ephemeris file ranges!\n");
     XLAL_ERROR(XLAL_EFUNC);
   }
 
-  /* first check that the path to the Ephemeris files is available in the
-     environment variables */
-  if((lalpath = getenv("LALPULSAR_PREFIX")) == NULL){
-    XLALPrintError("LALPULSAR_PREFIX environment variable not set. Cannot automatically generate ephemeris files!\n");
-    XLAL_ERROR(XLAL_EFUNC);
-  }
+  *efile = XLALStringDuplicate("earth00-19-");
+  *sfile = XLALStringDuplicate("sun00-19-");
 
-  lalpulsarpath = XLALStringDuplicate( lalpath );
-
-  if ( (lalpulsarpath = XLALStringAppend(lalpulsarpath, "/share/lalpulsar/")) == NULL ) { XLAL_ERROR(XLAL_EFUNC); }
-
-  eftmp = XLALStringDuplicate(lalpulsarpath);
-  sftmp = XLALStringDuplicate(lalpulsarpath);
-  tftmp = XLALStringDuplicate(lalpulsarpath);
-
-  eftmp = XLALStringAppend(eftmp, "earth00-19-");
-  sftmp = XLALStringAppend(sftmp, "sun00-19-");
-
-  if( pulsar.ephem == NULL ){
+  if( !PulsarCheckParam(pulsar, "EPHEM") ){
     /* default to use DE405 */
-    eftmp = XLALStringAppend(eftmp, "DE405");
-    sftmp = XLALStringAppend(sftmp, "DE405");
+    *efile = XLALStringAppend(*efile, "DE405");
+    *sfile = XLALStringAppend(*sfile, "DE405");
   }
   else{
-    if( !strcmp(pulsar.ephem, "DE405") || !strcmp(pulsar.ephem, "DE200") ||
-        !strcmp(pulsar.ephem, "DE414") ){
-      eftmp = XLALStringAppend(eftmp, pulsar.ephem);
-      sftmp = XLALStringAppend(sftmp, pulsar.ephem);
+    if( !strcmp(PulsarGetStringParam(pulsar, "EPHEM"), "DE405") || !strcmp(PulsarGetStringParam(pulsar, "EPHEM"), "DE200") ||
+        !strcmp(PulsarGetStringParam(pulsar, "EPHEM"), "DE414") || !strcmp(PulsarGetStringParam(pulsar, "EPHEM"), "DE421") ){
+      *efile = XLALStringAppend(*efile, PulsarGetStringParam(pulsar, "EPHEM"));
+      *sfile = XLALStringAppend(*sfile, PulsarGetStringParam(pulsar, "EPHEM"));
     }
     else{
-      XLALPrintError("Unknown ephemeris %s in par file\n", pulsar.ephem);
+      XLALPrintError("Unknown ephemeris %s in par file\n", PulsarGetStringParam(pulsar, "EPHEM"));
       XLAL_ERROR(XLAL_EFUNC);
     }
   }
 
-  /* add .dat extension */
-  eftmp = XLALStringAppend(eftmp, ".dat.gz");
-  sftmp = XLALStringAppend(sftmp, ".dat.gz");
+  /* add .dat.gz extension */
+  *efile = XLALStringAppend(*efile, ".dat.gz");
+  *sfile = XLALStringAppend(*sfile, ".dat.gz");
 
-  if ( eftmp == NULL || sftmp == NULL ) { XLAL_ERROR(XLAL_EFUNC); }
-
-  XLALStringCopy( efile, eftmp, strlen(eftmp)+1 );
-  XLALStringCopy( sfile, sftmp, strlen(sftmp)+1 );
-
-  /* double check that the files exist */
-  if( fopen(sfile, "r") == NULL || fopen(efile, "r") == NULL ){
-    XLALPrintError("Error... ephemeris files not, or incorrectly, defined!\n");
-    XLAL_ERROR(XLAL_EFUNC);
-  }
-
-  if( pulsar.units == NULL ){
+  if( !PulsarCheckParam( pulsar, "UNITS" ) ){
     /* default to using TCB units */
-    tftmp = XLALStringAppend(tftmp, "te405_2000-2019.dat.gz");
+    *tfile = XLALStringDuplicate("te405_2000-2019.dat.gz");
     ttype = TIMECORRECTION_TCB;
   }
   else{
-    if ( !strcmp( pulsar.units, "TDB" ) ){
-      tftmp = XLALStringAppend(tftmp, "tdb_2000-2019.dat.gz");
+    if ( !strcmp( PulsarGetStringParam(pulsar, "UNITS"), "TDB" ) ){
+      *tfile = XLALStringDuplicate("tdb_2000-2019.dat.gz");
       ttype = TIMECORRECTION_TDB;
     }
+    else if ( !strcmp( PulsarGetStringParam(pulsar, "UNITS"), "TCB" ) ) {
+      *tfile = XLALStringDuplicate("te405_2000-2019.dat.gz");
+      ttype = TIMECORRECTION_TCB;
+    }
     else{
-      XLALPrintError("Error... unknown units %s in par file!\n", pulsar.units);
+      XLALPrintError("Error... unknown units %s in par file!\n", PulsarGetStringParam(pulsar, "UNITS"));
       XLAL_ERROR(XLAL_EFUNC);
     }
-  }
-
-  if ( tftmp == NULL ) { XLAL_ERROR(XLAL_EFUNC); }
-
-  XLALStringCopy( tfile, tftmp, strlen(tftmp)+1 );
-
-  if( fopen(tfile, "r") == NULL ){
-    XLALPrintError("Error... time ephemeris files not, or incorrectly, defined!\n");
-    XLAL_ERROR(XLAL_EFUNC);
   }
 
   return ttype;
@@ -1017,59 +861,4 @@ void check_and_add_fixed_variable( LALInferenceVariables *vars, const char *name
      if ( LALInferenceGetVariableVaryType( vars, name ) == LALINFERENCE_PARAM_FIXED ) { LALInferenceRemoveVariable( vars, name ); }
    }
    LALInferenceAddVariable( vars, name, value, type, LALINFERENCE_PARAM_FIXED );
-}
-
-
-/**
- * \brief Remove a variable from the current parameters and remove it's scaling and prior values
- *
- * This function will clear out a variable from the \c currentParams and also remove it's scale
- * factors and prior ranges.
- *
- * \param runState [in] The analysis information structure
- * \param ifo [in] The IFO data structure
- * \param var [in] The variable to remove
- *
- */
-void remove_variable_and_prior( LALInferenceRunState *runState, LALInferenceIFOModel *ifo, const CHAR *var ){
-  /* remove variable from currentParams */
-  if( LALInferenceCheckVariable( runState->currentParams, var ) ){
-    LALInferenceRemoveVariable( runState->currentParams, var );
-  }
-  else{
-    fprintf(stderr, "Error... variable %s cannot be removed as it does not exist!\n", var);
-    exit(3);
-  }
-
-  /* remove variable scale parameters from data */
-  LALInferenceIFOModel *ifotemp = ifo;
-  while ( ifotemp ){
-    CHAR *varscale = XLALStringDuplicate( var );
-    varscale = XLALStringAppend( varscale, "_scale" );
-
-    if( LALInferenceCheckVariable( ifotemp->params, varscale ) ){
-      LALInferenceRemoveVariable( ifotemp->params, varscale );
-    }
-    else{
-      fprintf(stderr, "Error... variable %s cannot be removed as it does not exist!\n", varscale);
-      exit(3);
-    }
-
-    varscale = XLALStringAppend( varscale, "_min" );
-    if( LALInferenceCheckVariable( ifotemp->params, varscale ) ){
-      LALInferenceRemoveVariable( ifotemp->params, varscale );
-    }
-    else{
-      fprintf(stderr, "Error... variable %s cannot be removed as it does not exist!\n", varscale);
-      exit(3);
-    }
-
-    ifotemp = ifotemp->next;
-  }
-
-  /* remove prior */
-  if ( LALInferenceCheckGaussianPrior( runState->priorArgs, var ) ){
-    LALInferenceRemoveGaussianPrior( runState->priorArgs, var );
-  }
-  else { LALInferenceRemoveMinMaxPrior( runState->priorArgs, var ); }
 }

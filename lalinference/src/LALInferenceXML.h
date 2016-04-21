@@ -41,21 +41,24 @@ extern "C" {
 #include <lal/LALDatatypes.h>
 #include <lal/LALInference.h>
 
-xmlNodePtr XLALInferenceStateVariables2VOTResource(const LALInferenceRunState *state, const char *name);
+extern const xmlChar votype_nested_samples[];
+extern const xmlChar votype_posterior_samples[];
 
-xmlNodePtr XLALInferenceVariablesArray2VOTTable(const LALInferenceVariables *varsArray, UINT4 N, const char *name);
+xmlNodePtr XLALInferenceStateVariables2VOTResource(LALInferenceRunState *const state, const char *name);
 
-xmlNodePtr XLALInferenceVariables2VOTParamNode(const LALInferenceVariables *const vars);
+xmlNodePtr XLALInferenceVariablesArray2VOTTable(LALInferenceVariables *const *const varsArray, UINT4 N, const char *name);
+
+xmlNodePtr XLALInferenceVariables2VOTParamNode(LALInferenceVariables *const vars);
 
 /* INT4 XLALVOTDoc2LALInferenceVariablesByName(const xmlDocPtr xmlDocument, const char *name, LALInferenceVariables *bop); */
 
 /* xmlNodePtr LALInferenceVariables2VOTParamNodes(LALInferenceVariables *vars); */
 
-xmlNodePtr LALInferenceVariableItem2VOTParamNode(LALInferenceVariableItem *varitem);
+xmlNodePtr LALInferenceVariableItem2VOTParamNode(LALInferenceVariableItem *const varitem);
 
-VOTABLE_DATATYPE LALInferenceVariableType2VOT(const LALInferenceVariableType litype);
+VOTABLE_DATATYPE LALInferenceVariableType2VOT(LALInferenceVariableType litype);
 
-xmlNodePtr LALInferenceVariableItem2VOTFieldNode(LALInferenceVariableItem *varitem);
+xmlNodePtr LALInferenceVariableItem2VOTFieldNode(LALInferenceVariableItem *const varitem);
 
 /*@}*/
 

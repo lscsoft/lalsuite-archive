@@ -12,6 +12,11 @@ typedef struct {
 	#define SKYMARK_RESPONSE  4
 	#define SKYMARK_ECHO_RESPONSE  5
 	#define SKYMARK_LINE_RESPONSE  6
+	#define SKYMARK_BAND_AXIS  7
+	#define SKYMARK_ECLIPTIC_DISK 8
+	
+	#define SKYMARK_FOCUS_DISK  102
+	#define SKYMARK_FOCUS_ECLIPTIC_DISK  108
 
 	#define SKYMARK_END 255
 
@@ -66,6 +71,12 @@ typedef struct {
 			float weight_ratio_level;
 			float bin_tolerance;
 			} line_response;
+		struct {
+			double band_axis[3];
+			double band_axis_norm;
+			double S_upper;
+			double S_lower;
+			} band_axis;
 		
 		} p;
 	} SKYMARK;

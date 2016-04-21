@@ -48,6 +48,10 @@ main_cp=ConfigParser.ConfigParser()
 main_cp.optionxform = str
 main_cp.readfp(open(inifile))
 
+# Remove gps start and end time options
+for option in ['gps-start-time','gps-end-time']:
+  if main_cp.has_option('input',option):
+    main_cp.remove_option('input',option)
 
 rundir=os.path.abspath(opts.run_path)
 
@@ -83,7 +87,7 @@ if prior_cp.get('analysis','engine')=='lalinferencenest':
   prior_cp.set('engine','zeroLogLike','')
   prior_cp.set('engine','nlive',str(20*opts.trials))
 elif prior_cp.get('analysis','engine')=='lalinferencemcmc':
-  prior_cp.set('engine','Neff',str(opts.trials))
+  prior_cp.set('engine','neff',str(max(opts.trials,1000))) # miminum of 1000 effective samples
   prior_cp.set('engine','zeroLogLike','')
 elif prior_cp.get('analysis','engine')=='lalinferencebambi':
   prior_cp.set('engine','zeroLogLike','')
@@ -96,7 +100,6 @@ elif prior_cp.get('analysis','engine')=='lalinferencebambimpi':
 for option in 'margphi','margtime','margtimephi':
   if prior_cp.has_option('engine',option):
         prior_cp.remove_option('engine',option)
-
 
 # Create a DAG to contain the other scripts
 outerdaglog=os.path.join(daglogdir,'lalinference_injection_test_'+str(uuid.uuid1())+'.log')
@@ -115,8 +118,6 @@ prior_cp.set('input','gps-time-file',tfpath)
 priordag=pipe_utils.LALInferencePipelineDAG(prior_cp,dax=opts.dax,site=opts.grid_site)
 priordag.set_dag_file(os.path.join(priordir,'lalinference_priorsample'))
 priordagjob=pipeline.CondorDAGManJob(priordag.get_dag_file(),dir=priordir)
-if prior_cp.has_option('analysis','accounting_group'):
-  priordagjob.add_condor_cmd('accounting_group',prior_cp.get('analysis','accounting_group'))
 priordagnode=pipeline.CondorDAGManNode(priordagjob)
 # Find the output file
 pagenode=filter(lambda n:isinstance(n,pipe_utils.ResultsPageNode), priordag.get_nodes())[0]
@@ -138,16 +139,16 @@ prior2injjob.set_sub_file(convertsub)
 prior2injjob.set_stderr_file(converterr)
 prior2injjob.set_stdout_file(convertout)
 prior2injjob.add_condor_cmd('getenv','True')
+if main_cp.has_option('analysis','accounting_group'):
+  prior2injjob.add_condor_cmd('accounting_group',main_cp.get('analysis','accounting_group'))
 prior2injnode=pipeline.CondorDAGNode(prior2injjob)
 prior2injnode.add_var_opt('output',injfile)
 prior2injnode.add_var_opt('num-of-injs',str(opts.trials))
 prior2injnode.add_var_opt('approx',approx)
-flow=str(40)
 if prior_cp.has_option('engine','amporder'):
   amporder=prior_cp.get('engine','amporder')
 else:
   amporder='0'
-prior2injnode.add_var_opt('flow',flow) # TODO: Read from somewhere
 prior2injnode.add_var_opt('amporder',amporder)
 prior2injnode.add_var_arg(priorfile)
 prior2injnode.add_parent(priordagnode)
@@ -159,13 +160,26 @@ main_cp.set('input','gps-end-time',str(trig_time+1000))
 maindag=pipe_utils.LALInferencePipelineDAG(main_cp,dax=opts.dax,site=opts.grid_site)
 maindag.set_dag_file(os.path.join(maindir,'lalinference_pipeline'))
 maindagjob=pipeline.CondorDAGManJob(maindag.get_dag_file(),dir=maindir)
-if main_cp.has_option('analysis','accounting_group'):
-  maindagjob.add_condor_cmd('accounting_group',main_cp.get('analysis','accounting_group'))
 maindagnode=pipeline.CondorDAGManNode(maindagjob)
 maindag.config.set('input','injection-file',injfile)
 for i in range(int(opts.trials)):
   ev=pipe_utils.Event(trig_time=trig_time,event_id=i)
   e=maindag.add_full_analysis(ev)
+
+skyarea=False
+if main_cp.has_option('condor','skyarea') and main_cp.has_option('condor','processareas'):
+  skyarea=True
+
+skyoutdir=None
+if skyarea:
+  print "adding sky_area"
+  if main_cp.has_option('ppanalysis','webdir'):
+    outdir=main_cp.get('ppanalysis','webdir')
+  else:
+    outdir=os.path.join(rundir,'ppanalysis')
+  skyoutdir=os.path.join(outdir,'sky_pp')
+  maindag.add_skyarea_followup()
+
 outerdag.add_node(maindagnode)
 
 if not opts.injections:
@@ -177,6 +191,29 @@ if not opts.injections:
 resultspagenodes=filter(lambda n: isinstance(n, pipe_utils.ResultsPageNode), maindag.get_nodes())
 posteriorfiles=[n.get_pos_file() for n in resultspagenodes]
 
+## add job for 2D skyarea PP plots
+if skyarea:
+  sasub=os.path.join(rundir,'processareas.sub')
+  saerr=os.path.join(outerlogdir,'processareas-$(cluster)-$(process)-$(node).err')
+  saout=os.path.join(outerlogdir,'processareas-$(cluster)-$(process)-$(node).out')
+  saexe=prior_cp.get('condor','processareas')
+  sajob=pipeline.CondorDAGJob('vanilla',saexe)
+  sajob.set_sub_file(sasub)
+  sajob.set_stderr_file(saerr)
+  sajob.set_stdout_file(saout)
+  sajob.add_condor_cmd('getenv','True')
+  if main_cp.has_option('analysis','accounting_group'):
+    sajob.add_condor_cmd('accounting_group',main_cp.get('analysis','accounting_group'))
+
+  sanode=pipeline.CondorDAGNode(sajob)
+  sanode.add_var_opt('prefix',skyoutdir)
+  mkdirs(skyoutdir)
+  for f in posteriorfiles:
+    f=f.replace('posterior_samples.dat','areas.dat')
+    sanode.add_var_arg(f)
+  sanode.add_parent(maindagnode)
+  outerdag.add_node(sanode)
+
 # Analyse results of injection runs to generate PP plot
 ppsub=os.path.join(rundir,'ppanalysis.sub')
 pperr=os.path.join(outerlogdir,'ppanalysis-$(cluster)-$(process)-$(node).err')
@@ -187,6 +224,8 @@ ppjob.set_sub_file(ppsub)
 ppjob.set_stderr_file(pperr)
 ppjob.set_stdout_file(ppout)
 ppjob.add_condor_cmd('getenv','True')
+if main_cp.has_option('analysis','accounting_group'):
+  ppjob.add_condor_cmd('accounting_group',main_cp.get('analysis','accounting_group'))
 
 ppnode=pipeline.CondorDAGNode(ppjob)
 ppnode.add_var_opt('injXML',injfile)
@@ -199,6 +238,11 @@ mkdirs(outdir)
 ppnode.add_var_opt('outdir',outdir)
 for f in posteriorfiles:
   ppnode.add_var_arg(f)
+
+if skyarea:
+  ppnode.add_var_opt('skyPPfolder',os.path.realpath(skyoutdir))
+  ppnode.add_parent(sanode)
+
 ppnode.add_parent(maindagnode)
 outerdag.add_node(ppnode)
 

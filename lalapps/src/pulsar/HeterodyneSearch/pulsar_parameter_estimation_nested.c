@@ -151,8 +151,6 @@ LALInference tools */
 #include "ppe_roq.h"
 
 /* global variables */
-UINT4 verbose_output = 0;
-
 LALStringVector *corlist = NULL;
 
 INT4 main( INT4 argc, CHAR *argv[] ){
@@ -184,11 +182,11 @@ INT4 main( INT4 argc, CHAR *argv[] ){
   /* set prior function */
   runState.prior = &priorFunction;
 
-  /* set signal model/template */
-  runState.model->templt = &get_pulsar_model;
-
   /* Generate the lookup tables and read parameters from par file */
   setup_from_par_file( &runState );
+  
+  /* set signal model/template */
+  runState.threads[0]->model->templt = &get_pulsar_model;
 
   /* add injections if requested */
   inject_signal( &runState );
@@ -218,14 +216,17 @@ INT4 main( INT4 argc, CHAR *argv[] ){
   /* Initialise the MCMC proposal distribution */
   initialise_proposal( &runState );
 
+  /* Set up threads */
+  initialise_threads( &runState, 1 );
+
   /* Call the nested sampling algorithm */
   runState.algorithm( &runState );
 
   /* get SNR of highest likelihood point */
   get_loudest_snr( &runState );
 
-  /* re-read in output samples and rescale appropriately */
-  rescale_output( &runState );
+  /* gzip the output samples is required appropriately */
+  gzip_output( &runState );
 
   /* close timing file */
   if ( LALInferenceCheckVariable( runState.algorithmParams, "timefile" ) ){

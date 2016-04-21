@@ -45,13 +45,13 @@
  */
 void inject_signal( LALInferenceRunState *runState ){
   LALInferenceIFOData *data = runState->data;
-  LALInferenceIFOModel *ifo_model = runState->model->ifo;
+  LALInferenceIFOModel *ifo_model = runState->threads[0]->model->ifo;
 
   CHAR *injectfile = NULL, *snrfile = NULL;
   ProcessParamsTable *ppt;
   ProcessParamsTable *commandLine = runState->commandLine;
 
-  BinaryPulsarParams injpars;
+  PulsarParameters *injpars = XLALCalloc(sizeof(*injpars),1);;
 
   FILE *fpsnr = NULL; /* output file for SNRs */
   INT4 ndats = 0, j = 1;
@@ -85,12 +85,35 @@ void inject_signal( LALInferenceRunState *runState ){
     }
 
     /* read in injection parameter file */
-    XLALReadTEMPOParFile( &injpars, injectfile );
+    injpars = XLALReadTEMPOParFileNew( injectfile );
+
+    /* check RA and DEC are set (if only RAJ and DECJ are given in the par file) */
+    if ( !PulsarCheckParam( injpars, "RA" ) ){
+      if ( PulsarCheckParam( injpars, "RAJ" ) ){
+        REAL8 ra = PulsarGetREAL8Param( injpars, "RAJ" );
+        PulsarAddParam( injpars, "RA", &ra, PULSARTYPE_REAL8_t );
+      }
+      else {
+        XLALPrintError ("%s: No source right ascension specified!", __func__ );
+        XLAL_ERROR_VOID( XLAL_EINVAL );
+      }
+    }
+    if ( !PulsarCheckParam( injpars, "DEC" ) ){
+      if ( PulsarCheckParam( injpars, "DECJ" ) ) {
+        REAL8 dec = PulsarGetREAL8Param( injpars, "DECJ" );
+        PulsarAddParam( injpars, "DEC", &dec, PULSARTYPE_REAL8_t );
+      }
+      else {
+        XLALPrintError ("%s: No source declination specified!", __func__ );
+        XLAL_ERROR_VOID( XLAL_EINVAL );
+      }
+    }
 
     /* make sure that we have parameters in terms of amplitude and phase parameters */
-    invert_source_params( &injpars );
+    invert_source_params( injpars );
   }
   else{
+    PulsarFreeParams( injpars );
     fclose( fpsnr );
     return;
   }
@@ -123,22 +146,30 @@ void inject_signal( LALInferenceRunState *runState ){
     if ( !nonGR_search ){
       /* add "nonGR" flag so that pulsar_model() runs in nonGR mode */
       UINT4 nonGRval = 1;
-      LALInferenceAddVariable( ifo_model->params, "nonGR", &nonGRval, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED );
+      while ( ifo_model ){
+        LALInferenceAddVariable( ifo_model->params, "nonGR", &nonGRval, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED );
+        ifo_model = ifo_model->next;
+      }
+      ifo_model = runState->threads[0]->model->ifo;
       /* setup nonGR lookup tables */
       LALSource psr;
-      psr.equatorialCoords.longitude = injpars.ra;
-      psr.equatorialCoords.latitude = injpars.dec;
+      psr.equatorialCoords.longitude = PulsarGetREAL8ParamOrZero( injpars, "RA" );
+      psr.equatorialCoords.latitude = PulsarGetREAL8ParamOrZero( injpars, "DEC" );
       psr.equatorialCoords.system = COORDINATESYSTEM_EQUATORIAL;
       setup_lookup_tables( runState, &psr );
     }
     if ( *injection_model!='\0' ){
       /* set parameters corresponding to specific model */
-      set_nonGR_model_parameters( &injpars, injection_model);
+      set_nonGR_model_parameters( injpars, injection_model);
     }
   }
   else {
     /* remove "nonGR" flag so that pulsar_model() runs in GR mode */
-    LALInferenceRemoveVariable(ifo_model->params, "nonGR");
+    while ( ifo_model ){
+      LALInferenceRemoveVariable(ifo_model->params, "nonGR");
+      ifo_model = ifo_model->next;
+    }
+    ifo_model = runState->threads[0]->model->ifo;
   }
 
   pulsar_model( injpars, ifo_model );
@@ -149,7 +180,7 @@ void inject_signal( LALInferenceRunState *runState ){
   fprintf(fpsnr, "# Injected SNR\n");
 
   /* reset model to head */
-  ifo_model = runState->model->ifo;
+  ifo_model = runState->threads[0]->model->ifo;
 
   /* calculate SNRs */
   while ( data ){
@@ -188,14 +219,16 @@ void inject_signal( LALInferenceRunState *runState ){
     /* rescale the signal and calculate the SNRs */
     snrscale /= snrmulti;
 
-    injpars.C22 *= snrscale;
-    injpars.C21 *= snrscale;
+    REAL8 C22 = PulsarGetREAL8ParamOrZero( injpars, "C22" )*snrscale;
+    REAL8 C21 = PulsarGetREAL8ParamOrZero( injpars, "C21" )*snrscale;
+    PulsarAddParam( injpars, "C22", &C22, PULSARTYPE_REAL8_t );
+    PulsarAddParam( injpars, "C21", &C21, PULSARTYPE_REAL8_t );
 
     /* recreate the signal with scaled amplitude */
     varyphase = 1;
 
     /* reset to head */
-    ifo_model = runState->model->ifo;
+    ifo_model = runState->threads[0]->model->ifo;
     data = runState->data;
 
     if ( !LALInferenceCheckVariable( ifo_model->params, "varyphase" ) ){
@@ -212,7 +245,7 @@ void inject_signal( LALInferenceRunState *runState ){
     snrmulti = 0;
     ndats = 0;
 
-    ifo_model = runState->model->ifo;
+    ifo_model = runState->threads[0]->model->ifo;
 
     while( data ){
       REAL8 snrval = 0.;
@@ -248,7 +281,7 @@ void inject_signal( LALInferenceRunState *runState ){
   fclose( fpsnr );
 
   data = runState->data;
-  ifo_model = runState->model->ifo;
+  ifo_model = runState->threads[0]->model->ifo;
 
   /* add signal to data */
   while( data ){
@@ -315,17 +348,27 @@ void inject_signal( LALInferenceRunState *runState ){
     j++;
   }
 
-/* reset nonGR status */
-ifo_model = runState->model->ifo;
-if ( nonGR_search ){
-  if ( !nonGR_injection ){
-    UINT4 nonGRval = 1;
-    LALInferenceAddVariable( ifo_model->params, "nonGR", &nonGRval, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED );
+  /* reset nonGR status */
+  ifo_model = runState->threads[0]->model->ifo;
+  if ( nonGR_search ){
+    if ( !nonGR_injection ){
+      UINT4 nonGRval = 1;
+      while ( ifo_model ){
+        LALInferenceAddVariable( ifo_model->params, "nonGR", &nonGRval, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED );
+        ifo_model = ifo_model->next;
+      }
+      ifo_model = runState->threads[0]->model->ifo;
+    }
   }
-}
-else {
-  LALInferenceRemoveVariable(ifo_model->params, "nonGR");
-}
+  else {
+    while ( ifo_model ){
+      LALInferenceRemoveVariable(ifo_model->params, "nonGR");
+      ifo_model = ifo_model->next;
+    }
+    ifo_model = runState->threads[0]->model->ifo;
+  }
+
+  PulsarFreeParams( injpars ); /* free memory */
 }
 
 /*-------------------- END OF SOFTWARE INJECTION FUNCTIONS -------------------*/
@@ -505,7 +548,7 @@ void get_loudest_snr( LALInferenceRunState *runState ){
 
   LALInferenceVariables *loudestParams = NULL;
   LALInferenceIFOData *data = runState->data;
-  LALInferenceIFOModel *ifo_model = runState->model->ifo;
+  LALInferenceIFOModel *ifo_model = runState->threads[0]->model->ifo;
 
   loudestParams = XLALCalloc( 1, sizeof(LALInferenceVariables) );
 
@@ -557,7 +600,7 @@ void get_loudest_snr( LALInferenceRunState *runState ){
   }
 
   /* make sure that the signal model in runState->data is that of the loudest signal */
-  REAL8 logLnew = runState->likelihood( loudestParams, runState->data, runState->model );
+  REAL8 logLnew = runState->likelihood( loudestParams, runState->data, runState->threads[0]->model );
 
   if ( !roq ) {
     /* we don't expect exactly identical likelihoods if using ROQ */
@@ -595,7 +638,7 @@ void get_loudest_snr( LALInferenceRunState *runState ){
 
   /* get SNR of loudest point and print out to file */
   data = runState->data;
-  ifo_model = runState->model->ifo;
+  ifo_model = runState->threads[0]->model->ifo;
 
   //FILE *fp = NULL;
   //fp = fopen("max_like_signal.txt", "w");
@@ -609,14 +652,14 @@ void get_loudest_snr( LALInferenceRunState *runState ){
 
     REAL8 snrval = calculate_time_domain_snr( data, ifo_model );
 
-    //UINT4 length = ifo_model->compTimeData->data->length;
+    //UINT4 length = ifo_model->compTimeSignal->data->length;
 
     /* print out maxlikelihood template */
     //for ( UINT4 j=0; j < length; j++ ){
     //  fprintf(fp, "%lf\t%le\t%le\n",
     //          XLALGPSGetREAL8( &ifo_model->times->data[j] ),
-    //          ifo_model->compTimeSignal->data->data[j].re,
-    //          ifo_model->compTimeSignal->data->data[j].im );
+    //          creal(ifo_model->compTimeSignal->data->data[j]),
+    //          cimag(ifo_model->compTimeSignal->data->data[j]));
     //}
 
     snrmulti += SQUARE( snrval );

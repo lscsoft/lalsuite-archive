@@ -26,7 +26,6 @@ __version__ = git_version.id
 import sys
 import os
 import exceptions
-import types
 
 from pyGlobus import io
 from pyGlobus import security
@@ -321,10 +320,10 @@ class LDRdataFindClient(object):
                 try:
                         if response[-1] != '\0':
                                 msg = "Bad server reponse format. Contact server administrator."
-                                raise LDRdataFindClientException, msg
+                                raise LDRdataFindClientException(msg)
                 except:
                         msg = "Connection refused. The server may be down or you may not have authorization to access this server. Contact server administrator."
-                        raise LDRdataFindClientException, msg
+                        raise LDRdataFindClientException(msg)
 
                 # delete the last \0 before splitting into strings
                 response = response[0:-1]
@@ -339,7 +338,7 @@ class LDRdataFindClient(object):
                                 f.close()
                         except:
                                 pass
-                        raise LDRdataFindClientException, msg
+                        raise LDRdataFindClientException(msg)
 
                 f.close()
 
@@ -362,7 +361,7 @@ class LDRdataFindClient(object):
 
                 if ret:
                         msg = "Error pinging server %d:%s" % (ret, reply)
-                        raise LDRdataFindClientException, msg
+                        raise LDRdataFindClientException(msg)
 
                 return reply
 
@@ -383,9 +382,9 @@ class LDRdataFindClient(object):
                 """
 
                 # check argument
-                if type(attr) != types.StringType:
+                if not isinstance(attr, str):
                         msg = "Argument 'attr' must be a string"
-                        raise LDRdataFindClientException, msg
+                        raise LDRdataFindClientException(msg)
         
                 msg = "DISTINCT\0%s\0" % str(attr)
                 self.__connect__()
@@ -395,7 +394,7 @@ class LDRdataFindClient(object):
 
                 if ret:
                         msg = "Error querying LDRdataFindServer for distinct values of attributes: %s" % str(output)
-                        raise LDRdataFindClientException, msg
+                        raise LDRdataFindClientException(msg)
 
                 return output
         
@@ -410,9 +409,9 @@ class LDRdataFindClient(object):
                 """
 
                 # check argument
-                if type(lfn) != types.StringType:
+                if not isinstance(lfn, str):
                         msg = "Argument 'lfn' must be a string"
-                        raise LDRdataFindClientException, msg
+                        raise LDRdataFindClientException(msg)
 
                 msg = "LFNPFN\0%s\0" % str(lfn)
                 self.__connect__()
@@ -422,7 +421,7 @@ class LDRdataFindClient(object):
 
                 if ret:
                         msg = "Error querying LDRdataFindServer for PFN with LFN %s : %s" % (str(lfn), str(output))
-                        raise LDRdataFindClientException, msg
+                        raise LDRdataFindClientException(msg)
 
                 return output
                 
@@ -441,10 +440,10 @@ class LDRdataFindClient(object):
                 """
                 if not mytype:
                         msg = "A frame type, --type, must be specified."
-                        raise LSCdataFindClientException, msg
-                if long(end) < long(start):
+                        raise LSCdataFindClientException(msg)
+                if int(end) < int(start):
                         msg = "Supplied start time, %s, is later than supplied end time, %s" % (start,end)
-                        raise LSCdataFindClientException,msg
+                        raise LSCdataFindClientException(msg)
 
                 
                 #Construct RPC
@@ -463,7 +462,7 @@ class LDRdataFindClient(object):
                 
                 if ret:
                         msg = "Error querying LDRdataFindServer for times of frame type, %s: %s" % (str(mytype),str(output))
-                        raise LSCdataFindClientException,msg
+                        raise LSCdataFindClientException(msg)
                 return output
 
         def lfnQueryWithMetadata(self, queryList):
@@ -479,11 +478,11 @@ class LDRdataFindClient(object):
                 # check arguments
                 if not isinstance(queryList, list):
                         msg = "Argument must be a list of instances of LDRMetadataQuery"
-                        raise LDRdataFindClientException, msg
+                        raise LDRdataFindClientException(msg)
                 for query in queryList:
                         if not isinstance(query, LDRMetadataQuery):
                                 msg = "Argument must be an instance of LDRMetadataQuery"
-                                raise LDRdataFindClientException, msg
+                                raise LDRdataFindClientException(msg)
 
                 # prepare the messange to send down the socket
                 msg = "METALFN\0"
@@ -496,7 +495,7 @@ class LDRdataFindClient(object):
 
                 if ret:
                         msg = "Error querying LDRdataFindServer for LFNs: %s" % (str(output[0],))
-                        raise LDRdataFindClientException, msg
+                        raise LDRdataFindClientException(msg)
 
 
                 return output
@@ -515,11 +514,11 @@ class LDRdataFindClient(object):
                 # check arguments
                 if not isinstance(queryList, list):
                         msg = "Argument must be a list of instances of LDRMetadataQuery"
-                        raise LDRdataFindClientException, msg
+                        raise LDRdataFindClientException(msg)
                 for query in queryList:
                         if not isinstance(query, LDRMetadataQuery):
                                 msg = "Argument must be an instance of LDRMetadataQuery"
-                                raise LDRdataFindClientException, msg
+                                raise LDRdataFindClientException(msg)
 
                 msg = "METAPFN\0" 
                 for q in queryList:
@@ -531,7 +530,7 @@ class LDRdataFindClient(object):
 
                 if ret:
                         msg = "Error querying LDRdataFindServer for PFNs: %s" % (str(output[0],))
-                        raise LDRdataFindClientException, msg
+                        raise LDRdataFindClientException(msg)
 
                 return output
 
@@ -556,31 +555,31 @@ class LDRdataFindClient(object):
                 """
 
                 # check arguments
-                if type(sql) != types.StringType:
+                if not isinstance(sql, str):
                         msg = "Argument 'sql' must be a string"
-                        raise LDRdataFindClientException, msg
+                        raise LDRdataFindClientException(msg)
 
-                if type(rexp) != types.StringType:
+                if not isinstance(rexp, str):
                         msg = "Argument 'rexp' must be a string"
-                        raise LDRdataFindClientException, msg
+                        raise LDRdataFindClientException(msg)
 
                 if offset:
-                    if type(offset) != types.IntType:
+                    if not isinstance(offset, int):
                             msg = "Argument 'offset' must be a positive integer or zero"
-                            raise LDRdataFindClientException, msg
+                            raise LDRdataFindClientException(msg)
                 
                     if offset < 0:
                             msg = "Argument 'offset' must be a positive integer or zero"
-                            raise LDRdataFindClientException, msg
+                            raise LDRdataFindClientException(msg)
                 
                 if number:
-                    if type(number) != types.IntType:
+                    if not isinstance(number, int):
                             msg = "Argument 'number' must be a positive integer"
-                            raise LDRdataFindClientException, msg
+                            raise LDRdataFindClientException(msg)
                 
                     if number <= 0:
                             msg = "Argument 'number' must be a positive integer"
-                            raise LDRdataFindClientException, msg
+                            raise LDRdataFindClientException(msg)
 
                 msg = "METAREPFN\0%s\0%s\0" % (str(sql), str(rexp))
                 if offset:
@@ -596,7 +595,7 @@ class LDRdataFindClient(object):
 
                 if ret:
                         msg = "Error querying LDRdataFindServer for PFNs with metadata query %s : %s" % (sql, str(output[0]))
-                        raise LDRdataFindClientException, msg
+                        raise LDRdataFindClientException(msg)
 
                 
 
@@ -620,13 +619,13 @@ class LDRdataFindClient(object):
                 """
 
                 # check arguments
-                if type(sql1) != types.StringType:
+                if not isinstance(sql1, str):
                         msg = "Argument 'sql1' must be a string"
-                        raise LDRdataFindClientException, msg
+                        raise LDRdataFindClientException(msg)
 
-                if type(sql2) != types.StringType:
+                if not isinstance(sql2, str):
                         msg = "Argument 'sql2' must be a string"
-                        raise LDRdataFindClientException, msg
+                        raise LDRdataFindClientException(msg)
 
                 msg = "METAPFNUNION\0%s\0%s\0" % (str(sql1), str(sql2))
                 self.__connect__()
@@ -636,7 +635,7 @@ class LDRdataFindClient(object):
 
                 if ret:
                         msg = "Error querying LDRdataFindServer for PFNs with metadata queryies %s AND %s : %s" % (sql1, sql2, str(output[0]))
-                        raise LDRdataFindClientException, msg
+                        raise LDRdataFindClientException(msg)
 
                 
 
@@ -671,17 +670,17 @@ class LSCdataFindClient(LDRdataFindClient):
                 @return: Instance of LSCdataFindClient
                 """
                 # check arguments
-                if type(host) != types.StringType:
+                if not isinstance(host, str):
                         msg = "Argument 'host' must be a string"
-                        raise LSCdataFindClientException, msg
+                        raise LSCdataFindClientException(msg)
 
-                if type(port) != types.IntType:
+                if not isinstance(port, str):
                         msg = "Argument 'port' must be a positive integer"
-                        raise LSCdataFindClientException, msg
+                        raise LSCdataFindClientException(msg)
 
                 if port <= 0:
                         msg = "Argument 'port' must be a positive integer"
-                        raise LSCdataFindClientException, msg
+                        raise LSCdataFindClientException(msg)
                  
                 LDRdataFindClient.__init__(self, host, port, noproxy, disablehostauth)
 
@@ -696,13 +695,13 @@ class LSCdataFindClient(LDRdataFindClient):
                 """
                 if len(gpsString) != 9:
                         msg = "GPS times must be 9 digits"
-                        raise LSCdataFindClientException, msg
+                        raise LSCdataFindClientException(msg)
 
                 try:
                         a = int(gpsString)
                 except Exception, e:
                         msg = "GPS times must be 9 digits"
-                        raise LSCdataFindClientException, msg
+                        raise LSCdataFindClientException(msg)
 
 
         def ping(self, argDict):
@@ -753,10 +752,10 @@ class LSCdataFindClient(LDRdataFindClient):
                      self.__check_gps(end)
                  if not site:
                      msg = "An observatory must be specified."
-                     raise LDRdataFindClientException,msg
+                     raise LDRdataFindClientException(msg)
                  if not mytype:
                      msg = "A type must be specified."
-                     raise LDRdataFindClientException,msg
+                     raise LDRdataFindClientException(msg)
                  
                  timelist = LDRdataFindClient.timeQuery(self,mytype,site,start,end,strict)
                  return timelist
@@ -817,14 +816,14 @@ Bad combination of command line arguments:
 --observatory --type --gps-start-time --gps-end-time must all
 be present when searching for groups of files
 """
-                        raise LSCdataFindClientException, msg
+                        raise LSCdataFindClientException(msg)
                 
                 self.__check_gps(start)
                 self.__check_gps(end)
                 
-                if long(end) < long(start):
+                if int(end) < int(start):
                         msg = "Supplied start time, %s, is later than supplied end time, %s" % (start,end)
-                        raise LSCdataFindClientException,msg
+                        raise LSCdataFindClientException(msg)
 
                 q1 = LDRMetadataQuery()
                 q2 = LDRMetadataQuery()
@@ -880,14 +879,14 @@ Bad combination of command line arguments:
 --observatory --type --gps-start-time --gps-end-time must all
 be present when searching for groups of files
 """
-                        raise LSCdataFindClientException, msg
+                        raise LSCdataFindClientException(msg)
                 
                 self.__check_gps(start)
                 self.__check_gps(end)
                 
-                if long(end) < long(start):
+                if int(end) < int(start):
                         msg = "Supplied start time, %s, is later than supplied end time, %s" % (start,end)
-                        raise LSCdataFindClientException,msg
+                        raise LSCdataFindClientException(msg)
                 q1 = LDRMetadataQuery()
                 q2 = LDRMetadataQuery()
 
@@ -945,18 +944,18 @@ Bad combination of command line arguments:
 --observatory --type --gps-start-time --gps-end-time must all
 be present when searching for groups of files
 """
-                        raise LSCdataFindClientException, msg
+                        raise LSCdataFindClientException(msg)
 
                 if offset and not number:
                         msg = "--limit must be used if --offset is used"
-                        raise LSCdataFindClientException, msg
+                        raise LSCdataFindClientException(msg)
 
                 self.__check_gps(start)
                 self.__check_gps(end)
 
-                if long(end) < long(start):
+                if int(end) < int(start):
                         msg = "Supplied start time, %s, is later than supplied end time, %s" % (start,end)
-                        raise LSCdataFindClientException,msg
+                        raise LSCdataFindClientException(msg)
 
 
                 # should do sanity check here on the urlType and match that have been passed

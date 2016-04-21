@@ -40,15 +40,15 @@ import traceback
 import ConfigParser
 from optparse import OptionParser
 
-from glue.ligolw import ligolw
-from glue.ligolw import utils as ligolw_utils
-from glue.ligolw import lsctables
-from glue.ligolw import table
-
 from laldetchar.idq import idq
 #from laldetchar.idq import reed as idq
 from laldetchar.idq import event
 from laldetchar.idq import calibration
+
+from glue.ligolw import ligolw
+from glue.ligolw import utils as ligolw_utils
+from glue.ligolw import lsctables
+from glue.ligolw import table
 
 from laldetchar import git_version
 
@@ -66,7 +66,11 @@ parser.add_option('-v', '--verbose', default=False, action='store_true')
 
 parser.add_option('-c', '--config', default='idq.ini', type='string', help='configuration file')
 
+parser.add_option('-k', '--lock-file', dest='lockfile', help='use custom lockfile', metavar='FILE', default=None )
+
 parser.add_option('-l', '--log-file', default='idq_calibration.log', type='string', help='log file')
+
+parser.add_option("", "--mode", default="dat", type="string", help="the mode for how we compute the calibration, either \"dat\" or \"npy\". If mode=\"dat\", we pick up datfiles and perform a counting experiment to compute the rank->fap mapping. If mode=\"npy\", we pick up rank-frames and directly measure the deadtime to compute the rank->fap mapping. This only affects the roc and uroc files produced. All KDE files and FAPthr checks are the same regardless of mode")
 
 parser.add_option('-s', '--gpsstart', dest="gpsstart", default=-np.infty, type='float', help='gps start time')
 parser.add_option('-e', '--gpsstop', dest="gpsstop", default=np.infty, type='float', help='gps end time')
@@ -89,12 +93,20 @@ opts, args = parser.parse_args()
 if opts.lookback != "infinity":
     lookback = int(opts.lookback)
 
+if opts.mode not in ["dat", "npy", "gwf"]:
+    raise ValueError("--mode=%s not understood"%opts.mode)
+
 #===================================================================================================
 ### setup logger to record processes
 logger = idq.setup_logger('idq_logger', opts.log_file, sys.stdout, format='%(asctime)s %(message)s')
 
 sys.stdout = idq.LogFile(logger)
 sys.stderr = idq.LogFile(logger)
+
+#===================================================================================================
+### check lockfile
+if opts.lockfile:
+    lockfp = idq.dieiflocked( opts.lockfile )
 
 #===================================================================================================
 ### read global configuration file
@@ -122,6 +134,11 @@ for combiner, value in combinersD.items():
     classifiersD[combiner] = value
 
 classifiers = sorted(classifiersD.keys())
+
+### compute channel names stored in frames
+channameD = dict( (name, {'rank':idq.channame(ifo, name, "%s_rank"%usertag),
+                          'fap':idq.channame(ifo, name, "%s_fap"%usertag),
+                          'fapUL':idq.channame(ifo, name, "%s_fapUL"%usertag)}) for name in classifiers )
 
 #if mla:
 #    ### reading parameters from config file needed for mla
@@ -228,7 +245,7 @@ while gpsstart < gpsstop:
 
     logger.info('----------------------------------------------------')
 
-    wait = gpsstart + stride + delay - t
+    wait = gpsstart + stride + delay - idq.nowgps()
     if wait > 0:
         logger.info('waiting %.1f seconds to reach gpsstart+stride+delay=%d' %(wait, gpsstart+stride+delay))
         time.sleep(wait)
@@ -288,6 +305,8 @@ while gpsstart < gpsstop:
     logger.info('taking intersection between science segments and idq segments')
     idqsegs = event.andsegments( [scisegs, idqsegs] )
 
+    idqsegs_livetime = event.livetime( idqsegs )
+
     ### write segment file
     if opts.ignore_science_segments:
         idqseg_path = idq.idqsegascii(output_dir, '', gpsstart-lookback, lookback+stride)
@@ -303,6 +322,7 @@ while gpsstart < gpsstop:
     #===============================================================================================
 
     ### find all *dat files, bin them according to classifier
+    ### needed for opts.mode=="dat" and KDE estimates
     logger.info('finding all *dat files')
     datsD = defaultdict( list )
     for dat in idq.get_all_files_in_range(realtimedir, gpsstart-lookback, gpsstart+stride, pad=0, suffix='.dat' ):
@@ -314,6 +334,39 @@ while gpsstart < gpsstop:
             datsD.pop(key) 
         else: ### throw out files that don't contain any science time
             datsD[key] = [ dat for dat in datsD[key] if event.livetime(event.andsegments([idqsegs, [idq.extract_start_stop(dat, suffix='.dat')]])) ]
+
+    if opts.mode == "dat": ### we just looked these up
+        pass
+
+    elif opts.mode=="npy": ### need rank files
+        ### find all *rank*npy.gz files, bin them according to classifier
+        logger.info('  finding all *rank*.npy.gz files')
+        ranksD = defaultdict( list )
+        for rank in [rank for rank in  idq.get_all_files_in_range(realtimedir, gpsstart-lookback, gpsstart+stride, pad=0, suffix='.npy.gz') if "rank" in rank]:
+            ranksD[idq.extract_fap_name( rank )].append( rank ) ### should just work...
+
+        ### throw away files we will never need
+        for key in ranksD.keys():
+            if key not in classifiers: ### throw away unwanted files
+                ranksD.pop(key)
+            else: ### keep only files that overlap with scisegs
+                ranksD[key] = [ rank for rank in ranksD[key] if event.livetime(event.andsegments([idqsegs, [idq.extract_start_stop(rank, suffix='.npy.gz')]])) ]
+
+    elif opts.mode=="gwf": ### need rank frames
+        ### find all *rank*npy.gz files, bin them according to classifier
+        logger.info('  finding all *rank*.gwf files')
+        ranksD = defaultdict( list )
+        for rank in [rank for rank in  idq.get_all_files_in_range(realtimedir, gpsstart-lookback, gpsstart+stride, pad=0, suffix='.gwf') if "rank" in rank]:
+            ranksD[idq.extract_fap_name( rank )].append( rank ) ### should just work...
+
+        ### throw away files we will never need
+        for key in ranksD.keys():
+            if key not in classifiers: ### throw away unwanted files
+                ranksD.pop(key)
+            else: ### keep only files that overlap with scisegs
+                ranksD[key] = [ rank for rank in ranksD[key] if event.livetime(event.andsegments([idqsegs, [idq.extract_start_stop(rank, suffix='.gwf')]])) ]
+    else:
+        raise ValueError("mode=%s not understood"%opts.mode)
 
     #====================
     # update uroc for each classifier
@@ -377,21 +430,74 @@ while gpsstart < gpsstop:
 
         ### upsample to roc
         r, c, g = idq.resample_rcg(urank, r, c, g)
- 
-        ### dump uroc to file
-        uroc = idq.uroc(output_dir, classifier, ifo, usertag, gpsstart-lookback, lookback+stride)
-        logger.info('  writing %s'%uroc)
-        idq.rcg_to_file(uroc, r, c, g)
-
         urocs[classifier] = (r, c, g)
 
-        if opts.force or ((c[-1] >= min_num_cln) and (g[-1] >= min_num_gch)):
-            ### update cache file
-            logger.info('  adding %s to %s'%(uroc, calibration_cache[classifier].name) )
-            calibration_cache[classifier].append( uroc )
+        if opts.mode == "dat": 
+            ### dump uroc to file
+            uroc = idq.uroc(output_dir, classifier, ifo, usertag, gpsstart-lookback, lookback+stride)
+            logger.info('  writing %s'%uroc)
+            idq.rcg_to_file(uroc, r, c, g)
+
+            if opts.force or ((c[-1] >= min_num_cln) and (g[-1] >= min_num_gch)):
+                ### update cache file
+                logger.info('  adding %s to %s'%(uroc, calibration_cache[classifier].name) )
+                calibration_cache[classifier].append( uroc )
+
+            else:
+                logger.warning('WARNING: not enough samples to trust calibration. skipping calibration update for %s'%classifier)
+
+        elif (opts.mode == "npy") or (opts.mode == "gwf"):
+            ### write list of dats to cache file
+            cache = idq.cache(output_dir, classifier, "_rankcache%s"%usertag)
+            logger.info('writing list of rank files to %s'%cache)
+            f = open(cache, 'w')
+            for rank in ranksD[classifier]:
+                print >>f, rank
+            f.close()
+
+            logger.info('  analyzing rank timeseries to obtain mapping from rank->fap')
+
+            ### load in timeseries
+            if opts.mode == "npy":
+                _times, timeseries = idq.combine_ts(ranksD[classifier], n=1)
+            else: ### opts.mode=="gwf"
+                _times, timeseries = idq.combine_gwf(ranksD[classifier], [channameD[classifier]['rank']])
+
+            times = []
+            ranks = []
+            for t, ts in zip(_times, timeseries):
+                _t, _ts = idq.timeseries_in_segments(t, ts, idqsegs)
+                if len(_ts):
+                    times.append( _t )
+                    ranks.append( _ts )
+
+            ### need to compute deadsecs for every rank in r -> function call (probably within calibration module)!
+            crank = []
+            for _r in r:
+
+                dsec = 0
+                for t, ts in zip(times, ranks):
+                    dt = t[1]-t[0] ### get time spacing.
+                    dsec += calibration.timeseries_to_livetime(dt, ts, _r)[0] # we don't care about segments, so just get livetime and smallest stated value
+                crank.append( dsec )
+ 
+            ### dump uroc file
+            uroc = idq.uroc(output_dir, classifier, ifo, usertag, gpsstart-lookback, lookback+stride)
+            logger.info('  writing %s'%uroc)
+            idq.rcg_to_file(uroc, r, crank, g) ### use the amount of time identified via timeseries
+
+            logger.warning('  WARNING: interpretation of this for Binomial upper limits is more complicated... but that happens within laldetchar-idq-realtime. probably need to set an option in idq.ini that controls how we compute this mapping. reference this within laldetchar-idq-realtime when computing pt. estimates and upper limits. ')
+
+            if opts.force or ((c[-1] >= min_num_cln) and (g[-1] >= min_num_gch)):
+                ### update cache file
+                logger.info('  adding %s to %s'%(uroc, calibration_cache[classifier].name) )
+                calibration_cache[classifier].append( uroc )
+
+            else:
+                logger.warning('WARNING: not enough samples to trust calibration. skipping calibration update for %s'%classifier)
 
         else:
-            logger.warning('WARNING: not enough samples to trust calibration. skipping calibration update for %s'%classifier)
+            raise ValueError("mode=%s not understood"%opts.mode)
 
     #===============================================================================================
     # compute KDE estimates
@@ -434,9 +540,11 @@ while gpsstart < gpsstop:
         logger.info('checking historical calibration for accuracy')
 
         ### find all *fap*npy.gz files, bin them according to classifier
-        logger.info('  finding all *fap*.npy.gz files')
+#        logger.info('  finding all *fap*.npy.gz files')
+        logger.info('  finding all *fap*.gwf files')
         fapsD = defaultdict( list )
-        for fap in [fap for fap in  idq.get_all_files_in_range(realtimedir, gpsstart-lookback, gpsstart+stride, pad=0, suffix='.npy.gz') if "fap" in fap]:
+#        for fap in [fap for fap in  idq.get_all_files_in_range(realtimedir, gpsstart-lookback, gpsstart+stride, pad=0, suffix='.npy.gz') if "fap" in fap]:
+        for fap in [fap for fap in  idq.get_all_files_in_range(realtimedir, gpsstart-lookback, gpsstart+stride, pad=0, suffix='.gwf') if "fap" in fap]:
             fapsD[idq.extract_fap_name( fap )].append( fap )
 
         ### throw away files we will never need
@@ -444,7 +552,8 @@ while gpsstart < gpsstop:
             if key not in classifiers: ### throw away unwanted files
                 fapsD.pop(key)
             else: ### keep only files that overlap with scisegs
-                fapsD[key] = [ fap for fap in fapsD[key] if event.livetime(event.andsegments([idqsegs, [idq.extract_start_stop(fap, suffix='.npy.gz')]])) ]
+#                fapsD[key] = [ fap for fap in fapsD[key] if event.livetime(event.andsegments([idqsegs, [idq.extract_start_stop(fap, suffix='.npy.gz')]])) ]
+                fapsD[key] = [ fap for fap in fapsD[key] if event.livetime(event.andsegments([idqsegs, [idq.extract_start_stop(fap, suffix='.gwf')]])) ]
 
         ### iterate through classifiers
         alerts = {} ### files that we should be alerted about
@@ -459,35 +568,65 @@ while gpsstart < gpsstop:
             f.close()
 
             logger.info('    analyzing timeseries')
-            _times, timeseries = idq.combine_ts(fapsD[classifier], n=2) ### read in time-series
+            if opts.mode=="dat": ### we have upper limits
+#                _times, _timeseries = idq.combine_ts(fapsD[classifier], n=2) ### read in time-series
+                _times, timeseries = idq.combine_gwf(fapsD[classifier], channels=[channameD[classifier]['fap'], channameD[classifier]['fapUL']]) ### read in time-series
+ 
+                times = []
+                faps = []
+                fapsUL = []
+                dt = 0.0
+                for t, ts in zip(_times, timeseries):
+                    if not dt:
+                        dt = t[1]-t[0]
+                    _t, _ts = idq.timeseries_in_segments(t, ts, idqsegs)
+                    if len(_ts):
+                        times.append( _t )
+                        faps.append( _ts[0] )
+                        fapsUL.append( _ts[1] )
 
-            times = []
-            faps = []
-            fapsUL = []
-            for t, ts in zip(_times, timeseries):
-                _t, _ts = idq.timeseries_in_segments(t, ts, idqsegs)
-                if len(_ts):
-                    times.append( _t )
-                    faps.append( _ts[0] )
-                    fapsUL.append( _ts[1] )
+                logger.info('    checking point estimate calibration')
+                ### check point estimate calibration
+#                _, deadtimes, statedFAPs, errs = calibration.check_calibration(idqsegs, times, faps, opts.FAPthr) 
+                deadtimes, statedFAPs, errs = calibration.check_calibration_FAST(idqsegs_livetime, faps, opts.FAPthr, dt=dt) 
 
-            logger.info('    checking point estimate calibration')
-            ### check point estimate calibration
-            _, deadtimes, statedFAPs, errs = calibration.check_calibration(idqsegs, times, faps, opts.FAPthr) 
-#            errs = np.array([ d/F - 1.0 for d, F in zip(deadtimes, statedFAPs) if F ])
+                logger.info('    checking upper limit calibration')
+                ### check UL estimate calibration
+#                _, deadtimesUL, statedFAPsUL, errsUL = calibration.check_calibration(idqsegs, times, fapsUL, opts.FAPthr)
+                deadtimesUL, statedFAPsUL, errsUL = calibration.check_calibration_FAST(idqsegs_livetime, fapsUL, opts.FAPthr, dt=dt)
 
-            logger.info('    checking upper limit calibration')
-            ### check UL estimate calibration
-            _, deadtimesUL, statedFAPsUL, errsUL = calibration.check_calibration(idqsegs, times, fapsUL, opts.FAPthr)
-#            errsUL = np.array([ d/F - 1.0 for d, F in zip(deadtimesUL, statedFAPs) if F ])
+            elif (opts.mode=="npy") or (opts.mode=="gwf"): ### no upper limits currently...
+#                _times, timeseries = idq.combine_ts(fapsD[classifier], n=1) ### read in time-series
+                _times, timeseries = idq.combine_gwf(fapsD[classifier], [channameD[classifier]['fap']]) ### read in time-series
+
+                times = []
+                faps = []
+                dt = 0.0
+                for t, ts in zip(_times, timeseries):
+                    if not dt:
+                        dt = t[1]-t[0]
+                    _t, _ts = idq.timeseries_in_segments(t, ts, idqsegs)
+                    if len(_ts):
+                        times.append( _t )
+                        faps.append( _ts[0] )
+
+                logger.info('    checking point estimate calibration')
+                ### check point estimate calibration
+#                _, deadtimes, statedFAPs, errs = calibration.check_calibration(idqsegs, times, faps, opts.FAPthr) 
+                deadtimes, statedFAPs, errs = calibration.check_calibration_FAST(idqsegs_livetime, faps, opts.FAPthr, dt=dt)
+
+                deadtimesUL = statedFAPsUL = errsUL = [np.nan for FAPthr in opts.FAPthr] ### place-holder
+                
+            else:
+                raise ValueError("mode=%s not understood"%opts.mode)
 
             calib_check = idq.calib_check(output_dir, classifier, ifo, usertag, gpsstart-lookback, lookback+stride)
             logger.info('    writing %s'%calib_check)            
 
             file_obj = open(calib_check, "w")
-            print >> file_obj, "livetime = %.3f"%event.livetime(idqsegs)
+            print >> file_obj, "livetime = %.3f"%idqsegs_livetime
             for FAPthr, deadtime, statedFAP, err, deadtimeUL, statedFAPUL, errUL in zip(opts.FAPthr, deadtimes, statedFAPs, errs, deadtimesUL, statedFAPsUL, errsUL):
-                    print >> file_obj, calibration.report_str%(FAPthr, statedFAP, deadtime, err , statedFAPUL, deadtimeUL, errUL )
+                    print >> file_obj, calibration.report_str%(FAPthr, statedFAP, deadtime, err, statedFAPUL, deadtimeUL, errUL )
             file_obj.close()
 
             if np.any(np.abs(errs) > errorthr) or np.any(np.abs(errsUL) > errorthr):
@@ -512,3 +651,7 @@ while gpsstart < gpsstop:
 
     gpsstart += stride
 
+#===================================================================================================
+if opts.lockfile:
+    idq.release(lockfp) ### unlock lockfile
+    os.remove( opts.lockfile )

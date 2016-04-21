@@ -104,6 +104,8 @@ void XLALDestroySFTVector (SFTVector *vect);
 
 SFTVector *XLALDuplicateSFTVector ( const SFTVector *sftsIn );
 
+int XLALReorderMultiSFTVector( MultiSFTVector *multiSFTs, const LALStringVector *IFOs);
+
 COMPLEX8Vector *XLALrefineCOMPLEX8Vector (const COMPLEX8Vector *in, UINT4 refineby, UINT4 Dterms);
 
 int XLALExtractBandFromSFT ( SFTtype **outSFT, const SFTtype *inSFT, REAL8 fMin, REAL8 Band );
@@ -127,6 +129,7 @@ LIGOTimeGPSVector *XLALTimestampsFromSegmentFile( const char *filename, REAL8 Ts
 void XLALDestroyTimestampVector (LIGOTimeGPSVector *vect);
 void XLALDestroyMultiTimestamps ( MultiLIGOTimeGPSVector *multiTS );
 
+char *XLALGetCWDetectorPrefix ( INT4 *lalCachedIndex, const char *name );
 CHAR *XLALGetChannelPrefix ( const CHAR *name );
 LALDetector *XLALGetSiteInfo ( const CHAR *name );
 
@@ -160,6 +163,8 @@ XLALGetDetectorIDsFromSFTCatalog ( LALStringVector *IFOList, const SFTCatalog *S
 SFTCatalog *XLALAddToFakeSFTCatalog( SFTCatalog *catalog, const CHAR *detector, const LIGOTimeGPSVector *timestamps );
 SFTCatalog *XLALMultiAddToFakeSFTCatalog( SFTCatalog *catalog, const LALStringVector *detectors, const MultiLIGOTimeGPSVector *timestamps );
 int XLALCopySFT ( SFTtype *dest, const SFTtype *src );
+
+int XLALSFTCatalogTimeslice( SFTCatalog *slice, const SFTCatalog *catalog, const LIGOTimeGPS *minStartGPS, const LIGOTimeGPS *maxStartGPS );
 
 SFTVector *XLALExtractSFTVectorWithTimestamps ( const SFTVector *sfts, const LIGOTimeGPSVector *timestamps );
 MultiSFTVector *XLALExtractMultiSFTVectorWithMultiTimestamps ( const MultiSFTVector *multiSFTs, const MultiLIGOTimeGPSVector *multiTimestamps );

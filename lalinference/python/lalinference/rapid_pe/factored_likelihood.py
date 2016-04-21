@@ -155,15 +155,16 @@ def factored_log_likelihood(extr_params, rholms_intp, crossTerms, Lmax):
     # there *could* be different l,m pairs for different detectors. This never
     # happens in practice, so it's pulled out here, and we use the first
     # detector as a reference.
-    Ylms = compute_spherical_harmonics(Lmax, incl, -phiref, rholms_intrp[rholms.keys()[0]])
+    Ylms = compute_spherical_harmonics(Lmax, incl, -phiref, rholms_intp[rholms_intp.keys()[0]])
 
     lnL = 0.
     for det in detectors:
         CT = crossTerms[det]
-        F = complex_antenna_factor(det, RA, DEC, psi, tref)
 
         # This is the GPS time at the detector
         t_det = compute_arrival_time_at_detector(det, RA, DEC, tref)
+        F = complex_antenna_factor(det, RA, DEC, psi, t_det)
+
         det_rholms = {}  # rholms evaluated at time at detector
         for key in rholms_intp[det]:
             func = rholms_intp[det][key]

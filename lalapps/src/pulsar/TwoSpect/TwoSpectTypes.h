@@ -39,12 +39,13 @@ typedef struct {
    REAL8 fmin;
    REAL8 fspan;
    LALStringVector *IFO;
-   REAL8 avesqrtSh;
+   LALStringVector *avesqrtSh;
    INT4 blksize;
    CHAR *outdirectory;
    CHAR *outfilename;
    CHAR *configCopy;
    CHAR *ULfilename;
+   CHAR *candidatesFilename;
    CHAR *inputSFTs;
    CHAR *ephemEarth;
    CHAR *ephemSun;
@@ -66,6 +67,11 @@ typedef struct {
    REAL8 templateSearchAsiniSigma;
    REAL8 assumeNScosi;
    REAL8 assumeNSpsi;
+   REAL8 assumeNSGWfreq;
+   REAL8 assumeNSorbitP;
+   REAL8 assumeNSasini;
+   LIGOTimeGPS assumeNSorbitTp;
+   LIGOTimeGPS assumeNSrefTime;
    INT4 cosiSignCoherent;
    INT4 ihsfactor;
    REAL8 ihsfar;
@@ -130,7 +136,7 @@ typedef struct {
 typedef struct {
    UINT4 length;
    REAL4VectorAligned **data;
-} alignedREAL4VectorArray;
+} REAL4VectorAlignedArray;
 typedef struct {
    UINT4 length;
    UINT4 vectorLength;
@@ -140,7 +146,7 @@ typedef struct {
 
 typedef struct
 {
-   REAL4Vector *ffdata;    //Doubly Fourier transformed data
+   REAL4VectorAligned *ffdata;    //Doubly Fourier transformed data
    REAL8 tfnormalization;
    REAL8 ffnormalization;
    INT4 numffts;
@@ -161,6 +167,7 @@ typedef struct
    INT4 proberrcode;
    REAL8 normalization;
    INT4 templateVectorIndex;
+   BOOLEAN lineContamination;
 } candidate;
 
 typedef struct
@@ -202,10 +209,10 @@ typedef struct
 
 typedef struct
 {
-   REAL4Vector *maxima;
+   REAL4VectorAligned *maxima;
    INT4Vector *locations;
-   REAL4Vector *foms;
-   REAL4Vector *maximaForEachFbin;
+   REAL4VectorAligned *foms;
+   REAL4VectorAligned *maximaForEachFbin;
    INT4Vector *locationsForEachFbin;
    INT4 rows;
 } ihsMaximaStruct;
@@ -218,12 +225,12 @@ typedef struct
 
 typedef struct
 {
-   REAL4Vector *ihsfar;
-   REAL4Vector *ihsdistMean;
-   REAL4Vector *ihsdistSigma;
-   REAL4Vector *fomfarthresh;
-   REAL4Vector *ihsfomdistMean;
-   REAL4Vector *ihsfomdistSigma;
+   REAL4VectorAligned *ihsfar;
+   REAL4VectorAligned *ihsdistMean;
+   REAL4VectorAligned *ihsdistSigma;
+   REAL4VectorAligned *fomfarthresh;
+   REAL4VectorAligned *ihsfomdistMean;
+   REAL4VectorAligned *ihsfomdistSigma;
    REAL4VectorAligned *expectedIHSVector;
 } ihsfarStruct;
 
@@ -232,7 +239,7 @@ typedef struct
    REAL4 far;
    REAL4 distMean;
    REAL4 distSigma;
-   REAL4Vector *topRvalues;
+   REAL4VectorAligned *topRvalues;
    INT4 farerrcode;
 } farStruct;
 

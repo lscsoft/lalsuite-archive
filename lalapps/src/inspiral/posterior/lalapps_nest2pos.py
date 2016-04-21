@@ -66,7 +66,7 @@ if __name__=='__main__':
   logLcol=headers.index('logl')
 
   if opts.npos is not None:
-     sampler=lambda datas,Nlives,logLcol,**kwargs: draw_N_posterior_many(datas,Nlives,opts.npos,logLcol=logLcol,**kwargs)
+     sampler=lambda datas,Nlives,logLcols,**kwargs: draw_N_posterior_many(datas,Nlives,opts.npos,logLcols=logLcols,**kwargs)
   else:
      sampler=draw_posterior_many
 
@@ -80,7 +80,7 @@ if __name__=='__main__':
 
   # Create posterior samples for each input file
   inarrays=map(loadtxt,datafiles)
-  posterior=sampler(inarrays,[int(opts.Nlive) for d in datafiles],logLcol=logLcol,verbose=opts.verbose)
+  posterior=sampler(inarrays,[int(opts.Nlive) for d in datafiles],logLcols=[logLcol for d in datafiles],verbose=opts.verbose)
   log_evs,log_wts=zip(*[compute_weights(data[:,logLcol],opts.Nlive) for data in inarrays])
   if opts.verbose:
     print 'Log evidences from input files: %s'%(str(log_evs))
@@ -118,4 +118,18 @@ if __name__=='__main__':
     outB=open(Bfile,'w')
     outB.write('%f %f %f %f\n'%(meanB,meanZ,noiseZ,maxL))
     outB.close()
+  # Write out an header (git info and command line) file
+  if opts.pos is not None:
+    strout=""
+    for i in datafiles:
+      fin="%s_header.txt"%i
+      if os.path.isfile(fin):
+        f=open(fin)
+        for l in f.readlines():
+          strout+=l
+        strout+='\n\n'
+    if strout!="":
+      fout=open(opts.pos+"_header.txt",'w')
+      fout.write(strout)
+      fout.close
 

@@ -1,5 +1,5 @@
 /*
-*  Copyright (C) 2015 Karl Wette
+*  Copyright (C) 2015, 2016 Karl Wette
 *  Copyright (C) 2007 Jolien Creighton
 *
 *  This program is free software; you can redistribute it and/or modify
@@ -18,6 +18,7 @@
 *  MA  02111-1307  USA
 */
 
+#include <stdint.h>
 #include <string.h>
 #include <lal/LALStdlib.h>
 #include <lal/LALString.h>
@@ -36,6 +37,29 @@ char *XLALStringAppend(char *s, const char *append)
         XLAL_ERROR_NULL(XLAL_ENOMEM);
     strcpy(s + curlen, append);
     return s;
+}
+
+/**
+ * Append the formatted string 'fmt' to the string 's', which
+ * is reallocated with XLALRealloc() to the required size.
+ */
+char *XLALStringAppendFmt(char *s, const char *fmt, ...)
+{
+  XLAL_CHECK_NULL(fmt != NULL, XLAL_EFAULT);
+  const size_t n = (s == NULL) ? 0 : strlen(s);
+  va_list ap;
+  va_start(ap, fmt);
+  char tmp[1];
+  const int m = vsnprintf(tmp, sizeof(tmp), fmt, ap);
+  va_end(ap);
+  XLAL_CHECK_NULL(m >= 0, XLAL_ESYS, "vsnprintf('%s', ...) failed", fmt);
+  const size_t l = (n + m + 1) * sizeof(*s);
+  s = XLALRealloc(s, l);
+  XLAL_CHECK_NULL(s != NULL, XLAL_ENOMEM, "XLALRealloc(n=%zu) failed", l);
+  va_start(ap, fmt);
+  XLAL_CHECK_NULL(vsnprintf(s + n, m + 1, fmt, ap) >= 0, XLAL_ESYS, "vsnprintf('%s', ...) failed", fmt);
+  va_end(ap);
+  return s;
 }
 
 /** Like strdup but uses LAL allocation routines (free with LALFree). */
@@ -214,6 +238,31 @@ int XLALStringNCaseCompare(const char *s1, const char *s2, size_t n)
 }
 
 /**
+ * Locates substring needle in string haystack, ignoring case and without
+ * using locale-dependent functions.
+ */
+char * XLALStringCaseSubstring(const char *haystack, const char *needle)
+{
+    size_t haystack_length;
+    size_t needle_length = strlen(needle);
+
+    /* return haystack if needle is empty */
+    if (needle_length == 0)
+        return (char *)(intptr_t)(haystack);
+
+    haystack_length = strlen(haystack);
+    while (needle_length <= haystack_length) {
+        if (XLALStringNCaseCompare(haystack, needle, needle_length) == 0)
+            return (char *)(intptr_t)(haystack);
+        --haystack_length;
+        ++haystack;
+    }
+
+    /* needle not found in haystack */
+    return NULL;
+}
+
+/**
  * Return the next token delimited by any character in 'delim' from the string 's', which is updated
  * to point just pass the returned token. If 'empty' is true, empty tokens are accepted.
  */
@@ -243,4 +292,17 @@ char *XLALStringToken(char **s, const char *delim, int empty)
 
     return begin;
 
+}
+
+/**
+ * Return the string 's' with all characters 'from' replaced with 'to'
+ */
+char *XLALStringReplaceChar(char *s, const int from, const int to)
+{
+    for (char *c = s; c != NULL && *c != '\0'; ++c) {
+        if (*c == from) {
+            *c = to;
+        }
+    }
+    return s;
 }

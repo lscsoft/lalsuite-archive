@@ -8,14 +8,14 @@
 
 Name: 		glue
 Summary:	The Grid LSC User Environment
-Version:	1.47.1
-Release:	1.lscsoft
+Version:	1.49.1
+Release:	1%{?dist}
 License:	None
 Group:		Development/Libraries
 Source:		%{name}-%{version}.tar.gz
 Url:		http://www.lsc-group.phys.uwm.edu/daswg/projects/glue.html
 BuildRoot:	%{_tmppath}/%{name}-%{version}-root
-Requires:	python-cjson m2crypto pyxmpp glue-common glue-segments python >= 2.6
+Requires:	python-cjson m2crypto glue-common glue-segments python >= 2.6
 BuildRequires:  python-devel
 Prefix:         %{_glue_prefix}
 %description
@@ -48,7 +48,7 @@ rm -rf %{buildroot}
         --skip-build \
         --root=%{buildroot} \
         --prefix=%{_glue_prefix}
-rm -rf $RPM_BUILD_ROOT/usr/lib64/python2.6/site-packages/glue-1.47.1-py2.6.egg-info
+rm -rf $RPM_BUILD_ROOT/usr/lib64/python2.?/site-packages/glue-1.49.1-py2.?.egg-info
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -56,12 +56,10 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root)
 %{glue_python_sitearch}/glue/
-%{_glue_prefix}/bin/
+%{_glue_prefix}/bin/*
 %exclude %{_glue_prefix}/etc/
 %exclude %{_glue_prefix}/var/
 %exclude %{_glue_prefix}/share/nmi/lalsuite-build*
-%exclude %{glue_python_sitearch}/glue/cbcwebpage.pyc
-%exclude %{glue_python_sitearch}/glue/cbcwebpage.py
 %exclude %{glue_python_sitearch}/glue/__init__.py
 %exclude %{glue_python_sitearch}/glue/__init__.pyc
 %exclude %{glue_python_sitearch}/glue/segments.py
@@ -94,6 +92,15 @@ rm -rf $RPM_BUILD_ROOT
 %{glue_python_sitearch}/glue/git_version.pyc
 
 %changelog
+* Thu Jul 23 2015 Ryan Fisher <rpfisher@syr.edu>
+- Pre-ER8 release, attempt 2.
+
+* Wed Jul 22 2015 Ryan Fisher <rpfisher@syr.edu>
+- Pre-ER8 release.
+
+* Fri May 22 2015 Ryan Fisher <rpfisher@syr.edu>
+- ER7 release.
+
 * Wed Nov 19 2014 Ryan Fisher <rpfisher@syr.edu>
 - ER6 pre-release bug fix for dmt files method of ligolw_segment_query.
 

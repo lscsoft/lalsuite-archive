@@ -137,12 +137,12 @@ void initialise_algorithm( LALInferenceRunState *runState )
   runState->algorithmParams = XLALCalloc( 1, sizeof(LALInferenceVariables) );
   runState->priorArgs = XLALCalloc( 1, sizeof(LALInferenceVariables) );
   runState->proposalArgs = XLALCalloc( 1, sizeof(LALInferenceVariables) );
+  /* Initialise threads - single thread */
+  runState->threads = LALInferenceInitThreads(1);
 
   ppt = LALInferenceGetProcParamVal( commandLine, "--verbose" );
   if( ppt ) {
-    LALInferenceAddVariable( runState->algorithmParams, "verbose", &verbose , LALINFERENCE_UINT4_t,
-                             LALINFERENCE_PARAM_FIXED );
-    verbose_output = 1;
+    LALInferenceAddVariable( runState->algorithmParams, "verbose", &verbose , LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED );
   }
 
   /* Number of live points */
@@ -167,8 +167,7 @@ void initialise_algorithm( LALInferenceRunState *runState )
   ppt = LALInferenceGetProcParamVal(commandLine,"--sloppyfraction");
   if( ppt ) { tmp = atof(ppt->value); }
   else { tmp = 0.0; }
-  LALInferenceAddVariable( runState->algorithmParams, "sloppyfraction", &tmp, LALINFERENCE_REAL8_t,
-                           LALINFERENCE_PARAM_OUTPUT );
+  LALInferenceAddVariable( runState->algorithmParams, "sloppyfraction", &tmp, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_OUTPUT );
 
   /* Optionally specify number of parallel runs */
   ppt = LALInferenceGetProcParamVal( commandLine, "--Nruns" );
@@ -205,6 +204,8 @@ void initialise_algorithm( LALInferenceRunState *runState )
     }
   }
 
+  gsl_rng_set( runState->GSLrandom, randomseed );
+
   /* check if we want to time the program */
   ppt = LALInferenceGetProcParamVal( commandLine, "--time-it" );
   if ( ppt != NULL ){
@@ -226,17 +227,12 @@ void initialise_algorithm( LALInferenceRunState *runState )
     }
   }
 
-  gsl_rng_set( runState->GSLrandom, randomseed );
-
-  /* check whether to output all values or just the non-fixed values */
-  if ( LALInferenceGetProcParamVal( commandLine, "--non-fixed-only" ) ){
-    #ifdef HAVE_LIBLALXML
-    runState->logsample = LogNonFixedSampleToArray;
-    #else
-    runState->logsample = LogNonFixedSampleToFile;
-    #endif
-  }
-  else{ runState->logsample = LALInferenceLogSampleToFile; }
+  /* log samples */
+#ifdef HAVE_LIBLALXML
+  runState->logsample = LogSampleToArray;
+#else
+  runState->logsample = LogSampleToFile;
+#endif
 
   return;
 }
@@ -259,9 +255,11 @@ void setup_lookup_tables( LALInferenceRunState *runState, LALSource *source ){
   /* Using psi bins, time bins */
   ProcessParamsTable *ppt;
   ProcessParamsTable *commandLine = runState->commandLine;
+  /* Single thread here */
+  LALInferenceThreadState *threadState = runState->threads[0];
 
   LALInferenceIFOData *data = runState->data;
-  LALInferenceIFOModel *ifo_model = runState->model->ifo;
+  LALInferenceIFOModel *ifo_model = threadState->model->ifo;
 
   REAL8 t0;
   LALDetAndSource detAndSource;
@@ -282,7 +280,7 @@ void setup_lookup_tables( LALInferenceRunState *runState, LALSource *source ){
 
     LALInferenceAddVariable( ifo_model->params, "timeSteps", &timeBins, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED );
 
-    t0 = XLALGPSGetREAL8( &ifo_model->times->data[0] );
+    t0 = XLALGPSGetREAL8( &data->compTimeData->epoch );
 
     sidDayFrac = XLALCreateREAL8Vector( ifo_model->times->length );
 
@@ -291,8 +289,7 @@ void setup_lookup_tables( LALInferenceRunState *runState, LALSource *source ){
       sidDayFrac->data[i] = fmod( XLALGPSGetREAL8( &ifo_model->times->data[i] ) - t0, LAL_DAYSID_SI );
     }
 
-    LALInferenceAddVariable( ifo_model->params, "siderealDay", &sidDayFrac, LALINFERENCE_REAL8Vector_t,
-                             LALINFERENCE_PARAM_FIXED );
+    LALInferenceAddVariable( ifo_model->params, "siderealDay", &sidDayFrac, LALINFERENCE_REAL8Vector_t, LALINFERENCE_PARAM_FIXED );
 
     detAndSource.pDetector = data->detector;
     detAndSource.pSource = source;
@@ -335,143 +332,136 @@ void setup_lookup_tables( LALInferenceRunState *runState, LALSource *source ){
 /**
  * \brief Set up all the allowed variables for a known pulsar search
  * This functions sets up all possible variables that are possible in a known pulsar search. Parameter values read in
- * from a .par file and passed in via the \c pars variable will be set. Scale factors will be initialised for all
- * variables (so that they exist) although they will be set to 1.
+ * from a .par file and passed in via the \c pars variable will be set.
  *
  * \param ini [in] A pointer to a \c LALInferenceVariables type that will be filled in with pulsar parameters
- * \param scaleFac [in] A pointer to a \c LALInferenceVariables type that will be initialised to hold scale factors for
- * each corresponding pulsar parameter
  * \param pars [in] A \c BinaryPulsarParams type containing pulsar parameters read in from a TEMPO-style .par file
- *
- * \sa add_variable_scale_prior
  */
-void add_initial_variables( LALInferenceVariables *ini,  LALInferenceVariables *scaleFac, BinaryPulsarParams pars ){
-  /* include a scale factor of 1 scaling values and if the parameter file contains an uncertainty then set the prior to
-   * be Gaussian with the uncertainty as the standard deviation */
-
+void add_initial_variables( LALInferenceVariables *ini, PulsarParameters *pars ){
   /* amplitude model parameters for l=m=2 harmonic emission */
-  add_variable_scale( ini, scaleFac, "H0", pars.h0 );
-  add_variable_scale( ini, scaleFac, "PHI0", pars.phi0 ); /* note that this is rotational phase */
-  add_variable_scale( ini, scaleFac, "COSIOTA", pars.cosiota );
-  add_variable_scale( ini, scaleFac, "IOTA", pars.iota );
-  add_variable_scale( ini, scaleFac, "PSI", pars.psi );
+  add_variable_parameter( pars, ini, "H0", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "PHI0", LALINFERENCE_PARAM_FIXED ); /* note that this is rotational phase */
+  add_variable_parameter( pars, ini, "COSIOTA", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "IOTA", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "PSI", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "Q22", LALINFERENCE_PARAM_FIXED ); /* mass quadrupole, Q22 */
 
   /* amplitude model parameters for l=2, m=1 and 2 harmonic emission from Jones (2010) */
-  add_variable_scale( ini, scaleFac, "I21", pars.I21 );
-  add_variable_scale( ini, scaleFac, "I31", pars.I31 );
-  add_variable_scale( ini, scaleFac, "LAMBDA", pars.lambda );
-  add_variable_scale( ini, scaleFac, "COSTHETA", pars.costheta );
-  add_variable_scale( ini, scaleFac, "THETA", pars.costheta );
+  add_variable_parameter( pars, ini, "I21", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "I31", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "LAMBDA", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "COSTHETA", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "THETA", LALINFERENCE_PARAM_FIXED );
 
   /* amplitude model parameters in phase and amplitude form */
-  add_variable_scale( ini, scaleFac, "C22", pars.C22 );
-  add_variable_scale( ini, scaleFac, "C21", pars.C21 );
-  add_variable_scale( ini, scaleFac, "PHI22", pars.phi22 );
-  add_variable_scale( ini, scaleFac, "PHI21", pars.phi21 );
+  add_variable_parameter( pars, ini, "C22", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "C21", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "PHI22", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "PHI21", LALINFERENCE_PARAM_FIXED );
 
   /***** phase model parameters ******/
   /* frequency */
-  add_variable_scale( ini, scaleFac, "F0", pars.f0 );
-  add_variable_scale( ini, scaleFac, "F1", pars.f1 );
-  add_variable_scale( ini, scaleFac, "F2", pars.f2 );
-  add_variable_scale( ini, scaleFac, "F3", pars.f3 );
-  add_variable_scale( ini, scaleFac, "F4", pars.f4 );
-  add_variable_scale( ini, scaleFac, "F5", pars.f5 );
-  add_variable_scale( ini, scaleFac, "PEPOCH", pars.pepoch );
+  add_variable_parameter( pars, ini, "F0", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "F1", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "F2", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "F3", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "F4", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "F5", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "F6", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "F7", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "F8", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "F9", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "PEPOCH", LALINFERENCE_PARAM_FIXED );
 
   /* add non-GR parameters */
-  add_variable_scale( ini, scaleFac, "CGW", pars.cgw );
-  add_variable_scale( ini, scaleFac, "HPLUS", pars.hPlus );
-  add_variable_scale( ini, scaleFac, "HCROSS", pars.hCross );
-  add_variable_scale( ini, scaleFac, "PSITENSOR", pars.psiTensor );
-  add_variable_scale( ini, scaleFac, "PHI0TENSOR", pars.phi0Tensor );
-  add_variable_scale( ini, scaleFac, "HSCALARB", pars.hScalarB );
-  add_variable_scale( ini, scaleFac, "HSCALARL", pars.hScalarL );
-  add_variable_scale( ini, scaleFac, "PSISCALAR", pars.psiScalar );
-  add_variable_scale( ini, scaleFac, "PHI0SCALAR", pars.phi0Scalar );
-  add_variable_scale( ini, scaleFac, "HVECTORX", pars.hVectorX );
-  add_variable_scale( ini, scaleFac, "HVECTORY", pars.hVectorY );
-  add_variable_scale( ini, scaleFac, "PSIVECTOR", pars.psiVector );
-  add_variable_scale( ini, scaleFac, "PHI0VECTOR", pars.phi0Vector );
+  add_variable_parameter( pars, ini, "CGW", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "HPLUS", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "HCROSS", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "PSITENSOR", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "PHI0TENSOR", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "HSCALARB", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "HSCALARL", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "PSISCALAR", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "PHI0SCALAR", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "HVECTORX", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "HVECTORY", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "PSIVECTOR", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "PHI0VECTOR", LALINFERENCE_PARAM_FIXED );
 
   /* sky position */
-  add_variable_scale( ini, scaleFac, "RA", pars.ra );
-  add_variable_scale( ini, scaleFac, "PMRA", pars.pmra );
-  add_variable_scale( ini, scaleFac, "DEC", pars.dec );
-  add_variable_scale( ini, scaleFac, "PMDEC", pars.pmdec );
-  add_variable_scale( ini, scaleFac, "POSEPOCH", pars.posepoch );
+  REAL8 ra = 0.;
+  if ( PulsarCheckParam( pars, "RA" ) ) { ra = PulsarGetREAL8Param( pars, "RA" ); }
+  else if ( PulsarCheckParam( pars, "RAJ" ) ) { ra = PulsarGetREAL8Param( pars, "RAJ" ); }
+  else {
+    XLALPrintError ("%s: No source right ascension specified!", __func__ );
+    XLAL_ERROR_VOID( XLAL_EINVAL );
+  }
+  REAL8 dec = 0.;
+  if ( PulsarCheckParam( pars, "DEC" ) ) { dec = PulsarGetREAL8Param( pars, "DEC" ); }
+  else if ( PulsarCheckParam( pars, "DECJ" ) ) { dec = PulsarGetREAL8Param( pars, "DECJ" ); }
+  else {
+    XLALPrintError ("%s: No source declination specified!", __func__ );
+    XLAL_ERROR_VOID( XLAL_EINVAL );
+  }
+  LALInferenceAddVariable( ini, "RA", &ra, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED );
+  LALInferenceAddVariable( ini, "DEC", &dec, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED );
+
+  add_variable_parameter( pars, ini, "PMRA", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "PMDEC", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "POSEPOCH", LALINFERENCE_PARAM_FIXED );
+
+  /* source distance */
+  add_variable_parameter( pars, ini, "DIST", LALINFERENCE_PARAM_FIXED );
 
   /* only add binary system parameters if required */
-  if ( pars.model ){
-    LALInferenceAddVariable( ini, "model", &pars.model, LALINFERENCE_string_t, LALINFERENCE_PARAM_FIXED );
+  if ( PulsarCheckParam( pars, "BINARY" ) ){
+    CHAR *binary = XLALStringDuplicate(PulsarGetStringParam(pars, "BINARY"));
+    LALInferenceAddVariable( ini, "BINARY", &binary, LALINFERENCE_string_t, LALINFERENCE_PARAM_FIXED );
 
-    add_variable_scale( ini, scaleFac, "PB", pars.Pb );
-    add_variable_scale( ini, scaleFac, "ECC", pars.e );
-    add_variable_scale( ini, scaleFac, "EPS1", pars.eps1 );
-    add_variable_scale( ini, scaleFac, "EPS2", pars.eps2 );
-    add_variable_scale( ini, scaleFac, "T0", pars.T0 );
-    add_variable_scale( ini, scaleFac, "TASC", pars.Tasc );
-    add_variable_scale( ini, scaleFac, "A1", pars.x );
-    add_variable_scale( ini, scaleFac, "OM", pars.w0 );
+    add_variable_parameter( pars, ini, "PB", LALINFERENCE_PARAM_FIXED );
+    add_variable_parameter( pars, ini, "ECC", LALINFERENCE_PARAM_FIXED );
+    add_variable_parameter( pars, ini, "EPS1", LALINFERENCE_PARAM_FIXED );
+    add_variable_parameter( pars, ini, "EPS2", LALINFERENCE_PARAM_FIXED );
+    add_variable_parameter( pars, ini, "T0", LALINFERENCE_PARAM_FIXED );
+    add_variable_parameter( pars, ini, "TASC", LALINFERENCE_PARAM_FIXED );
+    add_variable_parameter( pars, ini, "A1", LALINFERENCE_PARAM_FIXED );
+    add_variable_parameter( pars, ini, "OM", LALINFERENCE_PARAM_FIXED );
 
-    add_variable_scale( ini, scaleFac, "PB_2", pars.Pb2 );
-    add_variable_scale( ini, scaleFac, "ECC_2", pars.e2 );
-    add_variable_scale( ini, scaleFac, "T0_2", pars.T02 );
-    add_variable_scale( ini, scaleFac, "A1_2", pars.x2 );
-    add_variable_scale( ini, scaleFac, "OM_2", pars.w02 );
+    add_variable_parameter( pars, ini, "PB_2", LALINFERENCE_PARAM_FIXED );
+    add_variable_parameter( pars, ini, "ECC_2", LALINFERENCE_PARAM_FIXED );
+    add_variable_parameter( pars, ini, "T0_2", LALINFERENCE_PARAM_FIXED );
+    add_variable_parameter( pars, ini, "A1_2", LALINFERENCE_PARAM_FIXED );
+    add_variable_parameter( pars, ini, "OM_2", LALINFERENCE_PARAM_FIXED );
 
-    add_variable_scale( ini, scaleFac, "PB_3", pars.Pb3 );
-    add_variable_scale( ini, scaleFac, "ECC_3", pars.e3 );
-    add_variable_scale( ini, scaleFac, "T0_3", pars.T03 );
-    add_variable_scale( ini, scaleFac, "A1_3", pars.x3 );
-    add_variable_scale( ini, scaleFac, "OM_3", pars.w03 );
+    add_variable_parameter( pars, ini, "PB_3", LALINFERENCE_PARAM_FIXED );
+    add_variable_parameter( pars, ini, "ECC_3", LALINFERENCE_PARAM_FIXED );
+    add_variable_parameter( pars, ini, "T0_3", LALINFERENCE_PARAM_FIXED );
+    add_variable_parameter( pars, ini, "A1_3", LALINFERENCE_PARAM_FIXED );
+    add_variable_parameter( pars, ini, "OM_3", LALINFERENCE_PARAM_FIXED );
 
-    add_variable_scale( ini, scaleFac, "XPBDOT", pars.xpbdot );
-    add_variable_scale( ini, scaleFac, "EPS1DOT", pars.eps1dot );
-    add_variable_scale( ini, scaleFac, "EPS2DOT", pars.eps2dot );
-    add_variable_scale( ini, scaleFac, "OMDOT", pars.wdot );
-    add_variable_scale( ini, scaleFac, "GAMMA", pars.gamma );
-    add_variable_scale( ini, scaleFac, "PBDOT", pars.Pbdot );
-    add_variable_scale( ini, scaleFac, "XDOT", pars.xdot );
-    add_variable_scale( ini, scaleFac, "EDOT", pars.edot );
+    add_variable_parameter( pars, ini, "XPBDOT", LALINFERENCE_PARAM_FIXED );
+    add_variable_parameter( pars, ini, "EPS1DOT", LALINFERENCE_PARAM_FIXED );
+    add_variable_parameter( pars, ini, "EPS2DOT", LALINFERENCE_PARAM_FIXED );
+    add_variable_parameter( pars, ini, "OMDOT", LALINFERENCE_PARAM_FIXED );
+    add_variable_parameter( pars, ini, "GAMMA", LALINFERENCE_PARAM_FIXED );
+    add_variable_parameter( pars, ini, "PBDOT", LALINFERENCE_PARAM_FIXED );
+    add_variable_parameter( pars, ini, "XDOT", LALINFERENCE_PARAM_FIXED );
+    add_variable_parameter( pars, ini, "EDOT", LALINFERENCE_PARAM_FIXED );
 
-    add_variable_scale( ini, scaleFac, "SINI", pars.s );
-    add_variable_scale( ini, scaleFac, "DR", pars.dr );
-    add_variable_scale( ini, scaleFac, "DTHETA", pars.dth );
-    add_variable_scale( ini, scaleFac, "A0", pars.a0 );
-    add_variable_scale( ini, scaleFac, "B0", pars.b0 );
-    add_variable_scale( ini, scaleFac, "MTOT", pars.M );
-    add_variable_scale( ini, scaleFac, "M2", pars.m2 );
+    add_variable_parameter( pars, ini, "SINI", LALINFERENCE_PARAM_FIXED );
+    add_variable_parameter( pars, ini, "DR", LALINFERENCE_PARAM_FIXED );
+    add_variable_parameter( pars, ini, "DTHETA", LALINFERENCE_PARAM_FIXED );
+    add_variable_parameter( pars, ini, "A0", LALINFERENCE_PARAM_FIXED );
+    add_variable_parameter( pars, ini, "B0", LALINFERENCE_PARAM_FIXED );
+    add_variable_parameter( pars, ini, "MTOT", LALINFERENCE_PARAM_FIXED );
+    add_variable_parameter( pars, ini, "M2", LALINFERENCE_PARAM_FIXED );
+
+    if ( PulsarCheckParam(pars, "FB") ){
+      REAL8Vector *fb = NULL;
+      fb = PulsarGetREAL8VectorParam( pars, "FB" );
+      LALInferenceAddVariable( ini, "FB", &fb, LALINFERENCE_REAL8Vector_t, LALINFERENCE_PARAM_FIXED );
+    }
   }
-}
-
-
-/**
- * \brief Adds variables, scale factors and priors
- *
- * This function adds a variable with a name and a value. For all parameters a scale factor and scale minimum range will
- * be set. These are just initialised to 1 and 0 respectively and will be set in \c initialise_prior for any parameters
- * that require them.
- *
- * \param var [in] Pointer to \c LALInferenceVariables type to contain parameter information
- * \param scale [in] Pointer to \c LALInferenceVariables type to contain parameter scaling information
- * \param name [in] string containing the parameter name
- * \param value [in] the value of the parameter
- */
-void add_variable_scale( LALInferenceVariables *var, LALInferenceVariables *scale, const CHAR *name, REAL8 value ){
-  REAL8 scaleVal = 1., scaleMin = 0.;
-  CHAR scaleName[VARNAME_MAX] = "", scaleMinName[VARNAME_MAX] = "";
-
-  /* add the variable */
-  LALInferenceAddVariable( var, name, &value, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED );
-
-  /* add the initial scale factor of 1 */
-  sprintf( scaleName, "%s_scale", name );
-  LALInferenceAddVariable( scale, scaleName, &scaleVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED );
-
-  /* add initial scale offset of zero */
-  sprintf( scaleMinName, "%s_scale_min", name );
-  LALInferenceAddVariable( scale, scaleMinName, &scaleMin, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED );
 }
 
 
@@ -482,7 +472,8 @@ void add_variable_scale( LALInferenceVariables *var, LALInferenceVariables *scal
  * for each. This information is contained in a prior file specified by the command line argument \c prior-file. This
  * file should contain four columns: the first has the name of a parameter to be searched over; the second has the prior
  * type (e.g. "uniform" for a prior that is flat over the given range, or "gaussian" with a certain mean and standard
- * deviation, or "predefined", which means that the prior for that variable is already hardcoded into the prior function);
+ * deviation, or "fermidirac" for a Fermi-Dirac distribution defined by a sigma and r parameters (where r is mu/sigma),
+ * or "predefined", which means that the prior for that variable is already hardcoded into the prior function);
  * the third has the lower limit, or mean, of the prior, for "uniform"/"predefined" and "gaussian" priors respectively;
  * and the fourth has the upper limit, or standard deviation, for "uniform"/"predefined" and "gaussian" priors respectively.
  * E.g.
@@ -500,27 +491,20 @@ void add_variable_scale( LALInferenceVariables *var, LALInferenceVariables *scal
  * PSI uniform -0.785398163397448 0.785398163397448
  * \endcode
  *
- * Any parameter specified in the file will have its vary type set to \c LALINFERENCE_PARAM_LINEAR, (except
- * \f$\phi_0\f$, which if it is defined to have a prior covering \f$\pi\f$ wraps around at the edges of its range and
- * has a \c LALINFERENCE_PARAM_CIRCULAR type). Parameters, and their priors, with linear variable type are scaled such
- * that parameter \f$x\f$ with priors in the range \f$[a, b]\f$ will become \f$(x - a) / (b - a)\f$. As such the new
- * prior ranges will cover from 0 to 1. The parameter scale factor is set to the value of \f$(b - a)\f$ and the
- * minimum scale range is set to \f$a\f$ - this allows the true parameter value to be reconstructed. For parameters
- * with Gaussian priors the scale factor is applied differently, so as to give a Gaussian with zero mean and unit
- * variance.
+ * Any parameter specified in the file will have its vary type set to \c LALINFERENCE_PARAM_LINEAR.
  *
  * If a parameter correlation matrix is given by the \c cor-file command then this is used to construct a multi-variate
  * Gaussian prior for the given parameters (it is assumed that this file is created using TEMPO and the parameters it
  * contains are the same as those for which a standard deviation is defined in the par file). This overrules the
- * Gaussian priors that will have been set for these parameters. Due to the scalings applied to the parameters this
- * correlation coefficient matrix does not have to be converted into the true covariance matrix for use when calculating
- * the prior. Note that these multi-variate Gaussian priors will not overrule values given in the proposal file.
+ * Gaussian priors that will have been set for these parameters.
  *
  * \param runState [in] A pointer to the LALInferenceRunState
  */
 void initialise_prior( LALInferenceRunState *runState )
 {
   CHAR *propfile = NULL;
+  /* Single thread here */
+  LALInferenceThreadState *threadState = runState->threads[0];
   ProcessParamsTable *ppt;
   ProcessParamsTable *commandLine = runState->commandLine;
   FILE *fp=NULL;
@@ -528,7 +512,7 @@ void initialise_prior( LALInferenceRunState *runState )
   CHAR tempPar[VARNAME_MAX] = "", tempPrior[VARNAME_MAX] = "";
   REAL8 low, high;
 
-  LALInferenceIFOModel *ifo = runState->model->ifo;
+  LALInferenceIFOModel *ifo = threadState->model->ifo;
 
   /* parameters in correlation matrix */
   LALStringVector *corParams = NULL;
@@ -555,100 +539,38 @@ void initialise_prior( LALInferenceRunState *runState )
   }
 
   while(fscanf(fp, "%s %s %lf %lf", tempPar, tempPrior, &low, &high) != EOF){
-    REAL8 tempVar;
-    LALInferenceVariableType type;
     INT4 isthere = 0, i = 0;
-
-    REAL8 scale = 0., scaleMin = 0.;
-    LALInferenceVariableType scaleType;
-    CHAR tempParScale[VARNAME_MAX] = "";
-    CHAR tempParScaleMin[VARNAME_MAX] = "";
-    CHAR tempParPrior[VARNAME_MAX] = "";
-
-    LALInferenceIFOModel *ifotemp = ifo;
 
     LALInferenceParamVaryType varyType;
 
     /* convert tempPar to all uppercase letters */
     strtoupper( tempPar );
 
-    if ( !strcmp(tempPrior, "uniform") ){
-      if( high < low ){
-        fprintf(stderr, "Error... In %s the %s parameters ranges are wrongly set.\n", propfile, tempPar);
-        exit(3);
-      }
-    }
-
-    sprintf(tempParScale, "%s_scale", tempPar);
-    sprintf(tempParScaleMin, "%s_scale_min", tempPar);
-    sprintf(tempParPrior, "%s_gaussian_mean", tempPar);
-
-    tempVar = *(REAL8*)LALInferenceGetVariable( runState->currentParams, tempPar );
-    type = LALInferenceGetVariableType( runState->currentParams, tempPar );
-
-    /* remove variable value */
-    LALInferenceRemoveVariable( runState->currentParams, tempPar );
-
     if ( !strcmp(tempPrior, "uniform") || !strcmp(tempPrior, "predefined") ){
-      scale = high - low; /* the prior range */
-      scaleMin = low;     /* the lower limit of the prior range */
-    }
-    else if( !strcmp(tempPrior, "gaussian") ){
-      scale = high;   /* the standard deviation of the Gaussian prior */
-      scaleMin = low; /* the mean of the Gaussian prior */
-    }
-    else{
-      fprintf(stderr, "Error... prior type '%s' not recognised\n", tempPrior);
-      exit(3);
-    }
-
-    /* if a (fractional) gravitational wave speed is specified then check it's between 0 and 1 */
-    if( nonGR && !strcmp(tempPar, "CGW") ){
-      if( high > 1. || high <= 0. || low > 1. || low <= 0. || low > high ){
-        fprintf(stderr, "Error... The GW speed range is non-physical.\n");
-        exit(3);
+      if( high < low ){
+        XLALPrintError("Error... In %s the %s parameters ranges are wrongly set.\n", propfile, tempPar);
+        XLAL_ERROR_VOID( XLAL_EINVAL );
       }
     }
 
-    /* set the scale factor to be the width of the prior */
-    while( ifotemp ){
-      scaleType = LALInferenceGetVariableType( ifotemp->params, tempParScale );
-      LALInferenceRemoveVariable( ifotemp->params, tempParScale );
-      LALInferenceRemoveVariable( ifotemp->params, tempParScaleMin );
-
-      LALInferenceAddVariable( ifotemp->params, tempParScale, &scale, scaleType, LALINFERENCE_PARAM_FIXED );
-      LALInferenceAddVariable( ifotemp->params, tempParScaleMin, &scaleMin, scaleType, LALINFERENCE_PARAM_FIXED );
-
-      ifotemp = ifotemp->next;
+    if ( strcmp(tempPrior, "uniform") && strcmp(tempPrior, "predefined") && strcmp(tempPrior, "gaussian") && strcmp(tempPrior, "fermidirac") ){
+      XLALPrintError("Error... prior type '%s' not recognised\n", tempPrior);
+      XLAL_ERROR_VOID( XLAL_EINVAL );
     }
 
-    /* scale variable and priors */
-    tempVar = (tempVar - scaleMin) / scale;
-    low = 0.;
-
-    /* default variable type to LINEAR */
+    /* set variable type to LINEAR (as they are initialised as FIXED) */
     varyType = LALINFERENCE_PARAM_LINEAR;
-
-    /* if we have a phase parameter (PHI) and it covers it's full prior range (0->pi for phi0 and
-     * 0->2pi for all others then set it to be a CIRCULAR parameter */
-    if ( !strncmp(tempPar, "PHI", 3*sizeof(CHAR)) ){
-      REAL8 phirange = LAL_TWOPI;
-      if ( !strcmp(tempPar, "PHI0") ) { phirange = LAL_PI; }
-
-      /* check that the input range covers close enough to the full range */
-      if ( fabs( 1.-(scale/phirange) ) < 0.01 ) { varyType = LALINFERENCE_PARAM_CIRCULAR; }
-    }
-
-    LALInferenceAddVariable( runState->currentParams, tempPar, &tempVar, type, varyType );
+    LALInferenceSetParamVaryType( threadState->currentParams, tempPar, varyType );
 
     /* Add the prior variables */
     if ( !strcmp(tempPrior, "uniform") || !strcmp(tempPrior, "predefined") ){
-      high = (high - scaleMin) / scale;
-      LALInferenceAddMinMaxPrior( runState->priorArgs, tempPar, &low, &high, type );
+      LALInferenceAddMinMaxPrior( runState->priorArgs, tempPar, &low, &high, LALINFERENCE_REAL8_t );
     }
     else if( !strcmp(tempPrior, "gaussian") ){
-      high = 1.; /* for Gaussian prior the sigma value will be scaled to unity */
       LALInferenceAddGaussianPrior( runState->priorArgs, tempPar, &low, &high, LALINFERENCE_REAL8_t );
+    }
+    else if( !strcmp(tempPrior, "fermidirac") ){
+      LALInferenceAddFermiDiracPrior( runState->priorArgs, tempPar, &low, &high, LALINFERENCE_REAL8_t );
     }
 
     /* if there is a phase parameter defined in the proposal then set varyphase to 1 */
@@ -677,14 +599,14 @@ void initialise_prior( LALInferenceRunState *runState )
     }
   }
 
-  LALInferenceIFOModel *ifotemp2 = ifo;
-  while( ifotemp2 ){
+  LALInferenceIFOModel *ifotemp = ifo;
+  while( ifotemp ){
     /* add in variables to say whether phase, sky position and binary parameter are varying */
-    if( varyphase ) { LALInferenceAddVariable( ifotemp2->params, "varyphase", &varyphase, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED ); }
-    if( varyskypos ) { LALInferenceAddVariable( ifotemp2->params, "varyskypos", &varyskypos, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED ); }
-    if( varybinary ) { LALInferenceAddVariable( ifotemp2->params, "varybinary", &varybinary, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED ); }
+    if( varyphase ) { LALInferenceAddVariable( ifotemp->params, "varyphase", &varyphase, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED ); }
+    if( varyskypos ) { LALInferenceAddVariable( ifotemp->params, "varyskypos", &varyskypos, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED ); }
+    if( varybinary ) { LALInferenceAddVariable( ifotemp->params, "varybinary", &varybinary, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED ); }
 
-    ifotemp2 = ifotemp2->next;
+    ifotemp = ifotemp->next;
   }
 
   REAL8Vector *freqFactors = *(REAL8Vector **)LALInferenceGetVariable( ifo->params, "freqfactors" );
@@ -706,9 +628,8 @@ void initialise_prior( LALInferenceRunState *runState )
 
     corParams = XLALReadTEMPOCorFile( corMat, corFile );
 
-    /* if the correlation matrix is given then add it as the prior for values with Gaussian errors specified in the par
-     * file */
-    add_correlation_matrix( runState->currentParams, runState->priorArgs, corMat, corParams );
+    /* if the correlation matrix is given then add it as the prior for values with Gaussian errors specified in the par file */
+    add_correlation_matrix( threadState->currentParams, runState->priorArgs, corMat, corParams );
 
     XLALDestroyUINT4Vector( dims );
   }
@@ -726,14 +647,11 @@ void initialise_prior( LALInferenceRunState *runState )
  * There are various proposal distributions that can be used to sample new live points via an MCMC. A combination of
  * different ones can be used to help efficiency for awkward posterior distributions. Here the proposals that can be
  * used are:
- * \c covariance Drawing from a multi-variate Gaussian described by the covariance matrix of the current live points,
- * with the spread of the distribution controlled by the \c temperature. One parameter is evolved during a single draw.
  * \c diffev Drawing a new point by differential evolution of two randomly chosen live points. All parameters are
  * evolved during a single draw.
- * \c kDTree Drawing points from a distributions created from a k-D tree of the current live points, with
- * probabilities of each leaf being inversely their volume. All parameters are evolved during a single draw.
- *
- * Note: also add ability to jump between frequency modes.
+ * \c freqBinJump Jumps that are the size of the Fourier frequency bins (can be used if searching over frequency).
+ * \c ensembleStretch Ensemble stretch moves (WARNING: These can lead to long autocorrelation lengths).
+ * \c ensembleWalk Ensemble walk moves. These are used as the default proposal.
  *
  * This function sets up the relative weights with which each of above distributions is used.
  *
@@ -741,82 +659,64 @@ void initialise_prior( LALInferenceRunState *runState )
  */
 void initialise_proposal( LALInferenceRunState *runState ){
   ProcessParamsTable *ppt = NULL;
-  UINT4 covfrac = 0, defrac = 0, kdfrac = 0, freqfrac = 0, esfrac = 0, ewfrac = 0;
+  UINT4 defrac = 0, freqfrac = 0, esfrac = 0, ewfrac = 0;
   REAL8 temperature = 0.;
-  const CHAR *defaultPropName = NULL;
-  defaultPropName = XLALStringDuplicate( "none" );
-
-  ppt = LALInferenceGetProcParamVal( runState->commandLine, "--covariance" );
-  if( ppt ) { covfrac = atoi( ppt->value ); }
-  else { covfrac = 0; } /* default value */
 
   ppt = LALInferenceGetProcParamVal( runState->commandLine, "--diffev" );
   if( ppt ) { defrac = atoi( ppt->value ); }
   else { defrac = 0; } /* default value */
-
-  ppt = LALInferenceGetProcParamVal( runState->commandLine, "--kDTree" );
-  if( ppt ) { kdfrac = atoi( ppt->value ); }
-  else { kdfrac = 0; } /* default value */
 
   ppt = LALInferenceGetProcParamVal( runState->commandLine, "--freqBinJump" );
   if( ppt ) { freqfrac = atoi( ppt->value ); }
 
   ppt = LALInferenceGetProcParamVal(runState->commandLine, "--ensembleStretch" );
   if ( ppt ) { esfrac = atoi( ppt->value ); }
-  else { esfrac = 1; }
+  else { esfrac = 0; }
 
   ppt = LALInferenceGetProcParamVal(runState->commandLine, "--ensembleWalk" );
   if ( ppt ) { ewfrac = atoi( ppt->value ); }
   else { ewfrac = 1; }
 
-  if( !covfrac && !defrac && !kdfrac && !freqfrac && !ewfrac && !esfrac ){
+  if( !defrac && !freqfrac && !ewfrac && !esfrac ){
     XLALPrintError("All proposal weights are zero!\n");
     XLAL_ERROR_VOID(XLAL_EFAILED);
   }
 
-  runState->proposalStats = NULL;
-  if(!runState->proposalStats) runState->proposalStats = XLALCalloc(1,sizeof(LALInferenceVariables));
-
+  /* Single thread here */
+  LALInferenceThreadState *threadState = runState->threads[0];
+  threadState->cycle = LALInferenceInitProposalCycle();
+  LALInferenceProposalCycle *cycle=threadState->cycle;
   /* add proposals */
-  if( covfrac ){
-    LALInferenceAddProposalToCycle( runState, covarianceEigenvectorJumpName, &LALInferenceCovarianceEigenvectorJump,
-                                    covfrac );
-  }
-
   if( defrac ){
-    LALInferenceAddProposalToCycle( runState, differentialEvolutionFullName, &LALInferenceDifferentialEvolutionFull,
-                                    defrac );
-  }
-
-  if( kdfrac ){
-    /* set the maximum number of points in a kd-tree cell if given */
-    ppt = LALInferenceGetProcParamVal( runState->commandLine, "--kDNCell" );
-    if( ppt ){
-      INT4 kdncells = atoi( ppt->value );
-
-      LALInferenceAddVariable( runState->proposalArgs, "KDNCell", &kdncells, LALINFERENCE_INT4_t,
-                               LALINFERENCE_PARAM_FIXED );
-    }
-
-    LALInferenceAddProposalToCycle( runState, KDNeighborhoodProposalName, &LALInferenceKDNeighborhoodProposal, kdfrac );
-
-    LALInferenceSetupkDTreeNSLivePoints( runState );
+    LALInferenceAddProposalToCycle(
+                                   cycle,
+                                   LALInferenceInitProposal(&LALInferenceDifferentialEvolutionFull,differentialEvolutionFullName),
+                                   defrac);
   }
 
   if ( freqfrac ){
-    LALInferenceAddProposalToCycle( runState, frequencyBinJumpName, &LALInferenceFrequencyBinJump, freqfrac );
+    LALInferenceAddProposalToCycle(
+                                   cycle,
+                                   LALInferenceInitProposal(&LALInferenceFrequencyBinJump,frequencyBinJumpName),
+                                   freqfrac);
   }
 
   /* Use ensemble moves */
   if ( esfrac ){
-    LALInferenceAddProposalToCycle( runState, ensembleStretchFullName, &LALInferenceEnsembleStretchFull, esfrac );
+    LALInferenceAddProposalToCycle(
+                                   cycle,
+                                   LALInferenceInitProposal(&LALInferenceEnsembleStretchFull,ensembleStretchFullName),
+                                   esfrac);
   }
 
   if ( ewfrac ){
-    LALInferenceAddProposalToCycle( runState, ensembleWalkFullName, &LALInferenceEnsembleWalkFull, ewfrac );
+    LALInferenceAddProposalToCycle(
+                                   cycle,
+                                   LALInferenceInitProposal(&LALInferenceEnsembleWalkFull,ensembleWalkFullName),
+                                   ewfrac);
   }
 
-  LALInferenceRandomizeProposalCycle( runState );
+  LALInferenceRandomizeProposalCycle( cycle, runState->GSLrandom );
   /* set temperature */
   ppt = LALInferenceGetProcParamVal( runState->commandLine, "--temperature" );
   if( ppt ) { temperature = atof( ppt->value ); }
@@ -825,12 +725,9 @@ void initialise_proposal( LALInferenceRunState *runState ){
   LALInferenceAddVariable( runState->proposalArgs, "temperature", &temperature, LALINFERENCE_REAL8_t,
                            LALINFERENCE_PARAM_FIXED );
 
-  /* add default proposal name */
-  LALInferenceAddVariable( runState->proposalArgs, LALInferenceCurrentProposalName, &defaultPropName,
-                           LALINFERENCE_string_t, LALINFERENCE_PARAM_OUTPUT );
-
   /* set proposal */
-  runState->proposal = LALInferenceDefaultProposal;
+  threadState->proposal = LALInferenceCyclicProposal;
+  LALInferenceZeroProposalStats(threadState->cycle);
 }
 
 
@@ -860,7 +757,7 @@ void add_correlation_matrix( LALInferenceVariables *ini, LALInferenceVariables *
     for( ; checkPrior ; checkPrior = checkPrior->next ){
       if( LALInferenceCheckGaussianPrior(priors, checkPrior->name) ){
         /* ignore parameter name case */
-        if( !strcasecmp(parMat->data[i], checkPrior->name) ){
+        if( !XLALStringCaseCompare(parMat->data[i], checkPrior->name) ){
           incor = 1;
 
           /* add parameter to new parameter string vector */
@@ -909,12 +806,12 @@ void add_correlation_matrix( LALInferenceVariables *ini, LALInferenceVariables *
 
     for( ; checkPrior ; checkPrior = checkPrior->next ){
       if( LALInferenceCheckGaussianPrior(priors, checkPrior->name) ){
-        if( !strcasecmp(parMat->data[i], checkPrior->name) ){
-          /* remove the Gaussian prior */
-          LALInferenceRemoveGaussianPrior( priors, checkPrior->name );
-
+        if( !XLALStringCaseCompare(parMat->data[i], checkPrior->name) ){
           /* replace it with the correlation matrix as a gsl_matrix */
           LALInferenceAddCorrelatedPrior( priors, checkPrior->name, &corMatg, &i );
+
+          /* NOTE: the Gaussian prior will not be removed as the mean and standard deviation values are still
+           * required when calculating the prior (see ppe_likelihood.c) */
 
           break;
         }
@@ -938,7 +835,7 @@ void add_correlation_matrix( LALInferenceVariables *ini, LALInferenceVariables *
  */
 void sum_data( LALInferenceRunState *runState ){
   LALInferenceIFOData *data = runState->data;
-  LALInferenceIFOModel *ifomodel = runState->model->ifo;
+  LALInferenceIFOModel *ifomodel = runState->threads[0]->model->ifo;
 
   UINT4 gaussianLike = 0, roq = 0, nonGR = 0;
 
@@ -1401,21 +1298,32 @@ static void PrintNonFixedSample(FILE *fp, LALInferenceVariables *sample){
 /**
  * \brief Print out only the variable (i.e. non-fixed) parameters to the file
  *
- * If the command line argument --non-fixed-only is given then this function
- * will be used to output the nested samples to a file. Otherwise all parameters
- * will be output.
+ * If the command line argument \c --output-all-params is given then this function
+ * will output all parameters that have been stored, but by default it will only
+ * output variable parameters to the nested samples to a file.
  */
-void LogNonFixedSampleToFile(LALInferenceRunState *state, LALInferenceVariables *vars)
+void LogSampleToFile(LALInferenceRunState *state, LALInferenceVariables *vars)
 {
-  FILE *outfile=NULL;
-  if(LALInferenceCheckVariable(state->algorithmParams,"outfile"))
-    outfile=*(FILE **)LALInferenceGetVariable(state->algorithmParams,"outfile");
+
+  FILE *outfile = NULL;
+  if( LALInferenceCheckVariable(state->algorithmParams,"outfile") ){
+    outfile = *(FILE **)LALInferenceGetVariable(state->algorithmParams,"outfile");
+  }
+
   /* Write out old sample */
-  if(outfile==NULL) return;
+  if( outfile == NULL ) { return; }
   LALInferenceSortVariablesByName(vars);
-  /* only write out non-fixed samples */
-  PrintNonFixedSample(outfile, vars);
+
+  /* only write out non-fixed samples if required */
+  if ( LALInferenceGetProcParamVal( state->commandLine, "--output-all-params" ) ){
+    LALInferencePrintSample(outfile, vars);
+  }
+  else{
+    /* default to writing out only the non-fixed (i.e. variable) parameters */
+    PrintNonFixedSample(outfile, vars);
+  }
   fprintf(outfile,"\n");
+
   return;
 }
 
@@ -1424,42 +1332,66 @@ void LogNonFixedSampleToFile(LALInferenceRunState *state, LALInferenceVariables 
  * \brief Print out only the variable (i.e. non-fixed) parameters to the file whilst also creating
  * an array for all parameters
  *
- * If the command line argument --non-fixed-only is given (and the XML library
- * is present) then this function will be used to output the nested samples to a file.
- * Otherwise all parameters will be output.
+ * This function (which is used if the XML library is present) will only output variable
+ * parameters.
  */
-void LogNonFixedSampleToArray(LALInferenceRunState *state, LALInferenceVariables *vars)
+void LogSampleToArray(LALInferenceRunState *state, LALInferenceVariables *vars)
 {
-  LALInferenceVariables *output_array=NULL;
-  UINT4 N_output_array=0;
+  LALInferenceVariables **output_array = NULL;
+  UINT4 N_output_array = 0;
   LALInferenceSortVariablesByName(vars);
-  LogNonFixedSampleToFile(state, vars);
+
+  LogSampleToFile(state, vars);
 
   /* Set up the array if it is not already allocated */
-  if(LALInferenceCheckVariable(state->algorithmParams,"outputarray"))
-    output_array=*(LALInferenceVariables **)LALInferenceGetVariable(state->algorithmParams,"outputarray");
-  else
+  if(LALInferenceCheckVariable(state->algorithmParams,"outputarray")){
+    output_array = *(LALInferenceVariables ***)LALInferenceGetVariable(state->algorithmParams,"outputarray");
+  }
+  else{
     LALInferenceAddVariable(state->algorithmParams,"outputarray",&output_array,LALINFERENCE_void_ptr_t,LALINFERENCE_PARAM_OUTPUT);
+  }
 
-  if(LALInferenceCheckVariable(state->algorithmParams,"N_outputarray"))
-    N_output_array=*(INT4 *)LALInferenceGetVariable(state->algorithmParams,"N_outputarray");
-  else
+  if(LALInferenceCheckVariable(state->algorithmParams,"N_outputarray")){
+    N_output_array = *(INT4 *)LALInferenceGetVariable(state->algorithmParams,"N_outputarray");
+  }
+  else{
     LALInferenceAddVariable(state->algorithmParams,"N_outputarray",&N_output_array,LALINFERENCE_INT4_t,LALINFERENCE_PARAM_OUTPUT);
+  }
 
   /* Expand the array for new sample */
-  output_array=XLALRealloc(output_array, (N_output_array+1) *sizeof(LALInferenceVariables));
-  if(!output_array){
+  output_array = XLALRealloc(output_array, (N_output_array+1) *sizeof(LALInferenceVariables *));
+  if( !output_array ){
     XLAL_ERROR_VOID(XLAL_EFAULT, "Unable to allocate array for samples.");
   }
-  else
-  {
+  else{
     /* Save sample and update */
-    memset(&(output_array[N_output_array]),0,sizeof(LALInferenceVariables));
-    LALInferenceCopyVariables(vars,&output_array[N_output_array]);
+    output_array[N_output_array] = XLALCalloc(1,sizeof(LALInferenceVariables));
+    LALInferenceCopyVariables(vars, output_array[N_output_array]);
     N_output_array++;
 
     LALInferenceSetVariable(state->algorithmParams,"outputarray",&output_array);
     LALInferenceSetVariable(state->algorithmParams,"N_outputarray",&N_output_array);
   }
+
   return;
+}
+
+
+void initialise_threads(LALInferenceRunState *state, INT4 nthreads){
+  INT4 i,randomseed;
+  LALInferenceThreadState *thread;
+  for (i=0; i<nthreads; i++){
+    thread=state->threads[i];
+    //LALInferenceCopyVariables(thread->model->params, thread->currentParams);
+    LALInferenceCopyVariables(state->priorArgs, thread->priorArgs);
+    LALInferenceCopyVariables(state->proposalArgs, thread->proposalArgs);
+    thread->GSLrandom = gsl_rng_alloc(gsl_rng_mt19937);
+    randomseed = gsl_rng_get(state->GSLrandom);
+    gsl_rng_set(thread->GSLrandom, randomseed);
+
+    /* Explicitly zero out DE, in case it's not used later */
+    thread->differentialPoints = NULL;
+    thread->differentialPointsLength = 0;
+    thread->differentialPointsSize = 0;
+  }
 }

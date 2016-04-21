@@ -22,6 +22,18 @@
 
 // # General SWIG directives and interface code
 
+// Call VCS information check function when module is loaded
+%init %{
+  if (VCS_INFO_CHECK() != XLAL_SUCCESS) {
+    SWIG_Error(SWIG_RuntimeError, "Could not load SWIG module");
+#if PY_VERSION_HEX >= 0x03000000
+    return NULL;
+#else
+    return;
+#endif
+  }
+%}
+
 // In SWIG Python modules, everything is namespaced, so it makes sense to rename symbols to remove
 // superfluous C-API prefixes.
 #define SWIGLAL_MODULE_RENAME_CONSTANTS
@@ -133,10 +145,20 @@ SWIGINTERNINLINE PyObject* swiglal_get_reference(PyObject* v) { Py_XINCREF(v); r
 }
 
 // Comparison operators.
+%typemap(in, numinputs=0, noblock=1) int SWIGLAL_CMP_OP_RETN_HACK "";
 %define %swiglal_py_cmp_op(NAME, COMPTYPE)
 %pythonmaybecall *::__##NAME##__;
 %feature("python:compare", #COMPTYPE) *::__##NAME##__;
 %feature("kwargs", 0) *::__##NAME##__;
+%feature("new", 1) *::__##NAME##__;
+%typemap(out, noblock=1, fragment=SWIG_From_frag(bool)) bool __##NAME##__ {
+  return SWIG_From_bool($1);
+}
+%typemap(freearg, noblock=1) int SWIGLAL_CMP_OP_RETN_HACK {
+  PyErr_Clear();
+  Py_INCREF(Py_NotImplemented);
+  return Py_NotImplemented;
+}
 %enddef
 %swiglal_py_cmp_op(eq, Py_EQ);
 %swiglal_py_cmp_op(ge, Py_GE);

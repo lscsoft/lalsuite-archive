@@ -1,8 +1,8 @@
-BUILT_SOURCES =
+include $(top_srcdir)/gnuscripts/lalapps.am
+
 MOSTLYCLEANFILES =
 EXTRA_DIST =
 include $(top_srcdir)/gnuscripts/lalsuite_python.am
-include $(top_srcdir)/gnuscripts/lalapps.am
 
 BURSTPROGS = lalapps_binj
 lalapps_binj_SOURCES = binj.c
@@ -23,8 +23,6 @@ pkgdata_DATA = power_pipe.ini power_online_pipe.ini
 EXTRA_DIST += \
 	H1_L1_dt125_df128.png \
 	Z_histogram.png \
-	btlwnb_example_+.png \
-	btlwnb_example_x.png \
 	clustering_example.png \
 	conditioning.png \
 	freqdomainfilter.png \

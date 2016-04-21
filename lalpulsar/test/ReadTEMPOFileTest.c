@@ -24,7 +24,7 @@ typedef struct tagParamData{
   const CHAR *fitFlag; /* add a TEMPO-style fitting flag to some parameters */
 }ParamData;
 
-#define NUMPARS 42
+#define NUMPARS 43
 
 /* setup a collection of allowed .par file parameters */
 ParamData p[NUMPARS] =
@@ -55,7 +55,7 @@ ParamData p[NUMPARS] =
   { "PMRA",     "12.345",       "1.89654e-15",      "1.23",         "1.88963e-16", " " },
   { "EPHEM",    "DE405",        "DE405",            NULL,           NULL         , " " },
   { "PMDEC",    "-12.345",      "-1.89654e-15",     "1.23",         "1.88963e-16", "1" },
-  { "DIST",     "123.00000",    "123.00000",        "12.30000",     "12.30000"   , " " },
+  { "DIST",     "123.00000",    "3.79538e+21",      "12.30000",     "3.79538e+20", " " },
   /* binary parameters */
   { "BINARY",   "BT",           "BT",               NULL,           NULL         , " " },
   { "OM",       "123.45",       "2.15461",          "1.23",         "0.02147"    , " " },
@@ -69,6 +69,7 @@ ParamData p[NUMPARS] =
   { "FB0",      "1.23400e-05",  "1.23400e-05",      "1.23400e-14",  "1.23400e-14", "1" },
   { "FB2",      "1.23400e-09",  "1.23400e-09",      "1.23400e-18",  "1.23400e-18", " " },
   { "FB1",      "1.23400e-09",  "1.23400e-09",      "1.23400e-18",  "1.23400e-18", "1" },
+  { "EDOT",     "1.23400e-05",  "1.23400e-17",      "1.23400e-18",  "1.23400e-18", " " },
   /* GW parameters */
   { "H0",       "1.23000e-22",  "1.23000e-22",      "1.23000E-23",  "1.23000e-23", " " }, /* input exponent as E */
   { "COSIOTA",  "-0.12300",     "-0.12300",         "0.00123",      "0.00123"    , " " },
@@ -178,7 +179,9 @@ int main( void ){
     }
     /* value is a string */
     else if ( PulsarGetParamType( pars, p[i].name ) == PULSARTYPE_string_t ) {
-      sprintf(outval, "%s", PulsarGetStringParam(pars, p[i].name));
+      CHAR *out = XLALStringDuplicate(PulsarGetStringParam(pars, p[i].name));
+      sprintf(outval, "%s", out);
+      XLALFree(out);
     }
 
     /* compare returned value with input value */
