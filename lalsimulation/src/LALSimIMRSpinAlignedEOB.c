@@ -1039,7 +1039,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
        break;
   }*/
 #if debugOutput
-    printf("%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n", nqcCoeffs.a1, nqcCoeffs.a2, nqcCoeffs.a3, nqcCoeffs.a3S, nqcCoeffs.a4, nqcCoeffs.a5, nqcCoeffs.b1, nqcCoeffs.b2, nqcCoeffs.b3, nqcCoeffs.b4);
+    printf("NQC should be 0 here: %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n", nqcCoeffs.a1, nqcCoeffs.a2, nqcCoeffs.a3, nqcCoeffs.a3S, nqcCoeffs.a4, nqcCoeffs.a5, nqcCoeffs.b1, nqcCoeffs.b2, nqcCoeffs.b3, nqcCoeffs.b4);
     printf("timePeak %.16e\n",timePeak);
 #endif
   /* Calculate phase NQC coefficients */
@@ -1049,7 +1049,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
     XLAL_ERROR( XLAL_EFUNC );
   }
 #if debugOutput
-    printf("%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n", nqcCoeffs.a1, nqcCoeffs.a2, nqcCoeffs.a3, nqcCoeffs.a3S, nqcCoeffs.a4, nqcCoeffs.a5, nqcCoeffs.b1, nqcCoeffs.b2, nqcCoeffs.b3, nqcCoeffs.b4);
+    printf("Only spin NQC should be 0 here: %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n", nqcCoeffs.a1, nqcCoeffs.a2, nqcCoeffs.a3, nqcCoeffs.a3S, nqcCoeffs.a4, nqcCoeffs.a5, nqcCoeffs.b1, nqcCoeffs.b2, nqcCoeffs.b3, nqcCoeffs.b4);
 #endif
   /* Calculate the time of amplitude peak. Despite the name, this is in fact the shift in peak time from peak orb freq time */
   switch ( SpinAlignedEOBversion )
