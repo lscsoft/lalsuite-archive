@@ -2,7 +2,7 @@
 
 """
 This script provides a way to inject very specific sources.
-It generates an xml file containing the sources specified in 
+It generates an xml file containing the sources specified in
 a textfile that is provided as argument.
 """
 
@@ -16,10 +16,10 @@ usage="""  tom_xml_injections.py [options]
   Will generate an xml file containing sources with
   parameters as given in sourcefile.
   Example sourcefile (all fields assumed to be present in this file, except nonGRparams):
-    name mass1 mass2 a1 a2 distance inclination polarization ra dec injtime slide_h slide_l slide_v
-    gw150914 40.835 33.263 0.532 0.891 555.597 2.837 1.429 -1.262 1.950 0 0 0 0
-    gw151226 17.285 7.477 0.617 0.728 513.201 2.654 2.897 0.710 0.348 0 0 0 0
-    lvt151012 22.467 19.101 0.161 0.053 598.574 2.161 2.009 0.667 0.131 0 0 0 0
+    name mass1 mass2 phi1 phi2 theta1 theta2 a1 a2 distance inclination polarization ra dec injtime
+    gw150914 40.835 33.263 0.0 0.0 0.0 0.0 0.0 0.0 555.597 2.837 1.429 -1.262 1.950 966391866
+    gw151226 17.285 7.477 0.0 0.0 0.0 0.0 0.0 0.0 513.201 2.654 2.897 0.710 0.348 966391866
+    lvt151012 22.467 19.101 0.0 0.0 0.0 0.0 0.0 0.0 598.574 2.161 2.009 0.667 0.131 966391866
 """
 
 ###############################################################################
@@ -38,7 +38,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils as ligolw_utils
 
 import lal
-from numpy import fmod,cos,sqrt,genfromtxt
+from numpy import fmod,cos,sin,sqrt,genfromtxt
 
 LLO_index = lal.LALDetectorIndexLLODIFF
 LHO_index = lal.LALDetectorIndexLHODIFF
@@ -86,9 +86,6 @@ class source():
     self.ra = ra
     self.dec = dec
     self.geocent_end_time = epoch
-    self.slide_h = slide_h
-    self.slide_l = slide_l
-    self.slide_v = slide_v
     self.nonGRparams=nonGRparams
 
 
@@ -144,6 +141,12 @@ def get_times(geocent_end_time,ra,dec,gmst):
   v_end_time += time_diff_vir
 
   return h_end_time,l_end_time,v_end_time
+
+def get_component_spins(phi,theta,a):
+  spinz = a*cos(theta)
+  spinx = a*sin(theta)*cos(phi)
+  spiny = a*sin(theta)*sin(phi)
+  return [spinx,spiny,spinz]
 
 
 
@@ -239,8 +242,8 @@ def main(testarguments=""):
   sources = []
   for s in data:
     print "adding",s[index["name"]]
-    spin1 = [0.092,0.038,0.326]
-    spin2 = [0.215,0.301,-0.558]
+    spin1 = get_component_spins(s[index['phi1']],s[index['theta1']],s[index['a1']])
+    spin2 = get_component_spins(s[index['phi2']],s[index['theta2']],s[index['a2']])
     nonGRparams = {}
     for n in nonGRparamnames:
       if index.has_key(n):
@@ -249,7 +252,6 @@ def main(testarguments=""):
                   spin1=spin1,spin2=spin2,
                   dist=s[index["distance"]],incl=s[index["inclination"]],pol=s[index["polarization"]],
                   ra=s[index["ra"]],dec=s[index["dec"]],epoch=s[index["injtime"]],
-                  slide_h=s[index["slide_h"]],slide_l=s[index["slide_v"]],slide_v=s[index["slide_v"]],
                   nonGRparams=nonGRparams))
 
   #update the rows in the xml with the source parameters
@@ -259,11 +261,11 @@ def main(testarguments=""):
     row.geocent_end_time_ns = 0
     gmst = fmod(lal.GreenwichMeanSiderealTime(s.geocent_end_time), lal.TWOPI) * 24.0 / lal.TWOPI
     h,l,v = get_times(s.geocent_end_time,s.ra,s.dec,gmst)
-    row.h_end_time = int(h)+s.slide_h
+    row.h_end_time = int(h)
     row.h_end_time_ns = round((h - int(h))*1e9)
-    row.l_end_time = int(l)+s.slide_l
+    row.l_end_time = int(l)
     row.l_end_time_ns = round((l - int(l))*1e9)
-    row.v_end_time = int(v)+s.slide_v
+    row.v_end_time = int(v)
     row.v_end_time_ns = round((v - int(v))*1e9)
     row.end_time_gmst = gmst
 
