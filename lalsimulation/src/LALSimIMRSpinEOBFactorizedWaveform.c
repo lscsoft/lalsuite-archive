@@ -1200,14 +1200,14 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
      Eqs. 20 and 21 of DIN and Eqs. 27a and 27b of PBFRT for delta */
 
   coeffs->delta22vh3 = 7./3.;
-  coeffs->delta22vh6 = (-4.*aDelta)/3. + (428.*LAL_PI)/105.;
+  coeffs->delta22vh6 = -4./3.*(dM*chiA+chiS*(1-2*eta)) + (428.*LAL_PI)/105.;
   coeffs->delta22v8 = (20.*aDelta)/63.;
   coeffs->delta22vh9 = -2203./81. + (1712.*LAL_PI*LAL_PI)/315.;
   coeffs->delta22v5  = - 24.*eta;
   coeffs->delta22v6 = 0.0;
   if ( SpinAlignedEOBversion == 2 && chiS+chiA*dM/(1.-2.*eta) > 0. )
   {
-     coeffs->delta22v6  = -540. * eta * (chiS+chiA*dM/(1.-2.*eta));
+     coeffs->delta22v6  = -540. * eta * (chiS+chiA*dM/(1.-2.*eta))*0;
   }
 
   coeffs->rho22v2   = -43./42. + (55.*eta)/84.;
@@ -1227,12 +1227,13 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
        XLAL_ERROR( XLAL_EINVAL );
        break;
   }
-  coeffs->rho22v5   = (-34.*a)/21.;
+  coeffs->rho22v5   = (-34./21.+49.*eta/18.+209.*eta2/126.)*chiS +(-34./21.-196.*eta/42.)*dM*chiA;
   coeffs->rho22v6   = 1556919113./122245200. + (89.*a2)/252. - (48993925.*eta)/9779616.
        - (6292061.*eta2)/3259872. + (10620745.*eta3)/39118464.
        + (41.*eta*LAL_PI*LAL_PI)/192.;
   coeffs->rho22v6l  = - 428./105.;
-  coeffs->rho22v7   = (18733.*a)/15876. + a*a2/3.;
+    coeffs->rho22v7   = a3/3. + chiA*dM*(18733./15876. + (50140.*eta)/3969. + (97865.*eta2)/63504.) +
+    chiS*(18733./15876. + (74749.*eta)/5292. - (245717.*eta2)/63504. + (50803.*eta3)/63504.);
   switch ( SpinAlignedEOBversion )
   {
      case 1:
@@ -1740,7 +1741,7 @@ UNUSED static int XLALSimIMREOBCalcPrecNoSpinFacWaveformCoefficients(
      Eqs. 20 and 21 of DIN and Eqs. 27a and 27b of PBFRT for delta */
 
   coeffs->delta22vh3 = 7./3.;
-  coeffs->delta22vh6 = (428.*LAL_PI)/105.;// +  (-4.*a)/3.;
+  coeffs->delta22vh6 = (428.*LAL_PI)/105.-4./3.*(dM*chiA+chiS*(1-2*eta));
   coeffs->delta22v8 = 0.;//(20.*a)/63.;
   coeffs->delta22vh9 = -2203./81. + (1712.*LAL_PI*LAL_PI)/315.;
   coeffs->delta22v5  = - 24.*eta;
@@ -2262,7 +2263,7 @@ UNUSED static int XLALSimIMREOBCalcPrecSpinFacWaveformCoefficients(
      Eqs. 20 and 21 of DIN and Eqs. 27a and 27b of PBFRT for delta */
 
   //coeffs->delta22vh3 = 7./3.;
-  coeffs->delta22vh6S = /*(428.*LAL_PI)/105. +*/  (-4.*a)/3.;
+  coeffs->delta22vh6S = /*(428.*LAL_PI)/105. +*/  -4./3.*(dM*chiA+chiS*(1-2*eta));
   coeffs->delta22v8S = (20.*a)/63.;
   //coeffs->delta22vh9 = -2203./81. + (1712.*LAL_PI*LAL_PI)/315.;
   //coeffs->delta22v5  = - 24.*eta;
@@ -2289,13 +2290,14 @@ UNUSED static int XLALSimIMREOBCalcPrecSpinFacWaveformCoefficients(
        XLAL_ERROR( XLAL_EINVAL );
        break;
   }
-  coeffs->rho22v5S  = (-34.*a)/21.;
+  coeffs->rho22v5S  = (-34./21.+49.*eta/18.+209.*eta2/126.)*chiS +(-34./21.-196.*eta/42.)*dM*chiA;
   coeffs->rho22v6S  = /*1556919113./122245200. +*/ (89.*a2)/252.;
                     //- (48993925.*eta)/9779616.
                     //- (6292061.*eta2)/3259872. + (10620745.*eta3)/39118464.
                     //+ (41.*eta*LAL_PI*LAL_PI)/192.;
   //coeffs->rho22v6l  = - 428./105.;
-  coeffs->rho22v7S   = (18733.*a)/15876. + a*a2/3.;
+    coeffs->rho22v7S   = a3/3. + chiA*dM*(18733./15876. + (50140.*eta)/3969. + (97865.*eta2)/63504.) +
+    chiS*(18733./15876. + (74749.*eta)/5292. - (245717.*eta2)/63504. + (50803.*eta3)/63504.);
   switch ( SpinAlignedEOBversion )
   {
      case 1:
