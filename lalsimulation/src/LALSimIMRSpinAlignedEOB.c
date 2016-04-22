@@ -1058,7 +1058,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
      timewavePeak = XLALSimIMREOBGetNRSpinPeakDeltaT(2, 2, eta,  a);
        break;
      case 2:
-     timewavePeak = XLALSimIMREOBGetNRSpinPeakDeltaTv2(2, 2, m1, m2, spin1z, spin2z );
+     timewavePeak = XLALSimIMREOBGetNRSpinPeakDeltaTv4(2, 2, m1, m2, spin1z, spin2z );
        break;
      default:
        XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
