@@ -636,7 +636,6 @@ UNUSED static int XLALSimIMREOBCalculateNQCCoefficients(
   }
 
   nrTimePeak = timePeak + nrDeltaT;
-
   /* We are now in a position to use the interp stuff to calculate the derivatives we need */
   /* We will start with the quantities used in the calculation of the a coefficients */
   spline = gsl_spline_alloc( gsl_interp_cspline, amplitude->length );
@@ -1026,6 +1025,22 @@ UNUSED static inline REAL8 XLALSimIMREOBGetNRSpinPeakDeltaTv2(
   {
     return 2.5 + (1.+2.5*chi) * (-2.5+2.5*sqrt(1.-4.*eta));
   }
+}
+
+/**
+ * The time difference between the orbital peak and the peak amplitude
+ * of the mode in question (currently only 2,2 implemented ).
+ */
+UNUSED static inline REAL8 XLALSimIMREOBGetNRSpinPeakDeltaTv4(
+                                                              INT4 UNUSED l,    /**<< Mode l */
+                                                              INT4 UNUSED m,    /**<< Mode m */
+                                                              REAL8 UNUSED m1,  /**<< mass 1 */
+                                                              REAL8 UNUSED m2,  /**<< mass 22 */
+                                                              REAL8 UNUSED chi1,       /**<< Dimensionless spin1 */
+                                                              REAL8 UNUSED chi2        /**<< Dimensionless spin2 */
+)
+{
+    return 7.487042419941794;
 }
 
 /**
@@ -1604,7 +1619,7 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
                                                             UINT4                     SpinAlignedEOBversion  /**<< 1 for SEOBNRv1, 2 for SEOBNRv2 */
 )
 {
-    
+    int debugAT = 0;
     /* For gsl permutation stuff */
     
     int signum;
@@ -1731,6 +1746,7 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
     }
     
     /* Populate vectors as necessary. Eqs. 14 - 17 of the LIGO DCC document T1100433v2 */
+//        FILE *out = fopen( "out.dat","w");
     for ( unsigned int i = 0; i < timeVec->length; i++ )
     {
         
@@ -1759,7 +1775,10 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
         q5LM->data[i] = q5->data[i] * amplitude->data[i];
         
         qNSLM->data[i] = 0.;
+//            fprintf(out, "%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n", amplitude->data[i], prVec->data[i],rVec->data[i],orbOmegaVec->data[i], q3->data[i],q4->data[i],q5->data[i], p3->data[i], p4->data[i],phase->data[i]);
     }
+//        fclose(out);
+    
     /* Allocate all the memory we need */
     XLAL_CALLGSL(
                  /* a stuff */
@@ -1800,7 +1819,7 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
             nrDeltaT   = XLALSimIMREOBGetNRSpinPeakDeltaT( l, m, eta, a );
             break;
         case 2:
-            nrDeltaT   = XLALSimIMREOBGetNRSpinPeakDeltaTv2( l, m, m1, m2, chi1, chi2 );
+            nrDeltaT   = XLALSimIMREOBGetNRSpinPeakDeltaTv4( l, m, m1, m2, chi1, chi2 );
             break;
         default:
             XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
@@ -1831,7 +1850,8 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
      * changed to a minus sign here.
      */
     nrTimePeak = timePeak - nrDeltaT;
-    
+    if(debugAT)
+        printf("nrTimePeak, timePeak %.16e %.16e\n", nrTimePeak, timePeak);
     /* We are now in a position to use the interp stuff to calculate the derivatives we need */
     /* We will start with the quantities used in the calculation of the a coefficients */
     spline = gsl_spline_alloc( gsl_interp_cspline, amplitude->length );
@@ -1878,9 +1898,9 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
     qNSLMDot  = gsl_spline_eval_deriv( spline, nrTimePeak, acc );
     qNSLMDDot = gsl_spline_eval_deriv2( spline, nrTimePeak, acc );
     
-    nra = GetNRSpinPeakAmplitudeV4( l, m, eta, a/(1. - 2.*eta) );
-    nraDDot = GetNRSpinPeakADDotV4( l, m, eta, a/(1. - 2.*eta) );
-
+    nra = GetNRSpinPeakAmplitudeV4( l, m, eta, chiS + chiA*(m1 - m2)/(m1 + m2)/(1. - 2.*eta));
+    nraDDot = GetNRSpinPeakADDotV4( l, m, eta, chiS + chiA*(m1 - m2)/(m1 + m2)/(1. - 2.*eta) );
+//    printf("eta, chiS, chiA, dM/M, chi = %.16e %.16e %.16e %.16e %.16e\n",eta,chiS,chiA, (m1 - m2)/(m1 + m2),chiS + chiA*(m1 - m2)/(m1 + m2)/(1. - 2.*eta));
     if ( XLAL_IS_REAL8_FAIL_NAN( nra ) || XLAL_IS_REAL8_FAIL_NAN( nraDDot ) )
     {
         XLALDestroyREAL8Vector( timeVec );
@@ -1898,9 +1918,9 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
         XLAL_ERROR( XLAL_EFUNC );
     }
     
-    gsl_vector_set( amps, 0, nra - amp - qNSLMPeak );
-    gsl_vector_set( amps, 1, - aDot - qNSLMDot );
-    gsl_vector_set( amps, 2, nraDDot - aDDot - qNSLMDDot );
+    gsl_vector_set( amps, 0, nra - amp );
+    gsl_vector_set( amps, 1, - aDot );
+    gsl_vector_set( amps, 2, nraDDot - aDDot );
 //    printf("Amps %.16e %.16e %.16e\n", nra, amp, qNSLMPeak);
 //    printf("dAmps %.16e %.16e\n", aDot, qNSLMDot);
 //    printf("ddAmps %.16e %.16e %.16e\n", nraDDot, aDDot, qNSLMDDot);
@@ -1909,6 +1929,20 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
     /* So let us do it! */
     gsl_linalg_LU_decomp( qMatrix, perm1, &signum );
     gsl_linalg_LU_solve( qMatrix, perm1, amps, aCoeff );
+    
+    if(debugAT) {
+    printf( "Q MATRIX\n" );
+    for (unsigned int i = 0; i < 3; i++ )
+    {
+        for (unsigned int j = 0; j < 3; j++ )
+        {
+            printf( "%.12e\t", gsl_matrix_get( qMatrix, i, j ));
+        }
+        printf( "= %.12e\n", gsl_vector_get( amps, i ) );
+    }
+    }
+    
+    
     
     /* Now we (should) have calculated the a values. Now we can do the b values */
     
@@ -1950,10 +1984,11 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
         omegaDot = - fabs( omegaDot );
     }
     
-    nromega = GetNRSpinPeakOmegaV4( l, m, eta, a/(1. - 2.*eta) );
-    nromegaDot = GetNRSpinPeakOmegaDotV4( l, m, eta, a/(1. - 2.*eta) );
+    nromega = GetNRSpinPeakOmegaV4( l, m, eta, chiS + chiA*(m1 - m2)/(m1 + m2)/(1. - 2.*eta) );
+    nromegaDot = GetNRSpinPeakOmegaDotV4( l, m, eta, chiS + chiA*(m1 - m2)/(m1 + m2)/(1. - 2.*eta));
 
-//    printf("NR inputs: %.16e, %.16e, %.16e, %.16e\n",nra,nraDDot,nromega,nromegaDot);
+    if(debugAT)
+        printf("NR inputs: %.16e, %.16e, %.16e, %.16e\n",nra,nraDDot,nromega,nromegaDot);
 /*     printf("NR inputs: %.16e, %.16e, %.16e, %.16e\n",pNSLMDot, pNSLMDDot,omega,omegaDot);*/
     
     if ( XLAL_IS_REAL8_FAIL_NAN( nromega ) || XLAL_IS_REAL8_FAIL_NAN( nromegaDot ) )
@@ -1973,10 +2008,11 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
         XLAL_ERROR( XLAL_EFUNC );
     }
     
-    gsl_vector_set( omegaVec, 0, nromega - omega + pNSLMDot );
-    gsl_vector_set( omegaVec, 1, nromegaDot - omegaDot + pNSLMDDot );
-    
-    /*printf( "P MATRIX\n" );
+    gsl_vector_set( omegaVec, 0, nromega - omega );
+    gsl_vector_set( omegaVec, 1, nromegaDot - omegaDot );
+   
+    if(debugAT) {
+    printf( "P MATRIX\n" );
      for (unsigned int i = 0; i < 2; i++ )
      {
      for (unsigned int j = 0; j < 2; j++ )
@@ -1984,7 +2020,8 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
      printf( "%.12e\t", gsl_matrix_get( pMatrix, i, j ));
      }
      printf( "= %.12e\n", gsl_vector_get( omegaVec, i ) );
-     }*/
+     }
+    }
     
     /* And now solve for the b coefficients */
     gsl_linalg_LU_decomp( pMatrix, perm2, &signum );
@@ -2054,6 +2091,7 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
     XLALDestroyREAL8Vector( q4LM );
     XLALDestroyREAL8Vector( q5LM );
     XLALDestroyREAL8Vector( qNSLM );
+    
     
     return XLAL_SUCCESS;
 }
