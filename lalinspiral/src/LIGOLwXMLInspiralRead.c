@@ -1760,7 +1760,7 @@ SimInspiralTableFromLIGOLw (
 
   if ( mioStatus == -1 )
   {
-    fprintf( stderr, "error parsing after row %d\n", i );
+    fprintf( stderr, "error parsing after row %d\n", nrows );
     CLOBBER_SIM;
     MetaioClose( env );
     return -1;
