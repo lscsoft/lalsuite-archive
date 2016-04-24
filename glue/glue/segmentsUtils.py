@@ -30,12 +30,10 @@ objects.
 """
 
 
-import itertools
 import re
 
 
 from glue import git_version
-from glue import iterutils
 from glue import lal
 from glue import segments
 
