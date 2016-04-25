@@ -128,7 +128,7 @@ ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB',
 tigerParams=['dchi%i'%(i) for i in range(7)] + ['dchi%il'%(i) for i in [5,6] ] + ['dxi%d'%(i+1) for i in range(6)] + ['dalpha%i'%(i+1) for i in range(5)] + ['dbeta%i'%(i+1) for i in range(3)] + ['dsigma%i'%(i+1) for i in range(4)]
 bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
 massiveGravitonParams=['loglambda_g','lambda_g','graviton_mass','graviton_lambda','loggraviton_mass','loggraviton_lambda']
-lorentzInvarianceViolationParams=['loglambda_a','lambda_a','loglambda_a_eff','lambda_a_eff','logamp','Amp']
+lorentzInvarianceViolationParams=['loglambda_a','lambda_a','loglambda_a_eff','lambda_a_eff','logamp','amp']
 tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat']
 strongFieldParams=ppEParams+tigerParams+bransDickeParams+massiveGravitonParams+tidalParams+lorentzInvarianceViolationParams
 
@@ -464,7 +464,7 @@ def plot_label(param):
       'loglambda_a_eff':r'$\log\lambda_{eff}$',
       'lambda_a_eff':r'$\lambda_{eff}$',
       'lambda_a':r'$\lambda_{\mathbb{A}} [\mathrm{m}]$',
-      'Amp':r'$\mathbb{A} [\mathrm{{eV}^{-1}}]$',
+      'amp':r'$\mathbb{A} [\mathrm{{eV}^{-1}}]$',
       'logamp':r'$\log \mathbb{A}[\mathrm{{eV}^{-1}}]$'
     }
   print param
@@ -1091,7 +1091,7 @@ class Posterior(object):
       if ('lambda_a_eff' in pos.names) and ('redshift' in pos.names):
           pos.append_mapping('lambda_a', lambda_a, ['redshift', 'nonGR_alpha', 'loglambda_a_eff'])  
       if ('lambda_a_eff' in pos.names) and ('redshift' in pos.names):
-          pos.append_mapping('Amp', amplitudeMeasure, ['redshift','nonGR_alpha','lambda_a_eff'])
+          pos.append_mapping('amp', amplitudeMeasure, ['redshift','nonGR_alpha','lambda_a_eff'])
 
       #Calculate new tidal parameters
       new_tidal_params = ['lam_tilde','dlam_tilde']
