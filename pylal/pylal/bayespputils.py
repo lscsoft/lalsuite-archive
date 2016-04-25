@@ -107,7 +107,7 @@ __date__= git_version.date
 # Constants
 #===============================================================================
 #Parameters which are not to be exponentiated when found
-logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior','loglambda_g','loggraviton_mass','loggraviton_lambda','loglambda_a_eff','loglambda_a']
+logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior','loglambda_g','loggraviton_mass','loggraviton_lambda','loglambda_a_eff','loglambda_a','logamp']
 #Parameters known to cbcBPP
 relativePhaseParams=[ a+b+'_relative_phase' for a,b in combinations(['h1','l1','v1'],2)]
 snrParams=['snr','optimal_snr','matched_filter_snr'] + ['%s_optimal_snr'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_amp'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_arg'%(i) for i in ['h1', 'l1', 'v1']] + relativePhaseParams
@@ -128,7 +128,7 @@ ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB',
 tigerParams=['dchi%i'%(i) for i in range(7)] + ['dchi%il'%(i) for i in [5,6] ] + ['dxi%d'%(i+1) for i in range(6)] + ['dalpha%i'%(i+1) for i in range(5)] + ['dbeta%i'%(i+1) for i in range(3)] + ['dsigma%i'%(i+1) for i in range(4)]
 bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
 massiveGravitonParams=['loglambda_g','lambda_g','graviton_mass','graviton_lambda','loggraviton_mass','loggraviton_lambda']
-lorentzInvarianceViolationParams=['loglambda_a','lambda_a','loglambda_a_eff','lambda_a_eff','logAmp','Amp']
+lorentzInvarianceViolationParams=['loglambda_a','lambda_a','loglambda_a_eff','lambda_a_eff','logamp','Amp']
 tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat']
 strongFieldParams=ppEParams+tigerParams+bransDickeParams+massiveGravitonParams+tidalParams+lorentzInvarianceViolationParams
 
@@ -465,7 +465,7 @@ def plot_label(param):
       'lambda_a_eff':r'$\lambda_{eff}$',
       'lambda_a':r'$\lambda_{\mathbb{A}} [\mathrm{m}]$',
       'Amp':r'$\mathbb{A} [\mathrm{{eV}^{-1}}]$',
-      'logAmp':r'$\log \mathbb{A}[\mathrm{{eV}^{-1}}]$'
+      'logamp':r'$\log \mathbb{A}[\mathrm{{eV}^{-1}}]$'
     }
   print param
   # Handle cases where multiple names have been used
@@ -1087,7 +1087,7 @@ class Posterior(object):
       if ('loglambda_a_eff' in pos.names) and ('redshift' in pos.names):
           pos.append_mapping('loglambda_a', lambda z,nonGR_alpha,wl:np.log10(lambda_a(z, nonGR_alpha, 10**wl)), ['redshift', 'nonGR_alpha', 'loglambda_a_eff'])	
       if ('loglambda_a_eff' in pos.names) and ('redshift' in pos.names):
-          pos.append_mapping('logAmp', lambda z,nonGR_alpha,wl:np.log10(amplitudeMeasure(z, nonGR_alpha, 10**wl)), ['redshift','nonGR_alpha','loglambda_a_eff'])
+          pos.append_mapping('logamp', lambda z,nonGR_alpha,wl:np.log10(amplitudeMeasure(z, nonGR_alpha, 10**wl)), ['redshift','nonGR_alpha','loglambda_a_eff'])
       if ('lambda_a_eff' in pos.names) and ('redshift' in pos.names):
           pos.append_mapping('lambda_a', lambda_a, ['redshift', 'nonGR_alpha', 'loglambda_a_eff'])  
       if ('lambda_a_eff' in pos.names) and ('redshift' in pos.names):
@@ -1147,6 +1147,7 @@ class Posterior(object):
           pos.append_mapping('graviton_mass', GravitonMass, ['lambda_g', 'redshift'])
       if ('lambda_g' in pos.names) and ('redshift' in pos.names):
           pos.append_mapping('graviton_lambda', GComptonWavelength, ['lambda_g', 'redshift'])
+
 
       # Calculate mass and spin of final merged system
       if ('m1' in pos.names) and ('m2' in pos.names):
@@ -3990,12 +3991,15 @@ def DistanceMeasure(redshift,nonGR_alpha):
     return dist
 
 def lambda_a(redshift, nonGR_alpha, lambda_eff):
-    D_alpha = DistanceMeasure(redshift, nonGR_alpha)
+    Dfunc = np.vectorize(DistanceMeasure)
+    D_alpha = Dfunc(redshift, nonGR_alpha)
     return lambda_eff*((1.0+redshift)**(1.0-nonGR_alpha)*D_alpha)**(1./(2.0-nonGR_alpha))
 
 def amplitudeMeasure(redshift, nonGR_alpha, lambda_eff):
     hPlanck = 4.13567e-15
-    return (lambda_a(redshift, nonGR_alpha, lambda_eff)/hPlanck)**(nonGR_alpha - 2.0)
+    ampFunc = np.vectorize(lambda_a)
+    lambdaA = lambda_a(redshift, nonGR_alpha, lambda_eff)
+    return (lambdaA/hPlanck)**(nonGR_alpha-2.0)
 
 def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m2, fref):
     """
