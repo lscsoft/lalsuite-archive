@@ -3984,21 +3984,24 @@ def DistanceMeasure(redshift,nonGR_alpha):
     from lal import PC_SI as pc
     mpc = pc*1e6
     h = 0.75
-    H0 = h*100*1e3*mpc
+    H0 = h*100*1e3/mpc
     dist = integrate.quad(integrand_distance, 0, redshift ,args=(nonGR_alpha))[0]
     dist *= c*(1.0 + redshift)**(1.0 - nonGR_alpha)
     dist /= H0
-    return dist
+    return dist/mpc
 
 def lambda_a(redshift, nonGR_alpha, lambda_eff):
+    from lal import PC_SI as pc
+    mpc = pc*1e6
     Dfunc = np.vectorize(DistanceMeasure)
-    D_alpha = Dfunc(redshift, nonGR_alpha)
+    D_alpha = Dfunc(redshift, nonGR_alpha)*mpc  ## convert to metres
     return lambda_eff*((1.0+redshift)**(1.0-nonGR_alpha)*D_alpha)**(1./(2.0-nonGR_alpha))
 
 def amplitudeMeasure(redshift, nonGR_alpha, lambda_eff):
+    from lal import C_SI as c
     hPlanck = 4.13567e-15
     ampFunc = np.vectorize(lambda_a)
-    lambdaA = lambda_a(redshift, nonGR_alpha, lambda_eff)
+    lambdaA = lambda_a(redshift, nonGR_alpha, lambda_eff)/c  ## convert to seconds
     return (lambdaA/hPlanck)**(nonGR_alpha-2.0)
 
 def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m2, fref):
