@@ -16,10 +16,10 @@ usage="""  tom_xml_injections.py [options]
   Will generate an xml file containing sources with
   parameters as given in sourcefile.
   Example sourcefile (all fields assumed to be present in this file, except nonGRparams):
-    name mass1 mass2 phi1 phi2 theta1 theta2 a1 a2 distance inclination polarization ra dec injtime
-    gw150914 40.835 33.263 0.0 0.0 0.0 0.0 0.0 0.0 555.597 2.837 1.429 -1.262 1.950 966391866
-    gw151226 17.285 7.477 0.0 0.0 0.0 0.0 0.0 0.0 513.201 2.654 2.897 0.710 0.348 966391866
-    lvt151012 22.467 19.101 0.0 0.0 0.0 0.0 0.0 0.0 598.574 2.161 2.009 0.667 0.131 966391866
+    event_n name mass1 mass2 phi1 phi2 theta1 theta2 a1 a2 distance inclination polarization ra dec injtime
+    0 gw150914 40.835 33.263 0.0 0.0 0.0 0.0 0.0 0.0 555.597 2.837 1.429 -1.262 1.950 966391866
+    1 gw151226 17.285 7.477 0.0 0.0 0.0 0.0 0.0 0.0 513.201 2.654 2.897 0.710 0.348 966391866
+    2 lvt151012 22.467 19.101 0.0 0.0 0.0 0.0 0.0 0.0 598.574 2.161 2.009 0.667 0.131 966391866
 """
 
 ###############################################################################
@@ -184,11 +184,12 @@ def main(testarguments=""):
   else:
     output = "./custom.xml"
 
-  flow = opts.flow
+  flow = float(opts.flow)
   inspinj = opts.inspinj
 
 
-  data = genfromtxt(sourcefile,skip_header=1,converters={0: lambda s: str(s)})
+  data = genfromtxt(sourcefile,converters={1: lambda s: str(s)})
+  data = data[1:] #skip header
   N_sources = len(data)
 
   with open(sourcefile,"r") as fp:
