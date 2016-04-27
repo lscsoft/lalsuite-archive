@@ -4614,9 +4614,9 @@ int XLALSimLorentzInvarianceViolationTerm(
       (*hctilde)->data->data[i] = hcross;
     }
     else {
-      hplus = (*hptilde)->data->data[i] * cexp(-I*dPhiPref/pow(f, (1. - nonGR_alpha)));
+      hplus = (*hptilde)->data->data[i] * cexp(-I*dPhiPref*pow(f, (nonGR_alpha - 1.)));
       (*hptilde)->data->data[i] = hplus;
-      hcross = (*hctilde)->data->data[i] * cexp(-I*dPhiPref/pow(f, (1. - nonGR_alpha)));
+      hcross = (*hctilde)->data->data[i] * cexp(-I*dPhiPref*pow(f, (nonGR_alpha - 1.)));
       (*hctilde)->data->data[i] = hcross;
     }
   }
