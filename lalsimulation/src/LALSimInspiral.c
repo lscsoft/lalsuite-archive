@@ -818,6 +818,7 @@ int XLALSimInspiralChooseTDWaveform(
             ret = XLALSimIMRSpinEOBWaveform(hplus, hcross, /*&epoch,*/ phiRef,
                     deltaT, m1, m2, f_min, r, i, spin1, spin2);
             break;
+
 	case HGimri:
 	     /* Waveform-specific sanity checks */
 	     if( !checkTidesZero(lambda1, lambda2) )

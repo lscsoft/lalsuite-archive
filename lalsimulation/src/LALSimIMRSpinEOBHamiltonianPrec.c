@@ -103,9 +103,6 @@ static double GSLSpinPrecHamiltonianWrapperFordHdpphi( double x, void *params );
  *------------------------------------------------------------------------------------------
  */
 
-
-
-
 /**
  *
  * Function to calculate the value of the spinning Hamiltonian for given values
@@ -903,6 +900,7 @@ static REAL8 XLALSimIMRSpinPrecEOBCalcOmega(
   return omega;
 }
 
+
 /**
  * Function to calculate the non-Keplerian coefficient for the PRECESSING EOB
  * model.
@@ -1573,6 +1571,7 @@ static double GSLSpinPrecHamiltonianWrapperForRvecDerivs( double x, void *params
   if ( dParams->varyParam < 3 )dParams->params->tortoise = oldTortoise;
   return SpinEOBH;
 }
+
 
 /**
  * Wrapper for GSL to call the Hamiltonian function. This is simply the function

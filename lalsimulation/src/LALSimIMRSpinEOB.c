@@ -27,9 +27,6 @@
  */
 
 
-#ifndef _LALSIMIMRSPINEOB_C
-#define _LALSIMIMRSPINEOB_C
-
 #include <math.h>
 #include <complex.h>
 #include <lal/LALSimIMR.h>
@@ -61,37 +58,6 @@
 #else
 #define UNUSED
 #endif
-
-UNUSED
-static int
-XLALEOBSpinStopCondition(double UNUSED t,
-                           const double values[],
-                           double dvalues[],
-                           void *funcParams
-                          )
-{
-
-  SpinEOBParams *params = (SpinEOBParams *)funcParams;
-  double omega_x, omega_y, omega_z, omega;
-  double r2;
-
-  omega_x = values[1]*dvalues[2] - values[2]*dvalues[1];
-  omega_y = values[2]*dvalues[0] - values[0]*dvalues[2];
-  omega_z = values[0]*dvalues[1] - values[1]*dvalues[0];
-
-  r2 = values[0]*values[0] + values[1]*values[1] + values[2]*values[2];
-  omega = sqrt( omega_x*omega_x + omega_y*omega_y + omega_z*omega_z )/r2;
-
-  //if ( omega < params->eobParams->omega )
-  if ( r2 < 36. && omega < params->eobParams->omega )
-  {
-    return 1;
-  }
-
-  params->eobParams->omega = omega;
-  return GSL_SUCCESS;
-}
-
 
 SEOBHCoeffConstants XLALEOBSpinPrecCalcSEOBHCoeffConstants(REAL8 eta){
 
@@ -126,6 +92,35 @@ SEOBHCoeffConstants XLALEOBSpinPrecCalcSEOBHCoeffConstants(REAL8 eta){
 }
 
 #if 0
+static int
+XLALEOBSpinStopCondition(double UNUSED t,
+                           const double values[],
+                           double dvalues[],
+                           void *funcParams
+                          )
+{
+
+  SpinEOBParams *params = (SpinEOBParams *)funcParams;
+  double omega_x, omega_y, omega_z, omega;
+  double r2;
+
+  omega_x = values[1]*dvalues[2] - values[2]*dvalues[1];
+  omega_y = values[2]*dvalues[0] - values[0]*dvalues[2];
+  omega_z = values[0]*dvalues[1] - values[1]*dvalues[0];
+
+  r2 = values[0]*values[0] + values[1]*values[1] + values[2]*values[2];
+  omega = sqrt( omega_x*omega_x + omega_y*omega_y + omega_z*omega_z )/r2;
+
+  //if ( omega < params->eobParams->omega )
+  if ( r2 < 36. && omega < params->eobParams->omega )
+  {
+    return 1;
+  }
+
+  params->eobParams->omega = omega;
+  return GSL_SUCCESS;
+}
+
 int XLALSimIMRSpinEOBWaveform(
         REAL8TimeSeries **hplus,
         REAL8TimeSeries **hcross,

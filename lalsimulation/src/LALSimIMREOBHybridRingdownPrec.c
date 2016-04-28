@@ -13,10 +13,8 @@
  * between the two models in ring-down waveform is the pseudo-QNM introduced
  * in the latter (see Taracchini et al. PRD 86, 024011 (2012) for more details).
  */
-
 #ifndef _LALSIMIMREOBHYBRIDRINGDOWNPREC_C
 #define _LALSIMIMREOBHYBRIDRINGDOWNPREC_C
-
 
 #include <math.h>
 #include <complex.h>
@@ -34,6 +32,7 @@
 #include "LALSimBlackHoleRingdownPrec.h"
 #include "LALSimIMREOBNQCCorrection.c"
 //#include "LALSimIMREOBHybridRingdown.c"
+
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -234,9 +233,9 @@ static INT4 XLALSimIMREOBHybridRingdownWave(
     REAL8 timeOffset = fmod( matchrange->data[1], dt/m) * dt;
 
     if (debugSB){
-       /// Print the solution:
+       /// Print the solution: 
        for (i=0; i<nmodes; i++){
-           printf("RD info: QNM: (re) %.16e, (im) %.16e, Amp %16e \n", creal(modefreqs->data[i]),
+           printf("RD info: QNM: (re) %.16e, (im) %.16e, Amp %16e \n", creal(modefreqs->data[i]), 
                     cimag(modefreqs->data[i]), modeamps->data[i]);
        }
 

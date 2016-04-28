@@ -75,11 +75,6 @@ pkginclude_HEADERS = \
 	LALSimulationVCSInfoHeader.h
 
 noinst_HEADERS = \
-	LALSimIMRSpinPrecEOBWfGen.c \
-	LALSimIMRSpinPrecEOBEulerAngles_v3opt.c \
-	LALSimIMRSpinPrecEOBHcapExactDerivative.c \
-	LALSpinPrecHcapRvecDerivative_v3opt.c \
-	LALSimIMRSpinEOBHcapNumericalDerivativePrec_v3opt.c \
 	LALSimIMRSpinEOBInitialConditionsPrec_v3opt.c \
 	LALSimIMRSpinEOBHcapExactDerivativePrec_v3opt.c \
 	LALSimIMRSpinEOBFactorizedWaveformPrec_v3opt.c \
@@ -178,7 +173,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimInspiralTaylorLength.c \
 	LALSimInspiralWaveformCache.c \
 	LALSimInspiralWaveformTaper.c \
-	LALSimIMRNRWaveforms.c \
+        LALSimIMRNRWaveforms.c \
 	LALSimulation.c \
 	LALSimulationVCSInfo.c \
 	LALSimNeutronStarEOS.c \
@@ -198,7 +193,7 @@ liblalsimulation_la_SOURCES = \
 	unicorn.xpm \
 	LALSimInspiralHGimri.c \
 	LALSimFindAttachTime.c \
-	LALSimIMRSpinEOB.c
+	LALSimIMRSpinEOB.c 
 
 nodist_liblalsimulation_la_SOURCES = LALSimulationBuildInfo.c
 

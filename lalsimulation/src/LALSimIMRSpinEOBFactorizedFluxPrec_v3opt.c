@@ -2,8 +2,9 @@
  * \author Craig Robinson, Yi Pan, Prayush Kumar, Stas Babak, Andrea Taracchini
  */
 
-#ifndef _LALSIMIMRSPINPRECEOBFACTORIZEDFLUX_C
-#define _LALSIMIMRSPINPRECEOBFACTORIZEDFLUX_C
+#ifndef _LALSIMIMRSPINPRECEOBFACTORIZEDFLUX_V3OPT_C
+#define _LALSIMIMRSPINPRECEOBFACTORIZEDFLUX_V3OPT_C
+
 
 #include <complex.h>
 #include <lal/LALSimInspiral.h>
@@ -14,8 +15,8 @@
 
 #include "LALSimIMRSpinEOBAuxFuncs.c"
 #include "LALSimIMREOBNQCCorrection.c"
-//#include "LALSimIMRSpinEOBFactorizedWaveform.c"
-#include "LALSimIMRSpinEOBFactorizedWaveformPrec.c"
+#include "LALSimIMRSpinEOBFactorizedWaveform.c"
+#include "LALSimIMRSpinEOBFactorizedWaveformPrec_v3opt.c"
 
 
 
@@ -27,7 +28,7 @@
  */
 
 static REAL8
-XLALInspiralPrecSpinFactorizedFlux(
+XLALInspiralPrecSpinFactorizedFlux_exact(
 				   REAL8Vector * polvalues,	/**< \f$(r,\phi,p_r,p_\phi)\f$ */
 				   REAL8Vector * values,	/**< dynamical variables */
 				   EOBNonQCCoeffs * nqcCoeffs,	/**< pre-computed NQC coefficients */
@@ -49,7 +50,7 @@ XLALInspiralPrecSpinFactorizedFlux(
  * Eq. 12 of PRD 86, 024011 (2012)
  */
 static REAL8
-XLALInspiralPrecSpinFactorizedFlux(
+XLALInspiralPrecSpinFactorizedFlux_exact(
 				   REAL8Vector * polvalues,	/**< \f$(r,\phi,p_r,p_\phi)\f$ */
 				   REAL8Vector * values,	/**< dynamical variables */
 				   EOBNonQCCoeffs * nqcCoeffs,	/**< pre-computed NQC coefficients */
@@ -185,7 +186,7 @@ XLALInspiralPrecSpinFactorizedFlux(
 	}			/* }}} */
 	//XLAL_PRINT_INFO("v = %.16e\n", v);
 	COMPLEX16 hLMTab[lMax+1][lMax+1];
-	if (XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(&hLMTab[0][0], polvalues, values, v, H,
+	if (XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform_exact(&hLMTab[0][0], polvalues, values, v, H,
 				lMax, ak) == XLAL_FAILURE) {
 		XLAL_ERROR_REAL8(XLAL_EFUNC);
 	}

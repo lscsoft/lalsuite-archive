@@ -17,8 +17,8 @@
  *
  */
 
-#ifndef _LALSIMIMRSPINPRECEOBFACTORIZEDWAVEFORM_C
-#define _LALSIMIMRSPINPRECEOBFACTORIZEDWAVEFORM_C
+#ifndef _LALSIMIMRSPINPRECEOBFACTORIZEDWAVEFORM_V3OPT_C
+#define _LALSIMIMRSPINPRECEOBFACTORIZEDWAVEFORM_V3OPT_C
 #include <gsl/gsl_deriv.h>
 #include <complex.h>
 #include <lal/LALSimInspiral.h>
@@ -33,6 +33,8 @@
 #include "LALSimIMRSpinEOBHamiltonian.c"
 #include "LALSimIMRSpinEOBHamiltonianPrec.c"
 
+#include "LALSimIMRSpinPrecEOBHcapExactDerivative.c"
+#include "LALSpinPrecHcapRvecDerivative_v3opt.c"
 /* #include "LALSimIMRSpinEOBFactorizedWaveform.c" */
 /*------------------------------------------------------------------------------------------
  *
@@ -41,7 +43,7 @@
  *------------------------------------------------------------------------------------------
  */
 static INT4
-XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
+XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform_exact(
 					       COMPLEX16 * restrict hlm,	/**< OUTPUT, hlm waveforms */
 					       REAL8Vector * restrict values,	/**< dyanmical variables: \f$(r,\phi,p_r,p_\phi)\f$ */
 					  REAL8Vector * restrict cartvalues,	/**< dyanmical variables */
@@ -53,7 +55,7 @@ XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
 );
 
 static INT4
-XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
+XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform_exact(
 						   COMPLEX16 * restrict hlmTab,	/**< OUTPUT, hlm waveforms */
 					      REAL8Vector * restrict values,	/**< dyanmical variables: \f$(r,\phi,p_r,p_\phi)\f$ */
 					  REAL8Vector * restrict cartvalues,	/**< dyanmical variables */
@@ -64,9 +66,16 @@ XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
 );
 
 
+static REAL8
+XLALSimIMRSpinPrecEOBNonKeplerCoeff_exact(
+                      const REAL8           values[],   /**<< Dynamical variables */
+                      SpinEOBParams         *funcParams /**<< EOB parameters */
+                      );
 
-
-
+static REAL8 XLALSimIMRSpinPrecEOBCalcOmega_exact(
+                      const REAL8           values[],   /**<< Dynamical variables */
+                      SpinEOBParams         *funcParams /**<< EOB parameters */
+                      );
 
 /*------------------------------------------------------------------------------------------
  *
@@ -88,7 +97,7 @@ XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
  * described in ￼the section "Factorized waveforms" of https://dcc.ligo.org/T1400476
  */
 static INT4
-XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
+XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform_exact(
 						   COMPLEX16 * restrict hlmTab,	/**< OUTPUT, hlm waveforms */
 					      REAL8Vector * restrict values,	/**< dyanmical variables: \f$(r,\phi,p_r,p_\phi)\f$ */
 					  REAL8Vector * restrict cartvalues,	/**< dyanmical variables */
@@ -101,7 +110,7 @@ XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
     int		debugPK = 0;
 	const	REAL8 vPhiKepler = params->alignedSpins ?
 					XLALSimIMRSpinAlignedEOBNonKeplerCoeff(values->data, params) :
-					XLALSimIMRSpinPrecEOBNonKeplerCoeff(cartvalues->data, params);
+					XLALSimIMRSpinPrecEOBNonKeplerCoeff_exact(cartvalues->data, params);
 	if (XLAL_IS_REAL8_FAIL_NAN(vPhiKepler)) {
 		XLAL_ERROR(XLAL_EFUNC);
 	}
@@ -518,8 +527,9 @@ XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
  * Eq. 17 and the entire Appendix of PRD 86, 024011 (2012) + changes
  * described in ￼the section "Factorized waveforms" of https://dcc.ligo.org/T1400476
  */
+UNUSED
 static INT4
-XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
+XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform_exact(
 					       COMPLEX16 * restrict hlm,	/**< OUTPUT, hlm waveforms */
 					       REAL8Vector * restrict values,	/**< dyanmical variables: \f$(r,\phi,p_r,p_\phi)\f$ */
 					  REAL8Vector * restrict cartvalues,	/**< dyanmical variables */
@@ -605,7 +615,7 @@ XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
 		vPhi *= Omega;
 		vPhi2 = vPhi * vPhi;
 	} else {
-		vPhi = XLALSimIMRSpinPrecEOBNonKeplerCoeff(cartvalues->data, params);
+		vPhi = XLALSimIMRSpinPrecEOBNonKeplerCoeff_exact(cartvalues->data, params);
 
 
 		if (XLAL_IS_REAL8_FAIL_NAN(vPhi)) {
@@ -1000,4 +1010,310 @@ XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
 	}
 	return XLAL_SUCCESS;
 }
-#endif				/* _LALSIMIMRSPINPRECEOBFACTORIZEDWAVEFORM */
+
+
+/*
+ * Function to calculate the value of omega for the PRECESSING EOB waveform.
+ * Needs the dynamics in Cartesian coordinates.
+ *
+ * First, the frame is rotated so that L is along the y-axis.
+ * this rotation includes the spins.
+ *
+ * Second, \f$\vec{r}\f$ and \f$\vec{p}\f$ are converted to polar coordinates
+ * (and not the spins). As L is along the y-axis, \f$\theta\f$ defined as the
+ * angle between L and the y-axis is 0, which is a cyclic coordinate now and
+ * that fixes
+ * \f$p_\theta = 0\f$.
+ *
+ * Third, \f$p_r\f$ is set to 0.
+ *
+ * Fourth, the polar \f$(r,\phi,p_r=0,p_\phi)\f$ and the Cartesian spin vectors
+ * are used to compute the derivative
+ * \f$\partial Hreal/\partial p_\phi |p_r=0\f$.
+ */
+
+static REAL8 XLALSimIMRSpinPrecEOBCalcOmega_exact(
+                      const REAL8           values[],   /**<< Dynamical variables */
+                      SpinEOBParams         *funcParams /**<< EOB parameters */
+                      )
+{
+  int debugPK = 1;
+  if (debugPK){
+    for(int i =0; i < 12; i++)
+      if( isnan(values[i]) ) {
+        XLAL_PRINT_INFO("XLALSimIMRSpinPrecEOBCalcOmega_exact::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
+          XLALPrintError( "XLAL Error - %s: nan in input values  \n", __func__);
+          XLAL_ERROR( XLAL_EINVAL );
+      }
+  }
+
+  /* ********************************************************************* */
+  /* ************ Memory Allocation ************************************** */
+  /* ********************************************************************* */
+  static const REAL8 STEP_SIZE = 1.0e-4;
+  REAL8 tmpvar = 0;
+
+  HcapDerivParams params;
+
+  /* Cartesian values for calculating the Hamiltonian */
+  REAL8 cartValues[14] = {0.}, dvalues[14] = {0.};
+  REAL8 cartvalues[14] = {0.}, polarvalues[6] = {0.}; /* The rotated cartesian/polar values */
+  REAL8 polarRPcartSvalues[14] = {0.};
+  memcpy( cartValues, values, 14 * sizeof(REAL8) );
+
+  INT4 i, j;
+
+  REAL8 rvec[3]  = {0.,0,0}, pvec[3]  = {0.,0,0};
+  REAL8 s1vec[3] = {0.,0,0}, s2vec[3] = {0.,0,0};
+
+  REAL8 rdotvec[3] = {0.,0,0};
+  REAL8 rvecprime[3] = {0.,0,0}, pvecprime[3] = {0.,0,0},
+        s1vecprime[3]= {0.,0,0}, s2vecprime[3]= {0.,0,0};
+  REAL8 rvectmp[3]   = {0.,0,0}, pvectmp[3] = {0.,0,0},
+        s1vectmp[3]  = {0.,0,0}, s2vectmp[3]= {0.,0,0};
+  REAL8 LNhatprime[3]= {0.,0,0}, LNhatTmp[3]= {0.,0,0};
+  REAL8 rcrossrdot[3] = {0.,0,0};
+
+  REAL8 Rot1[3][3] ={{0.}}; // Rotation matrix for prevention of blowing up
+  REAL8 Rot2[3][3] ={{0.}} ;
+  REAL8 LNhat[3] = {0.,0,0};
+
+  REAL8        Xhat[3] = {1, 0, 0};
+  UNUSED REAL8 Yhat[3] = {0, 1, 0};
+  UNUSED REAL8 Zhat[3] = {0, 0, 1};
+
+  REAL8 Xprime[3] = {0.,0,0}, Yprime[3] = {0.,0,0}, Zprime[3] = {0.,0,0};
+
+  gsl_function F;
+  INT4         gslStatus;
+
+  REAL8 omega;
+
+  /* The error in a derivative as measured by GSL */
+  REAL8 absErr;
+
+  /* ********************************************************************* */
+  /* ************ Main Logic begins ************************************ */
+  /* ********************************************************************* */
+
+  /* Copy over the coordinates and spins */
+  memcpy( rvec,  values,   3*sizeof(REAL8) );
+  memcpy( pvec,  values+3, 3*sizeof(REAL8) );
+  memcpy( s1vec, values+6, 3*sizeof(REAL8) );
+  memcpy( s2vec, values+9, 3*sizeof(REAL8) );
+
+  /* Calculate rDot = \f$\partial Hreal / \partial p_r\f$ */
+  memset( dvalues, 0, 14 * sizeof(REAL8) );
+  if( XLALSpinPrecHcapRvecDerivative_exact( 0, values, dvalues,
+                                  (void*) funcParams) == XLAL_FAILURE )
+  {
+    XLAL_ERROR( XLAL_EFUNC );
+  }
+  memcpy( rdotvec, dvalues, 3*sizeof(REAL8) );
+
+  if (debugPK){
+    for(int ii =0; ii < 12; ii++)
+      if( isnan(dvalues[ii]) ) {
+        XLAL_PRINT_INFO("XLALSimIMRSpinPrecEOBCalcOmega::dvalues %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3], dvalues[4], dvalues[5], dvalues[6], dvalues[7], dvalues[8], dvalues[9], dvalues[10], dvalues[11]);
+          XLALPrintError( "XLAL Error - %s: nan in dvalues \n", __func__);
+          XLAL_ERROR( XLAL_EINVAL );
+      }
+  }
+
+  /* Calculate LN = r cross rDot */
+  cross_product( rvec, rdotvec, rcrossrdot );
+  REAL8 rcrossrdotNorm = sqrt(inner_product( rcrossrdot, rcrossrdot ));
+  for( i = 0; i < 3; i++ )
+    rcrossrdot[i] /= rcrossrdotNorm;
+  memcpy( LNhat, rcrossrdot, 3 * sizeof(REAL8) );
+
+
+  /* ********************************************************************* */
+  /* First, the frame is rotated so that L is along the y-axis. */
+  /* this rotation includes the spins. */
+  /* ********************************************************************* */
+
+  // For Now , set first rotation matrix to identity
+  // Check if LNhat and Xhat are too aligned, in which case rotate LNhat
+  if( inner_product(LNhat, Xhat) < 0.9 )
+  {
+	  Rot1[0][0] = 1.; Rot1[0][1] = 0; Rot1[0][2] = 0;
+	  Rot1[1][0] = 0.; Rot1[1][1] = 1; Rot1[1][2] = 0;
+	  Rot1[2][0] = 0.; Rot1[2][1] = 0; Rot1[2][2] = 1;
+
+	  memcpy(Xprime, LNhat, 3 * sizeof(REAL8));
+	  cross_product( Xprime, Xhat, Yprime );
+	  tmpvar = sqrt(inner_product(Yprime, Yprime));
+
+	  for( i=0; i<3; i++)
+      Yprime[i] /= tmpvar;
+
+    cross_product(Xprime, Yprime, Zprime);
+	  tmpvar = sqrt(inner_product(Zprime, Zprime));
+	  for( i=0; i<3; i++)
+      Zprime[i] /= tmpvar;
+  }
+  else
+  {
+	  Rot1[0][0] = 1./sqrt(2); Rot1[0][1] = -1/sqrt(2); Rot1[0][2] = 0;
+	  Rot1[1][0] = 1./sqrt(2); Rot1[1][1] = 1./sqrt(2); Rot1[1][2] = 0;
+	  Rot1[2][0] = 0.;         Rot1[2][1] = 0;          Rot1[2][2] = 1;
+	  LNhatTmp[0] = LNhatTmp[1] = LNhatTmp[2] = 0.;
+
+	  for(i=0; i<3; i++)
+      for(j=0; j<3; j++)
+        LNhatTmp[i] += Rot1[i][j]*LNhat[j];
+
+	  memcpy(Xprime, LNhatTmp, 3*sizeof(REAL8));
+	  cross_product(Xprime, Xhat, Yprime);
+	  tmpvar = sqrt(inner_product(Yprime, Yprime));
+
+	  for( i=0; i<3; i++)
+      Yprime[i] /= tmpvar;
+
+    cross_product(Xprime, Yprime, Zprime);
+	  tmpvar = sqrt(inner_product(Zprime, Zprime));
+	  for( i=0; i<3; i++)
+      Zprime[i] /= tmpvar;
+  }
+
+  Rot2[0][0] = Xprime[0]; Rot2[0][1] = Xprime[1]; Rot2[0][2] = Xprime[2];
+  Rot2[1][0] = Yprime[0]; Rot2[1][1] = Yprime[1]; Rot2[1][2] = Yprime[2];
+  Rot2[2][0] = Zprime[0]; Rot2[2][1] = Zprime[1]; Rot2[2][2] = Zprime[2];
+
+  memset( rvectmp,    0, 3 * sizeof(REAL8) );
+  memset( pvectmp,    0, 3 * sizeof(REAL8) );
+  memset( s1vectmp,   0, 3 * sizeof(REAL8) );
+  memset( s2vectmp,   0, 3 * sizeof(REAL8) );
+  memset( rvecprime,  0, 3 * sizeof(REAL8) );
+  memset( pvecprime,  0, 3 * sizeof(REAL8) );
+  memset( s1vecprime, 0, 3 * sizeof(REAL8) );
+  memset( s2vecprime, 0, 3 * sizeof(REAL8) );
+  memset( LNhatprime, 0, 3 * sizeof(REAL8) );
+  memset( LNhatTmp,   0, 3 * sizeof(REAL8) );
+
+  /* Perform the actual rotation */
+  for (i=0; i<3; i++)
+    for(j=0; j<3; j++)
+      {
+        rvectmp[i]  += Rot1[i][j]*rvec[j];
+        pvectmp[i]  += Rot1[i][j]*pvec[j];
+        s1vectmp[i] += Rot1[i][j]*s1vec[j];
+        s2vectmp[i] += Rot1[i][j]*s2vec[j];
+        LNhatTmp[i] += Rot1[i][j]*LNhat[j];
+      }
+  for (i=0; i<3; i++)
+    for(j=0; j<3; j++)
+      {
+        rvecprime[i]  += Rot2[i][j]*rvectmp[j];
+        pvecprime[i]  += Rot2[i][j]*pvectmp[j];
+        s1vecprime[i] += Rot2[i][j]*s1vectmp[j];
+        s2vecprime[i] += Rot2[i][j]*s2vectmp[j];
+        LNhatprime[i] += Rot2[i][j]*LNhatTmp[j];
+      }
+
+  memcpy(cartvalues,   rvecprime,  3*sizeof(REAL8));
+  memcpy(cartvalues+3, pvecprime,  3*sizeof(REAL8));
+  memcpy(cartvalues+6, s1vecprime, 3*sizeof(REAL8));
+  memcpy(cartvalues+9, s2vecprime, 3*sizeof(REAL8));
+
+  /* ********************************************************************* */
+  /* Second, \f$\vec{r}\f$ and \f$\vec{p}\f$ are converted to polar
+   * coordinates (and not the spins).
+   * As L is along the y-axis, \f$\theta\f$ defined as the angle between
+   * L and the y-axis is 0, which is a cyclic coordinate now and that fixes
+   * \f$p_\theta = 0\f$. */
+  /* ********************************************************************* */
+
+  /** the polarvalues, respectively, are
+   * \f${r, \theta, \phi, p_r, p_\theta, p_\phi}\f$ */
+  polarvalues[0] = sqrt(inner_product(rvecprime,rvecprime));
+  polarvalues[1] = acos(rvecprime[0] / polarvalues[0]);
+  polarvalues[2] = atan2(-rvecprime[1], rvecprime[2]);
+  //polarvalues[3] = inner_product(rvecprime, pvecprime) / polarvalues[0];
+  /* FIX p_r = 0 */
+  polarvalues[3] = 0;
+
+  REAL8 rvecprime_x_xhat[3] = {0.}, rvecprime_x_xhat_x_rvecprime[3] = {0.};
+  cross_product(rvecprime, Xhat, rvecprime_x_xhat);
+  cross_product(rvecprime_x_xhat, rvecprime, rvecprime_x_xhat_x_rvecprime);
+
+  polarvalues[4] = -inner_product(rvecprime_x_xhat_x_rvecprime, pvecprime)
+                              / polarvalues[0] / sin(polarvalues[1]);
+  polarvalues[5] = -inner_product(rvecprime_x_xhat, pvecprime);
+
+
+  /* ********************************************************************* */  /* Finally, Differentiate Hamiltonian w.r.t. p_\phi, keeping p_r = 0 */
+  /* ********************************************************************* */
+
+  /* Populate the vector specifying the dynamical variables in mixed frames */
+  memcpy( polarRPcartSvalues, cartvalues, 12*sizeof(REAL8));
+  memcpy( polarRPcartSvalues, polarvalues, 6*sizeof(REAL8));
+
+  /* Set up pointers for GSL */
+  params.values  = polarRPcartSvalues;
+  params.params  = funcParams;
+
+  F.function = &GSLSpinPrecHamiltonianWrapperFordHdpphi;
+  F.params   = &params;
+
+  /* Now calculate omega. In the chosen co-ordinate system, */
+  /* we need dH/dpphi to calculate this, i.e. varyParam = 5 */
+  params.varyParam = 5;
+  XLAL_CALLGSL( gslStatus = gsl_deriv_central( &F, polarvalues[5],
+                  STEP_SIZE, &omega, &absErr ) );
+
+  if ( gslStatus != GSL_SUCCESS )
+  {
+    XLALPrintError( "XLAL Error - %s: Failure in GSL function\n", __func__ );
+    XLAL_ERROR_REAL8( XLAL_EFUNC );
+  }
+
+  return omega;
+}
+
+/**
+ * Function to calculate the non-Keplerian coefficient for the PRECESSING EOB
+ * model.
+ *
+ * radius \f$r\f$ times the cuberoot of the returned number is \f$r_\Omega\f$
+ * defined in Eq. A2, i.e. the function returns
+ * \f$(r_{\Omega} / r)^3\f$
+ *     = \f$1/(r^3 (\partial Hreal/\partial p_\phi |p_r=0)^2)\f$.
+ */
+static REAL8
+XLALSimIMRSpinPrecEOBNonKeplerCoeff_exact(
+                      const REAL8           values[],   /**<< Dynamical variables */
+                      SpinEOBParams         *funcParams /**<< EOB parameters */
+                      )
+{
+  int debugPK = 1;
+  if (debugPK){
+    for(int i =0; i < 12; i++)
+      if( isnan(values[i]) ) {
+        XLAL_PRINT_INFO("XLALSimIMRSpinPrecEOBNonKeplerCoeff_exact::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n",
+        values[0], values[1], values[2], values[3], values[4], values[5],
+        values[6], values[7], values[8], values[9], values[10], values[11]);
+          XLALPrintError( "XLAL Error - %s: nan in values  \n", __func__);
+          XLAL_ERROR( XLAL_EINVAL );
+      }
+  }
+
+  REAL8 omegaCirc = 0;
+  REAL8 tmpValues[14]= {0.};
+  REAL8 r3;
+
+  /* We need to find the values of omega assuming pr = 0 */
+  memcpy( tmpValues, values, sizeof(tmpValues) );
+  omegaCirc = XLALSimIMRSpinPrecEOBCalcOmega_exact( tmpValues, funcParams );
+
+  if ( XLAL_IS_REAL8_FAIL_NAN( omegaCirc ) )
+  {
+    XLAL_ERROR_REAL8( XLAL_EFUNC );
+  }
+
+  r3 = pow(inner_product(values, values), 3./2.);
+  return 1.0/(omegaCirc*omegaCirc*r3);
+}
+
+#endif				/* _LALSIMIMRSPINPRECEOBFACTORIZEDWAVEFORM_V3OPT */

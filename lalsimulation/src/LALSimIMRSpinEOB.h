@@ -21,6 +21,8 @@
  * */
 #define MAX_NUM_MODES 7
 
+
+
 struct
 SpinEOBModes
 {
@@ -122,7 +124,7 @@ tagSpinEOBParams
   REAL8                   chi2;
   REAL8                   prev_dr;
   int                     tortoise;
-  int                     ignoreflux;
+  int ignoreflux;
   int                     alignedSpins;
   bool                    almostAlignedSpins; /*OPTV3*/
   Approximant             seobApproximant; /*OPTV3*/

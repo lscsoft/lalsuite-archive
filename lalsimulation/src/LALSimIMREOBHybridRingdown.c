@@ -35,7 +35,6 @@
  */
 #ifndef _LALSIMIMREOBHYBRIDRINGDOWN_C
 #define _LALSIMIMREOBHYBRIDRINGDOWN_C
-
 #include <math.h>
 #include <complex.h>
 #include <stdlib.h>
@@ -108,7 +107,7 @@ static INT4 XLALSimIMREOBHybridRingdownWave(
   t3 = t4 + rt;
   t2 = t3 + rt;
   t1 = t2 + rt;
-
+  
   if ( inspwave1->length != 3 || inspwave2->length != 3 ||
 		modefreqs->length != nmodes )
   {
@@ -135,7 +134,7 @@ static INT4 XLALSimIMREOBHybridRingdownWave(
 
   /* Define the linear system Ax=y */
   /* Matrix A (2*n by 2*n) has block symmetry. Define half of A here as "coef" */
-  /* The half of A defined here corresponds to matrices M1 and -M2 in the DCC document T1100433 */
+  /* The half of A defined here corresponds to matrices M1 and -M2 in the DCC document T1100433 */ 
   /* Define y here as "hderivs" */
   for (i = 0; i < nmodes; ++i)
   {
@@ -146,7 +145,7 @@ static INT4 XLALSimIMREOBHybridRingdownWave(
 	gsl_matrix_set(coef, 4, i, exp(-cimag(modefreqs->data[i])*t3) * cos(creal(modefreqs->data[i])*t3));
 	gsl_matrix_set(coef, 5, i, exp(-cimag(modefreqs->data[i])*t4) * cos(creal(modefreqs->data[i])*t4));
 	gsl_matrix_set(coef, 6, i, exp(-cimag(modefreqs->data[i])*t5) * cos(creal(modefreqs->data[i])*t5));
-	gsl_matrix_set(coef, 7, i, exp(-cimag(modefreqs->data[i])*t5) *
+	gsl_matrix_set(coef, 7, i, exp(-cimag(modefreqs->data[i])*t5) * 
 				      (-cimag(modefreqs->data[i]) * cos(creal(modefreqs->data[i])*t5)
 				       -creal(modefreqs->data[i]) * sin(creal(modefreqs->data[i])*t5)));
 	gsl_matrix_set(coef, 8, i, 0);
@@ -156,7 +155,7 @@ static INT4 XLALSimIMREOBHybridRingdownWave(
 	gsl_matrix_set(coef, 12, i, -exp(-cimag(modefreqs->data[i])*t3) * sin(creal(modefreqs->data[i])*t3));
 	gsl_matrix_set(coef, 13, i, -exp(-cimag(modefreqs->data[i])*t4) * sin(creal(modefreqs->data[i])*t4));
 	gsl_matrix_set(coef, 14, i, -exp(-cimag(modefreqs->data[i])*t5) * sin(creal(modefreqs->data[i])*t5));
-	gsl_matrix_set(coef, 15, i, exp(-cimag(modefreqs->data[i])*t5) *
+	gsl_matrix_set(coef, 15, i, exp(-cimag(modefreqs->data[i])*t5) * 
 				      ( cimag(modefreqs->data[i]) * sin(creal(modefreqs->data[i])*t5)
 				       -creal(modefreqs->data[i]) * cos(creal(modefreqs->data[i])*t5)));
   }
@@ -175,7 +174,7 @@ static INT4 XLALSimIMREOBHybridRingdownWave(
   gsl_vector_set(hderivs, 4 + nmodes, inspwave2->data[2]);
   gsl_vector_set(hderivs, 5, inspwave1->data[1]);
   gsl_vector_set(hderivs, 5 + nmodes, inspwave2->data[1]);
-
+  
   /* Complete the definition for the rest half of A */
   for (i = 0; i < nmodes; ++i)
   {
@@ -345,7 +344,7 @@ static INT4 XLALGenerateHybridWaveDerivatives (
   /* Gall gsl spline interpolation */
   gslStatus = gsl_spline_init(spline, timeVec->data, y, vecLength);
   if ( gslStatus != GSL_SUCCESS )
-  {
+  { 
     gsl_spline_free(spline);
     gsl_interp_accel_free(acc);
     LALFree( y );
@@ -373,7 +372,7 @@ static INT4 XLALGenerateHybridWaveDerivatives (
     ddwave->data[j] = (REAL8)(dy2/m/m);
 
   }
-
+  
   /* Free gsl variables */
   gsl_spline_free(spline);
   gsl_interp_accel_free(acc);
@@ -507,8 +506,8 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
           sh = 0.;
           //freq7sav = modefreqs->data[7];
 
-          /* Cases 1, 2 and 3 in T1400476-v3. Note that the difference between the
-           * chi1=chi2=0 case and the chi<0.7 cases is only in Dtcomb,
+          /* Cases 1, 2 and 3 in T1400476-v3. Note that the difference between the 
+           * chi1=chi2=0 case and the chi<0.7 cases is only in Dtcomb, 
            * which is not specified or used in this file.
            */
           modefreqs->data[7] = (2./3. * NRPeakOmega22/finalMass) + (1./3. * creal(modefreqs->data[0]));
@@ -575,7 +574,7 @@ printf("w3 = %f, t3 = %f\n",creal(modefreqs->data[4])*mTot, 1./cimag(modefreqs->
 printf("w4 = %f, t4 = %f\n",creal(modefreqs->data[5])*mTot, 1./cimag(modefreqs->data[5])/mTot);
 */
       }
-      // Move ringdown comb boundaries to sampling points to avoid numerical artifacts.
+      // Move ringdown comb boundaries to sampling points to avoid numerical artifacts. 
       matchrange->data[0] -= fmod( matchrange->data[0], dt/mTot);
       matchrange->data[1] -= fmod( matchrange->data[1], dt/mTot);
      /*for (j = 0; j < nmodes; j++)
@@ -610,7 +609,7 @@ printf("w4 = %f, t4 = %f\n",creal(modefreqs->data[5])*mTot, 1./cimag(modefreqs->
       inspwaves2 = XLALCreateREAL8VectorSequence( 3, 6 );
 
       /* Check memory was allocated */
-      if ( !rdwave1 || !rdwave2 || !rinspwave || !dinspwave
+      if ( !rdwave1 || !rdwave2 || !rinspwave || !dinspwave 
 	   || !ddinspwave || !inspwaves1 || !inspwaves2 )
       {
         XLALDestroyCOMPLEX16Vector( modefreqs );
@@ -633,7 +632,7 @@ printf("w4 = %f, t4 = %f\n",creal(modefreqs->data[5])*mTot, 1./cimag(modefreqs->
 
       /* Generate derivatives of the last part of inspiral waves */
       /* Get derivatives of signal1 */
-      if ( XLALGenerateHybridWaveDerivatives( rinspwave, dinspwave, ddinspwave, timeVec, signal1,
+      if ( XLALGenerateHybridWaveDerivatives( rinspwave, dinspwave, ddinspwave, timeVec, signal1, 
 			matchrange, dt, mass1, mass2 ) == XLAL_FAILURE )
       {
         XLALDestroyCOMPLEX16Vector( modefreqs );
@@ -654,7 +653,7 @@ printf("w4 = %f, t4 = %f\n",creal(modefreqs->data[5])*mTot, 1./cimag(modefreqs->
       }
 
       /* Get derivatives of signal2 */
-      if ( XLALGenerateHybridWaveDerivatives( rinspwave, dinspwave, ddinspwave, timeVec, signal2,
+      if ( XLALGenerateHybridWaveDerivatives( rinspwave, dinspwave, ddinspwave, timeVec, signal2, 
 			matchrange, dt, mass1, mass2 ) == XLAL_FAILURE )
       {
         XLALDestroyCOMPLEX16Vector( modefreqs );
