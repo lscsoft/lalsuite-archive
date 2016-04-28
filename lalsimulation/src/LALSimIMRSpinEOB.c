@@ -521,5 +521,3 @@ int XLALSimIMRSpinEOBWaveform(
   return XLAL_SUCCESS;
 }
 #endif // 0
-
-#endif // _LALSIMIMRSPINEOB_C
