@@ -999,32 +999,60 @@ class NDBins(tuple):
 	"""
 	def __getitem__(self, coords):
 		"""
-		When coords is a tuple, it is interpreted as an
-		N-dimensional co-ordinate which is converted to an N-tuple
-		of bin indices by the Bins instances in this object.
-		Otherwise coords is interpeted as an index into the tuple,
-		and the corresponding Bins instance is returned.
+		When coords is a tuple this is a synonym for self(*coords),
+		otherwise coords is interpreted as an index into ourselves
+		and the Bins object at that index is returned
 
 		Example:
 
 		>>> x = NDBins((LinearBins(1, 25, 3), LogarithmicBins(1, 25, 3)))
 		>>> x[1, 1]
 		(0, 0)
+		>>> # slices can be given syntactically
+		>>> x[10:12, 1]
+		(slice(1, 2, None), 0)
 		>>> type(x[1])
 		<class 'pylal.rate.LogarithmicBins'>
 
-		When used to convert co-ordinates to bin indices, each
-		co-ordinate can be anything the corresponding Bins instance
-		will accept.  Note that the co-ordinates to be converted
-		must be a tuple, even if it is only a 1-dimensional
-		co-ordinate.
+		Note that if the argument is to be interpreted as a
+		co-ordinate it must be a tuple even if it is only a
+		1-dimensional co-ordinate.
+
+		Example:
+
+		>>> x = NDBins((LinearBins(1, 25, 3),))
+		>>> x[1,]
+		(0,)
 		"""
-		if isinstance(coords, tuple):
-			if len(coords) != len(self):
-				raise ValueError("dimension mismatch")
-			return tuple(map(lambda b, c: b[c], self, coords))
-		else:
-			return tuple.__getitem__(self, coords)
+		return self(*coords) if isinstance(coords, tuple) else tuple.__getitem__(self, coords)
+
+	def __call__(self, *coords):
+		"""
+		Convert an N-dimensional co-ordinate to an N-tuple of bin
+		indices using the Bins instances in this object.
+
+		Example:
+
+		>>> x = NDBins((LinearBins(1, 25, 3), LogarithmicBins(1, 25, 3)))
+		>>> x(1, 1)
+		(0, 0)
+		>>> x = NDBins((LinearBins(1, 25, 3),))
+		>>> x(1)
+		(0,)
+		>>> x = NDBins((LinearBins(1, 25, 1000),))
+		>>> # slices require manual construction
+		>>> x(slice(10, 12))
+		(slice(375, 459, None),)
+		>>> x = NDBins((Categories([set(("Cow", "Chicken", "Goat")), set(("Tractor", "Plough")), set(("Barn", "House"))]),))
+		 >>> x("Cow")
+		(0,)
+
+		Each co-ordinate can be anything the corresponding Bins
+		instance will accept.
+		"""
+		if len(coords) != len(self):
+			raise ValueError("dimension mismatch")
+		return tuple(b[c] for b, c in zip(self, coords))
 
 	@property
 	def shape(self):
