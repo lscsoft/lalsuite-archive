@@ -887,7 +887,7 @@ class Categories(Bins):
 	IndexError: -1
 
 	This last example demonstrates the behaviour when the intersection
-	of the categorys is not the empty set.
+	of the categories is not the empty set.
 	"""
 	def __init__(self, categories):
 		"""
