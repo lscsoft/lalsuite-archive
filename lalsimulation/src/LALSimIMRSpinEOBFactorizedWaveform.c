@@ -264,7 +264,10 @@ static INT4 XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
       case 2:
         tplspin = (1.-2.*eta) * chiS + (m1 - m2)/(m1 + m2) * chiA;
         break;
-      default:
+        case 4:
+            tplspin = (1.-2.*eta) * chiS + (m1 - m2)/(m1 + m2) * chiA;
+        break;
+        default:
         XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
         XLAL_ERROR( XLAL_EINVAL );
         break;
@@ -1200,14 +1203,17 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
      Eqs. 20 and 21 of DIN and Eqs. 27a and 27b of PBFRT for delta */
 
   coeffs->delta22vh3 = 7./3.;
-  coeffs->delta22vh6 = -4./3.*(dM*chiA+chiS*(1-2*eta)) + (428.*LAL_PI)/105.;
+  coeffs->delta22vh6 = (-4.*aDelta)/3. + (428.*LAL_PI)/105.;
+  if (SpinAlignedEOBversion == 4) {
+        coeffs->delta22vh6 = -4./3.*(dM*chiA+chiS*(1-2*eta)) + (428.*LAL_PI)/105.;
+  }
   coeffs->delta22v8 = (20.*aDelta)/63.;
   coeffs->delta22vh9 = -2203./81. + (1712.*LAL_PI*LAL_PI)/315.;
   coeffs->delta22v5  = - 24.*eta;
   coeffs->delta22v6 = 0.0;
   if ( SpinAlignedEOBversion == 2 && chiS+chiA*dM/(1.-2.*eta) > 0. )
   {
-     coeffs->delta22v6  = -540. * eta * (chiS+chiA*dM/(1.-2.*eta))*0;
+     coeffs->delta22v6  = -540. * eta * (chiS+chiA*dM/(1.-2.*eta));
   }
 
   coeffs->rho22v2   = -43./42. + (55.*eta)/84.;
@@ -1222,18 +1228,28 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
        coeffs->rho22v4   = -20555./10584. + 0.5*(chiS+chiA*dM)*(chiS+chiA*dM)
                          - (33025.*eta)/21168. + (19583.*eta2)/42336.;
        break;
-     default:
-       XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2!\n", __func__ );
+      case 4:
+          coeffs->rho22v4   = -20555./10584. + 0.5*(chiS+chiA*dM)*(chiS+chiA*dM)
+          - (33025.*eta)/21168. + (19583.*eta2)/42336.;
+          break;
+      default:
+       XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2 or 4!\n", __func__ );
        XLAL_ERROR( XLAL_EINVAL );
        break;
   }
-  coeffs->rho22v5   = (-34./21.+49.*eta/18.+209.*eta2/126.)*chiS +(-34./21.-196.*eta/42.)*dM*chiA;
+  coeffs->rho22v5   = (-34.*a)/21.;
+  if (SpinAlignedEOBversion == 4) {
+      coeffs->rho22v5   = (-34./21.+49.*eta/18.+209.*eta2/126.)*chiS +(-34./21.-196.*eta/42.)*dM*chiA;
+  }
   coeffs->rho22v6   = 1556919113./122245200. + (89.*a2)/252. - (48993925.*eta)/9779616.
        - (6292061.*eta2)/3259872. + (10620745.*eta3)/39118464.
        + (41.*eta*LAL_PI*LAL_PI)/192.;
   coeffs->rho22v6l  = - 428./105.;
+  coeffs->rho22v7   = (18733.*a)/15876. + a*a2/3.;
+  if (SpinAlignedEOBversion == 4) {
     coeffs->rho22v7   = a3/3. + chiA*dM*(18733./15876. + (50140.*eta)/3969. + (97865.*eta2)/63504.) +
     chiS*(18733./15876. + (74749.*eta)/5292. - (245717.*eta2)/63504. + (50803.*eta3)/63504.);
+  }
   switch ( SpinAlignedEOBversion )
   {
      case 1:
@@ -1242,8 +1258,11 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
      case 2:
        coeffs->rho22v8   = -387216563023./160190110080. + (18353.*a2)/21168. - a2*a2/8.;
        break;
-     default:
-       XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2!\n", __func__ );
+      case 4:
+          coeffs->rho22v8   = -387216563023./160190110080. + (18353.*a2)/21168. - a2*a2/8.;
+          break;
+      default:
+       XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2 or 4!\n", __func__ );
        XLAL_ERROR( XLAL_EINVAL );
        break;
    }
@@ -1278,8 +1297,12 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
         coeffs->rho21v2   = -59./56 + (23.*eta)/84.;
         coeffs->rho21v3   = 0.0;
         break;
-      default:
-        XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2!\n", __func__ );
+        case 4:
+            coeffs->rho21v2   = -59./56 + (23.*eta)/84.;
+            coeffs->rho21v3   = 0.0;
+            break;
+        default:
+        XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2 or 4!\n", __func__ );
         XLAL_ERROR( XLAL_EINVAL );
         break;
     }
@@ -1310,8 +1333,11 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
       case 2:
         coeffs->f21v3     = (chiS*dM*(427.+79.*eta)+chiA*(147.+280.*dM*dM+1251.*eta))/84./dM;
         break;
-      default:
-        XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2!\n", __func__ );
+        case 4:
+            coeffs->f21v3     = (chiS*dM*(427.+79.*eta)+chiA*(147.+280.*dM*dM+1251.*eta))/84./dM;
+            break;
+        default:
+        XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2 or 4!\n", __func__ );
         XLAL_ERROR( XLAL_EINVAL );
         break;
     }
@@ -1327,8 +1353,11 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
       case 2:
         coeffs->f21v3     = (chiS*dM*(427.+79.*eta)+chiA*(147.+280.*dM*dM+1251.*eta))/84.;
         break;
-      default:
-        XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2!\n", __func__ );
+        case 4:
+            coeffs->f21v3     = (chiS*dM*(427.+79.*eta)+chiA*(147.+280.*dM*dM+1251.*eta))/84.;
+            break;
+        default:
+        XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2 or 4!\n", __func__ );
         XLAL_ERROR( XLAL_EINVAL );
         break;
     }
@@ -1741,14 +1770,17 @@ UNUSED static int XLALSimIMREOBCalcPrecNoSpinFacWaveformCoefficients(
      Eqs. 20 and 21 of DIN and Eqs. 27a and 27b of PBFRT for delta */
 
   coeffs->delta22vh3 = 7./3.;
-  coeffs->delta22vh6 = (428.*LAL_PI)/105.-4./3.*(dM*chiA+chiS*(1-2*eta));
+  coeffs->delta22vh6 = (428.*LAL_PI)/105.;// +  (-4.*a)/3.;
+  if ( SpinAlignedEOBversion == 4 ) {
+        coeffs->delta22vh6 = (428.*LAL_PI)/105.-4./3.*(dM*chiA+chiS*(1-2*eta));
+  }
   coeffs->delta22v8 = 0.;//(20.*a)/63.;
   coeffs->delta22vh9 = -2203./81. + (1712.*LAL_PI*LAL_PI)/315.;
   coeffs->delta22v5  = - 24.*eta;
   coeffs->delta22v6 = 0.0;
-  if ( SpinAlignedEOBversion == 2 )//&& chiS+chiA*dM/(1.-2.*eta) > 0. )
+  if ( SpinAlignedEOBversion == 2 && chiS+chiA*dM/(1.-2.*eta) > 0. )
   {
-     coeffs->delta22v6  = 0.;//-580. * eta * (chiS+chiA*dM/(1.-2.*eta));
+     coeffs->delta22v6  = -580. * eta * (chiS+chiA*dM/(1.-2.*eta));
   }
 
   coeffs->rho22v2   = -43./42. + (55.*eta)/84.;
@@ -1764,7 +1796,7 @@ UNUSED static int XLALSimIMREOBCalcPrecNoSpinFacWaveformCoefficients(
                          - (33025.*eta)/21168. + (19583.*eta2)/42336.;
        break;
      default:
-       XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2!\n", __func__ );
+       XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2 or 4!\n", __func__ );
        XLAL_ERROR( XLAL_EINVAL );
        break;
   }
@@ -1816,7 +1848,7 @@ UNUSED static int XLALSimIMREOBCalcPrecNoSpinFacWaveformCoefficients(
         coeffs->rho21v3   = 0.0;
         break;
       default:
-        XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2!\n", __func__ );
+        XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2 or 4!\n", __func__ );
         XLAL_ERROR( XLAL_EINVAL );
         break;
     }
@@ -1848,7 +1880,7 @@ UNUSED static int XLALSimIMREOBCalcPrecNoSpinFacWaveformCoefficients(
         coeffs->f21v3     = 0.;//(chiS*dM*(427.+79.*eta)+chiA*(147.+280.*dM*dM+1251.*eta))/84./dM;
         break;
       default:
-        XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2!\n", __func__ );
+        XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2 or 4!\n", __func__ );
         XLAL_ERROR( XLAL_EINVAL );
         break;
     }
@@ -2263,7 +2295,10 @@ UNUSED static int XLALSimIMREOBCalcPrecSpinFacWaveformCoefficients(
      Eqs. 20 and 21 of DIN and Eqs. 27a and 27b of PBFRT for delta */
 
   //coeffs->delta22vh3 = 7./3.;
-  coeffs->delta22vh6S = /*(428.*LAL_PI)/105. +*/  -4./3.*(dM*chiA+chiS*(1-2*eta));
+  coeffs->delta22vh6S = /*(428.*LAL_PI)/105. +*/  (-4.*a)/3.;
+    if ( SpinAlignedEOBversion == 4 ) {
+        coeffs->delta22vh6S = /*(428.*LAL_PI)/105. +*/  -4./3.*(dM*chiA+chiS*(1-2*eta));
+    }
   coeffs->delta22v8S = (20.*a)/63.;
   //coeffs->delta22vh9 = -2203./81. + (1712.*LAL_PI*LAL_PI)/315.;
   //coeffs->delta22v5  = - 24.*eta;
@@ -2286,18 +2321,24 @@ UNUSED static int XLALSimIMREOBCalcPrecSpinFacWaveformCoefficients(
                          //- (33025.*eta)/21168. + (19583.*eta2)/42336.;
        break;
      default:
-       XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2!\n", __func__ );
+       XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2 or 4!\n", __func__ );
        XLAL_ERROR( XLAL_EINVAL );
        break;
   }
-  coeffs->rho22v5S  = (-34./21.+49.*eta/18.+209.*eta2/126.)*chiS +(-34./21.-196.*eta/42.)*dM*chiA;
+  coeffs->rho22v5S  = (-34.*a)/21.;
+  if ( SpinAlignedEOBversion == 4 ) {
+      coeffs->rho22v5S  = (-34./21.+49.*eta/18.+209.*eta2/126.)*chiS +(-34./21.-196.*eta/42.)*dM*chiA;
+  }
   coeffs->rho22v6S  = /*1556919113./122245200. +*/ (89.*a2)/252.;
                     //- (48993925.*eta)/9779616.
                     //- (6292061.*eta2)/3259872. + (10620745.*eta3)/39118464.
                     //+ (41.*eta*LAL_PI*LAL_PI)/192.;
   //coeffs->rho22v6l  = - 428./105.;
-    coeffs->rho22v7S   = a3/3. + chiA*dM*(18733./15876. + (50140.*eta)/3969. + (97865.*eta2)/63504.) +
-    chiS*(18733./15876. + (74749.*eta)/5292. - (245717.*eta2)/63504. + (50803.*eta3)/63504.);
+    coeffs->rho22v7S   = (18733.*a)/15876. + a*a2/3.;
+      if ( SpinAlignedEOBversion == 4 ) {
+          coeffs->rho22v7S   = a3/3. + chiA*dM*(18733./15876. + (50140.*eta)/3969. + (97865.*eta2)/63504.) +
+          chiS*(18733./15876. + (74749.*eta)/5292. - (245717.*eta2)/63504. + (50803.*eta3)/63504.);
+      }
   switch ( SpinAlignedEOBversion )
   {
      case 1:
@@ -2339,7 +2380,7 @@ UNUSED static int XLALSimIMREOBCalcPrecSpinFacWaveformCoefficients(
         coeffs->rho21v3S   = 0.0;
         break;
       default:
-        XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2!\n", __func__ );
+        XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2 or 4!\n", __func__ );
         XLAL_ERROR( XLAL_EINVAL );
         break;
     }
@@ -2371,7 +2412,7 @@ UNUSED static int XLALSimIMREOBCalcPrecSpinFacWaveformCoefficients(
         coeffs->f21v3S     = (chiS*dM*(427.+79.*eta)+chiA*(147.+280.*dM*dM+1251.*eta))/84./dM;
         break;
       default:
-        XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2!\n", __func__ );
+        XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2 or 4!\n", __func__ );
         XLAL_ERROR( XLAL_EINVAL );
         break;
     }
@@ -2388,7 +2429,7 @@ UNUSED static int XLALSimIMREOBCalcPrecSpinFacWaveformCoefficients(
         coeffs->f21v3S     = (chiS*dM*(427.+79.*eta)+chiA*(147.+280.*dM*dM+1251.*eta))/84.;
         break;
       default:
-        XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2!\n", __func__ );
+        XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2 or 4!\n", __func__ );
         XLAL_ERROR( XLAL_EINVAL );
         break;
     }

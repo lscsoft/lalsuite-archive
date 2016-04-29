@@ -282,21 +282,35 @@ int XLALSimIMRSpinAlignedEOBWaveform(
         UINT4           SpinAlignedEOBversion /**<< 1 for SEOBNRv1, 2 for SEOBNRv2, 4 for SEOBNRv4 */
      )
 {
-  INT4 use_v4 = 0;
-  if(SpinAlignedEOBversion==4) { SpinAlignedEOBversion=2; use_v4 = 1;}
   INT4 use_optimized_v2=0;
   /* If we want SEOBNRv2_opt, then reset SpinAlignedEOBversion=2 and set use_optimized_v2=1 */
   if(SpinAlignedEOBversion==200) { SpinAlignedEOBversion=2; use_optimized_v2=1; }
 
   /* If the EOB version flag is neither 1 nor 2, exit */
-  if (SpinAlignedEOBversion != 1 && SpinAlignedEOBversion != 2)
+  if (SpinAlignedEOBversion != 1 && SpinAlignedEOBversion != 2 && SpinAlignedEOBversion != 4)
   {
     XLALPrintError("XLAL Error - %s: SEOBNR version flag incorrectly set to %u\n",
         __func__, SpinAlignedEOBversion);
     XLAL_ERROR( XLAL_EERR );
   }
 
-  Approximant SpinAlignedEOBapproximant = (SpinAlignedEOBversion == 1) ? SEOBNRv1 : SEOBNRv2;
+    Approximant SpinAlignedEOBapproximant;
+    switch (SpinAlignedEOBversion) {
+        case 1:
+            SpinAlignedEOBapproximant = SEOBNRv1;
+            break;
+        case 2:
+            SpinAlignedEOBapproximant = SEOBNRv2;
+            break;
+        case 4:
+            SpinAlignedEOBapproximant = SEOBNRv4;
+            break;
+        default:
+            XLALPrintError("XLAL Error - %s: SEOBNR version flag incorrectly set to %u\n",
+                           __func__, SpinAlignedEOBversion);
+            XLAL_ERROR( XLAL_EERR );
+            break;
+    }
 
   /* 
    * Check spins
@@ -313,9 +327,9 @@ int XLALSimIMRSpinAlignedEOBWaveform(
     XLAL_ERROR( XLAL_EINVAL );
   }
  /* For v2 the upper bound is 0.99 */
-  if ( (SpinAlignedEOBversion == 2) && ( spin1z > 0.99 || spin2z > 0.99 ))
+  if ( (SpinAlignedEOBversion == 2 || SpinAlignedEOBversion == 4) && ( spin1z > 0.99 || spin2z > 0.99 ))
   {
-    XLALPrintError( "XLAL Error - %s: Component spin larger than 0.99!\nSEOBNRv2 and SEOBNRv2_opt are only available for spins in the range -1 < a/M < 0.99.\n", __func__);
+    XLALPrintError( "XLAL Error - %s: Component spin larger than 0.99!\nSEOBNRv2, SEOBNRv4 and SEOBNRv2_opt are only available for spins in the range -1 < a/M < 0.99.\n", __func__);
     XLAL_ERROR( XLAL_EINVAL );
   }
 
@@ -426,9 +440,9 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   eta    = m1 * m2 / (mTotal*mTotal);
     
     /* For v2 the upper bound is mass ratio 100 */
-    if ( SpinAlignedEOBversion == 2 && eta < 100./101./101.)
+    if ( (SpinAlignedEOBversion == 2 || SpinAlignedEOBversion == 4) && eta < 100./101./101.)
     {
-        XLALPrintError( "XLAL Error - %s: Mass ratio larger than 100!\nSEOBNRv2 and SEOBNRv2_opt are only available for mass ratios up to 100.\n", __func__);
+        XLALPrintError( "XLAL Error - %s: Mass ratio larger than 100!\nSEOBNRv2, SEOBNRv4 and SEOBNRv2_opt are only available for mass ratios up to 100.\n", __func__);
         XLAL_ERROR( XLAL_EINVAL );
     }
 
@@ -590,7 +604,10 @@ int XLALSimIMRSpinAlignedEOBWaveform(
      case 2:
        tplspin = (1.-2.*eta) * chiS + (m1 - m2)/(m1 + m2) * chiA;
        break;
-     default:
+      case 4:
+        tplspin = (1.-2.*eta) * chiS + (m1 - m2)/(m1 + m2) * chiA;
+        break;
+      default:
        XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
        XLAL_ERROR( XLAL_EINVAL );
        break;
@@ -639,30 +656,29 @@ int XLALSimIMRSpinAlignedEOBWaveform(
        }
        break;
      case 2:
-       if ( use_v4 == 0) {
-           if ( XLALSimIMRGetEOBCalibratedSpinNQC3D( &nqcCoeffs, 2, 2, m1, m2, a, chiA ) == XLAL_FAILURE )
-           {
-               XLAL_ERROR( XLAL_EFUNC );
-           }
-       }
+        if ( XLALSimIMRGetEOBCalibratedSpinNQC3D( &nqcCoeffs, 2, 2, m1, m2, a, chiA ) == XLAL_FAILURE )
+        {
+            XLAL_ERROR( XLAL_EFUNC );
+        }
        break;
+     case 4:
+          nqcCoeffs.a1 = 0.;
+          nqcCoeffs.a2 = 0.;
+          nqcCoeffs.a3 = 0.;
+          nqcCoeffs.a3S = 0.;
+          nqcCoeffs.a4 = 0.;
+          nqcCoeffs.a5 = 0.;
+          nqcCoeffs.b1 = 0.;
+          nqcCoeffs.b2 = 0.;
+          nqcCoeffs.b3 = 0.;
+          nqcCoeffs.b4 = 0.;
+     break;
      default:
        XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
        XLAL_ERROR( XLAL_EINVAL );
        break;
   }
-    if (use_v4==1) {
-        nqcCoeffs.a1 = 0.;
-        nqcCoeffs.a2 = 0.;
-        nqcCoeffs.a3 = 0.;
-        nqcCoeffs.a3S = 0.;
-        nqcCoeffs.a4 = 0.;
-        nqcCoeffs.a5 = 0.;
-        nqcCoeffs.b1 = 0.;
-        nqcCoeffs.b2 = 0.;
-        nqcCoeffs.b3 = 0.;
-        nqcCoeffs.b4 = 0.;
-    }
+
   /*
    * STEP 1) Solve for initial conditions
    */
@@ -1047,14 +1063,14 @@ int XLALSimIMRSpinAlignedEOBWaveform(
     printf("timePeak %.16e\n",timePeak);
 #endif
   /* Calculate phase NQC coefficients */
-    if ( use_v4 == 0) {
+    if ( SpinAlignedEOBversion == 2) {
         if ( XLALSimIMRSpinEOBCalculateNQCCoefficients( ampNQC, phaseNQC, &rHi, &prHi, omegaHi,
           2, 2, timePeak, deltaTHigh/mTScaled, m1, m2, a, chiA, chiS, &nqcCoeffs, SpinAlignedEOBversion ) == XLAL_FAILURE )
         {
             XLAL_ERROR( XLAL_EFUNC );
         }
     }
-    else {
+    if ( SpinAlignedEOBversion == 4) {
         if ( XLALSimIMRSpinEOBCalculateNQCCoefficientsV4( ampNQC, phaseNQC, &rHi, &prHi, omegaHi,
                                                              2, 2, timePeak, deltaTHigh/mTScaled, m1, m2, a, chiA, chiS, &nqcCoeffs, SpinAlignedEOBversion ) == XLAL_FAILURE )
         {
@@ -1071,12 +1087,10 @@ int XLALSimIMRSpinAlignedEOBWaveform(
      timewavePeak = XLALSimIMREOBGetNRSpinPeakDeltaT(2, 2, eta,  a);
        break;
      case 2:
-     if ( use_v4 == 0 ) {
         timewavePeak = XLALSimIMREOBGetNRSpinPeakDeltaT(2, 2, eta, a );
-     }
-     else {
+        break;
+      case 4:
         timewavePeak = XLALSimIMREOBGetNRSpinPeakDeltaTv4(2, 2, m1, m2, spin1z, spin2z );
-     }
        break;
      default:
        XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
@@ -1150,7 +1164,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   /* Modify the combsize for SEOBNRv2 */
   /* If chi1=chi2=0, comb = 11. if chi < 0.8, comb = 12. if chi >= 0.8, comb =
    * 13.5 */
-  if( SpinAlignedEOBversion == 2 )
+  if( SpinAlignedEOBversion == 2 || SpinAlignedEOBversion == 4 )
   {
     combSize = (spin1[2] == 0. && spin2[2] == 0.) ? 11. : (( eta > 10./121. && chi >= 0.8 ) ? 8.5 : 12.);
     if ( (eta > 30./31./31. && eta <= 10./121. && chi >= 0.8) || (eta <= 30./31./31. && chi >= 0.8 && chi < 0.9) )
@@ -1159,7 +1173,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
 
   REAL8 timeshiftPeak;
   timeshiftPeak = timePeak - timewavePeak;
-  if ( SpinAlignedEOBversion == 2)
+  if ( SpinAlignedEOBversion == 2 || SpinAlignedEOBversion == 4)
   {
     timeshiftPeak = (timePeak - timewavePeak) > 0. ? (timePeak - timewavePeak) : 0.;
   }
@@ -1188,7 +1202,8 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   #endif
   rdMatchPoint->data[0] -= fmod( rdMatchPoint->data[0], deltaTHigh/mTScaled );
   rdMatchPoint->data[1] -= fmod( rdMatchPoint->data[1], deltaTHigh/mTScaled );
-  if ( use_v4 == 0 ) {
+  if ( SpinAlignedEOBversion == 1 || SpinAlignedEOBversion == 2)
+  {
       if ( XLALSimIMREOBHybridAttachRingdown( sigReHi, sigImHi, 2, 2,
               deltaTHigh, m1, m2, spin1[0], spin1[1], spin1[2], spin2[0], spin2[1], spin2[2],
               &timeHi, rdMatchPoint, SpinAlignedEOBapproximant )
@@ -1197,7 +1212,8 @@ int XLALSimIMRSpinAlignedEOBWaveform(
           XLAL_ERROR( XLAL_EFUNC );
       }
   }
-  else {
+  else if ( SpinAlignedEOBversion == 4)
+{
       if ( XLALSimIMREOBAttachFitRingdown( sigReHi, sigImHi, 2, 2,
               deltaTHigh, m1, m2, spin1[0], spin1[1], spin1[2], spin2[0], spin2[1], spin2[2],
               &timeHi, rdMatchPoint, SpinAlignedEOBapproximant )
