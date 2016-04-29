@@ -279,10 +279,11 @@ int XLALSimIMRSpinAlignedEOBWaveform(
         const REAL8     inc,         /**<< inclination angle */
         const REAL8     spin1z,      /**<< z-component of spin-1, dimensionless */
         const REAL8     spin2z,       /**<< z-component of spin-2, dimensionless */
-        UINT4           SpinAlignedEOBversion /**<< 1 for SEOBNRv1, 2 for SEOBNRv2 */
+        UINT4           SpinAlignedEOBversion /**<< 1 for SEOBNRv1, 2 for SEOBNRv2, 4 for SEOBNRv4 */
      )
 {
-
+  INT4 use_v4 = 0;
+  if(SpinAlignedEOBversion==4) { SpinAlignedEOBversion=2; use_v4 = 1;}
   INT4 use_optimized_v2=0;
   /* If we want SEOBNRv2_opt, then reset SpinAlignedEOBversion=2 and set use_optimized_v2=1 */
   if(SpinAlignedEOBversion==200) { SpinAlignedEOBversion=2; use_optimized_v2=1; }
@@ -638,9 +639,11 @@ int XLALSimIMRSpinAlignedEOBWaveform(
        }
        break;
      case 2:
-       if ( XLALSimIMRGetEOBCalibratedSpinNQC3D( &nqcCoeffs, 2, 2, m1, m2, a, chiA ) == XLAL_FAILURE )
-       {
-         XLAL_ERROR( XLAL_EFUNC );
+       if ( use_v4 == 0) {
+           if ( XLALSimIMRGetEOBCalibratedSpinNQC3D( &nqcCoeffs, 2, 2, m1, m2, a, chiA ) == XLAL_FAILURE )
+           {
+               XLAL_ERROR( XLAL_EFUNC );
+           }
        }
        break;
      default:
@@ -648,17 +651,18 @@ int XLALSimIMRSpinAlignedEOBWaveform(
        XLAL_ERROR( XLAL_EINVAL );
        break;
   }
-    nqcCoeffs.a1 = 0.;
-    nqcCoeffs.a2 = 0.;
-    nqcCoeffs.a3 = 0.;
-    nqcCoeffs.a3S = 0.;
-    nqcCoeffs.a4 = 0.;
-    nqcCoeffs.a5 = 0.;
-    nqcCoeffs.b1 = 0.;
-    nqcCoeffs.b2 = 0.;
-    nqcCoeffs.b3 = 0.;
-    nqcCoeffs.b4 = 0.;
-
+    if (use_v4==1) {
+        nqcCoeffs.a1 = 0.;
+        nqcCoeffs.a2 = 0.;
+        nqcCoeffs.a3 = 0.;
+        nqcCoeffs.a3S = 0.;
+        nqcCoeffs.a4 = 0.;
+        nqcCoeffs.a5 = 0.;
+        nqcCoeffs.b1 = 0.;
+        nqcCoeffs.b2 = 0.;
+        nqcCoeffs.b3 = 0.;
+        nqcCoeffs.b4 = 0.;
+    }
   /*
    * STEP 1) Solve for initial conditions
    */
@@ -1043,11 +1047,20 @@ int XLALSimIMRSpinAlignedEOBWaveform(
     printf("timePeak %.16e\n",timePeak);
 #endif
   /* Calculate phase NQC coefficients */
-  if ( XLALSimIMRSpinEOBCalculateNQCCoefficientsV4( ampNQC, phaseNQC, &rHi, &prHi, omegaHi,
+    if ( use_v4 == 0) {
+        if ( XLALSimIMRSpinEOBCalculateNQCCoefficients( ampNQC, phaseNQC, &rHi, &prHi, omegaHi,
           2, 2, timePeak, deltaTHigh/mTScaled, m1, m2, a, chiA, chiS, &nqcCoeffs, SpinAlignedEOBversion ) == XLAL_FAILURE )
-  {
-    XLAL_ERROR( XLAL_EFUNC );
-  }
+        {
+            XLAL_ERROR( XLAL_EFUNC );
+        }
+    }
+    else {
+        if ( XLALSimIMRSpinEOBCalculateNQCCoefficientsV4( ampNQC, phaseNQC, &rHi, &prHi, omegaHi,
+                                                             2, 2, timePeak, deltaTHigh/mTScaled, m1, m2, a, chiA, chiS, &nqcCoeffs, SpinAlignedEOBversion ) == XLAL_FAILURE )
+        {
+            XLAL_ERROR( XLAL_EFUNC );
+        }
+    }
 #if debugOutput
     printf("Only spin NQC should be 0 here: %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n", nqcCoeffs.a1, nqcCoeffs.a2, nqcCoeffs.a3, nqcCoeffs.a3S, nqcCoeffs.a4, nqcCoeffs.a5, nqcCoeffs.b1, nqcCoeffs.b2, nqcCoeffs.b3, nqcCoeffs.b4);
 #endif
@@ -1058,7 +1071,12 @@ int XLALSimIMRSpinAlignedEOBWaveform(
      timewavePeak = XLALSimIMREOBGetNRSpinPeakDeltaT(2, 2, eta,  a);
        break;
      case 2:
-     timewavePeak = XLALSimIMREOBGetNRSpinPeakDeltaTv4(2, 2, m1, m2, spin1z, spin2z );
+     if ( use_v4 == 0 ) {
+        timewavePeak = XLALSimIMREOBGetNRSpinPeakDeltaT(2, 2, eta, a );
+     }
+     else {
+        timewavePeak = XLALSimIMREOBGetNRSpinPeakDeltaTv4(2, 2, m1, m2, spin1z, spin2z );
+     }
        break;
      default:
        XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
@@ -1170,19 +1188,23 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   #endif
   rdMatchPoint->data[0] -= fmod( rdMatchPoint->data[0], deltaTHigh/mTScaled );
   rdMatchPoint->data[1] -= fmod( rdMatchPoint->data[1], deltaTHigh/mTScaled );
-  //if ( XLALSimIMREOBHybridAttachRingdown( sigReHi, sigImHi, 2, 2,
-  //            deltaTHigh, m1, m2, spin1[0], spin1[1], spin1[2], spin2[0], spin2[1], spin2[2],
-  //            &timeHi, rdMatchPoint, SpinAlignedEOBapproximant )
-  //        == XLAL_FAILURE ) 
-  //{
-  //  XLAL_ERROR( XLAL_EFUNC );
-  //}
-  if ( XLALSimIMREOBAttachFitRingdown( sigReHi, sigImHi, 2, 2,
+  if ( use_v4 == 0 ) {
+      if ( XLALSimIMREOBHybridAttachRingdown( sigReHi, sigImHi, 2, 2,
               deltaTHigh, m1, m2, spin1[0], spin1[1], spin1[2], spin2[0], spin2[1], spin2[2],
               &timeHi, rdMatchPoint, SpinAlignedEOBapproximant )
           == XLAL_FAILURE ) 
-  {
-    XLAL_ERROR( XLAL_EFUNC );
+      {
+          XLAL_ERROR( XLAL_EFUNC );
+      }
+  }
+  else {
+      if ( XLALSimIMREOBAttachFitRingdown( sigReHi, sigImHi, 2, 2,
+              deltaTHigh, m1, m2, spin1[0], spin1[1], spin1[2], spin2[0], spin2[1], spin2[2],
+              &timeHi, rdMatchPoint, SpinAlignedEOBapproximant )
+          == XLAL_FAILURE ) 
+      {
+          XLAL_ERROR( XLAL_EFUNC );
+      }
   }
 
   /*
