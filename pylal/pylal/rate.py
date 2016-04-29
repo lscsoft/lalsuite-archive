@@ -1379,8 +1379,13 @@ class BinnedArray(object):
 		"""
 		Convert into a probability density.
 		"""
-		self.array /= self.array.sum()  # make sum = 1
-		self.to_density()	# make integral = 1
+		# zero bins whose volumes are infinite so the rest will
+		# appear to be normalized
+		self.array[numpy.isinf(self.bins.volumes())] = 0.
+		# make sum = 1
+		self.array /= self.array.sum()
+		# make integral = 1
+		self.to_density()
 
 	def logregularize(self, epsilon = 2**-1074):
 		"""
