@@ -498,6 +498,10 @@ static int XLALSimIMRCalculateSpinEOBHCoeffs(
   {
      coeffs->KK = KK = c20 + c21*eta + c22*eta*eta + c23*eta*eta*eta;
   }
+ if ( SpinAlignedEOBversion == 4)
+ {
+      coeffs->KK = KK =0.800335693374571;
+ }
 
   m1PlusEtaKK = -1. + eta*KK;
   /* Eqs. 5.77 - 5.81 of BB1 */
@@ -512,7 +516,7 @@ static int XLALSimIMRCalculateSpinEOBHCoeffs(
       96.*k1*(k3 + 2.*k2*m1PlusEtaKK) - m1PlusEtaKK*(192.*k3 + m1PlusEtaKK*(-3008. + 123.*LAL_PI*LAL_PI)))/96.;
   coeffs->k5 = k5 = 0.0;
   coeffs->k5l= k5l= 0.0;
-  if ( SpinAlignedEOBversion == 2 )
+  if ( SpinAlignedEOBversion == 2 ||  SpinAlignedEOBversion == 4 )
   {
     coeffs->k5 = k5 = m1PlusEtaKK*m1PlusEtaKK
 	       * (-4237./60.+128./5.*LAL_GAMMA+2275.*LAL_PI*LAL_PI/512.
@@ -539,6 +543,10 @@ static int XLALSimIMRCalculateSpinEOBHCoeffs(
        coeffs->d1v2 = -74.71 - 156.*eta + 627.5*eta*eta;
        coeffs->dheffSSv2 = 8.127 - 154.2*eta + 830.8*eta*eta;
        break;
+      case 4:
+        coeffs->d1v2 = -91.174155251812138;
+        coeffs->dheffSSv2 = 4.0449642458637181;
+        break;
      default:
        XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2!\n", __func__ );
        XLAL_ERROR( XLAL_EINVAL );
