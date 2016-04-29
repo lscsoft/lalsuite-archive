@@ -2874,19 +2874,19 @@ int XLALSimIMRSpinEOBWaveformAll_opt(
      gsl_spline_free(spline);
      gsl_interp_accel_free(acc);
 
-     hIMRlmJTS = XLALSphHarmTimeSeriesAddMode( hIMRlmJTS, hIMRJTS, 2, k );
+     hMRJlo = XLALSphHarmTimeSeriesAddMode( hMRJlo, hMRJlo2m, 2, k );
   }
   for (i=0; i<(int)tlistRDPatch->length; i++){
       timeJFull->data[i] = tlistRDPatch->data[i];
   }
-  XLALSphHarmTimeSeriesSetTData( hIMRlmJTS, timeJFull );
+  XLALSphHarmTimeSeriesSetTData( hMRJlo, timeJFull );
   if (debugPK){ XLAL_PRINT_INFO("Stas: J-wave with RD  generated.\n"); fflush(NULL); }
 
-  hIMR22JTS  = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 2 );
-  hIMR21JTS  = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 1 );
-  hIMR20JTS  = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 0 );
-  hIMR2m1JTS = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, -1);
-  hIMR2m2JTS = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, -2);
+  hIMR22JTS  = XLALSphHarmTimeSeriesGetMode( hMRJlo, 2, 2 );
+  hIMR21JTS  = XLALSphHarmTimeSeriesGetMode( hMRJlo, 2, 1 );
+  hIMR20JTS  = XLALSphHarmTimeSeriesGetMode( hMRJlo, 2, 0 );
+  hIMR2m1JTS = XLALSphHarmTimeSeriesGetMode( hMRJlo, 2, -1);
+  hIMR2m2JTS = XLALSphHarmTimeSeriesGetMode( hMRJlo, 2, -2);
 
   if (debugPK){
      out = fopen( "JIMRWaves.dat", "w" );
