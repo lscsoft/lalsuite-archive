@@ -302,20 +302,7 @@ void LALInferenceROQWrapperForXLALSimInspiralChooseFDWaveformSequence(LALInferen
     
     REAL8 instant = model->freqhPlus->epoch.gpsSeconds + 1e-9*model->freqhPlus->epoch.gpsNanoSeconds;
     LALInferenceSetVariable(model->params, "time", &instant);
-      else
-        eta = *(REAL8*) LALInferenceGetVariable(model->params, "eta");
-        mc       = *(REAL8*) LALInferenceGetVariable(model->params, "chirpmass");
-      mc2masses(mc, eta, &m1, &m2);
-    }
-    /* external: SI; internal: solar masses */
-    const REAL8 m = m1 + m2;
-    const REAL8 m_sec = m * LAL_MTSUN_SI;  /* total mass in seconds */
-    const REAL8 r = 1e6*LAL_PC_SI;
-    double amp_squared;
 
-    amp_squared = pow( pow(m_sec, 5./6.) * sqrt(5.*eta / 24.) / (Pi_p2by3 * r / LAL_C_SI), 2. );
-
-    *(model->roq->amp_squared) = amp_squared;
         return;
 }
 
