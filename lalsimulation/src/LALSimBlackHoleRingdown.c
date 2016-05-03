@@ -749,7 +749,24 @@ INT4 XLALSimIMREOBFinalMassSpin(
       *finalMass = 1 - 0.057191 * eta - 0.498 * eta2;
       *finalSpin = 3.464102 * eta - 2.9 * eta2;
       break;
-    case SEOBNRv2:
+      case SEOBNRv4:
+          /* See page 3 of the dcc document T1400476-v3, quantities MFinal and aFinal, for expressions below. */
+          a1     = spin1[2];
+          a2     = spin2[2];
+          q      = mass1 / mass2;
+          atl    = ( a1 + a2 /q/q) / (1.+1./q)/(1.+ 1./q);
+          tmpVar = ( a1 + a2 /q/q) / (1.+1./q/q);
+          z1 = 1. + pow( 1.-atl*atl, 1./3.) * ( pow( 1.+atl, 1./3. ) + pow( 1.-atl, 1./3. ) );
+          z2 = sqrt( 3.*atl*atl + z1*z1 );
+          rISCO = 3. + z2 - ( atl<0. ? -1. : 1. ) * sqrt( (3.-z1) * (3.+z1+2.*z2) );
+          eISCO = sqrt( 1. - 2./(3.*rISCO) );
+          *finalMass = 1. - ( (1.-eISCO)*eta
+                             + 16.*eta*eta*( 0.00258 - 0.0773/(1./((1.+1/q/q)/(1.+1/q)/(1.+1/q))*atl-1.6939) - 0.25*(1.-eISCO)) );
+          *finalSpin = tmpVar + tmpVar*eta*( s9*eta*tmpVar*tmpVar + s8*eta*eta*tmpVar + s7*eta*tmpVar
+                                            + s6*tmpVar*tmpVar + s4v2*tmpVar + s5v2*eta + t0v2)
+          + eta*( 2.*sqrt(3.) + t2v2*eta + t3v2 *eta*eta );
+          break;
+      case SEOBNRv2:
       /* See page 3 of the dcc document T1400476-v3, quantities MFinal and aFinal, for expressions below. */
       a1     = spin1[2];
       a2     = spin2[2];

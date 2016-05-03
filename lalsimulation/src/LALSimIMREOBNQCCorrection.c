@@ -1700,50 +1700,50 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
     }
     
     /* We need the calibrated non-spinning NQC coefficients */
-    switch ( SpinAlignedEOBversion)
-    {
-        case 1:
-            if ( XLALSimIMRGetEOBCalibratedSpinNQC( coeffs, l, m, eta, a ) == XLAL_FAILURE )
-            {
-                XLALDestroyREAL8Vector( timeVec );
-                XLALDestroyREAL8Vector( q3 );
-                XLALDestroyREAL8Vector( q4 );
-                XLALDestroyREAL8Vector( q5 );
-                XLALDestroyREAL8Vector( p3 );
-                XLALDestroyREAL8Vector( p4 );
-                XLALDestroyREAL8Vector( qNS );
-                XLALDestroyREAL8Vector( pNS );
-                XLALDestroyREAL8Vector( q3LM );
-                XLALDestroyREAL8Vector( q4LM );
-                XLALDestroyREAL8Vector( q5LM );
-                XLALDestroyREAL8Vector( qNSLM );
-                XLAL_ERROR( XLAL_EFUNC );
-            }
-            break;
-        case 2:
-            // if ( XLALSimIMRGetEOBCalibratedSpinNQCv2( coeffs, l, m, eta, a ) == XLAL_FAILURE )
-            if ( XLALSimIMRGetEOBCalibratedSpinNQC3D( coeffs, l, m, m1, m2, a, chiA ) == XLAL_FAILURE )
-            {
-                XLALDestroyREAL8Vector( timeVec );
-                XLALDestroyREAL8Vector( q3 );
-                XLALDestroyREAL8Vector( q4 );
-                XLALDestroyREAL8Vector( q5 );
-                XLALDestroyREAL8Vector( p3 );
-                XLALDestroyREAL8Vector( p4 );
-                XLALDestroyREAL8Vector( qNS );
-                XLALDestroyREAL8Vector( pNS );
-                XLALDestroyREAL8Vector( q3LM );
-                XLALDestroyREAL8Vector( q4LM );
-                XLALDestroyREAL8Vector( q5LM );
-                XLALDestroyREAL8Vector( qNSLM );
-                XLAL_ERROR( XLAL_EFUNC );
-            }
-            break;
-        default:
-            XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
-            XLAL_ERROR( XLAL_EINVAL );
-            break;
-    }
+//    switch ( SpinAlignedEOBversion)
+//    {
+//        case 1:
+//            if ( XLALSimIMRGetEOBCalibratedSpinNQC( coeffs, l, m, eta, a ) == XLAL_FAILURE )
+//            {
+//                XLALDestroyREAL8Vector( timeVec );
+//                XLALDestroyREAL8Vector( q3 );
+//                XLALDestroyREAL8Vector( q4 );
+//                XLALDestroyREAL8Vector( q5 );
+//                XLALDestroyREAL8Vector( p3 );
+//                XLALDestroyREAL8Vector( p4 );
+//                XLALDestroyREAL8Vector( qNS );
+//                XLALDestroyREAL8Vector( pNS );
+//                XLALDestroyREAL8Vector( q3LM );
+//                XLALDestroyREAL8Vector( q4LM );
+//                XLALDestroyREAL8Vector( q5LM );
+//                XLALDestroyREAL8Vector( qNSLM );
+//                XLAL_ERROR( XLAL_EFUNC );
+//            }
+//            break;
+//        case 2:
+//            // if ( XLALSimIMRGetEOBCalibratedSpinNQCv2( coeffs, l, m, eta, a ) == XLAL_FAILURE )
+//            if ( XLALSimIMRGetEOBCalibratedSpinNQC3D( coeffs, l, m, m1, m2, a, chiA ) == XLAL_FAILURE )
+//            {
+//                XLALDestroyREAL8Vector( timeVec );
+//                XLALDestroyREAL8Vector( q3 );
+//                XLALDestroyREAL8Vector( q4 );
+//                XLALDestroyREAL8Vector( q5 );
+//                XLALDestroyREAL8Vector( p3 );
+//                XLALDestroyREAL8Vector( p4 );
+//                XLALDestroyREAL8Vector( qNS );
+//                XLALDestroyREAL8Vector( pNS );
+//                XLALDestroyREAL8Vector( q3LM );
+//                XLALDestroyREAL8Vector( q4LM );
+//                XLALDestroyREAL8Vector( q5LM );
+//                XLALDestroyREAL8Vector( qNSLM );
+//                XLAL_ERROR( XLAL_EFUNC );
+//            }
+//            break;
+//        default:
+//            XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
+//            XLAL_ERROR( XLAL_EINVAL );
+//            break;
+//    }
     
     /* Populate vectors as necessary. Eqs. 14 - 17 of the LIGO DCC document T1100433v2 */
 //        FILE *out = fopen( "out.dat","w");
@@ -1819,6 +1819,9 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
             nrDeltaT   = XLALSimIMREOBGetNRSpinPeakDeltaT( l, m, eta, a );
             break;
         case 2:
+            nrDeltaT   = XLALSimIMREOBGetNRSpinPeakDeltaT( l, m, eta, a );
+            break;
+        case 4:
             nrDeltaT   = XLALSimIMREOBGetNRSpinPeakDeltaTv4( l, m, m1, m2, chi1, chi2 );
             break;
         default:
@@ -2033,26 +2036,13 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
     coeffs->a5  = 0.;
     coeffs->b3  = 0.;
     coeffs->b4  = 0.;
-    switch ( SpinAlignedEOBversion )
-    {
-        case 1:
-            coeffs->b3  = gsl_vector_get( bCoeff, 0 );
-            coeffs->b4  = gsl_vector_get( bCoeff, 1 );
-            break;
-        case 2:
-            coeffs->a1  = gsl_vector_get( aCoeff, 0 );
-            coeffs->a2  = gsl_vector_get( aCoeff, 1 );
-            coeffs->a3  = gsl_vector_get( aCoeff, 2 );
-            coeffs->b1  = gsl_vector_get( bCoeff, 0 );
-            coeffs->b2  = gsl_vector_get( bCoeff, 1 );
-            break;
-        default:
-            XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
-            XLAL_ERROR( XLAL_EINVAL );
-            break;
-    }
-    coeffs->b3  *= 1.0;
-    coeffs->b4  *= 1.0;
+
+    coeffs->a1  = gsl_vector_get( aCoeff, 0 );
+    coeffs->a2  = gsl_vector_get( aCoeff, 1 );
+    coeffs->a3  = gsl_vector_get( aCoeff, 2 );
+    coeffs->b1  = gsl_vector_get( bCoeff, 0 );
+    coeffs->b2  = gsl_vector_get( bCoeff, 1 );
+
     //  coeffs->b3  = -778.891568845;
     //  coeffs->b4  = 1237.46952422;
     //  coeffs->b3  = -876.669217307;
