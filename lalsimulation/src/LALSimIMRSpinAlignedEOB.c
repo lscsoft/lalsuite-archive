@@ -285,6 +285,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   INT4 use_optimized_v2=0;
   /* If we want SEOBNRv2_opt, then reset SpinAlignedEOBversion=2 and set use_optimized_v2=1 */
   if(SpinAlignedEOBversion==200) { SpinAlignedEOBversion=2; use_optimized_v2=1; }
+  if(SpinAlignedEOBversion==400) { SpinAlignedEOBversion=4; use_optimized_v2=1; }
 
   /* If the EOB version flag is neither 1 nor 2, exit */
   if (SpinAlignedEOBversion != 1 && SpinAlignedEOBversion != 2 && SpinAlignedEOBversion != 4)
