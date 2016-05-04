@@ -417,7 +417,7 @@ static int dump_TD(FILE *f, REAL8TimeSeries *hplus, REAL8TimeSeries *hcross) {
 
     fprintf(f, "# t hplus hcross\n");
     for (i=0; i < hplus->data->length; i++)
-        fprintf(f, "%25.16e %25.16e %25.16e\n", t0 + i * hplus->deltaT, 
+        fprintf(f, "%25.16e %25.16e %25.16e\n", t0 + i * hplus->deltaT,
                 hplus->data->data[i], hcross->data->data[i]);
     return 0;
 }
@@ -463,7 +463,7 @@ int main (int argc , char **argv) {
     REAL8TimeSeries *hplus = NULL;
     REAL8TimeSeries *hcross = NULL;
     GSParams *params;
-	
+
     /* set us up to fail hard */
     XLALSetErrorHandler(XLALAbortErrorHandler);
 
@@ -474,21 +474,21 @@ int main (int argc , char **argv) {
     start_time = time(NULL);
     switch (params->domain) {
         case LAL_SIM_DOMAIN_FREQUENCY:
-            XLALSimInspiralChooseFDWaveform(&hptilde, &hctilde, params->phiRef, 
-                    params->deltaF, params->m1, params->m2, params->s1x, 
-                    params->s1y, params->s1z, params->s2x, params->s2y, 
-                    params->s2z, params->f_min, params->f_max, params->fRef, 
-                    params->distance, params->inclination, params->lambda1, 
+            XLALSimInspiralChooseFDWaveform(&hptilde, &hctilde, params->phiRef,
+                    params->deltaF, params->m1, params->m2, params->s1x,
+                    params->s1y, params->s1z, params->s2x, params->s2y,
+                    params->s2z, params->f_min, params->f_max, params->fRef,
+                    params->distance, params->inclination, params->lambda1,
                     params->lambda2, params->ecc, params->eccOrder,
                     params->f_ecc, params->waveFlags, params->nonGRparams,
                     params->ampO, params->phaseO, params->approximant);
             break;
         case LAL_SIM_DOMAIN_TIME:
-            XLALSimInspiralChooseTDWaveform(&hplus, &hcross, params->phiRef, 
-                    params->deltaT, params->m1, params->m2, params->s1x, 
-                    params->s1y, params->s1z, params->s2x, params->s2y, 
-                    params->s2z, params->f_min, params->fRef, 
-                    params->distance, params->inclination, params->lambda1, 
+            XLALSimInspiralChooseTDWaveform(&hplus, &hcross, params->phiRef,
+                    params->deltaT, params->m1, params->m2, params->s1x,
+                    params->s1y, params->s1z, params->s2x, params->s2y,
+                    params->s2z, params->f_min, params->fRef,
+                    params->distance, params->inclination, params->lambda1,
                     params->lambda2, params->waveFlags,
                     params->nonGRparams, params->ampO, params->phaseO,
                     params->approximant);
@@ -497,7 +497,7 @@ int main (int argc , char **argv) {
             XLALPrintError("Error: domain must be either TD or FD\n");
     }
     if (params->verbose)
-        XLALPrintInfo("Generation took %.0f seconds\n", 
+        XLALPrintInfo("Generation took %.0f seconds\n",
                 difftime(time(NULL), start_time));
     if (((params->domain == LAL_SIM_DOMAIN_FREQUENCY) && (!hptilde || !hctilde)) ||
         ((params->domain == LAL_SIM_DOMAIN_TIME) && (!hplus || !hcross))) {
@@ -527,9 +527,9 @@ int main (int argc , char **argv) {
       }
       if (status) goto fail;
     }
-    
-    if ( params->runs > 0 && 
-           ( params->domain == LAL_SIM_DOMAIN_FREQUENCY || 
+
+    if ( params->runs > 0 &&
+           ( params->domain == LAL_SIM_DOMAIN_FREQUENCY ||
              params->domain == LAL_SIM_DOMAIN_TIME )) { // check for generation time
       clock_t start_clock, end_clock;
       double cpu_used, ecc;
@@ -544,21 +544,21 @@ int main (int argc , char **argv) {
       for ( i = 0; i < params->runs; i++) {
         switch (params->domain) {
           case LAL_SIM_DOMAIN_FREQUENCY:
-            XLALSimInspiralChooseFDWaveform(&hptilde, &hctilde, params->phiRef, 
-                    params->deltaF, params->m1, params->m2, params->s1x, 
-                    params->s1y, params->s1z, params->s2x, params->s2y, 
-                    params->s2z, params->f_min, params->f_max, params->fRef, 
-                    params->distance, params->inclination, params->lambda1, 
+            XLALSimInspiralChooseFDWaveform(&hptilde, &hctilde, params->phiRef,
+                    params->deltaF, params->m1, params->m2, params->s1x,
+                    params->s1y, params->s1z, params->s2x, params->s2y,
+                    params->s2z, params->f_min, params->f_max, params->fRef,
+                    params->distance, params->inclination, params->lambda1,
                     params->lambda2, params->ecc, params->eccOrder,
                     params->f_ecc, params->waveFlags, params->nonGRparams,
                     params->ampO, params->phaseO, params->approximant);
             break;
           case LAL_SIM_DOMAIN_TIME:
-            XLALSimInspiralChooseTDWaveform(&hplus, &hcross, params->phiRef, 
-                    params->deltaT, params->m1, params->m2, params->s1x, 
-                    params->s1y, params->s1z, params->s2x, params->s2y, 
-                    params->s2z, params->f_min, params->fRef, 
-                    params->distance, params->inclination, params->lambda1, 
+            XLALSimInspiralChooseTDWaveform(&hplus, &hcross, params->phiRef,
+                    params->deltaT, params->m1, params->m2, params->s1x,
+                    params->s1y, params->s1z, params->s2x, params->s2y,
+                    params->s2z, params->f_min, params->fRef,
+                    params->distance, params->inclination, params->lambda1,
                     params->lambda2, params->waveFlags,
                     params->nonGRparams, params->ampO, params->phaseO,
                     params->approximant);
@@ -573,7 +573,7 @@ int main (int argc , char **argv) {
       }
       end_clock = clock();
       cpu_used = (double)(end_clock - start_clock)/CLOCKS_PER_SEC;
-      fprintf(stdout, "Generation took %.3f seconds for %d waveforms, average time is %.3f ms with circular\n", 
+      fprintf(stdout, "Generation took %.3f seconds for %d waveforms, average time is %.3f ms with circular\n",
                 cpu_used, params->runs, cpu_used*1000.0/params->runs);
 
       if ( ecc > 0.0) {
@@ -586,21 +586,21 @@ int main (int argc , char **argv) {
       for ( i = 0; i < params->runs; i++) {
         switch (params->domain) {
           case LAL_SIM_DOMAIN_FREQUENCY:
-            XLALSimInspiralChooseFDWaveform(&hptilde, &hctilde, params->phiRef, 
-                    params->deltaF, params->m1, params->m2, params->s1x, 
-                    params->s1y, params->s1z, params->s2x, params->s2y, 
-                    params->s2z, params->f_min, params->f_max, params->fRef, 
-                    params->distance, params->inclination, params->lambda1, 
+            XLALSimInspiralChooseFDWaveform(&hptilde, &hctilde, params->phiRef,
+                    params->deltaF, params->m1, params->m2, params->s1x,
+                    params->s1y, params->s1z, params->s2x, params->s2y,
+                    params->s2z, params->f_min, params->f_max, params->fRef,
+                    params->distance, params->inclination, params->lambda1,
                     params->lambda2, params->ecc, params->eccOrder,
                     params->f_ecc, params->waveFlags, params->nonGRparams,
                     params->ampO, params->phaseO, params->approximant);
             break;
           case LAL_SIM_DOMAIN_TIME:
-            XLALSimInspiralChooseTDWaveform(&hplus, &hcross, params->phiRef, 
-                    params->deltaT, params->m1, params->m2, params->s1x, 
-                    params->s1y, params->s1z, params->s2x, params->s2y, 
-                    params->s2z, params->f_min, params->fRef, 
-                    params->distance, params->inclination, params->lambda1, 
+            XLALSimInspiralChooseTDWaveform(&hplus, &hcross, params->phiRef,
+                    params->deltaT, params->m1, params->m2, params->s1x,
+                    params->s1y, params->s1z, params->s2x, params->s2y,
+                    params->s2z, params->f_min, params->fRef,
+                    params->distance, params->inclination, params->lambda1,
                     params->lambda2, params->waveFlags,
                     params->nonGRparams, params->ampO, params->phaseO,
                     params->approximant);
@@ -615,7 +615,7 @@ int main (int argc , char **argv) {
       }
       end_clock = clock();
       cpu_used = (double)(end_clock - start_clock)/CLOCKS_PER_SEC;
-      fprintf(stdout, "Generation took %.3f seconds for %d waveforms, average time is %.3f ms with eccentric\n", 
+      fprintf(stdout, "Generation took %.3f seconds for %d waveforms, average time is %.3f ms with eccentric\n",
                 cpu_used, params->runs, cpu_used*1000.0/params->runs);
       /* clean up */
       XLALSimInspiralDestroyWaveformFlags(params->waveFlags);

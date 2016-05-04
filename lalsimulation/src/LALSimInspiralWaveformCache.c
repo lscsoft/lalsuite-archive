@@ -507,7 +507,7 @@ int XLALSimInspiralChooseFDWaveformFromCache(
         if (frequencies != NULL)
             return XLALSimInspiralChooseFDWaveformSequence(hptilde, hctilde, phiRef,
                                                            m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_ref,
-                                                           r, i, lambda1, lambda2, ecc, eccOrder, f_ecc, 
+                                                           r, i, lambda1, lambda2, ecc, eccOrder, f_ecc,
                                                            waveFlags, nonGRparams, amplitudeO,
                                                            phaseO, approximant,frequencies);
         else
@@ -848,7 +848,7 @@ static int StoreTDHCache(LALSimInspiralWaveformCache *cache,
     XLALDestroyREAL8TimeSeries(cache->hcross);
     if (hplus == NULL || hcross == NULL || hplus->data == NULL || hcross->data == NULL){
         XLALPrintError("We have null pointers for h+, hx in StoreTDHCache \n");
-        XLALPrintError("Houston-S, we've got a problem SOS, SOS, SOS, the waveform generator returns NULL!!!... m1 = %.18e, m2 = %.18e, fMin = %.18e, spin1 = {%.18e, %.18e, %.18e},   spin2 = {%.18e, %.18e, %.18e} \n", 
+        XLALPrintError("Houston-S, we've got a problem SOS, SOS, SOS, the waveform generator returns NULL!!!... m1 = %.18e, m2 = %.18e, fMin = %.18e, spin1 = {%.18e, %.18e, %.18e},   spin2 = {%.18e, %.18e, %.18e} \n",
                    m1, m2, (double)f_min, S1x, S1y, S1z, S2x, S2y, S2z);
         return XLAL_ENOMEM;
     }

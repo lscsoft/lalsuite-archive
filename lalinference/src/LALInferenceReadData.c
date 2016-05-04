@@ -480,7 +480,7 @@ void LALInferencePrintDataWithInjection(LALInferenceIFOData *IFOdata, ProcessPar
         fprintf(out, "%10.10g %10.10g %10.10g\n", f, dre, dim);
       }
       fclose(out);
-      
+
       ppt=LALInferenceGetProcParamVal(commandLine,"--outfile");
       if(ppt) {
         snprintf(filename, nameLength, "%s%s-ASD.dat", ppt->value, IFOdata[i].name);
@@ -2294,8 +2294,8 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
                                   inj_table->mass1*LAL_MSUN_SI, inj_table->mass2*LAL_MSUN_SI, inj_table->spin1x,
                                   inj_table->spin1y, inj_table->spin1z, inj_table->spin2x, inj_table->spin2y,
                                   inj_table->spin2z, f_min, f_max, fref, inj_table->distance*LAL_PC_SI * 1.0e6,
-                                  inj_table->inclination, lambda1, lambda2, 
-                                  inj_table->ecc, inj_table->eccOrder, inj_table->f_ecc, 
+                                  inj_table->inclination, lambda1, lambda2,
+                                  inj_table->ecc, inj_table->eccOrder, inj_table->f_ecc,
                                   waveFlags, nonGRparams, amp_order, phase_order, approximant);
 
   /* Fail if injection waveform generation was not successful */
@@ -2675,7 +2675,7 @@ void LALInferenceSetupROQmodel(LALInferenceModel *model, ProcessParamsTable *com
   SimInspiralTable *injTable=NULL;
   FILE *tempfp;
   unsigned int n_basis_linear=0, n_basis_quadratic=0, n_samples=0, time_steps=0;
- 
+
   LIGOTimeGPS GPStrig;
   REAL8 endtime=0.0;
 
@@ -2734,7 +2734,7 @@ void LALInferenceSetupROQmodel(LALInferenceModel *model, ProcessParamsTable *com
 
 	  model->roq->frequencyNodesLinear = XLALCreateREAL8Sequence(n_basis_linear);
 	  model->roq->frequencyNodesQuadratic = XLALCreateREAL8Sequence(n_basis_quadratic);
-	  
+ 
 	  model->roq->trigtime = endtime;
 
 	  if(LALInferenceGetProcParamVal(commandLine,"--roqnodesLinear")){

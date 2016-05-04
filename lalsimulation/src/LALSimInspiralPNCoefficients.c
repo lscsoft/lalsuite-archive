@@ -481,7 +481,7 @@ XLALSimInspiralPNPhasing_F2(
 
     /* Non-spin phasing terms - see arXiv:0907.0700, Eq. 3.18 */
     pfa->v[0] = 1.L;
-    pfa->v[2] = 5.L*(743.L/84.L + 11.L * eta)/9.L; 
+    pfa->v[2] = 5.L*(743.L/84.L + 11.L * eta)/9.L;
     pfa->v[3] = -16.L*LAL_PI;
     pfa->v[4] = 5.L*(3058.673L/7.056L + 5429.L/7.L * eta
                      + 617.L * eta*eta)/72.L;
@@ -1755,7 +1755,7 @@ eccentricityPNCoeffs_F2(REAL8 eta, REAL8 eccPNCoeffs[LAL_MAX_ECC_PN_ORDER+1][LAL
   eccPNCoeffs[6][3][3] = -106.2809371/2.0347200*LAL_PI*LAL_PI; //v^3*v0^3 term
   eccPNCoeffs[6][2][4] = -3.56873002170973/2.49880440692736 - 260.399751935005/8.924301453312*eta
                            + 15.0484695827/3.5413894656*eta*eta + 340.714213265/3.794345856*eta*eta*eta; //v^2*v0^4 term
-  eccPNCoeffs[6][0][6] = 265.31900578691/1.68991764480 - 33.17/1.26*LAL_GAMMA + 12.2833/1.0368*LAL_PI*LAL_PI 
+  eccPNCoeffs[6][0][6] = 265.31900578691/1.68991764480 - 33.17/1.26*LAL_GAMMA + 12.2833/1.0368*LAL_PI*LAL_PI
                            + (91.55185261/5.48674560 - 3.977/1.152*LAL_PI*LAL_PI)*eta - 5.732473/1.306368*eta*eta
                            - 30.90307/1.39968*eta*eta*eta + 87.419/1.890*log(2.0) - 260.01/5.60*log(3.0);  //v0^6 term except log(16*v0^2) term
   //printPNCoeffs_F2(eccPNCoeffs);

@@ -3074,15 +3074,15 @@ LALMultiInspiralTableFromLIGOLw (
       else if ( tableDir[j].idx == 74 )
       {
         thisEvent->cont_chisq_h1 = r4colData;
-      } 
+      }
       else if ( tableDir[j].idx == 75 )
       {
         thisEvent->cont_chisq_h2 = r4colData;
-      } 
+      }
       else if ( tableDir[j].idx == 76 )
       {
         thisEvent->cont_chisq_l = r4colData;
-      } 
+      }
       else if ( tableDir[j].idx == 77 )
       {
         thisEvent->cont_chisq_g = r4colData;
