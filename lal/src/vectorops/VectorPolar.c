@@ -206,6 +206,35 @@ int XLALREAL8VectorUnwrapAngle( REAL8Vector *out, const REAL8Vector *in )
 	return 0;
 }
 
+/** 
+ * OPTV3: Given that the phase monotonically decreases, this is
+ * a more robust method, correcting the radian phase angles of a real
+ * vector by subtracting two pi when the phase increases. The original
+ * method would sometimes fail, when sampling was too low
+ */
+int XLALREAL8VectorUnwrapAngleByMonotonicity( REAL8Vector *out, const REAL8Vector *in )
+{
+  REAL8 prev;
+  REAL8 diff;
+  INT4  wrap;
+  UINT4 i;
+  if ( ! out || ! in )
+    XLAL_ERROR( XLAL_EFAULT );
+  if ( ! out->data || ! in->data || in->length == 0 )
+    XLAL_ERROR( XLAL_EINVAL );
+  if ( out->length != in->length )
+    XLAL_ERROR( XLAL_EBADLEN );
+  wrap = 0;
+  prev = out->data[0] = in->data[0];
+  for ( i = 1; i < in->length; ++i ) {
+    diff  = in->data[i] - prev;
+    prev  = in->data[i];
+    wrap += -(diff > 0);
+    //                wrap += (diff < -LAL_PI) - (diff > LAL_PI);
+    out->data[i] = in->data[i] + wrap * LAL_TWOPI;
+  }
+  return 0;
+}
 
 /** UNDOCUMENTED */
 void

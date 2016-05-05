@@ -1,8 +1,6 @@
 #ifndef _LALSIMIMRSPINPRECEOBWFGEN_C
 #define _LALSIMIMRSPINPRECEOBWFGEN_C
 
-REAL8Vector * alphaD, * betaD, * gammaD;
-int counterD = 0;
 /**************************************
  **************************************
  ** OPTV3:

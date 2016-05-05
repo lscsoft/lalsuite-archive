@@ -483,6 +483,7 @@ static REAL8 XLALSpinPrecHcapExactDerivativeNoWrap(
     }
     if(isnan(deriv)){
         printf("NAN in derivative! tortoise=%d; variedParam=%d; divby0=%d\n",tortoise,variedParam,divby0);
+        XLAL_ERROR( XLAL_EFUNC );
         exit(1);
     }
 	return deriv;

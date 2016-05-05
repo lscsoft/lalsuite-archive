@@ -90,6 +90,7 @@ REAL8Vector * XLALDDVectorMultiply( REAL8Vector *out, const REAL8Vector *in1, co
 int XLALCOMPLEX16VectorAbs( REAL8Vector *out, const COMPLEX16Vector *in );
 int XLALCOMPLEX16VectorArg( REAL8Vector *out, const COMPLEX16Vector *in );
 int XLALREAL8VectorUnwrapAngle( REAL8Vector *out, const REAL8Vector *in );
+int XLALREAL8VectorUnwrapAngleByMonotonicity( REAL8Vector *out, const REAL8Vector *in )
 
 /*
  *

@@ -919,7 +919,7 @@ int XLALSimIMRSpinEOBWaveformAll_opt(
   /* Accuracies of adaptive Runge-Kutta integrator */
     /* Note that this accuracies are lower than those used in SEOBNRv2: they allow reasonable runtimes for precessing systems */
     /* These accuracies can be adjusted according to desired accuracy and runtime */
-   REAL8 EPS_ABS = 1.0e-8;
+  REAL8 EPS_ABS = 1.0e-8;
   const REAL8 EPS_REL = 1.0e-8;
 
 //OPTV3: For checking code agreement
@@ -1522,7 +1522,7 @@ int XLALSimIMRSpinEOBWaveformAll_opt(
         seobParams.alignedSpins = 1;
         seobParams.chi1 = spin1Norm*copysign(1., cos(theta1Ini));
         seobParams.chi2 = spin2Norm*copysign(1., cos(theta2Ini));
-        if (!(integrator = XLALAdaptiveRungeKutta4Init(4, XLALSpinAlignedHcapDerivative, XLALEOBSpinPrecAlignedStopCondition, EPS_ABS, EPS_REL)))
+    if (!(integrator = XLALAdaptiveRungeKutta4Init(4, XLALSpinAlignedHcapDerivative, XLALEOBSpinPrecAlignedStopCondition, EPS_ABS, EPS_REL)))
         {
             XLALDestroyREAL8Vector( sigmaKerr );
             XLALDestroyREAL8Vector( sigmaStar );
@@ -1580,7 +1580,7 @@ int XLALSimIMRSpinEOBWaveformAll_opt(
 /*      retLenLow = XLALAdaptiveRungeKutta4( integrator, &seobParams, valuesV2->data, 0., 20./mTScaled, deltaT/mTScaled, &dynamicsV2 ); */
         retLenEOMLow = XLALAdaptiveRungeKutta4_no_interpolate_SaveD(integrator, &seobParams, valuesV2->data, 0., 20./mTScaled, deltaT/mTScaled, &dynamicsV2EOMLo);
         retLenLow = (int)(dynamicsV2EOMLo->data[retLenEOMLow-1] / (deltaT/mTScaled))+ 1;
-        SEOBNRv3OptimizedInterpolatorGeneral(dynamicsV2EOMLo->data, 0., deltaT/mTScaled, retLenEOMLow, &dynamicsV2, 17);
+        SEOBNRv3OptimizedInterpolatorGeneral(dynamicsV2EOMLo->data, 0., deltaT/mTScaled, retLenEOMLow, &dynamicsV2, 7);
 
         seobParams.alignedSpins = 0;
         if ( retLenLow == XLAL_FAILURE )
@@ -1929,6 +1929,7 @@ int XLALSimIMRSpinEOBWaveformAll_opt(
     }
     fclose( out );
   }
+
 /* *********************************************************************************
  * *********************************************************************************
  * STEP 3) Compute Euler angles to go from initial inertial frame to
@@ -2293,7 +2294,8 @@ int XLALSimIMRSpinEOBWaveformAll_opt(
     REAL8Vector phaseVecEOMLo;
     phaseVecEOMLo.length = retLenEOMLow;
     phaseVecEOMLo.data = hVectmp.data+2*retLenEOMLow;
-    XLALREAL8VectorUnwrapAngle(&phaseVecEOMLo,&phaseVecEOMLo);
+
+    XLALREAL8VectorUnwrapAngleByMonotonicity(&phaseVecEOMLo,&phaseVecEOMLo);
 
     //OPTV3: Interpolate the WF solutions to the desired times
     SEOBNRv3OptimizedInterpolatorGeneral(hVectmp.data,0., deltaT/mTScaled, retLenEOMLow, &hVec,2);
@@ -2874,19 +2876,19 @@ int XLALSimIMRSpinEOBWaveformAll_opt(
      gsl_spline_free(spline);
      gsl_interp_accel_free(acc);
 
-     hIMRlmJTS = XLALSphHarmTimeSeriesAddMode( hIMRlmJTS, hIMRJTS, 2, k );
+     hMRJlo = XLALSphHarmTimeSeriesAddMode( hMRJlo, hMRJlo2m, 2, k );
   }
   for (i=0; i<(int)tlistRDPatch->length; i++){
       timeJFull->data[i] = tlistRDPatch->data[i];
   }
-  XLALSphHarmTimeSeriesSetTData( hIMRlmJTS, timeJFull );
+  XLALSphHarmTimeSeriesSetTData( hMRJlo, timeJFull );
   if (debugPK){ XLAL_PRINT_INFO("Stas: J-wave with RD  generated.\n"); fflush(NULL); }
 
-  hIMR22JTS  = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 2 );
-  hIMR21JTS  = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 1 );
-  hIMR20JTS  = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 0 );
-  hIMR2m1JTS = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, -1);
-  hIMR2m2JTS = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, -2);
+  hIMR22JTS  = XLALSphHarmTimeSeriesGetMode( hMRJlo, 2, 2 );
+  hIMR21JTS  = XLALSphHarmTimeSeriesGetMode( hMRJlo, 2, 1 );
+  hIMR20JTS  = XLALSphHarmTimeSeriesGetMode( hMRJlo, 2, 0 );
+  hIMR2m1JTS = XLALSphHarmTimeSeriesGetMode( hMRJlo, 2, -1);
+  hIMR2m2JTS = XLALSphHarmTimeSeriesGetMode( hMRJlo, 2, -2);
 
   if (debugPK){
      out = fopen( "JIMRWaves.dat", "w" );
