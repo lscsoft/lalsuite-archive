@@ -1,9 +1,3 @@
-/**
- * \file
- * \ingroup lalapps_pulsar_PowerFlux
- * \author Junyi Zhang, Keith Riles
- */
-
 /*-----------------------------------------------------------------------
  *
  * File Name: simcoh.c

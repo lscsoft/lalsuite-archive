@@ -142,9 +142,7 @@ void initialise_algorithm( LALInferenceRunState *runState )
 
   ppt = LALInferenceGetProcParamVal( commandLine, "--verbose" );
   if( ppt ) {
-    LALInferenceAddVariable( runState->algorithmParams, "verbose", &verbose , LALINFERENCE_UINT4_t,
-                             LALINFERENCE_PARAM_FIXED );
-    verbose_output = 1;
+    LALInferenceAddVariable( runState->algorithmParams, "verbose", &verbose , LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED );
   }
 
   /* Number of live points */
@@ -169,8 +167,7 @@ void initialise_algorithm( LALInferenceRunState *runState )
   ppt = LALInferenceGetProcParamVal(commandLine,"--sloppyfraction");
   if( ppt ) { tmp = atof(ppt->value); }
   else { tmp = 0.0; }
-  LALInferenceAddVariable( runState->algorithmParams, "sloppyfraction", &tmp, LALINFERENCE_REAL8_t,
-                           LALINFERENCE_PARAM_OUTPUT );
+  LALInferenceAddVariable( runState->algorithmParams, "sloppyfraction", &tmp, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_OUTPUT );
 
   /* Optionally specify number of parallel runs */
   ppt = LALInferenceGetProcParamVal( commandLine, "--Nruns" );
@@ -229,8 +226,6 @@ void initialise_algorithm( LALInferenceRunState *runState )
       LALInferenceAddVariable( runState->algorithmParams, "timenum", &timenum, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED );
     }
   }
-
-  gsl_rng_set( runState->GSLrandom, randomseed );
 
   /* log samples */
 #ifdef HAVE_LIBLALXML
@@ -372,6 +367,11 @@ void add_initial_variables( LALInferenceVariables *ini, PulsarParameters *pars )
   add_variable_parameter( pars, ini, "F3", LALINFERENCE_PARAM_FIXED );
   add_variable_parameter( pars, ini, "F4", LALINFERENCE_PARAM_FIXED );
   add_variable_parameter( pars, ini, "F5", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "F6", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "F7", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "F8", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "F9", LALINFERENCE_PARAM_FIXED );
+  add_variable_parameter( pars, ini, "F10", LALINFERENCE_PARAM_FIXED );
   add_variable_parameter( pars, ini, "PEPOCH", LALINFERENCE_PARAM_FIXED );
 
   /* add non-GR parameters */
@@ -458,9 +458,17 @@ void add_initial_variables( LALInferenceVariables *ini, PulsarParameters *pars )
     add_variable_parameter( pars, ini, "M2", LALINFERENCE_PARAM_FIXED );
 
     if ( PulsarCheckParam(pars, "FB") ){
-      REAL8Vector *fb = NULL;
-      fb = PulsarGetREAL8VectorParam( pars, "FB" );
-      LALInferenceAddVariable( ini, "FB", &fb, LALINFERENCE_REAL8Vector_t, LALINFERENCE_PARAM_FIXED );
+      UINT4 i = 0;
+      REAL8Vector *fb = PulsarGetREAL8VectorParam( pars, "FB" );
+      /* add each FB value as a seperate parameter */
+      for ( i = 0; i < fb->length; i++ ){
+        CHAR varname[256];
+        snprintf(varname, sizeof(varname), "FB%u", i);
+        REAL8 fbval = PulsarGetREAL8VectorParamIndividual( pars, varname );
+        LALInferenceAddVariable( ini, varname, &fbval, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED );
+      }
+      /* add value with the number of FB parameters given */
+      LALInferenceAddVariable( ini, "FBNUM", &i, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED );
     }
   }
 }
@@ -473,7 +481,8 @@ void add_initial_variables( LALInferenceVariables *ini, PulsarParameters *pars )
  * for each. This information is contained in a prior file specified by the command line argument \c prior-file. This
  * file should contain four columns: the first has the name of a parameter to be searched over; the second has the prior
  * type (e.g. "uniform" for a prior that is flat over the given range, or "gaussian" with a certain mean and standard
- * deviation, or "predefined", which means that the prior for that variable is already hardcoded into the prior function);
+ * deviation, or "fermidirac" for a Fermi-Dirac distribution defined by a sigma and r parameters (where r is mu/sigma),
+ * or "predefined", which means that the prior for that variable is already hardcoded into the prior function);
  * the third has the lower limit, or mean, of the prior, for "uniform"/"predefined" and "gaussian" priors respectively;
  * and the fourth has the upper limit, or standard deviation, for "uniform"/"predefined" and "gaussian" priors respectively.
  * E.g.
@@ -553,7 +562,7 @@ void initialise_prior( LALInferenceRunState *runState )
       }
     }
 
-    if ( strcmp(tempPrior, "uniform") && strcmp(tempPrior, "predefined") && strcmp(tempPrior, "gaussian") ){
+    if ( strcmp(tempPrior, "uniform") && strcmp(tempPrior, "predefined") && strcmp(tempPrior, "gaussian") && strcmp(tempPrior, "fermidirac") ){
       XLALPrintError("Error... prior type '%s' not recognised\n", tempPrior);
       XLAL_ERROR_VOID( XLAL_EINVAL );
     }
@@ -568,6 +577,9 @@ void initialise_prior( LALInferenceRunState *runState )
     }
     else if( !strcmp(tempPrior, "gaussian") ){
       LALInferenceAddGaussianPrior( runState->priorArgs, tempPar, &low, &high, LALINFERENCE_REAL8_t );
+    }
+    else if( !strcmp(tempPrior, "fermidirac") ){
+      LALInferenceAddFermiDiracPrior( runState->priorArgs, tempPar, &low, &high, LALINFERENCE_REAL8_t );
     }
 
     /* if there is a phase parameter defined in the proposal then set varyphase to 1 */

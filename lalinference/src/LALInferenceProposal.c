@@ -3836,7 +3836,7 @@ REAL8 LALInferenceSplineCalibrationProposal(LALInferenceThreadState *thread, LAL
 
     snprintf(ampName, VARNAME_MAX, "%s_spcal_amp", ifo_names[ifo]);
     snprintf(phaseName, VARNAME_MAX, "%s_spcal_phase", ifo_names[ifo]);
-
+   
     amps = *(REAL8Vector **)LALInferenceGetVariable(proposedParams, ampName);
     phases = *(REAL8Vector **)LALInferenceGetVariable(proposedParams, phaseName);
 

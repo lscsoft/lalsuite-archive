@@ -228,7 +228,7 @@ class LIGOLwParser:
         if not self.unique:
           istr = istr_orig
         else:
-          raise LIGOLwParseError, 'unique id table has not been initialized'
+          raise LIGOLwParseError('unique id table has not been initialized')
     return istr
 
   def parsetuple(self,xmltuple):
@@ -247,7 +247,7 @@ class LIGOLwParser:
         try:
           tab = self.tabrx.match(tab).group(2)
         except AttributeError:
-          raise LIGOLwParseError, 'unable to parse a valid table name '+tab
+          raise LIGOLwParseError('unable to parse a valid table name '+tab)
         # initalize the table dictionary for this table
         table[tab] = { 
           'pos' : tupleidx,
@@ -265,11 +265,11 @@ class LIGOLwParser:
             try:
               col = self.colrx.match(col).group(3)
             except AttributeError:
-              raise LIGOLwParseError, 'unable to parse a valid column name '+col
+              raise LIGOLwParseError('unable to parse a valid column name '+col)
             try:
               typ = subtag[1]['Type'].encode('ascii').lower()
             except KeyError:
-              raise LIGOLwParseError, 'type is missing for column '+col
+              raise LIGOLwParseError('type is missing for column '+col)
             table[tab]['column'][col] = typ
             table[tab].setdefault('orderedcol',[]).append(col)
       tupleidx += 1
@@ -282,9 +282,9 @@ class LIGOLwParser:
           try:
             delim = tag[1]['Delimiter'].encode('ascii')
           except KeyError:
-            raise LIGOLwParseError, 'stream is missing delimiter'
+            raise LIGOLwParseError('stream is missing delimiter')
           if delim != ',':
-            raise LIGOLwParseError, 'unable to handle stream delimiter: '+delim
+            raise LIGOLwParseError('unable to handle stream delimiter: '+delim)
 
           # If the result set is empty tag[2] is an empty array, which causes
           # the next step to fail.  Add an empty string in this case.
@@ -300,7 +300,7 @@ class LIGOLwParser:
           ntyp = len(table[tab]['column'])
           mlen, lft = divmod(slen,ntyp)
           if lft != 0:
-            raise LIGOLwParseError, 'invalid stream length for given columns'
+            raise LIGOLwParseError('invalid stream length for given columns')
           lst = [[None] * ntyp for i in range(mlen)]
 
           # translate the stream data to the correct data types
@@ -316,7 +316,7 @@ class LIGOLwParser:
               msg = "stream translation error (%s) " % str(errmsg)
               msg += "for column %s in table %s: %s -> %s" \
                 % (tab,thiscol,stream[i],str(table[tab])) 
-              raise LIGOLwParseError, msg
+              raise LIGOLwParseError(msg)
           table[tab]['stream'] = map(tuple,lst)
 
     # return the created table to the caller
@@ -372,9 +372,9 @@ class LIGOMetadata:
     xml = the xml document to be parsed
     """
     if not self.xmlparser:
-      raise LIGOLwParseError, "pyRXP parser not initialized"
+      raise LIGOLwParseError("pyRXP parser not initialized")
     if not self.lwtparser:
-      raise LIGOLwParseError, "LIGO_LW tuple parser not initialized"
+      raise LIGOLwParseError("LIGO_LW tuple parser not initialized")
     xml = "".join([x.strip() for x in xml.split('\n')])
     ligolwtup = self.xmlparser(xml)
     if self.curs:
@@ -389,7 +389,7 @@ class LIGOMetadata:
     """
     if len(self.table['process']['stream']) > 1:
       msg = "cannot add lfn to table with more than one process"
-      raise LIGOLwParseError, msg
+      raise LIGOLwParseError(msg)
     # get the process_id from the process table
     pid_col = self.table['process']['orderedcol'].index('process_id')
     pid = self.table['process']['stream'][0][pid_col]
@@ -427,9 +427,9 @@ class LIGOMetadata:
   def insert(self):
     """Insert the object into the database"""
     if not self.curs:
-      raise LIGOLwDBError, "Database connection not initalized"
+      raise LIGOLwDBError("Database connection not initalized")
     if len(self.table) == 0:
-      raise LIGOLwDBError, 'attempt to insert empty table'
+      raise LIGOLwDBError('attempt to insert empty table')
     for tab in self.table.keys():
       # find and add any missing unique ids
       generate = []
@@ -450,16 +450,16 @@ class LIGOMetadata:
           self.curs.executemany(self.table[tab]['query'],
             self.table[tab]['stream'])
           rowcount = self.curs.rowcount
-        except DB2.Error, e:
+        except DB2.Error as e:
           self.curs.execute('rollback')
           msg = e[2] 
           msg += self.xml() + '\n' 
           msg += str(self.table[tab]['query']) + '\n' 
           msg += str(self.table[tab]['stream']) + '\n'
-          raise LIGOLwDBError, msg
+          raise LIGOLwDBError(msg)
         except DB2.Warning, e:
           self.curs.execute('rollback')
-          raise LIGOLwDBError, e[2]
+          raise LIGOLwDBError(e[2])
         #except Exception, e:
         #  self.curs.execute('rollback')
         #  raise LIGOLwDBError, e[2]
@@ -477,9 +477,9 @@ class LIGOMetadata:
     sql = the (case sensitve) SQL statment to execute
     """
     if not self.curs:
-      raise LIGOLwDBError, "Database connection not initalized"
+      raise LIGOLwDBError("Database connection not initalized")
     if len(self.table) != 0:
-      raise LIGOLwDBError, 'attempt to fill non-empty table from database'
+      raise LIGOLwDBError('attempt to fill non-empty table from database')
     ligolw = ''
     self.table = {}
     sqltypes = {
@@ -496,7 +496,7 @@ class LIGOMetadata:
     try:
       tab = re.compile(r'[Ff][Rr][Oo][Mm]\s+([A-Za-z0-0_]+)([,\s]+|$)').search(sql).group(1)
     except AttributeError:
-      raise LIGOLwDBError, 'could not find table name in query ' + str(sql)
+      raise LIGOLwDBError('could not find table name in query ' + str(sql))
     self.table[tab] = {
       'pos' : 0,
       'column' : {},
@@ -505,27 +505,27 @@ class LIGOMetadata:
       }
     try:
       self.curs.execute(sql)
-    except DB2.Error, e:
-      raise LIGOLwDBError, e[2]
+    except DB2.Error as e:
+      raise LIGOLwDBError(e[2])
     desc = self.curs.description
     for col,typ,disp,intsz,prec,sca,nul in desc:
       try:
         self.table[tab]['column'][col] = sqltypes[typ]
       except KeyError:
-        raise LIGOLwDBError, 'unknown type returned by database ' + str(typ)
+        raise LIGOLwDBError('unknown type returned by database ' + str(typ))
       self.table[tab].setdefault('orderedcol',[]).append(col)
 
     try:
       self.table[tab]['stream'] = self.curs.fetchall()
-    except DB2.Error, e:
-      raise LIGOLwDBError, e[2]
+    except DB2.Error as e:
+      raise LIGOLwDBError(e[2])
 
     return len(self.table[tab]['stream'])
 
   def xml(self, ilwdchar_to_hex = True):
     """Convert a table dictionary to LIGO lightweight XML"""
     if len(self.table) == 0:
-      raise LIGOLwDBError, 'attempt to convert empty table to xml'
+      raise LIGOLwDBError('attempt to convert empty table to xml')
     ligolw = """\
 <?xml version='1.0' encoding='utf-8' ?>
 <?xml-stylesheet type="text/xsl" href="ligolw.xsl"?>

@@ -38,7 +38,7 @@ void get_pulsar_model( LALInferenceModel *model ){
   /* set model parameters (including rescaling) */
   add_pulsar_parameter( model->params, pars, "PSI" );
 
-  if( ( LALInferenceCheckVariableNonFixed( model->params, "H0" ) || LALInferenceCheckVariableNonFixed( model->params, "Q22" ) || LALInferenceCheckVariable( model->ifo->params, "jones-model" ) ) && !LALInferenceCheckVariable( model->ifo->params, "nonGR" ) ){
+  if( ( LALInferenceCheckVariableNonFixed( model->params, "H0" ) || LALInferenceCheckVariableNonFixed( model->params, "Q22" ) || LALInferenceCheckVariable( model->ifo->params, "source_model" ) ) && !LALInferenceCheckVariable( model->ifo->params, "nonGR" ) ){
     /* if searching in mass quadrupole, Q22, then check for distance and f0 and convert to h0 */
     if ( LALInferenceCheckVariableNonFixed( model->params, "Q22" ) && !LALInferenceCheckVariableNonFixed( model->params, "H0" ) ){
       if ( LALInferenceCheckVariable( model->params, "F0" ) && LALInferenceCheckVariable( model->params, "DIST" ) ){
@@ -155,6 +155,11 @@ void get_pulsar_model( LALInferenceModel *model ){
   add_pulsar_parameter( model->params, pars, "F3" );
   add_pulsar_parameter( model->params, pars, "F4" );
   add_pulsar_parameter( model->params, pars, "F5" );
+  add_pulsar_parameter( model->params, pars, "F6" );
+  add_pulsar_parameter( model->params, pars, "F7" );
+  add_pulsar_parameter( model->params, pars, "F8" );
+  add_pulsar_parameter( model->params, pars, "F9" );
+  add_pulsar_parameter( model->params, pars, "F10" );
 
   /* check if there are binary parameters */
   if( LALInferenceCheckVariable(model->ifo->params, "BINARY") ){
@@ -203,9 +208,15 @@ void get_pulsar_model( LALInferenceModel *model ){
     add_pulsar_parameter( model->params, pars, "MTOT" );
     add_pulsar_parameter( model->params, pars, "M2" );
 
-    if ( LALInferenceCheckVariable( model->params, "FB" ) ){
+    if ( LALInferenceCheckVariable( model->params, "FBNUM" ) ){
+      UINT4 fbnum = LALInferenceGetUINT4Variable( model->params, "FBNUM" );
       REAL8Vector *fb = NULL;
-      fb = *(REAL8Vector **)LALInferenceGetVariable( model->params, "FB" );
+      fb = XLALCreateREAL8Vector( fbnum );
+      for ( UINT4 i=0; i < fbnum; i++ ){
+        CHAR varname[256];
+        snprintf(varname, sizeof(varname), "FB%u", i);
+        fb->data[i] = LALInferenceGetREAL8Variable( model->params, varname );
+      }
       PulsarAddParam( pars, "FB", &fb, PULSARTYPE_REAL8Vector_t );
     }
   }
@@ -225,7 +236,7 @@ void get_pulsar_model( LALInferenceModel *model ){
 void set_nonGR_model_parameters( PulsarParameters *pars, char* nonGRmodel ){
   /* determine what model was requested */
   int isG4v = strcmp(nonGRmodel, "G4v") * strcmp(nonGRmodel, "g4v") * strcmp(nonGRmodel, "G4V");
-  int isST = strcmp(nonGRmodel, "scalar-tensor") * strcmp(nonGRmodel, "ST");
+  int isEGR = strcmp(nonGRmodel, "enhanced-GR") * strcmp(nonGRmodel, "EGR") * strcmp(nonGRmodel, "egr") * strcmp(nonGRmodel, "eGR");
   REAL8 h0 = PulsarGetREAL8ParamOrZero( pars, "H0" );
 
   if( isG4v == 0 ){
@@ -242,9 +253,11 @@ void set_nonGR_model_parameters( PulsarParameters *pars, char* nonGRmodel ){
     PulsarAddParam( pars, "HVECTORY", &hVectorY, PULSARTYPE_REAL8_t );
     PulsarAddParam( pars, "PSIVECTOR", &psiVector, PULSARTYPE_REAL8_t );
   }
-  else if( isST == 0 ) {
-    /* GR plus an unconstrained breathing mode */
-    /* TO DO: are there specific functional relations linking the HSCALARB to pulsar parameters like COSIOTA, etc.? */
+  else if( isEGR == 0 ) {
+    /** GR plus an unconstrained non-GR modes
+    * With different priors, this can be used to obtain GR+scalar (i.e. 
+    * scalar-tensor), GR+vector, or GR+scalar+vector. Note: this mode used to
+    be called just "ST".*/
     REAL8 cosiota = PulsarGetREAL8ParamOrZero( pars, "COSIOTA" );
     REAL8 hPlus = 0.5 * h0 * (1. + cosiota * cosiota);
     REAL8 hCross = h0 * cosiota;
@@ -253,7 +266,7 @@ void set_nonGR_model_parameters( PulsarParameters *pars, char* nonGRmodel ){
     PulsarAddParam( pars, "HCROSS", &hCross, PULSARTYPE_REAL8_t );
     PulsarAddParam( pars, "PSITENSOR", &psiTensor, PULSARTYPE_REAL8_t );
   } else {
-    XLALPrintError ("%s: unrecognized non-GR model. Currently supported: scalar-tensor (ST), G4v, or no argument for full search.\n", __func__ );
+    XLALPrintError ("%s: unrecognized non-GR model. Currently supported: enhanced GR (EGR), G4v, or no argument for full search.\n", __func__ );
     XLAL_ERROR_VOID( XLAL_EINVAL );
   }
 }
@@ -448,7 +461,12 @@ REAL8Vector *get_phase_model( PulsarParameters *params, LALInferenceIFOModel *if
       (1./6.)*PulsarGetREAL8ParamOrZero(params, "F2")*deltat2 +
       (1./24.)*PulsarGetREAL8ParamOrZero(params, "F3")*deltat*deltat2 +
       (1./120.)*PulsarGetREAL8ParamOrZero(params, "F4")*deltat2*deltat2 +
-      (1./720.)*PulsarGetREAL8ParamOrZero(params, "F5")*deltat2*deltat2*deltat);
+      (1./720.)*PulsarGetREAL8ParamOrZero(params, "F5")*deltat2*deltat2*deltat +
+      (1./5040.)*PulsarGetREAL8ParamOrZero(params, "F6")*deltat2*deltat2*deltat2 +
+      (1./40320.)*PulsarGetREAL8ParamOrZero(params, "F7")*deltat2*deltat2*deltat2*deltat +
+      (1./362880.)*PulsarGetREAL8ParamOrZero(params, "F8")*deltat2*deltat2*deltat2*deltat2 +
+      (1./3628800.)*PulsarGetREAL8ParamOrZero(params, "F9")*deltat2*deltat2*deltat2*deltat2*deltat +
+      (1./39916800.)*PulsarGetREAL8ParamOrZero(params, "F10")*deltat2*deltat2*deltat2*deltat2*deltat2);
   }
 
   /* free memory */
@@ -541,7 +559,7 @@ REAL8Vector *get_ssb_delay( PulsarParameters *pars, LIGOTimeGPSVector *datatimes
 
   T0 = pepoch;
 
-  /* make sure ra and dec are wrapped withing 0--2pi and -pi.2--pi/2 respectively */
+  /* make sure ra and dec are wrapped within 0--2pi and -pi.2--pi/2 respectively */
   ra = fmod(ra, LAL_TWOPI);
   REAL8 absdec = fabs(dec);
   if ( absdec > LAL_PI_2 ){

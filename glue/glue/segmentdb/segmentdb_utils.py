@@ -97,7 +97,7 @@ def setup_database(database_location):
 	   msg += "\nRun with --help for usage"
 	   raise ValueError(msg)
     except ValueError, e:
-      	print >>sys.stderr, str(e) 
+      	sys.stderr.write('%s\n' % str(e))
       	sys.exit(1)
 
     """ 2. Determine host and port"""
@@ -118,7 +118,7 @@ def setup_database(database_location):
        port = int(portString)
 
     if port == 30020:
-       print >>sys.stderr, "Error: PORT 30020 no longer provide segment database service"
+       sys.stderr.write("Error: PORT 30020 no longer provide segment database service\n")
        sys.exit(1)
 
     """ 3. Set up connection to LDBD(W)Server """
@@ -134,7 +134,7 @@ def setup_database(database_location):
       try:
         client = LDBDWClient.LDBDClient(host,port,protocol,identity)
       except Exception, e:
-        print >>sys.stderr, "Unable to connect to LDBD Server at %s://%s:%d " % (protocol,host, port) + str(e)
+        sys.stderr.write("Unable to connect to LDBD Server at %s://%s:%d \n" % (protocol,host, port) + str(e))
         sys.exit(1)
 
     elif protocol.startswith('ldbd'):
@@ -147,11 +147,11 @@ def setup_database(database_location):
       try:
         client = LDBDClient.LDBDClient(host,port,identity)
       except Exception, e:
-        print >>sys.stderr, "Unable to connect to LDBD Server at %s://%s:%d" % (protocol,host, port) + str(e)
+        sys.stderr.write("Unable to connect to LDBD Server at %s://%s:%d\n" % (protocol,host, port) + str(e))
         try:
           if gsiserverutils.checkCredentials():
-             print >>sys.stderr, "Got the following error : " + str(e)
-             print >>sys.stderr, "Run wiht --help for usage"
+             sys.stderr.write("Got the following error : \n" + str(e))
+             sys.stderr.write("Run wiht --help for usage\n")
         except UnboundLocalError:
           pass
         sys.exit(1)
@@ -346,7 +346,7 @@ def ensure_segment_table(connection):
     count = connection.cursor().execute("SELECT count(*) FROM sqlite_master WHERE name='segment'").fetchone()[0]
 
     if count == 0:
-        print >>sys.stderr, "WARNING: None of the loaded files contain a segment table"
+        sys.stderr.write("WARNING: None of the loaded files contain a segment table\n")
         theClass  = lsctables.TableByName['segment']
         statement = "CREATE TABLE IF NOT EXISTS segment (" + ", ".join(map(lambda key: "%s %s" % (key, ligolwtypes.ToSQLiteType[theClass.validcolumns[key]]), theClass.validcolumns)) + ")"
 

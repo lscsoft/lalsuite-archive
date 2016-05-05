@@ -501,7 +501,7 @@ double re, im, f;
 gsl_function F; 
 gsl_integration_workspace *w;
 gsl_integration_qawo_table *t_sine, *t_cosine;
-int w_size=1024*32;
+int w_size=args_info.fake_injection_w_size_arg;
 
 F.params=p;
 p->bin=0;
@@ -612,8 +612,8 @@ d->dc_factor_blocked=0;
 d->re=do_alloc(d->size*d->nbins, sizeof(*d->re));
 d->im=do_alloc(d->size*d->nbins, sizeof(*d->im));
 d->sft_veto=NULL;
-d->veto_level=1e-2; /* this takes care of SFTs that have 1/100 weight... */
-d->veto_spike_level=1.7; /* this takes care of SFTs with spikes 50 times median level */
+d->veto_level=args_info.default_dataset_veto_level_arg; /* this takes care of SFTs that have 1/100 weight... */
+d->veto_spike_level=args_info.default_dataset_veto_spike_level_arg; /* this takes care of SFTs with spikes 50 times median level */
 
 d->weight=1.0;
 
@@ -1276,7 +1276,7 @@ for(i=0;i<count;i++){
 	im[i]=tmp[2*i+1]*factor;
 	if(!isfinite(re[i]) || !isfinite(im[i])) {
 		free(tmp);
-		fprintf(stderr, "Infinite value encountered in file \"%s\"\n", filename);
+		fprintf(stderr, "Infinite value (%g,%g) encountered in file \"%s\" gps=%lld\n", tmp[2*i], tmp[2*i+1], filename, *gps);
 		return -2;
 		}
 	}
@@ -1371,7 +1371,7 @@ for(i=0;i<count;i++){
 	im[i]=tmp[2*i+1]*factor;
 	if(!isfinite(re[i]) || !isfinite(im[i])) {
 		free(tmp);
-		fprintf(stderr, "Infinite value encountered in file \"%s\"\n", filename);
+		fprintf(stderr, "Infinite value (%g,%g) encountered in file \"%s\" gps=%lld\n", tmp[2*i], tmp[2*i+1], filename, *gps);
 		return -(48+ht.nsamples*8+ht.comment_length);
 		}
 	}
@@ -1424,6 +1424,13 @@ while((fin=fopen(filename,"r"))==NULL) {
 if(retries>0) {
 	fprintf(stderr, "Successfully opened file \"%s\" after %ld attempts.\n", filename, retries);
 	}
+	
+if(d->buffer_size==0) {
+	setvbuf(fin, NULL, _IONBF, 0);
+	} else {
+	setvbuf(fin, d->buffer, _IOFBF, d->buffer_size);
+	}
+	
 /* read header */
 header_offset=0;
 while(1) {
@@ -1743,6 +1750,15 @@ if(!strncasecmp(line, "lock_file", 9)) {
 if(!strncasecmp(line, "sleep", 5)) {
 	locate_arg(line, length, 1, &ai, &aj);
 	condor_safe_sleep(atoi(&(line[ai])));
+	} else 
+if(!strncasecmp(line, "buffer_size", 11)) {
+	locate_arg(line, length, 1, &ai, &aj);
+	datasets[d_free-1].buffer_size=atoll(&(line[ai]));
+	if(datasets[d_free-1].buffer!=NULL)free(datasets[d_free-1].buffer);
+	if(datasets[d_free-1].buffer_size<0)datasets[d_free-1].buffer_size=0;
+	if(datasets[d_free-1].buffer_size>0) {
+		datasets[d_free-1].buffer=do_alloc(1, datasets[d_free-1].buffer_size);
+		}
 	} else 
 if(!strncasecmp(line, "gps_start", 9)) {
 	locate_arg(line, length, 1, &ai, &aj);
@@ -2575,6 +2591,26 @@ for(i=0;i<d_free;i++){
 		if(datasets[i].gps[j]>max_gps)max_gps=datasets[i].gps[j];
 	}
 return(max_gps);
+}
+
+INT64 mid_gps(void)
+{
+int i,j;
+double sum=0.0, weight, total_weight=0.0;
+INT64 min_gps=0;
+DATASET *d;
+
+for(i=0;i<d_free;i++){
+	d=&datasets[i];
+	for(j=0;j<datasets[i].free;j++) {
+		weight=d->expTMedians[j]*d->weight;
+		total_weight+=weight;
+		sum+=weight*d->gps[j];
+		}
+	}
+if(total_weight<=0)return -1;
+
+return((INT64)round(sum/total_weight));
 }
 
 void post_init_datasets(void)

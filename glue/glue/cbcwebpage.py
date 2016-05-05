@@ -51,7 +51,7 @@ def web_path_to_url(path):
 	if 'phys.uwm.edu' in host: return "https://ldas-jobs.phys.uwm.edu/~" + pl[pl.index('public_html')-1] + '/' + '/'.join(pl[pl.index('public_html')+1:])
 	if 'phy.syr.edu' in host: return "https://sugar-jobs.phy.syr.edu/~" + pl[pl.index('public_html')-1] + '/' + '/'.join(pl[pl.index('public_html')+1:])
 	if 'aei.uni-hannover.de' in host: return "https://atlas.atlas.aei.uni-hannover.de/~" + pl[pl.index('WWW')-1] + '/' + '/'.join(pl[pl.index('WWW')+1:])
-	print sys.stderr, "WARNING: could not find web server, returning empty string"
+	sys.stderr.write("WARNING: could not find web server, returning empty string\n")
 	return ''
 
 
@@ -140,7 +140,7 @@ def which(prog):
 	which = subprocess.Popen(['which',prog], stdout=subprocess.PIPE)
 	out = which.stdout.read().strip()
 	if not out:
-		print >>sys.stderr, "ERROR: could not find %s in your path, have you built the proper software and source the proper env. scripts?" % (prog,prog)
+		sys.stderr.write("ERROR: could not find %s in your path, have you built the proper software and source the proper env. scripts?\n" % (prog,prog))
 		raise ValueError
 		sys.exit(1)
 	return out

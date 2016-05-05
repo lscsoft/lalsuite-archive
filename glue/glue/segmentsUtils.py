@@ -30,12 +30,10 @@ objects.
 """
 
 
-import itertools
 import re
 
 
 from glue import git_version
-from glue import iterutils
 from glue import lal
 from glue import segments
 
@@ -184,9 +182,9 @@ def tosegwizard(file, seglist, header = True, coltype = int):
 	to str() before output.
 	"""
 	if header:
-		print >>file, "# seg\tstart    \tstop     \tduration"
+		file.write("# seg\tstart    \tstop     \tduration\n")
 	for n, seg in enumerate(seglist):
-		print >>file, "%d\t%s\t%s\t%s" % (n, str(coltype(seg[0])), str(coltype(seg[1])), str(coltype(abs(seg))))
+		file.write("%d\t%s\t%s\t%s\n" % (n, str(coltype(seg[0])), str(coltype(seg[1])), str(coltype(abs(seg)))))
 
 
 #

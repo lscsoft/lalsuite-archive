@@ -145,7 +145,7 @@ def coalesce_seg(database, start_time, end_time):
       sql += "WHERE hex(segment_def_id) = '%s' " % d[0]
       sql += "AND segment.start_time <=%d " % et
       sql += "AND segment.end_time >= %d " % st
-      print >> sys.stdout, ("Selecting segments to coalesce for %s version:%d %s ... " % (ifos,ver, name))
+      sys.stdout.write("Selecting segments to coalesce for %s version:%d %s ... \n" % (ifos,ver, name))
       curs.execute(sql)
 
       curs.execute("SELECT st,et from seg_view")
@@ -167,7 +167,7 @@ def coalesce_seg(database, start_time, end_time):
       sum_bf_cos = curs.fetchall()   # get the summarys to coalesce
 
       # 3. Coalesce segments and intervals
-      print >> sys.stdout, "Coalescing segments ... "
+      sys.stdout.write("Coalescing segments ... \n")
       segs = segments.segmentlist([]) 
       sums = segments.segmentlist([]) 
       for bf in seg_bf_cos:
@@ -194,7 +194,7 @@ def coalesce_seg(database, start_time, end_time):
       sql = "INSERT INTO segment "
       sql += "(segment_id, creator_db, start_time, end_time, segment_def_id, segment_def_cdb, process_id) "
       sql += "VALUES (?,?,?,?,?,?,?) "
-      print >> sys.stdout, "Inserting coalesced segments back in ... "
+      sys.stdout.write("Inserting coalesced segments back in ... \n")
       curs.executemany(sql, insert_list)
 
       # insert coalesced sums into segment_summary table
@@ -211,8 +211,7 @@ def coalesce_seg(database, start_time, end_time):
       curs.executemany(sql, insert_list)
 
       # 5. Delete uncoalesced segments and intervals from the database
-      print >> sys.stdout, "Deleting un-coaleseced segments ... "
-      print >> sys.stdout 
+      sys.stdout.write("Deleting un-coaleseced segments ... \n\n")
       sql = "DELETE FROM segment "
       sql += "WHERE segment_id in (select seg_id from seg_view) "
       sql += "AND process_id != %s " % process_id
@@ -234,8 +233,8 @@ def coalesce_seg(database, start_time, end_time):
       pass
     curs.close()
 
-  except Exception,e:
+  except Exception as e:
     ret = str(e)
-    print >> sys.stdout, ("%s" % ret)
+    sys.stdout.write("%s\n" % ret)
 
   return ret,data_existence
