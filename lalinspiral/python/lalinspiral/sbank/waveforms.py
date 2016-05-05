@@ -387,7 +387,7 @@ class SEOBNRv2ROMDoubleSpinTemplate(SEOBNRv2Template):
         htilde, _ = lalsim.SimInspiralChooseFDWaveform(0, df, self.m1 * MSUN_SI,
             self.m2 * MSUN_SI, 0., 0., self.spin1z, 0., 0., self.spin2z,
             self.bank.flow, f_final, self.bank.flow, 1e6*PC_SI, 0., 0., 0.,
-            flags, None, 1, 8, approx_enum)
+            0, 0, 10.0, flags, None, 1, 8, approx_enum)
         return htilde
 
 class SEOBNRv2ROMDoubleSpinHITemplate(SEOBNRv2Template):
@@ -401,7 +401,7 @@ class SEOBNRv2ROMDoubleSpinHITemplate(SEOBNRv2Template):
         htilde, _ = lalsim.SimInspiralChooseFDWaveform(0, df, self.m1 * MSUN_SI,
             self.m2 * MSUN_SI, 0., 0., self.spin1z, 0., 0., self.spin2z,
             self.bank.flow, f_final, self.bank.flow, 1e6*PC_SI, 0., 0., 0.,
-            flags, None, 1, 8, approx_enum)
+            0, 0, 10.0, flags, None, 1, 8, approx_enum)
         return htilde
 
 
@@ -607,6 +607,7 @@ class IMRPhenomPTemplate(PrecessingTemplate):
             1e6*PC_SI, # irrelevant parameter for banks/banksims
             self.iota,
             lmbda1, lmbda2, # irrelevant parameters for BBH
+            0, 0, 10.0, # eccentrcity related variables, ecc, eccOrder, f_ecc
             None, None, # non-GR parameters
             ampO, phaseO, approx)
 

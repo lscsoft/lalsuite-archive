@@ -129,6 +129,7 @@ bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
 massiveGravitonParams=['lambdaG']
 tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat']
 energyParams=['e_rad', 'l_peak']
+eccParams=['ecc']
 strongFieldParams=ppEParams+tigerParams+bransDickeParams+massiveGravitonParams+tidalParams+energyParams
 
 #Extrinsic
@@ -159,6 +160,8 @@ for param in tigerParams + bransDickeParams + massiveGravitonParams:
 for param in tidalParams:
   greedyBinSizes[param]=2.5
   #Confidence levels
+for param in eccParams:
+  greedyBinSizes[param]=0.01
 for loglname in statsParams:
   greedyBinSizes[loglname]=0.1
 
@@ -775,6 +778,10 @@ class Posterior(object):
                             'f_ref': lambda inj: self._injFref,
                             'polarisation':lambda inj:inj.polarization,
                             'polarization':lambda inj:inj.polarization,
+                            'ecc':lambda inj:inj.ecc,
+                            'eccentricity':lambda inj:inj.ecc,
+                            'eccOrder':lambda inj:inj.eccOrder,
+                            'f_ecc':lambda inj:inj.f_ecc,
                             'h1_end_time':lambda inj:float(inj.get_end('H')),
                             'l1_end_time':lambda inj:float(inj.get_end('L')),
                             'v1_end_time':lambda inj:float(inj.get_end('V')),
@@ -5683,7 +5690,8 @@ class PEOutputParser(object):
                                      "margtime","margtimephi","margtime","time_max","time_min",
                                      "time_mean", "time_maxl","sky_frame","psdscaleflag","logdeltaf","flow","f_ref",
                                      "lal_amporder","lal_pnorder","lal_approximant","tideo","spino","signalmodelflag",
-                                     "t0", "phase_maxl", "azimuth", "cosalpha"] + logParams + snrParams + splineParams
+                                     "t0", "phase_maxl", "azimuth", "cosalpha", "eccOrder", "f_ecc"] 
+                                     + logParams + snrParams + splineParams
                         nonParamsIdxs = [header.index(name) for name in nonParams if name in header]
                         paramIdxs = [i for i in range(len(header)) if i not in nonParamsIdxs]
                         samps = np.array(lines).astype(float)
@@ -6345,6 +6353,10 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
       s2y = tbl.spin2y
       s2z = tbl.spin2z
 
+      ecc = tbl.ecc
+      eccOrder = tbl.eccOrder
+      f_ecc = tbl.f_ecc
+
       r=D*LAL_PC_SI*1.0e6
       iota=tbl.inclination
       print "WARNING: Defaulting to inj_fref =100Hz to plot the injected WF. This is hardcoded since xml table does not carry this information\n"
@@ -6365,7 +6377,7 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
 
       if SimInspiralImplementedFDApproximants(injapproximant):
         inj_domain='F'
-        [plus,cross]=SimInspiralChooseFDWaveform(phiRef, deltaF,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min,f_max, f_ref,  r,   iota, lambda1,   lambda2,waveFlags, nonGRparams, amplitudeO, phaseO, injapproximant)
+        [plus,cross]=SimInspiralChooseFDWaveform(phiRef, deltaF,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min,f_max, f_ref,  r,   iota, lambda1, lambda2, ecc, eccOrder, f_ecc, waveFlags, nonGRparams, amplitudeO, phaseO, injapproximant)
       elif SimInspiralImplementedTDApproximants(injapproximant):
         inj_domain='T'
         [plus,cross]=SimInspiralChooseTDWaveform(phiRef, deltaT,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min, f_ref,   r,   iota, lambda1,   lambda2,waveFlags, nonGRparams, amplitudeO, phaseO, injapproximant)
@@ -6489,6 +6501,9 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
         s2y = (a * sin(the) * sin(phi));
         s2z = (a * cos(the));
         iota=pos['inclination'].samples[which][0]
+        ecc=pos['ecc'].samples[which][0]
+        eccOrder=pos['eccOrder'].samples[which][0]
+        f_ecc=pos['f_ecc'].samples[which][0]
       except:
         try:
           iota, s1x, s1y, s1z, s2x, s2y, s2z=lalsim.SimInspiralTransformPrecessingNewInitialConditions(pos['theta_jn'].samples[which][0], pos['phi_JL'].samples[which][0], pos['tilt1'].samples[which][0], pos['tilt2'].samples[which][0], pos['phi12'].samples[which][0], pos['a1'].samples[which][0], pos['a2'].samples[which][0], m1, m2, f_ref)
@@ -6510,6 +6525,18 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
                 iota=pos['inclination'].samples[which][0]
             else:
                 iota=pos['theta_jn'].samples[which][0]
+            if 'ecc' in pos.names:
+                ecc=pos['ecc'].samples[which][0]
+            else:
+                ecc=0
+            if 'eccOrder' in pos.names:
+                eccOrder=pos['eccOrder'].samples[which][0]
+            else:
+                eccOrder=0
+            if 'f_ecc' in pos.names:
+                f_ecc=pos['f_ecc'].samples[which][0]
+            else:
+                f_ecc=10.0
 
       r=D*LAL_PC_SI*1.0e6
 
@@ -6523,7 +6550,7 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
 
       if SimInspiralImplementedFDApproximants(approximant):
         rec_domain='F'
-        [plus,cross]=SimInspiralChooseFDWaveform(phiRef, deltaF,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min, f_max,   f_ref,r,   iota, lambda1,   lambda2,waveFlags, nonGRparams, amplitudeO, phaseO, approximant)
+        [plus,cross]=SimInspiralChooseFDWaveform(phiRef, deltaF,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min, f_max,   f_ref,r,   iota, lambda1,   lambda2, ecc, eccOrder, f_ecc, waveFlags, nonGRparams, amplitudeO, phaseO, approximant)
       elif SimInspiralImplementedTDApproximants(approximant):
         rec_domain='T'
         [plus,cross]=SimInspiralChooseTDWaveform(phiRef, deltaT,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min, f_ref,  r,   iota, lambda1,   lambda2,waveFlags, nonGRparams, amplitudeO, phaseO, approximant)

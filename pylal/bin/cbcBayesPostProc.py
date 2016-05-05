@@ -730,13 +730,14 @@ def cbcBayesPostProc(
       os.makedirs(cornerdir)
     massParams=['mtotal','m1','m2','mc']
     distParams=['distance','distMPC','dist']
+    eccParams=['ecc','eccentricity']
     incParams=['iota','inclination','theta_jn']
     polParams=['psi','polarisation','polarization']
     skyParams=['ra','rightascension','declination','dec']
     timeParams=['time']
     spinParams=['spin1','spin2','a1','a2','a1z','a2z','phi1','theta1','phi2','theta2','chi','effectivespin','chi_eff','chi_tot','chi_p','beta','tilt1','tilt2','phi_jl','theta_jn','phi12']
     sourceParams=['m1_source','m2_source','mtotal_source','mc_source','redshift']
-    intrinsicParams=massParams+spinParams
+    intrinsicParams=massParams+spinParams+eccParams
     extrinsicParams=incParams+distParams+polParams+skyParams
     sourceFrameParams=sourceParams+distParams
     try:
@@ -1163,7 +1164,7 @@ if __name__=='__main__':
       fixedBurnins = None
 
     import pylal 
-    from pylal.bayespputils import massParams,spinParams,cosmoParam,strongFieldParams,distParams,incParams,polParams,skyParams,phaseParams,timeParams,endTimeParams,statsParams,calibParams,snrParams,tidalParams
+    from pylal.bayespputils import massParams,spinParams,cosmoParam,strongFieldParams,distParams,incParams,polParams,skyParams,phaseParams,timeParams,endTimeParams,statsParams,calibParams,snrParams,tidalParams,eccParams
 
     oneDMenus={'Masses':None,'SourceFrame':None,'Timing':None,'Extrinsic':None,'Spins':None,'StrongField':None,'Others':None}
 
@@ -1172,6 +1173,7 @@ if __name__=='__main__':
     oneDMenus['Spins']= spinParams
     oneDMenus['Timing']=timeParams+endTimeParams
     oneDMenus['StrongField']= strongFieldParams
+    oneDMenus['Eccentricity']= eccParams
     oneDMenus['Others']=snrParams+statsParams+calibParams
     oneDMenus['SourceFrame']= cosmoParam
     
