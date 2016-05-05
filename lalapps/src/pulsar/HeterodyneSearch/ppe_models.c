@@ -50,13 +50,11 @@ void get_pulsar_model( LALInferenceModel *model ){
         PulsarAddParam( pars, "H0", &h0val, PULSARTYPE_REAL8_t );
       }
       else{
-        XLALPrintError("%s: Error... using mass quadrupole, Q22, but no distance or frequency given!\n", __func__ );
-        XLAL_ERROR_VOID( XLAL_EINVAL );
+        XLAL_ERROR_VOID( XLAL_EINVAL, "Error... using mass quadrupole, Q22, but no distance or frequency given!" );
       }
     }
     else if ( LALInferenceCheckVariableNonFixed( model->params, "Q22" ) && LALInferenceCheckVariableNonFixed( model->params, "H0" ) ) {
-      XLALPrintError("%s: Error... cannot have both h0 and Q22 as variables.\n", __func__);
-      XLAL_ERROR_VOID( XLAL_EINVAL );
+      XLAL_ERROR_VOID( XLAL_EINVAL, "Error... cannot have both h0 and Q22 as variables." );
     }
 
     add_pulsar_parameter( model->params, pars, "H0" );
@@ -74,7 +72,7 @@ void get_pulsar_model( LALInferenceModel *model ){
     else{ add_pulsar_parameter( model->params, pars, "COSTHETA" ); }
     add_pulsar_parameter( model->params, pars, "PHI0" ); /* note that this is the rotational phase */
 
-    /* check whether using cos(theta) or theta as the variable (defaulting to cos(theta) being the value that is set */
+    /* check whether using cos(iota) or iota as the variable (defaulting to cos(iota) being the value that is set) */
     if ( LALInferenceCheckVariableNonFixed( model->params, "IOTA" ) ){
       REAL8 cosiota = cos(LALInferenceGetREAL8Variable( model->params, "IOTA" ));
       PulsarAddParam( pars, "COSIOTA", &cosiota, PULSARTYPE_REAL8_t );
@@ -159,6 +157,7 @@ void get_pulsar_model( LALInferenceModel *model ){
   add_pulsar_parameter( model->params, pars, "F7" );
   add_pulsar_parameter( model->params, pars, "F8" );
   add_pulsar_parameter( model->params, pars, "F9" );
+  add_pulsar_parameter( model->params, pars, "F10" );
 
   /* check if there are binary parameters */
   if( LALInferenceCheckVariable(model->ifo->params, "BINARY") ){
@@ -235,7 +234,7 @@ void get_pulsar_model( LALInferenceModel *model ){
 void set_nonGR_model_parameters( PulsarParameters *pars, char* nonGRmodel ){
   /* determine what model was requested */
   int isG4v = strcmp(nonGRmodel, "G4v") * strcmp(nonGRmodel, "g4v") * strcmp(nonGRmodel, "G4V");
-  int isST = strcmp(nonGRmodel, "scalar-tensor") * strcmp(nonGRmodel, "ST");
+  int isEGR = strcmp(nonGRmodel, "enhanced-GR") * strcmp(nonGRmodel, "EGR") * strcmp(nonGRmodel, "egr") * strcmp(nonGRmodel, "eGR");
   REAL8 h0 = PulsarGetREAL8ParamOrZero( pars, "H0" );
 
   if( isG4v == 0 ){
@@ -252,9 +251,11 @@ void set_nonGR_model_parameters( PulsarParameters *pars, char* nonGRmodel ){
     PulsarAddParam( pars, "HVECTORY", &hVectorY, PULSARTYPE_REAL8_t );
     PulsarAddParam( pars, "PSIVECTOR", &psiVector, PULSARTYPE_REAL8_t );
   }
-  else if( isST == 0 ) {
-    /* GR plus an unconstrained breathing mode */
-    /* TO DO: are there specific functional relations linking the HSCALARB to pulsar parameters like COSIOTA, etc.? */
+  else if( isEGR == 0 ) {
+    /** GR plus an unconstrained non-GR modes
+    * With different priors, this can be used to obtain GR+scalar (i.e. 
+    * scalar-tensor), GR+vector, or GR+scalar+vector. Note: this mode used to
+    be called just "ST".*/
     REAL8 cosiota = PulsarGetREAL8ParamOrZero( pars, "COSIOTA" );
     REAL8 hPlus = 0.5 * h0 * (1. + cosiota * cosiota);
     REAL8 hCross = h0 * cosiota;
@@ -263,8 +264,7 @@ void set_nonGR_model_parameters( PulsarParameters *pars, char* nonGRmodel ){
     PulsarAddParam( pars, "HCROSS", &hCross, PULSARTYPE_REAL8_t );
     PulsarAddParam( pars, "PSITENSOR", &psiTensor, PULSARTYPE_REAL8_t );
   } else {
-    XLALPrintError ("%s: unrecognized non-GR model. Currently supported: scalar-tensor (ST), G4v, or no argument for full search.\n", __func__ );
-    XLAL_ERROR_VOID( XLAL_EINVAL );
+    XLAL_ERROR_VOID( XLAL_EINVAL, "Unrecognized non-GR model. Currently supported: enhanced GR (EGR), G4v, or no argument for full search." );
   }
 }
 
@@ -462,7 +462,8 @@ REAL8Vector *get_phase_model( PulsarParameters *params, LALInferenceIFOModel *if
       (1./5040.)*PulsarGetREAL8ParamOrZero(params, "F6")*deltat2*deltat2*deltat2 +
       (1./40320.)*PulsarGetREAL8ParamOrZero(params, "F7")*deltat2*deltat2*deltat2*deltat +
       (1./362880.)*PulsarGetREAL8ParamOrZero(params, "F8")*deltat2*deltat2*deltat2*deltat2 +
-      (1./3628800.)*PulsarGetREAL8ParamOrZero(params, "F9")*deltat2*deltat2*deltat2*deltat2*deltat);
+      (1./3628800.)*PulsarGetREAL8ParamOrZero(params, "F9")*deltat2*deltat2*deltat2*deltat2*deltat +
+      (1./39916800.)*PulsarGetREAL8ParamOrZero(params, "F10")*deltat2*deltat2*deltat2*deltat2*deltat2);
   }
 
   /* free memory */
@@ -522,15 +523,13 @@ REAL8Vector *get_ssb_delay( PulsarParameters *pars, LIGOTimeGPSVector *datatimes
   if ( PulsarCheckParam( pars, "RA" ) ) { ra = PulsarGetREAL8Param( pars, "RA" ); }
   else if ( PulsarCheckParam( pars, "RAJ" ) ) { ra = PulsarGetREAL8Param( pars, "RAJ" ); }
   else {
-    XLALPrintError ("%s: No source right ascension specified!", __func__ );
-    XLAL_ERROR_NULL( XLAL_EINVAL );
+    XLAL_ERROR_NULL( XLAL_EINVAL, "No source right ascension specified!" );
   }
   REAL8 dec = 0.;
   if ( PulsarCheckParam( pars, "DEC" ) ) { dec = PulsarGetREAL8Param( pars, "DEC" ); }
   else if ( PulsarCheckParam( pars, "DECJ" ) ) { dec = PulsarGetREAL8Param( pars, "DECJ" ); }
   else {
-    XLALPrintError ("%s: No source declination specified!", __func__ );
-    XLAL_ERROR_NULL( XLAL_EINVAL );
+    XLAL_ERROR_NULL( XLAL_EINVAL, "No source declination specified!" );
   }
   REAL8 pmra = PulsarGetREAL8ParamOrZero( pars, "PMRA" );
   REAL8 pmdec = PulsarGetREAL8ParamOrZero( pars, "PMDEC" );
@@ -962,8 +961,7 @@ void get_amplitude_model( PulsarParameters *pars, LALInferenceIFOModel *ifo ){
   }
 
   if ( nonGR == 1 && freqFactors->length > 1 ){
-    XLALPrintError( "%s: Error... currently can only use non-GR parameters for l=m=2 harmonic.\n", __func__ );
-    XLAL_ERROR_VOID( XLAL_EFAILED );
+    XLAL_ERROR_VOID( XLAL_EFAILED, "Error... currently can only use non-GR parameters for l=m=2 harmonic." );
   }
 
   /* loop over all detectors */
@@ -974,8 +972,7 @@ void get_amplitude_model( PulsarParameters *pars, LALInferenceIFOModel *ifo ){
       COMPLEX16 Cplus = 0., Ccross = 0., Cx = 0., Cy = 0., Cl = 0., Cb = 0.;
 
       if ( !ifo ){
-        XLALPrintError( "%s: Error... ifo model not defined.\n", __func__ );
-        XLAL_ERROR_VOID( XLAL_EINVAL );
+        XLAL_ERROR_VOID( XLAL_EINVAL, "Error... ifo model not defined." );
       }
 
       /* get the amplitude and phase factors */
@@ -1011,8 +1008,7 @@ void get_amplitude_model( PulsarParameters *pars, LALInferenceIFOModel *ifo ){
         }
       }
       else{
-        XLALPrintError("%s: Error... currently unknown frequency factor (%.2lf) for models.\n", __func__, freqFactors->data[j] );
-        XLAL_ERROR_VOID( XLAL_EINVAL );
+        XLAL_ERROR_VOID( XLAL_EINVAL, "Error... currently unknown frequency factor (%.2lf) for models.", freqFactors->data[j] );
       }
 
       if ( varyphase || roq ){ /* have to compute the full time domain signal */
@@ -1171,8 +1167,7 @@ REAL8 get_phase_mismatch( REAL8Vector *phi1, REAL8Vector *phi2, LIGOTimeGPSVecto
   T = XLALGPSGetREAL8(&t->data[t->length-1]) - XLALGPSGetREAL8(&t->data[0]);
 
   if ( phi1->length != phi2->length ){
-    XLALPrintError("Phase lengths should be equal!\n");
-    XLAL_ERROR_REAL8(XLAL_EFAILED);
+    XLAL_ERROR_REAL8( XLAL_EBADLEN, "Phase lengths should be equal!" );
   }
 
   /* calculate mismatch - integrate with trapezium rule */
@@ -1219,8 +1214,7 @@ void get_earth_pos_vel( EarthState *earth, EphemerisData *edat, LIGOTimeGPS *tGP
 
   /* check input */
   if ( !earth || !tGPS || !edat || !edat->ephemE || !edat->ephemS ) {
-    XLALPrintError ("%s: invalid NULL input 'earth', 'tGPS', 'edat','edat->ephemE' or 'edat->ephemS'\n", __func__ );
-    XLAL_ERROR_VOID( XLAL_EINVAL );
+    XLAL_ERROR_VOID( XLAL_EINVAL, "Invalid NULL input 'earth', 'tGPS', 'edat','edat->ephemE' or 'edat->ephemS'" );
   }
 
   tgps[0] = (REAL8)tGPS->gpsSeconds; /* convert from INT4 to REAL8 */
@@ -1232,9 +1226,8 @@ void get_earth_pos_vel( EarthState *earth, EphemerisData *edat, LIGOTimeGPS *tGP
   ientryE = ROUND(t0e/edat->dtEtable);  /* finding Earth table entry */
 
   if ( ( ientryE < 0 ) || ( ientryE >=  edat->nentriesE )) {
-    XLALPrintError ("%s: input GPS time %f outside of Earth ephem range [%f, %f]\n", __func__, tgps[0], tinitE, tinitE +
+    XLAL_ERROR_VOID( XLAL_EDOM, "Input GPS time %f outside of Earth ephem range [%f, %f]\n", tgps[0], tinitE, tinitE +
 edat->nentriesE * edat->dtEtable );
-    XLAL_ERROR_VOID( XLAL_EDOM );
   }
 
   /* tdiff is arrival time minus closest Earth table entry; tdiff can be pos. or neg. */
