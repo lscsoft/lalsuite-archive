@@ -344,10 +344,8 @@ void PulsarAddParam( PulsarParameters *pars, const CHAR *name, void *value, Puls
 /* If variable already exists, it will over-write the current value if type compatible*/
   PulsarParam *old = NULL;
 
-  /* This is a bit of a hack to make sure the hash table is initialised
-   * before it is accessed, assuming nobody is silly enough to Get()
-   * from a just-declared LALInferenceVariable */
-  if( pars->nparams == 0 ) { PulsarClearParams( pars ); }
+  /* create the hash table if it does not exist */
+  if( !pars->hash_table ) { pars->hash_table = XLALHashTblCreate( del_elem, PulsarHash, PulsarHashElemCmp ); }
 
   /* Check input value is accessible */
   if( !value ) { XLAL_ERROR_VOID(XLAL_EFAULT, "Unable to access value through null pointer; trying to add \"%s\".", name); }
@@ -429,7 +427,7 @@ void PulsarClearParams( PulsarParameters *pars ){
   pars->nparams = 0;
 
   if( pars->hash_table ) { XLALHashTblDestroy(pars->hash_table); }
-  pars->hash_table = XLALHashTblCreate( del_elem, PulsarHash, PulsarHashElemCmp );
+  pars->hash_table = NULL;
 }
 
 
@@ -474,7 +472,6 @@ void PulsarRemoveParam( PulsarParameters *pars, const CHAR *name ){
 
   this = NULL;
   pars->nparams--;
-  if( pars->nparams == 0 ) { PulsarClearParams( pars ); }
 }
 
 
@@ -614,7 +611,7 @@ typedef struct tagParConversion{
 }ParConversion;
 
 
-#define NUM_PARS 109 /* number of allowed parameters */
+#define NUM_PARS 110 /* number of allowed parameters */
 
 /** Initialise conversion structure with most allowed TEMPO2 parameter names and conversion functions
  * (convert all read in parameters to SI units where necessary). See http://arxiv.org/abs/astro-ph/0603381 and
@@ -634,6 +631,7 @@ ParConversion pc[NUM_PARS] = {
   { .name = "F7", .convfunc = ParConvToFloat, .converrfunc = ParConvToFloat, .ptype = PULSARTYPE_REAL8_t }, /* seventh frequency time derivative (Hz/s^7) */
   { .name = "F8", .convfunc = ParConvToFloat, .converrfunc = ParConvToFloat, .ptype = PULSARTYPE_REAL8_t }, /* eighth frequency time derivative (Hz/s^8) */
   { .name = "F9", .convfunc = ParConvToFloat, .converrfunc = ParConvToFloat, .ptype = PULSARTYPE_REAL8_t }, /* ninth frequency time derivative (Hz/s^9) */
+  { .name = "F10", .convfunc = ParConvToFloat, .converrfunc = ParConvToFloat, .ptype = PULSARTYPE_REAL8_t }, /* tenth frequency time derivative (Hz/s^10) */
   { .name = "DIST", .convfunc = ParConvKpcToMetres, .converrfunc = ParConvKpcToMetres, .ptype = PULSARTYPE_REAL8_t }, /* distance to pulsar in metres */
   { .name = "PX", .convfunc = ParConvMasToRads, .converrfunc = ParConvToFloat, .ptype = PULSARTYPE_REAL8_t }, /* parallax (converted to radians) */
   { .name = "DM", .convfunc = ParConvToFloat, .converrfunc = ParConvToFloat, .ptype = PULSARTYPE_REAL8_t }, /* dispersion measure */
@@ -1091,6 +1089,7 @@ XLALReadTEMPOParFile( BinaryPulsarParams *output,
   output->f7=0.0;
   output->f8=0.0;
   output->f9=0.0;
+  output->f10=0.0;
 
   output->waveSin = NULL;
   output->waveCos = NULL;
@@ -1167,6 +1166,7 @@ XLALReadTEMPOParFile( BinaryPulsarParams *output,
   output->f7Err=0.0;
   output->f8Err=0.0;
   output->f9Err=0.0;
+  output->f10Err=0.0;
 
   output->eErr =0.0;
   output->w0Err=0.0;
@@ -1597,6 +1597,29 @@ XLALReadTEMPOParFile( BinaryPulsarParams *output,
         }
         else{
           output->f9Err = atof(val[i+3]);
+        }
+        j+=2;
+      }
+    }
+    else if( !strcmp(val[i],"f10") || !strcmp(val[i],"F10")) {
+      CHAR *loc;
+
+      /* check if exponent contains e/E or d/D or neither */
+      if((loc = strstr(val[i+1], "D"))!=NULL || (loc = strstr(val[i+1], "d"))!=NULL){
+        output->f10 = atof(val[i+1])*pow(10, atof(loc+1));
+      }
+      else{
+        output->f10 = atof(val[i+1]);
+      }
+      j++;
+
+      if(atoi(val[i+2])==1 && i+2<k){
+        /* check if exponent contains e/E or d/D or neither */
+        if((loc = strstr(val[i+3], "D"))!=NULL || (loc = strstr(val[i+3], "d"))!=NULL){
+          output->f10Err = atof(val[i+3])*pow(10, atof(loc+1));
+        }
+        else{
+          output->f10Err = atof(val[i+3]);
         }
         j+=2;
       }
