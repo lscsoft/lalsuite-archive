@@ -646,6 +646,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
      lambda2                      lambda2.\n\
      lambdaT                      lambdaT.\n\
      dLambdaT                     dLambdaT.\n\
+     ecc                          ecc.\n\
     ----------------------------------------------\n\
     --- Prior Ranges -----------------------------\n\
     ----------------------------------------------\n\
@@ -660,6 +661,8 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
     (--mtotal-min min)                      Minimum total mass (2.0).\n\
     (--mtotal-max max)                      Maximum total mass (35.0).\n\
     (--dt time)                             Width of time prior, centred around trigger (0.2s).\n\
+    (--ecc-min min)                         Minimum eccentricity (0.0).\n\
+    (--ecc-max max)                         Maximum eccentricity (1.0).\n\
 \n\
     (--varyFlow, --flowMin, --flowMax)       Allow the lower frequency bound of integration to vary in given range.\n\
     (--pinparams)                            List of parameters to set to injected values [mchirp,asym_massratio,etc].\n\
@@ -714,6 +717,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   REAL8 raMin=0.0,raMax=LAL_TWOPI;
   REAL8 phiMin=0.0,phiMax=LAL_TWOPI;
   REAL8 costhetaJNmin=-1.0 , costhetaJNmax=1.0;
+  REAL8 eccmin=0.0 , eccmax=1.0;
   REAL8 dt=0.1;  /* Half the width of time prior */
   REAL8 lambda1Min=0.0;
   REAL8 lambda1Max=3000.0;
@@ -884,6 +888,24 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   LALInferenceAddVariable(model->params, "LAL_PNORDER",     &PhaseOrder,        LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(model->params, "LAL_AMPORDER",     &AmpOrder,        LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(model->params, "f_ref", &f_ref, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+
+  /* eccentricity related variables, eccOrder and f_ecc is fixed with injection table value */
+  REAL8 ecc = 0.0;
+  INT4 eccOrder = -1;
+  REAL8 f_ecc = 10.0;
+  if (injTable == NULL) 
+  {
+    printf("WARNING: No injection table is specified, eccentricity values are set as default values, ecc=0, eccOrder=0, f_ecc=10.0Hz\n");
+  }
+  else {
+    ecc = (REAL8) injTable->ecc;
+    eccOrder = (INT4) injTable->eccOrder;
+    f_ecc = (REAL8) injTable->f_ecc;
+  }
+  LALInferenceRegisterUniformVariableREAL8(state, model->params, "ecc", ecc, eccmin, eccmax, LALINFERENCE_PARAM_LINEAR);
+  LALInferenceAddVariable(model->params, "eccOrder", &eccOrder, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddVariable(model->params, "f_ecc", &f_ecc, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+
 
   /* flow handling */
   REAL8 fLow = state->data->fLow;

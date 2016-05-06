@@ -539,11 +539,11 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
 /*   - "lambda1"            tidal parameter of object 1; REAL8  OPTIONAL (0.0)                                           */
 /*   - "lambda2"            tidal parameter of object 1; REAL8  OPTIONAL (0.0)                                           */
 /*                                                                                                                       */
-/*   - "time"               used as an OUTPUT only; REAL8								                                 */
+/*   - "time"               used as an OUTPUT only; REAL8				                                 */
 /*                                                                                                                       */
-/*   - "ecc"               eccentricty value at refrence frequency; REAL8								                                 */
+/*   - "ecc"               eccentricty value at refrence frequency; REAL8		                                 */
 /*   - "eccOrder"          eccentricity PN order; INT4 					                                 */
-/*   - "f_ecc"             refrence frequency of eccentricity; REAL8								                                 */
+/*   - "f_ecc"             refrence frequency of eccentricity; REAL8			                                 */
 /*                                                                                                                       */
 /*   model needs to also contain:                                                                                        */
 /*   - model->fLow Unless  - "fLow" OPTIONAL                                                                             */
