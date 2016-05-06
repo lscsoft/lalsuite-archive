@@ -5690,8 +5690,7 @@ class PEOutputParser(object):
                                      "margtime","margtimephi","margtime","time_max","time_min",
                                      "time_mean", "time_maxl","sky_frame","psdscaleflag","logdeltaf","flow","f_ref",
                                      "lal_amporder","lal_pnorder","lal_approximant","tideo","spino","signalmodelflag",
-                                     "t0", "phase_maxl", "azimuth", "cosalpha", "eccOrder", "f_ecc"] 
-                                     + logParams + snrParams + splineParams
+                                     "t0", "phase_maxl", "azimuth", "cosalpha", "eccOrder", "f_ecc"] + logParams + snrParams + splineParams
                         nonParamsIdxs = [header.index(name) for name in nonParams if name in header]
                         paramIdxs = [i for i in range(len(header)) if i not in nonParamsIdxs]
                         samps = np.array(lines).astype(float)
