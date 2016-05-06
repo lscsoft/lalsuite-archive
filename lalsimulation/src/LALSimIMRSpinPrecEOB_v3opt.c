@@ -1580,7 +1580,7 @@ int XLALSimIMRSpinEOBWaveformAll_opt(
 /*      retLenLow = XLALAdaptiveRungeKutta4( integrator, &seobParams, valuesV2->data, 0., 20./mTScaled, deltaT/mTScaled, &dynamicsV2 ); */
         retLenEOMLow = XLALAdaptiveRungeKutta4_no_interpolate_SaveD(integrator, &seobParams, valuesV2->data, 0., 20./mTScaled, deltaT/mTScaled, &dynamicsV2EOMLo);
         retLenLow = (int)(dynamicsV2EOMLo->data[retLenEOMLow-1] / (deltaT/mTScaled))+ 1;
-        SEOBNRv3OptimizedInterpolatorGeneral(dynamicsV2EOMLo->data, 0., deltaT/mTScaled, retLenEOMLow, &dynamicsV2, 7);
+        SEOBNRv3OptimizedInterpolatorGeneral(dynamicsV2EOMLo->data, 0., deltaT/mTScaled, retLenEOMLow, &dynamicsV2, 4);
 
         seobParams.alignedSpins = 0;
         if ( retLenLow == XLAL_FAILURE )
@@ -1664,7 +1664,7 @@ int XLALSimIMRSpinEOBWaveformAll_opt(
     }else{
             retLenEOMLow = XLALAdaptiveRungeKutta4_no_interpolate_SaveD(integrator, &seobParams, values->data, 0., 20./mTScaled, deltaT/mTScaled, &dynamicsEOMLo );
             retLenLow =  (int)(dynamicsEOMLo->data[retLenEOMLow-1] / (deltaT/mTScaled))+ 1;
-            SEOBNRv3OptimizedInterpolatorGeneral(dynamicsEOMLo->data,0., deltaT/mTScaled, retLenEOMLow, &dynamics,17);
+            SEOBNRv3OptimizedInterpolatorGeneral(dynamicsEOMLo->data,0., deltaT/mTScaled, retLenEOMLow, &dynamics,14);
 
             if ( retLenEOMLow == XLAL_FAILURE )
             {
@@ -1681,7 +1681,6 @@ int XLALSimIMRSpinEOBWaveformAll_opt(
             tVecEOM->data =  dynamicsEOMLo->data;
 
   }
-
   tVec.length = retLenLow;
   tVec.data   = dynamics->data;
 
@@ -1779,7 +1778,7 @@ int XLALSimIMRSpinEOBWaveformAll_opt(
 
         retLenEOMHi = XLALAdaptiveRungeKutta4_no_interpolate_SaveD(integrator, &seobParams, valuesV2->data, 0., 20./mTScaled, deltaTHigh/mTScaled, &dynamicsV2EOMHi);
         retLenHi = (int)(dynamicsV2EOMHi->data[retLenEOMHi-1] / (deltaTHigh/mTScaled))+ 1;
-        SEOBNRv3OptimizedInterpolatorGeneral(dynamicsV2EOMHi->data, 0., deltaTHigh/mTScaled, retLenEOMHi, &dynamicsV2Hi, 17);
+        SEOBNRv3OptimizedInterpolatorGeneral(dynamicsV2EOMHi->data, 0., deltaTHigh/mTScaled, retLenEOMHi, &dynamicsV2Hi, 4);
 
         seobParams.alignedSpins = 0;
 
@@ -1860,7 +1859,7 @@ int XLALSimIMRSpinEOBWaveformAll_opt(
      }else{
             retLenEOMHi = XLALAdaptiveRungeKutta4_no_interpolate_SaveD(integrator, &seobParams, values->data, 0., 20./mTScaled, deltaTHigh/mTScaled, &dynamicsEOMHi);
             retLenHi = (int)(dynamicsEOMHi->data[retLenEOMHi-1] / (deltaTHigh/mTScaled))+ 1;
-            SEOBNRv3OptimizedInterpolatorGeneral(dynamicsEOMHi->data,0., deltaTHigh/mTScaled, retLenEOMHi, &dynamicsHi,17);
+            SEOBNRv3OptimizedInterpolatorGeneral(dynamicsEOMHi->data,0., deltaTHigh/mTScaled, retLenEOMHi, &dynamicsHi,14);
 
         if ( retLenHi == XLAL_FAILURE )
         {
@@ -2266,12 +2265,10 @@ int XLALSimIMRSpinEOBWaveformAll_opt(
  * *********************************************************************************
  * **********************************************************************************/
     REAL8Array * hVec = NULL;
-
-    REAL8Vector hVectmp;
-    hVectmp.length=3*retLenEOMLow; //OPTV3: t, amp, and phase
-
-    REAL8 hVectmpData[3*retLenEOMLow];
-    hVectmp.data = hVectmpData;
+    REAL8Vector hVecEOM;
+    hVecEOM.length=3*retLenEOMLow; //OPTV3: t, amp, and phase
+    REAL8 hVecEOMData[3*retLenEOMLow];
+    hVecEOM.data = hVecEOMData;
 
     h22TSHi   = XLALCreateCOMPLEX16TimeSeries( "H_22", &tc, 0.0, deltaTHigh, &lalStrainUnit, retLenHi );
     h21TSHi   = XLALCreateCOMPLEX16TimeSeries( "H_21", &tc, 0.0, deltaTHigh, &lalStrainUnit, retLenHi );
@@ -2288,17 +2285,16 @@ int XLALSimIMRSpinEOBWaveformAll_opt(
     COMPLEX16 Y[5]={Y2m2,Y2m1,Y20,Y21,Y22};
 
     /* OPTV3: Generate the low and high sampling waveforms. */
-    XLALEOBSpinPrecGenerateAmpPhaseTSFromEOMSoln(&hVectmp,retLenEOMLow,Alpha,Beta,Gamma,JframeEx,JframeEy,JframeEz,Y,dynamicsEOMLo,&seobParams);
+    XLALEOBSpinPrecGenerateAmpPhaseTSFromEOMSoln(&hVecEOM,retLenEOMLow,Alpha,Beta,Gamma,JframeEx,JframeEy,JframeEz,Y,dynamicsEOMLo,&seobParams);
     XLALEOBSpinPrecGenerateHTSModesFromEOMSoln(h2m2TSHi->data->data,h2m1TSHi->data->data,h20TSHi->data->data,h21TSHi->data->data,h22TSHi->data->data,retLenHi,dynamicsHi,&seobParams);
 
     REAL8Vector phaseVecEOMLo;
     phaseVecEOMLo.length = retLenEOMLow;
-    phaseVecEOMLo.data = hVectmp.data+2*retLenEOMLow;
-
+    phaseVecEOMLo.data = hVecEOM.data+2*retLenEOMLow;
     XLALREAL8VectorUnwrapAngleByMonotonicity(&phaseVecEOMLo,&phaseVecEOMLo);
 
     //OPTV3: Interpolate the WF solutions to the desired times
-    SEOBNRv3OptimizedInterpolatorGeneral(hVectmp.data,0., deltaT/mTScaled, retLenEOMLow, &hVec,2);
+    SEOBNRv3OptimizedInterpolatorGeneral(hVecEOM.data,0., deltaT/mTScaled, retLenEOMLow, &hVec,2);
 
   if ( !(tlist = XLALCreateREAL8Vector( retLenLow ))
     || !(tlistRDPatch = XLALCreateREAL8Vector( retLenLow + retLenRDPatchLow )) )
