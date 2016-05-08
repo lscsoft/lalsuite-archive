@@ -904,7 +904,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   }
   LALInferenceVariableItem *node=NULL;
   node=LALInferenceGetItem(model->params,"ecc");
-  if( !node ) { /* set to be unformly variate for ecc if it was nto fixed ton injection value already */
+  if( !node ) { /* set to be unformly variate for ecc if it was not fixed ton injection value already */
     LALInferenceRegisterUniformVariableREAL8(state, model->params, "ecc", ecc, eccmin, eccmax, LALINFERENCE_PARAM_LINEAR);
   }
   LALInferenceAddVariable(model->params, "eccOrder", &eccOrder, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
@@ -1242,7 +1242,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
 
      /* Print info about orders and waveflags used for templates */
 
-     fprintf(stdout,"Templates will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i tidal order %i in the %s domain.\n",approx,XLALGetStringFromApproximant(approx),PhaseOrder,AmpOrder,(int) spinO, (int) tideO, model->domain==LAL_SIM_DOMAIN_TIME?"time":"frequency");
+     fprintf(stdout,"Templates will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i, tidal order %i, eccOrder %i in the %s domain.\n",approx,XLALGetStringFromApproximant(approx),PhaseOrder,AmpOrder,(int) spinO, (int) tideO, eccOrder, model->domain==LAL_SIM_DOMAIN_TIME?"time":"frequency");
      fprintf(stdout,"---\t\t ---\n\n");
   }//end of signal only flag
   else
