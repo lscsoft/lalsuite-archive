@@ -785,8 +785,8 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
     while(N>0){
       N--;
       char *name=strings[N];
-      fprintf(stdout,"Pinning parameter %s\n",node->name);
       node=LALInferenceGetItem(&tempParams,name);
+      fprintf(stdout,"Pinning parameter %s\n",node->name);
       if(node) LALInferenceAddVariable(model->params,node->name,node->value,node->type,node->vary);
       else {fprintf(stderr,"Error: Cannot pin parameter %s. No such parameter found in injection!\n",node->name);}
     }
@@ -902,7 +902,11 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
     eccOrder = (INT4) injTable->eccOrder;
     f_ecc = (REAL8) injTable->f_ecc;
   }
-  LALInferenceRegisterUniformVariableREAL8(state, model->params, "ecc", ecc, eccmin, eccmax, LALINFERENCE_PARAM_LINEAR);
+  LALInferenceVariableItem *node=NULL;
+  node=LALInferenceGetItem(model->params,"ecc");
+  if( !node ) { /* set to be unformly variate for ecc if it was nto fixed ton injection value already */
+    LALInferenceRegisterUniformVariableREAL8(state, model->params, "ecc", ecc, eccmin, eccmax, LALINFERENCE_PARAM_LINEAR);
+  }
   LALInferenceAddVariable(model->params, "eccOrder", &eccOrder, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(model->params, "f_ecc", &f_ecc, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
 
