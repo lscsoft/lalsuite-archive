@@ -42,16 +42,16 @@ static int cmp_ptr_ptr_int( const void *x, const void *y )
   return cmp_ptr_int( *( ( const void *const * ) x ), *( ( const void *const * ) y ) );
 }
 
-static int print_ptr_int( UNUSED void *param, const void *x )
+static int print_ptr_int( UNUSED void *param, void *x )
 {
-  printf( " %i", *( ( const int * ) x ) );
+  printf( " %i", *( ( int * ) x ) );
   return XLAL_SUCCESS;
 }
 
-static int check_ptr_int( void *param, const void *x )
+static int check_ptr_int( void *param, void *x )
 {
   int ***y = ( int ** * ) param;
-  return *( ( const int * ) x ) == **( ( *y )++ ) ? XLAL_SUCCESS : XLAL_FAILURE;
+  return *( ( int * ) x ) == **( ( *y )++ ) ? XLAL_SUCCESS : XLAL_FAILURE;
 }
 
 int main( void )
@@ -103,13 +103,9 @@ int main( void )
     /* Add integer to unlimited min-heap, and check properties */
     {
       void *x = NULL;
-      if (i % 2 == 0) {
-        x = new_int( input[i] );
-        XLAL_CHECK_MAIN( x != NULL, XLAL_ENOMEM );
-        XLAL_CHECK_MAIN( XLALHeapAdd( minh, &x ) == XLAL_SUCCESS, XLAL_EFUNC );
-      } else {
-        XLAL_CHECK_MAIN( XLALHeapAddCopy( minh, &input[i], sizeof(input[i]) ) == XLAL_SUCCESS, XLAL_EFUNC );
-      }
+      x = new_int( input[i] );
+      XLAL_CHECK_MAIN( x != NULL, XLAL_ENOMEM );
+      XLAL_CHECK_MAIN( XLALHeapAdd( minh, &x ) == XLAL_SUCCESS, XLAL_EFUNC );
       printf( "minh={" );
       XLAL_CHECK_MAIN( XLALHeapVisit( minh, print_ptr_int, NULL ) == XLAL_SUCCESS, XLAL_EFUNC );
       printf( " }" );
@@ -129,13 +125,9 @@ int main( void )
     /* Add integer to unlimited max-heap, and check properties */
     {
       void *x = NULL;
-      if (i % 2 == 0) {
-        x = new_int( input[i] );
-        XLAL_CHECK_MAIN( x != NULL, XLAL_ENOMEM );
-        XLAL_CHECK_MAIN( XLALHeapAdd( maxh, &x ) == XLAL_SUCCESS, XLAL_EFUNC );
-      } else {
-        XLAL_CHECK_MAIN( XLALHeapAddCopy( maxh, &input[i], sizeof(input[i]) ) == XLAL_SUCCESS, XLAL_EFUNC );
-      }
+      x = new_int( input[i] );
+      XLAL_CHECK_MAIN( x != NULL, XLAL_ENOMEM );
+      XLAL_CHECK_MAIN( XLALHeapAdd( maxh, &x ) == XLAL_SUCCESS, XLAL_EFUNC );
       printf( "maxh={" );
       XLAL_CHECK_MAIN( XLALHeapVisit( maxh, print_ptr_int, NULL ) == XLAL_SUCCESS, XLAL_EFUNC );
       printf( " }" );

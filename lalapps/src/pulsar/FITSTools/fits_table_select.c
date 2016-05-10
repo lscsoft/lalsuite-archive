@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
   int hdutype = 0, hdunum = 0, ii = 0;
 
   if (argc != 4) {
-    fprintf(stderr, "Usage:  tabselect infile expression outfile\n");
+    fprintf(stderr, "Usage:  %s infile expression outfile\n", argv[0]);
     fprintf(stderr, "\n");
     fprintf(stderr, "Copy selected rows from the input table to the output file\n");
     fprintf(stderr, "based on the input boolean expression.  The expression may \n");
@@ -48,27 +48,26 @@ int main(int argc, char *argv[])
     fprintf(stderr, "that row is copied to the output file.\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Example: \n");
-    fprintf(stderr, "1. tabselect intab.fits+1 'counts > 0' outab.fits\n");
+    fprintf(stderr, "1. %s intab.fits+1 'counts > 0' outab.fits\n", argv[0]);
     fprintf(stderr, "\n");
     fprintf(stderr, "    copy rows that have a positive 'counts' column value\n");
     fprintf(stderr, "\n");
-    fprintf(stderr, "2. tabselect intab.fits+1 'gtifilter()' outab.fits\n");
+    fprintf(stderr, "2. %s intab.fits+1 'gtifilter()' outab.fits\n", argv[0]);
     fprintf(stderr, "\n");
     fprintf(stderr, "    Select rows which have a Time column value that is\n");
     fprintf(stderr, "    within one of the Good Time Intervals (GTI) which are\n");
     fprintf(stderr, "    defined in a separate GTI extension in the same file.\n");
     fprintf(stderr, "\n");
-    fprintf(stderr, "3. tabselect intab.fits+1 'regfilter(\"pow.reg\")' outab.fits\n");
+    fprintf(stderr, "3. %s intab.fits+1 'regfilter(\"pow.reg\")' outab.fits\n", argv[0]);
     fprintf(stderr, "\n");
     fprintf(stderr, "    Select rows which have X,Y column coordinates located\n");
     fprintf(stderr, "    within the spatial region defined in the file named\n");
     fprintf(stderr, "    'pow.reg'.  This is an ASCII text file containing a\n");
     fprintf(stderr, "    list of one or more geometric regions such as circle,\n");
     fprintf(stderr, "    rectangle, annulus, etc.\n");
-    return(0);
+    return (0);
   }
-  if (!fits_open_file(&infptr, argv[1], READONLY, &status) )
-  {
+  if (!fits_open_file(&infptr, argv[1], READONLY, &status)) {
     if (fits_get_hdu_type(infptr, &hdutype,&status) ||
         hdutype==IMAGE_HDU) {
       fprintf(stderr, "Error: input HDU is not a table\n");
@@ -76,16 +75,17 @@ int main(int argc, char *argv[])
 
       fits_get_hdu_num(infptr, &hdunum);  /* save current HDU location */
 
-      if (!fits_create_file(&outfptr, argv[3], &status) )
-      {
+      if (!fits_create_file(&outfptr, argv[3], &status)) {
         /* copy all the HDUs from the input file to the output file */
         for (ii = 1; !status; ii++) {
-          if ( !fits_movabs_hdu(infptr, ii, NULL, &status) )
+          if (!fits_movabs_hdu(infptr, ii, NULL, &status)) {
             fits_copy_hdu(infptr, outfptr, 0, &status);
+          }
         }
 
-        if (status == END_OF_FILE)
+        if (status == END_OF_FILE) {
           status = 0;  /* reset expected error */
+        }
 
         /* move back to initial position in the file */
         fits_movabs_hdu(outfptr, hdunum, NULL, &status);
@@ -101,6 +101,8 @@ int main(int argc, char *argv[])
     fits_close_file(infptr, &status);
   }
 
-  if (status) fits_report_error(stderr, status); /* print any error message */
-  return(status);
+  if (status) {
+    fits_report_error(stderr, status);  /* print any error message */
+  }
+  return (status);
 }

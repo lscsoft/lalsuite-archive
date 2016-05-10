@@ -70,7 +70,7 @@ if(ExcludeMissingUL) {
 Input[,"dist"]<-dist(Input[,"ra"], Input[,"dec"], Input[,"ra_inj"], Input[,"dec_inj"])
 Input[is.na(Input[,"dist"]), "dist"]<-0.3
 
-Output[,"dist"]<-dist(Output[,"ra_orig"], Output[,"dec_orig"], Output[,"ra_inj"], Output[,"dec_inj"])
+Output[,"dist"]<-dist(Output[,"ra"], Output[,"dec"], Output[,"ra_inj"], Output[,"dec_inj"])
 Output[is.na(Output[,"dist"]), "dist"]<-0.3
 
 C<-merge(Input[,setdiff(names(Input), "line_id_orig"),drop=FALSE], Output, by.x=c("i", "line_id"), by.y=c("i", "line_id_orig"), suffixes=c("_input", "_output"), all=TRUE)
@@ -104,6 +104,7 @@ error.bar <- function(x, y, upper, lower=upper, length=0.1,...) {
 	}
 
 ROC_plot<-function(col="h0_inj", group.func=function(x)return(x), group.inv.func=function(x)return(x), groups=10, error.bars=FALSE, ...) {
+	try({
 	Gy<-group.func(c(Input[,col], Output[,col]))
 	#Groups<-seq(min(Gy, na.rm=TRUE), max(Gy, na.rm=TRUE), length.out=groups)
 	Groups<-quantile(Gy, (0:groups)/groups, na.rm=TRUE)
@@ -125,6 +126,7 @@ ROC_plot<-function(col="h0_inj", group.func=function(x)return(x), group.inv.func
 		print(error.bar(C[,col], C[,"Found_output"], C[,"Found_sd_output"], col="magenta"))
 		}
 	trellis.unfocus()
+	})
 	}
 
 ComparisonPlot<-function(formula, decreasing=TRUE, best.snr=FALSE, omit.found=FALSE, auto.key=list(text=c("Input", "Output"), columns=2), pch=c(3, 1), ...) {
