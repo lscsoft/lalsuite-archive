@@ -165,6 +165,7 @@ def main(testarguments=""):
 
   parser=OptionParser(usage)
   parser.add_option("-f","--flow",default=20.0,help="Lower frequency cutoff used for all the waveforms")#,dest="flow"
+  parser.add_option("-a","--approximant",default="IMRPhenomPv2threePointFivePN",help="Approximant name including PN order")
   parser.add_option("-s","--sourcefile",help="File containing sources with parameters")
   parser.add_option("-o","--output",help="output xml file")
   parser.add_option("-i","--inspinj",default='lalapps_inspinj',help="lalapps_inspinj executable location")
@@ -186,6 +187,8 @@ def main(testarguments=""):
 
   flow = float(opts.flow)
   inspinj = opts.inspinj
+
+  approximant=opts.approximant
 
 
   data = genfromtxt(sourcefile,converters={1: lambda s: str(s)})
@@ -211,7 +214,7 @@ def main(testarguments=""):
   command = "%s "%inspinj
   command += "--output %s "%xmltmpname
   command += "--seed 1000 "
-  command += "--waveform IMRPhenomPthreePointFivePN "
+  command += "--waveform %s "%approximant
   command += "--gps-start-time %d "%gps_start_time
   command += "--gps-end-time %d "%gps_end_time
   command += "--time-step %d "%time_step
