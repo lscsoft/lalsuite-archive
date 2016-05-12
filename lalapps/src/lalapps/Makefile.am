@@ -47,6 +47,7 @@ bin_PROGRAMS = \
 	lalapps_version \
 	lalapps_tconvert \
 	lalapps_cache \
+	lalapps_overlap \
 	$(FFTWPROGS)
 
 lalapps_version_SOURCES = \
@@ -59,6 +60,8 @@ lalapps_tconvert_SOURCES = \
 	getdate.h
 lalapps_cache_SOURCES = \
 	cache.c
+lalapps_overlap_SOURCES = \
+	OverlapSimulation.c
 
 LDADD = liblalapps.la
 
