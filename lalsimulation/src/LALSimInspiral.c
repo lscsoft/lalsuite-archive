@@ -4579,12 +4579,14 @@ int XLALSimLorentzInvarianceViolationTerm(
   M = m1+m2;
   eta = m1*m2/(M*M);
   Mc = M*pow(eta, 0.6);
+  //D1by3 = 332.1567*LAL_PC_SI*1e6/LAL_C_SI; /* converting D to seconds; 1.5PN*/
   if (nonGR_alpha == 1) {
     zeta = LAL_PI/lambda_a_eff;
     dPhiPref = zeta*log(LAL_PI*Mc*LAL_MTSUN_SI);
   }
   else {
-    zeta = pow(LAL_PI, (2. - nonGR_alpha))*pow(Mc*LAL_MRSUN_SI, (1. - nonGR_alpha))/((1. - nonGR_alpha)*pow(lambda_a_eff, (2. - nonGR_alpha)));
+    zeta = pow(LAL_PI, (2. - nonGR_alpha))*pow(Mc*LAL_MTSUN_SI, (1. - nonGR_alpha))/((1. - nonGR_alpha)*pow(lambda_a_eff, (2. - nonGR_alpha)));
+    //zeta = pow(LAL_PI, (2. - nonGR_alpha))*D1by3*pow(Mc*LAL_MTSUN_SI, (1. - nonGR_alpha))/((1. - nonGR_alpha)*pow(lambda_a_eff, (2. - nonGR_alpha))); 
     dPhiPref = zeta*pow(LAL_PI*Mc*LAL_MTSUN_SI, (nonGR_alpha - 1.));
   }
 
