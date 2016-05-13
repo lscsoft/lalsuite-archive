@@ -3606,7 +3606,7 @@ def plot_sky_map(hpmap, outdir, inj=None, nest=True):
     """
 
     fig = plt.figure(frameon=False, figsize=(8,6))
-    ax = plt.subplot(111, projection='astro mollweide')
+    ax = plt.subplot(111, projection='astro hours mollweide')
     ax.cla()
     ax.grid()
     lp.healpix_heatmap(hpmap, nest=nest, vmin=0.0, vmax=np.max(hpmap), cmap=plt.get_cmap('cylon'))
