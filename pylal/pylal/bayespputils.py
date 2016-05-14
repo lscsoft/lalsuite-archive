@@ -3991,8 +3991,8 @@ def DistanceMeasure(redshift,nonGR_alpha):
 def lambda_a(redshift, nonGR_alpha, lambda_eff):
     mpc = lal.PC_SI*1e6
     Dfunc = np.vectorize(DistanceMeasure)
-    D_alpha = Dfunc(redshift, nonGR_alpha)*mpc  ## convert to metres
-    return ((lambda_eff*lal.C_SI)**(1.0-(1./(2.0-nonGR_alpha))))*(D_alpha/(1.0+redshift)**(1.0-nonGR_alpha))**(1./(2.0-nonGR_alpha))
+    D_alpha = Dfunc(redshift, nonGR_alpha)*mpc/lal.C_SI  ## convert to seconds
+    return (lambda_eff*(D_alpha/(1.0+redshift)**(1.0-nonGR_alpha))**(1./(2.0-nonGR_alpha)))*lal.C_SI ## convert to metres
 
 def amplitudeMeasure(redshift, nonGR_alpha, lambda_eff):
     hPlanck = 4.13567e-15
