@@ -461,8 +461,8 @@ def plot_label(param):
       'loggraviton_lambda':r'$\log\lambda_g\,[\mathrm{m}]$',
       'loggraviton_mass':r'$\log m_g\,[\mathrm{eV}]$',
       'loglambda_a':r'$\log\lambda_{\mathbb{A}} [\mathrm{m}]$',
-      'loglambda_a_eff':r'$\log\lambda_{eff}$',
-      'lambda_a_eff':r'$\lambda_{eff}$',
+      'loglambda_a_eff':r'$\log\lambda_{eff} [\mathrm{sec}^{1-\frac{1}{2-\alpha}}]$',
+      'lambda_a_eff':r'$\lambda_{eff} [\mathrm{sec}^{1-\frac{1}{2-\alpha}}]$',
       'lambda_a':r'$\lambda_{\mathbb{A}} [\mathrm{m}]$',
       'amp':r'$\mathbb{A} [\mathrm{{eV}^{2-\alpha}}]$' ,
       'logamp':r'$\log \mathbb{A}[\mathrm{{eV}^{2-\alpha}}]$' 
@@ -3980,24 +3980,24 @@ def integrand_distance(redshift,nonGR_alpha):
     return (1.0+redshift)**(nonGR_alpha-2.0)/(np.sqrt(omega_m*(1.0+redshift)**3.0 + omega_lambda))
 
 def DistanceMeasure(redshift,nonGR_alpha):
-    mpc = lal.pc*1e6
+    mpc = lal.PC_SI*1e6
     h = 0.75
     H0 = h*100*1e3/mpc
     dist = integrate.quad(integrand_distance, 0, redshift ,args=(nonGR_alpha))[0]
-    dist *= lal.c*(1.0 + redshift)**(1.0 - nonGR_alpha)
+    dist *= lal.C_SI*(1.0 + redshift)**(1.0 - nonGR_alpha)
     dist /= H0
     return dist/mpc
 
 def lambda_a(redshift, nonGR_alpha, lambda_eff):
-    mpc = lal.pc*1e6
+    mpc = lal.PC_SI*1e6
     Dfunc = np.vectorize(DistanceMeasure)
     D_alpha = Dfunc(redshift, nonGR_alpha)*mpc  ## convert to metres
-    return lambda_eff*(D_alpha/(1.0+redshift)**(1.0-nonGR_alpha))**(1./(2.0-nonGR_alpha))
+    return ((lambda_eff*lal.C_SI)**(1.0-(1./(2.0-nonGR_alpha))))*(D_alpha/(1.0+redshift)**(1.0-nonGR_alpha))**(1./(2.0-nonGR_alpha))
 
 def amplitudeMeasure(redshift, nonGR_alpha, lambda_eff):
     hPlanck = 4.13567e-15
     ampFunc = np.vectorize(lambda_a)
-    lambdaA = ampFunc(redshift, nonGR_alpha, lambda_eff)  
+    lambdaA = ampFunc(redshift, nonGR_alpha, lambda_eff)/lal.C_SI # convert to seconds
     return (lambdaA/hPlanck)**(nonGR_alpha-2.0)
 
 def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m2, fref):
