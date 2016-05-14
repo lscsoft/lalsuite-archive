@@ -296,8 +296,27 @@ int main(int argc, char *argv[])
     {
       p1v = p1*LAL_MSUN_SI; // convert to kg
       ret = XLALSimInspiralTaylorF2(&hptilde2, phiRef, deltaF, 
-                    m1, p1v, p1v, S2z,
+                    m1, p1v, S1z, S2z,
                     f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO); // qm1=qm2 = 1 hard code
+      //ret = XLALSimInspiralTaylorF2AmpPlus(&hptilde2, phiRef, deltaF, inclination,
+      //              m1, p1v, S1x, S1y, S1z, S2x, S2y, S2z,
+      //              LNhatx, LNhaty, LNhatz, f_min, f_max, r, phaseO, amplitudeO);
+      overlap = LALInferenceComputeFrequencyDomainOverlap(irs->data, hptilde1->data, hptilde2->data);
+      overlapNorm = LALInferenceComputeFrequencyDomainOverlapNormalised(irs->data, hptilde1->data, hptilde2->data);
+      //loglikelihood = LALInferenceFreqDomainLogLikelihood(&currentParams, runstate->data, LALInferenceTemplateXLALSimInspiralChooseWaveform));
+      fprintf(outf, "%20.8e %20.8e %20.8e\n", p1, overlap, overlapNorm);
+      if ( hptilde2 ) XLALDestroyCOMPLEX16FrequencySeries(hptilde2);
+      hptilde2 = NULL;
+    }
+  }
+  else if(strstr(inParams.p1n, "ecc")) // ecc changed
+  {
+    for(p1 = inParams.p1s; p1 < inParams.p1e + 0.5*inParams.p1d; p1 += inParams.p1d)
+    {
+      p1v = p1; 
+      ret = XLALSimInspiralTaylorF2(&hptilde2, phiRef, deltaF, 
+                    m1, m2, S1z, S2z,
+                    f_min, f_max, 0, r, 1, 1, 0, 0, p1v, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO); // qm1=qm2 = 1 hard code
       //ret = XLALSimInspiralTaylorF2AmpPlus(&hptilde2, phiRef, deltaF, inclination,
       //              m1, p1v, S1x, S1y, S1z, S2x, S2y, S2z,
       //              LNhatx, LNhaty, LNhatz, f_min, f_max, r, phaseO, amplitudeO);
@@ -547,7 +566,7 @@ void generateGNUfile(Parameter *inParams)
     fprintf(outf, "set output \"%s.eps\"\n", inParams->outfile);
     fprintf(outf, "plot \"%s.dat\" using ($1):($2) with lines axes x1y1 title \"Unnormalised\", \"%s.dat\" using ($1):($3) with lines axes x2y2 title \"Normalised\"\n", 
 		inParams->outfile, inParams->outfile);
-    fprintf(outf, "set terminal wxt\n");
+    fprintf(outf, "set terminal qt\n");
     fprintf(outf, "plot \"%s.dat\" using ($1):(abs($2)) with lines axes x1y1 title \"Unnormalised\", \"%s.dat\" using ($1):(abs($3)) with lines axes x2y2 title \"Normalised\"\n", 
 		inParams->outfile, inParams->outfile);
   }
