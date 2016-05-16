@@ -585,6 +585,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
     --- Template Arguments -----------------------\n\
     ----------------------------------------------\n\
     (--use-eta)            Jump in symmetric mass ratio eta, instead of q=m1/m2 (m1>m2)\n\
+    (--use-mbeta)          Jump new mass parameter mbeta(=m^(3/5)) * mu, instead of q and eta.\n\
     (--approx)             Specify a template approximant and phase order to use\n\
                          (default TaylorF2threePointFivePN). Available approximants:\n\
                          default modeldomain=\"time\": GeneratePPN, TaylorT1, TaylorT2,\n\
@@ -616,6 +617,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
      time                         Waveform time (overrides random about trigtime).\n\
      chirpmass                    Chirpmass\n\
      eta                          Symmetric massratio (needs --use-eta)\n\
+     mbeta                        optimal choice of mass parameter (mbeta=m^(3/5)* mu) (needs --use-mbeta)\n\
      q                            Asymmetric massratio (a.k.a. q=m2/m1 with m1>m2)\n\
      phase                        Coalescence phase.\n\
      costheta_jn                  Cosine of angle between J and line of sight [rads]\n\
@@ -696,6 +698,8 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   REAL8 mcMax=15.3;
   REAL8 etaMin=0.0312;
   REAL8 etaMax=0.25;
+  REAL8 mbetaMin=1.0;
+  REAL8 mbetaMax=30.0;
   REAL8 qMin=1./30.; // The ratio between min and max component mass (see InitMassVariables)
   REAL8 qMax=1.0;
   REAL8 psiMin=0.0,psiMax=LAL_PI;
@@ -847,7 +851,8 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   qMin = m2_min / m1_max;
   mcMin =mtot_min*pow(qMin/pow(1.+qMin,2.),3./5.);
   mcMax =mtot_max*pow(0.25,3./5.);
-
+  mbetaMin=1.0;
+  mbetaMax=30.0;  /* modify properly */
   /************ Initial Value Related Argument START *************/
   /* Read time parameter from injection file */
   if(injTable)
@@ -1086,8 +1091,11 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
     LALInferenceRegisterUniformVariableREAL8(state, model->params, "chirpmass", zero, mcMin, mcMax, LALINFERENCE_PARAM_LINEAR);
     /* Check if running with symmetric (eta) or asymmetric (q) mass ratio.*/
     ppt=LALInferenceGetProcParamVal(commandLine,"--use-eta");
+    ppt1=LALInferenceGetProcParamVal(commandLine,"--use-mbeta");
     if(ppt)
-      LALInferenceRegisterUniformVariableREAL8(state, model->params, "eta", zero, etaMin, etaMax, LALINFERENCE_PARAM_LINEAR);
+      LALInferenceRegisterUniformVariableREAL8(state, model->params, "eta", zero, etaMin, etaMax, LALINFERENCE_PARAM_LINEAR);    
+    else if(ppt1)
+      LALInferenceRegisterUniformVariableREAL8(state, model->params, "mbeta", zero, mbetaMin, mbetaMax, LALINFERENCE_PARAM_LINEAR);
     else
       LALInferenceRegisterUniformVariableREAL8(state, model->params, "q", zero, qMin, qMax, LALINFERENCE_PARAM_LINEAR);
 
