@@ -94,7 +94,7 @@ const char *const clusteredKDEProposalName = "ClusteredKDEProposal";
 const char *const splineCalibrationProposalName = "SplineCalibration";
 const char *const distanceLikelihoodProposalName = "DistanceLikelihood";
 
-static const char *intrinsicNames[] = {"chirpmass", "q", "eta", "mass1", "mass2", "a_spin1", "a_spin2",
+static const char *intrinsicNames[] = {"chirpmass", "q", "eta", "mbeta", "mass1", "mass2", "a_spin1", "a_spin2",
   "tilt_spin1", "tilt_spin2", "phi12", "phi_jl", "frequency", "quality", "duration","polar_angle", "phase", "polar_eccentricity", NULL};
 
 static const char *extrinsicNames[] = {"rightascension", "declination", "cosalpha", "azimuth", "polarisation", "distance",
@@ -707,23 +707,25 @@ REAL8 LALInferenceSingleProposal(LALInferenceThreadState *thread,
             sigma = 0.02;
         } else if (!strcmp(param->name, "q")) {
             sigma = 0.08;
+        } else if (!strcmp(param->name, "mbeta")) {
+            sigma = 0.1048;        
         } else if (!strcmp(param->name, "chirpmass")) {
             sigma = 1.0;
         } else if (!strcmp(param->name, "time")) {
             sigma = 0.02;
-		} else if (!strcmp(param->name, "t0")) {
-		    sigma = 0.02;
+	} else if (!strcmp(param->name, "t0")) {
+	    sigma = 0.02;
         } else if (!strcmp(param->name, "phase")) {
             sigma = 0.6;
         } else if (!strcmp(param->name, "distance")) {
             sigma = 10.0;
         } else if (!strcmp(param->name, "declination")) {
             sigma = 0.3;
-		} else if (!strcmp(param->name, "azimuth")) {
-			sigma = 0.6;
-		} else if (!strcmp(param->name, "cosalpha")) {
-			sigma = 0.1;
-		} else if (!strcmp(param->name, "rightascension")) {
+	} else if (!strcmp(param->name, "azimuth")) {
+	    sigma = 0.6;
+	} else if (!strcmp(param->name, "cosalpha")) {
+	    sigma = 0.1;
+	} else if (!strcmp(param->name, "rightascension")) {
             sigma = 0.6;
         } else if (!strcmp(param->name, "polarisation")) {
             sigma = 0.6;
@@ -740,7 +742,7 @@ REAL8 LALInferenceSingleProposal(LALInferenceThreadState *thread,
 
         *(REAL8 *)param->value += gsl_ran_ugaussian(GSLrandom)*sigma;
     } else {
-        if (!strcmp(param->name,"eta") || !strcmp(param->name,"q") || !strcmp(param->name,"time") || !strcmp(param->name,"t0") || !strcmp(param->name,"a_spin2") || !strcmp(param->name,"a_spin1")){
+        if (!strcmp(param->name,"eta") || !strcmp(param->name,"mbeta") || !strcmp(param->name,"q") || !strcmp(param->name,"time") || !strcmp(param->name,"t0") || !strcmp(param->name,"a_spin2") || !strcmp(param->name,"a_spin1")){
             *(REAL8 *)param->value += gsl_ran_ugaussian(GSLrandom)*big_sigma*sigma*0.001;
         } else if (!strcmp(param->name,"polarisation") || !strcmp(param->name,"phase") || !strcmp(param->name,"costheta_jn")){
             *(REAL8 *)param->value += gsl_ran_ugaussian(GSLrandom)*big_sigma*sigma*0.1;
@@ -1272,7 +1274,7 @@ REAL8 LALInferenceDrawApproxPrior(LALInferenceThreadState *thread,
 
     LALInferenceCopyVariables(currentParams, proposedParams);
 
-    const char *flat_params[] = {"q", "eta", "t0", "azimuth", "cosalpha", "time", "phase", "polarisation",
+    const char *flat_params[] = {"q", "eta", "mbeta", "t0", "azimuth", "cosalpha", "time", "phase", "polarisation",
                                  "rightascension", "costheta_jn", "phi_jl",
                                  "phi12", "a_spin1", "a_spin2", NULL};
 
@@ -3002,7 +3004,9 @@ void LALInferenceSetupAdaptiveProposals(LALInferenceVariables *propArgs, LALInfe
         if (LALInferenceCheckVariableNonFixed(params, this->name) && this->type == LALINFERENCE_REAL8_t) {
             char *name = this->name;
 
-            if (!strcmp(name, "eta") || !strcmp(name, "q") || !strcmp(name, "time") || !strcmp(name, "a_spin2") || !strcmp(name, "a_spin1") || !strcmp(name,"t0")){
+            if (!strcmp(name, "eta") || !strcmp(name, "mbeta") || !strcmp(name, "q") || !strcmp(name, "time") || !strcmp(name, "a_spin2") || !strcmp(name, "a_spin1") || !strcmp(name,"t0")){
+framePath2="/home/patricia.schmidt/projects/WaveformSystematics/frames/SXS-Ossokine/Run1_noise4/L1HWINJ_configRun1_l2m2_C00.gwf"
+framePath2="/home/patricia.schmidt/projects/WaveformSystematics/frames/SXS-Ossokine/Run1_noise4/L1HWINJ_configRun1_l2m2_C00.gwf"
                 sigma = 0.001;
             } else if (!strcmp(name, "polarisation") || !strcmp(name, "phase") || !strcmp(name, "costheta_jn")){
                 sigma = 0.1;
