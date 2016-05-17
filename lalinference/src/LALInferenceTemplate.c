@@ -68,7 +68,7 @@
 
 static void q2eta(double q, double *eta);
 static void q2masses(double mc, double q, double *m1, double *m2);
-
+static void mbeta2masses(double mc, double mbeta, double *m1, double *m2);
 
 void LALInferenceTemplateNullFreqdomain(LALInferenceModel *model)
 /**********************************************/
@@ -147,6 +147,20 @@ static void q2masses(double mc, double q, double *m1, double *m2)
   *m2 = (*m1) * q;
   return;
 }
+
+static void mbeta2masses(double mc, double mbeta, double *m1, double *m2)
+/*  Compute individual companion masses (m1, m2)   */
+/*  for given chirp mass (m_c) & mbeta   */
+/*  note: mbeta = m^(3/5) * mu,  */
+{
+  double MTemp=pow(mc,25.0)*pow(mbeta,-15.0);
+  double etaTemp=pow(mbeta,25.0)*pow(mc,-40.0);
+  double deltaTemp=sqrt(1-4.0*etaTemp);
+  *m1=(MTemp/2.0)*(1+deltaTemp);
+  *m2=(MTemp/2.0)*(1-deltaTemp);
+  return;
+}
+
 
 void LALInferenceTemplateROQ(LALInferenceModel *model)
 {
@@ -484,6 +498,10 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
 /*      OR                                                                                                               */
 /*      - "chirpmass"       chirpmass in solar mass; REAL8                                                               */
 /*      - "eta"             symmetric mass ratio (m1*m2)/(m1+m2)^2; REAL8                                                */
+/*      OR                                                                                                               */
+/*      - "chirpmass"       chirpmass in solar mass; REAL8                                                               */
+/*      - "mbeta"           new mass parameter ; REAL8                                                                   */
+/*                                                                                                                       */
 /*                                                                                                                       */
 /*   ORIENTATION AND SPIN PARAMETERS                                                                                     */
 /*   - "phi0"               reference phase as per LALSimulation convention; REAL8                                       */
@@ -570,7 +588,12 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
       if (LALInferenceCheckVariable(model->params,"q")) {
 	REAL8 q = *(REAL8 *)LALInferenceGetVariable(model->params,"q");
 	q2masses(mc, q, &m1, &m2);
-      } else {
+      } 
+      else if (LALInferenceCheckVariable(model->params,"mbeta")) {
+         REAL8 mbeta = LALInferenceGetREAL8Variable(model->params,"mbeta");
+         mbeta2masses(mc, mbeta, &m1, &m2);
+         }
+      else {
 	REAL8 eta = *(REAL8*) LALInferenceGetVariable(model->params, "eta");
 	mc2masses(mc, eta, &m1, &m2);
       }
