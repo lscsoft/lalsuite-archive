@@ -757,7 +757,7 @@ static UNUSED INT4 XLALSimIMREOBAttachFitRingdown(
   Approximant  approximant /**<<The waveform approximant being used */
   )
 {
-    INT4 debugSB = 1;
+    INT4 debugSB = 0;
     UINT4 nmodes;
     UINT4 i;
     UNUSED INT4 phasecount;
