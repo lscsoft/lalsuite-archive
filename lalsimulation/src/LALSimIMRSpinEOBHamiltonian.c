@@ -41,7 +41,7 @@
 
 #include "LALSimIMRSpinEOB.h"
 
-#include "fresnel.h"
+//#include "fresnel.h"
 /*------------------------------------------------------------------------------------------
  *
  *          Prototypes of functions defined in this code.
@@ -265,53 +265,53 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
 //      printf("yval1O yval2O %.16e %.16e\n",yval1O,yval2O);
 //      printf("deltaU, deltaUQ, deltaUO %.16e %.16e %.16e\n", deltaU, deltaUQ, deltaUO);
 //  }
-    if ( coeffs->k2Tidal1 != 0. && coeffs->omega02Tidal1 != 0. ) {
-        REAL8 m1 = coeffs->m1;
-        REAL8 m2 = coeffs->m2;
-        REAL8 R = m1/coeffs->comp1;
-        REAL8 eps = 64./5.*pow(2.,1./3.)*pow(coeffs->omega02Tidal1, 5./3.)*eta;
-        REAL8 bigomega = pow(1./u, 3./2.)*coeffs->omega02Tidal1/2.;
-        REAL8 factorQ = 4. - pow(2., 1./3.)*pow(1./u, 2.5)*pow(coeffs->omega02Tidal1, 5./3.);
-        REAL8 calR = 1./(bigomega*bigomega - 1.) + 10./3./factorQ;
-        REAL8 yval = sqrt(3./LAL_PI)*factorQ/5./sqrt(eps);
-        REAL8 k2Tidaleff = 0.25 + 3./4.*bigomega*bigomega*(calR + sqrt(LAL_PI/3.)/sqrt(eps)*((1. + 2.*fresnel_s(yval))*cos(0.5*LAL_PI*yval*yval) - (1. + 2.*fresnel_c(yval))*sin(0.5*LAL_PI*yval*yval)));
-        
-        REAL8 factorO = 9. - pow(3., 1./3.)*pow(1./u, 2.5)*pow(coeffs->omega03Tidal1, 5./3.);
-        REAL8 yvalO = factorO/4./pow(3.,2./3.)/sqrt(10.)/pow(coeffs->omega03Tidal1,5./6.)/sqrt(eta);
-        REAL8 prefactorO = 5.*sqrt(5.)/u/u/u*pow(coeffs->omega03Tidal1,7./6.)/(192.*pow(3.,2./3.)*sqrt(eta));
-        REAL8 k3Tidaleff = 3./8. + coeffs->omega03Tidal1*coeffs->omega03Tidal1/u/u/u*(25./48./factorO + 5./72./(-1. + coeffs->omega03Tidal1*coeffs->omega03Tidal1/u/u/u/9.)) + prefactorO*(cos(yvalO*yvalO)*(0.5 + fresnel_s(sqrt(2./LAL_PI)*yvalO*yvalO)) - sin(yvalO*yvalO)*(0.5 + fresnel_c(sqrt(2./LAL_PI)*yvalO*yvalO)));
-        REAL8 deltaUQ = - 2.*m2/m1*coeffs->k2Tidal1*k2Tidaleff*R*R*R*R*R*u5*u*(1. + 5./2.*u*m1 + u2*(3. + m1/8. + 337./28.*m1*m1) );
-        REAL8 deltaUO = - 2.*m2/m1*coeffs->k3Tidal1*k3Tidaleff*R*R*R*R*R*R*R*u5*u*u*u*(1. + u*(15./2.*m1 - 2.) + u*u*(8./3. - 311./24.*m1 + 110./3.*m1*m1));
-        deltaU = deltaU + deltaUQ + deltaUO;
-        printf("coeffs->comp1 %.16e\n", coeffs->comp1);
-        printf("coeffs->k2Tidal1 %.16e\n", coeffs->k2Tidal1);
-        printf("coeffs->omega02Tidal1 %.16e\n", coeffs->omega02Tidal1);
-        printf("deltaU, deltaUQ, deltaUO %.16e %.16e %.16e\n", deltaU, deltaUQ, deltaUO);
-    }
-    if ( coeffs->k2Tidal2 != 0. && coeffs->omega02Tidal2 != 0. ) {
-        /* Use the same formulae but exchange 1<-->2 in all parameters that are stored in coeffs */
-        REAL8 m1 = coeffs->m2;
-        REAL8 m2 = coeffs->m1;
-        REAL8 R = m1/coeffs->comp2;
-        REAL8 eps = 64./5.*pow(2.,1./3.)*pow(coeffs->omega02Tidal2, 5./3.)*eta;
-        REAL8 bigomega = pow(1./u, 3./2.)*coeffs->omega02Tidal2/2.;
-        REAL8 factorQ = 4. - pow(2., 1./3.)*pow(1./u, 2.5)*pow(coeffs->omega02Tidal2, 5./3.);
-        REAL8 calR = 1./(bigomega*bigomega - 1.) + 10./3./factorQ;
-        REAL8 yval = sqrt(3./LAL_PI)*factorQ/5./sqrt(eps);
-        REAL8 k2Tidaleff = 0.25 + 3./4.*bigomega*bigomega*(calR + sqrt(LAL_PI/3.)/sqrt(eps)*((1. + 2.*fresnel_s(yval))*cos(0.5*LAL_PI*yval*yval) - (1. + 2.*fresnel_c(yval))*sin(0.5*LAL_PI*yval*yval)));
-        
-        REAL8 factorO = 9. - pow(3., 1./3.)*pow(1./u, 2.5)*pow(coeffs->omega03Tidal2, 5./3.);
-        REAL8 yvalO = factorO/4./pow(3.,2./3.)/sqrt(10.)/pow(coeffs->omega03Tidal2,5./6.)/sqrt(eta);
-        REAL8 prefactorO = 5.*sqrt(5.)/u/u/u*pow(coeffs->omega03Tidal2,7./6.)/(192.*pow(3.,2./3.)*sqrt(eta));
-        REAL8 k3Tidaleff = 3./8. + coeffs->omega03Tidal2*coeffs->omega03Tidal2/u/u/u*(25./48./factorO + 5./72./(-1. + coeffs->omega03Tidal2*coeffs->omega03Tidal2/u/u/u/9.)) + prefactorO*(cos(yvalO*yvalO)*(0.5 + fresnel_s(sqrt(2./LAL_PI)*yvalO*yvalO)) - sin(yvalO*yvalO)*(0.5 + fresnel_c(sqrt(2./LAL_PI)*yvalO*yvalO)));
-        REAL8 deltaUQ = - 2.*m2/m1*coeffs->k2Tidal2*k2Tidaleff*R*R*R*R*R*u5*u*(1. + 5./2.*u*m1 + u2*(3. + m1/8. + 337./28.*m1*m1) );
-        REAL8 deltaUO = - 2.*m2/m1*coeffs->k3Tidal2*k3Tidaleff*R*R*R/R*R*R*R*u5*u*u*u*(1. + u*(15./2.*m1 - 2.) + u*u*(8./3. - 311./24.*m1 + 110./3.*m1*m1));
-        deltaU = deltaU + deltaUQ + deltaUO;
-        printf("coeffs->comp2 %.16e\n", coeffs->comp2);
-        printf("coeffs->k2Tidal2 %.16e\n", coeffs->k2Tidal2);
-        printf("coeffs->omega02Tidal2 %.16e\n", coeffs->omega02Tidal2);
-        printf("deltaU, deltaUQ, deltaUO %.16e %.16e %.16e\n", deltaU, deltaUQ, deltaUO);
-    }
+//    if ( coeffs->k2Tidal1 != 0. && coeffs->omega02Tidal1 != 0. ) {
+//        REAL8 m1 = coeffs->m1;
+//        REAL8 m2 = coeffs->m2;
+//        REAL8 R = m1/coeffs->comp1;
+//        REAL8 eps = 64./5.*pow(2.,1./3.)*pow(coeffs->omega02Tidal1, 5./3.)*eta;
+//        REAL8 bigomega = pow(1./u, 3./2.)*coeffs->omega02Tidal1/2.;
+//        REAL8 factorQ = 4. - pow(2., 1./3.)*pow(1./u, 2.5)*pow(coeffs->omega02Tidal1, 5./3.);
+//        REAL8 calR = 1./(bigomega*bigomega - 1.) + 10./3./factorQ;
+//        REAL8 yval = sqrt(3./LAL_PI)*factorQ/5./sqrt(eps);
+//        REAL8 k2Tidaleff = 0.25 + 3./4.*bigomega*bigomega*(calR + sqrt(LAL_PI/3.)/sqrt(eps)*((1. + 2.*fresnel_s(yval))*cos(0.5*LAL_PI*yval*yval) - (1. + 2.*fresnel_c(yval))*sin(0.5*LAL_PI*yval*yval)));
+//        
+//        REAL8 factorO = 9. - pow(3., 1./3.)*pow(1./u, 2.5)*pow(coeffs->omega03Tidal1, 5./3.);
+//        REAL8 yvalO = factorO/4./pow(3.,2./3.)/sqrt(10.)/pow(coeffs->omega03Tidal1,5./6.)/sqrt(eta);
+//        REAL8 prefactorO = 5.*sqrt(5.)/u/u/u*pow(coeffs->omega03Tidal1,7./6.)/(192.*pow(3.,2./3.)*sqrt(eta));
+//        REAL8 k3Tidaleff = 3./8. + coeffs->omega03Tidal1*coeffs->omega03Tidal1/u/u/u*(25./48./factorO + 5./72./(-1. + coeffs->omega03Tidal1*coeffs->omega03Tidal1/u/u/u/9.)) + prefactorO*(cos(yvalO*yvalO)*(0.5 + fresnel_s(sqrt(2./LAL_PI)*yvalO*yvalO)) - sin(yvalO*yvalO)*(0.5 + fresnel_c(sqrt(2./LAL_PI)*yvalO*yvalO)));
+//        REAL8 deltaUQ = - 2.*m2/m1*coeffs->k2Tidal1*k2Tidaleff*R*R*R*R*R*u5*u*(1. + 5./2.*u*m1 + u2*(3. + m1/8. + 337./28.*m1*m1) );
+//        REAL8 deltaUO = - 2.*m2/m1*coeffs->k3Tidal1*k3Tidaleff*R*R*R*R*R*R*R*u5*u*u*u*(1. + u*(15./2.*m1 - 2.) + u*u*(8./3. - 311./24.*m1 + 110./3.*m1*m1));
+//        deltaU = deltaU + deltaUQ + deltaUO;
+//        printf("coeffs->comp1 %.16e\n", coeffs->comp1);
+//        printf("coeffs->k2Tidal1 %.16e\n", coeffs->k2Tidal1);
+//        printf("coeffs->omega02Tidal1 %.16e\n", coeffs->omega02Tidal1);
+//        printf("deltaU, deltaUQ, deltaUO %.16e %.16e %.16e\n", deltaU, deltaUQ, deltaUO);
+//    }
+//    if ( coeffs->k2Tidal2 != 0. && coeffs->omega02Tidal2 != 0. ) {
+//        /* Use the same formulae but exchange 1<-->2 in all parameters that are stored in coeffs */
+//        REAL8 m1 = coeffs->m2;
+//        REAL8 m2 = coeffs->m1;
+//        REAL8 R = m1/coeffs->comp2;
+//        REAL8 eps = 64./5.*pow(2.,1./3.)*pow(coeffs->omega02Tidal2, 5./3.)*eta;
+//        REAL8 bigomega = pow(1./u, 3./2.)*coeffs->omega02Tidal2/2.;
+//        REAL8 factorQ = 4. - pow(2., 1./3.)*pow(1./u, 2.5)*pow(coeffs->omega02Tidal2, 5./3.);
+//        REAL8 calR = 1./(bigomega*bigomega - 1.) + 10./3./factorQ;
+//        REAL8 yval = sqrt(3./LAL_PI)*factorQ/5./sqrt(eps);
+//        REAL8 k2Tidaleff = 0.25 + 3./4.*bigomega*bigomega*(calR + sqrt(LAL_PI/3.)/sqrt(eps)*((1. + 2.*fresnel_s(yval))*cos(0.5*LAL_PI*yval*yval) - (1. + 2.*fresnel_c(yval))*sin(0.5*LAL_PI*yval*yval)));
+//        
+//        REAL8 factorO = 9. - pow(3., 1./3.)*pow(1./u, 2.5)*pow(coeffs->omega03Tidal2, 5./3.);
+//        REAL8 yvalO = factorO/4./pow(3.,2./3.)/sqrt(10.)/pow(coeffs->omega03Tidal2,5./6.)/sqrt(eta);
+//        REAL8 prefactorO = 5.*sqrt(5.)/u/u/u*pow(coeffs->omega03Tidal2,7./6.)/(192.*pow(3.,2./3.)*sqrt(eta));
+//        REAL8 k3Tidaleff = 3./8. + coeffs->omega03Tidal2*coeffs->omega03Tidal2/u/u/u*(25./48./factorO + 5./72./(-1. + coeffs->omega03Tidal2*coeffs->omega03Tidal2/u/u/u/9.)) + prefactorO*(cos(yvalO*yvalO)*(0.5 + fresnel_s(sqrt(2./LAL_PI)*yvalO*yvalO)) - sin(yvalO*yvalO)*(0.5 + fresnel_c(sqrt(2./LAL_PI)*yvalO*yvalO)));
+//        REAL8 deltaUQ = - 2.*m2/m1*coeffs->k2Tidal2*k2Tidaleff*R*R*R*R*R*u5*u*(1. + 5./2.*u*m1 + u2*(3. + m1/8. + 337./28.*m1*m1) );
+//        REAL8 deltaUO = - 2.*m2/m1*coeffs->k3Tidal2*k3Tidaleff*R*R*R/R*R*R*R*u5*u*u*u*(1. + u*(15./2.*m1 - 2.) + u*u*(8./3. - 311./24.*m1 + 110./3.*m1*m1));
+//        deltaU = deltaU + deltaUQ + deltaUO;
+//        printf("coeffs->comp2 %.16e\n", coeffs->comp2);
+//        printf("coeffs->k2Tidal2 %.16e\n", coeffs->k2Tidal2);
+//        printf("coeffs->omega02Tidal2 %.16e\n", coeffs->omega02Tidal2);
+//        printf("deltaU, deltaUQ, deltaUO %.16e %.16e %.16e\n", deltaU, deltaUQ, deltaUO);
+//    }
     
   /* Eq. 5.71 of BB1 */
   deltaT = r2*deltaU;
@@ -587,7 +587,7 @@ static int XLALSimIMRCalculateSpinEOBHCoeffs(
   }
  if ( SpinAlignedEOBversion == 4)
  {
-      coeffs->KK = KK =0.800335693374571;
+      coeffs->KK = KK = coeffs->comp1;
  }
 
   m1PlusEtaKK = -1. + eta*KK;
@@ -633,6 +633,8 @@ static int XLALSimIMRCalculateSpinEOBHCoeffs(
       case 4:
         coeffs->d1v2 = -91.174155251812138;
         coeffs->dheffSSv2 = 4.0449642458637181;
+          coeffs->d1v2 = coeffs->comp2;
+          coeffs->dheffSSv2  = coeffs->k3Tidal1;
         break;
      default:
        XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2!\n", __func__ );

@@ -37,6 +37,7 @@
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_spline.h>
 #include <gsl/gsl_linalg.h>
+#include "LALSimIMRSpinEOB.h"
 
 #include "LALSimIMREOBNRv2.h"
 
@@ -1616,6 +1617,7 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
                                                             REAL8                     chiA,        /**<< Assymmetric dimensionless spin combination */
                                                             REAL8                     chiS,        /**<< Symmetric dimensionless spin combination */
                                                             EOBNonQCCoeffs * restrict coeffs,      /**<< OUTPUT, NQC coefficients */
+                                                            SpinEOBHCoeffs Hcoeffs,      /**<< OUTPUT, NQC coefficients */
                                                             UINT4                     SpinAlignedEOBversion  /**<< 1 for SEOBNRv1, 2 for SEOBNRv2 */
 )
 {
@@ -1823,6 +1825,7 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
             break;
         case 4:
             nrDeltaT   = XLALSimIMREOBGetNRSpinPeakDeltaTv4( l, m, m1, m2, chi1, chi2 );
+            nrDeltaT = Hcoeffs.k3Tidal2;
             break;
         default:
             XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);

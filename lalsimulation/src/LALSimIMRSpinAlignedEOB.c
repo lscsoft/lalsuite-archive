@@ -52,7 +52,7 @@
 #include "LALSimIMRSpinAlignedEOBHcapDerivativeOptimized.c"
 /* END OPTIMIZED */
 
-#define debugOutput 1
+#define debugOutput 0
 
 //static int debugPK = 0;
 
@@ -278,6 +278,11 @@ int XLALSimIMRSpinAlignedEOBWaveform(
     REAL8 omega02Tidal2 = 0*0.1349/2.*(1. + q);
     REAL8 k3Tidal2 = 0*0.0221;
     REAL8 omega03Tidal2 = 0*0.152236*(1.+q)/2.;
+
+    comp1 = 0.800335693374571; /*K*/
+    comp2 =-91.174155251812138;/*dSO*/
+    k3Tidal1 = 4.0449642458637181;/*dSS*/
+    k3Tidal2 = 7.487042419941794;/*deltaNQC*/
     ret = XLALSimIMRSpinAlignedEOBWaveformAll(hplus, hcross, phiC, deltaT, m1SI, m2SI, fMin, r, inc, spin1z, spin2z, comp1, comp2, k2Tidal1, k2Tidal2, omega02Tidal1, omega02Tidal2, k3Tidal1, k3Tidal2, omega03Tidal1, omega03Tidal2, SpinAlignedEOBversion);
     return ret;
 }
@@ -573,7 +578,7 @@ int XLALSimIMRSpinAlignedEOBWaveformAll(
     XLAL_ERROR( XLAL_ENOMEM );
   }
   
-  if ( use_tidal == 1 ) {
+  if ( use_tidal == 0 ) {
       seobParams.m1 = m1SI / (m1SI + m2SI);
       seobParams.m2 = m2SI / (m1SI + m2SI);
       seobParams.comp2 = comp2;
@@ -1162,7 +1167,7 @@ int XLALSimIMRSpinAlignedEOBWaveformAll(
     }
     if ( SpinAlignedEOBversion == 4) {
         if ( XLALSimIMRSpinEOBCalculateNQCCoefficientsV4( ampNQC, phaseNQC, &rHi, &prHi, omegaHi,
-                                                             2, 2, timePeak, deltaTHigh/mTScaled, m1, m2, a, chiA, chiS, &nqcCoeffs, SpinAlignedEOBversion ) == XLAL_FAILURE )
+                                                             2, 2, timePeak, deltaTHigh/mTScaled, m1, m2, a, chiA, chiS, &nqcCoeffs, seobCoeffs,SpinAlignedEOBversion ) == XLAL_FAILURE )
         {
             XLAL_ERROR( XLAL_EFUNC );
         }
@@ -1182,6 +1187,7 @@ int XLALSimIMRSpinAlignedEOBWaveformAll(
         break;
       case 4:
         timewavePeak = XLALSimIMREOBGetNRSpinPeakDeltaTv4(2, 2, m1, m2, spin1z, spin2z );
+          timewavePeak = k3Tidal2;
        break;
      default:
        XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
