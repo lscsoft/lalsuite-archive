@@ -251,6 +251,37 @@ double XLALSimIMRSpinAlignedEOBPeakFrequency(
   return retFreq;
 }
 
+int XLALSimIMRSpinAlignedEOBWaveform(
+                                        REAL8TimeSeries **hplus,     /**<< OUTPUT, +-polarization waveform */
+                                        REAL8TimeSeries **hcross,    /**<< OUTPUT, x-polarization waveform */
+                                        const REAL8     phiC,        /**<< coalescence orbital phase (rad) */
+                                        REAL8           deltaT,      /**<< sampling time step */
+                                        const REAL8     m1SI,        /**<< mass-1 in SI unit */
+                                        const REAL8     m2SI,        /**<< mass-2 in SI unit */
+                                        const REAL8     fMin,        /**<< starting frequency (Hz) */
+                                        const REAL8     r,           /**<< distance in SI unit */
+                                        const REAL8     inc,         /**<< inclination angle */
+                                        const REAL8     spin1z,      /**<< z-component of spin-1, dimensionless */
+                                        const REAL8     spin2z,       /**<< z-component of spin-2, dimensionless */
+                                        UINT4           SpinAlignedEOBversion /**<< 1 for SEOBNRv1, 2 for SEOBNRv2, 4 for SEOBNRv4 */
+)
+{
+    int ret;
+    REAL8 q = m1SI/m2SI;
+    REAL8 comp1 = 0.;
+    REAL8 k2Tidal1 = 0.;
+    REAL8 omega02Tidal1 = 0.;
+    REAL8 k3Tidal1 = 0.;
+    REAL8 omega03Tidal1 = 0.;
+    REAL8 comp2 = 0*0.1444;
+    REAL8 k2Tidal2 = 0*0.07524;
+    REAL8 omega02Tidal2 = 0*0.1349/2.*(1. + q);
+    REAL8 k3Tidal2 = 0*0.0221;
+    REAL8 omega03Tidal2 = 0*0.152236*(1.+q)/2.;
+    ret = XLALSimIMRSpinAlignedEOBWaveformAll(hplus, hcross, phiC, deltaT, m1SI, m2SI, fMin, r, inc, spin1z, spin2z, comp1, comp2, k2Tidal1, k2Tidal2, omega02Tidal1, omega02Tidal2, k3Tidal1, k3Tidal2, omega03Tidal1, omega03Tidal2, SpinAlignedEOBversion);
+    return ret;
+}
+
 /**
  * This function generates spin-aligned SEOBNRv1 waveforms h+ and hx.
  * Currently, only the h22 harmonic is available.
@@ -267,7 +298,7 @@ double XLALSimIMRSpinAlignedEOBPeakFrequency(
  * STEP 8) Generate full IMR modes -- attaching ringdown to inspiral
  * STEP 9) Generate full IMR hp and hx waveforms
  */
-int XLALSimIMRSpinAlignedEOBWaveform(
+int XLALSimIMRSpinAlignedEOBWaveformAll(
         REAL8TimeSeries **hplus,     /**<< OUTPUT, +-polarization waveform */
         REAL8TimeSeries **hcross,    /**<< OUTPUT, x-polarization waveform */
         const REAL8     phiC,        /**<< coalescence orbital phase (rad) */ 
@@ -279,9 +310,24 @@ int XLALSimIMRSpinAlignedEOBWaveform(
         const REAL8     inc,         /**<< inclination angle */
         const REAL8     spin1z,      /**<< z-component of spin-1, dimensionless */
         const REAL8     spin2z,       /**<< z-component of spin-2, dimensionless */
+        const REAL8 comp1, /** compactness of body 1 (for NS) */
+        const REAL8 comp2, /** compactness of body 2 (for NS) */
+        const REAL8 k2Tidal1, /** cadiabatic quadrupole Love number for body 1 (for NS) */
+        const REAL8 k2Tidal2, /** adiabatic quadrupole Love number for body 2 (for NS) */
+        const REAL8 omega02Tidal1, /** quadrupole f-mode freq for body 1 (for NS) */
+        const REAL8 omega02Tidal2, /** quadrupole f-mode freq for body 2 (for NS) */
+        const REAL8 k3Tidal1, /** cadiabatic octupole Love number for body 1 (for NS) */
+        const REAL8 k3Tidal2, /** adiabatic octupole Love number for body 2 (for NS) */
+        const REAL8 omega03Tidal1, /** octupole f-mode freq for body 1 (for NS) */
+        const REAL8 omega03Tidal2, /** octupole f-mode freq for body 2 (for NS) */
         UINT4           SpinAlignedEOBversion /**<< 1 for SEOBNRv1, 2 for SEOBNRv2, 4 for SEOBNRv4 */
      )
 {
+  INT4 use_tidal = 0;
+  if( k2Tidal1 != 0. || k2Tidal2 != 0.) {
+      use_tidal = 1;
+  }
+    
   INT4 use_optimized_v2=0;
   /* If we want SEOBNRv2_opt, then reset SpinAlignedEOBversion=2 and set use_optimized_v2=1 */
   if(SpinAlignedEOBversion==200) { SpinAlignedEOBversion=2; use_optimized_v2=1; }
@@ -527,7 +573,49 @@ int XLALSimIMRSpinAlignedEOBWaveform(
     XLALDestroyREAL8Vector( values );
     XLAL_ERROR( XLAL_ENOMEM );
   }
-
+  
+  if ( use_tidal == 1 ) {
+      seobParams.m1 = m1SI / (m1SI + m2SI);
+      seobParams.m2 = m2SI / (m1SI + m2SI);
+      seobParams.comp2 = comp2;
+      seobParams.comp1 = comp1;
+      seobParams.comp2 = comp2;
+      seobParams.k2Tidal1 = k2Tidal1;
+      seobParams.k2Tidal2 = k2Tidal2;
+      seobParams.omega02Tidal1 = omega02Tidal1;
+      seobParams.omega02Tidal2 = omega02Tidal2;
+      seobParams.k3Tidal1 = k3Tidal1;
+      seobParams.k3Tidal2 = k3Tidal2;
+      seobParams.omega03Tidal1 = omega03Tidal1;
+      seobParams.omega03Tidal2 = omega03Tidal2;
+      
+      seobCoeffs.m1 = m1SI / (m1SI + m2SI);
+      seobCoeffs.m2 = m2SI / (m1SI + m2SI);
+      seobCoeffs.comp1 = comp1;
+      seobCoeffs.comp2 = comp2;
+      seobCoeffs.k2Tidal1 = k2Tidal1;
+      seobCoeffs.k2Tidal2 = k2Tidal2;
+      seobCoeffs.omega02Tidal1 = omega02Tidal1;
+      seobCoeffs.omega02Tidal2 = omega02Tidal2;
+      seobCoeffs.k3Tidal1 = k3Tidal1;
+      seobCoeffs.k3Tidal2 = k3Tidal2;
+      seobCoeffs.omega03Tidal1 = omega03Tidal1;
+      seobCoeffs.omega03Tidal2 = omega03Tidal2;
+      
+      hCoeffs.m1 = m1SI / (m1SI + m2SI);
+      hCoeffs.m2 = m2SI / (m1SI + m2SI);
+      hCoeffs.comp1 = comp1;
+      hCoeffs.comp2 = comp2;
+      hCoeffs.k2Tidal1 = k2Tidal1;
+      hCoeffs.k2Tidal2 = k2Tidal2;
+      hCoeffs.omega02Tidal1 = omega02Tidal1;
+      hCoeffs.omega02Tidal2 = omega02Tidal2;
+      hCoeffs.k3Tidal1 = k3Tidal1;
+      hCoeffs.k3Tidal2 = k3Tidal2;
+      hCoeffs.omega03Tidal1 = omega03Tidal1;
+      hCoeffs.omega03Tidal2 = omega03Tidal2;
+  }
+    
   seobParams.alignedSpins = 1;
   seobParams.tortoise     = 1;
   seobParams.sigmaStar    = sigmaStar;
