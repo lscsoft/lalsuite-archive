@@ -40,6 +40,7 @@
 /* Private helper function prototypes */
 static double qInnerIntegrand(double M2, void *viData);
 static double etaInnerIntegrand(double M2, void *viData);
+static double mbetaInnerIntegrand(double M2, void *viData);
 static double outerIntegrand(double M1, void *voData);
 
 static REAL8 REAL8max(REAL8 a, REAL8 b);
@@ -93,7 +94,7 @@ void LALInferenceInitCBCPrior(LALInferenceRunState *runState)
         runState->CubeToPrior = &LALInferenceInspiralCubeToPrior;
 
     }
-    
+
     /* Optional uniform prior on distance */
     INT4 uniform_distance = 0;
     if (LALInferenceGetProcParamVal(commandLine, "--distance-prior-uniform"))
@@ -102,7 +103,7 @@ void LALInferenceInitCBCPrior(LALInferenceRunState *runState)
                                 "uniform_distance", &uniform_distance,
                                 LALINFERENCE_INT4_t,
                                 LALINFERENCE_PARAM_OUTPUT);
-    
+
 
     /* Set up malmquist prior */
     INT4 malmquist = 0;
@@ -500,7 +501,7 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
   LALInferenceVariables *priorParams=runState->priorArgs;
   REAL8 min=-INFINITY, max=INFINITY;
   REAL8 mc=0.0;
-  REAL8 m1=0.0,m2=0.0,q=0.0,eta=0.0;
+  REAL8 m1=0.0,m2=0.0,q=0.0,eta=0.0,mbeta=0.0;
 
   /* check if signal model is being used */
   UINT4 signalFlag=1;
@@ -565,19 +566,25 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
   if(LALInferenceCheckVariable(params,"q")) {
     q=*(REAL8 *)LALInferenceGetVariable(params,"q");
     LALInferenceMcQ2Masses(mc,q,&m1,&m2);
+  } else if(LALInferenceCheckVariable(params,"mbeta")) {
+    mbeta=*(REAL8 *)LALInferenceGetVariable(params,"mbeta");
+    LALInferenceMcmbeta2Masses(mc,mbeta,&m1,&m2);
   } else if(LALInferenceCheckVariable(params,"eta")) {
     eta=*(REAL8 *)LALInferenceGetVariable(params,"eta");
     LALInferenceMcEta2Masses(mc,eta,&m1,&m2);
-  }
 
   if(LALInferenceCheckVariable(params,"logmc")) {
     if(LALInferenceCheckVariable(params,"q"))
       logPrior+=log(m1*m1);
+    else if(LALInferenceCheckVariable(params,"mbeta"))
+      logPrior+=log((m2-m1)*(6.0*pow((m1+m2),(1.0/5.0))-5.0*pow((m1+m2),(-7.0/5.0)))/25.0);
     else
       logPrior+=log(((m1+m2)*(m1+m2)*(m1+m2))/(m1-m2));
   } else if(LALInferenceCheckVariable(params,"chirpmass")) {
     if(LALInferenceCheckVariable(params,"q"))
       logPrior+=log(m1*m1/mc);
+    else if(LALInferenceCheckVariable(params,"mbeta"))
+      logPrior+=log((m2-m1)*(6.0*pow((m1+m2),(1.0/5.0))-5.0*pow((m1+m2),(-7.0/5.0)))/25.0); // to be corrected
     else
       logPrior+=log(((m1+m2)*(m1+m2))/((m1-m2)*pow(eta,3.0/5.0)));
   }
@@ -633,9 +640,9 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
       z=LALInferenceGetREAL8Variable(params,"a_spin2");
       logPrior += -log(2.0) - log(R) + log(-log(fabs(z) / R));
     }
-    
+
   }
-  
+
   /* Calibration priors. */
   logPrior += LALInferenceSplineCalibrationPrior(runState, params);
   logPrior += LALInferenceConstantCalibrationPrior(runState, params);
@@ -782,7 +789,7 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
 
 
     // mass variables
-    double mc = 0.0, eta = 0.0, q = 0.0, m1 = 0.0, m2 = 0.0, m = 0.0;
+    double mc = 0.0, eta = 0.0, q = 0.0, m1 = 0.0, m2 = 0.0, m = 0.0, mbeta=0.0;
 
     // check if mchirp is fixed
     if( LALInferenceCheckVariable(params,"logmc") )
@@ -804,6 +811,15 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
         {
             eta = *(REAL8 *)LALInferenceGetVariable(params, "eta");
             if( mc != 0.0 ) LALInferenceMcEta2Masses(mc,eta,&m1,&m2);
+        }
+    }
+    else if( LALInferenceCheckVariable(params,"mbeta") )
+    {
+        item = LALInferenceGetItem(params, "mbeta");
+        if(item->vary == LALINFERENCE_PARAM_FIXED)
+        {
+            mbeta = *(REAL8 *)LALInferenceGetVariable(params, "mbeta");
+            if( mc != 0.0 ) LALInferenceMcmbeta2Masses(mc,mbeta,&m1,&m2);
         }
     }
     else if( LALInferenceCheckVariable(params,"q") )
@@ -832,6 +848,7 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
           eta = m1 * m2 / (m*m);
           mc = pow(eta,0.6) * m;
           q = m2 / m1; // asymmetric mass ratio, m1 >= m2
+          mbeta= pow(m,(8.0/5.0))*eta;
         }
         else
         {
@@ -848,6 +865,7 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
             eta = m1 * m2 / (m*m);
             mc = pow(eta,0.6) * m;
             q = m2 / m1; // asymmetric mass ratio, m1 >= m2
+            mbeta= pow(m,(8.0/5.0))*eta;
             i++;
             i++;
         }
@@ -866,8 +884,10 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
             }
 
                   if(LALInferenceCheckVariable(params,"q"))
-                LALInferenceSetVariable(params, "q", &q);
-            else if(LALInferenceCheckVariable(params,"eta"))
+                    LALInferenceSetVariable(params, "q", &q);
+                  else if(LALInferenceCheckVariable(params,"mbeta"))
+                    LALInferenceSetVariable(params, "mbeta", &mbeta);
+                  else if(LALInferenceCheckVariable(params,"eta"))
                     LALInferenceSetVariable(params, "eta", &eta);
         }
     }
@@ -1022,6 +1042,11 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
         if(isnan(*(REAL8 *)LALInferenceGetVariable(params,"eta"))
            ||*(REAL8 *)LALInferenceGetVariable(params,"eta") < 0.0
            || *(REAL8 *)LALInferenceGetVariable(params,"eta") > 0.25)
+            return 0;
+    if(LALInferenceCheckVariable(params,"mbeta"))
+        if(isnan(*(REAL8 *)LALInferenceGetVariable(params,"mbeta"))
+           ||*(REAL8 *)LALInferenceGetVariable(params,"mbeta") < 1.0
+           || *(REAL8 *)LALInferenceGetVariable(params,"mbeta") > 100.0)
             return 0;
     if(LALInferenceCheckVariable(params,"q"))
         if(isnan(*(REAL8 *)LALInferenceGetVariable(params,"q"))
@@ -1189,7 +1214,7 @@ REAL8 LALInferenceInspiralSkyLocPrior(LALInferenceRunState *runState, LALInferen
   LALInferenceVariables *priorParams=runState->priorArgs;
   REAL8 min=-INFINITY, max=INFINITY;
   REAL8 logmc=0.0,mc=0.0;
-  REAL8 m1=0.0,m2=0.0,q=0.0,eta=0.0;
+  REAL8 m1=0.0,m2=0.0,q=0.0,eta=0.0,mbeta=0.0;
 
   if (!SkyLocPriorWarning ) {
     SkyLocPriorWarning  = 1;
@@ -1254,6 +1279,10 @@ REAL8 LALInferenceInspiralSkyLocPrior(LALInferenceRunState *runState, LALInferen
         q=*(REAL8 *)LALInferenceGetVariable(params,"q");
         LALInferenceMcQ2Masses(exp(logmc),q,&m1,&m2);
         logPrior+=log(m1*m1);
+      } else if(LALInferenceCheckVariable(params,"mbeta")) {
+        q=*(REAL8 *)LALInferenceGetVariable(params,"mbeta");
+        LALInferenceMcmbeta2Masses(exp(logmc),mbeta,&m1,&m2);
+        logPrior+=log((m2-m1)*(6.0*pow((m1+m2),(1.0/5.0))-5.0*pow((m1+m2),(-7.0/5.0)))/25.0); // to be corrected
       } else {
         eta=*(REAL8 *)LALInferenceGetVariable(params,"eta");
         LALInferenceMcEta2Masses(exp(logmc),eta,&m1,&m2);
@@ -1266,6 +1295,10 @@ REAL8 LALInferenceInspiralSkyLocPrior(LALInferenceRunState *runState, LALInferen
         q=*(REAL8 *)LALInferenceGetVariable(params,"q");
         LALInferenceMcQ2Masses(mc,q,&m1,&m2);
         logPrior+=log(m1*m1/mc);
+      } else if(LALInferenceCheckVariable(params,"mbeta")) {
+        q=*(REAL8 *)LALInferenceGetVariable(params,"mbeta");
+        LALInferenceMcmbeta2Masses(exp(logmc),mbeta,&m1,&m2);
+        logPrior+=log((m2-m1)*(6.0*pow((m1+m2),(1.0/5.0))-5.0*pow((m1+m2),(-7.0/5.0)))/25.0); // to be corrected
       } else {
         eta=*(REAL8 *)LALInferenceGetVariable(params,"eta");
         LALInferenceMcEta2Masses(mc,eta,&m1,&m2);
@@ -1489,6 +1522,15 @@ UINT4 LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALI
             if( mc != 0.0 ) LALInferenceMcEta2Masses(mc,eta,&m1,&m2);
         }
     }
+    else if( LALInferenceCheckVariable(params,"mbeta") )
+    {
+        item = LALInferenceGetItem(params, "mbeta");
+        if(item->vary == LALINFERENCE_PARAM_FIXED)
+        {
+            mbeta = *(REAL8 *)LALInferenceGetVariable(params, "mbeta");
+            if( mc != 0.0 ) LALInferenceMcmbeta2Masses(mc,mbeta,&m1,&m2);
+        }
+    }
     else if( LALInferenceCheckVariable(params,"q") )
     {
         item = LALInferenceGetItem(params, "q");
@@ -1514,6 +1556,7 @@ UINT4 LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALI
             eta = m1 * m2 / (m*m);
             mc = pow(eta,0.6) * m;
             q = m2 / m1; // asymmetric mass ratio, m1 >= m2
+            mbeta=pow(m,(8.0/5.0))*eta;
         }
         else
         {
@@ -1530,6 +1573,7 @@ UINT4 LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALI
             eta = m1 * m2 / (m*m);
             mc = pow(eta,0.6) * m;
             q = m2 / m1; // asymmetric mass ratio, m1 >= m2
+            mbeta=pow(m,(8.0/5.0))*eta;
             i++;
             i++;
         }
@@ -1549,6 +1593,8 @@ UINT4 LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALI
 
                   if(LALInferenceCheckVariable(params,"q"))
                 LALInferenceSetVariable(params, "q", &q);
+            else if(LALInferenceCheckVariable(params,"mbeta"))
+                    LALInferenceSetVariable(params, "mbeta", &mbeta);
             else if(LALInferenceCheckVariable(params,"eta"))
                     LALInferenceSetVariable(params, "eta", &eta);
         }
@@ -1704,6 +1750,11 @@ UINT4 LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALI
            ||*(REAL8 *)LALInferenceGetVariable(params,"eta") < 0.0
            || *(REAL8 *)LALInferenceGetVariable(params,"eta") > 0.25)
             return 0;
+    if(LALInferenceCheckVariable(params,"mbeta"))
+        if(isnan(*(REAL8 *)LALInferenceGetVariable(params,"mbeta"))
+           ||*(REAL8 *)LALInferenceGetVariable(params,"mbeta") < 0.0
+           || *(REAL8 *)LALInferenceGetVariable(params,"mbeta") > 100.0)
+            return 0;
     if(LALInferenceCheckVariable(params,"q"))
         if(isnan(*(REAL8 *)LALInferenceGetVariable(params,"q"))
            ||*(REAL8 *)LALInferenceGetVariable(params,"q") < 0.0
@@ -1767,6 +1818,17 @@ static double etaInnerIntegrand(double M2, void *viData) {
   }
 }
 
+static double mbetaInnerIntegrand(double M2, void *viData) {
+  innerData *iData = (innerData *)viData;
+  double Mc = pow(M2*iData->M1, 3.0/5.0)/pow(M2+iData->M1, 1.0/5.0);
+  double mbeta = pow(M2*iData->M1, 1.0)*pow(M2+iData->M1, -2.0/5.0);
+  if (Mc < iData->McMin || Mc > iData->McMax || mbeta < iData->massRatioMin || mbeta > iData->massRatioMax) {
+    return 0.0;
+  } else {
+    return pow(Mc, -11.0/6.0);
+  }
+}
+
 #undef LALINFERENCE_PRIOR_SQR
 
 typedef struct {
@@ -1824,6 +1886,8 @@ REAL8 LALInferenceComputePriorMassNorm(const double MMin, const double MMax, con
         XLAL_ERROR_REAL8(XLAL_EFAULT, "Null arguments received.");
     else if(!strcmp(massRatioName,"q"))
         oData.innerIntegrand.function = &qInnerIntegrand;
+    else if(!strcmp(massRatioName,"mbeta"))
+        oData.innerIntegrand.function = &mbetaInnerIntegrand;
     else if(!strcmp(massRatioName,"eta"))
         oData.innerIntegrand.function = &etaInnerIntegrand;
     else
@@ -1985,33 +2049,86 @@ void LALInferenceGetGaussianPrior(LALInferenceVariables *priorArgs,
 /* Function to add a correlation matrix to the prior onto the priorArgs */
 void LALInferenceAddCorrelatedPrior(LALInferenceVariables *priorArgs,
                                     const char *name, gsl_matrix **cor,
-                                    UINT4 *idx){
+                                    REAL8 *mu, REAL8 *sigma, UINT4 *idx){
   char corName[VARNAME_MAX];
+  char invName[VARNAME_MAX];
+  char meanName[VARNAME_MAX];
+  char sigmaName[VARNAME_MAX];
   char idxName[VARNAME_MAX];
 
-  sprintf(corName,"%s_correlation_matrix",name);
+  sprintf(corName,"correlation_matrix");
+  sprintf(invName,"inverse_correlation_matrix");
+
+  /* add correlation matrix if not already added */
+  if ( !LALInferenceCheckVariable( priorArgs, corName ) ){
+    LALInferenceAddVariable(priorArgs, corName, cor, LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_FIXED);
+
+    /* get the matrix we've just added */
+    gsl_matrix *thiscor = NULL, *usecor = NULL;
+    thiscor = *(gsl_matrix **)LALInferenceGetVariable( priorArgs, corName );
+    usecor = gsl_matrix_alloc( thiscor->size1, thiscor->size2 );
+    XLAL_CALLGSL( gsl_matrix_memcpy( usecor, thiscor ) );
+
+    gsl_matrix *invcor = gsl_matrix_alloc( usecor->size1, usecor->size2 );
+    gsl_permutation *p = gsl_permutation_alloc( usecor->size1 );
+    INT4 s;
+
+    /* check correlation matrix is positive definite */
+    if( !LALInferenceCheckPositiveDefinite( usecor, usecor->size1 ) ){
+      XLAL_ERROR_VOID( XLAL_EFUNC | XLAL_EINVAL, "Error... matrix is not positive definite!"  );
+    }
+
+    /* invert correlation matrix */
+    XLAL_CALLGSL( gsl_linalg_LU_decomp( usecor, p, &s ) );
+    XLAL_CALLGSL( gsl_linalg_LU_invert( usecor, p, invcor ) );
+    XLAL_CALLGSL( gsl_permutation_free( p ) );
+    XLAL_CALLGSL( gsl_matrix_free( usecor) );
+
+    LALInferenceAddVariable(priorArgs, invName, &invcor, LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_FIXED);
+  }
+
+  sprintf(meanName, "%s_correlation_mean", name);
+  sprintf(sigmaName, "%s_correlation_sigma", name);
   sprintf(idxName,"%s_index",name);
 
-  LALInferenceAddVariable(priorArgs, corName, cor,
-                          LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_FIXED);
-  LALInferenceAddVariable(priorArgs, idxName, idx, LALINFERENCE_UINT4_t,
-                          LALINFERENCE_PARAM_FIXED) ;
+  LALInferenceAddVariable(priorArgs, meanName, mu, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddVariable(priorArgs, sigmaName, sigma, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddVariable(priorArgs, idxName, idx, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
+
   return;
 }
 
 /* Get the correlation matrix and parameter index */
 void LALInferenceGetCorrelatedPrior(LALInferenceVariables *priorArgs,
-                                    const char *name, gsl_matrix **cor,
-                                    UINT4 *idx){
+                                    const char *name, gsl_matrix **cor, gsl_matrix **invcor,
+                                    REAL8 *mu, REAL8 *sigma, UINT4 *idx){
   char corName[VARNAME_MAX];
+  char invName[VARNAME_MAX];
+  char meanName[VARNAME_MAX];
+  char sigmaName[VARNAME_MAX];
   char idxName[VARNAME_MAX];
   void *ptr = NULL;
 
-  sprintf(corName,"%s_correlation_matrix",name);
+  sprintf(corName, "correlation_matrix");
+  sprintf(invName,"inverse_correlation_matrix");
+  sprintf(meanName, "%s_correlation_mean", name);
+  sprintf(sigmaName, "%s_correlation_sigma", name);
   sprintf(idxName,"%s_index",name);
 
   ptr = LALInferenceGetVariable(priorArgs, corName);
   if ( ptr ) *cor = *(gsl_matrix **)ptr;
+  else XLAL_ERROR_VOID(XLAL_EFAILED);
+
+  ptr = LALInferenceGetVariable(priorArgs, invName);
+  if ( ptr ) *invcor = *(gsl_matrix **)ptr;
+  else XLAL_ERROR_VOID(XLAL_EFAILED);
+
+  ptr = LALInferenceGetVariable(priorArgs, meanName);
+  if ( ptr ) *mu = *(REAL8 *)ptr;
+  else XLAL_ERROR_VOID(XLAL_EFAILED);
+
+  ptr = LALInferenceGetVariable(priorArgs, sigmaName);
+  if ( ptr ) *sigma = *(REAL8 *)ptr;
   else XLAL_ERROR_VOID(XLAL_EFAILED);
 
   ptr = LALInferenceGetVariable(priorArgs, idxName);
@@ -2021,17 +2138,33 @@ void LALInferenceGetCorrelatedPrior(LALInferenceVariables *priorArgs,
   return;
 }
 
-/* Remove the correlated prior */
-void LALInferenceRemoveCorrelatedPrior(LALInferenceVariables *priorArgs,
-                                       const char *name){
+/* Remove the correlated prior (for all variables) */
+void LALInferenceRemoveCorrelatedPrior(LALInferenceVariables *priorArgs){
   char corName[VARNAME_MAX];
+  char invName[VARNAME_MAX];
+  char meanName[VARNAME_MAX];
+  char sigmaName[VARNAME_MAX];
   char idxName[VARNAME_MAX];
 
-  sprintf(corName,"%s_correlation_matrix",name);
-  sprintf(idxName,"%s_index",name);
+  sprintf(corName,"correlation_matrix");
+  sprintf(invName,"inverse_correlation_matrix");
+  sprintf(meanName, "_correlation_mean");
+  sprintf(sigmaName, "_correlation_sigma");
+  sprintf(idxName,"_index");
 
   LALInferenceRemoveVariable(priorArgs, corName);
-  LALInferenceRemoveVariable(priorArgs, idxName);
+  LALInferenceRemoveVariable(priorArgs, invName);
+
+  /* remove correlated prior parameters */
+  LALInferenceVariableItem *item = priorArgs->head;
+  for( ; item; item = item->next ){
+    if ( strstr(item->name, meanName) != NULL && strstr(item->name, sigmaName) != NULL && strstr(item->name, idxName) != NULL ){
+      LALInferenceRemoveVariable(priorArgs, meanName);
+      LALInferenceRemoveVariable(priorArgs, sigmaName);
+      LALInferenceRemoveVariable(priorArgs, idxName);
+    }
+  }
+
   return;
 }
 
@@ -2039,13 +2172,22 @@ void LALInferenceRemoveCorrelatedPrior(LALInferenceVariables *priorArgs,
 int LALInferenceCheckCorrelatedPrior(LALInferenceVariables *priorArgs,
                                      const char *name){
   char corName[VARNAME_MAX];
+  char invName[VARNAME_MAX];
+  char meanName[VARNAME_MAX];
+  char sigmaName[VARNAME_MAX];
   char idxName[VARNAME_MAX];
 
-  sprintf(corName,"%s_correlation_matrix",name);
+  sprintf(corName,"correlation_matrix");
+  sprintf(invName,"inverse_correlation_matrix");
+  sprintf(meanName, "%s_correlation_mean", name);
+  sprintf(sigmaName, "%s_correlation_sigma", name);
   sprintf(idxName,"%s_index",name);
 
   return (LALInferenceCheckVariable(priorArgs,corName) &&
-          LALInferenceCheckVariable(priorArgs,idxName));
+          LALInferenceCheckVariable(priorArgs,invName) &&
+          LALInferenceCheckVariable(priorArgs,idxName) &&
+          LALInferenceCheckVariable(priorArgs,meanName) &&
+          LALInferenceCheckVariable(priorArgs,sigmaName));
 }
 
 /* Check for a Fermi-Dirac Prior */
@@ -2191,11 +2333,12 @@ void LALInferenceDrawNameFromPrior( LALInferenceVariables *output,
   }
   /* test for a prior drawn from correlated values */
   else if( LALInferenceCheckCorrelatedPrior( priorArgs, name ) ){
-    gsl_matrix *cor = NULL;
+    gsl_matrix *cor = NULL, *invcor = NULL;
+    REAL8 mu = 0, sigma = 0.;
     UINT4 idx = 0, dims = 0;
     REAL4Vector *tmps = NULL;
 
-    LALInferenceGetCorrelatedPrior( priorArgs, name, &cor, &idx );
+    LALInferenceGetCorrelatedPrior( priorArgs, name, &cor, &invcor, &mu, &sigma, &idx );
     dims = cor->size1;
 
     /* to avoid unnecessary repetition the multivariate deviates are be
@@ -2214,8 +2357,7 @@ void LALInferenceDrawNameFromPrior( LALInferenceVariables *output,
         XLAL_ERROR_VOID(XLAL_EFUNC | XLAL_EINVAL, "Matrix is not positive-definite!");
       }
 
-      /* draw values from the multivariate Gaussian described by the correlation
-         matrix */
+      /* draw values from the multivariate Gaussian described by the correlation matrix */
       tmps = XLALCreateREAL4Vector( dims );
       randParam = XLALCreateRandomParams( randomseed );
       XLALMultiNormalDeviates( tmps, cor, dims, randParam );
@@ -2225,8 +2367,8 @@ void LALInferenceDrawNameFromPrior( LALInferenceVariables *output,
                                LALINFERENCE_PARAM_FIXED );
     }
 
-    /* set random number for given parameter index */
-    tmp = tmps->data[idx];
+    /* set random number for given parameter index (converted to a draw from the covariance matrix) */
+    tmp = mu + sigma*tmps->data[idx];
 
     /* free tmps */
     if ( !LALInferenceCheckVariable( priorArgs, "multivariate_deviates" ) )
@@ -2315,7 +2457,7 @@ UINT4 within_malmquist(LALInferenceRunState *runState, LALInferenceVariables *pa
 REAL8 LALInferenceAnalyticNullPrior(LALInferenceRunState UNUSED *runState, LALInferenceVariables *params, LALInferenceModel UNUSED *model) {
   REAL8 logPrior=0.0;
   REAL8 logmc=0.0,mc=0.0;
-  REAL8 m1=0.0,m2=0.0,q=0.0,eta=0.0;
+  REAL8 m1=0.0,m2=0.0,q=0.0,eta=0.0,mbeta=0.0;
 
   if(LALInferenceCheckVariable(params,"eta")||LALInferenceCheckVariable(params,"q")) {
     if(LALInferenceCheckVariable(params,"logmc")) {
@@ -2323,6 +2465,10 @@ REAL8 LALInferenceAnalyticNullPrior(LALInferenceRunState UNUSED *runState, LALIn
       if(LALInferenceCheckVariable(params,"q")) {
         q=*(REAL8 *)LALInferenceGetVariable(params,"q");
         LALInferenceMcQ2Masses(exp(logmc),q,&m1,&m2);
+        logPrior+=log(m1*m1);
+      } else if(LALInferenceCheckVariable(params,"mbeta")) {
+        mbeta=*(REAL8 *)LALInferenceGetVariable(params,"mbeta");
+        LALInferenceMcmbeta2Masses(exp(logmc),mbeta,&m1,&m2);
         logPrior+=log(m1*m1);
       } else {
         eta=*(REAL8 *)LALInferenceGetVariable(params,"eta");
@@ -2336,6 +2482,10 @@ REAL8 LALInferenceAnalyticNullPrior(LALInferenceRunState UNUSED *runState, LALIn
         q=*(REAL8 *)LALInferenceGetVariable(params,"q");
         LALInferenceMcQ2Masses(mc,q,&m1,&m2);
         logPrior+=log(m1*m1/mc);
+      } else if(LALInferenceCheckVariable(params,"mbeta")) {
+        mbeta=*(REAL8 *)LALInferenceGetVariable(params,"mbeta");
+        LALInferenceMcmbeta2Masses(mc,mbeta,&m1,&m2);
+        logPrior+=log((m2-m1)*(6.0*pow((m1+m2),(1.0/5.0))-5.0*pow((m1+m2),(-7.0/5.0)))/25.0); // to be corrected
       } else {
         eta=*(REAL8 *)LALInferenceGetVariable(params,"eta");
         LALInferenceMcEta2Masses(mc,eta,&m1,&m2);
