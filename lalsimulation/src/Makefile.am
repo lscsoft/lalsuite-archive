@@ -79,6 +79,7 @@ noinst_HEADERS = \
 	LALSimIMREOBHybridRingdown.c \
 	LALSimIMREOBNQCCorrection.c \
 	LALSimIMREOBNRv2.h \
+	LALSimIMRTNSEOB.h \
 	LALSimFindAttachTime.h\
 	LALSimIMREOBNewtonianMultipole.c \
 	LALSimInspiralPNCoefficients.c \
@@ -126,6 +127,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimBurst.c \
 	LALSimBurstImg.c \
 	LALSimIMREOBNRv2.c \
+	LALSimIMRTNSEOB.c \
 	LALSimIMRSpinAlignedEOB.c \
 	LALSimIMRSpinPrecEOB.c \
 	LALSimIMRSEOBNRv1ROMEffectiveSpin.c \

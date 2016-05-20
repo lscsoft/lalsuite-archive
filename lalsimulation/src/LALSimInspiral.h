@@ -299,6 +299,8 @@ typedef enum {
                          * @attention Not implemented in lalsimulation. */
    EOBNRv2,		/**< UNDOCUMENTED
                          * @remarks Implemented in lalsimulation (time domain). */
+   TNSEOB,     /**< UNDOCUMENTED
+                            * @remarks Implemented in lalsimulation (time domain). */
    EOBNRv2HM,		/**< UNDOCUMENTED
                          * @remarks Implemented in lalsimulation (time domain). */
    EOBNRv2_ROM,       /**< Frequency domain reduced order model of model EOBNRv2HM, no spin neither higher modes.

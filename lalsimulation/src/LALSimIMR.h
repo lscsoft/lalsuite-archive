@@ -42,6 +42,7 @@ extern "C" {
  * @{
  * @defgroup LALSimIMRPhenom_c                   LALSimIMRPhenom.c
  * @defgroup LALSimIMREOBNRv2_c                  LALSimIMREOBNRv2.c
+ * @defgroup LALSimIMRTNSEOB_c                LALSimIMRTNSEOB.c
  * @defgroup LALSimIMRSpinAlignedEOB_c           LALSimIMRSpinAlignedEOB.c
  * @defgroup LALSimIMRSpinPrecEOB_c           LALSimIMRSpinPrecEOB.c
  * @defgroup LALSimIMRSEOBNRROM_c                LALSimIMRSEOBNRvxROMXXX.c
@@ -96,6 +97,11 @@ int XLALSimIMRPhenomPCalculateModelParameters(REAL8 *chi1_l, REAL8 *chi2_l, REAL
 int XLALSimIMREOBNRv2DominantMode(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, const REAL8 phiC, const REAL8 deltaT, const REAL8 m1SI, const REAL8 m2SI, const REAL8 fLower, const REAL8 distance, const REAL8 inclination);
 int XLALSimIMREOBNRv2AllModes(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, const REAL8 phiC, const REAL8 deltaT, const REAL8 m1SI, const REAL8 m2SI, const REAL8 fLower, const REAL8 distance, const REAL8 inclination);
 SphHarmTimeSeries *XLALSimIMREOBNRv2Modes(const REAL8 phiRef, const REAL8 deltaT, const REAL8 m1, const REAL8 m2, const REAL8 fLower, const REAL8 distance);
+
+
+/*in module LALSimIMRTNSEOB.c*/
+
+int XLALSimIMRTNSEOBDominantMode(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, const REAL8 phiC, const REAL8 deltaT, const REAL8 m1SI, const REAL8 m2SI, REAL8 fLower, const REAL8 distance, const REAL8 inclination, const REAL8 lambda1, const REAL8 lambda2);
 
 
 /* in module LALSimIMRSpinAlignedEOB.c */

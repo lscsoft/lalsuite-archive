@@ -115,6 +115,7 @@ static const char *lalSimulationApproximantNames[] = {
     INITIALIZE_NAME(Eccentricity),
     INITIALIZE_NAME(EOBNR),
     INITIALIZE_NAME(EOBNRv2),
+	INITIALIZE_NAME(TNSEOB),
     INITIALIZE_NAME(EOBNRv2HM),
     INITIALIZE_NAME(EOBNRv2_ROM),
     INITIALIZE_NAME(EOBNRv2HM_ROM),
@@ -518,6 +519,20 @@ int XLALSimInspiralChooseTDWaveform(
             ret = XLALSimIMREOBNRv2DominantMode(hplus, hcross, phiRef, deltaT,
                     m1, m2, f_min, r, i);
             break;
+
+		case TNSEOB:
+		 /* Waveform-specific sanity checks */
+		 if( !XLALSimInspiralWaveformFlagsIsDefault(waveFlags) )
+		     ABORT_NONDEFAULT_WAVEFORM_FLAGS(waveFlags);
+		 if( !checkSpinsZero(S1x, S1y, S1z, S2x, S2y, S2z) )
+             ABORT_NONZERO_SPINS(waveFlags);
+		 if( f_ref != 0.)
+             XLALPrintWarning("XLAL Warning - %s: This approximant does use f_ref. The reference phase will be defined at coalescence.\n", __func__);
+		 /* Call the waveform driver routine */
+		 ret = XLALSimIMRTNSEOBDominantMode(hplus, hcross, phiRef, deltaT,m1, m2, f_min, r, i,lambda1,lambda2);
+	     break;
+
+
 
         /* spinning inspiral-only models */
         case SpinTaylorT2:
@@ -2208,6 +2223,7 @@ SphHarmTimeSeries *XLALSimInspiralChooseTDModes(
                     phaseO, lmax);
             break;
         case EOBNRv2:
+		case TNSEOB:
         case EOBNRv2HM:
             /* Waveform-specific sanity checks */
             if( !XLALSimInspiralFrameAxisIsDefault(
@@ -2506,6 +2522,7 @@ COMPLEX16TimeSeries *XLALSimInspiralChooseTDMode(
                     phaseO, l, m);
             break;
         case EOBNRv2:
+		case TNSEOB:
         case EOBNRv2HM:
             ts = XLALSimIMREOBNRv2Modes(phiRef, deltaT, m1, m2, f_min, r);
             hlm = XLALSphHarmTimeSeriesGetMode(ts, l, m);
@@ -3891,6 +3908,7 @@ int XLALSimInspiralImplementedTDApproximants(
         case TaylorT4:
 	case EccentricTD:
         case EOBNRv2:
+		case TNSEOB:
         case HGimri:
         case IMRPhenomA:
         case EOBNRv2HM:
@@ -4422,6 +4440,7 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
     case NumRelNinja2:
     case EOBNR:
     case EOBNRv2:
+	case TNSEOB:
     case EOBNRv2_ROM:
     case EOBNRv2HM:
     case EOBNRv2HM_ROM:
