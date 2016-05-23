@@ -1642,8 +1642,8 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
     REAL8 amp, aDot, aDDot;
     REAL8 omega, omegaDot;
     
-    REAL8 qNSLMPeak, qNSLMDot, qNSLMDDot;
-    REAL8 pNSLMDot, pNSLMDDot;
+    UNUSED REAL8 qNSLMPeak, qNSLMDot, qNSLMDDot;
+    UNUSED REAL8 pNSLMDot, pNSLMDDot;
     
     REAL8 nra, nraDDot;
     REAL8 nromega, nromegaDot;
