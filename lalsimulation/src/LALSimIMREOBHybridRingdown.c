@@ -760,7 +760,7 @@ static UNUSED INT4 XLALSimIMREOBAttachFitRingdown(
     INT4 debugSB = 0;
     UINT4 nmodes;
     UINT4 i;
-    INT4 phasecount;
+    UNUSED INT4 phasecount;
     REAL8 finalMass, finalSpin;
     REAL8Vector		*ampWave;
     REAL8Vector		*phWave;
