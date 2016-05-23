@@ -3984,14 +3984,13 @@ def DistanceMeasure(redshift,nonGR_alpha):
     h = 0.75
     H0 = h*100*1e3/mpc
     dist = integrate.quad(integrand_distance, 0, redshift ,args=(nonGR_alpha))[0]
-    dist *= lal.C_SI*(1.0 + redshift)**(1.0 - nonGR_alpha)
+    dist = (1.0 + redshift)**(1.0 - nonGR_alpha)
     dist /= H0
-    return dist/mpc
+    return dist ## returns D_alpha in seconds
 
 def lambda_a(redshift, nonGR_alpha, lambda_eff):
-    mpc = lal.PC_SI*1e6
     Dfunc = np.vectorize(DistanceMeasure)
-    D_alpha = Dfunc(redshift, nonGR_alpha)*mpc/lal.C_SI  ## convert to seconds
+    D_alpha = Dfunc(redshift, nonGR_alpha)
     return (lambda_eff*(D_alpha/(1.0+redshift)**(1.0-nonGR_alpha))**(1./(2.0-nonGR_alpha)))*lal.C_SI ## convert to metres
 
 def amplitudeMeasure(redshift, nonGR_alpha, lambda_eff):
