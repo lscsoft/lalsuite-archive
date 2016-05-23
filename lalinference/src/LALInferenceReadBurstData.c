@@ -460,3 +460,183 @@ void InjectBurstFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, ProcessPar
   XLALDestroyCOMPLEX16FrequencySeries(hctilde);
   XLALDestroyCOMPLEX16FrequencySeries(hptilde);
 }
+
+void LALInferenceInjectSNBurstSignal(LALInferenceIFOData *IFOdata, ProcessParamsTable *commandLine)
+///*-------------- Inject in Frequency domain -----------------*/
+{
+  fprintf(stdout,"Injecting a SN signal in the frequency domain !!!!!!!\n");
+  /* Inject a SN gravitational wave into the data in the frequency domain */
+//  LALStatus status;
+//  memset(&status,0,sizeof(LALStatus));
+//  char SNRpath[FILENAME_MAX];
+  ProcessParamsTable *ppt=NULL;
+  ppt = NULL; 
+  ppt=LALInferenceGetProcParamVal(commandLine,"--outfile");
+  if(!ppt){
+    fprintf(stderr,"Must specify --outfile <filename.dat>\n");
+    exit(1);
+  }
+//  char *outfile=ppt->value;
+//  sprintf(SNRpath,"%s_snr.txt",outfile); 
+
+  REAL8 WinNorm=1.0;
+  WinNorm = sqrt(IFOdata->window->sumofsquares/IFOdata->window->data->length);
+
+  REAL8 injtime = 871645255;
+  REAL8 deltaF = IFOdata->freqData->deltaF;
+  REAL8 deltaT = IFOdata->timeData->deltaT;
+
+  COMPLEX16FrequencySeries *hptilde=NULL; 
+//fprintf(stdout,"Here I am !!!!!!!\n");
+  ppt=LALInferenceGetProcParamVal(commandLine,"--rawwaveform"); // {
+  FILE *fp=fopen(ppt->value,"r");
+
+  if ( fp == NULL ){
+     fprintf(stderr, "Error... cannot open file %s\n", ppt->value);
+     exit(1);
+  }
+
+
+  LALInferenceIFOData *dataPtr;
+  REAL8 Fplus, Fcross;
+  REAL8 plainTemplateReal, plainTemplateImag;
+  REAL8 templateReal, templateImag;
+  LIGOTimeGPS GPSlal;
+  REAL8 gmst;
+  REAL8 chisquared;
+  REAL8 timedelay;  /* time delay b/w iterferometer & geocenter w.r.t. sky location */
+  REAL8 timeshift;  /* time shift (not necessarily same as above)                   */
+  REAL8 twopit, re, im, dre, dim, newRe, newIm;
+  UINT4 i, lower, upper;
+
+  REAL8 temp=0.0;
+  REAL8 NetSNR=0.0;
+
+  /* figure out GMST: */
+  XLALGPSSetREAL8(&GPSlal, injtime);
+  gmst=XLALGreenwichMeanSiderealTime(&GPSlal);
+
+  /* loop over data (different interferometers): */
+  dataPtr = IFOdata;
+//  fprintf(stdout,"Here I am 22222 !!!!!!!\n");
+
+//  size_t Upper= (size_t) ( dataPtr->fHigh/deltaF+1);
+  hptilde=XLALCreateCOMPLEX16FrequencySeries("hplus",&(dataPtr->timeData->epoch),0.0,deltaF,&lalDimensionlessUnit,8192);
+
+  int p = 0.0;
+  REAL8 tempreal, tempimag;
+//  while(!feof(fp)){
+  while(p<8192){
+    fscanf(fp, "%lf %lf", &tempreal, &tempimag);
+    hptilde->data->data[p] = tempreal + I*tempimag;
+  p++;
+  }
+
+//  int test = floor(dataPtr->fHigh/deltaF+1); 
+//  FILE *noise=fopen("noisefile.dat", "w");
+//  int s = 0.0;
+//  for(s=0;s<test;s++){
+//  fprintf(noise,"%lg \n", creal(hptilde->data->data[s]));
+//  }
+//  fclose(noise);
+
+  REAL8 scale_factor=2e-4;
+  ppt=LALInferenceGetProcParamVal(commandLine,"--inj_dist_kpc");
+  if(ppt){
+      scale_factor= 2e-4 * (10.0/(atof(ppt->value)));
+      fprintf(stdout, "scale_factor= %lg \n",scale_factor);
+  }
+
+  while (dataPtr != NULL) {
+    /*-- WF to inject is now in hptilde and hctilde. --*/
+    /* determine beam pattern response (Fplus and Fcross) for given Ifo: */
+    XLALComputeDetAMResponse(&Fplus, &Fcross,
+                                (const REAL4(*)[3])dataPtr->detector->response,
+                                4.6499, -0.5063,
+                                0.3046, gmst);
+
+    /* signal arrival time (relative to geocenter); */
+    timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location,
+                                                4.6499, -0.5063,
+                                                &GPSlal);
+
+    /* (negative timedelay means signal arrives earlier at Ifo than at geocenter, etc.) */
+    timeshift = timedelay;
+    twopit    = LAL_TWOPI * (timeshift);
+//    fprintf(stdout, "timeshift= %lg \n", timedelay);
+
+    /* Restore hrss (template has been calculated for hrss=1) effect in Fplus/Fcross: */
+    Fplus*= 1.0 / WinNorm;
+//    Fcross*= hrss / WinNorm;
+
+    dataPtr->fPlus = Fplus;
+    dataPtr->fCross = Fcross;
+    dataPtr->timeshift = timeshift;
+
+//    fprintf(stdout, "Fplus= %lg \n", Fplus);
+
+    char InjFileName[50];
+    sprintf(InjFileName,"injection_%s.dat",dataPtr->name);
+    FILE *outInj=fopen(InjFileName,"w");
+
+     /* determine frequency range & loop over frequency bins: */
+    lower = (UINT4)ceil(dataPtr->fLow / deltaF);
+    upper = (UINT4)floor(dataPtr->fHigh / deltaF+1);
+    chisquared = 0.0;
+
+//    fprintf(stdout, "lower= %d \n", lower);
+//    fprintf(stdout, "upper= %d \n", upper);
+
+    re = cos(twopit * deltaF * lower);
+    im = -sin(twopit * deltaF * lower);
+    for (i=lower; i<=upper; ++i){
+//    for (i=0; i<=8192; ++i){
+      /* derive template (involving location/orientation parameters) from given plus/cross waveforms: */
+      if (i < hptilde->data->length) {
+          plainTemplateReal = Fplus * creal(hptilde->data->data[i]);
+                            //  +  Fcross * creal(hctilde->data->data[i]);
+          plainTemplateImag = Fplus * cimag(hptilde->data->data[i]);
+                            //  +  Fcross * cimag(hctilde->data->data[i]);
+      } else {
+          plainTemplateReal = 0.0;
+          plainTemplateImag = 0.0;
+      }
+
+      /* do time-shifting...             */
+      /* (also un-do 1/deltaT scaling): */
+      /* real & imag parts of  exp(-2*pi*i*f*deltaT): */
+
+      templateReal = (plainTemplateReal*re - plainTemplateImag*im)*scale_factor;
+      templateImag = (plainTemplateReal*im + plainTemplateImag*re)*scale_factor;
+
+      /* Incremental values, using cos(theta) - 1 = -2*sin(theta/2)^2 */
+      dim = -sin(twopit*deltaF);
+      dre = -2.0*sin(0.5*twopit*deltaF)*sin(0.5*twopit*deltaF);
+      newRe = re + re*dre - im*dim;
+      newIm = im + re*dim + im*dre;
+      re = newRe;
+      im = newIm;
+
+      fprintf(outInj,"%lf %e %e %e\n",i*deltaF ,plainTemplateReal,plainTemplateImag,1.0/dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
+      dataPtr->freqData->data->data[i] += crect( templateReal,templateImag );
+
+      temp = ((2.0/( deltaT*(double) dataPtr->timeData->data->length) * (templateReal*templateReal+templateImag*templateImag)) / dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
+      chisquared  += temp;
+    }
+
+    printf("injected SNR %.1f in IFO %s\n",sqrt(2.0*chisquared),dataPtr->name);
+    NetSNR+=2.0*chisquared;
+    dataPtr->SNR=sqrt(2.0*chisquared);
+    dataPtr = dataPtr->next;
+
+    fclose(outInj);
+
+  }
+  printf("injected Network SNR %.1f \n",sqrt(NetSNR));
+
+//  PrintSNRsToFile(IFOdata , SNRpath);
+  fclose(fp);
+
+  XLALDestroyCOMPLEX16FrequencySeries(hptilde);
+
+}

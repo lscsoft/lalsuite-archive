@@ -206,6 +206,7 @@ void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata);
 void LALInferenceTemplateDampedSinusoidF(LALInferenceIFOData *IFOdata);
 void LALInferenceTemplatePrincipalComp(LALInferenceModel *model);
 void LALInferenceTemplatePrincipalCompBBH(LALInferenceModel *model);
+void LALInferenceTemplatePrincipalCompTime(LALInferenceModel *model);
 /*@}*/
 
 #endif

@@ -606,6 +606,10 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
     else if (LALInferenceCheckVariable(currentParams, "hrss")){
       amp_prefactor = (*(REAL8*)LALInferenceGetVariable(currentParams,"hrss"))/WinNorm;
     }
+    if(LALInferenceCheckVariable(currentParams, "dscale_kpc")){
+      amp_prefactor = 1e-21 / (*(REAL8*)LALInferenceGetVariable(currentParams,"dscale_kpc"));
+    }
+
 
     /* determine source's sky location & orientation parameters: */
     ra        = *(REAL8*) LALInferenceGetVariable(currentParams, "rightascension"); /* radian      */
