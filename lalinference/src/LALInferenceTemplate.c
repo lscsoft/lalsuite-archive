@@ -1937,7 +1937,7 @@ static REAL8 SORFUNC (REAL8 x, void *params)
     if (LALInferenceCheckVariable(parameters->params,"q"))
     {
       q = *(REAL8 *)LALInferenceGetVariable(parameters->params,"q");
-      q2eta(q, &eta);
+      eta = q / ((1.+q)*(1.+q)); //q2eta(q, &eta);
     }
     else eta = *(REAL8*) LALInferenceGetVariable(parameters->params, "eta");
     mc = *(REAL8*) LALInferenceGetVariable(parameters->params, "chirpmass");
