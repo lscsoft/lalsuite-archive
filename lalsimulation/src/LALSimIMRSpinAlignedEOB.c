@@ -114,10 +114,12 @@ XLALEOBSpinAlignedStopCondition(double UNUSED t,  /**< UNUSED */
   r     = values[0];
   omega = dvalues[1];
 
+  //printf("function 1: r = %.16e, omega = %.16e, pr = %.16e, dpr = %.16e, t = %.16e \n",values[0],dvalues[1],values[2],dvalues[2],t);
   //if ( omega < params->eobParams->omega )
   if ( r < 6. && omega < params->eobParams->omega )
   {
-    return 1;
+      params->eobParams->omegaPeaked = 0;
+      return 1;
   }
 
   params->eobParams->omega = omega;
@@ -139,10 +141,22 @@ XLALSpinAlignedHiSRStopCondition(double UNUSED t,  /**< UNUSED */
                            void UNUSED *funcParams       /**< physical parameters */
                           )
 {
-  if ( dvalues[2] >= 0. || isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) )
-  {
-    return 1;
-  }
+    REAL8 omega, r;
+    UINT4 counter;
+    SpinEOBParams *params = (SpinEOBParams *)funcParams;
+    r     = values[0];
+    omega = dvalues[1];
+    counter = params->eobParams->omegaPeaked;
+    //printf("function 2: r = %.16e, omega = %.16e, pr = %.16e, dpr = %.16e, count = %.16u \n",values[0],dvalues[1],values[2],dvalues[2],counter);
+    if ( r < 6. && omega < params->eobParams->omega )
+    {
+        params->eobParams->omegaPeaked = counter + 1;
+    }
+    if ( dvalues[2] >= 0. || params->eobParams->omegaPeaked == 5 || isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) )
+    {
+        return 1;
+    }
+  params->eobParams->omega = omega;
   return GSL_SUCCESS;
 }
 
