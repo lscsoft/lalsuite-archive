@@ -1076,13 +1076,15 @@ int XLALSimIMRSpinAlignedEOBWaveformAll(
 
     if ( omega <= omegaOld && !peakIdx )
     {
-      //printf( "Have we got the peak? omegaOld = %.16e, omega = %.16e\n", omegaOld, omega );
+//      printf( "Have we got the peak? omegaOld = %.16e, omega = %.16e\n", omegaOld, omega );
       peakIdx = i;
     }
     omegaOld = omega;
   }
-  //printf( "We now think the peak is at %d\n", peakIdx );
   finalIdx = retLen - 1;
+  if ( !peakIdx ) peakIdx = finalIdx;
+//  printf( "We now think the peak is at %d\n", peakIdx );
+
 
   /*
    * STEP 4) Locate the peak of orbital frequency for NQC and QNM calculations
