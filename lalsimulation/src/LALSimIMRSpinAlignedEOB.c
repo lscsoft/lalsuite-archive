@@ -293,10 +293,10 @@ int XLALSimIMRSpinAlignedEOBWaveform(
     REAL8 k3Tidal2 = 0*0.0221;
     REAL8 omega03Tidal2 = 0*0.152236*(1.+q)/2.;
 
-    comp1 = 0.800335693374571; /*K*/
-    comp2 =-91.174155251812138;/*dSO*/
-    k3Tidal1 = 4.0449642458637181;/*dSS*/
-    k3Tidal2 = 7.487042419941794;/*deltaNQC*/
+    comp1 = 0.564188; /*K*/
+    comp2 =-83.744187;/*dSO*/
+    k3Tidal1 = 58.620989;/*dSS*/
+    k3Tidal2 = 11.097878;/*deltaNQC*/
     ret = XLALSimIMRSpinAlignedEOBWaveformAll(hplus, hcross, phiC, deltaT, m1SI, m2SI, fMin, r, inc, spin1z, spin2z, comp1, comp2, k2Tidal1, k2Tidal2, omega02Tidal1, omega02Tidal2, k3Tidal1, k3Tidal2, omega03Tidal1, omega03Tidal2, SpinAlignedEOBversion);
     return ret;
 }
@@ -1059,13 +1059,15 @@ int XLALSimIMRSpinAlignedEOBWaveformAll(
 
     if ( omega <= omegaOld && !peakIdx )
     {
-      //printf( "Have we got the peak? omegaOld = %.16e, omega = %.16e\n", omegaOld, omega );
+//      printf( "Have we got the peak? omegaOld = %.16e, omega = %.16e\n", omegaOld, omega );
       peakIdx = i;
     }
     omegaOld = omega;
   }
-  //printf( "We now think the peak is at %d\n", peakIdx );
   finalIdx = retLen - 1;
+  if ( !peakIdx ) peakIdx = finalIdx;
+//  printf( "We now think the peak is at %d\n", peakIdx );
+
 
   /*
    * STEP 4) Locate the peak of orbital frequency for NQC and QNM calculations
