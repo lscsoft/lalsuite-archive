@@ -150,6 +150,7 @@ XLALSpinAlignedHiSRStopCondition(double UNUSED t,  /**< UNUSED */
     //printf("function 2: r = %.16e, omega = %.16e, pr = %.16e, dpr = %.16e, count = %.16u \n",values[0],dvalues[1],values[2],dvalues[2],counter);
     if ( r < 6. && omega < params->eobParams->omega )
     {
+        printf("Peak detection %.16e %.16e\n", omega, params->eobParams->omega);
         params->eobParams->omegaPeaked = counter + 1;
     }
     if ( dvalues[2] >= 0. || params->eobParams->omegaPeaked == 5 || isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) )
@@ -293,11 +294,12 @@ int XLALSimIMRSpinAlignedEOBWaveform(
     REAL8 k3Tidal2 = 0*0.0221;
     REAL8 omega03Tidal2 = 0*0.152236*(1.+q)/2.;
 
+ 
+    comp1 = 0.967985; /*K*/
+    comp2 =-61.184163;/*dSO*/
+    k3Tidal1 = 15.503564;/*dSS*/
+    k3Tidal2 = 17.565238;/*deltaNQC*/
 
-    comp1 = 0.564188; /*K*/
-    comp2 =-83.744187;/*dSO*/
-    k3Tidal1 = 58.620989;/*dSS*/
-    k3Tidal2 = 11.097878;/*deltaNQC*/
     ret = XLALSimIMRSpinAlignedEOBWaveformAll(hplus, hcross, phiC, deltaT, m1SI, m2SI, fMin, r, inc, spin1z, spin2z, comp1, comp2, k2Tidal1, k2Tidal2, omega02Tidal1, omega02Tidal2, k3Tidal1, k3Tidal2, omega03Tidal1, omega03Tidal2, SpinAlignedEOBversion);
     return ret;
 }
@@ -524,7 +526,7 @@ int XLALSimIMRSpinAlignedEOBWaveformAll(
   /* TODO: Insert potentially necessary checks on the arguments */
 
   /* Calculate the time we will need to step back for ringdown */
-  tStepBack = 100. * mTScaled;
+  tStepBack = 150. * mTScaled;
   nStepBack = ceil( tStepBack / deltaT );
 
   /* Calculate the resample factor for attaching the ringdown */
