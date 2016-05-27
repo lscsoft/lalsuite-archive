@@ -3946,6 +3946,12 @@ int XLALSimIMRSpinEOBWaveformAll(
     {
       tmp2_vec->data[tmp2_idx_ii] = dynamics->data[tmp2_idx_ii];
     }
+    //Rescale p/(m eta) by eta for output
+    UINT4 dynvectorlength = tmp2_vec->length / 15;
+    for(tmp2_idx_ii=4*dynvectorlength; tmp2_idx_ii<7*dynvectorlength; tmp2_idx_ii++ )
+    {
+      tmp2_vec->data[tmp2_idx_ii] = eta * tmp2_vec->data[tmp2_idx_ii];
+    }
     *Dynamics_out = tmp2_vec;
     //end SM devSEOBNRv3ROM
 
