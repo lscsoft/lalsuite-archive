@@ -116,7 +116,7 @@ XLALEOBSpinAlignedStopCondition(double UNUSED t,  /**< UNUSED */
 
   //printf("function 1: r = %.16e, omega = %.16e, pr = %.16e, dpr = %.16e, t = %.16e \n",values[0],dvalues[1],values[2],dvalues[2],t);
   //if ( omega < params->eobParams->omega )
-  if ( r < 6. && omega < params->eobParams->omega )
+  if ( r < 6. && (omega < params->eobParams->omega || dvalues[2]>=0))
   {
       params->eobParams->omegaPeaked = 0;
       return 1;
@@ -150,11 +150,14 @@ XLALSpinAlignedHiSRStopCondition(double UNUSED t,  /**< UNUSED */
     //printf("function 2: r = %.16e, omega = %.16e, pr = %.16e, dpr = %.16e, count = %.16u \n",values[0],dvalues[1],values[2],dvalues[2],counter);
     if ( r < 6. && omega < params->eobParams->omega )
     {
-        printf("Peak detection %.16e %.16e\n", omega, params->eobParams->omega);
+//        printf("Peak detection %.16e %.16e\n", omega, params->eobParams->omega);
         params->eobParams->omegaPeaked = counter + 1;
     }
     if ( dvalues[2] >= 0. || params->eobParams->omegaPeaked == 5 || isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) )
     {
+//        if ( dvalues[2] >= 0 ) printf("dvalues[2] >= 0\n");
+//        if ( params->eobParams->omegaPeaked == 5 ) printf("params->eobParams->omegaPeaked == 5\n");
+//        if ( isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) ) printf("%.16e %.16e %.16e %.16e\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3]);
         return 1;
     }
   params->eobParams->omega = omega;
