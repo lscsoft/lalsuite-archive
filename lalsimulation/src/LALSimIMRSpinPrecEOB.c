@@ -189,31 +189,32 @@ static int EulerAnglesI2P(REAL8Vector *Alpha, /**<< output: alpha Euler angle */
                  const REAL8Vector posVecx, /**<< x time series */
                  const REAL8Vector posVecy, /**<< y time series */
                  const REAL8Vector posVecz, /**<< z time series */
-                 //SM dev_SEOBNRv3ROM
+                 //SM SEOBNRv3ROMdevel
                  //Added p as argument , used only when Z=L and not when Z=LN
                  const REAL8Vector momVecx, /**<< px time series */
                  const REAL8Vector momVecy, /**<< py time series */
                  const REAL8Vector momVecz, /**<< pz time series */
-                 //end SM dev_SEOBNRv3ROM
+                 //end SM SEOBNRv3ROMdevel
                  const UINT4 retLenLow, /**<< Array length of the trajectory */
                  const REAL8 InitialAlpha, /**<< Initial alpha (used only if flag_highSR=1) */
                  const REAL8 InitialGamma, /**<< Initial gamma */
                  UINT4 flag_highSR, /**<< Flag to indicate whether one is analyzing the high SR trajectory */
-                 //dev_SEOBNRv3ROM: added this flag
-                 LALSEOBNRv3RadiationFrameFlag flag_radiationframe /**<< Flag to indicate wether to use the LN- or L-frame */) {
+                 //SEOBNRv3ROMdevel: added this flag
+                 LALSEOBNRv3RadiationFrameFlag flag_radiationframe, /**<< Flag to indicate wether to use the LN- or L-frame */
+                 UINT4 backInt /**<< When integrating backwards, flip the sign of v or p */) {
     UINT4 i = 0;
     REAL8Vector *Z_x = NULL, *Z_y = NULL, *Z_z = NULL;
     REAL8 tmpR[3], tmpRdot[3], magZ;
-    //SM dev_SEOBNRv3ROM
+    //SM SEOBNRv3ROMdevel
     tmpRdot[0] = 0.0; tmpRdot[1] = 0.0; tmpRdot[2] = 0.0;
-    //end SM dev_SEOBNRv3ROM
+    //end SM SEOBNRv3ROMdevel
     REAL8 precEulerresult = 0, precEulererror = 0;
     gsl_integration_workspace * precEulerw = gsl_integration_workspace_alloc (1000);
     gsl_function precEulerF;
     PrecEulerAnglesIntegration precEulerparams;
     REAL8 inGamma = InitialGamma;
 
-    //SM dev_SEOBNRv3ROM
+    //SM SEOBNRv3ROMdevel
     /* Z is the radiation frame unit vector, LNhat or Lhat */
     //Note: in the rest of this function, replaced LN with Z everywhere
     Z_x = XLALCreateREAL8Vector( retLenLow );
@@ -222,7 +223,7 @@ static int EulerAnglesI2P(REAL8Vector *Alpha, /**<< output: alpha Euler angle */
     //LN_x = XLALCreateREAL8Vector( retLenLow );
     //LN_y = XLALCreateREAL8Vector( retLenLow );
     //LN_z = XLALCreateREAL8Vector( retLenLow );
-    //end SM dev_SEOBNRv3ROM
+    //end SM SEOBNRv3ROMdevel
 
     gsl_spline *x_spline = gsl_spline_alloc( gsl_interp_cspline, retLenLow );
     gsl_spline *y_spline = gsl_spline_alloc( gsl_interp_cspline, retLenLow );
@@ -239,7 +240,7 @@ static int EulerAnglesI2P(REAL8Vector *Alpha, /**<< output: alpha Euler angle */
     for( i=0; i < retLenLow; i++ )
     {
         tmpR[0] = posVecx.data[i]; tmpR[1] = posVecy.data[i]; tmpR[2] = posVecz.data[i];
-        //SM dev_SEOBNRv3ROM
+        //SM SEOBNRv3ROMdevel
         /* Choose wether to use LNhat or Lhat for the radiation frame vector Z */
         if(flag_radiationframe==LAL_SEOBNRv3_RADIATION_FRAME_LN) {
           tmpRdot[0] = gsl_spline_eval_deriv( x_spline, tVec.data[i], x_acc );
@@ -250,7 +251,13 @@ static int EulerAnglesI2P(REAL8Vector *Alpha, /**<< output: alpha Euler angle */
           tmpRdot[1] = momVecy.data[i];
           tmpRdot[2] = momVecz.data[i];
         }
-        //end SM dev_SEOBNRv3ROM
+        //When integrating backwards, we have to switch the sign of v or p
+        if(backInt==1) {
+          tmpRdot[0] *= -1.0;
+          tmpRdot[1] *= -1.0;
+          tmpRdot[2] *= -1.0;
+        }
+        //end SM SEOBNRv3ROMdevel
 
         Z_x->data[i] = tmpR[1] * tmpRdot[2] - tmpR[2] * tmpRdot[1];
         Z_y->data[i] = tmpR[2] * tmpRdot[0] - tmpR[0] * tmpRdot[2];
@@ -323,6 +330,7 @@ static int EulerAnglesI2P(REAL8Vector *Alpha, /**<< output: alpha Euler angle */
         else
         {
             gsl_integration_qags (&precEulerF, tVec.data[i-1], tVec.data[i], 1e-9, 1e-9, 1000, precEulerw, &precEulerresult, &precEulererror);
+            //Note SEOBNRv3ROMdevel: it seems there is no sign change when integrating backwards
             Gamma->data[i] = Gamma->data[i-1] + precEulerresult;
         }
     }
@@ -340,7 +348,7 @@ static int EulerAnglesI2P(REAL8Vector *Alpha, /**<< output: alpha Euler angle */
 }
 
 /**
- * Given Euler angles to go from initial inertial frame to precessing frama
+ * Given Euler angles to go from initial inertial frame to precessing frame
  * and the LNhat vector, this functions computes the Euler angles to
  * go from the precessing frame to the frame of the total angular
  * momentum
@@ -352,12 +360,12 @@ static void EulerAnglesP2J(
                 const REAL8 aI2P, /**<< alpha Euler angle from inertial to precessing frame */
                 const REAL8 bI2P, /**<< beta Euler angle from inertial to precessing frame */
                 const REAL8 gI2P, /**<< gamma Euler angle from inertial to precessing frame */
-                //SM dev_SEOBNRv3ROM
+                //SM SEOBNRv3ROMdevel
                 //replaced LNhat with radiation frame unit vector Z - LNhat or Lhat
                 const REAL8 Zx, /**<< x component of radiation frame unit vector Z */
                 const REAL8 Zy, /**<< y component of radiation frame unit vector Z */
                 const REAL8 Zz, /**<< z component of radiation frame unit vector Z */
-                //end SM dev_SEOBNRv3ROM
+                //end SM SEOBNRv3ROMdevel
                 const REAL8 JframeEx[], /**<< x-axis of the total-angular-momentum frame */
                 const REAL8 JframeEy[], /**<< y-axis of the total-angular-momentum frame */
                 const REAL8 JframeEz[] /**<< z-axis of the total-angular-momentum frame */
@@ -369,16 +377,16 @@ static void EulerAnglesP2J(
     LframeEy[0] = -cos(aI2P)*cos(bI2P)*sin(gI2P) - sin(aI2P)*cos(gI2P);
     LframeEy[1] = -sin(aI2P)*cos(bI2P)*sin(gI2P) + cos(aI2P)*cos(gI2P);
     LframeEy[2] =  sin(bI2P)*sin(gI2P);
-    //SM dev_SEOBNRv3ROM
+    //SM SEOBNRv3ROMdevel
     //Lframe now means radiation frame defined by Z=LNhat or Lhat
     LframeEz[0] =  Zx;
     LframeEz[1] =  Zy;
     LframeEz[2] =  Zz;
-    //end SM dev_SEOBNRv3ROM
+    //end SM SEOBNRv3ROMdevel
     REAL8 normJ, normLz;
     normJ = JframeEz[0]*JframeEz[0]+JframeEz[1]*JframeEz[1]+JframeEz[2]*JframeEz[2];
     normLz = LframeEz[0]*LframeEz[0]+LframeEz[1]*LframeEz[1]+LframeEz[2]*LframeEz[2];
-    //Note dev_SEOBNRv3ROM: aren't normJ and normLz supposed to be 1 ?
+    //Note SEOBNRv3ROMdevel: aren't normJ and normLz supposed to be 1 ?
     *aP2J = atan2(JframeEz[0]*LframeEy[0]+JframeEz[1]*LframeEy[1]+JframeEz[2]*LframeEy[2],
                  JframeEz[0]*LframeEx[0]+JframeEz[1]*LframeEx[1]+JframeEz[2]*LframeEx[2]);
     *bP2J = acos( JframeEz[0]*LframeEz[0]+JframeEz[1]*LframeEz[1]+JframeEz[2]*LframeEz[2]);
@@ -595,6 +603,42 @@ XLALEOBSpinPrecStopConditionBasedOnPR(double UNUSED t,
   return GSL_SUCCESS;
 }
 
+//AT SEOBNRv3ROMdevel
+/**
+ * Stopping conditions for backwards integration for SEOBNRv3
+ */
+UNUSED static int
+XLALEOBSpinPrecStopConditionBackward(double UNUSED t,
+                                      const double values[],
+                                      double dvalues[],
+                                      void UNUSED *funcParams
+                                      )
+{
+    int debugPK = 0;
+    SpinEOBParams *params = (SpinEOBParams *)funcParams;
+
+    REAL8 r2;
+    REAL8 r[3];
+    REAL8 omega, omega_xyz[3];
+
+    memcpy( r, values, 3*sizeof(REAL8));
+
+    r2 = inner_product(r,r);
+    cross_product( values, dvalues, omega_xyz );
+    omega = sqrt(inner_product( omega_xyz, omega_xyz )) / r2;
+
+    if ( omega <= params->omegaOut )
+    {
+        if(debugPK){
+            XLAL_PRINT_INFO("\n Reached fOut\n");
+            fflush(NULL);
+        }
+        return 1;
+    }
+    return GSL_SUCCESS;
+}
+//end AT SEOBNRv3ROMdevel
+
 
 /**
  * Stopping condition for the regular resolution SEOBNRv1/2 orbital evolution
@@ -686,7 +730,7 @@ int XLALSimIMRSpinEOBWaveform(
     /** stores harmonics of the full waveform in I-frame */
     SphHarmTimeSeries *hIMR = NULL;
 
-    //SM dev_SEOBNRv3ROM
+    //SM SEOBNRv3ROMdevel
     //added output
     REAL8Vector *Dynamics_out = NULL;
     REAL8Vector *Alpha_out = NULL;
@@ -696,14 +740,14 @@ int XLALSimIMRSpinEOBWaveform(
     REAL8Vector *Omega_out = NULL;
     REAL8Vector *t_Omega_out = NULL;
     REAL8 tAttach_final;
-    //end SM dev_SEOBNRv3ROM
+    //end SM SEOBNRv3ROMdevel
 
     ret = XLALSimIMRSpinEOBWaveformAll(hplus, hcross, &dynamicsHi, &hlmPTSout, &hlmPTSHi, &hIMRlmJTSHi, &hIMR, &AttachPars,
                         &Dynamics_out, &Alpha_out, &Beta_out, &Gamma_out, &t_AlphaBeta_out, &Omega_out, &t_Omega_out, &tAttach_final,
                         phiC, deltaT, m1SI, m2SI, fMin, r, inc, INspin1[0], INspin1[1], INspin1[2], INspin2[0], INspin2[1], INspin2[2],
-                      //SM dev_SEOBNRv3ROM
-                      //added flags for the radiation frame ansatz and inertial frame chosen for output
-                      LAL_SEOBNRv3_RADIATION_FRAME_LN, LAL_SEOBNRv3_OUTPUT_FRAME_INITIAL_LN);
+                      //AT-SM SEOBNRv3ROMdevel
+                      //added fOut and flags for the radiation frame ansatz and inertial frame chosen for output
+                      0, LAL_SEOBNRv3_RADIATION_FRAME_LN, LAL_SEOBNRv3_OUTPUT_FRAME_INITIAL_LN);
     if (ret == XLAL_SUCCESS){
         if (*hplus == NULL || *hcross == NULL){
              XLALPrintError("Houston-2, we've got a problem SOS, SOS, SOS, the waveform generator returns NULL!!!... m1 = %.18e, m2 = %.18e, fMin = %.18e, inclination = %.18e,   spin1 = {%.18e, %.18e, %.18e},   spin2 = {%.18e, %.18e, %.18e} \n",
@@ -722,7 +766,7 @@ int XLALSimIMRSpinEOBWaveform(
     if(AttachPars)
           XLALDestroyREAL8Vector( AttachPars );
 
-    //SM dev_SEOBNRv3ROM
+    //SM SEOBNRv3ROMdevel
     //destroy added output
     if(Dynamics_out) XLALDestroyREAL8Vector(Dynamics_out);
     if(Alpha_out) XLALDestroyREAL8Vector(Alpha_out);
@@ -731,7 +775,7 @@ int XLALSimIMRSpinEOBWaveform(
     if(t_AlphaBeta_out) XLALDestroyREAL8Vector(t_AlphaBeta_out);
     if(Omega_out) XLALDestroyREAL8Vector(Omega_out);
     if(t_Omega_out) XLALDestroyREAL8Vector(t_Omega_out);
-    //end SM dev_SEOBNRv3ROM
+    //end SM SEOBNRv3ROMdevel
 
     if(hlmPTSout)
           XLALDestroySphHarmTimeSeries(hlmPTSout);
@@ -794,7 +838,7 @@ int XLALSimIMRSpinEOBWaveformAll(
         SphHarmTimeSeries **hIMRlmJTSHiOutput, /**<< Here we store and return the JWaveIMR (high sampling) */
         SphHarmTimeSeries **hIMRoutput,       /**<< Here we store and return the IWave (full) */
         REAL8Vector     **AttachPars,   /**<< Parameters of RD attachment: */
-        //SM dev_SEOBNRv3ROM
+        //SM SEOBNRv3ROMdevel
         //additional output
         REAL8Vector **Dynamics_out,
         REAL8Vector **Alpha_out,
@@ -804,7 +848,7 @@ int XLALSimIMRSpinEOBWaveformAll(
         REAL8Vector **Omega_out,
         REAL8Vector **t_Omega_out,
         REAL8 *tAttach_final,
-        //end SM dev_SEOBNRv3ROM
+        //end SM SEOBNRv3ROMdevel
         const REAL8      phiC,      /**<< intitial orbital phase */
         const REAL8     deltaT,     /**<< sampling time step */
         const REAL8     m1SI,       /**<< mass of first object in SI */
@@ -818,14 +862,26 @@ int XLALSimIMRSpinEOBWaveformAll(
         const REAL8     INspin2x,   /**<< spin2 x-component */
         const REAL8     INspin2y,   /**<< spin2 y-component */
         const REAL8     INspin2z,   /**<< spin2 z-component */
-        //SM dev_SEOBNRv3ROM
-        //additional flags
+        //AT-SM SEOBNRv3ROMdevel
+        const REAL8     fOut,       /**<< stopping freq for outspiraling integration */
         const LALSEOBNRv3RadiationFrameFlag flag_radiationframe, /**<< Flag to indicate wether to use the LN-frame or L-frame as an ansatz for the radiation frame */
         const LALSEOBNRv3OutputFrameFlag flag_outputframe /**<< Flag to indicate wether to output the wavform in the initial-LN, initial-J or final-J frame */
-        //end SM dev_SEOBNRv3ROM
+        //end AT-SM SEOBNRv3ROMdevel
      )
 
 {
+  //AT SEOBNRv3ROMdevel
+  INT4 backInt = 0;
+  if ( fOut != 0. ) {
+    if ( fOut < fMin ) {
+      backInt = 1;
+    }
+    else {
+      XLAL_PRINT_INFO("fOut must be smaller than fMin!\n");
+      XLAL_ERROR(  XLAL_EDOM );
+    }
+  }
+  //end AT SEOBNRv3ROMdevel
   REAL8 INspin1[3], INspin2[3];
   INspin1[0] = INspin1x;
   INspin1[1] = INspin1y;
@@ -1015,12 +1071,12 @@ int XLALSimIMRSpinEOBWaveformAll(
   REAL8 rcrossrdotNorm = 0, rvec[3]    = {0,0,0}, rcrossrdot[3] = {0,0,0};
   REAL8 pvec[3] = {0,0,0},  rcrossp[3] = {0,0,0};//, rcrosspMag    = 0;
 
-  //SM dev_SEOBNRv3ROM
+  //SM SEOBNRv3ROMdevel
   //Note: whenever LN was used as the radiation frame vector, it has been replaced by Z
   /* Radiation frame unit vector Z, can be LNhat or Lhat - and projection of the spins along Z */
   REAL8 ZNorm = 0, ZVec[3] = {0,0,0};
   REAL8 s1dotZ = 0, s2dotZ = 0;
-  //end SM dev_SEOBNRv3ROM
+  //end SM SEOBNRv3ROMdevel
 
   /* Polar vectors needed for waveform modes calculation */
   REAL8Vector  polarDynamics;
@@ -1176,7 +1232,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   /* Miscellaneous memory for Ringdown attachment        */
   REAL8 tPeakOmega = 0, tAttach = 0, combSize = 0,/*longCombSize,*/ deltaNQC =0;
   REAL8  sh  = 0;
-  //dev_SEOBNRv3ROM : replaced LNh by the radiation frame unit vector Z = LNhat or Lhat
+  //SEOBNRv3ROMdevel : replaced LNh by the radiation frame unit vector Z = LNhat or Lhat
   REAL8 magR = 0, Lx   = 0, Ly   = 0, Lz = 0, magL = 0, magJ = 0,
         Zx = 0, Zy = 0, Zz = 0, magZ = 0, LNhx = 0, LNhy = 0, LNhz = 0, magLN = 0, Jx = 0, Jy   = 0, Jz = 0;
   REAL8 aI2P = 0, bI2P = 0, gI2P = 0;
@@ -1185,7 +1241,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   REAL8 chi1L= 0.0, chi2L = 0.0, chiL = 0.0;
   REAL8 kappaJL = 0;
   REAL8 JLN = 0.0;
-  //dev_SEOBNRv3ROM : JframeEx,Ey,Ez persistent vectors storing the final-J frame
+  //SEOBNRv3ROMdevel : JframeEx,Ey,Ez persistent vectors storing the final-J frame
   //added JiniframeiniEx,Ey,Ez to store the initial-J frame - used if asked to output waveform in this frame
   REAL8 JframeEx[3] = {0,0,0}, JframeEy[3] = {0,0,0}, JframeEz[3] = {0,0,0};
   REAL8 JiniframeEx[3] = {0,0,0}, JiniframeEy[3] = {0,0,0}, JiniframeEz[3] = {0,0,0};
@@ -1410,6 +1466,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   seobParams.seobCoeffs   = &seobCoeffs;
   seobParams.eobParams    = &eobParams;
   seobParams.nqcCoeffs    = &nqcCoeffs;
+  //  seobParams.omegaOut = LAL_PI*fOut*mTScaled;
   /* Non-Spin-EOB parameters */
   eobParams.hCoeffs       = &hCoeffs;
   eobParams.prefixes      = &prefixes;
@@ -1538,6 +1595,21 @@ int XLALSimIMRSpinEOBWaveformAll(
   values->data[12] = 0.;
   values->data[13] = 0.;
 
+  //AT SEOBNRv3ROM
+  if ( backInt==1 ) {
+    values->data[3] = -values->data[3];
+    values->data[4] = -values->data[4];
+    values->data[5] = -values->data[5];
+    values->data[6] = -values->data[6];
+    values->data[7] = -values->data[7];
+    values->data[8] = -values->data[8];
+    values->data[9] = -values->data[9];
+    values->data[10] = -values->data[10];
+    values->data[11] = -values->data[11];
+  }
+  seobParams.omegaOut = LAL_PI*fOut*mTScaled;
+  //end AT SEOBNRv3ROM
+
   if(debugCustomIC) {
       /* Hardcode initial conditions for debugging purposes here */
       values->data[0]= 15.4898001256;
@@ -1583,7 +1655,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   memcpy( rvec,    values->data,  3*sizeof(REAL8) );
   memcpy( pvec,    values->data+3,3*sizeof(REAL8) );
 
-  //SM dev_SEOBNRv3ROM
+  //SM SEOBNRv3ROMdevel
   if(flag_radiationframe==LAL_SEOBNRv3_RADIATION_FRAME_LN) {
     cross_product( rvec, rdotvec, ZVec );
   } else if(flag_radiationframe==LAL_SEOBNRv3_RADIATION_FRAME_L) {
@@ -1595,13 +1667,14 @@ int XLALSimIMRSpinEOBWaveformAll(
   /* Calculate the values of chiS and chiA, as given in Eq. 17 of
    * PRD 89, 084006 (2014) */
   /* Note: we project on the radiation frame unit vector Z, which is either LNhat or LHat */
+  //Note SEOBNRv3ROMdevel:
   s1dotZ = inner_product( spin1, ZVec );
   s2dotZ = inner_product( spin2, ZVec );
 
   /* Calculate initial J and J-frame - used if asked to output the waveform in this frame */
   /* JiniframeiniEx,Ey,Ez persistent vectors storing the initial-J frame */
 
-  /* Compute initial J */
+  /* Compute initial J - flip sign if integrating backwards*/
   memcpy( rvec,    values->data,  3*sizeof(REAL8));
   memcpy( pvec,    values->data+3,3*sizeof(REAL8));
   cross_product( rvec, pvec,    rcrossp );
@@ -1609,6 +1682,11 @@ int XLALSimIMRSpinEOBWaveformAll(
   Jx = eta*Lx + values->data[6] + values->data[9];
   Jy = eta*Ly + values->data[7] + values->data[10];
   Jz = eta*Lz + values->data[8] + values->data[11];
+  if(backInt==1) {
+    Jx = -1.0 * Jx;
+    Jy = -1.0 * Jy;
+    Jz = -1.0 * Jz;
+  }
   magJ = sqrt( Jx*Jx + Jy*Jy + Jz*Jz );
 
   /* Construct initial J-frame */
@@ -1641,7 +1719,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     XLAL_PRINT_INFO("Jini-frameEx = [%.16e\t%.16e\t%.16e]\n", JiniframeEx[0], JiniframeEx[1], JiniframeEx[2]);XLAL_PRINT_INFO("Jini-frameEy = [%.16e\t%.16e\t%.16e]\n", JiniframeEy[0], JiniframeEy[1], JiniframeEy[2]);
     XLAL_PRINT_INFO("Jini-frameEz = [%.16e\t%.16e\t%.16e]\n", JiniframeEz[0], JiniframeEz[1], JiniframeEz[2]);fflush(NULL);
   }
-  //end SM dev_SEOBNRv3ROM
+  //end SM SEOBNRv3ROMdevel
 
 ///* An alternative is to project the spins onto L = rXp */
 // cross_product( rvec, pvec, rcrossp );
@@ -1651,7 +1729,6 @@ int XLALSimIMRSpinEOBWaveformAll(
 //  s1dotL = inner_product( spin1, rcrossrdot );
 //  s2dotL = inner_product( spin2, rcrossrdot );
 
-  //dev_SEOBNRv3ROM Note: debug should be changed, rcrossp and rcrossrdot not used here
   if(debugPK) {
     XLAL_PRINT_INFO("rXp = %3.10f %3.10f %3.10f\n", rcrossp[0], rcrossp[1], rcrossp[2]);
     XLAL_PRINT_INFO("rXrdot = %3.10f %3.10f %3.10f\n", rcrossrdot[0], rcrossrdot[1], rcrossrdot[2]);
@@ -1726,7 +1803,6 @@ int XLALSimIMRSpinEOBWaveformAll(
   REAL8 fISCO = pow(rISCO, -1.5)/(LAL_PI*mTScaled);
 
 
-  //Note dev_SEOBNRv3ROM: rcrossrdotNorm not computed before it seems, debug should be changed
   if (debugPK){
       XLAL_PRINT_INFO("Stas - spin = %4.10f \n", spinNQC);
       XLAL_PRINT_INFO("Stas - NRPeakOmega22 =  %4.10f,   %4.10f \n",  GetNRSpinPeakOmegav2(2, 2, eta, spinNQC) / mTotal,  GetNRSpinPeakOmegav2(2, 2, eta, spinNQC));
@@ -1877,9 +1953,19 @@ int XLALSimIMRSpinEOBWaveformAll(
         seobParams.alignedSpins = 0;
     }
     else {
-        if (!(integrator = XLALAdaptiveRungeKutta4Init(14,
+        //AT SEOBNRv3ROMdevel
+        if ( backInt == 0 ) {
+              integrator = XLALAdaptiveRungeKutta4Init(14,
                                                        XLALSpinPrecHcapNumericalDerivative, XLALEOBSpinPrecStopConditionBasedOnPR,
-                                                       EPS_ABS, EPS_REL)))
+                                                       EPS_ABS, EPS_REL);
+        }
+        else {
+              integrator = XLALAdaptiveRungeKutta4Init(14,
+                                                       XLALSpinPrecHcapNumericalDerivative, XLALEOBSpinPrecStopConditionBackward,
+                                                       EPS_ABS, EPS_REL);
+        }
+        if (!(integrator))
+        //end AT SEOBNRv3ROMdevel
         {
             XLALDestroyREAL8Vector( sigmaKerr );
             XLALDestroyREAL8Vector( sigmaStar );
@@ -2056,7 +2142,14 @@ int XLALSimIMRSpinEOBWaveformAll(
   }
   seobParams.prev_dr=0.;
   /* For HiSR evolution, we stop whenver XLALEOBSpinPrecStopConditionBasedOnPR is triggered */
-  integrator->stop = XLALEOBSpinPrecStopConditionBasedOnPR;
+  //AT SEOBNRv3ROMdevel
+  if ( backInt == 0 ) {
+    integrator->stop = XLALEOBSpinPrecStopConditionBasedOnPR;
+  }
+  else {
+    integrator->stop = XLALEOBSpinPrecStopConditionBackward;
+  }
+  //end AT SEOBNRv3ROMdevel
 
   REAL8Vector rVecHi, phiVecHi, prVecHi, pPhiVecHi;
   rVecHi.length = phiVecHi.length = prVecHi.length = pPhiVecHi.length = 0;
@@ -2209,11 +2302,11 @@ int XLALSimIMRSpinEOBWaveformAll(
     Alpha = XLALCreateREAL8Vector( retLenLow );
     Beta   = XLALCreateREAL8Vector( retLenLow );
     Gamma = XLALCreateREAL8Vector( retLenLow );
-    //SM dev_SEOBNRv3ROM
-    //Passes p as argument, and added a flag for the radiation frame choice
-    EulerAnglesI2P(Alpha, Beta, Gamma, &phaseCounterA, &phaseCounterB, tVec, posVecx, posVecy, posVecz, momVecx, momVecy, momVecz, retLenLow, 0., 0.5*LAL_PI, 0, flag_radiationframe);
+    //SM SEOBNRv3ROMdevel
+    //Passes p as argument, and added a flag for the radiation frame choice; when integrating backwards, flip the sign of v or p
+    EulerAnglesI2P(Alpha, Beta, Gamma, &phaseCounterA, &phaseCounterB, tVec, posVecx, posVecy, posVecz, momVecx, momVecy, momVecz, retLenLow, 0., 0.5*LAL_PI, 0, flag_radiationframe, backInt);
     //EulerAnglesI2P(Alpha, Beta, Gamma, &phaseCounterA, &phaseCounterB, tVec, posVecx, posVecy, posVecz, retLenLow, 0., 0.5*LAL_PI, 0);
-    //end SM dev_SEOBNRv3ROM
+    //end SM SEOBNRv3ROMdevel
     //EulerAnglesI2P(Alpha, Beta, Gamma, &phaseCounterA, &phaseCounterB, tVec, posVecx, posVecy, posVecz, retLenLow, 0., 0.0, 0);
 
     t_AlphaBeta = XLALCreateREAL8Vector( retLenLow );
@@ -2250,11 +2343,11 @@ int XLALSimIMRSpinEOBWaveformAll(
     AlphaHi = XLALCreateREAL8Vector( retLenHi );
     BetaHi   = XLALCreateREAL8Vector( retLenHi );
     GammaHi = XLALCreateREAL8Vector( retLenHi );
-    //SM dev_SEOBNRv3ROM
-    //Passes p as argument, and added a flag for the radiation frame choice
-    EulerAnglesI2P(AlphaHi, BetaHi, GammaHi, &phaseCounterA, &phaseCounterB, timeHi, posVecxHi, posVecyHi, posVeczHi, momVecxHi, momVecyHi, momVeczHi, retLenHi, Alpha->data[hiSRndx], Gamma->data[hiSRndx], 1, flag_radiationframe);
+    //SM SEOBNRv3ROMdevel
+    //Passes p as argument, and added a flag for the radiation frame choice; when integrating backwards, flip the sign of v or p
+    EulerAnglesI2P(AlphaHi, BetaHi, GammaHi, &phaseCounterA, &phaseCounterB, timeHi, posVecxHi, posVecyHi, posVeczHi, momVecxHi, momVecyHi, momVeczHi, retLenHi, Alpha->data[hiSRndx], Gamma->data[hiSRndx], 1, flag_radiationframe, backInt);
     //EulerAnglesI2P(AlphaHi, BetaHi, GammaHi, &phaseCounterA, &phaseCounterB, timeHi, posVecxHi, posVecyHi, posVeczHi, retLenHi, Alpha->data[hiSRndx], Gamma->data[hiSRndx], 1);
-    //end SM dev_SEOBNRv3ROM
+    //end SM SEOBNRv3ROMdevel
     if (debugPK){
         XLAL_PRINT_INFO("Writing Alpha and Beta angle timeseries at high SR to alphaANDbetaHi.dat\n" );
         fflush(NULL);
@@ -2383,6 +2476,14 @@ int XLALSimIMRSpinEOBWaveformAll(
   Jy = eta*Ly + values->data[7] + values->data[10];
   Jz = eta*Lz + values->data[8] + values->data[11];
   magJ = sqrt( Jx*Jx + Jy*Jy + Jz*Jz );
+  // Note SEOBNRv3ROMdevel: when doing backwards integration, flip the sign of J
+  // there is no ringdown attachment in this case, but the final-J frame is used,
+  // as the waveform is first rotated to final-J and then to the output inertial frame
+  if(backInt==1) {
+    Jx = -1.0 * Jx;
+    Jy = -1.0 * Jy;
+    Jz = -1.0 * Jz;
+  }
 
   if(debugPK){
     XLAL_PRINT_INFO("J at merger: %e, %e, %e (mag = %e)\n", Jx, Jy, Jz, magJ);
@@ -2474,7 +2575,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   /* Manually choose combSize */
   //combSize = 40.0;
 
-  /* Construct J-frame */
+  /* Construct final-J-frame */
   JframeEz[0] = Jx / magJ;
   JframeEz[1] = Jy / magJ;
   JframeEz[2] = Jz / magJ;
@@ -2598,14 +2699,14 @@ int XLALSimIMRSpinEOBWaveformAll(
     }
 
     /* Calculate rcrossrdot, rcrossp */
-    //SM dev_SEOBNRv3ROM
+    //SM SEOBNRv3ROMdevel
     memcpy( rdotvec, dvalues->data, 3*sizeof(REAL8));
     memcpy( pvec, values->data + 3, 3*sizeof(REAL8));
     rvec[0] = posVecx.data[i]; rvec[1] = posVecy.data[i];
     rvec[2] = posVecz.data[i];
     cross_product( rvec, rdotvec, rcrossrdot );
     cross_product( rvec, pvec, rcrossp );
-    //end SM dev_SEOBNRv3ROM
+    //end SM SEOBNRv3ROMdevel
     /* Calculate omega */
     magR = sqrt(inner_product(rvec, rvec));
     omega = sqrt(inner_product(rcrossrdot, rcrossrdot)) / (magR*magR);
@@ -2621,7 +2722,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     memset( cartPosData, 0, sizeof( cartPosData ) );
     memset( cartMomData, 0, sizeof( cartMomData ) );
 
-    //SM dev_SEOBNRv3ROM
+    //SM SEOBNRv3ROMdevel
     if(flag_radiationframe==LAL_SEOBNRv3_RADIATION_FRAME_LN) {
       Zx  = rcrossrdot[0];
       Zy  = rcrossrdot[1];
@@ -2635,7 +2736,13 @@ int XLALSimIMRSpinEOBWaveformAll(
     Zx  = Zx / magZ;
     Zy  = Zy / magZ;
     Zz  = Zz / magZ;
-    //end SM dev_SEOBNRv3ROM
+    //flip the sign when integrating backwards
+    if(backInt==1) {
+      Zx = -1.0 * Zx;
+      Zy = -1.0 * Zy;
+      Zz = -1.0 * Zz;
+    }
+    //end SM SEOBNRv3ROMdevel
 
     aI2P = Alpha->data[i];
     bI2P = Beta->data[i];
@@ -2659,9 +2766,9 @@ int XLALSimIMRSpinEOBWaveformAll(
 
     //}
 
-    //SM dev_SEOBNRv3ROM
+    //SM SEOBNRv3ROMdevel
     EulerAnglesP2J(&aP2J, &bP2J, &gP2J, aI2P, bI2P, gI2P, Zx, Zy, Zz, JframeEx, JframeEy, JframeEz);
-    //end SM dev_SEOBNRv3ROM
+    //end SM SEOBNRv3ROMdevel
 
       /** Euler angles to go from precessing to J-frame. Note that we follow in this code passive rotation Z-Y-Z and notations
        * of Arun et al. arXiv 0810.5336, however the Wiegner D-matrix and mode rotation coded up in LAL for active rotation
@@ -2701,7 +2808,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     seobParams.a = a = sqrt(inner_product(sigmaKerr->data, sigmaKerr->data));
 
     /* Eq. 16 of PRD 89, 084006 (2014): it's S_{1,2}/m_{1,2}^2.LNhat */
-    //SM dev_SEOBNRv3ROM
+    //SM SEOBNRv3ROMdevel
     //We use the radiation frame unit vector Z=LNhat or Lhat instead of LNhat
     ZVec[0] = Zx;
     ZVec[1] = Zy;
@@ -2711,7 +2818,7 @@ int XLALSimIMRSpinEOBWaveformAll(
 
     chiS = 0.5 * (s1dotZ + s2dotZ);
     chiA = 0.5 * (s1dotZ - s2dotZ);
-    //end SM dev_SEOBNRv3ROM
+    //end SM SEOBNRv3ROMdevel
 
     switch ( SpinAlignedEOBversion )
     {
@@ -2958,7 +3065,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     }
 
     /* Calculate rcrossrdot, rcrossp */
-    //SM dev_SEOBNRv3ROM
+    //SM SEOBNRv3ROMdevel
     rvec[0] = posVecxHi.data[i];
     rvec[1] = posVecyHi.data[i];
     rvec[2] = posVeczHi.data[i];
@@ -2966,7 +3073,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     memcpy( pvec, values->data+3, 3*sizeof(REAL8));
     cross_product( rvec, rdotvec, rcrossrdot );
     cross_product( rvec, pvec, rcrossp );
-    //end SM dev_SEOBNRv3ROM
+    //end SM SEOBNRv3ROMdevel
     /* Calculate omega */
     magR = sqrt(inner_product(rvec, rvec));
     omega = sqrt(inner_product(rcrossrdot, rcrossrdot)) / (magR*magR);
@@ -2979,7 +3086,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     memset( cartPosData, 0, sizeof( cartPosData ) );
     memset( cartMomData, 0, sizeof( cartMomData ) );
 
-    //SM dev_SEOBNRv3ROM
+    //SM SEOBNRv3ROMdevel
     if(flag_radiationframe==LAL_SEOBNRv3_RADIATION_FRAME_LN) {
       Zx  = rcrossrdot[0];
       Zy  = rcrossrdot[1];
@@ -2993,15 +3100,21 @@ int XLALSimIMRSpinEOBWaveformAll(
     Zx  = Zx / magZ;
     Zy  = Zy / magZ;
     Zz  = Zz / magZ;
-    //end SM dev_SEOBNRv3ROM
+    //flip the sign when integrating backwards - should not be needed, no HiRes dynamics in that case
+    if(backInt==1) {
+      Zx = -1.0 * Zx;
+      Zy = -1.0 * Zy;
+      Zz = -1.0 * Zz;
+    }
+    //end SM SEOBNRv3ROMdevel
 
     aI2P = AlphaHi->data[i];
     bI2P = BetaHi->data[i];
     gI2P = GammaHi->data[i];
 
-    //SM dev_SEOBNRv3ROM
+    //SM SEOBNRv3ROMdevel
     EulerAnglesP2J(&aP2J, &bP2J, &gP2J, aI2P, bI2P, gI2P, Zx, Zy, Zz, JframeEx, JframeEy, JframeEz);
-    //end SM dev_SEOBNRv3ROM
+    //end SM SEOBNRv3ROMdevel
 
     /* I2P Euler angles are stored only for debugging purposes */
     alphaI2PTSHi->data->data[i] = -aI2P;
@@ -3037,7 +3150,7 @@ int XLALSimIMRSpinEOBWaveformAll(
 
     seobParams.a = a = sqrt(inner_product(sigmaKerr->data, sigmaKerr->data));
 
-    //SM dev_SEOBNRv3ROM
+    //SM SEOBNRv3ROMdevel
     //We use the radiation frame unit vector Z=LNhat or Lhat instead of LNhat
     ZVec[0] = Zx;
     ZVec[1] = Zy;
@@ -3047,7 +3160,7 @@ int XLALSimIMRSpinEOBWaveformAll(
 
     chiS = 0.5 * (s1dotZ + s2dotZ);
     chiA = 0.5 * (s1dotZ - s2dotZ);
-    //end SM dev_SEOBNRv3ROM
+    //end SM SEOBNRv3ROMdevel
 
     switch ( SpinAlignedEOBversion )
     {
@@ -3541,19 +3654,30 @@ int XLALSimIMRSpinEOBWaveformAll(
       sigReHi->data[i] = creal(hJTSHi->data->data[i]);
       sigImHi->data[i] = cimag(hJTSHi->data->data[i]);
     }
-    if ( XLALSimIMREOBHybridAttachRingdownPrec( sigReHi, sigImHi, 2, m,
-                deltaTHigh, m1, m2, 0.0, 0.0, chi1L, 0.0, 0.0, chi2L,
-                &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL )
-            == XLAL_FAILURE ) {
-        FREE_EVERYTHING
-        XLALDestroyREAL8Vector( timeJFull );
-        XLALDestroyREAL8Vector( timeIFull );
-        XLALDestroyREAL8Vector( tlistRDPatch );
-        XLALDestroyREAL8Vector( tlistRDPatchHi );
-        XLALPrintError("XLALSimIMREOBHybridAttachRingdownPrec failed!\n");
-        PRINT_PARAMS
-        XLAL_ERROR( XLAL_EDOM );
+    //AT SEOBNRv3ROMdevel
+    if ( backInt==0 ) {
+      if ( XLALSimIMREOBHybridAttachRingdownPrec( sigReHi, sigImHi, 2, m,
+        deltaTHigh, m1, m2, 0.0, 0.0, chi1L, 0.0, 0.0, chi2L,
+        &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL )
+        == XLAL_FAILURE ) {
+          FREE_EVERYTHING
+          XLALDestroyREAL8Vector( timeJFull );
+          XLALDestroyREAL8Vector( timeIFull );
+          XLALDestroyREAL8Vector( tlistRDPatch );
+          XLALDestroyREAL8Vector( tlistRDPatchHi );
+          XLALPrintError("XLALSimIMREOBHybridAttachRingdownPrec failed!\n");
+          PRINT_PARAMS
+          XLAL_ERROR( XLAL_EDOM );
+        }
     }
+    else {
+      for ( i = 0; i < retLenHi + retLenRDPatchHi; i++ )
+      {
+        sigReHi->data[i] = 0.;
+        sigImHi->data[i] = 0.;
+      }
+    }
+    //end AT SEOBNRv3ROMdevel
 
     for ( i = 0; i < (int)sigReHi->length; i++ )
     {
@@ -3727,7 +3851,7 @@ int XLALSimIMRSpinEOBWaveformAll(
  printf("JframeEz: (%g, %g, %g)\n", JframeEz[0], JframeEz[1], JframeEz[2]);
  //
 
- //SM dev_SEOBNRv3ROM
+ //SM SEOBNRv3ROMdevel
  /* Euler Angles to go from final-J-frame to output inertial frame  */
  /* Formula implemented: to go from the frame (EX,EY,EZ) to the frame (ex,ey,ez) (here (EX,EY,EZ) is the final-J frame) */
  /* alpha = atan2(EY.ez, EX.ez) */
@@ -3771,10 +3895,10 @@ int XLALSimIMRSpinEOBWaveformAll(
     XLAL_PRINT_INFO("Stas: J->I EA = %.16e, %.16e, %.16e \n", alJtoI, betJtoI, gamJtoI);
     fflush(NULL);
   }
-  //end SM dev_SEOBNRv3ROM
+  //end SM SEOBNRv3ROMdevel
 
 
-  //Note SM dev_SEOBNRv3ROM: the following steps are useless if we ask for output in the final J-frame
+  //Note SM SEOBNRv3ROMdevel: the following steps are useless if we ask for output in the final J-frame
   //For now we simply rotate with zero angles in that case
    alpI        = XLALCreateREAL8TimeSeries( "alphaJ2I", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
    betI        = XLALCreateREAL8TimeSeries( "betaJ2I", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
@@ -3846,7 +3970,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     /** NOTE that we have use  now different convention: the phi_ref (or one might call it phi_c) is now
      * the azimuthal phase of the observer in the source (I-)frame. Together with inclination angle it defines
      * the position of the observer in the (I-)frame associated with the source at t=0 */
-     //SM dev_SEOBNRv3ROM
+     //SM SEOBNRv3ROMdevel
      //Note: for now the angles inc and phiC give the position of the observer in the output frame
      //which is either the initial-LN, initial-J or final-J frame
 

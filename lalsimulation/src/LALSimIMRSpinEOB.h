@@ -102,6 +102,9 @@ tagSpinEOBParams
   int                     alignedSpins;
   int                     tortoise;
   int ignoreflux;
+  //AT SEOBNRvrROMdevel
+  REAL8 omegaOut;
+  //end AT SEOBNRvrROMdevel
 }
 SpinEOBParams;
 

@@ -258,8 +258,17 @@ XLALInspiralPrecSpinFactorizedFlux(
         flux = 0.;
     }
 
-	if (debugPK)
-		XLAL_PRINT_INFO("\tStas, FLUX = %.16e\n", flux * LAL_1_PI / 8.0);
-	return flux * LAL_1_PI / 8.0;
+		if (debugPK) {
+			XLAL_PRINT_INFO("\tStas, FLUX = %.16e\n", flux * LAL_1_PI / 8.0);
+		}
+
+		//AT SEOBNRvrROMdevel
+		if ( ak->omegaOut != 0 ) {
+			return -flux * LAL_1_PI / 8.0;
+		}
+		else {
+			return flux * LAL_1_PI / 8.0;
+		}
+		//end AT SEOBNRvrROMdevel
 }
 #endif				/* _LALSIMIMRSPINPRECEOBFACTORIZEDFLUX_C */

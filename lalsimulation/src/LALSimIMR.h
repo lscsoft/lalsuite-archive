@@ -64,7 +64,7 @@ typedef enum {
  IMRPhenomPv2_V  /**< version 2: based on IMRPhenomD */
 } IMRPhenomP_version_type;
 
-//SM dev_SEOBNRv3ROM
+//SM SEOBNRv3ROMdevel
 typedef enum {
   LAL_SEOBNRv3_RADIATION_FRAME_LN = 0,
   LAL_SEOBNRv3_RADIATION_FRAME_L = 1
@@ -74,7 +74,7 @@ typedef enum {
   LAL_SEOBNRv3_OUTPUT_FRAME_INITIAL_J = 1,
   LAL_SEOBNRv3_OUTPUT_FRAME_FINAL_J = 2
 } LALSEOBNRv3OutputFrameFlag;
-//end SM dev_SEOBNRv3ROM
+//end SM SEOBNRv3ROMdevel
 
 /** @} */
 
@@ -162,6 +162,7 @@ int XLALSimIMRSpinEOBWaveformAll(
                                  const REAL8     INspin2x,
                                  const REAL8     INspin2y,
                                  const REAL8     INspin2z,
+                                 const REAL8     fOut,
                                  const LALSEOBNRv3RadiationFrameFlag flag_radiationframe,
                                  const LALSEOBNRv3OutputFrameFlag flag_outputframe
                                  );
