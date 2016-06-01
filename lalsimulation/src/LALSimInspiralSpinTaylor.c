@@ -3405,10 +3405,10 @@ int XLALSimInspiralTransformPrecessingNewInitialConditions(
 	 * in the x-z plane.
 	 */
 	REAL8 phiN = atan2(Ny, Nx);
-	ROTATEZ(-phiN, s1hatx, s1haty, s1hatz);
-	ROTATEZ(-phiN, s2hatx, s2haty, s2hatz);
-	ROTATEZ(-phiN, LNhx, LNhy, LNhz);
-	ROTATEZ(-phiN, Nx, Ny, LNz);
+	ROTATEZ(LAL_PI-phiN, s1hatx, s1haty, s1hatz);
+	ROTATEZ(LAL_PI-phiN, s2hatx, s2haty, s2hatz);
+	ROTATEZ(LAL_PI-phiN, LNhx, LNhy, LNhz);
+	ROTATEZ(LAL_PI-phiN, Nx, Ny, LNz);
 
 	//One can make the following checks:
 	/*printf("LNhat should be along z, N in the x-z plane\n");
