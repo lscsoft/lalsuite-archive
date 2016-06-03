@@ -395,7 +395,7 @@ int XLALSimIMRSpinAlignedEOBWaveformAll(
     XLAL_ERROR( XLAL_EINVAL );
   }
  /* For v2 the upper bound is 0.99 */
-  if ( (SpinAlignedEOBversion == 2 || SpinAlignedEOBversion == 4) && ( spin1z > 0.99 || spin2z > 0.99 ))
+  if ( (SpinAlignedEOBversion == 2) && ( spin1z > 0.99 || spin2z > 0.99 ))
   {
     XLALPrintError( "XLAL Error - %s: Component spin larger than 0.99!\nSEOBNRv2, SEOBNRv4 and SEOBNRv2_opt are only available for spins in the range -1 < a/M < 0.99.\n", __func__);
     XLAL_ERROR( XLAL_EINVAL );
