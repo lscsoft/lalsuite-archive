@@ -17,6 +17,7 @@ pkginclude_HEADERS = \
 	FitToPulsar.h \
 	FlatMesh.h \
 	FlatPulsarMetric.h \
+	GSLHelpers.h \
 	GeneratePulsarSignal.h \
 	GenerateSpinOrbitCW.h \
 	GenerateTaylorCW.h \
@@ -168,7 +169,6 @@ EXTRA_liblalpulsar_la_SOURCES = \
 	ComputeFstat_DemodHL_SSE.i \
 	ComputeFstat_Demod_ComputeFaFb.c \
 	ComputeFstat_internal.h \
-	GSLHelpers.h \
 	SFTfileIO-LAL.c \
 	SFTutils-LAL.c \
 	SinCosLUT.i \
