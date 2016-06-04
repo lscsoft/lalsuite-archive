@@ -724,7 +724,7 @@ INT4 XLALSimIMREOBFinalMassSpin(
   REAL8 totalMass;
   REAL8 eta, eta2, eta3;
   REAL8 a1, a2, chiS, q;
-  REAL8 z1, z2, rISCO, eISCO, atl, tmpVar;
+  REAL8 z1, z2, rISCO, eISCO, LISCO, atl, tmpVar, csi, S1, S2, Seff, atot, aeff, physpart, fitpart;
   REAL8 cosa, cosb, cosg, a1a2norm, a1a2L, lnorm;
   REAL8 q2, chi1, chi2, theta1, theta2, phi1, phi2, swapvar;
  
@@ -762,9 +762,46 @@ INT4 XLALSimIMREOBFinalMassSpin(
           eISCO = sqrt( 1. - 2./(3.*rISCO) );
           *finalMass = 1. - ( (1.-eISCO)*eta
                              + 16.*eta*eta*( 0.00258 - 0.0773/(1./((1.+1/q/q)/(1.+1/q)/(1.+1/q))*atl-1.6939) - 0.25*(1.-eISCO)) );
-          *finalSpin = tmpVar + tmpVar*eta*( s9*eta*tmpVar*tmpVar + s8*eta*eta*tmpVar + s7*eta*tmpVar
-                                            + s6*tmpVar*tmpVar + s4v2*tmpVar + s5v2*eta + t0v2)
-          + eta*( 2.*sqrt(3.) + t2v2*eta + t3v2 *eta*eta );
+          
+          /* Final spin formula from Barausse+16 http://arxiv.org/pdf/1605.01938.pdf */
+          csi = 0.474046;
+          S1 = mass1*mass1*a1;
+          S2 = mass2*mass2*a2;
+          Seff = (1. + csi*mass2/mass1)*S1 + (1. + csi*mass1/mass2)*S2;
+          aeff = Seff/(mass1 + mass2)/(mass1 + mass2);
+          atot = (S1 + S2)/(mass1 + mass2)/(mass1 + mass2);
+          z1 = 1. + pow( 1.-aeff*aeff, 1./3.) * ( pow( 1.+aeff, 1./3. ) + pow( 1.-aeff, 1./3. ) );
+          z2 = sqrt( 3.*aeff*aeff + z1*z1 );
+          rISCO = 3. + z2 - ( aeff<0. ? -1. : 1. ) * sqrt( (3.-z1) * (3.+z1+2.*z2) );
+          eISCO = sqrt( 1. - 2./(3.*rISCO) );
+          LISCO = 2./(3.*sqrt(3.))*(1. + 2.*sqrt(3.*rISCO - 2.));
+          physpart = atot + eta*(LISCO - 2.*atot*(eISCO - 1.));
+          if (fabs(aeff) > 0.) {
+              fitpart = -5.977230835551017*eta*eta +
+              3.39221*aeff*eta*eta +
+              4.48865*aeff*aeff*eta*eta -
+              5.77101*aeff*aeff*aeff*eta*eta -
+              13.0459*aeff*aeff*aeff*aeff*eta*eta +
+              35.1278*eta*eta*eta - 72.9336*aeff*eta*eta*eta -
+              86.0036*aeff*aeff*eta*eta*eta +
+              93.7371*aeff*aeff*aeff*eta*eta*eta +
+              200.975*aeff*aeff*aeff*aeff*eta*eta*eta -
+              146.822*eta*eta*eta*eta + 387.184*aeff*eta*eta*eta*eta +
+              447.009*aeff*aeff*eta*eta*eta*eta -
+              467.383*aeff*aeff*aeff*eta*eta*eta*eta -
+              884.339*aeff*aeff*aeff*aeff*eta*eta*eta*eta +
+              223.911*eta*eta*eta*eta*eta - 648.502*aeff*eta*eta*eta*eta*eta -
+              697.177*aeff*aeff*eta*eta*eta*eta*eta + 
+              753.738*aeff*aeff*aeff*eta*eta*eta*eta*eta + 
+              1166.89*aeff*aeff*aeff*aeff*eta*eta*eta*eta*eta;
+          }
+          else {
+              fitpart = -5.977230835551017*eta*eta + 35.1278*eta*eta*eta - 146.822*eta*eta*eta*eta +
+              223.911*eta*eta*eta*eta*eta;
+          }
+          *finalSpin = physpart + fitpart;
+//          printf("aeff = %.16e, LISCO = %.16e, eISCO = %.16e, rISCO = %.16e\n",aeff,LISCO,eISCO,rISCO);
+//          printf("af = %.16e\n",*finalSpin);
           break;
       case SEOBNRv2:
       /* See page 3 of the dcc document T1400476-v3, quantities MFinal and aFinal, for expressions below. */
