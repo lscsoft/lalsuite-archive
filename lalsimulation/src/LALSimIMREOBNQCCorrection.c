@@ -822,7 +822,7 @@ UNUSED static inline REAL8 XLALSimIMREOBGetNRSpinPeakDeltaT(
  * Peak amplitude predicted by fitting NR results (currently only 2,2 available).
  * Unpublished. Used in building SEOBNRv2 tables.
  */
-UNUSED static inline REAL8 GetNRSpinPeakAmplitudeV4( INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED eta, REAL8 UNUSED a )
+UNUSED static inline REAL8 GetNRSpinPeakAmplitudeV2( INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED eta, REAL8 UNUSED a )
 {
     REAL8 chi = a, chi2 = chi*chi, chi3 = chi*chi2;
     REAL8 eta2 = eta*eta;
@@ -851,10 +851,51 @@ UNUSED static inline REAL8 GetNRSpinPeakAmplitudeV4( INT4 UNUSED l, INT4 UNUSED 
 }
 
 /**
+ * Peak amplitude predicted by fitting NR results (currently only 2,2 available).
+ * Unpublished. Used in building SEOBNRv4.
+ */
+UNUSED static inline REAL8 GetNRSpinPeakAmplitudeV4( INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED eta, REAL8 UNUSED a )
+{
+    REAL8 chi = a, chi2 = chi*chi, chi3 = chi*chi2;
+    REAL8 eta2 = eta*eta;
+    REAL8 res;
+    res = eta*(1.0000160002560041*(1.4528573105413543 +
+                             0.16613449160880395*chi +
+                             0.027355646661735258*chi2 -
+                             0.020072844926136438*chi3) -
+         0.000016000256004096065*
+         (1.577457498227 - 0.0076949474494639085*chi +
+          0.02188705616693344*chi2 +
+          0.023268366492696667*chi3) -
+         0.00099601593625498*(-0.03442402416125921 -
+                              1.2180662644198392*chi -
+                              0.5683726304811634*chi2 +
+                              0.40111437614653417*chi3) +
+         (-0.03442402416125921 - 1.2180662644198392*chi -
+          0.5683726304811634*chi2 +
+          0.40111437614653417*chi3)*eta +
+         (-16.0002560041612*(1.4528573105413543 +
+                             0.16613449160880395*chi +
+                             0.027355646661735258*chi2 -
+                             0.020072844926136438*chi3) +
+          16.000256004096066*
+          (1.577457498227 - 0.0076949474494639085*chi +
+           0.02188705616693344*chi2 +
+           0.023268366492696667*chi3) -
+          3.9840637450199665*
+          (-0.03442402416125921 - 1.2180662644198392*chi -
+           0.5683726304811634*chi2 +
+           0.40111437614653417*chi3))*eta2);
+//    printf("A %.16e\n", res);
+    return res;
+}
+
+
+/**
  * Peak amplitude curvature predicted by fitting NR results (currently only 2,2 available).
  * Unpublished. Used in building SEOBNRv2 tables.
  */
-UNUSED static inline REAL8 GetNRSpinPeakADDotV4( INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED eta, REAL8 UNUSED a )
+UNUSED static inline REAL8 GetNRSpinPeakADDotV2( INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED eta, REAL8 UNUSED a )
 {
     REAL8 chi = a;
     REAL8 res;
@@ -878,10 +919,40 @@ UNUSED static inline REAL8 GetNRSpinPeakADDotV4( INT4 UNUSED l, INT4 UNUSED m, R
 }
 
 /**
+ * Peak amplitude curvature predicted by fitting NR results (currently only 2,2 available).
+ * Unpublished. Used in building SEOBNRv4.
+ */
+UNUSED static inline REAL8 GetNRSpinPeakADDotV4( INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED eta, REAL8 UNUSED a )
+{
+    REAL8 chi = a;
+    REAL8 chiMinus1 = -1. + chi;
+    REAL8 eta2 = eta*eta;
+    REAL8 res;
+    res = eta*(1.0000160002560041*(0.002395610769995033*chiMinus1 -
+                                   0.00019273850675004356*chiMinus1*chiMinus1 -
+                                   0.00029666193167435337*chiMinus1*chiMinus1*chiMinus1) -
+               0.00099601593625498*(-0.005776537350356959 +
+                                    0.0010308574828852665*chi) -
+               0.000016000256004096065*
+               (-0.0041265090713775085 + 0.0022239991387358092*chi) +
+               (-0.005776537350356959 + 0.0010308574828852665*chi)*eta +
+               (-16.0002560041612*(0.002395610769995033*chiMinus1 -
+                                   0.00019273850675004356*chiMinus1*chiMinus1 -
+                                   0.00029666193167435337*chiMinus1*chiMinus1*chiMinus1) -
+                3.9840637450199665*
+                (-0.005776537350356959 + 0.0010308574828852665*chi) + 
+                16.000256004096066*
+                (-0.0041265090713775085 + 0.0022239991387358092*chi))*
+               eta2);
+//    printf("ddA %.16e\n", res);
+    return res;
+}
+
+/**
  * Peak frequency predicted by fitting NR results (currently only 2,2 available).
  * Unpublished. Used in building SEOBNRv2 tables.
  */
-UNUSED static inline REAL8 GetNRSpinPeakOmegaV4( INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED eta, REAL8 a )
+UNUSED static inline REAL8 GetNRSpinPeakOmegaV2( INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED eta, REAL8 a )
 {
     REAL8 chi = a;
     REAL8 eta2 = eta*eta, eta3 = eta*eta2;
@@ -925,10 +996,28 @@ UNUSED static inline REAL8 GetNRSpinPeakOmegaV4( INT4 UNUSED l, INT4 UNUSED m, R
 }
 
 /**
+ * Peak frequency predicted by fitting NR results (currently only 2,2 available).
+ * Unpublished. Used in building SEOBNRv4.
+ */
+UNUSED static inline REAL8 GetNRSpinPeakOmegaV4( INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED eta, REAL8 a )
+{
+    REAL8 chi = a;
+    REAL8 res;
+    res = 0.5626787200433265 + (-0.08706198756945482 +
+                               0.0017434519312586804*chi)*
+    log(10.26207326082448 -
+        chi*(7.629921628648589 -
+             72.75949266353584*(-0.25 + eta)) -
+        62.353217004599784*(-0.25 + eta));
+//    printf("w %.16e\n", res);
+    return res;
+}
+
+/**
  * Peak frequency slope predicted by fitting NR results (currently only 2,2 available).
  * Unpublished. Used in building SEOBNRv2 tables.
  */
-UNUSED static inline REAL8 GetNRSpinPeakOmegaDotV4( INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED eta, REAL8 UNUSED a )
+UNUSED static inline REAL8 GetNRSpinPeakOmegaDotV2( INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED eta, REAL8 UNUSED a )
 {
     REAL8 chi = a;
     REAL8 res;
@@ -947,6 +1036,33 @@ UNUSED static inline REAL8 GetNRSpinPeakOmegaDotV4( INT4 UNUSED l, INT4 UNUSED m
                                                                       0.010134443015889307*eta*eta))*log(68.47466578101876 -
                                                                                                                  58.30148755701496*chi);
     }
+    return res;
+}
+
+/**
+ * Peak frequency slope predicted by fitting NR results (currently only 2,2 available).
+ * Unpublished. Used in building SEOBNRv4.
+ */
+UNUSED static inline REAL8 GetNRSpinPeakOmegaDotV4( INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED eta, REAL8 UNUSED a )
+{
+    REAL8 chi = a;
+    REAL8 res;
+    res = -0.000016000256004096065*(0.011281566669958594 +
+                                    0.0002869276768158971*chi) -
+    0.00099601593625498*(0.01574321112717377 +
+                         0.02244178140869133*chi) +
+    (0.01574321112717377 + 0.02244178140869133*chi)*eta +
+    1.0000160002560041*(-0.011209791668428353 +
+                        (0.0040867958978563915 + 0.0006333925136134493*chi)*
+                        log(68.47466578100956 - 58.301487557007206*chi)) +
+    eta*eta*(16.000256004096066*
+                  (0.011281566669958594 + 0.0002869276768158971*chi) -
+                  3.9840637450199665*(0.01574321112717377 +
+                                      0.02244178140869133*chi) -
+                  16.0002560041612*(-0.011209791668428353 +
+                                    (0.0040867958978563915 + 0.0006333925136134493*chi)*
+                                    log(68.47466578100956 - 58.301487557007206*chi)));
+//    printf("dw %.16e\n", res);
     return res;
 }
 
