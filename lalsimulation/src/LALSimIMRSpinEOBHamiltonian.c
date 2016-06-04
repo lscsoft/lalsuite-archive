@@ -630,7 +630,7 @@ static int XLALSimIMRCalculateSpinEOBHCoeffs(
       96.*k1*(k3 + 2.*k2*m1PlusEtaKK) - m1PlusEtaKK*(192.*k3 + m1PlusEtaKK*(-3008. + 123.*LAL_PI*LAL_PI)))/96.;
   coeffs->k5 = k5 = 0.0;
   coeffs->k5l= k5l= 0.0;
-  if ( SpinAlignedEOBversion == 2 ||  SpinAlignedEOBversion == 4 )
+  if ( SpinAlignedEOBversion == 2 || SpinAlignedEOBversion == 4 )
   {
     coeffs->k5 = k5 = m1PlusEtaKK*m1PlusEtaKK
 	       * (-4237./60.+128./5.*LAL_GAMMA+2275.*LAL_PI*LAL_PI/512.
@@ -639,7 +639,16 @@ static int XLALSimIMRCalculateSpinEOBHCoeffs(
 	       + (k1p2*k1p2-4.*k1p2*k2+2.*k2*k2+4.*k1*k3-4.*k4)/2./m1PlusEtaKK+256./5.*log(2.));
     coeffs->k5l = k5l = m1PlusEtaKK*m1PlusEtaKK * 64./5.;
   }
-
+    if ( SpinAlignedEOBversion == 0 )
+    {
+        /* Include eta^2 terms at 4PN from arXiv:1305.4884 */
+        coeffs->k5 = k5 = m1PlusEtaKK*m1PlusEtaKK
+	       * (-4237./60.+128./5.*LAL_GAMMA+2275.*LAL_PI*LAL_PI/512.
+              - 1./3.*a*a*(k1p3-3.*k1*k2+3.*k3)
+              - (k1p3*k1p2-5.*k1p3*k2+5.*k1*k2*k2+5.*k1p2*k3-5.*k2*k3-5.*k1*k4)/5./m1PlusEtaKK/m1PlusEtaKK
+              + (k1p2*k1p2-4.*k1p2*k2+2.*k2*k2+4.*k1*k3-4.*k4)/2./m1PlusEtaKK+256./5.*log(2.) + (41.*LAL_PI*LAL_PI/32. - 221./6.)*eta);
+        coeffs->k5l = k5l = m1PlusEtaKK*m1PlusEtaKK * 64./5.;
+    }
   /*printf( "a = %.16e, k0 = %.16e, k1 = %.16e, k2 = %.16e, k3 = %.16e, k4 = %.16e, b3 = %.16e, bb3 = %.16e, KK = %.16e\n",
             a, coeffs->k0, coeffs->k1, coeffs->k2, coeffs->k3, coeffs->k4, coeffs->b3, coeffs->bb3, coeffs->KK );
   */
