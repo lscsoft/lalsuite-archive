@@ -585,9 +585,36 @@ static int XLALSimIMRCalculateSpinEOBHCoeffs(
   {
      coeffs->KK = KK = c20 + c21*eta + c22*eta*eta + c23*eta*eta*eta;
   }
- if ( SpinAlignedEOBversion == 4)
- {
-      coeffs->KK = KK =0.800335693374571;
+
+    REAL8 chi = a/(1. - 2.*eta);
+    REAL8 eta2 = eta*eta, eta3 = eta2*eta;
+    REAL8 chi2 = chi*chi, chi3 = chi2*chi;
+    UNUSED REAL8 coeff00, coeff01, coeff02, coeff03;
+    UNUSED REAL8 coeff10, coeff11, coeff12, coeff13;
+    UNUSED REAL8 coeff20, coeff21, coeff22, coeff23;
+    UNUSED REAL8 coeff30, coeff31, coeff32, coeff33;
+    if ( SpinAlignedEOBversion == 4)
+    {
+      // Model:Calibrationv21_Jun2a_nbcycles_q8q10s075085095andq4s095newfitwithGaTechchio_noISCO
+      coeff00 = 1.7336;
+      coeff01 = -1.66631;
+       coeff02 = -0.459572;
+      coeff03 = 1.01496;
+      coeff10 = 10.2573;
+      coeff11 = 2.08766;
+      coeff12 = 0.00001;
+      coeff13 = 0.00001;
+      coeff20 = -126.687;
+      coeff21 = 18.2915;
+      coeff22 = 0.00001;
+      coeff23 = 0.00001;
+      coeff30 = 267.788;
+      coeff31 = -34.5472;
+      coeff32 = 0.00001;
+      coeff33 = -34.7164;
+
+     coeffs->KK = KK = coeff00  + coeff01*chi  + coeff02*chi2  + coeff03*chi3  + coeff10*eta  + coeff11*eta*chi  + coeff12*eta*chi2  + coeff13*eta*chi3  + coeff20*eta2  + coeff21*eta2*chi  + coeff22*eta2*chi2  + coeff23*eta2*chi3  + coeff30*eta3  + coeff31*eta3*chi  + coeff32*eta3*chi2  + coeff33*eta3*chi3;
+//      printf("KK %.16e\n", KK);
  }
 
   m1PlusEtaKK = -1. + eta*KK;
@@ -631,8 +658,45 @@ static int XLALSimIMRCalculateSpinEOBHCoeffs(
        coeffs->dheffSSv2 = 8.127 - 154.2*eta + 830.8*eta*eta;
        break;
       case 4:
-        coeffs->d1v2 = -91.174155251812138;
-        coeffs->dheffSSv2 = 4.0449642458637181;
+          // Model:Calibrationv21_Jun2a_nbcycles_q8q10s075085095andq4s095newfitwithGaTechchio_noISCO
+          // dSO
+          coeff00 = -62.2539;
+          coeff01 = 0.00001;
+          coeff02 = 0.00001;
+          coeff03 = 0.00001;
+          coeff10 = -0.000017;
+          coeff11 = -99.0943;
+          coeff12 = 8.11119;
+          coeff13 = -960.578;
+          coeff20 = -0.000018;
+          coeff21 = 0.015074;
+          coeff22 = 0.000322;
+          coeff23 = 2269.;
+          coeff30 = 1158.;
+          coeff31 = 9575.51;
+          coeff32 = 0.00001;
+          coeff33 = 0.00001;
+          coeffs->d1v2 = coeff00  + coeff01*chi  + coeff02*chi2  + coeff03*chi3  + coeff10*eta  + coeff11*eta*chi  + coeff12*eta*chi2  + coeff13*eta*chi3  + coeff20*eta2  + coeff21*eta2*chi  + coeff22*eta2*chi2  + coeff23*eta2*chi3  + coeff30*eta3  + coeff31*eta3*chi  + coeff32*eta3*chi2  + coeff33*eta3*chi3;
+
+          // dSS
+          coeff00 = -4.03659;
+          coeff01 = 2.86893;
+          coeff02 = 20.6697;
+          coeff03 = 0.00001;
+          coeff10 = 2.64305;
+          coeff11 = 0.00001;
+          coeff12 = 108.084;
+          coeff13 = -189.577;
+          coeff20 = 0.00001;
+          coeff21 = -0.00007;
+          coeff22 = 0.00001;
+          coeff23 = 438.749;
+          coeff30 = 0.00001;
+          coeff31 = -0.000494;
+          coeff32 = 0.00001;
+          coeff33 = 0.000356;
+          coeffs->dheffSSv2 = coeff00  + coeff01*chi  + coeff02*chi2  + coeff03*chi3  + coeff10*eta  + coeff11*eta*chi  + coeff12*eta*chi2  + coeff13*eta*chi3  + coeff20*eta2  + coeff21*eta2*chi  + coeff22*eta2*chi2  + coeff23*eta2*chi3  + coeff30*eta3  + coeff31*eta3*chi  + coeff32*eta3*chi2  + coeff33*eta3*chi3;
+//          printf("dSO %.16e, dSS %.16e\n", coeffs->d1v2,coeffs->dheffSSv2);
         break;
      default:
        XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2!\n", __func__ );

@@ -849,6 +849,7 @@ UNUSED static inline REAL8 GetNRSpinPeakAmplitudeV4( INT4 UNUSED l, INT4 UNUSED 
     return res;
 }
 
+
 /**
  * Peak amplitude curvature predicted by fitting NR results (currently only 2,2 available).
  * Unpublished. Used in building SEOBNRv2 tables.
@@ -1030,17 +1031,42 @@ UNUSED static inline REAL8 XLALSimIMREOBGetNRSpinPeakDeltaTv2(
 /**
  * The time difference between the orbital peak and the peak amplitude
  * of the mode in question (currently only 2,2 implemented ).
+ * Model:Calibrationv21_Jun2a_nbcycles_q8q10s075085095andq4s095newfitwithGaTechchio_noISCO
  */
 UNUSED static inline REAL8 XLALSimIMREOBGetNRSpinPeakDeltaTv4(
                                                               INT4 UNUSED l,    /**<< Mode l */
                                                               INT4 UNUSED m,    /**<< Mode m */
                                                               REAL8 UNUSED m1,  /**<< mass 1 */
-                                                              REAL8 UNUSED m2,  /**<< mass 22 */
+                                                              REAL8 UNUSED m2,  /**<< mass 2 */
                                                               REAL8 UNUSED chi1,       /**<< Dimensionless spin1 */
                                                               REAL8 UNUSED chi2        /**<< Dimensionless spin2 */
 )
 {
-    return 7.487042419941794;
+    REAL8 eta = m1*m2 / (m1 + m2) / (m1 + m2);
+    REAL8 chi = 0.5*(chi1 + chi2) + 0.5*(chi1 - chi2)*(m1 - m2)/(m1 + m2)/(1. - 2.*eta);
+    REAL8 eta2 = eta*eta, eta3 = eta2*eta;
+    REAL8 chiTo2 = chi*chi, chiTo3 = chiTo2*chi;
+    REAL8 coeff00, coeff01, coeff02, coeff03;
+    REAL8 coeff10, coeff11, coeff12, coeff13;
+    REAL8 coeff20, coeff21, coeff22, coeff23;
+    REAL8 coeff30, coeff31, coeff32, coeff33;
+    coeff00 = 2.50499;
+    coeff01 = 7.68567;
+    coeff02 = 9.76792;
+    coeff03 = 4.42568;
+    coeff10 = 45.8838;
+    coeff11 = -14.69;
+    coeff12 = 0.00001;
+    coeff13 = -112.03;
+    coeff20 = 13.0879;
+    coeff21 = -0.223135;
+    coeff22 = -0.000026;
+    coeff23 = 0.000404;
+    coeff30 = -716.044;
+    coeff31 = 128.449;
+    coeff32 = 182.929;
+    coeff33 = 1080.65;
+    return  coeff00  + coeff01*chi  + coeff02*chiTo2  + coeff03*chiTo3  + coeff10*eta  + coeff11*eta*chi  + coeff12*eta*chiTo2  + coeff13*eta*chiTo3  + coeff20*eta2  + coeff21*eta2*chi  + coeff22*eta2*chiTo2  + coeff23*eta2*chiTo3  + coeff30*eta3  + coeff31*eta3*chi  + coeff32*eta3*chiTo2  + coeff33*eta3*chiTo3;
 }
 
 /**
