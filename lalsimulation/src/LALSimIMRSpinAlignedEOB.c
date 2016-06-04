@@ -296,11 +296,11 @@ int XLALSimIMRSpinAlignedEOBWaveform(
     REAL8 omega02Tidal2 = 0*0.1349/2.*(1. + q);
     REAL8 k3Tidal2 = 0*0.0221;
     REAL8 omega03Tidal2 = 0*0.152236*(1.+q)/2.;
- 
-    comp1 = 0.967985; /*K*/
-    comp2 =-47.786545;/*dSO*/
-    k3Tidal1 = 20.561134;/*dSS*/
-    k3Tidal2 = 19.274657;/*deltaNQC*/
+   
+    comp1 =  8.3286748815599498e-01; /*K*/
+    comp2 =-7.7978672088252125e1;/*dSO*/
+    k3Tidal1 = 1.0383707662053331e+01;/*dSS*/
+    k3Tidal2 = 6.93978722508;/*deltaNQC*/
     ret = XLALSimIMRSpinAlignedEOBWaveformAll(hplus, hcross, phiC, deltaT, m1SI, m2SI, fMin, r, inc, spin1z, spin2z, comp1, comp2, k2Tidal1, k2Tidal2, omega02Tidal1, omega02Tidal2, k3Tidal1, k3Tidal2, omega03Tidal1, omega03Tidal2, SpinAlignedEOBversion);
     return ret;
 }
@@ -398,7 +398,7 @@ int XLALSimIMRSpinAlignedEOBWaveformAll(
     XLAL_ERROR( XLAL_EINVAL );
   }
  /* For v2 the upper bound is 0.99 */
-  if ( (SpinAlignedEOBversion == 2 || SpinAlignedEOBversion == 4) && ( spin1z > 0.99 || spin2z > 0.99 ))
+  if ( (SpinAlignedEOBversion == 2 ) && ( spin1z > 0.99 || spin2z > 0.99 ))
   {
     XLALPrintError( "XLAL Error - %s: Component spin larger than 0.99!\nSEOBNRv2, SEOBNRv4 and SEOBNRv2_opt are only available for spins in the range -1 < a/M < 0.99.\n", __func__);
     XLAL_ERROR( XLAL_EINVAL );
