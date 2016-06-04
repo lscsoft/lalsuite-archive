@@ -285,17 +285,17 @@ int XLALSimIMRSpinAlignedEOBWaveform(
 )
 {
     int ret;
-    REAL8 q = m1SI/m2SI;
     REAL8 comp1 = 0.;
     REAL8 k2Tidal1 = 0.;
     REAL8 omega02Tidal1 = 0.;
     REAL8 k3Tidal1 = 0.;
     REAL8 omega03Tidal1 = 0.;
-    REAL8 comp2 = 0*0.1444;
-    REAL8 k2Tidal2 = 0*0.07524;
-    REAL8 omega02Tidal2 = 0*0.1349/2.*(1. + q);
-    REAL8 k3Tidal2 = 0*0.0221;
-    REAL8 omega03Tidal2 = 0*0.152236*(1.+q)/2.;
+    REAL8 comp2 = 0.;
+    REAL8 k2Tidal2 = 0.;
+    REAL8 omega02Tidal2 = 0.;
+    REAL8 k3Tidal2 = 0.;
+    REAL8 omega03Tidal2 = 0.;
+
 
     ret = XLALSimIMRSpinAlignedEOBWaveformAll(hplus, hcross, phiC, deltaT, m1SI, m2SI, fMin, r, inc, spin1z, spin2z, comp1, comp2, k2Tidal1, k2Tidal2, omega02Tidal1, omega02Tidal2, k3Tidal1, k3Tidal2, omega03Tidal1, omega03Tidal2, SpinAlignedEOBversion);
     return ret;
