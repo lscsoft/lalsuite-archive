@@ -20,7 +20,7 @@ foreach {var value} $argv {
 	}
 
 
-set HEADER {kind label index set pi pps_count template_count first_bin min_gps max_gps skyband frequency spindown ra dec iota psi snr ul ll M S ks_value ks_count m1_neg m3_neg m4 frequency_bin max_weight weight_loss_fraction max_ks_value max_m1_neg min_m1_neg max_m3_neg min_m3_neg max_m4 min_m4 max_weight_loss_fraction}
+set HEADER {kind label index set pi pps_count template_count first_bin min_gps max_gps skyband frequency spindown fdotdot freq_modulation_freq freq_modulation_depth freq_modulation_phase ra dec iota psi snr ul ll M S ks_value ks_count m1_neg m3_neg m4 frequency_bin max_weight weight_loss_fraction max_ks_value max_m1_neg min_m1_neg max_m3_neg min_m3_neg max_m4 min_m4 max_weight_loss_fraction}
 
 set KIND_INDEX [lsearch -exact $HEADER "kind"]
 set SET_INDEX  [lsearch -exact $HEADER "set"]

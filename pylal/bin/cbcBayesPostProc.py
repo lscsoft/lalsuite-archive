@@ -420,6 +420,10 @@ def cbcBayesPostProc(
     max_pos,max_pos_co=pos.maxL
     print max_pos_co
 
+    # Save posterior samples
+    posfilename=os.path.join(outdir,'posterior_samples.dat')
+    pos.write_to_file(posfilename)
+    
     #==================================================================#
     #Create web page
     #==================================================================#
@@ -1082,9 +1086,6 @@ def cbcBayesPostProc(
     resultspage=open(os.path.join(outdir,'posplots.html'),'w')
     resultspage.write(str(html))
 
-    # Save posterior samples too...
-    posfilename=os.path.join(outdir,'posterior_samples.dat')
-    pos.write_to_file(posfilename)
 
     #Close files
     resultspage.close()
@@ -1162,7 +1163,7 @@ if __name__=='__main__':
       fixedBurnins = None
 
     import pylal 
-    from pylal.bayespputils import massParams,spinParams,cosmoParam,strongFieldParams,distParams,incParams,polParams,skyParams,phaseParams,timeParams,endTimeParams,statsParams,calibParams,snrParams
+    from pylal.bayespputils import massParams,spinParams,cosmoParam,strongFieldParams,distParams,incParams,polParams,skyParams,phaseParams,timeParams,endTimeParams,statsParams,calibParams,snrParams,tidalParams
 
     oneDMenus={'Masses':None,'SourceFrame':None,'Timing':None,'Extrinsic':None,'Spins':None,'StrongField':None,'Others':None}
 

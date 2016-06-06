@@ -87,7 +87,7 @@ class diskcacheEntry(object):
         """
 
         if len(args) != 1:
-            raise TypeError, "invalid arguments: %s" % args
+            raise TypeError("invalid arguments: %s" % args)
 
         line = args[0]
         self.__frame_segments__ = None
@@ -112,9 +112,9 @@ class diskcacheEntry(object):
             assert len(times) % 2 is 0
             self.segments = glue.segments.segmentlist([ glue.segments.segment(t) for t in zip(times[::2],times[1::2]) ])
 
-        except Exception, e:
+        except Exception as e:
             msg = "Error parsing frame cache file with line %s: %s" % (line, e)
-            raise ValueError, msg
+            raise ValueError(msg)
             return
 
 
@@ -353,17 +353,17 @@ options, argv_frame_files = parser.parse_args()
 
 if options.cache_file:
     if len(argv_frame_files) > 0:
-        raise ValueError, "individual frame files cannot be specified along with a diskCache"
+        raise ValueError("individual frame files cannot be specified along with a diskCache")
     if not os.path.isfile(options.cache_file):
-        raise ValueError, "diskCache file not found (%s)" % options.cache_file
+        raise ValueError("diskCache file not found (%s)" % options.cache_file)
 else:
     if len(argv_frame_files) == 0:
-        raise ValueError, "no diskCache or frame files specified"
+        raise ValueError("no diskCache or frame files specified")
 
 if options.state_file and not os.path.isfile(options.state_file):
-    raise ValueError, "state file not found (%s)" % options.state_file
+    raise ValueError("state file not found (%s)" % options.state_file)
 if not os.path.isdir(options.xml_root):
-    raise ValueError, "XML root directory not found (%s)" % options.xml_root
+    raise ValueError("XML root directory not found (%s)" % options.xml_root)
 
 xml_root = options.xml_root.rstrip(os.sep) + os.sep + options.ifo
 if not os.path.isdir(xml_root):
@@ -371,7 +371,7 @@ if not os.path.isdir(xml_root):
     if options.xml_root.rstrip(os.sep).endswith(os.sep + options.ifo) and os.path.isdir(options.xml_root):
         xml_root = options.xml_root
     else:
-        raise ValueError, "XML root dir '%s' does not contain necessary IFO subdir '%s'" % (options.xml_root, options.ifo)
+        raise ValueError("XML root dir '%s' does not contain necessary IFO subdir '%s'" % (options.xml_root, options.ifo))
 
 ### main ###
 
@@ -436,7 +436,7 @@ for file in pending_files:
                                   options.comment, verbose=options.verbose)
         newly_processed_segments += [segment]
 #        assert [segment] == segmentsUtils.fromfilenames([file])
-    except Exception, e:
+    except Exception as e:
         if (str(e).startswith(" *** FrError: in FrFileIOpen unknown format") or
             "vector not found" in str(e)):
             # add the current corrupt frame's segment to the exclude list
@@ -448,7 +448,7 @@ for file in pending_files:
             # update the state file in case we're about to die
             if options.state_file:
                 append_processed_segments(options.state_file, newly_processed_segments, corrupt_frame_segments, verbose=options.verbose)
-            raise Exception, e
+            raise Exception(e)
 
 
 if options.state_file:

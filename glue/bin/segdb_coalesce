@@ -73,17 +73,17 @@ parser.add_option("-L", "--log-level", metavar = "LEVEL", default = "INFO", help
 options, filenames = parser.parse_args()
 
 if not options.database_name:
-  raise ValueError, "missing argument --database-name"
+  raise ValueError("missing argument --database-name")
 if not options.state_file:
-  raise ValueError, "missing argument --state-file"
+  raise ValueError("missing argument --state-file")
 if not options.pid_file:
-  raise ValueError, "missing argument --pid-file"
+  raise ValueError("missing argument --pid-file")
 if not options.log_file:
-  raise ValueError, "missing argument --log-file"
+  raise ValueError("missing argument --log-file")
 
 # check for an existing lock file
 if os.access(options.pid_file,os.F_OK):
-  raise RuntimeError, "lock file exists: %s" % options.pid_file
+  raise RuntimeError("lock file exists: %s" % options.pid_file)
 
 # create lock file
 fp = open(options.pid_file, "w")
@@ -150,7 +150,7 @@ try:
         logger.error(result)
         sys.exit(1)
 
-except Exception, e:
+except Exception as e:
   try:
     logger.error(str(e))
   except:
