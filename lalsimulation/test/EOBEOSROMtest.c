@@ -10,56 +10,144 @@
 #include <lal/Date.h>
 #include <lal/TimeSeries.h>
 #include <gsl/gsl_sf_gamma.h>
+#include <lal/LALgetopt.h>
 
-//#include <lal/LALSimulation.h>
-//#include <lal/LALSimIMREOBNRv2.h>
+static void print_usage(char *program)
+{
+  fprintf(stderr,
+          "%s [options]\n"\
+          "The following options are recognized.  Options not surrounded in []\n"\
+          "are required. Defaults are shown in brackets\n", program );
+  fprintf(stderr,
+          " [--help ]                 display this message\n"\
+          " [--mass1 ] mass1          mass1 (1.4)\n"\
+          " [--mass2 ] mass2          mass2 (1.4)\n"\
+          " [--lambda1 ] lambda1      lambda1 (5000)\n"\
+          " [--lambda2 ] lambda2      lambda2 (5000)\n"\
+          " [--f-lower ] fmin         start frequency (30)\n"\
+          " [--sample-rate ] srate    deltaT = 1/srate (4096)\n"\
+          " [--distance] dist         distance in Mpc (100)\n\n");
+}
 
 #define UNUSED(expr) do { (void)(expr); } while (0)
 
 int main (int argc, char *argv[])
 {
+  
+  REAL8 mass1 = 1.4 ;
+  REAL8 mass2 = 1.4 ;
+  REAL8 lambda1 = 5000.0 ;     
+  REAL8 lambda2 = 5000.0 ;
+  REAL8 fMin = 30.0 ;
+  REAL8 srate = 4096.0 ;
+  REAL8 distance = 100.0 ;
+
+  /* LALgetopt arguments */
+  struct LALoption long_options[] =
+  {
+    {"help",                    no_argument,       0,                'h'},
+    {"mass1",                   required_argument, 0,                'm'},
+    {"mass2",                   required_argument, 0,                'M'},
+    {"lambda1",                 required_argument, 0,                'l'},
+    {"lambda2",                 required_argument, 0,                'L'},
+    {"f-lower",                 required_argument, 0,                'f'},
+    {"sample-rate",             required_argument, 0,                's'},
+    {"distance",                required_argument, 0,                'd'},
+    {0, 0, 0, 0}
+  };
+  int c;
+  
+  while ( 1 )
+  {
+    /* LALgetopt_long stores long option here */
+    int option_index = 0;
+    
+    c = LALgetopt_long_only( argc, argv,"h:m:M:l:L:f:s:d:*", long_options, &option_index );
+    
+    /* detect the end of the options */
+    if ( c == - 1 )
+    {
+      break;
+    }
+    
+    switch ( c )
+    {
+      case 0:
+        /* if this option set a flag, do nothing else now */
+        if ( long_options[option_index].flag != 0 )
+        {
+          break;
+        }
+        else
+        {
+          fprintf( stderr, "error parsing option %s with argument %s\n",
+                   long_options[option_index].name, LALoptarg );
+          exit( 1 );
+        }
+        break;
+      case 'm':
+        mass1 = atof( LALoptarg );
+        break;
+      case 'M':
+        mass2 = atof( LALoptarg );
+        break;
+      case 'l':
+        lambda1 = atof( LALoptarg );
+        break;
+      case 'L':
+        lambda2 = atof( LALoptarg );
+        break;
+      case 'f':
+        fMin = atof( LALoptarg );
+        break;
+      case 'd':
+        distance = atof( LALoptarg );
+        break;
+      case 's':
+        srate = atof( LALoptarg );
+        break;
+      case 'h':
+        print_usage(argv[0]);
+        exit( 0 );
+        break;
+      case '?':
+        print_usage(argv[0]);
+        exit( 1 );
+        break;        
+      default:
+        fprintf( stderr, "unknown error while parsing options\n" );
+        print_usage(argv[0]);
+        exit( 1 );
+    }
+  }  
+  
 
   REAL8TimeSeries *hplus  = NULL;
   REAL8TimeSeries *hcross = NULL;
 
   REAL8 phiC = 0.;
-  REAL8 deltaT = 1./16384.;
-  REAL8 m1     = 1.;
-  REAL8 m2     = 1.;
-  REAL8 fMin   = 50;
-  REAL8 r      = 1.0e6 * LAL_PC_SI;
-  REAL8 i      = 0./*LAL_PI / 6.*/;
-  //REAL8 spin1[3], spin2[3];
+  REAL8 deltaT = 1./srate;
+  REAL8 r      = distance*1.0e6 * LAL_PC_SI;
+  REAL8 i      = 0.;
 
-  /*memset( spin1, 0, sizeof(spin1) );
-  memset( spin2, 0, sizeof(spin2) );
-  spin1[2] = 0.;
-  spin2[2] = 0.;
-  */
-  REAL8 m1sec = m1*LAL_MTSUN_SI ;
-  REAL8 m2sec = m2*LAL_MTSUN_SI ;
+  REAL8 m1sec = mass1*LAL_MTSUN_SI ;
+  REAL8 m2sec = mass2*LAL_MTSUN_SI ;
   REAL8 m1sec5=m1sec*m1sec*m1sec*m1sec*m1sec ;
   REAL8 m2sec5=m2sec*m2sec*m2sec*m2sec*m2sec ;
-  REAL8 lambda1=5000./m1sec5 ;
-  REAL8 lambda2=5000./m2sec5 ;
+  lambda1=lambda1/m1sec5 ;
+  lambda2=lambda2/m2sec5 ;
 
 
   UNUSED(argc);
   UNUSED(argv);
 
-  if ( XLALSimIMREOBROMEOS_datatest(&hplus,&hcross,phiC,deltaT,fMin,20.0,r,i,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI,lambda1,lambda2) == XLAL_FAILURE )
+  if ( XLALSimIMREOBROMEOS_datatest(&hplus,&hcross,phiC,deltaT,fMin,0.0,r,i,mass1*LAL_MSUN_SI,mass2*LAL_MSUN_SI,lambda1,lambda2) == XLAL_FAILURE )
   {
     fprintf( stderr, "The waveform generation function has failed!!\n" );
     exit(1);
   }
 
-//   FILE *out = fopen( "eobHPlusCross.dat", "w" );
-//
-//   for (unsigned int j = 0; j < hplus->data->length; j++ )
-//   {
-//     fprintf( out, "%e %e %e\n", j * deltaT / ((m1+m2)/LAL_MSUN_SI*LAL_MTSUN_SI ), hplus->data->data[j], hcross->data->data[j] );
-//   }
-//   fclose( out );
+
 
   return 0;
 }

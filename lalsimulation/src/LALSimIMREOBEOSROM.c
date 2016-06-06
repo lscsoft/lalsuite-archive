@@ -568,6 +568,9 @@ static int EOBROMEOSCore_datatest(
   }
   int retcode=0;
 
+  REAL8TimeSeries *hp;
+  REAL8TimeSeries *hc;  
+  
   /* Select ROM submodel */
   EOB_ROM_EOSdataDS_submodel *submodel;
   submodel = romdata->sub1;
@@ -575,7 +578,7 @@ static int EOBROMEOSCore_datatest(
   fprintf(stdout,"--- EOSROMEOSCore input parameters ---\n");
   fprintf(stdout,"  phiRef       = %.2f\n",phiRef);
   fprintf(stdout,"  fRef         = %.2f\n",fRef);
-  fprintf(stdout,"  distance     = %.2f\n",distance);
+  fprintf(stdout,"  distance     = %.2f Mpc\n",distance/(LAL_PC_SI*1000000.));
   fprintf(stdout,"  inclination  = %.2f\n",inclination);
   fprintf(stdout,"  Mtot         = %.2f\n",Mtot);
   fprintf(stdout,"  eta          = %.2f\n",eta);
@@ -624,6 +627,7 @@ static int EOBROMEOSCore_datatest(
   int n,j;
   double c3 = LAL_C_SI*LAL_C_SI*LAL_C_SI ;
   double time_to_phys = LAL_G_SI*Mtot*LAL_MSUN_SI/c3 ;
+  FILE *out1 = fopen("./ampinterp_phiinterp_times.txt","w");
   for (n=0;n<Gntimes;n++){
     BjAmp_tn=0.0 ;
     BjPhi_tn=0.0 ;
@@ -637,8 +641,9 @@ static int EOBROMEOSCore_datatest(
     physical_times[n]=gsl_vector_get(submodel->times,n)*time_to_phys;
     amp_interp[n]=BjAmp_tn;
     phi_interp[n]=BjPhi_tn;
-    fprintf(stdout,"%.9e %.9e %.9e\n",amp_interp[n],phi_interp[n],physical_times[n]);
+    fprintf(out1,"%.9e %.9e %.9e\n",amp_interp[n],phi_interp[n],physical_times[n]);
   }
+  fclose(out1);
 
   //Build the waveform in physical units from A and Phi
   //starts at timedomainrom.py line 233
@@ -663,54 +668,89 @@ static int EOBROMEOSCore_datatest(
   double der ;
   //int i_end_mono ;
   fprintf(stdout,"    -.- calculating frequencies (derivative of phi(t)/2pi)\n");
+  int i_end_mono = Gntimes;
+  FILE *out2 = fopen("./times_freqs.txt","w");
   for (n=0;n<Gntimes;n++) {
     der = gsl_spline_eval_deriv (phioft_spline, physical_times[n], acc);
     freqs[n] = 0.5*der/LAL_PI;//omegaoft(time_phys)/(2*np.pi)
-    fprintf(stdout,"%.9e %.9e\n",physical_times[n],freqs[n]);
-    //determine from where f is monotonically increasing
+    fprintf(out2,"%.9e %.9e\n",physical_times[n],freqs[n]);
+    //determine up to where f is monotonically increasing
+    if (n > 0) {
+      if (freqs[n] < freqs[n-1]) i_end_mono = n ;
+    }
   }
+  fclose(out2);
+  fprintf(stdout,"i_end_mono %d\n",i_end_mono);
 
-  //fprintf(stdout,"    -.- calculating t(f)\n");
-  //# Find region where frequency is monotonically increasing, then construct t(f)
+  fprintf(stdout,"    -.- calculating t(f)\n");
+  gsl_spline *toffreq_spline = gsl_spline_alloc (gsl_interp_cspline, i_end_mono);
+  //construct t(f)
+  gsl_spline_init(toffreq_spline, freqs, physical_times, i_end_mono);
+  
+  fprintf(stdout,"\n    -.- resample with even spacing\n");
+  double tstart = gsl_spline_eval(toffreq_spline, fRef, acc);
+  fprintf(stdout,"  tstart     = %.2f\n",tstart);
+  int Ntimes_res = (int) ceil((physical_times[Gntimes-1]-tstart)/deltaT);
+  fprintf(stdout,"  Ntimes_res = %d\n",Ntimes_res);
+  double *times_res = calloc(Ntimes_res,sizeof(double));
+  double *amp_res = calloc(Ntimes_res,sizeof(double));
+  double *phi_res = calloc(Ntimes_res,sizeof(double));  
+  double t=tstart;
 
-  //i_end_mono = next( (i for i in range(len(freq)-1) if freq[i]>=freq[i+1]), (len(freq)-1) )
-  //toffreq = scipy.interpolate.UnivariateSpline(freq[:i_end_mono], time_phys[:i_end_mono], k=order, s=0)
+  //for scaling the amplitude
+  double h22_to_h = 4.0*eta*sqrt(5.0/LAL_PI)/8.0;
+  double amp_units = LAL_G_SI*Mtot*LAL_MSUN_SI/(LAL_C_SI*LAL_C_SI*distance) ;
+ 
+  //Adjust for inclination angle [0,pi]
+  double cosi = cos(inclination);
+  double inc_plus = (1.0+cosi*cosi)/2.0;
+  double inc_cross = cosi;
 
-  //EVALUATE the spline at any time
-/*  double yi = 0.0 ;
-  for (n=0;n<Gntimes;n++)
-  {
-    yi = gsl_spline_eval(spline, xi, acc);
-    printf ("%g %g\n", xi, yi);
+
+
+  //XLALGPSAdd(&tC, -1 / deltaF);  /* coalesce at t=0 */
+  LIGOTimeGPS tC = LIGOTIMEGPSZERO;
+  //XLALGPSAdd(&tC, -1.0*j*deltaT);
+  /* Allocate hplus and hcross */
+  hp = XLALCreateREAL8TimeSeries("hplus: TD waveform", &tC, 0.0, deltaT, &lalStrainUnit, Ntimes_res);
+  if (!hp) XLAL_ERROR(XLAL_EFUNC);
+  memset(hp->data->data, 0, Ntimes_res * sizeof(REAL8));
+  //XLALUnitMultiply(&hplus->sampleUnits, &hplus->sampleUnits, &lalSecondUnit);
+  
+  hc = XLALCreateREAL8TimeSeries("hcross: TD waveform", &tC, 0.0, deltaT, &lalStrainUnit, Ntimes_res);
+  if (!hc) XLAL_ERROR(XLAL_EFUNC);
+  memset(hc->data->data, 0, Ntimes_res * sizeof(REAL8));
+  //XLALUnitMultiply(&hplus->sampleUnits, &hplus->sampleUnits, &lalSecondUnit);
+  
+  FILE *out3 = fopen("./test_out.txt","w");
+  times_res[0] = t ;
+  amp_res[0] = gsl_spline_eval(ampoft_spline, t, acc)*amp_units*h22_to_h;
+  phi_res[0] = gsl_spline_eval(phioft_spline, t, acc);
+  hp->data->data[0] = inc_plus*amp_res[0]*cos(phi_res[0]);
+  hc->data->data[0] = inc_cross*amp_res[0]*sin(phi_res[0]);  
+  fprintf(out3,"%.9e %.9e %.9e %.9e %.9e\n",t,amp_res[0],phi_res[0],hp->data->data[0],hc->data->data[0]);
+  t+=deltaT;
+  for (n=1;n<Ntimes_res;n++) {
+    times_res[n] = t;
+    amp_res[n] = gsl_spline_eval(ampoft_spline, t, acc)*amp_units*h22_to_h;
+    //Zero the phase at the beginning (-phi0)
+    phi_res[n] = gsl_spline_eval(phioft_spline, t, acc)-phi_res[0];
+    
+    hp->data->data[n] = inc_plus*amp_res[n]*cos(phi_res[n]);
+    hc->data->data[n] = inc_cross*amp_res[n]*sin(phi_res[n]);
+    
+    fprintf(out3,"%.9e %.9e %.9e %.9e %.9e\n",t,amp_res[n],phi_res[n],hp->data->data[n],hc->data->data[n]);
+    
+    t+=deltaT;
   }
-*/
+  fclose(out3);
 
-
-//   # Resample with even spacing
-//   tstart = toffreq([f_lower])[0]
-//   time_phys_res = np.arange(tstart, time_phys[-1], delta_t)
-//   amp_res = ampoft(time_phys_res)
-//   phase_res = phaseoft(time_phys_res)
-//   # Zero the phase at the beginning
-//   phase_res -= phase_res[0]
-//
-//   # Rescale amplitude
-//   #h22_to_h = np.sqrt(5.0/np.pi)/8.0
-//   #amp_units = G_SI*mtot/(C_SI**2*distance*MPC_SI)
-//   #amp_rescale = amp_units*h22_to_h*amp_res
-//   h22_to_h = 4.0*eta*np.sqrt(5.0/np.pi)/8.0
-//   amp_units = G_SI*mtot/(C_SI**2*distance*MPC_SI)
-//   amp_rescale = amp_units*h22_to_h*amp_res
-//
-//   # Adjust for inclination angle [0, pi]
-//   inc_plus = (1.0+np.cos(inclination)**2)/2.0
-//   inc_cross = np.cos(inclination)
-//
-//   hplus = inc_plus*amp_rescale*np.cos(phase_res)
-//   hcross = inc_cross*amp_rescale*np.sin(phase_res)
+  *hPlus = hp;
+  *hCross = hc;
 
   gsl_spline_free (ampoft_spline);
   gsl_spline_free (phioft_spline);
+  gsl_spline_free (toffreq_spline);
   gsl_interp_accel_free (acc);
 
   gsl_vector_free(amp_at_nodes);
@@ -720,6 +760,9 @@ static int EOBROMEOSCore_datatest(
   free(phi_interp);
   free(freqs);
   free(physical_times);
+  free(times_res);
+  free(amp_res);
+  free(phi_res);
 
   if (retcode==0){
     return(XLAL_SUCCESS);
