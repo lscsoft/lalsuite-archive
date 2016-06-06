@@ -1170,7 +1170,7 @@ UNUSED static inline REAL8 XLALSimIMREOBGetNRSpinPeakDeltaTv4(
     coeff03 = 4.42568;
     coeff10 = 45.8838;
     coeff11 = -14.69;
-    coeff12 = 0.00001;
+    coeff12 = 0.;
     coeff13 = -112.03;
     coeff20 = 13.0879;
     coeff21 = -0.223135;
