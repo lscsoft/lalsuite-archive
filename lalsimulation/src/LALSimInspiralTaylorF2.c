@@ -685,7 +685,8 @@ int sf2_psi_SPA_coeffs_PN_order(
         chi1dotchi2, /**< Dot product of dimensionles spin 1 and spin 2 */
         qm_def1, /**< Quadrupole deformation parameter of body 1 (dimensionless) */
         qm_def2, /**< Quadrupole deformation parameter of body 2 (dimensionless) */
-        spinO /**< Enums specifying spin order are in LALSimInspiralWaveformFlags.h */
+        spinO, /**< Enums specifying spin order are in LALSimInspiralWaveformFlags.h */
+        NULL /**< nonGRParams pointer */
         );
     REAL8 eta = m1*m2/(m1+m2)/(m1+m2);
     REAL8 m1OverM = m1/(m1+m2);
