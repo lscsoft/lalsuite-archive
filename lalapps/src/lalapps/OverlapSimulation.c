@@ -184,7 +184,7 @@ int main(int argc, char *argv[])
   {
     ret = XLALSimInspiralTaylorF2(&hptilde1, phiRef, deltaF, 
                     m1, m2, S1z, S2z,
-                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO); // qm1=1, qm2=1 hard fixed
+                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=1, qm2=1 hard fixed
     //ret = XLALSimInspiralTaylorF2AmpPlus(&hptilde1, phiRef, deltaF, inclination,
     //                m1, m2, S1x, S1y, S1z, S2x, S2y, S2z,
     //                LNhatx, LNhaty, LNhatz, f_min, f_max, r, phaseO, amplitudeO);
@@ -193,13 +193,13 @@ int main(int argc, char *argv[])
   {
     ret = XLALSimInspiralTaylorF2(&hptilde1, phiRef, deltaF, 
                     m1, m2, S1z, S2z,
-                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO); // qm1=1, qm2=1 hard fixed
+                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=1, qm2=1 hard fixed
   }
   else 
   {
     ret = XLALSimInspiralTaylorF2(&hptilde1, phiRef, deltaF, 
                     m1, m2, S1z, S2z,
-                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO); // qm1=1, qm2=1 hard fixed
+                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=1, qm2=1 hard fixed
     //ret = XLALSimInspiralTaylorF2AmpPlus(&hptilde1, phiRef, deltaF, inclination,
     //                m1, m2, S1x, S1y, S1z, S2x, S2y, S2z,
     //                LNhatx, LNhaty, LNhatz, f_min, f_max, r, phaseO, amplitudeO);
@@ -225,7 +225,7 @@ int main(int argc, char *argv[])
       {
         ret = XLALSimInspiralTaylorF2(&hptilde2, phiRef, deltaF, 
                     p1v, m2, S1z, S2z,
-                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO); // qm1=qm2=1 hard code
+                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=qm2=1 hard code
         //ret = XLALSimInspiralTaylorF2AmpPlus(&hptilde2, phiRef, deltaF, inclination,
         //            p1v, m2,S1x, S1y, S1z, S2x, S2y, S2z,
         //            LNhatx, LNhaty, LNhatz, f_min, f_max, r, phaseO, amplitudeO);
@@ -234,13 +234,13 @@ int main(int argc, char *argv[])
       {
         ret = XLALSimInspiralTaylorF2(&hptilde2, phiRef, deltaF, 
                     p1v, m2, S1z, S2z,
-                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO); // qm1=qm2=1 hard code
+                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=qm2=1 hard code
       }
       else
       {
         ret = XLALSimInspiralTaylorF2(&hptilde2, phiRef, deltaF, 
                     p1v, m2, S1z, S2z,
-                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO); // qm1=qm2=1 hard code
+                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=qm2=1 hard code
         //ret = XLALSimInspiralTaylorF2AmpPlus(&hptilde2, phiRef, deltaF, inclination,
         //            p1v, m2,S1x, S1y, S1z, S2x, S2y, S2z,
         //            LNhatx, LNhaty, LNhatz, f_min, f_max, r, phaseO, amplitudeO);
@@ -262,7 +262,7 @@ int main(int argc, char *argv[])
       {
         ret = XLALSimInspiralTaylorF2(&hptilde2, phiRef, deltaF, 
                     m1, m2, p1v, S2z,
-                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO); // qm1=qm2 = 1 hard code
+                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=qm2 = 1 hard code
         //ret = XLALSimInspiralTaylorF2AmpPlus(&hptilde2, phiRef, deltaF, inclination,
         //            m1, m2,S1x, S1y, p1v, S2x, S2y, S2z,
         //            LNhatx, LNhaty, LNhatz, f_min, f_max, r, phaseO, amplitudeO);
@@ -271,13 +271,13 @@ int main(int argc, char *argv[])
       {
         ret = XLALSimInspiralTaylorF2(&hptilde2, phiRef, deltaF, 
                     m1, m2, p1v, S2z,
-                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO); // qm1=qm2 = 1 hard code
+                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=qm2 = 1 hard code
       }
       else
       {
         ret = XLALSimInspiralTaylorF2(&hptilde2, phiRef, deltaF, 
                     m1, m2, p1v, S2z,
-                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO); // qm1=qm2 = 1 hard code
+                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=qm2 = 1 hard code
         //ret = XLALSimInspiralTaylorF2AmpPlus(&hptilde2, phiRef, deltaF, inclination,
         //            m1, m2,S1x, S1y, p1v, S2x, S2y, S2z,
         //            LNhatx, LNhaty, LNhatz, f_min, f_max, r, phaseO, amplitudeO);
@@ -297,7 +297,7 @@ int main(int argc, char *argv[])
       p1v = p1*LAL_MSUN_SI; // convert to kg
       ret = XLALSimInspiralTaylorF2(&hptilde2, phiRef, deltaF, 
                     m1, p1v, S1z, S2z,
-                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO); // qm1=qm2 = 1 hard code
+                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=qm2 = 1 hard code
       //ret = XLALSimInspiralTaylorF2AmpPlus(&hptilde2, phiRef, deltaF, inclination,
       //              m1, p1v, S1x, S1y, S1z, S2x, S2y, S2z,
       //              LNhatx, LNhaty, LNhatz, f_min, f_max, r, phaseO, amplitudeO);
@@ -316,7 +316,7 @@ int main(int argc, char *argv[])
       p1v = p1; 
       ret = XLALSimInspiralTaylorF2(&hptilde2, phiRef, deltaF, 
                     m1, m2, S1z, S2z,
-                    f_min, f_max, 0, r, 1, 1, 0, 0, p1v, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO); // qm1=qm2 = 1 hard code
+                    f_min, f_max, 0, r, 1, 1, 0, 0, p1v, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=qm2 = 1 hard code
       //ret = XLALSimInspiralTaylorF2AmpPlus(&hptilde2, phiRef, deltaF, inclination,
       //              m1, p1v, S1x, S1y, S1z, S2x, S2y, S2z,
       //              LNhatx, LNhaty, LNhatz, f_min, f_max, r, phaseO, amplitudeO);
@@ -331,7 +331,7 @@ int main(int argc, char *argv[])
   fclose(outf);
   generateGNUfile(&inParams);
 /*
-  ret = XLALSimInspiralTaylorF2(&hptildeF2, phiRef, deltaF, m1, m2, S1z, S2z, f_min, f_ref, f_max, r, 1, 1, 0, 0, 0, 0,10, 0, 0, phaseO, amplitudeO);// qm1=qm2 = 1 hard code
+  ret = XLALSimInspiralTaylorF2(&hptildeF2, phiRef, deltaF, m1, m2, S1z, S2z, f_min, f_ref, f_max, r, 1, 1, 0, 0, 0, 0,10, 0, 0, phaseO, amplitudeO, NULL);// qm1=qm2 = 1 hard code
   hctildeF2 = XLALCreateCOMPLEX16FrequencySeries("FD hcross",
                     &((hptildeF2)->epoch), (hptildeF2)->f0, (hptildeF2)->deltaF,
                     &((hptildeF2)->sampleUnits), (hptildeF2)->data->length);
