@@ -416,7 +416,7 @@ REAL8 LALInferenceROQLogLikelihood(LALInferenceVariables *currentParams,
       {
         switch(errnum)
         {
-          case XLAL_FAILURE: /* Template generation failed in a known way, set -Inf likelihood */
+          case XLAL_EUSR0: /* Template generation failed in a known way, set -Inf likelihood */
             return (-DBL_MAX);
             break;
           default: /* Panic! */
@@ -823,7 +823,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
         {
           switch(errnum)
           {
-            case XLAL_FAILURE: /* Template generation failed in a known way, set -Inf likelihood */
+            case XLAL_EUSR0: /* Template generation failed in a known way, set -Inf likelihood */
               return (-DBL_MAX);
               break;
             default: /* Panic! */
@@ -1543,7 +1543,7 @@ REAL8 LALInferenceFastSineGaussianLogLikelihood(LALInferenceVariables *currentPa
       {
         switch(errnum)
         {
-          case XLAL_FAILURE: /* Template generation failed in a known way, set -Inf likelihood */
+          case XLAL_EUSR0: /* Template generation failed in a known way, set -Inf likelihood */
             return (-DBL_MAX);
             break;
           default: /* Panic! */
@@ -1775,7 +1775,7 @@ void LALInferenceNetworkSNR(LALInferenceVariables *currentParams,
       {
         switch(errnum)
         {
-          case XLAL_FAILURE: /* Template generation failed in a known way, set -Inf likelihood */
+          case XLAL_EUSR0: /* Template generation failed in a known way, set -Inf likelihood */
             return;
             break;
           default: /* Panic! */

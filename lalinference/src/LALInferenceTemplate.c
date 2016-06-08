@@ -708,7 +708,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
       {
         case XLAL_EDOM:
           /* The waveform was called outside its domain. Return an empty vector but not an error */
-          XLAL_ERROR_VOID(XLAL_FAILURE);
+          XLAL_ERROR_VOID(XLAL_EUSR0);
         default:
           /* Another error occurred that we can't handle. Propogate upward */
           XLALSetErrno(errnum);
@@ -775,7 +775,7 @@ model->waveFlags(%d,%d,%d,%d,numreldata),nonGRparams,%d,%d,%d,model->waveformCac
       {
         case XLAL_EDOM:
           /* The waveform was called outside its domain. Return an empty vector but not an error */
-          XLAL_ERROR_VOID(XLAL_FAILURE);
+          XLAL_ERROR_VOID(XLAL_EUSR0);
         default:
           /* Another error occurred that we can't handle. Propogate upward */
           XLALSetErrno(errnum);
