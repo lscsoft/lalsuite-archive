@@ -520,8 +520,8 @@ static int chebyshev_interpolation3d(
   double yrescale = (lambda1-0.5*(Gparams_max[1]+Gparams_min[1])) / (0.5*(Gparams_max[1]-Gparams_min[1]));
   double zrescale = (lambda2-0.5*(Gparams_max[2]+Gparams_min[2])) / (0.5*(Gparams_max[2]-Gparams_min[2]));
 
-  fprintf(stdout,"%.5e %.5e %.5e\n",q,lambda1,lambda2);
-  fprintf(stdout,"%.5e %.5e %.5e\n",xrescale,yrescale,zrescale);
+  fprintf(stdout,"         * q,l1,l2  : %.5e %.5e %.5e\n",q,lambda1,lambda2);
+  fprintf(stdout,"         * rescaled : %.5e %.5e %.5e\n",xrescale,yrescale,zrescale);
   /*-- Calculate interp_amp --*/
   for (k=0; k<nk_amp; k++) { // For each empirical node
     gsl_vector v = gsl_vector_subvector(cvec_amp, k*N, N).vector; // Pick out the coefficient matrix corresponding to the k-th node.
@@ -569,8 +569,8 @@ static int EOBROMEOSCore_datatest(
   int retcode=0;
 
   REAL8TimeSeries *hp;
-  REAL8TimeSeries *hc;  
-  
+  REAL8TimeSeries *hc;
+
   /* Select ROM submodel */
   EOB_ROM_EOSdataDS_submodel *submodel;
   submodel = romdata->sub1;
@@ -600,15 +600,12 @@ static int EOBROMEOSCore_datatest(
   fprintf(stdout,"  lambda2-max   = %.2f\n",submodel->params_max[2]);
 
   double x = sqrt(1.0-4.0*eta) ;
-  double q = (1+x)/(1-x);
+  double q = (1-x)/(1+x);
   fprintf(stdout,"  q             = %.2f\n\n",q);
 
   //Allocate space for the nodes
   gsl_vector *amp_at_nodes = gsl_vector_alloc(submodel->times->size);
   gsl_vector *phi_at_nodes = gsl_vector_alloc(submodel->times->size);
-  //Allocate space for the interpolants
-  //gsl_vector *amp_interp = gsl_vector_alloc (Gntimes) ;
-  //gsl_vector *phi_interp = gsl_vector_alloc (Gntimes) ;
 
   double *amp_interp = calloc(Gntimes,sizeof(double));
   double *phi_interp = calloc(Gntimes,sizeof(double));
@@ -621,7 +618,7 @@ static int EOBROMEOSCore_datatest(
                                       submodel->cvec_amp,submodel->cvec_phi,
                                       Gnamp,Gnphase,amp_at_nodes,phi_at_nodes);
 
-  fprintf(stdout,"\n--- calculating A(t) and Phi(t) ---\n");
+  fprintf(stdout,"\n--- calculating A(t) and Phi(t) at nodes ---\n");
   double BjAmp_tn=0.0;
   double BjPhi_tn=0.0;
   int n,j;
@@ -645,16 +642,7 @@ static int EOBROMEOSCore_datatest(
   }
   fclose(out1);
 
-  //Build the waveform in physical units from A and Phi
-  //starts at timedomainrom.py line 233
 
-
-//   double c3 = LAL_C_SI*LAL_C_SI*LAL_C_SI ;
-//   time_to_phys = LAL_G_SI*Mtot*LAL_MSUN_SI/c3 ;
-//   for
-
-//   gsl_interp_cspline
-//   gsl_interp *ampoft = gsl_interp_alloc (const gsl_interp_type * T, Gntimes);
 
   fprintf(stdout,"--- Resampling A(t) and Phi(t) to arbitrary deltaT ---\n");
   gsl_interp_accel *acc = gsl_interp_accel_alloc();
@@ -667,7 +655,7 @@ static int EOBROMEOSCore_datatest(
 
   double der ;
   //int i_end_mono ;
-  fprintf(stdout,"    -.- calculating frequencies (derivative of phi(t)/2pi)\n");
+  fprintf(stdout,"    -.- calculating frequencies at nodes (derivative of phi(t)/2pi)\n");
   int i_end_mono = Gntimes;
   FILE *out2 = fopen("./times_freqs.txt","w");
   for (n=0;n<Gntimes;n++) {
@@ -680,33 +668,34 @@ static int EOBROMEOSCore_datatest(
     }
   }
   fclose(out2);
-  fprintf(stdout,"i_end_mono %d\n",i_end_mono);
+  fprintf(stdout,"         * i_end_mono %d\n",i_end_mono);
 
-  fprintf(stdout,"    -.- calculating t(f)\n");
+  fprintf(stdout,"    -.- creating t(f) spline\n");
   gsl_spline *toffreq_spline = gsl_spline_alloc (gsl_interp_cspline, i_end_mono);
   //construct t(f)
   gsl_spline_init(toffreq_spline, freqs, physical_times, i_end_mono);
-  
-  fprintf(stdout,"\n    -.- resample with even spacing\n");
+
+  fprintf(stdout,"    -.- calculate parameters to resample with even spacing\n");
   double tstart = gsl_spline_eval(toffreq_spline, fRef, acc);
-  fprintf(stdout,"  tstart     = %.2f\n",tstart);
+  fprintf(stdout,"         * tstart     = %.2f\n",tstart);
   int Ntimes_res = (int) ceil((physical_times[Gntimes-1]-tstart)/deltaT);
-  fprintf(stdout,"  Ntimes_res = %d\n",Ntimes_res);
+  fprintf(stdout,"         * Ntimes_res = %d\n",Ntimes_res);
   double *times_res = calloc(Ntimes_res,sizeof(double));
   double *amp_res = calloc(Ntimes_res,sizeof(double));
-  double *phi_res = calloc(Ntimes_res,sizeof(double));  
+  double *phi_res = calloc(Ntimes_res,sizeof(double));
   double t=tstart;
 
   //for scaling the amplitude
   double h22_to_h = 4.0*eta*sqrt(5.0/LAL_PI)/8.0;
   double amp_units = LAL_G_SI*Mtot*LAL_MSUN_SI/(LAL_C_SI*LAL_C_SI*distance) ;
- 
+
   //Adjust for inclination angle [0,pi]
   double cosi = cos(inclination);
   double inc_plus = (1.0+cosi*cosi)/2.0;
   double inc_cross = cosi;
 
 
+  fprintf(stdout,"--- Generate h+(t) and hx(t) ---\n");
 
   //XLALGPSAdd(&tC, -1 / deltaF);  /* coalesce at t=0 */
   LIGOTimeGPS tC = LIGOTIMEGPSZERO;
@@ -715,32 +704,31 @@ static int EOBROMEOSCore_datatest(
   hp = XLALCreateREAL8TimeSeries("hplus: TD waveform", &tC, 0.0, deltaT, &lalStrainUnit, Ntimes_res);
   if (!hp) XLAL_ERROR(XLAL_EFUNC);
   memset(hp->data->data, 0, Ntimes_res * sizeof(REAL8));
-  //XLALUnitMultiply(&hplus->sampleUnits, &hplus->sampleUnits, &lalSecondUnit);
-  
+
   hc = XLALCreateREAL8TimeSeries("hcross: TD waveform", &tC, 0.0, deltaT, &lalStrainUnit, Ntimes_res);
   if (!hc) XLAL_ERROR(XLAL_EFUNC);
   memset(hc->data->data, 0, Ntimes_res * sizeof(REAL8));
-  //XLALUnitMultiply(&hplus->sampleUnits, &hplus->sampleUnits, &lalSecondUnit);
-  
+
   FILE *out3 = fopen("./test_out.txt","w");
   times_res[0] = t ;
   amp_res[0] = gsl_spline_eval(ampoft_spline, t, acc)*amp_units*h22_to_h;
-  phi_res[0] = gsl_spline_eval(phioft_spline, t, acc);
+  double phi0 = gsl_spline_eval(phioft_spline, t, acc);
+  phi_res[0] = 0.0;
   hp->data->data[0] = inc_plus*amp_res[0]*cos(phi_res[0]);
-  hc->data->data[0] = inc_cross*amp_res[0]*sin(phi_res[0]);  
+  hc->data->data[0] = inc_cross*amp_res[0]*sin(phi_res[0]);
   fprintf(out3,"%.9e %.9e %.9e %.9e %.9e\n",t,amp_res[0],phi_res[0],hp->data->data[0],hc->data->data[0]);
   t+=deltaT;
   for (n=1;n<Ntimes_res;n++) {
     times_res[n] = t;
     amp_res[n] = gsl_spline_eval(ampoft_spline, t, acc)*amp_units*h22_to_h;
     //Zero the phase at the beginning (-phi0)
-    phi_res[n] = gsl_spline_eval(phioft_spline, t, acc)-phi_res[0];
-    
+    phi_res[n] = gsl_spline_eval(phioft_spline, t, acc)-phi0;
+
     hp->data->data[n] = inc_plus*amp_res[n]*cos(phi_res[n]);
     hc->data->data[n] = inc_cross*amp_res[n]*sin(phi_res[n]);
-    
+
     fprintf(out3,"%.9e %.9e %.9e %.9e %.9e\n",t,amp_res[n],phi_res[n],hp->data->data[n],hc->data->data[n]);
-    
+
     t+=deltaT;
   }
   fclose(out3);
