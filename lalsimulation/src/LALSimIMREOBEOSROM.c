@@ -193,7 +193,21 @@ static int chebyshev_interpolation3d(
 
 static void EOB_ROM_EOSdataDS_Cleanup_submodel(EOB_ROM_EOSdataDS_submodel *submodel);
 
-static int EOBROMEOSCore_datatest(
+static int EOBROMEOSCore_test(
+  REAL8TimeSeries **hPlus,
+  REAL8TimeSeries **hCross,
+  double phiRef,
+  double deltaT,
+  double fRef,
+  double distance,
+  double inclination,
+  double Mtot_sec,
+  double eta,
+  double lambda1,
+  double lambda2
+);
+
+static int EOBROMEOSCore(
   REAL8TimeSeries **hPlus,
   REAL8TimeSeries **hCross,
   double phiRef,
@@ -408,7 +422,6 @@ static void EOB_ROM_EOSdataDS_Cleanup(EOB_ROM_EOSdataDS *romdata) {
 static double gsl_cheb_evaluate_polynomial(int n, double x){
 
   double Tnx = 0.0 ;
-  double a=0.0, b=0.0 ;
   //T_0(x)
   if (n==0){
     Tnx = 1.0 ;
@@ -424,32 +437,23 @@ static double gsl_cheb_evaluate_polynomial(int n, double x){
   //T_n(x)
   else {
     gsl_cheb_series *csx1 = gsl_cheb_alloc(n);
-    gsl_cheb_series *csx2 = gsl_cheb_alloc(n-1);
-    //testing
     csx1->a = -1.0 ;
     csx1->b = 1.0 ;
-    csx2->a = -1.0 ;
-    csx2->b = 1.0 ;
     int i=0;
     for (i = 0; i < n; i++){
-      csx1->c[i]=1.0;
-      csx2->c[i]=1.0;
+      csx1->c[i]=0.0;
     }
     csx1->c[n]=1.0;
 
     //f^n
-    a = gsl_cheb_eval(csx1, x);
-    //f^{n-1}
-    b = gsl_cheb_eval(csx2, x);
-    //fprintf(stdout,"     a=%.5e, b=%.5e\n",a,b);
-    Tnx = a-b;
+    Tnx = gsl_cheb_eval(csx1, x);
     gsl_cheb_free(csx1);
-    gsl_cheb_free(csx2);
   }
 
   return Tnx ;
 
 }
+
 
 /* Wrapper function to evaluate 3d chebyshev polynomial.
  * p(x,y,z) = \sum_{i,j,k} c_{ijk} T_i(x) T_j(y) T_k(z)
@@ -463,15 +467,11 @@ static double gsl_cheb_eval_3d(gsl_vector *c_ijk, int nx, int ny, int nz, double
 
   for (i=0;i<nx;i++){
     Tix=gsl_cheb_evaluate_polynomial(i,x);
-//     fprintf(stdout,"T%dx = %.5e\n",i,Tix);
     for (j=0;j<ny;j++){
       Tjy=gsl_cheb_evaluate_polynomial(j,y);
-//       fprintf(stdout,"  T%dy = %.5e\n",j,Tjy);
       for (k=0;k<nz;k++){
         Tkz=gsl_cheb_evaluate_polynomial(k,z);
-//         fprintf(stdout,"    T%dz = %.5e\n",k,Tkz);
         sum+=gsl_vector_get(c_ijk,index)*Tix*Tjy*Tkz;
-//         fprintf(stdout,"    cijk = %.5e\n",gsl_vector_get(c_ijk,index));
         index+=1;
       }
     }
@@ -503,7 +503,6 @@ static int chebyshev_interpolation3d(
   int nx, int ny, int nz,
   gsl_vector *cvec_amp,
   gsl_vector *cvec_phi,
-  //gsl_vector *times,
   int nk_amp,
   int nk_phi,
   gsl_vector *interp_amp,   //return: A(T_j;q,lambda1,lambda2)    <=> p_j(q,lambda1,lambda2)
@@ -520,13 +519,10 @@ static int chebyshev_interpolation3d(
   double yrescale = (lambda1-0.5*(Gparams_max[1]+Gparams_min[1])) / (0.5*(Gparams_max[1]-Gparams_min[1]));
   double zrescale = (lambda2-0.5*(Gparams_max[2]+Gparams_min[2])) / (0.5*(Gparams_max[2]-Gparams_min[2]));
 
-  fprintf(stdout,"         * q,l1,l2  : %.5e %.5e %.5e\n",q,lambda1,lambda2);
-  fprintf(stdout,"         * rescaled : %.5e %.5e %.5e\n",xrescale,yrescale,zrescale);
   /*-- Calculate interp_amp --*/
   for (k=0; k<nk_amp; k++) { // For each empirical node
     gsl_vector v = gsl_vector_subvector(cvec_amp, k*N, N).vector; // Pick out the coefficient matrix corresponding to the k-th node.
     sum = gsl_cheb_eval_3d(&v, nx, ny, nz, xrescale, yrescale, zrescale) ;
-//     fprintf(stdout,"sum_amp%d - %.5e\n",k,sum);
     gsl_vector_set(interp_amp, k, sum); //write p_k(x,y,z)
   }
 
@@ -534,7 +530,6 @@ static int chebyshev_interpolation3d(
   for (k=0; k<nk_phi; k++) { // For each empirical node
     gsl_vector v = gsl_vector_subvector(cvec_phi, k*N, N).vector; // Pick out the coefficient matrix corresponding to the k-th node.
     sum = gsl_cheb_eval_3d(&v, nx, ny, nz, xrescale, yrescale, zrescale) ;
-//     fprintf(stdout,"sum_phi%d - %.5e\n",k,sum);
     gsl_vector_set(interp_phi, k, sum); //write p_k(x,y,z)
   }
 
@@ -542,7 +537,7 @@ static int chebyshev_interpolation3d(
 
 }
 
-static int EOBROMEOSCore_datatest(
+static int EOBROMEOSCore_test(
   REAL8TimeSeries **hPlus,
   REAL8TimeSeries **hCross,
   double phiRef, // orbital reference phase
@@ -760,6 +755,187 @@ static int EOBROMEOSCore_datatest(
 
 }
 
+static int EOBROMEOSCore(
+  REAL8TimeSeries **hPlus,
+  REAL8TimeSeries **hCross,
+  double phiRef, // orbital reference phase NOTE: unused
+  double deltaT,
+  double fRef,
+  double distance,
+  double inclination,
+  double Mtot, // in Msol
+  double eta,
+  double lambda1, //in range 50 - 5000
+  double lambda2  //in range 50 - 5000
+)
+{
+
+  //NOTE: silly
+  inclination = inclination + phiRef - phiRef ;
+
+  /* Check output arrays */
+  if(!hPlus || !hCross)
+    XLAL_ERROR(XLAL_EFAULT);
+  EOB_ROM_EOSdataDS *romdata=&__lalsim_EOB_ROM_EOSDS_data;
+  if(*hPlus || *hCross)
+  {
+    XLALPrintError("(*hPlus) and (*hCross) are supposed to be NULL, but got %p and %p",(*hPlus),(*hCross));
+    XLAL_ERROR(XLAL_EFAULT);
+  }
+  int retcode=0;
+
+  REAL8TimeSeries *hp;
+  REAL8TimeSeries *hc;
+
+  /* Select ROM submodel */
+  EOB_ROM_EOSdataDS_submodel *submodel;
+  submodel = romdata->sub1;
+
+  double x = sqrt(1.0-4.0*eta) ;
+  double q = (1-x)/(1+x);
+
+  //Allocate space for the nodes
+  gsl_vector *amp_at_nodes = gsl_vector_alloc(submodel->times->size);
+  gsl_vector *phi_at_nodes = gsl_vector_alloc(submodel->times->size);
+
+  double *amp_interp = calloc(Gntimes,sizeof(double));
+  double *phi_interp = calloc(Gntimes,sizeof(double));
+  double *freqs = calloc(Gntimes,sizeof(double));
+  double *physical_times = calloc(Gntimes,sizeof(double));
+
+  //calculate chebyshev interpolants (A(T_j),Phi(T_j))
+  retcode = chebyshev_interpolation3d(q,lambda1,lambda2,
+                                      Gnq, Gnlambda1, Gnlambda2,
+                                      submodel->cvec_amp,submodel->cvec_phi,
+                                      Gnamp,Gnphase,amp_at_nodes,phi_at_nodes);
+
+  //calculate A(T_j) and Phi(T_j) at nodes
+  double BjAmp_tn=0.0;
+  double BjPhi_tn=0.0;
+  int n,j;
+  double c3 = LAL_C_SI*LAL_C_SI*LAL_C_SI ;
+  double time_to_phys = LAL_G_SI*Mtot*LAL_MSUN_SI/c3 ;
+  for (n=0;n<Gntimes;n++){
+    BjAmp_tn=0.0 ;
+    BjPhi_tn=0.0 ;
+    for (j=0;j<Gnamp;j++){
+      BjAmp_tn+=gsl_vector_get(amp_at_nodes,j)*gsl_matrix_get(submodel->Bamp,j,n);
+    }
+    for (j=0;j<Gnphase;j++){
+      BjPhi_tn+=gsl_vector_get(phi_at_nodes,j)*gsl_matrix_get(submodel->Bphi,j,n);
+    }
+    //convert times in to seconds
+    physical_times[n]=gsl_vector_get(submodel->times,n)*time_to_phys;
+    amp_interp[n]=BjAmp_tn;
+    phi_interp[n]=BjPhi_tn;
+  }
+
+
+
+  //Resampling A(t) and Phi(t) to arbitrary deltaT ---\n");
+  gsl_interp_accel *acc = gsl_interp_accel_alloc();
+  gsl_spline *ampoft_spline = gsl_spline_alloc (gsl_interp_cspline, Gntimes);
+  gsl_spline *phioft_spline = gsl_spline_alloc (gsl_interp_cspline, Gntimes);
+
+  //initializing splines
+  gsl_spline_init(ampoft_spline, physical_times, amp_interp, Gntimes);
+  gsl_spline_init(phioft_spline, physical_times, phi_interp, Gntimes);
+
+  double der ;
+  //calculate frequencies at nodes (derivative of phi(t)/2pi)
+  int i_end_mono = Gntimes;
+  for (n=0;n<Gntimes;n++) {
+    der = gsl_spline_eval_deriv (phioft_spline, physical_times[n], acc);
+    freqs[n] = 0.5*der/LAL_PI;//omegaoft(time_phys)/(2*np.pi)
+    //determine up to where f is monotonically increasing
+    if (n > 0) {
+      if (freqs[n] < freqs[n-1]) i_end_mono = n ;
+    }
+  }
+
+  //create t(f) spline
+  gsl_spline *toffreq_spline = gsl_spline_alloc (gsl_interp_cspline, i_end_mono);
+  gsl_spline_init(toffreq_spline, freqs, physical_times, i_end_mono);
+
+  //calculate parameters to resample with even spacing
+  double tstart = gsl_spline_eval(toffreq_spline, fRef, acc);
+  int Ntimes_res = (int) ceil((physical_times[Gntimes-1]-tstart)/deltaT);
+  double *times_res = calloc(Ntimes_res,sizeof(double));
+  double *amp_res = calloc(Ntimes_res,sizeof(double));
+  double *phi_res = calloc(Ntimes_res,sizeof(double));
+  double t=tstart;
+
+  //for scaling the amplitude
+  double h22_to_h = 4.0*eta*sqrt(5.0/LAL_PI)/8.0;
+  double amp_units = LAL_G_SI*Mtot*LAL_MSUN_SI/(LAL_C_SI*LAL_C_SI*distance) ;
+
+  //Adjust for inclination angle [0,pi]
+  double cosi = cos(inclination);
+  double inc_plus = (1.0+cosi*cosi)/2.0;
+  double inc_cross = cosi;
+
+
+  //Generate h+(t) and hx(t)
+
+  //XLALGPSAdd(&tC, -1 / deltaF);  /* coalesce at t=0 */
+  LIGOTimeGPS tC = LIGOTIMEGPSZERO;
+  //XLALGPSAdd(&tC, tstart);
+  //XLALGPSAdd(&tC, -1.0*j*deltaT);
+  /* Allocate hplus and hcross */
+  hp = XLALCreateREAL8TimeSeries("hplus: TD waveform", &tC, 0.0, deltaT, &lalStrainUnit, Ntimes_res);
+  if (!hp) XLAL_ERROR(XLAL_EFUNC);
+  memset(hp->data->data, 0, Ntimes_res * sizeof(REAL8));
+
+  hc = XLALCreateREAL8TimeSeries("hcross: TD waveform", &tC, 0.0, deltaT, &lalStrainUnit, Ntimes_res);
+  if (!hc) XLAL_ERROR(XLAL_EFUNC);
+  memset(hc->data->data, 0, Ntimes_res * sizeof(REAL8));
+
+  times_res[0] = t ;
+  amp_res[0] = gsl_spline_eval(ampoft_spline, t, acc)*amp_units*h22_to_h;
+  double phi0 = gsl_spline_eval(phioft_spline, t, acc);
+  phi_res[0] = 0.0;
+  hp->data->data[0] = inc_plus*amp_res[0]*cos(phi_res[0]);
+  hc->data->data[0] = inc_cross*amp_res[0]*sin(phi_res[0]);
+  t+=deltaT;
+  for (n=1;n<Ntimes_res;n++) {
+    times_res[n] = t;
+    amp_res[n] = gsl_spline_eval(ampoft_spline, t, acc)*amp_units*h22_to_h;
+    //Zero the phase at the beginning (-phi0)
+    phi_res[n] = gsl_spline_eval(phioft_spline, t, acc)-phi0;
+
+    hp->data->data[n] = inc_plus*amp_res[n]*cos(phi_res[n]);
+    hc->data->data[n] = inc_cross*amp_res[n]*sin(phi_res[n]);
+
+    t+=deltaT;
+  }
+
+  *hPlus = hp;
+  *hCross = hc;
+
+  gsl_spline_free (ampoft_spline);
+  gsl_spline_free (phioft_spline);
+  gsl_spline_free (toffreq_spline);
+  gsl_interp_accel_free (acc);
+
+  gsl_vector_free(amp_at_nodes);
+  gsl_vector_free(phi_at_nodes);
+
+  free(amp_interp);
+  free(phi_interp);
+  free(freqs);
+  free(physical_times);
+  free(times_res);
+  free(amp_res);
+  free(phi_res);
+
+  if (retcode==0){
+    return(XLAL_SUCCESS);
+  } else {
+    return(retcode);
+  }
+
+}
+
 /**
  * @addtogroup LALSimIMRSEOBNRROM_c
  *
@@ -795,7 +971,67 @@ static int EOBROMEOSCore_datatest(
 
 
 //Function to test data reading
-int XLALSimIMREOBROMEOS_datatest(
+int XLALSimIMREOBROMEOS(
+  REAL8TimeSeries **hPlus, /**< Output: Frequency-domain waveform h+ */
+  REAL8TimeSeries **hCross, /**< Output: Frequency-domain waveform hx */
+  REAL8 phiRef,                                 /**< Orbital phase at reference frequency*/
+  REAL8 deltaT,                                 /**< Sampling frequency (Hz) */
+  REAL8 fLow,                                   /**< Starting GW frequency (Hz) */
+  REAL8 fRef,                                   /**< Reference frequency (Hz); 0 defaults to fLow */
+  REAL8 distance,                               /**< Distance of source (m) */
+  REAL8 inclination,                            /**< Inclination of source (rad) */
+  REAL8 m1SI,                                   /**< Mass of companion 1 (kg) */
+  REAL8 m2SI,                                   /**< Mass of companion 2 (kg) */
+  REAL8 lambda1,                                /**< (tidal deformability of body 1)/(mass of body 1)^5 */
+  REAL8 lambda2)                                /**< (tidal deformability of body 1)/(mass of body 1)^5 */
+{
+  /* Internally we need m1 > m2, so change around if this is not the case */
+  if (m1SI < m2SI) {
+    // Swap m1 and m2
+    double m1temp = m1SI;
+    double l1temp = lambda1;
+    m1SI = m2SI;
+    lambda1 = lambda2;
+    m2SI = m1temp;
+    lambda2 = l1temp;
+  }
+
+  /* Get masses in terms of solar mass */
+  double mass1 = m1SI / LAL_MSUN_SI;
+  double mass2 = m2SI / LAL_MSUN_SI;
+  double Mtot = mass1+mass2;
+  double eta = mass1 * mass2 / (Mtot*Mtot);    /* Symmetric mass-ratio */
+
+  REAL8 m1sec = (m1SI/LAL_MSUN_SI)*LAL_MTSUN_SI ;
+  REAL8 m2sec = (m2SI/LAL_MSUN_SI)*LAL_MTSUN_SI ;
+  REAL8 m1sec5=m1sec*m1sec*m1sec*m1sec*m1sec ;
+  REAL8 m2sec5=m2sec*m2sec*m2sec*m2sec*m2sec ;
+  lambda1*=m1sec5 ;
+  lambda2*=m2sec5 ;
+
+  if (fRef==0.0) fRef=fLow;
+
+  // Load ROM data if not loaded already
+  fprintf(stdout,"initializing with EOB_ROM_EOS_Init_LALDATA()\n");
+  #ifdef LAL_PTHREAD_LOCK
+  (void) pthread_once(&EOB_ROM_EOS_is_initialized, EOB_ROM_EOS_Init_LALDATA);
+  #else
+  EOB_ROM_EOS_Init_LALDATA();
+  #endif
+
+  if(!EOB_ROM_EOS_IsSetup()) XLAL_ERROR(XLAL_EFAILED,"Error setting up EOB_ROM_EOS data - check your $LAL_DATA_PATH\n");
+
+  int retcode = EOBROMEOSCore(hPlus,hCross, phiRef, deltaT, fRef, distance, inclination, Mtot, eta, lambda1, lambda2);
+
+  EOB_ROM_EOSdataDS_Cleanup(&__lalsim_EOB_ROM_EOSDS_data);
+
+  return(retcode);
+}
+
+
+
+//Function to test data reading
+int XLALSimIMREOBROMEOS_test(
   REAL8TimeSeries **hPlus, /**< Output: Frequency-domain waveform h+ */
   REAL8TimeSeries **hCross, /**< Output: Frequency-domain waveform hx */
   REAL8 phiRef,                                 /**< Orbital phase at reference frequency*/
@@ -825,7 +1061,6 @@ int XLALSimIMREOBROMEOS_datatest(
   double mass2 = m2SI / LAL_MSUN_SI;
   double Mtot = mass1+mass2;
   double eta = mass1 * mass2 / (Mtot*Mtot);    /* Symmetric mass-ratio */
-//   double Mtot_sec = Mtot * LAL_MTSUN_SI;       /* Total mass in seconds */
 
   REAL8 m1sec = (m1SI/LAL_MSUN_SI)*LAL_MTSUN_SI ;
   REAL8 m2sec = (m2SI/LAL_MSUN_SI)*LAL_MTSUN_SI ;
@@ -850,7 +1085,7 @@ int XLALSimIMREOBROMEOS_datatest(
   // Instead of building a full sequency we only transfer the boundaries and let
   // the internal core function do the rest (and properly take care of corner cases).
 
-  int retcode = EOBROMEOSCore_datatest(hPlus,hCross, phiRef, deltaT, fRef, distance, inclination, Mtot, eta, lambda1, lambda2);
+  int retcode = EOBROMEOSCore_test(hPlus,hCross, phiRef, deltaT, fRef, distance, inclination, Mtot, eta, lambda1, lambda2);
 
   EOB_ROM_EOSdataDS_Cleanup(&__lalsim_EOB_ROM_EOSDS_data);
 

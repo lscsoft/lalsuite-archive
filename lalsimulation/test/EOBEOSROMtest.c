@@ -33,10 +33,10 @@ static void print_usage(char *program)
 
 int main (int argc, char *argv[])
 {
-  
+
   REAL8 mass1 = 1.4 ;
   REAL8 mass2 = 1.4 ;
-  REAL8 lambda1 = 5000.0 ;     
+  REAL8 lambda1 = 5000.0 ;
   REAL8 lambda2 = 5000.0 ;
   REAL8 fMin = 30.0 ;
   REAL8 srate = 4096.0 ;
@@ -56,20 +56,20 @@ int main (int argc, char *argv[])
     {0, 0, 0, 0}
   };
   int c;
-  
+
   while ( 1 )
   {
     /* LALgetopt_long stores long option here */
     int option_index = 0;
-    
+
     c = LALgetopt_long_only( argc, argv,"h:m:M:l:L:f:s:d:*", long_options, &option_index );
-    
+
     /* detect the end of the options */
     if ( c == - 1 )
     {
       break;
     }
-    
+
     switch ( c )
     {
       case 0:
@@ -113,14 +113,14 @@ int main (int argc, char *argv[])
       case '?':
         print_usage(argv[0]);
         exit( 1 );
-        break;        
+        break;
       default:
         fprintf( stderr, "unknown error while parsing options\n" );
         print_usage(argv[0]);
         exit( 1 );
     }
-  }  
-  
+  }
+
 
   REAL8TimeSeries *hplus  = NULL;
   REAL8TimeSeries *hcross = NULL;
@@ -141,13 +141,21 @@ int main (int argc, char *argv[])
   UNUSED(argc);
   UNUSED(argv);
 
-  if ( XLALSimIMREOBROMEOS_datatest(&hplus,&hcross,phiC,deltaT,fMin,0.0,r,i,mass1*LAL_MSUN_SI,mass2*LAL_MSUN_SI,lambda1,lambda2) == XLAL_FAILURE )
+  if ( XLALSimIMREOBROMEOS(&hplus,&hcross,phiC,deltaT,fMin,0.0,r,i,mass1*LAL_MSUN_SI,mass2*LAL_MSUN_SI,lambda1,lambda2) == XLAL_FAILURE )
   {
     fprintf( stderr, "The waveform generation function has failed!!\n" );
     exit(1);
   }
 
+  double t0 = XLALGPSGetREAL8(&hplus->epoch);
 
+  int n=0;
+  int N=(int) hplus->data->length;
+  FILE *out = fopen("./rom_out.txt","w");
+  for (n=0;n<N;n++){
+    fprintf(out,"%.9e %.9e %.9e\n",t0 + n * hplus->deltaT,hplus->data->data[n],hcross->data->data[n]);
+  }
+  fclose(out);
 
   return 0;
 }

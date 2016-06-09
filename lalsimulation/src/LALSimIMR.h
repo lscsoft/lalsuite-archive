@@ -218,7 +218,9 @@ int XLALSimInspiralNRWaveformGetHplusHcross(
 
 /* in module LALSimIMREOBEOSROM.c */
 
-int XLALSimIMREOBROMEOS_datatest(REAL8TimeSeries **hPlus,REAL8TimeSeries **hCross,REAL8 phiRef,REAL8 deltaT,REAL8 fLow,REAL8 fRef,REAL8 distance,REAL8 inclination,REAL8 m1SI,REAL8 m2SI,REAL8 lambda1,REAL8 lambda2);
+int XLALSimIMREOBROMEOS_test(REAL8TimeSeries **hPlus,REAL8TimeSeries **hCross,REAL8 phiRef,REAL8 deltaT,REAL8 fLow,REAL8 fRef,REAL8 distance,REAL8 inclination,REAL8 m1SI,REAL8 m2SI,REAL8 lambda1,REAL8 lambda2);
+
+int XLALSimIMREOBROMEOS(REAL8TimeSeries **hPlus, REAL8TimeSeries **hCross, REAL8 phiRef, REAL8 deltaT, REAL8 fLow, REAL8 fRef, REAL8 distance, REAL8 inclination, REAL8 m1SI, REAL8 m2SI, REAL8 lambda1, REAL8 lambda2);
 
 #if 0
 { /* so that editors will match succeeding brace */
