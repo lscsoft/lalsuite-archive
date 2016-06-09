@@ -22,7 +22,7 @@ static int XLALSpinPrecHcapRvecDerivative_exact(
                  void             *funcParams /**<< EOB parameters */
                                )
 {
-  UNUSED int debugPK = 1;
+  //UNUSED int debugPK = 1;
   //if (debugPK){
     for(int i =0; i < 12; i++){
       if( isnan(values[i]) ) {
