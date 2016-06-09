@@ -704,7 +704,7 @@ static REAL8 XLALSpinPrecHcapNumDerivWRTParam(
  * Used by generic spin EOB model, including initial conditions solver.
  */
 static REAL8
-XLALSpinPrecHcapNumDerivWRTParam(
+UNUSED XLALSpinPrecHcapNumDerivWRTParam(
 			     const INT4 paramIdx,	/**<< Index of the parameters */
 			     const REAL8 values[],	/**<< Dynamical variables */
 			     SpinEOBParams * funcParams	/**<< EOB Parameters */

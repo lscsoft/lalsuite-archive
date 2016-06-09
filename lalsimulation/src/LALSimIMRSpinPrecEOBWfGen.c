@@ -187,12 +187,16 @@ static void XLALEOBSpinPrecCalcAmpPhase(
     LNhy = rcrossrdot[1]/magrcrossrdot;
     LNhz = rcrossrdot[2]/magrcrossrdot;
 
-    if (fabs(LNhx) < 1.e-7)
-      LNhx = 0.0;
-    if (fabs(LNhy) < 1.e-7)
-      LNhy = 0.0;
-    if (fabs(LNhz-1.0) < 1.e-7)
-      LNhz = 1.0;
+        /*Rounding LNhz creates the possible issue of causing the input for the acos() call in EulerAnglesP2J
+        to be out of the [-1,1] interval required by the function, so it has been commented out.
+        The other two rounding statements are being removed because they do not appear in the current version
+        of the unoptimized code. -Tom Adams*/
+//        if (fabs(LNhx) < 1.e-7)
+//            LNhx = 0.0;
+//        if (fabs(LNhy) < 1.e-7)
+//            LNhy = 0.0;
+//        if (fabs(LNhz-1.0) < 1.e-7)
+//            LNhz = 1.0;
 
     /* OPTV3: From XLALSimIMRSpinEOBWaveformAll; LALSimIMRSpinPrecEOB.c; line(s): 3342-3358, 3375-3377*/
     EulerAnglesP2J(&aP2J,&bP2J,&gP2J,aI2P, bI2P, gI2P, LNhx, LNhy, LNhz, JframeEx, JframeEy, JframeEz );
@@ -230,8 +234,6 @@ static void XLALEOBSpinPrecCalcAmpPhase(
       XLAL_ERROR_VOID( XLAL_EFUNC );
       exit(1);
     }
-
-
 }
 
 static void XLALEOBSpinPrecGenerateHTSModesFromEOMSoln(

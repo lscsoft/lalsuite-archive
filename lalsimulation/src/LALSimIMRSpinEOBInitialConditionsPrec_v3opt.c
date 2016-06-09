@@ -1,8 +1,8 @@
 #ifndef _LALSIMIMRSPINPRECEOBINITIALCONDITIONS_V3OPT_C
 #define _LALSIMIMRSPINPRECEOBINITIALCONDITIONS_V3OPT_C
 
-#include <lal/LALSimInspiral.h>
-#include <lal/LALSimIMR.h>
+#include "LALSimInspiral.h"
+#include "LALSimIMR.h"
 
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_matrix.h>
@@ -15,6 +15,7 @@
 #include "LALSimIMRSpinEOBHamiltonian.c"
 #include "LALSimIMRSpinEOBHamiltonianPrec.c"
 #include "LALSimIMRSpinEOBHcapNumericalDerivative.c"
+#include "LALSimIMRSpinEOBHcapNumericalDerivativePrec.c"
 //#include "LALSimIMRSpinEOBHcapNumericalDerivativePrec_v3opt.c"
 #include "LALSimIMREOBFactorizedWaveform.c"
 
@@ -354,7 +355,7 @@ XLALFindSphericalOrbitPrec_exact(
 	}
     UINT4 oldignoreflux = rootParams->params->ignoreflux;
     rootParams->params->ignoreflux = 1;
-	status = XLALSpinPrecHcapExactDerivative(0, rootParams->values, tmpDValues, rootParams->params);
+    status = XLALSpinPrecHcapNumericalDerivative(0, rootParams->values, tmpDValues, rootParams->params); //david's: using numerical derivative until XLALSpinPrecHcapExactDerivative is fixed
     rootParams->params->ignoreflux = oldignoreflux;
 	for (int i = 0; i < 3; i++) {
 		rootParams->values[i + 6] *= mTotal * mTotal;
@@ -1025,7 +1026,7 @@ XLALSimIMRSpinEOBInitialConditionsPrec_exact(
 	}
     UINT4 oldignoreflux = params->ignoreflux;
     params->ignoreflux = 1;
-	status = XLALSpinPrecHcapExactDerivative(0, cartValues, tmpDValues, params);
+	status = XLALSpinPrecHcapNumericalDerivative(0, cartValues, tmpDValues, params); //david's: using numerical derivative until XLALSpinPrecHcapExactDerivative is fixed
     params->ignoreflux = oldignoreflux;
 	for (i = 0; i < 3; i++) {
 		cartValues[i + 6] *= mTotal * mTotal;
@@ -1130,7 +1131,7 @@ XLALSimIMRSpinEOBInitialConditionsPrec_exact(
         oldignoreflux = params->ignoreflux;
         params->ignoreflux = 1;
         params->seobCoeffs->updateHCoeffs = 1;
-		status = XLALSpinPrecHcapExactDerivative(0, cartValues, tmpDValues, params);
+       	    status = XLALSpinPrecHcapNumericalDerivative(0, cartValues, tmpDValues, params); //david's: using numerical derivative until XLALSpinPrecHcapExactDerivative is fixed
         params->ignoreflux = oldignoreflux;
 		for (i = 0; i < 3; i++) {
 			cartValues[i + 6] *= mTotal * mTotal;
@@ -1274,7 +1275,7 @@ GSLSpinHamiltonianDerivWrapperPrec_exact(double x,	/**<< Derivative at x */
 	}
     UINT4 oldignoreflux = dParams->params->ignoreflux;
     dParams->params->ignoreflux = 1;
-	status = XLALSpinPrecHcapExactDerivative(0, cartValues, tmpDValues, dParams->params);
+	status = XLALSpinPrecHcapNumericalDerivative(0, cartValues, tmpDValues, dParams->params); //david's: using numerical derivative until XLALSpinPrecHcapExactDerivative is fixed
     dParams->params->ignoreflux = oldignoreflux;
 	for (int i = 0; i < 3; i++) {
 		cartValues[i + 6] *= mTotal * mTotal;

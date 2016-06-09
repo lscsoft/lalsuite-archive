@@ -519,7 +519,7 @@ XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
  * described in ￼the section "Factorized waveforms" of https://dcc.ligo.org/T1400476
  */
 static INT4
-XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
+UNUSED XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
 					       COMPLEX16 * restrict hlm,	/**< OUTPUT, hlm waveforms */
 					       REAL8Vector * restrict values,	/**< dyanmical variables: \f$(r,\phi,p_r,p_\phi)\f$ */
 					  REAL8Vector * restrict cartvalues,	/**< dyanmical variables */

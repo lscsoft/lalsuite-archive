@@ -414,6 +414,7 @@ XLALSpinPrecAlignedHiSRStopCondition(double UNUSED t,  /**< UNUSED */
                            void UNUSED *funcParams       /**< physical parameters */
                           )
 {
+  return GSL_SUCCESS; // David's: possibly remove? profiling showed unexpectedly large computational time for the function run, but why?
     int debugPK = 0;
     if (debugPK){
         XLAL_PRINT_INFO("XLALSpinPrecAlignedHiSRStopCondition:: r = %e\n", values[0]);
@@ -919,12 +920,12 @@ int XLALSimIMRSpinEOBWaveformAll_opt(
   /* Accuracies of adaptive Runge-Kutta integrator */
     /* Note that this accuracies are lower than those used in SEOBNRv2: they allow reasonable runtimes for precessing systems */
     /* These accuracies can be adjusted according to desired accuracy and runtime */
-  REAL8 EPS_ABS = 1.0e-8;
-  const REAL8 EPS_REL = 1.0e-8;
+  //  REAL8 EPS_ABS = 1.0e-8;
+  //const REAL8 EPS_REL = 1.0e-8;
 
-//OPTV3: For checking code agreement
-//  REAL8 EPS_ABS = 1.0e-10;
-//  const REAL8 EPS_REL = 1.0e-10;
+//OPTV3: For checking code agreement (David)
+  REAL8 EPS_ABS = 1.0e-10;
+  const REAL8 EPS_REL = 1.0e-10;
 
   /* Relax abs accuracy in case of highly symmetric case that would otherwise slow down significantly */
   if (sqrt((INspin1[0] + INspin2[0])*(INspin1[0] + INspin2[0]) + (INspin1[1] + INspin2[1])*(INspin1[1] + INspin2[1])) < 1.0e-10 && !SpinsAlmostAligned)
@@ -2291,7 +2292,9 @@ int XLALSimIMRSpinEOBWaveformAll_opt(
     REAL8Vector phaseVecEOMLo;
     phaseVecEOMLo.length = retLenEOMLow;
     phaseVecEOMLo.data = hVecEOM.data+2*retLenEOMLow;
-    XLALREAL8VectorUnwrapAngleByMonotonicity(&phaseVecEOMLo,&phaseVecEOMLo);
+    // ZACH SAYS: David, we must figure out why XLALREAL8VectorUnwrapAngleByMonotonicity sometimes misbehaves.
+    //XLALREAL8VectorUnwrapAngleByMonotonicity(&phaseVecEOMLo,&phaseVecEOMLo);
+    XLALREAL8VectorUnwrapAngle(&phaseVecEOMLo,&phaseVecEOMLo);
 
     //OPTV3: Interpolate the WF solutions to the desired times
     SEOBNRv3OptimizedInterpolatorGeneral(hVecEOM.data,0., deltaT/mTScaled, retLenEOMLow, &hVec,2);
@@ -2383,12 +2386,16 @@ int XLALSimIMRSpinEOBWaveformAll_opt(
         LNhy  = rcrossrdot[1] / magLN;
         LNhz  = rcrossrdot[2] / magLN;
 
-        if (fabs(LNhx) < 1.e-7)
-            LNhx = 0.0;
-        if (fabs(LNhy) < 1.e-7)
-            LNhy = 0.0;
-        if (fabs(LNhz-1.0) < 1.e-7)
-            LNhz = 1.0;
+        /*Rounding LNhz creates the possible issue of causing the input for the acos() call in EulerAnglesP2J
+        to be out of the [-1,1] interval required by the function, so it has been commented out.
+        The other two rounding statements are being removed because they do not appear in the current version
+        of the unoptimized code. -Tom Adams*/
+//        if (fabs(LNhx) < 1.e-7)
+//            LNhx = 0.0;
+//        if (fabs(LNhy) < 1.e-7)
+//            LNhy = 0.0;
+//        if (fabs(LNhz-1.0) < 1.e-7)
+//            LNhz = 1.0;
 
         EulerAnglesP2J(&aP2J,&bP2J,&gP2J,AlphaHi->data[i],BetaHi->data[i], GammaHi->data[i], LNhx, LNhy, LNhz, JframeEx, JframeEy, JframeEz );
         alphaP2JTSHi->data->data[i]=-aP2J;
