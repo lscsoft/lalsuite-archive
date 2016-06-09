@@ -314,7 +314,7 @@ Nested sampling arguments:\n\
 
   ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
   if(ppt) {
-    if(XLALCheckBurstApproximantFromString(ppt->value) || !strcmp(ppt->value,"PrincipalComp") || !strcmp(ppt->value,"PrincipalCompBBH") || !strcmp(ppt->value,"PrincipalCompTime"))
+    if(XLALCheckBurstApproximantFromString(ppt->value) || !strcmp(ppt->value,"PrincipalComp") || !strcmp(ppt->value,"PrincipalCompBBH"))
     // SALVO: giving the same basic jump proposal to all the burst signals. When we have more ad hoc functions we can differentiate here
       runState->proposal=&NSWrapMCMCSineGaussProposal;
   }
@@ -340,7 +340,7 @@ Nested sampling arguments:\n\
   /* Overwrite prior choice if Burst templates are used */
   ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
   if(ppt) {
-    if(!strcmp("PrincipalComp",ppt->value) || !strcmp("SineGaussianF",ppt->value) || !strcmp("SineGaussian",ppt->value)|| !strcmp("Gaussian",ppt->value)|| !strcmp("GaussianF",ppt->value) || !strcmp("DampedSinusoid",ppt->value)|| !strcmp("DampedSinusoidF",ppt->value) || !strcmp(ppt->value,"PrincipalCompBBH") || !strcmp(ppt->value,"PrincipalCompTime")){
+    if(!strcmp("PrincipalComp",ppt->value) || !strcmp("SineGaussianF",ppt->value) || !strcmp("SineGaussian",ppt->value)|| !strcmp("Gaussian",ppt->value)|| !strcmp("GaussianF",ppt->value) || !strcmp("DampedSinusoid",ppt->value)|| !strcmp("DampedSinusoidF",ppt->value) || !strcmp(ppt->value,"PrincipalCompBBH")){
     runState->prior = &LALInferenceSineGaussianPrior;
     XLALPrintInfo("Using (Sine)Gaussian(F) prior\n");
     }
@@ -496,12 +496,8 @@ Arguments for each section follow:\n\n";
             initModelFunc=&LALInferenceInitPrincipalCompModel;
         }
   else if(!strcmp("PrincipalCompBBH",ppt->value) ){
-            fprintf(stdout,"--- Calling PrincipalComp init function \n");
+            fprintf(stdout,"--- Calling PrincipalComp BBH init function \n");
             initModelFunc=&LALInferenceInitPrincipalCompBBHModel;
-        }
-  else if(!strcmp("PrincipalCompTime",ppt->value) ){
-            fprintf(stdout,"--- Calling PCA time init variables \n");
-            initModelFunc=&LALInferenceInitPrincipalCompTimeModel;
         }
 	else{
 		printf("Using default CBC init!\n");
@@ -536,7 +532,7 @@ Arguments for each section follow:\n\n";
 	ppt=LALInferenceGetProcParamVal(procParams,"--approx");
 	if(ppt) {
     // SALVO: We may want different if else for differnt templates in the future
-    if(XLALCheckBurstApproximantFromString(ppt->value) || !strcmp(ppt->value,"PrincipalComp") || !strcmp(ppt->value,"PrincipalCompBBH") || !strcmp(ppt->value,"PrincipalCompTime")){
+    if(XLALCheckBurstApproximantFromString(ppt->value) || !strcmp(ppt->value,"PrincipalComp") || !strcmp(ppt->value,"PrincipalCompBBH")){
       fprintf(stdout,"--- Setting burst jump proposal \n");
       LALInferenceSetupSineGaussianProposal(state,state->currentParams,state->currentParams);
     }

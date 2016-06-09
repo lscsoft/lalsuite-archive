@@ -1256,46 +1256,63 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model)
 void LALInferenceTemplatePrincipalComp(LALInferenceModel *model)
 {
 
-    /* PC matrix configuration */
-    //UINT4 nPCs = *(UINT4*) LALInferenceGetVariable(model->params, "nPCs");
-
-    UINT4 i=0, j=0;
+    UINT4 i=0, lower=120;
     REAL8 hrss = 1.0;
 
     /* Principle Component Coefficients */
-    UINT4 nPCs_max=10;
-    REAL8 betas[nPCs_max];
+    REAL8 betas[model->pcs->nPCs];
 
-    for (j=0; j<nPCs_max; j++){
-
-        betas[j] = 0.0;
-
-        if (model->pcs->nPCs>=1)
-            betas[0] = *(REAL8*) LALInferenceGetVariable(model->params, "beta1");
-        if (model->pcs->nPCs>=2)
-            betas[1] = *(REAL8*) LALInferenceGetVariable(model->params, "beta2");
-        if (model->pcs->nPCs>=3)
-            betas[2] = *(REAL8*) LALInferenceGetVariable(model->params, "beta3");
-        if (model->pcs->nPCs>=4)
-            betas[3] = *(REAL8*) LALInferenceGetVariable(model->params, "beta4");
-        if (model->pcs->nPCs>=5)
-            betas[4] = *(REAL8*) LALInferenceGetVariable(model->params, "beta5");
-        if (model->pcs->nPCs>=6)
-            betas[5] = *(REAL8*) LALInferenceGetVariable(model->params, "beta6");
-        if (model->pcs->nPCs>=7)
-            betas[6] = *(REAL8*) LALInferenceGetVariable(model->params, "beta7");
-        if (model->pcs->nPCs>=8)
-            betas[7] = *(REAL8*) LALInferenceGetVariable(model->params, "beta8");
-        if (model->pcs->nPCs>=9)
-            betas[8] = *(REAL8*) LALInferenceGetVariable(model->params, "beta9");
-        if (model->pcs->nPCs==10)
-            betas[9] = *(REAL8*) LALInferenceGetVariable(model->params, "beta10");
-    }
+    if (model->pcs->nPCs>=1)
+        betas[0] = *(REAL8*) LALInferenceGetVariable(model->params, "beta1");
+    if (model->pcs->nPCs>=2)
+        betas[1] = *(REAL8*) LALInferenceGetVariable(model->params, "beta2");
+    if (model->pcs->nPCs>=3)
+        betas[2] = *(REAL8*) LALInferenceGetVariable(model->params, "beta3");
+    if (model->pcs->nPCs>=4)
+        betas[3] = *(REAL8*) LALInferenceGetVariable(model->params, "beta4");
+    if (model->pcs->nPCs>=5)
+        betas[4] = *(REAL8*) LALInferenceGetVariable(model->params, "beta5");
+    if (model->pcs->nPCs>=6)
+        betas[5] = *(REAL8*) LALInferenceGetVariable(model->params, "beta6");
+    if (model->pcs->nPCs>=7)
+        betas[6] = *(REAL8*) LALInferenceGetVariable(model->params, "beta7");
+    if (model->pcs->nPCs>=8)
+        betas[7] = *(REAL8*) LALInferenceGetVariable(model->params, "beta8");
+    if (model->pcs->nPCs>=9)
+        betas[8] = *(REAL8*) LALInferenceGetVariable(model->params, "beta9");
+    if (model->pcs->nPCs>=10)
+        betas[9] = *(REAL8*) LALInferenceGetVariable(model->params, "beta10");
+    if (model->pcs->nPCs>=11)
+        betas[10] = *(REAL8*) LALInferenceGetVariable(model->params, "beta11");
+    if (model->pcs->nPCs>=12)
+        betas[11] = *(REAL8*) LALInferenceGetVariable(model->params, "beta12");
+    if (model->pcs->nPCs>=13)
+        betas[12] = *(REAL8*) LALInferenceGetVariable(model->params, "beta13");
+    if (model->pcs->nPCs>=14)
+        betas[13] = *(REAL8*) LALInferenceGetVariable(model->params, "beta14");
+    if (model->pcs->nPCs>=15)
+        betas[14] = *(REAL8*) LALInferenceGetVariable(model->params, "beta15");
+    if (model->pcs->nPCs>=16)
+        betas[15] = *(REAL8*) LALInferenceGetVariable(model->params, "beta16");
+    if (model->pcs->nPCs>=17)
+        betas[16] = *(REAL8*) LALInferenceGetVariable(model->params, "beta17");
+    if (model->pcs->nPCs>=18)
+        betas[17] = *(REAL8*) LALInferenceGetVariable(model->params, "beta18");
+    if (model->pcs->nPCs>=19)
+        betas[18] = *(REAL8*) LALInferenceGetVariable(model->params, "beta19");
+    if (model->pcs->nPCs==20)
+        betas[19] = *(REAL8*) LALInferenceGetVariable(model->params, "beta20");
 
     /* Build Template */
-    for(i=0; i<model->freqhPlus->data->length; i++){
 
-        model->freqhPlus->data->data[i] = 
+    /* Set to zero below flow (30Hz) */
+    for(i = 0; i < lower; i++) {
+      model->freqhPlus->data->data[i] = 0.0;
+    }
+
+    for(i=lower; i<model->freqhPlus->data->length; i++){
+
+        model->freqhPlus->data->data[i] =
             betas[0] * (GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 0)) + I*GSL_IMAG(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 0)))
             + betas[1] * (GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 1)) + I*GSL_IMAG(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 1)))
             + betas[2] * (GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 2)) + I*GSL_IMAG(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 2)))
@@ -1305,11 +1322,20 @@ void LALInferenceTemplatePrincipalComp(LALInferenceModel *model)
             + betas[6] * (GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 6)) + I*GSL_IMAG(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 6)))
             + betas[7] * (GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 7)) + I*GSL_IMAG(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 7)))
             + betas[8] * (GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 8)) + I*GSL_IMAG(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 8)))
-            + betas[9] * (GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 9)) + I*GSL_IMAG(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 9)));
+            + betas[9] * (GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 9)) + I*GSL_IMAG(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 9)))
+            + betas[10] * (GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 10)) + I*GSL_IMAG(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 10)))
+            + betas[11] * (GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 11)) + I*GSL_IMAG(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 11)))
+            + betas[12] * (GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 12)) + I*GSL_IMAG(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 12)))
+            + betas[13] * (GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 13)) + I*GSL_IMAG(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 13)))
+            + betas[14] * (GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 14)) + I*GSL_IMAG(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 14)))
+            + betas[15] * (GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 15)) + I*GSL_IMAG(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 15)))
+            + betas[16] * (GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 16)) + I*GSL_IMAG(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 16)))
+            + betas[17] * (GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 17)) + I*GSL_IMAG(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 17)))
+            + betas[18] * (GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 18)) + I*GSL_IMAG(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 18)))
+            + betas[19] * (GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 19)) + I*GSL_IMAG(gsl_matrix_complex_get(model->pcs->pcs_plus, i, 19)));
 
         /* XXX: hrss is only really applied in the likelihood function */
         model->freqhPlus->data->data[i] *= hrss;
-
 
         /* FIXME: do something about the cross polarisation!!! */
         model->freqhCross->data->data[i] = 0.0;
@@ -1319,6 +1345,7 @@ void LALInferenceTemplatePrincipalComp(LALInferenceModel *model)
     model->domain = LAL_SIM_DOMAIN_FREQUENCY;
 
     return;
+
 
 }
 
@@ -1396,28 +1423,28 @@ void LALInferenceTemplatePrincipalCompBBH(LALInferenceModel *model)
 //                gsl_matrix_get(model->pcs->amp_pcs, 1, i));
 
         amp->data[i] = gsl_matrix_get(model->pcs->amp_pcs, 0, i) + 
-            + amp_betas[0] * gsl_matrix_get(model->pcs->amp_pcs, 1, i) + 
-            + amp_betas[1] * gsl_matrix_get(model->pcs->amp_pcs, 2, i) + 
-            + amp_betas[2] * gsl_matrix_get(model->pcs->amp_pcs, 3, i) + 
-            + amp_betas[3] * gsl_matrix_get(model->pcs->amp_pcs, 4, i) + 
-            + amp_betas[4] * gsl_matrix_get(model->pcs->amp_pcs, 5, i) + 
-            + amp_betas[5] * gsl_matrix_get(model->pcs->amp_pcs, 6, i) + 
-            + amp_betas[6] * gsl_matrix_get(model->pcs->amp_pcs, 7, i) + 
-            + amp_betas[7] * gsl_matrix_get(model->pcs->amp_pcs, 8, i) + 
-            + amp_betas[8] * gsl_matrix_get(model->pcs->amp_pcs, 9, i) + 
-            + amp_betas[9] * gsl_matrix_get(model->pcs->amp_pcs, 10, i);
+            amp_betas[0] * gsl_matrix_get(model->pcs->amp_pcs, 1, i) + 
+            amp_betas[1] * gsl_matrix_get(model->pcs->amp_pcs, 2, i) + 
+            amp_betas[2] * gsl_matrix_get(model->pcs->amp_pcs, 3, i) + 
+            amp_betas[3] * gsl_matrix_get(model->pcs->amp_pcs, 4, i) + 
+            amp_betas[4] * gsl_matrix_get(model->pcs->amp_pcs, 5, i) + 
+            amp_betas[5] * gsl_matrix_get(model->pcs->amp_pcs, 6, i) + 
+            amp_betas[6] * gsl_matrix_get(model->pcs->amp_pcs, 7, i) + 
+            amp_betas[7] * gsl_matrix_get(model->pcs->amp_pcs, 8, i) + 
+            amp_betas[8] * gsl_matrix_get(model->pcs->amp_pcs, 9, i) + 
+            amp_betas[9] * gsl_matrix_get(model->pcs->amp_pcs, 10, i);
 
         phi->data[i] = gsl_matrix_get(model->pcs->phase_pcs, 0, i) + 
-            + phase_betas[0] * gsl_matrix_get(model->pcs->phase_pcs, 1, i) + 
-            + phase_betas[1] * gsl_matrix_get(model->pcs->phase_pcs, 2, i) + 
-            + phase_betas[2] * gsl_matrix_get(model->pcs->phase_pcs, 3, i) + 
-            + phase_betas[3] * gsl_matrix_get(model->pcs->phase_pcs, 4, i) + 
-            + phase_betas[4] * gsl_matrix_get(model->pcs->phase_pcs, 5, i) + 
-            + phase_betas[5] * gsl_matrix_get(model->pcs->phase_pcs, 6, i) + 
-            + phase_betas[6] * gsl_matrix_get(model->pcs->phase_pcs, 7, i) + 
-            + phase_betas[7] * gsl_matrix_get(model->pcs->phase_pcs, 8, i) + 
-            + phase_betas[8] * gsl_matrix_get(model->pcs->phase_pcs, 9, i) + 
-            + phase_betas[9] * gsl_matrix_get(model->pcs->phase_pcs, 10, i);
+            phase_betas[0] * gsl_matrix_get(model->pcs->phase_pcs, 1, i) + 
+            phase_betas[1] * gsl_matrix_get(model->pcs->phase_pcs, 2, i) + 
+            phase_betas[2] * gsl_matrix_get(model->pcs->phase_pcs, 3, i) + 
+            phase_betas[3] * gsl_matrix_get(model->pcs->phase_pcs, 4, i) + 
+            phase_betas[4] * gsl_matrix_get(model->pcs->phase_pcs, 5, i) + 
+            phase_betas[5] * gsl_matrix_get(model->pcs->phase_pcs, 6, i) + 
+            phase_betas[6] * gsl_matrix_get(model->pcs->phase_pcs, 7, i) + 
+            phase_betas[7] * gsl_matrix_get(model->pcs->phase_pcs, 8, i) + 
+            phase_betas[8] * gsl_matrix_get(model->pcs->phase_pcs, 9, i) + 
+            phase_betas[9] * gsl_matrix_get(model->pcs->phase_pcs, 10, i);
 
         /* locate the peak */
         if (amp->data[i]>peak){
@@ -1527,93 +1554,4 @@ void LALInferenceTemplatePrincipalCompBBH(LALInferenceModel *model)
 
  }
 
-void LALInferenceTemplatePrincipalCompTime(LALInferenceModel *model)
-{
-    UINT4 i=0, j=0;
-
-    /* Principle Component Coefficients */
-    UINT4 nPCs_max=20;
-    REAL8 betas[nPCs_max];
-//    REAL8 hrss = 1.0;
-
-    for (j=0; j<nPCs_max; j++){
-
-        betas[j] = 0.0;
-
-        if (model->pcs->nPCs>=1)
-            betas[0] = *(REAL8*) LALInferenceGetVariable(model->params, "beta1");
-        if (model->pcs->nPCs>=2)
-            betas[1] = *(REAL8*) LALInferenceGetVariable(model->params, "beta2");
-        if (model->pcs->nPCs>=3)
-            betas[2] = *(REAL8*) LALInferenceGetVariable(model->params, "beta3");
-        if (model->pcs->nPCs>=4)
-            betas[3] = *(REAL8*) LALInferenceGetVariable(model->params, "beta4");
-        if (model->pcs->nPCs>=5)
-            betas[4] = *(REAL8*) LALInferenceGetVariable(model->params, "beta5");
-        if (model->pcs->nPCs>=6)
-            betas[5] = *(REAL8*) LALInferenceGetVariable(model->params, "beta6");
-        if (model->pcs->nPCs>=7)
-            betas[6] = *(REAL8*) LALInferenceGetVariable(model->params, "beta7");
-        if (model->pcs->nPCs>=8)
-            betas[7] = *(REAL8*) LALInferenceGetVariable(model->params, "beta8");
-        if (model->pcs->nPCs>=9)
-            betas[8] = *(REAL8*) LALInferenceGetVariable(model->params, "beta9");
-        if (model->pcs->nPCs==10)
-            betas[9] = *(REAL8*) LALInferenceGetVariable(model->params, "beta10");
-        if (model->pcs->nPCs==11)
-            betas[10] = *(REAL8*) LALInferenceGetVariable(model->params, "beta11");
-        if (model->pcs->nPCs==12)
-            betas[11] = *(REAL8*) LALInferenceGetVariable(model->params, "beta12");
-        if (model->pcs->nPCs==13)
-            betas[12] = *(REAL8*) LALInferenceGetVariable(model->params, "beta13");
-        if (model->pcs->nPCs==14)
-            betas[13] = *(REAL8*) LALInferenceGetVariable(model->params, "beta14");
-        if (model->pcs->nPCs==15)
-            betas[14] = *(REAL8*) LALInferenceGetVariable(model->params, "beta15");
-        if (model->pcs->nPCs==16)
-            betas[15] = *(REAL8*) LALInferenceGetVariable(model->params, "beta16");
-        if (model->pcs->nPCs==17)
-            betas[16] = *(REAL8*) LALInferenceGetVariable(model->params, "beta17");
-        if (model->pcs->nPCs==18)
-            betas[17] = *(REAL8*) LALInferenceGetVariable(model->params, "beta18");
-        if (model->pcs->nPCs==19)
-            betas[18] = *(REAL8*) LALInferenceGetVariable(model->params, "beta19");
-        if (model->pcs->nPCs==20)
-            betas[19] = *(REAL8*) LALInferenceGetVariable(model->params, "beta20");
-    }
-
-    UINT4 datalen=model->timehPlus->data->length;
-    /* Build Template */
-    for(i=0; i<datalen; i++){
-
-        model->timehPlus->data->data[i] = gsl_matrix_get(model->pcs->amp_pcs, 0, i) + 
-            + betas[0] * gsl_matrix_get(model->pcs->amp_pcs, 1, i) + 
-            + betas[1] * gsl_matrix_get(model->pcs->amp_pcs, 2, i) + 
-            + betas[2] * gsl_matrix_get(model->pcs->amp_pcs, 3, i) + 
-            + betas[3] * gsl_matrix_get(model->pcs->amp_pcs, 4, i) + 
-            + betas[4] * gsl_matrix_get(model->pcs->amp_pcs, 5, i) + 
-            + betas[5] * gsl_matrix_get(model->pcs->amp_pcs, 6, i) + 
-            + betas[6] * gsl_matrix_get(model->pcs->amp_pcs, 7, i) + 
-            + betas[7] * gsl_matrix_get(model->pcs->amp_pcs, 8, i) + 
-            + betas[8] * gsl_matrix_get(model->pcs->amp_pcs, 9, i) + 
-            + betas[9] * gsl_matrix_get(model->pcs->amp_pcs, 10, i) +
-            + betas[10] * gsl_matrix_get(model->pcs->amp_pcs, 11, i) +
-            + betas[11] * gsl_matrix_get(model->pcs->amp_pcs, 12, i) +
-            + betas[12] * gsl_matrix_get(model->pcs->amp_pcs, 13, i) +
-            + betas[13] * gsl_matrix_get(model->pcs->amp_pcs, 14, i) +
-            + betas[14] * gsl_matrix_get(model->pcs->amp_pcs, 15, i) +
-            + betas[15] * gsl_matrix_get(model->pcs->amp_pcs, 16, i) +
-            + betas[16] * gsl_matrix_get(model->pcs->amp_pcs, 17, i) +
-            + betas[17] * gsl_matrix_get(model->pcs->amp_pcs, 18, i) +
-            + betas[18] * gsl_matrix_get(model->pcs->amp_pcs, 19, i);// +
-//            + betas[19] * gsl_matrix_get(model->pcs->amp_pcs, 20, i);
-
-//        model->timehPlus->data->data[i] *= hrss;
-        model->timehCross->data->data[i] = 0.0;
-    }
-
-    model->domain = LAL_SIM_DOMAIN_TIME;
-
-    return;
- }
 
