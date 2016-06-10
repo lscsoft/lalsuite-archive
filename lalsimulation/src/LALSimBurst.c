@@ -1445,68 +1445,6 @@ int XLALSimBurstGaussian(
 	return 0;
 }
 
-int XLALSimBurstGaussian(
-	REAL8TimeSeries **hplus,
-	REAL8TimeSeries **hcross,
-	REAL8 duration,
-	REAL8 hrss,
-	REAL8 delta_t
-)
-{
-	REAL8Window *window;
-	const double h0plus  = hrss / sqrt(sqrt(LAL_PI) * duration);
-	LIGOTimeGPS epoch;
-	int i, length;
-
-	/* check input. */
-
-	if(duration < 0 || hrss < 0 || !isfinite(h0plus) || delta_t <= 0) {
-		XLALPrintError("%s(): invalid input parameters\n", __func__);
-		*hplus = *hcross = NULL;
-		XLAL_ERROR(XLAL_EINVAL);
-	}
-
-	/* length of the injection time series is 21 * the width of the
-	 * Gaussian envelope, because that's what works well for
-	 * sine-Gaussians */
-
-	length = (int) floor(21.0 * duration / delta_t / 2.0);
-	length = 2 * length + 1;
-
-	/* the middle sample is t = 0 */
-
-	if(!XLALGPSSetREAL8(&epoch, -(length - 1) / 2 * delta_t))
-		XLAL_ERROR(XLAL_EFUNC);
-
-	/* allocate the time series */
-
-	*hplus = XLALCreateREAL8TimeSeries("Gaussian +", &epoch, 0.0, delta_t, &lalStrainUnit, length);
-	*hcross = XLALCreateREAL8TimeSeries("Gaussian x", &epoch, 0.0, delta_t, &lalStrainUnit, length);
-	window = XLALCreateTukeyREAL8Window(length, 0.5);
-	if(!*hplus || !*hcross || !window) {
-		XLALDestroyREAL8TimeSeries(*hplus);
-		XLALDestroyREAL8TimeSeries(*hcross);
-		XLALDestroyREAL8Window(window);
-		*hplus = *hcross = NULL;
-		XLAL_ERROR(XLAL_EFUNC);
-	}
-
-	/* populate */
-
-	for(i = 0; i < (length - 1) / 2; i++) {
-		const double t = ((int) i - (length - 1) / 2) * delta_t;
-		(*hplus)->data->data[i] = (*hplus)->data->data[length - 1 - i] = h0plus * exp(-0.5 * t * t / (duration * duration)) * window->data->data[i];
-	}
-	(*hplus)->data->data[i] = h0plus;
-	memset((*hcross)->data->data, 0, (*hcross)->data->length * sizeof(*(*hcross)->data->data));
-
-	XLALDestroyREAL8Window(window);
-
-	/* done */
-
-	return 0;
-}
-
 
 /*
  * ============================================================================
