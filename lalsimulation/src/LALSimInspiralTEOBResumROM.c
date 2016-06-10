@@ -97,7 +97,7 @@
 #define Gnlambda2 16
 
 #ifdef LAL_PTHREAD_LOCK
-static pthread_once_t EOB_ROM_EOS_is_initialized = PTHREAD_ONCE_INIT;
+static pthread_once_t TEOBResumROM_is_initialized = PTHREAD_ONCE_INIT;
 #endif
 
 static const double Gparams_min[] = {0.5,50.,50.}; //qmin,lambda1min,lambda2min
@@ -105,13 +105,13 @@ static const double Gparams_max[] = {1.0,5000.,5000.}; //qmax,lambda1max,lambda2
 
 /*************** type definitions ******************/
 
-typedef struct tagEOB_ROM_EOSdataDS_coeff
+typedef struct tagTEOBResumROMdataDS_coeff
 {
   gsl_vector* c_amp;
   gsl_vector* c_phi;
-} EOB_ROM_EOSdataDS_coeff;
+} TEOBResumROMdataDS_coeff;
 
-struct tagEOB_ROM_EOSdataDS_submodel
+struct tagTEOBResumROMdataDS_submodel
 {
   gsl_vector* cvec_amp;      // amplitude projection coefficients
   gsl_vector* cvec_phi;      // phase projection coefficients
@@ -124,18 +124,18 @@ struct tagEOB_ROM_EOSdataDS_submodel
   int n_phi;                 // Number of frequency points for phase
   int nq, nl1, nl2, ntimes;         // Number of points in eta, chi1, chi2
 };
-typedef struct tagEOB_ROM_EOSdataDS_submodel EOB_ROM_EOSdataDS_submodel;
+typedef struct tagTEOBResumROMdataDS_submodel TEOBResumROMdataDS_submodel;
 
-struct tagEOB_ROM_EOSdataDS
+struct tagTEOBResumROMdataDS
 {
   UINT4 setup;
-  EOB_ROM_EOSdataDS_submodel* sub1;
-  EOB_ROM_EOSdataDS_submodel* sub2;
-  EOB_ROM_EOSdataDS_submodel* sub3;
+  TEOBResumROMdataDS_submodel* sub1;
+  TEOBResumROMdataDS_submodel* sub2;
+  TEOBResumROMdataDS_submodel* sub3;
 };
-typedef struct tagEOB_ROM_EOSdataDS EOB_ROM_EOSdataDS;
+typedef struct tagTEOBResumROMdataDS TEOBResumROMdataDS;
 
-static EOB_ROM_EOSdataDS __lalsim_EOB_ROM_EOSDS_data;
+static TEOBResumROMdataDS __lalsim_TEOBResumROMDS_data;
 
 typedef int (*load_dataPtr)(const char*, gsl_vector *, gsl_vector *, gsl_matrix *, gsl_matrix *, gsl_vector *);
 
@@ -148,15 +148,15 @@ typedef int (*load_dataPtr)(const char*, gsl_vector *, gsl_vector *, gsl_matrix 
 
 /**************** Internal functions **********************/
 
-static void EOB_ROM_EOS_Init_LALDATA(void);
-static int EOB_ROM_EOS_Init(const char dir[]);
-static bool EOB_ROM_EOS_IsSetup(void);
+static void TEOBResumROM_Init_LALDATA(void);
+static int TEOBResumROM_Init(const char dir[]);
+static bool TEOBResumROM_IsSetup(void);
 
-static int EOB_ROM_EOSdataDS_Init(EOB_ROM_EOSdataDS *romdata, const char dir[]);
-static void EOB_ROM_EOSdataDS_Cleanup(EOB_ROM_EOSdataDS *romdata);
+static int TEOBResumROMdataDS_Init(TEOBResumROMdataDS *romdata, const char dir[]);
+static void TEOBResumROMdataDS_Cleanup(TEOBResumROMdataDS *romdata);
 
-static int EOB_ROM_EOSdataDS_Init_submodel(
-  EOB_ROM_EOSdataDS_submodel **submodel,
+static int TEOBResumROMdataDS_Init_submodel(
+  TEOBResumROMdataDS_submodel **submodel,
   const int n_amp,
   const int n_phi,
   const int nq,
@@ -191,9 +191,9 @@ static int chebyshev_interpolation3d(
   gsl_vector *interp_amp,
   gsl_vector *interp_phi);
 
-static void EOB_ROM_EOSdataDS_Cleanup_submodel(EOB_ROM_EOSdataDS_submodel *submodel);
+static void TEOBResumROMdataDS_Cleanup_submodel(TEOBResumROMdataDS_submodel *submodel);
 
-static int EOBROMEOSCore_test(
+static int TEOBResumROMCore_test(
   REAL8TimeSeries **hPlus,
   REAL8TimeSeries **hCross,
   double phiRef,
@@ -207,7 +207,7 @@ static int EOBROMEOSCore_test(
   double lambda2
 );
 
-static int EOBROMEOSCore(
+static int TEOBResumROMCore(
   REAL8TimeSeries **hPlus,
   REAL8TimeSeries **hCross,
   double phiRef,
@@ -232,15 +232,15 @@ static int load_data_romeos(const char dir[], gsl_vector *cvec_amp, gsl_vector *
 
 /** Setup SEOBNRv2ROMDoubleSpin model using data files installed in dir
  */
-static int EOB_ROM_EOS_Init(const char dir[]) {
-  if(__lalsim_EOB_ROM_EOSDS_data.setup) {
-    XLALPrintError("Error: DSEOB_ROM_EOSdata was already set up!");
+static int TEOBResumROM_Init(const char dir[]) {
+  if(__lalsim_TEOBResumROMDS_data.setup) {
+    XLALPrintError("Error: DSTEOBResumROMdata was already set up!");
     XLAL_ERROR(XLAL_EFAILED);
   }
 
-  EOB_ROM_EOSdataDS_Init(&__lalsim_EOB_ROM_EOSDS_data, dir);
+  TEOBResumROMdataDS_Init(&__lalsim_TEOBResumROMDS_data, dir);
 
-  if(__lalsim_EOB_ROM_EOSDS_data.setup) {
+  if(__lalsim_TEOBResumROMDS_data.setup) {
     return(XLAL_SUCCESS);
   }
   else {
@@ -249,8 +249,8 @@ static int EOB_ROM_EOS_Init(const char dir[]) {
 }
 
 /** Helper function to check if the SEOBNRv2ROMDoubleSpin model has been initialised */
-static bool EOB_ROM_EOS_IsSetup(void) {
-  if(__lalsim_EOB_ROM_EOSDS_data.setup)
+static bool TEOBResumROM_IsSetup(void) {
+  if(__lalsim_TEOBResumROMDS_data.setup)
     return true;
   else
     return false;
@@ -263,17 +263,17 @@ static int load_data_romeos(const char dir[], gsl_vector *cvec_amp, gsl_vector *
   // B-spline points: 54x24x24
   // Frequency points: {133, 139}
   int ret = XLAL_SUCCESS;
-  ret |= read_vector(dir, "EOB_ROM_EOS_Amp_ciall.dat", cvec_amp);
-  ret |= read_vector(dir, "EOB_ROM_EOS_Phase_ciall.dat", cvec_phi);
-  ret |= read_matrix(dir, "EOB_ROM_EOS_Bamp_matrix.dat", Bamp);
-  ret |= read_matrix(dir, "EOB_ROM_EOS_Bphase_matrix.dat", Bphi);
-  ret |= read_vector(dir, "EOB_ROM_EOS_times.dat", times);
+  ret |= read_vector(dir, "TEOBResumROM_Amp_ciall.dat", cvec_amp);
+  ret |= read_vector(dir, "TEOBResumROM_Phase_ciall.dat", cvec_phi);
+  ret |= read_matrix(dir, "TEOBResumROM_Bamp_matrix.dat", Bamp);
+  ret |= read_matrix(dir, "TEOBResumROM_Bphase_matrix.dat", Bphi);
+  ret |= read_vector(dir, "TEOBResumROM_times.dat", times);
   return(ret);
 }
 
 /* Set up a new ROM submodel, using data contained in dir */
-static int EOB_ROM_EOSdataDS_Init_submodel(
-  EOB_ROM_EOSdataDS_submodel **submodel,
+static int TEOBResumROMdataDS_Init_submodel(
+  TEOBResumROMdataDS_submodel **submodel,
   const int n_amp,
   const int n_phi,
   const int nq,
@@ -290,9 +290,9 @@ static int EOB_ROM_EOSdataDS_Init_submodel(
   if(!submodel) exit(1);
   /* Create storage for submodel structures */
   if (!*submodel)
-    *submodel = XLALCalloc(1,sizeof(EOB_ROM_EOSdataDS_submodel));
+    *submodel = XLALCalloc(1,sizeof(TEOBResumROMdataDS_submodel));
   else
-    EOB_ROM_EOSdataDS_Cleanup_submodel(*submodel);
+    TEOBResumROMdataDS_Cleanup_submodel(*submodel);
 
   int N = nq*nl1*nl2; // Total number of points over parameter space = size of the data matrix for one SVD-mode
 
@@ -320,8 +320,8 @@ static int EOB_ROM_EOSdataDS_Init_submodel(
   return ret;
 }
 
-/* Deallocate contents of the given EOB_ROM_EOSdataDS_submodel structure */
-static void EOB_ROM_EOSdataDS_Cleanup_submodel(EOB_ROM_EOSdataDS_submodel *submodel) {
+/* Deallocate contents of the given TEOBResumROMdataDS_submodel structure */
+static void TEOBResumROMdataDS_Cleanup_submodel(TEOBResumROMdataDS_submodel *submodel) {
   if(submodel->cvec_amp) gsl_vector_free(submodel->cvec_amp);
   if(submodel->cvec_phi) gsl_vector_free(submodel->cvec_phi);
   if(submodel->Bamp) gsl_matrix_free(submodel->Bamp);
@@ -330,53 +330,53 @@ static void EOB_ROM_EOSdataDS_Cleanup_submodel(EOB_ROM_EOSdataDS_submodel *submo
 }
 
 /* Set up a new ROM model, using data contained in dir */
-int EOB_ROM_EOSdataDS_Init(EOB_ROM_EOSdataDS *romdata, const char dir[]) {
+int TEOBResumROMdataDS_Init(TEOBResumROMdataDS *romdata, const char dir[]) {
   int ret = XLAL_FAILURE;
 
   /* Create storage for structures */
   if(romdata->setup) {
-    XLALPrintError("WARNING: You tried to setup the EOB_ROM_EOS model that was already initialised. Ignoring\n");
+    XLALPrintError("WARNING: You tried to setup the TEOBResumROM model that was already initialised. Ignoring\n");
     return (XLAL_FAILURE);
   }
 
   gsl_set_error_handler(&err_handler);
 
   load_dataPtr load_data = &load_data_romeos;
-  ret = EOB_ROM_EOSdataDS_Init_submodel(&(romdata)->sub1, Gnamp, Gnphase, Gnq, Gnlambda1, Gnlambda2, Gntimes, Gparams_min, Gparams_max, dir, load_data);
+  ret = TEOBResumROMdataDS_Init_submodel(&(romdata)->sub1, Gnamp, Gnphase, Gnq, Gnlambda1, Gnlambda2, Gntimes, Gparams_min, Gparams_max, dir, load_data);
   if (ret==XLAL_SUCCESS) XLALPrintInfo("%s : submodel 1 loaded sucessfully.\n", __func__);
 
   if(XLAL_SUCCESS==ret)
     romdata->setup=1;
   else
-    EOB_ROM_EOSdataDS_Cleanup(romdata);
+    TEOBResumROMdataDS_Cleanup(romdata);
 
   return (ret);
 }
 
-/* Deallocate contents of the given EOB_ROM_EOSdataDS structure */
-static void EOB_ROM_EOSdataDS_Cleanup(EOB_ROM_EOSdataDS *romdata) {
-  EOB_ROM_EOSdataDS_Cleanup_submodel((romdata)->sub1);
+/* Deallocate contents of the given TEOBResumROMdataDS structure */
+static void TEOBResumROMdataDS_Cleanup(TEOBResumROMdataDS *romdata) {
+  TEOBResumROMdataDS_Cleanup_submodel((romdata)->sub1);
   XLALFree((romdata)->sub1);
   (romdata)->sub1 = NULL;
   romdata->setup=0;
 }
 
 /* Structure for internal use */
-// static void EOB_ROM_EOSdataDS_coeff_Init(EOB_ROM_EOSdataDS_coeff **romdatacoeff, int nk_amp, int nk_phi) {
+// static void TEOBResumROMdataDS_coeff_Init(TEOBResumROMdataDS_coeff **romdatacoeff, int nk_amp, int nk_phi) {
 //
 //   if(!romdatacoeff) exit(1);
 //   /* Create storage for structures */
 //   if(!*romdatacoeff)
-//     *romdatacoeff=XLALCalloc(1,sizeof(EOB_ROM_EOSdataDS_coeff));
+//     *romdatacoeff=XLALCalloc(1,sizeof(TEOBResumROMdataDS_coeff));
 //   else
-//     EOB_ROM_EOSdataDS_coeff_Cleanup(*romdatacoeff);
+//     TEOBResumROMdataDS_coeff_Cleanup(*romdatacoeff);
 //
 //   (*romdatacoeff)->c_amp = gsl_vector_alloc(nk_amp);
 //   (*romdatacoeff)->c_phi = gsl_vector_alloc(nk_phi);
 // }
 //
-// /* Deallocate contents of the given EOB_ROM_EOSdataDS_coeff structure */
-// static void EOB_ROM_EOSdataDS_coeff_Cleanup(EOB_ROM_EOSdataDS_coeff *romdatacoeff) {
+// /* Deallocate contents of the given TEOBResumROMdataDS_coeff structure */
+// static void TEOBResumROMdataDS_coeff_Cleanup(TEOBResumROMdataDS_coeff *romdatacoeff) {
 //   if(romdatacoeff->c_amp) gsl_vector_free(romdatacoeff->c_amp);
 //   if(romdatacoeff->c_phi) gsl_vector_free(romdatacoeff->c_phi);
 //   XLALFree(romdatacoeff);
@@ -537,7 +537,7 @@ static int chebyshev_interpolation3d(
 
 }
 
-static int EOBROMEOSCore_test(
+static int TEOBResumROMCore_test(
   REAL8TimeSeries **hPlus,
   REAL8TimeSeries **hCross,
   double phiRef, // orbital reference phase
@@ -555,7 +555,7 @@ static int EOBROMEOSCore_test(
   /* Check output arrays */
   if(!hPlus || !hCross)
     XLAL_ERROR(XLAL_EFAULT);
-  EOB_ROM_EOSdataDS *romdata=&__lalsim_EOB_ROM_EOSDS_data;
+  TEOBResumROMdataDS *romdata=&__lalsim_TEOBResumROMDS_data;
   if(*hPlus || *hCross)
   {
     XLALPrintError("(*hPlus) and (*hCross) are supposed to be NULL, but got %p and %p",(*hPlus),(*hCross));
@@ -567,7 +567,7 @@ static int EOBROMEOSCore_test(
   REAL8TimeSeries *hc;
 
   /* Select ROM submodel */
-  EOB_ROM_EOSdataDS_submodel *submodel;
+  TEOBResumROMdataDS_submodel *submodel;
   submodel = romdata->sub1;
 
   fprintf(stdout,"--- EOSROMEOSCore input parameters ---\n");
@@ -755,7 +755,7 @@ static int EOBROMEOSCore_test(
 
 }
 
-static int EOBROMEOSCore(
+static int TEOBResumROMCore(
   REAL8TimeSeries **hPlus,
   REAL8TimeSeries **hCross,
   double phiRef, // orbital reference phase NOTE: unused
@@ -776,7 +776,7 @@ static int EOBROMEOSCore(
   /* Check output arrays */
   if(!hPlus || !hCross)
     XLAL_ERROR(XLAL_EFAULT);
-  EOB_ROM_EOSdataDS *romdata=&__lalsim_EOB_ROM_EOSDS_data;
+  TEOBResumROMdataDS *romdata=&__lalsim_TEOBResumROMDS_data;
   if(*hPlus || *hCross)
   {
     XLALPrintError("(*hPlus) and (*hCross) are supposed to be NULL, but got %p and %p",(*hPlus),(*hCross));
@@ -788,7 +788,7 @@ static int EOBROMEOSCore(
   REAL8TimeSeries *hc;
 
   /* Select ROM submodel */
-  EOB_ROM_EOSdataDS_submodel *submodel;
+  TEOBResumROMdataDS_submodel *submodel;
   submodel = romdata->sub1;
 
   double x = sqrt(1.0-4.0*eta) ;
@@ -971,7 +971,7 @@ static int EOBROMEOSCore(
 
 
 //Function to test data reading
-int XLALSimIMREOBROMEOS(
+int XLALSimInspiralTEOBResumROM(
   REAL8TimeSeries **hPlus, /**< Output: Frequency-domain waveform h+ */
   REAL8TimeSeries **hCross, /**< Output: Frequency-domain waveform hx */
   REAL8 phiRef,                                 /**< Orbital phase at reference frequency*/
@@ -1012,18 +1012,18 @@ int XLALSimIMREOBROMEOS(
   if (fRef==0.0) fRef=fLow;
 
   // Load ROM data if not loaded already
-  fprintf(stdout,"initializing with EOB_ROM_EOS_Init_LALDATA()\n");
+  fprintf(stdout,"initializing with TEOBResumROM_Init_LALDATA()\n");
   #ifdef LAL_PTHREAD_LOCK
-  (void) pthread_once(&EOB_ROM_EOS_is_initialized, EOB_ROM_EOS_Init_LALDATA);
+  (void) pthread_once(&TEOBResumROM_is_initialized, TEOBResumROM_Init_LALDATA);
   #else
-  EOB_ROM_EOS_Init_LALDATA();
+  TEOBResumROM_Init_LALDATA();
   #endif
 
-  if(!EOB_ROM_EOS_IsSetup()) XLAL_ERROR(XLAL_EFAILED,"Error setting up EOB_ROM_EOS data - check your $LAL_DATA_PATH\n");
+  if(!TEOBResumROM_IsSetup()) XLAL_ERROR(XLAL_EFAILED,"Error setting up TEOBResumROM data - check your $LAL_DATA_PATH\n");
 
-  int retcode = EOBROMEOSCore(hPlus,hCross, phiRef, deltaT, fRef, distance, inclination, Mtot, eta, lambda1, lambda2);
+  int retcode = TEOBResumROMCore(hPlus,hCross, phiRef, deltaT, fRef, distance, inclination, Mtot, eta, lambda1, lambda2);
 
-  EOB_ROM_EOSdataDS_Cleanup(&__lalsim_EOB_ROM_EOSDS_data);
+  TEOBResumROMdataDS_Cleanup(&__lalsim_TEOBResumROMDS_data);
 
   return(retcode);
 }
@@ -1031,7 +1031,7 @@ int XLALSimIMREOBROMEOS(
 
 
 //Function to test data reading
-int XLALSimIMREOBROMEOS_test(
+int XLALSimInspiralTEOBResumROM_test(
   REAL8TimeSeries **hPlus, /**< Output: Frequency-domain waveform h+ */
   REAL8TimeSeries **hCross, /**< Output: Frequency-domain waveform hx */
   REAL8 phiRef,                                 /**< Orbital phase at reference frequency*/
@@ -1072,22 +1072,22 @@ int XLALSimIMREOBROMEOS_test(
   if (fRef==0.0) fRef=fLow;
 
   // Load ROM data if not loaded already
-  fprintf(stdout,"initializing with EOB_ROM_EOS_Init_LALDATA()\n");
+  fprintf(stdout,"initializing with TEOBResumROM_Init_LALDATA()\n");
   #ifdef LAL_PTHREAD_LOCK
-  (void) pthread_once(&EOB_ROM_EOS_is_initialized, EOB_ROM_EOS_Init_LALDATA);
+  (void) pthread_once(&TEOBResumROM_is_initialized, TEOBResumROM_Init_LALDATA);
   #else
-  EOB_ROM_EOS_Init_LALDATA();
+  TEOBResumROM_Init_LALDATA();
   #endif
 
-  if(!EOB_ROM_EOS_IsSetup()) XLAL_ERROR(XLAL_EFAILED,"Error setting up EOB_ROM_EOS data - check your $LAL_DATA_PATH\n");
+  if(!TEOBResumROM_IsSetup()) XLAL_ERROR(XLAL_EFAILED,"Error setting up TEOBResumROM data - check your $LAL_DATA_PATH\n");
 
   // Use fLow, fHigh, deltaF to compute freqs sequence
   // Instead of building a full sequency we only transfer the boundaries and let
   // the internal core function do the rest (and properly take care of corner cases).
 
-  int retcode = EOBROMEOSCore_test(hPlus,hCross, phiRef, deltaT, fRef, distance, inclination, Mtot, eta, lambda1, lambda2);
+  int retcode = TEOBResumROMCore_test(hPlus,hCross, phiRef, deltaT, fRef, distance, inclination, Mtot, eta, lambda1, lambda2);
 
-  EOB_ROM_EOSdataDS_Cleanup(&__lalsim_EOB_ROM_EOSDS_data);
+  TEOBResumROMdataDS_Cleanup(&__lalsim_TEOBResumROMDS_data);
 
   return(retcode);
 }
@@ -1096,21 +1096,21 @@ int XLALSimIMREOBROMEOS_test(
 
 /** Setup SEOBNRv2ROMDoubleSpin model using data files installed in $LAL_DATA_PATH
  */
-static void EOB_ROM_EOS_Init_LALDATA(void)
+static void TEOBResumROM_Init_LALDATA(void)
 {
-  if (EOB_ROM_EOS_IsSetup()) return;
+  if (TEOBResumROM_IsSetup()) return;
 
   // If we find one ROM datafile in a directory listed in LAL_DATA_PATH,
   // then we expect the remaining datafiles to also be there.
-  char datafile[] = "EOB_ROM_EOS_Phase_ciall.dat";
+  char datafile[] = "TEOBResumROM_Phase_ciall.dat";
 
   char *path = XLALFileResolvePathLong(datafile, PKG_DATA_DIR);
   if (path==NULL)
     XLAL_ERROR_VOID(XLAL_EIO, "Unable to resolve data file %s in $LAL_DATA_PATH\n", datafile);
   char *dir = dirname(path);
-  int ret = EOB_ROM_EOS_Init(dir);
+  int ret = TEOBResumROM_Init(dir);
   XLALFree(path);
 
   if(ret!=XLAL_SUCCESS)
-    XLAL_ERROR_VOID(XLAL_FAILURE, "Unable to find EOB_ROM_EOS data files in $LAL_DATA_PATH\n");
+    XLAL_ERROR_VOID(XLAL_FAILURE, "Unable to find TEOBResumROM data files in $LAL_DATA_PATH\n");
 }

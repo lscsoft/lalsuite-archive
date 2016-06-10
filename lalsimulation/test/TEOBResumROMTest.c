@@ -141,7 +141,7 @@ int main (int argc, char *argv[])
   UNUSED(argc);
   UNUSED(argv);
 
-  if ( XLALSimIMREOBROMEOS(&hplus,&hcross,phiC,deltaT,fMin,0.0,r,i,mass1*LAL_MSUN_SI,mass2*LAL_MSUN_SI,lambda1,lambda2) == XLAL_FAILURE )
+  if ( XLALSimInspiralTEOBResumROM(&hplus,&hcross,phiC,deltaT,fMin,0.0,r,i,mass1*LAL_MSUN_SI,mass2*LAL_MSUN_SI,lambda1,lambda2) == XLAL_FAILURE )
   {
     fprintf( stderr, "The waveform generation function has failed!!\n" );
     exit(1);

@@ -132,7 +132,6 @@ liblalsimulation_la_SOURCES = \
 	LALSimIMRSEOBNRv1ROMEffectiveSpin.c \
 	LALSimIMRSEOBNRv1ROMDoubleSpin.c \
 	LALSimIMRSEOBNRv2ROMEffectiveSpin.c \
-        LALSimIMREOBEOSROM.c \
 	LALSimIMRSEOBNRv2ROMDoubleSpin.c \
 	LALSimIMRSEOBNRv2ROMDoubleSpinHI.c \
 	LALSimIMRSEOBNRv2ChirpTime.c \
@@ -167,6 +166,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimInspiralTaylorLength.c \
 	LALSimInspiralWaveformCache.c \
 	LALSimInspiralWaveformTaper.c \
+        LALSimInspiralTEOBResumROM.c \
         LALSimIMRNRWaveforms.c \
 	LALSimulation.c \
 	LALSimulationVCSInfo.c \

@@ -305,7 +305,7 @@ typedef enum {
                          * @attention Not implemented in lalsimulation. */
    EOBNRv2HM_ROM,       /**< Frequency domain reduced order model of model EOBNRv2HM, no spin but with higher modes.
                          * @attention Not implemented in lalsimulation. */
-   EOB_EOS_ROM,         /**< Time domain reduced order model of EOB with tidal effects.
+   TEOBResum_ROM,         /**< Time domain reduced order model of EOB with tidal effects.
                          * @remarks Implemented in lalsimulation (time domain). */
    SEOBNRv1,		/**< Spin-aligned EOBNR model
                          * @remarks Implemented in lalsimulation (time domain). */
