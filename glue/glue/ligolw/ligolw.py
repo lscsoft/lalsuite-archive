@@ -588,12 +588,7 @@ class Time(Element):
 			import dateutil.parser
 			self.pcdata = dateutil.parser.parse(self.pcdata)
 		elif self.Type == u"GPS":
-			# FIXME:  remove try/except when we can rely on lal
-			# being installed
-			try:
-				from lal import LIGOTimeGPS
-			except ImportError:
-				from glue.lal import LIGOTimeGPS
+			from lal import LIGOTimeGPS
 			# FIXME:  remove cast to string when lal swig
 			# can cast from unicode
 			self.pcdata = LIGOTimeGPS(str(self.pcdata))
