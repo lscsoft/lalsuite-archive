@@ -1,0 +1,19 @@
+dataset random.dst
+input-format GEO
+earth-ephemeris ../earth05-09.dat
+sun-ephemeris ../sun05-09.dat
+#sky-marks /home/volodya/LIGO/PowerFlux/all_sky_marks.txt
+first-bin 90000
+nbins 501
+do-cutoff 1
+filter-lines 1
+averaging-mode one 
+spindown-start-time 818880650 
+write-dat NONE
+write-png NONE
+subtract-background 1
+ks-test 1
+compute-betas 0
+#max-candidates 10
+initial-dataset-seed 0
+ 

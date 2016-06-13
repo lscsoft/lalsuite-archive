@@ -1,0 +1,4 @@
+new_dataset "H1_test1"
+detector "LHO"
+gaussian_fill 793154935 1800 2001 1e-24
+apply_hanning_filter

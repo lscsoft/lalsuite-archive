@@ -1,0 +1,5 @@
+
+#
+# Mark general sky areas as band 0
+#
+disk "sky" "" 0 0 100

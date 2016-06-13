@@ -1,0 +1,177 @@
+Initial memory: 8.66016 MB
+Virtual memory limits soft=-1 hard=-1
+Data segment limits soft=-1 hard=-1
+Running on node12
+maximum threads: 2
+Normal distribution approximation error is 0.000048
+maximum filter7 sampling error: 0.0228921
+Successfully initialized ephemeris data
+Initializing sky grids
+npoints=866 super grid npoints=20326
+fine grid: max_n_ra=253 max_n_dec=126
+Full grid memory: 11.4531 MB
+side_cut=900
+	plus 0.0
+	cross 0.785398
+	pi_1_8 a=0.392699
+	pi_3_8 a=1.1781
+	circular 1.000000 1.000000
+compute_signal_test1: 9.59668e-06 1.83957e-05 500.101774
+compute_signal_test2: 1.1427e-05 -1.72567e-05 500.101774
+compute_signal_test3: 1.72567e-05 1.1427e-05 500.101774
+compute_median_test1: 4.29153e-09
+compute_median_test2: 1.07288e-09
+Loading data from dataset random.dst
+Generating 4001 gaussian SFTs starting with gps 793154935 step 3600 amplitude 2.94912e-17 for dataset H1_test1
+Growing H1_test1 SFT array to 87.793739 MB count=0
+Validating dataset "H1_test1"
+Found 4001 segments
+Injecting fake signal.
+Computing detector speed for dataset H1_test1
+dataset H1_test1 average detector velocity RA (degrees) : 327.495659
+dataset H1_test1 average detector velocity DEC (degrees): -13.114496
+dataset H1_test1 auto band axis: 0.570417 0.753574 0.326726
+dataset H1_test1 band_axis: auto
+dataset H1_test1 actual band axis: 0.570417 0.753574 0.326726
+dataset H1_test1 band axis RA (degrees) : 52.876138
+dataset H1_test1 band axis DEC (degrees): 19.070151
+210728
+0.0147384
+0.000371395
+2.84951e-05
+3.09812e-06
+4.53874e-07
+7.51668e-08
+3.45415e-08
+1.62072e-09
+0
+histogram: band min max counts..
+hist_residuals: H1_test1: 0 -7.0163 1.53046 1 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 3 0 0 0 0 1 0 0 1 0 1 0 0 4 0 2 1 0 2 2 2 5 2 3 1 2 2 5 5 4 6 4 11 9 9 8 4 9 11 9 16 20 26 27 25 28 28 35 30 53 46 48 56 64 55 66 82 81 84 113 122 89 130 144 163 177 211 229 251 243 310 339 415 452 410 533 549 606 677 729 840 899 998 1116 1180 1313 1409 1553 1746 1940 2178 2306 2573 2934 3151 3519 3846 4235 4774 5178 5658 6354 7012 7723 8432 9151 10405 11348 12540 13754 15219 16759 18247 20436 21940 24542 27070 29907 32571 35969 39362 43431 47419 51827 57278 62612 68340 75187 81890 89103 96943 105986 115924 125457 136192 147454 159557 171929 184850 198626 212806 227044 241057 255358 269479 283094 296494 306692 322489 324669 329483 332482 331846 328462 320372 309578 295504 277257 255654 230611 204737 178855 151614 123850 98965 76935 57253 41499 28215 18212 11614 6775 3652 1973 970 439 180 85 29 17 8 6 2 1
+Obtaining whole sky AM response for dataset H1_test1
+Computing whole sky AM response for 4001 SFTs
+AM coeffs size: 750.187500 KB
+Initializing polarizations for dataset H1_test1
+	plus
+	cross
+	pi_1_8
+	pi_3_8
+	circular
+Verifying AM response computation for dataset H1_test1
+plus AM coeffs error: 1.04308e-06
+cross AM coeffs error: 1.19209e-06
+pi_1_8 AM coeffs error: 1.49012e-06
+pi_3_8 AM coeffs error: 1.37091e-06
+circular AM coeffs error: 1.04308e-06
+Computing cutoff values for dataset H1_test1
+ 0.2  23.2  46.3  69.3  92.3  100
+H1_test1 dc_factor_blocked: 0
+H1_test1 dc_factor_touched: 0
+H1_test1 SFTs veto level: 0.010000
+H1_test1 SFTs veto spike level: 1.700000
+H1_test1 SFTs veto count: 0
+H1_test1 CutOff=7.32569
+Checking background lines
+H1_test1 background line detected: bin=92 z=9.09891e+06 strength=1.376898 flag=0x00000013
+H1_test1 background i=92 -120692 1.0623e+06 -244780
+H1_test1 background line detected: bin=199 z=8.912e+06 strength=1.134632 flag=0x00000012
+H1_test1 background line detected: bin=316 z=8.98203e+06 strength=1.225401 flag=0x00000012
+H1_test1 background line detected: bin=349 z=8.81761e+06 strength=1.012286 flag=0x00000012
+H1_test1 background line detected: bin=608 z=8.81827e+06 strength=1.013147 flag=0x00000012
+H1_test1 background line detected: bin=758 z=9.09263e+06 strength=1.368758 flag=0x00000012
+H1_test1 background line detected: bin=780 z=9.0633e+06 strength=1.330737 flag=0x00000012
+H1_test1 background line detected: bin=844 z=8.84751e+06 strength=1.051036 flag=0x00000012
+H1_test1 background line detected: bin=924 z=8.96807e+06 strength=1.207303 flag=0x00000012
+H1_test1 background line detected: bin=932 z=9.13362e+06 strength=1.421879 flag=0x00000013
+H1_test1 background i=932 -70391 1.09701e+06 -369477
+H1_test1 background line detected: bin=966 z=8.81428e+06 strength=1.007973 flag=0x00000012
+H1_test1 background line detected: bin=976 z=8.82015e+06 strength=1.015586 flag=0x00000002
+H1_test1 background line detected: bin=997 z=8.82207e+06 strength=1.018063 flag=0x00000002
+H1_test1 background line detected: bin=1010 z=8.821e+06 strength=1.016689 flag=0x00000012
+H1_test1 background line detected: bin=1020 z=9.00598e+06 strength=1.256441 flag=0x00000002
+H1_test1 background line detected: bin=1027 z=8.82242e+06 strength=1.018520 flag=0x00000012
+H1_test1 background line detected: bin=1066 z=9.23035e+06 strength=1.547253 flag=0x00000013
+H1_test1 background i=1066 561579 1.19374e+06 179674
+H1_test1 background line detected: bin=1121 z=8.8319e+06 strength=1.030813 flag=0x00000002
+H1_test1 background line detected: bin=1135 z=9.02298e+06 strength=1.278471 flag=0x00000002
+H1_test1 background line detected: bin=1136 z=9.13046e+06 strength=1.417791 flag=0x00000003
+H1_test1 background i=1136 986366 1.09385e+06 152975
+H1_test1 background line detected: bin=1323 z=8.99506e+06 strength=1.242292 flag=0x00000012
+H1_test1 background line detected: bin=1360 z=8.91008e+06 strength=1.132137 flag=0x00000012
+H1_test1 background line detected: bin=1368 z=8.86094e+06 strength=1.068447 flag=0x00000012
+H1_test1 background line detected: bin=1431 z=8.82076e+06 strength=1.016374 flag=0x00000012
+H1_test1 background line detected: bin=1654 z=8.85286e+06 strength=1.057980 flag=0x00000002
+H1_test1 background line detected: bin=1776 z=8.9027e+06 strength=1.122579 flag=0x00000012
+H1_test1 background line detected: bin=1939 z=9.04541e+06 strength=1.307545 flag=0x00000012
+H1_test1 background line detected: bin=2018 z=8.81399e+06 strength=1.007594 flag=0x00000012
+H1_test1 background line detected: bin=2241 z=8.81836e+06 strength=1.013257 flag=0x00000002
+H1_test1 background median=8.03661e+06 qmost=8.80813e+06 qlines=9.09263e+06
+H1_test1 background bins marked "very high": 0
+H1_test1 background median: 8.03661e+06
+H1_test1 background qmost : 8.80813e+06
+H1_test1 background qlines: 9.09263e+06
+H1_test1 background cutoff: 9.57965e+06
+Background lines removal will not be performed
+input complete: 818
+Computing detector speed
+average detector velocity RA (degrees) : 327.418177
+average detector velocity DEC (degrees): -13.142199
+auto band axis: 0.571569 0.75284 0.326407
+band_axis: auto
+actual band axis: 0.571569 0.75284 0.326407
+band axis RA (degrees) : 52.793595
+band axis DEC (degrees): 19.050837
+Output dataset summary data
+dataset H1_test1 allocated size: 105.357754 MB
+dataset H1_test1 adjusted weight: 1
+Lower limit approximation error: 0.003246
+Upper limit approximation error: 0.008300
+instance_start: 818
+instance_start memory: 17.3164 MB
+-------------------------------- SUBINSTANCE 0 ------------------------------
+subinstance name: ""
+reduced npoints=20326 to npoints=20326
+Verifying AM response computation for dataset H1_test1
+plus AM coeffs error: 1.04308e-06
+cross AM coeffs error: 1.19209e-06
+pi_1_8 AM coeffs error: 1.49012e-06
+pi_3_8 AM coeffs error: 1.37091e-06
+circular AM coeffs error: 1.04308e-06
+Skymap arrays size: 4.3 MB
+Spectral plot arrays size: 753.5 KB
+Allocating accumulation arrays: 660.5 KB
+Allocating accumulation arrays: 660.5 KB
+Main loop: 866 patches to process.
+ 0.1  22.6  45.2  67.4  88.8 
+Patch speed: 4.521312
+Power cache 0 hits: 104302911
+Power cache 0 misses: 4248956
+Power cache 1 hits: 95213498
+Power cache 1 misses: 3866084
+Maximum bin shift is 277
+Minimum bin shift is -18
+Writing polarization specific results
+Writing unified results
+Identifying candidates - pass 1
+noise_floor: 16.010958
+Writing skymaps
+Optimizing candidates (pass 2)
+optimized_candidates_count: 0
+high_candidates_count: 119
+candidates_count: 177
+Second pass processing time: 81
+candidates: label polarization_index rank opt_rank score point_index domain_size ul S M max_dx frequency psi iota ra dec spindown weight_ratio skyband coherence_score power_cor snr strain strain_err total_weight f_max ifo_freq ifo_freq_sd total
+candidates cache length: 0
+candidates cache leaves: 0
+candidates index non zero count: 0
+candidates index max length: 0
+candidates index average length: 0.000000
+index queries total: 0.000000
+index hits: 0.000000
+index hit ratio: nan
+index average snr change: nan
+improvement queries total: 0.000000
+improvements: 0.000000
+improvement ratio: nan
+improvement average snr change: nan
+exit memory: 26.3164 MB
+seconds elapsed: 1094

@@ -1,0 +1,16 @@
+1800    %Tsft_in_sec
+1440    %nTsft
+1000.0   %first_SFT_frequency_in_Hz
+10.0    %SFT_freq_band_in_Hz
+0.1     %sigma_(std_of_noise.When=0_only_signal_present)
+0.08    %Aplus
+0.0     %Across
+0.8     %psi
+0.9     %phi0
+1000.4  %f0
+0.7854       %latitude_in_radiansDEC
+0.7854        %longitude_in_radiansRA
+0       %max_spin-down_param_order
+-0.e-9  %value of first spindown
+0e-14  %value of second spindown
+./testT8_1800   %name_of_time-stamps_file

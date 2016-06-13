@@ -1,0 +1,13 @@
+dataset /storage/home/volodya/LIGO/SFT-DATA/S5/H1_395_415.dst
+first-bin 1600
+nbins 1
+ephemeris-path /home/volodya/LIGO/LAL/lalsuite/lalpulsar/test/detresponse
+filter-lines 1
+earth-ephemeris /home/volodya/LIGO/LAL/lalsuite/lalpulsar/test//earth05-09.dat
+sun-ephemeris /home/volodya/LIGO/LAL/lalsuite/lalpulsar/test//sun05-09.dat
+focus-dec -1.257051
+focus-ra 0.4687356
+focus-radius 0.0001
+dump-data input.dat
+write-dat NONE
+write-png .*$ 
