@@ -76,6 +76,7 @@ pkginclude_HEADERS = \
 
 noinst_HEADERS = \
 	LALSimIMREOBFactorizedWaveform.c \
+	LALSimIMRTNSEOBFactorizedWaveform.c \
 	LALSimIMREOBHybridRingdown.c \
 	LALSimIMREOBNQCCorrection.c \
 	LALSimIMREOBNRv2.h \
@@ -99,6 +100,7 @@ noinst_HEADERS = \
 	LALSimIMRSpinEOBFactorizedFlux.c \
 	LALSimIMRSpinEOBFactorizedFluxOptimized.c \
 	LALSimIMREOBFactorizedFlux.c \
+	LALSimIMRTNSEOBFactorizedFlux.c \
 	LALSimNeutronStarEOSPiecewisePolytrope.c \
 	LALSimNeutronStarEOSTabular.c \
 	LALSimIMRPhenomC_internals.c \
