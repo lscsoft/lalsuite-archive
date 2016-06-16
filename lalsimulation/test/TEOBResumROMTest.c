@@ -130,12 +130,12 @@ int main (int argc, char *argv[])
   REAL8 r      = distance*1.0e6 * LAL_PC_SI;
   REAL8 i      = 0.;
 
-  REAL8 m1sec = mass1*LAL_MTSUN_SI ;
-  REAL8 m2sec = mass2*LAL_MTSUN_SI ;
-  REAL8 m1sec5=m1sec*m1sec*m1sec*m1sec*m1sec ;
-  REAL8 m2sec5=m2sec*m2sec*m2sec*m2sec*m2sec ;
-  lambda1=lambda1/m1sec5 ;
-  lambda2=lambda2/m2sec5 ;
+//   REAL8 m1sec = mass1*LAL_MTSUN_SI ;
+//   REAL8 m2sec = mass2*LAL_MTSUN_SI ;
+//   REAL8 m1sec5=m1sec*m1sec*m1sec*m1sec*m1sec ;
+//   REAL8 m2sec5=m2sec*m2sec*m2sec*m2sec*m2sec ;
+//   lambda1=lambda1/m1sec5 ;
+//   lambda2=lambda2/m2sec5 ;
 
 
   UNUSED(argc);

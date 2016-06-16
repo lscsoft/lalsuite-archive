@@ -982,8 +982,8 @@ int XLALSimInspiralTEOBResumROM(
   REAL8 inclination,                            /**< Inclination of source (rad) */
   REAL8 m1SI,                                   /**< Mass of companion 1 (kg) */
   REAL8 m2SI,                                   /**< Mass of companion 2 (kg) */
-  REAL8 lambda1,                                /**< (tidal deformability of body 1)/(mass of body 1)^5 */
-  REAL8 lambda2)                                /**< (tidal deformability of body 1)/(mass of body 1)^5 */
+  REAL8 lambda1,                                /**< dimensionless tidal deformability of body 1 */
+  REAL8 lambda2)                                /**< dimensionless tidal deformability of body 1 */
 {
   /* Internally we need m1 > m2, so change around if this is not the case */
   if (m1SI < m2SI) {
@@ -1002,12 +1002,12 @@ int XLALSimInspiralTEOBResumROM(
   double Mtot = mass1+mass2;
   double eta = mass1 * mass2 / (Mtot*Mtot);    /* Symmetric mass-ratio */
 
-  REAL8 m1sec = (m1SI/LAL_MSUN_SI)*LAL_MTSUN_SI ;
-  REAL8 m2sec = (m2SI/LAL_MSUN_SI)*LAL_MTSUN_SI ;
-  REAL8 m1sec5=m1sec*m1sec*m1sec*m1sec*m1sec ;
-  REAL8 m2sec5=m2sec*m2sec*m2sec*m2sec*m2sec ;
-  lambda1*=m1sec5 ;
-  lambda2*=m2sec5 ;
+//   REAL8 m1sec = (m1SI/LAL_MSUN_SI)*LAL_MTSUN_SI ;
+//   REAL8 m2sec = (m2SI/LAL_MSUN_SI)*LAL_MTSUN_SI ;
+//   REAL8 m1sec5=m1sec*m1sec*m1sec*m1sec*m1sec ;
+//   REAL8 m2sec5=m2sec*m2sec*m2sec*m2sec*m2sec ;
+//   lambda1*=m1sec5 ;
+//   lambda2*=m2sec5 ;
 
   if (fRef==0.0) fRef=fLow;
 
