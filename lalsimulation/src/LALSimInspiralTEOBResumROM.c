@@ -1023,8 +1023,6 @@ int XLALSimInspiralTEOBResumROM(
 
   int retcode = TEOBResumROMCore(hPlus,hCross, phiRef, deltaT, fRef, distance, inclination, Mtot, eta, lambda1, lambda2);
 
-  TEOBResumROMdataDS_Cleanup(&__lalsim_TEOBResumROMDS_data);
-
   return(retcode);
 }
 
