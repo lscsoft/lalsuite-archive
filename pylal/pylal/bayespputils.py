@@ -936,7 +936,6 @@ class Posterior(object):
           and ('declination' in pos.names or 'dec' in pos.names) \
           and 'time' in pos.names:
               from pylal import xlal,inject
-              from pylal.xlal import datatypes
               from pylal import date
               from pylal.date import XLALTimeDelayFromEarthCenter
               from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
