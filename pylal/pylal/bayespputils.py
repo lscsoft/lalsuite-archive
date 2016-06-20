@@ -6006,18 +6006,13 @@ class PEOutputParser(object):
             assert 'samples' in active_group, repr(list(active_group.keys()))
             active_group = active_group['samples']
 
-            # build a numpy dtype from the posterior sample data
-            posterior_dtype = [(key, values.dtype.type) for key, values in active_group.items()]
-            # grab the shape from a random dataset, as they should be identical
-            shape = active_group[list(active_group.keys())[0]].shape
             # fill the numpy array
-            posterior_data = np.empty(shape, dtype=posterior_dtype)
-            for key in active_group:
-                posterior_data[key] = active_group[key]
-        header = list(posterior_data.dtype.names)
+            header = list(hdf_file.keys())
+            posterior_data = np.array([posterior_data[key] for key in header])
+
         # join the fields into a (nfields, nsamples) array, transposed 
         # to be (nsamples, nfields)
-        flines = np.array([posterior_data[key] for key in header]).T
+        flines = posterior_data.T
 
         for i, _ in enumerate(header):
             if header[i].lower().find('log') != -1 and header[i].lower() not in logParams:
