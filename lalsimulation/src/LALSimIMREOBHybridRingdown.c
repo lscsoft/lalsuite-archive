@@ -786,11 +786,11 @@ static UNUSED INT4 XLALSimIMREOBAttachFitRingdown(
 
     Approximant appr;
     appr = approximant;
-    if ( approximant != SEOBNRv2 ){
-        // We use here approximant = SEOBNRv2 for computation of the final mass final spin and frequencies 
-        // This should change if other method for final mass/spin are available 
-        appr = SEOBNRv2;
-    }
+//    if ( approximant != SEOBNRv2 ){
+//        // We use here approximant = SEOBNRv2 for computation of the final mass final spin and frequencies 
+//        // This should change if other method for final mass/spin are available 
+//        appr = SEOBNRv2;
+//    }
 
     if (debugSB){
         printf("RDfit: we use spin1 %f, spin2 %f, and it should be dimensionless [-1,1] \n", chi1, chi2);
