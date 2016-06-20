@@ -6004,12 +6004,15 @@ class PEOutputParser(object):
             run_identifier = list(active_group.keys())[0]
             active_group = active_group[run_identifier]
             assert 'samples' in active_group, repr(list(active_group.keys()))
+
             active_group = active_group['samples']
 
             # fill the numpy array
-            header = list(hdf_file.keys())
-            posterior_data = np.array([posterior_data[key] for key in header])
-
+            header = list(active_group.keys())
+            posterior_data=[]
+            for key in header:
+              posterior_data.append(active_group[key][...])
+            posterior_data=np.array(posterior_data)
         # join the fields into a (nfields, nsamples) array, transposed 
         # to be (nsamples, nfields)
         flines = posterior_data.T
