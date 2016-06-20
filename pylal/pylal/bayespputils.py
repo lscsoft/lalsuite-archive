@@ -5998,8 +5998,8 @@ class PEOutputParser(object):
         """
         with h5py.File(infile, 'r') as hdf_file:
             # navigate to the data with plenty of checks
-            assert 'lalinfernece' in hdf_file, repr(list(hdf_file.keys()))
-            active_group = hdf_file['lalinfernece']
+            assert 'lalinference' in hdf_file, repr(list(hdf_file.keys()))
+            active_group = hdf_file['lalinference']
             assert len(active_group.keys()) == 1, repr(list(active_group.keys()))
             run_identifier = list(active_group.keys())[0]
             active_group = active_group[run_identifier]
