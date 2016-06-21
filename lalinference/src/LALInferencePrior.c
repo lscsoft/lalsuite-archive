@@ -159,7 +159,7 @@ void LALInferenceInitLIBPrior(LALInferenceRunState *runState)
 {
     /*Call CBC prior first, in case CBC approx is used, then check for burst approx and eventually overwrite runState->prior */
     LALInferenceInitCBCPrior(runState);
-    /*LIB specific call in case of burst approximant */
+    /*LIB specific call in case of burst approximant. */
     ProcessParamsTable *commandLine=runState->commandLine;
     ProcessParamsTable *ppt = NULL;
     if ((ppt=LALInferenceGetProcParamVal(commandLine,"--approx"))){
