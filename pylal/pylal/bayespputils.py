@@ -74,11 +74,7 @@ except ImportError:
 
 from matplotlib.ticker import FormatStrFormatter,ScalarFormatter,AutoMinorLocator
 
-try:
-    from xml.etree.cElementTree import Element, SubElement, ElementTree, Comment, tostring, XMLParser
-except ImportError:
-    #Python < 2.5
-    from cElementTree import Element, SubElement, ElementTree, Comment, tostring, XMLParser
+from xml.etree.cElementTree import Element, SubElement, ElementTree, Comment, tostring, XMLParser
 
 #local application/library specific imports
 import pylal
