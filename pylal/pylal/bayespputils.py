@@ -1964,7 +1964,7 @@ class Posterior(object):
                 spins['a1z'] = inj.spin1z
                 spins['a2z'] = inj.spin2z
 
-            L  = orbital_momentum(f_ref, mc, iota)
+            L  = orbital_momentum(f_ref, m1,m2, iota)
             S1 = np.hstack((s1x, s1y, s1z))
             S2 = np.hstack((s2x, s2y, s2z))
 
@@ -3812,7 +3812,7 @@ def ROTATEY(angle, vx, vy, vz):
     tmp2 = - vx*np.sin(angle) + vz*np.cos(angle);
     return np.asarray([tmp1,vy,tmp2])
 
-def orbital_momentum(fref, mc, inclination):
+def orbital_momentum(fref, m1,m2, inclination):
     """
     Calculate orbital angular momentum vector.
     Note: The units of Lmag are different than what used in lalsimulation.
@@ -3821,13 +3821,19 @@ def orbital_momentum(fref, mc, inclination):
     Note that if one wants to build J=L+S1+S2 with L returned by this function, S1 and S2
     must not get the Msun^2 factor.
     """
-    Lmag = orbital_momentum_mag(fref, mc)
+    eta = m1*m2/( (m1+m2)*(m1+m2) )
+    Lmag = orbital_momentum_mag(fref, m1,m2,eta)
     Lx, Ly, Lz = sph2cart(Lmag, inclination, 0.0)
     return np.hstack((Lx,Ly,Lz))
 #
 #
-def orbital_momentum_mag(fref, mc):
-    return np.power(mc, 5.0/3.0) / np.power(pi_constant * lal.MTSUN_SI * fref, 1.0/3.0)
+def orbital_momentum_mag(fref, m1,m2,eta):
+    v0 = np.power(pi_constant * lal.MTSUN_SI * fref, 1.0/3.0)
+    #1 PN Mtot*Mtot*eta/v
+    PNFirst = (((m1+m2)**2)*eta)/v0
+    PNSecond = 1+ (v0**2) * (3.0/2.0 -eta/6.0)
+    Lmag= PNFirst*PNSecond
+    return Lmag 
 
 def component_momentum(m, a, theta, phi):
     """
@@ -3852,7 +3858,7 @@ def spin_angles(fref,mc,eta,incl,a1,theta1,phi1,a2=None,theta2=None,phi2=None):
     """
     singleSpin = None in (a2,theta2,phi2)
     m1, m2 = mc2ms(mc,eta)
-    L  = orbital_momentum(fref, mc, incl)
+    L  = orbital_momentum(fref, m1,m2, incl)
     S1 = component_momentum(m1, a1, theta1, phi1)
     if not singleSpin:
         S2 = component_momentum(m2, a2, theta2, phi2)
@@ -3952,7 +3958,7 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
             a2,theta2,phi2 = cart2sph(spin2x,spin2y,spin2z)
 
             mc = np.power(m1*m2,3./5.)*np.power(m1+m2,-1./5.)
-            L  = orbital_momentum(fref, mc, iota)
+            L  = orbital_momentum(fref, m1,m2, iota)
             S1 = np.hstack([m1*m1*spin1x,m1*m1*spin1y,m1*m1*spin1z])
             S2 = np.hstack([m2*m2*spin2x,m2*m2*spin2y,m2*m2*spin2z])
             J = L + S1 + S2
@@ -3984,7 +3990,7 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
             a2,theta2,phi2 = cart2sph(spin2x,spin2y,spin2z)
 
             mc = np.power(m1*m2,3./5.)*np.power(m1+m2,-1./5.)
-            L  = orbital_momentum(fref, mc, iota)
+            L  = orbital_momentum(fref, m1,m2, iota)
             S1 = m1*m1*np.hstack([spin1x,spin1y,spin1z])
             S2 = m2*m2*np.hstack([spin2x,spin2y,spin2z])
             J = L + S1 + S2
