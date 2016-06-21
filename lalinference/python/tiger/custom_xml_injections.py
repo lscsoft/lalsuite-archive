@@ -38,7 +38,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils as ligolw_utils
 
 import lal
-from numpy import fmod,cos,sin,sqrt,genfromtxt
+from numpy import cos,sin,sqrt,genfromtxt
 
 LLO_index = lal.LALDetectorIndexLLODIFF
 LHO_index = lal.LALDetectorIndexLHODIFF
@@ -149,6 +149,48 @@ def get_component_spins(phi,theta,a):
   return [spinx,spiny,spinz]
 
 
+def run_inspinj(approximant,gps_start_time,distance,flow,longitude,latitude,polarization,inclination,output,inspinj="lalapps_inspinj"):
+  """Create an xml document containing only one row with specified parameters
+  """
+
+  xmltmpname = path.join(path.dirname(output),"tmp.xml")
+  command = "%s "%inspinj
+  command += "--output %s "%xmltmpname
+  command += "--seed 1000 "
+  command += "--waveform %s "%approximant
+  command += "--gps-start-time %d "%gps_start_time
+  command += "--gps-end-time %d "%(gps_start_time+1000)
+  command += "--time-step %d "%1000
+  command += "--min-distance %f "%(distance*1000.0)
+  command += "--max-distance %f "%(distance*1000.0)
+  command += "--d-distr volume "
+  command += "--m-distr componentMass "
+  command += "--min-mass1 5.0 "
+  command += "--max-mass1 40.0 "
+  command += "--min-mass2 5.0 "
+  command += "--max-mass2 40.0 "
+  command += "--f-lower %f "%flow
+  command += "--l-distr fixed "
+  command += "--longitude %f "%longitude
+  command += "--latitude %f "%latitude
+  command += "--i-distr fixed "
+  command += "--polarization %f "%polarization
+  command += "--fixed-inc %f "%inclination
+  command += "--t-distr fixed "
+  command += "--enable-spin "
+  command += "--min-spin1 0.01 "
+  command += "--max-spin1 0.9 "
+  command += "--min-spin2 0.01 "
+  command += "--max-spin2 0.9"
+
+  system(command)
+  xmldoc = ligolw_utils.load_filename(xmltmpname, contenthandler = LIGOLWContentHandler, verbose = False)
+  system("rm %s"%xmltmpname)
+
+  return xmldoc
+
+
+
 
 def main(testarguments=""):
 
@@ -159,7 +201,7 @@ def main(testarguments=""):
   #############################################################################
 
   """
-  For testing main can be called from within e.g. ipython with commandline provided as:
+  For testing, main can be called from within e.g. ipython with commandline provided as:
   ['--sourcefile', 'testfile', '--flow', '10.0']
   """
 
@@ -202,22 +244,16 @@ def main(testarguments=""):
   for p,i in zip(header,range(len(header))):
     index[p] = i
 
-  #following doesn't really matter, will be overwritten by file parameters
-  gps_start_time = 966384015
-  time_step = 100
-  gps_end_time = gps_start_time + N_sources*time_step
-
-  #Create a temporary xml file that contains enough sources
-  #(rows in sim_inspiral table)
-  xmltmpname = path.join(path.dirname(output),"tmp.xml")
+  #Create a temporary xml file that contains enough sources (rows) to function as template
+  xmltmpname = path.join(path.dirname(output),"tmp_template.xml")
   xmlout = output
   command = "%s "%inspinj
   command += "--output %s "%xmltmpname
   command += "--seed 1000 "
   command += "--waveform %s "%approximant
-  command += "--gps-start-time %d "%gps_start_time
-  command += "--gps-end-time %d "%gps_end_time
-  command += "--time-step %d "%time_step
+  command += "--gps-start-time %d "%966384015
+  command += "--gps-end-time %d "%(966384015+N_sources*100)
+  command += "--time-step 100 "
   command += "--min-distance 100000 "
   command += "--max-distance 150000 "
   command += "--d-distr volume "
@@ -237,11 +273,11 @@ def main(testarguments=""):
   command += "--max-spin2 0.9"
   #p = Popen(command, stdout=PIPE, stderr=PIPE,shell=True)
   system(command)
-  xmldoc = ligolw_utils.load_filename(xmltmpname, contenthandler = LIGOLWContentHandler, verbose = False)
+  xmldoc_template = ligolw_utils.load_filename(xmltmpname, contenthandler = LIGOLWContentHandler, verbose = False)
 
   # retrieve the sim_inspiral table.  these are list-like
   # objects of rows.  the row objects' attributes are the column names
-  sim_inspiral_table = lsctables.SimInspiralTable.get_table(xmldoc)
+  sim_inspiral_table_template = lsctables.SimInspiralTable.get_table(xmldoc_template)
 
   sources = []
   for s in data:
@@ -259,19 +295,23 @@ def main(testarguments=""):
                   nonGRparams=nonGRparams))
 
   #update the rows in the xml with the source parameters
-  for row,s in zip(sim_inspiral_table,sources):
+  print "using lalapps_inspinj to calculate gps times from detector orientations/locations and ra,dec..."
+  for row,s in zip(sim_inspiral_table_template,sources):
 
-    row.geocent_end_time = s.geocent_end_time
-    row.geocent_end_time_ns = 0
-    gmst = fmod(lal.GreenwichMeanSiderealTime(s.geocent_end_time), lal.TWOPI) * 24.0 / lal.TWOPI
-    h,l,v = get_times(s.geocent_end_time,s.ra,s.dec,gmst)
-    row.h_end_time = int(h)
-    row.h_end_time_ns = round((h - int(h))*1e9)
-    row.l_end_time = int(l)
-    row.l_end_time_ns = round((l - int(l))*1e9)
-    row.v_end_time = int(v)
-    row.v_end_time_ns = round((v - int(v))*1e9)
-    row.end_time_gmst = gmst
+    #run inspinj for each row to properly calculate the gps times
+    xmldoc = run_inspinj(approximant,s.geocent_end_time,s.distance,flow,s.ra,s.dec,s.polarization,s.inclination,path.join(path.dirname(output),"tmp.xml"),inspinj=inspinj)
+    sim_inspiral_table = lsctables.SimInspiralTable.get_table(xmldoc)
+    params = sim_inspiral_table[0]
+
+    row.geocent_end_time    = params.geocent_end_time
+    row.geocent_end_time_ns = params.geocent_end_time_ns
+    row.h_end_time    = params.h_end_time
+    row.h_end_time_ns = params.h_end_time_ns
+    row.l_end_time    = params.l_end_time
+    row.l_end_time_ns = params.l_end_time_ns
+    row.v_end_time    = params.v_end_time
+    row.v_end_time_ns = params.v_end_time_ns
+    row.end_time_gmst = params.end_time_gmst
 
     row.mass1 = s.mass1
     row.mass2 = s.mass2
@@ -288,17 +328,16 @@ def main(testarguments=""):
     row.spin2y = s.spin2y
     row.spin2z = s.spin2z
 
-    row.longitude = s.ra
-    row.latitude = s.dec
-    row.inclination = s.inclination
+    row.longitude = params.longitude
+    row.latitude = params.latitude
+    row.inclination = params.inclination
     row.coa_phase = 0.0
-    row.polarization = s.polarization
+    row.polarization = params.polarization
 
-    row.distance = s.distance
-    h,l,v = get_distances(s.distance,s.inclination,s.ra,s.dec,s.polarization,gmst)
-    row.eff_dist_h = h
-    row.eff_dist_l = l
-    row.eff_dist_v = v
+    row.distance = params.distance
+    row.eff_dist_h = params.eff_dist_h
+    row.eff_dist_l = params.eff_dist_h
+    row.eff_dist_v = params.eff_dist_h
 
     k = s.nonGRparams.keys()
     if len(k) > 0:
@@ -333,9 +372,10 @@ def main(testarguments=""):
 
 
   # Save the new xml and remove the temp file
-  ligolw_utils.write_filename(xmldoc,xmlout)
+  ligolw_utils.write_filename(xmldoc_template,xmlout)
   print "saved xml as %s"%xmlout
   system("rm %s"%xmltmpname)
+
 
 
 
