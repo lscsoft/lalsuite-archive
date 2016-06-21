@@ -25,16 +25,7 @@
 
 
 """
-This is a convenience module providing all the LAL datatype wrappings from
-the pylal.xlal.datatypes subpackage in a single import.  It is recommended
-that you import this module unless you require only exactly one or a few
-specific types in which case you can import the individual modules if that
-is easier.
-
-Example:
-
->>> from pylal import datatypes as laltypes
->>> x = laltypes.REAL8TimeSeries()
+This module is being decomissioned in favour of lal's swig bindings.
 """
 
 
@@ -46,19 +37,7 @@ __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
 
 
-#
-# remember to keep this list up to date
-#
-
-
-from xlal.datatypes.complex16fftplan import *
-from xlal.datatypes.complex16frequencyseries import *
-from xlal.datatypes.complex16timeseries import *
-from xlal.datatypes.lalunit import *
 from xlal.datatypes.ligotimegps import *
-from xlal.datatypes.real8fftplan import *
-from xlal.datatypes.real8frequencyseries import *
-from xlal.datatypes.real8timeseries import *
 from xlal.datatypes.simburst import *
 from xlal.datatypes.siminspiraltable import *
 from xlal.datatypes.snglburst import *

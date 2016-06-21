@@ -26,7 +26,7 @@ import sys
 sys.stderr.write("Warning: "
     "ligo_data_find has been deprecated in favour of gw_data_find, "
     "please consider using that executable, which takes the same arguments, "
-    "and returnes the same results\n")
+    "and returns the same results\n")
 
 from glue import git_version
 __version__ = git_version.id
