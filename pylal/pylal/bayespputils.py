@@ -6,8 +6,8 @@
 #       Benjamin Aylott <benjamin.aylott@ligo.org>,
 #       Benjamin Farr <bfarr@u.northwestern.edu>,
 #       Will M. Farr <will.farr@ligo.org>,
-#       John Veitch <john.veitch@ligo.org>
-#       Salvatore Vitale <salvatore.vitale@ligo.org>
+#       John Veitch <john.veitch@ligo.org>,
+#       Salvatore Vitale <salvatore.vitale@ligo.org>,
 #       Vivien Raymond <vivien.raymond@ligo.org>
 #
 #       This program is free software; you can redistribute it and/or modify
