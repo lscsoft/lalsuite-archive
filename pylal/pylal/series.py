@@ -35,18 +35,13 @@ the DMT to store time- and frequency-series data in XML files,
 
 import numpy
 
+import lal
 
 from glue.ligolw import ligolw
 from glue.ligolw import array as ligolw_array
 from glue.ligolw import param as ligolw_param
 from glue.ligolw.ligolw import AttributesImpl as Attributes
 from pylal import git_version
-from pylal.xlal.datatypes.complex16frequencyseries import COMPLEX16FrequencySeries
-from pylal.xlal.datatypes.complex16timeseries import COMPLEX16TimeSeries
-from pylal.xlal.datatypes.lalunit import LALUnit
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-from pylal.xlal.datatypes.real8frequencyseries import REAL8FrequencySeries
-from pylal.xlal.datatypes.real8timeseries import REAL8TimeSeries
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -84,13 +79,13 @@ def build_COMPLEX16FrequencySeries(series, comment = None):
 	if comment is not None:
 		elem.appendChild(ligolw.Comment()).pcdata = comment
 	elem.appendChild(ligolw.Time.from_gps(series.epoch, Name = u"epoch"))
-	elem.appendChild(ligolw_param.from_pyvalue(u"f0", series.f0, unit = LALUnit("s^-1")))
-	data = series.data
+	elem.appendChild(ligolw_param.from_pyvalue(u"f0", series.f0, unit = lal.Unit("s^-1")))
+	data = series.data.data
 	data = numpy.row_stack((numpy.arange(0, len(data)) * series.deltaF, numpy.real(data), numpy.imag(data)))
 	a = ligolw_array.from_array(series.name, data, dim_names = (u"Frequency", u"Frequency,Real,Imaginary"))
 	a.Unit = series.sampleUnits
 	dim0 = a.getElementsByTagName(ligolw.Dim.tagName)[0]
-	dim0.Unit = LALUnit("s^-1")
+	dim0.Unit = lal.Unit("s^-1")
 	dim0.Start = series.f0
 	dim0.Scale = series.deltaF
 	elem.appendChild(a)
@@ -102,15 +97,16 @@ def parse_COMPLEX16FrequencySeries(elem):
 	a, = elem.getElementsByTagName(ligolw.Array.tagName)
 	dims = a.getElementsByTagName(ligolw.Dim.tagName)
 	f0 = ligolw_param.get_param(elem, u"f0")
-	return COMPLEX16FrequencySeries(
+	fseries = lal.CreateCOMPLEX16FrequencySeries(
 		name = a.Name,
-		# FIXME:  remove type cast when epoch can be a swig LIGOTimeGPS
-		epoch = LIGOTimeGPS(str(t.pcdata)),
-		f0 = f0.pcdata * float(LALUnit(f0.Unit) / LALUnit("s^-1")),
-		deltaF = dims[0].Scale * float(LALUnit(dims[0].Unit) / LALUnit("s^-1")),
-		sampleUnits = LALUnit(a.Unit),
-		data = a.array[1] + 1j * a.array[2]
+		epoch = t.pcdata,
+		f0 = f0.pcdata * float(lal.Unit(f0.Unit) / lal.Unit("s^-1")),
+		deltaF = dims[0].Scale * float(lal.Unit(dims[0].Unit) / lal.Unit("s^-1")),
+		sampleUnits = lal.Unit(a.Unit),
+		length = len(a.array[1])
 	)
+	fseries.data.data = a.array[1] + 1j * a.array[2]
+	return fseries
 
 
 #
@@ -123,13 +119,13 @@ def build_COMPLEX16TimeSeries(series, comment = None):
 	if comment is not None:
 		elem.appendChild(ligolw.Comment()).pcdata = comment
 	elem.appendChild(ligolw.Time.from_gps(series.epoch, Name = u"epoch"))
-	elem.appendChild(ligolw_param.from_pyvalue(u"f0", series.f0, unit = LALUnit("s^-1")))
-	data = series.data
+	elem.appendChild(ligolw_param.from_pyvalue(u"f0", series.f0, unit = lal.Unit("s^-1")))
+	data = series.data.data
 	data = numpy.row_stack((numpy.arange(0, len(data)) * series.deltaT, numpy.real(data), numpy.imag(data)))
 	a = ligolw_array.from_array(series.name, data, dim_names = (u"Time", u"Time,Real,Imaginary"))
 	a.Unit = series.sampleUnits
 	dim0 = a.getElementsByTagName(ligolw.Dim.tagName)[0]
-	dim0.Unit = LALUnit("s")
+	dim0.Unit = lal.Unit("s")
 	dim0.Start = series.f0
 	dim0.Scale = series.deltaT
 	elem.appendChild(a)
@@ -141,15 +137,16 @@ def parse_COMPLEX16TimeSeries(elem):
 	a, = elem.getElementsByTagName(ligolw.Array.tagName)
 	dims = a.getElementsByTagName(ligolw.Dim.tagName)
 	f0 = ligolw_param.get_param(elem, u"f0")
-	return COMPLEX16TimeSeries(
+	tseries = lal.CreateCOMPLEX16TimeSeries(
 		name = a.Name,
-		# FIXME:  remove type cast when epoch can be a swig LIGOTimeGPS
-		epoch = LIGOTimeGPS(str(t.pcdata)),
-		f0 = f0.pcdata * float(LALUnit(f0.Unit) / LALUnit("s^-1")),
-		deltaT = dims[0].Scale * float(LALUnit(dims[0].Unit) / LALUnit("s")),
-		sampleUnits = LALUnit(a.Unit),
-		data = a.array[1] + 1j * a.array[2]
+		epoch = t.pcdata,
+		f0 = f0.pcdata * float(lal.Unit(f0.Unit) / lal.Unit("s^-1")),
+		deltaT = dims[0].Scale * float(lal.Unit(dims[0].Unit) / lal.Unit("s")),
+		sampleUnits = lal.Unit(a.Unit),
+		length = len(a.array[1])
 	)
+	tseries.data.data = a.array[1] + 1j * a.array[2]
+	return tseries
 
 
 #
@@ -162,13 +159,13 @@ def build_REAL8FrequencySeries(series, comment = None):
 	if comment is not None:
 		elem.appendChild(ligolw.Comment()).pcdata = comment
 	elem.appendChild(ligolw.Time.from_gps(series.epoch, Name = u"epoch"))
-	elem.appendChild(ligolw_param.from_pyvalue(u"f0", series.f0, unit = LALUnit("s^-1")))
-	data = series.data
+	elem.appendChild(ligolw_param.from_pyvalue(u"f0", series.f0, unit = lal.Unit("s^-1")))
+	data = series.data.data
 	data = numpy.row_stack((numpy.arange(0, len(data)) * series.deltaF, data))
 	a = ligolw_array.from_array(series.name, data, dim_names = (u"Frequency", u"Frequency,Real"))
 	a.Unit = series.sampleUnits
 	dim0 = a.getElementsByTagName(ligolw.Dim.tagName)[0]
-	dim0.Unit = LALUnit("s^-1")
+	dim0.Unit = lal.Unit("s^-1")
 	dim0.Start = series.f0
 	dim0.Scale = series.deltaF
 	elem.appendChild(a)
@@ -180,15 +177,16 @@ def parse_REAL8FrequencySeries(elem):
 	a, = elem.getElementsByTagName(ligolw.Array.tagName)
 	dims = a.getElementsByTagName(ligolw.Dim.tagName)
 	f0 = ligolw_param.get_param(elem, u"f0")
-	return REAL8FrequencySeries(
+	fseries = lal.CreateREAL8FrequencySeries(
 		name = a.Name,
-		# FIXME:  remove type cast when epoch can be a swig LIGOTimeGPS
-		epoch = LIGOTimeGPS(str(t.pcdata)),
-		f0 = f0.pcdata * float(LALUnit(f0.Unit) / LALUnit("s^-1")),
-		deltaF = dims[0].Scale * float(LALUnit(dims[0].Unit) / LALUnit("s^-1")),
-		sampleUnits = LALUnit(a.Unit),
-		data = a.array[1]
+		epoch = t.pcdata,
+		f0 = f0.pcdata * float(lal.Unit(f0.Unit) / lal.Unit("s^-1")),
+		deltaF = dims[0].Scale * float(lal.Unit(dims[0].Unit) / lal.Unit("s^-1")),
+		sampleUnits = lal.Unit(a.Unit),
+		length = len(a.array[1])
 	)
+	fseries.data.data = a.array[1]
+	return fseries
 
 
 #
@@ -201,13 +199,13 @@ def build_REAL8TimeSeries(series, comment = None):
 	if comment is not None:
 		elem.appendChild(ligolw.Comment()).pcdata = comment
 	elem.appendChild(ligolw.Time.from_gps(series.epoch, Name = u"epoch"))
-	elem.appendChild(ligolw_param.from_pyvalue(u"f0", series.f0, unit = LALUnit("s^-1")))
-	data = series.data
+	elem.appendChild(ligolw_param.from_pyvalue(u"f0", series.f0, unit = lal.Unit("s^-1")))
+	data = series.data.data
 	data = numpy.row_stack((numpy.arange(0, len(data)) * series.deltaT, data))
 	a = ligolw_array.from_array(series.name, data, dim_names = (u"Time", u"Time,Real"))
 	a.Unit = series.sampleUnits
 	dim0 = a.getElementsByTagName(ligolw.Dim.tagName)[0]
-	dim0.Unit = LALUnit("s")
+	dim0.Unit = lal.Unit("s")
 	dim0.Start = series.f0
 	dim0.Scale = series.deltaT
 	elem.appendChild(a)
@@ -219,15 +217,16 @@ def parse_REAL8TimeSeries(elem):
 	a, = elem.getElementsByTagName(ligolw.Array.tagName)
 	dims = a.getElementsByTagName(ligolw.Dim.tagName)
 	f0 = ligolw_param.get_param(elem, u"f0")
-	return REAL8TimeSeries(
+	tseries = lal.CreateREAL8TimeSeries(
 		name = a.Name,
-		# FIXME:  remove type cast when epoch can be a swig LIGOTimeGPS
-		epoch = LIGOTimeGPS(str(t.pcdata)),
-		f0 = f0.pcdata * float(LALUnit(f0.Unit) / LALUnit("s^-1")),
-		deltaT = dims[0].Scale * float(LALUnit(dims[0].Unit) / LALUnit("s")),
-		sampleUnits = LALUnit(a.Unit),
-		data = a.array[1]
+		epoch = t.pcdata,
+		f0 = f0.pcdata * float(lal.Unit(f0.Unit) / lal.Unit("s^-1")),
+		deltaT = dims[0].Scale * float(lal.Unit(dims[0].Unit) / lal.Unit("s")),
+		sampleUnits = lal.Unit(a.Unit),
+		length = len(a.array[1])
 	)
+	tseries.data.data = a.array[1]
+	return tseries
 
 
 #
@@ -264,25 +263,23 @@ def make_psd_xmldoc(psddict, xmldoc = None, root_name = u"psd"):
 	return xmldoc
 
 
-def read_psd_xmldoc(xmldoc, root_name = None):
+def read_psd_xmldoc(xmldoc, root_name = u"psd"):
 	"""
 	Parse a dictionary of PSD frequency series objects from an XML
 	document.  See also make_psd_xmldoc() for the construction of XML
-	documents from a dictionary of PSDs.  Interprets an empty freuency
+	documents from a dictionary of PSDs.  Interprets an empty frequency
 	series for an instrument as None.
 
 	The XML document tree is searched for a LIGO_LW element whose Name
-	attribute is root_name.  For backwards compatibility, if root_name
-	is None (the default) all REAL8Frequency series objects below
-	xmldoc are included in the return value.
+	attribute is root_name (default is "psd").  If root_name is None
+	all REAL8Frequency series objects below xmldoc are included in the
+	return value.
 	"""
-	# FIXME:  change the default value to u"psd" once enough time has
-	# passed for the latest make_pds_xmldoc() to have sunk in
 	if root_name is not None:
 		xmldoc, = (elem for elem in xmldoc.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == root_name)
 	result = dict((ligolw_param.get_pyvalue(elem, u"instrument"), parse_REAL8FrequencySeries(elem)) for elem in xmldoc.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == u"REAL8FrequencySeries")
 	# interpret empty frequency series as None
 	for instrument in result:
-		if len(result[instrument].data) == 0:
+		if len(result[instrument].data.data) == 0:
 			result[instrument] = None
 	return result

@@ -43,6 +43,7 @@ from xml.dom import minidom
 from operator import itemgetter
 
 #related third party imports
+import h5py
 import healpy as hp
 import lalinference.cmap
 import lalinference.plot as lp
@@ -943,7 +944,6 @@ class Posterior(object):
           and ('declination' in pos.names or 'dec' in pos.names) \
           and 'time' in pos.names:
               from pylal import xlal,inject
-              from pylal.xlal import datatypes
               from pylal import date
               from pylal.date import XLALTimeDelayFromEarthCenter
               from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -5521,6 +5521,10 @@ class PEOutputParser(object):
             self._parser=self._infmcmc_to_pos
         elif inputtype is "xml":
             self._parser=self._xml_to_pos
+        elif inputtype == 'hdf5':
+            self._parser = self._hdf5_to_pos
+        else:
+            raise ValueError('Invalid value for "inputtype": %r' % inputtype)
 
     def parse(self,files,**kwargs):
         """
@@ -5994,6 +5998,51 @@ class PEOutputParser(object):
         print 'Read columns %s'%(str(header))
         return header,flines
 
+    def _hdf5_to_pos(self, infile):
+        """
+        Parse a HDF5 file and return an array of posterior samples ad list of
+        parameter names. Equivalent to '_common_to_pos' and work in progress.
+        """
+        with h5py.File(infile, 'r') as hdf_file:
+            # navigate to the data with plenty of checks
+            assert 'lalinference' in hdf_file, repr(list(hdf_file.keys()))
+            active_group = hdf_file['lalinference']
+            assert len(active_group.keys()) == 1, repr(list(active_group.keys()))
+            run_identifier = list(active_group.keys())[0]
+            active_group = active_group[run_identifier]
+            assert 'samples' in active_group, repr(list(active_group.keys()))
+
+            active_group = active_group['samples']
+
+            # fill the numpy array
+            header = list(active_group.keys())
+            posterior_data=[]
+            for key in header:
+              posterior_data.append(active_group[key][...])
+            posterior_data=np.array(posterior_data)
+        # join the fields into a (nfields, nsamples) array, transposed 
+        # to be (nsamples, nfields)
+        flines = posterior_data.T
+
+        for i, _ in enumerate(header):
+            if header[i].lower().find('log') != -1 and header[i].lower() not in logParams:
+                print('exponentiating %s' % header[i])
+                flines[:, i] = np.exp(flines[:, i])
+                header[i] = header[i].replace('log', '')
+            if header[i].lower().find('sin') != -1:
+                print('asining %s' % header[i])
+                flines[:, i] = np.arcsin(flines[:, i])
+                header[i] = header[i].replace('sin', '')
+            if header[i].lower().find('cos') != -1:
+                print('acosing %s' % header[i])
+                flines[:, i] = np.arccos(flines[:, i])
+                header[i] = header[i].replace('cos', '')
+            header[i] = header[i].replace('(', '')
+            header[i] = header[i].replace(')', '')
+        print('Read columns %s' % str(header))
+
+        return header, flines
+        
 
     def _common_to_pos(self,infile,info=[None,None]):
         """
@@ -6069,7 +6118,7 @@ class PEOutputParser(object):
             header[i]=header[i].replace(')','')
         print 'Read columns %s'%(str(header))
         return header,flines
-#
+
 
 def parse_converge_output_section(fo):
         result={}

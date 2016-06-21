@@ -15,22 +15,13 @@ import time
 from numpy.lib.utils import get_include as numpy_get_include
 
 
-#
-# check python version
-#
-
-if sys.version_info[0] != 2 or sys.version_info[1] < 4:
-	log.error("Python version is %s.  pylal requires a Python version such that 2.4 <= version < 3" % sys.version)
-	sys.exit(1)
-
-
 class PkgConfig(object):
 	def __init__(self, names):
 		def stripfirsttwo(string):
 			return string[2:]
-		self.libs = map(stripfirsttwo, os.popen("pkg-config --libs-only-l %s" % names).read().split())
-		self.libdirs = map(stripfirsttwo, os.popen("pkg-config --libs-only-L %s" % names).read().split())
-		self.incdirs = map(stripfirsttwo, os.popen("pkg-config --cflags-only-I %s" % names).read().split())
+		self.libs = list(map(stripfirsttwo, os.popen("pkg-config --libs-only-l %s" % names).read().split()))
+		self.libdirs = list(map(stripfirsttwo, os.popen("pkg-config --libs-only-L %s" % names).read().split()))
+		self.incdirs = list(map(stripfirsttwo, os.popen("pkg-config --cflags-only-I %s" % names).read().split()))
 		self.extra_cflags = os.popen("pkg-config --cflags-only-other %s" % names).read().split()
 
 gsl_pkg_config = PkgConfig("gsl")

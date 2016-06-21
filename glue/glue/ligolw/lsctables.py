@@ -35,6 +35,7 @@ interested users.
 
 import math
 import numpy
+import warnings
 from xml import sax
 
 
@@ -136,7 +137,6 @@ def IsTableProperties(Type, tagname, attrs):
 	obsolete.  see .CheckProperties() method of glue.ligolw.table.Table
 	class.
 	"""
-	import warnings
 	warnings.warn("lsctables.IsTableProperties() is deprecated.  use glue.ligolw.table.Table.CheckProperties() instead", DeprecationWarning)
 	return Type.CheckProperties(tagname, attrs)
 
@@ -3194,15 +3194,23 @@ class SimInspiral(table.TableRow):
 		return t_geocent + lal.TimeDelayFromEarthCenter(inject.cached_detector_by_prefix[instrument].location, ra, dec, t_geocent)
 
 	def get_time_geocent(self):
+		# FIXME:  delete this method
+		warnings.warn("SimInspiral.get_time_geocent() is deprecated.  use SimInspiral.time_geocent instead", DeprecationWarning)
 		return self.time_geocent
 
 	def set_time_geocent(self, gps):
+		# FIXME:  delete this method
+		warnings.warn("SimInspiral.set_time_geocent() is deprecated.  use SimInspiral.time_geocent instead", DeprecationWarning)
 		self.time_geocent = gps
 
 	def get_ra_dec(self):
+		# FIXME:  delete this method
+		warnings.warn("SimInspiral.get_ra_dec() is deprecated.  use SimInspiral.ra_dec instead", DeprecationWarning)
 		return self.ra_dec
 
 	def get_end(self, site = None):
+		# FIXME:  delete this method
+		warnings.warn("SimInspiral.get_end() is deprecated.  use SimInspiral.time_geocent or SimInspiral.time_at_instrument() instead", DeprecationWarning)
 		if site is None:
 			return self.time_geocent
 		else:
