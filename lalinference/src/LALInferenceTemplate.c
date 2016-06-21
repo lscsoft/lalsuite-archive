@@ -760,7 +760,8 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
     }
   }
 
-  
+
+
   /* ==== Call the waveform generator ==== */
   if(model->domain == LAL_SIM_DOMAIN_FREQUENCY) {
     deltaF = model->deltaF;
@@ -786,7 +787,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
       {
         case XLAL_EDOM:
           /* The waveform was called outside its domain. Return an empty vector but not an error */
-          XLAL_ERROR_VOID(XLAL_FAILURE);
+          XLAL_ERROR_VOID(XLAL_EUSR0);
         default:
           /* Another error occurred that we can't handle. Propogate upward */
           XLALSetErrno(errnum);
@@ -822,7 +823,7 @@ model->waveFlags(%d,%d,%d,%d,numreldata),nonGRparams,%d,%d,%d,model->waveformCac
     memcpy(model->freqhCross->data->data,hctilde->data->data,sizeof(hctilde->data->data[0])*size);
     if( (rem=(model->freqhCross->data->length - size)) > 0)
         memset(&(model->freqhCross->data->data[size]),0, rem*sizeof(hctilde->data->data[0]) );
-    
+
     REAL8 instant = model->freqhPlus->epoch.gpsSeconds + 1e-9*model->freqhPlus->epoch.gpsNanoSeconds;
     LALInferenceSetVariable(model->params, "time", &instant);
 
@@ -849,7 +850,7 @@ model->waveFlags(%d,%d,%d,%d,numreldata),nonGRparams,%d,%d,%d,model->waveformCac
       {
         case XLAL_EDOM:
           /* The waveform was called outside its domain. Return an empty vector but not an error */
-          XLAL_ERROR_VOID(XLAL_FAILURE);
+          XLAL_ERROR_VOID(XLAL_EUSR0);
         default:
           /* Another error occurred that we can't handle. Propogate upward */
           XLALSetErrno(errnum);
@@ -1256,7 +1257,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveformPhaseInterpolated(LALInfer
             {
                 case XLAL_EDOM:
                     /* The waveform was called outside its domain. Return an empty vector but not an error */
-                    XLAL_ERROR_VOID(XLAL_FAILURE);
+                    XLAL_ERROR_VOID(XLAL_EUSR0);
                 default:
                     /* Another error occurred that we can't handle. Propogate upward */
                     XLALSetErrno(errnum);
@@ -1365,7 +1366,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveformPhaseInterpolated(LALInfer
             {
                 case XLAL_EDOM:
                     /* The waveform was called outside its domain. Return an empty vector but not an error */
-                    XLAL_ERROR_VOID(XLAL_FAILURE);
+                    XLAL_ERROR_VOID(XLAL_EUSR0);
                 default:
                     /* Another error occurred that we can't handle. Propogate upward */
                     XLALSetErrno(errnum);

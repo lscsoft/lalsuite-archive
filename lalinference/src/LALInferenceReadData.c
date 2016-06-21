@@ -1597,7 +1597,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
       }
       LALSimInspiralTestGRParam *nonGRparams = NULL;
       /* Print a line with information about approximant, amporder, phaseorder, tide order and spin order */
-      fprintf(stdout,"Injection will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i, tidal order %i, in the time domain with a reference frequency of %f.\n",approximant,XLALGetStringFromApproximant(approximant),order,amporder,(int) spinO, (int) tideO, (float) fref);
+      fprintf(stdout,"Injection will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i, tidal order %i, in the time domain with a reference frequency of %f.\n",approximant,XLALSimInspiralGetStringFromApproximant(approximant),order,amporder,(int) spinO, (int) tideO, (float) fref);
 
       /* ChooseWaveform starts the (2,2) mode of the waveform at the given minimum frequency.  We want the highest order contribution to start at the f_lower of the injection file */
       REAL8 f_min = fLow2fStart(injEvent->f_lower, amporder, approximant);

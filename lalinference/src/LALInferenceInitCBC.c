@@ -729,6 +729,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   /* Default priors */
   REAL8 Dmin=1.0;
   REAL8 Dmax=2000.0;
+  REAL8 Dinitial = (Dmax + Dmin)/2.0;
   REAL8 mcMin=1.0;
   REAL8 mcMax=15.3;
   REAL8 etaMin=0.0312;
@@ -839,7 +840,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   }
   if(approx==NumApproximants){
        approx=TaylorF2; /* Defaults to TF2 */
-       XLALPrintWarning("You did not provide an approximant for the templates. Using default %s, which might now be what you want!\n",XLALGetStringFromApproximant(approx));
+       XLALPrintWarning("You did not provide an approximant for the templates. Using default %s, which might now be what you want!\n",XLALSimInspiralGetStringFromApproximant(approx));
   }
 
   /* Set the model domain appropriately */
@@ -1159,8 +1160,14 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   /* Check for distance prior for use if the user samples in logdistance */
   if((ppt=LALInferenceGetProcParamVal(commandLine,"--distance-max"))) Dmax=atof(ppt->value);
   if((ppt=LALInferenceGetProcParamVal(commandLine,"--distance-min"))) Dmin=atof(ppt->value);
+  LALInferenceParamVaryType distanceVary = LALINFERENCE_PARAM_LINEAR;
+  if((ppt=LALInferenceGetProcParamVal(commandLine,"--fix-distance")))
+  {
+    Dinitial=atof(ppt->value);
+    distanceVary = LALINFERENCE_PARAM_FIXED;
+  }
 
-  LALInferenceRegisterUniformVariableREAL8(state, model->params, "logdistance", zero, log(Dmin), log(Dmax),LALINFERENCE_PARAM_LINEAR);
+  LALInferenceRegisterUniformVariableREAL8(state, model->params, "logdistance", log(Dinitial), log(Dmin), log(Dmax), distanceVary);
   LALInferenceRegisterUniformVariableREAL8(state, model->params, "polarisation", zero, psiMin, psiMax, LALINFERENCE_PARAM_LINEAR);
   LALInferenceRegisterUniformVariableREAL8(state, model->params, "costheta_jn", zero, costhetaJNmin, costhetaJNmax,LALINFERENCE_PARAM_LINEAR);
 
@@ -1520,7 +1527,7 @@ static void print_flags_orders_warning(SimInspiralTable *injt, ProcessParamsTabl
      /* check approximant is given */
     if (approx==NumApproximants){
         approx=XLALGetApproximantFromString(injt->waveform);
-        XLALPrintWarning("WARNING: You did not provide an approximant for the templates. Using value in injtable (%s), which might not what you want!\n",XLALGetStringFromApproximant(approx));
+        XLALPrintWarning("WARNING: You did not provide an approximant for the templates. Using value in injtable (%s), which might not what you want!\n",XLALSimInspiralGetStringFromApproximant(approx));
      }
 
     /* check inj/rec amporder */
