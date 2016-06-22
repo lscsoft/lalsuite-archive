@@ -1197,7 +1197,7 @@ if __name__=='__main__':
             for sp in spinParams:
                 twoDGreedyMenu.append([mp,sp])
         for mp in massParams:
-            for dchi in tigerParams:
+            for dchi in bppu.tigerParams:
                 twoDGreedyMenu.append([mp,dchi])
         for dp in distParams:
             for sp in snrParams:
@@ -1227,7 +1227,7 @@ if __name__=='__main__':
                     twoDGreedyMenu.append([sp1, sp2])
         for sp1,sp2 in combinations(spinParams,2):
           twoDGreedyMenu.append([sp1, sp2])
-        for dc1,dc2 in combinations(tigerParams,2):
+        for dc1,dc2 in combinations(bppu.tigerParams,2):
             twoDGreedyMenu.append([dc1,dc2])
         for mp in massParams:
              for tp in tidalParams:
