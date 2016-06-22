@@ -946,6 +946,39 @@ class Categories(Bins):
 		return cls(pickle.loads(xml.pcdata))
 
 
+class HashableBins(Categories):
+	"""
+	Maps hashable objects (things that can be used as dictionary keys) to integers.
+
+	Example:
+	>>> x = HashableBins([
+	...    frozenset(("H1", "L1")),
+	...    frozenset(("H1", "V1")),
+	...    frozenset(("L1", "V1")),
+	...    frozenset(("H1", "L1", "V1"))
+	... ])
+	>>> x[frozenset(("H1", "L1"))]
+	0
+	>>> x[set(("H1", "L1"))]	# equal, but not hashable
+	Traceback (most recent call last):
+		...
+	IndexError: set(['H1', 'L1'])
+	>>> x.centres()[2]
+	frozenset(['V1', 'L1'])
+	"""
+	def __init__(self, hashables):
+		super(HashableBins, self).__init__(hashables)
+		self.mapping = dict(zip(self.containers, range(len(self.containers))))
+
+	def __getitem__(self, value):
+		try:
+			return self.mapping[value]
+		except (KeyError, TypeError):
+			raise IndexError(value)
+
+	xml_bins_name = u"hashablebins"
+
+
 class NDBins(tuple):
 	"""
 	Multi-dimensional co-ordinate binning.  An instance of this object
@@ -1145,7 +1178,7 @@ class NDBins(tuple):
 	# XML I/O methods and data
 	#
 
-	xml_bins_name_mapping = dict((cls.xml_bins_name, cls) for cls in (LinearBins, LinearPlusOverflowBins, LogarithmicBins, LogarithmicPlusOverflowBins, ATanBins, ATanLogarithmicBins, Categories))
+	xml_bins_name_mapping = dict((cls.xml_bins_name, cls) for cls in (LinearBins, LinearPlusOverflowBins, LogarithmicBins, LogarithmicPlusOverflowBins, ATanBins, ATanLogarithmicBins, Categories, HashableBins))
 	xml_bins_name_mapping.update(zip(xml_bins_name_mapping.values(), xml_bins_name_mapping.keys()))
 
 	def to_xml(self, elem):
