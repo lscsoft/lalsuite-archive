@@ -272,6 +272,16 @@ char *LALInferenceGetVariableName(LALInferenceVariables *vars, int idx);
  */
 void LALInferenceSetVariable(LALInferenceVariables * vars, const char * name, const void * value);
 
+
+int LALInferenceSplineCalibrationFactorROQ(REAL8Vector *logfreqs,
+                                        REAL8Vector *deltaAmps,
+                                        REAL8Vector *deltaPhases,
+                                        REAL8Sequence *freqNodesLin,
+                                        COMPLEX16Sequence **calFactorROQLin,
+                                        REAL8Sequence *freqNodesQuad,
+                                        COMPLEX16Sequence **calFactorROQQuad);
+
+
 /**
  * Add a variable named \c name to \c vars with initial value referenced by \c value
  * \param type is a LALInferenceVariableType (enumerated above)
