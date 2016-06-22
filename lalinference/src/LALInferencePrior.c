@@ -572,7 +572,7 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
   } else if(LALInferenceCheckVariable(params,"eta")) {
     eta=*(REAL8 *)LALInferenceGetVariable(params,"eta");
     LALInferenceMcEta2Masses(mc,eta,&m1,&m2);
-
+  }
   if(LALInferenceCheckVariable(params,"logmc")) {
     if(LALInferenceCheckVariable(params,"q"))
       logPrior+=log(m1*m1);
