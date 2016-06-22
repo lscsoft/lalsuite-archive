@@ -336,8 +336,8 @@ def main(testarguments=""):
 
     row.distance = params.distance
     row.eff_dist_h = params.eff_dist_h
-    row.eff_dist_l = params.eff_dist_h
-    row.eff_dist_v = params.eff_dist_h
+    row.eff_dist_l = params.eff_dist_l
+    row.eff_dist_v = params.eff_dist_v
 
     k = s.nonGRparams.keys()
     if len(k) > 0:
