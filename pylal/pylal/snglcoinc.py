@@ -1455,41 +1455,33 @@ class TOATriangulator(object):
 
 
 #
-# A look-up table used to convert instrument names to powers of 2.  Why?
-# To create a bidirectional mapping between combinations of instrument
-# names and integers so we can use a pylal.rate style binning for the
-# instrument combinations.  This has to be used because pylal.rate's native
-# Categories binning cannot be serialized to XML.
+# A binning for instrument combinations
 #
-# FIXME:  allow pylal.rate's Categories binning to be serialized to XML and
-# get rid of this crap
+# FIXME:  we decided that the coherent and null stream naming convention
+# would look like
+#
+# H1H2:LSC-STRAIN_HPLUS, H1H2:LSC-STRAIN_HNULL
+#
+# and so on.  i.e., the +, x and null streams from a coherent network would
+# be different channels from a single instrument whose name would be the
+# mash-up of the names of the instruments in the network.  that is
+# inconsisntent with the "H1H2+", "H1H2-" shown here, so this needs to be
+# fixed but I don't know how.  maybe it'll go away before it needs to be
+# fixed.
 #
 
 
-class InstrumentCategories(dict):
-	def __init__(self):
-		# FIXME:  we decided that the coherent and null stream
-		# naming convention would look like
-		#
-		# H1H2:LSC-STRAIN_HPLUS, H1H2:LSC-STRAIN_HNULL
-		#
-		# and so on.  i.e., the +, x and null streams from a
-		# coherent network would be different channels from a
-		# single instrument whose name would be the mash-up of the
-		# names of the instruments in the network.  that is
-		# inconsisntent with the "H1H2+", "H1H2-" shown here, so
-		# this needs to be fixed but I don't know how.  maybe it'll
-		# go away before it needs to be fixed.
-		self.update(dict((instrument, 1 << n) for n, instrument in enumerate(("G1", "H1", "H2", "H1H2+", "H1H2-", "L1", "V1", "E1", "E2", "E3", "E0"))))
+def InstrumentBins(names = ("E0", "E1", "E2", "E3", "G1", "H1", "H2", "H1H2+", "H1H2-", "L1", "V1")):
+	"""
+	Example:
 
-	def max(self):
-		return sum(self.values())
-
-	def category(self, instruments):
-		return sum(self[instrument] for instrument in instruments)
-
-	def instruments(self, category):
-		return set(instrument for instrument, factor in self.items() if category & factor)
+	>>> x = InstrumentBins()
+	>>> x[frozenset(("H1", "L1"))]
+	55
+	>>> x.centres()[55]
+	frozenset(['H1', 'L1'])
+	"""
+	return rate.HashableBins(frozenset(combo) for n in range(len(names) + 1) for combo in iterutils.choices(names, n))
 
 
 #
