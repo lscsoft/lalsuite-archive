@@ -677,6 +677,7 @@ setup(
 		os.path.join("etc", "pylal-user-env.csh"),
 		] ) ],
     classifiers = [
+        'Development Status :: 7 - Inactive',
         'Intended Audience :: Science/Research',
         'License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)',
         'Operating System :: POSIX',
