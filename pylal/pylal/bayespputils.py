@@ -60,6 +60,7 @@ from numpy import linspace
 import random
 import socket
 from itertools import combinations
+from lalinference import LALInferenceHDF5PosteriorSamplesGroupName as posterior_grp_name
 
 try:
     import lalsimulation as lalsim
@@ -5995,9 +5996,8 @@ class PEOutputParser(object):
             assert len(active_group.keys()) == 1, repr(list(active_group.keys()))
             run_identifier = list(active_group.keys())[0]
             active_group = active_group[run_identifier]
-            assert 'samples' in active_group, repr(list(active_group.keys()))
-
-            active_group = active_group['samples']
+            assert posterior_group_name in active_group, repr(list(active_group.keys()))
+            active_group = active_group[posterior_group_name]
 
             # fill the numpy array
             header = list(active_group.keys())
