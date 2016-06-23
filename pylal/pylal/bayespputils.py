@@ -1083,7 +1083,7 @@ class Posterior(object):
           pos.append_mapping('graviton_mass', GravitonMass, ['lambda_g', 'redshift'])
       if ('lambda_g' in pos.names) and ('redshift' in pos.names):
           pos.append_mapping('graviton_lambda', GComptonWavelength, ['lambda_g', 'redshift'])
-    
+## following lines added by A. Samajdar (anuradha1115@iiserkol.ac.in)    
       if ('loglambda_a_eff' in pos.names) and ('redshift' in pos.names):
           pos.append_mapping('loglambda_a', lambda z,nonGR_alpha,wl:np.log10(lambda_a(z, nonGR_alpha, 10**wl)), ['redshift', 'nonGR_alpha', 'loglambda_a_eff'])	
       if ('loglambda_a_eff' in pos.names) and ('redshift' in pos.names):
@@ -1092,7 +1092,7 @@ class Posterior(object):
           pos.append_mapping('lambda_a', lambda_a, ['redshift', 'nonGR_alpha', 'loglambda_a_eff'])  
       if ('lambda_a_eff' in pos.names) and ('redshift' in pos.names):
           pos.append_mapping('amp', amplitudeMeasure, ['redshift','nonGR_alpha','lambda_a_eff'])
-
+##################################################### changes made until here
       #Calculate new tidal parameters
       new_tidal_params = ['lam_tilde','dlam_tilde']
       old_tidal_params = ['lambda1','lambda2','eta']
@@ -3974,6 +3974,7 @@ def GravitonMass(lambda_g, redshift):
     """
     return 1.23982e-6/(lambda_g*np.sqrt((1 + (2+redshift)*(1+redshift+np.sqrt(1+redshift)))/(5*(1+redshift)**3)))
 
+## Added by A. Samajdar (anuradha1115@iiserkol.ac.in)
 def integrand_distance(redshift,nonGR_alpha):
     omega_m = 0.3
     omega_lambda = 0.7
@@ -3984,7 +3985,7 @@ def DistanceMeasure(redshift,nonGR_alpha):
     h = 0.75
     H0 = h*100*1e3/mpc
     dist = integrate.quad(integrand_distance, 0, redshift ,args=(nonGR_alpha))[0]
-    dist = (1.0 + redshift)**(1.0 - nonGR_alpha)
+    dist *= (1.0 + redshift)**(1.0 - nonGR_alpha)
     dist /= H0
     return dist ## returns D_alpha in seconds
 
@@ -3998,6 +3999,7 @@ def amplitudeMeasure(redshift, nonGR_alpha, lambda_eff):
     ampFunc = np.vectorize(lambda_a)
     lambdaA = ampFunc(redshift, nonGR_alpha, lambda_eff)/lal.C_SI # convert to seconds
     return (lambdaA/hPlanck)**(nonGR_alpha-2.0)
+############################ changes made by A. Samajdar until here
 
 def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m2, fref):
     """
