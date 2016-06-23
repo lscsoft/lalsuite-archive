@@ -1077,7 +1077,7 @@ class NDBins(tuple):
 		>>> x(slice(10, 12))
 		(slice(375, 459, None),)
 		>>> x = NDBins((Categories([set(("Cow", "Chicken", "Goat")), set(("Tractor", "Plough")), set(("Barn", "House"))]),))
-		 >>> x("Cow")
+		>>> x("Cow")
 		(0,)
 
 		Each co-ordinate can be anything the corresponding Bins
