@@ -1262,9 +1262,10 @@ class Posterior(object):
         header=header.split()
         if not ('cycle' in header):
             raise RuntimeError("Cannot compute number of cycles in longest chain")
+
+        cycle_col=header.index('cycle')
         if 'chain' in header:
             chain_col=header.index('chain')
-            cycle_col=header.index('cycle')
             chain_indexes=np.unique(samps[:,chain_col])
             max_cycle=0
             for ind in chain_indexes:
@@ -6008,8 +6009,8 @@ class PEOutputParser(object):
             assert len(active_group.keys()) == 1, repr(list(active_group.keys()))
             run_identifier = list(active_group.keys())[0]
             active_group = active_group[run_identifier]
-            assert posterior_group_name in active_group, repr(list(active_group.keys()))
-            active_group = active_group[posterior_group_name]
+            assert posterior_grp_name in active_group, repr(list(active_group.keys()))
+            active_group = active_group[posterior_grp_name]
 
             # fill the numpy array
             header = list(active_group.keys())
