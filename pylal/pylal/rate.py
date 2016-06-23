@@ -829,7 +829,7 @@ class ATanLogarithmicBins(LoHiCountToFromXMLMixin, IrregularBins):
 			boundaries = numpy.exp(boundaries)
 		boundaries = numpy.hstack((boundaries, [PosInf, 0.]))
 		keepers = boundaries[:-1] != boundaries[1:]
-		super(ATanLogarithmicBins, self).__init__(boundaries[keepers])
+		super(ATanLogarithmicBins, self).__init__(boundaries[:-1][keepers])
 		self.keepers = keepers[:-1]
 		self.min = min
 		self.max = max
