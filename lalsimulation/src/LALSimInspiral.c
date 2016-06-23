@@ -1400,6 +1400,7 @@ int XLALSimInspiralChooseFDWaveform(
     if (nonGRparams!=NULL) {
       if (XLALSimInspiralTestGRParamExists(nonGRparams, "loglambda_g")) ret = XLALSimMassiveGravitonDispersionEffect(hptilde, hctilde, m1/LAL_MSUN_SI, m2/LAL_MSUN_SI, r, pow(10, XLALSimInspiralGetTestGRParam(nonGRparams, "loglambda_g")));
       else if (XLALSimInspiralTestGRParamExists(nonGRparams, "lambda_g")) ret = XLALSimMassiveGravitonDispersionEffect(hptilde, hctilde, m1/LAL_MSUN_SI, m2/LAL_MSUN_SI, r, XLALSimInspiralGetTestGRParam(nonGRparams, "lambda_g"));
+/*the following 2 conditions are added by A. Samajdar (anuradha1115@iiserkol.ac.in)*/
       else if (XLALSimInspiralTestGRParamExists(nonGRparams, "loglambda_a_eff")) ret = XLALSimLorentzInvarianceViolationTerm(hptilde, hctilde, m1/LAL_MSUN_SI, m2/LAL_MSUN_SI, pow(10, XLALSimInspiralGetTestGRParam(nonGRparams, "loglambda_a_eff")), XLALSimInspiralGetTestGRParam(nonGRparams, "nonGR_alpha")); 
       else if (XLALSimInspiralTestGRParamExists(nonGRparams, "lambda_a_eff")) ret = XLALSimLorentzInvarianceViolationTerm(hptilde, hctilde, m1/LAL_MSUN_SI, m2/LAL_MSUN_SI, XLALSimInspiralGetTestGRParam(nonGRparams, "lambda_a_eff"), XLALSimInspiralGetTestGRParam(nonGRparams, "nonGR_alpha")); 
       if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);	
@@ -4562,7 +4563,7 @@ REAL8 XLALDistanceMeasureLIV(
   gsl_integration_workspace_free (wsInt);
   return result;
 }*/
-
+/* Following function is added by A. Samajdar(anuradha1115@iiserkol.ac.in) */
 int XLALSimLorentzInvarianceViolationTerm(
 					  COMPLEX16FrequencySeries **hptilde, /**< Frequency-domain waveform h+ */
 					  COMPLEX16FrequencySeries **hctilde, /**< Frequency-domain waveform hx */
