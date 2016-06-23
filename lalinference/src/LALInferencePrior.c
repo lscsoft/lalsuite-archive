@@ -871,7 +871,7 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
         }
 
         // chirp mass and eta/q
-        if(LALInferenceCheckVariable(params,"eta")||LALInferenceCheckVariable(params,"q"))
+        if((LALInferenceCheckVariable(params,"eta")||LALInferenceCheckVariable(params,"q"))||LALInferenceCheckVariable(params,"mbeta"))
         {
             if(LALInferenceCheckVariable(params,"logmc"))
             {
@@ -1272,7 +1272,7 @@ REAL8 LALInferenceInspiralSkyLocPrior(LALInferenceRunState *runState, LALInferen
     }
   }
   /*priors uniform in the individual masses. Not taking into account if mtot_max < m1_max+m2_max */
-  if(LALInferenceCheckVariable(params,"eta")||LALInferenceCheckVariable(params,"q")) {
+  if((LALInferenceCheckVariable(params,"eta")||LALInferenceCheckVariable(params,"q"))||LALInferenceCheckVariable(params,"mbeta")) {
     if(LALInferenceCheckVariable(params,"logmc")) {
       logmc=*(REAL8 *)LALInferenceGetVariable(params,"logmc");
       if(LALInferenceCheckVariable(params,"q")) {
@@ -1280,7 +1280,7 @@ REAL8 LALInferenceInspiralSkyLocPrior(LALInferenceRunState *runState, LALInferen
         LALInferenceMcQ2Masses(exp(logmc),q,&m1,&m2);
         logPrior+=log(m1*m1);
       } else if(LALInferenceCheckVariable(params,"mbeta")) {
-        q=*(REAL8 *)LALInferenceGetVariable(params,"mbeta");
+        mbeta=*(REAL8 *)LALInferenceGetVariable(params,"mbeta");
         LALInferenceMcmbeta2Masses(exp(logmc),mbeta,&m1,&m2);
         logPrior+=log((m2-m1)*(6.0*pow((m1+m2),(1.0/5.0))-5.0*pow((m1+m2),(-7.0/5.0)))/25.0); // to be corrected
       } else {
@@ -1296,7 +1296,7 @@ REAL8 LALInferenceInspiralSkyLocPrior(LALInferenceRunState *runState, LALInferen
         LALInferenceMcQ2Masses(mc,q,&m1,&m2);
         logPrior+=log(m1*m1/mc);
       } else if(LALInferenceCheckVariable(params,"mbeta")) {
-        q=*(REAL8 *)LALInferenceGetVariable(params,"mbeta");
+        mbeta=*(REAL8 *)LALInferenceGetVariable(params,"mbeta");
         LALInferenceMcmbeta2Masses(exp(logmc),mbeta,&m1,&m2);
         logPrior+=log((m2-m1)*(6.0*pow((m1+m2),(1.0/5.0))-5.0*pow((m1+m2),(-7.0/5.0)))/25.0); // to be corrected
       } else {
@@ -1500,7 +1500,7 @@ UINT4 LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALI
     }
 
     // check if mchirp is fixed
-    double mc = 0.0, eta = 0.0, q = 0.0, m1 = 0.0, m2 = 0.0, m = 0.0;
+    double mc = 0.0, eta = 0.0, q = 0.0, m1 = 0.0, m2 = 0.0, m = 0.0, mbeta=0.0;
     if( LALInferenceCheckVariable(params,"logmc") )
     {
         item = LALInferenceGetItem(params, "logmc");
