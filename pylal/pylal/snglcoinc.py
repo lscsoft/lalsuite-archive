@@ -46,7 +46,6 @@ import random
 from scipy.constants import c as speed_of_light
 import scipy.optimize
 import sys
-import threading
 import warnings
 
 
