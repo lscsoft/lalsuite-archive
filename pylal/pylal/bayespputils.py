@@ -6017,6 +6017,13 @@ class PEOutputParser(object):
             posterior_data=[]
             for key in header:
               posterior_data.append(active_group[key][...])
+
+            #sub-optimal storage of meta-data: adding fixed values to posterior_data
+            nsamps=len(active_group[header[0]][...])
+            header.extend(active_group.attrs.keys())
+            for key in active_group.attrs.keys():
+              posterior_data.append(np.array([(active_group.attrs[key])]*nsamps,dtype=type(active_group.attrs[key])))
+
             posterior_data=np.array(posterior_data)
         # join the fields into a (nfields, nsamples) array, transposed
         # to be (nsamples, nfields)
