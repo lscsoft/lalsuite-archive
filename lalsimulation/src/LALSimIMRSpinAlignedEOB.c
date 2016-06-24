@@ -136,10 +136,24 @@ XLALEOBSpinAlignedStopCondition(double UNUSED t,  /**< UNUSED */
  */
 static int
 XLALSpinAlignedHiSRStopCondition(double UNUSED t,  /**< UNUSED */
-                           const double UNUSED values[], /**< dynamical variable values */
-                           double dvalues[],      /**< dynamical variable time derivative values */
-                           void UNUSED *funcParams       /**< physical parameters */
-                          )
+                                 const double UNUSED values[], /**< dynamical variable values */
+                                 double dvalues[],      /**< dynamical variable time derivative values */
+                                 void UNUSED *funcParams       /**< physical parameters */
+)
+{
+    if ( dvalues[2] >= 0. || isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) )
+    {
+        return 1;
+    }
+    return GSL_SUCCESS;
+}
+
+static int
+XLALSpinAlignedHiSRStopConditionV4(double UNUSED t,  /**< UNUSED */
+                                 const double UNUSED values[], /**< dynamical variable values */
+                                 double dvalues[],      /**< dynamical variable time derivative values */
+                                 void UNUSED *funcParams       /**< physical parameters */
+)
 {
     REAL8 omega, r;
     UINT4 counter;
@@ -160,8 +174,8 @@ XLALSpinAlignedHiSRStopCondition(double UNUSED t,  /**< UNUSED */
 //        if ( isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) ) printf("%.16e %.16e %.16e %.16e\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3]);
         return 1;
     }
-  params->eobParams->omega = omega;
-  return GSL_SUCCESS;
+    params->eobParams->omega = omega;
+    return GSL_SUCCESS;
 }
 
 /**
@@ -395,7 +409,7 @@ int XLALSimIMRSpinAlignedEOBWaveformAll(
  /* For v2 the upper bound is 0.99 */
   if ( (SpinAlignedEOBversion == 2) && ( spin1z > 0.99 || spin2z > 0.99 ))
   {
-    XLALPrintError( "XLAL Error - %s: Component spin larger than 0.99!\nSEOBNRv2, SEOBNRv4 and SEOBNRv2_opt are only available for spins in the range -1 < a/M < 0.99.\n", __func__);
+    XLALPrintError( "XLAL Error - %s: Component spin larger than 0.99!\nSEOBNRv2 and SEOBNRv2_opt are only available for spins in the range -1 < a/M < 0.99.\n", __func__);
     XLAL_ERROR( XLAL_EINVAL );
   }
 
@@ -479,12 +493,17 @@ int XLALSimIMRSpinAlignedEOBWaveformAll(
   REAL8Array              *dynamics   = NULL;
   REAL8Array              *dynamicsHi = NULL;
 
+  REAL8Array *dynamicstmp = NULL; // DAVIDS: MOVING THIS OUTSIDE IF-BLOCK FOR NOW
+  REAL8Array *dynamicsHitmp = NULL; // DAVIDS: MOVING THE VARIABLE DECLARATION OUTSIDE THE IF-BLOCK FOR NOW
+  INT4 retLen_fromOptStep2 = 0; // DAVIDS: ONLY SETTING TO ZERO TO SUPRESS COMPILER WARNING
+  INT4 retLen_fromOptStep3 = 0; // DAVIDS: ^ DITTO
+
   INT4                    retLen;
   REAL8  UNUSED           tMax;
 
   /* Accuracies of adaptive Runge-Kutta integrator */
   const REAL8 EPS_ABS = 1.0e-10;
-  const REAL8 EPS_REL = 1.0e-9;
+  const REAL8 EPS_REL = 1.0e-10; // Davids: changed exponent from -9 to -10
 
   /*
    * STEP 0) Prepare parameters, including pre-computed coefficients 
@@ -522,7 +541,10 @@ int XLALSimIMRSpinAlignedEOBWaveformAll(
   /* TODO: Insert potentially necessary checks on the arguments */
 
   /* Calculate the time we will need to step back for ringdown */
-  tStepBack = 150. * mTScaled;
+  tStepBack = 100. * mTScaled;
+    if ( SpinAlignedEOBversion == 4) {
+        tStepBack = 150. * mTScaled;
+    }
   nStepBack = ceil( tStepBack / deltaT );
 
   /* Calculate the resample factor for attaching the ringdown */
@@ -712,11 +734,11 @@ int XLALSimIMRSpinAlignedEOBWaveformAll(
      case 2:
        tplspin = (1.-2.*eta) * chiS + (m1 - m2)/(m1 + m2) * chiA;
        break;
-      case 4:
-        tplspin = (1.-2.*eta) * chiS + (m1 - m2)/(m1 + m2) * chiA;
-        break;
-      default:
-       XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
+     case 4:
+       tplspin = (1.-2.*eta) * chiS + (m1 - m2)/(m1 + m2) * chiA;
+       break;
+     default:
+       XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1, v2, and v4 are available.\n", __func__);
        XLAL_ERROR( XLAL_EINVAL );
        break;
   }
@@ -764,25 +786,25 @@ int XLALSimIMRSpinAlignedEOBWaveformAll(
        }
        break;
      case 2:
-        if ( XLALSimIMRGetEOBCalibratedSpinNQC3D( &nqcCoeffs, 2, 2, m1, m2, a, chiA ) == XLAL_FAILURE )
-        {
+       if ( XLALSimIMRGetEOBCalibratedSpinNQC3D( &nqcCoeffs, 2, 2, m1, m2, a, chiA ) == XLAL_FAILURE )
+       {
             XLAL_ERROR( XLAL_EFUNC );
-        }
+       }
        break;
      case 4:
-          nqcCoeffs.a1 = 0.;
-          nqcCoeffs.a2 = 0.;
-          nqcCoeffs.a3 = 0.;
-          nqcCoeffs.a3S = 0.;
-          nqcCoeffs.a4 = 0.;
-          nqcCoeffs.a5 = 0.;
-          nqcCoeffs.b1 = 0.;
-          nqcCoeffs.b2 = 0.;
-          nqcCoeffs.b3 = 0.;
-          nqcCoeffs.b4 = 0.;
+       nqcCoeffs.a1 = 0.;
+       nqcCoeffs.a2 = 0.;
+       nqcCoeffs.a3 = 0.;
+       nqcCoeffs.a3S = 0.;
+       nqcCoeffs.a4 = 0.;
+       nqcCoeffs.a5 = 0.;
+       nqcCoeffs.b1 = 0.;
+       nqcCoeffs.b2 = 0.;
+       nqcCoeffs.b3 = 0.;
+       nqcCoeffs.b4 = 0.;
      break;
      default:
-       XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
+       XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1, v2, and v4 are available.\n", __func__);
        XLAL_ERROR( XLAL_EINVAL );
        break;
   }
@@ -887,11 +909,9 @@ int XLALSimIMRSpinAlignedEOBWaveformAll(
   integrator->retries = 1;
 
   if(use_optimized_v2) {
-    REAL8Array              *dynamicstmp   = NULL;
-    retLen = XLALAdaptiveRungeKutta4NoInterpolate( integrator, &seobParams, values->data, 0., 20./mTScaled, deltaT/mTScaled, &dynamicstmp );
-    GenerateAmpPhaseFromEOMSoln(retLen,dynamicstmp->data,&seobParams);
-    retLen = SEOBNRv2OptimizedInterpolatorIncludeAmpPhase(dynamicstmp, 0., deltaT/mTScaled, retLen, &dynamics);
-    XLALDestroyREAL8Array( dynamicstmp );
+    /* BEGIN OPTIMIZED */
+    retLen_fromOptStep2 = XLALAdaptiveRungeKutta4NoInterpolate( integrator, &seobParams, values->data, 0., 20./mTScaled, deltaT/mTScaled, &dynamicstmp );
+    retLen = SEOBNRv2OptimizedInterpolatorNoAmpPhase(dynamicstmp, 0., deltaT/mTScaled, retLen_fromOptStep2, &dynamics);
     /* END OPTIMIZED */
   } else {
     retLen = XLALAdaptiveRungeKutta4( integrator, &seobParams, values->data, 0., 20./mTScaled, deltaT/mTScaled, &dynamics );
@@ -907,11 +927,7 @@ int XLALSimIMRSpinAlignedEOBWaveformAll(
   phiVec.data  = dynamics->data+2*retLen;
   prVec.data   = dynamics->data+3*retLen;
   pPhiVec.data = dynamics->data+4*retLen;
-  if(use_optimized_v2) {
-    ampVec.length = phaseVec.length = retLen;
-    ampVec.data   = dynamics->data+5*retLen;
-    phaseVec.data = dynamics->data+6*retLen;
-  }
+
 
   //printf( "We think we hit the peak at time %e\n", dynamics->data[retLen-1] );
 
@@ -953,14 +969,14 @@ int XLALSimIMRSpinAlignedEOBWaveformAll(
   /* For HiSR evolution, we stop at a radius 0.3M from the deformed Kerr singularity, 
    * or when any derivative of Hamiltonian becomes nan */
   integrator->stop = XLALSpinAlignedHiSRStopCondition;
+  if ( SpinAlignedEOBversion == 4 ) {
+        integrator->stop = XLALSpinAlignedHiSRStopConditionV4;
+    }
 
   if(use_optimized_v2) {
     /* OPTIMIZED: */
-    REAL8Array              *dynamicsHitmp = NULL;
-    retLen = XLALAdaptiveRungeKutta4NoInterpolate( integrator, &seobParams, values->data, 0., 20./mTScaled, deltaTHigh/mTScaled, &dynamicsHitmp );
-    GenerateAmpPhaseFromEOMSoln(retLen,dynamicsHitmp->data,&seobParams);
-    retLen = SEOBNRv2OptimizedInterpolatorIncludeAmpPhase(dynamicsHitmp, 0., deltaTHigh/mTScaled, retLen, &dynamicsHi);
-    XLALDestroyREAL8Array( dynamicsHitmp );
+    retLen_fromOptStep3 = XLALAdaptiveRungeKutta4NoInterpolate( integrator, &seobParams, values->data, 0., 20./mTScaled, deltaTHigh/mTScaled, &dynamicsHitmp );
+    retLen = SEOBNRv2OptimizedInterpolatorNoAmpPhase(dynamicsHitmp, 0., deltaTHigh/mTScaled, retLen_fromOptStep3, &dynamicsHi);
     /* END OPTIMIZED */
   } else {
     retLen = XLALAdaptiveRungeKutta4( integrator, &seobParams, values->data, 0., 20./mTScaled, deltaTHigh/mTScaled, &dynamicsHi );
@@ -1032,13 +1048,13 @@ int XLALSimIMRSpinAlignedEOBWaveformAll(
 
     if(use_optimized_v2) {
       /* OPTIMIZED: */
-      ham = XLALSimIMRSpinEOBHamiltonianOptimized( eta, &cartPosVec, &cartMomVec, &s1VecOverMtMt, &s2VecOverMtMt, sigmaKerr, sigmaStar, seobParams.tortoise, &seobCoeffs );
+      ham = XLALSimIMRSpinEOBHamiltonianOptimized( eta, &cartPosVec, &cartMomVec, &s1VecOverMtMt, &s2VecOverMtMt, sigmaKerr, sigmaStar, seobParams.tortoise, &seobCoeffs ); 
       /* END OPTIMIZED: */
     } else {
       ham = XLALSimIMRSpinEOBHamiltonian( eta, &cartPosVec, &cartMomVec, &s1VecOverMtMt, &s2VecOverMtMt, sigmaKerr, sigmaStar, seobParams.tortoise, &seobCoeffs );
     }
 
-    if ( XLALSimIMRSpinEOBGetSpinFactorizedWaveform( &hLM, values, v, ham, 2, 2, &seobParams, use_optimized_v2 )
+    if ( XLALSimIMRSpinEOBGetSpinFactorizedWaveform( &hLM, values, v, ham, 2, 2, &seobParams, use_optimized_v2  )
          == XLAL_FAILURE )
       {
         /* TODO: Clean-up */
@@ -1198,7 +1214,7 @@ int XLALSimIMRSpinAlignedEOBWaveformAll(
      timewavePeak = XLALSimIMREOBGetNRSpinPeakDeltaT(2, 2, eta,  a);
        break;
      case 2:
-        timewavePeak = XLALSimIMREOBGetNRSpinPeakDeltaT(2, 2, eta, a );
+       timewavePeak = XLALSimIMREOBGetNRSpinPeakDeltaTv2(2, 2, m1, m2, spin1z, spin2z ); // David debug: we need to be using v2 for SpinAlignedEOBversion 2, right?
         break;
       case 4:
         timewavePeak = XLALSimIMREOBGetNRSpinPeakDeltaTv4(2, 2, m1, m2, spin1z, spin2z );
@@ -1338,6 +1354,20 @@ int XLALSimIMRSpinAlignedEOBWaveformAll(
    * STEP 7) Generate full inspiral waveform using desired sampling frequency
    */
 
+  if (use_optimized_v2)
+  {
+      // maybe dynamicstmp and dynamicsHitmp should be called "intermediateDynamics(Hi)" now since they aren't so temporary anymore?
+      GenerateAmpPhaseFromEOMSoln(retLen_fromOptStep2,dynamicstmp->data,&seobParams);
+      retLen = SEOBNRv2OptimizedInterpolatorOnlyAmpPhase(dynamicstmp, 0., deltaT/mTScaled, retLen_fromOptStep2, &dynamics);
+
+      ampVec.length = phaseVec.length = retLen;
+      ampVec.data   = dynamics->data+5*retLen;
+      phaseVec.data = dynamics->data+6*retLen;
+
+      GenerateAmpPhaseFromEOMSoln(retLen_fromOptStep3, dynamicsHitmp->data,&seobParams);
+      retLen = SEOBNRv2OptimizedInterpolatorOnlyAmpPhase(dynamicsHitmp, 0., deltaTHigh/mTScaled, retLen_fromOptStep3, &dynamicsHi);
+  }
+
   /* Now create vectors at the correct sample rate, and compile the complete waveform */
   sigReVec = XLALCreateREAL8Vector( rVec.length + ceil( sigReHi->length / resampFac ) );
   sigImVec = XLALCreateREAL8Vector( sigReVec->length );
@@ -1346,13 +1376,13 @@ int XLALSimIMRSpinAlignedEOBWaveformAll(
   memset( sigImVec->data, 0, sigImVec->length * sizeof( REAL8 ) );
 
   /* Generate full inspiral waveform using desired sampling frequency */
-  if(use_optimized_v2 && SpinAlignedEOBversion == 2) {
+  if(use_optimized_v2) {
     for ( i = 0; i < (INT4)rVec.length; i++ ){
 
-      hLM = amp0*ampVec.data[i]*cexp(I*(phaseVec.data[i]+2*sSub));
+      hLM = ampVec.data[i]*cexp(I*(phaseVec.data[i]+2*sSub));
 
-      sigReVec->data[i] = creal(hLM);
-      sigImVec->data[i] = cimag(hLM);
+      sigReVec->data[i] = amp0 * creal(hLM);
+      sigImVec->data[i] = amp0 * cimag(hLM);
     }
   } else {
     /* TODO - Check vectors were allocated */
@@ -1374,7 +1404,7 @@ int XLALSimIMRSpinAlignedEOBWaveformAll(
 
         ham = XLALSimIMRSpinEOBHamiltonian( eta, &cartPosVec, &cartMomVec, &s1VecOverMtMt, &s2VecOverMtMt, sigmaKerr, sigmaStar, seobParams.tortoise, &seobCoeffs );
 
-        if ( XLALSimIMRSpinEOBGetSpinFactorizedWaveform( &hLM, values, v, ham, 2, 2, &seobParams,  use_optimized_v2 )
+        if ( XLALSimIMRSpinEOBGetSpinFactorizedWaveform( &hLM, values, v, ham, 2, 2, &seobParams, 0 /*use_optimized_v2*/ )
              == XLAL_FAILURE )
           {
             /* TODO: Clean-up */
@@ -1451,6 +1481,15 @@ int XLALSimIMRSpinAlignedEOBWaveformAll(
   XLALAdaptiveRungeKutta4Free( integrator );
   XLALDestroyREAL8Array( dynamics );
   XLALDestroyREAL8Array( dynamicsHi );
+
+  if (dynamicstmp)
+  {
+  XLALDestroyREAL8Array( dynamicstmp ); // DAVIDS: We are done with these now
+  }
+  if (dynamicsHitmp)
+  {
+  XLALDestroyREAL8Array( dynamicsHitmp ); // DAVIDS: Done with these now
+  }
 
   XLALDestroyREAL8Vector( sigReHi );
   XLALDestroyREAL8Vector( sigImHi );
