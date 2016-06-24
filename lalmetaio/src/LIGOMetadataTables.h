@@ -306,6 +306,8 @@ tagSnglInspiralTable
   REAL4         coa_phase;
   REAL4         mass1;
   REAL4         mass2;
+  REAL4         lambda1;
+  REAL4         lambda2;
   REAL4         mchirp;
   REAL4         mtotal;
   REAL4         eta;
@@ -543,6 +545,8 @@ tagSimInspiralTable
   CHAR           source[LIGOMETA_SOURCE_MAX];
   REAL4          mass1;
   REAL4          mass2;
+  REAL4          lambda1;
+  REAL4          lambda2;
   REAL4          eta;
   REAL4          distance;
   REAL4          longitude;

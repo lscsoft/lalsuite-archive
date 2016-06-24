@@ -261,6 +261,20 @@ SimInspiralTable* XLALFixedInspiralMasses(
   return ( inj );
 }
 
+
+/** Set masses to fixed values for an inspiral injection. */
+SimInspiralTable* XLALFixedInspiralLambdas(
+    SimInspiralTable *inj,   /**< injection for which masses will be set*/
+    REAL4  lambda1Fix,         /**< fixed mass of first component */
+    REAL4  lambda2Fix          /**< fixed mass of second component */
+    )
+{
+  inj->lambda1 = lambda1Fix;
+  inj->lambda2 = lambda2Fix;
+  return ( inj );
+}
+
+
 /** Generates random masses for an inspiral injection. */
 SimInspiralTable* XLALRandomInspiralMasses(
     SimInspiralTable *inj,   /**< injection for which masses will be set*/
@@ -319,6 +333,29 @@ SimInspiralTable* XLALRandomInspiralMasses(
   return ( inj );
 }
 
+/** Generates random lambdas for an inspiral injection. */
+SimInspiralTable* XLALRandomInspiralLambdas(
+    SimInspiralTable *inj,   /**< injection for which lambdas will be set*/
+    RandomParams *randParams,/**< random parameter details*/
+    LambdaDistribution lambdaDist,  /**< the lambda distribution to use */
+    REAL4  lambda1Min,         /**< minimum lambda for first component */
+    REAL4  lambda1Max,         /**< maximum lambda for first component */
+    REAL4  lambda2Min,         /**< minimum lambda for second component */
+    REAL4  lambda2Max         /**< maximum lambda for second component */
+    )
+{
+    if ( lambdaDist == uniform )
+    {
+      /* uniformly distributed lambda1 and uniformly distributed mass2 */
+      inj->lambda1 = lambda1Min + XLALUniformDeviate( randParams ) * (lambda1Max - lambda1Min);
+      inj->lambda2 = lambda2Min + XLALUniformDeviate( randParams ) * (lambda2Max - lambda2Min);
+    }
+  return ( inj );
+}
+
+
+
+
 /**
  * Generates masses for an inspiral injection. Masses are Gaussian distributed
  * with the requested mean and standard deviation.
@@ -357,6 +394,40 @@ SimInspiralTable* XLALGaussianInspiralMasses(
 
   return ( inj );
 }
+
+SimInspiralTable* XLALGaussianInspiralLambdas(
+    SimInspiralTable *inj,   /**< injection for which lambdass will be set*/
+    RandomParams *randParams,/**< random parameter details*/
+    REAL4  lambda1Min,         /**< minimum lambda for first component */
+    REAL4  lambda1Max,         /**< maximum lambda for first component */
+    REAL4  lambda1Mean,        /**< mean value for lambda1 */
+    REAL4  lambda1Std,         /**< standard deviation of lambda1 */
+    REAL4  lambda2Min,         /**< minimum lamdba for second component */
+    REAL4  lambda2Max,         /**< maximum lambda for second component */
+    REAL4  lambda2Mean,        /**< mean value of lambda2 */
+    REAL4  lambda2Std          /**< standard deviation of lambda2 */
+    )
+{
+  REAL4 lambda1, lambda2;
+
+  lambda1 = -1.0;
+  while ( (lambda1-lambda1Max)*(lambda1-lambda1Min) > 0 )
+  {
+    lambda1 = lambda1Mean + lambda1Std * XLALNormalDeviate( randParams );
+  }
+  lambda2 = -1.0;
+  while ( (lambda2-lambda2Max)*(lambda2-lambda2Min) > 0 )
+  {
+    lambda2 = lambda2Mean + lambda2Std * XLALNormalDeviate( randParams );
+  }
+
+  inj->lambda1 = lambda1;
+  inj->lambda2 = lambda2;
+  return ( inj );
+}
+
+
+
 
 /**
  * Generates masses for an inspiral injection. Total mass and mass ratio

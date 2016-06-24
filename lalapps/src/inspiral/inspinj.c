@@ -420,6 +420,7 @@ extern int vrbflg;
 ProcessParamsTable *next_process_param( const char *name, const char *type,
     const char *fmt, ... );
 void read_mass_data( char *filename );
+void read_lambda_data(char *filename);
 void read_nr_data( char* filename );
 void read_source_data( char* filename );
 void sourceComplete(void);
@@ -432,6 +433,7 @@ void drawFromIPNsim( REAL8 *rightAscension,
     REAL8 *declination  );
 void drawLocationFromExttrig( SimInspiralTable* table );
 void drawMassFromSource( SimInspiralTable* table );
+void drawLambdaFromSource( SimInspiralTable* table );
 void drawMassSpinFromNR( SimInspiralTable* table );
 void drawMassSpinFromNRNinja2( SimInspiralTable* table );
 
@@ -465,6 +467,7 @@ lalinspiral_time_distribution tDistr;
 LoudnessDistribution          dDistr;
 SkyLocationDistribution       lDistr;
 MassDistribution              mDistr;
+LambdaDistribution            lambdaDistr;
 InclDistribution              iDistr;
 SpinDistribution              spinDistr = uniformSpinDist;
 
@@ -472,6 +475,7 @@ SimInspiralTable *simTable;
 SimRingdownTable *simRingTable;
 
 char *massFileName = NULL;
+char *lambdaFileName = NULL;
 char *nrFileName = NULL;
 char *sourceFileName = NULL;
 char *outputFileName = NULL;
@@ -507,6 +511,15 @@ REAL4 massStdev2= -1.0;
 REAL4 minMassRatio=-1.0;
 REAL4 maxMassRatio=-1.0;
 
+REAL4 minLambda1  = -1;
+REAL4 maxLambda1  = -1;
+REAL4 minLambda2  = -1;
+REAL4 maxLambda2  = -1;
+REAL4 meanLambda1 = -1.0;
+REAL4 meanLambda2 = -1.0;
+REAL4 lambdaStdev1= -1.0;
+REAL4 lambdaStdev2= -1.0;
+
 REAL4 inclStd=-1.0;
 REAL4 fixed_inc=-1.0;
 REAL4 max_inc=LAL_PI/2.0;
@@ -532,6 +545,8 @@ REAL4 minabsKappa1=0.0;
 REAL4 maxabsKappa1=1.0;
 REAL4 fixedMass1=-1.0;
 REAL4 fixedMass2=-1.0;
+REAL4 fixedLambda1=-1.0;
+REAL4 fixedLambda2=-1.0;
 INT4  pntMass1=1;
 INT4  pntMass2=1;
 REAL4 deltaMass1=-1;
@@ -573,6 +588,12 @@ struct {
   REAL8 mass1;
   REAL8 mass2;
 } *mass_data;
+
+int num_lambda;
+struct {
+  REAL8 lambda1;
+  REAL8 lambda2;
+} *lambda_data;
 
 struct FakeGalaxy{
 char name[LIGOMETA_SOURCE_MAX];
@@ -1076,6 +1097,26 @@ static void print_usage(char *program)
       " [--max-mratio] maxr       set the maximum mass ratio\n"\
       " [--mass1-points] m1pnt    set the number of grid points in the m1 direction if '--m-distr=m1m2SquareGrid'\n"\
       " [--mass2-points] m2pnt    set the number of grid points in the m2 direction if '--m-distr=m1m2SquareGrid'\n\n");
+fprintf(stderr,
+      "Lambda distribution information:\n"\
+      "  --lambda-distr lambdaDist       set the lambda distribution of injections\n"\
+      "                                  must be one of:\n"\
+      "                                  source: using file containing list of lambda pairs\n"\
+      "                                  uniform: uniform in Lambda1 and Lambda2\n"\
+      "                                  gaussian: gaussian Lambda distribution\n"\
+      "                                  fixLambdas: fix Lambda1 and Lambda2 to specific values\n"\
+      " [--lambda-file] lambdaFile       read population lambda parameters from lambdaFile\n"\
+      " [--min-lambda1] lambda1min       set the minimum component lambda to lambda1min\n"\
+      " [--max-lambda1] lambda1max       set the maximum component lambda to lambda1max\n"\
+      " [--min-lambda2] lambda2min       set the minimum component lambda to lambda2min\n"\
+      " [--max-lambda2] lambda2max       set the maximum component lambda to lambda2max\n"\
+      " [--fixed-lambda1] fixlambda1     set lambda1 to fixlambda1\n"\
+      " [--fixed-lambda2] fixlambda2     set lambda2 to fixlambda2\n"\
+      " [--mean-lambda1] lambda1mean     set the mean value for lambda1\n"\
+      " [--stdev-lambda1] lambda1std     set the standard deviation for lambda1\n"\
+      " [--mean-lambda2] lambda2mean     set the mean value for lambda2\n"\
+      " [--stdev-lambda2] lambda2std     set the standard deviation for lambda2\n\n");
+
   fprintf(stderr,
       "Spin distribution information:\n"\
       "  --disable-spin           disables spinning injections\n"\
@@ -1161,6 +1202,52 @@ read_mass_data( char* filename )
   /* close the file */
   fclose( fp );
 }
+
+/*function to =read lambda data*/
+void read_lambda_data(char* filename)
+{
+  char line[256];
+  FILE   *fp;
+  int n = 0;
+
+  fp=fopen( filename, "r" );
+  if ( ! fp )
+  {
+    perror( "read_lambda_data" );
+    fprintf( stderr,
+        "Error while trying to open file %s\n",
+        filename );
+    exit( 1 );
+  }
+
+  /* count the number of lines in the file */
+  num_lambda=0;
+  while ( fgets( line, sizeof( line ), fp ) )
+    ++num_lambda;
+
+  /* alloc space for the data */
+  lambda_data = LALCalloc( num_lambda, sizeof(*lambda_data) );
+  if ( !lambda_data )
+  {
+    fprintf( stderr, "Allocation error for lambda_data\n" );
+    exit( 1 );
+  }
+
+  /* 'rewind' the file */
+  rewind( fp );
+
+  /* read the file finally */
+  while ( fgets( line, sizeof( line ), fp ) )
+  {
+    sscanf( line, "%le %le", &lambda_data[n].lambda1, &lambda_data[n].lambda2 );
+    n++;
+  }
+
+  /* close the file */
+  fclose( fp );
+}
+
+
 
   void
 read_nr_data( char* filename )
@@ -1621,6 +1708,29 @@ drawMassFromSource( SimInspiralTable* table )
 
 /*
  *
+ * functions to draw lambdas from source distributio
+ *
+ */
+
+void drawLambdaFromSource( SimInspiralTable* table )
+{
+  REAL4 lambda1, lambda2;
+  int lambda_index=0;
+
+  /* choose masses from the lambda-list */
+  lambda_index = (int)( num_lambda * XLALUniformDeviate( randParams ) );
+  lambda1 = lambda_data[lambda_index].lambda1;
+  lambda2 = lambda_data[lambda_index].lambda2;
+
+  table->lambda1 = lambda1;
+  table->lambda2 = lambda2;
+}
+
+
+
+
+/*
+ *
  * functions to draw masses and spins from NR distribution
  *
  */
@@ -1873,6 +1983,7 @@ int main( int argc, char *argv[] )
     {"verbose",                 no_argument,       &vrbflg,           1 },
     {"source-file",             required_argument, 0,                'f'},
     {"mass-file",               required_argument, 0,                'm'},
+    {"lambda-file",             required_argument, 0,                2011},
     {"nr-file",                 required_argument, 0,                'c'},
     {"exttrig-file",            required_argument, 0,                'E'},
     {"f-lower",                 required_argument, 0,                'F'},
@@ -1906,6 +2017,17 @@ int main( int argc, char *argv[] )
     {"stdev-mass2",             required_argument, 0,                'O'},
     {"min-mratio",              required_argument, 0,                'x'},
     {"max-mratio",              required_argument, 0,                'y'},
+    {"lambda-distr",            required_argument, 0,                2000},
+    {"min-lambda1",             required_argument, 0,                2001},
+    {"max-lambda1",             required_argument, 0,                2002},
+    {"min-lambda2",             required_argument, 0,                2003},
+    {"max-lambda2",             required_argument, 0,                2004},
+    {"fixed-lambda1",           required_argument, 0,                2005},
+    {"fixed-lambda2",           required_argument, 0,                2006},
+    {"mean-lambda1",            required_argument, 0,                2007},
+    {"mean-lambda2",            required_argument, 0,                2008},
+    {"stdev-lambda1",           required_argument, 0,                2009},
+    {"stdev-lambda2",           required_argument, 0,                2010},
     {"d-distr",                 required_argument, 0,                'e'},
     {"min-distance",            required_argument, 0,                'p'},
     {"max-distance",            required_argument, 0,                'r'},
@@ -2034,6 +2156,16 @@ int main( int argc, char *argv[] )
           next_process_param( long_options[option_index].name, "string",
               "%s", LALoptarg );
         break;
+
+      case 2011:
+        LALoptarg_len = strlen( LALoptarg ) + 1;
+        lambdaFileName = calloc( 1, LALoptarg_len * sizeof(char) );
+        memcpy( lambdaFileName, LALoptarg, LALoptarg_len * sizeof(char) );
+        this_proc_param = this_proc_param->next =
+          next_process_param( long_options[option_index].name, "string",
+              "%s", LALoptarg );
+        break;
+
 
       case 'c':
         LALoptarg_len = strlen( LALoptarg ) + 1;
@@ -2381,6 +2513,115 @@ int main( int argc, char *argv[] )
         this_proc_param = this_proc_param->next =
           next_process_param( long_options[option_index].name,
               "float", "%le", maxMassRatio );
+        break;
+
+
+      case 2000:
+        LALoptarg_len = strlen( LALoptarg ) + 1;
+        memcpy( dummy, LALoptarg, LALoptarg_len );
+        this_proc_param = this_proc_param->next = (ProcessParamsTable *)
+          calloc( 1, sizeof(ProcessParamsTable) );
+        snprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX, "%s",
+            PROGRAM_NAME );
+        snprintf( this_proc_param->param, LIGOMETA_PARAM_MAX, "--lambda-distr" );
+        snprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" );
+        snprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, "%s",
+            LALoptarg );
+
+        if (!strcmp(dummy, "source"))
+        {
+          lambdaDistr=lambdaFromSourceFile;
+        }
+        else if (!strcmp(dummy, "uniform"))
+        {
+          lambdaDistr=uniform;
+        }
+        else if (!strcmp(dummy, "gaussian"))
+        {
+          lambdaDistr=gaussianLambdaDist;
+        }
+        else if (!strcmp(dummy, "fixLambdas"))
+        {
+          lambdaDistr=fixLambdas;
+        }
+        else
+        {
+          fprintf( stderr, "invalid argument to --%s:\n"
+              "unknown lambda distribution: %s must be one of\n"
+              "(source, uniform, gaussian, fixLambdas)\n",
+              long_options[option_index].name, LALoptarg );
+          exit( 1 );
+        }
+        break;
+
+      case 2001:
+        minLambda1 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+          next_process_param( long_options[option_index].name,
+              "float", "%le", minLambda1 );
+        break;
+
+      case 2002:
+        maxLambda1 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+          next_process_param( long_options[option_index].name,
+              "float", "%le", maxLambda1 );
+        break;
+
+      case 2003:
+        minLambda2 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+          next_process_param( long_options[option_index].name,
+              "float", "%le", minLambda2 );
+        break;
+
+      case 2004:
+        maxLambda2 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+          next_process_param( long_options[option_index].name,
+              "float", "%le", maxLambda2 );
+        break;
+
+      case 2005:
+        fixedLambda1 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+          next_process_param( long_options[option_index].name,
+              "float", "%f", fixedLambda1 );
+        break;
+
+      case 2006:
+        fixedLambda2 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+          next_process_param( long_options[option_index].name,
+              "float", "%f", fixedLambda2 );
+        break;
+
+      case 2007:
+        meanLambda1 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+          next_process_param( long_options[option_index].name,
+              "float", "%le", meanLambda1 );
+        break;
+
+      case 2008:
+        meanLambda2 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+          next_process_param( long_options[option_index].name,
+              "float", "%le", meanLambda2 );
+        break;
+
+      case 2009:
+        lambdaStdev1 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+          next_process_param( long_options[option_index].name,
+              "float", "%le", lambdaStdev1 );
+        break;
+
+      case 2010:
+        lambdaStdev2 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+          next_process_param( long_options[option_index].name,
+              "float", "%le", lambdaStdev2 );
         break;
 
       case ':':
@@ -3536,6 +3777,15 @@ int main( int argc, char *argv[] )
     exit( 1 );
   }
 
+  /* check files for lambda distribution*/
+  if ( !lambdaFileName && lambdaDistr==lambdaFromSourceFile )
+  {
+    fprintf( stderr,
+        "Must specify either a file contining the lambdas (--lambda-file) \n"
+        "or choose another lambda-distribution (--lambda-distr).\n" );
+    exit( 1 );
+  }
+
   /* read the masses from the mass file here, check for junk options */
   if ( massFileName && mDistr==massFromSourceFile )
   {
@@ -3554,6 +3804,27 @@ int main( int argc, char *argv[] )
       read_mass_data( massFileName );
     }
   }
+
+  /* read lambdas from the lambda file here, check for junk options */
+  if ( lambdaFileName && lambdaDistr==lambdaFromSourceFile )
+  {
+    if ( minLambda1>0.0 || minLambda2>0.0 || maxLambda1>0.0 || maxLambda2>0.0 ||
+         meanLambda1>0.0 || meanLambda2>0.0 ||
+         lambdaStdev1>0.0 || lambdaStdev2>0.0 ||
+         fixedLambda1>0.0 || fixedLambda2>0.0 )
+    {
+      fprintf( stderr,
+        "One or more lambda distribution options are incompatible with \n"
+        "using a file containing lambdas (--lambda-file).\n" );
+      exit( 1 );
+    }
+    else
+    {
+      read_lambda_data( lambdaFileName );
+    }
+  }
+
+
 
   /* NR option requires min- & max-mtotal, all other options are junk */
   if ( nrFileName && mDistr==massFromNRFile )
@@ -3588,6 +3859,15 @@ int main( int argc, char *argv[] )
     fprintf( stderr,
       "Cannot specify a source or NR injection mass file for your choice \n"
       "of --m-distr.\n" );
+    exit( 1 );
+  }
+
+  /* inverse logic check */
+  if ( lambdaFileName && lambdaDistr!=lambdaFromSourceFile )
+  {
+    fprintf( stderr,
+      "Cannot specify a source file for your choice \n"
+      "of --lambda-distr.\n" );
     exit( 1 );
   }
 
@@ -3627,6 +3907,29 @@ int main( int argc, char *argv[] )
       exit( 1 );
     }
   }
+
+  /* check options for component-based distributions */
+  if ( lambdaDistr==uniform ||
+       lambdaDistr==gaussianLambdaDist )
+  {
+    /* first check: require component mass ranges */
+    if ( minLambda1<=0.0 || minLambda2<=0.0 || maxLambda1<=0.0 || maxLambda2<=0.0 )
+    {
+      fprintf( stderr,
+        "Must specify positive minimum and maximum lambda for \n"
+        "your choice of --lambda-distr.\n" );
+      exit( 1 );
+    }
+    /* second check: exclude junk options */
+    if ( fixedLambda1>=0.0 || fixedLambda2>=0.0 )
+    {
+      fprintf( stderr,
+        "Cannot specify fixed lambda1,lambda2 for \n"
+        "your choice of --lambda-distr.\n" );
+      exit( 1 );
+    }
+  }
+
 
   /* check options for mtotal/q-based distributions */
   if ( mDistr==uniformTotalMassRatio || mDistr==logMassUniformTotalMassRatio ||
@@ -3672,13 +3975,35 @@ int main( int argc, char *argv[] )
       exit( 1 );
     }
   }
+
+  /* check for gaussian lambda distribution parameters */
+  if ( lambdaDistr==gaussianLambdaDist )
+  {
+    if ( meanLambda1 <= 0.0 || lambdaStdev1 <= 0.0 ||
+         meanLambda2 <= 0.0 || lambdaStdev2 <= 0.0 )
+    {
+      fprintf( stderr,
+        "Must specify positive --mean-lambda1/2 and --stdev-lambda1/2 if choosing \n"
+        " --lambda-distr gaussian\n" );
+      exit( 1 );
+    }
+    if ( minLambda1==maxLambda1 || minLambda2==maxLambda2 )
+    {
+      fprintf( stderr,
+        "Must specify a nonzero range of lambda1 and lambda2 if choosing \n"
+        " --lambda-distr gaussian\n" );
+      exit( 1 );
+    }
+  }
+
+
   /* inverse logic check for junk options */
-  if ( ( meanMass1>=0.0 || meanMass2>=0.0 || massStdev1>=0.0 || massStdev2>=0.0 )
-        && ( mDistr!=gaussianMassDist ) )
+  if ( ( meanLambda1>=0.0 || meanLambda2>=0.0 || lambdaStdev1>=0.0 || lambdaStdev2>=0.0 )
+        && ( lambdaDistr!=gaussianLambdaDist ) )
   {
     fprintf( stderr,
-      "Cannot specify --mean-mass1/2 or --stdev-mass1/2 unless choosing \n"
-      " --m-distr gaussian\n" );
+      "Cannot specify --mean-lambda1/2 or --stdev-lambda1/2 unless choosing \n"
+      " --lambda-distr gaussian\n" );
     exit( 1 );
   }
 
@@ -3725,6 +4050,27 @@ int main( int argc, char *argv[] )
       fprintf( stderr,
         "One or more mass options are incompatible with --m-distr fixMasses, \n"
         "only --fixed-mass1 and --fixed-mass2 may be specified\n" );
+      exit( 1 );
+    }
+  }
+
+  /* checks for fixed-lambda injections */
+  if ( lambdaDistr==fixLambdas )
+  {
+    if ( fixedLambda1<=0.0 || fixedLambda2<=0.0 )
+    {
+      fprintf( stderr, "--fixed-lambda1 and --fixed-lambda2 must be specified "
+        "and positive if choosing --lambda-distr fixMasses\n" );
+      exit( 1 );
+    }
+    /* exclude junk options */
+    if ( minLambda1>=0.0 || minLambda2>=0.0 || maxLambda1>=0.0 || maxLambda2>=0.0 ||
+         meanLambda1>=0.0 || meanLambda2>=0.0 ||
+         lambdaStdev1>=0.0 || lambdaStdev2>=0.0 )
+    {
+      fprintf( stderr,
+        "One or more lambda options are incompatible with --lambda-distr fixLambdas, \n"
+        "only --fixed-lambda1 and --fixed-lambda2 may be specified\n" );
       exit( 1 );
     }
   }
@@ -4018,6 +4364,32 @@ int main( int argc, char *argv[] )
           minMass2, maxMass2,
           minMtotal, maxMtotal);
     }
+
+
+    /* populate lambdas */
+    if ( lambdaDistr==lambdaFromSourceFile )
+    {
+      drawLambdaFromSource( simTable );
+    }
+    else if ( lambdaDistr==gaussianLambdaDist )
+    {
+      simTable=XLALGaussianInspiralLambdas( simTable, randParams,
+          minLambda1, maxLambda1,
+          meanLambda1, lambdaStdev1,
+          minLambda2, maxLambda2,
+          meanLambda2, lambdaStdev2);
+    }
+    else if ( lambdaDistr==fixLambdas )
+    {
+      simTable=XLALFixedInspiralLambdas( simTable, fixedLambda1, fixedLambda2);
+    }
+    else {
+      simTable=XLALRandomInspiralLambdas( simTable, randParams, lambdaDistr,
+          minLambda1, maxLambda1,
+          minLambda2, maxLambda2);
+    }
+
+
 
     /* draw location and distances */
     drawFromSource( &drawnRightAscension, &drawnDeclination, &drawnDistance,

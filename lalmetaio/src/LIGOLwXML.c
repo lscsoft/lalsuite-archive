@@ -821,6 +821,8 @@ LALWriteLIGOLwXMLTable (
               tablePtr.simInspiralTable->source,
               tablePtr.simInspiralTable->mass1,
               tablePtr.simInspiralTable->mass2,
+              tablePtr.simInspiralTable->lambda1,
+              tablePtr.simInspiralTable->lambda2,
               tablePtr.simInspiralTable->mchirp,
               tablePtr.simInspiralTable->eta,
               tablePtr.simInspiralTable->distance,

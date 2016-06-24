@@ -96,6 +96,20 @@ typedef enum
 MassDistribution;
 
 /**
+ * enum containing the different ways in which the lambdas of
+ * injections can be distributed
+ */
+typedef enum
+{
+  unknownLambdaDist,
+  lambdaFromSourceFile,
+  uniform,
+  gaussianLambdaDist,
+  fixLambdas
+}
+LambdaDistribution;
+
+/**
  * enum containing the different ways in which the inclinations of
  * injections can be distributed
  */
@@ -177,6 +191,12 @@ SimInspiralTable* XLALFixedInspiralMasses(
     REAL4  mass2Fix
     );
 
+SimInspiralTable* XLALFixedInspiralLambdas(
+    SimInspiralTable *inj,
+    REAL4  lambda1Fix,
+    REAL4  lambda2Fix
+    );
+
 SimInspiralTable* XLALRandomInspiralMasses( SimInspiralTable *inj,
     RandomParams *randParams,
     MassDistribution mDistr,
@@ -186,6 +206,15 @@ SimInspiralTable* XLALRandomInspiralMasses( SimInspiralTable *inj,
     REAL4  mass2Max,
     REAL4  minTotalMass,
     REAL4  maxTotalMass  );
+
+SimInspiralTable* XLALRandomInspiralLambdas( SimInspiralTable *inj,
+    RandomParams *randParams,
+    LambdaDistribution lambdaDistr,
+    REAL4  lambda1Min,
+    REAL4  lambda1Max,
+    REAL4  lambda2Min,
+    REAL4  lambda2Max );
+
 
 SimInspiralTable* XLALGaussianInspiralMasses( SimInspiralTable *inj,
     RandomParams *randParams,
@@ -197,6 +226,17 @@ SimInspiralTable* XLALGaussianInspiralMasses( SimInspiralTable *inj,
     REAL4  mass2Max,
     REAL4  mass2Mean,
     REAL4  mass2Std);
+
+SimInspiralTable* XLALGaussianInspiralLambdas( SimInspiralTable *inj,
+    RandomParams *randParams,
+    REAL4  lambda1Min,
+    REAL4  lambda1Max,
+    REAL4  lamdba1Mean,
+    REAL4  lambda1Std,
+    REAL4  lambda2Min,
+    REAL4  lambda2Max,
+    REAL4  lamdba2Mean,
+    REAL4  lamdba2Std);
 
 SimInspiralTable* XLALRandomInspiralTotalMassRatio( SimInspiralTable *inj,
     RandomParams *randParams,
