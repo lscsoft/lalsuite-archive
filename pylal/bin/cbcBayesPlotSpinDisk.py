@@ -7,8 +7,6 @@ from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib import rc
 
-import corner
-
 rc('text', usetex=True)
 rc('font', family='lmodern')
 
@@ -22,9 +20,20 @@ rc('text.latex', unicode=True)
 
 def make_disk_plot(post,outpath=None):
 
+  try:
+    import corner
+  except ImportError:
+    print "cannot import corner. Won't plot spin disk"
+    return None
+
+  a1='a1'
+  tilt1='tilt_spin1'
+  a2='a2'
+  tilt2='tilt_spin2'
+
   names=post.names
   allin=1.0
-  for i in ['a1','tilt1','a2','tilt2']:
+  for i in [a1,tilt1,a2,tilt2]:
     if not i in names:
       allin*=0.0
   if allin==0.0:
@@ -38,7 +47,7 @@ def make_disk_plot(post,outpath=None):
   xticks = [0., .25, .5, .75, 1.]
 
   vmin, vmax = 0., 0.
-  for a, tilt in zip(['a1', 'a2'], ['tilt1', 'tilt2']):
+  for a, tilt in zip([a1, a2], [tilt1, tilt2]):
       asamps=(post[a].samples).flatten()
       tsamps=(post[tilt].samples).flatten()
       
@@ -46,7 +55,7 @@ def make_disk_plot(post,outpath=None):
       H /= len(asamps)
       vmax = H.max() if H.max() > vmax else vmax
 
-  for ax, a, tilt, flip in zip(axs, ['a1', 'a2'], ['tilt1', 'tilt2'], [True, False]):
+  for ax, a, tilt, flip in zip(axs, [a1, a2], [tilt1, tilt2], [True, False]):
       plt.sca(ax)
       H, rs, costs = np.histogram2d(asamps, np.cos(tsamps), range=[[0, 1], [-1, 1]], bins=(Na, Nt), normed=False)
       H /= len(asamps)
