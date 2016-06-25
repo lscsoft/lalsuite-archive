@@ -630,7 +630,7 @@ def cbcBayesPostProc(
       wfsection.write('<a href="calibration.png" target="_blank"><img src="calibration.png"/></a>')
      # if precessing spins do spin disk
     allin=1.0
-    for i in ['a1','tilt1','a2','tilt2']:
+    for i in ['a1','tilt_spin1','a2','tilt_spin2']:
       if not i in pos.names:
         allin*=0.0
     if allin ==0.0:
