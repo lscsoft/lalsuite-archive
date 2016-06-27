@@ -833,7 +833,9 @@ static int TEOBResumROMCore(
 
 
   //Resampling A(t) and Phi(t) to arbitrary deltaT ---\n");
-  gsl_interp_accel *acc = gsl_interp_accel_alloc();
+  gsl_interp_accel *acc_amp = gsl_interp_accel_alloc();
+  gsl_interp_accel *acc_phi = gsl_interp_accel_alloc();
+  gsl_interp_accel *acc_fot = gsl_interp_accel_alloc();
   gsl_spline *ampoft_spline = gsl_spline_alloc (gsl_interp_cspline, Gntimes);
   gsl_spline *phioft_spline = gsl_spline_alloc (gsl_interp_cspline, Gntimes);
 
@@ -845,25 +847,32 @@ static int TEOBResumROMCore(
   //calculate frequencies at nodes (derivative of phi(t)/2pi)
   int i_end_mono = Gntimes;
   for (n=0;n<Gntimes;n++) {
-    der = gsl_spline_eval_deriv (phioft_spline, physical_times[n], acc);
+    der = gsl_spline_eval_deriv (phioft_spline, physical_times[n], acc_phi);
     freqs[n] = 0.5*der/LAL_PI;//omegaoft(time_phys)/(2*np.pi)
     //determine up to where f is monotonically increasing
-    if (n > 0) {
+    if (n > 0 && i_end_mono == Gntimes) {
       if (freqs[n] < freqs[n-1]) i_end_mono = n ;
     }
   }
 
   //create t(f) spline
+  double physical_times_end = physical_times[Gntimes-1];//save the last element before resizing
+  //Resize freqs and physical_times to include only monotonically increasing values
+  realloc(freqs,i_end_mono*sizeof(double));
+  realloc(physical_times,i_end_mono*sizeof(double));
+  //interpolate to get t(f)
   gsl_spline *toffreq_spline = gsl_spline_alloc (gsl_interp_cspline, i_end_mono);
   gsl_spline_init(toffreq_spline, freqs, physical_times, i_end_mono);
 
   //calculate parameters to resample with even spacing
-  double tstart = gsl_spline_eval(toffreq_spline, fRef, acc);
-  int Ntimes_res = (int) ceil((physical_times[Gntimes-1]-tstart)/deltaT);
+  double tstart = gsl_spline_eval(toffreq_spline, fRef, acc_fot);
+  int Ntimes_res = (int) ceil((physical_times_end-tstart)/deltaT);
   double *times_res = calloc(Ntimes_res,sizeof(double));
   double *amp_res = calloc(Ntimes_res,sizeof(double));
   double *phi_res = calloc(Ntimes_res,sizeof(double));
   double t=tstart;
+  fprintf(stdout,"tstart=%.2f\n",tstart);
+  fprintf(stdout,"Ntimes=%d\n",Ntimes_res);
 
   //for scaling the amplitude
   double h22_to_h = 4.0*eta*sqrt(5.0/LAL_PI)/8.0;
@@ -891,17 +900,17 @@ static int TEOBResumROMCore(
   memset(hc->data->data, 0, Ntimes_res * sizeof(REAL8));
 
   times_res[0] = t ;
-  amp_res[0] = gsl_spline_eval(ampoft_spline, t, acc)*amp_units*h22_to_h;
-  double phi0 = gsl_spline_eval(phioft_spline, t, acc);
+  amp_res[0] = gsl_spline_eval(ampoft_spline, t, acc_amp)*amp_units*h22_to_h;
+  double phi0 = gsl_spline_eval(phioft_spline, t, acc_phi);
   phi_res[0] = 0.0;
   hp->data->data[0] = inc_plus*amp_res[0]*cos(phi_res[0]);
   hc->data->data[0] = inc_cross*amp_res[0]*sin(phi_res[0]);
   t+=deltaT;
   for (n=1;n<Ntimes_res;n++) {
     times_res[n] = t;
-    amp_res[n] = gsl_spline_eval(ampoft_spline, t, acc)*amp_units*h22_to_h;
+    amp_res[n] = gsl_spline_eval(ampoft_spline, t, acc_amp)*amp_units*h22_to_h;
     //Zero the phase at the beginning (-phi0)
-    phi_res[n] = gsl_spline_eval(phioft_spline, t, acc)-phi0;
+    phi_res[n] = gsl_spline_eval(phioft_spline, t, acc_phi)-phi0;
 
     hp->data->data[n] = inc_plus*amp_res[n]*cos(phi_res[n]);
     hc->data->data[n] = inc_cross*amp_res[n]*sin(phi_res[n]);
@@ -915,7 +924,9 @@ static int TEOBResumROMCore(
   gsl_spline_free (ampoft_spline);
   gsl_spline_free (phioft_spline);
   gsl_spline_free (toffreq_spline);
-  gsl_interp_accel_free (acc);
+  gsl_interp_accel_free (acc_amp);
+  gsl_interp_accel_free (acc_phi);
+  gsl_interp_accel_free (acc_fot);
 
   gsl_vector_free(amp_at_nodes);
   gsl_vector_free(phi_at_nodes);
