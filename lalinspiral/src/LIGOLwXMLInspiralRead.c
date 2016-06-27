@@ -1394,6 +1394,8 @@ SimInspiralTableFromLIGOLw (
     {"source",              -1, 14},
     {"mass1",               -1, 15},
     {"mass2",               -1, 16},
+    {"lambda1",             -1, 56},
+    {"lambda2",             -1, 57},
     {"eta",                 -1, 17},
     {"distance",            -1, 18},
     {"longitude",           -1, 19},
@@ -1572,6 +1574,14 @@ SimInspiralTableFromLIGOLw (
         else if ( tableDir[j].idx == 16 )
         {
           thisSim->mass2 = r4colData;
+        }
+        else if ( tableDir[j].idx == 56 )
+        {
+          thisSim->lambda1 = r4colData;
+        }
+        else if ( tableDir[j].idx == 57 )
+        {
+          thisSim->lambda2 = r4colData;
         }
         else if ( tableDir[j].idx == 17 )
         {

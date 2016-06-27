@@ -1541,11 +1541,17 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
         lambda1= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")->value);
         fprintf(stdout,"Injection lambda1 set to %f\n",lambda1);
       }
+      else 
+        lambda1 = injEvent->lambda1;
+
       REAL8 lambda2 = 0.;
       if(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")) {
         lambda2= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")->value);
         fprintf(stdout,"Injection lambda2 set to %f\n",lambda2);
       }
+      else 
+        lambda2 = injEvent->lambda2;
+
       REAL8 lambdaT = 0.;
       REAL8 dLambdaT = 0.;
       REAL8 m1=injEvent->mass1;
@@ -2510,10 +2516,14 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
   REAL8 m1=theEventTable->mass1;
   REAL8 m2=theEventTable->mass2;
   REAL8 chirpmass = theEventTable->mchirp;
+  REAL8 lambda1 = theEventTable->lambda1;
+  REAL8 lambda2 = theEventTable->lambda2;
   LALInferenceAddVariable(vars, "mass1", &m1, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(vars, "mass2", &m2, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(vars, "chirpmass", &chirpmass, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(vars, "q", &q, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddVariable(vars, "lambda1", &lambda1, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddVariable(vars, "lambda2", &lambda2, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(vars, "time", &injGPSTime, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(vars, "distance", &dist, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(vars, "costheta_jn", &cosinclination, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
@@ -2657,6 +2667,9 @@ void enforce_m1_larger_m2(SimInspiralTable* injEvent){
         injEvent->spin1z=injEvent->spin2z;
         injEvent->spin2z=tmp;
 	injEvent->coa_phase=injEvent->coa_phase+LAL_PI;
+        tmp=injEvent->lambda1;
+        injEvent->lambda1=injEvent->lambda2;
+        injEvent->lambda2=tmp;
         }
     return ;
 }

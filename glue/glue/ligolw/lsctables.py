@@ -2972,6 +2972,8 @@ class SimInspiralTable(table.Table):
 		"source": "lstring",
 		"mass1": "real_4",
 		"mass2": "real_4",
+		"lambda1": "real_4",
+		"lambda2": "real_4",
 		"mchirp": "real_4",
 		"eta": "real_4",
 		"distance": "real_4",
