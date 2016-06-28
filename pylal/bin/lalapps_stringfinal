@@ -390,9 +390,9 @@ WHERE
 		axes.xaxis.grid(True, which = "major,minor")
 		axes.yaxis.grid(True, which = "major,minor")
 		if self.open_box:
-			axes.set_title(r"Event Rate vs.\ Likelihood Ratio Threshold")
+			axes.set_title(r"Event Rate vs. Likelihood Ratio Threshold")
 		else:
-			axes.set_title(r"Event Rate vs.\ Likelihood Ratio Threshold (Closed Box)")
+			axes.set_title(r"Event Rate vs. Likelihood Ratio Threshold (Closed Box)")
 
 		# warning:  the error bar polygon is not *really* clipped
 		# to the axes' bounding box, the result will be incorrect
@@ -411,6 +411,16 @@ WHERE
 
 		axes.set_xlim((minX, maxX))
 		axes.set_ylim((minY, maxY))
+
+		Bf = file("string_brate.txt", "w")
+		for Bx, By, Byerr in zip(background_x,  background_y, background_yerr):
+			print >>Bf, "%.16g %.16g %.16g" % (Bx, By, Byerr)
+		
+		if self.open_box:
+			Zf = file("string_zrate.txt", "w")
+			for Zx, Zy in zip(self.zero_lag, zero_lag_y):
+				print >>Zf, "%.16g %.16g" % (Zx, Zy)
+
 
 		#
 		# start the count residual vs. threshold plot
@@ -616,14 +626,14 @@ FROM
 		self.quietest_found.extend(quietest_found)
 
 	def finish(self):
-		fig, axes = SnglBurstUtils.make_burst_plot(r"Injection Amplitude (\(\mathrm{s}^{-\frac{1}{3}}\))", "Detection Efficiency", width = 108.0)
-		axes.set_title(r"Detection Efficiency vs.\ Amplitude")
+		fig, axes = SnglBurstUtils.make_burst_plot(r"Injection Amplitude (cusp=s^{-1/3}, kink=s^{-2/3})", "Detection Efficiency", width = 108.0)
+		axes.set_title(r"Detection Efficiency vs. Amplitude")
 		axes.semilogx()
 		axes.set_position([0.10, 0.150, 0.86, 0.77])
 
 		# set desired yticks
 		axes.set_yticks((0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0))
-		axes.set_yticklabels((r"\(0\)", r"\(0.1\)", r"\(0.2\)", r"\(0.3\)", r"\(0.4\)", r"\(0.5\)", r"\(0.6\)", r"\(0.7\)", r"\(0.8\)", r"\(0.9\)", r"\(1.0\)"))
+		axes.set_yticklabels((r"0", r"0.1", r"0.2", r"0.3", r"0.4", r"0.5", r"0.6", r"0.7", r"0.8", r"0.9", r"1.0"))
 		axes.xaxis.grid(True, which = "major,minor")
 		axes.yaxis.grid(True, which = "major,minor")
 
@@ -656,10 +666,10 @@ FROM
 		print >>sys.stderr, "Pipeline's 50%% efficiency point for all detections = %g +/- %g%%\n" % (A50, A50_err * 100)
 
 		# add a legend to the axes
-		axes.legend((line1,), (r"\noindent Injections recovered with $\Lambda > %s$" % SnglBurstUtils.latexnumber("%.2e" % self.detection_threshold),), loc = "lower right")
+		axes.legend((line1,), (r"Injections recovered with $\Lambda > %s$" % SnglBurstUtils.latexnumber("%.2e" % self.detection_threshold),), loc = "lower right")
 
 		# adjust limits
-		axes.set_xlim([1e-21, 2e-18])
+		axes.set_xlim([1e-22, 2e-18])
 		axes.set_ylim([0.0, 1.0])
 
 		#
