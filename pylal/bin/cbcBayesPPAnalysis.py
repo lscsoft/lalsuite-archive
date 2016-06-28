@@ -44,6 +44,8 @@ from pylal import bayespputils as bppu
 posterior_name_to_latex_name = {
     'm1' : r'$m_1$',
     'm2' : r'$m_2$',
+    'lambda1' : r'$\lambda_1$', 
+    'lambda2' : r'$\lambda_2$', 
     'eta' : r'$\eta$',
     'q' : r'$q$',
     'mc' : r'$\mathcal{M}$',
@@ -221,7 +223,7 @@ if __name__ == '__main__':
     injs = table.get_table(utils.load_filename(options.injxml,contenthandler=ExtractSimInspiralTableLIGOLWContentHandler),lsctables.SimInspiralTable.tableName)
 
     if options.par == []:
-        parameters = ['m1', 'm2', 'mc', 'eta', 'q',  'theta_jn', 'a1', 'a2', 'tilt1', 'tilt2', 'phi12', 'phi_jl', 'ra', 'dec', 'distance', 'time', 'phi_orb', 'psi']
+        parameters = ['m1', 'm2', 'lambda1', 'lambda2', 'mc', 'eta', 'q',  'theta_jn', 'a1', 'a2', 'tilt1', 'tilt2', 'phi12', 'phi_jl', 'ra', 'dec', 'distance', 'time', 'phi_orb', 'psi']
     else:
         parameters = options.par
 

@@ -729,6 +729,7 @@ def cbcBayesPostProc(
     if not os.path.isdir(cornerdir):
       os.makedirs(cornerdir)
     massParams=['mtotal','m1','m2','mc']
+    tidalParams=['lambda1','lambda2']
     distParams=['distance','distMPC','dist']
     incParams=['iota','inclination','theta_jn']
     polParams=['psi','polarisation','polarization']
@@ -736,7 +737,7 @@ def cbcBayesPostProc(
     timeParams=['time']
     spinParams=['spin1','spin2','a1','a2','a1z','a2z','phi1','theta1','phi2','theta2','chi','effectivespin','chi_eff','chi_tot','chi_p','beta','tilt1','tilt2','phi_jl','theta_jn','phi12']
     sourceParams=['m1_source','m2_source','mtotal_source','mc_source','redshift']
-    intrinsicParams=massParams+spinParams
+    intrinsicParams=massParams+tidalParams+spinParams
     extrinsicParams=incParams+distParams+polParams+skyParams
     sourceFrameParams=sourceParams+distParams
     try:

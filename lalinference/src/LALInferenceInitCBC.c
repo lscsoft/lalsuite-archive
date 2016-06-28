@@ -658,6 +658,8 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
     (--comp-max max)                        Maximum component mass (30.0).\n\
     (--mass1-min min, --mass1-max max)      Min and max for mass1 (default: same as comp-min,comp-max, will over-ride these.\n\
     (--mass2-min min, --mass2-max max)      Min and max for mass2 (default: same as comp-min,comp-max, will over-ride these.\n\
+    (--lambda1-min min, --lambda1-max max)  Min and max for lambda1.\n\
+    (--lambda2-min min, --lambda2-max max)  Min and max for lambda2.\n\
     (--mtotal-min min)                      Minimum total mass (2.0).\n\
     (--mtotal-max max)                      Maximum total mass (35.0).\n\
     (--dt time)                             Width of time prior, centred around trigger (0.2s).\n\
@@ -717,9 +719,9 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   REAL8 costhetaJNmin=-1.0 , costhetaJNmax=1.0;
   REAL8 dt=0.1;  /* Half the width of time prior */
   REAL8 lambda1Min=0.0;
-  REAL8 lambda1Max=3000.0;
+  REAL8 lambda1Max=5000.0;
   REAL8 lambda2Min=0.0;
-  REAL8 lambda2Max=3000.0;
+  REAL8 lambda2Max=5000.0;
   REAL8 lambdaTMin=0.0;
   REAL8 lambdaTMax=3000.0;
   REAL8 dLambdaTMin=-500.0;
@@ -859,6 +861,29 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   qMin = m2_min / m1_max;
   mcMin =mtot_min*pow(qMin/pow(1.+qMin,2.),3./5.);
   mcMax =mtot_max*pow(0.25,3./5.);
+
+  /* This sets the lambda1 and lambda2 priors, if given in command line. */
+  if((ppt=LALInferenceGetProcParamVal(commandLine,"--lambda1-min")))
+  {
+    lambda1Min=atof(ppt->value);
+  }
+  if((ppt=LALInferenceGetProcParamVal(commandLine,"--lambda1-max")))
+  {
+    lambda1Max = atof(ppt->value);
+  }
+  if((ppt=LALInferenceGetProcParamVal(commandLine,"--lambda2-min")))
+  {
+    lambda2Min=atof(ppt->value);
+  }
+  if((ppt=LALInferenceGetProcParamVal(commandLine,"--lambda2-max")))
+  {
+    lambda2Max=atof(ppt->value);
+  }
+
+  LALInferenceAddREAL8Variable(priorArgs,"lambda1Min",lambda1Min,LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddREAL8Variable(priorArgs,"lambda1Max",lambda1Max,LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddREAL8Variable(priorArgs,"lambda2Min",lambda2Min,LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddREAL8Variable(priorArgs,"lambda2Max",lambda2Max,LALINFERENCE_PARAM_FIXED);
 
   /************ Initial Value Related Argument START *************/
   /* Read time parameter from injection file */
@@ -1165,14 +1190,14 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
 
   }
 
-  if(LALInferenceGetProcParamVal(commandLine,"--tidalT")&&LALInferenceGetProcParamVal(commandLine,"--tidal")){
-    XLALPrintError("Error: cannot use both --tidalT and --tidal.\n");
+  if(LALInferenceGetProcParamVal(commandLine,"--use-tidalT")&&LALInferenceGetProcParamVal(commandLine,"--use-tidal")){
+    XLALPrintError("Error: cannot use both --use-tidalT and --use-tidal.\n");
     XLAL_ERROR_NULL(XLAL_EINVAL);
-  } else if(LALInferenceGetProcParamVal(commandLine,"--tidalT")){
+  } else if(LALInferenceGetProcParamVal(commandLine,"--use-tidalT")){
     LALInferenceRegisterUniformVariableREAL8(state, model->params, "lambdaT", zero, lambdaTMin, lambdaTMax, LALINFERENCE_PARAM_LINEAR);
     LALInferenceRegisterUniformVariableREAL8(state, model->params, "dLambdaT", zero, dLambdaTMin, dLambdaTMax, LALINFERENCE_PARAM_LINEAR);
 
-  } else if(LALInferenceGetProcParamVal(commandLine,"--tidal")){
+  } else if(LALInferenceGetProcParamVal(commandLine,"--use-tidal")){
     LALInferenceRegisterUniformVariableREAL8(state, model->params, "lambda1", zero, lambda1Min, lambda1Max, LALINFERENCE_PARAM_LINEAR);
     LALInferenceRegisterUniformVariableREAL8(state, model->params, "lambda2", zero, lambda2Min, lambda2Max, LALINFERENCE_PARAM_LINEAR);
 
