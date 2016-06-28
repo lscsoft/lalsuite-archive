@@ -26,6 +26,7 @@ static void print_usage(char *program)
           " [--lambda2 ] lambda2      lambda2 (5000)\n"\
           " [--f-lower ] fmin         start frequency (30)\n"\
           " [--sample-rate ] srate    deltaT = 1/srate (4096)\n"\
+          " [--no-output ]            do not write out data to ./rom_out.txt. For performance check\n"\
           " [--distance] dist         distance in Mpc (100)\n\n");
 }
 
@@ -41,6 +42,7 @@ int main (int argc, char *argv[])
   REAL8 fMin = 30.0 ;
   REAL8 srate = 4096.0 ;
   REAL8 distance = 100.0 ;
+  int no_out = 0 ;
 
   /* LALgetopt arguments */
   struct LALoption long_options[] =
@@ -53,6 +55,7 @@ int main (int argc, char *argv[])
     {"f-lower",                 required_argument, 0,                'f'},
     {"sample-rate",             required_argument, 0,                's'},
     {"distance",                required_argument, 0,                'd'},
+    {"no-output",               no_argument,       &no_out,          1},
     {0, 0, 0, 0}
   };
   int c;
@@ -130,14 +133,6 @@ int main (int argc, char *argv[])
   REAL8 r      = distance*1.0e6 * LAL_PC_SI;
   REAL8 i      = 0.;
 
-//   REAL8 m1sec = mass1*LAL_MTSUN_SI ;
-//   REAL8 m2sec = mass2*LAL_MTSUN_SI ;
-//   REAL8 m1sec5=m1sec*m1sec*m1sec*m1sec*m1sec ;
-//   REAL8 m2sec5=m2sec*m2sec*m2sec*m2sec*m2sec ;
-//   lambda1=lambda1/m1sec5 ;
-//   lambda2=lambda2/m2sec5 ;
-
-
   UNUSED(argc);
   UNUSED(argv);
 
@@ -147,15 +142,17 @@ int main (int argc, char *argv[])
     exit(1);
   }
 
-  double t0 = XLALGPSGetREAL8(&hplus->epoch);
+  if (no_out == 0) {
+    double t0 = XLALGPSGetREAL8(&hplus->epoch);
 
-  int n=0;
-  int N=(int) hplus->data->length;
-  FILE *out = fopen("./rom_out.txt","w");
-  for (n=0;n<N;n++){
-    fprintf(out,"%.9e %.9e %.9e\n",t0 + n * hplus->deltaT,hplus->data->data[n],hcross->data->data[n]);
+    int n=0;
+    int N=(int) hplus->data->length;
+    FILE *out = fopen("./rom_out.txt","w");
+    for (n=0;n<N;n++){
+      fprintf(out,"%.9e %.9e %.9e\n",t0 + n * hplus->deltaT,hplus->data->data[n],hcross->data->data[n]);
+    }
+    fclose(out);
   }
-  fclose(out);
 
   return 0;
 }

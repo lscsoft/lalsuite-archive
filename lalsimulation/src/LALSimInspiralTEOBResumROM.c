@@ -54,10 +54,9 @@
 #include <lal/LALSimInspiral.h>
 #include <lal/LALSimIMR.h>
 
-//gsl_bspline needs to be imported here, because this was not done in ROMUtilities!
 #include <gsl/gsl_bspline.h>
 #include <gsl/gsl_spline.h>
-//needed for read_vector
+//needed for read_vector and nudge
 #include "LALSimIMRSEOBNRROMUtilities.c"
 
 #include <lal/LALConfig.h>
@@ -66,29 +65,9 @@
 #endif
 
 
-/******************************************************************
- * The double-spin SEOBNRv2 ROM consists of a number of submodels *
- * for subdomains of the whole parameter space:                   *
- * These submodels may change in the future.                      *
- *                                                                *
- * "Core" submodel 1                                              *
- * B-spline points: 54x24x24                                      *
- * Frequency points: {133, 139}                                   *
- *                                                                *
- * "Near q=1" submodel 2                                          *
- * B-spline points: 11x60x60                                      *
- * Frequency points: {200, 187}                                   *
- *                                                                *
- * "High q, high chi1" submodel 3                                 *
- * B-spline points: 24x30x24                                      *
- * frequency points: {133, 139}                                   *
- *                                                                *
- *****************************************************************/
+/************** Model parameters **************/
 
-
-/********* Input data for spline basis points **************/
-
-//Prepending G to recognise it as a global variable
+//Prepending G to make clear it is a global variable
 #define Gntimes 69072 //(will be reduced in the future)
 #define Gnamp 21
 #define Gnphase 7
@@ -139,13 +118,6 @@ static TEOBResumROMdataDS __lalsim_TEOBResumROMDS_data;
 
 typedef int (*load_dataPtr)(const char*, gsl_vector *, gsl_vector *, gsl_matrix *, gsl_matrix *, gsl_vector *);
 
-// typedef struct tagChebyshevData
-// {
-//   gsl_cheb_series *csx ;
-//   gsl_cheb_series *csy ;
-//   gsl_cheb_series *csz ;
-// } ChebyshevData;
-
 /**************** Internal functions **********************/
 
 static void TEOBResumROM_Init_LALDATA(void);
@@ -170,14 +142,9 @@ static int TEOBResumROMdataDS_Init_submodel(
 );
 
 
-// static void ChebyshevData_Init(
-//   ChebyshevData **chebydata);
-//
-// static void ChebyshevData_Destroy(
-//   ChebyshevData *chebydata);
-
 static double gsl_cheb_evaluate_polynomial(int n, double x);
 static double gsl_cheb_eval_3d(gsl_vector *c_ijk, int nx, int ny, int nz, double x, double y, double z);
+// static double chebev_3d(gsl_vector *c_ijk, int nx, int ny, int nz, double x, double y, double z, const double xyz_min[], const double xyz_max[]);
 static int chebyshev_interpolation3d(
   double q,
   double lambda1,
@@ -185,27 +152,14 @@ static int chebyshev_interpolation3d(
   int nx, int ny, int nz,
   gsl_vector *cvec_amp,
   gsl_vector *cvec_phi,
-  //gsl_vector *times,
   int nk_amp,
   int nk_phi,
+  const double xyz_min[],
+  const double xyz_max[],
   gsl_vector *interp_amp,
   gsl_vector *interp_phi);
 
 static void TEOBResumROMdataDS_Cleanup_submodel(TEOBResumROMdataDS_submodel *submodel);
-
-static int TEOBResumROMCore_test(
-  REAL8TimeSeries **hPlus,
-  REAL8TimeSeries **hCross,
-  double phiRef,
-  double deltaT,
-  double fRef,
-  double distance,
-  double inclination,
-  double Mtot_sec,
-  double eta,
-  double lambda1,
-  double lambda2
-);
 
 static int TEOBResumROMCore(
   REAL8TimeSeries **hPlus,
@@ -220,11 +174,6 @@ static int TEOBResumROMCore(
   double lambda1,
   double lambda2
 );
-
-// static void SEOBNRROMdataDS_coeff_Init(SEOBNRROMdataDS_coeff **romdatacoeff, int nk_amp, int nk_phi);
-// static void SEOBNRROMdataDS_coeff_Cleanup(SEOBNRROMdataDS_coeff *romdatacoeff);
-
-// static size_t NextPow2(const size_t n);
 
 static int load_data_romeos(const char dir[], gsl_vector *cvec_amp, gsl_vector *cvec_phi, gsl_matrix *Bamp, gsl_matrix *Bphi, gsl_vector *times);
 
@@ -258,10 +207,6 @@ static bool TEOBResumROM_IsSetup(void) {
 
 // Read binary ROM data for basis functions and coefficients for submodel 1
 static int load_data_romeos(const char dir[], gsl_vector *cvec_amp, gsl_vector *cvec_phi, gsl_matrix *Bamp, gsl_matrix *Bphi, gsl_vector *times) {
-  // Load binary data for amplitude and phase spline coefficients and reduced bases as computed in Mathematica
-  // "Core" submodel 1
-  // B-spline points: 54x24x24
-  // Frequency points: {133, 139}
   int ret = XLAL_SUCCESS;
   ret |= read_vector(dir, "TEOBResumROM_Amp_ciall.dat", cvec_amp);
   ret |= read_vector(dir, "TEOBResumROM_Phase_ciall.dat", cvec_phi);
@@ -294,7 +239,7 @@ static int TEOBResumROMdataDS_Init_submodel(
   else
     TEOBResumROMdataDS_Cleanup_submodel(*submodel);
 
-  int N = nq*nl1*nl2; // Total number of points over parameter space = size of the data matrix for one SVD-mode
+  int N = nq*nl1*nl2;
 
   // Initalize actual ROM data
   (*submodel)->cvec_amp = gsl_vector_alloc(N*n_amp);
@@ -361,64 +306,72 @@ static void TEOBResumROMdataDS_Cleanup(TEOBResumROMdataDS *romdata) {
   romdata->setup=0;
 }
 
-/* Structure for internal use */
-// static void TEOBResumROMdataDS_coeff_Init(TEOBResumROMdataDS_coeff **romdatacoeff, int nk_amp, int nk_phi) {
-//
-//   if(!romdatacoeff) exit(1);
-//   /* Create storage for structures */
-//   if(!*romdatacoeff)
-//     *romdatacoeff=XLALCalloc(1,sizeof(TEOBResumROMdataDS_coeff));
-//   else
-//     TEOBResumROMdataDS_coeff_Cleanup(*romdatacoeff);
-//
-//   (*romdatacoeff)->c_amp = gsl_vector_alloc(nk_amp);
-//   (*romdatacoeff)->c_phi = gsl_vector_alloc(nk_phi);
-// }
-//
-// /* Deallocate contents of the given TEOBResumROMdataDS_coeff structure */
-// static void TEOBResumROMdataDS_coeff_Cleanup(TEOBResumROMdataDS_coeff *romdatacoeff) {
-//   if(romdatacoeff->c_amp) gsl_vector_free(romdatacoeff->c_amp);
-//   if(romdatacoeff->c_phi) gsl_vector_free(romdatacoeff->c_phi);
-//   XLALFree(romdatacoeff);
-// }
 
-/* Return the closest higher power of 2  */
-// Note: NextPow(2^k) = 2^k for integer values k.
-// static size_t NextPow2(const size_t n) {
-//   return 1 << (size_t) ceil(log2(n));
-// }
-
-// static void ChebyshevData_Init(
-//   ChebyshevData **chebydata
-// )
-// {
-//   if(!chebydata) exit(1);
-//   if(*chebydata) ChebyshevData_Destroy(*chebydata);
-//
-//   gsl_cheb_series *csx = gsl_cheb_alloc(3);
-//   gsl_cheb_series *csy = gsl_cheb_alloc(3);
-//   gsl_cheb_series *csz = gsl_cheb_alloc(3);
-//
-//   (*chebydata)=XLALCalloc(1,sizeof(ChebyshevData));
-// }
-//
-// static void ChebyshevData_Destroy(ChebyshevData *chebydata)
-// {
-//   if(!chebydata) return;
-//   if(chebydata->csx) gsl_bspline_free(chebydata->csx);
-//   if(chebydata->csy) gsl_bspline_free(chebydata->csy);
-//   if(chebydata->csz) gsl_bspline_free(chebydata->csz);
-//   XLALFree(chebydata);
-// }
-
-
-
-/* To evaluate T_n(x) this function will call gsl_cheb_eval(csx,x)
- * gsl_cheb_eval(csx,x) <=> f(x) = (c_0 / 2) + \sum_{n=1} c_n T_n(x)
- *   Define f^N(x) := gsl_cheb_eval(csxN,x), where csxN is a list of ones of length n
- * We can then calculate any T_n(x) as:
- *   T_n(x) = f^n(x) - f^{n-1}(x)
+/* NOTE: this function does not give correct results yet */
+/* Wrapper function to evaluate 3d chebyshev polynomial.
+ * p(x,y,z) = \sum_{i,j,k} c_{ijk} T_i(x) T_j(y) T_k(z)
+ * This is done by expressing the sum as follows:
+ * f(x;y,z) = \sum_i h_i(y;z) T_i(x)
+ *          = \sum_i [ \sum_j g_ij(z) T_j(y) ] T_i(x)
+ *          = \sum_i \sum_j [ \sum_k c_ijk T_k(z) ] T_j(y) T_i(x)
+ * The inner sum is evaluated with a custom implementation of Clenshaw's Recurrence to
+ * avoid having to create the 1d coefficient vector for each ij. This implementation
+ * picks out the coefficients from the 3d coefficient vector c_ijk.
+ * The following sums are evaluated with gsl_cheb_eval at no additional cost.
  */
+// static double chebev_3d(gsl_vector *c_ijk, int nx, int ny, int nz, double x, double y, double z, const double xyz_min[], const double xyz_max[]){
+//
+//   int i,j,k;
+//   int index=0;
+//   int Nyz = ny*nz ;
+//
+//   double gij_z,hi_y,f_xyz;
+//   double d1=0.0,d2=0.0,sv,G,G2 ;
+//
+//   double a=xyz_min[2];
+//   double b=xyz_max[2];
+//   gsl_cheb_series *coeffs_1 = gsl_cheb_alloc(ny-1); //GSL assumes coeffs from c[0] to and including c[order]. So N = order+1
+//   coeffs_1->a = xyz_min[1] ;
+//   coeffs_1->b = xyz_max[1] ;
+//   gsl_cheb_series *coeffs_2 = gsl_cheb_alloc(nx-1);
+//   coeffs_2->a = xyz_min[0] ;
+//   coeffs_2->b = xyz_max[0] ;
+//
+//   for (i=0;i<nx;i++){
+//
+//     for (j=0;j<ny;j++){
+//
+//       G = (2.0*z-a-b)/(b-a); //Change of variable
+//       G2 = 2.0*G;
+//       for (k=nz-1 ; k>=1 ; k--) { //Clenshaw's recurrence
+//         sv = d1;
+//         index = (i%Nyz)*Nyz + j*nz + k%nz ; //select coefficient corresponding to current ijk
+//         d1 = G2*d1 - d2 + gsl_vector_get(c_ijk,index);
+//         d2 = sv;
+//       }
+//       index = (i%Nyz)*Nyz + j*nz ; //c_ij0
+//
+//       //evaluate g_{ij}(z), which will be the coefficients for evaluation of h_i(y;z)
+//       gij_z = G*d1 - d2 + gsl_vector_get(c_ijk,index); //NOTE: gsl returns G*d1 - d2 + 0.5 * cs->c[0]
+//       coeffs_1->c[j] = gij_z ;
+//     }
+//
+//     //evaluate h_i(y;z), which will be the coefficients for evaluation of f(x;y,z)
+//     hi_y = gsl_cheb_eval(coeffs_1, y) + 0.5*coeffs_1->c[0] ;
+//     coeffs_2->c[i] = hi_y ;
+//   }
+//
+//   //evaluate f(x;y,z)
+//   f_xyz = gsl_cheb_eval(coeffs_2, x) + 0.5*coeffs_2->c[0] ;
+//
+//   gsl_cheb_free(coeffs_1);
+//   gsl_cheb_free(coeffs_2);
+//
+//   return f_xyz ;
+//
+// }
+
+/* Evaluate the n-th Chebyshev polynomial at value x i.e. this is only T_n(x) without any coefficients or summing */
 static double gsl_cheb_evaluate_polynomial(int n, double x){
 
   double Tnx = 0.0 ;
@@ -436,28 +389,25 @@ static double gsl_cheb_evaluate_polynomial(int n, double x){
   }
   //T_n(x)
   else {
-    gsl_cheb_series *csx1 = gsl_cheb_alloc(n);
-    csx1->a = -1.0 ;
-    csx1->b = 1.0 ;
-    int i=0;
-    for (i = 0; i < n; i++){
-      csx1->c[i]=0.0;
-    }
-    csx1->c[n]=1.0;
+    double d1=0.0,d2=0.0,sv ;
+    int k=0;
 
-    //f^n
-    Tnx = gsl_cheb_eval(csx1, x);
-    gsl_cheb_free(csx1);
+    sv = d1;
+    d1 = 2.0*x*d1 - d2 + 1.0 ; //last coefficient is 1.0
+    d2 = sv ;
+    for (k=n-1 ; k>=1 ; k--) { //Clenshaw's recurrence
+      sv = d1;
+      d1 = 2.0*x*d1 - d2 ; //all coefficients except the last one are 0.0
+      d2 = sv;
+    }
+    Tnx = x*d1 - d2 ; //c[0] is also 0.0
   }
 
   return Tnx ;
 
 }
 
-
-/* Wrapper function to evaluate 3d chebyshev polynomial.
- * p(x,y,z) = \sum_{i,j,k} c_{ijk} T_i(x) T_j(y) T_k(z)
- */
+/* Temporary function that is about 5 times slower compared to the commented out chebev_3d. */
 static double gsl_cheb_eval_3d(gsl_vector *c_ijk, int nx, int ny, int nz, double x, double y, double z){
 
   double sum=0.0;
@@ -481,20 +431,8 @@ static double gsl_cheb_eval_3d(gsl_vector *c_ijk, int nx, int ny, int nz, double
 
 }
 
-/*
- * This function calculates the phase and amplitude interpolants at a time Tj.
- *  pj(q,l1,l2) = sum_l sum_m sum_n b_lmn Tl(q) Tm(l1) Tn(l2)
- * GSL can only evaluate a 1D chebyshev polynomial with gsl_cheb_eval_n, which calculates
- *  f(x) = (c_0 / 2) + \sum_{n=1}^(N_coeffs) c_n T_n(x)
- * This means that p(x,y,z) will have to be evaluated as
- *  p(x,y,z) = f'(x,csx,nx) f'(y,csy,ny) f'(z,csz,nz)
- * where csx are the chebyshev coefficients for parameter x , nx its size and f' is defined as
- *  f'(x;csx,nx) = f(x,csx,nx) + csx[0]/2.0
- */
-/* NOTE: when we calculate p(x,y,z) = \sum_{i,j,k} c_{ijk} T_i(q) T_j(l1) T_k(l2)
- *       (done here with gsl_cheb_eval_3d for each k in nk_amp and nk_phi),
- *       we get an array for amp and phi with length nk_amp and nk_phi resp.
- *       All this is just for a single Tj. What do we do with these?
+
+/* Evaluate the chebyshev polinomials for amplitude and phase at node T_j
  */
 static int chebyshev_interpolation3d(
   double q,
@@ -505,6 +443,8 @@ static int chebyshev_interpolation3d(
   gsl_vector *cvec_phi,
   int nk_amp,
   int nk_phi,
+  const double xyz_min[],
+  const double xyz_max[],
   gsl_vector *interp_amp,   //return: A(T_j;q,lambda1,lambda2)    <=> p_j(q,lambda1,lambda2)
   gsl_vector *interp_phi)   //return: \Phi(T_j;q,lambda1,lambda2) <=> p_j(q,lambda1,lambda2)
 {
@@ -513,15 +453,14 @@ static int chebyshev_interpolation3d(
   int k = 0;
   int N=nx*ny*nz ;
 
-  //TODO: ranges should be given as function argument
-  //Rescale so that x,y and z are always between -1 and 1
-  double xrescale = (q-0.5*(Gparams_max[0]+Gparams_min[0])) / (0.5*(Gparams_max[0]-Gparams_min[0]));
-  double yrescale = (lambda1-0.5*(Gparams_max[1]+Gparams_min[1])) / (0.5*(Gparams_max[1]-Gparams_min[1]));
-  double zrescale = (lambda2-0.5*(Gparams_max[2]+Gparams_min[2])) / (0.5*(Gparams_max[2]-Gparams_min[2]));
+  double xrescale = (q-0.5*(xyz_max[0]+xyz_min[0])) / (0.5*(xyz_max[0]-xyz_min[0]));
+  double yrescale = (lambda1-0.5*(xyz_max[1]+xyz_min[1])) / (0.5*(xyz_max[1]-xyz_min[1]));
+  double zrescale = (lambda2-0.5*(xyz_max[2]+xyz_min[2])) / (0.5*(xyz_max[2]-xyz_min[2]));
 
   /*-- Calculate interp_amp --*/
   for (k=0; k<nk_amp; k++) { // For each empirical node
     gsl_vector v = gsl_vector_subvector(cvec_amp, k*N, N).vector; // Pick out the coefficient matrix corresponding to the k-th node.
+//     sum = chebev_3d(&v, nx, ny, nz, q, lambda1, lambda2, xyz_min, xyz_max) ;
     sum = gsl_cheb_eval_3d(&v, nx, ny, nz, xrescale, yrescale, zrescale) ;
     gsl_vector_set(interp_amp, k, sum); //write p_k(x,y,z)
   }
@@ -529,231 +468,14 @@ static int chebyshev_interpolation3d(
   /*-- Calculate interp_phi --*/
   for (k=0; k<nk_phi; k++) { // For each empirical node
     gsl_vector v = gsl_vector_subvector(cvec_phi, k*N, N).vector; // Pick out the coefficient matrix corresponding to the k-th node.
+//     sum = chebev_3d(&v, nx, ny, nz, q, lambda1, lambda2, xyz_min, xyz_max) ;
     sum = gsl_cheb_eval_3d(&v, nx, ny, nz, xrescale, yrescale, zrescale) ;
     gsl_vector_set(interp_phi, k, sum); //write p_k(x,y,z)
   }
 
   return 0;
-
 }
 
-static int TEOBResumROMCore_test(
-  REAL8TimeSeries **hPlus,
-  REAL8TimeSeries **hCross,
-  double phiRef, // orbital reference phase
-  double deltaT,
-  double fRef,
-  double distance,
-  double inclination,
-  double Mtot, // in Msol
-  double eta,
-  double lambda1,
-  double lambda2
-)
-{
-
-  /* Check output arrays */
-  if(!hPlus || !hCross)
-    XLAL_ERROR(XLAL_EFAULT);
-  TEOBResumROMdataDS *romdata=&__lalsim_TEOBResumROMDS_data;
-  if(*hPlus || *hCross)
-  {
-    XLALPrintError("(*hPlus) and (*hCross) are supposed to be NULL, but got %p and %p",(*hPlus),(*hCross));
-    XLAL_ERROR(XLAL_EFAULT);
-  }
-  int retcode=0;
-
-  REAL8TimeSeries *hp;
-  REAL8TimeSeries *hc;
-
-  /* Select ROM submodel */
-  TEOBResumROMdataDS_submodel *submodel;
-  submodel = romdata->sub1;
-
-  fprintf(stdout,"--- EOSROMEOSCore input parameters ---\n");
-  fprintf(stdout,"  phiRef       = %.2f\n",phiRef);
-  fprintf(stdout,"  fRef         = %.2f\n",fRef);
-  fprintf(stdout,"  distance     = %.2f Mpc\n",distance/(LAL_PC_SI*1000000.));
-  fprintf(stdout,"  inclination  = %.2f\n",inclination);
-  fprintf(stdout,"  Mtot         = %.2f\n",Mtot);
-  fprintf(stdout,"  eta          = %.2f\n",eta);
-  fprintf(stdout,"  lambda1      = %.2e\n",lambda1);
-  fprintf(stdout,"  lambda2      = %.2e\n",lambda2);
-  fprintf(stdout,"  deltaT       = %.2f\n\n",deltaT);
-
-  fprintf(stdout,"--- submodel check ---\n");
-  fprintf(stdout,"  cvec_amp size = %d\n",(int) (submodel->cvec_amp->size));
-  fprintf(stdout,"  cvec_phi size = %d\n",(int) (submodel->cvec_phi->size));
-  fprintf(stdout,"  Bamp size     = %dx%d\n",(int) (submodel->Bamp->size1),(int) (submodel->Bamp->size2));
-  fprintf(stdout,"  Bphi size     = %dx%d\n",(int) (submodel->Bphi->size1),(int) (submodel->Bphi->size2));
-  fprintf(stdout,"  times size    = %d\n",(int) (submodel->times->size));
-  fprintf(stdout,"  q-min         = %.2f\n",submodel->params_min[0]);
-  fprintf(stdout,"  q-max         = %.2f\n",submodel->params_max[0]);
-  fprintf(stdout,"  lambda1-min   = %.2f\n",submodel->params_min[1]);
-  fprintf(stdout,"  lambda1-max   = %.2f\n",submodel->params_max[1]);
-  fprintf(stdout,"  lambda2-min   = %.2f\n",submodel->params_min[2]);
-  fprintf(stdout,"  lambda2-max   = %.2f\n",submodel->params_max[2]);
-
-  double x = sqrt(1.0-4.0*eta) ;
-  double q = (1-x)/(1+x);
-  fprintf(stdout,"  q             = %.2f\n\n",q);
-
-  //Allocate space for the nodes
-  gsl_vector *amp_at_nodes = gsl_vector_alloc(submodel->times->size);
-  gsl_vector *phi_at_nodes = gsl_vector_alloc(submodel->times->size);
-
-  double *amp_interp = calloc(Gntimes,sizeof(double));
-  double *phi_interp = calloc(Gntimes,sizeof(double));
-  double *freqs = calloc(Gntimes,sizeof(double));
-  double *physical_times = calloc(Gntimes,sizeof(double));
-
-  fprintf(stdout,"--- calculating chebyshev interpolants (A(T_j),Phi(T_j)) ---\n");
-  retcode = chebyshev_interpolation3d(q,lambda1,lambda2,
-                                      Gnq, Gnlambda1, Gnlambda2,
-                                      submodel->cvec_amp,submodel->cvec_phi,
-                                      Gnamp,Gnphase,amp_at_nodes,phi_at_nodes);
-
-  fprintf(stdout,"\n--- calculating A(t) and Phi(t) at nodes ---\n");
-  double BjAmp_tn=0.0;
-  double BjPhi_tn=0.0;
-  int n,j;
-  double c3 = LAL_C_SI*LAL_C_SI*LAL_C_SI ;
-  double time_to_phys = LAL_G_SI*Mtot*LAL_MSUN_SI/c3 ;
-  FILE *out1 = fopen("./ampinterp_phiinterp_times.txt","w");
-  for (n=0;n<Gntimes;n++){
-    BjAmp_tn=0.0 ;
-    BjPhi_tn=0.0 ;
-    for (j=0;j<Gnamp;j++){
-      BjAmp_tn+=gsl_vector_get(amp_at_nodes,j)*gsl_matrix_get(submodel->Bamp,j,n);
-    }
-    for (j=0;j<Gnphase;j++){
-      BjPhi_tn+=gsl_vector_get(phi_at_nodes,j)*gsl_matrix_get(submodel->Bphi,j,n);
-    }
-    //convert times in to seconds
-    physical_times[n]=gsl_vector_get(submodel->times,n)*time_to_phys;
-    amp_interp[n]=BjAmp_tn;
-    phi_interp[n]=BjPhi_tn;
-    fprintf(out1,"%.9e %.9e %.9e\n",amp_interp[n],phi_interp[n],physical_times[n]);
-  }
-  fclose(out1);
-
-
-
-  fprintf(stdout,"--- Resampling A(t) and Phi(t) to arbitrary deltaT ---\n");
-  gsl_interp_accel *acc = gsl_interp_accel_alloc();
-  gsl_spline *ampoft_spline = gsl_spline_alloc (gsl_interp_cspline, Gntimes);
-  gsl_spline *phioft_spline = gsl_spline_alloc (gsl_interp_cspline, Gntimes);
-
-  fprintf(stdout,"    -.- initializing splines\n");
-  gsl_spline_init(ampoft_spline, physical_times, amp_interp, Gntimes);
-  gsl_spline_init(phioft_spline, physical_times, phi_interp, Gntimes);
-
-  double der ;
-  //int i_end_mono ;
-  fprintf(stdout,"    -.- calculating frequencies at nodes (derivative of phi(t)/2pi)\n");
-  int i_end_mono = Gntimes;
-  FILE *out2 = fopen("./times_freqs.txt","w");
-  for (n=0;n<Gntimes;n++) {
-    der = gsl_spline_eval_deriv (phioft_spline, physical_times[n], acc);
-    freqs[n] = 0.5*der/LAL_PI;//omegaoft(time_phys)/(2*np.pi)
-    fprintf(out2,"%.9e %.9e\n",physical_times[n],freqs[n]);
-    //determine up to where f is monotonically increasing
-    if (n > 0) {
-      if (freqs[n] < freqs[n-1]) i_end_mono = n ;
-    }
-  }
-  fclose(out2);
-  fprintf(stdout,"         * i_end_mono %d\n",i_end_mono);
-
-  fprintf(stdout,"    -.- creating t(f) spline\n");
-  gsl_spline *toffreq_spline = gsl_spline_alloc (gsl_interp_cspline, i_end_mono);
-  //construct t(f)
-  gsl_spline_init(toffreq_spline, freqs, physical_times, i_end_mono);
-
-  fprintf(stdout,"    -.- calculate parameters to resample with even spacing\n");
-  double tstart = gsl_spline_eval(toffreq_spline, fRef, acc);
-  fprintf(stdout,"         * tstart     = %.2f\n",tstart);
-  int Ntimes_res = (int) ceil((physical_times[Gntimes-1]-tstart)/deltaT);
-  fprintf(stdout,"         * Ntimes_res = %d\n",Ntimes_res);
-  double *times_res = calloc(Ntimes_res,sizeof(double));
-  double *amp_res = calloc(Ntimes_res,sizeof(double));
-  double *phi_res = calloc(Ntimes_res,sizeof(double));
-  double t=tstart;
-
-  //for scaling the amplitude
-  double h22_to_h = 4.0*eta*sqrt(5.0/LAL_PI)/8.0;
-  double amp_units = LAL_G_SI*Mtot*LAL_MSUN_SI/(LAL_C_SI*LAL_C_SI*distance) ;
-
-  //Adjust for inclination angle [0,pi]
-  double cosi = cos(inclination);
-  double inc_plus = (1.0+cosi*cosi)/2.0;
-  double inc_cross = cosi;
-
-
-  fprintf(stdout,"--- Generate h+(t) and hx(t) ---\n");
-
-  //XLALGPSAdd(&tC, -1 / deltaF);  /* coalesce at t=0 */
-  LIGOTimeGPS tC = LIGOTIMEGPSZERO;
-  //XLALGPSAdd(&tC, -1.0*j*deltaT);
-  /* Allocate hplus and hcross */
-  hp = XLALCreateREAL8TimeSeries("hplus: TD waveform", &tC, 0.0, deltaT, &lalStrainUnit, Ntimes_res);
-  if (!hp) XLAL_ERROR(XLAL_EFUNC);
-  memset(hp->data->data, 0, Ntimes_res * sizeof(REAL8));
-
-  hc = XLALCreateREAL8TimeSeries("hcross: TD waveform", &tC, 0.0, deltaT, &lalStrainUnit, Ntimes_res);
-  if (!hc) XLAL_ERROR(XLAL_EFUNC);
-  memset(hc->data->data, 0, Ntimes_res * sizeof(REAL8));
-
-  FILE *out3 = fopen("./test_out.txt","w");
-  times_res[0] = t ;
-  amp_res[0] = gsl_spline_eval(ampoft_spline, t, acc)*amp_units*h22_to_h;
-  double phi0 = gsl_spline_eval(phioft_spline, t, acc);
-  phi_res[0] = 0.0;
-  hp->data->data[0] = inc_plus*amp_res[0]*cos(phi_res[0]);
-  hc->data->data[0] = inc_cross*amp_res[0]*sin(phi_res[0]);
-  fprintf(out3,"%.9e %.9e %.9e %.9e %.9e\n",t,amp_res[0],phi_res[0],hp->data->data[0],hc->data->data[0]);
-  t+=deltaT;
-  for (n=1;n<Ntimes_res;n++) {
-    times_res[n] = t;
-    amp_res[n] = gsl_spline_eval(ampoft_spline, t, acc)*amp_units*h22_to_h;
-    //Zero the phase at the beginning (-phi0)
-    phi_res[n] = gsl_spline_eval(phioft_spline, t, acc)-phi0;
-
-    hp->data->data[n] = inc_plus*amp_res[n]*cos(phi_res[n]);
-    hc->data->data[n] = inc_cross*amp_res[n]*sin(phi_res[n]);
-
-    fprintf(out3,"%.9e %.9e %.9e %.9e %.9e\n",t,amp_res[n],phi_res[n],hp->data->data[n],hc->data->data[n]);
-
-    t+=deltaT;
-  }
-  fclose(out3);
-
-  *hPlus = hp;
-  *hCross = hc;
-
-  gsl_spline_free (ampoft_spline);
-  gsl_spline_free (phioft_spline);
-  gsl_spline_free (toffreq_spline);
-  gsl_interp_accel_free (acc);
-
-  gsl_vector_free(amp_at_nodes);
-  gsl_vector_free(phi_at_nodes);
-
-  free(amp_interp);
-  free(phi_interp);
-  free(freqs);
-  free(physical_times);
-  free(times_res);
-  free(amp_res);
-  free(phi_res);
-
-  if (retcode==0){
-    return(XLAL_SUCCESS);
-  } else {
-    return(retcode);
-  }
-
-}
 
 static int TEOBResumROMCore(
   REAL8TimeSeries **hPlus,
@@ -807,7 +529,8 @@ static int TEOBResumROMCore(
   retcode = chebyshev_interpolation3d(q,lambda1,lambda2,
                                       Gnq, Gnlambda1, Gnlambda2,
                                       submodel->cvec_amp,submodel->cvec_phi,
-                                      Gnamp,Gnphase,amp_at_nodes,phi_at_nodes);
+                                      Gnamp,Gnphase,Gparams_min, Gparams_max,
+                                      amp_at_nodes,phi_at_nodes);
 
   //calculate A(T_j) and Phi(T_j) at nodes
   double BjAmp_tn=0.0;
@@ -872,7 +595,7 @@ static int TEOBResumROMCore(
   double *phi_res = calloc(Ntimes_res,sizeof(double));
   double t=tstart;
   fprintf(stdout,"tstart=%.2f\n",tstart);
-  fprintf(stdout,"Ntimes=%d\n",Ntimes_res);
+  //fprintf(stdout,"Ntimes=%d\n",Ntimes_res);
 
   //for scaling the amplitude
   double h22_to_h = 4.0*eta*sqrt(5.0/LAL_PI)/8.0;
@@ -948,34 +671,34 @@ static int TEOBResumROMCore(
 }
 
 /**
- * @addtogroup LALSimIMRSEOBNRROM_c
+ * @addtogroup LALSimInspiralTEOBResumROM_c
  *
  * @{
  *
- * @name SEOBNRv2 Reduced Order Model (Double Spin)
+ * @name TEOBResum Reduced Order Model (Tidal effects)
  *
- * @author Michael Puerrer, John Veitch
+ * @author Jeroen Meidam, ... (Based on SEOBNRv2ROM code written by Michael Puerrer and John Veitch)
  *
- * @brief C code for SEOBNRv2 reduced order model (double spin version).
- * See CQG 31 195010, 2014, arXiv:1402.4146 for the basic approach.
- * Further details in PRD 93, 064041, 2016, arXiv:1512.02248.
+ * @brief C code for TEOBResum reduced order model which includes tidal effects.
+ * See ... for the basic approach.
+ * Further details in ...
  *
- * This is a frequency domain model that approximates the time domain SEOBNRv2 model.
+ * This is a time domain model that approximates the time domain EOB model with tidal effects.
  *
- * The binary data files are available at https://dcc.ligo.org/T1400701-v1.
- * Put the untared data into a location in your LAL_DATA_PATH.
+ * The binary data files are available at https://github.com/benjaminlackey/cbcrom/tree/master/data.
+ * Put the *.dat files into a location in your LAL_DATA_PATH.
+ * They must have the names
+ *  - TEOBResumROM_Amp_ciall.dat
+ *  - TEOBResumROM_Phase_ciall.dat
+ *  - TEOBResumROM_Bamp_matrix.dat
+ *  - TEOBResumROM_Bphase_matrix.dat
+ *  - TEOBResumROM_times.dat
  *
- * @note Note that due to its construction the iFFT of the ROM has a small (~ 20 M) offset
- * in the peak time that scales with total mass as compared to the time-domain SEOBNRv2 model.
+ * @note Approximant name is TEOBResum_ROM
  *
  * @note Parameter ranges:
- *   * 0.01 <= eta <= 0.25
- *   * -1 <= chi_i <= 0.99
- *   * Mtot >= 12Msun
- *
- *  Aligned component spins chi1, chi2.
- *  Symmetric mass-ratio eta = m1*m2/(m1+m2)^2.
- *  Total mass Mtot.
+ *   0.5 <= q <= 1.0
+ *   50 <= lambda_i <= 5000
  *
  * @{
  */
@@ -1013,12 +736,26 @@ int XLALSimInspiralTEOBResumROM(
   double Mtot = mass1+mass2;
   double eta = mass1 * mass2 / (Mtot*Mtot);    /* Symmetric mass-ratio */
 
-//   REAL8 m1sec = (m1SI/LAL_MSUN_SI)*LAL_MTSUN_SI ;
-//   REAL8 m2sec = (m2SI/LAL_MSUN_SI)*LAL_MTSUN_SI ;
-//   REAL8 m1sec5=m1sec*m1sec*m1sec*m1sec*m1sec ;
-//   REAL8 m2sec5=m2sec*m2sec*m2sec*m2sec*m2sec ;
-//   lambda1*=m1sec5 ;
-//   lambda2*=m2sec5 ;
+  double x = sqrt(1.0-4.0*eta) ;
+  double q = (1-x)/(1+x);
+
+  // 'Nudge' q to allowed boundary values if close by (q could be e.g. 0.499999)
+  if (q > Gparams_max[0])  nudge(&q, Gparams_max[0], 1e-6);
+  if (q < Gparams_min[0])  nudge(&q, Gparams_min[0], 1e-6);
+
+  /* Check that parameters are within the limits for this model */
+  if ( q<Gparams_min[0] || q>Gparams_max[0] ) {
+    fprintf(stderr,"Error: q not in range (%.2f not in [%.2f,%.2f])\n",q,Gparams_min[0],Gparams_max[0]);
+    return(XLAL_EDOM);
+  }
+  if ( lambda1<Gparams_min[1] || lambda1>Gparams_max[1] ) {
+    fprintf(stderr,"Error: lambda1 not in range (%.2f not in [%.2f,%.2f])\n",lambda1,Gparams_min[1],Gparams_max[1]);
+    return(XLAL_EDOM);
+  }
+  if ( lambda2<Gparams_min[2] || lambda2>Gparams_max[2] ) {
+    fprintf(stderr,"Error: lambda2 not in range (%.2f not in [%.2f,%.2f])\n",lambda2,Gparams_min[2],Gparams_max[2]);
+    return(XLAL_EDOM);
+  }
 
   if (fRef==0.0) fRef=fLow;
 
@@ -1039,71 +776,7 @@ int XLALSimInspiralTEOBResumROM(
 
 
 
-//Function to test data reading
-int XLALSimInspiralTEOBResumROM_test(
-  REAL8TimeSeries **hPlus, /**< Output: Frequency-domain waveform h+ */
-  REAL8TimeSeries **hCross, /**< Output: Frequency-domain waveform hx */
-  REAL8 phiRef,                                 /**< Orbital phase at reference frequency*/
-  REAL8 deltaT,                                 /**< Sampling frequency (Hz) */
-  REAL8 fLow,                                   /**< Starting GW frequency (Hz) */
-  REAL8 fRef,                                   /**< Reference frequency (Hz); 0 defaults to fLow */
-  REAL8 distance,                               /**< Distance of source (m) */
-  REAL8 inclination,                            /**< Inclination of source (rad) */
-  REAL8 m1SI,                                   /**< Mass of companion 1 (kg) */
-  REAL8 m2SI,                                   /**< Mass of companion 2 (kg) */
-  REAL8 lambda1,                                /**< Dimensionless aligned component spin 1 */
-  REAL8 lambda2)                                /**< Dimensionless aligned component spin 2 */
-{
-  /* Internally we need m1 > m2, so change around if this is not the case */
-  if (m1SI < m2SI) {
-    // Swap m1 and m2
-    double m1temp = m1SI;
-    double l1temp = lambda1;
-    m1SI = m2SI;
-    lambda1 = lambda2;
-    m2SI = m1temp;
-    lambda2 = l1temp;
-  }
-
-  /* Get masses in terms of solar mass */
-  double mass1 = m1SI / LAL_MSUN_SI;
-  double mass2 = m2SI / LAL_MSUN_SI;
-  double Mtot = mass1+mass2;
-  double eta = mass1 * mass2 / (Mtot*Mtot);    /* Symmetric mass-ratio */
-
-  REAL8 m1sec = (m1SI/LAL_MSUN_SI)*LAL_MTSUN_SI ;
-  REAL8 m2sec = (m2SI/LAL_MSUN_SI)*LAL_MTSUN_SI ;
-  REAL8 m1sec5=m1sec*m1sec*m1sec*m1sec*m1sec ;
-  REAL8 m2sec5=m2sec*m2sec*m2sec*m2sec*m2sec ;
-  lambda1*=m1sec5 ;
-  lambda2*=m2sec5 ;
-
-  if (fRef==0.0) fRef=fLow;
-
-  // Load ROM data if not loaded already
-  fprintf(stdout,"initializing with TEOBResumROM_Init_LALDATA()\n");
-  #ifdef LAL_PTHREAD_LOCK
-  (void) pthread_once(&TEOBResumROM_is_initialized, TEOBResumROM_Init_LALDATA);
-  #else
-  TEOBResumROM_Init_LALDATA();
-  #endif
-
-  if(!TEOBResumROM_IsSetup()) XLAL_ERROR(XLAL_EFAILED,"Error setting up TEOBResumROM data - check your $LAL_DATA_PATH\n");
-
-  // Use fLow, fHigh, deltaF to compute freqs sequence
-  // Instead of building a full sequency we only transfer the boundaries and let
-  // the internal core function do the rest (and properly take care of corner cases).
-
-  int retcode = TEOBResumROMCore_test(hPlus,hCross, phiRef, deltaT, fRef, distance, inclination, Mtot, eta, lambda1, lambda2);
-
-  TEOBResumROMdataDS_Cleanup(&__lalsim_TEOBResumROMDS_data);
-
-  return(retcode);
-}
-
-
-
-/** Setup SEOBNRv2ROMDoubleSpin model using data files installed in $LAL_DATA_PATH
+/** Setup TEOBResum_ROM model using data files installed in $LAL_DATA_PATH
  */
 static void TEOBResumROM_Init_LALDATA(void)
 {
