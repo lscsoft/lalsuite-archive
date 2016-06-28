@@ -839,7 +839,7 @@ static double random_stringkink_fhigh(double flow, double fhigh, gsl_rng *rng)
 	const double thetamax = pow(flow, -1.0 / 3.0);
 	const double theta = gsl_ran_flat(rng, thetamin, thetamax);
 
-	return pow(theta, -3.0 / 2.0);
+	return pow(theta, -3.0);
 }
 
 /*
