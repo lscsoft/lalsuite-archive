@@ -166,7 +166,7 @@ static int TEOBResumROMCore(
   REAL8TimeSeries **hCross,
   double phiRef,
   double deltaT,
-  double fRef,
+  double fLow,
   double distance,
   double inclination,
   double Mtot_sec,
@@ -482,7 +482,7 @@ static int TEOBResumROMCore(
   REAL8TimeSeries **hCross,
   double phiRef, // orbital reference phase NOTE: unused
   double deltaT,
-  double fRef,
+  double fLow,
   double distance,
   double inclination,
   double Mtot, // in Msol
@@ -588,7 +588,7 @@ static int TEOBResumROMCore(
   gsl_spline_init(toffreq_spline, freqs, physical_times, i_end_mono);
 
   //calculate parameters to resample with even spacing
-  double tstart = gsl_spline_eval(toffreq_spline, fRef, acc_fot);
+  double tstart = gsl_spline_eval(toffreq_spline, fLow, acc_fot);
   int Ntimes_res = (int) ceil((physical_times_end-tstart)/deltaT);
   double *times_res = calloc(Ntimes_res,sizeof(double));
   double *amp_res = calloc(Ntimes_res,sizeof(double));
@@ -611,7 +611,7 @@ static int TEOBResumROMCore(
 
   //XLALGPSAdd(&tC, -1 / deltaF);  /* coalesce at t=0 */
   LIGOTimeGPS tC = LIGOTIMEGPSZERO;
-  //XLALGPSAdd(&tC, tstart);
+  XLALGPSAdd(&tC, tstart);
   //XLALGPSAdd(&tC, -1.0*j*deltaT);
   /* Allocate hplus and hcross */
   hp = XLALCreateREAL8TimeSeries("hplus: TD waveform", &tC, 0.0, deltaT, &lalStrainUnit, Ntimes_res);
@@ -757,7 +757,7 @@ int XLALSimInspiralTEOBResumROM(
     return(XLAL_EDOM);
   }
 
-  if (fRef==0.0) fRef=fLow;
+  if (fRef!=0.0) fprintf(stdout,"WARNING: fREf != 0.0 -> TEOBResum_ROM does not do anything with fRef. It will be evaluated from fLow.\n");
 
   // Load ROM data if not loaded already
   fprintf(stdout,"initializing with TEOBResumROM_Init_LALDATA()\n");
@@ -769,7 +769,7 @@ int XLALSimInspiralTEOBResumROM(
 
   if(!TEOBResumROM_IsSetup()) XLAL_ERROR(XLAL_EFAILED,"Error setting up TEOBResumROM data - check your $LAL_DATA_PATH\n");
 
-  int retcode = TEOBResumROMCore(hPlus,hCross, phiRef, deltaT, fRef, distance, inclination, Mtot, eta, lambda1, lambda2);
+  int retcode = TEOBResumROMCore(hPlus,hCross, phiRef, deltaT, fLow, distance, inclination, Mtot, eta, lambda1, lambda2);
 
   return(retcode);
 }
