@@ -503,7 +503,7 @@ int XLALSimIMRSpinAlignedEOBWaveformAll(
 
   /* Accuracies of adaptive Runge-Kutta integrator */
   const REAL8 EPS_ABS = 1.0e-10;
-  const REAL8 EPS_REL = 1.0e-10; // Davids: changed exponent from -9 to -10
+  const REAL8 EPS_REL = 1.0e-9; // Davids: changed exponent from -9 to -10
 
   /*
    * STEP 0) Prepare parameters, including pre-computed coefficients 
