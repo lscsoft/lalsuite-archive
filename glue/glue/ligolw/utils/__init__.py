@@ -243,10 +243,7 @@ class MD5File(object):
 			self._write = self.fileobj.write
 		except AttributeError:
 			pass
-		try:
-			self._update = self.md5obj.update
-		except AttributeError:
-			pass
+		self._update = self.md5obj.update
 
 	def __iter__(self):
 		return self
