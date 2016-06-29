@@ -228,6 +228,7 @@ class MD5File(object):
 		else:
 			self.md5obj = md5obj
 		self.closable = closable
+		# only used if .tell() doesn't work
 		self.pos = 0
 		# avoid attribute look-ups
 		try:
