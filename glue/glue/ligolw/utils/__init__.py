@@ -234,15 +234,30 @@ class MD5File(object):
 		try:
 			self._next = self.fileobj.next
 		except AttributeError:
-			pass
+			# replace our .next() method with something that
+			# will raise a more meaningful exception if
+			# attempted
+			def next(*args):
+				fileobj.next
+			self.next = next
 		try:
 			self._read = self.fileobj.read
 		except AttributeError:
-			pass
+			# replace our .read() method with something that
+			# will raise a more meaningful exception if
+			# attempted
+			def read(*args):
+				fileobj.read
+			self.read = read
 		try:
 			self._write = self.fileobj.write
 		except AttributeError:
-			pass
+			# replace our .write() method with something that
+			# will raise a more meaningful exception if
+			# attempted
+			def write(*args):
+				fileobj.write
+			self.write = write
 		self._update = self.md5obj.update
 
 	def __iter__(self):
