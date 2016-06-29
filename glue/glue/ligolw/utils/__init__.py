@@ -41,20 +41,6 @@ import stat
 import sys
 
 
-# work-around for Python < 2.7.  remove when we can rely on native GzipFile
-# being usable as a context manager
-GzipFile = gzip.GzipFile
-try:
-	GzipFile.__exit__
-except AttributeError:
-	class GzipFile(gzip.GzipFile):
-		def __enter__(self):
-			return self
-		def __exit__(self, *args):
-			self.close()
-			return False
-
-
 from glue import git_version
 from .. import ligolw
 
@@ -472,7 +458,7 @@ def write_fileobj(xmldoc, fileobj, gz = False, trap_signals = (signal.SIGTERM, s
 	# write the document
 	with MD5File(fileobj, closable = False) as fileobj:
 		md5obj = fileobj.md5obj
-		with fileobj if not gz else GzipFile(mode = "wb", fileobj = fileobj) as fileobj:
+		with fileobj if not gz else gzip.GzipFile(mode = "wb", fileobj = fileobj) as fileobj:
 			with codecs.getwriter("utf_8")(fileobj) as fileobj:
 				xmldoc.write(fileobj, **kwargs)
 
