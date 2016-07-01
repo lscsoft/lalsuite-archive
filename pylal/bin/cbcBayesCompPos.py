@@ -25,6 +25,7 @@ import sys
 from time import strftime
 import copy
 import random
+import getpass
 
 #related third party imports
 import numpy as np
@@ -137,13 +138,13 @@ def all_pairs(L):
         i = L.pop()
         for j in L: yield i, j
 
-def open_url_wget(url,un=None,pw=None,args=[]):
+def open_url_curl(url,args=[]):
     import subprocess
     import urlparse
 
-    if un is not None and pw is not None:
-        args+=["--user",un,"--password",pw,"--no-check-certificate"]
-    retcode=subprocess.call(['wget']+[url]+args)
+    kerberos_args = "--insecure -c /tmp/{0}_cookies -b /tmp/{0}_cookies --negotiate --user : --location-trusted".format(getpass.getuser()).split()
+
+    retcode=subprocess.call(['curl'] + kerberos_args + [url] + args)
 
     return retcode
 
@@ -510,8 +511,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                     os.remove(pos_file)
                 if not os.path.exists(downloads_folder):
                     os.makedirs(downloads_folder)
-                open_url_wget(pos_file_url,un=username,pw=password,args=["-O","%s"%pos_file])
-
+                open_url_curl(pos_file_url,args=["-o","%s"%pos_file])
 
         elif pfu_scheme is '' or pfu_scheme is 'file':
             pos_file=os.path.join(pos_folder,'%s.dat'%name)
