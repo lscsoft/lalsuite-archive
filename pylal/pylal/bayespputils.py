@@ -6,8 +6,8 @@
 #       Benjamin Aylott <benjamin.aylott@ligo.org>,
 #       Benjamin Farr <bfarr@u.northwestern.edu>,
 #       Will M. Farr <will.farr@ligo.org>,
-#       John Veitch <john.veitch@ligo.org>
-#       Salvatore Vitale <salvatore.vitale@ligo.org>
+#       John Veitch <john.veitch@ligo.org>,
+#       Salvatore Vitale <salvatore.vitale@ligo.org>,
 #       Vivien Raymond <vivien.raymond@ligo.org>
 #
 #       This program is free software; you can redistribute it and/or modify
@@ -60,6 +60,7 @@ from numpy import linspace
 import random
 import socket
 from itertools import combinations
+from lalinference import LALInferenceHDF5PosteriorSamplesGroupName as posterior_grp_name
 
 try:
     import lalsimulation as lalsim
@@ -84,11 +85,7 @@ if hostname_short=='ligo.caltech.edu' or hostname_short=='cluster.ldas.cit': #Th
                              'mathtext.fallback_to_cm' : True
                              })
 
-try:
-    from xml.etree.cElementTree import Element, SubElement, ElementTree, Comment, tostring, XMLParser
-except ImportError:
-    #Python < 2.5
-    from cElementTree import Element, SubElement, ElementTree, Comment, tostring, XMLParser
+from xml.etree.cElementTree import Element, SubElement, ElementTree, Comment, tostring, XMLParser
 
 #local application/library specific imports
 import pylal
@@ -683,13 +680,13 @@ class PosteriorOneDPDF(object):
     def KL(self):
         """Returns the KL divergence between the prior and the posterior.
         It measures the relative information content in nats. The prior is evaluated
-        at run time. It defaults to None. If None is passed, it just returns the information content 
+        at run time. It defaults to None. If None is passed, it just returns the information content
         of the posterior."
         """
-        
+
         def uniform(x):
             return np.array([1./(np.max(x)-np.min(x)) for _ in x])
-        
+
         posterior, dx = np.histogram(self.samples,bins=36,normed=True)
         from scipy.stats import entropy
         # check the kind of prior and process the string accordingly
@@ -710,9 +707,9 @@ class PosteriorOneDPDF(object):
             prior_dist = eval(prior)
         except:
             raise ValueError
-        
+
         return entropy(posterior, qk=prior_dist)
-    
+
     def prob_interval(self,intervals):
         """
         Evaluate probability intervals.
@@ -983,7 +980,7 @@ class Posterior(object):
               pos.append_mapping(new_spin_params, spin_angles, old_params)
           except KeyError:
               print "Warning: Cannot find spin parameters.  Skipping spin angle calculations."
-                
+
       #Calculate effective precessing spin magnitude
       if ('a1' in pos.names and 'tilt1' in pos.names and 'm1' in pos.names ) and ('a2' in pos.names and 'tilt2' in pos.names and 'm2' in pos.names):
           pos.append_mapping('chi_p', chi_precessing, ['a1', 'tilt1', 'm1', 'a2', 'tilt2', 'm2'])
@@ -992,14 +989,14 @@ class Posterior(object):
       # Calculate redshift from luminosity distance measurements
       if('distance' in pos.names):
           pos.append_mapping('redshift', calculate_redshift, 'distance')
-     
+
       # Calculate source mass parameters
       if ('m1' in pos.names) and ('redshift' in pos.names):
           pos.append_mapping('m1_source', source_mass, ['m1', 'redshift'])
 
       if ('m2' in pos.names) and ('redshift' in pos.names):
           pos.append_mapping('m2_source', source_mass, ['m2', 'redshift'])
-        
+
       if ('mtotal' in pos.names) and ('redshift' in pos.names):
           pos.append_mapping('mtotal_source', source_mass, ['mtotal', 'redshift'])
 
@@ -1141,14 +1138,14 @@ class Posterior(object):
               pos.append_mapping('mf_source', source_mass, ['mf', 'redshift'])
           except Exception,e:
               print "Could not calculate final source frame mass. The error was: %s"%(str(e))
-    
+
       # Calculate radiated energy and peak luminosity
       if ('mtotal_source' in pos.names) and ('mf_source' in pos.names):
           try:
               pos.append_mapping('e_rad', lambda mtot_s, mf_s: mtot_s-mf_s, ['mtotal_source', 'mf_source'])
           except Exception,e:
               print "Could not calculate radiated energy. The error was: %s"%(str(e))
-      
+
       if ('q' in pos.names) and ('a1z' in pos.names) and ('a2z' in pos.names):
           try:
               pos.append_mapping('l_peak', bbh_aligned_Lpeak_6mode_SHXJDK, ['q', 'a1z', 'a2z'])
@@ -1224,7 +1221,7 @@ class Posterior(object):
         """
 
         return -2.0*(np.mean(self._logL) - np.var(self._logL))
-    
+
     @property
     def injection(self):
         """
@@ -1265,9 +1262,10 @@ class Posterior(object):
         header=header.split()
         if not ('cycle' in header):
             raise RuntimeError("Cannot compute number of cycles in longest chain")
+
+        cycle_col=header.index('cycle')
         if 'chain' in header:
             chain_col=header.index('chain')
-            cycle_col=header.index('cycle')
             chain_indexes=np.unique(samps[:,chain_col])
             max_cycle=0
             for ind in chain_indexes:
@@ -1831,7 +1829,7 @@ class Posterior(object):
             hpmap = hp.reorder(hpmap, r2n=True)
 
         return hpmap
-        
+
     def __str__(self):
         """
         Define a string representation of the Posterior class ; returns
@@ -1978,7 +1976,7 @@ class Posterior(object):
                 spins['a1z'] = inj.spin1z
                 spins['a2z'] = inj.spin2z
 
-            L  = orbital_momentum(f_ref, mc, iota)
+            L  = orbital_momentum(f_ref, m1,m2, iota)
             S1 = np.hstack((s1x, s1y, s1z))
             S2 = np.hstack((s2x, s2y, s2z))
 
@@ -3653,7 +3651,7 @@ def skymap_confidence_areas(hpmap, cls):
 
     pixarea = hp.nside2pixarea(hp.npix2nside(hpmap.shape[0]))
     pixarea = pixarea*(180.0/np.pi)**2 # In square degrees
-    
+
     areas = []
     for cl in cls:
         npix = np.sum(cum_hpmap < cl) # How many pixels to sum before cl?
@@ -3826,7 +3824,7 @@ def ROTATEY(angle, vx, vy, vz):
     tmp2 = - vx*np.sin(angle) + vz*np.cos(angle);
     return np.asarray([tmp1,vy,tmp2])
 
-def orbital_momentum(fref, mc, inclination):
+def orbital_momentum(fref, m1,m2, inclination):
     """
     Calculate orbital angular momentum vector.
     Note: The units of Lmag are different than what used in lalsimulation.
@@ -3835,13 +3833,19 @@ def orbital_momentum(fref, mc, inclination):
     Note that if one wants to build J=L+S1+S2 with L returned by this function, S1 and S2
     must not get the Msun^2 factor.
     """
-    Lmag = orbital_momentum_mag(fref, mc)
+    eta = m1*m2/( (m1+m2)*(m1+m2) )
+    Lmag = orbital_momentum_mag(fref, m1,m2,eta)
     Lx, Ly, Lz = sph2cart(Lmag, inclination, 0.0)
     return np.hstack((Lx,Ly,Lz))
 #
 #
-def orbital_momentum_mag(fref, mc):
-    return np.power(mc, 5.0/3.0) / np.power(pi_constant * lal.MTSUN_SI * fref, 1.0/3.0)
+def orbital_momentum_mag(fref, m1,m2,eta):
+    v0 = np.power(pi_constant * lal.MTSUN_SI * fref, 1.0/3.0)
+    #1 PN Mtot*Mtot*eta/v
+    PNFirst = (((m1+m2)**2)*eta)/v0
+    PNSecond = 1+ (v0**2) * (3.0/2.0 -eta/6.0)
+    Lmag= PNFirst*PNSecond
+    return Lmag
 
 def component_momentum(m, a, theta, phi):
     """
@@ -3866,7 +3870,7 @@ def spin_angles(fref,mc,eta,incl,a1,theta1,phi1,a2=None,theta2=None,phi2=None):
     """
     singleSpin = None in (a2,theta2,phi2)
     m1, m2 = mc2ms(mc,eta)
-    L  = orbital_momentum(fref, mc, incl)
+    L  = orbital_momentum(fref, m1,m2, incl)
     S1 = component_momentum(m1, a1, theta1, phi1)
     if not singleSpin:
         S2 = component_momentum(m2, a2, theta2, phi2)
@@ -3966,7 +3970,7 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
             a2,theta2,phi2 = cart2sph(spin2x,spin2y,spin2z)
 
             mc = np.power(m1*m2,3./5.)*np.power(m1+m2,-1./5.)
-            L  = orbital_momentum(fref, mc, iota)
+            L  = orbital_momentum(fref, m1,m2, iota)
             S1 = np.hstack([m1*m1*spin1x,m1*m1*spin1y,m1*m1*spin1z])
             S2 = np.hstack([m2*m2*spin2x,m2*m2*spin2y,m2*m2*spin2z])
             J = L + S1 + S2
@@ -3998,7 +4002,7 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
             a2,theta2,phi2 = cart2sph(spin2x,spin2y,spin2z)
 
             mc = np.power(m1*m2,3./5.)*np.power(m1+m2,-1./5.)
-            L  = orbital_momentum(fref, mc, iota)
+            L  = orbital_momentum(fref, m1,m2, iota)
             S1 = m1*m1*np.hstack([spin1x,spin1y,spin1z])
             S2 = m2*m2*np.hstack([spin2x,spin2y,spin2z])
             J = L + S1 + S2
@@ -5718,8 +5722,10 @@ class PEOutputParser(object):
                                      "lal_amporder","lal_pnorder","lal_approximant","tideo","spino","signalmodelflag",
                                      "t0", "phase_maxl", "azimuth", "cosalpha"] + logParams + snrParams + splineParams
                         nonParamsIdxs = [header.index(name) for name in nonParams if name in header]
-                        paramIdxs = [i for i in range(len(header)) if i not in nonParamsIdxs]
                         samps = np.array(lines).astype(float)
+                        fixedIdxs = np.where(np.amin(samps,axis=0)-np.amax(samps,axis=0) == 0.0)[0]
+                        nonParamsIdxs.extend(fixedIdxs)
+                        paramIdxs = [i for i in range(len(header)) if i not in nonParamsIdxs]
                         stride=samps[1,iterindex] - samps[0,iterindex]
                         results = np.array([np.array(effectiveSampleSize(samps[:,i])[:2]) for i in paramIdxs])
                         nEffs = results[:,0]
@@ -6003,17 +6009,23 @@ class PEOutputParser(object):
             assert len(active_group.keys()) == 1, repr(list(active_group.keys()))
             run_identifier = list(active_group.keys())[0]
             active_group = active_group[run_identifier]
-            assert 'samples' in active_group, repr(list(active_group.keys()))
-
-            active_group = active_group['samples']
+            assert posterior_grp_name in active_group, repr(list(active_group.keys()))
+            active_group = active_group[posterior_grp_name]
 
             # fill the numpy array
             header = list(active_group.keys())
             posterior_data=[]
             for key in header:
               posterior_data.append(active_group[key][...])
+
+            #sub-optimal storage of meta-data: adding fixed values to posterior_data
+            nsamps=len(active_group[header[0]][...])
+            header.extend(active_group.attrs.keys())
+            for key in active_group.attrs.keys():
+              posterior_data.append(np.array([(active_group.attrs[key])]*nsamps,dtype=type(active_group.attrs[key])))
+
             posterior_data=np.array(posterior_data)
-        # join the fields into a (nfields, nsamples) array, transposed 
+        # join the fields into a (nfields, nsamples) array, transposed
         # to be (nsamples, nfields)
         flines = posterior_data.T
 
@@ -6035,7 +6047,7 @@ class PEOutputParser(object):
         print('Read columns %s' % str(header))
 
         return header, flines
-        
+
 
     def _common_to_pos(self,infile,info=[None,None]):
         """
@@ -6806,7 +6818,7 @@ def spline_angle_xform(delta_psi):
     rot = (2.0 + 1.0j*delta_psi)/(2.0 - 1.0j*delta_psi)
 
     return 180.0/np.pi*np.arctan2(np.imag(rot), np.real(rot))
-    
+
 def plot_spline_pos(logf, ys, nf=100, level=0.9, color='k', label=None, xform=None):
     """Plot calibration posterior estimates for a spline model in log space.
     Args:
@@ -6827,7 +6839,7 @@ def plot_spline_pos(logf, ys, nf=100, level=0.9, color='k', label=None, xform=No
         zs = ys
     else:
         zs = xform(ys)
-        
+
     mu = np.mean(zs, axis=0)
     lower_cl = mu - cred_interval(zs, level, lower=True)
     upper_cl = cred_interval(zs, level, lower=False) - mu
@@ -6906,7 +6918,7 @@ def plot_calibration_pos(pos, level=.9, outpath=None):
 
 
 def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1','V1']):
-  
+
   from lalinference.lalinference import SimBurstChooseFDWaveform,SimBurstChooseTDWaveform
   from lalinference.lalinference import SimBurstImplementedFDApproximants,SimBurstImplementedTDApproximants
   from lal.lal import StrainUnit
@@ -6932,7 +6944,7 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
     event=0
   colors_inj={'H1':'r','L1':'g','V1':'m','I1':'b','J1':'y'}
   colors_rec={'H1':'k','L1':'k','V1':'k','I1':'k','J1':'k'}
-  #import sim inspiral table content handler 
+  #import sim inspiral table content handler
   from glue.ligolw import ligolw
   from glue.ligolw import lsctables
   from glue.ligolw import table
@@ -6958,8 +6970,8 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
   lsctables.use_in(LIGOLWContentHandlerExtractSimBurstTable)
   #from pylal.SimBurstUtils import ExtractSimBurstTableLIGOLWContentHandler
   #lsctables.use_in(ExtractSimBurstTableLIGOLWContentHandler)
-  
-  # time and freq data handling variables 
+
+  # time and freq data handling variables
   srate=4096.0
   seglen=10.
   length=srate*seglen # lenght of 10 secs, hardcoded.
@@ -6978,7 +6990,7 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
   strainFrec= CreateCOMPLEX16FrequencySeries("strainF",segStart,0.0,deltaF,DimensionlessUnit,int(length/2. +1));
   strainTrec=CreateREAL8TimeSeries("strainT",segStart,0.0,1.0/srate,DimensionlessUnit,int(length));
   GlobREAL8time=None
-  f_min=25 # hardcoded default (may be changed below) 
+  f_min=25 # hardcoded default (may be changed below)
   f_ref=100 # hardcoded default (may be changed below)
   f_max=srate/2.0
 
@@ -6989,7 +7001,7 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
 
   inj_strains=dict((i,{"T":{'x':None,'strain':None},"F":{'x':None,'strain':None}}) for i in ifos)
   rec_strains=dict((i,{"T":{'x':None,'strain':None},"F":{'x':None,'strain':None}}) for i in ifos)
-  
+
   inj_domain=None
   rec_domain=None
   font_size=26
@@ -7017,11 +7029,11 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
       hrss=tbl.hrss
       polar_e_angle=tbl.pol_ellipse_angle
       polar_e_ecc=tbl.pol_ellipse_e
-  
+
       BurstExtraParams=None
       wf=str(tbl.waveform)
 
-      injapproximant=lalinf.GetBurstApproximantFromString(wf)  
+      injapproximant=lalinf.GetBurstApproximantFromString(wf)
       ra=tbl.ra
       dec=tbl.dec
       psi=tbl.psi
@@ -7035,14 +7047,14 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
       else:
         print "\nThe approximant %s doesn't seem to be recognized by lalinference!\n Skipping WF plots\n"%injapproximant
         return None
-      
+
       for ifo in ifos:
         (fp,fc,fa,qv)=ant.response(REAL8time,ra,dec,0.0,psi,'radians',ifo)
         if inj_domain=='T':
           # bin of ref time as seen in strainT
           tCinstrain=np.floor(REAL8time-float(strainTinj.epoch))/deltaT
           # bin of strainT where we need to start copying the WF over
-          #tSinstrain=floor(tCinstrain-float(plus.data.length)/2.)+1 
+          #tSinstrain=floor(tCinstrain-float(plus.data.length)/2.)+1
           tSinstrain=int(  (REAL8time-fabs(float(plus.epoch)) - fabs(float(strainTinj.epoch)))/deltaT)
           rem=(REAL8time-fabs(float(plus.epoch)) - fabs(float(strainTinj.epoch)))/deltaT-tSinstrain
           # strain is a temporary container for this IFO strain.
@@ -7115,10 +7127,10 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
 
 
   if pos is not None:
-    
+
     # Select the maxP sample
     _,which=pos._posMap()
-    
+
     if 'time' in pos.names:
       REAL8time=pos['time'].samples[which][0]
     elif 'time_maxl' in pos.names:
@@ -7131,9 +7143,9 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
       print "ERROR: could not find any time parameter in the posterior file. Not plotting the WF...\n"
       return None
 
-    # first check we have approx in posterior samples, otherwise skip 
+    # first check we have approx in posterior samples, otherwise skip
     skip=0
-    
+
     try:
       approximant=int(pos['LAL_APPROXIMANT'].samples[which][0])
     except:
@@ -7174,7 +7186,7 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
       BurstExtraParams=None
       #if alpha:
       #  BurstExtraParams=lalsim.SimBurstCreateExtraParam("alpha",alpha)
-      
+
       if SimBurstImplementedFDApproximants(approximant):
         rec_domain='F'
         [plus,cross]=SimBurstChooseFDWaveform(deltaF, deltaT, f0, q,dur, f_min, f_max,hrss,polar_e_angle ,polar_e_ecc,BurstExtraParams, approximant)
@@ -7267,10 +7279,10 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
             plot_tmax=REAL8time+6.*sigmaT
 
   myfig=plt.figure(1,figsize=(10,7))
-  
+
   rows=len(ifos)
   cols=2
-  
+
   #this variables decide which domain will be plotted on the left column of the plot.
   # only plot Time domain if both injections and recovery are TD
   global_domain="F"
@@ -7283,7 +7295,7 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
   elif inj_domain is not None:
     if inj_domain=="T":
       global_domain="T"
-  
+
   A,axes=plt.subplots(nrows=rows,ncols=cols,sharex=False,sharey=False)
   plt.setp(A,figwidth=10,figheight=7)
   for (r,i) in zip(np.arange(rows),ifos):
@@ -7350,26 +7362,26 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
             ax.set_xlabel("frequency [Hz]",fontsize=font_size)
         else:
           ax.set_xlabel("frequency [Hz]",fontsize=font_size)
-      
+
       ax.legend(loc='best')
       ax.grid(True)
-      
+
       #ax.tight_layout()
   A.savefig(os.path.join(path,'WF_DetFrame.png'),bbox_inches='tight')
   return inj_strains, rec_strains
 
 def make_1d_table(html,legend,label,pos,pars,noacf,GreedyRes,onepdfdir,sampsdir,savepdfs,greedy,analyticLikelihood,nDownsample):
-    
+
     from numpy import unique, sort
     global confidenceLevels
     confidence_levels=confidenceLevels
-    
+
     out={}
     if pars==[]:
       return out
     if set(pos.names)-set(pars)==set(pos.names):
       return out
-    
+
     #2D plots list
     tabid='onedmargtable_'+label.lower()
     html_ompdf=html.add_collapse_section('1D marginal posterior PDFs (%s)'%label,legend=legend,innertable_id=tabid)
@@ -7392,7 +7404,7 @@ def make_1d_table(html,legend,label,pos,pars,noacf,GreedyRes,onepdfdir,sampsdir,
         cycles = sort(pos['cycle'].samples)
         Ncycles = cycles[-1]-cycles[0]
         Nskip = cycles[1]-cycles[0]
-    
+
     printed=0
     for par_name in pars:
         par_name=par_name.lower()
@@ -7546,9 +7558,8 @@ def make_1d_table(html,legend,label,pos,pars,noacf,GreedyRes,onepdfdir,sampsdir,
           html_ompdf_write+='<tr><td width="30%"><img width="100%" src="1Dpdf/'+figname+'"/></td><td width="30%"><img width="100%" src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td>'+acfhtml+'</tr>'
         else:
             html_ompdf_write+='<tr><td width="30%"><img width="100%" src="1Dpdf/'+figname+'"/></td><td width="30%"><img width="100%" src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td></tr>'
-    
+
     html_ompdf_write+='</table>'
     html_ompdf.write(html_ompdf_write)
-    
+
     return out
-    

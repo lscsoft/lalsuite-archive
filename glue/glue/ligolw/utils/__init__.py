@@ -41,20 +41,6 @@ import stat
 import sys
 
 
-# work-around for Python < 2.7.  remove when we can rely on native GzipFile
-# being usable as a context manager
-GzipFile = gzip.GzipFile
-try:
-	GzipFile.__exit__
-except AttributeError:
-	class GzipFile(gzip.GzipFile):
-		def __enter__(self):
-			return self
-		def __exit__(self, *args):
-			self.close()
-			return False
-
-
 from glue import git_version
 from .. import ligolw
 
@@ -242,24 +228,37 @@ class MD5File(object):
 		else:
 			self.md5obj = md5obj
 		self.closable = closable
+		# only used if .tell() doesn't work
 		self.pos = 0
 		# avoid attribute look-ups
 		try:
 			self._next = self.fileobj.next
 		except AttributeError:
-			pass
+			# replace our .next() method with something that
+			# will raise a more meaningful exception if
+			# attempted
+			def next(*args):
+				fileobj.next
+			self.next = next
 		try:
 			self._read = self.fileobj.read
 		except AttributeError:
-			pass
+			# replace our .read() method with something that
+			# will raise a more meaningful exception if
+			# attempted
+			def read(*args):
+				fileobj.read
+			self.read = read
 		try:
 			self._write = self.fileobj.write
 		except AttributeError:
-			pass
-		try:
-			self._update = self.md5obj.update
-		except AttributeError:
-			pass
+			# replace our .write() method with something that
+			# will raise a more meaningful exception if
+			# attempted
+			def write(*args):
+				fileobj.write
+			self.write = write
+		self._update = self.md5obj.update
 
 	def __iter__(self):
 		return self
@@ -472,7 +471,7 @@ def write_fileobj(xmldoc, fileobj, gz = False, trap_signals = (signal.SIGTERM, s
 	# write the document
 	with MD5File(fileobj, closable = False) as fileobj:
 		md5obj = fileobj.md5obj
-		with fileobj if not gz else GzipFile(mode = "wb", fileobj = fileobj) as fileobj:
+		with fileobj if not gz else gzip.GzipFile(mode = "wb", fileobj = fileobj) as fileobj:
 			with codecs.getwriter("utf_8")(fileobj) as fileobj:
 				xmldoc.write(fileobj, **kwargs)
 
