@@ -103,10 +103,7 @@ def dt_binning(instrument1, instrument2):
 
 
 class StringCoincParamsDistributions(snglcoinc.CoincParamsDistributions):
-	# FIXME:  switch to new default when possible
-	ligo_lw_name_suffix = u"pylal_ligolw_burca_tailor_coincparamsdistributions"
-
-	instrument_categories = snglcoinc.InstrumentCategories()
+	ligo_lw_name_suffix = u"stringcusp_coincparamsdistributions"
 
 	binnings = {
 		"H1_snr2_chi2": rate.NDBins((rate.ATanLogarithmicBins(10, 1e7, 801), rate.ATanLogarithmicBins(.1, 1e4, 801))),
@@ -131,12 +128,11 @@ class StringCoincParamsDistributions(snglcoinc.CoincParamsDistributions):
 		"H2_L1_df": rate.NDBins((rate.ATanBins(-0.2, +0.2, 501),)),
 		"H2_V1_df": rate.NDBins((rate.ATanBins(-0.2, +0.2, 501),)),
 		"L1_V1_df": rate.NDBins((rate.ATanBins(-0.2, +0.2, 501),)),
-		# instrument group bin centres are at 1, 2, 3, ...;  only
-		# non-negative rss timing residual bins will be used but we
-		# want a binning that's linear at the origin so instead of
-		# inventing a new one we just use atan bins that are
-		# symmetric about 0
-		"instrumentgroup,rss_timing_residual": rate.NDBins((rate.LinearBins(0.5, instrument_categories.max() + 0.5, instrument_categories.max()), rate.ATanBins(-0.02, +0.02, 1001)))
+		# only non-negative rss timing residual bins will be used
+		# but we want a binning that's linear at the origin so
+		# instead of inventing a new one we just use atan bins that
+		# are symmetric about 0
+		"instrumentgroup,rss_timing_residual": rate.NDBins((snglcoinc.InstrumentBins(names = ("H1", "H2", "L1", "V1")), rate.ATanBins(-0.02, +0.02, 1001)))
 	}
 
 	filters = {
@@ -202,7 +198,7 @@ class StringCoincParamsDistributions(snglcoinc.CoincParamsDistributions):
 		# sometime in the future if we're curious why it didn't help.  Just
 		# delete the next line and you're back in business.
 		rss_timing_residual = 0.0
-		params["instrumentgroup,rss_timing_residual"] = (StringCoincParamsDistributions.instrument_categories.category(instruments), rss_timing_residual)
+		params["instrumentgroup,rss_timing_residual"] = (frozenset(instruments), rss_timing_residual)
 
 		#
 		# one-instrument parameters
