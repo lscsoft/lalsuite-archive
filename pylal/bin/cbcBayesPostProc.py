@@ -47,6 +47,7 @@ from scipy import stats
 import matplotlib
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt
+import cbcBayesPlotSpinDisk as cbcdiskspin
 
 # Default font properties
 fig_width_pt = 246  # Get this from LaTeX using \showthe\columnwidth
@@ -627,6 +628,18 @@ def cbcBayesPostProc(
       wfsection=html.add_section_to_element('Calibration',wftd)
       bppu.plot_calibration_pos(pos, outpath=outdir)
       wfsection.write('<a href="calibration.png" target="_blank"><img src="calibration.png"/></a>')
+     # if precessing spins do spin disk
+    allin=1.0
+    for i in ['a1','tilt_spin1','a2','tilt_spin2']:
+      if not i in pos.names:
+        allin*=0.0
+    if allin ==0.0:
+      pass
+    else:
+      wftd=html_wf.insert_td(row,'',label='DiskPlot',legend=legend)
+      wfsection=html.add_section_to_element('DiskPlot',wftd)
+      cbcdiskspin.make_disk_plot(pos, outpath=outdir)
+      wfsection.write('<a href="comp_spin_pos.png" target="_blank"><img src="comp_spin_pos.png"/></a>')
 
     #==================================================================#
     #1D posteriors
@@ -1199,7 +1212,7 @@ if __name__=='__main__':
             for sp in spinParams:
                 twoDGreedyMenu.append([mp,sp])
         for mp in massParams:
-            for dchi in tigerParams:
+            for dchi in bppu.tigerParams:
                 twoDGreedyMenu.append([mp,dchi])
         for dp in distParams:
             for sp in snrParams:
@@ -1229,7 +1242,7 @@ if __name__=='__main__':
                     twoDGreedyMenu.append([sp1, sp2])
         for sp1,sp2 in combinations(spinParams,2):
           twoDGreedyMenu.append([sp1, sp2])
-        for dc1,dc2 in combinations(tigerParams,2):
+        for dc1,dc2 in combinations(bppu.tigerParams,2):
             twoDGreedyMenu.append([dc1,dc2])
         for mp in massParams:
              for tp in tidalParams:

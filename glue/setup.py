@@ -341,5 +341,15 @@ setup(
         os.path.join('src', 'php', 'dq_report','header.php')
       ]
     )
+  ],
+  classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'Intended Audience :: Science/Research',
+    'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
+    'Operating System :: POSIX',
+    'Programming Language :: Python :: 2.7',
+    'Programming Language :: Python :: 2 :: Only',
+    'Topic :: Scientific/Engineering :: Astronomy',
+    'Topic :: Scientific/Engineering :: Physics'
   ]
 )

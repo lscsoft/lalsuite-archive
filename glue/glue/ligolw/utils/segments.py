@@ -28,13 +28,12 @@
 Ask Kipp to document this!
 """
 
+from lal import LIGOTimeGPS
 
 from glue import git_version
 from glue import iterutils
 from glue import segments
 from glue import segmentsUtils
-# FIXME:  switch to swig binding
-from glue.lal import LIGOTimeGPS
 from .. import lsctables
 
 
@@ -347,7 +346,7 @@ class LigolwSegments(set):
 
 	>>> import sys
 	>>> from glue.segments import *
-	>>> from glue.lal import LIGOTimeGPS
+	>>> from lal import LIGOTimeGPS
 	>>> from glue.ligolw import ligolw, lsctables
 	>>> xmldoc = ligolw.Document()
 	>>> xmldoc.appendChild(ligolw.LIGO_LW())	# doctest: +ELLIPSIS
