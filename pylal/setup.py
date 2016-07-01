@@ -621,6 +621,7 @@ setup(
 		os.path.join("bin", "ring_post"),
 		os.path.join("bin", "ligolw_rinca_to_coinc"),
 		os.path.join("bin", "cbcBayesPostProc.py"),
+                os.path.join("bin", "cbcBayesPlotSpinDisk.py"),
                 os.path.join("bin", "cbcBayesBurstPostProc.py"),
 		os.path.join("bin", "cbcBayesCompPos.py"),
 		os.path.join("bin", "cbcBayesDIEvidence.py"),
@@ -675,5 +676,15 @@ setup(
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
 		os.path.join("etc", "pylal-user-env.csh"),
-		] ) ]
+		] ) ],
+    classifiers = [
+        'Development Status :: 7 - Inactive',
+        'Intended Audience :: Science/Research',
+        'License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)',
+        'Operating System :: POSIX',
+        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 2 :: Only',
+        'Topic :: Scientific/Engineering :: Astronomy',
+        'Topic :: Scientific/Engineering :: Physics'
+    ]
 )
