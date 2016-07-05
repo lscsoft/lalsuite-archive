@@ -51,12 +51,16 @@ import random
 import scipy
 __numpy__version__ = tuple(map(int, numpy.__version__.strip().split(".")[:2]))
 __scipy__version__ = tuple(map(int, scipy.__version__.strip().split(".")[:2]))
+# FIXME Uncomment these lines when the interpolator problem is fixed or when we
+# figure out the correct version numbers to check for 
+'''
 if __scipy__version__ >= (0, 9) and __numpy__version__ >= (1, 7):
 	from scipy.interpolate import interp1d, interp2d, LinearNDInterpolator
 else:
 	# pre scipy/numpy 0.9/1.7 had busted/missing interpolation code.
 	# replacements are provided below
 	pass
+'''
 from scipy.signal import signaltools
 
 
