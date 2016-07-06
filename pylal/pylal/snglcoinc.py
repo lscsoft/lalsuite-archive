@@ -1170,7 +1170,7 @@ class CoincSynthesizer(object):
 		"""
 		Generator to yield time shifted coincident event tuples
 		without the use of explicit time shift vectors.  This
-		generator can only be used if the eventlists dicctionary
+		generator can only be used if the eventlists dictionary
 		with which this object was initialized contained lists of
 		event objects and not merely counts of events.
 
