@@ -124,6 +124,7 @@ int XLALGenerateSimBurst(
 	} else {
 		/* unrecognized waveform */
 		XLALPrintError("%s(): error: unrecognized waveform\n", __func__);
+		XLALPrintError("%s(): error: No numrel data", sim_burst->numrel_data);
 		XLAL_ERROR(XLAL_EINVAL);
 	}
 
