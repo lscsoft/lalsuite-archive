@@ -4,7 +4,7 @@
 /**
  * Computes RHS of ODE for gamma. Eq. 10 of PRD 89, 084006 (2014)
  */
-static double f_alphadotcosi( double x, void * inparams )
+static double f_alphadotcosi_opt( double x, void * inparams )
 {
 	PrecEulerAnglesIntegration* params = (PrecEulerAnglesIntegration*) inparams;
 
@@ -20,7 +20,7 @@ static double f_alphadotcosi( double x, void * inparams )
  * of the roation from the inertial frame to the minimal-rotation frame
  * that co-precesses with LN(t) = rvec(t) x rdotvec(t)
  */
-static int EulerAnglesI2P(REAL8Vector *Alpha, /**<< output: alpha Euler angle */
+static int EulerAnglesI2P_opt(REAL8Vector *Alpha, /**<< output: alpha Euler angle */
                  REAL8Vector *Beta, /**<< output: beta Euler angle */
                  REAL8Vector *Gamma, /**<< output: gamma Euler angle */
                  INT4 *phaseCounterA, /**<< output: counter for unwrapping of alpha */
@@ -143,7 +143,7 @@ static int EulerAnglesI2P(REAL8Vector *Alpha, /**<< output: alpha Euler angle */
     precEulerparams.beta_spline  = y_spline;
     precEulerparams.beta_acc     = y_acc;
 
-    precEulerF.function = &f_alphadotcosi;
+    precEulerF.function = &f_alphadotcosi_opt;
     precEulerF.params   = &precEulerparams;
 
     for( i = 0; i < retLen; i++ )
@@ -175,7 +175,7 @@ static int EulerAnglesI2P(REAL8Vector *Alpha, /**<< output: alpha Euler angle */
  * go from the precessing frame to the frame of the total angular
  * momentum
  */
-static void EulerAnglesP2J(
+static void EulerAnglesP2J_opt(
                 REAL8 *aP2J, /**<< alpha Euler angle from precessing to final-J frame */
                 REAL8 *bP2J, /**<< beta Euler angle from precessing to final-J frame */
                 REAL8 *gP2J, /**<< gamma Euler angle from precessing to final-J frame */

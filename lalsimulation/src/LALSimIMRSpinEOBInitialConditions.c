@@ -29,6 +29,7 @@ struct tagSEOBRootParams
   REAL8          values[12]; /**<< Dynamical variables, x, y, z, px, py, pz, S1x, S1y, S1z, S2x, S2y and S2z */
   SpinEOBParams *params;     /**<< Spin EOB parameters -- physical, pre-computed, etc. */
   REAL8          omega;      /**<< Orbital frequency */
+  INT4           use_optimized;
 }
 SEOBRootParams;
 

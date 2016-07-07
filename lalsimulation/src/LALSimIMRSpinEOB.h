@@ -149,6 +149,7 @@ struct tagHcapSphDeriv2Params
   SpinEOBParams   *params;
   UINT4           varyParam1;
   UINT4           varyParam2;
+  INT4            use_optimized;
 }
 HcapSphDeriv2Params;
 

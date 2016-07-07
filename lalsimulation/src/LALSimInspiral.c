@@ -341,8 +341,11 @@ int XLALSimInspiralChooseTDWaveform(
     /* Support variables for precessing wfs*/
     REAL8 iTmp;
 
-    /* SEOBNR flag for model version. 1 for SEOBNRv1, 2 for SEOBNRv2 */
+    /* SEOBNR flag for spin aligned model version. 1 for SEOBNRv1, 2 for SEOBNRv2 */
     UINT4 SpinAlignedEOBversion;
+    /* SEOBNR flag for precessing model version. 3 for SEOBNRv3, 300 for SEOBNRv3_opt */
+    UINT4 PrecEOBversion;
+
     REAL8 spin1[3], spin2[3];
     //LIGOTimeGPS epoch = LIGOTIMEGPSZERO;
 
@@ -797,8 +800,9 @@ int XLALSimInspiralChooseTDWaveform(
            //XLALSimInspiralInitialConditionsPrecessingApproxs(&i,&S1x,&S1y,&S1z,&S2x,&S2y,&S2z,iTmp,spin1[0],spin1[1],spin1[2],spin2[0],spin2[1],spin2[2],m1,m2,f_ref,XLALSimInspiralGetFrameAxis(waveFlags));
             spin1[0] = S1x; spin1[1] = S1y; spin1[2] = S1z;
             spin2[0] = S2x; spin2[1] = S2y; spin2[2] = S2z;
-            ret = XLALSimIMRSpinEOBWaveform_opt(hplus, hcross, /*&epoch,*/ phiRef,
-                    deltaT, m1, m2, f_min, r, i, spin1, spin2);
+            PrecEOBversion = 300;
+            ret = XLALSimIMRSpinEOBWaveform(hplus, hcross, /*&epoch,*/ phiRef,
+                                            deltaT, m1, m2, f_min, r, i, spin1, spin2, PrecEOBversion);
             break;
         case SEOBNRv3:
             /* Waveform-specific sanity checks */
@@ -815,8 +819,9 @@ int XLALSimInspiralChooseTDWaveform(
            //XLALSimInspiralInitialConditionsPrecessingApproxs(&i,&S1x,&S1y,&S1z,&S2x,&S2y,&S2z,iTmp,spin1[0],spin1[1],spin1[2],spin2[0],spin2[1],spin2[2],m1,m2,f_ref,XLALSimInspiralGetFrameAxis(waveFlags));
             spin1[0] = S1x; spin1[1] = S1y; spin1[2] = S1z;
             spin2[0] = S2x; spin2[1] = S2y; spin2[2] = S2z;
+            PrecEOBversion = 3;
             ret = XLALSimIMRSpinEOBWaveform(hplus, hcross, /*&epoch,*/ phiRef,
-                    deltaT, m1, m2, f_min, r, i, spin1, spin2);
+                                            deltaT, m1, m2, f_min, r, i, spin1, spin2, PrecEOBversion);
             break;
 
 	case HGimri:
