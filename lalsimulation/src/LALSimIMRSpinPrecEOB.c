@@ -253,9 +253,9 @@ static int EulerAnglesI2P(REAL8Vector *Alpha, /**<< output: alpha Euler angle */
         }
         //When integrating backwards, we have to switch the sign of v or p
         if(backInt==1) {
-          tmpRdot[0] *= -1.0;
-          tmpRdot[1] *= -1.0;
-          tmpRdot[2] *= -1.0;
+//          tmpRdot[0] *= -1.0;
+//          tmpRdot[1] *= -1.0;
+//          tmpRdot[2] *= -1.0;
         }
         //end SM SEOBNRv3ROMdevel
 
@@ -273,24 +273,30 @@ static int EulerAnglesI2P(REAL8Vector *Alpha, /**<< output: alpha Euler angle */
             Alpha->data[i] = 0.0;
             inGamma = 0.0;
         } else {
-            Alpha->data[i] = atan2( Z_y->data[i], Z_x->data[i] )
-                             +  *phaseCounterA * LAL_TWOPI;
+            if (backInt==0) {
+                Alpha->data[i] = atan2( Z_y->data[i], Z_x->data[i] )
+                +  *phaseCounterA * LAL_TWOPI;
+            }
+            else {
+                Alpha->data[i] = atan2( Z_y->data[i], Z_x->data[i] )
+                -  *phaseCounterA * LAL_TWOPI;
+            }
             if (i==0 && flag_highSR != 1){
                 inGamma = -Alpha->data[i];
             }
         }
 
-        if( i>0 && Alpha->data[i] - Alpha->data[i-1] > 5. ) {
+        if( i>0 && Alpha->data[i] - Alpha->data[i-1] > 6. ) {
             *phaseCounterA = *phaseCounterA - 1;
             Alpha->data[i] -= LAL_TWOPI;
         }
-        else if ( i && Alpha->data[i] - Alpha->data[i-1] < -5. ) {
+        else if ( i && Alpha->data[i] - Alpha->data[i-1] < -6. ) {
             *phaseCounterA = *phaseCounterA + 1;
             Alpha->data[i] += LAL_TWOPI;
         }
         if (Z_z->data[i] >1.) {
             Z_z->data[i] = 1.;
-        }
+        } 
         if (Z_z->data[i] <-1.) {
             Z_z->data[i] = -1.;
         }
@@ -331,7 +337,7 @@ static int EulerAnglesI2P(REAL8Vector *Alpha, /**<< output: alpha Euler angle */
         {
             gsl_integration_qags (&precEulerF, tVec.data[i-1], tVec.data[i], 1e-9, 1e-9, 1000, precEulerw, &precEulerresult, &precEulererror);
             //Note SEOBNRv3ROMdevel: it seems there is no sign change when integrating backwards
-            Gamma->data[i] = Gamma->data[i-1] + precEulerresult;
+                Gamma->data[i] = Gamma->data[i-1] + precEulerresult;
         }
     }
     gsl_integration_workspace_free( precEulerw );
@@ -1927,6 +1933,11 @@ int XLALSimIMRSpinEOBWaveformAll(
         XLAL_ERROR(  XLAL_ENOMEM );
     }
     memset( valuesV2->data, 0, valuesV2->length * sizeof( REAL8 ));
+    
+    REAL8 InitialAlpha = 0.;
+    REAL8 InitialGamma = 0.5*LAL_PI;
+    INT4 flag_highSR = 0;
+    backLabel: ;
     /* If spins are almost aligned with LNhat, use SEOBNRv2 dynamics */
     if ( SpinsAlmostAligned ) {
         /* In SEOBNRv2 the dynamical variables are r, phi, p_r^*, p_phi */
@@ -2058,6 +2069,28 @@ int XLALSimIMRSpinEOBWaveformAll(
         }
         tVec.length = retLenLow;
         tVec.data   = dynamics->data;
+//        if ( backInt == 1 ) {
+//            for ( i = retLenLow-1; i < retLenLow; i++ )
+//            {
+//                for ( j = 0; j < values->length; j++ )
+//            {
+//                values->data[j] = dynamics->data[(j+1)*retLenLow + i];
+//            }}
+//            values->data[3] = -values->data[3];
+//            values->data[4] = -values->data[4];
+//            values->data[5] = -values->data[5];
+//            values->data[6] = -values->data[6];
+//            values->data[7] = -values->data[7];
+//            values->data[8] = -values->data[8];
+//            values->data[9] = -values->data[9];
+//            values->data[10] = -values->data[10];
+//            values->data[11] = -values->data[11];
+//            values->data[12] = -values->data[12] ;
+//            values->data[13] = -values->data[13] ;
+//            seobParams.omegaOut = 0.;
+//            backInt = 0;
+//            goto backLabel;
+//        }
     }
 
     /* This is common to all cases, even when we use SEOBNRv2 dynamics */
@@ -2079,7 +2112,12 @@ int XLALSimIMRSpinEOBWaveformAll(
 
   if (debugPK) {
     /* Write the dynamics to file */
-    out = fopen( "seobDynamics.dat", "w" );
+    if ( backInt ==0 ) {
+        out = fopen( "seobDynamics.dat", "w" );
+    }
+    else {
+        out = fopen( "seobDynamicsBWD.dat", "w" );        
+    }
     for ( i = 0; i < retLenLow; i++ )
     {
        //YP: output orbital phase and phase modulation separately, instead of their sum
@@ -2298,16 +2336,65 @@ int XLALSimIMRSpinEOBWaveformAll(
 * **********************************************************************************/
 /* Interpolate trajectories to compute L_N (t) in order to get alpha(t) and
    * beta(t). */
-    INT4 phaseCounterA = 0, phaseCounterB = 0;
     Alpha = XLALCreateREAL8Vector( retLenLow );
     Beta   = XLALCreateREAL8Vector( retLenLow );
     Gamma = XLALCreateREAL8Vector( retLenLow );
+    INT4 phaseCounterA = 0, phaseCounterB = 0;
     //SM SEOBNRv3ROMdevel
     //Passes p as argument, and added a flag for the radiation frame choice; when integrating backwards, flip the sign of v or p
-    EulerAnglesI2P(Alpha, Beta, Gamma, &phaseCounterA, &phaseCounterB, tVec, posVecx, posVecy, posVecz, momVecx, momVecy, momVecz, retLenLow, 0., 0.5*LAL_PI, 0, flag_radiationframe, backInt);
+    EulerAnglesI2P(Alpha, Beta, Gamma, &phaseCounterA, &phaseCounterB, tVec, posVecx, posVecy, posVecz, momVecx, momVecy, momVecz, retLenLow, InitialAlpha, InitialGamma, flag_highSR, flag_radiationframe, backInt);
     //EulerAnglesI2P(Alpha, Beta, Gamma, &phaseCounterA, &phaseCounterB, tVec, posVecx, posVecy, posVecz, retLenLow, 0., 0.5*LAL_PI, 0);
     //end SM SEOBNRv3ROMdevel
     //EulerAnglesI2P(Alpha, Beta, Gamma, &phaseCounterA, &phaseCounterB, tVec, posVecx, posVecy, posVecz, retLenLow, 0., 0.0, 0);
+
+    if ( backInt == 1 ) {
+        for ( i = retLenLow-1; i < retLenLow; i++ )
+        {
+            for ( j = 0; j < values->length; j++ )
+            {
+                values->data[j] = dynamics->data[(j+1)*retLenLow + i];
+            }
+        }
+        values->data[3] = -values->data[3];
+        values->data[4] = -values->data[4];
+        values->data[5] = -values->data[5];
+        values->data[6] = -values->data[6];
+        values->data[7] = -values->data[7];
+        values->data[8] = -values->data[8];
+        values->data[9] = -values->data[9];
+        values->data[10] = -values->data[10];
+        values->data[11] = -values->data[11];
+        values->data[12] = -values->data[12] ;
+        values->data[13] = -values->data[13] ;
+        seobParams.omegaOut = 0.;
+        backInt = 0;
+        InitialAlpha = -Alpha->data[Alpha->length-1];
+        InitialGamma = -Gamma->data[Gamma->length-1];
+//        phaseCounterA = 0;
+        printf("Backward integration %.16e\n",  dynamics->data[retLenLow-1]);
+        printf("InitialAlpha %.16e\n",  InitialAlpha);
+        printf("InitialGamma %.16e\n",  InitialGamma);
+        flag_highSR = 1;
+        if (debugPK){
+            XLAL_PRINT_INFO("Writing Alpha and Beta angle timeseries at low SR to alphaANDbetaBWD.dat\n" );
+            fflush(NULL);
+            out = fopen( "alphaANDbetaBWD.dat","w");
+            for( i = 0; i < retLenLow; i++ ) {
+                fprintf( out, "%.16e %.16e %.16e\n", tVec.data[i], Alpha->data[i], Beta->data[i]);
+            }
+            fclose(out);
+            
+            XLAL_PRINT_INFO("Writing Gamma angle timeseries at low SR to gammaBWD.dat\n");
+            fflush(NULL);
+            out = fopen( "gammaBWD.dat","w");
+            for( i = 0; i < retLenLow; i++ ) {
+                fprintf( out, "%.16e %.16e\n",  tVec.data[i], Gamma->data[i]);
+            }
+            fclose(out);
+        }
+        goto backLabel;
+    }
+
 
     t_AlphaBeta = XLALCreateREAL8Vector( retLenLow );
     Omega_MP = XLALCreateREAL8Vector( retLenLow );
