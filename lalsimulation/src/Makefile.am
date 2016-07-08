@@ -75,7 +75,6 @@ pkginclude_HEADERS = \
 	LALSimulationVCSInfoHeader.h
 
 noinst_HEADERS = \
-	LALSimIMRSpinEOBInitialConditionsPrec_v3opt.c \
 	LALSimIMRSpinEOBHcapExactDerivativePrec_v3opt.c \
 	LALSimIMRSpinEOBFactorizedWaveformPrec_v3opt.c \
 	LALSimIMRSpinEOBFactorizedFluxPrec_v3opt.c \
@@ -128,7 +127,6 @@ noinst_HEADERS = \
 lib_LTLIBRARIES = liblalsimulation.la
 liblalsimulation_la_SOURCES = \
 	LALSimFindAttachTime_v3opt.c \
-	LALSimIMRSpinPrecEOB_v3opt.c \
 	LALSimBlackHoleRingdownPrec.c \
 	LALSimBlackHoleRingdown.c \
 	LALSimBurst.c \
