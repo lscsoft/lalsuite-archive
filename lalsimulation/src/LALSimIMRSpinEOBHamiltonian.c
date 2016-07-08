@@ -612,7 +612,23 @@ static int XLALSimIMRCalculateSpinEOBHCoeffs(
       coeff31 = -34.5472;
       coeff32 = 0.;
       coeff33 = -34.7164;
-
+        //  Calibrationv21_Jul6b_nonbcycles_noISCO_noPhDq8s85
+        coeff00 = 1.7336;
+        coeff01 = -1.39086;
+        coeff02 = -0.796853;
+        coeff03 = 1.09267;
+        coeff10 = 10.2573;
+        coeff11 = 1.72551;
+        coeff12 = 0.00001;
+        coeff13 = -0.653256;
+        coeff20 = -126.687;
+        coeff21 = 16.7987;
+        coeff22 = 2.38058;
+        coeff23 = 0.00001;
+        coeff30 = 267.788;
+        coeff31 = -24.5857;
+        coeff32 = 16.5148;
+        coeff33 = -48.5175;
      coeffs->KK = KK = coeff00  + coeff01*chi  + coeff02*chi2  + coeff03*chi3  + coeff10*eta  + coeff11*eta*chi  + coeff12*eta*chi2  + coeff13*eta*chi3  + coeff20*eta2  + coeff21*eta2*chi  + coeff22*eta2*chi2  + coeff23*eta2*chi3  + coeff30*eta3  + coeff31*eta3*chi  + coeff32*eta3*chi2  + coeff33*eta3*chi3;
 //      printf("KK %.16e\n", KK);
  }
@@ -685,6 +701,23 @@ static int XLALSimIMRCalculateSpinEOBHCoeffs(
           coeff31 = 9575.51;
           coeff32 = 0.;
           coeff33 = 0.;
+          //Calibrationv21_Jul6b_nonbcycles_noISCO_noPhDq8s85
+          coeff00 = -63.6167;
+          coeff01 = 0.00001;
+          coeff02 = 0.00001;
+          coeff03 = 0.000017;
+          coeff10 = 0.00001;
+          coeff11 = 0.00001;
+          coeff12 = -0.014291;
+          coeff13 = -1318.;
+          coeff20 = -0.000016;
+          coeff21 = 73.1771;
+          coeff22 = 0.00001;
+          coeff23 = 3215.52;
+          coeff30 = 0.00001;
+          coeff31 = 7688.79;
+          coeff32 = 0.00001;
+          coeff33 = -0.002531;
           coeffs->d1v2 = coeff00  + coeff01*chi  + coeff02*chi2  + coeff03*chi3  + coeff10*eta  + coeff11*eta*chi  + coeff12*eta*chi2  + coeff13*eta*chi3  + coeff20*eta2  + coeff21*eta2*chi  + coeff22*eta2*chi2  + coeff23*eta2*chi3  + coeff30*eta3  + coeff31*eta3*chi  + coeff32*eta3*chi2  + coeff33*eta3*chi3;
 
           // dSS
@@ -704,6 +737,23 @@ static int XLALSimIMRCalculateSpinEOBHCoeffs(
           coeff31 = -0.000494;
           coeff32 = 0.;
           coeff33 = 0.000356;
+          //Calibrationv21_Jul6b_nonbcycles_noISCO_noPhDq8s85
+          coeff00 = 0.00001;
+          coeff01 = 0.003626;
+          coeff02 = 2.67274;
+          coeff03 = 2.2696;
+          coeff10 = -37.8804;
+          coeff11 = 0.000652;
+          coeff12 = 210.705;
+          coeff13 = -28.4984;
+          coeff20 = 0.00001;
+          coeff21 = 0.00001;
+          coeff22 = 0.00001;
+          coeff23 = 0.000068;
+          coeff30 = 0.00001;
+          coeff31 = 0.000021;
+          coeff32 = 159.661;
+          coeff33 = 0.000107;
           coeffs->dheffSSv2 = coeff00  + coeff01*chi  + coeff02*chi2  + coeff03*chi3  + coeff10*eta  + coeff11*eta*chi  + coeff12*eta*chi2  + coeff13*eta*chi3  + coeff20*eta2  + coeff21*eta2*chi  + coeff22*eta2*chi2  + coeff23*eta2*chi3  + coeff30*eta3  + coeff31*eta3*chi  + coeff32*eta3*chi2  + coeff33*eta3*chi3;
 //          printf("dSO %.16e, dSS %.16e\n", coeffs->d1v2,coeffs->dheffSSv2);
         break;
