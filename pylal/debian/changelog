@@ -1,8 +1,14 @@
+pylal (0.10.0-1) unstable; urgency=high
+
+  * 0.10.0 release
+
+ -- Kipp Cannon <kipp.cannon@ligo.org>  Wed, 6 Jul 2016 18:16:00 +0900
+
 pylal (0.9.0-1) unstable; urgency=high
 
   * 0.9.0 release
 
- -- Kipp Cannon <kipp.cannon@ligo.org>  Wed, 21 Oct 2015 15?51:37 -0500
+ -- Kipp Cannon <kipp.cannon@ligo.org>  Wed, 21 Oct 2015 15:51:37 -0500
 
 pylal (0.8.1-1) unstable; urgency=high
 
