@@ -61,6 +61,7 @@ import random
 import socket
 from itertools import combinations
 from lalinference import LALInferenceHDF5PosteriorSamplesGroupName as posterior_grp_name
+import re
 
 try:
     import lalsimulation as lalsim
@@ -5978,20 +5979,20 @@ class PEOutputParser(object):
             llines.append(np.array(map(lambda a:float(a.text),row)))
         flines=np.array(llines)
         for i in range(0,len(header)):
-            if header[i].lower().find('log')!=-1 and header[i].lower() not in logParams:
+            if header[i].lower().find('log')!=-1 and header[i].lower() not in logParams and re.sub('log', '', header[i].lower()) not in [h.lower() for h in header]:
                 print 'exponentiating %s'%(header[i])
 
                 flines[:,i]=np.exp(flines[:,i])
 
-                header[i]=header[i].replace('log','')
-            if header[i].lower().find('sin')!=-1:
+                header[i]=re.sub('log', '', header[i], flags=re.IGNORECASE)
+            if header[i].lower().find('sin')!=-1 and re.sub('sin', '', header[i].lower()) not in [h.lower() for h in header]:
                 print 'asining %s'%(header[i])
                 flines[:,i]=np.arcsin(flines[:,i])
-                header[i]=header[i].replace('sin','')
-            if header[i].lower().find('cos')!=-1:
+                header[i]=re.sub('sin', '', header[i], flags=re.IGNORECASE)
+            if header[i].lower().find('cos')!=-1 and re.sub('cos', '', header[i].lower()) not in [h.lower() for h in header]:
                 print 'acosing %s'%(header[i])
                 flines[:,i]=np.arccos(flines[:,i])
-                header[i]=header[i].replace('cos','')
+                header[i]=re.sub('cos', '', header[i], flags=re.IGNORECASE)
             header[i]=header[i].replace('(','')
             header[i]=header[i].replace(')','')
         print 'Read columns %s'%(str(header))
@@ -6030,18 +6031,18 @@ class PEOutputParser(object):
         flines = posterior_data.T
 
         for i, _ in enumerate(header):
-            if header[i].lower().find('log') != -1 and header[i].lower() not in logParams:
+            if header[i].lower().find('log') != -1 and header[i].lower() not in logParams and re.sub('log', '', header[i].lower()) not in [h.lower() for h in header]:
                 print('exponentiating %s' % header[i])
                 flines[:, i] = np.exp(flines[:, i])
-                header[i] = header[i].replace('log', '')
-            if header[i].lower().find('sin') != -1:
+                header[i] = re.sub('log', '', header[i], flags=re.IGNORECASE)
+            if header[i].lower().find('sin') != -1 and re.sub('sin', '', header[i].lower()) not in [h.lower() for h in header]:
                 print('asining %s' % header[i])
                 flines[:, i] = np.arcsin(flines[:, i])
-                header[i] = header[i].replace('sin', '')
-            if header[i].lower().find('cos') != -1:
+                header[i] = re.sub('sin', '', header[i], flags=re.IGNORECASE)
+            if header[i].lower().find('cos') != -1 and re.sub('cos', '', header[i].lower()) not in [h.lower() for h in header]:
                 print('acosing %s' % header[i])
                 flines[:, i] = np.arccos(flines[:, i])
-                header[i] = header[i].replace('cos', '')
+                header[i] = re.sub('cos', '', header[i], flags=re.IGNORECASE)
             header[i] = header[i].replace('(', '')
             header[i] = header[i].replace(')', '')
         print('Read columns %s' % str(header))
@@ -6072,7 +6073,6 @@ class PEOutputParser(object):
         header[-1]=header[-1].rstrip('\n')
         nparams=len(header)
         llines=[]
-        import re
         dec=re.compile(r'^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$|^inf$')
 
         for line_number,line in enumerate(infile):
@@ -6105,20 +6105,20 @@ class PEOutputParser(object):
 
 
         for i in range(0,len(header)):
-            if header[i].lower().find('log')!=-1 and header[i].lower() not in logParams:
+            if header[i].lower().find('log')!=-1 and header[i].lower() not in logParams and re.sub('log', '', header[i].lower()) not in [h.lower() for h in header]:
                 print 'exponentiating %s'%(header[i])
 
                 flines[:,i]=np.exp(flines[:,i])
 
-                header[i]=header[i].replace('log','')
-            if header[i].lower().find('sin')!=-1:
+                header[i]=re.sub('log', '', header[i], flags=re.IGNORECASE)
+            if header[i].lower().find('sin')!=-1 and re.sub('sin', '', header[i].lower()) not in [h.lower() for h in header]:
                 print 'asining %s'%(header[i])
                 flines[:,i]=np.arcsin(flines[:,i])
-                header[i]=header[i].replace('sin','')
-            if header[i].lower().find('cos')!=-1:
+                header[i]=re.sub('sin', '', header[i], flags=re.IGNORECASE)
+            if header[i].lower().find('cos')!=-1 and re.sub('cos', '', header[i].lower()) not in [h.lower() for h in header]:
                 print 'acosing %s'%(header[i])
                 flines[:,i]=np.arccos(flines[:,i])
-                header[i]=header[i].replace('cos','')
+                header[i]=re.sub('cos', '', header[i], flags=re.IGNORECASE)
             header[i]=header[i].replace('(','')
             header[i]=header[i].replace(')','')
         print 'Read columns %s'%(str(header))
