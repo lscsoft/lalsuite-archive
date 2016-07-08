@@ -1180,6 +1180,24 @@ UNUSED static inline REAL8 XLALSimIMREOBGetNRSpinPeakDeltaTv4(
     coeff31 = 128.449;
     coeff32 = 182.929;
     coeff33 = 1080.65;
+    //Calibrationv21_Jul6b_nonbcycles_noISCO_noPhDq8s85
+    coeff00 = 2.50499;
+    coeff01 = 11.4509;
+    coeff02 = 8.99357;
+    coeff03 = 0.003087;
+    coeff10 = 45.8838;
+    coeff11 = -48.9242;
+    coeff12 = 0.00001;
+    coeff13 = -42.2166;
+    coeff20 = 13.0879;
+    coeff21 = -0.000078;
+    coeff22 = 0.000329;
+    coeff23 = 198.364;
+    coeff30 = -716.044;
+    coeff31 = 0.000057;
+    coeff32 = 127.152;
+    coeff33 = 0.000845;
+    printf("deltaNQC %.16e\n",coeff00  + coeff01*chi  + coeff02*chiTo2  + coeff03*chiTo3  + coeff10*eta  + coeff11*eta*chi  + coeff12*eta*chiTo2  + coeff13*eta*chiTo3  + coeff20*eta2  + coeff21*eta2*chi  + coeff22*eta2*chiTo2  + coeff23*eta2*chiTo3  + coeff30*eta3  + coeff31*eta3*chi  + coeff32*eta3*chiTo2  + coeff33*eta3*chiTo3);
     return  coeff00  + coeff01*chi  + coeff02*chiTo2  + coeff03*chiTo3  + coeff10*eta  + coeff11*eta*chi  + coeff12*eta*chiTo2  + coeff13*eta*chiTo3  + coeff20*eta2  + coeff21*eta2*chi  + coeff22*eta2*chiTo2  + coeff23*eta2*chiTo3  + coeff30*eta3  + coeff31*eta3*chi  + coeff32*eta3*chiTo2  + coeff33*eta3*chiTo3;
 }
 
