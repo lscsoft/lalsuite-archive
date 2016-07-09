@@ -121,23 +121,23 @@ int main(int argc, char *argv[])
 =========================================================================================*/
 {
   LALInferenceRunState *irs = NULL;
-  LALInferenceIFOData *ifoPtr, *ifoStart;
+  //LALInferenceIFOData *ifoPtr, *ifoStart;
   COMPLEX16FrequencySeries *hptilde1=NULL;
   COMPLEX16FrequencySeries *hptilde2=NULL;
   COMPLEX16FrequencySeries *hctilde1=NULL;
   COMPLEX16FrequencySeries *hctilde2=NULL;
-  COMPLEX16 *data, *data1;
+  //COMPLEX16 *data, *data1;
   ProcessParamsTable *procParams = NULL;
-  ProcessParamsTable *ppt = NULL;
+  //ProcessParamsTable *ppt = NULL;
   Parameter inParams = {0};
-  int ret, i;
-  REAL8 deltaF, phiRef = 0.0, inclination, m1, m2, S1x = 0.0, S1y = 0.0, S1z = 0.0, S2x = 0.0, S2y=0.0, S2z = 0.0;
-  REAL8 deltaT, LNhatx = 0.0, LNhaty = 0.0, LNhatz = 1.0, f_min, f_max = 0.0, r;
+  int ret;
+  REAL8 deltaF, phiRef = 0.0, m1, m2, S1z = 0.0, S2z = 0.0;
+  REAL8 deltaT, f_min, f_max = 0.0, r;
   INT4 phaseO, amplitudeO, lower, upper, eccOrder;
   REAL8 ecc, f_ecc;
   char file_name[256];
-  REAL8 overlap, overlapNorm, loglikeihood, p1, p2, p1v, p2v;
-  LALInferenceVariables currentParams;
+  REAL8 overlap, overlapNorm, p1, p1v;
+  //LALInferenceVariables currentParams;
   FILE *outf=NULL;
   /* Read command line and parse */
   //printf("main DEBUG -5\n");
@@ -170,12 +170,12 @@ int main(int argc, char *argv[])
   r = inParams.d*3.08567758e22; // convert to m
   phaseO = inParams.phaseOrder1;
   amplitudeO = inParams.ampOrder1;
-  inclination = inParams.iota;
-  S1x = inParams.s1x;
-  S1y = inParams.s1y;
+  //inclination = inParams.iota;
+  //S1x = inParams.s1x;
+  //S1y = inParams.s1y;
   S1z = inParams.s1z;
-  S2x = inParams.s2x;
-  S2y = inParams.s2y;
+  //S2x = inParams.s2x;
+  //S2y = inParams.s2y;
   S2z = inParams.s2z;
   ecc = inParams.ecc;
   eccOrder = inParams.eccOrder;
@@ -204,7 +204,7 @@ int main(int argc, char *argv[])
     //                m1, m2, S1x, S1y, S1z, S2x, S2y, S2z,
     //                LNhatx, LNhaty, LNhatz, f_min, f_max, r, phaseO, amplitudeO);
   }
-  if (upper > hptilde1->data->length)
+  if ((unsigned int)upper > hptilde1->data->length)
   {
     upper = hptilde1->data->length - 1;
     irs->data->fHigh = upper * deltaF + 0.5*deltaF; //reduce fHigh value
@@ -353,7 +353,7 @@ int main(int argc, char *argv[])
   if ( hctilde1 ) XLALDestroyCOMPLEX16FrequencySeries(hctilde1);
   if ( hctilde2 ) XLALDestroyCOMPLEX16FrequencySeries(hctilde2);
   printf("End of Ovelap program\n");
-  return 0;
+  return ret;
 }
 
 int parseParameters(ProcessParamsTable *procParams, Parameter *inParams)
