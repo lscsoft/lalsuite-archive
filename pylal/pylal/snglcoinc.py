@@ -1170,7 +1170,7 @@ class CoincSynthesizer(object):
 		"""
 		Generator to yield time shifted coincident event tuples
 		without the use of explicit time shift vectors.  This
-		generator can only be used if the eventlists dicctionary
+		generator can only be used if the eventlists dictionary
 		with which this object was initialized contained lists of
 		event objects and not merely counts of events.
 
@@ -1570,7 +1570,7 @@ class CoincParamsDistributions(object):
 		self.injection_lnpdf_interp = {}
 		self.process_id = process_id
 
-	def _rebuild_interpolators(self):
+	def _rebuild_interpolators(self, keys = None):
 		"""
 		Initialize the interp dictionaries from the discretely
 		sampled PDF data.  For internal use only.
@@ -1578,6 +1578,10 @@ class CoincParamsDistributions(object):
 		self.zero_lag_lnpdf_interp.clear()
 		self.background_lnpdf_interp.clear()
 		self.injection_lnpdf_interp.clear()
+		# if a specific set of keys wasn't given, do them all
+		if keys is None:
+			keys = set(self.zero_lag_pdf)
+		# build interpolators for the requested keys
 		def mkinterp(binnedarray):
 			with numpy.errstate(invalid = "ignore"):
 				assert not (binnedarray.array < 0.).any()
@@ -1586,11 +1590,14 @@ class CoincParamsDistributions(object):
 				binnedarray.array = numpy.log(binnedarray.array)
 			return rate.InterpBinnedArray(binnedarray, fill_value = NegInf)
 		for key, binnedarray in self.zero_lag_pdf.items():
-			self.zero_lag_lnpdf_interp[key] = mkinterp(binnedarray)
+			if key in keys:
+				self.zero_lag_lnpdf_interp[key] = mkinterp(binnedarray)
 		for key, binnedarray in self.background_pdf.items():
-			self.background_lnpdf_interp[key] = mkinterp(binnedarray)
+			if key in keys:
+				self.background_lnpdf_interp[key] = mkinterp(binnedarray)
 		for key, binnedarray in self.injection_pdf.items():
-			self.injection_lnpdf_interp[key] = mkinterp(binnedarray)
+			if key in keys:
+				self.injection_lnpdf_interp[key] = mkinterp(binnedarray)
 
 	@staticmethod
 	def addbinnedarrays(rate_target_dict, rate_source_dict, pdf_target_dict, pdf_source_dict):

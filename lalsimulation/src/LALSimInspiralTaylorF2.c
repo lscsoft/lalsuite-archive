@@ -113,7 +113,7 @@ int XLALSimInspiralTaylorF2Core(
     if (!htilde_out) XLAL_ERROR(XLAL_EFAULT);
     if (!freqs) XLAL_ERROR(XLAL_EFAULT);
     /* external: SI; internal: solar masses */
-    static int calls_debug = 0;
+    //static int calls_debug = 0;
     const REAL8 m1 = m1_SI / LAL_MSUN_SI;
     const REAL8 m2 = m2_SI / LAL_MSUN_SI;
     const REAL8 m = m1 + m2;
@@ -505,7 +505,7 @@ int XLALSimInspiralTaylorF2(
  * Find the least nonnegative integer power of 2 that is
  * greater than or equal to n.  Inspired by similar routine in gstlal.
  */
-static size_t CeilPow2(double n) {
+/*static size_t CeilPow2(double n) {
     double signif;
     int exponent;
     signif = frexp(n, &exponent);
@@ -514,7 +514,7 @@ static size_t CeilPow2(double n) {
     if (signif == 0.5)
         exponent -= 1;
     return ((size_t) 1) << exponent;
-}
+}*/
 
 /* Calculate the spin corrections for TaylorF2 
         reference -> <http://arxiv.org/pdf/0810.5336v3.pdf>
@@ -1305,9 +1305,9 @@ int XLALSimInspiralTaylorF2AmpPlus(
     int amplitudeO                  /* twice PN amplitude order */
    )
 {
-    static int calls_debug = 0;
-    const REAL8 lambda = -1987./3080.;
-    const REAL8 theta = -11831./9240.;
+    //static int calls_debug = 0;
+    //const REAL8 lambda = -1987./3080.;
+    //const REAL8 theta = -11831./9240.;
 
     /* external: SI; internal: solar masses */
     const REAL8 m1 = m1_SI / LAL_MSUN_SI;
@@ -1319,24 +1319,24 @@ int XLALSimInspiralTaylorF2AmpPlus(
     const REAL8 piM = LAL_PI * m_sec;
     const REAL8 vISCO = 1. / sqrt(6.);
     const REAL8 fISCO = vISCO * vISCO * vISCO / piM;
-    const REAL8 v0 = cbrt(piM * fStart);
-    REAL8 shft, amp0, f_max, f;
+    //const REAL8 v0 = cbrt(piM * fStart);
+    REAL8 shft, f_max, f;
     size_t i, n, k, iStart, iEnd;
-    int mm;
+    //int mm;
     COMPLEX16 *data = NULL; /** actual storage for amplitude data pointer */
     COMPLEX16FrequencySeries *htilde; /** waveform data */
     LIGOTimeGPS tC = {0, 0}; 
     REAL8 overall_factor; 
     REAL8 PN_coeffs_SPA[PN_PHASING_SERIES_MAX_ORDER+1]; /** PN order phasing calculation coefficient series*/
-    sf2_spin_corr_amp spin_corrections_SPA; /** spin correction coeffs beta, sigma, gamma Eqs. (4.82,83,84)*/
-    REAL8 f_plus, f_cross, costh, sinth;
+    //sf2_spin_corr_amp spin_corrections_SPA; /** spin correction coeffs beta, sigma, gamma Eqs. (4.82,83,84)*/
+    REAL8 f_plus, f_cross;
     COMPLEX16 amp;
     sf2_amp_corr_param amp_corr_param;
-    const REAL8 m1OverM = m1 / m;
-    const REAL8 m2OverM = m2 / m;
+    //const REAL8 m1OverM = m1 / m;
+    //const REAL8 m2OverM = m2 / m;
 
-    REAL8 alpha, alpha_ref, zeta, zeta_ref, beta, phasing;
-    COMPLEX16 prec_fac;
+    REAL8 phasing;
+    //COMPLEX16 prec_fac;
 
     //fprintf(stdout, "=========== DEBUG by Jeongcho Kim & Chunglee KIm ===========\n");
     //fprintf(stdout, "==Function : LALSimInspiralTaylorF2Amp.c:XLALSimInspiralTaylorF2AmpPlus()\n");
@@ -1475,7 +1475,7 @@ int XLALSimInspiralTaylorF2AmpPlus(
       for (k = 1; k <= MAX_HARMONICS; k++) // up to 7th harmonics
       {            
         phasing = sf2_psi_SPA(f, k, shft, phic, tideO, phaseO, PN_coeffs_SPA, m, eta) - phasing_ref[k];
-        for (n = 0; n <= amplitudeO; n++)
+        for (n = 0; n <= (size_t)amplitudeO; n++)
         {
           amp = sf2_amp_SPA_plus(f, n, k, fStart, fISCO, &amp_corr_param);
           data[i] += amp*(cos(k*phasing - LAL_PI_4) - sin(k*phasing - LAL_PI_4)*1.0j); 
@@ -1523,9 +1523,9 @@ int XLALSimInspiralTaylorF2AmpCross(
     int amplitudeO                         /** twice PN amplitude order */
    )
 {
-    static int calls_debug = 0;
-    const REAL8 lambda = -1987./3080.;
-    const REAL8 theta = -11831./9240.;
+    //static int calls_debug = 0;
+    //const REAL8 lambda = -1987./3080.;
+    //const REAL8 theta = -11831./9240.;
 
     /* external: SI; internal: solar masses */
     const REAL8 m1 = m1_SI / LAL_MSUN_SI;
@@ -1537,24 +1537,24 @@ int XLALSimInspiralTaylorF2AmpCross(
     const REAL8 piM = LAL_PI * m_sec;
     const REAL8 vISCO = 1. / sqrt(6.);
     const REAL8 fISCO = vISCO * vISCO * vISCO / piM;
-    const REAL8 v0 = cbrt(piM * fStart);
-    REAL8 shft, amp0, f_max, f;
+    //const REAL8 v0 = cbrt(piM * fStart);
+    REAL8 shft, f_max, f;
     size_t i, n, k, iStart, iEnd;
-    int mm;
+    //int mm;
     COMPLEX16 *data = NULL; /** actual storage for amplitude data pointer */
     COMPLEX16FrequencySeries *htilde; /** waveform data */
     LIGOTimeGPS tC = {0, 0}; 
     REAL8 overall_factor; 
     REAL8 PN_coeffs_SPA[PN_PHASING_SERIES_MAX_ORDER+1]; /** PN order phasing calculation coefficient series*/
-    sf2_spin_corr_amp spin_corrections_SPA; /** spin correction coeffs beta, sigma, gamma Eqs. (4.82,83,84)*/
-    REAL8 f_plus, f_cross, costh, sinth;
+    //sf2_spin_corr_amp spin_corrections_SPA; /** spin correction coeffs beta, sigma, gamma Eqs. (4.82,83,84)*/
+    REAL8 f_plus, f_cross;
     COMPLEX16 amp;
     sf2_amp_corr_param amp_corr_param;
-    const REAL8 m1OverM = m1 / m;
-    const REAL8 m2OverM = m2 / m;
+    //const REAL8 m1OverM = m1 / m;
+    //const REAL8 m2OverM = m2 / m;
 
-    REAL8 alpha, alpha_ref, zeta, zeta_ref, beta, phasing;
-    COMPLEX16 prec_fac;
+    REAL8 phasing;
+    //COMPLEX16 prec_fac;
 
     //fprintf(stdout, "=========== DEBUG by Jeongcho Kim & Chunglee KIm ===========\n");
     //fprintf(stdout, "==Function : LALSimInspiralTaylorF2Amp.c:XLALSimInspiralTaylorF2AmpCross()\n");
@@ -1687,7 +1687,7 @@ int XLALSimInspiralTaylorF2AmpCross(
       for (k = 1; k <= MAX_HARMONICS; k++) // up to 7th harmonics
       {
         phasing = sf2_psi_SPA(f, k, shft, phic, tideO, phaseO, PN_coeffs_SPA, m, eta) - phasing_ref[k];
-        for (n = 0; n <= amplitudeO; n++)
+        for (n = 0; n <= (size_t)amplitudeO; n++)
         {
             amp = sf2_amp_SPA_cross(f, n, k, fStart, fISCO, &amp_corr_param);
             data[i] += amp*(cos(k*phasing - LAL_PI_4) - sin(k*phasing - LAL_PI_4)*1.0j); // changed sign for time reversal
