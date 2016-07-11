@@ -1155,10 +1155,10 @@ int XLALSimIMRSpinEOBWaveformAll(
     /* Note that this accuracies are lower than those used in SEOBNRv2: they allow reasonable runtimes for precessing systems */
     /* These accuracies can be adjusted according to desired accuracy and runtime */
   //OPTV3: For checking code agreement (David)
-   REAL8 EPS_ABS = 1.0e-10;
-  const REAL8 EPS_REL = 1.0e-10;
-  //   REAL8 EPS_ABS = 1.0e-8;
-  //const REAL8 EPS_REL = 1.0e-8;
+  // REAL8 EPS_ABS = 1.0e-10;
+  //const REAL8 EPS_REL = 1.0e-10;
+     REAL8 EPS_ABS = 1.0e-8;
+  const REAL8 EPS_REL = 1.0e-8;
   /* Relax abs accuracy in case of highly symmetric case that would otherwise slow down significantly */
   if (sqrt((INspin1[0] + INspin2[0])*(INspin1[0] + INspin2[0]) + (INspin1[1] + INspin2[1])*(INspin1[1] + INspin2[1])) < 1.0e-10 && !SpinsAlmostAligned)
   {
