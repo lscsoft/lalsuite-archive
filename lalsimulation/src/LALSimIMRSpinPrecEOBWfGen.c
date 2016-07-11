@@ -199,7 +199,7 @@ static void XLALEOBSpinPrecCalcAmpPhase(
 //            LNhz = 1.0;
 
     /* OPTV3: From XLALSimIMRSpinEOBWaveformAll; LALSimIMRSpinPrecEOB.c; line(s): 3342-3358, 3375-3377*/
-    EulerAnglesP2J_opt(&aP2J,&bP2J,&gP2J,aI2P, bI2P, gI2P, LNhx, LNhy, LNhz, JframeEx, JframeEy, JframeEz );
+    EulerAnglesP2J(&aP2J,&bP2J,&gP2J,aI2P, bI2P, gI2P, LNhx, LNhy, LNhz, JframeEx, JframeEy, JframeEz );
     aP2J = -aP2J;
     gP2J = -gP2J;
 

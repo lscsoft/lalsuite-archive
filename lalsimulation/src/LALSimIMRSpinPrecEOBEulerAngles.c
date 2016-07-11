@@ -1,10 +1,10 @@
-#ifndef _LALSIMIMRSPINPRECEOBEULERANGLES_V3OPT_C
-#define _LALSIMIMRSPINPRECEOBEULERANGLES_V3OPT_C
+#ifndef _LALSIMIMRSPINPRECEOBEULERANGLES_C
+#define _LALSIMIMRSPINPRECEOBEULERANGLES_C
 
 /**
  * Computes RHS of ODE for gamma. Eq. 10 of PRD 89, 084006 (2014)
  */
-static double f_alphadotcosi_opt( double x, void * inparams )
+static double f_alphadotcosi( double x, void * inparams )
 {
 	PrecEulerAnglesIntegration* params = (PrecEulerAnglesIntegration*) inparams;
 
@@ -14,13 +14,12 @@ static double f_alphadotcosi_opt( double x, void * inparams )
 	return -1. * alphadot * cos(beta);
 
 }
-
 /**
  * Given the trajectory in an inertial frame, this computes Euler angles
  * of the roation from the inertial frame to the minimal-rotation frame
  * that co-precesses with LN(t) = rvec(t) x rdotvec(t)
  */
-static int EulerAnglesI2P_opt(REAL8Vector *Alpha, /**<< output: alpha Euler angle */
+static int EulerAnglesI2P(REAL8Vector *Alpha, /**<< output: alpha Euler angle */
                  REAL8Vector *Beta, /**<< output: beta Euler angle */
                  REAL8Vector *Gamma, /**<< output: gamma Euler angle */
                  INT4 *phaseCounterA, /**<< output: counter for unwrapping of alpha */
@@ -29,13 +28,10 @@ static int EulerAnglesI2P_opt(REAL8Vector *Alpha, /**<< output: alpha Euler angl
                  const REAL8Vector posVecx, /**<< x time series */
                  const REAL8Vector posVecy, /**<< y time series */
                  const REAL8Vector posVecz, /**<< z time series */
-                 const UINT4 retLen, /**<< Array length of the trajectory */
+                 const UINT4 retLenLow, /**<< Array length of the trajectory */
                  const REAL8 InitialAlpha, /**<< Initial alpha (used only if flag_highSR=1) */
                  const REAL8 InitialGamma, /**<< Initial gamma */
-                 UINT4 flag_highSR, /**<< Flag to indicate whether one is analyzing the high SR trajectory */
-                 UNUSED REAL8 * dynamics, /**<< Dynamical variables from ODE solution */ /*OPTV3: For the ODE solution derivative*/
-                 UNUSED SpinEOBParams * seobParams /**<< Spin EOB Parameters */ /*OPTV3: For the ODE solution derivative*/
-                 ){
+                 UINT4 flag_highSR /**<< Flag to indicate whether one is analyzing the high SR trajectory */) {
     UINT4 i = 0;
     REAL8Vector *LN_x = NULL, *LN_y = NULL, *LN_z = NULL;
     REAL8 tmpR[3], tmpRdot[3], magLN;
@@ -43,39 +39,27 @@ static int EulerAnglesI2P_opt(REAL8Vector *Alpha, /**<< output: alpha Euler angl
     gsl_integration_workspace * precEulerw = gsl_integration_workspace_alloc (1000);
     gsl_function precEulerF;
     PrecEulerAnglesIntegration precEulerparams;
-    REAL8 inGamma = InitialGamma;
+    REAL8 inGamma = InitialGamma; 
 
-    LN_x = XLALCreateREAL8Vector( retLen );
-    LN_y = XLALCreateREAL8Vector( retLen );
-    LN_z = XLALCreateREAL8Vector( retLen );
+    LN_x = XLALCreateREAL8Vector( retLenLow );
+    LN_y = XLALCreateREAL8Vector( retLenLow );
+    LN_z = XLALCreateREAL8Vector( retLenLow );
 
-    gsl_spline *x_spline = gsl_spline_alloc( gsl_interp_cspline, retLen );
-    gsl_spline *y_spline = gsl_spline_alloc( gsl_interp_cspline, retLen );
-    gsl_spline *z_spline = gsl_spline_alloc( gsl_interp_cspline, retLen );
+    gsl_spline *x_spline = gsl_spline_alloc( gsl_interp_cspline, retLenLow );
+    gsl_spline *y_spline = gsl_spline_alloc( gsl_interp_cspline, retLenLow );
+    gsl_spline *z_spline = gsl_spline_alloc( gsl_interp_cspline, retLenLow );
 
     gsl_interp_accel *x_acc    = gsl_interp_accel_alloc();
     gsl_interp_accel *y_acc    = gsl_interp_accel_alloc();
     gsl_interp_accel *z_acc    = gsl_interp_accel_alloc();
-//    if(seobParams->almostAlignedSpins){ //OPTv3
-        gsl_spline_init( x_spline, tVec.data, posVecx.data, retLen );
-        gsl_spline_init( y_spline, tVec.data, posVecy.data, retLen );
-        gsl_spline_init( z_spline, tVec.data, posVecz.data, retLen );
 
-    for( i=0; i < retLen; i++ )
+    gsl_spline_init( x_spline, tVec.data, posVecx.data, retLenLow );
+    gsl_spline_init( y_spline, tVec.data, posVecy.data, retLenLow );
+    gsl_spline_init( z_spline, tVec.data, posVecz.data, retLenLow );
+
+    for( i=0; i < retLenLow; i++ )
     {
         tmpR[0] = posVecx.data[i]; tmpR[1] = posVecy.data[i]; tmpR[2] = posVecz.data[i];
-
-/* OPTV3: We would prefer to use the ODE solution directly (stored in dynamics[]),
-    as the overhead from computing gsl_spline-based derivatives can be significant
-    (*and* it is less accurate!), but when the spins are nearly aligned, the ODE
-    solution is transformed into (we think) a spin-aligned system
-    [see Step 2 of XLALSimIMRSpinEOBWaveformAll_opt()]. So it seems we must revert
-    to spline-based derivatives in this case.
-
-//            for(int ijk=0; ijk<3; ijk++)
-//                tmpRdot[ijk]=dynamics[i+(ijk+15)*retLen];
-*/
-
         tmpRdot[0] = gsl_spline_eval_deriv( x_spline, tVec.data[i], x_acc );
         tmpRdot[1] = gsl_spline_eval_deriv( y_spline, tVec.data[i], y_acc );
         tmpRdot[2] = gsl_spline_eval_deriv( z_spline, tVec.data[i], z_acc );
@@ -135,18 +119,18 @@ static int EulerAnglesI2P_opt(REAL8Vector *Alpha, /**<< output: alpha Euler angl
     }
     /* Integrate \dot{\alpha} \cos{\beta} to get the final Euler angle
      Eq. 20 of PRD 89, 084006 (2014) */
-    gsl_spline_init( x_spline, tVec.data, Alpha->data, retLen );
-    gsl_spline_init( y_spline, tVec.data, Beta->data, retLen );
+    gsl_spline_init( x_spline, tVec.data, Alpha->data, retLenLow );
+    gsl_spline_init( y_spline, tVec.data, Beta->data, retLenLow );
 
     precEulerparams.alpha_spline = x_spline;
     precEulerparams.alpha_acc    = x_acc;
     precEulerparams.beta_spline  = y_spline;
     precEulerparams.beta_acc     = y_acc;
 
-    precEulerF.function = &f_alphadotcosi_opt;
+    precEulerF.function = &f_alphadotcosi;
     precEulerF.params   = &precEulerparams;
 
-    for( i = 0; i < retLen; i++ )
+    for( i = 0; i < retLenLow; i++ )
     {
         //if( i==0 ) { Gamma->data[i] = InitialGamma; }
         if( i==0 ) { Gamma->data[i] = inGamma; }
@@ -175,7 +159,7 @@ static int EulerAnglesI2P_opt(REAL8Vector *Alpha, /**<< output: alpha Euler angl
  * go from the precessing frame to the frame of the total angular
  * momentum
  */
-static void EulerAnglesP2J_opt(
+static void EulerAnglesP2J(
                 REAL8 *aP2J, /**<< alpha Euler angle from precessing to final-J frame */
                 REAL8 *bP2J, /**<< beta Euler angle from precessing to final-J frame */
                 REAL8 *gP2J, /**<< gamma Euler angle from precessing to final-J frame */
@@ -224,4 +208,5 @@ static void EulerAnglesP2J_opt(
         *aP2J = atan2( JframeEx[1], JframeEx[0]);
     }
 }
+
 #endif // _LALSIMIMRSPINPRECEOBEULERANGLES_C
