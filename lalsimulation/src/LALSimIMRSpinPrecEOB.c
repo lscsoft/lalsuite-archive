@@ -47,10 +47,6 @@
 #include "LALSimFindAttachTime.h"
 #include <lal/VectorOps.h>
 
-/* Begin OPTv3 */
-#include "LALSimFindAttachTime_v3opt.h"
-/* End OPTv3 */
-
 /* Include all the static function files we need */
 #include "LALSimIMREOBNQCCorrection.c"
 #include "LALSimInspiraldEnergyFlux.c"
@@ -2219,11 +2215,7 @@ int XLALSimIMRSpinEOBWaveformAll(
         XLAL_PRINT_INFO("Stas searching for maxima in omega .... \n");
     }
     REAL8 tMaxOmega;
-    if(use_optimized){
-     tPeakOmega = XLALSimLocateOmegaTime_exact(dynamicsHi, values->length, retLenHi, seobParams, seobCoeffs, m1, m2, radiusVec, &foundPeakOmega, &tMaxOmega); 
-    } else {
-      tPeakOmega = XLALSimLocateOmegaTime(dynamicsHi, values->length, retLenHi, seobParams, seobCoeffs, m1, m2, radiusVec, &foundPeakOmega, &tMaxOmega);
-    }
+    tPeakOmega = XLALSimLocateOmegaTime(dynamicsHi, values->length, retLenHi, seobParams, seobCoeffs, m1, m2, radiusVec, &foundPeakOmega, &tMaxOmega, use_optimized);
 
     if(tPeakOmega == 0.0 || foundPeakOmega==0){
         if (debugPK){
@@ -2661,7 +2653,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     }
 
     int foundAmp = 0;
-    tAmpMax =  XLALSimLocateAmplTime_exact(&timeHi, h22PTSHi->data, radiusVec, &foundAmp, &tMaxAmp);
+    tAmpMax =  XLALSimLocateAmplTime(&timeHi, h22PTSHi->data, radiusVec, &foundAmp, &tMaxAmp);
 
     if(foundAmp==0){
       if (debugPK){
@@ -3537,21 +3529,7 @@ int XLALSimIMRSpinEOBWaveformAll(
           sigImHi->data[i] = cimag(h22JTSHi->data->data[i]);
         }
 
-      if (use_optimized) {
-        if( XLALSimCheckRDattachment_exact(sigReHi, sigImHi, &ratio22, tAttach, 2, 2,
-                                           deltaTHigh, m1, m2, 0.0, 0.0, chi1L, 0.0, 0.0, chi2L,
-                                           &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL, &timediff) == XLAL_FAILURE )
-          {
-            FREE_EVERYTHING
-              XLALDestroyREAL8Vector( timeJFull );
-            XLALDestroyREAL8Vector( timeIFull );
-            XLALDestroyREAL8Vector( tlistRDPatch );
-            XLALDestroyREAL8Vector( tlistRDPatchHi );
-            XLALPrintError("XLALSimCheckRDattachment_exact failed!\n");
-            PRINT_PARAMS
-              XLAL_ERROR( XLAL_EDOM );
-          }
-      } else {
+
         if( XLALSimCheckRDattachment(sigReHi, sigImHi, &ratio22, tAttach, 2, 2,
                                      deltaTHigh, m1, m2, 0.0, 0.0, chi1L, 0.0, 0.0, chi2L,
                                      &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL, &timediff) == XLAL_FAILURE )
@@ -3565,7 +3543,6 @@ int XLALSimIMRSpinEOBWaveformAll(
             PRINT_PARAMS
               XLAL_ERROR( XLAL_EDOM );
           }
-      }
 
       memset( sigReHi->data, 0, sigReHi->length * sizeof( sigReHi->data[0] ));
       memset( sigImHi->data, 0, sigImHi->length * sizeof( sigImHi->data[0] ));
@@ -3576,33 +3553,19 @@ int XLALSimIMRSpinEOBWaveformAll(
           sigImHi->data[i] = cimag(h2m2JTSHi->data->data[i]);
         }
 
-      if(use_optimized){
-        if( XLALSimCheckRDattachment_exact(sigReHi, sigImHi, &ratio2m2, tAttach, 2, -2,
-                                           deltaTHigh, m1, m2, 0.0, 0.0, chi1L, 0.0, 0.0, chi2L,
-                                           &timeHi, rdMatchPoint, SEOBNRv3_opt, kappaJL, &timediff ) == XLAL_FAILURE ) {
-          FREE_EVERYTHING
-            XLALDestroyREAL8Vector( timeJFull );
-          XLALDestroyREAL8Vector( timeIFull );
-          XLALDestroyREAL8Vector( tlistRDPatch );
-          XLALDestroyREAL8Vector( tlistRDPatchHi );
-          XLALPrintError("XLALSimCheckRDattachment_exact failed!\n");
-          PRINT_PARAMS
-            XLAL_ERROR( XLAL_EDOM );
-        }
-      } else {
-        if( XLALSimCheckRDattachment(sigReHi, sigImHi, &ratio2m2, tAttach, 2, -2,
+      if( XLALSimCheckRDattachment(sigReHi, sigImHi, &ratio2m2, tAttach, 2, -2,
                                      deltaTHigh, m1, m2, 0.0, 0.0, chi1L, 0.0, 0.0, chi2L,
                                      &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL, &timediff ) == XLAL_FAILURE ) {
-          FREE_EVERYTHING
-            XLALDestroyREAL8Vector( timeJFull );
-          XLALDestroyREAL8Vector( timeIFull );
-          XLALDestroyREAL8Vector( tlistRDPatch );
-          XLALDestroyREAL8Vector( tlistRDPatchHi );
-          XLALPrintError("XLALSimCheckRDattachment failed!\n");
-          PRINT_PARAMS
-            XLAL_ERROR( XLAL_EDOM );
-        }
+        FREE_EVERYTHING
+        XLALDestroyREAL8Vector( timeJFull );
+        XLALDestroyREAL8Vector( timeIFull );
+        XLALDestroyREAL8Vector( tlistRDPatch );
+        XLALDestroyREAL8Vector( tlistRDPatchHi );
+        XLALPrintError("XLALSimCheckRDattachment failed!\n");
+        PRINT_PARAMS
+        XLAL_ERROR( XLAL_EDOM );
       }
+
 
       if (debugPK){
           XLAL_PRINT_INFO("At first check: ratio22 ratio2m2 %e %e\n", ratio22, ratio2m2);fflush(NULL);
@@ -3622,18 +3585,11 @@ int XLALSimIMRSpinEOBWaveformAll(
            memset( sigImHi->data, 0, sigImHi->length * sizeof( sigImHi->data[0] ));
 
            int found_att;
-
-           if (use_optimized) {
-             found_att = XLALSimAdjustRDattachmentTime_exact( sigReHi, sigImHi, h22JTSHi, h2m2JTSHi,
-                                                                  &ratio22, &ratio2m2, &tAttach, thr,
-                                                                  deltaTHigh, m1, m2, 0.0, 0.0, chi1L, 0.0, 0.0, chi2L,
-                                                                  &timeHi, rdMatchPoint, SEOBNRv3_opt, kappaJL, combSize, tMaxOmega, tMaxAmp);
-           } else {
-             found_att = XLALSimAdjustRDattachmentTime( sigReHi, sigImHi, h22JTSHi, h2m2JTSHi,
+           found_att = XLALSimAdjustRDattachmentTime( sigReHi, sigImHi, h22JTSHi, h2m2JTSHi,
                                                             &ratio22, &ratio2m2, &tAttach, thr,
                                                             deltaTHigh, m1, m2, 0.0, 0.0, chi1L, 0.0, 0.0, chi2L,
                                                             &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL, combSize, tMaxOmega, tMaxAmp);
-           }
+
            if (debugPK){
              if (found_att == 1){
                  XLAL_PRINT_INFO("we have found new attachment point tAtt = %f, with ratios %f, %f \n",

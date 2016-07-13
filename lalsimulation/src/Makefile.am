@@ -78,7 +78,6 @@ noinst_HEADERS = \
 	LALSimIMRSpinEOBHcapExactDerivativePrec_v3opt.c \
 	LALSimIMRSpinEOBFactorizedWaveformPrec_v3opt.c \
 	LALSimIMRSpinEOBFactorizedFluxPrec_v3opt.c \
-	LALSimFindAttachTime_v3opt.h \
 	LALSimBlackHoleRingdownPrec.h \
 	LALSimFindAttachTime.h \
 	LALSimIMREOBFactorizedFlux.c \
@@ -126,7 +125,6 @@ noinst_HEADERS = \
 
 lib_LTLIBRARIES = liblalsimulation.la
 liblalsimulation_la_SOURCES = \
-	LALSimFindAttachTime_v3opt.c \
 	LALSimBlackHoleRingdownPrec.c \
 	LALSimBlackHoleRingdown.c \
 	LALSimBurst.c \

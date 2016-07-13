@@ -20,8 +20,10 @@
 #include "LALSimIMREOBNRv2.h"
 #include "LALSimIMRSpinEOB.h"
 #include "LALSimFindAttachTime.h"
+#include "LALSimIMRSpinPrecEOBHcapExactDerivative.c"
 #include "LALSimIMRSpinEOBHamiltonianPrec.c"
 #include "LALSimIMREOBHybridRingdownPrec.c"
+#include "LALSpinPrecHcapRvecDerivative_v3opt.c"
 
 
 double  XLALSimLocateOmegaTime(
@@ -34,8 +36,9 @@ double  XLALSimLocateOmegaTime(
     REAL8 m2,
     REAL8Vector *radiusVec,
     int *found,
-    REAL8* tMaxOmega
-        )
+    REAL8* tMaxOmega,
+    INT4 use_optimized
+    )
 {
     /*
     * Locate merger point (max omega),
@@ -132,14 +135,21 @@ double  XLALSimLocateOmegaTime(
 
         /* Calculate dr/dt */
         memset( dvalues->data, 0, numdynvars*sizeof(dvalues->data[0]));
-        if( XLALSpinPrecHcapRvecDerivative( 0, values->data, dvalues->data,
-            &seobParams) != XLAL_SUCCESS )
-        {
-                XLAL_PRINT_INFO(
-                    " Calculation of dr/dt failed while computing omegaHi time series\n");
-                XLAL_ERROR( XLAL_EFUNC );
+        if(use_optimized){
+          if( XLALSpinPrecHcapRvecDerivative_exact( 0, values->data, dvalues->data, 
+                                              &seobParams) != XLAL_SUCCESS )
+          {
+            XLAL_PRINT_INFO(" Calculation of dr/dt failed while computing omegaHi time series\n");
+            XLAL_ERROR( XLAL_EFUNC );
+          }
+        } else {
+          if( XLALSpinPrecHcapRvecDerivative( 0, values->data, dvalues->data, 
+                                              &seobParams) != XLAL_SUCCESS )
+          {
+            XLAL_PRINT_INFO(" Calculation of dr/dt failed while computing omegaHi time series\n");
+            XLAL_ERROR( XLAL_EFUNC );
+          }
         }
-
         /* Calculare r x dr/dt */
         for (j=0; j<3; j++){
             rvec[j] = values->data[j];
@@ -828,7 +838,7 @@ int XLALSimAdjustRDattachmentTime(
     const REAL8 combSize,        /**<< combsize for RD attachment */
     const REAL8 tMaxOmega, /**<< Time up to which we can trust dynamics */
     const REAL8 tMaxAmp /**<< Time up to which we can trust waveform */
-    )
+)
 {
     int debugPK = 0;
     REAL8 timediff = 0.;
@@ -888,12 +898,8 @@ int XLALSimAdjustRDattachmentTime(
         matchrange->data[0] -= fmod( matchrange->data[0], dt/mTScaled );
         matchrange->data[1] -= fmod( matchrange->data[1], dt/mTScaled );
         if (debugPK) XLAL_PRINT_INFO("left 2,2 mode tAtt = %f     ", tAtt);
-        if( XLALSimCheckRDattachment(signal1, signal2, ratio22, tAtt, 2, 2,
-                        dt, m1, m2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z,
-                        timeVec, matchrange, approximant, JLN, &timediff ) == XLAL_FAILURE )
-        {
-              XLAL_ERROR( XLAL_EFUNC );
-        }
+
+        if( XLALSimCheckRDattachment(signal1, signal2, ratio22, tAtt, 2, 2, dt, m1, m2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, timeVec, matchrange, approximant, JLN, &timediff) == XLAL_FAILURE ) { XLAL_ERROR( XLAL_EFUNC ); }
 
         memset( signal1->data, 0, signal1->length * sizeof( signal1->data[0] ));
         memset( signal2->data, 0, signal2->length * sizeof( signal2->data[0] ));
@@ -991,7 +997,7 @@ int XLALSimAdjustRDattachmentTime(
 
         if (debugPK) XLAL_PRINT_INFO("right 2,2 mode tAtt = %f     ", tAtt);
         if (matchrange->data[1] < iBad){
-            if( XLALSimCheckRDattachment(signal1, signal2, ratio22, tAtt, 2, 2,
+            if( XLALSimCheckRDattachment(signal1, signal2, ratio22, tAtt, 2, 2, 
                             dt, m1, m2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z,
                             timeVec, matchrange, approximant, JLN, &timediff ) == XLAL_FAILURE )
             {
@@ -1008,7 +1014,7 @@ int XLALSimAdjustRDattachmentTime(
             }
 
             if (debugPK) XLAL_PRINT_INFO("right 2,-2 mode tAtt = %f     ", tAtt);
-            if( XLALSimCheckRDattachment(signal1, signal2, ratio2m2, tAtt, 2, -2,
+            if( XLALSimCheckRDattachment(signal1, signal2, ratio2m2, tAtt, 2, -2, 
                             dt, m1, m2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z,
                             timeVec, matchrange, approximant, JLN, &timediff ) == XLAL_FAILURE )
             {
