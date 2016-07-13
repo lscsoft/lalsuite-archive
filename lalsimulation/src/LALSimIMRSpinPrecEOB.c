@@ -1251,7 +1251,7 @@ int XLALSimIMRSpinEOBWaveformAll(
         }
 
         if ( XLALSimIMRSpinEOBInitialConditions( values, m1, m2, fMin, incA,
-                                                mSpin1, mSpin2, &seobParams, /* use_optimized_v2 = */ 0 ) == XLAL_FAILURE ) /* This function returns XLAL_SUCCESS or calls XLAL_ERROR with XLAL_EINVAL, XLAL_ENOMEM, or XLAL_EMAXITER */
+                                                 mSpin1, mSpin2, &seobParams, /*david added use_optimized*/ use_optimized ) == XLAL_FAILURE ) /* This function returns XLAL_SUCCESS or calls XLAL_ERROR with XLAL_EINVAL, XLAL_ENOMEM, or XLAL_EMAXITER */
         {
             XLALDestroyREAL8Vector( sigmaKerr );
             XLALDestroyREAL8Vector( sigmaStar );
