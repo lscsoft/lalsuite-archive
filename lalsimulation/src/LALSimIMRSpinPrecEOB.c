@@ -3313,53 +3313,6 @@ int XLALSimIMRSpinEOBWaveformAll(
  * *********************************************************************************
  * **********************************************************************************/
   if(!use_optimized) {
-    /* Stas: Rotating the high sampling part */
-    if ( XLALSimInspiralPrecessionRotateModes( hlmPTSHi, alphaP2JTSHi, betaP2JTSHi, gammaP2JTSHi ) == XLAL_FAILURE )
-      {
-        FREE_EVERYTHING
-          XLALDestroyREAL8Vector( timeJFull );
-        XLALDestroyREAL8Vector( timeIFull );
-        XLALDestroyREAL8Vector( tlistRDPatch );
-        XLALDestroyREAL8Vector( tlistRDPatchHi );
-        XLALPrintError("XLALSimInspiralPrecessionRotateModes failed!\n");
-        PRINT_PARAMS
-          XLAL_ERROR( XLAL_EFAILED );
-      }
-    h22JTSHi  = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, 2 );
-    h21JTSHi  = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, 1 );
-    h20JTSHi  = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, 0 );
-    h2m1JTSHi = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, -1);
-    h2m2JTSHi = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, -2);
-
-    *hlmPTSHiOutput = hlmPTSHi;
-
-    if (debugPK) {
-      out = fopen( "JWavesHi.dat", "w" );
-      for ( i = 0; i < retLenHi; i++ )
-        {
-          fprintf( out,
-                   "%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
-                   timeHi.data[i]+HiSRstart,
-                   creal(h22JTSHi->data->data[i]), cimag(h22JTSHi->data->data[i]),
-                   creal(h21JTSHi->data->data[i]), cimag(h21JTSHi->data->data[i]),
-                   creal(h20JTSHi->data->data[i]), cimag(h20JTSHi->data->data[i]),
-                   creal(h2m1JTSHi->data->data[i]), cimag(h2m1JTSHi->data->data[i]),
-                   creal(h2m2JTSHi->data->data[i]), cimag(h2m2JTSHi->data->data[i]) );
-        }
-      fclose( out );
-    }
-
-    sigReHi  = XLALCreateREAL8Vector( retLenHi + retLenRDPatchHi);
-    sigImHi  = XLALCreateREAL8Vector( retLenHi + retLenRDPatchHi);
-    if ( !sigReHi || !sigImHi )
-      {
-        XLALPrintError("Failed to allocate REAL8Vector sigReHi or sigImHi!\n");
-        PRINT_PARAMS
-          XLAL_ERROR( XLAL_ENOMEM );
-      }
-    memset( sigReHi->data, 0, sigReHi->length * sizeof( sigReHi->data[0] ));
-    memset( sigImHi->data, 0, sigImHi->length * sizeof( sigImHi->data[0] ));
-  
     if ( XLALSimInspiralPrecessionRotateModes( hlmPTS, alphaP2JTS, betaP2JTS, gammaP2JTS ) == XLAL_FAILURE )
       {
         FREE_EVERYTHING
