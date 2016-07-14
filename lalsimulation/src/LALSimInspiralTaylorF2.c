@@ -246,11 +246,6 @@ int XLALSimInspiralTaylorF2Core(
 
     data = htilde->data->data;
 
-    REAL8 v_ecc_ref = 0.0;
-    if( ecc > 0 && f_ecc > 0) {
-        v_ecc_ref = cbrt(piM*f_ecc);
-    }
-
     /* Compute the SPA phase at the reference point
      * N.B. f_ref == 0 means we define the reference time/phase at "coalescence"
      * when the frequency approaches infinity. In that case,
