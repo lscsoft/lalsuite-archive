@@ -586,7 +586,6 @@ class PrecessingSpinTemplate(AlignedSpinTemplate):
             arr_view_hp = hp.data.data
             arr_view_hc = hc.data.data
 
-<<<<<<< HEAD
         approx = lalsim.GetApproximantFromString( "IMRPhenomP" )
         phi0 = 0  # what is phi0?
         lmbda1 = lmbda2 = 0
@@ -601,16 +600,11 @@ class PrecessingSpinTemplate(AlignedSpinTemplate):
             1e6*PC_SI, # irrelevant parameter for banks/banksims
             self.iota,
             lmbda1, lmbda2, # irrelevant parameters for BBH
-            0, 0, 10.0, # eccentrcity related variables, ecc, eccOrder, f_ecc
+            0, 0, 10.0, # eccentrcity related variables, ecc, ecc_order, f_ecc
             None, None, # non-GR parameters
             ampO, phaseO, approx)
-=======
-            # Whiten
-            arr_view_hp[:] /= ASD[:hp.data.length]
-            arr_view_hp[:int(self.bank.flow / df)] = 0.
-            arr_view_hp[int(self.f_final/df) : hp.data.length] = 0.
->>>>>>> master
 
+            # Whiten
             arr_view_hc[:] /= ASD[:hc.data.length]
             arr_view_hc[:int(self.bank.flow / df)] = 0.
             arr_view_hc[int(self.f_final/df) : hc.data.length] = 0.
