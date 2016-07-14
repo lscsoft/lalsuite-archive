@@ -1778,8 +1778,8 @@ eccentricityPNCoeffs_F2(REAL8 eta, REAL8 eccPNCoeffs[LAL_MAX_ECC_PN_ORDER+1][LAL
   return ret;
 }
 static REAL8 UNUSED
-eccentricityPhasing_F2(REAL8 v, REAL8 v0, REAL8 ecc, REAL8 eta, INT4 eccOrder)
-//eccentricityPhasing_F2(REAL8 v, REAL8 v0, REAL8 ecc, REAL8 eta, INT4 eccOrder, REAL8 ecc_phase_order[])
+eccentricityPhasing_F2(REAL8 v, REAL8 v0, REAL8 ecc, REAL8 eta, INT4 ecc_order)
+//eccentricityPhasing_F2(REAL8 v, REAL8 v0, REAL8 ecc, REAL8 eta, INT4 ecc_order, REAL8 ecc_phase_order[])
 {
   static REAL8 v0_power[LAL_MAX_ECC_PN_ORDER+1];
   /* following code is not efficient in memory usage, need to be improved later */
@@ -1802,11 +1802,11 @@ eccentricityPhasing_F2(REAL8 v, REAL8 v0, REAL8 ecc, REAL8 eta, INT4 eccOrder)
 
   global_factor = -2.355/1.462*ecc*ecc*pow(v0/v, 19.0/3.0);
   global_factor *= (3.0/128.0/eta);  // overall factor except v^-5 in phase term, this is Newtonian phase term
-  if(eccOrder == -1) {
-    eccOrder = LAL_MAX_ECC_PN_ORDER;
+  if(ecc_order == -1) {
+    ecc_order = LAL_MAX_ECC_PN_ORDER;
   }
   REAL8 phaseOrder = 0;
-  for(int i=0; i<=eccOrder; i++)
+  for(int i=0; i<=ecc_order; i++)
   {
     phaseOrder = 0;
     INT4 k = 0;
@@ -1833,6 +1833,6 @@ eccentricityPhasing_F2(REAL8 v, REAL8 v0, REAL8 ecc, REAL8 eta, INT4 eccOrder)
     //ecc_phase_order[i] = phaseOrder*global_factor;
   }
   //fprintf(stdout, "======== DEBUG for eccentricity ================\n");
-  //fprintf(stdout, "eccentricityPhasing_F2 phasing = %g, global_factor = %g, eccOrder = %d, ecc = %g\n", phasing, global_factor, eccOrder, ecc);
+  //fprintf(stdout, "eccentricityPhasing_F2 phasing = %g, global_factor = %g, ecc_order = %d, ecc = %g\n", phasing, global_factor, ecc_order, ecc);
   return phasing*global_factor;
 }

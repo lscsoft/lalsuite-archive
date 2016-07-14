@@ -57,7 +57,7 @@ typedef struct tagGSParams {
     REAL8 lambda1;	      /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
     REAL8 lambda2;	      /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
     REAL8 ecc;                /**< eccentricity at reference frequency f_ecc (dimensionless) */
-    INT4 eccOrder;            /**< PN order for eccentric correction terms (dimensionless) */
+    INT4 ecc_order;            /**< PN order for eccentric correction terms (dimensionless) */
     REAL8 f_ecc;              /**< the reference frequency f_ecc (Hz) */
     INT4 runs;                /**< number of waveform generations to compare generation time(dimensionless) */
     LALSimInspiralWaveformFlags *waveFlags; /**< Set of flags to control special behavior of some waveform families */
@@ -115,6 +115,7 @@ const char * usage =
 "                             SEOBNRv2_ROM_EffectiveSpin\n"
 "                             SEOBNRv2_ROM_DoubleSpin\n"
 "                             TaylorF2\n"
+"                             TaylorF2Ecc\n"
 "                             SpinTaylorF2\n"
 "                             TaylorR2F4\n"
 "                             SpinTaylorT4Fourier\n"
@@ -147,7 +148,7 @@ const char * usage =
 "                           (~128-2560 for NS, 0 for BH) (default 0)\n"
 "--ecc                      eccentricity value at a given reference frequency f_ecc\n"
 "                           (~0.01) (default 0)\n"
-"--eccOrder                 PN order for eccentric correction term\n"
+"--ecc_order                 PN order for eccentric correction term\n"
 "                           (-1 for maximum order) (default -1)\n"
 "--f_ecc                    reference frequency for initial eccentricity\n"
 "                           (10Hz) (default 10)\n"
@@ -202,7 +203,7 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
     params->lambda1 = 0.;
     params->lambda2 = 0.;
     params->ecc = 0.0;
-    params->eccOrder = -1;
+    params->ecc_order = -1;
     params->f_ecc = 10.0;
     params->runs = 0;
     strncpy(params->outname, "simulation.dat", 256); /* output to this file */
@@ -271,8 +272,8 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
             params->lambda2 = atof(argv[++i]);
         } else if (strcmp(argv[i], "--ecc") == 0) {
             params->ecc = atof(argv[++i]);
-        } else if (strcmp(argv[i], "--eccOrder") == 0) {
-            params->eccOrder = atoi(argv[++i]);
+        } else if (strcmp(argv[i], "--ecc_order") == 0) {
+            params->ecc_order = atoi(argv[++i]);
         } else if (strcmp(argv[i], "--f_ecc") == 0) {
             params->f_ecc = atof(argv[++i]);
         } else if (strcmp(argv[i], "--runs") == 0) {
@@ -479,7 +480,7 @@ int main (int argc , char **argv) {
                     params->s1y, params->s1z, params->s2x, params->s2y,
                     params->s2z, params->f_min, params->f_max, params->fRef,
                     params->distance, params->inclination, params->lambda1,
-                    params->lambda2, params->ecc, params->eccOrder,
+                    params->lambda2, params->ecc, params->ecc_order,
                     params->f_ecc, params->waveFlags, params->nonGRparams,
                     params->ampO, params->phaseO, params->approximant);
             break;
@@ -549,7 +550,7 @@ int main (int argc , char **argv) {
                     params->s1y, params->s1z, params->s2x, params->s2y,
                     params->s2z, params->f_min, params->f_max, params->fRef,
                     params->distance, params->inclination, params->lambda1,
-                    params->lambda2, params->ecc, params->eccOrder,
+                    params->lambda2, params->ecc, params->ecc_order,
                     params->f_ecc, params->waveFlags, params->nonGRparams,
                     params->ampO, params->phaseO, params->approximant);
             break;
@@ -591,7 +592,7 @@ int main (int argc , char **argv) {
                     params->s1y, params->s1z, params->s2x, params->s2y,
                     params->s2z, params->f_min, params->f_max, params->fRef,
                     params->distance, params->inclination, params->lambda1,
-                    params->lambda2, params->ecc, params->eccOrder,
+                    params->lambda2, params->ecc, params->ecc_order,
                     params->f_ecc, params->waveFlags, params->nonGRparams,
                     params->ampO, params->phaseO, params->approximant);
             break;

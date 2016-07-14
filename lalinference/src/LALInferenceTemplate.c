@@ -291,8 +291,8 @@ void LALInferenceROQWrapperForXLALSimInspiralChooseFDWaveformSequence(LALInferen
   /* if we do not add ecc and f_ecc to model parameteres ecc and f_ecc wouild be zero */
   REAL8 ecc = 0.;
   if(LALInferenceCheckVariable(model->params, "ecc")) ecc = *(REAL8*) LALInferenceGetVariable(model->params, "ecc");
-  INT4 eccOrder = 0.;
-  if(LALInferenceCheckVariable(model->params, "eccOrder")) eccOrder = *(INT4*) LALInferenceGetVariable(model->params, "eccOrder");
+  INT4 ecc_order = 0.;
+  if(LALInferenceCheckVariable(model->params, "ecc_order")) ecc_order = *(INT4*) LALInferenceGetVariable(model->params, "ecc_order");
   REAL8 f_ecc = 0.;
   if(LALInferenceCheckVariable(model->params, "f_ecc")) f_ecc = *(REAL8*) LALInferenceGetVariable(model->params, "f_ecc");
 
@@ -303,12 +303,12 @@ void LALInferenceROQWrapperForXLALSimInspiralChooseFDWaveformSequence(LALInferen
   /* ==== Call the waveform generator ==== */
   XLAL_TRY(ret=XLALSimInspiralChooseFDWaveformSequence (&(model->roq->hptildeLinear), &(model->roq->hctildeLinear), phi0, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI,
                 spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_ref, distance, inclination, lambda1, lambda2,
-                ecc, eccOrder, f_ecc,
+                ecc, ecc_order, f_ecc,
                 model->waveFlags, nonGRparams, amporder, order, approximant, (model->roq->frequencyNodesLinear)), errnum);
 
   XLAL_TRY(ret=XLALSimInspiralChooseFDWaveformSequence (&(model->roq->hptildeQuadratic), &(model->roq->hctildeQuadratic), phi0, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI,
                   spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_ref, distance, inclination, lambda1, lambda2,
-                  ecc, eccOrder, f_ecc,
+                  ecc, ecc_order, f_ecc,
                   model->waveFlags, nonGRparams, amporder, order, approximant, (model->roq->frequencyNodesQuadratic)), errnum);
     /* Destroy the nonGr params */
     XLALSimInspiralDestroyTestGRParam(nonGRparams);
@@ -546,7 +546,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
 /*   - "time"               used as an OUTPUT only; REAL8				                                 */
 /*                                                                                                                       */
 /*   - "ecc"               eccentricty value at refrence frequency; REAL8		                                 */
-/*   - "eccOrder"          eccentricity PN order; INT4 					                                 */
+/*   - "ecc_order"          eccentricity PN order; INT4 					                                 */
 /*   - "f_ecc"             refrence frequency of eccentricity; REAL8			                                 */
 /*                                                                                                                       */
 /*   model needs to also contain:                                                                                        */
@@ -729,8 +729,8 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
   /* if we do not add ecc and f_ecc to model parameteres ecc and f_ecc wouild be zero */
   REAL8 ecc = 0.;
   if(LALInferenceCheckVariable(model->params, "ecc")) ecc = *(REAL8*) LALInferenceGetVariable(model->params, "ecc");
-  INT4 eccOrder = 0.;
-  if(LALInferenceCheckVariable(model->params, "eccOrder")) eccOrder = *(INT4*) LALInferenceGetVariable(model->params, "eccOrder");
+  INT4 ecc_order = 0.;
+  if(LALInferenceCheckVariable(model->params, "ecc_order")) ecc_order = *(INT4*) LALInferenceGetVariable(model->params, "ecc_order");
   REAL8 f_ecc = 0.;
   if(LALInferenceCheckVariable(model->params, "f_ecc")) f_ecc = *(REAL8*) LALInferenceGetVariable(model->params, "f_ecc");
 
@@ -769,7 +769,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
 	XLAL_TRY(ret=XLALSimInspiralChooseFDWaveformFromCache(&hptilde, &hctilde, phi0,
             deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
             spin2x, spin2y, spin2z, f_start, f_max, f_ref, distance, inclination,lambda1, lambda2,
-            ecc, eccOrder, f_ecc, model->waveFlags, nonGRparams, amporder, order,
+            ecc, ecc_order, f_ecc, model->waveFlags, nonGRparams, amporder, order,
             approximant,model->waveformCache, NULL), errnum);
 
 
@@ -1217,8 +1217,8 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveformPhaseInterpolated(LALInfer
   /* if we do not add ecc and f_ecc to model parameteres ecc and f_ecc wouild be zero */
   REAL8 ecc = 0.;
   if(LALInferenceCheckVariable(model->params, "ecc")) ecc = *(REAL8*) LALInferenceGetVariable(model->params, "ecc");
-  INT4 eccOrder = 0.;
-  if(LALInferenceCheckVariable(model->params, "eccOrder")) eccOrder = *(INT4*) LALInferenceGetVariable(model->params, "eccOrder");
+  INT4 ecc_order = 0.;
+  if(LALInferenceCheckVariable(model->params, "ecc_order")) ecc_order = *(INT4*) LALInferenceGetVariable(model->params, "ecc_order");
   REAL8 f_ecc = 0.;
   if(LALInferenceCheckVariable(model->params, "f_ecc")) f_ecc = *(REAL8*) LALInferenceGetVariable(model->params, "f_ecc");
 
@@ -1239,7 +1239,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveformPhaseInterpolated(LALInfer
         XLAL_TRY(ret=XLALSimInspiralChooseFDWaveformFromCache(&hptilde, &hctilde, phi0,
                                                               0.0, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
                                                               spin2x, spin2y, spin2z, f_start, f_max, f_ref, distance,
-                                                              inclination,lambda1, lambda2, ecc, eccOrder, f_ecc,
+                                                              inclination,lambda1, lambda2, ecc, ecc_order, f_ecc,
                                                               model->waveFlags, nonGRparams, amporder, order,
                                                               approximant,model->waveformCache, frequencies), errnum);
 

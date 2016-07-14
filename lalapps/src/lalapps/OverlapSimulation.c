@@ -53,7 +53,7 @@ typedef struct tagParameter
   REAL8 s2z;
   REAL8 ecc;
   REAL8 f_ecc;
-  INT4 eccOrder;
+  INT4 ecc_order;
   char approx1[APPROX_NAME_SIZE];
   char approx2[APPROX_NAME_SIZE];
   INT4 ampOrder1;
@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
 /  --s2z : z component of spin 2
 /  --ecc : ecc value
 /  --f_ecc : f_ecc value
-/  --eccOrder : eccOrder value
+/  --ecc_order : ecc_order value
 /  --approx1 : first approximant, waveform template
 /  --approx2 : second approximant, waveform template it could be same as approx1
 /  --ampOrder1 : first amplitude PN order (1 -> 0.5PN,  2 -> 1PN)
@@ -133,7 +133,7 @@ int main(int argc, char *argv[])
   int ret;
   REAL8 deltaF, phiRef = 0.0, m1, m2, S1z = 0.0, S2z = 0.0;
   REAL8 deltaT, f_min, f_max = 0.0, r;
-  INT4 phaseO, amplitudeO, lower, upper, eccOrder;
+  INT4 phaseO, amplitudeO, lower, upper, ecc_order;
   REAL8 ecc, f_ecc;
   char file_name[256];
   REAL8 overlap, overlapNorm, p1, p1v;
@@ -178,13 +178,13 @@ int main(int argc, char *argv[])
   //S2y = inParams.s2y;
   S2z = inParams.s2z;
   ecc = inParams.ecc;
-  eccOrder = inParams.eccOrder;
+  ecc_order = inParams.ecc_order;
   f_ecc = inParams.f_ecc;
-  if(strstr(inParams.approx1, "TaylorF2Amp"))
+  if(strstr(inParams.approx1, "TaylorF2Ecc"))
   {
-    ret = XLALSimInspiralTaylorF2(&hptilde1, phiRef, deltaF, 
+    ret = XLALSimInspiralTaylorF2Ecc(&hptilde1, phiRef, deltaF, 
                     m1, m2, S1z, S2z,
-                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=1, qm2=1 hard fixed
+                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, ecc_order, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=1, qm2=1 hard fixed
     //ret = XLALSimInspiralTaylorF2AmpPlus(&hptilde1, phiRef, deltaF, inclination,
     //                m1, m2, S1x, S1y, S1z, S2x, S2y, S2z,
     //                LNhatx, LNhaty, LNhatz, f_min, f_max, r, phaseO, amplitudeO);
@@ -193,13 +193,13 @@ int main(int argc, char *argv[])
   {
     ret = XLALSimInspiralTaylorF2(&hptilde1, phiRef, deltaF, 
                     m1, m2, S1z, S2z,
-                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=1, qm2=1 hard fixed
+                    f_min, f_max, 0, r, 1, 1, 0, 0, 0, 0, phaseO, amplitudeO, NULL); // qm1=1, qm2=1 hard fixed
   }
   else 
   {
-    ret = XLALSimInspiralTaylorF2(&hptilde1, phiRef, deltaF, 
+    ret = XLALSimInspiralTaylorF2Ecc(&hptilde1, phiRef, deltaF, 
                     m1, m2, S1z, S2z,
-                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=1, qm2=1 hard fixed
+                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, ecc_order, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=1, qm2=1 hard fixed
     //ret = XLALSimInspiralTaylorF2AmpPlus(&hptilde1, phiRef, deltaF, inclination,
     //                m1, m2, S1x, S1y, S1z, S2x, S2y, S2z,
     //                LNhatx, LNhaty, LNhatz, f_min, f_max, r, phaseO, amplitudeO);
@@ -221,11 +221,11 @@ int main(int argc, char *argv[])
     for(p1 = inParams.p1s; p1 < inParams.p1e + 0.5*inParams.p1d; p1 += inParams.p1d)
     {
       p1v = p1*LAL_MSUN_SI; // convert to kg
-      if(strstr(inParams.approx2, "TaylorF2Amp"))
+      if(strstr(inParams.approx2, "TaylorF2Ecc"))
       {
-        ret = XLALSimInspiralTaylorF2(&hptilde2, phiRef, deltaF, 
+        ret = XLALSimInspiralTaylorF2Ecc(&hptilde2, phiRef, deltaF, 
                     p1v, m2, S1z, S2z,
-                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=qm2=1 hard code
+                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, ecc_order, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=qm2=1 hard code
         //ret = XLALSimInspiralTaylorF2AmpPlus(&hptilde2, phiRef, deltaF, inclination,
         //            p1v, m2,S1x, S1y, S1z, S2x, S2y, S2z,
         //            LNhatx, LNhaty, LNhatz, f_min, f_max, r, phaseO, amplitudeO);
@@ -234,13 +234,13 @@ int main(int argc, char *argv[])
       {
         ret = XLALSimInspiralTaylorF2(&hptilde2, phiRef, deltaF, 
                     p1v, m2, S1z, S2z,
-                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=qm2=1 hard code
+                    f_min, f_max, 0, r, 1, 1, 0, 0, 0, 0, phaseO, amplitudeO, NULL); // qm1=qm2=1 hard code
       }
       else
       {
-        ret = XLALSimInspiralTaylorF2(&hptilde2, phiRef, deltaF, 
+        ret = XLALSimInspiralTaylorF2Ecc(&hptilde2, phiRef, deltaF, 
                     p1v, m2, S1z, S2z,
-                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=qm2=1 hard code
+                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, ecc_order, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=qm2=1 hard code
         //ret = XLALSimInspiralTaylorF2AmpPlus(&hptilde2, phiRef, deltaF, inclination,
         //            p1v, m2,S1x, S1y, S1z, S2x, S2y, S2z,
         //            LNhatx, LNhaty, LNhatz, f_min, f_max, r, phaseO, amplitudeO);
@@ -258,11 +258,11 @@ int main(int argc, char *argv[])
     for(p1 = inParams.p1s; p1 < inParams.p1e + 0.5*inParams.p1d; p1 += inParams.p1d)
     {
       p1v = p1; 
-      if(strstr(inParams.approx2, "TaylorF2Amp"))
+      if(strstr(inParams.approx2, "TaylorF2Ecc"))
       {
-        ret = XLALSimInspiralTaylorF2(&hptilde2, phiRef, deltaF, 
+        ret = XLALSimInspiralTaylorF2Ecc(&hptilde2, phiRef, deltaF, 
                     m1, m2, p1v, S2z,
-                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=qm2 = 1 hard code
+                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, ecc_order, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=qm2 = 1 hard code
         //ret = XLALSimInspiralTaylorF2AmpPlus(&hptilde2, phiRef, deltaF, inclination,
         //            m1, m2,S1x, S1y, p1v, S2x, S2y, S2z,
         //            LNhatx, LNhaty, LNhatz, f_min, f_max, r, phaseO, amplitudeO);
@@ -271,13 +271,13 @@ int main(int argc, char *argv[])
       {
         ret = XLALSimInspiralTaylorF2(&hptilde2, phiRef, deltaF, 
                     m1, m2, p1v, S2z,
-                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=qm2 = 1 hard code
+                    f_min, f_max, 0, r, 1, 1, 0, 0, 0, 0, phaseO, amplitudeO, NULL); // qm1=qm2 = 1 hard code
       }
       else
       {
-        ret = XLALSimInspiralTaylorF2(&hptilde2, phiRef, deltaF, 
+        ret = XLALSimInspiralTaylorF2Ecc(&hptilde2, phiRef, deltaF, 
                     m1, m2, p1v, S2z,
-                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=qm2 = 1 hard code
+                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, ecc_order, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=qm2 = 1 hard code
         //ret = XLALSimInspiralTaylorF2AmpPlus(&hptilde2, phiRef, deltaF, inclination,
         //            m1, m2,S1x, S1y, p1v, S2x, S2y, S2z,
         //            LNhatx, LNhaty, LNhatz, f_min, f_max, r, phaseO, amplitudeO);
@@ -295,9 +295,9 @@ int main(int argc, char *argv[])
     for(p1 = inParams.p1s; p1 < inParams.p1e + 0.5*inParams.p1d; p1 += inParams.p1d)
     {
       p1v = p1*LAL_MSUN_SI; // convert to kg
-      ret = XLALSimInspiralTaylorF2(&hptilde2, phiRef, deltaF, 
+      ret = XLALSimInspiralTaylorF2Ecc(&hptilde2, phiRef, deltaF, 
                     m1, p1v, S1z, S2z,
-                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=qm2 = 1 hard code
+                    f_min, f_max, 0, r, 1, 1, 0, 0, ecc, ecc_order, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=qm2 = 1 hard code
       //ret = XLALSimInspiralTaylorF2AmpPlus(&hptilde2, phiRef, deltaF, inclination,
       //              m1, p1v, S1x, S1y, S1z, S2x, S2y, S2z,
       //              LNhatx, LNhaty, LNhatz, f_min, f_max, r, phaseO, amplitudeO);
@@ -314,9 +314,9 @@ int main(int argc, char *argv[])
     for(p1 = inParams.p1s; p1 < inParams.p1e + 0.5*inParams.p1d; p1 += inParams.p1d)
     {
       p1v = p1; 
-      ret = XLALSimInspiralTaylorF2(&hptilde2, phiRef, deltaF, 
+      ret = XLALSimInspiralTaylorF2Ecc(&hptilde2, phiRef, deltaF, 
                     m1, m2, S1z, S2z,
-                    f_min, f_max, 0, r, 1, 1, 0, 0, p1v, eccOrder, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=qm2 = 1 hard code
+                    f_min, f_max, 0, r, 1, 1, 0, 0, p1v, ecc_order, f_ecc, 0, 0, phaseO, amplitudeO, NULL); // qm1=qm2 = 1 hard code
       //ret = XLALSimInspiralTaylorF2AmpPlus(&hptilde2, phiRef, deltaF, inclination,
       //              m1, p1v, S1x, S1y, S1z, S2x, S2y, S2z,
       //              LNhatx, LNhaty, LNhatz, f_min, f_max, r, phaseO, amplitudeO);
@@ -432,10 +432,10 @@ int parseParameters(ProcessParamsTable *procParams, Parameter *inParams)
   if (ppt) {
     inParams->f_ecc = atof(ppt->value);
   }
-  ppt = LALInferenceGetProcParamVal(procParams, "--eccOrder");
-  inParams->eccOrder = -1;
+  ppt = LALInferenceGetProcParamVal(procParams, "--ecc_order");
+  inParams->ecc_order = -1;
   if (ppt) {
-    inParams->eccOrder = atoi(ppt->value);
+    inParams->ecc_order = atoi(ppt->value);
   }
   ppt = LALInferenceGetProcParamVal(procParams, "--dec");
   if (ppt) {
