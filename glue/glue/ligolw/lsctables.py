@@ -3012,7 +3012,7 @@ class SimInspiralTable(table.Table):
 		"taper": "lstring",
 		"bandpass": "int_4s",
 		"ecc": "real_8",
-		"eccOrder": "int_4s",
+		"ecc_order": "int_4s",
 		"f_ecc": "real_8",
 		"simulation_id": "ilwd:char"
 	}
