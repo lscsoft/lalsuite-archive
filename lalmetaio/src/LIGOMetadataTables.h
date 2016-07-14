@@ -586,7 +586,7 @@ tagSimInspiralTable
   CHAR           taper[LIGOMETA_INSPIRALTAPER_MAX];
   INT4           bandpass;
   REAL8          ecc;
-  INT4           eccOrder;
+  INT4           ecc_order;
   REAL8          f_ecc;
 }
 SimInspiralTable;

@@ -1434,7 +1434,7 @@ SimInspiralTableFromLIGOLw (
     {"taper",               -1, 54},
     {"bandpass",            -1, 55},
     {"ecc",                 -1, 56},
-    {"eccOrder",            -1, 57},
+    {"ecc_order",           -1, 57},
     {"f_ecc",               -1, 58},
     {NULL,                   0, 0}
   };
@@ -1740,7 +1740,7 @@ SimInspiralTableFromLIGOLw (
         }
         else if ( tableDir[j].idx == 57 ) {
         	//thisSim->qmParameter2 = r4colData; // qmParameter2 is not implemented in MetaTableDirectory
-        	thisSim->eccOrder = i4colData;
+        	thisSim->ecc_order = i4colData;
         }
         else if ( tableDir[j].idx == 58 ) {
         	thisSim->f_ecc = r8colData;

@@ -723,33 +723,9 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
         if(!strcmp(IFOnames[i],"K1")){
             memcpy(IFOdata[i].detector, &lalCachedDetectors[LALDetectorIndexKAGRADIFF],sizeof(LALDetector));
             if(!Nchannel) sprintf((channels[i]),"K1:STRAIN"); continue;}
-        if(!strcmp(IFOnames[i],"I1")||!strcmp(IFOnames[i],"LIGOIndia")){
-            /* Detector in India with 4k arms */
-            LALFrDetector LIGOIndiaFr;
-            sprintf(LIGOIndiaFr.name,"LIGO_India");
-            sprintf(LIGOIndiaFr.prefix,"I1");
-            /* Location of India site is */
-            /* 14d14' N 76d26' E */
-            LIGOIndiaFr.vertexLatitudeRadians = (14. + 14./60.)*LAL_PI/180.0;
-            LIGOIndiaFr.vertexLongitudeRadians = (76. + 26./60.)*LAL_PI/180.0;
-            LIGOIndiaFr.vertexElevation = 0.0;
-            LIGOIndiaFr.xArmAltitudeRadians = 0.0;
-            LIGOIndiaFr.yArmAltitudeRadians = 0.0;
-            LIGOIndiaFr.yArmMidpoint = 2000.;
-            LIGOIndiaFr.xArmMidpoint = 2000.;
-            LIGOIndiaFr.xArmAzimuthRadians = LAL_PI/2.;
-            LIGOIndiaFr.yArmAzimuthRadians = 0.;
-            IFOdata[i].detector=XLALMalloc(sizeof(LALDetector));
-            memset(IFOdata[i].detector,0,sizeof(LALDetector));
-            XLALCreateDetector(IFOdata[i].detector,&LIGOIndiaFr,LALDETECTORTYPE_IFODIFF);
-            printf("Created LIGO India Detector, location %lf, %lf, %lf\n",IFOdata[i].detector->location[0],IFOdata[i].detector->location[1],IFOdata[i].detector->location[2]);
-            printf("Detector tensor:\n");
-            for(int jdx=0;jdx<3;jdx++){
-                for(j=0;j<3;j++) printf("%f ",IFOdata[i].detector->response[jdx][j]);
-                printf("\n");
-            }
-            continue;
-        }
+	    if(!strcmp(IFOnames[i],"I1")){
+	        memcpy(IFOdata[i].detector, &lalCachedDetectors[LALDetectorIndexLIODIFF],sizeof(LALDetector));
+	        if(!Nchannel) sprintf((channels[i]),"I1:STRAIN"); continue;}
         if(!strcmp(IFOnames[i],"A1")||!strcmp(IFOnames[i],"LIGOSouth")){
             /* Construct a detector at AIGO with 4k arms */
             LALFrDetector LIGOSouthFr;
@@ -2291,14 +2267,14 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
   }
 
   REAL8 ecc = (REAL8) inj_table->ecc;
-  INT4 eccOrder = (INT4) inj_table->eccOrder;
+  INT4 ecc_order = (INT4) inj_table->ecc_order;
   REAL8 f_ecc = (REAL8) inj_table->f_ecc;
 
   LALSimInspiralTestGRParam *nonGRparams = NULL;
 
  /* Print a line with information about approximant, amp_order, phaseorder, tide order and spin order */
   fprintf(stdout,"\n\n---\t\t ---\n");
- fprintf(stdout,"Injection will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i, tidal order %i, eccentricity = %g, ecc order %i, reference frequency for ecc = %g(Hz), in the frequency domain.\n",approximant,XLALGetStringFromApproximant(approximant),phase_order,amp_order,(int) spinO,(int) tideO, ecc, eccOrder, f_ecc);
+ fprintf(stdout,"Injection will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i, tidal order %i, eccentricity = %g, ecc order %i, reference frequency for ecc = %g(Hz), in the frequency domain.\n",approximant,XLALGetStringFromApproximant(approximant),phase_order,amp_order,(int) spinO,(int) tideO, ecc, ecc_order, f_ecc);
    fprintf(stdout,"---\t\t ---\n\n");
 
   COMPLEX16FrequencySeries *hptilde=NULL, *hctilde=NULL;
@@ -2308,7 +2284,7 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
                                   inj_table->spin1y, inj_table->spin1z, inj_table->spin2x, inj_table->spin2y,
                                   inj_table->spin2z, f_min, f_max, fref, inj_table->distance*LAL_PC_SI * 1.0e6,
                                   inj_table->inclination, lambda1, lambda2,
-                                  inj_table->ecc, inj_table->eccOrder, inj_table->f_ecc,
+                                  inj_table->ecc, inj_table->ecc_order, inj_table->f_ecc,
                                   waveFlags, nonGRparams, amp_order, phase_order, approximant);
 
   /* Fail if injection waveform generation was not successful */
@@ -2551,9 +2527,9 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
   /* add ecc and f_ecc parameters */
   REAL8 ecc=theEventTable->ecc;
   REAL8 f_ecc=theEventTable->f_ecc;
-  INT4 eccOrder = theEventTable->eccOrder;
+  INT4 ecc_order = theEventTable->ecc_order;
   LALInferenceAddVariable(vars, "ecc", &ecc, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-  LALInferenceAddVariable(vars, "eccOrder", &eccOrder, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddVariable(vars, "ecc_order", &ecc_order, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(vars, "f_ecc", &f_ecc, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
 
 }

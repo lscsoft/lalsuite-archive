@@ -913,17 +913,17 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   LALInferenceAddVariable(model->params, "LAL_AMPORDER",     &AmpOrder,        LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(model->params, "f_ref", &f_ref, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
 
-  /* eccentricity related variables, eccOrder and f_ecc is fixed with injection table value */
+  /* eccentricity related variables, ecc_order and f_ecc is fixed with injection table value */
   REAL8 ecc = 0.0;
-  INT4 eccOrder = -1;
+  INT4 ecc_order = -1;
   REAL8 f_ecc = 10.0;
   if (injTable == NULL) 
   {
-    printf("WARNING: No injection table is specified, eccentricity values are set as default values, ecc=0, eccOrder=0, f_ecc=10.0Hz\n");
+    printf("WARNING: No injection table is specified, eccentricity values are set as default values, ecc=0, ecc_order=0, f_ecc=10.0Hz\n");
   }
   else {
     ecc = (REAL8) injTable->ecc;
-    eccOrder = (INT4) injTable->eccOrder;
+    ecc_order = (INT4) injTable->ecc_order;
     f_ecc = (REAL8) injTable->f_ecc;
   }
   LALInferenceVariableItem *node=NULL;
@@ -931,7 +931,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   if( !node ) { /* set to be unformly variate for ecc if it was not fixed ton injection value already */
     LALInferenceRegisterUniformVariableREAL8(state, model->params, "ecc", ecc, eccmin, eccmax, LALINFERENCE_PARAM_LINEAR);
   }
-  LALInferenceAddVariable(model->params, "eccOrder", &eccOrder, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddVariable(model->params, "ecc_order", &ecc_order, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(model->params, "f_ecc", &f_ecc, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
 
 
@@ -1277,7 +1277,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
 
      /* Print info about orders and waveflags used for templates */
 
-     fprintf(stdout,"Templates will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i, tidal order %i, eccOrder %i in the %s domain.\n",approx,XLALGetStringFromApproximant(approx),PhaseOrder,AmpOrder,(int) spinO, (int) tideO, eccOrder, model->domain==LAL_SIM_DOMAIN_TIME?"time":"frequency");
+     fprintf(stdout,"Templates will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i, tidal order %i, ecc_order %i in the %s domain.\n",approx,XLALGetStringFromApproximant(approx),PhaseOrder,AmpOrder,(int) spinO, (int) tideO, ecc_order, model->domain==LAL_SIM_DOMAIN_TIME?"time":"frequency");
      fprintf(stdout,"---\t\t ---\n\n");
   }//end of signal only flag
   else

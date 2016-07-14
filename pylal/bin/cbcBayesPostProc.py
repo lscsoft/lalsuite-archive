@@ -186,6 +186,29 @@ def multipleFileCB(opt, opt_str, value, parser):
         args = oldargs
     setattr(parser.values, opt.dest, args)
 
+def dict2html(d,parent=None):
+    if not d: return ""
+    out=bppu.htmlChunk('div',parent=parent)
+    tab=out.tab()
+    row=out.insert_row(tab)
+    for key in d.keys():
+        out.insert_td(row,str(key))
+    row2=out.insert_row(tab)
+    for val in d.values():
+        out.insert_td(row2,str(val))
+    return out
+
+def extract_hdf5_metadata(h5grp,parent=None):
+    import h5py
+    #out=bppu.htmlChunk('div',parent=parent)
+    sec=bppu.htmlSection(h5grp.name,htmlElement=parent)
+    dict2html(h5grp.attrs,parent=sec)
+    for group in h5grp:
+        if(isinstance(h5grp[group],h5py.Group)):
+            extract_hdf5_metadata(h5grp[group],sec)
+    return h5grp
+
+
 def cbcBayesPostProc(
                         outdir,data,oneDMenus,twoDGreedyMenu,GreedyRes,
                         confidence_levels,twoDplots,
@@ -354,7 +377,7 @@ def cbcBayesPostProc(
     #Create an instance of the posterior class using the posterior values loaded
     #from the file and any injection information (if given).
     pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection,inj_spin_frame=inj_spin_frame, injFref=injFref,SnglInpiralList=triggers,votfile=votfile)
-  
+ 
     #Create analytic likelihood functions if covariance matrices and mean vectors were given
     analyticLikelihood = None
     if covarianceMatrices and meanVectors:
@@ -457,6 +480,13 @@ def cbcBayesPostProc(
     SampsStats.p(filenames)
     td=html_meta.insert_td(row,'',label='SummaryLinks')
     legend=html.add_section_to_element('Sections',td)
+    
+    # Create a section for HDF5 metadata if available
+    if '.h5' in data[0] or '.hdf' in data[0]:
+        html_hdf=html.add_section('Metadata',legend=legend)
+        import h5py
+        with h5py.File(data[0],'r') as h5grp:
+            extract_hdf5_metadata(h5grp,parent=html_hdf)
     
     #Create a section for model selection results (if they exist)
     if bayesfactornoise is not None:
