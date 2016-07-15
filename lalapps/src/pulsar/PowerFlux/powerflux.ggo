@@ -132,6 +132,8 @@ option "output-initial" - "write initial candidates into log file" int default="
 option "output-optimized" - "write optimized (second pass) candidates into log file" int default="0" no
 option "output-cache" - "write out all candidates in cache to log file" int default="0" no
 
+option "progress-update-interval" - "integer value controlling frequency of progress updates" int default="100" no
+
 option "extended-test" - "Perform extended self test functions given by this bitmask" int default="1" no
 option "max-sft-report" - "Maximum count of SFTs to report with veto information" int default="100" no
 

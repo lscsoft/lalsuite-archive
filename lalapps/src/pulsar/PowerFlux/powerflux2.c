@@ -262,19 +262,22 @@ if(args_info.dump_points_arg){
 
 
 snprintf(s,20000,"%s/powerflux.log", output_dir);
+unlink(s);
 LOG=fopen(s,"w");
 
 while(LOG==NULL) {
-	i=errno;
 	fprintf(stderr, "Could not open log file \"%s\": %s\n", s, strerror(errno));
 	condor_safe_sleep(60);
+	unlink(s);
 	LOG=fopen(s, "w");
 	}
 
 snprintf(s,20000,"%s/file.log", output_dir);
+unlink(s);
 FILE_LOG=fopen(s,"w");
 
 snprintf(s,20000,"%s/data.log", output_dir);
+unlink(s);
 DATA_LOG=fopen(s,"w");
 setbuffer(DATA_LOG, do_alloc(1024*1024*32, 1), 1024*1024*32);
 

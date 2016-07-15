@@ -795,8 +795,11 @@ while(do_single_job(-1)) {
 	fprintf(stderr, "%d\n", pi);
 	#endif
 
-	if(k % 10 == 0)fprintf(stderr, "% 3.1f ", jobs_done_ratio()*100);
 	k++;
+	if(k > args_info.progress_update_interval_arg) {
+		fprintf(stderr, "% 3.1f ", jobs_done_ratio()*100);
+		k=0;
+		}
 	}
 wait_for_all_done();
 fprintf(stderr, "\n");

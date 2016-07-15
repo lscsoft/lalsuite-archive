@@ -2390,6 +2390,7 @@ while(b>0){
 	for(int j=0;j<nbins;j++){
 		float a=compute_median(tmp+j,nbins,nsegments);
 		dataset->FMedians[j]+=a;
+		#pragma omp critical
 		b+=a*a;
 		float *t=&(tmp[j]);
 		for(int i=0;i<nsegments;i++){
