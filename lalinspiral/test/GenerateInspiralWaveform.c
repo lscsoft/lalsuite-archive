@@ -227,6 +227,8 @@ int main (int argc , char **argv) {
     case PadeF1:
     case TaylorF1:
     case TaylorF2:
+    case TaylorF2Ecc:
+    case TaylorF2Amp:
     case TaylorF2RedSpin:
     case FindChirpSP:
     case BCV:

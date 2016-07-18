@@ -239,6 +239,12 @@ typedef enum {
                          * @remarks Implemented in lalsimulation (frequency domain). */
    TaylorF2,		/**< The standard stationary phase approximation; Outputs a frequency-domain wave.
                          * @remarks Implemented in lalsimulation (frequency domain). */
+   TaylorF2Ecc,		/**< The standard stationary phase approximation with eccentricity by Marc Favata; 
+                         * Outputs a frequency-domain wave.
+                         * @remarks Implemented in lalsimulation (frequency domain). */
+   TaylorF2Amp,		/**< The standard stationary phase approximation with amplitude correction upto 2.5PN; 
+                         * Outputs a frequency-domain wave.
+                         * @remarks Implemented in lalsimulation (frequency domain). */
    TaylorR2F4,		/**< A frequency domain model closely related to TaylorT4
                          * @attention Not implemented in lalsimulation. */
    TaylorF2RedSpin,		/**< TaylorF2 waveforms for non-precessing spins, defined in terms of a single (reduced-spin) parameter [Ajith_2011ec].

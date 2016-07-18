@@ -84,6 +84,8 @@ static const char *lalSimulationApproximantNames[] = {
     INITIALIZE_NAME(TaylorT3),
     INITIALIZE_NAME(TaylorF1),
     INITIALIZE_NAME(TaylorF2),
+    INITIALIZE_NAME(TaylorF2Ecc),
+    INITIALIZE_NAME(TaylorF2Amp),
     INITIALIZE_NAME(TaylorR2F4),
     INITIALIZE_NAME(TaylorF2RedSpin),
     INITIALIZE_NAME(TaylorF2RedSpinTidal),
@@ -964,92 +966,99 @@ int XLALSimInspiralChooseFDWaveform(
             if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
                 ABORT_NONZERO_TRANSVERSE_SPINS(waveFlags);
 
-            if(amplitudeO == 0) // Newtonian amplitude, so use old implementation
-            {
-              /* Call the waveform driver routine */
-              ret = XLALSimInspiralTaylorF2(hptilde, phiRef, deltaF, m1, m2,
-                    S1z, S2z, f_min, f_max, f_ref, r,
-                    quadparam1, quadparam2, lambda1, lambda2,
-                    XLALSimInspiralGetSpinOrder(waveFlags),
-                    XLALSimInspiralGetTidalOrder(waveFlags),
-                    phaseO, amplitudeO, nonGRparams);
+            /* Call the waveform driver routine */
+            ret = XLALSimInspiralTaylorF2(hptilde, phiRef, deltaF, m1, m2,
+                  S1z, S2z, f_min, f_max, f_ref, r,
+                  quadparam1, quadparam2, lambda1, lambda2,
+                  XLALSimInspiralGetSpinOrder(waveFlags),
+                  XLALSimInspiralGetTidalOrder(waveFlags),
+                  phaseO, amplitudeO, nonGRparams);
             if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
             /* Produce both polarizations */
             *hctilde = XLALCreateCOMPLEX16FrequencySeries("FD hcross",
                     &((*hptilde)->epoch), (*hptilde)->f0, (*hptilde)->deltaF,
                     &((*hptilde)->sampleUnits), (*hptilde)->data->length);
-              for(j = 0; j < (*hptilde)->data->length; j++) {
+            for(j = 0; j < (*hptilde)->data->length; j++) {
                 (*hctilde)->data->data[j] = -I*cfac * (*hptilde)->data->data[j];
                 (*hptilde)->data->data[j] *= pfac;
-              }
             }
-            else // for amplitude corrected waveform, use new code developed by Chunglee Kim and Jeongcho Kim
-            {
-              printf("==== DBUG calling TaylorF2Amp phase order = %d, amplitude Order = %d\n", phaseO, amplitudeO);
-              /* Call the waveform driver routine
-                 for amplitude corrected waveform, there are separated function for each h_plus and h_cross
-                 only valid for spin-aligned case
-              */
-              LNhatx = 0.0;
-              LNhaty = 0.0;
-              LNhatz = 1.0;
-              ret = XLALSimInspiralTaylorF2AmpPlus(
-                    hptilde, /**< frequency-domain waveform */
-                    phiRef,                     /**< orbital coalescence phase (rad) */
-                    deltaF,                   /**< sampling frequency (Hz) */
-                    i,                        /**< inclination of source (rad), corresponds to theta of N_hat */
-                    m1,                    /**< mass of companion 1 (kg) */
-                    m2,                    /**< mass of companion 2 (kg) */
-                    S1x,                      /**< initial value of S1x */
-                    S1y,                      /**< initial value of S1y */
-                    S1z,                      /**< initial value of S1z */
-                    S2x,                        /**< initial value of S2x */
-                    S2y,                        /**< initial value of S2y */
-                    S2z,                        /**< initial value of S2z */
-                    LNhatx,                   /**< initial value of LNhatx */
-                    LNhaty,                   /**< initial value of LNhaty */
-                    LNhatz,                   /**< initial value of LNhatz */
-                    f_ref,                   /**< reference frequecny(Hz) */
-                    f_min,                   /**< start GW frequency (Hz) */
-                    f_max,                    /**< ending GW frequency (Hz) */
-                    r,                        /**< distance of source (m) */
-                    quadparam1, quadparam2, lambda1, lambda2,
-                    XLALSimInspiralGetSpinOrder(waveFlags),
-                    XLALSimInspiralGetTidalOrder(waveFlags),
-                    phaseO,                     /**< twice PN phase order */
-                    amplitudeO                  /**< twice PN amplitude order */
-              );
-              if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
+            break;
 
-              ret = XLALSimInspiralTaylorF2AmpCross(
-                    hctilde, /**< frequency-domain waveform */
-                    phiRef,                     /**< orbital coalescence phase (rad) */
-                    deltaF,                   /**< sampling frequency (Hz) */
-                    i,                        /**< inclination of source (rad), corresponds to theta of N_hat */
-                    m1,                    /**< mass of companion 1 (kg) */
-                    m2,                    /**< mass of companion 2 (kg) */
-                    S1x,                      /**< initial value of S1x */
-                    S1y,                      /**< initial value of S1y */
-                    S1z,                      /**< initial value of S1z */
-                    S2x,                        /**< initial value of S2x */
-                    S2y,                        /**< initial value of S2y */
-                    S2z,                        /**< initial value of S2z */
-                    LNhatx,                   /**< initial value of LNhatx */
-                    LNhaty,                   /**< initial value of LNhaty */
-                    LNhatz,                   /**< initial value of LNhatz */
-                    f_ref,                   /**< reference frequency(Hz) */
-                    f_min,                   /**< start GW frequency (Hz) */
-                    f_max,                    /**< ending GW frequency (Hz) */
-                    r,                        /**< distance of source (m) */
-                    quadparam1, quadparam2, lambda1, lambda2,
-                    XLALSimInspiralGetSpinOrder(waveFlags),
-                    XLALSimInspiralGetTidalOrder(waveFlags),
-                    phaseO,                     /**< twice PN phase order */
-                    amplitudeO                  /**< twice PN amplitude order */
-              );
-              if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
-            }
+        /* TaylorF2 waveform with amplitude correction upto 2.5PN by KGWG PE */
+        case TaylorF2Amp:
+            printf("==== DBUG calling TaylorF2Amp phase order = %d, amplitude Order = %d\n", phaseO, amplitudeO);
+            /* Waveform-specific sanity checks */
+            if( !XLALSimInspiralFrameAxisIsDefault(
+                    XLALSimInspiralGetFrameAxis(waveFlags) ) )
+                ABORT_NONDEFAULT_FRAME_AXIS(waveFlags);
+            if( !XLALSimInspiralModesChoiceIsDefault(
+                    XLALSimInspiralGetModesChoice(waveFlags) ) )
+                ABORT_NONDEFAULT_MODES_CHOICE(waveFlags);
+            if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
+                ABORT_NONZERO_TRANSVERSE_SPINS(waveFlags);
 
+            /* Call the waveform driver routine
+               for amplitude corrected waveform, there are separated function for each h_plus and h_cross
+               only valid for spin-aligned case
+            */
+            LNhatx = 0.0;
+            LNhaty = 0.0;
+            LNhatz = 1.0;
+            ret = XLALSimInspiralTaylorF2AmpPlus(
+                  hptilde, /**< frequency-domain waveform */
+                  phiRef,                     /**< orbital coalescence phase (rad) */
+                  deltaF,                   /**< sampling frequency (Hz) */
+                  i,                        /**< inclination of source (rad), corresponds to theta of N_hat */
+                  m1,                    /**< mass of companion 1 (kg) */
+                  m2,                    /**< mass of companion 2 (kg) */
+                  S1x,                      /**< initial value of S1x */
+                  S1y,                      /**< initial value of S1y */
+                  S1z,                      /**< initial value of S1z */
+                  S2x,                        /**< initial value of S2x */
+                  S2y,                        /**< initial value of S2y */
+                  S2z,                        /**< initial value of S2z */
+                  LNhatx,                   /**< initial value of LNhatx */
+                  LNhaty,                   /**< initial value of LNhaty */
+                  LNhatz,                   /**< initial value of LNhatz */
+                  f_ref,                   /**< reference frequecny(Hz) */
+                  f_min,                   /**< start GW frequency (Hz) */
+                  f_max,                    /**< ending GW frequency (Hz) */
+                  r,                        /**< distance of source (m) */
+                  quadparam1, quadparam2, lambda1, lambda2,
+                  XLALSimInspiralGetSpinOrder(waveFlags),
+                  XLALSimInspiralGetTidalOrder(waveFlags),
+                  phaseO,                     /**< twice PN phase order */
+                  amplitudeO                  /**< twice PN amplitude order */
+            );
+            if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
+
+            ret = XLALSimInspiralTaylorF2AmpCross(
+                  hctilde, /**< frequency-domain waveform */
+                  phiRef,                     /**< orbital coalescence phase (rad) */
+                  deltaF,                   /**< sampling frequency (Hz) */
+                  i,                        /**< inclination of source (rad), corresponds to theta of N_hat */
+                  m1,                    /**< mass of companion 1 (kg) */
+                  m2,                    /**< mass of companion 2 (kg) */
+                  S1x,                      /**< initial value of S1x */
+                  S1y,                      /**< initial value of S1y */
+                  S1z,                      /**< initial value of S1z */
+                  S2x,                        /**< initial value of S2x */
+                  S2y,                        /**< initial value of S2y */
+                  S2z,                        /**< initial value of S2z */
+                  LNhatx,                   /**< initial value of LNhatx */
+                  LNhaty,                   /**< initial value of LNhaty */
+                  LNhatz,                   /**< initial value of LNhatz */
+                  f_ref,                   /**< reference frequency(Hz) */
+                  f_min,                   /**< start GW frequency (Hz) */
+                  f_max,                    /**< ending GW frequency (Hz) */
+                  r,                        /**< distance of source (m) */
+                  quadparam1, quadparam2, lambda1, lambda2,
+                  XLALSimInspiralGetSpinOrder(waveFlags),
+                  XLALSimInspiralGetTidalOrder(waveFlags),
+                  phaseO,                     /**< twice PN phase order */
+                  amplitudeO                  /**< twice PN amplitude order */
+            );
+            if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
             break;
 
         /* non-spinning inspiral-merger-ringdown models */
@@ -1981,6 +1990,8 @@ int XLALSimInspiralFD(
         /* upper bound on the final plunge, merger, and ringdown time */
         switch (approximant) {
         case TaylorF2:
+        case TaylorF2Ecc:
+        case TaylorF2Amp:
         case SpinTaylorF2:
         case TaylorF2RedSpin:
         case TaylorF2RedSpinTidal:
@@ -4017,6 +4028,7 @@ int XLALSimInspiralImplementedFDApproximants(
         case SEOBNRv2_ROM_DoubleSpin_HI:
         //case TaylorR2F4:
         case TaylorF2:
+        case TaylorF2Amp:
 	case EccentricFD:
         case SpinTaylorF2:
         case TaylorF2RedSpin:
@@ -4417,6 +4429,7 @@ int XLALSimInspiralGetSpinSupportFromApproximant(Approximant approx){
       spin_support=LAL_SIM_INSPIRAL_SINGLESPIN;
       break;
     case TaylorF2:
+    case TaylorF2Amp:
     case TaylorF2RedSpin:
     case TaylorF2RedSpinTidal:
     case IMRPhenomB:
@@ -4525,6 +4538,8 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
       testGR_accept=LAL_SIM_INSPIRAL_NO_TESTGR_PARAMS;
       break;
     case TaylorF2:
+    case TaylorF2Ecc:
+    case TaylorF2Amp:
     case SpinTaylorF2:
     case EccentricFD:
     case Eccentricity:
@@ -4873,6 +4888,8 @@ double XLALSimInspiralGetFinalFreq(
                 XLAL_ERROR(XLAL_EINVAL);
             }
         case TaylorF2:
+        case TaylorF2Ecc:
+        case TaylorF2Amp:
         case TaylorF2RedSpin:
         case TaylorF2RedSpinTidal:
             if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
