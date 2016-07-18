@@ -938,13 +938,15 @@ int XLALSimIMRSpinEOBWaveformAll(
   gsl_interp_accel *acc = NULL;
 
   /* Accuracies of adaptive Runge-Kutta integrator */
-    /* Note that this accuracies are lower than those used in SEOBNRv2: they allow reasonable runtimes for precessing systems */
-    /* These accuracies can be adjusted according to desired accuracy and runtime */
-  //OPTV3: For checking code agreement (David)
-  // REAL8 EPS_ABS = 1.0e-10;
-  //const REAL8 EPS_REL = 1.0e-10;
-     REAL8 EPS_ABS = 1.0e-8;
+  /* Note that this accuracies are lower than those used in SEOBNRv2: they allow reasonable runtimes for precessing systems */
+  /* These accuracies can be adjusted according to desired accuracy and runtime */
+  REAL8 EPS_ABS = 1.0e-8;
   const REAL8 EPS_REL = 1.0e-8;
+
+  //David: values for checking v3opt code agreement
+  //EPS_ABS = 1.0e-10;
+  //REAL8 EPS_REL = 1.0e-10;
+  
   /* Relax abs accuracy in case of highly symmetric case that would otherwise slow down significantly */
   if (sqrt((INspin1[0] + INspin2[0])*(INspin1[0] + INspin2[0]) + (INspin1[1] + INspin2[1])*(INspin1[1] + INspin2[1])) < 1.0e-10 && !SpinsAlmostAligned)
   {
@@ -1002,10 +1004,9 @@ int XLALSimIMRSpinEOBWaveformAll(
   /* Initialize amplitude scaling parameter */
   amp0 = mTotal * LAL_MRSUN_SI / r;
 
-  //if (use_optimized) { //david added conditional
-    /* OPTV3: Define the SpinEOBH coefficients constants of calculation */
-    SEOBHCoeffConstants seobCoeffConsts = XLALEOBSpinPrecCalcSEOBHCoeffConstants(eta);
-    //}
+  /* OPTV3: Define the SpinEOBH coefficients constants of calculation */
+  SEOBHCoeffConstants seobCoeffConsts = XLALEOBSpinPrecCalcSEOBHCoeffConstants(eta);
+
 
   if (debugPK) {
     XLAL_PRINT_INFO("Stas, here is the passes functions\n");
@@ -1101,7 +1102,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     XLAL_ERROR( XLAL_EDOM );
   }
   
-  if (use_optimized) {  // David added conditional
+  if (use_optimized) {
     seobParams.seobApproximant = SEOBNRv3_opt;
     seobParams.almostAlignedSpins = SpinsAlmostAligned;
   }
@@ -2071,14 +2072,14 @@ int XLALSimIMRSpinEOBWaveformAll(
 /* Interpolate trajectories to compute L_N (t) in order to get alpha(t) and
    * beta(t). */
     INT4 phaseCounterA = 0, phaseCounterB = 0;
-    if (use_optimized) { // David issue with euler angles functions needs to be fixed, maybe the ones in the separate file are called the 'opt_euler_angles' or something
+    if (use_optimized) { // David: do retLenLow and retLenEOMLow need to be different?
       Alpha = XLALCreateREAL8Vector( retLenEOMLow );
-      Beta   = XLALCreateREAL8Vector( retLenEOMLow );
+      Beta  = XLALCreateREAL8Vector( retLenEOMLow );
       Gamma = XLALCreateREAL8Vector( retLenEOMLow );
       EulerAnglesI2P(Alpha, Beta, Gamma, &phaseCounterA, &phaseCounterB, *tVecEOM, *posVecxEOM, *posVecyEOM, *posVeczEOM, retLenEOMLow, 0., 0.5*LAL_PI, 0);
     } else {
       Alpha = XLALCreateREAL8Vector( retLenLow );
-      Beta   = XLALCreateREAL8Vector( retLenLow );
+      Beta  = XLALCreateREAL8Vector( retLenLow );
       Gamma = XLALCreateREAL8Vector( retLenLow );
       EulerAnglesI2P(Alpha, Beta, Gamma, &phaseCounterA, &phaseCounterB, tVec, posVecx, posVecy, posVecz, retLenLow, 0., 0.5*LAL_PI, 0);
       //EulerAnglesI2P(Alpha, Beta, Gamma, &phaseCounterA, &phaseCounterB, tVec, posVecx, posVecy, posVecz, retLenLow, 0., 0.0, 0);
@@ -2449,7 +2450,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     REAL8Vector phaseVecEOMLo;
     phaseVecEOMLo.length = retLenEOMLow;
     phaseVecEOMLo.data = hVecEOM.data+2*retLenEOMLow;
-    // ZACH SAYS: David, we must figure out why XLALREAL8VectorUnwrapAngleByMonotonicity sometimes misbehaves.
+    //ZACH SAYS: David, we must figure out why XLALREAL8VectorUnwrapAngleByMonotonicity sometimes misbehaves.
     //XLALREAL8VectorUnwrapAngleByMonotonicity(&phaseVecEOMLo,&phaseVecEOMLo);
     XLALREAL8VectorUnwrapAngle(&phaseVecEOMLo,&phaseVecEOMLo);
 
@@ -2512,7 +2513,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     {
       XLALPrintError("Failed to allocate REAL8Vector timeIFull!\n");
       PRINT_PARAMS
-        XLAL_ERROR(  XLAL_ENOMEM );
+      XLAL_ERROR(  XLAL_ENOMEM );
     }
   if (!use_optimized) {
     memset( tlist->data, 0, tlist->length * sizeof( REAL8 ));
@@ -2882,10 +2883,10 @@ int XLALSimIMRSpinEOBWaveformAll(
                                                values, omega, &nqcCoeffs ) == XLAL_FAILURE )
           {
             FREE_EVERYTHING
-              FREE_SPHHARM
-              XLALPrintError("XLALSimIMRSpinEOBNonQCCorrection failed!\n");
+            FREE_SPHHARM
+            XLALPrintError("XLALSimIMRSpinEOBNonQCCorrection failed!\n");
             PRINT_PARAMS
-              XLAL_ERROR( XLAL_EDOM );
+            XLAL_ERROR( XLAL_EDOM );
           }
         hLM *= hNQC;
         h22TS->data->data[i]  = hLM;
@@ -2958,7 +2959,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     if ( !(alphaI2PTSHi = XLALCreateREAL8TimeSeries( "alphaI2P", &tc, 0.0, deltaT, &lalStrainUnit, retLenHi )) + !(betaI2PTSHi = XLALCreateREAL8TimeSeries(  "betaI2P", &tc, 0.0, deltaT, &lalStrainUnit, retLenHi )) + !(gammaI2PTSHi = XLALCreateREAL8TimeSeries( "gammaI2P", &tc, 0.0, deltaT, &lalStrainUnit, retLenHi )) + !(alphaP2JTSHi = XLALCreateREAL8TimeSeries( "alphaP2J", &tc, 0.0, deltaT, &lalStrainUnit, retLenHi )) + !(betaP2JTSHi = XLALCreateREAL8TimeSeries(  "betaP2J", &tc, 0.0, deltaT, &lalStrainUnit, retLenHi )) + !(gammaP2JTSHi = XLALCreateREAL8TimeSeries( "gammaP2J", &tc, 0.0, deltaT, &lalStrainUnit, retLenHi )) )
       {
         FREE_EVERYTHING
-          XLALDestroyREAL8Vector( tlistHi );
+        XLALDestroyREAL8Vector( tlistHi );
         XLALDestroyREAL8Vector( timeJFull );
         XLALDestroyREAL8Vector( timeIFull );
         XLALDestroyREAL8Vector( tlistRDPatch );
@@ -3138,14 +3139,14 @@ int XLALSimIMRSpinEOBWaveformAll(
           XLAL_PRINT_INFO("\nSomething went wrong evaluating XLALSimIMRCalculateSpinPrecEOBHCoeffs in step %d of coarse dynamics\n",
                           i );
           FREE_EVERYTHING
-            XLALDestroyREAL8Vector( tlistHi );
+          XLALDestroyREAL8Vector( tlistHi );
           XLALDestroyREAL8Vector( timeJFull );
           XLALDestroyREAL8Vector( timeIFull );
           XLALDestroyREAL8Vector( tlistRDPatch );
           XLALDestroyREAL8Vector( tlistRDPatchHi );
           XLALPrintError("XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients failed!\n");
           PRINT_PARAMS
-            XLAL_ERROR( XLAL_EDOM );
+          XLAL_ERROR( XLAL_EDOM );
         }
 
         ham = XLALSimIMRSpinPrecEOBHamiltonian( eta, &cartPosVec, &cartMomVec,
@@ -3169,7 +3170,7 @@ int XLALSimIMRSpinEOBWaveformAll(
              == XLAL_FAILURE )
           {
             FREE_EVERYTHING
-              XLALDestroyREAL8Vector( tlistHi );
+            XLALDestroyREAL8Vector( tlistHi );
             XLALDestroyREAL8Vector( timeJFull );
             XLALDestroyREAL8Vector( timeIFull );
             XLALDestroyREAL8Vector( tlistRDPatch );
@@ -3181,14 +3182,14 @@ int XLALSimIMRSpinEOBWaveformAll(
         if ( XLALSimIMRSpinEOBNonQCCorrection( &hNQC, values, omega, &nqcCoeffs ) == XLAL_FAILURE )
           {
             FREE_EVERYTHING
-              XLALDestroyREAL8Vector( tlistHi );
+            XLALDestroyREAL8Vector( tlistHi );
             XLALDestroyREAL8Vector( timeJFull );
             XLALDestroyREAL8Vector( timeIFull );
             XLALDestroyREAL8Vector( tlistRDPatch );
             XLALDestroyREAL8Vector( tlistRDPatchHi );
             XLALPrintError("XLALSimIMRSpinEOBNonQCCorrection failed!\n");
             PRINT_PARAMS
-              XLAL_ERROR( XLAL_EDOM );
+            XLAL_ERROR( XLAL_EDOM );
           }
         hLM *= hNQC;
         h22TSHi->data->data[i]  = hLM;
@@ -3205,14 +3206,14 @@ int XLALSimIMRSpinEOBWaveformAll(
              == XLAL_FAILURE )
           {
             FREE_EVERYTHING
-              XLALDestroyREAL8Vector( tlistHi );
+            XLALDestroyREAL8Vector( tlistHi );
             XLALDestroyREAL8Vector( timeJFull );
             XLALDestroyREAL8Vector( timeIFull );
             XLALDestroyREAL8Vector( tlistRDPatch );
             XLALDestroyREAL8Vector( tlistRDPatchHi );
             XLALPrintError("XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform failed!\n");
             PRINT_PARAMS
-              XLAL_ERROR( XLAL_EDOM );
+            XLAL_ERROR( XLAL_EDOM );
           }
         h21TSHi->data->data[i]  = hLM;
         h2m1TSHi->data->data[i] = conj(hLM);
@@ -3316,13 +3317,13 @@ int XLALSimIMRSpinEOBWaveformAll(
     if ( XLALSimInspiralPrecessionRotateModes( hlmPTS, alphaP2JTS, betaP2JTS, gammaP2JTS ) == XLAL_FAILURE )
       {
         FREE_EVERYTHING
-          XLALDestroyREAL8Vector( timeJFull );
+        XLALDestroyREAL8Vector( timeJFull );
         XLALDestroyREAL8Vector( timeIFull );
         XLALDestroyREAL8Vector( tlistRDPatch );
         XLALDestroyREAL8Vector( tlistRDPatchHi );
         XLALPrintError("XLALSimInspiralPrecessionRotateModes failed!\n");
         PRINT_PARAMS
-          XLAL_ERROR( XLAL_EFAILED );
+        XLAL_ERROR( XLAL_EFAILED );
       }
     h22JTS  = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, 2 );
     h21JTS  = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, 1 );
@@ -3355,13 +3356,13 @@ int XLALSimIMRSpinEOBWaveformAll(
                                              alphaP2JTSHi, betaP2JTSHi, gammaP2JTSHi ) == XLAL_FAILURE )
     {
       FREE_EVERYTHING
-        XLALDestroyREAL8Vector( timeJFull );
+      XLALDestroyREAL8Vector( timeJFull );
       XLALDestroyREAL8Vector( timeIFull );
       XLALDestroyREAL8Vector( tlistRDPatch );
       XLALDestroyREAL8Vector( tlistRDPatchHi );
       XLALPrintError("XLALSimInspiralPrecessionRotateModes failed!\n");
       PRINT_PARAMS
-        XLAL_ERROR( XLAL_EFAILED );
+      XLAL_ERROR( XLAL_EFAILED );
     }
   h22JTSHi  = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, 2 );
   h21JTSHi  = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, 1 );
@@ -3686,10 +3687,9 @@ int XLALSimIMRSpinEOBWaveformAll(
      fflush(NULL);
   }
 
-  //if(use_optimized) { //david added conditional
-    int idxRD;
-    SphHarmTimeSeries  *hMRJlo = NULL;
-    //}
+  int idxRD;
+  SphHarmTimeSeries  *hMRJlo = NULL;
+
 
   /*** attach hi sampling part and resample  */
   if(use_optimized) { // David: making big, similar sections conditional here to avaoid placing conditionals in for-loops and slowing down the program
