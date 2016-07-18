@@ -1919,7 +1919,7 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
         q2            = q1 / rVec->data[i];
         q3->data[i]   = q1;
         q4->data[i]   = q2;
-        q5->data[i]   = q1 / rootR;
+        q5->data[i]   = q2 / rootR;
         
         p1          = prVec->data[i] / rOmega;
         p2          = p1 * prVec->data[i] * prVec->data[i];
