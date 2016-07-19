@@ -288,6 +288,9 @@ def cbcBayesBurstPostProc(
         commonResultsObj=peparser.parse(data[0])
         thefile=open(data[0],'r')
         votfile=thefile.read()
+    elif '.hdf' in data[0] or '.h5' in data[0]:
+        peparser = bppu.PEOutputParser('hdf5')
+        commonResultsObj = peparser.parse(data[0])
     else:
         peparser=bppu.PEOutputParser('common')
         commonResultsObj=peparser.parse(open(data[0],'r'),info=[header,None])
@@ -507,6 +510,14 @@ def cbcBayesBurstPostProc(
     SampsStats.p(filenames)
     td=html_meta.insert_td(row,'',label='SummaryLinks')
     legend=html.add_section_to_element('Sections',td)
+
+    # Create a section for HDF5 metadata if available
+    if '.h5' in data[0] or '.hdf' in data[0]:
+        html_hdf=html.add_section('Metadata',legend=legend)
+        import h5py
+        with h5py.File(data[0],'r') as h5grp:
+            extract_hdf5_metadata(h5grp,parent=html_hdf)
+
     #Create a section for model selection results (if they exist)
     
     if bayesfactornoise is not None:
