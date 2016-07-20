@@ -206,13 +206,13 @@ INT4 init_ptmcmc(LALInferenceRunState *runState) {
         neff = atoi(ppt->value);
 
     /* Print sample every skip iterations */
-    INT4 skip = 100;
+    INT4 skip = 500;
     ppt = LALInferenceGetProcParamVal(command_line, "--skip");
     if (ppt)
         skip = atoi(ppt->value);
 
     /* Iterations between proposed temperature swaps */
-    INT4 Tskip = 100;
+    INT4 Tskip = 500;
     ppt = LALInferenceGetProcParamVal(command_line, "--temp-skip");
     if (ppt)
         Tskip = atoi(ppt->value);
@@ -304,13 +304,6 @@ INT4 init_ptmcmc(LALInferenceRunState *runState) {
     /* Add some settings settings to runstate proposal args so their copied to threads */
     LALInferenceAddINT4Variable(runState->proposalArgs, "de_skip", skip, LALINFERENCE_PARAM_OUTPUT);
     LALInferenceAddINT4Variable(runState->proposalArgs, "output_snrs", outputSNRs, LALINFERENCE_PARAM_OUTPUT);
-
-    if (LALInferenceGetProcParamVal(runState->commandLine, "--roqtime_steps")){
-
-        LALInferenceSetupROQdata(runState->data, runState->commandLine);
-        fprintf(stderr, "done LALInferenceSetupROQdata\n");
-
-     }
 
     /* Parse proposal args for runSTate and initialize the walkers on this MPI thread */
     LALInferenceInitCBCThreads(runState, ntemps_per_thread);

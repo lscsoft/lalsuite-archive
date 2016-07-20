@@ -19,9 +19,9 @@
 
 #include <lal/LALHeap.h>
 
-#define LEFT(i)     (2*(i) + 1)		/* Left child of binary heap element 'i' */
-#define RIGHT(i)    (2*(i) + 2)		/* Right child of binary heap element 'i' */
-#define PARENT(i)   (((i) - 1)/2)	/* Parent of binary heap element 'i' */
+#define LEFT(i)     (2*(i) + 1)         /* Left child of binary heap element 'i' */
+#define RIGHT(i)    (2*(i) + 2)         /* Right child of binary heap element 'i' */
+#define PARENT(i)   (((i) - 1)/2)       /* Parent of binary heap element 'i' */
 
 /* Swap elements x and y */
 #define SWAP(x, y)   do { void *z = (x); (x) = (y); (y) = z; } while (0)
@@ -30,14 +30,14 @@
 #define UNORDERED(h, x, y)   ((h)->cmp((h)->cmp_param, (x), (y)) * (h)->min_or_max_heap > 0)
 
 struct tagLALHeap {
-  void **data;			/* Binary heap data */
-  int data_len;			/* Size of the memory block 'data', in number of elements */
-  int n;			/* Number of valid elements in the heap */
-  LALHeapDtorFcn dtor;		/* Function to free memory of elements of heap, if required */
-  int max_size;			/* Maximum size of the heap; if zero, heap has unlimited size */
-  int min_or_max_heap;		/* -1|+1 if root of heap is minimum|maximum element */
-  LALHeapCmpParamFcn cmp;	/* Parameterised heap element comparison function */
-  void *cmp_param;		/* Parameter to pass to comparison function */
+  void **data;                  /* Binary heap data */
+  int data_len;                 /* Size of the memory block 'data', in number of elements */
+  int n;                        /* Number of valid elements in the heap */
+  LALHeapDtorFcn dtor;          /* Function to free memory of elements of heap, if required */
+  int max_size;                 /* Maximum size of the heap; if zero, heap has unlimited size */
+  int min_or_max_heap;          /* -1|+1 if root of heap is minimum|maximum element */
+  LALHeapCmpParamFcn cmp;       /* Parameterised heap element comparison function */
+  void *cmp_param;              /* Parameter to pass to comparison function */
 };
 
 /* Call a non-parameterised compare function, which is passed in 'param' */
@@ -224,6 +224,31 @@ int XLALHeapAdd(
 
 }
 
+void *XLALHeapExtractRoot(
+  LALHeap *h
+  )
+{
+
+  /* Check input */
+  XLAL_CHECK_NULL( h != NULL, XLAL_EFAULT );
+  XLAL_CHECK_NULL( h->n > 0, XLAL_ESIZE );
+
+  /* Save root element */
+  void *x = h->data[0];
+
+  /* Replace root with last element in binary heap, and trickle down to restore heap property */
+  h->data[0] = h->data[--h->n];
+  heap_trickle_down( h, 0 );
+
+  /* Resize binary heap; designed so that resizing costs amortized constant time */
+  if ( 3*h->n < h->data_len ) {
+    XLAL_CHECK_NULL( heap_resize( h ) == XLAL_SUCCESS, XLAL_EFUNC );
+  }
+
+  return x;
+
+}
+
 int XLALHeapRemoveRoot(
   LALHeap *h
   )
@@ -233,18 +258,13 @@ int XLALHeapRemoveRoot(
   XLAL_CHECK( h != NULL, XLAL_EFAULT );
   XLAL_CHECK( h->n > 0, XLAL_ESIZE );
 
+  /* Extract root */
+  void *x = XLALHeapExtractRoot( h );
+  XLAL_CHECK( x != NULL, XLAL_EFUNC );
+
   /* Free memory associated with root element, if required */
   if ( h->dtor != NULL ) {
-    h->dtor( h->data[0] );
-  }
-
-  /* Replace root with last element in binary heap, and trickle down to restore heap property */
-  h->data[0] = h->data[--h->n];
-  heap_trickle_down( h, 0 );
-
-  /* Resize binary heap; designed so that resizing costs amortized constant time */
-  if ( 3*h->n < h->data_len ) {
-    XLAL_CHECK( heap_resize( h ) == XLAL_SUCCESS, XLAL_EFUNC );
+    h->dtor( x );
   }
 
   return XLAL_SUCCESS;
@@ -271,7 +291,7 @@ int XLALHeapExchangeRoot(
 }
 
 int XLALHeapVisit(
-  const LALHeap *h,
+  LALHeap *h,
   LALHeapVisitFcn visit,
   void *visit_param
   )
@@ -291,11 +311,20 @@ int XLALHeapVisit(
     XLAL_CHECK( XLALHeapAdd( h2, &x ) == XLAL_SUCCESS, XLAL_EFUNC );
   }
 
-  /* Visit root element of internal min-heap and remove, until empty */
+  /* Remove all elements from original heap */
+  h->n = 0;
+
+  /* Extract roots element of internal min-heap, until empty */
   while ( h2->n > 0 ) {
-    const void *x = XLALHeapRoot( h2 );
+    void *x = XLALHeapExtractRoot( h2 );
+    XLAL_CHECK( x != NULL, XLAL_EFUNC );
+
+    /* Visit element, possibly modifying it */
     XLAL_CHECK( visit( visit_param, x ) == XLAL_SUCCESS, XLAL_EFUNC );
-    XLAL_CHECK( XLALHeapRemoveRoot( h2 ) == XLAL_SUCCESS, XLAL_EFUNC );
+
+    /* Add element back to original heap */
+    XLAL_CHECK( XLALHeapAdd( h, &x ) == XLAL_SUCCESS, XLAL_EFUNC );
+
   }
 
   /* Cleanup */

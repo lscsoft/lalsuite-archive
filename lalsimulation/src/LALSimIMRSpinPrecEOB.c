@@ -2436,11 +2436,11 @@ int XLALSimIMRSpinEOBWaveformAll(
     h2m2TSHi  = XLALCreateCOMPLEX16TimeSeries( "H_2m2", &tc, 0.0, deltaTHigh, &lalStrainUnit, retLenHi );
 
     /* OPTV3: Spherical Harmonic calculation moved to here */
-    Y22 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, 2 );
-    Y2m2 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, -2 );
-    Y21 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, 1 );
-    Y2m1 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, -1 );
-    Y20 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, 0 );
+    Y22 = XLALSpinWeightedSphericalHarmonic( inc, -phiC, -2, 2, 2 );
+    Y2m2 = XLALSpinWeightedSphericalHarmonic( inc,-phiC, -2, 2, -2 );
+    Y21 = XLALSpinWeightedSphericalHarmonic( inc, -phiC, -2, 2, 1 );
+    Y2m1 = XLALSpinWeightedSphericalHarmonic( inc, -phiC, -2, 2, -1 );
+    Y20 = XLALSpinWeightedSphericalHarmonic( inc, -phiC, -2, 2, 0 );
     COMPLEX16 Y[5]={Y2m2,Y2m1,Y20,Y21,Y22};
 
     /* OPTV3: Generate the low and high sampling waveforms. */
@@ -3969,11 +3969,11 @@ int XLALSimIMRSpinEOBWaveformAll(
      * the azimuthal phase of the observer in the source (I-)frame. Together with inclination angle it defines
      * the position of the observer in the (I-)frame associated with the source at t=0 */
 
-    Y22 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, 2 );
-    Y2m2 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, -2 );
-    Y21 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, 1 );
-    Y2m1 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, -1 );
-    Y20 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, 0 );
+    Y22 = XLALSpinWeightedSphericalHarmonic( inc, -phiC, -2, 2, 2 );
+    Y2m2 = XLALSpinWeightedSphericalHarmonic( inc, -phiC, -2, 2, -2 );
+    Y21 = XLALSpinWeightedSphericalHarmonic( inc, -phiC, -2, 2, 1 );
+    Y2m1 = XLALSpinWeightedSphericalHarmonic( inc, -phiC, -2, 2, -1 );
+    Y20 = XLALSpinWeightedSphericalHarmonic( inc, -phiC, -2, 2, 0 );
     /*if ( SpinsAlmostAligned ) {
       Y22 = XLALSpinWeightedSphericalHarmonic( inc, coa_phase_offset, -2, 2, 2 );
       Y2m2 = XLALSpinWeightedSphericalHarmonic( inc, coa_phase_offset, -2, 2, -2 );

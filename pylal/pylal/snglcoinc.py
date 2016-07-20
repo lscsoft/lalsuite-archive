@@ -46,7 +46,6 @@ import random
 from scipy.constants import c as speed_of_light
 import scipy.optimize
 import sys
-import threading
 import warnings
 
 
@@ -1171,7 +1170,7 @@ class CoincSynthesizer(object):
 		"""
 		Generator to yield time shifted coincident event tuples
 		without the use of explicit time shift vectors.  This
-		generator can only be used if the eventlists dicctionary
+		generator can only be used if the eventlists dictionary
 		with which this object was initialized contained lists of
 		event objects and not merely counts of events.
 
@@ -1455,41 +1454,33 @@ class TOATriangulator(object):
 
 
 #
-# A look-up table used to convert instrument names to powers of 2.  Why?
-# To create a bidirectional mapping between combinations of instrument
-# names and integers so we can use a pylal.rate style binning for the
-# instrument combinations.  This has to be used because pylal.rate's native
-# Categories binning cannot be serialized to XML.
+# A binning for instrument combinations
 #
-# FIXME:  allow pylal.rate's Categories binning to be serialized to XML and
-# get rid of this crap
+# FIXME:  we decided that the coherent and null stream naming convention
+# would look like
+#
+# H1H2:LSC-STRAIN_HPLUS, H1H2:LSC-STRAIN_HNULL
+#
+# and so on.  i.e., the +, x and null streams from a coherent network would
+# be different channels from a single instrument whose name would be the
+# mash-up of the names of the instruments in the network.  that is
+# inconsisntent with the "H1H2+", "H1H2-" shown here, so this needs to be
+# fixed but I don't know how.  maybe it'll go away before it needs to be
+# fixed.
 #
 
 
-class InstrumentCategories(dict):
-	def __init__(self):
-		# FIXME:  we decided that the coherent and null stream
-		# naming convention would look like
-		#
-		# H1H2:LSC-STRAIN_HPLUS, H1H2:LSC-STRAIN_HNULL
-		#
-		# and so on.  i.e., the +, x and null streams from a
-		# coherent network would be different channels from a
-		# single instrument whose name would be the mash-up of the
-		# names of the instruments in the network.  that is
-		# inconsisntent with the "H1H2+", "H1H2-" shown here, so
-		# this needs to be fixed but I don't know how.  maybe it'll
-		# go away before it needs to be fixed.
-		self.update(dict((instrument, 1 << n) for n, instrument in enumerate(("G1", "H1", "H2", "H1H2+", "H1H2-", "L1", "V1", "E1", "E2", "E3", "E0"))))
+def InstrumentBins(names = ("E0", "E1", "E2", "E3", "G1", "H1", "H2", "H1H2+", "H1H2-", "L1", "V1")):
+	"""
+	Example:
 
-	def max(self):
-		return sum(self.values())
-
-	def category(self, instruments):
-		return sum(self[instrument] for instrument in instruments)
-
-	def instruments(self, category):
-		return set(instrument for instrument, factor in self.items() if category & factor)
+	>>> x = InstrumentBins()
+	>>> x[frozenset(("H1", "L1"))]
+	55
+	>>> x.centres()[55]
+	frozenset(['H1', 'L1'])
+	"""
+	return rate.HashableBins(frozenset(combo) for n in range(len(names) + 1) for combo in iterutils.choices(names, n))
 
 
 #
@@ -1579,7 +1570,7 @@ class CoincParamsDistributions(object):
 		self.injection_lnpdf_interp = {}
 		self.process_id = process_id
 
-	def _rebuild_interpolators(self):
+	def _rebuild_interpolators(self, keys = None):
 		"""
 		Initialize the interp dictionaries from the discretely
 		sampled PDF data.  For internal use only.
@@ -1587,6 +1578,10 @@ class CoincParamsDistributions(object):
 		self.zero_lag_lnpdf_interp.clear()
 		self.background_lnpdf_interp.clear()
 		self.injection_lnpdf_interp.clear()
+		# if a specific set of keys wasn't given, do them all
+		if keys is None:
+			keys = set(self.zero_lag_pdf)
+		# build interpolators for the requested keys
 		def mkinterp(binnedarray):
 			with numpy.errstate(invalid = "ignore"):
 				assert not (binnedarray.array < 0.).any()
@@ -1595,11 +1590,14 @@ class CoincParamsDistributions(object):
 				binnedarray.array = numpy.log(binnedarray.array)
 			return rate.InterpBinnedArray(binnedarray, fill_value = NegInf)
 		for key, binnedarray in self.zero_lag_pdf.items():
-			self.zero_lag_lnpdf_interp[key] = mkinterp(binnedarray)
+			if key in keys:
+				self.zero_lag_lnpdf_interp[key] = mkinterp(binnedarray)
 		for key, binnedarray in self.background_pdf.items():
-			self.background_lnpdf_interp[key] = mkinterp(binnedarray)
+			if key in keys:
+				self.background_lnpdf_interp[key] = mkinterp(binnedarray)
 		for key, binnedarray in self.injection_pdf.items():
-			self.injection_lnpdf_interp[key] = mkinterp(binnedarray)
+			if key in keys:
+				self.injection_lnpdf_interp[key] = mkinterp(binnedarray)
 
 	@staticmethod
 	def addbinnedarrays(rate_target_dict, rate_source_dict, pdf_target_dict, pdf_source_dict):

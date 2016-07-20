@@ -47,6 +47,7 @@ from scipy import stats
 import matplotlib
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt
+import cbcBayesPlotSpinDisk as cbcdiskspin
 
 # Default font properties
 fig_width_pt = 246  # Get this from LaTeX using \showthe\columnwidth
@@ -185,6 +186,29 @@ def multipleFileCB(opt, opt_str, value, parser):
         args = oldargs
     setattr(parser.values, opt.dest, args)
 
+def dict2html(d,parent=None):
+    if not d: return ""
+    out=bppu.htmlChunk('div',parent=parent)
+    tab=out.tab()
+    row=out.insert_row(tab)
+    for key in d.keys():
+        out.insert_td(row,str(key))
+    row2=out.insert_row(tab)
+    for val in d.values():
+        out.insert_td(row2,str(val))
+    return out
+
+def extract_hdf5_metadata(h5grp,parent=None):
+    import h5py
+    #out=bppu.htmlChunk('div',parent=parent)
+    sec=bppu.htmlSection(h5grp.name,htmlElement=parent)
+    dict2html(h5grp.attrs,parent=sec)
+    for group in h5grp:
+        if(isinstance(h5grp[group],h5py.Group)):
+            extract_hdf5_metadata(h5grp[group],sec)
+    return h5grp
+
+
 def cbcBayesPostProc(
                         outdir,data,oneDMenus,twoDGreedyMenu,GreedyRes,
                         confidence_levels,twoDplots,
@@ -277,6 +301,9 @@ def cbcBayesPostProc(
         commonResultsObj=peparser.parse(data[0])
         thefile=open(data[0],'r')
         votfile=thefile.read()
+    elif '.hdf' in data[0] or '.h5' in data[0]:
+        peparser = bppu.PEOutputParser('hdf5')
+        commonResultsObj = peparser.parse(data[0])
     else:
         peparser=bppu.PEOutputParser('common')
         commonResultsObj=peparser.parse(open(data[0],'r'),info=[header,None])
@@ -350,7 +377,7 @@ def cbcBayesPostProc(
     #Create an instance of the posterior class using the posterior values loaded
     #from the file and any injection information (if given).
     pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection,inj_spin_frame=inj_spin_frame, injFref=injFref,SnglInpiralList=triggers,votfile=votfile)
-  
+ 
     #Create analytic likelihood functions if covariance matrices and mean vectors were given
     analyticLikelihood = None
     if covarianceMatrices and meanVectors:
@@ -420,6 +447,10 @@ def cbcBayesPostProc(
     max_pos,max_pos_co=pos.maxL
     print max_pos_co
 
+    # Save posterior samples
+    posfilename=os.path.join(outdir,'posterior_samples.dat')
+    pos.write_to_file(posfilename)
+    
     #==================================================================#
     #Create web page
     #==================================================================#
@@ -449,6 +480,13 @@ def cbcBayesPostProc(
     SampsStats.p(filenames)
     td=html_meta.insert_td(row,'',label='SummaryLinks')
     legend=html.add_section_to_element('Sections',td)
+    
+    # Create a section for HDF5 metadata if available
+    if '.h5' in data[0] or '.hdf' in data[0]:
+        html_hdf=html.add_section('Metadata',legend=legend)
+        import h5py
+        with h5py.File(data[0],'r') as h5grp:
+            extract_hdf5_metadata(h5grp,parent=html_hdf)
     
     #Create a section for model selection results (if they exist)
     if bayesfactornoise is not None:
@@ -620,6 +658,18 @@ def cbcBayesPostProc(
       wfsection=html.add_section_to_element('Calibration',wftd)
       bppu.plot_calibration_pos(pos, outpath=outdir)
       wfsection.write('<a href="calibration.png" target="_blank"><img src="calibration.png"/></a>')
+     # if precessing spins do spin disk
+    allin=1.0
+    for i in ['a1','tilt_spin1','a2','tilt_spin2']:
+      if not i in pos.names:
+        allin*=0.0
+    if allin ==0.0:
+      pass
+    else:
+      wftd=html_wf.insert_td(row,'',label='DiskPlot',legend=legend)
+      wfsection=html.add_section_to_element('DiskPlot',wftd)
+      cbcdiskspin.make_disk_plot(pos, outpath=outdir)
+      wfsection.write('<a href="comp_spin_pos.png" target="_blank"><img src="comp_spin_pos.png"/></a>')
 
     #==================================================================#
     #1D posteriors
@@ -1082,9 +1132,6 @@ def cbcBayesPostProc(
     resultspage=open(os.path.join(outdir,'posplots.html'),'w')
     resultspage.write(str(html))
 
-    # Save posterior samples too...
-    posfilename=os.path.join(outdir,'posterior_samples.dat')
-    pos.write_to_file(posfilename)
 
     #Close files
     resultspage.close()
@@ -1192,6 +1239,9 @@ if __name__=='__main__':
         for mp in massParams:
             for sp in spinParams:
                 twoDGreedyMenu.append([mp,sp])
+        for mp in massParams:
+            for dchi in bppu.tigerParams:
+                twoDGreedyMenu.append([mp,dchi])
         for dp in distParams:
             for sp in snrParams:
                 twoDGreedyMenu.append([dp,sp])
@@ -1220,6 +1270,8 @@ if __name__=='__main__':
                     twoDGreedyMenu.append([sp1, sp2])
         for sp1,sp2 in combinations(spinParams,2):
           twoDGreedyMenu.append([sp1, sp2])
+        for dc1,dc2 in combinations(bppu.tigerParams,2):
+            twoDGreedyMenu.append([dc1,dc2])
         for mp in massParams:
              for tp in tidalParams:
                  if not (mp == tp):
