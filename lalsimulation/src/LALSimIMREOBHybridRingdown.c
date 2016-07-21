@@ -935,6 +935,12 @@ static UNUSED INT4 XLALSimIMREOBAttachFitRingdown(
     ampcf2 = A2coeff00  + A2coeff01*chi  + A2coeff10*eta  + A2coeff11*eta*chi  + A2coeff20*eta*eta  + 
         A2coeff21*eta*eta*chi;
 
+//    printf("creal(sigma220), 2.*ampcf1*tanh(ampcf2) = %.16e %.16e\n",1./creal(sigma220), 2.*ampcf1*tanh(ampcf2));
+    if (  creal(sigma220) > 2.*ampcf1*tanh(ampcf2) ) {
+        ampcf1 = creal(sigma220)/(2.*tanh(ampcf2));
+    }
+
+ 
     REAL8 P1coeff00 = 0.147584;
     REAL8 P1coeff01 = 0.00779176;
     REAL8 P1coeff02 = -0.0244358;
