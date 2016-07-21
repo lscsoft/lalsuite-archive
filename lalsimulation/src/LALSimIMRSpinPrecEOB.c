@@ -1658,10 +1658,6 @@ int XLALSimIMRSpinEOBWaveformAll(
 
         if (use_optimized)
         {
-          REAL8 s1z, s2z;
-          s1z = spin1[2]*(m1*m1/mTotal/mTotal);
-          s2z = spin2[2]*(m2*m2/mTotal/mTotal);
-
           REAL8 *timeEOMLow, *rVecEOMLow, *phiVecEOMLow, *prVecEOMLow, *pPhiVecEOMLow;
           timeEOMLow      = dynamicsV2EOMLo->data;
           rVecEOMLow      = dynamicsV2EOMLo->data+retLenEOMLow;
@@ -1681,58 +1677,40 @@ int XLALSimIMRSpinEOBWaveformAll(
             dynamicsEOMLo->data[6*retLenEOMLow + i] = 0.;
             dynamicsEOMLo->data[7*retLenEOMLow + i] = 0.;
             dynamicsEOMLo->data[8*retLenEOMLow + i] = 0.;
-            dynamicsEOMLo->data[9*retLenEOMLow + i] = s1z;
+            dynamicsEOMLo->data[9*retLenEOMLow + i] = spin1[2]*(m1*m1/mTotal/mTotal);
             dynamicsEOMLo->data[10*retLenEOMLow + i] = 0.;
             dynamicsEOMLo->data[11*retLenEOMLow + i] = 0.;
-            dynamicsEOMLo->data[12*retLenEOMLow + i] = s2z;
+            dynamicsEOMLo->data[12*retLenEOMLow + i] = spin2[2]*(m2*m2/mTotal/mTotal);
             dynamicsEOMLo->data[13*retLenEOMLow + i] = phiVecEOMLow[i];
             dynamicsEOMLo->data[14*retLenEOMLow + i] = 0.;
           }
-          for (i = 0; i < retLenLow; i++)
-          {
-            dynamics->data[i] = tVec.data[i];
-            dynamics->data[retLenLow + i] = rVec.data[i]*cos(phiVec.data[i]);
-            dynamics->data[2*retLenLow + i] = rVec.data[i]*sin(phiVec.data[i]);
-            dynamics->data[3*retLenLow + i] = 0.;
-            dynamics->data[4*retLenLow + i] = prVec.data[i]*cos(phiVec.data[i]) - pPhiVec.data[i]/rVec.data[i]*sin(phiVec.data[i]);
-            dynamics->data[5*retLenLow + i] = prVec.data[i]*sin(phiVec.data[i]) + pPhiVec.data[i]/rVec.data[i]*cos(phiVec.data[i]);
-            dynamics->data[6*retLenLow + i] = 0.;
-            dynamics->data[7*retLenLow + i] = 0.;
-            dynamics->data[8*retLenLow + i] = 0.;
-            dynamics->data[9*retLenLow + i] = s1z;
-            dynamics->data[10*retLenLow + i] = 0.;
-            dynamics->data[11*retLenLow + i] = 0.;
-            dynamics->data[12*retLenLow + i] = s2z;
-            dynamics->data[13*retLenLow + i]= phiVec.data[i];
-            dynamics->data[14*retLenLow + i]= 0.;
 
-            posVecxEOMv.length = posVecyEOMv.length = posVeczEOMv.length = tVecEOMv.length = retLenEOMLow;
+          posVecxEOMv.length = posVecyEOMv.length = posVeczEOMv.length = tVecEOMv.length = retLenEOMLow;
 
-            posVecxEOM->data = dynamicsEOMLo->data+retLenEOMLow;
-            posVecyEOM->data = dynamicsEOMLo->data+2*retLenEOMLow;
-            posVeczEOM->data = dynamicsEOMLo->data+3*retLenEOMLow;
-            tVecEOM->data =  dynamicsEOMLo->data;
-          }
-        } else {
-          for (i = 0; i < retLenLow; i++)
-          {
-              dynamics->data[i] = tVec.data[i];
-              dynamics->data[retLenLow + i] = rVec.data[i]*cos(phiVec.data[i]);
-              dynamics->data[2*retLenLow + i] = rVec.data[i]*sin(phiVec.data[i]);
-              dynamics->data[3*retLenLow + i] = 0.;
-              dynamics->data[4*retLenLow + i] = prVec.data[i]*cos(phiVec.data[i]) - pPhiVec.data[i]/rVec.data[i]*sin(phiVec.data[i]);
-              dynamics->data[5*retLenLow + i] = prVec.data[i]*sin(phiVec.data[i]) + pPhiVec.data[i]/rVec.data[i]*cos(phiVec.data[i]);
-              dynamics->data[6*retLenLow + i] = 0.;
-              dynamics->data[7*retLenLow + i] = 0.;
-              dynamics->data[8*retLenLow + i] = 0.;
-              dynamics->data[9*retLenLow + i] = spin1[2]*(m1*m1/mTotal/mTotal);
-              dynamics->data[10*retLenLow + i] = 0.;
-              dynamics->data[11*retLenLow + i] = 0.;
-              dynamics->data[12*retLenLow + i] = spin2[2]*(m2*m2/mTotal/mTotal);
-              dynamics->data[13*retLenLow + i]= phiVec.data[i];
-              dynamics->data[14*retLenLow + i]= 0.;
-          }
+          posVecxEOM->data = dynamicsEOMLo->data+retLenEOMLow;
+          posVecyEOM->data = dynamicsEOMLo->data+2*retLenEOMLow;
+          posVeczEOM->data = dynamicsEOMLo->data+3*retLenEOMLow;
+          tVecEOM->data =  dynamicsEOMLo->data;
         }
+
+        for (i = 0; i < retLenLow; i++) {
+          dynamics->data[i] = tVec.data[i];
+          dynamics->data[retLenLow + i] = rVec.data[i]*cos(phiVec.data[i]);
+          dynamics->data[2*retLenLow + i] = rVec.data[i]*sin(phiVec.data[i]);
+          dynamics->data[3*retLenLow + i] = 0.;
+          dynamics->data[4*retLenLow + i] = prVec.data[i]*cos(phiVec.data[i]) - pPhiVec.data[i]/rVec.data[i]*sin(phiVec.data[i]);
+          dynamics->data[5*retLenLow + i] = prVec.data[i]*sin(phiVec.data[i]) + pPhiVec.data[i]/rVec.data[i]*cos(phiVec.data[i]);
+          dynamics->data[6*retLenLow + i] = 0.;
+          dynamics->data[7*retLenLow + i] = 0.;
+          dynamics->data[8*retLenLow + i] = 0.;
+          dynamics->data[9*retLenLow + i] = spin1[2]*(m2*m2/mTotal/mTotal);
+          dynamics->data[10*retLenLow + i] = 0.;
+          dynamics->data[11*retLenLow + i] = 0.;
+          dynamics->data[12*retLenLow + i] = spin2[2]*(m2*m2/mTotal/mTotal);
+          dynamics->data[13*retLenLow + i]= phiVec.data[i];
+          dynamics->data[14*retLenLow + i]= 0.;
+        }
+
     } else {
       if(use_optimized){
         retLenEOMLow = XLALAdaptiveRungeKutta4_no_interpolate_SaveD(integrator, &seobParams, values->data, 0., 20./mTScaled, deltaT/mTScaled, &dynamicsEOMLo );
@@ -1753,7 +1731,6 @@ int XLALSimIMRSpinEOBWaveformAll(
         posVeczEOM->data = dynamicsEOMLo->data+3*retLenEOMLow;
         tVecEOM->data =  dynamicsEOMLo->data;
       }else{
-
         retLen = XLALAdaptiveRungeKutta4( integrator, &seobParams, values->data,
                                           0., 20./mTScaled, deltaT/mTScaled, &dynamics );
         retLenLow = retLen;
@@ -1890,7 +1867,7 @@ int XLALSimIMRSpinEOBWaveformAll(
 
     seobParams.alignedSpins = 0;
         
-    if ( (use_optimized && retLenHi == XLAL_FAILURE) || (retLenHi == XLAL_FAILURE) )
+    if ( (use_optimized && retLenEOMHi == XLAL_FAILURE) || (retLenHi == XLAL_FAILURE) )
       {
         XLALDestroyREAL8Vector( sigmaKerr );
         XLALDestroyREAL8Vector( sigmaStar );
@@ -1917,10 +1894,6 @@ int XLALSimIMRSpinEOBWaveformAll(
     dynamicsHi = XLALCreateREAL8ArrayL( 2, 15, (UINT4)retLenHi );
 
     if (use_optimized) {
-      REAL8 s1z, s2z;
-      s1z = spin1[2]*(m1*m1/mTotal/mTotal);
-      s2z = spin2[2]*(m2*m2/mTotal/mTotal);
-
       REAL8 *timeEOMHi, *rVecEOMHi, *phiVecEOMHi, *prVecEOMHi, *pPhiVecEOMHi;
       timeEOMHi      = dynamicsV2EOMHi->data;
       rVecEOMHi      = dynamicsV2EOMHi->data+retLenEOMHi;
@@ -1939,50 +1912,32 @@ int XLALSimIMRSpinEOBWaveformAll(
         dynamicsEOMHi->data[6*retLenEOMHi + i] = 0.;
         dynamicsEOMHi->data[7*retLenEOMHi + i] = 0.;
         dynamicsEOMHi->data[8*retLenEOMHi + i] = 0.;
-        dynamicsEOMHi->data[9*retLenEOMHi + i] = s1z;
+        dynamicsEOMHi->data[9*retLenEOMHi + i] = spin1[2]*(m1*m1/mTotal/mTotal);
         dynamicsEOMHi->data[10*retLenEOMHi + i] = 0.;
         dynamicsEOMHi->data[11*retLenEOMHi + i] = 0.;
-        dynamicsEOMHi->data[12*retLenEOMHi + i] = s2z;
+        dynamicsEOMHi->data[12*retLenEOMHi + i] = spin2[2]*(m2*m2/mTotal/mTotal);
         dynamicsEOMHi->data[13*retLenEOMHi + i] = phiVecEOMHi[i];
         dynamicsEOMHi->data[14*retLenEOMHi + i] = 0.;
       }
-
-      for (i = 0; i < retLenHi; i++) {
-        dynamicsHi->data[i] = timeHi.data[i];
-        dynamicsHi->data[retLenHi + i]   = rVecHi.data[i]*cos(phiVecHi.data[i]);
-        dynamicsHi->data[2*retLenHi + i] = rVecHi.data[i]*sin(phiVecHi.data[i]);
-        dynamicsHi->data[3*retLenHi + i] = 0.;
-        dynamicsHi->data[4*retLenHi + i] = prVecHi.data[i]*cos(phiVecHi.data[i]) - pPhiVecHi.data[i]/rVecHi.data[i]*sin(phiVecHi.data[i]);
-        dynamicsHi->data[5*retLenHi + i] = prVecHi.data[i]*sin(phiVecHi.data[i]) + pPhiVecHi.data[i]/rVecHi.data[i]*cos(phiVecHi.data[i]);
-        dynamicsHi->data[6*retLenHi + i] = 0.;
-        dynamicsHi->data[7*retLenHi + i] = 0.;
-        dynamicsHi->data[8*retLenHi + i] = 0.;
-        dynamicsHi->data[9*retLenHi + i] = s1z;
-        dynamicsHi->data[10*retLenHi + i] = 0.;
-        dynamicsHi->data[11*retLenHi + i] = 0.;
-        dynamicsHi->data[12*retLenHi + i] = s2z;
-        dynamicsHi->data[13*retLenHi + i] = phiVecHi.data[i];
-        dynamicsHi->data[14*retLenHi + i]  = 0.;
-      }
-
-    }else{
-      for (i = 0; i < retLenHi; i++) {
-        dynamicsHi->data[i] = timeHi.data[i];
-        dynamicsHi->data[retLenHi + i] = rVecHi.data[i]*cos(phiVecHi.data[i]);
-        dynamicsHi->data[2*retLenHi + i]  = rVecHi.data[i]*sin(phiVecHi.data[i]);
-        dynamicsHi->data[3*retLenHi + i] = 0.;
-        dynamicsHi->data[4*retLenHi + i] = prVecHi.data[i]*cos(phiVecHi.data[i]) - pPhiVecHi.data[i]/rVecHi.data[i]*sin(phiVecHi.data[i]);
-        dynamicsHi->data[5*retLenHi + i] = prVecHi.data[i]*sin(phiVecHi.data[i]) + pPhiVecHi.data[i]/rVecHi.data[i]*cos(phiVecHi.data[i]);
-        dynamicsHi->data[6*retLenHi + i] = 0.;
-        dynamicsHi->data[7*retLenHi + i] = 0.;
-        dynamicsHi->data[8*retLenHi + i] = 0.;
-        dynamicsHi->data[9*retLenHi + i] = spin1[2]*(m1*m1/mTotal/mTotal);
-        dynamicsHi->data[10*retLenHi + i] = 0.;
-        dynamicsHi->data[11*retLenHi + i] = 0.;
-        dynamicsHi->data[12*retLenHi + i] = spin2[2]*(m2*m2/mTotal/mTotal);
-        dynamicsHi->data[13*retLenHi + i]= phiVecHi.data[i];
-        dynamicsHi->data[14*retLenHi + i]  = 0.;
-      }
+    }
+    for (i = 0; i < retLenHi; i++) {
+      dynamicsHi->data[i] = timeHi.data[i];
+      dynamicsHi->data[retLenHi + i]   = rVecHi.data[i]*cos(phiVecHi.data[i]);
+      dynamicsHi->data[2*retLenHi + i] = rVecHi.data[i]*sin(phiVecHi.data[i]);
+      dynamicsHi->data[3*retLenHi + i] = 0.;
+      dynamicsHi->data[4*retLenHi + i] = prVecHi.data[i]*cos(phiVecHi.data[i]) - pPhiVecHi.data[i]/rVecHi.data[i]*sin(phiVecHi.data[i]);
+      dynamicsHi->data[5*retLenHi + i] = prVecHi.data[i]*sin(phiVecHi.data[i]) + pPhiVecHi.data[i]/rVecHi.data[i]*cos(phiVecHi.data[i]);
+      dynamicsHi->data[6*retLenHi + i] = 0.;
+      dynamicsHi->data[7*retLenHi + i] = 0.;
+      dynamicsHi->data[8*retLenHi + i] = 0.;
+      dynamicsHi->data[9*retLenHi + i] = spin1[2]*(m2*m2/mTotal/mTotal);
+      dynamicsHi->data[10*retLenHi + i] = 0.;
+      dynamicsHi->data[11*retLenHi + i] = 0.;
+      dynamicsHi->data[12*retLenHi + i] = spin2[2]*(m2*m2/mTotal/mTotal);
+      dynamicsHi->data[13*retLenHi + i] = phiVecHi.data[i];
+      dynamicsHi->data[14*retLenHi + i]  = 0.;
+    }
+    if(!use_optimized) {
       retLenHi = retLen;
     }
   }else{
@@ -2660,8 +2615,7 @@ int XLALSimIMRSpinEOBWaveformAll(
       if (debugPK){
         XLAL_PRINT_INFO("maximum of Amplitude or dot{Ampl} are not found \n");
       }
-    }
-    else{
+    }else{
       if (debugPK){
         XLAL_PRINT_INFO("The Amplitude-related time is found and it's %f \n", tAmpMax);
       }

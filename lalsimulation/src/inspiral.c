@@ -338,16 +338,16 @@ int output_td_waveform(REAL8TimeSeries * h_plus, REAL8TimeSeries * h_cross, stru
         for (j = 0; j < phi->length; ++j)
             phi->data[j] -= phi0;
 
-	//        fprintf(stdout, "# time (s)\th_abs (strain)\t h_arg (rad)\n");
+	fprintf(stdout, "# time (s)\th_abs (strain)\t h_arg (rad)\n");
         for (j = 0; j < h_plus->data->length; ++j)
-            fprintf(stdout, "%.15e\t%.15e\t%.15e\n", t0 + j * h_plus->deltaT, amp->data[j], phi->data[j]);
+            fprintf(stdout, "%.9f\t%e\t%e\n", t0 + j * h_plus->deltaT, amp->data[j], phi->data[j]);
 
         XLALDestroyREAL8Sequence(phi);
         XLALDestroyREAL8Sequence(amp);
     } else {
-      //        fprintf(stdout, "# time (s)\th_+ (strain)\th_x (strain)\n");
+        fprintf(stdout, "# time (s)\th_+ (strain)\th_x (strain)\n");
         for (j = 0; j < h_plus->data->length; ++j)
-            fprintf(stdout, "%.15e\t%.15e\t%.15e\n", t0 + j * h_plus->deltaT, h_plus->data->data[j], h_cross->data->data[j]);
+            fprintf(stdout, "%.9f\t%e\t%e\n", t0 + j * h_plus->deltaT, h_plus->data->data[j], h_cross->data->data[j]);
     }
     return 0;
 }
