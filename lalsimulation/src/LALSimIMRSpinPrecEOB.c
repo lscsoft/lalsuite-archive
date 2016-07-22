@@ -3641,9 +3641,7 @@ int XLALSimIMRSpinEOBWaveformAll(
      fflush(NULL);
   }
 
-  int idxRD;
-  SphHarmTimeSeries  *hMRJlo = NULL;
-
+  int idxRD = 0;
 
   /*** attach hi sampling part and resample  */
   if(use_optimized) { // David: making big, similar sections conditional here to avaoid placing conditionals in for-loops and slowing down the program
@@ -3651,123 +3649,102 @@ int XLALSimIMRSpinEOBWaveformAll(
       if (i*deltaT/mTScaled > rdMatchPoint->data[1]+HiSRstart) break;//Andrea
     }
     idxRD = i; //Andrea //OPTV3: Resampling begins at idxRD
-    COMPLEX16TimeSeries * hMRJlo2m = XLALCreateCOMPLEX16TimeSeries( "HMRJLO2K", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow-idxRD );
+    hIMRJTS = XLALCreateCOMPLEX16TimeSeries( "HMRJLO2K", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow-idxRD );
     *hIMRlmJTSHiOutput = hIMRlmJTSHi;
-    for ( k = 2; k > -3; k-- )
-      {
-        spline = gsl_spline_alloc( gsl_interp_cspline, retLenHi + retLenRDPatchHi );
-        acc    = gsl_interp_accel_alloc();
-        hIMRJTS2mHi = XLALSphHarmTimeSeriesGetMode( hIMRlmJTSHi, 2, k );
-        for ( i = 0; i < retLenHi + retLenRDPatchHi; i++ )
-          {
-            sigReHi->data[i] = creal(hIMRJTS2mHi->data->data[i]);
-            sigImHi->data[i] = cimag(hIMRJTS2mHi->data->data[i]);
-          }
-        /* recycling h20PTS */
-        gsl_spline_init( spline, tlistRDPatchHi->data, sigReHi->data, retLenHi + retLenRDPatchHi);
-        //     for (i = retLenLow-4; i< retLenLow+retLenRDPatchLow; i++){
-        //          hIMRJTS->data->data[i] = gsl_spline_eval( spline, tlistRDPatch->data[i], acc );
-        //Andrea
-        for (i = idxRD; i< retLenLow+retLenRDPatchLow; i++){
-          if( i*deltaT/mTScaled <= tlistRDPatchHi->data[ retLenHi + retLenRDPatchHi- 1]) {
-            /* OPTV3: If the end of the high sampling+RD data is not reached then
-             * evaluate the high sampling spline at the desired times */
-            hMRJlo2m->data->data[i-idxRD] = gsl_spline_eval( spline, tlistRDPatch->data[i], acc );
-          }
-          else {
-            hMRJlo2m->data->data[i-idxRD] = 0.;
-          }
-        }
-        gsl_spline_free(spline);
-        gsl_interp_accel_free(acc);
-
-        spline = gsl_spline_alloc( gsl_interp_cspline, retLenHi + retLenRDPatchHi);
-        acc    = gsl_interp_accel_alloc();
-        gsl_spline_init( spline,
-                         tlistRDPatchHi->data, sigImHi->data, retLenHi + retLenRDPatchHi);
-        for (i = idxRD; i< retLenLow+retLenRDPatchLow; i++){
-          if( i*deltaT/mTScaled <= tlistRDPatchHi->data[ retLenHi + retLenRDPatchHi- 1]) {
-            hMRJlo2m->data->data[i-idxRD] += I * gsl_spline_eval( spline, tlistRDPatch->data[i], acc );
-          }
-          else {
-            hMRJlo2m->data->data[i-idxRD] += I*0.;
-          }
-        }
-        gsl_spline_free(spline);
-        gsl_interp_accel_free(acc);
-
-        hMRJlo = XLALSphHarmTimeSeriesAddMode( hMRJlo, hMRJlo2m, 2, k );
-      }
-  } else {
-    for ( k = 2; k > -3; k-- )
-      {
-        hIMRJTS2mHi = XLALSphHarmTimeSeriesGetMode( hIMRlmJTSHi, 2, k );
-        for ( i = 0; i < (int)sigReHi->length; i++ )
-          {
-            sigReHi->data[i] = creal(hIMRJTS2mHi->data->data[i]);
-            sigImHi->data[i] = cimag(hIMRJTS2mHi->data->data[i]);
-          }
-        /* recycling h20PTS */
-        hJTS = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, k );
-        for (i = 0; i< retLenLow; i++){
-          if (i*deltaT/mTScaled > HiSRstart) break;//Andrea
-          hIMRJTS->data->data[i] = hJTS->data->data[i];
-        }
-        idxRD = i; //Andrea
-        spline = gsl_spline_alloc( gsl_interp_cspline, retLenHi + retLenRDPatchHi);
-        acc    = gsl_interp_accel_alloc();
-        gsl_spline_init( spline, tlistRDPatchHi->data, sigReHi->data, retLenHi + retLenRDPatchHi);
-        for (i = idxRD; i< retLenLow+retLenRDPatchLow; i++){
-          if( i*deltaT/mTScaled <= tlistRDPatchHi->data[ retLenHi + retLenRDPatchHi- 1]) {
-            hIMRJTS->data->data[i] = gsl_spline_eval( spline, tlistRDPatch->data[i], acc );
-          }
-          else {
-            hIMRJTS->data->data[i] = 0.;
-          }
-        }
-        gsl_spline_free(spline);
-        gsl_interp_accel_free(acc);
-
-        spline = gsl_spline_alloc( gsl_interp_cspline, retLenHi + retLenRDPatchHi);
-        acc    = gsl_interp_accel_alloc();
-        gsl_spline_init( spline,
-                         tlistRDPatchHi->data, sigImHi->data, retLenHi + retLenRDPatchHi);
-        for (i = idxRD; i< retLenLow+retLenRDPatchLow; i++){
-          if( i*deltaT/mTScaled <= tlistRDPatchHi->data[ retLenHi + retLenRDPatchHi- 1]) {
-            hIMRJTS->data->data[i] += I * gsl_spline_eval( spline, tlistRDPatch->data[i], acc );
-          }
-          else {
-            hIMRJTS->data->data[i] += I*0.;
-          }
-        }
-        gsl_spline_free(spline);
-        gsl_interp_accel_free(acc);
-
-        hIMRlmJTS = XLALSphHarmTimeSeriesAddMode( hIMRlmJTS, hIMRJTS, 2, k );
-      }
   }
+  for ( k = 2; k > -3; k-- ) {
+    hIMRJTS2mHi = XLALSphHarmTimeSeriesGetMode( hIMRlmJTSHi, 2, k );
+    if (use_optimized) {
+      for ( i = 0; i < retLenHi + retLenRDPatchHi; i++ )
+        {
+          sigReHi->data[i] = creal(hIMRJTS2mHi->data->data[i]);
+          sigImHi->data[i] = cimag(hIMRJTS2mHi->data->data[i]);
+        }
+    } else {
+      for ( i = 0; i < (int)sigReHi->length; i++ )
+        {
+          sigReHi->data[i] = creal(hIMRJTS2mHi->data->data[i]);
+          sigImHi->data[i] = cimag(hIMRJTS2mHi->data->data[i]);
+        }
+    }
+    /* recycling h20PTS */
+    if(!use_optimized) {
+      hJTS = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, k );
+      for (i = 0; i< retLenLow; i++){
+        if (i*deltaT/mTScaled > HiSRstart) break;//Andrea
+        hIMRJTS->data->data[i] = hJTS->data->data[i];
+      }
+      idxRD = i;
+    }
+    spline = gsl_spline_alloc( gsl_interp_cspline, retLenHi + retLenRDPatchHi);
+    acc    = gsl_interp_accel_alloc();
+    gsl_spline_init( spline, tlistRDPatchHi->data, sigReHi->data, retLenHi + retLenRDPatchHi);
+    if (use_optimized) {
+      for (i = idxRD; i< retLenLow+retLenRDPatchLow; i++){
+        if( i*deltaT/mTScaled <= tlistRDPatchHi->data[ retLenHi + retLenRDPatchHi- 1]) {
+          /* OPTV3: If the end of the high sampling+RD data is not reached then
+           * evaluate the high sampling spline at the desired times */
+          hIMRJTS->data->data[i-idxRD] = gsl_spline_eval( spline, tlistRDPatch->data[i], acc );
+        }
+        else {
+          hIMRJTS->data->data[i-idxRD] = 0.;
+        }
+      }
+    }else{
+      for (i = idxRD; i< retLenLow+retLenRDPatchLow; i++){
+        if( i*deltaT/mTScaled <= tlistRDPatchHi->data[ retLenHi + retLenRDPatchHi- 1]) {
+          hIMRJTS->data->data[i] = gsl_spline_eval( spline, tlistRDPatch->data[i], acc );
+        }
+        else {
+          hIMRJTS->data->data[i] = 0.;
+        }
+      }
+    }
+    gsl_spline_free(spline);
+    gsl_interp_accel_free(acc);
+
+    spline = gsl_spline_alloc( gsl_interp_cspline, retLenHi + retLenRDPatchHi);
+    acc    = gsl_interp_accel_alloc();
+    gsl_spline_init( spline,
+                     tlistRDPatchHi->data, sigImHi->data, retLenHi + retLenRDPatchHi);
+    if (use_optimized) {
+      for (i = idxRD; i< retLenLow+retLenRDPatchLow; i++){
+        if( i*deltaT/mTScaled <= tlistRDPatchHi->data[ retLenHi + retLenRDPatchHi- 1]) {
+          hIMRJTS->data->data[i-idxRD] += I * gsl_spline_eval( spline, tlistRDPatch->data[i], acc );
+        }
+        else {
+          hIMRJTS->data->data[i-idxRD] += I*0.;
+        }
+      }
+    } else {
+      for (i = idxRD; i< retLenLow+retLenRDPatchLow; i++){
+        if( i*deltaT/mTScaled <= tlistRDPatchHi->data[ retLenHi + retLenRDPatchHi- 1]) {
+          hIMRJTS->data->data[i] += I * gsl_spline_eval( spline, tlistRDPatch->data[i], acc );
+        }
+        else {
+          hIMRJTS->data->data[i] += I*0.;
+        }
+      }
+    }
+    gsl_spline_free(spline);
+    gsl_interp_accel_free(acc);
+
+    hIMRlmJTS = XLALSphHarmTimeSeriesAddMode( hIMRlmJTS, hIMRJTS, 2, k );
+  }
+
   for (i=0; i<(int)tlistRDPatch->length; i++){
       timeJFull->data[i] = tlistRDPatch->data[i];
   }
-  if(use_optimized) { // David: only need this conditional because of diff. variable names
-    XLALSphHarmTimeSeriesSetTData( hMRJlo, timeJFull );
-    if (debugPK){ XLAL_PRINT_INFO("Stas: J-wave with RD  generated.\n"); fflush(NULL); }
 
-    hIMR22JTS  = XLALSphHarmTimeSeriesGetMode( hMRJlo, 2, 2 );
-    hIMR21JTS  = XLALSphHarmTimeSeriesGetMode( hMRJlo, 2, 1 );
-    hIMR20JTS  = XLALSphHarmTimeSeriesGetMode( hMRJlo, 2, 0 );
-    hIMR2m1JTS = XLALSphHarmTimeSeriesGetMode( hMRJlo, 2, -1);
-    hIMR2m2JTS = XLALSphHarmTimeSeriesGetMode( hMRJlo, 2, -2);
-  } else {  
-    XLALSphHarmTimeSeriesSetTData( hIMRlmJTS, timeJFull );
-    if (debugPK){ XLAL_PRINT_INFO("Stas: J-wave with RD  generated.\n"); fflush(NULL); }
+  XLALSphHarmTimeSeriesSetTData( hIMRlmJTS, timeJFull );
+  if (debugPK){ XLAL_PRINT_INFO("Stas: J-wave with RD  generated.\n"); fflush(NULL); }
 
-    hIMR22JTS  = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 2 );
-    hIMR21JTS  = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 1 );
-    hIMR20JTS  = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 0 );
-    hIMR2m1JTS = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, -1);
-    hIMR2m2JTS = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, -2);
-  }
+  hIMR22JTS  = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 2 );
+  hIMR21JTS  = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 1 );
+  hIMR20JTS  = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 0 );
+  hIMR2m1JTS = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, -1);
+  hIMR2m2JTS = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, -2);
+
   if (debugPK){
      out = fopen( "JIMRWaves.dat", "w" );
      for ( i = 0; i < retLenLow + retLenRDPatchLow; i++ )
@@ -3828,7 +3805,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     }
 
     //OPTV3: Rotate Hi modes
-    if ( XLALSimInspiralPrecessionRotateModes( hMRJlo,
+    if ( XLALSimInspiralPrecessionRotateModes( hIMRlmJTS,
                                                alpI, betI, gamI ) == XLAL_FAILURE )
       {
         XLAL_ERROR( XLAL_EFUNC );
@@ -3842,11 +3819,11 @@ int XLALSimIMRSpinEOBWaveformAll(
       }
 
     /**OPTV3: Convert Highly sampled modes to hplus & hcross. Then append.**/
-    hIMR22ITS  = XLALSphHarmTimeSeriesGetMode( hMRJlo, 2, 2 );
-    hIMR21ITS  = XLALSphHarmTimeSeriesGetMode( hMRJlo, 2, 1 );
-    hIMR20ITS  = XLALSphHarmTimeSeriesGetMode( hMRJlo, 2, 0 );
-    hIMR2m1ITS = XLALSphHarmTimeSeriesGetMode( hMRJlo, 2, -1);
-    hIMR2m2ITS = XLALSphHarmTimeSeriesGetMode( hMRJlo, 2, -2);
+    hIMR22ITS  = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 2 );
+    hIMR21ITS  = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 1 );
+    hIMR20ITS  = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 0 );
+    hIMR2m1ITS = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, -1);
+    hIMR2m2ITS = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, -2);
 
     //OPTV3: Put the waveform in hIMRoutput
     *hIMRoutput = XLALSphHarmTimeSeriesAddMode( *hIMRoutput, hIMR22ITS, 2, 2 );
@@ -3972,7 +3949,6 @@ int XLALSimIMRSpinEOBWaveformAll(
     XLAL_PRINT_INFO("plus and cross are computed, freeing the memory\n");
     fflush(NULL);
   }
-    if(use_optimized) {  XLALDestroySphHarmTimeSeries(hMRJlo); /* OPTV3 */ }
     XLALDestroyREAL8TimeSeries(alphaI2PTS);
     XLALDestroyREAL8TimeSeries(betaI2PTS);
     XLALDestroyREAL8TimeSeries(gammaI2PTS);
