@@ -38,8 +38,15 @@ def _add_newdoc_ufunc(func, doc):
     # The function `np.lib.add_newdoc_ufunc` can only change a ufunc's
     # docstring if it is `NULL`. This workaround avoids an exception
     # when the user tries to `reload()` this module.
-    if func.__doc__ is None:
+    try:
         np.lib.add_newdoc_ufunc(func, doc)
+    except ValueError as e:
+        if e.message == 'Cannot change docstring of ufunc with non-NULL docstring':
+            pass
+    except AttributeError as e:
+        # FIXME: workaround for Numpy < 1.7.0. Remove when no longer needed.
+        if e.message == "'module' object has no attribute 'add_newdoc_ufunc'":
+            pass
 
 
 _add_newdoc_ufunc(conditional_pdf, """\
@@ -189,45 +196,6 @@ axis1 : int
     Index of axis to assign to y-coordinate
 R : `numpy.ndarray`
     Rotation matrix as provided by `principal_axes`
-nside : int
-    HEALPix resolution
-nest : bool
-    HEALPix ordering scheme
-prob : `numpy.ndarray`
-    Marginal probability (pix^-2)
-distmu : `numpy.ndarray`
-    Distance location parameter (Mpc)
-distsigma : `numpy.ndarray`
-    Distance scale parameter (Mpc)
-distnorm : `numpy.ndarray`
-    Distance normalization factor (Mpc^-2)
-
-Returns
--------
-image : `numpy.ndarray`
-    Rendered image
-""")
-
-
-_add_newdoc_ufunc(volume_render, """\
-Perform volumetric rendering of a 3D sky map.
-
-Parameters
-----------
-x : `numpy.ndarray`
-    X-coordinate in rendered image
-y : `numpy.ndarray`
-    Y-coordinate in rendered image
-max_distance : float
-    Limit of integration from `-max_distance` to `+max_distance`
-axis0 : int
-    Index of axis to assign to x-coordinate
-axis1 : int
-    Index of axis to assign to y-coordinate
-R : `numpy.ndarray`
-    Rotation matrix as provided by `principal_axes`
-nside : int
-    HEALPix resolution
 nest : bool
     HEALPix ordering scheme
 prob : `numpy.ndarray`
