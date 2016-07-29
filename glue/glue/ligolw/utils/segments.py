@@ -583,6 +583,10 @@ class LigolwSegments(set):
 			for instrument in seglist.instruments:
 				if instrument in result:
 					raise ValueError("multiple '%s' segmentlists for instrument '%s'" % (name, instrument))
+				# make copy so that instruments do not
+				# share a single list, so that subsequent
+				# arithmetic operations do not corrupt the
+				# wrong instrument's segments
 				result[instrument] = segments.segmentlist(segs)
 		if not result:
 			raise KeyError("no segmentlists named '%s'" % name)
