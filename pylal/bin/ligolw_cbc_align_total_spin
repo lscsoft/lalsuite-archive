@@ -40,9 +40,7 @@ from pylal import date
 from pylal import git_version
 from pylal import sphericalutils as su
 from pylal import inject
-from lal import PI as LAL_PI
-from lal import TWOPI as LAL_TWOPI
-from lal import MTSUN_SI as LAL_MTSUN_SI
+import lal
 
 
 #
@@ -56,7 +54,7 @@ def eff_distance(detector, sim):
     Ref: Duncan's PhD thesis, eq. (4.3) on page 57, implemented in
          LALInspiralSiteTimeAndDist in SimInspiralUtils.c:594.
     """
-    f_plus, f_cross = inject.XLALComputeDetAMResponse(detector.response,
+    f_plus, f_cross = lal.ComputeDetAMResponse(detector.response,
         sim.longitude, sim.latitude, sim.polarization, sim.end_time_gmst)
     ci = math.cos(sim.inclination)
     s_plus = -(1 + ci * ci)
@@ -104,7 +102,7 @@ def alignTotalSpin(iota, s1, s2, m1, m2, f_lower):
     news2 = su.rotate_about_axis(s2, Lhat, -phiOutPlane)
 
     # Compute total angular momentum, which now must be in the XZ plane
-    angmomfac = m1 * m2 * (LAL_PI * LAL_MTSUN_SI * (m1 + m2) * f_lower)**(-1.0/3.0)
+    angmomfac = m1 * m2 * (lal.PI * lal.MTSUN_SI * (m1 + m2) * f_lower)**(-1.0/3.0)
     J = angmomfac * Lhat + m1sq * news1 + m2sq * news2
     iotaJ = np.arctan2(J[0], J[2])
 
