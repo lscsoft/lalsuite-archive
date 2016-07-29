@@ -246,8 +246,15 @@ def delay_and_amplitude_correct(event, ra, dec):
 
 	delay = date.XLALTimeDelayFromEarthCenter(detector.location, ra, dec, event.peak)
 	event.peak -= delay
-	event.start -= delay
-	event.ms_start -= delay
+	event.period = event.period.shift(-delay)
+	try:
+		event.ms_peak -= delay
+	except AttributeError:
+		pass
+	try:
+		event.ms_period = event.ms_period.shift(-delay)
+	except AttributeError:
+		pass
 
 	# amplitude-correct the event using the polarization-averaged
 	# antenna response
