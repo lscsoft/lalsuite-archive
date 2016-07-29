@@ -1400,7 +1400,6 @@ int XLALSimInspiralChooseFDWaveform(
     if (nonGRparams!=NULL) {
       if (XLALSimInspiralTestGRParamExists(nonGRparams, "loglambda_g")) ret = XLALSimMassiveGravitonDispersionEffect(hptilde, hctilde, m1/LAL_MSUN_SI, m2/LAL_MSUN_SI, r, pow(10, XLALSimInspiralGetTestGRParam(nonGRparams, "loglambda_g")));
       else if (XLALSimInspiralTestGRParamExists(nonGRparams, "lambda_g")) ret = XLALSimMassiveGravitonDispersionEffect(hptilde, hctilde, m1/LAL_MSUN_SI, m2/LAL_MSUN_SI, r, XLALSimInspiralGetTestGRParam(nonGRparams, "lambda_g"));
-/*the following 2 conditions are added by A. Samajdar (anuradha1115@iiserkol.ac.in)*/
       else if (XLALSimInspiralTestGRParamExists(nonGRparams, "loglambda_a_eff")) ret = XLALSimLorentzInvarianceViolationTerm(hptilde, hctilde, m1/LAL_MSUN_SI, m2/LAL_MSUN_SI, r, pow(10, XLALSimInspiralGetTestGRParam(nonGRparams, "loglambda_a_eff")), XLALSimInspiralGetTestGRParam(nonGRparams, "nonGR_alpha")); 
       else if (XLALSimInspiralTestGRParamExists(nonGRparams, "lambda_a_eff")) ret = XLALSimLorentzInvarianceViolationTerm(hptilde, hctilde, m1/LAL_MSUN_SI, m2/LAL_MSUN_SI, r, XLALSimInspiralGetTestGRParam(nonGRparams, "lambda_a_eff"), XLALSimInspiralGetTestGRParam(nonGRparams, "nonGR_alpha")); 
       if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);	
@@ -4521,56 +4520,13 @@ int XLALSimMassiveGravitonDispersionEffect(
   return XLAL_SUCCESS;
 }
 
-/* Started to make changes to include Lorentz invariance violation terms */
-
-
-/*REAL8 XLALDistanceAlphaIntegrand(
-                       	          REAL8 zp, 
-                                  void *paramsDAlpha) 
-{
-  dAlphaPars *dpars = (dAlphaPars *)paramsDAlpha;
-  //double Omega_m = dpars->Omega_m;
-  //double Omega_lambda = dpars->Omega_lambda;
-  //REAL8 nonGRalpha = dpars->nonGR_alpha;
-  return pow((1.0+zp), dpars->nonGR_alpha-2.0)/sqrt(dpars->Omega_m*pow((1.0+zp),3.0) + dpars->Omega_lambda);
-}
-REAL8 XLALDistanceMeasureLIV(
-                              REAL8 z,
-                              REAL8 nonGR_alpha
-                             )
-{
-  const REAL8 epsabs = 1e-8;
-  const REAL8 epsrel = 1e-8;
-  const size_t wsSize = 10000;
-  const REAL8 h = 0.7;
-  const REAL8 H0 = h*100e3*pow(1e6*LAL_PC_SI,-1.0);
-  double result, error;
-
-  gsl_integration_workspace *wsInt = gsl_integration_workspace_alloc (wsSize);
-  dAlphaPars dpars;
-  dpars.Omega_m=0.3;
-  dpars.Omega_lambda=0.7;
-  dpars.nonGR_alpha=nonGR_alpha;// ={0.3, 0.7, 3};
-
-  gsl_function F;
-  F.function = &XLALDistanceAlphaIntegrand;
-  F.params =  &dpars;
-  gsl_integration_qags (&F, 0, z, epsabs, epsrel, 1000,
-                        wsInt, &result, &error);
-  result *= LAL_C_SI*(1.0+z)/H0;
-  result /= (1e6*LAL_PC_SI);
-
-  gsl_integration_workspace_free (wsInt);
-  return result;
-}*/
-/* Following function is added by A. Samajdar(anuradha1115@iiserkol.ac.in) */
 int XLALSimLorentzInvarianceViolationTerm(
 					  COMPLEX16FrequencySeries **hptilde, /**< Frequency-domain waveform h+ */
 					  COMPLEX16FrequencySeries **hctilde, /**< Frequency-domain waveform hx */
 					  REAL8 m1,                           /**< Mass 1 in solar masses */
 					  REAL8 m2,                           /**< Mass 2 in solar masses */
-                                          REAL8 r,                            /**distance in metres*/
-					  REAL8 lambda_a_eff,                      /**< */
+                                          REAL8 r,                            /**< distance in metres*/
+					  REAL8 lambda_a_eff,                 /**< Effective wavelength-like parameter in phase in metres */
                                           REAL8 nonGR_alpha                  /**< Exponent defined in terms of PN order? */
 					  ) 
 {
@@ -4581,14 +4537,12 @@ int XLALSimLorentzInvarianceViolationTerm(
   M = m1+m2;
   eta = m1*m2/(M*M);
   Mc = M*pow(eta, 0.6);
-  //D1by3 = 332.1567*LAL_PC_SI*1e6/LAL_C_SI; /* converting D to seconds; 1.5PN*/
   if (nonGR_alpha == 1) {
     zeta = LAL_PI*r/lambda_a_eff;
     dPhiPref = zeta*log(LAL_PI*Mc*LAL_MTSUN_SI);
   }
   else {
     zeta = pow(LAL_PI, (2. - nonGR_alpha))*r*pow(Mc*LAL_MRSUN_SI, (1. - nonGR_alpha))/((1. - nonGR_alpha)*pow(lambda_a_eff, (2. - nonGR_alpha)));
-    //zeta = pow(LAL_PI, (2. - nonGR_alpha))*D1by3*pow(Mc*LAL_MTSUN_SI, (1. - nonGR_alpha))/((1. - nonGR_alpha)*pow(lambda_a_eff, (2. - nonGR_alpha))); 
     dPhiPref = zeta*pow(LAL_PI*Mc*LAL_MTSUN_SI, (nonGR_alpha - 1.));
   }
 
