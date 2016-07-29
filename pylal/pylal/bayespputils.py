@@ -1083,7 +1083,7 @@ class Posterior(object):
           pos.append_mapping('graviton_mass', GravitonMass, ['lambda_g', 'redshift'])
       if ('lambda_g' in pos.names) and ('redshift' in pos.names):
           pos.append_mapping('graviton_lambda', GComptonWavelength, ['lambda_g', 'redshift'])
-## following lines added by A. Samajdar (anuradha1115@iiserkol.ac.in)    
+## Calling functions testing Lorentz invariance violation 
       if ('loglambda_a_eff' in pos.names) and ('redshift' in pos.names):
           pos.append_mapping('loglambda_a', lambda z,nonGR_alpha,wl,dist:np.log10(lambda_a(z, nonGR_alpha, 10**wl, dist)), ['redshift', 'nonGR_alpha', 'loglambda_a_eff', 'distance'])	
       if ('loglambda_a_eff' in pos.names) and ('redshift' in pos.names):
@@ -3974,13 +3974,21 @@ def GravitonMass(lambda_g, redshift):
     """
     return 1.23982e-6/(lambda_g*np.sqrt((1 + (2+redshift)*(1+redshift+np.sqrt(1+redshift)))/(5*(1+redshift)**3)))
 
-## Added by A. Samajdar (anuradha1115@iiserkol.ac.in)
+## Following functions added for testing Lorentz violations 
 def integrand_distance(redshift,nonGR_alpha):
+    """
+    Calculate D_alpha integral; multiplicative factor put later
+    D_alpha = \int ((1+z')^(alpha-2))/sqrt(Omega_m*(1+z')^3 +Omega_lambda) dz'
+    """
     omega_m = 0.3
     omega_lambda = 0.7
     return (1.0+redshift)**(nonGR_alpha-2.0)/(np.sqrt(omega_m*(1.0+redshift)**3.0 + omega_lambda))
 
 def DistanceMeasure(redshift,nonGR_alpha):
+    """
+    D_alpha = ((1+z)^(1-alpha))/H_0 * D_alpha
+    D_alpha calculated from integrand in above function
+    """
     mpc = lal.PC_SI*1e6
     h = 0.75
     H0 = h*100*1e3/mpc
@@ -3990,13 +3998,21 @@ def DistanceMeasure(redshift,nonGR_alpha):
     return dist*lal.C_SI ## returns D_alpha in metres
 
 def lambda_a(redshift, nonGR_alpha, lambda_eff, distance):
+    """
+    Converting from the effective wavelength-like parameter to \lambda_A:
+    \lambda_A = \lambda_{eff}*(D_alpha/D_L)^(1/(2-alpha))*(1/(1+z)^((1-alpha)/(2-alpha)))
+    """
     Dfunc = np.vectorize(DistanceMeasure)
     D_alpha = Dfunc(redshift, nonGR_alpha)
     dl = distance*lal.PC_SI*1e6  ## luminosity distane in metres
     return lambda_eff*(D_alpha/(dl*(1.0+redshift)**(1.0-nonGR_alpha)))**(1./(2.0-nonGR_alpha)) 
 
 def amplitudeMeasure(redshift, nonGR_alpha, lambda_eff, distance):
-    hPlanck = 4.13567e-15
+    """
+    Converting to Lorentz violating parameter "A" in dispersion  relation from \lambda_A:
+    A = (\lambda_A/h)^(alpha-2)
+    """
+    hPlanck = 4.13567e-15 # Planck's constant
     ampFunc = np.vectorize(lambda_a)
     lambdaA = ampFunc(redshift, nonGR_alpha, lambda_eff, distance)/lal.C_SI # convert to seconds
     return (lambdaA/hPlanck)**(nonGR_alpha-2.0)
