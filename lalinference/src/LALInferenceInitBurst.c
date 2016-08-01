@@ -737,13 +737,13 @@ LALInferenceModel * LALInferenceInitPrincipalCompModel(LALInferenceRunState *sta
         fprintf(stderr,"ERROR: cannot use margphi or margtimephi with burst approximants. Please use margtime or no marginalization\n");
         exit(1);
     }
-//    LALInferenceRegisterUniformVariableREAL8(state, model->params, "rightascension", zero, ramin, ramax, LALINFERENCE_PARAM_CIRCULAR);
-//    LALInferenceRegisterUniformVariableREAL8(state, model->params, "declination", zero, decmin, decmax, LALINFERENCE_PARAM_LINEAR);
-//    LALInferenceRegisterUniformVariableREAL8(state, model->params, "polarisation", zero, psimin, psimax, LALINFERENCE_PARAM_LINEAR);
+    LALInferenceRegisterUniformVariableREAL8(state, model->params, "rightascension", zero, ramin, ramax, LALINFERENCE_PARAM_CIRCULAR);
+    LALInferenceRegisterUniformVariableREAL8(state, model->params, "declination", zero, decmin, decmax, LALINFERENCE_PARAM_LINEAR);
+    LALInferenceRegisterUniformVariableREAL8(state, model->params, "polarisation", zero, psimin, psimax, LALINFERENCE_PARAM_LINEAR);
 
-    LALInferenceRegisterUniformVariableREAL8(state, model->params, "rightascension", 4.6499, ramin, ramax, LALINFERENCE_PARAM_FIXED);
-    LALInferenceRegisterUniformVariableREAL8(state, model->params, "declination", -0.5063, decmin, decmax, LALINFERENCE_PARAM_FIXED);
-    LALInferenceRegisterUniformVariableREAL8(state, model->params, "polarisation", 0.3046, psimin, psimax, LALINFERENCE_PARAM_FIXED);
+//    LALInferenceRegisterUniformVariableREAL8(state, model->params, "rightascension", 4.6499, ramin, ramax, LALINFERENCE_PARAM_FIXED);
+//    LALInferenceRegisterUniformVariableREAL8(state, model->params, "declination", -0.5063, decmin, decmax, LALINFERENCE_PARAM_FIXED);
+//    LALInferenceRegisterUniformVariableREAL8(state, model->params, "polarisation", 0.3046, psimin, psimax, LALINFERENCE_PARAM_FIXED);
 
 
     /* Set model sampling rates to be consistent with data */
