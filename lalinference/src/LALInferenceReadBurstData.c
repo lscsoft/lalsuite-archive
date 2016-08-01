@@ -466,28 +466,32 @@ void LALInferenceInjectSNBurstSignal(LALInferenceIFOData *IFOdata, ProcessParams
 {
   fprintf(stdout,"Injecting a SN signal in the frequency domain !!!!!!!\n");
   /* Inject a SN gravitational wave into the data in the frequency domain */
-//  LALStatus status;
-//  memset(&status,0,sizeof(LALStatus));
-//  char SNRpath[FILENAME_MAX];
+
   ProcessParamsTable *ppt=NULL;
   ppt = NULL; 
-  ppt=LALInferenceGetProcParamVal(commandLine,"--outfile");
-  if(!ppt){
-    fprintf(stderr,"Must specify --outfile <filename.dat>\n");
-    exit(1);
-  }
-//  char *outfile=ppt->value;
-//  sprintf(SNRpath,"%s_snr.txt",outfile); 
+//  ppt=LALInferenceGetProcParamVal(commandLine,"--outfile");
+//  if(!ppt){
+//    fprintf(stderr,"Must specify --outfile <filename.dat>\n");
+//    exit(1);
+//  }
 
   REAL8 WinNorm=1.0;
   WinNorm = sqrt(IFOdata->window->sumofsquares/IFOdata->window->data->length);
 
   REAL8 injtime = 871645255;
+  if((ppt=LALInferenceGetProcParamVal(commandLine,"--trigtime"))) injtime=atof(ppt->value);
+
+  REAL8 ra = 4.6499;
+  REAL8 dec = -0.5063;
+  REAL8 psi = 0.3046;
+  if((ppt=LALInferenceGetProcParamVal(commandLine,"--inj-ra"))) ra=atof(ppt->value);
+  if((ppt=LALInferenceGetProcParamVal(commandLine,"--inj-dec"))) dec=atof(ppt->value);
+  if((ppt=LALInferenceGetProcParamVal(commandLine,"--inj-psi"))) psi=atof(ppt->value);
+
   REAL8 deltaF = IFOdata->freqData->deltaF;
   REAL8 deltaT = IFOdata->timeData->deltaT;
 
   COMPLEX16FrequencySeries *hptilde=NULL; 
-//fprintf(stdout,"Here I am !!!!!!!\n");
   ppt=LALInferenceGetProcParamVal(commandLine,"--rawwaveform"); // {
   FILE *fp=fopen(ppt->value,"r");
 
@@ -518,9 +522,7 @@ void LALInferenceInjectSNBurstSignal(LALInferenceIFOData *IFOdata, ProcessParams
 
   /* loop over data (different interferometers): */
   dataPtr = IFOdata;
-//  fprintf(stdout,"Here I am 22222 !!!!!!!\n");
 
-//  size_t Upper= (size_t) ( dataPtr->fHigh/deltaF+1);
   hptilde=XLALCreateCOMPLEX16FrequencySeries("hplus",&(dataPtr->timeData->epoch),0.0,deltaF,&lalDimensionlessUnit,8192);
 
   int p = 0.0;
@@ -552,18 +554,17 @@ void LALInferenceInjectSNBurstSignal(LALInferenceIFOData *IFOdata, ProcessParams
     /* determine beam pattern response (Fplus and Fcross) for given Ifo: */
     XLALComputeDetAMResponse(&Fplus, &Fcross,
                                 (const REAL4(*)[3])dataPtr->detector->response,
-                                4.6499, -0.5063,
-                                0.3046, gmst);
+                                ra, dec,
+                                psi, gmst);
 
     /* signal arrival time (relative to geocenter); */
     timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location,
-                                                4.6499, -0.5063,
+                                                ra, dec,
                                                 &GPSlal);
 
     /* (negative timedelay means signal arrives earlier at Ifo than at geocenter, etc.) */
     timeshift = timedelay;
     twopit    = LAL_TWOPI * (timeshift);
-//    fprintf(stdout, "timeshift= %lg \n", timedelay);
 
     /* Restore hrss (template has been calculated for hrss=1) effect in Fplus/Fcross: */
     Fplus*= 1.0 / WinNorm;
@@ -584,13 +585,10 @@ void LALInferenceInjectSNBurstSignal(LALInferenceIFOData *IFOdata, ProcessParams
     upper = (UINT4)floor(dataPtr->fHigh / deltaF+1);
     chisquared = 0.0;
 
-//    fprintf(stdout, "lower= %d \n", lower);
-//    fprintf(stdout, "upper= %d \n", upper);
 
     re = cos(twopit * deltaF * lower);
     im = -sin(twopit * deltaF * lower);
     for (i=lower; i<=upper; ++i){
-//    for (i=0; i<=8192; ++i){
       /* derive template (involving location/orientation parameters) from given plus/cross waveforms: */
       if (i < hptilde->data->length) {
           plainTemplateReal = Fplus * creal(hptilde->data->data[i]);
@@ -634,7 +632,6 @@ void LALInferenceInjectSNBurstSignal(LALInferenceIFOData *IFOdata, ProcessParams
   }
   printf("injected Network SNR %.1f \n",sqrt(NetSNR));
 
-//  PrintSNRsToFile(IFOdata , SNRpath);
   fclose(fp);
 
   XLALDestroyCOMPLEX16FrequencySeries(hptilde);
