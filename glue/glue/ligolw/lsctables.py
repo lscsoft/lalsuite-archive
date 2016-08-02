@@ -43,16 +43,12 @@ from glue import git_version
 from glue import iterutils
 from glue import offsetvector
 from glue import segments
+import lal
+from lal import LIGOTimeGPS
 try:
-	from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 	from pylal import inject
 except ImportError:
 	# pylal is optional
-	from glue.lal import LIGOTimeGPS
-try:
-	import lal
-except ImportError:
-	# lal is optional
 	pass
 from . import ligolw
 from . import table
@@ -3120,9 +3116,7 @@ class SimInspiral(table.TableRow):
 			self.geocent_end_time = self.geocent_end_time_ns = self.end_time_gmst = None
 		else:
 			self.geocent_end_time, self.geocent_end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-			# FIXME:  also do this when we switch to swig
-			# binding version of LIGOTimeGPS
-			#self.end_time_gmst = lal.GreenwichMeanSiderealTime(gps)
+			self.end_time_gmst = lal.GreenwichMeanSiderealTime(gps)
 
 	@property
 	def ra_dec(self):
@@ -3302,9 +3296,7 @@ class SimBurst(TableRow):
 			self.time_geocent_gps = self.time_geocent_gps_ns = self.time_geocent_gmst = None
 		else:
 			self.time_geocent_gps, self.time_geocent_gps_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-			# FIXME:  also do this when we switch to swig
-			# binding version of LIGOTimeGPS
-			#self.time_geocent_gmst = lal.GreenwichMeanSiderealTime(gps)
+			self.time_geocent_gmst = lal.GreenwichMeanSiderealTime(gps)
 
 	@property
 	def ra_dec(self):
@@ -3356,20 +3348,15 @@ class SimBurst(TableRow):
 		return self.ra_dec
 
 	def get_end(self, site = None):
+		"""
+		Do not use this method:  use .time_at_instrument() if that's what you want, or use .time_geocent if that's what you want.
+
+		Also ... this doesn't return the *end time*, it returns the *PEAK TIME*.  You've been warned.
+		"""
 		if site is None:
-			return self.get_time_geocent()
-		else:
-			from pylal.xlal import tools
-			from pylal import date,inject
-			from pylal.date import XLALTimeDelayFromEarthCenter
-			from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-			detMap = {'H': 'LHO_4k', 'L': 'LLO_4k',
-                'G': 'GEO_600', 'V': 'VIRGO', 'T': 'TAMA_300'}
-			location=inject.cached_detector[detMap[site]].location
-			ra,dec=self.get_ra_dec()
-			time=self.get_time_geocent()
-			time=time+LIGOTimeGPS(XLALTimeDelayFromEarthCenter(location,ra,dec,LIGOTimeGPS(time)))
-			return LIGOTimeGPS(float(time))
+			return self.time_geocent
+		instrument = site + "1"	# ugh ...
+		return self.time_at_instrument(instrument, {instrument: 0.0})
 
 SimBurstTable.RowType = SimBurst
 

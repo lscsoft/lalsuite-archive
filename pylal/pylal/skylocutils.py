@@ -18,8 +18,7 @@ from bisect import bisect
 from pylal import date
 from pylal import CoincInspiralUtils, SnglInspiralUtils, SimInspiralUtils
 from pylal import inject
-from lal import PI_2 as LAL_PI_2
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS 
+import lal
 from pylal.sphericalutils import angle_between_points
 
 import glue.iterutils
@@ -37,9 +36,9 @@ lsctables.use_in(ligolw.LIGOLWContentHandler)
 
 #set the detector locations
 detector_locations = {}
-detector_locations["L1"] =inject.cached_detector["LLO_4k"].location   
-detector_locations["H1"] =inject.cached_detector["LHO_4k"].location 
-detector_locations["V1"] =inject.cached_detector["VIRGO"].location
+detector_locations["L1"] = inject.cached_detector["LLO_4k"].location
+detector_locations["H1"] = inject.cached_detector["LHO_4k"].location
+detector_locations["V1"] = inject.cached_detector["VIRGO"].location
 
 #set the detector responses
 detector_responses = {}
@@ -66,13 +65,13 @@ def get_delta_t_rss(pt,coinc,reference_frequency=None):
     
     if reference_frequency:
       tFromRefFreq = get_signal_duration(ifo,coinc,reference_frequency)
-      tref[ifo] = LIGOTimeGPS(int(tFromRefFreq), 1.e9*(tFromRefFreq-int(tFromRefFreq)))
+      tref[ifo] = lal.LIGOTimeGPS(int(tFromRefFreq), 1.e9*(tFromRefFreq-int(tFromRefFreq)))
     else:
       tref[ifo] = 0.0   
          
     #compute the geocentric time from each trigger
     tgeo[ifo] = coinc.gps[ifo] - tref[ifo] - \
-                LIGOTimeGPS(0,1.0e9*date.XLALArrivalTimeDiff(detector_locations[ifo],\
+                lal.LIGOTimeGPS(0,1.0e9*date.XLALArrivalTimeDiff(detector_locations[ifo],\
                 earth_center,longitude,latitude,coinc.gps[ifo]))  
       
   #compute differences in these geocentric times
@@ -118,7 +117,7 @@ def get_delta_D_rss(pt,coinc):
   F_cross = {}
   for ifo in coinc.ifo_list:
     gmst[ifo] = date.XLALGreenwichMeanSiderealTime(coinc.gps[ifo])
-    F_plus[ifo], F_cross[ifo] = inject.XLALComputeDetAMResponse(detector_responses[ifo],\
+    F_plus[ifo], F_cross[ifo] = lal.ComputeDetAMResponse(detector_responses[ifo],\
                                 longitude,latitude,0,gmst[ifo])
     D_marg_sq[ifo] = 1/(F_plus[ifo]*F_plus[ifo]+F_cross[ifo]*F_cross[ifo])
 
@@ -262,7 +261,7 @@ def lonlat2polaz(lon, lat):
   Convert (longitude, latitude) in radians to (polar, azimuthal) angles
   in radians.
   """
-  return LAL_PI_2 - lat, lon
+  return lal.PI_2 - lat, lon
 
 def sbin(bins,pt,res=0.4):
   """
@@ -551,7 +550,7 @@ class Coincidences(list):
       xmldoc = utils.load_filename(file, contenthandler=ligolw.LIGOLWContentHandler)
       sngltab = tab.get_table(xmldoc,lsctables.SnglInspiralTable.tableName)
       coinc.set_snr(dict((row.ifo, row.snr) for row in sngltab))
-      coinc.set_gps(dict((row.ifo, LIGOTimeGPS(row.get_end())) for row in sngltab))
+      coinc.set_gps(dict((row.ifo, lal.LIGOTimeGPS(row.get_end())) for row in sngltab))
       #FIXME: this is put in place to deal with eff_distance = 0
       # needs to be fixed upstream in the pipeline
       effDs = list((row.ifo,row.eff_distance) for row in sngltab)
@@ -616,7 +615,7 @@ class Coincidences(list):
     for ctrig in coincTrigs:
       coinc = CoincData()
       coinc.set_ifos(ctrig.get_ifos()[1])
-      coinc.set_gps(dict((trig.ifo,LIGOTimeGPS(trig.get_end())) for trig in ctrig))
+      coinc.set_gps(dict((trig.ifo,lal.LIGOTimeGPS(trig.get_end())) for trig in ctrig))
       coinc.set_snr(dict((trig.ifo,getattr(ctrig,trig.ifo).snr) for trig in ctrig))
       coinc.set_effDs(dict((trig.ifo,getattr(ctrig,trig.ifo).eff_distance) for trig in ctrig))
       coinc.set_masses(dict((trig.ifo,getattr(ctrig,trig.ifo).mass1) for trig in ctrig), \
