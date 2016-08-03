@@ -9,6 +9,7 @@ SUBDIRS = \
 	rapid_pe \
 	imrtgr \
 	tiger \
+	popprior \
 	$(END_OF_LIST)
 
 vcs_info_sources = git_version.py
@@ -21,6 +22,7 @@ pymodule_PYTHON = \
 	__init__.py \
 	cmap.py \
 	fits.py \
+	healpix_tree.py \
 	marker.py \
 	plot.py \
 	lalinference_pipe_utils.py \
