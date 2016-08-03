@@ -32,6 +32,8 @@ from matplotlib import figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 import numpy
 
+import lal
+
 from pylal import git_version
 from pylal import inject
 
@@ -90,7 +92,7 @@ def makeplot(options):
 
 	xvals = numpy.arange(0.0, 401.0, 1.0, "Float64") * math.pi / 200.0
 	for instrument in options.instrument:
-		yvals = [plus**2.0 + cross**2.0 for (plus, cross) in map(lambda t: inject.XLALComputeDetAMResponse(inject.cached_detector[instrument].response, options.right_ascension, options.declination, 0.0, t), xvals)]
+		yvals = [plus**2.0 + cross**2.0 for (plus, cross) in map(lambda t: lal.ComputeDetAMResponse(inject.cached_detector[instrument].response, options.right_ascension, options.declination, 0.0, t), xvals)]
 		axes.plot(xvals, yvals)
 
 	axes.set_xlim([0.0, 2.0 * math.pi])
