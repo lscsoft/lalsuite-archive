@@ -56,10 +56,10 @@ paramlatexdict = {'H0': '$h_0$',
                   'PMDEC': 'proper motion $\delta$ (rad/s)',
                   'PMDC': 'proper motion $\delta$ (rad/s)',
                   'A1': '$a \sin{i}$ (lt s)',
-                  'PB': 'Period (days)',
+                  'PB': 'Period (s)',
                   'T0': '$T_0$ (s)',
                   'TASC': '$T_{\\textrm{asc}}$ (s)',
-                  'OM': '$\omega_0$ (deg)',
+                  'OM': '$\omega_0$ (rad)',
                   'PBDT': '$\dot{P}$ (s/s)',
                   'PBDOT': '$\dot{P}$ (s/s)',
                   'GAMMA': '$\gamma$',
@@ -215,8 +215,16 @@ class paramhtmldispfunc:
   def E(f): return dec_or_exp(f)
   def EPS1(f): return dec_or_exp(f)
   def EPS2(f): return dec_or_exp(f)
-  def T0(f): return '%.1f' % float(repr(44244. + ((float(f)+51.184)/86400.)))   # convert from GPS to MJD for display
-  def TASC(f): return '%.1f' % float(repr(44244. + ((float(f)+51.184)/86400.))) # convert from GPS to MJD for display
+  def T0(f, stype=None):
+    if stype == 'diff':
+      return dec_or_exp(repr((float(f)+51.184)/86400.), dp=2)
+    else:
+      return '%.2f' % float(repr(44244. + ((float(f)+51.184)/86400.)))   # convert from GPS to MJD for display
+  def TASC(f, stype=None):
+    if stype == 'diff':
+      return dec_or_exp(repr((float(f)+51.184)/86400.), dp=2)
+    else:
+      return '%.2f' % float(repr(44244. + ((float(f)+51.184)/86400.))) # convert from GPS to MJD for display
   def OM(f): return dec_or_exp(repr(float(f)*180./math.pi), dp=1)               # convert from rads to deg
   def PB(f): return dec_or_exp(repr(float(f)/86400.))                           # convert from seconds to days
   def H0(f): return exp_str(float(f), 1)
