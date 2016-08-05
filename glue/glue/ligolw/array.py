@@ -41,6 +41,7 @@ The array is stored as an attribute of the Array element.
 """
 
 
+import itertools
 import numpy
 import re
 import sys
@@ -219,28 +220,22 @@ class ArrayStream(ligolw.Stream):
 
 	def write(self, fileobj = sys.stdout, indent = u""):
 		# avoid symbol and attribute look-ups in inner loop
-		delim = self.Delimiter
-		linefmtfunc = lambda seq: xmlescape(delim.join(seq))
-		elemfmtfunc = ligolwtypes.FormatFunc[self.parentNode.Type]
-		elems = self.parentNode.array.T.flat
-		nextelem = elems.next
 		linelen = self.parentNode.array.shape[0]
-		totallen = self.parentNode.array.size
-		newline = u"\n" + indent + ligolw.Indent
+		lines = self.parentNode.array.size / linelen
+		elems = itertools.imap(ligolwtypes.FormatFunc[self.parentNode.Type], self.parentNode.array.T.flat)
+		islice = itertools.islice
+		join = self.Delimiter.join
 		w = fileobj.write
 
-		# This is complicated because we need to not put a
-		# delimiter after the last element.
 		w(self.start_tag(indent))
-		if totallen:
-			# there will be at least one line of data
+		if lines:
+			newline = u"\n" + indent + ligolw.Indent
 			w(newline)
-		newline = delim + newline
-		while True:
-			w(linefmtfunc(elemfmtfunc(nextelem()) for i in xrange(linelen)))
-			if elems.index >= totallen:
-				break
-			w(newline)
+			newline = self.Delimiter + newline
+			for i in xrange(lines - 1):
+				w(xmlescape(join(islice(elems, linelen))))
+				w(newline)
+			w(xmlescape(join(islice(elems, linelen))))
 		w(u"\n" + self.end_tag(indent) + u"\n")
 
 
