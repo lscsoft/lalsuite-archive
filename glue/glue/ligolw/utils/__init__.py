@@ -308,6 +308,35 @@ class MD5File(object):
 		return False
 
 
+class SignalsTrap(object):
+	default_signals = (signal.SIGTERM, signal.SIGTSTP)
+
+	def __init__(self, trap_signals = default_signals):
+		self.trap_signals = trap_signals
+
+	def handler(self, signum, frame):
+		self.deferred_signals.append(signum)
+
+	def __enter__(self):
+		self.oldhandlers = {}
+		self.deferred_signals = []
+		if self.trap_signals is None:
+			return self
+		for sig in self.trap_signals:
+			self.oldhandlers[sig] = signal.getsignal(sig)
+			signal.signal(sig, self.handler)
+		return self
+
+	def __exit__(self, *args):
+		# restore original handlers
+		for sig, oldhandler in self.oldhandlers.iteritems():
+			signal.signal(sig, oldhandler)
+		# send ourselves the trapped signals in order
+		while self.deferred_signals:
+			os.kill(os.getpid(), self.deferred_signals.pop(0))
+		return False
+
+
 def load_fileobj(fileobj, gz = None, xmldoc = None, contenthandler = None):
 	"""
 	Parse the contents of the file object fileobj, and return the
@@ -416,7 +445,7 @@ def load_url(url, verbose = False, **kwargs):
 	return xmldoc
 
 
-def write_fileobj(xmldoc, fileobj, gz = False, trap_signals = (signal.SIGTERM, signal.SIGTSTP), **kwargs):
+def write_fileobj(xmldoc, fileobj, gz = False, trap_signals = SignalsTrap.default_signals, **kwargs):
 	"""
 	Writes the LIGO Light Weight document tree rooted at xmldoc to the
 	given file object.  Internally, the .write() method of the xmldoc
@@ -427,16 +456,16 @@ def write_fileobj(xmldoc, fileobj, gz = False, trap_signals = (signal.SIGTERM, s
 	output bytestream.
 
 	This function traps the signals in the trap_signals iterable during
-	the write process (the default is signal.SIGTERM and
-	signal.SIGTSTP), and it does this by temporarily installing its own
-	signal handlers in place of the current handlers.  This is done to
-	prevent Condor eviction during the write process.  When the file
-	write is concluded the original signal handlers are restored.
-	Then, if signals were trapped during the write process, the signals
-	are then resent to the current process in the order in which they
-	were received.  The signal.signal() system call cannot be invoked
-	from threads, and trap_signals must be set to None or an empty
-	sequence if this function is used from a thread.
+	the write process (see SignalsTrap for the default signals), and it
+	does this by temporarily installing its own signal handlers in
+	place of the current handlers.  This is done to prevent Condor
+	eviction during the write process.  When the file write is
+	concluded the original signal handlers are restored.  Then, if
+	signals were trapped during the write process, the signals are then
+	resent to the current process in the order in which they were
+	received.  The signal.signal() system call cannot be invoked from
+	threads, and trap_signals must be set to None or an empty sequence
+	if this function is used from a thread.
 
 	Example:
 
@@ -458,32 +487,13 @@ def write_fileobj(xmldoc, fileobj, gz = False, trap_signals = (signal.SIGTERM, s
 	>>> digest
 	'37044d979a79409b3d782da126636f53'
 	"""
-	# initialize SIGTERM and SIGTSTP trap
-	deferred_signals = []
-	def newsigterm(signum, frame):
-		deferred_signals.append(signum)
-	oldhandlers = {}
-	if trap_signals is not None:
-		for sig in trap_signals:
-			oldhandlers[sig] = signal.getsignal(sig)
-			signal.signal(sig, newsigterm)
-
-	# write the document
-	with MD5File(fileobj, closable = False) as fileobj:
-		md5obj = fileobj.md5obj
-		with fileobj if not gz else gzip.GzipFile(mode = "wb", fileobj = fileobj) as fileobj:
-			with codecs.getwriter("utf_8")(fileobj) as fileobj:
-				xmldoc.write(fileobj, **kwargs)
-
-	# restore original handlers, and send ourselves any trapped signals
-	# in order
-	for sig, oldhandler in oldhandlers.iteritems():
-		signal.signal(sig, oldhandler)
-	while deferred_signals:
-		os.kill(os.getpid(), deferred_signals.pop(0))
-
-	# return the hex digest of the bytestream that was written
-	return md5obj.hexdigest()
+	with SignalsTrap(trap_signals):
+		with MD5File(fileobj, closable = False) as fileobj:
+			md5obj = fileobj.md5obj
+			with fileobj if not gz else gzip.GzipFile(mode = "wb", fileobj = fileobj) as fileobj:
+				with codecs.getwriter("utf_8")(fileobj) as fileobj:
+					xmldoc.write(fileobj, **kwargs)
+			return md5obj.hexdigest()
 
 
 class tildefile(object):
