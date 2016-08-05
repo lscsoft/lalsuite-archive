@@ -445,15 +445,16 @@ def load_url(url, verbose = False, **kwargs):
 	return xmldoc
 
 
-def write_fileobj(xmldoc, fileobj, gz = False, trap_signals = SignalsTrap.default_signals, **kwargs):
+def write_fileobj(xmldoc, fileobj, gz = False, trap_signals = SignalsTrap.default_signals, compresslevel = 3, **kwargs):
 	"""
 	Writes the LIGO Light Weight document tree rooted at xmldoc to the
 	given file object.  Internally, the .write() method of the xmldoc
 	object is invoked and any additional keyword arguments are passed
 	to that method.  The file object need not be seekable.  The output
-	data is gzip compressed on the fly if gz is True.  The return value
-	is a string containing the hex digits of the MD5 digest of the
-	output bytestream.
+	data is gzip compressed on the fly if gz is True, and in that case
+	the compresslevel parameter sets the gzip compression level (the
+	default is 3).  The return value is a string containing the hex
+	digits of the MD5 digest of the output bytestream.
 
 	This function traps the signals in the trap_signals iterable during
 	the write process (see SignalsTrap for the default signals), and it
@@ -490,7 +491,7 @@ def write_fileobj(xmldoc, fileobj, gz = False, trap_signals = SignalsTrap.defaul
 	with SignalsTrap(trap_signals):
 		with MD5File(fileobj, closable = False) as fileobj:
 			md5obj = fileobj.md5obj
-			with fileobj if not gz else gzip.GzipFile(mode = "wb", fileobj = fileobj) as fileobj:
+			with fileobj if not gz else gzip.GzipFile(mode = "wb", fileobj = fileobj, compresslevel = compresslevel) as fileobj:
 				with codecs.getwriter("utf_8")(fileobj) as fileobj:
 					xmldoc.write(fileobj, **kwargs)
 			return md5obj.hexdigest()
