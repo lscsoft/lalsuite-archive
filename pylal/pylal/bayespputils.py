@@ -6003,7 +6003,7 @@ class PEOutputParser(object):
         Parse a HDF5 file and return an array of posterior samples ad list of
         parameter names. Equivalent to '_common_to_pos' and work in progress.
         """
-        samples = read_samples(infile)
+        samples = read_samples(infile,tablename=lalinference.LALInferenceHDF5PosteriorSamplesDatasetName)
         params = samples.colnames
 
         for param in params:
