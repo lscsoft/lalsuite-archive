@@ -222,7 +222,7 @@ class ArrayStream(ligolw.Stream):
 		# avoid symbol and attribute look-ups in inner loop
 		linelen = self.parentNode.array.shape[0]
 		lines = self.parentNode.array.size / linelen
-		elems = itertools.imap(ligolwtypes.FormatFunc[self.parentNode.Type], self.parentNode.array.T.flat)
+		tokens = itertools.imap(ligolwtypes.FormatFunc[self.parentNode.Type], self.parentNode.array.T.flat)
 		islice = itertools.islice
 		join = self.Delimiter.join
 		w = fileobj.write
@@ -233,9 +233,9 @@ class ArrayStream(ligolw.Stream):
 			w(newline)
 			newline = self.Delimiter + newline
 			for i in xrange(lines - 1):
-				w(xmlescape(join(islice(elems, linelen))))
+				w(xmlescape(join(islice(tokens, linelen))))
 				w(newline)
-			w(xmlescape(join(islice(elems, linelen))))
+			w(xmlescape(join(islice(tokens, linelen))))
 		w(u"\n" + self.end_tag(indent) + u"\n")
 
 
