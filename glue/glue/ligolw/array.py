@@ -203,8 +203,9 @@ class ArrayStream(ligolw.Stream):
 	def appendData(self, content):
 		# tokenize buffer, and assign to array
 		tokens = tuple(self._tokenizer.append(content))
-		self._array_view[self._index : self._index + len(tokens)] = tokens
-		self._index += len(tokens)
+		next_index = self._index + len(tokens)
+		self._array_view[self._index : next_index] = tokens
+		self._index = next_index
 
 	def endElement(self):
 		# stream tokenizer uses delimiter to identify end of each
