@@ -164,6 +164,7 @@ static PyObject *next(PyObject *self)
 {
 	ligolw_RowDumper *rowdumper = (ligolw_RowDumper *) self;
 	const Py_ssize_t n = PyTuple_GET_SIZE(rowdumper->attributes);
+	PyObject *tokens;
 	PyObject *row;
 	PyObject *result;
 	Py_ssize_t i;
@@ -184,10 +185,11 @@ static PyObject *next(PyObject *self)
 	}
 
 	Py_DECREF(rowdumper->tokens);
-	rowdumper->tokens = PyTuple_New(n);
-	if(!rowdumper->tokens) {
-		rowdumper->tokens = Py_None;
-		Py_INCREF(rowdumper->tokens);
+	rowdumper->tokens = Py_None;
+	Py_INCREF(rowdumper->tokens);
+
+	tokens = PyTuple_New(n);
+	if(!tokens) {
 		Py_DECREF(row);
 		return NULL;
 	}
@@ -197,9 +199,7 @@ static PyObject *next(PyObject *self)
 		PyObject *token;
 
 		if(!val) {
-			Py_DECREF(rowdumper->tokens);
-			rowdumper->tokens = Py_None;
-			Py_INCREF(rowdumper->tokens);
+			Py_DECREF(tokens);
 			Py_DECREF(row);
 			return NULL;
 		}
@@ -211,17 +211,18 @@ static PyObject *next(PyObject *self)
 		Py_DECREF(val);
 
 		if(!token) {
-			Py_DECREF(rowdumper->tokens);
-			rowdumper->tokens = Py_None;
-			Py_INCREF(rowdumper->tokens);
+			Py_DECREF(tokens);
 			Py_DECREF(row);
 			return NULL;
 		}
 
-		PyTuple_SET_ITEM(rowdumper->tokens, i, token);
+		PyTuple_SET_ITEM(tokens, i, token);
 	}
 
 	Py_DECREF(row);
+
+	Py_DECREF(rowdumper->tokens);
+	rowdumper->tokens = tokens;
 
 	result = PyUnicode_Join(rowdumper->delimiter, rowdumper->tokens);
 
