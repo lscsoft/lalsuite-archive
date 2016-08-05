@@ -663,7 +663,7 @@ static PyObject *attribute_get_data(PyObject *obj, void *data)
 {
 	ligolw_Tokenizer *tokenizer = (ligolw_Tokenizer *) obj;
 
-	return PyUnicode_FromUnicode(tokenizer->data, tokenizer->length - tokenizer->data);
+	return PyUnicode_FromUnicode(tokenizer->pos, tokenizer->length - tokenizer->pos);
 }
 
 
@@ -698,10 +698,15 @@ PyTypeObject ligolw_Tokenizer_Type = {
 "Tokenizer is able to directly extract tokens as various Python types.  The\n" \
 "set_types() method is passed a sequence of the types to which tokens are to be\n" \
 "converted.  The types will be used in order, cyclically.  For example, passing\n" \
-"[int] to set_types() causes all tokens to be converted to ints, while\n" \
+"[int] to set_types() causes all tokens to be converted to integers, while\n" \
 "[str, int] causes the first token to be returned as a string, the second as an\n" \
-"int, then the third as a string again, and so on.  The default is to extract\n" \
-"all tokens as strings.\n" \
+"integer, then the third as a string again, and so on.  The default is to\n" \
+"extract all tokens as strings.  If a token type is set to None then the\n" \
+"corresponding tokens are skipped.  For example, invoking set_types() with\n" \
+"[int, None] causes the first token to be converted to an integer, the second\n" \
+"to be skipped the third to be converted to an integer, and so on.  This can\n" \
+"be used to improve parsing performance when only a subset of the input stream\n" \
+"is required.\n" \
 "\n" \
 "Example:\n" \
 "\n" \
