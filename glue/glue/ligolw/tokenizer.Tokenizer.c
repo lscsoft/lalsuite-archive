@@ -663,7 +663,7 @@ static PyObject *attribute_get_data(PyObject *obj, void *data)
 {
 	ligolw_Tokenizer *tokenizer = (ligolw_Tokenizer *) obj;
 
-	return PyUnicode_FromUnicode(tokenizer->data, tokenizer->length - tokenizer->data);
+	return PyUnicode_FromUnicode(tokenizer->pos, tokenizer->length - tokenizer->pos);
 }
 
 
