@@ -56,7 +56,8 @@ typedef struct {
 	PyObject *formats;
 	/* the source of row objects to be turned to unicode strings */
 	PyObject *iter;
-	/* number of rows converted so far */
+	/* number of rows converted so far.  not used here, but helpful for
+	 * constructing error messages in the calling code */
 	Py_ssize_t rows_converted;
 	/* tuple of unicode tokens from most recently converted row */
 	PyObject *tokens;
@@ -169,6 +170,10 @@ static PyObject *next(PyObject *self)
 	PyObject *result;
 	Py_ssize_t i;
 
+	/*
+	 * retrieve the next row object
+	 */
+
 	if(!PyIter_Check(rowdumper->iter)) {
 		PyErr_SetObject(PyExc_TypeError, rowdumper->iter);
 		return NULL;
@@ -184,6 +189,11 @@ static PyObject *next(PyObject *self)
 		return NULL;
 	}
 
+	/*
+	 * wipe out the tuple of tokens from the previous row, and start a
+	 * new tuple
+	 */
+
 	Py_DECREF(rowdumper->tokens);
 	rowdumper->tokens = Py_None;
 	Py_INCREF(rowdumper->tokens);
@@ -193,6 +203,11 @@ static PyObject *next(PyObject *self)
 		Py_DECREF(row);
 		return NULL;
 	}
+
+	/*
+	 * retrieve attributes from the row object one-by-one, convert to
+	 * strings, and insert into new token tuple
+	 */
 
 	for(i = 0; i < n; i++) {
 		PyObject *val = PyObject_GetAttr(row, PyTuple_GET_ITEM(rowdumper->attributes, i));
@@ -218,11 +233,19 @@ static PyObject *next(PyObject *self)
 
 		PyTuple_SET_ITEM(tokens, i, token);
 	}
-
 	Py_DECREF(row);
+
+	/*
+	 * that worked, so expose the new token tuple
+	 */
 
 	Py_DECREF(rowdumper->tokens);
 	rowdumper->tokens = tokens;
+
+	/*
+	 * return tokens concatenated into a single string using the
+	 * delimiter
+	 */
 
 	result = PyUnicode_Join(rowdumper->delimiter, rowdumper->tokens);
 
