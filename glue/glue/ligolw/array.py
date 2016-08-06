@@ -231,11 +231,11 @@ class ArrayStream(ligolw.Stream):
 		if lines:
 			newline = u"\n" + indent + ligolw.Indent
 			w(newline)
+			w(xmlescape(join(islice(tokens, linelen))))
 			newline = self.Delimiter + newline
 			for i in xrange(lines - 1):
-				w(xmlescape(join(islice(tokens, linelen))))
 				w(newline)
-			w(xmlescape(join(islice(tokens, linelen))))
+				w(xmlescape(join(islice(tokens, linelen))))
 		w(u"\n" + self.end_tag(indent) + u"\n")
 
 
