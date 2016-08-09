@@ -273,7 +273,7 @@ class Array(ligolw.Array):
 		Break internal references within the document tree rooted
 		on this element to promote garbage collection.
 		"""
-		ligolw.Array.unlink(self)
+		super(Array, self).unlink()
 		self.array = None
 
 
