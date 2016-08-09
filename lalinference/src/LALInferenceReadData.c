@@ -2478,6 +2478,8 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
 
   /* Check for presence of spin in the injection */
   if(a_spin1!=0.0 || a_spin2!=0.0) spinCheck=1;
+  /* modification by hwlee at 9 aug. 2016, we want to print injection spin value even it is zero, isn't it? */
+  spinCheck = 0;
 
   REAL8 psi = theEventTable->polarization;
   if (psi>=M_PI) psi -= M_PI;
@@ -2617,6 +2619,7 @@ void LALInferencePrintInjectionSample(LALInferenceRunState *runState) {
     LALInferenceSortVariablesByName(injparams);
     LALInferenceFprintParameterHeaders(outfile, injparams);
     fprintf(outfile,"\n");
+
     LALInferencePrintSample(outfile, injparams);
 
     fclose(outfile);
