@@ -550,7 +550,7 @@ def write_filename(xmldoc, filename, verbose = False, gz = False, with_mv = True
 	else:
 		if not gz and filename.endswith(".gz"):
 			warnings.warn("filename '%s' ends in '.gz' but file is not being gzip-compressed" % filename, UserWarning)
-		with open(filename) if not with_mv else tildefile(filename) as fileobj:
+		with (open if not with_mv else tildefile)(filename) as fileobj:
 			hexdigest = write_fileobj(xmldoc, fileobj, gz = gz, **kwargs)
 	if verbose:
 		sys.stderr.write("md5sum: %s  %s\n" % (hexdigest, (filename if filename is not None else "")))
