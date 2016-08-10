@@ -43,7 +43,7 @@ from xml.dom import minidom
 from operator import itemgetter
 
 #related third party imports
-import h5py
+from lalinference.io import read_samples
 import healpy as hp
 import lalinference.cmap
 import numpy as np
@@ -59,7 +59,7 @@ from numpy import linspace
 import random
 import socket
 from itertools import combinations
-from lalinference import LALInferenceHDF5PosteriorSamplesGroupName as posterior_grp_name
+from lalinference import LALInferenceHDF5PosteriorSamplesDatasetName as posterior_grp_name
 import re
 
 try:
@@ -6003,51 +6003,42 @@ class PEOutputParser(object):
         Parse a HDF5 file and return an array of posterior samples ad list of
         parameter names. Equivalent to '_common_to_pos' and work in progress.
         """
-        with h5py.File(infile, 'r') as hdf_file:
-            # navigate to the data with plenty of checks
-            assert 'lalinference' in hdf_file, repr(list(hdf_file.keys()))
-            active_group = hdf_file['lalinference']
-            assert len(active_group.keys()) == 1, repr(list(active_group.keys()))
-            run_identifier = list(active_group.keys())[0]
-            active_group = active_group[run_identifier]
-            assert posterior_grp_name in active_group, repr(list(active_group.keys()))
-            active_group = active_group[posterior_grp_name]
+        samples = read_samples(infile,tablename=lalinference.LALInferenceHDF5PosteriorSamplesDatasetName)
+        params = samples.colnames
 
-            # fill the numpy array
-            header = list(active_group.keys())
-            posterior_data=[]
-            for key in header:
-              posterior_data.append(active_group[key][...])
+        for param in params:
+            param_low = param.lower()
+            if param_low.find('log') != -1 and param_low not in logParams and re.sub('log', '', param_low) not in [p.lower() for p in params]:
+                print('exponentiating %s' % param)
+                new_param = re.sub('log', '', param, flags=re.IGNORECASE)
+                samples.replace_column(param, np.exp(samples[param]))
+                samples.rename_column(param, new_param)
+                param = new_param
+            if param_low.find('sin') != -1 and re.sub('sin', '', param_low) not in [p.lower() for p in params]:
+                print('asining %s' % param)
+                new_param = re.sub('sin', '', param, flags=re.IGNORECASE)
+                samples.replace_column(param, np.arcsin(samples[param]))
+                samples.rename_column(param, new_param)
+                param = new_param
+            if param_low.find('cos') != -1 and re.sub('cos', '', param_low) not in [p.lower() for p in params]:
+                print('acosing %s' % param)
+                new_param = re.sub('cos', '', param, flags=re.IGNORECASE)
+                samples.replace_column(param, np.arccos(samples[param]))
+                samples.rename_column(param, new_param)
+                param = new_param
 
-            #sub-optimal storage of meta-data: adding fixed values to posterior_data
-            nsamps=len(active_group[header[0]][...])
-            header.extend(active_group.attrs.keys())
-            for key in active_group.attrs.keys():
-              posterior_data.append(np.array([(active_group.attrs[key])]*nsamps,dtype=type(active_group.attrs[key])))
+            if param != param.replace('(', ''):
+                samples.rename_column(param, param.replace('(', ''))
+            if param != param.replace(')', ''):
+                samples.rename_column(param, param.replace(')', ''))
 
-            posterior_data=np.array(posterior_data)
-        # join the fields into a (nfields, nsamples) array, transposed
-        # to be (nsamples, nfields)
-        flines = posterior_data.T
+            #Make everything a float, since that's what's excected of a CommonResultsObj
+            samples.replace_column(param, samples[param].astype(float))
 
-        for i, _ in enumerate(header):
-            if header[i].lower().find('log') != -1 and header[i].lower() not in logParams and re.sub('log', '', header[i].lower()) not in [h.lower() for h in header]:
-                print('exponentiating %s' % header[i])
-                flines[:, i] = np.exp(flines[:, i])
-                header[i] = re.sub('log', '', header[i], flags=re.IGNORECASE)
-            if header[i].lower().find('sin') != -1 and re.sub('sin', '', header[i].lower()) not in [h.lower() for h in header]:
-                print('asining %s' % header[i])
-                flines[:, i] = np.arcsin(flines[:, i])
-                header[i] = re.sub('sin', '', header[i], flags=re.IGNORECASE)
-            if header[i].lower().find('cos') != -1 and re.sub('cos', '', header[i].lower()) not in [h.lower() for h in header]:
-                print('acosing %s' % header[i])
-                flines[:, i] = np.arccos(flines[:, i])
-                header[i] = re.sub('cos', '', header[i], flags=re.IGNORECASE)
-            header[i] = header[i].replace('(', '')
-            header[i] = header[i].replace(')', '')
-        print('Read columns %s' % str(header))
+        params = samples.colnames
+        print('Read columns %s' % str(params))
 
-        return header, flines
+        return samples.colnames, samples.as_array().view(float).reshape(-1, len(params))
 
 
     def _common_to_pos(self,infile,info=[None,None]):

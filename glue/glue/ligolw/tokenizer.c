@@ -44,7 +44,7 @@
 
 
 /*
- * Convert a sequence of unicode and/or strings to a tuple of strings.
+ * Convert a sequence of unicode and/or strings to a tuple of unicodes.
  * Creates a reference to a new object, does not decref its argument.
  */
 
@@ -65,8 +65,8 @@ PyObject *llwtokenizer_build_attributes(PyObject *sequence)
 			Py_DECREF(sequence);
 			return NULL;
 		}
-		if(!PyString_Check(item)) {
-			PyObject *str = PyUnicode_AsEncodedString(item, NULL, "strict");
+		if(!PyUnicode_Check(item)) {
+			PyObject *str = PyUnicode_FromObject(item);
 			if(!str) {
 				Py_DECREF(sequence);
 				return NULL;
