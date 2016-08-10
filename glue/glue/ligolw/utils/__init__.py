@@ -275,8 +275,8 @@ class MD5File(object):
 		self._update(buf)
 		return buf
 
-	def read(self, size = None):
-		buf = self._read(size)
+	def read(self, *args):
+		buf = self._read(*args)
 		self._update(buf)
 		return buf
 
