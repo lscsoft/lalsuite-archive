@@ -126,6 +126,12 @@ class RewindableInputFile(object):
 	def __init__(self, fileobj, buffer_size = 1024):
 		# the real source of data
 		self.fileobj = fileobj
+		# where the application thinks it is in the file.  this is
+		# used to fake .tell() because file objects that don't
+		# support seeking, like stdin, report IOError, and the
+		# things returned by urllib don't have a .tell() method at
+		# all.
+		self.pos = 0
 		# how many octets of the internal buffer to return before
 		# getting more data
 		self.reuse = 0
@@ -149,6 +155,7 @@ class RewindableInputFile(object):
 		else:
 			buf = self._next()
 			self.buf = (self.buf + buf)[-len(self.buf):]
+		self.pos += len(buf)
 		return buf
 
 	def read(self, size = None):
@@ -173,19 +180,21 @@ class RewindableInputFile(object):
 		else:
 			buf = self._read(size)
 			self.buf = (self.buf + buf)[-len(self.buf):]
+		self.pos += len(buf)
 		return buf
 
 	def seek(self, offset, whence = os.SEEK_SET):
 		self.gzip_hack_pretend_to_be_at_eof = False
 		if whence == os.SEEK_SET:
-			pos = self.fileobj.tell()
-			if offset >= 0 and pos - len(self.buf) <= offset <= pos:
-				self.reuse = pos - offset
+			if offset >= 0 and 0 <= self.pos + self.reuse - offset < len(self.buf):
+				self.reuse += self.pos - offset
+				self.pos = offset
 			else:
 				raise IOError("seek out of range")
 		elif whence == os.SEEK_CUR:
 			if self.reuse - len(self.buf) <= offset:
 				self.reuse -= offset
+				self.pos += offset
 			else:
 				raise IOError("seek out of range")
 		elif whence == os.SEEK_END:
@@ -203,11 +212,11 @@ class RewindableInputFile(object):
 			self.buf = (self.buf + c)[-len(self.buf):]
 			self.reuse += len(c)
 			if c:
-				# since we have read a character, this will
-				# not return the same answer as when
-				# GzipFile called it
-				return self.fileobj.tell()
-		return self.fileobj.tell() - self.reuse
+				# this will not return the same answer as
+				# when GzipFile called it before seeking to
+				# EOF
+				return self.pos + 1
+		return self.pos
 
 	def close(self):
 		return self.fileobj.close()
@@ -228,8 +237,6 @@ class MD5File(object):
 		else:
 			self.md5obj = md5obj
 		self.closable = closable
-		# only used if .tell() doesn't work
-		self.pos = 0
 		# avoid attribute look-ups
 		try:
 			self._next = self.fileobj.next
@@ -266,29 +273,19 @@ class MD5File(object):
 	def next(self):
 		buf = self._next()
 		self._update(buf)
-		self.pos += len(buf)
 		return buf
 
 	def read(self, size = None):
 		buf = self._read(size)
 		self._update(buf)
-		self.pos += len(buf)
 		return buf
 
 	def write(self, buf):
-		self.pos += len(buf)
 		self._update(buf)
 		return self._write(buf)
 
 	def tell(self):
-		try:
-			return self.fileobj.tell()
-		except (IOError, AttributeError):
-			# some streams that don't support seeking, like
-			# stdin, report IOError.  the things returned by
-			# urllib don't have a .tell() method at all.  fake
-			# it with our own count of bytes
-			return self.pos
+		return self.fileobj.tell()
 
 	def flush(self):
 		return self.fileobj.flush()
