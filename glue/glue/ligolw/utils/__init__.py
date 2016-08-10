@@ -436,7 +436,7 @@ def load_url(url, verbose = False, **kwargs):
 	return xmldoc
 
 
-def write_fileobj(xmldoc, fileobj, gz = False, trap_signals = SignalsTrap.default_signals, compresslevel = 3, **kwargs):
+def write_fileobj(xmldoc, fileobj, gz = False, compresslevel = 3, **kwargs):
 	"""
 	Writes the LIGO Light Weight document tree rooted at xmldoc to the
 	given file object.  Internally, the .write() method of the xmldoc
@@ -446,18 +446,6 @@ def write_fileobj(xmldoc, fileobj, gz = False, trap_signals = SignalsTrap.defaul
 	the compresslevel parameter sets the gzip compression level (the
 	default is 3).  The return value is a string containing the hex
 	digits of the MD5 digest of the output bytestream.
-
-	This function traps the signals in the trap_signals iterable during
-	the write process (see SignalsTrap for the default signals), and it
-	does this by temporarily installing its own signal handlers in
-	place of the current handlers.  This is done to prevent Condor
-	eviction during the write process.  When the file write is
-	concluded the original signal handlers are restored.  Then, if
-	signals were trapped during the write process, the signals are then
-	resent to the current process in the order in which they were
-	received.  The signal.signal() system call cannot be invoked from
-	threads, and trap_signals must be set to None or an empty sequence
-	if this function is used from a thread.
 
 	Example:
 
@@ -479,13 +467,12 @@ def write_fileobj(xmldoc, fileobj, gz = False, trap_signals = SignalsTrap.defaul
 	>>> digest
 	'37044d979a79409b3d782da126636f53'
 	"""
-	with SignalsTrap(trap_signals):
-		with MD5File(fileobj, closable = False) as fileobj:
-			md5obj = fileobj.md5obj
-			with fileobj if not gz else gzip.GzipFile(mode = "wb", fileobj = fileobj, compresslevel = compresslevel) as fileobj:
-				with codecs.getwriter("utf_8")(fileobj) as fileobj:
-					xmldoc.write(fileobj, **kwargs)
-			return md5obj.hexdigest()
+	with MD5File(fileobj, closable = False) as fileobj:
+		md5obj = fileobj.md5obj
+		with fileobj if not gz else gzip.GzipFile(mode = "wb", fileobj = fileobj, compresslevel = compresslevel) as fileobj:
+			with codecs.getwriter("utf_8")(fileobj) as fileobj:
+				xmldoc.write(fileobj, **kwargs)
+		return md5obj.hexdigest()
 
 
 class tildefile(object):
@@ -518,7 +505,7 @@ class tildefile(object):
 		return False
 
 
-def write_filename(xmldoc, filename, verbose = False, gz = False, with_mv = True, **kwargs):
+def write_filename(xmldoc, filename, verbose = False, gz = False, with_mv = True, trap_signals = SignalsTrap.default_signals, **kwargs):
 	"""
 	Writes the LIGO Light Weight document tree rooted at xmldoc to the
 	file name filename.  If filename is None the file is written to
@@ -532,6 +519,18 @@ def write_filename(xmldoc, filename, verbose = False, gz = False, with_mv = True
 	Internally, write_fileobj() is used to perform the write.  All
 	additional keyword arguments are passed to write_fileobj().
 
+	This function traps the signals in the trap_signals iterable during
+	the write process (see SignalsTrap for the default signals), and it
+	does this by temporarily installing its own signal handlers in
+	place of the current handlers.  This is done to prevent Condor
+	eviction during the write process.  When the file write is
+	concluded the original signal handlers are restored.  Then, if
+	signals were trapped during the write process, the signals are then
+	resent to the current process in the order in which they were
+	received.  The signal.signal() system call cannot be invoked from
+	threads, and trap_signals must be set to None or an empty sequence
+	if this function is used from a thread.
+
 	Example:
 
 	>>> write_filename(xmldoc, "demo.xml")	# doctest: +SKIP
@@ -539,13 +538,14 @@ def write_filename(xmldoc, filename, verbose = False, gz = False, with_mv = True
 	"""
 	if verbose:
 		sys.stderr.write("writing %s ...\n" % (("'%s'" % filename) if filename is not None else "stdout"))
-	if filename is None:
-		hexdigest = write_fileobj(xmldoc, sys.stdout, gz = gz, **kwargs)
-	else:
-		if not gz and filename.endswith(".gz"):
-			warnings.warn("filename '%s' ends in '.gz' but file is not being gzip-compressed" % filename, UserWarning)
-		with (open if not with_mv else tildefile)(filename) as fileobj:
-			hexdigest = write_fileobj(xmldoc, fileobj, gz = gz, **kwargs)
+	with SignalsTrap(trap_signals):
+		if filename is None:
+			hexdigest = write_fileobj(xmldoc, sys.stdout, gz = gz, **kwargs)
+		else:
+			if not gz and filename.endswith(".gz"):
+				warnings.warn("filename '%s' ends in '.gz' but file is not being gzip-compressed" % filename, UserWarning)
+			with (open if not with_mv else tildefile)(filename) as fileobj:
+				hexdigest = write_fileobj(xmldoc, fileobj, gz = gz, **kwargs)
 	if verbose:
 		sys.stderr.write("md5sum: %s  %s\n" % (hexdigest, (filename if filename is not None else "")))
 
