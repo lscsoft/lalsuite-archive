@@ -142,6 +142,7 @@ class RewindableInputFile(object):
 		# avoid attribute look-ups
 		self._next = self.fileobj.next
 		self._read = self.fileobj.read
+		self.close = self.fileobj.close
 
 	def __iter__(self):
 		return self
@@ -218,9 +219,6 @@ class RewindableInputFile(object):
 				return self.pos + 1
 		return self.pos
 
-	def close(self):
-		return self.fileobj.close()
-
 	def __enter__(self):
 		return self
 
@@ -238,34 +236,36 @@ class MD5File(object):
 			self.md5obj = md5obj
 		self.closable = closable
 		# avoid attribute look-ups
+		self._update = self.md5obj.update
 		try:
 			self._next = self.fileobj.next
 		except AttributeError:
 			# replace our .next() method with something that
 			# will raise a more meaningful exception if
 			# attempted
-			def next(*args):
-				fileobj.next
-			self.next = next
+			self.next = lambda *args, **kwargs: fileobj.next(*args, **kwargs)
 		try:
 			self._read = self.fileobj.read
 		except AttributeError:
 			# replace our .read() method with something that
 			# will raise a more meaningful exception if
 			# attempted
-			def read(*args):
-				fileobj.read
-			self.read = read
+			self.read = lambda *args, **kwargs: fileobj.read(*args, **kwargs)
 		try:
 			self._write = self.fileobj.write
 		except AttributeError:
 			# replace our .write() method with something that
 			# will raise a more meaningful exception if
 			# attempted
-			def write(*args):
-				fileobj.write
-			self.write = write
-		self._update = self.md5obj.update
+			self.write = lambda *args, **kwargs: fileobj.write(*args, **kwargs)
+		try:
+			self.tell = self.fileobj.tell
+		except AttributeError:
+			self.tell = lambda *args, **kwargs: fileobj.tell(*args, **kwargs)
+		try:
+			self.flush = self.fileobj.flush
+		except AttributeError:
+			self.flush = lambda *args, **kwargs: fileobj.flush(*args, **kwargs)
 
 	def __iter__(self):
 		return self
@@ -283,12 +283,6 @@ class MD5File(object):
 	def write(self, buf):
 		self._update(buf)
 		return self._write(buf)
-
-	def tell(self):
-		return self.fileobj.tell()
-
-	def flush(self):
-		return self.fileobj.flush()
 
 	def close(self):
 		if self.closable:
