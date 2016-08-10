@@ -407,6 +407,9 @@ class Table(EmptyElement):
 	tagName = u"Table"
 	validchildren = frozenset([u"Comment", u"Column", u"Stream"])
 
+	Name = attributeproxy(u"Name")
+	Type = attributeproxy(u"Type")
+
 	def _verifyChildren(self, i):
 		ncomment = 0
 		ncolumn = 0
@@ -427,15 +430,16 @@ class Table(EmptyElement):
 					raise ElementError("only one Stream allowed in Table")
 				nstream += 1
 
-	Name = attributeproxy(u"Name")
-	Type = attributeproxy(u"Type")
-
 
 class Column(EmptyElement):
 	"""
 	Column element.
 	"""
 	tagName = u"Column"
+
+	Name = attributeproxy(u"Name")
+	Type = attributeproxy(u"Type")
+	Unit = attributeproxy(u"Unit")
 
 	def start_tag(self, indent):
 		"""
@@ -456,10 +460,6 @@ class Column(EmptyElement):
 		fileobj.write(self.start_tag(indent))
 		fileobj.write(u"\n")
 
-	Name = attributeproxy(u"Name")
-	Type = attributeproxy(u"Type")
-	Unit = attributeproxy(u"Unit")
-
 
 class Array(EmptyElement):
 	"""
@@ -467,6 +467,10 @@ class Array(EmptyElement):
 	"""
 	tagName = u"Array"
 	validchildren = frozenset([u"Dim", u"Stream"])
+
+	Name = attributeproxy(u"Name")
+	Type = attributeproxy(u"Type")
+	Unit = attributeproxy(u"Unit")
 
 	def _verifyChildren(self, i):
 		nstream = 0
@@ -479,16 +483,17 @@ class Array(EmptyElement):
 					raise ElementError("only one Stream allowed in Array")
 				nstream += 1
 
-	Name = attributeproxy(u"Name")
-	Type = attributeproxy(u"Type")
-	Unit = attributeproxy(u"Unit")
-
 
 class Dim(Element):
 	"""
 	Dim element.
 	"""
 	tagName = u"Dim"
+
+	Name = attributeproxy(u"Name")
+	Scale = attributeproxy(u"Scale", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
+	Start = attributeproxy(u"Start", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
+	Unit = attributeproxy(u"Unit")
 
 	def write(self, fileobj = sys.stdout, indent = u""):
 		fileobj.write(self.start_tag(indent))
@@ -497,11 +502,6 @@ class Dim(Element):
 		fileobj.write(self.end_tag(u""))
 		fileobj.write(u"\n")
 
-	Name = attributeproxy(u"Name")
-	Scale = attributeproxy(u"Scale", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
-	Start = attributeproxy(u"Start", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
-	Unit = attributeproxy(u"Unit")
-
 
 class Stream(Element):
 	"""
@@ -509,16 +509,16 @@ class Stream(Element):
 	"""
 	tagName = u"Stream"
 
-	def __init__(self, *args):
-		super(Stream, self).__init__(*args)
-		if self.Type not in (u"Remote", u"Local"):
-			raise ElementError("invalid Type for Stream: '%s'" % self.Type)
-
 	Content = attributeproxy(u"Content")
 	Delimiter = attributeproxy(u"Delimiter", default = u",")
 	Encoding = attributeproxy(u"Encoding")
 	Name = attributeproxy(u"Name")
 	Type = attributeproxy(u"Type", default = u"Local")
+
+	def __init__(self, *args):
+		super(Stream, self).__init__(*args)
+		if self.Type not in (u"Remote", u"Local"):
+			raise ElementError("invalid Type for Stream: '%s'" % self.Type)
 
 
 class IGWDFrame(EmptyElement):
@@ -568,6 +568,9 @@ class Time(Element):
 	Time element.
 	"""
 	tagName = u"Time"
+
+	Name = attributeproxy(u"Name")
+	Type = attributeproxy(u"Type", default = u"ISO-8601")
 
 	def __init__(self, *args):
 		super(Time, self).__init__(*args)
@@ -639,9 +642,6 @@ class Time(Element):
 			self.Name = Name
 		self.pcdata = gps
 		return self
-
-	Name = attributeproxy(u"Name")
-	Type = attributeproxy(u"Type", default = u"ISO-8601")
 
 
 class Document(EmptyElement):
