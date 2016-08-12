@@ -39,7 +39,8 @@ if not os.getenv("DISPLAY", None):
 
 
 from pylal import (antenna, date, git_version, plotutils, MultiInspiralUtils,
-                   coh_PTF_pyutils, htmlutils, ligolw_tisi)
+                   coh_PTF_pyutils, htmlutils)
+from lalburst import timeslides as ligolw_tisi
 from pylal.dq import dqSegmentUtils
 from lal import GPSTimeNow
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
