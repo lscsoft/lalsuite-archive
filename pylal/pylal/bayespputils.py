@@ -5499,6 +5499,51 @@ def readCoincXML(xml_file, trignum):
 # Parameter estimation codes results parser
 #===============================================================================
 
+def find_ndownsample(samples, nDownsample):
+    """
+    Given a list of files, threshold value, and a desired
+    number of outputs posterior samples, return the skip number to
+    achieve the desired number of posterior samples.
+    """
+    if nDownsample is None:
+        print "Max ACL(s):"
+    if nDownsample is None:
+        splineParams=["spcal_npts", "spcal_active","constantcal_active"]
+        for i in np.arange(5):
+          for k in ['h1','l1']:
+            splineParams.append(k+'_spcal_freq'+str(i))
+            splineParams.append(k+'_spcal_logfreq'+str(i))
+
+        nonParams = ["logpost", "cycle", "timestamp", "snrh1", "snrl1", "snrv1",
+                     "margtime","margtimephi","margtime","time_max","time_min",
+                     "time_mean", "time_maxl","sky_frame","psdscaleflag","logdeltaf","flow","f_ref",
+                     "lal_amporder","lal_pnorder","lal_approximant","tideo","spino","signalmodelflag",
+                     "t0", "phase_maxl", "azimuth", "cosalpha", "lal_amporder"] + logParams + snrParams + splineParams
+        params = [p for p in samples.colnames if p.lower() not in nonParams]
+        stride=np.diff(samples['cycle'])[0]
+        results = np.array([np.array(effectiveSampleSize(samples[param])[:2]) for param in params])
+        nEffs = results[:,0]
+        nEffective = min(nEffs)
+        ACLs  = results[:,1]
+        maxACLind = np.argmax(ACLs)
+        maxACL = ACLs[maxACLind]
+        # Get index in header, which includes "non-params"
+        print "%i (%s)." %(stride*maxACL,params[maxACLind])
+
+    nskip = 1
+    if nDownsample is not None:
+        if len(samples) > nDownsample:
+            nskip *= floor(len(samples)/nDownsample)
+
+    else:
+        nEff = nEffective
+        if nEff > 1:
+            if len(samples) > nEff:
+                nskip = ceil(len(samples)/nEff)
+        else:
+            nskip = None
+    return nskip
+
 class PEOutputParser(object):
     """
     A parser for the output of Bayesian parameter estimation codes.
@@ -5547,7 +5592,7 @@ class PEOutputParser(object):
             fixedBurnins = np.zeros(len(files))
         logLThreshold=-1e200 # Really small?
         if not (deltaLogL is None):
-            logLThreshold=self._find_max_logL(files) - deltaLogL
+            logLThreshold= - deltaLogL
             print "Eliminating any samples before log(Post) = ", logLThreshold
         nskips=self._find_ndownsample(files, logLThreshold, fixedBurnins, nDownsample)
         if nDownsample is None:
@@ -5998,7 +6043,7 @@ class PEOutputParser(object):
         print 'Read columns %s'%(str(header))
         return header,flines
 
-    def _hdf5_to_pos(self, infile):
+    def _hdf5_to_pos(self, infile, outdir=None, deltaLogL=None, fixedBurnin=None, nDownsample=None, *kwargs):
         """
         Parse a HDF5 file and return an array of posterior samples ad list of
         parameter names. Equivalent to '_common_to_pos' and work in progress.
@@ -6038,8 +6083,38 @@ class PEOutputParser(object):
         params = samples.colnames
         print('Read columns %s' % str(params))
 
-        return samples.colnames, samples.as_array().view(float).reshape(-1, len(params))
+        # MCMC burnin and downsampling
+        if 'cycle' in params:
+            if not (fixedBurnin is None):
+                if not (deltaLogL is None):
+                    print "Warning: using deltaLogL criteria in addition to fixed burnin"
+                print "Fixed burning criteria: ",fixedBurnins
+            else:
+                fixedBurnin = 0
+            burnin_idx = np.arange(len(samples))[samples['cycle'] > fixedBurnin][0]
+            samples = samples[burnin_idx:]
 
+            logLThreshold=-1e200 # Really small?
+            if not (deltaLogL is None):
+                logLThreshold = max(samples['logl'])- deltaLogL
+                print "Eliminating any samples before log(L) = ", logLThreshold
+                burnin_idx = np.arange(len(samples))[samples['logl'] > logLThreshold][0]
+                samples = samples[burnin_idx:]
+
+            nskip = find_ndownsample(samples, nDownsample)
+            if nDownsample is None:
+                print "Downsampling to take only uncorrelated posterior samples from each file."
+                if np.isnan(nskip):
+                    print "WARNING: All samples in chain are correlated.  Downsampling to 10000 samples for inspection!!!"
+                    nskip = find_ndownsample(samples, 10000)
+                else:
+                    if np.isnan(nskip):
+                        print "%s eliminated since all samples are correlated."
+                    else:
+                        print "Downsampling by a factor of ", nskip, " to achieve approximately ", nDownsample, " posterior samples"
+                samples = samples[::nskip]
+
+        return samples.colnames, samples.as_array().view(float).reshape(-1, len(params))
 
     def _common_to_pos(self,infile,info=[None,None]):
         """
