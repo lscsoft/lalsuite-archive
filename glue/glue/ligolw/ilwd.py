@@ -56,7 +56,7 @@ suffix can be retrieved by converting the object to an integer.
 Example:
 
 >>> x.table_name
-'process'
+u'process'
 >>> int(x)
 10
 
@@ -193,8 +193,8 @@ def get_ilwdchar_class(tbl_name, col_name, namespace = globals()):
 	# if the class already exists, retrieve and return it
 	#
 
-	key = (str(tbl_name), str(col_name))
-	cls_name = "%s_%s_class" % key
+	key = unicode(tbl_name), unicode(col_name)
+	cls_name = str("%s_%s_class" % key)
 	assert cls_name != "get_ilwdchar_class"
 	try:
 		return namespace[cls_name]
@@ -208,7 +208,7 @@ def get_ilwdchar_class(tbl_name, col_name, namespace = globals()):
 	class new_class(_ilwd.ilwdchar):
 		__slots__ = ()
 		table_name, column_name = key
-		index_offset = len("%s:%s:" % key)
+		index_offset = len(u"%s:%s:" % key)
 
 	new_class.__name__ = cls_name
 
@@ -247,13 +247,13 @@ class ilwdchar(object):
 
 		Example:
 
-		>>> x = ilwdchar("process:process_id:10")
+		>>> x = ilwdchar(u"process:process_id:10")
 		>>> str(x)
 		'process:process_id:10'
 		>>> x.table_name
-		'process'
+		u'process'
 		>>> x.column_name
-		'process_id'
+		u'process_id'
 		>>> int(x)
 		10
 		>>> x.index_offset
@@ -275,7 +275,7 @@ class ilwdchar(object):
 		#
 
 		try:
-			table_name, column_name, i = s.strip().split(":")
+			table_name, column_name, i = s.strip().split(u":")
 		except (ValueError, AttributeError):
 			raise ValueError("invalid ilwd:char '%s'" % repr(s))
 

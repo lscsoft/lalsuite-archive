@@ -151,7 +151,8 @@ def tosegmentxml(file, segs):
   ligolw_process.set_process_end_time(process)
 
   # write file
-  utils.write_fileobj(xmldoc, file, gz=False)
+  with utils.SignalsTrap():
+    utils.write_fileobj(xmldoc, file, gz=False)
 
 # ==============================================================================
 # Function to load segments from a csv file

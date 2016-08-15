@@ -143,8 +143,11 @@ class Element(object):
 	"""
 	# XML tag names are case sensitive:  compare with ==, !=, etc.
 	tagName = None
-	validattributes = frozenset()
 	validchildren = frozenset()
+
+	@classmethod
+	def validattributes(cls):
+		return frozenset(name for name in dir(cls) if isinstance(getattr(cls, name), attributeproxy))
 
 	def __init__(self, attrs = None):
 		"""
@@ -156,10 +159,10 @@ class Element(object):
 		self.parentNode = None
 		if attrs is None:
 			self.attributes = AttributesImpl({})
-		elif set(attrs.keys()) <= self.validattributes:
+		elif set(attrs.keys()) <= self.validattributes():
 			self.attributes = attrs
 		else:
-			raise ElementError("%s element: invalid attribute(s) %s" % (self.tagName, ", ".join("'%s'" % key for key in set(attrs.keys()) - self.validattributes)))
+			raise ElementError("%s element: invalid attribute(s) %s" % (self.tagName, ", ".join("'%s'" % key for key in set(attrs.keys()) - self.validattributes())))
 		self.childNodes = []
 		self.pcdata = None
 
@@ -363,7 +366,6 @@ class LIGO_LW(EmptyElement):
 	"""
 	tagName = u"LIGO_LW"
 	validchildren = frozenset([u"LIGO_LW", u"Comment", u"Param", u"Table", u"Array", u"Stream", u"IGWDFrame", u"AdcData", u"AdcInterval", u"Time", u"Detector"])
-	validattributes = frozenset([u"Name", u"Type"])
 
 	Name = attributeproxy(u"Name")
 	Type = attributeproxy(u"Type")
@@ -389,7 +391,6 @@ class Param(Element):
 	"""
 	tagName = u"Param"
 	validchildren = frozenset([u"Comment"])
-	validattributes = frozenset([u"DataUnit", u"Name", u"Scale", u"Start", u"Type", u"Unit"])
 
 	DataUnit = attributeproxy(u"DataUnit")
 	Name = attributeproxy(u"Name")
@@ -405,7 +406,9 @@ class Table(EmptyElement):
 	"""
 	tagName = u"Table"
 	validchildren = frozenset([u"Comment", u"Column", u"Stream"])
-	validattributes = frozenset([u"Name", u"Type"])
+
+	Name = attributeproxy(u"Name")
+	Type = attributeproxy(u"Type")
 
 	def _verifyChildren(self, i):
 		ncomment = 0
@@ -427,16 +430,16 @@ class Table(EmptyElement):
 					raise ElementError("only one Stream allowed in Table")
 				nstream += 1
 
-	Name = attributeproxy(u"Name")
-	Type = attributeproxy(u"Type")
-
 
 class Column(EmptyElement):
 	"""
 	Column element.
 	"""
 	tagName = u"Column"
-	validattributes = frozenset([u"Name", u"Type", u"Unit"])
+
+	Name = attributeproxy(u"Name")
+	Type = attributeproxy(u"Type")
+	Unit = attributeproxy(u"Unit")
 
 	def start_tag(self, indent):
 		"""
@@ -457,10 +460,6 @@ class Column(EmptyElement):
 		fileobj.write(self.start_tag(indent))
 		fileobj.write(u"\n")
 
-	Name = attributeproxy(u"Name")
-	Type = attributeproxy(u"Type")
-	Unit = attributeproxy(u"Unit")
-
 
 class Array(EmptyElement):
 	"""
@@ -468,7 +467,10 @@ class Array(EmptyElement):
 	"""
 	tagName = u"Array"
 	validchildren = frozenset([u"Dim", u"Stream"])
-	validattributes = frozenset([u"Name", u"Type", u"Unit"])
+
+	Name = attributeproxy(u"Name")
+	Type = attributeproxy(u"Type")
+	Unit = attributeproxy(u"Unit")
 
 	def _verifyChildren(self, i):
 		nstream = 0
@@ -481,17 +483,17 @@ class Array(EmptyElement):
 					raise ElementError("only one Stream allowed in Array")
 				nstream += 1
 
-	Name = attributeproxy(u"Name")
-	Type = attributeproxy(u"Type")
-	Unit = attributeproxy(u"Unit")
-
 
 class Dim(Element):
 	"""
 	Dim element.
 	"""
 	tagName = u"Dim"
-	validattributes = frozenset([u"Name", u"Scale", u"Start", u"Unit"])
+
+	Name = attributeproxy(u"Name")
+	Scale = attributeproxy(u"Scale", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
+	Start = attributeproxy(u"Start", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
+	Unit = attributeproxy(u"Unit")
 
 	def write(self, fileobj = sys.stdout, indent = u""):
 		fileobj.write(self.start_tag(indent))
@@ -500,29 +502,23 @@ class Dim(Element):
 		fileobj.write(self.end_tag(u""))
 		fileobj.write(u"\n")
 
-	Name = attributeproxy(u"Name")
-	Scale = attributeproxy(u"Scale", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
-	Start = attributeproxy(u"Start", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
-	Unit = attributeproxy(u"Unit")
-
 
 class Stream(Element):
 	"""
 	Stream element.
 	"""
 	tagName = u"Stream"
-	validattributes = frozenset([u"Content", u"Delimiter", u"Encoding", u"Name", u"Type"])
-
-	def __init__(self, *args):
-		super(Stream, self).__init__(*args)
-		if self.Type not in (u"Remote", u"Local"):
-			raise ElementError("invalid Type for Stream: '%s'" % self.Type)
 
 	Content = attributeproxy(u"Content")
 	Delimiter = attributeproxy(u"Delimiter", default = u",")
 	Encoding = attributeproxy(u"Encoding")
 	Name = attributeproxy(u"Name")
 	Type = attributeproxy(u"Type", default = u"Local")
+
+	def __init__(self, *args):
+		super(Stream, self).__init__(*args)
+		if self.Type not in (u"Remote", u"Local"):
+			raise ElementError("invalid Type for Stream: '%s'" % self.Type)
 
 
 class IGWDFrame(EmptyElement):
@@ -531,7 +527,6 @@ class IGWDFrame(EmptyElement):
 	"""
 	tagName = u"IGWDFrame"
 	validchildren = frozenset([u"Comment", u"Param", u"Time", u"Detector", u"AdcData", u"LIGO_LW", u"Stream", u"Array", u"IGWDFrame"])
-	validattributes = frozenset([u"Name"])
 
 	Name = attributeproxy(u"Name")
 
@@ -542,7 +537,6 @@ class Detector(EmptyElement):
 	"""
 	tagName = u"Detector"
 	validchildren = frozenset([u"Comment", u"Param", u"LIGO_LW"])
-	validattributes = frozenset([u"Name"])
 
 	Name = attributeproxy(u"Name")
 
@@ -553,7 +547,6 @@ class AdcData(EmptyElement):
 	"""
 	tagName = u"AdcData"
 	validchildren = frozenset([u"AdcData", u"Comment", u"Param", u"Time", u"LIGO_LW", u"Array"])
-	validattributes = frozenset([u"Name"])
 
 	Name = attributeproxy(u"Name")
 
@@ -564,7 +557,6 @@ class AdcInterval(EmptyElement):
 	"""
 	tagName = u"AdcInterval"
 	validchildren = frozenset([u"AdcData", u"Comment", u"Time"])
-	validattributes = frozenset([u"DeltaT", u"Name", u"StartTime"])
 
 	DeltaT = attributeproxy(u"DeltaT", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
 	Name = attributeproxy(u"Name")
@@ -576,7 +568,9 @@ class Time(Element):
 	Time element.
 	"""
 	tagName = u"Time"
-	validattributes = frozenset([u"Name", u"Type"])
+
+	Name = attributeproxy(u"Name")
+	Type = attributeproxy(u"Type", default = u"ISO-8601")
 
 	def __init__(self, *args):
 		super(Time, self).__init__(*args)
@@ -648,9 +642,6 @@ class Time(Element):
 			self.Name = Name
 		self.pcdata = gps
 		return self
-
-	Name = attributeproxy(u"Name")
-	Type = attributeproxy(u"Type", default = u"ISO-8601")
 
 
 class Document(EmptyElement):
