@@ -41,6 +41,7 @@ The array is stored as an attribute of the Array element.
 """
 
 
+import itertools
 import numpy
 import re
 import sys
@@ -203,8 +204,9 @@ class ArrayStream(ligolw.Stream):
 	def appendData(self, content):
 		# tokenize buffer, and assign to array
 		tokens = tuple(self._tokenizer.append(content))
-		self._array_view[self._index : self._index + len(tokens)] = tokens
-		self._index += len(tokens)
+		next_index = self._index + len(tokens)
+		self._array_view[self._index : next_index] = tokens
+		self._index = next_index
 
 	def endElement(self):
 		# stream tokenizer uses delimiter to identify end of each
@@ -218,28 +220,22 @@ class ArrayStream(ligolw.Stream):
 
 	def write(self, fileobj = sys.stdout, indent = u""):
 		# avoid symbol and attribute look-ups in inner loop
-		delim = self.Delimiter
-		linefmtfunc = lambda seq: xmlescape(delim.join(seq))
-		elemfmtfunc = ligolwtypes.FormatFunc[self.parentNode.Type]
-		elems = self.parentNode.array.T.flat
-		nextelem = elems.next
 		linelen = self.parentNode.array.shape[0]
-		totallen = self.parentNode.array.size
-		newline = u"\n" + indent + ligolw.Indent
+		lines = self.parentNode.array.size / linelen
+		tokens = itertools.imap(ligolwtypes.FormatFunc[self.parentNode.Type], self.parentNode.array.T.flat)
+		islice = itertools.islice
+		join = self.Delimiter.join
 		w = fileobj.write
 
-		# This is complicated because we need to not put a
-		# delimiter after the last element.
 		w(self.start_tag(indent))
-		if totallen:
-			# there will be at least one line of data
+		if lines:
+			newline = u"\n" + indent + ligolw.Indent
 			w(newline)
-		newline = delim + newline
-		while True:
-			w(linefmtfunc(elemfmtfunc(nextelem()) for i in xrange(linelen)))
-			if elems.index >= totallen:
-				break
-			w(newline)
+			w(xmlescape(join(islice(tokens, linelen))))
+			newline = self.Delimiter + newline
+			for i in xrange(lines - 1):
+				w(newline)
+				w(xmlescape(join(islice(tokens, linelen))))
 		w(u"\n" + self.end_tag(indent) + u"\n")
 
 
@@ -277,7 +273,7 @@ class Array(ligolw.Array):
 		Break internal references within the document tree rooted
 		on this element to promote garbage collection.
 		"""
-		ligolw.Array.unlink(self)
+		super(Array, self).unlink()
 		self.array = None
 
 

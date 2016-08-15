@@ -28,7 +28,7 @@ import itertools
 
 
 from glue import offsetvector
-from pylal import git_version
+from . import git_version
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"

@@ -29,7 +29,8 @@ import numpy
 import warnings
 from os.path import basename
 
-from pylal import (git_version, MultiInspiralUtils, ligolw_tisi)
+from pylal import (git_version, MultiInspiralUtils)
+from lalburst import timeslides as ligolw_tisi
 from lal import GPSTimeNow
 
 from glue import (lal as cache, iterutils)
