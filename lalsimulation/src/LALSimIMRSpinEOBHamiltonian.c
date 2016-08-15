@@ -665,6 +665,25 @@ static int XLALSimIMRCalculateSpinEOBHCoeffs(
         coeff32 = 31.9452;
         coeff33 = -63.2452;
         
+        // Calibrationv21_Aug3c_nonbcycles_noISCO_BAMq8s85_byhanddNQC
+        coeff00 = 1.7336;
+        coeff01 = -1.38671;
+        coeff02 = -0.79653;
+        coeff03 = 1.08023;
+        coeff10 = 10.2573;
+        coeff11 = 1.70686;
+        coeff12 = 0.;
+        coeff13 = -0.6687;
+        coeff20 = -126.687;
+        coeff21 = 16.6771;
+        coeff22 = 2.26562;
+        coeff23 = 0.;
+        coeff30 = 267.788;
+        coeff31 = -23.6745;
+        coeff32 = 17.0039;
+        coeff33 = -47.8904;
+        
+        
      coeffs->KK = KK = coeff00  + coeff01*chi  + coeff02*chi2  + coeff03*chi3  + coeff10*eta  + coeff11*eta*chi  + coeff12*eta*chi2  + coeff13*eta*chi3  + coeff20*eta2  + coeff21*eta2*chi  + coeff22*eta2*chi2  + coeff23*eta2*chi3  + coeff30*eta3  + coeff31*eta3*chi  + coeff32*eta3*chi2  + coeff33*eta3*chi3;
 //      printf("KK %.16e\n", KK);
  }
@@ -789,6 +808,24 @@ static int XLALSimIMRCalculateSpinEOBHCoeffs(
           coeff31 = 0.080688;
           coeff32 = 0;
           coeff33 = 0;
+          
+          // Calibrationv21_Aug3c_nonbcycles_noISCO_BAMq8s85_byhanddNQC
+          coeff00 = -63.7829;
+          coeff01 = 0;
+          coeff02 = 0;
+          coeff03 = 0;
+          coeff10 = 0;
+          coeff11 = 0;
+          coeff12 = 0;
+          coeff13 = -1318.03;
+          coeff20 = 0;
+          coeff21 = 0.534604;
+          coeff22 = 0;
+          coeff23 = 3241.75;
+          coeff30 = 0;
+          coeff31 = 7901.41;
+          coeff32 = 0;
+          coeff33 = 0;
           coeffs->d1v2 = coeff00  + coeff01*chi  + coeff02*chi2  + coeff03*chi3  + coeff10*eta  + coeff11*eta*chi  + coeff12*eta*chi2  + coeff13*eta*chi3  + coeff20*eta2  + coeff21*eta2*chi  + coeff22*eta2*chi2  + coeff23*eta2*chi3  + coeff30*eta3  + coeff31*eta3*chi  + coeff32*eta3*chi2  + coeff33*eta3*chi3;
 
           // dSS
@@ -861,6 +898,24 @@ static int XLALSimIMRCalculateSpinEOBHCoeffs(
           coeff31 = 0;
           coeff32 = 2229.54;
           coeff33 = 0;
+          
+          //Calibrationv21_Aug3c_nonbcycles_noISCO_BAMq8s85_byhanddNQC
+          coeff00 = 0;
+          coeff01 = 0;
+          coeff02 = 3.81988;
+          coeff03 = 3.44509;
+          coeff10 = -37.3544;
+          coeff11 = 0;
+          coeff12 = 205.74;
+          coeff13 = -32.8595;
+          coeff20 = 0;
+          coeff21 = 0;
+          coeff22 = 0;
+          coeff23 = 0;
+          coeff30 = 0;
+          coeff31 = 0;
+          coeff32 = 144.279;
+          coeff33 = 0.;
           coeffs->dheffSSv2 = coeff00  + coeff01*chi  + coeff02*chi2  + coeff03*chi3  + coeff10*eta  + coeff11*eta*chi  + coeff12*eta*chi2  + coeff13*eta*chi3  + coeff20*eta2  + coeff21*eta2*chi  + coeff22*eta2*chi2  + coeff23*eta2*chi3  + coeff30*eta3  + coeff31*eta3*chi  + coeff32*eta3*chi2  + coeff33*eta3*chi3;
 //          printf("dSO %.16e, dSS %.16e\n", coeffs->d1v2,coeffs->dheffSSv2);
         break;
