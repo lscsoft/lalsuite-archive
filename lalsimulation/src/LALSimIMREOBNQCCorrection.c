@@ -1233,6 +1233,112 @@ UNUSED static inline REAL8 XLALSimIMREOBGetNRSpinPeakDeltaTv4(
     coeff33 = 0;
     
     //Calibrationv21_Aug3c_nonbcycles_noISCO_BAMq8s85_byhanddNQC
+//    coeff00 = 1.84429;
+//    coeff01 = 6.13035;
+//    coeff02 = 10.705;
+//    coeff03 = 8.49679;
+//    coeff10 = 40.037;
+//    coeff11 = -21.9949;
+//    coeff12 = 172.859;
+//    coeff13 = 107.232;
+//    coeff20 = 109.301;
+//    coeff21 = 48.7884;
+//    coeff22 = -1689.75;
+//    coeff23 = -1533.07;
+//    coeff30 = -964.821;
+//    coeff31 = -279.026;
+//    coeff32 = 4011.48;
+//    coeff33 = 3986.02;
+//    printf("deltaNQC %.16e\n",coeff00  + coeff01*chi  + coeff02*chiTo2  + coeff03*chiTo3  + coeff10*eta  + coeff11*eta*chi  + coeff12*eta*chiTo2  + coeff13*eta*chiTo3  + coeff20*eta2  + coeff21*eta2*chi  + coeff22*eta2*chiTo2  + coeff23*eta2*chiTo3  + coeff30*eta3  + coeff31*eta3*chi  + coeff32*eta3*chiTo2  + coeff33*eta3*chiTo3);
+    return  coeff00  + coeff01*chi  + coeff02*chiTo2  + coeff03*chiTo3  + coeff10*eta  + coeff11*eta*chi  + coeff12*eta*chiTo2  + coeff13*eta*chiTo3  + coeff20*eta2  + coeff21*eta2*chi  + coeff22*eta2*chiTo2  + coeff23*eta2*chiTo3  + coeff30*eta3  + coeff31*eta3*chi  + coeff32*eta3*chiTo2  + coeff33*eta3*chiTo3;
+}
+
+UNUSED static inline REAL8 XLALSimIMREOBGetNRSpinPeakDeltaTv4ByHand(
+                                                              INT4 UNUSED l,    /**<< Mode l */
+                                                              INT4 UNUSED m,    /**<< Mode m */
+                                                              REAL8 UNUSED m1,  /**<< mass 1 */
+                                                              REAL8 UNUSED m2,  /**<< mass 2 */
+                                                              REAL8 UNUSED chi1,       /**<< Dimensionless spin1 */
+                                                              REAL8 UNUSED chi2        /**<< Dimensionless spin2 */
+)
+{
+    REAL8 eta = m1*m2 / (m1 + m2) / (m1 + m2);
+    REAL8 chi = 0.5*(chi1 + chi2) + 0.5*(chi1 - chi2)*(m1 - m2)/(m1 + m2)/(1. - 2.*eta);
+    REAL8 eta2 = eta*eta, eta3 = eta2*eta;
+    REAL8 chiTo2 = chi*chi, chiTo3 = chiTo2*chi;
+    REAL8 coeff00, coeff01, coeff02, coeff03;
+    REAL8 coeff10, coeff11, coeff12, coeff13;
+    REAL8 coeff20, coeff21, coeff22, coeff23;
+    REAL8 coeff30, coeff31, coeff32, coeff33;
+    coeff00 = 2.50499;
+    coeff01 = 7.68567;
+    coeff02 = 9.76792;
+    coeff03 = 4.42568;
+    coeff10 = 45.8838;
+    coeff11 = -14.69;
+    coeff12 = 0.;
+    coeff13 = -112.03;
+    coeff20 = 13.0879;
+    coeff21 = -0.223135;
+    coeff22 = -0.000026;
+    coeff23 = 0.000404;
+    coeff30 = -716.044;
+    coeff31 = 128.449;
+    coeff32 = 182.929;
+    coeff33 = 1080.65;
+    //Calibrationv21_Jul6b_nonbcycles_noISCO_noPhDq8s85
+    coeff00 = 2.50499;
+    coeff01 = 11.4509;
+    coeff02 = 8.99357;
+    coeff03 = 0.003087;
+    coeff10 = 45.8838;
+    coeff11 = -48.9242;
+    coeff12 = 0.00001;
+    coeff13 = -42.2166;
+    coeff20 = 13.0879;
+    coeff21 = -0.000078;
+    coeff22 = 0.000329;
+    coeff23 = 198.364;
+    coeff30 = -716.044;
+    coeff31 = 0.000057;
+    coeff32 = 127.152;
+    coeff33 = 0.000845;
+    //Calibrationv21_Jul21_nonbcycles_noISCO_noPhDq8s85_inicondsfromrun7_chop
+    coeff00 = 2.50499;
+    coeff01 = 11.5159;
+    coeff02 = 9.20186;
+    coeff03 = 0.;
+    coeff10 = 45.8838;
+    coeff11 = -49.1423;
+    coeff12 = 0.;
+    coeff13 = -42.163;
+    coeff20 = 13.0879;
+    coeff21 = 0.;
+    coeff22 = 0.;
+    coeff23 = 198.376;
+    coeff30 = -716.044;
+    coeff31 = 0.;
+    coeff32 = 110.537;
+    coeff33 = 0.;
+    //Calibrationv21_Aug3c_nonbcycles_noISCO_BAMq8s85
+    coeff00 = 2.50499;
+    coeff01 = 14.8312;
+    coeff02 = 11.3139;
+    coeff03 = 0;
+    coeff10 = 45.8838;
+    coeff11 = -65.7387;
+    coeff12 = 0;
+    coeff13 = -9.05784;
+    coeff20 = 13.0879;
+    coeff21 = 0;
+    coeff22 = 0;
+    coeff23 = 74.6205;
+    coeff30 = -716.044;
+    coeff31 = 0;
+    coeff32 = 0;
+    coeff33 = 0;
+    
+    //Calibrationv21_Aug3c_nonbcycles_noISCO_BAMq8s85_byhanddNQC
     coeff00 = 1.84429;
     coeff01 = 6.13035;
     coeff02 = 10.705;
@@ -1249,7 +1355,7 @@ UNUSED static inline REAL8 XLALSimIMREOBGetNRSpinPeakDeltaTv4(
     coeff31 = -279.026;
     coeff32 = 4011.48;
     coeff33 = 3986.02;
-//    printf("deltaNQC %.16e\n",coeff00  + coeff01*chi  + coeff02*chiTo2  + coeff03*chiTo3  + coeff10*eta  + coeff11*eta*chi  + coeff12*eta*chiTo2  + coeff13*eta*chiTo3  + coeff20*eta2  + coeff21*eta2*chi  + coeff22*eta2*chiTo2  + coeff23*eta2*chiTo3  + coeff30*eta3  + coeff31*eta3*chi  + coeff32*eta3*chiTo2  + coeff33*eta3*chiTo3);
+//        printf("deltaNQC %.16e\n",coeff00  + coeff01*chi  + coeff02*chiTo2  + coeff03*chiTo3  + coeff10*eta  + coeff11*eta*chi  + coeff12*eta*chiTo2  + coeff13*eta*chiTo3  + coeff20*eta2  + coeff21*eta2*chi  + coeff22*eta2*chiTo2  + coeff23*eta2*chiTo3  + coeff30*eta3  + coeff31*eta3*chi  + coeff32*eta3*chiTo2  + coeff33*eta3*chiTo3);
     return  coeff00  + coeff01*chi  + coeff02*chiTo2  + coeff03*chiTo3  + coeff10*eta  + coeff11*eta*chi  + coeff12*eta*chiTo2  + coeff13*eta*chiTo3  + coeff20*eta2  + coeff21*eta2*chi  + coeff22*eta2*chiTo2  + coeff23*eta2*chiTo3  + coeff30*eta3  + coeff31*eta3*chi  + coeff32*eta3*chiTo2  + coeff33*eta3*chiTo3;
 }
 
@@ -1829,6 +1935,8 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
                                                             UINT4                     SpinAlignedEOBversion  /**<< 1 for SEOBNRv1, 2 for SEOBNRv2 */
 )
 {
+    INT4 use_v4alt = 0;
+    if (SpinAlignedEOBversion == 5) { SpinAlignedEOBversion =4; use_v4alt=1;}
     int debugAT = 0;
     /* For gsl permutation stuff */
     
@@ -2033,6 +2141,9 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficientsV4(
             break;
         case 4:
             nrDeltaT   = XLALSimIMREOBGetNRSpinPeakDeltaTv4( l, m, m1, m2, chi1, chi2 );
+            if ( use_v4alt == 1 ) {
+                nrDeltaT   = XLALSimIMREOBGetNRSpinPeakDeltaTv4ByHand( l, m, m1, m2, chi1, chi2 );
+            }
             break;
         default:
             XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
