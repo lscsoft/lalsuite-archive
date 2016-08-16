@@ -209,16 +209,6 @@ class EventListDict(dict):
 			eventlist.set_offset(0)
 
 
-def make_eventlists(xmldoc, EventListType, event_table_name, process_ids = None):
-	"""
-	Convenience wrapper for constructing a dictionary of event lists
-	from an XML document tree, the name of a table from which to get
-	the events, a maximum allowed time window, and the name of the
-	program that generated the events.
-	"""
-	return EventListDict(EventListType, ligolw_table.get_table(xmldoc, event_table_name), process_ids = process_ids)
-
-
 #
 # =============================================================================
 #
