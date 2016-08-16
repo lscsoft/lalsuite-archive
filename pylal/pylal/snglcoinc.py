@@ -1072,32 +1072,8 @@ class CoincSynthesizer(object):
 			# maps instrument combo to rate of coincs involving
 			# exactly that combo given the instruments that are
 			# on
-			#
-			# note:  we do not assume that each higher-order
-			# coinc is formed from unique lower-order coincs,
-			# that is each coinc is assumed to have
-			# participated in 0 or more higher-order coincs.
-			# so...
-			#
-			# if we have n events that, between them, have
-			# formed m higher-order events, the probability
-			# that any given event has participated in the
-			# construction of any given higher-order event is
-			# 1/n;  the probability that it has not
-			# participated in the contruction of any given
-			# higher-order event is 1-1/n;  the probability
-			# that it has not paticpated in the construction of
-			# any higher-order event after m such events have
-			# been constructed is (1-1/n)^m.  of the n events
-			# the number expected to not have participated in
-			# any higher-order coincidences is n (1 - 1/n)^m
-			#
-			# if n is large and much larger tham m, then
-			# n*(1-1/n)^m ~= n(1-m/n) = n-m.
 			for key in sorted(allowed_rates, key = lambda x: len(x), reverse = True):
-				# see comment above
-				m = sum(sorted(rate for otherkey, rate in allowed_rates.items() if key < otherkey))
-				allowed_rates[key] *= math.exp(m * math.log1p(-1. / allowed_rates[key]))
+				allowed_rates[key] -= sum(sorted(rate for otherkey, rate in allowed_rates.items() if key < otherkey))
 
 			for combo, rate in allowed_rates.items():
 				assert rate >= 0.
