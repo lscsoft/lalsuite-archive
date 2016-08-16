@@ -754,6 +754,8 @@ class CoincSynthesizer(object):
 		window in seconds, the light travel time between instrument
 		pairs is added to this internally to set the maximum
 		allowed coincidence window between a pair of instruments.
+		min_instruments sets the minimum number of instruments that
+		must participate in a coincidence (default is 2).
 
 		abundance_rel_accuracy sets the fractional error tolerated
 		in the Monte Carlo integrator used to estimate the relative
@@ -799,10 +801,10 @@ class CoincSynthesizer(object):
 		attributes (or their contents) are modified.  This class
 		relies heavily on pre-computed quantities that are derived
 		from the input parameters and cached;  invoking this method
-		forces the recalculation of all cached data (the next time
-		it's needed).  Until this method is invoked, derived data
-		like coincidence window sizes and mean event rates might
-		reflect the previous state of this class.
+		forces the recalculation of cached data (the next time it's
+		needed).  Until this method is invoked, derived data like
+		coincidence window sizes and mean event rates might reflect
+		the previous state of this class.
 		"""
 		try:
 			del self._P_live
@@ -836,12 +838,12 @@ class CoincSynthesizer(object):
 	def P_live(self):
 		"""
 		Dictionary mapping instrument combination (as a frozenset)
-		to fraction of the total time for which at least two
-		instruments were on during which precisely that combination
-		of instruments (and no other instruments) are on.  E.g.,
-		P_live[frozenset(("H1", "L1"))] gives the probability that
-		precisely H1 and L1 are the only instruments operating
-		given that at least two instruments are operating.
+		to fraction of the total time in which the minimum required
+		number of instruments were on during which precisely that
+		combination of instruments (and no other instruments) are
+		on.  E.g., P_live[frozenset(("H1", "L1"))] gives the
+		probability that precisely H1 and L1 are the only
+		instruments operating.
 		"""
 		try:
 			return self._P_live
@@ -1058,9 +1060,10 @@ class CoincSynthesizer(object):
 		Dictionary mapping instrument combo (as a frozenset) to the
 		mean rate at which coincidences involving precisely that
 		combination of instruments occur, averaged over times when
-		at least two instruments are operating --- the mean rate
-		during times when coincidences are possible, not the mean
-		rate over all time.  The result is not cached.
+		at least the minimum required number of instruments are
+		operating --- the mean rate during times when coincidences
+		are possible, not the mean rate over all time.  The result
+		is not cached.
 		"""
 		coinc_rate = dict.fromkeys(self.rates, 0.0)
 		# iterate over probabilities in order for better numerical
@@ -1192,10 +1195,11 @@ class CoincSynthesizer(object):
 		contained in self.eventlists.
 
 		If allow_zero_lag is False (the default), then only event tuples
-		with no genuine zero-lag coincidences are returned, that is only
-		tuples in which no event pairs would be considered to be coincident
-		without time shifts applied.
-
+		with no genuine zero-lag coincidences are returned, that is
+		only tuples in which no event pairs would be considered to
+		be coincident without time shifts applied.  Note that
+		single-instrument "coincidences", if allowed, are *not*
+		considered to be zero-lag coincidences.
 
 		Example:
 
