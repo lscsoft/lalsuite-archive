@@ -740,7 +740,7 @@ class CoincSynthesizer(object):
 	rates related to the problem of doing so.
 	"""
 
-	def __init__(self, eventlists = None, segmentlists = None, delta_t = None, abundance_rel_accuracy = 1e-4):
+	def __init__(self, eventlists = None, segmentlists = None, delta_t = None, min_instruments = 2, abundance_rel_accuracy = 1e-4):
 		"""
 		eventlists is either a dictionary mapping instrument name
 		to a list of the events (arbitrary objects) seen in that
@@ -773,12 +773,20 @@ class CoincSynthesizer(object):
 		{frozenset(['V1', 'H1']): 0.0006034769052553435, frozenset(['V1', 'H1', 'L1']): 1.1793108172576082e-06, frozenset(['H1', 'L1']): 0.000293675897392638, frozenset(['V1', 'L1']): 0.00043917345626762395}
 		>>> coinc_synth.P_live
 		{frozenset(['V1', 'H1']): 0.0, frozenset(['V1', 'H1', 'L1']): 0.25, frozenset(['H1', 'L1']): 0.25, frozenset(['V1', 'L1']): 0.5}
+		>>>
+		>>>
+		>>> coinc_synth = CoincSynthesizer(eventlists, seglists, 0.001, min_instruments = 1)
+		>>> coinc_synth.rates
+		{frozenset(['V1']): 0.08, frozenset(['H1']): 0.13333333333333333, frozenset(['V1', 'H1']): 0.0006034769052553435, frozenset(['L1']): 0.1, frozenset(['V1', 'L1']): 0.00043917345626762395, frozenset(['V1', 'H1', 'L1']): 1.179508868912594e-06, frozenset(['H1', 'L1']): 0.000293675897392638}
 		"""
 		self.eventlists = eventlists if eventlists is not None else dict.fromkeys(segmentlists, 0) if segmentlists is not None else {}
 		self.segmentlists = segmentlists if segmentlists is not None else segmentsUtils.segments.segmentlistdict()
+		if set(self.eventlists) > set(self.segmentlists):
+			raise ValueError("require a segmentlist for each event list")
 		self.delta_t = delta_t
-		# require a segment list for each list of events
-		assert set(self.eventlists) <= set(self.segmentlists)
+		if min_instruments < 1:
+			raise ValueError("min_instruments must be >= 1")
+		self.min_instruments = min_instruments
 		self.abundance_rel_accuracy = abundance_rel_accuracy
 
 		self.verbose = False	# turn on for diagnostics
@@ -821,7 +829,7 @@ class CoincSynthesizer(object):
 		frozensets).
 		"""
 		all_instruments = tuple(self.eventlists)
-		return tuple(frozenset(instruments) for n in range(2, len(all_instruments) + 1) for instruments in iterutils.choices(all_instruments, n))
+		return tuple(frozenset(instruments) for n in range(self.min_instruments, len(all_instruments) + 1) for instruments in iterutils.choices(all_instruments, n))
 
 
 	@property
@@ -838,7 +846,7 @@ class CoincSynthesizer(object):
 		try:
 			return self._P_live
 		except AttributeError:
-			livetime = float(abs(segmentsUtils.vote(self.segmentlists.values(), 2)))
+			livetime = float(abs(segmentsUtils.vote(self.segmentlists.values(), self.min_instruments)))
 			all_instruments = set(self.segmentlists)
 			self._P_live = dict((instruments, float(abs(self.segmentlists.intersection(instruments) - self.segmentlists.union(all_instruments - instruments))) / livetime) for instruments in self.all_instrument_combos)
 			# check normalization
@@ -1111,7 +1119,7 @@ class CoincSynthesizer(object):
 		precisely that combination of instruments expected from the
 		background.  The result is not cached.
 		"""
-		T = float(abs(segmentsUtils.vote(self.segmentlists.values(), 2)))
+		T = float(abs(segmentsUtils.vote(self.segmentlists.values(), self.min_instruments)))
 		return dict((instruments, rate * T) for instruments, rate in self.mean_coinc_rate.items())
 
 
