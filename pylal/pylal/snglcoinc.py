@@ -993,19 +993,20 @@ class CoincSynthesizer(object):
 		# variance = d p (1 - p) <= d/4 where p is the probability
 		# of a successful outcome.  we quit when the ratio of the
 		# bound on the standard deviation of the number of
-		# successful outcomes to the actual number of successful
-		# outcomes falls below rel accuracy: \sqrt{d/4} / n < rel
-		# accuracy.  note that if the true probability is 0, so
-		# that n=0 identically, then the loop will never terminate;
-		# from the nature of the problem we know 0<p<1 so the loop
-		# will, eventually, terminate.  note that if instead of
-		# using the upper bound on the variance, we replace p with
-		# (n/d) and use that estimate of the variance the loop can
-		# be shown to require many fewer iterations to meet the
-		# desired accuracy, but that choice creates a rather strong
-		# bias that, to overcome, requires some extra hacks to
-		# force the loop to run for additional iterations.  this
-		# approach is cleaner.
+		# successful outcomes (d/4) to the actual number of
+		# successful outcomes (n) falls below rel accuracy:
+		# \sqrt{d/4} / n < rel accuracy.  note that if the true
+		# probability is 0, so that n=0 identically, then the loop
+		# will never terminate; from the nature of the problem we
+		# know 0<p<1 so the loop will, eventually, terminate.  note
+		# that if instead of using the upper bound on the variance,
+		# we replace p with the estimate of p at the current
+		# iteration (=n/d) and use that to estimate the variance
+		# the loop can be shown to require many fewer iterations to
+		# meet the desired accuracy, but that choice creates a
+		# rather strong bias that, to overcome, requires some extra
+		# hacks to force the loop to run for additional iterations.
+		# the approach used here is much simpler.
 					math_sqrt = math.sqrt
 					random_uniform = random.uniform
 					epsilon = self.abundance_rel_accuracy
