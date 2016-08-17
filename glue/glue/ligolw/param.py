@@ -162,63 +162,6 @@ def get_pyvalue(xml, name):
 #
 # =============================================================================
 #
-#                        (De-)Serialization via Params
-#
-# =============================================================================
-#
-
-
-def pickle_to_param(obj, name):
-	"""
-	Return the top-level element of a document sub-tree containing the
-	pickled serialization of a Python object.
-	"""
-	return from_pyvalue(u"pickle:%s" % name, unicode(pickle.dumps(obj)))
-
-
-def pickle_from_param(elem, name):
-	"""
-	Retrieve a pickled Python object from the document tree rooted at
-	elem.
-	"""
-	return pickle.loads(str(get_pyvalue(elem, u"pickle:%s" % name)))
-
-
-def yaml_to_param(obj, name):
-	"""
-	Return the top-level element of a document sub-tree containing the
-	YAML serialization of a Python object.
-	"""
-	return from_pyvalue(u"yaml:%s" % name, unicode(yaml.dump(obj)))
-
-
-def yaml_from_param(elem, name):
-	"""
-	Retrieve a YAMLed Python object from the document tree rooted at
-	elem.
-	"""
-	return yaml.load(get_pyvalue(elem, u"yaml:%s" % name))
-
-
-try:
-	yaml
-except NameError:
-	# yaml module not loaded, disable (de-)serializers
-	def yaml_to_param(obj, name):
-		"""
-		Not available.  Install yaml to use.
-		"""
-		raise NameError("yaml not installed")
-	def yaml_from_param(elem, name):
-		"""
-		Not available.  Install yaml to use.
-		"""
-		raise NameError("yaml not installed")
-
-
-#
-# =============================================================================
-#
 #                               Element Classes
 #
 # =============================================================================
@@ -255,7 +198,12 @@ class Param(ligolw.Param):
 	def endElement(self):
 		if self.pcdata is not None:
 			# convert pcdata from string to native Python type
-			self.pcdata = ligolwtypes.ToPyType[self.Type](self.pcdata.strip())
+			if self.Type == u"pickle":
+				self.pcdata = pickle.loads(self.pcdata)
+			elif self.Type == u"yaml":
+				self.pcdata = yaml.load(self.pcdata)
+			else:
+				self.pcdata = ligolwtypes.ToPyType[self.Type](self.pcdata.strip())
 
 	def write(self, fileobj = sys.stdout, indent = u""):
 		fileobj.write(self.start_tag(indent))
@@ -264,9 +212,14 @@ class Param(ligolw.Param):
 				raise ligolw.ElementError("invalid child %s for %s" % (c.tagName, self.tagName))
 			c.write(fileobj, indent + ligolw.Indent)
 		if self.pcdata is not None:
-			# we have to strip quote characters from string
-			# formats (see comment above)
-			fileobj.write(xmlescape(ligolwtypes.FormatFunc[self.Type](self.pcdata).strip(u"\"")))
+			if self.Type == u"pickle":
+				fileobj.write(xmlescape(pickle.dumps(self.pcdata)))
+			elif self.Type == u"yaml":
+				fileobj.write(xmlescape(yaml.dump(self.pcdata)))
+			else:
+				# we have to strip quote characters from
+				# string formats (see comment above)
+				fileobj.write(xmlescape(ligolwtypes.FormatFunc[self.Type](self.pcdata).strip(u"\"")))
 		fileobj.write(self.end_tag(u"") + u"\n")
 
 
