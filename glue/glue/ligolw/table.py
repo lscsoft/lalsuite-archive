@@ -73,6 +73,7 @@ __date__ = git_version.date
 #
 
 
+# FIXME:  port to ligolw.LLWNameAttr mechanism
 # Regular expression to extract the significant part of a column name
 # according to the LIGO LW naming conventions.
 
@@ -160,6 +161,7 @@ def getColumnsByName(elem, name):
 #
 
 
+# FIXME:  port to ligolw.LLWNameAttr mechanism
 # Regular expression used to extract the signifcant portion of a table or
 # stream name, according to LIGO LW naming conventions.
 

@@ -54,55 +54,18 @@ __date__ = git_version.date
 #
 # =============================================================================
 #
-#                           Param Name Manipulation
+#                                  Utilities
 #
 # =============================================================================
 #
-
-
-#
-# Regular expression used to extract the signifcant portion of a param
-# name, according to LIGO LW naming conventions.
-#
-
-
-ParamPattern = re.compile(r"(?P<Name>[a-z0-9_:]+):param\Z")
-
-
-def StripParamName(name):
-	"""
-	Return the significant portion of a param name according to LIGO LW
-	naming conventions.
-	"""
-	try:
-		return ParamPattern.search(name).group("Name")
-	except AttributeError:
-		return name
-
-
-def CompareParamNames(name1, name2):
-	"""
-	Convenience function to compare two param names according to LIGO
-	LW naming conventions.
-	"""
-	return cmp(StripParamName(name1), StripParamName(name2))
 
 
 def getParamsByName(elem, name):
 	"""
 	Return a list of params with name name under elem.
 	"""
-	name = StripParamName(name)
+	name = Param.ParamName(name)
 	return elem.getElements(lambda e: (e.tagName == ligolw.Param.tagName) and (e.Name == name))
-
-
-#
-# =============================================================================
-#
-#                                  Utilities
-#
-# =============================================================================
-#
 
 
 def get_param(xmldoc, name):
@@ -112,7 +75,7 @@ def get_param(xmldoc, name):
 	"""
 	params = getParamsByName(xmldoc, name)
 	if len(params) != 1:
-		raise ValueError("document must contain exactly one %s param" % StripParamName(name))
+		raise ValueError("document must contain exactly one %s param" % Param.ParamName(name))
 	return params[0]
 
 
@@ -157,8 +120,11 @@ class Param(ligolw.Param):
 	High-level Param element.  The value is stored in the pcdata
 	attribute as the native Python type rather than as a string.
 	"""
+	class ParamName(ligolw.LLWNameAttr):
+		dec_pattern = re.compile(r"(?P<Name>[a-z0-9_:]+):param\Z")
+		enc_pattern = u"%s:param"
 
-	Name = ligolw.attributeproxy(u"Name", enc = (lambda name: u"%s:param" % name), dec = StripParamName)
+	Name = ligolw.attributeproxy(u"Name", enc = ParamName.enc, dec = ParamName)
 	Scale = ligolw.attributeproxy(u"Scale", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
 	Type = ligolw.attributeproxy(u"Type", default = u"lstring")
 

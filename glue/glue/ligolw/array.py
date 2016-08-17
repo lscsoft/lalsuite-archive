@@ -64,55 +64,18 @@ __date__ = git_version.date
 #
 # =============================================================================
 #
-#                           Array Name Manipulation
+#                                  Utilities
 #
 # =============================================================================
 #
-
-
-#
-# Regular expression used to extract the signifcant portion of an array or
-# stream name, according to LIGO LW naming conventions.
-#
-
-
-ArrayPattern = re.compile(r"(?P<Name>[a-zA-Z0-9_:]+):array\Z")
-
-
-def StripArrayName(name):
-	"""
-	Return the significant portion of an array name according to LIGO
-	LW naming conventions.
-	"""
-	try:
-		return ArrayPattern.search(name).group("Name")
-	except AttributeError:
-		return name
-
-
-def CompareArrayNames(name1, name2):
-	"""
-	Convenience function to compare two array names according to LIGO
-	LW naming conventions.
-	"""
-	return cmp(StripArrayName(name1), StripArrayName(name2))
 
 
 def getArraysByName(elem, name):
 	"""
 	Return a list of arrays with name name under elem.
 	"""
-	name = StripArrayName(name)
+	name = Array.ArrayName(name)
 	return elem.getElements(lambda e: (e.tagName == ligolw.Array.tagName) and (e.Name == name))
-
-
-#
-# =============================================================================
-#
-#                                  Utilities
-#
-# =============================================================================
-#
 
 
 def get_array(xmldoc, name):
@@ -122,7 +85,7 @@ def get_array(xmldoc, name):
 	"""
 	arrays = getArraysByName(xmldoc, name)
 	if len(arrays) != 1:
-		raise ValueError("document must contain exactly one %s array" % StripArrayName(name))
+		raise ValueError("document must contain exactly one %s array" % Array.ArrayName(name))
 	return arrays[0]
 
 
@@ -206,8 +169,11 @@ class Array(ligolw.Array):
 	"""
 	High-level Array element.
 	"""
+	class ArrayName(ligolw.LLWNameAttr):
+		dec_pattern = re.compile(r"(?P<Name>[a-zA-Z0-9_:]+):array\Z")
+		enc_pattern = u"%s:array"
 
-	Name = ligolw.attributeproxy(u"Name", enc = (lambda name: u"%s:array" % name), dec = StripArrayName)
+	Name = ligolw.attributeproxy(u"Name", enc = ArrayName.enc, dec = ArrayName)
 
 	def __init__(self, *args):
 		"""

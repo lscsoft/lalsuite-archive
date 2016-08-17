@@ -353,6 +353,35 @@ def WalkChildren(elem):
 #
 # =============================================================================
 #
+#                         Name Attribute Manipulation
+#
+# =============================================================================
+#
+
+
+class LLWNameAttr(unicode):
+	"""
+	Baseclass to hide pattern-matching of various element names.
+	Subclasses must provide a .dec_pattern compiled regular expression
+	defining a group "Name" that identifies the meaningful portion of
+	the string, and a .enc_pattern that gives a format string to be
+	used with "%" to reconstrct the full string.
+	"""
+	def __new__(cls, name):
+		try:
+			name = cls.dec_pattern.search(name).group(u"Name")
+		except AttributeError:
+			pass
+		return unicode.__new__(cls, name)
+
+	@classmethod
+	def enc(cls, name):
+		return cls.enc_pattern % name
+
+
+#
+# =============================================================================
+#
 #                        LIGO Light Weight XML Elements
 #
 # =============================================================================
