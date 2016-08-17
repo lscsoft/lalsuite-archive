@@ -105,30 +105,6 @@ def getParamsByName(elem, name):
 #
 
 
-def new_param(name, type, value, start = None, scale = None, unit = None, dataunit = None, comment = None):
-	"""
-	Construct a LIGO Light Weight XML Param document subtree.  FIXME:
-	document keyword arguments.
-	"""
-	elem = Param()
-	elem.Name = name
-	elem.Type = type
-	elem.pcdata = value
-	# FIXME:  I have no idea how most of the attributes should be
-	# encoded, I don't even know what they're supposed to be.
-	if dataunit is not None:
-		elem.DataUnit = dataunit
-	if scale is not None:
-		elem.Scale = scale
-	if start is not None:
-		elem.Start = start
-	if unit is not None:
-		elem.Unit = unit
-	if comment is not None:
-		elem.appendChild(ligolw.Comment()).pcdata = comment
-	return elem
-
-
 def get_param(xmldoc, name):
 	"""
 	Scan xmldoc for a param named name.  Raises ValueError if not
@@ -138,15 +114,6 @@ def get_param(xmldoc, name):
 	if len(params) != 1:
 		raise ValueError("document must contain exactly one %s param" % StripParamName(name))
 	return params[0]
-
-
-def from_pyvalue(name, value, **kwargs):
-	"""
-	Convenience wrapper for new_param() that constructs a Param element
-	from an instance of a Python builtin type.  See new_param() for a
-	description of the valid keyword arguments.
-	"""
-	return new_param(name, ligolwtypes.FromPyType[type(value)], value, **kwargs)
 
 
 def get_pyvalue(xml, name):
@@ -222,6 +189,42 @@ class Param(ligolw.Param):
 				fileobj.write(xmlescape(ligolwtypes.FormatFunc[self.Type](self.pcdata).strip(u"\"")))
 		fileobj.write(self.end_tag(u"") + u"\n")
 
+	@classmethod
+	def build(cls, name, Type, value, start = None, scale = None, unit = None, dataunit = None, comment = None):
+		"""
+		Construct a LIGO Light Weight XML Param document subtree.
+		FIXME: document keyword arguments.
+		"""
+		elem = cls()
+		elem.Name = name
+		elem.Type = Type
+		elem.pcdata = value
+		# FIXME:  I have no idea how most of the attributes should be
+		# encoded, I don't even know what they're supposed to be.
+		if dataunit is not None:
+			elem.DataUnit = dataunit
+		if scale is not None:
+			elem.Scale = scale
+		if start is not None:
+			elem.Start = start
+		if unit is not None:
+			elem.Unit = unit
+		if comment is not None:
+			elem.appendChild(ligolw.Comment()).pcdata = comment
+		return elem
+
+	@classmethod
+	def from_pyvalue(cls, name, value, **kwargs):
+		"""
+		Convenience wrapper for .build() that constructs a Param
+		element from an instance of a Python builtin type.  See
+		.build() for a description of the valid keyword arguments.
+		"""
+		return cls.build(name, ligolwtypes.FromPyType[type(value)], value, **kwargs)
+
+
+# FIXME: delete when nothing uses
+from_pyvalue = Param.from_pyvalue
 
 
 #

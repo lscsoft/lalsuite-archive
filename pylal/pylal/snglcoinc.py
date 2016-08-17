@@ -1858,7 +1858,12 @@ class CoincParamsDistributions(object):
 		given the name name.
 		"""
 		xml = ligolw.LIGO_LW({u"Name": u"%s:%s" % (name, self.ligo_lw_name_suffix)})
-		xml.appendChild(ligolw_param.new_param(u"process_id", u"ilwd:char", self.process_id))
+		# FIXME: remove try/except when we can rely on new-enough
+		# glue to provide .build() class method
+		try:
+			xml.appendChild(ligolw_param.Param.build(u"process_id", u"ilwd:char", self.process_id))
+		except AttributeError:
+			xml.appendChild(ligolw_param.new_param(u"process_id", u"ilwd:char", self.process_id))
 		def store(xml, prefix, source_dict):
 			for name, binnedarray in sorted(source_dict.items()):
 				xml.appendChild(binnedarray.to_xml(u"%s:%s" % (prefix, name)))
