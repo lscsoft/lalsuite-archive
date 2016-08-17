@@ -125,8 +125,7 @@ def new_param(name, type, value, start = None, scale = None, unit = None, dataun
 	if unit is not None:
 		elem.Unit = unit
 	if comment is not None:
-		elem.appendChild(ligolw.Comment())
-		elem.childNodes[-1].pcdata = comment
+		elem.appendChild(ligolw.Comment()).pcdata = comment
 	return elem
 
 
