@@ -247,6 +247,9 @@ class Array(ligolw.Array):
 	"""
 	High-level Array element.
 	"""
+
+	Name = ligolw.attributeproxy(u"Name", enc = (lambda name: u"%s:array" % name), dec = StripArrayName)
+
 	def __init__(self, *args):
 		"""
 		Initialize a new Array element.
@@ -262,8 +265,6 @@ class Array(ligolw.Array):
 		.array attribute directly, and doing that is much faster.
 		"""
 		return tuple(c.n for c in self.getElementsByTagName(ligolw.Dim.tagName))[::-1]
-
-	Name = ligolw.attributeproxy(u"Name", enc = (lambda name: u"%s:array" % name), dec = StripArrayName)
 
 
 	#
