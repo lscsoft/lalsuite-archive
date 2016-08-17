@@ -1239,7 +1239,7 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
   }
   coeffs->rho22v5   = (-34.*a)/21.;
   if (SpinAlignedEOBversion == 4) {
-      coeffs->rho22v5   = (-34./21.+49.*eta/18.+209.*eta2/126.)*chiS +(-34./21.-196.*eta/42.)*dM*chiA;
+      coeffs->rho22v5   = (-34./21.+49.*eta/18.+209.*eta2/126.)*chiS +(-34./21.-19.*eta/42.)*dM*chiA;
   }
   coeffs->rho22v6   = 1556919113./122245200. + (89.*a2)/252. - (48993925.*eta)/9779616.
        - (6292061.*eta2)/3259872. + (10620745.*eta3)/39118464.
@@ -2327,7 +2327,7 @@ UNUSED static int XLALSimIMREOBCalcPrecSpinFacWaveformCoefficients(
   }
   coeffs->rho22v5S  = (-34.*a)/21.;
   if ( SpinAlignedEOBversion == 4 ) {
-      coeffs->rho22v5S  = (-34./21.+49.*eta/18.+209.*eta2/126.)*chiS +(-34./21.-196.*eta/42.)*dM*chiA;
+      coeffs->rho22v5S  = (-34./21.+49.*eta/18.+209.*eta2/126.)*chiS +(-34./21.-19.*eta/42.)*dM*chiA;
   }
   coeffs->rho22v6S  = /*1556919113./122245200. +*/ (89.*a2)/252.;
                     //- (48993925.*eta)/9779616.
