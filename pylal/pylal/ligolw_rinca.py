@@ -425,7 +425,7 @@ def ligolw_rinca(
 	# removing events from the lists that fall in vetoed segments
 	#
 
-	eventlists = snglcoinc.EventListDict(xmldoc, EventListType, lsctables.SnglRingdownTable.get_table(xmldoc))
+	eventlists = snglcoinc.EventListDict(EventListType, lsctables.SnglRingdownTable.get_table(xmldoc))
 	if veto_segments is not None:
 		for eventlist in eventlists.values():
 			iterutils.inplace_filter((lambda event: event.ifo not in veto_segments or event.get_start() not in veto_segments[event.ifo]), eventlist)

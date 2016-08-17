@@ -369,7 +369,7 @@ def ligolw_burca(
 	# processes that can participate in a coincidence
 	#
 
-	eventlists = snglcoinc.EventListDict(xmldoc, EventListType, lsctables.SnglBurstTable.get_table(xmldoc))
+	eventlists = snglcoinc.EventListDict(EventListType, lsctables.SnglBurstTable.get_table(xmldoc))
 
 	#
 	# construct offset vector assembly graph
