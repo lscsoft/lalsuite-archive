@@ -115,47 +115,6 @@ def getArraysByName(elem, name):
 #
 
 
-def from_array(name, array, dim_names = None):
-	"""
-	Construct a LIGO Light Weight XML Array document subtree from a
-	numpy array object.
-
-	Example:
-
-	>>> import numpy, sys
-	>>> a = numpy.arange(12, dtype = "double")
-	>>> a.shape = (4, 3)
-	>>> from_array(u"test", a).write(sys.stdout)	# doctest: +NORMALIZE_WHITESPACE
-	<Array Type="real_8" Name="test:array">
-		<Dim>3</Dim>
-		<Dim>4</Dim>
-		<Stream Delimiter=" " Type="Local">
-			0 3 6 9
-			1 4 7 10
-			2 5 8 11
-		</Stream>
-	</Array>
-	"""
-	# Type must be set for .__init__();  easier to set Name afterwards
-	# to take advantage of encoding handled by attribute proxy
-	doc = Array(Attributes({u"Type": ligolwtypes.FromNumPyType[str(array.dtype)]}))
-	doc.Name = name
-	if dim_names is None:
-		dim_names = [None] * len(array.shape)
-	elif len(dim_names) != len(array.shape):
-		raise ValueError("dim_names must be same length as number of dimensions")
-	for name, n in reversed(zip(dim_names, array.shape)):
-		child = ligolw.Dim()
-		if name is not None:
-			child.Name = name
-		child.n = n
-		doc.appendChild(child)
-	child = ArrayStream(Attributes({u"Type": ArrayStream.Type.default, u"Delimiter": ArrayStream.Delimiter.default}))
-	doc.appendChild(child)
-	doc.array = array
-	return doc
-
-
 def get_array(xmldoc, name):
 	"""
 	Scan xmldoc for an array named name.  Raises ValueError if not
@@ -266,6 +225,45 @@ class Array(ligolw.Array):
 		"""
 		return tuple(c.n for c in self.getElementsByTagName(ligolw.Dim.tagName))[::-1]
 
+	@classmethod
+	def build(cls, name, array, dim_names = None):
+		"""
+		Construct a LIGO Light Weight XML Array document subtree
+		from a numpy array object.
+
+		Example:
+
+		>>> import numpy, sys
+		>>> a = numpy.arange(12, dtype = "double")
+		>>> a.shape = (4, 3)
+		>>> from_array(u"test", a).write(sys.stdout)	# doctest: +NORMALIZE_WHITESPACE
+		<Array Type="real_8" Name="test:array">
+			<Dim>3</Dim>
+			<Dim>4</Dim>
+			<Stream Delimiter=" " Type="Local">
+				0 3 6 9
+				1 4 7 10
+				2 5 8 11
+			</Stream>
+		</Array>
+		"""
+		# Type must be set for .__init__();  easier to set Name
+		# afterwards to take advantage of encoding handled by
+		# attribute proxy
+		elem = cls(Attributes({u"Type": ligolwtypes.FromNumPyType[str(array.dtype)]}))
+		elem.Name = name
+		if dim_names is None:
+			dim_names = [None] * len(array.shape)
+		elif len(dim_names) != len(array.shape):
+			raise ValueError("dim_names must be same length as number of dimensions")
+		for name, n in reversed(zip(dim_names, array.shape)):
+			child = elem.appendChild(ligolw.Dim())
+			if name is not None:
+				child.Name = name
+			child.n = n
+		elem.appendChild(ArrayStream(Attributes({u"Type": ArrayStream.Type.default, u"Delimiter": ArrayStream.Delimiter.default})))
+		elem.array = array
+		return elem
 
 	#
 	# Element methods
@@ -278,6 +276,10 @@ class Array(ligolw.Array):
 		"""
 		super(Array, self).unlink()
 		self.array = None
+
+
+# FIXME:  remove when no longer used
+from_array = Array.build
 
 
 #
