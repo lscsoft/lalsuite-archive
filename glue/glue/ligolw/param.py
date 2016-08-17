@@ -247,6 +247,11 @@ class Param(ligolw.Param):
 	High-level Param element.  The value is stored in the pcdata
 	attribute as the native Python type rather than as a string.
 	"""
+
+	Name = ligolw.attributeproxy(u"Name", enc = (lambda name: u"%s:param" % name), dec = StripParamName)
+	Scale = ligolw.attributeproxy(u"Scale", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
+	Type = ligolw.attributeproxy(u"Type", default = u"lstring")
+
 	def endElement(self):
 		if self.pcdata is not None:
 			# convert pcdata from string to native Python type
@@ -264,9 +269,6 @@ class Param(ligolw.Param):
 			fileobj.write(xmlescape(ligolwtypes.FormatFunc[self.Type](self.pcdata).strip(u"\"")))
 		fileobj.write(self.end_tag(u"") + u"\n")
 
-	Name = ligolw.attributeproxy(u"Name", enc = (lambda name: u"%s:param" % name), dec = StripParamName)
-	Scale = ligolw.attributeproxy(u"Scale", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
-	Type = ligolw.attributeproxy(u"Type", default = u"lstring")
 
 
 #
