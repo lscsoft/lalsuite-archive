@@ -199,8 +199,8 @@ class ArrayStream(ligolw.Stream):
 	def config(self, parentNode):
 		# some initialization that can only be done once parentNode
 		# has been set.
-		self._tokenizer.set_types([parentNode.pytype])
-		parentNode.array = numpy.zeros(parentNode.get_shape(), parentNode.arraytype)
+		self._tokenizer.set_types([ligolwtypes.ToPyType[parentNode.Type]])
+		parentNode.array = numpy.zeros(parentNode.get_shape(), ligolwtypes.ToNumPyType[parentNode.Type])
 		self._array_view = parentNode.array.T.flat
 		self._index = 0
 		return self
@@ -252,8 +252,6 @@ class Array(ligolw.Array):
 		Initialize a new Array element.
 		"""
 		super(Array, self).__init__(*args)
-		self.pytype = ligolwtypes.ToPyType[self.Type]
-		self.arraytype = ligolwtypes.ToNumPyType[self.Type]
 		self.array = None
 
 	def get_shape(self):

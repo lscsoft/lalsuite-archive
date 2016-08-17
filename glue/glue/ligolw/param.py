@@ -248,17 +248,10 @@ class Param(ligolw.Param):
 	High-level Param element.  The value is stored in the pcdata
 	attribute as the native Python type rather than as a string.
 	"""
-	def __init__(self, *args):
-		"""
-		Initialize a new Param element.
-		"""
-		super(Param, self).__init__(*args)
-		self.pytype = ligolwtypes.ToPyType[self.Type]
-
 	def endElement(self):
 		if self.pcdata is not None:
 			# convert pcdata from string to native Python type
-			self.pcdata = self.pytype(self.pcdata.strip())
+			self.pcdata = ligolwtypes.ToPyType[self.Type](self.pcdata.strip())
 
 	def write(self, fileobj = sys.stdout, indent = u""):
 		fileobj.write(self.start_tag(indent))
