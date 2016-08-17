@@ -494,6 +494,18 @@ class Dim(Element):
 	Start = attributeproxy(u"Start", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
 	Unit = attributeproxy(u"Unit")
 
+	@property
+	def n(self):
+		return ligolwtypes.ToPyType[u"int_8s"](self.pcdata) if self.pcdata is not None else None
+
+	@n.setter
+	def n(self, val):
+		self.pcdata = ligolwtypes.FormatFunc[u"int_8s"](val) if val is not None else None
+
+	@n.deleter
+	def n(self):
+		self.pcdata = None
+
 	def write(self, fileobj = sys.stdout, indent = u""):
 		fileobj.write(self.start_tag(indent))
 		if self.pcdata is not None:
