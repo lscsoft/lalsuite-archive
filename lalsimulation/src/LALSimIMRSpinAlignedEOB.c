@@ -359,14 +359,12 @@ int XLALSimIMRSpinAlignedEOBWaveformAll(
   if( k2Tidal1 != 0. || k2Tidal2 != 0.) {
       use_tidal = 1;
   }
-  INT4 use_v4alt = 0;
+    
   INT4 use_optimized_v2=0;
   /* If we want SEOBNRv2_opt, then reset SpinAlignedEOBversion=2 and set use_optimized_v2=1 */
   if(SpinAlignedEOBversion==200) { SpinAlignedEOBversion=2; use_optimized_v2=1; }
   /* If we want SEOBNRv4_opt, then reset SpinAlignedEOBversion=4 and set use_optimized_v2=1 */
   if(SpinAlignedEOBversion==400) { SpinAlignedEOBversion=4; use_optimized_v2=1; }
- 
-    if(SpinAlignedEOBversion==5) { SpinAlignedEOBversion=4; use_optimized_v2=1; use_v4alt = 1; }
 
   /* If the EOB version flag is neither 1 nor 2, exit */
   if (SpinAlignedEOBversion != 1 && SpinAlignedEOBversion != 2 && SpinAlignedEOBversion != 4)
@@ -656,15 +654,6 @@ int XLALSimIMRSpinAlignedEOBWaveformAll(
       hCoeffs.omega03Tidal1 = omega03Tidal1;
       hCoeffs.omega03Tidal2 = omega03Tidal2;
   }
-    
-    /*****************************************/
-    if (use_v4alt == 1) {
-    seobParams.omega02Tidal1 = 1;
-    seobCoeffs.omega02Tidal1 = 1;
-    hCoeffs.omega02Tidal1 = 1;
-    }
-
-    /*****************************************/
     
   seobParams.alignedSpins = 1;
   seobParams.tortoise     = 1;
@@ -1208,20 +1197,10 @@ int XLALSimIMRSpinAlignedEOBWaveformAll(
         }
     }
     if ( SpinAlignedEOBversion == 4) {
-        if (use_v4alt == 0) {
         if ( XLALSimIMRSpinEOBCalculateNQCCoefficientsV4( ampNQC, phaseNQC, &rHi, &prHi, omegaHi,
                                                              2, 2, timePeak, deltaTHigh/mTScaled, m1, m2, a, chiA, chiS, &nqcCoeffs, SpinAlignedEOBversion ) == XLAL_FAILURE )
         {
             XLAL_ERROR( XLAL_EFUNC );
-        }
-        }
-        else {
-            if ( XLALSimIMRSpinEOBCalculateNQCCoefficientsV4( ampNQC, phaseNQC, &rHi, &prHi, omegaHi,
-                                                             2, 2, timePeak, deltaTHigh/mTScaled, m1, m2, a, chiA, chiS, &nqcCoeffs, 5 ) == XLAL_FAILURE )
-            {
-                XLAL_ERROR( XLAL_EFUNC );
-            }
-
         }
     }
 
@@ -1239,9 +1218,6 @@ int XLALSimIMRSpinAlignedEOBWaveformAll(
         break;
       case 4:
         timewavePeak = XLALSimIMREOBGetNRSpinPeakDeltaTv4(2, 2, m1, m2, spin1z, spin2z );
-          if (use_v4alt == 1) {
-          timewavePeak = XLALSimIMREOBGetNRSpinPeakDeltaTv4ByHand(2, 2, m1, m2, spin1z, spin2z );
-          }
        break;
      default:
        XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
