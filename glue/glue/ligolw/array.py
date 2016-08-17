@@ -140,11 +140,15 @@ def from_array(name, array, dim_names = None):
 	# to take advantage of encoding handled by attribute proxy
 	doc = Array(Attributes({u"Type": ligolwtypes.FromNumPyType[str(array.dtype)]}))
 	doc.Name = name
-	for n, dim in enumerate(reversed(array.shape)):
+	if dim_names is None:
+		dim_names = [None] * len(array.shape)
+	elif len(dim_names) != len(array.shape):
+		raise ValueError("dim_names must be same length as number of dimensions")
+	for name, n in reversed(zip(dim_names, array.shape)):
 		child = ligolw.Dim()
-		if dim_names is not None:
-			child.Name = dim_names[n]
-		child.pcdata = unicode(dim)
+		if name is not None:
+			child.Name = name
+		child.n = n
 		doc.appendChild(child)
 	child = ArrayStream(Attributes({u"Type": ArrayStream.Type.default, u"Delimiter": ArrayStream.Delimiter.default}))
 	doc.appendChild(child)
@@ -259,7 +263,7 @@ class Array(ligolw.Array):
 		created, it is also possible to examine an Array object's
 		.array attribute directly, and doing that is much faster.
 		"""
-		return tuple(int(c.pcdata) for c in self.getElementsByTagName(ligolw.Dim.tagName))[::-1]
+		return tuple(c.n for c in self.getElementsByTagName(ligolw.Dim.tagName))[::-1]
 
 	Name = ligolw.attributeproxy(u"Name", enc = (lambda name: u"%s:array" % name), dec = StripArrayName)
 
