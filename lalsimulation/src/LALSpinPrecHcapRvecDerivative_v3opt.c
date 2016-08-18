@@ -111,7 +111,7 @@ static int XLALSpinPrecHcapRvecDerivative_exact(
     //OPTV3: The following updates hcoeffs
         REAL8 mass1 = seobParams->eobParams->m1;
         REAL8 mass2 = seobParams->eobParams->m2;
-        REAL8 s1Data[3],s2Data[3],polData[3],rcrossrDot[3];
+        REAL8 s1Data[3],s2Data[3],/*polData[3],*/rcrossrDot[3];
         REAL8 Lx,Ly,Lz, magL, rcrossrDotMag, s1dotLN, s2dotLN, chiS,chiA, tplspin;
         memcpy(s1Data,values+6,3*sizeof(REAL8));
         memcpy(s2Data,values+9,3*sizeof(REAL8));
@@ -125,11 +125,13 @@ static int XLALSpinPrecHcapRvecDerivative_exact(
         Ly = values[2]*values[3] - values[0]*values[5];
         Lz = values[0]*values[4] - values[1]*values[3];
         magL = sqrt( Lx*Lx + Ly*Ly + Lz*Lz );
-        /* Calculate the polar data */
+        /* Calculate the polar data: NOT USED. */
+        /*
         polData[0] = sqrt( values[0]*values[0] + values[1]*values[1]+ values[2]*values[2] );
         polData[1] = 0;
         polData[2] = (values[0]*values[3] + values[1]*values[4]+ values[2]*values[5]) / polData[0];
-        polData[3] = magL;
+        polData[3] = magL; // <- BUG IN THIS LINE: polData has only 3 elements. Trying to set the fourth here.
+        */
 
         /*Compute \vec{L_N} = \vec{r} \times \.{\vec{r}}, \vec{S_i} \dot \vec{L_N} and chiS and chiA */
         rcrossrDot[0] = values[1]*tmpDValues[5] - values[2]*tmpDValues[4];
