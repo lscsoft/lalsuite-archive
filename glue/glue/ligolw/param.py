@@ -29,7 +29,6 @@ High-level support for Param elements.
 """
 
 
-import pickle
 import re
 import sys
 from xml.sax.saxutils import escape as xmlescape
@@ -131,9 +130,11 @@ class Param(ligolw.Param):
 	def endElement(self):
 		if self.pcdata is not None:
 			# convert pcdata from string to native Python type
-			if self.Type == u"pickle":
-				self.pcdata = pickle.loads(self.pcdata)
-			elif self.Type == u"yaml":
+			if self.Type == u"yaml":
+				try:
+					yaml
+				except NameError:
+					raise NotImplementedError("yaml support not installed")
 				self.pcdata = yaml.load(self.pcdata)
 			else:
 				self.pcdata = ligolwtypes.ToPyType[self.Type](self.pcdata.strip())
@@ -145,10 +146,12 @@ class Param(ligolw.Param):
 				raise ligolw.ElementError("invalid child %s for %s" % (c.tagName, self.tagName))
 			c.write(fileobj, indent + ligolw.Indent)
 		if self.pcdata is not None:
-			if self.Type == u"pickle":
-				fileobj.write(xmlescape(pickle.dumps(self.pcdata)))
-			elif self.Type == u"yaml":
-				fileobj.write(xmlescape(yaml.dump(self.pcdata)))
+			if self.Type == u"yaml":
+				try:
+					yaml
+				except NameError:
+					raise NotImplementedError("yaml support not installed")
+				fileobj.write(xmlescape(yaml.dump(self.pcdata).strip()))
 			else:
 				# we have to strip quote characters from
 				# string formats (see comment above)
