@@ -193,6 +193,7 @@ class Param(ligolw.Param):
 
 
 # FIXME: delete when nothing uses
+new_param = Param.build
 from_pyvalue = Param.from_pyvalue
 
 
