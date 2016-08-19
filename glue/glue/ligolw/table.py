@@ -587,11 +587,6 @@ class TableStream(ligolw.Stream):
 	that it appends into the list-like parent element, and knows how to
 	turn the parent's rows back into a character stream.
 	"""
-	def __init__(self, *args):
-		super(TableStream, self).__init__(*args)
-		self._tokenizer = tokenizer.Tokenizer(self.Delimiter)
-		self._rowbuilder = None
-
 	def config(self, parentNode):
 		# some initialization that requires access to the
 		# parentNode, and so cannot be done inside the __init__()
@@ -601,6 +596,7 @@ class TableStream(ligolw.Stream):
 			# FIXME:  convert loadcolumns attributes to sets to
 			# avoid the conversion.
 			loadcolumns &= set(parentNode.loadcolumns)
+		self._tokenizer = tokenizer.Tokenizer(self.Delimiter)
 		self._tokenizer.set_types([(pytype if colname in loadcolumns else None) for pytype, colname in zip(parentNode.columnpytypes, parentNode.columnnames)])
 		columnnames = [name for name in parentNode.columnnames if name in loadcolumns]
 		# FIXME:  convert interncolumns attributes to sets to
@@ -616,22 +612,19 @@ class TableStream(ligolw.Stream):
 		for row in self._rowbuilder.append(self._tokenizer.append(content)):
 			appendfunc(row)
 
-	def unlink(self):
-		"""
-		Break internal references within the document tree rooted
-		on this element to promote garbage collection.
-		"""
-		self._tokenizer = None
-		self._rowbuilder = None
-		super(TableStream, self).unlink()
-
 	def endElement(self):
 		# stream tokenizer uses delimiter to identify end of each
 		# token, so add a final delimiter to induce the last token
 		# to get parsed but only if there's something other than
-		# whitespace left in the tokenizer's buffer.
+		# whitespace left in the tokenizer's buffer.  the writing
+		# code will have put a final delimiter into the stream if
+		# the final token was pure whitespace in order to
+		# unambiguously indicate that token's presence
 		if not self._tokenizer.data.isspace():
 			self.appendData(self.Delimiter)
+		# now we're done with these
+		del self._tokenizer
+		del self._rowbuilder
 		# call parent's _end_of_rows() hook.
 		self.parentNode._end_of_rows()
 
