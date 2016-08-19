@@ -36,8 +36,8 @@ from glue.ligolw import utils as ligolw_utils
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import time_slide as ligolw_time_slide
 from glue import offsetvector
-from pylal import git_version
-from pylal import ligolw_tisi
+from lalapps import git_version
+from lalburst import timeslides as ligolw_tisi
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"

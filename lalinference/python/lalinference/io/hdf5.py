@@ -23,15 +23,24 @@ __all__ = ('read_samples', 'write_samples')
 
 import numpy as np
 import h5py
-import lalinference
 from astropy.table import Column, Table
+from lalinference import LALInferenceHDF5PosteriorSamplesDatasetName \
+    as POSTERIOR_SAMPLES
+from lalinference import LALINFERENCE_PARAM_LINEAR as LINEAR
+from lalinference import LALINFERENCE_PARAM_CIRCULAR as CIRCULAR
+from lalinference import LALINFERENCE_PARAM_FIXED as FIXED
+from lalinference import LALINFERENCE_PARAM_OUTPUT as OUTPUT
 
 
 _colname_map = (('rightascension', 'ra'),
                 ('declination', 'dec'),
-                ('distance', 'dist'))
-_mcmc_path = 'lalinference/lalinference_mcmc/posterior_samples'
-_nest_path = 'lalinference/lalinference_nest/nested_samples'
+                ('distance', 'dist'),
+                ('polarisation','psi'),
+                ('chirpmass', 'mc'),
+                ('a_spin1', 'a1'),
+                ('a_spin2','a2'),
+                ('tilt_spin1', 'tilt1'),
+                ('tilt_spin2', 'tilt2'))
 
 
 def _remap_colnames(table):
@@ -41,15 +50,83 @@ def _remap_colnames(table):
 
 
 def _find_table(group, tablename):
-    table = f.visititems(
-        lambda name, val: val if name.rsplit('/')[-1] == tablename else None)
-    if table is None:
+    """Recursively search an HDF5 group or file for a dataset by name.
+
+    Parameters
+    ----------
+    group : `h5py.File` or `h5py.Group`
+        The file or group to search
+    tablename : str
+        The name of the table to search for
+
+    Returns
+    -------
+    table : `h5py.Dataset`
+        The dataset whose name is `tablename`
+
+    Raises
+    ------
+    KeyError
+        If the table is not found or if multiple matching tables are found
+
+    Check that we can find a file by name:
+    >>> import os.path
+    >>> from lalinference.bayestar.command import TemporaryDirectory
+    >>> table = Table(np.eye(3), names=['a', 'b', 'c'])
+    >>> with TemporaryDirectory() as dir:
+    ...     filename = os.path.join(dir, 'test.hdf5')
+    ...     table.write(filename, path='foo/bar', append=True)
+    ...     table.write(filename, path='foo/bat', append=True)
+    ...     table.write(filename, path='foo/xyzzy/bat', append=True)
+    ...     with h5py.File(filename, 'r') as f:
+    ...         _find_table(f, 'bar')
+    <HDF5 dataset "bar": shape (3,), type "|V24">
+
+    Check that an exception is raised if the table is not found:
+    >>> with TemporaryDirectory() as dir:
+    ...     filename = os.path.join(dir, 'test.hdf5')
+    ...     table.write(filename, path='foo/bar', append=True)
+    ...     table.write(filename, path='foo/bat', append=True)
+    ...     table.write(filename, path='foo/xyzzy/bat', append=True)
+    ...     with h5py.File(filename, 'r') as f:
+    ...         _find_table(f, 'plugh')
+    Traceback (most recent call last):
+        ...
+    KeyError: 'Table not found: plugh'
+
+    Check that an exception is raised if multiple tables are found:
+    >>> with TemporaryDirectory() as dir:
+    ...     filename = os.path.join(dir, 'test.hdf5')
+    ...     table.write(filename, path='foo/bar', append=True)
+    ...     table.write(filename, path='foo/bat', append=True)
+    ...     table.write(filename, path='foo/xyzzy/bat', append=True)
+    ...     with h5py.File(filename, 'r') as f:
+    ...         _find_table(f, 'bat')
+    Traceback (most recent call last):
+        ...
+    KeyError: 'Multiple tables called bat exist: foo/xyzzy/bat, foo/bat'
+    """
+    results = {}
+
+    def visitor(key, value):
+        _, _, name = key.rpartition('/')
+        if name == tablename:
+            results[key] = value
+
+    group.visititems(visitor)
+
+    if len(results) == 0:
         raise KeyError('Table not found: {0}'.format(tablename))
-    else:
-        return table
+
+    if len(results) > 1:
+        raise KeyError('Multiple tables called {0} exist: {1}'.format(
+            tablename, ', '.join(results.keys())))
+
+    table, = results.values()
+    return table
 
 
-def read_samples(filename, path=None, tablename=None):
+def read_samples(filename, path=None, tablename=POSTERIOR_SAMPLES):
     """Read an HDF5 sample chain file.
 
     Parameters
@@ -57,41 +134,55 @@ def read_samples(filename, path=None, tablename=None):
     filename : str
         The path of the HDF5 file on the filesystem.
     path : str, optional
-        The path of the dataset within the HDF5 file. By default, try the
-        conventional path for lalinference_mcmc and lalinference_nest.
+        The path of the dataset within the HDF5 file.
     tablename : str, optional
         The name of table to search for recursively within the HDF5 file.
+        By default, search for 'posterior_samples'.
 
     Returns
     -------
     table : `astropy.table.Table`
         The sample chain as an Astropy table.
+
+    Test reading a file written using the Python API:
+    >>> import os.path
+    >>> from lalinference.bayestar.command import TemporaryDirectory
+    >>> table = Table([
+    ...     Column(np.ones(10), name='foo', meta={'vary': FIXED}),
+    ...     Column(np.arange(10), name='bar', meta={'vary': LINEAR}),
+    ...     Column(np.arange(10) * np.pi, name='bat', meta={'vary': CIRCULAR}),
+    ...     Column(np.arange(10), name='baz', meta={'vary': OUTPUT})
+    ... ])
+    >>> with TemporaryDirectory() as dir:
+    ...     filename = os.path.join(dir, 'test.hdf5')
+    ...     write_samples(table, filename, 'foo/bar/posterior_samples')
+    ...     len(read_samples(filename))
+    10
+
+    Test reading a file that was written using the LAL HDF5 C API:
+    >>> table = read_samples('test.hdf5')
+    >>> table.colnames
+    ['uvw', 'opq', 'lmn', 'ijk', 'def', 'abc', 'rst', 'ghi']
     """
     with h5py.File(filename, 'r') as f:
         if path is not None: # Look for a given path
             table = f[path]
-        elif tablename is not None: # Look for a given table name
+        else: # Look for a given table name
             table = _find_table(f, tablename)
-        else: # Look for some common paths
-            try:
-                try:
-                    table = f[_mcmc_path]
-                except KeyError:
-                    table = f[_nest_path]
-            except KeyError:
-                raise KeyError('The HDF5 file did not contain a dataset called '
-                               '`{0}` or `{1}`. Try providing the dataset path '
-                               'explicitly.'.format(_mcmc_path, _nest_path))
         table = Table.read(table)
 
     # Restore vary types.
-    for column, vary in zip(table.columns.values(), table.meta.pop('vary')):
-        column.meta['vary'] = vary
+    for i, column in enumerate(table.columns.values()):
+        column.meta['vary'] = table.meta['FIELD_{0}_VARY'.format(i)]
 
     # Restore fixed columns from table attributes.
     for key, value in table.meta.items():
+        # Skip attributes from H5TB interface
+        # (https://www.hdfgroup.org/HDF5/doc/HL/H5TB_Spec.html).
+        if key == 'CLASS' or key == 'VERSION' or key == 'TITLE' or key.startswith('FIELD_'):
+            continue
         table.add_column(Column([value] * len(table), name=key,
-                         meta={'vary': lalinference.LALINFERENCE_PARAM_FIXED}))
+                         meta={'vary': FIXED}))
 
     # Delete table attributes.
     for key in table.meta:
@@ -119,27 +210,19 @@ def write_samples(table, filename, path, metadata=None):
         Dictionary of (path, value) pairs of metadata attributes
         to add to the output file
 
-    Example... first some imports:
-    >>> from lalinference import LALINFERENCE_PARAM_LINEAR as LINEAR
-    >>> from lalinference import LALINFERENCE_PARAM_CIRCULAR as CIRCULAR
-    >>> from lalinference import LALINFERENCE_PARAM_FIXED as FIXED
-    >>> from lalinference import LALINFERENCE_PARAM_OUTPUT as OUTPUT
-
     Check that we catch columns that are supposed to be FIXED but are not:
     >>> table = Table([
     ...     Column(np.arange(10), name='foo', meta={'vary': FIXED})
     ... ])
-    >>> write_samples(table, 'bar.hdf5', 'bat/baz')
+    >>> write_samples(table, 'bar.hdf5', 'bat/baz') # doctest: +ELLIPSIS
     Traceback (most recent call last):
         ...
     AssertionError: 
     Arrays are not equal
-    Column {0} is a `fixed` column, but its values are not identical
-    (mismatch 100.0%)
-     x: Column([1, 2, 3, 4, 5, 6, 7, 8, 9])
-     y: array(0)
+    Column foo is a fixed column, but its values are not identical
+    ...
 
-    And now try writing an arbitrary example to a temporary file:
+    And now try writing an arbitrary example to a temporary file.
     >>> import os.path
     >>> from lalinference.bayestar.command import TemporaryDirectory
     >>> table = Table([
@@ -155,17 +238,16 @@ def write_samples(table, filename, path, metadata=None):
     table = table.copy()
 
     # Reconstruct table attributes.
-    vary = []
     for colname, column in table.columns.items():
-        if column.meta['vary'] == lalinference.LALINFERENCE_PARAM_FIXED:
+        if column.meta['vary'] == FIXED:
             np.testing.assert_array_equal(column[1:], column[0],
-                                          'Column {0} is a `fixed` column, '
-                                          'but its values are not identical')
+                                          'Column {0} is a fixed column, but '
+                                          'its values are not identical'
+                                          .format(column.name))
             table.meta[colname] = column[0]
             del table[colname]
-        else:
-            vary.insert(0, column.meta.pop('vary'))
-    table.meta['vary'] = np.asarray(vary)
+    for i, column in enumerate(table.columns.values()):
+        table.meta['FIELD_{0}_VARY'.format(i)] = column.meta['vary']
     table.write(filename, format='hdf5', path=path)
     if metadata:
         with h5py.File(filename) as hdf:

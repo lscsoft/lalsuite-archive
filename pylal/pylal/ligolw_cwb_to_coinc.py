@@ -43,7 +43,7 @@ from glue.ligolw.utils import time_slide
 
 from glue.lal import LIGOTimeGPS
 from glue.lal import CacheEntry
-from pylal import ligolw_tisi
+from lalburst import timeslides as ligolw_tisi
 from pylal import llwapp
 from pylal import git_version
 
