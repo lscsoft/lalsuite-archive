@@ -303,7 +303,9 @@ def cbcBayesPostProc(
         votfile=thefile.read()
     elif '.hdf' in data[0] or '.h5' in data[0]:
         peparser = bppu.PEOutputParser('hdf5')
-        commonResultsObj = peparser.parse(data[0])
+        if fixedBurnins is None:
+            fixedBurnins = [None]
+        commonResultsObj=peparser.parse(data[0],deltaLogL=deltaLogL,fixedBurnin=fixedBurnins[0],nDownsample=nDownsample)
     else:
         peparser=bppu.PEOutputParser('common')
         commonResultsObj=peparser.parse(open(data[0],'r'),info=[header,None])
