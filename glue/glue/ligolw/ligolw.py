@@ -33,7 +33,6 @@ constructing a parser.
 """
 
 
-import datetime
 import sys
 from xml import sax
 from xml.sax.xmlreader import AttributesImpl
@@ -354,6 +353,35 @@ def WalkChildren(elem):
 #
 # =============================================================================
 #
+#                         Name Attribute Manipulation
+#
+# =============================================================================
+#
+
+
+class LLWNameAttr(unicode):
+	"""
+	Baseclass to hide pattern-matching of various element names.
+	Subclasses must provide a .dec_pattern compiled regular expression
+	defining a group "Name" that identifies the meaningful portion of
+	the string, and a .enc_pattern that gives a format string to be
+	used with "%" to reconstrct the full string.
+	"""
+	def __new__(cls, name):
+		try:
+			name = cls.dec_pattern.search(name).group(u"Name")
+		except AttributeError:
+			pass
+		return unicode.__new__(cls, name)
+
+	@classmethod
+	def enc(cls, name):
+		return cls.enc_pattern % name
+
+
+#
+# =============================================================================
+#
 #                        LIGO Light Weight XML Elements
 #
 # =============================================================================
@@ -495,6 +523,18 @@ class Dim(Element):
 	Start = attributeproxy(u"Start", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
 	Unit = attributeproxy(u"Unit")
 
+	@property
+	def n(self):
+		return ligolwtypes.ToPyType[u"int_8s"](self.pcdata) if self.pcdata is not None else None
+
+	@n.setter
+	def n(self, val):
+		self.pcdata = ligolwtypes.FormatFunc[u"int_8s"](val) if val is not None else None
+
+	@n.deleter
+	def n(self):
+		self.pcdata = None
+
 	def write(self, fileobj = sys.stdout, indent = u""):
 		fileobj.write(self.start_tag(indent))
 		if self.pcdata is not None:
@@ -620,6 +660,7 @@ class Time(Element):
 		time in the default format (ISO-8601).  The Name attribute
 		will be set to the value of the Name parameter if given.
 		"""
+		import datetime
 		self = cls()
 		if Name is not None:
 			self.Name = Name

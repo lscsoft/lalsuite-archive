@@ -64,92 +64,18 @@ __date__ = git_version.date
 #
 # =============================================================================
 #
-#                           Array Name Manipulation
-#
-# =============================================================================
-#
-
-
-#
-# Regular expression used to extract the signifcant portion of an array or
-# stream name, according to LIGO LW naming conventions.
-#
-
-
-ArrayPattern = re.compile(r"(?P<Name>[a-zA-Z0-9_:]+):array\Z")
-
-
-def StripArrayName(name):
-	"""
-	Return the significant portion of an array name according to LIGO
-	LW naming conventions.
-	"""
-	try:
-		return ArrayPattern.search(name).group("Name")
-	except AttributeError:
-		return name
-
-
-def CompareArrayNames(name1, name2):
-	"""
-	Convenience function to compare two array names according to LIGO
-	LW naming conventions.
-	"""
-	return cmp(StripArrayName(name1), StripArrayName(name2))
-
-
-def getArraysByName(elem, name):
-	"""
-	Return a list of arrays with name name under elem.
-	"""
-	name = StripArrayName(name)
-	return elem.getElements(lambda e: (e.tagName == ligolw.Array.tagName) and (e.Name == name))
-
-
-#
-# =============================================================================
-#
 #                                  Utilities
 #
 # =============================================================================
 #
 
 
-def from_array(name, array, dim_names = None):
+def getArraysByName(elem, name):
 	"""
-	Construct a LIGO Light Weight XML Array document subtree from a
-	numpy array object.
-
-	Example:
-
-	>>> import numpy, sys
-	>>> a = numpy.arange(12, dtype = "double")
-	>>> a.shape = (4, 3)
-	>>> from_array(u"test", a).write(sys.stdout)	# doctest: +NORMALIZE_WHITESPACE
-	<Array Type="real_8" Name="test:array">
-		<Dim>3</Dim>
-		<Dim>4</Dim>
-		<Stream Delimiter=" " Type="Local">
-			0 3 6 9
-			1 4 7 10
-			2 5 8 11
-		</Stream>
-	</Array>
+	Return a list of arrays with name name under elem.
 	"""
-	# Type must be set for .__init__();  easier to set Name afterwards
-	# to take advantage of encoding handled by attribute proxy
-	doc = Array(Attributes({u"Type": ligolwtypes.FromNumPyType[str(array.dtype)]}))
-	doc.Name = name
-	for n, dim in enumerate(reversed(array.shape)):
-		child = ligolw.Dim()
-		if dim_names is not None:
-			child.Name = dim_names[n]
-		child.pcdata = unicode(dim)
-		doc.appendChild(child)
-	child = ArrayStream(Attributes({u"Type": ArrayStream.Type.default, u"Delimiter": ArrayStream.Delimiter.default}))
-	doc.appendChild(child)
-	doc.array = array
-	return doc
+	name = Array.ArrayName(name)
+	return elem.getElements(lambda e: (e.tagName == ligolw.Array.tagName) and (e.Name == name))
 
 
 def get_array(xmldoc, name):
@@ -159,7 +85,7 @@ def get_array(xmldoc, name):
 	"""
 	arrays = getArraysByName(xmldoc, name)
 	if len(arrays) != 1:
-		raise ValueError("document must contain exactly one %s array" % StripArrayName(name))
+		raise ValueError("document must contain exactly one %s array" % Array.ArrayName(name))
 	return arrays[0]
 
 
@@ -195,8 +121,8 @@ class ArrayStream(ligolw.Stream):
 	def config(self, parentNode):
 		# some initialization that can only be done once parentNode
 		# has been set.
-		self._tokenizer.set_types([parentNode.pytype])
-		parentNode.array = numpy.zeros(parentNode.get_shape(), parentNode.arraytype)
+		self._tokenizer.set_types([ligolwtypes.ToPyType[parentNode.Type]])
+		parentNode.array = numpy.zeros(parentNode.get_shape(), ligolwtypes.ToNumPyType[parentNode.Type])
 		self._array_view = parentNode.array.T.flat
 		self._index = 0
 		return self
@@ -243,13 +169,17 @@ class Array(ligolw.Array):
 	"""
 	High-level Array element.
 	"""
+	class ArrayName(ligolw.LLWNameAttr):
+		dec_pattern = re.compile(r"(?P<Name>[a-zA-Z0-9_:]+):array\Z")
+		enc_pattern = u"%s:array"
+
+	Name = ligolw.attributeproxy(u"Name", enc = ArrayName.enc, dec = ArrayName)
+
 	def __init__(self, *args):
 		"""
 		Initialize a new Array element.
 		"""
 		super(Array, self).__init__(*args)
-		self.pytype = ligolwtypes.ToPyType[self.Type]
-		self.arraytype = ligolwtypes.ToNumPyType[self.Type]
 		self.array = None
 
 	def get_shape(self):
@@ -259,10 +189,47 @@ class Array(ligolw.Array):
 		created, it is also possible to examine an Array object's
 		.array attribute directly, and doing that is much faster.
 		"""
-		return tuple(int(c.pcdata) for c in self.getElementsByTagName(ligolw.Dim.tagName))[::-1]
+		return tuple(c.n for c in self.getElementsByTagName(ligolw.Dim.tagName))[::-1]
 
-	Name = ligolw.attributeproxy(u"Name", enc = (lambda name: u"%s:array" % name), dec = StripArrayName)
+	@classmethod
+	def build(cls, name, array, dim_names = None):
+		"""
+		Construct a LIGO Light Weight XML Array document subtree
+		from a numpy array object.
 
+		Example:
+
+		>>> import numpy, sys
+		>>> a = numpy.arange(12, dtype = "double")
+		>>> a.shape = (4, 3)
+		>>> from_array(u"test", a).write(sys.stdout)	# doctest: +NORMALIZE_WHITESPACE
+		<Array Type="real_8" Name="test:array">
+			<Dim>3</Dim>
+			<Dim>4</Dim>
+			<Stream Delimiter=" " Type="Local">
+				0 3 6 9
+				1 4 7 10
+				2 5 8 11
+			</Stream>
+		</Array>
+		"""
+		# Type must be set for .__init__();  easier to set Name
+		# afterwards to take advantage of encoding handled by
+		# attribute proxy
+		elem = cls(Attributes({u"Type": ligolwtypes.FromNumPyType[str(array.dtype)]}))
+		elem.Name = name
+		if dim_names is None:
+			dim_names = [None] * len(array.shape)
+		elif len(dim_names) != len(array.shape):
+			raise ValueError("dim_names must be same length as number of dimensions")
+		for name, n in reversed(zip(dim_names, array.shape)):
+			child = elem.appendChild(ligolw.Dim())
+			if name is not None:
+				child.Name = name
+			child.n = n
+		elem.appendChild(ArrayStream(Attributes({u"Type": ArrayStream.Type.default, u"Delimiter": ArrayStream.Delimiter.default})))
+		elem.array = array
+		return elem
 
 	#
 	# Element methods
@@ -275,6 +242,10 @@ class Array(ligolw.Array):
 		"""
 		super(Array, self).unlink()
 		self.array = None
+
+
+# FIXME:  remove when no longer used
+from_array = Array.build
 
 
 #

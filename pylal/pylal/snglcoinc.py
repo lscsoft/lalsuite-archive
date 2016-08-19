@@ -55,7 +55,6 @@ from glue import segmentsUtils
 from glue.ligolw import ligolw
 from glue.ligolw import array as ligolw_array
 from glue.ligolw import param as ligolw_param
-from glue.ligolw import table as ligolw_table
 from glue.ligolw import lsctables
 from glue.text_progress_bar import ProgressBar
 from pylal import git_version
@@ -207,16 +206,6 @@ class EventListDict(dict):
 	def offsetvector(self):
 		for eventlist in self.values():
 			eventlist.set_offset(0)
-
-
-def make_eventlists(xmldoc, EventListType, event_table_name, process_ids = None):
-	"""
-	Convenience wrapper for constructing a dictionary of event lists
-	from an XML document tree, the name of a table from which to get
-	the events, a maximum allowed time window, and the name of the
-	program that generated the events.
-	"""
-	return EventListDict(EventListType, ligolw_table.get_table(xmldoc, event_table_name), process_ids = process_ids)
 
 
 #
@@ -740,7 +729,7 @@ class CoincSynthesizer(object):
 	rates related to the problem of doing so.
 	"""
 
-	def __init__(self, eventlists = None, segmentlists = None, delta_t = None, abundance_rel_accuracy = 1e-4):
+	def __init__(self, eventlists = None, segmentlists = None, delta_t = None, min_instruments = 2, abundance_rel_accuracy = 1e-4):
 		"""
 		eventlists is either a dictionary mapping instrument name
 		to a list of the events (arbitrary objects) seen in that
@@ -754,6 +743,8 @@ class CoincSynthesizer(object):
 		window in seconds, the light travel time between instrument
 		pairs is added to this internally to set the maximum
 		allowed coincidence window between a pair of instruments.
+		min_instruments sets the minimum number of instruments that
+		must participate in a coincidence (default is 2).
 
 		abundance_rel_accuracy sets the fractional error tolerated
 		in the Monte Carlo integrator used to estimate the relative
@@ -773,12 +764,20 @@ class CoincSynthesizer(object):
 		{frozenset(['V1', 'H1']): 0.0006034769052553435, frozenset(['V1', 'H1', 'L1']): 1.1793108172576082e-06, frozenset(['H1', 'L1']): 0.000293675897392638, frozenset(['V1', 'L1']): 0.00043917345626762395}
 		>>> coinc_synth.P_live
 		{frozenset(['V1', 'H1']): 0.0, frozenset(['V1', 'H1', 'L1']): 0.25, frozenset(['H1', 'L1']): 0.25, frozenset(['V1', 'L1']): 0.5}
+		>>>
+		>>>
+		>>> coinc_synth = CoincSynthesizer(eventlists, seglists, 0.001, min_instruments = 1)
+		>>> coinc_synth.rates
+		{frozenset(['V1']): 0.08, frozenset(['H1']): 0.13333333333333333, frozenset(['V1', 'H1']): 0.0006034769052553435, frozenset(['L1']): 0.1, frozenset(['V1', 'L1']): 0.00043917345626762395, frozenset(['V1', 'H1', 'L1']): 1.179508868912594e-06, frozenset(['H1', 'L1']): 0.000293675897392638}
 		"""
 		self.eventlists = eventlists if eventlists is not None else dict.fromkeys(segmentlists, 0) if segmentlists is not None else {}
 		self.segmentlists = segmentlists if segmentlists is not None else segmentsUtils.segments.segmentlistdict()
+		if set(self.eventlists) > set(self.segmentlists):
+			raise ValueError("require a segmentlist for each event list")
 		self.delta_t = delta_t
-		# require a segment list for each list of events
-		assert set(self.eventlists) <= set(self.segmentlists)
+		if min_instruments < 1:
+			raise ValueError("min_instruments must be >= 1")
+		self.min_instruments = min_instruments
 		self.abundance_rel_accuracy = abundance_rel_accuracy
 
 		self.verbose = False	# turn on for diagnostics
@@ -791,10 +790,10 @@ class CoincSynthesizer(object):
 		attributes (or their contents) are modified.  This class
 		relies heavily on pre-computed quantities that are derived
 		from the input parameters and cached;  invoking this method
-		forces the recalculation of all cached data (the next time
-		it's needed).  Until this method is invoked, derived data
-		like coincidence window sizes and mean event rates might
-		reflect the previous state of this class.
+		forces the recalculation of cached data (the next time it's
+		needed).  Until this method is invoked, derived data like
+		coincidence window sizes and mean event rates might reflect
+		the previous state of this class.
 		"""
 		try:
 			del self._P_live
@@ -821,24 +820,24 @@ class CoincSynthesizer(object):
 		frozensets).
 		"""
 		all_instruments = tuple(self.eventlists)
-		return tuple(frozenset(instruments) for n in range(2, len(all_instruments) + 1) for instruments in iterutils.choices(all_instruments, n))
+		return tuple(frozenset(instruments) for n in range(self.min_instruments, len(all_instruments) + 1) for instruments in iterutils.choices(all_instruments, n))
 
 
 	@property
 	def P_live(self):
 		"""
 		Dictionary mapping instrument combination (as a frozenset)
-		to fraction of the total time for which at least two
-		instruments were on during which precisely that combination
-		of instruments (and no other instruments) are on.  E.g.,
-		P_live[frozenset(("H1", "L1"))] gives the probability that
-		precisely H1 and L1 are the only instruments operating
-		given that at least two instruments are operating.
+		to fraction of the total time in which the minimum required
+		number of instruments were on during which precisely that
+		combination of instruments (and no other instruments) are
+		on.  E.g., P_live[frozenset(("H1", "L1"))] gives the
+		probability that precisely H1 and L1 are the only
+		instruments operating.
 		"""
 		try:
 			return self._P_live
 		except AttributeError:
-			livetime = float(abs(segmentsUtils.vote(self.segmentlists.values(), 2)))
+			livetime = float(abs(segmentsUtils.vote(self.segmentlists.values(), self.min_instruments)))
 			all_instruments = set(self.segmentlists)
 			self._P_live = dict((instruments, float(abs(self.segmentlists.intersection(instruments) - self.segmentlists.union(all_instruments - instruments))) / livetime) for instruments in self.all_instrument_combos)
 			# check normalization
@@ -993,19 +992,20 @@ class CoincSynthesizer(object):
 		# variance = d p (1 - p) <= d/4 where p is the probability
 		# of a successful outcome.  we quit when the ratio of the
 		# bound on the standard deviation of the number of
-		# successful outcomes to the actual number of successful
-		# outcomes falls below rel accuracy: \sqrt{d/4} / n < rel
-		# accuracy.  note that if the true probability is 0, so
-		# that n=0 identically, then the loop will never terminate;
-		# from the nature of the problem we know 0<p<1 so the loop
-		# will, eventually, terminate.  note that if instead of
-		# using the upper bound on the variance, we replace p with
-		# (n/d) and use that estimate of the variance the loop can
-		# be shown to require many fewer iterations to meet the
-		# desired accuracy, but that choice creates a rather strong
-		# bias that, to overcome, requires some extra hacks to
-		# force the loop to run for additional iterations.  this
-		# approach is cleaner.
+		# successful outcomes (d/4) to the actual number of
+		# successful outcomes (n) falls below rel accuracy:
+		# \sqrt{d/4} / n < rel accuracy.  note that if the true
+		# probability is 0, so that n=0 identically, then the loop
+		# will never terminate; from the nature of the problem we
+		# know 0<p<1 so the loop will, eventually, terminate.  note
+		# that if instead of using the upper bound on the variance,
+		# we replace p with the estimate of p at the current
+		# iteration (=n/d) and use that to estimate the variance
+		# the loop can be shown to require many fewer iterations to
+		# meet the desired accuracy, but that choice creates a
+		# rather strong bias that, to overcome, requires some extra
+		# hacks to force the loop to run for additional iterations.
+		# the approach used here is much simpler.
 					math_sqrt = math.sqrt
 					random_uniform = random.uniform
 					epsilon = self.abundance_rel_accuracy
@@ -1049,9 +1049,10 @@ class CoincSynthesizer(object):
 		Dictionary mapping instrument combo (as a frozenset) to the
 		mean rate at which coincidences involving precisely that
 		combination of instruments occur, averaged over times when
-		at least two instruments are operating --- the mean rate
-		during times when coincidences are possible, not the mean
-		rate over all time.  The result is not cached.
+		at least the minimum required number of instruments are
+		operating --- the mean rate during times when coincidences
+		are possible, not the mean rate over all time.  The result
+		is not cached.
 		"""
 		coinc_rate = dict.fromkeys(self.rates, 0.0)
 		# iterate over probabilities in order for better numerical
@@ -1110,7 +1111,7 @@ class CoincSynthesizer(object):
 		precisely that combination of instruments expected from the
 		background.  The result is not cached.
 		"""
-		T = float(abs(segmentsUtils.vote(self.segmentlists.values(), 2)))
+		T = float(abs(segmentsUtils.vote(self.segmentlists.values(), self.min_instruments)))
 		return dict((instruments, rate * T) for instruments, rate in self.mean_coinc_rate.items())
 
 
@@ -1183,10 +1184,11 @@ class CoincSynthesizer(object):
 		contained in self.eventlists.
 
 		If allow_zero_lag is False (the default), then only event tuples
-		with no genuine zero-lag coincidences are returned, that is only
-		tuples in which no event pairs would be considered to be coincident
-		without time shifts applied.
-
+		with no genuine zero-lag coincidences are returned, that is
+		only tuples in which no event pairs would be considered to
+		be coincident without time shifts applied.  Note that
+		single-instrument "coincidences", if allowed, are *not*
+		considered to be zero-lag coincidences.
 
 		Example:
 
@@ -1856,7 +1858,12 @@ class CoincParamsDistributions(object):
 		given the name name.
 		"""
 		xml = ligolw.LIGO_LW({u"Name": u"%s:%s" % (name, self.ligo_lw_name_suffix)})
-		xml.appendChild(ligolw_param.new_param(u"process_id", u"ilwd:char", self.process_id))
+		# FIXME: remove try/except when we can rely on new-enough
+		# glue to provide .build() class method
+		try:
+			xml.appendChild(ligolw_param.Param.build(u"process_id", u"ilwd:char", self.process_id))
+		except AttributeError:
+			xml.appendChild(ligolw_param.new_param(u"process_id", u"ilwd:char", self.process_id))
 		def store(xml, prefix, source_dict):
 			for name, binnedarray in sorted(source_dict.items()):
 				xml.appendChild(binnedarray.to_xml(u"%s:%s" % (prefix, name)))

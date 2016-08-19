@@ -41,7 +41,6 @@ from pylal import git_version
 from pylal import inject
 from pylal import ligolw_burca
 from pylal import snglcoinc
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 lsctables.use_in(ligolw.LIGOLWContentHandler)
@@ -186,7 +185,7 @@ def parse_command_line():
 	if options.coincidence_algorithm not in ("excesspower", "stringcusp"):
 		raise ValueError("unrecognized --coincidence-algorithm %s" % options.coincidence_algorithm)
 	if options.coincidence_segments is not None:
-		options.coinc_segs = segmentsUtils.from_range_strings(options.coincidence_segments.split(","), boundtype = LIGOTimeGPS).coalesce()
+		options.coinc_segs = segmentsUtils.from_range_strings(options.coincidence_segments.split(","), boundtype = lsctables.LIGOTimeGPS).coalesce()
 		if filenames is not None and len(filenames) > 1:
 			raise ValueError("refusing to allow use of --coincidence-segments with more than one input file")
 	else:
