@@ -928,7 +928,11 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   }
   LALInferenceVariableItem *node=NULL;
   node=LALInferenceGetItem(model->params,"ecc");
-  if( !node ) { /* set to be unformly variate for ecc if it was not fixed ton injection value already */
+  ppt=LALInferenceGetProcParamVal(commandLine,"--ecc-min");
+  if(ppt) eccmin=atof(ppt->value);
+  ppt=LALInferenceGetProcParamVal(commandLine,"--ecc-max");
+  if(ppt) eccmax=atof(ppt->value);
+  if( !node ) { /* set to be unformly variate for ecc if it was not fixed to injection value already */
     LALInferenceRegisterUniformVariableREAL8(state, model->params, "ecc", ecc, eccmin, eccmax, LALINFERENCE_PARAM_LINEAR);
   }
   LALInferenceAddVariable(model->params, "ecc_order", &ecc_order, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
@@ -1276,8 +1280,10 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
      print_flags_orders_warning(injTable,commandLine);
 
      /* Print info about orders and waveflags used for templates */
-
-     fprintf(stdout,"Templates will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i, tidal order %i, ecc_order %i in the %s domain.\n",approx,XLALGetStringFromApproximant(approx),PhaseOrder,AmpOrder,(int) spinO, (int) tideO, ecc_order, model->domain==LAL_SIM_DOMAIN_TIME?"time":"frequency");
+     if(approx==TaylorF2Ecc)
+       fprintf(stdout,"Templates will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i, tidal order %i, ecc_order %i, ecc-min %f, ecc-max %f in the %s domain.\n",approx,XLALGetStringFromApproximant(approx),PhaseOrder,AmpOrder,(int) spinO, (int) tideO, ecc_order, eccmin, eccmax, model->domain==LAL_SIM_DOMAIN_TIME?"time":"frequency");
+     else
+       fprintf(stdout,"Templates will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i, tidal order %i in the %s domain.\n",approx,XLALGetStringFromApproximant(approx),PhaseOrder,AmpOrder,(int) spinO, (int) tideO, model->domain==LAL_SIM_DOMAIN_TIME?"time":"frequency");
      fprintf(stdout,"---\t\t ---\n\n");
   }//end of signal only flag
   else
