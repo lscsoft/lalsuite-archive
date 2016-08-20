@@ -1808,7 +1808,7 @@ class CoincParamsDistributions(object):
 		return xml[0]
 
 	@classmethod
-	def from_xml(cls, xml, name):
+	def from_xml(cls, xml, name, **kwargs):
 		"""
 		In the XML document tree rooted at xml, search for the
 		serialized CoincParamsDistributions object named name, and
@@ -1817,14 +1817,14 @@ class CoincParamsDistributions(object):
 		CoincParamsDistributions object, the second is the process
 		ID recorded when it was written to XML.
 		"""
-		# create an instance
-		self = cls()
-
 		# find the root element of the XML serialization
 		xml = self.get_xml_root(xml, name)
 
 		# retrieve the process ID
-		self.process_id = ligolw_param.get_pyvalue(xml, u"process_id")
+		process_id = ligolw_param.get_pyvalue(xml, u"process_id")
+
+		# create an instance
+		self = cls(process_id = process_id, **kwargs)
 
 		# reconstruct the BinnedArray objects
 		def reconstruct(xml, prefix, target_dict):
