@@ -2539,10 +2539,22 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
   REAL8 ecc=theEventTable->ecc;
   REAL8 f_ecc=theEventTable->f_ecc;
   INT4 ecc_order = theEventTable->ecc_order;
-  LALInferenceAddVariable(vars, "ecc", &ecc, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  /** bug(?) correction injected parameter value, which is fixed in template differently do not print injection value
+    * changed to if vars hase already the parametr and its value is different to injection value, then 
+    * then copy injection value else call LALInferenceAddVariable() function 
+    * by KGWG, hwlee, Jeongcho Kim and Chunglee KIm at 22 August 2016 */
+  if(LALInferenceCheckVariable(vars,"ecc")) {
+    REAL8 ecc1 = *(REAL8 *)LALInferenceGetVariable(vars, "ecc");
+    if(ecc1 != ecc) {
+      void *value = LALInferenceGetVariable(vars, "ecc");
+      memcpy(value, &ecc, sizeof(REAL8));
+    }
+  }
+  else {
+    LALInferenceAddVariable(vars, "ecc", &ecc, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  }
   LALInferenceAddVariable(vars, "ecc_order", &ecc_order, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(vars, "f_ecc", &f_ecc, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-  fprintf(stdout, "==== DEBUG hwlee in LALInferenceInjectionToVariables ecc = %f, f_ecc= %f, ecc_order = %d\n", ecc, f_ecc, ecc_order);
 }
 
 void LALInferencePrintInjectionSample(LALInferenceRunState *runState) {
