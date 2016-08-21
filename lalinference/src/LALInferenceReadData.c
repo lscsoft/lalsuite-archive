@@ -2542,7 +2542,7 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
   LALInferenceAddVariable(vars, "ecc", &ecc, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(vars, "ecc_order", &ecc_order, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(vars, "f_ecc", &f_ecc, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-  fprintf(stdout, '==== DEBUG hwlee in LALInferenceInjectionToVariables ecc = %f, f_ecc= %f, ecc_order = %d\n", ecc, f_ecc, ecc_order);
+  fprintf(stdout, "==== DEBUG hwlee in LALInferenceInjectionToVariables ecc = %f, f_ecc= %f, ecc_order = %d\n", ecc, f_ecc, ecc_order);
 }
 
 void LALInferencePrintInjectionSample(LALInferenceRunState *runState) {
