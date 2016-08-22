@@ -219,8 +219,19 @@ glue.ligolw XML parsing codes.
 """
 
 
-FromPyType = {
-	ilwd.ilwdchar: u"ilwd:char",
+class FromPyTypeCls(dict):
+	def __getitem__(self, key):
+		try:
+			return super(FromPyTypeCls, self).__getitem__(key)
+		except KeyError:
+			for test_key, val in self.iteritems():
+				if isinstance(key, test_key):
+					return val
+			raise
+
+
+FromPyType = FromPyTypeCls({
+	ilwd._ilwd.ilwdchar: u"ilwd:char",
 	buffer: u"blob",
 	str: u"lstring",
 	unicode: u"lstring",
@@ -229,7 +240,7 @@ FromPyType = {
 	long: u"int_8s",
 	float: u"real_8",
 	complex: u"complex_16"
-}
+})
 """
 Look-up table used to guess LIGO Light-Weight XML data type strings from
 Python types.  This table is used when auto-generating XML from Python
