@@ -225,7 +225,7 @@ class FromPyTypeCls(dict):
 			return super(FromPyTypeCls, self).__getitem__(key)
 		except KeyError:
 			for test_key, val in self.iteritems():
-				if isinstance(key, test_key):
+				if issubclass(key, test_key):
 					return val
 			raise
 
