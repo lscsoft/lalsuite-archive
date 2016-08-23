@@ -929,9 +929,6 @@ class Categories(Bins):
 
 	xml_bins_name = u"categorybins"
 
-	# FIXME:  remove import when no longer needed
-	import pickle
-
 	def to_xml(self):
 		"""
 		Construct a LIGO Light Weight XML representation of the
@@ -940,6 +937,7 @@ class Categories(Bins):
 		# FIXME:  make use of new "pickle" type for params when we
 		# can rely on a new-enough glue
 		#return ligolw_param.Param.build(self.xml_bins_name_enc(self.xml_bins_name), u"pickle", self.containers)
+		import pickle
 		return ligolw_param.from_pyvalue(self.xml_bins_name_enc(self.xml_bins_name), pickle.dumps(self.containers))
 
 	@classmethod
@@ -953,6 +951,7 @@ class Categories(Bins):
 		# FIXME:  replace with commented-out code when we can rely
 		# on new "pickle" type for params
 		#return cls(xml.pcdata)
+		import pickle
 		return cls(pickle.loads(xml.pcdata))
 
 
