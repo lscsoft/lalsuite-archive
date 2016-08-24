@@ -656,14 +656,20 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
     procparam=LALInferenceGetProcParamVal(commandLine,"--psdstart");
     if (procparam) {
         LALStringToGPS(&status,&GPSstart,procparam->value,&chartmp);
-        if(status.statusCode) REPORTSTATUS(&status);
+        if(status.statusCode) {
+          fprintf(stderr, "===== DEBUG 01 hwlee statusCode = %d in LALInreferenceReadData\n", status.statusCode);
+          REPORTSTATUS(&status);
+        }
     } else
         XLALINT8NSToGPS(&GPSstart, 0);
 
     /*Set trigtime in GPStrig using either inj file or --trigtime*/
     LALInferenceSetGPSTrigtime(&GPStrig,commandLine);
 
-    if(status.statusCode) REPORTSTATUS(&status);
+    if(status.statusCode) {
+      fprintf(stderr, "===== DEBUG 02 hwlee statusCode = %d in LALInreferenceReadData\n", status.statusCode);
+      REPORTSTATUS(&status);
+    }
 
     SegmentLength=atof(LALInferenceGetProcParamVal(commandLine,"--seglen")->value);
     seglen=(size_t)(SegmentLength*SampleRate);
@@ -1385,7 +1391,10 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 		sprintf(SNRpath, "snr.txt");
 
 	Ninj=SimInspiralTableFromLIGOLw(&injTable,LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
-	REPORTSTATUS(&status);
+        if(status.statusCode) {
+          fprintf(stderr, "===== DEBUG 01 hwlee statusCode = %d in InjectInspiralSignal\n", status.statusCode);
+	  REPORTSTATUS(&status);
+        }
 	printf("Ninj %d\n", Ninj);
 	if(Ninj<=event){
           fprintf(stderr,"Error reading event %d from %s\n",event,LALInferenceGetProcParamVal(commandLine,"--inj")->value);
@@ -1398,6 +1407,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	Approximant injapprox;
 	injapprox = XLALGetApproximantFromString(injTable->waveform);
         if( (int) injapprox == XLAL_FAILURE) {
+          fprintf(stderr, "===== DEBUG 02 hwlee statusCode = %d in InjectInspiralSignal\n", status.statusCode);
 	  REPORTSTATUS(&status);
           ABORTXLAL(&status);
         }
@@ -1470,7 +1480,10 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
       }
       printf("Using LALInspiral for injection\n");
       XLALResampleREAL4TimeSeries(injectionBuffer,thisData->timeData->deltaT); //downsample to analysis sampling rate.
-      if(status.statusCode) REPORTSTATUS(&status);
+      if(status.statusCode) {
+        fprintf(stderr, "===== DEBUG 03 hwlee statusCode = %d in InjectInspiralSignal\n", status.statusCode);
+        REPORTSTATUS(&status);
+      }
       XLALDestroyCOMPLEX8FrequencySeries(resp);
 
       if ( approximant != NumRelNinja2 ) {
@@ -1485,7 +1498,10 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
         unsigned lengthTest = 0;
 
         LALGenerateInspiral(&status, &waveform, injEvent, &ppnParams ); //Recompute the waveform just to get access to ppnParams.tc and waveform.h->data->length or waveform.phi->data->length
-        if(status.statusCode) REPORTSTATUS(&status);
+        if(status.statusCode) {
+          fprintf(stderr, "===== DEBUG 04 hwlee statusCode = %d in InjectInspiralSignal\n", status.statusCode);
+          REPORTSTATUS(&status);
+        }
 
         if(waveform.h){
           lengthTest = waveform.h->data->length*(thisData->timeData->deltaT*InjSampleRate);
@@ -1509,7 +1525,10 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
       /* Now we cut the injection buffer down to match the time domain wave size */
       injectionBuffer=(REAL4TimeSeries *)XLALCutREAL4TimeSeries(injectionBuffer,realStartSample,thisData->timeData->data->length);
       if (!injectionBuffer) XLAL_ERROR_VOID(XLAL_EFUNC);
-      if(status.statusCode) REPORTSTATUS(&status);
+      if(status.statusCode) {
+        fprintf(stderr, "===== DEBUG 05 hwlee statusCode = %d in InjectInspiralSignal\n", status.statusCode);
+        REPORTSTATUS(&status);
+      }
       for(i=0;i<injectionBuffer->data->length;i++) inj8Wave->data->data[i]=(REAL8)injectionBuffer->data->data[i];
     }else{
       printf("Using LALSimulation for injection\n");
@@ -1696,7 +1715,10 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
         INT4 realStartSample=(INT4)((IFOdata->timeData->epoch.gpsSeconds - injectionBuffer->epoch.gpsSeconds)/IFOdata->timeData->deltaT);
         realStartSample+=(INT4)((IFOdata->timeData->epoch.gpsNanoSeconds - injectionBuffer->epoch.gpsNanoSeconds)*1e-9/IFOdata->timeData->deltaT);
         LALFindChirpInjectSignals(&status,injectionBuffer,injEvent,resp);
-        if(status.statusCode) REPORTSTATUS(&status);
+        if(status.statusCode) {
+          fprintf(stderr, "===== DEBUG 06 hwlee statusCode = %d in InjectInspiralSignal\n", status.statusCode);
+          REPORTSTATUS(&status);
+        }
         XLALDestroyCOMPLEX8FrequencySeries(resp);
         injectionBuffer=(REAL4TimeSeries *)XLALCutREAL4TimeSeries(injectionBuffer,realStartSample,IFOdata->timeData->data->length);
         for(j=0;j<injectionBuffer->data->length;j++) fprintf(rawWaveform,"%.6f\t%g\n", XLALGPSGetREAL8(&IFOdata->timeData->epoch) + IFOdata->timeData->deltaT*j, injectionBuffer->data->data[j]);
