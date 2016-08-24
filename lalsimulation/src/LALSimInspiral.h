@@ -312,10 +312,15 @@ typedef enum tagApproximant {
    SEOBNRv2_opt,	/**< Optimized Spin-aligned EOBNR model v2
                          * @remarks Implemented in lalsimulation (time domain). */
    SEOBNRv3,		/**< Spin precessing EOBNR model v3
-                         * @todo Fix implementation in lalsimulation (time domain). */
-   SEOBNRv4,		/**< Spin nonprecessing EOBNR model v4 */
+                         * @remarks Implemented in lalsimulation (time domain). */
+   SEOBNRv4,		/**< Spin nonprecessing EOBNR model v4 
+                         * @remarks Implemented in lalsimulation (time domain). */
    SEOBNRv4_opt,	/**< Optimized Spin-aligned EOBNR model v4
                          * @remarks Implemented in lalsimulation (time domain). */
+   TEOBv2,	/**< Tidal EOB model
+                     * @remarks Implemented in lalsimulation (time domain). */
+   TEOBv4,	/**< Tidal EOB model
+             * @remarks Implemented in lalsimulation (time domain). */
    SEOBNRv1_ROM_EffectiveSpin, /**< Single-spin frequency domain reduced order model of spin-aligned EOBNR model SEOBNRv1 See [Purrer:2014fza]
                                 * @remarks Implemented in lalsimulation (frequency domain). */
    SEOBNRv1_ROM_DoubleSpin, /**< Double-spin frequency domain reduced order model of spin-aligned EOBNR model SEOBNRv1 See [Purrer:2014fza]
@@ -381,6 +386,8 @@ typedef enum tagFrequencyFunction {
     fSEOBNRv1RD, /**< Dominant ringdown frequency in SEOBNRv1 */
     fSEOBNRv2Peak, /**< Frequency of the peak amplitude in SEOBNRv2 */
     fSEOBNRv2RD, /**< Dominant ringdown frequency in SEOBNRv2 */
+    fSEOBNRv4Peak, /**< Frequency of the peak amplitude in SEOBNRv4 */
+    fSEOBNRv4RD, /**< Dominant ringdown frequency in SEOBNRv4 */
     NumFreqFunctions /**< Number of elements in the enum */
  } FrequencyFunction;
 
@@ -783,6 +790,11 @@ REAL8 XLALSimInspiralfLow2fStart(REAL8 fLow, INT4 ampOrder, INT4 approximant);
 
 int XLALSimInspiralREAL4WaveTaper(REAL4Vector *signalvec, LALSimInspiralApplyTaper bookends);
 int XLALSimInspiralREAL8WaveTaper(REAL8Vector *signalvec, LALSimInspiralApplyTaper bookends);
+
+REAL8 XLALSimUniversalRelation( REAL8 x, REAL8 coeffs[] );
+REAL8 XLALSimUniversalRelationlambda3TidalVSlambda2Tidal( REAL8 lambda2Tidal );
+REAL8 XLALSimUniversalRelationomega02TidalVSlambda2Tidal( REAL8 lambda2Tidal );
+REAL8 XLALSimUniversalRelationomega03TidalVSlambda3Tidal( REAL8 lambda3Tidal );
 
 #if 0
 { /* so that editors will match succeeding brace */

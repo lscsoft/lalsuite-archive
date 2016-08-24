@@ -91,6 +91,9 @@ const char * usage =
 "                             SEOBNRv1\n"
 "                             SEOBNRv2\n"
 "                             SEOBNRv3\n"
+"                             SEOBNRv4\n"
+"                             TEOBv2\n"
+"                             TEOBv4\n"
 "                             SpinTaylorT4\n"
 "                             SpinTaylorT2\n"
 "                             PhenSpinTaylor\n"
@@ -141,6 +144,14 @@ const char * usage =
 "                           (~128-2560 for NS, 0 for BH) (default 0)\n"
 "--tidal-lambda2 L2         (tidal deformability of mass 2) / (mass of body 2)^5\n"
 "                           (~128-2560 for NS, 0 for BH) (default 0)\n"
+"--tidal-lambda-octu1 L31         (octupolar tidal deformability of mass 1) / (mass of body 1)^7\n"
+"                           (0 for BH) (default 0)\n"
+"--tidal-lambda-octu2 L32         (octupolar tidal deformability of mass 2) / (mass of body 2)^7\n"
+"                           (0 for BH) (default 0)\n"
+"--tidal-quadfmode1 W21      dimensionless quadrupolar f-mode angular frequency of mass 1, normalized to mass 1\n"
+"--tidal-quadfmode2 W22      dimensionless quadrupolar f-mode angular frequency of mass 2, normalized to mass 2\n"
+"--tidal-octufmode1 W31      dimensionless octupolar f-mode angular frequency of mass 1, normalized to mass 1\n"
+"--tidal-octufmode2 W32      dimensionless octupolar f-mode angular frequency of mass 2, normalized to mass 2\n"
 "--spin-order ORD           Twice PN order of spin effects\n"
 "                           (default ORD=-1 <==> All spin effects)\n"
 "--tidal-order ORD          Twice PN order of tidal effects\n"
@@ -504,6 +515,8 @@ int main (int argc , char **argv) {
     }
 
     /* clean up */
+    XLALDestroyREAL8TimeSeries(hplus);
+    XLALDestroyREAL8TimeSeries(hcross);
     XLALSimInspiralDestroyWaveformFlags(params->waveFlags);
     XLALSimInspiralDestroyTestGRParam(params->nonGRparams);
     XLALFree(params);

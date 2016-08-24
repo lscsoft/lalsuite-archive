@@ -124,6 +124,8 @@ static const char *lalSimulationApproximantNames[] = {
     INITIALIZE_NAME(SEOBNRv3),
     INITIALIZE_NAME(SEOBNRv4),
     INITIALIZE_NAME(SEOBNRv4_opt),
+    INITIALIZE_NAME(TEOBv2),
+    INITIALIZE_NAME(TEOBv4),
     INITIALIZE_NAME(SEOBNRv1_ROM_EffectiveSpin),
     INITIALIZE_NAME(SEOBNRv1_ROM_DoubleSpin),
     INITIALIZE_NAME(SEOBNRv2_ROM_EffectiveSpin),
@@ -317,6 +319,12 @@ int XLALSimInspiralChooseTDWaveform(
     Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
     )
 {
+    REAL8 omega02Tidal1 = 0;
+    REAL8 lambda3Tidal1 = 0;
+    REAL8 omega03Tidal1 = 0;
+    REAL8 omega02Tidal2 = 0;
+    REAL8 lambda3Tidal2 = 0;
+    REAL8 omega03Tidal2 = 0;
     REAL8 LNhatx, LNhaty, LNhatz, E1x, E1y, E1z;
     char* numrel_data_path;
     //REAL8 tmp1, tmp2;
@@ -750,7 +758,7 @@ int XLALSimInspiralChooseTDWaveform(
             /* Call the waveform driver routine */
             SpinAlignedEOBversion = 1;
             ret = XLALSimIMRSpinAlignedEOBWaveform(hplus, hcross, phiRef,
-                    deltaT, m1, m2, f_min, r, i, S1z, S2z, SpinAlignedEOBversion);
+                    deltaT, m1, m2, f_min, r, i, S1z, S2z, SpinAlignedEOBversion, lambda1, lambda2, omega02Tidal1, omega02Tidal2, lambda3Tidal1, lambda3Tidal2, omega03Tidal1, omega03Tidal2);
             break;
 
         case SEOBNRv2:
@@ -766,7 +774,7 @@ int XLALSimInspiralChooseTDWaveform(
             /* Call the waveform driver routine */
             SpinAlignedEOBversion = 2;
             ret = XLALSimIMRSpinAlignedEOBWaveform(hplus, hcross, phiRef,
-                    deltaT, m1, m2, f_min, r, i, S1z, S2z, SpinAlignedEOBversion);
+                    deltaT, m1, m2, f_min, r, i, S1z, S2z, SpinAlignedEOBversion, lambda1, lambda2, omega02Tidal1, omega02Tidal2, lambda3Tidal1, lambda3Tidal2, omega03Tidal1, omega03Tidal2);
             break;
 
         case SEOBNRv4:
@@ -782,7 +790,7 @@ int XLALSimInspiralChooseTDWaveform(
             /* Call the waveform driver routine */
             SpinAlignedEOBversion = 4;
             ret = XLALSimIMRSpinAlignedEOBWaveform(hplus, hcross, phiRef,
-                                                   deltaT, m1, m2, f_min, r, i, S1z, S2z, SpinAlignedEOBversion);
+                                                   deltaT, m1, m2, f_min, r, i, S1z, S2z, SpinAlignedEOBversion, lambda1, lambda2, omega02Tidal1, omega02Tidal2, lambda3Tidal1, lambda3Tidal2, omega03Tidal1, omega03Tidal2);
             break;
 
         case SEOBNRv2_opt:
@@ -798,7 +806,7 @@ int XLALSimInspiralChooseTDWaveform(
              /* Call the waveform driver routine */
              SpinAlignedEOBversion = 200;
              ret = XLALSimIMRSpinAlignedEOBWaveform(hplus, hcross, phiRef,
-                     deltaT, m1, m2, f_min, r, i, S1z, S2z, SpinAlignedEOBversion);
+                     deltaT, m1, m2, f_min, r, i, S1z, S2z, SpinAlignedEOBversion, lambda1, lambda2, omega02Tidal1, omega02Tidal2, lambda3Tidal1, lambda3Tidal2, omega03Tidal1, omega03Tidal2);
              break;
 
         case SEOBNRv3:
@@ -833,10 +841,46 @@ int XLALSimInspiralChooseTDWaveform(
             /* Call the waveform driver routine */
             SpinAlignedEOBversion = 400;
             ret = XLALSimIMRSpinAlignedEOBWaveform(hplus, hcross, phiRef,
-                                                   deltaT, m1, m2, f_min, r, i, S1z, S2z, SpinAlignedEOBversion);
+                                                   deltaT, m1, m2, f_min, r, i, S1z, S2z, SpinAlignedEOBversion, lambda1, lambda2, omega02Tidal1, omega02Tidal2, lambda3Tidal1, lambda3Tidal2, omega03Tidal1, omega03Tidal2);
             break;
 
-	case HGimri:
+        case TEOBv2:
+            /* Waveform-specific sanity checks */
+            if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
+                ABORT_NONZERO_TRANSVERSE_SPINS(waveFlags);
+            if( f_ref != 0.)
+                XLALPrintWarning("XLAL Warning - %s: This approximant does not use f_ref. The reference phase will be defined at coalescence.\n", __func__);
+            /* Call the waveform driver routine */
+            SpinAlignedEOBversion = 2;
+            omega02Tidal1 = XLALSimUniversalRelationomega02TidalVSlambda2Tidal( lambda1 );
+            omega02Tidal2 = XLALSimUniversalRelationomega02TidalVSlambda2Tidal( lambda2 );
+            lambda3Tidal1 = XLALSimUniversalRelationlambda3TidalVSlambda2Tidal( lambda1 );
+            lambda3Tidal2 = XLALSimUniversalRelationlambda3TidalVSlambda2Tidal( lambda2 );
+            omega03Tidal1 = XLALSimUniversalRelationomega03TidalVSlambda3Tidal( lambda3Tidal1 );
+            omega03Tidal2 = XLALSimUniversalRelationomega03TidalVSlambda3Tidal( lambda3Tidal2 );
+            ret = XLALSimIMRSpinAlignedEOBWaveform(hplus, hcross, phiRef,
+                                                   deltaT, m1, m2, f_min, r, i, S1z, S2z, SpinAlignedEOBversion, lambda1, lambda2, omega02Tidal1, omega02Tidal2, lambda3Tidal1, lambda3Tidal2, omega03Tidal1, omega03Tidal2);
+            break;
+
+        case TEOBv4:
+            /* Waveform-specific sanity checks */
+            if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
+                ABORT_NONZERO_TRANSVERSE_SPINS(waveFlags);
+            if( f_ref != 0.)
+                XLALPrintWarning("XLAL Warning - %s: This approximant does not use f_ref. The reference phase will be defined at coalescence.\n", __func__);
+            /* Call the waveform driver routine */
+            SpinAlignedEOBversion = 4;
+            omega02Tidal1 = XLALSimUniversalRelationomega02TidalVSlambda2Tidal( lambda1 );
+            omega02Tidal2 = XLALSimUniversalRelationomega02TidalVSlambda2Tidal( lambda2 );
+            lambda3Tidal1 = XLALSimUniversalRelationlambda3TidalVSlambda2Tidal( lambda1 );
+            lambda3Tidal2 = XLALSimUniversalRelationlambda3TidalVSlambda2Tidal( lambda2 );
+            omega03Tidal1 = XLALSimUniversalRelationomega03TidalVSlambda3Tidal( lambda3Tidal1 );
+            omega03Tidal2 = XLALSimUniversalRelationomega03TidalVSlambda3Tidal( lambda3Tidal2 );
+            ret = XLALSimIMRSpinAlignedEOBWaveform(hplus, hcross, phiRef,
+                                                   deltaT, m1, m2, f_min, r, i, S1z, S2z, SpinAlignedEOBversion, lambda1, lambda2, omega02Tidal1, omega02Tidal2, lambda3Tidal1, lambda3Tidal2, omega03Tidal1, omega03Tidal2);
+            break;
+
+        case HGimri:
 	     /* Waveform-specific sanity checks */
 	     if( !checkTidesZero(lambda1, lambda2) )
 		 ABORT_NONZERO_TIDES(waveFlags);
@@ -3974,6 +4018,8 @@ int XLALSimInspiralImplementedTDApproximants(
         case SEOBNRv3:
         case SEOBNRv4:
         case SEOBNRv4_opt:
+        case TEOBv2:
+        case TEOBv4:
         case NR_hdf5:
             return 1;
 
@@ -4420,6 +4466,8 @@ int XLALSimInspiralGetSpinSupportFromApproximant(Approximant approx){
     case SEOBNRv4:
     case SEOBNRv2_opt:
     case SEOBNRv4_opt:
+    case TEOBv2:
+    case TEOBv4:
     case SEOBNRv1_ROM_EffectiveSpin:
     case SEOBNRv1_ROM_DoubleSpin:
     case SEOBNRv2_ROM_EffectiveSpin:
@@ -4502,6 +4550,8 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
     case SEOBNRv2_opt:
     case SEOBNRv4:
     case SEOBNRv4_opt:
+    case TEOBv2:
+    case TEOBv4:
     case SEOBNRv1_ROM_EffectiveSpin:
     case SEOBNRv1_ROM_DoubleSpin:
     case SEOBNRv2_ROM_EffectiveSpin:
@@ -4771,6 +4821,7 @@ double XLALSimInspiralGetFrequency(
         case fEOBNRv2RD:
         case fSEOBNRv1RD:
         case fSEOBNRv2RD:
+        case fSEOBNRv4RD:
             // FIXME: Probably shouldn't hard code the modes.
             if ( freqFunc == fEOBNRv2HMRD )
             {
@@ -4785,6 +4836,7 @@ double XLALSimInspiralGetFrequency(
                 if (freqFunc == fEOBNRv2RD) approximant = EOBNRv2;
                 if (freqFunc == fSEOBNRv1RD) approximant = SEOBNRv1;
                 if (freqFunc == fSEOBNRv2RD) approximant = SEOBNRv2;
+                if (freqFunc == fSEOBNRv4RD) approximant = SEOBNRv4;
             }
             if ( freqFunc == fEOBNRv2RD || freqFunc == fEOBNRv2HMRD )
             {
@@ -4815,12 +4867,13 @@ double XLALSimInspiralGetFrequency(
 
         case fSEOBNRv1Peak:
         case fSEOBNRv2Peak:
+        case fSEOBNRv4Peak:
             if ( freqFunc == fSEOBNRv1Peak ) SpinAlignedEOBVersion = 1;
             if ( freqFunc == fSEOBNRv2Peak ) SpinAlignedEOBVersion = 2;
+            if ( freqFunc == fSEOBNRv4Peak ) SpinAlignedEOBVersion = 4;
             freq = XLALSimIMRSpinAlignedEOBPeakFrequency(m1, m2, S1z, S2z,
                     SpinAlignedEOBVersion);
             break;
-
         default:
             XLALPrintError("Unsupported approximant\n");
             XLAL_ERROR(XLAL_EINVAL);
@@ -4916,8 +4969,6 @@ double XLALSimInspiralGetFinalFreq(
             break;
 
         case SEOBNRv2:
-        case SEOBNRv4:
-        case SEOBNRv4_opt:
         case SEOBNRv2_opt:
             /* Check that the transverse spins are zero */
             if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
@@ -4928,6 +4979,17 @@ double XLALSimInspiralGetFinalFreq(
             freqFunc = fSEOBNRv2RD;
             break;
 
+        case SEOBNRv4:
+        case SEOBNRv4_opt:
+            /* Check that the transverse spins are zero */
+            if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
+            {
+                XLALPrintError("Non-zero transverse spins were given, but this is a non-precessing approximant.\n");
+                XLAL_ERROR(XLAL_EINVAL);
+            }
+            freqFunc = fSEOBNRv4RD;
+            break;
+            
         case IMRPhenomA:
             /* Check that spins are zero */
             if( !checkSpinsZero(S1x, S1y, S1z, S2x, S2y, S2z) )
