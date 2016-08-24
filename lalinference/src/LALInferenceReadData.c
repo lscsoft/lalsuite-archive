@@ -1397,10 +1397,11 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
   enforce_m1_larger_m2(injEvent);
 	Approximant injapprox;
 	injapprox = XLALGetApproximantFromString(injTable->waveform);
-        if( (int) injapprox == XLAL_FAILURE)
+        if( (int) injapprox == XLAL_FAILURE) {
+	  REPORTSTATUS(&status);
           ABORTXLAL(&status);
+        }
 	printf("Injecting approximant %i: %s\n", injapprox, injTable->waveform);
-	REPORTSTATUS(&status);
 
 	/* Check for frequency domain injection. All aproximants supported by XLALSimInspiralImplementedFDApproximants will work.
    * CAVEAT: FD spinning approximants will refer the spin to the lower frequency as given in the xml table. Templates instead will refer it to the lower cutoff of the likelihood integral. This means *different* values of spin will be recovered if one doesn't pay attention! */
