@@ -142,9 +142,6 @@ UNUSED static int SEOBNRv2OptimizedInterpolatorNoAmpPhase(REAL8Array *yin, REAL8
 {
     int errnum = 0;
 
-    /* needed for the integration */
-    size_t dim=4;
-
     /* needed for the final interpolation */
     gsl_spline *interp = NULL;
     gsl_interp_accel *accel = NULL;
@@ -152,7 +149,8 @@ UNUSED static int SEOBNRv2OptimizedInterpolatorNoAmpPhase(REAL8Array *yin, REAL8
     REAL8Array *output = NULL;
     REAL8 *times, *vector;      /* aliases */
 
-    /* note: for speed, this replaces the single CALLGSL wrapper applied before each GSL call */
+    /* needed for the integration */
+    size_t dim=4;
     interp = gsl_spline_alloc(gsl_interp_cspline, num_input_times);
     accel = gsl_interp_accel_alloc();
 
