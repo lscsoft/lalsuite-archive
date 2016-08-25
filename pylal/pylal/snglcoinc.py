@@ -1808,7 +1808,7 @@ class CoincParamsDistributions(object):
 		return xml[0]
 
 	@classmethod
-	def from_xml(cls, xml, name):
+	def from_xml(cls, xml, name, **kwargs):
 		"""
 		In the XML document tree rooted at xml, search for the
 		serialized CoincParamsDistributions object named name, and
@@ -1817,14 +1817,14 @@ class CoincParamsDistributions(object):
 		CoincParamsDistributions object, the second is the process
 		ID recorded when it was written to XML.
 		"""
-		# create an instance
-		self = cls()
-
 		# find the root element of the XML serialization
 		xml = self.get_xml_root(xml, name)
 
 		# retrieve the process ID
-		self.process_id = ligolw_param.get_pyvalue(xml, u"process_id")
+		process_id = ligolw_param.get_pyvalue(xml, u"process_id")
+
+		# create an instance
+		self = cls(process_id = process_id, **kwargs)
 
 		# reconstruct the BinnedArray objects
 		def reconstruct(xml, prefix, target_dict):
@@ -1859,11 +1859,11 @@ class CoincParamsDistributions(object):
 		"""
 		xml = ligolw.LIGO_LW({u"Name": u"%s:%s" % (name, self.ligo_lw_name_suffix)})
 		# FIXME: remove try/except when we can rely on new-enough
-		# glue to provide .build() class method
+		# glue to provide .from_pyvalue() class method
 		try:
-			xml.appendChild(ligolw_param.Param.build(u"process_id", u"ilwd:char", self.process_id))
+			xml.appendChild(ligolw_param.Param.from_pyvalue(u"process_id", self.process_id))
 		except AttributeError:
-			xml.appendChild(ligolw_param.new_param(u"process_id", u"ilwd:char", self.process_id))
+			xml.appendChild(ligolw_param.from_pyvalue(u"process_id", self.process_id))
 		def store(xml, prefix, source_dict):
 			for name, binnedarray in sorted(source_dict.items()):
 				xml.appendChild(binnedarray.to_xml(u"%s:%s" % (prefix, name)))
