@@ -703,6 +703,7 @@ int main(int argc, char *argv[]){
     if (mpirank == 0) printf("sampling...\n");
     runState->algorithm(runState);
 
+    printf("==== DEBUG hwlee in mcmc main rank = %d finished.\n", mpirank);
     if (mpirank == 0) printf(" ========== main(): finished. ==========\n");
     MPI_Finalize();
 
