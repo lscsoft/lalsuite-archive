@@ -1364,11 +1364,12 @@ int XLALSimIMRSpinAlignedEOBWaveformAll(
   {
       // maybe dynamicstmp and dynamicsHitmp should be called "intermediateDynamics(Hi)" now since they aren't so temporary anymore?
       GenerateAmpPhaseFromEOMSoln(retLen_fromOptStep2,dynamicstmp->data,&seobParams);
-      retLen = SEOBNRv2OptimizedInterpolatorOnlyAmpPhase(dynamicstmp, 0., deltaT/mTScaled, retLen_fromOptStep2, &dynamics);
       XLALDestroyREAL8Array (dynamics);
       XLALDestroyREAL8Array (dynamicsHi);
       dynamics = NULL;
       dynamicsHi = NULL;
+      
+      retLen = SEOBNRv2OptimizedInterpolatorOnlyAmpPhase(dynamicstmp, 0., deltaT/mTScaled, retLen_fromOptStep2, &dynamics);
       ampVec.length = phaseVec.length = retLen;
       ampVec.data   = dynamics->data+5*retLen;
       phaseVec.data = dynamics->data+6*retLen;
