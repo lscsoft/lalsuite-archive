@@ -934,9 +934,9 @@ class Categories(Bins):
 		Construct a LIGO Light Weight XML representation of the
 		Bins instance.
 		"""
-		# FIXME:  make use of new "pickle" type for params when we
+		# FIXME:  make use of new "yaml" type for params when we
 		# can rely on a new-enough glue
-		#return ligolw_param.Param.build(self.xml_bins_name_enc(self.xml_bins_name), u"pickle", self.containers)
+		#return ligolw_param.Param.build(self.xml_bins_name_enc(self.xml_bins_name), u"yaml", self.containers)
 		import pickle
 		return ligolw_param.from_pyvalue(self.xml_bins_name_enc(self.xml_bins_name), pickle.dumps(self.containers))
 
