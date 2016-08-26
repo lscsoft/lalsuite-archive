@@ -23,6 +23,7 @@
 
 #include <config.h>
 #include <math.h>
+#include <sys/resource.h>
 #include <stdio.h>
 #include <stdlib.h>
 #ifdef HAVE_UNISTD_H
@@ -428,6 +429,11 @@ void record_likelihoods(LALInferenceThreadState *thread) {
 
 void mcmc_step(LALInferenceRunState *runState, LALInferenceThreadState *thread) {
     // Metropolis-Hastings sampler.
+    /* memory leackage check code made by hwlee at 26 august 2016
+     */
+#define CHECK_NUMBER 100000
+    static int calls = 0;
+    struct rusage r_usage;
     INT4 MPIrank;
     REAL8 logPriorCurrent, logPriorProposed;
     REAL8 logLikelihoodCurrent, logLikelihoodProposed;
@@ -437,6 +443,11 @@ void mcmc_step(LALInferenceRunState *runState, LALInferenceThreadState *thread) 
 
     MPI_Comm_rank(MPI_COMM_WORLD, &MPIrank);
 
+    if( (calls%CHECK_NUMBER) == 0) {
+      getrusage(RUSAGE_SELF,&r_usage);
+      fprintf(stderr, "===== DEBUG hwlee rank = %d, memory usage : %ld bytes, %d calls of mcmc_step\n", MPIrank, r_usage.ru_maxrss, calls);
+    }
+    calls++;
     INT4 outputSNRs = LALInferenceGetINT4Variable(runState->algorithmParams, "output_snrs");
     INT4 propTrack = LALInferenceGetINT4Variable(runState->algorithmParams, "prop_track");
 
@@ -1038,6 +1049,9 @@ void LALInferenceCheckpointMCMC(LALInferenceRunState *runState) {
 
     MPI_Comm_rank(MPI_COMM_WORLD, &MPIrank);
 
+    /* temporary work around check for file open error in KISTI condor run for large number of iterations
+     * modified by hwlee at 25 August 2016
+     */
     resume_file = XLALH5FileOpen(runState->resumeOutFileName, "w");
     if(resume_file == NULL){
         XLALErrorHandler = XLALExitErrorHandler;
