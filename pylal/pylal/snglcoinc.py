@@ -1795,13 +1795,14 @@ class CoincParamsDistributions(object):
 		__getitem__ = self.injection_lnpdf_interp.__getitem__
 		return sum(__getitem__(name)(*value) for name, value in params.items())
 
-	def get_xml_root(self, xml, name):
+	@classmethod
+	def get_xml_root(cls, xml, name):
 		"""
 		Sub-classes can use this in their overrides of the
 		.from_xml() method to find the root element of the XML
 		serialization.
 		"""
-		name = u"%s:%s" % (name, self.ligo_lw_name_suffix)
+		name = u"%s:%s" % (name, cls.ligo_lw_name_suffix)
 		xml = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == name]
 		if len(xml) != 1:
 			raise ValueError("XML tree must contain exactly one %s element named %s" % (ligolw.LIGO_LW.tagName, name))
@@ -1818,7 +1819,7 @@ class CoincParamsDistributions(object):
 		ID recorded when it was written to XML.
 		"""
 		# find the root element of the XML serialization
-		xml = self.get_xml_root(xml, name)
+		xml = cls.get_xml_root(xml, name)
 
 		# retrieve the process ID
 		process_id = ligolw_param.get_pyvalue(xml, u"process_id")
