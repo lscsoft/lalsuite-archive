@@ -6088,7 +6088,7 @@ class PEOutputParser(object):
             if not (fixedBurnin is None):
                 if not (deltaLogL is None):
                     print "Warning: using deltaLogL criteria in addition to fixed burnin"
-                print "Fixed burning criteria: ",fixedBurnins
+                print "Fixed burning criteria: ",fixedBurnin
             else:
                 fixedBurnin = 0
             burnin_idx = np.arange(len(samples))[samples['cycle'] > fixedBurnin][0]
