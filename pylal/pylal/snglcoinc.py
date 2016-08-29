@@ -597,7 +597,7 @@ class TimeSlideGraph(object):
 		if verbose:
 			print >>sys.stderr, "graph contains:"
 			for n in sorted(self.generations):
-				print >>sys.stderr,"\t%d %d-insrument offset vectors (%s)" % (len(self.generations[n]), n, ((n == 2) and "to be constructed directly" or "to be constructed indirectly"))
+				print >>sys.stderr,"\t%d %d-insrument offset vectors (%s)" % (len(self.generations[n]), n, ("to be constructed directly" if n == 2 else "to be constructed indirectly"))
 			print >>sys.stderr, "\t%d offset vectors total" % sum(len(self.generations[n]) for n in self.generations)
 
 
