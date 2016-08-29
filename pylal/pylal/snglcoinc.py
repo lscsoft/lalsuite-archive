@@ -322,6 +322,7 @@ class TimeSlideGraphNode(object):
 		self.coincs = None
 		self.unused_coincs = set()
 
+	@property
 	def name(self):
 		return self.offset_vector.__str__(compact = True)
 
@@ -625,14 +626,14 @@ class TimeSlideGraph(object):
 		"""
 		print >>fileobj, "digraph \"Time Slides\" {"
 		for node in itertools.chain(*self.generations.values()):
-			print >>fileobj, "\t\"%s\" [shape=box];" % node.name()
+			print >>fileobj, "\t\"%s\" [shape=box];" % node.name
 			if node.components is not None:
 				for component in node.components:
-					print >>fileobj, "\t\"%s\" -> \"%s\";" % (component.name(), node.name())
+					print >>fileobj, "\t\"%s\" -> \"%s\";" % (component.name, node.name)
 		for node in self.head:
-			print >>fileobj, "\t\"%s\" [shape=ellipse];" % node.name()
+			print >>fileobj, "\t\"%s\" [shape=ellipse];" % node.name
 			for component in node.components:
-				print >>fileobj, "\t\"%s\" -> \"%s\";" % (component.name(), node.name())
+				print >>fileobj, "\t\"%s\" -> \"%s\";" % (component.name, node.name)
 		print >>fileobj, "}"
 
 
