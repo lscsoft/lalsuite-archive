@@ -39,7 +39,6 @@ import lal
 from pylal import git_version
 from pylal import snglcoinc
 from pylal.xlal import tools as xlaltools
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.datatypes import snglinspiraltable
 
 
@@ -84,14 +83,6 @@ class SnglInspiral(snglinspiraltable.SnglInspiralTable):
 		# other.  allows bisection searches by GPS time to find
 		# ranges of triggers quickly
 		return cmp(self.end, other)
-
-
-#
-# Use C LIGOTimeGPS type
-#
-
-
-lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 #
@@ -267,7 +258,7 @@ class InspiralEventList(snglcoinc.EventList):
 		"""
 		# add 1% for safety, and pre-convert to LIGOTimeGPS to
 		# avoid doing type conversion in loops
-		self.dt = LIGOTimeGPS(dt * 1.01)
+		self.dt = lal.LIGOTimeGPS(dt * 1.01)
 
 	def get_coincs(self, event_a, offset_a, light_travel_time, threshold, comparefunc):
 		#
