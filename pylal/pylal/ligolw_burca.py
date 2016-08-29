@@ -350,8 +350,16 @@ def ligolw_burca(
 	event_comparefunc,
 	thresholds,
 	ntuple_comparefunc = lambda events, offset_vector: False,
+	min_instruments = 2,
 	verbose = False
 ):
+	#
+	# validate input
+	#
+
+	if min_instruments < 1:
+		raise ValueError("min_instruments (=%d) must be >= 1" % min_instruments)
+
 	#
 	# prepare the coincidence table interface.
 	#
@@ -368,7 +376,7 @@ def ligolw_burca(
 	# processes that can participate in a coincidence
 	#
 
-	eventlists = snglcoinc.EventListDict(EventListType, sngl_burst_table)
+	eventlists = snglcoinc.EventListDict(EventListType, sngl_burst_table, instruments = set(coinc_tables.time_slide_table.getColumnByName("instrument")))
 
 	#
 	# construct offset vector assembly graph
@@ -382,6 +390,8 @@ def ligolw_burca(
 	#
 
 	for node, coinc in time_slide_graph.get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose):
+		if len(coinc) < min_instruments:
+			continue
 		ntuple = tuple(sngl_index[id] for id in coinc)
 		if not ntuple_comparefunc(ntuple, node.offset_vector):
 			coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple)

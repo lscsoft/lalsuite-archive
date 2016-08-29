@@ -458,7 +458,9 @@ def ligolw_rinca(
 	# and record the survivors
 	#
 
-	for node, coinc in time_slide_graph.get_coincs(eventlists, event_comparefunc, thresholds, include_small_coincs = small_coincs, verbose = verbose):
+	for node, coinc in time_slide_graph.get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose):
+		if len(coinc) < 2 or (len(coinc) < len(node.offset_vector) and not small_coincs):
+			continue
 		ntuple = tuple(sngl_index[id] for id in coinc)
 		if not ntuple_comparefunc(ntuple, node.offset_vector):
 			coinc_tables.append_coinc(process_id, node, coinc_def_id, ntuple)

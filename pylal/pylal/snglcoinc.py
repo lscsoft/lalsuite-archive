@@ -345,18 +345,13 @@ class TimeSlideGraphNode(object):
 		if self.components is None:
 			if verbose:
 				print >>sys.stderr, "\tconstructing %s ..." % str(self.offset_vector)
+
 			#
-			# can we do it?
+			# sanity check input
 			#
 
-			assert len(self.offset_vector) == 2
-			avail_instruments = set(eventlists)
-			offset_instruments = set(self.offset_vector)
-			if not offset_instruments.issubset(avail_instruments):
-				if verbose:
-					print >>sys.stderr, "\twarning: do not have data for instrument(s) %s ... assuming 0 coincs" % ", ".join(offset_instruments - avail_instruments)
-				self.coincs = tuple()
-				return self.coincs
+			assert len(self.offset_vector) == 2, "broken graph:  node with no components has %d-component offset vector, must be 2" % len(self.offset_vector)
+			assert set(self.offset_vector) <= set(eventlists), "no event list for instrument(s) %s" % ", ".join(sorted(set(self.offset_vector) - set(eventlists)))
 
 			#
 			# apply offsets to events
@@ -381,7 +376,9 @@ class TimeSlideGraphNode(object):
 			# tuple returned by get_doubles() is arbitrary so
 			# we need to sort each tuple by instrument name
 			# explicitly
-			self.coincs = tuple(sorted((a.event_id, b.event_id) if a.ifo <= b.ifo else (b.event_id, a.event_id) for (a, b) in get_doubles(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose)))
+			self.unused_coincs = set((event.event_id,) for instrument in self.offset_vector for event in eventlists[instrument])
+			self.coincs = tuple(sorted((a.event_id, b.event_id) if a.ifo <= b.ifo else (b.event_id, a.event_id) for (a, b) in get_doubles(eventlists, event_comparefunc, tuple(self.offset_vector), thresholds, verbose = verbose)))
+			self.unused_coincs -= set((event_id,) for coinc in self.coincs for event_id in coinc)
 			return self.coincs
 
 		#
@@ -516,13 +513,6 @@ class TimeSlideGraphNode(object):
 class TimeSlideGraph(object):
 	def __init__(self, offset_vector_dict, verbose = False):
 		#
-		# validate input
-		#
-
-		if min(len(offset_vector) for offset_vector in offset_vector_dict.values()) < 2:
-			raise ValueError("offset vectors must have at least two instruments")
-
-		#
 		# populate the graph head nodes.  these represent the
 		# target offset vectors requested by the calling code.
 		#
@@ -602,21 +592,16 @@ class TimeSlideGraph(object):
 			print >>sys.stderr, "\t%d offset vectors total" % sum(len(self.generations[n]) for n in self.generations)
 
 
-	def get_coincs(self, eventlists, event_comparefunc, thresholds, include_small_coincs = True, verbose = False):
+	def get_coincs(self, eventlists, event_comparefunc, thresholds, verbose = False):
 		if verbose:
 			print >>sys.stderr, "constructing coincs for target offset vectors ..."
 		for n, node in enumerate(self.head, start = 1):
 			if verbose:
 				print >>sys.stderr, "%d/%d: %s" % (n, len(self.head), str(node.offset_vector))
-			if include_small_coincs:
-				# note that unused_coincs must be retrieved
-				# after the call to .get_coincs() because
-				# the former is computed as a side effect
-				# of the latter
-				iterator = itertools.chain(node.get_coincs(eventlists, event_comparefunc, thresholds, verbose), node.unused_coincs)
-			else:
-				iterator = node.get_coincs(eventlists, event_comparefunc, thresholds, verbose)
-			for coinc in iterator:
+			# note that unused_coincs must be retrieved after
+			# the call to .get_coincs() because the former is
+			# computed as a side effect of the latter
+			for coinc in itertools.chain(node.get_coincs(eventlists, event_comparefunc, thresholds, verbose), node.unused_coincs):
 				yield node, coinc
 
 

@@ -393,8 +393,16 @@ def ligolw_thinca(
 	trigger_program = u"inspiral",
 	likelihood_func = None,
 	likelihood_params_func = None,
+	min_instruments = 2,
 	verbose = False
 ):
+	#
+	# validate input
+	#
+
+	if min_instruments < 1:
+		raise ValueError("min_instruments (=%d) must be >= 1" % min_instruments)
+
 	#
 	# prepare the coincidence table interface.
 	#
@@ -412,7 +420,7 @@ def ligolw_thinca(
 	# removing events from the lists that fall in vetoed segments
 	#
 
-	eventlists = snglcoinc.EventListDict(InspiralEventList, sngl_inspiral_table)
+	eventlists = snglcoinc.EventListDict(InspiralEventList, sngl_inspiral_table, instruments = set(coinc_tables.time_slide_table.getColumnByName("instrument")))
 	if veto_segments is not None:
 		for eventlist in eventlists.values():
 			iterutils.inplace_filter((lambda event: event.ifo not in veto_segments or event.end not in veto_segments[event.ifo]), eventlist)
@@ -445,6 +453,8 @@ def ligolw_thinca(
 	#
 
 	for node, coinc in time_slide_graph.get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose):
+		if len(coinc) < min_instruments:
+			continue
 		coinc = tuple(sngl_index[event_id] for event_id in coinc)
 		if not ntuple_comparefunc(coinc, node.offset_vector):
 			coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, coinc)
@@ -554,6 +564,7 @@ class sngl_inspiral_coincs(object):
 		self.time_slide_index = {}
 		for row in self.time_slide_table:
 			self.time_slide_index.setdefault(row.time_slide_id, []).append(row)
+		self.zero_lag_time_slide_ids = frozenset(time_slide_id for time_slide_id, offset_vector in self.time_slide_table.as_dict().items() if not any(offset_vector.values()))
 
 		#
 		# find the sngl_inspiral<-->sngl_inspiral coincs
@@ -584,6 +595,32 @@ class sngl_inspiral_coincs(object):
 		in the coincidence given by coinc_event_id.
 		"""
 		return [self.sngl_inspiral_index[row.event_id] for row in self.coinc_event_map_index[coinc_event_id]]
+
+	def single_sngl_inspirals(self):
+		"""
+		Generator returns a sequence of the sngl_inspiral table
+		rows that formed zero-lag single-instrument "coincs".
+
+		This is only meaningful if the coincidence engine was run
+		with min_instruments = 1, otherwise this sequence will be
+		empty by construction.  Also, if there was no zero-lag time
+		slide included in the time slide graph then this sequence
+		will be empty.
+
+		This method is used by codes that want lists of
+		non-coincident triggers for background models even if
+		min_instruments has been set below 2.
+
+		The constraint that they be "zero-lag" singles might at
+		first seem nonsensical but is included to exclude triggers
+		that form genuine coincidences at zero-lag but are present
+		only as single-detector candidates in one or more time
+		slides.
+		"""
+		for coinc_event_id, coinc_event in self.coinc_event_index.items():
+			if coinc_event.time_slide_id in self.zero_lag_time_slide_ids and coinc_event.nevents < 2:
+				row, = self.coinc_event_map_index[coinc_event_id]
+				yield self.sngl_inspiral_index[row.event_id]
 
 	def offset_vector(self, time_slide_id):
 		"""
