@@ -1,4 +1,4 @@
-\/*
+/*
 *  Copyright (C) 2007 Duncan Brown, Gareth Jones, Jolien Creighton, B.S. Sathyaprakash, Craig Robinson
 *
 *  This program is free software; you can redistribute it and/or modify
