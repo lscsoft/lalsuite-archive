@@ -137,7 +137,8 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 			xmldoc.childNodes[0].appendChild(self.coinc_inspiral_table)
 
 		#
-		# extract the coalesced out segment lists from the trigger generator
+		# extract the coalesced out segment lists from the trigger
+		# generator
 		#
 
 		self.seglists = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, program = program).coalesce()
