@@ -90,7 +90,8 @@ def set_default_constraints(constraints):
     not). By convention, we require mass1 limits to be set.
     '''
     # complain about unknown constraints; don't silently ignore!
-    known_constraints = ["mass1","mass2","mratio","mtotal","mchirp","spin1","spin2"]
+    known_constraints = ["mass1", "mass2", "mratio", "mtotal", "mchirp",
+                         "spin1", "spin2", "duration"]
     unknown_constraints = [k for k in constraints.keys() if k not in known_constraints]
     if len(unknown_constraints):
         raise ValueError("unknown constraints %s" % ', '.join(unknown_constraints))
@@ -195,6 +196,15 @@ def allowed_m1m2(m1, m2, m1m2_constraints, tol=1e-10):
 
     return m1,m2
 
+# Copied out of pycbc.pnutils
+def mtotal_eta_to_mass1_mass2(m_total, eta):
+    mass1 = 0.5 * m_total * (1.0 + (1.0 - 4.0 * eta)**0.5)
+    mass2 = 0.5 * m_total * (1.0 - (1.0 - 4.0 * eta)**0.5)
+    return mass1,mass2
+
+def mchirp_eta_to_mass1_mass2(m_chirp, eta):
+    M = m_chirp / (eta**(3./5.))
+    return mtotal_eta_to_mass1_mass2(M, eta)
 
 def mchirpm1_to_m2(mc, m1, tol=1e-6):
     # solve cubic for m2
@@ -257,10 +267,43 @@ def tau0tau3_bound(flow, **constraints):
 
     # draw constant mchirp lines
     mcmin, mcmax = constraints.setdefault('mchirp', (None, None))
+    # Do not want to use global limits on m1,m2. Limit to possible allowed
+    # values for mcmin and mcmax, also use mass ratio constraints to determine
+    # this
+    mrmin, mrmax = constraints['mratio']
+    etamin = mrmax / (mrmax + 1.)**2
+    etamax = mrmin / (mrmin + 1.)**2
+
     if mcmax is not None:
-        m1m2_points += [(m1, mchirpm1_to_m2(mcmax, m1)) for m1 in numpy.linspace(m1min, m1max, npts)]
+        # Do not want to use global limits on m1,m2. Limit to possible allowed
+        # values for mcmin and mcmax, also use mass ratio constraints to
+        # determine this
+        mcmax_maxm1, mcmax_minm2 = mchirp_eta_to_mass1_mass2(mcmax, etamin)
+        mcmax_minm1, mcmax_maxm2 = mchirp_eta_to_mass1_mass2(mcmax, etamax)
+        if mcmax_maxm1 > m1max:
+            mcmax_maxm1 = m1max
+        if mcmax_minm1 < m1min:
+            mcmax_minm1 = m1min
+        if mcmax_minm2 < m2min:
+            mcmax_minm2 = m2min
+        if mcmax_maxm2 > m2max:
+            mcmax_maxm2 = m2max
+        m1m2_points += [(m1, mchirpm1_to_m2(mcmax, m1)) for m1 in numpy.linspace(mcmax_minm1, mcmax_maxm1, npts)]
+        m1m2_points += [(mchirpm1_to_m2(mcmax, m2), m2) for m2 in numpy.linspace(mcmax_minm2, mcmax_maxm2, npts)]
+
     if mcmin is not None:
-        m1m2_points += [(m1, mchirpm1_to_m2(mcmin, m1)) for m1 in numpy.linspace(m1min, m1max, npts)]
+        mcmin_maxm1, mcmin_minm2 = mchirp_eta_to_mass1_mass2(mcmin, etamin)
+        mcmin_minm1, mcmin_maxm2 = mchirp_eta_to_mass1_mass2(mcmin, etamax)
+        if mcmin_maxm1 > m1max:
+            mcmin_maxm1 = m1max
+        if mcmin_minm1 < m1min:
+            mcmin_minm1 = m1min
+        if mcmin_minm2 < m2min:
+            mcmin_minm2 = m2min
+        if mcmin_maxm2 > m2max:
+            mcmin_maxm2 = m2max
+        m1m2_points += [(m1, mchirpm1_to_m2(mcmin, m1)) for m1 in numpy.linspace(mcmin_minm1, mcmin_maxm1, npts)]
+        m1m2_points += [(mchirpm1_to_m2(mcmax, m2), m2) for m2 in numpy.linspace(mcmin_minm2, mcmin_maxm2, npts)]
 
     # filter these down to only those that satisfy ALL constraints
     m1 = numpy.array([i[0] for i in m1m2_points])
@@ -462,38 +505,46 @@ def aligned_spin_param_generator(flow, tmplt_class, bank, **kwargs):
     max mass of the total mass and the min and max values for the
     z-axis spin angular momentum.
     """
+    dur_min, dur_max = kwargs.pop('duration', (None, None))
+
+    # define a helper function to apply the appropriate spin bounds
     if 'ns_bh_boundary_mass' in kwargs and 'bh_spin' in kwargs \
             and 'ns_spin' in kwargs:
-        # get args
         bh_spin_bounds = kwargs.pop('bh_spin')
         ns_spin_bounds = kwargs.pop('ns_spin')
         ns_bh_boundary = kwargs.pop('ns_bh_boundary_mass')
-        # the rest will be checked in the call to urand_tau0tau3_generator
 
-        for mass1, mass2 in urand_tau0tau3_generator(flow, **kwargs):
-            spin1 = uniform(*(bh_spin_bounds if mass1 > ns_bh_boundary else ns_spin_bounds))
-            spin2 = uniform(*(bh_spin_bounds if mass2 > ns_bh_boundary else ns_spin_bounds))
-            yield mass1, mass2, spin1, spin2
+        def spin_bounds(mass1, mass2):
+            return (bh_spin_bounds if mass1 > ns_bh_boundary else ns_spin_bounds), \
+                   (bh_spin_bounds if mass2 > ns_bh_boundary else ns_spin_bounds)
     else:
-        # get args
-        spin1_bounds = kwargs.pop('spin1', (-1., 1.))
-        spin2_bounds = kwargs.pop('spin2', (-1., 1.))
+        spin1b = kwargs.pop('spin1', (-1., 1.))
+        spin2b = kwargs.pop('spin2', (-1., 1.))
 
-        # the rest will be checked in the call to urand_tau0tau3_generator
-        for mass1, mass2 in urand_tau0tau3_generator(flow, **kwargs):
+        def spin_bounds(mass1, mass2):
+            return spin1b, spin2b
 
-            mtot = mass1 + mass2
-            chis_min = (mass1*spin1_bounds[0] + mass2*spin2_bounds[0])/mtot
-            chis_max = (mass1*spin1_bounds[1] + mass2*spin2_bounds[1])/mtot
-            chis = uniform(chis_min, chis_max)
+    # the rest will be checked in the call to urand_tau0tau3_generator
+    for mass1, mass2 in urand_tau0tau3_generator(flow, **kwargs):
 
-            s2min = max(spin2_bounds[0], (mtot*chis - mass1*spin1_bounds[1])/mass2)
-            s2max = min(spin2_bounds[1], (mtot*chis - mass1*spin1_bounds[0])/mass2)
+        spin1_bounds, spin2_bounds = spin_bounds(mass1, mass2)
 
-            spin2 = uniform(s2min, s2max)
-            spin1 = (chis*mtot - mass2*spin2)/mass1
+        mtot = mass1 + mass2
+        chis_min = (mass1*spin1_bounds[0] + mass2*spin2_bounds[0])/mtot
+        chis_max = (mass1*spin1_bounds[1] + mass2*spin2_bounds[1])/mtot
+        chis = uniform(chis_min, chis_max)
 
-            yield tmplt_class(mass1, mass2, spin1, spin2, bank=bank)
+        s2min = max(spin2_bounds[0], (mtot*chis - mass1*spin1_bounds[1])/mass2)
+        s2max = min(spin2_bounds[1], (mtot*chis - mass1*spin1_bounds[0])/mass2)
+
+        spin2 = uniform(s2min, s2max)
+        spin1 = (chis*mtot - mass2*spin2)/mass1
+
+        t = tmplt_class(mass1, mass2, spin1, spin2, bank=bank)
+        if (dur_min is not None and t._dur < dur_min) \
+                or (dur_max is not None and t._dur > dur_max):
+            continue
+        yield t
 
 def double_spin_precessing_param_generator(flow, tmplt_class, bank, **kwargs):
     """

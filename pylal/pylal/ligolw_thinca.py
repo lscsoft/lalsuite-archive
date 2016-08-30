@@ -39,7 +39,6 @@ import lal
 from pylal import git_version
 from pylal import snglcoinc
 from pylal.xlal import tools as xlaltools
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.datatypes import snglinspiraltable
 
 
@@ -84,14 +83,6 @@ class SnglInspiral(snglinspiraltable.SnglInspiralTable):
 		# other.  allows bisection searches by GPS time to find
 		# ranges of triggers quickly
 		return cmp(self.end, other)
-
-
-#
-# Use C LIGOTimeGPS type
-#
-
-
-lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 #
@@ -267,7 +258,7 @@ class InspiralEventList(snglcoinc.EventList):
 		"""
 		# add 1% for safety, and pre-convert to LIGOTimeGPS to
 		# avoid doing type conversion in loops
-		self.dt = LIGOTimeGPS(dt * 1.01)
+		self.dt = lal.LIGOTimeGPS(dt * 1.01)
 
 	def get_coincs(self, event_a, offset_a, light_travel_time, threshold, comparefunc):
 		#
@@ -400,7 +391,8 @@ def ligolw_thinca(
 		print >>sys.stderr, "indexing ..."
 	coinc_tables = InspiralCoincTables(xmldoc, vetoes = veto_segments, program = trigger_program, likelihood_func = likelihood_func, likelihood_params_func = likelihood_params_func)
 	coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
-	sngl_index = dict((row.event_id, row) for row in lsctables.SnglInspiralTable.get_table(xmldoc))
+	sngl_inspiral_table = lsctables.SnglInspiralTable.get_table(xmldoc)
+	sngl_index = dict((row.event_id, row) for row in sngl_inspiral_table)
 
 	#
 	# build the event list accessors, populated with events from those
@@ -408,7 +400,7 @@ def ligolw_thinca(
 	# removing events from the lists that fall in vetoed segments
 	#
 
-	eventlists = snglcoinc.make_eventlists(xmldoc, InspiralEventList, lsctables.SnglInspiralTable.tableName)
+	eventlists = snglcoinc.EventListDict(InspiralEventList, sngl_inspiral_table)
 	if veto_segments is not None:
 		for eventlist in eventlists.values():
 			iterutils.inplace_filter((lambda event: event.ifo not in veto_segments or event.end not in veto_segments[event.ifo]), eventlist)
@@ -444,12 +436,6 @@ def ligolw_thinca(
 		coinc = tuple(sngl_index[event_id] for event_id in coinc)
 		if not ntuple_comparefunc(coinc, node.offset_vector):
 			coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, coinc)
-
-	#
-	# remove time offsets from events
-	#
-
-	del eventlists.offsetvector
 
 	#
 	# done

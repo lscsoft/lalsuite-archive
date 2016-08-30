@@ -46,7 +46,6 @@ except ImportError:
 import itertools
 import math
 import numpy
-import pickle
 import random
 import scipy
 __numpy__version__ = tuple(map(int, numpy.__version__.strip().split(".")[:2]))
@@ -935,8 +934,10 @@ class Categories(Bins):
 		Construct a LIGO Light Weight XML representation of the
 		Bins instance.
 		"""
-		# can't use ligolw_param.pickle_to_param() because it
-		# mangles the name encoding
+		# FIXME:  make use of new "yaml" type for params when we
+		# can rely on a new-enough glue
+		#return ligolw_param.Param.build(self.xml_bins_name_enc(self.xml_bins_name), u"yaml", self.containers)
+		import pickle
 		return ligolw_param.from_pyvalue(self.xml_bins_name_enc(self.xml_bins_name), pickle.dumps(self.containers))
 
 	@classmethod
@@ -947,6 +948,10 @@ class Categories(Bins):
 		"""
 		if not cls.xml_bins_check(xml, cls.xml_bins_name):
 			raise ValueError("not a %s" % repr(cls))
+		# FIXME:  replace with commented-out code when we can rely
+		# on new "pickle" type for params
+		#return cls(xml.pcdata)
+		import pickle
 		return cls(pickle.loads(xml.pcdata))
 
 

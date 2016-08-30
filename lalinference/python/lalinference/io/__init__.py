@@ -1,5 +1,4 @@
-#
-# Copyright (C) 2015-2016  Leo Singer
+# Copyright (C) 2016  Leo Singer
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -15,27 +14,8 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
-import sys
-import doctest
-import lalinference.bayestar.sky_map
-import lalinference.bayestar.distance
-import lalinference.bayestar.filter
-import lalinference.fits
-import lalinference.bayestar.timing
-
-print('Running C unit tests.')
-total_failures = lalinference.bayestar.sky_map.test()
-
-print('Running Python unit tests.')
-modules = [
-    lalinference.bayestar.distance,
-    lalinference.bayestar.filter,
-    lalinference.fits,
-    lalinference.bayestar.timing,
-]
-for module in modules:
-    failures, tests = doctest.testmod(module)
-    total_failures += failures
-
-if total_failures > 0:
-    sys.exit(1)
+from . import fits
+from . import hdf5
+from .fits import *
+from .hdf5 import *
+__all__ = fits.__all__ + hdf5.__all__

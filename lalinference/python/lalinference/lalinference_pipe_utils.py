@@ -28,7 +28,7 @@ class Event():
   Represents a unique event to run on
   """
   new_id=itertools.count().next
-  def __init__(self,trig_time=None,SimInspiral=None,SimBurst=None,SnglInspiral=None,CoincInspiral=None,event_id=None,timeslide_dict=None,GID=None,ifos=None, duration=None,srate=None,trigSNR=None,fhigh=None):
+  def __init__(self,trig_time=None,SimInspiral=None,SimBurst=None,SnglInspiral=None,CoincInspiral=None,event_id=None,timeslide_dict=None,GID=None,ifos=None, duration=None,srate=None,trigSNR=None,fhigh=None,horizon_distance=None):
     self.trig_time=trig_time
     self.injection=SimInspiral
     self.burstinjection=SimBurst
@@ -47,6 +47,7 @@ class Event():
     self.srate = srate
     self.trigSNR = trigSNR
     self.fhigh = fhigh
+    self.horizon_distance = horizon_distance
     if event_id is not None:
         self.event_id=event_id
     else:
@@ -74,7 +75,7 @@ class Event():
 
 dummyCacheNames=['LALLIGO','LALVirgo','LALAdLIGO','LALAdVirgo']
 
-def readLValert(SNRthreshold=0,gid=None,flow=40.0,gracedb="gracedb",basepath="./",downloadpsd=True):
+def readLValert(threshold_snr=None,gid=None,flow=40.0,gracedb="gracedb",basepath="./",downloadpsd=True):
   """
   Parse LV alert file, containing coinc, sngl, coinc_event_map.
   and create a list of Events as input for pipeline
@@ -131,19 +132,29 @@ def readLValert(SNRthreshold=0,gid=None,flow=40.0,gracedb="gracedb",basepath="./
     these_sngls = [e for e in sngl_events if e.event_id in [c.event_id for c in coinc_map if c.coinc_event_id == coinc.coinc_event_id] ]
     dur=[]
     srate=[]
+    horizon_distance=[]
     for e in these_sngls:
       # Review: Replace this with a call to LALSimulation function at some point
       p=Popen(["lalapps_chirplen","--flow",str(flow),"-m1",str(e.mass1),"-m2",str(e.mass2)],stdout=PIPE, stderr=PIPE, stdin=PIPE)
       strlen = p.stdout.read()
       dur.append(pow(2.0, ceil( log(max(8.0,float(strlen.splitlines()[2].split()[5]) + 2.0), 2) ) ) )
       srate.append(pow(2.0, ceil( log(float(strlen.splitlines()[1].split()[5]), 2) ) ) * 2 )
+      snr = e.snr
+      eff_dist = e.eff_distance
+      if threshold_snr is not None:
+          if snr > threshold_snr:
+              horizon_distance.append(eff_dist * snr/threshold_snr)
+          else:
+              horizon_distance.append(2 * eff_dist)
     if max(srate)<srate_psdfile:
       srate = max(srate)
     else:
       srate = srate_psdfile
       fhigh = srate_psdfile/2.0 * 0.95 # Because of the drop-off near Nyquist of the PSD from gstlal
-    ev=Event(CoincInspiral=coinc, GID=gid, ifos = ifos, duration = max(dur), srate = srate, trigSNR = trigSNR, fhigh = fhigh)
-    if(coinc.snr>SNRthreshold): output.append(ev)
+    horizon_distance = max(horizon_distance) if len(horizon_distance) > 0 else None
+    ev=Event(CoincInspiral=coinc, GID=gid, ifos = ifos, duration = max(dur), srate = srate,
+             trigSNR = trigSNR, fhigh = fhigh, horizon_distance=horizon_distance)
+    output.append(ev)
 
   print "Found %d coinc events in table." % len(coinc_events)
   os.chdir(cwd)
@@ -440,6 +451,75 @@ def get_xml_psds(psdxml,ifos,outpath,end_time=None):
     # set node.psds dictionary with the path to the ascii files
     out[ifo]=os.path.join(outpath,ifo+'_psd_'+time+'.txt')
   return out
+
+def get_trigger_chirpmass(gid=None,gracedb="gracedb"):
+  from glue.ligolw import lsctables
+  from glue.ligolw import ligolw
+  from glue.ligolw import utils
+  class PSDContentHandler(ligolw.LIGOLWContentHandler):
+    pass
+  lsctables.use_in(PSDContentHandler)
+  import subprocess
+
+  cwd=os.getcwd()
+  subprocess.call([gracedb,"download", gid ,"coinc.xml"])
+  xmldoc=utils.load_filename("coinc.xml",contenthandler = PSDContentHandler)
+  coinctable = lsctables.CoincInspiralTable.get_table(xmldoc)
+  coinc_events = [event for event in coinctable]
+  sngltable = lsctables.SnglInspiralTable.get_table(xmldoc)
+  sngl_events = [event for event in sngltable]
+  coinc_map = lsctables.CoincMapTable.get_table(xmldoc)
+  mass1 = []
+  mass2 = []
+  for coinc in coinc_events:
+    these_sngls = [e for e in sngl_events if e.event_id in [c.event_id for c in coinc_map if c.coinc_event_id == coinc.coinc_event_id] ]
+    for e in these_sngls:
+      mass1.append(e.mass1)
+      mass2.append(e.mass2)
+  # check that trigger masses are identical in each IFO    
+  assert len(set(mass1)) == 1
+  assert len(set(mass2)) == 1
+
+  mchirp = (mass1[0]*mass2[0])**(3./5.) / ( (mass1[0] + mass2[0])**(1./5.) ) 
+  os.remove("coinc.xml")
+
+  return mchirp
+
+def get_roq_mchirp_priors(path, roq_paths, roq_params, key, gid):
+
+  mc_priors = {}
+
+  for roq in roq_paths:
+    params=os.path.join(path,roq,'params.dat')
+    roq_params[roq]=np.genfromtxt(params,names=True)
+    mc_priors[roq]=[float(roq_params[roq]['chirpmassmin']),float(roq_params[roq]['chirpmassmax'])]
+  ordered_roq_paths=[item[0] for item in sorted(roq_params.items(), key=key)][::-1]
+  # below is to construct non-overlapping mc priors for multiple roq mass-bin runs
+  '''i=0
+  for roq in ordered_roq_paths:
+    if i>0:
+      # change min, just set to the max of the previous one since we have already aligned it in the previous iteration of this loop
+      #mc_priors[roq][0]+= (mc_priors[roq_lengths[i-1]][1]-mc_priors[roq][0])/2.
+      mc_priors[roq][0]=mc_priors[ordered_roq_paths[i-1]][1]
+    if i<len(roq_paths)-1:
+      mc_priors[roq][1]-= (mc_priors[roq][1]- mc_priors[ordered_roq_paths[i+1]][0])/2.
+    i+=1'''
+  if gid is not None:
+  	trigger_mchirp = get_trigger_chirpmass(gid)
+  else:
+	trigger_mchirp = None
+
+  return mc_priors, trigger_mchirp
+
+def get_roq_mass_freq_scale_factor(mc_priors, trigger_mchirp):
+  mc_max = mc_priors['4s'][1]
+  mc_min = mc_priors['128s'][0]
+  scale_factor = 1
+  if trigger_mchirp >= mc_max: 
+  	scale_factor = 2**(floor(trigger_mchirp/mc_max))
+  if trigger_mchirp <= mc_min:
+	scale_factor = 1./2**(ceil(trigger_mchirp/mc_min))
+  return scale_factor
 
 def create_pfn_tuple(filename,protocol='file://',site='local'):
     return( (os.path.basename(filename),protocol+os.path.abspath(filename),site) )
@@ -773,7 +853,10 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       if self.config.has_option('input','ignore-gracedb-psd'):
         if self.config.getboolean('input','ignore-gracedb-psd'):
           downloadgracedbpsd=False
-      events = readLValert(gid=gid,flow=flow,gracedb=self.config.get('condor','gracedb'),basepath=self.basepath,downloadpsd=downloadgracedbpsd)
+      threshold_snr = None
+      if not self.config.has_option('engine','distance-max') and self.config.has_option('input','threshold-snr'):
+        threshold_snr=self.config.getfloat('input','threshold-snr')
+      events = readLValert(gid=gid,flow=flow,gracedb=self.config.get('condor','gracedb'),basepath=self.basepath,downloadpsd=downloadgracedbpsd,threshold_snr=threshold_snr)
     else: gid=None
     # pipedown-database
     if self.config.has_option('input','gstlal-db'):
@@ -1088,6 +1171,8 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       prenode.set_srate(srate)
     if event.trigSNR:
       node.set_trigSNR(event.trigSNR)
+    if event.horizon_distance:
+        node.set_horizon_distance(event.horizon_distance)
     if self.dataseed:
       node.set_dataseed(self.dataseed+event.event_id)
       prenode.set_dataseed(self.dataseed+event.event_id)
@@ -1523,6 +1608,9 @@ class EngineNode(pipeline.CondorDAGNode):
 
   def set_trigSNR(self,trigSNR):
     self.add_var_opt('trigger-snr',str(trigSNR))
+
+  def set_horizon_distance(self,horizon_distance):
+    self.add_var_opt('--distance-max',str(horizon_distance))
 
   def set_dataseed(self,seed):
     self.add_var_opt('dataseed',str(seed))

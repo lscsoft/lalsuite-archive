@@ -52,9 +52,7 @@ def _build_series(series, dim_names, comment, delta_name, delta_unit):
     elem = ligolw.LIGO_LW(Attributes({u"Name": unicode(series.__class__.__name__)}))
     if comment is not None:
         elem.appendChild(ligolw.Comment()).pcdata = comment
-    # FIXME:  make Time class smart so we don't have to build it by
-    # hand
-    elem.appendChild(ligolw.Time(Attributes({u"Name": u"epoch", u"Type": u"GPS"}))).pcdata = unicode(series.epoch)
+    elem.appendChild(ligolw.Time.from_gps(series.epoch, u"epoch"))
     elem.appendChild(ligolw_param.from_pyvalue(u"f0", series.f0, unit=u"s^-1"))
     delta = getattr(series, delta_name)
     if np.iscomplexobj(series.data.data):
@@ -77,7 +75,9 @@ def _parse_series(elem, creatorfunc, delta_target_unit_string):
     dims = a.getElementsByTagName(ligolw.Dim.tagName)
     f0 = ligolw_param.get_param(elem, u"f0")
 
-    epoch = lal.LIGOTimeGPS(str(t.pcdata))
+    if t.Type != u"GPS":
+        raise ValueError("epoch Type must be GPS")
+    epoch = t.pcdata
 
     # Target units: inverse seconds
     inverse_seconds_unit = lal.Unit("s^-1")
@@ -97,8 +97,8 @@ def _parse_series(elem, creatorfunc, delta_target_unit_string):
     series = creatorfunc(
         str(a.Name),
         epoch,
-        float(f0.pcdata) * float(f0_unit / inverse_seconds_unit),
-        float(dims[0].Scale) * float(delta_unit / delta_target_unit),
+        f0.pcdata * float(f0_unit / inverse_seconds_unit),
+        dims[0].Scale * float(delta_unit / delta_target_unit),
         sample_unit,
         len(a.array.T)
     )
@@ -115,7 +115,7 @@ def _parse_series(elem, creatorfunc, delta_target_unit_string):
 
 def build_REAL4FrequencySeries(series, comment=None):
     assert isinstance(series, lal.REAL4FrequencySeries)
-    return _build_series(series, (u"Frequency", u"Frequency,Real"), comment, 'deltaF', 's^-1')
+    return _build_series(series, (u"Frequency,Real", u"Frequency"), comment, 'deltaF', 's^-1')
 
 
 def parse_REAL4FrequencySeries(elem):
@@ -124,7 +124,7 @@ def parse_REAL4FrequencySeries(elem):
 
 def build_REAL8FrequencySeries(series, comment=None):
     assert isinstance(series, lal.REAL8FrequencySeries)
-    return _build_series(series, (u"Frequency", u"Frequency,Real"), comment, 'deltaF', 's^-1')
+    return _build_series(series, (u"Frequency,Real", u"Frequency"), comment, 'deltaF', 's^-1')
 
 
 def parse_REAL8FrequencySeries(elem):
@@ -133,7 +133,7 @@ def parse_REAL8FrequencySeries(elem):
 
 def build_COMPLEX8FrequencySeries(series, comment=None):
     assert isinstance(series, lal.COMPLEX8FrequencySeries)
-    return _build_series(series, (u"Frequency", u"Frequency,Real,Imaginary"), comment, 'deltaF', 's^-1')
+    return _build_series(series, (u"Frequency,Real,Imaginary", u"Frequency"), comment, 'deltaF', 's^-1')
 
 
 def parse_COMPLEX8FrequencySeries(elem):
@@ -142,7 +142,7 @@ def parse_COMPLEX8FrequencySeries(elem):
 
 def build_COMPLEX16FrequencySeries(series, comment=None):
     assert isinstance(series, lal.COMPLEX16FrequencySeries)
-    return _build_series(series, (u"Frequency", u"Frequency,Real,Imaginary"), comment, 'deltaF', 's^-1')
+    return _build_series(series, (u"Frequency,Real,Imaginary", u"Frequency"), comment, 'deltaF', 's^-1')
 
 
 def parse_COMPLEX16FrequencySeries(elem):
@@ -151,7 +151,7 @@ def parse_COMPLEX16FrequencySeries(elem):
 
 def build_REAL4TimeSeries(series, comment=None):
     assert isinstance(series, lal.REAL4TimeSeries)
-    return _build_series(series, (u"Time", u"Time,Real"), comment, 'deltaT', 's')
+    return _build_series(series, (u"Time,Real", u"Time"), comment, 'deltaT', 's')
 
 
 def parse_REAL4TimeSeries(elem):
@@ -160,7 +160,7 @@ def parse_REAL4TimeSeries(elem):
 
 def build_REAL8TimeSeries(series, comment=None):
     assert isinstance(series, lal.REAL8TimeSeries)
-    return _build_series(series, (u"Time", u"Time,Real"), comment, 'deltaT', 's')
+    return _build_series(series, (u"Time,Real", u"Time"), comment, 'deltaT', 's')
 
 
 def parse_REAL8TimeSeries(elem):
@@ -169,7 +169,7 @@ def parse_REAL8TimeSeries(elem):
 
 def build_COMPLEX8TimeSeries(series, comment=None):
     assert isinstance(series, lal.COMPLEX8TimeSeries)
-    return _build_series(series, (u"Time", u"Time,Real,Imaginary"), comment, 'deltaT', 's')
+    return _build_series(series, (u"Time,Real,Imaginary", u"Time"), comment, 'deltaT', 's')
 
 
 def parse_COMPLEX8TimeSeries(elem):
@@ -178,7 +178,7 @@ def parse_COMPLEX8TimeSeries(elem):
 
 def build_COMPLEX16TimeSeries(series, comment=None):
     assert isinstance(series, lal.COMPLEX16TimeSeries)
-    return _build_series(series, (u"Time", u"Time,Real,Imaginary"), comment, 'deltaT', 's')
+    return _build_series(series, (u"Time,Real,Imaginary", u"Time"), comment, 'deltaT', 's')
 
 
 def parse_COMPLEX16TimeSeries(elem):

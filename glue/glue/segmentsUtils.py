@@ -34,7 +34,8 @@ import re
 
 
 from glue import git_version
-from glue import lal
+from glue.lal import CacheEntry
+from lal import LIGOTimeGPS
 from glue import segments
 
 
@@ -99,14 +100,14 @@ def fromlalcache(cachefile, coltype = int):
 
 	Example:
 
-	>>> from glue.lal import LIGOTimeGPS
+	>>> from lal import LIGOTimeGPS
 	>>> cache_seglists = fromlalcache(open(filename), coltype = LIGOTimeGPS).coalesce()
 
 	See also:
 
 	glue.lal.CacheEntry
 	"""
-	return segments.segmentlist(lal.CacheEntry(l, coltype = coltype).segment for l in cachefile)
+	return segments.segmentlist(CacheEntry(l, coltype = coltype).segment for l in cachefile)
 
 
 #
@@ -192,7 +193,7 @@ def tosegwizard(file, seglist, header = True, coltype = int):
 #
 
 
-def fromtama(file, coltype = lal.LIGOTimeGPS):
+def fromtama(file, coltype = LIGOTimeGPS):
 	"""
 	Read a segmentlist from the file object file containing TAMA
 	locked-segments data.  Parsing stops on the first line that cannot

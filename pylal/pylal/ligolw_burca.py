@@ -35,7 +35,6 @@ from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
 from pylal import snglcoinc
 from pylal.xlal import tools
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -53,7 +52,6 @@ __date__ = git_version.date
 
 
 lsctables.CoincMapTable.RowType = lsctables.CoincMap = tools.CoincMap
-lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 def sngl_burst___cmp__(self, other):
@@ -362,14 +360,15 @@ def ligolw_burca(
 		print >>sys.stderr, "indexing ..."
 	coinc_tables = CoincTables(xmldoc)
 	coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
-	sngl_index = dict((row.event_id, row) for row in lsctables.SnglBurstTable.get_table(xmldoc))
+	sngl_burst_table = lsctables.SnglBurstTable.get_table(xmldoc)
+	sngl_index = dict((row.event_id, row) for row in sngl_burst_table)
 
 	#
 	# build the event list accessors, populated with events from those
 	# processes that can participate in a coincidence
 	#
 
-	eventlists = snglcoinc.make_eventlists(xmldoc, EventListType, lsctables.SnglBurstTable.tableName)
+	eventlists = snglcoinc.EventListDict(EventListType, sngl_burst_table)
 
 	#
 	# construct offset vector assembly graph
@@ -386,12 +385,6 @@ def ligolw_burca(
 		ntuple = tuple(sngl_index[id] for id in coinc)
 		if not ntuple_comparefunc(ntuple, node.offset_vector):
 			coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple)
-
-	#
-	# remove time offsets from events
-	#
-
-	del eventlists.offsetvector
 
 	#
 	# done

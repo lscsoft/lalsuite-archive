@@ -13,7 +13,7 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
-from pylal import ligolw_tisi
+from lalburst import timeslides as ligolw_tisi
 from pylal import ligolw_cafe
 from glue import pipeline
 import ConfigParser

@@ -48,12 +48,6 @@ static REAL8 REAL8max(REAL8 a, REAL8 b)
   return (a>b?a:b);
 }
 
-/* Fermi-Dirac distribution helper function prototypes */
-static double FermiDiracCDF( double h, void *params );
-static double FermiDiracCDF_deriv( double h, void *params );
-static void FermiDiracCDF_fdf( double h, void *params, double *hnew, double *dh );
-static double FermiDiracCDFRoot( double cp, double mu, double sigma );
-
 void LALInferenceInitCBCPrior(LALInferenceRunState *runState)
 {
     char help[]="\
@@ -267,89 +261,7 @@ UINT4 LALInferenceCubeToConstantCalibrationPrior(LALInferenceRunState *runState,
 
 }
 
-static REAL8 LALInferenceSplineCalibrationPrior(LALInferenceRunState *runState, LALInferenceVariables *params) {
-  LALInferenceIFOData *ifo = NULL;
-  REAL8 ampWidth = -1.0;
-  REAL8 phaseWidth = -1.0;
-  REAL8 logPrior = 0.0;
 
-  if (runState->commandLine == NULL || !(LALInferenceGetProcParamVal(runState->commandLine, "--enable-spline-calibration"))) {
-    return logPrior;
-  }
-
-  ifo = runState->data;
-  do {
-    size_t i;
-
-    char ampVarName[VARNAME_MAX];
-    char phaseVarName[VARNAME_MAX];
-
-    REAL8Vector *amps = NULL;
-    REAL8Vector *phase = NULL;
-
-    snprintf(ampVarName, VARNAME_MAX, "%s_spcal_amp", ifo->name);
-    snprintf(phaseVarName, VARNAME_MAX, "%s_spcal_phase", ifo->name);
-
-    amps = *(REAL8Vector **)LALInferenceGetVariable(params, ampVarName);
-    phase = *(REAL8Vector **)LALInferenceGetVariable(params, phaseVarName);
-    char amp_uncert[VARNAME_MAX];
-    char pha_uncert[VARNAME_MAX];
-    snprintf(amp_uncert, VARNAME_MAX, "%s_spcal_amp_uncertainty", ifo->name);
-    snprintf(pha_uncert, VARNAME_MAX, "%s_spcal_phase_uncertainty", ifo->name);
-    ampWidth = *(REAL8 *)LALInferenceGetVariable(runState->priorArgs, amp_uncert);
-    phaseWidth = *(REAL8 *)LALInferenceGetVariable(runState->priorArgs, pha_uncert);
-    for (i = 0; i < amps->length; i++) {
-      logPrior += -0.5*log(2.0*M_PI) - log(ampWidth) - 0.5*amps->data[i]*amps->data[i]/ampWidth/ampWidth;
-      logPrior += -0.5*log(2.0*M_PI) - log(phaseWidth) - 0.5*phase->data[i]*phase->data[i]/phaseWidth/phaseWidth;
-    }
-
-    ifo = ifo->next;
-  } while (ifo);
-
-  return logPrior;
-}
-
-UINT4 LALInferenceCubeToSplineCalibrationPrior(LALInferenceRunState *runState, LALInferenceVariables *params, INT4 *idx, double *Cube, void UNUSED *context)
-{
-  LALInferenceIFOData *ifo = NULL;
-  REAL8 ampWidth = -1.0;
-  REAL8 phaseWidth = -1.0;
-
-  if (runState->commandLine == NULL || !(LALInferenceGetProcParamVal(runState->commandLine, "--enable-spline-calibration")))
-  {
-    return 1;
-  }
-
-  ampWidth = *(REAL8 *)LALInferenceGetVariable(runState->priorArgs, "spcal_amp_uncertainty");
-  phaseWidth = *(REAL8 *)LALInferenceGetVariable(runState->priorArgs, "spcal_phase_uncertainty");
-
-  ifo = runState->data;
-  do {
-    size_t i;
-
-    char ampVarName[VARNAME_MAX];
-    char phaseVarName[VARNAME_MAX];
-
-    REAL8Vector *amps = NULL;
-    REAL8Vector *phase = NULL;
-
-    snprintf(ampVarName, VARNAME_MAX, "%s_spcal_amp", ifo->name);
-    snprintf(phaseVarName, VARNAME_MAX, "%s_spcal_phase", ifo->name);
-
-    amps = *(REAL8Vector **)LALInferenceGetVariable(params, ampVarName);
-    phase = *(REAL8Vector **)LALInferenceGetVariable(params, phaseVarName);
-
-    for (i = 0; i < amps->length; i++)
-    {
-      amps->data[i] = LALInferenceCubeToGaussianPrior(Cube[(*idx)++], 0.0, ampWidth);
-      phase->data[i] = LALInferenceCubeToGaussianPrior(Cube[(*idx)++], 0.0, phaseWidth);
-    }
-
-    ifo = ifo->next;
-  } while (ifo);
-
-  return 1;
-}
 
 /* Return the log Prior for the glitch amplitude */
 REAL8 logGlitchAmplitudeDensity(REAL8 A, REAL8 Q, REAL8 f)
@@ -496,7 +408,7 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
 
   REAL8 logPrior=0.0;
 
-  LALInferenceVariableItem *item=params->head;
+  LALInferenceVariableItem *item=NULL;
   LALInferenceVariables *priorParams=runState->priorArgs;
   REAL8 min=-INFINITY, max=INFINITY;
   REAL8 mc=0.0;
@@ -510,7 +422,7 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
   if(signalFlag){
 
   /* Check boundaries for signal model parameters */
-  for(;item;item=item->next)
+  for(item=params->head;item;item=item->next)
   {
     if(item->vary==LALINFERENCE_PARAM_FIXED || item->vary==LALINFERENCE_PARAM_OUTPUT)
       continue;
@@ -521,9 +433,20 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
         if(*(REAL8 *) item->value < min || *(REAL8 *)item->value > max) return -DBL_MAX;
       }
     }
+    else if (LALInferenceCheckGaussianPrior(priorParams, item->name))
+    {
+      if(item->type==LALINFERENCE_REAL8_t){
+	REAL8 mean,stdev,val;
+	val = *(REAL8 *)item->value;
+	LALInferenceGetGaussianPrior(priorParams, item->name, &mean, &stdev);
+	logPrior+= -0.5*(mean-val)*(mean-val)/stdev/stdev - 0.5*log(LAL_TWOPI) - log(stdev);
+      }
+    }
   }
-  if(LALInferenceCheckVariable(params,"flow"))
+  if(LALInferenceCheckVariable(params, "flow") &&
+          LALInferenceCheckVariableNonFixed(params, "flow")) {
     logPrior+=log(*(REAL8 *)LALInferenceGetVariable(params,"flow"));
+  }
 
   if(LALInferenceCheckVariable(params,"logdistance"))
     if (!(LALInferenceCheckVariable(priorParams,"uniform_distance") && LALInferenceGetINT4Variable(priorParams,"uniform_distance")))
@@ -637,7 +560,8 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
   }
 
   /* Calibration priors. */
-  logPrior += LALInferenceSplineCalibrationPrior(runState, params);
+  /* Disabled as this is now handled automatically */
+  //logPrior += LALInferenceSplineCalibrationPrior(runState, params);
   logPrior += LALInferenceConstantCalibrationPrior(runState, params);
   /* Evaluate PSD prior (returns 0 if no PSD model) */
   logPrior += LALInferencePSDPrior(runState, params);
@@ -995,10 +919,10 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
 
     UINT4 ScaleTest = LALInferenceCubeToPSDScaleParams(priorParams, params, &i, Cube, context);
     UINT4 ConstCalib = LALInferenceCubeToConstantCalibrationPrior(runState, params, &i, Cube, context);
-    UINT4 SplineCalib = LALInferenceCubeToSplineCalibrationPrior(runState, params, &i, Cube, context);
+    //UINT4 SplineCalib = LALInferenceCubeToSplineCalibrationPrior(runState, params, &i, Cube, context);
 
     /* Check boundaries */
-    if (ScaleTest==0 || ConstCalib==0 || SplineCalib==0) return 0;
+    if (ScaleTest==0 || ConstCalib==0 /*|| SplineCalib==0*/) return 0;
     item=params->head;
     for(;item;item=item->next)
     {
@@ -1185,7 +1109,7 @@ REAL8 LALInferenceInspiralSkyLocPrior(LALInferenceRunState *runState, LALInferen
   REAL8 val=0.0;
   static int SkyLocPriorWarning = 0;
   (void)runState;
-  LALInferenceVariableItem *item=params->head;
+  LALInferenceVariableItem *item=NULL;
   LALInferenceVariables *priorParams=runState->priorArgs;
   REAL8 min=-INFINITY, max=INFINITY;
   REAL8 logmc=0.0,mc=0.0;
@@ -1195,30 +1119,35 @@ REAL8 LALInferenceInspiralSkyLocPrior(LALInferenceRunState *runState, LALInferen
     SkyLocPriorWarning  = 1;
     fprintf(stderr, "SkyLocalization priors are being used. (in %s, line %d)\n", __FILE__, __LINE__);
   }
-  /* Check boundaries */
-  for(;item;item=item->next)
+  /* Check boundaries for signal model parameters */
+  for(item=params->head;item;item=item->next)
   {
     if(item->vary==LALINFERENCE_PARAM_FIXED || item->vary==LALINFERENCE_PARAM_OUTPUT)
       continue;
-    else
+    else if (LALInferenceCheckMinMaxPrior(priorParams, item->name))
     {
-            val = 0.0;
-            min =-DBL_MAX;
-            max = DBL_MAX;
-            if(strcmp(item->name,"psdscale"))
-            {
-                LALInferenceGetMinMaxPrior(priorParams, item->name, &min, &max);
-                val = *(REAL8 *)item->value;
-            }
-
-            if(val<min || val>max) return -DBL_MAX;
+      if(item->type==LALINFERENCE_REAL8_t){
+        LALInferenceGetMinMaxPrior(priorParams, item->name, &min, &max);
+        if(*(REAL8 *) item->value < min || *(REAL8 *)item->value > max) return -DBL_MAX;
+      }
+    }
+    else if (LALInferenceCheckGaussianPrior(priorParams, item->name))
+    {
+      if(item->type==LALINFERENCE_REAL8_t){
+	REAL8 mean,stdev;
+	val = *(REAL8 *)item->value;
+	LALInferenceGetGaussianPrior(priorParams, item->name, &mean, &stdev);
+	logPrior+= -0.5*(mean-val)*(mean-val)/stdev/stdev - 0.5*log(LAL_TWOPI) - log(stdev);
+      }
     }
   }
 
   /*Use a uniform in log D distribution*/
 
-  if(LALInferenceCheckVariable(params,"flow"))
+  if(LALInferenceCheckVariable(params, "flow") &&
+          LALInferenceCheckVariableNonFixed(params, "flow")) {
     logPrior+=log(*(REAL8 *)LALInferenceGetVariable(params,"flow"));
+  }
 
   if(LALInferenceCheckVariable(params,"distance"))
     logPrior-=log(*(REAL8 *)LALInferenceGetVariable(params,"distance"));
@@ -1329,7 +1258,7 @@ REAL8 LALInferenceInspiralSkyLocPrior(LALInferenceRunState *runState, LALInferen
   }
 
   /* Calibration parameters */
-  logPrior += LALInferenceSplineCalibrationPrior(runState, params);
+  //logPrior += LALInferenceSplineCalibrationPrior(runState, params);
   logPrior += LALInferenceConstantCalibrationPrior(runState, params);
   return(logPrior);
 }
@@ -1676,10 +1605,10 @@ UINT4 LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALI
 
     INT4 ScaleTest = LALInferenceCubeToPSDScaleParams(priorParams, params, &i, Cube, context);
     UINT4 ConstCalib = LALInferenceCubeToConstantCalibrationPrior(runState, params, &i, Cube, context);
-    UINT4 SplineCalib = LALInferenceCubeToSplineCalibrationPrior(runState, params, &i, Cube, context);
+    //UINT4 SplineCalib = LALInferenceCubeToSplineCalibrationPrior(runState, params, &i, Cube, context);
 
     /* Check boundaries */
-    if (ScaleTest==0 || ConstCalib==0 || SplineCalib==0) return 0;
+    if (ScaleTest==0 || ConstCalib==0 /* || SplineCalib==0 */) return 0;
     item=params->head;
     for(;item;item=item->next)
     {
@@ -2261,11 +2190,11 @@ void LALInferenceDrawNameFromPrior( LALInferenceVariables *output,
     LALInferenceGetFermiDiracPrior(priorArgs, name, &sigma, &r);
 
     /* use the inverse sampling transform to draw a new sample */
-    cp = gsl_rng_uniform( rdm ); /* draw a point uniformly between 0 and 1 */
-
-    /* find the root of the CDF function and this value */
-    tmp = FermiDiracCDFRoot( cp, r, 1.0 ); /* work in values normalised to sigma=1 to stop precision issues */
-    tmp *= sigma; /* scale to correct range */
+    do { /* numerical issues mean that the analytic solution to this equation can go negative, so make sure that is not the case */
+      cp = gsl_rng_uniform( rdm ); /* draw a point uniformly between 0 and 1 */
+      tmp = log(-exp(-r) + pow(1. + exp(r), -cp) + exp(1.-r)*pow(1. + exp(r), -cp));
+      tmp *= -sigma;
+    } while ( tmp < 0. );
   }
   /* test for a prior drawn from correlated values */
   else if( LALInferenceCheckCorrelatedPrior( priorArgs, name ) ){
@@ -2630,9 +2559,9 @@ UINT4 LALInferenceAnalyticCubeToPrior(LALInferenceRunState *runState, LALInferen
     LALInferenceVariables *priorParams=runState->priorArgs;
     INT4 ScaleTest = LALInferenceCubeToPSDScaleParams(priorParams, params, &i, Cube, context);
     UINT4 ConstCalib = LALInferenceCubeToConstantCalibrationPrior(runState, params, &i, Cube, context);
-    UINT4 SplineCalib = LALInferenceCubeToSplineCalibrationPrior(runState, params, &i, Cube, context);
+    //UINT4 SplineCalib = LALInferenceCubeToSplineCalibrationPrior(runState, params, &i, Cube, context);
 
-    if (ScaleTest==0 || ConstCalib==0 || SplineCalib==0) return 0;
+    if (ScaleTest==0 || ConstCalib==0 /* || SplineCalib==0 */) return 0;
     else return 1;
 }
 
@@ -2805,103 +2734,4 @@ REAL8 LALInferenceCubeToSinPrior(double r, double x1, double x2)
 REAL8 LALInferenceFermiDiracPrior(double h, double sigma, double r){
   if ( h < 0. ){ return -DBL_MAX; } /* value must be positive */
   else{ return -logaddexp((h/sigma)-r, 0.); } /* log of Fermi-Dirac distribution (normalisation not required) */
-}
-
-
-typedef struct
-tagfermidirac_params{
-  double cp; /* cumulative probability value between 0 and 1 sampled from a uniform distribution */
-  double mu;
-  double sigma;
-} fermidirac_params;
-
-/**
- * \brief Function defining the Fermi-Dirac cumulative probability distribution.
- *
- * This function returns the Fermi-Dirac cumulative probability distribution with the cumulative probability
- * value substracted:
- * \f[\frac{1}{\log{(1+e^{\mu/\sigma})}}\Big[ \frac{h}{\sigma} + \log{(1+e^{-\mu/sigma})} -\log{(1+e^{(h-\mu)/\sigma})} \Big] - \textrm{CDF}(h) \f]
- * where \f$\mu\f$ is like a chemical potential, \f$\sigma\f$ is like a temperature and \f$h\f$ is like an energy.
- * This can be used to find the root of the function when using inverse transform sampling to draw random
- * values from a Fermi-Dirac PDF.
- *
- * \param h [in] Equivalent to the energy of the distribution
- * \param params [in] A structure containing the \c mu, \c sigma and cumulative probability values
- *
- */
-static double FermiDiracCDF( double h, void *params ){
-  fermidirac_params *p = (fermidirac_params *)params;
-
-  double u = p->cp;
-  double m = p->mu;
-  double s = p->sigma;
-
-  return (((h/s) + log(1.+exp(-m/s)) - log(1.+exp((h-m)/s)))/log(1.+exp(m/s))) - u;
-}
-
-/* derivative of Fermi-Dirac CDF */
-static double FermiDiracCDF_deriv( double h, void *params ){
-  fermidirac_params *p = (fermidirac_params *)params;
-
-  double m = p->mu;
-  double s = p->sigma;
-
-  return (1. - 1./(1. + exp(-(h-m)/s)))/(s*log(1. + exp(m/s)));
-}
-
-/* the Fermi-Dirac CDF and derivative */
-static void FermiDiracCDF_fdf( double h, void *params, double *hnew, double *dh ){
-  fermidirac_params *p = (fermidirac_params *)params;
-
-  double u = p->cp;
-  double m = p->mu;
-  double s = p->sigma;
-
-  *hnew = (((h/s) + log(1.+exp(-m/s)) - log(1.+exp((h-m)/s)))/log(1.+exp(m/s))) - u;
-  *dh = (1. - 1./(1. + exp(-(h-m)/s)))/(s*log(1. + exp(m/s)));
-}
-
-/** \brief Find the root of the Fermi-Dirac CDF for a given cumulative probability
- *
- * Use the Steffenson method to find the root of the function defined in \c FermiDiracCDF.
- */
-static double FermiDiracCDFRoot( double cp, double mu, double sigma ){
-  int gslstatus;
-  int iter = 0, max_iter = 100;
-  const gsl_root_fdfsolver_type *T;
-  gsl_root_fdfsolver *s;
-  double epsrel = 1e-4; /* relative error tolerance */
-
-  gsl_function_fdf FDF;
-  fermidirac_params params = {cp, mu, sigma};
-
-  double h = mu/sigma; /* first guess of value */
-  double hprev;
-
-  FDF.f = &FermiDiracCDF;
-  FDF.df = &FermiDiracCDF_deriv;
-  FDF.fdf = &FermiDiracCDF_fdf;
-  FDF.params = &params;
-
-  T = gsl_root_fdfsolver_steffenson; /* use Steffenson method */
-  s = gsl_root_fdfsolver_alloc(T);
-  gsl_root_fdfsolver_set(s, &FDF, h);
-
-  do{
-    iter++;
-    gslstatus = gsl_root_fdfsolver_iterate( s );
-    hprev = h;
-    h = gsl_root_fdfsolver_root( s );
-
-    /* test relative error */
-    gslstatus = gsl_root_test_delta (h, hprev, epsrel, 0.);
-  }
-  while( gslstatus == GSL_CONTINUE && iter < max_iter );
-
-  if ( gslstatus != GSL_SUCCESS ){
-    XLALPrintError("%s: Failed to converge when drawing from Fermi-Dirac distribution.", __func__);
-    XLAL_ERROR_REAL8(XLAL_EFAILED);
-  }
-
-  return h;
 }

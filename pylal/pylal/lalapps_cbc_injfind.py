@@ -46,7 +46,7 @@ from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
 from pylal import ligolw_thinca
 from pylal import ligolw_rinca
-from pylal import ligolw_tisi
+from lalburst import timeslides as ligolw_tisi
 from pylal import SimInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal.xlal import tools

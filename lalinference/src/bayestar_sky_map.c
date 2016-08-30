@@ -113,11 +113,12 @@ my_gsl_error (const char *reason, const char *file, int line, int gsl_errno)
 }
 
 
-/* Custom error handler that ignores underflow errors. */
+/* Custom error handler that ignores underflow errors and other errors
+ * that are a consequence of underflow errors. */
 static void
 ignore_underflow (const char *reason, const char *file, int line, int gsl_errno)
 {
-    if (gsl_errno != GSL_EUNDRFLW)
+    if (gsl_errno != GSL_EUNDRFLW && gsl_errno != GSL_EMAXITER && gsl_errno != GSL_EROUND && gsl_errno != GSL_ESING && gsl_errno != GSL_EDIVERGE)
         old_handler(reason, file, line, gsl_errno);
 }
 
@@ -1584,10 +1585,14 @@ static void test_distance_moments_to_parameters_round_trip(double mean, double s
     static const double min_mean_std = M_SQRT3 + 0.1;
     double mu, sigma, norm, mean2, std2, norm2;
 
+    old_handler = gsl_set_error_handler(ignore_underflow);
+
     bayestar_distance_moments_to_parameters(
         mean, std, &mu, &sigma, &norm);
     bayestar_distance_parameters_to_moments(
         mu, sigma, &mean2, &std2, &norm2);
+
+    gsl_set_error_handler(old_handler);
 
     if (gsl_finite(mean / std) && mean / std >= min_mean_std)
     {
@@ -1633,13 +1638,13 @@ int bayestar_test(void)
     test_real_catrom();
     test_eval_acor();
 
-    for (double ra = -M_PI; ra <= M_PI; ra += 0.1 * M_PI)
-        for (double dec = -M_PI_2; dec <= M_PI_2; dec += 0.1 * M_PI)
-            for (double inc = -M_PI; inc <= M_PI; inc += 0.1 * M_PI)
-                for (double pol = -M_PI; pol <= M_PI; pol += 0.1 * M_PI)
+    for (double ra = -M_PI; ra <= M_PI; ra += 0.4 * M_PI)
+        for (double dec = -M_PI_2; dec <= M_PI_2; dec += 0.4 * M_PI)
+            for (double inc = -M_PI; inc <= M_PI; inc += 0.4 * M_PI)
+                for (double pol = -M_PI; pol <= M_PI; pol += 0.4 * M_PI)
                     for (unsigned long epoch = 1000000000000000000;
                          epoch <= 1000086400000000000;
-                         epoch += 3600000000000)
+                         epoch += 7200000000000)
                         test_signal_amplitude_model(ra, dec, inc, pol, epoch, "H1");
 
     /* Tests of radial integrand with p2=0, b=0. */
@@ -1674,10 +1679,10 @@ int bayestar_test(void)
         log_radial_integrator *integrator = log_radial_integrator_init(
             r1, r2, k, pmax, default_log_radial_integrator_size);
 
+        old_handler = gsl_set_error_handler(ignore_underflow);
         gsl_test(!integrator, "testing that integrator object is non-NULL");
         if (integrator)
         {
-            old_handler = gsl_set_error_handler(ignore_underflow);
             for (double p = 0.01; p <= pmax; p += 0.01)
             {
                 for (double b = 0.0; b <= 2 * pmax; b += 0.01)

@@ -151,6 +151,8 @@ def parse_command_line():
     #
     parser.add_option("--approximant", choices=waveforms.keys(), metavar='|'.join(waveforms.keys()), default=None, help="Required. Specify the approximant to use for waveform generation.")
     parser.add_option("--use-metric", action="store_true", default=False, help="Use analytic approximation to the numerical match calculation (if available).")
+    parser.add_option("--duration-min", type=float, help="Set minimum allowed duration of the template waveform in seconds.")
+    parser.add_option("--duration-max", type=float, help="Set maximum allowed duration of the template waveform in seconds.")
 
     #
     # mass parameter options
@@ -197,7 +199,7 @@ def parse_command_line():
     parser.add_option("--flow", type="float", help="Required. Set the low-frequency cutoff to use for the match caluclation.")
     parser.add_option("--match-min",help="Set minimum match of the bank. Note that since this is a stochastic process, the requested minimal match may not be strictly guaranteed but should be fulfilled on a statistical basis. Default: 0.95.", type="float", default=0.95)
     parser.add_option("--convergence-threshold", metavar="N", help="Set the criterion for convergence of the stochastic bank. The code terminates when there are N rejected proposals for each accepted proposal, averaged over the last ten acceptances. Default 1000.", type="int", default=1000)
-    parser.add_option("--templates-max", metavar="N", help="Use this option to force the code to exit after generating a specified number N of templates. Note that the code may exit with fewer than N templates if the convergence criterion is met first.", type="int", default=float('inf'))
+    parser.add_option("--max-new-templates", metavar="N", help="Use this option to force the code to exit after accepting a specified number N of new templates. Note that the code may exit with fewer than N templates if the convergence criterion is met first.", type="int", default=float('inf'))
     parser.add_option("--cache-waveforms", default = False, action="store_true", help="A given waveform in the template bank will be used many times throughout the bank generation process. You can save a considerable amount of CPU by caching the waveform from the first time it is generated; however, do so only if you are sure that storing the waveforms in memory will not overload the system memory.")
     parser.add_option("--coarse-match-df", type="float", default=None, help="If given, use this value of df to quickly test if the mismatch is less than 4 times the minimal mismatch. This can quickly reject points at high values of df, that will not have high overlaps at smaller df values. This can be used to speed up the sbank process.")
     parser.add_option("--iterative-match-df-max", type="float", default=None, help="If this option is given it will enable sbank using larger df values than 1 / data length when computing overlaps. Sbank will then compute a match at this value, and at half this value, if the two values agree to 0.1% the value obtained will be taken as the actual value. If the values disagree the match will be computed again using a df another factor of 2 smaller until convergence or a df of 1/ data_length, is reached.")
@@ -261,7 +263,7 @@ def parse_command_line():
             parser.error("unphysical spin2 bounds: [%.2f, %.2f]" % (opts.spin2_min, opts.spin2_max))
     elif all_nsbh_spin_opts:
         if not -1 <= opts.bh_spin_min <= opts.bh_spin_max <= 1:
-            parser.error("unphysical BH spin bounds: [%.2f, %.2f]" % (opts.bh_spin_min, opts.bs_spin_max))
+            parser.error("unphysical BH spin bounds: [%.2f, %.2f]" % (opts.bh_spin_min, opts.bh_spin_max))
         if not -1 <= opts.ns_spin_min <= opts.ns_spin_max <= 1:
             parser.error("unphysical NS spin bounds: [%.2f, %.2f]" % (opts.ns_spin_min, opts.ns_spin_max))
     else:
@@ -285,18 +287,19 @@ def parse_command_line():
     if (opts.mchirp_boundaries_file is not None) ^ (opts.mchirp_boundaries_index is not None):
         parser.error("must supply both --mchirp-boundaries-file and --mchirp-boundaries-index or neither")
 
-    if opts.mchirp_boundaries_file and (opts.mchirp_min or opts.mchirp_max):
-        parser.error("--mchirp-boundaries-file supercedes --mchirp-min and --mchirp-max")
-
     if opts.mchirp_boundaries_file:
         boundaries = [float(line) for line in open(opts.mchirp_boundaries_file)]
         if opts.mchirp_boundaries_index > len(boundaries):
             raise ValueError("mchirp boundaries file not long enough for requested index")
 
         if opts.mchirp_boundaries_index > 0:
-            opts.mchirp_min = float(boundaries[opts.mchirp_boundaries_index - 1])
+            boundary_mchirp_min = float(boundaries[opts.mchirp_boundaries_index - 1])
+            if opts.mchirp_min is None or opts.mchirp_min < boundary_mchirp_min:
+                opts.mchirp_min = boundary_mchirp_min
         if opts.mchirp_boundaries_index + 1 < len(boundaries):
-            opts.mchirp_max = float(boundaries[opts.mchirp_boundaries_index])
+            boundary_mchirp_max = float(boundaries[opts.mchirp_boundaries_index])
+            if opts.mchirp_max is None or opts.mchirp_max > boundary_mchirp_max:
+                opts.mchirp_max = boundary_mchirp_max
 
     return opts, args
 
@@ -443,6 +446,8 @@ else:
     else:
         params['spin1'] = (opts.spin1_min, opts.spin1_max)
         params['spin2'] = (opts.spin2_min, opts.spin2_max)
+    if opts.duration_min is not None or opts.duration_max is not None:
+        params['duration'] = (opts.duration_min, opts.duration_max)
 
     # get the correct generator for the chosen approximant
     proposal = proposals[opts.approximant](opts.flow, tmplt_class, bank,
@@ -465,7 +470,7 @@ for tmplt in proposal:
     # check if stopping criterion has been reached
     #
     if not (((k + float(sum(ks)))/len(ks) < opts.convergence_threshold) and \
-            (len(bank) < opts.templates_max)):
+            (len(tbl) < opts.max_new_templates)):
         break
 
     # accounting for number of proposals

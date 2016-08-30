@@ -32,10 +32,14 @@
 #include <chealpix.h>
 
 
-double bayestar_distance_conditional_pdf(double r, double mu, double sigma, double norm)
+double bayestar_distance_conditional_pdf(
+    double r, double mu, double sigma, double norm)
 {
+    if (!isfinite(mu))
+        return 0;
+
     const double x = -0.5 * gsl_pow_2((r - mu) / sigma);
-    const double y = norm * gsl_pow_2(r) / sigma;
+    const double y = norm * gsl_pow_2(r) / (sqrt(2 * M_PI) * sigma);
     return gsl_sf_exp_mult(x, y);
 }
 
@@ -48,16 +52,17 @@ static double ugaussian_integral(double x1, double x2)
     } else if (x1 > 0) {
         const double logerfc1 = gsl_sf_log_erfc(x1 * M_SQRT1_2);
         const double logerfc2 = gsl_sf_log_erfc(x2 * M_SQRT1_2);
-        return gsl_sf_exp_mult(logerfc2, 0.5 * gsl_sf_expm1(logerfc1 - logerfc2));
+        return 0.5 * (exp(logerfc1) - exp(logerfc2));
     } else {
         const double logerfc1 = gsl_sf_log_erfc(-x1 * M_SQRT1_2);
         const double logerfc2 = gsl_sf_log_erfc(-x2 * M_SQRT1_2);
-        return gsl_sf_exp_mult(logerfc1, 0.5 * gsl_sf_expm1(logerfc2 - logerfc1));
+        return 0.5 * (exp(logerfc2) - exp(logerfc1));
     }
 }
 
 
-double bayestar_distance_conditional_cdf(double r, double mu, double sigma, double norm)
+double bayestar_distance_conditional_cdf(
+    double r, double mu, double sigma, double norm)
 {
     if (!isfinite(mu))
         return 0;
@@ -102,13 +107,15 @@ static void ppf_fdf(double r, void *params, double *f, double *df)
 }
 
 
-double bayestar_distance_conditional_ppf(double p, double mu, double sigma, double norm)
+double bayestar_distance_conditional_ppf(
+    double p, double mu, double sigma, double norm)
 {
     if (p <= 0)
         return 0;
     else if (p >= 1)
         return GSL_POSINF;
-    else if (!(isfinite(p) && isfinite(mu) && isfinite(sigma) && isfinite(norm)))
+    else if (!(isfinite(p) && isfinite(mu)
+            && isfinite(sigma) && isfinite(norm)))
         return GSL_NAN;
 
     /* Convert to standard distribution with sigma = 1. */
@@ -315,7 +322,8 @@ double bayestar_volume_render(
        /* Transform from screen-aligned cube to celestial coordinates before
         * looking up pixel indices. */
         double vec[3];
-        cblas_dgemv(CblasRowMajor, CblasNoTrans, 3, 3, 1, R, 3, xyz, 1, 0, vec, 1);
+        cblas_dgemv(
+            CblasRowMajor, CblasNoTrans, 3, 3, 1, R, 3, xyz, 1, 0, vec, 1);
         long ipix;
         if (nest)
             vec2pix_nest(nside, vec, &ipix);
@@ -323,7 +331,10 @@ double bayestar_volume_render(
             vec2pix_ring(nside, vec, &ipix);
         double r = sqrt(gsl_pow_2(x) + gsl_pow_2(y) + gsl_pow_2(z));
 
-        ret += prob[ipix] / sigma[ipix] * exp(-0.5 * gsl_pow_2((r - mu[ipix]) / sigma[ipix])) * norm[ipix] * dz_dtheta;
+        if (isfinite(mu[ipix]))
+            ret += gsl_sf_exp_mult(
+                -0.5 * gsl_pow_2((r - mu[ipix]) / sigma[ipix]),
+                prob[ipix] / sigma[ipix] * norm[ipix] * dz_dtheta);
     }
 
     return ret / (M_SQRT2 * M_SQRTPI);
@@ -337,6 +348,7 @@ double bayestar_distance_marginal_pdf(
 {
     double sum = 0;
     for (long i = 0; i < npix; i ++)
-        sum += prob[i] * bayestar_distance_conditional_pdf(r, mu[i], sigma[i], norm[i]);
+        sum += prob[i] * bayestar_distance_conditional_pdf(
+            r, mu[i], sigma[i], norm[i]);
     return sum;
 }
