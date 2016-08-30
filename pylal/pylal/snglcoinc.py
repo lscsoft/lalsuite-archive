@@ -161,7 +161,7 @@ class EventListDict(dict):
 		# wrapper to shield dict.__new__() from our arguments.
 		return dict.__new__(cls)
 
-	def __init__(self, EventListType, event_table, process_ids = None):
+	def __init__(self, EventListType, event_table, instruments = None, process_ids = None):
 		"""
 		Initialize a newly-created instance.  EventListType is a
 		subclass of EventList (the subclass itself, not an instance
@@ -173,14 +173,15 @@ class EventListDict(dict):
 		process_ids whose events should be considered in the
 		coincidence analysis, otherwise all events are considered.
 		"""
-		for event in event_table:
-			if (process_ids is None) or (event.process_id in process_ids):
-				# FIXME:  only works when the instrument
-				# name is in the "ifo" column.  true for
-				# inspirals, bursts and ringdowns
-				if event.ifo not in self:
-					self[event.ifo] = EventListType(event.ifo)
+		for instrument in instruments if instruments is not None else set(event_table.getColumnByName("ifo")):
+			self[instrument] = EventListType(instrument)
+		if process_ids is None:
+			for event in event_table:
 				self[event.ifo].append(event)
+		else:
+			for event in event_table:
+				if event.process_id in process_ids:
+					self[event.ifo].append(event)
 		for l in self.values():
 			l.make_index()
 
