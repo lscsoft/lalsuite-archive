@@ -22,6 +22,7 @@
  *  MA  02111-1307  USA
  */
 
+#include <sys/resource.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <lal/LALInspiral.h>
@@ -638,6 +639,19 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
   REAL8 *m1_p,*m2_p;
   REAL8 deltaF, f_max;
 
+  /* variables for debugging memory leackage check
+   * by hwlee at 26 august 2016. should be removed later
+   */
+#define CHECK_NUMBER 100000
+    static int calls = 0;
+    static int check_mem0 = 0, check_mem1 = 0, check_mem2 = 0, check_mem3=0, check_mem4=0, check_mem5=0, check_mem6=0;
+    static int count_mem0 = 0, count_mem1 = 0, count_mem2 = 0, count_mem3=0, count_mem4=0, count_mem5=0, count_mem6=0;
+    static int size_diff = 0, large_count = 0, total_leak = 0;
+    int mem0, mem1, mem2, mem3, mem4, mem5, mem6, mem7, diff_mem;
+    struct rusage r_usage;
+    getrusage(RUSAGE_SELF,&r_usage);
+    mem0 = r_usage.ru_maxrss;
+
   /* Sampling rate for time domain models */
   deltaT = model->deltaT;
 
@@ -793,6 +807,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
   REAL8 f_ecc = 0.;
   if(LALInferenceCheckVariable(model->params, "f_ecc")) f_ecc = *(REAL8*) LALInferenceGetVariable(model->params, "f_ecc");
 
+
   /* Only use GR templates */
   LALSimInspiralTestGRParam *nonGRparams = NULL;
 
@@ -820,6 +835,11 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
   }
 
 
+    getrusage(RUSAGE_SELF,&r_usage);
+    mem1 = r_usage.ru_maxrss;
+    diff_mem = (mem1 - mem0);
+    check_mem0 += diff_mem;
+    if(diff_mem > 0) count_mem0++;
 
   /* ==== Call the waveform generator ==== */
   if(model->domain == LAL_SIM_DOMAIN_FREQUENCY) {
@@ -832,6 +852,11 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
             approximant,model->waveformCache, NULL), errnum);
 
 
+    getrusage(RUSAGE_SELF,&r_usage);
+    mem2 = r_usage.ru_maxrss;
+    diff_mem = mem2 - mem1;
+    check_mem1 += diff_mem;
+    if(diff_mem > 0) count_mem1++;
     /* if the waveform failed to generate, fill the buffer with zeros
      * so that the previous waveform is not left there
      */
@@ -872,20 +897,36 @@ model->waveFlags(%d,%d,%d,%d,numreldata),nonGRparams,%d,%d,%d,model->waveformCac
 
     INT4 rem=0;
     UINT4 size=hptilde->data->length;
-    if(size>model->freqhPlus->data->length) size=model->freqhPlus->data->length;
+    if(size>model->freqhPlus->data->length) {large_count++;size=model->freqhPlus->data->length;}
+    size_diff += (hptilde->data->length - model->freqhPlus->data->length);
     memcpy(model->freqhPlus->data->data,hptilde->data->data,sizeof(hptilde->data->data[0])*size);
     if( (rem=(model->freqhPlus->data->length - size)) > 0)
         memset(&(model->freqhPlus->data->data[size]),0, rem*sizeof(hptilde->data->data[0]) );
+    getrusage(RUSAGE_SELF,&r_usage);
+    mem3 = r_usage.ru_maxrss;
+    diff_mem = mem3 - mem2;
+    check_mem2 += diff_mem;
+    if(diff_mem > 0) count_mem2++;
 
     size=hctilde->data->length;
     if(size>model->freqhCross->data->length) size=model->freqhCross->data->length;
     memcpy(model->freqhCross->data->data,hctilde->data->data,sizeof(hctilde->data->data[0])*size);
     if( (rem=(model->freqhCross->data->length - size)) > 0)
         memset(&(model->freqhCross->data->data[size]),0, rem*sizeof(hctilde->data->data[0]) );
+    getrusage(RUSAGE_SELF,&r_usage);
+    mem4 = r_usage.ru_maxrss;
+    diff_mem = mem4 - mem3;
+    check_mem3 += diff_mem;
+    if(diff_mem > 0) count_mem3++;
 
     REAL8 instant = model->freqhPlus->epoch.gpsSeconds + 1e-9*model->freqhPlus->epoch.gpsNanoSeconds;
     LALInferenceSetVariable(model->params, "time", &instant);
 
+    getrusage(RUSAGE_SELF,&r_usage);
+    mem5 = r_usage.ru_maxrss;
+    diff_mem = mem5 - mem4;
+    check_mem4 += diff_mem;
+    if(diff_mem > 0) count_mem4++;
   } else {
 
     XLAL_TRY(ret=XLALSimInspiralChooseTDWaveformFromCache(&hplus, &hcross, phi0, deltaT,
@@ -1042,11 +1083,46 @@ model->waveFlags(%d,%d,%d,%d,numreldata),nonGRparams,%d,%d,%d,model->waveformCac
 
     LALInferenceSetVariable(model->params, "time", &injTc);
   }
+    getrusage(RUSAGE_SELF,&r_usage);
+    mem6 = r_usage.ru_maxrss;
+    diff_mem = mem6 - mem1;
+    check_mem5 += diff_mem;
+    if(diff_mem > 0) count_mem5++;
 
   if ( hplus ) XLALDestroyREAL8TimeSeries(hplus);
   if ( hcross ) XLALDestroyREAL8TimeSeries(hcross);
   if ( hptilde ) XLALDestroyCOMPLEX16FrequencySeries(hptilde);
   if ( hctilde ) XLALDestroyCOMPLEX16FrequencySeries(hctilde);
+
+    getrusage(RUSAGE_SELF,&r_usage);
+    mem7 = r_usage.ru_maxrss;
+    diff_mem = mem7 - mem6;
+    check_mem6 += diff_mem;
+    total_leak += (mem7 - mem0);
+    if(diff_mem > 0) count_mem6++;
+
+    if( (calls%CHECK_NUMBER) == 0) {
+      //getrusage(RUSAGE_SELF,&r_usage);
+      fprintf(stderr, "===== DEBUG hwlee %9d calls of LALInferenceTemplateXLALSimInspiralChooseWaveform, check_mem0,1,2,3,4,5,6=%9d,%9d,%9d,%9d,%9d,%9d,%9d, size_diff = %9d, large_count = %9d\n", calls, check_mem0, check_mem1, check_mem2, check_mem3, check_mem4,check_mem5,check_mem6, size_diff, large_count);
+      fprintf(stderr, "      DEBUG hwlee %9d calls of LALInferenceTemplateXLALSimInspiralChooseWaveform, count_mem0,1,2,3,4,5,6=%9d,%9d,%9d,%9d,%9d,%9d,%9d, total_leak = %9d\n", calls, count_mem0, count_mem1, count_mem2, count_mem3, count_mem4,count_mem5,count_mem6, total_leak);
+      size_diff = 0;
+      large_count = 0;
+      check_mem0 = 0;
+      check_mem1 = 0;
+      check_mem2 = 0;
+      check_mem3 = 0;
+      check_mem4 = 0;
+      check_mem5 = 0;
+      check_mem6 = 0;
+      count_mem0 = 0;
+      count_mem1 = 0;
+      count_mem2 = 0;
+      count_mem3 = 0;
+      count_mem4 = 0;
+      count_mem5 = 0;
+      count_mem6 = 0;
+    }
+    calls++;
 
   return;
 }

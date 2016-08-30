@@ -23,6 +23,8 @@
 
 #include <complex.h>
 #include <assert.h>
+//#include <sys/resource.h>
+//#include <stdio.h>
 #include <lal/LALInferenceLikelihood.h>
 #include <lal/LALInferencePrior.h>
 #include <lal/LALInference.h>
@@ -133,12 +135,16 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
 
    if (LALInferenceGetProcParamVal(commandLine, "--zeroLogLike")) {
     /* Use zero log(L) */
+     fprintf(stderr, "Using LALInferenceZeroLogLikelihood.\n");
     runState->likelihood=&LALInferenceZeroLogLikelihood;
    } else if (LALInferenceGetProcParamVal(commandLine, "--correlatedGaussianLikelihood")) {
+     fprintf(stderr, "Using LALInferenceCorrelatedAnalyticLogLikelihood.\n");
     runState->likelihood=&LALInferenceCorrelatedAnalyticLogLikelihood;
    } else if (LALInferenceGetProcParamVal(commandLine, "--bimodalGaussianLikelihood")) {
+     fprintf(stderr, "Using LALInferenceBimodalCorrelatedAnalyticLogLikelihood.\n");
     runState->likelihood=&LALInferenceBimodalCorrelatedAnalyticLogLikelihood;
    } else if (LALInferenceGetProcParamVal(commandLine, "--rosenbrockLikelihood")) {
+     fprintf(stderr, "Using LALInferenceRosenbrockLogLikelihood.\n");
     runState->likelihood=&LALInferenceRosenbrockLogLikelihood;
    } else if (LALInferenceGetProcParamVal(commandLine, "--studentTLikelihood")) {
     fprintf(stderr, "Using Student's T Likelihood.\n");
@@ -172,6 +178,7 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
       fprintf(stderr, "WARNING: Using Fast SineGaussian likelihood and WF for LIB.\n");
       runState->likelihood=&LALInferenceFastSineGaussianLogLikelihood;
    } else {
+     fprintf(stderr, "Using LALInferenceUndecomposedFreqDomainLogLikelihood.\n");
       runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood;
    }
 
@@ -361,6 +368,18 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
   /* ROQ likelihood stuff */
   REAL8 d_inner_h=0.0;
 
+  /* variables for debugging memory leackage check
+   * by hwlee at 26 august 2016. should be removed later
+   */
+//#define CHECK_NUMBER 100000
+    //static int calls = 0;
+    //static int check_mem0 = 0, check_mem1 = 0, check_mem2 = 0, check_mem3=0, check_mem4=0, check_mem5=0, check_mem6=0;
+    //int mem0, mem1, mem2, mem3, mem4, mem5, mem6, mem7;
+    //struct rusage r_usage;
+    //getrusage(RUSAGE_SELF,&r_usage);
+    //mem0 = r_usage.ru_maxrss;
+    //INT4 MPIrank;
+    //MPI_Comm_rank(MPI_COMM_WORLD, &MPIrank);
 
   if (LALInferenceCheckVariable(currentParams, "spcal_active") && (*(UINT4 *)LALInferenceGetVariable(currentParams, "spcal_active"))) {
     spcal_active = 1;
@@ -592,6 +611,9 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
         XLAL_ERROR_REAL8(XLAL_EDOM);
       }
     }
+    //getrusage(RUSAGE_SELF,&r_usage);
+    //mem1 = r_usage.ru_maxrss;
+    //check_mem0 += (mem1 - mem0);
 
     if(signalFlag){
 
@@ -607,11 +629,17 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
           LALInferenceRemoveVariable(model->params, "time");
         }
         else timeTmp = GPSdouble;
+    //getrusage(RUSAGE_SELF,&r_usage);
+    //mem2 = r_usage.ru_maxrss;
+    //check_mem1 += (mem2 - mem1);
 
         LALInferenceCopyVariables(currentParams, model->params);
         // Remove time variable so it can be over-written (if it was pinned)
         if(LALInferenceCheckVariable(model->params,"time")) LALInferenceRemoveVariable(model->params,"time");
         LALInferenceAddVariable(model->params, "time", &timeTmp, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+    //getrusage(RUSAGE_SELF,&r_usage);
+    //mem3 = r_usage.ru_maxrss;
+    //check_mem2 += (mem3 - mem2);
 
         INT4 errnum=0;
         XLAL_TRY(model->templt(model),errnum);
@@ -631,11 +659,17 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
           }
 
         }
+    //getrusage(RUSAGE_SELF,&r_usage);
+    //mem4 = r_usage.ru_maxrss;
+    //check_mem3 += (mem4 - mem3);
 
         if (model->domain == LAL_SIM_DOMAIN_TIME) {
           /* TD --> FD. */
           LALInferenceExecuteFT(model);
         }
+    //getrusage(RUSAGE_SELF,&r_usage);
+    //mem5 = r_usage.ru_maxrss;
+    //check_mem4 += (mem5 - mem4);
       }
 
         /* Template is now in model->timeFreqhPlus and hCross */
@@ -819,32 +853,32 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
     	LALInferenceAddREAL8Variable(currentParams,varname,cplx_snr_phase,LALINFERENCE_PARAM_OUTPUT);
 
 
-    }
+    }/* if (model->roq_flag) */
 
     else{
 
-    	REAL8 *psd=&(dataPtr->oneSidedNoisePowerSpectrum->data->data[lower]);
-    COMPLEX16 *dtilde=&(dataPtr->freqData->data->data[lower]);
-    COMPLEX16 *hptilde=&(model->freqhPlus->data->data[lower]);
-    COMPLEX16 *hctilde=&(model->freqhCross->data->data[lower]);
-    COMPLEX16 diff=0.0;
-    COMPLEX16 template=0.0;
-    REAL8 templatesq=0.0;
-    REAL8 this_ifo_S=0.0;
-    COMPLEX16 this_ifo_Rcplx=0.0;
+      REAL8 *psd=&(dataPtr->oneSidedNoisePowerSpectrum->data->data[lower]);
+      COMPLEX16 *dtilde=&(dataPtr->freqData->data->data[lower]);
+      COMPLEX16 *hptilde=&(model->freqhPlus->data->data[lower]);
+      COMPLEX16 *hctilde=&(model->freqhCross->data->data[lower]);
+      COMPLEX16 diff=0.0;
+      COMPLEX16 template=0.0;
+      REAL8 templatesq=0.0;
+      REAL8 this_ifo_S=0.0;
+      COMPLEX16 this_ifo_Rcplx=0.0;
 
-    for (i=lower,chisq=0.0,re = cos(twopit*deltaF*i),im = -sin(twopit*deltaF*i);
+      for (i=lower,chisq=0.0,re = cos(twopit*deltaF*i),im = -sin(twopit*deltaF*i);
          i<=upper;
          i++, psd++, hptilde++, hctilde++, dtilde++,
          newRe = re + re*dre - im*dim,
          newIm = im + re*dim + im*dre,
          re = newRe, im = newIm)
-    {
+      {
 
-      COMPLEX16 d=*dtilde;
-      /* Normalise PSD to our funny standard (see twoDeltaTOverN
+        COMPLEX16 d=*dtilde;
+        /* Normalise PSD to our funny standard (see twoDeltaTOverN
 	 below). */
-      REAL8 sigmasq=(*psd)*deltaT*deltaT;
+        REAL8 sigmasq=(*psd)*deltaT*deltaT;
 
       if (constantcal_active) {
         REAL8 dre_tmp= creal(d)*cos_calpha - cimag(d)*sin_calpha;
@@ -995,13 +1029,13 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
       XLALDestroyCOMPLEX16FrequencySeries(calFactor);
       calFactor = NULL;
     }
+  }/* END of if (model->roq_flag) */
   } /* end loop over detectors */
+    //getrusage(RUSAGE_SELF,&r_usage);
+    //mem6 = r_usage.ru_maxrss;
+    //check_mem5 += (mem6 - mem0);
 
-  }
   if (model->roq_flag){
-
-
-
 	REAL8 OptimalSNR=sqrt(S);
         REAL8 MatchedFilterSNR = d_inner_h/OptimalSNR;
         /* fprintf(stderr, "%f\n", d_inner_h - 0.5*OptimalSNR); */
@@ -1154,6 +1188,16 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
   LALInferenceAddVariable(currentParams,"matched_filter_snr",&MatchedFilterSNR,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
 
   //loglikelihood = -1.0 * chisquared; // note (again): the log-likelihood is unnormalised!
+
+    //getrusage(RUSAGE_SELF,&r_usage);
+    //mem7 = r_usage.ru_maxrss;
+    //check_mem6 += (mem7 - mem6);
+
+    //if( (calls%CHECK_NUMBER) == 0) {
+      //getrusage(RUSAGE_SELF,&r_usage);
+      //fprintf(stderr, "===== DEBUG hwlee %9d calls of FusedFDLogLikelihood, check_mem0,1,2,3,4,5,6=%9d,%9d,%9d,%9d,%9d,%9d,%9d\n", calls, check_mem0, check_mem1, check_mem2, check_mem3, check_mem4,check_mem5,check_mem6);
+    //}
+    //calls++;
 
   return(loglikelihood);
 }
