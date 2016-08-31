@@ -138,4 +138,4 @@ static int optimized_gsl_spline_eval_e(const gsl_spline * spline, double interpt
   return optimized_cspline_eval(spline->interp->state, spline->x, spline->y, spline->interp->size, interptime, accel, output,index_old,x_lo_old,y_lo_old,b_i_old,c_i_old,d_i_old);
 }
 
-#endif /* _LALSIMIMRSPINALIGNEDEOBGSLOPTIMIZEDINTERPOLATION_C */
+#endif /* _LALSIMIMRSPINALIGNEDEOBGSLOPTIMIZEDINTERPOLATORGENERAL_C */

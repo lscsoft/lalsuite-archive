@@ -49,7 +49,6 @@
 #include "LALSimIMRSpinEOBFactorizedFlux.c"
 #include "LALSimIMREOBFactorizedWaveform.c"
 
-#include "LALSimIMRCalculateSpinEOBHCoeffs.c" /* OPTV3 */
 //int UsePrec = 1;
 
 /*------------------------------------------------------------------------------------------

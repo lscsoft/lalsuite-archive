@@ -21,6 +21,7 @@
 
 #include "LALSimIMRSpinAlignedEOBOptimizedInterpolatorGeneral.c"
 
+UNUSED static int
 SEOBNRv2OptimizedInterpolatorNoAmpPhase (REAL8Array * yin, REAL8 tinit,
 					 REAL8 deltat, UINT4 num_input_times,
 					 REAL8Array ** yout)
