@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2013-2015  Leo Singer
+# Copyright (C) 2013-2016  Leo Singer
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -82,14 +82,14 @@ from glue.ligolw import utils as ligolw_utils
 
 # BAYESTAR imports.
 from lalinference.bayestar.decorator import memoized
-from lalinference import fits
+from lalinference.io import fits
 from lalinference.bayestar import ligolw as ligolw_bayestar
+from lalinference.bayestar import distance
 from lalinference.bayestar import filter
 from lalinference.bayestar import timing
-from lalinference.bayestar import ligolw_sky_map
+from lalinference.bayestar.sky_map import ligolw_sky_map
 
 # Other imports.
-import healpy as hp
 import numpy as np
 
 # Read coinc file.
@@ -114,7 +114,7 @@ if opts.psd_files: # read pycbc psds here
     psdseglistdict = {}
     for psd_file in opts.psd_files:
         (ifo, group), = h5py.File(psd_file, 'r').items()
-        psd = [group['psds'][str(i)] for i in range(len(group['psds'].keys()))]
+        psd = [group['psds'][str(i)] for i in range(len(group['psds']))]
         psdseglistdict[ifo] = segmentlist(
             psd_segment(*segargs) for segargs in zip(
             psd, group['start_time'], group['end_time']))
@@ -154,7 +154,7 @@ else:
         return dict(
             (key, timing.InterpolatedPSD(filter.abscissa(psd), psd.data.data,
                 f_high_truncate=opts.f_high_truncate))
-            for key, psd in psds.iteritems() if psd is not None)
+            for key, psd in psds.items() if psd is not None)
 
     def reference_psd_for_ifo_and_filename(ifo, filename):
         return reference_psds_for_filename(filename)[ifo]
@@ -184,11 +184,14 @@ for coinc, sngl_inspirals in ligolw_bayestar.coinc_and_sngl_inspirals_for_xmldoc
         else:
             chain_dump = None
         try:
-            sky_map, epoch, elapsed_time = ligolw_sky_map.ligolw_sky_map(
+            sky_map, epoch, elapsed_time = ligolw_sky_map(
                 sngl_inspirals, opts.waveform, opts.f_low, opts.min_distance,
                 opts.max_distance, opts.prior_distance_power, psds=psds,
                 method=method, nside=opts.nside, chain_dump=chain_dump,
                 phase_convention=opts.phase_convention)
+            prob, distmu, distsigma, _ = sky_map
+            distmean, diststd = distance.parameters_to_marginal_moments(
+                prob, distmu, distsigma)
         except (ArithmeticError, ValueError):
             log.exception("%s:method '%s':sky localization failed", coinc.coinc_event_id, method)
             count_sky_maps_failed += 1
@@ -199,6 +202,7 @@ for coinc, sngl_inspirals in ligolw_bayestar.coinc_and_sngl_inspirals_for_xmldoc
             fits.write_sky_map('%s.%s.fits.gz' % (int(coinc.coinc_event_id), method),
                 sky_map, objid=str(coinc.coinc_event_id), gps_time=float(epoch),
                 creator=parser.prog, runtime=elapsed_time,
+                distmean=distmean, diststd=diststd,
                 instruments=instruments, nest=True)
 
 

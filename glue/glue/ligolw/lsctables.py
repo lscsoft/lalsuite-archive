@@ -35,6 +35,7 @@ interested users.
 
 import math
 import numpy
+import warnings
 from xml import sax
 
 
@@ -42,16 +43,12 @@ from glue import git_version
 from glue import iterutils
 from glue import offsetvector
 from glue import segments
+import lal
+from lal import LIGOTimeGPS
 try:
-	from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 	from pylal import inject
 except ImportError:
 	# pylal is optional
-	from glue.lal import LIGOTimeGPS
-try:
-	import lal
-except ImportError:
-	# lal is optional
 	pass
 from . import ligolw
 from . import table
@@ -136,7 +133,6 @@ def IsTableProperties(Type, tagname, attrs):
 	obsolete.  see .CheckProperties() method of glue.ligolw.table.Table
 	class.
 	"""
-	import warnings
 	warnings.warn("lsctables.IsTableProperties() is deprecated.  use glue.ligolw.table.Table.CheckProperties() instead", DeprecationWarning)
 	return Type.CheckProperties(tagname, attrs)
 
@@ -3120,9 +3116,7 @@ class SimInspiral(table.TableRow):
 			self.geocent_end_time = self.geocent_end_time_ns = self.end_time_gmst = None
 		else:
 			self.geocent_end_time, self.geocent_end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-			# FIXME:  also do this when we switch to swig
-			# binding version of LIGOTimeGPS
-			#self.end_time_gmst = lal.GreenwichMeanSiderealTime(gps)
+			self.end_time_gmst = lal.GreenwichMeanSiderealTime(gps)
 
 	@property
 	def ra_dec(self):
@@ -3191,15 +3185,23 @@ class SimInspiral(table.TableRow):
 		return t_geocent + lal.TimeDelayFromEarthCenter(inject.cached_detector_by_prefix[instrument].location, ra, dec, t_geocent)
 
 	def get_time_geocent(self):
+		# FIXME:  delete this method
+		warnings.warn("SimInspiral.get_time_geocent() is deprecated.  use SimInspiral.time_geocent instead", DeprecationWarning)
 		return self.time_geocent
 
 	def set_time_geocent(self, gps):
+		# FIXME:  delete this method
+		warnings.warn("SimInspiral.set_time_geocent() is deprecated.  use SimInspiral.time_geocent instead", DeprecationWarning)
 		self.time_geocent = gps
 
 	def get_ra_dec(self):
+		# FIXME:  delete this method
+		warnings.warn("SimInspiral.get_ra_dec() is deprecated.  use SimInspiral.ra_dec instead", DeprecationWarning)
 		return self.ra_dec
 
 	def get_end(self, site = None):
+		# FIXME:  delete this method
+		warnings.warn("SimInspiral.get_end() is deprecated.  use SimInspiral.time_geocent or SimInspiral.time_at_instrument() instead", DeprecationWarning)
 		if site is None:
 			return self.time_geocent
 		else:
@@ -3294,9 +3296,7 @@ class SimBurst(TableRow):
 			self.time_geocent_gps = self.time_geocent_gps_ns = self.time_geocent_gmst = None
 		else:
 			self.time_geocent_gps, self.time_geocent_gps_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-			# FIXME:  also do this when we switch to swig
-			# binding version of LIGOTimeGPS
-			#self.time_geocent_gmst = lal.GreenwichMeanSiderealTime(gps)
+			self.time_geocent_gmst = lal.GreenwichMeanSiderealTime(gps)
 
 	@property
 	def ra_dec(self):
@@ -3348,20 +3348,15 @@ class SimBurst(TableRow):
 		return self.ra_dec
 
 	def get_end(self, site = None):
+		"""
+		Do not use this method:  use .time_at_instrument() if that's what you want, or use .time_geocent if that's what you want.
+
+		Also ... this doesn't return the *end time*, it returns the *PEAK TIME*.  You've been warned.
+		"""
 		if site is None:
-			return self.get_time_geocent()
-		else:
-			from pylal.xlal import tools
-			from pylal import date,inject
-			from pylal.date import XLALTimeDelayFromEarthCenter
-			from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-			detMap = {'H': 'LHO_4k', 'L': 'LLO_4k',
-                'G': 'GEO_600', 'V': 'VIRGO', 'T': 'TAMA_300'}
-			location=inject.cached_detector[detMap[site]].location
-			ra,dec=self.get_ra_dec()
-			time=self.get_time_geocent()
-			time=time+LIGOTimeGPS(XLALTimeDelayFromEarthCenter(location,ra,dec,LIGOTimeGPS(time)))
-			return LIGOTimeGPS(float(time))
+			return self.time_geocent
+		instrument = site + "1"	# ugh ...
+		return self.time_at_instrument(instrument, {instrument: 0.0})
 
 SimBurstTable.RowType = SimBurst
 

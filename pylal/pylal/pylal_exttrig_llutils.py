@@ -22,7 +22,6 @@ from pylal.plotsegments import PlotSegmentsPlot
 from pylal.grbsummary import multi_ifo_compute_offsource_segment as micos
 from pylal import antenna
 from pylal.xlal import date
-#from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal import git_version
 
 # the config parser to be used in some of the functions

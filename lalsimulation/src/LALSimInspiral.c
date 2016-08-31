@@ -122,6 +122,8 @@ static const char *lalSimulationApproximantNames[] = {
     INITIALIZE_NAME(SEOBNRv2),
     INITIALIZE_NAME(SEOBNRv2_opt),
     INITIALIZE_NAME(SEOBNRv3),
+    INITIALIZE_NAME(SEOBNRv4),
+    INITIALIZE_NAME(SEOBNRv4_opt),
     INITIALIZE_NAME(SEOBNRv1_ROM_EffectiveSpin),
     INITIALIZE_NAME(SEOBNRv1_ROM_DoubleSpin),
     INITIALIZE_NAME(SEOBNRv2_ROM_EffectiveSpin),
@@ -675,7 +677,7 @@ int XLALSimInspiralChooseTDWaveform(
             // NB: f_max = 0 will generate up to the ringdown cut-off frequency
             ret = XLALSimIMRPhenomCGenerateTD(hplus, hcross, phiRef, deltaT,
                     m1, m2, XLALSimIMRPhenomBComputeChi(m1, m2, S1z, S2z),
-                    f_min, 0., r, i);
+                    f_min, 0., r, i, nonGRparams);
             break;
 
 	case IMRPhenomD:
@@ -765,7 +767,23 @@ int XLALSimInspiralChooseTDWaveform(
                     deltaT, m1, m2, f_min, r, i, S1z, S2z, SpinAlignedEOBversion);
             break;
 
-         case SEOBNRv2_opt:
+        case SEOBNRv4:
+            /* Waveform-specific sanity checks */
+            if( !XLALSimInspiralWaveformFlagsIsDefault(waveFlags) )
+                ABORT_NONDEFAULT_WAVEFORM_FLAGS(waveFlags);
+            if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
+                ABORT_NONZERO_TRANSVERSE_SPINS(waveFlags);
+            if( !checkTidesZero(lambda1, lambda2) )
+                ABORT_NONZERO_TIDES(waveFlags);
+            if( f_ref != 0.)
+                XLALPrintWarning("XLAL Warning - %s: This approximant does not use f_ref. The reference phase will be defined at coalescence.\n", __func__);
+            /* Call the waveform driver routine */
+            SpinAlignedEOBversion = 4;
+            ret = XLALSimIMRSpinAlignedEOBWaveform(hplus, hcross, phiRef,
+                                                   deltaT, m1, m2, f_min, r, i, S1z, S2z, SpinAlignedEOBversion);
+            break;
+
+        case SEOBNRv2_opt:
              /* Waveform-specific sanity checks */
              if( !XLALSimInspiralWaveformFlagsIsDefault(waveFlags) )
                  ABORT_NONDEFAULT_WAVEFORM_FLAGS(waveFlags);
@@ -798,6 +816,22 @@ int XLALSimInspiralChooseTDWaveform(
             spin2[0] = S2x; spin2[1] = S2y; spin2[2] = S2z;
             ret = XLALSimIMRSpinEOBWaveform(hplus, hcross, /*&epoch,*/ phiRef,
                     deltaT, m1, m2, f_min, r, i, spin1, spin2);
+            break;
+
+        case SEOBNRv4_opt:
+            /* Waveform-specific sanity checks */
+            if( !XLALSimInspiralWaveformFlagsIsDefault(waveFlags) )
+                ABORT_NONDEFAULT_WAVEFORM_FLAGS(waveFlags);
+            if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
+                ABORT_NONZERO_TRANSVERSE_SPINS(waveFlags);
+            if( !checkTidesZero(lambda1, lambda2) )
+                ABORT_NONZERO_TIDES(waveFlags);
+            if( f_ref != 0.)
+                XLALPrintWarning("XLAL Warning - %s: This approximant does not use f_ref. The reference phase will be defined at coalescence.\n", __func__);
+            /* Call the waveform driver routine */
+            SpinAlignedEOBversion = 400;
+            ret = XLALSimIMRSpinAlignedEOBWaveform(hplus, hcross, phiRef,
+                                                   deltaT, m1, m2, f_min, r, i, S1z, S2z, SpinAlignedEOBversion);
             break;
 
 	case HGimri:
@@ -970,7 +1004,7 @@ int XLALSimInspiralChooseFDWaveform(
                     quadparam1, quadparam2, lambda1, lambda2,
                     XLALSimInspiralGetSpinOrder(waveFlags),
                     XLALSimInspiralGetTidalOrder(waveFlags),
-                    phaseO, amplitudeO);
+                    phaseO, amplitudeO, nonGRparams);
             if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
             /* Produce both polarizations */
             *hctilde = XLALCreateCOMPLEX16FrequencySeries("FD hcross",
@@ -1124,7 +1158,7 @@ int XLALSimInspiralChooseFDWaveform(
             /* Call the waveform driver routine */
             ret = XLALSimIMRPhenomCGenerateFD(hptilde, phiRef, deltaF, m1, m2,
                     XLALSimIMRPhenomBComputeChi(m1, m2, S1z, S2z),
-                    f_min, f_max, r);
+                    f_min, f_max, r, nonGRparams);
             if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
             /* Produce both polarizations */
             *hctilde = XLALCreateCOMPLEX16FrequencySeries("FD hcross",
@@ -1146,7 +1180,7 @@ int XLALSimInspiralChooseFDWaveform(
                 ABORT_NONZERO_TIDES(waveFlags);
             /* Call the waveform driver routine */
             ret = XLALSimIMRPhenomDGenerateFD(hptilde, phiRef, f_ref, deltaF, m1, m2,
-                    S1z, S2z, f_min, f_max, r);
+                  S1z, S2z, f_min, f_max, r, nonGRparams);
             if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
             /* Produce both polarizations */
             *hctilde = XLALCreateCOMPLEX16FrequencySeries("FD hcross",
@@ -1284,7 +1318,7 @@ int XLALSimInspiralChooseFDWaveform(
             /* Call the waveform driver routine */
             ret = XLALSimIMRPhenomP(hptilde, hctilde,
               chi1_l, chi2_l, chip, thetaJ,
-              m1, m2, r, alpha0, phiRef, deltaF, f_min, f_max, f_ref, IMRPhenomPv1_V);
+              m1, m2, r, alpha0, phiRef, deltaF, f_min, f_max, f_ref, IMRPhenomPv1_V, nonGRparams);
             if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
             break;
 
@@ -1314,7 +1348,7 @@ int XLALSimInspiralChooseFDWaveform(
             /* Call the waveform driver routine */
             ret = XLALSimIMRPhenomP(hptilde, hctilde,
               chi1_l, chi2_l, chip, thetaJ,
-              m1, m2, r, alpha0, phiRef, deltaF, f_min, f_max, f_ref, IMRPhenomPv2_V);
+              m1, m2, r, alpha0, phiRef, deltaF, f_min, f_max, f_ref, IMRPhenomPv2_V, nonGRparams);
             if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
             break;
 
@@ -3913,6 +3947,8 @@ int XLALSimInspiralImplementedTDApproximants(
         case SEOBNRv2:
         case SEOBNRv2_opt:
         case SEOBNRv3:
+        case SEOBNRv4:
+        case SEOBNRv4_opt:
         case NR_hdf5:
             return 1;
 
@@ -4354,7 +4390,9 @@ int XLALSimInspiralGetSpinSupportFromApproximant(Approximant approx){
     case IMRPhenomD:
     case SEOBNRv1:
     case SEOBNRv2:
+    case SEOBNRv4:
     case SEOBNRv2_opt:
+    case SEOBNRv4_opt:
     case SEOBNRv1_ROM_EffectiveSpin:
     case SEOBNRv1_ROM_DoubleSpin:
     case SEOBNRv2_ROM_EffectiveSpin:
@@ -4401,7 +4439,6 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
     case TaylorT2:
     case TaylorT3:
     case TaylorF1:
-    case TaylorF2:
     case TaylorR2F4:
     case TaylorF2RedSpin:
     case TaylorF2RedSpinTidal:
@@ -4434,7 +4471,8 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
     case SEOBNRv1:
     case SEOBNRv2:
     case SEOBNRv2_opt:
-    case SEOBNRv3:
+    case SEOBNRv4:
+    case SEOBNRv4_opt:
     case SEOBNRv1_ROM_EffectiveSpin:
     case SEOBNRv1_ROM_DoubleSpin:
     case SEOBNRv2_ROM_EffectiveSpin:
@@ -4444,10 +4482,6 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
     case IMRPhenomB:
     case IMRPhenomFA:
     case IMRPhenomFB:
-    case IMRPhenomC:
-    case IMRPhenomD:
-    case IMRPhenomP:
-    case IMRPhenomPv2:
     case IMRPhenomFC:
     case SpinTaylorT2Fourier:
     case SpinTaylorT4Fourier:
@@ -4459,12 +4493,17 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
     case NR_hdf5:
       testGR_accept=LAL_SIM_INSPIRAL_NO_TESTGR_PARAMS;
       break;
+    case TaylorF2:
     case SpinTaylorF2:
     case EccentricFD:
     case Eccentricity:
     case PhenSpinTaylor:
     case PhenSpinTaylorRD:
     case EccentricTD:
+    case IMRPhenomC:
+    case IMRPhenomD:
+    case IMRPhenomP:
+    case IMRPhenomPv2:
       testGR_accept=LAL_SIM_INSPIRAL_TESTGR_PARAMS;
       break;
     default:
@@ -4846,6 +4885,8 @@ double XLALSimInspiralGetFinalFreq(
             break;
 
         case SEOBNRv2:
+        case SEOBNRv4:
+        case SEOBNRv4_opt:
         case SEOBNRv2_opt:
             /* Check that the transverse spins are zero */
             if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
@@ -5048,6 +5089,37 @@ int XLALSimInspiralTDConditionStage2(REAL8TimeSeries *hplus, REAL8TimeSeries *hc
     }
 
     return 0;
+}
+
+
+/**
+ * @brief Function for determining the starting frequency 
+ * of the (2,2) mode when the highest order contribution starts at fLow.
+ * @details
+ * Compute the minimum frequency for waveform generation 
+ *  using amplitude orders above Newtonian.  The waveform 
+ *  generator turns on all orders at the orbital          
+ *  associated with fMin, so information from higher      
+ *  orders is not included at fLow unless fMin is         
+ *  sufficiently low.
+ *
+ * @param fLow  Requested lower frequency.
+ * @param ampOrder Requested amplitude order.
+ * @param approximant LALApproximant 
+ * @retval fStart The lower frequency to use to include corrections.
+ */
+REAL8 XLALSimInspiralfLow2fStart(REAL8 fLow, INT4 ampOrder, INT4 approximant)
+{
+  if (ampOrder == -1) {
+      if (approximant == SpinTaylorT2 || approximant == SpinTaylorT4)
+          ampOrder = MAX_PRECESSING_AMP_PN_ORDER;
+      else
+          ampOrder = MAX_NONPRECESSING_AMP_PN_ORDER;
+  }
+
+    REAL8 fStart;
+    fStart = fLow * 2./(ampOrder+2);
+    return fStart;
 }
 
 /** @} */

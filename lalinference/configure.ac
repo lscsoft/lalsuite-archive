@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([LALInference],[1.6.0.1],[lal-discuss@ligo.org])
+AC_INIT([LALInference],[1.7.0.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([src/config.h src/LALInferenceConfig.h])
 AC_CONFIG_SRCDIR([src/LALInference.h])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -17,8 +17,11 @@ AC_CONFIG_FILES([ \
   python/lalinference/Makefile \
   python/lalinference/__init__.py \
   python/lalinference/bayestar/Makefile \
+  python/lalinference/io/Makefile \
   python/lalinference/rapid_pe/Makefile \
   python/lalinference/imrtgr/Makefile \
+  python/lalinference/tiger/Makefile \
+  python/lalinference/popprior/Makefile \
   src/LALInferenceVCSInfo.c \
   src/LALInferenceVCSInfo.h \
   src/Makefile \
@@ -57,7 +60,7 @@ LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 #    then increment age.
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
-AC_SUBST([LIBCURRENT],[10])
+AC_SUBST([LIBCURRENT],[11])
 AC_SUBST([LIBREVISION],[0])
 AC_SUBST([LIBAGE],[0])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
@@ -168,6 +171,20 @@ AC_CHECK_LIB([metaio],[MetaioOpen],,[AC_MSG_ERROR([could not find the metaio lib
 # check for libmetaio headers
 AC_CHECK_HEADERS([metaio.h],,[AC_MSG_ERROR([could not find the metaio.h header])])
 
+# check for hdf5 support
+HDF5_ENABLE_VAL="DISABLED"
+# Note that AX_LIB_HDF5 uses h5cc to determine compiler for configure tests.
+# Make sure that it uses the same compiler as we are using.
+# Otherwise the configure tests may fail if we are using icc.
+HDF5_CC="${CC}"; export HDF5_CC
+HDF5_CLINKER="${CC}"; export HDF5_CLINKER
+AX_LIB_HDF5()
+unset HDF5_CC
+unset HDF5_CLINKER
+if test "${with_hdf5}" != "yes"; then
+  AC_MSG_ERROR([could not find the HDF5 library])
+fi
+
 if test "$lalxml" = "true"; then
   # check for libxml2
   PKG_CHECK_MODULES([LIBXML2],[libxml-2.0 >= 2.6],[true],[false])
@@ -176,17 +193,41 @@ if test "$lalxml" = "true"; then
 fi
 
 # check for lal libraries and headers
-LALSUITE_CHECK_LIB([LAL],[6.16.0],[LALVersion],[lal/LALStdio.h])
-LALSUITE_CHECK_LIB([LALSupport],[6.16.0],[XLALCacheImport],[lal/LALCache.h])
-LALSUITE_CHECK_LIB([LALMetaIO],[1.2.7],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
-LALSUITE_CHECK_LIB([LALFrame],[1.4.0],[LALFrOpen],[lal/LALFrameL.h])
-LALSUITE_CHECK_LIB([LALSimulation],[1.5.0],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
-LALSUITE_CHECK_LIB([LALInspiral],[1.7.4],[LALInspiralParameterCalc],[lal/LALInspiral.h])
-LALSUITE_CHECK_LIB([LALPulsar],[1.13.0],[XLALComputeFstat],[lal/ComputeFstat.h])
-LALSUITE_CHECK_LIB([LALBurst],[1.4.1],[XLALEPSearch],[lal/EPSearch.h])
+LALSUITE_CHECK_LIB([LAL],[6.16.1],[LALVersion],[lal/LALStdio.h])
+LALSUITE_CHECK_LIB([LALSupport],[6.16.1],[XLALCacheImport],[lal/LALCache.h])
+LALSUITE_CHECK_LIB([LALMetaIO],[1.2.8],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
+LALSUITE_CHECK_LIB([LALFrame],[1.4.1],[LALFrOpen],[lal/LALFrameL.h])
+LALSUITE_CHECK_LIB([LALSimulation],[1.6.0],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
+LALSUITE_CHECK_LIB([LALInspiral],[1.7.5],[LALInspiralParameterCalc],[lal/LALInspiral.h])
+LALSUITE_CHECK_LIB([LALPulsar],[1.14.0],[XLALComputeFstat],[lal/ComputeFstat.h])
+LALSUITE_CHECK_LIB([LALBurst],[1.4.2],[XLALEPSearch],[lal/EPSearch.h])
 
 # check for lalxml
-LALSUITE_CHECK_OPT_LIB([LALXML],[1.2.1],[XLALXMLFilePrintElements],[lal/LALXML.h])
+LALSUITE_CHECK_OPT_LIB([LALXML],[1.2.2],[XLALXMLFilePrintElements],[lal/LALXML.h])
+
+dnl FIXME: This doesn't work in the top-level build, because it tries
+dnl to compile and link against LAL itself, which will not have been built yet.
+dnl
+dnl AC_MSG_CHECKING([if LAL was built with HDF5 support])
+dnl AC_RUN_IFELSE(
+dnl   [AC_LANG_PROGRAM(
+dnl     [
+dnl       #include <lal/H5FileIO.h>
+dnl       #include <lal/XLALError.h>
+dnl     ],
+dnl     [
+dnl       int ret;
+dnl       (void)XLALSetSilentErrorHandler();
+dnl       (void)XLALH5FileOpen(NULL, NULL);
+dnl       return xlalErrno != XLAL_EFAULT;
+dnl     ]
+dnl   )],
+dnl   [AC_MSG_RESULT([yes])],
+dnl   [
+dnl     AC_MSG_RESULT([no])
+dnl     AC_MSG_ERROR([LAL must be built with HDF5 support in order to build LALInference])
+dnl   ]
+dnl )
 
 # configure SWIG wrapping modules
 LALSUITE_USE_SWIG

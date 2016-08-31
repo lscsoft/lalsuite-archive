@@ -28,13 +28,12 @@
 Ask Kipp to document this!
 """
 
+from lal import LIGOTimeGPS
 
 from glue import git_version
 from glue import iterutils
 from glue import segments
 from glue import segmentsUtils
-# FIXME:  switch to swig binding
-from glue.lal import LIGOTimeGPS
 from .. import lsctables
 
 
@@ -347,7 +346,7 @@ class LigolwSegments(set):
 
 	>>> import sys
 	>>> from glue.segments import *
-	>>> from glue.lal import LIGOTimeGPS
+	>>> from lal import LIGOTimeGPS
 	>>> from glue.ligolw import ligolw, lsctables
 	>>> xmldoc = ligolw.Document()
 	>>> xmldoc.appendChild(ligolw.LIGO_LW())	# doctest: +ELLIPSIS
@@ -399,7 +398,7 @@ class LigolwSegments(set):
 	</LIGO_LW>
 	>>> xmlsegments = LigolwSegments(xmldoc)
 	>>> xmlsegments.get_by_name("test")
-	{u'H1': [segment(LIGOTimeGPS(0,0), LIGOTimeGPS(10,0))]}
+	{u'H1': [segment(0.000000000, 10.000000000)]}
 	>>> xmlsegments.get_by_name("wrong name")
 	Traceback (most recent call last):
 		...
@@ -584,6 +583,10 @@ class LigolwSegments(set):
 			for instrument in seglist.instruments:
 				if instrument in result:
 					raise ValueError("multiple '%s' segmentlists for instrument '%s'" % (name, instrument))
+				# make copy so that instruments do not
+				# share a single list, so that subsequent
+				# arithmetic operations do not corrupt the
+				# wrong instrument's segments
 				result[instrument] = segments.segmentlist(segs)
 		if not result:
 			raise KeyError("no segmentlists named '%s'" % name)

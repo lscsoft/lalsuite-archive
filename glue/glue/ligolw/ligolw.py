@@ -33,7 +33,6 @@ constructing a parser.
 """
 
 
-import datetime
 import sys
 from xml import sax
 from xml.sax.xmlreader import AttributesImpl
@@ -143,8 +142,11 @@ class Element(object):
 	"""
 	# XML tag names are case sensitive:  compare with ==, !=, etc.
 	tagName = None
-	validattributes = frozenset()
 	validchildren = frozenset()
+
+	@classmethod
+	def validattributes(cls):
+		return frozenset(name for name in dir(cls) if isinstance(getattr(cls, name), attributeproxy))
 
 	def __init__(self, attrs = None):
 		"""
@@ -156,10 +158,10 @@ class Element(object):
 		self.parentNode = None
 		if attrs is None:
 			self.attributes = AttributesImpl({})
-		elif set(attrs.keys()) <= self.validattributes:
+		elif set(attrs.keys()) <= self.validattributes():
 			self.attributes = attrs
 		else:
-			raise ElementError("%s element: invalid attribute(s) %s" % (self.tagName, ", ".join("'%s'" % key for key in set(attrs.keys()) - self.validattributes)))
+			raise ElementError("%s element: invalid attribute(s) %s" % (self.tagName, ", ".join("'%s'" % key for key in set(attrs.keys()) - self.validattributes())))
 		self.childNodes = []
 		self.pcdata = None
 
@@ -329,6 +331,15 @@ class Element(object):
 		fileobj.write(u"\n")
 
 
+class EmptyElement(Element):
+	"""
+	Parent class for Elements that cannot contain text.
+	"""
+	def appendData(self, content):
+		if not content.isspace():
+			raise TypeError("%s does not hold text" % type(self))
+
+
 def WalkChildren(elem):
 	"""
 	Walk the XML tree of children below elem, returning each in order.
@@ -342,23 +353,47 @@ def WalkChildren(elem):
 #
 # =============================================================================
 #
+#                         Name Attribute Manipulation
+#
+# =============================================================================
+#
+
+
+class LLWNameAttr(unicode):
+	"""
+	Baseclass to hide pattern-matching of various element names.
+	Subclasses must provide a .dec_pattern compiled regular expression
+	defining a group "Name" that identifies the meaningful portion of
+	the string, and a .enc_pattern that gives a format string to be
+	used with "%" to reconstrct the full string.
+	"""
+	def __new__(cls, name):
+		try:
+			name = cls.dec_pattern.search(name).group(u"Name")
+		except AttributeError:
+			pass
+		return unicode.__new__(cls, name)
+
+	@classmethod
+	def enc(cls, name):
+		return cls.enc_pattern % name
+
+
+#
+# =============================================================================
+#
 #                        LIGO Light Weight XML Elements
 #
 # =============================================================================
 #
 
 
-class LIGO_LW(Element):
+class LIGO_LW(EmptyElement):
 	"""
 	LIGO_LW element.
 	"""
 	tagName = u"LIGO_LW"
 	validchildren = frozenset([u"LIGO_LW", u"Comment", u"Param", u"Table", u"Array", u"Stream", u"IGWDFrame", u"AdcData", u"AdcInterval", u"Time", u"Detector"])
-	validattributes = frozenset([u"Name", u"Type"])
-
-	def appendData(self, content):
-		if not content.isspace():
-			raise TypeError("%s does not hold text" % type(self))
 
 	Name = attributeproxy(u"Name")
 	Type = attributeproxy(u"Type")
@@ -384,7 +419,6 @@ class Param(Element):
 	"""
 	tagName = u"Param"
 	validchildren = frozenset([u"Comment"])
-	validattributes = frozenset([u"DataUnit", u"Name", u"Scale", u"Start", u"Type", u"Unit"])
 
 	DataUnit = attributeproxy(u"DataUnit")
 	Name = attributeproxy(u"Name")
@@ -394,17 +428,15 @@ class Param(Element):
 	Unit = attributeproxy(u"Unit")
 
 
-class Table(Element):
+class Table(EmptyElement):
 	"""
 	Table element.
 	"""
 	tagName = u"Table"
 	validchildren = frozenset([u"Comment", u"Column", u"Stream"])
-	validattributes = frozenset([u"Name", u"Type"])
 
-	def appendData(self, content):
-		if not content.isspace():
-			raise TypeError("%s does not hold text" % type(self))
+	Name = attributeproxy(u"Name")
+	Type = attributeproxy(u"Type")
 
 	def _verifyChildren(self, i):
 		ncomment = 0
@@ -426,26 +458,22 @@ class Table(Element):
 					raise ElementError("only one Stream allowed in Table")
 				nstream += 1
 
-	Name = attributeproxy(u"Name")
-	Type = attributeproxy(u"Type")
 
-
-class Column(Element):
+class Column(EmptyElement):
 	"""
 	Column element.
 	"""
 	tagName = u"Column"
-	validattributes = frozenset([u"Name", u"Type", u"Unit"])
+
+	Name = attributeproxy(u"Name")
+	Type = attributeproxy(u"Type")
+	Unit = attributeproxy(u"Unit")
 
 	def start_tag(self, indent):
 		"""
 		Generate the string for the element's start tag.
 		"""
 		return u"%s<%s%s/>" % (indent, self.tagName, u"".join(u" %s=\"%s\"" % keyvalue for keyvalue in self.attributes.items()))
-
-	def appendData(self, content):
-		if not content.isspace():
-			raise TypeError("%s does not hold text" % type(self))
 
 	def end_tag(self, indent):
 		"""
@@ -460,22 +488,17 @@ class Column(Element):
 		fileobj.write(self.start_tag(indent))
 		fileobj.write(u"\n")
 
-	Name = attributeproxy(u"Name")
-	Type = attributeproxy(u"Type")
-	Unit = attributeproxy(u"Unit")
 
-
-class Array(Element):
+class Array(EmptyElement):
 	"""
 	Array element.
 	"""
 	tagName = u"Array"
 	validchildren = frozenset([u"Dim", u"Stream"])
-	validattributes = frozenset([u"Name", u"Type", u"Unit"])
 
-	def appendData(self, content):
-		if not content.isspace():
-			raise TypeError("%s does not hold text" % type(self))
+	Name = attributeproxy(u"Name")
+	Type = attributeproxy(u"Type")
+	Unit = attributeproxy(u"Unit")
 
 	def _verifyChildren(self, i):
 		nstream = 0
@@ -488,17 +511,29 @@ class Array(Element):
 					raise ElementError("only one Stream allowed in Array")
 				nstream += 1
 
-	Name = attributeproxy(u"Name")
-	Type = attributeproxy(u"Type")
-	Unit = attributeproxy(u"Unit")
-
 
 class Dim(Element):
 	"""
 	Dim element.
 	"""
 	tagName = u"Dim"
-	validattributes = frozenset([u"Name", u"Scale", u"Start", u"Unit"])
+
+	Name = attributeproxy(u"Name")
+	Scale = attributeproxy(u"Scale", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
+	Start = attributeproxy(u"Start", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
+	Unit = attributeproxy(u"Unit")
+
+	@property
+	def n(self):
+		return ligolwtypes.ToPyType[u"int_8s"](self.pcdata) if self.pcdata is not None else None
+
+	@n.setter
+	def n(self, val):
+		self.pcdata = ligolwtypes.FormatFunc[u"int_8s"](val) if val is not None else None
+
+	@n.deleter
+	def n(self):
+		self.pcdata = None
 
 	def write(self, fileobj = sys.stdout, indent = u""):
 		fileobj.write(self.start_tag(indent))
@@ -507,23 +542,12 @@ class Dim(Element):
 		fileobj.write(self.end_tag(u""))
 		fileobj.write(u"\n")
 
-	Name = attributeproxy(u"Name")
-	Scale = attributeproxy(u"Scale", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
-	Start = attributeproxy(u"Start", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
-	Unit = attributeproxy(u"Unit")
-
 
 class Stream(Element):
 	"""
 	Stream element.
 	"""
 	tagName = u"Stream"
-	validattributes = frozenset([u"Content", u"Delimiter", u"Encoding", u"Name", u"Type"])
-
-	def __init__(self, *args):
-		super(Stream, self).__init__(*args)
-		if self.Type not in (u"Remote", u"Local"):
-			raise ElementError("invalid Type for Stream: '%s'" % self.Type)
 
 	Content = attributeproxy(u"Content")
 	Delimiter = attributeproxy(u"Delimiter", default = u",")
@@ -531,63 +555,48 @@ class Stream(Element):
 	Name = attributeproxy(u"Name")
 	Type = attributeproxy(u"Type", default = u"Local")
 
+	def __init__(self, *args):
+		super(Stream, self).__init__(*args)
+		if self.Type not in (u"Remote", u"Local"):
+			raise ElementError("invalid Type for Stream: '%s'" % self.Type)
 
-class IGWDFrame(Element):
+
+class IGWDFrame(EmptyElement):
 	"""
 	IGWDFrame element.
 	"""
 	tagName = u"IGWDFrame"
 	validchildren = frozenset([u"Comment", u"Param", u"Time", u"Detector", u"AdcData", u"LIGO_LW", u"Stream", u"Array", u"IGWDFrame"])
-	validattributes = frozenset([u"Name"])
-
-	def appendData(self, content):
-		if not content.isspace():
-			raise TypeError("%s does not hold text" % type(self))
 
 	Name = attributeproxy(u"Name")
 
 
-class Detector(Element):
+class Detector(EmptyElement):
 	"""
 	Detector element.
 	"""
 	tagName = u"Detector"
 	validchildren = frozenset([u"Comment", u"Param", u"LIGO_LW"])
-	validattributes = frozenset([u"Name"])
-
-	def appendData(self, content):
-		if not content.isspace():
-			raise TypeError("%s does not hold text" % type(self))
 
 	Name = attributeproxy(u"Name")
 
 
-class AdcData(Element):
+class AdcData(EmptyElement):
 	"""
 	AdcData element.
 	"""
 	tagName = u"AdcData"
 	validchildren = frozenset([u"AdcData", u"Comment", u"Param", u"Time", u"LIGO_LW", u"Array"])
-	validattributes = frozenset([u"Name"])
-
-	def appendData(self, content):
-		if not content.isspace():
-			raise TypeError("%s does not hold text" % type(self))
 
 	Name = attributeproxy(u"Name")
 
 
-class AdcInterval(Element):
+class AdcInterval(EmptyElement):
 	"""
 	AdcInterval element.
 	"""
 	tagName = u"AdcInterval"
 	validchildren = frozenset([u"AdcData", u"Comment", u"Time"])
-	validattributes = frozenset([u"DeltaT", u"Name", u"StartTime"])
-
-	def appendData(self, content):
-		if not content.isspace():
-			raise TypeError("%s does not hold text" % type(self))
 
 	DeltaT = attributeproxy(u"DeltaT", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
 	Name = attributeproxy(u"Name")
@@ -599,7 +608,9 @@ class Time(Element):
 	Time element.
 	"""
 	tagName = u"Time"
-	validattributes = frozenset([u"Name", u"Type"])
+
+	Name = attributeproxy(u"Name")
+	Type = attributeproxy(u"Type", default = u"ISO-8601")
 
 	def __init__(self, *args):
 		super(Time, self).__init__(*args)
@@ -611,12 +622,7 @@ class Time(Element):
 			import dateutil.parser
 			self.pcdata = dateutil.parser.parse(self.pcdata)
 		elif self.Type == u"GPS":
-			# FIXME:  remove try/except when we can rely on lal
-			# being installed
-			try:
-				from lal import LIGOTimeGPS
-			except ImportError:
-				from glue.lal import LIGOTimeGPS
+			from lal import LIGOTimeGPS
 			# FIXME:  remove cast to string when lal swig
 			# can cast from unicode
 			self.pcdata = LIGOTimeGPS(str(self.pcdata))
@@ -654,6 +660,7 @@ class Time(Element):
 		time in the default format (ISO-8601).  The Name attribute
 		will be set to the value of the Name parameter if given.
 		"""
+		import datetime
 		self = cls()
 		if Name is not None:
 			self.Name = Name
@@ -677,20 +684,13 @@ class Time(Element):
 		self.pcdata = gps
 		return self
 
-	Name = attributeproxy(u"Name")
-	Type = attributeproxy(u"Type", default = u"ISO-8601")
 
-
-class Document(Element):
+class Document(EmptyElement):
 	"""
 	Description of a LIGO LW file.
 	"""
 	tagName = u"Document"
 	validchildren = frozenset([u"LIGO_LW"])
-
-	def appendData(self, content):
-		if not content.isspace():
-			raise TypeError("%s does not hold text" % type(self))
 
 	def write(self, fileobj = sys.stdout, xsl_file = None):
 		"""

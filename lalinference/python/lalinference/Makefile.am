@@ -8,6 +8,9 @@ SUBDIRS = \
 	bayestar \
 	rapid_pe \
 	imrtgr \
+	io \
+	tiger \
+	popprior \
 	$(END_OF_LIST)
 
 vcs_info_sources = git_version.py
@@ -20,7 +23,11 @@ pymodule_PYTHON = \
 	__init__.py \
 	cmap.py \
 	fits.py \
+	healpix_tree.py \
+	marker.py \
 	plot.py \
+	lalinference_pipe_utils.py \
+	nest2pos.py \
 	git_version.py \
 	$(END_OF_LIST)
 

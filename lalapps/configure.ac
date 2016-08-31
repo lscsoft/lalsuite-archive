@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([LALApps],[6.18.0.1],[lal-discuss@ligo.org])
+AC_INIT([LALApps],[6.19.0.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/lalapps/lalapps.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -168,12 +168,18 @@ LALSUITE_USE_LIBTOOL
 
 # check for system libraries
 AC_CHECK_LIB([m],[sin])
-AC_CHECK_LIB([z],[compress],,[AC_MSG_ERROR([could not find the zlib library])])
 
 # check for system headers
 AC_HEADER_STDC
-AC_CHECK_HEADERS([zlib.h],,[AC_MSG_ERROR([could not find zlib.h])])
 AC_CHECK_HEADERS([unistd.h glob.h])
+
+# check for zlib libraries and headers
+PKG_CHECK_MODULES([ZLIB],[zlib],[true],[false])
+LALSUITE_PUSH_UVARS
+LALSUITE_ADD_FLAGS([C],[${ZLIB_CFLAGS}],[${ZLIB_LIBS}])
+AC_SEARCH_LIBS([compress],[],[:],[AC_MSG_ERROR([could not find the zlib library])])
+AC_CHECK_HEADER([zlib.h],[:],[AC_MSG_ERROR([could not find the zlib.h header])])
+LALSUITE_POP_UVARS
 
 # check for gsl
 PKG_CHECK_MODULES([GSL],[gsl],[true],[false])
@@ -336,17 +342,17 @@ if test "${boinc}" = "true" ; then
 fi
 
 # check for lal libararies and headers
-LALSUITE_CHECK_LIB([LAL],[6.16.0],[LALVersion],[lal/LALStdio.h])
-LALSUITE_CHECK_LIB([LALSupport],[6.16.0],[XLALCacheImport],[lal/LALCache.h])
-LALSUITE_CHECK_OPT_LIB([LALFrame],[1.4.0],[LALFrOpen],[lal/LALFrameL.h])
-LALSUITE_CHECK_OPT_LIB([LALMetaIO],[1.2.7],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
-LALSUITE_CHECK_OPT_LIB([LALXML],[1.2.1],[XLALXMLFilePrintElements],[lal/LALXML.h])
-LALSUITE_CHECK_OPT_LIB([LALSimulation],[1.5.0],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
-LALSUITE_CHECK_OPT_LIB([LALBurst],[1.4.1],[XLALEPSearch],[lal/EPSearch.h])
-LALSUITE_CHECK_OPT_LIB([LALInspiral],[1.7.4],[LALInspiralParameterCalc],[lal/LALInspiral.h])
-LALSUITE_CHECK_OPT_LIB([LALPulsar],[1.13.0],[XLALComputeFstat],[lal/ComputeFstat.h])
-LALSUITE_CHECK_OPT_LIB([LALInference],[1.6.0],[LALInferenceAddVariable],[lal/LALInference.h])
-LALSUITE_CHECK_OPT_LIB([LALStochastic],[1.1.17],[LALStochasticOptimalFilter],[lal/StochasticCrossCorrelation.h])
+LALSUITE_CHECK_LIB([LAL],[6.16.1],[LALVersion],[lal/LALStdio.h])
+LALSUITE_CHECK_LIB([LALSupport],[6.16.1],[XLALCacheImport],[lal/LALCache.h])
+LALSUITE_CHECK_OPT_LIB([LALFrame],[1.4.1],[LALFrOpen],[lal/LALFrameL.h])
+LALSUITE_CHECK_OPT_LIB([LALMetaIO],[1.2.8],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
+LALSUITE_CHECK_OPT_LIB([LALXML],[1.2.2],[XLALXMLFilePrintElements],[lal/LALXML.h])
+LALSUITE_CHECK_OPT_LIB([LALSimulation],[1.6.0],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
+LALSUITE_CHECK_OPT_LIB([LALBurst],[1.4.2],[XLALEPSearch],[lal/EPSearch.h])
+LALSUITE_CHECK_OPT_LIB([LALInspiral],[1.7.5],[LALInspiralParameterCalc],[lal/LALInspiral.h])
+LALSUITE_CHECK_OPT_LIB([LALPulsar],[1.14.0],[XLALComputeFstat],[lal/ComputeFstat.h])
+LALSUITE_CHECK_OPT_LIB([LALInference],[1.7.0],[LALInferenceAddVariable],[lal/LALInference.h])
+LALSUITE_CHECK_OPT_LIB([LALStochastic],[1.1.18],[LALStochasticOptimalFilter],[lal/StochasticCrossCorrelation.h])
 
 # check that lal was built with BOINC support, if required
 LALSUITE_CHECK_BOINC
@@ -403,7 +409,7 @@ AS_IF(
 )
 # add compiler flags for OpenMP
 AS_IF(
-  [test "x$OPENMP_CFLAGS" = "x"],
+  [test "x$OPENMP_CFLAGS" = "x" -a "x$ac_cv_prog_[]_AC_LANG_ABBREV[]_openmp" != "xnone needed"],
   [
     OPENMP_ENABLE_VAL="DISABLED"
     LALSUITE_ADD_FLAGS([C],[-Wno-unknown-pragmas],[])

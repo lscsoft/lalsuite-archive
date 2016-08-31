@@ -38,10 +38,6 @@ from glue.ligolw.utils import segments as ligolw_segments
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import git_version
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-
-
-lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -102,17 +98,17 @@ def parse_command_line():
 	options.cut_instrument = set(options.cut_instrument)
 
 	if options.min_peak_time is not None:
-		options.min_peak_time = LIGOTimeGPS(options.min_peak_time)
+		options.min_peak_time = lsctables.LIGOTimeGPS(options.min_peak_time)
 	if options.max_peak_time is not None:
-		options.max_peak_time = LIGOTimeGPS(options.max_peak_time)
+		options.max_peak_time = lsctables.LIGOTimeGPS(options.max_peak_time)
 	if options.min_start_time is not None:
-		options.min_start_time = LIGOTimeGPS(options.min_start_time)
+		options.min_start_time = lsctables.LIGOTimeGPS(options.min_start_time)
 	if options.max_start_time is not None:
-		options.max_start_time = LIGOTimeGPS(options.max_start_time)
+		options.max_start_time = lsctables.LIGOTimeGPS(options.max_start_time)
 	if options.min_stop_time is not None:
-		options.min_stop_time = LIGOTimeGPS(options.min_stop_time)
+		options.min_stop_time = lsctables.LIGOTimeGPS(options.min_stop_time)
 	if options.max_stop_time is not None:
-		options.max_stop_time = LIGOTimeGPS(options.max_stop_time)
+		options.max_stop_time = lsctables.LIGOTimeGPS(options.max_stop_time)
 
 	return options, (filenames or [None])
 

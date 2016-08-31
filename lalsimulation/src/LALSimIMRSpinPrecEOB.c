@@ -615,7 +615,7 @@ XLALSpinPrecAlignedHiSRStopCondition(double UNUSED t,  /**< UNUSED */
         XLAL_PRINT_INFO("values[0], values[1], values[2], values[3], dvalues[0], dvalues[1], dvalues[2], dvalues[3] = %e %e %e %e %e %e %e %e\n", values[0], values[1], values[2], values[3], dvalues[0], dvalues[1], dvalues[2], dvalues[3]);
     }
 
-  if ( dvalues[2] >= 0. || isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) )
+  if ( dvalues[0] >= 0. || dvalues[2] >= 0. || isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) )
   {
       return 1;
   }
@@ -3566,11 +3566,11 @@ int XLALSimIMRSpinEOBWaveformAll(
      * the azimuthal phase of the observer in the source (I-)frame. Together with inclination angle it defines 
      * the position of the observer in the (I-)frame associated with the source at t=0 */
 
-    Y22 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, 2 );
-    Y2m2 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, -2 );
-    Y21 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, 1 );
-    Y2m1 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, -1 );
-    Y20 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, 0 );
+    Y22 = XLALSpinWeightedSphericalHarmonic( inc, -phiC, -2, 2, 2 );
+    Y2m2 = XLALSpinWeightedSphericalHarmonic( inc, -phiC, -2, 2, -2 );
+    Y21 = XLALSpinWeightedSphericalHarmonic( inc, -phiC, -2, 2, 1 );
+    Y2m1 = XLALSpinWeightedSphericalHarmonic( inc, -phiC, -2, 2, -1 );
+    Y20 = XLALSpinWeightedSphericalHarmonic( inc, -phiC, -2, 2, 0 );
     /*if ( SpinsAlmostAligned ) {
         Y22 = XLALSpinWeightedSphericalHarmonic( inc, coa_phase_offset, -2, 2, 2 );
         Y2m2 = XLALSpinWeightedSphericalHarmonic( inc, coa_phase_offset, -2, 2, -2 );
