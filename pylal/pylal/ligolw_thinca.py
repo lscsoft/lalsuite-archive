@@ -217,11 +217,18 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 
 def coinc_inspiral_end_time(events, offset_vector):
 	"""
-	Function to compute the end time of an inspiral coincidence.
+	Compute the end time of an inspiral coincidence.
 	@events: a tuple of sngl_inspiral triggers making up a single
 	coinc_inspiral trigger
 	@offset_vector: a dictionary of offsets to apply to different
 	detectors keyed by detector name
+
+	In this context, the "end time" is the (time shifted) end time of
+	the constituent trigger with the highest SNR.  In particular, it is
+	*not* an estimate of the time at which the peak strain passed
+	through the geocentre (something that might come out of a proper
+	parameter estimation code).  The "end time" reported by this code
+	gets used for things like plot titles, alert messages, and so on.
 	"""
 	event = max(events, key = lambda event: event.snr)
 	return event.end + offset_vector[event.ifo]
@@ -363,10 +370,14 @@ def replicate_threshold(threshold, instruments):
 	>>> replicate_threshold(6, ["H1", "H2"])
 	{("H1", "H2"): 6, ("H2", "H1"): 6}
 	"""
-	instruments = sorted(instruments)
+	# uniqueify
+	instruments = list(set(instruments))
+	# first order
 	thresholds = dict((pair, threshold) for pair in iterutils.choices(instruments, 2))
+	# other order
 	instruments.reverse()
 	thresholds.update(dict((pair, threshold) for pair in iterutils.choices(instruments, 2)))
+	# done
 	return thresholds
 
 
