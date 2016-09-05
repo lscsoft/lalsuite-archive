@@ -34,6 +34,7 @@ from glue import git_version
 from glue import iterutils
 from glue import segments
 from glue import segmentsUtils
+from .. import ligolw
 from .. import lsctables
 
 
@@ -694,6 +695,15 @@ class LigolwSegments(set):
 #
 # =============================================================================
 #
+
+
+@lsctables.use_in
+class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
+	"""
+	Minimal content handler suitable for loading documents containg
+	segment tables.
+	"""
+	pass
 
 
 def has_segment_tables(xmldoc, name = None):
