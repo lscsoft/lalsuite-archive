@@ -7,6 +7,10 @@ p<-function(...) {
 
 universal_statistics<-FALSE
 
+sft_length<-as.numeric(read.table(pipe("grep 'SFT coherence time' 0/*/powerflux.log"), header=FALSE, sep=":")[1,2])
+if(is.na(sft_length))sft_length<-1800.0
+cat("Using sft coherence length of", sft_length, "\n")
+
 source("params.R")
 
 cosdist<-function(ra1, dec1, ra2, dec2) (sin(dec1)*sin(dec2)+cos(dec1)*cos(dec2)*cos(ra1-ra2))
@@ -49,13 +53,39 @@ start_plot("timing")
 print(xyplot(Hours~Band, Cputime))
 dev.off()
 
+grid_points<-read.table("grid_points.txt", header=FALSE)
+names(grid_points)<-c("tag", "skyband", "skyband_name", "count")
+grid_points[,"i"]<-as.numeric(gsub("/.*", "", gsub("output/", "", grid_points[,"tag"])))
+
+total_grid_points<-aggregate(grid_points[,"count", drop=FALSE], grid_points[,"i", drop=FALSE], sum)
+
+spindown_counts<-read.table("spindown_count.txt", header=FALSE)
+names(spindown_counts)<-c("tag", "x", "spindown_count")
+spindown_counts[,"i"]<-as.numeric(gsub("/.*", "", gsub("output/", "", spindown_counts[,"tag"])))
+
+band_info_counts<-dbGetQuery(con, p("SELECT SUM(valid_count) as valid_count, SUM(masked_count) as masked_count, SUM(template_count) as template_count, label, `set`, kind, COUNT(*) as entry_count FROM `", BandInfoTableName, "` WHERE kind='ul' AND `set`='", Segment, "_all' GROUP BY label"))
+
+nshifts<-read.table(pipe("grep nfshift: 0/*/powerflux.log"), header=FALSE)[1,2]
+
+counts_summary<-merge(total_grid_points, spindown_counts, by="i", all.x=TRUE)
+counts_summary<-merge(counts_summary, band_info_counts, by.x="i", by.y="label", all=TRUE)
+
+counts_summary[,"scheduled_units"]<-counts_summary[,"spindown_count"]*counts_summary[,"count"]*nshifts
+counts_summary[,"completed_units"]<-counts_summary[,"valid_count"]+counts_summary[,"masked_count"]
+cat(file=LOG, "Total work units scheduled", sprintf("%.0f", sum(as.numeric(counts_summary[,"scheduled_units"]))), "\n")
+cat(file=LOG, "Total work units completed", sprintf("%.0f", sum(as.numeric(counts_summary[,"completed_units"]))), "\n")
+
+RedoInstances<-counts_summary[,"scheduled_units"]!=counts_summary[,"completed_units"]
+RedoInstances[is.na(RedoInstances)]<-TRUE
+RedoInstances<-counts_summary[RedoInstances, "i"]
+
 CompletedInstances<- sort(as.integer(as.character(gsub(".*output/([^/]*)(/.*)?/powerflux.log.*", "\\1", Cputime[,"tag"])))) 
 cat(file=LOG, "Last instance completed:", max(CompletedInstances), "\n")
 cat(file=LOG, "Found", length(RunningInstances), "running instances\n")
 cat(file=LOG, "Found", length(VetoedInstances), "vetoed instances\n")
-IncompleteInstances<-sort(setdiff(1:max(CompletedInstances), CompletedInstances))
+IncompleteInstances<-unique(c(RedoInstances, sort(setdiff(1:max(CompletedInstances), CompletedInstances))))
 cat(file=LOG, "Found", length(IncompleteInstances), "incomplete instances:", p(IncompleteInstances, collapse=" "), "\n")
-MissingInstances<-sort(setdiff(1:max(CompletedInstances), c(CompletedInstances, RunningInstances, VetoedInstances)))
+MissingInstances<-sort(unique(c(RedoInstances, sort(setdiff(1:max(CompletedInstances), c(CompletedInstances, RunningInstances, VetoedInstances))))))
 cat(file=LOG, "Found", length(MissingInstances), "missing instances:", p(MissingInstances, collapse=" "), "\n")
 
 cat(file=LOG, "-------------------- missing.dag ----------------------\n")

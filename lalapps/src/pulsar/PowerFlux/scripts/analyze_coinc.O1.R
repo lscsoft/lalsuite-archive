@@ -491,7 +491,7 @@ for(i in 1:dim(ExtraStats)[1]) {
 		#ExtraStats[i, "line.f0"]<- 0
 		#ExtraStats[i, "line.comment"]<-""
 		line.f0[i]<- 0.0
-		line.comment<- ""
+		line.comment[i]<- ""
 		} else {
 		X<-aggregate(lines[,'strength'], lines[,'dataset', drop=FALSE], max, na.rm=TRUE)
 		F<-X[,'x']>StrongLine

@@ -37,7 +37,7 @@ names(A)<-gsub("h0_orig", "h0_inj", names(A))
 cat("Loaded original input with", dim(A)[1], "rows\n")
 
 col_names<-read.table(pipe("grep tag: 0/*/powerflux.log | head --lines=1"), header=FALSE, sep=" ")
-B<-read.table("band_info.txt", header=TRUE, stringsAsFactors=FALSE)
+B<-read.table("band_info.txt", header=FALSE, stringsAsFactors=FALSE)
 colnames(B)<-gsub(":", "", unlist(col_names[1,]))
 
 data<-merge(A, B[B$kind=="snr" & B[,"set"]==p(Segment, "_all"),,drop=FALSE], by.x="line_id_orig", by.y="label", all.x=TRUE, suffixes=c("_orig", ""))
