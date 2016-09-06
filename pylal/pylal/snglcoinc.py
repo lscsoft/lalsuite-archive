@@ -663,40 +663,64 @@ class CoincTables(object):
 		# required.  when that is fixed, remove this
 		self.time_slide_index = dict((time_slide_id, type(offset_vector)((instrument, lsctables.LIGOTimeGPS(offset)) for instrument, offset in offset_vector.items())) for time_slide_id, offset_vector in self.time_slide_index.items())
 
-	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events):
+	def coinc_rows(self, process_id, time_slide_id, coinc_def_id, events):
 		"""
-		Takes a process ID, a time slide ID, and a list of events,
-		and adds the events as a new coincidence to the coinc_event
-		and coinc_map tables.
+		From a process ID, a time slide ID, and a sequence of
+		events (generator expressions are OK), constructs and
+		initializes a coinc_event table row object and a sequence
+		of coinc_event_map table row objects describing the
+		coincident event.  The return value is the coinc_event row
+		and a sequence of the coinc_event_map rows.
 
-		Subclasses that wish to override this method should first
-		chain to this method to construct and initialize the
-		coinc_event and coinc_event_map rows.  When subclassing
-		this method, if the time shifts that were applied to the
-		events in constructing the coincidence are required to
-		compute additional metadata, they can be retrieved from
-		self.time_slide_index using the time_slide_id.
+		The coinc_event is *not* assigned a coinc_event_id by this
+		method.  It is expected that will be done in
+		.append_coinc().  This allows sub-classes to defer the
+		question of whether or not to include the coincidence in
+		the search results without consuming additional IDs.
+
+		The coinc_event row's .instruments and .likelihood
+		attributes are initialized to null values.  The calling
+		code should populate as needed.
+
+		When subclassing this method, if the time shifts that were
+		applied to the events in constructing the coincidence are
+		required to compute additional metadata, they can be
+		retrieved from self.time_slide_index using the
+		time_slide_id.
 		"""
-		# so we can iterate over it more than once incase we've
-		# been given a generator expression.
-		events = tuple(events)
-
 		coinc = self.coinctable.RowType()
 		coinc.process_id = process_id
 		coinc.coinc_def_id = coinc_def_id
-		coinc.coinc_event_id = self.coinctable.get_next_id()
+		coinc.coinc_event_id = None
 		coinc.time_slide_id = time_slide_id
 		coinc.set_instruments(None)
-		coinc.nevents = len(events)
 		coinc.likelihood = None
-		self.coinctable.append(coinc)
+
+		coincmaps = []
 		for event in events:
 			coincmap = self.coincmaptable.RowType()
 			coincmap.coinc_event_id = coinc.coinc_event_id
 			coincmap.table_name = event.event_id.table_name
 			coincmap.event_id = event.event_id
-			self.coincmaptable.append(coincmap)
-		return coinc
+			coincmaps.append(coincmap)
+
+		coinc.nevents = len(coincmaps)
+
+		return coinc, coincmaps
+
+	def append_coinc(self, coinc_event_row, coinc_event_map_rows):
+		"""
+		Appends the coinc_event row object and coinc_event_map row
+		objects to the coinc_event and coinc_event_map tables
+		respectively after assigning a coinc_event_id to the
+		coincidence.  Returns the coinc_event row object.
+		"""
+		coinc_event_row.coinc_event_id = self.coinctable.get_next_id()
+		self.coinctable.append(coinc_event_row)
+		for row in coinc_event_map_rows:
+			row.coinc_event_id = coinc_event_row.coinc_event_id
+			self.coincmaptable.append(row)
+		return coinc_event_row
 
 
 #

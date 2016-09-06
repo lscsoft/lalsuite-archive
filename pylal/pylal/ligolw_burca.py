@@ -164,9 +164,14 @@ class ExcessPowerCoincTables(snglcoinc.CoincTables):
 			self.multibursttable = lsctables.New(lsctables.MultiBurstTable, ("process_id", "duration", "central_freq", "bandwidth", "snr", "confidence", "amplitude", "coinc_event_id"))
 			xmldoc.childNodes[0].appendChild(self.multibursttable)
 
-	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events):
-		coinc = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, coinc_def_id, events)
-		self.multibursttable.append(make_multi_burst(process_id, coinc.coinc_event_id, events, self.time_slide_index[time_slide_id]))
+	def coinc_rows(self, process_id, time_slide_id, coinc_def_id, events):
+		coinc, coincmaps = super(ExcessPowerCoincTables, self).coinc_rows(process_id, time_slide_id, coinc_def_id, events)
+		return coinc, coincmaps, make_multi_burst(process_id, coinc.coinc_event_id, events, self.time_slide_index[time_slide_id])
+
+	def append_coinc(self, coinc, coincmaps, multiburst):
+		coinc = super(ExcessPowerCoincTables, self).append_coinc(coinc, coincmaps)
+		multiburst.coinc_event_id = coinc.coinc_event_id
+		self.multibursttable.append(multiburst)
 		return coinc
 
 
@@ -179,10 +184,10 @@ StringCuspBBCoincDef = lsctables.CoincDef(search = u"StringCusp", search_coinc_t
 
 
 class StringCuspCoincTables(snglcoinc.CoincTables):
-	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events):
-		coinc = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, coinc_def_id, events)
+	def coinc_rows(self, process_id, time_slide_id, coinc_def_id, events):
+		coinc, coincmaps = super(StringCuspCoincTables, self).coinc_rows(process_id, time_slide_id, coinc_def_id, events)
 		coinc.set_instruments(event.ifo for event in events)
-		return coinc
+		return coinc, coincmaps
 
 
 #
@@ -394,7 +399,7 @@ def ligolw_burca(
 			continue
 		ntuple = tuple(sngl_index[id] for id in coinc)
 		if not ntuple_comparefunc(ntuple, node.offset_vector):
-			coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple)
+			coinc_tables.append_coinc(*coinc_tables.coinc_rows(process_id, node.time_slide_id, coinc_def_id, ntuple))
 
 	#
 	# done

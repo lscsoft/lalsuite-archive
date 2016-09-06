@@ -189,14 +189,8 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 		if vetoes is not None:
 			self.seglists -= vetoes
 
-	def append_coinc(self, process_id, node, coinc_def_id, events):
-		#
-		# populate the coinc_event and coinc_event_map tables
-		#
-		
-		time_slide_id = node.time_slide_id
-		
-		coinc = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, coinc_def_id, events)
+	def coinc_rows(self, process_id, node, coinc_def_id, events):
+		coinc, coincmaps = super(RingdownCoincTables, self).coinc_rows(process_id, node.time_slide_id, coinc_def_id, events)
 
 		#
 		# populate the coinc_ringdown table:
@@ -209,7 +203,7 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 		#
 
 		coinc_ringdown = self.coinc_ringdown_table.RowType()
-		coinc_ringdown.coinc_event_id = coinc.coinc_event_id
+		coinc_ringdown.coinc_event_id = coinc.coinc_event_id	# = None
 		coinc_ringdown.snr = sum(event.snr**2. for event in events)**.5
 		coinc_ringdown.false_alarm_rate = None
 		# use the time of event[0] as an epoch
@@ -229,7 +223,6 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 		coinc_ringdown.kappa = None
 		coinc_ringdown.snr_ratio = None
 		coinc_ringdown.combined_far = None
-		self.coinc_ringdown_table.append(coinc_ringdown)
 
 		#
 		# record the instruments that were on at the time of the
@@ -249,10 +242,13 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 		coinc.instruments = self.uniquifier.setdefault(coinc.instruments, coinc.instruments)
 		coinc_ringdown.ifos = self.uniquifier.setdefault(coinc_ringdown.ifos, coinc_ringdown.ifos)
 
-		#
-		# done
-		#
+		return coinc, coincmaps, coinc_ringdown
 
+
+	def append_coinc(self, coinc, coincmaps, coinc_ringdown
+		coinc = super(RingdownCoincTables, self).append_coinc(coinc, coincmaps)
+		coinc_ringdown.coinc_event_id = coinc.coinc_event_id
+		self.coinc_ringdown_table.append(coinc_ringdown)
 		return coinc
 
 
@@ -463,7 +459,7 @@ def ligolw_rinca(
 			continue
 		ntuple = tuple(sngl_index[id] for id in coinc)
 		if not ntuple_comparefunc(ntuple, node.offset_vector):
-			coinc_tables.append_coinc(process_id, node, coinc_def_id, ntuple)
+			coinc_tables.append_coinc(*coinc_tables.coinc_rows(process_id, node, coinc_def_id, ntuple))
 
 	#
 	# remove time offsets from events

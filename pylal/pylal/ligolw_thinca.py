@@ -136,12 +136,9 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		if vetoes is not None:
 			self.seglists -= vetoes
 
-	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events):
-		#
-		# populate the coinc_event and coinc_event_map tables
-		#
 
-		coinc = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, coinc_def_id, events)
+	def coinc_rows(self, process_id, time_slide_id, coinc_def_id, events):
+		coinc, coincmaps = super(InspiralCoincTables, self).coinc_rows(process_id, time_slide_id, coinc_def_id, events)
 
 		#
 		# populate the coinc_inspiral table:
@@ -156,7 +153,7 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		#
 
 		coinc_inspiral = self.coinc_inspiral_table.RowType()
-		coinc_inspiral.coinc_event_id = coinc.coinc_event_id
+		coinc_inspiral.coinc_event_id = coinc.coinc_event_id	# = None
 		coinc_inspiral.mass = sum(event.mass1 + event.mass2 for event in events) / len(events)
 		coinc_inspiral.mchirp = sum(event.mchirp for event in events) / len(events)
 		coinc_inspiral.snr = math.sqrt(sum(event.snr**2 for event in events))
@@ -166,7 +163,6 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		offsetvector = self.time_slide_index[time_slide_id]
 		coinc_inspiral.end = coinc_inspiral_end_time(events, offsetvector)
 		coinc_inspiral.instruments = (event.ifo for event in events)
-		self.coinc_inspiral_table.append(coinc_inspiral)
 
 		#
 		# record the instruments that were on at the time of the
@@ -194,11 +190,14 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		coinc.instruments = self.uniquifier.setdefault(coinc.instruments, coinc.instruments)
 		coinc_inspiral.ifos = self.uniquifier.setdefault(coinc_inspiral.ifos, coinc_inspiral.ifos)
 
-		#
-		# done
-		#
+		return coinc, coincmaps, coinc_inspiral
 
-		return coinc
+
+	def append_coinc(self, coinc_event, coinc_event_maps, coinc_inspiral):
+		coinc_event = super(InspiralCoincTables, self).append_coinc(coinc_event, coinc_event_maps)
+		coinc_inspiral.coinc_event_id = coinc_event.coinc_event_id
+		self.coinc_inspiral_table.append(coinc_inspiral)
+		return coinc_event
 
 
 #
@@ -425,7 +424,7 @@ def ligolw_thinca(
 			continue
 		coinc = tuple(sngl_index[event_id] for event_id in coinc)
 		if not ntuple_comparefunc(coinc, node.offset_vector):
-			coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, coinc)
+			coinc_tables.append_coinc(*coinc_tables.coinc_rows(process_id, node.time_slide_id, coinc_def_id, coinc))
 
 	#
 	# done
