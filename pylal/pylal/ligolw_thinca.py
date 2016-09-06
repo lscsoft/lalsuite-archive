@@ -361,6 +361,7 @@ def ligolw_thinca(
 	likelihood_func = None,
 	likelihood_params_func = None,
 	min_instruments = 2,
+	min_log_L = None,
 	verbose = False
 ):
 	#
@@ -369,6 +370,8 @@ def ligolw_thinca(
 
 	if min_instruments < 1:
 		raise ValueError("min_instruments (=%d) must be >= 1" % min_instruments)
+	if min_log_L is not None and likelihood_func is None:
+		raise ValueError("must supply likelihood_func to impose min_log_L cut")
 
 	#
 	# prepare the coincidence table interface.
@@ -424,7 +427,9 @@ def ligolw_thinca(
 			continue
 		coinc = tuple(sngl_index[event_id] for event_id in coinc)
 		if not ntuple_comparefunc(coinc, node.offset_vector):
-			coinc_tables.append_coinc(*coinc_tables.coinc_rows(process_id, node.time_slide_id, coinc_def_id, coinc))
+			coinc, coincmaps, coinc_inspiral = coinc_tables.coinc_rows(process_id, node.time_slide_id, coinc_def_id, coinc)
+			if min_log_L is None or coinc.likelihood >= min_log_L:
+				coinc_tables.append_coinc(coinc, coincmaps, coinc_inspiral)
 
 	#
 	# done
