@@ -220,6 +220,14 @@ def coinc_inspiral_end_time(events, offset_vector):
 	through the geocentre (something that might come out of a proper
 	parameter estimation code).  The "end time" reported by this code
 	gets used for things like plot titles, alert messages, and so on.
+
+	This end time is also used to parallelize ligolw_thinca by allowing
+	a single lock stretch to be split across several jobs without
+	missing or double counting any coincs.  This is achieved by using a
+	definition that is guaranteed to return a bit-identical "end time"
+	for a given set of triggers.  Guaranteeing that allows
+	ligolw_thinca to clip coincs to a sequence of contiguous segments
+	and know that every coinc will reproducibly fall in exactly one.
 	"""
 	event = max(events, key = lambda event: event.snr)
 	return event.end + offset_vector[event.ifo]

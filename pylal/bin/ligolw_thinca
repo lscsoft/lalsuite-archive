@@ -167,14 +167,12 @@ else:
 
 if options.coinc_end_time_segs is not None:
 	# Custom Ntuple Comparison Function
-	def restricted_endtime_ntuple_comparefunc(events, offset_vector, seg = options.coinc_end_time_segs):
+	def ntuple_comparefunc(events, offset_vector, seg = options.coinc_end_time_segs):
 		"""
-		Return False (ntuple should be retained) if the end time of the
-		coinc is in the segmentlist segs.
+		Return False (ntuple should be retained) if the end time of
+		the coinc is in the segmentlist segs.
 		"""
 		return ligolw_thinca.coinc_inspiral_end_time(events, offset_vector) not in seg
-
-	ntuple_comparefunc = restricted_endtime_ntuple_comparefunc
 else:
 	ntuple_comparefunc = ligolw_thinca.default_ntuple_comparefunc
 
