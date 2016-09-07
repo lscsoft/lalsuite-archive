@@ -38,7 +38,6 @@ from glue import offsetvector
 import lal
 from pylal import git_version
 from pylal import snglcoinc
-from pylal.xlal import tools as xlaltools
 from pylal.xlal.datatypes import snglinspiraltable
 
 
@@ -54,14 +53,6 @@ __date__ = git_version.date
 #
 # =============================================================================
 #
-
-
-#
-# Use C row classes for memory and speed
-#
-
-
-lsctables.CoincMapTable.RowType = lsctables.CoincMap = xlaltools.CoincMap
 
 
 #

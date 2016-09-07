@@ -62,6 +62,8 @@ lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
 #
 
 
+from pylal.xlal.tools import CoincMap
+lsctables.CoincMapTable.RowType = lsctables.CoincMap = CoincMap
 lsctables.SnglInspiralTable.RowType = lsctables.SnglInspiral = ligolw_thinca.SnglInspiral
 
 
