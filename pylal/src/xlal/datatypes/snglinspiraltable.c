@@ -52,8 +52,7 @@ static PyTypeObject *_pylal_SnglInspiralTable_Type = NULL;
 typedef struct {
 	PyObject_HEAD
 	SnglInspiralTable sngl_inspiral;
-	/* FIXME:  these should be incorporated into the LAL structure */
-	long process_id_i;
+	/* FIXME:  this should be incorporated into the LAL structure */
 	EventIDColumn event_id;
 } pylal_SnglInspiralTable;
 
@@ -176,7 +175,7 @@ static struct PyGetSetDef getset[] = {
 	{"search", pylal_inline_string_get, pylal_inline_string_set, "search", &(struct pylal_inline_string_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.search), LIGOMETA_SEARCH_MAX}},
 	{"channel", pylal_inline_string_get, pylal_inline_string_set, "channel", &(struct pylal_inline_string_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.channel), LIGOMETA_CHANNEL_MAX}},
 	{"end", end_get, end_set, "end", NULL},
-	{"process_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "process_id", &(struct pylal_ilwdchar_id_description) {offsetof(pylal_SnglInspiralTable, process_id_i), &process_id_type}},
+	{"process_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "process_id", &(struct pylal_ilwdchar_id_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.process_id), &process_id_type}},
 	{"event_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "event_id", &(struct pylal_ilwdchar_id_description) {offsetof(pylal_SnglInspiralTable, event_id.id), &sngl_inspiral_event_id_type}},
 	{NULL,}
 };
@@ -224,8 +223,6 @@ static PyObject *__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	/* link the event_id pointer in the sngl_inspiral table structure
 	 * to the event_id structure */
 	new->sngl_inspiral.event_id = &new->event_id;
-
-	new->process_id_i = 0;
 	new->event_id.id = 0;
 
 	/* done */
