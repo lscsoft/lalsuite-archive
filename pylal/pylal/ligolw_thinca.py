@@ -439,7 +439,7 @@ def ligolw_thinca(
 	# pair
 	#
 
-	thresholds = replicate_threshold(thresholds, set(eventlists))
+	thresholds = replicate_threshold(thresholds, eventlists)
 
 	#
 	# construct offset vector assembly graph
