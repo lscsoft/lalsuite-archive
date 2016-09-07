@@ -294,37 +294,6 @@ class InspiralEventList(snglcoinc.EventList):
 #
 
 
-def inspiral_ethinca_max_dt(events, e_thinca_parameter):
-	"""
-	Given an e-thinca parameter and a list of sngl_inspiral events,
-	return the greatest \Delta t that can separate two events and they
-	still be considered coincident.
-	"""
-	# for each instrument present in the event list, compute the
-	# largest \Delta t interval for the events from that instrument,
-	# and return the sum of the largest two such \Delta t's.
-	return sum(sorted(max(xlaltools.XLALSnglInspiralTimeError(event, e_thinca_parameter) for event in events if event.ifo == instrument) for instrument in set(event.ifo for event in events))[-2:]) + 2. * lal.REARTH_SI / lal.C_SI
-
-
-def inspiral_coinc_compare(a, offseta, b, offsetb, light_travel_time, e_thinca_parameter):
-	"""
-	Returns False (a & b are coincident) if they pass the ellipsoidal
-	thinca test.
-	"""
-	if offseta: a.end += offseta
-	if offsetb: b.end += offsetb
-	try:
-		# FIXME:  should it be "<" or "<="?
-		coincident = xlaltools.XLALCalculateEThincaParameter(a, b) <= e_thinca_parameter
-	except ValueError:
-		# ethinca test failed to converge == events are not
-		# coincident
-		coincident = False
-	if offseta: a.end -= offseta
-	if offsetb: b.end -= offsetb
-	return not coincident
-
-
 def inspiral_coinc_compare_exact(a, offseta, b, offsetb, light_travel_time, delta_t):
 	"""
 	Returns False (a & b are coincident) if they have the same masses
