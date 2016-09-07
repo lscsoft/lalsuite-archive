@@ -38,7 +38,7 @@ from glue import offsetvector
 import lal
 from pylal import git_version
 from pylal import snglcoinc
-from pylal.xlal.datatypes import snglinspiraltable
+from pylal.xlal.datatypes.snglinspiraltable import SnglInspiralTable as XLALSnglInspiral
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -61,7 +61,7 @@ __date__ = git_version.date
 #
 
 
-class SnglInspiral(snglinspiraltable.SnglInspiralTable):
+class SnglInspiral(XLALSnglInspiral):
 	__slots__ = ()
 
 	spin1 = lsctables.SnglInspiral.spin1
