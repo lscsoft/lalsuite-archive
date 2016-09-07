@@ -31,10 +31,9 @@
 #include <lal/LIGOMetadataTables.h>
 #include <ligotimegps.h>
 #include <misc.h>
-#include <snglinspiraltable.h>
 
 
-#define MODULE_NAME PYLAL_SNGLINSPIRALTABLE_MODULE_NAME
+#define MODULE_NAME "pylal.xlal.datatypes.snglinspiraltable"
 
 
 /*
@@ -44,6 +43,19 @@
  *
  * ============================================================================
  */
+
+
+static PyTypeObject *_pylal_SnglInspiralTable_Type = NULL;
+#define pylal_SnglInspiralTable_Type (*_pylal_SnglInspiralTable_Type)
+
+
+typedef struct {
+	PyObject_HEAD
+	SnglInspiralTable sngl_inspiral;
+	/* FIXME:  these should be incorporated into the LAL structure */
+	long process_id_i;
+	EventIDColumn event_id;
+} pylal_SnglInspiralTable;
 
 
 /*
