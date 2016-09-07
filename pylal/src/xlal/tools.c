@@ -32,12 +32,8 @@
 #include <lal/DetectorSite.h>
 #include <misc.h>
 #include <tools.h>
-#include <datatypes/snglinspiraltable.h>
 #include <datatypes/snglringdowntable.h>
-#include <lal/LIGOMetadataUtils.h>
 #include <lal/LIGOMetadataRingdownUtils.h>
-#include <lal/CoincInspiralEllipsoid.h>
-#include <lal/TrigScanEThincaCommon.h>
 #include <lal/RingUtils.h>
 
 
@@ -253,58 +249,6 @@ PyTypeObject ligolw_CoincMap_Type = {
 
 
 /*
- * sngl_inspiral related coincidence stuff.
- */
-
-
-static PyObject *pylal_XLALSnglInspiralTimeError(PyObject *self, PyObject *args)
-{
-	pylal_SnglInspiralTable *row;
-	double e_thinca_threshold;
-	double delta_t;
-
-	if(!PyArg_ParseTuple(args, "O!d", &pylal_SnglInspiralTable_Type, &row, &e_thinca_threshold))
-		return NULL;
-
-	delta_t = XLALSnglInspiralTimeError(&row->sngl_inspiral, e_thinca_threshold);
-	if(XLAL_IS_REAL8_FAIL_NAN(delta_t)) {
-		pylal_set_exception_from_xlalerrno();
-		return NULL;
-	}
-
-	return PyFloat_FromDouble(delta_t);
-}
-
-
-static PyObject *pylal_XLALCalculateEThincaParameter(PyObject *self, PyObject *args)
-{
-	static InspiralAccuracyList accuracyparams;
-	static int accuracyparams_set = 0;
-	pylal_SnglInspiralTable *row1, *row2;
-	double result;
-
-	if(!PyArg_ParseTuple(args, "O!O!", &pylal_SnglInspiralTable_Type, &row1, &pylal_SnglInspiralTable_Type, &row2))
-		return NULL;
-
-	if(!accuracyparams_set) {
-		memset(&accuracyparams, 0, sizeof(accuracyparams));
-		XLALPopulateAccuracyParams(&accuracyparams);
-		accuracyparams_set = 1;
-	}
-
-	result = XLALCalculateEThincaParameter(&row1->sngl_inspiral, &row2->sngl_inspiral, &accuracyparams);
-
-	if(XLAL_IS_REAL8_FAIL_NAN(result)) {
-		XLALClearErrno();
-		PyErr_SetString(PyExc_ValueError, "not coincident");
-		return NULL;
-	}
-
-	return PyFloat_FromDouble(result);
-}
-
-
-/*
  * sngl_ringdown related coincidence stuff.
  */
 
@@ -358,8 +302,6 @@ static PyObject *pylal_XLAL3DRinca(PyObject *self, PyObject *args)
 
 
 static struct PyMethodDef methods[] = {
-	{"XLALSnglInspiralTimeError", pylal_XLALSnglInspiralTimeError, METH_VARARGS, "XLALSnglInspiralTimeError(row, threshold)\n\nFrom a sngl_inspiral event compute the \\Delta t interval corresponding to the given e-thinca threshold."},
-	{"XLALCalculateEThincaParameter", pylal_XLALCalculateEThincaParameter, METH_VARARGS, "XLALCalculateEThincaParameter(row1, row2)\n\nTakes two SnglInspiralTable objects and\ncalculates the overlap factor between them."},
 	{"XLALRingdownTimeError", pylal_XLALRingdownTimeError, METH_VARARGS, "XLALRingdownTimeError(row, ds^2)\n\nFrom a sngl_ringdown event compute the \\Delta t interval corresponding to the given ds^2 threshold."},
 	{"XLAL3DRinca", pylal_XLAL3DRinca, METH_VARARGS, "XLAL3DRinca(row1, row)\n\nTakes two SnglRingdown objects and\ncalculates the distance, ds^2, between them."},
 	{NULL,}
@@ -372,7 +314,6 @@ PyMODINIT_FUNC inittools(void)
 	if(!module)
 		goto nomodule;
 
-	pylal_snglinspiraltable_import();
 	pylal_snglringdowntable_import();
 
 	/* Cached ID types */
