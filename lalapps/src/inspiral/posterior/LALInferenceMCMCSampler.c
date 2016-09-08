@@ -23,7 +23,6 @@
 
 #include <config.h>
 #include <math.h>
-//#include <sys/resource.h>
 #include <stdio.h>
 #include <stdlib.h>
 #ifdef HAVE_UNISTD_H
@@ -429,13 +428,6 @@ void record_likelihoods(LALInferenceThreadState *thread) {
 
 void mcmc_step(LALInferenceRunState *runState, LALInferenceThreadState *thread) {
     // Metropolis-Hastings sampler.
-    /* memory leackage check code made by hwlee at 26 august 2016
-     */
-//#define CHECK_NUMBER 100000
-//    static int calls = 0;
-//    static int check_mem0 = 0, check_mem1 = 0, check_mem2 = 0, check_mem3=0, check_mem4=0;
-//    int mem0, mem1, mem2, mem3, mem4, mem5;
-//    struct rusage r_usage;
     INT4 MPIrank;
     REAL8 logPriorCurrent, logPriorProposed;
     REAL8 logLikelihoodCurrent, logLikelihoodProposed;
@@ -445,8 +437,6 @@ void mcmc_step(LALInferenceRunState *runState, LALInferenceThreadState *thread) 
 
     MPI_Comm_rank(MPI_COMM_WORLD, &MPIrank);
 
-    //getrusage(RUSAGE_SELF,&r_usage);
-    //mem0 = r_usage.ru_maxrss;
     INT4 outputSNRs = LALInferenceGetINT4Variable(runState->algorithmParams, "output_snrs");
     INT4 propTrack = LALInferenceGetINT4Variable(runState->algorithmParams, "prop_track");
 
@@ -456,9 +446,6 @@ void mcmc_step(LALInferenceRunState *runState, LALInferenceThreadState *thread) 
 
     // generate proposal:
     logProposalRatio = thread->proposal(thread, thread->currentParams, thread->proposedParams);
-    //getrusage(RUSAGE_SELF,&r_usage);
-    //mem1 = r_usage.ru_maxrss;
-    //check_mem0 += (mem1 - mem0);
 
     // compute prior & likelihood:
     logPriorProposed = runState->prior(runState, thread->proposedParams, thread->model);
@@ -466,9 +453,6 @@ void mcmc_step(LALInferenceRunState *runState, LALInferenceThreadState *thread) 
         logLikelihoodProposed = runState->likelihood(thread->proposedParams, runState->data, thread->model);
     else
         logLikelihoodProposed = -DBL_MAX;
-    //getrusage(RUSAGE_SELF,&r_usage);
-    //mem2 = r_usage.ru_maxrss;
-    //check_mem1 += (mem2 - mem1);
 
     if (propTrack)
         LALInferenceCopyVariables(thread->currentParams, thread->preProposalParams);
@@ -478,9 +462,6 @@ void mcmc_step(LALInferenceRunState *runState, LALInferenceThreadState *thread) 
                                 + (logPriorProposed - logPriorCurrent)
                                 + logProposalRatio;
 
-    //getrusage(RUSAGE_SELF,&r_usage);
-    //mem3 = r_usage.ru_maxrss;
-    //check_mem2 += (mem3 - mem2);
     // accept/reject:
     if ((logAcceptanceProbability > 0)
         || (log(gsl_rng_uniform(thread->GSLrandom)) < logAcceptanceProbability)) {   //accept
@@ -517,20 +498,9 @@ void mcmc_step(LALInferenceRunState *runState, LALInferenceThreadState *thread) 
     } else {
         thread->accepted = 0;
     }
-    //getrusage(RUSAGE_SELF,&r_usage);
-    //mem4 = r_usage.ru_maxrss;
-    //check_mem3 += (mem4 - mem3);
 
     LALInferenceUpdateAdaptiveJumps(thread, targetAcceptance);
-    //getrusage(RUSAGE_SELF,&r_usage);
-    //mem5 = r_usage.ru_maxrss;
-    //check_mem4 += (mem5 - mem4);
 
-    //if( (calls%CHECK_NUMBER) == 0) {
-      //getrusage(RUSAGE_SELF,&r_usage);
-      //fprintf(stderr, "===== DEBUG hwlee rank = %3d, %9d calls of mcmc_step, check_mem0,1,2,3,4=%9d,%9d,%9d,%9d,%9d\n", MPIrank, calls, check_mem0, check_mem1, check_mem2, check_mem3, check_mem4);
-    //}
-    //calls++;
     return;
 }
 

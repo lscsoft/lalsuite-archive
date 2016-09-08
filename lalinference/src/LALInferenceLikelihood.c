@@ -23,8 +23,6 @@
 
 #include <complex.h>
 #include <assert.h>
-//#include <sys/resource.h>
-//#include <stdio.h>
 #include <lal/LALInferenceLikelihood.h>
 #include <lal/LALInferencePrior.h>
 #include <lal/LALInference.h>
@@ -368,19 +366,6 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
   /* ROQ likelihood stuff */
   REAL8 d_inner_h=0.0;
 
-  /* variables for debugging memory leackage check
-   * by hwlee at 26 august 2016. should be removed later
-   */
-//#define CHECK_NUMBER 100000
-    //static int calls = 0;
-    //static int check_mem0 = 0, check_mem1 = 0, check_mem2 = 0, check_mem3=0, check_mem4=0, check_mem5=0, check_mem6=0;
-    //int mem0, mem1, mem2, mem3, mem4, mem5, mem6, mem7;
-    //struct rusage r_usage;
-    //getrusage(RUSAGE_SELF,&r_usage);
-    //mem0 = r_usage.ru_maxrss;
-    //INT4 MPIrank;
-    //MPI_Comm_rank(MPI_COMM_WORLD, &MPIrank);
-
   if (LALInferenceCheckVariable(currentParams, "spcal_active") && (*(UINT4 *)LALInferenceGetVariable(currentParams, "spcal_active"))) {
     spcal_active = 1;
   }
@@ -611,9 +596,6 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
         XLAL_ERROR_REAL8(XLAL_EDOM);
       }
     }
-    //getrusage(RUSAGE_SELF,&r_usage);
-    //mem1 = r_usage.ru_maxrss;
-    //check_mem0 += (mem1 - mem0);
 
     if(signalFlag){
 
@@ -629,17 +611,11 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
           LALInferenceRemoveVariable(model->params, "time");
         }
         else timeTmp = GPSdouble;
-    //getrusage(RUSAGE_SELF,&r_usage);
-    //mem2 = r_usage.ru_maxrss;
-    //check_mem1 += (mem2 - mem1);
 
         LALInferenceCopyVariables(currentParams, model->params);
         // Remove time variable so it can be over-written (if it was pinned)
         if(LALInferenceCheckVariable(model->params,"time")) LALInferenceRemoveVariable(model->params,"time");
         LALInferenceAddVariable(model->params, "time", &timeTmp, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
-    //getrusage(RUSAGE_SELF,&r_usage);
-    //mem3 = r_usage.ru_maxrss;
-    //check_mem2 += (mem3 - mem2);
 
         INT4 errnum=0;
         XLAL_TRY(model->templt(model),errnum);
@@ -659,17 +635,11 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
           }
 
         }
-    //getrusage(RUSAGE_SELF,&r_usage);
-    //mem4 = r_usage.ru_maxrss;
-    //check_mem3 += (mem4 - mem3);
 
         if (model->domain == LAL_SIM_DOMAIN_TIME) {
           /* TD --> FD. */
           LALInferenceExecuteFT(model);
         }
-    //getrusage(RUSAGE_SELF,&r_usage);
-    //mem5 = r_usage.ru_maxrss;
-    //check_mem4 += (mem5 - mem4);
       }
 
         /* Template is now in model->timeFreqhPlus and hCross */
@@ -1031,9 +1001,6 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
     }
   }/* END of if (model->roq_flag) */
   } /* end loop over detectors */
-    //getrusage(RUSAGE_SELF,&r_usage);
-    //mem6 = r_usage.ru_maxrss;
-    //check_mem5 += (mem6 - mem0);
 
   if (model->roq_flag){
 	REAL8 OptimalSNR=sqrt(S);
@@ -1188,16 +1155,6 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
   LALInferenceAddVariable(currentParams,"matched_filter_snr",&MatchedFilterSNR,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
 
   //loglikelihood = -1.0 * chisquared; // note (again): the log-likelihood is unnormalised!
-
-    //getrusage(RUSAGE_SELF,&r_usage);
-    //mem7 = r_usage.ru_maxrss;
-    //check_mem6 += (mem7 - mem6);
-
-    //if( (calls%CHECK_NUMBER) == 0) {
-      //getrusage(RUSAGE_SELF,&r_usage);
-      //fprintf(stderr, "===== DEBUG hwlee %9d calls of FusedFDLogLikelihood, check_mem0,1,2,3,4,5,6=%9d,%9d,%9d,%9d,%9d,%9d,%9d\n", calls, check_mem0, check_mem1, check_mem2, check_mem3, check_mem4,check_mem5,check_mem6);
-    //}
-    //calls++;
 
   return(loglikelihood);
 }
