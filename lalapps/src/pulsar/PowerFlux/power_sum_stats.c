@@ -1803,10 +1803,6 @@ void compute_power(PARTIAL_POWER_SUM_F *pps, ALIGNMENT_COEFFS *ag, float *tmp, f
 {
 int i;
 float weight, inv_weight;
-if(pps->power_im_pc==NULL) {
-	fprintf(stderr, "*** INTERNAL ERROR: %s requires pps->power_im_pc!=NULL\n", __FUNCTION__);
-	exit(-1);
-	}
 
 if(pps->weight_arrays_non_zero) {
 	*max_weight=0;
@@ -1829,19 +1825,38 @@ if(pps->weight_arrays_non_zero) {
 		pps->collapsed_weight_arrays=1;
 		}
 
-		PRAGMA_IVDEP
-	for(i=0;i<useful_bins;i++) {
-		weight=(pps->weight_pppp[i]*ag->pppp+
-			pps->weight_pppc[i]*ag->pppc+
-			pps->weight_ppcc[i]*ag->ppcc+
-			pps->weight_pccc[i]*ag->pccc+
-			pps->weight_cccc[i]*ag->cccc);
-	
-		if(weight>*max_weight)*max_weight=weight;
-		if(weight<*min_weight)*min_weight=weight;
 
-		tmp[i]=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc+pps->power_im_pc[i]*ag->im_pc)/weight;
-			
+	if(pps->power_im_pc!=NULL) {
+
+		PRAGMA_IVDEP
+		for(i=0;i<useful_bins;i++) {
+			weight=(pps->weight_pppp[i]*ag->pppp+
+				pps->weight_pppc[i]*ag->pppc+
+				pps->weight_ppcc[i]*ag->ppcc+
+				pps->weight_pccc[i]*ag->pccc+
+				pps->weight_cccc[i]*ag->cccc);
+		
+			if(weight>*max_weight)*max_weight=weight;
+			if(weight<*min_weight)*min_weight=weight;
+
+			tmp[i]=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc+pps->power_im_pc[i]*ag->im_pc)/weight;
+				
+			}
+		} else {
+		PRAGMA_IVDEP
+		for(i=0;i<useful_bins;i++) {
+			weight=(pps->weight_pppp[i]*ag->pppp+
+				pps->weight_pppc[i]*ag->pppc+
+				pps->weight_ppcc[i]*ag->ppcc+
+				pps->weight_pccc[i]*ag->pccc+
+				pps->weight_cccc[i]*ag->cccc);
+		
+			if(weight>*max_weight)*max_weight=weight;
+			if(weight<*min_weight)*min_weight=weight;
+
+			tmp[i]=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc)/weight;
+				
+			}
 		}
 	} else {
 	weight=(pps->c_weight_pppp*ag->pppp+
@@ -1855,9 +1870,16 @@ if(pps->weight_arrays_non_zero) {
 
 	inv_weight=1.0/weight;
 
-	PRAGMA_IVDEP
-	for(i=0;i<useful_bins;i++) {
-		tmp[i]=((float)pps->power_pp[i]*ag->pp+(float)pps->power_pc[i]*ag->pc+(float)pps->power_cc[i]*ag->cc+(float)pps->power_im_pc[i]*ag->im_pc)*inv_weight;
+	if(pps->power_im_pc!=NULL) {
+		PRAGMA_IVDEP
+		for(i=0;i<useful_bins;i++) {
+			tmp[i]=((float)pps->power_pp[i]*ag->pp+(float)pps->power_pc[i]*ag->pc+(float)pps->power_cc[i]*ag->cc+(float)pps->power_im_pc[i]*ag->im_pc)*inv_weight;
+			}
+		} else {
+		PRAGMA_IVDEP
+		for(i=0;i<useful_bins;i++) {
+			tmp[i]=((float)pps->power_pp[i]*ag->pp+(float)pps->power_pc[i]*ag->pc+(float)pps->power_cc[i]*ag->cc)*inv_weight;
+			}
 		}
 	}
 }
@@ -2303,11 +2325,6 @@ float weight, inv_weight;
 
 tmp2=aligned_alloca(4*sizeof(tmp2));
 	
-if(pps->power_im_pc==NULL) {
-	fprintf(stderr, "*** INTERNAL ERROR: %s requires pps->power_im_pc!=NULL\n", __FUNCTION__);
-	exit(-1);
-	}
-
 if(pps->weight_arrays_non_zero) {
 	*max_weight=0;
 	*min_weight=1e50;
@@ -2384,11 +2401,13 @@ if(pps->weight_arrays_non_zero) {
 
 		v4tmp=_mm_add_ps(v4tmp, v4c);
 
-		v4a=_mm_load_ps(&(pps->power_im_pc[i]));
-		v4b=_mm_load1_ps(&ag->im_pc);
-		v4c=_mm_mul_ps(v4a, v4b);
+		if(pps->power_im_pc!=NULL) {
+			v4a=_mm_load_ps(&(pps->power_im_pc[i]));
+			v4b=_mm_load1_ps(&ag->im_pc);
+			v4c=_mm_mul_ps(v4a, v4b);
 
-		v4tmp=_mm_add_ps(v4tmp, v4c);
+			v4tmp=_mm_add_ps(v4tmp, v4c);
+			}
 
 		v4tmp=_mm_div_ps(v4tmp, v4weight);
 
@@ -2410,18 +2429,34 @@ if(pps->weight_arrays_non_zero) {
 		if(weight<*min_weight)*min_weight=weight;
 		}	
 
-	for(;i<useful_bins;i++) {
-		weight=(pps->weight_pppp[i]*ag->pppp+
-			pps->weight_pppc[i]*ag->pppc+
-			pps->weight_ppcc[i]*ag->ppcc+
-			pps->weight_pccc[i]*ag->pccc+
-			pps->weight_cccc[i]*ag->cccc);
-	
-		if(weight>*max_weight)*max_weight=weight;
-		if(weight<*min_weight)*min_weight=weight;
+	if(pps->power_im_pc!=NULL) {
+		for(;i<useful_bins;i++) {
+			weight=(pps->weight_pppp[i]*ag->pppp+
+				pps->weight_pppc[i]*ag->pppc+
+				pps->weight_ppcc[i]*ag->ppcc+
+				pps->weight_pccc[i]*ag->pccc+
+				pps->weight_cccc[i]*ag->cccc);
+		
+			if(weight>*max_weight)*max_weight=weight;
+			if(weight<*min_weight)*min_weight=weight;
 
-		tmp[i]=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc+pps->power_im_pc[i]*ag->im_pc)/weight;
-			
+			tmp[i]=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc+pps->power_im_pc[i]*ag->im_pc)/weight;
+				
+			}
+		} else {
+		for(;i<useful_bins;i++) {
+			weight=(pps->weight_pppp[i]*ag->pppp+
+				pps->weight_pppc[i]*ag->pppc+
+				pps->weight_ppcc[i]*ag->ppcc+
+				pps->weight_pccc[i]*ag->pccc+
+				pps->weight_cccc[i]*ag->cccc);
+		
+			if(weight>*max_weight)*max_weight=weight;
+			if(weight<*min_weight)*min_weight=weight;
+
+			tmp[i]=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc)/weight;
+				
+			}
 		}
 
 	/* verify */
@@ -2498,11 +2533,13 @@ if(pps->weight_arrays_non_zero) {
 
 		v4tmp=_mm_add_ps(v4tmp, v4c);
 
-		v4a=_mm_load_ps(&(pps->power_im_pc[i]));
-		v4b=_mm_load1_ps(&ag->im_pc);
-		v4c=_mm_mul_ps(v4a, v4b);
+		if(pps->power_im_pc!=NULL) {
+			v4a=_mm_load_ps(&(pps->power_im_pc[i]));
+			v4b=_mm_load1_ps(&ag->im_pc);
+			v4c=_mm_mul_ps(v4a, v4b);
 
-		v4tmp=_mm_add_ps(v4tmp, v4c);
+			v4tmp=_mm_add_ps(v4tmp, v4c);
+			}
 
 		v4a=_mm_load1_ps(&inv_weight);
 
@@ -2511,8 +2548,14 @@ if(pps->weight_arrays_non_zero) {
 		_mm_store_ps(&(tmp[i]), v4tmp);
 		}
 
-	for(;i<useful_bins;i++) {
-		tmp[i]=((float)pps->power_pp[i]*ag->pp+(float)pps->power_pc[i]*ag->pc+(float)pps->power_cc[i]*ag->cc+pps->power_im_pc[i]*ag->im_pc)*inv_weight;
+	if(pps->power_im_pc!=NULL) {
+		for(;i<useful_bins;i++) {
+			tmp[i]=((float)pps->power_pp[i]*ag->pp+(float)pps->power_pc[i]*ag->pc+(float)pps->power_cc[i]*ag->cc+pps->power_im_pc[i]*ag->im_pc)*inv_weight;
+			}
+		} else {
+		for(;i<useful_bins;i++) {
+			tmp[i]=((float)pps->power_pp[i]*ag->pp+(float)pps->power_pc[i]*ag->pc+(float)pps->power_cc[i]*ag->cc)*inv_weight;
+			}
 		}
 	}
 
