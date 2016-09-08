@@ -872,8 +872,7 @@ model->waveFlags(%d,%d,%d,%d,numreldata),nonGRparams,%d,%d,%d,model->waveformCac
 
     INT4 rem=0;
     UINT4 size=hptilde->data->length;
-    if(size>model->freqhPlus->data->length) {large_count++;size=model->freqhPlus->data->length;}
-    size_diff += (hptilde->data->length - model->freqhPlus->data->length);
+    if(size>model->freqhPlus->data->length) size=model->freqhPlus->data->length;
     memcpy(model->freqhPlus->data->data,hptilde->data->data,sizeof(hptilde->data->data[0])*size);
     if( (rem=(model->freqhPlus->data->length - size)) > 0)
         memset(&(model->freqhPlus->data->data[size]),0, rem*sizeof(hptilde->data->data[0]) );
