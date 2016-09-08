@@ -87,6 +87,7 @@ option "ks-test"        - "perform Kolmogorov-Smirnov test for normality of aver
 option "compute-betas"  - "compute beta coefficients as described in PowerFlux polarizations document" int default="0" no
 option "upper-limit-comp" - "upper limit compensation factor - used to account for windowing in SFTs (possible values: Hann, flat, arbitrary number)" string default="Hann" no
 option "lower-limit-comp" - "lower limit compensation factor - used to account for windowing in SFTs (possible values: Hann, flat, arbitrary number)" string default="Hann" no
+option "viterbi-power-sums" - "Use Viterbi-like algorithm to accumulate power sums between segments, accomodating long term deviations in frequency evolution" int default="0" no
 
 
 option "write-dat"      - "regular expression describing which *.dat files to write" string default=".*" no

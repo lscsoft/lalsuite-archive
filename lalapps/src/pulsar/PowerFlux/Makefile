@@ -545,7 +545,7 @@ upload.c: powerflux-condor powerflux-mt powerflux-condor2 powerflux-mt2
 upload.c2:  powerflux-mt powerflux-mt2
 #	gsiscp -C powerflux-mt ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt.$(VERSION)
 	gsiscp -C powerflux-mt2 ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt2.$(VERSION)
-	gsiscp -C $(FILES) ldas-grid.ligo.caltech.edu:PowerFlux/
+#	gsiscp -C $(FILES) ldas-grid.ligo.caltech.edu:PowerFlux/
 
 upload.v2:  powerflux-valgrind2
 	gsiscp -C powerflux-valgrind2 ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt2.$(VERSION)

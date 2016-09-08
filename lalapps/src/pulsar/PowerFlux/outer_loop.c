@@ -210,42 +210,21 @@ free(w);
 
 MUTEX data_logging_mutex;
 
-void log_extremes(SUMMING_CONTEXT *ctx, POWER_SUM_STATS *tmp_pstat, EXTREME_INFO *ei, int pi, POWER_SUM **ps, int nchunks, int count)
+void pstats_log_extremes(SUMMING_CONTEXT *ctx, POWER_SUM_STATS *tmp_pstat, POWER_SUM **ps, int count, EXTREME_INFO *ei, int pi)
 {
-PARTIAL_POWER_SUM_F *pps=ctx->log_extremes_pps;
+int i;
 POWER_SUM_STATS pstats, pstats_accum;
-int i, k;
 int highest_ul_idx=0;
 int highest_circ_ul_idx=0;
 int highest_snr_idx=0;
 int skyband;
 
-//fprintf(stderr, "count=%d\n", count);
-//pps=allocate_partial_power_sum_F(useful_bins, 1);
 memset(&pstats_accum, 0, sizeof(pstats_accum));
 pstats_accum.max_weight=-1;
-
-for(i=0;i<count;i++) {
-	zero_partial_power_sum_F(pps);
-	for(k=0;k<nchunks;k++) {
-#if MANUAL_SSE
-		sse_accumulate_partial_power_sum_F(pps, (ps[k][i].pps));
-#else
-		accumulate_partial_power_sum_F(pps, (ps[k][i].pps));
-#endif
-		}
-	power_sum_stats(pps, &(tmp_pstat[i]));
-	}
 
 thread_mutex_lock(&(ei->mutex));
 for(i=0;i<count;i++) {
 	memcpy(&pstats, &(tmp_pstat[i]), sizeof(POWER_SUM_STATS));
-
-	if(args_info.dump_power_sums_arg) {
-		fprintf(DATA_LOG, "power_sum %s %d %d %lf %lf %lf %lg ", ei->name, pi, first_bin+side_cut, ps[0][i].ra, ps[0][i].dec, ps[0][i].freq_shift, ps[0][i].spindown);
-		dump_partial_power_sum_F(DATA_LOG, pps);
-		fprintf(DATA_LOG, "\n");
-		}
 
 
 
@@ -449,6 +428,40 @@ FILL_SKYMAP(min_weight_skymap, pstats_accum.min_weight);
 FILL_SKYMAP(weight_loss_fraction_skymap, pstats_accum.max_weight_loss_fraction);
 
 FILL_SKYMAP(ks_skymap, pstats_accum.highest_ks.ks_value);
+}
+
+void log_extremes(SUMMING_CONTEXT *ctx, POWER_SUM_STATS *tmp_pstat, EXTREME_INFO *ei, int pi, POWER_SUM **ps, int nchunks, int count)
+{
+PARTIAL_POWER_SUM_F *pps=ctx->log_extremes_pps;
+int i, k;
+
+//fprintf(stderr, "count=%d\n", count);
+//pps=allocate_partial_power_sum_F(useful_bins, 1);
+
+for(i=0;i<count;i++) {
+	zero_partial_power_sum_F(pps);
+	for(k=0;k<nchunks;k++) {
+#if MANUAL_SSE
+		sse_accumulate_partial_power_sum_F(pps, (ps[k][i].pps));
+#else
+		accumulate_partial_power_sum_F(pps, (ps[k][i].pps));
+#endif
+		}
+	power_sum_stats(pps, &(tmp_pstat[i]));
+	
+	if(args_info.dump_power_sums_arg) {
+		thread_mutex_lock(&data_logging_mutex);
+		
+		fprintf(DATA_LOG, "power_sum %s %d %d %lf %lf %lf %lg ", ei->name, pi, first_bin+side_cut, ps[0][i].ra, ps[0][i].dec, ps[0][i].freq_shift, ps[0][i].spindown);
+		dump_partial_power_sum_F(DATA_LOG, pps);
+		fprintf(DATA_LOG, "\n");
+		
+		thread_mutex_unlock(&data_logging_mutex);
+		}
+
+	}
+	
+pstats_log_extremes(ctx, tmp_pstat, ps, count, ei, pi);
 }
 
 static char s[20000];
@@ -664,6 +677,7 @@ SUMMING_CONTEXT **summing_contexts=NULL;
 struct {
 	POWER_SUM **ps;
 	POWER_SUM **ps_tmp;
+	float *temp;
 	} *cruncher_contexts=NULL;
 int n_contexts=0;
 
@@ -673,6 +687,184 @@ int nchunks;
 
 double gps_start;
 double gps_stop;
+
+#if MANUAL_SSE
+#define MODE(a)	(args_info.sse_arg ? (sse_ ## a) : (a) )
+#else
+#define MODE(a)	(a)
+#endif
+
+extern ALIGNMENT_COEFFS *alignment_grid;
+extern int alignment_grid_free;
+
+void log_extremes_viterbi(SUMMING_CONTEXT *ctx, int pi, POWER_SUM **ps, int count)
+{
+int i,j,k,m,r, lm;
+POINT_STATS pst;
+POWER_SUM_STATS *stats;
+float *tmp;
+float *tmp2, *tmp_min_weight, *tmp_max_weight;
+float *p1, *p2, *p3;
+float min_weight, max_weight;
+int fshift_count=args_info.nfshift_arg; /* number of frequency offsets */
+int shift;
+long tmp_stride=(useful_bins+(ALIGNMENT-1)) & (~(ALIGNMENT-1));
+long tmp_size;
+
+	/* size of tmp array */
+tmp_size=args_info.nchunks_arg*veto_free*count*tmp_stride*sizeof(float);
+	/* size of tmp2 array */
+tmp_size+=tmp_stride*sizeof(float);
+	/* size of stats array */
+tmp_size+=nei*count*sizeof(*stats)+ALIGNMENT;
+	/* sizes of tmp_min_weight and tmp_max_weight arrays */
+tmp_size+=2*args_info.nchunks_arg*veto_free*count*sizeof(float)+2*ALIGNMENT;
+
+if(ctx->log_extremes_pstats_scratch_size<tmp_size) {
+	free(ctx->log_extremes_pstats_scratch);
+
+	ctx->log_extremes_pstats_scratch_size=tmp_size;
+
+	ctx->log_extremes_pstats_scratch=do_alloc(1, tmp_size);
+	
+	p1=(float *)ctx->log_extremes_pstats_scratch;
+	PRAGMA_IVDEP
+	for(i=0;i<(ctx->log_extremes_pstats_scratch_size/sizeof(*p1));i++)p1[i]=NAN;
+	
+	fprintf(stderr, "Expanded log_extremes_pstats_scratch to %f MB nchunks=%d veto_free=%d count=%d nei=%d\n", ctx->log_extremes_pstats_scratch_size*1e-6, args_info.nchunks_arg, veto_free, count, nei);
+	}
+
+p1=(float *)ctx->log_extremes_pstats_scratch;
+
+tmp=p1; p1=ALIGN_POINTER(p1+args_info.nchunks_arg*veto_free*count*tmp_stride);
+tmp2=p1; p1=ALIGN_POINTER(p1+tmp_stride);
+stats=(POWER_SUM_STATS *)p1; p1=ALIGN_POINTER(p1+((nei*count*sizeof(*stats)+3)>>2));
+tmp_min_weight=p1; p1=ALIGN_POINTER(p1+args_info.nchunks_arg*veto_free*count);
+tmp_max_weight=p1; p1=ALIGN_POINTER(p1+args_info.nchunks_arg*veto_free*count);
+
+/* Check that size was computed accurately */
+if(((char *)p1)-ctx->log_extremes_pstats_scratch>ctx->log_extremes_pstats_scratch_size) {
+	fprintf(stderr, "*** ERROR: log_extremes_pstats_scratch_size=%ld but need %ld memory\n", 
+		ctx->log_extremes_pstats_scratch_size, ((char *)p1)-ctx->log_extremes_pstats_scratch);
+	exit(-1);
+	}
+
+for(i=0;i<nei;i++) {
+	for(j=0;j<count;j++)
+		prepare_power_sum_stats(&stats[i*count+j]);
+	}
+
+for(lm=0;lm<alignment_grid_free;lm++) {
+
+
+	for(i=0;i<args_info.nchunks_arg;i++) {
+		for(k=0;k<veto_free;k++) {
+			for(j=0;j<count;j++) {
+				MODE(compute_power)(ps[i*veto_free+k][j].pps, &(alignment_grid[lm]), &tmp[((i*veto_free+k)*count+j)*tmp_stride], &(tmp_min_weight[(i*veto_free+k)*count+j]), &(tmp_max_weight[(i*veto_free+k)*count+j]));
+				}
+			}
+		}
+		
+	for(j=0;j<count;j++) {
+	shift=j% fshift_count;
+	for(i=0;i<nei;i++) {
+		max_weight=0;
+		min_weight=1e50;
+		memset(tmp2, 0, sizeof(*tmp2)*useful_bins);
+		
+		for(k=ei[i]->first_chunk;k<=ei[i]->last_chunk;k++) {
+			if(ei[i]->veto_num<0) {
+				for(m=0;m<veto_free;m++) {
+					/* Accumulate tmp2 from tmp using Viterbi-like algorithm */
+					if(shift==0) {
+						p1=&(tmp[((k*veto_free+m)*count+j)*tmp_stride]);
+						p2=&(tmp[((k*veto_free+m)*count+j+fshift_count-1)*tmp_stride]); p2--;
+						p3=&(tmp[((k*veto_free+m)*count+j+1)*tmp_stride]);
+						
+						tmp2[0]+=fmaxf(p1[0], p3[0]);
+						PRAGMA_IVDEP
+						for(r=1;r<useful_bins;r++) {
+							tmp2[r]+=fmaxf(p1[r], fmaxf(p2[r], p3[r]));
+							}
+						} else
+					if(shift==fshift_count-1) {
+						p1=&(tmp[((k*veto_free+m)*count+j)*tmp_stride]);
+						p2=&(tmp[((k*veto_free+m)*count+j-1)*tmp_stride]);
+						p3=&(tmp[((k*veto_free+m)*count+j-fshift_count+1)*tmp_stride]); p3++;
+						
+						PRAGMA_IVDEP
+						for(r=0;r<useful_bins-1;r++) {
+							tmp2[r]+=fmaxf(p1[r], fmaxf(p2[r], p3[r]));
+							}
+						tmp2[useful_bins-1]+=fmaxf(p1[useful_bins-1], p2[useful_bins-1]);
+						} else {
+						p1=&(tmp[((k*veto_free+m)*count+j)*tmp_stride]);
+						p2=&(tmp[((k*veto_free+m)*count+j-1)*tmp_stride]);
+						p3=&(tmp[((k*veto_free+m)*count+j+1)*tmp_stride]);
+						
+						PRAGMA_IVDEP
+						for(r=0;r<useful_bins;r++) {
+							tmp2[r]+=fmaxf(p1[r], fmaxf(p2[r], p3[r]));
+							}
+						}
+					
+					if(min_weight>tmp_min_weight[(k*veto_free+m)*count+j])min_weight=tmp_min_weight[(k*veto_free+m)*count+j];
+					if(max_weight<tmp_max_weight[(k*veto_free+m)*count+j])max_weight=tmp_max_weight[(k*veto_free+m)*count+j];
+					}
+				} else {
+				m=ei[i]->veto_num;
+				
+				/* Accumulate tmp2 from tmp using Viterbi-like algorithm */
+				if(shift==0) {
+					p1=&(tmp[((k*veto_free+m)*count+j)*tmp_stride]);
+					p2=&(tmp[((k*veto_free+m)*count+j+fshift_count-1)*tmp_stride]); p2--;
+					p3=&(tmp[((k*veto_free+m)*count+j+1)*tmp_stride]);
+					
+					tmp2[0]+=fmaxf(p1[0], p3[0]);
+					PRAGMA_IVDEP
+					for(r=1;r<useful_bins;r++) {
+						tmp2[r]+=fmaxf(p1[r], fmaxf(p2[r], p3[r]));
+						}
+					} else
+				if(shift==fshift_count-1) {
+					p1=&(tmp[((k*veto_free+m)*count+j)*tmp_stride]);
+					p2=&(tmp[((k*veto_free+m)*count+j-1)*tmp_stride]);
+					p3=&(tmp[((k*veto_free+m)*count+j-fshift_count+1)*tmp_stride]); p3++;
+					
+					PRAGMA_IVDEP
+					for(r=0;r<useful_bins-1;r++) {
+						tmp2[r]+=fmaxf(p1[r], fmaxf(p2[r], p3[r]));
+						}
+					tmp2[useful_bins-1]+=fmaxf(p1[useful_bins-1], p2[useful_bins-1]);
+					} else {
+					p1=&(tmp[((k*veto_free+m)*count+j)*tmp_stride]);
+					p2=&(tmp[((k*veto_free+m)*count+j-1)*tmp_stride]);
+					p3=&(tmp[((k*veto_free+m)*count+j+1)*tmp_stride]);
+					
+					PRAGMA_IVDEP
+					for(r=0;r<useful_bins;r++) {
+						tmp2[r]+=fmaxf(p1[r], fmaxf(p2[r], p3[r]));
+						}
+					}
+				
+				
+				if(min_weight>tmp_min_weight[(k*veto_free+ei[i]->veto_num)*count+j])min_weight=tmp_min_weight[(k*veto_free+ei[i]->veto_num)*count+j];
+				if(max_weight<tmp_max_weight[(k*veto_free+ei[i]->veto_num)*count+j])max_weight=tmp_max_weight[(k*veto_free+ei[i]->veto_num)*count+j];
+				}
+			}
+				
+		MODE(compute_universal_statistics)(tmp2, min_weight, max_weight, &(alignment_grid[lm]), &pst);
+		
+		update_power_sum_stats(&pst, &(alignment_grid[lm]), &(stats[i*count+j]));
+		}
+	}
+			
+}
+/* find largest strain and largest SNR candidates for this patch and log info */
+for(i=0;i<nei;i++) {
+	pstats_log_extremes(ctx, &(stats[i*count]), ps, count, ei[i], pi);
+	}
+}
 
 
 void outer_loop_cruncher(int thread_id, void *data)
@@ -690,14 +882,6 @@ ctx->power_sums_idx=0;
 
 //fprintf(stderr, "%d ", pi);
 generate_patch_templates(ctx, pi, &(ps[0]), &count);
-if(ctx->log_extremes_pstats_scratch_size<count*sizeof(*le_pstats)) {
-	free(ctx->log_extremes_pstats_scratch);
-
-	ctx->log_extremes_pstats_scratch_size=count*sizeof(*le_pstats);
-
-	ctx->log_extremes_pstats_scratch=do_alloc(count, sizeof(*le_pstats));
-	}
-le_pstats=(POWER_SUM_STATS *)ctx->log_extremes_pstats_scratch;
 
 if(count<1) {
 	//free(ps[0]);
@@ -715,22 +899,37 @@ for(i=0;i<args_info.nchunks_arg;i++) {
 		}
 	}
 
-/* find largest strain and largest SNR candidates for this patch */
-for(i=0;i<nei;i++) {
-	ps_tmp_len=0;
-	for(k=ei[i]->first_chunk;k<=ei[i]->last_chunk;k++) {
-		if(ei[i]->veto_num<0) {
-			for(m=0;m<veto_free;m++) {
-				ps_tmp[ps_tmp_len]=ps[k*veto_free+m];
+if(args_info.viterbi_power_sums_arg) {
+	log_extremes_viterbi(ctx, pi, ps, count);
+	} else {
+	/* find largest strain and largest SNR candidates for this patch */
+	
+	
+	if(ctx->log_extremes_pstats_scratch_size<count*sizeof(*le_pstats)) {
+		free(ctx->log_extremes_pstats_scratch);
+
+		ctx->log_extremes_pstats_scratch_size=count*sizeof(*le_pstats);
+
+		ctx->log_extremes_pstats_scratch=do_alloc(count, sizeof(*le_pstats));
+		}
+	le_pstats=(POWER_SUM_STATS *)ctx->log_extremes_pstats_scratch;
+	
+	for(i=0;i<nei;i++) {
+		ps_tmp_len=0;
+		for(k=ei[i]->first_chunk;k<=ei[i]->last_chunk;k++) {
+			if(ei[i]->veto_num<0) {
+				for(m=0;m<veto_free;m++) {
+					ps_tmp[ps_tmp_len]=ps[k*veto_free+m];
+					ps_tmp_len++;
+					}
+				} else {
+				ps_tmp[ps_tmp_len]=ps[k*veto_free+ei[i]->veto_num];
 				ps_tmp_len++;
 				}
-			} else {
-			ps_tmp[ps_tmp_len]=ps[k*veto_free+ei[i]->veto_num];
-			ps_tmp_len++;
 			}
-		}
 
-	log_extremes(ctx, le_pstats, ei[i], pi, ps_tmp, ps_tmp_len, count);
+		log_extremes(ctx, le_pstats, ei[i], pi, ps_tmp, ps_tmp_len, count);
+		}
 	}
 
 for(i=0;i<nchunks;i++) {
