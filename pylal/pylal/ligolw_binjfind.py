@@ -42,7 +42,6 @@ import sys
 
 import lal
 from glue import segments
-from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw.utils import coincs as ligolw_coincs
 from glue.ligolw.utils import process as ligolw_process
@@ -757,7 +756,7 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 		if verbose:
 			print >>sys.stderr, "\t100.0%"
 	elif verbose:
-		print >>sys.stderr, "no %s table in document, skipping" % table.StripTableName(lsctables.SimBurstTable.tableName)
+		print >>sys.stderr, "no %s table in document, skipping" % lsctables.SimBurstTable.tableName
 
 	#
 	# Search for sim_inspiral <--> * coincidences
@@ -802,7 +801,7 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 		if verbose:
 			print >>sys.stderr, "\t100.0%"
 	elif verbose:
-		print >>sys.stderr, "no %s table in document, skipping" % table.StripTableName(lsctables.SimInspiralTable.tableName)
+		print >>sys.stderr, "no %s table in document, skipping" % lsctables.SimInspiralTable.tableName
 
 	#
 	# Done.
