@@ -31,7 +31,6 @@
 #include <string.h>
 #include <lal/DetectorSite.h>
 #include <misc.h>
-#include <tools.h>
 #include <datatypes/snglringdowntable.h>
 #include <lal/LIGOMetadataRingdownUtils.h>
 #include <lal/RingUtils.h>
