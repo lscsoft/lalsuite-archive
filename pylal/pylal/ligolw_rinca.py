@@ -56,14 +56,6 @@ __date__ = git_version.date
 
 
 #
-# Use C row classes for memory and speed
-#
-
-
-lsctables.CoincMapTable.RowType = lsctables.CoincMap = xlaltools.CoincMap
-
-
-#
 # Construct a subclass of the C sngl_ringdown row class with the methods
 # that are needed
 #

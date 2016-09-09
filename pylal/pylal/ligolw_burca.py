@@ -34,7 +34,6 @@ from glue.ligolw.utils import coincs as ligolw_coincs
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
 from pylal import snglcoinc
-from pylal.xlal import tools
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -49,9 +48,6 @@ __date__ = git_version.date
 #
 # =============================================================================
 #
-
-
-lsctables.CoincMapTable.RowType = lsctables.CoincMap = tools.CoincMap
 
 
 def sngl_burst___cmp__(self, other):

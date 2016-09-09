@@ -49,11 +49,7 @@ from pylal import ligolw_rinca
 from lalburst import timeslides as ligolw_tisi
 from pylal import SimInspiralUtils
 from pylal import SnglInspiralUtils
-from pylal.xlal import tools
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-
-
-lsctables.CoincMapTable.RowType = lsctables.CoincMap = tools.CoincMap
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"

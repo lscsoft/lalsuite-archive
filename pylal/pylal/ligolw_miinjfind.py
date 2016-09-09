@@ -43,10 +43,8 @@ from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version, ligolw_thinca, llwapp, \
                   SimInspiralUtils, MultiInspiralUtils
 from lalburst import timeslides as ligolw_tisi
-from pylal.xlal import tools
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
-lsctables.CoincMapTable.RowType = lsctables.CoincMap = tools.CoincMap
 
 __author__ = "Duncan M. Macleod <duncan.macleod@ligo.org>"
 __credits__ = "Kipp Cannon <kipp.cannon@ligo.org>"

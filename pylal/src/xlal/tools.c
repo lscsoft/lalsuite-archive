@@ -125,122 +125,6 @@ PyTypeObject ligolw_Coinc_Type = {
 /*
  * ============================================================================
  *
- *                               CoincMap Type
- *
- * ============================================================================
- */
-
-
-/*
- * Structure
- */
-
-
-typedef struct {
-	PyObject_HEAD
-	PyObject *event_id_type;
-	long event_id_i;
-	long coinc_event_id_i;
-} ligolw_CoincMap;
-
-
-/*
- * Attributes
- */
-
-
-static int ligolw_CoincMap_event_id_set(PyObject *obj, PyObject *val, void *data)
-{
-	ligolw_CoincMap *coinc_map = (ligolw_CoincMap *) obj;
-	long i = PyInt_AsLong(val);
-
-	if(PyErr_Occurred())
-		return -1;
-
-	Py_XDECREF(coinc_map->event_id_type);
-	coinc_map->event_id_type = (PyObject *) val->ob_type;
-	Py_INCREF(coinc_map->event_id_type);
-	coinc_map->event_id_i = i;
-
-	return 0;
-}
-
-
-static PyObject *ligolw_CoincMap_event_id_get(PyObject *obj, void *data)
-{
-	ligolw_CoincMap *coinc_map = (ligolw_CoincMap *) obj;
-
-	if(!coinc_map->event_id_type) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
-	return PyObject_CallFunction(coinc_map->event_id_type, "l", coinc_map->event_id_i);
-}
-
-
-static int ligolw_CoincMap_table_name_set(PyObject *obj, PyObject *val, void *data)
-{
-	/* ignored */
-	return 0;
-}
-
-
-static PyObject *ligolw_CoincMap_table_name_get(PyObject *obj, void *data)
-{
-	ligolw_CoincMap *coinc_map = (ligolw_CoincMap *) obj;
-
-	if(!coinc_map->event_id_type) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
-	return PyObject_GetAttrString(coinc_map->event_id_type, "table_name");
-}
-
-
-static struct PyGetSetDef ligolw_CoincMap_getset[] = {
-	{"event_id", ligolw_CoincMap_event_id_get, ligolw_CoincMap_event_id_set, "event_id", NULL},
-	{"table_name", ligolw_CoincMap_table_name_get, ligolw_CoincMap_table_name_set, "table_name", NULL},
-	{"coinc_event_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "coinc_event_id", &(struct pylal_ilwdchar_id_description) {offsetof(ligolw_CoincMap, coinc_event_id_i), &coinc_event_id_type}},
-	{NULL,}
-};
-
-
-/*
- * Methods
- */
-
-
-static void ligolw_CoincMap___del__(PyObject *self)
-{
-	ligolw_CoincMap *coinc_map = (ligolw_CoincMap *) self;
-
-	Py_XDECREF(coinc_map->event_id_type);
-
-	self->ob_type->tp_free(self);
-}
-
-
-/*
- * Type
- */
-
-
-PyTypeObject ligolw_CoincMap_Type = {
-	PyObject_HEAD_INIT(NULL)
-	.tp_basicsize = sizeof(ligolw_CoincMap),
-	.tp_dealloc = ligolw_CoincMap___del__,
-	.tp_flags = Py_TPFLAGS_DEFAULT,
-	.tp_name = MODULE_NAME ".CoincMap",
-	.tp_new = PyType_GenericNew,
-	.tp_getset = ligolw_CoincMap_getset,
-};
-
-
-/*
- * ============================================================================
- *
  *                                 Functions
  *
  * ============================================================================
@@ -328,12 +212,6 @@ PyMODINIT_FUNC inittools(void)
 		goto nocoinctype;
 	Py_INCREF(&ligolw_Coinc_Type);
 	PyModule_AddObject(module, "Coinc", (PyObject *) &ligolw_Coinc_Type);
-
-	/* CoincMap */
-	if(PyType_Ready(&ligolw_CoincMap_Type) < 0)
-		goto nocoincmaptype;
-	Py_INCREF(&ligolw_CoincMap_Type);
-	PyModule_AddObject(module, "CoincMap", (PyObject *) &ligolw_CoincMap_Type);
 
 	return;
 

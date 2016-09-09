@@ -51,17 +51,7 @@ from glue.ligolw.utils import time_slide as ligolw_time_slide
 from pylal import git_version
 from pylal import ligolw_burca
 from pylal import SimBurstUtils
-from pylal.xlal import tools
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-
-
-#
-# Use a memory-efficient row class written in C for the coinc_event_map
-# table
-#
-
-
-lsctables.CoincMapTable.RowType = lsctables.CoincMap = tools.CoincMap
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
