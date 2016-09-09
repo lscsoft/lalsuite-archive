@@ -38,7 +38,6 @@ from pylal import llwapp
 from pylal import snglcoinc
 from pylal.xlal import tools as xlaltools
 from pylal.xlal.datatypes import snglringdowntable
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -65,7 +64,7 @@ class SnglRingdown(snglringdowntable.SnglRingdownTable):
 	__slots__ = ()
 
 	def get_start(self):
-		return LIGOTimeGPS(self.start_time, self.start_time_ns)
+		return lsctables.LIGOTimeGPS(self.start_time, self.start_time_ns)
 
 	def set_start(self, gps):
 		self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
@@ -75,14 +74,6 @@ class SnglRingdown(snglringdowntable.SnglRingdownTable):
 		# other.  allows bisection searches by GPS time to find
 		# ranges of triggers quickly
 		return cmp(self.start_time, other.seconds) or cmp(self.start_time_ns, other.nanoseconds)
-
-
-#
-# Use C LIGOTimeGPS type
-#
-
-
-lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 #
@@ -276,7 +267,7 @@ class RingdownEventList(snglcoinc.EventList):
 		"""
 		# add 1% for safety, and pre-convert to LIGOTimeGPS to
 		# avoid doing type conversion in loops
-		self.dt = LIGOTimeGPS(dt * 1.01)
+		self.dt = lsctables.LIGOTimeGPS(dt * 1.01)
 
 	def get_coincs(self, event_a, offset_a, light_travel_time, ds_sq_threshold, comparefunc):
 		#

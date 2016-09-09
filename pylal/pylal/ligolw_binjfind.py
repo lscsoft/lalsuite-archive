@@ -50,7 +50,6 @@ from glue.ligolw.utils import time_slide as ligolw_time_slide
 from pylal import git_version
 from pylal import ligolw_burca
 from pylal import SimBurstUtils
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -65,14 +64,6 @@ __date__ = git_version.date
 #
 # =============================================================================
 #
-
-
-#
-# use a C implementation
-#
-
-
-lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 #
