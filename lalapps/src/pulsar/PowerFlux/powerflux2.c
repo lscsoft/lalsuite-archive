@@ -578,6 +578,7 @@ fprintf(LOG,"niota: %d\n", args_info.niota_arg);
 fprintf(LOG,"npsi: %d\n", args_info.npsi_arg);
 fprintf(LOG,"nfshift: %d\n", args_info.nfshift_arg);
 fprintf(LOG,"summing step: %f\n", args_info.summing_step_arg);
+fprintf(LOG,"viterbi power sums: %d\n", args_info.viterbi_power_sums_arg);
 fprintf(LOG,"max_first_shift: %d\n", args_info.max_first_shift_arg);
 fprintf(LOG,"Doppler multiplier: %g\n", args_info.doppler_multiplier_arg);
 fprintf(LOG,"dInv: %g\n", args_info.dInv_arg);
