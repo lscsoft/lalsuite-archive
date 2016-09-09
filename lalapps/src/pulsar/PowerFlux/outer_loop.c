@@ -656,7 +656,7 @@ nei=0;
 
 for(i=0;i<args_info.nchunks_arg;i+=args_info.nchunks_refinement_arg)
 	for(k=0;k< args_info.nchunks_arg-i;k+=args_info.nchunks_refinement_arg) {
-		if(i-k+1<args_info.min_nchunks_arg)continue;
+		if(k+1<args_info.min_nchunks_arg)continue;
 		
 		for(m=-1;m<veto_free;m++) {
 			if(m<0) {
