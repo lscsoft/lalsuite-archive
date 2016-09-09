@@ -28,7 +28,6 @@
 Ask Kipp to document this!
 """
 
-from lal import LIGOTimeGPS
 
 from glue import git_version
 from glue import iterutils
@@ -498,7 +497,7 @@ class LigolwSegments(set):
 		indicating that there are no periods of validity.  Returns
 		the newly created LigolwSegmentList object.
 		"""
-		ligolw_segment_list = LigolwSegmentList(active = segmentsUtils.fromsegwizard(fileobj, coltype = LIGOTimeGPS), instruments = instruments, name = name, version = version, comment = comment)
+		ligolw_segment_list = LigolwSegmentList(active = segmentsUtils.fromsegwizard(fileobj, coltype = lsctables.LIGOTimeGPS), instruments = instruments, name = name, version = version, comment = comment)
 		self.add(ligolw_segment_list)
 		return ligolw_segment_list
 
