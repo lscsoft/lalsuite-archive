@@ -153,6 +153,8 @@ const char *gengetopt_args_info_help[] = {
   "      --npsi=INT                Number of psi values to use in alignment grid\n                                  (default=`6')",
   "      --nfshift=INT             Number of sub-bin frequency shifts to sample\n                                  (default=`2')",
   "      --nchunks=INT             Partition the timebase into this many chunks\n                                  for sub period analysis  (default=`5')",
+  "      --nchunks-refinement=INT  Reduce reported statistics by this factor.\n                                  (default=`1')",
+  "      --min-nchunks=INT         Do not output statistics with fewer than this\n                                  many chunks  (default=`1')",
   "      --split-ifos=INT          Split interferometers in separate chunks\n                                  (default=`1')",
   "      --default-dataset-veto-level=DOUBLE\n                                Default value for veto_level dataset parameter\n                                  (default=`1e-2')",
   "      --default-dataset-veto-spike-level=DOUBLE\n                                Default value for veto_spike_level dataset\n                                  parameter  (default=`1.7')",
@@ -351,6 +353,8 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->npsi_given = 0 ;
   args_info->nfshift_given = 0 ;
   args_info->nchunks_given = 0 ;
+  args_info->nchunks_refinement_given = 0 ;
+  args_info->min_nchunks_given = 0 ;
   args_info->split_ifos_given = 0 ;
   args_info->default_dataset_veto_level_given = 0 ;
   args_info->default_dataset_veto_spike_level_given = 0 ;
@@ -604,6 +608,10 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->nfshift_orig = NULL;
   args_info->nchunks_arg = 5;
   args_info->nchunks_orig = NULL;
+  args_info->nchunks_refinement_arg = 1;
+  args_info->nchunks_refinement_orig = NULL;
+  args_info->min_nchunks_arg = 1;
+  args_info->min_nchunks_orig = NULL;
   args_info->split_ifos_arg = 1;
   args_info->split_ifos_orig = NULL;
   args_info->default_dataset_veto_level_arg = 1e-2;
@@ -787,35 +795,37 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->npsi_help = gengetopt_args_info_help[116] ;
   args_info->nfshift_help = gengetopt_args_info_help[117] ;
   args_info->nchunks_help = gengetopt_args_info_help[118] ;
-  args_info->split_ifos_help = gengetopt_args_info_help[119] ;
-  args_info->default_dataset_veto_level_help = gengetopt_args_info_help[120] ;
-  args_info->default_dataset_veto_spike_level_help = gengetopt_args_info_help[121] ;
-  args_info->weight_cutoff_fraction_help = gengetopt_args_info_help[122] ;
-  args_info->per_dataset_weight_cutoff_fraction_help = gengetopt_args_info_help[123] ;
-  args_info->power_max_median_factor_help = gengetopt_args_info_help[124] ;
-  args_info->tmedian_noise_level_help = gengetopt_args_info_help[125] ;
-  args_info->summing_step_help = gengetopt_args_info_help[126] ;
-  args_info->max_first_shift_help = gengetopt_args_info_help[127] ;
-  args_info->statistics_function_help = gengetopt_args_info_help[128] ;
-  args_info->confidence_level_help = gengetopt_args_info_help[129] ;
-  args_info->x_epsilon_help = gengetopt_args_info_help[130] ;
-  args_info->dump_power_sums_help = gengetopt_args_info_help[131] ;
-  args_info->compute_skymaps_help = gengetopt_args_info_help[132] ;
-  args_info->fine_grid_skymarks_help = gengetopt_args_info_help[133] ;
-  args_info->half_window_help = gengetopt_args_info_help[134] ;
-  args_info->tail_veto_help = gengetopt_args_info_help[135] ;
-  args_info->cache_granularity_help = gengetopt_args_info_help[136] ;
-  args_info->diff_shift_granularity_help = gengetopt_args_info_help[137] ;
-  args_info->sidereal_group_count_help = gengetopt_args_info_help[138] ;
-  args_info->time_group_count_help = gengetopt_args_info_help[139] ;
-  args_info->phase_mismatch_help = gengetopt_args_info_help[140] ;
-  args_info->bypass_powersum_cache_help = gengetopt_args_info_help[141] ;
-  args_info->compute_cross_terms_help = gengetopt_args_info_help[142] ;
-  args_info->mixed_dataset_only_help = gengetopt_args_info_help[143] ;
-  args_info->preallocate_memory_help = gengetopt_args_info_help[144] ;
-  args_info->memory_allocation_retries_help = gengetopt_args_info_help[145] ;
-  args_info->sse_help = gengetopt_args_info_help[146] ;
-  args_info->extra_phase_help = gengetopt_args_info_help[147] ;
+  args_info->nchunks_refinement_help = gengetopt_args_info_help[119] ;
+  args_info->min_nchunks_help = gengetopt_args_info_help[120] ;
+  args_info->split_ifos_help = gengetopt_args_info_help[121] ;
+  args_info->default_dataset_veto_level_help = gengetopt_args_info_help[122] ;
+  args_info->default_dataset_veto_spike_level_help = gengetopt_args_info_help[123] ;
+  args_info->weight_cutoff_fraction_help = gengetopt_args_info_help[124] ;
+  args_info->per_dataset_weight_cutoff_fraction_help = gengetopt_args_info_help[125] ;
+  args_info->power_max_median_factor_help = gengetopt_args_info_help[126] ;
+  args_info->tmedian_noise_level_help = gengetopt_args_info_help[127] ;
+  args_info->summing_step_help = gengetopt_args_info_help[128] ;
+  args_info->max_first_shift_help = gengetopt_args_info_help[129] ;
+  args_info->statistics_function_help = gengetopt_args_info_help[130] ;
+  args_info->confidence_level_help = gengetopt_args_info_help[131] ;
+  args_info->x_epsilon_help = gengetopt_args_info_help[132] ;
+  args_info->dump_power_sums_help = gengetopt_args_info_help[133] ;
+  args_info->compute_skymaps_help = gengetopt_args_info_help[134] ;
+  args_info->fine_grid_skymarks_help = gengetopt_args_info_help[135] ;
+  args_info->half_window_help = gengetopt_args_info_help[136] ;
+  args_info->tail_veto_help = gengetopt_args_info_help[137] ;
+  args_info->cache_granularity_help = gengetopt_args_info_help[138] ;
+  args_info->diff_shift_granularity_help = gengetopt_args_info_help[139] ;
+  args_info->sidereal_group_count_help = gengetopt_args_info_help[140] ;
+  args_info->time_group_count_help = gengetopt_args_info_help[141] ;
+  args_info->phase_mismatch_help = gengetopt_args_info_help[142] ;
+  args_info->bypass_powersum_cache_help = gengetopt_args_info_help[143] ;
+  args_info->compute_cross_terms_help = gengetopt_args_info_help[144] ;
+  args_info->mixed_dataset_only_help = gengetopt_args_info_help[145] ;
+  args_info->preallocate_memory_help = gengetopt_args_info_help[146] ;
+  args_info->memory_allocation_retries_help = gengetopt_args_info_help[147] ;
+  args_info->sse_help = gengetopt_args_info_help[148] ;
+  args_info->extra_phase_help = gengetopt_args_info_help[149] ;
   args_info->extra_phase_min = 0;
   args_info->extra_phase_max = 0;
   
@@ -1084,6 +1094,8 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->npsi_orig));
   free_string_field (&(args_info->nfshift_orig));
   free_string_field (&(args_info->nchunks_orig));
+  free_string_field (&(args_info->nchunks_refinement_orig));
+  free_string_field (&(args_info->min_nchunks_orig));
   free_string_field (&(args_info->split_ifos_orig));
   free_string_field (&(args_info->default_dataset_veto_level_orig));
   free_string_field (&(args_info->default_dataset_veto_spike_level_orig));
@@ -1387,6 +1399,10 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "nfshift", args_info->nfshift_orig, 0);
   if (args_info->nchunks_given)
     write_into_file(outfile, "nchunks", args_info->nchunks_orig, 0);
+  if (args_info->nchunks_refinement_given)
+    write_into_file(outfile, "nchunks-refinement", args_info->nchunks_refinement_orig, 0);
+  if (args_info->min_nchunks_given)
+    write_into_file(outfile, "min-nchunks", args_info->min_nchunks_orig, 0);
   if (args_info->split_ifos_given)
     write_into_file(outfile, "split-ifos", args_info->split_ifos_orig, 0);
   if (args_info->default_dataset_veto_level_given)
@@ -2134,6 +2150,8 @@ cmdline_parser_internal (
         { "npsi",	1, NULL, 0 },
         { "nfshift",	1, NULL, 0 },
         { "nchunks",	1, NULL, 0 },
+        { "nchunks-refinement",	1, NULL, 0 },
+        { "min-nchunks",	1, NULL, 0 },
         { "split-ifos",	1, NULL, 0 },
         { "default-dataset-veto-level",	1, NULL, 0 },
         { "default-dataset-veto-spike-level",	1, NULL, 0 },
@@ -3793,6 +3811,34 @@ cmdline_parser_internal (
                 &(local_args_info.nchunks_given), optarg, 0, "5", ARG_INT,
                 check_ambiguity, override, 0, 0,
                 "nchunks", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Reduce reported statistics by this factor..  */
+          else if (strcmp (long_options[option_index].name, "nchunks-refinement") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->nchunks_refinement_arg), 
+                 &(args_info->nchunks_refinement_orig), &(args_info->nchunks_refinement_given),
+                &(local_args_info.nchunks_refinement_given), optarg, 0, "1", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "nchunks-refinement", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Do not output statistics with fewer than this many chunks.  */
+          else if (strcmp (long_options[option_index].name, "min-nchunks") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->min_nchunks_arg), 
+                 &(args_info->min_nchunks_orig), &(args_info->min_nchunks_given),
+                &(local_args_info.min_nchunks_given), optarg, 0, "1", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "min-nchunks", '-',
                 additional_error))
               goto failure;
           

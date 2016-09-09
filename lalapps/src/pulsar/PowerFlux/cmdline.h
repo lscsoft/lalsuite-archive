@@ -389,6 +389,12 @@ struct gengetopt_args_info
   int nchunks_arg;	/**< @brief Partition the timebase into this many chunks for sub period analysis (default='5').  */
   char * nchunks_orig;	/**< @brief Partition the timebase into this many chunks for sub period analysis original value given at command line.  */
   const char *nchunks_help; /**< @brief Partition the timebase into this many chunks for sub period analysis help description.  */
+  int nchunks_refinement_arg;	/**< @brief Reduce reported statistics by this factor. (default='1').  */
+  char * nchunks_refinement_orig;	/**< @brief Reduce reported statistics by this factor. original value given at command line.  */
+  const char *nchunks_refinement_help; /**< @brief Reduce reported statistics by this factor. help description.  */
+  int min_nchunks_arg;	/**< @brief Do not output statistics with fewer than this many chunks (default='1').  */
+  char * min_nchunks_orig;	/**< @brief Do not output statistics with fewer than this many chunks original value given at command line.  */
+  const char *min_nchunks_help; /**< @brief Do not output statistics with fewer than this many chunks help description.  */
   int split_ifos_arg;	/**< @brief Split interferometers in separate chunks (default='1').  */
   char * split_ifos_orig;	/**< @brief Split interferometers in separate chunks original value given at command line.  */
   const char *split_ifos_help; /**< @brief Split interferometers in separate chunks help description.  */
@@ -597,6 +603,8 @@ struct gengetopt_args_info
   unsigned int npsi_given ;	/**< @brief Whether npsi was given.  */
   unsigned int nfshift_given ;	/**< @brief Whether nfshift was given.  */
   unsigned int nchunks_given ;	/**< @brief Whether nchunks was given.  */
+  unsigned int nchunks_refinement_given ;	/**< @brief Whether nchunks-refinement was given.  */
+  unsigned int min_nchunks_given ;	/**< @brief Whether min-nchunks was given.  */
   unsigned int split_ifos_given ;	/**< @brief Whether split-ifos was given.  */
   unsigned int default_dataset_veto_level_given ;	/**< @brief Whether default-dataset-veto-level was given.  */
   unsigned int default_dataset_veto_spike_level_given ;	/**< @brief Whether default-dataset-veto-spike-level was given.  */

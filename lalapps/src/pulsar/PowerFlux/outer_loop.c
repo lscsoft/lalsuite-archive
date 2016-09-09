@@ -648,19 +648,23 @@ EXTREME_INFO **ei;
 ei=do_alloc(args_info.nchunks_arg*(args_info.nchunks_arg+1)*(veto_free+1)/2, sizeof(*ei));
 
 fprintf(LOG, "nchunks: %d\n", args_info.nchunks_arg);
+fprintf(LOG, "nchunks refinement: %d\n", args_info.nchunks_refinement_arg);
+fprintf(LOG, "min nchunks: %d\n", args_info.min_nchunks_arg);
 fprintf(LOG, "veto_free: %d\n", veto_free);
 
 nei=0;
 
-for(i=0;i<args_info.nchunks_arg;i++)
-	for(k=0;k< args_info.nchunks_arg-i;k++)
+for(i=0;i<args_info.nchunks_arg;i+=args_info.nchunks_refinement_arg)
+	for(k=0;k< args_info.nchunks_arg-i;k+=args_info.nchunks_refinement_arg) {
+		if(i-k+1<args_info.min_nchunks_arg)continue;
+		
 		for(m=-1;m<veto_free;m++) {
 			if(m<0) {
 				if((veto_free<=1) && args_info.split_ifos_arg)continue; /* if there is only one detector no reason to compute "all" twice */
-				snprintf(s, 19999, "%d_%d_all", i, i+k);
+				snprintf(s, 19999, "%d_%d_all", i/args_info.nchunks_refinement_arg, (i+k)/args_info.nchunks_refinement_arg);
 				} else {
 				if(!args_info.split_ifos_arg)continue; /* combine data from all detectors */
-				snprintf(s, 19999, "%d_%d_%s", i, i+k, veto_info[m].name);
+				snprintf(s, 19999, "%d_%d_%s", i/args_info.nchunks_refinement_arg, (i+k)/args_info.nchunks_refinement_arg, veto_info[m].name);
 				}
 			ei[nei]=allocate_extreme_info(s);
 			ei[nei]->first_chunk=i;
@@ -668,6 +672,7 @@ for(i=0;i<args_info.nchunks_arg;i++)
 			ei[nei]->veto_num=m;
 			nei++;
 			}
+		}
 
 *out_nei=nei;
 *out_ei=ei;
