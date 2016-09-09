@@ -711,6 +711,14 @@ int shift;
 long tmp_stride=(useful_bins+(ALIGNMENT-1)) & (~(ALIGNMENT-1));
 long tmp_size;
 
+if(args_info.filter_lines_arg) {
+	/* To fix this we would need to pass and process per-frequency weight arrays. This needs to be done carefully to maintain efficiency 
+	 * The code will work as is if this is disabled, using an approximation to true weight. 
+	 * But the checks that enough weight was accumulated to compute power will not work */
+	fprintf(stderr, "*** ERROR: viterbi filtering is incompatible with filter-lines=1\n");
+	exit(-1);
+	}
+
 	/* size of tmp array */
 tmp_size=args_info.nchunks_arg*veto_free*fshift_count*tmp_stride*sizeof(float);
 	/* size of tmp2 arrays */
