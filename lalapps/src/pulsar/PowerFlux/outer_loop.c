@@ -705,21 +705,22 @@ POWER_SUM_STATS *stats;
 float *tmp;
 float *tmp2a, *tmp2b, *tmp_min_weight, *tmp_max_weight;
 float *p1, *p2, *p3, *p4, *p5;
-float min_weight, max_weight, inv_weight;
+float min_weight, max_weight, inv_weight, weight, *total_weight;
 int fshift_count=args_info.nfshift_arg; /* number of frequency offsets */
 int shift;
 long tmp_stride=(useful_bins+(ALIGNMENT-1)) & (~(ALIGNMENT-1));
 long tmp_size;
-int wcount;
 
 	/* size of tmp array */
-tmp_size=args_info.nchunks_arg*veto_free*count*tmp_stride*sizeof(float);
+tmp_size=args_info.nchunks_arg*veto_free*fshift_count*tmp_stride*sizeof(float);
 	/* size of tmp2 arrays */
 tmp_size+=2*(tmp_stride*fshift_count)*sizeof(float);
 	/* size of stats array */
 tmp_size+=nei*count*sizeof(*stats)+ALIGNMENT;
 	/* sizes of tmp_min_weight and tmp_max_weight arrays */
-tmp_size+=2*args_info.nchunks_arg*veto_free*count*sizeof(float)+2*ALIGNMENT;
+tmp_size+=2*args_info.nchunks_arg*veto_free*fshift_count*sizeof(float)+2*ALIGNMENT;
+	/* sizes of total_weight array */
+tmp_size+=fshift_count*sizeof(float)+2*ALIGNMENT;
 
 if(ctx->log_extremes_pstats_scratch_size<tmp_size) {
 	free(ctx->log_extremes_pstats_scratch);
@@ -737,12 +738,13 @@ if(ctx->log_extremes_pstats_scratch_size<tmp_size) {
 
 p1=(float *)ctx->log_extremes_pstats_scratch;
 
-tmp=p1; p1=ALIGN_POINTER(p1+args_info.nchunks_arg*veto_free*count*tmp_stride);
+tmp=p1; p1=ALIGN_POINTER(p1+args_info.nchunks_arg*veto_free*fshift_count*tmp_stride);
 tmp2a=p1; p1=ALIGN_POINTER(p1+tmp_stride*fshift_count);
 tmp2b=p1; p1=ALIGN_POINTER(p1+tmp_stride*fshift_count);
 stats=(POWER_SUM_STATS *)p1; p1=ALIGN_POINTER(p1+((nei*count*sizeof(*stats)+3)>>2));
-tmp_min_weight=p1; p1=ALIGN_POINTER(p1+args_info.nchunks_arg*veto_free*count);
-tmp_max_weight=p1; p1=ALIGN_POINTER(p1+args_info.nchunks_arg*veto_free*count);
+tmp_min_weight=p1; p1=ALIGN_POINTER(p1+args_info.nchunks_arg*veto_free*fshift_count);
+tmp_max_weight=p1; p1=ALIGN_POINTER(p1+args_info.nchunks_arg*veto_free*fshift_count);
+total_weight=p1; p1=ALIGN_POINTER(p1+fshift_count);
 
 /* Check that size was computed accurately */
 if(((char *)p1)-ctx->log_extremes_pstats_scratch>ctx->log_extremes_pstats_scratch_size) {
@@ -759,67 +761,78 @@ for(i=0;i<nei;i++) {
 for(lm=0;lm<alignment_grid_free;lm++) {
 
 
+	for(j=0;j<count;j+=fshift_count) {
+		
 	for(i=0;i<args_info.nchunks_arg;i++) {
 		for(k=0;k<veto_free;k++) {
-			for(j=0;j<count;j++) {
-				MODE(compute_power)(ps[i*veto_free+k][j].pps, &(alignment_grid[lm]), &tmp[((i*veto_free+k)*count+j)*tmp_stride], &(tmp_min_weight[(i*veto_free+k)*count+j]), &(tmp_max_weight[(i*veto_free+k)*count+j]));
+			for(shift=0;shift<fshift_count;shift++) {
+				MODE(compute_power)(ps[i*veto_free+k][j+shift].pps, &(alignment_grid[lm]), &tmp[((i*veto_free+k)*fshift_count+shift)*tmp_stride], &(tmp_min_weight[(i*veto_free+k)*fshift_count+shift]), &(tmp_max_weight[(i*veto_free+k)*fshift_count+shift]));
 				}
 			}
 		}
 		
-	for(j=0;j<count;j+=fshift_count) {
 	for(i=0;i<nei;i++) {
 		max_weight=0;
-		min_weight=1e50;
+		min_weight=0;
 		memset(tmp2a, 0, sizeof(*tmp2a)*tmp_stride*fshift_count);
-		count=0;
+		memset(total_weight, 0, sizeof(*total_weight)*fshift_count);
 		
 		for(k=ei[i]->first_chunk;k<=ei[i]->last_chunk;k++) {
 			/* Accumulate tmp2 from tmp using Viterbi-like algorithm */
 			/* We need to do all sub-bin shifts in one go */
-			for(shift=0;shift<fshift_count;shift++) {
-				p2=&(tmp2a[tmp_stride*shift]);
-				if(shift>0)p3=&(tmp2a[tmp_stride*(shift-1)]);
-					else p3=&(tmp2a[tmp_stride*(shift+fshift_count-1)-1]);
-				if(shift<fshift_count-1)p4=&(tmp2a[tmp_stride*(shift+1)]);
-					else p4=&(tmp2a[tmp_stride*(shift-fshift_count+1)+1]);
-				p5=&(tmp2b[tmp_stride*shift]);
+			if(k>ei[i]->first_chunk) {
+				for(shift=0;shift<fshift_count;shift++) {
+					p2=&(tmp2a[tmp_stride*shift]);
 					
-				if(shift==0)p5[0]=fmaxf(p2[0], p4[0]);
-					else
-					p5[0]=fmaxf(p2[0], fmaxf(p3[0], p4[0]));
-
-				if(shift==fshift_count-1)p5[useful_bins-1]=fmaxf(p2[useful_bins-1], p3[useful_bins-1]);
-					else
-					p5[useful_bins-1]=fmaxf(p2[useful_bins-1], fmaxf(p3[useful_bins-1], p4[useful_bins-1]));
+					if(shift>0)p3=&(tmp2a[tmp_stride*(shift-1)]);
+						else p3=&(tmp2a[tmp_stride*(shift+fshift_count-1)-1]);
 						
-				PRAGMA_IVDEP
-				for(r=1;r<useful_bins-1;r++) {
-					p5[r]=fmaxf(p2[r], fmaxf(p3[r], p4[r]));
+					if(shift<fshift_count-1)p4=&(tmp2a[tmp_stride*(shift+1)]);
+						else p4=&(tmp2a[tmp_stride*(shift-fshift_count+1)+1]);
+						
+					p5=&(tmp2b[tmp_stride*shift]);
+						
+					if(shift==0)p5[0]=fmaxf(p2[0], p4[0]);
+						else
+						p5[0]=fmaxf(p2[0], fmaxf(p3[0], p4[0]));
+
+					if(shift==fshift_count-1)p5[useful_bins-1]=fmaxf(p2[useful_bins-1], p3[useful_bins-1]);
+						else
+						p5[useful_bins-1]=fmaxf(p2[useful_bins-1], fmaxf(p3[useful_bins-1], p4[useful_bins-1]));
+							
+					PRAGMA_IVDEP
+					for(r=1;r<useful_bins-1;r++) {
+						p5[r]=fmaxf(p2[r], fmaxf(p3[r], p4[r]));
+						}
+				
 					}
-			
+				p1=tmp2b;
+				tmp2b=tmp2a;
+				tmp2a=p1;
 				}
-			p1=tmp2b;
-			tmp2b=tmp2a;
-			tmp2a=p1;
-					
+				
 			if(ei[i]->veto_num<0) {
 				for(m=0;m<veto_free;m++) {
 					/* Accumulate tmp2 from tmp incorporating all per-ifo pieces */
 					/* We need to do all sub-bin shifts in one go */
 					for(shift=0;shift<fshift_count;shift++) {
-						p1=&(tmp[((k*veto_free+m)*count+j+shift)*tmp_stride]);
+						p1=&(tmp[((k*veto_free+m)*fshift_count+shift)*tmp_stride]);
 						p5=&(tmp2a[tmp_stride*shift]);
 															
+						/* This is at best an approximation when line filtering is on */
+						weight=0.5*(tmp_min_weight[(k*veto_free+m)*fshift_count+shift]+tmp_max_weight[(k*veto_free+m)*fshift_count+shift]);
+						total_weight[shift]+=weight;
+						
 						PRAGMA_IVDEP
 						for(r=0;r<useful_bins;r++) {
-							p5[r]+=p1[r];
+							p5[r]+=p1[r]*weight;
 							}
 					
-						/* This might need fixing - we might want to accumulate weight */
-						wcount++;
-						if(min_weight>tmp_min_weight[(k*veto_free+m)*count+j+shift])min_weight=tmp_min_weight[(k*veto_free+m)*count+j+shift];
-						if(max_weight<tmp_max_weight[(k*veto_free+m)*count+j+shift])max_weight=tmp_max_weight[(k*veto_free+m)*count+j+shift];
+					
+						min_weight+=tmp_min_weight[(k*veto_free+m)*fshift_count+shift];
+						max_weight+=tmp_max_weight[(k*veto_free+m)*fshift_count+shift];
+// 						if(min_weight>tmp_min_weight[(k*veto_free+m)*fshift_count+shift])min_weight=tmp_min_weight[(k*veto_free+m)*fshift_count+shift];
+// 						if(max_weight<tmp_max_weight[(k*veto_free+m)*fshift_count+shift])max_weight=tmp_max_weight[(k*veto_free+m)*fshift_count+shift];
 						}
 					
 					}
@@ -829,18 +842,23 @@ for(lm=0;lm<alignment_grid_free;lm++) {
 				/* Accumulate tmp2 from tmp incorporating all per-ifo pieces */
 				/* We need to do all sub-bin shifts in one go */
 				for(shift=0;shift<fshift_count;shift++) {
-					p1=&(tmp[((k*veto_free+m)*count+j+shift)*tmp_stride]);
+					p1=&(tmp[((k*veto_free+m)*fshift_count+shift)*tmp_stride]);
 					p5=&(tmp2a[tmp_stride*shift]);
 														
+					/* This is at best an approximation when line filtering is on */
+					weight=0.5*(tmp_min_weight[(k*veto_free+m)*fshift_count+shift]+tmp_max_weight[(k*veto_free+m)*fshift_count+shift]);
+					total_weight[shift]+=weight;
+					
 					PRAGMA_IVDEP
 					for(r=0;r<useful_bins;r++) {
-						p5[r]+=p1[r];
+						p5[r]+=p1[r]*weight;
 						}
 				
-					/* This might need fixing - we might want to accumulate weight */
-					wcount++;
-					if(min_weight>tmp_min_weight[(k*veto_free+m)*count+j+shift])min_weight=tmp_min_weight[(k*veto_free+m)*count+j+shift];
-					if(max_weight<tmp_max_weight[(k*veto_free+m)*count+j+shift])max_weight=tmp_max_weight[(k*veto_free+m)*count+j+shift];
+
+					min_weight+=tmp_min_weight[(k*veto_free+m)*fshift_count+shift];
+					max_weight+=tmp_max_weight[(k*veto_free+m)*fshift_count+shift];
+// 					if(min_weight>tmp_min_weight[(k*veto_free+m)*fshift_count+shift])min_weight=tmp_min_weight[(k*veto_free+m)*fshift_count+shift];
+// 					if(max_weight<tmp_max_weight[(k*veto_free+m)*fshift_count+shift])max_weight=tmp_max_weight[(k*veto_free+m)*fshift_count+shift];
 					}
 				}
 			}
@@ -848,7 +866,11 @@ for(lm=0;lm<alignment_grid_free;lm++) {
 		for(shift=0;shift<fshift_count;shift++) {
 			p5=&(tmp2a[tmp_stride*shift]);
 			
-			inv_weight=1.0f/wcount;
+// 			fprintf(stderr, "total_weight=%g ei=%d %d %d\n", 
+// 				total_weight,
+// 				ei[i]->first_chunk,ei[i]->last_chunk, ei[i]->veto_num);
+			
+			inv_weight=1.0f/total_weight[shift];
 			PRAGMA_IVDEP
 			for(r=0;r<useful_bins;r++) {
 				p5[r]*=inv_weight;
