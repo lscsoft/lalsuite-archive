@@ -501,13 +501,14 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceModel *model)  // 
   COMPLEX16FrequencySeries *hptilde=NULL, *hctilde=NULL;
   
   // REAL8 mc;
-  REAL8 phi, deltaT, m1, m2, mass, eta, q, UNUSED f_min, distance, inclination, f_low;
+  REAL8 phi, deltaT, m1, m2, mass, eta, q, distance, inclination, f_low, UNUSED f_min;
   REAL8 frac_mass_loss = 0.0;
-  REAL8 UNUSED chiEff = 0.0;
+  REAL8 chiEff = 0.0;
 
   //REAL8 *mass_p;
   LALSimulationDomain model_domain = model->domain;
-  REAL8 UNUSED deltaF, UNUSED f_max;
+  REAL8 f_max;
+  REAL8 deltaF = 0.25;
   
   // LALSimInspiralWaveformFlags *waveFlags = XLALSimInspiralCreateWaveformFlags();
   LALSimInspiralTestGRParam *nonGRparams = NULL;
@@ -743,17 +744,19 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceModel *model)  // 
 
   if (model_domain == LAL_SIM_DOMAIN_FREQUENCY){
     
-    XLALPrintError(" ERROR in LALInferenceTemplateXLALSimBlackHoleRingdown(): FD waveform not implemented yet.\n");
-    XLAL_ERROR_VOID(XLAL_EFAILED);
+    /*XLALPrintError(" ERROR in LALInferenceTemplateXLALSimBlackHoleRingdown(): FD waveform not implemented yet.\n");
+    XLAL_ERROR_VOID(XLAL_EFAILED);*/
     
     //TODO: add spin parameter like effective spin or component spins or whatever is necessary
-    /* XLAL_TRY(ret = XLALSimRingdownChooseFDWaveform(&hptilde, &hctilde, phi, deltaF,
-                                                 mass*LAL_MSUN_SI, spin, eta, distance,
-                                                 inclination, waveFlags, nonGRparams,
-                                                 qnmorder, qnmodes, approximant), errnum); */
+    XLAL_TRY(ret = XLALSimBlackHoleRingdownTigerFD(&hptilde, &hctilde, phi, deltaF, f_max, f_low, 
+                                                 mass*LAL_MSUN_SI, spin, eta, chiEff, distance,
+                                                 inclination, nonGRparams), errnum); 
 
 	if (hptilde==NULL || hptilde->data==NULL || hptilde->data->data==NULL ) {
-	  XLALPrintError(" ERROR in LALInferenceTemplateXLALSimBlackHoleRingdown(): encountered unallocated 'hptilde'.\n");
+	if (hptilde==NULL){ XLALPrintError("Error1");}
+	if (hptilde->data==NULL){ XLALPrintError("Error2");}
+	if (hptilde->data->data==NULL){ XLALPrintError("Error3");}
+	  XLALPrintError(" ERROR in LALInferenceTemplateXLALSimBlackHoleRingdown(): encount/ered unallocated 'hptilde'.\n");
 	  XLAL_ERROR_VOID(XLAL_EFAULT);
 	}
 	if (hctilde==NULL || hctilde->data==NULL || hctilde->data->data==NULL ) {
@@ -791,7 +794,7 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceModel *model)  // 
     
     
     /* Destroy the WF flags and the nonGr params */
-    // XLALSimInspiralDestroyWaveformFlags(waveFlags);
+    //XLALSimInspiralDestroyWaveformFlags(waveFlags);
     XLALSimInspiralDestroyTestGRParam(nonGRparams);
     
     instant= (model->timehCross->epoch.gpsSeconds + 1e-9*model->timehCross->epoch.gpsNanoSeconds);

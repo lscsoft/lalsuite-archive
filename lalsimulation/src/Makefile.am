@@ -101,6 +101,7 @@ lib_LTLIBRARIES = liblalsimulation.la
 liblalsimulation_la_SOURCES = \
 	LALSimBlackHoleRingdown.c \
 	LALSimBlackHoleRingdownTiger.c \
+	LALSimBlackHoleRingdownTigerFD.c\
 	LALSimBurst.c \
 	LALSimBurstImg.c \
 	LALSimIMREOBNRv2.c \

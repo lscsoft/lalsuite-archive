@@ -3683,7 +3683,7 @@ int XLALSimInspiralImplementedFDApproximants(
         case TaylorF2RedSpinTidal:
         case SpinTaylorT4Fourier:
         case SpinTaylorT2Fourier:
-	//case RingdownFD:
+	case RingdownFD:
             return 1;
 
         default:
