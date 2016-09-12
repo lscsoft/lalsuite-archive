@@ -508,6 +508,7 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceModel *model)  // 
   //REAL8 *mass_p;
   LALSimulationDomain model_domain = model->domain;
   REAL8 f_max;
+  //HARD CODED: haven't figured out how to pass deltaF into this function. 
   REAL8 deltaF = 0.25;
   
   // LALSimInspiralWaveformFlags *waveFlags = XLALSimInspiralCreateWaveformFlags();
