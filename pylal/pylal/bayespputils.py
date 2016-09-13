@@ -106,10 +106,9 @@ def replace_column(table, old, new):
     which was added in Astropy 1.1.
 
     FIXME: remove this function when LALSuite depends on Astropy >= 1.1."""
-    name = old.name
-    index = table.colnames.index(name)
-    table.remove_column(name)
-    table.add_column(astropy.table.Column(new, name=name), index=index)
+    index = table.colnames.index(old)
+    table.remove_column(old)
+    table.add_column(astropy.table.Column(new, name=old), index=index)
 
 #===============================================================================
 # Constants
