@@ -256,7 +256,11 @@ class DocContents(object):
 		# yet
 		coinc_event_ids = set()
 		for event in self.inspirals_near_endtime(t):
-			coinc_event_ids |= self.coincs[event.event_id]
+			try:
+				coinc_event_ids |= self.coincs[event.event_id]
+			except KeyError:
+				# this single isn't in any coincs
+				pass
 		return [(coinc_event_id, self.sngls[coinc_event_id]) for coinc_event_id in coinc_event_ids]
 
 	def sort_triggers_by_id(self):
