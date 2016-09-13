@@ -180,10 +180,10 @@ rm -rf $RPM_BUILD_ROOT
 * Wed Jun 24 2009 Duncan Brown <dabrown@physics.syr.edu>
 - Post E14 release of glue
 
-* Tue Jun 11 2009 Duncan Brown <dabrown@physics.syr.edu>
+* Thu Jun 11 2009 Duncan Brown <dabrown@physics.syr.edu>
 - Allow segment tools to see multiple ifos
 
-* Tue Jun 10 2009 Duncan Brown <dabrown@physics.syr.edu>
+* Wed Jun 10 2009 Duncan Brown <dabrown@physics.syr.edu>
 - Restored LSCdataFindcheck and fixed debian control files
 
 * Tue Jun 09 2009 Duncan Brown <dabrown@physics.syr.edu>
@@ -192,7 +192,7 @@ rm -rf $RPM_BUILD_ROOT
 * Tue Jun 24 2008 Ping Wei <piwei@syr.edu>
 - Build for glue 1.18-1
 
-* Wed Jun 19 2008 Duncan Brown <dabrown@physics.syr.edu>
+* Thu Jun 19 2008 Duncan Brown <dabrown@physics.syr.edu>
 - Build for glue 1.17
 
 * Fri Nov 04 2005 Duncan Brown <dbrown@ligo.caltech.edu>
