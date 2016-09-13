@@ -219,13 +219,10 @@ class DocContents(object):
 		self.coincoffsets = dict((row.coinc_event_id, self.offsetvectors[row.time_slide_id]) for row in self.coinctable if row.coinc_def_id == ii_coinc_def_id)
 
 		#
-		# sort sngl_inspiral table by end time, and sort the coincs
-		# list by the end time of the first (earliest) event in
-		# each coinc (recall that the event tuple for each coinc
-		# has been time-ordered)
+		# sort sngl_inspiral table by end time
 		#
 
-		self.snglinspiraltable.sort(lambda a, b: cmp(a.end_time, b.end_time) or cmp(a.end_time_ns, b.end_time_ns))
+		self.snglinspiraltable.sort(key = lambda row: row.end)
 
 		#
 		# set the window for inspirals_near_endtime().  this window
@@ -239,7 +236,7 @@ class DocContents(object):
 
 	def inspirals_near_endtime(self, t):
 		"""
-		Return a list of the inspiral events whose peak times are
+		Return a list of the inspiral events whose end times are
 		within self.end_time_bisect_window of t.
 		"""
 		return self.snglinspiraltable[bisect.bisect_left(self.snglinspiraltable, t - self.end_time_bisect_window):bisect.bisect_right(self.snglinspiraltable, t + self.end_time_bisect_window)]
@@ -268,7 +265,7 @@ class DocContents(object):
 		Sort the sngl_inspiral table's rows by ID (tidy-up document
 		for output).
 		"""
-		self.snglinspiraltable.sort(lambda a, b: cmp(a.event_id, b.event_id))
+		self.snglinspiraltable.sort(key = lambda row: row.event_id)
 
 	def new_coinc(self, coinc_def_id):
 		"""
