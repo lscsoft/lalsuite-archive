@@ -8,7 +8,7 @@
 
 Name: 		glue
 Summary:	The Grid LSC User Environment
-Version:	1.51.0
+Version:	1.52.0
 Release:	1%{?dist}
 License:	None
 Group:		Development/Libraries
@@ -48,7 +48,7 @@ rm -rf %{buildroot}
         --skip-build \
         --root=%{buildroot} \
         --prefix=%{_glue_prefix}
-rm -rf $RPM_BUILD_ROOT/usr/lib64/python2.?/site-packages/glue-1.51.0-py2.?.egg-info
+rm -rf $RPM_BUILD_ROOT/usr/lib64/python2.?/site-packages/glue-1.52.0-py2.?.egg-info
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -92,6 +92,9 @@ rm -rf $RPM_BUILD_ROOT
 %{glue_python_sitearch}/glue/git_version.pyc
 
 %changelog
+* Tue Sep 13 2016 Ryan Fisher <rpfisher@syr.edu>
+- ER10 release. (forgot to update this changelog for last several releases)
+
 * Thu Jul 23 2015 Ryan Fisher <rpfisher@syr.edu>
 - Pre-ER8 release, attempt 2.
 
