@@ -25,7 +25,6 @@
 import copy
 
 from pylal import SearchSummaryUtils
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
@@ -217,7 +216,7 @@ def CompareSnglInspiralBySnr(a, b):
   return cmp(a.snr, b.snr)
 
 
-def CompareSnglInspiral(a, b, twindow = LIGOTimeGPS(0)):
+def CompareSnglInspiral(a, b, twindow = lsctables.LIGOTimeGPS(0)):
   """
   Returns 0 if a and b are less than twindow appart.
   """

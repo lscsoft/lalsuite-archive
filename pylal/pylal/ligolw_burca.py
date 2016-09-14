@@ -34,8 +34,6 @@ from glue.ligolw.utils import coincs as ligolw_coincs
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
 from pylal import snglcoinc
-from pylal.xlal import tools
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -50,10 +48,6 @@ __date__ = git_version.date
 #
 # =============================================================================
 #
-
-
-lsctables.CoincMapTable.RowType = lsctables.CoincMap = tools.CoincMap
-lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 def sngl_burst___cmp__(self, other):
@@ -166,9 +160,14 @@ class ExcessPowerCoincTables(snglcoinc.CoincTables):
 			self.multibursttable = lsctables.New(lsctables.MultiBurstTable, ("process_id", "duration", "central_freq", "bandwidth", "snr", "confidence", "amplitude", "coinc_event_id"))
 			xmldoc.childNodes[0].appendChild(self.multibursttable)
 
-	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events):
-		coinc = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, coinc_def_id, events)
-		self.multibursttable.append(make_multi_burst(process_id, coinc.coinc_event_id, events, self.time_slide_index[time_slide_id]))
+	def coinc_rows(self, process_id, time_slide_id, coinc_def_id, events):
+		coinc, coincmaps = super(ExcessPowerCoincTables, self).coinc_rows(process_id, time_slide_id, coinc_def_id, events)
+		return coinc, coincmaps, make_multi_burst(process_id, coinc.coinc_event_id, events, self.time_slide_index[time_slide_id])
+
+	def append_coinc(self, coinc, coincmaps, multiburst):
+		coinc = super(ExcessPowerCoincTables, self).append_coinc(coinc, coincmaps)
+		multiburst.coinc_event_id = coinc.coinc_event_id
+		self.multibursttable.append(multiburst)
 		return coinc
 
 
@@ -181,10 +180,10 @@ StringCuspBBCoincDef = lsctables.CoincDef(search = u"StringCusp", search_coinc_t
 
 
 class StringCuspCoincTables(snglcoinc.CoincTables):
-	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events):
-		coinc = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, coinc_def_id, events)
+	def coinc_rows(self, process_id, time_slide_id, coinc_def_id, events):
+		coinc, coincmaps = super(StringCuspCoincTables, self).coinc_rows(process_id, time_slide_id, coinc_def_id, events)
 		coinc.set_instruments(event.ifo for event in events)
-		return coinc
+		return coinc, coincmaps
 
 
 #
@@ -352,8 +351,16 @@ def ligolw_burca(
 	event_comparefunc,
 	thresholds,
 	ntuple_comparefunc = lambda events, offset_vector: False,
+	min_instruments = 2,
 	verbose = False
 ):
+	#
+	# validate input
+	#
+
+	if min_instruments < 1:
+		raise ValueError("min_instruments (=%d) must be >= 1" % min_instruments)
+
 	#
 	# prepare the coincidence table interface.
 	#
@@ -362,14 +369,15 @@ def ligolw_burca(
 		print >>sys.stderr, "indexing ..."
 	coinc_tables = CoincTables(xmldoc)
 	coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
-	sngl_index = dict((row.event_id, row) for row in lsctables.SnglBurstTable.get_table(xmldoc))
+	sngl_burst_table = lsctables.SnglBurstTable.get_table(xmldoc)
+	sngl_index = dict((row.event_id, row) for row in sngl_burst_table)
 
 	#
 	# build the event list accessors, populated with events from those
 	# processes that can participate in a coincidence
 	#
 
-	eventlists = snglcoinc.EventListDict(EventListType, lsctables.SnglBurstTable.get_table(xmldoc))
+	eventlists = snglcoinc.EventListDict(EventListType, sngl_burst_table, instruments = set(coinc_tables.time_slide_table.getColumnByName("instrument")))
 
 	#
 	# construct offset vector assembly graph
@@ -383,15 +391,11 @@ def ligolw_burca(
 	#
 
 	for node, coinc in time_slide_graph.get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose):
+		if len(coinc) < min_instruments:
+			continue
 		ntuple = tuple(sngl_index[id] for id in coinc)
 		if not ntuple_comparefunc(ntuple, node.offset_vector):
-			coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple)
-
-	#
-	# remove time offsets from events
-	#
-
-	del eventlists.offsetvector
+			coinc_tables.append_coinc(*coinc_tables.coinc_rows(process_id, node.time_slide_id, coinc_def_id, ntuple))
 
 	#
 	# done

@@ -45,6 +45,7 @@ from operator import itemgetter
 #related third party imports
 from lalinference.io import read_samples
 import healpy as hp
+import astropy.table
 import lalinference.cmap
 import numpy as np
 from numpy import fmod
@@ -99,6 +100,15 @@ from _bayespputils import _skyhist_cart,_burnin
 __author__="Ben Aylott <benjamin.aylott@ligo.org>, Ben Farr <bfarr@u.northwestern.edu>, Will M. Farr <will.farr@ligo.org>, John Veitch <john.veitch@ligo.org>, Vivien Raymond <vivien.raymond@ligo.org>"
 __version__= "git id %s"%git_version.id
 __date__= git_version.date
+
+def replace_column(table, old, new):
+    """Workaround for missing astropy.table.Table.replace_column method,
+    which was added in Astropy 1.1.
+
+    FIXME: remove this function when LALSuite depends on Astropy >= 1.1."""
+    index = table.colnames.index(old)
+    table.remove_column(old)
+    table.add_column(astropy.table.Column(new, name=old), index=index)
 
 #===============================================================================
 # Constants
@@ -5518,10 +5528,10 @@ def find_ndownsample(samples, nDownsample):
         splineParams=["spcal_npts", "spcal_active","constantcal_active"]
         for i in np.arange(5):
           for k in ['h1','l1']:
-            splineParams.append(k+'_spcal_freq'+str(i))
-            splineParams.append(k+'_spcal_logfreq'+str(i))
+            splineParams.append(k+'_spcal_freq_'+str(i))
+            splineParams.append(k+'_spcal_logfreq_'+str(i))
 
-        nonParams = ["logpost", "cycle", "timestamp", "snrh1", "snrl1", "snrv1",
+        nonParams = ["logpost", "post", "cycle", "timestamp", "snrh1", "snrl1", "snrv1",
                      "margtime","margtimephi","margtime","time_max","time_min",
                      "time_mean", "time_maxl","sky_frame","psdscaleflag","logdeltaf","flow","f_ref",
                      "lal_amporder","lal_pnorder","lal_approximant","tideo","spino","signalmodelflag",
@@ -6063,20 +6073,20 @@ class PEOutputParser(object):
             if param_low.find('log') != -1 and param_low not in logParams and re.sub('log', '', param_low) not in [p.lower() for p in params]:
                 print('exponentiating %s' % param)
                 new_param = re.sub('log', '', param, flags=re.IGNORECASE)
-                samples.replace_column(param, np.exp(samples[param]))
-                samples.rename_column(param, new_param)
+                samples[new_param] = np.exp(samples[param])
+                del samples[param]
                 param = new_param
             if param_low.find('sin') != -1 and re.sub('sin', '', param_low) not in [p.lower() for p in params]:
                 print('asining %s' % param)
                 new_param = re.sub('sin', '', param, flags=re.IGNORECASE)
-                samples.replace_column(param, np.arcsin(samples[param]))
-                samples.rename_column(param, new_param)
+                samples[new_param] = np.arcsin(samples[param])
+                del samples[param]
                 param = new_param
             if param_low.find('cos') != -1 and re.sub('cos', '', param_low) not in [p.lower() for p in params]:
                 print('acosing %s' % param)
                 new_param = re.sub('cos', '', param, flags=re.IGNORECASE)
-                samples.replace_column(param, np.arccos(samples[param]))
-                samples.rename_column(param, new_param)
+                samples[new_param] = np.arccos(samples[param])
+                del samples[param]
                 param = new_param
 
             if param != param.replace('(', ''):
@@ -6085,7 +6095,7 @@ class PEOutputParser(object):
                 samples.rename_column(param, param.replace(')', ''))
 
             #Make everything a float, since that's what's excected of a CommonResultsObj
-            samples.replace_column(param, samples[param].astype(float))
+            replace_column(samples, param, samples[param].astype(float))
 
         params = samples.colnames
         print('Read columns %s' % str(params))
@@ -6095,7 +6105,7 @@ class PEOutputParser(object):
             if not (fixedBurnin is None):
                 if not (deltaLogL is None):
                     print "Warning: using deltaLogL criteria in addition to fixed burnin"
-                print "Fixed burning criteria: ",fixedBurnins
+                print "Fixed burning criteria: ",fixedBurnin
             else:
                 fixedBurnin = 0
             burnin_idx = np.arange(len(samples))[samples['cycle'] > fixedBurnin][0]
