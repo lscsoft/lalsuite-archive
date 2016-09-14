@@ -1,4 +1,4 @@
-# Copyright (C) 2006--2011,2013,2014  Kipp Cannon
+# Copyright (C) 2006--2011,2013,2014,2016  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -49,7 +49,6 @@ from glue.ligolw.utils import time_slide as ligolw_time_slide
 from glue.text_progress_bar import ProgressBar
 from pylal import git_version
 from pylal import ligolw_thinca
-from pylal import SimInspiralUtils
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
