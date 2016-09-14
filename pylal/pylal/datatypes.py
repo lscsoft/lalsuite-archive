@@ -38,5 +38,4 @@ __date__ = git_version.date
 
 
 from xlal.datatypes.ligotimegps import *
-from xlal.datatypes.snglinspiraltable import *
 from xlal.datatypes.snglringdowntable import *
