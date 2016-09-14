@@ -42,7 +42,6 @@ import sys
 
 import lal
 from glue import segments
-from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw.utils import coincs as ligolw_coincs
 from glue.ligolw.utils import process as ligolw_process
@@ -51,17 +50,6 @@ from glue.ligolw.utils import time_slide as ligolw_time_slide
 from pylal import git_version
 from pylal import ligolw_burca
 from pylal import SimBurstUtils
-from pylal.xlal import tools
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-
-
-#
-# Use a memory-efficient row class written in C for the coinc_event_map
-# table
-#
-
-
-lsctables.CoincMapTable.RowType = lsctables.CoincMap = tools.CoincMap
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -76,14 +64,6 @@ __date__ = git_version.date
 #
 # =============================================================================
 #
-
-
-#
-# use a C implementation
-#
-
-
-lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 #
@@ -767,7 +747,7 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 		if verbose:
 			print >>sys.stderr, "\t100.0%"
 	elif verbose:
-		print >>sys.stderr, "no %s table in document, skipping" % table.StripTableName(lsctables.SimBurstTable.tableName)
+		print >>sys.stderr, "no %s table in document, skipping" % lsctables.SimBurstTable.tableName
 
 	#
 	# Search for sim_inspiral <--> * coincidences
@@ -812,7 +792,7 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 		if verbose:
 			print >>sys.stderr, "\t100.0%"
 	elif verbose:
-		print >>sys.stderr, "no %s table in document, skipping" % table.StripTableName(lsctables.SimInspiralTable.tableName)
+		print >>sys.stderr, "no %s table in document, skipping" % lsctables.SimInspiralTable.tableName
 
 	#
 	# Done.

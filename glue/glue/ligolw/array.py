@@ -147,7 +147,7 @@ class ArrayStream(ligolw.Stream):
 	def write(self, fileobj = sys.stdout, indent = u""):
 		# avoid symbol and attribute look-ups in inner loop
 		linelen = self.parentNode.array.shape[0]
-		lines = self.parentNode.array.size / linelen
+		lines = self.parentNode.array.size / linelen if self.parentNode.array.size else 0
 		tokens = itertools.imap(ligolwtypes.FormatFunc[self.parentNode.Type], self.parentNode.array.T.flat)
 		islice = itertools.islice
 		join = self.Delimiter.join
