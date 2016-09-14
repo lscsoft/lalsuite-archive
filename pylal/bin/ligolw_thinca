@@ -58,7 +58,7 @@ lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
 
 
 #
-# Use C row classes for memory efficiency and speed.
+# Must use coincidence code's custom sngl_inspiral table row type.
 #
 
 
