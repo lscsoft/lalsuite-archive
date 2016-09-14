@@ -315,7 +315,7 @@ def find_sngl_inspiral_matches(contents, sim, comparefunc):
 	"""
 	Scan the inspiral table for triggers matching sim.
 	"""
-	return [inspiral for inspiral in contents.inspirals_near_endtime(sim.get_end()) if not comparefunc(sim, inspiral)]
+	return [inspiral for inspiral in contents.inspirals_near_endtime(sim.end) if not comparefunc(sim, inspiral)]
 
 
 def add_sim_inspiral_coinc(contents, sim, inspirals):
@@ -450,7 +450,7 @@ def ligolw_inspinjfind(xmldoc, process, search, snglcomparefunc, nearcoinccompar
 		for sim in contents.siminspiraltable:
 			if progressbar is not None:
 				progressbar.increment()
-			coincs = contents.coincs_near_endtime(sim.get_end())
+			coincs = contents.coincs_near_endtime(sim.end)
 			exact_coinc_event_ids = find_exact_coinc_matches(coincs, sim, snglcomparefunc)
 			near_coinc_event_ids = find_near_coinc_matches(coincs, sim, nearcoinccomparefunc)
 			assert exact_coinc_event_ids.issubset(near_coinc_event_ids)
