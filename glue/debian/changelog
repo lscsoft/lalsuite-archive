@@ -1,3 +1,9 @@
+glue (1.52.0-1) unstable; urgency=low
+
+  * ER10 release of glue.
+
+ -- Ryan Fisher <ryan.fisher@ligo.org>  Tue, 13 Sep 2016 08:54:00 -0500
+
 glue (1.51.0-1) unstable; urgency=low
 
   * Pre-ER10 release of glue.

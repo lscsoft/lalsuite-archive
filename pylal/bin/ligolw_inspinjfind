@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 #
-# Copyright (C) 2006--2009,2013,2014  Kipp Cannon
+# Copyright (C) 2006--2009,2013,2014,2016  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -40,7 +40,6 @@ from glue.ligolw import utils as ligolw_utils
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
 from pylal import ligolw_inspinjfind
-from pylal import SnglInspiralUtils
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -100,6 +99,14 @@ lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
 
 
 #
+# Must use injection finder's custom sngl_inspiral table row type.
+#
+
+
+lsctables.SnglInspiralTable.RowType = lsctables.SnglInspiral = ligolw_inspinjfind.SnglInspiral
+
+
+#
 # =============================================================================
 #
 #                                     Main
@@ -126,11 +133,15 @@ search = {
 #
 
 
-def InspiralSnglCompare(sim, inspiral, twindow = ligolw_inspinjfind.LIGOTimeGPS(options.time_window)):
-	return SnglInspiralUtils.CompareSnglInspiral(sim, inspiral, twindow = twindow)
+def InspiralSnglCompare(sim, sngl, twindow = lsctables.LIGOTimeGPS(options.time_window)):
+	"""
+	Returns 0 if sim and sngl are less than twindow apart.
+	"""
+	dt = sim.time_geocent - sngl.end
+	return 0 if abs(dt) < twindow else dt
 
-def NearCoincCompare(sim, inspiral, twindow = ligolw_inspinjfind.LIGOTimeGPS(options.time_window)):
-	return SnglInspiralUtils.CompareSnglInspiral(sim, inspiral, twindow = twindow)
+
+NearCoincCompare = InspiralSnglCompare
 
 
 snglcomparefunc = {

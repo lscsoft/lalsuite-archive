@@ -1,7 +1,7 @@
 # -*- mode: autoconf; -*-
 # lalsuite_build.m4 - top level build macros
 #
-# serial 126
+# serial 127
 
 # restrict which LALSUITE_... patterns can appearing in output (./configure);
 # useful for debugging problems with unexpanded LALSUITE_... Autoconf macros
@@ -464,18 +464,20 @@ AC_DEFUN([LALSUITE_CHECK_PYTHON],[
 ])
 
 AC_DEFUN([LALSUITE_USE_LIBTOOL],[
-  # $0: Generate a libtool script for use in configure tests
+  # $0: Generate a libtool script for use in configure tests. Arguments
+  # are added to link command in variable ${lalsuite_libtool_flags}
   AC_REQUIRE([LT_INIT])
   LT_OUTPUT
   m4_append([AC_LANG(C)],[
-    ac_link="./libtool --mode=link --tag=CC $ac_link"
+    ac_link="./libtool --mode=link --tag=CC ${ac_link} ${lalsuite_libtool_flags}"
   ])
   AC_PROVIDE_IFELSE([AC_PROG_CXX],[
     m4_append([AC_LANG(C++)],[
-      ac_link="./libtool --mode=link --tag=CXX $ac_link"
+      ac_link="./libtool --mode=link --tag=CXX ${ac_link} ${lalsuite_libtool_flags}"
     ])
   ])
   AC_LANG(_AC_LANG)
+  LALSUITE_ADD_FLAGS([],[],[${lalsuite_libtool_flags}])
   # end $0
 ])
 

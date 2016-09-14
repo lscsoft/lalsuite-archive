@@ -161,7 +161,7 @@ class EventListDict(dict):
 		# wrapper to shield dict.__new__() from our arguments.
 		return dict.__new__(cls)
 
-	def __init__(self, EventListType, event_table, process_ids = None):
+	def __init__(self, EventListType, event_table, instruments = None, process_ids = None):
 		"""
 		Initialize a newly-created instance.  EventListType is a
 		subclass of EventList (the subclass itself, not an instance
@@ -173,14 +173,15 @@ class EventListDict(dict):
 		process_ids whose events should be considered in the
 		coincidence analysis, otherwise all events are considered.
 		"""
-		for event in event_table:
-			if (process_ids is None) or (event.process_id in process_ids):
-				# FIXME:  only works when the instrument
-				# name is in the "ifo" column.  true for
-				# inspirals, bursts and ringdowns
-				if event.ifo not in self:
-					self[event.ifo] = EventListType(event.ifo)
+		for instrument in instruments if instruments is not None else set(event_table.getColumnByName("ifo")):
+			self[instrument] = EventListType(instrument)
+		if process_ids is None:
+			for event in event_table:
 				self[event.ifo].append(event)
+		else:
+			for event in event_table:
+				if event.process_id in process_ids:
+					self[event.ifo].append(event)
 		for l in self.values():
 			l.make_index()
 
@@ -322,6 +323,7 @@ class TimeSlideGraphNode(object):
 		self.coincs = None
 		self.unused_coincs = set()
 
+	@property
 	def name(self):
 		return self.offset_vector.__str__(compact = True)
 
@@ -343,18 +345,13 @@ class TimeSlideGraphNode(object):
 		if self.components is None:
 			if verbose:
 				print >>sys.stderr, "\tconstructing %s ..." % str(self.offset_vector)
+
 			#
-			# can we do it?
+			# sanity check input
 			#
 
-			assert len(self.offset_vector) == 2
-			avail_instruments = set(eventlists)
-			offset_instruments = set(self.offset_vector)
-			if not offset_instruments.issubset(avail_instruments):
-				if verbose:
-					print >>sys.stderr, "\twarning: do not have data for instrument(s) %s ... assuming 0 coincs" % ", ".join(offset_instruments - avail_instruments)
-				self.coincs = tuple()
-				return self.coincs
+			assert len(self.offset_vector) == 2, "broken graph:  node with no components has %d-component offset vector, must be 2" % len(self.offset_vector)
+			assert set(self.offset_vector) <= set(eventlists), "no event list for instrument(s) %s" % ", ".join(sorted(set(self.offset_vector) - set(eventlists)))
 
 			#
 			# apply offsets to events
@@ -379,7 +376,9 @@ class TimeSlideGraphNode(object):
 			# tuple returned by get_doubles() is arbitrary so
 			# we need to sort each tuple by instrument name
 			# explicitly
-			self.coincs = tuple(sorted((a.event_id, b.event_id) if a.ifo <= b.ifo else (b.event_id, a.event_id) for (a, b) in get_doubles(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose)))
+			self.unused_coincs = set((event.event_id,) for instrument in self.offset_vector for event in eventlists[instrument])
+			self.coincs = tuple(sorted((a.event_id, b.event_id) if a.ifo <= b.ifo else (b.event_id, a.event_id) for (a, b) in get_doubles(eventlists, event_comparefunc, tuple(self.offset_vector), thresholds, verbose = verbose)))
+			self.unused_coincs -= set((event_id,) for coinc in self.coincs for event_id in coinc)
 			return self.coincs
 
 		#
@@ -514,13 +513,6 @@ class TimeSlideGraphNode(object):
 class TimeSlideGraph(object):
 	def __init__(self, offset_vector_dict, verbose = False):
 		#
-		# validate input
-		#
-
-		if min(len(offset_vector) for offset_vector in offset_vector_dict.values()) < 2:
-			raise ValueError("offset vectors must have at least two instruments")
-
-		#
 		# populate the graph head nodes.  these represent the
 		# target offset vectors requested by the calling code.
 		#
@@ -596,25 +588,20 @@ class TimeSlideGraph(object):
 		if verbose:
 			print >>sys.stderr, "graph contains:"
 			for n in sorted(self.generations):
-				print >>sys.stderr,"\t%d %d-insrument offset vectors (%s)" % (len(self.generations[n]), n, ((n == 2) and "to be constructed directly" or "to be constructed indirectly"))
+				print >>sys.stderr,"\t%d %d-insrument offset vectors (%s)" % (len(self.generations[n]), n, ("to be constructed directly" if n == 2 else "to be constructed indirectly"))
 			print >>sys.stderr, "\t%d offset vectors total" % sum(len(self.generations[n]) for n in self.generations)
 
 
-	def get_coincs(self, eventlists, event_comparefunc, thresholds, include_small_coincs = True, verbose = False):
+	def get_coincs(self, eventlists, event_comparefunc, thresholds, verbose = False):
 		if verbose:
 			print >>sys.stderr, "constructing coincs for target offset vectors ..."
 		for n, node in enumerate(self.head, start = 1):
 			if verbose:
 				print >>sys.stderr, "%d/%d: %s" % (n, len(self.head), str(node.offset_vector))
-			if include_small_coincs:
-				# note that unused_coincs must be retrieved
-				# after the call to .get_coincs() because
-				# the former is computed as a side effect
-				# of the latter
-				iterator = itertools.chain(node.get_coincs(eventlists, event_comparefunc, thresholds, verbose), node.unused_coincs)
-			else:
-				iterator = node.get_coincs(eventlists, event_comparefunc, thresholds, verbose)
-			for coinc in iterator:
+			# note that unused_coincs must be retrieved after
+			# the call to .get_coincs() because the former is
+			# computed as a side effect of the latter
+			for coinc in itertools.chain(node.get_coincs(eventlists, event_comparefunc, thresholds, verbose), node.unused_coincs):
 				yield node, coinc
 
 
@@ -625,14 +612,14 @@ class TimeSlideGraph(object):
 		"""
 		print >>fileobj, "digraph \"Time Slides\" {"
 		for node in itertools.chain(*self.generations.values()):
-			print >>fileobj, "\t\"%s\" [shape=box];" % node.name()
+			print >>fileobj, "\t\"%s\" [shape=box];" % node.name
 			if node.components is not None:
 				for component in node.components:
-					print >>fileobj, "\t\"%s\" -> \"%s\";" % (component.name(), node.name())
+					print >>fileobj, "\t\"%s\" -> \"%s\";" % (component.name, node.name)
 		for node in self.head:
-			print >>fileobj, "\t\"%s\" [shape=ellipse];" % node.name()
+			print >>fileobj, "\t\"%s\" [shape=ellipse];" % node.name
 			for component in node.components:
-				print >>fileobj, "\t\"%s\" -> \"%s\";" % (component.name(), node.name())
+				print >>fileobj, "\t\"%s\" -> \"%s\";" % (component.name, node.name)
 		print >>fileobj, "}"
 
 
@@ -676,40 +663,64 @@ class CoincTables(object):
 		# required.  when that is fixed, remove this
 		self.time_slide_index = dict((time_slide_id, type(offset_vector)((instrument, lsctables.LIGOTimeGPS(offset)) for instrument, offset in offset_vector.items())) for time_slide_id, offset_vector in self.time_slide_index.items())
 
-	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events):
+	def coinc_rows(self, process_id, time_slide_id, coinc_def_id, events):
 		"""
-		Takes a process ID, a time slide ID, and a list of events,
-		and adds the events as a new coincidence to the coinc_event
-		and coinc_map tables.
+		From a process ID, a time slide ID, and a sequence of
+		events (generator expressions are OK), constructs and
+		initializes a coinc_event table row object and a sequence
+		of coinc_event_map table row objects describing the
+		coincident event.  The return value is the coinc_event row
+		and a sequence of the coinc_event_map rows.
 
-		Subclasses that wish to override this method should first
-		chain to this method to construct and initialize the
-		coinc_event and coinc_event_map rows.  When subclassing
-		this method, if the time shifts that were applied to the
-		events in constructing the coincidence are required to
-		compute additional metadata, they can be retrieved from
-		self.time_slide_index using the time_slide_id.
+		The coinc_event is *not* assigned a coinc_event_id by this
+		method.  It is expected that will be done in
+		.append_coinc().  This allows sub-classes to defer the
+		question of whether or not to include the coincidence in
+		the search results without consuming additional IDs.
+
+		The coinc_event row's .instruments and .likelihood
+		attributes are initialized to null values.  The calling
+		code should populate as needed.
+
+		When subclassing this method, if the time shifts that were
+		applied to the events in constructing the coincidence are
+		required to compute additional metadata, they can be
+		retrieved from self.time_slide_index using the
+		time_slide_id.
 		"""
-		# so we can iterate over it more than once incase we've
-		# been given a generator expression.
-		events = tuple(events)
-
 		coinc = self.coinctable.RowType()
 		coinc.process_id = process_id
 		coinc.coinc_def_id = coinc_def_id
-		coinc.coinc_event_id = self.coinctable.get_next_id()
+		coinc.coinc_event_id = None
 		coinc.time_slide_id = time_slide_id
 		coinc.set_instruments(None)
-		coinc.nevents = len(events)
 		coinc.likelihood = None
-		self.coinctable.append(coinc)
+
+		coincmaps = []
 		for event in events:
 			coincmap = self.coincmaptable.RowType()
 			coincmap.coinc_event_id = coinc.coinc_event_id
 			coincmap.table_name = event.event_id.table_name
 			coincmap.event_id = event.event_id
-			self.coincmaptable.append(coincmap)
-		return coinc
+			coincmaps.append(coincmap)
+
+		coinc.nevents = len(coincmaps)
+
+		return coinc, coincmaps
+
+	def append_coinc(self, coinc_event_row, coinc_event_map_rows):
+		"""
+		Appends the coinc_event row object and coinc_event_map row
+		objects to the coinc_event and coinc_event_map tables
+		respectively after assigning a coinc_event_id to the
+		coincidence.  Returns the coinc_event row object.
+		"""
+		coinc_event_row.coinc_event_id = self.coinctable.get_next_id()
+		self.coinctable.append(coinc_event_row)
+		for row in coinc_event_map_rows:
+			row.coinc_event_id = coinc_event_row.coinc_event_id
+			self.coincmaptable.append(row)
+		return coinc_event_row
 
 
 #
@@ -1795,13 +1806,14 @@ class CoincParamsDistributions(object):
 		__getitem__ = self.injection_lnpdf_interp.__getitem__
 		return sum(__getitem__(name)(*value) for name, value in params.items())
 
-	def get_xml_root(self, xml, name):
+	@classmethod
+	def get_xml_root(cls, xml, name):
 		"""
 		Sub-classes can use this in their overrides of the
 		.from_xml() method to find the root element of the XML
 		serialization.
 		"""
-		name = u"%s:%s" % (name, self.ligo_lw_name_suffix)
+		name = u"%s:%s" % (name, cls.ligo_lw_name_suffix)
 		xml = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == name]
 		if len(xml) != 1:
 			raise ValueError("XML tree must contain exactly one %s element named %s" % (ligolw.LIGO_LW.tagName, name))
@@ -1818,7 +1830,7 @@ class CoincParamsDistributions(object):
 		ID recorded when it was written to XML.
 		"""
 		# find the root element of the XML serialization
-		xml = self.get_xml_root(xml, name)
+		xml = cls.get_xml_root(xml, name)
 
 		# retrieve the process ID
 		process_id = ligolw_param.get_pyvalue(xml, u"process_id")
@@ -1858,12 +1870,7 @@ class CoincParamsDistributions(object):
 		given the name name.
 		"""
 		xml = ligolw.LIGO_LW({u"Name": u"%s:%s" % (name, self.ligo_lw_name_suffix)})
-		# FIXME: remove try/except when we can rely on new-enough
-		# glue to provide .from_pyvalue() class method
-		try:
-			xml.appendChild(ligolw_param.Param.from_pyvalue(u"process_id", self.process_id))
-		except AttributeError:
-			xml.appendChild(ligolw_param.from_pyvalue(u"process_id", self.process_id))
+		xml.appendChild(ligolw_param.Param.from_pyvalue(u"process_id", self.process_id))
 		def store(xml, prefix, source_dict):
 			for name, binnedarray in sorted(source_dict.items()):
 				xml.appendChild(binnedarray.to_xml(u"%s:%s" % (prefix, name)))
