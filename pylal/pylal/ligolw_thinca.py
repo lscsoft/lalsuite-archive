@@ -38,7 +38,6 @@ from glue import offsetvector
 import lal
 from pylal import git_version
 from pylal import snglcoinc
-from pylal.xlal.datatypes.snglinspiraltable import SnglInspiralTable as XLALSnglInspiral
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -56,19 +55,13 @@ __date__ = git_version.date
 
 
 #
-# Construct a subclass of the C sngl_inspiral row class with the methods
-# that are needed
+# Construct a subclass of the sngl_inspiral row class with the methods that
+# are needed
 #
 
 
-class SnglInspiral(XLALSnglInspiral):
+class SnglInspiral(lsctables.SnglInspiral):
 	__slots__ = ()
-
-	spin1 = lsctables.SnglInspiral.spin1
-	spin2 = lsctables.SnglInspiral.spin2
-
-	__eq__ = lsctables.SnglInspiral.__eq__
-
 	def __cmp__(self, other):
 		# compare self's end time to the LIGOTimeGPS instance
 		# other.  allows bisection searches by GPS time to find
