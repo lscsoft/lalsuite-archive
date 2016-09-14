@@ -380,7 +380,12 @@ void LALInferenceSetVariable(LALInferenceVariables * vars, const char * name, co
   return;
 }
 
+/* DEBUG by ??hwlee */
 void LALInferenceAddVariable(LALInferenceVariables * vars, const char * name, const void *value, LALInferenceVariableType type, LALInferenceParamVaryType vary)
+{
+  LALInferenceAddVariableFromCase(vars, name, value, type, vary, "dummy_add", "dummy_case");
+}
+void LALInferenceAddVariableFromCase(LALInferenceVariables * vars, const char * name, const void *value, LALInferenceVariableType type, LALInferenceParamVaryType vary, const char *from, const char *case_str)
 /* Add the variable name with type type and value value to vars */
 /* If variable already exists, it will over-write the current value if type compatible*/
 {
@@ -399,7 +404,8 @@ void LALInferenceAddVariable(LALInferenceVariables * vars, const char * name, co
     if(old->type != type)
     {
       LALInferenceRemoveVariable(vars,name);
-      //XLAL_ERROR_VOID(XLAL_EINVAL, "Cannot re-add \"%s\" as previous definition has wrong type.", name);
+      /* uncommented by hwlee for memory check should be re-commented */
+      XLAL_ERROR_VOID(XLAL_EINVAL, "Cannot re-add \"%s\" as previous definition has wrong type.", name);
     }
     else{
       LALInferenceSetVariable(vars,name,value);
@@ -410,7 +416,8 @@ void LALInferenceAddVariable(LALInferenceVariables * vars, const char * name, co
    // XLAL_ERROR_VOID(XLAL_EFAULT, "Unable to access value through null pointer; trying to add \"%s\".", name);
   //}
 
-  LALInferenceVariableItem *new=XLALMalloc(sizeof(LALInferenceVariableItem));
+  //LALInferenceVariableItem *new=XLALMalloc(sizeof(LALInferenceVariableItem));
+  LALInferenceVariableItem *new=XLALMallocName(sizeof(LALInferenceVariableItem),name, from, case_str);
 
   memset(new,0,sizeof(LALInferenceVariableItem));
   if(new) {
@@ -539,7 +546,12 @@ void LALInferenceClearVariables(LALInferenceVariables *vars)
   return;
 }
 
+/* DEBUG by ??hwlee */
 void LALInferenceCopyVariables(LALInferenceVariables *origin, LALInferenceVariables *target)
+{
+  LALInferenceCopyVariablesFrom(origin, target, "dummy_Copy");
+}
+void LALInferenceCopyVariablesFrom(LALInferenceVariables *origin, LALInferenceVariables *target, const char *from)
 /*  copy contents of "origin" over to "target"  */
 {
   int dims = 0, i = 0;
@@ -628,8 +640,10 @@ void LALInferenceCopyVariables(LALInferenceVariables *origin, LALInferenceVariab
           }
           default:
           { /* Just memcpy */
-            LALInferenceAddVariable(target, ptr->name, ptr->value, ptr->type,
-                                    ptr->vary);
+            //LALInferenceAddVariable(target, ptr->name, ptr->value, ptr->type,
+            //                        ptr->vary); //DEBUG by ??hwlee
+            LALInferenceAddVariableFromCase(target, ptr->name, ptr->value, ptr->type,
+                                    ptr->vary, from, "default_case");
             break;
           }
       }
@@ -4143,4 +4157,285 @@ void LALInferencePrintSplineCalibration(FILE *output, LALInferenceThreadState *t
             fprintf(output, "%g\t", phase->data[j]);
         }
     }
+}
+/**
+ * Functions related to tagLALInferenceIFOData structure
+ * added by HyungWon Lee and KGWG to clean memories
+ * 14 Sep. 2016
+ */
+void LALInferenceDestroyRunState(UNUSED LALInferenceRunState *runState)
+{
+  if(!runState) return;
+  if(runState->proposalArgs) {
+    LALInferenceClearVariables(runState->proposalArgs);
+    XLALFree(runState->proposalArgs);
+    runState->proposalArgs = NULL;
+  }
+  if(runState->priorArgs) {
+    LALInferenceClearVariables(runState->priorArgs);
+    XLALFree(runState->priorArgs);
+    runState->priorArgs = NULL;
+  }
+  void *ppt = LALInferenceGetItem(runState->algorithmParams,"Nlive");
+  UINT4 Nlive=0;
+  if(ppt) Nlive=*(UINT4 *)LALInferenceGetVariable(runState->algorithmParams,"Nlive");
+  if(runState->algorithmParams) {
+    LALInferenceClearVariables(runState->algorithmParams);
+    XLALFree(runState->algorithmParams);
+    runState->algorithmParams = NULL;
+  }
+  if(runState->livePoints) {
+    for(int k=0; k<(int)Nlive; k++) {
+      LALInferenceClearVariables(runState->livePoints[k]);
+      XLALFree(runState->livePoints[k]);
+      runState->livePoints[k] = NULL;
+    }
+  }
+  if(runState->threads) {
+    for(int k=0; k<runState->nthreads; k++) {
+      LALInferenceDestroyThreadState(runState->threads[k]);
+      runState->threads[k] = NULL;
+    }
+  }
+  if(runState->outFileName) {
+    XLALFree(runState->outFileName);
+    runState->outFileName = NULL;
+  }
+  if(runState->resumeOutFileName) {
+    XLALFree(runState->resumeOutFileName);
+    runState->resumeOutFileName = NULL;
+  }
+  if(runState->commandLine) {
+    XLALDestroyProcessParamsTable(runState->commandLine);
+    runState->commandLine = NULL;
+  }
+  if(runState->data)
+  {
+    LALInferenceDestroyIFOData(runState->data);
+    XLALFree(runState->data);
+    runState->data = NULL;
+  }
+  XLALFree(runState);
+  return;
+}
+
+void LALInferenceDestroyIFOData(LALInferenceIFOData *ifo)
+{
+  if(ifo == NULL) return; //nothing to do
+  LALInferenceIFOData *current, *next;
+  current = ifo;
+  while(current)
+  {
+    next = current->next;
+    if(current->timeData)
+    {
+      XLALDestroyREAL8TimeSeries(current->timeData);
+      current->timeData = NULL;
+    }
+    if(current->whiteTimeData)
+    {
+      XLALDestroyREAL8TimeSeries(current->whiteTimeData);
+      current->whiteTimeData = NULL;
+    }
+    if(current->varTimeData)
+    {
+      XLALDestroyREAL8TimeSeries(current->varTimeData);
+      current->varTimeData = NULL;
+    }
+    if(current->freqData)
+    {
+      XLALDestroyCOMPLEX16FrequencySeries(current->freqData);
+      current->freqData = NULL;
+    }
+    if(current->whiteFreqData)
+    {
+      XLALDestroyCOMPLEX16FrequencySeries(current->whiteFreqData);
+      current->whiteFreqData = NULL;
+    }
+    if(current->compTimeData)
+    {
+      XLALDestroyCOMPLEX16TimeSeries(current->compTimeData);
+      current->compTimeData = NULL;
+    }
+    if(current->dataParams)
+    {
+      LALInferenceClearVariables(current->dataParams);
+      XLALFree(current->dataParams);
+      current->dataParams = NULL;
+    }
+    if(current->oneSidedNoisePowerSpectrum)
+    {
+      XLALDestroyREAL8FrequencySeries(current->oneSidedNoisePowerSpectrum);
+      current->oneSidedNoisePowerSpectrum = NULL;
+    }
+    if(current->noiseASD)
+    {
+      XLALDestroyREAL8FrequencySeries(current->noiseASD);
+      current->oneSidedNoisePowerSpectrum = NULL;
+    }
+    if(current->window)
+    {
+      XLALDestroyREAL8Window(current->window);
+      current->window = NULL;
+    }
+    if(current->timeToFreqFFTPlan)
+    {
+      XLALDestroyREAL8FFTPlan(current->timeToFreqFFTPlan);
+      current->timeToFreqFFTPlan = NULL;
+    }
+    if(current->freqToTimeFFTPlan)
+    {
+      XLALDestroyREAL8FFTPlan(current->freqToTimeFFTPlan);
+      current->freqToTimeFFTPlan = NULL;
+    }
+    if(current->margFFTPlan)
+    {
+      XLALDestroyREAL8FFTPlan(current->margFFTPlan);
+      current->margFFTPlan = NULL;
+    }
+    if(current->detector)
+    {
+      XLALFree(current->detector);
+      current->detector = NULL;
+    }
+    if(current->roq)
+    {
+      LALInferenceDestroyROQData(current->roq);
+      XLALFree(current->roq);
+      current->roq = NULL;
+    }
+    current = next;
+  }
+}
+
+void LALInferenceDestroyROQData(LALInferenceROQData *roq)
+{
+  if(roq->weights_linear)
+  {
+    XLALFree(roq->weights_linear);
+    roq->weights_linear = NULL;
+  }
+  if(roq->weightsLinear)
+  {
+    free(roq->weightsLinear); // this is allocated by malloc
+    roq->weightsLinear = NULL;
+  }
+  if(roq->weightsQuadratic)
+  {
+    free(roq->weightsQuadratic); // this is allocated by malloc
+    roq->weightsQuadratic = NULL;
+  }
+}
+
+void LALInferenceDestroyThreadState(LALInferenceThreadState *threadState)
+{
+  if(!threadState) return;
+  if(threadState->cycle) {
+    LALInferenceDestroyProposalCycle(threadState->cycle);
+    XLALFree(threadState->cycle);
+    threadState->cycle = NULL;
+  }
+  if(threadState->proposalArgs) {
+    LALInferenceClearVariables(threadState->proposalArgs);
+    XLALFree(threadState->proposalArgs);
+    threadState->proposalArgs = NULL;
+  }
+  /*if(threadState->priorArgs) {
+    LALInferenceClearVariables(threadState->priorArgs);
+    XLALFree(threadState->priorArgs);
+    threadState->priorArgs = NULL;
+  }
+  if(threadState->algorithmParams) {
+    LALInferenceClearVariables(threadState->algorithmParams);
+    XLALFree(threadState->algorithmParams);
+    threadState->algorithmParams = NULL;
+  }
+  int nPoints=threadState->differentialPointsLength;
+  if(threadState->differentialPoints) {
+    for(int k=0; k<nPoints; k++) {
+      LALInferenceClearVariables(threadState->differentialPoints[k]);
+      XLALFree(threadState->differentialPoints[k]);
+      threadState->differentialPoints[k] = NULL;
+    }
+  }
+  if(threadState->currentParams) {
+    LALInferenceClearVariables(threadState->currentParams);
+    XLALFree(threadState->currentParams);
+    threadState->currentParams = NULL;
+  }
+  if(threadState->preProposalParams) {
+    LALInferenceClearVariables(threadState->preProposalParams);
+    XLALFree(threadState->preProposalParams);
+    threadState->preProposalParams = NULL;
+  }
+  if(threadState->proposedParams) {
+    LALInferenceClearVariables(threadState->proposedParams);
+    XLALFree(threadState->proposedParams);
+    threadState->proposedParams = NULL;
+  }
+  if(threadState->currentIFOSNRs) {
+    XLALFree(threadState->currentIFOSNRs);
+    threadState->currentIFOSNRs = NULL;
+  }
+  if(threadState->currentIFOLikelihoods) {
+    XLALFree(threadState->currentIFOLikelihoods);
+    threadState->currentIFOLikelihoods = NULL;
+  }
+  if(threadState->GSLrandom) {
+    XLALFree(threadState->GSLrandom);
+    threadState->GSLrandom = NULL;
+  }*/
+  return;
+}
+
+void LALInferenceDestroyProposalCycle(LALInferenceProposalCycle *cycle)
+{
+  if(!cycle) return;
+  if(cycle->proposals) {
+    for(int k=0; k<cycle->nProposals; k++) {
+      if(cycle->proposals[k]->args) {
+        LALInferenceClearVariables(cycle->proposals[k]->args);
+        XLALFree(cycle->proposals[k]->args);
+        cycle->proposals[k]->args = NULL;
+      }
+    }
+    XLALFree(cycle->proposals);
+    cycle->proposals = NULL;
+  }
+  if(cycle->proposalArgs) {
+    LALInferenceClearVariables(cycle->proposalArgs);
+    XLALFree(cycle->proposalArgs);
+    cycle->proposalArgs = NULL;
+  }
+  return;
+}
+
+void LALInferenceDestroyInferenceModel(LALInferenceModel *model)
+{
+  if(!model) return;
+  if(model->params) {
+    LALInferenceClearVariables(model->params);
+    XLALFree(model->params);
+    model->params = NULL;
+  }
+  if(model->ifo) {
+    LALInferenceDestroyIFOModel(model->ifo);
+    model->ifo = NULL;
+  }
+  if(model->ifo_loglikelihoods) {
+    XLALFree(model->ifo_loglikelihoods);
+    model->ifo_loglikelihoods = NULL;
+  }
+  if(model->ifo_SNRs) {
+    XLALFree(model->ifo_SNRs);
+    model->ifo_SNRs = NULL;
+  }
+  return;
+}
+
+void LALInferenceDestroyIFOModel(LALInferenceIFOModel *ifo)
+{
+  if(!ifo) return;
+  XLALFree(ifo);
+  return;
 }

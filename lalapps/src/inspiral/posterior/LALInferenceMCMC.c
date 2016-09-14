@@ -23,6 +23,7 @@
 
 
 #include <stdio.h>
+#include <lal/LALMalloc.h>
 #include <lal/Date.h>
 #include <lal/GenerateInspiral.h>
 #include <lal/LALInference.h>
@@ -640,17 +641,21 @@ ProcessParamsTable *LALInferenceContinueMCMC(char *infileName) {
     return procParams;
 }
 
-
 int main(int argc, char *argv[]){
     INT4 mpirank;
     ProcessParamsTable *procParams = NULL, *ppt = NULL;
     LALInferenceRunState *runState = NULL;
     LALInferenceIFOData *data = NULL;
 
+    fprintf(stdout, "================= DEBUG hwlee new start =========\n");
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &mpirank);
 
     if (mpirank == 0) fprintf(stdout," ========== LALInference_MCMC ==========\n");
+
+    fprintf(stdout, "======== DEBUG hwlee =========\n");
+    fprintf(stdout, "    DebugLevel = %d, mpiRank = %d\n", XLALGetDebugLevel(), mpirank);
+    //XLALClobberDebugLevel(0); // no debug message
 
     /* Read command line and parse */
     procParams = LALInferenceParseCommandLine(argc, argv);
@@ -676,35 +681,42 @@ int main(int argc, char *argv[]){
 
     /* Perform injections if data successful read or created */
     if (runState){
-      LALInferenceInjectInspiralSignal(data, runState->commandLine);
+      runState->data = data;
+      //LALInferenceInjectInspiralSignal(data, runState->commandLine);
     }
 
     /* Simulate calibration errors. 
      * NOTE: this must be called after both ReadData and (if relevant) 
      * injectInspiralTD/FD are called! */
-    LALInferenceApplyCalibrationErrors(data, procParams);
+    //LALInferenceApplyCalibrationErrors(data, procParams);
 
     /* Handle PTMCMC setup */
-    init_ptmcmc(runState);
+    //init_ptmcmc(runState);
 
     /* Choose the prior */
-    LALInferenceInitCBCPrior(runState);
+    //LALInferenceInitCBCPrior(runState);
 
     /* Choose the likelihood */
-    LALInferenceInitLikelihood(runState);
+    //LALInferenceInitLikelihood(runState);
 
     /* Draw starting positions */
-    LALInferenceDrawThreads(runState);
+    //LALInferenceDrawThreads(runState);
 
     if (runState == NULL)
         return XLAL_FAILURE;
 
     /* Call MCMC algorithm */
     if (mpirank == 0) printf("sampling...\n");
-    runState->algorithm(runState);
+    //runState->algorithm(runState);
+
+    LALInferenceDestroyRunState(runState);
+    runState = NULL;
 
     printf("==== DEBUG hwlee in mcmc main rank = %d finished.\n", mpirank);
     if (mpirank == 0) printf(" ========== main(): finished. ==========\n");
+    //XLALClobberDebugLevel(249); // memory check debug
+    LALCheckMemoryLeaks();
+
     MPI_Finalize();
 
     return XLAL_SUCCESS;

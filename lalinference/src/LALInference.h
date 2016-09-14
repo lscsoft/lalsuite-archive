@@ -285,6 +285,9 @@ void LALInferenceSetVariable(LALInferenceVariables * vars, const char * name, co
  */
 void LALInferenceAddVariable(LALInferenceVariables * vars, const char * name, const void * value,
 	LALInferenceVariableType type, LALInferenceParamVaryType vary);
+/* DEBUG by ??hwlee */
+void LALInferenceAddVariableFromCase(LALInferenceVariables * vars, const char * name, const void * value,
+	LALInferenceVariableType type, LALInferenceParamVaryType vary, const char *from, const char *case_str);
 
 /**
  * Remove \c name from \c vars
@@ -313,6 +316,8 @@ void LALInferenceClearVariables(LALInferenceVariables *vars);
 
 /** Deep copy the variables from one to another LALInferenceVariables structure */
 void LALInferenceCopyVariables(LALInferenceVariables *origin, LALInferenceVariables *target);
+/* DEBUG by ??hwlee */
+void LALInferenceCopyVariablesFrom(LALInferenceVariables *origin, LALInferenceVariables *target, const char *from);
 
 /*  Copy REAL8s from "origin" to "target" if they weren't set on the command line */
 void LALInferenceCopyUnsetREAL8Variables(LALInferenceVariables *origin, LALInferenceVariables *target, ProcessParamsTable *commandLine);
@@ -1173,6 +1178,18 @@ void LALInferenceEquatorialToDetFrame(LALDetector *det0, LALDetector *det1,
                                  REAL8 tg, REAL8 ra, REAL8 dec,
                                  REAL8 *t0, REAL8 *alpha, REAL8 *theta);
 
+/**
+ * Functions related to tagLALInferenceIFOData structure
+ * added by HyungWon Lee and KGWG to clean memories 
+ * 14 Sep. 2016
+ */
+void LALInferenceDestroyRunState(LALInferenceRunState *runState);
+void LALInferenceDestroyIFOData(LALInferenceIFOData *ifo);
+void LALInferenceDestroyROQData(LALInferenceROQData *roq);
+void LALInferenceDestroyThreadState(LALInferenceThreadState *thread);
+void LALInferenceDestroyProposalCycle(LALInferenceProposalCycle *cycle);
+void LALInferenceDestroyInferenceModel(LALInferenceModel *model);
+void LALInferenceDestroyIFOModel(LALInferenceIFOModel *ifo);
 /*@}*/
 
 #endif

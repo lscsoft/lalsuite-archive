@@ -1256,12 +1256,18 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
         if(IFOnames) if(IFOnames[i]) XLALFree(IFOnames[i]);
         if(fLows) if(fLows[i]) XLALFree(fLows[i]);
         if(fHighs) if(fHighs[i]) XLALFree(fHighs[i]);
-    }
+        /* missing to clean for time slides and psds adde by hwlee and KGWG at 14 Sep. 2016 */
+        if(timeslides) if(timeslides[i]) XLALFree(timeslides[i]);
+        if(psds) if(psds[i]) XLALFree(psds[i]);
+    } 
     if(channels) XLALFree(channels);
     if(caches) XLALFree(caches);
     if(IFOnames) XLALFree(IFOnames);
     if(fLows) XLALFree(fLows);
     if(fHighs) XLALFree(fHighs);
+    /* missing to clean for time slides and psds adde by hwlee and KGWG at 14 Sep. 2016 */
+    if(timeslides) XLALFree(timeslides);
+    if(psds) XLALFree(psds);
 
     if (LALInferenceGetProcParamVal(commandLine, "--roqtime_steps")){
 
