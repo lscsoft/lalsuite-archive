@@ -59,32 +59,26 @@ __date__ = git_version.date
 #
 # =============================================================================
 #
-#                                 Speed Hacks
+#                               Content Handler
 #
 # =============================================================================
 #
 
 
-def sngl_inspiral___cmp__(self, other):
-	# compare self's end time to the LIGOTimeGPS instance other
-	return cmp(self.end, other)
+class SnglInspiral(lsctables.SnglInspiral):
+	"""
+	Version of lsctables.SnglInspiral who's .__cmp__() method compares
+	this object's .end value directly to the value of other.  Allows a
+	list of instances of this class sorted by .end to be bisection
+	searched for a LIGOTimeGPS end time.
+	"""
+	def __cmp__(self, other):
+		return cmp(self.end, other)
 
 
-lsctables.SnglInspiral.__cmp__ = sngl_inspiral___cmp__
-
-
-#
-# =============================================================================
-#
-#                           Typical Content Handler
-#
-# =============================================================================
-#
-
-
+@lsctables.use_in
 class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
 	pass
-lsctables.use_in(LIGOLWContentHandler)
 
 
 #

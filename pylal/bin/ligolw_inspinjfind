@@ -99,6 +99,14 @@ lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
 
 
 #
+# Must use injection finder's custom sngl_inspiral table row type.
+#
+
+
+lsctables.SnglInspiralTable.RowType = lsctables.SnglInspiral = ligolw_inspinjfind.SnglInspiral
+
+
+#
 # =============================================================================
 #
 #                                     Main
