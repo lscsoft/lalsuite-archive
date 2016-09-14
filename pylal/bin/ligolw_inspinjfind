@@ -137,7 +137,7 @@ def InspiralSnglCompare(sim, sngl, twindow = lsctables.LIGOTimeGPS(options.time_
 	"""
 	Returns 0 if sim and sngl are less than twindow apart.
 	"""
-	dt = sim.end - sngl.end
+	dt = sim.time_geocent - sngl.end
 	return 0 if abs(dt) < twindow else dt
 
 
