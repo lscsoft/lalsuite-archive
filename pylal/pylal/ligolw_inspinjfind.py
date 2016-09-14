@@ -72,6 +72,7 @@ class SnglInspiral(lsctables.SnglInspiral):
 	list of instances of this class sorted by .end to be bisection
 	searched for a LIGOTimeGPS end time.
 	"""
+	__slots__ = ()
 	def __cmp__(self, other):
 		return cmp(self.end, other)
 
