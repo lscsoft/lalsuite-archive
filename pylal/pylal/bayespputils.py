@@ -5576,6 +5576,8 @@ class PEOutputParser(object):
             self._parser=self._xml_to_pos
         elif inputtype == 'hdf5':
             self._parser = self._hdf5_to_pos
+        elif inputtype == 'hdf5s':
+            self._parser = self._hdf5s_to_pos
         else:
             raise ValueError('Invalid value for "inputtype": %r' % inputtype)
 
@@ -6053,7 +6055,37 @@ class PEOutputParser(object):
         print 'Read columns %s'%(str(header))
         return header,flines
 
-    def _hdf5_to_pos(self, infile, outdir=None, deltaLogL=None, fixedBurnin=None, nDownsample=None, *kwargs):
+    def _hdf5s_to_pos(self, infiles, fixedBurnins=None, deltaLogL=None, **kwargs):
+        from astropy.table import vstack
+
+        if fixedBurnins is None:
+            fixedBurnins = np.zeros(len(infiles))
+
+        chains = []
+        for i, [infile, fixedBurnin] in enumerate(zip(infiles, fixedBurnins)):
+            chain = self._hdf5_to_table(infile, fixedBurnin=fixedBurnin, deltaLogL=deltaLogL, **kwargs)
+            chain.add_column(astropy.table.Column(i*np.ones(len(chain)), name='chain'))
+            chains.append(chain)
+
+        # Apply deltaLogL criteria across chains
+        if deltaLogL is not None:
+            logLThreshold = -np.inf
+            for chain in chains:
+                logLThreshold = max([logLThreshold, max(chain['logl'])- deltaLogL])
+            print("Eliminating any samples before log(L) = {}".format(logLThreshold))
+
+        for i, chain in enumerate(chains):
+            if deltaLogL is not None:
+                above_threshold = np.arange(len(chain))[chain['logl'] > logLThreshold]
+                burnin_idx = above_threshold[0] if len(above_threshold) > 0 else len(chain)
+            else:
+                burnin_idx = 0
+            chains[i] = chain[burnin_idx:]
+
+        samples = vstack(chains)
+        return samples.colnames, samples.as_array().view(float).reshape(-1, len(samples.columns))
+
+    def _hdf5_to_table(self, infile, deltaLogL=None, fixedBurnin=None, nDownsample=None, **kwargs):
         """
         Parse a HDF5 file and return an array of posterior samples ad list of
         parameter names. Equivalent to '_common_to_pos' and work in progress.
@@ -6124,7 +6156,12 @@ class PEOutputParser(object):
                         print "Downsampling by a factor of ", nskip, " to achieve approximately ", nDownsample, " posterior samples"
                 samples = samples[::nskip]
 
-        return samples.colnames, samples.as_array().view(float).reshape(-1, len(params))
+        return samples
+
+    def _hdf5_to_pos(self, infile, **kwargs):
+        samples = self._hdf5_to_table(infile, **kwargs)
+
+        return samples.colnames, samples.as_array().view(float).reshape(-1, len(samples.columns))
 
     def _common_to_pos(self,infile,info=[None,None]):
         """
