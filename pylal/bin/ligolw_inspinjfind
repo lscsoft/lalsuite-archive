@@ -126,10 +126,10 @@ search = {
 #
 
 
-def InspiralSnglCompare(sim, inspiral, twindow = ligolw_inspinjfind.LIGOTimeGPS(options.time_window)):
+def InspiralSnglCompare(sim, inspiral, twindow = lsctables.LIGOTimeGPS(options.time_window)):
 	return SnglInspiralUtils.CompareSnglInspiral(sim, inspiral, twindow = twindow)
 
-def NearCoincCompare(sim, inspiral, twindow = ligolw_inspinjfind.LIGOTimeGPS(options.time_window)):
+def NearCoincCompare(sim, inspiral, twindow = lsctables.LIGOTimeGPS(options.time_window)):
 	return SnglInspiralUtils.CompareSnglInspiral(sim, inspiral, twindow = twindow)
 
 
