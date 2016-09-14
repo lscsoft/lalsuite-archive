@@ -68,7 +68,7 @@ __date__ = git_version.date
 
 def sngl_inspiral___cmp__(self, other):
 	# compare self's end time to the LIGOTimeGPS instance other
-	return cmp(self.end_time, other.seconds) or cmp(self.end_time_ns, other.nanoseconds)
+	return cmp(self.end, other)
 
 
 lsctables.SnglInspiral.__cmp__ = sngl_inspiral___cmp__
