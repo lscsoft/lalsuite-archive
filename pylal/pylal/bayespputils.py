@@ -56,6 +56,7 @@ from scipy import special
 from scipy import signal
 from scipy.optimize import newton
 from scipy import interpolate
+from scipy import integrate
 from numpy import linspace
 import random
 import socket
@@ -114,7 +115,7 @@ def replace_column(table, old, new):
 # Constants
 #===============================================================================
 #Parameters which are not to be exponentiated when found
-logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior']
+logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior','loglambda_a_eff','loglambda_a','logamp']
 #Parameters known to cbcBPP
 relativePhaseParams=[ a+b+'_relative_phase' for a,b in combinations(['h1','l1','v1'],2)]
 snrParams=['snr','optimal_snr','matched_filter_snr'] + ['%s_optimal_snr'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_amp'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_arg'%(i) for i in ['h1', 'l1', 'v1']] + relativePhaseParams
@@ -135,9 +136,10 @@ ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB',
 tigerParams=['dchi%i'%(i) for i in range(8)] + ['dchi%il'%(i) for i in [5,6] ] + ['dxi%d'%(i+1) for i in range(6)] + ['dalpha%i'%(i+1) for i in range(5)] + ['dbeta%i'%(i+1) for i in range(3)] + ['dsigma%i'%(i+1) for i in range(4)]
 bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
 massiveGravitonParams=['lambdaG']
+lorentzInvarianceViolationParams=['loglambda_a','lambda_a','loglambda_a_eff','lambda_a_eff','logamp','amp']
 tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat']
 energyParams=['e_rad', 'l_peak']
-strongFieldParams=ppEParams+tigerParams+bransDickeParams+massiveGravitonParams+tidalParams+energyParams
+strongFieldParams=ppEParams+tigerParams+bransDickeParams+massiveGravitonParams+tidalParams+energyParams+lorentzInvarianceViolationParams
 
 #Extrinsic
 distParams=['distance','distMPC','dist']
@@ -162,7 +164,7 @@ for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v
   greedyBinSizes[derived_time]=greedyBinSizes['time']
 for derived_phase in relativePhaseParams:
   greedyBinSizes[derived_phase]=0.05
-for param in tigerParams + bransDickeParams + massiveGravitonParams:
+for param in tigerParams + bransDickeParams + massiveGravitonParams + lorentzInvarianceViolationParams:
   greedyBinSizes[param]=0.01
 for param in tidalParams:
   greedyBinSizes[param]=2.5
@@ -466,6 +468,12 @@ def plot_label(param):
       'dsigma2':r'$d\sigma_2$',
       'dsigma3':r'$d\sigma_3$',
       'dsigma4':r'$d\sigma_4$',
+      'loglambda_a':r'$\log\lambda_{\mathbb{A}} [\mathrm{m}]$',
+      'loglambda_a_eff':r'$\log\lambda_{eff} [\mathrm{m}]$',
+      'lambda_a_eff':r'$\lambda_{eff} [\mathrm{m}]$',
+      'lambda_a':r'$\lambda_{\mathbb{A}} [\mathrm{m}]$',
+      'amp':r'$\mathbb{A} [\mathrm{{eV}^{2-\alpha}}]$' ,
+      'logamp':r'$\log \mathbb{A}[\mathrm{{eV}^{2-\alpha}}]$'
     }
 
   # Handle cases where multiple names have been used
@@ -1066,6 +1074,17 @@ class Posterior(object):
 
       if ('mc' in pos.names) and ('redshift' in pos.names):
           pos.append_mapping('mc_source', source_mass, ['mc', 'redshift'])
+      
+      # Calling functions testing Lorentz invariance violation 
+      if ('loglambda_a_eff' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('loglambda_a', lambda z,nonGR_alpha,wl,dist:np.log10(lambda_a(z, nonGR_alpha, 10**wl, dist)), ['redshift', 'nonGR_alpha', 'loglambda_a_eff', 'distance'])
+      if ('loglambda_a_eff' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('logamp', lambda z,nonGR_alpha,wl,dist:np.log10(amplitudeMeasure(z, nonGR_alpha, 10**wl, dist)), ['redshift','nonGR_alpha','loglambda_a_eff', 'distance'])
+      if ('lambda_a_eff' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('lambda_a', lambda_a, ['redshift', 'nonGR_alpha', 'loglambda_a_eff', 'distance'])
+      if ('lambda_a_eff' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('amp', amplitudeMeasure, ['redshift','nonGR_alpha','lambda_a_eff', 'distance'])
+##################################################### changes made until here
 
       #Calculate new tidal parameters
       new_tidal_params = ['lam_tilde','dlam_tilde']
@@ -3939,6 +3958,50 @@ def source_mass(mass, redshift):
     For a parameter m.
     """
     return mass / (1.0 + redshift)
+
+## Following functions added for testing Lorentz violations 
+def integrand_distance(redshift,nonGR_alpha):
+    """
+    Calculate D_alpha integral; multiplicative factor put later
+    D_alpha = \int ((1+z')^(alpha-2))/sqrt(Omega_m*(1+z')^3 +Omega_lambda) dz'
+    """
+    omega_m = 0.3
+    omega_lambda = 0.7
+    return (1.0+redshift)**(nonGR_alpha-2.0)/(np.sqrt(omega_m*(1.0+redshift)**3.0 + omega_lambda))
+
+def DistanceMeasure(redshift,nonGR_alpha):
+    """
+    D_alpha = ((1+z)^(1-alpha))/H_0 * D_alpha
+    D_alpha calculated from integrand in above function
+    """
+    mpc = lal.PC_SI*1e6
+    h = 0.75
+    H0 = h*100*1e3/mpc
+    dist = integrate.quad(integrand_distance, 0, redshift ,args=(nonGR_alpha))[0]
+    dist *= (1.0 + redshift)**(1.0 - nonGR_alpha)
+    dist /= H0
+    return dist*lal.C_SI ## returns D_alpha in metres
+
+def lambda_a(redshift, nonGR_alpha, lambda_eff, distance):
+    """
+    Converting from the effective wavelength-like parameter to \lambda_A:
+    \lambda_A = \lambda_{eff}*(D_alpha/D_L)^(1/(2-alpha))*(1/(1+z)^((1-alpha)/(2-alpha)))
+    """
+    Dfunc = np.vectorize(DistanceMeasure)
+    D_alpha = Dfunc(redshift, nonGR_alpha)
+    dl = distance*lal.PC_SI*1e6  ## luminosity distane in metres
+    return lambda_eff*(D_alpha/(dl*(1.0+redshift)**(1.0-nonGR_alpha)))**(1./(2.0-nonGR_alpha))
+
+def amplitudeMeasure(redshift, nonGR_alpha, lambda_eff, distance):
+    """
+    Converting to Lorentz violating parameter "A" in dispersion  relation from \lambda_A:
+    A = (\lambda_A/h)^(alpha-2)
+    """
+    hPlanck = 4.13567e-15 # Planck's constant
+    ampFunc = np.vectorize(lambda_a)
+    lambdaA = ampFunc(redshift, nonGR_alpha, lambda_eff, distance)/lal.C_SI # convert to seconds
+    return (lambdaA/hPlanck)**(nonGR_alpha-2.0)
+############################ changes made till here
 
 def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m2, fref):
     """

@@ -1974,6 +1974,7 @@ static void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenc
 {
     ProcessParamsTable *commandLine = state->commandLine;
     ProcessParamsTable *ppt=NULL;
+    ProcessParamsTable *ppta=NULL;
     /* check that the user does not request both a TaylorF2Test and a PPE waveform model */
     if (LALInferenceGetProcParamVal(commandLine,"--grtest-parameters") && LALInferenceGetProcParamVal(commandLine,"--ppe-parameters"))
     {
@@ -1994,6 +1995,11 @@ static void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenc
         REAL8 dsigma_max=1.;
         REAL8 dsigma_min=-1.;
         REAL8 tmpVal=0.0;
+        if ((ppta=LALInferenceGetProcParamVal(commandLine,"--nonGR_alpha"))) {
+          REAL8 nonGR_alpha;
+          nonGR_alpha = atof(ppta->value);
+          LALInferenceAddVariable(model->params,"nonGR_alpha", &nonGR_alpha, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+        }
 	/* Relative shifts for inspiral phase PN coefficients (absolute value for dchi1) */
         if (checkParamInList(ppt->value,"dchi0")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dchi0", tmpVal, dchi_min, dchi_max, LALINFERENCE_PARAM_LINEAR);
         if (checkParamInList(ppt->value,"dchi1")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dchi1", tmpVal, dchi_min, dchi_max, LALINFERENCE_PARAM_LINEAR);
@@ -2027,6 +2033,18 @@ static void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenc
         if (checkParamInList(ppt->value,"dbeta1")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dbeta1", tmpVal, dbeta_min, dbeta_max, LALINFERENCE_PARAM_LINEAR);
         if (checkParamInList(ppt->value,"dbeta2")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dbeta2", tmpVal, dbeta_min, dbeta_max, LALINFERENCE_PARAM_LINEAR);
         if (checkParamInList(ppt->value,"dbeta3")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dbeta3", tmpVal, dbeta_min, dbeta_max, LALINFERENCE_PARAM_LINEAR);
+        if (checkParamInList(ppt->value,"lambda_a_eff"))
+          {
+            REAL8 lambda_a_eff_min = 1E-6;
+            REAL8 lambda_a_eff_max = 1E13;
+            LALInferenceRegisterUniformVariableREAL8(state, model->params, "lambda_a_eff", 1E11, lambda_a_eff_min, lambda_a_eff_max, LALINFERENCE_PARAM_LINEAR);
+          }
+        if (checkParamInList(ppt->value,"loglambda_a_eff"))
+          {
+            REAL8 loglambda_a_eff_min = -6.0;
+            REAL8 loglambda_a_eff_max = 13.0;
+            LALInferenceRegisterUniformVariableREAL8(state, model->params, "loglambda_a_eff", 3.0, loglambda_a_eff_min, loglambda_a_eff_max, LALINFERENCE_PARAM_LINEAR);
+          }
     }
     ppt=LALInferenceGetProcParamVal(commandLine,"--ppe-parameters");
     if (ppt)
