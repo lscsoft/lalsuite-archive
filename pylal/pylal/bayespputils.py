@@ -5517,7 +5517,6 @@ def find_ndownsample(samples, nDownsample):
     """
     if nDownsample is None:
         print "Max ACL(s):"
-    if nDownsample is None:
         splineParams=["spcal_npts", "spcal_active","constantcal_active"]
         for i in np.arange(5):
           for k in ['h1','l1']:
@@ -6055,7 +6054,7 @@ class PEOutputParser(object):
         print 'Read columns %s'%(str(header))
         return header,flines
 
-    def _hdf5s_to_pos(self, infiles, fixedBurnins=None, deltaLogL=None, **kwargs):
+    def _hdf5s_to_pos(self, infiles, fixedBurnins=None, deltaLogL=None, nDownsample=None, **kwargs):
         from astropy.table import vstack
 
         if fixedBurnins is None:
@@ -6063,7 +6062,7 @@ class PEOutputParser(object):
 
         chains = []
         for i, [infile, fixedBurnin] in enumerate(zip(infiles, fixedBurnins)):
-            chain = self._hdf5_to_table(infile, fixedBurnin=fixedBurnin, deltaLogL=deltaLogL, **kwargs)
+            chain = self._hdf5_to_table(infile, fixedBurnin=fixedBurnin, deltaLogL=deltaLogL, nDownsample=nDownsample, **kwargs)
             chain.add_column(astropy.table.Column(i*np.ones(len(chain)), name='chain'))
             chains.append(chain)
 
@@ -6071,7 +6070,8 @@ class PEOutputParser(object):
         if deltaLogL is not None:
             logLThreshold = -np.inf
             for chain in chains:
-                logLThreshold = max([logLThreshold, max(chain['logl'])- deltaLogL])
+                if len(chain) > 0:
+                    logLThreshold = max([logLThreshold, max(chain['logl'])- deltaLogL])
             print("Eliminating any samples before log(L) = {}".format(logLThreshold))
 
         for i, chain in enumerate(chains):
@@ -6083,6 +6083,12 @@ class PEOutputParser(object):
             chains[i] = chain[burnin_idx:]
 
         samples = vstack(chains)
+
+        # Downsample one more time
+        if nDownsample is not None:
+            nskip = find_ndownsample(samples, nDownsample)
+            samples = samples[::nskip]
+
         return samples.colnames, samples.as_array().view(float).reshape(-1, len(samples.columns))
 
     def _hdf5_to_table(self, infile, deltaLogL=None, fixedBurnin=None, nDownsample=None, **kwargs):
@@ -6133,27 +6139,30 @@ class PEOutputParser(object):
                 print "Fixed burning criteria: ",fixedBurnin
             else:
                 fixedBurnin = 0
-            burnin_idx = np.arange(len(samples))[samples['cycle'] > fixedBurnin][0]
+
+            post_burnin = np.arange(len(samples))[samples['cycle'] > fixedBurnin]
+            burnin_idx = post_burnin[0] if len(post_burnin) > 0 else len(samples)
             samples = samples[burnin_idx:]
 
             logLThreshold=-1e200 # Really small?
-            if not (deltaLogL is None):
+            if len(samples) > 0 and not (deltaLogL is None):
                 logLThreshold = max(samples['logl'])- deltaLogL
                 print "Eliminating any samples before log(L) = ", logLThreshold
                 burnin_idx = np.arange(len(samples))[samples['logl'] > logLThreshold][0]
                 samples = samples[burnin_idx:]
 
-            nskip = find_ndownsample(samples, nDownsample)
-            if nDownsample is not None:
-                print "Downsampling to take only uncorrelated posterior samples from each file."
-                if np.isnan(nskip):
-                    print "WARNING: All samples in chain are correlated.  Downsampling to 10000 samples for inspection!!!"
-                    nskip = find_ndownsample(samples, 10000)
-                else:
+            if len(samples) > 0:
+                nskip = find_ndownsample(samples, nDownsample)
+                if nDownsample is None:
+                    print "Downsampling to take only uncorrelated posterior samples from each file."
                     if np.isnan(nskip):
-                        print "%s eliminated since all samples are correlated."
+                        print "WARNING: All samples in chain are correlated.  Downsampling to 10000 samples for inspection!!!"
+                        nskip = find_ndownsample(samples, 10000)
                     else:
-                        print "Downsampling by a factor of ", nskip, " to achieve approximately ", nDownsample, " posterior samples"
+                        if np.isnan(nskip):
+                            print "%s eliminated since all samples are correlated."
+                        else:
+                            print "Downsampling by a factor of ", nskip, " to achieve approximately ", nDownsample, " posterior samples"
                 samples = samples[::nskip]
 
         return samples
