@@ -6144,7 +6144,7 @@ class PEOutputParser(object):
                 samples = samples[burnin_idx:]
 
             nskip = find_ndownsample(samples, nDownsample)
-            if nDownsample is None:
+            if nDownsample is not None:
                 print "Downsampling to take only uncorrelated posterior samples from each file."
                 if np.isnan(nskip):
                     print "WARNING: All samples in chain are correlated.  Downsampling to 10000 samples for inspection!!!"
