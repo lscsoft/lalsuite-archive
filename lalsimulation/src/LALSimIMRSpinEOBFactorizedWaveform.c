@@ -742,7 +742,7 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients (FacWaveformCoeffs * con
     {
       coeffs->rho22v5 =
 	(-34. / 21. + 49. * eta / 18. + 209. * eta2 / 126.) * chiS +
-	(-34. / 21. - 196. * eta / 42.) * dM * chiA;
+	(-34. / 21. - 19. * eta / 42.) * dM * chiA;
     }
   coeffs->rho22v6 =
     1556919113. / 122245200. + (89. * a2) / 252. -
