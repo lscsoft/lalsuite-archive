@@ -1474,8 +1474,8 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
       sigReHi->data[i] = (REAL4) creal (hLM);
       sigImHi->data[i] = (REAL4) cimag (hLM);
       sigAmpSqHi = creal (hLM) * creal (hLM) + cimag (hLM) * cimag (hLM);
-      if (sigAmpSqHi < oldsigAmpSqHi && peakCount == 0
-	  && (i - 1) * deltaTHigh / mTScaled < timePeak - timewavePeak)
+      if ((SpinAlignedEOBversion==1 || SpinAlignedEOBversion==2) && (sigAmpSqHi < oldsigAmpSqHi && peakCount == 0
+	  && (i - 1) * deltaTHigh / mTScaled < timePeak - timewavePeak))
 	{
 	  timewavePeak = (i - 1) * deltaTHigh / mTScaled;
 	  peakCount += 1;
