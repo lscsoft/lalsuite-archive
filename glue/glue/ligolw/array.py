@@ -45,7 +45,6 @@ import itertools
 import numpy
 import re
 import sys
-import warnings
 from xml.sax.saxutils import escape as xmlescape
 from xml.sax.xmlreader import AttributesImpl as Attributes
 
@@ -242,10 +241,6 @@ class Array(ligolw.Array):
 		"""
 		super(Array, self).unlink()
 		self.array = None
-
-
-# FIXME:  remove when no longer used
-from_array = Array.build
 
 
 #
