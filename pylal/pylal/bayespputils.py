@@ -7525,12 +7525,23 @@ def make_1d_table(html,legend,label,pos,pars,noacf,GreedyRes,onepdfdir,sampsdir,
         chain_index=pos.names.index("chain")
         chains=unique(pos["chain"].samples)
         chainCycles = [sort(data[ data[:,chain_index] == chain, par_index ]) for chain in chains]
-        chainNcycles = [cycles[-1]-cycles[0] for cycles in chainCycles]
-        chainNskips = [cycles[1] - cycles[0] for cycles in chainCycles]
+        chainNcycles = []
+        chainNskips = []
+        for cycles in chainCycles:
+            if len(cycles) > 1:
+                chainNcycles.append(cycles[-1] - cycles[0])
+                chainNskips.append(cycles[1] - cycles[0])
+            else:
+                chainNcycles.append(1)
+                chainNskips.append(1)
     elif 'cycle' in pos.names:
         cycles = sort(pos['cycle'].samples)
-        Ncycles = cycles[-1]-cycles[0]
-        Nskip = cycles[1]-cycles[0]
+        if len(cycles) > 1:
+            Ncycles = cycles[-1]-cycles[0]
+            Nskip = cycles[1]-cycles[0]
+        else:
+            Ncycles = 1
+            Nskip = 1
 
     printed=0
     for par_name in pars:
