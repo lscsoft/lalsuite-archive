@@ -201,7 +201,7 @@ class Array(ligolw.Array):
 		>>> import numpy, sys
 		>>> a = numpy.arange(12, dtype = "double")
 		>>> a.shape = (4, 3)
-		>>> from_array(u"test", a).write(sys.stdout)	# doctest: +NORMALIZE_WHITESPACE
+		>>> Array.build(u"test", a).write(sys.stdout)	# doctest: +NORMALIZE_WHITESPACE
 		<Array Type="real_8" Name="test:array">
 			<Dim>3</Dim>
 			<Dim>4</Dim>
