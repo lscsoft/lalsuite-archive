@@ -192,11 +192,6 @@ class Param(ligolw.Param):
 		return cls.build(name, ligolwtypes.FromPyType[type(value)], value, **kwargs)
 
 
-# FIXME: delete when nothing uses
-new_param = Param.build
-from_pyvalue = Param.from_pyvalue
-
-
 #
 # =============================================================================
 #

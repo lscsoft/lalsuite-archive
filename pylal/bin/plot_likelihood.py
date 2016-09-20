@@ -26,7 +26,6 @@ from pylal import git_version
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import ligolw_burca_tailor
-from pylal.tools import XLALCalculateEThincaParameter
 from optparse import *
 from pylab import *
 
