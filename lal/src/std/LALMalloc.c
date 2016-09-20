@@ -417,8 +417,13 @@ UNUSED static struct allocNode *FindAlloc(void *p)
     return AllocHashTblFind(&key);
 }
 
-
+/* DEBUG modified by hwlee and KGWG to print more information at 19 sep 2016 */
+static void *PadAllocName(size_t * p, size_t n, int keep, const char *func, const char *name);
 static void *PadAlloc(size_t * p, size_t n, int keep, const char *func)
+{
+  return PadAllocName(p, n, keep, func, "dummy_name");
+}
+static void *PadAllocName(size_t * p, size_t n, int keep, const char *func, const char *name)
 {
     size_t i;
 
@@ -434,8 +439,8 @@ static void *PadAlloc(size_t * p, size_t n, int keep, const char *func)
     int frames = backtrace(callstack, 128);
     char** trace = backtrace_symbols(callstack, frames);
     if (lalDebugLevel & LALMEMINFOBIT) {
-        XLALPrintError("%s meminfo: allocating %zu bytes at address %p\nTRACE:\n",
-                      func, n, p + nprefix);
+        XLALPrintError("%s meminfo: allocating %zu bytes at address %p name : %s\nalloc_TRACE:\n",
+                      func, n, p + nprefix, name);
         for(int k=0; k<frames; k++) {
           fprintf(stderr, "  [%3d]%s\n", k, trace[k]);
         }
@@ -667,7 +672,7 @@ void *LALMallocLongName(size_t n, const char *file, int line, const char* name, 
     int frames = backtrace(callstack, 128);
     char** trace = backtrace_symbols(callstack, frames);
     //q = PushAlloc(PadAlloc(p, n, 0, "LALMalloc"), n, file, line);
-    q = PushAlloc(PadAlloc(p, n, 0, "LALMalloc"), n, file, line, frames, trace, name, from, case_str);
+    q = PushAlloc(PadAllocName(p, n, 0, "LALMalloc", name), n, file, line, frames, trace, name, from, case_str);
     lalMemDbgPtr = lalMemDbgRetPtr = q;
     lalIsMemDbgPtr = lalIsMemDbgRetPtr = (lalMemDbgRetPtr == lalMemDbgUsrPtr);
     if (!q) {

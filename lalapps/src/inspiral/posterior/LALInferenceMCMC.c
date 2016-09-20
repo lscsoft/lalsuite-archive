@@ -85,6 +85,8 @@ void init_mpi_randomstate(LALInferenceRunState *run_state) {
      return;
 }
 
+/* DEBUG hwlee */
+static int ptmcmc_calls = 0;
 INT4 init_ptmcmc(LALInferenceRunState *runState) {
   char help[]="\
     ----------------------------------------------\n\
@@ -139,6 +141,7 @@ INT4 init_ptmcmc(LALInferenceRunState *runState) {
     LALInferenceModel *model;
     REAL8 *ladder;
 
+    ptmcmc_calls++;
     /* Send help if runState was not allocated */
     if(runState == NULL || LALInferenceGetProcParamVal(runState->commandLine, "--help")) {
         fprintf(stdout, "%s", help);
@@ -295,6 +298,9 @@ INT4 init_ptmcmc(LALInferenceRunState *runState) {
     /* Make a single model just to count dimensions */
     model = LALInferenceInitCBCModel(runState);
     ndim = LALInferenceGetVariableDimensionNonFixedChooseVectors(model->params, count_vectors);
+    /* added by hwlee and KGWG to free memory for model at 19 sep 2016 */
+    LALInferenceDestroyInferenceModel(model);
+    XLALFree(model);
 
     /* Build the temperature ladder */
     ladder = LALInferenceBuildHybridTempLadder(runState, ndim);
@@ -311,6 +317,7 @@ INT4 init_ptmcmc(LALInferenceRunState *runState) {
     init_mpi_randomstate(runState);
 
     /* Give a new set of proposal args to each thread */
+    fprintf(stderr, "====== DEBUG hwlee init_ptmcmc nthreads = %d\n", runState->nthreads);
     for (i=0; i<runState->nthreads; i++) {
         thread = runState->threads[i];
 
@@ -318,7 +325,15 @@ INT4 init_ptmcmc(LALInferenceRunState *runState) {
         thread->temperature = ladder[thread->id];
 
         thread->proposal = &LALInferenceCyclicProposal;
+        //DEBUG hwlee here I think proposalArgs should be Destroyed if not NULL
+        if(thread->proposalArgs) {
+          LALInferenceClearVariables(thread->proposalArgs);
+          XLALFree(thread->proposalArgs);
+        }
         thread->proposalArgs = LALInferenceParseProposalArgs(runState);
+        //DEBUG hwlee
+        fprintf(stderr, "====== DEBUG hwlee thread[%d] = %p, proposalArgs = %p in init_ptmcmc, calls = %d\n", i, thread, thread->proposalArgs, ptmcmc_calls);
+        //DEBUG hwlee here I think cycle should be Destroyed if not NULL
         thread->cycle = LALInferenceSetupDefaultInspiralProposalCycle(thread->proposalArgs);
 
         LALInferenceRandomizeProposalCycle(thread->cycle, thread->GSLrandom);
@@ -655,7 +670,6 @@ int main(int argc, char *argv[]){
 
     fprintf(stdout, "======== DEBUG hwlee =========\n");
     fprintf(stdout, "    DebugLevel = %d, mpiRank = %d\n", XLALGetDebugLevel(), mpirank);
-    //XLALClobberDebugLevel(0); // no debug message
 
     /* Read command line and parse */
     procParams = LALInferenceParseCommandLine(argc, argv);
@@ -681,17 +695,16 @@ int main(int argc, char *argv[]){
 
     /* Perform injections if data successful read or created */
     if (runState){
-      runState->data = data;
-      //LALInferenceInjectInspiralSignal(data, runState->commandLine);
+      LALInferenceInjectInspiralSignal(data, runState->commandLine);
     }
 
     /* Simulate calibration errors. 
      * NOTE: this must be called after both ReadData and (if relevant) 
      * injectInspiralTD/FD are called! */
-    //LALInferenceApplyCalibrationErrors(data, procParams);
+    LALInferenceApplyCalibrationErrors(data, procParams);
 
     /* Handle PTMCMC setup */
-    //init_ptmcmc(runState);
+    init_ptmcmc(runState);
 
     /* Choose the prior */
     //LALInferenceInitCBCPrior(runState);
@@ -716,6 +729,7 @@ int main(int argc, char *argv[]){
     if (mpirank == 0) printf(" ========== main(): finished. ==========\n");
     //XLALClobberDebugLevel(249); // memory check debug
     LALCheckMemoryLeaks();
+    fprintf(stdout, "======== DEBUG hwlee ptmcmc_calls = %d\n", ptmcmc_calls);
 
     MPI_Finalize();
 

@@ -23,6 +23,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <execinfo.h> //DEBUG hwlee
 #include <lal/LALInspiral.h>
 #include <lal/DetResponse.h>
 #include <lal/SeqFactories.h>
@@ -138,6 +139,7 @@ LALInferenceProposal *LALInferenceInitProposal(LALInferenceProposalFunction func
   proposal->proposed = 0;
   proposal->accepted = 0;
   strcpy(proposal->name, name);
+  fprintf(stderr, "===== DEBUG hwlee LALInferenceInitProposal name = %s\n", name);
   return proposal;
 }
 
@@ -249,6 +251,8 @@ void LALInferenceDeleteProposalCycle(LALInferenceProposalCycle *cycle) {
     XLALFree(cycle->order);
 }
 
+/* DEBUG hwlee */
+static int detectors_count = 0;
 LALInferenceVariables *LALInferenceParseProposalArgs(LALInferenceRunState *runState) {
     INT4 i;
     ProcessParamsTable *ppt;
@@ -331,9 +335,20 @@ LALInferenceVariables *LALInferenceParseProposalArgs(LALInferenceRunState *runSt
     LALInferenceAddINT4Variable(propArgs, "nUniqueDet", nUniqueDet, LALINFERENCE_PARAM_FIXED);
 
     LALDetector *detectors = XLALCalloc(nDet, sizeof(LALDetector));
+    detectors_count++;
+    fprintf(stderr, "==== DEBUG hwlee address detectors = %p, size = %lu, count = %d\ndetector_TRACE:\n", detectors, nDet*sizeof(LALDetector), detectors_count);
+    void* callstack[128];
+    int frames = backtrace(callstack, 128);
+    char** trace = backtrace_symbols(callstack, frames);
+    for(int k=0; k<frames; k++) {
+      fprintf(stderr, "  [%3d]%s\n", k, trace[k]);
+    }
+    free(trace);
+
     for (i=0,ifo=runState->data; i<nDet; i++,ifo=ifo->next)
         detectors[i] = *(ifo->detector);
-    LALInferenceAddVariable(propArgs, "detectors", &detectors, LALINFERENCE_void_ptr_t, LALINFERENCE_PARAM_FIXED);
+    //LALInferenceAddVariable(propArgs, "detectors", &detectors, LALINFERENCE_void_ptr_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariableFromCase(propArgs, "detectors", &detectors, LALINFERENCE_void_ptr_t, LALINFERENCE_PARAM_FIXED, "ParseProposalArgs", "add detectors");
 
     char **ifo_names = XLALCalloc(nDet, sizeof(char*));
     for(ifo=runState->data,i=0;ifo;ifo=ifo->next,i++) {
@@ -481,11 +496,12 @@ LALInferenceVariables *LALInferenceParseProposalArgs(LALInferenceRunState *runSt
     if (singleadapt){
       LALInferenceModel *model = LALInferenceInitCBCModel(runState);
       LALInferenceSetupAdaptiveProposals(propArgs, model->params);
+      LALInferenceDestroyInferenceModel(model); // added by hwlee and KGWG to destry properly at 16 Sep 2016
       XLALFree(model);
     }
     /* Setup buffer now since threads aren't accessible to the main setup function */
     if (diffevo || stretch || walk) {
-        for (i=0; i<runState->nthreads; i++)
+        for (i=0; i<runState->nthreads; i++) /* this loop is already done before calling this function */
             LALInferenceSetupDifferentialEvolutionProposal(runState->threads[i]);
     }
 
@@ -3007,7 +3023,9 @@ void LALInferenceSetupGlitchProposal(LALInferenceIFOData *data, LALInferenceVari
 
 /* Initialize differential evolution proposal */
 void LALInferenceSetupDifferentialEvolutionProposal(LALInferenceThreadState *thread) {
-    thread->differentialPoints = XLALCalloc(1, sizeof(LALInferenceVariables *));
+    /* added by hwlee and KGWG, this could be initialized many times, hence check before allocate at 19 sep 2016 */
+    if(!thread->differentialPoints)
+      thread->differentialPoints = XLALCalloc(1, sizeof(LALInferenceVariables *));
     thread->differentialPointsLength = 0;
     thread->differentialPointsSize = 1;
     thread->differentialPointsSkip = 1;

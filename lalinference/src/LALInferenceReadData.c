@@ -48,6 +48,7 @@
 #include <lal/LALNoiseModels.h>
 #include <lal/XLALError.h>
 #include <lal/GenerateInspiral.h>
+#include <lal/LIGOMetadataUtils.h>
 #include <lal/LIGOLwXMLRead.h>
 #include <lal/LIGOLwXMLInspiralRead.h>
 
@@ -386,7 +387,7 @@ void LALInferencePrintDataWithInjection(LALInferenceIFOData *IFOdata, ProcessPar
   UINT4 event=0;
   char *chartmp=NULL;
   ProcessParamsTable *procparam=NULL,*ppt=NULL;
-  SimInspiralTable *injTable=NULL;
+  SimInspiralTable *injTable=NULL, *injTable0=NULL;
   //ProcessParamsTable *pptdatadump=NULL;
   LIGOTimeGPS GPStrig;
   while(thisData){
@@ -401,6 +402,7 @@ void LALInferencePrintDataWithInjection(LALInferenceIFOData *IFOdata, ProcessPar
       fprintf(stderr,"Unable to open injection file(LALInferenceReadData) %s\n",procparam->value);
       exit(1);
     }
+    injTable0 = injTable; // added to destroy injection table property by hwlee and KGWG at 16 Sep 2016
     procparam=LALInferenceGetProcParamVal(commandLine,"--event");
     if(procparam) {
       event=atoi(procparam->value);
@@ -507,7 +509,8 @@ void LALInferencePrintDataWithInjection(LALInferenceIFOData *IFOdata, ProcessPar
     }
 
   }
-
+  /* added to destroy injection table properly by hwlee and KGWG at 16 Sep 2016 */
+  LALDestroySimInspiralTable(injTable0);
 }
 
 #define USAGE "\
@@ -558,12 +561,14 @@ void LALInferencePrintDataWithInjection(LALInferenceIFOData *IFOdata, ProcessPar
     (--0noise)                  Sets the noise realisation to be identically zero\n\
                                     (for the fake caches above only)\n\
     \n"
-
+//DEBUG hwlee
+static int readData_calls = 0;
 LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 /* Read in the data and store it in a LALInferenceIFOData structure */
 {
     LALStatus status;
     INT4 dataseed=0;
+    readData_calls++;
     memset(&status,0,sizeof(status));
     ProcessParamsTable *procparam=NULL,*ppt=NULL;
     //ProcessParamsTable *pptdatadump=NULL;
@@ -704,6 +709,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
     for(i=0;i<Nifo;i++) {
         if(!dataOpts && !Nchannel) channels[i]=XLALMalloc(VARNAME_MAX);
         IFOdata[i].detector=XLALCalloc(1,sizeof(LALDetector));
+        fprintf(stderr, "====== DEBUG hwlee IFOdata[%d].detector = %p, readData_calls = %d in ReadData\n", i, IFOdata[i].detector, readData_calls);
 
         if(!strcmp(IFOnames[i],"H1")) {
             memcpy(IFOdata[i].detector,&lalCachedDetectors[LALDetectorIndexLHODIFF],sizeof(LALDetector));
@@ -1352,7 +1358,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 {
 	LALStatus status;
 	memset(&status,0,sizeof(status));
-	SimInspiralTable *injTable=NULL;
+	SimInspiralTable *injTable=NULL, *injTable0;
   SimInspiralTable *injEvent=NULL;
 	UINT4 Ninj=0;
 	UINT4 event=0;
@@ -1402,12 +1408,15 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	  REPORTSTATUS(&status);
         }
 	printf("Ninj %d\n", Ninj);
+        injTable0 = injTable;
 	if(Ninj<=event){
           fprintf(stderr,"Error reading event %d from %s\n",event,LALInferenceGetProcParamVal(commandLine,"--inj")->value);
           exit(1);
         }
 	while(i<event) {i++; injTable = injTable->next;} /* Select event */
 	injEvent = injTable;
+        /* destroy unsed injection tables by hwlee and KGWG at 16 Sep 2016 */
+        LALDestroySimInspiralTable(injEvent->next);
 	injEvent->next = NULL;
   enforce_m1_larger_m2(injEvent);
 	Approximant injapprox;
@@ -1425,6 +1434,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	{
 	 InjectFD(IFOdata, injTable, commandLine);
 	 LALInferencePrintDataWithInjection(IFOdata,commandLine);
+         LALDestroySimInspiralTable(injTable0); // added to destroy injection table structure by hwlee and KGWG at 19 Sep 2016
 	 return;
 	}
 	/* Begin loop over interferometers */
@@ -1733,6 +1743,9 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
     }
 
     LALInferencePrintDataWithInjection(IFOdata,commandLine);
+
+    /* added by hwlee and KGWG to destroy injection table data at 16 Sep. 2016 */
+    LALDestroySimInspiralTable(injTable0);
 
     return;
 }
