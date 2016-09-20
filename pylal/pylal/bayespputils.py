@@ -46,7 +46,7 @@ from operator import itemgetter
 from lalinference.io import read_samples
 import healpy as hp
 import astropy.table
-import lalinference.cmap
+import lalinference.plot.cmap
 import numpy as np
 from numpy import fmod
 import matplotlib
