@@ -218,6 +218,9 @@ int XLALAdaptiveRungeKutta4_no_interpolate_SaveD(LALAdaptiveRungeKutta4Integrato
 
     XLAL_ENDGSL;
 
+    if (buffers) // David this line (and line immediately below this) added to fix memory leaks
+      XLALDestroyREAL8Array(buffers); /* let's be careful, although all these checks may not be needed */
+
     if (temp)
         LALFree(temp);
 
