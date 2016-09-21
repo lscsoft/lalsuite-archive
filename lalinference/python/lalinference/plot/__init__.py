@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2012-2015  Leo Singer
+# Copyright (C) 2012-2016  Leo Singer
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -40,7 +40,6 @@ from matplotlib.projections import projection_registry
 from matplotlib.transforms import Transform, Affine2D
 from matplotlib.projections.geo import LambertAxes, MollweideAxes
 import _geoslib as geos
-from matplotlib import pyplot as plt
 import scipy.stats
 import numpy as np
 import healpy as hp
@@ -53,8 +52,6 @@ elif mpl_version < '1.2.0':
     class FixedMollweideAxes(MollweideAxes):
         """Patched version of matplotlib's Mollweide projection that implements a
         correct inverse transform."""
-
-        name = 'fixed mollweide'
 
         class FixedMollweideTransform(MollweideAxes.MollweideTransform):
 
@@ -85,12 +82,12 @@ elif mpl_version < '1.2.0':
 
         def _get_core_transform(self, resolution):
             return self.FixedMollweideTransform(resolution)
+
+    projection_registry.register(FixedMollweideAxes)
 else:
     class FixedMollweideAxes(MollweideAxes):
         """Patched version of matplotlib's Mollweide projection that implements a
         correct inverse transform."""
-
-        name = 'fixed mollweide'
 
         class FixedMollweideTransform(MollweideAxes.MollweideTransform):
 
@@ -119,6 +116,8 @@ else:
 
         def _get_core_transform(self, resolution):
             return self.FixedMollweideTransform(resolution)
+
+    projection_registry.register(FixedMollweideAxes)
 
 
 class AstroDegreesMollweideAxes(FixedMollweideAxes):
@@ -481,6 +480,7 @@ def make_rect_poly(width, height, theta, phi, subdivisions=10):
 
 def heatmap(func, *args, **kwargs):
     "Plot a function on the sphere using the current geographic projection."""
+    from matplotlib import pyplot as plt
 
     # Get current axis.
     ax = plt.gca()
@@ -522,6 +522,7 @@ def heatmap(func, *args, **kwargs):
 
 def contour(func, *args, **kwargs):
     "Plot a function on the sphere using the current geographic projection."""
+    from matplotlib import pyplot as plt
 
     # Get current axis.
     ax = plt.gca()
@@ -543,6 +544,7 @@ def contour(func, *args, **kwargs):
 
 def contourf(func, *args, **kwargs):
     "Plot a function on the sphere using the current geographic projection."""
+    from matplotlib import pyplot as plt
 
     # Get current axis.
     ax = plt.gca()
@@ -600,6 +602,8 @@ def healpix_contourf(map, *args, **kwargs):
 
 
 def colorbar():
+    from matplotlib import pyplot as plt
+
     usetex = matplotlib.rcParams['text.usetex']
     locator = ticker.AutoLocator()
     formatter = ticker.ScalarFormatter(useMathText=not usetex)
@@ -638,8 +642,8 @@ def colorbar():
 
 
 def outline_text(ax):
-    """If we are using a new enough version of matplotlib, then
-    add a white outline to all text to make it stand out from the background."""
+    """Add a white outline to all text to make it stand out from the
+    background."""
     effects = [patheffects.withStroke(linewidth=2, foreground='w')]
     for artist in ax.findobj(text.Text):
         artist.set_path_effects(effects)

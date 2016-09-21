@@ -986,6 +986,7 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
 
 void LALInferenceCyclicReflectiveBound(LALInferenceVariables *parameter,
                                        LALInferenceVariables *priorArgs){
+  REAL8 val;
   if (parameter == NULL || priorArgs == NULL)
     XLAL_ERROR_VOID(XLAL_EFAULT, "Null arguments received.");
 
@@ -1005,10 +1006,12 @@ void LALInferenceCyclicReflectiveBound(LALInferenceVariables *parameter,
     XLAL_ERROR_VOID(XLAL_EINVAL, "Minimum %f for variable '%s' is not less than maximum %f.", min, paraHead->name, max);
   }
 
+    val = *(REAL8 *)paraHead->value;
+    if (val == INFINITY)
+        return;
+
     if(paraHead->vary==LALINFERENCE_PARAM_CIRCULAR) {
       /* For cyclic boundaries, mod out by range. */
-
-      REAL8 val = *(REAL8 *)paraHead->value;
 
       if (val > max) {
         REAL8 offset = val - min;
@@ -1027,7 +1030,7 @@ void LALInferenceCyclicReflectiveBound(LALInferenceVariables *parameter,
          SKIP NOISE PARAMETERS (ONLY CHECK REAL8) */
       while(1) {
         /* Loop until broken. */
-        REAL8 val = *(REAL8 *)paraHead->value;
+        val = *(REAL8 *)paraHead->value;
         if (val > max) {
           /* val <-- max - (val - max) */
           *(REAL8 *)paraHead->value = 2.0*max - val;
