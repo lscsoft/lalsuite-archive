@@ -523,12 +523,12 @@ void LALInferenceInjectSNBurstSignal(LALInferenceIFOData *IFOdata, ProcessParams
   /* loop over data (different interferometers): */
   dataPtr = IFOdata;
 
-  hptilde=XLALCreateCOMPLEX16FrequencySeries("hplus",&(dataPtr->timeData->epoch),0.0,deltaF,&lalDimensionlessUnit,8192);
+  hptilde=XLALCreateCOMPLEX16FrequencySeries("hplus",&(dataPtr->timeData->epoch),0.0,deltaF,&lalDimensionlessUnit,6145);
 
   int p = 0.0;
   REAL8 tempreal, tempimag;
 //  while(!feof(fp)){
-  while(p<8192){
+  while(p<6145){
     fscanf(fp, "%lf %lf", &tempreal, &tempimag);
     hptilde->data->data[p] = tempreal + I*tempimag;
   p++;
@@ -566,7 +566,7 @@ void LALInferenceInjectSNBurstSignal(LALInferenceIFOData *IFOdata, ProcessParams
     timeshift = timedelay;
     twopit    = LAL_TWOPI * (timeshift);
 
-    /* Restore hrss (template has been calculated for hrss=1) effect in Fplus/Fcross: */
+    /* normalise injection same way as template model */
     Fplus*= 1.0 / WinNorm;
 //    Fcross*= hrss / WinNorm;
 
