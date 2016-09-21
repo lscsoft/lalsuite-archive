@@ -572,7 +572,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   // David new optimized selection code
   Approximant spinEOBApproximant = SEOBNRv3;
   INT4 use_optimized = 0; 
-  if ( PrecEOBversion == 300 ) { spinEOBApproximant = SEOBNRv3_opt; use_optimized = 1; }
+  if ( PrecEOBversion == 300 || PrecEOBversion == 304 ) { spinEOBApproximant = SEOBNRv3_opt; use_optimized = 1; }
 
   /* The underlying aligned-spin EOB model is hard-coded here */
   INT4 SpinAlignedEOBversion = 2;
@@ -1581,7 +1581,7 @@ int XLALSimIMRSpinEOBWaveformAll(
         seobParams.alignedSpins = 0;
     }
     else {
-      if (use_optimized) {
+      if (use_optimized && PrecEOBversion == 300) {
         integrator = XLALAdaptiveRungeKutta4InitEighthOrderInstead(14, XLALSpinPrecHcapExactDerivative, XLALEOBSpinPrecStopConditionBasedOnPR, EPS_ABS, EPS_REL);
       } else {
         integrator = XLALAdaptiveRungeKutta4Init(14, XLALSpinPrecHcapNumericalDerivative, XLALEOBSpinPrecStopConditionBasedOnPR, EPS_ABS, EPS_REL);
