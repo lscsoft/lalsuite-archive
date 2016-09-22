@@ -441,9 +441,9 @@ static void *PadAllocName(size_t * p, size_t n, int keep, const char *func, cons
     if (lalDebugLevel & LALMEMINFOBIT) {
         XLALPrintError("%s meminfo: allocating %zu bytes at address %p name : %s\nalloc_TRACE:\n",
                       func, n, p + nprefix, name);
-        for(int k=0; k<frames; k++) {
-          fprintf(stderr, "  [%3d]%s\n", k, trace[k]);
-        }
+        //for(int k=0; k<frames; k++) {
+        //  fprintf(stderr, "  [%3d]%s\n", k, trace[k]);
+        //}
     }
     free(trace);
 

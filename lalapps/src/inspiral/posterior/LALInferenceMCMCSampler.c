@@ -127,7 +127,9 @@ resetDifferentialEvolutionBuffer(LALInferenceThreadState *thread) {
     thread->differentialPointsSkip = LALInferenceGetINT4Variable(thread->proposalArgs, "de_skip");
 }
 
-static int copy_calls_in_step=0;//DEBUG by ??hwlee
+//DEBUG hwlee
+static int copy_calls_in_step=0;
+static int loop_count = 0;
 void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState) {
     INT4 t=0; //indexes for for() loops
     INT4 runComplete = 0;
@@ -274,6 +276,8 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState) {
     // iterate:
     step_last_written = runState->threads[0]->step;
     while (!runComplete) {
+        loop_count++;
+        fprintf(stdout, "===== DEBUG hwlee loop_count = %d\n", loop_count);
         #pragma omp parallel for private(thread)
         for (t = 0; t < n_local_threads; t++) {
             FILE *outfile = NULL;
@@ -309,6 +313,9 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState) {
                     fprintf(stdout,"Thread %i has %i effective samples. Stopping...\n", MPIrank, thread->effective_sample_size);
                     runComplete = 1;          // Sampling is done!
                 }
+                //DEBUG hwlee
+                if(loop_count >= 2)
+                  runComplete = 1;
 
                 mcmc_step(runState, thread); //evolve the chain at temperature ladder[t]
                 record_likelihoods(thread);
@@ -398,6 +405,9 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState) {
         /* Check if run should end */
         if (runState->threads[0]->step > Niter)
             runComplete=1;
+        //DEBUG hwlee
+        if(loop_count >= 2)
+          runComplete = 1;
 
         /* Broadcast the root's decision on run completion */
         MPI_Bcast(&runComplete, 1, MPI_INT, 0, MPI_COMM_WORLD);

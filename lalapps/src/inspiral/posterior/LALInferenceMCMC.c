@@ -707,20 +707,20 @@ int main(int argc, char *argv[]){
     init_ptmcmc(runState);
 
     /* Choose the prior */
-    //LALInferenceInitCBCPrior(runState);
+    LALInferenceInitCBCPrior(runState);
 
     /* Choose the likelihood */
-    //LALInferenceInitLikelihood(runState);
+    LALInferenceInitLikelihood(runState);
 
     /* Draw starting positions */
-    //LALInferenceDrawThreads(runState);
+    LALInferenceDrawThreads(runState);
 
     if (runState == NULL)
         return XLAL_FAILURE;
 
     /* Call MCMC algorithm */
     if (mpirank == 0) printf("sampling...\n");
-    //runState->algorithm(runState);
+    runState->algorithm(runState);
 
     LALInferenceDestroyRunState(runState);
     runState = NULL;
