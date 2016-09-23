@@ -29,6 +29,7 @@ except ImportError as e:
     from distutils.command import install
 else:
     from setuptools.command import install
+import pkg_resources
 from distutils.core import Extension
 from distutils.command import build_py
 from distutils.command import sdist
@@ -64,6 +65,8 @@ def write_build_info():
     builder_email = ""
   builder = "%s <%s>" % (builder_name, builder_email)
 
+  gvin = pkg_resources.resource_filename(gvcsi.__name__, 'git_version.py.in')
+
   sed_cmd = ('sed',
              '-e', 's/@ID@/%s/' % vcs_info.id,
              '-e', 's/@DATE@/%s/' % vcs_info.date,
@@ -74,7 +77,7 @@ def write_build_info():
              '-e', 's/@STATUS@/%s/' % vcs_info.status,
              '-e', 's/@BUILDER@/%s/' % builder,
              '-e', 's/@BUILD_DATE@/%s/' % build_date,
-             'misc/git_version.py.in')
+             gvin)
 
   # FIXME: subprocess.check_call becomes available in Python 2.5
   sed_retcode = subprocess.call(sed_cmd,
