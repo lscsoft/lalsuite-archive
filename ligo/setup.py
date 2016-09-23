@@ -1,7 +1,6 @@
+from setuptools import setup
 
-from distutils.core import setup
-
-version = "1.0.1"
+version = "1.0.2"
 
 setup(
   name = "ligo-common",
@@ -11,6 +10,7 @@ setup(
   description = "Empty LIGO modules",
   long_description = "Empty module placeholder for other LIGO modules",
   license = 'GPL',
+  namespace_packages = ['ligo'],
   provides = ['ligo'],
   packages = [ 'ligo'],
 )
