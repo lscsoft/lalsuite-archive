@@ -1,8 +1,8 @@
 # End-to-end LALInference test pipeline
 # (C) 2014 John Veitch
 
-from lalapps import lalinference_pipe_utils as pipe_utils
-from lalapps.lalinference_pipe_utils import mkdirs
+from lalinference import lalinference_pipe_utils as pipe_utils
+from lalinference.lalinference_pipe_utils import mkdirs
 from lalapps import inspiralutils
 from glue import pipeline
 import ConfigParser
@@ -87,7 +87,7 @@ if prior_cp.get('analysis','engine')=='lalinferencenest':
   prior_cp.set('engine','zeroLogLike','')
   prior_cp.set('engine','nlive',str(20*opts.trials))
 elif prior_cp.get('analysis','engine')=='lalinferencemcmc':
-  prior_cp.set('engine','Neff',str(opts.trials))
+  prior_cp.set('engine','neff',str(max(opts.trials,1000))) # miminum of 1000 effective samples
   prior_cp.set('engine','zeroLogLike','')
 elif prior_cp.get('analysis','engine')=='lalinferencebambi':
   prior_cp.set('engine','zeroLogLike','')
@@ -145,12 +145,10 @@ prior2injnode=pipeline.CondorDAGNode(prior2injjob)
 prior2injnode.add_var_opt('output',injfile)
 prior2injnode.add_var_opt('num-of-injs',str(opts.trials))
 prior2injnode.add_var_opt('approx',approx)
-flow=str(40)
 if prior_cp.has_option('engine','amporder'):
   amporder=prior_cp.get('engine','amporder')
 else:
   amporder='0'
-prior2injnode.add_var_opt('flow',flow) # TODO: Read from somewhere
 prior2injnode.add_var_opt('amporder',amporder)
 prior2injnode.add_var_arg(priorfile)
 prior2injnode.add_parent(priordagnode)

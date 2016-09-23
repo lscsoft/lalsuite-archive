@@ -35,7 +35,7 @@ try:
     import M2Crypto
     import cjson
 except ImportError, e:
-    print >> sys.stderr, """
+    sys.stderr.write("""
 ligo_data_find requires the M2Crypto and cjson
 modules.
 
@@ -56,7 +56,7 @@ Mac OS X users can find these packages in
 MacPorts.
 
 %s
-""" % e
+""" % e)
     sys.exit(1)
 
 
@@ -197,9 +197,9 @@ def validateProxy(path):
     # load the proxy from path
     try:
         proxy = M2Crypto.X509.load_cert(path)
-    except Exception, e:
-        msg = "Unable to load proxy from path %s : %s" % (path, e)
-        print >>sys.stderr, msg
+    except Exception as e:
+        msg = "Unable to load proxy from path %s : %s\n" % (path, e)
+        sys.stderr.write(msg)
         sys.exit(1)
 
     # make sure the proxy is RFC 3820 compliant
@@ -222,7 +222,7 @@ def validateProxy(path):
         expireUTC  = calendar.timegm(expireGMT)
         now = int(time.time())
         secondsLeft = expireUTC - now
-    except Exception, e:
+    except Exception as e:
         # problem getting or parsing time so just let the client
         # continue and pass the issue along to the server
         secondsLeft = 3600
@@ -234,7 +234,7 @@ Your proxy certificate is expired.
 Please generate a new proxy certificate and
 try again.
 """
-        print >>sys.stderr, msg
+        sys.stderr.write(msg)
         sys.exit(1)
 
     if secondsLeft < (60 * 15):
@@ -245,7 +245,7 @@ Your proxy certificate expires in less than
 Please generate a new proxy certificate and
 try again.
 """
-        print >>sys.stderr, msg
+        sys.stderr.write(msg)
         sys.exit(1)
 
     # return True to indicate validated proxy
@@ -263,7 +263,7 @@ LIGO users, please run 'ligo-proxy-init' and try again.
 Others, please run 'grid-proxy-init' and try again.
 """
 
-    print >>sys.stderr, msg
+    sys.stderr.write(msg)
 
 
 class LDBDClientException(Exception):
@@ -316,15 +316,15 @@ class LDBDClient(object):
     try:
         h.request("POST", url, body, headers)
         response = h.getresponse()
-    except Exception, e:
+    except Exception as e:
         msg = "Error pinging server %s: %s" % (server, e)
-        raise LDBDClientException, msg
+        raise LDBDClientException(msg)
 
     if response.status != 200:
         msg = "Server returned code %d: %s" % (response.status, response.reason)
         body = response.read()
         msg += body
-        raise LDBDClientException, msg
+        raise LDBDClientException(msg)
 
     # since status is 200 OK the ping was good
     body = response.read()
@@ -350,15 +350,15 @@ class LDBDClient(object):
     try:
         h.request("POST", url, body, headers)
         response = h.getresponse()
-    except Exception, e:
+    except Exception as e:
         msg = "Error querying server %s: %s" % (server, e)
-        raise LDBDClientException, msg
+        raise LDBDClientException(msg)
 
     if response.status != 200:
         msg = "Server returned code %d: %s" % (response.status, response.reason)
         body = response.read()
         msg += body
-        raise LDBDClientException, msg
+        raise LDBDClientException(msg)
 
     # since status is 200 OK the query was good
     body = response.read()
@@ -378,7 +378,7 @@ class LDBDClient(object):
         msg = "Insecure connection DOES NOT surpport INSERT."
         msg += '\nTo INSERT, authorized users please specify protocol "https" in your --segment-url argument.'
         msg += '\nFor example, "--segment-url https://segdb.ligo.caltech.edu".'
-        raise LDBDClientException, msg
+        raise LDBDClientException(msg)
 
     url = "/ldbd/insert.json"
     headers = {"Content-type" : "application/json"}
@@ -387,15 +387,15 @@ class LDBDClient(object):
     try:
         h.request("POST", url, body, headers)
         response = h.getresponse()
-    except Exception, e:
+    except Exception as e:
         msg = "Error querying server %s: %s" % (server, e)
-        raise LDBDClientException, msg
+        raise LDBDClientException(msg)
 
     if response.status != 200:
         msg = "Server returned code %d: %s" % (response.status, response.reason)
         body = response.read()
         msg += body
-        raise LDBDClientException, msg
+        raise LDBDClientException(msg)
 
     # since status is 200 OK the query was good
     body = response.read()
@@ -414,7 +414,7 @@ class LDBDClient(object):
         msg = "Insecure connection DOES NOT surpport INSERTMAP."
         msg += '\nTo INSERTMAP, authorized users please specify protocol "https" in your --segment-url argument.'
         msg += '\nFor example, "--segment-url https://segdb.ligo.caltech.edu".'
-        raise LDBDClientException, msg
+        raise LDBDClientException(msg)
 
     url = "/ldbd/insertmap.json"
     headers = {"Content-type" : "application/json"}
@@ -426,15 +426,15 @@ class LDBDClient(object):
     try:
         h.request("POST", url, body, headers)
         response = h.getresponse()
-    except Exception, e:
+    except Exception as e:
         msg = "Error querying server %s: %s" % (server, e)
-        raise LDBDClientException, msg
+        raise LDBDClientException(msg)
 
     if response.status != 200:
         msg = "Server returned code %d: %s" % (response.status, response.reason)
         body = response.read()
         msg += body
-        raise LDBDClientException, msg
+        raise LDBDClientException(msg)
 
     # since status is 200 OK the query was good
     body = response.read()
@@ -454,7 +454,7 @@ class LDBDClient(object):
         msg = "Insecure connection DOES NOT surpport INSERTDMT."
         msg += '\nTo INSERTDMT, authorized users please specify protocol "https" in your --segment-url argument.'
         msg += '\nFor example, "--segment-url https://segdb.ligo.caltech.edu".'
-        raise LDBDClientException, msg
+        raise LDBDClientException(msg)
 
     url = "/ldbd/insertdmt.json"
     headers = {"Content-type" : "application/json"}
@@ -463,15 +463,15 @@ class LDBDClient(object):
     try:
         h.request("POST", url, body, headers)
         response = h.getresponse()
-    except Exception, e:
+    except Exception as e:
         msg = "Error querying server %s: %s" % (server, e)
-        raise LDBDClientException, msg
+        raise LDBDClientException(msg)
 
     if response.status != 200:
         msg = "Server returned code %d: %s" % (response.status, response.reason)
         body = response.read()
         msg += body
-        raise LDBDClientException, msg
+        raise LDBDClientException(msg)
 
     # since status is 200 OK the query was good
     body = response.read()

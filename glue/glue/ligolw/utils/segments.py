@@ -33,8 +33,7 @@ from glue import git_version
 from glue import iterutils
 from glue import segments
 from glue import segmentsUtils
-# FIXME:  switch to swig binding
-from glue.lal import LIGOTimeGPS
+from .. import ligolw
 from .. import lsctables
 
 
@@ -76,12 +75,99 @@ class LigolwSegmentList(object):
 	>>> segs = segmentlist([segment(0, 10), segment(20, 30)])
 	>>> validity = segmentlist([segment(0, 10), segment(25, 100)])
 	>>> x = LigolwSegmentList(active = segs, valid = validity, instruments = set(("H1",)), name = "test")
-	>>> x.active & x.valid
+	>>> # x made copies of arguments
+	>>> del segs[:]
+	>>> segs
+	[]
+	>>> x.active
+	[segment(0, 10), segment(20, 30)]
+	>>> # some typical operations
+	>>> x.active & x.valid	# known true
 	[segment(0, 10), segment(25, 30)]
-	>>> ~x.active & x.valid
+	>>> ~x.active & x.valid	# known false
 	[segment(30, 100)]
-	>>> x.active & ~x.valid
+	>>> x.active & ~x.valid	# not an error for this to be non-null
 	[segment(20, 25)]
+	>>> # make a copy
+	>>> y = LigolwSegmentList(x)
+	>>> del y.active[:]
+	>>> y.active
+	[]
+	>>> x.active
+	[segment(0, 10), segment(20, 30)]
+
+	The arithmetic operators on this class implement Kleene's strong
+	ternary logic, taking "true" to be (active & valid), "false" to be
+	(~active & valid), and "unknown" to be ~valid.
+
+	Example:
+
+	>>> from glue.segments import *
+	>>> segs = segmentlist([segment(0, 10), segment(20, 30)])
+	>>> validity = segmentlist([segment(0, 35)])
+	>>> x = LigolwSegmentList(active = segs, valid = validity, instruments = set(("H1",)), name = "test")
+	>>> segs = segmentlist([segment(40, 50), segment(60, 70)])
+	>>> validity = segmentlist([segment(35, 100)])
+	>>> y = LigolwSegmentList(active = segs, valid = validity, instruments = set(("H1",)), name = "test")
+	>>> (x | y).active
+	[segment(0, 10), segment(20, 30), segment(40, 50), segment(60, 70)]
+	>>> (x | y).valid
+	[segment(0, 10), segment(20, 30), segment(40, 50), segment(60, 70)]
+	>>> (x & y).active
+	[]
+	>>> (x & y).valid
+	[segment(10, 20), segment(30, 40), segment(50, 60), segment(70, 100)]
+	>>> (~x).active
+	[segment(10, 20), segment(30, 35)]
+	>>> (~x).valid
+	[segment(0, 35)]
+
+	With ternary logic the three basic Boolean operations AND, OR, and
+	NOT, do not form a complete set of operations.  That is, there
+	exist algebraic functions that cannot be implemented using
+	combinations of these three operators alone.  One additional
+	operator is required to construct a complete basis of logic
+	operations, and we provide one:  .isfalse().  This operation
+	inverts intervals of known state, and maps intervals of unknown
+	state to false.
+
+	>>> x.isfalse().active
+	[segment(10, 20), segment(30, 35)]
+	>>> x.isfalse().valid
+	[segment(-infinity, infinity)]
+
+	Unfortunately, one example of a function that cannot be constructed
+	from the three basic Boolean operators is perhaps the most common
+	operation we wish to perform with our tri-state segment lists.
+	Often we wish to construct a tri-state list from two tri-state
+	lists such that the final list's interval of validity is the union
+	of the intervals of validity of the two source lists, and the state
+	of the final list in that interval is the union the states of the
+	source lists in that interval.  For example if from one source we
+	know the state of some process spanning some time, and from another
+	source we know the state of the same process spanning some other
+	time, taken together we know the state of that process over the
+	union of those times.  This function is given by
+
+	>>> z = ~(x.isfalse() | y.isfalse() | (x & ~x & y & ~y))
+	>>> z.active
+	[segment(0, 10), segment(20, 30), segment(40, 50), segment(60, 70)]
+	>>> z.valid
+	[segment(0, 100)]
+
+	Because this is inconvenient to type, slow, and not readable, a
+	special in-place arithmetic operation named .update() is provided
+	to implement this operation.
+
+	>>> z = LigolwSegmentList(x).update(y)
+	>>> z.active
+	[segment(0, 10), segment(20, 30), segment(40, 50), segment(60, 70)]
+	>>> z.valid
+	[segment(0, 100)]
+
+	The .update() method is not exactly equivalent to the operation
+	above.  The .update() method demands that the two input lists'
+	states be identical where their intervals of validity intersect.
 	"""
 	#
 	# the columns the segment_definer, segment_summary and segment
@@ -92,7 +178,7 @@ class LigolwSegmentList(object):
 	segment_sum_columns = (u"process_id", u"segment_sum_id", u"start_time", u"start_time_ns", u"end_time", u"end_time_ns", u"segment_def_id", u"comment")
 	segment_columns = (u"process_id", u"segment_id", u"start_time", u"start_time_ns", u"end_time", u"end_time_ns", u"segment_def_id")
 
-	def __init__(self, active = (), valid = (), instruments = set(), name = None, version = None, comment = None):
+	def __init__(self, active = (), valid = (), instruments = (), name = None, version = None, comment = None):
 		"""
 		Initialize a new LigolwSegmentList instance.  active and
 		valid are sequences that will be cast to
@@ -102,9 +188,26 @@ class LigolwSegmentList(object):
 		identifies the intervals of time for which the segment
 		list's state is defined.
 		"""
+		# if we've only been passed an argument for active, see if
+		# it's an object with the same attributes as ourselves and
+		# if so initialize ourself as a copy of it.
+		if not valid and not instruments and name is None and version is None and comment is None:
+			try:
+				self.valid = segments.segmentlist(active.valid)
+				self.active = segments.segmentlist(active.active)
+				self.instruments = set(active.instruments)
+				self.name = active.name
+				self.version = active.version
+				self.comment = active.comment
+				return
+			except AttributeError:
+				pass
+		# we had more than one argument or it didn't have the
+		# correct attributes, so do a normal initialization.  make
+		# copies of mutable objects to avoid confusion
 		self.valid = segments.segmentlist(valid)
 		self.active = segments.segmentlist(active)
-		self.instruments = instruments
+		self.instruments = set(instruments)
 		self.name = name
 		self.version = version
 		self.comment = comment
@@ -126,6 +229,83 @@ class LigolwSegmentList(object):
 		"""
 		self.valid.coalesce()
 		self.active.coalesce()
+		return self
+
+	def __ior__(self, other):
+		"""
+		If either is true the result is true, if both are false the
+		result is false, otherwise the result is unknown.
+		"""
+		if self.instruments != other.instruments:
+			raise ValueError("incompatible metadata")
+		# times when one or the other is known to be true
+		self.active &= self.valid
+		self.active |= other.active & other.valid
+		# times when result is defined
+		self.valid = (self.valid & other.valid) | self.active
+		return self
+
+	def __iand__(self, other):
+		"""
+		If either is false the result is false, if both are true
+		the result is true, otherwise the result is unknown.
+		"""
+		if self.instruments != other.instruments:
+			raise ValueError("incompatible metadata")
+		# times when one or the other is known to be false
+		false = (self.valid & ~self.active) | (other.valid & ~other.active)
+		# times when both are known to be true
+		self.active &= self.valid
+		self.active &= other.active & other.valid
+		# times when result is defined
+		self.valid = false | self.active
+		return self
+
+	def __or__(self, other):
+		"""
+		If either is true the result is true, if both are false the
+		result is false, otherwise the result is unknown.
+		"""
+		result = type(self)(self)
+		result |= other
+		return result
+
+	def __and__(self, other):
+		"""
+		If either is false the result is false, if both are true
+		the result is true, otherwise the result is unknown.
+		"""
+		result = type(self)(self)
+		result &= other
+		return result
+
+	def __invert__(self):
+		"""
+		If unknown the result is unknown, otherwise the state is
+		inverted.
+		"""
+		result = type(self)(self)
+		result.active = ~result.active & result.valid
+		return result
+
+	def isfalse(self):
+		"""
+		If unknown the result is false, otherwise the state is
+		inverted.
+		"""
+		result = type(self)(self)
+		result.active = ~result.active & result.valid
+		result.valid = segments.segmentlist([segments.segment(-segments.infinity(), +segments.infinity())])
+		return result
+
+	def update(self, other):
+		if self.instruments != other.instruments:
+			raise ValueError("incompatible metadata")
+		if (self.valid & other.valid).intersects(self.active ^ other.active):
+			raise ValueError("result over-determined")
+		self.active &= self.valid
+		self.active |= other.active & other.valid
+		self.valid |= other.valid
 		return self
 
 
@@ -166,7 +346,7 @@ class LigolwSegments(set):
 
 	>>> import sys
 	>>> from glue.segments import *
-	>>> from glue.lal import LIGOTimeGPS
+	>>> from lal import LIGOTimeGPS
 	>>> from glue.ligolw import ligolw, lsctables
 	>>> xmldoc = ligolw.Document()
 	>>> xmldoc.appendChild(ligolw.LIGO_LW())	# doctest: +ELLIPSIS
@@ -218,7 +398,7 @@ class LigolwSegments(set):
 	</LIGO_LW>
 	>>> xmlsegments = LigolwSegments(xmldoc)
 	>>> xmlsegments.get_by_name("test")
-	{u'H1': [segment(LIGOTimeGPS(0,0), LIGOTimeGPS(10,0))]}
+	{u'H1': [segment(0.000000000, 10.000000000)]}
 	>>> xmlsegments.get_by_name("wrong name")
 	Traceback (most recent call last):
 		...
@@ -317,7 +497,7 @@ class LigolwSegments(set):
 		indicating that there are no periods of validity.  Returns
 		the newly created LigolwSegmentList object.
 		"""
-		ligolw_segment_list = LigolwSegmentList(active = segmentsUtils.fromsegwizard(fileobj, coltype = LIGOTimeGPS), instruments = instruments, name = name, version = version, comment = comment)
+		ligolw_segment_list = LigolwSegmentList(active = segmentsUtils.fromsegwizard(fileobj, coltype = lsctables.LIGOTimeGPS), instruments = instruments, name = name, version = version, comment = comment)
 		self.add(ligolw_segment_list)
 		return ligolw_segment_list
 
@@ -403,6 +583,10 @@ class LigolwSegments(set):
 			for instrument in seglist.instruments:
 				if instrument in result:
 					raise ValueError("multiple '%s' segmentlists for instrument '%s'" % (name, instrument))
+				# make copy so that instruments do not
+				# share a single list, so that subsequent
+				# arithmetic operations do not corrupt the
+				# wrong instrument's segments
 				result[instrument] = segments.segmentlist(segs)
 		if not result:
 			raise KeyError("no segmentlists named '%s'" % name)
@@ -510,6 +694,15 @@ class LigolwSegments(set):
 #
 # =============================================================================
 #
+
+
+@lsctables.use_in
+class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
+	"""
+	Minimal content handler suitable for loading documents containg
+	segment tables.
+	"""
+	pass
 
 
 def has_segment_tables(xmldoc, name = None):

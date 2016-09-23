@@ -45,6 +45,7 @@ typedef struct {
    CHAR *outfilename;
    CHAR *configCopy;
    CHAR *ULfilename;
+   CHAR *candidatesFilename;
    CHAR *inputSFTs;
    CHAR *ephemEarth;
    CHAR *ephemSun;
@@ -61,11 +62,18 @@ typedef struct {
    INT4 periodHarmToCheck;
    INT4 periodFracToCheck;
    BOOLEAN templateSearch;
+   BOOLEAN templateSearchFixedDf;
+   LALStringVector *templateSearchDf;
    REAL8 templateSearchP;
    REAL8 templateSearchAsini;
    REAL8 templateSearchAsiniSigma;
    REAL8 assumeNScosi;
    REAL8 assumeNSpsi;
+   REAL8 assumeNSGWfreq;
+   REAL8 assumeNSorbitP;
+   REAL8 assumeNSasini;
+   LIGOTimeGPS assumeNSorbitTp;
+   LIGOTimeGPS assumeNSrefTime;
    INT4 cosiSignCoherent;
    INT4 ihsfactor;
    REAL8 ihsfar;
@@ -161,6 +169,7 @@ typedef struct
    INT4 proberrcode;
    REAL8 normalization;
    INT4 templateVectorIndex;
+   BOOLEAN lineContamination;
 } candidate;
 
 typedef struct

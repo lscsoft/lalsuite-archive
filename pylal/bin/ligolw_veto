@@ -41,7 +41,6 @@ from glue.ligolw import utils
 from glue.ligolw.utils import segments as ligolw_segments
 from pylal import git_version
 from pylal import SnglBurstUtils
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -113,7 +112,7 @@ def apply_excess_power_veto(contents, veto_segs, verbose = False):
 		SnglBurstUtils.summarize_coinc_database(contents)
 
 	def sngl_burst_is_vetoed(ifo, start, start_ns, duration, veto_segs = veto_segs):
-		start = LIGOTimeGPS(start, start_ns)
+		start = dbtables.lsctables.LIGOTimeGPS(start, start_ns)
 		return ifo in veto_segs and veto_segs[ifo].intersects_segment(segments.segment(start, start + duration))
 	contents.connection.create_function("sngl_burst_is_vetoed", 4, sngl_burst_is_vetoed)
 	cursor = contents.connection.cursor()

@@ -47,6 +47,7 @@ from scipy import stats
 import matplotlib
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt
+import cbcBayesPlotSpinDisk as cbcdiskspin
 
 # Default font properties
 fig_width_pt = 246  # Get this from LaTeX using \showthe\columnwidth
@@ -69,8 +70,6 @@ matplotlib.rcParams.update(
         'font.size':16,
         'savefig.dpi': 120
         })
-
-import lal
 
 #local application/library specific imports
 from pylal import SimInspiralUtils
@@ -187,8 +186,31 @@ def multipleFileCB(opt, opt_str, value, parser):
         args = oldargs
     setattr(parser.values, opt.dest, args)
 
+def dict2html(d,parent=None):
+    if not d: return ""
+    out=bppu.htmlChunk('div',parent=parent)
+    tab=out.tab()
+    row=out.insert_row(tab)
+    for key in d.keys():
+        out.insert_td(row,str(key))
+    row2=out.insert_row(tab)
+    for val in d.values():
+        out.insert_td(row2,str(val))
+    return out
+
+def extract_hdf5_metadata(h5grp,parent=None):
+    import h5py
+    #out=bppu.htmlChunk('div',parent=parent)
+    sec=bppu.htmlSection(h5grp.name,htmlElement=parent)
+    dict2html(h5grp.attrs,parent=sec)
+    for group in h5grp:
+        if(isinstance(h5grp[group],h5py.Group)):
+            extract_hdf5_metadata(h5grp[group],sec)
+    return h5grp
+
+
 def cbcBayesPostProc(
-                        outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,
+                        outdir,data,oneDMenus,twoDGreedyMenu,GreedyRes,
                         confidence_levels,twoDplots,
                         #misc. optional
                         injfile=None,eventnum=None,
@@ -279,9 +301,21 @@ def cbcBayesPostProc(
         commonResultsObj=peparser.parse(data[0])
         thefile=open(data[0],'r')
         votfile=thefile.read()
+    elif '.hdf' in data[0] or '.h5' in data[0]:
+        if len(data) > 1:
+            peparser = bppu.PEOutputParser('hdf5s')
+            commonResultsObj=peparser.parse(data,deltaLogL=deltaLogL,fixedBurnins=fixedBurnins,nDownsample=nDownsample)
+        else:
+            fixedBurnins = fixedBurnins if fixedBurnins is not None else None
+            peparser = bppu.PEOutputParser('hdf5')
+            commonResultsObj=peparser.parse(data[0],deltaLogL=deltaLogL,fixedBurnin=fixedBurnins,nDownsample=nDownsample)
     else:
         peparser=bppu.PEOutputParser('common')
         commonResultsObj=peparser.parse(open(data[0],'r'),info=[header,None])
+        # check if Nest (through nest2post) has produced an header file with git and CL info. If yes copy in outdir
+        if os.path.isfile(data[0]+"_header.txt"):
+          import shutil
+          shutil.copy2(data[0]+"_header.txt", os.path.join(outdir,'nest_headers.txt'))
     
     #Extract f_ref from CRO if present.  This is needed to calculate orbital angular momentum
     #  when converting spin parameters.  Ideally this info will be provided in the
@@ -348,7 +382,7 @@ def cbcBayesPostProc(
     #Create an instance of the posterior class using the posterior values loaded
     #from the file and any injection information (if given).
     pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection,inj_spin_frame=inj_spin_frame, injFref=injFref,SnglInpiralList=triggers,votfile=votfile)
-  
+ 
     #Create analytic likelihood functions if covariance matrices and mean vectors were given
     analyticLikelihood = None
     if covarianceMatrices and meanVectors:
@@ -380,11 +414,11 @@ def cbcBayesPostProc(
             except KeyError:
                 print "Warning: No 'time' column!"
 
-    try:
-      pos.extend_posterior()
-    except:
-      pass
-
+    pos.extend_posterior()
+    # create list of names in oneDMenus dic
+    oneDMenu=[]
+    for i in oneDMenus.keys():
+      oneDMenu+=oneDMenus[i]
     #Perform necessary mappings
     functions = {'cos':cos,'sin':sin,'exp':exp,'log':log}
     for pos_name in oneDMenu:
@@ -418,6 +452,10 @@ def cbcBayesPostProc(
     max_pos,max_pos_co=pos.maxL
     print max_pos_co
 
+    # Save posterior samples
+    posfilename=os.path.join(outdir,'posterior_samples.dat')
+    pos.write_to_file(posfilename)
+    
     #==================================================================#
     #Create web page
     #==================================================================#
@@ -447,6 +485,13 @@ def cbcBayesPostProc(
     SampsStats.p(filenames)
     td=html_meta.insert_td(row,'',label='SummaryLinks')
     legend=html.add_section_to_element('Sections',td)
+    
+    # Create a section for HDF5 metadata if available
+    if '.h5' in data[0] or '.hdf' in data[0]:
+        html_hdf=html.add_section('Metadata',legend=legend)
+        import h5py
+        with h5py.File(data[0],'r') as h5grp:
+            extract_hdf5_metadata(h5grp,parent=html_hdf)
     
     #Create a section for model selection results (if they exist)
     if bayesfactornoise is not None:
@@ -512,14 +557,19 @@ def cbcBayesPostProc(
     statout=open(statfilename,"w")
     statout.write("\tmaP\tmaxL\tKL\tstdev\tmean\tmedian\tstacc\tinjection\tvalue\n")
     
+    warned_about_kl = False
     for statname,statoned_pos in pos:
 
       statmax_pos,max_i=pos._posMaxL()
       statmaxL=statoned_pos.samples[max_i][0]
       try:
           statKL = statoned_pos.KL()
-      except:
+      except ValueError:
+          if not warned_about_kl:
+              print("Unable to compute KL divergence")
+              warned_about_kl = True
           statKL = None
+
       statmax_pos,max_j=pos._posMap()
       statmaxP=statoned_pos.samples[max_j][0]
       statmean=str(statoned_pos.mean)
@@ -585,7 +635,7 @@ def cbcBayesPostProc(
         print "Could not create WF plot. The error was: %s\n"%str(e)
     wftd=html_wf.insert_td(row,'',label='Waveform',legend=legend)
     wfsection=html.add_section_to_element('Waveforms',wftd)
-    if wfpointer:
+    if wfpointer is not None:
       wfsection.write('<a href="Waveform/WF_DetFrame.png" target="_blank"><img src="Waveform/WF_DetFrame.png"/></a>')
     else:
       print "Could not create WF plot.\n"
@@ -613,24 +663,38 @@ def cbcBayesPostProc(
       wfsection=html.add_section_to_element('Calibration',wftd)
       bppu.plot_calibration_pos(pos, outpath=outdir)
       wfsection.write('<a href="calibration.png" target="_blank"><img src="calibration.png"/></a>')
+     # if precessing spins do spin disk
+    allin=1.0
+    for i in ['a1','tilt_spin1','a2','tilt_spin2']:
+      if not i in pos.names:
+        allin*=0.0
+    if allin ==0.0:
+      pass
+    else:
+      wftd=html_wf.insert_td(row,'',label='DiskPlot',legend=legend)
+      wfsection=html.add_section_to_element('DiskPlot',wftd)
+      cbcdiskspin.make_disk_plot(pos, outpath=outdir)
+      wfsection.write('<a href="comp_spin_pos.png" target="_blank"><img src="comp_spin_pos.png"/></a>')
 
     #==================================================================#
     #1D posteriors
     #==================================================================#
+    onepdfdir=os.path.join(outdir,'1Dpdf')
+    if not os.path.isdir(onepdfdir):
+        os.makedirs(onepdfdir)
 
-    #Loop over each parameter and determine the contigious and greedy
-    #confidence levels and some statistics.
+    sampsdir=os.path.join(outdir,'1Dsamps')
+    if not os.path.isdir(sampsdir):
+        os.makedirs(sampsdir)
+    reses={}
+    
+    for i in oneDMenus.keys():
+      rss=bppu.make_1d_table(html,legend,i,pos,oneDMenus[i],noacf,GreedyRes,onepdfdir,sampsdir,savepdfs,greedy,analyticLikelihood,nDownsample)
+      reses.update(rss)
 
-    #Add section for 1D marginal PDFs and sample plots
-    tabid='onedmargtable'
-    html_ompdf=html.add_collapse_section('1D marginal posterior PDFs',legend=legend,innertable_id=tabid)
-    #Table matter
-    if not noacf:
-        html_ompdf_write= '<table id="%s"><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th><th>Autocorrelation</th></tr>'%tabid
-    else:
-        html_ompdf_write= '<table id="%s"><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th></tr>'%tabid
-
-#Add section for 1D confidence intervals
+    
+    
+    
     tabid='onedconftable'
     html_ogci=html.add_collapse_section('1D confidence intervals (greedy binning)',legend=legend,innertable_id=tabid)
     html_ogci_write='<table id="%s" border="1"><tr><th/>'%tabid
@@ -646,238 +710,86 @@ def cbcBayesPostProc(
         clasciiout+="Injection_Confidence_Interval"
     clasciiout+='\n'
     html_ogci_write+='</tr>'
-
-    onepdfdir=os.path.join(outdir,'1Dpdf')
-    if not os.path.isdir(onepdfdir):
-        os.makedirs(onepdfdir)
-
-    sampsdir=os.path.join(outdir,'1Dsamps')
-    if not os.path.isdir(sampsdir):
-        os.makedirs(sampsdir)
-    Nskip=0
-    if 'chain' in pos.names:
-        data,header=pos.samples()
-        par_index=pos.names.index('cycle')
-        chain_index=pos.names.index("chain")
-        chains=unique(pos["chain"].samples)
-        chainCycles = [sort(data[ data[:,chain_index] == chain, par_index ]) for chain in chains]
-        chainNcycles = [cycles[-1]-cycles[0] for cycles in chainCycles]
-        chainNskips = [cycles[1] - cycles[0] for cycles in chainCycles]
-    elif 'cycle' in pos.names:
-        cycles = sort(pos['cycle'].samples)
-        Ncycles = cycles[-1]-cycles[0]
-        Nskip = cycles[1]-cycles[0]
-    
+    #Generate new BCI html table row
     printed=0
     for par_name in oneDMenu:
-        par_name=par_name.lower()
-        try:
-            pos[par_name.lower()]
-        except KeyError:
-            #print "No input chain for %s, skipping binning."%par_name
-            continue
-        try:
-            par_bin=GreedyRes[par_name]
-        except KeyError:
-            print "Bin size is not set for %s, skipping binning."%par_name
-            continue
-
-        #print "Binning %s to determine confidence levels ..."%par_name
-        binParams={par_name:par_bin}
-        injection_area=None
-        injection_area=None
-        if greedy:
-          if printed==0:
-            print "Using greedy 1-d binning credible regions\n"
-            printed=1
-          toppoints,injectionconfidence,reses,injection_area,cl_intervals=bppu.greedy_bin_one_param(pos,binParams,confidence_levels)
-        else:
-          if printed==0:
-            print "Using 2-step KDE 1-d credible regions\n"
-            printed=1
-          if pos[par_name].injval is None:
-            injCoords=None
-          else:
-            injCoords=[pos[par_name].injval]
-          _,reses,injstats=bppu.kdtree_bin2Step(pos,[par_name],confidence_levels,injCoords=injCoords)
-          if injstats is not None:
-            injectionconfidence=injstats[3]
-            injection_area=injstats[4]
-             
-        #oneDContCL,oneDContInj = bppu.contigious_interval_one_param(pos,binParams,confidence_levels)
-
-        #Generate new BCI html table row
-        BCItableline='<tr><td>%s</td>'%(par_name)
-        clasciiout+="%s\t"%par_name
-        cls=reses.keys()
-        cls.sort()
-
-        for cl in cls:
-            BCItableline+='<td>%f</td>'%reses[cl]
-            clasciiout+="%f\t"%reses[cl]
-        if injection is not None:
-            if injectionconfidence is not None and injection_area is not None:
-
-                BCItableline+='<td>%f</td>'%injectionconfidence
-                BCItableline+='<td>%f</td>'%injection_area
-                clasciiout+="%f\t"%injectionconfidence
-                clasciiout+="%f"%injection_area
-
-            else:
-                BCItableline+='<td/>'
-                BCItableline+='<td/>'
-                clasciiout+="nan\t"
-                clasciiout+="nan"
-        BCItableline+='</tr>'
-        clasciiout+="\n"
-        #Append new table line to section html
-        html_ogci_write+=BCItableline
-
-        #Generate 1D histogram/kde plots
-        print "Generating 1D plot for %s."%par_name
-
-        #Get analytic description if given
-        pdf=cdf=None
-        if analyticLikelihood:
-            pdf = analyticLikelihood.pdf(par_name)
-            cdf = analyticLikelihood.cdf(par_name)
-
-        oneDPDFParams={par_name:50}
-        try:
-            rbins,plotFig=bppu.plot_one_param_pdf(pos,oneDPDFParams,pdf,cdf,plotkde=False)
-        except:
-            print "Failed to produce plot for %s."%par_name
-            continue
-
-        figname=par_name+'.png'
-        oneDplotPath=os.path.join(onepdfdir,figname)
-        plotFig.savefig(oneDplotPath)
-        if(savepdfs): plotFig.savefig(os.path.join(onepdfdir,par_name+'.pdf'))
-        plt.close(plotFig)
-
-        if rbins:
-            print "r of injected value of %s (bins) = %f"%(par_name, rbins)
-
-        ##Produce plot of raw samples
-        myfig=plt.figure(figsize=(4,3.5),dpi=200)
-        pos_samps=pos[par_name].samples
-        if not ("chain" in pos.names):
-            # If there is not a parameter named "chain" in the
-            # posterior, then just produce a plot of the samples.
-            plt.plot(pos_samps,'k.', markersize=5, alpha=0.5, linewidth=0.0, figure=myfig)
-            maxLen=len(pos_samps)
-        else:
-            # If there is a parameter named "chain", then produce a
-            # plot of the various chains in different colors, with
-            # smaller dots.
-            data,header=pos.samples()
-            par_index=pos.names.index(par_name)
-            chain_index=pos.names.index("chain")
-            chains=unique(pos["chain"].samples)
-            chainData=[data[ data[:,chain_index] == chain, par_index ] for chain in chains]
-            chainDataRanges=[range(len(cd)) for cd in chainData]
-            maxLen=max([len(cd) for cd in chainData])
-            for rng, data in zip(chainDataRanges, chainData):
-                plt.plot(rng, data, marker='.', markersize=1, alpha=0.5, linewidth=0.0,figure=myfig)
-            plt.title("Gelman-Rubin R = %g"%(pos.gelman_rubin(par_name)))
-
-            #dataPairs=[ [rng, data] for (rng,data) in zip(chainDataRanges, chainData)]
-            #flattenedData=[ item for pair in dataPairs for item in pair ]
-            #maxLen=max([len(data) for data in flattenedData])
-            #plt.plot(array(flattenedData),marker=',',linewidth=0.0,figure=myfig)
-
-
-        injpar=pos[par_name].injval
-
-        if injpar is not None:
-            # Allow injection to be 5% outside the posterior plot
-            minrange=min(pos_samps)-0.05*(max(pos_samps)-min(pos_samps))
-            maxrange=max(pos_samps)+0.05*(max(pos_samps)-min(pos_samps))
-            if minrange<injpar and maxrange>injpar:
-                plt.axhline(injpar, color='r', linestyle='-.',linewidth=4)
-        myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.png')))
-        if(savepdfs): myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.pdf')))
-        plt.close(myfig)
-        acfail=0
-        if not (noacf):
-            acffig=plt.figure(figsize=(4,3.5),dpi=200)
-            if not ("chain" in pos.names):
-                data=pos_samps[:,0]
-                try:
-                    (Neff, acl, acf) = bppu.effectiveSampleSize(data, Nskip)
-                    lines=plt.plot(acf, 'k.', marker='.', markersize=1, alpha=0.5, linewidth=0.0, figure=acffig)
-                    # Give ACL info if not already downsampled according to it
-                    if nDownsample is None:
-                        plt.title('Autocorrelation Function')
-                    elif 'cycle' in pos.names:
-                        last_color = lines[-1].get_color()
-                        plt.axvline(acl/Nskip, linestyle='-.', color=last_color)
-                        plt.title('ACL = %i   N = %i'%(acl,Neff))
-                except FloatingPointError:
-                    # Ignore
-                    acfail=1
-                    pass
-            else:
-                try:
-                    acls = []
-                    Nsamps = 0.0;
-                    for rng, data, Nskip, Ncycles in zip(chainDataRanges, chainData, chainNskips, chainNcycles):
-                        (Neff, acl, acf) = bppu.effectiveSampleSize(data, Nskip)
-                        acls.append(acl)
-                        Nsamps += Neff
-                        lines=plt.plot(acf,'k.', marker='.', markersize=1, alpha=0.5, linewidth=0.0, figure=acffig)
-                        # Give ACL info if not already downsampled according to it
-                        if nDownsample is not None:
-                            last_color = lines[-1].get_color()
-                            plt.axvline(acl/Nskip, linestyle='-.', color=last_color)
-                    if nDownsample is None:
-                        plt.title('Autocorrelation Function')
+      par_name=par_name.lower()
+      try:
+              pos[par_name.lower()]
+      except KeyError:
+      #print "No input chain for %s, skipping binning."%par_name
+             continue
+      try:
+              par_bin=GreedyRes[par_name]
+      except KeyError:
+              print "Bin size is not set for %s, skipping binning."%par_name
+              continue
+      binParams={par_name:par_bin}
+      injection_area=None
+      if greedy:
+                    if printed==0:
+                        print "Using greedy 1-d binning credible regions\n"
+                        printed=1
+                    toppoints,injectionconfidence,reses,injection_area,cl_intervals=bppu.greedy_bin_one_param(pos,binParams,confidence_levels)
+      else:
+                    if printed==0:
+                        print "Using 2-step KDE 1-d credible regions\n"
+                        printed=1
+                    if pos[par_name].injval is None:
+                        injCoords=None
                     else:
-                        plt.title('ACL = %i  N = %i'%(max(acls),Nsamps))
-                except FloatingPointError:
-                    # Ignore
-                    acfail=1
-                    pass
+                        injCoords=[pos[par_name].injval]
+                    _,reses,injstats=bppu.kdtree_bin2Step(pos,[par_name],confidence_levels,injCoords=injCoords)
+                    if injstats is not None:
+                        injectionconfidence=injstats[3]
+                        injection_area=injstats[4]
 
-            acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.png')))
-            if(savepdfs): acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.pdf')))
-            plt.close(acffig)
+      BCItableline='<tr><td>%s</td>'%(par_name)
+      clasciiout+="%s\t"%par_name
+      cls=reses.keys()
+      cls.sort()
 
-        if not noacf:
-	  if not acfail:
-	    acfhtml='<td width="30%"><img width="100%" src="1Dsamps/'+figname.replace('.png', '_acf.png')+'"/></td>'
-	  else:
-	    acfhtml='<td>ACF generation failed!</td>'
-          html_ompdf_write+='<tr><td width="30%"><img width="100%" src="1Dpdf/'+figname+'"/></td><td width="30%"><img width="100%" src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td>'+acfhtml+'</tr>'
-        else:
-            html_ompdf_write+='<tr><td width="30%"><img width="100%" src="1Dpdf/'+figname+'"/></td><td width="30%"><img width="100%" src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td></tr>'
+      for cl in cls:
+          BCItableline+='<td>%f</td>'%reses[cl]
+          clasciiout+="%f\t"%reses[cl]
+      if injection is not None:
+          if injectionconfidence is not None and injection_area is not None:
 
+              BCItableline+='<td>%f</td>'%injectionconfidence
+              BCItableline+='<td>%f</td>'%injection_area
+              clasciiout+="%f\t"%injectionconfidence
+              clasciiout+="%f"%injection_area
 
-    html_ompdf_write+='</table>'
-    html_ompdf.write(html_ompdf_write)
+          else:
+              BCItableline+='<td/>'
+              BCItableline+='<td/>'
+              clasciiout+="nan\t"
+              clasciiout+="nan"
+      BCItableline+='</tr>'
+      clasciiout+="\n"
+      #Append new table line to section html
+      html_ogci_write+=BCItableline
 
     html_ogci_write+='</table>'
     html_ogci.write(html_ogci_write)
 
-    cornerdir=os.path.join(outdir,'corner')
-    if not os.path.isdir(cornerdir):
-        os.makedirs(cornerdir)
-
     #===============================#
     # Corner plots
     #===============================#
-
-    massParams=['mtotal','m1','m2','mc','m1_source','m2_source','mtotal_source','mc_source','rd_mass','rd_mass_source']
-    distParams=['distance','distMPC','dist','redshift']
+    cornerdir=os.path.join(outdir,'corner')
+    if not os.path.isdir(cornerdir):
+      os.makedirs(cornerdir)
+    massParams=['mtotal','m1','m2','mc']
+    distParams=['distance','distMPC','dist']
     incParams=['iota','inclination','theta_jn']
     polParams=['psi','polarisation','polarization']
     skyParams=['ra','rightascension','declination','dec']
     timeParams=['time']
-    QNMParams=['qnm22_rel_amp','qnm21_rel_amp','qnm33_rel_amp','qnm32_rel_amp','qnm44_rel_amp','qnm22_f','qnm21_f','qnm33_f','qnm32_f','qnm44_f','qnm22_t','qnm21_t','qnm33_t','qnm32_t','qnm44_t']
-    ampParams=['qnm22_amp','qnm21_amp','qnm33_amp','qnm32_amp','qnm44_amp']
-    spinParams=['spin1','spin2','a1','a2','rd_spin','rd_chi_eff','chiEff','a1z','a2z','phi1','theta1','phi2','theta2','chi','effectivespin','chi_eff','chi_tot','chi_p','beta','tilt1','tilt2','phi_jl','theta_jn','phi12']
-    intrinsicParams=massParams+spinParams+QNMParams
-    extrinsicParams=incParams+distParams+polParams+skyParams+ampParams
+    spinParams=['spin1','spin2','a1','a2','a1z','a2z','phi1','theta1','phi2','theta2','chi','effectivespin','chi_eff','chi_tot','chi_p','beta','tilt1','tilt2','phi_jl','theta_jn','phi12']
+    sourceParams=['m1_source','m2_source','mtotal_source','mc_source','redshift']
+    intrinsicParams=massParams+spinParams
+    extrinsicParams=incParams+distParams+polParams+skyParams
+    sourceFrameParams=sourceParams+distParams
     try:
       myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=intrinsicParams)
     except:
@@ -900,6 +812,17 @@ def cbcBayesPostProc(
       myfig.savefig(os.path.join(cornerdir,'extrinsic.pdf'))
       html_corner+='<tr><td width="100%"><a href="corner/extrinsic.png" target="_blank"><img width="70%" src="corner/extrinsic.png"/></a></td></tr>'
       got_any+=1
+    try:
+      myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=sourceFrameParams)
+    except:
+      myfig=None
+
+    if myfig:
+      myfig.savefig(os.path.join(cornerdir,'sourceFrame.png'))
+      myfig.savefig(os.path.join(cornerdir,'sourceFrame.pdf'))
+      html_corner+='<tr><td width="100%"><a href="corner/sourceFrame.png" target="_blank"><img width="70%" src="corner/sourceFrame.png"/></a></td></tr>'
+      got_any+=1
+
     if got_any>0:
       html_corner='<table id="%s" border="1">'%tabid+html_corner
       html_corner+='</table>'
@@ -1214,9 +1137,6 @@ def cbcBayesPostProc(
     resultspage=open(os.path.join(outdir,'posplots.html'),'w')
     resultspage.write(str(html))
 
-    # Save posterior samples too...
-    posfilename=os.path.join(outdir,'posterior_samples.dat')
-    pos.write_to_file(posfilename)
 
     #Close files
     resultspage.close()
@@ -1248,7 +1168,7 @@ if __name__=='__main__':
     
     parser.add_option('--ellipticEvidence', action='store_true', default=False,help='Estimate the evidence by fitting ellipse to highest-posterior points.', dest='ellevidence')
 
-    parser.add_option("--no2D",action="store_true",default=False,help="Skip 2-D plotting.")
+    parser.add_option("--plot-2d", action="store_true", default=False,help="Make individual 2-D plots.")
     parser.add_option("--header",action="store",default=None,help="Optional file containing the header line for posterior samples",type="string")
     #NS
     parser.add_option("--ns",action="store_true",default=False,help="(inspnest) Parse input as if it was output from parallel nested sampling runs.")
@@ -1279,6 +1199,7 @@ if __name__=='__main__':
     parser.add_option("--archive",action="store",default=None,type="string",metavar="results.tar.gz",help="Create the given tarball with all results")
     parser.add_option("--psdfiles",action="store",default=None,type="string",metavar="H1,L1,V1",help="comma separater list of ASCII files with PSDs, one per IFO")
     parser.add_option("--kdecredibleregions",action="store_true",default=False,help="If given, will use 2-step KDE trees to estimate 1-d credible regions [default false: use greedy binning]")
+    parser.add_option("--noplot-source-frame", action="store_true", default=False,help="Don't make 1D plots of source-frame masses")
     (opts,args)=parser.parse_args()
 
     datafiles=[]
@@ -1288,41 +1209,37 @@ if __name__=='__main__':
       datafiles=datafiles + opts.data
     
     if opts.fixedBurnin:
-      fixedBurnins = [int(fixedBurnin) for fixedBurnin in opts.fixedBurnin]
+      # If only one value for multiple chains, assume it's to be applied to all chains
+      if len(opts.fixedBurnin) == 1:
+        fixedBurnins = [int(opts.fixedBurnin[0]) for df in datafiles]
+      else:
+        fixedBurnins = [int(fixedBurnin) for fixedBurnin in opts.fixedBurnin]
     else:
       fixedBurnins = None
 
-    #List of parameters to plot/bin . Need to match (converted) column names.
-    massParams=['m1','m2','chirpmass','mchirp','mc','rd_mass','eta','q','massratio','asym_massratio','mtotal','m1_source','m2_source','mtotal_source','mc_source','rd_mass_source']
-    distParams=['distance','distMPC','dist','redshift']
-    incParams=['iota','inclination','cosiota']
-    polParams=['psi','polarisation','polarization']
-    skyParams=['ra','rightascension','declination','dec']
-    timeParams=['time','time_mean']
-    spinParams=['spin1','spin2','a1','a2','a1z','a2z','rd_spin','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','chi_eff','rd_chi_eff','chi_tot','chi_p','costheta_jn','cosbeta','tilt1','tilt2','phi_jl','theta_jn','phi12']
-    phaseParams=['phase', 'phi0','phase_maxl']
-    QNMParams=['qnm22_rel_amp','qnm21_rel_amp','qnm33_rel_amp','qnm32_rel_amp','qnm44_rel_amp','qnm22_f','qnm21_f','qnm33_f','qnm32_f','qnm44_f','qnm22_t','qnm21_t','qnm33_t','qnm32_t','qnm44_t']
-    ampParams=['qnm22_amp','qnm21_amp','qnm33_amp','qnm32_amp','qnm44_amp']
-    endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
-    ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB','alphaPPE','aPPE','betaPPE','bPPE']
-    tigerParams=['dchi%i'%(i) for i in range(7)] + ['dchi%il'%(i) for i in [5,6] ] + ['dxi%d'%(i+1) for i in range(6)] + ['dalpha%i'%(i+1) for i in range(5)] + ['dbeta%i'%(i+1) for i in range(3)] + ['dsigma%i'%(i+1) for i in range(4)] 
-    hairyParams=['dtau21','dtau22','dtau33','dtau44','dfreq21','dfreq22','dfreq33','dfreq44']
-    bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
-    massiveGravitonParams=['lambdaG']
-    tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat']
-    statsParams=['logprior','logl','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','deltaloglh2','deltaloglg1']
-    calibParams=['calpha_l1','calpha_h1','calpha_v1','calamp_l1','calamp_h1','calamp_v1']
-    snrParams=bppu.snrParams
-    oneDMenu=massParams + distParams + incParams + QNMParams + ampParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams + ppEParams + tigerParams + hairyParams + bransDickeParams + massiveGravitonParams + tidalParams + statsParams + snrParams + calibParams
-    # ['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
+    import pylal 
+    from pylal.bayespputils import massParams,spinParams,cosmoParam,strongFieldParams,distParams,incParams,polParams,skyParams,phaseParams,timeParams,endTimeParams,statsParams,calibParams,snrParams,tidalParams
+
+    oneDMenus={'Masses':None,'SourceFrame':None,'Timing':None,'Extrinsic':None,'Spins':None,'StrongField':None,'Others':None}
+
+    oneDMenus['Masses']= massParams
+    oneDMenus['Extrinsic']=incParams+distParams+polParams+skyParams+phaseParams
+    oneDMenus['Spins']= spinParams
+    oneDMenus['Timing']=timeParams+endTimeParams
+    oneDMenus['StrongField']= strongFieldParams
+    oneDMenus['Others']=snrParams+statsParams+calibParams
+    oneDMenus['SourceFrame']= cosmoParam
+    
+    if opts.noplot_source_frame:
+      oneDMenus['SourceFrame']= []
 
     ifos_menu=['h1','l1','v1']
     from itertools import combinations
     for ifo1,ifo2 in combinations(ifos_menu,2):
-      oneDMenu.append(ifo1+ifo2+'_delay')
+      oneDMenus['Timing'].append(ifo1+ifo2+'_delay')
     #oneDMenu=[]
     twoDGreedyMenu=[]
-    if not opts.no2D:
+    if opts.plot_2d:
         for mp1,mp2 in combinations(massParams,2):
           twoDGreedyMenu.append([mp1, mp2])
         for mp in massParams:
@@ -1332,10 +1249,7 @@ if __name__=='__main__':
             for sp in spinParams:
                 twoDGreedyMenu.append([mp,sp])
         for mp in massParams:
-            for dchi in tigerParams:
-                twoDGreedyMenu.append([mp,dchi])
-        for mp in massParams:
-            for dchi in hairyParams:
+            for dchi in bppu.tigerParams:
                 twoDGreedyMenu.append([mp,dchi])
         for dp in distParams:
             for sp in snrParams:
@@ -1365,13 +1279,8 @@ if __name__=='__main__':
                     twoDGreedyMenu.append([sp1, sp2])
         for sp1,sp2 in combinations(spinParams,2):
           twoDGreedyMenu.append([sp1, sp2])
-        for dc1,dc2 in combinations(tigerParams, 2):
-            twoDGreedyMenu.append([dc1, dc2])
-        for dc1,dc2 in combinations(hairyParams, 2):
-            twoDGreedyMenu.append([dc1, dc2])
-        for mp in massParams:
-            for ap in ampParams:
-                twoDGreedyMenu.append([mp, ap])
+        for dc1,dc2 in combinations(bppu.tigerParams,2):
+            twoDGreedyMenu.append([dc1,dc2])
         for mp in massParams:
              for tp in tidalParams:
                  if not (mp == tp):
@@ -1394,33 +1303,21 @@ if __name__=='__main__':
 
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'rd_mass':0.1,'rd_mass_source':0.1,'mc_source':0.025,'m1_source':0.1,'m2_source':0.1,'mtotal_source':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'time_mean':1e-4,'distance':1.0,'dist':1.0,'redshift':0.01,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1z':0.04,'a2z':0.04,'a1':0.02,'a2':0.02,'rd_spin':0.02,'rd_chi_eff':0.02,'chiEff':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'chi_eff':0.05,'chi_tot':0.05,'chi_p':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costheta_jn':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01,'phase':0.05,'tilt1':0.05,'tilt2':0.05,'phi_jl':0.05,'theta_jn':0.05,'phi12':0.05,'flow':1.0,'phase_maxl':0.05,'calamp_l1':0.01,'calamp_h1':0.01,'calamp_v1':0.01,'calpha_h1':0.01,'calpha_l1':0.01,'calpha_v1':0.01}
-    for s in snrParams:
-            greedyBinSizes[s]=0.05
-    for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
-        greedyBinSizes[derived_time]=greedyBinSizes['time']
-    if not opts.no2D:
+    greedyBinSizes=bppu.greedyBinSizes
+    
+    
+    if opts.plot_2d:
         for dt1,dt2 in combinations(['h1_end_time','l1_end_time','v1_end_time'],2):
           twoDGreedyMenu.append([dt1,dt2])
         for dt1,dt2 in combinations( ['h1l1_delay','l1v1_delay','h1v1_delay'],2):
           twoDGreedyMenu.append([dt1,dt2])
-    for param in tigerParams + bransDickeParams + massiveGravitonParams + hairyParams:
-        greedyBinSizes[param]=0.01
-    for param in tidalParams:
-        greedyBinSizes[param]=2.5
-    for param in ampParams:
-        greedyBinSizes[param]=lal.MTSUN_SI*lal.C_SI/(100*lal.PC_SI*1.0e6)
-    for param in QNMParams:
-        greedyBinSizes[param]=0.02
-    #Confidence levels
-    for loglname in ['logl','deltalogl','deltaloglh1','deltaloglv1','deltalogll1','logll1','loglh1','loglv1']:
-        greedyBinSizes[loglname]=0.1
-    confidenceLevels=[0.67,0.9,0.95,0.99]
+
+    confidenceLevels=bppu.confidenceLevels
     #2D plots list
     #twoDplots=[['mc','eta'],['mchirp','eta'],['mc', 'time'],['mchirp', 'time'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['ra', 'dec'],['m1','dist'],['m2','dist'],['mc', 'dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0'], ['a1', 'a2'], ['a1', 'iota'], ['a2', 'iota'],['eta','time'],['ra','iota'],['dec','iota'],['chi','iota'],['chi','mchirp'],['chi','eta'],['chi','distance'],['chi','ra'],['chi','dec'],['chi','psi']]
     twoDplots=twoDGreedyMenu
     cbcBayesPostProc(
-                        opts.outpath,datafiles,oneDMenu,twoDGreedyMenu,
+                        opts.outpath,datafiles,oneDMenus,twoDGreedyMenu,
                         greedyBinSizes,confidenceLevels,twoDplots,
                         #optional
                         injfile=opts.injfile,eventnum=opts.eventnum,

@@ -71,11 +71,21 @@ return(r);
 static void inline sum_F(int count, float *partial, float *accum)
 {
 int i;
+PRAGMA_IVDEP
 for(i=0;i<count;i++)accum[i]+=partial[i];
 }
 
+static void inline sum(int count, double *partial, double *accum)
+{
+int i;
+PRAGMA_IVDEP
+for(i=0;i<count;i++)accum[i]+=partial[i];
+}
+
+
 static void inline sse_sum_unaligned1_F(int count, float *partial, float *accum)
 {
+#if MANUAL_SSE
 int i;
 __m128 v4in, v4acc;
 float *tmp=aligned_alloca(4*sizeof(*tmp));
@@ -86,6 +96,7 @@ for(i=0; ((long)&(accum[i]) & 0x0f) && (i<count);i++) {
 
 //fprintf(stderr, "unaligned %d %p %p\n", i, partial, accum);
 
+PRAGMA_IVDEP
 for(;i<(count-3);i+=4) {
 	memcpy(tmp, &(partial[i]), 4*sizeof(*tmp));
 	v4in=_mm_load_ps(tmp);
@@ -96,10 +107,15 @@ for(;i<(count-3);i+=4) {
 for(;i<count;i++) {
 	accum[i]+=partial[i];
 	}
+#else
+fprintf(stderr, "**** MANUAL_SSE disabled in %s\n", __FUNCTION__);
+exit(-2);
+#endif
 }
 
 static void inline sse_sum_unaligned_F(int count, float *partial, float *accum)
 {
+#if MANUAL_SSE
 int i;
 __m128 v4in, v4acc;
 float *tmp=aligned_alloca(16*sizeof(*tmp));
@@ -110,6 +126,7 @@ for(i=0; ((long)&(accum[i]) & 0x0f) && (i<count);i++) {
 
 //fprintf(stderr, "unaligned %d %p %p\n", i, partial, accum);
 
+PRAGMA_IVDEP
 for(;i<(count-15);i+=16) {
 	memcpy(tmp, &(partial[i]), 16*sizeof(*tmp));
 
@@ -136,10 +153,15 @@ for(;i<(count-15);i+=16) {
 for(;i<count;i++) {
 	accum[i]+=partial[i];
 	}
+#else
+fprintf(stderr, "**** MANUAL_SSE disabled in %s\n", __FUNCTION__);
+exit(-2);
+#endif
 }
 
 static void inline sse_sum_aligned_F(int count, float *partial, float *accum)
 {
+#if MANUAL_SSE
 int i;
 __m128 v4in, v4acc;
 
@@ -149,6 +171,7 @@ for(i=0; ((long)&(accum[i]) & 0x0f) && (i<count);i++) {
 
 //fprintf(stderr, "aligned %d %p %p\n", i, partial, accum);
 
+PRAGMA_IVDEP
 for(;i<(count-3);i+=4) {
 	v4in=_mm_load_ps(&(partial[i]));
 	v4acc=_mm_load_ps(&(accum[i]));
@@ -158,6 +181,10 @@ for(;i<(count-3);i+=4) {
 for(;i<count;i++) {
 	accum[i]+=partial[i];
 	}
+#else
+fprintf(stderr, "**** MANUAL_SSE disabled in %s\n", __FUNCTION__);
+exit(-2);
+#endif
 }
 
 static void inline sse_sum_F(int count, float *partial, float *accum)
@@ -174,7 +201,7 @@ if( ((long)accum & 0x0f) == ((long)partial & 0x0f)) sse_sum_aligned_F(count, par
 #define REAL double
 #define SUFFIX(a) a
 #define CBLAS_AXPY cblas_daxpy
-#define SSE_SUM(...)
+#define SSE_SUM sum
 #include "partial_power_sum.c"
 
 #undef SSE_SUM
@@ -185,7 +212,11 @@ if( ((long)accum & 0x0f) == ((long)partial & 0x0f)) sse_sum_aligned_F(count, par
 #define REAL float
 #define SUFFIX(a) a##_F
 #define CBLAS_AXPY cblas_saxpy
+#if MANUAL_SSE
 #define SSE_SUM sse_sum_F
+#else
+#define SSE_SUM sum_F
+#endif
 #include "partial_power_sum.c"
 
 #undef SSE_SUM
@@ -218,6 +249,7 @@ if( (shift<0) || (shift+pps_bins>partial->nbins)) {
 	exit(-1);
 	}
 
+PRAGMA_IVDEP
 for(i=0;i<pps_bins;i++) {
 	accum->power_pp[i]+=partial->power_pp[i+shift];
 	accum->power_pc[i]+=partial->power_pc[i+shift];
@@ -236,6 +268,7 @@ if(partial->power_im_pc!=NULL) {
 	}
 
 if(partial->weight_arrays_non_zero) {
+PRAGMA_IVDEP
 	for(i=0;i<pps_bins;i++) {
 		accum->weight_pppp[i]+=partial->weight_pppp[i+shift];
 		accum->weight_pppc[i]+=partial->weight_pppc[i+shift];
@@ -278,6 +311,7 @@ if( (shift<0) || (shift+pps_bins>partial->nbins)) {
 	exit(-1);
 	}
 
+PRAGMA_IVDEP
 for(i=0;i<pps_bins;i++) {
 	accum->power_pp[i]+=partial->power_pp[i+shift];
 	accum->power_pc[i]+=partial->power_pc[i+shift];
@@ -296,6 +330,7 @@ if(partial->power_im_pc!=NULL) {
 	}
 
 if(partial->weight_arrays_non_zero) {
+PRAGMA_IVDEP
 	for(i=0;i<pps_bins;i++) {
 		accum->weight_pppp[i]+=partial->weight_pppp[i+shift];
 		accum->weight_pppc[i]+=partial->weight_pppc[i+shift];
@@ -348,18 +383,17 @@ power=aligned_alloca(pps_bins*sizeof(*power));
 pp=pps->power_pp;
 pc=pps->power_pc;
 cc=pps->power_cc;
-for(i=0;i<pps_bins;i++) {
-	(*pp)=0.0;
-	(*pc)=0.0;
-	(*cc)=0.0;
 
-	pp++;
-	pc++;
-	cc++;
+PRAGMA_IVDEP
+for(i=0;i<pps_bins;i++) {
+	pp[i]=0.0;
+	pc[i]=0.0;
+	cc[i]=0.0;
 	}
 
 pps->weight_arrays_non_zero=0;
 
+PRAGMA_IVDEP
 for(i=0;i<pps_bins;i++) {
 	pps->weight_pppp[i]=0.0;
 	pps->weight_pppc[i]=0.0;
@@ -404,17 +438,19 @@ for(k=0;k<count;k++) {
 	sum=0.0;
 	sum_sq=0.0;
 	p=power;
+	
+PRAGMA_IVDEP
 	for(i=0;i<pps_bins;i++) {
-		a=((*re)*(*re)+(*im)*(*im)-TM*(*fm));
+		a=(re[i]*re[i]+im[i]*im[i]-TM*fm[i]);
 		//if(a>pmax)pmax=a;
-		(*p)=a;
+		p[i]=a;
+		}
+		
+PRAGMA_IVDEP
+	for(i=0;i<pps_bins;i++) {
+		a=p[i];
 		sum+=a;
 		sum_sq+=a*a;
-
-		im++;
-		re++;		
-		fm++;
-		p++;
 		}
 
 	if(args_info.tmedian_noise_level_arg) {
@@ -450,18 +486,14 @@ for(k=0;k<count;k++) {
 	pp=pps->power_pp;
 	pc=pps->power_pc;
 	cc=pps->power_cc;
+	
+PRAGMA_IVDEP
 	for(i=0;i<pps_bins;i++) {
-		a=(*p);
+		a=p[i];
 
-		(*pp)+=a*f_pp;
-		(*pc)+=a*f_pc;
-		(*cc)+=a*f_cc;
-
-		p++;
-		pp++;
-		pc++;
-		cc++;
-		/**/
+		pp[i]+=a*f_pp;
+		pc[i]+=a*f_pc;
+		cc[i]+=a*f_cc;
 		}
 
 	pp=pps->power_pp;
@@ -501,6 +533,7 @@ pps->collapsed_weight_arrays=0;
 
 void sse_get_uncached_single_bin_power_sum(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps)
 {
+#if MANUAL_SSE
 int i,k,n,m;
 int bin_shift;
 SEGMENT_INFO *si_local;
@@ -747,6 +780,10 @@ pps->c_weight_pccc=weight_pccc;
 pps->c_weight_cccc=weight_cccc;
 
 pps->collapsed_weight_arrays=0;
+#else
+fprintf(stderr, "**** MANUAL_SSE disabled in %s\n", __FUNCTION__);
+exit(-2);
+#endif
 }
 
 void get_uncached_matched_power_sum(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps)
@@ -950,6 +987,7 @@ pps->collapsed_weight_arrays=0;
 
 void sse_get_uncached_matched_power_sum(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps)
 {
+#if MANUAL_SSE
 int i,k;
 int bin_shift;
 SEGMENT_INFO *si_local;
@@ -1193,6 +1231,10 @@ pps->c_weight_pccc=weight_pccc;
 pps->c_weight_cccc=weight_cccc;
 
 pps->collapsed_weight_arrays=0;
+#else
+fprintf(stderr, "**** MANUAL_SSE disabled in %s\n", __FUNCTION__);
+exit(-2);
+#endif
 }
 
 
@@ -1245,19 +1287,34 @@ if((sc==NULL) || (sc->id!=SIMPLE_CACHE_ID)) {
 	}
 if(sc->free>sc->max_size)sc->max_size=sc->free;
 for(i=0;i<sc->free;i++) {
-	free_partial_power_sum_F(sc->pps[i]);
-	free(sc->si[i]);
+	//free_partial_power_sum_F(sc->pps[i]);
+	put_partial_power_sum_F(ctx, sc->pps[i]);
 	}
-free(sc->pps);
-free(sc->si);
-free(sc->key);
 
-sc->segment_count=segment_count;
-sc->size=template_count;
+if(segment_count>sc->segment_size || template_count>sc->size) {
+
+	for(i=0;i<sc->size;i++) {
+		if(sc->si[i]!=NULL)free(sc->si[i]);
+		sc->si[i]=NULL;
+		}
+	}
+
+if(template_count>sc->size) {
+	free(sc->pps);
+	free(sc->si);
+	free(sc->key);
+
+	sc->size=template_count;
+	sc->key=do_alloc(sc->size, sizeof(*sc->key));
+	sc->pps=do_alloc(sc->size, sizeof(*sc->pps));
+	sc->si=do_alloc(sc->size, sizeof(*sc->si));
+	}
+
+if(segment_count>sc->segment_size)sc->segment_size=segment_count;
+
 sc->free=0;
-sc->key=do_alloc(sc->size, sizeof(*sc->key));
-sc->pps=do_alloc(sc->size, sizeof(*sc->pps));
-sc->si=do_alloc(sc->size, sizeof(*sc->si));
+sc->segment_count=segment_count;
+
 }
 
 void allocate_simple_cache(SUMMING_CONTEXT *ctx)
@@ -1278,7 +1335,7 @@ ctx->cache=sc;
 
 
 #define KEY_MULT 8388623
-#define KEY_DIV ((1<<31)-1)
+#define KEY_DIV ((1u<<31)-1)
 
 /* Note: si is modified in place to have bin_shift rounded as appropriate to the power generating algorithm */
 void accumulate_power_sum_cached1(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps)
@@ -1345,7 +1402,11 @@ for(k=0;k<sc->free;k++) {
 			sc->hits++;
 			/*  align pps with stored data */
 			pps->offset-=first_shift;
+#if MANUAL_SSE
 			sse_accumulate_partial_power_sum_F(pps, sc->pps[k]);
+#else
+			accumulate_partial_power_sum_F(pps, sc->pps[k]);
+#endif
 			pps->offset+=first_shift;
 			//fprintf(stderr, "hit\n");
 			return;
@@ -1364,8 +1425,11 @@ if(k>=sc->size) {
 	}
 
 if(k>=sc->free) {
-	sc->si[k]=do_alloc(sc->segment_count, sizeof(*si));
-	sc->pps[k]=allocate_partial_power_sum_F(useful_bins+2*max_shift, 0);
+	if(sc->si[k]==NULL) {
+		sc->si[k]=do_alloc(sc->segment_size, sizeof(*si));
+		}
+	//sc->pps[k]=allocate_partial_power_sum_F(useful_bins+2*max_shift, 0);
+	sc->pps[k]=get_partial_power_sum_F(ctx, useful_bins+2*max_shift, 0);
 	sc->free++;
 	}
 
@@ -1373,7 +1437,11 @@ sc->key[k]=key;
 memcpy(sc->si[k], si, sc->segment_count*sizeof(*si));
 
 ctx->get_uncached_power_sum(ctx, sc->si[k], sc->segment_count, sc->pps[k]);
+#if MANUAL_SSE
 sse_accumulate_partial_power_sum_F(pps, sc->pps[k]);
+#else
+accumulate_partial_power_sum_F(pps, sc->pps[k]);
+#endif
 }
 
 void power_cache_selftest(void)
@@ -1407,10 +1475,12 @@ cblas_accumulate_partial_power_sum_F(ps4, ps2);
 result+=compare_partial_power_sums_F("cblas test:", ps3, ps4, 1e-4, 1e-5);
 
 /* sse */
+#if MANUAL_SSE
 zero_partial_power_sum_F(ps4);
 sse_accumulate_partial_power_sum_F(ps4, ps1);
 sse_accumulate_partial_power_sum_F(ps4, ps2);
 result+=compare_partial_power_sums_F("sse test:", ps3, ps4, 1e-4, 1e-5);
+#endif
 
 si=find_segments(min_gps(), max_gps()+1, ~0, &count);
 if(count>100)count=100;
@@ -1423,15 +1493,19 @@ for(i=0;i<count;i++) {
 get_uncached_single_bin_power_sum(ctx, si, count, ps3);
 
 /* sse implementation */
+#if MANUAL_SSE
 sse_get_uncached_single_bin_power_sum(ctx, si, count, ps4);
-result+=compare_partial_power_sums_F("sse_get_uncached_single_bin_power_sum:", ps3, ps4, 1e-4, 1e-5);
+result+=compare_partial_power_sums_F("sse_get_uncached_single_bin_power_sum:", ps3, ps4, 1e-2, 2e-5);
+#endif
 
 /* reference implementation */
 get_uncached_matched_power_sum(ctx, si, count, ps3);
 
 /* sse implementation */
+#if MANUAL_SSE
 sse_get_uncached_matched_power_sum(ctx, si, count, ps4);
-result+=compare_partial_power_sums_F("sse_get_uncached_matched_power_sum:", ps3, ps4, 1e-4, 1e-5);
+result+=compare_partial_power_sums_F("sse_get_uncached_matched_power_sum:", ps3, ps4, 1e-2, 2e-5);
+#endif
 
 free(si);
 free_partial_power_sum_F(ps1);

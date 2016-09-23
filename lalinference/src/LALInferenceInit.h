@@ -63,6 +63,8 @@ void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenceModel 
  */
 void LALInferenceRegisterUniformVariableREAL8(LALInferenceRunState *state, LALInferenceVariables *var, const char name[VARNAME_MAX], REAL8 startval, REAL8 min, REAL8 max, LALInferenceParamVaryType varytype);
 
+void LALInferenceRegisterGaussianVariableREAL8(LALInferenceRunState *state, LALInferenceVariables *var, const char name[VARNAME_MAX], REAL8 startval, REAL8 mean, REAL8 stdev, LALInferenceParamVaryType varytype);
+
 
 /**
  * Initialise state variables needed for LALInferenceNest or LALInferenceMCMC to run

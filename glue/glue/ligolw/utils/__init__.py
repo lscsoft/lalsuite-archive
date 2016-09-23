@@ -41,20 +41,6 @@ import stat
 import sys
 
 
-# work-around for Python < 2.7.  remove when we can rely on native GzipFile
-# being usable as a context manager
-GzipFile = gzip.GzipFile
-try:
-	GzipFile.__exit__
-except AttributeError:
-	class GzipFile(gzip.GzipFile):
-		def __enter__(self):
-			return self
-		def __exit__(self, *args):
-			self.close()
-			return False
-
-
 from glue import git_version
 from .. import ligolw
 
@@ -86,9 +72,9 @@ def sort_files_by_size(filenames, verbose = False, reverse = False):
 	"""
 	if verbose:
 		if reverse:
-			print >>sys.stderr, "sorting files from largest to smallest ..."
+			sys.stderr.write("sorting files from largest to smallest ...\n")
 		else:
-			print >>sys.stderr, "sorting files from smallest to largest ..."
+			sys.stderr.write("sorting files from smallest to largest ...\n")
 	return sorted(filenames, key = (lambda filename: os.stat(filename)[stat.ST_SIZE] if filename is not None else 0), reverse = reverse)
 
 
@@ -140,6 +126,12 @@ class RewindableInputFile(object):
 	def __init__(self, fileobj, buffer_size = 1024):
 		# the real source of data
 		self.fileobj = fileobj
+		# where the application thinks it is in the file.  this is
+		# used to fake .tell() because file objects that don't
+		# support seeking, like stdin, report IOError, and the
+		# things returned by urllib don't have a .tell() method at
+		# all.
+		self.pos = 0
 		# how many octets of the internal buffer to return before
 		# getting more data
 		self.reuse = 0
@@ -150,6 +142,7 @@ class RewindableInputFile(object):
 		# avoid attribute look-ups
 		self._next = self.fileobj.next
 		self._read = self.fileobj.read
+		self.close = self.fileobj.close
 
 	def __iter__(self):
 		return self
@@ -163,6 +156,7 @@ class RewindableInputFile(object):
 		else:
 			buf = self._next()
 			self.buf = (self.buf + buf)[-len(self.buf):]
+		self.pos += len(buf)
 		return buf
 
 	def read(self, size = None):
@@ -187,19 +181,21 @@ class RewindableInputFile(object):
 		else:
 			buf = self._read(size)
 			self.buf = (self.buf + buf)[-len(self.buf):]
+		self.pos += len(buf)
 		return buf
 
 	def seek(self, offset, whence = os.SEEK_SET):
 		self.gzip_hack_pretend_to_be_at_eof = False
 		if whence == os.SEEK_SET:
-			pos = self.fileobj.tell()
-			if offset >= 0 and pos - len(self.buf) <= offset <= pos:
-				self.reuse = pos - offset
+			if offset >= 0 and 0 <= self.pos + self.reuse - offset < len(self.buf):
+				self.reuse += self.pos - offset
+				self.pos = offset
 			else:
 				raise IOError("seek out of range")
 		elif whence == os.SEEK_CUR:
 			if self.reuse - len(self.buf) <= offset:
 				self.reuse -= offset
+				self.pos += offset
 			else:
 				raise IOError("seek out of range")
 		elif whence == os.SEEK_END:
@@ -217,14 +213,11 @@ class RewindableInputFile(object):
 			self.buf = (self.buf + c)[-len(self.buf):]
 			self.reuse += len(c)
 			if c:
-				# since we have read a character, this will
-				# not return the same answer as when
-				# GzipFile called it
-				return self.fileobj.tell()
-		return self.fileobj.tell() - self.reuse
-
-	def close(self):
-		return self.fileobj.close()
+				# this will not return the same answer as
+				# when GzipFile called it before seeking to
+				# EOF
+				return self.pos + 1
+		return self.pos
 
 	def __enter__(self):
 		return self
@@ -242,24 +235,37 @@ class MD5File(object):
 		else:
 			self.md5obj = md5obj
 		self.closable = closable
-		self.pos = 0
 		# avoid attribute look-ups
+		self._update = self.md5obj.update
 		try:
 			self._next = self.fileobj.next
 		except AttributeError:
-			pass
+			# replace our .next() method with something that
+			# will raise a more meaningful exception if
+			# attempted
+			self.next = lambda *args, **kwargs: fileobj.next(*args, **kwargs)
 		try:
 			self._read = self.fileobj.read
 		except AttributeError:
-			pass
+			# replace our .read() method with something that
+			# will raise a more meaningful exception if
+			# attempted
+			self.read = lambda *args, **kwargs: fileobj.read(*args, **kwargs)
 		try:
 			self._write = self.fileobj.write
 		except AttributeError:
-			pass
+			# replace our .write() method with something that
+			# will raise a more meaningful exception if
+			# attempted
+			self.write = lambda *args, **kwargs: fileobj.write(*args, **kwargs)
 		try:
-			self._update = self.md5obj.update
+			self.tell = self.fileobj.tell
 		except AttributeError:
-			pass
+			self.tell = lambda *args, **kwargs: fileobj.tell(*args, **kwargs)
+		try:
+			self.flush = self.fileobj.flush
+		except AttributeError:
+			self.flush = lambda *args, **kwargs: fileobj.flush(*args, **kwargs)
 
 	def __iter__(self):
 		return self
@@ -267,32 +273,16 @@ class MD5File(object):
 	def next(self):
 		buf = self._next()
 		self._update(buf)
-		self.pos += len(buf)
 		return buf
 
-	def read(self, size = None):
-		buf = self._read(size)
+	def read(self, *args):
+		buf = self._read(*args)
 		self._update(buf)
-		self.pos += len(buf)
 		return buf
 
 	def write(self, buf):
-		self.pos += len(buf)
 		self._update(buf)
 		return self._write(buf)
-
-	def tell(self):
-		try:
-			return self.fileobj.tell()
-		except (IOError, AttributeError):
-			# some streams that don't support seeking, like
-			# stdin, report IOError.  the things returned by
-			# urllib don't have a .tell() method at all.  fake
-			# it with our own count of bytes
-			return self.pos
-
-	def flush(self):
-		return self.fileobj.flush()
 
 	def close(self):
 		if self.closable:
@@ -306,6 +296,35 @@ class MD5File(object):
 
 	def __exit__(self, *args):
 		self.close()
+		return False
+
+
+class SignalsTrap(object):
+	default_signals = (signal.SIGTERM, signal.SIGTSTP)
+
+	def __init__(self, trap_signals = default_signals):
+		self.trap_signals = trap_signals
+
+	def handler(self, signum, frame):
+		self.deferred_signals.append(signum)
+
+	def __enter__(self):
+		self.oldhandlers = {}
+		self.deferred_signals = []
+		if self.trap_signals is None:
+			return self
+		for sig in self.trap_signals:
+			self.oldhandlers[sig] = signal.getsignal(sig)
+			signal.signal(sig, self.handler)
+		return self
+
+	def __exit__(self, *args):
+		# restore original handlers
+		for sig, oldhandler in self.oldhandlers.iteritems():
+			signal.signal(sig, oldhandler)
+		# send ourselves the trapped signals in order
+		while self.deferred_signals:
+			os.kill(os.getpid(), self.deferred_signals.pop(0))
 		return False
 
 
@@ -374,14 +393,14 @@ def load_filename(filename, verbose = False, **kwargs):
 	>>> xmldoc = load_filename("demo.xml", contenthandler = ligolw.LIGOLWContentHandler, verbose = True)
 	"""
 	if verbose:
-		print >>sys.stderr, "reading %s ..." % (("'%s'" % filename) if filename is not None else "stdin")
+		sys.stderr.write("reading %s ...\n" % (("'%s'" % filename) if filename is not None else "stdin"))
 	if filename is not None:
 		fileobj = open(filename, "rb")
 	else:
 		fileobj = sys.stdin
 	xmldoc, hexdigest = load_fileobj(fileobj, **kwargs)
 	if verbose:
-		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, (filename if filename is not None else ""))
+		sys.stderr.write("md5sum: %s  %s\n" % (hexdigest, (filename if filename is not None else "")))
 	return xmldoc
 
 
@@ -402,7 +421,7 @@ def load_url(url, verbose = False, **kwargs):
 	>>> xmldoc = load_url("file://localhost/%s/demo.xml" % getcwd(), contenthandler = ligolw.LIGOLWContentHandler, verbose = True)
 	"""
 	if verbose:
-		print >>sys.stderr, "reading %s ..." % (("'%s'" % url) if url is not None else "stdin")
+		sys.stderr.write("reading %s ...\n" % (("'%s'" % url) if url is not None else "stdin"))
 	if url is not None:
 		scheme, host, path = urlparse.urlparse(url)[:3]
 		if scheme.lower() in ("", "file") and host.lower() in ("", "localhost"):
@@ -413,31 +432,20 @@ def load_url(url, verbose = False, **kwargs):
 		fileobj = sys.stdin
 	xmldoc, hexdigest = load_fileobj(fileobj, **kwargs)
 	if verbose:
-		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, (url if url is not None else ""))
+		sys.stderr.write("md5sum: %s  %s\n" % (hexdigest, (url if url is not None else "")))
 	return xmldoc
 
 
-def write_fileobj(xmldoc, fileobj, gz = False, trap_signals = (signal.SIGTERM, signal.SIGTSTP), **kwargs):
+def write_fileobj(xmldoc, fileobj, gz = False, compresslevel = 3, **kwargs):
 	"""
 	Writes the LIGO Light Weight document tree rooted at xmldoc to the
 	given file object.  Internally, the .write() method of the xmldoc
 	object is invoked and any additional keyword arguments are passed
 	to that method.  The file object need not be seekable.  The output
-	data is gzip compressed on the fly if gz is True.  The return value
-	is a string containing the hex digits of the MD5 digest of the
-	output bytestream.
-
-	This function traps the signals in the trap_signals iterable during
-	the write process (the default is signal.SIGTERM and
-	signal.SIGTSTP), and it does this by temporarily installing its own
-	signal handlers in place of the current handlers.  This is done to
-	prevent Condor eviction during the write process.  When the file
-	write is concluded the original signal handlers are restored.
-	Then, if signals were trapped during the write process, the signals
-	are then resent to the current process in the order in which they
-	were received.  The signal.signal() system call cannot be invoked
-	from threads, and trap_signals must be set to None or an empty
-	sequence if this function is used from a thread.
+	data is gzip compressed on the fly if gz is True, and in that case
+	the compresslevel parameter sets the gzip compression level (the
+	default is 3).  The return value is a string containing the hex
+	digits of the MD5 digest of the output bytestream.
 
 	Example:
 
@@ -459,43 +467,69 @@ def write_fileobj(xmldoc, fileobj, gz = False, trap_signals = (signal.SIGTERM, s
 	>>> digest
 	'37044d979a79409b3d782da126636f53'
 	"""
-	# initialize SIGTERM and SIGTSTP trap
-	deferred_signals = []
-	def newsigterm(signum, frame):
-		deferred_signals.append(signum)
-	oldhandlers = {}
-	if trap_signals is not None:
-		for sig in trap_signals:
-			oldhandlers[sig] = signal.getsignal(sig)
-			signal.signal(sig, newsigterm)
-
-	# write the document
 	with MD5File(fileobj, closable = False) as fileobj:
 		md5obj = fileobj.md5obj
-		with fileobj if not gz else GzipFile(mode = "wb", fileobj = fileobj) as fileobj:
+		with fileobj if not gz else gzip.GzipFile(mode = "wb", fileobj = fileobj, compresslevel = compresslevel) as fileobj:
 			with codecs.getwriter("utf_8")(fileobj) as fileobj:
 				xmldoc.write(fileobj, **kwargs)
-
-	# restore original handlers, and send outselves any trapped signals
-	# in order
-	for sig, oldhandler in oldhandlers.iteritems():
-		signal.signal(sig, oldhandler)
-	while deferred_signals:
-		os.kill(os.getpid(), deferred_signals.pop(0))
-
-	# return the hex digest of the bytestream that was written
-	return md5obj.hexdigest()
+		return md5obj.hexdigest()
 
 
-def write_filename(xmldoc, filename, verbose = False, gz = False, **kwargs):
+class tildefile(object):
+	def __init__(self, filename):
+		if not filename:
+			raise ValueError(filename)
+		self.filename = filename
+
+	def __enter__(self):
+		try:
+			self.tildefilename = self.filename + "~"
+			self.fobj = open(self.tildefilename, "w")
+		except IOError:
+			self.tildefilename = None
+			self.fobj = open(self.filename, "w")
+		return self.fobj
+
+	def __exit__(self, exc_type, exc_val, exc_tb):
+		self.fobj.close()
+		del self.fobj
+
+		#
+		# only rename the "~" version to the final destination if
+		# no exception has occurred.
+		#
+
+		if exc_type is None and self.tildefilename is not None:
+			os.rename(self.tildefilename, self.filename)
+
+		return False
+
+
+def write_filename(xmldoc, filename, verbose = False, gz = False, with_mv = True, trap_signals = SignalsTrap.default_signals, **kwargs):
 	"""
 	Writes the LIGO Light Weight document tree rooted at xmldoc to the
-	file name filename.  Friendly verbosity messages are printed while
-	doing so if verbose is True.  The output data is gzip compressed on
-	the fly if gz is True.
+	file name filename.  If filename is None the file is written to
+	stdout, otherwise it is written to the named file.  Friendly
+	verbosity messages are printed while writing the file if verbose is
+	True.  The output data is gzip compressed on the fly if gz is True.
+	If with_mv is True and filename is not None the filename has a "~"
+	appended to it and the file is written to that name then moved to
+	the requested name once the write has completed successfully.
 
 	Internally, write_fileobj() is used to perform the write.  All
 	additional keyword arguments are passed to write_fileobj().
+
+	This function traps the signals in the trap_signals iterable during
+	the write process (see SignalsTrap for the default signals), and it
+	does this by temporarily installing its own signal handlers in
+	place of the current handlers.  This is done to prevent Condor
+	eviction during the write process.  When the file write is
+	concluded the original signal handlers are restored.  Then, if
+	signals were trapped during the write process, the signals are then
+	resent to the current process in the order in which they were
+	received.  The signal.signal() system call cannot be invoked from
+	threads, and trap_signals must be set to None or an empty sequence
+	if this function is used from a thread.
 
 	Example:
 
@@ -503,18 +537,17 @@ def write_filename(xmldoc, filename, verbose = False, gz = False, **kwargs):
 	>>> write_filename(xmldoc, "demo.xml.gz", gz = True)	# doctest: +SKIP
 	"""
 	if verbose:
-		print >>sys.stderr, "writing %s ..." % (("'%s'" % filename) if filename is not None else "stdout")
-	if filename is not None:
-		if not gz and filename.endswith(".gz"):
-			warnings.warn("filename '%s' ends in '.gz' but file is not being gzip-compressed" % filename, UserWarning)
-		fileobj = open(filename, "w")
-	else:
-		fileobj = sys.stdout
-	hexdigest = write_fileobj(xmldoc, fileobj, gz = gz, **kwargs)
-	if not fileobj is sys.stdout:
-		fileobj.close()
+		sys.stderr.write("writing %s ...\n" % (("'%s'" % filename) if filename is not None else "stdout"))
+	with SignalsTrap(trap_signals):
+		if filename is None:
+			hexdigest = write_fileobj(xmldoc, sys.stdout, gz = gz, **kwargs)
+		else:
+			if not gz and filename.endswith(".gz"):
+				warnings.warn("filename '%s' ends in '.gz' but file is not being gzip-compressed" % filename, UserWarning)
+			with (open if not with_mv else tildefile)(filename) as fileobj:
+				hexdigest = write_fileobj(xmldoc, fileobj, gz = gz, **kwargs)
 	if verbose:
-		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, (filename if filename is not None else ""))
+		sys.stderr.write("md5sum: %s  %s\n" % (hexdigest, (filename if filename is not None else "")))
 
 
 def write_url(xmldoc, url, **kwargs):

@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([LALDetChar],[0.3.1.1],[lal-discuss@ligo.org])
+AC_INIT([LALDetChar],[0.3.3.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([src/config.h src/LALDetCharConfig.h])
 AC_CONFIG_SRCDIR([src/LALDetChar.h])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -7,6 +7,7 @@ AC_CONFIG_MACRO_DIR([gnuscripts])
 AC_CONFIG_FILES([ \
   Makefile \
   debian/Makefile \
+  debian/control \
   doxygen/Makefile \
   doxygen/doxygen.cfg \
   include/Makefile \
@@ -25,7 +26,26 @@ AC_CONFIG_FILES([ \
   swig/Makefile \
   test/Makefile \
 ])
-AM_INIT_AUTOMAKE([1.11 foreign subdir-objects color-tests parallel-tests])
+AM_INIT_AUTOMAKE([ \
+  1.11 \
+  foreign \
+  subdir-objects \
+  color-tests \
+  parallel-tests \
+  tar-ustar \
+  dist-xz \
+  no-dist-gzip \
+])
+
+# version requirements
+MIN_LAL_VERSION="6.16.1"
+MIN_LALMETAIO_VERSION="1.2.8"
+MIN_LALSIMULATION_VERSION="1.6.0"
+MIN_LALBURST_VERSION="1.4.2"
+AC_SUBST([MIN_LAL_VERSION])
+AC_SUBST([MIN_LALMETAIO_VERSION])
+AC_SUBST([MIN_LALSIMULATION_VERSION])
+AC_SUBST([MIN_LALBURST_VERSION])
 
 AC_CANONICAL_HOST
 
@@ -122,11 +142,11 @@ LALSUITE_ADD_FLAGS([C],[${METAIO_CFLAGS}],[${METAIO_LIBS}])
 AC_CHECK_LIB([metaio],[MetaioOpen],,[AC_MSG_ERROR([could not find the metaio library])])
 
 # check for lal libraries and headers
-LALSUITE_CHECK_LIB([LAL],[6.15.0],[LALVersion],[lal/LALStdio.h])
-LALSUITE_CHECK_LIB([LALSupport],[6.15.0],[XLALCacheImport],[lal/LALCache.h])
-LALSUITE_CHECK_LIB([LALMetaIO],[1.2.0],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
-LALSUITE_CHECK_LIB([LALSimulation],[1.4.0],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
-LALSUITE_CHECK_LIB([LALBurst],[1.4.0],[XLALEPSearch],[lal/EPSearch.h])
+LALSUITE_CHECK_LIB([LAL],[${MIN_LAL_VERSION}],[LALVersion],[lal/LALStdio.h])
+LALSUITE_CHECK_LIB([LALSupport],[${MIN_LAL_VERSION}],[XLALCacheImport],[lal/LALCache.h])
+LALSUITE_CHECK_LIB([LALMetaIO],[${MIN_LALMETAIO_VERSION}],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
+LALSUITE_CHECK_LIB([LALSimulation],[${MIN_LALSIMULATION_VERSION}],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
+LALSUITE_CHECK_LIB([LALBurst],[${MIN_LALBURST_VERSION}],[XLALEPSearch],[lal/EPSearch.h])
 
 # configure SWIG wrapping modules
 LALSUITE_USE_SWIG

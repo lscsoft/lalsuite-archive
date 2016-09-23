@@ -29,13 +29,16 @@ def memoized(func):
 
     cache = {}
 
-    # FIXME: In Python 2.7, use inspect.getcallargs to bind function arguments.
+    # FIXME: In Python 3.4, use inspect.getcallargs to bind function arguments.
     # This will allow us to handle default arguments better.
+    # (Though inspect.getcallargs was added in Python 2.7, it won't work with
+    # built-in functions or functions from C extensions until Python 3.4.
+    # See https://bugs.python.org/issue17481.)
 
     @wraps(func)
     def memo(*args, **kwargs):
         # Create a key out of the arguments.
-        key = (args, frozenset(kwargs.iteritems()))
+        key = (args, frozenset(kwargs.items()))
 
         if isinstance(args, Hashable): # The key is immutable.
             try:

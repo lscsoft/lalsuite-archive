@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([LALInference],[1.5.2.1],[lal-discuss@ligo.org])
+AC_INIT([LALInference],[1.7.0.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([src/config.h src/LALInferenceConfig.h])
 AC_CONFIG_SRCDIR([src/LALInference.h])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -7,6 +7,7 @@ AC_CONFIG_MACRO_DIR([gnuscripts])
 AC_CONFIG_FILES([ \
   Makefile \
   debian/Makefile \
+  debian/control \
   doxygen/Makefile \
   doxygen/doxygen.cfg \
   include/Makefile \
@@ -14,18 +15,49 @@ AC_CONFIG_FILES([ \
   lalinference.pc \
   lalinference.spec \
   python/Makefile \
-  python/tiger/Makefile \
   python/lalinference/Makefile \
   python/lalinference/__init__.py \
   python/lalinference/bayestar/Makefile \
+  python/lalinference/io/Makefile \
   python/lalinference/rapid_pe/Makefile \
+  python/lalinference/imrtgr/Makefile \
+  python/lalinference/tiger/Makefile \
+  python/lalinference/plot/Makefile \
+  python/lalinference/popprior/Makefile \
   src/LALInferenceVCSInfo.c \
   src/LALInferenceVCSInfo.h \
   src/Makefile \
   swig/Makefile \
   test/Makefile \
 ])
-AM_INIT_AUTOMAKE([1.11 foreign subdir-objects color-tests parallel-tests])
+AM_INIT_AUTOMAKE([ \
+  1.11 \
+  foreign \
+  subdir-objects \
+  color-tests \
+  parallel-tests \
+  tar-ustar \
+  dist-xz \
+  no-dist-gzip \
+])
+
+# version requirements
+MIN_LAL_VERSION="6.16.1"
+MIN_LALMETAIO_VERSION="1.2.8"
+MIN_LALFRAME_VERSION="1.4.1"
+MIN_LALSIMULATION_VERSION="1.6.0"
+MIN_LALINSPIRAL_VERSION="1.7.5"
+MIN_LALPULSAR_VERSION="1.14.0"
+MIN_LALBURST_VERSION="1.4.2"
+MIN_LALXML_VERSION="1.2.2"
+AC_SUBST([MIN_LAL_VERSION])
+AC_SUBST([MIN_LALMETAIO_VERSION])
+AC_SUBST([MIN_LALFRAME_VERSION])
+AC_SUBST([MIN_LALSIMULATION_VERSION])
+AC_SUBST([MIN_LALINSPIRAL_VERSION])
+AC_SUBST([MIN_LALPULSAR_VERSION])
+AC_SUBST([MIN_LALBURST_VERSION])
+AC_SUBST([MIN_LALXML_VERSION])
 
 AC_CANONICAL_HOST
 
@@ -48,8 +80,8 @@ LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 #    then increment age.
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
-AC_SUBST([LIBCURRENT],[9])
-AC_SUBST([LIBREVISION],[1])
+AC_SUBST([LIBCURRENT],[11])
+AC_SUBST([LIBREVISION],[0])
 AC_SUBST([LIBAGE],[0])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
 
@@ -159,6 +191,20 @@ AC_CHECK_LIB([metaio],[MetaioOpen],,[AC_MSG_ERROR([could not find the metaio lib
 # check for libmetaio headers
 AC_CHECK_HEADERS([metaio.h],,[AC_MSG_ERROR([could not find the metaio.h header])])
 
+# check for hdf5 support
+HDF5_ENABLE_VAL="DISABLED"
+# Note that AX_LIB_HDF5 uses h5cc to determine compiler for configure tests.
+# Make sure that it uses the same compiler as we are using.
+# Otherwise the configure tests may fail if we are using icc.
+HDF5_CC="${CC}"; export HDF5_CC
+HDF5_CLINKER="${CC}"; export HDF5_CLINKER
+AX_LIB_HDF5()
+unset HDF5_CC
+unset HDF5_CLINKER
+if test "${with_hdf5}" != "yes"; then
+  AC_MSG_ERROR([could not find the HDF5 library])
+fi
+
 if test "$lalxml" = "true"; then
   # check for libxml2
   PKG_CHECK_MODULES([LIBXML2],[libxml-2.0 >= 2.6],[true],[false])
@@ -167,17 +213,42 @@ if test "$lalxml" = "true"; then
 fi
 
 # check for lal libraries and headers
-LALSUITE_CHECK_LIB([LAL],[6.15.0],[LALVersion],[lal/LALStdio.h])
-LALSUITE_CHECK_LIB([LALSupport],[6.15.0],[XLALCacheImport],[lal/LALCache.h])
-LALSUITE_CHECK_LIB([LALMetaIO],[1.2.0],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
-LALSUITE_CHECK_LIB([LALFrame],[1.3.0],[LALFrOpen],[lal/LALFrameL.h])
-LALSUITE_CHECK_LIB([LALSimulation],[1.4.0],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
-LALSUITE_CHECK_LIB([LALInspiral],[1.7.0],[LALInspiralParameterCalc],[lal/LALInspiral.h])
-LALSUITE_CHECK_LIB([LALPulsar],[1.12.0],[XLALComputeFstat],[lal/ComputeFstat.h])
-LALSUITE_CHECK_LIB([LALBurst],[1.4.0],[XLALEPSearch],[lal/EPSearch.h])
+LALSUITE_CHECK_LIB([LAL],[${MIN_LAL_VERSION}],[LALVersion],[lal/LALStdio.h])
+LALSUITE_CHECK_LIB([LALSupport],[${MIN_LAL_VERSION}],[XLALCacheImport],[lal/LALCache.h])
+LALSUITE_CHECK_LIB([LALMetaIO],[${MIN_LALMETAIO_VERSION}],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
+LALSUITE_CHECK_LIB([LALFrame],[${MIN_LALFRAME_VERSION}],[LALFrOpen],[lal/LALFrameL.h])
+LALSUITE_CHECK_LIB([LALSimulation],[${MIN_LALSIMULATION_VERSION}],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
+LALSUITE_CHECK_LIB([LALInspiral],[${MIN_LALINSPIRAL_VERSION}],[LALInspiralParameterCalc],[lal/LALInspiral.h])
+LALSUITE_CHECK_LIB([LALPulsar],[${MIN_LALPULSAR_VERSION}],[XLALComputeFstat],[lal/ComputeFstat.h])
+LALSUITE_CHECK_LIB([LALBurst],[${MIN_LALBURST_VERSION}],[XLALEPSearch],[lal/EPSearch.h])
+
 
 # check for lalxml
-LALSUITE_CHECK_OPT_LIB([LALXML],[1.2.0],[XLALXMLFilePrintElements],[lal/LALXML.h])
+LALSUITE_CHECK_OPT_LIB([LALXML],[${MIN_LALXML_VERSION}],[XLALXMLFilePrintElements],[lal/LALXML.h])
+
+dnl FIXME: This doesn't work in the top-level build, because it tries
+dnl to compile and link against LAL itself, which will not have been built yet.
+dnl
+dnl AC_MSG_CHECKING([if LAL was built with HDF5 support])
+dnl AC_RUN_IFELSE(
+dnl   [AC_LANG_PROGRAM(
+dnl     [
+dnl       #include <lal/H5FileIO.h>
+dnl       #include <lal/XLALError.h>
+dnl     ],
+dnl     [
+dnl       int ret;
+dnl       (void)XLALSetSilentErrorHandler();
+dnl       (void)XLALH5FileOpen(NULL, NULL);
+dnl       return xlalErrno != XLAL_EFAULT;
+dnl     ]
+dnl   )],
+dnl   [AC_MSG_RESULT([yes])],
+dnl   [
+dnl     AC_MSG_RESULT([no])
+dnl     AC_MSG_ERROR([LAL must be built with HDF5 support in order to build LALInference])
+dnl   ]
+dnl )
 
 # configure SWIG wrapping modules
 LALSUITE_USE_SWIG

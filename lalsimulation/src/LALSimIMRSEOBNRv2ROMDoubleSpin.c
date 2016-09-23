@@ -896,8 +896,10 @@ static int SEOBNRv2ROMDoubleSpinCore(
     *hctilde = XLALCreateCOMPLEX16FrequencySeries("hctilde: FD waveform", &tC, 0.0, deltaF, &lalStrainUnit, npts);
 
     // Recreate freqs using only the lower and upper bounds
-    UINT4 iStart = (UINT4) ceil(fLow_geom / deltaF_geom);
-    UINT4 iStop = (UINT4) ceil(fHigh_geom / deltaF_geom);
+    // Use fLow, fHigh and deltaF rather than geometric frequencies for numerical accuracy
+    double fHigh_temp = fHigh_geom / Mtot_sec;
+    UINT4 iStart = (UINT4) ceil(fLow / deltaF);
+    UINT4 iStop = (UINT4) ceil(fHigh_temp / deltaF);
     freqs = XLALCreateREAL8Sequence(iStop - iStart);
     if (!freqs) {
       XLAL_ERROR(XLAL_EFUNC, "Frequency array allocation failed.");
@@ -967,12 +969,7 @@ static int SEOBNRv2ROMDoubleSpinCore(
   /* Correct phasing so we coalesce at t=0 (with the definition of the epoch=-1/deltaF above) */
 
   // Get SEOBNRv2 ringdown frequency for 22 mode
-  // XLALSimInspiralGetFinalFreq wants masses in SI units, so unfortunately we need to convert back
-  double q = (1.0 + sqrt(1.0 - 4.0*eta) - 2.0*eta) / (2.0*eta);
-  double Mtot_SI = Mtot_sec / LAL_MTSUN_SI * LAL_MSUN_SI;
-  double m1_SI = Mtot_SI * 1.0/(1.0+q);
-  double m2_SI = Mtot_SI * q/(1.0+q);
-  double Mf_final = XLALSimInspiralGetFinalFreq(m1_SI, m2_SI, 0,0,chi1, 0,0,chi2, SEOBNRv2) * Mtot_sec;
+  double Mf_final = SEOBNRROM_Ringdown_Mf_From_Mtot_Eta(Mtot_sec, eta, chi1, chi2, SEOBNRv2);
 
   UINT4 L = freqs->length;
   // prevent gsl interpolation errors
@@ -1025,7 +1022,8 @@ static int SEOBNRv2ROMDoubleSpinCore(
  * @author Michael Puerrer, John Veitch
  *
  * @brief C code for SEOBNRv2 reduced order model (double spin version).
- * See CQG 31 195010, 2014, arXiv:1402.4146 for details.
+ * See CQG 31 195010, 2014, arXiv:1402.4146 for the basic approach.
+ * Further details in PRD 93, 064041, 2016, arXiv:1512.02248.
  *
  * This is a frequency domain model that approximates the time domain SEOBNRv2 model.
  *
@@ -1443,11 +1441,7 @@ static int SEOBNRv2ROMDoubleSpinTimeFrequencySetup(
   gsl_spline_init(*spline_phi, submodel->gPhi, gsl_vector_const_ptr(phi_f,0), submodel->nk_phi);
 
   // Get SEOBNRv2 ringdown frequency for 22 mode
-  double q = (1.0 + sqrt(1.0 - 4.0*eta) - 2.0*eta) / (2.0*eta);
-  double Mtot_SI = *Mtot_sec / LAL_MTSUN_SI * LAL_MSUN_SI;
-  double m1_SI = Mtot_SI * 1.0/(1.0+q);
-  double m2_SI = Mtot_SI * q/(1.0+q);
-  *Mf_final = XLALSimInspiralGetFinalFreq(m1_SI, m2_SI, 0,0,chi1, 0,0,chi2, SEOBNRv2) * (*Mtot_sec);
+  *Mf_final = SEOBNRROM_Ringdown_Mf_From_Mtot_Eta(*Mtot_sec, eta, chi1, chi2, SEOBNRv2);
 
   gsl_vector_free(phi_f);
   SEOBNRROMdataDS_coeff_Cleanup(romdata_coeff);

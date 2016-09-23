@@ -99,6 +99,7 @@ extern "C" {
  * database tables that are provided.
  */
 typedef enum
+tagMetadataTableType
 {
   no_table,
   process_table,
@@ -130,6 +131,7 @@ MetadataTableType;
  * interferometer.
  */
 typedef enum
+tagInterferometerNumber
 {
   LAL_IFO_G1,
   LAL_IFO_H1,
@@ -293,10 +295,11 @@ typedef struct
 tagSnglInspiralTable
 {
   struct tagSnglInspiralTable *next;
+  long          process_id;
   CHAR          ifo[LIGOMETA_IFO_MAX];
   CHAR          search[LIGOMETA_SEARCH_MAX];
   CHAR          channel[LIGOMETA_CHANNEL_MAX];
-  LIGOTimeGPS   end_time;
+  LIGOTimeGPS   end;
   REAL8         end_time_gmst;
   LIGOTimeGPS   impulse_time;
   REAL8         template_duration;

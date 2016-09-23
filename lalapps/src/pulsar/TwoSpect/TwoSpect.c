@@ -18,11 +18,17 @@
 */
 
 /**
+ * \defgroup lalapps_pulsar_TwoSpect TwoSpect Search Application
+ * \ingroup lalapps_pulsar_Apps
+ */
+
+/*
  * \file
  * \ingroup lalapps_pulsar_TwoSpect
  * \author Evan Goetz
  */
 
+#include "config.h"
 #include <sys/stat.h>
 
 #include <lal/UserInput.h>
@@ -74,11 +80,13 @@ int main(int argc, char *argv[])
    XLAL_CHECK( dirstatus == 0 || (dirstatus == -1 && errno == EEXIST), XLAL_EIO, "Couldn't create directory %s\n", uvar.outdirectory ) ;
 
    //Filenames for logfile and ULfile
-   CHARVector *LOGFILENAME = NULL, *ULFILENAME = NULL;
+   CHARVector *LOGFILENAME = NULL, *ULFILENAME = NULL, *CANDFILENAME = NULL;
    XLAL_CHECK( (LOGFILENAME = XLALCreateCHARVector(strlen(uvar.outdirectory)+strlen(uvar.outfilename)+3)) != NULL, XLAL_EFUNC);
    sprintf(LOGFILENAME->data, "%s/%s", uvar.outdirectory, uvar.outfilename);
    XLAL_CHECK( (ULFILENAME = XLALCreateCHARVector(strlen(uvar.outdirectory)+strlen(uvar.ULfilename)+3)) != NULL, XLAL_EFUNC );
    sprintf(ULFILENAME->data, "%s/%s", uvar.outdirectory, uvar.ULfilename);
+   XLAL_CHECK( (CANDFILENAME = XLALCreateCHARVector(strlen(uvar.outdirectory)+strlen(uvar.candidatesFilename)+3)) != NULL, XLAL_EFUNC );
+   sprintf(CANDFILENAME->data, "%s/%s", uvar.outdirectory, uvar.candidatesFilename);
 
    //Save args_info
    CHARVector *configfilecopy = NULL;
@@ -150,16 +158,27 @@ int main(int argc, char *argv[])
    EphemerisData *edat = NULL;
    XLAL_CHECK( (edat = XLALInitBarycenter(uvar.ephemEarth, uvar.ephemSun)) != NULL, XLAL_EFUNC );
 
+   //Initialize timestamps and state series and set refTime
+   LIGOTimeGPS tStart;
+   MultiLIGOTimeGPSVector *multiTimestamps = NULL;
+   MultiDetectorStateSeries *multiStateSeries = NULL;
+   XLALGPSSetREAL8 ( &tStart, uvar.t0 );
+   XLAL_CHECK( xlalErrno == 0, XLAL_EFUNC, "XLALGPSSetREAL8 failed\n" );
+   XLAL_CHECK( (multiTimestamps = XLALMakeMultiTimestamps(tStart, uvar.Tobs, uvar.Tsft, uvar.SFToverlap, detectors->length)) != NULL, XLAL_EFUNC );
+   XLAL_CHECK( (multiStateSeries = XLALGetMultiDetectorStates(multiTimestamps, detectors, edat, uvar.SFToverlap)) != NULL, XLAL_EFUNC );
+   LIGOTimeGPS refTime = multiTimestamps->data[0]->data[0];
+
    //Maximum detector velocity in units of c from start of observation time - Tsft to end of observation + Tsft
    REAL4 Vmax = 0.0;
    for (ii=0; ii<(INT4)detectors->length; ii++) {
-      REAL4 detectorVmax = CompDetectorVmax(uvar.t0-uvar.Tsft, uvar.Tsft, uvar.SFToverlap, uvar.Tobs+2.0*uvar.Tsft, detectors->sites[ii], edat);
-      XLAL_CHECK( xlalErrno == 0, XLAL_EFUNC, "CompDetectorVmax() failed\n" );
+      REAL4 detectorVmax = CompDetectorVmax2(multiTimestamps->data[ii], detectors->sites[ii], edat);
+      XLAL_CHECK( xlalErrno == 0, XLAL_EFUNC, "CompDetectorVmax2() failed\n" );
       if (detectorVmax > Vmax) Vmax = detectorVmax;
    }
 
    //Assume maximum possible bin shift
    INT4 maxbinshift = (INT4)round(Vmax * (uvar.fmin+uvar.fspan) * uvar.Tsft) + 1;
+   if (uvar.dopplerMultiplier>1.0) maxbinshift = (INT4)round(Vmax * (uvar.fmin+uvar.fspan) * uvar.Tsft * uvar.dopplerMultiplier) + 1;
    if (detectors->length > 1) maxbinshift += 10; //Add 10 bins for when there is more than 1 detector
 
    //Parameters for the sky-grid from a point/polygon or a sky-grid file
@@ -227,6 +246,18 @@ int main(int argc, char *argv[])
    LIGOTimeGPSVector *jointSFTtimestamps = NULL;
    XLAL_CHECK( (jointSFTtimestamps = jointTimestampsFromMultiTimestamps(multiSFTtimestamps)) != NULL, XLAL_EFUNC );
    XLALDestroyMultiTimestamps(multiSFTtimestamps);
+
+   if ((REAL8)jointSFTtimestamps->length / (REAL8)ffdata->numffts < 0.1) {
+      fprintf(stderr, "%s: The useable SFTs cover less than 10 percent of the total observation time\n", __func__);
+      fprintf(LOG, "%s: The useable SFTs cover less than 10 percent of the total observation time\n", __func__);
+      //print end time
+      time(&programendtime);
+      ptm = localtime(&programendtime);
+      fprintf(stderr, "Program finished on %s", asctime(ptm));
+      fprintf(LOG, "Program finished on %s", asctime(ptm));
+      fclose(LOG);
+      return 0;
+   }
 
    //Print SFT times, if requested by user
    if (uvar.printSFTtimes) XLAL_CHECK( printSFTtimestamps2File(multiSFTvector, &uvar) == XLAL_SUCCESS, XLAL_EFUNC );
@@ -345,6 +376,12 @@ int main(int argc, char *argv[])
       if (frac_tobs_complete<0.1) {
          fprintf(stderr, "%s: The useable SFTs cover less than 10 percent of the total observation time\n", __func__);
          fprintf(LOG, "%s: The useable SFTs cover less than 10 percent of the total observation time\n", __func__);
+	 //print end time
+	 time(&programendtime);
+	 ptm = localtime(&programendtime);
+	 fprintf(stderr, "Program finished on %s", asctime(ptm));
+	 fprintf(LOG, "Program finished on %s", asctime(ptm));
+	 fclose(LOG);
          return 0;
       }
 
@@ -411,16 +448,6 @@ int main(int argc, char *argv[])
    XLAL_CHECK( (ihsCandidates = createcandidateVector(100)) != NULL, XLAL_EFUNC, "createCandidateVector(%d) failed\n", 100 );
    XLAL_CHECK( (upperlimits = createUpperLimitVector(1)) != NULL, XLAL_EFUNC, "createUpperLimitVector(%d) failed.\n", 1 );
 
-   //Initialize timestamps and state series and set refTime
-   LIGOTimeGPS tStart;
-   MultiLIGOTimeGPSVector *multiTimestamps = NULL;
-   MultiDetectorStateSeries *multiStateSeries = NULL;
-   XLALGPSSetREAL8 ( &tStart, uvar.t0 );
-   XLAL_CHECK( xlalErrno == 0, XLAL_EFUNC, "XLALGPSSetREAL8 failed\n" );
-   XLAL_CHECK( (multiTimestamps = XLALMakeMultiTimestamps(tStart, uvar.Tobs, uvar.Tsft, uvar.SFToverlap, detectors->length)) != NULL, XLAL_EFUNC );
-   XLAL_CHECK( (multiStateSeries = XLALGetMultiDetectorStates(multiTimestamps, detectors, edat, uvar.SFToverlap)) != NULL, XLAL_EFUNC );
-   LIGOTimeGPS refTime = multiTimestamps->data[0]->data[0];
-
    //Initialize second FFT plan
    REAL4FFTPlan *secondFFTplan = NULL;
    XLAL_CHECK( (secondFFTplan = XLALCreateForwardREAL4FFTPlan(ffdata->numffts, uvar.FFTplanFlag)) != NULL, XLAL_EFUNC );
@@ -434,6 +461,10 @@ int main(int argc, char *argv[])
    //Create exponentially distributed random values for background noise estimate to sample from
    REAL4VectorAligned *expRandVals = NULL;
    XLAL_CHECK( (expRandVals = expRandNumVector(100*ffdata->numffts, 1.0, rng)) != NULL, XLAL_EFUNC );
+
+   //Allocate aveNoiseInTime vector
+   REAL4VectorAligned *aveNoiseInTime = NULL;
+   XLAL_CHECK( (aveNoiseInTime = XLALCreateREAL4VectorAligned(ffdata->numffts, 32)) != NULL, XLAL_EFUNC );
 
    //Initialize to -1.0 for far just at the start
    ihsfarstruct->ihsfar->data[0] = -1.0;
@@ -454,8 +485,10 @@ int main(int argc, char *argv[])
       REAL8 cosi = 1.0, psi = 0.0;
       XLAL_CHECK( CompAntennaPatternWeights2(antweightsforihs2h0, skypos0, multiTimestamps->data[0], lalCachedDetectors[LAL_LHO_4K_DETECTOR], &cosi, &psi) == XLAL_SUCCESS, XLAL_EFUNC );
    }
-   REAL4VectorAligned *backgroundScalingForihs2h0 = NULL;
+   REAL4VectorAligned *backgroundForihs2h0 = NULL, *backgroundScalingForihs2h0 = NULL;
+   XLAL_CHECK( (backgroundForihs2h0 = XLALCreateREAL4VectorAligned(background->length, 32)) != NULL, XLAL_EFUNC );
    XLAL_CHECK( (backgroundScalingForihs2h0 = XLALCreateREAL4VectorAligned(backgroundScaling->length, 32)) != NULL, XLAL_EFUNC );
+   memcpy(backgroundForihs2h0->data, background0->data, sizeof(REAL4)*background->length);
    memcpy(backgroundScalingForihs2h0->data, backgroundScaling->data, sizeof(REAL4)*backgroundScaling->length);
    INT4Vector *sftexistForihs2h0 = NULL;
    if (detectors->length>1) {
@@ -464,17 +497,30 @@ int main(int argc, char *argv[])
       MultiAMCoeffs *multiAMcoefficients = NULL;
       XLAL_CHECK( (multiAMcoefficients = XLALComputeMultiAMCoeffs(multiStateSeries, NULL, skypos0)) != NULL, XLAL_EFUNC );
       REAL4VectorAligned *tmpTFdata = NULL;
-      REAL8 *cosi = NULL, *psi = NULL;
-      if (XLALUserVarWasSet(&uvar.assumeNScosi)) cosi = &uvar.assumeNScosi;
-      if (XLALUserVarWasSet(&uvar.assumeNSpsi)) psi = &uvar.assumeNSpsi;
-      XLAL_CHECK( (tmpTFdata = coherentlyAddSFTs(multiSFTvector, multissb, multiAMcoefficients, jointSFTtimestamps, backgroundRatioMeans, uvar.cosiSignCoherent, cosi, psi, &uvar, backgroundScalingForihs2h0)) != NULL, XLAL_EFUNC );
+      assumeNSparams XLAL_INIT_DECL(NSparams);
+      NSparams.assumeNSpos = skypos0;
+      if (XLALUserVarWasSet(&uvar.assumeNScosi)) NSparams.assumeNScosi = &uvar.assumeNScosi;
+      if (XLALUserVarWasSet(&uvar.assumeNSpsi)) NSparams.assumeNSpsi = &uvar.assumeNSpsi;
+      if (XLALUserVarWasSet(&uvar.assumeNSGWfreq)) {
+	 NSparams.assumeNSGWfreq = &uvar.assumeNSGWfreq;
+	 NSparams.assumeNSorbitP = &uvar.assumeNSorbitP;
+	 NSparams.assumeNSasini = &uvar.assumeNSasini;
+	 NSparams.assumeNSorbitTp = &uvar.assumeNSorbitTp;
+	 if (XLALUserVarWasSet(&uvar.assumeNSrefTime)) NSparams.assumeNSrefTime = &uvar.assumeNSrefTime;
+      }
+      XLAL_CHECK( (tmpTFdata = coherentlyAddSFTs(multiSFTvector, multissb, multiAMcoefficients, jointSFTtimestamps, backgroundRatioMeans, uvar.cosiSignCoherent, &NSparams, &uvar, backgroundScalingForihs2h0)) != NULL, XLAL_EFUNC );
       XLAL_CHECK( (sftexistForihs2h0 = existingSFTs(tmpTFdata, (UINT4)ffdata->numffts)) != NULL, XLAL_EFUNC );
       INT4 totalincludedsftnumber = 0;
       for (ii=0; ii<(INT4)sftexistForihs2h0->length; ii++) if (sftexistForihs2h0->data[ii]==1) totalincludedsftnumber++;
       frac_tobs_complete = (REAL4)totalincludedsftnumber/(REAL4)sftexistForihs2h0->length;
       fprintf(LOG, "Duty factor of usable SFTs = %f\n", frac_tobs_complete);
       fprintf(stderr, "Duty factor of usable SFTs = %f\n", frac_tobs_complete);
-      XLAL_CHECK( checkBackgroundScaling(backgroundScalingForihs2h0, sftexistForihs2h0) == XLAL_SUCCESS, XLAL_EFUNC );
+      if (frac_tobs_complete<0.1) {
+         fprintf(stderr, "%s: The useable SFTs cover less than 10 percent of the total observation time\n", __func__);
+         fprintf(LOG, "%s: The useable SFTs cover less than 10 percent of the total observation time\n", __func__);
+         return 0;
+      }
+      XLAL_CHECK( checkBackgroundScaling(backgroundForihs2h0, backgroundScalingForihs2h0, sftexistForihs2h0) == XLAL_SUCCESS, XLAL_EFUNC );
       XLALDestroyREAL4VectorAligned(tmpTFdata);
       XLALDestroyMultiAMCoeffs(multiAMcoefficients);
       XLALDestroyMultiSSBtimes(multissb);
@@ -482,6 +528,15 @@ int main(int argc, char *argv[])
       XLAL_CHECK( (sftexistForihs2h0 = XLALCreateINT4Vector(sftexist->length)) != NULL, XLAL_EFUNC );
       memcpy(sftexistForihs2h0->data, sftexist->data, sizeof(INT4)*sftexist->length);
    }
+
+   //Compute median values in time of the background
+   REAL4VectorAligned *aveNoiseInTimeForihs2h0 = NULL;
+   XLAL_CHECK( (aveNoiseInTimeForihs2h0 = XLALCreateREAL4VectorAligned(aveNoiseInTime->length, 32)) != NULL, XLAL_EFUNC );
+   XLAL_CHECK( medianBackgroundBandInTime(aveNoiseInTimeForihs2h0, backgroundForihs2h0, sftexistForihs2h0) == XLAL_SUCCESS, XLAL_EFUNC );
+
+   //Antenna normalization for different sky locations
+   REAL8 skypointffnormalization = 1.0;
+   XLAL_CHECK( ffPlaneNoise(aveNoise, &uvar, sftexistForihs2h0, aveNoiseInTimeForihs2h0, antweightsforihs2h0, backgroundScalingForihs2h0, secondFFTplan, expRandVals, rng, &(skypointffnormalization)) == XLAL_SUCCESS, XLAL_EFUNC );
 
    //Set skycounter to -1 at the start
    INT4 skycounter = -1;
@@ -529,10 +584,18 @@ int main(int argc, char *argv[])
          XLAL_CHECK( (multiAMcoefficients = XLALComputeMultiAMCoeffs(multiStateSeries, NULL, skypos)) != NULL, XLAL_EFUNC );
 
          //Coherenly combine the SFT data
-         REAL8 *cosi = NULL, *psi = NULL;
-         if (XLALUserVarWasSet(&uvar.assumeNScosi)) cosi = &uvar.assumeNScosi;
-         if (XLALUserVarWasSet(&uvar.assumeNSpsi)) psi = &uvar.assumeNSpsi;
-         XLAL_CHECK( (tfdata = coherentlyAddSFTs(multiSFTvector, multissb, multiAMcoefficients, jointSFTtimestamps, backgroundRatioMeans, uvar.cosiSignCoherent, cosi, psi, &uvar, backgroundScaling)) != NULL, XLAL_EFUNC );
+	 assumeNSparams XLAL_INIT_DECL(NSparams);
+	 NSparams.assumeNSpos = skypos;
+         if (XLALUserVarWasSet(&uvar.assumeNScosi)) NSparams.assumeNScosi = &uvar.assumeNScosi;
+         if (XLALUserVarWasSet(&uvar.assumeNSpsi)) NSparams.assumeNSpsi = &uvar.assumeNSpsi;
+	 if (XLALUserVarWasSet(&uvar.assumeNSGWfreq)) {
+	    NSparams.assumeNSGWfreq = &uvar.assumeNSGWfreq;
+	    NSparams.assumeNSorbitP = &uvar.assumeNSorbitP;
+	    NSparams.assumeNSasini = &uvar.assumeNSasini;
+	    NSparams.assumeNSorbitTp = &uvar.assumeNSorbitTp;
+	    if (XLALUserVarWasSet(&uvar.assumeNSrefTime)) NSparams.assumeNSrefTime = &uvar.assumeNSrefTime;
+	 }
+         XLAL_CHECK( (tfdata = coherentlyAddSFTs(multiSFTvector, multissb, multiAMcoefficients, jointSFTtimestamps, backgroundRatioMeans, uvar.cosiSignCoherent, &NSparams, &uvar, backgroundScaling)) != NULL, XLAL_EFUNC );
 
          XLALDestroyMultiAMCoeffs(multiAMcoefficients);
 
@@ -557,7 +620,7 @@ int main(int argc, char *argv[])
 
          if (!uvar.signalOnly) {
             XLAL_CHECK( (sftexist = existingSFTs(tfdata, (UINT4)ffdata->numffts)) != NULL, XLAL_EFUNC );
-            XLAL_CHECK( checkBackgroundScaling(backgroundScaling, sftexist) == XLAL_SUCCESS, XLAL_EFUNC );
+            XLAL_CHECK( checkBackgroundScaling(background, backgroundScaling, sftexist) == XLAL_SUCCESS, XLAL_EFUNC );
             INT4 totalincludedsftnumber = 0;
             for (ii=0; ii<(INT4)sftexist->length; ii++) if (sftexist->data[ii]==1) totalincludedsftnumber++;
             frac_tobs_complete = (REAL4)totalincludedsftnumber/(REAL4)sftexist->length;
@@ -617,15 +680,13 @@ int main(int argc, char *argv[])
       XLAL_CHECK( calcRms(&currentAntWeightsRMS, antweights) == XLAL_SUCCESS, XLAL_EFUNC );
 
       //Slide SFTs here -- need to slide the data and the estimated background
-      REAL4VectorAligned *TFdata_slided = NULL, *background_slided = NULL, *backgroundScaling_slided = NULL, *backgroundScalingForihs2h0_slided;
+      REAL4VectorAligned *TFdata_slided = NULL, *background_slided = NULL, *backgroundScaling_slided = NULL;
       XLAL_CHECK( (TFdata_slided = XLALCreateREAL4VectorAligned(ffdata->numffts*ffdata->numfbins, 32)) != NULL, XLAL_EFUNC );
       XLAL_CHECK( (background_slided = XLALCreateREAL4VectorAligned(TFdata_slided->length, 32)) != NULL, XLAL_EFUNC );
       XLAL_CHECK( (backgroundScaling_slided = XLALCreateREAL4VectorAligned(TFdata_slided->length, 32)) != NULL, XLAL_EFUNC );
-      XLAL_CHECK( (backgroundScalingForihs2h0_slided = XLALCreateREAL4VectorAligned(TFdata_slided->length, 32)) != NULL, XLAL_EFUNC );
       XLAL_CHECK( slideTFdata(TFdata_slided, &uvar, usableTFdata, binshifts) == XLAL_SUCCESS, XLAL_EFUNC );
       XLAL_CHECK( slideTFdata(background_slided, &uvar, background, binshifts) == XLAL_SUCCESS, XLAL_EFUNC );
       XLAL_CHECK( slideTFdata(backgroundScaling_slided, &uvar, backgroundScaling, binshifts) == XLAL_SUCCESS, XLAL_EFUNC );
-      XLAL_CHECK( slideTFdata(backgroundScalingForihs2h0_slided, &uvar, backgroundScalingForihs2h0, binshifts) == XLAL_SUCCESS, XLAL_EFUNC );
 
       if (detectors->length>1) {
          XLALDestroyREAL4VectorAligned(usableTFdata);
@@ -644,13 +705,12 @@ int main(int argc, char *argv[])
          antweightsrms = currentAntWeightsRMS;
       }
 
-      //Antenna normalization for different sky locations
-      REAL8 skypointffnormalization = 1.0;
-      XLAL_CHECK( ffPlaneNoise(aveNoise, &uvar, sftexistForihs2h0, background_slided, antweightsforihs2h0, backgroundScalingForihs2h0_slided, secondFFTplan, expRandVals, rng, &(skypointffnormalization)) == XLAL_SUCCESS, XLAL_EFUNC );
+      //Compute median values
+      XLAL_CHECK( medianBackgroundBandInTime(aveNoiseInTime, background_slided, sftexist) == XLAL_SUCCESS, XLAL_EFUNC );
 
       //Average noise floor of FF plane for each 1st FFT frequency bin
       ffdata->ffnormalization = 1.0;
-      XLAL_CHECK( ffPlaneNoise(aveNoise, &uvar, sftexist, background_slided, antweights, backgroundScaling_slided, secondFFTplan, expRandVals, rng, &(ffdata->ffnormalization)) == XLAL_SUCCESS, XLAL_EFUNC );
+      XLAL_CHECK( ffPlaneNoise(aveNoise, &uvar, sftexist, aveNoiseInTime, antweights, backgroundScaling_slided, secondFFTplan, expRandVals, rng, &(ffdata->ffnormalization)) == XLAL_SUCCESS, XLAL_EFUNC );
       if (uvar.printData) XLAL_CHECK( printREAL4Vector2File((REAL4Vector*)aveNoise, uvar.outdirectory, "ffbackground.dat") == XLAL_SUCCESS, XLAL_EFUNC );
 
       //Compute the weighted TF data
@@ -670,7 +730,6 @@ int main(int argc, char *argv[])
       XLAL_CHECK( (aveTFnoisePerFbinRatio = calcAveTFnoisePerFbinRatio(background_slided, backgroundScaling_slided, ffdata->numffts)) != NULL, XLAL_EFUNC );
       XLALDestroyREAL4VectorAligned(background_slided);
       XLALDestroyREAL4VectorAligned(backgroundScaling_slided);
-      XLALDestroyREAL4VectorAligned(backgroundScalingForihs2h0_slided);
 
       //Do the second FFT
       XLAL_CHECK( makeSecondFFT(ffdata, TFdata_weighted, secondFFTplan) == XLAL_SUCCESS, XLAL_EFUNC );
@@ -701,7 +760,7 @@ int main(int argc, char *argv[])
          fprintf(LOG, "Testing template f=%f, P=%f, Df=%f\n", uvar.templateTestF, uvar.templateTestP, uvar.templateTestDf);
 
          //Load template quantities into a test candidate
-         loadCandidateData(&(exactCandidates1->data[0]), uvar.templateTestF, uvar.templateTestP, uvar.templateTestDf, dopplerpos.Alpha, dopplerpos.Delta, 0.0, 0.0, 0.0, 0, 0.0, -1);
+         loadCandidateData(&(exactCandidates1->data[0]), uvar.templateTestF, uvar.templateTestP, uvar.templateTestDf, dopplerpos.Alpha, dopplerpos.Delta, 0.0, 0.0, 0.0, 0, 0.0, -1, 0);
 
          //Resize the output candidate vector if necessary
          if (exactCandidates2->numofcandidates == exactCandidates2->length-1) XLAL_CHECK( (exactCandidates2 = resizecandidateVector(exactCandidates2, 2*exactCandidates2->length)) != NULL, XLAL_EFUNC );
@@ -715,7 +774,7 @@ int main(int argc, char *argv[])
 
       } else if (uvar.bruteForceTemplateTest) {
          candidate cand;
-         loadCandidateData(&cand, uvar.templateTestF, uvar.templateTestP, uvar.templateTestDf, dopplerpos.Alpha, dopplerpos.Delta, 0.0, 0.0, 0.0, 0, 0.0, -1);
+         loadCandidateData(&cand, uvar.templateTestF, uvar.templateTestP, uvar.templateTestDf, dopplerpos.Alpha, dopplerpos.Delta, 0.0, 0.0, 0.0, 0, 0.0, -1, 0);
          TwoSpectParamSpaceSearchVals paramspace = {uvar.templateTestF-2.0/uvar.Tsft, uvar.templateTestF+2.0/uvar.Tsft, 21, 5, 5, 0.5, uvar.templateTestDf-2.0/uvar.Tsft,
                                                     uvar.templateTestDf+2.0/uvar.Tsft, 21};
          XLAL_CHECK( bruteForceTemplateTest(&(exactCandidates2), cand, &paramspace, &uvar, ffdata->ffdata, aveNoise, aveTFnoisePerFbinRatio, secondFFTplan, rng, 1) == XLAL_SUCCESS, XLAL_EFUNC );
@@ -725,8 +784,14 @@ int main(int argc, char *argv[])
       //If the user wants to do a template search, that is done here
       if (uvar.templateSearch) {
          //fprintf(stderr, "Calling templateSearch\n (in development, last edited 2014-06-09)\n");
-         XLAL_CHECK( templateSearch_scox1Style(&exactCandidates2, uvar.fmin, uvar.fspan, uvar.templateSearchP, uvar.templateSearchAsini, uvar.templateSearchAsiniSigma, skypos, &uvar, ffdata->ffdata, aveNoise, aveTFnoisePerFbinRatio, secondFFTplan, rng, 1) == XLAL_SUCCESS, XLAL_EFUNC );
+         XLAL_CHECK( templateSearch_scox1Style(&exactCandidates2, uvar.fmin, uvar.fspan, uvar.templateSearchP, uvar.templateSearchAsini, uvar.templateSearchAsiniSigma, skypos, &uvar, ffdata->ffdata, aveNoise, aveTFnoisePerFbinRatio, trackedlines, secondFFTplan, rng, 1) == XLAL_SUCCESS, XLAL_EFUNC );
          //fprintf(stderr, "Done calling templateSearch\n");
+         for (ii=0; ii<(INT4)exactCandidates2->numofcandidates; ii++) exactCandidates2->data[ii].h0 /= sqrt(ffdata->tfnormalization)*pow(frac_tobs_complete*ffdata->ffnormalization/skypointffnormalization,0.25);
+      }
+
+      //If the user wants to do a templated search with fixed Df, that is done here
+      if (uvar.templateSearchFixedDf) {
+         XLAL_CHECK( templateSearch_fixedDf(&exactCandidates2, uvar.templateSearchDf, uvar.fmin, uvar.fspan, uvar.templateSearchP, skypos, &uvar, ffdata->ffdata, aveNoise, aveTFnoisePerFbinRatio, trackedlines, secondFFTplan, rng, 1) == XLAL_SUCCESS, XLAL_EFUNC );
          for (ii=0; ii<(INT4)exactCandidates2->numofcandidates; ii++) exactCandidates2->data[ii].h0 /= sqrt(ffdata->tfnormalization)*pow(frac_tobs_complete*ffdata->ffnormalization/skypointffnormalization,0.25);
       }
 
@@ -741,7 +806,7 @@ int main(int argc, char *argv[])
             if (exactCandidates2->numofcandidates==exactCandidates2->length) {
                XLAL_CHECK( (exactCandidates2 = resizecandidateVector(exactCandidates2, 2*exactCandidates2->length)) != NULL, XLAL_EFUNC );
             }
-            loadCandidateData(&(exactCandidates2->data[exactCandidates2->numofcandidates]), subsetVec->data[ii].fsig, subsetVec->data[ii].period, subsetVec->data[ii].moddepth, subsetVec->data[ii].ra, subsetVec->data[ii].dec, subsetVec->data[ii].stat, subsetVec->data[ii].h0, subsetVec->data[ii].prob, subsetVec->data[ii].proberrcode, subsetVec->data[ii].normalization, subsetVec->data[ii].templateVectorIndex);
+            loadCandidateData(&(exactCandidates2->data[exactCandidates2->numofcandidates]), subsetVec->data[ii].fsig, subsetVec->data[ii].period, subsetVec->data[ii].moddepth, subsetVec->data[ii].ra, subsetVec->data[ii].dec, subsetVec->data[ii].stat, subsetVec->data[ii].h0, subsetVec->data[ii].prob, subsetVec->data[ii].proberrcode, subsetVec->data[ii].normalization, subsetVec->data[ii].templateVectorIndex, subsetVec->data[ii].lineContamination);
             exactCandidates2->data[exactCandidates2->numofcandidates+ii].h0 /= sqrt(ffdata->tfnormalization)*pow(frac_tobs_complete*ffdata->ffnormalization/skypointffnormalization,0.25); //Scaling here
             (exactCandidates2->numofcandidates)++;
          }
@@ -755,7 +820,7 @@ int main(int argc, char *argv[])
       //Start of the IHS step!
       //Find the FAR of IHS sum -- only if the templateTest has not been given
       candidateVector *ihsCandidates_reduced = NULL;
-      if (!XLALUserVarWasSet(&uvar.templatebankfile) && !uvar.templateTest && !uvar.templateSearch && !uvar.bruteForceTemplateTest) {
+      if (!XLALUserVarWasSet(&uvar.templatebankfile) && !uvar.templateTest && !uvar.templateSearch && !uvar.bruteForceTemplateTest && !uvar.templateSearchFixedDf) {
          //If the false alarm thresholds need to be computed
          if (ihsfarstruct->ihsfar->data[0]<0.0) XLAL_CHECK( genIhsFar(ihsfarstruct, &uvar, maxrows, aveNoise, rng) == XLAL_SUCCESS, XLAL_EFUNC );
 
@@ -771,7 +836,7 @@ int main(int argc, char *argv[])
             //Put ihsCandidates_reduced back into a reset ihsCandidates
             ihsCandidates->numofcandidates = 0;
             for (ii=0; ii<(INT4)ihsCandidates_reduced->numofcandidates; ii++) {
-               loadCandidateData(&(ihsCandidates->data[ii]), ihsCandidates_reduced->data[ii].fsig, ihsCandidates_reduced->data[ii].period, ihsCandidates_reduced->data[ii].moddepth, dopplerpos.Alpha, dopplerpos.Delta, ihsCandidates_reduced->data[ii].stat, ihsCandidates_reduced->data[ii].h0, ihsCandidates_reduced->data[ii].prob, 0, ihsCandidates_reduced->data[ii].normalization, ihsCandidates_reduced->data[ii].templateVectorIndex);
+               loadCandidateData(&(ihsCandidates->data[ii]), ihsCandidates_reduced->data[ii].fsig, ihsCandidates_reduced->data[ii].period, ihsCandidates_reduced->data[ii].moddepth, dopplerpos.Alpha, dopplerpos.Delta, ihsCandidates_reduced->data[ii].stat, ihsCandidates_reduced->data[ii].h0, ihsCandidates_reduced->data[ii].prob, 0, ihsCandidates_reduced->data[ii].normalization, ihsCandidates_reduced->data[ii].templateVectorIndex, ihsCandidates_reduced->data[ii].lineContamination);
                (ihsCandidates->numofcandidates)++;
             }
             destroycandidateVector(ihsCandidates_reduced);
@@ -781,19 +846,19 @@ int main(int argc, char *argv[])
 
       //Start of the Gaussian template search!
       //First check to see if the IHSonly or templateTest or templateSearch was given
-      if (uvar.IHSonly && !uvar.templateTest && !uvar.templateSearch && !XLALUserVarWasSet(&uvar.templatebankfile)) {
+      if (uvar.IHSonly && !uvar.templateTest && !uvar.templateSearch && !uvar.templateSearchFixedDf && !XLALUserVarWasSet(&uvar.templatebankfile)) {
          //Check the length of the exactCandidates2 vector is large enough and resize if necessary
          if (exactCandidates2->length < exactCandidates2->numofcandidates+ihsCandidates->numofcandidates) XLAL_CHECK( (exactCandidates2 = resizecandidateVector(exactCandidates2, exactCandidates2->numofcandidates+ihsCandidates->numofcandidates)) != NULL, XLAL_EFUNC );
 
          //Use the typical list
          INT4 numofcandidatesalready = exactCandidates2->numofcandidates;
          for (ii=0; ii<(INT4)ihsCandidates->numofcandidates; ii++) {
-            loadCandidateData(&(exactCandidates2->data[ii+numofcandidatesalready]), ihsCandidates->data[ii].fsig, ihsCandidates->data[ii].period, ihsCandidates->data[ii].moddepth, dopplerpos.Alpha, dopplerpos.Delta, ihsCandidates->data[ii].stat, ihsCandidates->data[ii].h0, ihsCandidates->data[ii].prob, 0, ihsCandidates->data[ii].normalization, ihsCandidates->data[ii].templateVectorIndex);
+            loadCandidateData(&(exactCandidates2->data[ii+numofcandidatesalready]), ihsCandidates->data[ii].fsig, ihsCandidates->data[ii].period, ihsCandidates->data[ii].moddepth, dopplerpos.Alpha, dopplerpos.Delta, ihsCandidates->data[ii].stat, ihsCandidates->data[ii].h0, ihsCandidates->data[ii].prob, 0, ihsCandidates->data[ii].normalization, ihsCandidates->data[ii].templateVectorIndex, ihsCandidates->data[ii].lineContamination);
             exactCandidates2->data[ii+numofcandidatesalready].h0 /= sqrt(ffdata->tfnormalization)*pow(frac_tobs_complete*ffdata->ffnormalization/skypointffnormalization,0.25); //Scaling here
             (exactCandidates2->numofcandidates)++;
          }
 
-      } else if (!uvar.templateTest && !uvar.templateSearch && !XLALUserVarWasSet(&uvar.templatebankfile)) {
+      } else if (!uvar.templateTest && !uvar.templateSearch && !uvar.templateSearchFixedDf && !XLALUserVarWasSet(&uvar.templatebankfile)) {
 
          //Test the IHS candidates against Gaussian templates in this function
          XLAL_CHECK( testIHScandidates(&gaussCandidates1, ihsCandidates, ffdata, aveNoise, aveTFnoisePerFbinRatio, skypos, &uvar, rng) == XLAL_SUCCESS, XLAL_EFUNC );
@@ -849,7 +914,7 @@ int main(int argc, char *argv[])
             //Check that we are above threshold before storing the candidate
             if (cand.prob<log10(uvar.tmplfar)) {
                if (exactCandidates1->numofcandidates == exactCandidates1->length-1) XLAL_CHECK( (exactCandidates1 = resizecandidateVector(exactCandidates1, 2*exactCandidates1->length)) != NULL, XLAL_EFUNC );
-               loadCandidateData(&exactCandidates1->data[exactCandidates1->numofcandidates], cand.fsig, cand.period, cand.moddepth, (REAL4)dopplerpos.Alpha, (REAL4)dopplerpos.Delta, cand.stat, cand.h0, cand.prob, cand.proberrcode, cand.normalization, cand.templateVectorIndex);
+               loadCandidateData(&exactCandidates1->data[exactCandidates1->numofcandidates], cand.fsig, cand.period, cand.moddepth, (REAL4)dopplerpos.Alpha, (REAL4)dopplerpos.Delta, cand.stat, cand.h0, cand.prob, cand.proberrcode, cand.normalization, cand.templateVectorIndex, cand.lineContamination);
                exactCandidates1->numofcandidates++;
             }
          } /* for ii < numofcandidates */
@@ -886,7 +951,7 @@ int main(int argc, char *argv[])
       } /* if gaussCandidates1->numofcandidates > 0 */
 
       //Determine upper limits, if the ULoff has not been set
-      if (!uvar.ULoff && !uvar.templateTest && !uvar.templateSearch && !XLALUserVarWasSet(&uvar.templatebankfile)) {
+      if (!uvar.ULoff && !uvar.templateTest && !uvar.templateSearch && !uvar.templateSearchFixedDf && !XLALUserVarWasSet(&uvar.templatebankfile)) {
          upperlimits->data[upperlimits->length-1].alpha = (REAL4)dopplerpos.Alpha;
          upperlimits->data[upperlimits->length-1].delta = (REAL4)dopplerpos.Delta;
          upperlimits->data[upperlimits->length-1].normalization = ffdata->tfnormalization;
@@ -900,7 +965,7 @@ int main(int argc, char *argv[])
 
       //Destroy stuff
       XLALDestroyREAL4VectorAligned(aveTFnoisePerFbinRatio);
-      XLALDestroyREAL4VectorSequence(trackedlines);
+      if (trackedlines!=NULL) XLALDestroyREAL4VectorSequence(trackedlines);
       if (detectors->length>1 && !uvar.signalOnly) {
          XLALDestroyINT4Vector(sftexist);
          XLALDestroyINT4Vector(indexValuesOfExistingSFTs);
@@ -916,8 +981,8 @@ int main(int argc, char *argv[])
       fprintf(stderr, "\n**Report of candidates:**\n");
 
       for (ii=0; ii<(INT4)exactCandidates2->numofcandidates; ii++) {
-         fprintf(LOG, "fsig = %.6f, period = %.6f, df = %.7f, RA = %.4f, DEC = %.4f, R = %.4f, h0 = %g, Prob = %.4f, TF norm = %g\n", exactCandidates2->data[ii].fsig, exactCandidates2->data[ii].period, exactCandidates2->data[ii].moddepth, exactCandidates2->data[ii].ra, exactCandidates2->data[ii].dec, exactCandidates2->data[ii].stat, exactCandidates2->data[ii].h0, exactCandidates2->data[ii].prob, ffdata->tfnormalization);
-         fprintf(stderr, "fsig = %.6f, period = %.6f, df = %.7f, RA = %.4f, DEC = %.4f, R = %.4f, h0 = %g, Prob = %.4f, TF norm = %g\n", exactCandidates2->data[ii].fsig, exactCandidates2->data[ii].period, exactCandidates2->data[ii].moddepth, exactCandidates2->data[ii].ra, exactCandidates2->data[ii].dec, exactCandidates2->data[ii].stat, exactCandidates2->data[ii].h0, exactCandidates2->data[ii].prob, ffdata->tfnormalization);
+         fprintf(LOG, "fsig = %.6f, period = %.6f, df = %.7f, RA = %.4f, DEC = %.4f, R = %.4f, h0 = %g, Prob = %.4f, TF norm = %g, template vec num = %d, line contamination = %d\n", exactCandidates2->data[ii].fsig, exactCandidates2->data[ii].period, exactCandidates2->data[ii].moddepth, exactCandidates2->data[ii].ra, exactCandidates2->data[ii].dec, exactCandidates2->data[ii].stat, exactCandidates2->data[ii].h0, exactCandidates2->data[ii].prob, ffdata->tfnormalization, exactCandidates2->data[ii].templateVectorIndex, exactCandidates2->data[ii].lineContamination);
+         fprintf(stderr, "fsig = %.6f, period = %.6f, df = %.7f, RA = %.4f, DEC = %.4f, R = %.4f, h0 = %g, Prob = %.4f, TF norm = %g, template vec num = %d, line contamination = %d\n", exactCandidates2->data[ii].fsig, exactCandidates2->data[ii].period, exactCandidates2->data[ii].moddepth, exactCandidates2->data[ii].ra, exactCandidates2->data[ii].dec, exactCandidates2->data[ii].stat, exactCandidates2->data[ii].h0, exactCandidates2->data[ii].prob, ffdata->tfnormalization, exactCandidates2->data[ii].templateVectorIndex, exactCandidates2->data[ii].lineContamination);
       } /* for ii < exactCandidates2->numofcandidates */
    } /* if exactCandidates2->numofcandidates != 0 */
 
@@ -927,6 +992,9 @@ int main(int argc, char *argv[])
          XLAL_CHECK( outputUpperLimitToFile(ULFILENAME->data, upperlimits->data[ii], uvar.allULvalsPerSkyLoc) == XLAL_SUCCESS, XLAL_EFUNC );
       }
    }
+
+   //Output candidates to a file
+   XLAL_CHECK( writeCandidateVector2File(CANDFILENAME->data, exactCandidates2) == XLAL_SUCCESS, XLAL_EFUNC );
 
    //Destroy varaibles
    if (detectors->length>1) {
@@ -943,9 +1011,12 @@ int main(int argc, char *argv[])
    gsl_rng_free(rng);
    XLALDestroyREAL4VectorAligned(background);
    XLALDestroyREAL4VectorAligned(background0);
+   XLALDestroyREAL4VectorAligned(backgroundForihs2h0);
    XLALDestroyREAL4VectorAligned(antweightsforihs2h0);
    XLALDestroyINT4Vector(sftexistForihs2h0);
    XLALDestroyREAL4VectorAligned(aveNoise);
+   XLALDestroyREAL4VectorAligned(aveNoiseInTime);
+   XLALDestroyREAL4VectorAligned(aveNoiseInTimeForihs2h0);
    XLALDestroyREAL4VectorAligned(expRandVals);
    XLALDestroyREAL4VectorAligned(backgroundScaling);
    XLALDestroyREAL4VectorAligned(backgroundScalingForihs2h0);
@@ -962,6 +1033,7 @@ int main(int argc, char *argv[])
    XLALDestroyUserVars();
    XLALDestroyCHARVector(ULFILENAME);
    XLALDestroyCHARVector(LOGFILENAME);
+   XLALDestroyCHARVector(CANDFILENAME);
    destroyUpperLimitVector(upperlimits);
    destroycandidateVector(ihsCandidates);
    destroycandidateVector(gaussCandidates1);
@@ -971,7 +1043,6 @@ int main(int argc, char *argv[])
    destroycandidateVector(exactCandidates1);
    destroycandidateVector(exactCandidates2);
    FreeDopplerSkyScan(&status, &scan);
-   if (lines!=NULL) XLALDestroyINT4Vector(lines);
 
    //print end time
    time(&programendtime);
@@ -1110,7 +1181,7 @@ INT4Vector * detectLines_simple(const REAL4VectorAligned *TFdata, const ffdataSt
 
    fprintf(stderr, "done\n");
 
-   fprintf(stderr, "WARNING: %d line(s) found.\n", lines->length);
+   if (lines!=NULL) fprintf(stderr, "WARNING: %d line(s) found.\n", lines->length);
 
    return lines;
 
@@ -1362,13 +1433,28 @@ REAL4 rmsTFdataBand(const REAL4VectorAligned *backgrnd, UINT4 numfbins, UINT4 nu
 
 } /* rmsTFdataBand() */
 
+INT4 medianBackgroundBandInTime(REAL4VectorAligned *aveNoiseInTime, const REAL4VectorAligned *backgrnd, const INT4Vector *sftexist)
+{
+   XLAL_CHECK( aveNoiseInTime!=NULL && backgrnd!=NULL && sftexist!=NULL, XLAL_EINVAL );
+   memset(aveNoiseInTime->data, 0, sizeof(REAL4)*aveNoiseInTime->length);
+   REAL4VectorAligned *band = NULL;
+   XLAL_CHECK( (band = XLALCreateREAL4VectorAligned(backgrnd->length/sftexist->length, 32)) != NULL, XLAL_EFUNC );
+   for (UINT4 ii=0; ii<sftexist->length; ii++) {
+      if (sftexist->data[ii] != 0) {
+	 memcpy(band->data, &(backgrnd->data[ii*band->length]), sizeof(REAL4)*band->length);
+	 XLAL_CHECK( calcMedian(&(aveNoiseInTime->data[ii]), band) == XLAL_SUCCESS, XLAL_EFUNC );
+      }
+   }
+   XLALDestroyREAL4VectorAligned(band);
+   return XLAL_SUCCESS;
+}
 
 /**
  * Measure of the average noise power in each 2nd FFT frequency bin
  * \param [out]    aveNoise          Pointer to REAL4VectorAligned of the expected 2nd FFT powers
  * \param [in]     params            Pointer to UserInput_t
  * \param [in]     sftexist          Pointer to INT4Vector of SFTs existing or not
- * \param [in]     backgrnd          Pointer to REAL4VectorAligned of running means
+ * \param [in]     aveNoiseInTime    Pointer to REAL4VectorAligned of running means
  * \param [in]     antweights        Pointer to REAL4VectorAligned of antenna pattern weights
  * \param [in]     backgroundScaling Pointer to REAL4VectorAligned of background scaling values
  * \param [in]     plan              Pointer to REAL4FFTPlan
@@ -1377,17 +1463,17 @@ REAL4 rmsTFdataBand(const REAL4VectorAligned *backgrnd, UINT4 numfbins, UINT4 nu
  * \param [in,out] normalization     Pointer to REAL8 value of the normalization for the 2nd FFT
  * \return Status value
  */
-INT4 ffPlaneNoise(REAL4VectorAligned *aveNoise, const UserInput_t *params, const INT4Vector *sftexist, const REAL4VectorAligned *backgrnd, const REAL4VectorAligned *antweights, const REAL4VectorAligned *backgroundScaling, const REAL4FFTPlan *plan, const REAL4VectorAligned *expDistVals, const gsl_rng *rng, REAL8 *normalization)
+INT4 ffPlaneNoise(REAL4VectorAligned *aveNoise, const UserInput_t *params, const INT4Vector *sftexist, const REAL4VectorAligned *aveNoiseInTime, const REAL4VectorAligned *antweights, const REAL4VectorAligned *backgroundScaling, const REAL4FFTPlan *plan, const REAL4VectorAligned *expDistVals, const gsl_rng *rng, REAL8 *normalization)
 {
 
-   XLAL_CHECK( aveNoise != NULL && params != NULL && sftexist != NULL && backgrnd != NULL && antweights != NULL && backgroundScaling != NULL && plan != NULL && normalization != NULL, XLAL_EINVAL );
+   XLAL_CHECK( aveNoise != NULL && params != NULL && sftexist != NULL && aveNoiseInTime != NULL && antweights != NULL && backgroundScaling != NULL && plan != NULL && normalization != NULL, XLAL_EINVAL );
 
    fprintf(stderr, "Computing noise background estimate... ");
 
    REAL8 invsumofweights = 0.0, sumofweights = 0.0;
 
    UINT4 numffts = antweights->length;
-   UINT4 numfbins = backgrnd->length/numffts;
+   UINT4 numfbins = backgroundScaling->length/numffts;
    UINT4 numfprbins = aveNoise->length;
 
    //Set up for making the PSD
@@ -1404,20 +1490,14 @@ INT4 ffPlaneNoise(REAL4VectorAligned *aveNoise, const UserInput_t *params, const
       REAL8 dutyfactor = 0.0, dutyfactorincrement = 1.0/(REAL8)numffts;
 
       //Average each SFT across the frequency band, also compute normalization factor
-      REAL4VectorAligned *rngMeansOverBand = NULL, *backgroundScalingOverBand = NULL, *aveNoiseInTime = NULL, *aveBackgroundScalingInTime = NULL, *scaledAveNoiseInTime = NULL;
-      XLAL_CHECK( (rngMeansOverBand = XLALCreateREAL4VectorAligned(numfbins, 32)) != NULL, XLAL_EFUNC );
+      REAL4VectorAligned *backgroundScalingOverBand = NULL, *aveBackgroundScalingInTime = NULL, *scaledAveNoiseInTime = NULL;
       XLAL_CHECK( (backgroundScalingOverBand = XLALCreateREAL4VectorAligned(numfbins, 32)) != NULL, XLAL_EFUNC );
-      XLAL_CHECK( (aveNoiseInTime = XLALCreateREAL4VectorAligned(numffts, 32)) != NULL, XLAL_EFUNC );
       XLAL_CHECK( (aveBackgroundScalingInTime = XLALCreateREAL4VectorAligned(numffts, 32)) != NULL, XLAL_EFUNC );
       XLAL_CHECK( (scaledAveNoiseInTime = XLALCreateREAL4VectorAligned(numffts, 32)) != NULL, XLAL_EFUNC );
 
-      memset(aveNoiseInTime->data, 0, sizeof(REAL4)*numffts);
       memset(aveBackgroundScalingInTime->data, 0, sizeof(REAL4)*numffts);
       for (UINT4 ii=0; ii<aveNoiseInTime->length; ii++) {
          if (sftexist->data[ii]!=0) {
-            memcpy(rngMeansOverBand->data, &(backgrnd->data[ii*numfbins]), sizeof(*rngMeansOverBand->data)*rngMeansOverBand->length);
-            XLAL_CHECK( calcMedian(&(aveNoiseInTime->data[ii]), rngMeansOverBand) == XLAL_SUCCESS, XLAL_EFUNC );
-
             memcpy(backgroundScalingOverBand->data, &(backgroundScaling->data[ii*numfbins]), sizeof(REAL4)*backgroundScalingOverBand->length);
             aveBackgroundScalingInTime->data[ii] = calcMean(backgroundScalingOverBand);
             XLAL_CHECK( xlalErrno == 0, XLAL_EFUNC );
@@ -1460,22 +1540,16 @@ INT4 ffPlaneNoise(REAL4VectorAligned *aveNoise, const UserInput_t *params, const
       //REAL8 prevnoiseval = 0.0, noiseval = 0.0;
       for (UINT4 ii=0; ii<1000; ii++) {
          memset(x->data, 0, sizeof(REAL4)*x->length);
-         /* for (UINT4 jj=0; jj<x->length; jj++) {
-            if (sftexist->data[jj] != 0) {
-               //To create the correlations
-               noiseval = expRandNum(aveNoiseInTime->data[jj], rng);
-               XLAL_CHECK( xlalErrno == 0, XLAL_EFUNC );
-               if (jj>0 && sftexist->data[jj-1]!=0) {
-                  noiseval *= (1.0-corrfactorsquared);
-                  noiseval += corrfactorsquared*prevnoiseval;
-               }
-               x->data[jj] = (REAL4)(noiseval/aveNoiseInTime->data[jj]-1.0);
-               prevnoiseval = noiseval;
-            }
-         } // for jj < x->length */
 
          XLAL_CHECK( sampleREAL4VectorAligned(x, expDistVals, rng) == XLAL_SUCCESS, XLAL_EFUNC );
          XLAL_CHECK( XLALVectorMultiplyREAL4(x->data, x->data, scaledAveNoiseInTime->data, x->length) == XLAL_SUCCESS, XLAL_EFUNC );
+
+         for (UINT4 jj=0; jj<x->length; jj++) if (sftexist->data[jj] != 0) x->data[jj] = x->data[jj] - scaledAveNoiseInTime->data[jj];
+
+         //Window and rescale because of antenna and noise weights
+         XLAL_CHECK( XLALVectorMultiplyREAL4(x->data, x->data, multiplicativeFactor->data, x->length) == XLAL_SUCCESS, XLAL_EFUNC );
+
+         //Correlations (forward)
          for (UINT4 jj=0; jj<x->length; jj++) {
             if (sftexist->data[jj] != 0) {
                if (jj>0 && sftexist->data[jj-1]!=0) {
@@ -1484,28 +1558,6 @@ INT4 ffPlaneNoise(REAL4VectorAligned *aveNoise, const UserInput_t *params, const
                }
             }
          }
-         for (UINT4 jj=0; jj<x->length; jj++) if (sftexist->data[jj] != 0) x->data[jj] = x->data[jj] - scaledAveNoiseInTime->data[jj];
-
-         //Reverse the correlations, comment this out below!
-         /* memset(x->data, 0, sizeof(REAL4)*x->length);
-         for (jj=(INT4)x->length-1; jj>=0; jj--) {
-            if (sftexist->data[jj] != 0) {
-               noiseval = expRandNum(aveNoiseInTime->data[jj], rng);
-               if (XLAL_IS_REAL8_FAIL_NAN(noiseval)) {
-                  fprintf(stderr, "%s: expRandNum() failed.\n", __func__);
-                  XLAL_ERROR_VOID(XLAL_EFUNC);
-               }
-               if (jj<(INT4)x->length-1 && sftexist->data[jj+1]!=0) {
-                  noiseval *= (1.0-corrfactorsquared);
-                  noiseval += corrfactorsquared*prevnoiseval;
-               }
-               x->data[jj] = (REAL4)(noiseval/aveNoiseInTime->data[jj]-1.0);
-               prevnoiseval = noiseval;
-            }
-            } */
-
-         //Window and rescale because of antenna and noise weights
-         XLAL_CHECK( XLALVectorMultiplyREAL4(x->data, x->data, multiplicativeFactor->data, x->length) == XLAL_SUCCESS, XLAL_EFUNC );
 
          //Do the FFT
          XLAL_CHECK( XLALREAL4PowerSpectrum((REAL4Vector*)psd, (REAL4Vector*)x, plan) == XLAL_SUCCESS, XLAL_EFUNC );
@@ -1544,10 +1596,8 @@ INT4 ffPlaneNoise(REAL4VectorAligned *aveNoise, const UserInput_t *params, const
       XLALDestroyREAL4VectorAligned(x);
       XLALDestroyREAL4VectorAligned(psd);
       XLALDestroyREAL4Window(win);
-      XLALDestroyREAL4VectorAligned(aveNoiseInTime);
       XLALDestroyREAL4VectorAligned(aveBackgroundScalingInTime);
       XLALDestroyREAL4VectorAligned(scaledAveNoiseInTime);
-      XLALDestroyREAL4VectorAligned(rngMeansOverBand);
       XLALDestroyREAL4VectorAligned(backgroundScalingOverBand);
       XLALDestroyREAL4VectorAligned(multiplicativeFactor);
    } else {
@@ -1614,6 +1664,7 @@ INT4 readTwoSpectInputParams(UserInput_t *uvar, int argc, char *argv[])
    uvar->outfilename = XLALStringDuplicate("logfile.txt");
    uvar->configCopy = XLALStringDuplicate("input_args.conf");
    uvar->ULfilename = XLALStringDuplicate("uls.dat");
+   uvar->candidatesFilename = XLALStringDuplicate("candidates.dat");
    uvar->harmonicNumToSearch = 1;
    uvar->periodHarmToCheck = 5;
    uvar->periodFracToCheck = 3;
@@ -1633,105 +1684,111 @@ INT4 readTwoSpectInputParams(UserInput_t *uvar, int argc, char *argv[])
    uvar->lineDetection = -1.0;
    uvar->cosiSignCoherent = 0;
 
-   XLALregBOOLUserStruct(help,                         'h', UVAR_HELP    ,  "Print this help/usage message");
-   XLALregSTRINGUserStruct(outdirectory,                0 , UVAR_REQUIRED,  "Output directory");
-   XLALregLISTUserStruct(IFO,                           0 , UVAR_REQUIRED,  "CSV list of detectors, eg. \"H1,H2,L1,G1, ...\" ");
-   XLALregREALUserStruct(Tobs,                          0 , UVAR_REQUIRED,  "Total observation time (in seconds)");
-   XLALregREALUserStruct(Tsft,                          0 , UVAR_REQUIRED,  "SFT coherence time (in seconds)");
-   XLALregREALUserStruct(SFToverlap,                    0 , UVAR_REQUIRED,  "SFT overlap (in seconds), usually Tsft/2");
-   XLALregREALUserStruct(t0,                            0 , UVAR_REQUIRED,  "Start time of the search (in GPS seconds)");
-   XLALregREALUserStruct(fmin,                          0 , UVAR_REQUIRED,  "Minimum frequency of band (Hz)");
-   XLALregREALUserStruct(fspan,                         0 , UVAR_REQUIRED,  "Frequency span of band (Hz)");
-   XLALregLISTUserStruct(avesqrtSh,                     0 , UVAR_REQUIRED,  "CSV list of expected average of square root of Sh for each detector");
-   XLALregREALUserStruct(Pmin,                          0 , UVAR_REQUIRED,  "Minimum period to be searched (in seconds)");
-   XLALregREALUserStruct(Pmax,                          0 , UVAR_REQUIRED,  "Maximum period to be searched (in seconds)");
-   XLALregREALUserStruct(dfmin,                         0 , UVAR_REQUIRED,  "Minimum modulation depth to search (Hz)");
-   XLALregREALUserStruct(dfmax,                         0 , UVAR_REQUIRED,  "Maximum modulation depth to search (Hz)");
-   XLALregINTUserStruct(blksize,                        0 , UVAR_OPTIONAL,  "Blocksize for running median to determine expected noise of input SFTs");
-   XLALregSTRINGUserStruct(outfilename,                 0 , UVAR_OPTIONAL,  "Output file name");
-   XLALregSTRINGUserStruct(configCopy,                  0 , UVAR_OPTIONAL,  "Copy of the input values");
-   XLALregSTRINGUserStruct(ULfilename,                  0 , UVAR_OPTIONAL,  "Upper limit file name");
-   XLALregSTRINGUserStruct(inputSFTs,                   0 , UVAR_OPTIONAL,  "Path and filename of SFTs, conflicts with timestampsFile and segmentFile");
-   XLALregSTRINGUserStruct(ephemEarth,                  0 , UVAR_OPTIONAL,  "Earth ephemeris file to use");
-   XLALregSTRINGUserStruct(ephemSun,                    0 , UVAR_OPTIONAL,  "Sun ephemeris file to use");
-   XLALregSTRINGUserStruct(skyRegion,                   0 , UVAR_OPTIONAL,  "Region of the sky to search (e.g. (ra1,dec1),(ra2,dec2),(ra3,dec3)...) or allsky");
-   XLALregSTRINGUserStruct(skyRegionFile,               0 , UVAR_OPTIONAL,  "File with the grid points");
-   XLALregREALUserStruct(linPolAngle,                   0 , UVAR_OPTIONAL,  "Polarization angle to search using linear polarization of Fplus (when unspecified default is circular polarization)");
-   XLALregSTRINGUserStruct(templatebankfile,            0 , UVAR_OPTIONAL,  "File containing the template data (generated by lalapps_TwoSpectTemplateBank)");
-   XLALregINTUserStruct(harmonicNumToSearch,            0 , UVAR_OPTIONAL,  "Number of harmonics of the Pmin to Pmax range to search");
-   XLALregINTUserStruct(periodHarmToCheck,              0 , UVAR_OPTIONAL,  "Number of harmonics/sub-harmonics of the IHS candidates to test");
-   XLALregINTUserStruct(periodFracToCheck,              0 , UVAR_OPTIONAL,  "Number of fractional periods to check in the sense of [(1...N)+1]/[(1...N)+2]");
-   XLALregBOOLUserStruct(templateSearch,                0 , UVAR_OPTIONAL,  "Flag for doing a pure template-based search on search region specified by (sky,f,fspan,P, Asini +- 3 AsiniSigma)");
-   XLALregREALUserStruct(templateSearchP,               0 , UVAR_OPTIONAL,  "The template search period; templateSearch flag is required");
-   XLALregREALUserStruct(templateSearchAsini,           0 , UVAR_OPTIONAL,  "The template search Asini; templateSearch flag is required");
-   XLALregREALUserStruct(templateSearchAsiniSigma,      0 , UVAR_OPTIONAL,  "The template search uncertainty in Asini; templateSearch flag is required");
-   XLALregREALUserStruct(assumeNScosi,                  0 , UVAR_OPTIONAL,  "Assume cosi orientation of the source (only used when specifying more than 1 detector)");
-   XLALregREALUserStruct(assumeNSpsi,                   0 , UVAR_OPTIONAL,  "Assume psi polarization angle of the source (only used when specifying more than 1 detector)");
-   XLALregINTUserStruct(cosiSignCoherent,               0 , UVAR_OPTIONAL,  "For coherent analysis assume [-1,1] values (0), [0,1] values (1), or [-1,0] values (-1) for cosi (Note: unused when assumeNScosi is specified)");
-   XLALregINTUserStruct(ihsfactor,                      0 , UVAR_OPTIONAL,  "Number of harmonics to sum in IHS algorithm");
-   XLALregREALUserStruct(ihsfar,                        0 , UVAR_OPTIONAL,  "IHS FAR threshold");
-   XLALregREALUserStruct(ihsfom,                        0 , UVAR_OPTIONAL,  "IHS FOM = 12*(L_IHS_loc - U_IHS_loc)^2");
-   XLALregREALUserStruct(ihsfomfar,                     0 , UVAR_OPTIONAL,  "IHS FOM FAR threshold");
-   XLALregREALUserStruct(tmplfar,                       0 , UVAR_OPTIONAL,  "Template FAR threshold");
-   XLALregINTUserStruct(keepOnlyTopNumIHS,              0 , UVAR_OPTIONAL,  "Keep the top <number> of IHS candidates based on significance");
-   XLALregINTUserStruct(minTemplateLength,              0 , UVAR_OPTIONAL,  "Minimum number of pixels to use in the template");
-   XLALregINTUserStruct(maxTemplateLength,              0 , UVAR_OPTIONAL,  "Maximum number of pixels to use in the template");
-   XLALregREALUserStruct(ULfmin,                        0 , UVAR_OPTIONAL,  "Minimum signal frequency considered for the upper limit value (Hz)");
-   XLALregREALUserStruct(ULfspan,                       0 , UVAR_OPTIONAL,  "Span of signal frequencies considered for the upper limit value (Hz)");
-   XLALregREALUserStruct(ULminimumDeltaf,               0 , UVAR_OPTIONAL,  "Minimum modulation depth counted in the upper limit value (Hz)");
-   XLALregREALUserStruct(ULmaximumDeltaf,               0 , UVAR_OPTIONAL,  "Maximum modulation depth counted in the upper limit value (Hz)");
-   XLALregBOOLUserStruct(allULvalsPerSkyLoc,            0 , UVAR_OPTIONAL,  "Print all UL values in the band specified by ULminimumDeltaf and ULmaximumDeltaf (default prints only the maximum UL)");
-   XLALregBOOLUserStruct(markBadSFTs,                   0 , UVAR_OPTIONAL,  "Mark bad SFTs");
-   XLALregREALUserStruct(lineDetection,                 0 , UVAR_OPTIONAL,  "Detect stationary lines above threshold, and, if any present, set upper limit only, no template follow-up");
-   XLALregINTUserStruct(FFTplanFlag,                    0 , UVAR_OPTIONAL,  "0=Estimate, 1=Measure, 2=Patient, 3=Exhaustive");
-   XLALregBOOLUserStruct(fastchisqinv,                  0 , UVAR_OPTIONAL,  "Use a faster central chi-sq inversion function (roughly float precision instead of double)");
-   XLALregINTUserStruct(vectorMath,                     0 , UVAR_OPTIONAL,  "Vector math functions: 0=None, 1=SSE, 2=AVX/SSE (Note that user needs to have compiled for SSE or AVX/SSE or program fails)");
-   XLALregBOOLUserStruct(followUpOutsideULrange,        0 , UVAR_OPTIONAL,  "Follow up outliers outside the range of the UL values");
-   XLALregLISTUserStruct(timestampsFile,                0 , UVAR_OPTIONAL,  "CSV list of files with timestamps, file-format: lines of <GPSsec> <GPSnsec>, conflicts with inputSFTs and segmentFile");
-   XLALregLISTUserStruct(segmentFile,                   0 , UVAR_OPTIONAL,  "CSV list of files with segments, file-format: lines with <GPSstart> <GPSend>, conflicts with inputSFTs and timestampsFile");
-   XLALregBOOLUserStruct(gaussNoiseWithSFTgaps,         0 , UVAR_OPTIONAL,  "Gaussian noise using avesqrtSh with same gaps as inputSFTs, conflicts with timstampsFile and segmentFile");
-   XLALregLISTUserStruct(injectionSources,              0 , UVAR_OPTIONAL,  "CSV file list containing sources to inject or '{Alpha=0;Delta=0;...}'");
-   XLALregREALUserStruct(injFmin,                       0 , UVAR_OPTIONAL,  "Minimum frequency of band to create in TwoSpect");
-   XLALregREALUserStruct(injBand,                       0 , UVAR_OPTIONAL,  "Width of band to create in TwoSpect");
-   XLALregINTUserStruct(injRandSeed,                    0 , UVAR_OPTIONAL,  "Random seed value for reproducable noise, conflicts with inputSFTs");
-   XLALregBOOLUserStruct(weightedIHS,                   0 , UVAR_DEVELOPER, "Use the noise-weighted IHS scheme");
-   XLALregBOOLUserStruct(signalOnly,                    0 , UVAR_DEVELOPER, "SFTs contain only signal, no noise");
-   XLALregBOOLUserStruct(templateTest,                  0 , UVAR_DEVELOPER, "Test the doubly-Fourier transformed data against a single, exact template");
-   XLALregREALUserStruct(templateTestF,                 0 , UVAR_DEVELOPER, "The template test frequency; templateTest flag is required");
-   XLALregREALUserStruct(templateTestP,                 0 , UVAR_DEVELOPER, "The template test period; templateTest flag is required");
-   XLALregREALUserStruct(templateTestDf,                0 , UVAR_DEVELOPER, "The template test modulation depth; templateTest flag is required");
-   XLALregBOOLUserStruct(bruteForceTemplateTest,        0 , UVAR_DEVELOPER, "Test a number of different templates using templateTest parameters");
-   XLALregINTUserStruct(ULsolver,                       0 , UVAR_DEVELOPER, "Solver function for the upper limit calculation: 0=gsl_ncx2cdf_float_withouttinyprob_solver, 1=gsl_ncx2cdf_withouttinyprob_solver, 2=gsl_ncx2cdf_float_solver, 3=gsl_ncx2cdf_solver, 4=ncx2cdf_float_withouttinyprob_withmatlabchi2cdf_solver, 5=ncx2cdf_withouttinyprob_withmatlabchi2cdf_solver");
-   XLALregREALUserStruct(dopplerMultiplier,             0 , UVAR_DEVELOPER, "Multiplier for the Doppler velocity");
-   XLALregBOOLUserStruct(IHSonly,                       0 , UVAR_DEVELOPER, "IHS stage only is run. Output statistic is the IHS statistic");
-   XLALregBOOLUserStruct(noNotchHarmonics,              0 , UVAR_DEVELOPER, "Do not notch the daily/sidereal harmonics in the IHS step");
-   XLALregBOOLUserStruct(calcRthreshold,                0 , UVAR_DEVELOPER, "Calculate the threshold value for R given the template false alarm rate");
-   XLALregBOOLUserStruct(antennaOff,                    0 , UVAR_DEVELOPER, "Antenna pattern weights are /NOT/ used if this flag is used");
-   XLALregBOOLUserStruct(noiseWeightOff,                0 , UVAR_DEVELOPER, "Turn off noise weighting if this flag is used");
-   XLALregBOOLUserStruct(gaussTemplatesOnly,            0 , UVAR_DEVELOPER, "Gaussian templates only throughout the pipeline if this flag is used");
-   XLALregBOOLUserStruct(ULoff,                         0 , UVAR_DEVELOPER, "Turn off upper limits computation");
-   XLALregBOOLUserStruct(BrentsMethod,                  0 , UVAR_DEVELOPER, "Use Brent's method for root finding of the R threshold value");
-   XLALregBOOLUserStruct(printSFTtimes,                 0 , UVAR_DEVELOPER, "Output a list <GPS sec> <GPS nanosec> of SFT start times of SFTs");
-   XLALregBOOLUserStruct(printData,                     0 , UVAR_DEVELOPER, "Print to ASCII files the data values");
-   XLALregSTRINGUserStruct(saveRvalues,                 0 , UVAR_DEVELOPER, "Print all R values from template bank file");
-   XLALregSTRINGUserStruct(printSignalData,             0 , UVAR_DEVELOPER, "Print f0 and h0 per SFT of the signal, used only with injectionSources");
-   XLALregSTRINGUserStruct(printMarginalizedSignalData, 0 , UVAR_DEVELOPER, "Print f0 and h0 per SFT of the signal, used only with injectionSources");
-   XLALregINTUserStruct(randSeed,                       0 , UVAR_DEVELOPER, "Random seed value");
-   XLALregBOOLUserStruct(chooseSeed,                    0 , UVAR_DEVELOPER, "The random seed value is chosen based on the input search parameters");
+   XLALRegisterUvarMember(outdirectory,                STRING, 0 , REQUIRED,  "Output directory");
+   XLALRegisterUvarMember(IFO,                           STRINGVector, 0 , REQUIRED,  "CSV list of detectors, eg. \"H1,H2,L1,G1, ...\" ");
+   XLALRegisterUvarMember(Tobs,                          REAL8, 0 , REQUIRED,  "Total observation time (in seconds)");
+   XLALRegisterUvarMember(Tsft,                          REAL8, 0 , REQUIRED,  "SFT coherence time (in seconds)");
+   XLALRegisterUvarMember(SFToverlap,                    REAL8, 0 , REQUIRED,  "SFT overlap (in seconds), usually Tsft/2");
+   XLALRegisterUvarMember(t0,                            REAL8, 0 , REQUIRED,  "Start time of the search (in GPS seconds)");
+   XLALRegisterUvarMember(fmin,                          REAL8, 0 , REQUIRED,  "Minimum frequency of band (Hz)");
+   XLALRegisterUvarMember(fspan,                         REAL8, 0 , REQUIRED,  "Frequency span of band (Hz)");
+   XLALRegisterUvarMember(avesqrtSh,                     STRINGVector, 0 , REQUIRED,  "CSV list of expected average of square root of Sh for each detector");
+   XLALRegisterUvarMember(Pmin,                          REAL8, 0 , REQUIRED,  "Minimum period to be searched (in seconds)");
+   XLALRegisterUvarMember(Pmax,                          REAL8, 0 , REQUIRED,  "Maximum period to be searched (in seconds)");
+   XLALRegisterUvarMember(dfmin,                         REAL8, 0 , REQUIRED,  "Minimum modulation depth to search (Hz)");
+   XLALRegisterUvarMember(dfmax,                         REAL8, 0 , REQUIRED,  "Maximum modulation depth to search (Hz)");
+   XLALRegisterUvarMember(blksize,                        INT4, 0 , OPTIONAL,  "Blocksize for running median to determine expected noise of input SFTs");
+   XLALRegisterUvarMember(outfilename,                 STRING, 0 , OPTIONAL,  "Output file name");
+   XLALRegisterUvarMember(configCopy,                  STRING, 0 , OPTIONAL,  "Copy of the input values");
+   XLALRegisterUvarMember(ULfilename,                  STRING, 0 , OPTIONAL,  "Upper limit file name");
+   XLALRegisterUvarMember(candidatesFilename,          STRING, 0 , OPTIONAL,  "Candidates file name");
+   XLALRegisterUvarMember(inputSFTs,                   STRING, 0 , OPTIONAL,  "Path and filename of SFTs, conflicts with timestampsFile and segmentFile");
+   XLALRegisterUvarMember(ephemEarth,                  STRING, 0 , OPTIONAL,  "Earth ephemeris file to use");
+   XLALRegisterUvarMember(ephemSun,                    STRING, 0 , OPTIONAL,  "Sun ephemeris file to use");
+   XLALRegisterUvarMember(skyRegion,                   STRING, 0 , OPTIONAL,  "Region of the sky to search (e.g. (ra1,dec1),(ra2,dec2),(ra3,dec3)...) or allsky");
+   XLALRegisterUvarMember(skyRegionFile,               STRING, 0 , OPTIONAL,  "File with the grid points");
+   XLALRegisterUvarMember(linPolAngle,                   REAL8, 0 , OPTIONAL,  "Polarization angle to search using linear polarization of Fplus (when unspecified default is circular polarization)");
+   XLALRegisterUvarMember(templatebankfile,            STRING, 0 , OPTIONAL,  "File containing the template data (generated by lalapps_TwoSpectTemplateBank)");
+   XLALRegisterUvarMember(harmonicNumToSearch,            INT4, 0 , OPTIONAL,  "Number of harmonics of the Pmin to Pmax range to search");
+   XLALRegisterUvarMember(periodHarmToCheck,              INT4, 0 , OPTIONAL,  "Number of harmonics/sub-harmonics of the IHS candidates to test");
+   XLALRegisterUvarMember(periodFracToCheck,              INT4, 0 , OPTIONAL,  "Number of fractional periods to check in the sense of [(1...N)+1]/[(1...N)+2]");
+   XLALRegisterUvarMember(templateSearch,                BOOLEAN, 0 , OPTIONAL,  "Flag for doing a pure template-based search on search region specified by (sky,f,fspan,P, Asini +- 3 AsiniSigma)");
+   XLALRegisterUvarMember(templateSearchP,               REAL8, 0 , OPTIONAL,  "The template search period; templateSearch flag is required");
+   XLALRegisterUvarMember(templateSearchAsini,           REAL8, 0 , OPTIONAL,  "The template search Asini; templateSearch flag is required");
+   XLALRegisterUvarMember(templateSearchAsiniSigma,      REAL8, 0 , OPTIONAL,  "The template search uncertainty in Asini; templateSearch flag is required");
+   XLALRegisterUvarMember(templateSearchFixedDf,         BOOLEAN, 0 , OPTIONAL, "Flag for doing a template-based search on search region specified by (df,sky,f,fspan,P)");
+   XLALRegisterUvarMember(templateSearchDf,              STRINGVector, 0 , OPTIONAL,   "The (list of) template search df(s); templateSearchFixedDf flag is required");
+   XLALRegisterUvarMember(assumeNScosi,                  REAL8, 0 , OPTIONAL,  "Assume cosi orientation of the source (only used when specifying more than 1 detector)");
+   XLALRegisterUvarMember(assumeNSpsi,                   REAL8, 0 , OPTIONAL,  "Assume psi polarization angle of the source (only used when specifying more than 1 detector)");
+   XLALRegisterUvarMember(assumeNSGWfreq,                REAL8, 0 , OPTIONAL,  "Assume GW frequency of the source (only used when specifying more than 1 detector)");
+   XLALRegisterUvarMember(assumeNSorbitP,                REAL8, 0 , OPTIONAL,  "Assume orbital period of the source (only used when specifying more than 1 detector)");
+   XLALRegisterUvarMember(assumeNSasini,                 REAL8, 0 , OPTIONAL,  "Assume projected semi-major axis (units of lt-sec) of the source (only used when specifying more than 1 detector)");
+   XLALRegisterUvarMember(assumeNSorbitTp,               EPOCH, 0 , OPTIONAL,  "Assume NS time of periapsis passage of the source (only used when specifying more than 1 detector)");
+   XLALRegisterUvarMember(assumeNSrefTime,               EPOCH, 0 , OPTIONAL,  "Assume NS spin reference time (if not given, assume start time of search) (only used when specifying more than 1 detector)");
+   XLALRegisterUvarMember(cosiSignCoherent,               INT4, 0 , OPTIONAL,  "For coherent analysis assume [-1,1] values (0), [0,1] values (1), or [-1,0] values (-1) for cosi (Note: unused when assumeNScosi is specified)");
+   XLALRegisterUvarMember(ihsfactor,                      INT4, 0 , OPTIONAL,  "Number of harmonics to sum in IHS algorithm");
+   XLALRegisterUvarMember(ihsfar,                        REAL8, 0 , OPTIONAL,  "IHS FAR threshold");
+   XLALRegisterUvarMember(ihsfom,                        REAL8, 0 , OPTIONAL,  "IHS FOM = 12*(L_IHS_loc - U_IHS_loc)^2");
+   XLALRegisterUvarMember(ihsfomfar,                     REAL8, 0 , OPTIONAL,  "IHS FOM FAR threshold");
+   XLALRegisterUvarMember(tmplfar,                       REAL8, 0 , OPTIONAL,  "Template FAR threshold");
+   XLALRegisterUvarMember(keepOnlyTopNumIHS,              INT4, 0 , OPTIONAL,  "Keep the top <number> of IHS candidates based on significance");
+   XLALRegisterUvarMember(minTemplateLength,              INT4, 0 , OPTIONAL,  "Minimum number of pixels to use in the template");
+   XLALRegisterUvarMember(maxTemplateLength,              INT4, 0 , OPTIONAL,  "Maximum number of pixels to use in the template");
+   XLALRegisterUvarMember(ULfmin,                        REAL8, 0 , OPTIONAL,  "Minimum signal frequency considered for the upper limit value (Hz)");
+   XLALRegisterUvarMember(ULfspan,                       REAL8, 0 , OPTIONAL,  "Span of signal frequencies considered for the upper limit value (Hz)");
+   XLALRegisterUvarMember(ULminimumDeltaf,               REAL8, 0 , OPTIONAL,  "Minimum modulation depth counted in the upper limit value (Hz)");
+   XLALRegisterUvarMember(ULmaximumDeltaf,               REAL8, 0 , OPTIONAL,  "Maximum modulation depth counted in the upper limit value (Hz)");
+   XLALRegisterUvarMember(allULvalsPerSkyLoc,            BOOLEAN, 0 , OPTIONAL,  "Print all UL values in the band specified by ULminimumDeltaf and ULmaximumDeltaf (default prints only the maximum UL)");
+   XLALRegisterUvarMember(markBadSFTs,                   BOOLEAN, 0 , OPTIONAL,  "Mark bad SFTs");
+   XLALRegisterUvarMember(lineDetection,                 REAL8, 0 , OPTIONAL,  "Detect stationary lines above threshold, and, if any present, set upper limit only, no template follow-up");
+   XLALRegisterUvarMember(FFTplanFlag,                    INT4, 0 , OPTIONAL,  "0=Estimate, 1=Measure, 2=Patient, 3=Exhaustive");
+   XLALRegisterUvarMember(fastchisqinv,                  BOOLEAN, 0 , OPTIONAL,  "Use a faster central chi-sq inversion function (roughly float precision instead of double)");
+   XLALRegisterUvarMember(vectorMath,                     INT4, 0 , OPTIONAL,  "Vector math functions: 0=None, 1=SSE, 2=AVX/SSE (Note that user needs to have compiled for SSE or AVX/SSE or program fails)");
+   XLALRegisterUvarMember(followUpOutsideULrange,        BOOLEAN, 0 , OPTIONAL,  "Follow up outliers outside the range of the UL values");
+   XLALRegisterUvarMember(timestampsFile,                STRINGVector, 0 , OPTIONAL,  "CSV list of files with timestamps, file-format: lines of <GPSsec> <GPSnsec>, conflicts with inputSFTs and segmentFile");
+   XLALRegisterUvarMember(segmentFile,                   STRINGVector, 0 , OPTIONAL,  "CSV list of files with segments, file-format: lines with <GPSstart> <GPSend>, conflicts with inputSFTs and timestampsFile");
+   XLALRegisterUvarMember(gaussNoiseWithSFTgaps,         BOOLEAN, 0 , OPTIONAL,  "Gaussian noise using avesqrtSh with same gaps as inputSFTs, conflicts with timstampsFile and segmentFile");
+   XLALRegisterUvarMember(injectionSources,              STRINGVector, 0 , OPTIONAL,  "CSV file list containing sources to inject or '{Alpha=0;Delta=0;...}'");
+   XLALRegisterUvarMember(injFmin,                       REAL8, 0 , OPTIONAL,  "Minimum frequency of band to create in TwoSpect");
+   XLALRegisterUvarMember(injBand,                       REAL8, 0 , OPTIONAL,  "Width of band to create in TwoSpect");
+   XLALRegisterUvarMember(injRandSeed,                    INT4, 0 , OPTIONAL,  "Random seed value for reproducable noise, conflicts with inputSFTs");
+   XLALRegisterUvarMember(weightedIHS,                   BOOLEAN, 0 , DEVELOPER, "Use the noise-weighted IHS scheme");
+   XLALRegisterUvarMember(signalOnly,                    BOOLEAN, 0 , DEVELOPER, "SFTs contain only signal, no noise");
+   XLALRegisterUvarMember(templateTest,                  BOOLEAN, 0 , DEVELOPER, "Test the doubly-Fourier transformed data against a single, exact template");
+   XLALRegisterUvarMember(templateTestF,                 REAL8, 0 , DEVELOPER, "The template test frequency; templateTest flag is required");
+   XLALRegisterUvarMember(templateTestP,                 REAL8, 0 , DEVELOPER, "The template test period; templateTest flag is required");
+   XLALRegisterUvarMember(templateTestDf,                REAL8, 0 , DEVELOPER, "The template test modulation depth; templateTest flag is required");
+   XLALRegisterUvarMember(bruteForceTemplateTest,        BOOLEAN, 0 , DEVELOPER, "Test a number of different templates using templateTest parameters");
+   XLALRegisterUvarMember(ULsolver,                       INT4, 0 , DEVELOPER, "Solver function for the upper limit calculation: 0=gsl_ncx2cdf_float_withouttinyprob_solver, 1=gsl_ncx2cdf_withouttinyprob_solver, 2=gsl_ncx2cdf_float_solver, 3=gsl_ncx2cdf_solver, 4=ncx2cdf_float_withouttinyprob_withmatlabchi2cdf_solver, 5=ncx2cdf_withouttinyprob_withmatlabchi2cdf_solver");
+   XLALRegisterUvarMember(dopplerMultiplier,             REAL8, 0 , DEVELOPER, "Multiplier for the Doppler velocity");
+   XLALRegisterUvarMember(IHSonly,                       BOOLEAN, 0 , DEVELOPER, "IHS stage only is run. Output statistic is the IHS statistic");
+   XLALRegisterUvarMember(noNotchHarmonics,              BOOLEAN, 0 , DEVELOPER, "Do not notch the daily/sidereal harmonics in the IHS step");
+   XLALRegisterUvarMember(calcRthreshold,                BOOLEAN, 0 , DEVELOPER, "Calculate the threshold value for R given the template false alarm rate");
+   XLALRegisterUvarMember(antennaOff,                    BOOLEAN, 0 , DEVELOPER, "Antenna pattern weights are /NOT/ used if this flag is used");
+   XLALRegisterUvarMember(noiseWeightOff,                BOOLEAN, 0 , DEVELOPER, "Turn off noise weighting if this flag is used");
+   XLALRegisterUvarMember(gaussTemplatesOnly,            BOOLEAN, 0 , DEVELOPER, "Gaussian templates only throughout the pipeline if this flag is used");
+   XLALRegisterUvarMember(ULoff,                         BOOLEAN, 0 , DEVELOPER, "Turn off upper limits computation");
+   XLALRegisterUvarMember(BrentsMethod,                  BOOLEAN, 0 , DEVELOPER, "Use Brent's method for root finding of the R threshold value");
+   XLALRegisterUvarMember(printSFTtimes,                 BOOLEAN, 0 , DEVELOPER, "Output a list <GPS sec> <GPS nanosec> of SFT start times of SFTs");
+   XLALRegisterUvarMember(printData,                     BOOLEAN, 0 , DEVELOPER, "Print to ASCII files the data values");
+   XLALRegisterUvarMember(saveRvalues,                 STRING, 0 , DEVELOPER, "Print all R values from template bank file");
+   XLALRegisterUvarMember(printSignalData,             STRING, 0 , DEVELOPER, "Print f0 and h0 per SFT of the signal, used only with injectionSources");
+   XLALRegisterUvarMember(printMarginalizedSignalData, STRING, 0 , DEVELOPER, "Print f0 and h0 per SFT of the signal, used only with injectionSources");
+   XLALRegisterUvarMember(randSeed,                       INT4, 0 , DEVELOPER, "Random seed value");
+   XLALRegisterUvarMember(chooseSeed,                    BOOLEAN, 0 , DEVELOPER, "The random seed value is chosen based on the input search parameters");
 
    //Read all the input from config file and command line (command line has priority)
    //Also checks required variables unless help is requested
-   XLAL_CHECK( XLALUserVarReadAllInput(argc, argv) == XLAL_SUCCESS, XLAL_EFUNC );
-
-   //Help and exit
-   if (uvar->help) exit(0);
+   BOOLEAN should_exit = 0;
+   XLAL_CHECK( XLALUserVarReadAllInput( &should_exit, argc, argv ) == XLAL_SUCCESS, XLAL_EFUNC );
+   if ( should_exit ) exit(1);
 
    //Check analysis parameters
-   /* if (ceil(uvar->t0/uvar->Tsft)*uvar->Tsft - uvar->t0 != 0.0) {
+   if (ceil(uvar->t0/uvar->SFToverlap)*uvar->SFToverlap - uvar->t0 != 0.0) {
       REAL8 oldstart = uvar->t0;
-      uvar->t0 = ceil(uvar->t0/uvar->Tsft)*uvar->Tsft;
+      uvar->t0 = ceil(uvar->t0/uvar->SFToverlap)*uvar->SFToverlap;
       fprintf(stderr, "WARNING! Adjusting start time from %f to %f\n", oldstart, uvar->t0);
-      } */
+   }
    XLAL_CHECK( uvar->Pmax >= uvar->Pmin, XLAL_EINVAL, "Pmax is smaller than Pmin\n" );
    XLAL_CHECK( uvar->dfmax >= uvar->dfmin, XLAL_EINVAL, "dfmax is smaller than dfmin\n" );
    if (uvar->Pmax > 0.2*uvar->Tobs) {
@@ -1752,6 +1809,21 @@ INT4 readTwoSpectInputParams(UserInput_t *uvar, int argc, char *argv[])
    }
    uvar->dfmin = 0.5*round(2.0*uvar->dfmin*uvar->Tsft)/uvar->Tsft;
    uvar->dfmax = 0.5*round(2.0*uvar->dfmax*uvar->Tsft)/uvar->Tsft;
+   UINT4 firstbin, numbins;
+   XLAL_CHECK( XLALFindCoveringSFTBins(&firstbin, &numbins, uvar->fmin-uvar->dfmax-6.0/uvar->Tsft, uvar->fspan+2.0*uvar->dfmax+12.0/uvar->Tsft, uvar->Tsft) == XLAL_SUCCESS, XLAL_EFUNC );
+   REAL8 newfmin = (firstbin+6+uvar->dfmax*uvar->Tsft)/uvar->Tsft;
+   REAL8 newfspan = (numbins-2*uvar->dfmax*uvar->Tsft-13)/uvar->Tsft;
+   if (newfmin != uvar->fmin) {
+      uvar->fmin = newfmin;
+      fprintf(stderr, "WARNING! Adjusting fmin to %g\n", newfmin);
+   }
+   if (newfspan != uvar->fspan) {
+      uvar->fspan = newfspan;
+      fprintf(stderr, "WARNING! Adjusting fspan to %g\n", newfspan);
+   }
+
+   //If specifying coherent addition assumed frequency parameters, then check all are present
+   XLAL_CHECK( !(XLALUserVarWasSet(&uvar->assumeNSGWfreq) || XLALUserVarWasSet(&uvar->assumeNSorbitP) || XLALUserVarWasSet(&uvar->assumeNSasini) || XLALUserVarWasSet(&uvar->assumeNSorbitTp)) || (XLALUserVarWasSet(&uvar->assumeNSGWfreq) && XLALUserVarWasSet(&uvar->assumeNSorbitP) && XLALUserVarWasSet(&uvar->assumeNSasini) && XLALUserVarWasSet(&uvar->assumeNSorbitTp)), XLAL_EINVAL, "Need to specify all parameters for frequency evolution (assumeNSrefTime is optional)" );
 
    //Check blocksize settings for running mean
    if (uvar->blksize % 2 != 1) uvar->blksize += 1;
@@ -1768,9 +1840,14 @@ INT4 readTwoSpectInputParams(UserInput_t *uvar, int argc, char *argv[])
    //Check skyRegion and skyRegionFile options
    if ((XLALUserVarWasSet(&uvar->skyRegion) && XLALUserVarWasSet(&uvar->skyRegionFile)) || (!XLALUserVarWasSet(&uvar->skyRegion) && !XLALUserVarWasSet(&uvar->skyRegionFile))) XLAL_ERROR(XLAL_EINVAL, "Specify only one of skyRegion or skyRegionFile\n");
 
+   //Check required options if specifying templateSearchFixedDf
+   if (uvar->templateSearchFixedDf || XLALUserVarWasSet(&uvar->templateSearchDf)) {
+      if (!(uvar->templateSearchFixedDf && XLALUserVarWasSet(&uvar->templateSearchDf) && XLALUserVarWasSet(&uvar->templateSearchP))) XLAL_ERROR(XLAL_FAILURE, "Must specify all or none of templateSearchFixedDf, templateSearchDf, templateSearchP\n");
+   }
+
    //Check required options if specifying templateSearch
    if (uvar->templateSearch || XLALUserVarWasSet(&uvar->templateSearchP) || XLALUserVarWasSet(&uvar->templateSearchAsini) || XLALUserVarWasSet(&uvar->templateSearchAsiniSigma)) {
-      if (!(uvar->templateSearch && XLALUserVarWasSet(&uvar->templateSearchP) && XLALUserVarWasSet(&uvar->templateSearchAsini) && XLALUserVarWasSet(&uvar->templateSearchAsiniSigma))) XLAL_ERROR(XLAL_FAILURE, "Must specify all or none of templateSearch, templateSearchP, templateSearchAsini, and templateSearchAsiniSigma\n");
+      if (!(uvar->templateSearchFixedDf) && !(uvar->templateSearch && XLALUserVarWasSet(&uvar->templateSearchP) && XLALUserVarWasSet(&uvar->templateSearchAsini) && XLALUserVarWasSet(&uvar->templateSearchAsiniSigma))) XLAL_ERROR(XLAL_FAILURE, "Must specify all or none of templateSearch, templateSearchP, templateSearchAsini, and templateSearchAsiniSigma\n");
    }
 
    //Error if dfmax is smaller than templateTestDf or if dfmax is smaller than the templateSearch or bruteForceTemplateTest largest modulation depth

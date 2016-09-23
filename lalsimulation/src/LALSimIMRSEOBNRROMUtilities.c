@@ -83,6 +83,21 @@ UNUSED static gsl_vector *Fit_cubic(const gsl_vector *xi, const gsl_vector *yi);
 UNUSED static bool approximately_equal(REAL8 x, REAL8 y, REAL8 epsilon);
 UNUSED static void nudge(REAL8 *x, REAL8 X, REAL8 epsilon);
 
+UNUSED static double SEOBNRROM_Ringdown_Mf_From_Mtot_q(
+  const double Mtot_sec,
+  const double q,
+  const double chi1,
+  const double chi2,
+  Approximant apx
+);
+UNUSED static double SEOBNRROM_Ringdown_Mf_From_Mtot_Eta(
+  const double Mtot_sec,
+  const double eta,
+  const double chi1,
+  const double chi2,
+  Approximant apx
+);
+
 
 // Definitions
 
@@ -248,10 +263,11 @@ static int ReadHDF5RealMatrixDataset(LALH5File *file, const char *name, gsl_matr
 }
 
 static void PrintInfoStringAttribute(LALH5File *file, const char attribute[]) {
-  int len = XLALH5FileQueryStringAttributeValue(NULL, 0, file, attribute) + 1;
+  LALH5Generic gfile = {.file = file};
+  int len = XLALH5AttributeQueryStringValue(NULL, 0, gfile, attribute) + 1;
   char *str = XLALMalloc(len);
   XLALH5FileQueryStringAttributeValue(str, len, file, attribute);
-  XLALPrintInfo("%s\n", str);
+  XLALPrintInfo("%s:\n%s\n", attribute, str);
   LALFree(str);
 }
 
@@ -260,9 +276,10 @@ static int ROM_check_version_number(LALH5File *file, 	INT4 version_major_in, INT
   INT4 version_minor;
   INT4 version_micro;
 
-  XLALH5FileQueryScalarAttributeValue(&version_major, file, "version_major");
-  XLALH5FileQueryScalarAttributeValue(&version_minor, file, "version_minor");
-  XLALH5FileQueryScalarAttributeValue(&version_micro, file, "version_micro");
+  LALH5Generic gfile = {.file = file};
+  XLALH5AttributeQueryScalarValue(&version_major, gfile, "version_major");
+  XLALH5AttributeQueryScalarValue(&version_minor, gfile, "version_minor");
+  XLALH5AttributeQueryScalarValue(&version_micro, gfile, "version_micro");
 
   if ((version_major_in != version_major) || (version_minor_in != version_minor) || (version_micro_in != version_micro)) {
     XLAL_ERROR(XLAL_EIO, "Expected ROM data version %d.%d.%d, but got version %d.%d.%d.",
@@ -424,4 +441,32 @@ static void nudge(REAL8 *x, REAL8 X, REAL8 epsilon) {
     if (fabs(*x - X) < epsilon)
       *x = X;
   }
+}
+
+/* compute ringdown frequency for (2,2) mode from total mass and mass ratio */
+static double SEOBNRROM_Ringdown_Mf_From_Mtot_q(
+  const double Mtot_sec,
+  const double q,
+  const double chi1,
+  const double chi2,
+  Approximant apx
+)
+{
+  double Mtot_SI = Mtot_sec / LAL_MTSUN_SI * LAL_MSUN_SI;
+  double m1_SI = Mtot_SI * q / (1. + q);
+  double m2_SI = Mtot_SI * 1. / (1. + q);
+  return XLALSimInspiralGetFinalFreq(m1_SI, m2_SI, 0, 0, chi1, 0, 0, chi2, apx) * Mtot_sec;
+}
+
+/* compute ringdown frequency for (2,2) mode from total mass and eta */
+static double SEOBNRROM_Ringdown_Mf_From_Mtot_Eta(
+  const double Mtot_sec,
+  const double eta,
+  const double chi1,
+  const double chi2,
+  Approximant apx
+)
+{
+  double q = (1. + sqrt(1. - 4. * eta) - 2. * eta) / (2. * eta);
+  return SEOBNRROM_Ringdown_Mf_From_Mtot_q(Mtot_sec, q, chi1, chi2, apx);
 }

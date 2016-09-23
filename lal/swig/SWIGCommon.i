@@ -363,14 +363,14 @@ if (swiglal_release_parent(PTR)) {
 %enddef
 
 ///
-/// Create constructors and destructors for a <tt>struct TAGNAME</tt>.
-%define %swiglal_struct_create_cdtors(TAGNAME, OPAQUE, DTORFUNC)
+/// Extend a <tt>struct TAGNAME</tt>.
+%define %swiglal_struct_extend(TAGNAME, OPAQUE, DTORFUNC)
 /// <ul><li>
 
 /// If this is an opaque struct, create an empty struct to represent the opaque struct, so that SWIG
 /// has something to attach the destructor to.  No constructors are generated, since it is assumed
 /// that the struct will have a creator function. Otherwise, if this is not an opaque struct,
-/// generate a basic constructor, using XLALCalloc() to allocate memory.
+/// generate basic constructor and (shallow) copy constructor, using XLALCalloc() to allocate memory.
 #if OPAQUE
 struct TAGNAME {
 };
@@ -378,6 +378,9 @@ struct TAGNAME {
 %extend TAGNAME {
   TAGNAME() {
     return %swiglal_new_instance(struct TAGNAME);
+  }
+  TAGNAME(const struct TAGNAME *src) {
+    return %swiglal_new_copy(*src, struct TAGNAME);
   }
 }
 #endif
@@ -400,6 +403,49 @@ struct TAGNAME {
 }
 #endif
 
+/// </li><li>
+
+/// Create shallow copy function __copy__() for the use of Python's copy.copy() function. It is
+/// always defined but will fail for opaque structs, which cannot be copied.
+#if !OPAQUE
+%extend TAGNAME {
+  struct TAGNAME *__copy__() {
+    return %swiglal_new_copy(*$self, struct TAGNAME);
+  }
+}
+#else
+%extend TAGNAME {
+  struct TAGNAME *__copy__() {
+    XLALSetErrno(XLAL_ENOSYS); /* Silently signal an error to wrapper function */
+    return NULL;
+  }
+}
+#endif
+
+/// </li><li>
+
+/// Create deep copy function __deepcopy__() for the use of Python's copy.deepcopy() function. It is
+/// always defined but will fail for opaque structs, which cannot be copied, and for structs with a
+/// destructor, which presumably cannot be trivially copied with memcpy().
+#if !OPAQUE && #DTORFUNC == ""
+%extend TAGNAME {
+  %typemap(in, noblock=1) const void *memo "";
+  struct TAGNAME *__deepcopy__(const void *memo) {
+    return %swiglal_new_copy(*$self, struct TAGNAME);
+  }
+  %clear const void *memo;
+}
+#else
+%extend TAGNAME {
+  %typemap(in, noblock=1) const void *memo "";
+  struct TAGNAME *__deepcopy__(const void *memo) {
+    XLALSetErrno(XLAL_ENOSYS); /* Silently signal an error to wrapper function */
+    return NULL;
+  }
+  %clear const void *memo;
+}
+#endif
+
 /// </li></ul>
 %enddef
 
@@ -410,14 +456,22 @@ struct TAGNAME {
 ///
 /// Map fixed-array types to special variables of their elements, e.g.
 /// <tt>$typemap(swiglal_fixarr_ltype, const int[][])</tt> returns \c int.
-/// Fixed-array types are assumed never to be arrays of pointers.
 ///
 %typemap(swiglal_fixarr_ltype) SWIGTYPE "$ltype";
 %typemap(swiglal_fixarr_ltype) SWIGTYPE[ANY] "$typemap(swiglal_fixarr_ltype, $*type)";
 %typemap(swiglal_fixarr_ltype) SWIGTYPE[ANY][ANY] "$typemap(swiglal_fixarr_ltype, $*type)";
+
 %typemap(swiglal_fixarr_tinfo) SWIGTYPE "$&descriptor";
+%typemap(swiglal_fixarr_tinfo) SWIGTYPE * "$descriptor";
+%typemap(swiglal_fixarr_tinfo) SWIGTYPE *const "$descriptor";
 %typemap(swiglal_fixarr_tinfo) SWIGTYPE[ANY] "$typemap(swiglal_fixarr_tinfo, $*type)";
 %typemap(swiglal_fixarr_tinfo) SWIGTYPE[ANY][ANY] "$typemap(swiglal_fixarr_tinfo, $*type)";
+
+%typemap(swiglal_fixarr_isptr) SWIGTYPE "false";
+%typemap(swiglal_fixarr_isptr) SWIGTYPE * "true";
+%typemap(swiglal_fixarr_isptr) SWIGTYPE *const "true";
+%typemap(swiglal_fixarr_isptr) SWIGTYPE[ANY] "$typemap(swiglal_fixarr_isptr, $*type)";
+%typemap(swiglal_fixarr_isptr) SWIGTYPE[ANY][ANY] "$typemap(swiglal_fixarr_isptr, $*type)";
 
 ///
 /// The conversion of C arrays to/from scripting-language arrays are performed by the following
@@ -555,7 +609,7 @@ struct TAGNAME {
   /* swiglal_array_typeid input type: $1_type */
   int res = %swiglal_array_copyin($1_type)(swiglal_no_self(), $input, %as_voidptr(&temp$argnum[0]),
                                            sizeof(temp$argnum[0]), 1, dims, strides,
-                                           false, $typemap(swiglal_fixarr_tinfo, $1_type),
+                                           $typemap(swiglal_fixarr_isptr, $1_type), $typemap(swiglal_fixarr_tinfo, $1_type),
                                            %convertptr_flags);
   $1 = SWIG_CheckState(res);
 }
@@ -566,7 +620,7 @@ struct TAGNAME {
   /* swiglal_array_typeid input type: $1_type */
   int res = %swiglal_array_copyin($1_type)(swiglal_no_self(), $input, %as_voidptr(&temp$argnum[0]),
                                            sizeof(temp$argnum[0][0]), 2, dims, strides,
-                                           false, $typemap(swiglal_fixarr_tinfo, $1_type),
+                                           $typemap(swiglal_fixarr_isptr, $1_type), $typemap(swiglal_fixarr_tinfo, $1_type),
                                            %convertptr_flags);
   $1 = SWIG_CheckState(res);
 }
@@ -583,7 +637,7 @@ struct TAGNAME {
     /* swiglal_array_typeid input type: $1_type */
     int res = %swiglal_array_copyin($1_type)(swiglal_no_self(), $input, %as_voidptr($1),
                                              sizeof($1[0]), 1, dims, strides,
-                                             false, $typemap(swiglal_fixarr_tinfo, $1_type),
+                                             $typemap(swiglal_fixarr_isptr, $1_type), $typemap(swiglal_fixarr_tinfo, $1_type),
                                              $disown | %convertptr_flags);
     if (!SWIG_IsOK(res)) {
       %argument_fail(res, "$type", $symname, $argnum);
@@ -599,7 +653,7 @@ struct TAGNAME {
     /* swiglal_array_typeid input type: $1_type */
     int res = %swiglal_array_copyin($1_type)(swiglal_no_self(), $input, %as_voidptr($1),
                                              sizeof($1[0][0]), 2, dims, strides,
-                                             false, $typemap(swiglal_fixarr_tinfo, $1_type),
+                                             $typemap(swiglal_fixarr_isptr, $1_type), $typemap(swiglal_fixarr_tinfo, $1_type),
                                              $disown | %convertptr_flags);
     if (!SWIG_IsOK(res)) {
       %argument_fail(res, "$type", $symname, $argnum);
@@ -616,7 +670,7 @@ struct TAGNAME {
   /* swiglal_array_typeid input type: $1_type */
   int res = %swiglal_array_copyin($1_type)(swiglal_no_self(), $input, %as_voidptr($1),
                                            sizeof($1[0]), 1, dims, strides,
-                                           false, $typemap(swiglal_fixarr_tinfo, $1_type),
+                                           $typemap(swiglal_fixarr_isptr, $1_type), $typemap(swiglal_fixarr_tinfo, $1_type),
                                            %convertptr_flags);
   if (!SWIG_IsOK(res)) {
     %variable_fail(res, "$type", $symname);
@@ -628,7 +682,7 @@ struct TAGNAME {
   /* swiglal_array_typeid input type: $1_type */
   int res = %swiglal_array_copyin($1_type)(swiglal_no_self(), $input, %as_voidptr($1),
                                            sizeof($1[0][0]), 2, dims, strides,
-                                           false, $typemap(swiglal_fixarr_tinfo, $1_type),
+                                           $typemap(swiglal_fixarr_isptr, $1_type), $typemap(swiglal_fixarr_tinfo, $1_type),
                                            %convertptr_flags);
   if (!SWIG_IsOK(res)) {
     %variable_fail(res, "$type", $symname);
@@ -645,12 +699,12 @@ struct TAGNAME {
 %#if $owner & SWIG_POINTER_OWN
   %set_output(%swiglal_array_copyout($1_type)(swiglal_no_self(), %as_voidptr($1),
                                               sizeof($1[0]), 1, dims, strides,
-                                              false, $typemap(swiglal_fixarr_tinfo, $1_type),
+                                              $typemap(swiglal_fixarr_isptr, $1_type), $typemap(swiglal_fixarr_tinfo, $1_type),
                                               $owner | %newpointer_flags));
 %#else
   %set_output(%swiglal_array_viewout($1_type)(swiglal_self(), %as_voidptr($1),
                                               sizeof($1[0]), 1, dims, strides,
-                                              false, $typemap(swiglal_fixarr_tinfo, $1_type),
+                                              $typemap(swiglal_fixarr_isptr, $1_type), $typemap(swiglal_fixarr_tinfo, $1_type),
                                               $owner | %newpointer_flags));
 %#endif
 }
@@ -661,12 +715,12 @@ struct TAGNAME {
 %#if $owner & SWIG_POINTER_OWN
   %set_output(%swiglal_array_copyout($1_type)(swiglal_no_self(), %as_voidptr($1),
                                               sizeof($1[0][0]), 2, dims, strides,
-                                              false, $typemap(swiglal_fixarr_tinfo, $1_type),
+                                              $typemap(swiglal_fixarr_isptr, $1_type), $typemap(swiglal_fixarr_tinfo, $1_type),
                                               $owner | %newpointer_flags));
 %#else
   %set_output(%swiglal_array_viewout($1_type)(swiglal_self(), %as_voidptr($1),
                                               sizeof($1[0][0]), 2, dims, strides,
-                                              false, $typemap(swiglal_fixarr_tinfo, $1_type),
+                                              $typemap(swiglal_fixarr_isptr, $1_type), $typemap(swiglal_fixarr_tinfo, $1_type),
                                               $owner | %newpointer_flags));
 %#endif
 }
@@ -680,7 +734,7 @@ struct TAGNAME {
   /* swiglal_array_typeid input type: $1_type */
   %set_output(%swiglal_array_viewout($1_type)(swiglal_no_self(), %as_voidptr($1),
                                               sizeof($1[0]), 1, dims, strides,
-                                              false, $typemap(swiglal_fixarr_tinfo, $1_type),
+                                              $typemap(swiglal_fixarr_isptr, $1_type), $typemap(swiglal_fixarr_tinfo, $1_type),
                                               %newpointer_flags));
 }
 %typemap(varout) SWIGTYPE[ANY][ANY] {
@@ -689,7 +743,7 @@ struct TAGNAME {
   /* swiglal_array_typeid input type: $1_type */
   %set_output(%swiglal_array_viewout($1_type)(swiglal_no_self(), %as_voidptr($1),
                                               sizeof($1[0][0]), 2, dims, strides,
-                                              false, $typemap(swiglal_fixarr_tinfo, $1_type),
+                                              $typemap(swiglal_fixarr_isptr, $1_type), $typemap(swiglal_fixarr_tinfo, $1_type),
                                               %newpointer_flags));
 }
 
@@ -706,7 +760,7 @@ struct TAGNAME {
   /* swiglal_array_typeid input type: $1_type */
   %append_output(%swiglal_array_copyout($1_type)(swiglal_no_self(), %as_voidptr($1),
                                                  sizeof($1[0]), 1, dims, strides,
-                                                 false, $typemap(swiglal_fixarr_tinfo, $1_type),
+                                                 $typemap(swiglal_fixarr_isptr, $1_type), $typemap(swiglal_fixarr_tinfo, $1_type),
                                                  SWIG_POINTER_OWN | %newpointer_flags));
 }
 %typemap(in, noblock=1, numinputs=0) SWIGTYPE OUTPUT[ANY][ANY] {
@@ -719,7 +773,7 @@ struct TAGNAME {
   /* swiglal_array_typeid input type: $1_type */
   %append_output(%swiglal_array_copyout($1_type)(swiglal_no_self(), %as_voidptr($1),
                                                  sizeof($1[0][0]), 2, dims, strides,
-                                                 false, $typemap(swiglal_fixarr_tinfo, $1_type),
+                                                 $typemap(swiglal_fixarr_isptr, $1_type), $typemap(swiglal_fixarr_tinfo, $1_type),
                                                  SWIG_POINTER_OWN | %newpointer_flags));
 }
 
@@ -763,10 +817,11 @@ struct TAGNAME {
 /// even for non-pointer types, and determine whether array is an array of pointers or of data
 /// blocks.
 ///
-%typemap(swiglal_dynarr_isptr) SWIGTYPE  "false";
 %typemap(swiglal_dynarr_tinfo) SWIGTYPE  "$&descriptor";
-%typemap(swiglal_dynarr_isptr) SWIGTYPE* "true";
 %typemap(swiglal_dynarr_tinfo) SWIGTYPE* "$descriptor";
+
+%typemap(swiglal_dynarr_isptr) SWIGTYPE  "false";
+%typemap(swiglal_dynarr_isptr) SWIGTYPE* "true";
 
 ///
 /// Create immutable members for accessing the array's dimensions.  \c NI is the name of the
@@ -1022,11 +1077,11 @@ if (strides[I-1] == 0) {
         if (!SWIG_IsOK(res)) {
           %argument_fail(res, "$type", $symname, $argnum);
         } else {
-          temp.NI = dims[0];
+          temp.NI = %reinterpret_cast(dims[0], SIZET);
           argp = &temp;
         }
       } else {
-        temp.NI = dims[0];
+        temp.NI = %reinterpret_cast(dims[0], SIZET);
         argp = &temp;
       }
     } else {
@@ -1060,7 +1115,7 @@ if (strides[I-1] == 0) {
       if (!SWIG_IsOK(res)) {
         %argument_fail(res, "$type", $symname, $argnum);
       } else {
-        temp.NI = dims[0];
+        temp.NI = %reinterpret_cast(dims[0], SIZET);
         argp = &temp;
       }
     } else {
@@ -1077,7 +1132,7 @@ if (strides[I-1] == 0) {
 /// - If the input argument is a SWIG-wrapped \c NAME*, just unwrap it and return a reference.
 /// - If the input argument is a native scripting-language array, make an internal copy of it,
 ///   use the copy, and return a native scripting-language array copy of the internal copy.
-%typemap(in, noblock=1) NAME* SWIGLAL_COPYINOUT_ARRAY (void *argp = 0, int res = 0, NAME temp, void *swig_obj = 0, void *temp_data = 0) %{
+%typemap(in, noblock=1) NAME* SWIGLAL_COPYINOUT_ARRAY (void *argp = 0, int res = 0, NAME temp, SWIG_Object input_ref, void *temp_data = 0) %{
   res = SWIG_ConvertPtr($input, &argp, $descriptor, 0 /*$disown*/ | %convertptr_flags);
   if (!SWIG_IsOK(res)) {
     typedef struct { SIZET NI; TYPE* DATA; } sizchk_t;
@@ -1099,7 +1154,7 @@ if (strides[I-1] == 0) {
         if (!SWIG_IsOK(res)) {
           %argument_fail(res, "$type", $symname, $argnum);
         } else {
-          temp.NI = dims[0];
+          temp.NI = %reinterpret_cast(dims[0], SIZET);
           argp = &temp;
         }
       } else {
@@ -1109,7 +1164,7 @@ if (strides[I-1] == 0) {
       %argument_fail(res, "$type", $symname, $argnum);
     }
   } else {
-    swig_obj = %reinterpret_cast(&$input, void*);
+    input_ref = $input;
   }
   $1 = %reinterpret_cast(argp, $ltype);
 %}
@@ -1123,7 +1178,7 @@ if (strides[I-1] == 0) {
                                                  $typemap(swiglal_dynarr_isptr, TYPE), $typemap(swiglal_dynarr_tinfo, TYPE),
                                                  SWIG_POINTER_OWN | %newpointer_flags));
   } else {
-    %append_output(swiglal_get_reference(*%reinterpret_cast(swig_obj$argnum, SWIG_Object*)));
+    %append_output(swiglal_get_reference(input_ref$argnum));
   }
 %}
 %typemap(freearg, match="in", noblock=1) NAME* SWIGLAL_COPYINOUT_ARRAY %{
@@ -1164,13 +1219,13 @@ if (strides[I-1] == 0) {
         if (!SWIG_IsOK(res)) {
           %argument_fail(res, "$type", $symname, $argnum);
         } else {
-          temp.NI = dims[0];
-          temp.NJ = dims[1];
+          temp.NI = %reinterpret_cast(dims[0], SIZET);
+          temp.NJ = %reinterpret_cast(dims[1], SIZET);
           argp = &temp;
         }
       } else {
-        temp.NI = dims[0];
-        temp.NJ = dims[1];
+        temp.NI = %reinterpret_cast(dims[0], SIZET);
+        temp.NJ = %reinterpret_cast(dims[1], SIZET);
         argp = &temp;
       }
     } else {
@@ -1204,8 +1259,8 @@ if (strides[I-1] == 0) {
       if (!SWIG_IsOK(res)) {
         %argument_fail(res, "$type", $symname, $argnum);
       } else {
-        temp.NI = dims[0];
-        temp.NJ = dims[1];
+        temp.NI = %reinterpret_cast(dims[0], SIZET);
+        temp.NJ = %reinterpret_cast(dims[1], SIZET);
         argp = &temp;
       }
     } else {
@@ -1222,7 +1277,7 @@ if (strides[I-1] == 0) {
 /// - If the input argument is a SWIG-wrapped \c NAME*, just unwrap it and return a reference.
 /// - If the input argument is a native scripting-language array, make an internal copy of it,
 ///   use the copy, and return a native scripting-language array copy of the internal copy.
-%typemap(in, noblock=1) NAME* SWIGLAL_COPYINOUT_ARRAY (void *argp = 0, int res = 0, NAME temp, void *swig_obj = 0, void *temp_data = 0) %{
+%typemap(in, noblock=1) NAME* SWIGLAL_COPYINOUT_ARRAY (void *argp = 0, int res = 0, NAME temp, SWIG_Object input_ref, void *temp_data = 0) %{
   res = SWIG_ConvertPtr($input, &argp, $descriptor, 0 /*$disown*/ | %convertptr_flags);
   if (!SWIG_IsOK(res)) {
     typedef struct { SIZET NI; SIZET NJ; TYPE* DATA; } sizchk_t;
@@ -1244,8 +1299,8 @@ if (strides[I-1] == 0) {
         if (!SWIG_IsOK(res)) {
           %argument_fail(res, "$type", $symname, $argnum);
         } else {
-          temp.NI = dims[0];
-          temp.NJ = dims[1];
+          temp.NI = %reinterpret_cast(dims[0], SIZET);
+          temp.NJ = %reinterpret_cast(dims[1], SIZET);
           argp = &temp;
         }
       } else {
@@ -1255,7 +1310,7 @@ if (strides[I-1] == 0) {
       %argument_fail(res, "$type", $symname, $argnum);
     }
   } else {
-    swig_obj = %reinterpret_cast(&$input, void*);
+    input_ref = $input;
   }
   $1 = %reinterpret_cast(argp, $ltype);
 %}
@@ -1269,7 +1324,7 @@ if (strides[I-1] == 0) {
                                                  $typemap(swiglal_dynarr_isptr, TYPE), $typemap(swiglal_dynarr_tinfo, TYPE),
                                                  SWIG_POINTER_OWN | %newpointer_flags));
   } else {
-    %append_output(swiglal_get_reference(*%reinterpret_cast(swig_obj$argnum, SWIG_Object*)));
+    %append_output(swiglal_get_reference(input_ref$argnum));
   }
 %}
 %typemap(freearg, match="in", noblock=1) NAME* SWIGLAL_COPYINOUT_ARRAY %{
@@ -1853,7 +1908,7 @@ if (strides[I-1] == 0) {
 /// <b>swiglal_specialised_<i>TAGNAME</i>(INPUT, OUTPUT)</b>, to try to convert \c INPUT from some
 /// other value, and if successful store it in <tt>struct TAGNAME OUTPUT</tt>.  Otherwise, raise a
 /// SWIG error. Separate typemaps are needed for <tt>struct TAGNAME</tt> and pointers to <tt>struct
-/// TAGNAME</tt>.
+/// TAGNAME</tt>. Typecheck typemaps are used by overloaded functions, e.g. constructors.
 ///
 %define %swiglal_specialised_typemaps(TAGNAME, FRAGMENT)
 %typemap(in, noblock=1, fragment=FRAGMENT)
@@ -1896,6 +1951,26 @@ if (strides[I-1] == 0) {
   }
 }
 %typemap(freearg) struct TAGNAME*, const struct TAGNAME* "";
+%typemap(typecheck, fragment=FRAGMENT, precedence=SWIG_TYPECHECK_SWIGOBJECT) struct TAGNAME, const struct TAGNAME {
+  void *argp = 0;
+  int res = SWIG_ConvertPtr($input, &argp, $&descriptor, 0);
+  $1 = SWIG_CheckState(res);
+  if (!$1) {
+    struct TAGNAME tmp;
+    res = swiglal_specialised_##TAGNAME($input, &tmp);
+    $1 = SWIG_CheckState(res);
+  }
+}
+%typemap(typecheck, fragment=FRAGMENT, precedence=SWIG_TYPECHECK_SWIGOBJECT) struct TAGNAME*, const struct TAGNAME* {
+  void *argp = 0;
+  int res = SWIG_ConvertPtr($input, &argp, $descriptor, 0);
+  $1 = SWIG_CheckState(res);
+  if (!$1) {
+    struct TAGNAME tmp;
+    res = swiglal_specialised_##TAGNAME($input, &tmp);
+    $1 = SWIG_CheckState(res);
+  }
+}
 %enddef
 
 ///
@@ -2010,20 +2085,6 @@ typedef struct {} NAME;
 }
 %enddef
 #define %swiglal_public_clear_EXTERNAL_STRUCT(NAME, DTORFUNC)
-
-///
-/// The <b>SWIGLAL(COPY_CONSTRUCTOR(TAGNAME))</b> macro can be used to add a copy constructor to the
-/// struct TAGNAME, if that is a valid operation. Note that this performs only a <i>struct copy</i>,
-/// not a <i>deep copy</i>. The macro should first appear after the definition of struct TAGNAME.
-///
-%define %swiglal_public_COPY_CONSTRUCTOR(TAGNAME)
-%extend TAGNAME {
-  TAGNAME(const struct TAGNAME* src) {
-    return %swiglal_new_copy(*src, struct TAGNAME);
-  }
-}
-%enddef
-#define %swiglal_public_clear_COPY_CONSTRUCTOR(...)
 
 ///
 /// The <b>SWIGLAL(CAST_STRUCT_TO(...))</b> macro adds to the containing struct methods which cast

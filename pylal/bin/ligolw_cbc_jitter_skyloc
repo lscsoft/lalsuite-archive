@@ -41,11 +41,6 @@ from pylal import date
 from pylal import git_version
 from pylal import sphericalutils as su
 from pylal import inject
-try:
-    from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-except ImportError:
-    from pylal.date import LIGOTimeGPS
-lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 #
@@ -65,15 +60,6 @@ def lonlat2polaz(lon, lat):
     """
     return lal.PI_2 - lat, lon
 
-def site_end_time(detector, sim):
-    """
-    Return the time of the simulated gravitational wave arriving
-    the given detector, computed from the arrival time at geocenter.
-    """
-    delay = LIGOTimeGPS(date.XLALTimeDelayFromEarthCenter(detector.location,
-        sim.longitude, sim.latitude, sim.get_end()))
-    return sim.get_end() + delay
-
 def eff_distance(detector, sim):
     """
     Return the effective distance.
@@ -81,7 +67,7 @@ def eff_distance(detector, sim):
     Ref: Duncan's PhD thesis, eq. (4.3) on page 57, implemented in
          LALInspiralSiteTimeAndDist in SimInspiralUtils.c:594.
     """
-    f_plus, f_cross = inject.XLALComputeDetAMResponse(detector.response,
+    f_plus, f_cross = lal.ComputeDetAMResponse(detector.response,
         sim.longitude, sim.latitude, sim.polarization, sim.end_time_gmst)
     ci = math.cos(sim.inclination)
     s_plus = -(1 + ci * ci)
@@ -139,11 +125,12 @@ process = ligolw_process.register_to_xmldoc(siminsp_doc,
 # Compute new sky locations
 #
 site_location_list = [\
-    ("h", inject.cached_detector["LHO_4k"]),
-    ("l", inject.cached_detector["LLO_4k"]),
-    ("g", inject.cached_detector["GEO_600"]),
-    ("t", inject.cached_detector["TAMA_300"]),
-    ("v", inject.cached_detector["VIRGO"])]
+    ("h", "H1"),
+    ("l", "L1"),
+    ("g", "G1"),
+    ("t", "T1"),
+    ("v", "V1")
+]
 for sim in table.get_table(siminsp_doc, lsctables.SimInspiralTable.tableName):
 
     # The Fisher distribution is the appropriate generalization of a
@@ -154,17 +141,16 @@ for sim in table.get_table(siminsp_doc, lsctables.SimInspiralTable.tableName):
       jitter_sig = jitter_sigma
 
     kappa = 1 / (0.66 * jitter_sig)**2  # approximation from Briggs99
-    sim.longitude, sim.latitude = \
+    sim.ra_dec = \
         polaz2lonlat(*su.fisher_rvs(np.array(\
-            lonlat2polaz(sim.longitude, sim.latitude)), kappa).squeeze())
+            lonlat2polaz(*sim.ra_dec)), kappa).squeeze())
 
     # update arrival times and effective distances at the sites
-    sim_geocent_end = sim.get_end()
-    for site, detector in site_location_list:
-        site_end = site_end_time(detector, sim)
-        setattr(sim, site + "_end_time", site_end.seconds)
-        setattr(sim, site + "_end_time_ns", site_end.nanoseconds)
-        setattr(sim, "eff_dist_" + site, eff_distance(detector, sim))
+    for site, instrument_name in site_location_list:
+        site_end = sim.time_at_instrument(instrument_name, {instrument_name: 0.0})
+        setattr(sim, site + "_end_time", site_end.gpsSeconds)
+        setattr(sim, site + "_end_time_ns", site_end.gpsNanoSeconds)
+        setattr(sim, "eff_dist_" + site, eff_distance(inject.cached_detector_by_prefix[instrument], sim))
 
 
 #

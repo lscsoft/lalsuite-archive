@@ -1,5 +1,7 @@
 #include <lal/LALSimInspiral.h>
 #include <lal/LALSimIMR.h>
+#include <gsl/gsl_spline.h>
+#include <math.h>
 
 #include "LALSimIMREOBNRv2.h"
 
@@ -12,10 +14,13 @@
 #define UNUSED
 #endif
 
+
+
 /**
  * Set the total number of multipoles
  * */
 #define MAX_NUM_MODES 7
+
 
 struct
 SpinEOBModes
@@ -43,6 +48,8 @@ SpinEOBModes
  * d1v2 - SO calibration parameter of SEOBNRv2
  * dheffSS - SS calibration parameter of SEOBNRv1
  * dheffSSv2 - SS calibration parameter of SEOBNRv2
+ * tidal1 - tidal params of body 1
+ * tidal2 - tidal params of body 2
  */
 
 typedef struct
@@ -63,6 +70,9 @@ tagSpinEOBHCoeffs
   double dheffSS;
   double dheffSSv2;
   UINT4    SpinAlignedEOBversion;
+  int      updateHCoeffs;
+  TidalEOBParams *tidal1;
+  TidalEOBParams *tidal2;
 }
 SpinEOBHCoeffs;
 
@@ -91,8 +101,10 @@ tagSpinEOBParams
   REAL8                   a;
   REAL8                   chi1;
   REAL8                   chi2;
+  REAL8                   prev_dr;
   int                     alignedSpins;
   int                     tortoise;
+  int ignoreflux;
 }
 SpinEOBParams;
 
@@ -116,5 +128,27 @@ struct tagHcapSphDeriv2Params
   UINT4           varyParam2;
 }
 HcapSphDeriv2Params;
+
+/* We need to encapsulate the data for the GSL derivative function */
+typedef
+struct tagPrecEulerAnglesIntegration
+{
+   gsl_spline *alpha_spline;
+   gsl_spline *beta_spline;
+   gsl_interp_accel *alpha_acc;
+   gsl_interp_accel *beta_acc;
+}
+PrecEulerAnglesIntegration;
+
+
+
+
+
+
+
+
+
+
+
 
 #endif /* _LALSIMIMRSPINEOB_H */

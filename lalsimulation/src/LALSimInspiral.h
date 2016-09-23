@@ -167,14 +167,14 @@ extern "C" {
  * At present, eccentric orbits are not fully supported, and the x-axis
  * of the source frame is defined to be the ascending node
  * @htmlonly &#x260A; @endhtmlonly.  Therefore, &omega;=0 by definition.
- * 
+ *
  * @attention
  * In the present implementation, the reference direction in the wave frame,
  * i.e., the X-axis, is defined to be the ascending node
  * @htmlonly &#x260A; @endhtmlonly.  Therefore, &Omega;=0 by definition.  At
  * present, then, the X-axis and the x-axis coincide.
  *
- * @sa 
+ * @sa
  * The coordinate systems used here follow those of
  * > Clifford M. Will and Alan G. Wiseman
  * > "Gravitational radiation from compact binary systems: Gravitational
@@ -216,7 +216,7 @@ extern "C" {
 /**
  * Enum that specifies the PN approximant to be used in computing the waveform.
  */
-typedef enum {
+typedef enum tagApproximant {
    TaylorT1, 		/**< Time domain Taylor approximant in which the energy and flux are both kept
                          * as Taylor expansions and a first order ordinary differential equation is solved
                          * or the GW phase as a function of \f$t\f$; Outputs a time-domain wave.
@@ -309,8 +309,14 @@ typedef enum {
                          * @remarks Implemented in lalsimulation (time domain). */
    SEOBNRv2,		/**< Spin-aligned EOBNR model v2
                          * @remarks Implemented in lalsimulation (time domain). */
+   SEOBNRv2_opt,	/**< Optimized Spin-aligned EOBNR model v2
+                         * @remarks Implemented in lalsimulation (time domain). */
    SEOBNRv3,		/**< Spin precessing EOBNR model v3
-                         * @todo Fix implementation in lalsimulation (time domain). */
+                         * @remarks Implemented in lalsimulation (time domain). */
+   SEOBNRv4,		/**< Spin nonprecessing EOBNR model v4 
+                         * @remarks Implemented in lalsimulation (time domain). */
+   SEOBNRv4_opt,	/**< Optimized Spin-aligned EOBNR model v4
+                         * @remarks Implemented in lalsimulation (time domain). */
    SEOBNRv1_ROM_EffectiveSpin, /**< Single-spin frequency domain reduced order model of spin-aligned EOBNR model SEOBNRv1 See [Purrer:2014fza]
                                 * @remarks Implemented in lalsimulation (frequency domain). */
    SEOBNRv1_ROM_DoubleSpin, /**< Double-spin frequency domain reduced order model of spin-aligned EOBNR model SEOBNRv1 See [Purrer:2014fza]
@@ -320,6 +326,10 @@ typedef enum {
    SEOBNRv2_ROM_DoubleSpin, /**< Double-spin frequency domain reduced order model of spin-aligned EOBNR model SEOBNRv2
                              * @remarks Implemented in lalsimulation (frequency domain). */
    SEOBNRv2_ROM_DoubleSpin_HI, /**< High resolution low-mass double-spin frequency domain reduced order model of spin-aligned EOBNR model SEOBNRv2
+                                * @remarks Implemented in lalsimulation (frequency domain). */
+   Lackey_Tidal_2013_SEOBNRv2_ROM, /**< Frequency domain tidal model based on reduced order model of SEOBNRv2
+                                * @remarks Implemented in lalsimulation (frequency domain). */
+   SEOBNRv4_ROM, /**< Low-mass double-spin frequency domain reduced order model of spin-aligned EOBNR model SEOBNRv4
                                 * @remarks Implemented in lalsimulation (frequency domain). */
    HGimri,		/**< Time domain inspiral-merger-ringdown waveform for quasi-circular intermediate mass-ratio inspirals [Huerta & Gair arXiv:1009.1985]
                          * @remarks Implemented in lalsimulation (time domain). */
@@ -333,7 +343,7 @@ typedef enum {
                          * @attention Not implemented in lalsimulation. */
    IMRPhenomC,		/**< Frequency domain (non-precessing spins) inspiral-merger-ringdown templates of Santamaria et al [Santamaria:2010yb] with phenomenological coefficients defined in the Table II of [Santamaria:2010yb].
                          * @remarks Implemented in lalsimulation (time domain and frequency domain). */
-   IMRPhenomD,		/**< Frequency domain (non-precessing spins) inspiral-merger-ringdown templates of Husa et al, arXiv:1508.07250 and Kahn et al, arXiv:1508.07253 with phenomenological coefficients defined in the Table ...
+   IMRPhenomD,		/**< Frequency domain (non-precessing spins) inspiral-merger-ringdown templates of Husa et al, arXiv:1508.07250 and Khan et al, arXiv:1508.07253 with phenomenological coefficients defined in the Table ...
                          * @remarks Implemented in lalsimulation (frequency domain). */
    IMRPhenomP,		/**< Frequency domain (generic spins) inspiral-merger-ringdown templates of Hannam et al., arXiv:1308.3271 [gr-qc]. Based on IMRPhenomC.
                          * @remarks Implemented in lalsimulation (frequency domain).  */
@@ -355,6 +365,7 @@ typedef enum {
                          * @remarks Implemented in lalsimulation (frequency domain). */
    SpinDominatedWf,     /**< Time domain, inspiral only, 1 spin, precessing waveform, Tapai et al, arXiv: 1209.1722
                          * @remarks Implemented in lalsimulation (time domain). */
+   NR_hdf5,              /**< Time domain, NR waveform from HDF file. From INSERT LINKS HERE */
    RingdownTD,          /**< Time domain, ringdown only, multiple quasi-normal modes
                          * @remarks Implemented in lalsimulation (time domain). */
    RingdownFD,          /**< Frequency domain, ringdown only, multiple quasi-normal modes
@@ -363,22 +374,25 @@ typedef enum {
  } Approximant;
 
 /** Enum of various frequency functions */
-typedef enum {
+typedef enum tagFrequencyFunction {
     fSchwarzISCO, /**< Schwarzschild ISCO */
     fIMRPhenomAFinal, /**< Final frequency of IMRPhenomA */
     fIMRPhenomBFinal, /**< Final of IMRPhenomB */
     fIMRPhenomCFinal, /**< Final of IMRPhenomC */
+    fIMRPhenomDPeak, /**< Frequency of the peak amplitude in IMRPhenomD */
     fEOBNRv2RD, /**< Ringdown frequency of EOBNRv2 */
     fEOBNRv2HMRD, /**< Ringdown frequency of highest harmonic in EOBNRv2HM */
     fSEOBNRv1Peak, /**< Frequency of the peak amplitude in SEOBNRv1 */
     fSEOBNRv1RD, /**< Dominant ringdown frequency in SEOBNRv1 */
     fSEOBNRv2Peak, /**< Frequency of the peak amplitude in SEOBNRv2 */
     fSEOBNRv2RD, /**< Dominant ringdown frequency in SEOBNRv2 */
+    fSEOBNRv4Peak, /**< Frequency of the peak amplitude in SEOBNRv4 */
+    fSEOBNRv4RD, /**< Dominant ringdown frequency in SEOBNRv4 */
     NumFreqFunctions /**< Number of elements in the enum */
  } FrequencyFunction;
 
 /** Enum of possible values to use for post-Newtonian order. */
-typedef enum {
+typedef enum tagLALPNOrder {
   LAL_PNORDER_NEWTONIAN,	/**< Newtonain (leading) order */
   LAL_PNORDER_HALF,		/**< 0.5PN <==> O(v) */
   LAL_PNORDER_ONE,		/**< 1PN <==> O(v^2) */
@@ -392,7 +406,7 @@ typedef enum {
  } LALPNOrder;
 
 /** Enumeration to specify the tapering method to apply to the waveform */
-typedef enum
+typedef enum tagLALSimInspiralApplyTaper
 {
   LAL_SIM_INSPIRAL_TAPER_NONE,		/**< No tapering */
   LAL_SIM_INSPIRAL_TAPER_START,		/**< Taper the start of the waveform */
@@ -402,12 +416,12 @@ typedef enum
 }  LALSimInspiralApplyTaper;
 
 /** Enumeration to specify time or frequency domain */
-typedef enum {
+typedef enum tagLALSimulationDomain {
   LAL_SIM_DOMAIN_TIME,
   LAL_SIM_DOMAIN_FREQUENCY
  } LALSimulationDomain;
 
-typedef enum {
+typedef enum tagSpinSupport {
    LAL_SIM_INSPIRAL_SPINLESS, /** These approximants cannot include spin terms */
    LAL_SIM_INSPIRAL_SINGLESPIN, /** These approximants support a signle spin (by default that is the object 1)*/
    LAL_SIM_INSPIRAL_ALIGNEDSPIN, /** These approximants can include spins aligned with L_N */
@@ -415,7 +429,7 @@ typedef enum {
    LAL_SIM_INSPIRAL_NUMSPINSUPPORT	/**< Number of elements in enum, useful for checking bounds */
  } SpinSupport;
 
-typedef enum {
+typedef enum tagTestGRaccept {
   LAL_SIM_INSPIRAL_NO_TESTGR_PARAMS,   /** These approximants cannot accept testGR params as input params */
   LAL_SIM_INSPIRAL_TESTGR_PARAMS,      /** These approximants accept testGR params as input params */
   LAL_SIM_INSPIRAL_NUM_TESTGR_ACCEPT  /**< Number of elements in enum, useful for checking bounds */
@@ -441,6 +455,7 @@ PNPhasingSeries;
 int XLALSimInspiralChooseTDWaveform(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, REAL8 phiRef, REAL8 deltaT, REAL8 m1, REAL8 m2, REAL8 s1x, REAL8 s1y, REAL8 s1z, REAL8 s2x, REAL8 s2y, REAL8 s2z, REAL8 f_min, REAL8 f_ref, REAL8 r, REAL8 i, REAL8 lambda1, REAL8 lambda2, LALSimInspiralWaveformFlags *waveFlags, LALSimInspiralTestGRParam *nonGRparams, int amplitudeO, int phaseO, Approximant approximant);
 int XLALSimInspiralChooseFDWaveform(COMPLEX16FrequencySeries **hptilde, COMPLEX16FrequencySeries **hctilde, REAL8 phiRef, REAL8 deltaF, REAL8 m1, REAL8 m2, REAL8 S1x, REAL8 S1y, REAL8 S1z, REAL8 S2x, REAL8 S2y, REAL8 S2z, REAL8 f_min, REAL8 f_max, REAL8 f_ref, REAL8 r, REAL8 i, REAL8 lambda1, REAL8 lambda2, LALSimInspiralWaveformFlags *waveFlags, LALSimInspiralTestGRParam *nonGRparams, int amplitudeO, int phaseO, Approximant approximant);
 int XLALSimInspiralTD(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, REAL8 phiRef, REAL8 deltaT, REAL8 m1, REAL8 m2, REAL8 S1x, REAL8 S1y, REAL8 S1z, REAL8 S2x, REAL8 S2y, REAL8 S2z, REAL8 f_min, REAL8 f_ref, REAL8 r, REAL8 z, REAL8 i, REAL8 lambda1, REAL8 lambda2, LALSimInspiralWaveformFlags *waveFlags, LALSimInspiralTestGRParam *nonGRparams, int amplitudeO, int phaseO, Approximant approximant);
+SphHarmTimeSeries* XLALSimInspiralTDModesFromPolarizations(REAL8 deltaT, REAL8 m1, REAL8 m2, REAL8 S1x, REAL8 S1y, REAL8 S1z, REAL8 S2x, REAL8 S2y, REAL8 S2z, REAL8 f_min, REAL8 f_ref, REAL8 r, REAL8 z, REAL8 lambda1, REAL8 lambda2, LALSimInspiralWaveformFlags *waveFlags, LALSimInspiralTestGRParam *nonGRparams, int amplitudeO, int phaseO, Approximant approximant);
 int XLALSimInspiralFD(COMPLEX16FrequencySeries **hptilde, COMPLEX16FrequencySeries **hcross, REAL8 phiRef, REAL8 deltaF, REAL8 m1, REAL8 m2, REAL8 S1x, REAL8 S1y, REAL8 S1z, REAL8 S2x, REAL8 S2y, REAL8 S2z, REAL8 f_min, REAL8 f_max, REAL8 f_ref, REAL8 r, REAL8 z, REAL8 i, REAL8 lambda1, REAL8 lambda2, LALSimInspiralWaveformFlags *waveFlags, LALSimInspiralTestGRParam *nonGRparams, int amplitudeO, int phaseO, Approximant approximant);
 int XLALSimInspiralChooseWaveform(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, REAL8 phiRef, REAL8 deltaT, REAL8 m1, REAL8 m2, REAL8 S1x, REAL8 S1y, REAL8 S1z, REAL8 S2x, REAL8 S2y, REAL8 S2z, REAL8 f_min, REAL8 f_ref, REAL8 r, REAL8 i, REAL8 lambda1, REAL8 lambda2, LALSimInspiralWaveformFlags *waveFlags, LALSimInspiralTestGRParam *nonGRparams, int amplitudeO, int phaseO, Approximant approximant); /* DEPRECATED */
 
@@ -574,7 +589,7 @@ int XLALSimInspiralTaylorT3PNRestricted(REAL8TimeSeries **hplus, REAL8TimeSeries
 
 int XLALSimInspiralTaylorT4PNEvolveOrbit(REAL8TimeSeries **v, REAL8TimeSeries **phi, REAL8 phiRef, REAL8 deltaT, REAL8 m1, REAL8 m2, REAL8 f_min, REAL8 fRef, REAL8 lambda1, REAL8 lambda2, LALSimInspiralTidalOrder tideO, int O);
 int XLALSimInspiralTaylorT4PNGenerator(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, REAL8 phiRef, REAL8 v0, REAL8 deltaT, REAL8 m1, REAL8 m2, REAL8 f_min, REAL8 fRef, REAL8 r, REAL8 i, REAL8 lambda1, REAL8 lambda2, LALSimInspiralTidalOrder tideO, int amplitudeO, int phaseO);
-SphHarmTimeSeries *XLALSimInspiralTaylorT4PNModes(REAL8 phiRef, REAL8 v0, REAL8 deltaT, REAL8 m1, REAL8 m2, REAL8 f_min, REAL8 fRef, REAL8 r, REAL8 lambda1, REAL8 lambda2, LALSimInspiralTidalOrder tideO, int amplitudeO, int phaseO, int lmax); 
+SphHarmTimeSeries *XLALSimInspiralTaylorT4PNModes(REAL8 phiRef, REAL8 v0, REAL8 deltaT, REAL8 m1, REAL8 m2, REAL8 f_min, REAL8 fRef, REAL8 r, REAL8 lambda1, REAL8 lambda2, LALSimInspiralTidalOrder tideO, int amplitudeO, int phaseO, int lmax);
 COMPLEX16TimeSeries *XLALSimInspiralTaylorT4PNMode(REAL8 phiRef, REAL8 v0, REAL8 deltaT, REAL8 m1, REAL8 m2, REAL8 f_min, REAL8 fRef, REAL8 r, REAL8 lambda1, REAL8 lambda2, LALSimInspiralTidalOrder tideO, int amplitudeO, int phaseO, int l, int m);
 int XLALSimInspiralTaylorT4PN(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, REAL8 phiRef, REAL8 deltaT, REAL8 m1, REAL8 m2, REAL8 f_min, REAL8 fRef, REAL8 r, REAL8 i, REAL8 lambda1, REAL8 lambda2, LALSimInspiralTidalOrder tideO, int O);
 int XLALSimInspiralTaylorT4PNRestricted(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, REAL8 phiRef, REAL8 deltaT, REAL8 m1, REAL8 m2, REAL8 f_min, REAL8 fRef, REAL8 r, REAL8 i, REAL8 lambda1, REAL8 lambda2, LALSimInspiralTidalOrder tideO, int O);
@@ -767,6 +782,8 @@ int XLALSimInspiralTaylorF2RedSpinMetricChirpTimes(REAL8 *gamma00, REAL8 *gamma0
 int XLALSimInspiralTaylorF2RedSpinComputeNoiseMoments(REAL8Vector *momI_0, REAL8Vector *momI_2, REAL8Vector *momI_3, REAL8Vector *momI_4, REAL8Vector *momI_5, REAL8Vector *momI_6, REAL8Vector *momI_7, REAL8Vector *momI_8, REAL8Vector *momI_9, REAL8Vector *momI_10, REAL8Vector *momI_11, REAL8Vector *momI_12, REAL8Vector *momI_13, REAL8Vector *momI_14, REAL8Vector *momI_15, REAL8Vector *momI_16, REAL8Vector *momJ_5, REAL8Vector *momJ_6, REAL8Vector *momJ_7, REAL8Vector *momJ_8, REAL8Vector *momJ_9, REAL8Vector *momJ_10, REAL8Vector *momJ_11, REAL8Vector *momJ_12, REAL8Vector *momJ_13, REAL8Vector *momJ_14, REAL8Vector *momK_10, REAL8Vector *momK_11, REAL8Vector *momK_12, REAL8Vector *Sh, REAL8 fLow, REAL8 df);
 void XLALSimInspiralTaylorF2RedSpinChirpTimesFromMchirpEtaChi(double *theta0, double *theta3, double *theta3s, double mc, double eta, double chi, double fLow);
 void XLALSimInspiralTaylorF2RedSpinMchirpEtaChiFromChirpTimes(double *mc, double *eta, double *chi, double theta0, double theta3, double theta3s, double fLow);
+
+REAL8 XLALSimInspiralfLow2fStart(REAL8 fLow, INT4 ampOrder, INT4 approximant);
 
 /* waveform tapering routines */
 /* in module LALSimInspiralWaveformTaper.c */

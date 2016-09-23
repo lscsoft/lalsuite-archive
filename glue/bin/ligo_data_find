@@ -26,7 +26,7 @@ import sys
 sys.stderr.write("Warning: "
     "ligo_data_find has been deprecated in favour of gw_data_find, "
     "please consider using that executable, which takes the same arguments, "
-    "and returnes the same results\n")
+    "and returns the same results\n")
 
 from glue import git_version
 __version__ = git_version.id
@@ -46,7 +46,7 @@ import glue.segments
 try:
     import M2Crypto
     import cjson
-except ImportError, e:
+except ImportError as e:
     print >> sys.stderr, """
 ligo_data_find requires the M2Crypto and cjson
 modules.
@@ -73,7 +73,7 @@ MacPorts.
 
 try:
         from glue.lal import LIGOTimeGPS
-except ImportError, e:
+except ImportError as e:
         print >> sys.stderr, """
 Error: unable to import modules from GLUE.
 
@@ -393,7 +393,7 @@ def main():
         elif clientMethod == 'latest':
             latest(clientMethodArgDict)
 
-    except Exception, e:
+    except Exception as e:
             print >>sys.stderr, "Error querying LDRDataFindServer: %s" % str(e)
             print >>sys.stderr, "Enter 'ligo_data_find --help' for usage"
             sys.exit(1)
@@ -458,7 +458,7 @@ def validateProxy(path):
     # load the proxy from path
     try:
         proxy = M2Crypto.X509.load_cert(path)
-    except Exception, e:
+    except Exception as e:
         msg = "Unable to load proxy from path %s : %s" % (path, e)
         print >>sys.stderr, msg
         sys.exit(1)
@@ -483,7 +483,7 @@ def validateProxy(path):
         expireUTC  = calendar.timegm(expireGMT)
         now = int(time.time())
         secondsLeft = expireUTC - now
-    except Exception, e:
+    except Exception as e:
         # problem getting or parsing time so just let the client
         # continue and pass the issue along to the server
         secondsLeft = 3600
@@ -560,7 +560,7 @@ def ping(args):
     try:
         h.request("HEAD", url)
         response = h.getresponse()
-    except Exception, e:
+    except Exception as e:
         msg = "Unable to query server %s: %s\n\nPerhaps you need a valid proxy credential?\n" % (server, e)
         raise RuntimeError, msg
 
@@ -640,7 +640,7 @@ be present when searching for groups of files
     try:
         h.request("GET", url)
         response = h.getresponse()
-    except Exception, e:
+    except Exception as e:
         msg = "Unable to query server %s: %s\n\nPerhaps you need a valid proxy credential?\n" % (server, e)
         raise RuntimeError, msg
 
@@ -820,7 +820,7 @@ def showObservatories(args):
     try:
         h.request("GET", url)
         response = h.getresponse()
-    except Exception, e:
+    except Exception as e:
         msg = "Unable to query server %s: %s\n\nPerhaps you need a valid proxy credential?\n" % (server, e)
         raise RuntimeError, msg
 
@@ -871,7 +871,7 @@ def showTypes(args):
     try:
         h.request("GET", url)
         response = h.getresponse()
-    except Exception, e:
+    except Exception as e:
         msg = "Unable to query server %s: %s\n\nPerhaps you need a valid proxy credential?\n" % (server, e)
         raise RuntimeError, msg
 
@@ -943,7 +943,7 @@ or just a beginning or just an end time.
     try:
         h.request("GET", url)
         response = h.getresponse()
-    except Exception, e:
+    except Exception as e:
         msg = "Unable to query server %s: %s\n\nPerhaps you need a valid proxy credential?\n" % (server, e)
         raise RuntimeError, msg
 
@@ -1011,7 +1011,7 @@ def singleFrameFind(args):
     # parse file name for site, frame type
     try:
         site, frameType, dummy1, dummy2 = filename.split("-")
-    except Exception, e:
+    except Exception as e:
         msg = "Error parsing filename %s: %s" % (filename, e)
         raise RuntimeError(msg)
 
@@ -1028,7 +1028,7 @@ def singleFrameFind(args):
     try:
         h.request("GET", url)
         response = h.getresponse()
-    except Exception, e:
+    except Exception as e:
         msg = "Unable to query server %s: %s\n\nPerhaps you need a valid proxy credential?\n" % (server, e)
         raise RuntimeError, msg
 
@@ -1127,7 +1127,7 @@ be present when searching for the latest file
     try:
         h.request("GET", url)
         response = h.getresponse()
-    except Exception, e:
+    except Exception as e:
         msg = "Unable to query server %s: %s\n\nPerhaps you need a valid proxy credential?\n" % (server, e)
         raise RuntimeError, msg
 

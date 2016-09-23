@@ -78,6 +78,7 @@ const char *const ensembleStretchFullName = "EnsembleStretchFull";
 const char *const ensembleStretchIntrinsicName = "EnsembleStretchIntrinsic";
 const char *const ensembleStretchExtrinsicName = "EnsembleStretchExtrinsic";
 const char *const drawApproxPriorName = "DrawApproxPrior";
+const char *const drawFlatPriorName = "DrawFlatPrior";
 const char *const skyReflectDetPlaneName = "SkyReflectDetPlane";
 const char *const skyRingProposalName = "SkyRingProposal";
 const char *const PSDFitJumpName = "PSDFitJump";
@@ -94,6 +95,11 @@ const char *const clusteredKDEProposalName = "ClusteredKDEProposal";
 const char *const splineCalibrationProposalName = "SplineCalibration";
 const char *const distanceLikelihoodProposalName = "DistanceLikelihood";
 
+static const char *intrinsicNames[] = {"chirpmass", "q", "eta", "mass1", "mass2", "a_spin1", "a_spin2",
+  "tilt_spin1", "tilt_spin2", "phi12", "phi_jl", "frequency", "quality", "duration","polar_angle", "phase", "polar_eccentricity","dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep","dxi1","dxi2","dxi3","dxi4","dxi5","dxi6","dalpha1","dalpha2","dalpha3","dalpha4","dalpha5","dbeta1","dbeta2","dbeta3","dsigma1","dsigma2","dsigma3","dsigma4",NULL};
+
+static const char *extrinsicNames[] = {"rightascension", "declination", "cosalpha", "azimuth", "polarisation", "distance",
+  "logdistance", "time", "costheta_jn", "t0", "theta","hrss", "loghrss", NULL};
 
 static INT4 same_detector_location(LALDetector *d1, LALDetector *d2) {
     INT4 i;
@@ -216,7 +222,7 @@ REAL8 LALInferenceCyclicProposal(LALInferenceThreadState *thread,
 
     /* One instance of each proposal object is stored in cycle->proposals.
         cycle->order is a list of elements to call from the proposals */
-  
+
     REAL8 logPropRatio=-INFINITY;
     do
     {
@@ -288,6 +294,7 @@ LALInferenceVariables *LALInferenceParseProposalArgs(LALInferenceRunState *runSt
         stretch = 1;
         walk = 1;
         skyring = 0;
+        distance = 1;
         kde = 0;
         spline_cal = 0;
         psdfit = 0;
@@ -302,9 +309,6 @@ LALInferenceVariables *LALInferenceParseProposalArgs(LALInferenceRunState *runSt
     if (LALInferenceGetProcParamVal(command_line, "--verbose"))
         verbose = 1;
     LALInferenceAddINT4Variable(propArgs, "verbose", verbose, LALINFERENCE_PARAM_FIXED);
-
-    LIGOTimeGPS epoch = ifo->epoch;
-    LALInferenceAddVariable(propArgs, "epoch", &(epoch), LALINFERENCE_void_ptr_t, LALINFERENCE_PARAM_FIXED);
 
     /* Determine the number of iterations between each entry in the DE buffer */
     if (LALInferenceCheckVariable(runState->algorithmParams, "Nskip"))
@@ -322,18 +326,6 @@ LALInferenceVariables *LALInferenceParseProposalArgs(LALInferenceRunState *runSt
 
     INT4 nUniqueDet = numDetectorsUniquePositions(runState->data);
     LALInferenceAddINT4Variable(propArgs, "nUniqueDet", nUniqueDet, LALINFERENCE_PARAM_FIXED);
-
-    LALDetector *detectors = XLALCalloc(nDet, sizeof(LALDetector));
-    for (i=0,ifo=runState->data; i<nDet; i++,ifo=ifo->next)
-        detectors[i] = *(ifo->detector);
-    LALInferenceAddVariable(propArgs, "detectors", &detectors, LALINFERENCE_void_ptr_t, LALINFERENCE_PARAM_FIXED);
-
-    char **ifo_names = XLALCalloc(nDet, sizeof(char*));
-    for(ifo=runState->data,i=0;ifo;ifo=ifo->next,i++) {
-        ifo_names[i] = XLALCalloc(DETNAMELEN, sizeof(char));
-        strcpy(ifo_names[i], ifo->name);
-    }
-    LALInferenceAddVariable(propArgs, "detector_names", &ifo_names, LALINFERENCE_void_ptr_t, LALINFERENCE_PARAM_FIXED);
 
     INT4 marg_timephi = 0;
     if (LALInferenceGetProcParamVal(command_line, "--margtimephi"))
@@ -354,6 +346,7 @@ LALInferenceVariables *LALInferenceParseProposalArgs(LALInferenceRunState *runSt
         LALInferenceGetProcParamVal(command_line, "--bimodalGaussianLikelihood") ||
         LALInferenceGetProcParamVal(command_line, "--rosenbrockLikelihood")) {
         analytic_test = 1;
+        distance = 0;
     }
     LALInferenceAddINT4Variable(propArgs, "analytical_test", analytic_test, LALINFERENCE_PARAM_FIXED);
 
@@ -362,7 +355,8 @@ LALInferenceVariables *LALInferenceParseProposalArgs(LALInferenceRunState *runSt
         skyframe = 0;
 
     INT4 noAdapt = 0;
-    if (LALInferenceGetProcParamVal(command_line, "--no-adapt"))
+    if (LALInferenceGetProcParamVal(command_line, "--no-adapt") ||
+        LALInferenceGetProcParamVal(command_line, "--noiseonly"))
         noAdapt = 1;
     INT4 adapting = !noAdapt;
     LALInferenceAddINT4Variable(propArgs, "no_adapt", noAdapt, LALINFERENCE_PARAM_LINEAR);
@@ -610,7 +604,7 @@ REAL8 LALInferenceSingleAdaptProposal(LALInferenceThreadState *thread,
                                       LALInferenceVariables *currentParams,
                                       LALInferenceVariables *proposedParams) {
     INT4 dim, varNr;
-    REAL8 logPropRatio, sqrttemp, sigma;
+    REAL8 logPropRatio, sqrttemp, mu, sigma;
     char tmpname[MAX_STRLEN] = "";
     LALInferenceVariableItem *param = NULL;
 
@@ -646,11 +640,22 @@ REAL8 LALInferenceSingleAdaptProposal(LALInferenceThreadState *thread,
         sigma = LALInferenceGetREAL8Variable(thread->proposalArgs, tmpname);
 
         /* Save the name of the proposed variable */
-        if(LALInferenceCheckVariable(args, "proposedVariableName")){
-            LALInferenceSetstringVariable(args,  "proposedVariableName", param->name);
-        }
+        LALInferenceAddstringVariable(args, "proposedVariableName", param->name, LALINFERENCE_PARAM_OUTPUT);
 
-        *((REAL8 *)param->value) += gsl_ran_ugaussian(rng) * sigma * sqrttemp;
+        /* If temperature is infinite, scale sigma to the prior width */
+        if (sqrttemp == INFINITY) {
+            if (LALInferenceCheckGaussianPrior(thread->priorArgs, param->name)) {
+                LALInferenceGetGaussianPrior(thread->priorArgs, param->name, &mu, &sigma);
+
+                *((REAL8 *)param->value) += gsl_ran_ugaussian(rng) * sigma;
+            } else {
+                REAL8 min, max;
+                LALInferenceGetMinMaxPrior(thread->priorArgs, param->name, &min, &max);
+
+                *((REAL8 *)param->value) += gsl_ran_ugaussian(rng) * (max - min);
+            }
+        } else
+            *((REAL8 *)param->value) += gsl_ran_ugaussian(rng) * sigma * sqrttemp;
 
         LALInferenceCyclicReflectiveBound(proposedParams, thread->priorArgs);
 
@@ -835,65 +840,30 @@ REAL8 LALInferenceSkyLocWanderJump(LALInferenceThreadState *thread,
 REAL8 LALInferenceDifferentialEvolutionFull(LALInferenceThreadState *thread,
                                             LALInferenceVariables *currentParams,
                                             LALInferenceVariables *proposedParams) {
-    REAL8 logPropRatio;
-    logPropRatio = LALInferenceDifferentialEvolutionNames(thread, currentParams, proposedParams, NULL);
-
-    return logPropRatio;
+    return(LALInferenceDifferentialEvolutionNames(thread, currentParams, proposedParams, NULL));
 }
 
 REAL8 LALInferenceEnsembleStretchFull(LALInferenceThreadState *thread,
                                       LALInferenceVariables *currentParams,
                                       LALInferenceVariables *proposedParams) {
-    REAL8 logPropRatio;
-    logPropRatio = LALInferenceEnsembleStretchNames(thread, currentParams, proposedParams, NULL);
-
-    return logPropRatio;
+    return(LALInferenceEnsembleStretchNames(thread, currentParams, proposedParams, NULL));
 }
 
 
 REAL8 LALInferenceEnsembleStretchIntrinsic(LALInferenceThreadState *thread,
                                            LALInferenceVariables *currentParams,
                                            LALInferenceVariables *proposedParams) {
-    REAL8 logPropRatio;
-    const char *names[] = {"chirpmass", "q", "eta", "m1", "m2", "a_spin1", "a_spin2",
-                           "tilt_spin1", "tilt_spin2", "phi12", "frequency", "quality", "duration","polar_angle","phase", "polar_eccentricity", "dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep","dxi1","dxi2","dxi3","dxi4","dxi5","dxi6","dalpha1","dalpha2","dalpha3","dalpha4","dalpha5","dbeta1","dbeta2","dbeta3","dsigma1","dsigma2","dsigma3","dsigma4",NULL};
 
-    logPropRatio = LALInferenceEnsembleStretchNames(thread, currentParams, proposedParams, names);
+    return(LALInferenceEnsembleStretchNames(thread, currentParams, proposedParams, intrinsicNames));
 
-    return logPropRatio;
 }
 
 REAL8 LALInferenceEnsembleStretchExtrinsic(LALInferenceThreadState *thread,
                                            LALInferenceVariables *currentParams,
                                            LALInferenceVariables *proposedParams) {
     REAL8 logPropRatio;
-    INT4 margtime, margphi;
 
-    LALInferenceVariables *args = thread->proposalArgs;
-
-    const char *names[] = {"rightascension", "declination", "polarisation", "distance", "logdistance",
-                            "time", "costheta_jn", "theta", "cosalpha", "t0",  "hrss", "loghrss",NULL};
-
-    const char *marg_time_names[] = {"rightascension", "declination", "polarisation","distance", "logdistance",
-                                     "phase","costheta_jn", "theta", "cosalpha", "hrss", "loghrss", NULL};
-
-    const char *marg_phase_names[] = {"rightascension", "declination", "polarisation","distance", "logdistance",
-                                      "time","costheta_jn", "theta", "cosalpha", "t0",  "hrss", "loghrss",NULL};
-
-    const char *marg_time_phase_names[] = {"rightascension", "declination", "polarisation",  "distance", "logdistance",
-                                           "costheta_jn", "theta", "cosalpha", "hrss", "loghrss",  NULL};
-
-    margtime = LALInferenceGetINT4Variable(args, "marg_time");
-    margphi = LALInferenceGetINT4Variable(args, "marg_phi");
-
-    if (margtime && margphi)
-        logPropRatio = LALInferenceEnsembleStretchNames(thread, currentParams, proposedParams, marg_time_phase_names);
-    else if (margtime)
-        logPropRatio = LALInferenceEnsembleStretchNames(thread, currentParams, proposedParams, marg_time_names);
-    else if (margphi)
-        logPropRatio = LALInferenceEnsembleStretchNames(thread, currentParams, proposedParams, marg_phase_names);
-    else
-        logPropRatio = LALInferenceEnsembleStretchNames(thread, currentParams, proposedParams, names);
+    logPropRatio = LALInferenceEnsembleStretchNames(thread, currentParams, proposedParams, extrinsicNames);
 
     return logPropRatio;
 }
@@ -995,59 +965,22 @@ REAL8 LALInferenceEnsembleStretchNames(LALInferenceThreadState *thread,
 REAL8 LALInferenceEnsembleWalkFull(LALInferenceThreadState *thread,
                                    LALInferenceVariables *currentParams,
                                    LALInferenceVariables *proposedParams) {
-    REAL8 logPropRatio;
-    logPropRatio = LALInferenceEnsembleWalkNames(thread, currentParams, proposedParams, NULL);
-
-    return logPropRatio;
+    return(LALInferenceEnsembleWalkNames(thread, currentParams, proposedParams, NULL));
 }
 
 
 REAL8 LALInferenceEnsembleWalkIntrinsic(LALInferenceThreadState *thread,
                                         LALInferenceVariables *currentParams,
                                         LALInferenceVariables *proposedParams) {
-    REAL8 logPropRatio;
-  const char *names[] = {"chirpmass", "q", "eta", "m1", "m2", "a_spin1", "a_spin2",
-    "tilt_spin1", "tilt_spin2", "phi12", "frequency", "quality", "duration","polar_angle","phase", "polar_eccentricity", "dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep","dxi1","dxi2","dxi3","dxi4","dxi5","dxi6","dalpha1","dalpha2","dalpha3","dalpha4","dalpha5","dbeta1","dbeta2","dbeta3","dsigma1","dsigma2","dsigma3","dsigma4",NULL};
 
-    logPropRatio = LALInferenceEnsembleWalkNames(thread, currentParams, proposedParams, names);
+    return(LALInferenceEnsembleWalkNames(thread, currentParams, proposedParams, intrinsicNames));
 
-    return logPropRatio;
 }
 
 REAL8 LALInferenceEnsembleWalkExtrinsic(LALInferenceThreadState *thread,
                                         LALInferenceVariables *currentParams,
                                         LALInferenceVariables *proposedParams) {
-
-    REAL8 logPropRatio;
-    INT4 margtime, margphi;
-
-    LALInferenceVariables *args = thread->proposalArgs;
-
-    const char *names[] = {"rightascension", "declination", "polarisation", "distance", "logdistance",
-                            "time", "costheta_jn", "theta", "cosalpha", "t0", "hrss", "loghrss", NULL};
-
-    const char *marg_time_names[] = {"rightascension", "declination", "polarisation", "distance", "logdistance",
-                                     "costheta_jn", "theta", "cosalpha", "hrss", "loghrss", NULL};
-
-    const char *marg_phase_names[] = {"rightascension", "declination", "polarisation", "distance", "logdistance",
-                                      "time", "costheta_jn", "theta", "cosalpha", "t0", "hrss", "loghrss", NULL};
-
-    const char *marg_time_phase_names[] = {"rightascension", "declination", "polarisation", "distance", "logdistance",
-                                           "costheta_jn",  "theta", "cosalpha", "hrss", "loghrss",NULL};
-
-    margtime = LALInferenceGetINT4Variable(args, "marg_time");
-    margphi = LALInferenceGetINT4Variable(args, "marg_phi");
-
-    if (margtime && margphi)
-        logPropRatio = LALInferenceEnsembleWalkNames(thread, currentParams, proposedParams, marg_time_phase_names);
-    else if (margtime)
-        logPropRatio = LALInferenceEnsembleWalkNames(thread, currentParams, proposedParams, marg_time_names);
-    else if (margphi)
-        logPropRatio = LALInferenceEnsembleWalkNames(thread, currentParams, proposedParams, marg_phase_names);
-    else
-        logPropRatio = LALInferenceEnsembleWalkNames(thread, currentParams, proposedParams, names);
-
-    return logPropRatio;
+    return(LALInferenceEnsembleWalkNames(thread, currentParams, proposedParams, extrinsicNames));
 }
 
 
@@ -1180,7 +1113,7 @@ REAL8 LALInferenceDifferentialEvolutionNames(LALInferenceThreadState *thread,
 
     LALInferenceCopyVariables(currentParams, proposedParams);
 
-  
+
     i = gsl_rng_uniform_int(rng, nPts);
     do {
         j = gsl_rng_uniform_int(rng, nPts);
@@ -1219,48 +1152,14 @@ REAL8 LALInferenceDifferentialEvolutionNames(LALInferenceThreadState *thread,
 REAL8 LALInferenceDifferentialEvolutionIntrinsic(LALInferenceThreadState *thread,
                                                  LALInferenceVariables *currentParams,
                                                  LALInferenceVariables *proposedParams) {
-    REAL8 logPropRatio;
-  const char *names[] = {"chirpmass", "q", "eta", "m1", "m2", "a_spin1", "a_spin2",
-    "tilt_spin1", "tilt_spin2", "phi12", "frequency", "quality", "duration","polar_angle","phase", "polar_eccentricity", "dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep","dxi1","dxi2","dxi3","dxi4","dxi5","dxi6","dalpha1","dalpha2","dalpha3","dalpha4","dalpha5","dbeta1","dbeta2","dbeta3","dsigma1","dsigma2","dsigma3","dsigma4",NULL};
 
-    logPropRatio = LALInferenceDifferentialEvolutionNames(thread, currentParams, proposedParams, names);
-
-    return logPropRatio;
+    return(LALInferenceDifferentialEvolutionNames(thread, currentParams, proposedParams, intrinsicNames));
 }
 
 REAL8 LALInferenceDifferentialEvolutionExtrinsic(LALInferenceThreadState *thread,
                                                  LALInferenceVariables *currentParams,
                                                  LALInferenceVariables *proposedParams) {
-    REAL8 logPropRatio;
-    INT4 margtime, margphi;
-
-    LALInferenceVariables *args = thread->proposalArgs;
-
-    const char *names[] = {"rightascension", "declination", "cosalpha", "azimuth", "polarisation", "distance",
-                           "logdistance", "time", "costheta_jn", "t0", "theta","hrss", "loghrss", NULL};
-
-    const char *marg_time_names[] = {"rightascension", "declination", "cosalpha", "azimuth", "polarisation", "distance",
-                                     "logdistance", "costheta_jn", "theta","hrss", "loghrss", NULL};
-
-    const char *marg_phase_names[] = {"rightascension", "declination", "cosalpha", "azimuth", "polarisation", "distance",
-                                      "logdistance", "time", "costheta_jn", "t0", "theta","hrss", "loghrss", NULL};
-
-    const char *marg_time_phase_names[] = {"rightascension", "declination", "cosalpha", "azimuth", "polarisation", "distance",
-                                           "logdistance", "costheta_jn", "theta","hrss", "loghrss", NULL};
-
-    margtime = LALInferenceGetINT4Variable(args, "marg_time");
-    margphi = LALInferenceGetINT4Variable(args, "marg_phi");
-
-    if (margtime && margphi)
-        logPropRatio = LALInferenceDifferentialEvolutionNames(thread, currentParams, proposedParams, marg_time_phase_names);
-    else if (margtime)
-        logPropRatio = LALInferenceDifferentialEvolutionNames(thread, currentParams, proposedParams, marg_time_names);
-    else if (margphi)
-        logPropRatio = LALInferenceDifferentialEvolutionNames(thread, currentParams, proposedParams, marg_phase_names);
-    else
-        logPropRatio = LALInferenceDifferentialEvolutionNames(thread, currentParams, proposedParams, names);
-
-    return logPropRatio;
+    return(LALInferenceDifferentialEvolutionNames(thread, currentParams, proposedParams, extrinsicNames));
 }
 
 static REAL8 draw_distance(LALInferenceThreadState *thread) {
@@ -1335,8 +1234,10 @@ static REAL8 draw_chirp(LALInferenceThreadState *thread) {
 static REAL8 approxLogPrior(LALInferenceVariables *params) {
     REAL8 logP = 0.0;
 
-    REAL8 Mc = *(REAL8 *)LALInferenceGetVariable(params, "chirpmass");
-    logP += -11.0/6.0*log(Mc);
+    if(LALInferenceCheckVariable(params, "chirpmass")) {
+        REAL8 Mc = *(REAL8 *)LALInferenceGetVariable(params, "chirpmass");
+        logP += -11.0/6.0*log(Mc);
+    }
 
     /* Flat in time, ra, psi, phi. */
 
@@ -1348,9 +1249,23 @@ static REAL8 approxLogPrior(LALInferenceVariables *params) {
     if(LALInferenceCheckVariable(params,"declination"))
       logP += log(cos(*(REAL8 *)LALInferenceGetVariable(params, "declination")));
 
+    if (LALInferenceCheckVariable(params, "tilt_spin1")) {
+      logP += log(fabs(sin(*(REAL8 *)LALInferenceGetVariable(params, "tilt_spin1"))));
+    }
+
+    if (LALInferenceCheckVariable(params, "tilt_spin2")) {
+      logP += log(fabs(sin(*(REAL8 *)LALInferenceGetVariable(params, "tilt_spin2"))));
+    }
+
     return logP;
 }
 
+/* WARNING: If you add any non-flat draws to this proposal, you MUST
+   update the above approxLogPrior function with the corresponding
+   density.  The proposal ratio is calculated using approxLogPrior, so
+   non-flat proposals that do not have a corresponding density term in
+   approxLogPrior will result in a failure to sample from the
+   posterior density! */
 REAL8 LALInferenceDrawApproxPrior(LALInferenceThreadState *thread,
                                   LALInferenceVariables *currentParams,
                                   LALInferenceVariables *proposedParams) {
@@ -1445,6 +1360,23 @@ REAL8 LALInferenceDrawApproxPrior(LALInferenceThreadState *thread,
     return logPropRatio;
 }
 
+REAL8 LALInferenceDrawFlatPrior(LALInferenceThreadState *threadState, LALInferenceVariables *currentParams, LALInferenceVariables *proposedParams) {
+  REAL8 logPropRatio = 0., tmp = 0.;
+
+  LALInferenceCopyVariables(currentParams, proposedParams);
+  LALInferenceVariableItem *ptr = currentParams->head;
+
+  while(ptr!=NULL) {
+    if(ptr->vary != LALINFERENCE_PARAM_FIXED && LALInferenceCheckMinMaxPrior(threadState->priorArgs, ptr->name ) ) {
+      tmp = draw_flat(threadState, ptr->name);
+      LALInferenceSetVariable(proposedParams, ptr->name, &tmp);
+    }
+    ptr=ptr->next;
+  }
+
+  return logPropRatio;
+}
+
 static void cross_product(REAL8 x[3], const REAL8 y[3], const REAL8 z[3]) {
     x[0] = y[1]*z[2]-y[2]*z[1];
     x[1] = y[2]*z[0]-y[0]*z[2];
@@ -1506,6 +1438,32 @@ static void reflect_plane(REAL8 pref[3], const REAL8 p[3],
     vsub(pref, pnperp, pn);
 }
 
+static void get_detectors(LALInferenceIFOData *data, LALDetector **detectors) {
+    INT4 i;
+    INT4 nDet = 0;
+    LALInferenceIFOData *ifo;
+    for (i=0,ifo=data; ifo; i++,ifo=ifo->next)
+        nDet++;
+
+    *detectors = XLALCalloc(nDet, sizeof(LALDetector));
+    for (i=0,ifo=data; ifo; i++,ifo=ifo->next)
+        *detectors[i] = *(ifo->detector);
+}
+
+static void get_detector_names(LALInferenceIFOData *data, char ***ifo_names) {
+    INT4 i;
+    INT4 nDet = 0;
+    LALInferenceIFOData *ifo;
+    for (i=0,ifo=data; ifo; i++,ifo=ifo->next)
+        nDet++;
+
+    *ifo_names = XLALCalloc(nDet, sizeof(char*));
+    for(ifo=data,i=0;ifo;ifo=ifo->next,i++) {
+        (*ifo_names)[i] = XLALCalloc(DETNAMELEN, sizeof(char));
+        strcpy((*ifo_names)[i], ifo->name);
+    }
+}
+
 static void sph_to_cart(REAL8 cart[3], const REAL8 lat, const REAL8 longi) {
     cart[0] = cos(longi)*cos(lat);
     cart[1] = sin(longi)*cos(lat);
@@ -1523,7 +1481,7 @@ static void reflected_position_and_time(LALInferenceThreadState *thread, const R
     memset(&status, 0, sizeof(status));
     SkyPosition currentEqu, currentGeo, newEqu, newGeo;
     LALDetector *detectors;
-    LIGOTimeGPS *epoch;
+    LIGOTimeGPS epoch;
     REAL8 x[3], y[3], z[3];
     REAL8 currentLoc[3], newLoc[3];
     REAL8 newGeoLat, newGeoLongi;
@@ -1535,12 +1493,10 @@ static void reflected_position_and_time(LALInferenceThreadState *thread, const R
     currentEqu.system = COORDINATESYSTEM_EQUATORIAL;
     currentGeo.system = COORDINATESYSTEM_GEOGRAPHIC;
 
-    LALInferenceVariables *args = thread->proposalArgs;
+    epoch = thread->parent->data->epoch;
+    get_detectors(thread->parent->data, &detectors);
 
-    epoch = (LIGOTimeGPS *)LALInferenceGetVariable(args, "epoch");
-    detectors = *(LALDetector **)LALInferenceGetVariable(args, "detectors");
-
-    LALEquatorialToGeographic(&status, &currentGeo, &currentEqu, epoch);
+    LALEquatorialToGeographic(&status, &currentGeo, &currentEqu, &epoch);
 
     /* This function should only be called when we know that we have
      three detectors, or the following will crash. */
@@ -1573,16 +1529,18 @@ static void reflected_position_and_time(LALInferenceThreadState *thread, const R
     newGeo.longitude = newGeoLongi;
     newGeo.system = COORDINATESYSTEM_GEOGRAPHIC;
     newEqu.system = COORDINATESYSTEM_EQUATORIAL;
-    LALGeographicToEquatorial(&status, &newEqu, &newGeo, epoch);
+    LALGeographicToEquatorial(&status, &newEqu, &newGeo, &epoch);
 
     oldDt = XLALTimeDelayFromEarthCenter(detectors[0].location, currentEqu.longitude,
-                                         currentEqu.latitude, epoch);
+                                         currentEqu.latitude, &epoch);
     newDt = XLALTimeDelayFromEarthCenter(detectors[0].location, newEqu.longitude,
-                                         newEqu.latitude, epoch);
+                                         newEqu.latitude, &epoch);
 
     *newRA = newEqu.longitude;
     *newDec = newEqu.latitude;
     *newTime = oldTime + oldDt - newDt;
+
+    XLALFree(detectors);
 }
 
 static REAL8 evaluate_morlet_proposal(LALInferenceThreadState *thread,
@@ -1672,7 +1630,7 @@ REAL8 LALInferenceSkyRingProposal(LALInferenceThreadState *thread,
     REAL8 pForward, pReverse;
     REAL8 n[3];
     REAL8 kp[3];
-    LIGOTimeGPS GPSlal, *epoch;
+    LIGOTimeGPS GPSlal, epoch;
     LALDetector *detectors;
     gsl_matrix *IFO;
 
@@ -1681,8 +1639,8 @@ REAL8 LALInferenceSkyRingProposal(LALInferenceThreadState *thread,
     LALInferenceVariables *args = thread->proposalArgs;
     gsl_rng *rng = thread->GSLrandom;
 
-    epoch = (LIGOTimeGPS *)LALInferenceGetVariable(args, "epoch");
-    detectors = *(LALDetector **)LALInferenceGetVariable(args, "detectors");
+    epoch = thread->parent->data->epoch;
+    get_detectors(thread->parent->data, &detectors);
 
     ra = LALInferenceGetREAL8Variable(proposedParams, "rightascension");
     dec = LALInferenceGetREAL8Variable(proposedParams, "declination");
@@ -1691,7 +1649,7 @@ REAL8 LALInferenceSkyRingProposal(LALInferenceThreadState *thread,
         baryTime = LALInferenceGetREAL8Variable(proposedParams, "time");
         timeflag = 1;
     } else {
-        baryTime = XLALGPSGetREAL8(epoch);
+        baryTime = XLALGPSGetREAL8(&epoch);
     }
 
     XLALGPSSetREAL8(&GPSlal, baryTime);
@@ -1816,6 +1774,8 @@ REAL8 LALInferenceSkyRingProposal(LALInferenceThreadState *thread,
 
     logPropRatio = log(pReverse/pForward);
 
+    XLALFree(detectors);
+
     return logPropRatio;
 }
 
@@ -1831,7 +1791,7 @@ REAL8 LALInferenceSkyReflectDetPlane(LALInferenceThreadState *thread,
     REAL8 pForward, pReverse;
     REAL8 logPropRatio = 0.0;
     INT4 nUniqueDet;
-    LIGOTimeGPS *epoch;
+    LIGOTimeGPS epoch;
 
 
     /* Find the number of distinct-position detectors. */
@@ -1842,7 +1802,7 @@ REAL8 LALInferenceSkyReflectDetPlane(LALInferenceThreadState *thread,
     LALInferenceVariables *args = thread->proposalArgs;
     gsl_rng *rng = thread->GSLrandom;
 
-    epoch = (LIGOTimeGPS *)LALInferenceGetVariable(args, "epoch");
+    epoch = thread->parent->data->epoch;
     nUniqueDet = LALInferenceGetINT4Variable(args, "nUniqueDet");
 
     if (nUniqueDet != 3) {
@@ -1865,7 +1825,7 @@ REAL8 LALInferenceSkyReflectDetPlane(LALInferenceThreadState *thread,
         baryTime = LALInferenceGetREAL8Variable(currentParams, "time");
         timeflag=1;
     } else {
-        baryTime = XLALGPSGetREAL8(epoch);
+        baryTime = XLALGPSGetREAL8(&epoch);
     }
 
     reflected_position_and_time(thread, ra, dec, baryTime, &newRA, &newDec, &newTime);
@@ -2717,7 +2677,7 @@ static void reflected_extrinsic_parameters(LALInferenceThreadState *thread, cons
     INT4 nUniqueDet, det;
     LALDetector *detectors;
 
-    detectors = (LALDetector *)LALInferenceGetVariable(thread->proposalArgs, "detectors");
+    get_detectors(thread->parent->data, &detectors);
     nUniqueDet = LALInferenceGetINT4Variable(thread->proposalArgs, "nUniqueDet");
 
     XLALGPSSetREAL8(&GPSlal, baryTime);
@@ -2823,6 +2783,8 @@ static void reflected_extrinsic_parameters(LALInferenceThreadState *thread, cons
     if (Fcross*cosIota*cosnewIota*newFcross[3]<0){
         (*newIota)=LAL_PI-(*newIota);
     }
+
+    XLALFree(detectors);
 }
 
 REAL8 LALInferenceDistanceLikelihoodProposal(LALInferenceThreadState *thread,
@@ -2830,7 +2792,7 @@ REAL8 LALInferenceDistanceLikelihoodProposal(LALInferenceThreadState *thread,
                                              LALInferenceVariables *proposedParams) {
   REAL8 old_d=0.0;
   DistanceParam distParam;
-  
+
   if (LALInferenceCheckVariable(currentParams, "distance")) {
     distParam = USES_DISTANCE_VARIABLE;
     old_d = LALInferenceGetREAL8Variable(currentParams,"distance");
@@ -2844,7 +2806,11 @@ REAL8 LALInferenceDistanceLikelihoodProposal(LALInferenceThreadState *thread,
     /* Force a likelihood calculation to generate the parameters */
     thread->parent->likelihood(currentParams,thread->parent->data,thread->model);
   if(!LALInferenceCheckVariable(currentParams,"optimal_snr") || !LALInferenceCheckVariable(currentParams,"matched_filter_snr"))
-    XLAL_ERROR_REAL8(XLAL_FAILURE,"Could not find optimal_snr or matched_filter_snr for distance likelihood jump\n");
+  {
+		  /* If still can't find the required parameters, reject this jump */
+		  LALInferenceCopyVariables(currentParams,proposedParams);
+		  return(-INFINITY);
+  }
   REAL8 OptimalSNR = LALInferenceGetREAL8Variable(currentParams,"optimal_snr");
   REAL8 MatchedFilterSNR = LALInferenceGetREAL8Variable(currentParams,"matched_filter_snr");
   REAL8 d_inner_h = MatchedFilterSNR * OptimalSNR;
@@ -2853,7 +2819,7 @@ REAL8 LALInferenceDistanceLikelihoodProposal(LALInferenceThreadState *thread,
   REAL8 xmean = d_inner_h/(OptimalSNR*OptimalSNR*old_d);
   REAL8 xsigma = 1.0/(OptimalSNR*old_d);
   REAL8 old_x = 1.0/old_d;
-  
+
   /* Sample new x. Do not check for x<0 since that can throw the code
    * into a difficult-to-terminate loop */
   REAL8 new_x;
@@ -2863,24 +2829,25 @@ REAL8 LALInferenceDistanceLikelihoodProposal(LALInferenceThreadState *thread,
   LALInferenceCopyVariables(currentParams,proposedParams);
   /* Adjust SNRs */
   OptimalSNR *= new_x / old_x;
-  MatchedFilterSNR *= new_x/old_x;
   LALInferenceSetREAL8Variable(proposedParams,"optimal_snr",OptimalSNR);
-  LALInferenceSetREAL8Variable(proposedParams,"matched_filter_snr",MatchedFilterSNR);
-  if(LALInferenceCheckVariable(currentParams,"H1_optimal_snr"))
-    LALInferenceSetREAL8Variable(proposedParams,"H1_optimal_snr",LALInferenceGetREAL8Variable(currentParams,"H1_optimal_snr") * (new_x/old_x));
-  if(LALInferenceCheckVariable(currentParams,"L1_optimal_snr"))
-    LALInferenceSetREAL8Variable(proposedParams,"L1_optimal_snr",LALInferenceGetREAL8Variable(currentParams,"L1_optimal_snr") * (new_x/old_x));
-  if(LALInferenceCheckVariable(currentParams,"V1_optimal_snr"))
-    LALInferenceSetREAL8Variable(proposedParams,"V1_optimal_snr",LALInferenceGetREAL8Variable(currentParams,"V1_optimal_snr") * (new_x/old_x));
-  
-  
+
+  /* Update individual detector information */
+  const char *ifonames[5]={"H1","L1","V1","I1","J1"};
+  char pname[64]="";
+  for(UINT4 i=0;i<5;i++)
+  {
+    sprintf(pname,"%s_optimal_snr",ifonames[i]);
+    if(LALInferenceCheckVariable(currentParams,pname))
+      LALInferenceSetREAL8Variable(proposedParams,pname,LALInferenceGetREAL8Variable(currentParams,pname) * (new_x/old_x));
+  }
+
   REAL8 logxdjac;
   /* Set distance */
   if(distParam == USES_DISTANCE_VARIABLE)
   {
     /* The natural proposal density is in x, but we need to compute
-       the proposal ratio density in d.  So, we need a factor of 
-       
+       the proposal ratio density in d.  So, we need a factor of
+
        |dx_old/dd_old| / |dx_new/dd_new| = d_new^2 / d_old^2
 
        to correct the x proposal density.
@@ -2930,12 +2897,12 @@ REAL8 LALInferenceExtrinsicParamProposal(LALInferenceThreadState *thread,
     /* Exit with same parameters (with a warning the first time) if
        there are not EXACTLY three unique detector locations. */
     static INT4 warningDelivered = 0;
-    LIGOTimeGPS *epoch;
+    LIGOTimeGPS epoch;
 
 
     LALInferenceVariables *args = thread->proposalArgs;
     gsl_rng *rng = thread->GSLrandom;
-    epoch = (LIGOTimeGPS *)LALInferenceGetVariable(args, "epoch");
+    epoch = thread->parent->data->epoch;
 
     nUniqueDet = LALInferenceGetINT4Variable(args, "nUniqueDet");
     if (nUniqueDet != 3) {
@@ -2959,7 +2926,7 @@ REAL8 LALInferenceExtrinsicParamProposal(LALInferenceThreadState *thread,
         baryTime = LALInferenceGetREAL8Variable(proposedParams, "time");
         timeflag = 1;
     } else {
-        baryTime = XLALGPSGetREAL8(epoch);
+        baryTime = XLALGPSGetREAL8(&epoch);
     }
 
     if (LALInferenceCheckVariable(proposedParams,"costheta_jn"))
@@ -3173,7 +3140,7 @@ void LALInferenceZeroProposalStats(LALInferenceProposalCycle *cycle) {
 
 /** Update the adaptive proposal. Whether or not a jump was accepted is passed with accepted */
 void LALInferenceUpdateAdaptiveJumps(LALInferenceThreadState *thread, REAL8 targetAcceptance){
-    INT4 adaptableStep;
+    INT4 adaptableStep = 0;
     INT4 adapting = 0;
     REAL8 priorMin, priorMax, dprior, s_gamma;
     REAL8 accept, propose, sigma;
@@ -3218,8 +3185,21 @@ void LALInferenceUpdateAdaptiveJumps(LALInferenceThreadState *thread, REAL8 targ
 
             sigma = LALInferenceGetREAL8Variable(args, tmpname);
 
-            LALInferenceGetMinMaxPrior(thread->priorArgs, name, &priorMin, &priorMax);
-            dprior = priorMax - priorMin;
+            if(LALInferenceCheckMinMaxPrior(thread->priorArgs,name))
+			{
+					LALInferenceGetMinMaxPrior(thread->priorArgs, name, &priorMin, &priorMax);
+		            dprior = priorMax - priorMin;
+			}
+			else if(LALInferenceCheckGaussianPrior(thread->priorArgs,name))
+			{
+					REAL8 mu;
+					/* Get std. dev. as dprior */
+					LALInferenceGetGaussianPrior(thread->priorArgs,name,&mu,&dprior);
+			}
+			else
+			{
+					return;
+			}
 
             if (thread->accepted == 1){
                 sigma += s_gamma * (dprior/100.0) * (1.0-targetAcceptance);
@@ -3789,13 +3769,13 @@ void LALInferenceComputeMaxAutoCorrLenFromDE(LALInferenceThreadState *thread, IN
  * the ACF to estimate the ACL; there must be at least M*ACL samples
  * summed.  This ensures that we obtain a reliable estimate of the ACL
  * by incorporating lags that are much longer that the estimated ACL.
- * 
+ *
  * The maximum window length is also restricted to be N/K as a safety
  * precaution against relying on data near the extreme of the lags in
  * the ACF, where there is a lot of noise.
- * 
+ *
  * By default, safe parameters are M = 5, K = 2.
- * 
+ *
  * If no estimate can be obtained, then return Infinity.
  *
  * @param array Array with rows containing samples.
@@ -3905,32 +3885,37 @@ REAL8 LALInferenceSplineCalibrationProposal(LALInferenceThreadState *thread, LAL
   char **ifo_names;
   INT4 ifo;
   INT4 nifo = LALInferenceGetINT4Variable(thread->proposalArgs, "nDet");
-  REAL8 ampWidth = *(REAL8 *)LALInferenceGetVariable(thread->priorArgs, "spcal_amp_uncertainty");
-  REAL8 phaseWidth = *(REAL8 *)LALInferenceGetVariable(thread->priorArgs, "spcal_phase_uncertainty");
 
   LALInferenceCopyVariables(currentParams, proposedParams);
 
-  ifo_names = *(char ***)LALInferenceGetVariable(thread->proposalArgs, "detector_names");
+  get_detector_names(thread->parent->data, &ifo_names);
   for (ifo=0; ifo<nifo; ifo++) {
-    size_t i;
+    UINT4 i;
 
     char ampName[VARNAME_MAX];
     char phaseName[VARNAME_MAX];
+    REAL8 dummy;
 
-    REAL8Vector *amps;
-    REAL8Vector *phases;
+    REAL8 ampWidth;
+    REAL8 phaseWidth;
+    UINT4 nspl = LALInferenceGetUINT4Variable(proposedParams, "spcal_npts");
+    for (i = 0; i < nspl; i++) {
+      snprintf(ampName, VARNAME_MAX, "%s_spcal_amp_%i", ifo_names[ifo], i);
+      snprintf(phaseName, VARNAME_MAX, "%s_spcal_phase_%i", ifo_names[ifo], i);
 
-    snprintf(ampName, VARNAME_MAX, "%s_spcal_amp", ifo_names[ifo]);
-    snprintf(phaseName, VARNAME_MAX, "%s_spcal_phase", ifo_names[ifo]);
+      LALInferenceGetGaussianPrior(thread->priorArgs, ampName, &dummy, &ampWidth);
+      REAL8 amp = LALInferenceGetREAL8Variable(proposedParams, ampName);
+      amp += ampWidth*gsl_ran_ugaussian(thread->GSLrandom)/sqrt(nifo*(REAL8)nspl);
+      LALInferenceSetREAL8Variable(proposedParams, ampName, amp);
 
-    amps = *(REAL8Vector **)LALInferenceGetVariable(proposedParams, ampName);
-    phases = *(REAL8Vector **)LALInferenceGetVariable(proposedParams, phaseName);
-
-    for (i = 0; i < amps->length; i++) {
-      amps->data[i] += ampWidth*gsl_ran_ugaussian(thread->GSLrandom)/sqrt(nifo*amps->length);
-      phases->data[i] += phaseWidth*gsl_ran_ugaussian(thread->GSLrandom)/sqrt(nifo*amps->length);
+      LALInferenceGetGaussianPrior(thread->priorArgs, phaseName, &dummy, &phaseWidth);
+      REAL8 ph = LALInferenceGetREAL8Variable(proposedParams, phaseName);
+      ph += phaseWidth*gsl_ran_ugaussian(thread->GSLrandom)/sqrt(nifo*(REAL8)nspl);
+      LALInferenceSetREAL8Variable(proposedParams, phaseName, ph);
     }
   };
+
+  XLALFree(ifo_names);
 
   return 0.0;
 }

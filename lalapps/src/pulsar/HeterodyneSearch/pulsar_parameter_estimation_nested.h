@@ -12,6 +12,11 @@
 */
 
 /**
+ * \defgroup lalapps_pulsar_HeterodyneSearch Heterodyne Search Applications
+ * \ingroup lalapps_pulsar_Apps
+ */
+
+/**
  * \file
  * \ingroup lalapps_pulsar_HeterodyneSearch
  * \author Matthew Pitkin, John Veitch, Colin Gill
@@ -67,10 +72,6 @@
 #include <lal/LALInferenceGenerateROQ.h>
 
 #include <lal/LALSimNoise.h>
-
-#ifdef HAVE_LIBLALXML
-#include <lal/LALInferenceXML.h>
-#endif
 
 /* check whether openmp is enabled and if so include omp.h */
 #ifdef HAVE_OPENMP
@@ -141,20 +142,20 @@ extern "C" {
  *
  * Note: These should be increased if additional model parameters are added.
  */
-#define NUMAMPPARS 24
+#define NUMAMPPARS 28
 
 /**
  * The total number of frequency parameters that can defined a signal e.g.
  * the signal frequency and its time derivatives, and the frequency (period)
  * epoch.
  */
-#define NUMFREQPARS 8
+#define NUMFREQPARS 13
 
 /**
  * The total number of sky position parameters that can define a signal e.g.
- * right ascension, declination, proper motion and the positional epoch.
+ * right ascension, declination, proper motion, parallax and the positional epoch.
  */
-#define NUMSKYPARS 5
+#define NUMSKYPARS 6
 
 /**
  * The total number of binary system parameters that can define a signal e.g.
@@ -162,6 +163,11 @@ extern "C" {
  * periastron and angle of periastron.
  */
 #define NUMBINPARS 34
+
+/**
+ * The total number of glitch parameters that can define a signal
+ */
+#define NUMGLITCHPARS 7
 
 /** The maximum number of different detectors allowable. */
 #define MAXDETS 6
@@ -181,11 +187,9 @@ extern "C" {
                      same order) delimited by commas. These files can be gzipped.\n\
                      If not set you can generate fake data (see --fake-data below)\n"\
 " --sample-interval   (REAL8) the time interval bewteen samples (default to 60 s)\n"\
-" --outfile           name of output data file [required]\n"\
-" --output-all-params Output all stored parameters, otherwise the default will be\n\
-                     to only output the non-fixed (i.e. variable) parameters\n\
-                     specified in the prior and .par files\n"\
-" --gzip              gzip the output text file\n"\
+" --outfile           name of output data file (a HDF5 formated file with the\n\
+                     extension '.hdf' or '.h5' [required])\n"\
+" --output-chunks     Output lists of stationary chunks into which the data has been split\n"\
 " --outXML            name of output XML file [not required]\n"\
 " --chunk-min         (INT4) minimum stationary length of data to be used in\n\
                      the likelihood e.g. 5 mins\n"\
@@ -209,9 +213,15 @@ extern "C" {
                      otherwise the noise variance will be calculated from the data.\n"\
 " --nonGR             Set to allow non-GR polarisation modes and/or a variable\n\
                      speed of gravitational waves\n"\
-" --randomise         Set this to randomise the data (through permutations of the\n\
-                     time stamps) for use in Monte-Carlo studies. NOTE: this will not\n\
+" --randomise         Set this, with an INT seed, to randomise the data (through permutations\n\
+                     of the time stamps) for use in Monte-Carlo studies. NOTE: this will not\n\
                      work if using the code to create injections\n"\
+" --truncate-time     maximum GPS time to be analyzed (discards data with larger \n\
+                      timestamp\n"\
+" --truncate-samples  maximum sample number to be analyzed (analyzes only first\n\
+                      datapoints and discards rest)\n"\
+"\n"\
+" --truncate-fraction fraction of data samples to be analyzed (0<f<=1)\n"\
 "\n"\
 " Nested sampling parameters:\n"\
 " --Nlive             (INT4) no. of live points for nested sampling\n"\
@@ -235,18 +245,26 @@ extern "C" {
                      greatly increases the autocorrelation lengths, so in\n\
                      general should be avoided]\n"\
 " --ensembleWalk      (UINT4) relative weight of the ensemble walk\n\
-                     proposal (DEFAULT = 1, e.g. 100%%)\n"\
+                     proposal (DEFAULT = 3, e.g. 75%%)\n"\
+" --uniformprop       (UINT4) relative weights of uniform proposal\n\
+                     (DEFAULT = 1, e.g. 25%%)\n"\
 "\n"\
-" Reduced order quadrature parameters:\n"\
+" Reduced order quadrature (ROQ) parameters:\n"\
 " --roq               Set this to use reduced order quadrature to compute the\n\
                      likelihood\n"\
-" --ntraining         (UNIT4) The number of training models used to generate an\n\
+" --ntraining         (UINT4) The number of training models used to generate an\n\
                      orthonormal basis of waveform models\n"\
 " --roq-tolerance     (REAL8) The tolerance used during the basis generation\n\
                      (DEFAULT = 1e-11)\n"\
-" --test-basis        If this is set then the reduced basis set will be tested\n\
-                     against another set of waveforms to check they really are\n\
-                     within the required tolerance\n"\
+" --enrich-max        (UINT4) The number of times to try and \"enrich\" the\n\
+                     basis set using new training data. The enrichment process\n\
+                     stop before this value is reached if three consecutive\n\
+                     enrichment steps produce no new bases (DEFAULT = 100)\n"\
+" --roq-uniform       Set this flag to cause training model parameters for\n\
+                     parameters with Gaussian prior distributions to be drawn\n\
+                     from a uniform distribution spanning mu +/- 5 sigma.\n\
+                     Otherwise, by default parameters are drawn from their given\n\
+                     prior distributions\n"\
 " --output-weights    (CHAR) If this is set then the weights will be output to\n\
                      the (binary) file that is named and the programme will\n\
                      exit. These could be read in later instead of being\n\
@@ -290,7 +308,7 @@ extern "C" {
 " --scale-snr         give a (multi-detector) SNR value to which you want to\n\
                      scale the injection. This is 1 by default\n"\
 "\n"\
-" Flags for using a Nested sampling file as a prior:\n"\
+" Flags for using a Nested sampling file as a prior (DO NOT USE!):\n"\
 " --sample-files     a list of (comma separated) file containing the nested\n\
                     samples from a previous run of the code (these should\n\
                     contain samples in ascending likelihood order and be\n\
@@ -311,8 +329,8 @@ extern "C" {
 " --oldChunks        Set if using fixed chunk sizes for dividing the data as\n\
                     in the old code, rather than the calculating chunks\n\
                     using the change point method\n"\
-" --jones-model      Set if using both 1 and 2 multiples of the frequency and\n\
-                    requiring the use of the original signal model parameters\n\
+" --source-model     Set if using both 1 and 2 multiples of the frequency and\n\
+                    requiring the use of the original source model parameters\n\
                     from Jones, MNRAS, 402 (2010)\n"\
 "\n"\
 " Benchmarking:\n"\
@@ -328,23 +346,24 @@ extern "C" {
  * recognised within the code.
  */
 static const CHAR amppars[NUMAMPPARS][VARNAME_MAX] = { "H0", "PHI0", "PSI",
-"COSIOTA", "C22", "C21", "PHI22", "PHI21", "HSCALARB", "HSCALARL", "HVECTORX",
-"HVECTORY", "PSIVECTOR", "PHI0VECTOR", "PSISCALAR", "PHI0SCALAR", "PSITENSOR",
-"PHI0TENSOR", "I21", "I31", "LAMBDA", "COSTHETA", "IOTA", "THETA" };
+"COSIOTA", "C22", "C21", "PHI22", "PHI21", "HPLUS", "HCROSS", "HSCALARB",
+"HSCALARL", "HVECTORX", "HVECTORY", "PSIVECTOR", "PHI0VECTOR", "PSISCALAR",
+"PHI0SCALAR", "PSITENSOR", "PHI0TENSOR", "I21", "I31", "LAMBDA", "COSTHETA",
+"IOTA", "THETA", "Q22", "DIST" };
 
 /**
  * A list of the frequency parameters. The names given here are those that are
  * recognised within the code.
  */
 static const CHAR freqpars[NUMFREQPARS][VARNAME_MAX] = { "F0", "F1", "F2", "F3",
-"F4", "F5", "PEPOCH", "CGW" };
+"F4", "F5", "F6", "F7", "F8", "F9", "F10", "PEPOCH", "CGW" };
 
 /**
  * A list of the sky position parameters. The names given here are those that
  * are recognised within the code.
  */
 static const CHAR skypars[NUMSKYPARS][VARNAME_MAX] = { "RA", "PMRA", "DEC",
-"PMDEC", "POSEPOCH" };
+"PMDEC", "POSEPOCH", "PX" };
 
 /**
  * A list of the binary system parameters. The names given here are those that
@@ -355,9 +374,10 @@ static const CHAR binpars[NUMBINPARS][VARNAME_MAX] = { "PB", "ECC", "EPS1",
 "T0_3", "A1_3", "OM_3", "XPBDOT", "EPS1DOT", "EPS2DOT", "OMDOT", "GAMMA", "PBDOT",
 "XDOT", "EDOT", "SINI", "DR", "DTHETA", "A0", "B0", "MTOT", "M2", "FB" };
 
-extern LALStringVector *corlist;
+/** A list of the glitch parameters. */
+static const CHAR glitchpars[NUMGLITCHPARS][VARNAME_MAX] = {"GLEP", "GLPH", "GLF0", "GLF1", "GLF2", "GLF0D", "GLTD"};
 
-extern UINT4 verbose_output;
+extern LALStringVector *corlist;
 
 #ifdef __cplusplus
 }

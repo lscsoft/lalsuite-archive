@@ -21,7 +21,7 @@
  * \author Reinhard Prix
  * \date 2006
  * \file
- * \ingroup lalpulsar_UNCLASSIFIED
+ * \ingroup lalpulsar_general
  * \brief Header-file defining the API for the LISA-specific functions
  *
  */
@@ -46,7 +46,7 @@ extern "C" {
 
 /*---------- exported types ----------*/
 /** Translate TDI arm indices to C-indexing */
-typedef enum {
+typedef enum tagLISAarmT {
   LISA_ARM1 = 0,
   LISA_ARM2,
   LISA_ARM3

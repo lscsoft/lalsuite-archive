@@ -64,7 +64,6 @@ from pylal import rate
 from pylal import SimBurstUtils
 from pylal import SnglBurstUtils
 from pylal import stringutils
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 SnglBurstUtils.matplotlib.rcParams.update({
@@ -76,9 +75,6 @@ SnglBurstUtils.matplotlib.rcParams.update({
 	"legend.fontsize": 8.0,
 	"grid.linestyle": "-"
 })
-
-
-dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -680,7 +676,7 @@ FROM
 			for instrument in self.seglists:
 				print >>f, "In %s:" % instrument
 				print >>f, "\tInjected amplitude:\t%.16g" % SimBurstUtils.string_amplitude_in_instrument(sim, instrument, offsetvector)
-				print >>f, "\tTime of injection:\t%s s" % SimBurstUtils.time_at_instrument(sim, instrument, offsetvector)
+				print >>f, "\tTime of injection:\t%s s" % sim.time_at_instrument(instrument, offsetvector)
 			print >>f, "Amplitude in waveframe:\t%.16g" % sim.amplitude
 			t = sim.get_time_geocent()
 			print >>f, "Time at geocentre:\t%s s" % t
@@ -700,7 +696,7 @@ FROM
 			for instrument in self.seglists:
 				print >>f, "In %s:" % instrument
 				print >>f, "\tInjected amplitude:\t%.16g" % SimBurstUtils.string_amplitude_in_instrument(sim, instrument, offsetvector)
-				print >>f, "\tTime of injection:\t%s s" % SimBurstUtils.time_at_instrument(sim, instrument, offsetvector)
+				print >>f, "\tTime of injection:\t%s s" % sim.time_at_instrument(instrument, offsetvector)
 			print >>f, "Amplitude in waveframe:\t%.16g" % sim.amplitude
 			t = sim.get_time_geocent()
 			print >>f, "Time at geocentre:\t%s s" % t
@@ -801,7 +797,7 @@ def process_file(filename, products, live_time_program, tmp_path = None, veto_se
 		# as a side-effect, this enforces the rule that
 		# burca has been run on the input file exactly once
 		contents.coincidence_segments, = contents.coincidence_segments
-		contents.coincidence_segments = segments.segmentlistdict.fromkeys(contents.seglists, segmentsUtils.from_range_strings(contents.coincidence_segments.split(","), boundtype = LIGOTimeGPS).coalesce())
+		contents.coincidence_segments = segments.segmentlistdict.fromkeys(contents.seglists, segmentsUtils.from_range_strings(contents.coincidence_segments.split(","), boundtype = dbtables.lsctables.LIGOTimeGPS).coalesce())
 	else:
 		contents.coincidence_segments = None
 

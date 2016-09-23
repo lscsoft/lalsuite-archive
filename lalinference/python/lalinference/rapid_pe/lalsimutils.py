@@ -37,7 +37,7 @@ import lalmetaio
 
 import pylal
 from pylal import frutils
-from pylal import series
+from lal import series
 
 __author__ = "Evan Ochsner <evano@gravity.phys.uwm.edu>, R. O'Shaughnessy"
 
@@ -496,7 +496,7 @@ class Overlap(InnerProduct):
                 and abs(h1.deltaF-self.deltaF) <= TOL_DF
         # Tabulate the SNR integrand
         # Set negative freqs. of integrand to zero
-        self.intgd.data.data[:self.len1side] = np.zeros(self.len1side)
+        self.intgd.data.data[:] = 0.0 + 0.0j
         # Fill positive freqs with inner product integrand
         temp = 4.*np.conj(h1.data.data) * h2.data.data * self.weights
         self.intgd.data.data[self.len1side-1:] = temp[:-1]
@@ -653,12 +653,12 @@ def overlap(t1, t2, ovrlp, delta_f, f_low, approx1, approx2, t1_norm=None, t2_no
     Calculate the overlap of template 1 using approx1 with template 2 using approx2 with frequency binning given by delta_f and beginning the integration at f_low. If t1_norm or t2_norm is given, it is not calculated, it is simply used and returned.
     """
 
-    if isinstance(t1, lsctables.SnglInspiral):
+    if isinstance(t1, lsctables.SnglInspiral) or isinstance(t1, lsctables.SimInspiral):
         h1 = generate_waveform_from_tmplt(t1, approx1, delta_f, f_low)
     else:
         h1 = t1
 
-    if isinstance(t2, lsctables.SnglInspiral):
+    if isinstance(t2, lsctables.SnglInspiral) or isinstance(t2, lsctables.SimInspiral):
         h2 = generate_waveform_from_tmplt(t2, approx2, delta_f, f_low)
     else:
         h2 = t2
@@ -1130,9 +1130,16 @@ def hlmoft(P, Lmax=2, Fp=None, Fc=None):
     and all values of m for these l.
     """
     assert Lmax >= 2
-    hlms = lalsim.SimInspiralChooseTDModes(P.phiref, P.deltaT, P.m1, P.m2,
+    try:
+        hlms = lalsim.SimInspiralChooseTDModes(P.phiref, P.deltaT, P.m1, P.m2,
             P.fmin, P.fref, P.dist, P.lambda1, P.lambda2, P.waveFlags,
             P.nonGRparams, P.ampO, P.phaseO, Lmax, P.approx)
+    except RuntimeError:
+        hlms = lalsim.SimInspiralTDModesFromPolarizations(P.deltaT,
+            P.m1, P.m2, P.spin1x, P.spin1y, P.spin1z, 
+            P.spin2x, P.spin2y, P.spin2z, 
+            P.fmin, P.fref, P.dist, P.lambda1, P.lambda2, 0.0, P.waveFlags,
+            P.nonGRparams, P.ampO, P.phaseO, P.approx)
     # FIXME: Add ability to taper
     # COMMENT: Add ability to generate hlmoft at a nonzero GPS time directly.
     #      USUALLY we will use the hlms in template-generation mode, so will want the event at zero GPS time
@@ -1466,7 +1473,7 @@ def pylal_psd_to_swig_psd(raw_pylal_psd):
     return psdNew
 
 def get_psd_series_from_xmldoc(fname, inst):
-    return series.read_psd_xmldoc(utils.load_filename(fname, contenthandler=series.LIGOLWContentHandler))[inst]  # return value is pylal wrapping of the data type; index data by a.data[k]
+    return series.read_psd_xmldoc(utils.load_filename(fname, contenthandler=series.PSDContentHandler))[inst]  # return value is pylal wrapping of the data type; index data by a.data[k]
 
 def get_intp_psd_series_from_xmldoc(fname, inst):
     psd = get_psd_series_from_xmldoc(fname, inst)

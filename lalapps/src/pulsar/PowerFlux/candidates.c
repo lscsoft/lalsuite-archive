@@ -20,7 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 /* We need this define to get NAN values */
-#define __USE_ISOC99
+// #define __USE_ISOC99
 #include <math.h>
 #include <unistd.h>
 #include <sys/stat.h>

@@ -33,7 +33,9 @@ interested users.
 """
 
 
+import math
 import numpy
+import warnings
 from xml import sax
 
 
@@ -41,11 +43,13 @@ from glue import git_version
 from glue import iterutils
 from glue import offsetvector
 from glue import segments
+import lal
+from lal import LIGOTimeGPS
 try:
-	from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+	from pylal import inject
 except ImportError:
 	# pylal is optional
-	from glue.lal import LIGOTimeGPS
+	pass
 from . import ligolw
 from . import table
 from . import types as ligolwtypes
@@ -66,7 +70,7 @@ __date__ = git_version.date
 #
 
 
-class TableRow(object):
+class TableRow(table.TableRow):
 	# FIXME:  figure out what needs to be done to allow the C row
 	# classes that are floating around to be derived from this easily
 
@@ -81,9 +85,6 @@ class TableRow(object):
 	pickleable).
 	"""
 	__slots__ = ()
-	def __init__(self, **kwargs):
-		for key, value in kwargs.items():
-			setattr(self, key, value)
 	def __getstate__(self):
 		return dict((key, getattr(self, key)) for key in self.__slots__ if hasattr(self, key))
 	def __setstate__(self, state):
@@ -132,7 +133,6 @@ def IsTableProperties(Type, tagname, attrs):
 	obsolete.  see .CheckProperties() method of glue.ligolw.table.Table
 	class.
 	"""
-	import warnings
 	warnings.warn("lsctables.IsTableProperties() is deprecated.  use glue.ligolw.table.Table.CheckProperties() instead", DeprecationWarning)
 	return Type.CheckProperties(tagname, attrs)
 
@@ -328,7 +328,7 @@ class ProcessTable(table.Table):
 		return set(row.process_id for row in self if row.program == program)
 
 
-class Process(object):
+class Process(table.TableRow):
 	"""
 	Example:
 
@@ -393,7 +393,7 @@ class LfnTable(table.Table):
 	next_id = LfnID(0)
 
 
-class Lfn(object):
+class Lfn(table.TableRow):
 	__slots__ = LfnTable.validcolumns.keys()
 
 
@@ -432,7 +432,7 @@ class ProcessParamsTable(table.Table):
 		table.Table.append(self, row)
 
 
-class ProcessParams(object):
+class ProcessParams(table.TableRow):
 	"""
 	Example:
 
@@ -583,7 +583,7 @@ class SearchSummaryTable(table.Table):
 		return seglists
 
 
-class SearchSummary(object):
+class SearchSummary(table.TableRow):
 	"""
 	Example:
 
@@ -762,7 +762,7 @@ class SearchSummVarsTable(table.Table):
 	next_id = SearchSummVarsID(0)
 
 
-class SearchSummVars(object):
+class SearchSummVars(table.TableRow):
 	__slots__ = SearchSummVarsTable.validcolumns.keys()
 
 
@@ -867,7 +867,7 @@ class ExperimentTable(table.Table):
 		return row[0]
 
 
-class Experiment(object):
+class Experiment(table.TableRow):
 	__slots__ = ExperimentTable.validcolumns.keys()
 
 	def get_instruments(self):
@@ -1045,7 +1045,7 @@ class ExperimentSummaryTable(table.Table):
 		raise ValueError("'%s' could not be found in the table" % (str(experiment_summ_id)))
 
 
-class ExperimentSummary(object):
+class ExperimentSummary(table.TableRow):
 	__slots__ = ExperimentSummaryTable.validcolumns.keys()
 
 
@@ -1085,7 +1085,7 @@ class ExperimentMapTable(table.Table):
 		return experiment_summ_ids
 
 
-class ExperimentMap(object):
+class ExperimentMap(table.TableRow):
 	__slots__ = ExperimentMapTable.validcolumns.keys()
 
 
@@ -1140,7 +1140,7 @@ class GDSTriggerTable(table.Table):
 	interncolumns = ("process_id", "ifo", "subtype")
 
 
-class GDSTrigger(object):
+class GDSTrigger(table.TableRow):
 	__slots__ = GDSTriggerTable.validcolumns.keys()
 
 	#
@@ -1371,7 +1371,7 @@ class SnglBurstTable(table.Table):
 		return vetoed
 
 
-class SnglBurst(object):
+class SnglBurst(table.TableRow):
 	__slots__ = SnglBurstTable.validcolumns.keys()
 
 	#
@@ -1655,7 +1655,7 @@ class MultiBurstTable(table.Table):
 	}
 
 
-class MultiBurst(object):
+class MultiBurst(table.TableRow):
 	__slots__ = MultiBurstTable.validcolumns.keys()
 
 	@property
@@ -1983,7 +1983,7 @@ class SnglInspiralTable(table.Table):
 		return slideTrigs
 
 
-class SnglInspiral(object):
+class SnglInspiral(table.TableRow):
 	__slots__ = SnglInspiralTable.validcolumns.keys()
 
 	@staticmethod
@@ -2006,6 +2006,32 @@ class SnglInspiral(object):
 			self.end_time = self.end_time_ns = None
 		else:
 			self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+
+	@property
+	def spin1(self):
+		if self.spin1x is None and self.spin1y is None and self.spin1z is None:
+			return None
+		return numpy.array((self.spin1x, self.spin1y, self.spin1z), dtype = "double")
+
+	@spin1.setter
+	def spin1(self, spin):
+		if spin is None:
+			self.spin1x, self.spin1y, self.spin1z = None, None, None
+		else:
+			self.spin1x, self.spin1y, self.spin1z = spin
+
+	@property
+	def spin2(self):
+		if self.spin2x is None and self.spin2y is None and self.spin2z is None:
+			return None
+		return numpy.array((self.spin2x, self.spin2y, self.spin2z), dtype = "double")
+
+	@spin2.setter
+	def spin2(self, spin):
+		if spin is None:
+			self.spin2x, self.spin2y, self.spin2z = None, None, None
+		else:
+			self.spin2x, self.spin2y, self.spin2z = spin
 
 	#
 	# Methods
@@ -2071,6 +2097,8 @@ class SnglInspiral(object):
 			cmp(self.end, other.end) or
 			cmp(self.mass1, other.mass1) or
 			cmp(self.mass2, other.mass2) or
+			cmp(self.spin1, other.spin1) or
+			cmp(self.spin2, other.spin2) or
 			cmp(self.search, other.search)
 		)
 
@@ -2122,7 +2150,7 @@ class CoincInspiralTable(table.Table):
 	interncolumns = ("coinc_event_id", "ifos")
 
 
-class CoincInspiral(object):
+class CoincInspiral(table.TableRow):
 	"""
 	Example:
 
@@ -2226,7 +2254,7 @@ class SnglRingdownTable(table.Table):
 		return [row.get_start() for row in self]
 
 
-class SnglRingdown(object):
+class SnglRingdown(table.TableRow):
 	__slots__ = SnglRingdownTable.validcolumns.keys()
 
 	def get_start(self):
@@ -2286,7 +2314,7 @@ class CoincRingdownTable(table.Table):
 	interncolumns = ("coinc_event_id", "ifos")
 
 
-class CoincRingdown(object):
+class CoincRingdown(table.TableRow):
 	__slots__ = CoincRingdownTable.validcolumns.keys()
 
 	def get_start(self):
@@ -2713,7 +2741,7 @@ class MultiInspiralTable(table.Table):
 		return newsnr
 
 
-class MultiInspiral(object):
+class MultiInspiral(table.TableRow):
 	__slots__ = MultiInspiralTable.validcolumns.keys()
 	instrument_id = MultiInspiralTable.instrument_id
 
@@ -3064,7 +3092,7 @@ class SimInspiralTable(table.Table):
 		return numpy.asarray([row.get_end(site=site) for row in self])
 
 
-class SimInspiral(object):
+class SimInspiral(table.TableRow):
 	"""
 	Example:
 
@@ -3098,9 +3126,7 @@ class SimInspiral(object):
 			self.geocent_end_time = self.geocent_end_time_ns = self.end_time_gmst = None
 		else:
 			self.geocent_end_time, self.geocent_end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-			# FIXME:  also do this when we switch to swig
-			# binding version of LIGOTimeGPS
-			#self.end_time_gmst = lal.GreenwichMeanSiderealTime(gps)
+			self.end_time_gmst = lal.GreenwichMeanSiderealTime(gps)
 
 	@property
 	def ra_dec(self):
@@ -3115,16 +3141,77 @@ class SimInspiral(object):
 		else:
 			self.longitude, self.latitude = radec
 
+	@property
+	def spin1(self):
+		if self.spin1x is None and self.spin1y is None and self.spin1z is None:
+			return None
+		return numpy.array((self.spin1x, self.spin1y, self.spin1z), dtype = "double")
+
+	@spin1.setter
+	def spin1(self, spin):
+		if spin is None:
+			self.spin1x, self.spin1y, self.spin1z = None, None, None
+		else:
+			self.spin1x, self.spin1y, self.spin1z = spin
+
+	@property
+	def spin2(self):
+		if self.spin2x is None and self.spin2y is None and self.spin2z is None:
+			return None
+		return numpy.array((self.spin2x, self.spin2y, self.spin2z), dtype = "double")
+
+	@spin2.setter
+	def spin2(self, spin):
+		if spin is None:
+			self.spin2x, self.spin2y, self.spin2z = None, None, None
+		else:
+			self.spin2x, self.spin2y, self.spin2z = spin
+
+	def time_at_instrument(self, instrument, offsetvector):
+		"""
+		Return the "time" of the injection, delay corrected for the
+		displacement from the geocentre to the given instrument.
+
+		NOTE:  this method does not account for the rotation of the
+		Earth that occurs during the transit of the plane wave from
+		the detector to the geocentre.  That is, it is assumed the
+		Earth is in the same orientation with respect to the
+		celestial sphere when the wave passes through the detector
+		as when it passes through the geocentre.  The Earth rotates
+		by about 1.5 urad during the 21 ms it takes light to travel
+		the radius of the Earth, which corresponds to 10 m of
+		displacement at the equator, or 33 light-ns.  Therefore,
+		the failure to do a proper retarded time calculation here
+		results in errors as large as 33 ns.  This is insignificant
+		for burst searches, but be aware that this approximation is
+		being made if the return value is used in other contexts.
+		"""
+		# the offset is subtracted from the time of the injection.
+		# injections are done this way so that when the triggers
+		# that result from an injection have the offset vector
+		# added to their times the triggers will form a coinc
+		t_geocent = self.time_geocent - offsetvector[instrument]
+		ra, dec = self.ra_dec
+		return t_geocent + lal.TimeDelayFromEarthCenter(inject.cached_detector_by_prefix[instrument].location, ra, dec, t_geocent)
+
 	def get_time_geocent(self):
+		# FIXME:  delete this method
+		warnings.warn("SimInspiral.get_time_geocent() is deprecated.  use SimInspiral.time_geocent instead", DeprecationWarning)
 		return self.time_geocent
 
 	def set_time_geocent(self, gps):
+		# FIXME:  delete this method
+		warnings.warn("SimInspiral.set_time_geocent() is deprecated.  use SimInspiral.time_geocent instead", DeprecationWarning)
 		self.time_geocent = gps
 
 	def get_ra_dec(self):
+		# FIXME:  delete this method
+		warnings.warn("SimInspiral.get_ra_dec() is deprecated.  use SimInspiral.ra_dec instead", DeprecationWarning)
 		return self.ra_dec
 
 	def get_end(self, site = None):
+		# FIXME:  delete this method
+		warnings.warn("SimInspiral.get_end() is deprecated.  use SimInspiral.time_geocent or SimInspiral.time_at_instrument() instead", DeprecationWarning)
 		if site is None:
 			return self.time_geocent
 		else:
@@ -3137,10 +3224,8 @@ class SimInspiral(object):
 		return SnglInspiral.chirp_distance(self.get_eff_dist(instrument), self.mchirp, ref_mass)
 
 	def get_spin_mag(self, objectnumber):
-		sx = getattr(self, "spin%dx" % objectnumber)
-		sy = getattr(self, "spin%dy" % objectnumber)
-		sz = getattr(self, "spin%dz" % objectnumber)
-		return (sx**2 + sy**2 + sz**2)**(0.5)
+		s = getattr(self, "spin%d" % objectnumber)
+		return math.sqrt(numpy.dot(s, s))
 
 
 SimInspiralTable.RowType = SimInspiral
@@ -3221,9 +3306,7 @@ class SimBurst(TableRow):
 			self.time_geocent_gps = self.time_geocent_gps_ns = self.time_geocent_gmst = None
 		else:
 			self.time_geocent_gps, self.time_geocent_gps_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-			# FIXME:  also do this when we switch to swig
-			# binding version of LIGOTimeGPS
-			#self.time_geocent_gmst = lal.GreenwichMeanSiderealTime(gps)
+			self.time_geocent_gmst = lal.GreenwichMeanSiderealTime(gps)
 
 	@property
 	def ra_dec(self):
@@ -3238,6 +3321,33 @@ class SimBurst(TableRow):
 		else:
 			self.ra, self.dec = radec
 
+	def time_at_instrument(self, instrument, offsetvector):
+		"""
+		Return the "time" of the injection, delay corrected for the
+		displacement from the geocentre to the given instrument.
+
+		NOTE:  this method does not account for the rotation of the
+		Earth that occurs during the transit of the plane wave from
+		the detector to the geocentre.  That is, it is assumed the
+		Earth is in the same orientation with respect to the
+		celestial sphere when the wave passes through the detector
+		as when it passes through the geocentre.  The Earth rotates
+		by about 1.5 urad during the 21 ms it takes light to travel
+		the radius of the Earth, which corresponds to 10 m of
+		displacement at the equator, or 33 light-ns.  Therefore,
+		the failure to do a proper retarded time calculation here
+		results in errors as large as 33 ns.  This is insignificant
+		for burst searches, but be aware that this approximation is
+		being made if the return value is used in other contexts.
+		"""
+		# the offset is subtracted from the time of the injection.
+		# injections are done this way so that when the triggers
+		# that result from an injection have the offset vector
+		# added to their times the triggers will form a coinc
+		t_geocent = self.time_geocent - offsetvector[instrument]
+		ra, dec = self.ra_dec
+		return t_geocent + lal.TimeDelayFromEarthCenter(inject.cached_detector_by_prefix[instrument].location, ra, dec, t_geocent)
+
 	def get_time_geocent(self):
 		return self.time_geocent
 
@@ -3248,20 +3358,15 @@ class SimBurst(TableRow):
 		return self.ra_dec
 
 	def get_end(self, site = None):
+		"""
+		Do not use this method:  use .time_at_instrument() if that's what you want, or use .time_geocent if that's what you want.
+
+		Also ... this doesn't return the *end time*, it returns the *PEAK TIME*.  You've been warned.
+		"""
 		if site is None:
-			return self.get_time_geocent()
-		else:
-			from pylal.xlal import tools
-			from pylal import date,inject
-			from pylal.date import XLALTimeDelayFromEarthCenter
-			from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-			detMap = {'H': 'LHO_4k', 'L': 'LLO_4k',
-                'G': 'GEO_600', 'V': 'VIRGO', 'T': 'TAMA_300'}
-			location=inject.cached_detector[detMap[site]].location
-			ra,dec=self.get_ra_dec()
-			time=self.get_time_geocent()
-			time=time+LIGOTimeGPS(XLALTimeDelayFromEarthCenter(location,ra,dec,LIGOTimeGPS(time)))
-			return LIGOTimeGPS(float(time))
+			return self.time_geocent
+		instrument = site + "1"	# ugh ...
+		return self.time_at_instrument(instrument, {instrument: 0.0})
 
 SimBurstTable.RowType = SimBurst
 
@@ -3319,7 +3424,7 @@ class SimRingdownTable(table.Table):
 	interncolumns = ("process_id", "waveform", "coordinates")
 
 
-class SimRingdown(object):
+class SimRingdown(table.TableRow):
 	__slots__ = SimRingdownTable.validcolumns.keys()
 
 	def get_start(self, site = None):
@@ -3369,7 +3474,7 @@ class SummValueTable(table.Table):
 	interncolumns = ("program", "process_id", "ifo", "name", "comment")
 
 
-class SummValue(object):
+class SummValue(table.TableRow):
 	"""
 	Example:
 
@@ -3464,7 +3569,7 @@ class SimInstParamsTable(table.Table):
 	next_id = SimInstParamsID(0)
 
 
-class SimInstParams(object):
+class SimInstParams(table.TableRow):
 	__slots__ = SimInstParamsTable.validcolumns.keys()
 
 
@@ -3499,7 +3604,7 @@ class StochasticTable(table.Table):
 	}
 
 
-class Stochastic(object):
+class Stochastic(table.TableRow):
 	__slots__ = StochasticTable.validcolumns.keys()
 
 
@@ -3534,7 +3639,7 @@ class StochSummTable(table.Table):
 	}
 
 
-class StochSumm(object):
+class StochSumm(table.TableRow):
 	__slots__ = StochSummTable.validcolumns.keys()
 
 
@@ -3600,7 +3705,7 @@ class ExtTriggersTable(table.Table):
 	}
 
 
-class ExtTriggers(object):
+class ExtTriggers(table.TableRow):
 	__slots__ = ExtTriggersTable.validcolumns.keys()
 
 
@@ -3634,7 +3739,7 @@ class FilterTable(table.Table):
 	next_id = FilterID(0)
 
 
-class Filter(object):
+class Filter(table.TableRow):
 	__slots__ = FilterTable.validcolumns.keys()
 
 
@@ -3671,7 +3776,7 @@ class SegmentTable(table.Table):
 	interncolumns = ("process_id",)
 
 
-class Segment(object):
+class Segment(table.TableRow):
 	"""
 	Example:
 
@@ -3844,7 +3949,7 @@ class SegmentDefTable(table.Table):
 	interncolumns = ("process_id",)
 
 
-class SegmentDef(object):
+class SegmentDef(table.TableRow):
 	"""
 	Example:
 
@@ -3927,7 +4032,7 @@ class SegmentSumTable(table.Table):
 		return segments.segmentlist(row.segment for row in self if row.segment_def_id == segment_def_id)
 
 
-class SegmentSum(object):
+class SegmentSum(table.TableRow):
 	"""
 	Example:
 
@@ -4118,7 +4223,7 @@ class TimeSlideTable(table.Table):
 		return self.append_offsetvector(offsetdict, create_new)
 
 
-class TimeSlide(object):
+class TimeSlide(table.TableRow):
 	__slots__ = TimeSlideTable.validcolumns.keys()
 
 
@@ -4184,12 +4289,8 @@ class CoincDefTable(table.Table):
 		return row.coinc_def_id
 
 
-class CoincDef(object):
+class CoincDef(table.TableRow):
 	__slots__ = CoincDefTable.validcolumns.keys()
-
-	def __init__(self, **kwargs):
-		for name, value in kwargs.items():
-			setattr(self, name, value)
 
 
 CoincDefTable.RowType = CoincDef
@@ -4227,7 +4328,7 @@ class CoincTable(table.Table):
 	}
 
 
-class Coinc(object):
+class Coinc(table.TableRow):
 	__slots__ = CoincTable.validcolumns.keys()
 
 	def get_instruments(self):
@@ -4271,7 +4372,7 @@ class CoincMapTable(table.Table):
 	}
 
 
-class CoincMap(object):
+class CoincMap(table.TableRow):
 	__slots__ = CoincMapTable.validcolumns.keys()
 
 
@@ -4305,7 +4406,7 @@ class DQSpecListTable(table.Table):
 	next_id = DQSpecListID(0)
 
 
-class DQSpec(object):
+class DQSpec(table.TableRow):
 	__slots__ = DQSpecListTable.validcolumns.keys()
 
 	def apply_to_segmentlist(self, seglist):
@@ -4349,7 +4450,7 @@ class LIGOLWMonTable(table.Table):
 	next_id = LIGOLWMonID(0)
 
 
-class LIGOLWMon(object):
+class LIGOLWMon(table.TableRow):
 	__slots__ = LIGOLWMonTable.validcolumns.keys()
 
 	def get_time(self):
@@ -4388,8 +4489,9 @@ class VetoDefTable(table.Table):
 	interncolumns = ("process_id","ifo")
 
 
-class VetoDef(object):
+class VetoDef(table.TableRow):
 	__slots__ = VetoDefTable.validcolumns.keys()
+
 
 VetoDefTable.RowType = VetoDef
 
@@ -4431,7 +4533,7 @@ class SummMimeTable(table.Table):
 	next_id = SummMimeID(0)
 
 
-class SummMime(object):
+class SummMime(table.TableRow):
 	__slots__ = SummMimeTable.validcolumns.keys()
 
 	def get_start(self):
@@ -4465,7 +4567,7 @@ class TimeSlideSegmentMapTable(table.Table):
 		"time_slide_id": "ilwd:char",
 	}
 
-class TimeSlideSegmentMap(object):
+class TimeSlideSegmentMap(table.TableRow):
 	__slots__ = TimeSlideSegmentMapTable.validcolumns.keys()
 
 TimeSlideSegmentMapTable.RowType = TimeSlideSegmentMap

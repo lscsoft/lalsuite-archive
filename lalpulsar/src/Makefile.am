@@ -14,9 +14,10 @@ pkginclude_HEADERS = \
 	DopplerScan.h \
 	EstimateAmplitudeParams.h \
 	ExtrapolatePulsarSpins.h \
-	FitToPulsar.h \
+	FITSFileIO.h \
 	FlatMesh.h \
 	FlatPulsarMetric.h \
+	GSLHelpers.h \
 	GeneratePulsarSignal.h \
 	GenerateSpinOrbitCW.h \
 	GenerateTaylorCW.h \
@@ -28,7 +29,6 @@ pkginclude_HEADERS = \
 	LALPulsarConfig.h \
 	LALPulsarVCSInfo.h \
 	LALPulsarVCSInfoHeader.h \
-	LALXMGRInterface.h \
 	LFTandTSutils.h \
 	LISAspecifics.h \
 	LUT.h \
@@ -83,7 +83,7 @@ liblalpulsar_la_SOURCES = \
 	DriveHough.c \
 	EstimateAmplitudeParams.c \
 	ExtrapolatePulsarSpins.c \
-	FitToPulsar.c \
+	FITSFileIO.c \
 	FlatMesh.c \
 	FlatPulsarMetric.c \
 	GenerateEllipticSpinOrbitCW.c \
@@ -98,7 +98,6 @@ liblalpulsar_la_SOURCES = \
 	LALComputeAM.c \
 	LALInitBarycenter.c \
 	LALPulsarVCSInfo.c \
-	LALXMGRInterface.c \
 	LFTandTSutils.c \
 	LISAspecifics.c \
 	LatticeTiling.c \
@@ -168,7 +167,6 @@ EXTRA_liblalpulsar_la_SOURCES = \
 	ComputeFstat_DemodHL_SSE.i \
 	ComputeFstat_Demod_ComputeFaFb.c \
 	ComputeFstat_internal.h \
-	GSLHelpers.h \
 	SFTfileIO-LAL.c \
 	SFTutils-LAL.c \
 	SinCosLUT.i \

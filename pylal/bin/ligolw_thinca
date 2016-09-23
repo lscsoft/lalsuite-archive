@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright (C) 2008  Kipp Cannon
+# Copyright (C) 2008--2015  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -26,23 +26,19 @@
 #
 
 
-import glob
-import math
 from optparse import OptionParser
 import sys
 
 
-from glue.lal import CacheEntry
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils as ligolw_utils
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import segments as ligolw_segments
 from glue import segmentsUtils
+import lal
 from pylal import git_version
 from pylal import ligolw_thinca
-from pylal import snglcoinc
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 lsctables.use_in(ligolw.LIGOLWContentHandler)
@@ -62,7 +58,7 @@ lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
 
 
 #
-# Use C row classes for memory efficiency and speed.
+# Must use coincidence code's custom sngl_inspiral table row type.
 #
 
 
@@ -86,31 +82,31 @@ def parse_command_line():
 	)
 	parser.add_option("-c", "--comment", metavar = "text", help = "Set comment string in process table (default = None).")
 	parser.add_option("-f", "--force", action = "store_true", help = "Process document even if it has already been processed.")
-	parser.add_option("-t", "--e-thinca-parameter", metavar = "float", type = "float", help = "Set the ellipsoidal coincidence algorithm's threshold (required).")
-	parser.add_option("--exact-mass", action = "store_true", help = "Use the ellipsoidal coincidence algorithm and require exact mass coincidence.")
-	parser.add_option("-a", "--effective-snr", metavar = "{inspiral|gstlal}", help = "Select effective SNR algorithm (required).  \"inspiral\" reproduces the algorithm used by lalapps_thinca, \"gstlal\" is an algorithm appropriate for use with gstlal_inspiral.")
-	parser.add_option("--effective-snr-factor", metavar = "float", type = "float", default = 250.0, help = "Set the effective SNR factor used with the \"inspiral\" effective SNR (default = 250.0).")
+	parser.add_option("-m", "--match", metavar = "algorithm", default = "exact", help = "Select the coincidence test.  Allowed values are:  \"exact\" (require exact template match, the default).")
+	parser.add_option("-t", "--threshold", metavar = "float", type = "float", help = "Set the coincidence threshold (required).  The meaning is defined by the match algorithm.  For --match=exact this sets the Delta t window in seconds.")
 	parser.add_option("--vetoes-name", metavar = "string", default = "vetoes", help = "From the input document, exatract the segment list having this name to use as the veto segments (default = \"vetoes\").  Warning:  if no segments by this name are found in the document then vetoes will not be applied, this is not an error condition.")
 	parser.add_option("--trigger-program", metavar = "name", default = "inspiral", help = "Set the name of the program that generated the event list as it appears in the process table (default = \"inspiral\").")
 	parser.add_option("--coinc-end-time-segment", metavar = "seg", help = "The segment of time to retain coincident triggers from. Uses segmentUtils.from_range_strings() format \"START:END\" for an interval of the form [START,END), \"START:\" for an interval of the form [START,INF), and \":END\" for an interval of the form (-INF,END).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
+	process_params = options.__dict__.copy()
+
 	#
 	# check arguments
 	#
 
-	required_options = ["e_thinca_parameter", "effective_snr"]
+	required_options = ["threshold"]
 	missing_options = [option for option in required_options if getattr(options, option) is None]
 	if missing_options:
 		raise ValueError("missing required option(s) %s" % ", ".join("--%s" % option.replace("_", "-") for option in missing_options))
-	if options.effective_snr not in ("inspiral", "gstlal"):
-		raise ValueError("unrecognized --effective-snr %s" % options.effective_snr)
+	if options.match not in ("exact",):
+		raise ValueError("unrecognized value for --match: \"%s\"" % options.match)
 
 	if options.coinc_end_time_segment is not None:
 		if ',' in options.coinc_end_time_segment:
 			raise ValueError("--coinc-end-time-segment may only contain a single segment")
-		options.coinc_end_time_segs = segmentsUtils.from_range_strings([options.coinc_end_time_segment], boundtype = LIGOTimeGPS).coalesce()
+		options.coinc_end_time_segs = segmentsUtils.from_range_strings([options.coinc_end_time_segment], boundtype = lsctables.LIGOTimeGPS).coalesce()
 	else:
 		options.coinc_end_time_segs = None
 
@@ -118,49 +114,19 @@ def parse_command_line():
 	# done
 	#
 
-	return options, (filenames or [None])
+	return options, process_params, (filenames or [None])
 
 
 #
 # =============================================================================
 #
-#                           Add Process Information
+#                             Process Information
 #
 # =============================================================================
 #
 
 
-process_program_name = "ligolw_thinca"
-
-
-def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = None, exact_mass = None, effective_snr_factor = None, vetoes_name = None, trigger_program = None, effective_snr = None, coinc_end_time_segment = None, verbose = None):
-	process = ligolw_process.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
-
-	params = [
-		(u"--e-thinca-parameter", u"real_8", e_thinca_parameter)
-	]
-	if comment is not None:
-		params += [(u"--comment", u"lstring", comment)]
-	if force is not None:
-		params += [(u"--force", None, None)]
-	if effective_snr_factor is not None:
-		params += [(u"--effective-snr-factor", u"real_8", effective_snr_factor)]
-	if vetoes_name is not None:
-		params += [(u"--vetoes-name", u"lstring", vetoes_name)]
-	if trigger_program is not None:
-		params += [(u"--trigger-program", u"lstring", trigger_program)]
-	if effective_snr is not None:
-		params += [(u"--effective-snr", u"lstring", effective_snr)]
-	if coinc_end_time_segment is not None:
-		params += [(u"--coinc-end-time-segment", u"lstring", coinc_end_time_segment)]
-	if exact_mass is not None:
-		params += [(u"--exact-mass", None, None)]
-	if verbose is not None:
-		params += [(u"--verbose", None, None)]
-
-	ligolw_process.append_process_params(xmldoc, process, params)
-
-	return process
+process_program_name = u"ligolw_thinca"
 
 
 #
@@ -177,16 +143,7 @@ def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = No
 #
 
 
-options, filenames = parse_command_line()
-
-
-#
-# Select effective SNR form
-#
-
-
-if options.effective_snr == "gstlal":
-	ligolw_thinca.SnglInspiral.get_effective_snr = lambda self, fac: self.snr / math.sqrt(self.chisq)
+options, process_params, filenames = parse_command_line()
 
 
 #
@@ -194,11 +151,11 @@ if options.effective_snr == "gstlal":
 #
 
 
-if options.exact_mass:
-	# Require exact mass coincidence
+if options.match == "exact":
 	event_comparefunc = ligolw_thinca.inspiral_coinc_compare_exact
 else:
-	event_comparefunc = ligolw_thinca.inspiral_coinc_compare
+	# not possible
+	assert False
 
 
 #
@@ -208,14 +165,12 @@ else:
 
 if options.coinc_end_time_segs is not None:
 	# Custom Ntuple Comparison Function
-	def restricted_endtime_ntuple_comparefunc(events, offset_vector, seg = options.coinc_end_time_segs):
+	def ntuple_comparefunc(events, offset_vector, seg = options.coinc_end_time_segs):
 		"""
-		Return False (ntuple should be retained) if the end time of the
-		coinc is in the segmentlist segs.
+		Return False (ntuple should be retained) if the end time of
+		the coinc is in the segmentlist segs.
 		"""
 		return ligolw_thinca.coinc_inspiral_end_time(events, offset_vector) not in seg
-
-	ntuple_comparefunc = restricted_endtime_ntuple_comparefunc
 else:
 	ntuple_comparefunc = ligolw_thinca.default_ntuple_comparefunc
 
@@ -225,13 +180,13 @@ else:
 #
 
 
-for n, filename in enumerate(filenames):
+for n, filename in enumerate(filenames, start = 1):
 	#
 	# Load the file.
 	#
 
 	if options.verbose:
-		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+		print >>sys.stderr, "%d/%d:" % (n, len(filenames)),
 	xmldoc = ligolw_utils.load_filename(filename, verbose = options.verbose, contenthandler = ligolw.LIGOLWContentHandler)
 	lsctables.table.InterningRowBuilder.strings.clear()
 
@@ -253,34 +208,36 @@ for n, filename in enumerate(filenames):
 	# Add an entry to the process table.
 	#
 
-	process = append_process(
+	process = ligolw_process.register_to_xmldoc(
 		xmldoc,
+		process_program_name,
+		process_params,
 		comment = options.comment,
-		force = options.force,
-		e_thinca_parameter = options.e_thinca_parameter,
-		exact_mass = options.exact_mass,
-		effective_snr_factor = options.effective_snr_factor,
-		vetoes_name = options.vetoes_name,
-		trigger_program = options.trigger_program,
-		effective_snr = options.effective_snr,
-		coinc_end_time_segment = options.coinc_end_time_segment,
-		verbose = options.verbose
+		version = __version__,
+		cvs_repository = u"lscsoft",
+		cvs_entry_time = __date__
 	)
 
 	#
-	# Hack the IDs.  LAL writes all triggers with event_id = 0.  This
-	# value is used by other LAL programs to check if coincidence has
-	# been performed yet so that behaviour cannot be changed but we
-	# need the IDs to be unique before starting the coincidence engine.
-	#
-	# FIXME:  remove this when LAL writes trigger files with unique
-	# IDs (unique within the output of lalapps_inspiral).
+	# LAL writes all triggers with event_id = 0.  Detect this and barf
+	# on it.
 	#
 
 	tbl = lsctables.SnglInspiralTable.get_table(xmldoc)
-	tbl.set_next_id(lsctables.SnglInspiralID(0))
-	for row in tbl:
-		row.event_id = tbl.get_next_id()
+	assert len(set(tbl.getColumnByName("event_id"))) == len(tbl), "degenerate sngl_inspiral event_id detected"
+
+	#
+	# Set max_dt.  Upper bound on maximum time that can separate two
+	# triggers and they still pass coincidence.
+	#
+
+	if options.match == "exact":
+		# add 10% to coincidence window for safety + the
+		# light-crossing time of the Earth
+		max_dt = 1.1 * options.threshold + 2. * lal.REARTH_SI / lal.C_SI
+	else:
+		# not possible
+		assert False
 
 	#
 	# Extract veto segments if present.
@@ -312,9 +269,9 @@ for n, filename in enumerate(filenames):
 		process_id = process.process_id,
 		coinc_definer_row = ligolw_thinca.InspiralCoincDef,
 		event_comparefunc = event_comparefunc,
-		thresholds = options.e_thinca_parameter,
+		thresholds = options.threshold,
+		max_dt = max_dt,
 		ntuple_comparefunc = ntuple_comparefunc,
-		effective_snr_factor = options.effective_snr_factor,
 		veto_segments = vetoes,
 		trigger_program = options.trigger_program,
 		verbose = options.verbose

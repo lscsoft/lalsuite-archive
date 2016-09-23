@@ -35,6 +35,7 @@
 
 // Internal definition of input data structure
 struct tagFstatInput {
+  int singleFreqBin;					// True if XLALComputeFstat() can only compute a single frequency bin, due to zero dFreq being passed to XLALCreateFstatInput()
   FstatMethodType method;				// Method to use for computing the F-statistic
   FstatCommon common;					// Common input data
   int *workspace_refcount;				// Reference counter for the shared workspace 'common.workspace'
@@ -70,7 +71,8 @@ const FstatOptionalArgs FstatOptionalArgsDefaults = {
   .injectSources = NULL,
   .injectSqrtSX = NULL,
   .assumeSqrtSX = NULL,
-  .prevInput = NULL
+  .prevInput = NULL,
+  .collectTiming = 0
 };
 
 // hidden global variables used to pass timings to test/benchmark programs
@@ -217,7 +219,7 @@ XLALCreateFstatInput ( const SFTCatalog *SFTcatalog,              ///< [in] Cata
                                                                   ///< The \c locator field of each ::SFTDescriptor must be \c !=NULL for SFT loading, and \c ==NULL for SFT generation.
                        const REAL8 minCoverFreq,                  ///< [in] Minimum instantaneous frequency which will be covered over the SFT time span.
                        const REAL8 maxCoverFreq,                  ///< [in] Maximum instantaneous frequency which will be covered over the SFT time span.
-                       const REAL8 dFreq,                         ///< [in] Requested spacing of \f$\mathcal{F}\f$-statistic frequency bins.
+                       const REAL8 dFreq,                         ///< [in] Requested spacing of \f$\mathcal{F}\f$-statistic frequency bins. May be zero \e only for single-frequency searches.
                        const EphemerisData *ephemerides,          ///< [in] Ephemerides for the time-span of the SFTs.
                        const FstatOptionalArgs *optionalArgs      ///< [in] Optional 'advanced-level' and method-specific extra arguments; NULL: use defaults from FstatOptionalArgsDefaults.
                        )
@@ -236,7 +238,7 @@ XLALCreateFstatInput ( const SFTCatalog *SFTcatalog,              ///< [in] Cata
   XLAL_CHECK_NULL ( isfinite(maxCoverFreq) && maxCoverFreq > 0, XLAL_EINVAL );
   XLAL_CHECK_NULL ( maxCoverFreq > minCoverFreq, XLAL_EINVAL );
   XLAL_CHECK_NULL ( ephemerides != NULL, XLAL_EINVAL );
-  XLAL_CHECK_NULL ( dFreq > 0, XLAL_EINVAL);
+  XLAL_CHECK_NULL ( dFreq >= 0, XLAL_EINVAL);
 
   // Create local copy of optional arguments, or use defaults if not given
   FstatOptionalArgs optArgs;
@@ -334,7 +336,6 @@ XLALCreateFstatInput ( const SFTCatalog *SFTcatalog,              ///< [in] Cata
   XLAL_CHECK_NULL ( (input = XLALCalloc ( 1, sizeof(*input) )) != NULL, XLAL_ENOMEM );
   input->method = optArgs.FstatMethod;
   FstatCommon *common = &input->common;      // handy shortcut
-  common->dFreq = dFreq;
 
   // Determine whether we can re-used workspace from a previous call to XLALCreateFstatInput()
   if ( optArgs.prevInput != NULL ) {
@@ -367,13 +368,19 @@ XLALCreateFstatInput ( const SFTCatalog *SFTcatalog,              ///< [in] Cata
   // Determine the time baseline of an SFT
   const REAL8 Tsft = 1.0 / SFTcatalog->data[0].header.deltaF;
 
-  // Save the mid-time of the SFTs
+  // Compute the mid-time and time-span of the SFTs
+  double Tspan = 0;
   {
     const LIGOTimeGPS startTime = SFTcatalog->data[0].header.epoch;
     const LIGOTimeGPS endTime   = SFTcatalog->data[SFTcatalog->length - 1].header.epoch;
     common->midTime = startTime;
-    XLALGPSAdd ( &common->midTime, 0.5 * (  Tsft + XLALGPSDiff( &endTime, &startTime )) );
+    Tspan = Tsft + XLALGPSDiff( &endTime, &startTime );
+    XLALGPSAdd ( &common->midTime, 0.5 * Tspan );
   }
+
+  // Determine the frequency spacing: if dFreq==0, default to 1.0/Tspan and set singleFreqBin==true
+  input->singleFreqBin = (dFreq == 0);
+  common->dFreq = input->singleFreqBin ? 1.0/Tspan : dFreq;
 
   // Determine the frequency band required by each method 'minFreqMethod',
   // as well as the frequency band required to load or generate initial SFTs for 'minFreqFull'
@@ -578,7 +585,7 @@ int
 XLALComputeFstat ( FstatResults **Fstats,               ///< [in/out] Address of a pointer to a #FstatResults results structure; if \c NULL, allocate here.
                    FstatInput *input,                   ///< [in] Input data structure created by one of the setup functions.
                    const PulsarDopplerParams *doppler,  ///< [in] Doppler parameters, including starting frequency, at which to compute \f$2\mathcal{F}\f$
-                   const UINT4 numFreqBins,             ///< [in] Number of frequencies at which the \f$2\mathcal{F}\f$ are to be computed.
+                   const UINT4 numFreqBins,             ///< [in] Number of frequencies at which the \f$2\mathcal{F}\f$ are to be computed. Must be 1 if XLALCreateFstatInput() was passed zero \c dFreq.
                    const FstatQuantities whatToCompute  ///< [in] Bit-field of which \f$\mathcal{F}\f$-statistic quantities to compute.
                    )
 {
@@ -588,6 +595,7 @@ XLALComputeFstat ( FstatResults **Fstats,               ///< [in/out] Address of
   XLAL_CHECK ( doppler != NULL, XLAL_EINVAL);
   XLAL_CHECK ( doppler->asini >= 0, XLAL_EINVAL);
   XLAL_CHECK ( numFreqBins > 0, XLAL_EINVAL);
+  XLAL_CHECK ( !input->singleFreqBin || numFreqBins == 1, XLAL_EINVAL, "numFreqBins must be 1 if XLALCreateFstatInput() was passed zero dFreq" );
   XLAL_CHECK ( 0 < whatToCompute && whatToCompute < FSTATQ_LAST, XLAL_EINVAL);
 
   // Allocate results struct, if needed
@@ -643,26 +651,19 @@ XLALComputeFstat ( FstatResults **Fstats,               ///< [in/out] Address of
         }
 
       // Enlarge F-atoms per detector arrays, and initialise to NULL
-      if ( (whatToCompute & FSTATQ_ATOMS_PER_DET) && (moreFreqBins || moreDetectors) )
+      if ( (whatToCompute & FSTATQ_ATOMS_PER_DET) && moreFreqBins )
         {
-              (*Fstats)->multiFatoms = XLALRealloc ( (*Fstats)->multiFatoms, numFreqBins*sizeof((*Fstats)->multiFatoms[0]) );
-              XLAL_CHECK ( (*Fstats)->multiFatoms != NULL, XLAL_EINVAL, "Failed to (re)allocate (*Fstats)->multiFatoms to length %u", numFreqBins );
+          UINT4 kPrev = 0;
+          if ( (*Fstats)->multiFatoms != NULL ) {
+            kPrev = (*Fstats)->internalalloclen; // leave previously-used frequency-bins untouched
+          }
 
-              // If more detectors are needed, destroy multi-F-atom vectors so they can be re-allocated later
-              if ( moreDetectors )
-                {
-                  for ( UINT4 k = 0; k < numFreqBins; ++k )
-                    {
-                      XLALDestroyMultiFstatAtomVector ( (*Fstats)->multiFatoms[k] );
-                      (*Fstats)->multiFatoms[k] = NULL;
-                    }
-                }
-              else
-                {
-                  for ( UINT4 k = (*Fstats)->internalalloclen; k < numFreqBins; ++k ) {
-                    (*Fstats)->multiFatoms[k] = NULL;
-                  }
-                }
+          (*Fstats)->multiFatoms = XLALRealloc ( (*Fstats)->multiFatoms, numFreqBins*sizeof((*Fstats)->multiFatoms[0]) );
+          XLAL_CHECK ( (*Fstats)->multiFatoms != NULL, XLAL_EINVAL, "Failed to (re)allocate (*Fstats)->multiFatoms to length %u", numFreqBins );
+
+          for ( UINT4 k = kPrev; k < numFreqBins; ++k ) {
+            (*Fstats)->multiFatoms[k] = NULL;
+          }
 
         } // if Atoms_per_det to enlarge
 
@@ -681,7 +682,7 @@ XLALComputeFstat ( FstatResults **Fstats,               ///< [in/out] Address of
 
   // Initialise result struct parameters
   (*Fstats)->doppler      = midDoppler;
-  (*Fstats)->dFreq        = common->dFreq;
+  (*Fstats)->dFreq        = input->singleFreqBin ? 0 : common->dFreq;
   (*Fstats)->numFreqBins  = numFreqBins;
   (*Fstats)->numDetectors = numDetectors;
   XLAL_INIT_MEM ( (*Fstats)->detectorNames);
@@ -913,6 +914,16 @@ XLALFstatMethodIsAvailable ( FstatMethodType i )
   }
 } // XLALFstatMethodIsAvailable()
 
+///
+/// Return pointer to a static string giving the name of the #FstatMethodType \p i
+///
+const CHAR *
+XLALFstatMethodName ( FstatMethodType i )
+{
+  XLAL_CHECK_NULL( i < XLAL_NUM_ELEM(FstatMethodNames) && FstatMethodNames[i] != NULL,
+                   XLAL_EINVAL, "FstatMethodType = %i is invalid", i );
+  return FstatMethodNames[i];
+}
 
 ///
 /// Return pointer to a static help string enumerating all (available) #FstatMethodType options.
@@ -925,9 +936,7 @@ XLALFstatMethodHelpString ( void )
   static CHAR helpstr[1024];
   if ( firstCall )
     {
-      XLAL_LAST_ELEM ( helpstr ) = '\0';
-      strcpy ( helpstr, "Available methods:" );
-      CHAR separator = ' ';
+      XLAL_INIT_MEM ( helpstr );
       for (int i = FMETHOD_START + 1; i < FMETHOD_END; i++ )
         {
           if ( ! XLALFstatMethodIsAvailable(i) ) {
@@ -936,11 +945,10 @@ XLALFstatMethodHelpString ( void )
           XLAL_CHECK_NULL ( FstatMethodNames[i] != NULL, XLAL_EFAULT );
           if ( strcmp ( FstatMethodNames[i] + strlen(FstatMethodNames[i]) - 4, "Best" ) == 0 ) {
             strcat ( helpstr, "=" );
-          } else {
-            strncat ( helpstr, &separator, 1 );
+          } else if ( i > FMETHOD_START + 1 ) {
+            strcat ( helpstr, "|" );
           }
           strcat ( helpstr, FstatMethodNames[i] );
-          separator = '|';
         } // for i < FMETHOD_LAST
 
       XLAL_CHECK_NULL ( XLAL_LAST_ELEM ( helpstr ) == '\0', XLAL_EBADLEN, "FstatMethod help-string exceeds buffer length (%zu)\n", sizeof(helpstr) );
@@ -985,3 +993,39 @@ XLALParseFstatMethodString ( FstatMethodType *Fmethod,          //!< [out] Parse
   XLAL_ERROR ( XLAL_EINVAL, "Unknown FstatMethod '%s'\n", s );
 
 } // XLALParseFstatMethodString()
+
+int
+XLALGetFstatTiming ( const FstatInput* input, REAL8 *tauF1Buf, REAL8 *tauF1NoBuf )
+{
+  XLAL_CHECK ( input != NULL, XLAL_EINVAL );
+  XLAL_CHECK ( (tauF1Buf != NULL) && (tauF1NoBuf != NULL), XLAL_EINVAL );
+
+  if ( input->method < FMETHOD_RESAMP_GENERIC )
+    {
+      XLAL_CHECK ( XLALGetFstatTiming_Demod ( input->method_data, tauF1Buf, tauF1NoBuf ) == XLAL_SUCCESS, XLAL_EFUNC );
+    }
+  else
+    {
+      XLAL_CHECK ( XLALGetFstatTiming_Resamp ( input->method_data, tauF1Buf, tauF1NoBuf ) == XLAL_SUCCESS, XLAL_EFUNC );
+    }
+
+  return XLAL_SUCCESS;
+} // XLALGetFstatTiming()
+
+int
+AppendFstatTimingInfo2File ( const FstatInput* input, FILE *fp, BOOLEAN printHeader )
+{
+  XLAL_CHECK ( input != NULL, XLAL_EINVAL );
+  XLAL_CHECK ( fp != NULL, XLAL_EINVAL );
+
+  if ( input->method < FMETHOD_RESAMP_GENERIC )
+    {
+      XLAL_CHECK ( AppendFstatTimingInfo2File_Demod ( input->method_data, fp, printHeader ) == XLAL_SUCCESS, XLAL_EFUNC );
+    }
+  else
+    {
+      XLAL_CHECK ( AppendFstatTimingInfo2File_Resamp ( input->method_data, fp, printHeader ) == XLAL_SUCCESS, XLAL_EFUNC );
+    }
+
+  return XLAL_SUCCESS;
+} // AppendFstatTimingInfo2File()

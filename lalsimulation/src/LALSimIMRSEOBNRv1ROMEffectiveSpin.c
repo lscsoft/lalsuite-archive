@@ -571,8 +571,10 @@ static int SEOBNRv1ROMEffectiveSpinCore(
     *hctilde = XLALCreateCOMPLEX16FrequencySeries("hctilde: FD waveform", &tC, 0.0, deltaF, &lalStrainUnit, npts);
 
     // Recreate freqs using only the lower and upper bounds
-    UINT4 iStart = (UINT4) ceil(fLow_geom / deltaF_geom);
-    UINT4 iStop = (UINT4) ceil(fHigh_geom / deltaF_geom);
+    // Use fLow, fHigh and deltaF rather than geometric frequencies for numerical accuracy
+    double fHigh_temp = fHigh_geom / Mtot_sec;
+    UINT4 iStart = (UINT4) ceil(fLow / deltaF);
+    UINT4 iStop = (UINT4) ceil(fHigh_temp / deltaF);
     freqs = XLALCreateREAL8Sequence(iStop - iStart);
     if (!freqs) {
       XLAL_ERROR(XLAL_EFUNC, "Frequency array allocation failed.");
@@ -643,11 +645,7 @@ static int SEOBNRv1ROMEffectiveSpinCore(
   /* Correct phasing so we coalesce at t=0 (with the definition of the epoch=-1/deltaF above) */
 
   // Get SEOBNRv1 ringdown frequency for 22 mode
-  // XLALSimInspiralGetFinalFreq wants masses in SI units, so unfortunately we need to convert back
-  double Mtot_SI = Mtot_sec / LAL_MTSUN_SI * LAL_MSUN_SI;
-  double m1_SI = Mtot_SI * 1.0/(1.0+q);
-  double m2_SI = Mtot_SI * q/(1.0+q);
-  double Mf_final = XLALSimInspiralGetFinalFreq(m1_SI, m2_SI, 0,0,chi, 0,0,chi, SEOBNRv1) * Mtot_sec;
+  double Mf_final = SEOBNRROM_Ringdown_Mf_From_Mtot_q(Mtot_sec, q, chi, chi, SEOBNRv1);
 
   UINT4 L = freqs->length;
   // prevent gsl interpolation errors

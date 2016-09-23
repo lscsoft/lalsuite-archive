@@ -17,12 +17,6 @@
 *  MA  02111-1307  USA
 */
 
-/**
- * \file
- * \ingroup lalapps_pulsar_PowerFlux
- * \author Vladimir Dergachev
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -200,6 +194,7 @@ time(&start_time);
 fedisableexcept(FE_ALL_EXCEPT);
 
 fprintf(stderr, "Initial memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+fprintf(stderr, "sizeof(SUMMING_CONTEXT)=%ld\n", sizeof(SUMMING_CONTEXT));
 
 if(getrlimit(RLIMIT_AS, &rl)<0) {
 	perror("Could not obtain virtual memory limit:");
@@ -715,6 +710,7 @@ fprintf(LOG,"nsegments : %d\n", nsegments);
 
 fprintf(LOG,"first gps : %lld\n", min_gps());
 fprintf(LOG,"last gps  : %lld\n", max_gps());
+fprintf(LOG,"mid gps   : %lld\n", mid_gps());
 
 if(!args_info.spindown_start_time_given){
 	spindown_start=min_gps();
@@ -949,9 +945,11 @@ dump_floats("fine_longitude.dat", fine_grid->longitude, fine_grid->npoints, 1);
 free_plot(plot);
 free_RGBPic(p);
 
-power_cache_selftest();
-single_bin_loosely_coherent_selftest();
-power_sum_stats_selftest();
+if(args_info.extended_test_arg) {
+	power_cache_selftest();
+	single_bin_loosely_coherent_selftest();
+	power_sum_stats_selftest();
+	}
 
 /* Check that expected timebase was sufficient */
 

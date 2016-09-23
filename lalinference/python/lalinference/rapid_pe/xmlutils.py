@@ -44,6 +44,8 @@ CMAP = { "right_ascension": "longitude",
     "dlam_tilde": "psi3",
     "psi0": "psi0",
     "psi3": "psi3",
+    "spin1z": "spin1z",
+    "spin2z": "spin2z",
     # SHOEHORN ALERT
     "sample_n": assign_id,
     "alpha1":"alpha1",
@@ -58,7 +60,7 @@ CMAP = { "right_ascension": "longitude",
 # Otherwise, we'll have to add them manually and ensure they all exist
 sim_valid_req = ["process_id", "simulation_id", "alpha1", "alpha2", "alpha3"]
 sim_valid_ext = ["inclination", "longitude", "latitude", "polarization", "geocent_end_time", "geocent_end_time_ns", "coa_phase", "distance"]
-sim_valid_int = ["mass1", "mass2", "psi0", "psi3"]
+sim_valid_int = ["mass1", "mass2", "spin1z", "spin2z", "psi0", "psi3"]
 sngl_valid_cols = ["process_id", "event_id", "snr", "tau0", "tau3"]
 multi_valid_cols = ["process_id", "event_id", "snr"]
 
@@ -211,8 +213,12 @@ def db_to_samples(db_fname, tbltype, cols):
 #
 # HDF5 I/O
 #
-def append_samples_to_hdf5_group(grp, samples):
-    samp_grp = grp.create_group("samples")
+def append_samples_to_hdf5_group(grp, samples, compress='gzip'):
+    if "samples" in grp:
+        samp_grp = grp["samples"]
+    else:
+        samp_grp = grp.create_group("samples")
+
     cols = set(samples.validcolumns.keys()) & set(dir(samples[0]))
     for col in cols:
         try:
@@ -220,16 +226,22 @@ def append_samples_to_hdf5_group(grp, samples):
         except AttributeError:
             continue
 
-        ds = samp_grp.create_dataset(col, (len(samples),))
-        for i, row in enumerate(samples):
-            if samples.validcolumns[col] in ("ilwd:char",):
-                ds[i] = int(getattr(samples[i], col))
-            else:
-                ds[i] = getattr(samples[i], col)
+        if samples.validcolumns[col] in ("ilwd:char",):
+            raw_dat = map(int, [getattr(samples[i], col) for i, row in enumerate(samples)])
+        else:
+            raw_dat = [getattr(samples[i], col) for i, row in enumerate(samples)]
+
+        if col in samp_grp:
+            ds = samp_grp[col]
+            ds.resize((len(ds) + len(samples),))
+            ds[len(ds) - len(raw_dat):len(ds)] = raw_dat
+        else:
+            ds = samp_grp.create_dataset(col, data=raw_dat, maxshape=(None,), compression=compress)
+
 
 def append_metadata_to_hdf5_group(grp, metadata):
     for name, val in metadata.iteritems():
-        grp.attrs[name] = val
+        grp.attrs[name] = val or ""
 
 # TESTING
 import sys

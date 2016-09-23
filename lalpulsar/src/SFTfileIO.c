@@ -154,6 +154,7 @@ static int compareDetNameCatalogs ( const void *ptr1, const void *ptr2 );
 
 static UINT8 calc_crc64(const CHAR *data, UINT4 length, UINT8 crc);
 static int read_SFTversion_from_fp ( UINT4 *version, BOOLEAN *need_swap, FILE *fp );
+REAL8 TSFTfromDFreq ( REAL8 dFreq );
 
 /*==================== FUNCTION DEFINITIONS ====================*/
 
@@ -241,7 +242,7 @@ XLALSFTdataFind ( const CHAR *file_pattern,		/**< which SFT-files */
       /* merged SFTs need to satisfy stronger consistency-constraints (-> see spec) */
       BOOLEAN mfirst_block = TRUE;
       UINT4   mprev_version = 0;
-      SFTtype mprev_header;
+      SFTtype XLAL_INIT_DECL( mprev_header );
       REAL8   mprev_nsamples = 0;
 
       FILE *fp;
@@ -1214,7 +1215,7 @@ XLALWriteSFT2fp ( const SFTtype *sft,	/**< SFT to write to disk */
   rawheader.version        		= 2;
   rawheader.gps_sec        		= sft->epoch.gpsSeconds;
   rawheader.gps_nsec       		= sft->epoch.gpsNanoSeconds;
-  rawheader.tbase          		= 1.0 / sft->deltaF;
+  rawheader.tbase          		= TSFTfromDFreq ( sft->deltaF );
   rawheader.first_frequency_index 	= lround ( sft->f0 / sft->deltaF );
   rawheader.nsamples       		= sft->data->length;
   rawheader.crc64          		= 0;	/* set to 0 for crc-calculation */
@@ -1491,46 +1492,39 @@ XLALshowSFTLocator ( const struct tagSFTLocator *locator )
 } /* XLALshowSFTLocator() */
 
 
-INT4 XLALCountIFOsInCatalog( const SFTCatalog *catalog)
+/**
+ * Return a sorted string vector listing the unique IFOs in the given catalog.
+ */
+LALStringVector *XLALListIFOsInCatalog( const SFTCatalog *catalog )
 {
-
-  UINT4 k, j, numifo=0, length;
-  CHAR  *name=NULL;
-  CHAR  **ifolist=NULL; /* list of ifo names */
-
-  length = catalog->length;
-
-  name = (CHAR *)LALCalloc(3, sizeof(CHAR));
-
-  ifolist = (CHAR **)LALCalloc( length, sizeof(CHAR *));
-  for ( k = 0; k < length; k++)
-    ifolist[k] = (CHAR *)LALCalloc( 3, sizeof(CHAR));
-
-  /* go through catalog and look at each ifo name */
-  for ( k = 0; k < length; k++)
+  XLAL_CHECK_NULL( catalog != NULL, XLAL_EFAULT );
+  LALStringVector *ifos = NULL;
+  for ( UINT4 k = 0; k < catalog->length; ++k )
     {
-      strncpy( name, catalog->data[k].header.name, 3 );
-
-      /* go through list of ifos till a match is found or list is exhausted */
-      for ( j = 0; ( j < numifo ) && strncmp( name, ifolist[j], 3); j++ )
-	;
-
-      if ( j >= numifo )
-	{
-	  /* add ifo to list of ifos */
-	  strncpy( ifolist[numifo], name, 3);
-	  numifo++;
-	}
-
+      char *name = XLALGetChannelPrefix( catalog->data[k].header.name );
+      if ( XLALFindStringInVector( name, ifos ) < 0 )
+        {
+          ifos = XLALAppendString2Vector( ifos, name );
+          XLAL_CHECK_NULL( ifos != NULL, XLAL_EFUNC );
+        }
+      XLALFree( name );
     }
+  XLAL_CHECK_NULL( XLALSortStringVector( ifos ) == XLAL_SUCCESS, XLAL_EFUNC );
+  return ifos;
+} // XLALListIFOsInCatalog()
 
-  LALFree(name);
-  for ( j = 0; j < catalog->length; j++)
-    LALFree(ifolist[j]);
-  LALFree(ifolist);
 
-  return numifo;
-
+/**
+ * Count the number of the unique IFOs in the given catalog.
+ */
+INT4 XLALCountIFOsInCatalog( const SFTCatalog *catalog )
+{
+  XLAL_CHECK( catalog != NULL, XLAL_EFAULT );
+  LALStringVector *ifos = XLALListIFOsInCatalog( catalog );
+  XLAL_CHECK( ifos != NULL, XLAL_EFUNC );
+  UINT4 nifos = ifos->length;
+  XLALDestroyStringVector( ifos );
+  return nifos;
 } // XLALCountIFOsInCatalog()
 
 
@@ -2297,58 +2291,20 @@ read_v2_header_from_fp ( FILE *fp, SFTtype *header, UINT4 *nsamples, UINT8 *head
 } /* read_v2_header_from_fp() */
 
 
-/* check that channel-prefix defines a 'known' detector.  The list of
- * known detectors implemented here for now follows the list in
- * Appendix D of LIGO-T970130-F-E:
+/* check that channel-prefix defines a valid 'known' detector.
+ * This is just a convenience wrapper to XLALGetCWDetectorPrefix(), which defines all valid 'CW detectors'
  *
  * returns TRUE if valid, FALSE otherwise */
 static BOOLEAN
 is_valid_detector (const char *channel)
 {
-  int i;
-  const char *knownDetectors[] =
-    {
-      "A1",       /* ALLEGRO */
-      "B1",       /* NIOBE */
-      "E1",       /* EXPLORER */
-      "G1",       /* GEO_600 */
-      "H1",       /* LHO_4k */
-      "H2",       /* LHO_2k */
-      "K1",       /* ACIGA */
-      "L1",       /* LLO_4k */
-      "N1",       /* Nautilus */
-      "O1",       /* AURIGA */
-      "P1",       /* CIT_40 */
-      "T1",       /* TAMA_300 */
-      "V1",       /* Virgo_CITF */
-      "V2",       /* Virgo (3km) */
-      "Z1",	  /* LISA effective IFO 1 */
-      "Z2",	  /* LISA effective IFO 2 */
-      "Z3",	  /* LISA effective IFO 3 */
-      "Z4",	  /* LISA effective IFO 2 minus 3 */
-      "Z5",	  /* LISA effective IFO 3 minus 1 */
-      "Z6",	  /* LISA effective IFO 1 minus 2 */
-      "Z7",	  /* LISA pseudo TDI A */
-      "Z8",	  /* LISA pseudo TDI E */
-      "Z9",	  /* LISA pseudo TDI T */
-      "X1",       /* RXTE PCA */
-      "X2",       /* RXTE ASM */
-      NULL
-    };
 
-  if ( !channel )
+  char *prefix = XLALGetCWDetectorPrefix ( NULL, channel );
+  if ( prefix == NULL ) {
     return FALSE;
-
-  if ( strlen(channel) < 2 )
-    return FALSE;
-
-  for ( i = 0; knownDetectors[i]; i ++ )
-    {
-      if ( ( knownDetectors[i][0] == channel[0] ) && ( knownDetectors[i][1] == channel[1] )  )
-	return TRUE;
-    }
-
-  return FALSE;
+  }
+  XLALFree ( prefix );
+  return TRUE;
 
 } /* is_valid_detector() */
 

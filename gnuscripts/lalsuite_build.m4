@@ -1,7 +1,7 @@
 # -*- mode: autoconf; -*-
 # lalsuite_build.m4 - top level build macros
 #
-# serial 118
+# serial 127
 
 # restrict which LALSUITE_... patterns can appearing in output (./configure);
 # useful for debugging problems with unexpanded LALSUITE_... Autoconf macros
@@ -418,25 +418,44 @@ AC_DEFUN([LALSUITE_REQUIRE_PYTHON],[
 
 AC_DEFUN([LALSUITE_CHECK_PYTHON],[
   # $0: check for Python
+  AC_ARG_ENABLE(
+    [python],
+    AC_HELP_STRING(
+      [--enable-python],
+      [build Python programs and modules]
+    ),[
+      AS_CASE(["${enableval}"],
+        [yes],[python=true],
+        [no],[python=false],
+        [AC_MSG_ERROR([invalid value "${enableval}" for --enable-python])]
+      )
+    ],[
+      python=
+    ]
+  )
   lalsuite_pyvers="$1"
   AS_IF([test "x${lalsuite_require_pyvers}" != x],[
     LALSUITE_VERSION_COMPARE([${lalsuite_require_pyvers}],[>],[${lalsuite_pyvers}],[
       lalsuite_pyvers="${lalsuite_require_pyvers}"
     ])
   ])
-  AS_IF([test "x${PYTHON}" != xfalse],[
-    AM_PATH_PYTHON([${lalsuite_pyvers}],,[
-      AS_IF([test "x${lalsuite_require_pyvers}" = x],[
-        PYTHON=false
-      ],[
+  AS_IF([test "x${python}" != xfalse || test "x${lalsuite_require_pyvers}" != x],[
+    AM_PATH_PYTHON([${lalsuite_pyvers}],[
+      AC_SUBST([python_prefix], [`${PYTHON} -c 'import sys; print(sys.prefix)' 2>/dev/null`])
+      AC_SUBST([python_exec_prefix], [`${PYTHON} -c 'import sys; print(sys.exec_prefix)' 2>/dev/null`])
+    ],[
+      AS_IF([test "x${python}" = xtrue || test "x${lalsuite_require_pyvers}" != x],[
         AC_MSG_ERROR([Python version ${lalsuite_pyvers} or later is required])
+      ],[
+        python=false
       ])
     ])
   ])
-  AM_CONDITIONAL([HAVE_PYTHON],[test "x${PYTHON}" != xfalse])
+  AS_IF([test "x${python}" = xfalse && test "x${lalsuite_require_pyvers}" = x],[
+    AC_SUBST([PYTHON],["${SHELL} -c 'echo ERROR: Python is missing >&2; exit 1' --"])
+  ])
+  AM_CONDITIONAL([HAVE_PYTHON],[test "x${python}" != xfalse])
   AM_COND_IF([HAVE_PYTHON],[
-    AC_SUBST([python_prefix], [`${PYTHON} -c 'import sys; print(sys.prefix)' 2>/dev/null`])
-    AC_SUBST([python_exec_prefix], [`${PYTHON} -c 'import sys; print(sys.exec_prefix)' 2>/dev/null`])
     PYTHON_ENABLE_VAL=ENABLED
   ],[
     PYTHON_ENABLE_VAL=DISABLED
@@ -445,18 +464,20 @@ AC_DEFUN([LALSUITE_CHECK_PYTHON],[
 ])
 
 AC_DEFUN([LALSUITE_USE_LIBTOOL],[
-  # $0: Generate a libtool script for use in configure tests
+  # $0: Generate a libtool script for use in configure tests. Arguments
+  # are added to link command in variable ${lalsuite_libtool_flags}
   AC_REQUIRE([LT_INIT])
   LT_OUTPUT
   m4_append([AC_LANG(C)],[
-    ac_link="./libtool --mode=link --tag=CC $ac_link"
+    ac_link="./libtool --mode=link --tag=CC ${ac_link} ${lalsuite_libtool_flags}"
   ])
   AC_PROVIDE_IFELSE([AC_PROG_CXX],[
     m4_append([AC_LANG(C++)],[
-      ac_link="./libtool --mode=link --tag=CXX $ac_link"
+      ac_link="./libtool --mode=link --tag=CXX ${ac_link} ${lalsuite_libtool_flags}"
     ])
   ])
   AC_LANG(_AC_LANG)
+  LALSUITE_ADD_FLAGS([],[],[${lalsuite_libtool_flags}])
   # end $0
 ])
 
@@ -562,7 +583,7 @@ AC_DEFUN([LALSUITE_CHECK_LIB],[
     # use standard include paths
     save_IFS="$IFS"
     IFS=:
-    for flag in "$C_INCLUDE_PATH:$CPLUS_INCLUDE_PATH:/usr/include" ; do
+    for flag in $C_INCLUDE_PATH $CPLUS_INCLUDE_PATH /usr/include ; do
       test -n "$flag" && flag="-I$flag"
       AS_CASE([" $CPPFLAGS $LAL_SYSTEM_INCLUDES "],
         [*" ${flag} "*],[:],
@@ -1029,7 +1050,7 @@ AS_IF([test "x${osx_version_check}" = "xtrue"],[
       AC_MSG_RESULT([$MACOSX_VERSION])])
     AS_CASE(["$MACOSX_VERSION"],
       [10.0*|10.1|10.1.*|10.2*|10.3*],AC_MSG_ERROR([This version of Mac OS X is not supported]),
-      [10.4*|10.5*|10.6*|10.7*|10.8*|10.9*|10.10*|10.11*],,
+      [10.4*|10.5*|10.6*|10.7*|10.8*|10.9*|10.10*|10.11*|10.12*],,
       AC_MSG_WARN([Unknown Mac OS X version]))
 ])])])
 
@@ -1106,10 +1127,20 @@ AC_DEFUN([LALSUITE_USE_DOXYGEN],[
     # Python is required to run some scripts
     LALSUITE_REQUIRE_PYTHON([2.6])
 
+    # Perl and BibTeX are required to build the references
+    AC_PATH_PROG([PERL],[perl],[],[])
+    AS_IF([test "x${PERL}" = x],[
+      AC_MSG_ERROR([could not find 'perl' in PATH (required for Doxygen references)])
+    ])
+    AC_PATH_PROG([BIBTEX],[bibtex],[],[])
+    AS_IF([test "x${BIBTEX}" = x],[
+      AC_MSG_ERROR([could not find 'bibtex' in PATH (required for Doxygen references)])
+    ])
+
     # check for Doxygen
     AC_PATH_PROG([DOXYGEN],[doxygen],[],[])
     AS_IF([test "x${DOXYGEN}" = x],[
-      AC_MSG_ERROR([could not find Doxygen in PATH])
+      AC_MSG_ERROR([could not find 'doxygen' in PATH])
     ])
     doxygen_min_version=1.8.1.2   # minimum required Doxygen version
     AC_MSG_CHECKING([if ${DOXYGEN} version is at least ${doxygen_min_version}])
@@ -1288,5 +1319,62 @@ double volatile d = round(c);
   AC_LANG_POP([C])
   LALSUITE_POP_UVARS
 
+  # end $0
+])
+
+AC_DEFUN([LALSUITE_ENABLE_CFITSIO],[
+  # $0: enable/disable cfitsio library
+  AC_ARG_ENABLE(
+    [cfitsio],
+    AC_HELP_STRING([--enable-cfitsio],[compile code that requires cfitsio library [default=no]]),
+    AS_CASE(["${enableval}"],
+      [yes],[cfitsio=true],
+      [no],[cfitsio=false],
+      AC_MSG_ERROR([bad value ${enableval} for --enable-cfitsio])
+    ),
+    [cfitsio=false]
+  )
+  # end $0
+])
+
+AC_DEFUN([LALSUITE_USE_CFITSIO],[
+  # $0: check for cfitsio library
+  AS_IF([test "x${cfitsio}" = xtrue],[
+    LALSUITE_PUSH_UVARS
+    PKG_CHECK_MODULES([CFITSIO],[cfitsio],[true],[false])
+    LALSUITE_ADD_FLAGS([C],[${CFITSIO_CFLAGS}],[${CFITSIO_LIBS}])
+    AC_CHECK_LIB([cfitsio],[ffopen],[],[cfitsio=false])
+    AC_CHECK_HEADER([fitsio.h],[],[cfitsio=false])
+    AC_CHECK_FUNCS([fffree])
+    AC_CHECK_DECLS([fffree],[],[],[AC_INCLUDES_DEFAULT
+#include <fitsio.h>
+])
+    LALSUITE_POP_UVARS
+  ])
+  AS_IF([test "x${cfitsio}" = xtrue],[
+    LALSUITE_ADD_FLAGS([C],[${CFITSIO_CFLAGS}],[${CFITSIO_LIBS}])
+  ])
+  LALSUITE_ENABLE_MODULE([CFITSIO])
+  # end $0
+])
+
+AC_DEFUN([LALSUITE_CHECK_PAGER],[
+  # $0: check for pager programs and required functions
+  AC_ARG_VAR([PAGER],[Pager program])
+  AS_IF([test "x${PAGER}" = x],[
+    AC_PATH_PROGS([PAGER],[less more])
+    AS_CASE([${PAGER}],
+      [''],[:],
+      [*/less],[
+        AS_IF([echo | ${PAGER} -FRX >/dev/null 2>&1],[
+          PAGER="${PAGER} -FRX"
+        ])
+      ]
+    )
+  ])
+  AS_IF([test "x${PAGER}" != x],[
+    AC_SUBST([PAGER_CPPFLAGS],["-DPAGER='\"\$(PAGER)\"'"])
+    AC_CHECK_FUNCS([popen pclose])
+  ])
   # end $0
 ])

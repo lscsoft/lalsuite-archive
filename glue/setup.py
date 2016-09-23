@@ -37,7 +37,7 @@ from distutils import log
 
 from misc import generate_vcs_info as gvcsi
 
-ver = "1.49.1"
+ver = "1.52.0"
 
 def remove_root(path,root):
   if root:
@@ -153,6 +153,17 @@ class glue_install(install.install):
     env_file.write("endif\n")
     env_file.close()
 
+    log.info("creating glue-user-env.fish script")
+    fishenv = os.path.join('etc','glue-user-env.fish')
+    env_file = open(fishenv, 'w')
+    env_file.write("# Source this file to access GLUE\n")
+    env_file.write("set -xg GLUE_PREFIX %s\n" % glue_prefix)
+    env_file.write("set -xg PATH " + glue_install_scripts + " $PATH\n")
+    env_file.write("set -xg PYTHONPATH \"" + glue_pythonpath + ":$PYTHONPATH\"\n")
+    env_file.write("set -xg LD_LIBRARY_PATH " + glue_install_platlib + " $LD_LIBRARY_PATH\n")
+    env_file.write("set -xg DYLD_LIBRARY_PATH " + glue_install_platlib + " $DYLD_LIBRARY_PATH\n")
+    env_file.close()
+
     # now run the installer
     install.install.run(self)
 
@@ -184,7 +195,7 @@ class glue_clean(clean.clean):
 class glue_sdist(sdist.sdist):
   def run(self):
     # remove the automatically generated user env scripts
-    for script in [ 'glue-user-env.sh', 'glue-user-env.csh' ]:
+    for script in [ 'glue-user-env.sh', 'glue-user-env.csh', 'glue-user-env.fish' ]:
       log.info( 'removing ' + script )
       try:
         os.unlink(os.path.join('etc',script))
@@ -288,6 +299,7 @@ setup(
         os.path.join('etc','pegasus-properties.bundle'),
         os.path.join('etc','glue-user-env.sh'),
         os.path.join('etc','glue-user-env.csh'),
+        os.path.join('etc','glue-user-env.fish'),
         os.path.join('etc','ldbdserver.ini'),
         os.path.join('etc','ldbduser.ini'),
         os.path.join('etc','ligolw.xsl'),
@@ -341,5 +353,15 @@ setup(
         os.path.join('src', 'php', 'dq_report','header.php')
       ]
     )
+  ],
+  classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'Intended Audience :: Science/Research',
+    'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
+    'Operating System :: POSIX',
+    'Programming Language :: Python :: 2.7',
+    'Programming Language :: Python :: 2 :: Only',
+    'Topic :: Scientific/Engineering :: Astronomy',
+    'Topic :: Scientific/Engineering :: Physics'
   ]
 )

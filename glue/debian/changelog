@@ -1,8 +1,26 @@
+glue (1.52.0-1) unstable; urgency=low
+
+  * ER10 release of glue.
+
+ -- Ryan Fisher <ryan.fisher@ligo.org>  Tue, 13 Sep 2016 08:54:00 -0500
+
+glue (1.51.0-1) unstable; urgency=low
+
+  * Pre-ER10 release of glue.
+
+ -- Ryan Fisher <ryan.fisher@ligo.org>  Thu, 11 Aug 2016 18:06:00 -0500
+
+glue (1.50.0-1) unstable; urgency=low
+
+  * Pre-ER9 release of glue.
+
+ -- Ryan Fisher <ryan.fisher@ligo.org>  Thu, 16 Jun 2016 17:37:00 -0500
+
 glue (1.49.1-1) unstable; urgency=low
 
   * Pre-ER8 release of glue, attempt2.
 
- -- Ryan Fisher <ryan.fisher@ligo.org>  Thurs, 23 Jul 2015 16:37:00 -0500
+ -- Ryan Fisher <ryan.fisher@ligo.org>  Thu, 23 Jul 2015 16:37:00 -0500
 
 glue (1.49-1) unstable; urgency=low
 

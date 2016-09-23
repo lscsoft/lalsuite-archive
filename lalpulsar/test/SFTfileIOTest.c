@@ -135,8 +135,8 @@ static int CompareSFTVectors(SFTVector *sft_vect, SFTVector *sft_vect2)
   for(sft=0; sft < sft_vect->length; sft++) {
     SFTtype sft1 = sft_vect->data[sft];
     SFTtype sft2 = sft_vect2->data[sft];
-    if ((sft1.epoch.gpsSeconds != sft1.epoch.gpsSeconds) ||
-	(sft1.epoch.gpsNanoSeconds != sft1.epoch.gpsNanoSeconds)) {
+    if ((sft1.epoch.gpsSeconds != sft2.epoch.gpsSeconds) ||
+	(sft1.epoch.gpsNanoSeconds != sft2.epoch.gpsNanoSeconds)) {
       XLALPrintError ( "CompareSFTVectors(): SFT#%u epochs differ (%f/%f)!\n",
 		       sft, GPS2REAL8(sft1.epoch), GPS2REAL8(sft2.epoch) );
       return(-1);
@@ -497,11 +497,12 @@ int main(int argc, char *argv[])
 
     UINT4 numTS = ts1->length;
     char buf1[256], buf2[256];
-    const char *fmt = "Timestamps-lists differ in entry %" LAL_UINT4_FORMAT ": %s != %s\n";
     for ( UINT4 i = 0; i < numTS; i ++ )
       {
-        XLAL_CHECK_MAIN ( XLALGPSDiff( &ts1->data[i], &ts2->data[i]) == 0, XLAL_EFAILED, fmt, i + 1, XLALGPSToStr ( buf1, &ts1->data[i] ), XLALGPSToStr ( buf2, &ts2->data[i] ) );
-        XLAL_CHECK_MAIN ( XLALGPSDiff( &ts2->data[i], &ts3->data[i]) == 0, XLAL_EFAILED, fmt, i + 1, XLALGPSToStr ( buf1, &ts2->data[i] ), XLALGPSToStr ( buf2, &ts3->data[i] ) );
+        XLAL_CHECK_MAIN ( XLALGPSDiff( &ts1->data[i], &ts2->data[i]) == 0, XLAL_EFAILED,
+                          "Timestamps-lists differ in entry %" LAL_UINT4_FORMAT ": %s != %s\n", i + 1, XLALGPSToStr ( buf1, &ts1->data[i] ), XLALGPSToStr ( buf2, &ts2->data[i] ) );
+        XLAL_CHECK_MAIN ( XLALGPSDiff( &ts2->data[i], &ts3->data[i]) == 0, XLAL_EFAILED,
+                          "Timestamps-lists differ in entry %" LAL_UINT4_FORMAT ": %s != %s\n", i + 1, XLALGPSToStr ( buf1, &ts2->data[i] ), XLALGPSToStr ( buf2, &ts3->data[i] ) );
       } /* for i < numTS */
 
     /* free mem */

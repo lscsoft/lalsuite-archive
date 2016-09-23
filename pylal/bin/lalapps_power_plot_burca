@@ -31,12 +31,10 @@ import matplotlib.cm
 import numpy
 from optparse import OptionParser
 import os
-try:
-	import sqlite3
-except ImportError:
-	# pre 2.5.x
-	from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 import sys
+
+import lal
 
 from glue import segments
 from glue.ligolw import dbtables
@@ -47,10 +45,6 @@ from pylal import rate
 from pylal import SnglBurstUtils
 from pylal import SimBurstUtils
 from pylal import inject
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-
-
-dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -244,7 +238,7 @@ def magnitude_a(burst):
 
 def magnitude_b(burst):
 	gmst = date.XLALGreenwichMeanSiderealTime(burst.peak)
-	fplus, fcross = inject.XLALComputeDetAMResponse(inject.cached_detector[inject.prefix_to_name[burst.ifo]].response, SimBurstUtils.MW_CENTER_J2000_RA_RAD, SimBurstUtils.MW_CENTER_J2000_DEC_RAD, 0.0, gmst)
+	fplus, fcross = lal.ComputeDetAMResponse(inject.cached_detector[inject.prefix_to_name[burst.ifo]].response, SimBurstUtils.MW_CENTER_J2000_RA_RAD, SimBurstUtils.MW_CENTER_J2000_DEC_RAD, 0.0, gmst)
 	return (burst.ms_hrss**2.0 / (fplus**2.0 + fcross**2.0))**0.5
 
 

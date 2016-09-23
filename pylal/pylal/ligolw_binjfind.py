@@ -42,7 +42,6 @@ import sys
 
 import lal
 from glue import segments
-from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw.utils import coincs as ligolw_coincs
 from glue.ligolw.utils import process as ligolw_process
@@ -51,17 +50,6 @@ from glue.ligolw.utils import time_slide as ligolw_time_slide
 from pylal import git_version
 from pylal import ligolw_burca
 from pylal import SimBurstUtils
-from pylal.xlal import tools
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-
-
-#
-# Use a memory-efficient row class written in C for the coinc_event_map
-# table
-#
-
-
-lsctables.CoincMapTable.RowType = lsctables.CoincMap = tools.CoincMap
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -76,14 +64,6 @@ __date__ = git_version.date
 #
 # =============================================================================
 #
-
-
-#
-# use a C implementation
-#
-
-
-lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 #
@@ -420,7 +400,7 @@ def StringCuspSnglCompare(sim, burst, offsetvector):
 	window centred on the injection is continuous with the time
 	interval of the burst.
 	"""
-	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector)
+	tinj = sim.time_at_instrument(burst.ifo, offsetvector)
 	window = SimBurstUtils.stringcusp_autocorrelation_width / 2
 	# uncomment last part of expression to impose an amplitude cut
 	return segments.segment(tinj - window, tinj + window).disjoint(burst.period) #or abs(sim.amplitude / SimBurstUtils.string_amplitude_in_instrument(sim, burst.ifo, offsetvector)) > 3
@@ -431,7 +411,7 @@ def ExcessPowerSnglCompare(sim, burst, offsetvector):
 	Return False (injection matches event) if the peak time and centre
 	frequency of sim lie within the time-frequency tile of burst.
 	"""
-	return (SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector) not in burst.period) or (sim.frequency not in burst.band)
+	return (sim.time_at_instrument(burst.ifo, offsetvector) not in burst.period) or (sim.frequency not in burst.band)
 
 
 def OmegaSnglCompare(sim, burst, offsetvector, delta_t = 10.0):
@@ -440,7 +420,7 @@ def OmegaSnglCompare(sim, burst, offsetvector, delta_t = 10.0):
 	the peak time of the burst event differ by less than or equal to
 	delta_t seconds.
 	"""
-	return abs(float(SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector) - burst.peak)) > delta_t
+	return abs(float(sim.time_at_instrument(burst.ifo, offsetvector) - burst.peak)) > delta_t
 
 def CWBSnglCompare(sim, burst, offsetvector, delta_t = 10.0):
 	"""
@@ -448,7 +428,7 @@ def CWBSnglCompare(sim, burst, offsetvector, delta_t = 10.0):
 	the peak time of the burst event differ by less than or equal to
 	delta_t seconds.
 	"""
-	return abs(float(SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector) - burst.peak)) > delta_t
+	return abs(float(sim.time_at_instrument(burst.ifo, offsetvector) - burst.peak)) > delta_t
 
 
 def StringCuspNearCoincCompare(sim, burst, offsetvector):
@@ -456,7 +436,7 @@ def StringCuspNearCoincCompare(sim, burst, offsetvector):
 	Return False (injection matches coinc) if the peak time of the sim
 	is "near" the burst event.
 	"""
-	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector)
+	tinj = sim.time_at_instrument(burst.ifo, offsetvector)
 	window = SimBurstUtils.stringcusp_autocorrelation_width / 2 + SimBurstUtils.burst_is_near_injection_window
 	return segments.segment(tinj - window, tinj + window).disjoint(burst.period)
 
@@ -466,7 +446,7 @@ def ExcessPowerNearCoincCompare(sim, burst, offsetvector):
 	Return False (injection matches coinc) if the peak time of the sim
 	is "near" the burst event.
 	"""
-	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector)
+	tinj = sim.time_at_instrument(burst.ifo, offsetvector)
 	window = SimBurstUtils.burst_is_near_injection_window
 	return segments.segment(tinj - window, tinj + window).disjoint(burst.period)
 
@@ -767,7 +747,7 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 		if verbose:
 			print >>sys.stderr, "\t100.0%"
 	elif verbose:
-		print >>sys.stderr, "no %s table in document, skipping" % table.StripTableName(lsctables.SimBurstTable.tableName)
+		print >>sys.stderr, "no %s table in document, skipping" % lsctables.SimBurstTable.tableName
 
 	#
 	# Search for sim_inspiral <--> * coincidences
@@ -812,7 +792,7 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 		if verbose:
 			print >>sys.stderr, "\t100.0%"
 	elif verbose:
-		print >>sys.stderr, "no %s table in document, skipping" % table.StripTableName(lsctables.SimInspiralTable.tableName)
+		print >>sys.stderr, "no %s table in document, skipping" % lsctables.SimInspiralTable.tableName
 
 	#
 	# Done.

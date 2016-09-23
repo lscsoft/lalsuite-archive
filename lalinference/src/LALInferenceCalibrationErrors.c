@@ -42,6 +42,8 @@ REAL8 freq_max=4096.01;
 INT4 Npoints= 13;
 /* Order of the fit */
 INT4 FitOrder = 7;
+// Use the value below to fill array 4th position of errors array to let the code know we want to use rnadom_linear errors. In the future might replace with a more robust way of doing it. For the moment this is a value which is impossible to obtain otherwise, thus it reliably convay the information
+const REAL8 random_linearCE_bit=-300.;
 
 static REAL8  ConvertRandTransitionSlopeToFunction(REAL8 *coeff, REAL8 f);
 static void fill_IFO_Amp_vars_from_IFOname(REAL8 * stddev,REAL8* fbin, char* ifoname);
@@ -57,7 +59,7 @@ static void ApplyAmplitudeCalibrationErrors(COMPLEX16FrequencySeries *doff,REAL8
 static void ApplyPhaseCalibrationErrors(COMPLEX16FrequencySeries *doff,REAL8 * Pcoeffs);
 static void PrintCEtoFile(REAL8* Acoeffs,REAL8* Pcoeffs,LALInferenceIFOData* IFOdata, ProcessParamsTable *commandLine);
 static void  fill_IFO_Amp_vars_from_IFOname(REAL8 * stddev,REAL8* fbin, char* ifoname){
-
+    /* The values below were typical values for the amplitude errors at the frequency bins ([0,2000] and [2000,4000] and >4000Hz in S5/S6*. Note 0.1==10% */
     if (!strcmp(ifoname,"H1")){
         stddev[0]=0.104;
         stddev[1]=0.154;
@@ -86,8 +88,8 @@ static void  fill_IFO_Amp_vars_from_IFOname(REAL8 * stddev,REAL8* fbin, char* if
 }
 
 void  fill_IFO_Pha_vars_from_IFOname(REAL8 * stddev,REAL8* fbin, char* ifoname){
-
-    /* Errors here are in degrees. Will convert to rads in CreatePhaseCalibrationErrors */
+    /* The values below were typical values for the phase errors at the frequency bins given below in the comments.
+    Errors here are in degrees. Will convert to rads in CreatePhaseCalibrationErrors */
     if (!strcmp(ifoname,"H1")){
         stddev[0]=4.5;  // 1-500Hz
         stddev[1]=4.5;  // 500-1000Hz
@@ -280,7 +282,7 @@ void ApplyPhaseCalibrationErrors(COMPLEX16FrequencySeries *doff,REAL8 * Pcoeffs)
       ampli=sqrt(creal(datum)*creal(datum)+cimag(datum)*cimag(datum));
       phase=atan2(cimag(datum),creal(datum));
 
-      if (Pcoeffs[Npoints+3]==-300.)
+      if (Pcoeffs[Npoints+3]==random_linearCE_bit)
         phase+=ConvertRandTransitionSlopeToFunction(Pcoeffs,f);
       else //catch all random errors
         phase+=ConvertCoefficientsToFunction(Pcoeffs,f);
@@ -304,7 +306,7 @@ void ApplyAmplitudeCalibrationErrors(COMPLEX16FrequencySeries *doff,REAL8 * Acoe
         f=ui*df;
         datum=doff->data->data[ui];
         
-        if (Acoeffs[Npoints+3]==-300.)
+        if (Acoeffs[Npoints+3]==random_linearCE_bit)
           ampli= 1. + ConvertRandTransitionSlopeToFunction(Acoeffs,f);
         else
           ampli= 1. + ConvertCoefficientsToFunction(Acoeffs,f);
@@ -328,7 +330,7 @@ void ApplySquaredAmplitudeErrors(REAL8FrequencySeries * Spectrum,REAL8 * Acoeffs
     UINT4 ui;
     for (ui=0;ui<Spectrum->data->length;ui++){
       f=ui*df;
-      if (Acoeffs[Npoints+3]==-300.)
+      if (Acoeffs[Npoints+3]==random_linearCE_bit)
         ampli= 1.+ConvertRandTransitionSlopeToFunction(Acoeffs,f);
       else
         ampli= 1. + ConvertCoefficientsToFunction(Acoeffs,f);
@@ -337,13 +339,12 @@ void ApplySquaredAmplitudeErrors(REAL8FrequencySeries * Spectrum,REAL8 * Acoeffs
     }
 }
 
-void LALInferenceApplyCalibrationErrors(LALInferenceRunState *state, ProcessParamsTable *commandLine ){
+void LALInferenceApplyCalibrationErrors(LALInferenceIFOData *IFOdata, ProcessParamsTable *commandLine) {
     /*
-     * This function takes a pointer to a LALInferenceRunState and applies calibration errors to state->data->freqData (i.e. the frequency domain stream), state->data->oneSidedNoisePowerSpectrum (i.e. the PSD) and state->data->freqData. These arrays must already have been filled by LALInferenceReadData()  and (if injtable is used) by LALInferenceInjectInspiralSignal().
-     * CE are either randomly generated or constant.
-     * 
-     * */
-     
+     * This function takes a pointer to a linked list of IFO data and applies calibration errors to data->freqData (i.e. the frequency domain stream),
+     * data->oneSidedNoisePowerSpectrum (i.e. the PSD) and data->freqData. These arrays must already have been filled by LALInferenceReadData()  and
+     * (if injtable is used) by LALInferenceInjectInspiralSignal(). CE are either randomly generated or constant.
+     */
      char help[]="\
 \n\
 ------------------------------------------------------------------------------------------------------------------\n\
@@ -365,18 +366,12 @@ void LALInferenceApplyCalibrationErrors(LALInferenceRunState *state, ProcessPara
  * Spline Calibration Model \n\
   (--enable-spline-calibration)            Enable cubic-spline calibration error model.\n\
   (--spcal-nodes N)           Set the number of spline nodes per detector (default 5)\n\
-  (--spcal-amp-uncertainty X) Set the prior on relative amplitude uncertainty (default 0.1)\n\
-  (--spcal-phase-uncertainty X) Set the prior on phase uncertanity in degrees (default 5)\n\n\n";
+  (--IFO-spcal-amp-uncertainty X) Set the prior on relative amplitude uncertainty for the instrument IFO (mandatory with --enable-spline-calibration)\n\
+  (--IFO-spcal-phase-uncertainty X) Set the prior on phase uncertanity in degrees  for the instrument IFO (mandatory with --enable-spline-calibration)\n\n\n";
 
     static LALStatus   status;
-      /* Print command line arguments if state was not allocated */
-    if(state==NULL)
-    {
-      fprintf(stdout,"%s",help);
-      return ;
-    }
     /* Print command line arguments if help requested */
-    if(LALInferenceGetProcParamVal(state->commandLine,"--help"))
+    if(LALInferenceGetProcParamVal(commandLine,"--help"))
     {
       fprintf(stdout,"%s",help);
       return;
@@ -386,7 +381,7 @@ void LALInferenceApplyCalibrationErrors(LALInferenceRunState *state, ProcessPara
 
     if(!LALInferenceGetProcParamVal(commandLine,"--AddCalibrationErrors")) 
     {
-      fprintf(stdout,"No --AddCalibrationErrors option give. Not applying calibration errors in injection...\n"); 
+      fprintf(stdout,"No --AddCalibrationErrors option given. Not applying calibration errors in injection...\n"); 
       return;
     }
 
@@ -407,7 +402,7 @@ void LALInferenceApplyCalibrationErrors(LALInferenceRunState *state, ProcessPara
     calib_seed_phase=floor(1E6*tmpphase);
     fprintf(stdout,"Using calibseedAmp %d and calibseedPha %d\n",calib_seed_ampli,calib_seed_phase);
   
-    LALInferenceIFOData * tmpdata=state->data;
+    LALInferenceIFOData * tmpdata=IFOdata;
     int num_ifos=0;
     int i;
     //UINT4 unum_ifos=(UINT4) num_ifos;
@@ -416,7 +411,7 @@ void LALInferenceApplyCalibrationErrors(LALInferenceRunState *state, ProcessPara
       num_ifos++;
       tmpdata=tmpdata->next;
     }
-    tmpdata=state->data;
+    tmpdata=IFOdata;
     int this_ifo=0;  
     REAL8 phaseCoeffs[num_ifos][Npoints*2];
     REAL8 ampCoeffs[num_ifos][Npoints*2];
@@ -429,7 +424,7 @@ void LALInferenceApplyCalibrationErrors(LALInferenceRunState *state, ProcessPara
     if(LALInferenceGetProcParamVal(commandLine,"--RandomCE")){
         /* Random phase and amplitude calibration errors. Use S6 Budget. That is an overkill, but may be good to test worst case scenarios. */
         fprintf(stdout,"Applying random phase and amplitude errors. \n");
-        tmpdata=state->data;
+        tmpdata=IFOdata;
         this_ifo=0;
         /* For each IFO create a CE realization and write in amp/phaseCoeffs the coefficients of the polynomial expansion */
         while (tmpdata!=NULL){
@@ -500,11 +495,11 @@ void LALInferenceApplyCalibrationErrors(LALInferenceRunState *state, ProcessPara
       
       fprintf(stdout,"Applying quasi constant amplitude calibration errors. \n");
       i=0;
-      tmpdata=state->data;
+      tmpdata=IFOdata;
       while (tmpdata!=NULL){
         /* Store variables for random jitter in the first (Npoints-1) positions of ampCoeffs. 
          * Store constant plateau, knee position and slope in the next 3 positions.
-         * Store -300 in the last position to make the code recognize our choice  */
+         * Store random_linearCE_bit (-300) in the last position to make the code recognize our choice  */
          
         /* Fill random part. Will take 10% of it later on */
         CreateRandomAmplitudeCalibrationErrors(ampCoeffs[i],calib_seed_ampli,tmpdata->name);
@@ -514,7 +509,7 @@ void LALInferenceApplyCalibrationErrors(LALInferenceRunState *state, ProcessPara
         (ampCoeffs[i])[Npoints]=atof(plateau[i]);
         (ampCoeffs[i])[Npoints+1]=atof(knee[i]);
         (ampCoeffs[i])[Npoints+2]=atof(slope[i]);
-        (ampCoeffs[i])[Npoints+3]=-300;
+        (ampCoeffs[i])[Npoints+3]=random_linearCE_bit;
         i++;
         tmpdata=tmpdata->next;
       }
@@ -550,11 +545,11 @@ void LALInferenceApplyCalibrationErrors(LALInferenceRunState *state, ProcessPara
       fprintf(stdout,"Applying quasi constant phase calibration errors. \n");
       
       i=0;
-      tmpdata=state->data;
+      tmpdata=IFOdata;
       while (tmpdata!=NULL){
         /* Store variables for random jitter in the first (Npoints-1) positions of phaCoeffs. 
          * Store constant plateau, knee position and slope in the next 3 positions.
-         * Store -300 in the last position to make the code recognize our choice  */
+         * Store random_linearCE_bit (-300) in the last position to make the code recognize our choice  */
          
         /* Fill random part. Will take 10% of it later on */
         CreateRandomPhaseCalibrationErrors(phaseCoeffs[i],calib_seed_phase,tmpdata->name);
@@ -568,7 +563,7 @@ void LALInferenceApplyCalibrationErrors(LALInferenceRunState *state, ProcessPara
         (phaseCoeffs[i])[Npoints+1]=atof(pknee[i]);
         // slope. After the transition freq the errors go like f^slope
         (phaseCoeffs[i])[Npoints+2]=atof(pslope[i]);
-        (phaseCoeffs[i])[Npoints+3]=-300;
+        (phaseCoeffs[i])[Npoints+3]=random_linearCE_bit;
         i++;
         tmpdata=tmpdata->next;
       }
@@ -583,12 +578,12 @@ void LALInferenceApplyCalibrationErrors(LALInferenceRunState *state, ProcessPara
       exit(1);
     }
     /* Now apply CE to various quantities */
-    tmpdata=state->data;
+    tmpdata=IFOdata;
     this_ifo=0;
     while (tmpdata!=NULL){
       PrintCEtoFile(ampCoeffs[this_ifo],phaseCoeffs[this_ifo],tmpdata, commandLine);
       ApplyBothPhaseAmplitudeErrors(tmpdata->freqData,ampCoeffs[this_ifo],phaseCoeffs[this_ifo]);
-      ApplyBothPhaseAmplitudeErrors(tmpdata->whiteFreqData,ampCoeffs[this_ifo],phaseCoeffs[this_ifo]);
+      ApplyPhaseCalibrationErrors(tmpdata->whiteFreqData,phaseCoeffs[this_ifo]);
       ApplySquaredAmplitudeErrors(tmpdata->oneSidedNoisePowerSpectrum,ampCoeffs[this_ifo]);
       this_ifo++;
       tmpdata=tmpdata->next;
@@ -619,7 +614,7 @@ void PrintCEtoFile(REAL8* Acoeffs,REAL8* Pcoeffs,LALInferenceIFOData* IFOdata, P
     
     for(ui=f_low_idx;ui<f_high_idx;ui++){
       f=ui*df;
-      if (Acoeffs[3+Npoints]==-300.)
+      if (Acoeffs[3+Npoints]==random_linearCE_bit)
         fprintf(calibout,"%lf \t%10.10e \t%10.10e\n",f,ConvertRandTransitionSlopeToFunction(Acoeffs,f),ConvertRandTransitionSlopeToFunction(Pcoeffs,f));
       else 
         fprintf(calibout,"%lf \t%10.10e \t%10.10e\n",f,ConvertCoefficientsToFunction(Acoeffs,f),ConvertCoefficientsToFunction(Pcoeffs,f));

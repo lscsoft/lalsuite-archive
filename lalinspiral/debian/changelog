@@ -1,3 +1,35 @@
+lalinspiral (1.7.5.1-1) UNRELEASED; urgency=medium
+
+  * Add python3 package
+
+ -- Leo Singer <leo.singer@ligo.org>  Fri, 15 Jul 2016 00:03:38 -0400
+
+lalinspiral (1.7.5-1) unstable; urgency=low
+
+  * LALInspiral 1.7.5
+  * ER9 release
+
+ -- Adam Mercer <adam.mercer@ligo.org>  Thu, 23 Jun 2016 16:42:06 -0500
+
+lalinspiral (1.7.4-1) unstable; urgency=low
+
+  * LALInspiral 1.7.4
+  * Pre O2 packaging test release
+
+ -- Adam Mercer <adam.mercer@ligo.org>  Thu, 22 Oct 2015 11:46:23 -0500
+
+lalinspiral (1.7.3-1) unstable; urgency=low
+
+  * LALInspiral 1.7.3
+
+ -- Adam Mercer <adam.mercer@ligo.org>  Thu, 22 Oct 2015 11:46:23 -0500
+
+lalinspiral (1.7.2-1) unstable; urgency=low
+
+  * LALInspiral 1.7.2
+
+ -- Adam Mercer <adam.mercer@ligo.org>  Wed, 21 Oct 2015 17:36:45 -0500
+
 lalinspiral (1.7.1-1) unstable; urgency=low
 
   * LALInspiral 1.7.1

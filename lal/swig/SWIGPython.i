@@ -22,6 +22,18 @@
 
 // # General SWIG directives and interface code
 
+// Call VCS information check function when module is loaded
+%init %{
+  if (VCS_INFO_CHECK() != XLAL_SUCCESS) {
+    SWIG_Error(SWIG_RuntimeError, "Could not load SWIG module");
+#if PY_VERSION_HEX >= 0x03000000
+    return NULL;
+#else
+    return;
+#endif
+  }
+%}
+
 // In SWIG Python modules, everything is namespaced, so it makes sense to rename symbols to remove
 // superfluous C-API prefixes.
 #define SWIGLAL_MODULE_RENAME_CONSTANTS
@@ -130,6 +142,13 @@ SWIGINTERNINLINE PyObject* swiglal_get_reference(PyObject* v) { Py_XINCREF(v); r
   if ($input != Py_None) {
     %argument_fail(SWIG_TypeError, "$type", $symname, $argnum);
   }
+}
+
+// SWIG's SWIGPY_HASHFUNC_CLOSURE() macro requires the return of a __hash__()
+// function to be of PyLong type, which is not guaranteed by SWIG_from_long()
+// (which may return a PyInt), so use this custom typemap to guarantee this.
+%typemap(out, noblock=1) long __hash__ {
+  %set_output(PyLong_FromLong($1));
 }
 
 // Comparison operators.

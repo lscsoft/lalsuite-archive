@@ -5,8 +5,6 @@ include $(top_srcdir)/gnuscripts/lalsuite_python.am
 
 SUBDIRS = laldetchar
 
-dist_bin_SCRIPTS = \
-	laldetchar-idq-append-file-to-cache
 if HAVE_PYTHON
 
 pybin_scripts = \
@@ -32,9 +30,11 @@ pybin_scripts = \
 	laldetchar-idq-ann-convert \
 	laldetchar-idq-ann-train \
 	laldetchar-idq-ann-evaluate \
+	laldetchar-idq-frames-to-segments \
 	laldetchar-idq-gst-sender \
 	laldetchar-idq-gst-relay \
 	laldetchar-idq-gst-listener \
+	laldetchar-idq-gdb-local-performance \
 	$(END_OF_LIST)
 
 endif

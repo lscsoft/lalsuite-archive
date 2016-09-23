@@ -39,7 +39,8 @@ void loadCandidateData(candidate* output,
                        const REAL8 prob,
                        const INT4 proberrcode,
                        const REAL8 normalization,
-                       const INT4 templateVectorIndex);
+                       const INT4 templateVectorIndex,
+                       const BOOLEAN lineContamination);
 
 INT4 analyzeOneTemplate(candidate *output,
                         const candidate *input,
@@ -81,6 +82,21 @@ INT4 templateSearch_scox1Style(candidateVector **output,
                                const REAL4VectorAligned *ffdata,
                                const REAL4VectorAligned *aveNoise,
                                const REAL4VectorAligned *aveTFnoisePerFbinRatio,
+                               const REAL4VectorSequence *trackedlines,
+                               const REAL4FFTPlan *secondFFTplan,
+                               const gsl_rng *rng,
+                               const BOOLEAN useExactTemplates);
+INT4 templateSearch_fixedDf(candidateVector **output,
+                               const LALStringVector *dffixed,
+                               const REAL8 fminimum,
+                               const REAL8 fspan,
+                               const REAL8 period,
+                               const SkyPosition skypos,
+                               const UserInput_t *params,
+                               const REAL4VectorAligned *ffdata,
+                               const REAL4VectorAligned *aveNoise,
+                               const REAL4VectorAligned *aveTFnoisePerFbinRatio,
+			       const REAL4VectorSequence *trackedlines,
                                const REAL4FFTPlan *secondFFTplan,
                                const gsl_rng *rng,
                                const BOOLEAN useExactTemplates);
@@ -118,6 +134,8 @@ INT4 analyzeCandidatesTemplateFromVector(candidateVector *output,
                                          const UserInput_t *params,
                                          const gsl_rng *rng,
                                          const UINT4 templateLen);
+
+INT4 writeCandidateVector2File(const CHAR *outputfile, const candidateVector *input);
 
 REAL8 maxModDepth(const REAL8 period, const REAL8 cohtime);
 REAL8 minPeriod(const REAL8 moddepth, const REAL8 cohtime);

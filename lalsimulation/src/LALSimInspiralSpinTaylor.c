@@ -449,7 +449,7 @@ INT4 XLALSimInspiralSpinDerivatives(REAL8 *dLNhx,
   REAL8 v7=omega2*v;
   REAL8 v8=omega2*v2;
   REAL8 omega3=omega2*omega;
-  REAL8 v10=omega2*v;
+  REAL8 v10=omega3*v;
 
   /* Phasing is given in terms of LNhat, however we know the
    * evolution equation for L, which is not parallel to LN, because
@@ -477,13 +477,13 @@ INT4 XLALSimInspiralSpinDerivatives(REAL8 *dLNhx,
   REAL8 OmegaLNz = params->Ldot3S1O * S1z + params->Ldot3S2O * S2z;
 
   /* Here we use the above \Omega_LN/omega2 at leading order to compute the
-   * extra terms in domega given by eq. (7) of arXiv:1507.00406.
+   * extra terms in dphi given by eq. (7) of arXiv:1507.00406.
    * Actually what is coded here is the time average of this equation,
    * which involves subtracting the projection of \Omega_LN over LN.
    */
   REAL8 tmp=OmegaLNx*LNhx+OmegaLNy*LNhy+OmegaLNz*LNhz;
   // This is a 3.5PN term in the phasing
-  *dphiExtra=-(OmegaLNx*OmegaLNx+OmegaLNy*OmegaLNy+OmegaLNz*OmegaLNz-tmp*tmp)*v7/4.;
+  *dphiExtra=-(OmegaLNx*OmegaLNx+OmegaLNy*OmegaLNy+OmegaLNz*OmegaLNz-tmp*tmp)*omega2/4.;
 
   /* Now we multiply by the appropriate v factor*/
   OmegaLNx*=omega2;
@@ -661,6 +661,13 @@ INT4 XLALSimInspiralSpinDerivatives(REAL8 *dLNhx,
   *dS2x += params->S2dot7S1 * omega3 * S1cS2[0];
   *dS2y += params->S2dot7S1 * omega3 * S1cS2[1];
   *dS2z += params->S2dot7S1 * omega3 * S1cS2[2];
+
+  XLALFree(dLNhat);
+  XLALFree(LNcS1);
+  XLALFree(LNcS2);
+  XLALFree(S1cS2);
+  XLALFree(dL);
+  XLALFree(OmegaLN);
 
   return XLAL_SUCCESS;
 
@@ -2224,7 +2231,7 @@ static int XLALSimInspiralSpinTaylorStoppingTest(
         return LALSIMINSPIRAL_ST_TEST_FREQBOUND;
     else if (test < 0.0) /* energy test fails! */
         return LALSIMINSPIRAL_ST_TEST_ENERGY;
-    else if isnan(omega) /* omega is nan! */
+    else if (isnan(omega)) /* omega is nan! */
         return LALSIMINSPIRAL_ST_TEST_OMEGANAN;
     else if (v >= 1.) // v/c >= 1!
         return LALSIMINSPIRAL_ST_TEST_LARGEV;
@@ -2627,8 +2634,8 @@ static int XLALSimInspiralSpinTaylorT2Derivatives(
             // Also note this is equivalent to Eqs. 9c + 9d of astro-ph/0504538
             wspin4 += (params->wdot4S1S1 + params->wdot4QMS1S1) * S1sq
 	      + (params->wdot4S2S2 + params->wdot4QMS2S2) * S2sq
-	      + (params->wdot4S1S1 + params->wdot4QMS1OS1O) * LNhdotS1 * LNhdotS1
-	      + (params->wdot4S2S2 + params->wdot4QMS2OS2O) * LNhdotS2 * LNhdotS2;
+	      + (params->wdot4S1OS1O + params->wdot4QMS1OS1O) * LNhdotS1 * LNhdotS1
+	      + (params->wdot4S2OS2O + params->wdot4QMS2OS2O) * LNhdotS2 * LNhdotS2;
         case LAL_SIM_INSPIRAL_SPIN_ORDER_15PN:
             // Compute 1.5PN SO correction to domega/dt
             wspin3 = params->wdot3S1O*LNhdotS1 + params->wdot3S2O*LNhdotS2;
@@ -3310,7 +3317,7 @@ int XLALSimInspiralTransformPrecessingObsoleteInitialConditions(
  * they are needed to compute the magnitude of L_N, and thus J.
  *
  * Output:
- * incl - inclination angle of L_N relative to N
+ * incl - inclination angle of L_N relative to N (N=(-sin(incl),0,cos(incl)))
  * x, y, z components S1 and S2 (unit spin vectors times their
  * dimensionless spin magnitudes - i.e. they have unit magnitude for
  * extremal BHs and smaller magnitude for slower spins).
@@ -3357,6 +3364,11 @@ int XLALSimInspiralTransformPrecessingNewInitialConditions(
 		XLALPrintError("XLAL Error - %s: fRef=0 is invalid. Please pass in the starting GW frequency instead.\n", __func__);
 		XLAL_ERROR(XLAL_EINVAL);
 	}
+	if( (chi1<0.) || (chi1>1.) || (chi2<0.) || (chi2>1.) )
+	{
+	  XLALPrintError("XLAL Error - %s: chi1,2=0  must be between 0 and 1, values %8.4f -- %8.4f passed.\n", __func__,chi1,chi2);
+		XLAL_ERROR(XLAL_EINVAL);
+	}
 
 	REAL8 m1, m2, eta, v0, theta0, phi0, Jnorm, tmp1, tmp2;
 	REAL8 Jhatx, Jhaty, Jhatz, LNhx, LNhy, LNhz, Jx, Jy, Jz, Lmag;
@@ -3400,7 +3412,7 @@ int XLALSimInspiralTransformPrecessingNewInitialConditions(
 	Jy = s1y + s2y;
 	Jz = Lmag * LNhz + s1z + s2z;
 
-	/* Normalize J to Jhat, find it's angles in starting frame */
+	/* Normalize J to Jhat, find its angles in starting frame */
 	Jnorm = sqrt( Jx*Jx + Jy*Jy + Jz*Jz);
 	Jhatx = Jx / Jnorm;
 	Jhaty = Jy / Jnorm;
@@ -3417,8 +3429,8 @@ int XLALSimInspiralTransformPrecessingNewInitialConditions(
 	 * to put Jhat along z-axis
 	 */
 	ROTATEY(-theta0, LNhx, LNhy, LNhz);
-	ROTATEZ(-theta0, s1hatx, s1haty, s1hatz);
-	ROTATEZ(-theta0, s2hatx, s2haty, s2hatz);
+	ROTATEY(-theta0, s1hatx, s1haty, s1hatz);
+	ROTATEY(-theta0, s2hatx, s2haty, s2hatz);
 
 	/* Rotation 3: Rotate about new z-axis by phiJL to put L at desired
 	 * azimuth about J. Note that is currently in x-z plane towards -x
@@ -3455,8 +3467,8 @@ int XLALSimInspiralTransformPrecessingNewInitialConditions(
 	 * in the x-z plane.
 	 */
 	REAL8 phiN = atan2(Ny, Nx);
-	ROTATEZ(-phiN, s1hatx, s1haty, s1hatz);
-	ROTATEZ(-phiN, s2hatx, s2haty, s2hatz);
+	ROTATEZ(LAL_PI-phiN, s1hatx, s1haty, s1hatz);
+	ROTATEZ(LAL_PI-phiN, s2hatx, s2haty, s2hatz);
 
 	/* Set pointers to rotated spin vectors */
 	*S1x = s1hatx*chi1;
@@ -3470,13 +3482,14 @@ int XLALSimInspiralTransformPrecessingNewInitialConditions(
 	/*printf("LNhat should be along z, N in the x-z plane\n");
 	ROTATEZ(-phiL,    LNhx, LNhy, LNhz);
 	ROTATEY(-thetaLJ, LNhx, LNhy, LNhz);
-	ROTATEZ(-phiN,    LNhx, LNhy, LNhz);
-	ROTATEZ(-phiN,    Nx, Ny, LNz);
+	ROTATEZ(LAL_PI-phiN,    LNhx, LNhy, LNhz);
+	ROTATEZ(LAL_PI-phiN,    Nx, Ny, LNz);
 	ROTATEZ(-phi0, Jhatx, Jhaty, Jhatz);
 	ROTATEY(-theta0, Jhatx, Jhaty, Jhatz);
 	ROTATEZ(phiJL - LAL_PI, Jhatx, Jhaty, Jhatz);
 	ROTATEZ(-phiL, Jhatx, Jhaty, Jhatz);
 	ROTATEY(-thetaLJ, Jhatx, Jhaty, Jhatz);
+	ROTATEZ(LAL_PI-phiN, Jhatx, Jhaty, Jhatz);
 	printf("LNhat: %12.4e  %12.4e  %12.4e\n",LNhx,LNhy,LNhz);
 	printf("       %12.4e  %12.4e  %12.4e\n",0.,0.,1.);
 	printf("N:     %12.4e  %12.4e  %12.4e\n",Nx,Ny,Nz);
@@ -3484,7 +3497,11 @@ int XLALSimInspiralTransformPrecessingNewInitialConditions(
 	printf("J.Lhat  i: %12.4e f: %12.4e\n",Jz,Jnorm*Jhatz);
 	printf("S1.L    i: %12.4e f: %12.4e\n",chi1*cos(theta1),*S1z);
 	printf("S2.L    i: %12.4e f: %12.4e\n",chi2*cos(theta2),*S2z);
-	printf("S1.S2   i: %12.4e f: %12.4e\n",chi1*chi2*(sin(theta1)*sin(theta2)*cos(phi12)+cos(theta1)*cos(theta2)),(*S1x)*(*S2x)+(*S1y)*(*S2y)+(*S1z)*(*S2z));*/
+	printf("S1.S2   i: %12.4e f: %12.4e\n",chi1*chi2*(sin(theta1)*sin(theta2)*cos(phi12)+cos(theta1)*cos(theta2)),(*S1x)*(*S2x)+(*S1y)*(*S2y)+(*S1z)*(*S2z));
+	printf("S1.J i: %12.4e f: %12.4e\n",chi1*(sin(theta1)*Jx+cos(theta1)*Jz),Jnorm*((*S1x)*Jhatx+(*S1y)*Jhaty+(*S1z)*Jhatz));
+	printf("S2.J i: %12.4e f: %12.4e\n",chi2*(sin(theta2)*cos(phi12)*Jx+sin(theta2)*sin(phi12)*Jy+cos(theta2)*Jz),Jnorm*((*S2x)*Jhatx+(*S2y)*Jhaty+(*S2z)*Jhatz));
+	printf("Jhat.Nhat i: %12.4e f: %12.4e\n",cos(thetaJN),Jhatx*Nx+Jhaty*Ny+Jhatz*Nz);
+	printf("Norm Jhat: %12.4e  norm N: %12.4e\n",Jhatx*Jhatx+Jhaty*Jhaty+Jhatz*Jhatz,Nx*Nx+Ny*Ny+Nz*Nz);*/
 
 	return XLAL_SUCCESS;
 }
@@ -3499,9 +3516,9 @@ int XLALSimInspiralTransformPrecessingNewInitialConditions(
  * * reference L for axisChoice    = LAL_SIM_INSPIRAL_FRAME_AXIS_ORBITAL_L (default)
  * * view direction for axisChoice = LAL_SIM_INSPIRAL_FRAME_AXIS_VIEW
  * incl is the angle between
- * * J and N (Jx \f$\propto sin(inc)\f$, Jy=0) for axisChoice = LAL_SIM_INSPIRAL_FRAME_AXIS_TOTAL_J
- * * L and N (Nx \f$\propto sin(inc)\f$, Ly=0) for axisChoice = LAL_SIM_INSPIRAL_FRAME_AXIS_ORBITAL_L (default)
- * * L and N (Lx \f$\propto sin(inc)\f$, Ly=0) for axisChoice = LAL_SIM_INSPIRAL_FRAME_AXIS_VIEW
+ * * J and N (Nz = cos(inc)) for axisChoice = LAL_SIM_INSPIRAL_FRAME_AXIS_TOTAL_J
+ * * L and N (Nx = -sin(inc), Ny=0, Nz=cos(inc)) for axisChoice = LAL_SIM_INSPIRAL_FRAME_AXIS_ORBITAL_L (default)
+ * * L and N (Lx = sin(inc), Ly=0, Lz=cos(inc)) for axisChoice = LAL_SIM_INSPIRAL_FRAME_AXIS_VIEW
  * m1, m2, f_ref are the component masses and reference GW frequency,
  * they are needed to compute the magnitude of L_N
  *
@@ -3511,8 +3528,8 @@ int XLALSimInspiralTransformPrecessingNewInitialConditions(
  * as required by precessing waveforms routines.
  *
  * NOTE: Here the \"total\" angular momentum is computed as
- * J = L_N(1+L_1PN) + S1 + S2
- * where L_N(1+L_1PN) is the 1PN-corrected orbital angular momentum,
+ * J = L_N(1+l_1PN) + S1 + S2
+ * where L_N(1+l_1PN) is the 1PN-corrected orbital angular momentum,
  * which is parallel to Newtonian angular momentum.
  * PN corrections to L from 1.5PN order on (wrt to Newtonian value)
  * are NOT ACCOUNTED FOR in this function.

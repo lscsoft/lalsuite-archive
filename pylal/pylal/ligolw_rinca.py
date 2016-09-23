@@ -38,7 +38,6 @@ from pylal import llwapp
 from pylal import snglcoinc
 from pylal.xlal import tools as xlaltools
 from pylal.xlal.datatypes import snglringdowntable
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -56,14 +55,6 @@ __date__ = git_version.date
 
 
 #
-# Use C row classes for memory and speed
-#
-
-
-lsctables.CoincMapTable.RowType = lsctables.CoincMap = xlaltools.CoincMap
-
-
-#
 # Construct a subclass of the C sngl_ringdown row class with the methods
 # that are needed
 #
@@ -73,7 +64,7 @@ class SnglRingdown(snglringdowntable.SnglRingdownTable):
 	__slots__ = ()
 
 	def get_start(self):
-		return LIGOTimeGPS(self.start_time, self.start_time_ns)
+		return lsctables.LIGOTimeGPS(self.start_time, self.start_time_ns)
 
 	def set_start(self, gps):
 		self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
@@ -83,14 +74,6 @@ class SnglRingdown(snglringdowntable.SnglRingdownTable):
 		# other.  allows bisection searches by GPS time to find
 		# ranges of triggers quickly
 		return cmp(self.start_time, other.seconds) or cmp(self.start_time_ns, other.nanoseconds)
-
-
-#
-# Use C LIGOTimeGPS type
-#
-
-
-lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 #
@@ -189,14 +172,8 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 		if vetoes is not None:
 			self.seglists -= vetoes
 
-	def append_coinc(self, process_id, node, coinc_def_id, events):
-		#
-		# populate the coinc_event and coinc_event_map tables
-		#
-		
-		time_slide_id = node.time_slide_id
-		
-		coinc = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, coinc_def_id, events)
+	def coinc_rows(self, process_id, node, coinc_def_id, events):
+		coinc, coincmaps = super(RingdownCoincTables, self).coinc_rows(process_id, node.time_slide_id, coinc_def_id, events)
 
 		#
 		# populate the coinc_ringdown table:
@@ -209,7 +186,7 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 		#
 
 		coinc_ringdown = self.coinc_ringdown_table.RowType()
-		coinc_ringdown.coinc_event_id = coinc.coinc_event_id
+		coinc_ringdown.coinc_event_id = coinc.coinc_event_id	# = None
 		coinc_ringdown.snr = sum(event.snr**2. for event in events)**.5
 		coinc_ringdown.false_alarm_rate = None
 		# use the time of event[0] as an epoch
@@ -229,7 +206,6 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 		coinc_ringdown.kappa = None
 		coinc_ringdown.snr_ratio = None
 		coinc_ringdown.combined_far = None
-		self.coinc_ringdown_table.append(coinc_ringdown)
 
 		#
 		# record the instruments that were on at the time of the
@@ -249,10 +225,13 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 		coinc.instruments = self.uniquifier.setdefault(coinc.instruments, coinc.instruments)
 		coinc_ringdown.ifos = self.uniquifier.setdefault(coinc_ringdown.ifos, coinc_ringdown.ifos)
 
-		#
-		# done
-		#
+		return coinc, coincmaps, coinc_ringdown
 
+
+	def append_coinc(self, coinc, coincmaps, coinc_ringdown
+		coinc = super(RingdownCoincTables, self).append_coinc(coinc, coincmaps)
+		coinc_ringdown.coinc_event_id = coinc.coinc_event_id
+		self.coinc_ringdown_table.append(coinc_ringdown)
 		return coinc
 
 
@@ -288,7 +267,7 @@ class RingdownEventList(snglcoinc.EventList):
 		"""
 		# add 1% for safety, and pre-convert to LIGOTimeGPS to
 		# avoid doing type conversion in loops
-		self.dt = LIGOTimeGPS(dt * 1.01)
+		self.dt = lsctables.LIGOTimeGPS(dt * 1.01)
 
 	def get_coincs(self, event_a, offset_a, light_travel_time, ds_sq_threshold, comparefunc):
 		#
@@ -425,7 +404,7 @@ def ligolw_rinca(
 	# removing events from the lists that fall in vetoed segments
 	#
 
-	eventlists = snglcoinc.make_eventlists(xmldoc, EventListType, lsctables.SnglRingdownTable.tableName)
+	eventlists = snglcoinc.EventListDict(EventListType, lsctables.SnglRingdownTable.get_table(xmldoc))
 	if veto_segments is not None:
 		for eventlist in eventlists.values():
 			iterutils.inplace_filter((lambda event: event.ifo not in veto_segments or event.get_start() not in veto_segments[event.ifo]), eventlist)
@@ -458,10 +437,12 @@ def ligolw_rinca(
 	# and record the survivors
 	#
 
-	for node, coinc in time_slide_graph.get_coincs(eventlists, event_comparefunc, thresholds, include_small_coincs = small_coincs, verbose = verbose):
+	for node, coinc in time_slide_graph.get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose):
+		if len(coinc) < 2 or (len(coinc) < len(node.offset_vector) and not small_coincs):
+			continue
 		ntuple = tuple(sngl_index[id] for id in coinc)
 		if not ntuple_comparefunc(ntuple, node.offset_vector):
-			coinc_tables.append_coinc(process_id, node, coinc_def_id, ntuple)
+			coinc_tables.append_coinc(*coinc_tables.coinc_rows(process_id, node, coinc_def_id, ntuple))
 
 	#
 	# remove time offsets from events

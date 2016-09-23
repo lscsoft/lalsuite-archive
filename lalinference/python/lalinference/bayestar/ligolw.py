@@ -1,6 +1,5 @@
-#!/usr/bin/env python
 #
-# Copyright (C) 2013  Leo Singer
+# Copyright (C) 2013-2015  Leo Singer
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -31,12 +30,11 @@ from pylal import ligolw_inspinjfind
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw import ligolw
 from glue.ligolw import table as ligolw_table
-from glue.ligolw import array as ligolw_array
 from pylal import ligolw_thinca
 from glue.ligolw import lsctables
 
 
-def get_temlate_bank_f_low(xmldoc):
+def get_template_bank_f_low(xmldoc):
     """Determine the low frequency cutoff from a template bank file,
     whether the template bank was produced by lalapps_tmpltbank or
     lalapps_cbc_sbank. bayestar_sim_to_tmpltbank does not have a command

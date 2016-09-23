@@ -27,6 +27,7 @@
 #include <lal/LALInference.h>
 #include <lal/Units.h>
 #include <lal/FrequencySeries.h>
+#include <lal/Sequence.h>
 #include <lal/TimeSeries.h>
 #include <lal/TimeFreqFFT.h>
 #include <lal/VectorOps.h>
@@ -36,6 +37,7 @@
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_eigen.h>
 #include <gsl/gsl_interp.h>
+#include <lal/LALHashFunc.h>
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -45,6 +47,39 @@
 
 #define COL_MAX 128
 #define STR_MAX 2048
+
+typedef struct taghash_elem
+{
+  const char *name;
+  LALInferenceVariableItem *itemPtr;
+} hash_elem;
+
+static void *new_elem( const char *name, LALInferenceVariableItem *itemPtr )
+{
+  hash_elem e = { .name=name, .itemPtr=itemPtr };
+  return memcpy( XLALMalloc( sizeof( e ) ), &e, sizeof( e ) );
+};
+
+static void del_elem(void *elem)
+{
+  XLALFree(elem);
+}
+
+static UINT8 LALInferenceElemHash(const void *elem);
+static UINT8 LALInferenceElemHash(const void *elem)
+{
+  if(!elem) XLAL_ERROR(XLAL_EINVAL);
+  size_t len = strnlen(((const hash_elem *)elem)->name,VARNAME_MAX);
+  return(XLALCityHash64(((const hash_elem *)elem)->name, len));
+}
+
+static int LALInferenceElemCmp(const void *elem1, const void *elem2);
+static int LALInferenceElemCmp(const void *elem1, const void *elem2)
+{
+  if(!elem1 || !elem2) XLAL_ERROR(XLAL_EINVAL);
+  return(strncmp(((const hash_elem *)elem1)->name,((const hash_elem *)elem2)->name,VARNAME_MAX));
+}
+
 
 size_t LALInferenceTypeSize[] = {sizeof(INT4),
                                    sizeof(INT8),
@@ -77,7 +112,11 @@ LALInferenceThreadState *LALInferenceInitThread(void) {
     thread->temperature = 1.0;
     thread->creation_time = tv.tv_sec + tv.tv_usec/1E6;
     thread->currentPropDensity = -DBL_MAX;
+    thread->temp_swap_counter = 0;
+    thread->temp_swap_window = 50;
+    thread->temp_swap_accepts = XLALCalloc(thread->temp_swap_window, sizeof(INT4));
     thread->currentParams = XLALCalloc(1, sizeof(LALInferenceVariables));
+    thread->algorithmParams = XLALCalloc(1, sizeof(LALInferenceVariables));
     thread->priorArgs=XLALCalloc(1,sizeof(LALInferenceVariables));
     thread->proposalArgs=XLALCalloc(1,sizeof(LALInferenceVariables));
     thread->preProposalParams=XLALCalloc(1,sizeof(LALInferenceVariables));
@@ -109,14 +148,6 @@ static INT4 checkCOMPLEX16FrequencySeries(COMPLEX16FrequencySeries *series);
 static INT4 matrix_equal(gsl_matrix *a, gsl_matrix *b);
 static LALInferenceVariableItem *LALInferenceGetItemSlow(const LALInferenceVariables *vars,const char *name);
 
-static UINT4 hash(const char *name)
-{
-  UINT4 hashval=0;
-  for(;*name!='\0';name++)
-    hashval = *name + 31 *hashval;
-  return (hashval % LALINFERENCE_HASHTABLE_SIZE);
-}
-
 /* This replaces gsl_matrix_equal which is only available with gsl 1.15+ */
 /* Return 1 if matrices are equal, 0 otherwise */
 static INT4 matrix_equal(gsl_matrix *a, gsl_matrix *b)
@@ -136,17 +167,18 @@ LALInferenceVariableItem *LALInferenceGetItem(const LALInferenceVariables *vars,
 /* (this function is only to be used internally) */
 /* Returns pointer to item for given item name.  */
 {
-  LALInferenceVariableItem *item=NULL;
+  hash_elem tmp; /* Used for hash table lookup */
+  const hash_elem *match=NULL;
   if(vars==NULL) return NULL;
   if(vars->dimension==0) return NULL;
-  item=vars->hash_table[hash(name)];
-  if(!item) return LALInferenceGetItemSlow(vars,name); /* Not found in the hash table but need to check
-  because collision with an item previous Removed() will put a NULL in the hash table */
-
-  if(strcmp(item->name,name)) /* Check for hash collision */
-    return LALInferenceGetItemSlow(vars,name);
-  else
-    return item;
+  if(!vars->hash_table) return LALInferenceGetItemSlow(vars,name);
+  tmp.name=name;
+  XLALHashTblFind(vars->hash_table,		/**< [in] Pointer to hash table */
+                  &tmp,                 /**< [in] Hash element to match */
+                  (const void **)&match /**< [out] Pointer to matched hash element, or NULL if not found */
+                  );
+  if(!match) return NULL;
+  return match->itemPtr;
 }
 /* Walk through the list to check for an item */
 LALInferenceVariableItem *LALInferenceGetItemSlow(const LALInferenceVariables *vars,const char *name)
@@ -356,11 +388,9 @@ void LALInferenceAddVariable(LALInferenceVariables * vars, const char * name, co
 /* If variable already exists, it will over-write the current value if type compatible*/
 {
   LALInferenceVariableItem *old=NULL;
-  /* This is a bit of a hack to make sure the hash table is initialised
-   * before it is accessed, assuming nobody is silly enough to Get()
-   * from a just-declared LALInferenceVariable */
-  if(vars->dimension==0) LALInferenceClearVariables(vars);
-
+  /* Create the hash table if it does not exist */
+  if(!vars->hash_table) vars->hash_table = XLALHashTblCreate( del_elem, LALInferenceElemHash, LALInferenceElemCmp);
+  
   /* Check input value is accessible */
   if(!value) {
     XLAL_ERROR_VOID(XLAL_EFAULT, "Unable to access value through null pointer; trying to add \"%s\".", name);
@@ -398,7 +428,8 @@ void LALInferenceAddVariable(LALInferenceVariables * vars, const char * name, co
   memcpy(new->value,value,LALInferenceTypeSize[type]);
   new->next = vars->head;
   vars->head = new;
-  vars->hash_table[hash(new->name)]=new;
+  hash_elem *elem=new_elem(new->name,new);
+  XLALHashTblAdd(vars->hash_table,(void *)elem);
   vars->dimension++;
   return;
 }
@@ -420,7 +451,10 @@ void LALInferenceRemoveVariable(LALInferenceVariables *vars,const char *name)
   }
   if(!parent) vars->head=this->next;
   else parent->next=this->next;
-
+  /* Remove from hash table */
+  hash_elem elem;
+  elem.name=this->name;
+  XLALHashTblRemove(vars->hash_table,(void *)&elem);
   /* We own the memory for these types, so have to free. */
   switch (this->type) {
   case LALINFERENCE_gslMatrix_t:
@@ -446,13 +480,10 @@ void LALInferenceRemoveVariable(LALInferenceVariables *vars,const char *name)
   }
 
   XLALFree(this->value);
-  if(this==vars->hash_table[hash(name)]) /* Have to check the name in case there was a collision */
-    vars->hash_table[hash(name)]=NULL;
   this->value=NULL;
   XLALFree(this);
   this=NULL;
   vars->dimension--;
-  if(vars->dimension==0) LALInferenceClearVariables(vars);
   return;
 }
 
@@ -505,7 +536,9 @@ void LALInferenceClearVariables(LALInferenceVariables *vars)
   }
   vars->head=NULL;
   vars->dimension=0;
-  memset(vars->hash_table,0,LALINFERENCE_HASHTABLE_SIZE*sizeof(LALInferenceVariableItem *));
+  if(vars->hash_table) XLALHashTblDestroy(vars->hash_table);
+  vars->hash_table=NULL;
+  
   return;
 }
 
@@ -2166,11 +2199,11 @@ void LALInferenceSortVariablesByName(LALInferenceVariables *vars)
  * Caller is responsible for opening and closing file.
  * Variables are alphabetically sorted before being written
  */
-void LALInferenceLogSampleToFile(LALInferenceRunState *state, LALInferenceVariables *vars)
+void LALInferenceLogSampleToFile(LALInferenceVariables *algorithmParams, LALInferenceVariables *vars)
 {
   FILE *outfile=NULL;
-  if(LALInferenceCheckVariable(state->algorithmParams,"outfile"))
-    outfile=*(FILE **)LALInferenceGetVariable(state->algorithmParams,"outfile");
+  if(LALInferenceCheckVariable(algorithmParams,"outfile"))
+    outfile=*(FILE **)LALInferenceGetVariable(algorithmParams,"outfile");
   /* Write out old sample */
   if(outfile==NULL) return;
   LALInferenceSortVariablesByName(vars);
@@ -2186,23 +2219,23 @@ void LALInferenceLogSampleToFile(LALInferenceRunState *state, LALInferenceVariab
  * DOES NOT FREE ARRAY, user must clean up after use.
  * Also outputs sample to disk if possible
  */
-void LALInferenceLogSampleToArray(LALInferenceRunState *state, LALInferenceVariables *vars)
+void LALInferenceLogSampleToArray(LALInferenceVariables *algorithmParams, LALInferenceVariables *vars)
 {
   LALInferenceVariables **output_array=NULL;
   UINT4 N_output_array=0;
   LALInferenceSortVariablesByName(vars);
-  LALInferenceLogSampleToFile(state,vars);
+  LALInferenceLogSampleToFile(algorithmParams,vars);
 
   /* Set up the array if it is not already allocated */
-  if(LALInferenceCheckVariable(state->algorithmParams,"outputarray"))
-    output_array=*(LALInferenceVariables ***)LALInferenceGetVariable(state->algorithmParams,"outputarray");
+  if(LALInferenceCheckVariable(algorithmParams,"outputarray"))
+    output_array=*(LALInferenceVariables ***)LALInferenceGetVariable(algorithmParams,"outputarray");
   else
-    LALInferenceAddVariable(state->algorithmParams,"outputarray",&output_array,LALINFERENCE_void_ptr_t,LALINFERENCE_PARAM_OUTPUT);
+    LALInferenceAddVariable(algorithmParams,"outputarray",&output_array,LALINFERENCE_void_ptr_t,LALINFERENCE_PARAM_OUTPUT);
 
-  if(LALInferenceCheckVariable(state->algorithmParams,"N_outputarray"))
-    N_output_array=*(INT4 *)LALInferenceGetVariable(state->algorithmParams,"N_outputarray");
+  if(LALInferenceCheckVariable(algorithmParams,"N_outputarray"))
+    N_output_array=*(INT4 *)LALInferenceGetVariable(algorithmParams,"N_outputarray");
   else
-    LALInferenceAddVariable(state->algorithmParams,"N_outputarray",&N_output_array,LALINFERENCE_INT4_t,LALINFERENCE_PARAM_OUTPUT);
+    LALInferenceAddVariable(algorithmParams,"N_outputarray",&N_output_array,LALINFERENCE_INT4_t,LALINFERENCE_PARAM_OUTPUT);
 
   /* Expand the array for new sample */
   output_array=XLALRealloc(output_array, (N_output_array+1) *sizeof(LALInferenceVariables *));
@@ -2217,8 +2250,8 @@ void LALInferenceLogSampleToArray(LALInferenceRunState *state, LALInferenceVaria
     LALInferenceCopyVariables(vars,output_array[N_output_array]);
     N_output_array++;
 
-    LALInferenceSetVariable(state->algorithmParams,"outputarray",&output_array);
-    LALInferenceSetVariable(state->algorithmParams,"N_outputarray",&N_output_array);
+    LALInferenceSetVariable(algorithmParams,"outputarray",&output_array);
+    LALInferenceSetVariable(algorithmParams,"N_outputarray",&N_output_array);
   }
   return;
 }
@@ -3945,6 +3978,104 @@ int LALInferenceSplineCalibrationFactor(REAL8Vector *logfreqs,
     }
 
     calFactor->data->data[i] = (1.0 + dA)*(2.0 + I*dPhi)/(2.0 - I*dPhi);
+  }
+
+ cleanup:
+  if (ampInterp != NULL) gsl_interp_free(ampInterp);
+  if (phaseInterp != NULL) gsl_interp_free(phaseInterp);
+  if (ampAcc != NULL) gsl_interp_accel_free(ampAcc);
+  if (phaseAcc != NULL) gsl_interp_accel_free(phaseAcc);
+
+  if (status == XLAL_SUCCESS) {
+    return status;
+  } else {
+    XLAL_ERROR(status, "%s", fmt);
+  }
+}
+
+int LALInferenceSplineCalibrationFactorROQ(REAL8Vector *logfreqs,
+					REAL8Vector *deltaAmps,
+					REAL8Vector *deltaPhases,
+					REAL8Sequence *freqNodesLin,
+					COMPLEX16Sequence **calFactorROQLin,
+					REAL8Sequence *freqNodesQuad,
+					COMPLEX16Sequence **calFactorROQQuad) {
+
+  gsl_interp_accel *ampAcc = NULL, *phaseAcc = NULL;
+  gsl_interp *ampInterp = NULL, *phaseInterp = NULL;
+ 
+  int status = XLAL_SUCCESS;
+  const char *fmt = "";
+
+  size_t N = 0;
+  
+  /* should I check that calFactorROQ = NULL as well? */
+
+  if (logfreqs == NULL || deltaAmps == NULL || deltaPhases == NULL || freqNodesLin == NULL || freqNodesQuad == NULL) {
+    status = XLAL_EINVAL;
+    fmt = "bad input";
+    goto cleanup;
+  }
+
+  if (logfreqs->length != deltaAmps->length || deltaAmps->length != deltaPhases->length || freqNodesLin->length != (*calFactorROQLin)->length || freqNodesQuad->length != (*calFactorROQQuad)->length) {
+    status = XLAL_EINVAL;
+    fmt = "input lengths differ";
+    goto cleanup;
+  }
+  
+  
+  N = logfreqs->length;
+
+  ampInterp = gsl_interp_alloc(gsl_interp_cspline, N);
+  phaseInterp = gsl_interp_alloc(gsl_interp_cspline, N);
+
+  if (ampInterp == NULL || phaseInterp == NULL) {
+    status = XLAL_ENOMEM;
+    fmt = "could not allocate GSL interpolation objects";
+    goto cleanup;
+  }
+
+  ampAcc = gsl_interp_accel_alloc();
+  phaseAcc = gsl_interp_accel_alloc();
+
+  if (ampAcc == NULL || phaseAcc == NULL) {
+    status = XLAL_ENOMEM;
+    fmt = "could not allocate interpolation acceleration objects";
+    goto cleanup;
+  }
+
+  gsl_interp_init(ampInterp, logfreqs->data, deltaAmps->data, N);
+  gsl_interp_init(phaseInterp, logfreqs->data, deltaPhases->data, N);
+
+  REAL8 lowf = exp(logfreqs->data[0]);
+  REAL8 highf = exp(logfreqs->data[N-1]);
+  REAL8 dA = 0.0, dPhi = 0.0;
+  
+  for (unsigned int i = 0; i < freqNodesLin->length; i++) {
+    REAL8 f = freqNodesLin->data[i];
+    if (f < lowf || f > highf) {
+      dA = 0.0;
+      dPhi = 0.0;
+    } else {
+      dA = gsl_interp_eval(ampInterp, logfreqs->data, deltaAmps->data, log(f), ampAcc);
+      dPhi = gsl_interp_eval(phaseInterp, logfreqs->data, deltaPhases->data, log(f), phaseAcc);
+    }
+    
+    (*calFactorROQLin)->data[i] = (1.0 + dA)*(2.0 + I*dPhi)/(2.0 - I*dPhi);
+  }
+  
+  for (unsigned int j = 0; j < freqNodesQuad->length; j++) {
+    REAL8 f = freqNodesQuad->data[j];
+    if (f < lowf || f > highf) {
+      dA = 0.0;
+      dPhi = 0.0;
+    } else {
+      dA = gsl_interp_eval(ampInterp, logfreqs->data, deltaAmps->data, log(f), ampAcc);
+      dPhi = gsl_interp_eval(phaseInterp, logfreqs->data, deltaPhases->data, log(f), phaseAcc);
+    }
+
+    (*calFactorROQQuad)->data[j] = (1.0 + dA)*(2.0 + I*dPhi)/(2.0 - I*dPhi);
+
   }
 
  cleanup:

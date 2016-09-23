@@ -21,7 +21,7 @@
  * \author Matt Pitkin
  * \date 2013
  * \file
- * \ingroup lalpulsar_UNCLASSIFIED
+ * \ingroup lalpulsar_general
  * \brief Functions to read TEMPO pulsar parameter files
  *
  * Here we define a function to read in pulsar parameters from a standard <tt>TEMPO(2)</tt> parameter
@@ -42,6 +42,7 @@
 #include <lal/StringVector.h>
 #include <lal/LALBarycenter.h>
 #include <lal/Date.h>
+#include <lal/LALHashTbl.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -63,15 +64,15 @@ extern "C" {
 /* the difference between TDT/TT and the GPS epoch */
 #define GPS_TDT (TDT_TAI + XLAL_EPOCH_GPS_TAI_UTC)
 
+
 /** An enumerated type for denoting the type of a variable. Several LAL types are supported. */
-typedef enum {
+typedef enum tagPulsarParamType {
   PULSARTYPE_UINT4_t = 0,
   PULSARTYPE_REAL8_t,
   PULSARTYPE_REAL8Vector_t,
   PULSARTYPE_string_t,
   PULSARTYPE_void_ptr_t
 } PulsarParamType;
-
 
 extern size_t PulsarTypeSize[5];
 
@@ -101,7 +102,8 @@ typedef struct tagPulsarParam {
 typedef struct tagPulsarParameters {
   PulsarParam       *head;                              /**< A linked list of \c PulsarParam structures */
   INT4              nparams;                            /**< The total number of parameters in the structure */
-  PulsarParam       *hash_table[PULSAR_HASHTABLE_SIZE]; /**< Hash table of parameters */
+  /* PulsarParam       *hash_table[PULSAR_HASHTABLE_SIZE]; */ /**< Hash table of parameters */
+  LALHashTbl        *hash_table;
 } PulsarParameters;
 
 
@@ -131,6 +133,7 @@ tagBinaryPulsarParams
   REAL8 f7;     /**< frequency seventh derivative (Hz/s^7) */
   REAL8 f8;     /**< frequency eighth derivative (Hz/s^8) */
   REAL8 f9;     /**< frequency ninth derivative (Hz/s^9) */
+  REAL8 f10;    /**< frequency tenth derivative (Hz/s^10) */
 
   REAL8 ra;     /**< right ascension (rads) */
   REAL8 dec;    /**< declination (rads) */
@@ -219,6 +222,7 @@ tagBinaryPulsarParams
 
   /* gravitational wave parameters */
   REAL8 h0;     /**< gravitational wave amplitude */
+  REAL8 Q22;    /**< gravitational wave l=m=2 mass quadrupole moment */
   REAL8 cosiota;/**< cosine of the pulsars inclination angle */
   REAL8 iota;   /**< inclination angle */
   REAL8 psi;    /**< polarisation angle */
@@ -272,6 +276,7 @@ tagBinaryPulsarParams
   REAL8 f7Err;
   REAL8 f8Err;
   REAL8 f9Err;
+  REAL8 f10Err;
 
   REAL8 pepochErr;
   REAL8 posepochErr;
@@ -322,6 +327,7 @@ tagBinaryPulsarParams
 
   /* gravitational wave parameters */
   REAL8 h0Err;
+  REAL8 Q22Err;
   REAL8 cosiotaErr;
   REAL8 iotaErr;
   REAL8 psiErr;
@@ -495,6 +501,8 @@ void ParConvMasToRads( const CHAR *in, void *out );
 void ParConvInvArcsecsToInvRads( const CHAR *in, void *out );
 /** Convert the input string from days to seconds */
 void ParConvDaysToSecs( const CHAR *in, void *out );
+/** Convert the input string from kiloparsecs to metres */
+void ParConvKpcToMetres( const CHAR *in, void *out );
 
 /** Convert the binary system parameter from a string to a double, but  make the check (as performed by TEMPO2)
  * that this is > 1e-7 then it's in units of 1e-12, so needs converting by that factor. It also checks if the
@@ -504,7 +512,7 @@ void ParConvBinaryUnits( const CHAR *in, void *out );
 /** Convert the input string from a TT MJD value into a GPS time */
 void ParConvMJDToGPS( const CHAR *in, void *out );
 /** Convert the input string from degrees per year to radians per second */
-void ParConvDegPerYrToRadParSec( const CHAR *in, void *out );
+void ParConvDegPerYrToRadPerSec( const CHAR *in, void *out );
 /** Convert the input string from solar masses to kilograms */
 void ParConvSolarMassToKg( const CHAR *in, void *out );
 /** Convert a right ascension input string in the format "hh:mm:ss.s" into radians */

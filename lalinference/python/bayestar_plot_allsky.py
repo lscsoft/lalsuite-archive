@@ -30,50 +30,36 @@ __author__ = "Leo Singer <leo.singer@ligo.org>"
 
 # Command line interface
 
-from optparse import Option, OptionParser
+import argparse
 from lalinference.bayestar import command
-import lalinference.cmap
-from matplotlib import cm
-colormap_choices = sorted(cm.cmap_d.keys())
-parser = OptionParser(
-    description = __doc__,
-    usage = "%prog [options] [INPUT]",
-    option_list = [
-        Option("-o", "--output", metavar="FILE.{pdf,png}",
-            help="name of output file [default: plot to screen]"),
-        Option("--colormap", default="cylon", choices=colormap_choices,
-            metavar='|'.join(colormap_choices),
-            help="name of matplotlib colormap [default: %default]"),
-        Option("--figure-width", metavar="INCHES", type=float, default=8.,
-            help="width of figure in inches [default: %default]"),
-        Option("--figure-height", metavar="INCHES", type=float, default=6.,
-            help="height of figure in inches [default: %default]"),
-        Option("--dpi", metavar="PIXELS", type=int, default=300,
-            help="resolution of figure in dots per inch [default: %default]"),
-        Option("--contour", metavar="PERCENT", type=float, action="append",
-            default=[], help="plot contour enclosing this percentage of"
-            + " probability mass [may be specified multiple times, default: none]"),
-        Option("--colorbar", default=False, action="store_true",
-            help="Show colorbar [default: %default]"),
-        Option("--radec", nargs=2, metavar="RA Dec", type=float, action="append",
-            default=[], help="right ascension (deg) and declination (deg) to mark"
-            + " [may be specified multiple times, default: none]"),
-        Option("--geo", action="store_true", default=False,
-            help="Plot in geographic coordinates, (lat, lon) instead of (RA, Dec) [default: %default]"),
-        Option("--transparent", action="store_true", default=False,
-            help="Save image with transparent background [default: %default]")
-    ]
-)
-opts, args = parser.parse_args()
-infilename = command.get_input_filename(parser, args)
+parser = command.ArgumentParser(parents=[command.figure_parser])
+parser.add_argument(
+    '--contour', metavar='PERCENT', type=float, nargs='+',
+    help='plot contour enclosing this percentage of'
+    ' probability mass [may be specified multiple times, default: none]')
+parser.add_argument(
+    '--colorbar', default=False, action='store_true',
+    help='Show colorbar [default: %(default)s]')
+parser.add_argument(
+    '--radec', nargs=2, metavar='deg', type=float, action='append',
+    default=[], help='right ascension (deg) and declination (deg) to mark'
+    ' [may be specified multiple times, default: none]')
+parser.add_argument(
+    '--inj-database', metavar='FILE.sqlite', type=command.SQLiteType('r'),
+    help='read injection positions from database [default: none]')
+parser.add_argument(
+    '--geo', action='store_true', default=False,
+    help='Plot in geographic coordinates, (lat, lon) instead of (RA, Dec)'
+    ' [default: %(default)s]')
+parser.add_argument(
+    '--transparent', action='store_true', default=False,
+    help='Save image with transparent background [default: %(default)s]')
+parser.add_argument(
+    'input', metavar='INPUT.fits[.gz]', type=argparse.FileType('rb'),
+    default='-', nargs='?', help='Input FITS file [default: stdin]')
+opts = parser.parse_args()
 
 # Late imports
-
-# Choose a matplotlib backend that is suitable for headless
-# rendering if output to file is requested
-import matplotlib
-if opts.output is not None:
-    matplotlib.use('agg')
 
 import os
 import json
@@ -82,16 +68,15 @@ import matplotlib.pyplot as plt
 from matplotlib import rcParams
 import healpy as hp
 import lal
-from lalinference import fits
+from lalinference.io import fits
 from lalinference import plot
+from lalinference.bayestar import postprocess
 
-fig = plt.figure(figsize=(opts.figure_width, opts.figure_height), frameon=False)
-ax = plt.subplot(111,
-    projection='mollweide' if opts.geo else 'astro mollweide')
-ax.cla()
+fig = plt.figure(frameon=False)
+ax = plt.axes(projection='mollweide' if opts.geo else 'astro hours mollweide')
 ax.grid()
 
-skymap, metadata = fits.read_sky_map(infilename, nest=None)
+skymap, metadata = fits.read_sky_map(opts.input.name, nest=None)
 nside = hp.npix2nside(len(skymap))
 
 if opts.geo:
@@ -105,27 +90,23 @@ probperdeg2 = skymap / hp.nside2pixarea(nside, degrees=True)
 # Plot sky map.
 vmax = probperdeg2.max()
 plot.healpix_heatmap(
-    probperdeg2, dlon=dlon, nest=metadata['nest'],
-    vmin=0., vmax=vmax, cmap=plt.get_cmap(opts.colormap))
+    probperdeg2, dlon=dlon, nest=metadata['nest'], vmin=0., vmax=vmax)
 
+# Add colorbar.
 if opts.colorbar:
-    # Plot colorbar.
     cb = plot.colorbar()
-
-    # Set colorbar label.
     cb.set_label(r'prob. per deg$^2$')
 
 # Add contours.
 if opts.contour:
-    indices = np.argsort(-skymap)
-    region = np.empty(skymap.shape)
-    region[indices] = 100 * np.cumsum(skymap[indices])
+    cls = 100 * postprocess.find_greedy_credible_levels(skymap)
     cs = plot.healpix_contour(
-        region, dlon=dlon, nest=metadata['nest'],
+        cls, dlon=dlon, nest=metadata['nest'],
         colors='k', linewidths=0.5, levels=opts.contour)
     fmt = r'%g\%%' if rcParams['text.usetex'] else '%g%%'
     plt.clabel(cs, fmt=fmt, fontsize=6, inline=True)
 
+# Add continents.
 if opts.geo:
     geojson_filename = os.path.join(os.path.dirname(plot.__file__),
         'ne_simplified_coastline.json')
@@ -135,8 +116,20 @@ if opts.geo:
         verts = np.deg2rad(shape['coordinates'])
         plt.plot(verts[:, 0], verts[:, 1], color='0.5', linewidth=0.5)
 
+radecs = np.deg2rad(opts.radec)
+if opts.inj_database:
+    query = '''SELECT longitude, latitude FROM sim_inspiral AS si
+               INNER JOIN coinc_event_map AS cm1
+               ON (si.simulation_id = cm1.event_id)
+               INNER JOIN coinc_event_map AS cm2
+               ON (cm1.coinc_event_id = cm2.coinc_event_id)
+               WHERE cm2.event_id = ?'''
+    (ra, dec), = opts.inj_database.execute(
+        query, (metadata['objid'],)).fetchall()
+    radecs.append([ra, dec])
+
 # Add markers (e.g., for injections or external triggers).
-for ra, dec in np.deg2rad(opts.radec):
+for ra, dec in radecs:
     # Convert the right ascension to either a reference angle from -pi to pi
     # or a wrapped angle from 0 to 2 pi.
     if opts.geo:
@@ -149,12 +142,11 @@ for ra, dec in np.deg2rad(opts.radec):
 # add a white outline to all text to make it stand out from the background.
 plot.outline_text(ax)
 
+# Make transparent.
 if opts.transparent:
     fig.patch.set_alpha(0.)
     ax.patch.set_alpha(0.)
     ax.set_alpha(0.)
 
-if opts.output is None:
-    plt.show()
-else:
-    plt.savefig(opts.output, dpi=opts.dpi)
+# Show or save output.
+opts.output()

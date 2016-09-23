@@ -25,7 +25,11 @@
 #include <math.h>
 #include <gsl/gsl_integration.h>
 #include <gsl/gsl_cdf.h>
+#include <gsl/gsl_errno.h>
+#include <gsl/gsl_roots.h>
 #include <lal/LALSimBurst.h>
+
+#include "logaddexp.h"
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -38,18 +42,26 @@ static double qInnerIntegrand(double M2, void *viData);
 static double etaInnerIntegrand(double M2, void *viData);
 static double outerIntegrand(double M1, void *voData);
 
+static REAL8 REAL8max(REAL8 a, REAL8 b);
+static REAL8 REAL8max(REAL8 a, REAL8 b)
+{
+  return (a>b?a:b);
+}
+
 void LALInferenceInitCBCPrior(LALInferenceRunState *runState)
 {
     char help[]="\
     ----------------------------------------------\n\
     --- Prior Arguments --------------------------\n\
     ----------------------------------------------\n\
+    (--distance-prior-uniform)       Impose uniform prior on distance and not volume (False)\n\
     (--malmquistprior)               Impose selection effects on the prior (False)\n\
     (--malmquist-loudest-snr)        Threshold SNR in the loudest detector (0.0)\n\
     (--malmquist-second-loudest-snr) Threshold SNR in the second loudest detector (5.0)\n\
     (--malmquist-network-snr)        Threshold network SNR (0.0)\n\
     (--analyticnullprior)            Use analytic null prior\n\
     (--nullprior)                    Use null prior in the sampled parameters\n\
+    (--alignedspin-zprior)           Use prior on z component of spin that corresponds to fully precessing model\n\
     \n";
     ProcessParamsTable *ppt = NULL;
 
@@ -75,6 +87,16 @@ void LALInferenceInitCBCPrior(LALInferenceRunState *runState)
         runState->CubeToPrior = &LALInferenceInspiralCubeToPrior;
 
     }
+
+    /* Optional uniform prior on distance */
+    INT4 uniform_distance = 0;
+    if (LALInferenceGetProcParamVal(commandLine, "--distance-prior-uniform"))
+      uniform_distance = 1;
+    LALInferenceAddVariable(runState->priorArgs,
+                                "uniform_distance", &uniform_distance,
+                                LALINFERENCE_INT4_t,
+                                LALINFERENCE_PARAM_OUTPUT);
+
 
     /* Set up malmquist prior */
     INT4 malmquist = 0;
@@ -119,10 +141,15 @@ void LALInferenceInitCBCPrior(LALInferenceRunState *runState)
                                 LALINFERENCE_REAL8_t,
                                 LALINFERENCE_PARAM_OUTPUT);
     }
+    if(LALInferenceGetProcParamVal(commandLine,"--alignedspin-zprior"))
+    {
+      INT4 one=1;
+      LALInferenceAddVariable(runState->priorArgs,"projected_aligned_spin",&one,LALINFERENCE_INT4_t,LALINFERENCE_PARAM_FIXED);
+    }
 }
 
 void LALInferenceInitLIBPrior(LALInferenceRunState *runState)
-{   
+{
     /*Call CBC prior first, in case CBC approx is used, then check for burst approx and eventually overwrite runState->prior */
     LALInferenceInitCBCPrior(runState);
     /*LIB specific call in case of burst approximant */
@@ -142,7 +169,7 @@ void LALInferenceInitLIBPrior(LALInferenceRunState *runState)
            runState->prior = &LALInferenceSineGaussianPrior;
          }
       }
-    }  
+    }
 }
 
 static REAL8 LALInferenceConstantCalibrationPrior(LALInferenceRunState *runState, LALInferenceVariables *params) {
@@ -152,7 +179,9 @@ static REAL8 LALInferenceConstantCalibrationPrior(LALInferenceRunState *runState
   REAL8 phaseWidth = -1.0;
   REAL8 logPrior = 0.0;
 
-  if (runState->commandLine == NULL || !(LALInferenceGetProcParamVal(runState->commandLine, "--MarginalizeConstantCalAmp"))|| !(LALInferenceGetProcParamVal(runState->commandLine, "--MarginalizeConstantCalPha"))) {
+  if (runState->commandLine == NULL || (!LALInferenceGetProcParamVal(runState->commandLine, "--MarginalizeConstantCalAmp") &&
+      !LALInferenceGetProcParamVal(runState->commandLine, "--MarginalizeConstantCalPha")))
+  {
     return logPrior;
   }
 
@@ -166,7 +195,7 @@ static REAL8 LALInferenceConstantCalibrationPrior(LALInferenceRunState *runState
 	      REAL8 amp = 0.0;
 	      snprintf(ampVarName, VARNAME_MAX, "calamp_%s", ifo->name);
 	      amp = *(REAL8*)LALInferenceGetVariable(params, ampVarName);
-	      logPrior += -log(2.0*M_PI) - log(ampWidth) - 0.5*amp*amp/ampWidth/ampWidth;
+	      logPrior += -0.5*log(2.0*M_PI) - log(ampWidth) - 0.5*amp*amp/ampWidth/ampWidth;
       }
     }
     if((LALInferenceGetProcParamVal(runState->commandLine, "--MarginalizeConstantCalPha"))){
@@ -174,57 +203,65 @@ static REAL8 LALInferenceConstantCalibrationPrior(LALInferenceRunState *runState
       if (phaseWidth>0){
 	      char phaseVarName[VARNAME_MAX];
 	      REAL8 phase = 0.0;
-	      snprintf(phaseVarName, VARNAME_MAX, "calpha_%s", ifo->name);   
+	      snprintf(phaseVarName, VARNAME_MAX, "calpha_%s", ifo->name);
 	      phase = *(REAL8 *)LALInferenceGetVariable(params, phaseVarName);
-	      logPrior += -log(2.0*M_PI) - log(phaseWidth) - 0.5*phase*phase/phaseWidth/phaseWidth;
+	      logPrior += -0.5*log(2.0*M_PI) - log(phaseWidth) - 0.5*phase*phase/phaseWidth/phaseWidth;
       }
     }
-   
+
     ifo = ifo->next;
   } while (ifo);
 
   return logPrior;
 }
 
-static REAL8 LALInferenceSplineCalibrationPrior(LALInferenceRunState *runState, LALInferenceVariables *params) {
+UINT4 LALInferenceCubeToConstantCalibrationPrior(LALInferenceRunState *runState, LALInferenceVariables *params, INT4 *idx, double *Cube, void UNUSED *context)
+{
   LALInferenceIFOData *ifo = NULL;
   REAL8 ampWidth = -1.0;
   REAL8 phaseWidth = -1.0;
-  REAL8 logPrior = 0.0;
 
-  if (runState->commandLine == NULL || !(LALInferenceGetProcParamVal(runState->commandLine, "--enable-spline-calibration"))) {
-    return logPrior;
+  if (runState->commandLine == NULL || (!LALInferenceGetProcParamVal(runState->commandLine, "--MarginalizeConstantCalAmp") &&
+      !LALInferenceGetProcParamVal(runState->commandLine, "--MarginalizeConstantCalPha")))
+  {
+    return 1;
   }
-
-  ampWidth = *(REAL8 *)LALInferenceGetVariable(runState->priorArgs, "spcal_amp_uncertainty");
-  phaseWidth = *(REAL8 *)LALInferenceGetVariable(runState->priorArgs, "spcal_phase_uncertainty");
-
   ifo = runState->data;
   do {
-    size_t i;
 
-    char ampVarName[VARNAME_MAX];
-    char phaseVarName[VARNAME_MAX];
-
-    REAL8Vector *amps = NULL;
-    REAL8Vector *phase = NULL;
-
-    snprintf(ampVarName, VARNAME_MAX, "%s_spcal_amp", ifo->name);
-    snprintf(phaseVarName, VARNAME_MAX, "%s_spcal_phase", ifo->name);
-
-    amps = *(REAL8Vector **)LALInferenceGetVariable(params, ampVarName);
-    phase = *(REAL8Vector **)LALInferenceGetVariable(params, phaseVarName);
-
-    for (i = 0; i < amps->length; i++) {
-      logPrior += -log(2.0*M_PI) - log(ampWidth) - 0.5*amps->data[i]*amps->data[i]/ampWidth/ampWidth;
-      logPrior += -log(2.0*M_PI) - log(phaseWidth) - 0.5*phase->data[i]*phase->data[i]/phaseWidth/phaseWidth;
+    if((LALInferenceGetProcParamVal(runState->commandLine, "--MarginalizeConstantCalAmp")))
+    {
+      ampWidth = *(REAL8 *)LALInferenceGetVariable(runState->priorArgs, "constcal_amp_uncertainty");
+      if (ampWidth>0)
+      {
+        char ampVarName[VARNAME_MAX];
+        REAL8 amp = 0.0;
+        snprintf(ampVarName, VARNAME_MAX, "calamp_%s", ifo->name);
+        amp = LALInferenceCubeToGaussianPrior(Cube[(*idx)++], 0.0, ampWidth);
+        LALInferenceSetVariable(params, ampVarName, &amp);
+      }
+    }
+    if((LALInferenceGetProcParamVal(runState->commandLine, "--MarginalizeConstantCalPha")))
+    {
+      phaseWidth = *(REAL8 *)LALInferenceGetVariable(runState->priorArgs, "constcal_phase_uncertainty");
+      if (phaseWidth>0)
+      {
+        char phaseVarName[VARNAME_MAX];
+        REAL8 phase = 0.0;
+        snprintf(phaseVarName, VARNAME_MAX, "calpha_%s", ifo->name);
+        phase = LALInferenceCubeToGaussianPrior(Cube[(*idx)++], 0.0, phaseWidth);
+        LALInferenceSetVariable(params, phaseVarName, &phase);
+      }
     }
 
     ifo = ifo->next;
   } while (ifo);
 
-  return logPrior;
+  return 1;
+
 }
+
+
 
 /* Return the log Prior for the glitch amplitude */
 REAL8 logGlitchAmplitudeDensity(REAL8 A, REAL8 Q, REAL8 f)
@@ -371,7 +408,7 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
 
   REAL8 logPrior=0.0;
 
-  LALInferenceVariableItem *item=params->head;
+  LALInferenceVariableItem *item=NULL;
   LALInferenceVariables *priorParams=runState->priorArgs;
   REAL8 min=-INFINITY, max=INFINITY;
   REAL8 mc=0.0;
@@ -385,7 +422,7 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
   if(signalFlag){
 
   /* Check boundaries for signal model parameters */
-  for(;item;item=item->next)
+  for(item=params->head;item;item=item->next)
   {
     if(item->vary==LALINFERENCE_PARAM_FIXED || item->vary==LALINFERENCE_PARAM_OUTPUT)
       continue;
@@ -396,14 +433,29 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
         if(*(REAL8 *) item->value < min || *(REAL8 *)item->value > max) return -DBL_MAX;
       }
     }
+    else if (LALInferenceCheckGaussianPrior(priorParams, item->name))
+    {
+      if(item->type==LALINFERENCE_REAL8_t){
+	REAL8 mean,stdev,val;
+	val = *(REAL8 *)item->value;
+	LALInferenceGetGaussianPrior(priorParams, item->name, &mean, &stdev);
+	logPrior+= -0.5*(mean-val)*(mean-val)/stdev/stdev - 0.5*log(LAL_TWOPI) - log(stdev);
+      }
+    }
   }
-  if(LALInferenceCheckVariable(params,"flow"))
+  if(LALInferenceCheckVariable(params, "flow") &&
+          LALInferenceCheckVariableNonFixed(params, "flow")) {
     logPrior+=log(*(REAL8 *)LALInferenceGetVariable(params,"flow"));
+  }
 
   if(LALInferenceCheckVariable(params,"logdistance"))
-    logPrior+=3.0* *(REAL8 *)LALInferenceGetVariable(params,"logdistance");
+    if (!(LALInferenceCheckVariable(priorParams,"uniform_distance") && LALInferenceGetINT4Variable(priorParams,"uniform_distance")))
+      logPrior+=3.0* *(REAL8 *)LALInferenceGetVariable(params,"logdistance");
+    else
+      logPrior+=1.0* *(REAL8 *)LALInferenceGetVariable(params,"logdistance");
   else if(LALInferenceCheckVariable(params,"distance"))
-    logPrior+=2.0*log(*(REAL8 *)LALInferenceGetVariable(params,"distance"));
+    if (!(LALInferenceCheckVariable(priorParams,"uniform_distance")&&LALInferenceGetINT4Variable(priorParams,"uniform_distance")))
+      logPrior+=2.0*log(*(REAL8 *)LALInferenceGetVariable(params,"distance"));
   if(LALInferenceCheckVariable(params,"declination"))
   {
     /* Check that this is not an output variable */
@@ -475,7 +527,7 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
   if(LALInferenceCheckVariable(priorParams,"MTotMin"))
     if(*(REAL8 *)LALInferenceGetVariable(priorParams,"MTotMin") > m1+m2)
       return -DBL_MAX;
-  
+
   if(model != NULL &&
         LALInferenceCheckVariable(priorParams,"malmquist") &&
         *(UINT4 *)LALInferenceGetVariable(priorParams,"malmquist") &&
@@ -484,8 +536,32 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
 
   }/* end prior for signal model parameters */
 
+  /* Optional prior on aligned spin component that corresponds to the effective prior on
+   that component when using a precessing spin model. p(z) = (1/2)(1/R)log(|z|/R)
+   Where R is the maximum magnitude of the spin vector max(|a_spin1_max|,|a_spin1_min|).
+   */
+  if (LALInferenceCheckVariable(priorParams,"projected_aligned_spin") && LALInferenceCheckVariable(priorParams,"projected_aligned_spin"))
+  {
+    REAL8 z=0.0;
+    /* Double-check for tilts to prevent accidental double-prior */
+    if(LALInferenceCheckVariable(params,"a_spin1") && ~LALInferenceCheckVariable(params,"tilt_spin1"))
+    {
+      REAL8 R = REAL8max(fabs(LALInferenceGetREAL8Variable(priorParams,"a_spin1_max")),fabs(LALInferenceGetREAL8Variable(priorParams,"a_spin1_min")));
+      z=LALInferenceGetREAL8Variable(params,"a_spin1");
+      logPrior += -log(2.0) - log(R) + log(-log(fabs(z) / R));
+    }
+    if(LALInferenceCheckVariable(params,"a_spin2")&& ~LALInferenceCheckVariable(params,"tilt_spin2"))
+    {
+      REAL8 R = REAL8max(fabs(LALInferenceGetREAL8Variable(priorParams,"a_spin2_max")),fabs(LALInferenceGetREAL8Variable(priorParams,"a_spin2_min")));
+      z=LALInferenceGetREAL8Variable(params,"a_spin2");
+      logPrior += -log(2.0) - log(R) + log(-log(fabs(z) / R));
+    }
+
+  }
+
   /* Calibration priors. */
-  logPrior += LALInferenceSplineCalibrationPrior(runState, params);
+  /* Disabled as this is now handled automatically */
+  //logPrior += LALInferenceSplineCalibrationPrior(runState, params);
   logPrior += LALInferenceConstantCalibrationPrior(runState, params);
   /* Evaluate PSD prior (returns 0 if no PSD model) */
   logPrior += LALInferencePSDPrior(runState, params);
@@ -671,7 +747,7 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
         REAL8 m2_min = *(REAL8 *)LALInferenceGetVariable(priorParams,"mass2_min");
         REAL8 m1_max = *(REAL8 *)LALInferenceGetVariable(priorParams,"mass1_max");
         REAL8 m2_max = *(REAL8 *)LALInferenceGetVariable(priorParams,"mass2_max");
-      
+
         if( m1_min == m1_max && m2_min==m2_max)
         {
           m1 = m1_min;
@@ -732,7 +808,8 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
             dist = LALInferenceCubeToPowerPrior(2.0, Cube[i], min, max);
             double logdist = log(dist);
             LALInferenceSetVariable(params, "logdistance", &logdist);
-            logPrior += 2.0*logdist;
+            if (!(LALInferenceCheckVariable(priorParams,"uniform_distance") && LALInferenceGetINT4Variable(priorParams,"uniform_distance")))
+              logPrior += 2.0*logdist;
             i++;
         }
     }
@@ -744,7 +821,8 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
             LALInferenceGetMinMaxPrior(runState->priorArgs, "distance", (void *)&min, (void *)&max);
             dist = LALInferenceCubeToPowerPrior(2.0, Cube[i], min, max);
             LALInferenceSetVariable(params, "distance", &dist);
-            logPrior += 2.0*log(dist);
+            if (!(LALInferenceCheckVariable(priorParams,"uniform_distance") && LALInferenceGetINT4Variable(priorParams,"uniform_distance")))
+              logPrior += 2.0*log(dist);
             i++;
         }
     }
@@ -839,16 +917,18 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
         }
     }
 
-    INT4 ScaleTest = LALInferenceCubeToPSDScaleParams(priorParams, params, &i, Cube, context);
+    UINT4 ScaleTest = LALInferenceCubeToPSDScaleParams(priorParams, params, &i, Cube, context);
+    UINT4 ConstCalib = LALInferenceCubeToConstantCalibrationPrior(runState, params, &i, Cube, context);
+    //UINT4 SplineCalib = LALInferenceCubeToSplineCalibrationPrior(runState, params, &i, Cube, context);
 
     /* Check boundaries */
-    if (ScaleTest==0) return 0;
+    if (ScaleTest==0 || ConstCalib==0 /*|| SplineCalib==0*/) return 0;
     item=params->head;
     for(;item;item=item->next)
     {
         if(item->vary==LALINFERENCE_PARAM_FIXED || item->vary==LALINFERENCE_PARAM_OUTPUT)
                         continue;
-        else if (item->type != LALINFERENCE_gslMatrix_t)
+        else if (item->type != LALINFERENCE_gslMatrix_t && item->type != LALINFERENCE_REAL8Vector_t)
         {
             LALInferenceGetMinMaxPrior(priorParams, item->name, (void *)&min, (void *)&max);
             if(*(REAL8 *) item->value < min || *(REAL8 *)item->value > max) return 0 ;
@@ -906,6 +986,7 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
 
 void LALInferenceCyclicReflectiveBound(LALInferenceVariables *parameter,
                                        LALInferenceVariables *priorArgs){
+  REAL8 val;
   if (parameter == NULL || priorArgs == NULL)
     XLAL_ERROR_VOID(XLAL_EFAULT, "Null arguments received.");
 
@@ -925,10 +1006,12 @@ void LALInferenceCyclicReflectiveBound(LALInferenceVariables *parameter,
     XLAL_ERROR_VOID(XLAL_EINVAL, "Minimum %f for variable '%s' is not less than maximum %f.", min, paraHead->name, max);
   }
 
+    val = *(REAL8 *)paraHead->value;
+    if (val == INFINITY)
+        return;
+
     if(paraHead->vary==LALINFERENCE_PARAM_CIRCULAR) {
       /* For cyclic boundaries, mod out by range. */
-
-      REAL8 val = *(REAL8 *)paraHead->value;
 
       if (val > max) {
         REAL8 offset = val - min;
@@ -947,7 +1030,7 @@ void LALInferenceCyclicReflectiveBound(LALInferenceVariables *parameter,
          SKIP NOISE PARAMETERS (ONLY CHECK REAL8) */
       while(1) {
         /* Loop until broken. */
-        REAL8 val = *(REAL8 *)paraHead->value;
+        val = *(REAL8 *)paraHead->value;
         if (val > max) {
           /* val <-- max - (val - max) */
           *(REAL8 *)paraHead->value = 2.0*max - val;
@@ -1021,7 +1104,6 @@ void LALInferenceRotateInitialPhase( LALInferenceVariables *parameter){
   return;
 }
 
-
 /* Return the log Prior of the variables specified for the sky localisation project, ref: https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/SkyLocComparison#priors, for the non-spinning/spinning inspiral signal case */
 REAL8 LALInferenceInspiralSkyLocPrior(LALInferenceRunState *runState, LALInferenceVariables *params,  UNUSED LALInferenceModel *model)
 {
@@ -1029,7 +1111,7 @@ REAL8 LALInferenceInspiralSkyLocPrior(LALInferenceRunState *runState, LALInferen
   REAL8 val=0.0;
   static int SkyLocPriorWarning = 0;
   (void)runState;
-  LALInferenceVariableItem *item=params->head;
+  LALInferenceVariableItem *item=NULL;
   LALInferenceVariables *priorParams=runState->priorArgs;
   REAL8 min=-INFINITY, max=INFINITY;
   REAL8 logmc=0.0,mc=0.0;
@@ -1039,30 +1121,35 @@ REAL8 LALInferenceInspiralSkyLocPrior(LALInferenceRunState *runState, LALInferen
     SkyLocPriorWarning  = 1;
     fprintf(stderr, "SkyLocalization priors are being used. (in %s, line %d)\n", __FILE__, __LINE__);
   }
-  /* Check boundaries */
-  for(;item;item=item->next)
+  /* Check boundaries for signal model parameters */
+  for(item=params->head;item;item=item->next)
   {
     if(item->vary==LALINFERENCE_PARAM_FIXED || item->vary==LALINFERENCE_PARAM_OUTPUT)
       continue;
-    else
+    else if (LALInferenceCheckMinMaxPrior(priorParams, item->name))
     {
-            val = 0.0;
-            min =-DBL_MAX;
-            max = DBL_MAX;
-            if(strcmp(item->name,"psdscale"))
-            {
-                LALInferenceGetMinMaxPrior(priorParams, item->name, &min, &max);
-                val = *(REAL8 *)item->value;
-            }
-
-            if(val<min || val>max) return -DBL_MAX;
+      if(item->type==LALINFERENCE_REAL8_t){
+        LALInferenceGetMinMaxPrior(priorParams, item->name, &min, &max);
+        if(*(REAL8 *) item->value < min || *(REAL8 *)item->value > max) return -DBL_MAX;
+      }
+    }
+    else if (LALInferenceCheckGaussianPrior(priorParams, item->name))
+    {
+      if(item->type==LALINFERENCE_REAL8_t){
+	REAL8 mean,stdev;
+	val = *(REAL8 *)item->value;
+	LALInferenceGetGaussianPrior(priorParams, item->name, &mean, &stdev);
+	logPrior+= -0.5*(mean-val)*(mean-val)/stdev/stdev - 0.5*log(LAL_TWOPI) - log(stdev);
+      }
     }
   }
 
   /*Use a uniform in log D distribution*/
 
-  if(LALInferenceCheckVariable(params,"flow"))
+  if(LALInferenceCheckVariable(params, "flow") &&
+          LALInferenceCheckVariableNonFixed(params, "flow")) {
     logPrior+=log(*(REAL8 *)LALInferenceGetVariable(params,"flow"));
+  }
 
   if(LALInferenceCheckVariable(params,"distance"))
     logPrior-=log(*(REAL8 *)LALInferenceGetVariable(params,"distance"));
@@ -1173,7 +1260,7 @@ REAL8 LALInferenceInspiralSkyLocPrior(LALInferenceRunState *runState, LALInferen
   }
 
   /* Calibration parameters */
-  logPrior += LALInferenceSplineCalibrationPrior(runState, params);
+  //logPrior += LALInferenceSplineCalibrationPrior(runState, params);
   logPrior += LALInferenceConstantCalibrationPrior(runState, params);
   return(logPrior);
 }
@@ -1519,9 +1606,11 @@ UINT4 LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALI
     }
 
     INT4 ScaleTest = LALInferenceCubeToPSDScaleParams(priorParams, params, &i, Cube, context);
+    UINT4 ConstCalib = LALInferenceCubeToConstantCalibrationPrior(runState, params, &i, Cube, context);
+    //UINT4 SplineCalib = LALInferenceCubeToSplineCalibrationPrior(runState, params, &i, Cube, context);
 
     /* Check boundaries */
-    if (ScaleTest==0) return 0;
+    if (ScaleTest==0 || ConstCalib==0 /* || SplineCalib==0 */) return 0;
     item=params->head;
     for(;item;item=item->next)
     {
@@ -1763,6 +1852,7 @@ void LALInferenceGetMinMaxPrior(LALInferenceVariables *priorArgs, const char *na
     return;
 }
 
+
 /* Check for a Gaussian Prior of the standard form */
 int LALInferenceCheckGaussianPrior(LALInferenceVariables *priorArgs, const char *name)
 {
@@ -1827,33 +1917,86 @@ void LALInferenceGetGaussianPrior(LALInferenceVariables *priorArgs,
 /* Function to add a correlation matrix to the prior onto the priorArgs */
 void LALInferenceAddCorrelatedPrior(LALInferenceVariables *priorArgs,
                                     const char *name, gsl_matrix **cor,
-                                    UINT4 *idx){
+                                    REAL8 *mu, REAL8 *sigma, UINT4 *idx){
   char corName[VARNAME_MAX];
+  char invName[VARNAME_MAX];
+  char meanName[VARNAME_MAX];
+  char sigmaName[VARNAME_MAX];
   char idxName[VARNAME_MAX];
 
-  sprintf(corName,"%s_correlation_matrix",name);
+  sprintf(corName,"correlation_matrix");
+  sprintf(invName,"inverse_correlation_matrix");
+
+  /* add correlation matrix if not already added */
+  if ( !LALInferenceCheckVariable( priorArgs, corName ) ){
+    LALInferenceAddVariable(priorArgs, corName, cor, LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_FIXED);
+
+    /* get the matrix we've just added */
+    gsl_matrix *thiscor = NULL, *usecor = NULL;
+    thiscor = *(gsl_matrix **)LALInferenceGetVariable( priorArgs, corName );
+    usecor = gsl_matrix_alloc( thiscor->size1, thiscor->size2 );
+    XLAL_CALLGSL( gsl_matrix_memcpy( usecor, thiscor ) );
+
+    gsl_matrix *invcor = gsl_matrix_alloc( usecor->size1, usecor->size2 );
+    gsl_permutation *p = gsl_permutation_alloc( usecor->size1 );
+    INT4 s;
+
+    /* check correlation matrix is positive definite */
+    if( !LALInferenceCheckPositiveDefinite( usecor, usecor->size1 ) ){
+      XLAL_ERROR_VOID( XLAL_EFUNC | XLAL_EINVAL, "Error... matrix is not positive definite!"  );
+    }
+
+    /* invert correlation matrix */
+    XLAL_CALLGSL( gsl_linalg_LU_decomp( usecor, p, &s ) );
+    XLAL_CALLGSL( gsl_linalg_LU_invert( usecor, p, invcor ) );
+    XLAL_CALLGSL( gsl_permutation_free( p ) );
+    XLAL_CALLGSL( gsl_matrix_free( usecor) );
+
+    LALInferenceAddVariable(priorArgs, invName, &invcor, LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_FIXED);
+  }
+
+  sprintf(meanName, "%s_correlation_mean", name);
+  sprintf(sigmaName, "%s_correlation_sigma", name);
   sprintf(idxName,"%s_index",name);
 
-  LALInferenceAddVariable(priorArgs, corName, cor,
-                          LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_FIXED);
-  LALInferenceAddVariable(priorArgs, idxName, idx, LALINFERENCE_UINT4_t,
-                          LALINFERENCE_PARAM_FIXED) ;
+  LALInferenceAddVariable(priorArgs, meanName, mu, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddVariable(priorArgs, sigmaName, sigma, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddVariable(priorArgs, idxName, idx, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
+
   return;
 }
 
 /* Get the correlation matrix and parameter index */
 void LALInferenceGetCorrelatedPrior(LALInferenceVariables *priorArgs,
-                                    const char *name, gsl_matrix **cor,
-                                    UINT4 *idx){
+                                    const char *name, gsl_matrix **cor, gsl_matrix **invcor,
+                                    REAL8 *mu, REAL8 *sigma, UINT4 *idx){
   char corName[VARNAME_MAX];
+  char invName[VARNAME_MAX];
+  char meanName[VARNAME_MAX];
+  char sigmaName[VARNAME_MAX];
   char idxName[VARNAME_MAX];
   void *ptr = NULL;
 
-  sprintf(corName,"%s_correlation_matrix",name);
+  sprintf(corName, "correlation_matrix");
+  sprintf(invName,"inverse_correlation_matrix");
+  sprintf(meanName, "%s_correlation_mean", name);
+  sprintf(sigmaName, "%s_correlation_sigma", name);
   sprintf(idxName,"%s_index",name);
 
   ptr = LALInferenceGetVariable(priorArgs, corName);
   if ( ptr ) *cor = *(gsl_matrix **)ptr;
+  else XLAL_ERROR_VOID(XLAL_EFAILED);
+
+  ptr = LALInferenceGetVariable(priorArgs, invName);
+  if ( ptr ) *invcor = *(gsl_matrix **)ptr;
+  else XLAL_ERROR_VOID(XLAL_EFAILED);
+
+  ptr = LALInferenceGetVariable(priorArgs, meanName);
+  if ( ptr ) *mu = *(REAL8 *)ptr;
+  else XLAL_ERROR_VOID(XLAL_EFAILED);
+
+  ptr = LALInferenceGetVariable(priorArgs, sigmaName);
+  if ( ptr ) *sigma = *(REAL8 *)ptr;
   else XLAL_ERROR_VOID(XLAL_EFAILED);
 
   ptr = LALInferenceGetVariable(priorArgs, idxName);
@@ -1863,17 +2006,33 @@ void LALInferenceGetCorrelatedPrior(LALInferenceVariables *priorArgs,
   return;
 }
 
-/* Remove the correlated prior */
-void LALInferenceRemoveCorrelatedPrior(LALInferenceVariables *priorArgs,
-                                       const char *name){
+/* Remove the correlated prior (for all variables) */
+void LALInferenceRemoveCorrelatedPrior(LALInferenceVariables *priorArgs){
   char corName[VARNAME_MAX];
+  char invName[VARNAME_MAX];
+  char meanName[VARNAME_MAX];
+  char sigmaName[VARNAME_MAX];
   char idxName[VARNAME_MAX];
 
-  sprintf(corName,"%s_correlation_matrix",name);
-  sprintf(idxName,"%s_index",name);
+  sprintf(corName,"correlation_matrix");
+  sprintf(invName,"inverse_correlation_matrix");
+  sprintf(meanName, "_correlation_mean");
+  sprintf(sigmaName, "_correlation_sigma");
+  sprintf(idxName,"_index");
 
   LALInferenceRemoveVariable(priorArgs, corName);
-  LALInferenceRemoveVariable(priorArgs, idxName);
+  LALInferenceRemoveVariable(priorArgs, invName);
+
+  /* remove correlated prior parameters */
+  LALInferenceVariableItem *item = priorArgs->head;
+  for( ; item; item = item->next ){
+    if ( strstr(item->name, meanName) != NULL && strstr(item->name, sigmaName) != NULL && strstr(item->name, idxName) != NULL ){
+      LALInferenceRemoveVariable(priorArgs, meanName);
+      LALInferenceRemoveVariable(priorArgs, sigmaName);
+      LALInferenceRemoveVariable(priorArgs, idxName);
+    }
+  }
+
   return;
 }
 
@@ -1881,13 +2040,294 @@ void LALInferenceRemoveCorrelatedPrior(LALInferenceVariables *priorArgs,
 int LALInferenceCheckCorrelatedPrior(LALInferenceVariables *priorArgs,
                                      const char *name){
   char corName[VARNAME_MAX];
+  char invName[VARNAME_MAX];
+  char meanName[VARNAME_MAX];
+  char sigmaName[VARNAME_MAX];
   char idxName[VARNAME_MAX];
 
-  sprintf(corName,"%s_correlation_matrix",name);
+  sprintf(corName,"correlation_matrix");
+  sprintf(invName,"inverse_correlation_matrix");
+  sprintf(meanName, "%s_correlation_mean", name);
+  sprintf(sigmaName, "%s_correlation_sigma", name);
   sprintf(idxName,"%s_index",name);
 
   return (LALInferenceCheckVariable(priorArgs,corName) &&
-          LALInferenceCheckVariable(priorArgs,idxName));
+          LALInferenceCheckVariable(priorArgs,invName) &&
+          LALInferenceCheckVariable(priorArgs,idxName) &&
+          LALInferenceCheckVariable(priorArgs,meanName) &&
+          LALInferenceCheckVariable(priorArgs,sigmaName));
+}
+
+
+/* Function to add a 1D Gaussian Mixture Model prior (without any hyperparameters at the moment!) */
+void LALInferenceAdd1DGMMPrior( LALInferenceVariables *priorArgs, const char *name,
+                                REAL8Vector **sigmas, REAL8Vector **mus, REAL8Vector **weights,
+                                REAL8 *minrange, REAL8 *maxrange ){
+  char musName[VARNAME_MAX];
+  char sigmasName[VARNAME_MAX];
+  char weightsName[VARNAME_MAX];
+  char minName[VARNAME_MAX];
+  char maxName[VARNAME_MAX];
+
+  sprintf(musName, "%s_1dgmm_sigmas", name);
+  sprintf(sigmasName, "%s_1dgmm_mus", name);
+  sprintf(weightsName, "%s_1dgmm_weights", name);
+  sprintf(minName, "%s_1dgmm_min", name);
+  sprintf(maxName, "%s_1dgmm_max", name);
+
+  if ( !mus[0] || !sigmas[0] || !weights[0] ){
+    XLAL_ERROR_VOID( XLAL_EINVAL, "GMM means, standard deviations and weights must all be specified" );
+  }
+  else{
+    if ( mus[0]->length != sigmas[0]->length || mus[0]->length != weights[0]->length || sigmas[0]->length != weights[0]->length ){
+      XLAL_ERROR_VOID( XLAL_EINVAL, "GMM means, standard deviations and weights vectors must all be the same length" );
+    }
+  }
+
+  LALInferenceAddVariable( priorArgs, musName, mus, LALINFERENCE_REAL8Vector_t, LALINFERENCE_PARAM_FIXED );
+  LALInferenceAddVariable( priorArgs, sigmasName, sigmas, LALINFERENCE_REAL8Vector_t, LALINFERENCE_PARAM_FIXED );
+
+  /* make sure weights are normalised to 1 */
+  REAL8 weightsum = 0.;
+  UINT4 i = 0;
+  for ( i = 0; i < weights[0]->length; i++ ){ weightsum += weights[0]->data[i]; }
+  for ( i = 0; i < weights[0]->length; i++ ){ weights[0]->data[i] /= weightsum; }
+
+  LALInferenceAddVariable( priorArgs, weightsName, weights, LALINFERENCE_REAL8Vector_t, LALINFERENCE_PARAM_FIXED );
+
+  if ( minrange == NULL ){ *minrange = -INFINITY; } /* set lower bound to -infinity */
+  if ( maxrange == NULL ){ *maxrange = INFINITY; }  /* set upper bound to infinity */
+
+  if ( *minrange > *maxrange ){
+    XLAL_ERROR_VOID( XLAL_EINVAL, "Bounds for 1D GMM are wrong" );
+  }
+
+  LALInferenceAddVariable( priorArgs, minName, minrange, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED );
+  LALInferenceAddVariable( priorArgs, maxName, maxrange, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED );
+  return;
+}
+
+/* Check for a 1D GMM prior */
+int LALInferenceCheck1DGMMPrior(LALInferenceVariables *priorArgs, const char *name){
+  char musName[VARNAME_MAX];
+  char sigmasName[VARNAME_MAX];
+  char weightsName[VARNAME_MAX];
+  char minName[VARNAME_MAX];
+  char maxName[VARNAME_MAX];
+
+  sprintf(musName, "%s_1dgmm_sigmas", name);
+  sprintf(sigmasName, "%s_1dgmm_mus", name);
+  sprintf(weightsName, "%s_1dgmm_weights", name);
+  sprintf(minName, "%s_1dgmm_min", name);
+  sprintf(maxName, "%s_1dgmm_max", name);
+
+  return (LALInferenceCheckVariable(priorArgs, musName) &&
+          LALInferenceCheckVariable(priorArgs, sigmasName) &&
+          LALInferenceCheckVariable(priorArgs, weightsName) &&
+          LALInferenceCheckVariable(priorArgs, minName) &&
+          LALInferenceCheckVariable(priorArgs, maxName));
+}
+
+/* remove 1D GMM Prior */
+void LALInferenceRemove1DGMMPrior( LALInferenceVariables *priorArgs, const char *name ){
+  char musName[VARNAME_MAX];
+  char sigmasName[VARNAME_MAX];
+  char weightsName[VARNAME_MAX];
+  char minName[VARNAME_MAX];
+  char maxName[VARNAME_MAX];
+
+  sprintf(musName, "%s_1dgmm_sigmas", name);
+  sprintf(sigmasName, "%s_1dgmm_mus", name);
+  sprintf(weightsName, "%s_1dgmm_weights", name);
+  sprintf(minName, "%s_1dgmm_min", name);
+  sprintf(maxName, "%s_1dgmm_max", name);
+
+  LALInferenceRemoveVariable(priorArgs, musName);
+  LALInferenceRemoveVariable(priorArgs, sigmasName);
+  LALInferenceRemoveVariable(priorArgs, weightsName);
+  LALInferenceRemoveVariable(priorArgs, minName);
+  LALInferenceRemoveVariable(priorArgs, maxName);
+  return;
+}
+
+/* get the standard deviations, means, weights and bounds of the 1D GMM prior */
+void LALInferenceGet1DGMMPrior( LALInferenceVariables *priorArgs, const char *name,
+                                REAL8Vector **sigmas, REAL8Vector **mus, REAL8Vector **weights,
+                                REAL8 *minrange, REAL8 *maxrange ){
+  char musName[VARNAME_MAX];
+  char sigmasName[VARNAME_MAX];
+  char weightsName[VARNAME_MAX];
+  char minName[VARNAME_MAX];
+  char maxName[VARNAME_MAX];
+  void *ptr = NULL;
+
+  sprintf(musName, "%s_1dgmm_sigmas", name);
+  sprintf(sigmasName, "%s_1dgmm_mus", name);
+  sprintf(weightsName, "%s_1dgmm_weights", name);
+  sprintf(minName, "%s_1dgmm_min", name);
+  sprintf(maxName, "%s_1dgmm_max", name);
+
+  ptr = LALInferenceGetVariable(priorArgs, musName);
+  if ( ptr ){ *mus = *(REAL8Vector **)ptr; }
+  else{ XLAL_ERROR_VOID(XLAL_EFAILED); }
+
+  ptr = LALInferenceGetVariable(priorArgs, sigmasName);
+  if ( ptr ){ *sigmas = *(REAL8Vector **)ptr; }
+  else{ XLAL_ERROR_VOID(XLAL_EFAILED); }
+
+  ptr = LALInferenceGetVariable(priorArgs, weightsName);
+  if ( ptr ){ *weights = *(REAL8Vector **)ptr; }
+  else{ XLAL_ERROR_VOID(XLAL_EFAILED); }
+
+  ptr = LALInferenceGetVariable(priorArgs, minName);
+  if ( ptr ){ *minrange = *(REAL8 *)ptr; }
+  else{ *minrange = -INFINITY; }
+
+  ptr = LALInferenceGetVariable(priorArgs, maxName);
+  if ( ptr ){ *maxrange = *(REAL8 *)ptr; }
+  else{ *maxrange = INFINITY; }
+  return;
+}
+
+
+/* Check for a Fermi-Dirac Prior */
+int LALInferenceCheckFermiDiracPrior(LALInferenceVariables *priorArgs, const char *name)
+{
+  char rName[VARNAME_MAX];
+  char sigmaName[VARNAME_MAX];
+  sprintf(rName,"%s_fermi_r",name);
+  sprintf(sigmaName,"%s_fermi_sigma",name);
+  return (LALInferenceCheckVariable(priorArgs,rName) && LALInferenceCheckVariable(priorArgs,sigmaName));
+}
+
+/* Function to add the r and sigma values for the prior onto the priorArgs */
+void LALInferenceAddFermiDiracPrior( LALInferenceVariables *priorArgs,
+                                   const char *name, REAL8 *sigma, REAL8 *r,
+                                   LALInferenceVariableType type ){
+  char rName[VARNAME_MAX];
+  char sigmaName[VARNAME_MAX];
+
+  sprintf(rName,"%s_fermi_r",name);
+  sprintf(sigmaName,"%s_fermi_sigma",name);
+
+  LALInferenceAddVariable(priorArgs,rName,r,type,LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddVariable(priorArgs,sigmaName,sigma,type,LALINFERENCE_PARAM_FIXED);
+  return;
+}
+
+/* Function to remove the r and sigma values for the prior onto the priorArgs */
+void LALInferenceRemoveFermiDiracPrior(LALInferenceVariables *priorArgs, const char *name){
+  char rName[VARNAME_MAX];
+  char sigmaName[VARNAME_MAX];
+
+  sprintf(rName,"%s_fermi_r",name);
+  sprintf(sigmaName,"%s_fermi_sigma",name);
+
+  LALInferenceRemoveVariable(priorArgs, rName);
+  LALInferenceRemoveVariable(priorArgs, sigmaName);
+  return;
+}
+
+/* Get the r and sigma values of the prior from the priorArgs list, given a name */
+void LALInferenceGetFermiDiracPrior(LALInferenceVariables *priorArgs,
+                                    const char *name, REAL8 *sigma, REAL8 *r)
+{
+  char rName[VARNAME_MAX];
+  char sigmaName[VARNAME_MAX];
+  void *ptr=NULL;
+
+  sprintf(rName,"%s_fermi_r",name);
+  sprintf(sigmaName,"%s_fermi_sigma",name);
+
+  ptr = LALInferenceGetVariable(priorArgs, rName);
+  if ( ptr ) *r = *(REAL8*)ptr;
+  else XLAL_ERROR_VOID(XLAL_EFAILED);
+
+  ptr = LALInferenceGetVariable(priorArgs, sigmaName);
+  if ( ptr ) *sigma = *(REAL8*)ptr;
+  else XLAL_ERROR_VOID(XLAL_EFAILED);
+
+  return;
+}
+
+
+/* Check for a prior uniform in the log */
+int LALInferenceCheckLogUniformPrior(LALInferenceVariables *priorArgs,
+                                     const char *name)
+{
+  char xminName[VARNAME_MAX];
+  char xmaxName[VARNAME_MAX];
+
+  sprintf(xminName, "%s_loguniform_xmin", name);
+  sprintf(xmaxName, "%s_loguniform_xmax", name);
+
+  return (LALInferenceCheckVariable(priorArgs, xminName) &&
+          LALInferenceCheckVariable(priorArgs, xmaxName));
+}
+
+/* Add domain boundary values for the prior onto the priorArgs */
+void LALInferenceAddLogUniformPrior(LALInferenceVariables *priorArgs,
+                                    const char *name, REAL8 *xmin, REAL8 *xmax,
+                                    LALInferenceVariableType type )
+{
+  if (*xmin >= *xmax || *xmin < 0. ){
+    XLAL_ERROR_VOID(XLAL_EINVAL, "Minimum must be less than maximum (and minumum must be greater than zero), but %f >= %f.", *xmin, *xmax);
+  }
+
+  char xminName[VARNAME_MAX];
+  char xmaxName[VARNAME_MAX];
+
+  sprintf(xminName, "%s_loguniform_xmin", name);
+  sprintf(xmaxName, "%s_loguniform_xmax", name);
+
+  LALInferenceAddVariable(priorArgs, xminName, xmin, type,
+                          LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddVariable(priorArgs, xmaxName, xmax, type,
+                          LALINFERENCE_PARAM_FIXED);
+  return;
+}
+
+/* Remove the domain boundary values for the prior onto the priorArgs */
+void LALInferenceRemoveLogUniformPrior(LALInferenceVariables *priorArgs,
+                                       const char *name)
+{
+  char xminName[VARNAME_MAX];
+  char xmaxName[VARNAME_MAX];
+
+  sprintf(xminName, "%s_loguniform_xmin", name);
+  sprintf(xmaxName, "%s_loguniform_xmax", name);
+
+  LALInferenceRemoveVariable(priorArgs, xminName);
+  LALInferenceRemoveVariable(priorArgs, xmaxName);
+  return;
+}
+
+/* Get domain boundary values of the prior from priorArgs list, given a name */
+void LALInferenceGetLogUniformPrior(LALInferenceVariables *priorArgs,
+                                    const char *name, REAL8 *xmin, REAL8 *xmax)
+{
+  char xminName[VARNAME_MAX];
+  char xmaxName[VARNAME_MAX];
+  void *ptr=NULL;
+
+  sprintf(xminName, "%s_loguniform_xmin", name);
+  sprintf(xmaxName, "%s_loguniform_xmax", name);
+
+  ptr = LALInferenceGetVariable(priorArgs, xminName);
+  if ( ptr ) {
+    *xmin = *(REAL8*)ptr;
+  } else {
+    XLAL_ERROR_VOID(XLAL_EFAILED);
+  }
+
+  ptr = LALInferenceGetVariable(priorArgs, xmaxName);
+  if ( ptr ) {
+    *xmax = *(REAL8*)ptr;
+  } else {
+    XLAL_ERROR_VOID(XLAL_EFAILED);
+  }
+
+  return;
 }
 
 void LALInferenceDrawFromPrior( LALInferenceVariables *output,
@@ -1958,13 +2398,46 @@ void LALInferenceDrawNameFromPrior( LALInferenceVariables *output,
     LALInferenceGetMinMaxPrior(priorArgs, name, &min, &max);
     tmp = min + (max-min)*gsl_rng_uniform( rdm );
   }
+  /* test for a Fermi-Dirac prior */
+  else if( LALInferenceCheckFermiDiracPrior( priorArgs, name ) ){
+    REAL8 r = 0., sigma = 0., cp;
+
+    LALInferenceGetFermiDiracPrior(priorArgs, name, &sigma, &r);
+
+    /* use the inverse sampling transform to draw a new sample */
+    do { /* numerical issues mean that the analytic solution to this equation can go negative, so make sure that is not the case */
+      cp = gsl_rng_uniform( rdm ); /* draw a point uniformly between 0 and 1 */
+      tmp = log(-exp(-r) + pow(1. + exp(r), -cp) + exp(1.-r)*pow(1. + exp(r), -cp));
+      tmp *= -sigma;
+    } while ( tmp < 0. );
+  }
+  /* test for a prior uniform in the log */
+  else if( LALInferenceCheckLogUniformPrior( priorArgs, name ) ){
+    REAL8 xmin = 0., xmax = 0., cp;
+
+    LALInferenceGetLogUniformPrior(priorArgs, name, &xmin, &xmax);
+
+    if( xmin <= 0 ) {
+      XLAL_ERROR_VOID(XLAL_EDOM, "Log-uniform min value not positive.");
+    } else if( xmax < xmin ) {
+      XLAL_ERROR_VOID(XLAL_EDOM, "Log-uniform min value greater than max.");
+    }
+
+    /* use the inverse sampling transform to draw a new sample */
+    cp = gsl_rng_uniform( rdm ); /* draw a point uniformly between 0 and 1 */
+
+    /* the percentage-point function (PPF, or inverse CDF) for PDF~1/x is:
+    \f$x = (\frac{x_{\rm max}}{x_{\rm min}})^{\rm cdf} x_{\rm min}\f$ */
+    tmp = xmin * pow(xmax/xmin, cp);
+  }
   /* test for a prior drawn from correlated values */
   else if( LALInferenceCheckCorrelatedPrior( priorArgs, name ) ){
-    gsl_matrix *cor = NULL;
+    gsl_matrix *cor = NULL, *invcor = NULL;
+    REAL8 mu = 0, sigma = 0.;
     UINT4 idx = 0, dims = 0;
     REAL4Vector *tmps = NULL;
 
-    LALInferenceGetCorrelatedPrior( priorArgs, name, &cor, &idx );
+    LALInferenceGetCorrelatedPrior( priorArgs, name, &cor, &invcor, &mu, &sigma, &idx );
     dims = cor->size1;
 
     /* to avoid unnecessary repetition the multivariate deviates are be
@@ -1983,8 +2456,7 @@ void LALInferenceDrawNameFromPrior( LALInferenceVariables *output,
         XLAL_ERROR_VOID(XLAL_EFUNC | XLAL_EINVAL, "Matrix is not positive-definite!");
       }
 
-      /* draw values from the multivariate Gaussian described by the correlation
-         matrix */
+      /* draw values from the multivariate Gaussian described by the correlation matrix */
       tmps = XLALCreateREAL4Vector( dims );
       randParam = XLALCreateRandomParams( randomseed );
       XLALMultiNormalDeviates( tmps, cor, dims, randParam );
@@ -1994,12 +2466,30 @@ void LALInferenceDrawNameFromPrior( LALInferenceVariables *output,
                                LALINFERENCE_PARAM_FIXED );
     }
 
-    /* set random number for given parameter index */
-    tmp = tmps->data[idx];
+    /* set random number for given parameter index (converted to a draw from the covariance matrix) */
+    tmp = mu + sigma*tmps->data[idx];
 
     /* free tmps */
     if ( !LALInferenceCheckVariable( priorArgs, "multivariate_deviates" ) )
       XLALDestroyREAL4Vector( tmps );
+  }
+  /* test for a prior drawn from the 1D Gaussian Mixture Model */
+  else if( LALInferenceCheck1DGMMPrior( priorArgs, name ) ){
+    REAL8Vector *mus = NULL, *sigmas = NULL, *weights = NULL;
+    REAL8 minrange = -INFINITY, maxrange = INFINITY, cp = 0., cumweights = 0.;
+
+    LALInferenceGet1DGMMPrior( priorArgs, name, &mus, &sigmas, &weights, &minrange, &maxrange );
+    cumweights = weights->data[0];
+    do {
+      cp = gsl_rng_uniform( rdm );
+      UINT4 i = 0;
+      /* get index of mode */
+      while( cp > cumweights ){
+        i++;
+        cumweights += weights->data[i];
+      }
+      tmp = mus->data[i] + gsl_ran_gaussian(rdm, (double)sigmas->data[i]);
+    }while ( tmp < minrange || tmp > maxrange ); /* draw from within bounds */
   }
   /* not a recognised prior type */
   else{
@@ -2129,32 +2619,32 @@ UINT4 LALInferenceAnalyticCubeToPrior(LALInferenceRunState *runState, LALInferen
     if(LALInferenceCheckVariable(params,"SKY_FRAME"))
       SKY_FRAME=*(INT4 *)LALInferenceGetVariable(params,"SKY_FRAME");
 
-    if(LALInferenceCheckVariable(params,"m1"))
+    if(LALInferenceCheckVariable(params,"mass1"))
     {
-        if(LALInferenceGetItem(params,"m1")->vary != LALINFERENCE_PARAM_FIXED)
+        if(LALInferenceGetItem(params,"mass1")->vary != LALINFERENCE_PARAM_FIXED)
         {
-            LALInferenceGetMinMaxPrior(runState->priorArgs, "m1", (void *)&min, (void *)&max);
+            LALInferenceGetMinMaxPrior(runState->priorArgs, "mass1", (void *)&min, (void *)&max);
             m1 = LALInferenceCubeToFlatPrior(Cube[i], min, max);
-            LALInferenceSetVariable(params, "m1", &m1);
+            LALInferenceSetVariable(params, "mass1", &m1);
             logPrior -= log(max-min);
         }
         else
         {
-            m1=(*(REAL8 *)LALInferenceGetVariable(params,"m1"));
+            m1=(*(REAL8 *)LALInferenceGetVariable(params,"mass1"));
         }
     }
-    if(LALInferenceCheckVariable(params,"m2"))
+    if(LALInferenceCheckVariable(params,"mass2"))
     {
-        if(LALInferenceGetItem(params,"m2")->vary != LALINFERENCE_PARAM_FIXED)
+        if(LALInferenceGetItem(params,"mass2")->vary != LALINFERENCE_PARAM_FIXED)
         {
-            LALInferenceGetMinMaxPrior(runState->priorArgs, "m2", (void *)&min, (void *)&max);
+            LALInferenceGetMinMaxPrior(runState->priorArgs, "mass2", (void *)&min, (void *)&max);
             m2 = LALInferenceCubeToFlatPrior(Cube[i], min, max);
-            LALInferenceSetVariable(params, "m2", &m2);
+            LALInferenceSetVariable(params, "mass2", &m2);
             logPrior -= log(max-min);
         }
         else
         {
-            m2=(*(REAL8 *)LALInferenceGetVariable(params,"m2"));
+            m2=(*(REAL8 *)LALInferenceGetVariable(params,"mass2"));
         }
     }
 
@@ -2320,8 +2810,10 @@ UINT4 LALInferenceAnalyticCubeToPrior(LALInferenceRunState *runState, LALInferen
 
     LALInferenceVariables *priorParams=runState->priorArgs;
     INT4 ScaleTest = LALInferenceCubeToPSDScaleParams(priorParams, params, &i, Cube, context);
+    UINT4 ConstCalib = LALInferenceCubeToConstantCalibrationPrior(runState, params, &i, Cube, context);
+    //UINT4 SplineCalib = LALInferenceCubeToSplineCalibrationPrior(runState, params, &i, Cube, context);
 
-    if (ScaleTest==0) return 0;
+    if (ScaleTest==0 || ConstCalib==0 /* || SplineCalib==0 */) return 0;
     else return 1;
 }
 
@@ -2347,7 +2839,7 @@ REAL8 LALInferenceNullPrior(LALInferenceRunState UNUSED *runState, LALInferenceV
   return 0.0;
 }
 
-UINT4 LALInferenceCubeToPSDScaleParams(LALInferenceVariables *priorParams, LALInferenceVariables *params, INT4 *idx, double *Cube, UNUSED void *context)
+UINT4 LALInferenceCubeToPSDScaleParams(LALInferenceVariables *priorParams, LALInferenceVariables *params, INT4 *idx, double *Cube, void UNUSED *context)
 {
   //char **info = (char **)context;
   //char *header = &info[1][0];
@@ -2429,7 +2921,7 @@ REAL8 LALInferenceSineGaussianPrior(LALInferenceRunState *runState, LALInference
     logPrior+=-4.0* log(*(REAL8 *)LALInferenceGetVariable(params,"hrss"));
   if(LALInferenceCheckVariable(params,"declination"))
     logPrior+=log(fabs(cos(*(REAL8 *)LALInferenceGetVariable(params,"declination"))));
-  logPrior += LALInferenceConstantCalibrationPrior(runState, params); 
+  logPrior += LALInferenceConstantCalibrationPrior(runState, params);
   return(logPrior);
 }
 
@@ -2480,4 +2972,64 @@ REAL8 LALInferenceCubeToGaussianPrior(double r, double mean, double sigma)
 REAL8 LALInferenceCubeToSinPrior(double r, double x1, double x2)
 {
     return acos((1.0-r)*cos(x1)+r*cos(x2));
+}
+
+/* Functions for Fermi-Dirac prior distribution */
+
+/** \brief Return the Fermi-Dirac distribution log prior
+ *
+ * The function returns the log of the prior for a Fermi-Dirac distribution
+ * \f[p(h|\sigma, r, I) = \frac{1}{\sigma\log{\left(1+e^{r} \right)}}\left(e^{((h/\sigma) - r)} + 1\right)^{-1},\f]
+ * where \f$r = \mu/\sigma\f$ to give a more familiar form of the function. Given how it is used the function
+ * does not actually compute the normalisation factor in the prior.
+ */
+REAL8 LALInferenceFermiDiracPrior( LALInferenceVariables *priorArgs, const char *name, REAL8 value ){
+  if ( !LALInferenceCheckFermiDiracPrior( priorArgs, name ) ){
+    XLAL_ERROR_REAL8( XLAL_EINVAL, "No Fermi-Dirac prior given for parameter '%s'", name);
+  }
+
+  REAL8 r = 0., sigma = 0.;
+  LALInferenceGetFermiDiracPrior(priorArgs, name, &sigma, &r);
+
+  if ( value < 0. ){ return -INFINITY; } /* value must be positive */
+  else{ return -logaddexp((value/sigma)-r, 0.); } /* log of Fermi-Dirac distribution (normalisation not required) */
+}
+
+/* Return the log Prior for a one-dimensional Gaussian Mixture Model given a value */
+REAL8 LALInference1DGMMPrior(LALInferenceVariables *priorArgs, const char *name, REAL8 value){
+  if( !LALInferenceCheck1DGMMPrior( priorArgs, name ) ){
+    XLAL_ERROR_REAL8( XLAL_EINVAL, "No Gaussian Mixture Model prior given for parameter '%s'", name);
+  }
+
+  REAL8Vector *gmmsigmas = NULL, *gmmmus = NULL, *gmmweights = NULL;
+  REAL8 gmmlow = 0., gmmhigh = 0.;
+
+  /* get GMM parameters */
+  LALInferenceGet1DGMMPrior( priorArgs, name, &gmmmus, &gmmsigmas, &gmmweights, &gmmlow, &gmmhigh );
+
+  if ( value < gmmlow || value > gmmhigh ){ return -INFINITY; }
+
+  REAL8 logPrior = -INFINITY, thisGauss = 0.;
+  UINT4 i = 0;
+  for ( i = 0; i < gmmweights->length; i++ ){
+    thisGauss = log(gmmweights->data[i]) - 0.5*(gmmmus->data[i] - value)*(gmmmus->data[i] - value)/(gmmsigmas->data[i]*gmmsigmas->data[i]);
+    thisGauss -= (0.5*(LAL_LNPI + LAL_LN2) + log(gmmsigmas->data[i])); /* normalisation */
+    logPrior = logaddexp(logPrior, thisGauss); /* sum Gaussianians */
+  }
+  return logPrior;
+}
+
+/* Return the log Prior for a parameter that has a prior that is uniform in log space */
+REAL8 LALInferenceLogUniformPrior( LALInferenceVariables *priorArgs, const char *name, REAL8 value ){
+  if ( !LALInferenceCheckLogUniformPrior( priorArgs, name ) ){
+    XLAL_ERROR_REAL8( XLAL_EINVAL, "No log uniform prior given for parameter '%s'", name);
+  }
+
+  REAL8 min = 0., max = 0., lrat = 0.;
+  LALInferenceGetLogUniformPrior( priorArgs, name, &min, &max );
+
+  if ( value < 0. || value < min || value > max ){ return -INFINITY; }
+  lrat = log(max/min);
+
+  return -log(value*lrat);
 }
