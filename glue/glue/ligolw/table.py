@@ -227,15 +227,6 @@ def getTablesByName(elem, name):
 #
 
 
-def new_from_template(template):
-	"""
-	Deprecated legacy wrapper of .copy() method of Table instances.
-	"""
-	import warnings
-	warnings.warn("glue.ligolw.table.new_from_template() is deprecated.  Use .copy() method of Table instances instead.", DeprecationWarning)
-	return template.copy()
-
-
 def get_table(xmldoc, name):
 	"""
 	Scan xmldoc for a Table element named name.  The comparison is done
