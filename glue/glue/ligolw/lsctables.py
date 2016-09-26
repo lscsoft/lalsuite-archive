@@ -128,15 +128,6 @@ def New(Type, columns = None, **kwargs):
 	return new
 
 
-def IsTableProperties(Type, tagname, attrs):
-	"""
-	obsolete.  see .CheckProperties() method of glue.ligolw.table.Table
-	class.
-	"""
-	warnings.warn("lsctables.IsTableProperties() is deprecated.  use glue.ligolw.table.Table.CheckProperties() instead", DeprecationWarning)
-	return Type.CheckProperties(tagname, attrs)
-
-
 def HasNonLSCTables(elem):
 	"""
 	Return True if the document tree below elem contains non-LSC
