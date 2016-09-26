@@ -232,11 +232,11 @@ def get_trigs_xml(GWcursor,trigger_file,segs,min_thresh,tracker,verbose):
     for table_elem in xmldoc.getElements(lambda e:\
                                         (e.tagName == ligolw.Table.tagName)):
       # trigger specific time retrieval functions
-      if table_elem.tableName[:-6] in ('sngl_inspiral'):
+      if table_elem.tableName in ('sngl_inspiral'):
         get_time = lambda row: row.get_end()
-      elif table_elem.tableName[:-6] in ('sngl_burst'):
+      elif table_elem.tableName in ('sngl_burst'):
         get_time = lambda row: row.get_peak()
-      elif table_elem.tableName[:-6] in ('sngl_ringdown'):
+      elif table_elem.tableName in ('sngl_ringdown'):
         get_time = lambda row: row.get_start()
       else:
         print >> sys.stderr, "Error: This should not be happening. Please contact to the author with the error trace."

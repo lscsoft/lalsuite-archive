@@ -118,7 +118,7 @@ def parse_command_line():
 # =============================================================================
 
 class SelectedSegmentsTable(table.Table):
-    tableName = "selected_segments:table"
+    tableName = "selected_segments"
     validcolumns = {
         "coinc_event_rank":"int_4u",
         "coinc_event_ifos":"lstring",
@@ -207,7 +207,7 @@ if opts.rate_stats:
 if opts.glitchiest_files:
     # define the table
     class GlitchiestTable(table.Table):
-        tableName = "glitchiest_files_by_" + opts.selection_criteria + ":table"
+        tableName = "glitchiest_files_by_" + opts.selection_criteria
         validcolumns = dict([ [col_name, col_type] for col_name, col_type in zip(seg_table.columnnames, seg_table.columntypes) ])
     glitch_table = lsctables.New(GlitchiestTable)
     # add to out_doc
@@ -221,7 +221,7 @@ if opts.glitchiest_files:
 if opts.quietest_files:
     # define the table
     class QuietestTable(table.Table):
-        tableName = "quietest_files_by_" + opts.selection_criteria + ":table"
+        tableName = "quietest_files_by_" + opts.selection_criteria
         validcolumns = dict([ [col_name, col_type] for col_name, col_type in zip(seg_table.columnnames, seg_table.columntypes) ])
     quiet_table = lsctables.New(QuietestTable)
     # add to out_doc

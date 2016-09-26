@@ -151,7 +151,7 @@ lsctables.SnglBurstTable.append = snglburst_append
 
 
 def element_filter(name, attrs):
-	return (name == ligolw.Table.tagName) and (table.Table.TableName(attrs["Name"]) in map(table.Table.TableName, [lsctables.SnglBurstTable.tableName, lsctables.SearchSummaryTable.tableName]))
+	return name == ligolw.Table.tagName and table.Table.TableName(attrs["Name"]) in (lsctables.SnglBurstTable.tableName, lsctables.SearchSummaryTable.tableName)
 
 
 class ContentHandler(ligolw.PartialLIGOLWContentHandler):

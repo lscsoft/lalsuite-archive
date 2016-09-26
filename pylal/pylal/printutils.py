@@ -52,13 +52,13 @@ def get_columns_to_print(xmldoc, tableName, with_sngl = False):
     @with_sngl: for the loudest_events table, if with_sngl turned on, will print
      sngl_ifo end_times
     """
-    tableName = tableName.endswith(":table") and tableName or tableName+":table"
+    tableName = table.Table.TableName(tableName)
     summTable = table.get_table(xmldoc, tableName )
     # get rankname
     rankname = [col.getAttribute("Name").split(":")[-1]
         for col in summTable.getElementsByTagName(u'Column') if "rank" in col.getAttribute("Name")][0]
 
-    if tableName == "loudest_events:table" and not with_sngl:
+    if tableName == "loudest_events" and not with_sngl:
         durname = [col.getAttribute("Name").split(":")[-1]
             for col in summTable.getElementsByTagName(u'Column') if "_duration__Px_" in col.getAttribute("Name")
             and not col.getAttribute("Name").split(":")[-1].startswith('sngl_')][0]
@@ -78,7 +78,7 @@ def get_columns_to_print(xmldoc, tableName, with_sngl = False):
             'omega_scan',
             durname]
         row_span_columns = rspan_break_columns = [durname]
-    elif tableName == "loudest_events:table" and with_sngl:
+    elif tableName == "loudest_events" and with_sngl:
         durname = [col.getAttribute("Name").split(":")[-1]
             for col in summTable.getElementsByTagName(u'Column') if "_duration__Px_" in col.getAttribute("Name")
             and not col.getAttribute("Name").split(":")[-1].startswith(u'sngl_')][0]
@@ -99,7 +99,7 @@ def get_columns_to_print(xmldoc, tableName, with_sngl = False):
             durname]
         row_span_columns = rspan_break_columns = \
             [col for col in summTable.columnnames if not col.startswith('sngl_')]
-    elif tableName == "selected_found_injections:table":
+    elif tableName == "selected_found_injections":
         durname = [col.getAttribute("Name").split(":")[-1]
             for col in summTable.getElementsByTagName(u'Column') if "_duration__Px_" in col.getAttribute("Name")][0]
         columnList = [
@@ -137,7 +137,7 @@ def get_columns_to_print(xmldoc, tableName, with_sngl = False):
             'injected_mass2']
 	if with_sngl:
 	    row_span_columns.extend( [col for col in summTable.columnnames if col.startswith('recovered_')] )
-    elif tableName == "close_missed_injections:table":
+    elif tableName == "close_missed_injections":
         columnList = [
             'rank',
             'decisive_distance',
@@ -493,7 +493,7 @@ def printsims(connection, simulation_table, recovery_table, map_label, ranking_s
     # define needed tables
     #
     class tmpSimTable(table.Table):
-        tableName = "tmp_sim_table:table"
+        tableName = "tmp_sim_table"
         validcolumns = dict([ [col, sqlutils.get_col_type(simulation_table, col)] for col in simulation_table_columns ])
     class tmpSim(object):
         __slots__ = tmpSimTable.validcolumns.keys()
@@ -508,7 +508,7 @@ def printsims(connection, simulation_table, recovery_table, map_label, ranking_s
             return generic_get_pyvalue(self)
     
     class tmpRecTable(table.Table):
-        tableName = "tmp_rec_table:table"
+        tableName = "tmp_rec_table"
         validcolumns = dict([ [col, sqlutils.get_col_type(recovery_table, col)] for col in recovery_table_columns ])
     class tmpRec(object):
         __slots__ = tmpRecTable.validcolumns.keys()
@@ -523,7 +523,7 @@ def printsims(connection, simulation_table, recovery_table, map_label, ranking_s
             return generic_get_pyvalue(self)
     
     class SelectedFoundTable(table.Table):
-        tableName = "selected_found_injections:table"
+        tableName = "selected_found_injections"
         validcolumns = {}
         for col_name in column_names:
             if 'rank_in_' in col_name:
@@ -747,7 +747,7 @@ def printmissed(connection, simulation_table, recovery_table, map_label, livetim
     
     # define needed tables
     class CloseMissedTable(table.Table):
-        tableName = "close_missed_injections:table"
+        tableName = "close_missed_injections"
         validcolumns = {}
         for col_name in column_names:
             if 'rank' in col_name:

@@ -990,8 +990,8 @@ def build_indexes(connection, verbose = False):
 
 
 TableByName = {
-	table.Table.TableName(ProcessParamsTable.tableName): ProcessParamsTable,
-	table.Table.TableName(TimeSlideTable.tableName): TimeSlideTable
+	ProcessParamsTable.tableName: ProcessParamsTable,
+	TimeSlideTable.tableName: TimeSlideTable
 }
 
 
