@@ -808,9 +808,14 @@ class LIGOLWContentHandler(sax.handler.ContentHandler, object):
 
 	Example:
 
+	>>> # initialize empty Document tree into which parsed XML tree
+	>>> # will be inserted
 	>>> xmldoc = Document()
+	>>> # create handler instance attached to Document object
 	>>> handler = LIGOLWContentHandler(xmldoc)
-	>>> make_parser(handler).parse(open("H2-POWER_S5-816526720-34.xml"))
+	>>> # open file and parse
+	>>> make_parser(handler).parse(open("demo.xml"))
+	>>> # write XML (default to stdout)
 	>>> xmldoc.write()
 
 	NOTE:  this example is for illustration only.  Most users will wish
@@ -920,13 +925,13 @@ class PartialLIGOLWContentHandler(LIGOLWContentHandler):
 
 	Example:
 
-	>>> from glue.ligolw import utils
+	>>> from glue.ligolw import utils as ligolw_utils
 	>>> def contenthandler(document):
-	...	return PartialLIGOLWContentHandler(document, lambda name, attrs: name == ligolw.Table.tagName)
+	...	return PartialLIGOLWContentHandler(document, lambda name, attrs: name == Table.tagName)
 	...
-	>>> xmldoc = utils.load_filename("test.xml", contenthandler = contenthandler)
+	>>> xmldoc = ligolw_utils.load_filename("demo.xml", contenthandler = contenthandler)
 
-	This parses "test.xml" and returns an XML tree containing only the
+	This parses "demo.xml" and returns an XML tree containing only the
 	Table elements and their children.
 	"""
 	def __init__(self, document, element_filter):
@@ -963,13 +968,13 @@ class FilteringLIGOLWContentHandler(LIGOLWContentHandler):
 
 	Example:
 
-	>>> from glue.ligolw import utils
+	>>> from glue.ligolw import utils as ligolw_utils
 	>>> def contenthandler(document):
-	...	return FilteringLIGOLWContentHandler(document, lambda name, attrs: name != ligolw.Table.tagName)
+	...	return FilteringLIGOLWContentHandler(document, lambda name, attrs: name != Table.tagName)
 	...
-	>>> xmldoc = utils.load_filename("test.xml", contenthandler = contenthandler)
+	>>> xmldoc = ligolw_utils.load_filename("demo.xml", contenthandler = contenthandler)
 
-	This parses "test.xml" and returns an XML tree with all the Table
+	This parses "demo.xml" and returns an XML tree with all the Table
 	elements and their children removed.
 	"""
 	def __init__(self, document, element_filter):
