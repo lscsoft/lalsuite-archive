@@ -653,7 +653,7 @@ class DBTable(table.Table):
 		if not hasattr(cls, "tableName"):
 			# no, try to retrieve it from lsctables
 			attrs, = args
-			name = table.StripTableName(attrs[u"Name"])
+			name = table.Table.TableName(attrs[u"Name"])
 			if name in lsctables.TableByName:
 				# found metadata in lsctables, construct
 				# custom subclass.  the class from
@@ -989,8 +989,8 @@ def build_indexes(connection, verbose = False):
 
 
 TableByName = {
-	table.StripTableName(ProcessParamsTable.tableName): ProcessParamsTable,
-	table.StripTableName(TimeSlideTable.tableName): TimeSlideTable
+	table.Table.TableName(ProcessParamsTable.tableName): ProcessParamsTable,
+	table.Table.TableName(TimeSlideTable.tableName): TimeSlideTable
 }
 
 
@@ -1036,7 +1036,7 @@ def use_in(ContentHandler):
 	ContentHandler = lsctables.use_in(ContentHandler)
 
 	def startTable(self, parent, attrs):
-		name = table.StripTableName(attrs[u"Name"])
+		name = table.Table.TableName(attrs[u"Name"])
 		if name in TableByName:
 			return TableByName[name](attrs, connection = self.connection)
 		return DBTable(attrs, connection = self.connection)
