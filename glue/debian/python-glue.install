@@ -25,3 +25,4 @@ usr/lib/py*/*/glue/auth/*
 usr/lib/py*/*/glue/ligolw/*
 usr/lib/py*/*/glue/nmi/*
 usr/lib/py*/*/glue/segmentdb/*
+usr/share/man/man1/*
