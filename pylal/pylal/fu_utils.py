@@ -497,7 +497,7 @@ def getPathFromCache(fileName,type,ifo=None,time=None):
 ##############################################################################
 
 class QscanIntermediateTable(table.Table):
-  tableName = "qscan:intermediate:table"
+  tableName = "qscan:intermediate"
   validcolumns = {
     "type": "lstring",
     "param": "lstring",
@@ -685,12 +685,12 @@ def _bandaid_(sqlFile,triggerCap=100,statistic=None,excludeTags=None):
   coincs=None
   #Create emtpy table object
   #Build by Hand
-  snglInspiralTable=lsctables.SnglInspiralTable(sax.xmlreader.AttributesImpl({u"Name":lsctables.SnglInspiralTable.tableName}))
-  colnamefmt = u":".join(snglInspiralTable.tableName.split(":")[:-1]) + u":%s"
+  snglInspiralTable=lsctables.SnglInspiralTable(sax.xmlreader.AttributesImpl({u"Name":table.Table.TableName.enc(lsctables.SnglInspiralTable.tableName)}))
+  colnamefmt = snglInspiralTable.Name + u":%s"
   for key, value in snglInspiralTable.validcolumns.items():
     snglInspiralTable.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % key, u"Type": value})))
   snglInspiralTable._end_of_columns()
-  dataStream=table.TableStream(sax.xmlreader.AttributesImpl({u'Name':snglInspiralTable.tableName})).config(snglInspiralTable)
+  dataStream=table.TableStream(sax.xmlreader.AttributesImpl({u'Name':snglInspiralTable.getAttribute("Name")})).config(snglInspiralTable)
   #Pull in sqlite data
   try:
     sqlDB=sqlite3.connect(sqlFile)
@@ -754,12 +754,12 @@ def _bandaid_(sqlFile,triggerCap=100,statistic=None,excludeTags=None):
     fp.close()
     # SETUP SEARCH SUMMARY TABLE
     #Create a search summary table to return here
-    SearchSummaryTable=lsctables.SearchSummaryTable(sax.xmlreader.AttributesImpl({u"Name":lsctables.SearchSummaryTable.tableName}))
-    colnamefmt = u":".join(SearchSummaryTable.tableName.split(":")[:-1]) + u":%s"
+    SearchSummaryTable=lsctables.SearchSummaryTable(sax.xmlreader.AttributesImpl({u"Name":table.TableName.enc(lsctables.SearchSummaryTable.tableName)}))
+    colnamefmt = SearchSummaryTable.Name + u":%s"
     for key, value in SearchSummaryTable.validcolumns.items():
       SearchSummaryTable.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % key, u"Type": value})))
       SearchSummaryTable._end_of_columns()
-      SearchSummaryStream=table.TableStream(sax.xmlreader.AttributesImpl({u'Name':SearchSummaryTable.tableName})).config(SearchSummaryTable)
+      SearchSummaryStream=table.TableStream(sax.xmlreader.AttributesImpl({u'Name':SearchSummaryTable.getAttribute("Name")})).config(SearchSummaryTable)
     oString05=""
     for col in SearchSummaryTable.columnnames:
       oString05="%s,search_summary.%s"%(str(oString05),str(col))

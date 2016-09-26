@@ -699,8 +699,7 @@ class Table(ligolw.Table, list):
 		>>> lsctables.ProcessTable.CheckProperties(u"Table", {u"Name": u"process:table"})
 		True
 		"""
-		# FIXME:  are these tests correct?
-		return tagname == cls.tagName and not cmp(cls.TableName(attrs[u"Name"]), cls.TableName(cls.tableName))
+		return tagname == cls.tagName and cls.TableName(attrs[u"Name"]) == cls.tableName
 
 
 	#
@@ -757,7 +756,7 @@ class Table(ligolw.Table, list):
 			raise ValueError("duplicate Column '%s'" % name)
 		except KeyError:
 			pass
-		column = Column(AttributesImpl({u"Name": "%s:%s" % (self.TableName(self.tableName), name), u"Type": self.validcolumns[name]}))
+		column = Column(AttributesImpl({u"Name": "%s:%s" % (self.Name, name), u"Type": self.validcolumns[name]}))
 		streams = self.getElementsByTagName(ligolw.Stream.tagName)
 		if streams:
 			self.insertBefore(column, streams[0])

@@ -90,7 +90,7 @@ def savefig_pylal(plot_description, open_box, inspiral_utils_opts, fnameList, ta
 
 
 class UpperLimitTable(table.Table):
-	tableName = "upper_limit:table"
+	tableName = "upper_limit"
 
         validcolumns = {"mass1":"lstring",
                         "mass2":"lstring",

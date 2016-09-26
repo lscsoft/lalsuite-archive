@@ -172,7 +172,7 @@ def get_sitelocaltime_from_gps(ifo, gpstime):
 #   Tables for storing statistics about the files
 #
 class RateStatisticsTable(table.Table):
-    tableName = "rate_statistics:table"
+    tableName = "rate_statistics"
     validcolumns = {
         "ifo":"lstring",
         "file_type":"lstring",
@@ -194,7 +194,7 @@ class RateStatistics(object):
         return ligolwtypes.ToPyType[self.type or "lstring"](self.value)
 
 class FileStatisticsTable(table.Table):
-    tableName = "file_statistics:table"
+    tableName = "file_statistics"
     validcolumns = {
         "ifo":"lstring",
         "num_files":"int_4u",

@@ -2069,12 +2069,8 @@ def archive_triggers(outdir, start, end, param_dict, clustered=False):
                               "%s table for %s has type %s instead of "
                               "ligolw.Table" % (etg, seg, type(trig_table)))
                 continue
-            sid = ilwd.get_ilwdchar_class(table.StripTableName(
-                                              seg_table.tableName),
-                                          "process_id")
-            pid = ilwd.get_ilwdchar_class(table.StripTableName(
-                                              event_table.tableName),
-                                          "process_id")
+            sid = ilwd.get_ilwdchar_class(seg_table.tableName, "process_id")
+            pid = ilwd.get_ilwdchar_class(event_table.tableName, "process_id")
             seg = map(LIGOTimeGPS, map(float, seg))
             segment = lsctables.Segment()
             segment.start_time = seg[0].gpsSeconds
