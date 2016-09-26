@@ -501,8 +501,8 @@ def get_veto_overlaps(segment, xmlsegfile):
     
   # load the content of the veto-file 
   xmldoc = utils.load_filename(xmlsegfile, gz = False)
-  segs = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
-  segdefs = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
+  segs = lsctables.SegmentTable.get_table(xmldoc)
+  segdefs = lsctables.SegmentDefTable.get_table(xmldoc)
     
   # create a mapping between the segments and their definitions
   defdict = {}

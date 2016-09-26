@@ -63,9 +63,8 @@ else:
 	output = open(opts.output, 'w')
 
 # Read siminspiral table
-siminspiral = lsctables.table.get_table(utils.load_filename(input_filename,
-	gz = (input_filename and os.path.splitext(input_filename)[1] == '.gz'),
-	), lsctables.SimInspiralTable.tableName)
+# FIXME:  broken, needs content handler
+siminspiral = lsctables.SimInspiralTable.get_table(utils.load_filename(input_filename))
 
 # Choose detector
 detector = lalsimulation.XLALDetectorPrefixToLALDetector(opts.instrument)

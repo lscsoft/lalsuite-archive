@@ -42,7 +42,7 @@ def make_sim_inspiral_row_from_columns_in_db(connection):
 	get the unique mapping of a sim inspiral row from columns in this
 	database
 	"""
-	return lsctables.table.get_table(dbtables.get_xml(connection), lsctables.SimInspiralTable.tableName).row_from_cols
+	return lsctables.SimInspiralTable.get_table(dbtables.get_xml(connection)).row_from_cols
 
 
 def time_within_segments(geocent_end_time, geocent_end_time_ns, zero_lag_segments = None):

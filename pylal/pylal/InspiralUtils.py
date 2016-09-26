@@ -828,7 +828,7 @@ def readHorizonDistanceFromSummValueTable(fList, verbose=False, contenthandler=S
 
     doc = utils.load_filename(thisFile, contenthandler = contenthandler)
     try:
-      summ_value_table = table.get_table(doc, lsctables.SummValueTable.tableName)
+      summ_value_table = lsctables.SummValueTable.get_table(doc)
     except ValueError:
       print "ValueError in readHorizonDistanceFromSummValueTable while reading summvalue table from file ", thisFile
       return output,massOutput

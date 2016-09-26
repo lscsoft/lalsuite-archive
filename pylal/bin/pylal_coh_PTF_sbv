@@ -169,19 +169,17 @@ if __name__ == "__main__":
     xmldoc = ligolw_utils.load_filename(xmlfile, gz=xmlfile.endswith(".gz"), contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
 
     # read ProcesTable
-    process_table = table.get_table(xmldoc, lsctables.ProcessTable.tableName)
+    process_table = lsctables.ProcessTable.get_table(xmldoc)
     ifos = process_table[-1].get_ifos()
 
     # read SearchSummaryTable
-    search_sum_table = table.get_table(xmldoc,
-                                       lsctables.SearchSummaryTable.tableName)
+    search_sum_table = lsctables.SearchSummaryTable.get_table(xmldoc)
     inseg = search_sum_table[0].get_in()
     outseg = search_sum_table[0].get_out()
 
     # read SimInspiralTable
     try:
-        sim_table = table.get_table(xmldoc,
-                                    lsctables.SimInspiralTable.tableName)
+        sim_table = lsctables.SimInspiralTable.get_table(xmldoc)
     except ValueError:
         pass
     else:
@@ -189,19 +187,18 @@ if __name__ == "__main__":
         print_verbose("SimInspiralTable read and copied.\n")
 
     # read TimeSlideTable
-    slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+    slide_table = lsctables.TimeSlideTable.get_table(xmldoc)
     slides = slide_table.as_dict()
     outxml.childNodes[-1].appendChild(slide_table)
     print_verbose("TimeSlideTable read and copied.\n")
 
     # read MultiInspiralTable
-    mi_table = table.get_table(xmldoc, lsctables.MultiInspiralTable.tableName)
+    mi_table = lsctables.MultiInspiralTable.get_table(xmldoc)
     print_verbose("MultiInspiralTable read, %d events found.\n" % len(mi_table))
 
     # read experiment tables
-    expr_table = table.get_table(xmldoc, lsctables.ExperimentTable.tableName)
-    expr_summ_table = table.get_table(
-                          xmldoc, lsctables.ExperimentSummaryTable.tableName)
+    expr_table = lsctables.ExperimentTable.get_table(xmldoc)
+    expr_summ_table = lsctables.ExperimentSummaryTable.get_table(xmldoc)
 
     # apply vetoes separately for each experiment
     pass_mi_table = table.new_from_template(mi_table)
