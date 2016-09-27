@@ -748,9 +748,9 @@ class Table(ligolw.Table, list):
 		>>> process_table = lsctables.New(lsctables.ProcessTable, [])
 		>>> col = process_table.appendColumn("program")
 		>>> col.getAttribute("Name")
-		'process:program'
+		u'process:program'
 		>>> col.Name
-		'program'
+		u'program'
 		"""
 		try:
 			self.getColumnByName(name)

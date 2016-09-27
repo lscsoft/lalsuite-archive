@@ -97,6 +97,9 @@ class infinity(object):
 	True
 	>>> segment(-10, 10) - segment(-x, 0)
 	segment(0, 10)
+	>>> import math
+	>>> math.isinf(x)
+	True
 	"""
 	__slots__ = []
 
@@ -196,6 +199,15 @@ class infinity(object):
 			return NegInfinity
 		# self is NegInfinity
 		return PosInfinity
+
+	def __float__(self):
+		"""
+		Returns +/-inf (allows math.isinf() to work).
+		"""
+		if self is PosInfinity:
+			return float("+inf")
+		# self is NegInfinity
+		return float("-inf")
 
 
 PosInfinity = object.__new__(infinity)
