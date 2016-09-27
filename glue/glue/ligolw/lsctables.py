@@ -4067,74 +4067,8 @@ class SegmentSumTable(table.Table):
 		return segments.segmentlist(row.segment for row in self if row.segment_def_id == segment_def_id)
 
 
-class SegmentSum(table.TableRow):
-	"""
-	Example:
-
-	>>> x = SegmentSum()
-	>>> x.start = LIGOTimeGPS(0)
-	>>> x.end = LIGOTimeGPS(10)
-	>>> x.segment
-	segment(0.000000000, 10.000000000)
-	>>> x.segment = None
-	>>> print x.segment
-	None
-	>>> print x.start
-	None
-	"""
+class SegmentSum(Segment):
 	__slots__ = SegmentSumTable.validcolumns.keys()
-
-	@property
-	def start(self):
-		if self.start_time is None and self.start_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.start_time, self.start_time_ns)
-
-	@start.setter
-	def start(self, gps):
-		if gps is None:
-			self.start_time = self.start_time_ns = None
-		else:
-			self.start_time, self.start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-
-	@property
-	def end(self):
-		if self.end_time is None and self.end_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.end_time, self.end_time_ns)
-
-	@end.setter
-	def end(self, gps):
-		if gps is None:
-			self.end_time = self.end_time_ns = None
-		else:
-			self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-
-	@property
-	def segment(self):
-		start, end = self.start, self.end
-		if start is None and end is None:
-			return None
-		return segments.segment(start, end)
-
-	@segment.setter
-	def segment(self, seg):
-		if seg is None:
-			self.start = self.end = None
-		else:
-			self.start, self.end = seg
-
-	def get(self):
-		"""
-		Return the segment described by this row.
-		"""
-		return self.segment
-
-	def set(self, segment):
-		"""
-		Set the segment described by this row.
-		"""
-		self.segment = segment
 
 
 SegmentSumTable.RowType = SegmentSum
