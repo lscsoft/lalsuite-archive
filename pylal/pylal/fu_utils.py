@@ -9,11 +9,7 @@ __author__ = 'Chad Hanna <channa@phys.lsu.edu>'
 import sys
 import os, shutil
 import urllib
-try:
-  import sqlite3
-except ImportError:
-  # pre 2.5.x
-  from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 
 from subprocess import *
 import copy

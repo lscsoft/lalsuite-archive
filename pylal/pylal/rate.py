@@ -1474,7 +1474,7 @@ class BinnedArray(object):
 		elem = ligolw.LIGO_LW()
 		elem.Name = u"%s:pylal_rate_binnedarray" % name
 		self.bins.to_xml(elem)
-		elem.appendChild(ligolw_array.from_array(u"array", self.array))
+		elem.appendChild(ligolw_array.Array.build(u"array", self.array))
 		return elem
 
 	@classmethod
