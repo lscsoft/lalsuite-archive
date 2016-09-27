@@ -1,4 +1,5 @@
 import doctest
+import math
 import pickle
 import random
 import sys
@@ -104,6 +105,12 @@ class test_infinity(unittest.TestCase):
 		self.assertEqual(-b, ( -a) - ( -a))
 		self.assertEqual( b, (  a) - ( -a))
 		self.assertEqual(-b, ( -a) - (  a))
+
+	def test__float__(self):
+		a = segments.infinity()
+		b = -segments.infinity()
+		self.assertTrue(math.isinf(a))
+		self.assertTrue(math.isinf(b))
 
 
 class test_segment(unittest.TestCase):
