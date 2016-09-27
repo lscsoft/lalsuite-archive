@@ -641,7 +641,7 @@ class LigolwSegments(set):
 				row.process_id = process_id
 				row.segment_def_id = segment_def_id
 				setattr(row, id_column, target_table.get_next_id())
-				if hasattr(row, "comment"):
+				if isinstance(row, lsctables.SegmentSum):
 					row.comment = None
 				yield row, target_table
 
