@@ -1184,9 +1184,6 @@ void LALInferenceCheckpointMCMC(LALInferenceRunState *runState) {
 
     MPI_Comm_rank(MPI_COMM_WORLD, &MPIrank);
 
-    /* temporary work around check for file open error in KISTI condor run for large number of iterations
-     * modified by hwlee at 25 August 2016
-     */
     resume_file = XLALH5FileOpen(runState->resumeOutFileName, "w");
     if(resume_file == NULL){
         XLALErrorHandler = XLALExitErrorHandler;

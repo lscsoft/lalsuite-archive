@@ -133,19 +133,14 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
 
    if (LALInferenceGetProcParamVal(commandLine, "--zeroLogLike")) {
     /* Use zero log(L) */
-     fprintf(stderr, "Using LALInferenceZeroLogLikelihood.\n");
     runState->likelihood=&LALInferenceZeroLogLikelihood;
    } else if (LALInferenceGetProcParamVal(commandLine, "--correlatedGaussianLikelihood")) {
-     fprintf(stderr, "Using LALInferenceCorrelatedAnalyticLogLikelihood.\n");
     runState->likelihood=&LALInferenceCorrelatedAnalyticLogLikelihood;
    } else if (LALInferenceGetProcParamVal(commandLine, "--bimodalGaussianLikelihood")) {
-     fprintf(stderr, "Using LALInferenceBimodalCorrelatedAnalyticLogLikelihood.\n");
     runState->likelihood=&LALInferenceBimodalCorrelatedAnalyticLogLikelihood;
    } else if (LALInferenceGetProcParamVal(commandLine, "--rosenbrockLikelihood")) {
-     fprintf(stderr, "Using LALInferenceRosenbrockLogLikelihood.\n");
     runState->likelihood=&LALInferenceRosenbrockLogLikelihood;
    } else if (LALInferenceGetProcParamVal(commandLine, "--studentTLikelihood")) {
-    fprintf(stderr, "Using Student's T Likelihood.\n");
     runState->likelihood=&LALInferenceFreqDomainStudentTLogLikelihood;
 
     /* Set the noise model evidence to the student t model value */

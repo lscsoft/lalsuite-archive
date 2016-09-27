@@ -725,6 +725,7 @@ int main(int argc, char *argv[]){
     if (mpirank == 0) printf("sampling...\n");
     runState->algorithm(runState);
 
+    /* added by hwlee and KGWG to remove allocated resources at 26 Sep 2016 */
     LALInferenceDestroyRunState(runState);
     runState = NULL;
 

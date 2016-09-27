@@ -1,7 +1,5 @@
 #define CONCAT2x(a,b) a##b
 #define CONCAT2(a,b) CONCAT2x(a,b)
-#define CONCAT3x(a,b,c) a##b##c
-#define CONCAT3(a,b,c) CONCAT3x(a,b,c)
 
 #define SERIESTYPE CONCAT2(DATATYPE,FrequencySeries)
 #define SEQUENCETYPE CONCAT2(DATATYPE,Sequence)
