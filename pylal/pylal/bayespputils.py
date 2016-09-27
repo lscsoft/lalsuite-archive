@@ -46,7 +46,7 @@ from operator import itemgetter
 from lalinference.io import read_samples
 import healpy as hp
 import astropy.table
-import lalinference.cmap
+import lalinference.plot.cmap
 import numpy as np
 from numpy import fmod
 import matplotlib
@@ -5524,7 +5524,6 @@ def find_ndownsample(samples, nDownsample):
     """
     if nDownsample is None:
         print "Max ACL(s):"
-    if nDownsample is None:
         splineParams=["spcal_npts", "spcal_active","constantcal_active"]
         for i in np.arange(5):
           for k in ['h1','l1']:
@@ -5558,7 +5557,7 @@ def find_ndownsample(samples, nDownsample):
             if len(samples) > nEff:
                 nskip = ceil(len(samples)/nEff)
         else:
-            nskip = None
+            nskip = np.nan
     return nskip
 
 class PEOutputParser(object):
@@ -5583,6 +5582,8 @@ class PEOutputParser(object):
             self._parser=self._xml_to_pos
         elif inputtype == 'hdf5':
             self._parser = self._hdf5_to_pos
+        elif inputtype == 'hdf5s':
+            self._parser = self._hdf5s_to_pos
         else:
             raise ValueError('Invalid value for "inputtype": %r' % inputtype)
 
@@ -6060,7 +6061,47 @@ class PEOutputParser(object):
         print 'Read columns %s'%(str(header))
         return header,flines
 
-    def _hdf5_to_pos(self, infile, outdir=None, deltaLogL=None, fixedBurnin=None, nDownsample=None, *kwargs):
+    def _hdf5s_to_pos(self, infiles, fixedBurnins=None, deltaLogL=None, nDownsample=None, **kwargs):
+        from astropy.table import vstack
+
+        if fixedBurnins is None:
+            fixedBurnins = np.zeros(len(infiles))
+
+        if len(infiles) > 1:
+            multiple_chains = True
+
+        chains = []
+        for i, [infile, fixedBurnin] in enumerate(zip(infiles, fixedBurnins)):
+            chain = self._hdf5_to_table(infile, fixedBurnin=fixedBurnin, deltaLogL=deltaLogL, nDownsample=nDownsample, multiple_chains=multiple_chains, **kwargs)
+            chain.add_column(astropy.table.Column(i*np.ones(len(chain)), name='chain'))
+            chains.append(chain)
+
+        # Apply deltaLogL criteria across chains
+        if deltaLogL is not None:
+            logLThreshold = -np.inf
+            for chain in chains:
+                if len(chain) > 0:
+                    logLThreshold = max([logLThreshold, max(chain['logl'])- deltaLogL])
+            print("Eliminating any samples before log(L) = {}".format(logLThreshold))
+
+        for i, chain in enumerate(chains):
+            if deltaLogL is not None:
+                above_threshold = np.arange(len(chain))[chain['logl'] > logLThreshold]
+                burnin_idx = above_threshold[0] if len(above_threshold) > 0 else len(chain)
+            else:
+                burnin_idx = 0
+            chains[i] = chain[burnin_idx:]
+
+        samples = vstack(chains)
+
+        # Downsample one more time
+        if nDownsample is not None:
+            nskip = find_ndownsample(samples, nDownsample)
+            samples = samples[::nskip]
+
+        return samples.colnames, samples.as_array().view(float).reshape(-1, len(samples.columns))
+
+    def _hdf5_to_table(self, infile, deltaLogL=None, fixedBurnin=None, nDownsample=None, multiple_chains=False, **kwargs):
         """
         Parse a HDF5 file and return an array of posterior samples ad list of
         parameter names. Equivalent to '_common_to_pos' and work in progress.
@@ -6108,30 +6149,40 @@ class PEOutputParser(object):
                 print "Fixed burning criteria: ",fixedBurnin
             else:
                 fixedBurnin = 0
-            burnin_idx = np.arange(len(samples))[samples['cycle'] > fixedBurnin][0]
+
+            post_burnin = np.arange(len(samples))[samples['cycle'] > fixedBurnin]
+            burnin_idx = post_burnin[0] if len(post_burnin) > 0 else len(samples)
             samples = samples[burnin_idx:]
 
             logLThreshold=-1e200 # Really small?
-            if not (deltaLogL is None):
+            if len(samples) > 0 and not (deltaLogL is None):
                 logLThreshold = max(samples['logl'])- deltaLogL
                 print "Eliminating any samples before log(L) = ", logLThreshold
                 burnin_idx = np.arange(len(samples))[samples['logl'] > logLThreshold][0]
                 samples = samples[burnin_idx:]
 
-            nskip = find_ndownsample(samples, nDownsample)
-            if nDownsample is None:
-                print "Downsampling to take only uncorrelated posterior samples from each file."
-                if np.isnan(nskip):
-                    print "WARNING: All samples in chain are correlated.  Downsampling to 10000 samples for inspection!!!"
-                    nskip = find_ndownsample(samples, 10000)
-                else:
-                    if np.isnan(nskip):
-                        print "%s eliminated since all samples are correlated."
+            if len(samples) > 0:
+                nskip = find_ndownsample(samples, nDownsample)
+                if nDownsample is None:
+                    print "Downsampling to take only uncorrelated posterior samples from each file."
+                    if np.isnan(nskip) and not multiple_chains:
+                        print "WARNING: All samples in chain are correlated.  Downsampling to 10000 samples for inspection!!!"
+                        nskip = find_ndownsample(samples, 10000)
+                        samples = samples[::nskip]
                     else:
-                        print "Downsampling by a factor of ", nskip, " to achieve approximately ", nDownsample, " posterior samples"
-                samples = samples[::nskip]
+                        if np.isnan(nskip):
+                            print "WARNING: All samples in {} are correlated.".format(infile)
+                            samples = samples[-1:]
+                        else:
+                            print "Downsampling by a factor of ", nskip, " to achieve approximately ", nDownsample, " posterior samples"
+                            samples = samples[::nskip]
 
-        return samples.colnames, samples.as_array().view(float).reshape(-1, len(params))
+        return samples
+
+    def _hdf5_to_pos(self, infile, **kwargs):
+        samples = self._hdf5_to_table(infile, **kwargs)
+
+        return samples.colnames, samples.as_array().view(float).reshape(-1, len(samples.columns))
 
     def _common_to_pos(self,infile,info=[None,None]):
         """
@@ -7500,12 +7551,23 @@ def make_1d_table(html,legend,label,pos,pars,noacf,GreedyRes,onepdfdir,sampsdir,
         chain_index=pos.names.index("chain")
         chains=unique(pos["chain"].samples)
         chainCycles = [sort(data[ data[:,chain_index] == chain, par_index ]) for chain in chains]
-        chainNcycles = [cycles[-1]-cycles[0] for cycles in chainCycles]
-        chainNskips = [cycles[1] - cycles[0] for cycles in chainCycles]
+        chainNcycles = []
+        chainNskips = []
+        for cycles in chainCycles:
+            if len(cycles) > 1:
+                chainNcycles.append(cycles[-1] - cycles[0])
+                chainNskips.append(cycles[1] - cycles[0])
+            else:
+                chainNcycles.append(1)
+                chainNskips.append(1)
     elif 'cycle' in pos.names:
         cycles = sort(pos['cycle'].samples)
-        Ncycles = cycles[-1]-cycles[0]
-        Nskip = cycles[1]-cycles[0]
+        if len(cycles) > 1:
+            Ncycles = cycles[-1]-cycles[0]
+            Nskip = cycles[1]-cycles[0]
+        else:
+            Ncycles = 1
+            Nskip = 1
 
     printed=0
     for par_name in pars:

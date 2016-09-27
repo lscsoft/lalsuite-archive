@@ -1,3 +1,9 @@
+glue (1.52.0-2) UNRELEASED; urgency=medium
+
+  * Update debian packaging for jessie.
+
+ -- Leo Singer <leo.singer@ligo.org>  Fri, 23 Sep 2016 11:37:51 -0400
+
 glue (1.52.0-1) unstable; urgency=low
 
   * ER10 release of glue.

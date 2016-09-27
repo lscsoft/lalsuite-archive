@@ -1,7 +1,6 @@
+from setuptools import setup
 
-from distutils.core import setup
-
-version = "1.0.1"
+version = "1.0.2"
 
 setup(
   name = "ligo-common",

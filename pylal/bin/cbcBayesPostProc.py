@@ -302,10 +302,13 @@ def cbcBayesPostProc(
         thefile=open(data[0],'r')
         votfile=thefile.read()
     elif '.hdf' in data[0] or '.h5' in data[0]:
-        peparser = bppu.PEOutputParser('hdf5')
-        if fixedBurnins is None:
-            fixedBurnins = [None]
-        commonResultsObj=peparser.parse(data[0],deltaLogL=deltaLogL,fixedBurnin=fixedBurnins[0],nDownsample=nDownsample)
+        if len(data) > 1:
+            peparser = bppu.PEOutputParser('hdf5s')
+            commonResultsObj=peparser.parse(data,deltaLogL=deltaLogL,fixedBurnins=fixedBurnins,nDownsample=nDownsample)
+        else:
+            fixedBurnins = fixedBurnins if fixedBurnins is not None else None
+            peparser = bppu.PEOutputParser('hdf5')
+            commonResultsObj=peparser.parse(data[0],deltaLogL=deltaLogL,fixedBurnin=fixedBurnins,nDownsample=nDownsample)
     else:
         peparser=bppu.PEOutputParser('common')
         commonResultsObj=peparser.parse(open(data[0],'r'),info=[header,None])
@@ -1207,7 +1210,11 @@ if __name__=='__main__':
       datafiles=datafiles + opts.data
     
     if opts.fixedBurnin:
-      fixedBurnins = [int(fixedBurnin) for fixedBurnin in opts.fixedBurnin]
+      # If only one value for multiple chains, assume it's to be applied to all chains
+      if len(opts.fixedBurnin) == 1:
+        fixedBurnins = [int(opts.fixedBurnin[0]) for df in datafiles]
+      else:
+        fixedBurnins = [int(fixedBurnin) for fixedBurnin in opts.fixedBurnin]
     else:
       fixedBurnins = None
 

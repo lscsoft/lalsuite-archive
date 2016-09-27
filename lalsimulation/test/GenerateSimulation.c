@@ -619,12 +619,16 @@ int main (int argc , char **argv) {
       fprintf(stdout, "Generation took %.3f seconds for %d waveforms, average time is %.3f ms with eccentric\n",
                 cpu_used, params->runs, cpu_used*1000.0/params->runs);
       /* clean up */
+      XLALDestroyREAL8TimeSeries(hplus);
+      XLALDestroyREAL8TimeSeries(hcross);
       XLALSimInspiralDestroyWaveformFlags(params->waveFlags);
       XLALSimInspiralDestroyTestGRParam(params->nonGRparams);
       XLALFree(params);
     }
     else { // normal single generation
       /* clean up */
+      XLALDestroyREAL8TimeSeries(hplus);
+      XLALDestroyREAL8TimeSeries(hcross);
       XLALSimInspiralDestroyWaveformFlags(params->waveFlags);
       XLALSimInspiralDestroyTestGRParam(params->nonGRparams);
       XLALFree(params);

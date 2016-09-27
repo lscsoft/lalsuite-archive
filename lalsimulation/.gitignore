@@ -14,6 +14,7 @@ AUTHORS
 Makefile
 Makefile.in
 config.lt
+debian/control
 doxygen/autogen.dox
 doxygen/doxygen.cfg
 doxygen/doxygen_objdb_*.tmp
@@ -28,6 +29,7 @@ include/lal/header-link-stamp
 lalsimulation-*.tar.xz
 lalsimulation-user-env.csh
 lalsimulation-user-env.sh
+lalsimulation-user-env.fish
 lalsimulation-user-env.shell
 lalsimulation.spec
 libtool

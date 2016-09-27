@@ -30,11 +30,7 @@ from glue.ligolw.utils import segments as ligolw_segments
 from glue.ligolw.utils import process
 from lalsimulation import SimInspiralTaylorF2ReducedSpinComputeChi, SimIMRPhenomBComputeChi
 
-try:
-	import sqlite3
-except ImportError:
-	# pre 2.5.x
-	from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 
 
 def allowed_analysis_table_names():
