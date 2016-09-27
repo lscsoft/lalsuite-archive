@@ -246,6 +246,11 @@ void LALInferenceInitCBCThreads(LALInferenceRunState *run_state, INT4 nthreads) 
     LALInferenceCopyVariables(run_state->proposalArgs, thread->proposalArgs);
 
     /* Link thread-state prior-args to the parent run-state's */
+    /* added by hwlee and KGWG to destroy before assign to prevent memory leak at 20 sep 2016 */
+    if(thread->priorArgs) {
+      LALInferenceClearVariables(thread->priorArgs);
+      XLALFree(thread->priorArgs);
+    }
     thread->priorArgs = run_state->priorArgs;
 
     /* Use clocktime if seed isn't provided */
@@ -723,7 +728,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   LALStatus status;
   memset(&status,0,sizeof(status));
   int errnum;
-  SimInspiralTable *injTable=NULL;
+  SimInspiralTable *injTable=NULL, *injTable0=NULL;
   LALInferenceVariables *priorArgs=state->priorArgs;
   LALInferenceVariables *proposalArgs=state->proposalArgs;
   ProcessParamsTable *commandLine=state->commandLine;
@@ -781,6 +786,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   }
 
   LALInferenceModel *model = XLALMalloc(sizeof(LALInferenceModel));
+  memset(model, 0x00, sizeof(LALInferenceModel));
   model->params = XLALCalloc(1, sizeof(LALInferenceVariables));
   memset(model->params, 0, sizeof(LALInferenceVariables));
 
@@ -797,6 +803,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
       fprintf(stderr,"Unable to open injection file %s\n",ppt->value);
       exit(1);
     }
+    injTable0 = injTable; // added by hwlee and KGWG to destroy properly injection table at 16 Sep 2016
     ppt=LALInferenceGetProcParamVal(commandLine,"--event");
     if(ppt){
       event= atoi(ppt->value);
@@ -824,6 +831,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
       if(node) LALInferenceAddVariable(model->params,node->name,node->value,node->type,node->vary);
       else {fprintf(stderr,"Error: Cannot pin parameter %s. No such parameter found in injection!\n",node->name);}
     }
+    LALInferenceClearVariables(&tempParams);// added by hwlee and KGWG to destroy added variables in tempParams
   }
 
   /* Over-ride approximant if user specifies */
@@ -942,7 +950,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   if(ppt) eccmin=atof(ppt->value);
   ppt=LALInferenceGetProcParamVal(commandLine,"--ecc-max");
   if(ppt) eccmax=atof(ppt->value);
-  if( !node ) { /* set to be unformly variate for ecc if it was not fixed to injection value already */
+  if( !node ) { /* set to be uniformly variate for ecc if it was not fixed to injection value already */
     LALInferenceRegisterUniformVariableREAL8(state, model->params, "ecc", ecc, eccmin, eccmax, LALINFERENCE_PARAM_LINEAR);
   }
   LALInferenceAddVariable(model->params, "ecc_order", &ecc_order, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
@@ -1353,6 +1361,9 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
 
   /* Initialize waveform cache */
   model->waveformCache = XLALCreateSimInspiralWaveformCache();
+
+  /* added by hwlee and KGWG to destroy injection table at 16 Sep 2016 */
+  LALDestroySimInspiralTable(injTable0);
 
   return(model);
 }

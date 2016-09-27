@@ -23,7 +23,6 @@
 
 #include <config.h>
 #include <math.h>
-#include <sys/resource.h>
 #include <stdio.h>
 #include <stdlib.h>
 #ifdef HAVE_UNISTD_H
@@ -126,7 +125,6 @@ resetDifferentialEvolutionBuffer(LALInferenceThreadState *thread) {
     thread->differentialPointsSize = 1;
     thread->differentialPointsSkip = LALInferenceGetINT4Variable(thread->proposalArgs, "de_skip");
 }
-
 
 void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState) {
     INT4 t=0; //indexes for for() loops
@@ -446,6 +444,7 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState) {
         /* Broadcast the root's decision on run completion */
         MPI_Bcast(&runComplete, 1, MPI_INT, 0, MPI_COMM_WORLD);
     }// while (!runComplete)
+
 }
 
 void record_likelihoods(LALInferenceThreadState *thread) {
@@ -473,8 +472,6 @@ void record_likelihoods(LALInferenceThreadState *thread) {
 
 void mcmc_step(LALInferenceRunState *runState, LALInferenceThreadState *thread) {
     // Metropolis-Hastings sampler.
-    /* memory leackage check code made by hwlee at 26 august 2016
-     */
     INT4 MPIrank;
     REAL8 logPriorCurrent, logPriorProposed;
     REAL8 logLikelihoodCurrent, logLikelihoodProposed;
@@ -1643,7 +1640,7 @@ void LALInferencePrintPTMCMCInjectionSample(LALInferenceRunState *runState) {
             LALInferenceSetVariable(thread->currentParams, "eta", &eta);
         } else {
             /* Restore state, cleanup, and throw error */
-            LALInferenceClearVariables(thread->currentParams);
+            //LALInferenceClearVariables(thread->currentParams); // will be done at LALInferenceCopyVariables commented out by hwlee
             LALInferenceCopyVariables(saveParams, thread->currentParams);
             XLALFree(fname);
             LALInferenceClearVariables(saveParams);

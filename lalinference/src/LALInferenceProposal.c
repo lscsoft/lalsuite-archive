@@ -327,6 +327,19 @@ LALInferenceVariables *LALInferenceParseProposalArgs(LALInferenceRunState *runSt
     INT4 nUniqueDet = numDetectorsUniquePositions(runState->data);
     LALInferenceAddINT4Variable(propArgs, "nUniqueDet", nUniqueDet, LALINFERENCE_PARAM_FIXED);
 
+    LALDetector *detectors = XLALCalloc(nDet, sizeof(LALDetector));
+
+    for (i=0,ifo=runState->data; i<nDet; i++,ifo=ifo->next)
+        detectors[i] = *(ifo->detector);
+    LALInferenceAddVariable(propArgs, "detectors", &detectors, LALINFERENCE_void_ptr_t, LALINFERENCE_PARAM_FIXED);
+
+    char **ifo_names = XLALCalloc(nDet, sizeof(char*));
+    for(ifo=runState->data,i=0;ifo;ifo=ifo->next,i++) {
+        ifo_names[i] = XLALCalloc(DETNAMELEN, sizeof(char));
+        strcpy(ifo_names[i], ifo->name);
+    }
+    LALInferenceAddVariable(propArgs, "detector_names", &ifo_names, LALINFERENCE_void_ptr_t, LALINFERENCE_PARAM_FIXED);
+
     INT4 marg_timephi = 0;
     if (LALInferenceGetProcParamVal(command_line, "--margtimephi"))
         marg_timephi = 1;
@@ -466,11 +479,12 @@ LALInferenceVariables *LALInferenceParseProposalArgs(LALInferenceRunState *runSt
     if (singleadapt){
       LALInferenceModel *model = LALInferenceInitCBCModel(runState);
       LALInferenceSetupAdaptiveProposals(propArgs, model->params);
+      LALInferenceDestroyInferenceModel(model); // added by hwlee and KGWG to destry properly at 16 Sep 2016
       XLALFree(model);
     }
     /* Setup buffer now since threads aren't accessible to the main setup function */
     if (diffevo || stretch || walk) {
-        for (i=0; i<runState->nthreads; i++)
+        for (i=0; i<runState->nthreads; i++) /* this loop is already done before calling this function */
             LALInferenceSetupDifferentialEvolutionProposal(runState->threads[i]);
     }
 
@@ -3035,7 +3049,9 @@ void LALInferenceSetupGlitchProposal(LALInferenceIFOData *data, LALInferenceVari
 
 /* Initialize differential evolution proposal */
 void LALInferenceSetupDifferentialEvolutionProposal(LALInferenceThreadState *thread) {
-    thread->differentialPoints = XLALCalloc(1, sizeof(LALInferenceVariables *));
+    /* added by hwlee and KGWG, this could be initialized many times, hence check before allocate at 19 sep 2016 */
+    if(!thread->differentialPoints)
+      thread->differentialPoints = XLALCalloc(1, sizeof(LALInferenceVariables *));
     thread->differentialPointsLength = 0;
     thread->differentialPointsSize = 1;
     thread->differentialPointsSkip = 1;

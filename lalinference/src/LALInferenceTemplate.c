@@ -793,6 +793,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
   REAL8 f_ecc = 0.;
   if(LALInferenceCheckVariable(model->params, "f_ecc")) f_ecc = *(REAL8*) LALInferenceGetVariable(model->params, "f_ecc");
 
+
   /* Only use GR templates */
   LALSimInspiralTestGRParam *nonGRparams = NULL;
 
@@ -818,7 +819,6 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
         break;
     }
   }
-
 
 
   /* ==== Call the waveform generator ==== */

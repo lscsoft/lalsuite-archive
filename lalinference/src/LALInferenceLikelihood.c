@@ -133,12 +133,16 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
 
    if (LALInferenceGetProcParamVal(commandLine, "--zeroLogLike")) {
     /* Use zero log(L) */
+     fprintf(stderr, "Using LALInferenceZeroLogLikelihood.\n");
     runState->likelihood=&LALInferenceZeroLogLikelihood;
    } else if (LALInferenceGetProcParamVal(commandLine, "--correlatedGaussianLikelihood")) {
+     fprintf(stderr, "Using LALInferenceCorrelatedAnalyticLogLikelihood.\n");
     runState->likelihood=&LALInferenceCorrelatedAnalyticLogLikelihood;
    } else if (LALInferenceGetProcParamVal(commandLine, "--bimodalGaussianLikelihood")) {
+     fprintf(stderr, "Using LALInferenceBimodalCorrelatedAnalyticLogLikelihood.\n");
     runState->likelihood=&LALInferenceBimodalCorrelatedAnalyticLogLikelihood;
    } else if (LALInferenceGetProcParamVal(commandLine, "--rosenbrockLikelihood")) {
+     fprintf(stderr, "Using LALInferenceRosenbrockLogLikelihood.\n");
     runState->likelihood=&LALInferenceRosenbrockLogLikelihood;
    } else if (LALInferenceGetProcParamVal(commandLine, "--studentTLikelihood")) {
     fprintf(stderr, "Using Student's T Likelihood.\n");
@@ -172,6 +176,7 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
       fprintf(stderr, "WARNING: Using Fast SineGaussian likelihood and WF for LIB.\n");
       runState->likelihood=&LALInferenceFastSineGaussianLogLikelihood;
    } else {
+     fprintf(stderr, "Using LALInferenceUndecomposedFreqDomainLogLikelihood.\n");
       runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood;
    }
 
@@ -364,7 +369,6 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 
   /* ROQ likelihood stuff */
   REAL8 d_inner_h=0.0;
-
 
   if (LALInferenceCheckVariable(currentParams, "spcal_active") && (*(UINT4 *)LALInferenceGetVariable(currentParams, "spcal_active"))) {
     spcal_active = 1;
@@ -823,32 +827,32 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
     	LALInferenceAddREAL8Variable(currentParams,varname,cplx_snr_phase,LALINFERENCE_PARAM_OUTPUT);
 
 
-    }
+    }/* if (model->roq_flag) */
 
     else{
 
-    	REAL8 *psd=&(dataPtr->oneSidedNoisePowerSpectrum->data->data[lower]);
-    COMPLEX16 *dtilde=&(dataPtr->freqData->data->data[lower]);
-    COMPLEX16 *hptilde=&(model->freqhPlus->data->data[lower]);
-    COMPLEX16 *hctilde=&(model->freqhCross->data->data[lower]);
-    COMPLEX16 diff=0.0;
-    COMPLEX16 template=0.0;
-    REAL8 templatesq=0.0;
-    REAL8 this_ifo_S=0.0;
-    COMPLEX16 this_ifo_Rcplx=0.0;
+      REAL8 *psd=&(dataPtr->oneSidedNoisePowerSpectrum->data->data[lower]);
+      COMPLEX16 *dtilde=&(dataPtr->freqData->data->data[lower]);
+      COMPLEX16 *hptilde=&(model->freqhPlus->data->data[lower]);
+      COMPLEX16 *hctilde=&(model->freqhCross->data->data[lower]);
+      COMPLEX16 diff=0.0;
+      COMPLEX16 template=0.0;
+      REAL8 templatesq=0.0;
+      REAL8 this_ifo_S=0.0;
+      COMPLEX16 this_ifo_Rcplx=0.0;
 
-    for (i=lower,chisq=0.0,re = cos(twopit*deltaF*i),im = -sin(twopit*deltaF*i);
+      for (i=lower,chisq=0.0,re = cos(twopit*deltaF*i),im = -sin(twopit*deltaF*i);
          i<=upper;
          i++, psd++, hptilde++, hctilde++, dtilde++,
          newRe = re + re*dre - im*dim,
          newIm = im + re*dim + im*dre,
          re = newRe, im = newIm)
-    {
+      {
 
-      COMPLEX16 d=*dtilde;
-      /* Normalise PSD to our funny standard (see twoDeltaTOverN
+        COMPLEX16 d=*dtilde;
+        /* Normalise PSD to our funny standard (see twoDeltaTOverN
 	 below). */
-      REAL8 sigmasq=(*psd)*deltaT*deltaT;
+        REAL8 sigmasq=(*psd)*deltaT*deltaT;
 
       if (constantcal_active) {
         REAL8 dre_tmp= creal(d)*cos_calpha - cimag(d)*sin_calpha;
@@ -999,13 +1003,10 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
       XLALDestroyCOMPLEX16FrequencySeries(calFactor);
       calFactor = NULL;
     }
+  }/* END of if (model->roq_flag) */
   } /* end loop over detectors */
 
-  }
   if (model->roq_flag){
-
-
-
 	REAL8 OptimalSNR=sqrt(S);
         REAL8 MatchedFilterSNR = d_inner_h/OptimalSNR;
         /* fprintf(stderr, "%f\n", d_inner_h - 0.5*OptimalSNR); */

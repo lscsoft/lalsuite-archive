@@ -33,7 +33,9 @@ extern "C" {
 extern size_t lalMallocTotal;
 extern size_t lalMallocTotalPeak;
 void *XLALMalloc(size_t n);
+void *XLALMallocName(size_t n, const char* name, const char *from, const char *case_str);
 void *XLALMallocLong(size_t n, const char *file, int line);
+void *XLALMallocLongName(size_t n, const char *file, int line, const char* name, const char *from, const char *case_str);
 void *XLALCalloc(size_t m, size_t n);
 void *XLALCallocLong(size_t m, size_t n, const char *file, int line);
 void *XLALRealloc(void *p, size_t n);
@@ -41,6 +43,7 @@ void *XLALReallocLong(void *p, size_t n, const char *file, int line);
 void XLALFree(void *p);
 #ifndef SWIG    /* exclude from SWIG interface */
 #define XLALMalloc( n )        XLALMallocLong( n, __FILE__, __LINE__ )
+#define XLALMallocName( n, name, from, case_str)        XLALMallocLongName( n, __FILE__, __LINE__, name, from, case_str)
 #define XLALCalloc( m, n )     XLALCallocLong( m, n, __FILE__, __LINE__ )
 #define XLALRealloc( p, n )    XLALReallocLong( p, n, __FILE__, __LINE__ )
 #endif /* SWIG */
@@ -72,7 +75,9 @@ void XLALFreeAligned(void *ptr);
 #ifndef SWIG    /* exclude from SWIG interface */
 #define LALMalloc                          malloc
 #define LALMallocShort                     malloc
+#define LALMallocShortName(n, name, from, case_str)                     malloc(n)
 #define LALMallocLong( n, file, line )     malloc( n )
+#define LALMallocLongName( n, file, line, name, from, case_str)     malloc( n )
 #define LALCalloc                          calloc
 #define LALCallocShort                     calloc
 #define LALCallocLong( m, n, file, line )  calloc( m, n )
@@ -107,7 +112,9 @@ extern int lalIsMemDbgPtr;      /* ( lalMemDbgUsrPtr == lalMemDbgPtr ) */
 
 /** \addtogroup LALMalloc_h */ /*@{ */
 void *LALMallocShort(size_t n);
+void *LALMallocShortName(size_t n, const char* name, const char *from, const char *case_str);
 void *LALMallocLong(size_t n, const char *file, int line);
+void *LALMallocLongName(size_t n, const char *file, int line, const char* name, const char *from, const char *case_str);
 void *LALCallocShort(size_t m, size_t n);
 void LALFree(void *p);
 void *LALCallocLong(size_t m, size_t n, const char *file, int line);

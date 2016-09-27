@@ -1176,6 +1176,18 @@ void LALInferenceEquatorialToDetFrame(LALDetector *det0, LALDetector *det1,
                                  REAL8 tg, REAL8 ra, REAL8 dec,
                                  REAL8 *t0, REAL8 *alpha, REAL8 *theta);
 
+/**
+ * Functions related to tagLALInferenceIFOData structure
+ * added by HyungWon Lee and KGWG to clean memories 
+ * 14 Sep. 2016
+ */
+void LALInferenceDestroyRunState(LALInferenceRunState *runState);
+void LALInferenceDestroyIFOData(LALInferenceIFOData *ifo);
+void LALInferenceDestroyROQData(LALInferenceROQData *roq);
+void LALInferenceDestroyThreadState(LALInferenceThreadState *thread);
+void LALInferenceDestroyProposalCycle(LALInferenceProposalCycle *cycle);
+void LALInferenceDestroyInferenceModel(LALInferenceModel *model);
+void LALInferenceDestroyIFOModel(LALInferenceIFOModel *ifo);
 /*@}*/
 
 #endif

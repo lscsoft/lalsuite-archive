@@ -23,6 +23,7 @@
 
 
 #include <stdio.h>
+#include <lal/LALMalloc.h>
 #include <lal/Date.h>
 #include <lal/GenerateInspiral.h>
 #include <lal/LALInference.h>
@@ -301,6 +302,9 @@ INT4 init_ptmcmc(LALInferenceRunState *runState) {
     /* Make a single model just to count dimensions */
     model = LALInferenceInitCBCModel(runState);
     ndim = LALInferenceGetVariableDimensionNonFixedChooseVectors(model->params, count_vectors);
+    /* added by hwlee and KGWG to free memory for model at 19 sep 2016 */
+    LALInferenceDestroyInferenceModel(model);
+    XLALFree(model);
 
     /* Build the temperature ladder */
     ladder = LALInferenceBuildHybridTempLadder(runState, ndim);
@@ -324,6 +328,11 @@ INT4 init_ptmcmc(LALInferenceRunState *runState) {
         thread->temperature = ladder[thread->id];
 
         thread->proposal = &LALInferenceCyclicProposal;
+        //DEBUG hwlee here I think proposalArgs should be Destroyed if not NULL
+        if(thread->proposalArgs) {
+          LALInferenceClearVariables(thread->proposalArgs);
+          XLALFree(thread->proposalArgs);
+        }
         thread->proposalArgs = LALInferenceParseProposalArgs(runState);
         thread->cycle = LALInferenceSetupDefaultInspiralProposalCycle(thread->proposalArgs);
 
@@ -654,7 +663,6 @@ ProcessParamsTable *LALInferenceContinueMCMC(char *infileName) {
     return procParams;
 }
 
-
 int main(int argc, char *argv[]){
     INT4 mpirank;
     ProcessParamsTable *procParams = NULL, *ppt = NULL;
@@ -717,8 +725,11 @@ int main(int argc, char *argv[]){
     if (mpirank == 0) printf("sampling...\n");
     runState->algorithm(runState);
 
-    printf("==== DEBUG hwlee in mcmc main rank = %d finished.\n", mpirank);
+    LALInferenceDestroyRunState(runState);
+    runState = NULL;
+
     if (mpirank == 0) printf(" ========== main(): finished. ==========\n");
+
     MPI_Finalize();
 
     return XLAL_SUCCESS;

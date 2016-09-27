@@ -48,6 +48,7 @@
 #include <lal/LALNoiseModels.h>
 #include <lal/XLALError.h>
 #include <lal/GenerateInspiral.h>
+#include <lal/LIGOMetadataUtils.h>
 #include <lal/LIGOLwXMLRead.h>
 #include <lal/LIGOLwXMLInspiralRead.h>
 
@@ -386,7 +387,7 @@ void LALInferencePrintDataWithInjection(LALInferenceIFOData *IFOdata, ProcessPar
   UINT4 event=0;
   char *chartmp=NULL;
   ProcessParamsTable *procparam=NULL,*ppt=NULL;
-  SimInspiralTable *injTable=NULL;
+  SimInspiralTable *injTable=NULL, *injTable0=NULL;
   //ProcessParamsTable *pptdatadump=NULL;
   LIGOTimeGPS GPStrig;
   while(thisData){
@@ -401,6 +402,7 @@ void LALInferencePrintDataWithInjection(LALInferenceIFOData *IFOdata, ProcessPar
       fprintf(stderr,"Unable to open injection file(LALInferenceReadData) %s\n",procparam->value);
       exit(1);
     }
+    injTable0 = injTable; // added to destroy injection table property by hwlee and KGWG at 16 Sep 2016
     procparam=LALInferenceGetProcParamVal(commandLine,"--event");
     if(procparam) {
       event=atoi(procparam->value);
@@ -507,7 +509,8 @@ void LALInferencePrintDataWithInjection(LALInferenceIFOData *IFOdata, ProcessPar
     }
 
   }
-
+  /* added to destroy injection table properly by hwlee and KGWG at 16 Sep 2016 */
+  LALDestroySimInspiralTable(injTable0);
 }
 
 #define USAGE "\
@@ -558,7 +561,6 @@ void LALInferencePrintDataWithInjection(LALInferenceIFOData *IFOdata, ProcessPar
     (--0noise)                  Sets the noise realisation to be identically zero\n\
                                     (for the fake caches above only)\n\
     \n"
-
 LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 /* Read in the data and store it in a LALInferenceIFOData structure */
 {
@@ -657,7 +659,6 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
     if (procparam) {
         LALStringToGPS(&status,&GPSstart,procparam->value,&chartmp);
         if(status.statusCode) {
-          fprintf(stderr, "===== DEBUG 01 hwlee statusCode = %d in LALInreferenceReadData\n", status.statusCode);
           REPORTSTATUS(&status);
         }
     } else
@@ -667,7 +668,6 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
     LALInferenceSetGPSTrigtime(&GPStrig,commandLine);
 
     if(status.statusCode) {
-      fprintf(stderr, "===== DEBUG 02 hwlee statusCode = %d in LALInreferenceReadData\n", status.statusCode);
       REPORTSTATUS(&status);
     }
 
@@ -1256,12 +1256,18 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
         if(IFOnames) if(IFOnames[i]) XLALFree(IFOnames[i]);
         if(fLows) if(fLows[i]) XLALFree(fLows[i]);
         if(fHighs) if(fHighs[i]) XLALFree(fHighs[i]);
-    }
+        /* missing to clean for time slides and psds added by hwlee and KGWG at 14 Sep. 2016 */
+        if(timeslides) if(timeslides[i]) XLALFree(timeslides[i]);
+        if(psds) if(psds[i]) XLALFree(psds[i]);
+    } 
     if(channels) XLALFree(channels);
     if(caches) XLALFree(caches);
     if(IFOnames) XLALFree(IFOnames);
     if(fLows) XLALFree(fLows);
     if(fHighs) XLALFree(fHighs);
+    /* missing to clean for time slides and psds adde by hwlee and KGWG at 14 Sep. 2016 */
+    if(timeslides) XLALFree(timeslides);
+    if(psds) XLALFree(psds);
 
     if (LALInferenceGetProcParamVal(commandLine, "--roqtime_steps")){
 
@@ -1346,7 +1352,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 {
 	LALStatus status;
 	memset(&status,0,sizeof(status));
-	SimInspiralTable *injTable=NULL;
+	SimInspiralTable *injTable=NULL, *injTable0;
   SimInspiralTable *injEvent=NULL;
 	UINT4 Ninj=0;
 	UINT4 event=0;
@@ -1392,22 +1398,23 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 
 	Ninj=SimInspiralTableFromLIGOLw(&injTable,LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
         if(status.statusCode) {
-          fprintf(stderr, "===== DEBUG 01 hwlee statusCode = %d in InjectInspiralSignal\n", status.statusCode);
 	  REPORTSTATUS(&status);
         }
 	printf("Ninj %d\n", Ninj);
+        injTable0 = injTable;
 	if(Ninj<=event){
           fprintf(stderr,"Error reading event %d from %s\n",event,LALInferenceGetProcParamVal(commandLine,"--inj")->value);
           exit(1);
         }
 	while(i<event) {i++; injTable = injTable->next;} /* Select event */
 	injEvent = injTable;
+        /* destroy unsed injection tables by hwlee and KGWG at 16 Sep 2016 */
+        LALDestroySimInspiralTable(injEvent->next);
 	injEvent->next = NULL;
   enforce_m1_larger_m2(injEvent);
 	Approximant injapprox;
 	injapprox = XLALGetApproximantFromString(injTable->waveform);
         if( (int) injapprox == XLAL_FAILURE) {
-          fprintf(stderr, "===== DEBUG 02 hwlee statusCode = %d in InjectInspiralSignal\n", status.statusCode);
 	  REPORTSTATUS(&status);
           ABORTXLAL(&status);
         }
@@ -1419,6 +1426,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	{
 	 InjectFD(IFOdata, injTable, commandLine);
 	 LALInferencePrintDataWithInjection(IFOdata,commandLine);
+         LALDestroySimInspiralTable(injTable0); // added to destroy injection table structure by hwlee and KGWG at 19 Sep 2016
 	 return;
 	}
 	/* Begin loop over interferometers */
@@ -1481,7 +1489,6 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
       printf("Using LALInspiral for injection\n");
       XLALResampleREAL4TimeSeries(injectionBuffer,thisData->timeData->deltaT); //downsample to analysis sampling rate.
       if(status.statusCode) {
-        fprintf(stderr, "===== DEBUG 03 hwlee statusCode = %d in InjectInspiralSignal\n", status.statusCode);
         REPORTSTATUS(&status);
       }
       XLALDestroyCOMPLEX8FrequencySeries(resp);
@@ -1499,7 +1506,6 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 
         LALGenerateInspiral(&status, &waveform, injEvent, &ppnParams ); //Recompute the waveform just to get access to ppnParams.tc and waveform.h->data->length or waveform.phi->data->length
         if(status.statusCode) {
-          fprintf(stderr, "===== DEBUG 04 hwlee statusCode = %d in InjectInspiralSignal\n", status.statusCode);
           REPORTSTATUS(&status);
         }
 
@@ -1526,7 +1532,6 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
       injectionBuffer=(REAL4TimeSeries *)XLALCutREAL4TimeSeries(injectionBuffer,realStartSample,thisData->timeData->data->length);
       if (!injectionBuffer) XLAL_ERROR_VOID(XLAL_EFUNC);
       if(status.statusCode) {
-        fprintf(stderr, "===== DEBUG 05 hwlee statusCode = %d in InjectInspiralSignal\n", status.statusCode);
         REPORTSTATUS(&status);
       }
       for(i=0;i<injectionBuffer->data->length;i++) inj8Wave->data->data[i]=(REAL8)injectionBuffer->data->data[i];
@@ -1716,7 +1721,6 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
         realStartSample+=(INT4)((IFOdata->timeData->epoch.gpsNanoSeconds - injectionBuffer->epoch.gpsNanoSeconds)*1e-9/IFOdata->timeData->deltaT);
         LALFindChirpInjectSignals(&status,injectionBuffer,injEvent,resp);
         if(status.statusCode) {
-          fprintf(stderr, "===== DEBUG 06 hwlee statusCode = %d in InjectInspiralSignal\n", status.statusCode);
           REPORTSTATUS(&status);
         }
         XLALDestroyCOMPLEX8FrequencySeries(resp);
@@ -1727,6 +1731,9 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
     }
 
     LALInferencePrintDataWithInjection(IFOdata,commandLine);
+
+    /* added by hwlee and KGWG to destroy injection table data at 16 Sep. 2016 */
+    LALDestroySimInspiralTable(injTable0);
 
     return;
 }
