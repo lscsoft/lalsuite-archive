@@ -548,7 +548,7 @@ class Coincidences(list):
     for file in files:
       coinc = CoincData()
       xmldoc = utils.load_filename(file, contenthandler=ligolw.LIGOLWContentHandler)
-      sngltab = tab.get_table(xmldoc,lsctables.SnglInspiralTable.tableName)
+      sngltab = lsctables.SnglInspiralTable.get_table(xmldoc)
       coinc.set_snr(dict((row.ifo, row.snr) for row in sngltab))
       coinc.set_gps(dict((row.ifo, lal.LIGOTimeGPS(row.get_end())) for row in sngltab))
       #FIXME: this is put in place to deal with eff_distance = 0
@@ -562,7 +562,7 @@ class Coincidences(list):
 #      coinc.set_effDs(dict((row.ifo,row.eff_distance) for row in sngltab))
       coinc.set_masses(dict((row.ifo, row.mass1) for row in sngltab), \
                        dict((row.ifo, row.mass2) for row in sngltab))
-      ctab = tab.get_table(xmldoc,lsctables.CoincInspiralTable.tableName)
+      ctab = lsctables.CoincInspiralTable.get_table(xmldoc)
       #FIXME: ignoring H2 for now, but should be dealt in a better way
       allifos = list(ctab[0].get_ifos())
       try:
@@ -574,7 +574,7 @@ class Coincidences(list):
         coinc.set_FAR(ctab[0].false_alarm_rate)
 
       try:
-        simtab = tab.get_table(xmldoc,lsctables.SimInspiralTable.tableName)
+        simtab = lsctables.SimInspiralTable.get_table(xmldoc)
         row = siminsptab[0]
         effDs_inj = {}
         for ifo in coinc.ifo_list:

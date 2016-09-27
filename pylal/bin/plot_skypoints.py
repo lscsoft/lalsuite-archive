@@ -58,17 +58,17 @@ else:
 for file in files:
   xmldoc =utils.load_filename(file)
   try:
-    sltab = table.get_table(xmldoc,skylocutils.SkyLocInjTable.tableName)
+    sltab = skylocutils.SkyLocInjTable.get_table(xmldoc)
     if sltab[0].grid:
       print "injection"    
       inj = True
     else:
       print "no injection"
-      sltab = table.get_table(xmldoc,skylocutils.SkyLocTable.tableName)
+      sltab = skylocutils.SkyLocTable.get_table(xmldoc)
       inj = False  
   except:
     print "no injection"
-    sltab = table.get_table(xmldoc,skylocutils.SkyLocTable.tableName)
+    sltab = skylocutils.SkyLocTable.get_table(xmldoc)
     inj = False
   
   print "Plotting "+file

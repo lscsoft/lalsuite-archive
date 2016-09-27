@@ -59,7 +59,7 @@ def get_single_ifo_segments(connection, program_name = "inspiral", usertag = Non
 	seglist_dict = segments.segmentlistdict()
 	# extract segments indexed by available instrument
 	for row in map( 
-		dbtables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).row_from_cols, 
+		lsctables.SearchSummaryTable.get_table(xmldoc).row_from_cols, 
 		connection.cursor().execute("""
 			SELECT search_summary.*
 			FROM search_summary
@@ -119,7 +119,7 @@ def get_veto_segments(xmldoc, verbose):
 	veto_segments = {}
 
 	# get the set of unique veto_definer names in this xmldoc
-	veto_def_names = set( table.get_table(xmldoc, lsctables.SegmentDefTable.tableName).getColumnByName('name') )
+	veto_def_names = set( lsctables.SegmentDefTable.get_table(xmldoc).getColumnByName('name') )
 
 	for name in veto_def_names:
 		if verbose:

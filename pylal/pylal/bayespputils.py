@@ -7162,7 +7162,7 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
     skip=0
     try:
       xmldoc = utils.load_filename(simburst,contenthandler=LIGOLWContentHandlerExtractSimBurstTable)
-      tbl = lsctables.table.get_table(xmldoc,  lsctables.SimBurstTable.tableName)
+      tbl = lsctables.SimBurstTable.get_table(xmldoc)
       if event>0:
         tbl=tbl[event]
       else:
