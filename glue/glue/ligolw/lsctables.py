@@ -3805,42 +3805,96 @@ class Segment(table.TableRow):
 	>>> # make sure results are segment table row objects
 	>>> segments.segmentlist(map(Segment, x & y))	# doctest: +ELLIPSIS
 	[<glue.ligolw.lsctables.Segment object at 0x...>, <glue.ligolw.lsctables.Segment object at 0x...>]
+
+	This implementation uses a non-standard extension to encode
+	infinite values for boundaries:  the second and nanosecond
+	components are both set to 0x7FFFFFFF or 0xFFFFFFFF to indicate
+	positive resp. negative infinity.  For this reason, "denormalized"
+	LIGOTimeGPS objects (objects whose nanoseconds fields contain
+	values exceeding +/-999999999) are disallowed for use with this
+	class.
+
+	Example:
+
+	>>> x = Segment()
+	>>> # OK
+	>>> x.start = -segments.infinity()
+	>>> # also OK
+	>>> x.start = float("-inf")
+	>>> # infinite boundaries always returned as segments.infinity
+	>>> # instances
+	>>> x.start
+	-infinity
+	>>> x.end = float("+inf")
+	>>> x.segment
+	segment(-infinity, infinity)
 	"""
 	__slots__ = SegmentTable.validcolumns.keys()
+
+	posinf = 0x7FFFFFFF, 0xFFFFFFFF
+	neginf = 0xFFFFFFFF, 0xFFFFFFFF
 
 	@property
 	def start(self):
 		if self.start_time is None and self.start_time_ns is None:
 			return None
+		if (self.start_time, self.start_time_ns) == self.posinf:
+			return segments.PosInfinity
+		if (self.start_time, self.start_time_ns) == self.neginf:
+			return segments.NegInfinity
 		return LIGOTimeGPS(self.start_time, self.start_time_ns)
 
 	@start.setter
 	def start(self, gps):
 		if gps is None:
 			self.start_time = self.start_time_ns = None
+		elif isinstance(gps, segments.infinity) or math.isinf(gps):
+			if gps > 0:
+				self.start_time, self.start_time_ns = self.posinf
+			elif gps < 0:
+				self.start_time, self.start_time_ns = self.neginf
+			else:
+				raise ValueError(gps)
 		else:
 			try:
 				self.start_time, self.start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
 			except AttributeError:
 				# try converting and going again
 				self.start = LIGOTimeGPS(gps)
+			else:
+				if abs(self.start_time_ns) > 999999999:
+					raise ValueError("denormalized LIGOTimeGPS not allowed")
 
 	@property
 	def end(self):
 		if self.end_time is None and self.end_time_ns is None:
 			return None
+		if (self.end_time, self.end_time_ns) == self.posinf:
+			return segments.PosInfinity
+		if (self.end_time, self.end_time_ns) == self.neginf:
+			return segments.NegInfinity
 		return LIGOTimeGPS(self.end_time, self.end_time_ns)
 
 	@end.setter
 	def end(self, gps):
 		if gps is None:
 			self.end_time = self.end_time_ns = None
+		elif isinstance(gps, segments.infinity) or math.isinf(gps):
+			if gps > 0:
+				self.end_time, self.end_time_ns = self.posinf
+			elif gps < 0:
+				self.end_time, self.end_time_ns = self.neginf
+			else:
+				raise ValueError(gps)
 		else:
 			try:
 				self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
 			except AttributeError:
 				# try converting and going again
 				self.end = LIGOTimeGPS(gps)
+			else:
+				if abs(self.end_time_ns) > 999999999:
+					raise ValueError("denormalized LIGOTimeGPS not allowed")
 
 	@property
 	def segment(self):
