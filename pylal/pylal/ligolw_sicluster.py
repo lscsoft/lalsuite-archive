@@ -44,14 +44,12 @@ __author__ = "Duncan Brown <dbrown@ligo.caltech.edu>"
 #
 
 def get_tables(doc):
-  snglinspiraltable = table.get_table(
-    doc, lsctables.SnglInspiralTable.tableName)
+  snglinspiraltable = lsctables.SnglInspiralTable.get_table(doc)
 
   input_times = None
   output_times = None
   try:
-    searchsummtable = table.get_table(
-      doc, lsctables.SearchSummaryTable.tableName)
+    searchsummtable = lsctables.SearchSummaryTable.get_table(doc)
     input_times = searchsummtable.get_inlist().extent()
     output_times = searchsummtable.get_outlist().extent()
   except ValueError:
