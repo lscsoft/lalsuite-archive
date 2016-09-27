@@ -232,12 +232,9 @@ def main(cacheFile, ifoTag, userTag, segdir, outdir, grbTag=None, numTrials=6,\
     # Also load the basic time slide table
     timeSlideDoc = utils.load_filename((cache[0]).path,
         gz=( (cache[0]).path ).endswith(".gz"), contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
-    timeSlideTable = table.get_table(timeSlideDoc,
-          lsctables.TimeSlideTable.tableName)
-    segmentTable = table.get_table(timeSlideDoc,
-          lsctables.SegmentTable.tableName)
-    timeSlideSegmentMap = table.get_table(timeSlideDoc,
-          lsctables.TimeSlideSegmentMapTable.tableName)
+    timeSlideTable = lsctables.TimeSlideTable.get_table(timeSlideDoc)
+    segmentTable = lsctables.SegmentTable.get_table(timeSlideDoc)
+    timeSlideSegmentMap = lsctables.TimeSlideSegmentMapTable.get_table(timeSlideDoc)
   else:
     trigs['ALL_TIMES'] = lsctables.New(lsctables.MultiInspiralTable,\
                                columns=lsctables.MultiInspiralTable.loadcolumns)

@@ -166,7 +166,7 @@ site_location_list = [\
     ("g", inject.cached_detector["GEO_600"]),
     ("t", inject.cached_detector["TAMA_300"]),
     ("v", inject.cached_detector["VIRGO"])]
-for sim in table.get_table(siminsp_doc, lsctables.SimInspiralTable.tableName):
+for sim in lsctables.SimInspiralTable.get_table(siminsp_doc):
     # rotate
     s1, s2 = get_spins(sim)
     newIota, news1, news2 = alignTotalSpin(sim.inclination, s1, s2,

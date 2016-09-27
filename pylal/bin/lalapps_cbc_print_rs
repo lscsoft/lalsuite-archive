@@ -244,11 +244,11 @@ if opts.merge_with_loudest_events:
 
     # get the segments corresponding to the loudest events end times
     letable = table.get_table(letable_doc, "loudest_events:table")
-    sngl_insp_table = table.get_table(fullxml_doc, lsctables.SnglInspiralTable.tableName)
-    coinc_map_table = table.get_table(fullxml_doc, lsctables.CoincMapTable.tableName)
-    exp_summ_table = table.get_table(fullxml_doc, lsctables.ExperimentSummaryTable.tableName)
-    exp_map_table = table.get_table(fullxml_doc, lsctables.ExperimentMapTable.tableName)
-    offset_vectors = table.get_table(fullxml_doc, lsctables.TimeSlideTable.tableName).as_dict()
+    sngl_insp_table = lsctables.SnglInspiralTable.get_table(fullxml_doc)
+    coinc_map_table = lsctables.CoincMapTable.get_table(fullxml_doc)
+    exp_summ_table = lsctables.ExperimentSummaryTable.get_table(fullxml_doc)
+    exp_map_table = lsctables.ExperimentMapTable.get_table(fullxml_doc)
+    offset_vectors = lsctables.TimeSlideTable.get_table(fullxml_doc).as_dict()
 
     # create a segmentlist out of the segments in the rank_table
     segdict = dict([ [(row.file_type, row.ifo, segments.segment(row.out_start_time, (row.out_start_time+row.segment_duration))), row] for row in seg_table ])
