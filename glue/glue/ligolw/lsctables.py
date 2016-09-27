@@ -1,4 +1,4 @@
-# Copyright (C) 2006--2015  Kipp Cannon
+# Copyright (C) 2006--2016  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -126,15 +126,6 @@ def New(Type, columns = None, **kwargs):
 	new._end_of_columns()
 	new.appendChild(table.TableStream(sax.xmlreader.AttributesImpl({u"Name": Type.tableName, u"Delimiter": table.TableStream.Delimiter.default, u"Type": table.TableStream.Type.default})))
 	return new
-
-
-def IsTableProperties(Type, tagname, attrs):
-	"""
-	obsolete.  see .CheckProperties() method of glue.ligolw.table.Table
-	class.
-	"""
-	warnings.warn("lsctables.IsTableProperties() is deprecated.  use glue.ligolw.table.Table.CheckProperties() instead", DeprecationWarning)
-	return Type.CheckProperties(tagname, attrs)
 
 
 def HasNonLSCTables(elem):
@@ -4578,43 +4569,43 @@ TimeSlideSegmentMapTable.RowType = TimeSlideSegmentMap
 
 
 TableByName = {
-	table.StripTableName(ProcessTable.tableName): ProcessTable,
-	table.StripTableName(LfnTable.tableName): LfnTable,
-	table.StripTableName(ProcessParamsTable.tableName): ProcessParamsTable,
-	table.StripTableName(SearchSummaryTable.tableName): SearchSummaryTable,
-	table.StripTableName(SearchSummVarsTable.tableName): SearchSummVarsTable,
-	table.StripTableName(ExperimentTable.tableName): ExperimentTable,
-	table.StripTableName(ExperimentSummaryTable.tableName): ExperimentSummaryTable,
-	table.StripTableName(ExperimentMapTable.tableName): ExperimentMapTable,
-	table.StripTableName(GDSTriggerTable.tableName): GDSTriggerTable,
-	table.StripTableName(SnglBurstTable.tableName): SnglBurstTable,
-	table.StripTableName(MultiBurstTable.tableName): MultiBurstTable,
-	table.StripTableName(SnglInspiralTable.tableName): SnglInspiralTable,
-	table.StripTableName(CoincInspiralTable.tableName): CoincInspiralTable,
-	table.StripTableName(SnglRingdownTable.tableName): SnglRingdownTable,
-	table.StripTableName(CoincRingdownTable.tableName): CoincRingdownTable,
-	table.StripTableName(MultiInspiralTable.tableName): MultiInspiralTable,
-	table.StripTableName(SimInspiralTable.tableName): SimInspiralTable,
-	table.StripTableName(SimBurstTable.tableName): SimBurstTable,
-	table.StripTableName(SimRingdownTable.tableName): SimRingdownTable,
-	table.StripTableName(SummValueTable.tableName): SummValueTable,
-	table.StripTableName(SimInstParamsTable.tableName): SimInstParamsTable,
-	table.StripTableName(StochasticTable.tableName): StochasticTable,
-	table.StripTableName(StochSummTable.tableName): StochSummTable,
-	table.StripTableName(ExtTriggersTable.tableName): ExtTriggersTable,
-	table.StripTableName(FilterTable.tableName): FilterTable,
-	table.StripTableName(SegmentTable.tableName): SegmentTable,
-	table.StripTableName(SegmentDefTable.tableName): SegmentDefTable,
-	table.StripTableName(SegmentSumTable.tableName): SegmentSumTable,
-	table.StripTableName(TimeSlideTable.tableName): TimeSlideTable,
-	table.StripTableName(CoincDefTable.tableName): CoincDefTable,
-	table.StripTableName(CoincTable.tableName): CoincTable,
-	table.StripTableName(CoincMapTable.tableName): CoincMapTable,
-	table.StripTableName(DQSpecListTable.tableName): DQSpecListTable,
-	table.StripTableName(LIGOLWMonTable.tableName): LIGOLWMonTable,
-	table.StripTableName(VetoDefTable.tableName): VetoDefTable,
-	table.StripTableName(SummMimeTable.tableName): SummMimeTable,
-	table.StripTableName(TimeSlideSegmentMapTable.tableName): TimeSlideSegmentMapTable
+	table.Table.TableName(ProcessTable.tableName): ProcessTable,
+	table.Table.TableName(LfnTable.tableName): LfnTable,
+	table.Table.TableName(ProcessParamsTable.tableName): ProcessParamsTable,
+	table.Table.TableName(SearchSummaryTable.tableName): SearchSummaryTable,
+	table.Table.TableName(SearchSummVarsTable.tableName): SearchSummVarsTable,
+	table.Table.TableName(ExperimentTable.tableName): ExperimentTable,
+	table.Table.TableName(ExperimentSummaryTable.tableName): ExperimentSummaryTable,
+	table.Table.TableName(ExperimentMapTable.tableName): ExperimentMapTable,
+	table.Table.TableName(GDSTriggerTable.tableName): GDSTriggerTable,
+	table.Table.TableName(SnglBurstTable.tableName): SnglBurstTable,
+	table.Table.TableName(MultiBurstTable.tableName): MultiBurstTable,
+	table.Table.TableName(SnglInspiralTable.tableName): SnglInspiralTable,
+	table.Table.TableName(CoincInspiralTable.tableName): CoincInspiralTable,
+	table.Table.TableName(SnglRingdownTable.tableName): SnglRingdownTable,
+	table.Table.TableName(CoincRingdownTable.tableName): CoincRingdownTable,
+	table.Table.TableName(MultiInspiralTable.tableName): MultiInspiralTable,
+	table.Table.TableName(SimInspiralTable.tableName): SimInspiralTable,
+	table.Table.TableName(SimBurstTable.tableName): SimBurstTable,
+	table.Table.TableName(SimRingdownTable.tableName): SimRingdownTable,
+	table.Table.TableName(SummValueTable.tableName): SummValueTable,
+	table.Table.TableName(SimInstParamsTable.tableName): SimInstParamsTable,
+	table.Table.TableName(StochasticTable.tableName): StochasticTable,
+	table.Table.TableName(StochSummTable.tableName): StochSummTable,
+	table.Table.TableName(ExtTriggersTable.tableName): ExtTriggersTable,
+	table.Table.TableName(FilterTable.tableName): FilterTable,
+	table.Table.TableName(SegmentTable.tableName): SegmentTable,
+	table.Table.TableName(SegmentDefTable.tableName): SegmentDefTable,
+	table.Table.TableName(SegmentSumTable.tableName): SegmentSumTable,
+	table.Table.TableName(TimeSlideTable.tableName): TimeSlideTable,
+	table.Table.TableName(CoincDefTable.tableName): CoincDefTable,
+	table.Table.TableName(CoincTable.tableName): CoincTable,
+	table.Table.TableName(CoincMapTable.tableName): CoincMapTable,
+	table.Table.TableName(DQSpecListTable.tableName): DQSpecListTable,
+	table.Table.TableName(LIGOLWMonTable.tableName): LIGOLWMonTable,
+	table.Table.TableName(VetoDefTable.tableName): VetoDefTable,
+	table.Table.TableName(SummMimeTable.tableName): SummMimeTable,
+	table.Table.TableName(TimeSlideSegmentMapTable.tableName): TimeSlideSegmentMapTable
 }
 
 
@@ -4650,7 +4641,7 @@ def use_in(ContentHandler):
 	ContentHandler = table.use_in(ContentHandler)
 
 	def startTable(self, parent, attrs, __orig_startTable = ContentHandler.startTable):
-		name = table.StripTableName(attrs[u"Name"])
+		name = table.Table.TableName(attrs[u"Name"])
 		if name in TableByName:
 			return TableByName[name](attrs)
 		return __orig_startTable(self, parent, attrs)

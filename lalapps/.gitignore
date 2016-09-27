@@ -14,6 +14,7 @@ AUTHORS
 Makefile
 Makefile.in
 config.lt
+debian/control
 doxygen/autogen.dox
 doxygen/doxygen.cfg
 doxygen/doxygen_objdb_*.tmp
@@ -25,6 +26,7 @@ doxygen/test_doxygen.*
 lalapps-*.tar.xz
 lalapps-user-env.csh
 lalapps-user-env.sh
+lalapps-user-env.fish
 lalapps-user-env.shell
 lalapps.spec
 libtool
@@ -165,7 +167,6 @@ src/power/lalapps_power_likelihood_pipe
 src/power/lalapps_power_online_pipe
 src/power/lalapps_power_pipe
 src/power/lalapps_simburst_to_frame
-src/power/sense_compare
 src/pulsar/CreateEphemeris/lalapps_create_solar_system_ephemeris
 src/pulsar/CreateEphemeris/lalapps_create_time_correction_ephemeris
 src/pulsar/CrossCorr/gsldata.dat
