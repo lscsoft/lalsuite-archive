@@ -440,7 +440,9 @@ if __name__ == "__main__":
 	if not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful():
 		sys.exit(1)
 
-	doctest.testmod(segments)
+	failures = doctest.testmod(segments)[0]
+	if failures:
+		sys.exit(bool(failures))
 
 	# then with C extension implementation
 
@@ -460,4 +462,6 @@ if __name__ == "__main__":
 	if not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful():
 		sys.exit(1)
 
-	doctest.testmod(segments)
+	failures = doctest.testmod(segments)[0]
+	if failures:
+		sys.exit(bool(failures))
