@@ -153,13 +153,10 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
     fprintf(stdout,"Student-t Noise evidence %lf\n", noiseZ);
 
    } else if (LALInferenceGetProcParamVal(commandLine, "--margphi")) {
-    fprintf(stderr, "Using marginalised phase likelihood.\n");
     runState->likelihood=&LALInferenceMarginalisedPhaseLogLikelihood;
    } else if (LALInferenceGetProcParamVal(commandLine, "--margtime")) {
-    fprintf(stderr, "Using marginalised time likelihood.\n");
     runState->likelihood=&LALInferenceMarginalisedTimeLogLikelihood;
    } else if (LALInferenceGetProcParamVal(commandLine, "--margtimephi")) {
-     fprintf(stderr, "Using marginalised in time and phase likelihood.\n");
      runState->likelihood=&LALInferenceMarginalisedTimePhaseLogLikelihood;
      //LALInferenceAddVariable(runState->currentParams, "margtimephi", &margphi, LALINFERENCE_UINT4_t,LALINFERENCE_PARAM_FIXED);
    }
@@ -171,7 +168,6 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
       fprintf(stderr, "WARNING: Using Fast SineGaussian likelihood and WF for LIB.\n");
       runState->likelihood=&LALInferenceFastSineGaussianLogLikelihood;
    } else {
-     fprintf(stderr, "Using LALInferenceUndecomposedFreqDomainLogLikelihood.\n");
       runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood;
    }
 
