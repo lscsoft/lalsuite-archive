@@ -62,27 +62,17 @@ size_t lalMallocTotalPeak = 0;	/**< peak amount of memory allocated so far */
     }                                                                     \
     else (void)(0)
 
-/* DEBUG ??hwlee memory check */
 void *(XLALMalloc) (size_t n) {
-  return XLALMallocName(n, "dummy_XLALMalloc", "from_XLALMAloc", "dummy_case");
-}
-void *(XLALMallocName) (size_t n, const char* name, const char *from, const char *case_str) {
     void *p;
-    //p = LALMallocShort(n); //original one
-    p = LALMallocShortName(n, name, from, case_str);
+    p = LALMallocShort(n);
     XLAL_TEST_POINTER(p, n);
     return p;
 }
 
 void *XLALMallocLong(size_t n, const char *file, int line)
 {
-  return XLALMallocLongName(n, file, line, "dummy_XLALMallocLong", "from_XLALMAllocLong", "dummy_case");
-}
-void *XLALMallocLongName(size_t n, const char *file, int line, const char* name, const char *from, const char *case_str)
-{
     void *p;
-    //p = LALMallocLong(n, file, line);
-    p = LALMallocLongName(n, file, line, name, from, case_str);
+    p = LALMallocLong(n, file, line);
     XLAL_TEST_POINTER_LONG(p, n, file, line);
     return p;
 }
@@ -266,11 +256,6 @@ static struct allocNode {
     size_t size;
     const char *file;
     int line;
-    int frames;
-    char** trace;
-    const char *name;
-    const char *from;
-    const char *case_str;
 } **alloc_data = NULL;		/* Allocation hash table with open addressing and linear probing */
 static int alloc_data_len = 0;	/* Size of the memory block 'alloc_data', in number of elements */
 static int alloc_n = 0;		/* Number of valid elements in the hash */
@@ -417,13 +402,7 @@ UNUSED static struct allocNode *FindAlloc(void *p)
     return AllocHashTblFind(&key);
 }
 
-/* DEBUG modified by hwlee and KGWG to print more information at 19 sep 2016 */
-static void *PadAllocName(size_t * p, size_t n, int keep, const char *func, const char *name);
 static void *PadAlloc(size_t * p, size_t n, int keep, const char *func)
-{
-  return PadAllocName(p, n, keep, func, "dummy_name");
-}
-static void *PadAllocName(size_t * p, size_t n, int keep, const char *func, const char *name)
 {
     size_t i;
 
@@ -434,18 +413,11 @@ static void *PadAllocName(size_t * p, size_t n, int keep, const char *func, cons
     if (!p) {
         return NULL;
     }
-//DEBUG ??hwlee
-    void* callstack[128];
-    int frames = backtrace(callstack, 128);
-    char** trace = backtrace_symbols(callstack, frames);
+
     if (lalDebugLevel & LALMEMINFOBIT) {
-        XLALPrintError("%s meminfo: allocating %zu bytes at address %p name : %s\nalloc_TRACE:\n",
-                      func, n, p + nprefix, name);
-        //for(int k=0; k<frames; k++) {
-        //  fprintf(stderr, "  [%3d]%s\n", k, trace[k]);
-        //}
+        XLALPrintError("%s meminfo: allocating %zu bytes at address %p\n",
+                      func, n, p + nprefix);
     }
-    free(trace);
 
     /* store the size in a known position */
     p[0] = n;
@@ -544,9 +516,7 @@ static void *UnPadAlloc(void *p, int keep, const char *func)
     return q;
 }
 
-/* DEBUG ??hwlee add trace information */
-//static void *PushAlloc(void *p, size_t n, const char *file, int line)
-static void *PushAlloc(void *p, size_t n, const char *file, int line, int frames, char** trace, const char *name, const char *from, const char *case_str)
+static void *PushAlloc(void *p, size_t n, const char *file, int line)
 {
     struct allocNode *newnode;
     if (!(lalDebugLevel & LALMEMTRKBIT)) {
@@ -563,15 +533,7 @@ static void *PushAlloc(void *p, size_t n, const char *file, int line, int frames
     newnode->size = n;
     newnode->file = file;
     newnode->line = line;
-    /* DEBUG ??hwlee to print trace information */
-    newnode->frames = frames;
-    newnode->trace = trace;
-    newnode->name = name;
-    newnode->from = from;
-    newnode->case_str = case_str;
-    /* DEBUG ??hwlee to print trace information end */
     if (!AllocHashTblAdd(newnode)) {
-        free(newnode->trace);
         free(newnode);
         return NULL;
     }
@@ -596,18 +558,13 @@ static void *PopAlloc(void *p, const char *func)
         lalRaiseHook(SIGSEGV, "%s error: alloc %p not found\n", func, p);
         return NULL;
     }
-    /* DEBUG ??hwlee free trace information */
-    free(node->trace);
     free(node);
     pthread_mutex_unlock(&mut);
     return p;
 }
 
-/* DEBUG ??hwlee save trace information */
-//static void *ModAlloc(void *p, void *q, size_t n, const char *func,
-//                      const char *file, int line)
 static void *ModAlloc(void *p, void *q, size_t n, const char *func,
-                      const char *file, int line, int frames, char** trace)
+                      const char *file, int line)
 {
     if (!(lalDebugLevel & LALMEMTRKBIT)) {
         return q;
@@ -627,11 +584,7 @@ static void *ModAlloc(void *p, void *q, size_t n, const char *func,
     node->size = n;
     node->file = file;
     node->line = line;
-    /* DEBUG ??hwlee trace information save */
-    node->frames = frames;
-    node->trace = trace;
     if (!AllocHashTblAdd(node)) {
-        free(node->trace);
         free(node);
         return NULL;
     }
@@ -643,21 +596,12 @@ static void *ModAlloc(void *p, void *q, size_t n, const char *func,
 
 void *LALMallocShort(size_t n)
 {
-  return LALMallocShortName(n, "dummy_Short", "from_Short", "dummy_case");
-}
-void *LALMallocShortName(size_t n, const char* name, const char *from, const char *case_str)
-{
-    //return (lalDebugLevel & LALMEMDBGBIT) ? LALMallocLong(n, "unknown", -1) : malloc(n);
-    return (lalDebugLevel & LALMEMDBGBIT) ? LALMallocLongName(n, "unknown", -1, name, from, case_str) : malloc(n);
+    return (lalDebugLevel & LALMEMDBGBIT) ? LALMallocLong(n, "unknown", -1) : malloc(n);
 }
 
 
 
 void *LALMallocLong(size_t n, const char *file, int line)
-{
-  return LALMallocLongName(n, file, line, "dummy_long", "from_Long", "dummy_case");
-}
-void *LALMallocLongName(size_t n, const char *file, int line, const char* name, const char *from, const char *case_str)
 {
     void *p;
     void *q;
@@ -667,12 +611,7 @@ void *LALMallocLongName(size_t n, const char *file, int line, const char* name, 
     }
 
     p = malloc(allocsz(n));
-    /* DEBUG ??hwlee save trace information */
-    void* callstack[128];
-    int frames = backtrace(callstack, 128);
-    char** trace = backtrace_symbols(callstack, frames);
-    //q = PushAlloc(PadAlloc(p, n, 0, "LALMalloc"), n, file, line);
-    q = PushAlloc(PadAllocName(p, n, 0, "LALMalloc", name), n, file, line, frames, trace, name, from, case_str);
+    q = PushAlloc(PadAlloc(p, n, 0, "LALMalloc"), n, file, line);
     lalMemDbgPtr = lalMemDbgRetPtr = q;
     lalIsMemDbgPtr = lalIsMemDbgRetPtr = (lalMemDbgRetPtr == lalMemDbgUsrPtr);
     if (!q) {
@@ -710,12 +649,7 @@ void *LALCallocLong(size_t m, size_t n, const char *file, int line)
 
     sz = m * n;
     p = malloc(allocsz(sz));
-    /* DEBUG ??hwlee save trace information */
-    void* callstack[128];
-    int frames = backtrace(callstack, 128);
-    char** trace = backtrace_symbols(callstack, frames);
-    //q = PushAlloc(PadAlloc(p, sz, 1, "LALCalloc"), sz, file, line);
-    q = PushAlloc(PadAlloc(p, sz, 1, "LALCalloc"), sz, file, line, frames, trace, "dummy_CallocLong", "from_CallocLong", "dummy_case");
+    q = PushAlloc(PadAlloc(p, sz, 1, "LALCalloc"), sz, file, line);
     lalMemDbgPtr = lalMemDbgRetPtr = q;
     lalIsMemDbgPtr = lalIsMemDbgRetPtr = (lalMemDbgRetPtr == lalMemDbgUsrPtr);
     if (!q) {
@@ -751,12 +685,7 @@ void *LALReallocLong(void *q, size_t n, const char *file, const int line)
     lalIsMemDbgPtr = lalIsMemDbgArgPtr = (lalMemDbgArgPtr == lalMemDbgUsrPtr);
     if (!q) {
         p = malloc(allocsz(n));
-        /* DEBUG ??hwlee save trace information */
-        void* callstack[128];
-        int frames = backtrace(callstack, 128);
-        char** trace = backtrace_symbols(callstack, frames);
-        //q = PushAlloc(PadAlloc(p, n, 0, "LALRealloc"), n, file, line);
-        q = PushAlloc(PadAlloc(p, n, 0, "LALRealloc"), n, file, line, frames, trace, "dummy_ReallocLong", "from_ReallocLong", "dummy_case");
+        q = PushAlloc(PadAlloc(p, n, 0, "LALRealloc"), n, file, line);
         if (!q) {
             XLALPrintError("LALMalloc: failed to allocate %zd bytes of memory\n", n);
             XLALPrintError("LALMalloc: %zd bytes of memory already allocated\n", lalMallocTotal);
@@ -782,14 +711,8 @@ void *LALReallocLong(void *q, size_t n, const char *file, const int line)
     if (!p) {
         return NULL;
     }
-    /* DEBUG ??hwlee save trace information */
-    void* callstack[128];
-    int frames = backtrace(callstack, 128);
-    char** strs = backtrace_symbols(callstack, frames);
-    /* DEBUG ??hwlee save trace information end */
 
-    //q = ModAlloc(q, PadAlloc(realloc(p, allocsz(n)), n, 1, "LALRealloc"), n, "LALRealloc", file, line);
-    q = ModAlloc(q, PadAlloc(realloc(p, allocsz(n)), n, 1, "LALRealloc"), n, "LALRealloc", file, line, frames, strs);
+    q = ModAlloc(q, PadAlloc(realloc(p, allocsz(n)), n, 1, "LALRealloc"), n, "LALRealloc", file, line);
     lalMemDbgPtr = lalMemDbgRetPtr = q;
     lalIsMemDbgPtr = lalIsMemDbgRetPtr = (lalMemDbgRetPtr == lalMemDbgUsrPtr);
 
@@ -830,14 +753,9 @@ void LALCheckMemoryLeaks(void)
         XLALPrintError("LALCheckMemoryLeaks: allocation list\n");
         for (int k = 0; k < alloc_data_len; ++k) {
             if (alloc_data[k] != NULL && alloc_data[k] != DEL) {
-                /* DEBUG ??hwlee trace print */
-                XLALPrintError("%p: %zu bytes (%s:%d) variable:%s, from:%s, case:%s\nTRACE:\n", alloc_data[k]->addr,
+                XLALPrintError("%p: %zu bytes (%s:%d)\n", alloc_data[k]->addr,
                                alloc_data[k]->size, alloc_data[k]->file,
-                               alloc_data[k]->line, alloc_data[k]->name, alloc_data[k]->from, alloc_data[k]->case_str);
-                for(int i=0; i<alloc_data[k]->frames; i++) {
-                  fprintf(stderr, "  [%2d]%s\n", i, alloc_data[k]->trace[i]);
-                }
-                /* DEBUG ??hwlee trace print end */
+                               alloc_data[k]->line);
             }
         }
         leak = 1;

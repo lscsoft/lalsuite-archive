@@ -105,8 +105,7 @@ accumulateDifferentialEvolutionSample(LALInferenceThreadState *thread, size_t bu
     }
 
     thread->differentialPoints[thread->differentialPointsLength] = XLALCalloc(1, sizeof(LALInferenceVariables));
-    //LALInferenceCopyVariables(thread->currentParams, thread->differentialPoints[thread->differentialPointsLength]); //DEBUG by ??hwlee
-    LALInferenceCopyVariablesFrom(thread->currentParams, thread->differentialPoints[thread->differentialPointsLength], "accumulateDifferentialEvolutionSample");
+    LALInferenceCopyVariables(thread->currentParams, thread->differentialPoints[thread->differentialPointsLength]);
 
     thread->differentialPointsLength += 1;
 }
@@ -127,9 +126,6 @@ resetDifferentialEvolutionBuffer(LALInferenceThreadState *thread) {
     thread->differentialPointsSkip = LALInferenceGetINT4Variable(thread->proposalArgs, "de_skip");
 }
 
-//DEBUG hwlee
-static int copy_calls_in_step=0;
-static int loop_count = 0;
 void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState) {
     INT4 t=0; //indexes for for() loops
     INT4 runComplete = 0;
@@ -276,8 +272,6 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState) {
     // iterate:
     step_last_written = runState->threads[0]->step;
     while (!runComplete) {
-        loop_count++;
-        fprintf(stdout, "===== DEBUG hwlee loop_count = %d\n", loop_count);
         #pragma omp parallel for private(thread)
         for (t = 0; t < n_local_threads; t++) {
             FILE *outfile = NULL;
@@ -313,9 +307,6 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState) {
                     fprintf(stdout,"Thread %i has %i effective samples. Stopping...\n", MPIrank, thread->effective_sample_size);
                     runComplete = 1;          // Sampling is done!
                 }
-                //DEBUG hwlee
-                if(loop_count >= 2)
-                  runComplete = 1;
 
                 mcmc_step(runState, thread); //evolve the chain at temperature ladder[t]
                 record_likelihoods(thread);
@@ -405,14 +396,10 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState) {
         /* Check if run should end */
         if (runState->threads[0]->step > Niter)
             runComplete=1;
-        //DEBUG hwlee
-        if(loop_count >= 2)
-          runComplete = 1;
 
         /* Broadcast the root's decision on run completion */
         MPI_Bcast(&runComplete, 1, MPI_INT, 0, MPI_COMM_WORLD);
     }// while (!runComplete)
-    fprintf(stdout, "======= DEBUG CopyVariables calls with accept = %d, Rank = %d\n", copy_calls_in_step, MPIrank);
 
 }
 
@@ -468,8 +455,7 @@ void mcmc_step(LALInferenceRunState *runState, LALInferenceThreadState *thread) 
         logLikelihoodProposed = -DBL_MAX;
 
     if (propTrack)
-        //LALInferenceCopyVariables(thread->currentParams, thread->preProposalParams); //DEBUG by ??hwlee
-        LALInferenceCopyVariablesFrom(thread->currentParams, thread->preProposalParams, "mcmc_step:propTrack");
+        LALInferenceCopyVariables(thread->currentParams, thread->preProposalParams);
 
     // determine acceptance probability:
     logAcceptanceProbability = (1.0/thread->temperature)*(logLikelihoodProposed - logLikelihoodCurrent)
@@ -479,9 +465,7 @@ void mcmc_step(LALInferenceRunState *runState, LALInferenceThreadState *thread) 
     // accept/reject:
     if ((logAcceptanceProbability > 0)
         || (log(gsl_rng_uniform(thread->GSLrandom)) < logAcceptanceProbability)) {   //accept
-        //LALInferenceCopyVariables(thread->proposedParams, thread->currentParams); // DEBUG by ??hwlee
-        copy_calls_in_step++;
-        LALInferenceCopyVariablesFrom(thread->proposedParams, thread->currentParams, "mcmc_step:accept_case");
+        LALInferenceCopyVariables(thread->proposedParams, thread->currentParams);
         thread->currentLikelihood = logLikelihoodProposed;
         thread->currentPrior = logPriorProposed;
 
@@ -1147,8 +1131,7 @@ void LALInferenceReadMCMCCheckpoint(LALInferenceRunState *runState) {
         LALInferenceVariables **propArgs;
         LALH5Dataset *prop_arg_group = XLALH5DatasetRead(chain_group, "proposal_arguments");
         LALInferenceH5DatasetToVariablesArray(prop_arg_group, &propArgs, &n);
-        //LALInferenceCopyVariables(propArgs[0], thread->proposalArgs); //DEBUG by ??hwlee
-        LALInferenceCopyVariablesFrom(propArgs[0], thread->proposalArgs, "LALInferenceReadMCMCCheckpoint:propArgs[0]");
+        LALInferenceCopyVariables(propArgs[0], thread->proposalArgs);
 
         /* We don't save strings, so we can't tell which parameter was last updated with adaptation.
          * So we'll treat the last step as non-adaptable */
@@ -1160,8 +1143,7 @@ void LALInferenceReadMCMCCheckpoint(LALInferenceRunState *runState) {
         LALInferenceVariables **currentParams;
         LALH5Dataset *current_param_group = XLALH5DatasetRead(chain_group, "current_parameters");
         LALInferenceH5DatasetToVariablesArray(current_param_group, &currentParams, &n);
-        //LALInferenceCopyVariables(currentParams[0], thread->currentParams); //DEBUG by ??hwlee
-        LALInferenceCopyVariablesFrom(currentParams[0], thread->currentParams, "LALInferenceReadMCMCCheckpoint:currentParams[0]");
+        LALInferenceCopyVariables(currentParams[0], thread->currentParams);
 
         /* Recalculate the likelihood and prior for the restored parameters */
         thread->currentPrior = runState->prior(runState,
@@ -1418,8 +1400,7 @@ void LALInferencePrintPTMCMCInjectionSample(LALInferenceRunState *runState) {
         }
         out = fopen(fname, "w");
 
-        //LALInferenceCopyVariables(thread->currentParams, saveParams);//DEBUG by ??hwlee
-        LALInferenceCopyVariablesFrom(thread->currentParams, saveParams, "LALInferencePrintPTMCMCInjectionSample:if ppt");
+        LALInferenceCopyVariables(thread->currentParams, saveParams);
 
         SimInspiralTable *injTable = NULL;
         SimInspiralTable *theEventTable = NULL;
@@ -1498,8 +1479,7 @@ void LALInferencePrintPTMCMCInjectionSample(LALInferenceRunState *runState) {
         } else {
             /* Restore state, cleanup, and throw error */
             //LALInferenceClearVariables(thread->currentParams); // will be done at LALInferenceCopyVariables commented out by hwlee
-            //LALInferenceCopyVariables(saveParams, thread->currentParams); //DEBUG by ??hwlee
-            LALInferenceCopyVariablesFrom(saveParams, thread->currentParams, "LALInferencePrintPTMCMCInjectionSample:else");
+            LALInferenceCopyVariables(saveParams, thread->currentParams);
             XLALFree(fname);
             LALInferenceClearVariables(saveParams);
             XLALFree(saveParams);
@@ -1563,8 +1543,7 @@ void LALInferencePrintPTMCMCInjectionSample(LALInferenceRunState *runState) {
             LALInferenceRemoveMinMaxPrior(runState->priorArgs, "phase");
         }
 
-        //LALInferenceCopyVariables(saveParams, thread->currentParams);//DEBUG by ??hwlee
-        LALInferenceCopyVariablesFrom(saveParams, thread->currentParams, "LALInferencePrintPTMCMCInjectionSample:after if");
+        LALInferenceCopyVariables(saveParams, thread->currentParams);
         thread->currentLikelihood = runState->likelihood(thread->currentParams, runState->data, thread->model);
         thread->currentPrior = runState->prior(runState, thread->currentParams, thread->model);
 

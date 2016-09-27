@@ -7,7 +7,6 @@
 #define SEQUENCETYPE CONCAT2(DATATYPE,Sequence)
 
 #define DFUNC CONCAT2(XLALDestroy,SEQUENCETYPE)
-#define CFUNCNAME CONCAT3(XLALCreate,SEQUENCETYPE,Name)
 #define CFUNC CONCAT2(XLALCreate,SEQUENCETYPE)
 #define XFUNC CONCAT2(XLALCut,SEQUENCETYPE)
 #define CPFUNC CONCAT2(XLALCopy,SEQUENCETYPE)
@@ -35,30 +34,19 @@ void DFUNC (
 	XLALFree(sequence);
 }
 
-/* DEBUG modified by hwlee and KGWG to check memory leak at 19 Sep 2016 */
 SEQUENCETYPE *CFUNC (
 	size_t length
-)
-{
-  return CFUNCNAME(length, "dummy");
-}
-SEQUENCETYPE *CFUNCNAME (
-	size_t length, const char *name
 )
 {
 	SEQUENCETYPE *new;
 	DATATYPE *data;
 
-	//new = XLALMalloc(sizeof(*new));
-        /* DEBUG added by hwlee and KGWG at 19 sep 2016 */
-	new = XLALMallocName(sizeof(*new), name, "CFUNC", "create new");
+	new = XLALMalloc(sizeof(*new));
 
 #ifdef USE_ALIGNED_MEMORY_ROUTINES
 	data = XLALMallocAligned(length * sizeof(*data));
 #else
-	//data = XLALMalloc(length * sizeof(*data));
-        /* DEBUG added by hwlee and KGWG at 19 sep 2016 */
-	data = XLALMallocName(length * sizeof(*data), name, "CFUNC", "create data");
+	data = XLALMalloc(length * sizeof(*data));
 #endif /*  USE_ALIGNED_MEMORY_ROUTINES */
 
 	/* data == NULL is OK if length == 0 */

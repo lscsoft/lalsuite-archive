@@ -561,14 +561,11 @@ void LALInferencePrintDataWithInjection(LALInferenceIFOData *IFOdata, ProcessPar
     (--0noise)                  Sets the noise realisation to be identically zero\n\
                                     (for the fake caches above only)\n\
     \n"
-//DEBUG hwlee
-static int readData_calls = 0;
 LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 /* Read in the data and store it in a LALInferenceIFOData structure */
 {
     LALStatus status;
     INT4 dataseed=0;
-    readData_calls++;
     memset(&status,0,sizeof(status));
     ProcessParamsTable *procparam=NULL,*ppt=NULL;
     //ProcessParamsTable *pptdatadump=NULL;
@@ -662,7 +659,6 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
     if (procparam) {
         LALStringToGPS(&status,&GPSstart,procparam->value,&chartmp);
         if(status.statusCode) {
-          fprintf(stderr, "===== DEBUG 01 hwlee statusCode = %d in LALInreferenceReadData\n", status.statusCode);
           REPORTSTATUS(&status);
         }
     } else
@@ -672,7 +668,6 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
     LALInferenceSetGPSTrigtime(&GPStrig,commandLine);
 
     if(status.statusCode) {
-      fprintf(stderr, "===== DEBUG 02 hwlee statusCode = %d in LALInreferenceReadData\n", status.statusCode);
       REPORTSTATUS(&status);
     }
 
@@ -709,7 +704,6 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
     for(i=0;i<Nifo;i++) {
         if(!dataOpts && !Nchannel) channels[i]=XLALMalloc(VARNAME_MAX);
         IFOdata[i].detector=XLALCalloc(1,sizeof(LALDetector));
-        fprintf(stderr, "====== DEBUG hwlee IFOdata[%d].detector = %p, readData_calls = %d in ReadData\n", i, IFOdata[i].detector, readData_calls);
 
         if(!strcmp(IFOnames[i],"H1")) {
             memcpy(IFOdata[i].detector,&lalCachedDetectors[LALDetectorIndexLHODIFF],sizeof(LALDetector));
@@ -1262,7 +1256,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
         if(IFOnames) if(IFOnames[i]) XLALFree(IFOnames[i]);
         if(fLows) if(fLows[i]) XLALFree(fLows[i]);
         if(fHighs) if(fHighs[i]) XLALFree(fHighs[i]);
-        /* missing to clean for time slides and psds adde by hwlee and KGWG at 14 Sep. 2016 */
+        /* missing to clean for time slides and psds added by hwlee and KGWG at 14 Sep. 2016 */
         if(timeslides) if(timeslides[i]) XLALFree(timeslides[i]);
         if(psds) if(psds[i]) XLALFree(psds[i]);
     } 
@@ -1404,7 +1398,6 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 
 	Ninj=SimInspiralTableFromLIGOLw(&injTable,LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
         if(status.statusCode) {
-          fprintf(stderr, "===== DEBUG 01 hwlee statusCode = %d in InjectInspiralSignal\n", status.statusCode);
 	  REPORTSTATUS(&status);
         }
 	printf("Ninj %d\n", Ninj);
@@ -1422,7 +1415,6 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	Approximant injapprox;
 	injapprox = XLALGetApproximantFromString(injTable->waveform);
         if( (int) injapprox == XLAL_FAILURE) {
-          fprintf(stderr, "===== DEBUG 02 hwlee statusCode = %d in InjectInspiralSignal\n", status.statusCode);
 	  REPORTSTATUS(&status);
           ABORTXLAL(&status);
         }
@@ -1497,7 +1489,6 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
       printf("Using LALInspiral for injection\n");
       XLALResampleREAL4TimeSeries(injectionBuffer,thisData->timeData->deltaT); //downsample to analysis sampling rate.
       if(status.statusCode) {
-        fprintf(stderr, "===== DEBUG 03 hwlee statusCode = %d in InjectInspiralSignal\n", status.statusCode);
         REPORTSTATUS(&status);
       }
       XLALDestroyCOMPLEX8FrequencySeries(resp);
@@ -1515,7 +1506,6 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 
         LALGenerateInspiral(&status, &waveform, injEvent, &ppnParams ); //Recompute the waveform just to get access to ppnParams.tc and waveform.h->data->length or waveform.phi->data->length
         if(status.statusCode) {
-          fprintf(stderr, "===== DEBUG 04 hwlee statusCode = %d in InjectInspiralSignal\n", status.statusCode);
           REPORTSTATUS(&status);
         }
 
@@ -1542,7 +1532,6 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
       injectionBuffer=(REAL4TimeSeries *)XLALCutREAL4TimeSeries(injectionBuffer,realStartSample,thisData->timeData->data->length);
       if (!injectionBuffer) XLAL_ERROR_VOID(XLAL_EFUNC);
       if(status.statusCode) {
-        fprintf(stderr, "===== DEBUG 05 hwlee statusCode = %d in InjectInspiralSignal\n", status.statusCode);
         REPORTSTATUS(&status);
       }
       for(i=0;i<injectionBuffer->data->length;i++) inj8Wave->data->data[i]=(REAL8)injectionBuffer->data->data[i];
@@ -1732,7 +1721,6 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
         realStartSample+=(INT4)((IFOdata->timeData->epoch.gpsNanoSeconds - injectionBuffer->epoch.gpsNanoSeconds)*1e-9/IFOdata->timeData->deltaT);
         LALFindChirpInjectSignals(&status,injectionBuffer,injEvent,resp);
         if(status.statusCode) {
-          fprintf(stderr, "===== DEBUG 06 hwlee statusCode = %d in InjectInspiralSignal\n", status.statusCode);
           REPORTSTATUS(&status);
         }
         XLALDestroyCOMPLEX8FrequencySeries(resp);

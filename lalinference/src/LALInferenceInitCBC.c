@@ -199,11 +199,7 @@ void LALInferenceDrawThreads(LALInferenceRunState *run_state) {
 /*
  * Initialize threads in memory, using LALInferenceInitCBCModel() to init models.
  */
-//DEBUG hwlee
-static int initCBCThreads_calls = 0;
 void LALInferenceInitCBCThreads(LALInferenceRunState *run_state, INT4 nthreads) {
-  initCBCThreads_calls++;
-  fprintf(stderr, "====== DEBUG hwlee initCBCThreads_calls = %d, nthreads = %d in LALInferenceInitCBCThreads\n", initCBCThreads_calls, nthreads);
   if (run_state == NULL){
     LALInferenceInitCBCModel(run_state);
     return;
@@ -615,8 +611,7 @@ void LALInferenceRegisterUniformVariableREAL8(LALInferenceRunState *state, LALIn
   }
   /*End of mass parameters check */
 
-  //LALInferenceAddVariable(var,name,&startval,LALINFERENCE_REAL8_t,varytype);
-  LALInferenceAddVariableFromCase(var,name,&startval,LALINFERENCE_REAL8_t,varytype, "RegisterUniform", "at end");
+  LALInferenceAddVariable(var,name,&startval,LALINFERENCE_REAL8_t,varytype);
   LALInferenceAddMinMaxPrior(state->priorArgs, name, &min, &max, LALINFERENCE_REAL8_t);
 
 }
@@ -791,7 +786,6 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   }
 
   LALInferenceModel *model = XLALMalloc(sizeof(LALInferenceModel));
-  fprintf(stderr, "====== DEBUG hwlee model = %p, size = %lu in InitCBCModel\n", model, sizeof(LALInferenceModel));
   memset(model, 0x00, sizeof(LALInferenceModel));
   model->params = XLALCalloc(1, sizeof(LALInferenceVariables));
   memset(model->params, 0, sizeof(LALInferenceVariables));
@@ -837,7 +831,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
       if(node) LALInferenceAddVariable(model->params,node->name,node->value,node->type,node->vary);
       else {fprintf(stderr,"Error: Cannot pin parameter %s. No such parameter found in injection!\n",node->name);}
     }
-    LALInferenceClearVariables(&tempParams);// added by hwlee and KGWG to destroy added variables in tempParams ???hwlee
+    LALInferenceClearVariables(&tempParams);// added by hwlee and KGWG to destroy added variables in tempParams
   }
 
   /* Over-ride approximant if user specifies */

@@ -16,7 +16,6 @@
 
 #define DSEQUENCE CONCAT2(XLALDestroy,SEQUENCETYPE)
 #define CSEQUENCE CONCAT2(XLALCreate,SEQUENCETYPE)
-#define CSEQUENCENAME CONCAT3(XLALCreate,SEQUENCETYPE,Name)
 #define XSEQUENCE CONCAT2(XLALCut,SEQUENCETYPE)
 #define RSEQUENCE CONCAT2(XLALResize,SEQUENCETYPE)
 
@@ -42,11 +41,8 @@ SERIESTYPE *CSERIES (
 	SERIESTYPE *new;
 	SEQUENCETYPE *sequence;
 
-	//new = XLALMalloc(sizeof(*new));
-        /* DEBUG added by hwlee and KGWG to check which one is created at 19 Sep 2016 */
-	new = XLALMallocName(sizeof(*new), name, "from_CSERIES", "default");
-	//sequence = CSEQUENCE (length);
-	sequence = CSEQUENCENAME (length, name);
+	new = XLALMalloc(sizeof(*new));
+	sequence = CSEQUENCE (length);
 	if(!new || !sequence) {
 		XLALFree(new);
 		DSEQUENCE (sequence);
@@ -244,6 +240,5 @@ SERIESTYPE *MSERIES (
 
 #undef DSEQUENCE
 #undef CSEQUENCE
-#undef CSEQUENCENAME
 #undef XSEQUENCE
 #undef RSEQUENCE

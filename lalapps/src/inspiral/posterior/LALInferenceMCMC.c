@@ -85,8 +85,6 @@ void init_mpi_randomstate(LALInferenceRunState *run_state) {
      return;
 }
 
-/* DEBUG hwlee */
-static int ptmcmc_calls = 0;
 INT4 init_ptmcmc(LALInferenceRunState *runState) {
   char help[]="\
     ----------------------------------------------\n\
@@ -141,7 +139,6 @@ INT4 init_ptmcmc(LALInferenceRunState *runState) {
     LALInferenceModel *model;
     REAL8 *ladder;
 
-    ptmcmc_calls++;
     /* Send help if runState was not allocated */
     if(runState == NULL || LALInferenceGetProcParamVal(runState->commandLine, "--help")) {
         fprintf(stdout, "%s", help);
@@ -317,7 +314,6 @@ INT4 init_ptmcmc(LALInferenceRunState *runState) {
     init_mpi_randomstate(runState);
 
     /* Give a new set of proposal args to each thread */
-    fprintf(stderr, "====== DEBUG hwlee init_ptmcmc nthreads = %d\n", runState->nthreads);
     for (i=0; i<runState->nthreads; i++) {
         thread = runState->threads[i];
 
@@ -331,9 +327,6 @@ INT4 init_ptmcmc(LALInferenceRunState *runState) {
           XLALFree(thread->proposalArgs);
         }
         thread->proposalArgs = LALInferenceParseProposalArgs(runState);
-        //DEBUG hwlee
-        fprintf(stderr, "====== DEBUG hwlee thread[%d] = %p, proposalArgs = %p in init_ptmcmc, calls = %d\n", i, thread, thread->proposalArgs, ptmcmc_calls);
-        //DEBUG hwlee here I think cycle should be Destroyed if not NULL
         thread->cycle = LALInferenceSetupDefaultInspiralProposalCycle(thread->proposalArgs);
 
         LALInferenceRandomizeProposalCycle(thread->cycle, thread->GSLrandom);
@@ -662,14 +655,10 @@ int main(int argc, char *argv[]){
     LALInferenceRunState *runState = NULL;
     LALInferenceIFOData *data = NULL;
 
-    fprintf(stdout, "================= DEBUG hwlee new start =========\n");
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &mpirank);
 
     if (mpirank == 0) fprintf(stdout," ========== LALInference_MCMC ==========\n");
-
-    fprintf(stdout, "======== DEBUG hwlee =========\n");
-    fprintf(stdout, "    DebugLevel = %d, mpiRank = %d\n", XLALGetDebugLevel(), mpirank);
 
     /* Read command line and parse */
     procParams = LALInferenceParseCommandLine(argc, argv);
@@ -725,11 +714,7 @@ int main(int argc, char *argv[]){
     LALInferenceDestroyRunState(runState);
     runState = NULL;
 
-    printf("==== DEBUG hwlee in mcmc main rank = %d finished.\n", mpirank);
     if (mpirank == 0) printf(" ========== main(): finished. ==========\n");
-    //XLALClobberDebugLevel(249); // memory check debug
-    LALCheckMemoryLeaks();
-    fprintf(stdout, "======== DEBUG hwlee ptmcmc_calls = %d\n", ptmcmc_calls);
 
     MPI_Finalize();
 

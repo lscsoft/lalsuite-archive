@@ -72,17 +72,6 @@ INT8Sequence *XLALCreateINT8Sequence ( 	size_t length );
 UINT2Sequence *XLALCreateUINT2Sequence ( size_t length );
 UINT4Sequence *XLALCreateUINT4Sequence ( size_t length );
 UINT8Sequence *XLALCreateUINT8Sequence ( size_t length );
-/* DEBUG added by hwlee and KGWG at 19 sep 2016 */
-COMPLEX8Sequence *XLALCreateCOMPLEX8SequenceName ( 	size_t length, const char *name );
-COMPLEX16Sequence *XLALCreateCOMPLEX16SequenceName ( size_t length, const char *name );
-REAL4Sequence *XLALCreateREAL4SequenceName ( size_t length, const char *name );
-REAL8Sequence *XLALCreateREAL8SequenceName ( size_t length, const char *name );
-INT2Sequence *XLALCreateINT2SequenceName ( size_t length, const char *name );
-INT4Sequence *XLALCreateINT4SequenceName ( size_t length, const char *name );
-INT8Sequence *XLALCreateINT8SequenceName ( 	size_t length, const char *name );
-UINT2Sequence *XLALCreateUINT2SequenceName ( size_t length, const char *name );
-UINT4Sequence *XLALCreateUINT4SequenceName ( size_t length, const char *name );
-UINT8Sequence *XLALCreateUINT8SequenceName ( size_t length, const char *name );
 /*@}*/
 
 /**
