@@ -1,7 +1,10 @@
 import doctest
+import sys
 from glue import iterutils
 
-doctest.testmod(iterutils)
+failures = doctest.testmod(iterutils)[0]
+if failures:
+	sys.exit(bool(failures))
 
 
 #

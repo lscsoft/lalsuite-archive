@@ -1,4 +1,7 @@
 import doctest
+import sys
 from glue import offsetvector
 
-doctest.testmod(offsetvector)
+failures = doctest.testmod(offsetvector)[0]
+
+sys.exit(bool(failures))
