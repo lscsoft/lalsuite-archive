@@ -22,7 +22,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
-#include <execinfo.h>
 
 #include <config.h>
 #include <lal/LALMalloc.h>
