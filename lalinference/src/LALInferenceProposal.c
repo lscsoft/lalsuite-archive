@@ -327,19 +327,6 @@ LALInferenceVariables *LALInferenceParseProposalArgs(LALInferenceRunState *runSt
     INT4 nUniqueDet = numDetectorsUniquePositions(runState->data);
     LALInferenceAddINT4Variable(propArgs, "nUniqueDet", nUniqueDet, LALINFERENCE_PARAM_FIXED);
 
-    LALDetector *detectors = XLALCalloc(nDet, sizeof(LALDetector));
-
-    for (i=0,ifo=runState->data; i<nDet; i++,ifo=ifo->next)
-        detectors[i] = *(ifo->detector);
-    LALInferenceAddVariable(propArgs, "detectors", &detectors, LALINFERENCE_void_ptr_t, LALINFERENCE_PARAM_FIXED);
-
-    char **ifo_names = XLALCalloc(nDet, sizeof(char*));
-    for(ifo=runState->data,i=0;ifo;ifo=ifo->next,i++) {
-        ifo_names[i] = XLALCalloc(DETNAMELEN, sizeof(char));
-        strcpy(ifo_names[i], ifo->name);
-    }
-    LALInferenceAddVariable(propArgs, "detector_names", &ifo_names, LALINFERENCE_void_ptr_t, LALINFERENCE_PARAM_FIXED);
-
     INT4 marg_timephi = 0;
     if (LALInferenceGetProcParamVal(command_line, "--margtimephi"))
         marg_timephi = 1;
