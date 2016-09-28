@@ -2,6 +2,7 @@ include $(top_srcdir)/gnuscripts/lalapps.am
 MOSTLYCLEANFILES =
 EXTRA_DIST =
 include $(top_srcdir)/gnuscripts/lalsuite_python.am
+include $(top_srcdir)/gnuscripts/lalsuite_help2man.am
 
 # Makefile for HeterodyneSearch
 
@@ -15,12 +16,9 @@ frame_progs = \
 TESTS = test_heterodyne_pulsar.sh
 
 if LALINFERENCE
-if LALXML
 inference_progs = \
 	lalapps_pulsar_parameter_estimation_nested \
 	lalapps_pulsar_frequency_evolution
-
-endif
 endif
 endif
 bin_PROGRAMS = $(frame_progs) $(inference_progs) lalapps_CrabTNHeterodyne lalapps_ssbtodetector
@@ -77,7 +75,6 @@ lalapps_SplInter_SOURCES = \
 if HAVE_PYTHON
 pybin_scripts = \
 	lalapps_knope \
-	lalapps_knope_create_prior \
 	lalapps_knope_result_page \
 	lalapps_knope_collate_results
 pkgpython_PYTHON = \

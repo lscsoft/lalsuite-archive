@@ -28,7 +28,7 @@ import lal
 from glue import git_version
 from glue.ligolw import table
 
-from pylal import datatypes,inject,date
+from pylal import inject,date
 from pylal import inject
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 

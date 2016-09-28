@@ -88,7 +88,7 @@ for filename in veto_def_files:
 
 # load the veto definer file(s)
 xmldoc = ligolw_add.ligolw_add( ligolw.Document(), analyzed_files.keys() )
-veto_def_table = table.get_table(xmldoc, lsctables.VetoDefTable.tableName)
+veto_def_table = lsctables.VetoDefTable.get_table(xmldoc)
 
 # create summary_file directory in output directory to store files to
 if not os.path.exists( '%s/%s' %( opts.output_directory, 'summary_files' ) ):
@@ -113,8 +113,8 @@ else:
 global_segment = segments.segment(opts.start_time, global_end_time)
 
 # add the original file's process info
-origproctab = table.get_table(xmldoc, lsctables.ProcessTable.tableName)
-newproctab = table.get_table(outdoc, lsctables.ProcessTable.tableName)
+origproctab = lsctables.ProcessTable.get_table(xmldoc)
+newproctab = lsctables.ProcessTable.get_table(outdoc)
 for proc in origproctab:
     newproc = lsctables.Process()
     for x in newproc.__slots__:

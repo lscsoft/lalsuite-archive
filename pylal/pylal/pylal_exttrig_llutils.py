@@ -22,7 +22,6 @@ from pylal.plotsegments import PlotSegmentsPlot
 from pylal.grbsummary import multi_ifo_compute_offsource_segment as micos
 from pylal import antenna
 from pylal.xlal import date
-#from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal import git_version
 
 # the config parser to be used in some of the functions
@@ -502,8 +501,8 @@ def get_veto_overlaps(segment, xmlsegfile):
     
   # load the content of the veto-file 
   xmldoc = utils.load_filename(xmlsegfile, gz = False)
-  segs = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
-  segdefs = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
+  segs = lsctables.SegmentTable.get_table(xmldoc)
+  segdefs = lsctables.SegmentDefTable.get_table(xmldoc)
     
   # create a mapping between the segments and their definitions
   defdict = {}

@@ -364,8 +364,7 @@ try:
 except ligolw.ElementError:
     onsource_doc = SnglInspiralUtils.ReadSnglInspiralFromFiles(\
         [relic_onsource_xml], old_document=True)
-onsource_trigs = table.get_table(onsource_doc,
-    lsctables.SnglInspiralTable.tableName)
+onsource_trigs = lsctables.SnglInspiralTable.get_table(onsource_doc)
 onsource_coincs = CoincInspiralUtils.coincInspiralTable(onsource_trigs,
     coinc_stat)
 if len(onsource_coincs) > len(mc_ifo_cats):

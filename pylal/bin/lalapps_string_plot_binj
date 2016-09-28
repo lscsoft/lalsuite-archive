@@ -29,11 +29,7 @@
 import math
 import numpy
 from optparse import OptionParser
-try:
-	import sqlite3
-except ImportError:
-	# pre 2.5.x
-	from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 import sys
 
 
@@ -45,10 +41,6 @@ from pylal import git_version
 from pylal import rate
 from pylal import SimBurstUtils
 from pylal import SnglBurstUtils
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-
-
-dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -253,7 +245,7 @@ FROM
 			sim = contents.sim_burst_table.row_from_cols(values)
 			instrument = values[-4]
 			burst_snr = values[-3]
-			burst_peak = LIGOTimeGPS(*values[-2:])
+			burst_peak = dbtables.lsctables.LIGOTimeGPS(*values[-2:])
 			sim_peak = sim.time_at_instrument(instrument, offsetvectors[sim.time_slide_id])
 
 			try:

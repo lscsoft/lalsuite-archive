@@ -34,8 +34,8 @@ filename=argument
 doc = utils.load_filename(filename)
 
 # get the tables
-procTable=table.get_table(doc, lsctables.ProcessTable.tableName)
-procParamsTable=table.get_table(doc, lsctables.ProcessParamsTable.tableName)
+procTable=lsctables.ProcessTable.get_table(doc)
+procParamsTable=lsctables.ProcessParamsTable.get_table(doc)
 
 # extract the executable name
 executable=procTable[0].domain+'_'+procTable[0].program

@@ -33,8 +33,7 @@ from glue import git_version
 from glue import iterutils
 from glue import segments
 from glue import segmentsUtils
-# FIXME:  switch to swig binding
-from glue.lal import LIGOTimeGPS
+from .. import ligolw
 from .. import lsctables
 
 
@@ -347,16 +346,17 @@ class LigolwSegments(set):
 
 	>>> import sys
 	>>> from glue.segments import *
-	>>> from glue.lal import LIGOTimeGPS
+	>>> from lal import LIGOTimeGPS
 	>>> from glue.ligolw import ligolw, lsctables
 	>>> xmldoc = ligolw.Document()
 	>>> xmldoc.appendChild(ligolw.LIGO_LW())	# doctest: +ELLIPSIS
 	<glue.ligolw.ligolw.LIGO_LW object at ...>
-	>>> process = lsctables.Process()
-	>>> process.process_id = lsctables.ProcessTable.get_next_id()
+	>>> process = lsctables.Process(process_id = lsctables.ProcessTable.get_next_id())
 	>>> with LigolwSegments(xmldoc, process) as xmlsegments:
 	...	h1segs = segmentlist([segment(LIGOTimeGPS(0), LIGOTimeGPS(10))])
 	...	xmlsegments.insert_from_segmentlistdict({"H1": h1segs}, "test")
+	...	l1segs = h1segs.shift(5)
+	...	xmlsegments.add(LigolwSegmentList(active = l1segs, valid = segmentlist([segment(-infinity(), infinity())]), instruments = set(["L1"]), name = "test"))
 	>>> xmldoc.write(sys.stdout)		# doctest: +NORMALIZE_WHITESPACE
 	<?xml version='1.0' encoding='utf-8'?>
 	<!DOCTYPE LIGO_LW SYSTEM "http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt">
@@ -369,7 +369,8 @@ class LigolwSegments(set):
 			<Column Type="int_4s" Name="segment_definer:version"/>
 			<Column Type="lstring" Name="segment_definer:comment"/>
 			<Stream Delimiter="," Type="Local" Name="segment_definer:table">
-				"process:process_id:0","segment_definer:segment_def_id:0","H1","test",,,
+				"process:process_id:0","segment_definer:segment_def_id:0","L1","test",,,
+				"process:process_id:0","segment_definer:segment_def_id:1","H1","test",,,
 			</Stream>
 		</Table>
 		<Table Name="segment_summary:table">
@@ -382,6 +383,7 @@ class LigolwSegments(set):
 			<Column Type="ilwd:char" Name="segment_summary:segment_def_id"/>
 			<Column Type="lstring" Name="segment_summary:comment"/>
 			<Stream Delimiter="," Type="Local" Name="segment_summary:table">
+				"process:process_id:0","segment_summary:segment_sum_id:0",4294967295,4294967295,2147483647,4294967295,"segment_definer:segment_def_id:0",,
 			</Stream>
 		</Table>
 		<Table Name="segment:table">
@@ -393,13 +395,14 @@ class LigolwSegments(set):
 			<Column Type="int_4s" Name="segment:end_time_ns"/>
 			<Column Type="ilwd:char" Name="segment:segment_def_id"/>
 			<Stream Delimiter="," Type="Local" Name="segment:table">
-				"process:process_id:0","segment:segment_id:0",0,0,10,0,"segment_definer:segment_def_id:0"
+				"process:process_id:0","segment:segment_id:1",0,0,10,0,"segment_definer:segment_def_id:1",
+				"process:process_id:0","segment:segment_id:0",5,0,15,0,"segment_definer:segment_def_id:0"
 			</Stream>
 		</Table>
 	</LIGO_LW>
 	>>> xmlsegments = LigolwSegments(xmldoc)
 	>>> xmlsegments.get_by_name("test")
-	{u'H1': [segment(LIGOTimeGPS(0,0), LIGOTimeGPS(10,0))]}
+	{u'H1': [segment(0.000000000, 10.000000000)], u'L1': [segment(5.000000000, 15.000000000)]}
 	>>> xmlsegments.get_by_name("wrong name")
 	Traceback (most recent call last):
 		...
@@ -498,7 +501,7 @@ class LigolwSegments(set):
 		indicating that there are no periods of validity.  Returns
 		the newly created LigolwSegmentList object.
 		"""
-		ligolw_segment_list = LigolwSegmentList(active = segmentsUtils.fromsegwizard(fileobj, coltype = LIGOTimeGPS), instruments = instruments, name = name, version = version, comment = comment)
+		ligolw_segment_list = LigolwSegmentList(active = segmentsUtils.fromsegwizard(fileobj, coltype = lsctables.LIGOTimeGPS), instruments = instruments, name = name, version = version, comment = comment)
 		self.add(ligolw_segment_list)
 		return ligolw_segment_list
 
@@ -584,6 +587,10 @@ class LigolwSegments(set):
 			for instrument in seglist.instruments:
 				if instrument in result:
 					raise ValueError("multiple '%s' segmentlists for instrument '%s'" % (name, instrument))
+				# make copy so that instruments do not
+				# share a single list, so that subsequent
+				# arithmetic operations do not corrupt the
+				# wrong instrument's segments
 				result[instrument] = segments.segmentlist(segs)
 		if not result:
 			raise KeyError("no segmentlists named '%s'" % name)
@@ -638,7 +645,7 @@ class LigolwSegments(set):
 				row.process_id = process_id
 				row.segment_def_id = segment_def_id
 				setattr(row, id_column, target_table.get_next_id())
-				if hasattr(row, "comment"):
+				if isinstance(row, lsctables.SegmentSum):
 					row.comment = None
 				yield row, target_table
 
@@ -691,6 +698,15 @@ class LigolwSegments(set):
 #
 # =============================================================================
 #
+
+
+@lsctables.use_in
+class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
+	"""
+	Minimal content handler suitable for loading documents containg
+	segment tables.
+	"""
+	pass
 
 
 def has_segment_tables(xmldoc, name = None):

@@ -1,4 +1,4 @@
-# Copyright (C) 2006--2015  Kipp Cannon
+# Copyright (C) 2006--2016  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -35,6 +35,7 @@ interested users.
 
 import math
 import numpy
+import warnings
 from xml import sax
 
 
@@ -42,16 +43,12 @@ from glue import git_version
 from glue import iterutils
 from glue import offsetvector
 from glue import segments
+import lal
+from lal import LIGOTimeGPS
 try:
-	from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 	from pylal import inject
 except ImportError:
 	# pylal is optional
-	from glue.lal import LIGOTimeGPS
-try:
-	import lal
-except ImportError:
-	# lal is optional
 	pass
 from . import ligolw
 from . import table
@@ -117,28 +114,18 @@ def New(Type, columns = None, **kwargs):
 	</Table>
 	"""
 	new = Type(sax.xmlreader.AttributesImpl({u"Name": Type.tableName}), **kwargs)
-	colnamefmt = u":".join(Type.tableName.split(":")[:-1]) + u":%s"
+	colnamefmt = new.Name + u":%s"
 	if columns is not None:
 		for key in columns:
 			if key not in new.validcolumns:
-				raise ligolw.ElementError("invalid Column '%s' for Table '%s'" % (key, new.tableName))
+				raise ligolw.ElementError("invalid Column '%s' for Table '%s'" % (key, new.Name))
 			new.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % key, u"Type": new.validcolumns[key]})))
 	else:
 		for key, value in new.validcolumns.items():
 			new.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % key, u"Type": value})))
 	new._end_of_columns()
-	new.appendChild(table.TableStream(sax.xmlreader.AttributesImpl({u"Name": Type.tableName, u"Delimiter": table.TableStream.Delimiter.default, u"Type": table.TableStream.Type.default})))
+	new.appendChild(table.TableStream(sax.xmlreader.AttributesImpl({u"Name": new.getAttribute(u"Name"), u"Delimiter": table.TableStream.Delimiter.default, u"Type": table.TableStream.Type.default})))
 	return new
-
-
-def IsTableProperties(Type, tagname, attrs):
-	"""
-	obsolete.  see .CheckProperties() method of glue.ligolw.table.Table
-	class.
-	"""
-	import warnings
-	warnings.warn("lsctables.IsTableProperties() is deprecated.  use glue.ligolw.table.Table.CheckProperties() instead", DeprecationWarning)
-	return Type.CheckProperties(tagname, attrs)
 
 
 def HasNonLSCTables(elem):
@@ -600,9 +587,9 @@ class SearchSummary(table.TableRow):
 	>>> x.in_start = x.out_start = LIGOTimeGPS(0)
 	>>> x.in_end = x.out_end = LIGOTimeGPS(10)
 	>>> x.in_segment
-	segment(LIGOTimeGPS(0,0), LIGOTimeGPS(10,0))
+	segment(0.000000000, 10.000000000)
 	>>> x.out_segment
-	segment(LIGOTimeGPS(0,0), LIGOTimeGPS(10,0))
+	segment(0.000000000, 10.000000000)
 	>>> x.in_segment = x.out_segment = None
 	>>> print x.in_segment
 	None
@@ -2166,7 +2153,7 @@ class CoincInspiral(table.TableRow):
 	set([u'H1', u'L1'])
 	>>> x.end = LIGOTimeGPS(10)
 	>>> x.end
-	LIGOTimeGPS(10,0)
+	10.000000000
 	>>> x.end = None
 	>>> print x.end
 	None
@@ -3104,7 +3091,7 @@ class SimInspiral(table.TableRow):
 	None
 	>>> x.time_geocent = LIGOTimeGPS(6e8)
 	>>> print x.time_geocent
-	600000000
+	600000000.000000000
 	"""
 	__slots__ = SimInspiralTable.validcolumns.keys()
 
@@ -3120,9 +3107,7 @@ class SimInspiral(table.TableRow):
 			self.geocent_end_time = self.geocent_end_time_ns = self.end_time_gmst = None
 		else:
 			self.geocent_end_time, self.geocent_end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-			# FIXME:  also do this when we switch to swig
-			# binding version of LIGOTimeGPS
-			#self.end_time_gmst = lal.GreenwichMeanSiderealTime(gps)
+			self.end_time_gmst = lal.GreenwichMeanSiderealTime(gps)
 
 	@property
 	def ra_dec(self):
@@ -3191,15 +3176,23 @@ class SimInspiral(table.TableRow):
 		return t_geocent + lal.TimeDelayFromEarthCenter(inject.cached_detector_by_prefix[instrument].location, ra, dec, t_geocent)
 
 	def get_time_geocent(self):
+		# FIXME:  delete this method
+		warnings.warn("SimInspiral.get_time_geocent() is deprecated.  use SimInspiral.time_geocent instead", DeprecationWarning)
 		return self.time_geocent
 
 	def set_time_geocent(self, gps):
+		# FIXME:  delete this method
+		warnings.warn("SimInspiral.set_time_geocent() is deprecated.  use SimInspiral.time_geocent instead", DeprecationWarning)
 		self.time_geocent = gps
 
 	def get_ra_dec(self):
+		# FIXME:  delete this method
+		warnings.warn("SimInspiral.get_ra_dec() is deprecated.  use SimInspiral.ra_dec instead", DeprecationWarning)
 		return self.ra_dec
 
 	def get_end(self, site = None):
+		# FIXME:  delete this method
+		warnings.warn("SimInspiral.get_end() is deprecated.  use SimInspiral.time_geocent or SimInspiral.time_at_instrument() instead", DeprecationWarning)
 		if site is None:
 			return self.time_geocent
 		else:
@@ -3278,7 +3271,7 @@ class SimBurst(TableRow):
 	None
 	>>> x.time_geocent = LIGOTimeGPS(6e8)
 	>>> print x.time_geocent
-	600000000
+	600000000.000000000
 	"""
 	__slots__ = SimBurstTable.validcolumns.keys()
 
@@ -3294,9 +3287,7 @@ class SimBurst(TableRow):
 			self.time_geocent_gps = self.time_geocent_gps_ns = self.time_geocent_gmst = None
 		else:
 			self.time_geocent_gps, self.time_geocent_gps_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-			# FIXME:  also do this when we switch to swig
-			# binding version of LIGOTimeGPS
-			#self.time_geocent_gmst = lal.GreenwichMeanSiderealTime(gps)
+			self.time_geocent_gmst = lal.GreenwichMeanSiderealTime(gps)
 
 	@property
 	def ra_dec(self):
@@ -3348,20 +3339,15 @@ class SimBurst(TableRow):
 		return self.ra_dec
 
 	def get_end(self, site = None):
+		"""
+		Do not use this method:  use .time_at_instrument() if that's what you want, or use .time_geocent if that's what you want.
+
+		Also ... this doesn't return the *end time*, it returns the *PEAK TIME*.  You've been warned.
+		"""
 		if site is None:
-			return self.get_time_geocent()
-		else:
-			from pylal.xlal import tools
-			from pylal import date,inject
-			from pylal.date import XLALTimeDelayFromEarthCenter
-			from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-			detMap = {'H': 'LHO_4k', 'L': 'LLO_4k',
-                'G': 'GEO_600', 'V': 'VIRGO', 'T': 'TAMA_300'}
-			location=inject.cached_detector[detMap[site]].location
-			ra,dec=self.get_ra_dec()
-			time=self.get_time_geocent()
-			time=time+LIGOTimeGPS(XLALTimeDelayFromEarthCenter(location,ra,dec,LIGOTimeGPS(time)))
-			return LIGOTimeGPS(float(time))
+			return self.time_geocent
+		instrument = site + "1"	# ugh ...
+		return self.time_at_instrument(instrument, {instrument: 0.0})
 
 SimBurstTable.RowType = SimBurst
 
@@ -3482,7 +3468,7 @@ class SummValue(table.TableRow):
 	>>> x.start = LIGOTimeGPS(0)
 	>>> x.end = LIGOTimeGPS(10)
 	>>> x.segment
-	segment(LIGOTimeGPS(0,0), LIGOTimeGPS(10,0))
+	segment(0.000000000, 10.000000000)
 	>>> x.segment = None
 	>>> print x.segment
 	None
@@ -3779,7 +3765,7 @@ class Segment(table.TableRow):
 	>>> x.start = LIGOTimeGPS(0)
 	>>> x.end = LIGOTimeGPS(10)
 	>>> x.segment
-	segment(LIGOTimeGPS(0,0), LIGOTimeGPS(10,0))
+	segment(0.000000000, 10.000000000)
 	>>> x.segment = None
 	>>> print x.segment
 	None
@@ -3788,22 +3774,22 @@ class Segment(table.TableRow):
 	>>> # non-LIGOTimeGPS times are converted to LIGOTimeGPS
 	>>> x.segment = (20, 30.125)
 	>>> x.end
-	LIGOTimeGPS(30,125000000)
+	30.125000000
 	>>> # initialization from a tuple or with arguments
 	>>> Segment((20, 30)).segment
-	segment(LIGOTimeGPS(20,0), LIGOTimeGPS(30,0))
+	segment(20.000000000, 30.000000000)
 	>>> Segment(20, 30).segment
-	segment(LIGOTimeGPS(20,0), LIGOTimeGPS(30,0))
+	segment(20.000000000, 30.000000000)
 	>>> # use as a segment object in segmentlist operations
 	>>> from glue import segments
 	>>> x = segments.segmentlist([Segment(0, 10), Segment(20, 30)])
 	>>> abs(x)
-	LIGOTimeGPS(20,0)
+	20.000000000
 	>>> y = segments.segmentlist([Segment(5, 15), Segment(25, 35)])
 	>>> abs(x & y)
-	LIGOTimeGPS(10,0)
+	10.000000000
 	>>> abs(x | y)
-	LIGOTimeGPS(30,0)
+	30.000000000
 	>>> 8.0 in x
 	True
 	>>> 12 in x
@@ -3819,42 +3805,96 @@ class Segment(table.TableRow):
 	>>> # make sure results are segment table row objects
 	>>> segments.segmentlist(map(Segment, x & y))	# doctest: +ELLIPSIS
 	[<glue.ligolw.lsctables.Segment object at 0x...>, <glue.ligolw.lsctables.Segment object at 0x...>]
+
+	This implementation uses a non-standard extension to encode
+	infinite values for boundaries:  the second and nanosecond
+	components are both set to 0x7FFFFFFF or 0xFFFFFFFF to indicate
+	positive resp. negative infinity.  For this reason, "denormalized"
+	LIGOTimeGPS objects (objects whose nanoseconds fields contain
+	values exceeding +/-999999999) are disallowed for use with this
+	class.
+
+	Example:
+
+	>>> x = Segment()
+	>>> # OK
+	>>> x.start = -segments.infinity()
+	>>> # also OK
+	>>> x.start = float("-inf")
+	>>> # infinite boundaries always returned as segments.infinity
+	>>> # instances
+	>>> x.start
+	-infinity
+	>>> x.end = float("+inf")
+	>>> x.segment
+	segment(-infinity, infinity)
 	"""
 	__slots__ = SegmentTable.validcolumns.keys()
+
+	posinf = 0x7FFFFFFF, 0xFFFFFFFF
+	neginf = 0xFFFFFFFF, 0xFFFFFFFF
 
 	@property
 	def start(self):
 		if self.start_time is None and self.start_time_ns is None:
 			return None
+		if (self.start_time, self.start_time_ns) == self.posinf:
+			return segments.PosInfinity
+		if (self.start_time, self.start_time_ns) == self.neginf:
+			return segments.NegInfinity
 		return LIGOTimeGPS(self.start_time, self.start_time_ns)
 
 	@start.setter
 	def start(self, gps):
 		if gps is None:
 			self.start_time = self.start_time_ns = None
+		elif isinstance(gps, segments.infinity) or math.isinf(gps):
+			if gps > 0:
+				self.start_time, self.start_time_ns = self.posinf
+			elif gps < 0:
+				self.start_time, self.start_time_ns = self.neginf
+			else:
+				raise ValueError(gps)
 		else:
 			try:
 				self.start_time, self.start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
 			except AttributeError:
 				# try converting and going again
 				self.start = LIGOTimeGPS(gps)
+			else:
+				if abs(self.start_time_ns) > 999999999:
+					raise ValueError("denormalized LIGOTimeGPS not allowed")
 
 	@property
 	def end(self):
 		if self.end_time is None and self.end_time_ns is None:
 			return None
+		if (self.end_time, self.end_time_ns) == self.posinf:
+			return segments.PosInfinity
+		if (self.end_time, self.end_time_ns) == self.neginf:
+			return segments.NegInfinity
 		return LIGOTimeGPS(self.end_time, self.end_time_ns)
 
 	@end.setter
 	def end(self, gps):
 		if gps is None:
 			self.end_time = self.end_time_ns = None
+		elif isinstance(gps, segments.infinity) or math.isinf(gps):
+			if gps > 0:
+				self.end_time, self.end_time_ns = self.posinf
+			elif gps < 0:
+				self.end_time, self.end_time_ns = self.neginf
+			else:
+				raise ValueError(gps)
 		else:
 			try:
 				self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
 			except AttributeError:
 				# try converting and going again
 				self.end = LIGOTimeGPS(gps)
+			else:
+				if abs(self.end_time_ns) > 999999999:
+					raise ValueError("denormalized LIGOTimeGPS not allowed")
 
 	@property
 	def segment(self):
@@ -4027,74 +4067,8 @@ class SegmentSumTable(table.Table):
 		return segments.segmentlist(row.segment for row in self if row.segment_def_id == segment_def_id)
 
 
-class SegmentSum(table.TableRow):
-	"""
-	Example:
-
-	>>> x = SegmentSum()
-	>>> x.start = LIGOTimeGPS(0)
-	>>> x.end = LIGOTimeGPS(10)
-	>>> x.segment
-	segment(LIGOTimeGPS(0,0), LIGOTimeGPS(10,0))
-	>>> x.segment = None
-	>>> print x.segment
-	None
-	>>> print x.start
-	None
-	"""
+class SegmentSum(Segment):
 	__slots__ = SegmentSumTable.validcolumns.keys()
-
-	@property
-	def start(self):
-		if self.start_time is None and self.start_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.start_time, self.start_time_ns)
-
-	@start.setter
-	def start(self, gps):
-		if gps is None:
-			self.start_time = self.start_time_ns = None
-		else:
-			self.start_time, self.start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-
-	@property
-	def end(self):
-		if self.end_time is None and self.end_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.end_time, self.end_time_ns)
-
-	@end.setter
-	def end(self, gps):
-		if gps is None:
-			self.end_time = self.end_time_ns = None
-		else:
-			self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-
-	@property
-	def segment(self):
-		start, end = self.start, self.end
-		if start is None and end is None:
-			return None
-		return segments.segment(start, end)
-
-	@segment.setter
-	def segment(self, seg):
-		if seg is None:
-			self.start = self.end = None
-		else:
-			self.start, self.end = seg
-
-	def get(self):
-		"""
-		Return the segment described by this row.
-		"""
-		return self.segment
-
-	def set(self, segment):
-		"""
-		Set the segment described by this row.
-		"""
-		self.segment = segment
 
 
 SegmentSumTable.RowType = SegmentSum
@@ -4583,43 +4557,43 @@ TimeSlideSegmentMapTable.RowType = TimeSlideSegmentMap
 
 
 TableByName = {
-	table.StripTableName(ProcessTable.tableName): ProcessTable,
-	table.StripTableName(LfnTable.tableName): LfnTable,
-	table.StripTableName(ProcessParamsTable.tableName): ProcessParamsTable,
-	table.StripTableName(SearchSummaryTable.tableName): SearchSummaryTable,
-	table.StripTableName(SearchSummVarsTable.tableName): SearchSummVarsTable,
-	table.StripTableName(ExperimentTable.tableName): ExperimentTable,
-	table.StripTableName(ExperimentSummaryTable.tableName): ExperimentSummaryTable,
-	table.StripTableName(ExperimentMapTable.tableName): ExperimentMapTable,
-	table.StripTableName(GDSTriggerTable.tableName): GDSTriggerTable,
-	table.StripTableName(SnglBurstTable.tableName): SnglBurstTable,
-	table.StripTableName(MultiBurstTable.tableName): MultiBurstTable,
-	table.StripTableName(SnglInspiralTable.tableName): SnglInspiralTable,
-	table.StripTableName(CoincInspiralTable.tableName): CoincInspiralTable,
-	table.StripTableName(SnglRingdownTable.tableName): SnglRingdownTable,
-	table.StripTableName(CoincRingdownTable.tableName): CoincRingdownTable,
-	table.StripTableName(MultiInspiralTable.tableName): MultiInspiralTable,
-	table.StripTableName(SimInspiralTable.tableName): SimInspiralTable,
-	table.StripTableName(SimBurstTable.tableName): SimBurstTable,
-	table.StripTableName(SimRingdownTable.tableName): SimRingdownTable,
-	table.StripTableName(SummValueTable.tableName): SummValueTable,
-	table.StripTableName(SimInstParamsTable.tableName): SimInstParamsTable,
-	table.StripTableName(StochasticTable.tableName): StochasticTable,
-	table.StripTableName(StochSummTable.tableName): StochSummTable,
-	table.StripTableName(ExtTriggersTable.tableName): ExtTriggersTable,
-	table.StripTableName(FilterTable.tableName): FilterTable,
-	table.StripTableName(SegmentTable.tableName): SegmentTable,
-	table.StripTableName(SegmentDefTable.tableName): SegmentDefTable,
-	table.StripTableName(SegmentSumTable.tableName): SegmentSumTable,
-	table.StripTableName(TimeSlideTable.tableName): TimeSlideTable,
-	table.StripTableName(CoincDefTable.tableName): CoincDefTable,
-	table.StripTableName(CoincTable.tableName): CoincTable,
-	table.StripTableName(CoincMapTable.tableName): CoincMapTable,
-	table.StripTableName(DQSpecListTable.tableName): DQSpecListTable,
-	table.StripTableName(LIGOLWMonTable.tableName): LIGOLWMonTable,
-	table.StripTableName(VetoDefTable.tableName): VetoDefTable,
-	table.StripTableName(SummMimeTable.tableName): SummMimeTable,
-	table.StripTableName(TimeSlideSegmentMapTable.tableName): TimeSlideSegmentMapTable
+	table.Table.TableName(ProcessTable.tableName): ProcessTable,
+	table.Table.TableName(LfnTable.tableName): LfnTable,
+	table.Table.TableName(ProcessParamsTable.tableName): ProcessParamsTable,
+	table.Table.TableName(SearchSummaryTable.tableName): SearchSummaryTable,
+	table.Table.TableName(SearchSummVarsTable.tableName): SearchSummVarsTable,
+	table.Table.TableName(ExperimentTable.tableName): ExperimentTable,
+	table.Table.TableName(ExperimentSummaryTable.tableName): ExperimentSummaryTable,
+	table.Table.TableName(ExperimentMapTable.tableName): ExperimentMapTable,
+	table.Table.TableName(GDSTriggerTable.tableName): GDSTriggerTable,
+	table.Table.TableName(SnglBurstTable.tableName): SnglBurstTable,
+	table.Table.TableName(MultiBurstTable.tableName): MultiBurstTable,
+	table.Table.TableName(SnglInspiralTable.tableName): SnglInspiralTable,
+	table.Table.TableName(CoincInspiralTable.tableName): CoincInspiralTable,
+	table.Table.TableName(SnglRingdownTable.tableName): SnglRingdownTable,
+	table.Table.TableName(CoincRingdownTable.tableName): CoincRingdownTable,
+	table.Table.TableName(MultiInspiralTable.tableName): MultiInspiralTable,
+	table.Table.TableName(SimInspiralTable.tableName): SimInspiralTable,
+	table.Table.TableName(SimBurstTable.tableName): SimBurstTable,
+	table.Table.TableName(SimRingdownTable.tableName): SimRingdownTable,
+	table.Table.TableName(SummValueTable.tableName): SummValueTable,
+	table.Table.TableName(SimInstParamsTable.tableName): SimInstParamsTable,
+	table.Table.TableName(StochasticTable.tableName): StochasticTable,
+	table.Table.TableName(StochSummTable.tableName): StochSummTable,
+	table.Table.TableName(ExtTriggersTable.tableName): ExtTriggersTable,
+	table.Table.TableName(FilterTable.tableName): FilterTable,
+	table.Table.TableName(SegmentTable.tableName): SegmentTable,
+	table.Table.TableName(SegmentDefTable.tableName): SegmentDefTable,
+	table.Table.TableName(SegmentSumTable.tableName): SegmentSumTable,
+	table.Table.TableName(TimeSlideTable.tableName): TimeSlideTable,
+	table.Table.TableName(CoincDefTable.tableName): CoincDefTable,
+	table.Table.TableName(CoincTable.tableName): CoincTable,
+	table.Table.TableName(CoincMapTable.tableName): CoincMapTable,
+	table.Table.TableName(DQSpecListTable.tableName): DQSpecListTable,
+	table.Table.TableName(LIGOLWMonTable.tableName): LIGOLWMonTable,
+	table.Table.TableName(VetoDefTable.tableName): VetoDefTable,
+	table.Table.TableName(SummMimeTable.tableName): SummMimeTable,
+	table.Table.TableName(TimeSlideSegmentMapTable.tableName): TimeSlideSegmentMapTable
 }
 
 
@@ -4655,7 +4629,7 @@ def use_in(ContentHandler):
 	ContentHandler = table.use_in(ContentHandler)
 
 	def startTable(self, parent, attrs, __orig_startTable = ContentHandler.startTable):
-		name = table.StripTableName(attrs[u"Name"])
+		name = table.Table.TableName(attrs[u"Name"])
 		if name in TableByName:
 			return TableByName[name](attrs)
 		return __orig_startTable(self, parent, attrs)

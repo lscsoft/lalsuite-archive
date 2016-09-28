@@ -46,17 +46,20 @@ except ImportError:
 import itertools
 import math
 import numpy
-import pickle
 import random
 import scipy
-__numpy__version__ = tuple(map(int, numpy.__version__.strip().split(".")))
-__scipy__version__ = tuple(map(int, scipy.__version__.strip().split(".")))
+__numpy__version__ = tuple(map(int, numpy.__version__.strip().split(".")[:2]))
+__scipy__version__ = tuple(map(int, scipy.__version__.strip().split(".")[:2]))
+# FIXME Uncomment these lines when the interpolator problem is fixed or when we
+# figure out the correct version numbers to check for 
+'''
 if __scipy__version__ >= (0, 9) and __numpy__version__ >= (1, 7):
 	from scipy.interpolate import interp1d, interp2d, LinearNDInterpolator
 else:
 	# pre scipy/numpy 0.9/1.7 had busted/missing interpolation code.
 	# replacements are provided below
 	pass
+'''
 from scipy.signal import signaltools
 
 
@@ -313,7 +316,7 @@ class LoHiCountToFromXMLMixin(object):
 		Construct a LIGO Light Weight XML representation of the
 		Bins instance.
 		"""
-		return ligolw_param.from_pyvalue(self.xml_bins_name_enc(self.xml_bins_name), u"%s,%s,%s" % (ligolw_types.FormatFunc[u"real_8"](self.min), ligolw_types.FormatFunc[u"real_8"](self.max), ligolw_types.FormatFunc[u"int_8s"](self.n)))
+		return ligolw_param.Param.from_pyvalue(self.xml_bins_name_enc(self.xml_bins_name), u"%s,%s,%s" % (ligolw_types.FormatFunc[u"real_8"](self.min), ligolw_types.FormatFunc[u"real_8"](self.max), ligolw_types.FormatFunc[u"int_8s"](self.n)))
 
 	@classmethod
 	def from_xml(cls, xml):
@@ -421,7 +424,7 @@ class IrregularBins(Bins):
 		Construct a LIGO Light Weight XML representation of the
 		Bins instance.
 		"""
-		return ligolw_param.from_pyvalue(self.xml_bins_name_enc(self.xml_bins_name), u",".join(map(ligolw_types.FormatFunc[u"real_8"], self.boundaries)))
+		return ligolw_param.Param.from_pyvalue(self.xml_bins_name_enc(self.xml_bins_name), u",".join(map(ligolw_types.FormatFunc[u"real_8"], self.boundaries)))
 
 	@classmethod
 	def from_xml(cls, xml):
@@ -829,7 +832,7 @@ class ATanLogarithmicBins(LoHiCountToFromXMLMixin, IrregularBins):
 			boundaries = numpy.exp(boundaries)
 		boundaries = numpy.hstack((boundaries, [PosInf, 0.]))
 		keepers = boundaries[:-1] != boundaries[1:]
-		super(ATanLogarithmicBins, self).__init__(boundaries[keepers])
+		super(ATanLogarithmicBins, self).__init__(boundaries[:-1][keepers])
 		self.keepers = keepers[:-1]
 		self.min = min
 		self.max = max
@@ -931,9 +934,11 @@ class Categories(Bins):
 		Construct a LIGO Light Weight XML representation of the
 		Bins instance.
 		"""
-		# can't use ligolw_param.pickle_to_param() because it
-		# mangles the name encoding
-		return ligolw_param.from_pyvalue(self.xml_bins_name_enc(self.xml_bins_name), pickle.dumps(self.containers))
+		# FIXME:  make use of new "yaml" type for params when we
+		# can rely on a new-enough glue
+		#return ligolw_param.Param.build(self.xml_bins_name_enc(self.xml_bins_name), u"yaml", self.containers)
+		import pickle
+		return ligolw_param.Param.from_pyvalue(self.xml_bins_name_enc(self.xml_bins_name), pickle.dumps(self.containers))
 
 	@classmethod
 	def from_xml(cls, xml):
@@ -943,7 +948,44 @@ class Categories(Bins):
 		"""
 		if not cls.xml_bins_check(xml, cls.xml_bins_name):
 			raise ValueError("not a %s" % repr(cls))
+		# FIXME:  replace with commented-out code when we can rely
+		# on new "pickle" type for params
+		#return cls(xml.pcdata)
+		import pickle
 		return cls(pickle.loads(xml.pcdata))
+
+
+class HashableBins(Categories):
+	"""
+	Maps hashable objects (things that can be used as dictionary keys) to integers.
+
+	Example:
+	>>> x = HashableBins([
+	...    frozenset(("H1", "L1")),
+	...    frozenset(("H1", "V1")),
+	...    frozenset(("L1", "V1")),
+	...    frozenset(("H1", "L1", "V1"))
+	... ])
+	>>> x[frozenset(("H1", "L1"))]
+	0
+	>>> x[set(("H1", "L1"))]	# equal, but not hashable
+	Traceback (most recent call last):
+		...
+	IndexError: set(['H1', 'L1'])
+	>>> x.centres()[2]
+	frozenset(['V1', 'L1'])
+	"""
+	def __init__(self, hashables):
+		super(HashableBins, self).__init__(hashables)
+		self.mapping = dict(zip(self.containers, range(len(self.containers))))
+
+	def __getitem__(self, value):
+		try:
+			return self.mapping[value]
+		except (KeyError, TypeError):
+			raise IndexError(value)
+
+	xml_bins_name = u"hashablebins"
 
 
 class NDBins(tuple):
@@ -1044,7 +1086,7 @@ class NDBins(tuple):
 		>>> x(slice(10, 12))
 		(slice(375, 459, None),)
 		>>> x = NDBins((Categories([set(("Cow", "Chicken", "Goat")), set(("Tractor", "Plough")), set(("Barn", "House"))]),))
-		 >>> x("Cow")
+		>>> x("Cow")
 		(0,)
 
 		Each co-ordinate can be anything the corresponding Bins
@@ -1145,7 +1187,7 @@ class NDBins(tuple):
 	# XML I/O methods and data
 	#
 
-	xml_bins_name_mapping = dict((cls.xml_bins_name, cls) for cls in (LinearBins, LinearPlusOverflowBins, LogarithmicBins, LogarithmicPlusOverflowBins, ATanBins, ATanLogarithmicBins, Categories))
+	xml_bins_name_mapping = dict((cls.xml_bins_name, cls) for cls in (LinearBins, LinearPlusOverflowBins, LogarithmicBins, LogarithmicPlusOverflowBins, ATanBins, ATanLogarithmicBins, Categories, HashableBins))
 	xml_bins_name_mapping.update(zip(xml_bins_name_mapping.values(), xml_bins_name_mapping.keys()))
 
 	def to_xml(self, elem):
@@ -1432,7 +1474,7 @@ class BinnedArray(object):
 		elem = ligolw.LIGO_LW()
 		elem.Name = u"%s:pylal_rate_binnedarray" % name
 		self.bins.to_xml(elem)
-		elem.appendChild(ligolw_array.from_array(u"array", self.array))
+		elem.appendChild(ligolw_array.Array.build(u"array", self.array))
 		return elem
 
 	@classmethod

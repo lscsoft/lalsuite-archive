@@ -163,6 +163,14 @@ int XLALHeapSize(
   return h->n;
 }
 
+int XLALHeapMaxSize(
+  const LALHeap *h
+  )
+{
+  XLAL_CHECK( h != NULL, XLAL_EFAULT );
+  return h->max_size;
+}
+
 const void *XLALHeapRoot(
   const LALHeap *h
   )
@@ -224,6 +232,31 @@ int XLALHeapAdd(
 
 }
 
+void *XLALHeapExtractRoot(
+  LALHeap *h
+  )
+{
+
+  /* Check input */
+  XLAL_CHECK_NULL( h != NULL, XLAL_EFAULT );
+  XLAL_CHECK_NULL( h->n > 0, XLAL_ESIZE );
+
+  /* Save root element */
+  void *x = h->data[0];
+
+  /* Replace root with last element in binary heap, and trickle down to restore heap property */
+  h->data[0] = h->data[--h->n];
+  heap_trickle_down( h, 0 );
+
+  /* Resize binary heap; designed so that resizing costs amortized constant time */
+  if ( 3*h->n < h->data_len ) {
+    XLAL_CHECK_NULL( heap_resize( h ) == XLAL_SUCCESS, XLAL_EFUNC );
+  }
+
+  return x;
+
+}
+
 int XLALHeapRemoveRoot(
   LALHeap *h
   )
@@ -233,18 +266,13 @@ int XLALHeapRemoveRoot(
   XLAL_CHECK( h != NULL, XLAL_EFAULT );
   XLAL_CHECK( h->n > 0, XLAL_ESIZE );
 
+  /* Extract root */
+  void *x = XLALHeapExtractRoot( h );
+  XLAL_CHECK( x != NULL, XLAL_EFUNC );
+
   /* Free memory associated with root element, if required */
   if ( h->dtor != NULL ) {
-    h->dtor( h->data[0] );
-  }
-
-  /* Replace root with last element in binary heap, and trickle down to restore heap property */
-  h->data[0] = h->data[--h->n];
-  heap_trickle_down( h, 0 );
-
-  /* Resize binary heap; designed so that resizing costs amortized constant time */
-  if ( 3*h->n < h->data_len ) {
-    XLAL_CHECK( heap_resize( h ) == XLAL_SUCCESS, XLAL_EFUNC );
+    h->dtor( x );
   }
 
   return XLAL_SUCCESS;
@@ -302,5 +330,81 @@ int XLALHeapVisit(
   XLALHeapDestroy( h2 );
 
   return XLAL_SUCCESS;
+
+}
+
+int XLALHeapModify(
+  LALHeap *h,
+  LALHeapModifyFcn modify,
+  void *modify_param
+  )
+{
+
+  /* Check input */
+  XLAL_CHECK( h != NULL, XLAL_EFAULT );
+  XLAL_CHECK( modify != NULL, XLAL_EFAULT );
+
+  /* Create internal min-heap (without destructor) to get elements in order */
+  LALHeap *h2 = XLALHeapCreate2( NULL, 0, -1, h->cmp, h->cmp_param );
+  XLAL_CHECK( h2 != NULL, XLAL_EFUNC );
+
+  /* Add all elements in heap to internal min-heap */
+  for ( int i = 0; i < h->n; ++i ) {
+    void *x = h->data[i];
+    XLAL_CHECK( XLALHeapAdd( h2, &x ) == XLAL_SUCCESS, XLAL_EFUNC );
+  }
+
+  /* Remove all elements from original heap */
+  h->n = 0;
+
+  /* Extract roots element of internal min-heap, until empty */
+  while ( h2->n > 0 ) {
+    void *x = XLALHeapExtractRoot( h2 );
+    XLAL_CHECK( x != NULL, XLAL_EFUNC );
+
+    /* Visit element, possibly modifying it */
+    XLAL_CHECK( modify( modify_param, x ) == XLAL_SUCCESS, XLAL_EFUNC );
+
+    /* Add element back to original heap */
+    XLAL_CHECK( XLALHeapAdd( h, &x ) == XLAL_SUCCESS, XLAL_EFUNC );
+
+  }
+
+  /* Cleanup */
+  XLALHeapDestroy( h2 );
+
+  return XLAL_SUCCESS;
+
+}
+
+static int heap_get_elems_visitor(
+  void *param,
+  const void *x
+  )
+{
+  const void ***elem = ( const void *** ) param;
+  **elem = x;
+  ++(*elem);
+  return XLAL_SUCCESS;
+}
+
+const void **XLALHeapElements(
+  const LALHeap *h
+  )
+{
+
+  /* Check input */
+  XLAL_CHECK_NULL( h != NULL, XLAL_EFAULT );
+
+  /* Allocate memory */
+  const void **elems = XLALMalloc( h->n * sizeof( *elems ) );
+  XLAL_CHECK_NULL( elems != NULL, XLAL_ENOMEM );
+
+  /* Get elements */
+  const void **elem = elems;
+  XLAL_CHECK_NULL( XLALHeapVisit( h, heap_get_elems_visitor, &elem ) == XLAL_SUCCESS, XLAL_EFUNC );
+  XLAL_CHECK_NULL( elems + h->n == elem, XLAL_EFAILED );
+
+  return elems;
 
 }

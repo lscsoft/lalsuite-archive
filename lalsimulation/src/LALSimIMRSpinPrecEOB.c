@@ -615,7 +615,7 @@ XLALSpinPrecAlignedHiSRStopCondition(double UNUSED t,  /**< UNUSED */
         XLAL_PRINT_INFO("values[0], values[1], values[2], values[3], dvalues[0], dvalues[1], dvalues[2], dvalues[3] = %e %e %e %e %e %e %e %e\n", values[0], values[1], values[2], values[3], dvalues[0], dvalues[1], dvalues[2], dvalues[3]);
     }
 
-  if ( dvalues[2] >= 0. || isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) )
+  if ( dvalues[0] >= 0. || dvalues[2] >= 0. || isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) )
   {
       return 1;
   }
@@ -1572,7 +1572,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   /* Check if initial frequency is too high: we choose an initial minimum separation
    *  of 10M as a compromise between reliability of initial conditions and length
    *  of the waveform */
-  REAL8 NRPeakOmega22 = GetNRSpinPeakOmegav2(2, 2, eta, spinNQC) / mTScaled;
+  REAL8 NRPeakOmega22 = XLALSimIMREOBGetNRSpinPeakOmegav2(2, 2, eta, spinNQC) / mTScaled;
   REAL8 freqMinRad = pow(10.0, -1.5)/(LAL_PI*mTScaled);
   REAL8 signOfa = copysign(1., spinNQC);
   REAL8 spn2 = spinNQC*spinNQC;
@@ -1584,7 +1584,7 @@ int XLALSimIMRSpinEOBWaveformAll(
 
   if (debugPK){
       XLAL_PRINT_INFO("Stas - spin = %4.10f \n", spinNQC);
-      XLAL_PRINT_INFO("Stas - NRPeakOmega22 =  %4.10f,   %4.10f \n",  GetNRSpinPeakOmegav2(2, 2, eta, spinNQC) / mTotal,  GetNRSpinPeakOmegav2(2, 2, eta, spinNQC));
+      XLAL_PRINT_INFO("Stas - NRPeakOmega22 =  %4.10f,   %4.10f \n",  XLALSimIMREOBGetNRSpinPeakOmegav2(2, 2, eta, spinNQC) / mTotal,  XLALSimIMREOBGetNRSpinPeakOmegav2(2, 2, eta, spinNQC));
       XLAL_PRINT_INFO("Stas ---- check for fmin NRPeakOmega22 = %4.10f, freqMinRad = %4.10f \n", NRPeakOmega22, freqMinRad);
       XLAL_PRINT_INFO("Stas -- minf freq is min( %4.10f, %4.10f )\n", NRPeakOmega22*0.1, freqMinRad);
       XLAL_PRINT_INFO("Stas -- initial radius (apr) %4.10f \n", pow(LAL_PI*fMin*mTScaled,-2./3.) );
@@ -3566,11 +3566,11 @@ int XLALSimIMRSpinEOBWaveformAll(
      * the azimuthal phase of the observer in the source (I-)frame. Together with inclination angle it defines 
      * the position of the observer in the (I-)frame associated with the source at t=0 */
 
-    Y22 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, 2 );
-    Y2m2 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, -2 );
-    Y21 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, 1 );
-    Y2m1 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, -1 );
-    Y20 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, 0 );
+    Y22 = XLALSpinWeightedSphericalHarmonic( inc, -phiC, -2, 2, 2 );
+    Y2m2 = XLALSpinWeightedSphericalHarmonic( inc, -phiC, -2, 2, -2 );
+    Y21 = XLALSpinWeightedSphericalHarmonic( inc, -phiC, -2, 2, 1 );
+    Y2m1 = XLALSpinWeightedSphericalHarmonic( inc, -phiC, -2, 2, -1 );
+    Y20 = XLALSpinWeightedSphericalHarmonic( inc, -phiC, -2, 2, 0 );
     /*if ( SpinsAlmostAligned ) {
         Y22 = XLALSpinWeightedSphericalHarmonic( inc, coa_phase_offset, -2, 2, 2 );
         Y2m2 = XLALSpinWeightedSphericalHarmonic( inc, coa_phase_offset, -2, 2, -2 );

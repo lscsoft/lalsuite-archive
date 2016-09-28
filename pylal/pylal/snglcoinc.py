@@ -46,7 +46,6 @@ import random
 from scipy.constants import c as speed_of_light
 import scipy.optimize
 import sys
-import threading
 import warnings
 
 
@@ -56,7 +55,6 @@ from glue import segmentsUtils
 from glue.ligolw import ligolw
 from glue.ligolw import array as ligolw_array
 from glue.ligolw import param as ligolw_param
-from glue.ligolw import table as ligolw_table
 from glue.ligolw import lsctables
 from glue.text_progress_bar import ProgressBar
 from pylal import git_version
@@ -163,7 +161,7 @@ class EventListDict(dict):
 		# wrapper to shield dict.__new__() from our arguments.
 		return dict.__new__(cls)
 
-	def __init__(self, EventListType, event_table, process_ids = None):
+	def __init__(self, EventListType, event_table, instruments = None, process_ids = None):
 		"""
 		Initialize a newly-created instance.  EventListType is a
 		subclass of EventList (the subclass itself, not an instance
@@ -175,14 +173,15 @@ class EventListDict(dict):
 		process_ids whose events should be considered in the
 		coincidence analysis, otherwise all events are considered.
 		"""
-		for event in event_table:
-			if (process_ids is None) or (event.process_id in process_ids):
-				# FIXME:  only works when the instrument
-				# name is in the "ifo" column.  true for
-				# inspirals, bursts and ringdowns
-				if event.ifo not in self:
-					self[event.ifo] = EventListType(event.ifo)
+		for instrument in instruments if instruments is not None else set(event_table.getColumnByName("ifo")):
+			self[instrument] = EventListType(instrument)
+		if process_ids is None:
+			for event in event_table:
 				self[event.ifo].append(event)
+		else:
+			for event in event_table:
+				if event.process_id in process_ids:
+					self[event.ifo].append(event)
 		for l in self.values():
 			l.make_index()
 
@@ -208,16 +207,6 @@ class EventListDict(dict):
 	def offsetvector(self):
 		for eventlist in self.values():
 			eventlist.set_offset(0)
-
-
-def make_eventlists(xmldoc, EventListType, event_table_name, process_ids = None):
-	"""
-	Convenience wrapper for constructing a dictionary of event lists
-	from an XML document tree, the name of a table from which to get
-	the events, a maximum allowed time window, and the name of the
-	program that generated the events.
-	"""
-	return EventListDict(EventListType, ligolw_table.get_table(xmldoc, event_table_name), process_ids = process_ids)
 
 
 #
@@ -334,6 +323,7 @@ class TimeSlideGraphNode(object):
 		self.coincs = None
 		self.unused_coincs = set()
 
+	@property
 	def name(self):
 		return self.offset_vector.__str__(compact = True)
 
@@ -355,18 +345,13 @@ class TimeSlideGraphNode(object):
 		if self.components is None:
 			if verbose:
 				print >>sys.stderr, "\tconstructing %s ..." % str(self.offset_vector)
+
 			#
-			# can we do it?
+			# sanity check input
 			#
 
-			assert len(self.offset_vector) == 2
-			avail_instruments = set(eventlists)
-			offset_instruments = set(self.offset_vector)
-			if not offset_instruments.issubset(avail_instruments):
-				if verbose:
-					print >>sys.stderr, "\twarning: do not have data for instrument(s) %s ... assuming 0 coincs" % ", ".join(offset_instruments - avail_instruments)
-				self.coincs = tuple()
-				return self.coincs
+			assert len(self.offset_vector) == 2, "broken graph:  node with no components has %d-component offset vector, must be 2" % len(self.offset_vector)
+			assert set(self.offset_vector) <= set(eventlists), "no event list for instrument(s) %s" % ", ".join(sorted(set(self.offset_vector) - set(eventlists)))
 
 			#
 			# apply offsets to events
@@ -391,7 +376,9 @@ class TimeSlideGraphNode(object):
 			# tuple returned by get_doubles() is arbitrary so
 			# we need to sort each tuple by instrument name
 			# explicitly
-			self.coincs = tuple(sorted((a.event_id, b.event_id) if a.ifo <= b.ifo else (b.event_id, a.event_id) for (a, b) in get_doubles(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose)))
+			self.unused_coincs = set((event.event_id,) for instrument in self.offset_vector for event in eventlists[instrument])
+			self.coincs = tuple(sorted((a.event_id, b.event_id) if a.ifo <= b.ifo else (b.event_id, a.event_id) for (a, b) in get_doubles(eventlists, event_comparefunc, tuple(self.offset_vector), thresholds, verbose = verbose)))
+			self.unused_coincs -= set((event_id,) for coinc in self.coincs for event_id in coinc)
 			return self.coincs
 
 		#
@@ -526,11 +513,12 @@ class TimeSlideGraphNode(object):
 class TimeSlideGraph(object):
 	def __init__(self, offset_vector_dict, verbose = False):
 		#
-		# validate input
+		# safety check input
 		#
 
-		if min(len(offset_vector) for offset_vector in offset_vector_dict.values()) < 2:
-			raise ValueError("offset vectors must have at least two instruments")
+		offset_vector = min(offset_vector_dict.values(), key = lambda x: len(x))
+		if len(offset_vector) < 2:
+			raise ValueError("encountered offset vector with fewer than 2 instruments: %s", str(offset_vector))
 
 		#
 		# populate the graph head nodes.  these represent the
@@ -608,25 +596,20 @@ class TimeSlideGraph(object):
 		if verbose:
 			print >>sys.stderr, "graph contains:"
 			for n in sorted(self.generations):
-				print >>sys.stderr,"\t%d %d-insrument offset vectors (%s)" % (len(self.generations[n]), n, ((n == 2) and "to be constructed directly" or "to be constructed indirectly"))
+				print >>sys.stderr,"\t%d %d-insrument offset vectors (%s)" % (len(self.generations[n]), n, ("to be constructed directly" if n == 2 else "to be constructed indirectly"))
 			print >>sys.stderr, "\t%d offset vectors total" % sum(len(self.generations[n]) for n in self.generations)
 
 
-	def get_coincs(self, eventlists, event_comparefunc, thresholds, include_small_coincs = True, verbose = False):
+	def get_coincs(self, eventlists, event_comparefunc, thresholds, verbose = False):
 		if verbose:
 			print >>sys.stderr, "constructing coincs for target offset vectors ..."
 		for n, node in enumerate(self.head, start = 1):
 			if verbose:
 				print >>sys.stderr, "%d/%d: %s" % (n, len(self.head), str(node.offset_vector))
-			if include_small_coincs:
-				# note that unused_coincs must be retrieved
-				# after the call to .get_coincs() because
-				# the former is computed as a side effect
-				# of the latter
-				iterator = itertools.chain(node.get_coincs(eventlists, event_comparefunc, thresholds, verbose), node.unused_coincs)
-			else:
-				iterator = node.get_coincs(eventlists, event_comparefunc, thresholds, verbose)
-			for coinc in iterator:
+			# note that unused_coincs must be retrieved after
+			# the call to .get_coincs() because the former is
+			# computed as a side effect of the latter
+			for coinc in itertools.chain(node.get_coincs(eventlists, event_comparefunc, thresholds, verbose), node.unused_coincs):
 				yield node, coinc
 
 
@@ -637,14 +620,14 @@ class TimeSlideGraph(object):
 		"""
 		print >>fileobj, "digraph \"Time Slides\" {"
 		for node in itertools.chain(*self.generations.values()):
-			print >>fileobj, "\t\"%s\" [shape=box];" % node.name()
+			print >>fileobj, "\t\"%s\" [shape=box];" % node.name
 			if node.components is not None:
 				for component in node.components:
-					print >>fileobj, "\t\"%s\" -> \"%s\";" % (component.name(), node.name())
+					print >>fileobj, "\t\"%s\" -> \"%s\";" % (component.name, node.name)
 		for node in self.head:
-			print >>fileobj, "\t\"%s\" [shape=ellipse];" % node.name()
+			print >>fileobj, "\t\"%s\" [shape=ellipse];" % node.name
 			for component in node.components:
-				print >>fileobj, "\t\"%s\" -> \"%s\";" % (component.name(), node.name())
+				print >>fileobj, "\t\"%s\" -> \"%s\";" % (component.name, node.name)
 		print >>fileobj, "}"
 
 
@@ -688,40 +671,64 @@ class CoincTables(object):
 		# required.  when that is fixed, remove this
 		self.time_slide_index = dict((time_slide_id, type(offset_vector)((instrument, lsctables.LIGOTimeGPS(offset)) for instrument, offset in offset_vector.items())) for time_slide_id, offset_vector in self.time_slide_index.items())
 
-	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events):
+	def coinc_rows(self, process_id, time_slide_id, coinc_def_id, events):
 		"""
-		Takes a process ID, a time slide ID, and a list of events,
-		and adds the events as a new coincidence to the coinc_event
-		and coinc_map tables.
+		From a process ID, a time slide ID, and a sequence of
+		events (generator expressions are OK), constructs and
+		initializes a coinc_event table row object and a sequence
+		of coinc_event_map table row objects describing the
+		coincident event.  The return value is the coinc_event row
+		and a sequence of the coinc_event_map rows.
 
-		Subclasses that wish to override this method should first
-		chain to this method to construct and initialize the
-		coinc_event and coinc_event_map rows.  When subclassing
-		this method, if the time shifts that were applied to the
-		events in constructing the coincidence are required to
-		compute additional metadata, they can be retrieved from
-		self.time_slide_index using the time_slide_id.
+		The coinc_event is *not* assigned a coinc_event_id by this
+		method.  It is expected that will be done in
+		.append_coinc().  This allows sub-classes to defer the
+		question of whether or not to include the coincidence in
+		the search results without consuming additional IDs.
+
+		The coinc_event row's .instruments and .likelihood
+		attributes are initialized to null values.  The calling
+		code should populate as needed.
+
+		When subclassing this method, if the time shifts that were
+		applied to the events in constructing the coincidence are
+		required to compute additional metadata, they can be
+		retrieved from self.time_slide_index using the
+		time_slide_id.
 		"""
-		# so we can iterate over it more than once incase we've
-		# been given a generator expression.
-		events = tuple(events)
-
 		coinc = self.coinctable.RowType()
 		coinc.process_id = process_id
 		coinc.coinc_def_id = coinc_def_id
-		coinc.coinc_event_id = self.coinctable.get_next_id()
+		coinc.coinc_event_id = None
 		coinc.time_slide_id = time_slide_id
 		coinc.set_instruments(None)
-		coinc.nevents = len(events)
 		coinc.likelihood = None
-		self.coinctable.append(coinc)
+
+		coincmaps = []
 		for event in events:
 			coincmap = self.coincmaptable.RowType()
 			coincmap.coinc_event_id = coinc.coinc_event_id
 			coincmap.table_name = event.event_id.table_name
 			coincmap.event_id = event.event_id
-			self.coincmaptable.append(coincmap)
-		return coinc
+			coincmaps.append(coincmap)
+
+		coinc.nevents = len(coincmaps)
+
+		return coinc, coincmaps
+
+	def append_coinc(self, coinc_event_row, coinc_event_map_rows):
+		"""
+		Appends the coinc_event row object and coinc_event_map row
+		objects to the coinc_event and coinc_event_map tables
+		respectively after assigning a coinc_event_id to the
+		coincidence.  Returns the coinc_event row object.
+		"""
+		coinc_event_row.coinc_event_id = self.coinctable.get_next_id()
+		self.coinctable.append(coinc_event_row)
+		for row in coinc_event_map_rows:
+			row.coinc_event_id = coinc_event_row.coinc_event_id
+			self.coincmaptable.append(row)
+		return coinc_event_row
 
 
 #
@@ -741,7 +748,7 @@ class CoincSynthesizer(object):
 	rates related to the problem of doing so.
 	"""
 
-	def __init__(self, eventlists = None, segmentlists = None, delta_t = None, abundance_rel_accuracy = 1e-4):
+	def __init__(self, eventlists = None, segmentlists = None, delta_t = None, min_instruments = 2, abundance_rel_accuracy = 1e-4):
 		"""
 		eventlists is either a dictionary mapping instrument name
 		to a list of the events (arbitrary objects) seen in that
@@ -755,6 +762,8 @@ class CoincSynthesizer(object):
 		window in seconds, the light travel time between instrument
 		pairs is added to this internally to set the maximum
 		allowed coincidence window between a pair of instruments.
+		min_instruments sets the minimum number of instruments that
+		must participate in a coincidence (default is 2).
 
 		abundance_rel_accuracy sets the fractional error tolerated
 		in the Monte Carlo integrator used to estimate the relative
@@ -774,12 +783,20 @@ class CoincSynthesizer(object):
 		{frozenset(['V1', 'H1']): 0.0006034769052553435, frozenset(['V1', 'H1', 'L1']): 1.1793108172576082e-06, frozenset(['H1', 'L1']): 0.000293675897392638, frozenset(['V1', 'L1']): 0.00043917345626762395}
 		>>> coinc_synth.P_live
 		{frozenset(['V1', 'H1']): 0.0, frozenset(['V1', 'H1', 'L1']): 0.25, frozenset(['H1', 'L1']): 0.25, frozenset(['V1', 'L1']): 0.5}
+		>>>
+		>>>
+		>>> coinc_synth = CoincSynthesizer(eventlists, seglists, 0.001, min_instruments = 1)
+		>>> coinc_synth.rates
+		{frozenset(['V1']): 0.08, frozenset(['H1']): 0.13333333333333333, frozenset(['V1', 'H1']): 0.0006034769052553435, frozenset(['L1']): 0.1, frozenset(['V1', 'L1']): 0.00043917345626762395, frozenset(['V1', 'H1', 'L1']): 1.179508868912594e-06, frozenset(['H1', 'L1']): 0.000293675897392638}
 		"""
 		self.eventlists = eventlists if eventlists is not None else dict.fromkeys(segmentlists, 0) if segmentlists is not None else {}
 		self.segmentlists = segmentlists if segmentlists is not None else segmentsUtils.segments.segmentlistdict()
+		if set(self.eventlists) > set(self.segmentlists):
+			raise ValueError("require a segmentlist for each event list")
 		self.delta_t = delta_t
-		# require a segment list for each list of events
-		assert set(self.eventlists) <= set(self.segmentlists)
+		if min_instruments < 1:
+			raise ValueError("min_instruments must be >= 1")
+		self.min_instruments = min_instruments
 		self.abundance_rel_accuracy = abundance_rel_accuracy
 
 		self.verbose = False	# turn on for diagnostics
@@ -792,10 +809,10 @@ class CoincSynthesizer(object):
 		attributes (or their contents) are modified.  This class
 		relies heavily on pre-computed quantities that are derived
 		from the input parameters and cached;  invoking this method
-		forces the recalculation of all cached data (the next time
-		it's needed).  Until this method is invoked, derived data
-		like coincidence window sizes and mean event rates might
-		reflect the previous state of this class.
+		forces the recalculation of cached data (the next time it's
+		needed).  Until this method is invoked, derived data like
+		coincidence window sizes and mean event rates might reflect
+		the previous state of this class.
 		"""
 		try:
 			del self._P_live
@@ -822,24 +839,24 @@ class CoincSynthesizer(object):
 		frozensets).
 		"""
 		all_instruments = tuple(self.eventlists)
-		return tuple(frozenset(instruments) for n in range(2, len(all_instruments) + 1) for instruments in iterutils.choices(all_instruments, n))
+		return tuple(frozenset(instruments) for n in range(self.min_instruments, len(all_instruments) + 1) for instruments in iterutils.choices(all_instruments, n))
 
 
 	@property
 	def P_live(self):
 		"""
 		Dictionary mapping instrument combination (as a frozenset)
-		to fraction of the total time for which at least two
-		instruments were on during which precisely that combination
-		of instruments (and no other instruments) are on.  E.g.,
-		P_live[frozenset(("H1", "L1"))] gives the probability that
-		precisely H1 and L1 are the only instruments operating
-		given that at least two instruments are operating.
+		to fraction of the total time in which the minimum required
+		number of instruments were on during which precisely that
+		combination of instruments (and no other instruments) are
+		on.  E.g., P_live[frozenset(("H1", "L1"))] gives the
+		probability that precisely H1 and L1 are the only
+		instruments operating.
 		"""
 		try:
 			return self._P_live
 		except AttributeError:
-			livetime = float(abs(segmentsUtils.vote(self.segmentlists.values(), 2)))
+			livetime = float(abs(segmentsUtils.vote(self.segmentlists.values(), self.min_instruments)))
 			all_instruments = set(self.segmentlists)
 			self._P_live = dict((instruments, float(abs(self.segmentlists.intersection(instruments) - self.segmentlists.union(all_instruments - instruments))) / livetime) for instruments in self.all_instrument_combos)
 			# check normalization
@@ -994,19 +1011,20 @@ class CoincSynthesizer(object):
 		# variance = d p (1 - p) <= d/4 where p is the probability
 		# of a successful outcome.  we quit when the ratio of the
 		# bound on the standard deviation of the number of
-		# successful outcomes to the actual number of successful
-		# outcomes falls below rel accuracy: \sqrt{d/4} / n < rel
-		# accuracy.  note that if the true probability is 0, so
-		# that n=0 identically, then the loop will never terminate;
-		# from the nature of the problem we know 0<p<1 so the loop
-		# will, eventually, terminate.  note that if instead of
-		# using the upper bound on the variance, we replace p with
-		# (n/d) and use that estimate of the variance the loop can
-		# be shown to require many fewer iterations to meet the
-		# desired accuracy, but that choice creates a rather strong
-		# bias that, to overcome, requires some extra hacks to
-		# force the loop to run for additional iterations.  this
-		# approach is cleaner.
+		# successful outcomes (d/4) to the actual number of
+		# successful outcomes (n) falls below rel accuracy:
+		# \sqrt{d/4} / n < rel accuracy.  note that if the true
+		# probability is 0, so that n=0 identically, then the loop
+		# will never terminate; from the nature of the problem we
+		# know 0<p<1 so the loop will, eventually, terminate.  note
+		# that if instead of using the upper bound on the variance,
+		# we replace p with the estimate of p at the current
+		# iteration (=n/d) and use that to estimate the variance
+		# the loop can be shown to require many fewer iterations to
+		# meet the desired accuracy, but that choice creates a
+		# rather strong bias that, to overcome, requires some extra
+		# hacks to force the loop to run for additional iterations.
+		# the approach used here is much simpler.
 					math_sqrt = math.sqrt
 					random_uniform = random.uniform
 					epsilon = self.abundance_rel_accuracy
@@ -1050,9 +1068,10 @@ class CoincSynthesizer(object):
 		Dictionary mapping instrument combo (as a frozenset) to the
 		mean rate at which coincidences involving precisely that
 		combination of instruments occur, averaged over times when
-		at least two instruments are operating --- the mean rate
-		during times when coincidences are possible, not the mean
-		rate over all time.  The result is not cached.
+		at least the minimum required number of instruments are
+		operating --- the mean rate during times when coincidences
+		are possible, not the mean rate over all time.  The result
+		is not cached.
 		"""
 		coinc_rate = dict.fromkeys(self.rates, 0.0)
 		# iterate over probabilities in order for better numerical
@@ -1111,7 +1130,7 @@ class CoincSynthesizer(object):
 		precisely that combination of instruments expected from the
 		background.  The result is not cached.
 		"""
-		T = float(abs(segmentsUtils.vote(self.segmentlists.values(), 2)))
+		T = float(abs(segmentsUtils.vote(self.segmentlists.values(), self.min_instruments)))
 		return dict((instruments, rate * T) for instruments, rate in self.mean_coinc_rate.items())
 
 
@@ -1171,7 +1190,7 @@ class CoincSynthesizer(object):
 		"""
 		Generator to yield time shifted coincident event tuples
 		without the use of explicit time shift vectors.  This
-		generator can only be used if the eventlists dicctionary
+		generator can only be used if the eventlists dictionary
 		with which this object was initialized contained lists of
 		event objects and not merely counts of events.
 
@@ -1184,10 +1203,11 @@ class CoincSynthesizer(object):
 		contained in self.eventlists.
 
 		If allow_zero_lag is False (the default), then only event tuples
-		with no genuine zero-lag coincidences are returned, that is only
-		tuples in which no event pairs would be considered to be coincident
-		without time shifts applied.
-
+		with no genuine zero-lag coincidences are returned, that is
+		only tuples in which no event pairs would be considered to
+		be coincident without time shifts applied.  Note that
+		single-instrument "coincidences", if allowed, are *not*
+		considered to be zero-lag coincidences.
 
 		Example:
 
@@ -1455,41 +1475,33 @@ class TOATriangulator(object):
 
 
 #
-# A look-up table used to convert instrument names to powers of 2.  Why?
-# To create a bidirectional mapping between combinations of instrument
-# names and integers so we can use a pylal.rate style binning for the
-# instrument combinations.  This has to be used because pylal.rate's native
-# Categories binning cannot be serialized to XML.
+# A binning for instrument combinations
 #
-# FIXME:  allow pylal.rate's Categories binning to be serialized to XML and
-# get rid of this crap
+# FIXME:  we decided that the coherent and null stream naming convention
+# would look like
+#
+# H1H2:LSC-STRAIN_HPLUS, H1H2:LSC-STRAIN_HNULL
+#
+# and so on.  i.e., the +, x and null streams from a coherent network would
+# be different channels from a single instrument whose name would be the
+# mash-up of the names of the instruments in the network.  that is
+# inconsisntent with the "H1H2+", "H1H2-" shown here, so this needs to be
+# fixed but I don't know how.  maybe it'll go away before it needs to be
+# fixed.
 #
 
 
-class InstrumentCategories(dict):
-	def __init__(self):
-		# FIXME:  we decided that the coherent and null stream
-		# naming convention would look like
-		#
-		# H1H2:LSC-STRAIN_HPLUS, H1H2:LSC-STRAIN_HNULL
-		#
-		# and so on.  i.e., the +, x and null streams from a
-		# coherent network would be different channels from a
-		# single instrument whose name would be the mash-up of the
-		# names of the instruments in the network.  that is
-		# inconsisntent with the "H1H2+", "H1H2-" shown here, so
-		# this needs to be fixed but I don't know how.  maybe it'll
-		# go away before it needs to be fixed.
-		self.update(dict((instrument, 1 << n) for n, instrument in enumerate(("G1", "H1", "H2", "H1H2+", "H1H2-", "L1", "V1", "E1", "E2", "E3", "E0"))))
+def InstrumentBins(names = ("E0", "E1", "E2", "E3", "G1", "H1", "H2", "H1H2+", "H1H2-", "L1", "V1")):
+	"""
+	Example:
 
-	def max(self):
-		return sum(self.values())
-
-	def category(self, instruments):
-		return sum(self[instrument] for instrument in instruments)
-
-	def instruments(self, category):
-		return set(instrument for instrument, factor in self.items() if category & factor)
+	>>> x = InstrumentBins()
+	>>> x[frozenset(("H1", "L1"))]
+	55
+	>>> x.centres()[55]
+	frozenset(['H1', 'L1'])
+	"""
+	return rate.HashableBins(frozenset(combo) for n in range(len(names) + 1) for combo in iterutils.choices(names, n))
 
 
 #
@@ -1579,7 +1591,7 @@ class CoincParamsDistributions(object):
 		self.injection_lnpdf_interp = {}
 		self.process_id = process_id
 
-	def _rebuild_interpolators(self):
+	def _rebuild_interpolators(self, keys = None):
 		"""
 		Initialize the interp dictionaries from the discretely
 		sampled PDF data.  For internal use only.
@@ -1587,6 +1599,10 @@ class CoincParamsDistributions(object):
 		self.zero_lag_lnpdf_interp.clear()
 		self.background_lnpdf_interp.clear()
 		self.injection_lnpdf_interp.clear()
+		# if a specific set of keys wasn't given, do them all
+		if keys is None:
+			keys = set(self.zero_lag_pdf)
+		# build interpolators for the requested keys
 		def mkinterp(binnedarray):
 			with numpy.errstate(invalid = "ignore"):
 				assert not (binnedarray.array < 0.).any()
@@ -1595,11 +1611,14 @@ class CoincParamsDistributions(object):
 				binnedarray.array = numpy.log(binnedarray.array)
 			return rate.InterpBinnedArray(binnedarray, fill_value = NegInf)
 		for key, binnedarray in self.zero_lag_pdf.items():
-			self.zero_lag_lnpdf_interp[key] = mkinterp(binnedarray)
+			if key in keys:
+				self.zero_lag_lnpdf_interp[key] = mkinterp(binnedarray)
 		for key, binnedarray in self.background_pdf.items():
-			self.background_lnpdf_interp[key] = mkinterp(binnedarray)
+			if key in keys:
+				self.background_lnpdf_interp[key] = mkinterp(binnedarray)
 		for key, binnedarray in self.injection_pdf.items():
-			self.injection_lnpdf_interp[key] = mkinterp(binnedarray)
+			if key in keys:
+				self.injection_lnpdf_interp[key] = mkinterp(binnedarray)
 
 	@staticmethod
 	def addbinnedarrays(rate_target_dict, rate_source_dict, pdf_target_dict, pdf_source_dict):
@@ -1795,20 +1814,21 @@ class CoincParamsDistributions(object):
 		__getitem__ = self.injection_lnpdf_interp.__getitem__
 		return sum(__getitem__(name)(*value) for name, value in params.items())
 
-	def get_xml_root(self, xml, name):
+	@classmethod
+	def get_xml_root(cls, xml, name):
 		"""
 		Sub-classes can use this in their overrides of the
 		.from_xml() method to find the root element of the XML
 		serialization.
 		"""
-		name = u"%s:%s" % (name, self.ligo_lw_name_suffix)
+		name = u"%s:%s" % (name, cls.ligo_lw_name_suffix)
 		xml = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == name]
 		if len(xml) != 1:
 			raise ValueError("XML tree must contain exactly one %s element named %s" % (ligolw.LIGO_LW.tagName, name))
 		return xml[0]
 
 	@classmethod
-	def from_xml(cls, xml, name):
+	def from_xml(cls, xml, name, **kwargs):
 		"""
 		In the XML document tree rooted at xml, search for the
 		serialized CoincParamsDistributions object named name, and
@@ -1817,14 +1837,14 @@ class CoincParamsDistributions(object):
 		CoincParamsDistributions object, the second is the process
 		ID recorded when it was written to XML.
 		"""
-		# create an instance
-		self = cls()
-
 		# find the root element of the XML serialization
-		xml = self.get_xml_root(xml, name)
+		xml = cls.get_xml_root(xml, name)
 
 		# retrieve the process ID
-		self.process_id = ligolw_param.get_pyvalue(xml, u"process_id")
+		process_id = ligolw_param.get_pyvalue(xml, u"process_id")
+
+		# create an instance
+		self = cls(process_id = process_id, **kwargs)
 
 		# reconstruct the BinnedArray objects
 		def reconstruct(xml, prefix, target_dict):
@@ -1858,7 +1878,7 @@ class CoincParamsDistributions(object):
 		given the name name.
 		"""
 		xml = ligolw.LIGO_LW({u"Name": u"%s:%s" % (name, self.ligo_lw_name_suffix)})
-		xml.appendChild(ligolw_param.new_param(u"process_id", u"ilwd:char", self.process_id))
+		xml.appendChild(ligolw_param.Param.from_pyvalue(u"process_id", self.process_id))
 		def store(xml, prefix, source_dict):
 			for name, binnedarray in sorted(source_dict.items()):
 				xml.appendChild(binnedarray.to_xml(u"%s:%s" % (prefix, name)))

@@ -251,7 +251,6 @@ typedef struct {
   CHAR *skyRegion;		/**< list of skypositions defining a search-polygon */
   CHAR *DataFiles;		/**< glob-pattern for SFT data-files to use */
 
-  BOOLEAN help;			/**< output help-string */
   CHAR *outputLogfile;		/**< write a log-file */
   CHAR *outputFstat;		/**< filename to output Fstatistic in */
   CHAR *outputLoudest;		/**< filename for loudest F-candidate plus parameter estimation */
@@ -379,10 +378,10 @@ int main(int argc,char *argv[])
   XLAL_CHECK_MAIN ( (GV.VCSInfoString = XLALGetVersionString(0)) != NULL, XLAL_EFUNC );
 
   /* do ALL cmdline and cfgfile handling */
-  XLAL_CHECK_MAIN ( XLALUserVarReadAllInput(argc, argv) == XLAL_SUCCESS, XLAL_EFUNC );
-
-  if (uvar.help) {	/* if help was requested, we're done here */
-    exit (0);
+  BOOLEAN should_exit = 0;
+  XLAL_CHECK_MAIN( XLALUserVarReadAllInput( &should_exit, argc, argv ) == XLAL_SUCCESS, XLAL_EFUNC );
+  if ( should_exit ) {
+    exit (1);
   }
 
   if ( uvar.version )
@@ -922,7 +921,6 @@ initUserVars ( UserInput_t *uvar )
 
   uvar->metricMismatch = 0.02;
 
-  uvar->help = FALSE;
   uvar->version = FALSE;
 
   uvar->outputLogfile = NULL;
@@ -968,8 +966,6 @@ initUserVars ( UserInput_t *uvar )
   uvar->transient_useFReg = 0;
 
   /* ---------- register all user-variables ---------- */
-  XLALRegisterUvarMember( 	help, 		BOOLEAN, 'h', HELP,     "Print this message");
-
   XLALRegisterUvarMember( 	Alpha, 		RAJ, 'a', OPTIONAL, "Sky: equatorial J2000 right ascension (in radians or hours:minutes:seconds)");
   XLALRegisterUvarMember( 	Delta, 		DECJ, 'd', OPTIONAL, "Sky: equatorial J2000 declination (in radians or degrees:minutes:seconds)");
   XLALRegisterUvarMember( 	skyRegion,      STRING, 'R', OPTIONAL, "ALTERNATIVE: Sky-region polygon '(Alpha1,Delta1),(Alpha2,Delta2),...' or 'allsky'");
@@ -1091,11 +1087,10 @@ initUserVars ( UserInput_t *uvar )
   XLALRegisterUvarMember ( RA,	STRING, 0, DEPRECATED, "Use --Alpha instead" );
   XLALRegisterUvarMember ( Dec, STRING, 0, DEPRECATED, "Use --Delta instead");
 
-  XLALRegisterUvarMember ( internalRefTime, EPOCH, 0, DEPRECATED, "HAS NO EFFECT and should no longer be used: XLALComputeFstat() now always uses midtime internally ... ");
-  XLALRegisterUvarMember ( dopplermax,      REAL8, 0, DEPRECATED, "HAS NO EFFECT and should no longer be used: maximum Doppler shift is accounted for internally");
-
   // ---------- obsolete and unsupported options ----------
-  XLALRegisterUvarMember(outputLogPrintf, STRING, 0,  DEFUNCT, "DEFUNCT; used to send all output from LogPrintf statements to this file");
+  XLALRegisterUvarMember ( outputLogPrintf, STRING,0, DEFUNCT, "DEFUNCT: Used to send all output from LogPrintf statements to this file");
+  XLALRegisterUvarMember ( internalRefTime, EPOCH, 0, DEFUNCT, "Should no longer be used: XLALComputeFstat() now always uses midtime internally ... ");
+  XLALRegisterUvarMember ( dopplermax,      REAL8, 0, DEFUNCT, "Should no longer be used: maximum Doppler shift is accounted for internally");
 
   return XLAL_SUCCESS;
 
@@ -1499,7 +1494,7 @@ InitFstat ( ConfigVariables *cfg, const UserInput_t *uvar )
           oLGX_p = &oLGX[0];
         } // if uvar->oLGX != NULL
 
-      XLAL_CHECK ( (cfg->BSGLsetup = XLALCreateBSGLSetup ( numDetectors, uvar->Fstar0, oLGX_p, uvar->BSGLlogcorr )) != NULL, XLAL_EFUNC );
+      XLAL_CHECK ( (cfg->BSGLsetup = XLALCreateBSGLSetup ( numDetectors, uvar->Fstar0, oLGX_p, uvar->BSGLlogcorr, 1 )) != NULL, XLAL_EFUNC ); // coherent F-stat: NSeg=1
     } // if uvar_computeBSGL
 
   return XLAL_SUCCESS;

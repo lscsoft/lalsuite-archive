@@ -101,8 +101,8 @@ else:
 
 
 xmldoc = utils.load_filename( trigFile, gz=trigFile.endswith("gz" ), contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
-trigs  = table.get_table( xmldoc, lsctables.MultiInspiralTable.tableName )
-searchSumm = table.get_table( xmldoc, lsctables.SearchSummaryTable.tableName )
+trigs  = lsctables.MultiInspiralTable.get_table( xmldoc )
+searchSumm = lsctables.SearchSummaryTable.get_table( xmldoc )
 
 ifos = sorted( map( str, searchSumm[0].get_ifos() ) )
 ifoAtt = { 'G1':'g', 'H1':'h1', 'H2':'h2', 'L1':'l', 'V1':'v', 'T1':'t' }

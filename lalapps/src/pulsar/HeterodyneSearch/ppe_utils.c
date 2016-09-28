@@ -21,6 +21,7 @@
 /*                            HELPER FUNCTIONS                                */
 /******************************************************************************/
 
+#include "config.h"
 #include "ppe_utils.h"
 
 /** \brief Compute the noise variance for each data segment
@@ -185,10 +186,12 @@ UINT4Vector *chop_n_merge( LALInferenceIFOData *data, UINT4 chunkMin, UINT4 chun
   chunkIndex = chop_data( &meddatagsl.vector, chunkMin );
 
   /* DON'T BOTHER WITH THE MERGING AS IT WILL MAKE VERY LITTLE DIFFERENCE */
-  /* merge_data( meddata, chunkIndex ); */
+  /* merge_data( meddata, &chunkIndex ); */
+
+  XLALDestroyCOMPLEX16Vector( meddata ); /* free memory */
 
   /* if a maximum chunk length is defined then rechop up the data, to segment any chunks longer than this value */
-  if ( chunkMax > chunkMin ) { rechop_data( chunkIndex, chunkMax, chunkMin ); }
+  if ( chunkMax > chunkMin ) { rechop_data( &chunkIndex, chunkMax, chunkMin ); }
 
   chunkLengths = XLALCreateUINT4Vector( chunkIndex->length );
 
@@ -202,11 +205,9 @@ UINT4Vector *chop_n_merge( LALInferenceIFOData *data, UINT4 chunkMin, UINT4 chun
   if ( outputchunks ){
     FILE *fpsegs = NULL;
 
-    CHAR *outfile = NULL;
-
     /* set detector name as prefix */
+    CHAR *outfile = NULL;
     outfile = XLALStringDuplicate( data->detector->frDetector.prefix );
-
     outfile = XLALStringAppend( outfile, "data_segment_list.txt" );
 
     /* check if file exists, i.e. given mutliple frequency harmonics, and if so open for appending */
@@ -224,6 +225,7 @@ UINT4Vector *chop_n_merge( LALInferenceIFOData *data, UINT4 chunkMin, UINT4 chun
         return chunkLengths;
       }
     }
+    XLALFree( outfile );
 
     for ( j = 0; j < chunkIndex->length; j++ ) { fprintf(fpsegs, "%u\t%u\n", chunkIndex->data[j], chunkLengths->data[j]); }
 
@@ -232,6 +234,8 @@ UINT4Vector *chop_n_merge( LALInferenceIFOData *data, UINT4 chunkMin, UINT4 chun
 
     fclose( fpsegs );
   }
+
+  XLALDestroyUINT4Vector( chunkIndex );
 
   return chunkLengths;
 }
@@ -363,6 +367,9 @@ UINT4Vector *chop_data( gsl_vector_complex *data, UINT4 chunkMin ){
     /* combine new chunks */
     for (i = 0; i < cp1->length; i++) { chunkIndex->data[i] = cp1->data[i]; }
     for (i = 0; i < cp2->length; i++) { chunkIndex->data[i+cp1->length] = cp2->data[i] + changepoint; }
+
+    XLALDestroyUINT4Vector( cp1 );
+    XLALDestroyUINT4Vector( cp2 );
   }
   else{ chunkIndex->data[0] = length; }
 
@@ -386,7 +393,7 @@ UINT4Vector *chop_data( gsl_vector_complex *data, UINT4 chunkMin ){
  * split point recorded. However, the value required for comparing to that for the whole data set, to give the odds
  * ratio, is the evidence that having any split is better than having no split, so the individual split data evidences
  * need to be added incoherently to give the total evidence for a split. The index at which the evidence for a single
- * split is maximum (i.e. the most favoured split point) that which is returned.
+ * split is maximum (i.e. the most favoured split point) is that which is returned.
  *
  * \param data [in] a complex data vector
  * \param logodds [in] a pointer to return the natural logarithm of the odds ratio/Bayes factor
@@ -480,35 +487,34 @@ UINT4 find_change_point( gsl_vector_complex *data, REAL8 *logodds, UINT4 minleng
  * \param chunkMax [in] the maximum allowed segment/chunk length
  * \param chunkMin [in] the minimum allowed segment/chunk length
  */
-void rechop_data( UINT4Vector *chunkIndex, UINT4 chunkMax, UINT4 chunkMin ){
+void rechop_data( UINT4Vector **chunkIndex, UINT4 chunkMax, UINT4 chunkMin ){
   UINT4 i = 0, j = 0, count = 0;
-  UINT4 length = chunkIndex->length;
-  UINT4 endIndex = chunkIndex->data[length-1];
+  UINT4Vector *cip = *chunkIndex; /* pointer to chunkIndex */
+  UINT4 length = cip->length;
+  UINT4 endIndex = cip->data[length-1];
   UINT4 startindex = 0, chunklength = 0;
-
-  UINT4Vector *newindex = NULL;
-  newindex = XLALCreateUINT4Vector( ceil((REAL8)endIndex / (REAL8)chunkMax ) );
+  UINT4 newindex[(UINT4)ceil((REAL8)endIndex/(REAL8)chunkMin)];
 
   /* chop any chunks that are greater than chunkMax into chunks smaller than, or equal to chunkMax, and greater than chunkMin */
   for ( i = 0; i < length; i++ ){
     if ( i == 0 ) { startindex = 0; }
-    else { startindex = chunkIndex->data[i-1]+1; }
+    else { startindex = cip->data[i-1]; }
 
-    chunklength = chunkIndex->data[i] - startindex;
+    chunklength = cip->data[i] - startindex;
 
     if ( chunklength > chunkMax ){
       UINT4 remain = chunklength % chunkMax;
 
-      /* cut segment into as many chunkMin chunks as possible */
+      /* cut segment into as many chunkMax chunks as possible */
       for ( j = 0; j < floor(chunklength / chunkMax); j++ ){
-        newindex->data[count] = startindex + (j+1)*chunkMax;
+        newindex[count] = startindex + (j+1)*chunkMax;
         count++;
       }
 
       /* last chunk values */
       if ( remain != 0 ){
         /* set final value */
-        newindex->data[count] = startindex + j*chunkMax + remain;
+        newindex[count] = startindex + j*chunkMax + remain;
 
         if ( remain < chunkMin ){
           /* split the last two cells into one that is chunkMin long and one that is (chunkMax+remainder)-chunkMin long
@@ -516,11 +522,10 @@ void rechop_data( UINT4Vector *chunkIndex, UINT4 chunkMax, UINT4 chunkMin ){
           UINT4 n1 = (chunkMax + remain) - chunkMin;
 
           /* reset second to last value two values */
-          newindex->data[count-1] = newindex->data[count] - chunkMin;
+          newindex[count-1] = newindex[count] - chunkMin;
 
           if ( n1 < chunkMin ){
-            fprintf(stderr, "Non-fatal error... segment no. %d is %d long, which is less than chunkMin = %d.\n",
-                    count, n1, chunkMin);
+            XLAL_PRINT_WARNING("Non-fatal error... segment no. %d is %d long, which is less than chunkMin = %d.\n", count, n1, chunkMin);
           }
         }
 
@@ -528,16 +533,14 @@ void rechop_data( UINT4Vector *chunkIndex, UINT4 chunkMax, UINT4 chunkMin ){
       }
     }
     else{
-      newindex->data[count] = chunkIndex->data[i];
+      newindex[count] = cip->data[i];
       count++;
     }
   }
 
-  chunkIndex = XLALResizeUINT4Vector( chunkIndex, count );
+  cip = XLALResizeUINT4Vector( cip, count );
 
-  for ( i = 0; i < count; i++ ) { chunkIndex->data[i] = newindex->data[i]; }
-
-  XLALDestroyUINT4Vector( newindex );
+  for ( i = 0; i < count; i++ ) { cip->data[i] = newindex[i]; }
 }
 
 
@@ -550,11 +553,12 @@ void rechop_data( UINT4Vector *chunkIndex, UINT4 chunkMax, UINT4 chunkMin ){
  * combined segments they are merged.
  *
  * \param data [in] A complex data vector
- * \param segs [in] A vector of split segment indexes
+ * \param segments [in] A vector of split segment indexes
  */
-void merge_data( COMPLEX16Vector *data, UINT4Vector *segs ){
+void merge_data( COMPLEX16Vector *data, UINT4Vector **segments ){
   UINT4 j = 0;
   REAL8 threshold = 0.; /* may need to be passed to function in the future, or defined globally */
+  UINT4Vector *segs = *segments;
 
   /* loop until stopping criterion is reached */
   while( 1 ){
@@ -617,109 +621,6 @@ void merge_data( COMPLEX16Vector *data, UINT4Vector *segs ){
 
 
 /**
- * \brief Gzip the nested sample files
- *
- * This function gzips the output nested sample files. It will also strip unneccesary parameters
- * from the header "_params.txt" file.
- *
- * \param runState [in] The analysis information structure
- */
-void gzip_output( LALInferenceRunState *runState ){
-  /* Single thread here */
-  LALInferenceThreadState *threadState = runState->threads[0];
-  /* Open original output output file */
-  CHAR *outfile = NULL;
-  ProcessParamsTable *ppt1 = LALInferenceGetProcParamVal( runState->commandLine, "--outfile" );
-
-  if( ppt1 ){
-    CHAR outfilepars[256] = "", outfileparstmp[256] = "";
-    FILE *fppars = NULL, *fpparstmp = NULL;
-    UINT4 nonfixed = 1;
-
-    outfile = ppt1->value;
-
-    /* open file for printing out list of parameter names - this should already exist */
-    sprintf(outfilepars, "%s_params.txt", outfile);
-    if( (fppars = fopen(outfilepars, "r")) == NULL ){
-      XLALPrintError("Error... cannot open parameter name output file %s.\n", outfilepars);
-      XLAL_ERROR_VOID(XLAL_EIO);
-    }
-    /* read in the parameter names and remove the "model" value */
-    sprintf(outfileparstmp, "%s_params.txt_tmp", outfile);
-    if( (fpparstmp = fopen(outfileparstmp, "w")) == NULL ){
-      XLALPrintError("Error... cannot open parameter name output file %s.\n", outfileparstmp);
-      XLAL_ERROR_VOID(XLAL_EIO);
-    }
-
-    if ( LALInferenceGetProcParamVal( runState->commandLine, "--output-all-params" ) ){ nonfixed = 0; }
-
-    CHAR v[128] = "";
-    while( fscanf(fppars, "%s", v) != EOF ){
-      /* if outputing only non-fixed values then only re-output names of those non-fixed things */
-      if ( nonfixed ){
-        if ( LALInferenceCheckVariable( threadState->currentParams, v ) ){
-          if ( LALInferenceGetVariableVaryType( threadState->currentParams, v ) != LALINFERENCE_PARAM_FIXED ){
-            fprintf(fpparstmp, "%s\t", v);
-          }
-        }
-      }
-      else{
-        /* re-output everything to a temporary file */
-        fprintf(fpparstmp, "%s\t", v);
-      }
-    }
-
-    fclose(fppars);
-    fclose(fpparstmp);
-
-    /* move the temporary file name to the standard outfile_param name */
-    rename( outfileparstmp, outfilepars );
-
-    /* gzip the output file if required */
-    if( LALInferenceGetProcParamVal( runState->commandLine, "--gzip" ) ){
-      if ( XLALGzipTextFile( outfile ) != XLAL_SUCCESS ){
-        XLAL_PRINT_ERROR( "Error... Could not gzip the output file!\n" );
-        XLAL_ERROR_VOID( XLAL_EIO );
-      }
-    }
-  }
-/* if we have XML enabled */
-#ifdef HAVE_LIBLALXML
-  ProcessParamsTable *ppt2 = LALInferenceGetProcParamVal( runState->commandLine, "--outxml" );
-  if(!ppt2){
-    ppt2=LALInferenceGetProcParamVal(runState->commandLine,"--outXML");
-  }
-  CHAR *outVOTable = NULL;
-
-  if ( !ppt2 && !ppt1 ){
-    XLALPrintError("Must specify either --outfile or --outXML\n");
-    XLAL_ERROR_VOID( XLAL_EIO );
-  }
-
-  if( ppt2 ){
-    outVOTable = ppt2->value;
-
-    /* gzip the output file if required */
-    if( LALInferenceGetProcParamVal( runState->commandLine, "--gzip" ) ){
-      if ( XLALGzipTextFile( outVOTable ) != XLAL_SUCCESS ){
-        XLAL_PRINT_ERROR( "Error... Could not gzip the output file!\n" );
-        XLAL_ERROR_VOID( XLAL_EIO );
-      }
-    }
-  }
-
-#else
-  if ( !ppt1 ){
-    XLALPrintError("Error... --outfile not defined!\n");
-    XLAL_ERROR_VOID( XLAL_EIO );
-  }
-#endif
-
-  return;
-}
-
-
-/**
  * \brief Counts the number of comma separated values in a string
  *
  * This function counts the number of comma separated values in a given input string.
@@ -736,15 +637,14 @@ INT4 count_csv( CHAR *csvline ){
 
   /* count number of commas */
   while(1){
-    if( XLALStringToken(&inputstr, ",", 0) == NULL ){
-      XLALPrintError("Error... problem counting number of commas!\n");
-      XLAL_ERROR( XLAL_EFUNC );
-    }
+    if( XLALStringToken(&inputstr, ",", 0) == NULL ){ XLAL_ERROR( XLAL_EFUNC, "Error... problem counting number of commas!" ); }
 
     if ( inputstr == NULL ) { break; }
 
     count++;
   }
+
+  XLALFree( inputstr );
 
   return count+1;
 }
@@ -754,7 +654,7 @@ INT4 count_csv( CHAR *csvline ){
  * \brief Checks if a given parameter is recognised
  *
  * This function checks whether a given parameter is one of the defined amplitude (\c amppars), frequency (\c freqpars),
- * sky location (\c skypars) or binary system (\c binpars) parameters given in the header file.
+ * sky location (\c skypars), binary system (\c binpars) of glitch (\c glitchpars) parameters given in the header file.
  *
  * \param parname [in] The name of a parameter
  *
@@ -767,6 +667,7 @@ INT4 recognised_parameter( CHAR *parname ){
   for( i = 0; i < NUMFREQPARS; i++ ) { if (!strcmp(parname, freqpars[i])) { return 1; } }
   for( i = 0; i < NUMSKYPARS; i++ ) { if (!strcmp(parname, skypars[i])) { return 1; } }
   for( i = 0; i < NUMBINPARS; i++ ) { if (!strcmp(parname, binpars[i])) { return 1; } }
+  for( i = 0; i < NUMGLITCHPARS; i++ ) { if (!strcmp(parname, glitchpars[i])) { return 1; } }
 
   return 0;
 }
@@ -797,8 +698,7 @@ TimeCorrectionType XLALAutoSetEphemerisFiles( CHAR **efile, CHAR **sfile, CHAR *
   TimeCorrectionType ttype = TIMECORRECTION_NONE;
 
   if( gpsstart < ephemstart || gpsend < ephemstart || gpsstart > ephemend || gpsend > ephemend ){
-    XLALPrintError("Start and end times are outside the ephemeris file ranges!\n");
-    XLAL_ERROR(XLAL_EFUNC);
+    XLAL_ERROR(XLAL_EFUNC, "Start and end times are outside the ephemeris file ranges!" );
   }
 
   *efile = XLALStringDuplicate("earth00-19-");
@@ -816,8 +716,7 @@ TimeCorrectionType XLALAutoSetEphemerisFiles( CHAR **efile, CHAR **sfile, CHAR *
       *sfile = XLALStringAppend(*sfile, PulsarGetStringParam(pulsar, "EPHEM"));
     }
     else{
-      XLALPrintError("Unknown ephemeris %s in par file\n", PulsarGetStringParam(pulsar, "EPHEM"));
-      XLAL_ERROR(XLAL_EFUNC);
+      XLAL_ERROR(XLAL_EFUNC, "Unknown ephemeris %s in par file.", PulsarGetStringParam(pulsar, "EPHEM") );
     }
   }
 
@@ -840,8 +739,7 @@ TimeCorrectionType XLALAutoSetEphemerisFiles( CHAR **efile, CHAR **sfile, CHAR *
       ttype = TIMECORRECTION_TCB;
     }
     else{
-      XLALPrintError("Error... unknown units %s in par file!\n", PulsarGetStringParam(pulsar, "UNITS"));
-      XLAL_ERROR(XLAL_EFUNC);
+      XLAL_ERROR(XLAL_EFUNC, "Error... unknown units %s in par file!", PulsarGetStringParam(pulsar, "UNITS"));
     }
   }
 

@@ -25,6 +25,7 @@
 #include <gsl/gsl_matrix.h>
 #include <lal/LALStdlib.h>
 #include <lal/Random.h>
+#include <lal/FITSFileIO.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -102,8 +103,8 @@ int XLALSetLatticeTilingBound(
   const size_t dim,                     ///< [in] Dimension on which bound applies
   const LatticeTilingBound func,        ///< [in] Parameter space bound function
   const size_t data_len,                ///< [in] Length of arbitrary data describing parameter space bounds
-  void *data_lower,                     ///< [in] Arbitrary data describing lower parameter space bound
-  void *data_upper                      ///< [in] Arbitrary data describing upper parameter space bound
+  const void *data_lower,               ///< [in] Arbitrary data describing lower parameter space bound
+  const void *data_upper                ///< [in] Arbitrary data describing upper parameter space bound
   );
 
 ///
@@ -115,6 +116,14 @@ int XLALSetLatticeTilingConstantBound(
   const size_t dim,                     ///< [in] Dimension on which bound applies
   const double bound1,                  ///< [in] First bound on dimension
   const double bound2                   ///< [in] Second bound on dimension
+  );
+
+///
+/// Set the level of padding added to the lattice tiling parameter space bounds.
+///
+int XLALSetLatticeTilingPadding(
+  LatticeTiling *tiling,                ///< [in] Lattice tiling
+  const UINT4 padding                   ///< [in] Level of padding added to parameter space bounds
   );
 
 ///
@@ -190,7 +199,7 @@ int XLALRandomLatticeTilingPoints(
 ///
 int XLALLatticeTilingDimensionBounds(
   const LatticeTiling *tiling,          ///< [in] Lattice tiling
-  const bool padding,                   ///< [in] Whether padding is added to parameter space bounds
+  const UINT4 padding,                  ///< [in] Level of padding added to parameter space bounds
   const gsl_vector *point,              ///< [in] Point at which to return bounds
   const size_t y_dim,                   ///< [in] Dimension 'y' of which to return bounds
   const double x_scale,                 ///< [in] Scale of steps in 'x', in units of lattice step size
@@ -271,13 +280,32 @@ UINT8 XLALCurrentLatticeTilingIndex(
   );
 
 ///
-/// Return the number of points to the left/right of the current point in a given dimension.
+/// Return indexes of the left-most and right-most points in the current block of points in the
+/// given dimension, relative to the current point.
 ///
 int XLALCurrentLatticeTilingBlock(
   const LatticeTilingIterator *itr,     ///< [in] Lattice tiling iterator
-  const size_t dim,                     ///< [in] Dimension in which to return number of points
-  UINT4 *left,                          ///< [out] Number of points to left of current point
-  UINT4 *right                          ///< [out] Number of points to right of current point
+  const size_t dim,                     ///< [in] Dimension in which to return block
+  INT4 *left,                           ///< [out] Index of left-most point of block relative to current point
+  INT4 *right                           ///< [out] Index of right-most point of block relative to current point
+  );
+
+///
+/// Save the state of a lattice tiling iterator to a FITS file.
+///
+int XLALSaveLatticeTilingIterator(
+  const LatticeTilingIterator *itr,     ///< [in] Lattice tiling iterator
+  FITSFile *file,                       ///< [in] FITS file to save iterator to
+  const char *name                      ///< [in] FITS HDU to save iterator to
+  );
+
+///
+/// Restore the state of a lattice tiling iterator from a FITS file.
+///
+int XLALRestoreLatticeTilingIterator(
+  LatticeTilingIterator *itr,           ///< [in] Lattice tiling iterator
+  FITSFile *file,                       ///< [in] FITS file to restore iterator from
+  const char *name                      ///< [in] FITS HDU to restore iterator from
   );
 
 ///
@@ -319,17 +347,17 @@ SWIGLAL( INOUT_STRUCTS( gsl_matrix **, nearest_points ) );
 SWIGLAL( INOUT_STRUCTS( UINT8VectorSequence **, nearest_indexes ) );
 #endif
 int XLALNearestLatticeTilingPoints(
-  const LatticeTilingLocator *loc,              ///< [in] Lattice tiling locator
-  const gsl_matrix *points,                     ///< [in] Columns are set of points for which to find nearest points
-  gsl_matrix **nearest_points,                  ///< [out] Columns are the corresponding nearest points
-  UINT8VectorSequence **nearest_indexes         ///< [out] Vectors are unique sequential indexes of the nearest points
+  const LatticeTilingLocator *loc,      ///< [in] Lattice tiling locator
+  const gsl_matrix *points,             ///< [in] Columns are set of points for which to find nearest points
+  gsl_matrix **nearest_points,          ///< [out] Columns are the corresponding nearest points
+  UINT8VectorSequence **nearest_indexes ///< [out] Vectors are unique sequential indexes of the nearest points
   );
 
 ///
-/// Locate the nearest point in a lattice tiling to a given point. Return the nearest point in
-/// \c nearest_point, the unique sequential index in dimension <tt>dim-1</tt> to the nearest point
-/// in \c nearest_index, and the number of points to the left/right of the nearest point in dimension
-/// <tt>dim</tt> in \c nearest_left and \c nearest_right respectively.
+/// Locate the nearest block in a lattice tiling to a given point. Return the nearest point in
+/// \c nearest_point, the unique sequential index in dimension <tt>dim-1</tt> to the nearest point in
+/// \c nearest_index, and the indexes of the left-most \c nearest_left and right-most \c nearest_right
+/// points in the nearest block, relative to the nearest point.
 ///
 int XLALNearestLatticeTilingBlock(
   const LatticeTilingLocator *loc,      ///< [in] Lattice tiling locator
@@ -337,8 +365,8 @@ int XLALNearestLatticeTilingBlock(
   const size_t dim,                     ///< [in] Dimension for which to return indexes
   gsl_vector *nearest_point,            ///< [out] Nearest point
   UINT8 *nearest_index,                 ///< [out] Unique sequential index of the nearest point in <tt>dim-1</tt>
-  UINT4 *nearest_left,                  ///< [out] Number of points to left of nearest point in <tt>dim</tt>
-  UINT4 *nearest_right                  ///< [out] Number of points to right of nearest point in <tt>dim</tt>
+  INT4 *nearest_left,                   ///< [out] Index of left-most point of block relative to nearest point
+  INT4 *nearest_right                   ///< [out] Index of right-most point of block relative to nearest point
   );
 
 ///
