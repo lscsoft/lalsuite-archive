@@ -320,6 +320,8 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState) {
                     LALInferenceTrackProposalAcceptance(thread);
 
                 if ((thread->step % Nskip) == 0) {
+                    if(MPIrank == 0)
+                      fprintf(stderr, "==== DEBUG hwlee thread[%d]->step = %d for rank = %d\n", i, thread->step, MPIrank);
                     /* Update clustered-KDE proposal every time the buffer is expanded */
                     if (LALInferenceGetProcParamVal(runState->commandLine, "--proposal-kde")
                         && (thread->effective_sample_size > kde_update_start)

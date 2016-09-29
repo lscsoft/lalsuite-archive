@@ -141,6 +141,7 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
    } else if (LALInferenceGetProcParamVal(commandLine, "--rosenbrockLikelihood")) {
     runState->likelihood=&LALInferenceRosenbrockLogLikelihood;
    } else if (LALInferenceGetProcParamVal(commandLine, "--studentTLikelihood")) {
+    fprintf(stderr, "Using Student's T Likelihood.\n");
     runState->likelihood=&LALInferenceFreqDomainStudentTLogLikelihood;
 
     /* Set the noise model evidence to the student t model value */
@@ -173,9 +174,7 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
 
    /* Try to determine a model-less likelihood, if such a thing makes sense */
    if (runState->likelihood==&LALInferenceUndecomposedFreqDomainLogLikelihood){
-
                 nullLikelihood = LALInferenceNullLogLikelihood(runState->data);
-
     }
     else if (runState->likelihood==&LALInferenceFreqDomainStudentTLogLikelihood ||
        runState->likelihood==&LALInferenceMarginalisedTimeLogLikelihood ||
