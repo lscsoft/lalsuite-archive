@@ -2100,6 +2100,9 @@ int XLALSimIMRSpinEOBWaveformAll(
       alphaHiSRndx = gsl_spline_eval(alpha_spline,tVec.data[hiSRndx],alpha_acc);
       gsl_spline_free(alpha_spline);
       gsl_interp_accel_free(alpha_acc);
+      gsl_spline_free(beta_spline);
+      gsl_interp_accel_free(beta_acc); 
+      gsl_integration_workspace_free(precEulerw);
 
       EulerAnglesI2P(AlphaHi, BetaHi, GammaHi, &phaseCounterA, &phaseCounterB, timeHi, posVecxHi, posVecyHi, posVeczHi, retLenHi, alphaHiSRndx, gammaHiSRndx, 1);
     } else {
@@ -3818,6 +3821,10 @@ int XLALSimIMRSpinEOBWaveformAll(
         hCrossTS->data->data[i] = -amp0*hVec->data[i+retLenLow]*sin(hVec->data[i+2*retLenLow]);
       }
 
+    XLALDestroyREAL8Array(hVec);
+    XLALDestroyREAL8Vector(timeIFull);
+    XLALDestroyREAL8Vector(tlist);
+
     /**OPTV3: Convert Highly sampled modes to hplus & hcross. Then append.**/
     hIMR22ITS  = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 2 );
     hIMR21ITS  = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 1 );
@@ -3995,6 +4002,18 @@ int XLALSimIMRSpinEOBWaveformAll(
     XLALDestroyREAL8TimeSeries( gamI);
     XLALDestroyREAL8Vector( rdMatchPoint );
     XLALDestroyREAL8Vector( radiusVec  );
+    if ( dynamicsEOMLo != NULL ) {
+      XLALDestroyREAL8Array( dynamicsEOMLo );
+    }
+    if ( dynamicsEOMHi != NULL ) {
+      XLALDestroyREAL8Array( dynamicsEOMHi );
+    }
+    if ( dynamicsV2EOMLo != NULL ) {
+      XLALDestroyREAL8Array( dynamicsV2EOMLo );
+    }
+    if ( dynamicsV2EOMHi != NULL ) {
+      XLALDestroyREAL8Array( dynamicsV2EOMHi );
+    }
 
   /* FIXME: Temporary code to convert REAL8Array to REAL8Vector because SWIG
    *        doesn't seem to like REAL8Array */
