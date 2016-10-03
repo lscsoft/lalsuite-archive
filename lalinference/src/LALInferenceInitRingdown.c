@@ -65,6 +65,7 @@ void LALInferenceInitRingdownThreads(LALInferenceRunState *run_state, INT4 nthre
 
     /* Set up Ringdown model and parameter array */
     thread->model = LALInferenceInitRingdownModel(run_state);
+    thread->model->roq_flag = 0;
 
     /* Allocate IFO likelihood holders */
     nifo = 0;
