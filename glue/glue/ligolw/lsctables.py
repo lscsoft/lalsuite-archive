@@ -4529,6 +4529,7 @@ SummMimeTable.RowType = SummMime
 # =============================================================================
 #
 
+
 class TimeSlideSegmentMapTable(table.Table):
 	tableName = "time_slide_segment_map:table"
 	validcolumns = {
@@ -4536,8 +4537,10 @@ class TimeSlideSegmentMapTable(table.Table):
 		"time_slide_id": "ilwd:char",
 	}
 
+
 class TimeSlideSegmentMap(table.TableRow):
 	__slots__ = TimeSlideSegmentMapTable.validcolumns.keys()
+
 
 TimeSlideSegmentMapTable.RowType = TimeSlideSegmentMap
 
