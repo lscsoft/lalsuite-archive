@@ -1218,7 +1218,7 @@ if __name__=='__main__':
       fixedBurnins = None
 
     import pylal 
-    from pylal.bayespputils import massParams,spinParams,cosmoParam,strongFieldParams,distParams,incParams,polParams,skyParams,phaseParams,timeParams,endTimeParams,statsParams,calibParams,snrParams,tidalParams
+    from pylal.bayespputils import massParams,spinParams,cosmoParam,strongFieldParams,distParams,incParams,polParams,skyParams,phaseParams,timeParams,endTimeParams,statsParams,calibParams,snrParams,tidalParams,lorentzInvarianceViolationParams
 
     oneDMenus={'Masses':None,'SourceFrame':None,'Timing':None,'Extrinsic':None,'Spins':None,'StrongField':None,'Others':None}
 
@@ -1251,6 +1251,15 @@ if __name__=='__main__':
         for mp in massParams:
             for dchi in bppu.tigerParams:
                 twoDGreedyMenu.append([mp,dchi])
+        for mp in massParams:
+            for lvp in bppu.lorentzInvarianceViolationParams:
+                twoDGreedyMenu.append([mp,lvp])
+        for sp in spinParams:
+            for lvp in bppu.lorentzInvarianceViolationParams:
+                twoDGreedyMenu.append([sp,lvp])
+        for dchi in bppu.tigerParams:
+             for lvp in bppu.lorentzInvarianceViolationParams:
+                 twoDGreedyMenu.append([dchi, lvp])
         for dp in distParams:
             for sp in snrParams:
                 twoDGreedyMenu.append([dp,sp])
