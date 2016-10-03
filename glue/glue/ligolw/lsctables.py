@@ -277,6 +277,93 @@ def ifos_from_instrument_set(instruments):
 	return u",".join(_instruments)
 
 
+class gpsproperty(object):
+	"""
+	Descriptor used internally to implement LIGOTimeGPS-valued
+	properties.
+	"""
+	def __init__(self, s_name, ns_name):
+		self.s_name = s_name
+		self.ns_name = ns_name
+
+	posinf = 0x7FFFFFFF, 0xFFFFFFFF
+	neginf = 0xFFFFFFFF, 0xFFFFFFFF
+
+	def __get__(self, obj, type = None):
+		s = getattr(obj, self.s_name)
+		ns = getattr(obj, self.ns_name)
+		if s is None and ns is None:
+			return None
+		if (s, ns) == self.posinf:
+			return segments.PosInfinity
+		if (s, ns) == self.neginf:
+			return segments.NegInfinity
+		return LIGOTimeGPS(s, ns)
+
+	def __set__(self, obj, gps):
+		if gps is None:
+			s = ns = None
+		elif isinstance(gps, segments.infinity) or math.isinf(gps):
+			if gps > 0:
+				s, ns = self.posinf
+			elif gps < 0:
+				s, ns = self.neginf
+			else:
+				raise ValueError(gps)
+		else:
+			try:
+				s = gps.gpsSeconds
+				ns = gps.gpsNanoSeconds
+			except AttributeError:
+				# try converting and going again
+				return self.__set__(obj, LIGOTimeGPS(gps))
+			if abs(ns) > 999999999:
+				raise ValueError("denormalized LIGOTimeGPS not allowed")
+		setattr(obj, self.s_name, s)
+		setattr(obj, self.ns_name, ns)
+
+
+class gpsproperty_with_gmst(gpsproperty):
+	def __init__(self, s_name, ns_name, gmst_name):
+		super(gpsproperty_with_gmst, self).__init__(s_name, ns_name)
+		self.gmst_name = gmst_name
+
+	def __set__(self, obj, gps):
+		super(gpsproperty_with_gmst, self).__set__(obj, gps)
+		if gps is None:
+			setattr(obj, self.gmst_name, None)
+		else:
+			# re-retrieve the value in case it required type
+			# conversion
+			gps = self.__get__(obj)
+			setattr(obj, self.gmst_name, lal.GreenwichMeanSiderealTime(gps))
+
+
+class segmentproperty(object):
+	"""
+	Descriptor used internally to expose pairs of GPS-valued properties
+	as segment-valued properties.
+	"""
+	def __init__(self, start_name, stop_name):
+		self.start = start_name
+		self.stop = stop_name
+
+	def __get__(self, obj, type = None):
+		start = getattr(obj, self.start)
+		stop = getattr(obj, self.stop)
+		if start is None and stop is None:
+			return None
+		return segments.segment(start, stop)
+
+	def __set__(self, obj, seg):
+		if seg is None:
+			start = stop = None
+		else:
+			start, stop = seg
+		setattr(obj, self.start, start)
+		setattr(obj, self.stop, stop)
+
+
 #
 # =============================================================================
 #
@@ -606,85 +693,13 @@ class SearchSummary(table.TableRow):
 	def instruments(self, instruments):
 		self.ifos = ifos_from_instrument_set(instruments)
 
-	@property
-	def in_start(self):
-		if self.in_start_time is None and self.in_start_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.in_start_time, self.in_start_time_ns)
+	in_start = gpsproperty("in_start_time", "in_start_time_ns")
+	in_end = gpsproperty("in_end_time", "in_end_time_ns")
+	out_start = gpsproperty("out_start_time", "out_start_time_ns")
+	out_end = gpsproperty("out_end_time", "out_end_time_ns")
 
-	@in_start.setter
-	def in_start(self, gps):
-		if gps is None:
-			self.in_start_time = self.in_start_time_ns = None
-		else:
-			self.in_start_time, self.in_start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-
-	@property
-	def in_end(self):
-		if self.in_end_time is None and self.in_end_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.in_end_time, self.in_end_time_ns)
-
-	@in_end.setter
-	def in_end(self, gps):
-		if gps is None:
-			self.in_end_time = self.in_end_time_ns = None
-		else:
-			self.in_end_time, self.in_end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-
-	@property
-	def out_start(self):
-		if self.out_start_time is None and self.out_start_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.out_start_time, self.out_start_time_ns)
-
-	@out_start.setter
-	def out_start(self, gps):
-		if gps is None:
-			self.out_start_time = self.out_start_time_ns = None
-		else:
-			self.out_start_time, self.out_start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-
-	@property
-	def out_end(self):
-		if self.out_end_time is None and self.out_end_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.out_end_time, self.out_end_time_ns)
-
-	@out_end.setter
-	def out_end(self, gps):
-		if gps is None:
-			self.out_end_time = self.out_end_time_ns = None
-		else:
-			self.out_end_time, self.out_end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-
-	@property
-	def in_segment(self):
-		start, end = self.in_start, self.in_end
-		if start is None and end is None:
-			return None
-		return segments.segment(start, end)
-
-	@in_segment.setter
-	def in_segment(self, seg):
-		if seg is None:
-			self.in_start = self.in_end = None
-		else:
-			self.in_start, self.in_end = seg
-
-	@property
-	def out_segment(self):
-		start, end = self.out_start, self.out_end
-		if start is None and end is None:
-			return None
-		return segments.segment(start, end)
-
-	@out_segment.setter
-	def out_segment(self, seg):
-		if seg is None:
-			self.out_start = self.out_end = None
-		else:
-			self.out_start, self.out_end = seg
+	in_segment = segmentproperty("in_start", "in_end")
+	out_segment = segmentproperty("out_start", "out_end")
 
 	def get_ifos(self):
 		"""
@@ -1369,44 +1384,9 @@ class SnglBurst(table.TableRow):
 	# Tile properties
 	#
 
-	@property
-	def start(self):
-		if self.start_time is None and self.start_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.start_time, self.start_time_ns)
-
-	@start.setter
-	def start(self, gps):
-		if gps is None:
-			self.start_time = self.start_time_ns = None
-		else:
-			self.start_time, self.start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-
-	@property
-	def stop(self):
-		if self.stop_time is None and self.stop_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.stop_time, self.stop_time_ns)
-
-	@stop.setter
-	def stop(self, gps):
-		if gps is None:
-			self.stop_time = self.stop_time_ns = None
-		else:
-			self.stop_time, self.stop_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-
-	@property
-	def peak(self):
-		if self.peak_time is None and self.peak_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
-
-	@peak.setter
-	def peak(self, gps):
-		if gps is None:
-			self.peak_time = self.peak_time_ns = None
-		else:
-			self.peak_time, self.peak_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+	start = gpsproperty("start_time", "start_time_ns")
+	stop = gpsproperty("stop_time", "stop_time_ns")
+	peak = gpsproperty("peak_time", "peak_time_ns")
 
 	@property
 	def period(self):
@@ -1455,44 +1435,9 @@ class SnglBurst(table.TableRow):
 	# "Most significant pixel" properties
 	#
 
-	@property
-	def ms_start(self):
-		if self.ms_start_time is None and self.ms_start_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.ms_start_time, self.ms_start_time_ns)
-
-	@ms_start.setter
-	def ms_start(self, gps):
-		if gps is None:
-			self.ms_start_time = self.ms_start_time_ns = None
-		else:
-			self.ms_start_time, self.ms_start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-
-	@property
-	def ms_stop(self):
-		if self.ms_stop_time is None and self.ms_stop_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.ms_stop_time, self.ms_stop_time_ns)
-
-	@ms_stop.setter
-	def ms_stop(self, gps):
-		if gps is None:
-			self.ms_stop_time = self.ms_stop_time_ns = None
-		else:
-			self.ms_stop_time, self.ms_stop_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-
-	@property
-	def ms_peak(self):
-		if self.ms_peak_time is None and self.ms_peak_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.ms_peak_time, self.ms_peak_time_ns)
-
-	@ms_peak.setter
-	def ms_peak(self, gps):
-		if gps is None:
-			self.ms_peak_time = self.ms_peak_time_ns = None
-		else:
-			self.ms_peak_time, self.ms_peak_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+	ms_start = gpsproperty("ms_start_time", "ms_start_time_ns")
+	ms_stop = gpsproperty("ms_stop_time", "ms_stop_time_ns")
+	ms_peak = gpsproperty("ms_peak_time", "ms_peak_time_ns")
 
 	@property
 	def ms_period(self):
@@ -1657,31 +1602,8 @@ class MultiBurst(table.TableRow):
 	def instruments(self, instruments):
 		self.ifos = ifos_from_instrument_set(instruments)
 
-	@property
-	def start(self):
-		if self.start_time is None and self.start_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.start_time, self.start_time_ns)
-
-	@start.setter
-	def start(self, gps):
-		if gps is None:
-			self.start_time = self.start_time_ns = None
-		else:
-			self.start_time, self.start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-
-	@property
-	def peak(self):
-		if self.peak_time is None and self.peak_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
-
-	@peak.setter
-	def peak(self, gps):
-		if gps is None:
-			self.peak_time = self.peak_time_ns = None
-		else:
-			self.peak_time, self.peak_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+	start = gpsproperty("start_time", "start_time_ns")
+	peak = gpsproperty("peak_time", "peak_time_ns")
 
 	@property
 	def period(self):
@@ -1985,18 +1907,7 @@ class SnglInspiral(table.TableRow):
 	# Properties
 	#
 
-	@property
-	def end(self):
-		if self.end_time is None and self.end_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.end_time, self.end_time_ns)
-
-	@end.setter
-	def end(self, gps):
-		if gps is None:
-			self.end_time = self.end_time_ns = None
-		else:
-			self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+	end = gpsproperty("end_time", "end_time_ns")
 
 	@property
 	def spin1(self):
@@ -2168,18 +2079,7 @@ class CoincInspiral(table.TableRow):
 	def instruments(self, instruments):
 		self.ifos = ifos_from_instrument_set(instruments)
 
-	@property
-	def end(self):
-		if self.end_time is None and self.end_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.end_time, self.end_time_ns)
-
-	@end.setter
-	def end(self, gps):
-		if gps is None:
-			self.end_time = self.end_time_ns = None
-		else:
-			self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+	end = gpsproperty("end_time", "end_time_ns")
 
 	def get_end(self):
 		return self.end
@@ -3092,22 +2992,12 @@ class SimInspiral(table.TableRow):
 	>>> x.time_geocent = LIGOTimeGPS(6e8)
 	>>> print x.time_geocent
 	600000000.000000000
+	>>> print x.end_time_gmst
+	-2238.39417156
 	"""
 	__slots__ = SimInspiralTable.validcolumns.keys()
 
-	@property
-	def time_geocent(self):
-		if self.geocent_end_time is None and self.geocent_end_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
-
-	@time_geocent.setter
-	def time_geocent(self, gps):
-		if gps is None:
-			self.geocent_end_time = self.geocent_end_time_ns = self.end_time_gmst = None
-		else:
-			self.geocent_end_time, self.geocent_end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-			self.end_time_gmst = lal.GreenwichMeanSiderealTime(gps)
+	time_geocent = gpsproperty_with_gmst("geocent_end_time", "geocent_end_time_ns", "end_time_gmst")
 
 	@property
 	def ra_dec(self):
@@ -3272,22 +3162,12 @@ class SimBurst(TableRow):
 	>>> x.time_geocent = LIGOTimeGPS(6e8)
 	>>> print x.time_geocent
 	600000000.000000000
+	>>> print x.time_geocent_gmst
+	-2238.39417156
 	"""
 	__slots__ = SimBurstTable.validcolumns.keys()
 
-	@property
-	def time_geocent(self):
-		if self.time_geocent_gps is None and self.time_geocent_gps_ns is None:
-			return None
-		return LIGOTimeGPS(self.time_geocent_gps, self.time_geocent_gps_ns)
-
-	@time_geocent.setter
-	def time_geocent(self, gps):
-		if gps is None:
-			self.time_geocent_gps = self.time_geocent_gps_ns = self.time_geocent_gmst = None
-		else:
-			self.time_geocent_gps, self.time_geocent_gps_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-			self.time_geocent_gmst = lal.GreenwichMeanSiderealTime(gps)
+	time_geocent = gpsproperty_with_gmst("time_geocent_gps", "time_geocent_gps_ns", "time_geocent_gmst")
 
 	@property
 	def ra_dec(self):
@@ -3483,45 +3363,9 @@ class SummValue(table.TableRow):
 	def instruments(self, instruments):
 		self.ifo = ifos_from_instrument_set(instruments)
 
-	@property
-	def start(self):
-		if self.start_time is None and self.start_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.start_time, self.start_time_ns)
-
-	@start.setter
-	def start(self, gps):
-		if gps is None:
-			self.start_time = self.start_time_ns = None
-		else:
-			self.start_time, self.start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-
-	@property
-	def end(self):
-		if self.end_time is None and self.end_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.end_time, self.end_time_ns)
-
-	@end.setter
-	def end(self, gps):
-		if gps is None:
-			self.end_time = self.end_time_ns = None
-		else:
-			self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-
-	@property
-	def segment(self):
-		start, end = self.start, self.end
-		if start is None and end is None:
-			return None
-		return segments.segment(start, end)
-
-	@segment.setter
-	def segment(self, seg):
-		if seg is None:
-			self.start = self.end = None
-		else:
-			self.start, self.end = seg
+	start = gpsproperty("start_time", "start_time_ns")
+	end = gpsproperty("end_time", "end_time_ns")
+	segment = segmentproperty("start", "end")
 
 
 SummValueTable.RowType = SummValue
@@ -3831,84 +3675,9 @@ class Segment(table.TableRow):
 	"""
 	__slots__ = SegmentTable.validcolumns.keys()
 
-	posinf = 0x7FFFFFFF, 0xFFFFFFFF
-	neginf = 0xFFFFFFFF, 0xFFFFFFFF
-
-	@property
-	def start(self):
-		if self.start_time is None and self.start_time_ns is None:
-			return None
-		if (self.start_time, self.start_time_ns) == self.posinf:
-			return segments.PosInfinity
-		if (self.start_time, self.start_time_ns) == self.neginf:
-			return segments.NegInfinity
-		return LIGOTimeGPS(self.start_time, self.start_time_ns)
-
-	@start.setter
-	def start(self, gps):
-		if gps is None:
-			self.start_time = self.start_time_ns = None
-		elif isinstance(gps, segments.infinity) or math.isinf(gps):
-			if gps > 0:
-				self.start_time, self.start_time_ns = self.posinf
-			elif gps < 0:
-				self.start_time, self.start_time_ns = self.neginf
-			else:
-				raise ValueError(gps)
-		else:
-			try:
-				self.start_time, self.start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-			except AttributeError:
-				# try converting and going again
-				self.start = LIGOTimeGPS(gps)
-			else:
-				if abs(self.start_time_ns) > 999999999:
-					raise ValueError("denormalized LIGOTimeGPS not allowed")
-
-	@property
-	def end(self):
-		if self.end_time is None and self.end_time_ns is None:
-			return None
-		if (self.end_time, self.end_time_ns) == self.posinf:
-			return segments.PosInfinity
-		if (self.end_time, self.end_time_ns) == self.neginf:
-			return segments.NegInfinity
-		return LIGOTimeGPS(self.end_time, self.end_time_ns)
-
-	@end.setter
-	def end(self, gps):
-		if gps is None:
-			self.end_time = self.end_time_ns = None
-		elif isinstance(gps, segments.infinity) or math.isinf(gps):
-			if gps > 0:
-				self.end_time, self.end_time_ns = self.posinf
-			elif gps < 0:
-				self.end_time, self.end_time_ns = self.neginf
-			else:
-				raise ValueError(gps)
-		else:
-			try:
-				self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-			except AttributeError:
-				# try converting and going again
-				self.end = LIGOTimeGPS(gps)
-			else:
-				if abs(self.end_time_ns) > 999999999:
-					raise ValueError("denormalized LIGOTimeGPS not allowed")
-
-	@property
-	def segment(self):
-		start, end = self.start, self.end
-		if start is None and end is None:
-			return None
-		return segments.segment(start, end)
-
-	@segment.setter
-	def segment(self, seg):
-		if seg is None:
-			self.start = self.end = None
-		else:
-			self.start, self.end = seg
+	start = gpsproperty("start_time", "start_time_ns")
+	end = gpsproperty("end_time", "end_time_ns")
+	segment = segmentproperty("start", "end")
 
 	def get(self):
 		"""
