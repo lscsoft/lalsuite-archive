@@ -136,145 +136,164 @@ def HasNonLSCTables(elem):
 	return any(t.Name not in TableByName for t in elem.getElementsByTagName(ligolw.Table.tagName))
 
 
-def instrument_set_from_ifos(ifos):
-	"""
-	Parse the values stored in the "ifos" and "instruments" columns
-	found in many tables.  This function is mostly for internal use by
-	the .instruments properties of the corresponding row classes.  The
-	mapping from input to output is as follows (rules are applied in
-	order):
+class instrumentsproperty(object):
+	def __init__(self, name):
+		self.name = name
 
-	input is None --> output is None
+	@staticmethod
+	def get(ifos):
+		"""
+		Parse the values stored in the "ifos" and "instruments"
+		columns found in many tables.  This function is mostly for
+		internal use by the .instruments properties of the
+		corresponding row classes.  The mapping from input to
+		output is as follows (rules are applied in order):
 
-	input contains "," --> output is set of strings split on "," with
-	leading and trailing whitespace stripped from each piece and empty
-	strings removed from the set
+		input is None --> output is None
 
-	input contains "+" --> output is set of strings split on "+" with
-	leading and trailing whitespace stripped from each piece and empty
-	strings removed from the set
+		input contains "," --> output is set of strings split on
+		"," with leading and trailing whitespace stripped from each
+		piece and empty strings removed from the set
 
-	else, after stripping input of leading and trailing whitespace,
+		input contains "+" --> output is set of strings split on
+		"+" with leading and trailing whitespace stripped from each
+		piece and empty strings removed from the set
 
-	input has an even length greater than two --> output is set of
-	two-character pieces
+		else, after stripping input of leading and trailing
+		whitespace,
 
-	input is a non-empty string --> output is a set containing input as
-	single value
+		input has an even length greater than two --> output is set
+		of two-character pieces
 
-	else output is an empty set.
+		input is a non-empty string --> output is a set containing
+		input as single value
 
-	NOTE:  the complexity of this algorithm is a consequence of there
-	being several conventions in use for encoding a set of instruments
-	into one of these columns;  it has been proposed that L.L.W.
-	documents standardize on the comma-delimited variant of the
-	encodings recognized by this function, and for this reason the
-	inverse function, ifos_from_instrument_set(), implements that
-	encoding only.
+		else output is an empty set.
 
-	NOTE:  to force a string containing an even number of characters to
-	be interpreted as a single instrument name and not to be be split
-	into two-character pieces, add a "," or "+" character to the end to
-	force the comma- or plus-delimited decoding to be used.
-	ifos_from_instrument_set() does this for you.
+		NOTE:  the complexity of this algorithm is a consequence of
+		there being several conventions in use for encoding a set
+		of instruments into one of these columns;  it has been
+		proposed that L.L.W.  documents standardize on the
+		comma-delimited variant of the encodings recognized by this
+		function, and for this reason the inverse function,
+		instrumentsproperty.set(), implements that encoding only.
 
-	Example:
+		NOTE:  to force a string containing an even number of
+		characters to be interpreted as a single instrument name
+		and not to be be split into two-character pieces, add a ","
+		character to the end to force the comma-delimited decoding
+		to be used.  instrumentsproperty.set() does this for you.
 
-	>>> print instrument_set_from_ifos(None)
-	None
-	>>> instrument_set_from_ifos(u"")
-	set([])
-	>>> instrument_set_from_ifos(u"  ,  ,,")
-	set([])
-	>>> instrument_set_from_ifos(u"H1")
-	set([u'H1'])
-	>>> instrument_set_from_ifos(u"SWIFT")
-	set([u'SWIFT'])
-	>>> instrument_set_from_ifos(u"H1L1")
-	set([u'H1', u'L1'])
-	>>> instrument_set_from_ifos(u"H1L1,")
-	set([u'H1L1'])
-	>>> instrument_set_from_ifos(u"H1,L1")
-	set([u'H1', u'L1'])
-	>>> instrument_set_from_ifos(u"H1+L1")
-	set([u'H1', u'L1'])
-	"""
-	if ifos is None:
-		return None
-	if u"," in ifos:
-		result = set(ifo.strip() for ifo in ifos.split(u","))
-		result.discard(u"")
-		return result
-	if u"+" in ifos:
-		result = set(ifo.strip() for ifo in ifos.split(u"+"))
-		result.discard(u"")
-		return result
-	ifos = ifos.strip()
-	if len(ifos) > 2 and not len(ifos) % 2:
-		# if ifos is a string with an even number of characters
-		# greater than two, split it into two-character pieces.
-		# FIXME:  remove this when the inspiral codes don't write
-		# ifos strings like this anymore
-		return set(ifos[n:n+2] for n in range(0, len(ifos), 2))
-	if ifos:
-		return set([ifos])
-	return set()
+		Example:
+
+		>>> print instrumentsproperty.get(None)
+		None
+		>>> instrumentsproperty.get(u"")
+		set([])
+		>>> instrumentsproperty.get(u"  ,  ,,")
+		set([])
+		>>> instrumentsproperty.get(u"H1")
+		set([u'H1'])
+		>>> instrumentsproperty.get(u"SWIFT")
+		set([u'SWIFT'])
+		>>> instrumentsproperty.get(u"H1L1")
+		set([u'H1', u'L1'])
+		>>> instrumentsproperty.get(u"H1L1,")
+		set([u'H1L1'])
+		>>> instrumentsproperty.get(u"H1,L1")
+		set([u'H1', u'L1'])
+		>>> instrumentsproperty.get(u"H1+L1")
+		set([u'H1', u'L1'])
+		"""
+		if ifos is None:
+			return None
+		if u"," in ifos:
+			result = set(ifo.strip() for ifo in ifos.split(u","))
+			result.discard(u"")
+			return result
+		if u"+" in ifos:
+			result = set(ifo.strip() for ifo in ifos.split(u"+"))
+			result.discard(u"")
+			return result
+		ifos = ifos.strip()
+		if len(ifos) > 2 and not len(ifos) % 2:
+			# if ifos is a string with an even number of
+			# characters greater than two, split it into
+			# two-character pieces.  FIXME:  remove this when
+			# the inspiral codes don't write ifos strings like
+			# this anymore
+			return set(ifos[n:n+2] for n in range(0, len(ifos), 2))
+		if ifos:
+			return set([ifos])
+		return set()
+
+	@staticmethod
+	def set(instruments):
+		"""
+		Convert an iterable of instrument names into a value
+		suitable for storage in the "ifos" column found in many
+		tables.  This function is mostly for internal use by the
+		.instruments properties of the corresponding row classes.
+		The input can be None or an iterable of zero or more
+		instrument names, none of which may be zero-length, consist
+		exclusively of spaces, or contain "," or "+" characters.
+		The output is a single string containing the unique
+		instrument names concatenated using "," as a delimiter.
+		instruments will only be iterated over once and so can be a
+		generator expression.  Whitespace is allowed in instrument
+		names but might not be preserved.  Repeated names will not
+		be preserved.
+
+		NOTE:  in the special case that there is 1 instrument name
+		in the iterable and it has an even number of characters > 2
+		in it, the output will have a "," appended in order to
+		force instrumentsproperty.get() to parse the string back
+		into a single instrument name.  This is a special case
+		included temporarily to disambiguate the encoding until all
+		codes have been ported to the comma-delimited encoding.
+		This behaviour will be discontinued at that time.  DO NOT
+		WRITE CODE THAT RELIES ON THIS!  You have been warned.
+
+		Example:
+
+		>>> print instrumentsproperty.set(None)
+		None
+		>>> instrumentsproperty.set(())
+		u''
+		>>> instrumentsproperty.set((u"H1",))
+		u'H1'
+		>>> instrumentsproperty.set((u"H1",u"H1",u"H1"))
+		u'H1'
+		>>> instrumentsproperty.set((u"H1",u"L1"))
+		u'H1,L1'
+		>>> instrumentsproperty.set((u"SWIFT",))
+		u'SWIFT'
+		>>> instrumentsproperty.set((u"H1L1",))
+		u'H1L1,'
+		"""
+		if instruments is None:
+			return None
+		_instruments = sorted(set(instrument.strip() for instrument in instruments))
+		# safety check:  refuse to accept blank names, or names
+		# with commas or pluses in them as they cannot survive the
+		# encode/decode process
+		if not all(_instruments) or any(u"," in instrument or u"+" in instrument for instrument in _instruments):
+			raise ValueError(instruments)
+		if len(_instruments) == 1 and len(_instruments[0]) > 2 and not len(_instruments[0]) % 2:
+			# special case disambiguation.  FIXME:  remove when
+			# everything uses the comma-delimited encoding
+			return u"%s," % _instruments[0]
+		return u",".join(_instruments)
+
+	def __get__(self, obj, type = None):
+		return self.get(getattr(obj, self.name))
+
+	def __set__(self, obj, instruments):
+		setattr(obj, self.name, self.set(instruments))
 
 
-def ifos_from_instrument_set(instruments):
-	"""
-	Convert an iterable of instrument names into a value suitable for
-	storage in the "ifos" column found in many tables.  This function
-	is mostly for internal use by the .instruments properties of the
-	corresponding row classes.  The input can be None or an iterable of
-	zero or more instrument names, none of which may be zero-length,
-	consist exclusively of spaces, or contain "," or "+" characters.
-	The output is a single string containing the unique instrument
-	names concatenated using "," as a delimiter.  instruments will only
-	be iterated over once and so can be a generator expression.
-	Whitespace is allowed in instrument names but might not be
-	preserved.  Repeated names will not be preserved.
-
-	NOTE:  in the special case that there is 1 instrument name in the
-	iterable and it has an even number of characters > 2 in it, the
-	output will have a "," appended in order to force
-	instrument_set_from_ifos() to parse the string back into a single
-	instrument name.  This is a special case included temporarily to
-	disambiguate the encoding until all codes have been ported to the
-	comma-delimited encoding.  This behaviour will be discontinued at
-	that time.  DO NOT WRITE CODE THAT RELIES ON THIS!  You have been
-	warned.
-
-	Example:
-
-	>>> print ifos_from_instrument_set(None)
-	None
-	>>> ifos_from_instrument_set(())
-	u''
-	>>> ifos_from_instrument_set((u"H1",))
-	u'H1'
-	>>> ifos_from_instrument_set((u"H1",u"H1",u"H1"))
-	u'H1'
-	>>> ifos_from_instrument_set((u"H1",u"L1"))
-	u'H1,L1'
-	>>> ifos_from_instrument_set((u"SWIFT",))
-	u'SWIFT'
-	>>> ifos_from_instrument_set((u"H1L1",))
-	u'H1L1,'
-	"""
-	if instruments is None:
-		return None
-	_instruments = sorted(set(instrument.strip() for instrument in instruments))
-	# safety check:  refuse to accept blank names, or names with commas
-	# or pluses in them as they cannot survive the encode/decode
-	# process
-	if not all(_instruments) or any(u"," in instrument or u"+" in instrument for instrument in _instruments):
-		raise ValueError(instruments)
-	if len(_instruments) == 1 and len(_instruments[0]) > 2 and not len(_instruments[0]) % 2:
-		# special case disambiguation.  FIXME:  remove when
-		# everything uses the comma-delimited encoding
-		return u"%s," % _instruments[0]
-	return u",".join(_instruments)
+instrument_set_from_ifos = instrumentsproperty.get
+ifos_from_instrument_set = instrumentsproperty.set
 
 
 class gpsproperty(object):
@@ -419,13 +438,7 @@ class Process(table.TableRow):
 	"""
 	__slots__ = ProcessTable.validcolumns.keys()
 
-	@property
-	def instruments(self):
-		return instrument_set_from_ifos(self.ifos)
-
-	@instruments.setter
-	def instruments(self, instruments):
-		self.ifos = ifos_from_instrument_set(instruments)
+	instruments = instrumentsproperty("ifos")
 
 	def get_ifos(self):
 		"""
@@ -685,13 +698,7 @@ class SearchSummary(table.TableRow):
 	"""
 	__slots__ = SearchSummaryTable.validcolumns.keys()
 
-	@property
-	def instruments(self):
-		return instrument_set_from_ifos(self.ifos)
-
-	@instruments.setter
-	def instruments(self, instruments):
-		self.ifos = ifos_from_instrument_set(instruments)
+	instruments = instrumentsproperty("ifos")
 
 	in_start = gpsproperty("in_start_time", "in_start_time_ns")
 	in_end = gpsproperty("in_end_time", "in_end_time_ns")
@@ -1594,13 +1601,7 @@ class MultiBurstTable(table.Table):
 class MultiBurst(table.TableRow):
 	__slots__ = MultiBurstTable.validcolumns.keys()
 
-	@property
-	def instruments(self):
-		return instrument_set_from_ifos(self.ifos)
-
-	@instruments.setter
-	def instruments(self, instruments):
-		self.ifos = ifos_from_instrument_set(instruments)
+	instruments = instrumentsproperty("ifos")
 
 	start = gpsproperty("start_time", "start_time_ns")
 	peak = gpsproperty("peak_time", "peak_time_ns")
@@ -2071,13 +2072,7 @@ class CoincInspiral(table.TableRow):
 	"""
 	__slots__ = CoincInspiralTable.validcolumns.keys()
 
-	@property
-	def instruments(self):
-		return instrument_set_from_ifos(self.ifos)
-
-	@instruments.setter
-	def instruments(self, instruments):
-		self.ifos = ifos_from_instrument_set(instruments)
+	instruments = instrumentsproperty("ifos")
 
 	end = gpsproperty("end_time", "end_time_ns")
 
@@ -3355,13 +3350,7 @@ class SummValue(table.TableRow):
 	"""
 	__slots__ = SummValueTable.validcolumns.keys()
 
-	@property
-	def instruments(self):
-		return instrument_set_from_ifos(self.ifo)
-
-	@instruments.setter
-	def instruments(self, instruments):
-		self.ifo = ifos_from_instrument_set(instruments)
+	instruments = instrumentsproperty("ifo")
 
 	start = gpsproperty("start_time", "start_time_ns")
 	end = gpsproperty("end_time", "end_time_ns")
@@ -3766,13 +3755,7 @@ class SegmentDef(table.TableRow):
 	"""
 	__slots__ = SegmentDefTable.validcolumns.keys()
 
-	@property
-	def instruments(self):
-		return instrument_set_from_ifos(self.ifos)
-
-	@instruments.setter
-	def instruments(self, instruments):
-		self.ifos = ifos_from_instrument_set(instruments)
+	instruments = instrumentsproperty("ifos")
 
 	def get_ifos(self):
 		"""
@@ -4069,19 +4052,13 @@ class CoincTable(table.Table):
 class Coinc(table.TableRow):
 	__slots__ = CoincTable.validcolumns.keys()
 
+	insts = instrumentsproperty("instruments")
+
 	def get_instruments(self):
-		"""
-		Return a set of the instruments for this row.
-		"""
-		return instrument_set_from_ifos(self.instruments)
+		return self.insts
 
 	def set_instruments(self, instruments):
-		"""
-		Serialize a sequence of instruments into the ifos
-		attribute.  The instrument names must not contain the ","
-		character.
-		"""
-		self.instruments = ifos_from_instrument_set(instruments)
+		self.insts = instruments
 
 
 CoincTable.RowType = Coinc
