@@ -1531,6 +1531,8 @@ class EngineJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
         self.add_condor_cmd('+RequiresMultipleCores','True')
       self.add_condor_cmd('request_cpus',self.machine_count)
       self.add_condor_cmd('request_memory',str(float(self.machine_count)*float(self.machine_memory)))
+    if self.engine=='lalinferencenest':
+      self.add_condor_cmd('request_memory','1024')
     if cp.has_section(self.engine):
       if not ispreengine:
         self.add_ini_opts(cp,self.engine)
@@ -1610,7 +1612,7 @@ class EngineNode(pipeline.CondorDAGNode):
     self.add_var_opt('trigger-snr',str(trigSNR))
 
   def set_horizon_distance(self,horizon_distance):
-    self.add_var_opt('--distance-max',str(horizon_distance))
+    self.add_var_opt('distance-max',str(horizon_distance))
 
   def set_dataseed(self,seed):
     self.add_var_opt('dataseed',str(seed))

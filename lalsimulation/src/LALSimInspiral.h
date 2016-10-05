@@ -322,8 +322,9 @@ typedef enum tagApproximant {
    SEOBNRv3_opt_pert,        /**< Add perturbation to Optimized Spin precessing EOBNR model v3
                          * @todo Fix implementation in lalsimulation (time domain). */
    SEOBNRv3_opt,        /**< Optimized Spin precessing EOBNR model v3
-                         * @todo Fix implementation in lalsimulation (time domain). */
-   SEOBNRv4,		/**< Spin nonprecessing EOBNR model v4 */
+                         * @remarks Implemented in lalsimulation (time domain). */
+   SEOBNRv4,		/**< Spin nonprecessing EOBNR model v4 
+                         * @remarks Implemented in lalsimulation (time domain). */
    SEOBNRv4_opt,	/**< Optimized Spin-aligned EOBNR model v4
                          * @remarks Implemented in lalsimulation (time domain). */
    SEOBNRv1_ROM_EffectiveSpin, /**< Single-spin frequency domain reduced order model of spin-aligned EOBNR model SEOBNRv1 See [Purrer:2014fza]
@@ -335,6 +336,10 @@ typedef enum tagApproximant {
    SEOBNRv2_ROM_DoubleSpin, /**< Double-spin frequency domain reduced order model of spin-aligned EOBNR model SEOBNRv2
                              * @remarks Implemented in lalsimulation (frequency domain). */
    SEOBNRv2_ROM_DoubleSpin_HI, /**< High resolution low-mass double-spin frequency domain reduced order model of spin-aligned EOBNR model SEOBNRv2
+                                * @remarks Implemented in lalsimulation (frequency domain). */
+   Lackey_Tidal_2013_SEOBNRv2_ROM, /**< Frequency domain tidal model based on reduced order model of SEOBNRv2
+                                * @remarks Implemented in lalsimulation (frequency domain). */
+   SEOBNRv4_ROM, /**< Low-mass double-spin frequency domain reduced order model of spin-aligned EOBNR model SEOBNRv4
                                 * @remarks Implemented in lalsimulation (frequency domain). */
    HGimri,		/**< Time domain inspiral-merger-ringdown waveform for quasi-circular intermediate mass-ratio inspirals [Huerta & Gair arXiv:1009.1985]
                          * @remarks Implemented in lalsimulation (time domain). */
@@ -387,6 +392,8 @@ typedef enum tagFrequencyFunction {
     fSEOBNRv1RD, /**< Dominant ringdown frequency in SEOBNRv1 */
     fSEOBNRv2Peak, /**< Frequency of the peak amplitude in SEOBNRv2 */
     fSEOBNRv2RD, /**< Dominant ringdown frequency in SEOBNRv2 */
+    fSEOBNRv4Peak, /**< Frequency of the peak amplitude in SEOBNRv4 */
+    fSEOBNRv4RD, /**< Dominant ringdown frequency in SEOBNRv4 */
     NumFreqFunctions /**< Number of elements in the enum */
  } FrequencyFunction;
 

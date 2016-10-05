@@ -22,7 +22,6 @@
 #define MAX_NUM_MODES 7
 
 
-
 struct
 SpinEOBModes
 {
@@ -49,16 +48,8 @@ SpinEOBModes
  * d1v2 - SO calibration parameter of SEOBNRv2
  * dheffSS - SS calibration parameter of SEOBNRv1
  * dheffSSv2 - SS calibration parameter of SEOBNRv2
- * comp1 - compactness of body 1
- * comp2 - compactness of body 2
- * k2Tidal1 - adiabatic quadrupole Love number for body 1
- * k2Tidal2 - adiabatic quadrupole Love number for body 2
- * omega02Tidal1: quadrupole f-mode freq for body 1
- * omega02Tidal2: quadrupole f-mode freq for body 2
- * k3Tidal1 - adiabatic octupole Love number for body 1
- * k3Tidal2 - adiabatic octupole Love number for body 2
- * omega03Tidal1: octupole f-mode freq for body 1
- * omega03Tidal2: octupole f-mode freq for body 2
+ * tidal1 - tidal params of body 1
+ * tidal2 - tidal params of body 2
  */
 
 typedef struct
@@ -80,18 +71,8 @@ tagSpinEOBHCoeffs
   double dheffSSv2;
   UINT4    SpinAlignedEOBversion;
   int      updateHCoeffs;
-  REAL8 m1;
-  REAL8 m2;
-  REAL8 comp1;
-  REAL8 comp2;
-  REAL8 k2Tidal1;
-  REAL8 k2Tidal2;
-  REAL8 omega02Tidal1;
-  REAL8 omega02Tidal2;
-  REAL8 k3Tidal1;
-  REAL8 k3Tidal2;
-  REAL8 omega03Tidal1;
-  REAL8 omega03Tidal2;
+  TidalEOBParams *tidal1;
+  TidalEOBParams *tidal2;
 }
 SpinEOBHCoeffs;
 
@@ -128,16 +109,6 @@ SEOBHCoeffConstants XLALEOBSpinPrecCalcSEOBHCoeffConstants(REAL8 eta);
  * 4) sigmaStar and sigmaKerr are effective spins of the test-particle and background.
  * 5) a is the spin value being used for test-particle limit spin terms.
  * 6) alignedSpins and tortoise are controling flags.
- * comp1 - compactness of body 1
- * comp2 - compactness of body 2
- * k2Tidal1 - adiabatic quadrupole Love number for body 1
- * k2Tidal2 - adiabatic quadrupole Love number for body 2
- * omega02Tidal1: quadrupole f-mode freq for body 1
- * omega02Tidal2: quadrupole f-mode freq for body 2
- * k3Tidal1 - adiabatic octupole Love number for body 1
- * k3Tidal2 - adiabatic octupole Love number for body 2
- * omega03Tidal1: octupole f-mode freq for body 1
- * omega03Tidal2: octupole f-mode freq for body 2
  */
 
 typedef struct
@@ -155,23 +126,11 @@ tagSpinEOBParams
   REAL8                   chi1;
   REAL8                   chi2;
   REAL8                   prev_dr;
-  int                     tortoise;
-  int                     ignoreflux;
   int                     alignedSpins;
   bool                    almostAlignedSpins; /*OPTV3*/
   Approximant             seobApproximant; /*OPTV3*/
-  REAL8 m1;
-  REAL8 m2;
-  REAL8 comp1;
-  REAL8 comp2;
-  REAL8 k2Tidal1;
-  REAL8 k2Tidal2;
-  REAL8 omega02Tidal1;
-  REAL8 omega02Tidal2;
-  REAL8 k3Tidal1;
-  REAL8 k3Tidal2;
-  REAL8 omega03Tidal1;
-  REAL8 omega03Tidal2;
+  int                     tortoise;
+  int                     ignoreflux;
 }
 SpinEOBParams;
 

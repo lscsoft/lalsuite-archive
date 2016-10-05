@@ -475,7 +475,7 @@ static REAL8 XLALCalculateSphHamiltonianDeriv2Hybrid(                 const int 
 								      SpinEOBParams *params    /**<< Spin EOB Parameters */
 								      )
 {
-  static const REAL8 STEP_SIZE = 1.0e-5;
+  static const REAL8 STEP_SIZE = 1.0e-4;
 
   REAL8 result;
   REAL8 UNUSED absErr;
@@ -514,7 +514,7 @@ static REAL8 XLALCalculateSphHamiltonianDeriv2(
                  )
 {
 
-  static const REAL8 STEP_SIZE = 1.0e-5;
+  static const REAL8 STEP_SIZE = 1.0e-4;
 
   REAL8 result;
   REAL8 UNUSED absErr;

@@ -168,13 +168,20 @@ int XLALComputeBinaryFreqDerivitives(Template *fdots,                        /**
   REAL8 orbphase = omega*(tmid-tasc);
   REAL8 omegan = 1;
 
+  /* compute sine and cosine of orbital phase */
+  REAL4 sin_orbphase, cos_orbphase;
+  XLALSinCosLUT( &sin_orbphase, &cos_orbphase, orbphase );
+
+  /* derivates of orbital phase */
+  REAL4 d_orbphase[4] = { cos_orbphase, -sin_orbphase, -cos_orbphase, sin_orbphase };
+
   /* the instantanous frequency is therefore f0 = nu - a*nu*W*cos(W*(t-tasc) ) */
-  fdots->x[0] = nu - nuasiniomega*cos(orbphase);
+  fdots->x[0] = nu - nuasiniomega*d_orbphase[0];
 
   /* the instantanous nth frequency derivitive is therefore fn = - a * nu * W^(n+1) * cos ( W*(t-tasc) + n*pi/2 ) */
   for (n=1;n<fdots->ndim;n++) {
     omegan *= omega;
-    fdots->x[n] = (-1.0)*nuasiniomega*omegan*cos(orbphase + 0.5*n*LAL_PI);
+    fdots->x[n] = (-1.0)*nuasiniomega*omegan*d_orbphase[n % 4];
   }
 
   return XLAL_SUCCESS;
@@ -611,7 +618,6 @@ int XLALCOMPLEX8TimeSeriesArrayToDemodPowerVector(REAL4DemodulatedPowerVector **
 	LogPrintf(LOG_CRITICAL,"%s : XLALSFTCOMPLEX8TimeseriesToCOMPLEX8FrequencySeries() failed with error = %d\n",__func__,xlalErrno);
 	XLAL_ERROR(XLAL_EINVAL);
       }
-      LogPrintf(LOG_DEBUG,"%s : computed demodulated frequency series for SFT %d/%d\n",__func__,i+1,dsdata->length);
 
       /* compute power and store it */
       for (j=0;j<fs->data->length;j++) {
@@ -636,6 +642,7 @@ int XLALCOMPLEX8TimeSeriesArrayToDemodPowerVector(REAL4DemodulatedPowerVector **
       XLALDestroyCOMPLEX8FrequencySeries(fs);
 
     } /* end loop over spin derivitive templates */
+    LogPrintf(LOG_NORMAL,"%s : computed demodulated frequency series for SFT %d/%d\n",__func__,i+1,dsdata->length);
 
     /* output loudest segment candidate - normalise to be a chi-squared variable */
     if (fp!=NULL) {
@@ -788,7 +795,6 @@ int XLALComputeFreqGridParams(GridParameters **gridparams,              /**< [ou
       LogPrintf(LOG_CRITICAL,"%s: dimensionality of frequency space < 0.  No templates required.\n",__func__);
       return XLAL_EINVAL;
    }
-   LogPrintf(LOG_DEBUG,"%s : determined dimensionality of frequency space = %d.\n",__func__,ndim);
 
    /* allocate memory to the output */
    if ( ((*gridparams)->grid = XLALCalloc(ndim,sizeof(Grid))) == NULL) {
@@ -894,6 +900,7 @@ int XLALComputeFreqGridParamsVector(GridParametersVector **freqgridparams,    /*
       XLAL_ERROR(XLAL_EINVAL);
     }
     LogPrintf(LOG_DEBUG,"%s : computed frequency grid for SFT %d/%d\n",__func__,i+1,sftvec->length);
+    LogPrintf(LOG_NORMAL,"%s : determined dimensionality of frequency space = %d for SFT %d/%d\n",__func__,(*freqgridparams)->segment[i]->ndim,i+1,sftvec->length);
 
   }
 
@@ -1145,11 +1152,11 @@ int XLALComputeBinaryGridParams(GridParameters **binarygridparams,  /**< [out] t
 				REAL8 T,                            /**< [in] the duration of the observation */
 				REAL8 DT,                           /**< [in] the length of the coherent segments */
 				REAL8 mu,                           /**< [in] the mismatch */
-				REAL8 coverage		/**< UNDOCUMENTED */
+				REAL8 coverage,		/**< UNDOCUMENTED */
+                                INT4 ndim                           /**< [in] if >0, fix dimensionality of parameter space */
 				)
 {
   REAL8 gnn[NBINMAX];                    /* stores the diagonal metric elements */
-  INT4 ndim = 0;                         /* the number of actual search dimensions */
   INT4 n,k;                              /* counters */
 
   /* validate input arguments */
@@ -1202,16 +1209,22 @@ int XLALComputeBinaryGridParams(GridParameters **binarygridparams,  /**< [out] t
     LogPrintf(LOG_CRITICAL,"%s: unable to allocate memory for Template structure.\n",__func__);
     XLAL_ERROR(XLAL_ENOMEM);
   }
-  (*binarygridparams)->ndim = NBINMAX;
   LogPrintf(LOG_DEBUG,"%s : allocated memory for the output grid parameters.\n",__func__);
 
-  /* we need to determine the true number of searchable dimensions */
-  /* we check the width of a 1-D template across each dimension span */
-  for (n=0;n<NBINMAX;n++) {
-    REAL8 deltax = 2.0*sqrt(mu/gnn[n]);
-    if (space->data[n].span > deltax) ndim++;
+  if ( ndim > 0 ) {
+    (*binarygridparams)->ndim = ndim;
+    LogPrintf(LOG_NORMAL,"%s : set fixed dimensionality of binary space = %d.\n",__func__,ndim);
+  } else {
+    /* we need to determine the true number of searchable dimensions */
+    /* we check the width of a 1-D template across each dimension span */
+    ndim = 0;
+    for (n=0;n<NBINMAX;n++) {
+      REAL8 deltax = 2.0*sqrt(mu/gnn[n]);
+      if (space->data[n].span > deltax) ndim++;
+    }
+    (*binarygridparams)->ndim = ndim;
+    LogPrintf(LOG_NORMAL,"%s : determined true dimensionality of binary space = %d.\n",__func__,ndim);
   }
-  LogPrintf(LOG_DEBUG,"%s : determined true dimensionality of binary space = %d.\n",__func__,ndim);
 
   /* Compute the grid spacing, grid start and span for each spin derivitive dimension */
   for (n=0;n<NBINMAX;n++) {

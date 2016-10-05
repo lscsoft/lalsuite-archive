@@ -85,6 +85,7 @@ typedef struct {
   INT4 gpsend;                      /**< the max GPS time to include */
   INT4 seed;                        /**< fix the random number generator seed */
   REAL8 coverage;                   /**< random template bank coverage */
+  INT4 semi_ndim;                   /**< Dimensionality of semicoherent parameter space (0=auto) */
   INT4 blocksize;                  /**< the running median blocksize */
   INT4 ntoplist;                   /**< the number of results to record */
   INT4 tsft;			   /**< the length of the input sfts */
@@ -152,14 +153,34 @@ int main( int argc, char *argv[] )  {
   }
   LogPrintf(LOG_DEBUG,"%s : read in uservars\n",__func__);
 
+  /* initialise sin-cosine lookup table */
+  XLALSinCosLUTInit();
+
   /* initialise the random number generator */
   if (XLALInitgslrand(&r,uvar.seed)) {
     LogPrintf(LOG_CRITICAL,"%s: XLALinitgslrand() failed with error = %d\n",__func__,xlalErrno);
     XLAL_ERROR(XLAL_EFAULT);
   }
 
+  /* make output directory */
+  {
+    struct stat st;
+    if (stat(uvar.outputdir, &st)) {
+      if (mkdir(uvar.outputdir,0755) != 0 && errno != EEXIST) {
+        LogPrintf(LOG_DEBUG,"%s : Unable to make output directory %s.  Might be a problem.\n",__func__,uvar.outputdir);
+      }
+    }
+  }
+
   /* make temporary directory */
   if (uvar.tempdir) {
+
+    struct stat st;
+    if (stat(uvar.tempdir, &st)) {
+      if (mkdir(uvar.tempdir,0755) != 0 && errno != EEXIST) {
+        LogPrintf(LOG_DEBUG,"%s : Unable to make temporary directory %s.  Might be a problem.\n",__func__,uvar.tempdir);
+      }
+    }
 
     /* initialise the random number generator  - use the clock */
     gsl_rng * q;
@@ -171,14 +192,19 @@ int main( int argc, char *argv[] )  {
     CHAR newtemp[LONGSTRINGLENGTH];
     INT4 id = (INT4)(1e9*gsl_rng_uniform(q));
     sprintf(newtemp,"%s/%09d",uvar.tempdir,id);
-    if (mkdir(newtemp,0755)) {
+    if (mkdir(newtemp,0755) != 0 && errno != EEXIST) {
       LogPrintf(LOG_DEBUG,"%s : Unable to make temporary directory %s.  Might be a problem.\n",__func__,newtemp);
     }
     sprintf(newnewtemp,"%s/%.3f-%.3f",newtemp,uvar.freq,uvar.freq+uvar.freqband);
-    if (mkdir(newnewtemp,0755)) {
-      LogPrintf(LOG_CRITICAL,"%s : Unable to make temporary directory %s\n",__func__,newnewtemp);
-      return 1;
-    }
+
+  } else {
+    sprintf(newnewtemp,"%s/%.3f-%.3f",uvar.outputdir,uvar.freq,uvar.freq+uvar.freqband);
+  }
+
+  /* make frequency+band directory inside output/temporary directory */
+  if (mkdir(newnewtemp,0755) != 0 && errno != EEXIST) {
+    LogPrintf(LOG_CRITICAL,"%s : Unable to make frequency+band directory %s\n",__func__,newnewtemp);
+    return 1;
   }
 
   /* initialise the random number generator */
@@ -285,7 +311,7 @@ int main( int argc, char *argv[] )  {
   /**********************************************************************************/
 
   /* compute the fine grid on the binary parameters */
-  if (XLALComputeBinaryGridParams(&bingridparams,pspace.space,pspace.span,pspace.tseg,uvar.mismatch,uvar.coverage)) {
+  if (XLALComputeBinaryGridParams(&bingridparams,pspace.space,pspace.span,pspace.tseg,uvar.mismatch,uvar.coverage,uvar.semi_ndim)) {
     LogPrintf(LOG_CRITICAL,"%s : XLALComputeBinaryGridParams() failed with error = %d\n",__func__,xlalErrno);
     return 1;
   }
@@ -429,6 +455,7 @@ int XLALReadUserVars(int argc,            /**< [in] the command line argument co
   uvar->mismatch = 0.2;
   uvar->ntoplist = 10;
   uvar->coverage = -1;
+  uvar->semi_ndim = 0;
   uvar->blocksize = 100;
   uvar->tsft = 256;
   uvar->seed = 1;
@@ -458,6 +485,7 @@ int XLALReadUserVars(int argc,            /**< [in] the command line argument co
   XLALRegisterUvarMember(deltaorbphase,      	REAL8, 'T', OPTIONAL, "The orbital phase uncertainty (cycles)");
   XLALRegisterUvarMember(mismatch,        	REAL8, 'm', OPTIONAL, "The grid mismatch (0->1)");
   XLALRegisterUvarMember(coverage,        	REAL8, 'c', OPTIONAL, "The random template coverage (0->1)");
+  XLALRegisterUvarMember(semi_ndim,        	INT4, 'n', OPTIONAL, "Dimensionality of semicoherent parameter space (0=auto)");
   XLALRegisterUvarMember(blocksize,        	INT4, 'r', OPTIONAL, "The running median block size");
   XLALRegisterUvarMember(tsft,                    INT4, 'S', OPTIONAL, "The length of the input SFTs in seconds");
   XLALRegisterUvarMember(ntoplist,                INT4, 'x', OPTIONAL, "output the top N results");
@@ -578,7 +606,7 @@ int XLALComputeSemiCoherentStat(FILE *fp,                                /**< [i
   LogPrintf(LOG_DEBUG,"%s : computed the threshold as %f\n",__func__,thr); */
 
   int (*getnext)(Template **temp,GridParameters *gridparams, ParameterSpace *space,void *);
-  INT4 newmax = bingrid->max;
+  UINT4 newmax = bingrid->max;
   ParameterSpace *temppspace = NULL;
   if (bingrid->Nr>0) {
     getnext = &XLALGetNextRandomBinaryTemplate;
@@ -628,9 +656,9 @@ int XLALComputeSemiCoherentStat(FILE *fp,                                /**< [i
     } */
 
     /* output status to screen */
-    if (floor(100.0*(REAL8)bintemp->currentidx/(REAL8)newmax) > (REAL8)percent) {
+    if ( (bintemp->currentidx == 0) || (floor(100.0*(REAL8)bintemp->currentidx/(REAL8)newmax) > (REAL8)percent) ) {
       percent = (UINT4)floor(100*(REAL8)bintemp->currentidx/(REAL8)newmax);
-      LogPrintf(LOG_DEBUG,"%s : completed %d%% (%d/%d)\n",__func__,percent,bintemp->currentidx,newmax);
+      LogPrintf(LOG_NORMAL,"%s : completed %d%% (%u/%u)\n",__func__,percent,bintemp->currentidx,newmax);
     }
 
   } /* end loop over templates */

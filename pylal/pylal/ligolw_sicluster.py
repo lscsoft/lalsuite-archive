@@ -31,9 +31,6 @@ from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import git_version
 from pylal import SnglInspiralUtils
 from pylal import snglcluster
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-
-lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 __author__ = "Duncan Brown <dbrown@ligo.caltech.edu>"
 

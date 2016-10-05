@@ -102,7 +102,7 @@ SphHarmTimeSeries *XLALSimIMREOBNRv2Modes(const REAL8 phiRef, const REAL8 deltaT
 
 double XLALSimIMRSpinAlignedEOBPeakFrequency(REAL8 m1SI, REAL8 m2SI, const REAL8 spin1z, const REAL8 spin2z, UINT4 SpinAlignedEOBversion);
 int XLALSimIMRSpinAlignedEOBWaveform(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, const REAL8 phiC, REAL8 deltaT, const REAL8 m1SI, const REAL8 m2SI, const REAL8 fMin, const REAL8 r, const REAL8 inc, const REAL8 spin1z, const REAL8 spin2z, UINT4 SpinAlignedEOBversion);
-int XLALSimIMRSpinAlignedEOBWaveformAll(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, const REAL8 phiC, REAL8 deltaT, const REAL8 m1SI, const REAL8 m2SI, const REAL8 fMin, const REAL8 r, const REAL8 inc, const REAL8 spin1z, const REAL8 spin2z, const REAL8 comp1, const REAL8 comp2, const REAL8 k2Tidal1, const REAL8 k2Tidal2, const REAL8 omega02Tidal1, const REAL8 omega02Tidal2, const REAL8 k3Tidal1, const REAL8 k3Tidal2, const REAL8 omega03Tidal1, const REAL8 omega03Tidal2, UINT4 SpinAlignedEOBversion);
+int XLALSimIMRSpinAlignedEOBWaveformAll(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, REAL8Vector * tVec, REAL8Vector * rVec, REAL8Vector * phiVec, REAL8Vector * prVec, REAL8Vector * pphiVec, const REAL8 phiC, REAL8 deltaT, const REAL8 m1SI, const REAL8 m2SI, const REAL8 fMin, const REAL8 r, const REAL8 inc, const REAL8 spin1z, const REAL8 spin2z, UINT4 SpinAlignedEOBversion, const REAL8 comp1, const REAL8 comp2, const REAL8 k2Tidal1, const REAL8 k2Tidal2, const REAL8 omega02Tidal1, const REAL8 omega02Tidal2, const REAL8 k3Tidal1, const REAL8 k3Tidal2, const REAL8 omega03Tidal1, const REAL8 omega03Tidal2);
 /*int XLALSimIMRSpinEOBWaveform(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, const REAL8 phiC, const REAL8 deltaT, const REAL8 m1SI, const REAL8 m2SI, const REAL8 fMin, const REAL8 r, const REAL8 inc, const REAL8 spin1[], const REAL8 spin2[]);
  */
 
@@ -180,8 +180,8 @@ int XLALSimIMRSEOBNRv2ROMDoubleSpinFrequencyOfTime(REAL8 *frequency, REAL8 t, RE
 
 /* in module LALSimIMRSEOBNRv2ROMDoubleSpinHI.c */
 
-int XLALSimIMRSEOBNRv2ROMDoubleSpinHI(struct tagCOMPLEX16FrequencySeries **hptilde, struct tagCOMPLEX16FrequencySeries **hctilde, REAL8 phiRef, REAL8 deltaF, REAL8 fLow, REAL8 fHigh, REAL8 fRef, REAL8 distance, REAL8 inclination, REAL8 m1SI, REAL8 m2SI, REAL8 chi1, REAL8 chi2, UINT4 nk_max);
-int XLALSimIMRSEOBNRv2ROMDoubleSpinHIFrequencySequence(struct tagCOMPLEX16FrequencySeries **hptilde, struct tagCOMPLEX16FrequencySeries **hctilde, const REAL8Sequence *freqs, REAL8 phiRef, REAL8 fRef, REAL8 distance, REAL8 inclination, REAL8 m1SI, REAL8 m2SI, REAL8 chi1, REAL8 chi2, UINT4 nk_max);
+int XLALSimIMRSEOBNRv2ROMDoubleSpinHI(struct tagCOMPLEX16FrequencySeries **hptilde, struct tagCOMPLEX16FrequencySeries **hctilde, REAL8 phiRef, REAL8 deltaF, REAL8 fLow, REAL8 fHigh, REAL8 fRef, REAL8 distance, REAL8 inclination, REAL8 m1SI, REAL8 m2SI, REAL8 chi1, REAL8 chi2, INT4 nk_max);
+int XLALSimIMRSEOBNRv2ROMDoubleSpinHIFrequencySequence(struct tagCOMPLEX16FrequencySeries **hptilde, struct tagCOMPLEX16FrequencySeries **hctilde, const REAL8Sequence *freqs, REAL8 phiRef, REAL8 fRef, REAL8 distance, REAL8 inclination, REAL8 m1SI, REAL8 m2SI, REAL8 chi1, REAL8 chi2, INT4 nk_max);
 int XLALSimIMRSEOBNRv2ROMDoubleSpinHITimeOfFrequency(REAL8 *t, REAL8 frequency, REAL8 m1SI, REAL8 m2SI, REAL8 chi1, REAL8 chi2);
 int XLALSimIMRSEOBNRv2ROMDoubleSpinHIFrequencyOfTime(REAL8 *frequency, REAL8 t, REAL8 m1SI, REAL8 m2SI, REAL8 chi1, REAL8 chi2);
 
@@ -189,6 +189,20 @@ int XLALSimIMRSEOBNRv2ROMDoubleSpinHIFrequencyOfTime(REAL8 *frequency, REAL8 t, 
 /* in module LALSimIMRSEOBNRv2ChirpTime.c */
 
 REAL8 XLALSimIMRSEOBNRv2ChirpTimeSingleSpin(const REAL8 m1_SI, const REAL8 m2_SI, const REAL8 chi, const REAL8 f_min);
+
+
+/* in module LALSimIMRLackeyTidal2013.c */
+
+int XLALSimIMRLackeyTidal2013(struct tagCOMPLEX16FrequencySeries **hptilde, struct tagCOMPLEX16FrequencySeries **hctilde, REAL8 phiRef, REAL8 deltaF, REAL8 fLow, REAL8 fHigh, REAL8 fRef, REAL8 distance, REAL8 inclination, REAL8 mBH_SI, REAL8 mNS_SI, REAL8 chi_BH, REAL8 Lambda);
+int XLALSimIMRLackeyTidal2013FrequencySequence(struct tagCOMPLEX16FrequencySeries **hptilde, struct tagCOMPLEX16FrequencySeries **hctilde, const REAL8Sequence *freqs, REAL8 phiRef, REAL8 fRef, REAL8 distance, REAL8 inclination, REAL8 mBH_SI, REAL8 mNS_SI, REAL8 chi_BH, REAL8 Lambda);
+
+
+/* in module LALSimIMRSEOBNRv4ROM.c */
+
+int XLALSimIMRSEOBNRv4ROM(struct tagCOMPLEX16FrequencySeries **hptilde, struct tagCOMPLEX16FrequencySeries **hctilde, REAL8 phiRef, REAL8 deltaF, REAL8 fLow, REAL8 fHigh, REAL8 fRef, REAL8 distance, REAL8 inclination, REAL8 m1SI, REAL8 m2SI, REAL8 chi1, REAL8 chi2, INT4 nk_max);
+int XLALSimIMRSEOBNRv4ROMFrequencySequence(struct tagCOMPLEX16FrequencySeries **hptilde, struct tagCOMPLEX16FrequencySeries **hctilde, const REAL8Sequence *freqs, REAL8 phiRef, REAL8 fRef, REAL8 distance, REAL8 inclination, REAL8 m1SI, REAL8 m2SI, REAL8 chi1, REAL8 chi2, INT4 nk_max);
+int XLALSimIMRSEOBNRv4ROMTimeOfFrequency(REAL8 *t, REAL8 frequency, REAL8 m1SI, REAL8 m2SI, REAL8 chi1, REAL8 chi2);
+int XLALSimIMRSEOBNRv4ROMFrequencyOfTime(REAL8 *frequency, REAL8 t, REAL8 m1SI, REAL8 m2SI, REAL8 chi1, REAL8 chi2);
 
 
 /* in module LALSimIMRPSpinInspiralRD.c */

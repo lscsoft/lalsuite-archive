@@ -28,12 +28,12 @@
 Ask Kipp to document this!
 """
 
-from lal import LIGOTimeGPS
 
 from glue import git_version
 from glue import iterutils
 from glue import segments
 from glue import segmentsUtils
+from .. import ligolw
 from .. import lsctables
 
 
@@ -497,7 +497,7 @@ class LigolwSegments(set):
 		indicating that there are no periods of validity.  Returns
 		the newly created LigolwSegmentList object.
 		"""
-		ligolw_segment_list = LigolwSegmentList(active = segmentsUtils.fromsegwizard(fileobj, coltype = LIGOTimeGPS), instruments = instruments, name = name, version = version, comment = comment)
+		ligolw_segment_list = LigolwSegmentList(active = segmentsUtils.fromsegwizard(fileobj, coltype = lsctables.LIGOTimeGPS), instruments = instruments, name = name, version = version, comment = comment)
 		self.add(ligolw_segment_list)
 		return ligolw_segment_list
 
@@ -694,6 +694,15 @@ class LigolwSegments(set):
 #
 # =============================================================================
 #
+
+
+@lsctables.use_in
+class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
+	"""
+	Minimal content handler suitable for loading documents containg
+	segment tables.
+	"""
+	pass
 
 
 def has_segment_tables(xmldoc, name = None):
