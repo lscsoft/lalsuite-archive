@@ -292,6 +292,14 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState) {
     fflush(stdout);
     MPI_Barrier(MPI_COMM_WORLD);
 
+    double time_elapsed=0, start_epoch=0;
+    INT4 total_iterations = 0;
+    if(MPIrank == 0) { /* added by hwlee and KGWG to check elapsed time at 5 oct 2016 */
+      struct timeval iter_start_tv;
+      gettimeofday(&iter_start_tv, NULL);
+      start_epoch = iter_start_tv.tv_sec + iter_start_tv.tv_usec/1E6;
+    }
+
     // iterate:
     step_last_written = runState->threads[0]->step;
     step_last_acl_check = runState->threads[0]->step;
@@ -405,8 +413,11 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState) {
             fclose(verbose_file);
 
         /* Check if run should end */
-        if (runState->threads[0]->step > Niter)
-            runComplete=1;
+        if (runState->threads[0]->step > Niter){
+          fprintf(stdout,"Thread %i has %i effective samples. Stopping with %i iterations...\n", MPIrank, runState->threads[0]->effective_sample_size, runState->threads[0]->step);
+          total_iterations = runState->threads[0]->step; /* added by hwlee and KGWG to check elapsed time at 5 oct 2016 */
+          runComplete=1;
+        }
 
         /* Have the cold chain decide when to compute ACLs, and calculate for all chains.  This is done
          * in a similar way to the write interval: ten times each sampling decade.
@@ -434,6 +445,7 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState) {
 
                 if (MPIrank == 0 && t == 0 && thread->effective_sample_size > Neff) {
                     fprintf(stdout,"Thread %i has %i effective samples. Stopping...\n", MPIrank, thread->effective_sample_size);
+                    total_iterations = runState->threads[0]->step; /* added by hwlee and KGWG to check elapsed time at 5 oct 2016 */
                     runComplete = 1;          // Sampling is done!
                 }
             }
@@ -444,7 +456,12 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState) {
         /* Broadcast the root's decision on run completion */
         MPI_Bcast(&runComplete, 1, MPI_INT, 0, MPI_COMM_WORLD);
     }// while (!runComplete)
-
+    if(MPIrank == 0) { /* added by hwlee and KGWG to check elapsed time at 5 oct 2016 */
+      struct timeval iter_end_tv;
+      gettimeofday(&iter_end_tv, NULL);
+      time_elapsed = iter_end_tv.tv_sec + iter_end_tv.tv_usec/1E6 - start_epoch;
+      fprintf(stderr, "====DEBUG hwlee Elapsed time is %.6f sec for %d iterations, average is %.6e sec.\n", time_elapsed,total_iterations, time_elapsed/total_iterations);
+    }
 }
 
 void record_likelihoods(LALInferenceThreadState *thread) {
