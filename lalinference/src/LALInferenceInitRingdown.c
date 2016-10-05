@@ -76,7 +76,7 @@ void LALInferenceInitRingdownThreads(LALInferenceRunState *run_state, INT4 nthre
     thread->currentIFOLikelihoods = XLALCalloc(nifo, sizeof(REAL8));
 
     /* Setup ROQ */
-    LALInferenceSetupROQ(run_state->data, thread->model, run_state->commandLine);
+    // LALInferenceSetupROQ(run_state->data, thread->model, run_state->commandLine);
 
     LALInferenceCopyVariables(thread->model->params, thread->currentParams);
     LALInferenceCopyVariables(run_state->proposalArgs, thread->proposalArgs);

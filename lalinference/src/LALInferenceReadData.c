@@ -2875,21 +2875,21 @@ void LALInferencePrintInjectionSample(LALInferenceRunState *runState) {
     FILE *outfile=NULL;
 
     SimInspiralTable *injTable=NULL, *theEventTable=NULL;
-    LALInferenceModel *model = LALInferenceInitCBCModel(runState);
+    LALInferenceModel *model = NULL;
+    ProcessParamsTable *ppt;
+    ppt = LALInferenceGetProcParamVal(runState->commandLine,"--ringdown");
+    if (ppt) model = LALInferenceInitRingdownModel(runState);
+    else model = LALInferenceInitCBCModel(runState);
+
     if (LALInferenceGetProcParamVal(runState->commandLine, "--roqtime_steps")){
       LALInferenceSetupROQmodel(model, runState->commandLine);
       fprintf(stderr, "done LALInferenceSetupROQmodel\n");
     } else {
       model->roq_flag=0;
     }
-    ProcessParamsTable *ppt;
 //     LALInferenceModel *model;
     LALInferenceVariables *injparams = XLALCalloc(1, sizeof(LALInferenceVariables));
 
-    ppt = LALInferenceGetProcParamVal(runState->commandLine,"--ringdown");
-    if (ppt) model = LALInferenceInitRingdownModel(runState);
-    else model = LALInferenceInitCBCModel(runState);
-    
     LALInferenceCopyVariables(model->params, injparams);
 
     ppt = LALInferenceGetProcParamVal(runState->commandLine,"--inj");
