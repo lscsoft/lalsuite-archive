@@ -111,7 +111,7 @@ LALInferenceThreadState *LALInferenceInitThread(void) {
     thread->step = 0;
     thread->temperature = 1.0;
     thread->creation_time = tv.tv_sec + tv.tv_usec/1E6;
-    thread->currentPropDensity = -DBL_MAX;
+    thread->currentPropDensity = -INFINITY;
     thread->currentParams = XLALCalloc(1, sizeof(LALInferenceVariables));
     thread->algorithmParams = XLALCalloc(1, sizeof(LALInferenceVariables));
     thread->priorArgs=XLALCalloc(1,sizeof(LALInferenceVariables));
@@ -1467,6 +1467,13 @@ int LALInferenceCompareVariables(LALInferenceVariables *var1, LALInferenceVariab
 {
   /* Short-circuit for pointer equality */
   if (var1 == var2) return 0;
+
+  /* Short-circuit if passed NULL pointers */
+  if ((var1 == NULL) || (var2 == NULL))
+  {
+		  XLALPrintWarning("LALInferenceCompareVariables received a NULL input pointer\n");
+		  return 1;
+  }
 
   int result = 0;
   UINT4 i;
