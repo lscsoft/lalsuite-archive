@@ -313,16 +313,16 @@ def find_segments(doc, key, use_segment_table = True):
     filter_func = lambda x: str(x.ifos) == key_pieces[0] and (str(x.name) == key_pieces[1] or key_pieces[1] == '*') and (str(x.version) == key_pieces[2] or key_pieces[2] == '*') 
 
     # Find all segment definers matching the critieria
-    seg_def_table = lsctables.SegmentDefTable.get_table(doc)
+    seg_def_table = table.get_table(doc, lsctables.SegmentDefTable.tableName)
     seg_defs      = filter(filter_func, seg_def_table)
     seg_def_ids   = map(lambda x: str(x.segment_def_id), seg_defs)
 
     # Find all segments belonging to those definers
     if use_segment_table:
-        seg_table     = lsctables.SegmentTable.get_table(doc)
+        seg_table     = table.get_table(doc, lsctables.SegmentTable.tableName)
         seg_entries   = filter(lambda x: str(x.segment_def_id) in seg_def_ids, seg_table)
     else:
-        seg_sum_table = lsctables.SegmentSumTable.get_table(doc)
+        seg_sum_table = table.get_table(doc, lsctables.SegmentSumTable.tableName)
         seg_entries   = filter(lambda x: str(x.segment_def_id) in seg_def_ids, seg_sum_table)
 
     # Combine into a segmentlist
@@ -363,7 +363,7 @@ def ensure_segment_table(connection):
 
 def add_to_segment_definer(xmldoc, proc_id, ifo, name, version, comment=''):
     try:
-        seg_def_table = lsctables.SegmentDefTable.get_table(xmldoc)
+        seg_def_table = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
     except:
         seg_def_table = lsctables.New(lsctables.SegmentDefTable, columns = ["process_id", "segment_def_id", "ifos", "name", "version", "comment"])
         xmldoc.childNodes[0].appendChild(seg_def_table)
@@ -385,7 +385,7 @@ def add_to_segment_definer(xmldoc, proc_id, ifo, name, version, comment=''):
 
 def add_to_segment(xmldoc, proc_id, seg_def_id, sgmtlist):
     try:
-        segtable = lsctables.SegmentTable.get_table(xmldoc)
+        segtable = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
     except:
         segtable = lsctables.New(lsctables.SegmentTable, columns = ["process_id", "segment_def_id", "segment_id", "start_time", "start_time_ns", "end_time", "end_time_ns"])
         xmldoc.childNodes[0].appendChild(segtable)
@@ -405,7 +405,7 @@ def add_to_segment(xmldoc, proc_id, seg_def_id, sgmtlist):
 
 def add_to_segment_summary(xmldoc, proc_id, seg_def_id, sgmtlist, comment=''):
     try:
-        seg_sum_table = lsctables.SegmentSumTable.get_table(xmldoc)
+        seg_sum_table = table.get_table(xmldoc, lsctables.SegmentSumTable.tableName)
     except:
         seg_sum_table = lsctables.New(lsctables.SegmentSumTable, columns = ["process_id", "segment_def_id", "segment_sum_id", "start_time", "start_time_ns", "end_time", "end_time_ns", "comment"])
         xmldoc.childNodes[0].appendChild(seg_sum_table)

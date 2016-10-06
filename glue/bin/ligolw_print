@@ -82,7 +82,7 @@ def parse_command_line():
 
 	# strip table names
 	if options.table:
-		options.table = map(table.Table.TableName, options.table)
+		options.table = map(table.StripTableName, options.table)
 
 	if options.array:
 		options.array = map(array.Array.ArrayName, options.array)
@@ -181,7 +181,7 @@ if not (options.table or options.array):
 else:
 	class ContentHandler(ligolw.PartialLIGOLWContentHandler):
 		def __init__(self, xmldoc):
-			super(ContentHandler, self).__init__(xmldoc, lambda name, attrs: (name in (ligolw.Table.tagName, ligolw.Array.tagName)) and (table.Table.TableName(attrs["Name"]) in options.table or array.Array.ArrayName(attrs["Name"]) in options.array))
+			super(ContentHandler, self).__init__(xmldoc, lambda name, attrs: (name in (ligolw.Table.tagName, ligolw.Array.tagName)) and (table.StripTableName(attrs["Name"]) in options.table or array.Array.ArrayName(attrs["Name"]) in options.array))
 
 array.use_in(ContentHandler)
 

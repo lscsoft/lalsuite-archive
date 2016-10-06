@@ -56,7 +56,8 @@ def ReadMultiInspiralFromFiles(fileList):
         gz=(thisFile or "stdin").endswith(".gz"), contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
     # extract the multi inspiral table
     try:
-      multiInspiralTable = lsctables.MultiInspiralTable.get_table(doc)
+      multiInspiralTable = table.get_table(doc,
+          lsctables.MultiInspiralTable.tableName)
       if multis: multis.extend(multiInspiralTable)
       else: multis = multiInspiralTable
     except: multiInspiralTable = None
@@ -79,7 +80,8 @@ def ReadMultiInspiralTimeSlidesFromFiles(fileList,generate_output_tables=False):
     doc = utils.load_filename(thisFile,
         gz=(thisFile or "stdin").endswith(".gz"), contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
     # Extract the time slide table
-    timeSlideTable = lsctables.TimeSlideTable.get_table(doc)
+    timeSlideTable = table.get_table(doc,
+          lsctables.TimeSlideTable.tableName)
     slideMapping = {}
     currSlides = {}
     # NOTE: I think some of this is duplicated in the glue definition of the
@@ -104,12 +106,14 @@ def ReadMultiInspiralTimeSlidesFromFiles(fileList,generate_output_tables=False):
 
     # Get the mapping table
     segmentMap = {}
-    timeSlideMapTable = lsctables.TimeSlideSegmentMapTable.get_table(doc)
+    timeSlideMapTable = table.get_table(doc,
+        lsctables.TimeSlideSegmentMapTable.tableName)
     for entry in timeSlideMapTable:
       segmentMap[int(entry.segment_def_id)] = int(entry.time_slide_id)
 
     # Extract the segment table
-    segmentTable = lsctables.SegmentTable.get_table(doc)
+    segmentTable = table.get_table(doc,
+        lsctables.SegmentTable.tableName)
     for entry in segmentTable:
       currSlidId = segmentMap[int(entry.segment_def_id)]
       currSeg = entry.get()
@@ -120,7 +124,8 @@ def ReadMultiInspiralTimeSlidesFromFiles(fileList,generate_output_tables=False):
     
     # extract the multi inspiral table
     try:
-      multiInspiralTable = lsctables.MultiInspiralTable.get_table(doc)
+      multiInspiralTable = table.get_table(doc,
+          lsctables.MultiInspiralTable.tableName)
       # Remap the time slide IDs
       for multi in multiInspiralTable:
         newID = slideMapping[int(multi.time_slide_id)]

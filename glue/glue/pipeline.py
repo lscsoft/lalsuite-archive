@@ -36,7 +36,12 @@ import stat
 import socket
 import itertools
 import glue.segments
-from hashlib import md5
+try:
+  # use hashlib if available, python25 and above
+  from hashlib import md5
+except ImportError:
+  # md5 is deprecated in python26
+  from md5 import new as md5
 
 try:
   import httplib

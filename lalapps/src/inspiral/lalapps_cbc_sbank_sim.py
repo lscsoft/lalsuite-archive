@@ -67,8 +67,8 @@ def ligolw_copy_process(xmldoc_src, xmldoc_dest):
     We want to copy over process and process_params tables to eventually
     merge them.
     """
-    proc = lsctables.ProcessTable.get_table(xmldoc_src)
-    pp = lsctables.ProcessParamsTable.get_table(xmldoc_src)
+    proc = table.get_table(xmldoc_src, lsctables.ProcessTable.tableName)
+    pp = table.get_table(xmldoc_src, lsctables.ProcessParamsTable.tableName)
 
     xmldoc_dest.appendChild(ligolw.LIGO_LW())
     xmldoc_dest.childNodes[-1].appendChild(proc)
@@ -155,7 +155,7 @@ for file_approx in opts.template_bank:
 
     # add templates to bank
     tmpdoc = utils.load_filename(seed_file, contenthandler=ContentHandler)
-    sngl_inspiral = lsctables.SnglInspiralTable.get_table(tmpdoc)
+    sngl_inspiral = table.get_table(tmpdoc, lsctables.SnglInspiralTable.tableName)
     seed_waveform = waveforms[approx]
     bank.add_from_sngls(sngl_inspiral, seed_waveform)
 
@@ -180,7 +180,7 @@ del sngls[:]
 # pick injection parameters
 xmldoc2 = utils.load_filename(inj_file, contenthandler=ContentHandler)
 ligolw_copy_process(xmldoc2, fake_xmldoc)
-sims = lsctables.SimInspiralTable.get_table(xmldoc2)
+sims = table.get_table(xmldoc2, lsctables.SimInspiralTable.tableName)
 
 #
 # sometime inspinj doesn't give us everything we want, so we give the
@@ -233,11 +233,11 @@ ligolw_process.set_process_end_time(process)
 
 # output
 h5file.create_dataset("/match_map", data=match_map, compression='gzip', compression_opts=1)
-proc = lsctables.ProcessTable.get_table(fake_xmldoc)
+proc = table.get_table(fake_xmldoc, lsctables.ProcessTable.tableName)
 for p in proc:
     p.cvs_entry_time = 0
     p.end_time = 0
 h5file.create_dataset("/process", data=ligolw_table_to_array(proc))
-pp = lsctables.ProcessParamsTable.get_table(fake_xmldoc)
+pp = table.get_table(fake_xmldoc, lsctables.ProcessParamsTable.tableName)
 h5file.create_dataset("/process_params", data=ligolw_table_to_array(pp))
 h5file.close()

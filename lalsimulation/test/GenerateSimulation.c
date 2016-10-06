@@ -504,8 +504,6 @@ int main (int argc , char **argv) {
     }
 
     /* clean up */
-    XLALDestroyREAL8TimeSeries(hplus);
-    XLALDestroyREAL8TimeSeries(hcross);
     XLALSimInspiralDestroyWaveformFlags(params->waveFlags);
     XLALSimInspiralDestroyTestGRParam(params->nonGRparams);
     XLALFree(params);

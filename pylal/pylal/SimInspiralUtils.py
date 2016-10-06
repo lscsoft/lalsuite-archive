@@ -62,7 +62,8 @@ def ReadSimInspiralFromFiles(fileList, verbose=False):
   for thisFile in fileList:
     doc = utils.load_filename(thisFile, gz=(thisFile or "stdin").endswith(".gz"), verbose=verbose, contenthandler=ExtractSimInspiralTableLIGOLWContentHandler)
     # extract the sim inspiral table
-    try: simInspiralTable = lsctables.SimInspiralTable.get_table(doc)
+    try: simInspiralTable = \
+      table.get_table(doc, lsctables.SimInspiralTable.tableName)
     except: simInspiralTable = None
     if simInspiralTriggers and simInspiralTable: 
       simInspiralTriggers.extend(simInspiralTable)

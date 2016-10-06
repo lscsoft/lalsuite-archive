@@ -84,17 +84,42 @@ double (*bayestar_sky_map_toa_phoa_snr(
     double min_distance,            /* Minimum distance */
     double max_distance,            /* Maximum distance */
     int prior_distance_power,       /* Power of distance in prior */
-    /* Data */
+    /* Detector network */
     double gmst,                    /* GMST (rad) */
     unsigned int nifos,             /* Number of detectors */
-    unsigned long nsamples,         /* Lengths of SNR series */
+    unsigned long nsamples,         /* Length of autocorrelation sequence */
     double sample_rate,             /* Sample rate in seconds */
-    const double *epochs,           /* Timestamps of SNR time series */
-    const float complex **snrs,     /* Complex SNR series */
+    const double complex **acors,   /* Autocorrelation sequences */
     const float (**responses)[3],   /* Detector responses */
     const double **locations,       /* Barycentered Cartesian geographic detector positions (m) */
-    const double *horizons          /* SNR=1 horizon distances for each detector */
+    const double *horizons,         /* SNR=1 horizon distances for each detector */
+    /* Observations */
+    const double *toas,             /* Arrival time differences relative to network barycenter (s) */
+    const double *phoas,            /* Phases on arrival */
+    const double *snrs              /* SNRs */
 ))[4];
+
+double bayestar_log_likelihood_toa_snr(
+    /* Parameters */
+    double ra,                      /* Right ascension (rad) */
+    double sin_dec,                 /* Sin(declination) */
+    double distance,                /* Distance */
+    double u,                       /* Cos(inclination) */
+    double twopsi,                  /* Twice polarization angle (rad) */
+    double t,                       /* Barycentered arrival time (s) */
+    /* Detector network */
+    double gmst,                    /* GMST (rad) */
+    unsigned int nifos,             /* Number of detectors */
+    unsigned long nsamples,         /* Length of autocorrelation sequence */
+    double sample_rate,             /* Sample rate in seconds */
+    const double complex **acors,   /* Autocorrelation sequences */
+    const float (**responses)[3],   /* Detector responses */
+    const double **locations,       /* Barycentered Cartesian geographic detector positions (m) */
+    const double *horizons,         /* SNR=1 horizon distances for each detector */
+    /* Observations */
+    const double *toas,             /* Arrival time differences relative to network barycenter (s) */
+    const double *snrs              /* SNRs */
+);
 
 double bayestar_log_likelihood_toa_phoa_snr(
     /* Parameters */
@@ -104,16 +129,19 @@ double bayestar_log_likelihood_toa_phoa_snr(
     double u,                       /* Cos(inclination) */
     double twopsi,                  /* Twice polarization angle (rad) */
     double t,                       /* Barycentered arrival time (s) */
-    /* Data */
+    /* Detector network */
     double gmst,                    /* GMST (rad) */
     unsigned int nifos,             /* Number of detectors */
-    unsigned long nsamples,         /* Length of SNR series */
+    unsigned long nsamples,         /* Length of autocorrelation sequence */
     double sample_rate,             /* Sample rate in seconds */
-    const double *epochs,           /* Timestamps of SNR time series */
-    const float complex **snrs,     /* Complex SNR series */
+    const double complex **acors,   /* Autocorrelation sequences */
     const float (**responses)[3],   /* Detector responses */
     const double **locations,       /* Barycentered Cartesian geographic detector positions (m) */
-    const double *horizons          /* SNR=1 horizon distances for each detector */
+    const double *horizons,         /* SNR=1 horizon distances for each detector */
+    /* Observations */
+    const double *toas,             /* Arrival time differences relative to network barycenter (s) */
+    const double *phoas,            /* Phases on arrival */
+    const double *snrs              /* SNRs */
 );
 
 /* Unit test suite. Return EXIT_SUCCESS if tests passed,

@@ -99,10 +99,12 @@ class DocContents(object):
         # locate the multi_inspiral and sim_inspiral tables
         #
 
-        self.multiinspiraltable = lsctables.MultiInspiralTable.get_table(
-                                      xmldoc)
-        self.siminspiraltable = lsctables.SimInspiralTable.get_table(
-                                    xmldoc)
+        self.multiinspiraltable = table.get_table(
+                                      xmldoc,
+                                      lsctables.MultiInspiralTable.tableName)
+        self.siminspiraltable = table.get_table(
+                                    xmldoc,
+                                    lsctables.SimInspiralTable.tableName)
 
         #
         # get out segment lists for programs that generated
@@ -110,7 +112,8 @@ class DocContents(object):
         # construction)
         #
 
-        search_summary = lsctables.SearchSummaryTable.get_table(xmldoc)
+        search_summary = table.get_table(
+                             xmldoc, lsctables.SearchSummaryTable.tableName)
         pids = set(self.multiinspiraltable.getColumnByName("process_id"))
         seglists = search_summary.get_out_segmentlistdict(pids)\
                                  .coalesce()
@@ -147,7 +150,8 @@ class DocContents(object):
         #
 
         try:
-            self.coinctable = lsctables.CoincTable.get_table(xmldoc)
+            self.coinctable = table.get_table(xmldoc,
+                                              lsctables.CoincTable.tableName)
         except ValueError:
             self.coinctable = lsctables.New(lsctables.CoincTable)
             xmldoc.childNodes[0].appendChild(self.coinctable)
@@ -158,7 +162,9 @@ class DocContents(object):
         #
 
         try:
-            self.coincmaptable = lsctables.CoincMapTable.get_table(xmldoc)
+            self.coincmaptable = table.get_table(
+                                     xmldoc,
+                                     lsctables.CoincMapTable.tableName)
         except ValueError:
             self.coincmaptable = lsctables.New(lsctables.CoincMapTable)
             xmldoc.childNodes[0].appendChild(self.coincmaptable)

@@ -2,7 +2,6 @@ BUILT_SOURCES =
 MOSTLYCLEANFILES =
 include $(top_srcdir)/gnuscripts/lalsuite_header_links.am
 include $(top_srcdir)/gnuscripts/lalsuite_vcs_info.am
-include $(top_srcdir)/gnuscripts/lalsuite_help2man.am
 
 SUBDIRS = \
 	mathematica_codes \

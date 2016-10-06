@@ -269,8 +269,10 @@ class FollowupTrigger:
 
     # read in the 'converted' injection
     doc = ligolw_add.ligolw_add(ligolw.Document(), [file2])
+    inj_sned = lsctables.table.getTablesByName(doc, lsctables.SimInspiralTable.tableName)
+
     # return a single SimInspiral table
-    return = lsctables.SimInspiralTable.get_table(doc)
+    return inj_sned[0]
 
   # -----------------------------------------------------
   def setTag(self, tag):
@@ -311,7 +313,8 @@ class FollowupTrigger:
     try:
       doc = SearchSummaryUtils.ReadTablesFromFiles([coire_file],\
                                                    [lsctables.ProcessParamsTable])
-      process_params = lsctables.ProcessParamsTable.get_table(doc)
+      process_params = table.get_table(doc, lsctables.ProcessParamsTable.\
+                                       tableName)
     except IOError:
       sys.stderr.write("ERROR (IOError) while reading process_params table from"\
                        " file %s. Does this file exist and does it contain"\
@@ -612,7 +615,8 @@ class FollowupTrigger:
       xmldoc = utils.load_filename(file, verbose=self.verbose, 
                                    contenthandler=ContentHandler)
       try:
-        sngl_table = lsctables.SnglInspiralTable.get_table(xmldoc)
+        sngl_table = table.get_table(xmldoc,
+                                     lsctables.SnglInspiralTable.tableName)
       except ValueError: # Some files have no sngl table. That's okay
         xmldoc.unlink() # Free memory
         continue

@@ -238,7 +238,8 @@ if __name__ == '__main__':
 
     (options, args) = parser.parse_args()
 
-    injs = lsctables.SimBurstTable.get_table(utils.load_filename(options.injxml,contenthandler=LIGOLWContentHandlerExtractSimBurstTable))
+    injs = table.get_table(utils.load_filename(options.injxml,contenthandler=LIGOLWContentHandlerExtractSimBurstTable),
+                           lsctables.SimBurstTable.tableName)
 
     if options.par == []:
         parameters = ['frequency', 'quality', 'hrss', 'ra', 'dec', 'psi', 'time', 'alpha','polar_eccentricity']

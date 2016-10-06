@@ -310,7 +310,7 @@ def frame_to_dq_xml(frame_file, xml_root, ifo, type, version, comment, verbose=F
             segmentdb_utils.add_to_segment(outdoc,proc_id,seg_def_id,segs[flag])
 
     # write the xml doc to disk
-    proctable = lsctables.ProcessTable.get_table(outdoc)
+    proctable = table.get_table(outdoc, lsctables.ProcessTable.tableName)
     proctable[0].end_time = gpstime.GpsSecondsFromPyUTC(time.time())
     outname = gen_dq_xml_filename(xml_root, ifo, gps_start, duration)
     glue.utils.mkdir_p(os.path.dirname(outname))

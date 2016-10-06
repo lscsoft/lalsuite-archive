@@ -74,7 +74,11 @@ import shutil
 import re
 import optparse
 
-import sqlite3
+try:
+    import sqlite3
+except ImportError:
+   # pre 2.5.x
+   from pysqlite2 import dbapi2 as sqlite3
 
 from glue.segments import segment, segmentlist
 from glue import segmentsUtils

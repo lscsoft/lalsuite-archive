@@ -84,6 +84,7 @@
 #include <chealpix.h>
 
 #include <gsl/gsl_cdf.h>
+#include <gsl/gsl_errno.h>
 #include <gsl/gsl_integration.h>
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_sf_bessel.h>
@@ -97,6 +98,29 @@
 #ifndef _OPENMP
 #define omp ignore
 #endif
+
+
+/* Storage for old GSL error handler. */
+static gsl_error_handler_t *old_handler;
+
+
+/* Custom, reentrant GSL error handler that simply prints the error message. */
+static void
+my_gsl_error (const char *reason, const char *file, int line, int gsl_errno)
+{
+    (void)gsl_errno;
+    fprintf(stderr, "gsl: %s:%d: %s: %s\n", file, line, "ERROR", reason);
+}
+
+
+/* Custom error handler that ignores underflow errors and other errors
+ * that are a consequence of underflow errors. */
+static void
+ignore_underflow (const char *reason, const char *file, int line, int gsl_errno)
+{
+    if (gsl_errno != GSL_EUNDRFLW && gsl_errno != GSL_EMAXITER && gsl_errno != GSL_EROUND && gsl_errno != GSL_ESING && gsl_errno != GSL_EDIVERGE)
+        old_handler(reason, file, line, gsl_errno);
+}
 
 
 /* Compute |z|^2. Hopefully a little faster than gsl_pow_2(cabs(z)), because no
@@ -116,10 +140,10 @@ static double cabs2(double complex z) {
  *     t_3 = 2,  x_3 = x[3].
  */
 static double complex complex_catrom(
-    float complex x0,
-    float complex x1,
-    float complex x2,
-    float complex x3,
+    double complex x0,
+    double complex x1,
+    double complex x2,
+    double complex x3,
     double t
 ) {
     return x1
@@ -186,27 +210,33 @@ static double real_catrom(
 
 /* Evaluate a complex time series using cubic spline interpolation, assuming
  * that the vector x gives the samples of the time series at times
- * 0, 1, ..., nsamples-1. */
-static double complex eval_snr(
-    const float complex *x,
+ * 0, 1, ..., nsamples-1, and that the time series is given by the complex
+ * conjugate at negative times. */
+static double complex eval_acor(
+    const double complex *x,
     size_t nsamples,
     double t
 ) {
-    ssize_t i;
+    size_t i;
     double f;
     double complex y;
 
     /* Break |t| into integer and fractional parts. */
     {
         double dbl_i;
-        f = modf(t, &dbl_i);
+        f = modf(fabs(t), &dbl_i);
         i = dbl_i;
     }
 
-    if (i >= 1 && i < (ssize_t)nsamples - 2)
+    if (i == 0)
+        y = complex_catrom(conj(x[1]), x[0], x[1], x[2], f);
+    else if (i < nsamples - 2)
         y = complex_catrom(x[i-1], x[i], x[i+1], x[i+2], f);
     else
         y = 0;
+
+    if (t < 0)
+        y = conj(y);
 
     return y;
 }
@@ -314,7 +344,7 @@ static double log_radial_integral(double r1, double r2, double p, double b, int 
     radial_integrand_params params = {0, p, b, k};
     double breakpoints[5];
     unsigned char nbreakpoints = 0;
-    double result = 0, abserr, log_offset = -INFINITY;
+    double result, abserr, log_offset = -INFINITY;
     int ret;
 
     if (b != 0) {
@@ -421,7 +451,7 @@ static const size_t default_log_radial_integrator_size = 400;
 log_radial_integrator *log_radial_integrator_init(double r1, double r2, int k, double pmax, size_t size)
 {
     if (size <= 1)
-        XLAL_ERROR_NULL(XLAL_EINVAL, "size must be > 1");
+        GSL_ERROR_NULL("size must be > 1", GSL_EINVAL);
 
     const double alpha = 4;
     const double p0 = 0.5 * (k >= 0 ? r2 : r1);
@@ -437,23 +467,36 @@ log_radial_integrator *log_radial_integrator_init(double r1, double r2, int k, d
     /* const double umax = xmax - vmax; */ /* unused */
 
     log_radial_integrator *integrator = malloc(sizeof(log_radial_integrator));
-    void *region0 = malloc(sizeof(bicubic_interp) + len * sizeof(double));
-    void *region1 = malloc(sizeof(cubic_interp) + size * sizeof(double));
-    void *region2 = malloc(sizeof(cubic_interp) + size * sizeof(double));
-    if (!(integrator && region0 && region1 && region2))
+    if (!integrator)
+        GSL_ERROR_NULL("not enough memory to allocate integrator", GSL_ENOMEM);
+    integrator->region0 = malloc(sizeof(bicubic_interp) + len * sizeof(double));
+    if (!integrator->region0)
     {
         free(integrator);
-        free(region0);
-        free(region1);
-        free(region2);
-        XLAL_ERROR_NULL(XLAL_ENOMEM, "not enough memory to allocate integrator");
+        GSL_ERROR_NULL("not enough memory to allocate integrator", GSL_ENOMEM);
+    }
+    integrator->region1 = malloc(sizeof(cubic_interp) + size * sizeof(double));
+    if (!integrator->region1)
+    {
+        free(integrator->region0);
+        free(integrator);
+        GSL_ERROR_NULL("not enough memory to allocate integrator", GSL_ENOMEM);
+    }
+    integrator->region2 = malloc(sizeof(cubic_interp) + size * sizeof(double));
+    if (!integrator->region2)
+    {
+        free(integrator->region0);
+        free(integrator->region1);
+        free(integrator);
+        GSL_ERROR_NULL("not enough memory to allocate integrator", GSL_ENOMEM);
     }
 
-    integrator->region0 = region0;
     integrator->region0->xsize = integrator->region0->ysize = size;
     integrator->region0->xmin = xmin;
     integrator->region0->ymin = ymin;
     integrator->region0->dx = integrator->region0->dy = d;
+
+    old_handler = gsl_set_error_handler(ignore_underflow);
 
     #pragma omp parallel for
     for (size_t i = 0; i < len; i ++)
@@ -469,7 +512,8 @@ log_radial_integrator *log_radial_integrator_init(double r1, double r2, int k, d
         integrator->region0->z[i] = log_radial_integral(r1, r2, p, b, k);
     }
 
-    integrator->region1 = region1;
+    gsl_set_error_handler(old_handler);
+
     integrator->region1->size = size;
     integrator->region1->xmin = xmin;
     integrator->region1->dx = d;
@@ -479,7 +523,6 @@ log_radial_integrator *log_radial_integrator_init(double r1, double r2, int k, d
         integrator->region1->y[i] = integrator->region0->z[i * size + (size - 1)];
     }
 
-    integrator->region2 = region2;
     integrator->region2->size = size;
     integrator->region2->xmin = umin;
     integrator->region2->dx = d;
@@ -668,7 +711,7 @@ static void *realloc_or_free(void *ptr, size_t size)
     if (!new_ptr)
     {
         free(ptr);
-        XLAL_ERROR_NULL(XLAL_ENOMEM, "not enough memory to resize array");
+        GSL_ERROR_NULL("not enough memory to resize array", GSL_ENOMEM);
     }
     return new_ptr;
 }
@@ -722,7 +765,7 @@ static adaptive_sky_map *adaptive_sky_map_alloc(unsigned char order)
 
     adaptive_sky_map *map = malloc(size);
     if (!map)
-        XLAL_ERROR_NULL(XLAL_ENOMEM, "not enough memory to allocate sky map");
+        GSL_ERROR_NULL("not enough memory to allocate sky map", GSL_ENOMEM);
 
     map->len = npix;
     map->max_order = order;
@@ -749,7 +792,7 @@ static double (*adaptive_sky_map_rasterize(adaptive_sky_map *map, long *out_npix
 
     double (*P)[4] = malloc(npix * 4 * sizeof(double));
     if (!P)
-        XLAL_ERROR_NULL(XLAL_ENOMEM, "not enough memory to allocate image");
+        GSL_ERROR_NULL("not enough memory to allocate image", GSL_ENOMEM);
 
     double norm = 0;
     const double max_log4p = map->pixels[map->len - 1].log4p_r[0];
@@ -814,17 +857,24 @@ double (*bayestar_sky_map_toa_phoa_snr(
     double min_distance,            /* Minimum distance */
     double max_distance,            /* Maximum distance */
     int prior_distance_power,       /* Power of distance in prior */
-    /* Data */
+    /* Detector network */
     double gmst,                    /* GMST (rad) */
     unsigned int nifos,             /* Number of detectors */
-    unsigned long nsamples,         /* Length of SNR series */
+    unsigned long nsamples,         /* Length of autocorrelation sequence */
     double sample_rate,             /* Sample rate in seconds */
-    const double *epochs,           /* Timestamps of SNR time series */
-    const float complex **snrs,     /* Complex SNR series */
+    const double complex **acors,   /* Autocorrelation sequences */
     const float (**responses)[3],   /* Detector responses */
     const double **locations,       /* Barycentered Cartesian geographic detector positions (m) */
-    const double *horizons          /* SNR=1 horizon distances for each detector */
+    const double *horizons,         /* SNR=1 horizon distances for each detector */
+    /* Observations */
+    const double *toas,             /* Arrival time differences relative to network barycenter (s) */
+    const double *phoas,            /* Phases on arrival */
+    const double *snrs              /* SNRs */
 ))[4] {
+    double complex exp_i_phoas[nifos];
+    for (unsigned int iifo = 0; iifo < nifos; iifo ++)
+        exp_i_phoas[iifo] = exp_i(phoas[iifo]);
+
     log_radial_integrator *integrators[] = {NULL, NULL, NULL};
     {
         double pmax = 0;
@@ -873,6 +923,11 @@ double (*bayestar_sky_map_toa_phoa_snr(
 
     while (1)
     {
+        /* Use our own error handler while in parallel section to avoid
+         * concurrent calls to the GSL error handler, which if provided by the
+         * user may not be threadsafe. */
+        old_handler = gsl_set_error_handler(my_gsl_error);
+
         #pragma omp parallel for
         for (unsigned long i = 0; i < npix0; i ++)
         {
@@ -891,7 +946,7 @@ double (*bayestar_sky_map_toa_phoa_snr(
                     F[iifo] = complex_antenna_factor(
                         responses[iifo], phi, M_PI_2-theta, gmst) * horizons[iifo];
 
-                toa_errors(dt, theta, phi, gmst, nifos, locations, epochs);
+                toa_errors(dt, theta, phi, gmst, nifos, locations, toas);
             }
 
             /* Integrate over 2*psi */
@@ -928,7 +983,7 @@ double (*bayestar_sky_map_toa_phoa_snr(
                     p2 *= 0.5;
                     double p = sqrt(p2);
 
-                    for (long isample = 0;
+                    for (long isample = 1 - (long)nsamples;
                         isample < (long)nsamples; isample++)
                     {
                         double b;
@@ -936,9 +991,10 @@ double (*bayestar_sky_map_toa_phoa_snr(
                             double complex I0arg_complex_times_r = 0;
                             for (unsigned int iifo = 0; iifo < nifos; iifo ++)
                             {
-                                I0arg_complex_times_r += conj(z_times_r[iifo])
-                                    * eval_snr(snrs[iifo], nsamples,
-                                        isample - dt[iifo] * sample_rate - 0.5 * (nsamples - 1));
+                                I0arg_complex_times_r += snrs[iifo]
+                                    * exp_i_phoas[iifo] * conj(z_times_r[iifo]
+                                    * eval_acor(acors[iifo], nsamples,
+                                        dt[iifo] * sample_rate + isample));
                             }
                             b = cabs(I0arg_complex_times_r);
                         }
@@ -970,6 +1026,9 @@ double (*bayestar_sky_map_toa_phoa_snr(
             }
         }
 
+        /* Restore old error handler. */
+        gsl_set_error_handler(old_handler);
+
         /* Sort pixels by ascending posterior probability. */
         adaptive_sky_map_sort(map);
 
@@ -986,12 +1045,75 @@ double (*bayestar_sky_map_toa_phoa_snr(
     for (unsigned char k = 0; k < 3; k ++)
         log_radial_integrator_free(integrators[k]);
 
+    /* Set error handler to ignore underflow errors, but invoke the user's
+     * error handler for all other errors. */
+    old_handler = gsl_set_error_handler(ignore_underflow);
+
     /* Flatten sky map to an image. */
     double (*P)[4] = adaptive_sky_map_rasterize(map, inout_npix);
     free(map);
 
+    /* Restore old error handler. */
+    gsl_set_error_handler(old_handler);
+
     /* Done! */
     return P;
+}
+
+
+double bayestar_log_likelihood_toa_snr(
+    /* Parameters */
+    double ra,                      /* Right ascension (rad) */
+    double sin_dec,                 /* Sin(declination) */
+    double distance,                /* Distance */
+    double u,                       /* Cos(inclination) */
+    double twopsi,                  /* Twice polarization angle (rad) */
+    double t,                       /* Barycentered arrival time (s) */
+    /* Detector network */
+    double gmst,                    /* GMST (rad) */
+    unsigned int nifos,             /* Number of detectors */
+    unsigned long nsamples,         /* Length of autocorrelation sequence */
+    double sample_rate,             /* Sample rate in seconds */
+    const double complex **acors,   /* Autocorrelation sequences */
+    const float (**responses)[3],   /* Detector responses */
+    const double **locations,       /* Barycentered Cartesian geographic detector positions (m) */
+    const double *horizons,         /* SNR=1 horizon distances for each detector */
+    /* Observations */
+    const double *toas,             /* Arrival time differences relative to network barycenter (s) */
+    const double *snrs              /* SNRs */
+) {
+    const double dec = asin(sin_dec);
+    const double u2 = gsl_pow_2(u);
+    const double complex exp_i_twopsi = exp_i(twopsi);
+    const double one_by_r = 1 / distance;
+
+    /* Compute time of arrival errors */
+    double dt[nifos];
+    toa_errors(dt, M_PI_2 - dec, ra, gmst, nifos, locations, toas);
+    for (unsigned int iifo = 0; iifo < nifos; iifo++)
+        dt[iifo] -= t;
+
+    double A = 0, B = 0, product = 1;
+
+    /* Loop over detectors */
+    for (unsigned int iifo = 0; iifo < nifos; iifo++)
+    {
+        const double complex F = complex_antenna_factor(
+            responses[iifo], ra, dec, gmst) * horizons[iifo];
+        const double complex z_times_r =
+            signal_amplitude_model(F, exp_i_twopsi, u, u2);
+        const double rho2_times_r2 = cabs2(z_times_r);
+        const double acor2 =
+            cabs2(eval_acor(acors[iifo], nsamples, dt[iifo] * sample_rate));
+        const double i0arg_times_r = snrs[iifo] * sqrt(rho2_times_r2 * acor2);
+
+        A += rho2_times_r2;
+        B += i0arg_times_r;
+        product *= gsl_sf_bessel_I0_scaled(i0arg_times_r * one_by_r);
+    }
+    A *= -0.5;
+
+    return (A * one_by_r + B) * one_by_r + log(product);
 }
 
 
@@ -1003,16 +1125,19 @@ double bayestar_log_likelihood_toa_phoa_snr(
     double u,                       /* Cos(inclination) */
     double twopsi,                  /* Twice polarization angle (rad) */
     double t,                       /* Barycentered arrival time (s) */
-    /* Data */
+    /* Detector network */
     double gmst,                    /* GMST (rad) */
     unsigned int nifos,             /* Number of detectors */
-    unsigned long nsamples,         /* Lengths of SNR series */
+    unsigned long nsamples,         /* Length of autocorrelation sequence */
     double sample_rate,             /* Sample rate in seconds */
-    const double *epochs,           /* Timestamps of SNR time series */
-    const float complex **snrs,     /* Complex SNR series */
+    const double complex **acors,   /* Autocorrelation sequences */
     const float (**responses)[3],   /* Detector responses */
     const double **locations,       /* Barycentered Cartesian geographic detector positions (m) */
-    const double *horizons          /* SNR=1 horizon distances for each detector */
+    const double *horizons,         /* SNR=1 horizon distances for each detector */
+    /* Observations */
+    const double *toas,             /* Arrival time differences relative to network barycenter (s) */
+    const double *phoas,            /* Phases on arrival */
+    const double *snrs              /* SNRs */
 ) {
     const double dec = asin(sin_dec);
     const double u2 = gsl_pow_2(u);
@@ -1021,7 +1146,9 @@ double bayestar_log_likelihood_toa_phoa_snr(
 
     /* Compute time of arrival errors */
     double dt[nifos];
-    toa_errors(dt, M_PI_2 - dec, ra, gmst, nifos, locations, epochs);
+    toa_errors(dt, M_PI_2 - dec, ra, gmst, nifos, locations, toas);
+    for (unsigned int iifo = 0; iifo < nifos; iifo++)
+        dt[iifo] -= t;
 
     double complex i0arg_complex_times_r = 0;
     double A = 0;
@@ -1034,9 +1161,10 @@ double bayestar_log_likelihood_toa_phoa_snr(
 
         const double complex z_times_r =
              signal_amplitude_model(F, exp_i_twopsi, u, u2);
+        const double complex zhat = snrs[iifo] * exp_i(phoas[iifo]);
 
-        i0arg_complex_times_r += conj(z_times_r)
-            * eval_snr(snrs[iifo], nsamples, (t - dt[iifo]) * sample_rate - 0.5 * (nsamples - 1));
+        i0arg_complex_times_r += zhat * conj(z_times_r
+            * eval_acor(acors[iifo], nsamples, dt[iifo] * sample_rate));
         A += cabs2(z_times_r);
     }
     A *= -0.5;
@@ -1266,23 +1394,23 @@ static void test_real_catrom(void)
 }
 
 
-static void test_eval_snr(void)
+static void test_eval_acor(void)
 {
     size_t nsamples = 64;
-    float complex x[nsamples];
+    double complex x[nsamples];
 
     /* Populate data with samples of x(t) = t^2 + t j */
     for (size_t i = 0; i < nsamples; i ++)
         x[i] = gsl_pow_2(i) + i * 1.0j;
 
-    for (double t = 0; t <= nsamples; t += 0.1)
+    for (double t = -nsamples; t <= nsamples; t += 0.1)
     {
-        double result = eval_snr(x, nsamples, t);
-        double expected = (t > 1 && t < nsamples - 2) ? (gsl_pow_2(t) + t*1.0j) : 0;
-        gsl_test_abs(creal(result), creal(expected), 1e4 * GSL_DBL_EPSILON,
-            "testing real part of eval_snr(%g) for x(t) = t^2 + t j", t);
-        gsl_test_abs(cimag(result), cimag(expected), 1e4 * GSL_DBL_EPSILON,
-            "testing imaginary part of eval_snr(%g) for x(t) = t^2 + t j", t);
+        double result = eval_acor(x, nsamples, t);
+        double expected = (fabs(t) < nsamples) ? (gsl_pow_2(t) + t*1.0j) : 0;
+        gsl_test_abs(creal(result), creal(expected), 0,
+            "testing real part of eval_acor(%g) for x(t) = t^2 + t j", t);
+        gsl_test_abs(cimag(result), cimag(expected), 0,
+            "testing imaginary part of eval_acor(%g) for x(t) = t^2 + t j", t);
     }
 }
 
@@ -1457,10 +1585,14 @@ static void test_distance_moments_to_parameters_round_trip(double mean, double s
     static const double min_mean_std = M_SQRT3 + 0.1;
     double mu, sigma, norm, mean2, std2, norm2;
 
+    old_handler = gsl_set_error_handler(ignore_underflow);
+
     bayestar_distance_moments_to_parameters(
         mean, std, &mu, &sigma, &norm);
     bayestar_distance_parameters_to_moments(
         mu, sigma, &mean2, &std2, &norm2);
+
+    gsl_set_error_handler(old_handler);
 
     if (gsl_finite(mean / std) && mean / std >= min_mean_std)
     {
@@ -1504,7 +1636,7 @@ int bayestar_test(void)
 
     test_complex_catrom();
     test_real_catrom();
-    test_eval_snr();
+    test_eval_acor();
 
     for (double ra = -M_PI; ra <= M_PI; ra += 0.4 * M_PI)
         for (double dec = -M_PI_2; dec <= M_PI_2; dec += 0.4 * M_PI)
@@ -1547,6 +1679,7 @@ int bayestar_test(void)
         log_radial_integrator *integrator = log_radial_integrator_init(
             r1, r2, k, pmax, default_log_radial_integrator_size);
 
+        old_handler = gsl_set_error_handler(ignore_underflow);
         gsl_test(!integrator, "testing that integrator object is non-NULL");
         if (integrator)
         {
@@ -1564,6 +1697,7 @@ int bayestar_test(void)
                         "r1=%g, r2=%g, p=%g, b=%g, k=%d, x=%g, y=%g)", r1, r2, p, b, k, x, y);
                 }
             }
+            gsl_set_error_handler(old_handler);
             log_radial_integrator_free(integrator);
         }
     }

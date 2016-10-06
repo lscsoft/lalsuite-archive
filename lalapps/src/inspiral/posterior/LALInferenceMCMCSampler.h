@@ -57,9 +57,6 @@ typedef enum {
     RUN_COMPLETE       /** Run complete */
 } LALInferenceMPIcomm;
 
-/* Temperature ladder adaptation */
-void LALInferenceAdaptLadder(LALInferenceRunState *runState);
-
 /* Standard parallel temperature swap proposal function */
 void LALInferencePTswap(LALInferenceRunState *runState, FILE *swapfile);
 

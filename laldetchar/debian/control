@@ -1,10 +1,10 @@
 Source: laldetchar
-Section: science
+Section: lscsoft
 Priority: optional
 Maintainer: Adam Mercer <adam.mercer@ligo.org>
-Build-Depends: debhelper (>= 9), help2man, pkg-config, dh-python, python-all-dev,
-  libgsl-dev | libgsl0-dev (>= 1.9), libglib2.0-dev, swig (>= 3.0.7),
-  liboctave-dev,
+Build-Depends: debhelper (>= 7.0.0), pkg-config, python-all-dev,
+  libgsl0-dev (>= 1.9), libglib2.0-dev, swig (>= 2.0.11~),
+  octave3.2-headers | liboctave-dev,
   lal-dev (>= 6.16.1~),
   lal-python (>= 6.16.1~),
   lal-octave (>= 6.16.1~),
@@ -18,13 +18,12 @@ Build-Depends: debhelper (>= 9), help2man, pkg-config, dh-python, python-all-dev
   lalburst-python (>= 1.4.2~),
   lalburst-octave (>= 1.4.2~)
 X-Python-Version: >= 2.7
-X-Python3-Version: >= 3.4
-Standards-Version: 3.9.8
+Standards-Version: 3.8.6
 
 Package: laldetchar
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends},
-  libglib2.0-0,
+  libgsl0 (>= 1.9) | libgsl0ldbl (>= 1.10), libglib2.0-0,
   lal (>= 6.16.1~),
   lalmetaio (>= 1.2.8~),
   lalsimulation (>= 1.6.0~),
@@ -35,9 +34,8 @@ Description: LSC Algorithm Library Detector Characterisation
  needed to run applications that use the LALDetChar library.
 
 Package: laldetchar-dev
-Section: libdevel
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, libgsl-dev | libgsl0-dev (>= 1.9),
+Depends: ${shlibs:Depends}, ${misc:Depends}, libgsl0-dev (>= 1.9),
   libglib2.0-dev,
   lal-dev (>= 6.16.1~),
   lalmetaio-dev (>= 1.2.8~),
@@ -50,17 +48,14 @@ Description: LSC Algorithm Library Detector Characterisation Developers
  applications that use the LALDetChar library.
 
 Package: laldetchar-python
-Section: python
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends},
+Depends: ${shlibs:Depends}, ${misc:Depends}, python-numpy,
   laldetchar (= ${binary:Version}),
   lal-python (>= 6.16.1~),
   lalmetaio-python (>= 1.2.8~),
   lalsimulation-python (>= 1.6.0~),
   lalburst-python (>= 1.4.2~)
 Description: Python bindings for LALDetChar
- The LSC Algorithm Detchar Library for gravitational wave data analysis.
- This package contains Python bindings for the LAL Detchar library.
 
 Package: laldetchar-octave
 Architecture: any
@@ -71,5 +66,3 @@ Depends: ${shlibs:Depends}, ${misc:Depends}, octave,
   lalsimulation-octave (>= 1.6.0~),
   lalburst-python (>= 1.4.2~)
 Description: Octave bindings for LALDetChar
- The LSC Algorithm Detchar Library for gravitational wave data analysis.
- This package contains Octave bindings for the LAL Detchar library.

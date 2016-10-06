@@ -9,13 +9,13 @@ try:
   from sys import version_info
 except:
   print >> sys.stderr, "Unable to determine the python version"
-  print >> sys.stderr, "Please check that your python version is >= 2.7"
+  print >> sys.stderr, "Please check that your python version is >= 2.6"
   sys.exit(1)
 
-if version_info < (2, 7):
-  print >> sys.stderr, "Your python version " + str(version_info) + " appears to be less than 2.7"
-  print >> sys.stderr, "Please check that your python version is >= 2.7"
-  print >> sys.stderr, "Glue requires at least version 2.7"
+if version_info < (2, 6):
+  print >> sys.stderr, "Your python version " + str(version_info) + " appears to be less than 2.6"
+  print >> sys.stderr, "Please check that your python version is >= 2.6"
+  print >> sys.stderr, "Glue requires at least version 2.6"
   sys.exit(1)
 
 try:
@@ -29,7 +29,6 @@ except ImportError as e:
     from distutils.command import install
 else:
     from setuptools.command import install
-import pkg_resources
 from distutils.core import Extension
 from distutils.command import build_py
 from distutils.command import sdist
@@ -65,8 +64,6 @@ def write_build_info():
     builder_email = ""
   builder = "%s <%s>" % (builder_name, builder_email)
 
-  gvin = pkg_resources.resource_filename(gvcsi.__name__, 'git_version.py.in')
-
   sed_cmd = ('sed',
              '-e', 's/@ID@/%s/' % vcs_info.id,
              '-e', 's/@DATE@/%s/' % vcs_info.date,
@@ -77,7 +74,7 @@ def write_build_info():
              '-e', 's/@STATUS@/%s/' % vcs_info.status,
              '-e', 's/@BUILDER@/%s/' % builder,
              '-e', 's/@BUILD_DATE@/%s/' % build_date,
-             gvin)
+             'misc/git_version.py.in')
 
   # FIXME: subprocess.check_call becomes available in Python 2.5
   sed_retcode = subprocess.call(sed_cmd,
@@ -156,17 +153,6 @@ class glue_install(install.install):
     env_file.write("endif\n")
     env_file.close()
 
-    log.info("creating glue-user-env.fish script")
-    fishenv = os.path.join('etc','glue-user-env.fish')
-    env_file = open(fishenv, 'w')
-    env_file.write("# Source this file to access GLUE\n")
-    env_file.write("set -xg GLUE_PREFIX %s\n" % glue_prefix)
-    env_file.write("set -xg PATH " + glue_install_scripts + " $PATH\n")
-    env_file.write("set -xg PYTHONPATH \"" + glue_pythonpath + ":$PYTHONPATH\"\n")
-    env_file.write("set -xg LD_LIBRARY_PATH " + glue_install_platlib + " $LD_LIBRARY_PATH\n")
-    env_file.write("set -xg DYLD_LIBRARY_PATH " + glue_install_platlib + " $DYLD_LIBRARY_PATH\n")
-    env_file.close()
-
     # now run the installer
     install.install.run(self)
 
@@ -198,7 +184,7 @@ class glue_clean(clean.clean):
 class glue_sdist(sdist.sdist):
   def run(self):
     # remove the automatically generated user env scripts
-    for script in [ 'glue-user-env.sh', 'glue-user-env.csh', 'glue-user-env.fish' ]:
+    for script in [ 'glue-user-env.sh', 'glue-user-env.csh' ]:
       log.info( 'removing ' + script )
       try:
         os.unlink(os.path.join('etc',script))
@@ -302,7 +288,6 @@ setup(
         os.path.join('etc','pegasus-properties.bundle'),
         os.path.join('etc','glue-user-env.sh'),
         os.path.join('etc','glue-user-env.csh'),
-        os.path.join('etc','glue-user-env.fish'),
         os.path.join('etc','ldbdserver.ini'),
         os.path.join('etc','ldbduser.ini'),
         os.path.join('etc','ligolw.xsl'),

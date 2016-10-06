@@ -71,7 +71,7 @@ def run_file_operation(outdoc, filenames, use_segment_table, operation, preserve
     etc
     """
 
-    proc_id = lsctables.ProcessTable.get_table(outdoc)[0].process_id
+    proc_id = table.get_table(outdoc, lsctables.ProcessTable.tableName)[0].process_id
 
     # load up the files into individual documents
     xmldocs = [ligolw_add.ligolw_add(ligolw.Document(), [fname]) for fname in filenames]
@@ -86,7 +86,7 @@ def run_file_operation(outdoc, filenames, use_segment_table, operation, preserve
         return key
 
     for xmldoc in xmldocs:
-        seg_def_table = lsctables.SegmentDefTable.get_table(xmldoc)
+        seg_def_table = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
         map (register_definer, seg_def_table)
 
     # For each unique segment definer, find the intersection
@@ -146,7 +146,7 @@ def run_segment_operation(outdoc, filenames, segments, use_segment_table, operat
     etc
     """
 
-    proc_id = lsctables.ProcessTable.get_table(outdoc)[0].process_id
+    proc_id = table.get_table(outdoc, lsctables.ProcessTable.tableName)[0].process_id
 
     if preserve:
         indoc = ligolw_add.ligolw_add(outdoc, filenames)

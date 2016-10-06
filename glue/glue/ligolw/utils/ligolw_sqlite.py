@@ -38,7 +38,11 @@ level operations provided by the ligolw_sqlite program.
 """
 
 
-import sqlite3
+try:
+	import sqlite3
+except ImportError:
+	# pre 2.5.x
+	from pysqlite2 import dbapi2 as sqlite3
 import sys
 
 

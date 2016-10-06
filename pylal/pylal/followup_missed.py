@@ -145,7 +145,8 @@ class FollowupMissed:
     coire_file = self.cache.sieve(description = "FOUND").checkfilesexist()[0].pfnlist()[0]
     try:
       doc = SearchSummaryUtils.ReadTablesFromFiles([coire_file],[ lsctables.ProcessParamsTable])
-      process_params = lsctables.ProcessParamsTable.get_table(doc)
+      process_params = table.get_table(doc, lsctables.ProcessParamsTable.\
+                                       tableName)
     except IOError: 	    
       sys.stderr.write("ERROR (IOError) while reading process_params table from file %s. "\
                        "Does this file exist and does it contain a search_summary table?\n" %(coire_file))

@@ -151,9 +151,6 @@ XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform (COMPLEX16 * restrict hlm,
   eta = params->eobParams->eta;
 
   /* Check our eta was sensible */
-   if (eta > 0.25 && eta < 0.25 +1e-4) {
-        eta = 0.25;
-   }
   if (eta > 0.25)
     {
       XLALPrintError
@@ -663,13 +660,10 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients (FacWaveformCoeffs * con
   //printf( "****************************** a = %e *********************************\n", a );
 
   /* Check that deltaM has a reasonable value */
-  if (dM2 < 0. && dM2 > -1e-4 ) {
-        dM2 = 0.;
-  }
   if (dM2 < 0)
     {
       XLALPrintError
-	("XLAL Error - %s: eta seems to be > 0.25 - this isn't allowed!\n",
+	("XLAL Error - %s: eta seems to be < 0.25 - this isn't allowed!\n",
 	 __func__);
       XLAL_ERROR (XLAL_EINVAL);
     }
@@ -1324,9 +1318,6 @@ XLALSimIMRSpinEOBGetSpinFactorizedWaveform (COMPLEX16 * restrict hlm,
   eta = params->eobParams->eta;
 
   /* Check our eta was sensible */
-  if (eta > 0.25 && eta < 0.25 +1e-4) {
-      eta = 0.25;
-  }
   if (eta > 0.25)
     {
       XLALPrintError

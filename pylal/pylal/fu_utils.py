@@ -9,7 +9,11 @@ __author__ = 'Chad Hanna <channa@phys.lsu.edu>'
 import sys
 import os, shutil
 import urllib
-import sqlite3
+try:
+  import sqlite3
+except ImportError:
+  # pre 2.5.x
+  from pysqlite2 import dbapi2 as sqlite3
 
 from subprocess import *
 import copy
@@ -307,9 +311,9 @@ class getCache(UserDict):
         elif opts.create_localcopy:
           path = self.doFileCopyAndEventIdConvert(cp,[path])[0]
         doc = utils.load_filename(path)
-        proc = lsctables.ProcessParamsTable.get_table(doc)
+        proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
         if getInsp:
-          insp = lsctables.SnglInspiralTable.get_table(doc)
+          insp = table.get_table(doc, lsctables.SnglInspiralTable.tableName)
         for row in proc:          
           if str(row.param).find("--ifo-tag") >= 0:
              ifoTag = row.value
@@ -345,7 +349,7 @@ class getCache(UserDict):
             # if time[ifo] is not defined (happens for a double coinc in triple
             #  times) then use the end_time in the first ifo of the coinc
             time_ifo = time[ifo_in_coinc[0]]
-          search = lsctables.SearchSummaryTable.get_table(doc)
+          search = table.get_table(doc, lsctables.SearchSummaryTable.tableName)
           for row in search:
             out_start_time = float(row.out_start_time)
             out_start_time_ns = float(row.out_start_time_ns)/1000000000
@@ -839,13 +843,15 @@ def readFiles(fileGlob,statistic=None,excludedTags=None):
     doc = utils.load_filename(thisFile)
     # extract the sim inspiral table
     try:
-      simInspiralTable = lsctables.SimInspiralTable.get_table(doc)
+      simInspiralTable = \
+          table.get_table(doc, lsctables.SimInspiralTable.tableName)
       if sims: sims.extend(simInspiralTable)
       else: sims = simInspiralTable
     except: simInspiralTable = None
 
     # extract the sngl inspiral table, construct coincs
-    try: snglInspiralTable = lsctables.SnglInspiralTable.get_table(doc)
+    try: snglInspiralTable = \
+      table.get_table(doc, lsctables.SnglInspiralTable.tableName)
     except: 
       snglInspiralTable = None
       searchSumTable = None
@@ -855,7 +861,7 @@ def readFiles(fileGlob,statistic=None,excludedTags=None):
       if simInspiralTable:
         coincInspiralTable.add_sim_inspirals(simInspiralTable)
       # extract the search_summary table only if a sngl inspiral table is found
-      searchSumTable = lsctables.SearchSummaryTable.get_table(doc)
+      searchSumTable = table.get_table(doc,lsctables.SearchSummaryTable.tableName)
       if coincs: 
         coincs.extend(coincInspiralTable)
         search.extend(searchSumTable)         

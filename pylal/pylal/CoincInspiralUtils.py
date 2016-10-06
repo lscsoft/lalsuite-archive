@@ -93,13 +93,15 @@ def readCoincInspiralFromFiles(fileList,statistic=None):
     doc = utils.load_filename(thisFile, gz = (thisFile or "stdin").endswith(".gz"), contenthandler=ExtractCoincInspiralTableLIGOLWContentHandler)
     # extract the sim inspiral table
     try: 
-      simInspiralTable = lsctables.SimInspiralTable.get_table(doc)
+      simInspiralTable = \
+          table.get_table(doc, lsctables.SimInspiralTable.tableName)
       if sims: sims.extend(simInspiralTable)
       else: sims = simInspiralTable
     except: simInspiralTable = None
 
     # extract the sngl inspiral table, construct coincs
-    try: snglInspiralTable = lsctables.SnglInspiralTable.get_table(doc)
+    try: snglInspiralTable = \
+      table.get_table(doc, lsctables.SnglInspiralTable.tableName)
     except: snglInspiralTable = None
     if snglInspiralTable:
       coincFromFile = coincInspiralTable(snglInspiralTable,statistic)

@@ -513,14 +513,6 @@ class TimeSlideGraphNode(object):
 class TimeSlideGraph(object):
 	def __init__(self, offset_vector_dict, verbose = False):
 		#
-		# safety check input
-		#
-
-		offset_vector = min(offset_vector_dict.values(), key = lambda x: len(x))
-		if len(offset_vector) < 2:
-			raise ValueError("encountered offset vector with fewer than 2 instruments: %s", str(offset_vector))
-
-		#
 		# populate the graph head nodes.  these represent the
 		# target offset vectors requested by the calling code.
 		#

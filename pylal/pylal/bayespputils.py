@@ -46,7 +46,7 @@ from operator import itemgetter
 from lalinference.io import read_samples
 import healpy as hp
 import astropy.table
-import lalinference.plot.cmap
+import lalinference.cmap
 import numpy as np
 from numpy import fmod
 import matplotlib
@@ -5613,7 +5613,7 @@ def find_ndownsample(samples, nDownsample):
             if len(samples) > nEff:
                 nskip = ceil(len(samples)/nEff)
         else:
-            nskip = np.nan
+            nskip = None
     return nskip
 
 class PEOutputParser(object):
@@ -6123,12 +6123,9 @@ class PEOutputParser(object):
         if fixedBurnins is None:
             fixedBurnins = np.zeros(len(infiles))
 
-        if len(infiles) > 1:
-            multiple_chains = True
-
         chains = []
         for i, [infile, fixedBurnin] in enumerate(zip(infiles, fixedBurnins)):
-            chain = self._hdf5_to_table(infile, fixedBurnin=fixedBurnin, deltaLogL=deltaLogL, nDownsample=nDownsample, multiple_chains=multiple_chains, **kwargs)
+            chain = self._hdf5_to_table(infile, fixedBurnin=fixedBurnin, deltaLogL=deltaLogL, nDownsample=nDownsample, **kwargs)
             chain.add_column(astropy.table.Column(i*np.ones(len(chain)), name='chain'))
             chains.append(chain)
 
@@ -6157,7 +6154,7 @@ class PEOutputParser(object):
 
         return samples.colnames, samples.as_array().view(float).reshape(-1, len(samples.columns))
 
-    def _hdf5_to_table(self, infile, deltaLogL=None, fixedBurnin=None, nDownsample=None, multiple_chains=False, **kwargs):
+    def _hdf5_to_table(self, infile, deltaLogL=None, fixedBurnin=None, nDownsample=None, **kwargs):
         """
         Parse a HDF5 file and return an array of posterior samples ad list of
         parameter names. Equivalent to '_common_to_pos' and work in progress.
@@ -6221,17 +6218,15 @@ class PEOutputParser(object):
                 nskip = find_ndownsample(samples, nDownsample)
                 if nDownsample is None:
                     print "Downsampling to take only uncorrelated posterior samples from each file."
-                    if np.isnan(nskip) and not multiple_chains:
+                    if np.isnan(nskip):
                         print "WARNING: All samples in chain are correlated.  Downsampling to 10000 samples for inspection!!!"
                         nskip = find_ndownsample(samples, 10000)
-                        samples = samples[::nskip]
                     else:
                         if np.isnan(nskip):
-                            print "WARNING: All samples in {} are correlated.".format(infile)
-                            samples = samples[-1:]
+                            print "%s eliminated since all samples are correlated."
                         else:
                             print "Downsampling by a factor of ", nskip, " to achieve approximately ", nDownsample, " posterior samples"
-                            samples = samples[::nskip]
+                samples = samples[::nskip]
 
         return samples
 
@@ -7199,7 +7194,7 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
     skip=0
     try:
       xmldoc = utils.load_filename(simburst,contenthandler=LIGOLWContentHandlerExtractSimBurstTable)
-      tbl = lsctables.SimBurstTable.get_table(xmldoc)
+      tbl = lsctables.table.get_table(xmldoc,  lsctables.SimBurstTable.tableName)
       if event>0:
         tbl=tbl[event]
       else:
@@ -7588,23 +7583,12 @@ def make_1d_table(html,legend,label,pos,pars,noacf,GreedyRes,onepdfdir,sampsdir,
         chain_index=pos.names.index("chain")
         chains=unique(pos["chain"].samples)
         chainCycles = [sort(data[ data[:,chain_index] == chain, par_index ]) for chain in chains]
-        chainNcycles = []
-        chainNskips = []
-        for cycles in chainCycles:
-            if len(cycles) > 1:
-                chainNcycles.append(cycles[-1] - cycles[0])
-                chainNskips.append(cycles[1] - cycles[0])
-            else:
-                chainNcycles.append(1)
-                chainNskips.append(1)
+        chainNcycles = [cycles[-1]-cycles[0] for cycles in chainCycles]
+        chainNskips = [cycles[1] - cycles[0] for cycles in chainCycles]
     elif 'cycle' in pos.names:
         cycles = sort(pos['cycle'].samples)
-        if len(cycles) > 1:
-            Ncycles = cycles[-1]-cycles[0]
-            Nskip = cycles[1]-cycles[0]
-        else:
-            Ncycles = 1
-            Nskip = 1
+        Ncycles = cycles[-1]-cycles[0]
+        Nskip = cycles[1]-cycles[0]
 
     printed=0
     for par_name in pars:

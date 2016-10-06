@@ -412,7 +412,7 @@ parameters = ['f0rot', 'ra', 'dec'] # a list of pulsar parameters to output (def
 
           if limval == None:
             limvalhtml = '*'
-            limvallatex = '*'
+            linvallatex = '*'
           else:
             if limpar == 'BSN': # convert to log base 10
               limval = limval/np.log(10.)

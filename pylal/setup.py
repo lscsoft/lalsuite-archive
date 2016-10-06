@@ -134,17 +134,6 @@ class pylal_install(install.install):
 		print >> env_file, "export PYTHONPATH LD_LIBRARY_PATH DYLD_LIBRARY_PATH"
 		env_file.close()
 
-		log.info("creating pylal-user-env.fish script")
-		env_file = open(os.path.join("etc", "pylal-user-env.fish"), "w")
-		print >> env_file, "# Source this file to access PYLAL"
-		print >> env_file, "set -xg PYLAL_PREFIX " + pylal_prefix
-		if self.distribution.scripts:
-			print >> env_file, "set -xg PATH " + pylal_install_scripts +  " $PATH"
-		print >> env_file, "set -xg PYTHONPATH " + pylal_pythonpath + " $PYTHONPATH"
-		print >> env_file, "set -xg LD_LIBRARY_PATH " + pylal_install_platlib + " $LD_LIBRARY_PATH"
-		print >> env_file, "set -xg DYLD_LIBRARY_PATH " + pylal_install_platlib + " $DYLD_LIBRARY_PATH"
-		env_file.close()
-
 		log.info("creating pylal-user-env.csh script")
 		env_file = open(os.path.join("etc", "pylal-user-env.csh"), "w")
 		print >> env_file, "# Source this file to access PYLAL"
@@ -494,6 +483,7 @@ setup(
 		os.path.join("bin", "pylal_plot_inspiral_skymap"),
 		os.path.join("bin", "upper_limit_results"),
 		os.path.join("bin", "pylal_expose"),
+		os.path.join("bin", "ligolw_cbc_expected_snrs"),
 		os.path.join("bin", "ligolw_cbc_align_total_spin"),
 		os.path.join("bin", "ligolw_cbc_dbsimplify"),
 		os.path.join("bin", "ligolw_cbc_dbaddinj"),
@@ -620,7 +610,6 @@ setup(
 		os.path.join("bin", "ligolw_fix_ids")
 		],
 	data_files = [ ("etc", [
-		os.path.join("etc", "pylal-user-env.fish"),
 		os.path.join("etc", "pylal-user-env.sh"),
 		os.path.join("etc", "pylal-user-env.csh"),
 		] ) ],

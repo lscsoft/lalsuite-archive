@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2013-2016  Leo Singer
+# Copyright (C) 2013-2015  Leo Singer
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -68,7 +68,9 @@ log = logging.getLogger('BAYESTAR')
 
 methods = '''
     toa_phoa_snr
+    toa_snr_mcmc
     toa_phoa_snr_mcmc
+    toa_snr_mcmc_kde
     toa_phoa_snr_mcmc_kde
     '''.split()
 default_method = 'toa_phoa_snr'
@@ -156,8 +158,7 @@ try:
         opts.min_distance, opts.max_distance, opts.prior_distance_power,
         phase_convention=opts.phase_convention, nside=opts.nside,
         f_high_truncate=opts.f_high_truncate,
-        method=opts.method, chain_dump=chain_dump,
-        enable_snr_series=opts.enable_snr_series)
+        method=opts.method, chain_dump=chain_dump)
     prob, distmu, distsigma, _ = sky_map
     distmean, diststd = distance.parameters_to_marginal_moments(
         prob, distmu, distsigma)
