@@ -3,6 +3,7 @@ from optparse import OptionParser
 import gzip
 import h5py
 import os
+import os.path
 import sys
 
 import lalinference
@@ -60,12 +61,15 @@ def read_nested_from_hdf5(nested_path_list):
         return
 
     for path in nested_path_list:
+        if not os.path.isfile(path):
+                print('Unable to open %s, skipping file'%(path))
+                continue
         try:
-	  tab = read_samples(path,path='lalinference/lalinference_nest/nested_samples')
-          input_arrays.append(tab)
+                tab = read_samples(path,path='lalinference/lalinference_nest/nested_samples')
+                input_arrays.append(tab)
         except:
-	  print('Unable to read table from %s, skipping'%(path))
-	  continue
+                print('Unable to read table from %s, skipping'%(path))
+                continue
         
         with h5py.File(path, 'r') as hdf:
             # walk down the groups until the actual data is reached, storing
@@ -102,7 +106,7 @@ def read_nested_from_hdf5(nested_path_list):
             if isinstance(metadata[level][key], list):
                 metadata[level][key] = mean(metadata[level][key])
 
-    log_noise_evidence = reduce(logaddexp, log_noise_evidences)
+    log_noise_evidence = reduce(logaddexp, log_noise_evidences) - log(len(log_noise_evidences))
     log_max_likelihood = max(log_max_likelihoods)
 
     return input_arrays, log_noise_evidence, log_max_likelihood, metadata, nlive, run_identifier
