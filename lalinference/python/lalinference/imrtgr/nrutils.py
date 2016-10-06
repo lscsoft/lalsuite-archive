@@ -483,3 +483,58 @@ def bbh_aligned_Lpeak_6mode_SHXJDK(q, chi1para, chi2para):
     LumPl_ergs_per_sec = lal.LUMPL_SI*1e-49 # Approximate value = 3628.505 
     
     return LumPl_ergs_per_sec*Lpeak
+
+
+# Functions for converting the posterior of generic -1PN coefficient 'dipolecoeff' into different dipole radiation constraints
+
+def convert_dipolecoeff_into_dipolepar_Horbatsch_etal(m1, m2, dipolecoeff):
+    """
+    Converts the posterior of a generic PN coefficient at -1PN phase order (dipolecoeff) into that of the free parameter mu (mu_dipole), parametrizing certain 'scalarization'-type dipole radiation and quantifying the aquired scalar charge of the BBH.
+    See: Section 2.4 of M.W. Horbatsch, C.P. Burgess, Cosmic black-hole hair growth and quasar OJ287, JPAC 5, 010 (2012), arXiv:1111.4009
+    
+    Input parameters
+    ----------
+    m1, m2 : component masses
+    dipolecoeff : generic -1PN coefficient
+    
+    Returns
+    ------
+    scalar dipole radiation parameter, 'dipolescalpar' (mu_dipole)
+    """
+    m1 = np.vectorize(float)(np.array(m1))
+    m2 = np.vectorize(float)(np.array(m2))
+    dchi = np.vectorize(float)(np.array(dipolecoeff))
+
+    m = m1 + m2
+    delta = (m1-m2)/m
+    
+    """
+    NOTE: By construction, positive contributions to the posterior of the generic -1PN coefficient are unphysical while trying to convert into a posterior for above 'scalar' dipole radiation parameter; mu_dipole \propto sqrt(-dchi)
+    For simplicity, the current implementation folds the input data for dipolecoeff. However, this leads to an obvious bias in the converted posterior.
+    A selective, more accurate implementation is imminent.
+    """ 
+
+    return np.sqrt(21./10.) * np.sqrt(np.abs(-dchi)) / (m*delta)
+
+def convert_dipolecoeff_into_dipolepar_Barausse_etal(m1, m2, dipolecoeff):
+    """
+    Converts the posterior of a generic PN coefficient at -1PN phase order (dipolecoeff) into that of the free parameter B (B_dipole), parametrizing theory-agnostic dipole radiation corrections to the flux.
+    See: E. Barausse, N. Yunes, K. Chamberlain, Theory-Agnostic Constraints on Black-Hole Dipole Radiation with Multi-Band Gravitational-Wave Astrophysics, Phys. Rev. Lett. 116, 241104 (2016), arXiv:1603.04075
+
+    Input parameters
+    ----------
+    m1, m2 : component masses
+    dipolecoeff : generic -1PN coefficient
+
+    Returns
+    ------
+    theory-agnostic dipole flux parameter, 'dipolefluxpar' (B_dipole)
+    """
+    m1 = np.vectorize(float)(np.array(m1))
+    m2 = np.vectorize(float)(np.array(m2))
+    dchi = np.vectorize(float)(np.array(dipolecoeff))
+
+    m = m1 + m2
+    delta = (m1-m2)/m
+
+    return -(7./4.) * dchi * delta/delta 

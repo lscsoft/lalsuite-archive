@@ -1246,6 +1246,10 @@ if __name__=='__main__':
                 twoDGreedyMenu.append([mp,dchi])
             for dipolecoeff in bppu.tigerParams:
                 twoDGreedyMenu.append([mp,dipolecoeff])
+#            for dipolefluxpar in bppu.tigerParams:
+#                twoDGreedyMenu.append([mp,dipolefluxpar])
+#            for dipolescalpar in bppu.tigerParams:
+#                twoDGreedyMenu.append([mp,dipolescalpar])
         for dp in distParams:
             for sp in snrParams:
                 twoDGreedyMenu.append([dp,sp])

@@ -69,7 +69,7 @@ except ImportError:
     raise
 
 try:
-    from lalinference.imrtgr.nrutils import bbh_final_mass_non_spinning_Panetal, bbh_final_spin_non_spinning_Panetal, bbh_final_spin_non_precessing_Healyetal, bbh_final_mass_non_precessing_Healyetal, bbh_final_spin_projected_spin_Healyetal, bbh_final_mass_projected_spin_Healyetal, bbh_aligned_Lpeak_6mode_SHXJDK
+    from lalinference.imrtgr.nrutils import bbh_final_mass_non_spinning_Panetal, bbh_final_spin_non_spinning_Panetal, bbh_final_spin_non_precessing_Healyetal, bbh_final_mass_non_precessing_Healyetal, bbh_final_spin_projected_spin_Healyetal, bbh_final_mass_projected_spin_Healyetal, bbh_aligned_Lpeak_6mode_SHXJDK, convert_dipolecoeff_into_dipolepar_Horbatsch_etal, convert_dipolecoeff_into_dipolepar_Barausse_etal
 except ImportError:
     print('Cannot import lalinference.imrtgr.nrutils. Will suppress final parameter calculations.')
 
@@ -122,7 +122,7 @@ spinParams=spinParamsPrec+spinParamsEff+spinParamsAli
 cosmoParam=['m1_source','m2_source','mtotal_source','mc_source','redshift','mf_source']
 #Strong Field
 ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB','alphaPPE','aPPE','betaPPE','bPPE']
-tigerParams=['dchi%i'%(i) for i in range(8)] + ['dchi%il'%(i) for i in [5,6] ] + ['dxi%d'%(i+1) for i in range(6)] + ['dalpha%i'%(i+1) for i in range(5)] + ['dbeta%i'%(i+1) for i in range(3)] + ['dsigma%i'%(i+1) for i in range(4)] + ['dipolecoeff']
+tigerParams=['dchi%i'%(i) for i in range(8)] + ['dchi%il'%(i) for i in [5,6] ] + ['dxi%d'%(i+1) for i in range(6)] + ['dalpha%i'%(i+1) for i in range(5)] + ['dbeta%i'%(i+1) for i in range(3)] + ['dsigma%i'%(i+1) for i in range(4)] + ['dipolecoeff'] + ['dipolescalpar'] + ['dipolefluxpar']
 bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
 massiveGravitonParams=['lambdaG']
 tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat']
@@ -333,7 +333,9 @@ def get_prior(name):
       'calpha_l1' : 'uniform',
       'polar_eccentricity':'uniform',
       'polar_angle':'uniform',
-      'alpha':'uniform'
+      'alpha':'uniform',
+      'dipolefluxpar': None,
+      'dipolescalpar': None
     }
     try:
         return distributions(name)
@@ -457,6 +459,8 @@ def plot_label(param):
       'dsigma3':r'$d\sigma_3$',
       'dsigma4':r'$d\sigma_4$',
       'dipolecoeff':r'$d\chi_{dipole}$',
+      'dipolefluxpar':r'$B_{dipole}$',
+      'dipolescalpar':r'$\mu_{dipole}$',
     }
 
   # Handle cases where multiple names have been used
@@ -1152,6 +1156,14 @@ class Posterior(object):
               pos.append_mapping('l_peak', bbh_aligned_Lpeak_6mode_SHXJDK, ['q', 'a1z', 'a2z'])
           except Exception,e:
               print "Could not calculate peak luminosity. The error was: %s"%(str(e))
+
+      # Convert posterior for generic -1PN coefficient 'dipolepcoeff' into different dipole radiation constraints
+      if ('m1' in pos.names) and ('m2' in pos.names) and ('dipolecoeff' in pos.names):
+          try:
+              pos.append_mapping('dipolefluxpar', convert_dipolecoeff_into_dipolepar_Barausse_etal, ['m1', 'm2', 'dipolecoeff'])
+              pos.append_mapping('dipolescalpar', convert_dipolecoeff_into_dipolepar_Horbatsch_etal, ['m1', 'm2', 'dipolecoeff'])
+          except Exception,e:
+              print "Could not calculate dipole parameters. The error was: %s"%(str(e))
 
     def bootstrap(self):
         """
