@@ -30,11 +30,7 @@ from glue.ligolw.utils import segments as ligolw_segments
 from glue.ligolw.utils import process
 from lalsimulation import SimInspiralTaylorF2ReducedSpinComputeChi, SimIMRPhenomBComputeChi
 
-try:
-	import sqlite3
-except ImportError:
-	# pre 2.5.x
-	from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 
 
 def allowed_analysis_table_names():
@@ -46,7 +42,7 @@ def make_sim_inspiral_row_from_columns_in_db(connection):
 	get the unique mapping of a sim inspiral row from columns in this
 	database
 	"""
-	return lsctables.table.get_table(dbtables.get_xml(connection), lsctables.SimInspiralTable.tableName).row_from_cols
+	return lsctables.SimInspiralTable.get_table(dbtables.get_xml(connection)).row_from_cols
 
 
 def time_within_segments(geocent_end_time, geocent_end_time_ns, zero_lag_segments = None):

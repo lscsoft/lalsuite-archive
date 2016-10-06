@@ -1,6 +1,9 @@
 import doctest
+import sys
 from glue.ligolw import _ilwd
 from glue.ligolw import ilwd
 
-doctest.testmod(_ilwd)
-doctest.testmod(ilwd)
+failures = doctest.testmod(_ilwd)[0]
+failures += doctest.testmod(ilwd)[0]
+
+sys.exit(bool(failures))

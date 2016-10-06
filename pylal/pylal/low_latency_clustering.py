@@ -22,12 +22,6 @@ __author__ = "Leo Singer <leo.singer@ligo.org>"
 
 import array
 
-try:
-	all
-except NameError:
-	# pre Python 2.5
-	from glue.iterutils import all
-
 
 class SlidingMaxHeap(object):
 	"""A max heap that retains the order in which samples were added to it.

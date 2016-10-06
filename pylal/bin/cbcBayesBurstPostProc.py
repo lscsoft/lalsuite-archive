@@ -320,10 +320,10 @@ def cbcBayesBurstPostProc(
         got_burst_table=1
         try:
             lsctables.use_in(LIGOLWContentHandlerExtractSimBurstTable)
-            simtable=table.get_table(xmldoc,lsctables.SimBurstTable.tableName)
+            simtable=lsctables.SimBurstTable.get_table(xmldoc)
         except ValueError:
             lsctables.use_in(LIGOLWContentHandlerExtractSimInspiralTable)
-            simtable=table.get_table(xmldoc,lsctables.SimInspiralTable.tableName)
+            simtable=lsctables.SimInspiralTable.get_table(xmldoc)
             got_inspiral_table=1
             got_burst_table=0
         

@@ -34,7 +34,7 @@ import shutil
 import sys
 import tempfile
 from matplotlib import cm
-from .. import cmap
+from ..plot import cmap
 
 
 
@@ -84,6 +84,8 @@ group.add_argument('--max-distance', type=float, metavar='Mpc',
 group.add_argument('--prior-distance-power', type=int, metavar='-1|2',
     default=2, help='Distance prior '
     '[-1 for uniform in log, 2 for uniform in volume, default: %(default)s]')
+group.add_argument('--enable-snr-series', default=False, action='store_true',
+    help='Enable input of SNR time series (WARNING: UNREVIEWED!) [default: no]')
 del group
 
 
@@ -158,7 +160,7 @@ def colormap(value):
     rcParams['image.cmap'] = value
 
 @type_with_sideeffect(float)
-def figwith(value):
+def figwidth(value):
     from matplotlib import rcParams
     rcParams['figure.figsize'][0] = float(value)
 
@@ -187,7 +189,7 @@ group.add_argument(
 group.add_argument(
     '--help-colormap', action=HelpChoicesAction, choices=colormap_choices)
 group.add_argument(
-    '--figure-width', metavar='INCHES', type=figwith, default='8',
+    '--figure-width', metavar='INCHES', type=figwidth, default='8',
     help='width of figure in inches [default: %(default)s]')
 group.add_argument(
     '--figure-height', metavar='INCHES', type=figheight, default='6',

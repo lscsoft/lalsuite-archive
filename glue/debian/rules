@@ -1,3 +1,14 @@
 #!/usr/bin/make -f
+include /usr/share/dpkg/pkg-info.mk
+
+# Automatically generate man pages with help2man
+export PYBUILD_AFTER_INSTALL := \
+	echo 'Automatically generating man pages with help2man' && \
+	mkdir -p {destdir}/usr/share/man/man1 && \
+	ls {destdir}/usr/bin | env PYTHONPATH={destdir}{install_dir} \
+	xargs --verbose -I @ help2man --source $(DEB_SOURCE) \
+	--version-string $(DEB_VERSION_UPSTREAM) --no-info --no-discard-stderr \
+	{destdir}/usr/bin/@ -o {destdir}/usr/share/man/man1/@.1
+
 %:
-	dh $@ --with=python2
+	dh $@ --with=python2 --buildsystem=pybuild
