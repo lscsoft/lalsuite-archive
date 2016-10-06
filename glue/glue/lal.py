@@ -458,6 +458,20 @@ class CacheEntry(object):
 	...	seglists |= cacheentry.segmentlistdict
 	...
 
+	NOTE:  the CacheEntry type defines a comparison operation and a
+	.__hash__() implementation, both of which disregard the URL.  That
+	is, if two CacheEntry objects differ only by URL and otherwise have
+	same metadata, they are considered to be redundant copies of the
+	same data.  For example, uniquification with a set() will retain
+	only one redundant copy, selected at random.
+
+	>>> x = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
+	>>> y = CacheEntry("H1 S5 815901601 576.5 gsiftp://data.server.org/bigpileofdata/H1-815901601-576.xml")
+	>>> x == y
+	True
+	>>> len(set((x, y)))
+	1
+
 	See also:
 
 	glue.segmentsUtils.fromlalcache()
@@ -554,14 +568,27 @@ class CacheEntry(object):
 	def __cmp__(self, other):
 		"""
 		Compare two CacheEntry objects by observatory, then
-		description, then segment, then URL.
+		description, then segment.  CacheEntry objects that have
+		different URLs but for which all other metadata are the
+		same are considered to be equivalent.  If two entries
+		differ only by their URL, they are considered to be
+		redundant copies of the same data, and by comparing them as
+		equal the Python sort operation (which is a stable sort)
+		will preserve their relative order.  By preserving the
+		order of redundant copies, we allow the preference for the
+		order in which redundant copies are to be attempted to be
+		conveyed by their order in the list, and preserved.
 		"""
 		if not isinstance(other, CacheEntry):
 			raise TypeError("can only compare CacheEntry to CacheEntry")
-		return cmp((self.observatory, self.description, self.segment, self.url), (other.observatory, other.description, other.segment, other.url))
+		return cmp((self.observatory, self.description, self.segment), (other.observatory, other.description, other.segment))
 
 	def __hash__(self):
-		return hash((self.observatory, self.description, self.segment, self.url))
+		"""
+		CacheEntry objects are hashed by the tuple (observatory,
+		description, segment), i.e., the URL is disregarded.
+		"""
+		return hash((self.observatory, self.description, self.segment))
 
 	@property
 	def url(self):
