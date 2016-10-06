@@ -68,7 +68,7 @@ def parse_command_line():
 	options, filenames = parser.parse_args()
 
 	# strip column names
-	options.delete_column = set(map(table.StripColumnName, options.delete_column))
+	options.delete_column = set(map(table.Column.ColumnName, options.delete_column))
 
 	# parse element specs
 	def parse_delete_element(arg):
@@ -77,7 +77,7 @@ def parse_command_line():
 	options.delete_element = set(map(parse_delete_element, options.delete_element))
 
 	# strip table names
-	options.delete_table = set(map(table.StripTableName, options.delete_table))
+	options.delete_table = set(map(table.Table.TableName, options.delete_table))
 
 	return options, (filenames or [None])
 
@@ -101,11 +101,7 @@ class ElementFilter(object):
 
 	def element_filter(self, name, attrs):
 		# check for unwanted tables
-		if name == ligolw.Table.tagName:
-			for delete_table in self.delete_tables:
-				if not table.CompareTableNames(delete_table, attrs["Name"]):
-					return False
-		return True
+		return name != ligolw.Table.tagName or table.Table.TableName(attrs["Name"]) not in self.delete_tables
 
 
 class ContentHandler(ligolw.FilteringLIGOLWContentHandler):

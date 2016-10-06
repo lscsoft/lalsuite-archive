@@ -1,4 +1,24 @@
-check : glue_ligolw_ilwd_verify iterutils_verify lal_verify ligolw_test01 ligolw_test03a ligolw_test03b ligolw_test03c ligolw_test04 ligolw_test05 ligolw_sqlite_test offsetvector_verify segmentsUtils_verify segments_verify test_ligolw_array test_ligolw_lsctables test_ligolw_table test_ligolw_tokenizer test_ligolw_utils test_ligolw_utils_segments
+check : \
+	glue_ligolw_ilwd_verify \
+	iterutils_verify \
+	lal_verify \
+	ligolw_sqlite_test \
+	ligolw_test01 \
+	ligolw_test03a \
+	ligolw_test03b \
+	ligolw_test03c \
+	ligolw_test04 \
+	ligolw_test05 \
+	offsetvector_verify \
+	segments_verify \
+	segmentsUtils_verify \
+	test_ligolw_array \
+	test_ligolw_ligolw \
+	test_ligolw_lsctables \
+	test_ligolw_table \
+	test_ligolw_tokenizer \
+	test_ligolw_utils \
+	test_ligolw_utils_segments
 	@echo "All Tests Passed"
 
 define printpassfail
@@ -91,6 +111,11 @@ test_ligolw_array :
 	@echo "=== start test_ligolw_array ===>"
 	./test_ligolw_array.py && $(printpassfail)
 	@echo "<=== end test_ligolw_array ==="
+
+test_ligolw_ligolw :
+	@echo "=== start test_ligolw_ligolw ===>"
+	./test_ligolw_ligolw.py && $(printpassfail)
+	@echo "<=== end test_ligolw_ligolw ==="
 
 test_ligolw_lsctables :
 	@echo "=== start test_ligolw_lsctables ===>"

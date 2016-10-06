@@ -2,11 +2,7 @@
 
 from optparse import OptionParser
 
-try:
-        import sqlite3
-except ImportError:
-        # pre 2.5.x
-        from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 import sys, os, re, string, tempfile, copy
 import ConfigParser
 
@@ -131,11 +127,11 @@ class DB_summary(object):
 
 		# find the tables
 		try:
-			self.sngl_inspiral_table = table.get_table(xmldoc, dbtables.lsctables.SnglInspiralTable.tableName)
+			self.sngl_inspiral_table = dbtables.lsctables.SnglInspiralTable.get_table(xmldoc)
 		except ValueError:
 			self.sngl_inspiral_table = None
 		try:
-			self.sim_inspiral_table = table.get_table(xmldoc, dbtables.lsctables.SimInspiralTable.tableName)
+			self.sim_inspiral_table = dbtables.lsctables.SimInspiralTable.get_table(xmldoc)
 			# write out the injection file to use in later inspiral jobs
 			newxmldoc = ligolw.Document()
 			newxmldoc.appendChild(ligolw.LIGO_LW())
@@ -146,19 +142,19 @@ class DB_summary(object):
 		except ValueError:
 			self.sim_inspiral_table = None
 		try:
-			self.coinc_def_table = table.get_table(xmldoc, dbtables.lsctables.CoincDefTable.tableName)
-			self.coinc_table = table.get_table(xmldoc, dbtables.lsctables.CoincTable.tableName)
-			self.time_slide_table = table.get_table(xmldoc, dbtables.lsctables.TimeSlideTable.tableName)
+			self.coinc_def_table = dbtables.lsctables.CoincDefTable.get_table(xmldoc)
+			self.coinc_table = dbtables.lsctables.CoincTable.get_table(xmldoc)
+			self.time_slide_table = dbtables.lsctables.TimeSlideTable.get_table(xmldoc)
 		except ValueError:
 			self.coinc_def_table = None
 			self.coinc_table = None
 			self.time_slide_table = None
 		try:
-			self.coinc_inspiral_table = table.get_table(xmldoc, dbtables.lsctables.CoincInspiralTable.tableName)
+			self.coinc_inspiral_table = dbtables.lsctables.CoincInspiralTable.get_table(xmldoc)
 		except ValueError:
 			self.coinc_inspiral_table = None
 		try:
-			self.experiment_summary_table = table.get_table(xmldoc, dbtables.lsctables.ExperimentSummaryTable.tableName)
+			self.experiment_summary_table = dbtables.lsctables.ExperimentSummaryTable.get_table(xmldoc)
 		except ValueError:
 			self.experiment_summary_table = None
 

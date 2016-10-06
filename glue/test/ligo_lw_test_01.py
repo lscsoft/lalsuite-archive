@@ -36,4 +36,4 @@ for n, a in enumerate(xmldoc.getElementsByTagName(ligolw.Array.tagName)):
 	print >>sys.stderr, "done."
 
 	# try turning it back into XML
-	ligolw_array.from_array(a.Name, a.array)
+	ligolw_array.Array.build(a.Name, a.array)

@@ -181,13 +181,13 @@ def get_column_list(tableName, with_sngl = False):
 
 def loudest_events(xmldoc, opts, summTable, followup):
 
-  coincT = table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
-  coincMap = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
-  sngls = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+  coincT = lsctables.CoincInspiralTable.get_table(xmldoc)
+  coincMap = lsctables.CoincMapTable.get_table(xmldoc)
+  sngls = lsctables.SnglInspiralTable.get_table(xmldoc)
   coincTable = organize_coincs(coincT, sngls, coincMap)
 
-  coincEvent = table.get_table(xmldoc, lsctables.CoincTable.tableName)
-  timeSlide = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+  coincEvent = lsctables.CoincTable.get_table(xmldoc)
+  timeSlide = lsctables.TimeSlideTable.get_table(xmldoc)
   coincTable = organize_slides(coincTable, coincEvent, timeSlide)
 
   page = []
@@ -248,10 +248,10 @@ def missed_injections(opts, summTable, followup):
 
 def found_injections(xmldoc, opts, summTable, followup):
 
-  sims = table.get_table(xmldoc,lsctables.SimInspiralTable.tableName)
-  coincT = table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
-  coincMap = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
-  sngls = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+  sims = lsctables.SimInspiralTable.get_table(xmldoc)
+  coincT = lsctables.CoincInspiralTable.get_table(xmldoc)
+  coincMap = lsctables.CoincMapTable.get_table(xmldoc)
+  sngls = lsctables.SnglInspiralTable.get_table(xmldoc)
   simTable = organize_found_injs(summTable,sims,coincT,coincMap,sngls)
 
   page = []

@@ -275,7 +275,7 @@ ifo_list = set(opts.ifos[2*i:2*i+2].lower() for i in range(len(opts.ifos)/2))
 
 #get slide amounts
 shift_unit_vector = dict((ifo, 0) for ifo in ifo_list)  # default to 0
-for row in table.get_table(offsource_doc, lsctables.ProcessParamsTable.tableName):
+for row in lsctables.ProcessParamsTable.get_table(offsource_doc):
   for ifo in ifo_list:
     if row.param == "--%s-slide" % ifo:
         shift_unit_vector[ifo] = int(float(row.value))
@@ -319,7 +319,7 @@ mc_bins = rate.IrregularBins(opts.mc_boundaries)
 
 ##############################################################################
 # read triggers, veto them, and reconstruct coincidences
-triggers = table.get_table(offsource_doc, lsctables.SnglInspiralTable.tableName)
+triggers = lsctables.SnglInspiralTable.get_table(offsource_doc)
 
 stat = CoincInspiralUtils.coincStatistic(opts.coinc_statistic)
 coincTable = CoincInspiralUtils.coincInspiralTable(triggers, stat)

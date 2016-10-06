@@ -198,7 +198,7 @@ for n, filename in enumerate(filenames):
 	# IDs.
 	#
 
-	tbl = lsctables.table.get_table(xmldoc, lsctables.SnglRingdownTable.tableName)
+	tbl = lsctables.SnglRingdownTable.get_table(xmldoc)
 	tbl.set_next_id(lsctables.SnglRingdownID(0))
 	for row in tbl:
 		row.event_id = tbl.get_next_id()
