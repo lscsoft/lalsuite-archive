@@ -25,6 +25,7 @@ import sys
 from time import strftime
 import copy
 import random
+import getpass
 
 #related third party imports
 import numpy as np
@@ -66,17 +67,19 @@ paramNameLatexMap = {'m1': 'm_1', 'm2' : 'm_2', 'mtotal' : r'M_{\rm tot}', 'mchi
                      'cos(iota)': r'\cos \iota', 'tilt1': r't_1', 'tilt2': r't_2', 'ra': r'\alpha', 'dec': r'\delta',
                      'lambdat' : r'\tilde{\Lambda}', 'dlambdat': r'\delta \tilde{\Lambda}',
                      'lambda1' : r'\lambda_1', 'lambda2': r'\lambda_2',
-                     'lam_tilde' : r'\tilde{\Lambda}', 'dlam_tilde': r'\delta \tilde{\Lambda}'}
+                     'lam_tilde' : r'\tilde{\Lambda}', 'dlam_tilde': r'\delta \tilde{\Lambda}','dchi0':r'\delta\chi_0','dchi1':r'\delta\chi_1','dchi2':r'\delta\chi_2','dchi3':r'\delta\chi_3','dchi4':r'\delta\chi_4','dchi5':r'\delta\chi_5','dchi5l':r'\delta\chi_{5l}','dchi6':r'\delta\chi_6','dchi6l':r'\delta\chi_{6l}','dchi7':r'\delta\chi_7','dbeta2':r'\delta\beta_2','dbeta3':r'\delta\beta_3','dsigma2':r'\delta\sigma_2','dsigma3':r'\delta\sigma_3','dsigma4':r'\delta\sigma_4','dbeta2':r'\delta\beta_2','dbeta3':r'\delta\beta_3' }
 
 # Only these parameters, in this order appear in confidence level table.
-clTableParams = ['mchirp', 'mc', 'chirpmass', 'eta', 'q', 'm1', 'm2', 'distance', 'distMPC', 'dist', 'cos(iota)', 'iota', 'theta_jn', 'psi', 'ra', 'dec', 'time', 'phase', 'a1', 'a2', 'costilt1', 'costilt2']
+clTableParams = ['mchirp', 'mc', 'chirpmass', 'eta', 'q', 'm1', 'm2', 'distance', 'distMPC', 'dist', 'cos(iota)', 'iota', 'theta_jn', 'psi', 'ra', 'dec', 'time', 'phase', 'a1', 'a2', 'costilt1', 'costilt2','dchi0','dchi1','dchi2','dchi3','dchi4','dchi5','dchi5l','dchi6','dchi6l','dchi7','dbeta2','dbeta3','dsigma2','dsigma3','dsigma4','dbeta2','dbeta3']
+
 
 greedyBinSizes={'mc':0.001,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.001,'asym_massratio':0.001,'iota':0.05,'time':1e-4,'distance':5.0,'dist':1.0,'mchirp':0.01,'chirpmass':0.01,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.005,'psi':0.1,'cos(iota)':0.01, 'cos(tilt1)':0.01, 'cos(tilt2)':0.01, 'tilt1':0.05, 'tilt2':0.05, 'cos(thetas)':0.01, 'cos(beta)':0.01,'phi_orb':0.2,'inclination':0.05,'theta_jn':0.05,'spin1':0.02,'spin2':0.02}
 for s in bppu.snrParams:
         greedyBinSizes[s]=0.02
 for s in bppu.calParams:
         greedyBinSizes[s]=0.02
-
+for s in bppu.tigerParams:
+  greedyBinSizes[s]=0.01
 #Confidence levels
 OneDconfidenceLevels=[0.9]#[0.68,0.9,0.95,0.997]
 TwoDconfidenceLevels=OneDconfidenceLevels
@@ -135,13 +138,13 @@ def all_pairs(L):
         i = L.pop()
         for j in L: yield i, j
 
-def open_url_wget(url,un=None,pw=None,args=[]):
+def open_url_curl(url,args=[]):
     import subprocess
     import urlparse
 
-    if un is not None and pw is not None:
-        args+=["--user",un,"--password",pw,"--no-check-certificate"]
-    retcode=subprocess.call(['wget']+[url]+args)
+    kerberos_args = "--insecure -c /tmp/{0}_cookies -b /tmp/{0}_cookies --negotiate --user : --location-trusted".format(getpass.getuser()).split()
+
+    retcode=subprocess.call(['curl'] + kerberos_args + [url] + args)
 
     return retcode
 
@@ -508,8 +511,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                     os.remove(pos_file)
                 if not os.path.exists(downloads_folder):
                     os.makedirs(downloads_folder)
-                open_url_wget(pos_file_url,un=username,pw=password,args=["-O","%s"%pos_file])
-
+                open_url_curl(pos_file_url,args=["-o","%s"%pos_file])
 
         elif pfu_scheme is '' or pfu_scheme is 'file':
             pos_file=os.path.join(pos_folder,'%s.dat'%name)

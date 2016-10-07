@@ -35,11 +35,9 @@ importing xlal.date directly.
 import math
 
 
+from glue import segments
 import lal
-
-
 from pylal import git_version
-from pylal.xlal.date import *
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -56,16 +54,13 @@ __version__ = git_version.date
 #
 
 
-# deprecated compatibility stub
+# deprecated compatibility stubs
 XLALLeapSeconds = lal.LeapSeconds
-
-
-def XLALGreenwichMeanSiderealTime(gps):
-	return XLALGreenwichSiderealTime(gps, 0.0)
+XLALGreenwichMeanSiderealTime = lal.GreenwichMeanSiderealTime
 
 
 def XLALTimeDelayFromEarthCenter(pos, ra, dec, gps):
-	return XLALArrivalTimeDiff(pos, (0.0, 0.0, 0.0), ra, dec, gps)
+	return lal.ArrivalTimeDiff(pos, (0.0, 0.0, 0.0), ra, dec, gps)
 
 
 #
@@ -82,7 +77,7 @@ def utc_midnight(gps):
 	Truncate a LIGOTimeGPS to UTC midnight.
 	"""
 	# convert to UTC (as list so we can edit it)
-	tm = list(XLALGPSToUTC(gps))
+	tm = list(lal.GPSToUTC(int(gps)))
 
 	# truncate to midnight
 	tm[3] = 0       # hours
@@ -90,7 +85,7 @@ def utc_midnight(gps):
 	tm[5] = 0       # seconds
 
 	# convert back to LIGOTimeGPS
-	return XLALUTCToGPS(tuple(tm))
+	return lal.LIGOTimeGPS(lal.UTCToGPS(tuple(tm)))
 
 
 def UTCMidnights(start, end):
@@ -153,7 +148,6 @@ def gmst_days(gps_start, gps_stop):
 	gmst_0hs = GMST_0hs(gmst_0h(gps_start), gps_stop + 86402)
 
 	# initialize a segmentlist with the first sidereal day
-	from glue import segments
 	l = segments.segmentlist([segments.segment(gmst_0hs.next(), gmst_0hs.next())])
 
 	# append each subsequent sideral day as another segment

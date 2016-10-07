@@ -36,12 +36,7 @@ import stat
 import socket
 import itertools
 import glue.segments
-try:
-  # use hashlib if available, python25 and above
-  from hashlib import md5
-except ImportError:
-  # md5 is deprecated in python26
-  from md5 import new as md5
+from hashlib import md5
 
 try:
   import httplib
@@ -1028,8 +1023,8 @@ class CondorDAGNode:
     self.__pegasus_profile = []
 
     # generate the md5 node name
-    t = str( long( time.time() * 1000 ) )
-    r = str( long( random.random() * 100000000000000000L ) )
+    t = str( int( time.time() * 1000 ) )
+    r = str( int( random.random() * 100000000000000000 ) )
     a = str( self.__class__ )
     self.__name = md5(t + r + a).hexdigest()
     self.__md5name = self.__name

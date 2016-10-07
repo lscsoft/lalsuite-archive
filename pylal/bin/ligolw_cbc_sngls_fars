@@ -27,11 +27,7 @@
 
 
 from optparse import OptionParser
-try:
-	import sqlite3
-except ImportError:
-	# pre 2.5.x
-	from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 import sys
 
 import numpy
@@ -372,7 +368,7 @@ def extract_ifos(filename):
 
 	elif 'xml' in filename:
 		xmldoc = utils.load_filename(filename, gz=filename.endswith(".gz"), verbose = options.verbose)
-		process_table = lsctables.table.get_table(xmldoc, lsctables.ProcessTable.tableName)
+		process_table = lsctables.ProcessTable.get_table(xmldoc)
 		ifos = set(row.ifos for row in process_table)
 	else:
 		print >>sys.stderr, 'cannot analyse file %s, unknown type'%(filename,)
@@ -412,7 +408,7 @@ def extract_bkg(likelihood_bins, filename):
 		dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 	elif 'xml' in filename:
 		xmldoc = utils.load_filename(filename, gz=filename.endswith(".gz"), verbose = options.verbose)
-		sngl_inspiral_table = lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+		sngl_inspiral_table = lsctables.SnglInspiralTable.get_table(xmldoc)
 		# FIXME: look up how to get columns from a sngl_inspiral row
 		[likelihood_bins.add_bkg_sngl([row.get_attribute(col) for col in likelihood_bins.list_idx_sngls]) for row in sngl_inspiral_table]
 	else:
@@ -444,7 +440,7 @@ def compute_likelihoods(likelihood_bins, filename):
 		dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 	elif 'xml' in filename:
 		xmldoc = utils.load_filename(filename, gz=filename.endswith(".gz"), verbose = options.verbose)
-		sngl_inspiral_table = lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+		sngl_inspiral_table = lsctables.SnglInspiralTable.get_table(xmldoc)
 		# FIXME: look up how to get columns from a sngl_inspiral row
 		[likelihood_bins.sngl_likelihood([row.get_attribute(col) for col in likelihood_bins.list_idx_sngls]) for row in sngl_inspiral_table]
 	else:

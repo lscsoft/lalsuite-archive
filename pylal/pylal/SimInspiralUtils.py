@@ -22,11 +22,11 @@
 # =============================================================================
 #
 
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw import ligolw
+
 #
 # =============================================================================
 #
@@ -62,8 +62,7 @@ def ReadSimInspiralFromFiles(fileList, verbose=False):
   for thisFile in fileList:
     doc = utils.load_filename(thisFile, gz=(thisFile or "stdin").endswith(".gz"), verbose=verbose, contenthandler=ExtractSimInspiralTableLIGOLWContentHandler)
     # extract the sim inspiral table
-    try: simInspiralTable = \
-      table.get_table(doc, lsctables.SimInspiralTable.tableName)
+    try: simInspiralTable = lsctables.SimInspiralTable.get_table(doc)
     except: simInspiralTable = None
     if simInspiralTriggers and simInspiralTable: 
       simInspiralTriggers.extend(simInspiralTable)

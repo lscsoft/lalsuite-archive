@@ -882,7 +882,7 @@ for bin_type in UL.mass_bins:
     for j in range(dim):
       xml = ligolw.LIGO_LW({u"Name": u"mass%d_bins:%s" % (j+1,bin_type)})
       edges = tuple( numpy.concatenate((l,u[-1:])) for l,u in zip(UL.mass_bins[bin_type].lower(),UL.mass_bins[bin_type].upper()) )
-      xml.appendChild(array.from_array(u"array", edges[j]))
+      xml.appendChild(array.Array.build(u"array", edges[j]))
       child.appendChild(xml)
 
     output_arrays = {"SearchVolumeFirstMoment":vA.array,
@@ -893,7 +893,7 @@ for bin_type in UL.mass_bins:
                      "SearchVolumeLiveTime":ltA.array}
     for arr in output_arrays:
       xml = ligolw.LIGO_LW({u"Name": u"binned_array:%s" % arr})
-      xml.appendChild(array.from_array(u"array",output_arrays[arr]))
+      xml.appendChild(array.Array.build(u"array",output_arrays[arr]))
       child.appendChild(xml)
 
     output_filename = opts.output_path+"%s-SEARCH_VOLUME_BINNED_BY_%s_%s-%d-%d.xml" % \

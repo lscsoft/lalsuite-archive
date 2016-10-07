@@ -37,6 +37,10 @@ import sys
 import urlparse
 import warnings
 
+try:  # python < 3
+    long
+except NameError:  # python >= 3
+    long = int
 
 from glue import git_version
 from glue import segments
@@ -93,7 +97,7 @@ class LIGOTimeGPS(object):
 		LIGOTimeGPS(100, 500000000)
 		>>> LIGOTimeGPS(100, 500000000)
 		LIGOTimeGPS(100, 500000000)
-		>>> LIGOTimeGPS(0, 100500000000L)
+		>>> LIGOTimeGPS(0, 100500000000)
 		LIGOTimeGPS(100, 500000000)
 		>>> LIGOTimeGPS(100.2, 300000000)
 		LIGOTimeGPS(100, 500000000)
@@ -108,17 +112,17 @@ class LIGOTimeGPS(object):
 		>>> LIGOTimeGPS("-1.2")
 		LIGOTimeGPS(-2, 800000000)
 		"""
-		if type(nanoseconds) not in (float, int, long):
+		if not isinstance(nanoseconds, (float, int, long)):
 			try:
 				nanoseconds = float(nanoseconds)
 			except:
 				raise TypeError(nanoseconds)
-		if type(seconds) is float:
+		if isinstance(seconds, float):
 			ns, seconds = math.modf(seconds)
 			seconds = int(seconds)
 			nanoseconds += ns * 1e9
-		elif type(seconds) not in (int, long):
-			if type(seconds) in (str, unicode):
+		elif not isinstance(seconds, (int, long)):
+			if isinstance(seconds, (str, unicode)):
 				sign = -1 if seconds.lstrip().startswith("-") else +1
 				try:
 					if "." in seconds:
@@ -207,9 +211,9 @@ class LIGOTimeGPS(object):
 		Example:
 
 		>>> LIGOTimeGPS(100.5).ns()
-		100500000000L
+		100500000000
 		"""
-		return self.__seconds * 1000000000L + self.__nanoseconds
+		return self.__seconds * 1000000000 + self.__nanoseconds
 
 	# comparison
 
@@ -231,7 +235,7 @@ class LIGOTimeGPS(object):
 		>>> LIGOTimeGPS(100.5) < "200"
 		True
 		"""
-		if not type(other) == LIGOTimeGPS:
+		if not isinstance(other, LIGOTimeGPS):
 			try:
 				other = LIGOTimeGPS(other)
 			except TypeError:
@@ -266,7 +270,7 @@ class LIGOTimeGPS(object):
 		>>> LIGOTimeGPS(100.5) + "3"
 		LIGOTimeGPS(103, 500000000)
 		"""
-		if not type(other) == LIGOTimeGPS:
+		if not isinstance(other, LIGOTimeGPS):
 			other = LIGOTimeGPS(other)
 		return LIGOTimeGPS(self.__seconds + other.seconds, self.__nanoseconds + other.nanoseconds)
 
@@ -288,7 +292,7 @@ class LIGOTimeGPS(object):
 		>>> LIGOTimeGPS(100.5) - "3"
 		LIGOTimeGPS(97, 500000000)
 		"""
-		if not type(other) == LIGOTimeGPS:
+		if not isinstance(other, LIGOTimeGPS):
 			other = LIGOTimeGPS(other)
 		return LIGOTimeGPS(self.__seconds - other.seconds, self.__nanoseconds - other.nanoseconds)
 
@@ -296,7 +300,7 @@ class LIGOTimeGPS(object):
 		"""
 		Subtract a LIGOTimeGPS from a value.
 		"""
-		if not type(other) == LIGOTimeGPS:
+		if not isinstance(other, LIGOTimeGPS):
 			other = LIGOTimeGPS(other)
 		return LIGOTimeGPS(other.seconds - self.__seconds, other.nanoseconds - self.__nanoseconds)
 
@@ -454,6 +458,20 @@ class CacheEntry(object):
 	...	seglists |= cacheentry.segmentlistdict
 	...
 
+	NOTE:  the CacheEntry type defines a comparison operation and a
+	.__hash__() implementation, both of which disregard the URL.  That
+	is, if two CacheEntry objects differ only by URL and otherwise have
+	same metadata, they are considered to be redundant copies of the
+	same data.  For example, uniquification with a set() will retain
+	only one redundant copy, selected at random.
+
+	>>> x = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
+	>>> y = CacheEntry("H1 S5 815901601 576.5 gsiftp://data.server.org/bigpileofdata/H1-815901601-576.xml")
+	>>> x == y
+	True
+	>>> len(set((x, y)))
+	1
+
 	See also:
 
 	glue.segmentsUtils.fromlalcache()
@@ -550,14 +568,27 @@ class CacheEntry(object):
 	def __cmp__(self, other):
 		"""
 		Compare two CacheEntry objects by observatory, then
-		description, then segment, then URL.
+		description, then segment.  CacheEntry objects that have
+		different URLs but for which all other metadata are the
+		same are considered to be equivalent.  If two entries
+		differ only by their URL, they are considered to be
+		redundant copies of the same data, and by comparing them as
+		equal the Python sort operation (which is a stable sort)
+		will preserve their relative order.  By preserving the
+		order of redundant copies, we allow the preference for the
+		order in which redundant copies are to be attempted to be
+		conveyed by their order in the list, and preserved.
 		"""
-		if type(other) != CacheEntry:
+		if not isinstance(other, CacheEntry):
 			raise TypeError("can only compare CacheEntry to CacheEntry")
-		return cmp((self.observatory, self.description, self.segment, self.url), (other.observatory, other.description, other.segment, other.url))
+		return cmp((self.observatory, self.description, self.segment), (other.observatory, other.description, other.segment))
 
 	def __hash__(self):
-		return hash((self.observatory, self.description, self.segment, self.url))
+		"""
+		CacheEntry objects are hashed by the tuple (observatory,
+		description, segment), i.e., the URL is disregarded.
+		"""
+		return hash((self.observatory, self.description, self.segment))
 
 	@property
 	def url(self):

@@ -31,9 +31,6 @@ from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import git_version
 from pylal import SnglInspiralUtils
 from pylal import snglcluster
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-
-lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 __author__ = "Duncan Brown <dbrown@ligo.caltech.edu>"
 
@@ -47,14 +44,12 @@ __author__ = "Duncan Brown <dbrown@ligo.caltech.edu>"
 #
 
 def get_tables(doc):
-  snglinspiraltable = table.get_table(
-    doc, lsctables.SnglInspiralTable.tableName)
+  snglinspiraltable = lsctables.SnglInspiralTable.get_table(doc)
 
   input_times = None
   output_times = None
   try:
-    searchsummtable = table.get_table(
-      doc, lsctables.SearchSummaryTable.tableName)
+    searchsummtable = lsctables.SearchSummaryTable.get_table(doc)
     input_times = searchsummtable.get_inlist().extent()
     output_times = searchsummtable.get_outlist().extent()
   except ValueError:

@@ -31,6 +31,9 @@ from scipy.stats import stats
 import sys
 
 
+import lal
+
+
 from glue import iterutils
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
@@ -43,24 +46,11 @@ from pylal import git_version
 from pylal import inject
 from pylal import rate
 from pylal import snglcoinc
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
-
-
-#
-# =============================================================================
-#
-#                                 Speed Hacks
-#
-# =============================================================================
-#
-
-
-lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 #
@@ -256,13 +246,20 @@ def delay_and_amplitude_correct(event, ra, dec):
 
 	delay = date.XLALTimeDelayFromEarthCenter(detector.location, ra, dec, event.peak)
 	event.peak -= delay
-	event.start -= delay
-	event.ms_start -= delay
+	event.period = event.period.shift(-delay)
+	try:
+		event.ms_peak -= delay
+	except AttributeError:
+		pass
+	try:
+		event.ms_period = event.ms_period.shift(-delay)
+	except AttributeError:
+		pass
 
 	# amplitude-correct the event using the polarization-averaged
 	# antenna response
 
-	fp, fc = inject.XLALComputeDetAMResponse(detector.response, ra, dec, 0, date.XLALGreenwichMeanSiderealTime(peak))
+	fp, fc = lal.ComputeDetAMResponse(detector.response, ra, dec, 0, date.XLALGreenwichMeanSiderealTime(event.peak))
 	mean_response = math.sqrt(fp**2 + fc**2)
 	event.amplitude /= mean_response
 	event.ms_hrss /= mean_response

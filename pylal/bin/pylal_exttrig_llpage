@@ -979,8 +979,7 @@ onsource_doc = SnglInspiralUtils.ReadSnglInspiralFromFiles(\
 # Neeed to work around a bug introduced much earlier:
 # If no trigger, then no table
 try:
-  onsource_trigs = table.get_table(onsource_doc,
-                                  lsctables.SnglInspiralTable.tableName)
+  onsource_trigs = lsctables.SnglInspiralTable.get_table(onsource_doc)
 except AttributeError:
   onsource_trigs = []
 onsource_coincs = CoincInspiralUtils.coincInspiralTable(onsource_trigs,

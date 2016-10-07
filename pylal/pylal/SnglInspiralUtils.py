@@ -25,7 +25,6 @@
 import copy
 
 from pylal import SearchSummaryUtils
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
@@ -101,7 +100,7 @@ def ReadSnglInspiralFromFiles(fileList, verbose=False, filterFunc=None):
     if verbose: print str(i+1)+"/"+str(len(fileList))+": "
     xmldoc = utils.load_filename(file, verbose=verbose, contenthandler=ExtractSnglInspiralTableLIGOLWContentHandler)
     try:
-      sngl_table = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+      sngl_table = lsctables.SnglInspiralTable.get_table(xmldoc)
       if filterFunc is not None:
         iterutils.inplace_filter(filterFunc, sngl_table)
     except ValueError: #some xml files have no sngl table, that's OK
@@ -160,14 +159,14 @@ def ReadSnglInspiralsForPipelineStage(xmldoc, slideDict, stage):
   @param stage:    the name of the stage (INSPIRAL_FIRST, THINCA_0_CAT_2, etc)
   """
 
-  sngls_tbl = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+  sngls_tbl = lsctables.SnglInspiralTable.get_table(xmldoc)
   if 'THINCA' in stage and slideDict:
     # get the time-slides as a dictionary
-    time_slide_tbl = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+    time_slide_tbl = lsctables.TimeSlideTable.get_table(xmldoc)
     time_slide_dict = time_slide_tbl.as_dict()
 
-    coinc_event_tbl = table.get_table(xmldoc, lsctables.CoincTable.tableName)
-    coinc_map_tbl = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+    coinc_event_tbl = lsctables.CoincTable.get_table(xmldoc)
+    coinc_map_tbl = lsctables.CoincMapTable.get_table(xmldoc)
 
     # get the time_slide_ids that have 
     time_slide_ids = set()
@@ -217,7 +216,7 @@ def CompareSnglInspiralBySnr(a, b):
   return cmp(a.snr, b.snr)
 
 
-def CompareSnglInspiral(a, b, twindow = LIGOTimeGPS(0)):
+def CompareSnglInspiral(a, b, twindow = lsctables.LIGOTimeGPS(0)):
   """
   Returns 0 if a and b are less than twindow appart.
   """

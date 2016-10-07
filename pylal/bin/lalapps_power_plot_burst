@@ -43,7 +43,6 @@ from pylal import git_version
 from pylal import rate
 from pylal import SnglBurstUtils
 from pylal import viz
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 lsctables.use_in(ligolw.LIGOLWContentHandler)
@@ -119,9 +118,9 @@ def snglburst_append(self, row):
 	if row.ifo not in summary:
 		summary[row.ifo] = Summary()
 	summary[row.ifo].nevents += 1
-	summary[row.ifo].start_time.append(LIGOTimeGPS(row.start_time, row.start_time_ns))
+	summary[row.ifo].start_time.append(lsctables.LIGOTimeGPS(row.start_time, row.start_time_ns))
 	summary[row.ifo].duration.append(row.duration)
-	summary[row.ifo].peak_time.append(LIGOTimeGPS(row.peak_time, row.peak_time_ns))
+	summary[row.ifo].peak_time.append(lsctables.LIGOTimeGPS(row.peak_time, row.peak_time_ns))
 	summary[row.ifo].peak_freq.append(row.peak_frequency)
 	summary[row.ifo].bandwidth.append(row.bandwidth)
 	summary[row.ifo].lo_freq.append(row.central_freq - row.bandwidth / 2.0)

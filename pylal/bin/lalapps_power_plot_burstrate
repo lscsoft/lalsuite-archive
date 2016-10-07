@@ -46,7 +46,6 @@ from glue.ligolw.utils import ligolw_add
 from pylal import rate
 from pylal import git_version
 from pylal.date import XLALGPSToUTC, UTCMidnights
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 bins_per_filterwidth = 21
@@ -91,11 +90,11 @@ cache files."""
 	# parse trigger cache files
 	if not cache_names:
 		raise ValueError("no cache files named on command line")
-	cache = [CacheEntry(l, coltype = LIGOTimeGPS) for name in cache_names for l in file(name)]
+	cache = [CacheEntry(l, coltype = lsctables.LIGOTimeGPS) for name in cache_names for l in file(name)]
 
 	# set segment
-	options.gps_start_time = int(LIGOTimeGPS(options.gps_start_time))
-	options.gps_end_time = int(LIGOTimeGPS(options.gps_end_time))
+	options.gps_start_time = int(lsctables.LIGOTimeGPS(options.gps_start_time))
+	options.gps_end_time = int(lsctables.LIGOTimeGPS(options.gps_end_time))
 	options.segment = segments.segment(options.gps_start_time, options.gps_end_time)
 	options.read_segment = options.segment.protract(5.0 * options.window)
 
@@ -150,7 +149,7 @@ lsctables.SnglBurstTable.append = snglburst_append
 
 
 def element_filter(name, attrs):
-	return (name == ligolw.Table.tagName) and (table.StripTableName(attrs["Name"]) in map(table.StripTableName, [lsctables.SnglBurstTable.tableName, lsctables.SearchSummaryTable.tableName]))
+	return (name == ligolw.Table.tagName) and (table.Table.TableName(attrs["Name"]) in map(table.Table.TableName, [lsctables.SnglBurstTable.tableName, lsctables.SearchSummaryTable.tableName]))
 
 
 class ContentHandler(ligolw.PartialLIGOLWContentHandler):
@@ -180,7 +179,7 @@ seglist = lsctables.SearchSummaryTable.get_table(ligolw_add.ligolw_add(ligolw.Do
 
 def make_xticks(segment):
 	# generate tick locations and labels
-	values = list(UTCMidnights(*(LIGOTimeGPS(t) for t in segment)))
+	values = list(UTCMidnights(*(lsctables.LIGOTimeGPS(t) for t in segment)))
 	labels = []
 	for tm in map(lambda t: time.struct_time(XLALGPSToUTC(t)), values):
 		if tm.tm_wday == 1:	# tuesday

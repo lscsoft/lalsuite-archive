@@ -215,8 +215,7 @@ def readFiles(fileGlob,statistic=None,dcCalErrorVal=None):
     doc = utils.load_filename(thisFile, gz = (thisFile[-3:] == '.gz') )
     # extract the sim inspiral table
     try:
-      simInspiralTable = \
-          table.get_table(doc, lsctables.SimInspiralTable.tableName)
+      simInspiralTable = lsctables.SimInspiralTable.get_table(doc)
       if dcCalErrorVal != None:
         dc_calibration_correction(simInspiralTable,dcCalErrorVal)
       if sims: sims.extend(simInspiralTable)
@@ -224,8 +223,7 @@ def readFiles(fileGlob,statistic=None,dcCalErrorVal=None):
     except: simInspiralTable = None
 
     # extract the sngl inspiral table, construct coincs
-    try: snglInspiralTable = \
-      table.get_table(doc, lsctables.SnglInspiralTable.tableName)
+    try: snglInspiralTable = lsctables.SnglInspiralTable.get_table(doc)
     except: snglInspiralTable = None
     if snglInspiralTable:
       coincInspiralTable = \
@@ -237,7 +235,7 @@ def readFiles(fileGlob,statistic=None,dcCalErrorVal=None):
 
     max_dist = None
     try: 
-      ppTable = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
+      ppTable = lsctables.ProcessParamsTable.get_table(doc)
       for row in ppTable:
         if row.param=="--max-distance":
           max_dist = float(row.value)

@@ -141,7 +141,7 @@ segmentdb_utils.add_to_segment(outdoc,proc_id,gam_def_id,badgamma_segments)
 segmentdb_utils.add_to_segment(outdoc,proc_id,lig_def_id,light_segments)
 
 # write the xml file to disk
-proctable = table.get_table(outdoc, lsctables.ProcessTable.tableName)
+proctable = lsctables.ProcessTable.get_table(outdoc)
 proctable[0].end_time = gpstime.GpsSecondsFromPyUTC(time.time())
 outname = '-'.join([options.ifo[0],options.type + '_SEGMENTS_V' + str(options.segment_version),str(frame_intervals[0][0]),str(frame_intervals[-1][1]-frame_intervals[0][0])]) + '.xml'
 ligolw_utils.write_filename(outdoc,outname)

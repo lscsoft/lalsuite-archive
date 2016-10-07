@@ -26,7 +26,6 @@ __version__ = git_version.id
 import sys
 import os
 import exceptions
-import types
 
 from pyGlobus import io
 from pyGlobus import security
@@ -383,7 +382,7 @@ class LDRdataFindClient(object):
                 """
 
                 # check argument
-                if type(attr) != types.StringType:
+                if not isinstance(attr, str):
                         msg = "Argument 'attr' must be a string"
                         raise LDRdataFindClientException(msg)
         
@@ -410,7 +409,7 @@ class LDRdataFindClient(object):
                 """
 
                 # check argument
-                if type(lfn) != types.StringType:
+                if not isinstance(lfn, str):
                         msg = "Argument 'lfn' must be a string"
                         raise LDRdataFindClientException(msg)
 
@@ -442,7 +441,7 @@ class LDRdataFindClient(object):
                 if not mytype:
                         msg = "A frame type, --type, must be specified."
                         raise LSCdataFindClientException(msg)
-                if long(end) < long(start):
+                if int(end) < int(start):
                         msg = "Supplied start time, %s, is later than supplied end time, %s" % (start,end)
                         raise LSCdataFindClientException(msg)
 
@@ -556,16 +555,16 @@ class LDRdataFindClient(object):
                 """
 
                 # check arguments
-                if type(sql) != types.StringType:
+                if not isinstance(sql, str):
                         msg = "Argument 'sql' must be a string"
                         raise LDRdataFindClientException(msg)
 
-                if type(rexp) != types.StringType:
+                if not isinstance(rexp, str):
                         msg = "Argument 'rexp' must be a string"
                         raise LDRdataFindClientException(msg)
 
                 if offset:
-                    if type(offset) != types.IntType:
+                    if not isinstance(offset, int):
                             msg = "Argument 'offset' must be a positive integer or zero"
                             raise LDRdataFindClientException(msg)
                 
@@ -574,7 +573,7 @@ class LDRdataFindClient(object):
                             raise LDRdataFindClientException(msg)
                 
                 if number:
-                    if type(number) != types.IntType:
+                    if not isinstance(number, int):
                             msg = "Argument 'number' must be a positive integer"
                             raise LDRdataFindClientException(msg)
                 
@@ -620,11 +619,11 @@ class LDRdataFindClient(object):
                 """
 
                 # check arguments
-                if type(sql1) != types.StringType:
+                if not isinstance(sql1, str):
                         msg = "Argument 'sql1' must be a string"
                         raise LDRdataFindClientException(msg)
 
-                if type(sql2) != types.StringType:
+                if not isinstance(sql2, str):
                         msg = "Argument 'sql2' must be a string"
                         raise LDRdataFindClientException(msg)
 
@@ -671,11 +670,11 @@ class LSCdataFindClient(LDRdataFindClient):
                 @return: Instance of LSCdataFindClient
                 """
                 # check arguments
-                if type(host) != types.StringType:
+                if not isinstance(host, str):
                         msg = "Argument 'host' must be a string"
                         raise LSCdataFindClientException(msg)
 
-                if type(port) != types.IntType:
+                if not isinstance(port, str):
                         msg = "Argument 'port' must be a positive integer"
                         raise LSCdataFindClientException(msg)
 
@@ -822,7 +821,7 @@ be present when searching for groups of files
                 self.__check_gps(start)
                 self.__check_gps(end)
                 
-                if long(end) < long(start):
+                if int(end) < int(start):
                         msg = "Supplied start time, %s, is later than supplied end time, %s" % (start,end)
                         raise LSCdataFindClientException(msg)
 
@@ -885,7 +884,7 @@ be present when searching for groups of files
                 self.__check_gps(start)
                 self.__check_gps(end)
                 
-                if long(end) < long(start):
+                if int(end) < int(start):
                         msg = "Supplied start time, %s, is later than supplied end time, %s" % (start,end)
                         raise LSCdataFindClientException(msg)
                 q1 = LDRMetadataQuery()
@@ -954,7 +953,7 @@ be present when searching for groups of files
                 self.__check_gps(start)
                 self.__check_gps(end)
 
-                if long(end) < long(start):
+                if int(end) < int(start):
                         msg = "Supplied start time, %s, is later than supplied end time, %s" % (start,end)
                         raise LSCdataFindClientException(msg)
 

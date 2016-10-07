@@ -28,11 +28,7 @@
 
 from optparse import OptionParser
 import sys
-try:
-	import sqlite3
-except ImportError:
-	# pre 2.5.x
-	from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 
 
 from glue.lal import CacheEntry
@@ -43,7 +39,6 @@ from pylal import ligolw_burca2
 from pylal import SnglBurstUtils
 from pylal import snglcoinc
 from pylal.SimBurstUtils import MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -84,7 +79,7 @@ def parse_command_line():
 	if options.likelihood_data and (options.likelihood_data_cache is not None):
 		raise ValueError("cannot set both --likelihood-data and --likelihood-data-cache")
 	if options.likelihood_data_cache:
-		options.likelihood_data_cache = set([CacheEntry(line, coltype = LIGOTimeGPS) for line in file(options.likelihood_data_cache)])
+		options.likelihood_data_cache = set([CacheEntry(line, coltype = dbtables.lsctables.LIGOTimeGPS) for line in file(options.likelihood_data_cache)])
 	else:
 		options.likelihood_data_cache = set()
 	if options.program is None:
