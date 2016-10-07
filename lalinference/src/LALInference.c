@@ -4485,3 +4485,65 @@ void LALInferenceDestroyIFOModel(LALInferenceIFOModel *ifo)
   XLALFree(ifo);
   return;
 }
+
+/** Calculate occupied memory size for variables, added by hwlee and KGWG at 7 Oct 2016 */
+int LALInferenceGetAllocatedSize(LALInferenceVariables *var)
+{
+  int size = 0;
+  size += sizeof(INT4);
+  size += sizeof(LALInferenceVariableItem *);
+  size += LALInferenceGetAllocatedSizeItem(var->head);
+  size += var->dimension * sizeof(LALInferenceVariableItem);
+  size += sizeof(LALHashTbl *);
+  size += XLALHashTblSize(var->hash_table);
+  return size; /* size in bytes */
+}
+
+/** Calculate occupied memory size for variableItem, added by hwlee and KGWG at 7 Oct 2016 */
+int LALInferenceGetAllocatedSizeItem(LALInferenceVariableItem *varItem)
+{
+  INT4 count=0;
+  gsl_matrix *m=NULL;
+  REAL8Vector *v8=NULL;
+  COMPLEX16Vector *v16=NULL;
+  LALInferenceVariableItem *ptr = varItem;
+  if (ptr==NULL) return count;
+  else {
+    /* loop over entries: */
+    while (ptr != NULL) {
+      if(ptr->type == LALINFERENCE_gslMatrix_t)
+      {
+        m = *((gsl_matrix **)ptr->value);
+        count += (INT4)( (m->size1)*(m->tda)*sizeof(double) + sizeof(gsl_matrix) );
+      }
+      else if(ptr->type == LALINFERENCE_UINT4Vector_t)
+      {
+        UINT4Vector *v=NULL;
+        v = *((UINT4Vector **)ptr->value);
+        count += (INT4)( v->length*sizeof(UINT4) );
+      }
+      else if(ptr->type == LALINFERENCE_INT4Vector_t)
+      {
+        INT4Vector *v=NULL;
+        v = *((INT4Vector **)ptr->value);
+        count += (INT4)( v->length*sizeof(INT4) );
+      }
+      else if(ptr->type == LALINFERENCE_REAL8Vector_t)
+      {
+        v8 = *(REAL8Vector **)ptr->value;
+        count += (INT4)(v8->length*sizeof(REAL8));
+      }
+      else if(ptr->type == LALINFERENCE_COMPLEX16Vector_t)
+      {
+        v16 = *(COMPLEX16Vector **)ptr->value;
+        count += (INT4)(v16->length*sizeof(COMPLEX16));
+      }
+      else
+      {
+        count += LALInferenceTypeSize[ptr->type];
+      }
+      ptr = ptr->next;
+    }
+  }
+  return count;
+}

@@ -323,6 +323,12 @@ void LALInferencePrintVariables(LALInferenceVariables *var);
 /** Check for equality in two variables */
 int LALInferenceCompareVariables(LALInferenceVariables *var1, LALInferenceVariables *var2);
 
+/** Calculate occupied memory size for variables, added by hwlee and KGWG at 7 Oct 2016 */
+int LALInferenceGetAllocatedSize(LALInferenceVariables *var);
+
+/** Calculate occupied memory size for variableItem, added by hwlee and KGWG at 7 Oct 2016 */
+int LALInferenceGetAllocatedSizeItem(LALInferenceVariableItem *varItem);
+
 /** Computes the factor relating the physical waveform to a measured
     waveform for a spline-fit calibration model in amplitude and
     phase.  The spline points can be arbitrary frequencies, and the
