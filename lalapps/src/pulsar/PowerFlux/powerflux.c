@@ -253,6 +253,10 @@ for(i=0;i<args_info.config_given;i++) {
 	fprintf(LOG, "using config file: %s\n", args_info.config_arg[i]);
 	}
 
+if(!args_info.num_threads_given && args_info.num_threads_env_given) {
+	args_info.num_threads_arg=atoi(getenv(args_info.num_threads_env_arg));
+	}
+	
 init_threads(args_info.num_threads_arg);
 init_jobs();
 init_hookup();

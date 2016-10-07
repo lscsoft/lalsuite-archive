@@ -24,13 +24,16 @@
 #include <sys/select.h>
 #include <unistd.h>
 #include <sys/syscall.h>
+#include <xmmintrin.h>
 
 #include <gsl/gsl_sf_trig.h>
 
 #include "global.h"
 #include "util.h"
+#include "cmdline.h"
 
 extern FILE *LOG;
+extern struct gengetopt_args_info args_info;
 
 void condor_safe_sleep(int seconds)
 {
@@ -260,3 +263,183 @@ memcpy(& ((((char *)(v->data))[v->free*v->item_size])), item, v->item_size);
 v->free++;
 return(v->free-1);
 }
+
+#ifdef __AVX__
+
+#ifndef CRF_STRIDE
+#define CRF_STRIDE 8
+#endif
+
+
+#elif __SSE__
+
+#ifndef CRF_STRIDE
+#define CRF_STRIDE 4
+#endif
+
+#else /* AVX512 ?? */
+
+#ifndef CRF_STRIDE
+#define CRF_STRIDE 16
+#endif
+
+#endif
+
+// #pragma GCC push_options
+// 
+// #pragma GCC optimize ("no-unroll-loops")
+
+
+void compute_range_F(float * __restrict__ data, int length, float *max_value, float *min_value, int *max_bin)
+{
+int i,j, k;
+float * __restrict__ tmp_max;
+float * __restrict__ tmp_min;
+int * __restrict__ tmp_idx;
+int * __restrict__ tmp_j;
+float * __restrict__ p;
+
+#ifdef MANUAL_SSE
+if(args_info.sse_arg) {
+	sse_compute_range_F(data, length, max_value, min_value, max_bin);
+	return;
+	}
+#endif
+
+if(length<CRF_STRIDE) {
+	fprintf(stderr, "*** INTERNAL ERROR: length=%d is less than 16 in %s\n", length, __FUNCTION__);
+	exit(-1);
+	}
+	
+tmp_max=aligned_alloca(CRF_STRIDE*sizeof(*tmp_max));
+tmp_min=aligned_alloca(CRF_STRIDE*sizeof(*tmp_min));
+tmp_idx=aligned_alloca(CRF_STRIDE*sizeof(*tmp_idx));
+tmp_j=aligned_alloca(CRF_STRIDE*sizeof(*tmp_j));
+
+	
+memcpy(tmp_max, data, CRF_STRIDE*sizeof(*data));
+memcpy(tmp_min, data, CRF_STRIDE*sizeof(*data));
+for(i=0;i<CRF_STRIDE;i++)tmp_idx[i]=i;
+memcpy(tmp_j, tmp_idx, CRF_STRIDE*sizeof(*tmp_idx));
+
+for(i=CRF_STRIDE;i+(CRF_STRIDE-1)<length;i+=CRF_STRIDE) {
+	p=&(data[i]);
+	PRAGMA_IVDEP
+	for(j=0;j<CRF_STRIDE;j++) {
+		if(p[j]>tmp_max[j])tmp_idx[j]=tmp_j[j]+i; 
+		}
+	PRAGMA_IVDEP
+	for(j=0;j<CRF_STRIDE;j++) {
+		tmp_max[j]=fmaxf(tmp_max[j], p[j]);
+		}
+	PRAGMA_IVDEP
+	for(j=0;j<CRF_STRIDE;j++) {
+		tmp_min[j]=fminf(tmp_min[j], p[j]);
+		}
+	}
+
+k=length-i;
+if(k>0) {
+	p=&(data[i]);
+	PRAGMA_IVDEP
+	for(j=0;j<k;j++) {
+		if(p[j]>tmp_max[j])tmp_idx[j]=tmp_j[j]+i; 
+		}
+	PRAGMA_IVDEP
+	for(j=0;j<k;j++)tmp_max[j]=fmaxf(tmp_max[j], p[j]);
+	PRAGMA_IVDEP
+	for(j=0;j<k;j++)tmp_min[j]=fminf(tmp_min[j], p[j]);
+	}
+
+*max_value=tmp_max[0];
+*min_value=tmp_min[0];
+*max_bin=tmp_idx[0];
+
+for(i=1;i<CRF_STRIDE;i++) {
+	if(*max_value<tmp_max[i]) {
+		*max_value=tmp_max[i];
+		*max_bin=tmp_idx[i];
+		}
+	if(*min_value>tmp_min[i])*min_value=tmp_min[i];
+	}
+
+}
+
+void sse_compute_range_F(float * __restrict__ data, int length, float *max_value, float *min_value, int *max_bin)
+{
+#ifdef MANUAL_SSE
+#define CRF_STRIDE 4
+	
+int i,j, k;
+float * __restrict__ tmp_max;
+float * __restrict__ tmp_min;
+int * __restrict__ tmp_idx;
+int * __restrict__ tmp_j;
+float * __restrict__ p;
+__m128  v4p, v4max, v4min;
+__m128i v4j;
+
+if(length<CRF_STRIDE) {
+	fprintf(stderr, "*** INTERNAL ERROR: length=%d is less than 16 in %s\n", length, __FUNCTION__);
+	exit(-1);
+	}
+	
+tmp_max=aligned_alloca(CRF_STRIDE*sizeof(*tmp_max));
+tmp_min=aligned_alloca(CRF_STRIDE*sizeof(*tmp_min));
+tmp_idx=aligned_alloca(CRF_STRIDE*sizeof(*tmp_idx));
+tmp_j=aligned_alloca(CRF_STRIDE*sizeof(*tmp_j));
+
+	
+memcpy(tmp_max, data, CRF_STRIDE*sizeof(*data));
+memcpy(tmp_min, data, CRF_STRIDE*sizeof(*data));
+for(i=0;i<CRF_STRIDE;i++)tmp_idx[i]=i;
+memcpy(tmp_j, tmp_idx, CRF_STRIDE*sizeof(*tmp_idx));
+
+v4max=_mm_load_ps(tmp_max);
+v4min=_mm_load_ps(tmp_min);
+v4j=_mm_load_si128((__m128i *)tmp_j);
+for(i=CRF_STRIDE;i+(CRF_STRIDE-1)<length;i+=CRF_STRIDE) {
+	p=&(data[i]);
+
+	v4p=_mm_load_ps(p);
+
+	_mm_maskmoveu_si128(_mm_add_epi32(_mm_set1_epi32(i), v4j), (__m128i) _mm_cmplt_ps(v4max, v4p), tmp_idx);
+
+	v4max=_mm_max_ps(v4max, v4p);
+	v4min=_mm_min_ps(v4min, v4p);
+	}
+	
+_mm_store_ps(tmp_max, v4max);
+_mm_store_ps(tmp_min, v4min);
+
+k=length-i;
+if(k>0) {
+	p=&(data[i]);
+	PRAGMA_IVDEP
+	for(j=0;j<k;j++) {
+		if(p[j]>tmp_max[j])tmp_idx[j]=tmp_j[j]+i; 
+		}
+	PRAGMA_IVDEP
+	for(j=0;j<k;j++)tmp_max[j]=fmaxf(tmp_max[j], p[j]);
+	PRAGMA_IVDEP
+	for(j=0;j<k;j++)tmp_min[j]=fminf(tmp_min[j], p[j]);
+	}
+
+*max_value=tmp_max[0];
+*min_value=tmp_min[0];
+*max_bin=tmp_idx[0];
+
+for(i=1;i<CRF_STRIDE;i++) {
+	if(*max_value<tmp_max[i]) {
+		*max_value=tmp_max[i];
+		*max_bin=tmp_idx[i];
+		}
+	if(*min_value>tmp_min[i])*min_value=tmp_min[i];
+	}
+#else
+fprintf(stderr, "*** ERROR: manual sse is disabled in %s\n", __FUNCTION__);
+exit(-1);
+#endif
+}
+
+// #pragma GCC pop_options

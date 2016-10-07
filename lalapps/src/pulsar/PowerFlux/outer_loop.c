@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 /* We need this define to get NAN values */
-#define __USE_ISOC99
+//#define __USE_ISOC99
 #include <math.h>
 #include <time.h>
 
@@ -779,7 +779,8 @@ for(lm=0;lm<alignment_grid_free;lm++) {
 	for(i=0;i<args_info.nchunks_arg;i++) {
 		for(k=0;k<veto_free;k++) {
 			for(shift=0;shift<fshift_count;shift++) {
-				MODE(compute_power)(ps[i*veto_free+k][j+shift].pps, &(alignment_grid[lm]), &tmp[((i*veto_free+k)*fshift_count+shift)*tmp_stride], &(tmp_min_weight[(i*veto_free+k)*fshift_count+shift]), &(tmp_max_weight[(i*veto_free+k)*fshift_count+shift]));
+ 				MODE(compute_power)(ps[i*veto_free+k][j+shift].pps, &(alignment_grid[lm]), &(tmp[((i*veto_free+k)*fshift_count+shift)*tmp_stride]), &(tmp_min_weight[(i*veto_free+k)*fshift_count+shift]), &(tmp_max_weight[(i*veto_free+k)*fshift_count+shift]));
+				
 				}
 			}
 		}
@@ -829,6 +830,10 @@ for(lm=0;lm<alignment_grid_free;lm++) {
 					/* Accumulate tmp2 from tmp incorporating all per-ifo pieces */
 					/* We need to do all sub-bin shifts in one go */
 					for(shift=0;shift<fshift_count;shift++) {
+						/* It could be that the chunk is too small to contain any SFTs. 
+						 * Skip and continue */
+						if(tmp_max_weight[(k*veto_free+m)*fshift_count+shift]<=0)continue;
+						
 						p1=&(tmp[((k*veto_free+m)*fshift_count+shift)*tmp_stride]);
 						p5=&(tmp2a[tmp_stride*shift]);
 															
@@ -855,6 +860,10 @@ for(lm=0;lm<alignment_grid_free;lm++) {
 				/* Accumulate tmp2 from tmp incorporating all per-ifo pieces */
 				/* We need to do all sub-bin shifts in one go */
 				for(shift=0;shift<fshift_count;shift++) {
+					/* It could be that the chunk is too small to contain any SFTs. 
+						* Skip and continue */
+					if(tmp_max_weight[(k*veto_free+m)*fshift_count+shift]<=0)continue;
+					
 					p1=&(tmp[((k*veto_free+m)*fshift_count+shift)*tmp_stride]);
 					p5=&(tmp2a[tmp_stride*shift]);
 														
@@ -879,9 +888,6 @@ for(lm=0;lm<alignment_grid_free;lm++) {
 		for(shift=0;shift<fshift_count;shift++) {
 			p5=&(tmp2a[tmp_stride*shift]);
 			
-// 			fprintf(stderr, "total_weight=%g ei=%d %d %d\n", 
-// 				total_weight,
-// 				ei[i]->first_chunk,ei[i]->last_chunk, ei[i]->veto_num);
 			
 			inv_weight=1.0f/total_weight[shift];
 			PRAGMA_IVDEP
@@ -889,6 +895,14 @@ for(lm=0;lm<alignment_grid_free;lm++) {
 				p5[r]*=inv_weight;
 				}
 			MODE(compute_universal_statistics)(p5, min_weight, max_weight, &(alignment_grid[lm]), &pst);
+			
+			if(!isfinite(pst.snr)) {
+				/* This is not fatal, but possibly needs checking */
+				fprintf(stderr, "*** ERROR: non-finite max_dx pi=%d lm=%d i=%d j=%d shift=%d count=%d tmp_stride=%ld min_weight=%g max_weight=%g total_weight=%g veto_num=%d %d_%d\n", pi, lm, i, j, shift, count, tmp_stride, min_weight, max_weight, total_weight[shift], ei[i]->veto_num, ei[i]->first_chunk, ei[i]->last_chunk); 
+// 				fprintf(stderr, "p5={");
+// 				for(r=0;r<useful_bins;r++)fprintf(stderr, " %g", p5[r]);
+// 				fprintf(stderr, "}\n");
+				}
 			
 			update_power_sum_stats(&pst, &(alignment_grid[lm]), &(stats[i*count+j+shift]));
 			}

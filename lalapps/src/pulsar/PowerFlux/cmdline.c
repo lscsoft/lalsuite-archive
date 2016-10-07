@@ -149,6 +149,7 @@ const char *gengetopt_args_info_help[] = {
   "      --extended-test=INT       Perform extended self test functions given by\n                                  this bitmask  (default=`1')",
   "      --max-sft-report=INT      Maximum count of SFTs to report with veto\n                                  information  (default=`100')",
   "      --num-threads=INT         Use that many threads for computation\n                                  (default=`-1')",
+  "      --num-threads-env=STRING  Use this environment variable to obtain\n                                  num-threads  (default=`')",
   "      --niota=INT               Number of iota values to use in alignment grid\n                                  (default=`3')",
   "      --npsi=INT                Number of psi values to use in alignment grid\n                                  (default=`6')",
   "      --nfshift=INT             Number of sub-bin frequency shifts to sample\n                                  (default=`2')",
@@ -349,6 +350,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->extended_test_given = 0 ;
   args_info->max_sft_report_given = 0 ;
   args_info->num_threads_given = 0 ;
+  args_info->num_threads_env_given = 0 ;
   args_info->niota_given = 0 ;
   args_info->npsi_given = 0 ;
   args_info->nfshift_given = 0 ;
@@ -600,6 +602,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->max_sft_report_orig = NULL;
   args_info->num_threads_arg = -1;
   args_info->num_threads_orig = NULL;
+  args_info->num_threads_env_arg = gengetopt_strdup ("");
+  args_info->num_threads_env_orig = NULL;
   args_info->niota_arg = 3;
   args_info->niota_orig = NULL;
   args_info->npsi_arg = 6;
@@ -791,41 +795,42 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->extended_test_help = gengetopt_args_info_help[112] ;
   args_info->max_sft_report_help = gengetopt_args_info_help[113] ;
   args_info->num_threads_help = gengetopt_args_info_help[114] ;
-  args_info->niota_help = gengetopt_args_info_help[115] ;
-  args_info->npsi_help = gengetopt_args_info_help[116] ;
-  args_info->nfshift_help = gengetopt_args_info_help[117] ;
-  args_info->nchunks_help = gengetopt_args_info_help[118] ;
-  args_info->nchunks_refinement_help = gengetopt_args_info_help[119] ;
-  args_info->min_nchunks_help = gengetopt_args_info_help[120] ;
-  args_info->split_ifos_help = gengetopt_args_info_help[121] ;
-  args_info->default_dataset_veto_level_help = gengetopt_args_info_help[122] ;
-  args_info->default_dataset_veto_spike_level_help = gengetopt_args_info_help[123] ;
-  args_info->weight_cutoff_fraction_help = gengetopt_args_info_help[124] ;
-  args_info->per_dataset_weight_cutoff_fraction_help = gengetopt_args_info_help[125] ;
-  args_info->power_max_median_factor_help = gengetopt_args_info_help[126] ;
-  args_info->tmedian_noise_level_help = gengetopt_args_info_help[127] ;
-  args_info->summing_step_help = gengetopt_args_info_help[128] ;
-  args_info->max_first_shift_help = gengetopt_args_info_help[129] ;
-  args_info->statistics_function_help = gengetopt_args_info_help[130] ;
-  args_info->confidence_level_help = gengetopt_args_info_help[131] ;
-  args_info->x_epsilon_help = gengetopt_args_info_help[132] ;
-  args_info->dump_power_sums_help = gengetopt_args_info_help[133] ;
-  args_info->compute_skymaps_help = gengetopt_args_info_help[134] ;
-  args_info->fine_grid_skymarks_help = gengetopt_args_info_help[135] ;
-  args_info->half_window_help = gengetopt_args_info_help[136] ;
-  args_info->tail_veto_help = gengetopt_args_info_help[137] ;
-  args_info->cache_granularity_help = gengetopt_args_info_help[138] ;
-  args_info->diff_shift_granularity_help = gengetopt_args_info_help[139] ;
-  args_info->sidereal_group_count_help = gengetopt_args_info_help[140] ;
-  args_info->time_group_count_help = gengetopt_args_info_help[141] ;
-  args_info->phase_mismatch_help = gengetopt_args_info_help[142] ;
-  args_info->bypass_powersum_cache_help = gengetopt_args_info_help[143] ;
-  args_info->compute_cross_terms_help = gengetopt_args_info_help[144] ;
-  args_info->mixed_dataset_only_help = gengetopt_args_info_help[145] ;
-  args_info->preallocate_memory_help = gengetopt_args_info_help[146] ;
-  args_info->memory_allocation_retries_help = gengetopt_args_info_help[147] ;
-  args_info->sse_help = gengetopt_args_info_help[148] ;
-  args_info->extra_phase_help = gengetopt_args_info_help[149] ;
+  args_info->num_threads_env_help = gengetopt_args_info_help[115] ;
+  args_info->niota_help = gengetopt_args_info_help[116] ;
+  args_info->npsi_help = gengetopt_args_info_help[117] ;
+  args_info->nfshift_help = gengetopt_args_info_help[118] ;
+  args_info->nchunks_help = gengetopt_args_info_help[119] ;
+  args_info->nchunks_refinement_help = gengetopt_args_info_help[120] ;
+  args_info->min_nchunks_help = gengetopt_args_info_help[121] ;
+  args_info->split_ifos_help = gengetopt_args_info_help[122] ;
+  args_info->default_dataset_veto_level_help = gengetopt_args_info_help[123] ;
+  args_info->default_dataset_veto_spike_level_help = gengetopt_args_info_help[124] ;
+  args_info->weight_cutoff_fraction_help = gengetopt_args_info_help[125] ;
+  args_info->per_dataset_weight_cutoff_fraction_help = gengetopt_args_info_help[126] ;
+  args_info->power_max_median_factor_help = gengetopt_args_info_help[127] ;
+  args_info->tmedian_noise_level_help = gengetopt_args_info_help[128] ;
+  args_info->summing_step_help = gengetopt_args_info_help[129] ;
+  args_info->max_first_shift_help = gengetopt_args_info_help[130] ;
+  args_info->statistics_function_help = gengetopt_args_info_help[131] ;
+  args_info->confidence_level_help = gengetopt_args_info_help[132] ;
+  args_info->x_epsilon_help = gengetopt_args_info_help[133] ;
+  args_info->dump_power_sums_help = gengetopt_args_info_help[134] ;
+  args_info->compute_skymaps_help = gengetopt_args_info_help[135] ;
+  args_info->fine_grid_skymarks_help = gengetopt_args_info_help[136] ;
+  args_info->half_window_help = gengetopt_args_info_help[137] ;
+  args_info->tail_veto_help = gengetopt_args_info_help[138] ;
+  args_info->cache_granularity_help = gengetopt_args_info_help[139] ;
+  args_info->diff_shift_granularity_help = gengetopt_args_info_help[140] ;
+  args_info->sidereal_group_count_help = gengetopt_args_info_help[141] ;
+  args_info->time_group_count_help = gengetopt_args_info_help[142] ;
+  args_info->phase_mismatch_help = gengetopt_args_info_help[143] ;
+  args_info->bypass_powersum_cache_help = gengetopt_args_info_help[144] ;
+  args_info->compute_cross_terms_help = gengetopt_args_info_help[145] ;
+  args_info->mixed_dataset_only_help = gengetopt_args_info_help[146] ;
+  args_info->preallocate_memory_help = gengetopt_args_info_help[147] ;
+  args_info->memory_allocation_retries_help = gengetopt_args_info_help[148] ;
+  args_info->sse_help = gengetopt_args_info_help[149] ;
+  args_info->extra_phase_help = gengetopt_args_info_help[150] ;
   args_info->extra_phase_min = 0;
   args_info->extra_phase_max = 0;
   
@@ -1090,6 +1095,8 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->extended_test_orig));
   free_string_field (&(args_info->max_sft_report_orig));
   free_string_field (&(args_info->num_threads_orig));
+  free_string_field (&(args_info->num_threads_env_arg));
+  free_string_field (&(args_info->num_threads_env_orig));
   free_string_field (&(args_info->niota_orig));
   free_string_field (&(args_info->npsi_orig));
   free_string_field (&(args_info->nfshift_orig));
@@ -1391,6 +1398,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "max-sft-report", args_info->max_sft_report_orig, 0);
   if (args_info->num_threads_given)
     write_into_file(outfile, "num-threads", args_info->num_threads_orig, 0);
+  if (args_info->num_threads_env_given)
+    write_into_file(outfile, "num-threads-env", args_info->num_threads_env_orig, 0);
   if (args_info->niota_given)
     write_into_file(outfile, "niota", args_info->niota_orig, 0);
   if (args_info->npsi_given)
@@ -2146,6 +2155,7 @@ cmdline_parser_internal (
         { "extended-test",	1, NULL, 0 },
         { "max-sft-report",	1, NULL, 0 },
         { "num-threads",	1, NULL, 0 },
+        { "num-threads-env",	1, NULL, 0 },
         { "niota",	1, NULL, 0 },
         { "npsi",	1, NULL, 0 },
         { "nfshift",	1, NULL, 0 },
@@ -3755,6 +3765,20 @@ cmdline_parser_internal (
                 &(local_args_info.num_threads_given), optarg, 0, "-1", ARG_INT,
                 check_ambiguity, override, 0, 0,
                 "num-threads", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Use this environment variable to obtain num-threads.  */
+          else if (strcmp (long_options[option_index].name, "num-threads-env") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->num_threads_env_arg), 
+                 &(args_info->num_threads_env_orig), &(args_info->num_threads_env_given),
+                &(local_args_info.num_threads_env_given), optarg, 0, "", ARG_STRING,
+                check_ambiguity, override, 0, 0,
+                "num-threads-env", '-',
                 additional_error))
               goto failure;
           

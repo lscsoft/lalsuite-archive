@@ -139,6 +139,7 @@ option "extended-test" - "Perform extended self test functions given by this bit
 option "max-sft-report" - "Maximum count of SFTs to report with veto information" int default="100" no
 
 option "num-threads"  - "Use that many threads for computation" int default="-1" no
+option "num-threads-env"  - "Use this environment variable to obtain num-threads" string default="" no
 
 #
 # Options for v2 code

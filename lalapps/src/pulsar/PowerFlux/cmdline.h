@@ -377,6 +377,9 @@ struct gengetopt_args_info
   int num_threads_arg;	/**< @brief Use that many threads for computation (default='-1').  */
   char * num_threads_orig;	/**< @brief Use that many threads for computation original value given at command line.  */
   const char *num_threads_help; /**< @brief Use that many threads for computation help description.  */
+  char * num_threads_env_arg;	/**< @brief Use this environment variable to obtain num-threads (default='').  */
+  char * num_threads_env_orig;	/**< @brief Use this environment variable to obtain num-threads original value given at command line.  */
+  const char *num_threads_env_help; /**< @brief Use this environment variable to obtain num-threads help description.  */
   int niota_arg;	/**< @brief Number of iota values to use in alignment grid (default='3').  */
   char * niota_orig;	/**< @brief Number of iota values to use in alignment grid original value given at command line.  */
   const char *niota_help; /**< @brief Number of iota values to use in alignment grid help description.  */
@@ -599,6 +602,7 @@ struct gengetopt_args_info
   unsigned int extended_test_given ;	/**< @brief Whether extended-test was given.  */
   unsigned int max_sft_report_given ;	/**< @brief Whether max-sft-report was given.  */
   unsigned int num_threads_given ;	/**< @brief Whether num-threads was given.  */
+  unsigned int num_threads_env_given ;	/**< @brief Whether num-threads-env was given.  */
   unsigned int niota_given ;	/**< @brief Whether niota was given.  */
   unsigned int npsi_given ;	/**< @brief Whether npsi was given.  */
   unsigned int nfshift_given ;	/**< @brief Whether nfshift was given.  */

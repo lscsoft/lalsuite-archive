@@ -320,6 +320,10 @@ if(args_info.preallocate_memory_arg>0) {
 	fprintf(stderr, "Memory usage after preallocation: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
 	}
 
+if(!args_info.num_threads_given && args_info.num_threads_env_given) {
+	args_info.num_threads_arg=atoi(getenv(args_info.num_threads_env_arg));
+	}
+	
 init_threads(args_info.num_threads_arg);
 init_jobs();
 init_hookup();

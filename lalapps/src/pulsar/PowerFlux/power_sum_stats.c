@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 /* We need this define to get NAN values */
-#define __USE_ISOC99
+//#define __USE_ISOC99
 #include <math.h>
 #include <gsl/gsl_cblas.h>
 #include <gsl/gsl_cdf.h>
@@ -736,9 +736,9 @@ pst->ks_count=nstats.ks_count;
 void point_power_sum_stats_linear(PARTIAL_POWER_SUM_F *pps, ALIGNMENT_COEFFS *ag, POINT_STATS *pst)
 {
 int i, count;
-float M, S, a, b, inv_S, inv_weight, inv_count, normalizer;
+float M, S, a, b, inv_S, inv_weight, inv_count, normalizer, inv_normalizer;
 float *tmp=NULL;
-float max_dx;
+float max_dx, min_val;
 int max_dx_bin;
 float weight, min_weight, max_weight;
 float sum, sum_sq, sum1, sum3, sum4;
@@ -809,17 +809,7 @@ if(min_weight<= args_info.small_weight_ratio_arg*max_weight) {
 	}
 	
 /* find highest bin */
-max_dx=tmp[0];
-max_dx_bin=0;
-
-for(i=1;i<useful_bins;i++) {
-	a=tmp[i];
-	if(a>max_dx) {
-		max_dx=a;
-		max_dx_bin=i;
-		}
-	}
-
+compute_range_F(tmp, useful_bins, &max_dx, &min_val, &max_dx_bin);
 
 /* doing everything in one pass and then subtracting does not work due to precision errors if we chance upon a very high max_dx and because float does not keep many digits */
 
@@ -844,7 +834,10 @@ for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 inv_count=1.0/count;
 M=sum*inv_count;
 
-normalizer=1.0/fabsf(max_dx);
+/* better normalization now that we have min_val */
+inv_normalizer=max_dx-min_val;
+if(inv_normalizer<=0.0)inv_normalizer=1.0; /* in case we have all 0 for missing data */
+normalizer=1.0/inv_normalizer;
 
 sum_sq=0.0;
 sum1=0.0;
@@ -874,7 +867,7 @@ for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 	sum4+=b*b;
 	}
 
-S=sqrt(sum_sq/(count-1))*fabsf(max_dx);
+S=sqrt(sum_sq/(count-1))*inv_normalizer;
 inv_S=1.0/S;
 
 /* convert to SNR from the highest power */
@@ -923,10 +916,10 @@ pst->ks_count=0;
 void cblas_point_power_sum_stats_linear(PARTIAL_POWER_SUM_F *pps, ALIGNMENT_COEFFS *ag, POINT_STATS *pst)
 {
 int i, count;
-float M, S, a, b, inv_S, inv_weight, inv_count, normalizer;
+float M, S, a, b, inv_S, inv_weight, inv_count, normalizer, inv_normalizer;
 float *tmp=NULL, *weight_tmp=NULL;
 NORMAL_STATS nstats;
-float max_dx;
+float max_dx, min_val;
 int max_dx_bin;
 float weight, min_weight, max_weight;
 float sum, sum_sq, sum1, sum3, sum4;
@@ -1029,17 +1022,7 @@ if(min_weight<= args_info.small_weight_ratio_arg*max_weight) {
 	}
 	
 /* find highest bin */
-max_dx=tmp[0];
-max_dx_bin=0;
-
-for(i=1;i<useful_bins;i++) {
-	a=tmp[i];
-	if(a>max_dx) {
-		max_dx=a;
-		max_dx_bin=i;
-		}
-	}
-
+compute_range_F(tmp, useful_bins, &max_dx, &min_val, &max_dx_bin);
 
 /* doing everything in one pass and then subtracting does not work due to precision errors if we chance upon a very high max_dx and because float does not keep many digits */
 
@@ -1064,7 +1047,10 @@ for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 inv_count=1.0/count;
 M=sum*inv_count;
 
-normalizer=1.0/fabsf(max_dx);
+/* better normalization now that we have min_val */
+inv_normalizer=max_dx-min_val;
+if(inv_normalizer<=0.0)inv_normalizer=1.0; /* in case we have all 0 for missing data */
+normalizer=1.0/inv_normalizer;
 
 sum_sq=0.0;
 sum1=0.0;
@@ -1094,7 +1080,7 @@ for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 	sum4+=b*b;
 	}
 
-S=sqrt(sum_sq/(count-1))*fabsf(max_dx);
+S=sqrt(sum_sq/(count-1))*inv_normalizer;
 inv_S=1.0/S;
 
 /* convert to SNR from the highest power */
@@ -1144,10 +1130,10 @@ void sse_point_power_sum_stats_linear(PARTIAL_POWER_SUM_F *pps, ALIGNMENT_COEFFS
 {
 #if MANUAL_SSE
 int i, count;
-float M, S, a, b, inv_S, inv_weight, inv_count, normalizer;
+float M, S, a, b, inv_S, inv_weight, inv_count, normalizer, inv_normalizer;
 float *tmp=NULL;
 NORMAL_STATS nstats;
-float max_dx;
+float max_dx, min_val;
 int max_dx_bin;
 float weight, min_weight, max_weight;
 float sum, sum_sq, sum1, sum3, sum4;
@@ -1389,16 +1375,7 @@ if(min_weight<= args_info.small_weight_ratio_arg*max_weight) {
 	}
 	
 /* find highest bin */
-max_dx=tmp[0];
-max_dx_bin=0;
-
-for(i=1;i<useful_bins;i++) {
-	a=tmp[i];
-	if(a>max_dx) {
-		max_dx=a;
-		max_dx_bin=i;
-		}
-	}
+compute_range_F(tmp, useful_bins, &max_dx, &min_val, &max_dx_bin);
 
 
 /* doing everything in one pass and then subtracting does not work due to precision errors if we chance upon a very high max_dx and because float does not keep many digits */
@@ -1437,7 +1414,10 @@ count+=i-max_dx_bin-half_window-1;
 inv_count=1.0/count;
 M=sum*inv_count;
 
-normalizer=1.0/fabsf(max_dx);
+/* better normalization now that we have min_val */
+inv_normalizer=max_dx-min_val;
+if(inv_normalizer<=0.0)inv_normalizer=1.0; /* in case we have all 0 for missing data */
+normalizer=1.0/inv_normalizer;
 
 sum_sq=0.0;
 sum1=0.0;
@@ -1523,7 +1503,7 @@ sum3+=tmp2[0]+tmp2[1]+tmp2[2]+tmp2[3];
 _mm_store_ps(tmp2, v4sum4);
 sum4+=tmp2[0]+tmp2[1]+tmp2[2]+tmp2[3];
 
-S=sqrt(sum_sq/(count-1))*fabsf(max_dx);
+S=sqrt(sum_sq/(count-1))*inv_normalizer;
 inv_S=1.0/S;
 
 /* convert to SNR from the highest power */
@@ -1576,9 +1556,9 @@ exit(-2);
 void point_power_sum_stats_universal(PARTIAL_POWER_SUM_F *pps, ALIGNMENT_COEFFS *ag, POINT_STATS *pst)
 {
 int i, count;
-float M, S, a, b, s3, inv_S, inv_weight, inv_count, normalizer;
+float M, S, a, b, s3, inv_S, inv_weight, inv_count, normalizer, inv_normalizer;
 float *tmp=NULL;
-float max_dx;
+float max_dx, min_val;
 int max_dx_bin;
 float weight, min_weight, max_weight;
 float sum, sum_sq, sum1, sum3, sum4, sum_abs, sum_c;
@@ -1649,6 +1629,10 @@ if(min_weight<= args_info.small_weight_ratio_arg*max_weight) {
 	}
 	
 /* find highest bin */
+
+compute_range_F(tmp, useful_bins, &max_dx, &min_val, &max_dx_bin);
+
+/*
 max_dx=tmp[0];
 max_dx_bin=0;
 
@@ -1658,7 +1642,7 @@ for(i=1;i<useful_bins;i++) {
 		max_dx=a;
 		max_dx_bin=i;
 		}
-	}
+	}*/
 
 /* Constants for 0.95 confidence level */
 #define LEVEL 0.95
@@ -1690,7 +1674,10 @@ for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 inv_count=1.0/count;
 M=sum*inv_count;
 
-normalizer=1.0/fabsf(max_dx);
+/* better normalization now that we have min_val */
+inv_normalizer=max_dx-min_val;
+if(inv_normalizer<=0.0)inv_normalizer=1.0; /* in case we have all 0 for missing data */
+normalizer=1.0/inv_normalizer;
 
 sum_sq=0.0;
 sum1=0.0;
@@ -1728,7 +1715,7 @@ for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 //inv_S=1.0/S;
 
 // abs-based
-S=sum_abs*fabsf(max_dx)*SQRT_PI_2/count;
+S=sum_abs*inv_normalizer*SQRT_PI_2/count;
 inv_S=1.0/S;
 
 /* convert to SNR from the highest power */
@@ -1891,9 +1878,9 @@ void compute_universal_statistics(float *tmp, float min_weight, float max_weight
 {
 int half_window=args_info.half_window_arg;
 float sum, sum_sq, sum1, sum3, sum4, sum_abs, sum_c;
-float max_dx;
+float max_dx, min_val;
 int max_dx_bin, i, count;
-float M, S, a, b, s3, inv_S, inv_count, normalizer;
+float M, S, a, b, s3, inv_S, inv_count, normalizer, inv_normalizer;
 
 /* 0 weight can happen due to extreme line veto at low frequencies and small spindowns */
 if(min_weight<= args_info.small_weight_ratio_arg*max_weight) {
@@ -1902,17 +1889,7 @@ if(min_weight<= args_info.small_weight_ratio_arg*max_weight) {
 	}
 	
 /* find highest bin */
-max_dx=tmp[0];
-max_dx_bin=0;
-
-PRAGMA_IVDEP
-for(i=1;i<useful_bins;i++) {
-	a=tmp[i];
-	if(a>max_dx) {
-		max_dx=a;
-		max_dx_bin=i;
-		}
-	}
+compute_range_F(tmp, useful_bins, &max_dx, &min_val, &max_dx_bin);
 
 /* Constant for mean(|x|) */
 #define SQRT_PI_2   1.253314
@@ -1946,7 +1923,10 @@ for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 inv_count=1.0/count;
 M=sum*inv_count;
 
-normalizer=1.0/fabsf(max_dx);
+/* better normalization now that we have min_val */
+inv_normalizer=max_dx-min_val;
+if(inv_normalizer<=0.0)inv_normalizer=1.0; /* in case we have all 0 for missing data */
+normalizer=1.0/inv_normalizer;
 
 sum_sq=0.0;
 sum1=0.0;
@@ -1986,7 +1966,7 @@ for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 //inv_S=1.0/S;
 
 // use lower tail only
-S=sum1*fabsf(max_dx)*SQRT_2PI/count;
+S=sum1*inv_normalizer*SQRT_2PI/count;
 inv_S=1.0/S;
 
 /* convert to SNR from the highest power */
@@ -2078,9 +2058,9 @@ compute_universal_statistics(tmp, min_weight, max_weight, ag, pst);
 void point_power_sum_stats_universal_piecewise_linearA(PARTIAL_POWER_SUM_F *pps, ALIGNMENT_COEFFS *ag, POINT_STATS *pst)
 {
 int i, count;
-float M, S, a, b, s3, inv_S, inv_weight, inv_count, normalizer;
+float M, S, a, b, s3, inv_S, inv_weight, inv_count, normalizer, inv_normalizer;
 float *tmp=NULL;
-float max_dx;
+float max_dx, min_val;
 int max_dx_bin;
 float weight, min_weight, max_weight;
 float sum, sum_sq, sum1, sum3, sum4, sum_abs, sum_c;
@@ -2154,17 +2134,7 @@ if(min_weight<= args_info.small_weight_ratio_arg*max_weight) {
 	}
 	
 /* find highest bin */
-max_dx=tmp[0];
-max_dx_bin=0;
-
-PRAGMA_IVDEP
-for(i=1;i<useful_bins;i++) {
-	a=tmp[i];
-	if(a>max_dx) {
-		max_dx=a;
-		max_dx_bin=i;
-		}
-	}
+compute_range_F(tmp, useful_bins, &max_dx, &min_val, &max_dx_bin);
 
 /* Constant for mean(|x|) */
 #define SQRT_PI_2   1.253314
@@ -2198,7 +2168,10 @@ for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 inv_count=1.0/count;
 M=sum*inv_count;
 
-normalizer=1.0/fabsf(max_dx);
+/* better normalization now that we have min_val */
+inv_normalizer=max_dx-min_val;
+if(inv_normalizer<=0.0)inv_normalizer=1.0; /* in case we have all 0 for missing data */
+normalizer=1.0/inv_normalizer;
 
 sum_sq=0.0;
 sum1=0.0;
@@ -2238,7 +2211,7 @@ for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 //inv_S=1.0/S;
 
 // use lower tail only
-S=sum1*fabsf(max_dx)*SQRT_2PI/count;
+S=sum1*inv_normalizer*SQRT_2PI/count;
 inv_S=1.0/S;
 
 /* convert to SNR from the highest power */
@@ -2569,15 +2542,15 @@ void sse_compute_universal_statistics(float *tmp, float min_weight, float max_we
 {
 #if MANUAL_SSE
 int i, count;
-float M, S, a, b, s3, inv_S, inv_count, normalizer;
-float max_dx;
+float M, S, a, b, s3, inv_S, inv_count, normalizer, inv_normalizer;
+float max_dx, min_val;
 int max_dx_bin;
 float sum, sum_sq, sum1, sum3, sum4, sum_c;
 int half_window=args_info.half_window_arg;
 float *tmp2=NULL;
 __m128 v4a,v4b, v4c, v4d, v4tmp, v4sum, v4sum_sq, v4sum3, v4sum4, v4zero;
 	
-tmp2=aligned_alloca(4*sizeof(tmp2));
+tmp2=aligned_alloca(4*sizeof(*tmp2));
 
 /* 0 weight can happen due to extreme line veto at low frequencies and small spindowns */
 if(min_weight<= args_info.small_weight_ratio_arg*max_weight) {
@@ -2586,17 +2559,7 @@ if(min_weight<= args_info.small_weight_ratio_arg*max_weight) {
 	}
 	
 /* find highest bin */
-max_dx=tmp[0];
-max_dx_bin=0;
-
-for(i=1;i<useful_bins;i++) {
-	a=tmp[i];
-	if(a>max_dx) {
-		max_dx=a;
-		max_dx_bin=i;
-		}
-	}
-
+compute_range_F(tmp, useful_bins, &max_dx, &min_val, &max_dx_bin);
 
 /* doing everything in one pass and then subtracting does not work due to precision errors if we chance upon a very high max_dx and because float does not keep many digits */
 
@@ -2634,7 +2597,10 @@ count+=i-max_dx_bin-half_window-1;
 inv_count=1.0/count;
 M=sum*inv_count;
 
-normalizer=1.0/fabsf(max_dx);
+/* better normalization now that we have min_val */
+inv_normalizer=max_dx-min_val;
+if(inv_normalizer<=0.0)inv_normalizer=1.0; /* in case we have all 0 for missing data */
+normalizer=1.0/inv_normalizer;
 
 sum_sq=0.0;
 sum1=0.0;
@@ -2721,7 +2687,7 @@ _mm_store_ps(tmp2, v4sum4);
 sum4+=tmp2[0]+tmp2[1]+tmp2[2]+tmp2[3];
 
 // S=sqrt(sum_sq/(count-1))*max_dx;
-S=sum1*fabsf(max_dx)*SQRT_2PI/count;
+S=sum1*inv_normalizer*SQRT_2PI/count;
 inv_S=1.0/S;
 
 /* convert to SNR from the highest power */
@@ -2864,10 +2830,10 @@ void sse_point_power_sum_stats_universal_piecewise_linearA(PARTIAL_POWER_SUM_F *
 {
 #if MANUAL_SSE
 int i, count;
-float M, S, a, b, s3, inv_S, inv_weight, inv_count, normalizer;
+float M, S, a, b, s3, inv_S, inv_weight, inv_count, normalizer, inv_normalizer;
 float *tmp=NULL;
 NORMAL_STATS nstats;
-float max_dx;
+float max_dx, min_val;
 int max_dx_bin;
 float weight, min_weight, max_weight;
 float sum, sum_sq, sum1, sum3, sum4, sum_c;
@@ -3111,17 +3077,7 @@ if(min_weight<= args_info.small_weight_ratio_arg*max_weight) {
 	}
 	
 /* find highest bin */
-max_dx=tmp[0];
-max_dx_bin=0;
-
-for(i=1;i<useful_bins;i++) {
-	a=tmp[i];
-	if(a>max_dx) {
-		max_dx=a;
-		max_dx_bin=i;
-		}
-	}
-
+compute_range_F(tmp, useful_bins, &max_dx, &min_val, &max_dx_bin);
 
 /* doing everything in one pass and then subtracting does not work due to precision errors if we chance upon a very high max_dx and because float does not keep many digits */
 
@@ -3159,7 +3115,10 @@ count+=i-max_dx_bin-half_window-1;
 inv_count=1.0/count;
 M=sum*inv_count;
 
-normalizer=1.0/fabsf(max_dx);
+/* better normalization now that we have min_val */
+inv_normalizer=max_dx-min_val;
+if(inv_normalizer<=0.0)inv_normalizer=1.0; /* in case we have all 0 for missing data */
+normalizer=1.0/inv_normalizer;
 
 sum_sq=0.0;
 sum1=0.0;
@@ -3246,7 +3205,7 @@ _mm_store_ps(tmp2, v4sum4);
 sum4+=tmp2[0]+tmp2[1]+tmp2[2]+tmp2[3];
 
 // S=sqrt(sum_sq/(count-1))*max_dx;
-S=sum1*fabsf(max_dx)*SQRT_2PI/count;
+S=sum1*inv_normalizer*SQRT_2PI/count;
 inv_S=1.0/S;
 
 /* convert to SNR from the highest power */
