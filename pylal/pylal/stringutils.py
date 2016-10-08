@@ -40,7 +40,6 @@ from glue.ligolw.utils import process as ligolw_process
 from glue.offsetvector import offsetvector
 from pylal import ligolw_burca_tailor
 from pylal import git_version
-from pylal import inject
 from pylal import rate
 from pylal import snglcoinc
 
@@ -101,7 +100,7 @@ def triangulators(timing_uncertainties):
 
 
 def dt_binning(instrument1, instrument2):
-	dt = 0.005 + inject.light_travel_time(instrument1, instrument2)	# seconds
+	dt = 0.005 + snglcoinc.light_travel_time(instrument1, instrument2)	# seconds
 	return rate.NDBins((rate.ATanBins(-dt, +dt, 801),))
 
 

@@ -52,7 +52,7 @@ import sys
 
 
 from pylal import git_version
-from pylal import inject
+from pylal import snglcoinc
 from pylal import stringutils
 
 
@@ -322,7 +322,7 @@ for (background_name, background_binnedarray), (injections_name, injections_binn
 	elif name.endswith("_dt"):
 		if options.verbose:
 			print >>sys.stderr, "generating plots for %s ..." % name
-		dt = .010 + inject.light_travel_time(*instruments)
+		dt = .010 + snglcoinc.light_travel_time(*instruments)
 		background_coords, background_data = clip_binned_array_1d(background_binnedarray, (-dt, +dt))
 		injections_coords, injections_data = clip_binned_array_1d(injections_binnedarray, (-dt, +dt))
 		zero_lag_coords, zero_lag_data = clip_binned_array_1d(zero_lag_binnedarray, (-dt, +dt))
