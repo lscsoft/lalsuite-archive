@@ -29,6 +29,9 @@ import scipy.stats
 import sys
 
 
+import lal
+
+
 from glue import iterutils
 from glue import segmentsUtils
 from glue.ligolw import lsctables
@@ -87,7 +90,7 @@ def triangulators(timing_uncertainties):
 	triangulators = {}
 	for n in range(2, len(allinstruments) + 1):
 		for instruments in iterutils.choices(allinstruments, n):
-			triangulators[instruments] = snglcoinc.TOATriangulator([inject.cached_detector[inject.prefix_to_name[instrument]].location for instrument in instruments], [timing_uncertainties[instrument] for instrument in instruments])
+			triangulators[instruments] = snglcoinc.TOATriangulator([lal.cached_detector_by_prefix[instrument].location for instrument in instruments], [timing_uncertainties[instrument] for instrument in instruments])
 
 	return triangulators
 

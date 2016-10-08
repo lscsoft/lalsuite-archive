@@ -240,7 +240,7 @@ class EPAllSkyCoincParamsDistributions(BurcaCoincParamsDistributions):
 def delay_and_amplitude_correct(event, ra, dec):
 	# retrieve station metadata
 
-	detector = inject.cached_detector[inject.prefix_to_name[event.ifo]]
+	detector = lal.cached_detector_by_prefix[event.ifo]
 
 	# delay-correct the event to the geocentre
 

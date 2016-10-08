@@ -25,16 +25,14 @@
 
 
 """
-This module provides a few convenience wrappers around bits of LAL's inject
-package.
+Obsolete module.  Do not use.
 """
 
 
 import math
 
 
-from lal import C_SI as _LAL_C_SI
-from lal import CachedDetectors as _lalCachedDetectors
+import lal
 from pylal import git_version
 
 
@@ -52,21 +50,10 @@ __date__ = git_version.date
 #
 
 
-cached_detector_by_prefix = dict((cd.frDetector.prefix, cd) for cd in _lalCachedDetectors)
-# make sure there were no duplicates
-assert len(cached_detector_by_prefix) == len(_lalCachedDetectors)
-
-
-cached_detector_by_name = dict((cd.frDetector.name, cd) for cd in _lalCachedDetectors)
-# make sure there were no duplicates
-assert len(cached_detector_by_name) == len(_lalCachedDetectors)
-
-# FIXME:  backwards compatibility.  remove when no longer used
-cached_detector = cached_detector_by_name
-
-
-name_to_prefix = dict((name, detector.frDetector.prefix) for name, detector in cached_detector_by_name.items())
-prefix_to_name = dict((prefix, name) for name, prefix in name_to_prefix.items())
+cached_detector_by_prefix = lal.cached_detector_by_prefix
+cached_detector_by_name = cached_detector = lal.cached_detector_by_name
+name_to_prefix = lal.name_to_prefix
+prefix_to_name = lal.prefix_to_name
 
 
 # FIXME:  this is a hack to allow inject.light_travel_time(), which is used
@@ -96,4 +83,4 @@ def light_travel_time(instrument1, instrument2):
 	input, and returns the time truncated to integer nanoseconds.
 	"""
 	dx = cached_detector_by_prefix[instrument1].location - cached_detector_by_prefix[instrument2].location
-	return math.sqrt((dx * dx).sum()) / _LAL_C_SI
+	return math.sqrt((dx * dx).sum()) / lal.C_SI

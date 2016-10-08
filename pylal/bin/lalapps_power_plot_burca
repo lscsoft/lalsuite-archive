@@ -38,13 +38,12 @@ import lal
 
 from glue import segments
 from glue.ligolw import dbtables
-from glue.ligolw import utils
+from glue.ligolw import utils as ligolw_utils
 from pylal import date
 from pylal import git_version
 from pylal import rate
 from pylal import SnglBurstUtils
 from pylal import SimBurstUtils
-from pylal import inject
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -238,7 +237,7 @@ def magnitude_a(burst):
 
 def magnitude_b(burst):
 	gmst = date.XLALGreenwichMeanSiderealTime(burst.peak)
-	fplus, fcross = lal.ComputeDetAMResponse(inject.cached_detector[inject.prefix_to_name[burst.ifo]].response, SimBurstUtils.MW_CENTER_J2000_RA_RAD, SimBurstUtils.MW_CENTER_J2000_DEC_RAD, 0.0, gmst)
+	fplus, fcross = lal.ComputeDetAMResponse(lal.cached_detector_by_prefix[burst.ifo].response, SimBurstUtils.MW_CENTER_J2000_RA_RAD, SimBurstUtils.MW_CENTER_J2000_DEC_RAD, 0.0, gmst)
 	return (burst.ms_hrss**2.0 / (fplus**2.0 + fcross**2.0))**0.5
 
 
@@ -588,7 +587,7 @@ options, filenames = parse_command_line()
 plots = new_plots(options.plot)
 
 
-for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)[options.skip:]):
+for n, filename in enumerate(ligolw_utils.sort_files_by_size(filenames, options.verbose, reverse = True)[options.skip:]):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames) - options.skip, filename)
 

@@ -45,11 +45,6 @@ from glue import offsetvector
 from glue import segments
 import lal
 from lal import LIGOTimeGPS
-try:
-	from pylal import inject
-except ImportError:
-	# pylal is optional
-	pass
 from . import ligolw
 from . import table
 from . import types as ligolwtypes
@@ -3058,7 +3053,7 @@ class SimInspiral(table.TableRow):
 		# added to their times the triggers will form a coinc
 		t_geocent = self.time_geocent - offsetvector[instrument]
 		ra, dec = self.ra_dec
-		return t_geocent + lal.TimeDelayFromEarthCenter(inject.cached_detector_by_prefix[instrument].location, ra, dec, t_geocent)
+		return t_geocent + lal.TimeDelayFromEarthCenter(lal.cached_detector_by_prefix[instrument].location, ra, dec, t_geocent)
 
 	def get_time_geocent(self):
 		# FIXME:  delete this method
@@ -3202,7 +3197,7 @@ class SimBurst(TableRow):
 		# added to their times the triggers will form a coinc
 		t_geocent = self.time_geocent - offsetvector[instrument]
 		ra, dec = self.ra_dec
-		return t_geocent + lal.TimeDelayFromEarthCenter(inject.cached_detector_by_prefix[instrument].location, ra, dec, t_geocent)
+		return t_geocent + lal.TimeDelayFromEarthCenter(lal.cached_detector_by_prefix[instrument].location, ra, dec, t_geocent)
 
 	def get_time_geocent(self):
 		return self.time_geocent
