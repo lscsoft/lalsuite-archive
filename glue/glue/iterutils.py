@@ -82,8 +82,8 @@ def MultiIter(*sequences):
 	if len(sequences) > 1:
 		# FIXME:  this loop is about 5% faster if done the other
 		# way around, if the last list is iterated over in the
-		# inner loop.  but there is code, like snglcoinc.py in
-		# pylal, that has been optimized for the current order and
+		# inner loop.  but there is code, like snglcoinc.py,
+		# that has been optimized for the current order and
 		# would need to be reoptimized if this function were to be
 		# reversed.
 		head = tuple((x,) for x in sequences[0])
