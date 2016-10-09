@@ -7095,8 +7095,6 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
       if self.intable and name==self.tableElementName: self.intable=False
 
   lsctables.use_in(LIGOLWContentHandlerExtractSimBurstTable)
-  #from pylal.SimBurstUtils import ExtractSimBurstTableLIGOLWContentHandler
-  #lsctables.use_in(ExtractSimBurstTableLIGOLWContentHandler)
 
   # time and freq data handling variables
   srate=4096.0
