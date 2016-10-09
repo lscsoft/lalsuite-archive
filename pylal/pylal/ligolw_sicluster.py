@@ -24,13 +24,14 @@
 
 import sys
 
+from lalburst import snglcluster
+
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import git_version
 from pylal import SnglInspiralUtils
-from pylal import snglcluster
 
 __author__ = "Duncan Brown <dbrown@ligo.caltech.edu>"
 
