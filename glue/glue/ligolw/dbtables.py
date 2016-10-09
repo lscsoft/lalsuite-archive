@@ -870,7 +870,7 @@ class TimeSlideTable(DBTable):
 		Return a ditionary mapping time slide IDs to offset
 		dictionaries.
 		"""
-		return dict((ilwd.ilwdchar(id), offsetvector.offsetvector((instrument, offset) for id, instrument, offset in values)) for id, values in itertools.groupby(self.cursor.execute("SELECT time_slide_id, instrument, offset FROM time_slide ORDER BY time_slide_id"), lambda (id, instrument, offset): id))
+		return dict((ilwd.ilwdchar(time_slide_id), offsetvector.offsetvector((instrument, offset) for time_slide_id, instrument, offset in values)) for time_slide_id, values in itertools.groupby(self.cursor.execute("SELECT time_slide_id, instrument, offset FROM time_slide ORDER BY time_slide_id"), lambda (time_slide_id, instrument, offset): time_slide_id))
 
 	def get_time_slide_id(self, offsetdict, create_new = None, superset_ok = False, nonunique_ok = False):
 		"""
