@@ -62,6 +62,27 @@
 #define UNUSED
 #endif
 
+static UNUSED REAL8 XLALNSNSMergerFreq(
+                                       TidalEOBParams *tidal1,
+                                       TidalEOBParams *tidal2)
+{
+    REAL8 m1 = tidal1->mass;
+    REAL8 m2 = tidal2->mass;
+    REAL8 M = m1 + m2;
+    REAL8 Mto5 = M*M*M*M*M;
+    REAL8 R1 = m1/tidal1->comp;
+    REAL8 R2 = m2/tidal2->comp;
+    REAL8 R1to5 = R1*R1*R1*R1*R1;
+    REAL8 R2to5 = R2*R2*R2*R2*R2;
+    REAL8 lambda1 = 2./3.*tidal1->k2Tidal*R1to5;
+    REAL8 lambda2 = 2./3.*tidal2->k2Tidal*R2to5;
+    REAL8 m2Om1lam1 = m2/m1*lambda1;
+    REAL8 m1Om2lam2 = m1/m2*lambda2;
+    REAL8 combo = (m2Om1lam1 + m1Om2lam2)/Mto5;
+    
+    return 0.3596 * (1. +  0.073152*combo  - 0.000154503*combo*combo) / (1. + 0.206595*combo);
+}
+
 static int UNUSED
 XLALEOBSpinStopCondition (double UNUSED t,/**<< UNUSED */
 			  const double values[],  /**<< Dynamical variables */
@@ -152,8 +173,7 @@ XLALSpinAlignedHiSRStopCondition (double UNUSED t, /**< UNUSED */
 }
 
 /**
- * This function defines the stopping criteria for the high-sample-rate
- * portion of the EOB trajectory for SEOBNRv4
+ * This function defines the stopping criteria for the tidal EOB model
  * Note that here
  * values[0] = r
  * values[1] = phi
@@ -165,7 +185,7 @@ XLALSpinAlignedHiSRStopCondition (double UNUSED t, /**< UNUSED */
  * dvalues[3] = dpphi/dt = omega
  */
 static int
-XLALSpinAlignedHiSRStopConditionV4 (double UNUSED t, /**< UNUSED */
+XLALSpinAlignedNSNSStopCondition (double UNUSED t, /**< UNUSED */
 				    const double UNUSED values[],
 							       /**< dynamical variable values */
 				    double dvalues[],	/**< dynamical variable time derivative values */
@@ -175,6 +195,9 @@ XLALSpinAlignedHiSRStopConditionV4 (double UNUSED t, /**< UNUSED */
   REAL8 omega, r;
   UINT4 counter;
   SpinEOBParams *params = (SpinEOBParams *) funcParams;
+  TidalEOBParams *tidal1 = params->seobCoeffs->tidal1;
+  TidalEOBParams *tidal2 = params->seobCoeffs->tidal2;
+  REAL8 omegaMerger = XLALNSNSMergerFreq( tidal1, tidal2 );
   r = values[0];
   omega = dvalues[1];
   counter = params->eobParams->omegaPeaked;
@@ -186,7 +209,7 @@ XLALSpinAlignedHiSRStopConditionV4 (double UNUSED t, /**< UNUSED */
     }
   if (dvalues[2] >= 0. || params->eobParams->omegaPeaked == 5
       || isnan (dvalues[3]) || isnan (dvalues[2]) || isnan (dvalues[1])
-      || isnan (dvalues[0]))
+      || isnan (dvalues[0]) || omega >= omegaMerger/2. )
     {
 //        if ( dvalues[2] >= 0 ) printf("dvalues[2] >= 0\n");
 //        if ( params->eobParams->omegaPeaked == 5 ) printf("params->eobParams->omegaPeaked == 5\n");
@@ -195,6 +218,39 @@ XLALSpinAlignedHiSRStopConditionV4 (double UNUSED t, /**< UNUSED */
     }
   params->eobParams->omega = omega;
   return GSL_SUCCESS;
+}
+
+static int
+XLALSpinAlignedHiSRStopConditionV4 (double UNUSED t, /**< UNUSED */
+                                    const double UNUSED values[],
+                                    /**< dynamical variable values */
+                                    double dvalues[],	/**< dynamical variable time derivative values */
+                                    void UNUSED * funcParams   /**< physical parameters */
+)
+{
+    REAL8 omega, r;
+    UINT4 counter;
+    SpinEOBParams *params = (SpinEOBParams *) funcParams;
+    r = values[0];
+    omega = dvalues[1];
+    counter = params->eobParams->omegaPeaked;
+    //printf("function 2: r = %.16e, omega = %.16e, pr = %.16e, dpr = %.16e, count = %.16u \n",values[0],dvalues[1],values[2],dvalues[2],counter);
+    if (r < 6. && omega < params->eobParams->omega)
+    {
+        //        printf("Peak detection %.16e %.16e\n", omega, params->eobParams->omega);
+        params->eobParams->omegaPeaked = counter + 1;
+    }
+    if (dvalues[2] >= 0. || params->eobParams->omegaPeaked == 5
+        || isnan (dvalues[3]) || isnan (dvalues[2]) || isnan (dvalues[1])
+        || isnan (dvalues[0]))
+    {
+        //        if ( dvalues[2] >= 0 ) printf("dvalues[2] >= 0\n");
+        //        if ( params->eobParams->omegaPeaked == 5 ) printf("params->eobParams->omegaPeaked == 5\n");
+        //        if ( isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) ) printf("%.16e %.16e %.16e %.16e\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3]);
+        return 1;
+    }
+    params->eobParams->omega = omega;
+    return GSL_SUCCESS;
 }
 
 /**
@@ -313,6 +369,8 @@ XLALSimIMRSpinAlignedEOBPeakFrequency (REAL8 m1SI,
   return retFreq;
 }
 
+
+
 int
 XLALSimIMRSpinAlignedEOBWaveform (REAL8TimeSeries ** hplus,	     /**<< OUTPUT, +-polarization waveform */
 				  REAL8TimeSeries ** hcross,	     /**<< OUTPUT, x-polarization waveform */
@@ -329,16 +387,16 @@ XLALSimIMRSpinAlignedEOBWaveform (REAL8TimeSeries ** hplus,	     /**<< OUTPUT, +
   )
 {
   int ret;
-  REAL8 comp1 = 0.;
-  REAL8 k2Tidal1 = 0.;
-  REAL8 omega02Tidal1 = 0.;
-  REAL8 k3Tidal1 = 0.;
-  REAL8 omega03Tidal1 = 0.;
-  REAL8 comp2 = 0.;
-  REAL8 k2Tidal2 = 0.;
-  REAL8 omega02Tidal2 = 0.;
-  REAL8 k3Tidal2 = 0.;
-  REAL8 omega03Tidal2 = 0.;
+  REAL8 comp1 = 0.1796;
+  REAL8 k2Tidal1 = 0.0908;
+  REAL8 omega02Tidal1 = 0.1650;
+  REAL8 k3Tidal1 = 0.0234;
+  REAL8 omega03Tidal1 = 0.194641;
+  REAL8 comp2 = 0.1796;
+  REAL8 k2Tidal2 = 0.0908;
+  REAL8 omega02Tidal2 = 0.1650;
+  REAL8 k3Tidal2 = 0.0234;
+  REAL8 omega03Tidal2 = 0.194641;
   REAL8Vector   *tVec = NULL;
   REAL8Vector   *rVec = NULL;
   REAL8Vector   *phiVec = NULL;
@@ -1126,6 +1184,9 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
   if (SpinAlignedEOBversion == 4)
     {
       integrator->stop = XLALSpinAlignedHiSRStopConditionV4;
+    }
+  if ( use_tidal == 1 ) {
+      integrator->stop = XLALSpinAlignedNSNSStopCondition;
     }
 
   if (use_optimized_v2)
