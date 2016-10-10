@@ -90,6 +90,10 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients (FacWaveformCoeffs *
  *
  *------------------------------------------------------------------------------------------
  */
+static REAL8 XLALTEOBbeta221( REAL8 X ) {
+    return (-202. + 560.*X - 340.*X*X + 45.*X*X*X) / (42.*(3. - 2.*X));
+}
+
 /**
  * This function calculates hlm mode factorized-resummed waveform
  * for given dynamical variables. This is optimized for flux calculation,
@@ -1464,7 +1468,7 @@ XLALSimIMRSpinEOBGetSpinFactorizedWaveform (COMPLEX16 * restrict hlm,
 	  I * (arg1.val + 2.0 * hathatk * log (4.0 * k / sqrt (LAL_E))));
   Tlm /= z2.val;
 
-
+    
   /* Calculate the residue phase and amplitude terms */
   /* deltalm is the 4th term in Eq. 17, delta 22 given by Eq. A15, others  */
   /* rholm is the 5th term in Eq. 17, given by Eqs. A8 - A14 */
@@ -1866,6 +1870,48 @@ XLALSimIMRSpinEOBGetSpinFactorizedWaveform (COMPLEX16 * restrict hlm,
      {
      printf("YP::FullWave: Reh = %.16e, Imh = %.16e, hAmp = %.16e, hPhi = %.16e\n",creal(*hlm),cimag(*hlm),cabs(*hlm),carg(*hlm));
      } */
+  if ( (hCoeffs->tidal1->k2Tidal != 0. && hCoeffs->tidal1->omega02Tidal != 0.) || (hCoeffs->tidal2->k2Tidal != 0. && hCoeffs->tidal2->omega02Tidal != 0.) ) {
+      COMPLEX16 hNewtonTidal = 0;
+      COMPLEX16 hhatTidal = 0;
+      REAL8 v10 = v2*v2*v2*v2*v2;
+      REAL8 m1 = hCoeffs->tidal1->mass;
+      REAL8 m2 = hCoeffs->tidal2->mass;
+      REAL8 M = m1 + m2;
+      REAL8 X1 = m1 / M;
+      REAL8 X2 = m2 / M;
+      REAL8 k2Tidal1 = hCoeffs->tidal1->k2Tidal;
+      REAL8 k2Tidal2 = hCoeffs->tidal2->k2Tidal;
+      REAL8 omega02Tidal1 = hCoeffs->tidal1->omega02Tidal;
+      REAL8 omega02Tidal2 = hCoeffs->tidal2->omega02Tidal;
+      INT4 eps = (l+m)%2;
+      REAL8 cleps = pow(X2,l+eps-1) + pow(-1,l+eps)*pow(X1,l+eps-1);
+      hNewtonTidal = hNewton / cleps;
+      REAL8 k2Tidal1eff = (XLALSimIMRTEOBk2eff(1./r, eta, hCoeffs->tidal1)*(omega02Tidal1*omega02Tidal1 + 6.*m2*Omega*Omega) - omega02Tidal1*omega02Tidal1) / (3.*Omega*Omega*(1. + 2*m2));
+      REAL8 k2Tidal2eff = (XLALSimIMRTEOBk2eff(1./r, eta, hCoeffs->tidal2)*(omega02Tidal2*omega02Tidal2 + 6.*m1*Omega*Omega) - omega02Tidal2*omega02Tidal2) / (3.*Omega*Omega*(1. + 2*m1));
+      switch (l) {
+          case 2:
+              switch (m) {
+                  case 2:
+                      hhatTidal = (k2Tidal1*k2Tidal1eff*( X1/X2 + 3. )*( 1. + XLALTEOBbeta221( X1 )*v2 ) + k2Tidal2*k2Tidal2eff*( X2/X1 + 3. )*( 1. + XLALTEOBbeta221( X2 )*v2 ))*v10;
+                  case 1:
+                      hhatTidal = ((9./2. - 6.*X2)*k2Tidal2 - (9./2. - 6.*X1)*k2Tidal1)*v10;
+                  default:
+                      XLAL_ERROR (XLAL_EINVAL);
+              }
+          case 3:
+              switch (m) {
+                  case 3:
+                  case 2:
+                  case 1:
+                      hhatTidal = (6.*X1*k2Tidal2 - 6.*X2*k2Tidal1)*v10;
+                  default:
+                      XLAL_ERROR (XLAL_EINVAL);
+              }
+          default:
+              XLAL_ERROR (XLAL_EINVAL);
+      }
+      *hlm += hNewtonTidal*hhatTidal;
+  }
   return XLAL_SUCCESS;
 }
 
