@@ -72,7 +72,7 @@ from laldetchar.triggers import (omega, kw, daily_ihope, excesspower, trigfind)
 # import PyLAL modules
 from pylal import (git_version, seriesutils, plotutils, htmlutils,
                    omegautils, hacrutils, rangeutils, hdf5utils, snglcluster,
-                   SnglInspiralUtils, ligolw_sicluster)
+                   SnglInspiralUtils, ligolw_sicluster, ligolw_bucluster)
 from pylal.dq import (dqSegmentUtils, dqTriggerUtils, stateutils, summary)
 
 # import GLUE modules
@@ -2542,10 +2542,10 @@ def cluster_table(trigtable, dt):
     tablecopy = table.new_from_template(trigtable)
     tablecopy.extend(trigtable)
     if isinstance(trigtable, lsctables.SnglBurstTable):
-        testfunc = lalburst.ligolw_bucluster.ExcessPowerTestFunc
-        clusterfunc = lalburst.ligolw_bucluster.OmegaClusterFunc
-        sortfunc = lalburst.ligolw_bucluster.ExcessPowerSortFunc
-        bailoutfunc = lalburst.ligolw_bucluster.ExcessPowerBailoutFunc
+        testfunc = ligolw_bucluster.ExcessPowerTestFunc
+        clusterfunc = ligolw_bucluster.OmegaClusterFunc
+        sortfunc = ligolw_bucluster.ExcessPowerSortFunc
+        bailoutfunc = ligolw_bucluster.ExcessPowerBailoutFunc
     elif isinstance(trigtable, lsctables.SnglInspiralTable):
         testfunc = lambda a, b: SnglInspiralUtils.CompareSnglInspiral(a, b, dt)
         clusterfunc = ligolw_sicluster.SnglInspiralCluster
