@@ -46,4 +46,3 @@ Description: Python LSC Algorithm Library
  you will find most, if not all, of the inspiral pipeline's follow-up
  and summary tools, and several burst-related trigger post-production
  tools.
-Breaks: lalapps (<< 6.20.0-1)
