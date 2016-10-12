@@ -241,7 +241,7 @@ def cbcBayesPostProc(
                         #spinspiral/mcmc options
                         ss_flag=False,ss_spin_flag=False,
                         #lalinferenceMCMC options
-                        li_flag=False,deltaLogL=None,fixedBurnins=None,nDownsample=None,oldMassConvention=False,
+                        li_flag=False,deltaLogP=None,fixedBurnins=None,nDownsample=None,oldMassConvention=False,
                         #followupMCMC options
                         fm_flag=False,
                         #spin frame for the injection
@@ -299,11 +299,11 @@ def cbcBayesPostProc(
 
     elif ss_flag and not ns_flag:
         peparser=bppu.PEOutputParser('mcmc_burnin')
-        commonResultsObj=peparser.parse(data,spin=ss_spin_flag,deltaLogL=deltaLogL)
+        commonResultsObj=peparser.parse(data,spin=ss_spin_flag,deltaLogP=deltaLogP)
 
     elif li_flag:
         peparser=bppu.PEOutputParser('inf_mcmc')
-        commonResultsObj=peparser.parse(data,outdir=outdir,deltaLogL=deltaLogL,fixedBurnins=fixedBurnins,nDownsample=nDownsample,oldMassConvention=oldMassConvention)
+        commonResultsObj=peparser.parse(data,outdir=outdir,deltaLogP=deltaLogP,fixedBurnins=fixedBurnins,nDownsample=nDownsample,oldMassConvention=oldMassConvention)
 
     elif ss_flag and ns_flag:
         raise RuntimeError("Undefined input format. Choose only one of:")
@@ -316,11 +316,11 @@ def cbcBayesPostProc(
     elif '.hdf' in data[0] or '.h5' in data[0]:
         if len(data) > 1:
             peparser = bppu.PEOutputParser('hdf5s')
-            commonResultsObj=peparser.parse(data,deltaLogL=deltaLogL,fixedBurnins=fixedBurnins,nDownsample=nDownsample)
+            commonResultsObj=peparser.parse(data,deltaLogP=deltaLogP,fixedBurnins=fixedBurnins,nDownsample=nDownsample)
         else:
             fixedBurnins = fixedBurnins if fixedBurnins is not None else None
             peparser = bppu.PEOutputParser('hdf5')
-            commonResultsObj=peparser.parse(data[0],deltaLogL=deltaLogL,fixedBurnin=fixedBurnins,nDownsample=nDownsample)
+            commonResultsObj=peparser.parse(data[0],deltaLogP=deltaLogP,fixedBurnin=fixedBurnins,nDownsample=nDownsample)
     else:
         peparser=bppu.PEOutputParser('common')
         commonResultsObj=peparser.parse(open(data[0],'r'),info=[header,None])
@@ -1193,7 +1193,8 @@ if __name__=='__main__':
     parser.add_option("--lalinfmcmc",action="store_true",default=False,help="(LALInferenceMCMC) Parse input from LALInferenceMCMC.")
     parser.add_option("--inj-spin-frame",default='OrbitalL', help="The reference frame used for the injection (default: OrbitalL)")
     parser.add_option("--downsample",action="store",default=None,help="(LALInferenceMCMC) approximate number of samples to record in the posterior",type="int")
-    parser.add_option("--deltaLogL",action="store",default=None,help="(LALInferenceMCMC) Difference in logL to use for convergence test.",type="float")
+    parser.add_option("--deltaLogL",action="store",default=None,help="(LALInferenceMCMC) Difference in logL to use for convergence test. (DEPRECATED)",type="float")
+    parser.add_option("--deltaLogP",action="store",default=None,help="(LALInferenceMCMC) Difference in logpost to use for burnin criteria.",type="float")
     parser.add_option("--fixedBurnin",dest="fixedBurnin",action="callback",callback=multipleFileCB,help="(LALInferenceMCMC) Fixed number of iteration for burnin.")
     parser.add_option("--oldMassConvention",action="store_true",default=False,help="(LALInferenceMCMC) if activated, m2 > m1; otherwise m1 > m2 in PTMCMC.output.*.00")
     #FM
@@ -1324,6 +1325,12 @@ if __name__=='__main__':
         for dt1,dt2 in combinations( ['h1l1_delay','l1v1_delay','h1v1_delay'],2):
           twoDGreedyMenu.append([dt1,dt2])
 
+    if opts.deltaLogL and not opts.deltaLogP:
+        print("DEPRECATION WARNING: --deltaLogL has been replaced by --deltaLogP.  Using the posterior to define burnin criteria")
+        deltaLogP = opts.deltaLogL
+    else:
+        deltaLogP = opts.deltaLogP
+
     confidenceLevels=bppu.confidenceLevels
     #2D plots list
     #twoDplots=[['mc','eta'],['mchirp','eta'],['mc', 'time'],['mchirp', 'time'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['ra', 'dec'],['m1','dist'],['m2','dist'],['mc', 'dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0'], ['a1', 'a2'], ['a1', 'iota'], ['a2', 'iota'],['eta','time'],['ra','iota'],['dec','iota'],['chi','iota'],['chi','mchirp'],['chi','eta'],['chi','distance'],['chi','ra'],['chi','dec'],['chi','psi']]
@@ -1348,7 +1355,7 @@ if __name__=='__main__':
                         #spinspiral/mcmc options
                         ss_flag=opts.ss,ss_spin_flag=opts.spin,
                         #LALInferenceMCMC options
-                        li_flag=opts.lalinfmcmc,deltaLogL=opts.deltaLogL,fixedBurnins=fixedBurnins,nDownsample=opts.downsample,oldMassConvention=opts.oldMassConvention,
+                        li_flag=opts.lalinfmcmc,deltaLogP=deltaLogP,fixedBurnins=fixedBurnins,nDownsample=opts.downsample,oldMassConvention=opts.oldMassConvention,
                         #followupMCMC options
                         fm_flag=opts.fm,
                         #injected spin frame
