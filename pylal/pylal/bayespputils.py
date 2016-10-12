@@ -5767,6 +5767,11 @@ class PEOutputParser(object):
                     logL = float(line[loglindex])
                     if iter > fixedBurnin:
                         fixedBurnedIn = True
+                    # If adaptation reset, throw out what was collected so far
+                    elif fixedBurnedIn:
+                        fixedBurnedIn = False
+                        ntot = 0
+                        lines = []
                     if logL > logLthreshold:
                         deltaLburnedIn = True
                     if iter > 0:
@@ -6153,8 +6158,8 @@ class PEOutputParser(object):
             else:
                 fixedBurnin = 0
 
-            post_burnin = np.arange(len(samples))[samples['cycle'] > fixedBurnin]
-            burnin_idx = post_burnin[0] if len(post_burnin) > 0 else len(samples)
+            post_burnin = np.arange(len(samples))[samples['cycle'] < fixedBurnin]
+            burnin_idx = post_burnin[-1] if len(post_burnin) > 0 else len(samples)
             samples = samples[burnin_idx:]
 
             logLThreshold=-1e200 # Really small?
