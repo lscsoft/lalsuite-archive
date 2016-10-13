@@ -117,7 +117,7 @@ class LdbdQueryEngine(QueryEngine):
  
 		self.ligomd.parse(xml)
 		res = self.ligomd.table
-		self.rows = self.ligomd.table[res.keys()[0]]['stream']
+		self.rows = self.ligomd.table[list(res.keys())[0]]['stream']
 
 		return self.rows
 	

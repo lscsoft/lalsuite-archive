@@ -33,6 +33,7 @@ and a veto files, and filters or passes all triggers in vetoed times
 """
 
 
+from __future__ import print_function
 from optparse import OptionParser
 import sqlite3
 import sys
@@ -55,6 +56,7 @@ from glue.segmentdb import segmentdb_utils
 from glue.ligolw.utils import process
 
 import glue.ligolw.types as ligolwtypes
+from six.moves import map
 
 PROGRAM_NAME = sys.argv[0].replace('./','')
 PROGRAM_PID  = os.getpid()
@@ -85,7 +87,7 @@ def parse_command_line():
 
     def require(flag, message):
         if not flag:
-            print >>sys.stdout, message
+            print(message, file=sys.stdout)
             sys.exit(1)
 
 
@@ -177,7 +179,7 @@ if __name__ == '__main__':
         gps_start_time = int(options.gps_start_time)
     elif os.path.exists(options.timestamp_file):
         f = open(options.timestamp_file)
-        gps_start_time = int(f.next())
+        gps_start_time = int(next(f))
         f.close()
     else:
         # Looks like we've never run before, start a day ago
@@ -251,7 +253,7 @@ if __name__ == '__main__':
 
     # Make sure the table exists
     theClass  = lsctables.TableByName[table_name]
-    statement = "CREATE TABLE IF NOT EXISTS " + table_name + " (" + ", ".join(map(lambda key: "%s %s" % (key, ligolwtypes.ToSQLiteType[theClass.validcolumns[key]]), theClass.validcolumns)) + ")"
+    statement = "CREATE TABLE IF NOT EXISTS " + table_name + " (" + ", ".join(["%s %s" % (key, ligolwtypes.ToSQLiteType[theClass.validcolumns[key]]) for key in theClass.validcolumns]) + ")"
 
     cursor.execute(statement)
 
@@ -353,7 +355,7 @@ if __name__ == '__main__':
     # If we started from a timestamp file, update it
     if options.timestamp_file:
         f = open(options.timestamp_file, 'w')
-        print >>f,  (gps_end_time + 1)
+        print((gps_end_time + 1), file=f)
         f.close()
 
     # Clean up

@@ -26,15 +26,15 @@ import os
 import exceptions
 import types
 import re
-import cPickle
+import six.moves.cPickle
 import xml.parsers.expat
-import httplib
+import six.moves.http_client
 import urlparse
 
 try:
     import M2Crypto
     import cjson
-except ImportError, e:
+except ImportError as e:
     sys.stderr.write("""
 ligo_data_find requires the M2Crypto and cjson
 modules.
@@ -157,7 +157,7 @@ def findCredential():
     """
 
     # use X509_USER_PROXY from environment if set
-    if os.environ.has_key('X509_USER_PROXY'):
+    if 'X509_USER_PROXY' in os.environ:
         filePath = os.environ['X509_USER_PROXY']
         if validateProxy(filePath):
             return filePath, filePath
@@ -166,8 +166,8 @@ def findCredential():
             sys.exit(1)
 
     # use X509_USER_CERT and X509_USER_KEY if set
-    if os.environ.has_key('X509_USER_CERT'):
-        if os.environ.has_key('X509_USER_KEY'):
+    if 'X509_USER_CERT' in os.environ:
+        if 'X509_USER_KEY' in os.environ:
             certFile = os.environ['X509_USER_CERT']
             keyFile = os.environ['X509_USER_KEY']
             return certFile, keyFile
@@ -304,9 +304,9 @@ class LDBDClient(object):
 
     if protocol == "https":
     #if self.certFile and self.keyFile:
-        h = httplib.HTTPSConnection(server, key_file = self.keyFile, cert_file = self.certFile)
+        h = six.moves.http_client.HTTPSConnection(server, key_file = self.keyFile, cert_file = self.certFile)
     else:
-        h = httplib.HTTPConnection(server)
+        h = six.moves.http_client.HTTPConnection(server)
 
     url = "/ldbd/ping.json"
     headers = {"Content-type" : "application/json"}
@@ -339,9 +339,9 @@ class LDBDClient(object):
     server = self.server
     protocol = self.protocol
     if protocol == "https":
-        h = httplib.HTTPSConnection(server, key_file = self.keyFile, cert_file = self.certFile)
+        h = six.moves.http_client.HTTPSConnection(server, key_file = self.keyFile, cert_file = self.certFile)
     else:
-        h = httplib.HTTPConnection(server)
+        h = six.moves.http_client.HTTPConnection(server)
 
     url = "/ldbd/query.json"
     headers = {"Content-type" : "application/json"}
@@ -373,7 +373,7 @@ class LDBDClient(object):
     server = self.server
     protocol = self.protocol
     if protocol == "https":
-        h = httplib.HTTPSConnection(server, key_file = self.keyFile, cert_file = self.certFile)
+        h = six.moves.http_client.HTTPSConnection(server, key_file = self.keyFile, cert_file = self.certFile)
     else:
         msg = "Insecure connection DOES NOT surpport INSERT."
         msg += '\nTo INSERT, authorized users please specify protocol "https" in your --segment-url argument.'
@@ -409,7 +409,7 @@ class LDBDClient(object):
     server = self.server
     protocol = self.protocol
     if protocol == "https":
-        h = httplib.HTTPSConnection(server, key_file = self.keyFile, cert_file = self.certFile)
+        h = six.moves.http_client.HTTPSConnection(server, key_file = self.keyFile, cert_file = self.certFile)
     else:
         msg = "Insecure connection DOES NOT surpport INSERTMAP."
         msg += '\nTo INSERTMAP, authorized users please specify protocol "https" in your --segment-url argument.'
@@ -419,7 +419,7 @@ class LDBDClient(object):
     url = "/ldbd/insertmap.json"
     headers = {"Content-type" : "application/json"}
 
-    pmsg = cPickle.dumps(lfnpfn_dict)
+    pmsg = six.moves.cPickle.dumps(lfnpfn_dict)
     data = [xmltext, pmsg]
     body = cjson.encode(data)
 
@@ -449,7 +449,7 @@ class LDBDClient(object):
     server = self.server
     protocol = self.protocol
     if protocol == "https":
-        h = httplib.HTTPSConnection(server, key_file = self.keyFile, cert_file = self.certFile)
+        h = six.moves.http_client.HTTPSConnection(server, key_file = self.keyFile, cert_file = self.certFile)
     else:
         msg = "Insecure connection DOES NOT surpport INSERTDMT."
         msg += '\nTo INSERTDMT, authorized users please specify protocol "https" in your --segment-url argument.'

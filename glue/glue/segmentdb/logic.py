@@ -47,6 +47,7 @@ from glue.segmentdb.segmentdb_utils import add_to_segment_summary
 from glue.segmentdb.segmentdb_utils import find_segments
 
 from glue import git_version
+from six.moves import map
 __date__ = git_version.date
 __version__ = git_version.id
 __author__  = "Larne Pekowsky <lppekows@physics.syr.edu>"
@@ -87,7 +88,7 @@ def run_file_operation(outdoc, filenames, use_segment_table, operation, preserve
 
     for xmldoc in xmldocs:
         seg_def_table = lsctables.SegmentDefTable.get_table(xmldoc)
-        map (register_definer, seg_def_table)
+        list(map (register_definer, seg_def_table))
 
     # For each unique segment definer, find the intersection
     for ifo, name, version in segment_definers:
@@ -123,7 +124,7 @@ def run_file_operation(outdoc, filenames, use_segment_table, operation, preserve
     # If we're preserving, also load up everything into the output document.
     if preserve:
         # Add them to the output document
-        map(lambda x: outdoc.appendChild(x.childNodes[0]), xmldocs)
+        list(map(lambda x: outdoc.appendChild(x.childNodes[0]), xmldocs))
 
         # Merge the ligolw elements and tables
         ligolw_add.merge_ligolws(outdoc)

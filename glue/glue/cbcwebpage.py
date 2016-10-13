@@ -29,6 +29,7 @@ from glue import git_version
 import subprocess
 import os, sys, time, socket, glob, math
 import shutil,urllib
+from six.moves import range
 
 __author__ = "Chad Hanna <channa@caltech.edu>"
 __version__ = "git id %s" % git_version.id
@@ -308,9 +309,9 @@ class _section(markup.page):
 		self.div(id="div_"+secnum , style=style)
 
 	def add_section(self, tag, title="", open_by_default=False):
-		secnum = "%s.%d" % (self.secnum, len(self.sections.values())+1)
+		secnum = "%s.%d" % (self.secnum, len(list(self.sections.values()))+1)
 		self.sections[tag] = _section(tag, title=title, secnum=secnum, pagenum=self.pagenum, level=self.level+1, open_by_default=open_by_default)
-		self.section_ids.append([len(self.sections.values()), tag])
+		self.section_ids.append([len(list(self.sections.values())), tag])
 		return self.sections[tag]
 
 	def get_content(self):
@@ -376,7 +377,7 @@ class cbcpage(markup.page):
 		""" 
 		"""
 
-		subpage_num = len(self.subpages.values()) + 1
+		subpage_num = len(list(self.subpages.values())) + 1
 		if not link_text: link_text=str(subpage_num)
 
 		# tuple including number so it can be sorted later
@@ -444,7 +445,7 @@ class cbcpage(markup.page):
 		for num, key in self.section_ids:
 			self.content.extend(self.sections[key].get_content())
 		self.fnames.append('%s/%s.html' % (self.path, file_name))
-		pagefile = file('%s/%s.html' % (self.path, file_name), 'w')
+		pagefile = open('%s/%s.html' % (self.path, file_name), 'w')
 		pagefile.write(str(self))
 		pagefile.close()
 		return '%s/%s.html' % (self.path, file_name)
@@ -452,7 +453,7 @@ class cbcpage(markup.page):
 	def add_section(self, tag, title="", level=2, open_by_default=False):
 		"""
 		"""
-		secnum = len(self.sections.values()) + 1
+		secnum = len(list(self.sections.values())) + 1
 		self.section_ids.append([secnum, tag])
 		self.sections[tag] = _section(title=title, tag=tag, secnum=str(secnum), pagenum=str(self.pagenum), level=level, open_by_default=open_by_default)
 		return self.sections[tag]

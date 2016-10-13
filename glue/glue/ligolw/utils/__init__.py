@@ -43,6 +43,7 @@ import sys
 
 from glue import git_version
 from .. import ligolw
+import six
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"

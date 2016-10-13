@@ -39,6 +39,7 @@ dependent Python) Epoch.  This makes implementation quite straight forward
 as compared to some algorigthms found in the literature and on the web.  
 """
 
+from __future__ import print_function
 __author__ = 'Duncan Brown <duncan@gravity.phys.uwm.edu>'
 from glue import git_version
 __date__ = git_version.date
@@ -87,7 +88,7 @@ def wtFromUTCpy(pyUTC, leapSecs=14):
          allows to use python UTC times and
          returns only week and tow"""
     ymdhms = ymdhmsFromPyUTC(pyUTC)
-    wSowDSoD = apply(gpsFromUTC, ymdhms + (leapSecs,))
+    wSowDSoD = gpsFromUTC(*ymdhms + (leapSecs,))
     return wSowDSoD[0:2]
 
 def gpsFromUTC(year, month, day, hour, min, sec, leapSecs=14):
@@ -167,47 +168,47 @@ def PyUTCFromGpsSeconds(gpsseconds):
 #===== Tests  =========================================
 
 def testTimeStuff():
-    print "-"*20
-    print
-    print "The GPS Epoch when everything began (1980, 1, 6, 0, 0, 0, leapSecs=0)"
+    print("-"*20)
+    print()
+    print("The GPS Epoch when everything began (1980, 1, 6, 0, 0, 0, leapSecs=0)")
     (w, sow, d, sod) = gpsFromUTC(1980, 1, 6, 0, 0, 0, leapSecs=0)
-    print "**** week: %s, sow: %s, day: %s, sod: %s" % (w, sow, d, sod)
-    print "     and hopefully back:"
-    print "**** %s, %s, %s, %s, %s, %s\n" % UTCFromGps(w, sow, leapSecs=0)
+    print("**** week: %s, sow: %s, day: %s, sod: %s" % (w, sow, d, sod))
+    print("     and hopefully back:")
+    print("**** %s, %s, %s, %s, %s, %s\n" % UTCFromGps(w, sow, leapSecs=0))
 
-    print "The time of first Rollover of GPS week (1999, 8, 21, 23, 59, 47)"
+    print("The time of first Rollover of GPS week (1999, 8, 21, 23, 59, 47)")
     (w, sow, d, sod) = gpsFromUTC(1999, 8, 21, 23, 59, 47)
-    print "**** week: %s, sow: %s, day: %s, sod: %s" % (w, sow, d, sod)
-    print "     and hopefully back:"
-    print "**** %s, %s, %s, %s, %s, %s\n" % UTCFromGps(w, sow, leapSecs=14)
+    print("**** week: %s, sow: %s, day: %s, sod: %s" % (w, sow, d, sod))
+    print("     and hopefully back:")
+    print("**** %s, %s, %s, %s, %s, %s\n" % UTCFromGps(w, sow, leapSecs=14))
 
-    print "Today is GPS week 1186, day 3, seems to run ok (2002, 10, 2, 12, 6, 13.56)"
+    print("Today is GPS week 1186, day 3, seems to run ok (2002, 10, 2, 12, 6, 13.56)")
     (w, sow, d, sod) = gpsFromUTC(2002, 10, 2, 12, 6, 13.56)
-    print "**** week: %s, sow: %s, day: %s, sod: %s" % (w, sow, d, sod)
-    print "     and hopefully back:"
-    print "**** %s, %s, %s, %s, %s, %s\n" % UTCFromGps(w, sow)
+    print("**** week: %s, sow: %s, day: %s, sod: %s" % (w, sow, d, sod))
+    print("     and hopefully back:")
+    print("**** %s, %s, %s, %s, %s, %s\n" % UTCFromGps(w, sow))
 
 def testJulD():
-    print '2002, 10, 11 -> 284  ==??== ', julianDay(2002, 10, 11)
+    print('2002, 10, 11 -> 284  ==??== ', julianDay(2002, 10, 11))
 
 def testGpsWeek():
-    print '2002, 10, 11 -> 1187  ==??== ', gpsWeek(2002, 10, 11)
+    print('2002, 10, 11 -> 1187  ==??== ', gpsWeek(2002, 10, 11))
 
 def testDayOfWeek():
-    print '2002, 10, 12 -> 6  ==??== ', dayOfWeek(2002, 10, 12)
-    print '2002, 10, 6  -> 0  ==??== ', dayOfWeek(2002, 10, 6)
+    print('2002, 10, 12 -> 6  ==??== ', dayOfWeek(2002, 10, 12))
+    print('2002, 10, 6  -> 0  ==??== ', dayOfWeek(2002, 10, 6))
 
 def testPyUtilties():
     ymdhms = (2002, 10, 12, 8, 34, 12.3)
-    print "testing for: ", ymdhms
-    pyUtc = apply(mkUTC, ymdhms)
+    print("testing for: ", ymdhms)
+    pyUtc = mkUTC(*ymdhms)
     back =  ymdhmsFromPyUTC(pyUtc)
-    print "yields     : ", back
+    print("yields     : ", back)
 #*********************** !!!!!!!!    
     #assert(ymdhms == back)
     #! TODO: this works only with int seconds!!! fix!!!
     (w, t) = wtFromUTCpy(pyUtc)
-    print "week and time: ", (w,t)
+    print("week and time: ", (w,t))
 
 
 #===== Main =========================================

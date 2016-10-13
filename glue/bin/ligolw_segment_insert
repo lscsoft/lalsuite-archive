@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 ###################################################################
+from __future__ import print_function
 import os
 import socket
 import pwd
@@ -12,17 +13,18 @@ import StringIO
 import exceptions
 import binascii
 from optparse import OptionParser
+import six
 
 try:
   import pyRXP
 except ImportError as e:
-  print >> sys.stderr, """
+  print("""
 Error: unable to import the pyRXP module.
 
 You must have pyRXP installed and in your PYTHONPATH to run %s.
 
 %s
-""" %(sys.argv[0], e)
+""" %(sys.argv[0], e), file=sys.stderr)
 
 try:
   from glue import gpstime
@@ -36,13 +38,13 @@ try:
   from glue.ligolw.utils import process
   from glue.ligolw import types as ligolwtypes 
 except ImportError as e:
-  print >> sys.stderr, """
+  print("""
 Error: unable to import modules from glue.
 
 Check that glue is correctly installed and in your PYTHONPATH.
 
 %s
-""" % e
+""" % e, file=sys.stderr)
   sys.exit(1)
 ##################################################################
 __author__ = "Ping Wei <piwei@physics.syr.edu>"
@@ -125,8 +127,8 @@ if (not options.output and options.ignore_append_check):
   errmsg += "--ignore-append-check may only be used with --output-file\n"
   
 if len(errmsg) and not options.ping:
-  print >> sys.stderr, errmsg
-  print >> sys.stderr, "Run\n    %s --help\nfor more information." % sys.argv[0]
+  print(errmsg, file=sys.stderr)
+  print("Run\n    %s --help\nfor more information." % sys.argv[0], file=sys.stderr)
   sys.exit(1)
 
 
@@ -136,9 +138,9 @@ myClient = segmentdb_utils.setup_database(options.segment_url)
 
 if options.ping:
    try:
-     print myClient.ping()
+     print(myClient.ping())
    except Exception as e:
-     print "Error ping --segment-url", str(e)
+     print("Error ping --segment-url", str(e))
      sys.exit(1)
 else:
 ########################################################################
@@ -214,14 +216,14 @@ else:
     else:
        msg = """\nERROR: Wrong Version. Max existing version of %s:%s is: %s. 
 Please correct your version number.""" % (options.ifos,options.name,max_version)
-       print msg
+       print(msg)
        sys.exit(1)
 
   if options.append:
      try:
         max_end_sum = type_md.table['segment_definer']['stream'][0][0]
      except IndexError:
-        print "\nERROR: segment type %s:%s:%s doesn't exist" % (options.ifos,options.name,options.version) 
+        print("\nERROR: segment type %s:%s:%s doesn't exist" % (options.ifos,options.name,options.version)) 
         sys.exit(1)
  
  
@@ -232,8 +234,8 @@ Please correct your version number.""" % (options.ifos,options.name,max_version)
   for line in fh.readlines():
     sum_line = line.strip().split(" ")
     if len(sum_line) != 2:
-       print "\nERROR: invalid format in your --summary-file row number: %d " % line_no
-       print "Invalid interval is %s" % str(sum_line)
+       print("\nERROR: invalid format in your --summary-file row number: %d " % line_no)
+       print("Invalid interval is %s" % str(sum_line))
        sys.exit(1)
     current_time = str(gpstime.GpsSecondsFromPyUTC(time.time()))
 
@@ -245,22 +247,22 @@ Please correct your version number.""" % (options.ifos,options.name,max_version)
     #   sys.exit(1)
     ## make sure interval start time is less than and not equal to end time
     if (int(sum_line[0]) >= int(sum_line[1])):
-       print "\nERROR: start_time MUST be less than the end_time"
-       print "Invalid interval in your --summary-file row number: %d " % line_no
-       print "Invalid interval is %s" % str(sum_line)
+       print("\nERROR: start_time MUST be less than the end_time")
+       print("Invalid interval in your --summary-file row number: %d " % line_no)
+       print("Invalid interval is %s" % str(sum_line))
        sys.exit(1)
     # make sure interval start time is greater than the max end time in the database
     # unless --ignore-append-check is specified
     elif (int(sum_line[0]) < max_end_sum) and not options.ignore_append_check:
-       print "\nERROR: summary start_time MUST be greater than the max summary end_time %d in the database" % max_end_sum
-       print "Invalid interval in your --summary-file row number: %d" % line_no
-       print "Invalid interval is %s" % str(sum_line)
+       print("\nERROR: summary start_time MUST be greater than the max summary end_time %d in the database" % max_end_sum)
+       print("Invalid interval in your --summary-file row number: %d" % line_no)
+       print("Invalid interval is %s" % str(sum_line))
        sys.exit(1)
     # make sure interval end time is less than current time
     elif  (int(sum_line[1]) > int(current_time)):
-       print "\nERROR: summary end_time cannot be greater than the current time"
-       print "Invalid interval in your --summary-file row number: %d " % line_no
-       print "Invalid interval is %s" % str(sum_line)
+       print("\nERROR: summary end_time cannot be greater than the current time")
+       print("Invalid interval in your --summary-file row number: %d " % line_no)
+       print("Invalid interval is %s" % str(sum_line))
        sys.exit(1)
     # if interval is valid, append it to intervals list
     else:
@@ -276,8 +278,8 @@ Please correct your version number.""" % (options.ifos,options.name,max_version)
   for line in fh.readlines():
     seg_line = line.strip().split(" ")
     if len(seg_line) != 2:
-       print "\nERROR: invalid format in your --segment-file row number: %d " % line_no
-       print "Invalid segment is %s" % str(seg_line)
+       print("\nERROR: invalid format in your --segment-file row number: %d " % line_no)
+       print("Invalid segment is %s" % str(seg_line))
        sys.exit(1)
     # make sure gps time is 9 digits
     #if (len(seg_line[0]) != 9 or len(seg_line[1])!=9): 
@@ -287,16 +289,16 @@ Please correct your version number.""" % (options.ifos,options.name,max_version)
     #   sys.exit(1)
     # make sure segment start_time is less than end_time:
     if int(seg_line[0])>=int(seg_line[1]):
-      print "\nERROR: segment start_time MUST be less than the end_time"
-      print "Invalid segment in your --segment-file row number: %d" % line_no
-      print "Invalid segment is %s" % str(seg_line)
+      print("\nERROR: segment start_time MUST be less than the end_time")
+      print("Invalid segment in your --segment-file row number: %d" % line_no)
+      print("Invalid segment is %s" % str(seg_line))
       sys.exit(1)
     # make sure segment falls in the summary  intervals specified in the --summary-file
     this_seg = segments.segment(int(seg_line[0]),int(seg_line[1])) 
     if this_seg not in intervals:
-      print "\nERROR: segment cannot fall outside of the summary intervals specified in your --summary-file"
-      print "Invalid segment in your --segment-file row number: %d" % line_no
-      print "Invalid segment is %s" % str(seg_line)
+      print("\nERROR: segment cannot fall outside of the summary intervals specified in your --summary-file")
+      print("Invalid segment in your --segment-file row number: %d" % line_no)
+      print("Invalid segment is %s" % str(seg_line))
       sys.exit(1)
     # Otherwise, append this segment to the list of active segments
     active_segments.append(this_seg)
@@ -477,7 +479,7 @@ Please correct your version number.""" % (options.ifos,options.name,max_version)
     ]
 
     process_params_stream = []
-    for key,val in vars(options).iteritems(): 
+    for key,val in six.iteritems(vars(options)): 
       process_params_stream.append(
       tuple([   
       "process:process_id:0",

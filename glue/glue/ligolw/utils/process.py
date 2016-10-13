@@ -40,6 +40,7 @@ from glue import git_version
 from .. import ligolw
 from .. import lsctables
 from .. import types as ligolwtypes
+import six
 
 
 try:
@@ -167,15 +168,15 @@ def append_process_params(xmldoc, process, params):
 		row = paramtable.RowType()
 		row.program = process.program
 		row.process_id = process.process_id
-		row.param = unicode(name)
+		row.param = six.text_type(name)
 		if typ is not None:
-			row.type = unicode(typ)
+			row.type = six.text_type(typ)
 			if row.type not in ligolwtypes.Types:
 				raise ValueError("invalid type '%s' for parameter '%s'" % (row.type, row.param))
 		else:
 			row.type = None
 		if value is not None:
-			row.value = unicode(value)
+			row.value = six.text_type(value)
 		else:
 			row.value = None
 		paramtable.append(row)

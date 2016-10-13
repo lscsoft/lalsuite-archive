@@ -57,6 +57,9 @@ from glue import git_version
 from . import ligolw
 from . import tokenizer
 from . import types as ligolwtypes
+from six.moves import map
+from six.moves import range
+from six.moves import zip
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -334,7 +337,7 @@ class Column(ligolw.Column):
 		Retrieve the value in this column in row i.
 		"""
 		if isinstance(i, slice):
-			return map(lambda r: getattr(r, self.Name), self.parentNode[i])
+			return [getattr(r, self.Name) for r in self.parentNode[i]]
 		else:
 			return getattr(self.parentNode[i], self.Name)
 
@@ -379,7 +382,7 @@ class Column(ligolw.Column):
 		Return the smallest index of the row(s) with this column
 		equal to value.
 		"""
-		for i in xrange(len(self.parentNode)):
+		for i in range(len(self.parentNode)):
 			if getattr(self.parentNode[i], self.Name) == value:
 				return i
 		raise ValueError(value)
@@ -389,7 +392,7 @@ class Column(ligolw.Column):
 		Returns True or False if there is or is not, respectively,
 		a row containing val in this column.
 		"""
-		for i in xrange(len(self.parentNode)):
+		for i in range(len(self.parentNode)):
 			if getattr(self.parentNode[i], self.Name) == value:
 				return True
 		return False
@@ -549,7 +552,7 @@ class TableStream(ligolw.Stream):
 		rowdumper = tokenizer.RowDumper(self.parentNode.columnnames, [ligolwtypes.FormatFunc[coltype] for coltype in self.parentNode.columntypes], self.Delimiter)
 		rowdumper.dump(self.parentNode)
 		try:
-			line = rowdumper.next()
+			line = next(rowdumper)
 		except StopIteration:
 			# table is empty
 			pass

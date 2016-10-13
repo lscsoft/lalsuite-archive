@@ -21,6 +21,7 @@ You should have received a copy of the GNU General Public License along with
 this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+from __future__ import print_function
 import sys
 
 sys.stderr.write("Warning: "
@@ -36,7 +37,7 @@ import os
 import getopt
 import re
 import exceptions
-import httplib
+import six.moves.http_client
 import urlparse
 import time
 import calendar
@@ -47,7 +48,7 @@ try:
     import M2Crypto
     import cjson
 except ImportError as e:
-    print >> sys.stderr, """
+    print("""
 ligo_data_find requires the M2Crypto and cjson
 modules.
 
@@ -68,19 +69,19 @@ Mac OS X users can find these packages in
 MacPorts.
 
 %s
-""" % e
+""" % e, file=sys.stderr)
     sys.exit(1)
 
 try:
         from glue.lal import LIGOTimeGPS
 except ImportError as e:
-        print >> sys.stderr, """
+        print("""
 Error: unable to import modules from GLUE.
 
 Check that GLUE is correctly installed and in your PYTHONPATH.
 
 %s
-""" % e
+""" % e, file=sys.stderr)
         sys.exit(1)
 
 
@@ -205,7 +206,7 @@ ENVIRONMENT
         --match option on the command line. 
 \
 """
-        print >>sys.stderr, msg
+        print(msg, file=sys.stderr)
 
 def main():
     """
@@ -241,8 +242,8 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
     except getopt.GetoptError:
-            print >>sys.stderr, "Error parsing command line"
-            print >>sys.stderr, "Enter 'ligo_data_find --help' for usage"
+            print("Error parsing command line", file=sys.stderr)
+            print("Enter 'ligo_data_find --help' for usage", file=sys.stderr)
             sys.exit(1)
 
     # defaults
@@ -271,11 +272,11 @@ def main():
 
     # environment variables override defaults but not
     # command line options
-    if os.environ.has_key('LIGO_DATAFIND_SERVER'): 
+    if 'LIGO_DATAFIND_SERVER' in os.environ: 
         hostPortString = os.environ['LIGO_DATAFIND_SERVER']
-    if os.environ.has_key('LIGO_DATAFIND_URL_TYPE'): 
+    if 'LIGO_DATAFIND_URL_TYPE' in os.environ: 
         clientMethodArgDict['urlType'] = os.environ['LIGO_DATAFIND_URL_TYPE'] 
-    if os.environ.has_key('LIGO_DATAFIND_MATCH'):
+    if 'LIGO_DATAFIND_MATCH' in os.environ:
         clientMethodArgDict['match'] = os.environ['LIGO_DATAFIND_MATCH']
 
     for o, a in opts:
@@ -283,8 +284,8 @@ def main():
                     usage()
                     sys.exit(0)
             elif o in ("-v", "--version"):
-                    print('ligo_data_find client version %s' 
-                            % git_version.verbose_msg)
+                    print(('ligo_data_find client version %s' 
+                            % git_version.verbose_msg))
                     sys.exit(0)
             elif o in ("-p", "--ping"):
                     clientMethod = 'ping'
@@ -317,8 +318,8 @@ def main():
                     pat = re.compile("rl-type")
                     m = pat.match(a)
                     if m:
-                            print >>sys.stderr, "The correct option is --url-type"
-                            print >>sys.stderr, "Enter 'ligo_data_find --help' for usage"
+                            print("The correct option is --url-type", file=sys.stderr)
+                            print("Enter 'ligo_data_find --help' for usage", file=sys.stderr)
                             sys.exit(1)
                     clientMethodArgDict['urlType'] = a
             elif o in ("-m", "--match"):
@@ -338,14 +339,14 @@ def main():
                     clientMethodArgDict['checkGaps'] = True
 
     if not clientMethod:
-            print >>sys.stderr, "Bad combination or missing options"
-            print >>sys.stderr, "Enter 'ligo_data_find --help' for usage"
+            print("Bad combination or missing options", file=sys.stderr)
+            print("Enter 'ligo_data_find --help' for usage", file=sys.stderr)
             sys.exit(1)
 
     # determine server and port
     if not hostPortString:
-            print >>sys.stderr, "No LDRDataFindServer specified"
-            print >>sys.stderr, "Enter 'ligo_data_find --help' for usage"
+            print("No LDRDataFindServer specified", file=sys.stderr)
+            print("Enter 'ligo_data_find --help' for usage", file=sys.stderr)
             sys.exit(1)
 
     if hostPortString.find(':') < 0:
@@ -394,8 +395,8 @@ def main():
             latest(clientMethodArgDict)
 
     except Exception as e:
-            print >>sys.stderr, "Error querying LDRDataFindServer: %s" % str(e)
-            print >>sys.stderr, "Enter 'ligo_data_find --help' for usage"
+            print("Error querying LDRDataFindServer: %s" % str(e), file=sys.stderr)
+            print("Enter 'ligo_data_find --help' for usage", file=sys.stderr)
             sys.exit(1)
 
     output_file.close()
@@ -418,7 +419,7 @@ def findCredential():
     """
 
     # use X509_USER_PROXY from environment if set
-    if os.environ.has_key('X509_USER_PROXY'):
+    if 'X509_USER_PROXY' in os.environ:
         filePath = os.environ['X509_USER_PROXY']
         if validateProxy(filePath):
             return filePath, filePath
@@ -427,8 +428,8 @@ def findCredential():
             sys.exit(1)
 
     # use X509_USER_CERT and X509_USER_KEY if set
-    if os.environ.has_key('X509_USER_CERT'):
-        if os.environ.has_key('X509_USER_KEY'):
+    if 'X509_USER_CERT' in os.environ:
+        if 'X509_USER_KEY' in os.environ:
             certFile = os.environ['X509_USER_CERT']
             keyFile = os.environ['X509_USER_KEY']
             return certFile, keyFile
@@ -460,7 +461,7 @@ def validateProxy(path):
         proxy = M2Crypto.X509.load_cert(path)
     except Exception as e:
         msg = "Unable to load proxy from path %s : %s" % (path, e)
-        print >>sys.stderr, msg
+        print(msg, file=sys.stderr)
         sys.exit(1)
 
     # make sure the proxy is RFC 3820 compliant
@@ -495,7 +496,7 @@ Your proxy certificate is expired.
 Please generate a new proxy certificate and
 try again.
 """
-        print >>sys.stderr, msg
+        print(msg, file=sys.stderr)
         sys.exit(1)
 
     if secondsLeft < (60 * 15):
@@ -506,7 +507,7 @@ Your proxy certificate expires in less than
 Please generate a new proxy certificate and
 try again.
 """
-        print >>sys.stderr, msg
+        print(msg, file=sys.stderr)
         sys.exit(1)
 
     # return True to indicate validated proxy
@@ -525,7 +526,7 @@ LIGO users please run 'ligo-proxy-init' and try again.
 Others please run 'grid-proxy-init -rfc' and try again.
 """
 
-    print >>sys.stderr, msg
+    print(msg, file=sys.stderr)
 
 def ping(args):
     """
@@ -552,9 +553,9 @@ def ping(args):
 
     # if we have a credential then use it when setting up the connection
     if certFile and keyFile:
-        h = httplib.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
+        h = six.moves.http_client.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
     else:
-        h = httplib.HTTPConnection(server)
+        h = six.moves.http_client.HTTPConnection(server)
 
     # query the server
     try:
@@ -562,17 +563,17 @@ def ping(args):
         response = h.getresponse()
     except Exception as e:
         msg = "Unable to query server %s: %s\n\nPerhaps you need a valid proxy credential?\n" % (server, e)
-        raise RuntimeError, msg
+        raise RuntimeError(msg)
 
     # the server did respond to check the status
     if response.status != 200:
         msg = "Server returned code %d: %s" % (response.status, response.reason)
         body = response.read()
         msg += body
-        raise RuntimeError, msg
+        raise RuntimeError(msg)
 
     # since status is 200 OK the ping was good
-    print >>output_file, "LDRDataFindServer at %s is alive" % server
+    print("LDRDataFindServer at %s is alive" % server, file=output_file)
 
 def findFrameURLs(args):
     """
@@ -632,9 +633,9 @@ be present when searching for groups of files
 
     # if we have a credential then use it when setting up the connection
     if certFile and keyFile:
-        h = httplib.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
+        h = six.moves.http_client.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
     else:
-        h = httplib.HTTPConnection(server)
+        h = six.moves.http_client.HTTPConnection(server)
 
     # query the server
     try:
@@ -642,14 +643,14 @@ be present when searching for groups of files
         response = h.getresponse()
     except Exception as e:
         msg = "Unable to query server %s: %s\n\nPerhaps you need a valid proxy credential?\n" % (server, e)
-        raise RuntimeError, msg
+        raise RuntimeError(msg)
 
     # the server did respond to check the status
     if response.status != 200:
         msg = "Server returned code %d: %s" % (response.status, response.reason)
         body = response.read()
         msg += body
-        raise RuntimeError, msg
+        raise RuntimeError(msg)
 
     # since status is 200 OK read the URLs
     body = response.read()
@@ -670,7 +671,7 @@ be present when searching for groups of files
             # return value should be 2 and we will print
             # the missing interval or gap to stderr and
             # nothing to stdout or the output_file
-            print >>sys.stderr, 'missing segments: %s' % str(searchSegment)
+            print('missing segments: %s' % str(searchSegment), file=sys.stderr)
             return 2
 
         # parse the URLs to create a segment representation
@@ -690,23 +691,23 @@ be present when searching for groups of files
             if namesOnly:
                 lfns = parseLFNs(urlList)
                 for lfn in lfns:
-                    print >>output_file, "%s" % lfn
+                    print("%s" % lfn, file=output_file)
 
             elif lalcache:
                 for pfn in urlList:
                     lfn = os.path.basename(pfn)
                     head, ext = os.path.splitext(lfn)
                     a, b, c, d = head.split('-') 
-                    print >>output_file, "%s %s %s %s %s" % (a, b, c, d, pfn)
+                    print("%s %s %s %s %s" % (a, b, c, d, pfn), file=output_file)
 
             elif wcache:
                 wcachedict = wcacheFromURLList(urlList)
                 for item in wcachedict:
-                    print >>output_file, "%s %s %s %s %s %s" % tuple(wcachedict[item])
+                    print("%s %s %s %s %s %s" % tuple(wcachedict[item]), file=output_file)
 
             else:
                 for pfn in urlList:
-                    print >>output_file, "%s" % pfn
+                    print("%s" % pfn, file=output_file)
 
             return 0
 
@@ -718,55 +719,55 @@ be present when searching for groups of files
             if namesOnly:
                 lfns = parseLFNs(urlList)
                 for lfn in lfns:
-                    print >>output_file, "%s" % lfn
+                    print("%s" % lfn, file=output_file)
 
             elif lalcache:
                 for pfn in urlList:
                     lfn = os.path.basename(pfn)
                     head, ext = os.path.splitext(lfn)
                     a, b, c, d = head.split('-') 
-                    print >>output_file, "%s %s %s %s %s" % (a, b, c, d, pfn)
+                    print("%s %s %s %s %s" % (a, b, c, d, pfn), file=output_file)
 
             elif wcache:
                 wcachedict = wcacheFromURLList(urlList)
                 for item in wcachedict:
-                    print >>output_file, "%s %s %s %s %s %s" % tuple(wcachedict[item])
+                    print("%s %s %s %s %s %s" % tuple(wcachedict[item]), file=output_file)
 
             else:
                 for pfn in urlList:
-                    print >>output_file, "%s" % pfn
+                    print("%s" % pfn, file=output_file)
 
             missingSegments = glue.segments.segmentlist([searchSegment]) - returnedSegments
-            print >>sys.stderr, 'missing segments: %s' % missingSegments
+            print('missing segments: %s' % missingSegments, file=sys.stderr)
 
             return 1
 
 
 
     if len(urlList) == 0:
-        print >>sys.stderr, "No files found!"
+        print("No files found!", file=sys.stderr)
         return
 
     elif namesOnly:
         lfns = parseLFNs(urlList)
         for lfn in lfns:
-            print >>output_file, "%s" % lfn
+            print("%s" % lfn, file=output_file)
 
     elif lalcache:
         for pfn in urlList:
             lfn = os.path.basename(pfn)
             head, ext = os.path.splitext(lfn)
             a, b, c, d = head.split('-') 
-            print >>output_file, "%s %s %s %s %s" % (a, b, c, d, pfn)
+            print("%s %s %s %s %s" % (a, b, c, d, pfn), file=output_file)
 
     elif wcache:
         wcachedict = wcacheFromURLList(urlList)
         for item in wcachedict:
-            print >>output_file, "%s %s %s %s %s %s" % tuple(wcachedict[item])
+            print("%s %s %s %s %s %s" % tuple(wcachedict[item]), file=output_file)
 
     else:
         for pfn in urlList:
-            print >>output_file, "%s" % pfn
+            print("%s" % pfn, file=output_file)
 
 def parseLFNs(urlList):
     """
@@ -783,7 +784,7 @@ def parseLFNs(urlList):
         lfn = os.path.split(path)[1]
         lfnDict[lfn] = 1
 
-    lfns = lfnDict.keys()
+    lfns = list(lfnDict.keys())
     lfns.sort()
 
     return lfns
@@ -812,9 +813,9 @@ def showObservatories(args):
 
     # if we have a credential then use it when setting up the connection
     if certFile and keyFile:
-        h = httplib.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
+        h = six.moves.http_client.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
     else:
-        h = httplib.HTTPConnection(server)
+        h = six.moves.http_client.HTTPConnection(server)
 
     # query the server
     try:
@@ -822,14 +823,14 @@ def showObservatories(args):
         response = h.getresponse()
     except Exception as e:
         msg = "Unable to query server %s: %s\n\nPerhaps you need a valid proxy credential?\n" % (server, e)
-        raise RuntimeError, msg
+        raise RuntimeError(msg)
 
     # the server did respond to check the status
     if response.status != 200:
         msg = "Server returned code %d: %s" % (response.status, response.reason)
         body = response.read()
         msg += body
-        raise RuntimeError, msg
+        raise RuntimeError(msg)
 
     # since status is 200 OK read the list
     body = response.read()
@@ -838,7 +839,7 @@ def showObservatories(args):
     siteList = cjson.decode(body)
 
     for site in siteList:
-        print >>output_file, site
+        print(site, file=output_file)
 
 def showTypes(args):
     """
@@ -863,9 +864,9 @@ def showTypes(args):
 
     # if we have a credential then use it when setting up the connection
     if certFile and keyFile:
-        h = httplib.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
+        h = six.moves.http_client.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
     else:
-        h = httplib.HTTPConnection(server)
+        h = six.moves.http_client.HTTPConnection(server)
 
     # query the server
     try:
@@ -873,14 +874,14 @@ def showTypes(args):
         response = h.getresponse()
     except Exception as e:
         msg = "Unable to query server %s: %s\n\nPerhaps you need a valid proxy credential?\n" % (server, e)
-        raise RuntimeError, msg
+        raise RuntimeError(msg)
 
     # the server did respond to check the status
     if response.status != 200:
         msg = "Server returned code %d: %s" % (response.status, response.reason)
         body = response.read()
         msg += body
-        raise RuntimeError, msg
+        raise RuntimeError(msg)
 
     # since status is 200 OK read the list
     body = response.read()
@@ -889,7 +890,7 @@ def showTypes(args):
     frameTypes = cjson.decode(body)
 
     for type in frameTypes:
-        print >>output_file, type
+        print(type, file=output_file)
 
 def showTimes(args):
     """
@@ -935,9 +936,9 @@ or just a beginning or just an end time.
         
     # if we have a credential then use it when setting up the connection
     if certFile and keyFile:
-        h = httplib.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
+        h = six.moves.http_client.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
     else:
-        h = httplib.HTTPConnection(server)
+        h = six.moves.http_client.HTTPConnection(server)
 
     # query the server
     try:
@@ -945,14 +946,14 @@ or just a beginning or just an end time.
         response = h.getresponse()
     except Exception as e:
         msg = "Unable to query server %s: %s\n\nPerhaps you need a valid proxy credential?\n" % (server, e)
-        raise RuntimeError, msg
+        raise RuntimeError(msg)
 
     # the server did respond to check the status
     if response.status != 200:
         msg = "Server returned code %d: %s" % (response.status, response.reason)
         body = response.read()
         msg += body
-        raise RuntimeError, msg
+        raise RuntimeError(msg)
 
     # since status is 200 OK read the URLs
     body = response.read()
@@ -961,11 +962,11 @@ or just a beginning or just an end time.
     segmentList = cjson.decode(body)
 
     if len(segmentList) == 0:
-        print >>sys.stderr, "No segments found!"
+        print("No segments found!", file=sys.stderr)
         return
 
     for s in segmentList:
-        print >>output_file, "%d %d" % tuple(s)
+        print("%d %d" % tuple(s), file=output_file)
 
 def wcacheFromURLList(urlList):
     wcachedict={}
@@ -975,7 +976,7 @@ def wcacheFromURLList(urlList):
         head, ext = os.path.splitext(lfn)
         a, b, c, d = head.split('-') 
         tend=str(int(c)+int(d))
-        if wcachedict.has_key(dir):
+        if dir in wcachedict:
           l=wcachedict[dir]
           if int(l[2]) > int(c):
             wcachedict[dir][2]=c
@@ -1020,9 +1021,9 @@ def singleFrameFind(args):
 
     # if we have a credential then use it when setting up the connection
     if certFile and keyFile:
-        h = httplib.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
+        h = six.moves.http_client.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
     else:
-        h = httplib.HTTPConnection(server)
+        h = six.moves.http_client.HTTPConnection(server)
 
     # query the server
     try:
@@ -1030,14 +1031,14 @@ def singleFrameFind(args):
         response = h.getresponse()
     except Exception as e:
         msg = "Unable to query server %s: %s\n\nPerhaps you need a valid proxy credential?\n" % (server, e)
-        raise RuntimeError, msg
+        raise RuntimeError(msg)
 
     # the server did respond to check the status
     if response.status != 200:
         msg = "Server returned code %d: %s" % (response.status, response.reason)
         body = response.read()
         msg += body
-        raise RuntimeError, msg
+        raise RuntimeError(msg)
 
     # since status is 200 OK read the URLs
     body = response.read()
@@ -1046,29 +1047,29 @@ def singleFrameFind(args):
     urlList = cjson.decode(body)
 
     if len(urlList) == 0:
-        print >>sys.stderr, "No files found!"
+        print("No files found!", file=sys.stderr)
         return
 
     elif namesOnly:
         lfns = parseLFNs(urlList)
         for lfn in lfns:
-            print >>output_file, "%s" % lfn
+            print("%s" % lfn, file=output_file)
 
     elif lalcache:
         for pfn in urlList:
             lfn = os.path.basename(pfn)
             head, ext = os.path.splitext(lfn)
             a, b, c, d = head.split('-') 
-            print >>output_file, "%s %s %s %s %s" % (a, b, c, d, pfn)
+            print("%s %s %s %s %s" % (a, b, c, d, pfn), file=output_file)
 
     elif wcache:
         wcachedict = wcacheFromURLList(urlList)
         for item in wcachedict:
-            print >>output_file, "%s %s %s %s %s %s" % tuple(wcachedict[item])
+            print("%s %s %s %s %s %s" % tuple(wcachedict[item]), file=output_file)
 
     else:
         for pfn in urlList:
-            print >>output_file, "%s" % pfn
+            print("%s" % pfn, file=output_file)
 
 def latest(args):
     """
@@ -1119,9 +1120,9 @@ be present when searching for the latest file
 
     # if we have a credential then use it when setting up the connection
     if certFile and keyFile:
-        h = httplib.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
+        h = six.moves.http_client.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
     else:
-        h = httplib.HTTPConnection(server)
+        h = six.moves.http_client.HTTPConnection(server)
 
     # query the server
     try:
@@ -1129,14 +1130,14 @@ be present when searching for the latest file
         response = h.getresponse()
     except Exception as e:
         msg = "Unable to query server %s: %s\n\nPerhaps you need a valid proxy credential?\n" % (server, e)
-        raise RuntimeError, msg
+        raise RuntimeError(msg)
 
     # the server did respond to check the status
     if response.status != 200:
         msg = "Server returned code %d: %s" % (response.status, response.reason)
         body = response.read()
         msg += body
-        raise RuntimeError, msg
+        raise RuntimeError(msg)
 
     # since status is 200 OK read the URLs
     body = response.read()
@@ -1145,29 +1146,29 @@ be present when searching for the latest file
     urlList = cjson.decode(body)
 
     if len(urlList) == 0:
-        print >>sys.stderr, "No files found!"
+        print("No files found!", file=sys.stderr)
         return 1
 
     elif namesOnly:
         lfns = parseLFNs(urlList)
         for lfn in lfns:
-            print >>output_file, "%s" % lfn
+            print("%s" % lfn, file=output_file)
 
     elif lalcache:
         for pfn in urlList:
             lfn = os.path.basename(pfn)
             head, ext = os.path.splitext(lfn)
             a, b, c, d = head.split('-') 
-            print >>output_file, "%s %s %s %s %s" % (a, b, c, d, pfn)
+            print("%s %s %s %s %s" % (a, b, c, d, pfn), file=output_file)
 
     elif wcache:
         wcachedict = wcacheFromURLList(urlList)
         for item in wcachedict:
-            print >>output_file, "%s %s %s %s %s %s" % tuple(wcachedict[item])
+            print("%s %s %s %s %s %s" % tuple(wcachedict[item]), file=output_file)
 
     else:
         for pfn in urlList:
-            print >>output_file, "%s" % pfn
+            print("%s" % pfn, file=output_file)
 
 if __name__ == '__main__':
     main()

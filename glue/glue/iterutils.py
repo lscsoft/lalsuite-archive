@@ -35,6 +35,7 @@ import random
 
 
 from glue import git_version
+from six.moves import range
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -233,7 +234,7 @@ def inplace_filter(func, sequence):
 	processed faster.
 	"""
 	target = 0
-	for source in xrange(len(sequence)):
+	for source in range(len(sequence)):
 		if func(sequence[source]):
 			sequence[target] = sequence[source]
 			target += 1
@@ -290,7 +291,7 @@ def inorder(*iterables, **kwargs):
 	reverse = kwargs.pop("reverse", False)
 	keyfunc = kwargs.pop("key", lambda x: x) # default = identity
 	if kwargs:
-		raise TypeError("invalid keyword argument '%s'" % kwargs.keys()[0])
+		raise TypeError("invalid keyword argument '%s'" % list(kwargs.keys())[0])
 	nextvals = {}
 	for iterable in iterables:
 		next = iter(iterable).next

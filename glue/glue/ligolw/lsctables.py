@@ -49,6 +49,8 @@ from . import ligolw
 from . import table
 from . import types as ligolwtypes
 from . import ilwd
+from six.moves import map
+from six.moves import range
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -431,7 +433,7 @@ class Process(table.TableRow):
 	>>> x.instruments
 	set([u'H1', u'L1'])
 	"""
-	__slots__ = ProcessTable.validcolumns.keys()
+	__slots__ = list(ProcessTable.validcolumns.keys())
 
 	instruments = instrumentsproperty("ifos")
 
@@ -480,7 +482,7 @@ class LfnTable(table.Table):
 
 
 class Lfn(table.TableRow):
-	__slots__ = LfnTable.validcolumns.keys()
+	__slots__ = list(LfnTable.validcolumns.keys())
 
 
 LfnTable.RowType = Lfn
@@ -552,7 +554,7 @@ class ProcessParams(table.TableRow):
 	>>> x.pyvalue
 	1
 	"""
-	__slots__ = ProcessParamsTable.validcolumns.keys()
+	__slots__ = list(ProcessParamsTable.validcolumns.keys())
 
 	@property
 	def pyvalue(self):
@@ -691,7 +693,7 @@ class SearchSummary(table.TableRow):
 	>>> print x.out_segment
 	None
 	"""
-	__slots__ = SearchSummaryTable.validcolumns.keys()
+	__slots__ = list(SearchSummaryTable.validcolumns.keys())
 
 	instruments = instrumentsproperty("ifos")
 
@@ -771,7 +773,7 @@ class SearchSummVarsTable(table.Table):
 
 
 class SearchSummVars(table.TableRow):
-	__slots__ = SearchSummVarsTable.validcolumns.keys()
+	__slots__ = list(SearchSummVarsTable.validcolumns.keys())
 
 
 SearchSummVarsTable.RowType = SearchSummVars
@@ -876,7 +878,7 @@ class ExperimentTable(table.Table):
 
 
 class Experiment(table.TableRow):
-	__slots__ = ExperimentTable.validcolumns.keys()
+	__slots__ = list(ExperimentTable.validcolumns.keys())
 
 	def get_instruments(self):
 		"""
@@ -1054,7 +1056,7 @@ class ExperimentSummaryTable(table.Table):
 
 
 class ExperimentSummary(table.TableRow):
-	__slots__ = ExperimentSummaryTable.validcolumns.keys()
+	__slots__ = list(ExperimentSummaryTable.validcolumns.keys())
 
 
 ExperimentSummaryTable.RowType = ExperimentSummary
@@ -1094,7 +1096,7 @@ class ExperimentMapTable(table.Table):
 
 
 class ExperimentMap(table.TableRow):
-	__slots__ = ExperimentMapTable.validcolumns.keys()
+	__slots__ = list(ExperimentMapTable.validcolumns.keys())
 
 
 ExperimentMapTable.RowType = ExperimentMap
@@ -1149,7 +1151,7 @@ class GDSTriggerTable(table.Table):
 
 
 class GDSTrigger(table.TableRow):
-	__slots__ = GDSTriggerTable.validcolumns.keys()
+	__slots__ = list(GDSTriggerTable.validcolumns.keys())
 
 	#
 	# Tile properties
@@ -1380,7 +1382,7 @@ class SnglBurstTable(table.Table):
 
 
 class SnglBurst(table.TableRow):
-	__slots__ = SnglBurstTable.validcolumns.keys()
+	__slots__ = list(SnglBurstTable.validcolumns.keys())
 
 	#
 	# Tile properties
@@ -1594,7 +1596,7 @@ class MultiBurstTable(table.Table):
 
 
 class MultiBurst(table.TableRow):
-	__slots__ = MultiBurstTable.validcolumns.keys()
+	__slots__ = list(MultiBurstTable.validcolumns.keys())
 
 	instruments = instrumentsproperty("ifos")
 
@@ -1893,7 +1895,7 @@ class SnglInspiralTable(table.Table):
 
 
 class SnglInspiral(table.TableRow):
-	__slots__ = SnglInspiralTable.validcolumns.keys()
+	__slots__ = list(SnglInspiralTable.validcolumns.keys())
 
 	@staticmethod
 	def chirp_distance(dist, mchirp, ref_mass=1.4):
@@ -2065,7 +2067,7 @@ class CoincInspiral(table.TableRow):
 	>>> print x.end
 	None
 	"""
-	__slots__ = CoincInspiralTable.validcolumns.keys()
+	__slots__ = list(CoincInspiralTable.validcolumns.keys())
 
 	instruments = instrumentsproperty("ifos")
 
@@ -2136,7 +2138,7 @@ class SnglRingdownTable(table.Table):
 
 
 class SnglRingdown(table.TableRow):
-	__slots__ = SnglRingdownTable.validcolumns.keys()
+	__slots__ = list(SnglRingdownTable.validcolumns.keys())
 
 	def get_start(self):
 		return LIGOTimeGPS(self.start_time, self.start_time_ns)
@@ -2196,7 +2198,7 @@ class CoincRingdownTable(table.Table):
 
 
 class CoincRingdown(table.TableRow):
-	__slots__ = CoincRingdownTable.validcolumns.keys()
+	__slots__ = list(CoincRingdownTable.validcolumns.keys())
 
 	def get_start(self):
 		return LIGOTimeGPS(self.start_time, self.start_time_ns)
@@ -2377,7 +2379,7 @@ class MultiInspiralTable(table.Table):
 
 	def get_coinc_snr(self):
 		if len(self):
-			return (numpy.asarray(self.get_sngl_snrs().values())\
+			return (numpy.asarray(list(self.get_sngl_snrs().values()))\
 			            **2).sum(axis=0)**(1./2.)
 		else:
 			return numpy.array([])
@@ -2408,7 +2410,7 @@ class MultiInspiralTable(table.Table):
 		"""@returns the coincident chisq for each row in the table
 		"""
 		if len(self):
-			return (numpy.asarray(self.get_sngl_chisqs().values())\
+			return (numpy.asarray(list(self.get_sngl_chisqs().values()))\
 						**2).sum(axis=0)**(1./2.)
 		else:
 			return numpy.array([])
@@ -2443,8 +2445,8 @@ class MultiInspiralTable(table.Table):
 		"""
 		if len(self):
 			if not instruments:
-				instruments = map(str, \
-					instrument_set_from_ifos(self[0].ifos))
+				instruments = list(map(str, \
+					instrument_set_from_ifos(self[0].ifos)))
 			return dict((ifo, self.get_sigmasq(ifo))\
 				    for ifo in instruments)
 		else:
@@ -2464,8 +2466,8 @@ class MultiInspiralTable(table.Table):
 		Get the single-detector SNRs for each row in the table.
 		"""
 		if len(self) and instruments is None:
-			instruments = map(str, \
-			                instrument_set_from_ifos(self[0].ifos))
+			instruments = list(map(str, \
+			                instrument_set_from_ifos(self[0].ifos)))
 		elif instruments is None:
 			instruments = []
 		return dict((ifo, self.get_sngl_snr(ifo))\
@@ -2484,8 +2486,8 @@ class MultiInspiralTable(table.Table):
 		Get the single-detector \chi^2 for each row in the table.
 		"""
 		if len(self) and instruments is None:
-			instruments = map(str, \
-			                instrument_set_from_ifos(self[0].ifos))
+			instruments = list(map(str, \
+			                instrument_set_from_ifos(self[0].ifos)))
 		elif instruments is None:
 			instruments = []
 		return dict((ifo, self.get_sngl_chisq(ifo))\
@@ -2504,8 +2506,8 @@ class MultiInspiralTable(table.Table):
 		Get the single-detector \chi^2 for each row in the table.
 		"""
 		if len(self) and instruments is None:
-			instruments = map(str, \
-			                instrument_set_from_ifos(self[0].ifos))
+			instruments = list(map(str, \
+			                instrument_set_from_ifos(self[0].ifos)))
 		elif instruments is None:
 			instruments = []
 		return dict((ifo, self.get_sngl_bank_chisq(ifo))\
@@ -2524,8 +2526,8 @@ class MultiInspiralTable(table.Table):
 		Get the single-detector \chi^2 for each row in the table.
 		"""
 		if len(self) and instruments is None:
-			instruments = map(str, \
-			                instrument_set_from_ifos(self[0].ifos))
+			instruments = list(map(str, \
+			                instrument_set_from_ifos(self[0].ifos)))
 		elif instruments is None:
 			instruments = []
 		return dict((ifo, self.get_sngl_cont_chisq(ifo))\
@@ -2623,7 +2625,7 @@ class MultiInspiralTable(table.Table):
 
 
 class MultiInspiral(table.TableRow):
-	__slots__ = MultiInspiralTable.validcolumns.keys()
+	__slots__ = list(MultiInspiralTable.validcolumns.keys())
 	instrument_id = MultiInspiralTable.instrument_id
 
 	def get_reduced_chisq(self):
@@ -2664,13 +2666,13 @@ class MultiInspiral(table.TableRow):
 		"""
 		Get the coincident SNR for this row.
 		"""
-		return (numpy.asarray(self.get_sngl_snrs().values())**2)\
+		return (numpy.asarray(list(self.get_sngl_snrs().values()))**2)\
 		            .sum()**(1./2.)
 
 	def get_coinc_chisq(self):
 		"""@returns the coincident chisq for this row
 		"""
-		return ((numpy.asarray(self.get_sngl_chisqs().values())**2)
+		return ((numpy.asarray(list(self.get_sngl_chisqs().values()))**2)
 		            .sum()**(1./2.))
 
 	def get_reduced_coinc_chisq(self):
@@ -2721,7 +2723,7 @@ class MultiInspiral(table.TableRow):
 		"""
 		Get the coherent Null SNR for this row.
 		"""
-		null_snr_sq = (numpy.asarray(self.get_sngl_snrs().values())**2)\
+		null_snr_sq = (numpy.asarray(list(self.get_sngl_snrs().values()))**2)\
                              .sum() - self.snr**2
 		if null_snr_sq < 0:
 			return 0
@@ -2985,7 +2987,7 @@ class SimInspiral(table.TableRow):
 	>>> print x.end_time_gmst
 	-2238.39417156
 	"""
-	__slots__ = SimInspiralTable.validcolumns.keys()
+	__slots__ = list(SimInspiralTable.validcolumns.keys())
 
 	time_geocent = gpsproperty_with_gmst("geocent_end_time", "geocent_end_time_ns", "end_time_gmst")
 
@@ -3155,7 +3157,7 @@ class SimBurst(TableRow):
 	>>> print x.time_geocent_gmst
 	-2238.39417156
 	"""
-	__slots__ = SimBurstTable.validcolumns.keys()
+	__slots__ = list(SimBurstTable.validcolumns.keys())
 
 	time_geocent = gpsproperty_with_gmst("time_geocent_gps", "time_geocent_gps_ns", "time_geocent_gmst")
 
@@ -3276,7 +3278,7 @@ class SimRingdownTable(table.Table):
 
 
 class SimRingdown(table.TableRow):
-	__slots__ = SimRingdownTable.validcolumns.keys()
+	__slots__ = list(SimRingdownTable.validcolumns.keys())
 
 	def get_start(self, site = None):
 		if not site:
@@ -3343,7 +3345,7 @@ class SummValue(table.TableRow):
 	>>> print x.segment
 	None
 	"""
-	__slots__ = SummValueTable.validcolumns.keys()
+	__slots__ = list(SummValueTable.validcolumns.keys())
 
 	instruments = instrumentsproperty("ifo")
 
@@ -3379,7 +3381,7 @@ class SimInstParamsTable(table.Table):
 
 
 class SimInstParams(table.TableRow):
-	__slots__ = SimInstParamsTable.validcolumns.keys()
+	__slots__ = list(SimInstParamsTable.validcolumns.keys())
 
 
 SimInstParamsTable.RowType = SimInstParams
@@ -3414,7 +3416,7 @@ class StochasticTable(table.Table):
 
 
 class Stochastic(table.TableRow):
-	__slots__ = StochasticTable.validcolumns.keys()
+	__slots__ = list(StochasticTable.validcolumns.keys())
 
 
 StochasticTable.RowType = Stochastic
@@ -3449,7 +3451,7 @@ class StochSummTable(table.Table):
 
 
 class StochSumm(table.TableRow):
-	__slots__ = StochSummTable.validcolumns.keys()
+	__slots__ = list(StochSummTable.validcolumns.keys())
 
 
 StochSummTable.RowType = StochSumm
@@ -3515,7 +3517,7 @@ class ExtTriggersTable(table.Table):
 
 
 class ExtTriggers(table.TableRow):
-	__slots__ = ExtTriggersTable.validcolumns.keys()
+	__slots__ = list(ExtTriggersTable.validcolumns.keys())
 
 
 ExtTriggersTable.RowType = ExtTriggers
@@ -3549,7 +3551,7 @@ class FilterTable(table.Table):
 
 
 class Filter(table.TableRow):
-	__slots__ = FilterTable.validcolumns.keys()
+	__slots__ = list(FilterTable.validcolumns.keys())
 
 
 FilterTable.RowType = Filter
@@ -3657,7 +3659,7 @@ class Segment(table.TableRow):
 	>>> x.segment
 	segment(-infinity, infinity)
 	"""
-	__slots__ = SegmentTable.validcolumns.keys()
+	__slots__ = list(SegmentTable.validcolumns.keys())
 
 	start = gpsproperty("start_time", "start_time_ns")
 	end = gpsproperty("end_time", "end_time_ns")
@@ -3748,7 +3750,7 @@ class SegmentDef(table.TableRow):
 	>>> x.instruments
 	set([u'H1', u'L1'])
 	"""
-	__slots__ = SegmentDefTable.validcolumns.keys()
+	__slots__ = list(SegmentDefTable.validcolumns.keys())
 
 	instruments = instrumentsproperty("ifos")
 
@@ -3815,7 +3817,7 @@ class SegmentSumTable(table.Table):
 
 
 class SegmentSum(Segment):
-	__slots__ = SegmentSumTable.validcolumns.keys()
+	__slots__ = list(SegmentSumTable.validcolumns.keys())
 
 
 SegmentSumTable.RowType = SegmentSum
@@ -3940,7 +3942,7 @@ class TimeSlideTable(table.Table):
 
 
 class TimeSlide(table.TableRow):
-	__slots__ = TimeSlideTable.validcolumns.keys()
+	__slots__ = list(TimeSlideTable.validcolumns.keys())
 
 
 TimeSlideTable.RowType = TimeSlide
@@ -4006,7 +4008,7 @@ class CoincDefTable(table.Table):
 
 
 class CoincDef(table.TableRow):
-	__slots__ = CoincDefTable.validcolumns.keys()
+	__slots__ = list(CoincDefTable.validcolumns.keys())
 
 
 CoincDefTable.RowType = CoincDef
@@ -4045,7 +4047,7 @@ class CoincTable(table.Table):
 
 
 class Coinc(table.TableRow):
-	__slots__ = CoincTable.validcolumns.keys()
+	__slots__ = list(CoincTable.validcolumns.keys())
 
 	insts = instrumentsproperty("instruments")
 
@@ -4083,7 +4085,7 @@ class CoincMapTable(table.Table):
 
 
 class CoincMap(table.TableRow):
-	__slots__ = CoincMapTable.validcolumns.keys()
+	__slots__ = list(CoincMapTable.validcolumns.keys())
 
 
 CoincMapTable.RowType = CoincMap
@@ -4117,7 +4119,7 @@ class DQSpecListTable(table.Table):
 
 
 class DQSpec(table.TableRow):
-	__slots__ = DQSpecListTable.validcolumns.keys()
+	__slots__ = list(DQSpecListTable.validcolumns.keys())
 
 	def apply_to_segmentlist(self, seglist):
 		"""
@@ -4161,7 +4163,7 @@ class LIGOLWMonTable(table.Table):
 
 
 class LIGOLWMon(table.TableRow):
-	__slots__ = LIGOLWMonTable.validcolumns.keys()
+	__slots__ = list(LIGOLWMonTable.validcolumns.keys())
 
 	def get_time(self):
 		return LIGOTimeGPS(self.time, self.time_ns)
@@ -4200,7 +4202,7 @@ class VetoDefTable(table.Table):
 
 
 class VetoDef(table.TableRow):
-	__slots__ = VetoDefTable.validcolumns.keys()
+	__slots__ = list(VetoDefTable.validcolumns.keys())
 
 
 VetoDefTable.RowType = VetoDef
@@ -4244,7 +4246,7 @@ class SummMimeTable(table.Table):
 
 
 class SummMime(table.TableRow):
-	__slots__ = SummMimeTable.validcolumns.keys()
+	__slots__ = list(SummMimeTable.validcolumns.keys())
 
 	def get_start(self):
 		return LIGOTimeGPS(self.start_time, self.start_time_ns)
@@ -4280,7 +4282,7 @@ class TimeSlideSegmentMapTable(table.Table):
 
 
 class TimeSlideSegmentMap(table.TableRow):
-	__slots__ = TimeSlideSegmentMapTable.validcolumns.keys()
+	__slots__ = list(TimeSlideSegmentMapTable.validcolumns.keys())
 
 
 TimeSlideSegmentMapTable.RowType = TimeSlideSegmentMap
