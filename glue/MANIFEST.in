@@ -17,6 +17,7 @@ include src/php/seginsert/img/*
 include src/php/seginsert/scripts/*
 include src/segments/*.c
 include src/segments/*.h
+include src/*.h
 include src/nmi/*
 include src/nmi/builds/*
 include src/nmi/unit/*

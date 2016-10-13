@@ -31,9 +31,11 @@
 #include <stdlib.h>
 #include <wchar.h>
 #include <ilwd.h>
+#include "six.h"
 
 
 #define MODULE_NAME "glue.ligolw._ilwd"
+#define MODULE_DOC "C extension module providing the ilwdchar parent class for row ID classes."
 
 
 /*
@@ -475,7 +477,11 @@ PyTypeObject ligolw_ilwdchar_Type = {
 "Note that the two instances have the same hash value and compare as equal,\n" \
 "and so only one of them remains in the set although they are not the same\n" \
 "object.",
-	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES,
+	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE
+#if PY_MAJOR_VERSION < 3
+	| Py_TPFLAGS_CHECKTYPES
+#endif
+	,
 	.tp_hash = ligolw_ilwdchar___hash__,
 	.tp_richcompare = ligolw_ilwdchar___richcompare__,
 	.tp_str = ligolw_ilwdchar___str__,
@@ -498,22 +504,31 @@ PyTypeObject ligolw_ilwdchar_Type = {
  */
 
 
-void init_ilwd(void)
+static PyModuleDef moduledef = {
+	PyModuleDef_HEAD_INIT,
+	MODULE_NAME, MODULE_DOC, -1, NULL
+};
+
+PyMODINIT_FUNC PyInit__ilwd(void); /* Silence -Wmissing-prototypes */
+PyMODINIT_FUNC PyInit__ilwd(void)
 {
+	PyObject *module = NULL;
+
+	if(PyType_Ready(&ligolw_ilwdchar_Type) < 0)
+		goto done;
+
 	/*
 	 * Create the module.
 	 */
 
-	PyObject *module = Py_InitModule3(MODULE_NAME, NULL,
-"C extension module providing the ilwdchar parent class for row ID classes."
-	);
+	module = PyModule_Create(&moduledef);
+	if (!module)
+		goto done;
 
 	/*
 	 * Add the ilwdchar class.
 	 */
 
-	if(PyType_Ready(&ligolw_ilwdchar_Type) < 0)
-		return;
 	Py_INCREF(&ligolw_ilwdchar_Type);
 	PyModule_AddObject(module, "ilwdchar", (PyObject *) &ligolw_ilwdchar_Type);
 
@@ -524,4 +539,10 @@ void init_ilwd(void)
 
 	table_name = PyUnicode_FromString("table_name");
 	column_name = PyUnicode_FromString("column_name");
+
+done:
+	return module;
 }
+
+
+SIX_COMPAT_MODULE(_ilwd)
