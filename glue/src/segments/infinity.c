@@ -144,7 +144,11 @@ static PyObject *__pos__(PyObject *self)
 
 static PyObject *__repr__(PyObject *self)
 {
+#if PY_MAJOR_VERSION < 3
 	return PyString_FromString(self == (PyObject *) segments_PosInfinity ? "infinity" : "-infinity");
+#else
+	return PyUnicode_FromString(self == (PyObject *) segments_PosInfinity ? "infinity" : "-infinity");
+#endif
 }
 
 
