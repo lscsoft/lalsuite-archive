@@ -61,14 +61,14 @@ static int segments_Segment_Check(PyObject *obj)
 PyObject *segments_Segment_New(PyTypeObject *type, PyObject *a, PyObject *b)
 {
 	PyObject *new;
-	int delta;
+	int cmp;
 	if(!type->tp_alloc) {
 		PyErr_SetObject(PyExc_TypeError, (PyObject *) type);
 		return NULL;
 	}
 	new = type->tp_alloc(type, 2);
-	if(new && PyObject_Cmp(a, b, &delta) >= 0) {
-		if(delta <= 0) {
+	if(new && (cmp = PyObject_RichCompareBool(a, b, Py_LE)) >= 0) {
+		if(cmp) {
 			PyTuple_SET_ITEM(new, 0, a);
 			PyTuple_SET_ITEM(new, 1, b);
 		} else {
