@@ -228,7 +228,7 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 		return coinc, coincmaps, coinc_ringdown
 
 
-	def append_coinc(self, coinc, coincmaps, coinc_ringdown
+	def append_coinc(self, coinc, coincmaps, coinc_ringdown):
 		coinc = super(RingdownCoincTables, self).append_coinc(coinc, coincmaps)
 		coinc_ringdown.coinc_event_id = coinc.coinc_event_id
 		self.coinc_ringdown_table.append(coinc_ringdown)
