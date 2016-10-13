@@ -246,7 +246,11 @@ static PyObject *__float__(PyObject *self)
 static PyNumberMethods as_number = {
 	.nb_add = __add__,
 	.nb_negative = __neg__,
+#if PY_MAJOR_VERSION < 3
 	.nb_nonzero = __nonzero__,
+#else
+	.nb_bool = __nonzero__,
+#endif
 	.nb_positive = __pos__,
 	.nb_subtract = __sub__,
 	.nb_float = __float__,
@@ -298,7 +302,11 @@ PyTypeObject segments_Infinity_Type = {
 ">>> import math\n" \
 ">>> math.isinf(x)\n" \
 "True",
-	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES,
+	.tp_flags = Py_TPFLAGS_DEFAULT
+#if PY_MAJOR_VERSION < 3
+	| Py_TPFLAGS_CHECKTYPES
+#endif
+	,
 	.tp_methods = methods,
 	.tp_name = MODULE_NAME ".infinity",
 	.tp_new = __new__,

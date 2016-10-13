@@ -242,14 +242,14 @@ setup(
         "glue/ligolw/tokenizer.RowBuilder.c",
         "glue/ligolw/tokenizer.RowDumper.c"
       ],
-      include_dirs = [ "glue/ligolw" ]
+      include_dirs = [ "src", "glue/ligolw" ]
     ),
     Extension(
       "glue.ligolw._ilwd",
       [
         "glue/ligolw/ilwd.c"
       ],
-      include_dirs = [ "glue/ligolw" ]
+      include_dirs = [ "src", "glue/ligolw" ]
     ),
     Extension(
       "glue.__segments",
@@ -259,7 +259,7 @@ setup(
         "src/segments/segment.c",
         "src/segments/segmentlist.c"
       ],
-      include_dirs = [ "src/segments" ]
+      include_dirs = [ "src", "src/segments" ]
     )
   ],
   scripts = [

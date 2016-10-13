@@ -410,7 +410,11 @@ static PyNumberMethods as_number = {
 	.nb_add = __or__,
 	.nb_and = __and__,
 	.nb_absolute = __abs__,
+#if PY_MAJOR_VERSION < 3
 	.nb_nonzero = __nonzero__,
+#else
+	.nb_bool = __nonzero__,
+#endif
 	.nb_or = __or__,
 	.nb_subtract = __sub__,
 };
@@ -488,7 +492,11 @@ PyTypeObject segments_Segment_Type = {
 "True\n" \
 ">>> z[y]\n" \
 "['/path/to/file1', '/path/to/file2']",
-	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES | Py_TPFLAGS_BASETYPE,
+	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE
+#if PY_MAJOR_VERSION < 3
+	| Py_TPFLAGS_CHECKTYPES
+#endif
+	,
 	.tp_methods = methods,
 	.tp_name = MODULE_NAME ".segment",
 	.tp_new = __new__,
