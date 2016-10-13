@@ -225,10 +225,22 @@ static PyObject *disjoint(PyObject *self, PyObject *other)
 	oa = PyTuple_GET_ITEM(other, 0);
 	ob = PyTuple_GET_ITEM(other, 1);
 	if(PyObject_RichCompareBool(sa, ob, Py_GT))
+#if PY_MAJOR_VERSION < 3
 		return PyInt_FromLong(1);
+#else
+		return PyLong_FromLong(1);
+#endif
 	if(PyObject_RichCompareBool(sb, oa, Py_LT))
+#if PY_MAJOR_VERSION < 3
 		return PyInt_FromLong(-1);
+#else
+		return PyLong_FromLong(-1);
+#endif
+#if PY_MAJOR_VERSION < 3
 	return PyInt_FromLong(0);
+#else
+	return PyLong_FromLong(0);
+#endif
 }
 
 
