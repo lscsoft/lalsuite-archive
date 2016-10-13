@@ -3,4 +3,4 @@
 export PYBUILD_NAME=ligo-common
 
 %:
-	dh $@ --with python2 --system=pybuild
+	dh $@ --with python2,python3 --buildsystem=pybuild
