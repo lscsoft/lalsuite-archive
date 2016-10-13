@@ -2,6 +2,10 @@
 # with absolutely no warranty and you can do
 # absolutely whatever you want with it.
 
+import six
+from six.moves import map
+from six.moves import range
+from six.moves import zip
 __date__ = '1 October 2012'
 __version__ = '1.9'
 __doc__= """
@@ -22,12 +26,17 @@ Installation: drop markup.py somewhere into your Python path.
 """ % ( __version__, __date__ )
 
 try:
-    basestring
+    six.string_types
     import string
 except:
     # python 3
-    basestring = str
+    six.string_types = str
     string = str
+
+try:  # python < 3
+    long
+except NameError:  # python >= 3
+    long = int
 
 # tags which are reserved python keywords will be referred 
 # to by a leading underscore otherwise we end up with a syntax error
@@ -335,7 +344,7 @@ class page:
         """This convenience function is only useful for html.
         It adds css stylesheet(s) to the document via the <link> element."""
       
-        if isinstance( filelist, basestring ):
+        if isinstance( filelist, six.string_types ):
             self.link( href=filelist, rel='stylesheet', type='text/css', media='all' )
         else:
             for file in filelist:
@@ -425,7 +434,7 @@ def _argsdicts( args, mydict ):
 def _totuple( x ):
     """Utility stuff to convert string, int, long, float, None or anything to a usable tuple."""
 
-    if isinstance( x, basestring ):
+    if isinstance( x, six.string_types ):
         out = x,
     elif isinstance( x, ( int, long, float ) ):
         out = str( x ),
@@ -439,7 +448,7 @@ def _totuple( x ):
 def escape( text, newline=False ):
     """Escape special html characters."""
 
-    if isinstance( text, basestring ):
+    if isinstance( text, six.string_types ):
         if '&' in text:
             text = text.replace( '&', '&amp;' )
         if '>' in text:
@@ -461,7 +470,7 @@ _escape = escape
 def unescape( text ):
     """Inverse of escape."""
     
-    if isinstance( text, basestring ):
+    if isinstance( text, six.string_types ):
         if '&amp;' in text:
             text = text.replace( '&amp;', '&' )
         if '&gt;' in text:

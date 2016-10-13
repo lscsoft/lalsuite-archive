@@ -39,6 +39,7 @@ from .. import ligolw
 from .. import table
 from .. import lsctables
 from .. import utils
+from six.moves import map
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"

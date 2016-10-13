@@ -2,6 +2,7 @@
 #
 # generates and submits a Metronome build of lalsuite from a given git URL and id
 
+from __future__ import print_function
 import os
 import sys
 import commands
@@ -59,10 +60,10 @@ if template_dir is None:
 
 # sanity-check our options
 if git_id is None:
-    print >> sys.stderr, "ERROR: git_id (-i) required"
+    print("ERROR: git_id (-i) required", file=sys.stderr)
     sys.exit(2)
 if git_branch is None:
-    print >> sys.stderr, 'WARNING: no git_branch specified, using "unknown_branch" in metadata'
+    print('WARNING: no git_branch specified, using "unknown_branch" in metadata', file=sys.stderr)
     git_branch = "unknown_branch"
 
 # TODO: confirm that the given git id exists on the given git branch
@@ -86,10 +87,10 @@ if options.verbose: os.system("env|fgrep _NMI|sort")
 # we need to tell Metronome how & where to find the build harness code
 # depending on whether it was specified as a git:// or file:// URL
 if 'git://' not in harness_git_repo and 'file://' not in harness_git_repo:
-    print >> sys.stderr, "ERROR: invalid harness repository URL (\"%s\"): only git:// and file:// schemes are currently supported" % harness_git_repo
+    print("ERROR: invalid harness repository URL (\"%s\"): only git:// and file:// schemes are currently supported" % harness_git_repo, file=sys.stderr)
     sys.exit(2)
 
 (status, output) = commands.getstatusoutput("nmi_submit %s/lalsuite-build.spec" % template_dir)
 
-print output
+print(output)
 sys.exit(status)

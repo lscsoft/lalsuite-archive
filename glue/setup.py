@@ -1,6 +1,7 @@
 # 
 # setup script for glue
 
+from __future__ import print_function
 import os, sys
 import subprocess
 import time
@@ -8,14 +9,14 @@ import time
 try:
   from sys import version_info
 except:
-  print >> sys.stderr, "Unable to determine the python version"
-  print >> sys.stderr, "Please check that your python version is >= 2.7"
+  print("Unable to determine the python version", file=sys.stderr)
+  print("Please check that your python version is >= 2.7", file=sys.stderr)
   sys.exit(1)
 
 if version_info < (2, 7):
-  print >> sys.stderr, "Your python version " + str(version_info) + " appears to be less than 2.7"
-  print >> sys.stderr, "Please check that your python version is >= 2.7"
-  print >> sys.stderr, "Glue requires at least version 2.7"
+  print("Your python version " + str(version_info) + " appears to be less than 2.7", file=sys.stderr)
+  print("Please check that your python version is >= 2.7", file=sys.stderr)
+  print("Glue requires at least version 2.7", file=sys.stderr)
   sys.exit(1)
 
 try:

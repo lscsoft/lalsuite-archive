@@ -31,6 +31,7 @@ Print things from LIGO LW XML files.  Inspired by lwtprint from LIGOTools.
 """
 
 
+from __future__ import print_function
 from optparse import OptionParser
 
 
@@ -43,6 +44,8 @@ from glue.ligolw import lsctables
 from glue.ligolw import array
 from glue.ligolw import utils
 from glue import git_version
+from six.moves import map
+import six
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id
@@ -75,10 +78,10 @@ def parse_command_line():
 	options, urls = parser.parse_args()
 
 	# Ensure the delimiter is unicode compliant as well
-	options.delimiter = unicode(options.delimiter)
+	options.delimiter = six.text_type(options.delimiter)
 
 	# add urls from cache files
-	urls += [CacheEntry(line).url for cache in options.input_cache for line in file(cache)]
+	urls += [CacheEntry(line).url for cache in options.input_cache for line in open(cache)]
 
 	# strip table names
 	if options.table:
@@ -133,7 +136,7 @@ def print_table(table_elem, columns, rows):
 		columns = table_elem.columnnames
 	for n, row in enumerate(table_elem):
 		if n in rows:
-			print options.delimiter.join(map(lambda key: unicode(getattr(row, key)), columns))
+			print(options.delimiter.join([six.text_type(getattr(row, key)) for key in columns]))
 
 
 #
@@ -146,10 +149,10 @@ def print_array(array_elem):
 	if len(a.shape) == 1:
 		# a one-dimensional array
 		for row in a:
-			print repr(row)
+			print(repr(row))
 	elif len(a.shape) == 2:
 		for row in a.transpose()[:]:
-			print options.delimiter.join(map(repr, row))
+			print(options.delimiter.join(map(repr, row)))
 	else:
 		# a three or more dimensional array
 		raise ValueError("array has more than 2 dimensions")

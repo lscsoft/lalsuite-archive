@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License along with
 this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+from six.moves import map
 __author__ = "Scott Koranda <skoranda@gravity.phys.uwm.edu>"
 from glue import git_version
 __date__ = git_version.date
@@ -89,7 +90,7 @@ class Gridmap(object):
     if f:
       f.close()
 
-    if self.d.has_key(key): return 1
+    if key in self.d: return 1
     else: return 0
 
 

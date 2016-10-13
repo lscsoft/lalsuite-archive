@@ -35,6 +35,7 @@ All the heavy lifting is done by ligolw_dq_query --segment-url, this just
 processes the arguments and output.
 """
 
+from __future__ import print_function
 from optparse import OptionParser
 
 import sys
@@ -89,36 +90,36 @@ def parse_command_line():
 
 
     if not options.ifo:
-        print >>sys.stderr, "ifo is required"
+        print("ifo is required", file=sys.stderr)
         sys.exit(1)
 
 
 
     if not options.time_file:
-        print >>sys.stderr, "time-file is required"
+        print("time-file is required", file=sys.stderr)
         sys.exit(1)
 
     if not os.path.exists(options.time_file):
-        print >>sys.stderr, "time-file %s does not exist" % options.time_file
+        print("time-file %s does not exist" % options.time_file, file=sys.stderr)
         sys.exit(1)
 
     if not os.path.isfile(options.time_file):
-        print >>sys.stderr, "time-file %s exists but is not a file" % options.time_file
+        print("time-file %s exists but is not a file" % options.time_file, file=sys.stderr)
         sys.exit(1)
 
 
 
 
     if not (options.input_dir or options.segment):
-        print >>sys.stderr, "One of [input-dir|segment] is required"
+        print("One of [input-dir|segment] is required", file=sys.stderr)
         sys.exit(1)
 
     if options.input_dir and not os.path.exists(options.input_dir):
-        print >>sys.stderr, "input_dir %s does not exist" % options.input_dir
+        print("input_dir %s does not exist" % options.input_dir, file=sys.stderr)
         sys.exit(1)
 
     if options.input_dir and not os.path.isdir(options.input_dir):
-        print >>sys.stderr, "input_dir %s exists but is not a directory" % options.input_dir
+        print("input_dir %s exists but is not a directory" % options.input_dir, file=sys.stderr)
         sys.exit(1)
 
 
@@ -149,14 +150,14 @@ if __name__ == '__main__':
         tme  = tme[:-1]
         pipe = os.popen('ligolw_dq_query --segment=%s --active --include-segments=%s %s | ligolw_print -t segment_definer -c name' % (segment, options.ifo, tme))
 
-        print tme,
+        print(tme, end=' ')
 
         for name in pipe:
-            print '\t', name[:-1],
+            print('\t', name[:-1], end=' ')
 
         pipe.close()
 
-        print
+        print()
 
     f.close()
 

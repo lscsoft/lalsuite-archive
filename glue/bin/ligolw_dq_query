@@ -50,6 +50,7 @@ and the start time of the next adjacent active segment.
 """
 
 
+from __future__ import print_function
 from optparse import OptionParser
 import sqlite3
 import sys
@@ -76,6 +77,7 @@ from glue.segmentdb import segmentdb_utils
 from glue.ligolw.utils import ligolw_sqlite
 from glue.ligolw import dbtables
 from glue import git_version
+from six.moves import map
 
 PROGRAM_NAME = sys.argv[0].replace('./','')
 PROGRAM_PID  = os.getpid()
@@ -169,7 +171,7 @@ def parse_command_line():
             inurl   = urllib.urlopen(options.segment_url)
             outfile = open(tmp_dir + "/" + fname, 'w')
             for l in inurl:
-                print >>outfile, l,
+                print(l, end=' ', file=outfile)
 
             inurl.close()
             outfile.close()
@@ -199,7 +201,7 @@ def parse_command_line():
     # we have no way of knowing where the segment boundaries are
     # and would have to load *every* XML file.
     if file_location and options.report:
-        print "--report can only be used with the database."
+        print("--report can only be used with the database.")
         sys.exit(-1)
 
     return options, database_location, file_location, times
@@ -220,7 +222,7 @@ def build_time_clause(table, times):
     array of times of the form (lower bound, upper bound), constructs a SQL clause
     that restricts a search to the given ranges"""
 
-    subclauses = map(lambda x: 'NOT (%d > %s.end_time OR %s.start_time > %d)' % (x[0], table, table, x[1]), times)
+    subclauses = ['NOT (%d > %s.end_time OR %s.start_time > %d)' % (x[0], table, table, x[1]) for x in times]
     return '( ' + " OR ".join(subclauses) + ' )'
 
 
@@ -240,7 +242,7 @@ def build_segment_clause(clauses):
 
         return "segment_definer.ifos = '%s' AND segment_definer.name = '%s' AND segment_definer.version = %s" % (tmp[0], tmp[1], tmp[2])
         
-    subclauses = map(build_segment_subclause, clauses.split(','))
+    subclauses = list(map(build_segment_subclause, clauses.split(',')))
     return " OR ".join(subclauses)
 
 
@@ -281,7 +283,7 @@ def run_report(doc, process_id, engine, include_segments, times, in_segments_onl
     # are fast.  But talking over the LDBD server takes a noticable amount
     # of time per-query
     #
-    for tm in map(lambda x: int(x[0]), times):
+    for tm in [int(x[0]) for x in times]:
         # Segments we are in the midsts of
         rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version,
              segment.start_time, segment.end_time
@@ -294,7 +296,7 @@ def run_report(doc, process_id, engine, include_segments, times, in_segments_onl
         for ifo, name, version, start_time, end_time in rows:
             full_name = get_full_name(ifo, name, version)
             in_times[full_name] = [start_time, end_time]
-            print '%-45s [%d %d %d)' % (full_name, start_time, tm, end_time)
+            print('%-45s [%d %d %d)' % (full_name, start_time, tm, end_time))
 
         if not in_segments_only:
             # Segments we are between. Latest end time before of interest.
@@ -326,7 +328,7 @@ def run_report(doc, process_id, engine, include_segments, times, in_segments_onl
             for key in out_times:
                 if key not in in_times:
                     value = out_times[key]
-                    print '%-45s %s %d %s' % (key, value[0], tm, value[1])
+                    print('%-45s %s %d %s' % (key, value[0], tm, value[1]))
 
 
 def run_active(doc, process_id, engine, include_segments, times):
@@ -408,7 +410,7 @@ def run_defined(doc, process_id, engine, include_segments, times):
 #
 
 def ping_server(client):
-    print client.ping()
+    print(client.ping())
     return 0
 
 
@@ -466,7 +468,7 @@ if __name__ == '__main__':
     if options.end_pad:
         end_pad = int(options.end_pad)
 
-    times = map(lambda x: (int(x) - start_pad, int(x) + end_pad), times)
+    times = [(int(x) - start_pad, int(x) + end_pad) for x in times]
 
     # set up the response
     doc = ligolw.Document()

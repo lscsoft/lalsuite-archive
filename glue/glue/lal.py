@@ -36,6 +36,8 @@ import re
 import sys
 import urlparse
 import warnings
+import six
+from six.moves import range
 
 try:  # python < 3
     long
@@ -121,8 +123,8 @@ class LIGOTimeGPS(object):
 			ns, seconds = math.modf(seconds)
 			seconds = int(seconds)
 			nanoseconds += ns * 1e9
-		elif not isinstance(seconds, (int, long)):
-			if isinstance(seconds, (str, unicode)):
+		elif not isinstance(seconds, six.integer_types):
+			if isinstance(seconds, (six.binary_type, six.text_type)):
 				sign = -1 if seconds.lstrip().startswith("-") else +1
 				try:
 					if "." in seconds:
@@ -350,7 +352,7 @@ class LIGOTimeGPS(object):
 		LIGOTimeGPS(50, 250000000)
 		"""
 		quotient = LIGOTimeGPS(float(self) / float(other))
-		for n in xrange(100):
+		for n in range(100):
 			residual = float(self - quotient * other) / float(other)
 			quotient += residual
 			if abs(residual) <= 0.5e-9:

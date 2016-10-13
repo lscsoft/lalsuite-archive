@@ -26,6 +26,9 @@ from glue.ligolw import lsctables
 from glue.ligolw import table
 from glue.segmentdb import query_engine
 from glue.ligolw import types as ligolwtypes
+from six.moves import filter
+from six.moves import map
+from six.moves import range
 
 
 
@@ -96,7 +99,7 @@ def setup_database(database_location):
     	   msg += "\nSupported protocols include: http, https, ldbd, ldbdi"
 	   msg += "\nRun with --help for usage"
 	   raise ValueError(msg)
-    except ValueError, e:
+    except ValueError as e:
       	sys.stderr.write('%s\n' % str(e))
       	sys.exit(1)
 
@@ -133,7 +136,7 @@ def setup_database(database_location):
          identity = None
       try:
         client = LDBDWClient.LDBDClient(host,port,protocol,identity)
-      except Exception, e:
+      except Exception as e:
         sys.stderr.write("Unable to connect to LDBD Server at %s://%s:%d \n" % (protocol,host, port) + str(e))
         sys.exit(1)
 
@@ -146,7 +149,7 @@ def setup_database(database_location):
          identity = None
       try:
         client = LDBDClient.LDBDClient(host,port,identity)
-      except Exception, e:
+      except Exception as e:
         sys.stderr.write("Unable to connect to LDBD Server at %s://%s:%d\n" % (protocol,host, port) + str(e))
         try:
           if gsiserverutils.checkCredentials():
@@ -314,19 +317,19 @@ def find_segments(doc, key, use_segment_table = True):
 
     # Find all segment definers matching the critieria
     seg_def_table = lsctables.SegmentDefTable.get_table(doc)
-    seg_defs      = filter(filter_func, seg_def_table)
-    seg_def_ids   = map(lambda x: str(x.segment_def_id), seg_defs)
+    seg_defs      = list(filter(filter_func, seg_def_table))
+    seg_def_ids   = [str(x.segment_def_id) for x in seg_defs]
 
     # Find all segments belonging to those definers
     if use_segment_table:
         seg_table     = lsctables.SegmentTable.get_table(doc)
-        seg_entries   = filter(lambda x: str(x.segment_def_id) in seg_def_ids, seg_table)
+        seg_entries   = [x for x in seg_table if str(x.segment_def_id) in seg_def_ids]
     else:
         seg_sum_table = lsctables.SegmentSumTable.get_table(doc)
-        seg_entries   = filter(lambda x: str(x.segment_def_id) in seg_def_ids, seg_sum_table)
+        seg_entries   = [x for x in seg_sum_table if str(x.segment_def_id) in seg_def_ids]
 
     # Combine into a segmentlist
-    ret = segmentlist(map(lambda x: segment(x.start_time, x.end_time), seg_entries))
+    ret = segmentlist([segment(x.start_time, x.end_time) for x in seg_entries])
 
     ret.coalesce()
 
@@ -348,7 +351,7 @@ def ensure_segment_table(connection):
     if count == 0:
         sys.stderr.write("WARNING: None of the loaded files contain a segment table\n")
         theClass  = lsctables.TableByName['segment']
-        statement = "CREATE TABLE IF NOT EXISTS segment (" + ", ".join(map(lambda key: "%s %s" % (key, ligolwtypes.ToSQLiteType[theClass.validcolumns[key]]), theClass.validcolumns)) + ")"
+        statement = "CREATE TABLE IF NOT EXISTS segment (" + ", ".join(["%s %s" % (key, ligolwtypes.ToSQLiteType[theClass.validcolumns[key]]) for key in theClass.validcolumns]) + ")"
 
         connection.cursor().execute(statement)
 
@@ -531,7 +534,7 @@ def run_query_segments(doc, proc_id, engine, gps_start_time, gps_end_time, inclu
             all_ifos[ifo] = True
 
 
-        new_seg_def_id = add_to_segment_definer(doc, proc_id, ''.join(all_ifos.keys()), 'result', 0)
+        new_seg_def_id = add_to_segment_definer(doc, proc_id, ''.join(list(all_ifos.keys())), 'result', 0)
         add_to_segment_summary(doc, proc_id, new_seg_def_id, [[gps_start_time, gps_end_time]])
 
     result = segmentlist([])
@@ -581,6 +584,6 @@ def split_segment_ids(segment_ids):
             
         return temp
 
-    return map(split_segment_id, segment_ids)
+    return list(map(split_segment_id, segment_ids))
 
 

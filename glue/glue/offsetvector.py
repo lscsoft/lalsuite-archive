@@ -26,6 +26,7 @@
 
 from glue import git_version
 from glue import iterutils
+from six.moves import zip
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -313,4 +314,4 @@ def component_offsetvectors(offsetvectors, n):
 	# translate into a list of normalized n-instrument offset vectors
 	#
 
-	return [offsetvector(zip(instruments, deltas)) for instruments, delta_set in delta_sets.items() for deltas in delta_set]
+	return [offsetvector(list(zip(instruments, deltas))) for instruments, delta_set in delta_sets.items() for deltas in delta_set]

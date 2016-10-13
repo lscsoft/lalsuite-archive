@@ -21,7 +21,7 @@ import os
 import sys
 import stat
 import urllib2
-import cookielib
+import six.moves.http_cookiejar
 
 from .saml import HTTPNegotiateAuthHandler
 from .. import git_version
@@ -62,7 +62,7 @@ def request_ligodotorg(url, debug=False):
     httpsHandler = urllib2.HTTPSHandler(debuglevel = debug)
 
     # use a cookie jar to store session cookies
-    jar = cookielib.LWPCookieJar()
+    jar = six.moves.http_cookiejar.LWPCookieJar()
 
     # if a cookier jar exists open it and read the cookies
     # and make sure it has the right permissions

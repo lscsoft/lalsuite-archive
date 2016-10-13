@@ -81,7 +81,7 @@ def query(name, debug=False):
            out.extend(reply[u'results'])
         except KeyError:
            pass
-        more = reply.has_key('next') and reply['next'] is not None
+        more = 'next' in reply and reply['next'] is not None
         if more:
             url = reply['next']
         else:
