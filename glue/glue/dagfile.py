@@ -942,7 +942,7 @@ class DAG(object):
 
 		# generate dot code
 
-		code = 'digraph "%s" {\nnode [color="%s", href="\N"];\ngraph [bgcolor="%s"];\n' % (title, colour, bgcolour)
+		code = 'digraph "%s" {\nnode [color="%s", href="\\N"];\ngraph [bgcolor="%s"];\n' % (title, colour, bgcolour)
 		for node in self.nodes.values():
 			if statecolours is not None:
 				code += '"%s"[color="%s"];\n' % (namemap[node.name], statecolours[node.state])
