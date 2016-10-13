@@ -147,7 +147,7 @@ def which(prog):
 
 def user_and_date():
 	tmstr = "/".join([str(i) for i in time.gmtime()[0:3]])
-        tmstr += " " + ":".join([str(i) for i in time.gmtime()[3:5]])
+	tmstr += " " + ":".join([str(i) for i in time.gmtime()[3:5]])
 	return "%s - %s" % (os.environ['USER'], tmstr)
 
 def image_glob(pat,cols=3,ignore_thumb=True, width=240):
