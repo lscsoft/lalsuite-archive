@@ -281,7 +281,11 @@ static PyObject *__abs__(PyObject *self)
 	Py_ssize_t i;
 	PyObject *abs;
 
+#if PY_MAJOR_VERSION < 3
 	abs = PyInt_FromLong(0);
+#else
+	abs = PyLong_FromLong(0);
+#endif
 	if(!abs)
 		return NULL;
 
@@ -376,7 +380,11 @@ static PyObject *find(PyObject *self, PyObject *item)
 		} else if(result > 0) {
 			Py_DECREF(item);
 			/* match found */
+#if PY_MAJOR_VERSION < 3
 			return PyInt_FromLong(i);
+#else
+			return PyLong_FromLong(i);
+#endif
 		}
 	}
 	Py_DECREF(item);

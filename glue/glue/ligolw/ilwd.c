@@ -132,7 +132,11 @@ static long ligolw_ilwdchar___hash__(PyObject *self)
 
 static PyObject *ligolw_ilwdchar___int__(PyObject *self)
 {
+#if PY_MAJOR_VERSION < 3
 	return PyInt_FromLong(((ligolw_ilwdchar *) self)->i);
+#else
+	return PyLong_FromLong(((ligolw_ilwdchar *) self)->i);
+#endif
 }
 
 
@@ -390,7 +394,11 @@ static PyObject *ligolw_ilwdchar___sub__(PyObject *self, PyObject *other)
 
 		/* yes it is, return the ID difference as an int */
 		PyErr_Clear();
+#if PY_MAJOR_VERSION < 3
 		return PyInt_FromLong(((ligolw_ilwdchar *) self)->i - ((ligolw_ilwdchar *) other)->i);
+#else
+		return PyLong_FromLong(((ligolw_ilwdchar *) self)->i - ((ligolw_ilwdchar *) other)->i);
+#endif
 	}
 
 	if(!delta) {
