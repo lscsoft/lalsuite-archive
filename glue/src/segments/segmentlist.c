@@ -1224,7 +1224,11 @@ static PyObject *protract(PyObject *self, PyObject *delta)
 	if(n < 0)
 		return NULL;
 
+#if PY_MAJOR_VERSION < 3
 	protract = PyString_FromString("protract");
+#else
+	protract = PyUnicode_FromString("protract");
+#endif
 	if(!protract)
 		return NULL;
 
@@ -1263,7 +1267,11 @@ static PyObject *contract(PyObject *self, PyObject *delta)
 	if(n < 0)
 		return NULL;
 
+#if PY_MAJOR_VERSION < 3
 	contract = PyString_FromString("contract");
+#else
+	contract = PyUnicode_FromString("contract");
+#endif
 	if(!contract)
 		return NULL;
 
@@ -1302,7 +1310,11 @@ static PyObject *shift(PyObject *self, PyObject *delta)
 	if(n < 0)
 		return NULL;
 
+#if PY_MAJOR_VERSION < 3
 	shift = PyString_FromString("shift");
+#else
+	shift = PyUnicode_FromString("shift");
+#endif
 	if(!shift)
 		return NULL;
 
