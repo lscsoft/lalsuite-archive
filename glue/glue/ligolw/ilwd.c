@@ -87,7 +87,7 @@ static PyObject *column_name;
 
 static PyObject *ligolw_ilwdchar___add__(PyObject *self, PyObject *other)
 {
-	long delta = PyInt_AsLong(other);
+	long delta = PyLong_AsLong(other);
 	PyObject *new;
 
 	if(PyErr_Occurred())
@@ -377,7 +377,7 @@ static PyObject *ligolw_ilwdchar___str__(PyObject *self)
 
 static PyObject *ligolw_ilwdchar___sub__(PyObject *self, PyObject *other)
 {
-	long delta = PyInt_AsLong(other);
+	long delta = PyLong_AsLong(other);
 	PyObject *new;
 
 	if(PyErr_Occurred()) {
