@@ -1,0 +1,4 @@
+Note that the dependencies for the python3-glue-* packages are somewhat
+different from the python-glue-* packages because python3-m2crypto and
+python3-cjson do not exist. However, most of glue doesn't need them. Consider
+making m2crypto and cjson recommended rather than required dependencies.
