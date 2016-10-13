@@ -433,7 +433,11 @@ static PyObject *ligolw_ilwdchar___sub__(PyObject *self, PyObject *other)
 
 static PyObject *ligolw_ilwdchar___conform__(PyObject *self, PyObject *protocol)
 {
+#if PY_MAJOR_VERSION < 3
 	return PyObject_Unicode(self);
+#else
+	return PyObject_Str(self);
+#endif
 }
 
 
