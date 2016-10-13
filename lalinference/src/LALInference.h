@@ -1194,6 +1194,12 @@ void LALInferenceDestroyThreadState(LALInferenceThreadState *thread);
 void LALInferenceDestroyProposalCycle(LALInferenceProposalCycle *cycle);
 void LALInferenceDestroyInferenceModel(LALInferenceModel *model);
 void LALInferenceDestroyIFOModel(LALInferenceIFOModel *ifo);
+/**
+ * Save the current variable to h5 file by appending
+ * added by hwlee and KGWG to reduce the usage of memory at 10 Oct 2016
+ */
+void LALInferenceLogSampleToHDF5File(LALInferenceVariables *algorithmParams, LALInferenceVariables *vars);
+
 /*@}*/
 
 #endif

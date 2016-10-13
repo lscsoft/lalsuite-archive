@@ -4547,3 +4547,44 @@ int LALInferenceGetAllocatedSizeItem(LALInferenceVariableItem *varItem)
   }
   return count;
 }
+
+/**
+ * Save the current variable to h5 file by appending
+ * added by hwlee and KGWG to reduce the usage of memory at 10 Oct 2016
+ */
+void LALInferenceLogSampleToHDF5File(LALInferenceVariables *algorithmParams, LALInferenceVariables *vars)
+{
+  LALInferenceVariables **output_array=NULL;
+  UINT4 N_output_array=0;
+  LALInferenceSortVariablesByName(vars);
+  LALInferenceLogSampleToFile(algorithmParams,vars);
+
+  /* Set up the array if it is not already allocated */
+  if(LALInferenceCheckVariable(algorithmParams,"outputarray"))
+    output_array=*(LALInferenceVariables ***)LALInferenceGetVariable(algorithmParams,"outputarray");
+  else
+    LALInferenceAddVariable(algorithmParams,"outputarray",&output_array,LALINFERENCE_void_ptr_t,LALINFERENCE_PARAM_OUTPUT);
+
+  if(LALInferenceCheckVariable(algorithmParams,"N_outputarray"))
+    N_output_array=*(INT4 *)LALInferenceGetVariable(algorithmParams,"N_outputarray");
+  else
+    LALInferenceAddVariable(algorithmParams,"N_outputarray",&N_output_array,LALINFERENCE_INT4_t,LALINFERENCE_PARAM_OUTPUT);
+
+  /* Expand the array for new sample */
+  output_array=XLALRealloc(output_array, (N_output_array+1) *sizeof(LALInferenceVariables *));
+  if(!output_array){
+    XLAL_ERROR_VOID(XLAL_EFAULT, "Unable to allocate array for samples.");
+  }
+  else
+  {
+    /* Save sample and update */
+
+    output_array[N_output_array]=XLALCalloc(1,sizeof(LALInferenceVariables));
+    LALInferenceCopyVariables(vars,output_array[N_output_array]);
+    N_output_array++;
+
+    LALInferenceSetVariable(algorithmParams,"outputarray",&output_array);
+    LALInferenceSetVariable(algorithmParams,"N_outputarray",&N_output_array);
+  }
+  return;
+}
