@@ -34,7 +34,6 @@ import sys
 import urllib
 import urlparse
 import subprocess
-from six.moves import map
 
 default_sites = os.environ["GLUE_PREFIX"] + "/etc/ldg-sites.xml"
 default_properties = os.environ["GLUE_PREFIX"] + "/etc/pegasus-properties.bundle"

@@ -22,7 +22,6 @@ Query the GWDataFindServer to obtain physical filenames or URLs for data files f
 
 from __future__ import division
 
-from six.moves import range
 __usage__ = """usage: %prog --server=HOST:PORT --observatory=OBS --type=NAME 
                --gps-start-time=GPS --gps-end-time=GPS 
                [ --lal-cache ] [ --frame-cache ]

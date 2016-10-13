@@ -326,7 +326,7 @@ class Element(object):
 		l = []
 		for c in self.childNodes:
 			try:
-				if reduce(lambda t, (k, v): t and (c.getAttribute(k) == v), six.iteritems(attrs), True):
+				if reduce(lambda t, kv: t and (c.getAttribute(kv[0]) == kv[1]), six.iteritems(attrs), True):
 					l.append(c)
 			except KeyError:
 				pass
@@ -894,8 +894,8 @@ class LIGOLWContentHandler(sax.handler.ContentHandler, object):
 	def startTime(self, parent, attrs):
 		return Time(attrs)
 
-	def startElementNS(self, xxx_todo_changeme, qname, attrs):
-		(uri, localname) = xxx_todo_changeme
+	def startElementNS(self, uri_localname, qname, attrs):
+		(uri, localname) = uri_localname
 		try:
 			start_handler = self._startElementHandlers[(uri, localname)]
 		except KeyError:
@@ -906,8 +906,8 @@ class LIGOLWContentHandler(sax.handler.ContentHandler, object):
 		except Exception as e:
 			raise type(e)("line %d: %s" % (self._locator.getLineNumber(), str(e)))
 
-	def endElementNS(self, xxx_todo_changeme1, qname):
-		(uri, localname) = xxx_todo_changeme1
+	def endElementNS(self, uri_localname, qname):
+		(uri, localname) = uri_localname
 		try:
 			self.current.endElement()
 		except Exception as e:
@@ -948,8 +948,8 @@ class PartialLIGOLWContentHandler(LIGOLWContentHandler):
 		self.element_filter = element_filter
 		self.depth = 0
 
-	def startElementNS(self, xxx_todo_changeme2, qname, attrs):
-		(uri, localname) = xxx_todo_changeme2
+	def startElementNS(self, uri_localname, qname, attrs):
+		(uri, localname) = uri_localname
 		filter_attrs = AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items()))
 		if self.depth > 0 or self.element_filter(localname, filter_attrs):
 			super(PartialLIGOLWContentHandler, self).startElementNS((uri, localname), qname, attrs)
@@ -992,8 +992,8 @@ class FilteringLIGOLWContentHandler(LIGOLWContentHandler):
 		self.element_filter = element_filter
 		self.depth = 0
 
-	def startElementNS(self, xxx_todo_changeme3, qname, attrs):
-		(uri, localname) = xxx_todo_changeme3
+	def startElementNS(self, uri_localname, qname, attrs):
+		(uri, localname) = uri_localname
 		filter_attrs = AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items()))
 		if self.depth == 0 and self.element_filter(localname, filter_attrs):
 			super(FilteringLIGOLWContentHandler, self).startElementNS((uri, localname), qname, attrs)

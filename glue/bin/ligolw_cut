@@ -40,7 +40,6 @@ from glue import git_version
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import utils
-from six.moves import map
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"

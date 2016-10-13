@@ -32,7 +32,7 @@ process and process_params tables in LIGO Light-Weight XML documents.
 
 import os
 import socket
-import StringIO
+from six import StringIO
 import time
 
 
@@ -267,7 +267,7 @@ def register_to_ldbd(client, program, paramdict, version = u'0', cvs_repository 
 	xmldoc.appendChild(ligolw.LIGO_LW())
 	process = register_to_xmldoc(xmldoc, program, paramdict, version = version, cvs_repository = cvs_repository, cvs_entry_time = cvs_entry_time, comment = comment, is_online = is_online, jobid = jobid, domain = domain, ifos = ifos)
 
-	fake_file = StringIO.StringIO()
+	fake_file = StringIO()
 	xmldoc.write(fake_file)
 	client.insert(fake_file.getvalue())
 

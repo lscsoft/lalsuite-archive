@@ -223,7 +223,7 @@ Please correct your version number.""" % (options.ifos,options.name,max_version)
      try:
         max_end_sum = type_md.table['segment_definer']['stream'][0][0]
      except IndexError:
-        print("\nERROR: segment type %s:%s:%s doesn't exist" % (options.ifos,options.name,options.version)) 
+        print("\nERROR: segment type %s:%s:%s doesn't exist" % (options.ifos,options.name,options.version))
         sys.exit(1)
  
  

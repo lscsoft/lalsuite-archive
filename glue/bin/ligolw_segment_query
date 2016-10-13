@@ -67,7 +67,6 @@ from glue.ligolw import dbtables
 
 from glue import git_version
 import six
-from six.moves import map
 
 PROGRAM_NAME = sys.argv[0].replace('./','')
 PROGRAM_PID  = os.getpid()
@@ -251,7 +250,7 @@ class ShowTypesResultTable(table.Table):
 
 
 class ShowTypesResult(object):
-    __slots__ = list(ShowTypesResultTable.validcolumns.keys())
+    __slots__ = tuple(ShowTypesResultTable.validcolumns.keys())
 
     def get_pyvalue(self):
         if self.value is None:

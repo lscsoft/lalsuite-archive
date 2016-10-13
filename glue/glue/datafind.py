@@ -66,7 +66,6 @@ import unittest
 
 from cjson import decode
 from glue import (lal, git_version, segments)
-from six.moves import map
 
 __author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
 __credits__ = "Scott Koranda <scott.koranda@ligo.org>"

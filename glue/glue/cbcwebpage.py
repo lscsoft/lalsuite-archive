@@ -29,7 +29,6 @@ from glue import git_version
 import subprocess
 import os, sys, time, socket, glob, math
 import shutil,urllib
-from six.moves import range
 
 __author__ = "Chad Hanna <channa@caltech.edu>"
 __version__ = "git id %s" % git_version.id

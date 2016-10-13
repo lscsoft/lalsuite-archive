@@ -72,7 +72,6 @@ import base64
 from glue import git_version
 from . import ilwd
 import six
-from six.moves import map
 
 
 try:  # python < 3
@@ -202,8 +201,8 @@ ToPyType = {
 	u"char_s": six.text_type,
 	u"char_v": six.text_type,
 	u"ilwd:char": ilwd.ilwdchar,
-	u"ilwd:char_u": lambda s: buffer(base64.b64decode(s)),
-	u"blob": lambda s: buffer(base64.b64decode(s)),
+	u"ilwd:char_u": lambda s: memoryview(base64.b64decode(s)),
+	u"blob": lambda s: memoryview(base64.b64decode(s)),
 	u"lstring": six.text_type,
 	u"string": six.text_type,
 	u"int_2s": int,
@@ -240,7 +239,7 @@ class FromPyTypeCls(dict):
 
 FromPyType = FromPyTypeCls({
 	ilwd._ilwd.ilwdchar: u"ilwd:char",
-	buffer: u"blob",
+	memoryview: u"blob",
 	str: u"lstring",
 	six.text_type: u"lstring",
 	bool: u"int_4s",

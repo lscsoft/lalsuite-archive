@@ -54,7 +54,6 @@ from . import ligolw
 from . import tokenizer
 from . import types as ligolwtypes
 from six.moves import range
-from six.moves import zip
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"

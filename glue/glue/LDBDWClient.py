@@ -29,7 +29,6 @@ import re
 import six.moves.cPickle
 import xml.parsers.expat
 import six.moves.http_client
-import urlparse
 
 try:
     import M2Crypto

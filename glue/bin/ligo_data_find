@@ -272,9 +272,9 @@ def main():
 
     # environment variables override defaults but not
     # command line options
-    if 'LIGO_DATAFIND_SERVER' in os.environ: 
+    if 'LIGO_DATAFIND_SERVER' in os.environ:
         hostPortString = os.environ['LIGO_DATAFIND_SERVER']
-    if 'LIGO_DATAFIND_URL_TYPE' in os.environ: 
+    if 'LIGO_DATAFIND_URL_TYPE' in os.environ:
         clientMethodArgDict['urlType'] = os.environ['LIGO_DATAFIND_URL_TYPE'] 
     if 'LIGO_DATAFIND_MATCH' in os.environ:
         clientMethodArgDict['match'] = os.environ['LIGO_DATAFIND_MATCH']
@@ -284,7 +284,7 @@ def main():
                     usage()
                     sys.exit(0)
             elif o in ("-v", "--version"):
-                    print(('ligo_data_find client version %s' 
+                    print(('ligo_data_find client version %s'
                             % git_version.verbose_msg))
                     sys.exit(0)
             elif o in ("-p", "--ping"):

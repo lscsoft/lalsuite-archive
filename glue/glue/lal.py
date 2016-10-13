@@ -34,10 +34,9 @@ import math
 import os
 import re
 import sys
-import urlparse
+from six.moves import urllib
 import warnings
 import six
-from six.moves import range
 
 try:  # python < 3
     long
@@ -600,11 +599,11 @@ class CacheEntry(object):
 		a value to the URL attribute causes the value to be parsed
 		and the scheme, host and path attributes updated.
 		"""
-		return urlparse.urlunparse((self.scheme, self.host, self.path, None, None, None))
+		return urllib.parse.urlunparse((self.scheme, self.host, self.path, None, None, None))
 
 	@url.setter
 	def url(self, url):
-		self.scheme, self.host, self.path = urlparse.urlparse(url)[:3]
+		self.scheme, self.host, self.path = urllib.parse.urlparse(url)[:3]
 
 	@property
 	def segmentlistdict(self):
@@ -716,9 +715,9 @@ class Cache(list):
 		The filenames must be in the format set forth by DASWG in T050017-00.
 		"""
 		def pfn_to_url(url):
-			scheme, host, path, dummy, dummy = urlparse.urlsplit(url)
+			scheme, host, path, dummy, dummy = urllib.parse.urlsplit(url)
 			if scheme == "": path = os.path.abspath(path)
-			return urlparse.urlunsplit((scheme or "file", host or "localhost",
+			return urllib.parse.urlunsplit((scheme or "file", host or "localhost",
 			                            path, "", ""))
 		return cls([cls.entry_class.from_T050017(pfn_to_url(f), coltype=coltype) \
 		            for f in urllist])
