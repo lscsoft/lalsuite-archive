@@ -56,7 +56,6 @@ from glue.segmentdb import segmentdb_utils
 from glue.ligolw.utils import process
 
 import glue.ligolw.types as ligolwtypes
-from six.moves import map
 
 PROGRAM_NAME = sys.argv[0].replace('./','')
 PROGRAM_PID  = os.getpid()

@@ -27,7 +27,6 @@ from glue.ligolw import ligolw, lsctables, utils
 from glue.segments import segmentlist
 from glue.ligolw.utils import process, segments, ligolw_add
 from glue import git_version
-from six.moves import range
 
 class ContentHandler(ligolw.LIGOLWContentHandler):
     pass

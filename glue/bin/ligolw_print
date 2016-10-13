@@ -44,7 +44,6 @@ from glue.ligolw import lsctables
 from glue.ligolw import array
 from glue.ligolw import utils
 from glue import git_version
-from six.moves import map
 import six
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"

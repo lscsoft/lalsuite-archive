@@ -23,7 +23,6 @@ from __future__ import print_function
 import sys
 import os
 from subprocess import *
-import six
 
 ############################################################
 
@@ -137,7 +136,7 @@ actives = get_flags('active', time, duration)
 defined = get_flags('defined', time, duration)
 
 # process all vetos
-for flag, category in six.iteritems(categories):
+for flag, category in categories.items():
 
 	# check that the flag is valid for the time
 	if time < start_times[flag]:

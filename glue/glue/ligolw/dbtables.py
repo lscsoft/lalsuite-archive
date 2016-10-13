@@ -54,8 +54,6 @@ from . import table
 from . import lsctables
 from . import types as ligolwtypes
 import six
-from six.moves import map
-from six.moves import zip
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"

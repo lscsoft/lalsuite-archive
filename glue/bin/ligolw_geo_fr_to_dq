@@ -49,8 +49,6 @@ from glue import pidfile as pidfile
 import pylal.Fr
 
 from pylal import git_version
-from six.moves import range
-from six.moves import zip
 
 
 ### constants ###

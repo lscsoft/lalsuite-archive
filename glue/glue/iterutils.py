@@ -35,7 +35,6 @@ import random
 
 
 from glue import git_version
-from six.moves import range
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"

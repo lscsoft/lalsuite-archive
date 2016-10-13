@@ -20,8 +20,6 @@ this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 from __future__ import print_function
-from six.moves import map
-from six.moves import range
 __author__ = 'Duncan Brown <duncan@gravity.phys.uwm.edu>'
 from glue import git_version
 __date__ = git_version.date
@@ -34,7 +32,7 @@ import exceptions
 import time
 import random
 import math
-import urlparse
+from six.moves import urllib
 import stat
 import socket
 import itertools
@@ -43,7 +41,6 @@ from hashlib import md5
 
 try:
   import six.moves.http_client
-  import urlparse
   import M2Crypto
   import cjson
 except:
@@ -2761,7 +2758,7 @@ class AnalysisNode(CondorDAGNode):
           raise IOError
         url = m.group(1)
         # ... and add files to input-file list
-        path = urlparse.urlparse(url)[2]
+        path = urllib.parse.urlparse(url)[2]
         calibration_lfn = os.path.basename(path)
         self.add_input_file(calibration_lfn)
     else:
@@ -3968,7 +3965,7 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
           urlList = cjson.decode(body)
           lfnDict = {}
           for url in urlList:
-            path = urlparse.urlparse(url)[2]
+            path = urllib.parse.urlparse(url)[2]
             lfn = os.path.split(path)[1]
             lfnDict[lfn] = 1
 

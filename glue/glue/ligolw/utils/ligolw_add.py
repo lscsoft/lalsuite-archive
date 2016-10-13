@@ -31,7 +31,7 @@ Add (merge) LIGO LW XML files containing LSC tables.
 
 import os
 import sys
-from urlparse import urlparse
+from six.moves import urllib
 
 
 from glue import git_version
@@ -39,7 +39,6 @@ from .. import ligolw
 from .. import table
 from .. import lsctables
 from .. import utils
-from six.moves import map
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -61,7 +60,7 @@ def url2path(url):
 	If url identifies a file on the local host, return the path to the
 	file otherwise raise ValueError.
 	"""
-	scheme, host, path, nul, nul, nul = urlparse(url)
+	scheme, host, path, nul, nul, nul = urllib.parse.urlparse(url)
 	if scheme.lower() in ("", "file") and host.lower() in ("", "localhost"):
 		return path
 	raise ValueError(url)

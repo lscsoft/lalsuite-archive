@@ -37,7 +37,6 @@ from glue import git_version
 from glue.lal import CacheEntry
 from .lal import LIGOTimeGPS
 from glue import segments
-from six.moves import map
 from six.moves import range
 
 

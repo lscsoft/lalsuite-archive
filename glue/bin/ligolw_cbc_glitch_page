@@ -127,12 +127,12 @@ def generate_html(outf, triggers, colors, options):
     if options.statistic == 'newsnr':
         print('  <tr bgcolor="#9999ff"><th>ifo</th><th>end time UTC</th>', end=' ', file=outf)
         print('<th>end_time</th><th>end_time_ns</th>', end=' ', file=outf)
-        print('<th>SNR</th><th>&chi;<sup>2</sup></th><th>New SNR</th><th>eff_distance</th>', file=outf) 
+        print('<th>SNR</th><th>&chi;<sup>2</sup></th><th>New SNR</th><th>eff_distance</th>', file=outf)
         print("<th>M<sub>chirp</sub></th>", end=' ', file=outf)
         print("<th>M<sub>total</sub></th>", end=' ', file=outf)
         print("<th>&Omega; scan</th><th>DQ flags</th></tr>", file=outf)
     else:
-        print('  <tr bgcolor="#9999ff"><th>ifo</th><th>end time UTC</th><th>end_time</th><th>end_time_ns</th><th>SNR</th><th>eff_distance</th>', file=outf) 
+        print('  <tr bgcolor="#9999ff"><th>ifo</th><th>end time UTC</th><th>end_time</th><th>end_time_ns</th><th>SNR</th><th>eff_distance</th>', file=outf)
         print("<th>M<sub>chirp</sub></th>", end=' ', file=outf)
         print("<th>M<sub>total</sub></th>", end=' ', file=outf)
         print("<th>&chi;<sup>2</sup></th>", end=' ', file=outf)
