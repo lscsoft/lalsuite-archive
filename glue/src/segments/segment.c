@@ -106,6 +106,7 @@ static PyObject *__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
 static PyObject *__repr__(PyObject *self)
 {
+#if PY_MAJOR_VERSION < 3
 	PyObject *a = PyObject_Repr(PyTuple_GET_ITEM(self, 0));
 	PyObject *b = PyObject_Repr(PyTuple_GET_ITEM(self, 1));
 	PyObject *result;
@@ -116,11 +117,15 @@ static PyObject *__repr__(PyObject *self)
 	Py_XDECREF(a);
 	Py_XDECREF(b);
 	return result;
+#else
+	return PyUnicode_FromFormat("segment(%R, %R)", PyTuple_GET_ITEM(self, 0), PyTuple_GET_ITEM(self, 1));
+#endif
 }
 
 
 static PyObject *__str__(PyObject *self)
 {
+#if PY_MAJOR_VERSION < 3
 	PyObject *a = PyObject_Str(PyTuple_GET_ITEM(self, 0));
 	PyObject *b = PyObject_Str(PyTuple_GET_ITEM(self, 1));
 	PyObject *result;
@@ -131,6 +136,9 @@ static PyObject *__str__(PyObject *self)
 	Py_XDECREF(a);
 	Py_XDECREF(b);
 	return result;
+#else
+	return PyUnicode_FromFormat("[%S ... %S)", PyTuple_GET_ITEM(self, 0), PyTuple_GET_ITEM(self, 1));
+#endif
 }
 
 
