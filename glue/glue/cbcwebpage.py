@@ -165,8 +165,8 @@ def image_table_from_url_table(table):
 	out = []
 	for col in table:
 		row = [_imagelinkcpy(url) for url in col]
-	 	out.append(row)
-        return out
+		out.append(row)
+	return out
 
 def image_table_from_cache(inputcache,cols=3,ignore_thumb=True):
 	image_list = []
