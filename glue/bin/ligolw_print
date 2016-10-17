@@ -82,10 +82,10 @@ def parse_command_line():
 
 	# strip table names
 	if options.table:
-		options.table = map(table.Table.TableName, options.table)
+		options.table = list(map(table.Table.TableName, options.table))
 
 	if options.array:
-		options.array = map(array.Array.ArrayName, options.array)
+		options.array = list(map(array.Array.ArrayName, options.array))
 
 	# turn row requests into a segment list
 	try:
