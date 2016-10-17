@@ -15,7 +15,7 @@ Group:		Development/Libraries
 Source:		%{name}-%{version}.tar.gz
 Url:		http://www.lsc-group.phys.uwm.edu/daswg/projects/glue.html
 BuildRoot:	%{_tmppath}/%{name}-%{version}-root
-Requires:	python-cjson m2crypto glue-common glue-segments python >= 2.6
+Requires:	python-cjson m2crypto python-six glue-common glue-segments python >= 2.6
 BuildRequires:  python-devel
 Prefix:         %{_glue_prefix}
 %description
