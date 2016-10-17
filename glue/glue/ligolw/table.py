@@ -664,9 +664,9 @@ class Table(ligolw.Table, list):
 		attribute on the Table object.
 		"""
 		new = copy.copy(self)
-		new.childNodes = map(copy.copy, self.childNodes)
-		for child in new.childNodes:
-			child.parentNode = new
+		new.childNodes = []	# got reference to original list
+		for elem in self.childNodes:
+			new.appendChild(copy.copy(elem))
 		del new[:]
 		new._end_of_columns()
 		new._end_of_rows()

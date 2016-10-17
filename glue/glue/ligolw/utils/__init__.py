@@ -320,7 +320,7 @@ class SignalsTrap(object):
 
 	def __exit__(self, *args):
 		# restore original handlers
-		for sig, oldhandler in self.oldhandlers.iteritems():
+		for sig, oldhandler in self.oldhandlers.items():
 			signal.signal(sig, oldhandler)
 		# send ourselves the trapped signals in order
 		while self.deferred_signals:

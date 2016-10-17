@@ -118,7 +118,8 @@ def merge_ligolws(elem):
 		dest = ligolws.pop(0)
 		for src in ligolws:
 			# copy children;  LIGO_LW elements have no attributes
-			map(dest.appendChild, src.childNodes)
+			for elem in src.childNodes:
+				dest.appendChild(elem)
 			# unlink from parent
 			if src.parentNode is not None:
 				src.parentNode.removeChild(src)
