@@ -656,8 +656,8 @@ class LigolwSegments(set):
 		#
 
 		row_generators = []
-		while self:
-			ligolw_segment_list = self.pop()
+		for ligolw_segment_list in sorted(self, key = lambda l: (l.name, sorted(l.instruments), l.version)):
+			self.remove(ligolw_segment_list)
 			segment_def_row = self.segment_def_table.RowType()
 			segment_def_row.process_id = process_id
 			segment_def_row.segment_def_id = self.segment_def_table.get_next_id()
