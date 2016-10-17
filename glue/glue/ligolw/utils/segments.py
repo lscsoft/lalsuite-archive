@@ -369,8 +369,8 @@ class LigolwSegments(set):
 			<Column Type="int_4s" Name="segment_definer:version"/>
 			<Column Type="lstring" Name="segment_definer:comment"/>
 			<Stream Delimiter="," Type="Local" Name="segment_definer:table">
-				"process:process_id:0","segment_definer:segment_def_id:0","L1","test",,,
-				"process:process_id:0","segment_definer:segment_def_id:1","H1","test",,,
+				"process:process_id:0","segment_definer:segment_def_id:0","H1","test",,,
+				"process:process_id:0","segment_definer:segment_def_id:1","L1","test",,,
 			</Stream>
 		</Table>
 		<Table Name="segment_summary:table">
@@ -383,7 +383,7 @@ class LigolwSegments(set):
 			<Column Type="ilwd:char" Name="segment_summary:segment_def_id"/>
 			<Column Type="lstring" Name="segment_summary:comment"/>
 			<Stream Delimiter="," Type="Local" Name="segment_summary:table">
-				"process:process_id:0","segment_summary:segment_sum_id:0",4294967295,4294967295,2147483647,4294967295,"segment_definer:segment_def_id:0",,
+				"process:process_id:0","segment_summary:segment_sum_id:0",4294967295,4294967295,2147483647,4294967295,"segment_definer:segment_def_id:1",,
 			</Stream>
 		</Table>
 		<Table Name="segment:table">
@@ -395,8 +395,8 @@ class LigolwSegments(set):
 			<Column Type="int_4s" Name="segment:end_time_ns"/>
 			<Column Type="ilwd:char" Name="segment:segment_def_id"/>
 			<Stream Delimiter="," Type="Local" Name="segment:table">
-				"process:process_id:0","segment:segment_id:1",0,0,10,0,"segment_definer:segment_def_id:1",
-				"process:process_id:0","segment:segment_id:0",5,0,15,0,"segment_definer:segment_def_id:0"
+				"process:process_id:0","segment:segment_id:0",0,0,10,0,"segment_definer:segment_def_id:0",
+				"process:process_id:0","segment:segment_id:1",5,0,15,0,"segment_definer:segment_def_id:1"
 			</Stream>
 		</Table>
 	</LIGO_LW>
