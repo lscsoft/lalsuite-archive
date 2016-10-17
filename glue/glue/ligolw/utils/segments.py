@@ -644,10 +644,9 @@ class LigolwSegments(set):
 				row.segment = seg
 				row.process_id = process_id
 				row.segment_def_id = segment_def_id
-				setattr(row, id_column, target_table.get_next_id())
 				if isinstance(row, lsctables.SegmentSum):
 					row.comment = None
-				yield row, target_table
+				yield row, target_table, id_column
 
 		#
 		# populate the segment_definer table from the list of
@@ -676,7 +675,8 @@ class LigolwSegments(set):
 		# rows from the generators in time order
 		#
 
-		for row, target_table in iterutils.inorder(*row_generators):
+		for row, target_table, id_column in iterutils.inorder(*row_generators):
+			setattr(row, id_column, target_table.get_next_id())
 			target_table.append(row)
 
 
