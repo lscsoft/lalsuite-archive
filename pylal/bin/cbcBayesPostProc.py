@@ -112,13 +112,17 @@ def email_notify(address,path):
         webpath=os.path.join('~%s'%(USER),b,webpath)
         onweb=True
     else:
-        (c,d)=outpath.split(os.environ['USER'])
-        for k in ['public_html','WWW','www_html']:
-            trypath=c+os.environ['USER']+'/'+k+d
+        (c,d)=fslocation.split(USER)
+        for k in ['public_html/','WWW/','www_html/']:
+            trypath=os.path.normpath(c+USER+'/'+k+d)
             #Follow symlinks
-            if os.path.realpath(trypath)==os.path.normpath(outpath):
+            if os.path.realpath(trypath)==os.path.normpath(fslocation):
                 (a,b)=trypath.split(k)
+                print USER
+                print b
+                print webpath
                 webpath=os.path.join('~%s'%(USER),b,webpath)
+                print webpath
                 onweb=True
                 break
             else:
