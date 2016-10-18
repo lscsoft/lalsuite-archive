@@ -374,15 +374,15 @@ class Column(ligolw.Column):
 		"""
 		Return the number of rows with this column equal to value.
 		"""
-		return sum(getattr(row, self.Name) == value for row in self.parentNode)
+		return sum(x == value for x in self)
 
 	def index(self, value):
 		"""
 		Return the smallest index of the row(s) with this column
 		equal to value.
 		"""
-		for i in range(len(self.parentNode)):
-			if getattr(self.parentNode[i], self.Name) == value:
+		for i, x in enumerate(self):
+			if x == value:
 				return i
 		raise ValueError(value)
 
@@ -391,10 +391,7 @@ class Column(ligolw.Column):
 		Returns True or False if there is or is not, respectively,
 		a row containing val in this column.
 		"""
-		for i in range(len(self.parentNode)):
-			if getattr(self.parentNode[i], self.Name) == value:
-				return True
-		return False
+		return value in iter(self)
 
 	def asarray(self):
 		"""
