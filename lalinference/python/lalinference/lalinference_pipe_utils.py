@@ -1662,7 +1662,7 @@ class EngineNode(pipeline.CondorDAGNode):
     Set the end time of the signal for the centre of the prior in time
     """
     self.__trigtime=float(time)
-    self.add_var_opt('trigtime',str(time))
+    self.add_var_opt('trigtime',str('%.4f'%time))
 
   def set_event_number(self,event):
     """
