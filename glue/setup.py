@@ -364,7 +364,7 @@ setup(
     'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
     'Operating System :: POSIX',
     'Programming Language :: Python :: 2.7',
-    'Programming Language :: Python :: 2 :: Only',
+    'Programming Language :: Python :: 3.4',
     'Topic :: Scientific/Engineering :: Astronomy',
     'Topic :: Scientific/Engineering :: Physics'
   ]
