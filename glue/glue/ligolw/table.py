@@ -263,6 +263,8 @@ class Column(ligolw.Column):
 	</Table>
 	>>> col.index(10)
 	1
+	>>> 12 in col
+	True
 	>>> col[0] = 9.
 	>>> col[1] = 9.
 	>>> col[2] = 9.
