@@ -1,3 +1,10 @@
+glue (1.53.0-1) unstable; urgency=low
+
+  * ER10 updated release. Python 3 compatibility from Leo, various updates
+    from Kipp.
+
+ -- Ryan Fisher <ryan.fisher@ligo.org>  Wed, 19 Oct 2016 16:14:00 -0500
+
 glue (1.52.0.1-1) UNRELEASED; urgency=medium
 
   * Back to development
