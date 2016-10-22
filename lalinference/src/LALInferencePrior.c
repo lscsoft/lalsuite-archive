@@ -2710,7 +2710,7 @@ REAL8 LALInferenceAnalyticNullPrior(LALInferenceRunState UNUSED *runState, LALIn
         LALInferenceMcQ2Masses(mc,q,&m1,&m2);
         logPrior+=log(m1*m1/mc);
       } 
-      else (LALInferenceCheckVariable(params,"mzc")) 
+      else if(LALInferenceCheckVariable(params,"mzc")) 
       {
         mzc=*(REAL8 *)LALInferenceGetVariable(params,"mzc");
         LALInferenceMcMzc2Masses(mc,mzc,&m1,&m2);
