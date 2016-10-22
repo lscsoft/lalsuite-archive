@@ -38,9 +38,9 @@
 #endif
 
 /* optimal mass param coefficients  */
-const double copt = 0.25;
-const double zopt = 0.9;
-const double dopt = zopt * copt;
+double copt = 0.25;
+double zopt = 0.9;
+double dopt = zopt * copt;
 
 /* Private helper function prototypes */
 static double qInnerIntegrand(double M2, void *viData);

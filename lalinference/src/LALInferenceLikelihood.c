@@ -58,9 +58,9 @@ typedef enum
 #define UNUSED
 #endif
 
-const double copt=0.25, zopt=0.9;
-const double dopt=copt*zopt;
-const double kopt=5.0/(3.0*copt -2.0*dopt);
+double copt=0.25, zopt=0.9;
+double dopt=copt*zopt;
+double kopt=5.0/(3.0*copt -2.0*dopt);
 
 static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *currentParams,
                                                LALInferenceIFOData *data,
