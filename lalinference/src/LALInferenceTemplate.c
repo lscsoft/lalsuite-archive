@@ -693,7 +693,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
 	q2masses(mc, q, &m1, &m2);
       } 
       else 
-        if
+        if(LALInferenceCheckVariable(model->params,"mzc"))
         {
 	  REAL8 mzc = *(REAL8*) LALInferenceGetVariable(model->params, "mzc");
 	  mzc2masses(mc, mzc, &m1, &m2);
@@ -1184,7 +1184,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveformPhaseInterpolated(LALInfer
 	q2masses(mc, q, &m1, &m2);
       } 
       else 
-        if
+        if(LALInferenceCheckVariable(model->params,"mzc"))
         {
 	  REAL8 mzc = *(REAL8*) LALInferenceGetVariable(model->params, "mzc");
 	  mzc2masses(mc, mzc, &m1, &m2);
