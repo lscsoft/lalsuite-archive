@@ -1285,6 +1285,8 @@ const char *LALInferenceTranslateInternalToExternalParamName(const char *inName)
     return "mc";
   } else if (!strcmp(inName, "eta")) {
     return "eta";
+  } else if (!strcmp(inName, "mzc")) {
+    return "mzc";
   } else if (!strcmp(inName, "q")) {
     return "q";
   } else if (!strcmp(inName, "rightascension")) {
@@ -1317,6 +1319,8 @@ void LALInferenceTranslateExternalToInternalParamName(char *outName, const char 
     strcpy(outName, "chirpmass");
   } else if (!strcmp(inName, "eta")) {
     strcpy(outName, "eta");
+  } else if (!strcmp(inName, "mzc")) {
+    strcpy(outName, "mzc");
   } else if (!strcmp(inName, "q")) {
     strcpy(outName, "q");
   } else if (!strcmp(inName, "ra")) {
@@ -2139,6 +2143,10 @@ char *colNameToParamName(const char *colName) {
     retstr=XLALStringDuplicate("eta");
   }
 
+  else if (!strcmp(colName, "mzc")) {
+    retstr=XLALStringDuplicate("mzc");
+  }
+
   else if (!strcmp(colName, "q")) {
     retstr=XLALStringDuplicate("q");
   }
@@ -2272,6 +2280,20 @@ void LALInferenceMcEta2Masses(double mc, double eta, double *m1, double *m2)
   double fraction = (0.5+root) / (0.5-root);
   *m2 = mc * (pow(1+fraction,0.2) / pow(fraction,0.6));
   *m1 = mc * (pow(1+1.0/fraction,0.2) / pow(1.0/fraction,0.6));
+  return;
+}
+
+void LALInferenceMcMzc2Masses(double mc, double mzc, double *m1, double *m2)
+/*  Compute individual companion masses (m1, m2)   */
+/*  for given chirp mass (m_c) & mass ratio (mzc)  */
+/*  (note: m1 >= m2).                              */
+{
+  double copt=0.25, zopt=0.9;
+  double dopt=copt*zopt;
+  double kopt=5.0/(3.0*copt -2.0*dopt);
+  double delta_opt=sqrt(1.0 - 4.0 * pow(mc, kopt*copt*(1.0+zopt)) * pow(mzc, -kopt));
+  *m1 = 0.5* pow(mc, -kopt * dopt) * pow(mzc, 3.0*kopt/5.0) * (1.0 + delta_opt);
+  *m2 = 0.5* pow(mc, -kopt * dopt) * pow(mzc, 3.0*kopt/5.0) * (1.0 - delta_opt);
   return;
 }
 

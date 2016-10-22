@@ -868,6 +868,9 @@ void LALInferenceLogSampleToArray(LALInferenceVariables *algorithmParams, LALInf
 /** Convert from Mc, eta space to m1, m2 space (note m1 > m2).*/
 void LALInferenceMcEta2Masses(double mc, double eta, double *m1, double *m2);
 
+/** Convert from Mc, mzc space to m1, m2 space (note m1 > m2).*/
+void LALInferenceMcMzc2Masses(double mc, double mzc, double *m1, double *m2);
+
 /** Convert from Mc, q space to m1, m2 space (q = m2/m1, with m1 > m2). */
 void LALInferenceMcQ2Masses(double mc, double q, double *m1, double *m2);
 
@@ -919,7 +922,6 @@ typedef struct tagLALInferenceKDTree {
                                           sub-tree, may be NULL if
                                           empty.*/
   struct tagLALInferenceKDTree *right; /** Right
-                                           (i.e. upper-coordinate)
                                            sub-tree, may be NULL if
                                            empty. */
 } LALInferenceKDTree;

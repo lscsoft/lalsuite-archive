@@ -37,8 +37,14 @@
 #define UNUSED
 #endif
 
+/* optimal mass param coefficients  */
+const double copt = 0.25;
+const double zopt = 0.9;
+const double dopt = zopt * copt;
+
 /* Private helper function prototypes */
 static double qInnerIntegrand(double M2, void *viData);
+static double mzcInnerIntegrand(double M2, void *viData);
 static double etaInnerIntegrand(double M2, void *viData);
 static double outerIntegrand(double M1, void *voData);
 
@@ -412,7 +418,7 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
   LALInferenceVariables *priorParams=runState->priorArgs;
   REAL8 min=-INFINITY, max=INFINITY;
   REAL8 mc=0.0;
-  REAL8 m1=0.0,m2=0.0,q=0.0,eta=0.0;
+  REAL8 m1=0.0,m2=0.0,q=0.0,eta=0.0,mzc=0.0;
 
   /* check if signal model is being used */
   UINT4 signalFlag=1;
@@ -479,30 +485,58 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
     }
   }
 
-  if(LALInferenceCheckVariable(params,"logmc")) {
+  if(LALInferenceCheckVariable(params,"logmc")) 
+  {
     mc=exp(*(REAL8 *)LALInferenceGetVariable(params,"logmc"));
-  } else if(LALInferenceCheckVariable(params,"chirpmass")) {
+  } 
+  else if(LALInferenceCheckVariable(params,"chirpmass")) 
+  {
     mc=(*(REAL8 *)LALInferenceGetVariable(params,"chirpmass"));
   }
 
-  if(LALInferenceCheckVariable(params,"q")) {
+  if(LALInferenceCheckVariable(params,"q")) 
+  {
     q=*(REAL8 *)LALInferenceGetVariable(params,"q");
     LALInferenceMcQ2Masses(mc,q,&m1,&m2);
-  } else if(LALInferenceCheckVariable(params,"eta")) {
-    eta=*(REAL8 *)LALInferenceGetVariable(params,"eta");
-    LALInferenceMcEta2Masses(mc,eta,&m1,&m2);
-  }
-
-  if(LALInferenceCheckVariable(params,"logmc")) {
+  } 
+  else 
+    {
+     if(LALInferenceCheckVariable(params,"mzc")) 
+      {
+        mzc=*(REAL8 *)LALInferenceGetVariable(params,"mzc");
+        LALInferenceMcMzc2Masses(mc,mzc,&m1,&m2);
+      }
+     else
+     if(LALInferenceCheckVariable(params,"eta")) 
+      {
+        eta=*(REAL8 *)LALInferenceGetVariable(params,"eta");
+        LALInferenceMcEta2Masses(mc,eta,&m1,&m2);
+      }
+    }
+  if(LALInferenceCheckVariable(params,"logmc")) 
+  {
     if(LALInferenceCheckVariable(params,"q"))
       logPrior+=log(m1*m1);
     else
+      {
+      if(LALInferenceCheckVariable(params,"mzc"))
+      logPrior+=log(5.0*m1*m2*(m1+m2)/((2.0*dopt-3.0*copt)*mzc*(m1-m2)));
+      else
       logPrior+=log(((m1+m2)*(m1+m2)*(m1+m2))/(m1-m2));
-  } else if(LALInferenceCheckVariable(params,"chirpmass")) {
+      }
+  } 
+  else 
+  if(LALInferenceCheckVariable(params,"chirpmass")) 
+  {
     if(LALInferenceCheckVariable(params,"q"))
       logPrior+=log(m1*m1/mc);
     else
+      {
+      if(LALInferenceCheckVariable(params,"mzc"))
+      logPrior+=log(5.0*m1*m2*(m1+m2)/((2.0*dopt-3.0*copt)*mc*mzc*(m1-m2)));
+      else
       logPrior+=log(((m1+m2)*(m1+m2))/((m1-m2)*pow(eta,3.0/5.0)));
+      }
   }
 
   /* Check for individual mass priors */
@@ -706,7 +740,7 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
 
 
     // mass variables
-    double mc = 0.0, eta = 0.0, q = 0.0, m1 = 0.0, m2 = 0.0, m = 0.0;
+    double mc = 0.0, mzc=0.0, eta = 0.0, q = 0.0, m1 = 0.0, m2 = 0.0, m = 0.0;
 
     // check if mchirp is fixed
     if( LALInferenceCheckVariable(params,"logmc") )
@@ -739,6 +773,15 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
             if( mc != 0.0 ) LALInferenceMcQ2Masses(mc,q,&m1,&m2);
         }
     }
+    else if( LALInferenceCheckVariable(params,"mzc") )
+    {
+        item = LALInferenceGetItem(params, "mzc");
+        if(item->vary == LALINFERENCE_PARAM_FIXED)
+        {
+            mzc = *(REAL8 *)LALInferenceGetVariable(params, "mzc");
+            if( mc != 0.0 ) LALInferenceMcMzc2Masses(mc,mzc,&m1,&m2);
+        }
+    }
 
     //m1 & m2
     if( m1 == 0.0 && m2 == 0.0 )
@@ -756,6 +799,7 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
           eta = m1 * m2 / (m*m);
           mc = pow(eta,0.6) * m;
           q = m2 / m1; // asymmetric mass ratio, m1 >= m2
+          mzc = pow(m, copt+dopt) * pow(eta, dopt);
         }
         else
         {
@@ -771,13 +815,14 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
             m = m1 + m2;
             eta = m1 * m2 / (m*m);
             mc = pow(eta,0.6) * m;
+            mzc = pow(m, copt+dopt) * pow(eta, dopt);
             q = m2 / m1; // asymmetric mass ratio, m1 >= m2
             i++;
             i++;
         }
 
         // chirp mass and eta/q
-        if(LALInferenceCheckVariable(params,"eta")||LALInferenceCheckVariable(params,"q"))
+        if(LALInferenceCheckVariable(params,"eta")||LALInferenceCheckVariable(params,"mzc")||LALInferenceCheckVariable(params,"q"))
         {
             if(LALInferenceCheckVariable(params,"logmc"))
             {
@@ -789,10 +834,12 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
                 LALInferenceSetVariable(params, "chirpmass", &mc);
             }
 
-                  if(LALInferenceCheckVariable(params,"q"))
+            if(LALInferenceCheckVariable(params,"q"))
                 LALInferenceSetVariable(params, "q", &q);
+            else if(LALInferenceCheckVariable(params,"mzc"))
+                LALInferenceSetVariable(params, "mzc", &mzc);
             else if(LALInferenceCheckVariable(params,"eta"))
-                    LALInferenceSetVariable(params, "eta", &eta);
+                LALInferenceSetVariable(params, "eta", &eta);
         }
     }
 
@@ -941,6 +988,9 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
             return 0;
     if(LALInferenceCheckVariable(params,"chirpmass"))
         if(isnan(*(REAL8 *)LALInferenceGetVariable(params,"chirpmass")))
+            return 0;
+    if(LALInferenceCheckVariable(params,"mzc"))
+        if(isnan(*(REAL8 *)LALInferenceGetVariable(params,"mzc")))
             return 0;
     if(LALInferenceCheckVariable(params,"eta"))
         if(isnan(*(REAL8 *)LALInferenceGetVariable(params,"eta"))
@@ -1115,7 +1165,7 @@ REAL8 LALInferenceInspiralSkyLocPrior(LALInferenceRunState *runState, LALInferen
   LALInferenceVariables *priorParams=runState->priorArgs;
   REAL8 min=-INFINITY, max=INFINITY;
   REAL8 logmc=0.0,mc=0.0;
-  REAL8 m1=0.0,m2=0.0,q=0.0,eta=0.0;
+  REAL8 m1=0.0,m2=0.0,q=0.0,eta=0.0,mzc=0.0;
 
   if (!SkyLocPriorWarning ) {
     SkyLocPriorWarning  = 1;
@@ -1178,26 +1228,48 @@ REAL8 LALInferenceInspiralSkyLocPrior(LALInferenceRunState *runState, LALInferen
     }
   }
   /*priors uniform in the individual masses. Not taking into account if mtot_max < m1_max+m2_max */
-  if(LALInferenceCheckVariable(params,"eta")||LALInferenceCheckVariable(params,"q")) {
-    if(LALInferenceCheckVariable(params,"logmc")) {
+  if(LALInferenceCheckVariable(params,"eta")||LALInferenceCheckVariable(params,"mzc")||LALInferenceCheckVariable(params,"q")) 
+  {
+    if(LALInferenceCheckVariable(params,"logmc")) 
+    {
       logmc=*(REAL8 *)LALInferenceGetVariable(params,"logmc");
-      if(LALInferenceCheckVariable(params,"q")) {
+      if(LALInferenceCheckVariable(params,"q")) 
+      {
         q=*(REAL8 *)LALInferenceGetVariable(params,"q");
         LALInferenceMcQ2Masses(exp(logmc),q,&m1,&m2);
         logPrior+=log(m1*m1);
-      } else {
+      } 
+      else if(LALInferenceCheckVariable(params,"mzc")) 
+      {
+        mzc=*(REAL8 *)LALInferenceGetVariable(params,"mzc");
+        LALInferenceMcMzc2Masses(exp(logmc),mzc,&m1,&m2);
+        logPrior+=log(5.0*m1*m2*(m1+m2)/((2*dopt-3*copt)*mzc*(m1-m2)));
+      }
+      else
+      {
         eta=*(REAL8 *)LALInferenceGetVariable(params,"eta");
         LALInferenceMcEta2Masses(exp(logmc),eta,&m1,&m2);
         logPrior+=log(((m1+m2)*(m1+m2)*(m1+m2))/(m1-m2));
       }
       /*careful using LALInferenceMcEta2Masses, it returns m1>=m2*/
-    } else if(LALInferenceCheckVariable(params,"chirpmass")) {
+    } 
+    else if(LALInferenceCheckVariable(params,"chirpmass")) 
+    {
       mc=*(REAL8 *)LALInferenceGetVariable(params,"chirpmass");
-      if(LALInferenceCheckVariable(params,"q")) {
+      if(LALInferenceCheckVariable(params,"q")) 
+      {
         q=*(REAL8 *)LALInferenceGetVariable(params,"q");
         LALInferenceMcQ2Masses(mc,q,&m1,&m2);
         logPrior+=log(m1*m1/mc);
-      } else {
+      } 
+      else if(LALInferenceCheckVariable(params,"mzc"))
+      {
+        mzc=*(REAL8 *)LALInferenceGetVariable(params,"mzc");
+        LALInferenceMcMzc2Masses(mc,mzc,&m1,&m2);
+        logPrior+=log(5.0*m1*m2*(m1+m2)/((2*dopt-3*copt)*mc*mzc*(m1-m2)));
+      }
+      else
+      {
         eta=*(REAL8 *)LALInferenceGetVariable(params,"eta");
         LALInferenceMcEta2Masses(mc,eta,&m1,&m2);
         logPrior+=log(((m1+m2)*(m1+m2))/((m1-m2)*pow(eta,3.0/5.0)));
@@ -1398,7 +1470,7 @@ UINT4 LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALI
     }
 
     // check if mchirp is fixed
-    double mc = 0.0, eta = 0.0, q = 0.0, m1 = 0.0, m2 = 0.0, m = 0.0;
+    double mc = 0.0, eta = 0.0, mzc=0.0, q = 0.0, m1 = 0.0, m2 = 0.0, m = 0.0;
     if( LALInferenceCheckVariable(params,"logmc") )
     {
         item = LALInferenceGetItem(params, "logmc");
@@ -1418,6 +1490,15 @@ UINT4 LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALI
         {
             eta = *(REAL8 *)LALInferenceGetVariable(params, "eta");
             if( mc != 0.0 ) LALInferenceMcEta2Masses(mc,eta,&m1,&m2);
+        }
+    }
+    else if( LALInferenceCheckVariable(params,"mzc") )
+    {
+        item = LALInferenceGetItem(params, "mzc");
+        if(item->vary == LALINFERENCE_PARAM_FIXED)
+        {
+            mzc = *(REAL8 *)LALInferenceGetVariable(params, "mzc");
+            if( mc != 0.0 ) LALInferenceMcMzc2Masses(mc,mzc,&m1,&m2);
         }
     }
     else if( LALInferenceCheckVariable(params,"q") )
@@ -1445,6 +1526,7 @@ UINT4 LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALI
             eta = m1 * m2 / (m*m);
             mc = pow(eta,0.6) * m;
             q = m2 / m1; // asymmetric mass ratio, m1 >= m2
+            mzc = pow(m, copt+dopt) * pow(eta, dopt);
         }
         else
         {
@@ -1461,12 +1543,13 @@ UINT4 LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALI
             eta = m1 * m2 / (m*m);
             mc = pow(eta,0.6) * m;
             q = m2 / m1; // asymmetric mass ratio, m1 >= m2
+            mzc = pow(m, copt+dopt) * pow(eta, dopt);
             i++;
             i++;
         }
 
         // chirp mass and eta/q
-        if(LALInferenceCheckVariable(params,"eta")||LALInferenceCheckVariable(params,"q"))
+        if(LALInferenceCheckVariable(params,"eta")||LALInferenceCheckVariable(params,"mzc")||LALInferenceCheckVariable(params,"q"))
         {
             if(LALInferenceCheckVariable(params,"logmc"))
             {
@@ -1478,10 +1561,12 @@ UINT4 LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALI
                 LALInferenceSetVariable(params, "chirpmass", &mc);
             }
 
-                  if(LALInferenceCheckVariable(params,"q"))
+            if(LALInferenceCheckVariable(params,"q"))
                 LALInferenceSetVariable(params, "q", &q);
+            else if(LALInferenceCheckVariable(params,"mzc"))
+                LALInferenceSetVariable(params, "mzc", &mzc);
             else if(LALInferenceCheckVariable(params,"eta"))
-                    LALInferenceSetVariable(params, "eta", &eta);
+                LALInferenceSetVariable(params, "eta", &eta);
         }
     }
 
@@ -1630,6 +1715,9 @@ UINT4 LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALI
     if(LALInferenceCheckVariable(params,"chirpmass"))
         if(isnan(*(REAL8 *)LALInferenceGetVariable(params,"chirpmass")))
             return 0;
+    if(LALInferenceCheckVariable(params,"mzc"))
+        if(isnan(*(REAL8 *)LALInferenceGetVariable(params,"mzc")))
+            return 0;
     if(LALInferenceCheckVariable(params,"eta"))
         if(isnan(*(REAL8 *)LALInferenceGetVariable(params,"eta"))
            ||*(REAL8 *)LALInferenceGetVariable(params,"eta") < 0.0
@@ -1698,6 +1786,17 @@ static double etaInnerIntegrand(double M2, void *viData) {
   }
 }
 
+static double mzcInnerIntegrand(double M2, void *viData) {
+  innerData *iData = (innerData *)viData;
+  double Mc = pow(M2*iData->M1, 3.0/5.0)/pow(M2+iData->M1, 1.0/5.0);
+  double mzc = pow(M2+iData->M1,copt*(1-zopt)) * pow(M2*iData->M1, zopt*copt);
+  if (Mc < iData->McMin || Mc > iData->McMax || mzc < iData->massRatioMin || mzc > iData->massRatioMax) {
+    return 0.0;
+  } else {
+    return pow(Mc, -11.0/6.0);
+  }
+}
+
 #undef LALINFERENCE_PRIOR_SQR
 
 typedef struct {
@@ -1755,6 +1854,8 @@ REAL8 LALInferenceComputePriorMassNorm(const double MMin, const double MMax, con
         XLAL_ERROR_REAL8(XLAL_EFAULT, "Null arguments received.");
     else if(!strcmp(massRatioName,"q"))
         oData.innerIntegrand.function = &qInnerIntegrand;
+    else if(!strcmp(massRatioName,"mzc"))
+        oData.innerIntegrand.function = &mzcInnerIntegrand;
     else if(!strcmp(massRatioName,"eta"))
         oData.innerIntegrand.function = &etaInnerIntegrand;
     else
@@ -2574,28 +2675,50 @@ UINT4 within_malmquist(LALInferenceRunState *runState, LALInferenceVariables *pa
 REAL8 LALInferenceAnalyticNullPrior(LALInferenceRunState UNUSED *runState, LALInferenceVariables *params, LALInferenceModel UNUSED *model) {
   REAL8 logPrior=0.0;
   REAL8 logmc=0.0,mc=0.0;
-  REAL8 m1=0.0,m2=0.0,q=0.0,eta=0.0;
+  REAL8 m1=0.0,m2=0.0,q=0.0,eta=0.0,mzc=0.0;
 
-  if(LALInferenceCheckVariable(params,"eta")||LALInferenceCheckVariable(params,"q")) {
-    if(LALInferenceCheckVariable(params,"logmc")) {
+  if(LALInferenceCheckVariable(params,"eta")||LALInferenceCheckVariable(params,"mzc")||LALInferenceCheckVariable(params,"q")) 
+  {
+    if(LALInferenceCheckVariable(params,"logmc")) 
+    {
       logmc=*(REAL8 *)LALInferenceGetVariable(params,"logmc");
-      if(LALInferenceCheckVariable(params,"q")) {
+      if(LALInferenceCheckVariable(params,"q")) 
+      {
         q=*(REAL8 *)LALInferenceGetVariable(params,"q");
         LALInferenceMcQ2Masses(exp(logmc),q,&m1,&m2);
         logPrior+=log(m1*m1);
-      } else {
+      } 
+      else if(LALInferenceCheckVariable(params,"mzc"))
+      {
+        mzc=*(REAL8 *)LALInferenceGetVariable(params,"mzc");
+        LALInferenceMcMzc2Masses(exp(logmc),mzc,&m1,&m2);
+        logPrior+=log(5.0*m1*m2*(m1+m2)/((2*dopt-3*copt)*mzc*(m1-m2)));
+      }
+      else
+      {
         eta=*(REAL8 *)LALInferenceGetVariable(params,"eta");
         LALInferenceMcEta2Masses(exp(logmc),eta,&m1,&m2);
         logPrior+=log(((m1+m2)*(m1+m2)*(m1+m2))/(m1-m2));
       }
       /*careful using LALInferenceMcEta2Masses, it returns m1>=m2*/
-    } else if(LALInferenceCheckVariable(params,"chirpmass")) {
+    } 
+    else if(LALInferenceCheckVariable(params,"chirpmass")) 
+    {
       mc=*(REAL8 *)LALInferenceGetVariable(params,"chirpmass");
-      if(LALInferenceCheckVariable(params,"q")) {
+      if(LALInferenceCheckVariable(params,"q")) 
+      {
         q=*(REAL8 *)LALInferenceGetVariable(params,"q");
         LALInferenceMcQ2Masses(mc,q,&m1,&m2);
         logPrior+=log(m1*m1/mc);
-      } else {
+      } 
+      else (LALInferenceCheckVariable(params,"mzc")) 
+      {
+        mzc=*(REAL8 *)LALInferenceGetVariable(params,"mzc");
+        LALInferenceMcMzc2Masses(mc,mzc,&m1,&m2);
+        logPrior+=log(5.0*m1*m2*(m1+m2)/((2*dopt-3*copt)*mc*mzc*(m1-m2)));
+      }
+      else
+      {
         eta=*(REAL8 *)LALInferenceGetVariable(params,"eta");
         LALInferenceMcEta2Masses(mc,eta,&m1,&m2);
         logPrior+=log(((m1+m2)*(m1+m2))/((m1-m2)*pow(eta,3.0/5.0)));

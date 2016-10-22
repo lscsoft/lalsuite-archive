@@ -67,6 +67,7 @@
 #define log4 1.3862943611198906188344642429163531
 
 static void q2masses(double mc, double q, double *m1, double *m2);
+static void mzc2masses(double mc, double mzc, double *m1, double *m2);
 
 /* list of testing GR parameters to be passed to the waveform */
 
@@ -205,6 +206,20 @@ static void q2masses(double mc, double q, double *m1, double *m2)
   return;
 }
 
+static void mzc2masses(double mc, double mzc, double *m1, double *m2)
+/*  Compute individual companion masses (m1, m2)   */
+/*  for given chirp mass (m_c) & asymmetric mass   */
+/*  ratio (q).  note: q = m2/m1, where m1 >= m2    */
+{
+  double copt=0.25, zopt=0.9;
+  double dopt=copt*zopt;
+  double kopt=5.0/(3.0*copt -2.0*dopt);
+  double delta_opt=sqrt(1.0 - 4.0 * pow(mc, kopt*copt*(1.0+zopt)) * pow(mzc, -kopt));
+  *m1 = 0.5* pow(mc, -kopt * dopt) * pow(mzc, 3.0*kopt/5.0) * (1.0 + delta_opt);
+  *m2 = 0.5* pow(mc, -kopt * dopt) * pow(mzc, 3.0*kopt/5.0) * (1.0 - delta_opt);
+  return;
+}
+
 void LALInferenceROQWrapperForXLALSimInspiralChooseFDWaveformSequence(LALInferenceModel *model){
 /*************************************************************************************************************************/
   Approximant approximant = (Approximant) 0;
@@ -250,12 +265,23 @@ void LALInferenceROQWrapperForXLALSimInspiralChooseFDWaveformSequence(LALInferen
   if(LALInferenceCheckVariable(model->params,"chirpmass"))
     {
       mc  = *(REAL8*) LALInferenceGetVariable(model->params, "chirpmass");
-      if (LALInferenceCheckVariable(model->params,"q")) {
+      if (LALInferenceCheckVariable(model->params,"q")) 
+      {
 	REAL8 q = *(REAL8 *)LALInferenceGetVariable(model->params,"q");
 	q2masses(mc, q, &m1, &m2);
-      } else {
+      } 
+      else 
+      {
+	if (LALInferenceCheckVariable(model->params,"mzc")) 
+        {
+	REAL8 mzc = *(REAL8 *)LALInferenceGetVariable(model->params,"mzc");
+	mzc2masses(mc, mzc, &m1, &m2);
+        } 
+        else 
+	{
 	REAL8 eta = *(REAL8*) LALInferenceGetVariable(model->params, "eta");
 	mc2masses(mc, eta, &m1, &m2);
+	}
       }
     }
   else if((m1_p=(REAL8 *)LALInferenceGetVariable(model->params, "mass1")) && (m2_p=(REAL8 *)LALInferenceGetVariable(model->params, "mass2")))
@@ -575,6 +601,9 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
 /*      OR                                                                                                               */
 /*      - "chirpmass"       chirpmass in solar mass; REAL8                                                               */
 /*      - "eta"             symmetric mass ratio (m1*m2)/(m1+m2)^2; REAL8                                                */
+/*      OR                                                                                                               */
+/*      - "chirpmass"       chirpmass in solar mass; REAL8                                                               */
+/*      - "mzc"             optimal mass param (M*mu^zopt)^copt; REAL8                                                */
 /*                                                                                                                       */
 /*   ORIENTATION AND SPIN PARAMETERS                                                                                     */
 /*   - "phi0"               reference phase as per LALSimulation convention; REAL8                                       */
@@ -658,13 +687,22 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
   if(LALInferenceCheckVariable(model->params,"chirpmass"))
     {
       mc  = *(REAL8*) LALInferenceGetVariable(model->params, "chirpmass");
-      if (LALInferenceCheckVariable(model->params,"q")) {
+      if (LALInferenceCheckVariable(model->params,"q")) 
+      {
 	REAL8 q = *(REAL8 *)LALInferenceGetVariable(model->params,"q");
 	q2masses(mc, q, &m1, &m2);
-      } else {
-	REAL8 eta = *(REAL8*) LALInferenceGetVariable(model->params, "eta");
-	mc2masses(mc, eta, &m1, &m2);
-      }
+      } 
+      else 
+        if
+        {
+	  REAL8 mzc = *(REAL8*) LALInferenceGetVariable(model->params, "mzc");
+	  mzc2masses(mc, mzc, &m1, &m2);
+        }
+        else
+        {
+	  REAL8 eta = *(REAL8*) LALInferenceGetVariable(model->params, "eta");
+	  mc2masses(mc, eta, &m1, &m2);
+        }
     }
   else if((m1_p=(REAL8 *)LALInferenceGetVariable(model->params, "mass1")) && (m2_p=(REAL8 *)LALInferenceGetVariable(model->params, "mass2")))
     {
@@ -1055,6 +1093,9 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveformPhaseInterpolated(LALInfer
 /*      OR                                                                                                               */
 /*      - "chirpmass"       chirpmass in solar mass; REAL8                                                               */
 /*      - "eta"             symmetric mass ratio (m1*m2)/(m1+m2)^2; REAL8                                                */
+/*      OR                                                                                                               */
+/*      - "chirpmass"       chirpmass in solar mass; REAL8                                                               */
+/*      - "mzc"             optimal mass param (M*mu^zopt)^copt; REAL8                                                */
 /*                                                                                                                       */
 /*   ORIENTATION AND SPIN PARAMETERS                                                                                     */
 /*   - "phi0"               reference phase as per LALSimulation convention; REAL8                                       */
@@ -1134,15 +1175,24 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveformPhaseInterpolated(LALInfer
 
     REAL8 fTemp = f_ref;
 
-    if(LALInferenceCheckVariable(model->params,"chirpmass"))
+  if(LALInferenceCheckVariable(model->params,"chirpmass"))
     {
-        mc  = *(REAL8*) LALInferenceGetVariable(model->params, "chirpmass");
-        if (LALInferenceCheckVariable(model->params,"q")) {
-            REAL8 q = *(REAL8 *)LALInferenceGetVariable(model->params,"q");
-            q2masses(mc, q, &m1, &m2);
-        } else {
-            REAL8 eta = *(REAL8*) LALInferenceGetVariable(model->params, "eta");
-            mc2masses(mc, eta, &m1, &m2);
+      mc  = *(REAL8*) LALInferenceGetVariable(model->params, "chirpmass");
+      if (LALInferenceCheckVariable(model->params,"q")) 
+      {
+	REAL8 q = *(REAL8 *)LALInferenceGetVariable(model->params,"q");
+	q2masses(mc, q, &m1, &m2);
+      } 
+      else 
+        if
+        {
+	  REAL8 mzc = *(REAL8*) LALInferenceGetVariable(model->params, "mzc");
+	  mzc2masses(mc, mzc, &m1, &m2);
+        }
+        else
+        {
+	  REAL8 eta = *(REAL8*) LALInferenceGetVariable(model->params, "eta");
+	  mc2masses(mc, eta, &m1, &m2);
         }
     }
     else if((m1_p=(REAL8 *)LALInferenceGetVariable(model->params, "mass1")) && (m2_p=(REAL8 *)LALInferenceGetVariable(model->params, "mass2")))

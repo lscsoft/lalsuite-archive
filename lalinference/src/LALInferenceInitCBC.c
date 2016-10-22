@@ -604,6 +604,12 @@ void LALInferenceRegisterUniformVariableREAL8(LALInferenceRunState *state, LALIn
 	  exit(1);
     }
   }
+
+  if (!strcmp(name,"mzc")){
+    REAL8 mzcMin=min;
+    REAL8 mzcMax=max;
+  }
+
   /*End of mass parameters check */
 
   LALInferenceAddVariable(var,name,&startval,LALINFERENCE_REAL8_t,varytype);
@@ -627,6 +633,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
     --- Template Arguments -----------------------\n\
     ----------------------------------------------\n\
     (--use-eta)            Jump in symmetric mass ratio eta, instead of q=m1/m2 (m1>m2)\n\
+    (--use-mzc)            Jump in optimal mass choice, zcs, instead of q=m1/m2 or eta\n\
     (--approx)             Specify a template approximant and phase order to use\n\
                          (default TaylorF2threePointFivePN). Available approximants:\n\
                          default modeldomain=\"time\": GeneratePPN, TaylorT1, TaylorT2,\n\
@@ -660,6 +667,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
      time                         Waveform time (overrides random about trigtime).\n\
      chirpmass                    Chirpmass\n\
      eta                          Symmetric massratio (needs --use-eta)\n\
+     zcs                          optimal mass choice (needs --use-zcs)\n\
      q                            Asymmetric massratio (a.k.a. q=m2/m1 with m1>m2)\n\
      phase                        Coalescence phase.\n\
      costheta_jn                  Cosine of angle between J and line of sight [rads]\n\
@@ -741,6 +749,8 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   REAL8 mcMax=15.3;
   REAL8 etaMin=0.0312;
   REAL8 etaMax=0.25;
+  REAL8 mzcMin=1.017479;   
+  REAL8 mzcMax=7.70;
   REAL8 qMin=1./30.; // The ratio between min and max component mass (see InitMassVariables)
   REAL8 qMax=1.0;
   REAL8 psiMin=0.0,psiMax=LAL_PI;
@@ -1129,13 +1139,18 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
      * The user can fix the param to a given value with --fix-parname --parname VALUE
      * */
     LALInferenceRegisterUniformVariableREAL8(state, model->params, "chirpmass", zero, mcMin, mcMax, LALINFERENCE_PARAM_LINEAR);
-    /* Check if running with symmetric (eta) or asymmetric (q) mass ratio.*/
+    /* Check if running with symmetric (eta) or asymmetric (q) mass ratio or mzc.*/
     ppt=LALInferenceGetProcParamVal(commandLine,"--use-eta");
     if(ppt)
       LALInferenceRegisterUniformVariableREAL8(state, model->params, "eta", zero, etaMin, etaMax, LALINFERENCE_PARAM_LINEAR);
     else
-      LALInferenceRegisterUniformVariableREAL8(state, model->params, "q", zero, qMin, qMax, LALINFERENCE_PARAM_LINEAR);
-
+      {
+      ppt=LALInferenceGetProcParamVal(commandLine,"--use-mzc");
+      if(ppt)
+        LALInferenceRegisterUniformVariableREAL8(state, model->params, "mzc", zero, mzcMin, mzcMax, LALINFERENCE_PARAM_LINEAR);
+      else
+        LALInferenceRegisterUniformVariableREAL8(state, model->params, "q", zero, qMin, qMax, LALINFERENCE_PARAM_LINEAR);
+      }
 
     if(!LALInferenceGetProcParamVal(commandLine,"--margphi") && !LALInferenceGetProcParamVal(commandLine, "--margtimephi")){
       LALInferenceRegisterUniformVariableREAL8(state, model->params, "phase", zero, phiMin, phiMax, LALINFERENCE_PARAM_CIRCULAR);

@@ -58,6 +58,10 @@ typedef enum
 #define UNUSED
 #endif
 
+const double copt=0.25, zopt=0.9;
+const double dopt=copt*zopt;
+const double kopt=5.0/(3.0*copt -2.0*dopt);
+
 static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *currentParams,
                                                LALInferenceIFOData *data,
                                                LALInferenceModel *model,
@@ -1019,17 +1023,29 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
   	if ( model->roq->hptildeQuadratic ) XLALDestroyCOMPLEX16FrequencySeries(model->roq->hptildeQuadratic);
   	if ( model->roq->hctildeQuadratic ) XLALDestroyCOMPLEX16FrequencySeries(model->roq->hctildeQuadratic);
 
- 	if(LALInferenceCheckVariable(model->params, "tilt_spin1")){
+ 	if(LALInferenceCheckVariable(model->params, "tilt_spin1"))
+ 	{
 		mc  = *(REAL8*) LALInferenceGetVariable(model->params, "chirpmass");
         	REAL8 eta=0;
         	REAL8 m1=0;
         	REAL8 m2=0;
-     		if(LALInferenceCheckVariable(model->params,"q")) {
+     		if(LALInferenceCheckVariable(model->params,"q")) 
+     		{
         		REAL8 q = *(REAL8 *)LALInferenceGetVariable(model->params,"q");
         		m1 = mc * pow(q, -3.0/5.0) * pow(q+1, 1.0/5.0);
         		m2 = (m1) * q;
         		eta = (m1*m2) / ((m1+m2)*(m1+m2));
-      			} else {
+      		} 
+      		else if(LALInferenceCheckVariable(model->params,"mzc")) 
+      		{
+        		mzc = *(REAL8*) LALInferenceGetVariable(model->params, "mzc");
+			double delta_opt=sqrt(1.0 - 4.0 * pow(mc, kopt*copt*(1.0+zopt)) * pow(mzc, -kopt));
+			m1 = 0.5* pow(mc, -kopt * dopt) * pow(mzc, 3.0*kopt/5.0) * (1.0 + delta_opt);
+			m2 = 0.5* pow(mc, -kopt * dopt) * pow(mzc, 3.0*kopt/5.0) * (1.0 - delta_opt);
+        		eta = (m1*m2) / ((m1+m2)*(m1+m2));
+      		}
+      		else 
+      		{
         		eta = *(REAL8*) LALInferenceGetVariable(model->params, "eta");
       		}
 

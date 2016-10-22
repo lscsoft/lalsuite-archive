@@ -95,7 +95,7 @@ const char *const clusteredKDEProposalName = "ClusteredKDEProposal";
 const char *const splineCalibrationProposalName = "SplineCalibration";
 const char *const distanceLikelihoodProposalName = "DistanceLikelihood";
 
-static const char *intrinsicNames[] = {"chirpmass", "q", "eta", "mass1", "mass2", "a_spin1", "a_spin2",
+static const char *intrinsicNames[] = {"chirpmass", "q", "mzc", "eta", "mass1", "mass2", "a_spin1", "a_spin2",
   "tilt_spin1", "tilt_spin2", "phi12", "phi_jl", "frequency", "quality", "duration","polar_angle", "phase", "polar_eccentricity","dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep","dxi1","dxi2","dxi3","dxi4","dxi5","dxi6","dalpha1","dalpha2","dalpha3","dalpha4","dalpha5","dbeta1","dbeta2","dbeta3","dsigma1","dsigma2","dsigma3","dsigma4",NULL};
 
 static const char *extrinsicNames[] = {"rightascension", "declination", "cosalpha", "azimuth", "polarisation", "distance",
@@ -704,6 +704,8 @@ REAL8 LALInferenceSingleProposal(LALInferenceThreadState *thread,
             sigma = 0.02;
         } else if (!strcmp(param->name, "q")) {
             sigma = 0.08;
+        } else if (!strcmp(param->name, "mzc")) {
+            sigma = 0.45;                // arbitrarily set value.  not understood well. need to be edited
         } else if (!strcmp(param->name, "chirpmass")) {
             sigma = 1.0;
         } else if (!strcmp(param->name, "time")) {
@@ -737,7 +739,7 @@ REAL8 LALInferenceSingleProposal(LALInferenceThreadState *thread,
 
         *(REAL8 *)param->value += gsl_ran_ugaussian(GSLrandom)*sigma;
     } else {
-        if (!strcmp(param->name,"eta") || !strcmp(param->name,"q") || !strcmp(param->name,"time") || !strcmp(param->name,"t0") || !strcmp(param->name,"a_spin2") || !strcmp(param->name,"a_spin1")){
+        if (!strcmp(param->name,"eta") || !strcmp(param->name,"mzc") || !strcmp(param->name,"q") || !strcmp(param->name,"time") || !strcmp(param->name,"t0") || !strcmp(param->name,"a_spin2") || !strcmp(param->name,"a_spin1")){
             *(REAL8 *)param->value += gsl_ran_ugaussian(GSLrandom)*big_sigma*sigma*0.001;
         } else if (!strcmp(param->name,"polarisation") || !strcmp(param->name,"phase") || !strcmp(param->name,"costheta_jn")){
             *(REAL8 *)param->value += gsl_ran_ugaussian(GSLrandom)*big_sigma*sigma*0.1;
@@ -1274,7 +1276,7 @@ REAL8 LALInferenceDrawApproxPrior(LALInferenceThreadState *thread,
 
     LALInferenceCopyVariables(currentParams, proposedParams);
 
-    const char *flat_params[] = {"q", "eta", "t0", "azimuth", "cosalpha", "time", "phase", "polarisation",
+    const char *flat_params[] = {"q", "mzc", "eta", "t0", "azimuth", "cosalpha", "time", "phase", "polarisation",
                                  "rightascension", "costheta_jn", "phi_jl",
                                  "phi12", "a_spin1", "a_spin2", NULL};
 
@@ -3055,8 +3057,8 @@ void LALInferenceSetupAdaptiveProposals(LALInferenceVariables *propArgs, LALInfe
         if (LALInferenceCheckVariableNonFixed(params, this->name) && this->type == LALINFERENCE_REAL8_t) {
             char *name = this->name;
 
-            if (!strcmp(name, "eta") || !strcmp(name, "q") || !strcmp(name, "time") || !strcmp(name, "a_spin2") || !strcmp(name, "a_spin1") || !strcmp(name,"t0")){
-                sigma = 0.001;
+            if (!strcmp(name, "eta") || !strcmp(name, "mzc") || !strcmp(name, "q") || !strcmp(name, "time") || !strcmp(name, "a_spin2") || !strcmp(name, "a_spin1") || !strcmp(name,"t0")){
+                sigma = 0.001;      // arbitrarily set,  to be edited. check it 
             } else if (!strcmp(name, "polarisation") || !strcmp(name, "phase") || !strcmp(name, "costheta_jn")){
                 sigma = 0.1;
             } else {
