@@ -59,8 +59,6 @@ typedef enum
 #endif
 
 double copt=0.25, zopt=0.9;
-double dopt=copt*zopt;
-double kopt=5.0/(3.0*copt -2.0*dopt);
 
 static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *currentParams,
                                                LALInferenceIFOData *data,
@@ -1038,10 +1036,10 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
       		} 
       		else if(LALInferenceCheckVariable(model->params,"mzc")) 
       		{
-        		mzc = *(REAL8*) LALInferenceGetVariable(model->params, "mzc");
-			double delta_opt=sqrt(1.0 - 4.0 * pow(mc, kopt*copt*(1.0+zopt)) * pow(mzc, -kopt));
-			m1 = 0.5* pow(mc, -kopt * dopt) * pow(mzc, 3.0*kopt/5.0) * (1.0 + delta_opt);
-			m2 = 0.5* pow(mc, -kopt * dopt) * pow(mzc, 3.0*kopt/5.0) * (1.0 - delta_opt);
+        		REAL8 mzc = *(REAL8*)LALInferenceGetVariable(model->params, "mzc");
+			REAL8 delta_opt=sqrt(1.0 - 4.0 * pow(mc, (5.0/(3.0*copt -2.0*(copt*zopt)))*copt*(1.0+zopt)) * pow(mzc, -(5.0/(3.0*copt -2.0*(copt*zopt)))));
+			m1 = 0.5* pow(mc, -(5.0/(3.0*copt -2.0*(copt*zopt))) * (copt*zopt)) * pow(mzc, 3.0*(5.0/(3.0*copt -2.0*(copt*zopt)))/5.0) * (1.0 + delta_opt);
+			m2 = 0.5* pow(mc, -(5.0/(3.0*copt -2.0*(copt*zopt))) * (copt*zopt)) * pow(mzc, 3.0*(5.0/(3.0*copt -2.0*(copt*zopt)))/5.0) * (1.0 - delta_opt);
         		eta = (m1*m2) / ((m1+m2)*(m1+m2));
       		}
       		else 

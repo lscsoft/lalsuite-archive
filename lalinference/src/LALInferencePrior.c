@@ -40,7 +40,6 @@
 /* optimal mass param coefficients  */
 double copt = 0.25;
 double zopt = 0.9;
-double dopt = zopt * copt;
 
 /* Private helper function prototypes */
 static double qInnerIntegrand(double M2, void *viData);
@@ -520,7 +519,7 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
     else
       {
       if(LALInferenceCheckVariable(params,"mzc"))
-      logPrior+=log(5.0*m1*m2*(m1+m2)/((2.0*dopt-3.0*copt)*mzc*(m1-m2)));
+      logPrior+=log(5.0*m1*m2*(m1+m2)/((2.0*(zopt * copt)-3.0*copt)*mzc*(m1-m2)));
       else
       logPrior+=log(((m1+m2)*(m1+m2)*(m1+m2))/(m1-m2));
       }
@@ -533,7 +532,7 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
     else
       {
       if(LALInferenceCheckVariable(params,"mzc"))
-      logPrior+=log(5.0*m1*m2*(m1+m2)/((2.0*dopt-3.0*copt)*mc*mzc*(m1-m2)));
+      logPrior+=log(5.0*m1*m2*(m1+m2)/((2.0*(zopt * copt)-3.0*copt)*mc*mzc*(m1-m2)));
       else
       logPrior+=log(((m1+m2)*(m1+m2))/((m1-m2)*pow(eta,3.0/5.0)));
       }
@@ -799,7 +798,7 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
           eta = m1 * m2 / (m*m);
           mc = pow(eta,0.6) * m;
           q = m2 / m1; // asymmetric mass ratio, m1 >= m2
-          mzc = pow(m, copt+dopt) * pow(eta, dopt);
+          mzc = pow(m, copt+(zopt * copt)) * pow(eta, (zopt * copt));
         }
         else
         {
@@ -815,7 +814,7 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
             m = m1 + m2;
             eta = m1 * m2 / (m*m);
             mc = pow(eta,0.6) * m;
-            mzc = pow(m, copt+dopt) * pow(eta, dopt);
+            mzc = pow(m, copt+(zopt * copt)) * pow(eta, (zopt * copt));
             q = m2 / m1; // asymmetric mass ratio, m1 >= m2
             i++;
             i++;
@@ -1243,7 +1242,7 @@ REAL8 LALInferenceInspiralSkyLocPrior(LALInferenceRunState *runState, LALInferen
       {
         mzc=*(REAL8 *)LALInferenceGetVariable(params,"mzc");
         LALInferenceMcMzc2Masses(exp(logmc),mzc,&m1,&m2);
-        logPrior+=log(5.0*m1*m2*(m1+m2)/((2*dopt-3*copt)*mzc*(m1-m2)));
+        logPrior+=log(5.0*m1*m2*(m1+m2)/((2*(zopt * copt)-3*copt)*mzc*(m1-m2)));
       }
       else
       {
@@ -1266,7 +1265,7 @@ REAL8 LALInferenceInspiralSkyLocPrior(LALInferenceRunState *runState, LALInferen
       {
         mzc=*(REAL8 *)LALInferenceGetVariable(params,"mzc");
         LALInferenceMcMzc2Masses(mc,mzc,&m1,&m2);
-        logPrior+=log(5.0*m1*m2*(m1+m2)/((2*dopt-3*copt)*mc*mzc*(m1-m2)));
+        logPrior+=log(5.0*m1*m2*(m1+m2)/((2*(zopt * copt)-3*copt)*mc*mzc*(m1-m2)));
       }
       else
       {
@@ -1526,7 +1525,7 @@ UINT4 LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALI
             eta = m1 * m2 / (m*m);
             mc = pow(eta,0.6) * m;
             q = m2 / m1; // asymmetric mass ratio, m1 >= m2
-            mzc = pow(m, copt+dopt) * pow(eta, dopt);
+            mzc = pow(m, copt+(zopt * copt)) * pow(eta, (zopt * copt));
         }
         else
         {
@@ -1543,7 +1542,7 @@ UINT4 LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALI
             eta = m1 * m2 / (m*m);
             mc = pow(eta,0.6) * m;
             q = m2 / m1; // asymmetric mass ratio, m1 >= m2
-            mzc = pow(m, copt+dopt) * pow(eta, dopt);
+            mzc = pow(m, copt+(zopt * copt)) * pow(eta, (zopt * copt));
             i++;
             i++;
         }
@@ -2692,7 +2691,7 @@ REAL8 LALInferenceAnalyticNullPrior(LALInferenceRunState UNUSED *runState, LALIn
       {
         mzc=*(REAL8 *)LALInferenceGetVariable(params,"mzc");
         LALInferenceMcMzc2Masses(exp(logmc),mzc,&m1,&m2);
-        logPrior+=log(5.0*m1*m2*(m1+m2)/((2*dopt-3*copt)*mzc*(m1-m2)));
+        logPrior+=log(5.0*m1*m2*(m1+m2)/((2*(zopt * copt)-3*copt)*mzc*(m1-m2)));
       }
       else
       {
@@ -2715,7 +2714,7 @@ REAL8 LALInferenceAnalyticNullPrior(LALInferenceRunState UNUSED *runState, LALIn
       {
         mzc=*(REAL8 *)LALInferenceGetVariable(params,"mzc");
         LALInferenceMcMzc2Masses(mc,mzc,&m1,&m2);
-        logPrior+=log(5.0*m1*m2*(m1+m2)/((2*dopt-3*copt)*mc*mzc*(m1-m2)));
+        logPrior+=log(5.0*m1*m2*(m1+m2)/((2*(zopt * copt)-3*copt)*mc*mzc*(m1-m2)));
       }
       else
       {
