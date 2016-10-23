@@ -38,8 +38,7 @@
 #endif
 
 /* optimal mass param coefficients  */
-double copt = 0.25;
-double zopt = 0.9;
+static double copt=0.25, zopt=0.9;
 
 /* Private helper function prototypes */
 static double qInnerIntegrand(double M2, void *viData);

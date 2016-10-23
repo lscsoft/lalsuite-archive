@@ -607,8 +607,8 @@ void LALInferenceRegisterUniformVariableREAL8(LALInferenceRunState *state, LALIn
 
 //  if (!strcmp(name,"mzc")){    //put here if there are physical bounds for mzc as given above for q
 //    REAL8 mzcMin=min;
-//    REAL8 mzcMax=max;
-  }
+//   REAL8 mzcMax=max;
+//  }
 
   /*End of mass parameters check */
 
