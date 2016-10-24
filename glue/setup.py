@@ -1,6 +1,7 @@
 # 
 # setup script for glue
 
+from __future__ import print_function
 import os, sys
 import subprocess
 import time
@@ -8,14 +9,14 @@ import time
 try:
   from sys import version_info
 except:
-  print >> sys.stderr, "Unable to determine the python version"
-  print >> sys.stderr, "Please check that your python version is >= 2.7"
+  print("Unable to determine the python version", file=sys.stderr)
+  print("Please check that your python version is >= 2.7", file=sys.stderr)
   sys.exit(1)
 
 if version_info < (2, 7):
-  print >> sys.stderr, "Your python version " + str(version_info) + " appears to be less than 2.7"
-  print >> sys.stderr, "Please check that your python version is >= 2.7"
-  print >> sys.stderr, "Glue requires at least version 2.7"
+  print("Your python version " + str(version_info) + " appears to be less than 2.7", file=sys.stderr)
+  print("Please check that your python version is >= 2.7", file=sys.stderr)
+  print("Glue requires at least version 2.7", file=sys.stderr)
   sys.exit(1)
 
 try:
@@ -38,7 +39,7 @@ from distutils import log
 
 from misc import generate_vcs_info as gvcsi
 
-ver = "1.52.0"
+ver = "1.53.0"
 
 def remove_root(path,root):
   if root:
@@ -241,14 +242,14 @@ setup(
         "glue/ligolw/tokenizer.RowBuilder.c",
         "glue/ligolw/tokenizer.RowDumper.c"
       ],
-      include_dirs = [ "glue/ligolw" ]
+      include_dirs = [ "src", "glue/ligolw" ]
     ),
     Extension(
       "glue.ligolw._ilwd",
       [
         "glue/ligolw/ilwd.c"
       ],
-      include_dirs = [ "glue/ligolw" ]
+      include_dirs = [ "src", "glue/ligolw" ]
     ),
     Extension(
       "glue.__segments",
@@ -258,7 +259,7 @@ setup(
         "src/segments/segment.c",
         "src/segments/segmentlist.c"
       ],
-      include_dirs = [ "src/segments" ]
+      include_dirs = [ "src", "src/segments" ]
     )
   ],
   scripts = [
@@ -363,7 +364,7 @@ setup(
     'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
     'Operating System :: POSIX',
     'Programming Language :: Python :: 2.7',
-    'Programming Language :: Python :: 2 :: Only',
+    'Programming Language :: Python :: 3.4',
     'Topic :: Scientific/Engineering :: Astronomy',
     'Topic :: Scientific/Engineering :: Physics'
   ]

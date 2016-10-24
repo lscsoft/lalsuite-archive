@@ -26,6 +26,7 @@
 #
 
 
+from __future__ import print_function
 from optparse import OptionParser
 import sys
 
@@ -105,9 +106,9 @@ options, nodenames = parse_command_line()
 
 if options.verbose:
 	def progress(f, n, done):
-		print >>sys.stderr, "reading original dag from stdin ... %d lines\r" % n,
+		print("reading original dag from stdin ... %d lines\r" % n, end=' ', file=sys.stderr)
 		if done:
-			print >>sys.stderr
+			print(file=sys.stderr)
 else:
 	progress = None
 dag = dagfile.DAG.parse(sys.stdin, progress = progress)
@@ -121,7 +122,7 @@ if not nodenames.issubset(set(dag.nodes)):
 
 
 if options.verbose:
-	print >>sys.stderr, "extracting graph ..."
+	print("extracting graph ...", file=sys.stderr)
 names_to_rerun = set()
 if options.ancestors_of:
 	names_to_rerun |= dag.get_all_parent_names(nodenames)
@@ -140,7 +141,7 @@ dag = dagfile.DAG.select_nodes_by_name(dag, names_to_rerun)
 
 
 if options.verbose:
-	print >>sys.stderr, "setting jobs to done/not-done ..."
+	print("setting jobs to done/not-done ...", file=sys.stderr)
 for nodename, node in dag.nodes.items():
 	# FIXME:  feature not implemented;  all nodes marked "not done"
 	node.done = False
@@ -153,9 +154,9 @@ for nodename, node in dag.nodes.items():
 
 if options.verbose:
 	def progress(f, n, done):
-		print >>sys.stderr, "writing new dag to stdout ... %d lines\r" % n,
+		print("writing new dag to stdout ... %d lines\r" % n, end=' ', file=sys.stderr)
 		if done:
-			print >>sys.stderr
+			print(file=sys.stderr)
 else:
 	progress = None
 dag.write(sys.stdout, progress = progress)

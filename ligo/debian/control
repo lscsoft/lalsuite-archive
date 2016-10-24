@@ -2,12 +2,19 @@ Source: ligo-common
 Section: python
 Priority: extra
 Maintainer: Brian Moe <brian.moe@ligo.org>
-Build-Depends: python, python-setuptools, debhelper (>= 9), dh-python
+Build-Depends: python-all-dev, python3-all-dev, python-setuptools, python3-setuptools, debhelper (>= 9), dh-python
 Standards-Version: 3.9.8
 X-Python-Version: >= 2.7
+X-Python3-Version: >= 3.4
 
 Package: python-ligo-common
 Architecture: all
 Depends: ${misc:Depends}, ${python:Depends}
 Description: Common package for LIGO Python libs
  Common packackage for LIGO Python libraries
+
+Package: python3-ligo-common
+Architecture: all
+Depends: ${misc:Depends}, ${python3:Depends}
+Description: Common package for LIGO Python 3 libs
+ Common packackage for LIGO Python 3 libraries

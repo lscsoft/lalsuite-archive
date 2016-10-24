@@ -19,6 +19,7 @@ You should have received a copy of the GNU General Public License along with
 this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+from __future__ import print_function
 __author__ = 'Duncan Brown <duncan@gravity.phys.uwm.edu>'
 from glue import git_version
 __date__ = git_version.date
@@ -31,7 +32,7 @@ import exceptions
 import time
 import random
 import math
-import urlparse
+from six.moves import urllib
 import stat
 import socket
 import itertools
@@ -39,15 +40,14 @@ import glue.segments
 from hashlib import md5
 
 try:
-  import httplib
-  import urlparse
+  import six.moves.http_client
   import M2Crypto
   import cjson
 except:
   pass
 
 import StringIO
-import ConfigParser
+import six.moves.configparser
 
 
 # Some scripts that are used to set up a pegasus DAX
@@ -579,7 +579,7 @@ class CondorJob:
     Returns None if the option does not exist in the options list.
     @param opt: command line option
     """
-    if self.__options.has_key(opt):
+    if opt in self.__options:
       return self.__options[opt]
     return None
 
@@ -750,7 +750,7 @@ class CondorJob:
       subfile.write('transfer_output_files = $(macrooutput)\n')
       subfile.write('transfer_input_files = $(macroinput)\n')
 
-    if self.__options.keys() or self.__short_options.keys() or self.__arguments:
+    if list(self.__options.keys()) or list(self.__short_options.keys()) or self.__arguments:
       subfile.write( 'arguments = "' )
       for c in self.__options.keys():
         if self.__options[c]:
@@ -1414,7 +1414,7 @@ class CondorDAGNode:
     descriptor.
     @param fh: descriptor of open DAG file.
     """
-    if self.__macros.keys() or self.__opts.keys() or self.__args:
+    if list(self.__macros.keys()) or list(self.__opts.keys()) or self.__args:
       fh.write( 'VARS ' + self.__name )
     for k in self.__macros.keys():
       fh.write( ' ' + str(k) + '="' + str(self.__macros[k]) + '"' )
@@ -2006,18 +2006,18 @@ class CondorDAG:
         for f in checkpoint_node_file_dict.keys():
           workflow_job.uses(Pegasus.DAX3.File(os.path.basename(f)),link=Pegasus.DAX3.Link.CHECKPOINT,register=False,transfer=True)
 
-        node_file_dict = dict( input_node_file_dict.items() + output_node_file_dict.items() + checkpoint_node_file_dict.items() )
+        node_file_dict = dict( list(input_node_file_dict.items()) + list(output_node_file_dict.items()) + list(checkpoint_node_file_dict.items()) )
 
         for job_arg in cmd_line:
           try:
-            if node_file_dict.has_key(job_arg[0]):
+            if job_arg[0] in node_file_dict:
               workflow_job.addArguments(Pegasus.DAX3.File(os.path.basename(job_arg[0])))
-            elif node_file_dict.has_key(job_arg[1]):
+            elif job_arg[1] in node_file_dict:
               workflow_job.addArguments(job_arg[0], Pegasus.DAX3.File(os.path.basename(job_arg[1])))
             elif len(job_arg[1].split(' ')) != 1:
                 args = [job_arg[0]]
                 for arg in job_arg[1].split(' '):
-                    if node_file_dict.has_key(arg):
+                    if arg in node_file_dict:
                         args.append(Pegasus.DAX3.File(os.path.basename(arg)))
                     else:
                         args.append(arg)
@@ -2235,7 +2235,7 @@ pegasus.data.configuration=nonsharedfs
           dag.get_dax_file().replace('.dax','') + '-0.dag',
           dag.get_dax_file(), dirs_entry, exec_site ))
     peg_fh.close()
-    os.chmod("pegasus_submit_dax",0755)
+    os.chmod("pegasus_submit_dax",0o755)
 
     # if a frame cache has been specified, write it to the properties
     # however note that this is overridden by the --cache option to pegasus
@@ -2247,7 +2247,7 @@ pegasus.data.configuration=nonsharedfs
     basedir_fh = open("pegasus_basedir", "w")
     basedir_fh.write(PEGASUS_BASEDIR_SCRIPT % ( tmp_exec_dir, dag.get_dax_file().replace('.dax','') + '-0.dag' ))
     basedir_fh.close()
-    os.chmod("pegasus_basedir",0755)
+    os.chmod("pegasus_basedir",0o755)
 
     # write the site catalog file which is needed by pegasus
     pwd = os.getcwd()
@@ -2393,9 +2393,9 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
     sitefile.close()
 
     # Write a help message telling the user how to run the workflow
-    print
-    print "Created a workflow file which can be submitted by executing"
-    print """
+    print()
+    print("Created a workflow file which can be submitted by executing")
+    print("""
 
       ./pegasus_submit_dax
 
@@ -2412,7 +2412,7 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
       pegasus-analyzer -t -i `./pegasus_basedir`
 
     to debug any failed jobs.
-    """
+    """)
 
 
 class AnalysisJob:
@@ -2758,7 +2758,7 @@ class AnalysisNode(CondorDAGNode):
           raise IOError
         url = m.group(1)
         # ... and add files to input-file list
-        path = urlparse.urlparse(url)[2]
+        path = urllib.parse.urlparse(url)[2]
         calibration_lfn = os.path.basename(path)
         self.add_input_file(calibration_lfn)
     else:
@@ -2955,8 +2955,8 @@ class ScienceSegment:
           trig_start = 0
           trig_end = 0
           if ( (play_end - 6370) > start ):
-            print "Two playground segments in this chunk:",
-            print "  Code to handle this case has not been implemented"
+            print("Two playground segments in this chunk:", end=' ')
+            print("  Code to handle this case has not been implemented")
             sys.exit(1)
           else:
             if play_start > start:
@@ -3092,7 +3092,7 @@ class ScienceData:
     octothorpe = re.compile(r'\A#')
     for line in open(filename):
       if not octothorpe.match(line) and int(line.split()[3]) >= min_length:
-        (id,st,en,du) = map(int,line.split())
+        (id,st,en,du) = list(map(int,line.split()))
 
         # slide the data if doing a background estimation
         if slide_sec > 0:
@@ -3181,8 +3181,8 @@ class ScienceData:
             play_end = play_start + 600
             trig_end = 0
             if ( (play_end - 6370) > start ):
-              print "Two playground segments in this chunk"
-              print "  Code to handle this case has not been implemented"
+              print("Two playground segments in this chunk")
+              print("  Code to handle this case has not been implemented")
               sys.exit(1)
             else:
               if play_start > trig_start:
@@ -3650,16 +3650,16 @@ class LsyncCache:
       segments = [ glue.segments.segment(a) for a in self.group(times, 2) ]
 
       # initialize if necessary for this site
-      if not gwfDict.has_key(site):
+      if site not in gwfDict:
         gwfDict[site] = {}
 
       # initialize if necessary for this frame type
-      if not gwfDict[site].has_key(frameType):
+      if frameType not in gwfDict[site]:
         gwfDict[site][frameType] = {}
 
       # record segment list as value indexed by the (directory, duration) tuple
       key = (dir, duration)
-      if gwfDict[site][frameType].has_key(key):
+      if key in gwfDict[site][frameType]:
         msg = "The combination %s is not unique in the frame cache file" \
           % str(key)
         raise RuntimeError(msg)
@@ -3676,11 +3676,11 @@ class LsyncCache:
     cache = self.cache
 
     # if the cache does not contain any mappings for this site type return empty list
-    if not cache['gwf'].has_key(site):
+    if site not in cache['gwf']:
       return []
 
     # if the cache does nto contain any mappings for this frame type return empty list
-    if not cache['gwf'][site].has_key(frameType):
+    if frameType not in cache['gwf'][site]:
       return []
 
     # segment representing the search interval
@@ -3706,7 +3706,7 @@ class LsyncCache:
       for s in seglist:
         if s.intersects(search):
           t1, t2 = s
-          times = xrange(t1, t2, dur)
+          times = range(t1, t2, dur)
 
           # loop through the times and create paths
           for t in times:
@@ -3715,7 +3715,7 @@ class LsyncCache:
               lfnDict[lfn] = None
 
     # sort the LFNs to deliver URLs in GPS order
-    lfns = lfnDict.keys()
+    lfns = list(lfnDict.keys())
     lfns.sort()
 
     return lfns
@@ -3920,7 +3920,7 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
               "Environment variable LIGO_DATAFIND_SERVER is not set")
 
           try:
-            h = httplib.HTTPConnection(server)
+            h = six.moves.http_client.HTTPConnection(server)
           except:
             # try and get a proxy or certificate
             # FIXME this doesn't check that it is valid, though
@@ -3941,7 +3941,7 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
                   cert = proxy_path
                   key = proxy_path
 
-            h = httplib.HTTPSConnection(server, key_file = key, cert_file = cert)
+            h = six.moves.http_client.HTTPSConnection(server, key_file = key, cert_file = cert)
 
           # construct the URL for a simple data find query
           url = "/LDR/services/data/v1/gwf/%s/%s/%s,%s.json" % (
@@ -3965,11 +3965,11 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
           urlList = cjson.decode(body)
           lfnDict = {}
           for url in urlList:
-            path = urlparse.urlparse(url)[2]
+            path = urllib.parse.urlparse(url)[2]
             lfn = os.path.split(path)[1]
             lfnDict[lfn] = 1
 
-          self.__lfn_list = lfnDict.keys()
+          self.__lfn_list = list(lfnDict.keys())
           self.__lfn_list.sort()
 
       return self.__lfn_list
@@ -4341,7 +4341,7 @@ class LigolwSqliteNode(SqliteNode):
     else:
       raise ValueError("no output xml file or database specified")
 
-class DeepCopyableConfigParser(ConfigParser.SafeConfigParser):
+class DeepCopyableConfigParser(six.moves.configparser.SafeConfigParser):
     """
     The standard SafeConfigParser no longer supports deepcopy() as of python
     2.7 (see http://bugs.python.org/issue16058). This subclass restores that

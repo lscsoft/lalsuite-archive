@@ -31,7 +31,7 @@ Add (merge) LIGO LW XML files containing LSC tables.
 
 import os
 import sys
-from urlparse import urlparse
+from six.moves import urllib
 
 
 from glue import git_version
@@ -60,7 +60,7 @@ def url2path(url):
 	If url identifies a file on the local host, return the path to the
 	file otherwise raise ValueError.
 	"""
-	scheme, host, path, nul, nul, nul = urlparse(url)
+	scheme, host, path, nul, nul, nul = urllib.parse.urlparse(url)
 	if scheme.lower() in ("", "file") and host.lower() in ("", "localhost"):
 		return path
 	raise ValueError(url)
@@ -118,7 +118,8 @@ def merge_ligolws(elem):
 		dest = ligolws.pop(0)
 		for src in ligolws:
 			# copy children;  LIGO_LW elements have no attributes
-			map(dest.appendChild, src.childNodes)
+			for elem in src.childNodes:
+				dest.appendChild(elem)
 			# unlink from parent
 			if src.parentNode is not None:
 				src.parentNode.removeChild(src)

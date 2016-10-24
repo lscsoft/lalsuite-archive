@@ -21,6 +21,7 @@ details.
 You should have received a copy of the GNU General Public License along with
 this program.  If not, see <http://www.gnu.org/licenses/>.
 """
+from __future__ import print_function
 from glue import git_version
 __version__ = git_version.id
 
@@ -33,11 +34,11 @@ import exceptions
 try:
         from pyGlobus import security
 except ImportError:
-        print >> sys.stderr, """
+        print("""
 Error: unable to import security module from pyGlobus.
 
 Check that pyGlobus is correctly installed and in your PYTHONPATH.
-"""
+""", file=sys.stderr)
         sys.exit(1)
 
 # this client should have its PYTHONPATH set for it during installation
@@ -57,13 +58,13 @@ try:
         from glue import gsiserverutils
         from glue.lal import LIGOTimeGPS
 except ImportError as e:
-        print >> sys.stderr, """
+        print("""
 Error: unable to import modules from glue.
 
 Check that glue is correctly installed and in your PYTHONPATH.
 
 %s
-""" % e
+""" % e, file=sys.stderr)
         sys.exit(1)
 
 
@@ -200,7 +201,7 @@ file://localhost/netdata/s001/S1/R/H/714023808-714029599/H-R-714024320-16.gwf
 file://localhost/netdata/s001/S1/R/H/714023808-714029599/H-R-714024336-16.gwf
 \
 """
-        print >>sys.stderr, msg
+        print(msg, file=sys.stderr)
 
 
 # grab command line options
@@ -233,8 +234,8 @@ longop = [
 try:
 	opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
 except getopt.GetoptError:
-        print >>sys.stderr, "Error parsing command line"
-        print >>sys.stderr, "Enter 'LSCdataFind --help' for usage"
+        print("Error parsing command line", file=sys.stderr)
+        print("Enter 'LSCdataFind --help' for usage", file=sys.stderr)
         sys.exit(1)
 
 # defaults
@@ -287,9 +288,9 @@ for o, a in opts:
                 usage()
                 sys.exit(0)
         elif o in ("-v", "--version"):
-                print 'LSCdataFind client version', __version__
+                print('LSCdataFind client version', __version__)
                 import glue.LDRdataFindClient
-                print 'Built on top of LDRdataFindClient version', glue.LDRdataFindClient.version()
+                print('Built on top of LDRdataFindClient version', glue.LDRdataFindClient.version())
                 sys.exit(0)
         elif o in ("-p", "--ping"):
                 clientMethod = 'ping'
@@ -320,8 +321,8 @@ for o, a in opts:
                 pat = re.compile("rl-type")
                 m = pat.match(a)
                 if m:
-                        print >>sys.stderr, "The correct option is --url-type"
-                        print >>sys.stderr, "Enter 'LSCdataFind --help' for usage"
+                        print("The correct option is --url-type", file=sys.stderr)
+                        print("Enter 'LSCdataFind --help' for usage", file=sys.stderr)
                         sys.exit(1)
                 clientMethodArgDict['urlType'] = a
                 clientMethod = 'findFrameURLsFilter'
@@ -348,14 +349,14 @@ for o, a in opts:
                 output_file = open(a, "w")
 
 if not clientMethod:
-        print >>sys.stderr, "Bad combination or missing options"
-        print >>sys.stderr, "Enter 'LSCdataFind --help' for usage"
+        print("Bad combination or missing options", file=sys.stderr)
+        print("Enter 'LSCdataFind --help' for usage", file=sys.stderr)
         sys.exit(1)
 
 # determine server and port
 if not hostPortString:
-        print >>sys.stderr, "No LDRdataFindServer specified"
-        print >>sys.stderr, "Enter 'LSCdataFind --help' for usage"
+        print("No LDRdataFindServer specified", file=sys.stderr)
+        print("Enter 'LSCdataFind --help' for usage", file=sys.stderr)
         sys.exit(1)
 
 if hostPortString.find(':') < 0:
@@ -371,10 +372,10 @@ else:
 try:
         myClient = LDRdataFindClient.LSCdataFindClient( host, port, noproxy, disablehostauth )
 except Exception as e:
-        print >>sys.stderr, "Unable to connect to LDRdataFindServer %s:%d" % (host, port)
+        print("Unable to connect to LDRdataFindServer %s:%d" % (host, port), file=sys.stderr)
         if gsiserverutils.checkCredentials():
-                print >>sys.stderr, "Got the following error : " + str(e)
-                print >>sys.stderr, "Enter 'LSCdataFind --help' for usage"
+                print("Got the following error : " + str(e), file=sys.stderr)
+                print("Enter 'LSCdataFind --help' for usage", file=sys.stderr)
         sys.exit(1)
 
         
@@ -385,13 +386,13 @@ try:
                 output_file.write(result + "\n")
         elif isinstance( result, LDRdataFindClient.lfnlist ):
                 if len(result) == 0:
-                        print >>sys.stderr, "No files found!"
+                        print("No files found!", file=sys.stderr)
                 else:
                         for r in result:
                                 output_file.write(r + "\n")
         elif isinstance( result, LDRdataFindClient.pfnlist ):
                 if len(result) == 0:
-                        print >>sys.stderr, "No URLs found!"
+                        print("No URLs found!", file=sys.stderr)
                 else:
                         if lalcache:
                                 for pfn in result:
@@ -411,8 +412,8 @@ try:
                 raise LDRdataFindClient.LDRdataFindException(msg)
 
 except Exception as e:
-        print >>sys.stderr, "Error querying LDRdataFindServer: %s" % str(e)
-        print >>sys.stderr, "Enter 'LSCdataFind --help' for usage"
+        print("Error querying LDRdataFindServer: %s" % str(e), file=sys.stderr)
+        print("Enter 'LSCdataFind --help' for usage", file=sys.stderr)
         sys.exit(1)
 
 output_file.close()

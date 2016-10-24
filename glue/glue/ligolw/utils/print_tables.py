@@ -17,6 +17,7 @@ import sys, re
 
 from .. import ligolw
 from .. import table
+import six
 
 __author__ = "Collin Capano <cdcapano@ligo.caltech.edu>"
 from glue import git_version
@@ -146,7 +147,7 @@ def get_row_data(row, column_name, cat_time_ns = True):
     try:
         rowattrs = [attr for attr in row.__slots__]
     except AttributeError:
-        rowattrs = [attr for attr in row.__dict__.iterkeys()]
+        rowattrs = [attr for attr in six.iterkeys(row.__dict__)]
 
     if cat_time_ns and "_time" in column_name and column_name_ns in rowattrs:
         return int(getattr(row, column_name)) + 10**(-9.)*int(getattr(row, column_name_ns))

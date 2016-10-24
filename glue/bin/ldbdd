@@ -23,13 +23,14 @@ You should have received a copy of the GNU General Public License along with
 this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+from __future__ import print_function
 import os
 import sys
 import signal
 import getopt
 import time
 import socket
-import ConfigParser
+import six.moves.configparser
 import exceptions
 import logging
 import logging.handlers
@@ -62,11 +63,11 @@ def SIGHUPhandler(signum, frame):
   for k in configuration.keys():
     try:
       value = myConfigParser.get('ldbdd',k)
-    except ConfigParser.NoOptionError:
+    except six.moves.configparser.NoOptionError:
       try:
         logger.error("Error: missing configuration option : %s" % (k))
       except:
-        print >> sys.stderr, "Error: missing configuration option : %s" % (k)
+        print("Error: missing configuration option : %s" % (k), file=sys.stderr)
       sys.exit(1)
     try:
       configuration[k] = eval(value)
@@ -144,7 +145,7 @@ configFilePath = None
 try:
   opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
 except getopt.GetoptError:
-  print >>sys.stderr, "Error parsing command line"
+  print("Error parsing command line", file=sys.stderr)
   sys.exit(1)
 
 for o, a in opts:
@@ -153,7 +154,7 @@ for o, a in opts:
   if o in ("-c", "--config-file"):
     configFilePath = a
   if o in ("-h", "--help"):
-    print usage
+    print(usage)
     sys.exit(0)
 
 try:
@@ -191,18 +192,18 @@ configuration = {
 
 
 # grab configuration
-myConfigParser = ConfigParser.ConfigParser()
+myConfigParser = six.moves.configparser.ConfigParser()
 try:
   myConfigParser.read(configFilePath)
 except:
-  print >> sys.stderr, "Error: unable to read configuration file : %s"
+  print("Error: unable to read configuration file : %s", file=sys.stderr)
   sys.exit(1)
 
 for k in configuration.keys():
   try:
     value = myConfigParser.get('ldbdd',k)
-  except ConfigParser.NoOptionError:
-    print >> sys.stderr, "Error: missing configuration option : %s" % (k)
+  except six.moves.configparser.NoOptionError:
+    print("Error: missing configuration option : %s" % (k), file=sys.stderr)
     sys.exit(1)
   try:
     configuration[k] = eval(value)
@@ -259,20 +260,18 @@ class LDBDDaemon(object):
     # verify that we have access to the certificate, key, grid-mapfile
     certFilePath = configuration["certfile"]
     if not os.access(certFilePath, os.R_OK):
-      print >>sys.stderr, "ldbdd: " + \
-      "Cannot access certificate file at %s" % certFilePath
+      print("ldbdd: " + \
+      "Cannot access certificate file at %s" % certFilePath, file=sys.stderr)
       sys.exit(1)
 
     keyFilePath = configuration["keyfile"]
     if not os.access(keyFilePath, os.R_OK):
-      print >>sys.stderr, \
-        "ldbdd: Cannot access key file at %s" % keyFilePath
+      print("ldbdd: Cannot access key file at %s" % keyFilePath, file=sys.stderr)
       sys.exit(1)
 
     gridmapFilePath = configuration["gridmap"]
     if not os.access(gridmapFilePath, os.R_OK):
-      print >>sys.stderr, \
-        "ldbdd: Cannot access grid-mapfile at %s" % gridmapFilePath
+      print("ldbdd: Cannot access grid-mapfile at %s" % gridmapFilePath, file=sys.stderr)
       sys.exit(1)
 
     # verify that we can write PID file
@@ -290,8 +289,7 @@ class LDBDDaemon(object):
         failure = 1
                         
     if failure:
-      print >>sys.stderr, \
-        "ldbdd: Cannot write PID to file %s" % pidFilePath
+      print("ldbdd: Cannot write PID to file %s" % pidFilePath, file=sys.stderr)
       sys.exit(1)
 
   def initialize(self):
@@ -344,7 +342,7 @@ class LDBDDaemon(object):
       logger = myLogger
 
     except Exception as e:
-      print >>sys.__stderr__, "Unable to start logging: %s" % e
+      print("Unable to start logging: %s" % e, file=sys.__stderr__)
         
     for k in configuration.keys():
       logger.info("Configuration parameter: %s = %s" %
@@ -401,7 +399,7 @@ class LDBDDaemon(object):
     """
 
     # write PID out to file
-    myPIDfd = os.open(self.pidFilePath, os.O_WRONLY | os.O_CREAT, 0644)
+    myPIDfd = os.open(self.pidFilePath, os.O_WRONLY | os.O_CREAT, 0o644)
     os.write(myPIDfd, "%d\n" % os.getpid())
     os.close(myPIDfd)
 
@@ -652,7 +650,7 @@ except Exception as e:
   except:
     pass
   msg = "ldbdd is stopping due to unhandled error: %s" % e
-  print >>sys.stderr, msg
+  print(msg, file=sys.stderr)
   logger.critical(msg)
 
 del logger

@@ -43,7 +43,6 @@ from glue.ligolw.utils import search_summary as ligolw_search_summary
 from glue.offsetvector import offsetvector
 from pylal import date
 from pylal import git_version
-from pylal import inject
 from pylal import rate
 from pylal import snglcoinc
 
@@ -64,7 +63,7 @@ __date__ = git_version.date
 
 def dt_binning(instrument1, instrument2):
 	# FIXME:  hard-coded for directional search
-	#dt = 0.02 + inject.light_travel_time(instrument1, instrument2)
+	#dt = 0.02 + snglcoinc.light_travel_time(instrument1, instrument2)
 	dt = 0.02
 	return rate.NDBins((rate.ATanBins(-dt, +dt, 12001), rate.LinearBins(0.0, 2 * math.pi, 61)))
 
@@ -240,7 +239,7 @@ class EPAllSkyCoincParamsDistributions(BurcaCoincParamsDistributions):
 def delay_and_amplitude_correct(event, ra, dec):
 	# retrieve station metadata
 
-	detector = inject.cached_detector[inject.prefix_to_name[event.ifo]]
+	detector = lal.cached_detector_by_prefix[event.ifo]
 
 	# delay-correct the event to the geocentre
 

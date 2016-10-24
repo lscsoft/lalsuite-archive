@@ -29,7 +29,7 @@ of entries (key,value dicts) of found channels::
 
 import json
 import numpy
-from urllib2 import HTTPError
+from six.moves import urllib
 
 from glue.auth.saml import HTTPNegotiateAuthHandler
 
@@ -81,7 +81,7 @@ def query(name, debug=False):
            out.extend(reply[u'results'])
         except KeyError:
            pass
-        more = reply.has_key('next') and reply['next'] is not None
+        more = 'next' in reply and reply['next'] is not None
         if more:
             url = reply['next']
         else:
@@ -95,7 +95,7 @@ def _get(url, debug=False):
     """
     try:
         response = auth.request_ligodotorg(url, debug=debug)
-    except HTTPError:
+    except urllib.error.HTTPError:
         raise ValueError("Channel named '%s' not found in Channel "
                          "Information System. Please double check the "
                          "name and try again." % url.strip('=')[-1])
