@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
 import sys, os
-from httplib import HTTPS, HTTPSConnection
+from six.moves.http_client import HTTPS, HTTPSConnection
 import mimetypes
 
 host = "www.lsc-group.phys.uwm.edu"
@@ -81,8 +82,8 @@ def findUserCredentials():
 
 if __name__ == "__main__":
     if len(sys.argv) not in [3,4]:
-        print """Usage: %s TWIKIWEB TWIKIPAGENAME [FILENAME]
-    Post a TWiki page to the LSC TWiki at UWM called TWIKIPAGENAME on the web TWIKIWEB.  Contents of page will be taken from the file called FILENAME or standard input if FILENAME is missing.""" % sys.argv[0]
+        print("""Usage: %s TWIKIWEB TWIKIPAGENAME [FILENAME]
+    Post a TWiki page to the LSC TWiki at UWM called TWIKIPAGENAME on the web TWIKIWEB.  Contents of page will be taken from the file called FILENAME or standard input if FILENAME is missing.""" % sys.argv[0])
         sys.exit(1)
 
     if len(sys.argv) == 4:
@@ -93,7 +94,7 @@ if __name__ == "__main__":
     cred = findUserCredentials()
 
     if not cred:
-        print "No credentials found"
+        print("No credentials found")
         sys.exit(1)
 
     cert, key = cred
@@ -110,7 +111,7 @@ if __name__ == "__main__":
     response = post_multipart(conn, path, params, files).strip()
 
     if response != "OK":
-        print response
+        print(response)
         sys.exit(1)
 
     sys.exit(0)

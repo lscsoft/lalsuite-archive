@@ -89,7 +89,7 @@ class Gridmap(object):
     if f:
       f.close()
 
-    if self.d.has_key(key): return 1
+    if key in self.d: return 1
     else: return 0
 
 

@@ -128,11 +128,12 @@ neccessary.
 """
 
 
-import copy_reg
+import six.moves.copyreg
 
 
 from glue import git_version
 from . import _ilwd
+import six
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -193,7 +194,7 @@ def get_ilwdchar_class(tbl_name, col_name, namespace = globals()):
 	# if the class already exists, retrieve and return it
 	#
 
-	key = unicode(tbl_name), unicode(col_name)
+	key = six.text_type(tbl_name), six.text_type(col_name)
 	cls_name = str("%s_%s_class" % key)
 	assert cls_name != "get_ilwdchar_class"
 	try:
@@ -218,7 +219,7 @@ def get_ilwdchar_class(tbl_name, col_name, namespace = globals()):
 	# pickle support
 	#
 
-	copy_reg.pickle(new_class, lambda x: (ilwdchar, (unicode(x),)))
+	six.moves.copyreg.pickle(new_class, lambda x: (ilwdchar, (six.text_type(x),)))
 
 	#
 	# return the new class

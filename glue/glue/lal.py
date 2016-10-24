@@ -34,8 +34,9 @@ import math
 import os
 import re
 import sys
-import urlparse
+from six.moves import urllib
 import warnings
+import six
 
 try:  # python < 3
     long
@@ -121,8 +122,8 @@ class LIGOTimeGPS(object):
 			ns, seconds = math.modf(seconds)
 			seconds = int(seconds)
 			nanoseconds += ns * 1e9
-		elif not isinstance(seconds, (int, long)):
-			if isinstance(seconds, (str, unicode)):
+		elif not isinstance(seconds, six.integer_types):
+			if isinstance(seconds, (six.binary_type, six.text_type)):
 				sign = -1 if seconds.lstrip().startswith("-") else +1
 				try:
 					if "." in seconds:
@@ -350,7 +351,7 @@ class LIGOTimeGPS(object):
 		LIGOTimeGPS(50, 250000000)
 		"""
 		quotient = LIGOTimeGPS(float(self) / float(other))
-		for n in xrange(100):
+		for n in range(100):
 			residual = float(self - quotient * other) / float(other)
 			quotient += residual
 			if abs(residual) <= 0.5e-9:
@@ -458,6 +459,20 @@ class CacheEntry(object):
 	...	seglists |= cacheentry.segmentlistdict
 	...
 
+	NOTE:  the CacheEntry type defines a comparison operation and a
+	.__hash__() implementation, both of which disregard the URL.  That
+	is, if two CacheEntry objects differ only by URL and otherwise have
+	same metadata, they are considered to be redundant copies of the
+	same data.  For example, uniquification with a set() will retain
+	only one redundant copy, selected at random.
+
+	>>> x = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
+	>>> y = CacheEntry("H1 S5 815901601 576.5 gsiftp://data.server.org/bigpileofdata/H1-815901601-576.xml")
+	>>> x == y
+	True
+	>>> len(set((x, y)))
+	1
+
 	See also:
 
 	glue.segmentsUtils.fromlalcache()
@@ -554,14 +569,27 @@ class CacheEntry(object):
 	def __cmp__(self, other):
 		"""
 		Compare two CacheEntry objects by observatory, then
-		description, then segment, then URL.
+		description, then segment.  CacheEntry objects that have
+		different URLs but for which all other metadata are the
+		same are considered to be equivalent.  If two entries
+		differ only by their URL, they are considered to be
+		redundant copies of the same data, and by comparing them as
+		equal the Python sort operation (which is a stable sort)
+		will preserve their relative order.  By preserving the
+		order of redundant copies, we allow the preference for the
+		order in which redundant copies are to be attempted to be
+		conveyed by their order in the list, and preserved.
 		"""
 		if not isinstance(other, CacheEntry):
 			raise TypeError("can only compare CacheEntry to CacheEntry")
-		return cmp((self.observatory, self.description, self.segment, self.url), (other.observatory, other.description, other.segment, other.url))
+		return cmp((self.observatory, self.description, self.segment), (other.observatory, other.description, other.segment))
 
 	def __hash__(self):
-		return hash((self.observatory, self.description, self.segment, self.url))
+		"""
+		CacheEntry objects are hashed by the tuple (observatory,
+		description, segment), i.e., the URL is disregarded.
+		"""
+		return hash((self.observatory, self.description, self.segment))
 
 	@property
 	def url(self):
@@ -571,11 +599,11 @@ class CacheEntry(object):
 		a value to the URL attribute causes the value to be parsed
 		and the scheme, host and path attributes updated.
 		"""
-		return urlparse.urlunparse((self.scheme, self.host, self.path, None, None, None))
+		return urllib.parse.urlunparse((self.scheme, self.host, self.path, None, None, None))
 
 	@url.setter
 	def url(self, url):
-		self.scheme, self.host, self.path = urlparse.urlparse(url)[:3]
+		self.scheme, self.host, self.path = urllib.parse.urlparse(url)[:3]
 
 	@property
 	def segmentlistdict(self):
@@ -687,9 +715,9 @@ class Cache(list):
 		The filenames must be in the format set forth by DASWG in T050017-00.
 		"""
 		def pfn_to_url(url):
-			scheme, host, path, dummy, dummy = urlparse.urlsplit(url)
+			scheme, host, path, dummy, dummy = urllib.parse.urlsplit(url)
 			if scheme == "": path = os.path.abspath(path)
-			return urlparse.urlunsplit((scheme or "file", host or "localhost",
+			return urllib.parse.urlunsplit((scheme or "file", host or "localhost",
 			                            path, "", ""))
 		return cls([cls.entry_class.from_T050017(pfn_to_url(f), coltype=coltype) \
 		            for f in urllist])

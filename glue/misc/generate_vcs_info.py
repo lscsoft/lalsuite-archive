@@ -25,6 +25,7 @@
 #
 
 # metadata
+from __future__ import print_function
 __author__ = 'Adam Mercer <adam.mercer@ligo.org>'
 
 try:  # python 3

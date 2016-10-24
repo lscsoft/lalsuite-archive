@@ -82,8 +82,8 @@ def MultiIter(*sequences):
 	if len(sequences) > 1:
 		# FIXME:  this loop is about 5% faster if done the other
 		# way around, if the last list is iterated over in the
-		# inner loop.  but there is code, like snglcoinc.py in
-		# pylal, that has been optimized for the current order and
+		# inner loop.  but there is code, like snglcoinc.py,
+		# that has been optimized for the current order and
 		# would need to be reoptimized if this function were to be
 		# reversed.
 		head = tuple((x,) for x in sequences[0])
@@ -233,7 +233,7 @@ def inplace_filter(func, sequence):
 	processed faster.
 	"""
 	target = 0
-	for source in xrange(len(sequence)):
+	for source in range(len(sequence)):
 		if func(sequence[source]):
 			sequence[target] = sequence[source]
 			target += 1
@@ -290,7 +290,7 @@ def inorder(*iterables, **kwargs):
 	reverse = kwargs.pop("reverse", False)
 	keyfunc = kwargs.pop("key", lambda x: x) # default = identity
 	if kwargs:
-		raise TypeError("invalid keyword argument '%s'" % kwargs.keys()[0])
+		raise TypeError("invalid keyword argument '%s'" % list(kwargs.keys())[0])
 	nextvals = {}
 	for iterable in iterables:
 		next = iter(iterable).next

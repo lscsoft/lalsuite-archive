@@ -627,7 +627,8 @@ int XLALFITSHeaderWriteINT4( FITSFile UNUSED *file, const CHAR UNUSED *key, cons
   XLAL_CHECK_FAIL( comment != NULL, XLAL_EFAULT );
 
   // Write 32-bit integer value to current header
-  CALL_FITS( fits_write_key_lng, file->ff, keyword, value, comment );
+  LONGLONG val = value;
+  CALL_FITS( fits_write_key_lng, file->ff, keyword, val, comment );
   CALL_FITS( fits_write_key_unit, file->ff, keyword, unit );
 
   return XLAL_SUCCESS;
@@ -691,7 +692,9 @@ int XLALFITSHeaderWriteINT8( FITSFile UNUSED *file, const CHAR UNUSED *key, cons
   XLAL_CHECK_FAIL( comment != NULL, XLAL_EFAULT );
 
   // Write 64-bit integer value to current header
-  CALL_FITS( fits_write_key_lng, file->ff, keyword, value, comment );
+  XLAL_CHECK_FAIL( LONGLONG_MIN <= value && value <= LONGLONG_MAX, XLAL_ERANGE );
+  LONGLONG val = value;
+  CALL_FITS( fits_write_key_lng, file->ff, keyword, val, comment );
   CALL_FITS( fits_write_key_unit, file->ff, keyword, unit );
 
   return XLAL_SUCCESS;
@@ -729,6 +732,137 @@ int XLALFITSHeaderReadINT8( FITSFile UNUSED *file, const CHAR UNUSED *key, INT8 
   CHAR comment[FLEN_COMMENT];
   CALL_FITS( fits_read_key_lnglng, file->ff, keyword, &val, comment );
   XLAL_CHECK_FAIL( INT64_MIN <= val && val <= INT64_MAX, XLAL_ERANGE );
+  *value = val;
+
+  return XLAL_SUCCESS;
+
+XLAL_FAIL:
+  return XLAL_FAILURE;
+
+#endif // !defined(HAVE_LIBCFITSIO)
+}
+
+int XLALFITSHeaderWriteUINT4( FITSFile UNUSED *file, const CHAR UNUSED *key, const UINT4 UNUSED value, const CHAR UNUSED *comment )
+{
+#if !defined(HAVE_LIBCFITSIO)
+  XLAL_ERROR( XLAL_EFAILED, "CFITSIO is not available" );
+#else // defined(HAVE_LIBCFITSIO)
+
+  int UNUSED status = 0;
+
+  // Check input
+  XLAL_CHECK_FAIL( file != NULL, XLAL_EFAULT );
+  XLAL_CHECK_FAIL( file->write, XLAL_EINVAL, "FITS file is not open for writing" );
+  CHAR keyword[FLEN_KEYWORD], unit[FLEN_VALUE];
+  XLAL_CHECK_FAIL( CheckFITSKeyword( key, keyword, unit ) == XLAL_SUCCESS, XLAL_EFUNC );
+  XLAL_CHECK_FAIL( comment != NULL, XLAL_EFAULT );
+
+  // Write 32-bit unsigned integer value to current header
+  LONGLONG val = value;
+  CALL_FITS( fits_write_key_lng, file->ff, keyword, val, comment );
+  CALL_FITS( fits_write_key_unit, file->ff, keyword, unit );
+
+  return XLAL_SUCCESS;
+
+XLAL_FAIL:
+
+  // Delete FITS file on error
+  if ( file != NULL && file->ff != NULL ) {
+    fits_delete_file( file->ff, &status );
+    file->ff = NULL;
+  }
+
+  return XLAL_FAILURE;
+
+#endif // !defined(HAVE_LIBCFITSIO)
+}
+
+int XLALFITSHeaderReadUINT4( FITSFile UNUSED *file, const CHAR UNUSED *key, UINT4 UNUSED *value )
+{
+#if !defined(HAVE_LIBCFITSIO)
+  XLAL_ERROR( XLAL_EFAILED, "CFITSIO is not available" );
+#else // defined(HAVE_LIBCFITSIO)
+
+  int UNUSED status = 0;
+
+  // Check input
+  XLAL_CHECK_FAIL( file != NULL, XLAL_EFAULT );
+  XLAL_CHECK_FAIL( !file->write, XLAL_EINVAL, "FITS file is not open for reading" );
+  CHAR keyword[FLEN_KEYWORD];
+  XLAL_CHECK_FAIL( CheckFITSKeyword( key, keyword, NULL ) == XLAL_SUCCESS, XLAL_EFUNC );
+  XLAL_CHECK_FAIL( value != NULL, XLAL_EFAULT );
+
+  // Read 32-bit unsigned integer value from current header
+  LONGLONG val = 0;
+  CHAR comment[FLEN_COMMENT];
+  CALL_FITS( fits_read_key_lnglng, file->ff, keyword, &val, comment );
+  XLAL_CHECK_FAIL( 0 <= val && ( (UINT4) val ) <= UINT32_MAX, XLAL_ERANGE );
+  *value = val;
+
+  return XLAL_SUCCESS;
+
+XLAL_FAIL:
+  return XLAL_FAILURE;
+
+#endif // !defined(HAVE_LIBCFITSIO)
+}
+
+int XLALFITSHeaderWriteUINT8( FITSFile UNUSED *file, const CHAR UNUSED *key, const UINT8 UNUSED value, const CHAR UNUSED *comment )
+{
+#if !defined(HAVE_LIBCFITSIO)
+  XLAL_ERROR( XLAL_EFAILED, "CFITSIO is not available" );
+#else // defined(HAVE_LIBCFITSIO)
+
+  int UNUSED status = 0;
+
+  // Check input
+  XLAL_CHECK_FAIL( file != NULL, XLAL_EFAULT );
+  XLAL_CHECK_FAIL( file->write, XLAL_EINVAL, "FITS file is not open for writing" );
+  CHAR keyword[FLEN_KEYWORD], unit[FLEN_VALUE];
+  XLAL_CHECK_FAIL( CheckFITSKeyword( key, keyword, unit ) == XLAL_SUCCESS, XLAL_EFUNC );
+  XLAL_CHECK_FAIL( comment != NULL, XLAL_EFAULT );
+
+  // Write 64-bit unsigned integer value to current header
+  XLAL_CHECK_FAIL( value <= LONGLONG_MAX, XLAL_ERANGE );
+  LONGLONG val = value;
+  CALL_FITS( fits_write_key_lng, file->ff, keyword, val, comment );
+  CALL_FITS( fits_write_key_unit, file->ff, keyword, unit );
+
+  return XLAL_SUCCESS;
+
+XLAL_FAIL:
+
+  // Delete FITS file on error
+  if ( file != NULL && file->ff != NULL ) {
+    fits_delete_file( file->ff, &status );
+    file->ff = NULL;
+  }
+
+  return XLAL_FAILURE;
+
+#endif // !defined(HAVE_LIBCFITSIO)
+}
+
+int XLALFITSHeaderReadUINT8( FITSFile UNUSED *file, const CHAR UNUSED *key, UINT8 UNUSED *value )
+{
+#if !defined(HAVE_LIBCFITSIO)
+  XLAL_ERROR( XLAL_EFAILED, "CFITSIO is not available" );
+#else // defined(HAVE_LIBCFITSIO)
+
+  int UNUSED status = 0;
+
+  // Check input
+  XLAL_CHECK_FAIL( file != NULL, XLAL_EFAULT );
+  XLAL_CHECK_FAIL( !file->write, XLAL_EINVAL, "FITS file is not open for reading" );
+  CHAR keyword[FLEN_KEYWORD];
+  XLAL_CHECK_FAIL( CheckFITSKeyword( key, keyword, NULL ) == XLAL_SUCCESS, XLAL_EFUNC );
+  XLAL_CHECK_FAIL( value != NULL, XLAL_EFAULT );
+
+  // Read 64-bit unsigned integer value from current header
+  LONGLONG val = 0;
+  CHAR comment[FLEN_COMMENT];
+  CALL_FITS( fits_read_key_lnglng, file->ff, keyword, &val, comment );
+  XLAL_CHECK_FAIL( 0 <= val && ( (UINT8) val ) <= UINT64_MAX, XLAL_ERANGE );
   *value = val;
 
   return XLAL_SUCCESS;
@@ -1176,10 +1310,12 @@ int XLALFITSHeaderWriteGPSTime( FITSFile UNUSED *file, const CHAR UNUSED *key, c
   CALL_FITS( fits_time2str, utc.tm_year, utc.tm_mon, utc.tm_mday, utc.tm_hour, utc.tm_min, utc.tm_sec + ( gps.gpsNanoSeconds / XLAL_BILLION_REAL8 ), 9, utc_str );
   CALL_FITS( fits_write_key_str, file->ff, keyword, utc_str, comment );
 
-  // Write comment containing time in GPS seconds/nanoseconds format
-  CHAR buf[FLEN_COMMENT];
-  snprintf( buf, sizeof( buf ), "%s = GPS %" LAL_GPS_FORMAT, keyword, LAL_GPS_PRINT( gps ) );
-  CALL_FITS( fits_write_comment, file->ff, buf );
+  // Write time in GPS seconds/nanoseconds format
+  CHAR keyword_gps[FLEN_KEYWORD];
+  snprintf( keyword_gps, sizeof( keyword_gps ), "%s GPS", keyword );
+  CHAR gps_str[FLEN_VALUE];
+  XLAL_CHECK_FAIL( XLALGPSToStr( gps_str, &gps ) != NULL, XLAL_EFUNC );
+  CALL_FITS( fits_write_key_str, file->ff, keyword_gps, gps_str, "UTC value takes precedence" );
 
   return XLAL_SUCCESS;
 

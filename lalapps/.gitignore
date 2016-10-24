@@ -141,7 +141,7 @@ src/inspiral/posterior/lalapps_merge_nested_sampling_runs
 src/inspiral/posterior/lalapps_merge_posteriors
 src/inspiral/posterior/lalapps_nest2pos
 src/inspiral/posterior/lalapps_nest_pipe
-src/inspiral/posterior/lalapps_test_run_lalinference_pipe_example
+src/inspiral/posterior/lalinference_review_test
 src/inspiral/posterior/lalapps_vo_nest2pos
 src/inspiral/posterior/lalinference_bambi
 src/inspiral/posterior/lalinference_bench
@@ -180,8 +180,9 @@ src/pulsar/FITSTools/lalapps_fits_array_imarith
 src/pulsar/FITSTools/lalapps_fits_array_list
 src/pulsar/FITSTools/lalapps_fits_array_stat
 src/pulsar/FITSTools/lalapps_fits_copy
+src/pulsar/FITSTools/lalapps_fits_header_getval
 src/pulsar/FITSTools/lalapps_fits_header_list
-src/pulsar/FITSTools/lalapps_fits_header_modify
+src/pulsar/FITSTools/lalapps_fits_header_setval
 src/pulsar/FITSTools/lalapps_fits_overview
 src/pulsar/FITSTools/lalapps_fits_table_calc
 src/pulsar/FITSTools/lalapps_fits_table_list
