@@ -605,10 +605,21 @@ void LALInferenceRegisterUniformVariableREAL8(LALInferenceRunState *state, LALIn
     }
   }
 
-//  if (!strcmp(name,"mzc")){    //put here if there are physical bounds for mzc as given above for q
-//    REAL8 mzcMin=min;
-//   REAL8 mzcMax=max;
-//  }
+  if (!strcmp(name,"mzc")){    //put here if there are physical bounds for mzc as given above for q
+    REAL8 mzcMin=min;
+   REAL8 mzcMax=max;
+
+    if (mzcMin <= 1.0 || mzcMin > 7.7)
+    {
+        fprintf(stderr,"ERROR: mzcMin must be between 1 and 5, got value mzcMin=%f\n",mzcMin);
+		exit(1);
+    }
+    if (mzcMax >7.7 || mzcMax <1.0 || mzcMax < mzcMin)
+    {
+      fprintf(stderr,"ERROR: mzcMax must be between 1 and 5, and mzcMax > mzcMin. Got value mzcMax=%f, mzcMin=%f\n",mzcMax,mzcMin);
+	  exit(1);
+    }
+  }
 
   /*End of mass parameters check */
 
