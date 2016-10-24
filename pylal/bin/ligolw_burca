@@ -38,7 +38,6 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
-from pylal import inject
 from pylal import ligolw_burca
 from pylal import snglcoinc
 
@@ -136,7 +135,7 @@ def parse_thresholds(options):
 		#
 
 		for pair in thresholds.keys():
-			thresholds[pair] = inject.light_travel_time(*pair)
+			thresholds[pair] = snglcoinc.light_travel_time(*pair)
 
 	elif options.coincidence_algorithm == "stringcusp":
 		#

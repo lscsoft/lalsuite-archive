@@ -20,6 +20,7 @@
 # You should have received a copy of the GNU General Public License along with
 # this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import print_function
 import sys
 import pwd
 import os
@@ -100,7 +101,7 @@ myClient = segmentdb_utils.setup_database(options.segment_url)
 
 if options.ping:
   msg = myClient.ping()
-  print msg
+  print(msg)
   sys.exit(0)
 
 if not options.state_file and not options.segments_file:
@@ -217,7 +218,7 @@ except Exception as e:
     logger.error(str(e))
   except:
     pass
-  print >>sys.stderr, "runtime error (%s)" % str(e)
+  print("runtime error (%s)" % str(e), file=sys.stderr)
   os.unlink(options.pid_file)
   sys.exit(1)
 

@@ -5,6 +5,8 @@ import random
 import sys
 import unittest
 import verifyutils
+from six.moves import map
+from six.moves import range
 
 
 #
@@ -140,7 +142,7 @@ class test_segment(unittest.TestCase):
 			segments.infinity(),
 			segments.infinity()
 		)
-		map(lambda i, r, a: self.assertEqual((i, r), (i, abs(a))), xrange(len(results)), results, set2())
+		list(map(lambda i, r, a: self.assertEqual((i, r), (i, abs(a))), range(len(results)), results, set2()))
 
 	def testintersects(self):
 		results = (
@@ -159,7 +161,7 @@ class test_segment(unittest.TestCase):
 			True,
 			True
 		)
-		map(lambda i, r, a, b: self.assertEqual((i, r), (i, a.intersects(b))), xrange(len(results)), results, set1(), set2())
+		list(map(lambda i, r, a, b: self.assertEqual((i, r), (i, a.intersects(b))), range(len(results)), results, set1(), set2()))
 
 	def test__contains__(self):
 		results = (
@@ -178,7 +180,7 @@ class test_segment(unittest.TestCase):
 			False,
 			False
 		)
-		map(lambda i, r, a, b: self.assertEqual((i, r), (i, a.__contains__(b))), xrange(len(results)), results, set1(), set2())
+		list(map(lambda i, r, a, b: self.assertEqual((i, r), (i, a.__contains__(b))), range(len(results)), results, set1(), set2()))
 		self.assertEqual(True, [1, 2] in segments.segment(0, 4))
 		self.assertEqual(False, [1, 6] in segments.segment(0, 4))
 		self.assertEqual(False, [-1, 2] in segments.segment(0, 4))
@@ -206,7 +208,7 @@ class test_segment(unittest.TestCase):
 			0,
 			0
 		)
-		map(lambda i, r, a, b: self.assertEqual((i, r), (i, a.disjoint(b))), xrange(len(results)), results, set1(), set2())
+		list(map(lambda i, r, a, b: self.assertEqual((i, r), (i, a.disjoint(b))), range(len(results)), results, set1(), set2()))
 
 	def testcontract(self):
 		results = (
@@ -225,7 +227,7 @@ class test_segment(unittest.TestCase):
 			segments.segment(2, segments.infinity()),
 			segments.segment(-segments.infinity(), -2)
 		)
-		map(lambda i, r, a: self.assertEqual((i, r), (i, a.contract(2))), xrange(len(results)), results, set2())
+		list(map(lambda i, r, a: self.assertEqual((i, r), (i, a.contract(2))), range(len(results)), results, set2()))
 
 	def test_typesafety(self):
 		x = "segments.segment(10, 20)"
@@ -277,7 +279,7 @@ class test_segmentlist(unittest.TestCase):
 		self.assertEqual(segments.segmentlist([segments.segment(-segments.infinity(), -5), segments.segment(5, segments.infinity())]), ~segments.segmentlist([segments.segment(-5,5)]))
 
 	def test__and__(self):
-		for i in xrange(algebra_repeats):
+		for i in range(algebra_repeats):
 			a = verifyutils.random_coalesced_list(random.randint(1, algebra_listlength))
 			b = verifyutils.random_coalesced_list(random.randint(1, algebra_listlength))
 			c = a & b
@@ -286,11 +288,11 @@ class test_segmentlist(unittest.TestCase):
 				# correct relationship to one another
 				self.assertEqual(c, a - (a - b))
 				self.assertEqual(c, b - (b - a))
-			except AssertionError, e:
-				raise AssertionError, str(e) + "\na = " + str(a) + "\nb = " + str(b)
+			except AssertionError as e:
+				raise AssertionError(str(e) + "\na = " + str(a) + "\nb = " + str(b))
 
 	def test__or__(self):
-		for i in xrange(algebra_repeats):
+		for i in range(algebra_repeats):
 			a = verifyutils.random_coalesced_list(random.randint(1, algebra_listlength))
 			b = verifyutils.random_coalesced_list(random.randint(1, algebra_listlength))
 			c = a | b
@@ -303,11 +305,11 @@ class test_segmentlist(unittest.TestCase):
 				self.assertEqual(b, c & b)
 				# make sure c contains nothing except a and b
 				self.assertEqual(segments.segmentlist([]), c - a - b)
-			except AssertionError, e:
-				raise AssertionError, str(e) + "\na = " + str(a) + "\nb = " + str(b)
+			except AssertionError as e:
+				raise AssertionError(str(e) + "\na = " + str(a) + "\nb = " + str(b))
 
 	def test__xor__(self):
-		for i in xrange(algebra_repeats):
+		for i in range(algebra_repeats):
 			a = verifyutils.random_coalesced_list(random.randint(1, algebra_listlength))
 			b = verifyutils.random_coalesced_list(random.randint(1, algebra_listlength))
 			c = a ^ b
@@ -323,8 +325,8 @@ class test_segmentlist(unittest.TestCase):
 				# unconvered
 				self.assertEqual(segments.segmentlist([]), a - (c | a & b))
 				self.assertEqual(segments.segmentlist([]), b - (c | a & b))
-			except AssertionError, e:
-				raise AssertionError, str(e) + "\na = " + str(a) + "\nb = " + str(b)
+			except AssertionError as e:
+				raise AssertionError(str(e) + "\na = " + str(a) + "\nb = " + str(b))
 
 	def testprotract(self):
 		self.assertEqual(segments.segmentlist([segments.segment(0, 20)]), segments.segmentlist([segments.segment(3, 7), segments.segment(13, 17)]).protract(3))
@@ -333,7 +335,7 @@ class test_segmentlist(unittest.TestCase):
 		self.assertEqual(segments.segmentlist([segments.segment(0, 20)]), segments.segmentlist([segments.segment(3, 7), segments.segment(13, 17)]).contract(-3))
 
 	def testintersects(self):
-		for i in xrange(algebra_repeats):
+		for i in range(algebra_repeats):
 			a = verifyutils.random_coalesced_list(random.randint(1, algebra_listlength))
 			b = verifyutils.random_coalesced_list(random.randint(1, algebra_listlength))
 			c = a - b
@@ -345,8 +347,8 @@ class test_segmentlist(unittest.TestCase):
 					self.assertTrue(d.intersects(a))
 					self.assertTrue(d.intersects(b))
 					self.assertTrue(a.intersects(b))
-			except AssertionError, e:
-				raise AssertionError, str(e) + "\na = " + str(a) + "\nb = " + str(b)
+			except AssertionError as e:
+				raise AssertionError(str(e) + "\na = " + str(a) + "\nb = " + str(b))
 
 	def testextent(self):
 		self.assertEqual(segments.segmentlist([(1, 0)]).extent(), segments.segment(0, 1))
@@ -356,11 +358,11 @@ class test_segmentlist(unittest.TestCase):
 		x = segments.segmentlist([segments.segment(1, 2), segments.segment(3, 4), (2, 3)])
 		try:
 			self.assertEqual(x.coalesce(), segments.segmentlist([segments.segment(1, 4)]))
-		except AssertionError, e:
-			raise AssertionError, "mixed type coalesce failed:  got %s" % str(x)
+		except AssertionError as e:
+			raise AssertionError("mixed type coalesce failed:  got %s" % str(x))
 
 		# try a bunch of random segment lists
-		for i in xrange(algebra_repeats):
+		for i in range(algebra_repeats):
 			a = verifyutils.random_uncoalesced_list(random.randint(1, algebra_listlength))
 			b = segments.segmentlist(a[:]).coalesce()
 			try:
@@ -370,8 +372,8 @@ class test_segmentlist(unittest.TestCase):
 				for seg in a:
 					b -= segments.segmentlist([seg])
 				self.assertEqual(b, segments.segmentlist([]))
-			except AssertionError, e:
-				raise AssertionError, str(e) + "\na = " + str(a) + "\nb = " + str(b)
+			except AssertionError as e:
+				raise AssertionError(str(e) + "\na = " + str(a) + "\nb = " + str(b))
 
 	def test_typesafety(self):
 		w = "segments.segmentlist([segments.segment(0, 10), segments.segment(20, 30)])"

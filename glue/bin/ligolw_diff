@@ -19,6 +19,7 @@
 Compare two LIGO LW XML files.
 """
 
+from __future__ import print_function
 import sys
 import optparse
 import os
@@ -39,7 +40,7 @@ def diff_tables(table1, table2):
     for column1 in columns:
         cname = column1.getAttribute("Name")
         if cname in opts.exclude_columns.split(','):
-            if opts.debug: print >>sys.stderr, "skipping %s" % cname
+            if opts.debug: print("skipping %s" % cname, file=sys.stderr)
             continue
         column2 = table2.getColumnByName(cname)
         if diff_columns(column1, column2) is False:
@@ -55,13 +56,13 @@ def diff_tables(table1, table2):
 # returns True if colA and colB contents are identical; False otherwise
 def diff_columns(colA, colB):
     cname = colA.getAttribute("Name")
-    if opts.debug: print "*** comparing %s ..." % cname
+    if opts.debug: print("*** comparing %s ..." % cname)
     if len(colA) != len(colB):
-        if opts.columns: print "%s differs" % cname
+        if opts.columns: print("%s differs" % cname)
         return False
     for i, row in enumerate(colA):
         if row != colB[i]:
-            if opts.columns: print "%s differs" % cname
+            if opts.columns: print("%s differs" % cname)
             return False
     return True
 
@@ -81,21 +82,21 @@ parser.add_option("--exclude-columns", metavar="CSV_LIST", default="",
 
 opts, args = parser.parse_args()
 if len(args) != 2:
-    print >>sys.stderr, "Error: require exactly two arguments"
-    print usage
+    print("Error: require exactly two arguments", file=sys.stderr)
+    print(usage)
     sys.exit(2)
 
 if opts.columns and opts.tables:
-    print >>sys.stderr, "Error: --columns and --tables are mutually exclusive; please choose one"
-    print usage
+    print("Error: --columns and --tables are mutually exclusive; please choose one", file=sys.stderr)
+    print(usage)
     sys.exit(2)
 
 filename1, filename2 = args
 if not os.path.exists(filename1):
-    print >>sys.stderr, "Error: %s does not exist" % filename
+    print("Error: %s does not exist" % filename, file=sys.stderr)
     sys.exit(2)
 if not os.path.exists(filename2):
-    print >>sys.stderr, "Error: %s does not exist" % filename
+    print("Error: %s does not exist" % filename, file=sys.stderr)
     sys.exit(2)
 
 # parse documents
@@ -109,16 +110,16 @@ for t1 in tables:
     tname = t1.getAttribute("Name")
 
     if tname in opts.exclude_tables.split(','):
-        if opts.debug: print >>sys.stderr, "*** skipping %s ..." % tname
+        if opts.debug: print("*** skipping %s ..." % tname, file=sys.stderr)
         continue
 
-    if opts.debug: print "*** comparing %s ..." % tname
+    if opts.debug: print("*** comparing %s ..." % tname)
 
     t2 = table.get_table(xmldoc2, tname)
     if diff_tables(t1, t2) is False:
         exit_code = 1
         if opts.tables:
-            print "%s differs" % tname
+            print("%s differs" % tname)
         elif opts.columns is False:
             # if we don't need to enumerate table or column diffs, we're done
             break

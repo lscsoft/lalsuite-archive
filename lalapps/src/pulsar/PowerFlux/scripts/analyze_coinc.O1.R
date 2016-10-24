@@ -300,7 +300,7 @@ for(i in 1:dim(high_bands)[1]) {
 		else {
 		if(fd_name!=filename) {
 			if(!is.null(fd))close(fd)
-			fd<-file(filename, open="w")
+			fd<-file(filename, open="a")
 			fd_name<-filename
 			}
 		write.table(coincidences, fd, col.names=FALSE, row.names=FALSE, append=TRUE)
@@ -332,8 +332,8 @@ for(i in Labels) {
 	B[,"f0"]<-B[,"frequency"]
 	B[,"fdot"]<-B[,"spindown"]
 	
-	B[,"fdist"]<-pmax(abs(B$frequency-B$frequency_H1), abs(B$frequency-B$frequency_H1), na.rm=TRUE)
-	B[,"sdist"]<-pmax(abs(B$spindown-B$spindown_H1), abs(B$spindown-B$spindown_H1), na.rm=TRUE)
+	B[,"fdist"]<-pmax(abs(B$frequency-B$frequency_H1), abs(B$frequency-B$frequency_L1), na.rm=TRUE)
+	B[,"sdist"]<-pmax(abs(B$spindown-B$spindown_H1), abs(B$spindown-B$spindown_L1), na.rm=TRUE)
 	B[,"dist"]<-pmax(ecliptic_dist(B$ra, B$dec, B$ra_H1, B$dec_H1), ecliptic_dist(B$ra, B$dec, B$ra_L1, B$dec_L1), na.rm=TRUE)
 	
 	for(col in c("Max.SNR.H1L1", "Max.SNR.H1", "Max.SNR.L1", "H1L1.outliers", "H1.outliers", "L1.outliers", "H1.snr", "L1.snr", "H1L1.snr", "line.f0", "Group")) {
@@ -491,7 +491,7 @@ for(i in 1:dim(ExtraStats)[1]) {
 		#ExtraStats[i, "line.f0"]<- 0
 		#ExtraStats[i, "line.comment"]<-""
 		line.f0[i]<- 0.0
-		line.comment<- ""
+		line.comment[i]<- ""
 		} else {
 		X<-aggregate(lines[,'strength'], lines[,'dataset', drop=FALSE], max, na.rm=TRUE)
 		F<-X[,'x']>StrongLine

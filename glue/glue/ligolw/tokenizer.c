@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include <wchar.h>
 #include <tokenizer.h>
+#include "six.h"
 
 
 /*
@@ -104,25 +105,41 @@ PyObject *llwtokenizer_build_formats(PyObject *sequence)
  */
 
 
-void inittokenizer(void)
+#define MODULE_DOC \
+"This module provides a tokenizer for LIGO Light Weight XML Stream and Array\n" \
+"elements, as well as other utilities to assist in packing parsed tokens into\n" \
+"various data storage units."
+
+static PyModuleDef moduledef = {
+	PyModuleDef_HEAD_INIT,
+	MODULE_NAME, MODULE_DOC, -1, NULL
+};
+
+
+PyMODINIT_FUNC PyInit_tokenizer(void); /* Silence -Wmissing-prototypes */
+PyMODINIT_FUNC PyInit_tokenizer(void)
 {
+	PyObject *module = NULL;
+
+	if(PyType_Ready(&ligolw_Tokenizer_Type) < 0)
+		goto done;
+	if(PyType_Ready(&ligolw_RowBuilder_Type) < 0)
+		goto done;
+	if(PyType_Ready(&ligolw_RowDumper_Type) < 0)
+		goto done;
+
 	/*
 	 * Create the module.
 	 */
 
-	PyObject *module = Py_InitModule3(MODULE_NAME,
-		NULL,
-		"This module provides a tokenizer for LIGO Light Weight XML Stream and Array\n" \
-		"elements, as well as other utilities to assist in packing parsed tokens into\n" \
-		"various data storage units."
-	);
+	module = PyModule_Create(&moduledef);
+	if (!module)
+		goto done;
 
 	/*
 	 * Add the Tokenizer class.
 	 */
 
-	if(PyType_Ready(&ligolw_Tokenizer_Type) < 0)
-		return;
 	Py_INCREF(&ligolw_Tokenizer_Type);
 	PyModule_AddObject(module, "Tokenizer", (PyObject *) &ligolw_Tokenizer_Type);
 
@@ -130,8 +147,6 @@ void inittokenizer(void)
 	 * Add the RowBuilder class.
 	 */
 
-	if(PyType_Ready(&ligolw_RowBuilder_Type) < 0)
-		return;
 	Py_INCREF(&ligolw_RowBuilder_Type);
 	PyModule_AddObject(module, "RowBuilder", (PyObject *) &ligolw_RowBuilder_Type);
 
@@ -139,8 +154,12 @@ void inittokenizer(void)
 	 * Add the RowDumper class.
 	 */
 
-	if(PyType_Ready(&ligolw_RowDumper_Type) < 0)
-		return;
 	Py_INCREF(&ligolw_RowDumper_Type);
 	PyModule_AddObject(module, "RowDumper", (PyObject *) &ligolw_RowDumper_Type);
+
+done:
+	return module;
 }
+
+
+SIX_COMPAT_MODULE(tokenizer)

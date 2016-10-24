@@ -332,7 +332,7 @@ class LDRdataFindClient(object):
                         stringList = response.split('\0')
                         code = int(stringList[0])
                         output = stringList[1:]
-                except Exception, e:
+                except Exception as e:
                         msg = "Error parsing response from server : %s" % e
                         try:
                                 f.close()
@@ -699,7 +699,7 @@ class LSCdataFindClient(LDRdataFindClient):
 
                 try:
                         a = int(gpsString)
-                except Exception, e:
+                except Exception as e:
                         msg = "GPS times must be 9 digits"
                         raise LSCdataFindClientException(msg)
 

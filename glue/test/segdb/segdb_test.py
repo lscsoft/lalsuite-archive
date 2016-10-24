@@ -16,6 +16,7 @@ For ligolw_segments_from_cats, the test runs against E13 data at the time of wri
 """
 
 
+from __future__ import print_function
 from glue import segments
 import commands
 import sys
@@ -25,7 +26,7 @@ import os
 #--------------------------------------------------------------------------------
 #    Test ligolw_segment_query without explicit versions
 #--------------------------------------------------------------------------------
-print "Testing ligolw_segment_query against E13 data (without versions)..."
+print("Testing ligolw_segment_query against E13 data (without versions)...")
 
 # run the testing ligolw_segment_query command and generate the result xml file
 com = "ligolw_segment_query --segment-url=https://segdb.ligo.caltech.edu --gps-start-time 924821632 --gps-end-time 924921632 --include-segments H1:DMT-SCIENCE --exclude-segments H1:DMT-BADGAMMA --query-segments | ligolw_print -t segment -c start_time -c end_time -d ' ' > segScript"
@@ -33,7 +34,7 @@ a = commands.getstatusoutput(com)
 if a[0] == 0:
   pass
 else:
-  print "Error executing command to generate result xml file"
+  print("Error executing command to generate result xml file")
   sys.exit(1)
 
 
@@ -41,18 +42,18 @@ else:
 com = 'diff correct_ligolw_segment_query_results.txt segScript'
 a = commands.getstatusoutput(com)
 if a[0] == 0:
-  print "Test pass"
-  print
+  print("Test pass")
+  print()
 else:
-  print "Test fail"
-  print a[1]
+  print("Test fail")
+  print(a[1])
 
 os.remove('segScript')
 
 #--------------------------------------------------------------------------------
 #    Test ligolw_segment_query with explicit versions
 #--------------------------------------------------------------------------------
-print "Testing ligolw_segment_query against E13 data (with versions)..."
+print("Testing ligolw_segment_query against E13 data (with versions)...")
 
 # run the testing ligolw_segment_query command and generate the result xml file
 com = "ligolw_segment_query --segment-url=https://segdb.ligo.caltech.edu --gps-start-time 924821632 --gps-end-time 924921632 --include-segments H1:DMT-SCIENCE:1 --exclude-segments H1:DMT-BADGAMMA:1 --query-segments | ligolw_print -t segment -c start_time -c end_time -d ' ' > segScript"
@@ -60,7 +61,7 @@ a = commands.getstatusoutput(com)
 if a[0] == 0:
   pass
 else:
-  print "Error executing command to generate result xml file"
+  print("Error executing command to generate result xml file")
   sys.exit(1)
 
 
@@ -68,20 +69,20 @@ else:
 com = 'diff correct_ligolw_segment_query_results.txt segScript'
 a = commands.getstatusoutput(com)
 if a[0] == 0:
-  print "Test pass"
-  print
+  print("Test pass")
+  print()
 else:
-  print "Test fail"
-  print a[1]
+  print("Test fail")
+  print(a[1])
 
 os.remove('segScript')
 
 #---------------------------------------------------------------------------------
 #     Test ligolw_segments_from_cats
 #---------------------------------------------------------------------------------
-print
-print "Testing ligolw_segments_from_cats against E13 data..."
-print "        It may take a while ..."
+print()
+print("Testing ligolw_segments_from_cats against E13 data...")
+print("        It may take a while ...")
 
 # run ligolw_segments_from_cats and get 12 result files back
 com = "ligolw_segments_from_cats --segment-url=https://segdb.ligo.caltech.edu --gps-start-time 924821634 --gps-end-time 924828992 --veto-file=H1H2-CBC_E13_ONLINE-923682800-2419200.xml --separate-categories"
@@ -89,7 +90,7 @@ a = commands.getstatusoutput(com)
 if a[0] == 0:
   pass
 else:
-  print "Error executing ligolw_segments_from_cats command"
+  print("Error executing ligolw_segments_from_cats command")
   sys.exit(1)
 
 ret = 0
@@ -100,20 +101,20 @@ for i in ['H1', 'H2']:
     com = "cat " + result_file_name + " | ligolw_print -t segment -c start_time -c end_time -d ' ' > " + "result_" + i + "CAT" + str(c)
     a = commands.getstatusoutput(com)
     if a[0] != 0:
-      print "Error execute command to get segment start and end time from result xml file"
+      print("Error execute command to get segment start and end time from result xml file")
       sys.exit(0)
   
     # diff result file agaisnt the correct results
     com = 'diff ' + i + 'CAT' + str(c) + " result_" + i + "CAT" + str(c) 
     a = commands.getstatusoutput(com)
     if a[0]!=0:
-      print "Error diff time file %s from %s" % ("result_" + i + "CAT" + str(c), result_file_name)
+      print("Error diff time file %s from %s" % ("result_" + i + "CAT" + str(c), result_file_name))
       ret = 1 
     # remove the temp result file and the time file
     os.remove("result_" + i + "CAT" + str(c))
     os.remove(result_file_name)
 
 if ret == 0:
-  print "test pass"
+  print("test pass")
 
 sys.exit(0)

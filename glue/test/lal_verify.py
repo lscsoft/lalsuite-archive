@@ -1,3 +1,4 @@
+from __future__ import print_function
 import doctest
 import filecmp
 import os
@@ -5,6 +6,7 @@ import random
 import sys
 import unittest
 from glue import lal
+from six.moves import range
 
 
 #
@@ -98,7 +100,7 @@ class test_LIGOTimeGPS(unittest.TestCase):
 		try:
 			from lal import LIGOTimeGPS as swigLIGOTimeGPS
 		except ImportError:
-			print >>sys.stderr, "lal swig bindings not available:  skipping test"
+			print("lal swig bindings not available:  skipping test", file=sys.stderr)
 			return
 
 		toswig = lambda x: swigLIGOTimeGPS(str(x))
@@ -109,8 +111,8 @@ class test_LIGOTimeGPS(unittest.TestCase):
 			"sub": (lal.LIGOTimeGPS.__sub__, swigLIGOTimeGPS.__sub__)
 		}
 
-		for i in xrange(100000):
-			key, (op, swigop) = random.choice(operators.items())
+		for i in range(100000):
+			key, (op, swigop) = random.choice(list(operators.items()))
 			arg1 = randomLIGOTimeGPS() / 2
 			arg2 = randomLIGOTimeGPS() / 2
 			try:
@@ -125,8 +127,8 @@ class test_LIGOTimeGPS(unittest.TestCase):
 			#"mod": (lal.LIGOTimeGPS.__mod__, swigLIGOTimeGPS.__mod__)
 		}
 
-		for i in xrange(100000):
-			key, (op, swigop) = random.choice(operators.items())
+		for i in range(100000):
+			key, (op, swigop) = random.choice(list(operators.items()))
 			arg1 = randomLIGOTimeGPS() / 100
 			arg2 = 100**(random.random() * 2 - 1)
 			try:

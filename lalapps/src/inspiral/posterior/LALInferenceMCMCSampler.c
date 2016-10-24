@@ -523,10 +523,10 @@ void mcmc_step(LALInferenceRunState *runState, LALInferenceThreadState *thread) 
 
     // compute prior & likelihood:
     logPriorProposed = runState->prior(runState, thread->proposedParams, thread->model);
-    if (logPriorProposed > -DBL_MAX)
+    if (isfinite(logPriorProposed))
         logLikelihoodProposed = runState->likelihood(thread->proposedParams, runState->data, thread->model);
     else
-        logLikelihoodProposed = -DBL_MAX;
+        logLikelihoodProposed = -INFINITY;
 
     if (propTrack)
         LALInferenceCopyVariables(thread->currentParams, thread->preProposalParams);
@@ -1054,9 +1054,9 @@ void LALInferenceAdaptation(LALInferenceThreadState *thread) {
     INT4 adaptTau = LALInferenceGetINT4Variable(thread->proposalArgs, "adaptTau");
     INT4 length = LALInferenceGetINT4Variable(thread->proposalArgs, "adaptLength");
     INT4 adaptRestartBuffer = LALInferenceGetINT4Variable(thread->proposalArgs, "adaptResetBuffer");
-    REAL8 logLAtAdaptStart = LALInferenceGetREAL8Variable(thread->proposalArgs, "logLAtAdaptStart");
+    REAL8 logPAtAdaptStart = LALInferenceGetREAL8Variable(thread->proposalArgs, "logPAtAdaptStart");
 
-    if (thread->currentLikelihood > logLAtAdaptStart+(REAL8)nPar/2) {
+    if (thread->currentPrior + thread->currentLikelihood > logPAtAdaptStart+(REAL8)nPar/2) {
         LALInferenceAdaptationRestart(thread);
     } else if (adapting) {
         /* Turn off adaption after adaptLength steps without restarting */
@@ -1100,6 +1100,8 @@ void LALInferenceAdaptationRestart(LALInferenceThreadState *thread) {
         }
     }
 
+    REAL8 current_posterior = thread->currentPrior + thread->currentLikelihood;
+
     INT4 length = LALInferenceGetINT4Variable(thread->proposalArgs, "adaptLength");
     INT4 tau = LALInferenceGetINT4Variable(thread->proposalArgs, "adaptTau");
     INT4 adaptRestartBuffer = LALInferenceGetINT4Variable(thread->proposalArgs, "adaptResetBuffer");
@@ -1107,7 +1109,7 @@ void LALInferenceAdaptationRestart(LALInferenceThreadState *thread) {
     LALInferenceAddVariable(thread->proposalArgs, "s_gamma", &s_gamma, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_OUTPUT);
 
     LALInferenceSetVariable(thread->proposalArgs, "adapting", &adapting);
-    LALInferenceSetVariable(thread->proposalArgs, "logLAtAdaptStart", &(thread->currentLikelihood));
+    LALInferenceSetVariable(thread->proposalArgs, "logPAtAdaptStart", &(current_posterior));
     LALInferenceSetVariable(thread->proposalArgs, "acl", &bigACL);
 
     thread->step = -length;
@@ -1181,9 +1183,9 @@ void LALInferenceNameOutputs(LALInferenceRunState *runState) {
     }
 
     if((ppt=LALInferenceGetProcParamVal(runState->commandLine, "--runid")))
-        snprintf(runState->runID, 255, "%s_%s", "lalinference_mcmc",ppt->value);
+        snprintf(runState->runID, sizeof(runState->runID), "%s_%s", "lalinference_mcmc",ppt->value);
     else
-        snprintf(runState->runID, 255, "lalinference_mcmc");
+        snprintf(runState->runID, sizeof(runState->runID), "lalinference_mcmc");
 }
 
 

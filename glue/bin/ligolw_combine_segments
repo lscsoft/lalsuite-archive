@@ -20,6 +20,7 @@
 Takes one or more XML files containing segment lists and creates a new
 segment list that represents the intersection.
 """
+from __future__ import print_function
 import copy
 from optparse import OptionParser
 from glue.ligolw import ligolw, lsctables, utils

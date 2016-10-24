@@ -85,7 +85,7 @@ def parse_command_line():
 	if options.lfn_end_time:
 		options.lfn_end_time = int(options.lfn_end_time)
 
-	urls += [CacheEntry(line).url for cache in options.input_cache for line in file(cache)]
+	urls += [CacheEntry(line).url for cache in options.input_cache for line in open(cache)]
 
 	if len(urls) < 1:
 		raise ValueError("no input files!")
