@@ -16,7 +16,7 @@ Source:		%{name}-%{version}.tar.gz
 Url:		http://www.lsc-group.phys.uwm.edu/daswg/projects/glue.html
 BuildRoot:	%{_tmppath}/%{name}-%{version}-root
 Requires:	python-cjson m2crypto python-six glue-common glue-segments python >= 2.6
-BuildRequires:  python-devel
+BuildRequires:  python-devel, python-setuptools
 Prefix:         %{_glue_prefix}
 %description
 Glue (Grid LSC User Environment) is a suite of python modules and programs to
