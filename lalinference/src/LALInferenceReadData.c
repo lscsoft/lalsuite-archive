@@ -2285,12 +2285,58 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
 
   COMPLEX16FrequencySeries *hptilde=NULL, *hctilde=NULL;
 
-  XLALSimInspiralChooseFDWaveform(&hptilde, &hctilde, inj_table->coa_phase, deltaF,
+  if(approximant==(int)RingdownFD){
+      printf("Calling desired functions\n");
+      /* Ugly method to inject the nonGRparams */
+      if(inj_table->dfreq21 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dfreq21",inj_table->dfreq21) ;
+      }
+      if(inj_table->dfreq22 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dfreq22",inj_table->dfreq22) ;
+      }
+      if(inj_table->dfreq33 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dfreq33",inj_table->dfreq33) ;
+      }
+      if(inj_table->dfreq44 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dfreq44",inj_table->dfreq44) ;
+      }
+      if(inj_table->dtau21 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dtau21",inj_table->dtau21) ;
+      }
+      if(inj_table->dtau22 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dtau22",inj_table->dtau22) ;
+      }
+      if(inj_table->dtau33 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dtau33",inj_table->dtau33) ;
+      }
+      if(inj_table->dtau44 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dtau44",inj_table->dtau44) ;
+      }
+
+      REAL8 spin1[3];
+      REAL8 spin2[3];
+
+      spin1[0] = inj_table->spin1x;
+      spin1[1] = inj_table->spin1y;
+      spin1[2] = inj_table->spin1z;
+      spin2[0] = inj_table->spin2x;
+      spin2[1] = inj_table->spin2y;
+      spin2[2] = inj_table->spin2z;
+
+    REAL8 chiEff = XLALChiEffRingdown(inj_table->mass1, inj_table->mass2, spin1, spin2);
+    XLALSimBlackHoleRingdownTigerFD(&hptilde, &hctilde, inj_table->coa_phase,deltaF,f_max,f_min,inj_table->rdMass*LAL_MSUN_SI,inj_table->rdSpin,inj_table->eta,chiEff,inj_table->distance*LAL_PC_SI * 1.0e6,inj_table->inclination,nonGRparams);
+ 
+  }
+
+  else{
+     XLALSimInspiralChooseFDWaveform(&hptilde, &hctilde, inj_table->coa_phase, deltaF,
                                   inj_table->mass1*LAL_MSUN_SI, inj_table->mass2*LAL_MSUN_SI, inj_table->spin1x,
                                   inj_table->spin1y, inj_table->spin1z, inj_table->spin2x, inj_table->spin2y,
                                   inj_table->spin2z, f_min, f_max, fref, inj_table->distance*LAL_PC_SI * 1.0e6,
                                   inj_table->inclination, lambda1, lambda2, waveFlags,
                                   nonGRparams, amp_order, phase_order, approximant);
+ 
+  }
 
   /* Fail if injection waveform generation was not successful */
   errnum = *XLALGetErrnoPtr();
