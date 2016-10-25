@@ -129,16 +129,17 @@ int main(int argc, char *argv[])
   //COMPLEX16 *data, *data1;
   ProcessParamsTable *procParams = NULL;
   //ProcessParamsTable *ppt = NULL;
-  Parameter inParams = {0};
+  Parameter inParams ;
   int ret;
-  REAL8 deltaF, phiRef = 0.0, m1, m2, S1z = 0.0, S2z = 0.0;
-  REAL8 deltaT, f_min, f_max = 0.0, r;
+  REAL8 deltaF, phiRef = 0.0, m1=0.0, m2=0.0, S1z = 0.0, S2z = 0.0;
+  REAL8 deltaT, f_min=0.0, f_max = 0.0, r=0.0;
   INT4 phaseO, amplitudeO, lower, upper, ecc_order;
   REAL8 ecc, f_ecc;
   char file_name[256];
   REAL8 overlap, overlapNorm, p1, p1v;
   //LALInferenceVariables currentParams;
   FILE *outf=NULL;
+  memset(&inParams, 0x00, sizeof(Parameter));
   /* Read command line and parse */
   //printf("main DEBUG -5\n");
   procParams = LALInferenceParseCommandLine(argc, argv);
