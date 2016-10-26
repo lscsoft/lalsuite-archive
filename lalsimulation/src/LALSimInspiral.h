@@ -357,6 +357,8 @@ typedef enum tagApproximant {
                          * @remarks Implemented in lalsimulation (time domain). */
    EccentricTD,		/**< Time domain Taylor T4 approximant including orbital eccentricity effects
                          * @remarks Implemented in lalsimulation (time domain). */
+   EccentricTDIMRv2,            /**< Time domain Taylor T4 approximant including orbital eccentricity effects
+                         * @remarks Implemented in lalsimulation (time domain). */
    TaylorN,		/**< UNDOCUMENTED
                          * @attention Not implemented in lalsimulation. */
    SpinTaylorT4Fourier, /**< Frequency domain (generic spins) inspiral only waveforms based on TaylorT4, arXiv: 1408.5158
@@ -747,6 +749,7 @@ INT4 XLALSimInspiralSetEnergyPNTerms(REAL8 *Espin3, REAL8 *Espin4, REAL8 *Espin5
 
 int XLALSimInspiralEccentricTDPNEvolveOrbit(REAL8TimeSeries **v, REAL8TimeSeries **et, REAL8TimeSeries **l, REAL8TimeSeries **lambda, REAL8TimeSeries **u, REAL8TimeSeries **phi, REAL8 phiRef, REAL8 deltaT, REAL8 m1, REAL8 m2, REAL8 f_min, REAL8 fRef, REAL8 e_min, int O);
 int XLALSimInspiralEccentricTDPNGenerator(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, REAL8 phiRef, REAL8 deltaT, REAL8 m1, REAL8 m2, REAL8 f_min, REAL8 fRef, REAL8 r, REAL8 i, REAL8 e_min, int amplitudeO, int phaseO);
+int XLALSimInspiralEccentricTDIMRv2Generator(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, REAL8 m1, REAL8 m2, REAL8 f_min, REAL8 r, REAL8 i, REAL8 e_min);
 int XLALSimInspiralEccentricTDPN(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, REAL8 phiRef, REAL8 deltaT, REAL8 m1, REAL8 m2, REAL8 f_min, REAL8 fRef, REAL8 r, REAL8 i, REAL8 e_min, int O);
 int XLALSimInspiralEccentricTDPNRestricted(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, REAL8 phiRef, REAL8 deltaT, REAL8 m1, REAL8 m2, REAL8 f_min, REAL8 fRef, REAL8 r, REAL8 i, REAL8 e_min, int O);
 

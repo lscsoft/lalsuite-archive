@@ -1082,6 +1082,139 @@ int XLALSimInspiralEccentricTDPNGenerator(
 	return n;
 }
 
+struct node {
+
+	REAL8 t;
+	REAL8 hp;
+	REAL8 hc;
+
+	struct node *next;
+
+};
+
+int XLALSimInspiralEccentricTDIMRv2Generator(
+                REAL8TimeSeries **hplus,        /**< +-polarization waveform */
+                REAL8TimeSeries **hcross,       /**< x-polarization waveform */
+                //REAL8 phiRef,                   /**< reference orbital phase (rad) */
+                //REAL8 deltaT,                   /**< sampling interval (s) */
+                REAL8 m1,                       /**< mass of companion 1 (kg) */
+                REAL8 m2,                       /**< mass of companion 2 (kg) */
+                REAL8 f_min,                    /**< start frequency (Hz) */
+                //REAL8 fRef,                     /**< reference frequency (Hz) */
+                REAL8 r,                        /**< distance of source (m) */
+                REAL8 i,                        /**< inclination of source (rad) */
+                REAL8 e_min                     /**< initial orbital eccentricity at f_min */
+                //int amplitudeO,                 /**< twice post-Newtonian amplitude order */
+                //int phaseO                      /**< twice post-Newtonian phase order */
+                )
+{
+        FILE *fp;
+        int status;
+	char path[500];
+
+	/* even when masses are given in solar masses from the command line, somewhere in the middle
+	it gets converted to SI units; so we need to convert it back to solar masses, which will be
+	an input to eliu's code */
+	REAL8 mass1 = m1/LAL_MSUN_SI;
+	REAL8 mass2 = m2/LAL_MSUN_SI;
+	REAL8 distance = r/(1.0e6 * LAL_PC_SI);
+
+        REAL8 sample_rate = 8192.;
+	REAL8 deltaT = 1./sample_rate;
+	REAL8 anom0 = 0;
+        REAL8 tol0 = 1e-14;
+        const char* outfile = "DUMMY.dat\n";
+
+	/*this is where the waveform generation script is being executed from the bash
+	from within the c code and storing its output within DUMMY.dat*/
+        char COMM[1000];
+        sprintf(COMM, "/home/abhirup/src/lalsuite/lalsimulation/src/exc -m %f -n %f -f %f -i %f -e %f -s %f -a %f -t %e -o %s", mass1, mass2, f_min, i, e_min, sample_rate, anom0, tol0, outfile);
+
+        fp = popen(COMM, "r");
+        if(fp == NULL){ //  Handle failure of your bash command here
+                printf("fp is NULL.... why?");
+        }
+
+	/*the data will be read back from DUMMY.dat and used to populate the *hplus
+	and *hcross arrays; but for that we must set the break condition, otherwise
+	the while loop becomes infinite*/
+
+	struct node *root;
+        root = malloc( sizeof( struct node) );
+        struct node *conductor;
+        conductor = root;
+
+	char* pMid;
+  	char* pEnd;
+        REAL8 tmp_t, tmp_hp, tmp_hc; 
+	REAL8 tmp_amp;
+	REAL8 phi_0 = 0.;
+        REAL8 max_amp = 0.;
+	int counter = 0;
+	int max_cnt = 0;
+
+	while( fgets(path, 500, fp) != NULL )
+	{
+    		tmp_t = strtof(path, &pMid);
+    		tmp_hp = strtof(pMid, &pEnd);
+    		tmp_hc = strtof(pEnd, NULL);
+	
+		tmp_amp = sqrt((tmp_hp*tmp_hp) + (tmp_hc*tmp_hc));
+		if(counter == 0){
+			phi_0 = atan2 (tmp_hc , tmp_hp);
+		}
+
+                if(tmp_amp > max_amp){
+                        max_amp = tmp_amp;
+			max_cnt = counter;
+                }
+
+  		conductor->t = tmp_t;
+  		conductor->hp = tmp_hp / distance;
+  		conductor->hc = tmp_hc / distance;
+  		counter++;
+
+  		conductor->next = malloc( sizeof(struct node) );
+  		conductor = conductor->next;  
+
+	}
+
+	// By the time you get here, "counter" will tell you how
+	// big of an array you should allocate for hplus and hcross..
+	// DEFINE hp, hc here
+
+	LIGOTimeGPS tc = LIGOTIMEGPSZERO;
+	/* Adjust tStart so last sample is at time=0 */
+        XLALGPSAdd(&tc, -1.0*(max_cnt)*deltaT);
+
+	/* allocate memory */
+	*hplus = XLALCreateREAL8TimeSeries( "H_PLUS", &tc, 0., deltaT, &lalDimensionlessUnit, counter );
+	*hcross = XLALCreateREAL8TimeSeries( "H_CROSS", &tc, 0., deltaT, &lalDimensionlessUnit, counter );
+	memset((*hplus)->data->data, 0, (*hplus)->data->length * sizeof(*(*hplus)->data->data));
+	memset((*hcross)->data->data, 0, (*hcross)->data->length * sizeof(*(*hcross)->data->data));
+	
+	int NMAX = counter;
+	conductor = root; // RESET CONDUCTOR
+
+	int idx;
+	for (idx = 0; idx < NMAX; idx++)
+	{
+		tmp_hp = conductor->hp;
+		tmp_hc = conductor->hc;
+  		(*hplus)->data->data[idx] = sqrt(tmp_hp * tmp_hp + tmp_hc * tmp_hc) * cos( atan2 (tmp_hc , tmp_hp) - phi_0);
+ 		(*hcross)->data->data[idx] = sqrt(tmp_hp * tmp_hp + tmp_hc * tmp_hc) * sin( atan2 (tmp_hc , tmp_hp) - phi_0);
+  		conductor = conductor->next;
+	}
+	
+	status = fclose(fp);
+        if (status == -1){
+                printf("Error in closing fp.... why?");
+        }
+
+        return 0;
+}
+
+
 /**
  * Driver routine to compute the post-Newtonian inspiral waveform.
  *

@@ -144,6 +144,7 @@ static const char *lalSimulationApproximantNames[] = {
     INITIALIZE_NAME(TaylorEt),
     INITIALIZE_NAME(TaylorT4),
     INITIALIZE_NAME(EccentricTD),
+    INITIALIZE_NAME(EccentricTDIMRv2),
     INITIALIZE_NAME(TaylorN),
     INITIALIZE_NAME(SpinTaylorT4Fourier),
     INITIALIZE_NAME(SpinTaylorT2Fourier),
@@ -474,6 +475,23 @@ int XLALSimInspiralChooseTDWaveform(
 		    amplitudeO, phaseO);
 	    if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
 	    break;
+
+        case EccentricTDIMRv2:
+            /* Waveform-specific sanity checks */
+            if( !XLALSimInspiralFrameAxisIsDefault( XLALSimInspiralGetFrameAxis(waveFlags)) )
+                ABORT_NONDEFAULT_FRAME_AXIS(waveFlags);
+            if( !XLALSimInspiralModesChoiceIsDefault( XLALSimInspiralGetModesChoice(waveFlags)) )
+                ABORT_NONDEFAULT_MODES_CHOICE(waveFlags);
+            if( !XLALSimInspiralSpinOrderIsDefault( XLALSimInspiralGetSpinOrder(waveFlags)) )
+                ABORT_NONDEFAULT_SPIN_ORDER(waveFlags);
+            if( !checkSpinsZero(S1x, S1y, S1z, S2x, S2y, S2z) )
+                ABORT_NONZERO_SPINS(waveFlags);
+            if( !checkTidesZero(lambda1, lambda2) )
+                ABORT_NONZERO_TIDES(waveFlags);
+            /* Call the waveform driver routine */
+            ret = XLALSimInspiralEccentricTDIMRv2Generator(hplus, hcross, m1, m2, f_min, r, i, (REAL8) XLALSimInspiralGetTestGRParam( nonGRparams, "e_min"));
+            if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
+            break;
 
         /* non-spinning inspiral-merger-ringdown models */
         case IMRPhenomA:
@@ -3954,6 +3972,7 @@ int XLALSimInspiralImplementedTDApproximants(
         case TaylorT3:
         case TaylorT4:
 	case EccentricTD:
+	case EccentricTDIMRv2:
         case EOBNRv2:
         case HGimri:
         case IMRPhenomA:
@@ -4438,6 +4457,7 @@ int XLALSimInspiralGetSpinSupportFromApproximant(Approximant approx){
     case TaylorT3:
     case TaylorT4:
     case EccentricTD:
+    case EccentricTDIMRv2:
     case EccentricFD:
     case IMRPhenomA:
     case EOBNRv2HM:
@@ -4531,6 +4551,7 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
     case PhenSpinTaylor:
     case PhenSpinTaylorRD:
     case EccentricTD:
+    case EccentricTDIMRv2:
     case IMRPhenomC:
     case IMRPhenomD:
     case IMRPhenomP:
@@ -4868,6 +4889,13 @@ double XLALSimInspiralGetFinalFreq(
 		XLALPrintError("Non-zero spins were given, but this is a non-spinning approximant.\n");
 		XLAL_ERROR(XLAL_EINVAL);
 	    }
+        case EccentricTDIMRv2:
+            /* Check that spins are zero */
+            if( !checkSpinsZero(S1x, S1y, S1z, S2x, S2y, S2z) )
+            {
+                XLALPrintError("Non-zero spins were given, but this is a non-spinning approximant.\n");
+                XLAL_ERROR(XLAL_EINVAL);
+            }
 	case EccentricFD:
             /* Check that spins are zero */
             if( !checkSpinsZero(S1x, S1y, S1z, S2x, S2y, S2z) )
