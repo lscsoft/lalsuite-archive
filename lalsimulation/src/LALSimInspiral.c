@@ -484,12 +484,13 @@ int XLALSimInspiralChooseTDWaveform(
                 ABORT_NONDEFAULT_MODES_CHOICE(waveFlags);
             if( !XLALSimInspiralSpinOrderIsDefault( XLALSimInspiralGetSpinOrder(waveFlags)) )
                 ABORT_NONDEFAULT_SPIN_ORDER(waveFlags);
-            if( !checkSpinsZero(S1x, S1y, S1z, S2x, S2y, S2z) )
-                ABORT_NONZERO_SPINS(waveFlags);
+            //if( !checkSpinsZero(S1x, S1y, S1z, S2x, S2y, S2z) )
+            //    ABORT_NONZERO_SPINS(waveFlags);
             if( !checkTidesZero(lambda1, lambda2) )
                 ABORT_NONZERO_TIDES(waveFlags);
             /* Call the waveform driver routine */
-            ret = XLALSimInspiralEccentricTDIMRv2Generator(hplus, hcross, m1, m2, f_min, r, i, (REAL8) XLALSimInspiralGetTestGRParam( nonGRparams, "e_min"));
+            //ret = XLALSimInspiralEccentricTDIMRv2Generator(hplus, hcross, m1, m2, f_min, r, i, (REAL8) XLALSimInspiralGetTestGRParam( nonGRparams, "e_min"));
+            ret = XLALSimInspiralEccentricTDIMRv2Generator(hplus, hcross, m1, m2, S1z, f_min, r, i);
             if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
             break;
 
@@ -4889,13 +4890,13 @@ double XLALSimInspiralGetFinalFreq(
 		XLALPrintError("Non-zero spins were given, but this is a non-spinning approximant.\n");
 		XLAL_ERROR(XLAL_EINVAL);
 	    }
-        case EccentricTDIMRv2:
-            /* Check that spins are zero */
-            if( !checkSpinsZero(S1x, S1y, S1z, S2x, S2y, S2z) )
-            {
-                XLALPrintError("Non-zero spins were given, but this is a non-spinning approximant.\n");
-                XLAL_ERROR(XLAL_EINVAL);
-            }
+        //case EccentricTDIMRv2:
+        //    /* Check that spins are zero */
+        //    if( !checkSpinsZero(S1x, S1y, S1z, S2x, S2y, S2z) )
+        //    {
+        //        XLALPrintError("Non-zero spins were given, but this is a non-spinning approximant.\n");
+        //        XLAL_ERROR(XLAL_EINVAL);
+        //    }
 	case EccentricFD:
             /* Check that spins are zero */
             if( !checkSpinsZero(S1x, S1y, S1z, S2x, S2y, S2z) )
