@@ -39,41 +39,39 @@ typedef struct {
   LALInferenceVariables *prior;
 } outerParams;
 
-static double copt=-1.0, zopt=-1.0;
-static double chirp_to_comp_jacobian(double mc,double mzc);
-static double mass_indicator(double mc, double mzc,LALInferenceVariables *priorParams);
-static double integrand(double mzc,void *params);
+
+static double chirp_to_comp_jacobian(double mc,double eta);
+static double mass_indicator(double mc, double eta,LALInferenceVariables *priorParams);
+static double integrand(double eta,void *params);
 static double inner_integral(double mc, void *params);
 static double mass_outer_integral(LALInferenceVariables *priorArgs);
 static double loudness_volume(LALInferenceRunState *state);
 
-static double chirp_to_comp_jacobian(double mc,double mzc){
+static double chirp_to_comp_jacobian(double mc,double eta){
 
-  double kopt=5.0/(3.0*copt -2.0*(copt*zopt));
-  double delta_opt=sqrt(1.0 - 4.0 * pow(mc, kopt*copt*(1.0+zopt)) * pow(mzc, -kopt));
-  double m1 = 0.5* pow(mc, -kopt * (copt*zopt)) * pow(mzc, 3.0*kopt/5.0) * (1.0 + delta_opt);
-  double m2 = 0.5* pow(mc, -kopt * (copt*zopt)) * pow(mzc, 3.0*kopt/5.0) * (1.0 - delta_opt);
-  return 5.0*m1*m2*(m1+m2)/((2*(zopt * copt)-3*copt)*mc*mzc*(m1-m2));
+  double deltaTemp=sqrt(1-4.0*eta);
+  double  m1 = 0.5* mc * (1+deltaTemp) * pow(eta,-3.0/5);
+  double  m2 = 0.5* mc * (1-deltaTemp) * pow(eta,-3.0/5);
+  return ((m1+m2)*(m1+m2))/((m1-m2)*pow(eta,3.0/5.0));
 
 }
 
 
-static double mass_indicator(double mc, double mzc,LALInferenceVariables *priorParams){
+static double mass_indicator(double mc, double eta,LALInferenceVariables *priorParams){
   /*
    * 
-   * This function gets mchirp and mzc
+   * This function gets mchirp and eta
    * Calculates component and total mass and check if all parameters
    * are within their priors.
    * 
    * Return 1 or 0 
    * 
-   * t work with mzc
+   * t work with eta
    * 
    * */
-  double kopt=5.0/(3.0*copt -2.0*(copt*zopt));
-  double delta_opt=sqrt(1.0 - 4.0 * pow(mc, kopt*copt*(1.0+zopt)) * pow(mzc, -kopt));
-  double m1 = 0.5* pow(mc, -kopt * (copt*zopt)) * pow(mzc, 3.0*kopt/5.0) * (1.0 + delta_opt);
-  double m2 = 0.5* pow(mc, -kopt * (copt*zopt)) * pow(mzc, 3.0*kopt/5.0) * (1.0 - delta_opt);
+  double deltaTemp=sqrt(1-4.0*eta);
+  double  m1 = 0.5* mc * (1+deltaTemp) * pow(eta,-3.0/5);
+  double  m2 = 0.5* mc * (1-deltaTemp) * pow(eta,-3.0/5);
 
   /* Check for individual mass priors */
   if(LALInferenceCheckVariable(priorParams,"mass1_min"))
@@ -94,10 +92,10 @@ static double mass_indicator(double mc, double mzc,LALInferenceVariables *priorP
   if(LALInferenceCheckVariable(priorParams,"MTotMin"))
     if(*(REAL8 *)LALInferenceGetVariable(priorParams,"MTotMin") > m1+m2)
       return 0.0;
-  if (LALInferenceCheckVariable(priorParams,"mzc_min")){
-    double mzc_min,mzc_max;
-    LALInferenceGetMinMaxPrior(priorParams, "mzc", &mzc_min, &mzc_max);
-    if (mzc<mzc_min || mzc>mzc_max) return 0.0;
+  if (LALInferenceCheckVariable(priorParams,"eta_min")){
+    double eta_min,eta_max;
+    LALInferenceGetMinMaxPrior(priorParams, "eta", &eta_min, &eta_max);
+    if (eta<eta_min || eta>eta_max) return 0.0;
   }
   if (LALInferenceCheckVariable(priorParams,"chirpmass_min")){
     double mc_min,mc_max;
@@ -105,14 +103,19 @@ static double mass_indicator(double mc, double mzc,LALInferenceVariables *priorP
     if (mc<mc_min || mc>mc_max) return 0.0;
   }
   return 1.0;
-
+  /*
+  if (LALInferenceCheckVariable(priorParams,"eta_min")){
+    double eta_min,eta_max;
+    LALInferenceGetMinMaxPrior(state->priorArgs, "eta", &eta_min, &eta_max);
+    if (eta<eta_min || eta>eta_max) return 0.0;
+  }*/
 }
 
 
 
-static double integrand(double mzc,void *params){
+static double integrand(double eta,void *params){
   
-  /* Integrand for the dobule integral over Mc and mzc
+  /* Integrand for the dobule integral over Mc and eta
    * 
    * This is the jacobian within the support of the prior, zero otherwise
    * 
@@ -120,14 +123,14 @@ static double integrand(double mzc,void *params){
   innerParams iData = *(innerParams *)params;
   double mc= iData.mc;
   
-  return chirp_to_comp_jacobian(mc,mzc)*mass_indicator(mc,mzc, iData.prior);
+  return chirp_to_comp_jacobian(mc,eta)*mass_indicator(mc,eta, iData.prior);
   
 }
 
 
 static double inner_integral(double mc, void *params){
   
-  // mzc comes through params
+  // eta comes through params
   gsl_integration_workspace * w = gsl_integration_workspace_alloc (10000);
   double result, error;
   const double epsabs = 1e-4;
@@ -141,17 +144,17 @@ static double inner_integral(double mc, void *params){
   iParams.mc=mc;
   iParams.prior= (LALInferenceVariables *) oParams.prior;
   
-  double mzc_min,mzc_max;
-  if (LALInferenceCheckVariable(iParams.prior,"mzc_min")){
+  double eta_min,eta_max;
+  if (LALInferenceCheckVariable(iParams.prior,"eta_min")){
     
-    LALInferenceGetMinMaxPrior(iParams.prior, "mzc", &mzc_min, &mzc_max);
+    LALInferenceGetMinMaxPrior(iParams.prior, "eta", &eta_min, &eta_max);
   }
   else{
-    fprintf(stderr,"ERROR: mzc doesn't seem to be a valid param. Exiting\n");
+    fprintf(stderr,"ERROR: eta doesn't seem to be a valid param. Exiting\n");
     exit(1);
     }
-  // TODO: make it work with  and q
-  int status = gsl_integration_qags (&F, mzc_min, mzc_max,epsabs, epsrel, wsSize,
+  // TODO: make it work with mzc
+  int status = gsl_integration_qags (&F, eta_min, eta_max,epsabs, epsrel, wsSize,
                         w, &result, &error); 
   if (status)
         XLAL_ERROR_REAL8(XLAL_EFUNC | XLAL_EDATA, "Bad data; GSL integration failed.");
