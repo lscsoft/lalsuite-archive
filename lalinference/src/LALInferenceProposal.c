@@ -705,7 +705,7 @@ REAL8 LALInferenceSingleProposal(LALInferenceThreadState *thread,
         } else if (!strcmp(param->name, "q")) {
             sigma = 0.08;
         } else if (!strcmp(param->name, "mzc")) {
-            sigma = 0.45;                // arbitrarily set value.  not understood well. need to be edited
+            sigma = 0.02;                // arbitrarily set value.  not understood well. need to be edited
         } else if (!strcmp(param->name, "chirpmass")) {
             sigma = 1.0;
         } else if (!strcmp(param->name, "time")) {

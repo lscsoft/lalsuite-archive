@@ -1707,9 +1707,12 @@ void LALInferenceSetupLivePointsArray(LALInferenceRunState *runState){
 
 	  /* Sprinkle the varying points among prior */
 	  do{
+
 	    LALInferenceDrawFromPrior( runState->livePoints[i], runState->priorArgs, runState->GSLrandom );
 	    logPrior=runState->prior(runState,runState->livePoints[i],threadState->model);
+
 	  }while(isinf(logPrior) || isnan(logPrior));
+
 	  /* Populate log likelihood */
 	  logLs->data[i]=runState->likelihood(runState->livePoints[i],runState->data,threadState->model);
 	  LALInferenceAddVariable(runState->livePoints[i],"logL",(void *)&(logLs->data[i]),LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);

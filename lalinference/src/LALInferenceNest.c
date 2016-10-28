@@ -50,11 +50,10 @@ int main(int argc, char *argv[]){
   Bayesian analysis tool using Nested Sampling algorithm\n\
   for CBC analysis. Uses LALInference library for back-end.\n\n\
   Arguments for each section follow:\n\n";
-
   LALInferenceRunState *state;
   ProcessParamsTable *procParams=NULL;
   LALInferenceIFOData *data = NULL;
-
+	
   /* Read command line and parse */
   procParams=LALInferenceParseCommandLine(argc,argv);
   if(LALInferenceGetProcParamVal(procParams,"--help"))
@@ -149,9 +148,11 @@ int main(int argc, char *argv[]){
   {
     exit(0);
   }
+  printf("line 2 executed !\n");
 
   /* Call setupLivePointsArray() to populate live points structures */
   LALInferenceSetupLivePointsArray(state);
+  printf("line 3 executed !\n");
 
   /* write injection with noise evidence information from algorithm */
   LALInferencePrintInjectionSample(state);

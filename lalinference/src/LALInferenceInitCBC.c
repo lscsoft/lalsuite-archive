@@ -609,14 +609,14 @@ void LALInferenceRegisterUniformVariableREAL8(LALInferenceRunState *state, LALIn
     REAL8 mzcMin=min;
    REAL8 mzcMax=max;
 
-    if (mzcMin <= 1.0 || mzcMin > 7.7)
+    if (mzcMin <= 0.000 || mzcMin > 0.25)
     {
-        fprintf(stderr,"ERROR: mzcMin must be between 1 and 5, got value mzcMin=%f\n",mzcMin);
+        fprintf(stderr,"ERROR: mzcMin must be between 0.0 and 0.25, got value mzcMin=%f\n",mzcMin);
 		exit(1);
     }
-    if (mzcMax >7.7 || mzcMax <1.0 || mzcMax < mzcMin)
+    if (mzcMax >0.25 || mzcMax <0.0 || mzcMax < mzcMin)
     {
-      fprintf(stderr,"ERROR: mzcMax must be between 1 and 5, and mzcMax > mzcMin. Got value mzcMax=%f, mzcMin=%f\n",mzcMax,mzcMin);
+      fprintf(stderr,"ERROR: mzcMax must be between 0.0 and 0.25, and mzcMax > mzcMin. Got value mzcMax=%f, mzcMin=%f\n",mzcMax,mzcMin);
 	  exit(1);
     }
   }
@@ -678,7 +678,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
      time                         Waveform time (overrides random about trigtime).\n\
      chirpmass                    Chirpmass\n\
      eta                          Symmetric massratio (needs --use-eta)\n\
-     zcs                          optimal mass choice (needs --use-zcs)\n\
+     mzc                          optimal mass choice (needs --use-mzc)\n\
      q                            Asymmetric massratio (a.k.a. q=m2/m1 with m1>m2)\n\
      phase                        Coalescence phase.\n\
      costheta_jn                  Cosine of angle between J and line of sight [rads]\n\
@@ -760,8 +760,8 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   REAL8 mcMax=15.3;
   REAL8 etaMin=0.0312;
   REAL8 etaMax=0.25;
-  REAL8 mzcMin=1.017479;   
-  REAL8 mzcMax=7.70;
+  REAL8 mzcMin=0.0312;   
+  REAL8 mzcMax=0.25;
   REAL8 qMin=1./30.; // The ratio between min and max component mass (see InitMassVariables)
   REAL8 qMax=1.0;
   REAL8 psiMin=0.0,psiMax=LAL_PI;
