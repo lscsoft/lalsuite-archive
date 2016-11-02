@@ -237,7 +237,7 @@ SimBurst *XLALSimBurstTableFromLIGOLw(
 	XLALClearErrno();
 	column_pos.process_id = XLALLIGOLwFindColumn(&env, "process_id", METAIO_TYPE_ILWD_CHAR, 1);
 	column_pos.waveform = XLALLIGOLwFindColumn(&env, "waveform", METAIO_TYPE_LSTRING, 1);
-	column_pos.numrel_data = XLALLIGOLwFindColumn(&env, "numrel_data", METAIO_TYPE_LSTRING, 1);
+	column_pos.numrel_data = XLALLIGOLwFindColumn(&env, "numrel_data", METAIO_TYPE_LSTRING, 0);
 	column_pos.ra = XLALLIGOLwFindColumn(&env, "ra", METAIO_TYPE_REAL_8, 0);
 	column_pos.dec = XLALLIGOLwFindColumn(&env, "dec", METAIO_TYPE_REAL_8, 0);
 	column_pos.psi = XLALLIGOLwFindColumn(&env, "psi", METAIO_TYPE_REAL_8, 0);

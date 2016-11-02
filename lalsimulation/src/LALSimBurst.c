@@ -475,12 +475,12 @@ int XLALGenerateImpulseBurst(
  */
 
 int XLALGenerateBurstFromFile(
-	REAL8TimeSeries **hplus,
-	REAL8TimeSeries **hcross,
-	const char* file,
-    REAL8 incl,
-    REAL8 psi,
-	REAL8 delta_t
+			      REAL8TimeSeries **hplus,
+			      REAL8TimeSeries **hcross,
+			      const char* file,
+			      REAL8 incl,
+			      REAL8 psi,
+			      REAL8 delta_t
 ) {
 
     LALFILE *fp;
@@ -537,7 +537,12 @@ int XLALGenerateBurstFromFile(
     int pol_2 = 0;
     if (strstr(header, "hplus") && strstr(header, "hcross")) {
         ndat = XLALSimReadDataFile2Col(&hplusdat, &hcrossdat, fp);
+	i = 0;
+	ncol=1;
         pol_2 = 1;
+	data = 0;
+	XLALGPSSetREAL8(&epoch, (REAL8)0.0);
+
     } else {
         char* tok = XLALStringToken(&tmpbuf, "# \t", 0);
         i = 0;
@@ -555,18 +560,20 @@ int XLALGenerateBurstFromFile(
         /* Time and two columns (real, imag) per mode */
         ncol = 2 * i + 1;
         ndat = XLALSimReadDataFileNCol(&data, &ncol, fp);
+	XLALGPSSetREAL8(&epoch, data[0]);
+
     }
     XLALFree(tmpbuf);
 
 
     XLALFileClose(fp);
     if (ndat == (size_t) (-1) || ncol != 2 * i + 1) {
+      XLAL_ERROR(XLAL_EFUNC, "ndat %d ncol %d", (int)ndat, (int)ncol);
         XLAL_ERROR(XLAL_EFUNC, "Column formatting error.");
     }
 
     XLALFree(header);
 
-    XLALGPSSetREAL8(&epoch, data[0]);
 
     if (pol_2 == 0) {
 
@@ -594,15 +601,11 @@ int XLALGenerateBurstFromFile(
         //XLALSimInspiralPolarizationsFromSphHarmTimeSeries(hplus, hcross, ts, incl, psi);
         *hplus = NULL;
         *hcross = NULL;
-	printf("%f", incl);
-	printf("%f", psi);
-	
-        XLALSimInspiralPolarizationsFromSphHarmTimeSeries(hplus, hcross, ts, incl, psi);
+	XLALSimInspiralPolarizationsFromSphHarmTimeSeries(hplus, hcross, ts, incl, psi);
         XLALDestroyCOMPLEX16TimeSeries(tmp);
         XLALDestroySphHarmTimeSeries(ts);
 
     } else {
-
         /* define metadata */
         snprintf(labelplus, sizeof(labelplus), "%s plus pol", file);
         snprintf(labelcross, sizeof(labelcross), "%s cross pol", file);
@@ -623,16 +626,15 @@ int XLALGenerateBurstFromFile(
         /* populate */
         for(i = 0; i < hptmp->data->length; i++) {
             /* Mix with inclination */
-            hplusdat[i] *= 0.5 * (1 + cos(incl)*cos(incl) );
-            hcrossdat[i] *= cos(incl);
-
+            //hplusdat[i] *= 0.5 * (1 + cos(incl)*cos(incl) );
+	  //hcrossdat[i] *= cos(incl);
             /* ... and polarization */
             hptmp->data->data[i] = hplusdat[i] * cos(psi) + hcrossdat[i] * sin(psi);
             hxtmp->data->data[i] = -hplusdat[i] * sin(psi) + hcrossdat[i] * cos(psi);
         }
         hplus = &hptmp;
         hcross = &hxtmp;
-        
+
     }
     XLALFree(data);
 
