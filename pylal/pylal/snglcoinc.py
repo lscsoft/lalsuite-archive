@@ -1,4 +1,4 @@
-# Copyright (C) 2006--2014  Kipp Cannon, Drew G. Keppel, Jolien Creighton
+# Copyright (C) 2006--2016  Kipp Cannon, Drew G. Keppel, Jolien Creighton
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -49,6 +49,9 @@ import sys
 import warnings
 
 
+import lal
+
+
 from glue import iterutils
 from glue import offsetvector
 from glue import segmentsUtils
@@ -58,7 +61,6 @@ from glue.ligolw import param as ligolw_param
 from glue.ligolw import lsctables
 from glue.text_progress_bar import ProgressBar
 from pylal import git_version
-from pylal import inject
 from pylal import rate
 
 
@@ -218,6 +220,19 @@ class EventListDict(dict):
 #
 
 
+def light_travel_time(instrument1, instrument2):
+	"""
+	Compute and return the time required for light to travel through
+	free space the distance separating the two instruments.  The inputs
+	are two instrument prefixes (e.g., "H1"), and the result is
+	returned in seconds.  Note how this differs from LAL's
+	XLALLightTravelTime() function, which takes two detector objects as
+	input, and returns the time truncated to integer nanoseconds.
+	"""
+	dx = lal.cached_detector_by_prefix[instrument1].location - lal.cached_detector_by_prefix[instrument2].location
+	return math.sqrt((dx * dx).sum()) / lal.C_SI
+
+
 def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = False):
 	"""
 	Given an instance of an EventListDict, an event comparison
@@ -286,7 +301,7 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 		threshold_data = thresholds[(eventlista.instrument, eventlistb.instrument)]
 	except KeyError as e:
 		raise KeyError("no coincidence thresholds provided for instrument pair %s, %s" % e.args[0])
-	light_travel_time = inject.light_travel_time(eventlista.instrument, eventlistb.instrument)
+	dt = light_travel_time(eventlista.instrument, eventlistb.instrument)
 
 	# for each event in the shortest list
 
@@ -297,7 +312,7 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 		# iterate over events from the other list that are
 		# coincident with the event, and return the pairs
 
-		for eventb in eventlistb.get_coincs(eventa, eventlista.offset, light_travel_time, threshold_data, comparefunc):
+		for eventb in eventlistb.get_coincs(eventa, eventlista.offset, dt, threshold_data, comparefunc):
 			yield (eventa, eventb)
 	if verbose:
 		print >>sys.stderr, "\t100.0%"
@@ -512,6 +527,14 @@ class TimeSlideGraphNode(object):
 
 class TimeSlideGraph(object):
 	def __init__(self, offset_vector_dict, verbose = False):
+		#
+		# safety check input
+		#
+
+		offset_vector = min(offset_vector_dict.values(), key = lambda x: len(x))
+		if len(offset_vector) < 2:
+			raise ValueError("encountered offset vector with fewer than 2 instruments: %s", str(offset_vector))
+
 		#
 		# populate the graph head nodes.  these represent the
 		# target offset vectors requested by the calling code.
@@ -907,7 +930,7 @@ class CoincSynthesizer(object):
 		try:
 			return self._tau
 		except AttributeError:
-			self._tau = dict((frozenset(ab), self.delta_t + inject.light_travel_time(*ab)) for ab in iterutils.choices(tuple(self.eventlists), 2))
+			self._tau = dict((frozenset(ab), self.delta_t + light_travel_time(*ab)) for ab in iterutils.choices(tuple(self.eventlists), 2))
 			return self._tau
 
 

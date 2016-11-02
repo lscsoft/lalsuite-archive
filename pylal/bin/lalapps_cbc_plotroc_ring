@@ -143,9 +143,9 @@ class CoincDatabase(object):
 		# find the tables
 		self.sngl_table = sqlutils.validate_option( options.sngl_table )
 		self.sim_table = sqlutils.validate_option( options.sim_table )
-		self.coinc_def_table = table.get_table(xmldoc, dbtables.lsctables.CoincDefTable.tableName)
-		self.coinc_table = table.get_table(xmldoc, dbtables.lsctables.CoincTable.tableName)
-		self.time_slide_table = table.get_table(xmldoc, dbtables.lsctables.TimeSlideTable.tableName)
+		self.coinc_def_table = dbtables.lsctables.CoincDefTable.get_table(xmldoc)
+		self.coinc_table = dbtables.lsctables.CoincTable.get_table(xmldoc)
+		self.time_slide_table = dbtables.lsctables.TimeSlideTable.get_table(xmldoc)
 		self.coinc_table = sqlutils.validate_option( options.coinc_table )
 		
 

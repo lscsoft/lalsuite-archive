@@ -199,7 +199,7 @@ class pylal_sdist(sdist.sdist):
 
 setup(
 	name = "pylal",
-	version = "0.11.0",
+	version = "0.12.0",
 	author = "Kipp Cannon and Nickolas Fotopoulos",
 	author_email = "lal-discuss@ligo.org",
 	description = "Python LIGO Algorithm Library",
@@ -494,7 +494,6 @@ setup(
 		os.path.join("bin", "pylal_plot_inspiral_skymap"),
 		os.path.join("bin", "upper_limit_results"),
 		os.path.join("bin", "pylal_expose"),
-		os.path.join("bin", "ligolw_cbc_expected_snrs"),
 		os.path.join("bin", "ligolw_cbc_align_total_spin"),
 		os.path.join("bin", "ligolw_cbc_dbsimplify"),
 		os.path.join("bin", "ligolw_cbc_dbaddinj"),

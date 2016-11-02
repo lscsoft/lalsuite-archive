@@ -340,7 +340,7 @@ static const LALStatus swiglal_empty_LALStatus = {0, NULL, NULL, NULL, NULL, 0, 
 }
 
 ///
-/// # Create constructors and destructors for structs
+/// # Extensions to structs
 ///
 
 ///
@@ -405,46 +405,8 @@ struct TAGNAME {
 
 /// </li><li>
 
-/// Create shallow copy function __copy__() for the use of Python's copy.copy() function. It is
-/// always defined but will fail for opaque structs, which cannot be copied.
-#if !OPAQUE
-%extend TAGNAME {
-  struct TAGNAME *__copy__() {
-    return %swiglal_new_copy(*$self, struct TAGNAME);
-  }
-}
-#else
-%extend TAGNAME {
-  struct TAGNAME *__copy__() {
-    XLALSetErrno(XLAL_ENOSYS); /* Silently signal an error to wrapper function */
-    return NULL;
-  }
-}
-#endif
-
-/// </li><li>
-
-/// Create deep copy function __deepcopy__() for the use of Python's copy.deepcopy() function. It is
-/// always defined but will fail for opaque structs, which cannot be copied, and for structs with a
-/// destructor, which presumably cannot be trivially copied with memcpy().
-#if !OPAQUE && #DTORFUNC == ""
-%extend TAGNAME {
-  %typemap(in, noblock=1) const void *memo "";
-  struct TAGNAME *__deepcopy__(const void *memo) {
-    return %swiglal_new_copy(*$self, struct TAGNAME);
-  }
-  %clear const void *memo;
-}
-#else
-%extend TAGNAME {
-  %typemap(in, noblock=1) const void *memo "";
-  struct TAGNAME *__deepcopy__(const void *memo) {
-    XLALSetErrno(XLAL_ENOSYS); /* Silently signal an error to wrapper function */
-    return NULL;
-  }
-  %clear const void *memo;
-}
-#endif
+/// Add scripting-language-specific struct extensions.
+%swiglal_struct_extend_specific(TAGNAME, OPAQUE, DTORFUNC)
 
 /// </li></ul>
 %enddef
@@ -1427,6 +1389,8 @@ if (strides[I-1] == 0) {
 %include <lal/SWIGOctave.i>
 #elif defined(SWIGPYTHON)
 %include <lal/SWIGPython.i>
+#else
+#error Unrecognised scripting language
 #endif
 
 ///
@@ -1562,6 +1526,13 @@ if (strides[I-1] == 0) {
     char *slstr = 0;
     size_t slsize = 0;
     int slalloc = 0;
+    /* Allow empty 'obj' to correspond to NULL string pointer */
+    if (swiglal_null_ptr(obj)) {
+      if (pstr) {
+        *pstr = NULL;
+      }
+      return SWIG_OK;
+    }
     /* Get pointer to scripting-language string 'slstr' and size 'slsize'. */
     /* The 'slalloc' argument indicates whether a new string was allocated. */
     int res = SWIG_AsCharPtrAndSize(obj, &slstr, &slsize, &slalloc);

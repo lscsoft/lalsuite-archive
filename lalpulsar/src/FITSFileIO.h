@@ -103,6 +103,10 @@ int XLALFITSHeaderWriteINT4( FITSFile *file, const CHAR *key, const INT4 value, 
 int XLALFITSHeaderReadINT4( FITSFile *file, const CHAR *key, INT4 *value );
 int XLALFITSHeaderWriteINT8( FITSFile *file, const CHAR *key, const INT8 value, const CHAR *comment );
 int XLALFITSHeaderReadINT8( FITSFile *file, const CHAR *key, INT8 *value );
+int XLALFITSHeaderWriteUINT4( FITSFile *file, const CHAR *key, const UINT4 value, const CHAR *comment );
+int XLALFITSHeaderReadUINT4( FITSFile *file, const CHAR *key, UINT4 *value );
+int XLALFITSHeaderWriteUINT8( FITSFile *file, const CHAR *key, const UINT8 value, const CHAR *comment );
+int XLALFITSHeaderReadUINT8( FITSFile *file, const CHAR *key, UINT8 *value );
 int XLALFITSHeaderWriteREAL4( FITSFile *file, const CHAR *key, const REAL4 value, const CHAR *comment );
 int XLALFITSHeaderReadREAL4( FITSFile *file, const CHAR *key, REAL4 *value );
 int XLALFITSHeaderWriteREAL8( FITSFile *file, const CHAR *key, const REAL8 value, const CHAR *comment );
@@ -223,7 +227,7 @@ int XLALFITSTableColumnAddGPSTime( FITSFile *file, const CHAR *col_name, const s
   XLALFITSTableColumnAdd ## type (file, #field, 1, _xlal_fits_offsets_, &_xlal_fits_record_, sizeof(_xlal_fits_record_), &(_xlal_fits_record_.field[0]), sizeof(_xlal_fits_record_.field))
 /// \hideinitializer
 #define XLAL_FITS_TABLE_COLUMN_PTR_BEGIN(field, ptr_record_type, length) \
-  ptr_record_type XLAL_INIT_ARRAY_DECL(_xlal_fits_ptr_record_, length); \
+  ptr_record_type XLAL_INIT_DECL(_xlal_fits_ptr_record_, [length]); \
   _xlal_fits_record_.field = &_xlal_fits_ptr_record_[0]; \
   _xlal_fits_offsets_[0] = (size_t)(((intptr_t) &(_xlal_fits_record_.field)) - ((intptr_t) &_xlal_fits_record_));
 /// \hideinitializer

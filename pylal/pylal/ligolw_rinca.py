@@ -159,7 +159,7 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 		#
 
 		try:
-			self.coinc_ringdown_table = lsctables.table.get_table(xmldoc, lsctables.CoincRingdownTable.tableName)
+			self.coinc_ringdown_table = lsctables.CoincRingdownTable.table.get_table(xmldoc)
 		except ValueError:
 			self.coinc_ringdown_table = lsctables.New(lsctables.CoincRingdownTable)
 			xmldoc.childNodes[0].appendChild(self.coinc_ringdown_table)
@@ -228,7 +228,7 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 		return coinc, coincmaps, coinc_ringdown
 
 
-	def append_coinc(self, coinc, coincmaps, coinc_ringdown
+	def append_coinc(self, coinc, coincmaps, coinc_ringdown):
 		coinc = super(RingdownCoincTables, self).append_coinc(coinc, coincmaps)
 		coinc_ringdown.coinc_event_id = coinc.coinc_event_id
 		self.coinc_ringdown_table.append(coinc_ringdown)
@@ -396,7 +396,7 @@ def ligolw_rinca(
 		print >>sys.stderr, "indexing ..."
 	coinc_tables = CoincTables(xmldoc, vetoes = veto_segments)
 	coinc_def_id = llwapp.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
-	sngl_index = dict((row.event_id, row) for row in lsctables.table.get_table(xmldoc, lsctables.SnglRingdownTable.tableName))
+	sngl_index = dict((row.event_id, row) for row in lsctables.SnglRingdownTable.get_table(xmldoc))
 
 	#
 	# build the event list accessors, populated with events from those
@@ -413,7 +413,7 @@ def ligolw_rinca(
 	# set the \Delta t parameter on all the event lists
 	#
 
-	max_dt = ringdown_max_dt(lsctables.table.get_table(xmldoc, lsctables.SnglRingdownTable.tableName), thresholds)
+	max_dt = ringdown_max_dt(lsctables.SnglRingdownTable.get_table(xmldoc), thresholds)
 	if verbose:
 		print >>sys.stderr, "event bisection search window will be %.16g s" % max_dt
 	for eventlist in eventlists.values():

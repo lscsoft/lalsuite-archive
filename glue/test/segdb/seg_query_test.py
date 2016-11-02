@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
 import sys
 import os
 
@@ -80,7 +81,7 @@ if __name__ == '__main__':
 
     if get_manually(gps_start_time, gps_end_time) != get_from_segment_query(gps_start_time, gps_end_time):
         failed = True
-        print >>sys.stderr, "Test 1 failed"
+        print("Test 1 failed", file=sys.stderr)
 
     # Tomoki's illustration of the bug
     gps_start_time = 932774415 
@@ -88,8 +89,8 @@ if __name__ == '__main__':
 
     if get_manually(gps_start_time, gps_end_time) != get_from_segment_query(gps_start_time, gps_end_time):
         failed = True
-        print >>sys.stderr, "Test 2 failed"
+        print("Test 2 failed", file=sys.stderr)
 
     if not failed:
-        print "All tests succeeded"
+        print("All tests succeeded")
 

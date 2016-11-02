@@ -87,6 +87,7 @@ option "ks-test"        - "perform Kolmogorov-Smirnov test for normality of aver
 option "compute-betas"  - "compute beta coefficients as described in PowerFlux polarizations document" int default="0" no
 option "upper-limit-comp" - "upper limit compensation factor - used to account for windowing in SFTs (possible values: Hann, flat, arbitrary number)" string default="Hann" no
 option "lower-limit-comp" - "lower limit compensation factor - used to account for windowing in SFTs (possible values: Hann, flat, arbitrary number)" string default="Hann" no
+option "viterbi-power-sums" - "Use Viterbi-like algorithm to accumulate power sums between segments, accomodating long term deviations in frequency evolution" int default="0" no
 
 
 option "write-dat"      - "regular expression describing which *.dat files to write" string default=".*" no
@@ -132,10 +133,13 @@ option "output-initial" - "write initial candidates into log file" int default="
 option "output-optimized" - "write optimized (second pass) candidates into log file" int default="0" no
 option "output-cache" - "write out all candidates in cache to log file" int default="0" no
 
+option "progress-update-interval" - "integer value controlling frequency of progress updates" int default="100" no
+
 option "extended-test" - "Perform extended self test functions given by this bitmask" int default="1" no
 option "max-sft-report" - "Maximum count of SFTs to report with veto information" int default="100" no
 
 option "num-threads"  - "Use that many threads for computation" int default="-1" no
+option "num-threads-env"  - "Use this environment variable to obtain num-threads" string default="" no
 
 #
 # Options for v2 code
@@ -143,7 +147,9 @@ option "num-threads"  - "Use that many threads for computation" int default="-1"
 option "niota" - "Number of iota values to use in alignment grid" int default="3" no
 option "npsi" - "Number of psi values to use in alignment grid" int default="6" no
 option "nfshift" - "Number of sub-bin frequency shifts to sample" int default="2" no
-option "nchunks" - "Partition the timebase into this many chunks for sub period analysis" int default="5" no
+option "nchunks" - "Partition the timebase into this many chunks for sub period analysis" int default="5" no 
+option "nchunks-refinement" - "Reduce reported statistics by this factor." int default="1" no
+option "min-nchunks" - "Do not output statistics with fewer than this many chunks" int default="1" no
 option "split-ifos" - "Split interferometers in separate chunks" int default="1" no
 option "default-dataset-veto-level" - "Default value for veto_level dataset parameter" double default="1e-2" no
 option "default-dataset-veto-spike-level" - "Default value for veto_spike_level dataset parameter" double default="1.7" no

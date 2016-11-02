@@ -1,7 +1,11 @@
 import doctest
+import sys
 from glue import iterutils
+from six.moves import range
 
-doctest.testmod(iterutils)
+failures = doctest.testmod(iterutils)[0]
+if failures:
+	sys.exit(bool(failures))
 
 
 #
@@ -19,14 +23,14 @@ def gen_randindex_results(n, N):
 	randindex = iter(iterutils.randindex(10, 100, n)).next
 	counts = [0.] * 100
 	p = [float("-inf")] * 100
-	for i in xrange(N):
+	for i in range(N):
 		x, lnP = randindex()
 		counts[x] += 1.
 		p[x] = lnP
-	for i in xrange(len(counts)):
+	for i in range(len(counts)):
 		counts[i] /= N
 		p[i] = math.exp(p[i])
-	return range(100), counts, p
+	return list(range(100)), counts, p
 
 fig = figure.Figure()
 FigureCanvas(fig)

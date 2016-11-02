@@ -683,8 +683,8 @@ extension = opts.chiaXmlFile.split('.')[-1]
 if extension == 'gz': gz = True
 else: gz = False
 doc = utils.load_filename(opts.chiaXmlFile,verbose=False, gz=gz, xmldoc=None, contenthandler=None)
-proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
-multiInspiralTable = table.getTablesByName(doc,lsctables.MultiInspiralTable.tableName)
+proc = lsctables.ProcessParamsTable.get_table(doc)
+multiInspiralTable = lsctables.MultiInspiralTable.getTablesByName(doc)
 if len(multiInspiralTable) == 0:
   print >> sys.stdout, "document does not contain any multi_inspiral table, which means no trigger found"
   sys.exit(0)

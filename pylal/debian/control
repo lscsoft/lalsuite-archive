@@ -15,7 +15,7 @@ Build-Depends:
  lalinspiral-dev (>= 1.6.5),
  lalmetaio-dev (>= 1.2.6),
  lalsimulation-dev,
- debhelper (>= 7)
+ debhelper (>= 9)
 Standards-Version: 3.9.3
 
 Package: python-pylal

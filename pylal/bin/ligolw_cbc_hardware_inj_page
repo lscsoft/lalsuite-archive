@@ -83,7 +83,7 @@ def get_expected_snr(filenames,ifo,time):
 	from glue.ligolw import table
 	xmldoc=SearchSummaryUtils.ReadTablesFromFiles(xml_files,[lsctables.SummValueTable])
 	try:
-		sum_tabs=table.get_table(xmldoc,lsctables.SummValueTable.tableName)
+		sum_tabs=lsctables.SummValueTable.get_table(xmldoc)
 	except:
 		sum_tabs=None
 	if sum_tabs==None:

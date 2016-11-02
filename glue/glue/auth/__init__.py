@@ -20,8 +20,8 @@ stored behind the LIGO.ORG authentication system
 import os
 import sys
 import stat
-import urllib2
-import cookielib
+from six.moves import urllib
+import six.moves.http_cookiejar
 
 from .saml import HTTPNegotiateAuthHandler
 from .. import git_version
@@ -59,10 +59,10 @@ def request_ligodotorg(url, debug=False):
     debug = int(debug)
 
     # need an instance of HTTPS handler to do HTTPS
-    httpsHandler = urllib2.HTTPSHandler(debuglevel = debug)
+    httpsHandler = HTTPSHandler(debuglevel = debug)
 
     # use a cookie jar to store session cookies
-    jar = cookielib.LWPCookieJar()
+    jar = six.moves.http_cookiejar.LWPCookieJar()
 
     # if a cookier jar exists open it and read the cookies
     # and make sure it has the right permissions
@@ -73,9 +73,9 @@ def request_ligodotorg(url, debug=False):
         jar.load(COOKIE_JAR, ignore_discard = True)
 
     # create a cookie handler from the cookier jar
-    cookie_handler = urllib2.HTTPCookieProcessor(jar)
+    cookie_handler = urllib.request.HTTPCookieProcessor(jar)
     # need a redirect handler to follow redirects
-    redirectHandler = urllib2.HTTPRedirectHandler()
+    redirectHandler = urllib.request.HTTPRedirectHandler()
 
     # need an auth handler that can do negotiation.
     # input parameter is the Kerberos service principal.
@@ -83,11 +83,11 @@ def request_ligodotorg(url, debug=False):
                                                             % (LIGO_LOGIN_URL))
 
     # create the opener.
-    opener = urllib2.build_opener(auth_handler, cookie_handler, httpsHandler,
+    opener = urllib.request.build_opener(auth_handler, cookie_handler, httpsHandler,
                                   redirectHandler)
 
     # prepare the request object
-    request = urllib2.Request(url)
+    request = urllib.request.Request(url)
 
     # use the opener and the request object to make the request.
     response = opener.open(request)

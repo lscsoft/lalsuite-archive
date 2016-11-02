@@ -177,23 +177,11 @@ def get_time_slides(connection):
 	return two dictionaries one containing the all-zero time slides and
 	the other containing the not-all-zero time slides.
 	"""
-	zero_lag_time_slides = {}
-	background_time_slides = {}
-	for time_slide_id, rows in itertools.groupby(connection.cursor().execute("""
-SELECT
-	time_slide_id,
-	instrument,
-	offset
-FROM
-	time_slide
-ORDER BY
-	time_slide_id
-	"""), lambda (time_slide_id, instrument, offset): ilwd.ilwdchar(time_slide_id)):
-		offset_vector = offsetvector.offsetvector((instrument, offset) for time_slide_id, instrument, offset in rows)
-		if any(offset_vector.values()):
-			background_time_slides[time_slide_id] = offset_vector
-		else:
-			zero_lag_time_slides[time_slide_id] = offset_vector
+	time_slides = dbtables.TimeSlideTable(connection = connection).as_dict()
+
+	zero_lag_time_slides = dict((time_slide_id, offsetvector) for time_slide_id, offsetvector in time_slides.items() if not any(offsetvector.values()))
+	background_time_slides = dict((time_slide_id, offsetvector) for time_slide_id, offsetvector in time_slides.items() if any(offsetvector.values()))
+
 	return zero_lag_time_slides, background_time_slides
 
 

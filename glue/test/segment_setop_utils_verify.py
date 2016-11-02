@@ -31,6 +31,7 @@
 Tests ligolw_segment_intersect, ligolw_segment_union and ligolw_segment_diff
 """
 
+from __future__ import print_function
 import os
 import sys
 import pickle
@@ -51,6 +52,7 @@ from glue.segmentdb.segmentdb_utils import add_to_segment_summary
 from glue.segmentdb.segmentdb_utils import add_to_segment_definer
 
 from glue.ligolw.utils.process import append_process
+from six.moves import range
 
 
 
@@ -134,14 +136,14 @@ def segments_from_cmd(cmd):
 def do_test(cmd, should_be, error_msg):
 	"""Do a single test involving comparing the output of cmd to what it should be"""
 
-	print 'Testing ' + error_msg
+	print('Testing ' + error_msg)
 
 	resultlst = segments_from_cmd(cmd)
 	
 	if resultlst != should_be:
-		print >>sys.stderr, 'Failure in ' + error_msg
-		print resultlst
-		print should_be
+		print('Failure in ' + error_msg, file=sys.stderr)
+		print(resultlst)
+		print(should_be)
 
 		sys.exit(-1)
 

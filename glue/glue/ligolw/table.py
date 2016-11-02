@@ -263,6 +263,8 @@ class Column(ligolw.Column):
 	</Table>
 	>>> col.index(10)
 	1
+	>>> 12 in col
+	True
 	>>> col[0] = 9.
 	>>> col[1] = 9.
 	>>> col[2] = 9.
@@ -334,7 +336,7 @@ class Column(ligolw.Column):
 		Retrieve the value in this column in row i.
 		"""
 		if isinstance(i, slice):
-			return map(lambda r: getattr(r, self.Name), self.parentNode[i])
+			return [getattr(r, self.Name) for r in self.parentNode[i]]
 		else:
 			return getattr(self.parentNode[i], self.Name)
 
@@ -372,15 +374,15 @@ class Column(ligolw.Column):
 		"""
 		Return the number of rows with this column equal to value.
 		"""
-		return sum(getattr(row, self.Name) == value for row in self.parentNode)
+		return sum(x == value for x in self)
 
 	def index(self, value):
 		"""
 		Return the smallest index of the row(s) with this column
 		equal to value.
 		"""
-		for i in xrange(len(self.parentNode)):
-			if getattr(self.parentNode[i], self.Name) == value:
+		for i, x in enumerate(self):
+			if x == value:
 				return i
 		raise ValueError(value)
 
@@ -389,10 +391,7 @@ class Column(ligolw.Column):
 		Returns True or False if there is or is not, respectively,
 		a row containing val in this column.
 		"""
-		for i in xrange(len(self.parentNode)):
-			if getattr(self.parentNode[i], self.Name) == value:
-				return True
-		return False
+		return value in iter(self)
 
 	def asarray(self):
 		"""
@@ -549,7 +548,7 @@ class TableStream(ligolw.Stream):
 		rowdumper = tokenizer.RowDumper(self.parentNode.columnnames, [ligolwtypes.FormatFunc[coltype] for coltype in self.parentNode.columntypes], self.Delimiter)
 		rowdumper.dump(self.parentNode)
 		try:
-			line = rowdumper.next()
+			line = next(rowdumper)
 		except StopIteration:
 			# table is empty
 			pass
@@ -664,9 +663,9 @@ class Table(ligolw.Table, list):
 		attribute on the Table object.
 		"""
 		new = copy.copy(self)
-		new.childNodes = map(copy.copy, self.childNodes)
-		for child in new.childNodes:
-			child.parentNode = new
+		new.childNodes = []	# got reference to original list
+		for elem in self.childNodes:
+			new.appendChild(copy.copy(elem))
 		del new[:]
 		new._end_of_columns()
 		new._end_of_rows()
@@ -748,9 +747,9 @@ class Table(ligolw.Table, list):
 		>>> process_table = lsctables.New(lsctables.ProcessTable, [])
 		>>> col = process_table.appendColumn("program")
 		>>> col.getAttribute("Name")
-		'process:program'
+		u'process:program'
 		>>> col.Name
-		'program'
+		u'program'
 		"""
 		try:
 			self.getColumnByName(name)

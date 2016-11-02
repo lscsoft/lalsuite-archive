@@ -29,6 +29,9 @@ import scipy.stats
 import sys
 
 
+import lal
+
+
 from glue import iterutils
 from glue import segmentsUtils
 from glue.ligolw import lsctables
@@ -37,7 +40,6 @@ from glue.ligolw.utils import process as ligolw_process
 from glue.offsetvector import offsetvector
 from pylal import ligolw_burca_tailor
 from pylal import git_version
-from pylal import inject
 from pylal import rate
 from pylal import snglcoinc
 
@@ -87,7 +89,7 @@ def triangulators(timing_uncertainties):
 	triangulators = {}
 	for n in range(2, len(allinstruments) + 1):
 		for instruments in iterutils.choices(allinstruments, n):
-			triangulators[instruments] = snglcoinc.TOATriangulator([inject.cached_detector[inject.prefix_to_name[instrument]].location for instrument in instruments], [timing_uncertainties[instrument] for instrument in instruments])
+			triangulators[instruments] = snglcoinc.TOATriangulator([lal.cached_detector_by_prefix[instrument].location for instrument in instruments], [timing_uncertainties[instrument] for instrument in instruments])
 
 	return triangulators
 
@@ -98,7 +100,7 @@ def triangulators(timing_uncertainties):
 
 
 def dt_binning(instrument1, instrument2):
-	dt = 0.005 + inject.light_travel_time(instrument1, instrument2)	# seconds
+	dt = 0.005 + snglcoinc.light_travel_time(instrument1, instrument2)	# seconds
 	return rate.NDBins((rate.ATanBins(-dt, +dt, 801),))
 
 

@@ -42,6 +42,8 @@ from xml.sax.saxutils import unescape as xmlunescape
 
 from glue import git_version
 from . import types as ligolwtypes
+import six
+from functools import reduce
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -85,7 +87,71 @@ class ElementError(Exception):
 
 
 class attributeproxy(property):
-	def __init__(self, name, enc = unicode, dec = unicode, default = None, doc = None):
+	"""
+	Expose an XML attribute of an Element subclass as Python instance
+	attribute with support for an optional default value.
+
+	The .getAttribute() and .setAttribute() methods of the instance to
+	which this is attached are used to retrieve and set the unicode
+	attribute value, respectively.
+
+	When retrieving a value, the function given via the dec keyword
+	argument will be used to convert the unicode into a native Python
+	object (the default is to leave the unicode value as unicode).
+	When setting a value, the function given via the enc keyword
+	argument will be used to convert a native Python object to a
+	unicode string.
+
+	When retrieving a value, if .getAttribute() raises KeyError then
+	AttributeError is raised unless a default value is provided in
+	which case it is returned instead.
+
+	If doc is provided it will be used as the documentation string,
+	otherwise a default documentation string will be constructed
+	identifying the attribute's name and explaining the default value
+	if one is set.
+
+	NOTE:  If an XML document is parsed and an element is encountered
+	that does not have a value set for an attribute whose corresponding
+	attributeproxy has a default value defined, then Python codes will
+	be told the default value.  Therefore, the default value given here
+	must match what the XML DTD says the default value is for that
+	attribute.  Likewise, attributes for which the DTD does not define
+	a default must not have a default defined here.  These conditions
+	must both be met to not create a discrepancy between the behaviour
+	of Python codes relying on this I/O library and other interfaces to
+	the same document.
+
+	Example:
+
+	>>> class Test(Element):
+	...	Scale = attributeproxy(u"Scale", enc = u"%.17g".__mod__, dec = float, default = 1.0, doc = "This is the scale (default = 1).")
+	...
+	>>> x = Test()
+	>>> # have not set value, default will be returned
+	>>> x.Scale
+	1.0
+	>>> x.Scale = 16
+	>>> x.Scale
+	16.0
+	>>> # default can be retrieved via the .default attribute of the
+	>>> # class attribute
+	>>> Test.Scale.default
+	1.0
+	>>> # default is read-only
+	>>> Test.Scale.default = 2.
+	Traceback (most recent call last):
+	  File "<stdin>", line 1, in <module>
+	AttributeError: can't set attribute
+	>>> # internally, value is stored as unicode (for XML)
+	>>> x.getAttribute("Scale")
+	u'16'
+	>>> # deleting an attribute restores the default value if defined
+	>>> del x.Scale
+	>>> x.Scale
+	1.0
+	"""
+	def __init__(self, name, enc = six.text_type, dec = six.text_type, default = None, doc = None):
 		# define get/set/del implementations, relying on Python's
 		# closure mechanism to remember values for name, default,
 		# etc.
@@ -260,14 +326,14 @@ class Element(object):
 		l = []
 		for c in self.childNodes:
 			try:
-				if reduce(lambda t, (k, v): t and (c.getAttribute(k) == v), attrs.iteritems(), True):
+				if reduce(lambda t, kv: t and (c.getAttribute(kv[0]) == kv[1]), six.iteritems(attrs), True):
 					l.append(c)
 			except KeyError:
 				pass
 		return l
 
 	def hasAttribute(self, attrname):
-		return self.attributes.has_key(attrname)
+		return attrname in self.attributes
 
 	def getAttribute(self, attrname):
 		return self.attributes[attrname]
@@ -277,7 +343,7 @@ class Element(object):
 		# modifies its internal data.  probably not a good idea,
 		# but I don't know how else to edit an attribute because
 		# the stupid things don't export a method to do it.
-		self.attributes._attrs[attrname] = unicode(value)
+		self.attributes._attrs[attrname] = six.text_type(value)
 
 	def removeAttribute(self, attrname):
 		# cafeful:  this digs inside an AttributesImpl object and
@@ -359,20 +425,42 @@ def WalkChildren(elem):
 #
 
 
-class LLWNameAttr(unicode):
+class LLWNameAttr(six.text_type):
 	"""
 	Baseclass to hide pattern-matching of various element names.
 	Subclasses must provide a .dec_pattern compiled regular expression
 	defining a group "Name" that identifies the meaningful portion of
 	the string, and a .enc_pattern that gives a format string to be
 	used with "%" to reconstrct the full string.
+
+	This is intended to be used to provide the enc and dec functions
+	for an attributeproxy instance.
+
+	Example:
+
+	>>> import re
+	>>> class Test(Element):
+	...	class TestName(LLWNameAttr):
+	...		dec_pattern = re.compile(r"(?P<Name>[a-z0-9_]+):test\Z")
+	...		enc_pattern = u"%s:test"
+	...
+	...	Name = attributeproxy(u"Name", enc = TestName.enc, dec = TestName)
+	...
+	>>> x = Test()
+	>>> x.Name = u"blah"
+	>>> # internally, suffix has been appended
+	>>> x.getAttribute("Name")
+	u'blah:test'
+	>>> # but attributeproxy reports original value
+	>>> x.Name
+	u'blah'
 	"""
 	def __new__(cls, name):
 		try:
 			name = cls.dec_pattern.search(name).group(u"Name")
 		except AttributeError:
 			pass
-		return unicode.__new__(cls, name)
+		return six.text_type.__new__(cls, name)
 
 	@classmethod
 	def enc(cls, name):
@@ -638,9 +726,9 @@ class Time(Element):
 		fileobj.write(self.start_tag(indent))
 		if self.pcdata is not None:
 			if self.Type == u"ISO-8601":
-				fileobj.write(xmlescape(unicode(self.pcdata.isoformat())))
+				fileobj.write(xmlescape(six.text_type(self.pcdata.isoformat())))
 			elif self.Type == u"GPS":
-				fileobj.write(xmlescape(unicode(self.pcdata)))
+				fileobj.write(xmlescape(six.text_type(self.pcdata)))
 			elif self.Type == u"Unix":
 				fileobj.write(xmlescape(u"%.16g" % self.pcdata))
 			else:
@@ -649,7 +737,7 @@ class Time(Element):
 				# unicode and let calling code figure out
 				# how to ensure that does the correct
 				# thing.
-				fileobj.write(xmlescape(unicode(self.pcdata)))
+				fileobj.write(xmlescape(six.text_type(self.pcdata)))
 		fileobj.write(self.end_tag(u""))
 		fileobj.write(u"\n")
 
@@ -722,9 +810,14 @@ class LIGOLWContentHandler(sax.handler.ContentHandler, object):
 
 	Example:
 
+	>>> # initialize empty Document tree into which parsed XML tree
+	>>> # will be inserted
 	>>> xmldoc = Document()
+	>>> # create handler instance attached to Document object
 	>>> handler = LIGOLWContentHandler(xmldoc)
-	>>> make_parser(handler).parse(open("H2-POWER_S5-816526720-34.xml"))
+	>>> # open file and parse
+	>>> make_parser(handler).parse(open("demo.xml"))
+	>>> # write XML (default to stdout)
 	>>> xmldoc.write()
 
 	NOTE:  this example is for illustration only.  Most users will wish
@@ -801,7 +894,8 @@ class LIGOLWContentHandler(sax.handler.ContentHandler, object):
 	def startTime(self, parent, attrs):
 		return Time(attrs)
 
-	def startElementNS(self, (uri, localname), qname, attrs):
+	def startElementNS(self, uri_localname, qname, attrs):
+		(uri, localname) = uri_localname
 		try:
 			start_handler = self._startElementHandlers[(uri, localname)]
 		except KeyError:
@@ -812,7 +906,8 @@ class LIGOLWContentHandler(sax.handler.ContentHandler, object):
 		except Exception as e:
 			raise type(e)("line %d: %s" % (self._locator.getLineNumber(), str(e)))
 
-	def endElementNS(self, (uri, localname), qname):
+	def endElementNS(self, uri_localname, qname):
+		(uri, localname) = uri_localname
 		try:
 			self.current.endElement()
 		except Exception as e:
@@ -834,13 +929,13 @@ class PartialLIGOLWContentHandler(LIGOLWContentHandler):
 
 	Example:
 
-	>>> from glue.ligolw import utils
+	>>> from glue.ligolw import utils as ligolw_utils
 	>>> def contenthandler(document):
-	...	return PartialLIGOLWContentHandler(document, lambda name, attrs: name == ligolw.Table.tagName)
+	...	return PartialLIGOLWContentHandler(document, lambda name, attrs: name == Table.tagName)
 	...
-	>>> xmldoc = utils.load_filename("test.xml", contenthandler = contenthandler)
+	>>> xmldoc = ligolw_utils.load_filename("demo.xml", contenthandler = contenthandler)
 
-	This parses "test.xml" and returns an XML tree containing only the
+	This parses "demo.xml" and returns an XML tree containing only the
 	Table elements and their children.
 	"""
 	def __init__(self, document, element_filter):
@@ -853,7 +948,8 @@ class PartialLIGOLWContentHandler(LIGOLWContentHandler):
 		self.element_filter = element_filter
 		self.depth = 0
 
-	def startElementNS(self, (uri, localname), qname, attrs):
+	def startElementNS(self, uri_localname, qname, attrs):
+		(uri, localname) = uri_localname
 		filter_attrs = AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items()))
 		if self.depth > 0 or self.element_filter(localname, filter_attrs):
 			super(PartialLIGOLWContentHandler, self).startElementNS((uri, localname), qname, attrs)
@@ -877,13 +973,13 @@ class FilteringLIGOLWContentHandler(LIGOLWContentHandler):
 
 	Example:
 
-	>>> from glue.ligolw import utils
+	>>> from glue.ligolw import utils as ligolw_utils
 	>>> def contenthandler(document):
-	...	return FilteringLIGOLWContentHandler(document, lambda name, attrs: name != ligolw.Table.tagName)
+	...	return FilteringLIGOLWContentHandler(document, lambda name, attrs: name != Table.tagName)
 	...
-	>>> xmldoc = utils.load_filename("test.xml", contenthandler = contenthandler)
+	>>> xmldoc = ligolw_utils.load_filename("demo.xml", contenthandler = contenthandler)
 
-	This parses "test.xml" and returns an XML tree with all the Table
+	This parses "demo.xml" and returns an XML tree with all the Table
 	elements and their children removed.
 	"""
 	def __init__(self, document, element_filter):
@@ -896,7 +992,8 @@ class FilteringLIGOLWContentHandler(LIGOLWContentHandler):
 		self.element_filter = element_filter
 		self.depth = 0
 
-	def startElementNS(self, (uri, localname), qname, attrs):
+	def startElementNS(self, uri_localname, qname, attrs):
+		(uri, localname) = uri_localname
 		filter_attrs = AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items()))
 		if self.depth == 0 and self.element_filter(localname, filter_attrs):
 			super(FilteringLIGOLWContentHandler, self).startElementNS((uri, localname), qname, attrs)

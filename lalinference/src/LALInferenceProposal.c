@@ -1450,20 +1450,6 @@ static void get_detectors(LALInferenceIFOData *data, LALDetector **detectors) {
         *detectors[i] = *(ifo->detector);
 }
 
-static void get_detector_names(LALInferenceIFOData *data, char ***ifo_names) {
-    INT4 i;
-    INT4 nDet = 0;
-    LALInferenceIFOData *ifo;
-    for (i=0,ifo=data; ifo; i++,ifo=ifo->next)
-        nDet++;
-
-    *ifo_names = XLALCalloc(nDet, sizeof(char*));
-    for(ifo=data,i=0;ifo;ifo=ifo->next,i++) {
-        (*ifo_names)[i] = XLALCalloc(DETNAMELEN, sizeof(char));
-        strcpy((*ifo_names)[i], ifo->name);
-    }
-}
-
 static void sph_to_cart(REAL8 cart[3], const REAL8 lat, const REAL8 longi) {
     cart[0] = cos(longi)*cos(lat);
     cart[1] = sin(longi)*cos(lat);
@@ -2453,7 +2439,7 @@ REAL8 LALInferenceGlitchMorletReverseJump(LALInferenceThreadState *thread,
 
     /* Check that new dimension is allowed */
     if(ny<nmin || ny>=nmax) {
-        logPropRatio = -DBL_MAX;
+        logPropRatio = -INFINITY;
         return logPropRatio;
     }
 
@@ -3050,7 +3036,7 @@ void LALInferenceSetupAdaptiveProposals(LALInferenceVariables *propArgs, LALInfe
     INT4 no_adapt, adapting;
     INT4 adaptTau, adaptableStep, adaptLength, adaptResetBuffer;
     REAL8 sigma, s_gamma;
-    REAL8 logLAtAdaptStart = -DBL_MAX;
+    REAL8 logPAtAdaptStart = -INFINITY;
 
     LALInferenceVariableItem *this;
 
@@ -3097,7 +3083,7 @@ void LALInferenceSetupAdaptiveProposals(LALInferenceVariables *propArgs, LALInfe
     LALInferenceAddINT4Variable(propArgs, "adaptLength", adaptLength, LALINFERENCE_PARAM_LINEAR);
     LALInferenceAddINT4Variable(propArgs, "adaptResetBuffer", adaptResetBuffer, LALINFERENCE_PARAM_LINEAR);
     LALInferenceAddREAL8Variable(propArgs, "s_gamma", s_gamma, LALINFERENCE_PARAM_LINEAR);
-    LALInferenceAddREAL8Variable(propArgs, "logLAtAdaptStart", logLAtAdaptStart, LALINFERENCE_PARAM_LINEAR);
+    LALInferenceAddREAL8Variable(propArgs, "logPAtAdaptStart", logPAtAdaptStart, LALINFERENCE_PARAM_LINEAR);
 
     return;
 }
@@ -3639,7 +3625,7 @@ REAL8 LALInferenceClusteredKDEProposal(LALInferenceThreadState *thread, LALInfer
  * @param      thread         The current LALInferenceThreadState.
  * @param      currentParams  The current parameters.
  * @param[out] proposedParams The proposed parameters.
- * @param      propDensity    If input is not NULL or >-DBL_MAX, assume this is the
+ * @param      propDensity    If input is not NULL or >-INFINITY, assume this is the
  *                              proposal density at \a currentParams, otherwise
  *                              calculate.  It is then replaced with the proposal
  *                              density at \a proposedParams.
@@ -3694,7 +3680,7 @@ REAL8 LALInferenceStoredClusteredKDEProposal(LALInferenceThreadState *thread, LA
 
     /* Calculate the proposal ratio */
     REAL8 logCurrentP;
-    if (propDensity == NULL || *propDensity == -DBL_MAX)
+    if (propDensity == NULL || *propDensity == -INFINITY)
         logCurrentP = LALInferenceKmeansPDF(kde->kmeans, current);
     else
         logCurrentP = *propDensity;
@@ -3882,14 +3868,12 @@ void LALInferencePrintProposalTracking(FILE *fp, LALInferenceProposalCycle *cycl
 }
 
 REAL8 LALInferenceSplineCalibrationProposal(LALInferenceThreadState *thread, LALInferenceVariables *currentParams, LALInferenceVariables *proposedParams) {
-  char **ifo_names;
-  INT4 ifo;
   INT4 nifo = LALInferenceGetINT4Variable(thread->proposalArgs, "nDet");
-
+  LALInferenceIFOData *det=NULL;
   LALInferenceCopyVariables(currentParams, proposedParams);
 
-  get_detector_names(thread->parent->data, &ifo_names);
-  for (ifo=0; ifo<nifo; ifo++) {
+  for(det=thread->parent->data;det;det=det->next)
+  {
     UINT4 i;
 
     char ampName[VARNAME_MAX];
@@ -3900,8 +3884,8 @@ REAL8 LALInferenceSplineCalibrationProposal(LALInferenceThreadState *thread, LAL
     REAL8 phaseWidth;
     UINT4 nspl = LALInferenceGetUINT4Variable(proposedParams, "spcal_npts");
     for (i = 0; i < nspl; i++) {
-      snprintf(ampName, VARNAME_MAX, "%s_spcal_amp_%i", ifo_names[ifo], i);
-      snprintf(phaseName, VARNAME_MAX, "%s_spcal_phase_%i", ifo_names[ifo], i);
+      snprintf(ampName, VARNAME_MAX, "%s_spcal_amp_%i", det->name, i);
+      snprintf(phaseName, VARNAME_MAX, "%s_spcal_phase_%i", det->name, i);
 
       LALInferenceGetGaussianPrior(thread->priorArgs, ampName, &dummy, &ampWidth);
       REAL8 amp = LALInferenceGetREAL8Variable(proposedParams, ampName);
@@ -3914,8 +3898,6 @@ REAL8 LALInferenceSplineCalibrationProposal(LALInferenceThreadState *thread, LAL
       LALInferenceSetREAL8Variable(proposedParams, phaseName, ph);
     }
   };
-
-  XLALFree(ifo_names);
 
   return 0.0;
 }
