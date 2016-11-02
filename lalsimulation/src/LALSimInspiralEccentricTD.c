@@ -1099,7 +1099,7 @@ int XLALSimInspiralEccentricTDIMRv2Generator(
                 //REAL8 deltaT,                   /**< sampling interval (s) */
                 REAL8 m1,                       /**< mass of companion 1 (kg) */
                 REAL8 m2,                       /**< mass of companion 2 (kg) */
-                REAL8 S1z,                       /**< spin1z of companion 1 (kg) */
+                REAL8 lambda1,                   
                 REAL8 f_min,                    /**< start frequency (Hz) */
                 //REAL8 fRef,                     /**< reference frequency (Hz) */
                 REAL8 r,                        /**< distance of source (m) */
@@ -1119,7 +1119,7 @@ int XLALSimInspiralEccentricTDIMRv2Generator(
 	REAL8 mass1 = m1/LAL_MSUN_SI;
 	REAL8 mass2 = m2/LAL_MSUN_SI;
 	REAL8 distance = r/(1.0e6 * LAL_PC_SI);
-	REAL8 e_min = abs(S1z);
+	REAL8 e_min = abs(lambda1);
 
         REAL8 sample_rate = 8192.;
 	REAL8 deltaT = 1./sample_rate;
