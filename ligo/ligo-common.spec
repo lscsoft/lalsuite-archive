@@ -1,6 +1,6 @@
 %define name ligo-common
-%define version 1.0.1
-%define unmangled_version 1.0.1
+%define version 1.0.2
+%define unmangled_version 1.0.2
 %define release 1
 
 Summary: Empty LIGO modules
