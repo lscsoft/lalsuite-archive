@@ -15,7 +15,7 @@ Prefix: %{_prefix}
 BuildArch: noarch
 Requires: python
 BuildRequires: python
-Vendor: Brian Moe <brian.moe@ligo.org>
+Vendor: Tanner Prestegard <tanner.prestegard@ligo.org>
 
 %description
 Empty module placeholder for other LIGO modules
