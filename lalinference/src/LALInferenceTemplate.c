@@ -66,7 +66,7 @@
 #define Pi_p2by3 2.1450293971110256000774441009412356
 #define log4 1.3862943611198906188344642429163531
 
-static double copt=-1.0, zopt=-1.0;
+static double copt=-0.1, zopt=0.5;
 static void q2masses(double mc, double q, double *m1, double *m2);
 static void mzc2masses(double mc, double mzc, double *m1, double *m2);
 

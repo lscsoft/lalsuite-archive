@@ -65,6 +65,7 @@ static void del_elem(void *elem)
   XLALFree(elem);
 }
 
+static double copt=-0.1, zopt=0.5;
 static UINT8 LALInferenceElemHash(const void *elem);
 static UINT8 LALInferenceElemHash(const void *elem)
 {
@@ -2288,7 +2289,6 @@ void LALInferenceMcMzc2Masses(double mc, double mzc, double *m1, double *m2)
 /*  for given chirp mass (m_c) & mass ratio (mzc)  */
 /*  (note: m1 >= m2).                              */
 {
-  double copt=-1.0, zopt=-1.0;
   double dopt=copt*zopt;
   double kopt=5.0/(3.0*copt -2.0*dopt);
   double delta_opt=sqrt(1.0 - 4.0 * pow(mc, kopt*copt*(1.0+zopt)) * pow(mzc, -kopt));

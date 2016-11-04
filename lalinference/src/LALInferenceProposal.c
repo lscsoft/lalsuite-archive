@@ -739,10 +739,12 @@ REAL8 LALInferenceSingleProposal(LALInferenceThreadState *thread,
 
         *(REAL8 *)param->value += gsl_ran_ugaussian(GSLrandom)*sigma;
     } else {
-        if (!strcmp(param->name,"eta") || !strcmp(param->name,"mzc") || !strcmp(param->name,"q") || !strcmp(param->name,"time") || !strcmp(param->name,"t0") || !strcmp(param->name,"a_spin2") || !strcmp(param->name,"a_spin1")){
+        if (!strcmp(param->name,"eta") || !strcmp(param->name,"q") || !strcmp(param->name,"time") || !strcmp(param->name,"t0") || !strcmp(param->name,"a_spin2") || !strcmp(param->name,"a_spin1")){
             *(REAL8 *)param->value += gsl_ran_ugaussian(GSLrandom)*big_sigma*sigma*0.001;
         } else if (!strcmp(param->name,"polarisation") || !strcmp(param->name,"phase") || !strcmp(param->name,"costheta_jn")){
             *(REAL8 *)param->value += gsl_ran_ugaussian(GSLrandom)*big_sigma*sigma*0.1;
+        } else if (!strcmp(param->name,"mzc")){
+            *(REAL8 *)param->value += gsl_ran_ugaussian(GSLrandom)*big_sigma*sigma*0.001;
         } else {
             *(REAL8 *)param->value += gsl_ran_ugaussian(GSLrandom)*big_sigma*sigma*0.01;
         }
@@ -3057,10 +3059,12 @@ void LALInferenceSetupAdaptiveProposals(LALInferenceVariables *propArgs, LALInfe
         if (LALInferenceCheckVariableNonFixed(params, this->name) && this->type == LALINFERENCE_REAL8_t) {
             char *name = this->name;
 
-            if (!strcmp(name, "eta") || !strcmp(name, "mzc") || !strcmp(name, "q") || !strcmp(name, "time") || !strcmp(name, "a_spin2") || !strcmp(name, "a_spin1") || !strcmp(name,"t0")){
+            if (!strcmp(name, "eta") || !strcmp(name, "q") || !strcmp(name, "time") || !strcmp(name, "a_spin2") || !strcmp(name, "a_spin1") || !strcmp(name,"t0")){
                 sigma = 0.001;      // arbitrarily set,  to be edited. check it 
             } else if (!strcmp(name, "polarisation") || !strcmp(name, "phase") || !strcmp(name, "costheta_jn")){
                 sigma = 0.1;
+            } else if (!strcmp(name, "mzc")){
+                sigma = 0.001;
             } else {
                 sigma = 0.01;
             }

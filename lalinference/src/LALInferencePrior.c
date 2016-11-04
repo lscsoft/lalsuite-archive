@@ -38,7 +38,7 @@
 #endif
 
 /* optimal mass param coefficients  */
-static double copt=-1.0, zopt=-1.0;
+static double copt=-0.1, zopt=0.5;
 
 /* Private helper function prototypes */
 static double qInnerIntegrand(double M2, void *viData);
@@ -529,20 +529,19 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
   {
     if(LALInferenceCheckVariable(params,"q"))
       {
-      printf("m1:  %f\n",m1);
-      printf("m2:  %f\n",m2);
-      printf("q:  %f\n",q);
-      printf("addition to logPrior by mzc:  %f\n",log(5.0*m1*m2*(m1+m2)/((2.0*(zopt * copt)-3.0*copt)*mc*(pow(m1*m2,zopt*copt)*pow(m1+m2,(1-zopt)*copt))*(m1-m2))));
-      printf("addition to logPrior by q:  %f\n",log(m1*m1/mc));
+      //printf("m1:  %f\n",m1);
+      //printf("m2:  %f\n",m2);
+      //printf("q:  %f\n",q);
+      //printf("addition to logPrior by mzc:  %f\n",log(5.0*m1*m2*(m1+m2)/((2.0*(zopt * copt)-3.0*copt)*mc*(pow(m1*m2,zopt*copt)*pow(m1+m2,(1-zopt)*copt))*(m1-m2))));
+      //printf("addition to logPrior by q:  %f\n",log(m1*m1/mc));
       logPrior+=log(m1*m1/mc);
       }
     else if(LALInferenceCheckVariable(params,"mzc"))
       {
-      printf("m1:  %f\n",m1);
-      printf("m2:  %f\n",m2);
-      printf("mzc:  %f\n",mzc);
-      printf("addition to logPrior by mzc:  %f\n",log(5.0*m1*m2*(m1+m2)/((2.0*(zopt * copt)-3.0*copt)*mc*mzc*(m1-m2))));
-      printf("addition to logPrior by q:  %f\n",log(m1*m1/mc));
+      //printf("m1:  %f\n",m1);
+      //printf("m2:  %f\n",m2);
+      //printf("mzc:  %f\n",mzc);printf("mc:  %f\n",mc);
+      //printf("addition to logPrior by mzc:  %f\n",log(5.0*m1*m2*(m1+m2)/((2.0*(zopt * copt)-3.0*copt)*mc*mzc*(m1-m2))));
       logPrior+=log(5.0*m1*m2*(m1+m2)/((2.0*(zopt * copt)-3.0*copt)*mc*mzc*(m1-m2)));//logPrior+=log(m1*m1/mc);
       }
     else
@@ -1001,8 +1000,8 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
             return 0;
     if(LALInferenceCheckVariable(params,"mzc"))
         if(isnan(*(REAL8 *)LALInferenceGetVariable(params,"mzc"))
-           ||*(REAL8 *)LALInferenceGetVariable(params,"mzc") < 0.0
-           || *(REAL8 *)LALInferenceGetVariable(params,"mzc") > 0.25)
+           ||*(REAL8 *)LALInferenceGetVariable(params,"mzc") < 0.3469
+           || *(REAL8 *)LALInferenceGetVariable(params,"mzc") > 0.5904)
             return 0;
     if(LALInferenceCheckVariable(params,"eta"))
         if(isnan(*(REAL8 *)LALInferenceGetVariable(params,"eta"))
@@ -1729,8 +1728,8 @@ UINT4 LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALI
             return 0;
     if(LALInferenceCheckVariable(params,"mzc"))
         if(isnan(*(REAL8 *)LALInferenceGetVariable(params,"mzc"))
-           ||*(REAL8 *)LALInferenceGetVariable(params,"mzc") < 0.0
-           || *(REAL8 *)LALInferenceGetVariable(params,"mzc") > 0.25)
+           ||*(REAL8 *)LALInferenceGetVariable(params,"mzc") < 0.3469
+           || *(REAL8 *)LALInferenceGetVariable(params,"mzc") > 0.5904)
             return 0;
     if(LALInferenceCheckVariable(params,"eta"))
         if(isnan(*(REAL8 *)LALInferenceGetVariable(params,"eta"))

@@ -609,14 +609,14 @@ void LALInferenceRegisterUniformVariableREAL8(LALInferenceRunState *state, LALIn
     REAL8 mzcMin=min;
    REAL8 mzcMax=max;
 
-    if (mzcMin <= 0.000 || mzcMin > 0.25)
+    if (mzcMin < 0.3463 || mzcMin > 0.5904)
     {
-        fprintf(stderr,"ERROR: mzcMin must be between 0.0 and 0.25, got value mzcMin=%f\n",mzcMin);
+        fprintf(stderr,"ERROR: mzcMin must be between physical limits, got value mzcMin=%f\n",mzcMin);
 		exit(1);
     }
-    if (mzcMax >0.25 || mzcMax <0.0 || mzcMax < mzcMin)
+    if (mzcMax >0.5904 || mzcMax <0.3469 || mzcMax < mzcMin)
     {
-      fprintf(stderr,"ERROR: mzcMax must be between 0.0 and 0.25, and mzcMax > mzcMin. Got value mzcMax=%f, mzcMin=%f\n",mzcMax,mzcMin);
+      fprintf(stderr,"ERROR: mzcMax must be between physical limits, and mzcMax > mzcMin. Got value mzcMax=%f, mzcMin=%f\n",mzcMax,mzcMin);
 	  exit(1);
     }
   }
@@ -760,8 +760,8 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   REAL8 mcMax=15.3;
   REAL8 etaMin=0.0312;
   REAL8 etaMax=0.25;
-  REAL8 mzcMin=0.0312;   
-  REAL8 mzcMax=0.25;
+  REAL8 mzcMin=.3463;   
+  REAL8 mzcMax=0.5904;
   REAL8 qMin=1./30.; // The ratio between min and max component mass (see InitMassVariables)
   REAL8 qMax=1.0;
   REAL8 psiMin=0.0,psiMax=LAL_PI;
