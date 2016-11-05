@@ -145,7 +145,7 @@ def readLValert(threshold_snr=None,gid=None,flow=40.0,gracedb="gracedb",basepath
     horizon_distance = max(horizon_distance) if len(horizon_distance) > 0 else None
     ev=Event(CoincInspiral=coinc, GID=gid, ifos = ifos, duration = max(dur), srate = srate,
              trigSNR = trigSNR, fhigh = fhigh, horizon_distance=horizon_distance)
-    if(coinc.snr>SNRthreshold): output.append(ev)
+    output.append(ev)
 
   print "Found %d coinc events in table." % len(coinc_events)
   os.chdir(cwd)
