@@ -6148,8 +6148,8 @@ class PEOutputParser(object):
             else:
                 fixedBurnin = 0
 
-            post_burnin = np.arange(len(samples))[samples['cycle'] < fixedBurnin]
-            burnin_idx = post_burnin[-1] if len(post_burnin) > 0 else len(samples)
+            burnin_cycles = np.arange(len(samples))[samples['cycle'] < fixedBurnin]
+            burnin_idx = burnin_cycles[-1] if len(burnin_cycles) > 0 else 0
             samples = samples[burnin_idx:]
 
             logPThreshold=-np.inf
