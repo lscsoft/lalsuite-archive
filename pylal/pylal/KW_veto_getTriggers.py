@@ -214,7 +214,7 @@ def get_trigs_xml(GWcursor,trigger_file,segs,min_thresh,tracker,verbose):
     def ContentHandler(xmldoc):
         return ligolw.PartialLIGOLWContentHandler(xmldoc, lambda name, attrs:\
                            (name == ligolw.Table.tagName) and\
-                           (table.StripTableName(attrs["Name"]) in tables))
+                           (table.Table.TableName(attrs["Name"]) in tables))
     try:
       lsctables.use_in(ligolw.PartialLIGOLWContentHandler)
     except AttributeError:
