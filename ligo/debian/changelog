@@ -1,8 +1,11 @@
-ligo-common (1.0.2) UNRELEASED; urgency=medium
+ligo-common (1.0.2-1) unstable; urgency=low
 
   * Build lintian-clean.
+  * Adding dependencies.
+  * Modernizing and porting to Python 3 for Debian.
+  * Handling namespacing.
 
- -- Leo Singer <leo.singer@ligo.org>  Wed, 21 Sep 2016 18:36:39 -0400
+ -- Tanner Prestegard <tanner.prestegard@ligo.org>  Thu, 03 Nov 2016 15:57:39 -0500
 
 ligo-common (1.0.1) unstable; urgency=low
 
