@@ -71,7 +71,7 @@ def run_file_operation(outdoc, filenames, use_segment_table, operation, preserve
     etc
     """
 
-    proc_id = table.get_table(outdoc, lsctables.ProcessTable.tableName)[0].process_id
+    proc_id = lsctables.ProcessTable.get_table(outdoc)[0].process_id
 
     # load up the files into individual documents
     xmldocs = [ligolw_add.ligolw_add(ligolw.Document(), [fname]) for fname in filenames]
@@ -86,8 +86,8 @@ def run_file_operation(outdoc, filenames, use_segment_table, operation, preserve
         return key
 
     for xmldoc in xmldocs:
-        seg_def_table = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
-        map (register_definer, seg_def_table)
+        seg_def_table = lsctables.SegmentDefTable.get_table(xmldoc)
+        list(map (register_definer, seg_def_table))
 
     # For each unique segment definer, find the intersection
     for ifo, name, version in segment_definers:
@@ -123,7 +123,7 @@ def run_file_operation(outdoc, filenames, use_segment_table, operation, preserve
     # If we're preserving, also load up everything into the output document.
     if preserve:
         # Add them to the output document
-        map(lambda x: outdoc.appendChild(x.childNodes[0]), xmldocs)
+        list(map(lambda x: outdoc.appendChild(x.childNodes[0]), xmldocs))
 
         # Merge the ligolw elements and tables
         ligolw_add.merge_ligolws(outdoc)
@@ -146,7 +146,7 @@ def run_segment_operation(outdoc, filenames, segments, use_segment_table, operat
     etc
     """
 
-    proc_id = table.get_table(outdoc, lsctables.ProcessTable.tableName)[0].process_id
+    proc_id = lsctables.ProcessTable.get_table(outdoc)[0].process_id
 
     if preserve:
         indoc = ligolw_add.ligolw_add(outdoc, filenames)

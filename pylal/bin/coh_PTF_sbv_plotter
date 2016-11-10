@@ -174,7 +174,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
 
   # load file
   xmldoc = utils.load_filename(trigFile, gz=trigFile.endswith("gz"), contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
-  searchSumm = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
+  searchSumm = lsctables.SearchSummaryTable.get_table(xmldoc)
 
   # extract IFOS
   ifos = sorted(map(str, searchSumm[0].get_ifos()))
@@ -192,7 +192,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   vetoes.coalesce()
 
   # load triggers
-  tmp   = table.get_table(xmldoc, lsctables.MultiInspiralTable.tableName)
+  tmp   = lsctables.MultiInspiralTable.get_table(xmldoc)
   lsctables.MultiInspiralTable.loadcolumns =\
       [slot for slot in tmp[0].__slots__ if hasattr(tmp[0], slot)]
   trigs = lsctables.New(lsctables.MultiInspiralTable,\
@@ -215,7 +215,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     if verbose:
       sys.stdout.write("\nLoading injections...\n")
     xmldoc = utils.load_filename(injFile, gz=injFile.endswith("gz"), contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
-    tmp = table.get_table(xmldoc, lsctables.MultiInspiralTable.tableName)
+    tmp = lsctables.MultiInspiralTable.get_table(xmldoc)
     injs = lsctables.New(lsctables.MultiInspiralTable,\
                         columns=lsctables.MultiInspiralTable.loadcolumns)
     injs.extend(t for t in tmp if t.get_end() not in vetoes)

@@ -45,11 +45,6 @@ from glue import offsetvector
 from glue import segments
 import lal
 from lal import LIGOTimeGPS
-try:
-	from pylal import inject
-except ImportError:
-	# pylal is optional
-	pass
 from . import ligolw
 from . import table
 from . import types as ligolwtypes
@@ -114,17 +109,17 @@ def New(Type, columns = None, **kwargs):
 	</Table>
 	"""
 	new = Type(sax.xmlreader.AttributesImpl({u"Name": Type.tableName}), **kwargs)
-	colnamefmt = u":".join(Type.tableName.split(":")[:-1]) + u":%s"
+	colnamefmt = new.Name + u":%s"
 	if columns is not None:
 		for key in columns:
 			if key not in new.validcolumns:
-				raise ligolw.ElementError("invalid Column '%s' for Table '%s'" % (key, new.tableName))
+				raise ligolw.ElementError("invalid Column '%s' for Table '%s'" % (key, new.Name))
 			new.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % key, u"Type": new.validcolumns[key]})))
 	else:
 		for key, value in new.validcolumns.items():
 			new.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % key, u"Type": value})))
 	new._end_of_columns()
-	new.appendChild(table.TableStream(sax.xmlreader.AttributesImpl({u"Name": Type.tableName, u"Delimiter": table.TableStream.Delimiter.default, u"Type": table.TableStream.Type.default})))
+	new.appendChild(table.TableStream(sax.xmlreader.AttributesImpl({u"Name": new.getAttribute(u"Name"), u"Delimiter": table.TableStream.Delimiter.default, u"Type": table.TableStream.Type.default})))
 	return new
 
 
@@ -136,145 +131,251 @@ def HasNonLSCTables(elem):
 	return any(t.Name not in TableByName for t in elem.getElementsByTagName(ligolw.Table.tagName))
 
 
-def instrument_set_from_ifos(ifos):
+class instrumentsproperty(object):
+	def __init__(self, name):
+		self.name = name
+
+	@staticmethod
+	def get(ifos):
+		"""
+		Parse the values stored in the "ifos" and "instruments"
+		columns found in many tables.  This function is mostly for
+		internal use by the .instruments properties of the
+		corresponding row classes.  The mapping from input to
+		output is as follows (rules are applied in order):
+
+		input is None --> output is None
+
+		input contains "," --> output is set of strings split on
+		"," with leading and trailing whitespace stripped from each
+		piece and empty strings removed from the set
+
+		input contains "+" --> output is set of strings split on
+		"+" with leading and trailing whitespace stripped from each
+		piece and empty strings removed from the set
+
+		else, after stripping input of leading and trailing
+		whitespace,
+
+		input has an even length greater than two --> output is set
+		of two-character pieces
+
+		input is a non-empty string --> output is a set containing
+		input as single value
+
+		else output is an empty set.
+
+		NOTE:  the complexity of this algorithm is a consequence of
+		there being several conventions in use for encoding a set
+		of instruments into one of these columns;  it has been
+		proposed that L.L.W.  documents standardize on the
+		comma-delimited variant of the encodings recognized by this
+		function, and for this reason the inverse function,
+		instrumentsproperty.set(), implements that encoding only.
+
+		NOTE:  to force a string containing an even number of
+		characters to be interpreted as a single instrument name
+		and not to be be split into two-character pieces, add a ","
+		character to the end to force the comma-delimited decoding
+		to be used.  instrumentsproperty.set() does this for you.
+
+		Example:
+
+		>>> print instrumentsproperty.get(None)
+		None
+		>>> instrumentsproperty.get(u"")
+		set([])
+		>>> instrumentsproperty.get(u"  ,  ,,")
+		set([])
+		>>> instrumentsproperty.get(u"H1")
+		set([u'H1'])
+		>>> instrumentsproperty.get(u"SWIFT")
+		set([u'SWIFT'])
+		>>> instrumentsproperty.get(u"H1L1")
+		set([u'H1', u'L1'])
+		>>> instrumentsproperty.get(u"H1L1,")
+		set([u'H1L1'])
+		>>> instrumentsproperty.get(u"H1,L1")
+		set([u'H1', u'L1'])
+		>>> instrumentsproperty.get(u"H1+L1")
+		set([u'H1', u'L1'])
+		"""
+		if ifos is None:
+			return None
+		if u"," in ifos:
+			result = set(ifo.strip() for ifo in ifos.split(u","))
+			result.discard(u"")
+			return result
+		if u"+" in ifos:
+			result = set(ifo.strip() for ifo in ifos.split(u"+"))
+			result.discard(u"")
+			return result
+		ifos = ifos.strip()
+		if len(ifos) > 2 and not len(ifos) % 2:
+			# if ifos is a string with an even number of
+			# characters greater than two, split it into
+			# two-character pieces.  FIXME:  remove this when
+			# the inspiral codes don't write ifos strings like
+			# this anymore
+			return set(ifos[n:n+2] for n in range(0, len(ifos), 2))
+		if ifos:
+			return set([ifos])
+		return set()
+
+	@staticmethod
+	def set(instruments):
+		"""
+		Convert an iterable of instrument names into a value
+		suitable for storage in the "ifos" column found in many
+		tables.  This function is mostly for internal use by the
+		.instruments properties of the corresponding row classes.
+		The input can be None or an iterable of zero or more
+		instrument names, none of which may be zero-length, consist
+		exclusively of spaces, or contain "," or "+" characters.
+		The output is a single string containing the unique
+		instrument names concatenated using "," as a delimiter.
+		instruments will only be iterated over once and so can be a
+		generator expression.  Whitespace is allowed in instrument
+		names but might not be preserved.  Repeated names will not
+		be preserved.
+
+		NOTE:  in the special case that there is 1 instrument name
+		in the iterable and it has an even number of characters > 2
+		in it, the output will have a "," appended in order to
+		force instrumentsproperty.get() to parse the string back
+		into a single instrument name.  This is a special case
+		included temporarily to disambiguate the encoding until all
+		codes have been ported to the comma-delimited encoding.
+		This behaviour will be discontinued at that time.  DO NOT
+		WRITE CODE THAT RELIES ON THIS!  You have been warned.
+
+		Example:
+
+		>>> print instrumentsproperty.set(None)
+		None
+		>>> instrumentsproperty.set(())
+		u''
+		>>> instrumentsproperty.set((u"H1",))
+		u'H1'
+		>>> instrumentsproperty.set((u"H1",u"H1",u"H1"))
+		u'H1'
+		>>> instrumentsproperty.set((u"H1",u"L1"))
+		u'H1,L1'
+		>>> instrumentsproperty.set((u"SWIFT",))
+		u'SWIFT'
+		>>> instrumentsproperty.set((u"H1L1",))
+		u'H1L1,'
+		"""
+		if instruments is None:
+			return None
+		_instruments = sorted(set(instrument.strip() for instrument in instruments))
+		# safety check:  refuse to accept blank names, or names
+		# with commas or pluses in them as they cannot survive the
+		# encode/decode process
+		if not all(_instruments) or any(u"," in instrument or u"+" in instrument for instrument in _instruments):
+			raise ValueError(instruments)
+		if len(_instruments) == 1 and len(_instruments[0]) > 2 and not len(_instruments[0]) % 2:
+			# special case disambiguation.  FIXME:  remove when
+			# everything uses the comma-delimited encoding
+			return u"%s," % _instruments[0]
+		return u",".join(_instruments)
+
+	def __get__(self, obj, type = None):
+		return self.get(getattr(obj, self.name))
+
+	def __set__(self, obj, instruments):
+		setattr(obj, self.name, self.set(instruments))
+
+
+instrument_set_from_ifos = instrumentsproperty.get
+ifos_from_instrument_set = instrumentsproperty.set
+
+
+class gpsproperty(object):
 	"""
-	Parse the values stored in the "ifos" and "instruments" columns
-	found in many tables.  This function is mostly for internal use by
-	the .instruments properties of the corresponding row classes.  The
-	mapping from input to output is as follows (rules are applied in
-	order):
-
-	input is None --> output is None
-
-	input contains "," --> output is set of strings split on "," with
-	leading and trailing whitespace stripped from each piece and empty
-	strings removed from the set
-
-	input contains "+" --> output is set of strings split on "+" with
-	leading and trailing whitespace stripped from each piece and empty
-	strings removed from the set
-
-	else, after stripping input of leading and trailing whitespace,
-
-	input has an even length greater than two --> output is set of
-	two-character pieces
-
-	input is a non-empty string --> output is a set containing input as
-	single value
-
-	else output is an empty set.
-
-	NOTE:  the complexity of this algorithm is a consequence of there
-	being several conventions in use for encoding a set of instruments
-	into one of these columns;  it has been proposed that L.L.W.
-	documents standardize on the comma-delimited variant of the
-	encodings recognized by this function, and for this reason the
-	inverse function, ifos_from_instrument_set(), implements that
-	encoding only.
-
-	NOTE:  to force a string containing an even number of characters to
-	be interpreted as a single instrument name and not to be be split
-	into two-character pieces, add a "," or "+" character to the end to
-	force the comma- or plus-delimited decoding to be used.
-	ifos_from_instrument_set() does this for you.
-
-	Example:
-
-	>>> print instrument_set_from_ifos(None)
-	None
-	>>> instrument_set_from_ifos(u"")
-	set([])
-	>>> instrument_set_from_ifos(u"  ,  ,,")
-	set([])
-	>>> instrument_set_from_ifos(u"H1")
-	set([u'H1'])
-	>>> instrument_set_from_ifos(u"SWIFT")
-	set([u'SWIFT'])
-	>>> instrument_set_from_ifos(u"H1L1")
-	set([u'H1', u'L1'])
-	>>> instrument_set_from_ifos(u"H1L1,")
-	set([u'H1L1'])
-	>>> instrument_set_from_ifos(u"H1,L1")
-	set([u'H1', u'L1'])
-	>>> instrument_set_from_ifos(u"H1+L1")
-	set([u'H1', u'L1'])
+	Descriptor used internally to implement LIGOTimeGPS-valued
+	properties.
 	"""
-	if ifos is None:
-		return None
-	if u"," in ifos:
-		result = set(ifo.strip() for ifo in ifos.split(u","))
-		result.discard(u"")
-		return result
-	if u"+" in ifos:
-		result = set(ifo.strip() for ifo in ifos.split(u"+"))
-		result.discard(u"")
-		return result
-	ifos = ifos.strip()
-	if len(ifos) > 2 and not len(ifos) % 2:
-		# if ifos is a string with an even number of characters
-		# greater than two, split it into two-character pieces.
-		# FIXME:  remove this when the inspiral codes don't write
-		# ifos strings like this anymore
-		return set(ifos[n:n+2] for n in range(0, len(ifos), 2))
-	if ifos:
-		return set([ifos])
-	return set()
+	def __init__(self, s_name, ns_name):
+		self.s_name = s_name
+		self.ns_name = ns_name
+
+	posinf = 0x7FFFFFFF, 0xFFFFFFFF
+	neginf = 0xFFFFFFFF, 0xFFFFFFFF
+
+	def __get__(self, obj, type = None):
+		s = getattr(obj, self.s_name)
+		ns = getattr(obj, self.ns_name)
+		if s is None and ns is None:
+			return None
+		if (s, ns) == self.posinf:
+			return segments.PosInfinity
+		if (s, ns) == self.neginf:
+			return segments.NegInfinity
+		return LIGOTimeGPS(s, ns)
+
+	def __set__(self, obj, gps):
+		if gps is None:
+			s = ns = None
+		elif isinstance(gps, segments.infinity) or math.isinf(gps):
+			if gps > 0:
+				s, ns = self.posinf
+			elif gps < 0:
+				s, ns = self.neginf
+			else:
+				raise ValueError(gps)
+		else:
+			try:
+				s = gps.gpsSeconds
+				ns = gps.gpsNanoSeconds
+			except AttributeError:
+				# try converting and going again
+				return self.__set__(obj, LIGOTimeGPS(gps))
+			if abs(ns) > 999999999:
+				raise ValueError("denormalized LIGOTimeGPS not allowed")
+		setattr(obj, self.s_name, s)
+		setattr(obj, self.ns_name, ns)
 
 
-def ifos_from_instrument_set(instruments):
+class gpsproperty_with_gmst(gpsproperty):
+	def __init__(self, s_name, ns_name, gmst_name):
+		super(gpsproperty_with_gmst, self).__init__(s_name, ns_name)
+		self.gmst_name = gmst_name
+
+	def __set__(self, obj, gps):
+		super(gpsproperty_with_gmst, self).__set__(obj, gps)
+		if gps is None:
+			setattr(obj, self.gmst_name, None)
+		else:
+			# re-retrieve the value in case it required type
+			# conversion
+			gps = self.__get__(obj)
+			setattr(obj, self.gmst_name, lal.GreenwichMeanSiderealTime(gps))
+
+
+class segmentproperty(object):
 	"""
-	Convert an iterable of instrument names into a value suitable for
-	storage in the "ifos" column found in many tables.  This function
-	is mostly for internal use by the .instruments properties of the
-	corresponding row classes.  The input can be None or an iterable of
-	zero or more instrument names, none of which may be zero-length,
-	consist exclusively of spaces, or contain "," or "+" characters.
-	The output is a single string containing the unique instrument
-	names concatenated using "," as a delimiter.  instruments will only
-	be iterated over once and so can be a generator expression.
-	Whitespace is allowed in instrument names but might not be
-	preserved.  Repeated names will not be preserved.
-
-	NOTE:  in the special case that there is 1 instrument name in the
-	iterable and it has an even number of characters > 2 in it, the
-	output will have a "," appended in order to force
-	instrument_set_from_ifos() to parse the string back into a single
-	instrument name.  This is a special case included temporarily to
-	disambiguate the encoding until all codes have been ported to the
-	comma-delimited encoding.  This behaviour will be discontinued at
-	that time.  DO NOT WRITE CODE THAT RELIES ON THIS!  You have been
-	warned.
-
-	Example:
-
-	>>> print ifos_from_instrument_set(None)
-	None
-	>>> ifos_from_instrument_set(())
-	u''
-	>>> ifos_from_instrument_set((u"H1",))
-	u'H1'
-	>>> ifos_from_instrument_set((u"H1",u"H1",u"H1"))
-	u'H1'
-	>>> ifos_from_instrument_set((u"H1",u"L1"))
-	u'H1,L1'
-	>>> ifos_from_instrument_set((u"SWIFT",))
-	u'SWIFT'
-	>>> ifos_from_instrument_set((u"H1L1",))
-	u'H1L1,'
+	Descriptor used internally to expose pairs of GPS-valued properties
+	as segment-valued properties.
 	"""
-	if instruments is None:
-		return None
-	_instruments = sorted(set(instrument.strip() for instrument in instruments))
-	# safety check:  refuse to accept blank names, or names with commas
-	# or pluses in them as they cannot survive the encode/decode
-	# process
-	if not all(_instruments) or any(u"," in instrument or u"+" in instrument for instrument in _instruments):
-		raise ValueError(instruments)
-	if len(_instruments) == 1 and len(_instruments[0]) > 2 and not len(_instruments[0]) % 2:
-		# special case disambiguation.  FIXME:  remove when
-		# everything uses the comma-delimited encoding
-		return u"%s," % _instruments[0]
-	return u",".join(_instruments)
+	def __init__(self, start_name, stop_name):
+		self.start = start_name
+		self.stop = stop_name
+
+	def __get__(self, obj, type = None):
+		start = getattr(obj, self.start)
+		stop = getattr(obj, self.stop)
+		if start is None and stop is None:
+			return None
+		return segments.segment(start, stop)
+
+	def __set__(self, obj, seg):
+		if seg is None:
+			start = stop = None
+		else:
+			start, stop = seg
+		setattr(obj, self.start, start)
+		setattr(obj, self.stop, stop)
 
 
 #
@@ -330,15 +431,9 @@ class Process(table.TableRow):
 	>>> x.instruments
 	set([u'H1', u'L1'])
 	"""
-	__slots__ = ProcessTable.validcolumns.keys()
+	__slots__ = tuple(ProcessTable.validcolumns.keys())
 
-	@property
-	def instruments(self):
-		return instrument_set_from_ifos(self.ifos)
-
-	@instruments.setter
-	def instruments(self, instruments):
-		self.ifos = ifos_from_instrument_set(instruments)
+	instruments = instrumentsproperty("ifos")
 
 	def get_ifos(self):
 		"""
@@ -385,7 +480,7 @@ class LfnTable(table.Table):
 
 
 class Lfn(table.TableRow):
-	__slots__ = LfnTable.validcolumns.keys()
+	__slots__ = tuple(LfnTable.validcolumns.keys())
 
 
 LfnTable.RowType = Lfn
@@ -457,7 +552,7 @@ class ProcessParams(table.TableRow):
 	>>> x.pyvalue
 	1
 	"""
-	__slots__ = ProcessParamsTable.validcolumns.keys()
+	__slots__ = tuple(ProcessParamsTable.validcolumns.keys())
 
 	@property
 	def pyvalue(self):
@@ -587,104 +682,26 @@ class SearchSummary(table.TableRow):
 	>>> x.in_start = x.out_start = LIGOTimeGPS(0)
 	>>> x.in_end = x.out_end = LIGOTimeGPS(10)
 	>>> x.in_segment
-	segment(LIGOTimeGPS(0,0), LIGOTimeGPS(10,0))
+	segment(0.000000000, 10.000000000)
 	>>> x.out_segment
-	segment(LIGOTimeGPS(0,0), LIGOTimeGPS(10,0))
+	segment(0.000000000, 10.000000000)
 	>>> x.in_segment = x.out_segment = None
 	>>> print x.in_segment
 	None
 	>>> print x.out_segment
 	None
 	"""
-	__slots__ = SearchSummaryTable.validcolumns.keys()
+	__slots__ = tuple(SearchSummaryTable.validcolumns.keys())
 
-	@property
-	def instruments(self):
-		return instrument_set_from_ifos(self.ifos)
+	instruments = instrumentsproperty("ifos")
 
-	@instruments.setter
-	def instruments(self, instruments):
-		self.ifos = ifos_from_instrument_set(instruments)
+	in_start = gpsproperty("in_start_time", "in_start_time_ns")
+	in_end = gpsproperty("in_end_time", "in_end_time_ns")
+	out_start = gpsproperty("out_start_time", "out_start_time_ns")
+	out_end = gpsproperty("out_end_time", "out_end_time_ns")
 
-	@property
-	def in_start(self):
-		if self.in_start_time is None and self.in_start_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.in_start_time, self.in_start_time_ns)
-
-	@in_start.setter
-	def in_start(self, gps):
-		if gps is None:
-			self.in_start_time = self.in_start_time_ns = None
-		else:
-			self.in_start_time, self.in_start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-
-	@property
-	def in_end(self):
-		if self.in_end_time is None and self.in_end_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.in_end_time, self.in_end_time_ns)
-
-	@in_end.setter
-	def in_end(self, gps):
-		if gps is None:
-			self.in_end_time = self.in_end_time_ns = None
-		else:
-			self.in_end_time, self.in_end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-
-	@property
-	def out_start(self):
-		if self.out_start_time is None and self.out_start_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.out_start_time, self.out_start_time_ns)
-
-	@out_start.setter
-	def out_start(self, gps):
-		if gps is None:
-			self.out_start_time = self.out_start_time_ns = None
-		else:
-			self.out_start_time, self.out_start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-
-	@property
-	def out_end(self):
-		if self.out_end_time is None and self.out_end_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.out_end_time, self.out_end_time_ns)
-
-	@out_end.setter
-	def out_end(self, gps):
-		if gps is None:
-			self.out_end_time = self.out_end_time_ns = None
-		else:
-			self.out_end_time, self.out_end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-
-	@property
-	def in_segment(self):
-		start, end = self.in_start, self.in_end
-		if start is None and end is None:
-			return None
-		return segments.segment(start, end)
-
-	@in_segment.setter
-	def in_segment(self, seg):
-		if seg is None:
-			self.in_start = self.in_end = None
-		else:
-			self.in_start, self.in_end = seg
-
-	@property
-	def out_segment(self):
-		start, end = self.out_start, self.out_end
-		if start is None and end is None:
-			return None
-		return segments.segment(start, end)
-
-	@out_segment.setter
-	def out_segment(self, seg):
-		if seg is None:
-			self.out_start = self.out_end = None
-		else:
-			self.out_start, self.out_end = seg
+	in_segment = segmentproperty("in_start", "in_end")
+	out_segment = segmentproperty("out_start", "out_end")
 
 	def get_ifos(self):
 		"""
@@ -754,7 +771,7 @@ class SearchSummVarsTable(table.Table):
 
 
 class SearchSummVars(table.TableRow):
-	__slots__ = SearchSummVarsTable.validcolumns.keys()
+	__slots__ = tuple(SearchSummVarsTable.validcolumns.keys())
 
 
 SearchSummVarsTable.RowType = SearchSummVars
@@ -859,7 +876,7 @@ class ExperimentTable(table.Table):
 
 
 class Experiment(table.TableRow):
-	__slots__ = ExperimentTable.validcolumns.keys()
+	__slots__ = tuple(ExperimentTable.validcolumns.keys())
 
 	def get_instruments(self):
 		"""
@@ -1037,7 +1054,7 @@ class ExperimentSummaryTable(table.Table):
 
 
 class ExperimentSummary(table.TableRow):
-	__slots__ = ExperimentSummaryTable.validcolumns.keys()
+	__slots__ = tuple(ExperimentSummaryTable.validcolumns.keys())
 
 
 ExperimentSummaryTable.RowType = ExperimentSummary
@@ -1077,7 +1094,7 @@ class ExperimentMapTable(table.Table):
 
 
 class ExperimentMap(table.TableRow):
-	__slots__ = ExperimentMapTable.validcolumns.keys()
+	__slots__ = tuple(ExperimentMapTable.validcolumns.keys())
 
 
 ExperimentMapTable.RowType = ExperimentMap
@@ -1132,7 +1149,7 @@ class GDSTriggerTable(table.Table):
 
 
 class GDSTrigger(table.TableRow):
-	__slots__ = GDSTriggerTable.validcolumns.keys()
+	__slots__ = tuple(GDSTriggerTable.validcolumns.keys())
 
 	#
 	# Tile properties
@@ -1363,50 +1380,15 @@ class SnglBurstTable(table.Table):
 
 
 class SnglBurst(table.TableRow):
-	__slots__ = SnglBurstTable.validcolumns.keys()
+	__slots__ = tuple(SnglBurstTable.validcolumns.keys())
 
 	#
 	# Tile properties
 	#
 
-	@property
-	def start(self):
-		if self.start_time is None and self.start_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.start_time, self.start_time_ns)
-
-	@start.setter
-	def start(self, gps):
-		if gps is None:
-			self.start_time = self.start_time_ns = None
-		else:
-			self.start_time, self.start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-
-	@property
-	def stop(self):
-		if self.stop_time is None and self.stop_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.stop_time, self.stop_time_ns)
-
-	@stop.setter
-	def stop(self, gps):
-		if gps is None:
-			self.stop_time = self.stop_time_ns = None
-		else:
-			self.stop_time, self.stop_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-
-	@property
-	def peak(self):
-		if self.peak_time is None and self.peak_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
-
-	@peak.setter
-	def peak(self, gps):
-		if gps is None:
-			self.peak_time = self.peak_time_ns = None
-		else:
-			self.peak_time, self.peak_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+	start = gpsproperty("start_time", "start_time_ns")
+	stop = gpsproperty("stop_time", "stop_time_ns")
+	peak = gpsproperty("peak_time", "peak_time_ns")
 
 	@property
 	def period(self):
@@ -1455,44 +1437,9 @@ class SnglBurst(table.TableRow):
 	# "Most significant pixel" properties
 	#
 
-	@property
-	def ms_start(self):
-		if self.ms_start_time is None and self.ms_start_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.ms_start_time, self.ms_start_time_ns)
-
-	@ms_start.setter
-	def ms_start(self, gps):
-		if gps is None:
-			self.ms_start_time = self.ms_start_time_ns = None
-		else:
-			self.ms_start_time, self.ms_start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-
-	@property
-	def ms_stop(self):
-		if self.ms_stop_time is None and self.ms_stop_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.ms_stop_time, self.ms_stop_time_ns)
-
-	@ms_stop.setter
-	def ms_stop(self, gps):
-		if gps is None:
-			self.ms_stop_time = self.ms_stop_time_ns = None
-		else:
-			self.ms_stop_time, self.ms_stop_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-
-	@property
-	def ms_peak(self):
-		if self.ms_peak_time is None and self.ms_peak_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.ms_peak_time, self.ms_peak_time_ns)
-
-	@ms_peak.setter
-	def ms_peak(self, gps):
-		if gps is None:
-			self.ms_peak_time = self.ms_peak_time_ns = None
-		else:
-			self.ms_peak_time, self.ms_peak_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+	ms_start = gpsproperty("ms_start_time", "ms_start_time_ns")
+	ms_stop = gpsproperty("ms_stop_time", "ms_stop_time_ns")
+	ms_peak = gpsproperty("ms_peak_time", "ms_peak_time_ns")
 
 	@property
 	def ms_period(self):
@@ -1647,41 +1594,12 @@ class MultiBurstTable(table.Table):
 
 
 class MultiBurst(table.TableRow):
-	__slots__ = MultiBurstTable.validcolumns.keys()
+	__slots__ = tuple(MultiBurstTable.validcolumns.keys())
 
-	@property
-	def instruments(self):
-		return instrument_set_from_ifos(self.ifos)
+	instruments = instrumentsproperty("ifos")
 
-	@instruments.setter
-	def instruments(self, instruments):
-		self.ifos = ifos_from_instrument_set(instruments)
-
-	@property
-	def start(self):
-		if self.start_time is None and self.start_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.start_time, self.start_time_ns)
-
-	@start.setter
-	def start(self, gps):
-		if gps is None:
-			self.start_time = self.start_time_ns = None
-		else:
-			self.start_time, self.start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-
-	@property
-	def peak(self):
-		if self.peak_time is None and self.peak_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
-
-	@peak.setter
-	def peak(self, gps):
-		if gps is None:
-			self.peak_time = self.peak_time_ns = None
-		else:
-			self.peak_time, self.peak_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+	start = gpsproperty("start_time", "start_time_ns")
+	peak = gpsproperty("peak_time", "peak_time_ns")
 
 	@property
 	def period(self):
@@ -1975,7 +1893,7 @@ class SnglInspiralTable(table.Table):
 
 
 class SnglInspiral(table.TableRow):
-	__slots__ = SnglInspiralTable.validcolumns.keys()
+	__slots__ = tuple(SnglInspiralTable.validcolumns.keys())
 
 	@staticmethod
 	def chirp_distance(dist, mchirp, ref_mass=1.4):
@@ -1985,18 +1903,7 @@ class SnglInspiral(table.TableRow):
 	# Properties
 	#
 
-	@property
-	def end(self):
-		if self.end_time is None and self.end_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.end_time, self.end_time_ns)
-
-	@end.setter
-	def end(self, gps):
-		if gps is None:
-			self.end_time = self.end_time_ns = None
-		else:
-			self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+	end = gpsproperty("end_time", "end_time_ns")
 
 	@property
 	def spin1(self):
@@ -2153,33 +2060,16 @@ class CoincInspiral(table.TableRow):
 	set([u'H1', u'L1'])
 	>>> x.end = LIGOTimeGPS(10)
 	>>> x.end
-	LIGOTimeGPS(10,0)
+	10.000000000
 	>>> x.end = None
 	>>> print x.end
 	None
 	"""
-	__slots__ = CoincInspiralTable.validcolumns.keys()
+	__slots__ = tuple(CoincInspiralTable.validcolumns.keys())
 
-	@property
-	def instruments(self):
-		return instrument_set_from_ifos(self.ifos)
+	instruments = instrumentsproperty("ifos")
 
-	@instruments.setter
-	def instruments(self, instruments):
-		self.ifos = ifos_from_instrument_set(instruments)
-
-	@property
-	def end(self):
-		if self.end_time is None and self.end_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.end_time, self.end_time_ns)
-
-	@end.setter
-	def end(self, gps):
-		if gps is None:
-			self.end_time = self.end_time_ns = None
-		else:
-			self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+	end = gpsproperty("end_time", "end_time_ns")
 
 	def get_end(self):
 		return self.end
@@ -2246,7 +2136,7 @@ class SnglRingdownTable(table.Table):
 
 
 class SnglRingdown(table.TableRow):
-	__slots__ = SnglRingdownTable.validcolumns.keys()
+	__slots__ = tuple(SnglRingdownTable.validcolumns.keys())
 
 	def get_start(self):
 		return LIGOTimeGPS(self.start_time, self.start_time_ns)
@@ -2306,7 +2196,7 @@ class CoincRingdownTable(table.Table):
 
 
 class CoincRingdown(table.TableRow):
-	__slots__ = CoincRingdownTable.validcolumns.keys()
+	__slots__ = tuple(CoincRingdownTable.validcolumns.keys())
 
 	def get_start(self):
 		return LIGOTimeGPS(self.start_time, self.start_time_ns)
@@ -2487,7 +2377,7 @@ class MultiInspiralTable(table.Table):
 
 	def get_coinc_snr(self):
 		if len(self):
-			return (numpy.asarray(self.get_sngl_snrs().values())\
+			return (numpy.asarray(list(self.get_sngl_snrs().values()))\
 			            **2).sum(axis=0)**(1./2.)
 		else:
 			return numpy.array([])
@@ -2518,7 +2408,7 @@ class MultiInspiralTable(table.Table):
 		"""@returns the coincident chisq for each row in the table
 		"""
 		if len(self):
-			return (numpy.asarray(self.get_sngl_chisqs().values())\
+			return (numpy.asarray(list(self.get_sngl_chisqs().values()))\
 						**2).sum(axis=0)**(1./2.)
 		else:
 			return numpy.array([])
@@ -2553,8 +2443,8 @@ class MultiInspiralTable(table.Table):
 		"""
 		if len(self):
 			if not instruments:
-				instruments = map(str, \
-					instrument_set_from_ifos(self[0].ifos))
+				instruments = list(map(str, \
+					instrument_set_from_ifos(self[0].ifos)))
 			return dict((ifo, self.get_sigmasq(ifo))\
 				    for ifo in instruments)
 		else:
@@ -2574,8 +2464,8 @@ class MultiInspiralTable(table.Table):
 		Get the single-detector SNRs for each row in the table.
 		"""
 		if len(self) and instruments is None:
-			instruments = map(str, \
-			                instrument_set_from_ifos(self[0].ifos))
+			instruments = list(map(str, \
+			                instrument_set_from_ifos(self[0].ifos)))
 		elif instruments is None:
 			instruments = []
 		return dict((ifo, self.get_sngl_snr(ifo))\
@@ -2594,8 +2484,8 @@ class MultiInspiralTable(table.Table):
 		Get the single-detector \chi^2 for each row in the table.
 		"""
 		if len(self) and instruments is None:
-			instruments = map(str, \
-			                instrument_set_from_ifos(self[0].ifos))
+			instruments = list(map(str, \
+			                instrument_set_from_ifos(self[0].ifos)))
 		elif instruments is None:
 			instruments = []
 		return dict((ifo, self.get_sngl_chisq(ifo))\
@@ -2614,8 +2504,8 @@ class MultiInspiralTable(table.Table):
 		Get the single-detector \chi^2 for each row in the table.
 		"""
 		if len(self) and instruments is None:
-			instruments = map(str, \
-			                instrument_set_from_ifos(self[0].ifos))
+			instruments = list(map(str, \
+			                instrument_set_from_ifos(self[0].ifos)))
 		elif instruments is None:
 			instruments = []
 		return dict((ifo, self.get_sngl_bank_chisq(ifo))\
@@ -2634,8 +2524,8 @@ class MultiInspiralTable(table.Table):
 		Get the single-detector \chi^2 for each row in the table.
 		"""
 		if len(self) and instruments is None:
-			instruments = map(str, \
-			                instrument_set_from_ifos(self[0].ifos))
+			instruments = list(map(str, \
+			                instrument_set_from_ifos(self[0].ifos)))
 		elif instruments is None:
 			instruments = []
 		return dict((ifo, self.get_sngl_cont_chisq(ifo))\
@@ -2733,7 +2623,7 @@ class MultiInspiralTable(table.Table):
 
 
 class MultiInspiral(table.TableRow):
-	__slots__ = MultiInspiralTable.validcolumns.keys()
+	__slots__ = tuple(MultiInspiralTable.validcolumns.keys())
 	instrument_id = MultiInspiralTable.instrument_id
 
 	def get_reduced_chisq(self):
@@ -2774,13 +2664,13 @@ class MultiInspiral(table.TableRow):
 		"""
 		Get the coincident SNR for this row.
 		"""
-		return (numpy.asarray(self.get_sngl_snrs().values())**2)\
+		return (numpy.asarray(list(self.get_sngl_snrs().values()))**2)\
 		            .sum()**(1./2.)
 
 	def get_coinc_chisq(self):
 		"""@returns the coincident chisq for this row
 		"""
-		return ((numpy.asarray(self.get_sngl_chisqs().values())**2)
+		return ((numpy.asarray(list(self.get_sngl_chisqs().values()))**2)
 		            .sum()**(1./2.))
 
 	def get_reduced_coinc_chisq(self):
@@ -2831,7 +2721,7 @@ class MultiInspiral(table.TableRow):
 		"""
 		Get the coherent Null SNR for this row.
 		"""
-		null_snr_sq = (numpy.asarray(self.get_sngl_snrs().values())**2)\
+		null_snr_sq = (numpy.asarray(list(self.get_sngl_snrs().values()))**2)\
                              .sum() - self.snr**2
 		if null_snr_sq < 0:
 			return 0
@@ -3101,23 +2991,13 @@ class SimInspiral(table.TableRow):
 	None
 	>>> x.time_geocent = LIGOTimeGPS(6e8)
 	>>> print x.time_geocent
-	600000000
+	600000000.000000000
+	>>> print x.end_time_gmst
+	-2238.39417156
 	"""
-	__slots__ = SimInspiralTable.validcolumns.keys()
+	__slots__ = tuple(SimInspiralTable.validcolumns.keys())
 
-	@property
-	def time_geocent(self):
-		if self.geocent_end_time is None and self.geocent_end_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
-
-	@time_geocent.setter
-	def time_geocent(self, gps):
-		if gps is None:
-			self.geocent_end_time = self.geocent_end_time_ns = self.end_time_gmst = None
-		else:
-			self.geocent_end_time, self.geocent_end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-			self.end_time_gmst = lal.GreenwichMeanSiderealTime(gps)
+	time_geocent = gpsproperty_with_gmst("geocent_end_time", "geocent_end_time_ns", "end_time_gmst")
 
 	@property
 	def ra_dec(self):
@@ -3183,7 +3063,7 @@ class SimInspiral(table.TableRow):
 		# added to their times the triggers will form a coinc
 		t_geocent = self.time_geocent - offsetvector[instrument]
 		ra, dec = self.ra_dec
-		return t_geocent + lal.TimeDelayFromEarthCenter(inject.cached_detector_by_prefix[instrument].location, ra, dec, t_geocent)
+		return t_geocent + lal.TimeDelayFromEarthCenter(lal.cached_detector_by_prefix[instrument].location, ra, dec, t_geocent)
 
 	def get_time_geocent(self):
 		# FIXME:  delete this method
@@ -3281,23 +3161,13 @@ class SimBurst(TableRow):
 	None
 	>>> x.time_geocent = LIGOTimeGPS(6e8)
 	>>> print x.time_geocent
-	600000000
+	600000000.000000000
+	>>> print x.time_geocent_gmst
+	-2238.39417156
 	"""
-	__slots__ = SimBurstTable.validcolumns.keys()
+	__slots__ = tuple(SimBurstTable.validcolumns.keys())
 
-	@property
-	def time_geocent(self):
-		if self.time_geocent_gps is None and self.time_geocent_gps_ns is None:
-			return None
-		return LIGOTimeGPS(self.time_geocent_gps, self.time_geocent_gps_ns)
-
-	@time_geocent.setter
-	def time_geocent(self, gps):
-		if gps is None:
-			self.time_geocent_gps = self.time_geocent_gps_ns = self.time_geocent_gmst = None
-		else:
-			self.time_geocent_gps, self.time_geocent_gps_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-			self.time_geocent_gmst = lal.GreenwichMeanSiderealTime(gps)
+	time_geocent = gpsproperty_with_gmst("time_geocent_gps", "time_geocent_gps_ns", "time_geocent_gmst")
 
 	@property
 	def ra_dec(self):
@@ -3337,7 +3207,7 @@ class SimBurst(TableRow):
 		# added to their times the triggers will form a coinc
 		t_geocent = self.time_geocent - offsetvector[instrument]
 		ra, dec = self.ra_dec
-		return t_geocent + lal.TimeDelayFromEarthCenter(inject.cached_detector_by_prefix[instrument].location, ra, dec, t_geocent)
+		return t_geocent + lal.TimeDelayFromEarthCenter(lal.cached_detector_by_prefix[instrument].location, ra, dec, t_geocent)
 
 	def get_time_geocent(self):
 		return self.time_geocent
@@ -3416,7 +3286,7 @@ class SimRingdownTable(table.Table):
 
 
 class SimRingdown(table.TableRow):
-	__slots__ = SimRingdownTable.validcolumns.keys()
+	__slots__ = tuple(SimRingdownTable.validcolumns.keys())
 
 	def get_start(self, site = None):
 		if not site:
@@ -3478,60 +3348,18 @@ class SummValue(table.TableRow):
 	>>> x.start = LIGOTimeGPS(0)
 	>>> x.end = LIGOTimeGPS(10)
 	>>> x.segment
-	segment(LIGOTimeGPS(0,0), LIGOTimeGPS(10,0))
+	segment(0.000000000, 10.000000000)
 	>>> x.segment = None
 	>>> print x.segment
 	None
 	"""
-	__slots__ = SummValueTable.validcolumns.keys()
+	__slots__ = tuple(SummValueTable.validcolumns.keys())
 
-	@property
-	def instruments(self):
-		return instrument_set_from_ifos(self.ifo)
+	instruments = instrumentsproperty("ifo")
 
-	@instruments.setter
-	def instruments(self, instruments):
-		self.ifo = ifos_from_instrument_set(instruments)
-
-	@property
-	def start(self):
-		if self.start_time is None and self.start_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.start_time, self.start_time_ns)
-
-	@start.setter
-	def start(self, gps):
-		if gps is None:
-			self.start_time = self.start_time_ns = None
-		else:
-			self.start_time, self.start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-
-	@property
-	def end(self):
-		if self.end_time is None and self.end_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.end_time, self.end_time_ns)
-
-	@end.setter
-	def end(self, gps):
-		if gps is None:
-			self.end_time = self.end_time_ns = None
-		else:
-			self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-
-	@property
-	def segment(self):
-		start, end = self.start, self.end
-		if start is None and end is None:
-			return None
-		return segments.segment(start, end)
-
-	@segment.setter
-	def segment(self, seg):
-		if seg is None:
-			self.start = self.end = None
-		else:
-			self.start, self.end = seg
+	start = gpsproperty("start_time", "start_time_ns")
+	end = gpsproperty("end_time", "end_time_ns")
+	segment = segmentproperty("start", "end")
 
 
 SummValueTable.RowType = SummValue
@@ -3561,7 +3389,7 @@ class SimInstParamsTable(table.Table):
 
 
 class SimInstParams(table.TableRow):
-	__slots__ = SimInstParamsTable.validcolumns.keys()
+	__slots__ = tuple(SimInstParamsTable.validcolumns.keys())
 
 
 SimInstParamsTable.RowType = SimInstParams
@@ -3596,7 +3424,7 @@ class StochasticTable(table.Table):
 
 
 class Stochastic(table.TableRow):
-	__slots__ = StochasticTable.validcolumns.keys()
+	__slots__ = tuple(StochasticTable.validcolumns.keys())
 
 
 StochasticTable.RowType = Stochastic
@@ -3631,7 +3459,7 @@ class StochSummTable(table.Table):
 
 
 class StochSumm(table.TableRow):
-	__slots__ = StochSummTable.validcolumns.keys()
+	__slots__ = tuple(StochSummTable.validcolumns.keys())
 
 
 StochSummTable.RowType = StochSumm
@@ -3697,7 +3525,7 @@ class ExtTriggersTable(table.Table):
 
 
 class ExtTriggers(table.TableRow):
-	__slots__ = ExtTriggersTable.validcolumns.keys()
+	__slots__ = tuple(ExtTriggersTable.validcolumns.keys())
 
 
 ExtTriggersTable.RowType = ExtTriggers
@@ -3731,7 +3559,7 @@ class FilterTable(table.Table):
 
 
 class Filter(table.TableRow):
-	__slots__ = FilterTable.validcolumns.keys()
+	__slots__ = tuple(FilterTable.validcolumns.keys())
 
 
 FilterTable.RowType = Filter
@@ -3775,7 +3603,7 @@ class Segment(table.TableRow):
 	>>> x.start = LIGOTimeGPS(0)
 	>>> x.end = LIGOTimeGPS(10)
 	>>> x.segment
-	segment(LIGOTimeGPS(0,0), LIGOTimeGPS(10,0))
+	segment(0.000000000, 10.000000000)
 	>>> x.segment = None
 	>>> print x.segment
 	None
@@ -3784,22 +3612,22 @@ class Segment(table.TableRow):
 	>>> # non-LIGOTimeGPS times are converted to LIGOTimeGPS
 	>>> x.segment = (20, 30.125)
 	>>> x.end
-	LIGOTimeGPS(30,125000000)
+	30.125000000
 	>>> # initialization from a tuple or with arguments
 	>>> Segment((20, 30)).segment
-	segment(LIGOTimeGPS(20,0), LIGOTimeGPS(30,0))
+	segment(20.000000000, 30.000000000)
 	>>> Segment(20, 30).segment
-	segment(LIGOTimeGPS(20,0), LIGOTimeGPS(30,0))
+	segment(20.000000000, 30.000000000)
 	>>> # use as a segment object in segmentlist operations
 	>>> from glue import segments
 	>>> x = segments.segmentlist([Segment(0, 10), Segment(20, 30)])
 	>>> abs(x)
-	LIGOTimeGPS(20,0)
+	20.000000000
 	>>> y = segments.segmentlist([Segment(5, 15), Segment(25, 35)])
 	>>> abs(x & y)
-	LIGOTimeGPS(10,0)
+	10.000000000
 	>>> abs(x | y)
-	LIGOTimeGPS(30,0)
+	30.000000000
 	>>> 8.0 in x
 	True
 	>>> 12 in x
@@ -3815,56 +3643,35 @@ class Segment(table.TableRow):
 	>>> # make sure results are segment table row objects
 	>>> segments.segmentlist(map(Segment, x & y))	# doctest: +ELLIPSIS
 	[<glue.ligolw.lsctables.Segment object at 0x...>, <glue.ligolw.lsctables.Segment object at 0x...>]
+
+	This implementation uses a non-standard extension to encode
+	infinite values for boundaries:  the second and nanosecond
+	components are both set to 0x7FFFFFFF or 0xFFFFFFFF to indicate
+	positive resp. negative infinity.  For this reason, "denormalized"
+	LIGOTimeGPS objects (objects whose nanoseconds fields contain
+	values exceeding +/-999999999) are disallowed for use with this
+	class.
+
+	Example:
+
+	>>> x = Segment()
+	>>> # OK
+	>>> x.start = -segments.infinity()
+	>>> # also OK
+	>>> x.start = float("-inf")
+	>>> # infinite boundaries always returned as segments.infinity
+	>>> # instances
+	>>> x.start
+	-infinity
+	>>> x.end = float("+inf")
+	>>> x.segment
+	segment(-infinity, infinity)
 	"""
-	__slots__ = SegmentTable.validcolumns.keys()
+	__slots__ = tuple(SegmentTable.validcolumns.keys())
 
-	@property
-	def start(self):
-		if self.start_time is None and self.start_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.start_time, self.start_time_ns)
-
-	@start.setter
-	def start(self, gps):
-		if gps is None:
-			self.start_time = self.start_time_ns = None
-		else:
-			try:
-				self.start_time, self.start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-			except AttributeError:
-				# try converting and going again
-				self.start = LIGOTimeGPS(gps)
-
-	@property
-	def end(self):
-		if self.end_time is None and self.end_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.end_time, self.end_time_ns)
-
-	@end.setter
-	def end(self, gps):
-		if gps is None:
-			self.end_time = self.end_time_ns = None
-		else:
-			try:
-				self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-			except AttributeError:
-				# try converting and going again
-				self.end = LIGOTimeGPS(gps)
-
-	@property
-	def segment(self):
-		start, end = self.start, self.end
-		if start is None and end is None:
-			return None
-		return segments.segment(start, end)
-
-	@segment.setter
-	def segment(self, seg):
-		if seg is None:
-			self.start = self.end = None
-		else:
-			self.start, self.end = seg
+	start = gpsproperty("start_time", "start_time_ns")
+	end = gpsproperty("end_time", "end_time_ns")
+	segment = segmentproperty("start", "end")
 
 	def get(self):
 		"""
@@ -3951,15 +3758,9 @@ class SegmentDef(table.TableRow):
 	>>> x.instruments
 	set([u'H1', u'L1'])
 	"""
-	__slots__ = SegmentDefTable.validcolumns.keys()
+	__slots__ = tuple(SegmentDefTable.validcolumns.keys())
 
-	@property
-	def instruments(self):
-		return instrument_set_from_ifos(self.ifos)
-
-	@instruments.setter
-	def instruments(self, instruments):
-		self.ifos = ifos_from_instrument_set(instruments)
+	instruments = instrumentsproperty("ifos")
 
 	def get_ifos(self):
 		"""
@@ -4023,74 +3824,8 @@ class SegmentSumTable(table.Table):
 		return segments.segmentlist(row.segment for row in self if row.segment_def_id == segment_def_id)
 
 
-class SegmentSum(table.TableRow):
-	"""
-	Example:
-
-	>>> x = SegmentSum()
-	>>> x.start = LIGOTimeGPS(0)
-	>>> x.end = LIGOTimeGPS(10)
-	>>> x.segment
-	segment(LIGOTimeGPS(0,0), LIGOTimeGPS(10,0))
-	>>> x.segment = None
-	>>> print x.segment
-	None
-	>>> print x.start
-	None
-	"""
-	__slots__ = SegmentSumTable.validcolumns.keys()
-
-	@property
-	def start(self):
-		if self.start_time is None and self.start_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.start_time, self.start_time_ns)
-
-	@start.setter
-	def start(self, gps):
-		if gps is None:
-			self.start_time = self.start_time_ns = None
-		else:
-			self.start_time, self.start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-
-	@property
-	def end(self):
-		if self.end_time is None and self.end_time_ns is None:
-			return None
-		return LIGOTimeGPS(self.end_time, self.end_time_ns)
-
-	@end.setter
-	def end(self, gps):
-		if gps is None:
-			self.end_time = self.end_time_ns = None
-		else:
-			self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
-
-	@property
-	def segment(self):
-		start, end = self.start, self.end
-		if start is None and end is None:
-			return None
-		return segments.segment(start, end)
-
-	@segment.setter
-	def segment(self, seg):
-		if seg is None:
-			self.start = self.end = None
-		else:
-			self.start, self.end = seg
-
-	def get(self):
-		"""
-		Return the segment described by this row.
-		"""
-		return self.segment
-
-	def set(self, segment):
-		"""
-		Set the segment described by this row.
-		"""
-		self.segment = segment
+class SegmentSum(Segment):
+	__slots__ = tuple(SegmentSumTable.validcolumns.keys())
 
 
 SegmentSumTable.RowType = SegmentSum
@@ -4215,7 +3950,7 @@ class TimeSlideTable(table.Table):
 
 
 class TimeSlide(table.TableRow):
-	__slots__ = TimeSlideTable.validcolumns.keys()
+	__slots__ = tuple(TimeSlideTable.validcolumns.keys())
 
 
 TimeSlideTable.RowType = TimeSlide
@@ -4281,7 +4016,7 @@ class CoincDefTable(table.Table):
 
 
 class CoincDef(table.TableRow):
-	__slots__ = CoincDefTable.validcolumns.keys()
+	__slots__ = tuple(CoincDefTable.validcolumns.keys())
 
 
 CoincDefTable.RowType = CoincDef
@@ -4320,21 +4055,15 @@ class CoincTable(table.Table):
 
 
 class Coinc(table.TableRow):
-	__slots__ = CoincTable.validcolumns.keys()
+	__slots__ = tuple(CoincTable.validcolumns.keys())
+
+	insts = instrumentsproperty("instruments")
 
 	def get_instruments(self):
-		"""
-		Return a set of the instruments for this row.
-		"""
-		return instrument_set_from_ifos(self.instruments)
+		return self.insts
 
 	def set_instruments(self, instruments):
-		"""
-		Serialize a sequence of instruments into the ifos
-		attribute.  The instrument names must not contain the ","
-		character.
-		"""
-		self.instruments = ifos_from_instrument_set(instruments)
+		self.insts = instruments
 
 
 CoincTable.RowType = Coinc
@@ -4364,7 +4093,7 @@ class CoincMapTable(table.Table):
 
 
 class CoincMap(table.TableRow):
-	__slots__ = CoincMapTable.validcolumns.keys()
+	__slots__ = tuple(CoincMapTable.validcolumns.keys())
 
 
 CoincMapTable.RowType = CoincMap
@@ -4398,7 +4127,7 @@ class DQSpecListTable(table.Table):
 
 
 class DQSpec(table.TableRow):
-	__slots__ = DQSpecListTable.validcolumns.keys()
+	__slots__ = tuple(DQSpecListTable.validcolumns.keys())
 
 	def apply_to_segmentlist(self, seglist):
 		"""
@@ -4442,7 +4171,7 @@ class LIGOLWMonTable(table.Table):
 
 
 class LIGOLWMon(table.TableRow):
-	__slots__ = LIGOLWMonTable.validcolumns.keys()
+	__slots__ = tuple(LIGOLWMonTable.validcolumns.keys())
 
 	def get_time(self):
 		return LIGOTimeGPS(self.time, self.time_ns)
@@ -4481,7 +4210,7 @@ class VetoDefTable(table.Table):
 
 
 class VetoDef(table.TableRow):
-	__slots__ = VetoDefTable.validcolumns.keys()
+	__slots__ = tuple(VetoDefTable.validcolumns.keys())
 
 
 VetoDefTable.RowType = VetoDef
@@ -4525,7 +4254,7 @@ class SummMimeTable(table.Table):
 
 
 class SummMime(table.TableRow):
-	__slots__ = SummMimeTable.validcolumns.keys()
+	__slots__ = tuple(SummMimeTable.validcolumns.keys())
 
 	def get_start(self):
 		return LIGOTimeGPS(self.start_time, self.start_time_ns)
@@ -4551,6 +4280,7 @@ SummMimeTable.RowType = SummMime
 # =============================================================================
 #
 
+
 class TimeSlideSegmentMapTable(table.Table):
 	tableName = "time_slide_segment_map:table"
 	validcolumns = {
@@ -4558,8 +4288,10 @@ class TimeSlideSegmentMapTable(table.Table):
 		"time_slide_id": "ilwd:char",
 	}
 
+
 class TimeSlideSegmentMap(table.TableRow):
-	__slots__ = TimeSlideSegmentMapTable.validcolumns.keys()
+	__slots__ = tuple(TimeSlideSegmentMapTable.validcolumns.keys())
+
 
 TimeSlideSegmentMapTable.RowType = TimeSlideSegmentMap
 

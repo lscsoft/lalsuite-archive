@@ -116,10 +116,10 @@ static double cabs2(double complex z) {
  *     t_3 = 2,  x_3 = x[3].
  */
 static double complex complex_catrom(
-    double complex x0,
-    double complex x1,
-    double complex x2,
-    double complex x3,
+    float complex x0,
+    float complex x1,
+    float complex x2,
+    float complex x3,
     double t
 ) {
     return x1
@@ -186,33 +186,27 @@ static double real_catrom(
 
 /* Evaluate a complex time series using cubic spline interpolation, assuming
  * that the vector x gives the samples of the time series at times
- * 0, 1, ..., nsamples-1, and that the time series is given by the complex
- * conjugate at negative times. */
-static double complex eval_acor(
-    const double complex *x,
+ * 0, 1, ..., nsamples-1. */
+static double complex eval_snr(
+    const float complex *x,
     size_t nsamples,
     double t
 ) {
-    size_t i;
+    ssize_t i;
     double f;
     double complex y;
 
     /* Break |t| into integer and fractional parts. */
     {
         double dbl_i;
-        f = modf(fabs(t), &dbl_i);
+        f = modf(t, &dbl_i);
         i = dbl_i;
     }
 
-    if (i == 0)
-        y = complex_catrom(conj(x[1]), x[0], x[1], x[2], f);
-    else if (i < nsamples - 2)
+    if (i >= 1 && i < (ssize_t)nsamples - 2)
         y = complex_catrom(x[i-1], x[i], x[i+1], x[i+2], f);
     else
         y = 0;
-
-    if (t < 0)
-        y = conj(y);
 
     return y;
 }
@@ -721,9 +715,9 @@ static adaptive_sky_map *adaptive_sky_map_refine(
 
 static adaptive_sky_map *adaptive_sky_map_alloc(unsigned char order)
 {
-    unsigned long nside = (unsigned long)1 << order;
-    unsigned long npix = nside2npix(nside);
-    size_t size = sizeof(adaptive_sky_map)
+    const unsigned long nside = (unsigned long)1 << order;
+    const unsigned long npix = nside2npix(nside);
+    const size_t size = sizeof(adaptive_sky_map)
         + npix * sizeof(adaptive_sky_map_pixel);
 
     adaptive_sky_map *map = malloc(size);
@@ -820,24 +814,17 @@ double (*bayestar_sky_map_toa_phoa_snr(
     double min_distance,            /* Minimum distance */
     double max_distance,            /* Maximum distance */
     int prior_distance_power,       /* Power of distance in prior */
-    /* Detector network */
+    /* Data */
     double gmst,                    /* GMST (rad) */
     unsigned int nifos,             /* Number of detectors */
-    unsigned long nsamples,         /* Length of autocorrelation sequence */
+    unsigned long nsamples,         /* Length of SNR series */
     double sample_rate,             /* Sample rate in seconds */
-    const double complex **acors,   /* Autocorrelation sequences */
+    const double *epochs,           /* Timestamps of SNR time series */
+    const float complex **snrs,     /* Complex SNR series */
     const float (**responses)[3],   /* Detector responses */
     const double **locations,       /* Barycentered Cartesian geographic detector positions (m) */
-    const double *horizons,         /* SNR=1 horizon distances for each detector */
-    /* Observations */
-    const double *toas,             /* Arrival time differences relative to network barycenter (s) */
-    const double *phoas,            /* Phases on arrival */
-    const double *snrs              /* SNRs */
+    const double *horizons          /* SNR=1 horizon distances for each detector */
 ))[4] {
-    double complex exp_i_phoas[nifos];
-    for (unsigned int iifo = 0; iifo < nifos; iifo ++)
-        exp_i_phoas[iifo] = exp_i(phoas[iifo]);
-
     log_radial_integrator *integrators[] = {NULL, NULL, NULL};
     {
         double pmax = 0;
@@ -904,7 +891,7 @@ double (*bayestar_sky_map_toa_phoa_snr(
                     F[iifo] = complex_antenna_factor(
                         responses[iifo], phi, M_PI_2-theta, gmst) * horizons[iifo];
 
-                toa_errors(dt, theta, phi, gmst, nifos, locations, toas);
+                toa_errors(dt, theta, phi, gmst, nifos, locations, epochs);
             }
 
             /* Integrate over 2*psi */
@@ -941,7 +928,7 @@ double (*bayestar_sky_map_toa_phoa_snr(
                     p2 *= 0.5;
                     double p = sqrt(p2);
 
-                    for (long isample = 1 - (long)nsamples;
+                    for (long isample = 0;
                         isample < (long)nsamples; isample++)
                     {
                         double b;
@@ -949,10 +936,9 @@ double (*bayestar_sky_map_toa_phoa_snr(
                             double complex I0arg_complex_times_r = 0;
                             for (unsigned int iifo = 0; iifo < nifos; iifo ++)
                             {
-                                I0arg_complex_times_r += snrs[iifo]
-                                    * exp_i_phoas[iifo] * conj(z_times_r[iifo]
-                                    * eval_acor(acors[iifo], nsamples,
-                                        dt[iifo] * sample_rate + isample));
+                                I0arg_complex_times_r += conj(z_times_r[iifo])
+                                    * eval_snr(snrs[iifo], nsamples,
+                                        isample - dt[iifo] * sample_rate - 0.5 * (nsamples - 1));
                             }
                             b = cabs(I0arg_complex_times_r);
                         }
@@ -1009,62 +995,6 @@ double (*bayestar_sky_map_toa_phoa_snr(
 }
 
 
-double bayestar_log_likelihood_toa_snr(
-    /* Parameters */
-    double ra,                      /* Right ascension (rad) */
-    double sin_dec,                 /* Sin(declination) */
-    double distance,                /* Distance */
-    double u,                       /* Cos(inclination) */
-    double twopsi,                  /* Twice polarization angle (rad) */
-    double t,                       /* Barycentered arrival time (s) */
-    /* Detector network */
-    double gmst,                    /* GMST (rad) */
-    unsigned int nifos,             /* Number of detectors */
-    unsigned long nsamples,         /* Length of autocorrelation sequence */
-    double sample_rate,             /* Sample rate in seconds */
-    const double complex **acors,   /* Autocorrelation sequences */
-    const float (**responses)[3],   /* Detector responses */
-    const double **locations,       /* Barycentered Cartesian geographic detector positions (m) */
-    const double *horizons,         /* SNR=1 horizon distances for each detector */
-    /* Observations */
-    const double *toas,             /* Arrival time differences relative to network barycenter (s) */
-    const double *snrs              /* SNRs */
-) {
-    const double dec = asin(sin_dec);
-    const double u2 = gsl_pow_2(u);
-    const double complex exp_i_twopsi = exp_i(twopsi);
-    const double one_by_r = 1 / distance;
-
-    /* Compute time of arrival errors */
-    double dt[nifos];
-    toa_errors(dt, M_PI_2 - dec, ra, gmst, nifos, locations, toas);
-    for (unsigned int iifo = 0; iifo < nifos; iifo++)
-        dt[iifo] -= t;
-
-    double A = 0, B = 0, product = 1;
-
-    /* Loop over detectors */
-    for (unsigned int iifo = 0; iifo < nifos; iifo++)
-    {
-        const double complex F = complex_antenna_factor(
-            responses[iifo], ra, dec, gmst) * horizons[iifo];
-        const double complex z_times_r =
-            signal_amplitude_model(F, exp_i_twopsi, u, u2);
-        const double rho2_times_r2 = cabs2(z_times_r);
-        const double acor2 =
-            cabs2(eval_acor(acors[iifo], nsamples, dt[iifo] * sample_rate));
-        const double i0arg_times_r = snrs[iifo] * sqrt(rho2_times_r2 * acor2);
-
-        A += rho2_times_r2;
-        B += i0arg_times_r;
-        product *= gsl_sf_bessel_I0_scaled(i0arg_times_r * one_by_r);
-    }
-    A *= -0.5;
-
-    return (A * one_by_r + B) * one_by_r + log(product);
-}
-
-
 double bayestar_log_likelihood_toa_phoa_snr(
     /* Parameters */
     double ra,                      /* Right ascension (rad) */
@@ -1073,19 +1003,16 @@ double bayestar_log_likelihood_toa_phoa_snr(
     double u,                       /* Cos(inclination) */
     double twopsi,                  /* Twice polarization angle (rad) */
     double t,                       /* Barycentered arrival time (s) */
-    /* Detector network */
+    /* Data */
     double gmst,                    /* GMST (rad) */
     unsigned int nifos,             /* Number of detectors */
-    unsigned long nsamples,         /* Length of autocorrelation sequence */
+    unsigned long nsamples,         /* Lengths of SNR series */
     double sample_rate,             /* Sample rate in seconds */
-    const double complex **acors,   /* Autocorrelation sequences */
+    const double *epochs,           /* Timestamps of SNR time series */
+    const float complex **snrs,     /* Complex SNR series */
     const float (**responses)[3],   /* Detector responses */
     const double **locations,       /* Barycentered Cartesian geographic detector positions (m) */
-    const double *horizons,         /* SNR=1 horizon distances for each detector */
-    /* Observations */
-    const double *toas,             /* Arrival time differences relative to network barycenter (s) */
-    const double *phoas,            /* Phases on arrival */
-    const double *snrs              /* SNRs */
+    const double *horizons          /* SNR=1 horizon distances for each detector */
 ) {
     const double dec = asin(sin_dec);
     const double u2 = gsl_pow_2(u);
@@ -1094,9 +1021,7 @@ double bayestar_log_likelihood_toa_phoa_snr(
 
     /* Compute time of arrival errors */
     double dt[nifos];
-    toa_errors(dt, M_PI_2 - dec, ra, gmst, nifos, locations, toas);
-    for (unsigned int iifo = 0; iifo < nifos; iifo++)
-        dt[iifo] -= t;
+    toa_errors(dt, M_PI_2 - dec, ra, gmst, nifos, locations, epochs);
 
     double complex i0arg_complex_times_r = 0;
     double A = 0;
@@ -1109,10 +1034,9 @@ double bayestar_log_likelihood_toa_phoa_snr(
 
         const double complex z_times_r =
              signal_amplitude_model(F, exp_i_twopsi, u, u2);
-        const double complex zhat = snrs[iifo] * exp_i(phoas[iifo]);
 
-        i0arg_complex_times_r += zhat * conj(z_times_r
-            * eval_acor(acors[iifo], nsamples, dt[iifo] * sample_rate));
+        i0arg_complex_times_r += conj(z_times_r)
+            * eval_snr(snrs[iifo], nsamples, (t - dt[iifo]) * sample_rate - 0.5 * (nsamples - 1));
         A += cabs2(z_times_r);
     }
     A *= -0.5;
@@ -1131,8 +1055,8 @@ double bayestar_log_likelihood_toa_phoa_snr(
 
 static void test_cabs2(double complex z)
 {
-    double result = cabs2(z);
-    double expected = gsl_pow_2(cabs(z));
+    const double result = cabs2(z);
+    const double expected = gsl_pow_2(cabs(z));
     gsl_test_abs(result, expected, 2 * GSL_DBL_EPSILON,
         "testing cabs2(%g + %g j)", creal(z), cimag(z));
 }
@@ -1142,8 +1066,8 @@ static void test_complex_catrom(void)
 {
     for (double t = 0; t <= 1; t += 0.01)
     {
-        double complex result = complex_catrom(0, 0, 0, 0, t);
-        double complex expected = 0;
+        const double complex result = complex_catrom(0, 0, 0, 0, t);
+        const double complex expected = 0;
         gsl_test_abs(creal(result), creal(expected), 0,
             "testing complex Catmull-rom interpolant for zero input");
         gsl_test_abs(cimag(result), cimag(expected), 0,
@@ -1152,8 +1076,8 @@ static void test_complex_catrom(void)
 
     for (double t = 0; t <= 1; t += 0.01)
     {
-        double complex result = complex_catrom(1, 1, 1, 1, t);
-        double complex expected = 1;
+        const double complex result = complex_catrom(1, 1, 1, 1, t);
+        const double complex expected = 1;
         gsl_test_abs(creal(result), creal(expected), 0,
             "testing complex Catmull-rom interpolant for unit input");
         gsl_test_abs(cimag(result), cimag(expected), 0,
@@ -1162,8 +1086,8 @@ static void test_complex_catrom(void)
 
     for (double t = 0; t <= 1; t += 0.01)
     {
-        double complex result = complex_catrom(1.0j, 1.0j, 1.0j, 1.0j, t);
-        double complex expected = 1.0j;
+        const double complex result = complex_catrom(1.0j, 1.0j, 1.0j, 1.0j, t);
+        const double complex expected = 1.0j;
         gsl_test_abs(creal(result), creal(expected), 0,
             "testing complex Catmull-rom interpolant for unit imaginary input");
         gsl_test_abs(cimag(result), cimag(expected), 1,
@@ -1172,8 +1096,8 @@ static void test_complex_catrom(void)
 
     for (double t = 0; t <= 1; t += 0.01)
     {
-        double complex result = complex_catrom(1.0+1.0j, 1.0+1.0j, 1.0+1.0j, 1.0+1.0j, t);
-        double complex expected = 1.0+1.0j;
+        const double complex result = complex_catrom(1.0+1.0j, 1.0+1.0j, 1.0+1.0j, 1.0+1.0j, t);
+        const double complex expected = 1.0+1.0j;
         gsl_test_abs(creal(result), creal(expected), 0,
             "testing complex Catmull-rom interpolant for unit real + imaginary input");
         gsl_test_abs(cimag(result), cimag(expected), 0,
@@ -1182,8 +1106,8 @@ static void test_complex_catrom(void)
 
     for (double t = 0; t <= 1; t += 0.01)
     {
-        double complex result = complex_catrom(1, 0, 1, 4, t);
-        double complex expected = gsl_pow_2(t);
+        const double complex result = complex_catrom(1, 0, 1, 4, t);
+        const double complex expected = gsl_pow_2(t);
         gsl_test_abs(creal(result), creal(expected), 0,
             "testing complex Catmull-rom interpolant for quadratic real input");
         gsl_test_abs(cimag(result), cimag(expected), 0,
@@ -1196,169 +1120,169 @@ static void test_real_catrom(void)
 {
     for (double t = 0; t <= 1; t += 0.01)
     {
-        double result = real_catrom(0, 0, 0, 0, t);
-        double expected = 0;
+        const double result = real_catrom(0, 0, 0, 0, t);
+        const double expected = 0;
         gsl_test_abs(result, expected, 0,
             "testing Catmull-rom interpolant for zero input");
     }
 
     for (double t = 0; t <= 1; t += 0.01)
     {
-        double result = real_catrom(1, 1, 1, 1, t);
-        double expected = 1;
+        const double result = real_catrom(1, 1, 1, 1, t);
+        const double expected = 1;
         gsl_test_abs(result, expected, 0,
             "testing Catmull-rom interpolant for unit input");
     }
 
     for (double t = 0; t <= 1; t += 0.01)
     {
-        double result = real_catrom(1, 0, 1, 4, t);
-        double expected = gsl_pow_2(t);
+        const double result = real_catrom(1, 0, 1, 4, t);
+        const double expected = gsl_pow_2(t);
         gsl_test_abs(result, expected, 0,
             "testing Catmull-rom interpolant for quadratic input");
     }
 
     for (double t = 0; t <= 1; t += 0.01)
     {
-        double result = real_catrom(
+        const double result = real_catrom(
             GSL_POSINF, GSL_POSINF, GSL_POSINF, GSL_POSINF, t);
-        double expected = GSL_POSINF;
+        const double expected = GSL_POSINF;
         gsl_test_abs(result, expected, 0,
             "testing Catmull-rom interpolant for +inf input");
     }
 
     for (double t = 0; t <= 1; t += 0.01)
     {
-        double result = real_catrom(
+        const double result = real_catrom(
             0, GSL_POSINF, GSL_POSINF, GSL_POSINF, t);
-        double expected = GSL_POSINF;
+        const double expected = GSL_POSINF;
         gsl_test_abs(result, expected, 0,
             "testing Catmull-rom interpolant for +inf input");
     }
 
     for (double t = 0; t <= 1; t += 0.01)
     {
-        double result = real_catrom(
+        const double result = real_catrom(
             GSL_POSINF, GSL_POSINF, GSL_POSINF, 0, t);
-        double expected = GSL_POSINF;
+        const double expected = GSL_POSINF;
         gsl_test_abs(result, expected, 0,
             "testing Catmull-rom interpolant for +inf input");
     }
 
     for (double t = 0; t <= 1; t += 0.01)
     {
-        double result = real_catrom(
+        const double result = real_catrom(
             0, GSL_POSINF, GSL_POSINF, 0, t);
-        double expected = GSL_POSINF;
+        const double expected = GSL_POSINF;
         gsl_test_abs(result, expected, 0,
             "testing Catmull-rom interpolant for +inf input");
     }
 
     for (double t = 0.01; t <= 1; t += 0.01)
     {
-        double result = real_catrom(
+        const double result = real_catrom(
             0, 0, GSL_POSINF, 0, t);
-        double expected = GSL_POSINF;
+        const double expected = GSL_POSINF;
         gsl_test_abs(result, expected, 0,
             "testing Catmull-rom interpolant for +inf input");
     }
 
     {
-        double result = real_catrom(
+        const double result = real_catrom(
             0, GSL_NEGINF, GSL_POSINF, 0, 1);
-        double expected = GSL_POSINF;
+        const double expected = GSL_POSINF;
         gsl_test_abs(result, expected, 0,
             "testing Catmull-rom interpolant for +inf input");
     }
 
     {
-        double result = real_catrom(
+        const double result = real_catrom(
             0, GSL_POSINF, GSL_NEGINF, 0, 0);
-        double expected = GSL_POSINF;
+        const double expected = GSL_POSINF;
         gsl_test_abs(result, expected, 0,
             "testing Catmull-rom interpolant for +inf input");
     }
 
     for (double t = 0; t <= 1; t += 0.01)
     {
-        double result = real_catrom(
+        const double result = real_catrom(
             0, GSL_NEGINF, GSL_NEGINF, GSL_NEGINF, t);
-        double expected = GSL_NEGINF;
+        const double expected = GSL_NEGINF;
         gsl_test_abs(result, expected, 0,
             "testing Catmull-rom interpolant for -inf input");
     }
 
     for (double t = 0; t <= 1; t += 0.01)
     {
-        double result = real_catrom(
+        const double result = real_catrom(
             GSL_NEGINF, GSL_NEGINF, GSL_NEGINF, 0, t);
-        double expected = GSL_NEGINF;
+        const double expected = GSL_NEGINF;
         gsl_test_abs(result, expected, 0,
             "testing Catmull-rom interpolant for -inf input");
     }
 
     for (double t = 0; t <= 1; t += 0.01)
     {
-        double result = real_catrom(
+        const double result = real_catrom(
             0, GSL_NEGINF, GSL_NEGINF, 0, t);
-        double expected = GSL_NEGINF;
+        const double expected = GSL_NEGINF;
         gsl_test_abs(result, expected, 0,
             "testing Catmull-rom interpolant for -inf input");
     }
 
     for (double t = 0.01; t <= 1; t += 0.01)
     {
-        double result = real_catrom(
+        const double result = real_catrom(
             0, 0, GSL_NEGINF, 0, t);
-        double expected = GSL_NEGINF;
+        const double expected = GSL_NEGINF;
         gsl_test_abs(result, expected, 0,
             "testing Catmull-rom interpolant for -inf input");
     }
 
     {
-        double result = real_catrom(
+        const double result = real_catrom(
             0, GSL_NEGINF, GSL_POSINF, 0, 0);
-        double expected = GSL_NEGINF;
+        const double expected = GSL_NEGINF;
         gsl_test_abs(result, expected, 0,
             "testing Catmull-rom interpolant for -inf input");
     }
 
     {
-        double result = real_catrom(
+        const double result = real_catrom(
             0, GSL_POSINF, GSL_NEGINF, 0, 1);
-        double expected = GSL_NEGINF;
+        const double expected = GSL_NEGINF;
         gsl_test_abs(result, expected, 0,
             "testing Catmull-rom interpolant for -inf input");
     }
 
     for (double t = 0.01; t < 1; t += 0.01)
     {
-        double result = real_catrom(
+        const double result = real_catrom(
             0, GSL_NEGINF, GSL_POSINF, 0, t);
-        double expected = GSL_NAN;
+        const double expected = GSL_NAN;
         gsl_test_abs(result, expected, 0,
             "testing Catmull-rom interpolant for indeterminate input");
     }
 }
 
 
-static void test_eval_acor(void)
+static void test_eval_snr(void)
 {
-    size_t nsamples = 64;
-    double complex x[nsamples];
+    static const size_t nsamples = 64;
+    float complex x[nsamples];
 
     /* Populate data with samples of x(t) = t^2 + t j */
     for (size_t i = 0; i < nsamples; i ++)
         x[i] = gsl_pow_2(i) + i * 1.0j;
 
-    for (double t = -nsamples; t <= nsamples; t += 0.1)
+    for (double t = 0; t <= nsamples; t += 0.1)
     {
-        double result = eval_acor(x, nsamples, t);
-        double expected = (fabs(t) < nsamples) ? (gsl_pow_2(t) + t*1.0j) : 0;
-        gsl_test_abs(creal(result), creal(expected), 0,
-            "testing real part of eval_acor(%g) for x(t) = t^2 + t j", t);
-        gsl_test_abs(cimag(result), cimag(expected), 0,
-            "testing imaginary part of eval_acor(%g) for x(t) = t^2 + t j", t);
+        const double result = eval_snr(x, nsamples, t);
+        const double expected = (t > 1 && t < nsamples - 2) ? (gsl_pow_2(t) + t*1.0j) : 0;
+        gsl_test_abs(creal(result), creal(expected), 1e4 * GSL_DBL_EPSILON,
+            "testing real part of eval_snr(%g) for x(t) = t^2 + t j", t);
+        gsl_test_abs(cimag(result), cimag(expected), 1e4 * GSL_DBL_EPSILON,
+            "testing imaginary part of eval_snr(%g) for x(t) = t^2 + t j", t);
     }
 }
 
@@ -1580,7 +1504,7 @@ int bayestar_test(void)
 
     test_complex_catrom();
     test_real_catrom();
-    test_eval_acor();
+    test_eval_snr();
 
     for (double ra = -M_PI; ra <= M_PI; ra += 0.4 * M_PI)
         for (double dec = -M_PI_2; dec <= M_PI_2; dec += 0.4 * M_PI)

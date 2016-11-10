@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
 from glue import pidfile
 import time
 import sys
@@ -13,4 +14,4 @@ else:
 time.sleep(secs)
 
 if pidfile.confirm_lock("lock.pid"):
-    print "confirmed!"
+    print("confirmed!")

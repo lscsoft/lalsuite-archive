@@ -48,6 +48,8 @@ from copy import copy as _shallowcopy
 
 
 from glue import git_version
+import six
+from six.moves import range
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -97,6 +99,9 @@ class infinity(object):
 	True
 	>>> segment(-10, 10) - segment(-x, 0)
 	segment(0, 10)
+	>>> import math
+	>>> math.isinf(x)
+	True
 	"""
 	__slots__ = []
 
@@ -196,6 +201,15 @@ class infinity(object):
 			return NegInfinity
 		# self is NegInfinity
 		return PosInfinity
+
+	def __float__(self):
+		"""
+		Returns +/-inf (allows math.isinf() to work).
+		"""
+		if self is PosInfinity:
+			return float("+inf")
+		# self is NegInfinity
+		return float("-inf")
 
 
 PosInfinity = object.__new__(infinity)
@@ -680,7 +694,7 @@ class segmentlist(list):
 		if self[0][0] > NegInfinity:
 			l.append(segment(NegInfinity, self[0][0]))
 		last = self[0][1]
-		for i in xrange(1, len(self)):
+		for i in range(1, len(self)):
 			l.append(segment(last, self[i][0]))
 			last = self[i][1]
 		if last < PosInfinity:
@@ -753,7 +767,7 @@ class segmentlist(list):
 		Execute the .protract() method on each segment in the list
 		and coalesce the result.  Segmentlist is modified in place.
 		"""
-		for i in xrange(len(self)):
+		for i in range(len(self)):
 			self[i] = self[i].protract(x)
 		return self.coalesce()
 
@@ -762,7 +776,7 @@ class segmentlist(list):
 		Execute the .contract() method on each segment in the list
 		and coalesce the result.  Segmentlist is modified in place.
 		"""
-		for i in xrange(len(self)):
+		for i in range(len(self)):
 			self[i] = self[i].contract(x)
 		return self.coalesce()
 
@@ -773,7 +787,7 @@ class segmentlist(list):
 		coalesced nor does it coalesce the list.  Segmentlist is
 		modified in place.
 		"""
-		for i in xrange(len(self)):
+		for i in range(len(self)):
 			self[i] = self[i].shift(x)
 		return self
 
@@ -829,7 +843,7 @@ class _offsets(dict):
 		offset dictionary, when one or more of the segmentlistdicts
 		contains only a subset of the keys.
 		"""
-		for key, value in d.iteritems():
+		for key, value in six.iteritems(d):
 			if key in self:
 				self[key] = value
 
@@ -979,7 +993,7 @@ class segmentlistdict(dict):
 		>>> x.map(lambda l: 12 in l)
 		{'H2': True, 'H1': False}
 		"""
-		return dict((key, func(value)) for key, value in self.iteritems())
+		return dict((key, func(value)) for key, value in six.iteritems(self))
 
 	def __abs__(self):
 		"""
@@ -1041,7 +1055,7 @@ class segmentlistdict(dict):
 	# list-by-list arithmetic
 
 	def __iand__(self, other):
-		for key, value in other.iteritems():
+		for key, value in six.iteritems(other):
 			if key in self:
 				self[key] &= value
 			else:
@@ -1054,7 +1068,7 @@ class segmentlistdict(dict):
 		return other.copy().__iand__(self)
 
 	def __ior__(self, other):
-		for key, value in other.iteritems():
+		for key, value in six.iteritems(other):
 			if key in self:
 				self[key] |= value
 			else:
@@ -1070,7 +1084,7 @@ class segmentlistdict(dict):
 	__add__ = __or__
 
 	def __isub__(self, other):
-		for key, value in other.iteritems():
+		for key, value in six.iteritems(other):
 			if key in self:
 				self[key] -= value
 		return self
@@ -1079,7 +1093,7 @@ class segmentlistdict(dict):
 		return self.copy().__isub__(other)
 
 	def __ixor__(self, other):
-		for key, value in other.iteritems():
+		for key, value in six.iteritems(other):
 			if key in self:
 				self[key] ^= value
 			else:
@@ -1104,7 +1118,7 @@ class segmentlistdict(dict):
 		Returns True if any segmentlist in self intersects the
 		segment, otherwise returns False.
 		"""
-		return any(value.intersects_segment(seg) for value in self.itervalues())
+		return any(value.intersects_segment(seg) for value in six.itervalues(self))
 
 	def intersects(self, other):
 		"""
@@ -1116,7 +1130,7 @@ class segmentlistdict(dict):
 
 		.intersects_all(), .all_intersects(), .all_intersects_all()
 		"""
-		return any(key in self and self[key].intersects(value) for key, value in other.iteritems())
+		return any(key in self and self[key].intersects(value) for key, value in six.iteritems(other))
 
 	def intersects_all(self, other):
 		"""
@@ -1128,7 +1142,7 @@ class segmentlistdict(dict):
 
 		.intersects(), .all_intersects(), .all_intersects_all()
 		"""
-		return all(key in self and self[key].intersects(value) for key, value in other.iteritems()) and bool(other)
+		return all(key in self and self[key].intersects(value) for key, value in six.iteritems(other)) and bool(other)
 
 	def all_intersects(self, other):
 		"""
@@ -1140,7 +1154,7 @@ class segmentlistdict(dict):
 
 		.intersects, .intersects_all(), .all_intersects_all()
 		"""
-		return all(key in other and other[key].intersects(value) for key, value in self.iteritems()) and bool(self)
+		return all(key in other and other[key].intersects(value) for key, value in six.iteritems(self)) and bool(self)
 
 	def all_intersects_all(self, other):
 		"""
@@ -1153,7 +1167,7 @@ class segmentlistdict(dict):
 
 		.intersects(), .all_intersects(), .intersects_all()
 		"""
-		return set(self) == set(other) and all(other[key].intersects(value) for key, value in self.iteritems()) and bool(self)
+		return set(self) == set(other) and all(other[key].intersects(value) for key, value in six.iteritems(self)) and bool(self)
 
 	def extend(self, other):
 		"""
@@ -1161,7 +1175,7 @@ class segmentlistdict(dict):
 		segmentlists in self, adding new segmentslists to self as
 		needed.
 		"""
-		for key, value in other.iteritems():
+		for key, value in six.iteritems(other):
 			if key not in self:
 				self[key] = _shallowcopy(value)
 			else:
@@ -1171,7 +1185,7 @@ class segmentlistdict(dict):
 		"""
 		Run .coalesce() on all segmentlists.
 		"""
-		for value in self.itervalues():
+		for value in six.itervalues(self):
 			value.coalesce()
 		return self
 
@@ -1179,7 +1193,7 @@ class segmentlistdict(dict):
 		"""
 		Run .contract(x) on all segmentlists.
 		"""
-		for value in self.itervalues():
+		for value in six.itervalues(self):
 			value.contract(x)
 		return self
 
@@ -1187,7 +1201,7 @@ class segmentlistdict(dict):
 		"""
 		Run .protract(x) on all segmentlists.
 		"""
-		for value in self.itervalues():
+		for value in six.itervalues(self):
 			value.protract(x)
 		return self
 
@@ -1286,7 +1300,7 @@ except ImportError:
 #
 
 
-import copy_reg
+import six.moves.copyreg
 
-copy_reg.pickle(segment, lambda x: (segment, tuple(x)))
-copy_reg.pickle(segmentlist, lambda x: (segmentlist, (), None, iter(x)))
+six.moves.copyreg.pickle(segment, lambda x: (segment, tuple(x)))
+six.moves.copyreg.pickle(segmentlist, lambda x: (segmentlist, (), None, iter(x)))

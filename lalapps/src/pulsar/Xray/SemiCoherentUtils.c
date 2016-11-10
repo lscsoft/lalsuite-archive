@@ -1,4 +1,6 @@
-/*  Copyright (C) 2010 Chris Messenger
+/*
+ *  Copyright (C) 2016 Karl Wette
+ *  Copyright (C) 2010 Chris Messenger
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -218,7 +220,7 @@ int XLALGetNextRandomBinaryTemplate(Template **temp,                        /**<
     (*temp)->ndim = gridparams->ndim;
 
   }
-  else if ((*temp)->currentidx == (UINT4)gridparams->Nr - 1) {
+  else if ((*temp)->currentidx >= (UINT4)gridparams->Nr - 1) {
 
     /* free binary template memory */
     XLALFree((*temp)->x);
@@ -1103,9 +1105,9 @@ int XLALReadSFTs(SFTVector **sftvec,        /**< [out] the input SFT data */
   freqmax = freqmin + freqband;
 
   /* check CRC sums of SFTs */
-  /* LAL_CALL ( LALCheckSFTCatalog ( &status, &sft_check_result, catalog ), &status );
+  /* XLAL_CHECK_MAIN ( XLALCheckCRCSFTCatalog (&sft_check_result, catalog ) == XLAL_SUCCESS, XLAL_EFUNC );
   if (sft_check_result) {
-    LogPrintf(LOG_CRITICAL,"%s : LALCheckSFTCatalogSFT() validity check failed with error = %d\n", sft_check_result);
+    LogPrintf(LOG_CRITICAL,"%s : XLALCheckCRCSFTCatalogSFT() validity check failed with error = %d\n", sft_check_result);
     return 1;
   }
   LogPrintf(LOG_DEBUG,"%s : checked the SFTs\n",__func__); */
@@ -1290,26 +1292,6 @@ int XLALComputeBinaryGridParams(GridParameters **binarygridparams,  /**< [out] t
   return XLAL_SUCCESS;
 
 }
-
-/** Append the given SFTtype to the SFT-vector (no SFT-specific checks are done!) */
-int XLALAppendSFT2Vector (SFTVector *vect,		/**< destinatino SFTVector to append to */
-                          const SFTtype *sft            /**< the SFT to append */
-                          )
-{
-  UINT4 oldlen = vect->length;
-
-  if ( (vect->data = LALRealloc ( vect->data, (oldlen + 1)*sizeof( *vect->data ) )) == NULL ) {
-     LogPrintf(LOG_CRITICAL,"%s: Error, unable to allocate memory\n",__func__);
-     XLAL_ERROR(XLAL_EINVAL);
-  }
-  memset ( &(vect->data[oldlen]), 0, sizeof( vect->data[0] ) );
-  vect->length ++;
-
-  XLALCopySFT(&vect->data[oldlen], sft );
-
-  return XLAL_SUCCESS;
-
-} /* XLALAppendSFT2Vector() */
 
 /** Convert an input binary file into an SFTVector
  *

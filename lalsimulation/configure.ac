@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([LALSimulation],[1.6.0.1],[lal-discuss@ligo.org])
+AC_INIT([LALSimulation],[1.6.1.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([src/config.h src/LALSimulationConfig.h])
 AC_CONFIG_SRCDIR([src/LALSimulation.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -36,7 +36,7 @@ AM_INIT_AUTOMAKE([ \
 ])
 
 # version requirements
-MIN_LAL_VERSION="6.16.1"
+MIN_LAL_VERSION="6.17.0"
 AC_SUBST([MIN_LAL_VERSION])
 
 AC_CANONICAL_HOST
@@ -60,9 +60,9 @@ LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 #    then increment age.
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
-AC_SUBST([LIBCURRENT],[14])
+AC_SUBST([LIBCURRENT],[15])
 AC_SUBST([LIBREVISION],[0])
-AC_SUBST([LIBAGE],[0])
+AC_SUBST([LIBAGE],[1])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
 
 # nightly build
@@ -120,7 +120,7 @@ AC_DEFINE([HAVE_GETHOSTNAME_PROTOTYPE],[1],
 AC_CHECK_LIB([m],[main],,[AC_MSG_ERROR([could not find the math library])])
 
 # check for OpenMP
-AC_OPENMP
+LALSUITE_ENABLE_OPENMP
 
 # check for gsl
 PKG_CHECK_MODULES([GSL],[gsl],[true],[false])
@@ -142,29 +142,6 @@ LALSUITE_USE_SWIG
 
 # configure Doxygen documentation
 LALSUITE_USE_DOXYGEN
-
-# Disable OpenMP by default.
-# FIXME: OpenMP should be on by default, but it breaks condor_compiling lalapps.
-AS_IF(
-  [test "x$enable_openmp" = "x"],
-  [OPENMP_CFLAGS=]
-)
-# add compiler flags for OpenMP
-AS_IF(
-  [test "x$OPENMP_CFLAGS" = "x"],
-  [
-    OPENMP_ENABLE_VAL="DISABLED"
-    LALSUITE_ADD_FLAGS([C],[-Wno-unknown-pragmas],[])
-  ],
-  [
-    OPENMP_ENABLE_VAL="ENABLED"
-    LALSUITE_ADD_FLAGS([C],[${OPENMP_CFLAGS}],[])
-  ]
-)
-
-# create Automake conditional so that we know whether we need to build
-# OpenMP-specific tests
-AM_CONDITIONAL([HAVE_OPENMP],[test "x$OPENMP_ENABLE_VAL" = "xENABLED"])
 
 # add gcc specific flags
 LALSUITE_ADD_GCC_FLAGS

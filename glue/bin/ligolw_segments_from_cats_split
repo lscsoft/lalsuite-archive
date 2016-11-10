@@ -24,6 +24,7 @@ optional argument, --max_gps_duration, to specify the maximum gps time
 of each constituent query (default is one week).
 """
 
+from __future__ import print_function
 import sys
 import os
 import pwd
@@ -129,7 +130,7 @@ if __name__ == '__main__':
     if gps_segmentlist[-1][1] != int(gps_end_time):
         gps_segmentlist.append(glue.segments.segment(gps_segmentlist[-1][1],gps_end_time))
 
-    print "segmentlist =", gps_segmentlist
+    print("segmentlist =", gps_segmentlist)
 
     argv = sys.argv[1:]
 #    print "original argv =", argv

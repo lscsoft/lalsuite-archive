@@ -53,6 +53,7 @@ from glue import git_version
 from . import ligolw
 from . import tokenizer
 from . import types as ligolwtypes
+from six.moves import range
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -158,7 +159,7 @@ class ArrayStream(ligolw.Stream):
 			w(newline)
 			w(xmlescape(join(islice(tokens, linelen))))
 			newline = self.Delimiter + newline
-			for i in xrange(lines - 1):
+			for i in range(lines - 1):
 				w(newline)
 				w(xmlescape(join(islice(tokens, linelen))))
 		w(u"\n" + self.end_tag(indent) + u"\n")

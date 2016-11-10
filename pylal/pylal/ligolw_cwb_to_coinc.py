@@ -189,7 +189,7 @@ class CWB2Coinc(object):
     else :
       self.do_process_table_from_segment(xmldoc, sim_tree, jobsegment)
   
-    process_index = dict((int(row.process_id), row) for row in table.get_table(xmldoc, lsctables.ProcessTable.tableName))
+    process_index = dict((int(row.process_id), row) for row in lsctables.ProcessTable.get_table(xmldoc))
   
     if self.verbose:
       print " done."
@@ -375,7 +375,7 @@ class CWB2Coinc(object):
     """
   
     try: 
-      process_table = table.get_table(xmldoc, lsctables.ProcessTable.tableName)
+      process_table = lsctables.ProcessTable.get_table(xmldoc)
     except ValueError:
       process_table = lsctables.New(lsctables.ProcessTable,
       ["process_id", "ifos", "comment", "program", "start_time", "jobid", 
@@ -435,7 +435,7 @@ class CWB2Coinc(object):
     """
   
     try: 
-      process_table = table.get_table(xmldoc, lsctables.ProcessTable.tableName)
+      process_table = lsctables.ProcessTable.get_table(xmldoc)
     except ValueError:
       process_table = lsctables.New(lsctables.ProcessTable,
       ["process_id", "ifos", "comment", "program", "start_time", "jobid", 
@@ -517,7 +517,7 @@ class CWB2Coinc(object):
     """
   
     try: 
-      search_summary = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
+      search_summary = lsctables.SearchSummaryTable.get_table(xmldoc)
     except ValueError:
       search_summary = lsctables.New(lsctables.SearchSummaryTable,
       ["process_id", "nevents", "ifos", "comment", "in_start_time",
@@ -525,7 +525,7 @@ class CWB2Coinc(object):
       "in_end_time", "in_end_time_ns", "out_end_time", "out_end_time_ns"])
       xmldoc.childNodes[0].appendChild(search_summary)
   
-    process_id_type = type(table.get_table(xmldoc, lsctables.ProcessTable.tableName).next_id)
+    process_id_type = type(lsctables.ProcessTable.get_table(xmldoc).next_id)
   
     sim_tree.GetEntry(0)
 
@@ -568,7 +568,7 @@ class CWB2Coinc(object):
     """
   
     try: 
-      search_summary = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
+      search_summary = lsctables.SearchSummaryTable.get_table(xmldoc)
     except ValueError:
       search_summary = lsctables.New(lsctables.SearchSummaryTable,
       ["process_id", "nevents", "ifos", "comment", "in_start_time",
@@ -576,7 +576,7 @@ class CWB2Coinc(object):
       "in_end_time", "in_end_time_ns", "out_end_time", "out_end_time_ns"])
       xmldoc.childNodes[0].appendChild(search_summary)
   
-    process_id_type = type(table.get_table(xmldoc, lsctables.ProcessTable.tableName).next_id)
+    process_id_type = type(lsctables.ProcessTable.get_table(xmldoc).next_id)
   
     runid = dict()
     itr = 0 
@@ -656,7 +656,7 @@ class CWB2Coinc(object):
     """
   
     try: 
-      search_summary = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
+      search_summary = lsctables.SearchSummaryTable.get_table(xmldoc)
     except ValueError:
       search_summary = lsctables.New(lsctables.SearchSummaryTable,
       ["process_id", "nevents", "ifos", "comment", "in_start_time",
@@ -664,7 +664,7 @@ class CWB2Coinc(object):
       "in_end_time", "in_end_time_ns", "out_end_time", "out_end_time_ns"])
       xmldoc.childNodes[0].appendChild(search_summary)
   
-    process_id_type = type(table.get_table(xmldoc, lsctables.ProcessTable.tableName).next_id)
+    process_id_type = type(lsctables.ProcessTable.get_table(xmldoc).next_id)
   
     runids = set()
     entries = sim_tree.GetEntries()

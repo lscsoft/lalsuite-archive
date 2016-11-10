@@ -258,6 +258,9 @@ struct gengetopt_args_info
   char * lower_limit_comp_arg;	/**< @brief lower limit compensation factor - used to account for windowing in SFTs (possible values: Hann, flat, arbitrary number) (default='Hann').  */
   char * lower_limit_comp_orig;	/**< @brief lower limit compensation factor - used to account for windowing in SFTs (possible values: Hann, flat, arbitrary number) original value given at command line.  */
   const char *lower_limit_comp_help; /**< @brief lower limit compensation factor - used to account for windowing in SFTs (possible values: Hann, flat, arbitrary number) help description.  */
+  int viterbi_power_sums_arg;	/**< @brief Use Viterbi-like algorithm to accumulate power sums between segments, accomodating long term deviations in frequency evolution (default='0').  */
+  char * viterbi_power_sums_orig;	/**< @brief Use Viterbi-like algorithm to accumulate power sums between segments, accomodating long term deviations in frequency evolution original value given at command line.  */
+  const char *viterbi_power_sums_help; /**< @brief Use Viterbi-like algorithm to accumulate power sums between segments, accomodating long term deviations in frequency evolution help description.  */
   char * write_dat_arg;	/**< @brief regular expression describing which *.dat files to write (default='.*').  */
   char * write_dat_orig;	/**< @brief regular expression describing which *.dat files to write original value given at command line.  */
   const char *write_dat_help; /**< @brief regular expression describing which *.dat files to write help description.  */
@@ -362,6 +365,9 @@ struct gengetopt_args_info
   int output_cache_arg;	/**< @brief write out all candidates in cache to log file (default='0').  */
   char * output_cache_orig;	/**< @brief write out all candidates in cache to log file original value given at command line.  */
   const char *output_cache_help; /**< @brief write out all candidates in cache to log file help description.  */
+  int progress_update_interval_arg;	/**< @brief integer value controlling frequency of progress updates (default='100').  */
+  char * progress_update_interval_orig;	/**< @brief integer value controlling frequency of progress updates original value given at command line.  */
+  const char *progress_update_interval_help; /**< @brief integer value controlling frequency of progress updates help description.  */
   int extended_test_arg;	/**< @brief Perform extended self test functions given by this bitmask (default='1').  */
   char * extended_test_orig;	/**< @brief Perform extended self test functions given by this bitmask original value given at command line.  */
   const char *extended_test_help; /**< @brief Perform extended self test functions given by this bitmask help description.  */
@@ -371,6 +377,9 @@ struct gengetopt_args_info
   int num_threads_arg;	/**< @brief Use that many threads for computation (default='-1').  */
   char * num_threads_orig;	/**< @brief Use that many threads for computation original value given at command line.  */
   const char *num_threads_help; /**< @brief Use that many threads for computation help description.  */
+  char * num_threads_env_arg;	/**< @brief Use this environment variable to obtain num-threads (default='').  */
+  char * num_threads_env_orig;	/**< @brief Use this environment variable to obtain num-threads original value given at command line.  */
+  const char *num_threads_env_help; /**< @brief Use this environment variable to obtain num-threads help description.  */
   int niota_arg;	/**< @brief Number of iota values to use in alignment grid (default='3').  */
   char * niota_orig;	/**< @brief Number of iota values to use in alignment grid original value given at command line.  */
   const char *niota_help; /**< @brief Number of iota values to use in alignment grid help description.  */
@@ -383,6 +392,12 @@ struct gengetopt_args_info
   int nchunks_arg;	/**< @brief Partition the timebase into this many chunks for sub period analysis (default='5').  */
   char * nchunks_orig;	/**< @brief Partition the timebase into this many chunks for sub period analysis original value given at command line.  */
   const char *nchunks_help; /**< @brief Partition the timebase into this many chunks for sub period analysis help description.  */
+  int nchunks_refinement_arg;	/**< @brief Reduce reported statistics by this factor. (default='1').  */
+  char * nchunks_refinement_orig;	/**< @brief Reduce reported statistics by this factor. original value given at command line.  */
+  const char *nchunks_refinement_help; /**< @brief Reduce reported statistics by this factor. help description.  */
+  int min_nchunks_arg;	/**< @brief Do not output statistics with fewer than this many chunks (default='1').  */
+  char * min_nchunks_orig;	/**< @brief Do not output statistics with fewer than this many chunks original value given at command line.  */
+  const char *min_nchunks_help; /**< @brief Do not output statistics with fewer than this many chunks help description.  */
   int split_ifos_arg;	/**< @brief Split interferometers in separate chunks (default='1').  */
   char * split_ifos_orig;	/**< @brief Split interferometers in separate chunks original value given at command line.  */
   const char *split_ifos_help; /**< @brief Split interferometers in separate chunks help description.  */
@@ -546,6 +561,7 @@ struct gengetopt_args_info
   unsigned int compute_betas_given ;	/**< @brief Whether compute-betas was given.  */
   unsigned int upper_limit_comp_given ;	/**< @brief Whether upper-limit-comp was given.  */
   unsigned int lower_limit_comp_given ;	/**< @brief Whether lower-limit-comp was given.  */
+  unsigned int viterbi_power_sums_given ;	/**< @brief Whether viterbi-power-sums was given.  */
   unsigned int write_dat_given ;	/**< @brief Whether write-dat was given.  */
   unsigned int write_png_given ;	/**< @brief Whether write-png was given.  */
   unsigned int dump_points_given ;	/**< @brief Whether dump-points was given.  */
@@ -582,13 +598,17 @@ struct gengetopt_args_info
   unsigned int output_initial_given ;	/**< @brief Whether output-initial was given.  */
   unsigned int output_optimized_given ;	/**< @brief Whether output-optimized was given.  */
   unsigned int output_cache_given ;	/**< @brief Whether output-cache was given.  */
+  unsigned int progress_update_interval_given ;	/**< @brief Whether progress-update-interval was given.  */
   unsigned int extended_test_given ;	/**< @brief Whether extended-test was given.  */
   unsigned int max_sft_report_given ;	/**< @brief Whether max-sft-report was given.  */
   unsigned int num_threads_given ;	/**< @brief Whether num-threads was given.  */
+  unsigned int num_threads_env_given ;	/**< @brief Whether num-threads-env was given.  */
   unsigned int niota_given ;	/**< @brief Whether niota was given.  */
   unsigned int npsi_given ;	/**< @brief Whether npsi was given.  */
   unsigned int nfshift_given ;	/**< @brief Whether nfshift was given.  */
   unsigned int nchunks_given ;	/**< @brief Whether nchunks was given.  */
+  unsigned int nchunks_refinement_given ;	/**< @brief Whether nchunks-refinement was given.  */
+  unsigned int min_nchunks_given ;	/**< @brief Whether min-nchunks was given.  */
   unsigned int split_ifos_given ;	/**< @brief Whether split-ifos was given.  */
   unsigned int default_dataset_veto_level_given ;	/**< @brief Whether default-dataset-veto-level was given.  */
   unsigned int default_dataset_veto_spike_level_given ;	/**< @brief Whether default-dataset-veto-spike-level was given.  */

@@ -19,6 +19,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+from __future__ import print_function
 import sys
 import os
 from subprocess import *
@@ -27,8 +28,8 @@ from subprocess import *
 
 # usage
 def usage():
-	print "usage: LIGOLW_VETO_FILE=<file>", CMD, "<gpstime> [<duration>]"
-	print """
+	print("usage: LIGOLW_VETO_FILE=<file>", CMD, "<gpstime> [<duration>]")
+	print("""
 For specified time and category definer file, output flag states.  If
 a duration is also specified, then the flag states are output for the
 entire duration, starting at gpstime, in an OR manor, with preference
@@ -44,7 +45,7 @@ The states are:
   ! = undefined
 
 The environment variable LIGOLW_VETO_FILE must contain the path or URL
-of a category definer file."""
+of a category definer file.""")
 
 # simple failure function
 def failure(error='', errnum=1):
@@ -135,7 +136,7 @@ actives = get_flags('active', time, duration)
 defined = get_flags('defined', time, duration)
 
 # process all vetos
-for flag, category in categories.iteritems():
+for flag, category in categories.items():
 
 	# check that the flag is valid for the time
 	if time < start_times[flag]:
@@ -153,4 +154,4 @@ for flag, category in categories.iteritems():
 		state = '!'
 
 	# output the info
-	print state, category, flag
+	print(state, category, flag)

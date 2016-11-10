@@ -32,7 +32,6 @@ import lal
 
 
 from pylal import git_version
-from pylal import inject
 from pylal import rate
 from pylal import SnglBurstUtils
 
@@ -106,7 +105,7 @@ def hrss_in_instrument(sim, instrument, offsetvector):
 	# antenna response factors
 
 	fplus, fcross = lal.ComputeDetAMResponse(
-		inject.cached_detector_by_prefix[instrument].response,
+		lal.cached_detector_by_prefix[instrument].response,
 		sim.ra,
 		sim.dec,
 		sim.psi,
@@ -129,7 +128,7 @@ def string_amplitude_in_instrument(sim, instrument, offsetvector):
 	# antenna response factors
 
 	fplus, fcross = lal.ComputeDetAMResponse(
-		inject.cached_detector_by_prefix[instrument].response,
+		lal.cached_detector_by_prefix[instrument].response,
 		sim.ra,
 		sim.dec,
 		sim.psi,

@@ -20,15 +20,9 @@
 // SWIG interface code specific to Octave.
 // Author: Karl Wette
 
-// # General SWIG directives and interface code
-
-// Call VCS information check function when module is loaded
-%init %{
-  if (VCS_INFO_CHECK() != XLAL_SUCCESS) {
-    SWIG_Error(SWIG_RuntimeError, "Could not load SWIG module");
-    return false;
-  }
-%}
+//
+// General SWIG directives and interface code
+//
 
 // In SWIG Octave modules, only variables are namespaced, everything else
 // is inserted in the global symbol table, so we rename only variables
@@ -80,8 +74,7 @@ extern "C++" {
 #define swiglal_1starg()  (args.length() > 0 ? args(0) : octave_value())
 %}
 
-// Return a reference to the supplied octave_value; since Octave handles reference counting, just
-// return it.
+// Return a reference to the supplied octave_value; since Octave handles reference counting, just return it.
 %header %{
 #define swiglal_get_reference(v) (v)
 %}
@@ -91,7 +84,14 @@ extern "C++" {
 #define swiglal_append_output_if_empty(v) if (_outp->length() == 0) _outp = SWIG_Octave_AppendOutput(_outp, v)
 %}
 
-// # SWIG directives for operators
+// Evaluates true if an octave_value represents a null pointer, false otherwise.
+%header %{
+#define swiglal_null_ptr(v)  (!(v).is_string() && (v).is_matrix_type() && (v).rows() == 0 && (v).columns() == 0)
+%}
+
+//
+// SWIG directives for operators
+//
 
 // Unary operators which return a new object, and thus require %newobject to be set.
 %define %swiglal_oct_urn_op(NAME, OCTNAME)
@@ -125,7 +125,18 @@ extern "C++" {
 // Comparison operators.
 %typemap(in, numinputs=0, noblock=1) int SWIGLAL_CMP_OP_RETN_HACK "";
 
-// # General fragments, typemaps, and macros
+//
+// Octave-specific extensions to structs
+//
+
+// Extend a struct TAGNAME.
+%define %swiglal_struct_extend_specific(TAGNAME, OPAQUE, DTORFUNC)
+
+%enddef // %swiglal_struct_extend_specific
+
+//
+// General fragments, typemaps, and macros
+//
 
 // SWIG conversion fragments and typemaps for GSL complex numbers.
 %swig_cplxflt_convn(gsl_complex_float, gsl_complex_float_rect, GSL_REAL, GSL_IMAG);
@@ -200,7 +211,9 @@ extern "C++" {
 
 }
 
-// # Interface code to track object parents
+//
+// Interface code to track object parents
+//
 
 // Interface code which tracks the parent structs of SWIG-wrapped struct members, so that the parent
 // struct is not destroyed as long as a SWIG-wrapped object containing any of its members exists.
@@ -267,7 +280,9 @@ SWIGINTERN bool swiglal_release_parent(void *ptr) {
 
 %} // %init
 
-// # Fragments and typemaps for arrays
+//
+// Fragments and typemaps for arrays
+//
 
 // This section implements a series of array view classes, through which arbitrary C array data can
 // be viewed as native Octave matrices, etc.

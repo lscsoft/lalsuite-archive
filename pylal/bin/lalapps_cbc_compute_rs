@@ -340,9 +340,9 @@ class FileStats:
 
     def load_file(self):
         self.xmldoc = utils.load_filename( self.name, gz = self.name.endswith(".gz") )
-        self.search_summ_table = table.get_table(self.xmldoc, lsctables.SearchSummaryTable.tableName)
+        self.search_summ_table = lsctables.SearchSummaryTable.get_table(self.xmldoc)
         try:
-            self.sngl_insp_table = table.get_table(self.xmldoc, lsctables.SnglInspiralTable.tableName)
+            self.sngl_insp_table = lsctables.SnglInspiralTable.get_table(self.xmldoc)
         except ValueError:
             self.sngl_insp_table = lsctables.New(lsctables.SnglInspiralTable) 
 

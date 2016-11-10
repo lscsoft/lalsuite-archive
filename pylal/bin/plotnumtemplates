@@ -124,13 +124,11 @@ def readFiles(fList):
         isSearchSummOrProcess)).parse(fileobj)
 
     # read in ifo from process, as not stored in SearchSumm
-    process_table = ligolw_table.get_table(doc,
-        lsctables.ProcessTable.tableName)
+    process_table = lsctables.ProcessTable.get_table(doc)
     ifo = process_table.getColumnByName('ifos')[0]
 
     # read in SearchSummary
-    searchSummTable = ligolw_table.get_table(doc,
-        lsctables.SearchSummaryTable.tableName)
+    searchSummTable = lsctables.SearchSummaryTable.get_table(doc)
     if ifo in output:
       output[ifo].extend(searchSummTable)
     else:

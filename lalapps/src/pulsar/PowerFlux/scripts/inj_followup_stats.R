@@ -1,3 +1,4 @@
+#!/usr/bin/env Rscript
 library("lattice")
 
 p<-function(...)paste(..., sep="")
@@ -52,14 +53,25 @@ Params[,"ecl_cos_large2_gaussian"]<-ifelse(Params[,"h0_rel"]>=2 & !Params[,"non_
 Params[,"spindown_large2_gaussian"]<-ifelse(Params[,"h0_rel"]>=2 & !Params[,"non_gaussian"], Params[,"spindown"], NA)
 Params[,"f0_large2_gaussian"]<-ifelse(Params[,"h0_rel"]>=2 & !Params[,"non_gaussian"], Params[,"f0"], NA)
 
+runtime<-read.table("runtime.txt", header=FALSE)
+names(runtime)<-c("tag", "x", "runtime")
+runtime[,"instance"]<-as.integer(gsub("output/([0-9]*)/.*", "\\1", runtime[,"tag"]))
+
 Input<-read.table("input_matches.csv", header=TRUE)
-Input<-merge(Params, Input, by="i", all=TRUE, suffixes=c("_inj", ""))
+F<-!is.na(Input[,"ra"])
+Input[F,"idx"]<-1:sum(F)
+Input<-merge(Params, Input[, setdiff(names(Input), p(names(Params), "_inj")),drop=FALSE], by="i", all=TRUE, suffixes=c("_inj", ""))
 Input[,"line_id"]<-as.character(Input[,"line_id"])
+Input<-merge(Input, runtime[,c("tag", "runtime", "instance")], by.x="idx", by.y="instance", all.x=TRUE, suffixes=c("", "_runtime"))
+
+X<-aggregate(!is.na(Input[,"runtime"]), Input[,"i",drop=FALSE], mean)
+Input[,"complete"]<-Input[,"i"] %in% X[X[,2]>=1.0, 1]
 
 
 Output<-read.table("followup_matches.csv", header=TRUE)
-Output<-merge(Params, Output, by="i", all=TRUE, suffixes=c("_inj", ""))
+Output<-merge(Params, Output[,setdiff(names(Output), p(names(Params), "_inj")),drop=FALSE], by="i", all=TRUE, suffixes=c("_inj", ""))
 Output[,"line_id"]<-as.character(Output[,"line_id"])
+Output[,"complete"]<-Output[,"i"] %in% X[X[,2]>=1.0, 1]
 
 if(ExcludeMissingUL) {
 	Params<-Params[!is.na(Params[,"h0_rel"]),,drop=FALSE]
@@ -73,13 +85,14 @@ Input[is.na(Input[,"dist"]), "dist"]<-0.3
 Output[,"dist"]<-dist(Output[,"ra"], Output[,"dec"], Output[,"ra_inj"], Output[,"dec_inj"])
 Output[is.na(Output[,"dist"]), "dist"]<-0.3
 
-C<-merge(Input[,setdiff(names(Input), "line_id_orig"),drop=FALSE], Output, by.x=c("i", "line_id"), by.y=c("i", "line_id_orig"), suffixes=c("_input", "_output"), all=TRUE)
+C<-merge(Input[,setdiff(names(Input), "line_id_orig"),drop=FALSE], Output[,setdiff(names(Output), "line_id"),drop=FALSE], by.x=c("i", "line_id"), by.y=c("i", "line_id_orig"), suffixes=c("_input", "_output"), all=TRUE)
 missing_injections<-C[is.na(C[,"snr_output"]) & !is.na(C[,"snr_input"]),,drop=FALSE]
 
-write.table(missing_injections, "missing_injections.csv", col.names=TRUE, row.names=FALSE)
+write.table(missing_injections, "missing_injections.csv", col.names=TRUE, row.names=FALSE, sep="\t")
 
 
 ROC_table<-function(table, col="h0_inj", group.func=function(x)return(x), groups) {
+	table<-table[!is.na(table[,col]),,drop=FALSE]
 	table[,"Found"]<- as.integer(!is.na(table[,"snr"]))
 	X<-table[order(table[,"Found"], decreasing=TRUE),,drop=FALSE]
 	X<-X[!duplicated(X[,"i"]),,drop=FALSE]
@@ -103,14 +116,19 @@ error.bar <- function(x, y, upper, lower=upper, length=0.1,...) {
 	panel.arrows(x,y+upper, x, y-lower, angle=90, code=3, length=length, ...)
 	}
 
-ROC_plot<-function(col="h0_inj", group.func=function(x)return(x), group.inv.func=function(x)return(x), groups=10, error.bars=FALSE, ...) {
+ROC_plot<-function(col="h0_inj", group.func=function(x)return(x), group.inv.func=function(x)return(x), groups=10, error.bars=FALSE, omit.incomplete=FALSE, ...) {
 	try({
 	Gy<-group.func(c(Input[,col], Output[,col]))
 	#Groups<-seq(min(Gy, na.rm=TRUE), max(Gy, na.rm=TRUE), length.out=groups)
 	Groups<-quantile(Gy, (0:groups)/groups, na.rm=TRUE)
 
-	ROCInput<-ROC_table(Input, col=col, group.func=group.func, groups=Groups)
-	ROCOutput<-ROC_table(Output, col=col, group.func=group.func, groups=Groups)
+	if(omit.incomplete) {
+		ROCInput<-ROC_table(Input[Input[,"complete"],,drop=FALSE], col=col, group.func=group.func, groups=Groups)
+		ROCOutput<-ROC_table(Output[Output[,"complete"],,drop=FALSE], col=col, group.func=group.func, groups=Groups)
+		} else {
+		ROCInput<-ROC_table(Input, col=col, group.func=group.func, groups=Groups)
+		ROCOutput<-ROC_table(Output, col=col, group.func=group.func, groups=Groups)
+		}
 
 	C<-merge(ROCInput, ROCOutput, by="Group", suffixes=c("_input", "_output"), all=TRUE)
 	C[,col]<-group.inv.func(Groups[C[,"Group"]])
@@ -126,12 +144,14 @@ ROC_plot<-function(col="h0_inj", group.func=function(x)return(x), group.inv.func
 		print(error.bar(C[,col], C[,"Found_output"], C[,"Found_sd_output"], col="magenta"))
 		}
 	trellis.unfocus()
+	return(invisible(C))
 	})
 	}
 
-ComparisonPlot<-function(formula, decreasing=TRUE, best.snr=FALSE, omit.found=FALSE, auto.key=list(text=c("Input", "Output"), columns=2), pch=c(3, 1), ...) {
-	C<-merge(Input[,setdiff(names(Input), "line_id_orig"),drop=FALSE], Output, by.x=c("i", "line_id"), by.y=c("i", "line_id_orig"), suffixes=c("_input", "_output"), all=omit.found)
-	if(!omit.found)C<-C[!is.na(C[,"line_id"]),]
+ComparisonPlot<-function(formula, decreasing=TRUE, best.snr=FALSE, omit.found=FALSE, omit.incomplete=TRUE, auto.key=list(text=c("Input", "Output"), columns=2), pch=c(3, 1), ...) {
+	C<-merge(Input[,setdiff(names(Input), "line_id_orig"),drop=FALSE], Output[,setdiff(names(Output), "line_id"),drop=FALSE], by.x=c("i", "line_id"), by.y=c("i", "line_id_orig"), suffixes=c("_input", "_output"), all=omit.found)
+	if(!omit.found)C<-C[!is.na(C[,"line_id"]),,drop=FALSE]
+	if(omit.incomplete)C<-C[C[,"complete_input"],,drop=FALSE]
 	if(best.snr) {
 		C<-C[order(C[,"snr_output"], decreasing=TRUE),,drop=FALSE]
 		C<-C[!duplicated(C[,"i"]),,drop=FALSE]
@@ -150,6 +170,9 @@ ComparisonPlot<-function(formula, decreasing=TRUE, best.snr=FALSE, omit.found=FA
 #	pdf(p(name, ".pdf"), width=width*5/600, height=height*5/600, bg="white", ...)
 #	}
 
+make_plot("runtime")
+print(xyplot(I(runtime/3600.0)~instance, runtime))
+dev.off()
 
 make_plot("injection_recovery")
 ROC_plot(group.func=log10, group.inv.func=function(x)return(10^x), auto.key=list(columns=2), xlab="h0", ylab="% found", groups=60)
@@ -176,11 +199,11 @@ ROC_plot(col="f0_inj", auto.key=list(columns=2), xlab="Injection frequency", yla
 dev.off()
 
 make_plot("injection_recovery_by_f0_large")
-ROC_plot(col="f0_large", auto.key=list(columns=2), xlab="Injection frequency", ylab="% found")
+ROC_plot(col="f0_large", auto.key=list(columns=2), xlab="Injection frequency", ylab="% found", omit.incomplete=TRUE)
 dev.off()
 
 make_plot("injection_recovery_by_f0_large2")
-ROC_plot(col="f0_large2", auto.key=list(columns=2), xlab="Injection frequency", ylab="% found")
+ROC_plot(col="f0_large2", auto.key=list(columns=2), xlab="Injection frequency", ylab="% found", omit.incomplete=TRUE)
 dev.off()
 
 make_plot("injection_recovery_by_spindown")
@@ -204,15 +227,15 @@ ROC_plot(col="ecl_cos", auto.key=list(columns=2), xlab="Projection on ecliptic a
 dev.off()
 
 make_plot("injection_recovery_by_ecliptic_pole_projection_large")
-ROC_plot(col="ecl_cos_large", auto.key=list(columns=2), xlab="Projection on ecliptic axis", ylab="% found")
+ROC_plot(col="ecl_cos_large", auto.key=list(columns=2), xlab="Projection on ecliptic axis", ylab="% found", omit.incomplete=TRUE)
 dev.off()
 
 make_plot("injection_recovery_by_ecliptic_pole_projection_large_B")
-ROC_plot(col="ecl_cos_large_B", auto.key=list(columns=2), xlab="Projection on ecliptic axis", ylab="% found")
+ROC_plot(col="ecl_cos_large_B", auto.key=list(columns=2), xlab="Projection on ecliptic axis", ylab="% found", omit.incomplete=TRUE)
 dev.off()
 
 make_plot("injection_recovery_by_ecliptic_pole_projection_large2")
-ROC_plot(col="ecl_cos_large2", auto.key=list(columns=2), xlab="Projection on ecliptic axis", ylab="% found")
+ROC_plot(col="ecl_cos_large2", auto.key=list(columns=2), xlab="Projection on ecliptic axis", ylab="% found", omit.incomplete=TRUE)
 dev.off()
 
 make_plot("snr_improvement")

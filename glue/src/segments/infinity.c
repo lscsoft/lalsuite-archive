@@ -27,6 +27,7 @@
 
 
 #include <Python.h>
+#include <math.h>
 #include <stdlib.h>
 
 
@@ -143,7 +144,11 @@ static PyObject *__pos__(PyObject *self)
 
 static PyObject *__repr__(PyObject *self)
 {
+#if PY_MAJOR_VERSION < 3
 	return PyString_FromString(self == (PyObject *) segments_PosInfinity ? "infinity" : "-infinity");
+#else
+	return PyUnicode_FromString(self == (PyObject *) segments_PosInfinity ? "infinity" : "-infinity");
+#endif
 }
 
 
@@ -228,6 +233,15 @@ static PyObject *__sub__(PyObject *self, PyObject *other)
 }
 
 
+static PyObject *__float__(PyObject *self)
+{
+	if(self == (PyObject *) segments_PosInfinity)
+		return PyFloat_FromDouble(INFINITY);
+	/* self == segments_NegInfinity */
+	return PyFloat_FromDouble(-INFINITY);
+}
+
+
 /*
  * Type information
  */
@@ -236,9 +250,14 @@ static PyObject *__sub__(PyObject *self, PyObject *other)
 static PyNumberMethods as_number = {
 	.nb_add = __add__,
 	.nb_negative = __neg__,
+#if PY_MAJOR_VERSION < 3
 	.nb_nonzero = __nonzero__,
+#else
+	.nb_bool = __nonzero__,
+#endif
 	.nb_positive = __pos__,
 	.nb_subtract = __sub__,
+	.nb_float = __float__,
 };
 
 
@@ -283,8 +302,15 @@ PyTypeObject segments_Infinity_Type = {
 ">>> x + 10 == x\n" \
 "True\n" \
 ">>> segment(-10, 10) - segment(-x, 0)\n" \
-"segment(0, 10)",
-	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES,
+"segment(0, 10)\n" \
+">>> import math\n" \
+">>> math.isinf(x)\n" \
+"True",
+	.tp_flags = Py_TPFLAGS_DEFAULT
+#if PY_MAJOR_VERSION < 3
+	| Py_TPFLAGS_CHECKTYPES
+#endif
+	,
 	.tp_methods = methods,
 	.tp_name = MODULE_NAME ".infinity",
 	.tp_new = __new__,

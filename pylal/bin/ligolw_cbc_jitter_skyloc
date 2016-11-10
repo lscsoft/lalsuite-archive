@@ -131,7 +131,7 @@ site_location_list = [\
     ("t", "T1"),
     ("v", "V1")
 ]
-for sim in table.get_table(siminsp_doc, lsctables.SimInspiralTable.tableName):
+for sim in lsctables.SimInspiralTable.get_table(siminsp_doc):
 
     # The Fisher distribution is the appropriate generalization of a
     # Gaussian on a sphere.

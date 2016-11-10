@@ -66,7 +66,7 @@ def wcacheFromLALCache(cache):
     for e in cache:
         dir = os.path.split(e.path)[0]
         lfn = os.path.basename(e.path)
-        if wcachedict.has_key(dir):
+        if dir in wcachedict:
             l = wcachedict[dir]
             if l[2] > int(e.segment[0]):
                 wcachedict[dir][2] = e.segment[0]
@@ -192,7 +192,7 @@ def sanity_check_command_line(opts, args):
                                       "given.")
 
     # get the default server if it wasn't given
-    if not opts.server and not os.environ.has_key("LIGO_DATAFIND_SERVER"):
+    if not opts.server and "LIGO_DATAFIND_SERVER" not in os.environ:
         raise optparse.OptionValueError("--server was not given, and "+\
                                       "$LIGO_DATAFIND_SERVER variable is not "+\
                                       "set.")

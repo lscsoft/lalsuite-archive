@@ -160,8 +160,7 @@ if __name__=='__main__':
     N = len(trig_cache)
     print_verbose("Loading triggers from %d files... " % N)
     ligolw_add.ligolw_add(outxml, trig_cache.pfnlist())
-    time_slide_table = table.get_table(outxml,
-                                       lsctables.TimeSlideTable.tableName)
+    time_slide_table = lsctables.TimeSlideTable.get_table(outxml)
     table.reset_next_ids([type(time_slide_table)])
     time_slide_mapping = ligolw_tisi.time_slides_vacuum(
                              time_slide_table.as_dict())
@@ -172,14 +171,10 @@ if __name__=='__main__':
     print_verbose("Done.\n")
 
     # extract the tables
-    process_table = table.get_table(outxml,
-                                    lsctables.ProcessTable.tableName)
-    search_summary_table = table.get_table(outxml,
-                                        lsctables.SearchSummaryTable.tableName)
-    multi_inspiral_table = table.get_table(
-                               outxml, lsctables.MultiInspiralTable.tableName)
-    time_slide_table = table.get_table(outxml,
-                                       lsctables.TimeSlideTable.tableName)
+    process_table = lsctables.ProcessTable.get_table(outxml)
+    search_summary_table = lsctables.SearchSummaryTable.get_table(outxml)
+    multi_inspiral_table = lsctables.MultiInspiralTable.get_table(outxml)
+    time_slide_table = lsctables.TimeSlideTable.get_table(outxml)
     slides = time_slide_table.as_dict()
 
     # uniquify the search summary
@@ -261,8 +256,7 @@ if __name__=='__main__':
 
     # append our process
     if not opts.preserve_processes:
-        process_params = table.get_table(outxml,
-                                         lsctables.ProcessParamsTable.tableName)
+        process_params = lsctables.ProcessParamsTable.get_table(outxml)
         outxml.childNodes[-1].removeChild(process_table)
         outxml.childNodes[-1].removeChild(process_params)
     process = ligolw_process.append_process(outxml, program=__file__,
@@ -293,8 +287,7 @@ if __name__=='__main__':
 
     # uniquify the simulations
     try:
-        sim_inspiral_table = table.get_table(
-                                 outxml, lsctables.SimInspiralTable.tableName)
+        sim_inspiral_table = lsctables.SimInspiralTable.get_table(outxml)
     except ValueError:
         pass
     else:
@@ -333,8 +326,7 @@ if __name__=='__main__':
     outxml.childNodes[-1].appendChild(cluster_table)
     table.reset_next_ids(lsctables.TableByName.values())
     table.reassign_ids(outxml)
-    segment_def_table = table.get_table(outxml,
-                                        lsctables.SegmentDefTable.tableName)
+    segment_def_table = lsctables.SegmentDefTable.get_table(outxml)
     for time_slide_id,vector in time_slide_table.as_dict().iteritems():
         comment = ",".join([str(vector[ifo]) for ifo in set(vector.keys())])
         for i,row in enumerate(segment_def_table):

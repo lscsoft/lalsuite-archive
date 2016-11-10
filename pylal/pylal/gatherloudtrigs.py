@@ -26,7 +26,7 @@ def get_segments_from_xml(filename):
     seg_xml = utils.load_filename(filename, contenthandler=DefaultContentHandler)
 
     # get the segment table
-    seg_table = table.get_table(seg_xml, lsctables.SegmentTable.tableName)
+    seg_table = lsctables.SegmentTable.get_table(seg_xml)
 
     # loop over segments table to get all the segments
     segs = segments.segmentlist()
@@ -44,9 +44,9 @@ def get_loud_trigs(fList, veto_file, new_snr_cut):
     searched_segs = segments.segmentlist()
     for fname in fList:
         xmldoc = utils.load_filename(fname, gz=True, contenthandler=DefaultContentHandler)
-        tbl = lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+        tbl = lsctables.SnglInspiralTable.get_table(xmldoc)
         trigs.extend([tbl[i] for i in (tbl.get_new_snr() > new_snr_cut).nonzero()[0]])
-        search_summary = lsctables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
+        search_summary = lsctables.SearchSummaryTable.get_table(xmldoc)
         searched_segs += search_summary.get_outlist()
 
     if isinstance(veto_file, list):

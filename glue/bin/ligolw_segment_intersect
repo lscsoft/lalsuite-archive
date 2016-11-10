@@ -34,6 +34,7 @@ across files or (2) each individual segment definer between files
 """
 
 
+from __future__ import print_function
 from optparse import OptionParser
 
 import sys
@@ -102,7 +103,7 @@ def parse_command_line():
     options, filenames = parser.parse_args()
 
     if not (options.segment or options.segment_summary) or (options.segment and options.segment_summary):
-        print >>sys.stderr, "Please specify one of --segment or  --segment-summary"
+        print("Please specify one of --segment or  --segment-summary", file=sys.stderr)
         sys.exit(-1)
 
     return options, filenames
@@ -133,7 +134,7 @@ if __name__ == '__main__':
         filenames = [None]
 
     # Also treat the special name 'stdin' as stdin
-    filenames = map(lambda x: x != 'stdin' and x or None, filenames)
+    filenames = [x != 'stdin' and x or None for x in filenames]
 
     if options.include_segments:
         xmldoc, total_time = logic.run_segment_operation(xmldoc, filenames, 

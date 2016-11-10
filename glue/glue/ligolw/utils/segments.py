@@ -351,11 +351,12 @@ class LigolwSegments(set):
 	>>> xmldoc = ligolw.Document()
 	>>> xmldoc.appendChild(ligolw.LIGO_LW())	# doctest: +ELLIPSIS
 	<glue.ligolw.ligolw.LIGO_LW object at ...>
-	>>> process = lsctables.Process()
-	>>> process.process_id = lsctables.ProcessTable.get_next_id()
+	>>> process = lsctables.Process(process_id = lsctables.ProcessTable.get_next_id())
 	>>> with LigolwSegments(xmldoc, process) as xmlsegments:
 	...	h1segs = segmentlist([segment(LIGOTimeGPS(0), LIGOTimeGPS(10))])
 	...	xmlsegments.insert_from_segmentlistdict({"H1": h1segs}, "test")
+	...	l1segs = h1segs.shift(5)
+	...	xmlsegments.add(LigolwSegmentList(active = l1segs, valid = segmentlist([segment(-infinity(), infinity())]), instruments = set(["L1"]), name = "test"))
 	>>> xmldoc.write(sys.stdout)		# doctest: +NORMALIZE_WHITESPACE
 	<?xml version='1.0' encoding='utf-8'?>
 	<!DOCTYPE LIGO_LW SYSTEM "http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt">
@@ -369,6 +370,7 @@ class LigolwSegments(set):
 			<Column Type="lstring" Name="segment_definer:comment"/>
 			<Stream Delimiter="," Type="Local" Name="segment_definer:table">
 				"process:process_id:0","segment_definer:segment_def_id:0","H1","test",,,
+				"process:process_id:0","segment_definer:segment_def_id:1","L1","test",,,
 			</Stream>
 		</Table>
 		<Table Name="segment_summary:table">
@@ -381,6 +383,7 @@ class LigolwSegments(set):
 			<Column Type="ilwd:char" Name="segment_summary:segment_def_id"/>
 			<Column Type="lstring" Name="segment_summary:comment"/>
 			<Stream Delimiter="," Type="Local" Name="segment_summary:table">
+				"process:process_id:0","segment_summary:segment_sum_id:0",4294967295,4294967295,2147483647,4294967295,"segment_definer:segment_def_id:1",,
 			</Stream>
 		</Table>
 		<Table Name="segment:table">
@@ -392,13 +395,14 @@ class LigolwSegments(set):
 			<Column Type="int_4s" Name="segment:end_time_ns"/>
 			<Column Type="ilwd:char" Name="segment:segment_def_id"/>
 			<Stream Delimiter="," Type="Local" Name="segment:table">
-				"process:process_id:0","segment:segment_id:0",0,0,10,0,"segment_definer:segment_def_id:0"
+				"process:process_id:0","segment:segment_id:0",0,0,10,0,"segment_definer:segment_def_id:0",
+				"process:process_id:0","segment:segment_id:1",5,0,15,0,"segment_definer:segment_def_id:1"
 			</Stream>
 		</Table>
 	</LIGO_LW>
 	>>> xmlsegments = LigolwSegments(xmldoc)
 	>>> xmlsegments.get_by_name("test")
-	{u'H1': [segment(0.000000000, 10.000000000)]}
+	{u'H1': [segment(0.000000000, 10.000000000)], u'L1': [segment(5.000000000, 15.000000000)]}
 	>>> xmlsegments.get_by_name("wrong name")
 	Traceback (most recent call last):
 		...
@@ -640,10 +644,9 @@ class LigolwSegments(set):
 				row.segment = seg
 				row.process_id = process_id
 				row.segment_def_id = segment_def_id
-				setattr(row, id_column, target_table.get_next_id())
-				if hasattr(row, "comment"):
+				if isinstance(row, lsctables.SegmentSum):
 					row.comment = None
-				yield row, target_table
+				yield row, target_table, id_column
 
 		#
 		# populate the segment_definer table from the list of
@@ -653,8 +656,8 @@ class LigolwSegments(set):
 		#
 
 		row_generators = []
-		while self:
-			ligolw_segment_list = self.pop()
+		for ligolw_segment_list in sorted(self, key = lambda l: (l.name, sorted(l.instruments), l.version)):
+			self.remove(ligolw_segment_list)
 			segment_def_row = self.segment_def_table.RowType()
 			segment_def_row.process_id = process_id
 			segment_def_row.segment_def_id = self.segment_def_table.get_next_id()
@@ -672,7 +675,8 @@ class LigolwSegments(set):
 		# rows from the generators in time order
 		#
 
-		for row, target_table in iterutils.inorder(*row_generators):
+		for row, target_table, id_column in iterutils.inorder(*row_generators):
+			setattr(row, id_column, target_table.get_next_id())
 			target_table.append(row)
 
 

@@ -2060,7 +2060,7 @@ def archive_triggers(outdir, start, end, param_dict, clustered=False):
                            G_TRIGGERS[etg][channel].iteritems())
         for i,(seg,trig_table) in enumerate(global_triggers):
             try:
-                event_table = table.get_table(xmldoc, trig_table.tableName)
+                event_table = trig_table.get_table(xmldoc)
             except ValueError:
                 event_table = table.new_from_template(trig_table)
                 xmldoc.childNodes[-1].appendChild(event_table)
@@ -2391,12 +2391,10 @@ def load_archive_segments(cp, flag, seglist, mode=0, verbose=False):
             with open(fp, "r") as f:
                 xmldoc, digest = ligolw_utils.load_fileobj(
                                      f, gz=fp.endswith(".gz"))
-                seg_def_table = table.get_table(
-                                    xmldoc, lsctables.SegmentDefTable.tableName)
+                seg_def_table = lsctables.SegmentDefTable.get_table(xmldoc)
                 seg_def_ids = [row.segment_def_id for row in seg_def_table if
                                row.name == name and row.version == version]
-                seg_sum_table = table.get_table(
-                                    xmldoc, lsctables.SegmentSumTable.tableName)
+                seg_sum_table = lsctables.SegmentSumTable.get_table(xmldoc)
                 seg_sum_list = SegmentList()
                 for row in seg_sum_table:
                     if row.segment_def_id in seg_def_ids:
@@ -2405,8 +2403,7 @@ def load_archive_segments(cp, flag, seglist, mode=0, verbose=False):
                         else:
                             seg = Segment(row.start_time, row.end_time)
                         seg_sum_list.append(seg)
-                seg_table = table.get_table(xmldoc,
-                                            lsctables.SegmentTable.tableName)
+                seg_table = lsctables.SegmentTable.get_table(xmldoc)
                 seg_list = SegmentList()
                 for row in seg_table:
                     if row.segment_def_id in seg_def_ids:
@@ -2504,8 +2501,7 @@ def load_archive_triggers(cp, ifo, channel, etg, segment_list, mode=0,
                                      f, gz=fp.endswith(".gz"))
                 # load segment table
                 try:
-                    seg_table = table.get_table(
-                                    xmldoc, lsctables.SegmentTable.tableName)
+                    seg_table = lsctables.SegmentTable.get_table(xmldoc)
                 except:
                     seg_table = []
                 # load trigger table
@@ -2513,15 +2509,12 @@ def load_archive_triggers(cp, ifo, channel, etg, segment_list, mode=0,
                                    "gstlal_excesspower"]:
                     events = lsctables.New(lsctables.SnglBurstTable,
                                             columns=columns)
-                    events.extend(table.get_table(
-                                      xmldoc,
-                                      lsctables.SnglBurstTable.tableName))
+                    events.extend(lsctables.SnglBurstTable.get_table(xmldoc))
                 elif re.search("(inspiral|ihope)", etg, re.I):
                     events = lsctables.New(lsctables.SnglInspiralTable,
                                            columns=columns)
-                    events.extend(table.get_table(
-                                     xmldoc,
-                                     lsctables.SnglInspiralTable.tableName))
+                    events.extend(lsctables.SnglInspiralTable.get_table(
+                                     xmldoc))
                 # map triggers to segments
                 for row in seg_table:
                     segment_events = lsctables.New(type(events),

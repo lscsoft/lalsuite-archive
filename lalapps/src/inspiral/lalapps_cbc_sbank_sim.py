@@ -31,6 +31,8 @@ from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import ligolw_add
 
+import lalsimulation as lalsim
+from lal import MSUN_SI
 from lalinspiral.sbank.bank import Bank
 #from sbank import git_version FIXME
 from lalinspiral.sbank.waveforms import waveforms
@@ -67,8 +69,8 @@ def ligolw_copy_process(xmldoc_src, xmldoc_dest):
     We want to copy over process and process_params tables to eventually
     merge them.
     """
-    proc = table.get_table(xmldoc_src, lsctables.ProcessTable.tableName)
-    pp = table.get_table(xmldoc_src, lsctables.ProcessParamsTable.tableName)
+    proc = lsctables.ProcessTable.get_table(xmldoc_src)
+    pp = lsctables.ProcessParamsTable.get_table(xmldoc_src)
 
     xmldoc_dest.appendChild(ligolw.LIGO_LW())
     xmldoc_dest.childNodes[-1].appendChild(proc)
@@ -83,6 +85,7 @@ def parse_command_line():
     parser.add_option("--mratio-max",default = float('inf'), type="float", help="Cull injections based on mass ratio")
     parser.add_option("--mtotal-min",default = 0, type="float", help="Cull injections based on total mass")
     parser.add_option("--mtotal-max",default = float('inf'), type="float", help="Cull injections based on total mass")
+    parser.add_option("--duration-min",default = 0, type="float", help="Cull injections based on duration")
     parser.add_option("--template-bank",default = [], action="append", metavar="FILE[:APPROX]")
     parser.add_option("--template-approx",default = None, help="Approximant to be used for templates when not specified with file.")
     parser.add_option("--noise-model", choices=noise_models.keys(), default="aLIGOZeroDetHighPower", help="Choose a noise model for the PSD from a set of available analytical model")
@@ -155,7 +158,7 @@ for file_approx in opts.template_bank:
 
     # add templates to bank
     tmpdoc = utils.load_filename(seed_file, contenthandler=ContentHandler)
-    sngl_inspiral = table.get_table(tmpdoc, lsctables.SnglInspiralTable.tableName)
+    sngl_inspiral = lsctables.SnglInspiralTable.get_table(tmpdoc)
     seed_waveform = waveforms[approx]
     bank.add_from_sngls(sngl_inspiral, seed_waveform)
 
@@ -180,7 +183,7 @@ del sngls[:]
 # pick injection parameters
 xmldoc2 = utils.load_filename(inj_file, contenthandler=ContentHandler)
 ligolw_copy_process(xmldoc2, fake_xmldoc)
-sims = table.get_table(xmldoc2, lsctables.SimInspiralTable.tableName)
+sims = lsctables.SimInspiralTable.get_table(xmldoc2)
 
 #
 # sometime inspinj doesn't give us everything we want, so we give the
@@ -188,7 +191,7 @@ sims = table.get_table(xmldoc2, lsctables.SimInspiralTable.tableName)
 #
 newtbl = lsctables.SimInspiralTable()
 for s in sims:
-    if 1./opts.mratio_max <= s.mass1/s.mass2 <= opts.mratio_max and opts.mtotal_min <= s.mass1 + s.mass2 <= opts.mtotal_max:
+    if 1./opts.mratio_max <= s.mass1/s.mass2 <= opts.mratio_max and opts.mtotal_min <= s.mass1 + s.mass2 <= opts.mtotal_max and lalsim.SimIMRSEOBNRv4ROMTimeOfFrequency(opts.flow, s.mass1 * MSUN_SI, s.mass2* MSUN_SI, s.spin1z, s.spin2z) > opts.duration_min:
         s.polarization = np.random.uniform(0, 2*np.pi)
         newtbl.append(s)
 sims = newtbl
@@ -233,11 +236,11 @@ ligolw_process.set_process_end_time(process)
 
 # output
 h5file.create_dataset("/match_map", data=match_map, compression='gzip', compression_opts=1)
-proc = table.get_table(fake_xmldoc, lsctables.ProcessTable.tableName)
+proc = lsctables.ProcessTable.get_table(fake_xmldoc)
 for p in proc:
     p.cvs_entry_time = 0
     p.end_time = 0
 h5file.create_dataset("/process", data=ligolw_table_to_array(proc))
-pp = table.get_table(fake_xmldoc, lsctables.ProcessParamsTable.tableName)
+pp = lsctables.ProcessParamsTable.get_table(fake_xmldoc)
 h5file.create_dataset("/process_params", data=ligolw_table_to_array(pp))
 h5file.close()

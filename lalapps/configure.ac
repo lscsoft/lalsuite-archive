@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([LALApps],[6.19.0.1],[lal-discuss@ligo.org])
+AC_INIT([LALApps],[6.20.0.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/lalapps/lalapps.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -58,16 +58,16 @@ AM_INIT_AUTOMAKE([ \
 ])
 
 # version requirements
-MIN_LAL_VERSION="6.16.1"
-MIN_LALFRAME_VERSION="1.4.1"
-MIN_LALMETAIO_VERSION="1.2.8"
-MIN_LALXML_VERSION="1.2.2"
-MIN_LALSIMULATION_VERSION="1.6.0"
-MIN_LALBURST_VERSION="1.4.2"
-MIN_LALINSPIRAL_VERSION="1.7.5"
-MIN_LALPULSAR_VERSION="1.14.0"
-MIN_LALINFERENCE_VERSION="1.7.0"
-MIN_LALSTOCHASTIC_VERSION="1.1.18"
+MIN_LAL_VERSION="6.17.0"
+MIN_LALFRAME_VERSION="1.4.2"
+MIN_LALMETAIO_VERSION="1.3.0"
+MIN_LALXML_VERSION="1.2.3"
+MIN_LALSIMULATION_VERSION="1.6.1"
+MIN_LALBURST_VERSION="1.4.3"
+MIN_LALINSPIRAL_VERSION="1.7.6"
+MIN_LALPULSAR_VERSION="1.15.0"
+MIN_LALINFERENCE_VERSION="1.8.0"
+MIN_LALSTOCHASTIC_VERSION="1.1.19"
 AC_SUBST([MIN_LAL_VERSION])
 AC_SUBST([MIN_LALFRAME_VERSION])
 AC_SUBST([MIN_LALMETAIO_VERSION])
@@ -419,35 +419,8 @@ if test "${cuda}" = "true"; then
 fi
 
 # check for OpenMP
-AC_OPENMP
+LALSUITE_ENABLE_OPENMP
 
-# Disable OpenMP by default.
-# FIXME: OpenMP should be on by default, but it breaks condor_compiling lalapps.
-AS_IF(
-  [test "x$enable_openmp" = "x"],
-  [OPENMP_CFLAGS=]
-)
-# add compiler flags for OpenMP
-AS_IF(
-  [test "x$OPENMP_CFLAGS" = "x" -a "x$ac_cv_prog_[]_AC_LANG_ABBREV[]_openmp" != "xnone needed"],
-  [
-    OPENMP_ENABLE_VAL="DISABLED"
-    LALSUITE_ADD_FLAGS([C],[-Wno-unknown-pragmas],[])
-  ],
-  [
-    OPENMP_ENABLE_VAL="ENABLED"
-    LALSUITE_ADD_FLAGS([C],[${OPENMP_CFLAGS}],[])
-  ]
-)
-
-# create Automake conditional so that we know whether we need to build
-# OpenMP-specific tests
-AM_CONDITIONAL([HAVE_OPENMP],[test "x$OPENMP_ENABLE_VAL" = "xENABLED"])
-
-# create Automake conditional so that we know whether we need to build
-# OpenMP-specific tests
-AM_CONDITIONAL([HAVE_OPENMP],[test "x$OPENMP_ENABLE_VAL" = "xENABLED"])
-# add gcc specific flags
 LALSUITE_ADD_GCC_FLAGS
 
 # link any executables against LALApps library

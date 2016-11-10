@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+from __future__ import print_function
 import sys
 from glue.segments import segment, segmentlist
 from glue.ligolw import utils as ligolw_utils
@@ -17,7 +18,7 @@ def vn_ldas_gap_check(vn_xml_file,vn_flag,ldas_gap_xml_file):
     ldas_sums=segmentdb_utils.find_segments(ldasdoc,'H1:DCH-MISSING_LDAS_C02_L2:1',use_segment_table=False)
     if len(ldas_sums) == 0:
        message = "no LDAS info was found within the specified time in the database!"
-       print message
+       print(message)
        return
 
     # if valid Vn file and ldas files both found, do further testings:
@@ -27,16 +28,16 @@ def vn_ldas_gap_check(vn_xml_file,vn_flag,ldas_gap_xml_file):
           message = ""
        else:
           message = "test failed. Found unexpected gaps in LDAS frames: %s \n" % vn_sum_gaps - ldas_gaps
-          print message 
+          print(message)
           return
     else: 
        if (len(vn_sums & ldas_gaps) == 0):
           message = ""
        else:
           message = "test failed. Found overlap between %s summary intervals and LDAS allowed gaps: \n" % (vn_flag, vn_sums - ldas_gaps)
-          print message
+          print(message)
           return
-    print message
+    print(message)
 
 
 if __name__ == "__main__":

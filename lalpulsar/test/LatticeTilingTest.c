@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2014, 2015 Karl Wette
+// Copyright (C) 2014, 2015, 2016 Karl Wette
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -94,6 +94,7 @@ static int SerialisationTest(
 
   // Count number of points
   const UINT8 total = XLALTotalLatticeTilingPoints( itr );
+  XLAL_CHECK( total > 0, XLAL_EFUNC );
   XLAL_CHECK( imaxabs( total - total_ref ) <= 1, XLAL_EFUNC, "\nERROR: |total - total_ref| = |%" LAL_UINT8_FORMAT " - %" LAL_UINT8_FORMAT "| > 1", total, total_ref );
 
   // Get all points
@@ -225,6 +226,7 @@ static int BasicTest(
 
     // Count number of points
     const UINT8 total = XLALTotalLatticeTilingPoints( itr );
+    XLAL_CHECK( total > 0, XLAL_EFUNC );
     printf( "Number of lattice points in %zu dimensions: %" LAL_UINT8_FORMAT "\n", i+1, total );
     XLAL_CHECK( imaxabs( total - total_ref[i] ) <= 1, XLAL_EFUNC,
                 "ERROR: |total - total_ref[%zu]| = |%" LAL_UINT8_FORMAT " - %" LAL_UINT8_FORMAT "| > 1", i, total, total_ref[i] );
@@ -240,12 +242,14 @@ static int BasicTest(
     for ( size_t j = 0; j < n; ++j ) {
       const LatticeTilingStats *stats = XLALLatticeTilingStatistics( tiling, j );
       XLAL_CHECK( stats != NULL, XLAL_EFUNC );
+      XLAL_CHECK( stats->name != NULL, XLAL_EFUNC );
       XLAL_CHECK( imaxabs( stats->total_points - total_ref[j] ) <= 1, XLAL_EFAILED, "\n  "
                   "ERROR: |total - total_ref[%zu]| = |%" LAL_UINT8_FORMAT " - %" LAL_UINT8_FORMAT "| > 1", j, stats->total_points, total_ref[j] );
-      XLAL_CHECK( stats->min_points <= stats->avg_points, XLAL_EFAILED, "\n  "
-                  "ERROR: min_points = %" LAL_INT4_FORMAT " > %g = avg_points", stats->min_points, stats->avg_points );
-      XLAL_CHECK( stats->max_points >= stats->avg_points, XLAL_EFAILED, "\n  "
-                  "ERROR: max_points = %" LAL_INT4_FORMAT " < %g = avg_points", stats->max_points, stats->avg_points );
+      XLAL_CHECK( stats->min_points <= stats->max_points, XLAL_EFAILED, "\n  "
+                  "ERROR: min_points = %" LAL_INT4_FORMAT " > %" LAL_INT4_FORMAT " = max_points", stats->min_points, stats->max_points );
+      XLAL_CHECK( stats->min_value <= stats->max_value, XLAL_EFAILED, "\n  "
+                  "ERROR: min_value = %g > %g = max_value", stats->min_value, stats->max_value );
+      printf( " %s ...", stats->name );
     }
     printf( " done\n" );
 
@@ -356,6 +360,7 @@ static int MismatchTest(
 
   // Count number of points
   const UINT8 total = XLALTotalLatticeTilingPoints( itr );
+  XLAL_CHECK( total > 0, XLAL_EFUNC );
   printf( "Number of lattice points: %" LAL_UINT8_FORMAT "\n", total );
   XLAL_CHECK( imaxabs( total - total_ref ) <= 1, XLAL_EFUNC, "ERROR: |total - total_ref| = |%" LAL_UINT8_FORMAT " - %" LAL_UINT8_FORMAT "| > 1", total, total_ref );
 
@@ -628,6 +633,16 @@ static int SuperskyTest(
   // Set metric
   printf( "Lattice type: %s\n", lattice_name );
   XLAL_CHECK( XLALSetTilingLatticeAndMetric( tiling, lattice_name, metrics->semi_rssky_metric, max_mismatch ) == XLAL_SUCCESS, XLAL_EFUNC );
+
+  // Print bound names
+  printf( "Bound names:" );
+  for ( size_t i = 0; i < XLALTotalLatticeTilingDimensions( tiling ); ++i ) {
+    const LatticeTilingStats *stats = XLALLatticeTilingStatistics( tiling, i );
+    XLAL_CHECK( stats != NULL, XLAL_EFUNC );
+    XLAL_CHECK( stats->name != NULL, XLAL_EFUNC );
+    printf( " %s", stats->name );
+  }
+  printf( "\n" );
 
   // Perform mismatch test
   XLAL_CHECK( MismatchTest( tiling, metrics->semi_rssky_metric, max_mismatch, total_ref, mism_hist_ref ) == XLAL_SUCCESS, XLAL_EFUNC );
