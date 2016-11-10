@@ -62,28 +62,28 @@ int XLALSimBlackHoleRingdownTigerFD(
 	dfreq22 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
 	sprintf(nonGRParamName,"dtau21") ;
     	if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
-	dtau22 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+	dtau21 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
         sprintf(nonGRParamName,"dfreq21") ;
 	if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
-	dfreq22 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+	dfreq21 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
 	sprintf(nonGRParamName,"dtau33") ;
     	if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
-	dtau22 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+	dtau33 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
         sprintf(nonGRParamName,"dfreq33") ;
 	if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
-	dfreq22 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+	dfreq33 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
 	sprintf(nonGRParamName,"dtau32") ;
     	if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
-	dtau22 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+	dtau32 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
         sprintf(nonGRParamName,"dfreq32") ;
 	if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
-	dfreq22 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+	dfreq32 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
 	sprintf(nonGRParamName,"dtau44") ;
     	if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
-	dtau22 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+	dtau44 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
         sprintf(nonGRParamName,"dfreq44") ;
 	if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
-	dfreq22 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+	dfreq44 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
 
 	LIGOTimeGPS tC = {0, 0};
 	 /* allocate htilde */
