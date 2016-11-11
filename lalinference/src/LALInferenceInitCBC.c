@@ -2029,6 +2029,12 @@ static void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenc
         if (checkParamInList(ppt->value,"dbeta2")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dbeta2", tmpVal, dbeta_min, dbeta_max, LALINFERENCE_PARAM_LINEAR);
         if (checkParamInList(ppt->value,"dbeta3")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dbeta3", tmpVal, dbeta_min, dbeta_max, LALINFERENCE_PARAM_LINEAR);
     }
+        /* Generic -1PN inspiral phase coefficient, parametrizing generic type of dipole radiation contribution */
+        /* Implemented at -1PN order in inspiral phasing of TaylorF2/IMRPhenomD/IMRPhenomPv2 */
+        REAL8 dipole_min = -1.;
+        REAL8 dipole_max = 1.;
+        REAL8 dipole_tmpval = 0.0;
+        if (checkParamInList(ppt->value,"dipolecoeff")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dipolecoeff", dipole_tmpval, dipole_min, dipole_max, LALINFERENCE_PARAM_LINEAR);
     ppt=LALInferenceGetProcParamVal(commandLine,"--ppe-parameters");
     if (ppt)
     {

@@ -87,6 +87,11 @@ int XLALSimInspiralTaylorF2AlignedPhasing(
     return XLAL_SUCCESS;
 }
 
+/**
+ * Now available: generic corrections to the inspiral phasing at -1PN order due to some generic type of dipole radiation
+ * (parametrized with generic coefficient dchi).
+ */
+
 int XLALSimInspiralTaylorF2Core(
         COMPLEX16FrequencySeries **htilde_out, /**< FD waveform */
 	const REAL8Sequence *freqs,            /**< frequency points at which to evaluate the waveform (Hz) */
@@ -126,6 +131,14 @@ int XLALSimInspiralTaylorF2Core(
     COMPLEX16 *data = NULL;
     LIGOTimeGPS tC = {0, 0};
     INT4 iStart = 0;
+
+    /* Generic -1PN coefficient (parametrizes strength of dipole correction term in phasing */
+    REAL8 dchi = 0; /* (ZERO by default) */
+       if (p!=NULL)
+       {
+             if (XLALSimInspiralTestGRParamExists(p,"dipolecoeff"))
+                   dchi = XLALSimInspiralGetTestGRParam(p,"dipolecoeff");
+       }
 
     COMPLEX16FrequencySeries *htilde = NULL;
 
@@ -276,6 +289,10 @@ int XLALSimInspiralTaylorF2Core(
         ref_phasing += pfa1 * vref;
         ref_phasing += pfaN;
 
+        /* Optional dipole radiation contribution in reference phasing */
+        /* ZERO by default */
+        ref_phasing += (3./128.)/eta * ( dchi/v2ref );
+
         /* Tidal terms in reference phasing */
         ref_phasing += pft12 * v12ref;
         ref_phasing += pft10 * v10ref;
@@ -310,6 +327,10 @@ int XLALSimInspiralTaylorF2Core(
         phasing += pfa2 * v2;
         phasing += pfa1 * v;
         phasing += pfaN;
+
+        /* Optional dipole radiation contribution in phasing */
+        /* ZERO by default */
+        phasing += (3./128.)/eta * ( dchi/v2 );
 
         /* Tidal terms in phasing */
         phasing += pft12 * v12;

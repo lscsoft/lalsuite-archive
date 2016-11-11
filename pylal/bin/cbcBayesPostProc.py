@@ -1273,6 +1273,8 @@ if __name__=='__main__':
         for mp in massParams:
             for dchi in bppu.tigerParams:
                 twoDGreedyMenu.append([mp,dchi])
+            for dipolecoeff in bppu.tigerParams:
+                twoDGreedyMenu.append([mp,dipolecoeff])
         for dp in distParams:
             for sp in snrParams:
                 twoDGreedyMenu.append([dp,sp])
