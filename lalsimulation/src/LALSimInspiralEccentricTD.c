@@ -1099,12 +1099,11 @@ int XLALSimInspiralEccentricTDIMRv2Generator(
                 //REAL8 deltaT,                   /**< sampling interval (s) */
                 REAL8 m1,                       /**< mass of companion 1 (kg) */
                 REAL8 m2,                       /**< mass of companion 2 (kg) */
-                REAL8 lambda1,                   
                 REAL8 f_min,                    /**< start frequency (Hz) */
                 //REAL8 fRef,                     /**< reference frequency (Hz) */
                 REAL8 r,                        /**< distance of source (m) */
-                REAL8 i                        /**< inclination of source (rad) */
-                //REAL8 e_min                     /**< initial orbital eccentricity at f_min */
+                REAL8 i,                        /**< inclination of source (rad) */
+                REAL8 e0                     /**< initial orbital eccentricity at f_min */
                 //int amplitudeO,                 /**< twice post-Newtonian amplitude order */
                 //int phaseO                      /**< twice post-Newtonian phase order */
                 )
@@ -1119,7 +1118,6 @@ int XLALSimInspiralEccentricTDIMRv2Generator(
 	REAL8 mass1 = m1/LAL_MSUN_SI;
 	REAL8 mass2 = m2/LAL_MSUN_SI;
 	REAL8 distance = r/(1.0e6 * LAL_PC_SI);
-	REAL8 e_min = abs(lambda1);
 
         REAL8 sample_rate = 8192.;
 	REAL8 deltaT = 1./sample_rate;
@@ -1130,7 +1128,7 @@ int XLALSimInspiralEccentricTDIMRv2Generator(
 	/*this is where the waveform generation script is being executed from the bash
 	from within the c code and storing its output within DUMMY.dat*/
         char COMM[1000];
-        sprintf(COMM, "/home/abhirup/src/lalsuite/lalsimulation/src/exc -m %f -n %f -f %f -i %f -e %f -s %f -a %f -t %e -o %s", mass1, mass2, f_min, i, e_min, sample_rate, anom0, tol0, outfile);
+        sprintf(COMM, "/home/abhirup/src/lalsuite/lalsimulation/src/exc -m %f -n %f -f %f -i %f -e %f -s %f -a %f -t %e -o %s", mass1, mass2, f_min, i, e0, sample_rate, anom0, tol0, outfile);
 
         fp = popen(COMM, "r");
         if(fp == NULL){ //  Handle failure of your bash command here
