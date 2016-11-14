@@ -5538,6 +5538,9 @@ def find_ndownsample(samples, nDownsample):
                      "time_mean", "time_maxl","sky_frame","psdscaleflag","logdeltaf","flow","f_ref",
                      "lal_amporder","lal_pnorder","lal_approximant","tideo","spino","signalmodelflag",
                      "t0", "phase_maxl", "azimuth", "cosalpha", "lal_amporder"] + logParams + snrParams + splineParams
+        fixedParams = [p for p in samples.colnames if all(x==samples[p][0] for x in samples[p])]
+        print "Fixed parameters: "+str(fixedParams)
+        nonParams.extend(fixedParams)
         params = [p for p in samples.colnames if p.lower() not in nonParams]
         stride=np.diff(samples['cycle'])[0]
         results = np.array([np.array(effectiveSampleSize(samples[param])[:2]) for param in params])
