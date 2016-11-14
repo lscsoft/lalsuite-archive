@@ -510,9 +510,10 @@ def cbcBayesPostProc(
             extract_hdf5_metadata(h5grp,parent=html_hdf)
 
     #Create a section for model selection results (if they exist)
-    if bayesfactornoise is not None:
+    if bayesfactorcoherent is not None or bayesfactornoise is not None:
         html_model=html.add_section('Model selection',legend=legend)
-        html_model.p('log Bayes factor ( coherent vs gaussian noise) = %s, Bayes factor=%f'%(BSN,exp(float(BSN))))
+        if bayesfactornoise is not None:
+            html_model.p('log Bayes factor ( coherent vs gaussian noise) = %s, Bayes factor=%f'%(BSN,exp(float(BSN))))
         if bayesfactorcoherent is not None:
             html_model.p('log Bayes factor ( coherent vs incoherent OR noise ) = %s, Bayes factor=%f'%(BCI,exp(float(BCI))))
 
