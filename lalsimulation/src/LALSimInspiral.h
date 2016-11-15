@@ -315,7 +315,9 @@ typedef enum tagApproximant {
                          * @remarks Implemented in lalsimulation (time domain). */
    SEOBNRv4,		/**< Spin nonprecessing EOBNR model v4 
                          * @remarks Implemented in lalsimulation (time domain). */
-   SEOBNRv4_opt,	/**< Optimized Spin-aligned EOBNR model v4
+    SEOBNRv4v2,		/**< Spin nonprecessing EOBNR model v4
+                     * @remarks Implemented in lalsimulation (time domain). */
+    SEOBNRv4_opt,	/**< Optimized Spin-aligned EOBNR model v4
                          * @remarks Implemented in lalsimulation (time domain). */
    SEOBNRv1_ROM_EffectiveSpin, /**< Single-spin frequency domain reduced order model of spin-aligned EOBNR model SEOBNRv1 See [Purrer:2014fza]
                                 * @remarks Implemented in lalsimulation (frequency domain). */
