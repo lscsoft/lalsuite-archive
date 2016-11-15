@@ -1368,23 +1368,23 @@ XLALSimIMREOBGetNRSpinPeakDeltaTv4 (INT4 UNUSED l,				/**<< Mode l */
       case 2:
           switch (m) {
               case 2:
-                  // Calibrationv21_Sep8a
+                  //Calibrationv21_Jul21_nonbcycles_noISCO_noPhDq8s85_inicondsfromrun7_chop
                   coeff00 = 2.50499;
-                  coeff01 = 13.0064;
-                  coeff02 = 11.5435;
-                  coeff03 = 0;
+                  coeff01 = 11.5159;
+                  coeff02 = 9.20186;
+                  coeff03 = 0.;
                   coeff10 = 45.8838;
-                  coeff11 = -40.3183;
-                  coeff12 = 0;
-                  coeff13 = -19.0538;
+                  coeff11 = -49.1423;
+                  coeff12 = 0.;
+                  coeff13 = -42.163;
                   coeff20 = 13.0879;
-                  coeff21 = 0;
-                  coeff22 = 0;
-                  coeff23 = 0.192775;
+                  coeff21 = 0.;
+                  coeff22 = 0.;
+                  coeff23 = 198.376;
                   coeff30 = -716.044;
-                  coeff31 = 0;
-                  coeff32 = 0;
-                  coeff33 = 0;
+                  coeff31 = 0.;
+                  coeff32 = 110.537;
+                  coeff33 = 0.;
                   res = coeff00 + coeff01 * chi + coeff02 * chiTo2 + coeff03 * chiTo3 +
                     coeff10 * eta + coeff11 * eta * chi + coeff12 * eta * chiTo2 +
                     coeff13 * eta * chiTo3 + coeff20 * eta2 + coeff21 * eta2 * chi +
@@ -1406,6 +1406,75 @@ XLALSimIMREOBGetNRSpinPeakDeltaTv4 (INT4 UNUSED l,				/**<< Mode l */
   }
 //    printf("deltaNQC %.16e\n",res);
   return res;
+}
+
+/**
+ * The time difference between the orbital peak and the peak amplitude
+ * of the mode in question (currently only 2,2 implemented ).
+ */
+UNUSED static inline REAL8
+XLALSimIMREOBGetNRSpinPeakDeltaTv4v2 (INT4 UNUSED l,				/**<< Mode l */
+                                    INT4 UNUSED m,				/**<< Mode m */
+                                    REAL8 UNUSED m1,				/**<< mass 1 */
+                                    REAL8 UNUSED m2,				/**<< mass 2 */
+                                    REAL8 UNUSED chi1,				       /**<< Dimensionless spin1 */
+                                    REAL8 UNUSED chi2				       /**<< Dimensionless spin2 */
+)
+{
+    REAL8 eta = m1 * m2 / (m1 + m2) / (m1 + m2);
+    REAL8 chi =
+    0.5 * (chi1 + chi2) + 0.5 * (chi1 - chi2) * (m1 - m2) / (m1 + m2) / (1. -
+                                                                         2. *
+                                                                         eta);
+    REAL8 eta2 = eta * eta, eta3 = eta2 * eta;
+    REAL8 chiTo2 = chi * chi, chiTo3 = chiTo2 * chi;
+    REAL8 coeff00, coeff01, coeff02, coeff03;
+    REAL8 coeff10, coeff11, coeff12, coeff13;
+    REAL8 coeff20, coeff21, coeff22, coeff23;
+    REAL8 coeff30, coeff31, coeff32, coeff33;
+    REAL8 res;
+    switch (l) {
+        case 2:
+            switch (m) {
+                case 2:
+                    // Calibrationv21_Sep8a
+                    coeff00 = 2.50499;
+                    coeff01 = 13.0064;
+                    coeff02 = 11.5435;
+                    coeff03 = 0;
+                    coeff10 = 45.8838;
+                    coeff11 = -40.3183;
+                    coeff12 = 0;
+                    coeff13 = -19.0538;
+                    coeff20 = 13.0879;
+                    coeff21 = 0;
+                    coeff22 = 0;
+                    coeff23 = 0.192775;
+                    coeff30 = -716.044;
+                    coeff31 = 0;
+                    coeff32 = 0;
+                    coeff33 = 0;
+                    res = coeff00 + coeff01 * chi + coeff02 * chiTo2 + coeff03 * chiTo3 +
+                    coeff10 * eta + coeff11 * eta * chi + coeff12 * eta * chiTo2 +
+                    coeff13 * eta * chiTo3 + coeff20 * eta2 + coeff21 * eta2 * chi +
+                    coeff22 * eta2 * chiTo2 + coeff23 * eta2 * chiTo3 + coeff30 * eta3 +
+                    coeff31 * eta3 * chi + coeff32 * eta3 * chiTo2 + coeff33 * eta3 * chiTo3;
+                    break;
+                    
+                default:
+                    XLALPrintError("XLAL Error - %s: At present only fits for the (2,2) mode are available.\n", __func__);
+                    XLAL_ERROR (XLAL_EINVAL);
+                    break;
+            }
+            break;
+            
+        default:
+            XLALPrintError("XLAL Error - %s: At present only fits for the (2,2) mode are available.\n", __func__);
+            XLAL_ERROR (XLAL_EINVAL);
+            break;
+    }
+    //    printf("deltaNQC %.16e\n",res);
+    return res;
 }
 
 /**
@@ -2192,6 +2261,10 @@ XLALSimIMRSpinEOBCalculateNQCCoefficientsV4 (REAL8Vector * restrict amplitude,		
       nrDeltaT =
 	XLALSimIMREOBGetNRSpinPeakDeltaTv4 (l, m, m1, m2, chi1, chi2);
       break;
+    case 5:
+        nrDeltaT =
+            XLALSimIMREOBGetNRSpinPeakDeltaTv4v2 (l, m, m1, m2, chi1, chi2);
+        break;
     default:
       XLALPrintError
 	("XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n",

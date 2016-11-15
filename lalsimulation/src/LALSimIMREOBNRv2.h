@@ -416,6 +416,7 @@ typedef struct tagFacWaveformCoeffs
 
   TidalEOBParams *tidal1;
   TidalEOBParams *tidal2;
+    INT4 flagv4v2;
 }
 FacWaveformCoeffs;
 
