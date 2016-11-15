@@ -64,6 +64,7 @@ pkginclude_HEADERS = \
 	LALSimInspiralTestGRParams.h \
 	LALSimInspiralWaveformCache.h \
 	LALSimInspiralWaveformFlags.h \
+        LALSimInspiralWaveformParams.h \
 	LALSimNeutronStar.h \
 	LALSimNoise.h \
 	LALSimReadData.h \
@@ -152,6 +153,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimPhenSpinRingDown.c \
 	LALSimInspiralWaveformFlags.c \
 	LALSimInspiralTestGRParams.c \
+        LALSimInspiralWaveformParams.c \
 	LALSimInspiralPrecess.c \
 	LALSimInspiral.c \
 	LALSimInspiralPNMode.c \
@@ -224,6 +226,7 @@ EXTRA_DIST = \
 	lalsimburst_sinegaussianexamples.svg \
 	lalsimburst_stringcuspexamples.svg \
 	lalsiminspiral_orbitelements.svg \
+	lalsiminspiral_orbitelementsJ.svg \
 	lalsimulation_inject.svg \
 	$(NOISEPSDFILES) \
 	$(EOSDATAFILES)
