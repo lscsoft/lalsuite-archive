@@ -460,6 +460,7 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
     {
         SpinAlignedEOBversion = 4;
         flagSEOBNRv4v2 = 1;
+	use_optimized_v2 = 1;
     }
   /* If the EOB version flag is neither 1 nor 2, exit */
   if (SpinAlignedEOBversion != 1 && SpinAlignedEOBversion != 2
