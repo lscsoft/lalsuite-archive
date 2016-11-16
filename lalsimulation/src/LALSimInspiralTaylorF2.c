@@ -283,7 +283,6 @@ int XLALSimInspiralTaylorF2Core(
         ref_phasing /= v5ref;
     } /* End of if(f_ref != 0) block */
 
-    #pragma omp parallel for
     for (i = 0; i < freqs->length; i++) {
         const REAL8 f = freqs->data[i];
         const REAL8 v = cbrt(piM*f);
@@ -452,7 +451,6 @@ int XLALSimInspiralTaylorF2(
     /* extrinsic parameters */
     shft = LAL_TWOPI * (tC.gpsSeconds + 1e-9 * tC.gpsNanoSeconds);
 
-    #pragma omp parallel for
     for (i = iStart; i < n; i++) {
         freqs->data[i-iStart] = i * deltaF;
     }

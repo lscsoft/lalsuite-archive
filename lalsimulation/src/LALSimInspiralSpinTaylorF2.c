@@ -484,7 +484,6 @@ int XLALSimInspiralSpinTaylorF2(
         ref_phasing = (pfaN + pfa1 * v_ref +pfa2 * v2ref + pfa3 * v3ref + pfa4 * v4ref) / v5ref + (pfa5 + pfl5 * logvref) + (pfa6 + pfl6 * logvref) * v_ref + pfa7 * v2ref + pfa8 * v3ref;
     } /* end of if (f_ref > 0.) */
 
-    #pragma omp parallel for
     for (i = iStart; i < n; i++) {
         const REAL8 f = i * deltaF;
         const REAL8 v = cbrt(piM*f);

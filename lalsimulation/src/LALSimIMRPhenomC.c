@@ -354,7 +354,6 @@ static int IMRPhenomCGenerateFD(
   REAL8 *phis = XLALMalloc(L*sizeof(REAL8));
 
   /* now generate the waveform */
-  #pragma omp parallel for
   for (size_t i = ind_min; i < ind_max; i++)
   {
 
@@ -363,14 +362,12 @@ static int IMRPhenomCGenerateFD(
     REAL8 f = i * deltaF;
 
     int per_thread_errcode;
-    #pragma omp flush(errcode)
     if (errcode != XLAL_SUCCESS)
       goto skip;
 
     per_thread_errcode = IMRPhenomCGenerateAmpPhase( &aPhenomC, &phPhenomC, f, eta, params );
     if (per_thread_errcode != XLAL_SUCCESS) {
       errcode = per_thread_errcode;
-      #pragma omp flush(errcode)
     }
 
     phPhenomC -= 2.*phi0; // factor of 2 b/c phi0 is orbital phase

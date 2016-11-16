@@ -293,7 +293,6 @@ static int IMRPhenomDGenerateFD(
 
   int status_in_for = XLAL_SUCCESS;
   /* Now generate the waveform */
-  #pragma omp parallel for
   for (size_t i = ind_min; i < ind_max; i++)
   {
     REAL8 Mf = M_sec * i * deltaF; // geometric frequency

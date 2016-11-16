@@ -659,7 +659,6 @@ static int PhenomPCore(
     Keep track of return codes for each thread and in addition use flush to get out of
     the parallel for loop as soon as possible if something went wrong in any thread.
   */
-  #pragma omp parallel for
   for (UINT4 i=0; i<L_fCut; i++) { // loop over frequency points in sequence
     COMPLEX16 hp_val = 0.0;
     COMPLEX16 hc_val = 0.0;
@@ -668,7 +667,6 @@ static int PhenomPCore(
 
     int per_thread_errcode;
 
-    #pragma omp flush(errcode)
     if (errcode != XLAL_SUCCESS)
       goto skip;
 
@@ -680,8 +678,7 @@ static int PhenomPCore(
 
     if (per_thread_errcode != XLAL_SUCCESS) {
       errcode = per_thread_errcode;
-      #pragma omp flush(errcode)
-    }
+     }
 
     ((*hptilde)->data->data)[j] = hp_val;
     ((*hctilde)->data->data)[j] = hc_val;
