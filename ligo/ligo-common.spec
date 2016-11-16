@@ -10,11 +10,10 @@ Release: %{release}%{?dist}
 Source0: %{name}-%{unmangled_version}.tar.gz
 License: GPL
 Group: Development/Libraries
-BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 Prefix: %{_prefix}
 BuildArch: noarch
 Requires: python
-BuildRequires: python
+BuildRequires: python python-setuptools
 Vendor: Tanner Prestegard <tanner.prestegard@ligo.org>
 
 %description
@@ -27,7 +26,7 @@ Empty module placeholder for other LIGO modules
 python setup.py build
 
 %install
-python setup.py install --root=$RPM_BUILD_ROOT --record=INSTALLED_FILES
+python setup.py install --single-version-externally-managed -O1 --root=$RPM_BUILD_ROOT --record=INSTALLED_FILES
 
 %clean
 rm -rf $RPM_BUILD_ROOT
