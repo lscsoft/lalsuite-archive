@@ -688,6 +688,8 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients (FacWaveformCoeffs * con
   m1Plus3eta = -1. + 3. * eta;
   m1Plus3eta2 = m1Plus3eta * m1Plus3eta;
   m1Plus3eta3 = m1Plus3eta * m1Plus3eta2;
+    
+    INT4 flagv4v2 = coeffs->flagv4v2;
 
   /* Initialize all coefficients to zero */
   /* This is important, as we will not set some if dM is zero */
@@ -744,7 +746,7 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients (FacWaveformCoeffs * con
 	(-34. / 21. + 49. * eta / 18. + 209. * eta2 / 126.) * chiS +
 	(-34. / 21. - 196. * eta / 42.) * dM * chiA;
     }
-    if (SpinAlignedEOBversion == 4 && coeffs->flagv4v2==1)
+    if (SpinAlignedEOBversion == 4 && flagv4v2==1)
     {
         coeffs->rho22v5 =
         (-34. / 21. + 49. * eta / 18. + 209. * eta2 / 126.) * chiS +
@@ -927,10 +929,10 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients (FacWaveformCoeffs * con
 
   coeffs->rho32v = (4. * chiS * eta) / (-3. * m1Plus3eta);
     coeffs->rho32v2 =
-    -    (-4. * a2 * eta2) / (9. * m1Plus3eta2) + (328. - 1115. * eta +
+        (-4. * a2 * eta2) / (9. * m1Plus3eta2) + (328. - 1115. * eta +
                                                    320. * eta2) / (270. *
                                                                    m1Plus3eta);
-    if (SpinAlignedEOBversion==4 && coeffs->flagv4v2==1) {
+    if (SpinAlignedEOBversion==4 && flagv4v2==1) {
   coeffs->rho32v2 = (328. - 1115. * eta +
 					      320. * eta2) / (270. *
 							      m1Plus3eta);

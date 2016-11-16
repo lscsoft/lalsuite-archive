@@ -621,7 +621,7 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
   SpinEOBHCoeffs seobCoeffs;
   EOBParams eobParams;
   FacWaveformCoeffs hCoeffs;
-  hCoeffs.flagv4v2 = flagSEOBNRv4v2;
+
   NewtonMultipolePrefixes prefixes;
   TidalEOBParams tidal1, tidal2;
 
@@ -710,6 +710,7 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
   memset (&hCoeffs, 0, sizeof (hCoeffs));
   memset (&prefixes, 0, sizeof (prefixes));
 
+      hCoeffs.flagv4v2 = flagSEOBNRv4v2;
   /* Before calculating everything else, check sample freq is high enough */
   modefreqVec.length = 1;
   modefreqVec.data = &modeFreq;
@@ -1427,13 +1428,24 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
     }
   if (SpinAlignedEOBversion == 4)
     {
-      if (XLALSimIMRSpinEOBCalculateNQCCoefficientsV4
-	  (ampNQC, phaseNQC, &rHi, &prHi, omegaHi, 2, 2, timePeak,
-	   deltaTHigh / mTScaled, m1, m2, a, chiA, chiS, &nqcCoeffs,
-	   SpinAlignedEOBversion) == XLAL_FAILURE)
-	{
-	  XLAL_ERROR (XLAL_EFUNC);
-	}
+        if ( flagSEOBNRv4v2 ==0 ) {
+            if (XLALSimIMRSpinEOBCalculateNQCCoefficientsV4
+                (ampNQC, phaseNQC, &rHi, &prHi, omegaHi, 2, 2, timePeak,
+                 deltaTHigh / mTScaled, m1, m2, a, chiA, chiS, &nqcCoeffs,
+                 SpinAlignedEOBversion) == XLAL_FAILURE)
+            {
+                XLAL_ERROR (XLAL_EFUNC);
+            }
+        }
+        else {
+            if (XLALSimIMRSpinEOBCalculateNQCCoefficientsV4
+                (ampNQC, phaseNQC, &rHi, &prHi, omegaHi, 2, 2, timePeak,
+                 deltaTHigh / mTScaled, m1, m2, a, chiA, chiS, &nqcCoeffs,
+                 5) == XLAL_FAILURE)
+            {
+                XLAL_ERROR (XLAL_EFUNC);
+            }
+        }
     }
 
 #if debugOutput
@@ -1499,7 +1511,7 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
       sigReHi->data[i] = (REAL4) creal (hLM);
       sigImHi->data[i] = (REAL4) cimag (hLM);
       sigAmpSqHi = creal (hLM) * creal (hLM) + cimag (hLM) * cimag (hLM);
-      if ((SpinAlignedEOBversion==1 || SpinAlignedEOBversion==2 || SpinAlignedEOBversion==4) && (sigAmpSqHi < oldsigAmpSqHi && peakCount == 0
+      if ((SpinAlignedEOBversion==1 || SpinAlignedEOBversion==2 || (SpinAlignedEOBversion==4 && flagSEOBNRv4v2==0)) && (sigAmpSqHi < oldsigAmpSqHi && peakCount == 0
 	  && (i - 1) * deltaTHigh / mTScaled < timePeak - timewavePeak))
 	{
 	  timewavePeak = (i - 1) * deltaTHigh / mTScaled;

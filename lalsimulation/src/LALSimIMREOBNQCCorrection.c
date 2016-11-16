@@ -1473,7 +1473,7 @@ XLALSimIMREOBGetNRSpinPeakDeltaTv4v2 (INT4 UNUSED l,				/**<< Mode l */
             XLAL_ERROR (XLAL_EINVAL);
             break;
     }
-    //    printf("deltaNQC %.16e\n",res);
+//        printf("deltaNQC %.16e\n",res);
     return res;
 }
 

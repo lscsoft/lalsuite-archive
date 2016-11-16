@@ -739,7 +739,7 @@ static int XLALSimIMRCalculateSpinEOBHCoeffs (SpinEOBHCoeffs * coeffs,
         coeff13K * eta * chi3 + coeff20K * eta2 + coeff21K * eta2 * chi +
         coeff22K * eta2 * chi2 + coeff23K * eta2 * chi3 + coeff30K * eta3 +
         coeff31K * eta3 * chi + coeff32K * eta3 * chi2 + coeff33K * eta3 * chi3;
-        //      printf("KK %.16e\n", KK);
+//              printf("KK %.16e\n", KK);
     }
 
   m1PlusEtaKK = -1. + eta * KK;
@@ -956,7 +956,7 @@ static int XLALSimIMRCalculateSpinEOBHCoeffs (SpinEOBHCoeffs * coeffs,
             coeff13dSS * eta * chi3 + coeff20dSS * eta2 + coeff21dSS * eta2 * chi +
             coeff22dSS * eta2 * chi2 + coeff23dSS * eta2 * chi3 + coeff30dSS * eta3 +
             coeff31dSS * eta3 * chi + coeff32dSS * eta3 * chi2 + coeff33dSS * eta3 * chi3;
-            //          printf("dSO %.16e, dSS %.16e\n", coeffs->d1v2,coeffs->dheffSSv2);
+//                      printf("dSO %.16e, dSS %.16e\n", coeffs->d1v2,coeffs->dheffSSv2);
             break;
 
         default:
