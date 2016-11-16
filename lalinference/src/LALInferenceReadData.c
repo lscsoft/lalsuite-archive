@@ -1618,7 +1618,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	XLALSimInspiralWaveformParamsInsertNumRelData(LALpars, ppt->value);
 	fprintf(stdout,"Injection will use %s.\n",ppt->value);
       }
-
+      LALSimInspiralTestGRParam *nonGRparams = NULL;
       /* Print a line with information about approximant, amporder, phaseorder, tide order and spin order */
       fprintf(stdout,"Injection will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i, tidal order %i, in the time domain with a reference frequency of %f.\n",approximant,XLALSimInspiralGetStringFromApproximant(approximant),order,amporder,(int) spinO, (int) tideO, (float) fref);
 
@@ -1639,6 +1639,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 				      1.0/InjSampleRate, f_min, fref,
 				      LALpars,  approximant);
       XLALDestroyDict(LALpars);
+      XLALSimInspiralDestroyTestGRParam(nonGRparams);
 
       if(!hplus || !hcross) {
         fprintf(stderr,"Error: XLALSimInspiralChooseWaveform() failed to produce waveform.\n");
@@ -2319,6 +2320,8 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
     fref = atoi(LALInferenceGetProcParamVal(commandLine,"--inj-fref")->value);
   }
 
+  LALSimInspiralTestGRParam *nonGRparams = NULL;
+
  /* Print a line with information about approximant, amp_order, phaseorder, tide order and spin order */
   fprintf(stdout,"\n\n---\t\t ---\n");
  fprintf(stdout,"Injection will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i, tidal order %i, in the frequency domain.\n",approximant,XLALSimInspiralGetStringFromApproximant(approximant),phase_order,amp_order,(int) spinO,(int) tideO);
@@ -2378,6 +2381,7 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
                                   LALpars, approximant); 
   }
   XLALDestroyDict(LALpars);
+  XLALSimInspiralDestroyTestGRParam(nonGRparams);
 
   /* Fail if injection waveform generation was not successful */
   errnum = *XLALGetErrnoPtr();

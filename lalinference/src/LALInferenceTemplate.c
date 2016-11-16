@@ -612,6 +612,8 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceModel *model)  // 
   REAL8TimeSeries *hcross=NULL; /**< x-polarization waveform [returned] */
   COMPLEX16FrequencySeries *hptilde=NULL, *hctilde=NULL;
   
+  REAL8 phi0 = LALInferenceGetREAL8Variable(model->params, "phase"); /* START phase as per lalsimulation convention, radians*/
+  
   // REAL8 mc;
   REAL8 phi, deltaT, m1, m2, mass, eta, q, distance, inclination, f_low, UNUSED f_min;
   REAL8 frac_mass_loss = 0.0;
@@ -776,7 +778,7 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceModel *model)  // 
 
       XLAL_TRY(ret=XLALSimInspiralTransformPrecessingNewInitialConditions(
                     &inclination, &spin1x, &spin1y, &spin1z, &spin2x, &spin2y, &spin2z,
-                    thetaJN, phiJL, tilt1, tilt2, phi12, a_spin1, a_spin2, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, fTemp), errnum);
+                    thetaJN, phiJL, tilt1, tilt2, phi12, a_spin1, a_spin2, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, fTemp, phi0), errnum);
       if (ret == XLAL_FAILURE)
       {
         XLALPrintError(" ERROR in XLALSimInspiralTransformPrecessingNewInitialConditions(): error converting angles. errnum=%d: %s\n",errnum, XLALErrorString(errnum) );
