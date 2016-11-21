@@ -1994,6 +1994,9 @@ static void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenc
         REAL8 dsigma_max=1.;
         REAL8 dsigma_min=-1.;
         REAL8 tmpVal=0.0;
+	REAL8 e0_min=0.;
+        REAL8 e0_max=1.;
+	if (checkParamInList(ppt->value,"e0")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "e0", 0., e0_min, e0_max, LALINFERENCE_PARAM_LINEAR);
 	/* Relative shifts for inspiral phase PN coefficients (absolute value for dchi1) */
         if (checkParamInList(ppt->value,"dchi0")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dchi0", tmpVal, dchi_min, dchi_max, LALINFERENCE_PARAM_LINEAR);
         if (checkParamInList(ppt->value,"dchi1")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dchi1", tmpVal, dchi_min, dchi_max, LALINFERENCE_PARAM_LINEAR);
@@ -2056,14 +2059,6 @@ static void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenc
         } while((checkParamInList(ppt->value,aPPEparam))||(checkParamInList(ppt->value,alphaPPEparam))||(checkParamInList(ppt->value,bPPEparam))||(checkParamInList(ppt->value,betaPPEparam)));
         if ((counters[0]!=counters[1])||(counters[2]!=counters[3])) {fprintf(stderr,"Unequal number of PPE parameters detected! Check your command line!\n"); exit(-1);}
     }
-    ppt=LALInferenceGetProcParamVal(commandLine,"--e0");
-    if (ppt) 
-    {
-	REAL8 e0_min=0.;
-	REAL8 e0_max=1.;
-	LALInferenceRegisterUniformVariableREAL8(state, model->params, "e0", 0., e0_min, e0_max, LALINFERENCE_PARAM_LINEAR);    
-    }
-
 }
 
 
