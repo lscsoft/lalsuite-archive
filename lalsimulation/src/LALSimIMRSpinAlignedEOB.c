@@ -52,7 +52,7 @@
 #include "LALSimIMRSpinAlignedEOBHcapDerivativeOptimized.c"
 /* END OPTIMIZED */
 
-#define debugOutput 0
+#define debugOutput 1
 
 //static int debugPK = 0;
 
@@ -137,7 +137,7 @@ XLALEOBSpinAlignedStopCondition (double UNUSED t, /**< UNUSED */
   r = values[0];
   omega = dvalues[1];
 
-  //printf("function 1: r = %.16e, omega = %.16e, pr = %.16e, dpr = %.16e, t = %.16e \n",values[0],dvalues[1],values[2],dvalues[2],t);
+  printf("function 1: r = %.16e, omega = %.16e, pr = %.16e, dpr = %.16e, t = %.16e \n",values[0],dvalues[1],values[2],dvalues[2],t);
   //if ( omega < params->eobParams->omega )
   if (r < 6. && (omega < params->eobParams->omega || dvalues[2] >= 0))
     {
@@ -387,16 +387,42 @@ XLALSimIMRSpinAlignedEOBWaveform (REAL8TimeSeries ** hplus,	     /**<< OUTPUT, +
   )
 {
   int ret;
-  REAL8 comp1 = 0.1796;
-  REAL8 k2Tidal1 = 0.0908;
-  REAL8 omega02Tidal1 = 0.1650;
-  REAL8 k3Tidal1 = 0.0234;
-  REAL8 omega03Tidal1 = 0.194641;
-  REAL8 comp2 = 0.1796;
-  REAL8 k2Tidal2 = 0.0908;
-  REAL8 omega02Tidal2 = 0.1650;
-  REAL8 k3Tidal2 = 0.0234;
-  REAL8 omega03Tidal2 = 0.194641;
+  //Shibata's H4 BNS
+//  REAL8 comp1 = 0.1470;
+//  REAL8 k2Tidal1 = 0.115;
+//  REAL8 omega02Tidal1 = 0.1255;
+//  REAL8 k3Tidal1 = 0.0326;
+//  REAL8 omega03Tidal1 = 0.140521;
+//    
+//  REAL8 comp2 = 0.1470;
+//  REAL8 k2Tidal2 = 0.115;
+//  REAL8 omega02Tidal2 = 0.1255;
+//  REAL8 k3Tidal2 = 0.0326;
+//  REAL8 omega03Tidal2 = 0.140521;
+
+    REAL8 comp1 = 0.15653;
+    REAL8 k2Tidal1 = 0.1217;
+    REAL8 omega02Tidal1 = 0.06659;
+    REAL8 k3Tidal1 = 0.03525;
+    REAL8 omega03Tidal1 = 0.090585;
+    
+    REAL8 comp2 = 0.10853978;
+    REAL8 k2Tidal2 = 0.15863;
+    REAL8 omega02Tidal2 = 0.0402698;
+    REAL8 k3Tidal2 = 0.0493466;
+    REAL8 omega03Tidal2 = 0.055518;
+    
+//    REAL8 comp1 = 0;
+//    REAL8 k2Tidal1 = 0;
+//    REAL8 omega02Tidal1 = 0;
+//    REAL8 k3Tidal1 = 0;
+//    REAL8 omega03Tidal1 = 0;
+//    REAL8 comp2 = 0;
+//    REAL8 k2Tidal2 = 0;
+//    REAL8 omega02Tidal2 = 0;
+//    REAL8 k3Tidal2 = 0;
+//    REAL8 omega03Tidal2 = 0;
+    
   REAL8Vector   *tVec = NULL;
   REAL8Vector   *rVec = NULL;
   REAL8Vector   *phiVec = NULL;
@@ -500,8 +526,25 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
   )
 {
   INT4 use_tidal = 0;
+  if ( (k3Tidal1 != 0. && k2Tidal1 == 0.) || (k3Tidal2 != 0. && k2Tidal2 == 0.) ) {
+      XLALPrintError ("XLAL Error - %s: Tidal parameters are not set correctly! You must have a non-zero k2 if you provide a non-zero k3!\n",
+                      __func__);
+      XLAL_ERROR (XLAL_EDOM);
+  }
   if (k2Tidal1 != 0. || k2Tidal2 != 0.)
     {
+        if ( (k2Tidal1 != 0. && (comp1 == 0. || omega02Tidal1 == 0.))
+            || (k2Tidal2 != 0. && (comp2 == 0. || omega02Tidal2 == 0.)) ) {
+            XLALPrintError ("XLAL Error - %s: Tidal parameters are not set correctly! Always provide non-zero compactness and f-mode freqeuncy when k2 is non-zero!\n",
+                 __func__);
+            XLAL_ERROR (XLAL_EDOM);
+        }
+        if ( (k3Tidal1 != 0. && (comp1 == 0. || omega03Tidal1 == 0.))
+            || (k3Tidal2 != 0. && (comp2 == 0. || omega03Tidal2 == 0.)) ) {
+            XLALPrintError ("XLAL Error - %s: Tidal parameters are not set correctly! Always provide non-zero compactness and f-mode freqeuncy when k3 is non-zero!\n",
+                            __func__);
+            XLAL_ERROR (XLAL_EDOM);
+        }
       use_tidal = 1;
     }
 
@@ -818,29 +861,26 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
       XLALDestroyREAL8Vector (values);
       XLAL_ERROR (XLAL_ENOMEM);
     }
-
-  if (use_tidal == 1)
-    {
-      tidal1.mass = m1SI / (m1SI + m2SI);
-      tidal1.comp = comp1;
-      tidal1.k2Tidal = k2Tidal1;
-      tidal1.omega02Tidal = omega02Tidal1;
-      tidal1.k3Tidal = k3Tidal1;
-      tidal1.omega03Tidal = omega03Tidal1;
     
-      tidal2.mass = m2SI / (m1SI + m2SI);
-      tidal2.comp = comp2;
-      tidal2.k2Tidal = k2Tidal2;
-      tidal2.omega02Tidal = omega02Tidal2;
-      tidal2.k3Tidal = k3Tidal2;
-      tidal2.omega03Tidal = omega03Tidal2;
+  tidal1.mass = m1SI / (m1SI + m2SI);
+  tidal1.comp = comp1;
+  tidal1.k2Tidal = k2Tidal1;
+  tidal1.omega02Tidal = omega02Tidal1;
+  tidal1.k3Tidal = k3Tidal1;
+  tidal1.omega03Tidal = omega03Tidal1;
+    
+  tidal2.mass = m2SI / (m1SI + m2SI);
+  tidal2.comp = comp2;
+  tidal2.k2Tidal = k2Tidal2;
+  tidal2.omega02Tidal = omega02Tidal2;
+  tidal2.k3Tidal = k3Tidal2;
+  tidal2.omega03Tidal = omega03Tidal2;
       
-      seobCoeffs.tidal1 = &tidal1;
-      seobCoeffs.tidal2 = &tidal2;
+  seobCoeffs.tidal1 = &tidal1;
+  seobCoeffs.tidal2 = &tidal2;
 
-      hCoeffs.tidal1 = &tidal1;
-      hCoeffs.tidal2 = &tidal2;
-    }
+  hCoeffs.tidal1 = &tidal1;
+  hCoeffs.tidal2 = &tidal2;
 
   seobParams.alignedSpins = 1;
   seobParams.tortoise = 1;
@@ -1027,7 +1067,8 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
   /* We set inc zero here to make it easier to go from Cartesian to spherical coords */
   /* No problem setting inc to zero in solving spin-aligned initial conditions. */
   /* inc is not zero in generating the final h+ and hx */
-
+    tidal1.k2Tidal = 0.;
+    tidal2.k2Tidal = 0.;
   if (XLALSimIMRSpinEOBInitialConditions
       (tmpValues, m1, m2, fStart, 0, s1Data, s2Data, &seobParams,
        use_optimized_v2_or_v4) == XLAL_FAILURE)
@@ -1038,7 +1079,8 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
       XLALDestroyREAL8Vector (values);
       XLAL_ERROR (XLAL_EFUNC);
     }
-
+    tidal1.k2Tidal = k2Tidal1;
+    tidal2.k2Tidal = k2Tidal2;
   /*fprintf( stderr, "ICs = %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n", tmpValues->data[0], tmpValues->data[1], tmpValues->data[2],
      tmpValues->data[3], tmpValues->data[4], tmpValues->data[5], tmpValues->data[6], tmpValues->data[7], tmpValues->data[8],
      tmpValues->data[9], tmpValues->data[10], tmpValues->data[11] ); */
@@ -1197,7 +1239,7 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
     {
       integrator->stop = XLALSpinAlignedHiSRStopConditionV4;
     }
-  if ( use_tidal == 1 ) {
+  if ( use_tidal == 0 ) {
       integrator->stop = XLALSpinAlignedNSNSStopCondition;
     }
 
@@ -1233,7 +1275,7 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
       XLAL_ERROR (XLAL_EFUNC);
     }
 
-  //fprintf( stderr, "We got %d points at high SR\n", retLen );
+//  fprintf( stderr, "We got %d points at high SR\n", retLen );
 
   /* Set up pointers to the dynamics */
   rHi.length = phiHi.length = prHi.length = pPhiHi.length = timeHi.length =
@@ -1301,6 +1343,7 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
 	  omega =
 	    XLALSimIMRSpinAlignedEOBCalcOmega (values->data, &seobParams);
 	}
+
       if (omega < 1.0e-15)
 	omega = 1.0e-9;		//YPnote: make sure omega>0 during very-late evolution when numerical errors are huge.
       omegaHi->data[i] = omega;	//YPnote: omega<0 is extremely rare and had only happenned after relevant time interval.
