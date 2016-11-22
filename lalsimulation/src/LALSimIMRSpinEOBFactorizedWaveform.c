@@ -1873,24 +1873,26 @@ XLALSimIMRSpinEOBGetSpinFactorizedWaveform (COMPLEX16 * restrict hlm,
      {
      printf("YP::FullWave: Reh = %.16e, Imh = %.16e, hAmp = %.16e, hPhi = %.16e\n",creal(*hlm),cimag(*hlm),cabs(*hlm),carg(*hlm));
      } */
-  if ( (hCoeffs->tidal1->k2Tidal != 0. && hCoeffs->tidal1->omega02Tidal != 0.) || (hCoeffs->tidal2->k2Tidal != 0. && hCoeffs->tidal2->omega02Tidal != 0.) ) {
+
+  if ( (params->seobCoeffs->tidal1->k2Tidal != 0. && params->seobCoeffs->tidal1->omega02Tidal != 0.) || (params->seobCoeffs->tidal2->k2Tidal != 0. && params->seobCoeffs->tidal2->omega02Tidal != 0.) ) {
       COMPLEX16 hNewtonTidal = 0;
       COMPLEX16 hhatTidal = 0;
       REAL8 v10 = v2*v2*v2*v2*v2;
-      REAL8 m1 = hCoeffs->tidal1->mass;
-      REAL8 m2 = hCoeffs->tidal2->mass;
+      REAL8 m1 = params->seobCoeffs->tidal1->mass;
+      REAL8 m2 = params->seobCoeffs->tidal2->mass;
       REAL8 M = m1 + m2;
       REAL8 X1 = m1 / M;
       REAL8 X2 = m2 / M;
-      REAL8 k2Tidal1 = hCoeffs->tidal1->k2Tidal;
-      REAL8 k2Tidal2 = hCoeffs->tidal2->k2Tidal;
-      REAL8 omega02Tidal1 = hCoeffs->tidal1->omega02Tidal;
-      REAL8 omega02Tidal2 = hCoeffs->tidal2->omega02Tidal;
+      REAL8 k2Tidal1 = params->seobCoeffs->tidal1->k2Tidal;
+      REAL8 k2Tidal2 = params->seobCoeffs->tidal2->k2Tidal;
+      REAL8 omega02Tidal1 = params->seobCoeffs->tidal1->omega02Tidal;
+      REAL8 omega02Tidal2 = params->seobCoeffs->tidal2->omega02Tidal;
       INT4 eps = (l+m)%2;
       REAL8 cleps = pow(X2,l+eps-1) + pow(-1,l+eps)*pow(X1,l+eps-1);
       hNewtonTidal = hNewton / cleps;
       REAL8 k2Tidal1eff = (XLALSimIMRTEOBk2eff(1./r, eta, hCoeffs->tidal1)*(omega02Tidal1*omega02Tidal1 + 6.*m2*Omega*Omega) - omega02Tidal1*omega02Tidal1) / (3.*Omega*Omega*(1. + 2*m2));
       REAL8 k2Tidal2eff = (XLALSimIMRTEOBk2eff(1./r, eta, hCoeffs->tidal2)*(omega02Tidal2*omega02Tidal2 + 6.*m1*Omega*Omega) - omega02Tidal2*omega02Tidal2) / (3.*Omega*Omega*(1. + 2*m1));
+
       switch (l) {
           case 2:
               switch (m) {
@@ -1899,7 +1901,7 @@ XLALSimIMRSpinEOBGetSpinFactorizedWaveform (COMPLEX16 * restrict hlm,
                   case 1:
                       hhatTidal = ((9./2. - 6.*X2)*k2Tidal2 - (9./2. - 6.*X1)*k2Tidal1)*v10;
                   default:
-                      XLAL_ERROR (XLAL_EINVAL);
+                      hhatTidal = 0.;
               }
           case 3:
               switch (m) {
@@ -1908,10 +1910,10 @@ XLALSimIMRSpinEOBGetSpinFactorizedWaveform (COMPLEX16 * restrict hlm,
                   case 1:
                       hhatTidal = (6.*X1*k2Tidal2 - 6.*X2*k2Tidal1)*v10;
                   default:
-                      XLAL_ERROR (XLAL_EINVAL);
+                      hhatTidal = 0.;
               }
           default:
-              XLAL_ERROR (XLAL_EINVAL);
+              hhatTidal = 0.;
       }
       *hlm += hNewtonTidal*hhatTidal;
   }
