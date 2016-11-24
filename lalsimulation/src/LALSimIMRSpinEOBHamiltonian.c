@@ -399,6 +399,7 @@ static REAL8 XLALSimIMRTEOBk2eff (
     REAL8 calR = 1./(bigomega*bigomega - 1.) + 10./3./factorQ;
     REAL8 yval = sqrt(3./LAL_PI)*factorQ/5./sqrt(eps);
     REAL8 k2Tidaleff = 0.25 + 3./4.*bigomega*bigomega*(calR + sqrt(LAL_PI/3.)/sqrt(eps)*((1. + 2.*fresnel_s(yval))*cos(0.5*LAL_PI*yval*yval) - (1. + 2.*fresnel_c(yval))*sin(0.5*LAL_PI*yval*yval)));
+//    printf("%.16e %.16e\n",u,k2Tidaleff);
     return k2Tidaleff;
 }
 
@@ -412,9 +413,10 @@ static REAL8 XLALSimIMRTEOBk3eff (
 )
 {
     REAL8 factorO = 9. - pow(3., 1./3.)*pow(1./u, 2.5)*pow(tidal->omega03Tidal, 5./3.);
-    REAL8 yvalO = factorO/4./pow(3.,2./3.)/sqrt(10.)/pow(tidal->omega03Tidal,5./6.)/sqrt(eta);
-    REAL8 prefactorO = 5.*sqrt(5.)/u/u/u*pow(tidal->omega03Tidal,7./6.)/(192.*pow(3.,2./3.)*sqrt(eta));
-    REAL8 k3Tidaleff = 3./8. + tidal->omega03Tidal*tidal->omega03Tidal/u/u/u*(25./48./factorO + 5./72./(-1. + tidal->omega03Tidal*tidal->omega03Tidal/u/u/u/9.)) + prefactorO*(cos(yvalO*yvalO)*(0.5 + fresnel_s(sqrt(2./LAL_PI)*yvalO*yvalO)) - sin(yvalO*yvalO)*(0.5 + fresnel_c(sqrt(2./LAL_PI)*yvalO*yvalO)));
+    REAL8 XX = factorO/(4.*pow(3.,2./3.)*sqrt(10.)*pow(tidal->omega03Tidal,5./6.)*sqrt(eta));
+    REAL8 prefactorO = 5.*sqrt(5.*LAL_PI)/u/u/u*pow(tidal->omega03Tidal,7./6.)/(192.*pow(3.,2./3.)*sqrt(eta));
+    REAL8 k3Tidaleff = 3./8. + tidal->omega03Tidal*tidal->omega03Tidal/u/u/u*(25./48./factorO + 5./72./(-1. + tidal->omega03Tidal*tidal->omega03Tidal/u/u/u/9.)) + prefactorO*(cos(XX*XX)*(0.5 + fresnel_s(sqrt(2./LAL_PI)*XX)) - sin(XX*XX)*(0.5 + fresnel_c(sqrt(2./LAL_PI)*XX)));
+//    printf("%.16e %.16e\n",u,k3Tidaleff);
     return k3Tidaleff;
 }
 
