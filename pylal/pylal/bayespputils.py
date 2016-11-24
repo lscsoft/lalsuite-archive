@@ -115,7 +115,7 @@ def replace_column(table, old, new):
 # Constants
 #===============================================================================
 #Parameters which are not to be exponentiated when found
-logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior','loglambda_a_eff','loglambda_a','logamp']
+logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior','loglambda_a_eff','loglambda_a','logamp','loglambda_g','loggraviton_mass','loggraviton_lambda']
 #Parameters known to cbcBPP
 relativePhaseParams=[ a+b+'_relative_phase' for a,b in combinations(['h1','l1','v1'],2)]
 snrParams=['snr','optimal_snr','matched_filter_snr'] + ['%s_optimal_snr'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_amp'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_arg'%(i) for i in ['h1', 'l1', 'v1']] + relativePhaseParams
@@ -135,7 +135,7 @@ cosmoParam=['m1_source','m2_source','mtotal_source','mc_source','redshift','mf_s
 ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB','alphaPPE','aPPE','betaPPE','bPPE']
 tigerParams=['dchi%i'%(i) for i in range(8)] + ['dchi%il'%(i) for i in [5,6] ] + ['dxi%d'%(i+1) for i in range(6)] + ['dalpha%i'%(i+1) for i in range(5)] + ['dbeta%i'%(i+1) for i in range(3)] + ['dsigma%i'%(i+1) for i in range(4)]
 bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
-massiveGravitonParams=['lambdaG']
+massiveGravitonParams=['loglambda_g','lambda_g','graviton_mass','graviton_lambda','loggraviton_mass','loggraviton_lambda']
 lorentzInvarianceViolationParams=['loglambda_a','lambda_a','loglambda_a_eff','lambda_a_eff','logamp','amp']
 tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat']
 energyParams=['e_rad', 'l_peak']
@@ -473,7 +473,13 @@ def plot_label(param):
       'lambda_a_eff':r'$\lambda_{eff} [\mathrm{m}]$',
       'lambda_a':r'$\lambda_{\mathbb{A}} [\mathrm{m}]$',
       'amp':r'$\mathbb{A} [\mathrm{{eV}^{2-\alpha}}]$' ,
-      'logamp':r'$\log \mathbb{A}[\mathrm{{eV}^{2-\alpha}}]$'
+      'logamp':r'$\log \mathbb{A}[\mathrm{{eV}^{2-\alpha}}]$',
+      'loglambda_g':r'$\log l_g [\mathrm{m}]$',
+      'lambda_g':r'$l_g\,[\mathrm{m}]$',
+      'graviton_lambda':r'$\lambda_g\,[\mathrm{m}]$',
+      'graviton_mass':r'$m_g\,[\mathrm{eV}]$',
+      'loggraviton_lambda':r'$\log\lambda_g\,[\mathrm{m}]$',
+      'loggraviton_mass':r'$\log m_g\,[\mathrm{eV}]$'
     }
 
   # Handle cases where multiple names have been used
@@ -1074,6 +1080,16 @@ class Posterior(object):
 
       if ('mc' in pos.names) and ('redshift' in pos.names):
           pos.append_mapping('mc_source', source_mass, ['mc', 'redshift'])
+
+      # Calling functions testing massive graviton parameters 
+      if ('loglambda_g' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('loggraviton_mass', lambda l,r:np.log10(GravitonMass(10**l,r)), ['loglambda_g', 'redshift'])
+      if ('loglambda_g' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('loggraviton_lambda', lambda l,r:np.log10(GComptonWavelength(10**l,r)), ['loglambda_g', 'redshift'])
+      if ('lambda_g' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('graviton_mass', GravitonMass, ['lambda_g', 'redshift'])
+      if ('lambda_g' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('graviton_lambda', GComptonWavelength, ['lambda_g', 'redshift'])
       
       # Calling functions testing Lorentz invariance violation 
       if ('loglambda_a_eff' in pos.names) and ('redshift' in pos.names):
@@ -3958,6 +3974,22 @@ def source_mass(mass, redshift):
     For a parameter m.
     """
     return mass / (1.0 + redshift)
+
+def GComptonWavelength(lambda_g, redshift):
+    """
+    Calculate Compton wavelength of the graviton in m as:
+    lambda_g * sqrt((1 + (2+z)*(1+z+sqrt(1+z)))/(5*(1+z)^3))
+    Valid for \Omega_0 = 1 and for all z.
+    """
+    return lambda_g*np.sqrt((1 + (2+redshift)*(1+redshift+np.sqrt(1+redshift)))/(5*(1+redshift)**3))
+
+def GravitonMass(lambda_g, redshift):
+    """
+    Calculate graviton mass in eV as:
+    m c^2 = h c / \lambda
+    Valid for \Omega_0 = 1 and for all z.
+    """
+    return 1.23982e-6/(lambda_g*np.sqrt((1 + (2+redshift)*(1+redshift+np.sqrt(1+redshift)))/(5*(1+redshift)**3)))
 
 ## Following functions added for testing Lorentz violations 
 def integrand_distance(redshift,nonGR_alpha):

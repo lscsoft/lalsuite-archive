@@ -2033,6 +2033,18 @@ static void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenc
         if (checkParamInList(ppt->value,"dbeta1")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dbeta1", tmpVal, dbeta_min, dbeta_max, LALINFERENCE_PARAM_LINEAR);
         if (checkParamInList(ppt->value,"dbeta2")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dbeta2", tmpVal, dbeta_min, dbeta_max, LALINFERENCE_PARAM_LINEAR);
         if (checkParamInList(ppt->value,"dbeta3")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dbeta3", tmpVal, dbeta_min, dbeta_max, LALINFERENCE_PARAM_LINEAR);
+        if (checkParamInList(ppt->value,"loglambda_g"))
+          {
+            REAL8 loglambda_g_min = 15.0;
+            REAL8 loglambda_g_max = 25.0;
+            LALInferenceRegisterUniformVariableREAL8(state, model->params, "loglambda_g", 20.0, loglambda_g_min, loglambda_g_max, LALINFERENCE_PARAM_LINEAR);
+          }
+        if (checkParamInList(ppt->value,"lambda_g"))
+          {
+            REAL8 lambda_g_min = 1E15;
+            REAL8 lambda_g_max = 1E18;
+            LALInferenceRegisterUniformVariableREAL8(state, model->params, "lambda_g", 1E16, lambda_g_min, lambda_g_max, LALINFERENCE_PARAM_LINEAR);
+          }
         if (checkParamInList(ppt->value,"lambda_a_eff"))
           {
             REAL8 lambda_a_eff_min = 1E-6;

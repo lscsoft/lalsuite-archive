@@ -1461,6 +1461,8 @@ int XLALSimInspiralChooseFDWaveform(
 
     if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
     if (nonGRparams!=NULL) {
+      if (XLALSimInspiralTestGRParamExists(nonGRparams, "loglambda_g")) ret = XLALSimMassiveGravitonDispersionEffect(hptilde, hctilde, m1/LAL_MSUN_SI, m2/LAL_MSUN_SI, r, pow(10, XLALSimInspiralGetTestGRParam(nonGRparams, "loglambda_g")));
+      else if (XLALSimInspiralTestGRParamExists(nonGRparams, "lambda_g")) ret = XLALSimMassiveGravitonDispersionEffect(hptilde, hctilde, m1/LAL_MSUN_SI, m2/LAL_MSUN_SI, r, XLALSimInspiralGetTestGRParam(nonGRparams, "lambda_g"));
       if (XLALSimInspiralTestGRParamExists(nonGRparams, "loglambda_a_eff")) ret = XLALSimLorentzInvarianceViolationTerm(hptilde, hctilde, m1/LAL_MSUN_SI, m2/LAL_MSUN_SI, r, pow(10, XLALSimInspiralGetTestGRParam(nonGRparams, "loglambda_a_eff")), XLALSimInspiralGetTestGRParam(nonGRparams, "nonGR_alpha"));
       else if (XLALSimInspiralTestGRParamExists(nonGRparams, "lambda_a_eff")) ret = XLALSimLorentzInvarianceViolationTerm(hptilde, hctilde, m1/LAL_MSUN_SI, m2/LAL_MSUN_SI, r, XLALSimInspiralGetTestGRParam(nonGRparams, "lambda_a_eff"), XLALSimInspiralGetTestGRParam(nonGRparams, "nonGR_alpha"));
       if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
@@ -4548,6 +4550,51 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
     }
   return testGR_accept;
 };
+
+int XLALSimMassiveGravitonDispersionEffect(
+                                           COMPLEX16FrequencySeries **hptilde, /**< Frequency-domain waveform h+ */
+                                           COMPLEX16FrequencySeries **hctilde, /**< Frequency-domain waveform hx */
+                                           REAL8 m1,                           /**< Mass 1 in solar masses */
+                                           REAL8 m2,                           /**< Mass 2 in solar masses */
+                                           REAL8 r,                            /**< distance in m */
+                                           REAL8 lambda_g                      /**< graviton Compton length in m */
+                                           )
+{
+  REAL8 f0, f, df;
+  COMPLEX16 hplus, hcross;
+  REAL8 M, eta, beta, dPhiPref;
+  UINT4 len, i;
+  M = m1+m2;
+  eta = m1*m2/(M*M);
+  beta = LAL_PI*LAL_PI*r*M*LAL_MRSUN_SI*pow(eta, 0.6)/(lambda_g*lambda_g);
+  dPhiPref = beta/(LAL_PI*M*LAL_MTSUN_SI*pow(eta, 0.6));
+
+  len = (*hptilde)->data->length;
+  if ((*hctilde)->data->length != len) {
+    XLALPrintError("Lengths of plus and cross polarization series do not agree \n");
+    XLAL_ERROR(XLAL_EBADLEN);
+  }
+
+  f0 = (*hptilde)->f0;
+  if ((*hctilde)->f0 != f0) {
+    XLALPrintError("Starting frequencies of plus and cross polarization series do not agree \n");
+    XLAL_ERROR(XLAL_EINVAL);
+  }
+  df = (*hptilde)->deltaF;
+  if ((*hctilde)->deltaF != df) {
+    XLALPrintError("Frequency steps of plus and cross polarization series do not agree \n");
+    XLAL_ERROR(XLAL_EINVAL);
+  }
+
+  for (i=0; i<len; i++) {
+    f = f0 + i*df;
+    hplus = (*hptilde)->data->data[i] * cexp(-I*dPhiPref/f);
+    (*hptilde)->data->data[i] = hplus;
+    hcross = (*hctilde)->data->data[i] * cexp(-I*dPhiPref/f);
+    (*hctilde)->data->data[i] = hcross;
+  }
+  return XLAL_SUCCESS;
+}
 
 int XLALSimLorentzInvarianceViolationTerm(
                                           COMPLEX16FrequencySeries **hptilde, /**< Frequency-domain waveform h+ */
