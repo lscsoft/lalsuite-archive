@@ -1264,6 +1264,9 @@ if __name__=='__main__':
              for lvp in bppu.lorentzInvarianceViolationParams:
                  twoDGreedyMenu.append([eg, lvp])
         for dp in distParams:
+             for lvp in bppu.lorentzInvarianceViolationParams:
+                 twoDGreedyMenu.append([dp, lvp])
+        for dp in distParams:
             for sp in snrParams:
                 twoDGreedyMenu.append([dp,sp])
         for dp in distParams:
