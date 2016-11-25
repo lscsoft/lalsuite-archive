@@ -47,6 +47,9 @@
 
 #include <math.h>
 
+#define TwoToOneThird 1.25992104989487316476721060728
+#define ThreeToOneThird 1.44224957030740838232163831078
+
 ///* fresnel_c(x) - Fresnel Cosine Integral
 // * C(x)=fresnel_c(x)=\dint\limits_{0}^{x}\cos (\frac{\pi}{2}t^{2})dt
 // */
@@ -393,14 +396,43 @@ static REAL8 XLALSimIMRTEOBk2eff (
                                   TidalEOBParams * tidal /**<< Structure containing various coefficients */
 )
 {
-    REAL8 eps = 64./5.*pow(2.,1./3.)*pow(tidal->omega02Tidal, 5./3.)*eta;
-    REAL8 bigomega = pow(1./u, 3./2.)*tidal->omega02Tidal/2.;
-    REAL8 factorQ = 4. - pow(2., 1./3.)*pow(1./u, 2.5)*pow(tidal->omega02Tidal, 5./3.);
+    REAL8 w02 = tidal->omega02Tidal;
+    REAL8 eps = 64./5.*TwoToOneThird*pow(w02, 5./3.)*eta;
+    REAL8 bigomega = pow(1./u, 1.5)*w02/2.;
+    REAL8 factorQ = 4. - TwoToOneThird*pow(1./u, 2.5)*pow(w02, 5./3.);
     REAL8 calR = 1./(bigomega*bigomega - 1.) + 10./3./factorQ;
     REAL8 yval = sqrt(3./LAL_PI)*factorQ/5./sqrt(eps);
     REAL8 k2Tidaleff = 0.25 + 3./4.*bigomega*bigomega*(calR + sqrt(LAL_PI/3.)/sqrt(eps)*((1. + 2.*fresnel_s(yval))*cos(0.5*LAL_PI*yval*yval) - (1. + 2.*fresnel_c(yval))*sin(0.5*LAL_PI*yval*yval)));
 //    printf("%.16e %.16e\n",u,k2Tidaleff);
     return k2Tidaleff;
+}
+
+/**
+ * Function to compute the u-derivative of the enhancement of k2tidal due to the presence of f-mode resonance
+ */
+static REAL8 XLALSimIMRTEOBk2eff_u (
+                                  REAL8 u, /**<< Inverse of radius in units of M */
+                                  REAL8 eta, /** Symmetric mass ratio */
+                                  TidalEOBParams * tidal /**<< Structure containing various coefficients */
+)
+{
+    REAL8 w02 = tidal->omega02Tidal;
+    REAL8 eps = 64./5.*TwoToOneThird*pow(w02, 5./3.)*eta;
+    REAL8 bigomega = pow(1./u, 1.5)*w02/2.;
+    REAL8 bigomega_u = -3./2.*pow(1./u, 2.5)*w02/2.;
+    REAL8 factorQ = 4. - TwoToOneThird*pow(1./u, 2.5)*pow(w02, 5./3.);
+    REAL8 factorQ_u = 2.5*TwoToOneThird*pow(1./u, 3.5)*pow(w02, 5./3.);
+    REAL8 calR = 1./(bigomega*bigomega - 1.) + 10./3./factorQ;
+    REAL8 calR_u = -1./(bigomega*bigomega - 1.)/(bigomega*bigomega - 1.)*2.*bigomega*bigomega_u - 10./3./factorQ/factorQ*factorQ_u;
+    REAL8 yval = sqrt(3./LAL_PI)*factorQ/5./sqrt(eps);
+    REAL8 yval_u = sqrt(3./LAL_PI)*factorQ_u/5./sqrt(eps);
+    REAL8 fresnelS = fresnel_s(yval);
+    REAL8 fresnelC = fresnel_c(yval);
+    REAL8 costerm = cos(0.5*LAL_PI*yval*yval);
+    REAL8 sinterm = sin(0.5*LAL_PI*yval*yval);
+    REAL8 k2Tidaleff_u = 3./4.*2.*bigomega*bigomega_u*(calR + sqrt(LAL_PI/3.)/sqrt(eps)*((1. + 2.*fresnelS)*costerm - (1. + 2.*fresnelC)*sinterm))
+    + 3./4.*bigomega*bigomega*(calR_u - sqrt(LAL_PI/3.)/sqrt(eps)*LAL_PI*yval*yval_u*(costerm*(1. + 2.*fresnelC) + sinterm*(1. + 2.*fresnelS)));
+    return k2Tidaleff_u;
 }
 
 /**
@@ -412,12 +444,123 @@ static REAL8 XLALSimIMRTEOBk3eff (
                                   TidalEOBParams * tidal /**<< Structure containing various coefficients */
 )
 {
-    REAL8 factorO = 9. - pow(3., 1./3.)*pow(1./u, 2.5)*pow(tidal->omega03Tidal, 5./3.);
-    REAL8 XX = factorO/(4.*pow(3.,2./3.)*sqrt(10.)*pow(tidal->omega03Tidal,5./6.)*sqrt(eta));
-    REAL8 prefactorO = 5.*sqrt(5.*LAL_PI)/u/u/u*pow(tidal->omega03Tidal,7./6.)/(192.*pow(3.,2./3.)*sqrt(eta));
-    REAL8 k3Tidaleff = 3./8. + tidal->omega03Tidal*tidal->omega03Tidal/u/u/u*(25./48./factorO + 5./72./(-1. + tidal->omega03Tidal*tidal->omega03Tidal/u/u/u/9.)) + prefactorO*(cos(XX*XX)*(0.5 + fresnel_s(sqrt(2./LAL_PI)*XX)) - sin(XX*XX)*(0.5 + fresnel_c(sqrt(2./LAL_PI)*XX)));
+    REAL8 w03 = tidal->omega03Tidal;
+    REAL8 factorO = 9. - ThreeToOneThird*pow(1./u, 2.5)*pow(w03, 5./3.);
+    REAL8 XX = factorO/(4.*ThreeToOneThird*ThreeToOneThird*sqrt(10.)*pow(w03,5./6.)*sqrt(eta));
+    REAL8 prefactorO = 5.*sqrt(5.*LAL_PI)/u/u/u*pow(w03,7./6.)/(192.*ThreeToOneThird*ThreeToOneThird*sqrt(eta));
+    REAL8 k3Tidaleff = 3./8. + w03*w03/u/u/u*(25./48./factorO + 5./72./(-1. + w03*w03/u/u/u/9.)) + prefactorO*(cos(XX*XX)*(0.5 + fresnel_s(sqrt_2_pi*XX)) - sin(XX*XX)*(0.5 + fresnel_c(sqrt_2_pi*XX)));
 //    printf("%.16e %.16e\n",u,k3Tidaleff);
     return k3Tidaleff;
+}
+
+/**
+ * Function to compute the u-derivative of the enhancement of k3tidal due to the presence of f-mode resonance
+ */
+static REAL8 XLALSimIMRTEOBk3eff_u (
+                                  REAL8 u, /**<< Inverse of radius in units of M */
+                                  REAL8 eta, /** Symmetric mass ratio */
+                                  TidalEOBParams * tidal /**<< Structure containing various coefficients */
+)
+{
+    REAL8 u2 = u*u;
+    REAL8 u3 = u*u2;
+    REAL8 u4 = u*u3;
+    REAL8 w03 = tidal->omega03Tidal;
+    REAL8 factorO = 9. - ThreeToOneThird*pow(1./u, 2.5)*pow(w03, 5./3.);
+    REAL8 factorO_u = -2.5/u*(factorO - 9.);
+    REAL8 XX = factorO/(4.*ThreeToOneThird*ThreeToOneThird*sqrt(10.)*pow(w03,5./6.)*sqrt(eta));
+    REAL8 XX_u = factorO_u*XX/factorO;
+    REAL8 prefactorO = 5.*sqrt(5.*LAL_PI)/u/u/u*pow(w03,7./6.)/(192.*ThreeToOneThird*ThreeToOneThird*sqrt(eta));
+    REAL8 prefactorO_u = -3./u*prefactorO;
+    REAL8 fresnelArg = sqrt_2_pi*XX;
+    REAL8 fresnelS = fresnel_s(fresnelArg);
+    REAL8 fresnelC = fresnel_c(fresnelArg);
+    REAL8 w03Square = w03*w03;
+    REAL8 sinXXSquare = sin(XX*XX);
+    REAL8 cosXXSquare = cos(XX*XX);
+    REAL8 k3Tidaleff_u = 1./48.*( (810.*u2*w03Square)/(w03Square - 9.*u3)/(w03*w03 - 9.*u3) + 24.* (cosXXSquare*(1. + 2.*fresnelS) - sinXXSquare*(1. + 2.*fresnelC)) * prefactorO_u - 48. * prefactorO * (cosXXSquare*(1. + 2.*fresnelC) + sinXXSquare*(1. + 2.*fresnelS)) * XX * XX_u -  25.*w03Square*(3.*factorO + u*factorO_u)/(u4*factorO*factorO));
+    return k3Tidaleff_u;
+}
+
+static REAL8 XLALSimIMRTEOBdeltaUTidal (
+                                 REAL8 u,
+                                 REAL8 eta,
+                                 TidalEOBParams *tidal1,
+                                 TidalEOBParams *tidal2
+)
+{
+    REAL8 u2 = u*u;
+    REAL8 u5 = u*u2*u2;
+    REAL8 u6 = u*u5;
+    REAL8 u8 = u*u*u6;
+    REAL8 m1 = tidal1->mass;
+    REAL8 m2 = tidal2->mass;
+    REAL8 R1 = m1/tidal1->comp;
+    REAL8 R2 = m2/tidal2->comp;
+    REAL8 R1to5 = R1*R1*R1*R1*R1;
+    REAL8 R2to5 = R2*R2*R2*R2*R2;
+    REAL8 R1to7 = R1*R1*R1to5;
+    REAL8 R2to7 = R2*R2*R2to5;
+    REAL8 k2Tidal1eff = XLALSimIMRTEOBk2eff(u, eta, tidal1);
+    REAL8 k2Tidal2eff = XLALSimIMRTEOBk2eff(u, eta, tidal2);
+    REAL8 deltaUQ = - 2.*m2/m1*tidal1->k2Tidal*k2Tidal1eff*R1to5*u6* (1. + 5./2.*u*m1 + u2*(3. + m1/8. + 337./28.*m1*m1) ) - 2.*m1/m2*tidal2->k2Tidal*k2Tidal2eff*R2to5*u6* (1. + 5./2.*u*m2 + u2*(3. + m2/8. + 337./28.*m2*m2) );
+    REAL8 deltaUO = 0.;
+    if ( (tidal1->k3Tidal != 0. && tidal1->omega03Tidal != 0.) || (tidal2->k3Tidal != 0. && tidal2->omega03Tidal != 0.) ) {
+        REAL8 k3Tidal1eff = XLALSimIMRTEOBk3eff(u, eta, tidal1);
+        REAL8 k3Tidal2eff = XLALSimIMRTEOBk3eff(u, eta, tidal2);
+        deltaUO = - 2.*m2/m1*tidal1->k3Tidal*k3Tidal1eff*R1to7*u8* (1. + u*(15./2.*m1 - 2.) + u*u*(8./3. - 311./24.*m1 + 110./3.*m1*m1) ) - 2.*m1/m2*tidal2->k3Tidal*k3Tidal2eff*R2to7*u8* (1. + u*(15./2.*m2 - 2.) + u*u*(8./3. - 311./24.*m2 + 110./3.*m2*m2) );
+    }
+    //      printf("comp1 %.16e\n", coeffs->tidal1->comp);
+    //      printf("comp2 %.16e\n", coeffs->tidal2->comp);
+    //      printf("k2Tidal1 %.16e\n", coeffs->tidal1->k2Tidal);
+    //      printf("k2Tidal2 %.16e\n", coeffs->tidal2->k2Tidal);
+    //      printf("omega02Tidal1 %.16e\n", coeffs->tidal1->omega02Tidal);
+    //      printf("omega02Tidal2 %.16e\n", coeffs->tidal2->omega02Tidal);
+    //      printf("deltaU, deltaUQ, deltaUO %.16e %.16e %.16e\n", deltaU, deltaUQ, deltaUO);
+    //      FILE *out = fopen("out.dat","a");
+    //      fprintf(out, "%.16e %.16e\n", u, deltaUQ + deltaUO);
+    //      fclose(out);
+    return deltaUQ + deltaUO;
+}
+
+static REAL8 XLALSimIMRTEOBdeltaUTidal_u (
+                                       REAL8 u,
+                                       REAL8 eta,
+                                       TidalEOBParams *tidal1,
+                                       TidalEOBParams *tidal2
+                                       )
+{
+    REAL8 u2 = u*u;
+    REAL8 u5 = u*u2*u2;
+    REAL8 u6 = u*u5;
+    REAL8 u7 = u*u6;
+    REAL8 u8 = u*u7;
+    REAL8 m1 = tidal1->mass;
+    REAL8 m2 = tidal2->mass;
+    REAL8 R1 = m1/tidal1->comp;
+    REAL8 R2 = m2/tidal2->comp;
+    REAL8 R1to5 = R1*R1*R1*R1*R1;
+    REAL8 R2to5 = R2*R2*R2*R2*R2;
+    REAL8 R1to7 = R1*R1*R1to5;
+    REAL8 R2to7 = R2*R2*R2to5;
+    REAL8 k2Tidal1eff = XLALSimIMRTEOBk2eff(u, eta, tidal1);
+    REAL8 k2Tidal2eff = XLALSimIMRTEOBk2eff(u, eta, tidal2);
+    REAL8 k2Tidal1eff_u = XLALSimIMRTEOBk2eff_u(u, eta, tidal1);
+    REAL8 k2Tidal2eff_u = XLALSimIMRTEOBk2eff_u(u, eta, tidal2);
+    REAL8 deltaUQ_u =  - 2.*m2/m1*tidal1->k2Tidal*k2Tidal1eff*R1to5*6.*u5* (1. + 5./2.*u*m1 + u2*(3. + m1/8. + 337./28.*m1*m1) ) - 2.*m1/m2*tidal2->k2Tidal*k2Tidal2eff*R2to5*6.*u5* (1. + 5./2.*u*m2 + u2*(3. + m2/8. + 337./28.*m2*m2) )
+    -  2.*m2/m1*tidal1->k2Tidal*k2Tidal1eff*R1to5*u6* ( 5./2.*m1 + 2.*u*(3. + m1/8. + 337./28.*m1*m1) ) - 2.*m1/m2*tidal2->k2Tidal*k2Tidal2eff*R2to5*u6* ( 5./2.*m2 + 2.*u*(3. + m2/8. + 337./28.*m2*m2) )
+    - 2.*m2/m1*tidal1->k2Tidal*k2Tidal1eff_u*R1to5*u6* (1. + 5./2.*u*m1 + u2*(3. + m1/8. + 337./28.*m1*m1) ) - 2.*m1/m2*tidal2->k2Tidal*k2Tidal2eff_u*R2to5*u6* (1. + 5./2.*u*m2 + u2*(3. + m2/8. + 337./28.*m2*m2) );
+    REAL8 deltaUO_u = 0.;
+    if ( (tidal1->k3Tidal != 0. && tidal1->omega03Tidal != 0.) || (tidal2->k3Tidal != 0. && tidal2->omega03Tidal != 0.) ) {
+        REAL8 k3Tidal1eff = XLALSimIMRTEOBk3eff(u, eta, tidal1);
+        REAL8 k3Tidal2eff = XLALSimIMRTEOBk3eff(u, eta, tidal2);
+        REAL8 k3Tidal1eff_u = XLALSimIMRTEOBk3eff_u(u, eta, tidal1);
+        REAL8 k3Tidal2eff_u = XLALSimIMRTEOBk3eff_u(u, eta, tidal2);
+        deltaUO_u = - 2.*m2/m1*tidal1->k3Tidal*k3Tidal1eff*R1to7*7.*u7* (1. + u*(15./2.*m1 - 2.) + u*u*(8./3. - 311./24.*m1 + 110./3.*m1*m1) ) - 2.*m1/m2*tidal2->k3Tidal*k3Tidal2eff*R2to7*7.*u7* (1. + u*(15./2.*m2 - 2.) + u*u*(8./3. - 311./24.*m2 + 110./3.*m2*m2) )
+        - 2.*m2/m1*tidal1->k3Tidal*k3Tidal1eff*R1to7*u8* ((15./2.*m1 - 2.) + 2.*u*(8./3. - 311./24.*m1 + 110./3.*m1*m1) ) - 2.*m1/m2*tidal2->k3Tidal*k3Tidal2eff*R2to7*u8* ((15./2.*m2 - 2.) + 2.*u*(8./3. - 311./24.*m2 + 110./3.*m2*m2) )
+        - 2.*m2/m1*tidal1->k3Tidal*k3Tidal1eff_u*R1to7*u8* (1. + u*(15./2.*m1 - 2.) + u*u*(8./3. - 311./24.*m1 + 110./3.*m1*m1) ) - 2.*m1/m2*tidal2->k3Tidal*k3Tidal2eff_u*R2to7*u8* (1. + u*(15./2.*m2 - 2.) + u*u*(8./3. - 311./24.*m2 + 110./3.*m2*m2) );
+    }
+    return deltaUQ_u + deltaUO_u;
 }
 
 /**
@@ -556,35 +699,7 @@ XLALSimIMRSpinEOBHamiltonian (const REAL8 eta,	    /**<< Symmetric mass ratio */
   /* Eq. 5.73 of BB1 */
   deltaU = bulk * logTerms;
   if ( (coeffs->tidal1->k2Tidal != 0. && coeffs->tidal1->omega02Tidal != 0.) || (coeffs->tidal2->k2Tidal != 0. && coeffs->tidal2->omega02Tidal != 0.) ) {
-      REAL8 u6 = u*u5;
-      REAL8 u8 = u*u*u6;
-      REAL8 m1 = coeffs->tidal1->mass;
-      REAL8 m2 = coeffs->tidal2->mass;
-      REAL8 R1 = m1/coeffs->tidal1->comp;
-      REAL8 R2 = m2/coeffs->tidal2->comp;
-      REAL8 R1to5 = R1*R1*R1*R1*R1;
-      REAL8 R2to5 = R2*R2*R2*R2*R2;
-      REAL8 R1to7 = R1*R1*R1to5;
-      REAL8 R2to7 = R2*R2*R2to5;
-      REAL8 k2Tidal1eff = XLALSimIMRTEOBk2eff(u, eta, coeffs->tidal1);
-      REAL8 k2Tidal2eff = XLALSimIMRTEOBk2eff(u, eta, coeffs->tidal2);
-      REAL8 deltaUQ = - 2.*m2/m1*coeffs->tidal1->k2Tidal*k2Tidal1eff*R1to5*u6* (1. + 5./2.*u*m1 + u2*(3. + m1/8. + 337./28.*m1*m1) ) - 2.*m1/m2*coeffs->tidal2->k2Tidal*k2Tidal2eff*R2to5*u6* (1. + 5./2.*u*m2 + u2*(3. + m2/8. + 337./28.*m2*m2) );
-      REAL8 deltaUO = 0.;
-      if ( (coeffs->tidal1->k3Tidal != 0. && coeffs->tidal1->omega03Tidal != 0.) || (coeffs->tidal2->k3Tidal != 0. && coeffs->tidal2->omega03Tidal != 0.) ) {
-          REAL8 k3Tidal1eff = XLALSimIMRTEOBk3eff(u, eta, coeffs->tidal1);
-          REAL8 k3Tidal2eff = XLALSimIMRTEOBk3eff(u, eta, coeffs->tidal2);
-          deltaUO = - 2.*m2/m1*coeffs->tidal1->k3Tidal*k3Tidal1eff*R1to7*u8* (1. + u*(15./2.*m1 - 2.) + u*u*(8./3. - 311./24.*m1 + 110./3.*m1*m1) ) - 2.*m1/m2*coeffs->tidal2->k3Tidal*k3Tidal2eff*R2to7*u8* (1. + u*(15./2.*m2 - 2.) + u*u*(8./3. - 311./24.*m2 + 110./3.*m2*m2) );
-      }
-
-//      printf("comp1 %.16e\n", coeffs->tidal1->comp);
-//      printf("comp2 %.16e\n", coeffs->tidal2->comp);
-//      printf("k2Tidal1 %.16e\n", coeffs->tidal1->k2Tidal);
-//      printf("k2Tidal2 %.16e\n", coeffs->tidal2->k2Tidal);
-//      printf("omega02Tidal1 %.16e\n", coeffs->tidal1->omega02Tidal);
-//      printf("omega02Tidal2 %.16e\n", coeffs->tidal2->omega02Tidal);
-//      printf("deltaU, deltaUQ, deltaUO %.16e %.16e %.16e\n", deltaU, deltaUQ, deltaUO);
-      
-      deltaU = deltaU + (deltaUQ + deltaUO);
+      deltaU += XLALSimIMRTEOBdeltaUTidal(u, eta, coeffs->tidal1, coeffs->tidal2);
   }
 
   /* Eq. 5.71 of BB1 */
@@ -612,6 +727,12 @@ XLALSimIMRSpinEOBHamiltonian (const REAL8 eta,	    /**<< Symmetric mass ratio */
 								      k5l *
 								      log (u))
 								     * u5);
+    if ( (coeffs->tidal1->k2Tidal != 0. && coeffs->tidal1->omega02Tidal != 0.) || (coeffs->tidal2->k2Tidal != 0. && coeffs->tidal2->omega02Tidal != 0.) ) {
+        deltaU_u += XLALSimIMRTEOBdeltaUTidal_u(u, eta, coeffs->tidal1, coeffs->tidal2);
+//        FILE *out = fopen("outDImpor.dat","a");
+//        fprintf(out, "%.16e %.16e %.16e\n", u, XLALSimIMRTEOBdeltaUTidal(u, eta, coeffs->tidal1, coeffs->tidal2), XLALSimIMRTEOBdeltaUTidal_u(u, eta, coeffs->tidal1, coeffs->tidal2));
+//        fclose(out);
+    }
   /* ddeltaT/dr */
   deltaT_r = 2. * r * deltaU - deltaU_u;
   /* Eq. 5.39 of BB1 */
