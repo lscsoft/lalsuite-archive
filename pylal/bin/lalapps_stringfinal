@@ -48,10 +48,12 @@ import sys
 import traceback
 
 
+from lal.utils import CacheEntry
+
+
 from glue import iterutils
 from glue import segments
 from glue import segmentsUtils
-from glue.lal import CacheEntry
 from glue.ligolw import dbtables
 from glue.ligolw.utils import process as ligolwprocess
 from pylal import git_version

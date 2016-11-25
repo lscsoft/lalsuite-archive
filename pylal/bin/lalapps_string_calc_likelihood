@@ -33,7 +33,9 @@ import sqlite3
 import sys
 
 
-from glue.lal import CacheEntry
+from lal.utils import CacheEntry
+
+
 from pylal import git_version
 from pylal import ligolw_burca2
 from pylal import SnglBurstUtils

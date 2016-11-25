@@ -33,7 +33,9 @@ import sqlite3
 import sys
 
 
-from glue import lal
+from lal.utils import CacheEntry
+
+
 from glue import segments
 from glue.ligolw import dbtables
 from glue.ligolw import utils as ligolw_utils
@@ -92,7 +94,7 @@ def parse_command_line():
 	for cache in options.input_cache:
 		if options.verbose:
 			print >>sys.stderr, "reading '%s' ..." % cache
-		filenames += [lal.CacheEntry(line).path for line in file(cache)]
+		filenames += [CacheEntry(line).path for line in file(cache)]
 	if not filenames:
 		raise ValueError("Nothing to do!")
 
