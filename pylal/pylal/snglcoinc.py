@@ -52,7 +52,6 @@ import warnings
 import lal
 
 
-from glue import iterutils
 from glue import offsetvector
 from glue import segmentsUtils
 from glue.ligolw import ligolw
@@ -442,7 +441,7 @@ class TimeSlideGraphNode(object):
 		# used by any other components, they definitely won't be
 		# used to construct our n-instrument coincs, and so they go
 		# into our unused pile
-		for componenta, componentb in iterutils.choices(self.components, 2):
+		for componenta, componentb in itertools.combinations(self.components, 2):
 			self.unused_coincs |= componenta.unused_coincs & componentb.unused_coincs
 
 		if verbose:
@@ -507,7 +506,7 @@ class TimeSlideGraphNode(object):
 					# remove them from the unused list
 					# because we just used them, then
 					# record the coinc and move on
-					self.unused_coincs -= set(iterutils.choices(new_coinc, len(new_coinc) - 1))
+					self.unused_coincs -= set(itertools.combinations(new_coinc, len(new_coinc) - 1))
 					self.coincs.append(new_coinc)
 		if verbose:
 			print >>sys.stderr, "\t100.0%"
@@ -854,7 +853,7 @@ class CoincSynthesizer(object):
 		frozensets).
 		"""
 		all_instruments = tuple(self.eventlists)
-		return tuple(frozenset(instruments) for n in range(self.min_instruments, len(all_instruments) + 1) for instruments in iterutils.choices(all_instruments, n))
+		return tuple(frozenset(instruments) for n in range(self.min_instruments, len(all_instruments) + 1) for instruments in itertools.combinations(all_instruments, n))
 
 
 	@property
@@ -930,7 +929,7 @@ class CoincSynthesizer(object):
 		try:
 			return self._tau
 		except AttributeError:
-			self._tau = dict((frozenset(ab), self.delta_t + light_travel_time(*ab)) for ab in iterutils.choices(tuple(self.eventlists), 2))
+			self._tau = dict((frozenset(ab), self.delta_t + light_travel_time(*ab)) for ab in itertools.combinations(tuple(self.eventlists), 2))
 			return self._tau
 
 
@@ -1015,7 +1014,7 @@ class CoincSynthesizer(object):
 		# maximum allowed \Delta t between them to avoid doing the
 		# work associated with assembling the sequence inside a
 		# loop
-					ijseq = tuple((i, j, self.tau[frozenset((instruments[i], instruments[j]))]) for (i, j) in iterutils.choices(range(len(instruments)), 2))
+					ijseq = tuple((i, j, self.tau[frozenset((instruments[i], instruments[j]))]) for (i, j) in itertools.combinations(range(len(instruments)), 2))
 		# compute the numerator and denominator of the fraction of
 		# events coincident with the anchor instrument that are
 		# also mutually coincident.  this is done by picking a
@@ -1239,7 +1238,7 @@ class CoincSynthesizer(object):
 			events = tuple(random.choice(self.eventlists[instrument]) for instrument in instruments)
 
 			# test for a genuine zero-lag coincidence among them
-			if not allow_zero_lag and any(abs(ta - tb) < self.tau[frozenset((instrumenta, instrumentb))] for (instrumenta, ta), (instrumentb, tb) in iterutils.choices(zip(instruments, (timefunc(event) for event in events)), 2)):
+			if not allow_zero_lag and any(abs(ta - tb) < self.tau[frozenset((instrumenta, instrumentb))] for (instrumenta, ta), (instrumentb, tb) in itertools.combinations(zip(instruments, (timefunc(event) for event in events)), 2)):
 				continue
 
 			# return acceptable event tuples
@@ -1267,7 +1266,7 @@ class CoincSynthesizer(object):
 		instruments = tuple(instruments)
 		anchor, instruments = instruments[0], instruments[1:]
 		windows = tuple((-self.tau[frozenset((anchor, instrument))], +self.tau[frozenset((anchor, instrument))]) for instrument in instruments)
-		ijseq = tuple((i, j, self.tau[frozenset((instruments[i], instruments[j]))]) for (i, j) in iterutils.choices(range(len(instruments)), 2))
+		ijseq = tuple((i, j, self.tau[frozenset((instruments[i], instruments[j]))]) for (i, j) in itertools.combinations(range(len(instruments)), 2))
 		while True:
 			dt = tuple(random.uniform(*window) for window in windows)
 			if all(abs(dt[i] - dt[j]) <= maxdt for i, j, maxdt in ijseq):
@@ -1516,7 +1515,7 @@ def InstrumentBins(names = ("E0", "E1", "E2", "E3", "G1", "H1", "H2", "H1H2+", "
 	>>> x.centres()[55]
 	frozenset(['H1', 'L1'])
 	"""
-	return rate.HashableBins(frozenset(combo) for n in range(len(names) + 1) for combo in iterutils.choices(names, n))
+	return rate.HashableBins(frozenset(combo) for n in range(len(names) + 1) for combo in itertools.combinations(names, n))
 
 
 #

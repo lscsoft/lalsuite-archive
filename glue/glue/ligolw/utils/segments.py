@@ -29,6 +29,9 @@ Ask Kipp to document this!
 """
 
 
+import itertools
+
+
 from glue import git_version
 from glue import iterutils
 from glue import segments
@@ -551,7 +554,7 @@ class LigolwSegments(set):
 		"""
 		self.sort()
 		segment_lists = dict(enumerate(self))
-		for target, source in [(idx_a, idx_b) for (idx_a, seglist_a), (idx_b, seglist_b) in iterutils.choices(segment_lists.items(), 2) if seglist_a.valid == seglist_b.valid and seglist_a.active == seglist_b.active and seglist_a.name == seglist_b.name and seglist_a.version == seglist_b.version and seglist_a.comment == seglist_b.comment]:
+		for target, source in [(idx_a, idx_b) for (idx_a, seglist_a), (idx_b, seglist_b) in itertools.combinations(segment_lists.items(), 2) if seglist_a.valid == seglist_b.valid and seglist_a.active == seglist_b.active and seglist_a.name == seglist_b.name and seglist_a.version == seglist_b.version and seglist_a.comment == seglist_b.comment]:
 			try:
 				source = segment_lists.pop(source)
 			except KeyError:

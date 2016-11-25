@@ -24,8 +24,10 @@
 #
 
 
+import itertools
+
+
 from glue import git_version
-from glue import iterutils
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -301,7 +303,7 @@ def component_offsetvectors(offsetvectors, n):
 
 	delta_sets = {}
 	for vect in offsetvectors:
-		for instruments in iterutils.choices(sorted(vect), n):
+		for instruments in itertools.combinations(sorted(vect), n):
 			# NOTE:  the arithmetic used to construct the
 			# offsets *must* match the arithmetic used by
 			# offsetvector.deltas so that the results of the

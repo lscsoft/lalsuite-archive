@@ -25,6 +25,7 @@
 
 
 import bisect
+import itertools
 import math
 import sys
 
@@ -333,10 +334,10 @@ def replicate_threshold(threshold, instruments):
 	# uniqueify
 	instruments = list(set(instruments))
 	# first order
-	thresholds = dict((pair, threshold) for pair in iterutils.choices(instruments, 2))
+	thresholds = dict((pair, threshold) for pair in itertools.combinations(instruments, 2))
 	# other order
 	instruments.reverse()
-	thresholds.update(dict((pair, threshold) for pair in iterutils.choices(instruments, 2)))
+	thresholds.update(dict((pair, threshold) for pair in itertools.combinations(instruments, 2)))
 	# done
 	return thresholds
 
