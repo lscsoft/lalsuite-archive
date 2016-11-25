@@ -30,8 +30,8 @@ from optparse import OptionParser
 import sys
 import sqlite3
 
+from lal.utils import CacheEntry
 
-from glue.lal import CacheEntry
 from glue.ligolw import dbtables
 from pylal import git_version
 from pylal import ligolw_burca_tailor

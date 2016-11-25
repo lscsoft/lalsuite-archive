@@ -33,9 +33,11 @@ import math
 import sys
 
 
+from lal.utils import CacheEntry
+
+
 from glue import segments
 from glue import offsetvector
-from glue.lal import CacheEntry
 from glue.ligolw import lsctables
 from pylal import git_version
 from pylal import packing

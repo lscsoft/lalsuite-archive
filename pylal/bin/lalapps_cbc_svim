@@ -12,15 +12,16 @@ import os
 import sys
 from optparse import OptionParser
 
-from glue import segments, segmentsUtils, lal, iterutils
+import lal
+from lal import utils as lalutils
+
+from glue import segments, segmentsUtils, iterutils
 from glue.ligolw import ligolw, lsctables, dbtables, utils, array
 
 from pylal import ligolw_cbc_compute_durations as compute_dur
 from pylal import rate
 from pylal import InspiralUtils
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
-import lal as constants
 from pylal import upper_limit_utils, imr_utils
 
 from pylal import git_version
@@ -42,9 +43,6 @@ matplotlib.rcParams.update({
         "text.usetex": True,
         "path.simplify": True
 })
-
-
-lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 def chirp_mass(m1, m2):
@@ -109,7 +107,7 @@ class upper_limit(object):
       self.livetime = {}
       for inst in self.instruments:
           # compute live time in years from zero lag segments
-          self.livetime[inst] = abs(self.zero_lag_segments[inst].coalesce()).seconds / float(constants.YRJUL_SI)
+          self.livetime[inst] = abs(self.zero_lag_segments[inst].coalesce()).seconds / float(lal.YRJUL_SI)
 
       return
 
@@ -933,7 +931,7 @@ for bin_type in UL.mass_bins:
     output_filename = opts.output_path + "%s-SEARCH_VOLUME_BINNED_BY_%s_%s-%d-%d.xml" % \
         ("".join(sorted(list(instruments))), bin_type.upper(), opts.user_tag, UL.start_time, UL.end_time-UL.start_time)
     utils.write_filename(xmldoc, output_filename)
-    cache_entry =  lal.CacheEntry( "".join(sorted(list(instruments))),
+    cache_entry =  lalutils.CacheEntry( "".join(sorted(list(instruments))),
                                    bin_type,
                                    segments.segment(UL.start_time, UL.end_time),
                                    "file://localhost%s/%s" % (os.getcwd(),output_filename) )
