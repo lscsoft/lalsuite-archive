@@ -113,6 +113,10 @@ static COMPLEX16 XLALhTidal(
     REAL8 M = m1 + m2;
     REAL8 X1 = m1 / M;
     REAL8 X2 = m2 / M;
+    REAL8 R1 = m1/tidal1->comp;
+    REAL8 R2 = m2/tidal2->comp;
+    REAL8 R1to5 = R1*R1*R1*R1*R1;
+    REAL8 R2to5 = R2*R2*R2*R2*R2;
     REAL8 k2Tidal1 = tidal1->k2Tidal;
     REAL8 k2Tidal2 = tidal2->k2Tidal;
     REAL8 omega02Tidal1 = tidal1->omega02Tidal;
@@ -122,16 +126,20 @@ static COMPLEX16 XLALhTidal(
     hNewtonTidal = hNewton / cleps;
     REAL8 k2Tidal1effHam = XLALSimIMRTEOBk2eff(1./r, eta, tidal1);
     REAL8 k2Tidal2effHam = XLALSimIMRTEOBk2eff(1./r, eta, tidal2);
-    REAL8 k2Tidal1eff = (k2Tidal1effHam*(omega02Tidal1*omega02Tidal1 + 6.*m2*Omega*Omega) - omega02Tidal1*omega02Tidal1) / (3.*Omega*Omega*(1. + 2*m2));
-    REAL8 k2Tidal2eff = (k2Tidal2effHam*(omega02Tidal2*omega02Tidal2 + 6.*m1*Omega*Omega) - omega02Tidal2*omega02Tidal2) / (3.*Omega*Omega*(1. + 2*m1));
+    REAL8 k2Tidal1eff = ((-1. + k2Tidal1effHam)*omega02Tidal1*omega02Tidal1 + 6.*k2Tidal1effHam*X2*Omega*Omega) / (1. + 2*X2) / (3.*Omega*Omega);
+    REAL8 k2Tidal2eff = ((-1. + k2Tidal2effHam)*omega02Tidal2*omega02Tidal2 + 6.*k2Tidal2effHam*X1*Omega*Omega) / (1. + 2*X1)/ (3.*Omega*Omega);
+    REAL8 lambda1 = 2./3.*k2Tidal1*R1to5;
+    REAL8 lambda2 = 2./3.*k2Tidal2*R2to5;
+    REAL8 q = m2/m1; 
     switch (l) {
         case 2:
             switch (m) {
                 case 2:
-                    hhatTidal = (k2Tidal1*k2Tidal1eff*( X1/X2 + 3. )*( 1. + XLALTEOBbeta221( X1 )*v2 ) + k2Tidal2*k2Tidal2eff*( X2/X1 + 3. )*( 1. + XLALTEOBbeta221( X2 )*v2 ))*v10;
+                    hhatTidal = v10*(3.*q*lambda1*(X1/X2 + 3.)*(1. + XLALTEOBbeta221(X1)*v2)*k2Tidal1eff
+                                    + 3./q*lambda2*(X2/X1 + 3.)*(1. + XLALTEOBbeta221(X2)*v2)*k2Tidal2eff);
                     break;
                 case 1:
-                    hhatTidal = ((9./2. - 6.*X2)*k2Tidal2 - (9./2. - 6.*X1)*k2Tidal1)*v10;
+                    hhatTidal =(-3*q*lambda1*(4.5 - 6.*X1) - (-3./q*lambda2*(4.5 - 6.*X2)))*v10;
                     break;
             }
             break;
@@ -140,7 +148,8 @@ static COMPLEX16 XLALhTidal(
                 case 3:
                 case 2:
                 case 1:
-                    hhatTidal = (6.*X1*k2Tidal2 - 6.*X2*k2Tidal1)*v10;
+                case 0:
+                    hhatTidal = -18.*(X2*q*lambda1 - X1/q*lambda2)*v10;
                     break;
             }
             break;
