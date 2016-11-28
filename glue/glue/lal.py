@@ -157,7 +157,7 @@ class LIGOTimeGPS(object):
 
 	def __repr__(self):
 		return "LIGOTimeGPS(%d, %u)" % (self.__seconds, self.__nanoseconds)
-	
+
 	def __str__(self):
 		"""
 		Return an ASCII string representation of a LIGOTimeGPS.
