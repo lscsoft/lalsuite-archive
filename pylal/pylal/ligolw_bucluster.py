@@ -371,19 +371,6 @@ def ligolw_bucluster(
 	seglists = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, program = program).coalesce()
 
 	#
-	# Remove all H2 triggers intersecting the frequency band
-	# 1138.6 Hz -- 1216.0 Hz
-	#
-	# FIXME:  put this into the excess power pipeline, correctly
-	#
-
-	#bad_band = segments.segment(1138.586956521739, 1216.0326086956522)
-	#for i in xrange(len(sngl_burst_table) - 1, -1, -1):
-	#	a = sngl_burst_table[i]
-	#	if a.ifo == "H2" and a.band.intersects(bad_band):
-	#		del sngl_burst_table[i]
-
-	#
 	# Preprocess candidates
 	#
 
