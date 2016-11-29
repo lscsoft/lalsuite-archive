@@ -682,9 +682,9 @@ class SearchSummary(table.TableRow):
 	>>> x.in_start = x.out_start = LIGOTimeGPS(0)
 	>>> x.in_end = x.out_end = LIGOTimeGPS(10)
 	>>> x.in_segment
-	segment(0, 10)
+	segment(LIGOTimeGPS(0, 0), LIGOTimeGPS(10, 0))
 	>>> x.out_segment
-	segment(0, 10)
+	segment(LIGOTimeGPS(0, 0), LIGOTimeGPS(10, 0))
 	>>> x.in_segment = x.out_segment = None
 	>>> print x.in_segment
 	None
@@ -2063,7 +2063,7 @@ class CoincInspiral(table.TableRow):
 	set([u'H1', u'L1'])
 	>>> x.end = LIGOTimeGPS(10)
 	>>> x.end
-	10
+	LIGOTimeGPS(10, 0)
 	>>> x.end = None
 	>>> print x.end
 	None
@@ -3341,7 +3341,7 @@ class SummValue(table.TableRow):
 	>>> x.start = LIGOTimeGPS(0)
 	>>> x.end = LIGOTimeGPS(10)
 	>>> x.segment
-	segment(0, 10)
+	segment(LIGOTimeGPS(0, 0), LIGOTimeGPS(10, 0))
 	>>> x.segment = None
 	>>> print x.segment
 	None
@@ -3596,7 +3596,7 @@ class Segment(table.TableRow):
 	>>> x.start = LIGOTimeGPS(0)
 	>>> x.end = LIGOTimeGPS(10)
 	>>> x.segment
-	segment(0, 10)
+	segment(LIGOTimeGPS(0, 0), LIGOTimeGPS(10, 0))
 	>>> x.segment = None
 	>>> print x.segment
 	None
@@ -3605,22 +3605,22 @@ class Segment(table.TableRow):
 	>>> # non-LIGOTimeGPS times are converted to LIGOTimeGPS
 	>>> x.segment = (20, 30.125)
 	>>> x.end
-	30.125
+	LIGOTimeGPS(30, 125000000)
 	>>> # initialization from a tuple or with arguments
 	>>> Segment((20, 30)).segment
-	segment(20, 30)
+	segment(LIGOTimeGPS(20, 0), LIGOTimeGPS(30, 0))
 	>>> Segment(20, 30).segment
-	segment(20, 30)
+	segment(LIGOTimeGPS(20, 0), LIGOTimeGPS(30, 0))
 	>>> # use as a segment object in segmentlist operations
 	>>> from glue import segments
 	>>> x = segments.segmentlist([Segment(0, 10), Segment(20, 30)])
 	>>> abs(x)
-	20
+	LIGOTimeGPS(20, 0)
 	>>> y = segments.segmentlist([Segment(5, 15), Segment(25, 35)])
 	>>> abs(x & y)
-	10
+	LIGOTimeGPS(10, 0)
 	>>> abs(x | y)
-	30
+	LIGOTimeGPS(30, 0)
 	>>> 8.0 in x
 	True
 	>>> 12 in x
