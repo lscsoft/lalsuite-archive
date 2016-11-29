@@ -30,6 +30,7 @@ import sys
 
 from glue import iterutils
 from glue import segments
+from glue.text_progress_bar import ProgressBar
 from pylal import git_version
 
 
@@ -98,21 +99,22 @@ def cluster_events(events, testfunc, clusterfunc, sortfunc = None, bailoutfunc =
 	changed = False
 	while True:
 		if verbose:
-			print >>sys.stderr, "clustering pass:"
+			progress = ProgressBar("clustering %d events" % len(events), max = len(events))
+			progress.show()
+		else:
+			progress = None
 
 		if sortfunc is not None:
-			if verbose:
-				print >>sys.stderr, "\tsorting ..."
 			events.sort(sortfunc)
 
 		outer_did_cluster = False
 		i = 0
 		while i < len(events):
+			if progress is not None:
+				progress.update(i)
 			if events[i] is None:
 				i += 1
 				continue
-			if verbose and not (i % 13):
-				print >>sys.stderr, "\t%d / %d%s\r" % (i + 1, len(events), " " * (int(math.floor(math.log10(len(events) or 1))) + 1)),
 			inner_did_cluster = False
 			for j, event_j in enumerate(events[i + 1:], 1):
 				if event_j is not None:
@@ -126,11 +128,8 @@ def cluster_events(events, testfunc, clusterfunc, sortfunc = None, bailoutfunc =
 				outer_did_cluster = True
 			else:
 				i += 1
-		if verbose:
-			print >>sys.stderr, "\t%d / %d%s" % (len(events), len(events), " " * (int(math.floor(math.log10(len(events) or 1))) + 1))
+		del progress
 		if not outer_did_cluster:
-			if verbose:
-				print >>sys.stderr, "\tno change"
 			break
 		iterutils.inplace_filter(lambda event: event is not None, events)
 		changed = True
