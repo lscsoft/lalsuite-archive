@@ -137,8 +137,12 @@ class Packer(object):
 	def packlist(self, size_object_pairs):
 		"""
 		Pack a list of (size, object) tuples into the bins.
+
+		Default implementation invokes self.pack() on each pair in
+		the the order given.
 		"""
-		raise NotImplementedError
+		for size, obj in size_object_pairs:
+			self.pack(size, obj)
 
 
 class BiggestIntoEmptiest(Packer):
