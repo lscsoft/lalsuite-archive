@@ -114,13 +114,13 @@ def cluster_events(events, testfunc, clusterfunc, sortfunc = None, bailoutfunc =
 			if verbose and not (i % 13):
 				print >>sys.stderr, "\t%d / %d%s\r" % (i + 1, len(events), " " * (int(math.floor(math.log10(len(events) or 1))) + 1)),
 			inner_did_cluster = False
-			for j in xrange(i + 1, len(events)):
-				if events[j] is not None:
-					if not testfunc(events[i], events[j]):
-						events[i] = clusterfunc(events[i], events[j])
-						events[j] = None
+			for j, event_j in enumerate(events[i + 1:], 1):
+				if event_j is not None:
+					if not testfunc(events[i], event_j):
+						events[i] = clusterfunc(events[i], event_j)
+						events[i + j] = None
 						inner_did_cluster = True
-					elif (sortfunc is not None) and bailoutfunc(events[i], events[j]):
+					elif (sortfunc is not None) and bailoutfunc(events[i], event_j):
 						break
 			if inner_did_cluster:
 				outer_did_cluster = True
