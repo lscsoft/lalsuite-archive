@@ -1393,7 +1393,10 @@ class SnglBurst(table.TableRow):
 	@property
 	def period(self):
 		start = self.start
-		stop = self.stop
+		try:
+			stop = self.stop
+		except AttributeError:
+			stop = None
 		# special case:  use duration if stop is not recorded
 		if start is not None and stop is None and self.duration is not None:
 			stop = start + self.duration
