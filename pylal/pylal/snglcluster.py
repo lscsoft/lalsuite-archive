@@ -28,8 +28,8 @@ import math
 import sys
 
 
-from glue import segments
 from glue import iterutils
+from glue import segments
 from pylal import git_version
 
 
