@@ -96,6 +96,7 @@ def cluster_events(events, testfunc, clusterfunc, sortfunc = None, bailoutfunc =
 	modified, and False if they were not (although their order might
 	have changed).
 	"""
+	# changed indicates if the event list has changed
 	changed = False
 	while True:
 		if verbose:
@@ -107,12 +108,16 @@ def cluster_events(events, testfunc, clusterfunc, sortfunc = None, bailoutfunc =
 		if sortfunc is not None:
 			events.sort(sortfunc)
 
+		# outer_did_cluster indicates if the event list changes on
+		# this pass
 		outer_did_cluster = False
 		i = 0
 		while i < len(events):
 			if progress is not None:
 				progress.update(i)
 			if events[i] is not None:
+				# inner_did_cluster indicates if events[i]
+				# has changed
 				inner_did_cluster = False
 				for j, event_j in enumerate(events[i + 1:], 1):
 					if event_j is not None:
@@ -130,6 +135,7 @@ def cluster_events(events, testfunc, clusterfunc, sortfunc = None, bailoutfunc =
 			# events[i] has not changed
 			i += 1
 		del progress
+		# repeat until we do a pass without the listing changing
 		if not outer_did_cluster:
 			break
 		iterutils.inplace_filter(lambda event: event is not None, events)
