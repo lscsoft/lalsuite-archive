@@ -112,22 +112,23 @@ def cluster_events(events, testfunc, clusterfunc, sortfunc = None, bailoutfunc =
 		while i < len(events):
 			if progress is not None:
 				progress.update(i)
-			if events[i] is None:
-				i += 1
-				continue
-			inner_did_cluster = False
-			for j, event_j in enumerate(events[i + 1:], 1):
-				if event_j is not None:
-					if not testfunc(events[i], event_j):
-						events[i] = clusterfunc(events[i], event_j)
-						events[i + j] = None
-						inner_did_cluster = True
-					elif (sortfunc is not None) and bailoutfunc(events[i], event_j):
-						break
-			if inner_did_cluster:
-				outer_did_cluster = True
-			else:
-				i += 1
+			if events[i] is not None:
+				inner_did_cluster = False
+				for j, event_j in enumerate(events[i + 1:], 1):
+					if event_j is not None:
+						if not testfunc(events[i], event_j):
+							events[i] = clusterfunc(events[i], event_j)
+							events[i + j] = None
+							inner_did_cluster = True
+						elif (sortfunc is not None) and bailoutfunc(events[i], event_j):
+							break
+				if inner_did_cluster:
+					outer_did_cluster = True
+					# don't advance until events[i]
+					# stops changing
+					continue
+			# events[i] has not changed
+			i += 1
 		del progress
 		if not outer_did_cluster:
 			break
