@@ -90,20 +90,40 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients (FacWaveformCoeffs *
  *
  *------------------------------------------------------------------------------------------
  */
-static REAL8 XLALTEOBbeta221( REAL8 X ) {
+/** 
+ * Function to compute PN corrections to the tidal term that enters the (2,2) amplitude
+ */
+static REAL8 XLALTEOBbeta221( REAL8 X /**<< NS mass */ ) {
     return (-202. + 560.*X - 340.*X*X + 45.*X*X*X) / (42.*(3. - 2.*X));
 }
 
+/**
+ * Function to compute the dynamical enhancement of the quadrupolar Love number
+ * that enters the tidal corrections to the mode amplitudes
+ */
+static REAL8 XLALSimIMRTEOBk2effMode (
+                            REAL8 Omega, /**<< Orbital frequency */
+                            REAL8 k2TidaleffHam, /**<< Dynamical enhancement of k2Tidal that enters the Hamiltonian */
+                            REAL8 omega02Tidal, /**<< f-mode frequency */
+                            REAL8 XCompanion /**<< Mass of NS companion divided by M */
+)
+{
+    return ((-1. + k2TidaleffHam)*omega02Tidal*omega02Tidal + 6.*k2TidaleffHam*XCompanion*Omega*Omega) / (1. + 2*XCompanion) / (3.*Omega*Omega);
+}
+
+/**
+ * Function to compute the tidal correction to the mode amplitudes
+ */
 static COMPLEX16 XLALhTidal(
-                            INT4 l,
-                            INT4 m,
-                            REAL8 v2,
-                            REAL8 Omega,
-                            COMPLEX16 hNewton,
-                            REAL8 eta,
-                            REAL8 r,
-                            TidalEOBParams *tidal1,
-                            TidalEOBParams *tidal2 )
+                            INT4 l, /**<< Mode index */
+                            INT4 m, /**<< Mode index */
+                            REAL8 v2, /**<< Orbital speed^2 */
+                            REAL8 Omega, /**<< Orbital frequency */
+                            COMPLEX16 hNewton, /**<< Restricted waveform */
+                            REAL8 eta, /**<< Symmetric mass ratio */
+                            TidalEOBParams *tidal1, /**<< Tidal parameters of body 1 */
+                            TidalEOBParams *tidal2 /**<< Tidal parameters of body 2 */
+)
 {
     COMPLEX16 hNewtonTidal = 0;
     COMPLEX16 hhatTidal = 0;
@@ -113,10 +133,18 @@ static COMPLEX16 XLALhTidal(
     REAL8 M = m1 + m2;
     REAL8 X1 = m1 / M;
     REAL8 X2 = m2 / M;
-    REAL8 R1 = m1/tidal1->comp;
-    REAL8 R2 = m2/tidal2->comp;
-    REAL8 R1to5 = R1*R1*R1*R1*R1;
-    REAL8 R2to5 = R2*R2*R2*R2*R2;
+    REAL8 R1 = 0.;
+    REAL8 R2 = 0.;
+    REAL8 R1to5 = 0.;
+    REAL8 R2to5 = 0.;
+    if ( tidal1->comp != 0.) {
+        R1 = m1/tidal1->comp;
+        R1to5 = R1*R1*R1*R1*R1;
+    }
+    if ( tidal2->comp != 0.) {
+        R2 = m2/tidal2->comp;
+        R2to5 = R2*R2*R2*R2*R2;
+    }
     REAL8 k2Tidal1 = tidal1->k2Tidal;
     REAL8 k2Tidal2 = tidal2->k2Tidal;
     REAL8 omega02Tidal1 = tidal1->omega02Tidal;
@@ -124,22 +152,31 @@ static COMPLEX16 XLALhTidal(
     INT4 eps = (l+m)%2;
     REAL8 cleps = pow(X2,l+eps-1) + pow(-1,l+eps)*pow(X1,l+eps-1);
     hNewtonTidal = hNewton / cleps;
-    REAL8 k2Tidal1effHam = XLALSimIMRTEOBk2eff(1./r, eta, tidal1);
-    REAL8 k2Tidal2effHam = XLALSimIMRTEOBk2eff(1./r, eta, tidal2);
-    REAL8 k2Tidal1eff = ((-1. + k2Tidal1effHam)*omega02Tidal1*omega02Tidal1 + 6.*k2Tidal1effHam*X2*Omega*Omega) / (1. + 2*X2) / (3.*Omega*Omega);
-    REAL8 k2Tidal2eff = ((-1. + k2Tidal2effHam)*omega02Tidal2*omega02Tidal2 + 6.*k2Tidal2effHam*X1*Omega*Omega) / (1. + 2*X1)/ (3.*Omega*Omega);
+    REAL8 k2Tidal1effHam = 0.;
+    REAL8 k2Tidal2effHam = 0.;
+    REAL8 k2Tidal1eff = 0.;
+    REAL8 k2Tidal2eff = 0.;
+    REAL8 u = 1./pow(Omega,-2./3);
+    if ( k2Tidal1 != 0.) {
+        k2Tidal1effHam = XLALSimIMRTEOBk2eff(u, eta, tidal1);
+        k2Tidal1eff = XLALSimIMRTEOBk2effMode (Omega,  k2Tidal1effHam, omega02Tidal1, X2);
+    }
+    if ( k2Tidal2 != 0.) {
+        k2Tidal2effHam = XLALSimIMRTEOBk2eff(u, eta, tidal2);
+        k2Tidal2eff = XLALSimIMRTEOBk2effMode (Omega,  k2Tidal2effHam, omega02Tidal2, X1);
+    }
     REAL8 lambda1 = 2./3.*k2Tidal1*R1to5;
     REAL8 lambda2 = 2./3.*k2Tidal2*R2to5;
-    REAL8 q = m2/m1; 
+    REAL8 q = m2/m1;
     switch (l) {
         case 2:
             switch (m) {
                 case 2:
-                    hhatTidal = v10*(3.*q*lambda1*(X1/X2 + 3.)*(1. + XLALTEOBbeta221(X1)*v2)*k2Tidal1eff
-                                    + 3./q*lambda2*(X2/X1 + 3.)*(1. + XLALTEOBbeta221(X2)*v2)*k2Tidal2eff);
+                    hhatTidal = (3.*q*lambda1*(X1/X2 + 3.)*(1. + XLALTEOBbeta221(X1)*v2)*k2Tidal1eff
+                                    +  3./q*lambda2*(X2/X1 + 3.)*(1. + XLALTEOBbeta221(X2)*v2)*k2Tidal2eff) * v10;
                     break;
                 case 1:
-                    hhatTidal =(-3*q*lambda1*(4.5 - 6.*X1) - (-3./q*lambda2*(4.5 - 6.*X2)))*v10;
+                    hhatTidal = (-3*q*lambda1*(4.5 - 6.*X1) - (-3./q*lambda2*(4.5 - 6.*X2))) * v10;
                     break;
             }
             break;
@@ -149,7 +186,7 @@ static COMPLEX16 XLALhTidal(
                 case 2:
                 case 1:
                 case 0:
-                    hhatTidal = -18.*(X2*q*lambda1 - X1/q*lambda2)*v10;
+                    hhatTidal = -18.*(X2*q*lambda1 - X1/q*lambda2) * v10;
                     break;
             }
             break;
@@ -673,7 +710,7 @@ XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform (COMPLEX16 * restrict hlm,
   *hlm *= hNewton;
 //      printf("%.16e %.16e %.16e %.16e\n", params->seobCoeffs->tidal1->k2Tidal, params->seobCoeffs->tidal1->omega02Tidal, params->seobCoeffs->tidal2->k2Tidal,params->seobCoeffs->tidal2->omega02Tidal);
     if ( (params->seobCoeffs->tidal1->k2Tidal != 0. && params->seobCoeffs->tidal1->omega02Tidal != 0.) || (params->seobCoeffs->tidal2->k2Tidal != 0. && params->seobCoeffs->tidal2->omega02Tidal != 0.) ) {
-        COMPLEX16 hTidal = XLALhTidal( l, m, v2, Omega, hNewton, eta, r, params->seobCoeffs->tidal1, params->seobCoeffs->tidal2 );
+        COMPLEX16 hTidal = XLALhTidal( l, m, v2, Omega, hNewton, eta, params->seobCoeffs->tidal1, params->seobCoeffs->tidal2 );
         *hlm += hTidal;
     }
   /*if (r > 8.5)
@@ -1943,7 +1980,7 @@ XLALSimIMRSpinEOBGetSpinFactorizedWaveform (COMPLEX16 * restrict hlm,
      } */
 //  printf("%.16e %.16e %.16e %.16e\n", params->seobCoeffs->tidal1->k2Tidal, params->seobCoeffs->tidal1->omega02Tidal, params->seobCoeffs->tidal2->k2Tidal,params->seobCoeffs->tidal2->omega02Tidal);
     if ( (params->seobCoeffs->tidal1->k2Tidal != 0. && params->seobCoeffs->tidal1->omega02Tidal != 0.) || (params->seobCoeffs->tidal2->k2Tidal != 0. && params->seobCoeffs->tidal2->omega02Tidal != 0.) ) {
-        COMPLEX16 hTidal = XLALhTidal( l, m, v2, Omega, hNewton, eta, r, params->seobCoeffs->tidal1, params->seobCoeffs->tidal2 );
+        COMPLEX16 hTidal = XLALhTidal( l, m, v2, Omega, hNewton, eta, params->seobCoeffs->tidal1, params->seobCoeffs->tidal2 );
         *hlm += hTidal;
     }
   return XLAL_SUCCESS;
