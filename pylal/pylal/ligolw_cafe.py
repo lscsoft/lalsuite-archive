@@ -33,12 +33,12 @@ import math
 import sys
 
 
+from lal import LIGOTimeGPS
 from lal.utils import CacheEntry
 
 
 from glue import segments
 from glue import offsetvector
-from glue.ligolw import lsctables
 from pylal import git_version
 from pylal import packing
 
@@ -69,7 +69,7 @@ def load_cache(filename, verbose = False):
 		f = open(filename)
 	else:
 		f = sys.stdin
-	return [CacheEntry(line, coltype = lsctables.LIGOTimeGPS) for line in f]
+	return [CacheEntry(line) for line in f]
 
 
 def cache_to_seglistdict(cache):
@@ -356,7 +356,7 @@ def split_bins(cafepacker, extentlimit, verbose = False):
 		# segmentlistdicts for clipping.
 		#
 
-		extents = [origbin.extent[0]] + [lsctables.LIGOTimeGPS(origbin.extent[0] + i * float(abs(origbin.extent)) / n) for i in range(1, n)] + [origbin.extent[1]]
+		extents = [origbin.extent[0]] + [LIGOTimeGPS(origbin.extent[0] + i * float(abs(origbin.extent)) / n) for i in range(1, n)] + [origbin.extent[1]]
 		if verbose:
 			print >>sys.stderr, "\tsplitting cache spanning %s at %s" % (str(origbin.extent), ", ".join(str(extent) for extent in extents[1:-1]))
 		extents = [segments.segment(*bounds) for bounds in zip(extents[:-1], extents[1:])]
