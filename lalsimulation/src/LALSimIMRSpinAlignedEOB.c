@@ -662,7 +662,7 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
   REAL8 cartPosData[3], cartMomData[3];
 
   /* Signal mode */
-  COMPLEX16 hLM;
+  COMPLEX16 hLM, hT;
   REAL8Vector *sigReVec = NULL, *sigImVec = NULL;
 
   /* Non-quasicircular correction */
@@ -1395,13 +1395,21 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
 					  seobParams.tortoise, &seobCoeffs);
 	}
 
-      if (XLALSimIMRSpinEOBGetSpinFactorizedWaveform
-	  (&hLM, values, v, ham, 2, 2, &seobParams,
-	   use_optimized_v2_or_v4) == XLAL_FAILURE)
-	{
-	  /* TODO: Clean-up */
-	  XLAL_ERROR (XLAL_EFUNC);
-	}
+        if (XLALSimIMRSpinEOBGetSpinFactorizedWaveform
+            (&hLM, values, v, ham, 2, 2, &seobParams,
+             use_optimized_v2) == XLAL_FAILURE)
+        {
+            XLAL_ERROR (XLAL_EFUNC);
+        }
+    if ( (k2Tidal1 != 0. && omega02Tidal1 != 0.) || (k2Tidal2 != 0. && omega02Tidal2 != 0.) ) {
+        if (XLALSimIMRSpinEOBWaveformTidal
+            (&hT, values, v, ham, 2, 2, &seobParams,
+             use_optimized_v2_or_v4) == XLAL_FAILURE)
+        {
+            XLAL_ERROR (XLAL_EFUNC);
+        }
+       hLM += hT;
+    }
 
       ampNQC->data[i] = cabs (hLM);
       sigReHi->data[i] = (REAL4) (amp0 * creal (hLM));
@@ -1852,6 +1860,16 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
 	      /* TODO: Clean-up */
 	      XLAL_ERROR (XLAL_EFUNC);
 	    }
+        
+        if ( (k2Tidal1 != 0. && omega02Tidal1 != 0.) || (k2Tidal2 != 0. && omega02Tidal2 != 0.) ) {
+            if (XLALSimIMRSpinEOBWaveformTidal
+                (&hT, values, v, ham, 2, 2, &seobParams,
+                 0 /*use_optimized_v2 */ )
+                == XLAL_FAILURE)
+            {
+                XLAL_ERROR (XLAL_EFUNC);
+            }
+        }
 
 	  if (XLALSimIMREOBNonQCCorrection (&hNQC, values, omega, &nqcCoeffs)
 	      == XLAL_FAILURE)
@@ -1860,6 +1878,7 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
 	    }
 
 	  hLM *= hNQC;
+      hLM += hT;
 
 	  sigReVec->data[i] = amp0 * creal (hLM);
 	  sigImVec->data[i] = amp0 * cimag (hLM);
