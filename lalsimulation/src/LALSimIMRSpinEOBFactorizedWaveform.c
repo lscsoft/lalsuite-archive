@@ -178,6 +178,9 @@ static COMPLEX16 XLALhTidal(
                 case 1:
                     hhatTidal = (-3*q*lambda1*(4.5 - 6.*X1) - (-3./q*lambda2*(4.5 - 6.*X2))) * v10;
                     break;
+                default:
+                    return 0.;
+                    break;
             }
             break;
         case 3:
@@ -188,7 +191,13 @@ static COMPLEX16 XLALhTidal(
                 case 0:
                     hhatTidal = -18.*(X2*q*lambda1 - X1/q*lambda2) * v10;
                     break;
+                default:
+                    return 0.;
+                    break;
             }
+            break;
+        default:
+            return 0.;
             break;
     }
         return hNewtonTidal*hhatTidal;
@@ -708,13 +717,6 @@ XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform (COMPLEX16 * restrict hlm,
   /* Put all factors in Eq. 17 together */
   *hlm = Tlm * Slm * rholmPwrl;
   *hlm *= hNewton;
-//      printf("%.16e %.16e %.16e %.16e\n", params->seobCoeffs->tidal1->k2Tidal, params->seobCoeffs->tidal1->omega02Tidal, params->seobCoeffs->tidal2->k2Tidal,params->seobCoeffs->tidal2->omega02Tidal);
-//    if ( (params->seobCoeffs->tidal1->k2Tidal != 0. && params->seobCoeffs->tidal1->omega02Tidal != 0.) || (params->seobCoeffs->tidal2->k2Tidal != 0. && params->seobCoeffs->tidal2->omega02Tidal != 0.) ) {
-//        COMPLEX16 hTidal = XLALhTidal( l, m, v2, Omega, hNewton, eta, params->seobCoeffs->tidal1, params->seobCoeffs->tidal2 );
-//        *hlm += hTidal;
-////        printf("Get %.16e %.16e\n", creal(hTidal), cimag(hTidal));
-////        abort();
-//    }
   /*if (r > 8.5)
      {
      printf("YP::FullWave: %.16e,%.16e, %.16e\n",hlm->re,hlm->im,sqrt(hlm->re*hlm->re+hlm->im*hlm->im));
@@ -1981,11 +1983,6 @@ XLALSimIMRSpinEOBGetSpinFactorizedWaveform (COMPLEX16 * restrict hlm,
      {
      printf("YP::FullWave: Reh = %.16e, Imh = %.16e, hAmp = %.16e, hPhi = %.16e\n",creal(*hlm),cimag(*hlm),cabs(*hlm),carg(*hlm));
      } */
-//  printf("%.16e %.16e %.16e %.16e\n", params->seobCoeffs->tidal1->k2Tidal, params->seobCoeffs->tidal1->omega02Tidal, params->seobCoeffs->tidal2->k2Tidal,params->seobCoeffs->tidal2->omega02Tidal);
-//    if ( (params->seobCoeffs->tidal1->k2Tidal != 0. && params->seobCoeffs->tidal1->omega02Tidal != 0.) || (params->seobCoeffs->tidal2->k2Tidal != 0. && params->seobCoeffs->tidal2->omega02Tidal != 0.) ) {
-//        COMPLEX16 hTidal = XLALhTidal( l, m, v2, Omega, hNewton, eta, params->seobCoeffs->tidal1, params->seobCoeffs->tidal2 );
-//        *hlm += hTidal;
-//    }
   return XLAL_SUCCESS;
 }
 
@@ -1993,7 +1990,7 @@ XLALSimIMRSpinEOBGetSpinFactorizedWaveform (COMPLEX16 * restrict hlm,
  * This function calculates tidal correction to the hlm mode factorized-resummed waveform
  * for given dynamical variables.
  */
-UNUSED static INT4
+static INT4
 XLALSimIMRSpinEOBWaveformTidal (COMPLEX16 * restrict hlm,
                                             /**< OUTPUT, hlm waveforms */
                                             REAL8Vector * restrict values,
