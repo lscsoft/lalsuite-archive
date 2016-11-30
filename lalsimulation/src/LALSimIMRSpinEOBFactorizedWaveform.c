@@ -709,16 +709,19 @@ XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform (COMPLEX16 * restrict hlm,
   *hlm = Tlm * Slm * rholmPwrl;
   *hlm *= hNewton;
 //      printf("%.16e %.16e %.16e %.16e\n", params->seobCoeffs->tidal1->k2Tidal, params->seobCoeffs->tidal1->omega02Tidal, params->seobCoeffs->tidal2->k2Tidal,params->seobCoeffs->tidal2->omega02Tidal);
-    if ( (params->seobCoeffs->tidal1->k2Tidal != 0. && params->seobCoeffs->tidal1->omega02Tidal != 0.) || (params->seobCoeffs->tidal2->k2Tidal != 0. && params->seobCoeffs->tidal2->omega02Tidal != 0.) ) {
-        COMPLEX16 hTidal = XLALhTidal( l, m, v2, Omega, hNewton, eta, params->seobCoeffs->tidal1, params->seobCoeffs->tidal2 );
-        *hlm += hTidal;
-    }
+//    if ( (params->seobCoeffs->tidal1->k2Tidal != 0. && params->seobCoeffs->tidal1->omega02Tidal != 0.) || (params->seobCoeffs->tidal2->k2Tidal != 0. && params->seobCoeffs->tidal2->omega02Tidal != 0.) ) {
+//        COMPLEX16 hTidal = XLALhTidal( l, m, v2, Omega, hNewton, eta, params->seobCoeffs->tidal1, params->seobCoeffs->tidal2 );
+//        *hlm += hTidal;
+////        printf("Get %.16e %.16e\n", creal(hTidal), cimag(hTidal));
+////        abort();
+//    }
   /*if (r > 8.5)
      {
      printf("YP::FullWave: %.16e,%.16e, %.16e\n",hlm->re,hlm->im,sqrt(hlm->re*hlm->re+hlm->im*hlm->im));
      } */
   return XLAL_SUCCESS;
 }
+
 
 /*--------------------------------------------------------------*/
 /**
@@ -1979,11 +1982,117 @@ XLALSimIMRSpinEOBGetSpinFactorizedWaveform (COMPLEX16 * restrict hlm,
      printf("YP::FullWave: Reh = %.16e, Imh = %.16e, hAmp = %.16e, hPhi = %.16e\n",creal(*hlm),cimag(*hlm),cabs(*hlm),carg(*hlm));
      } */
 //  printf("%.16e %.16e %.16e %.16e\n", params->seobCoeffs->tidal1->k2Tidal, params->seobCoeffs->tidal1->omega02Tidal, params->seobCoeffs->tidal2->k2Tidal,params->seobCoeffs->tidal2->omega02Tidal);
-    if ( (params->seobCoeffs->tidal1->k2Tidal != 0. && params->seobCoeffs->tidal1->omega02Tidal != 0.) || (params->seobCoeffs->tidal2->k2Tidal != 0. && params->seobCoeffs->tidal2->omega02Tidal != 0.) ) {
-        COMPLEX16 hTidal = XLALhTidal( l, m, v2, Omega, hNewton, eta, params->seobCoeffs->tidal1, params->seobCoeffs->tidal2 );
-        *hlm += hTidal;
-    }
+//    if ( (params->seobCoeffs->tidal1->k2Tidal != 0. && params->seobCoeffs->tidal1->omega02Tidal != 0.) || (params->seobCoeffs->tidal2->k2Tidal != 0. && params->seobCoeffs->tidal2->omega02Tidal != 0.) ) {
+//        COMPLEX16 hTidal = XLALhTidal( l, m, v2, Omega, hNewton, eta, params->seobCoeffs->tidal1, params->seobCoeffs->tidal2 );
+//        *hlm += hTidal;
+//    }
   return XLAL_SUCCESS;
+}
+
+/**
+ * This function calculates tidal correction to the hlm mode factorized-resummed waveform
+ * for given dynamical variables.
+ */
+UNUSED static INT4
+XLALSimIMRSpinEOBWaveformTidal (COMPLEX16 * restrict hlm,
+                                            /**< OUTPUT, hlm waveforms */
+                                            REAL8Vector * restrict values,
+                                            /**< dyanmical variables */
+                                            const REAL8 v,
+                                            /**< velocity */
+                                            const REAL8 Hreal,
+                                            /**< real Hamiltonian */
+                                            const INT4 l,
+                                            /**< l mode index */
+                                            const INT4 m,
+                                            /**< m mode index */
+                                            SpinEOBParams * restrict params,
+                                            /**< Spin EOB parameters */
+                                            INT4 use_optimized_v2
+/**< Spin EOB parameters */
+)
+{
+    /* Status of function calls */
+    INT4 status;
+    REAL8 eta;
+    REAL8 r, Omega, v2, vh, vh3;
+    COMPLEX16 hNewton;
+    
+    /* Non-Keplerian velocity */
+    REAL8 vPhi, vPhi2;
+
+      r = values->data[0];
+    if (abs (m) > (INT4) l)
+    {
+        XLAL_ERROR (XLAL_EINVAL);
+    }
+    if (m == 0)
+    {
+        XLAL_ERROR (XLAL_EINVAL);
+    }
+    
+    eta = params->eobParams->eta;
+    
+    /* Check our eta was sensible */
+    if (eta > 0.25 && eta < 0.25 +1e-4) {
+        eta = 0.25;
+    }
+    if (eta > 0.25)
+    {
+        XLALPrintError
+        ("XLAL Error - %s: Eta seems to be > 0.25 - this isn't allowed!\n",
+         __func__);
+        XLAL_ERROR (XLAL_EINVAL);
+    }
+
+    
+    v2 = v * v;
+    Omega = v2 * v;
+    vh3 = Hreal * Omega;
+    vh = cbrt (vh3);
+    
+    /* Calculate the non-Keplerian velocity */
+    if (params->alignedSpins)
+    {
+        // YP: !!!!! SEOBNRv3devel temporary change !!!!!
+        if (use_optimized_v2)
+        {
+            /* OPTIMIZED */
+            vPhi =
+            XLALSimIMRSpinAlignedEOBNonKeplerCoeffOptimized (values->data,
+                                                             params);
+            /* END OPTIMIZED */
+        }
+        else
+        {
+            vPhi =
+            XLALSimIMRSpinAlignedEOBNonKeplerCoeff (values->data, params);
+        }
+        
+        if (XLAL_IS_REAL8_FAIL_NAN (vPhi))
+        {
+            XLAL_ERROR (XLAL_EFUNC);
+        }
+        
+        vPhi = r * cbrt (vPhi);
+        vPhi *= Omega;
+        vPhi2 = vPhi * vPhi;
+    }
+    else
+    {
+        vPhi = v;
+        vPhi2 = v2;
+    }
+    
+    /* Calculate the newtonian multipole, 1st term in Eq. 17, given by Eq. A1 */
+    status = XLALSimIMRSpinEOBCalculateNewtonianMultipole (&hNewton, vPhi2, r,
+                                                           values->data[1],
+                                                           (UINT4) l, m,
+                                                           params->eobParams);
+
+    COMPLEX16 hTidal = XLALhTidal( l, m, v2, Omega, hNewton, eta, params->seobCoeffs->tidal1, params->seobCoeffs->tidal2 );
+    *hlm = hTidal;
+    return XLAL_SUCCESS;
 }
 
 #endif /* _LALSIMIMRSPINEOBFACTORIZEDWAVEFORM */
