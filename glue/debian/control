@@ -9,7 +9,7 @@ Standards-Version: 3.9.3
 
 Package: python-glue
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}, python-cjson, python-m2crypto, python-six, python-glue-segments (= ${Source-Version})
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}, python-cjson, python-m2crypto, python-six, python-glue-segments (= ${source:Version})
 Recommends: python-numpy (>= 1.0), python-xml, libsqlite3-0 (>= 3.3), pyrxp | python-pyrxp
 Replaces: glue
 Conflicts: glue
@@ -19,7 +19,7 @@ Description: Grid LSC User Environment
 
 Package: python-glue-segments
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}, python-cjson, python-m2crypto, python-six, python-glue-common (= ${Source-Version})
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}, python-cjson, python-m2crypto, python-six, python-glue-common (= ${source:Version})
 Recommends: python-numpy (>= 1.0), python-xml, libsqlite3-0 (>= 3.3), pyrxp | python-pyrxp
 Description: Grid LSC User Environment
  Glue (Grid LSC User Environment) is a suite of python modules and programs to
@@ -37,7 +37,7 @@ Description: Grid LSC User Environment
 
 Package: python3-glue
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, ${python3:Depends}, python3-six, python3-glue-segments (= ${Source-Version})
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python3:Depends}, python3-six, python3-glue-segments (= ${source:Version})
 Recommends: python3-numpy (>= 1.0), python3-xml, libsqlite3-0 (>= 3.3), pyrxp | python3-pyrxp
 Replaces: glue
 Conflicts: glue
@@ -47,7 +47,7 @@ Description: Grid LSC User Environment
 
 Package: python3-glue-segments
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, ${python3:Depends}, python3-six, python3-glue-common (= ${Source-Version})
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python3:Depends}, python3-six, python3-glue-common (= ${source:Version})
 Recommends: python3-numpy (>= 1.0), python3-xml, libsqlite3-0 (>= 3.3), pyrxp | python3-pyrxp
 Description: Grid LSC User Environment
  Glue (Grid LSC User Environment) is a suite of python3 modules and programs to
