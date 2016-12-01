@@ -1424,7 +1424,12 @@ XLALSimIMRSpinEOBHamiltonianDeltaT (SpinEOBHCoeffs * coeffs,
      printf( "bulk = %.16e, logTerms = %.16e\n", bulk, logTerms ); */
   deltaU = bulk * logTerms;
 
+    if ( (coeffs->tidal1->k2Tidal != 0. && coeffs->tidal1->omega02Tidal != 0.) || (coeffs->tidal2->k2Tidal != 0. && coeffs->tidal2->omega02Tidal != 0.) ) {
+        deltaU += XLALSimIMRTEOBdeltaUTidal(u, eta, coeffs->tidal1, coeffs->tidal2);
+    }
+    
   deltaT = r * r * deltaU;
+
 
   return deltaT;
 }
