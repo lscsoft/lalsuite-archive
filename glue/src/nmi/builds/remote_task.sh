@@ -122,7 +122,7 @@
 
     # useful info to have logged for later debugging
     env
-    ${LSCSOFT_ROOTDIR}/lal/bin/lal_version
+    ${LSCSOFT_ROOTDIR}/lal/bin/lal-version
 
 # end of stdout/stderr-combining block
 } 2>&1
