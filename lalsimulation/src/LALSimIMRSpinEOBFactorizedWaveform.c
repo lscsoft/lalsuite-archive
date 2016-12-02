@@ -1997,7 +1997,7 @@ XLALSimIMRSpinEOBWaveformTidal (COMPLEX16 * restrict hlm,
                                             /**< dyanmical variables */
                                             const REAL8 v,
                                             /**< velocity */
-                                            const REAL8 Hreal,
+                                            UNUSED const REAL8 Hreal,
                                             /**< real Hamiltonian */
                                             const INT4 l,
                                             /**< l mode index */
@@ -2005,20 +2005,17 @@ XLALSimIMRSpinEOBWaveformTidal (COMPLEX16 * restrict hlm,
                                             /**< m mode index */
                                             SpinEOBParams * restrict params,
                                             /**< Spin EOB parameters */
-                                            INT4 use_optimized_v2
+                                            UNUSED INT4 use_optimized_v2
 /**< Spin EOB parameters */
 )
 {
     /* Status of function calls */
     INT4 status;
     REAL8 eta;
-    REAL8 r, Omega, v2, vh, vh3;
     COMPLEX16 hNewton;
-    
-    /* Non-Keplerian velocity */
-    REAL8 vPhi, vPhi2;
-
-      r = values->data[0];
+    REAL8 v2 = v*v;
+//    REAL8 r;
+//    r = values->data[0];
     if (abs (m) > (INT4) l)
     {
         XLAL_ERROR (XLAL_EINVAL);
@@ -2043,51 +2040,13 @@ XLALSimIMRSpinEOBWaveformTidal (COMPLEX16 * restrict hlm,
     }
 
     
-    v2 = v * v;
-    Omega = v2 * v;
-    vh3 = Hreal * Omega;
-    vh = cbrt (vh3);
-    
-    /* Calculate the non-Keplerian velocity */
-    if (params->alignedSpins)
-    {
-        // YP: !!!!! SEOBNRv3devel temporary change !!!!!
-        if (use_optimized_v2)
-        {
-            /* OPTIMIZED */
-            vPhi =
-            XLALSimIMRSpinAlignedEOBNonKeplerCoeffOptimized (values->data,
-                                                             params);
-            /* END OPTIMIZED */
-        }
-        else
-        {
-            vPhi =
-            XLALSimIMRSpinAlignedEOBNonKeplerCoeff (values->data, params);
-        }
-        
-        if (XLAL_IS_REAL8_FAIL_NAN (vPhi))
-        {
-            XLAL_ERROR (XLAL_EFUNC);
-        }
-        
-        vPhi = r * cbrt (vPhi);
-        vPhi *= Omega;
-        vPhi2 = vPhi * vPhi;
-    }
-    else
-    {
-        vPhi = v;
-        vPhi2 = v2;
-    }
-    
     /* Calculate the newtonian multipole, 1st term in Eq. 17, given by Eq. A1 */
-    status = XLALSimIMRSpinEOBCalculateNewtonianMultipole (&hNewton, vPhi2, r,
+    status = XLALSimIMRSpinEOBCalculateNewtonianMultipole (&hNewton, v2, 1/v2,
                                                            values->data[1],
                                                            (UINT4) l, m,
                                                            params->eobParams);
 
-    COMPLEX16 hTidal = XLALhTidal( l, m, v2, Omega, hNewton, eta, params->seobCoeffs->tidal1, params->seobCoeffs->tidal2 );
+    COMPLEX16 hTidal = XLALhTidal( l, m, v2, v*v2, hNewton, eta, params->seobCoeffs->tidal1, params->seobCoeffs->tidal2 );
     *hlm = hTidal;
     return XLAL_SUCCESS;
 }
