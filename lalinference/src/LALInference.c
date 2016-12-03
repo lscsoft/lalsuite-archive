@@ -65,7 +65,7 @@ static void del_elem(void *elem)
   XLALFree(elem);
 }
 
-static double copt=-0.1, zopt=0.5;
+static double copt=-1.0, zopt=-0.99;
 static UINT8 LALInferenceElemHash(const void *elem);
 static UINT8 LALInferenceElemHash(const void *elem)
 {

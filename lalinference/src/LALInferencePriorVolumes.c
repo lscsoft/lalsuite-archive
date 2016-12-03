@@ -39,7 +39,7 @@ typedef struct {
   LALInferenceVariables *prior;
 } outerParams;
 
-static double copt=-0.1, zopt=0.5;
+static double copt=-1.0, zopt=-0.99;
 static double chirp_to_comp_jacobian(double mc,double mzc);
 static double mass_indicator(double mc, double mzc,LALInferenceVariables *priorParams);
 static double integrand(double mzc,void *params);
@@ -48,12 +48,16 @@ static double mass_outer_integral(LALInferenceVariables *priorArgs);
 static double loudness_volume(LALInferenceRunState *state);
 
 static double chirp_to_comp_jacobian(double mc,double mzc){
-
   double kopt=5.0/(3.0*copt -2.0*(copt*zopt));
-  double delta_opt=sqrt(1.0 - 4.0 * pow(mc, kopt*copt*(1.0+zopt)) * pow(mzc, -kopt));
-  double m1 = 0.5* pow(mc, -kopt * (copt*zopt)) * pow(mzc, 3.0*kopt/5.0) * (1.0 + delta_opt);
-  double m2 = 0.5* pow(mc, -kopt * (copt*zopt)) * pow(mzc, 3.0*kopt/5.0) * (1.0 - delta_opt);
-  return 5.0*m1*m2*(m1+m2)/((2*(zopt * copt)-3*copt)*mc*mzc*(m1-m2));
+  double eta_opt=pow(mc, kopt*copt*(1.0+zopt)) * pow(mzc, -kopt);
+  if (eta_opt>0.25 || eta_opt < 0.02)
+  	return 0.0;
+  else{
+	  double delta_opt=sqrt(1.0 - 4.0 * eta_opt);
+	  double m1 = 0.5* pow(mc, -kopt * (copt*zopt)) * pow(mzc, 3.0*kopt/5.0) * (1.0 + delta_opt);
+	  double m2 = 0.5* pow(mc, -kopt * (copt*zopt)) * pow(mzc, 3.0*kopt/5.0) * (1.0 - delta_opt);
+	  return 5.0*m1*m2*(m1+m2)/((2*(zopt * copt)-3*copt)*mc*mzc*(m1-m2));
+  	}
 }
 
 
@@ -69,44 +73,48 @@ static double mass_indicator(double mc, double mzc,LALInferenceVariables *priorP
    * t work with mzc
    * 
    * */
+
   double kopt=5.0/(3.0*copt -2.0*(copt*zopt));
+  double eta_opt=pow(mc, kopt*copt*(1.0+zopt)) * pow(mzc, -kopt);
+  //printf("\neta_opt = %f",eta_opt);
+  if (eta_opt>0.25 || eta_opt < 0.02)
+  	return 0.0;
+  else{
   double delta_opt=sqrt(1.0 - 4.0 * pow(mc, kopt*copt*(1.0+zopt)) * pow(mzc, -kopt));
   double m1 = 0.5* pow(mc, -kopt * (copt*zopt)) * pow(mzc, 3.0*kopt/5.0) * (1.0 + delta_opt);
   double m2 = 0.5* pow(mc, -kopt * (copt*zopt)) * pow(mzc, 3.0*kopt/5.0) * (1.0 - delta_opt);
-printf("\n inside mass_indicator\n");
-printf("\n m1=%f\n",m1);
-printf("\n m2=%f\n",m2);
+//printf("\n inside mass_indicator\tm1=%f\t m2=%f",m1,m2);
   /* Check for individual mass priors */
   if(LALInferenceCheckVariable(priorParams,"mass1_min"))
     if(LALInferenceGetREAL8Variable(priorParams,"mass1_min") > m1)
-      {printf("\n1 is working\n");return 0.0;}
+      {printf("\n1 is working");return 0.0;}
   if(LALInferenceCheckVariable(priorParams,"mass1_max"))
     if(LALInferenceGetREAL8Variable(priorParams,"mass1_max") < m1)
-      {printf("\n2 is working\n");return 0.0;}
+      {printf("\n2 is working");return 0.0;}
   if(LALInferenceCheckVariable(priorParams,"mass2_min"))
     if(LALInferenceGetREAL8Variable(priorParams,"mass2_min") > m2)
-      {printf("\n3 is working\n");return 0.0;}
+      {printf("\n3 is working");return 0.0;}
   if(LALInferenceCheckVariable(priorParams,"mass2_max"))
     if(LALInferenceGetREAL8Variable(priorParams,"mass2_max") < m2)
-      {printf("\n4 is working\n");return 0.0;}
+      {printf("\n4 is working");return 0.0;}
   if(LALInferenceCheckVariable(priorParams,"MTotMax"))
     if(*(REAL8 *)LALInferenceGetVariable(priorParams,"MTotMax") < m1+m2)
-      {printf("\n5 is working\n");return 0.0;}
+      {printf("\n5 is working");return 0.0;}
   if(LALInferenceCheckVariable(priorParams,"MTotMin"))
     if(*(REAL8 *)LALInferenceGetVariable(priorParams,"MTotMin") > m1+m2)
-      {printf("\n6 is working\n");return 0.0;}
+      {printf("\n6 is working");return 0.0;}
   if (LALInferenceCheckVariable(priorParams,"mzc_min")){
     double mzc_min,mzc_max;
     LALInferenceGetMinMaxPrior(priorParams, "mzc", &mzc_min, &mzc_max);
-    if (mzc<mzc_min || mzc>mzc_max)       {printf("\n7 is working\n");return 0.0;}
+    if (mzc<mzc_min || mzc>mzc_max)       {printf("\n7 is working");return 0.0;}
   }
   if (LALInferenceCheckVariable(priorParams,"chirpmass_min")){
     double mc_min,mc_max;
     LALInferenceGetMinMaxPrior(priorParams, "chirpmass", &mc_min, &mc_max);
-    if (mc<mc_min || mc>mc_max) {printf("\n8 is working\n");return 0.0;}
+    if (mc<mc_min || mc>mc_max) {printf("\n8 is working");return 0.0;}
   }
   return 1.0;
-
+  }
 }
 
 
@@ -121,7 +129,7 @@ static double integrand(double mzc,void *params){
   innerParams iData = *(innerParams *)params;
   double mc= iData.mc;
   //printf("\nintegrand val  =\t%f\n", chirp_to_comp_jacobian(mc,mzc));
-  printf("\nintegrand val  =\t%f\n", mass_indicator(mc,mzc, iData.prior));
+  //printf("\nintegrand val  =\t%f", chirp_to_comp_jacobian(mc,mzc)*mass_indicator(mc,mzc, iData.prior));
   return chirp_to_comp_jacobian(mc,mzc)*mass_indicator(mc,mzc, iData.prior);
   
 }
@@ -130,7 +138,6 @@ static double integrand(double mzc,void *params){
 static double inner_integral(double mc, void *params){
   
   // mzc comes through params
-  printf("\ninner integral fn invoked . .\n");
   gsl_integration_workspace * w = gsl_integration_workspace_alloc (10000);
   double result, error;
   const double epsabs = 1e-4;
@@ -155,22 +162,22 @@ static double inner_integral(double mc, void *params){
     exit(1);
     }
   // TODO: make it work with  and q
-  //printf("\nline before gsl call\n");
+  printf("\nline before gsl call\n");
   //printf("error=%f\n",error);
-  printf("\nb4 mzc\n");
   int status = gsl_integration_qags (&F, mzc_min, mzc_max,epsabs, epsrel, wsSize,
                         w, &result, &error);
-  printf("\naftr mzc\n");
+  printf("\nline after gsl call\n");
+
   if (status)
         XLAL_ERROR_REAL8(XLAL_EFUNC | XLAL_EDATA, "Bad data; GSL integration failed.");
   gsl_integration_workspace_free(w);
-  printf("\ninner integral fn at return . .\n");
+  printf("\n returning result = %f", result);
   return result;  
   }
 
   
 static double mass_outer_integral(LALInferenceVariables *priorArgs){
-  printf("\nouter integral fn invoked . .\n");
+  printf("\n Entering mass outer int");
   gsl_integration_workspace * w = gsl_integration_workspace_alloc (10000);
   double result, error;
   const double epsabs = 1e-4;
@@ -193,15 +200,13 @@ static double mass_outer_integral(LALInferenceVariables *priorArgs){
     exit(1);
     }
   /* this integrates on chirpmass */
-  printf("\nb4 mc\n");
   int status = gsl_integration_qags (&F, mc_min, mc_max, epsabs, epsrel, wsSize, w, &result, &error); 
-  printf("\naftr mc\n");
   
   if (status)
         XLAL_ERROR_REAL8(XLAL_EFUNC | XLAL_EDATA, "Bad data; GSL integration failed.");
 
   gsl_integration_workspace_free(w);
-  printf("\nouter integral fn at return . .\n");
+  printf("\n Exiting mass outer int");
   return result;
   }
 
@@ -269,9 +274,7 @@ static double loudness_volume(LALInferenceRunState *state){
   else XLAL_ERROR_REAL8(XLAL_EINVAL,"No known distance parameter found, unable to proceed\n");
 
   lParams.priorargs=priorArgs;
-  printf("b4 3rd");
   int status = gsl_integration_qags (&F, intmin, intmax, epsabs, epsrel, wsSize, w, &result, &error); 
-  printf("aftr 3rd");
   
   if (status)
         XLAL_ERROR_REAL8(XLAL_EFUNC | XLAL_EDATA, "Bad data; GSL integration failed.");
@@ -288,6 +291,7 @@ double LALInferenceMassPriorVolume(LALInferenceRunState *state){
 }
 
 double LALInferenceMassDistancePriorVolume(LALInferenceRunState *state){
-  
+  printf("\n entering LALInferenceMassDistancePriorVolume-------------------");
   return LALInferenceMassPriorVolume(state)*loudness_volume(state);
+  printf("\n exiting LALInferenceMassDistancePriorVolume-------------------");
 }

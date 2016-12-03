@@ -767,6 +767,7 @@ void LALInferenceNestedSamplingAlgorithmInit(LALInferenceRunState *runState)
 
 void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
 {
+printf("\n algorithm starts -----------------------------------------");
   UINT4 iter=0,i,j,minpos;
   /* Single thread here */
   LALInferenceThreadState *threadState = runState->threads[0];
@@ -787,7 +788,7 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
   LALInferenceVariables *currentVars=XLALCalloc(1,sizeof(LALInferenceVariables));
   UINT4 samplePrior=0; //If this flag is set to a positive integer, code will just draw this many samples from the prior
   ProcessParamsTable *ppt=NULL;
-
+printf("\n algorithm part 1 ends -----------------------------------------");
   if(!runState->logsample) runState->logsample=LALInferenceLogSampleToArray;
 
   if ( !LALInferenceCheckVariable(runState->algorithmParams, "logZnoise" ) ){
@@ -807,6 +808,7 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
     samplePrior=atoi(ppt->value);
     fprintf(stdout,"Generating %i samples from the prior\n",samplePrior);
   }
+printf("\n algorithm part 2 ends -----------------------------------------");
 
   verbose=LALInferenceCheckVariable(runState->algorithmParams,"verbose");
   displayprogress=verbose;
@@ -831,6 +833,7 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
     LALInferenceAddVariable(runState->algorithmParams,"sub_accept_rate",&zero,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
   if(!LALInferenceCheckVariable(runState->algorithmParams,"sloppyfraction"))
     LALInferenceAddVariable(runState->algorithmParams,"sloppyfraction",&zero,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
+printf("\n algorithm part 3 ends -----------------------------------------");
 
   /* Open output file */
   ppt = NULL;
@@ -839,11 +842,12 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
       fprintf(stderr,"Must specify --outfile <filename.hdf5>\n");
       exit(1);
   }
+printf("\n algorithm part 4 ends -----------------------------------------");  
   char *outfile=ppt->value;
   /* Check if the output file has hdf5 extension */
   if(strstr(outfile,".h5") || strstr(outfile,".hdf")) HDFOUTPUT=1;
   else HDFOUTPUT=0;
-  
+printf("\n algorithm part 4A ends -----------------------------------------");  
 #ifndef HAVE_HDF5
   if(HDFOUTPUT)
   {
@@ -851,17 +855,19 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
       exit(1);
   }
 #endif
-  
+printf("\n algorithm part 4B ends -----------------------------------------");  
   double logvolume=0.0;
   if ( LALInferenceCheckVariable( runState->livePoints[0], "chirpmass" ) ){
     /* If a cbc run, calculate the mass-distance volume and store it to file*/ 
     /* Do it before algorithm starts so that we can kill the run and still get this */
+printf("\n algorithm part 4C ends -----------------------------------------");
+
     logvolume=log(LALInferenceMassDistancePriorVolume(runState));
   }
+printf("\n algorithm part 4D ends -----------------------------------------");
 
   if(LALInferenceGetProcParamVal(runState->commandLine,"--progress"))
     displayprogress=1;
-
   minpos=0;
 
   logw=log(1.0-exp(-1.0/Nlive));
@@ -869,7 +875,6 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
   /* sort points for consistent order before creating the matrix */
   for(i=0;i<Nlive;i++)
     LALInferenceSortVariablesByName(runState->livePoints[i]);
-
   /* Set up eigenvector proposals */
   SetupEigenProposals(runState);
 
@@ -886,7 +891,6 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
     LALInferenceAddVariable(runState->algorithmParams,"Nmcmc",&tmp,LALINFERENCE_INT4_t,LALINFERENCE_PARAM_OUTPUT);
   }
   s=initNSintegralState(Nruns,Nlive);
-
   /* Check for an interrupted run */
   char resumefilename[FILENAME_MAX];
   sprintf(resumefilename,"%s_resume",outfile);
@@ -925,6 +929,7 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
       /* Condor sends SIGTSTP to standard universe jobs to evict them.
        *I think condor handles this, so didn't add a handler CHECK */
   }
+printf("\n algorithm part 5 ends -----------------------------------------");
 
   if(retcode!=0)
   {
@@ -945,6 +950,7 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
 	    if(XLALPrintProgressBar((double)i/(double)Nlive)) fprintf(stderr,"\n");
     }
   }
+printf("\n algorithm part 6 ends -----------------------------------------");
 
   logZarray=s->logZarray->data;
   logtarray=s->logtarray->data;
@@ -1517,7 +1523,7 @@ INT4 LALInferenceNestedSamplingCachedSampler(LALInferenceRunState *runState)
   {
     Naccept = LALInferenceNestedSamplingSloppySample(runState);
   }
-
+printf("\n end of LALInferenceNestedSamplingCachedSampler");
   return Naccept;
 }
 

@@ -58,7 +58,7 @@ typedef enum
 #define UNUSED
 #endif
 
-static double copt=-0.1, zopt=0.5;
+static double copt=-1.0, zopt=-0.99;
 
 static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *currentParams,
                                                LALInferenceIFOData *data,

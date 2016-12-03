@@ -38,7 +38,7 @@
 #endif
 
 /* optimal mass param coefficients  */
-static double copt=-0.1, zopt=0.5;
+static double copt=-1.0, zopt=-0.99;
 
 /* Private helper function prototypes */
 static double qInnerIntegrand(double M2, void *viData);
@@ -1000,8 +1000,8 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
             return 0;
     if(LALInferenceCheckVariable(params,"mzc"))
         if(isnan(*(REAL8 *)LALInferenceGetVariable(params,"mzc"))
-           ||*(REAL8 *)LALInferenceGetVariable(params,"mzc") < 0.3469
-           || *(REAL8 *)LALInferenceGetVariable(params,"mzc") > 0.5904)
+           ||*(REAL8 *)LALInferenceGetVariable(params,"mzc") < 0.0
+           || *(REAL8 *)LALInferenceGetVariable(params,"mzc") > 0.24)
             return 0;
     if(LALInferenceCheckVariable(params,"eta"))
         if(isnan(*(REAL8 *)LALInferenceGetVariable(params,"eta"))
@@ -1728,8 +1728,8 @@ UINT4 LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALI
             return 0;
     if(LALInferenceCheckVariable(params,"mzc"))
         if(isnan(*(REAL8 *)LALInferenceGetVariable(params,"mzc"))
-           ||*(REAL8 *)LALInferenceGetVariable(params,"mzc") < 0.3469
-           || *(REAL8 *)LALInferenceGetVariable(params,"mzc") > 0.5904)
+           ||*(REAL8 *)LALInferenceGetVariable(params,"mzc") < 0.0
+           || *(REAL8 *)LALInferenceGetVariable(params,"mzc") > 0.24)
             return 0;
     if(LALInferenceCheckVariable(params,"eta"))
         if(isnan(*(REAL8 *)LALInferenceGetVariable(params,"eta"))
