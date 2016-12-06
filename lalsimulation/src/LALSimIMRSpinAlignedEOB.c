@@ -1397,19 +1397,11 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
 
         if (XLALSimIMRSpinEOBGetSpinFactorizedWaveform
             (&hLM, values, v, ham, 2, 2, &seobParams,
-             use_optimized_v2) == XLAL_FAILURE)
-        {
-            XLAL_ERROR (XLAL_EFUNC);
-        }
-    if ( (k2Tidal1 != 0. && omega02Tidal1 != 0.) || (k2Tidal2 != 0. && omega02Tidal2 != 0.) ) {
-        if (XLALSimIMRSpinEOBWaveformTidal
-            (&hT, values, v, ham, 2, 2, &seobParams,
              use_optimized_v2_or_v4) == XLAL_FAILURE)
         {
             XLAL_ERROR (XLAL_EFUNC);
         }
-       hLM += hT;
-    }
+
 
       ampNQC->data[i] = cabs (hLM);
       sigReHi->data[i] = (REAL4) (amp0 * creal (hLM));
@@ -1623,6 +1615,14 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
 #endif
 
       hLM *= hNQC;
+        if ( (k2Tidal1 != 0. && omega02Tidal1 != 0.) || (k2Tidal2 != 0. && omega02Tidal2 != 0.) ) {
+            if (XLALSimIMRSpinEOBWaveformTidal
+                (&hT, values, cbrt(omegaHi->data[i]), 2, 2, &seobParams) )
+            {
+                XLAL_ERROR (XLAL_EFUNC);
+            }
+            hLM += amp0*hT;
+        }
 
       sigReHi->data[i] = (REAL4) creal (hLM);
       sigImHi->data[i] = (REAL4) cimag (hLM);
@@ -1861,10 +1861,10 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
 	      XLAL_ERROR (XLAL_EFUNC);
 	    }
         
+        hT = 0.;
         if ( (k2Tidal1 != 0. && omega02Tidal1 != 0.) || (k2Tidal2 != 0. && omega02Tidal2 != 0.) ) {
             if (XLALSimIMRSpinEOBWaveformTidal
-                (&hT, values, v, ham, 2, 2, &seobParams,
-                 0 /*use_optimized_v2 */ )
+                (&hT, values, v, 2, 2, &seobParams)
                 == XLAL_FAILURE)
             {
                 XLAL_ERROR (XLAL_EFUNC);
