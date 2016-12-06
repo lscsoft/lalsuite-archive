@@ -1997,16 +1997,12 @@ XLALSimIMRSpinEOBWaveformTidal (COMPLEX16 * restrict hlm,
                                             /**< dyanmical variables */
                                             const REAL8 v,
                                             /**< velocity */
-                                            UNUSED const REAL8 Hreal,
-                                            /**< real Hamiltonian */
                                             const INT4 l,
                                             /**< l mode index */
                                             const INT4 m,
                                             /**< m mode index */
-                                            SpinEOBParams * restrict params,
+                                            SpinEOBParams * restrict params
                                             /**< Spin EOB parameters */
-                                            UNUSED INT4 use_optimized_v2
-/**< Spin EOB parameters */
 )
 {
     /* Status of function calls */

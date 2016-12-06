@@ -203,7 +203,7 @@ XLALInspiralSpinFactorizedFlux (REAL8Vector * values,	/**< dynamical variables *
                 XLAL_ERROR_REAL8 (XLAL_EFUNC);
             }
             if (XLALSimIMRSpinEOBWaveformTidal
-                (&hT, values, v, H, l, m, ak, use_optimized_v2
+                (&hT, values, v, l, m, ak
                  ) == XLAL_FAILURE)
             {
                 XLAL_ERROR_REAL8 (XLAL_EFUNC);
