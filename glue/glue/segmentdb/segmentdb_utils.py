@@ -71,6 +71,9 @@ def get_all_files_in_range(dirname, starttime, endtime, pad=64):
             file_time = int(filename.split('-')[-2])
             if file_time >= (starttime-pad) and file_time <= (endtime+pad):
                 ret.append(os.path.join(dirname,filename))
+        elif os.path.isfile(os.path.join(dirname,filename)):
+            # Non .xml file, don't recurse:
+            return ret
         else:
             # Keep recursing, we may be looking at directories of
             # ifos, each of which has directories with times
