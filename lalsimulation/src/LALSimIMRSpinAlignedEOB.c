@@ -52,7 +52,7 @@
 #include "LALSimIMRSpinAlignedEOBHcapDerivativeOptimized.c"
 /* END OPTIMIZED */
 
-#define debugOutput 1
+#define debugOutput 0
 
 //static int debugPK = 0;
 
@@ -434,13 +434,22 @@ XLALSimIMRSpinAlignedEOBWaveform (REAL8TimeSeries ** hplus,	     /**<< OUTPUT, +
   REAL8Vector   *phiVec = NULL;
   REAL8Vector   *prVec = NULL;
   REAL8Vector   *pPhiVec = NULL;
-  ret =
-    XLALSimIMRSpinAlignedEOBWaveformAll (hplus, hcross, tVec, rVec, phiVec, prVec, pPhiVec,
-                     phiC, deltaT, m1SI, m2SI, fMin, r, inc, spin1z, spin2z, SpinAlignedEOBversion,
-					 comp1, comp2, k2Tidal1, k2Tidal2,
-					 omega02Tidal1, omega02Tidal2,
-					 k3Tidal1, k3Tidal2, omega03Tidal1, omega03Tidal2);
-    
+  REAL8Vector *nqcCoeffsInput = XLALCreateREAL8Vector(10);
+  INT4 nqcFlag = 0;
+
+  if ( SpinAlignedEOBversion == 4 && ( k2Tidal1 != 0. || k2Tidal2 != 0 ) ) {
+      nqcFlag = 1;
+      ret = XLALSimIMRSpinAlignedEOBWaveformAll (hplus, hcross, tVec, rVec, phiVec, prVec, pPhiVec,
+                     phiC, deltaT, m1SI, m2SI, 2*pow(10.,-1.5)/(2.*LAL_PI)/((m1SI + m2SI)*LAL_MTSUN_SI/LAL_MSUN_SI), r, inc, spin1z, spin2z, 400,
+					 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, nqcCoeffsInput, nqcFlag);
+      nqcFlag = 2;
+  }
+  ret = XLALSimIMRSpinAlignedEOBWaveformAll (hplus, hcross, tVec, rVec, phiVec, prVec, pPhiVec,
+                                           phiC, deltaT, m1SI, m2SI, fMin, r, inc, spin1z, spin2z, SpinAlignedEOBversion,
+                                           comp1, comp2, k2Tidal1, k2Tidal2,
+                                           omega02Tidal1, omega02Tidal2,
+                                           k3Tidal1, k3Tidal2, omega03Tidal1, omega03Tidal2, nqcCoeffsInput, nqcFlag);
+  
   if( tVec )
         XLALDestroyREAL8Vector( tVec );
   if( rVec )
@@ -451,6 +460,8 @@ XLALSimIMRSpinAlignedEOBWaveform (REAL8TimeSeries ** hplus,	     /**<< OUTPUT, +
         XLALDestroyREAL8Vector( prVec );
   if( pPhiVec )
         XLALDestroyREAL8Vector( pPhiVec );
+  if ( nqcCoeffsInput )
+       XLALDestroyREAL8Vector( nqcCoeffsInput );
   return ret;
 }
 
@@ -527,8 +538,10 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
                      /**<< adiabatic octupole Love number for body 2 (for NS) */
 				     const REAL8 omega03Tidal1,
                      /**<< octupole f-mode freq for body 1 (for NS) */
-				     const REAL8 omega03Tidal2
+				     const REAL8 omega03Tidal2,
                      /**<< octupole f-mode freq for body 2 (for NS) */
+                    REAL8Vector *nqcCoeffsInput,
+                    const INT4 nqcFlag
   )
 {
   INT4 use_tidal = 0;
@@ -1550,15 +1563,43 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
     }
   if (SpinAlignedEOBversion == 4)
     {
-      if (XLALSimIMRSpinEOBCalculateNQCCoefficientsV4
-	  (ampNQC, phaseNQC, &rHi, &prHi, omegaHi, 2, 2, timePeak,
-	   deltaTHigh / mTScaled, m1, m2, a, chiA, chiS, &nqcCoeffs,
-	   SpinAlignedEOBversion) == XLAL_FAILURE)
-	{
-	  XLAL_ERROR (XLAL_EFUNC);
-	}
+        if ( use_tidal == 1 && nqcFlag == 2 ) {
+            nqcCoeffs.a1 = nqcCoeffsInput->data[0];
+            nqcCoeffs.a2 = nqcCoeffsInput->data[1];
+            nqcCoeffs.a3 = nqcCoeffsInput->data[2];
+            nqcCoeffs.a3S = nqcCoeffsInput->data[3];
+            nqcCoeffs.a4 = nqcCoeffsInput->data[4];
+            nqcCoeffs.a5 = nqcCoeffsInput->data[5];
+            nqcCoeffs.b1 = nqcCoeffsInput->data[6];
+            nqcCoeffs.b2 = nqcCoeffsInput->data[7];
+            nqcCoeffs.b3 = nqcCoeffsInput->data[8];
+            nqcCoeffs.b4 = nqcCoeffsInput->data[9];
+        }
+        else {
+        
+            if (XLALSimIMRSpinEOBCalculateNQCCoefficientsV4
+                (ampNQC, phaseNQC, &rHi, &prHi, omegaHi, 2, 2, timePeak,
+                 deltaTHigh / mTScaled, m1, m2, a, chiA, chiS, &nqcCoeffs,
+                 SpinAlignedEOBversion) == XLAL_FAILURE)
+            {
+                XLAL_ERROR (XLAL_EFUNC);
+            }
+        }
     }
-
+    if ( SpinAlignedEOBversion == 4 && nqcFlag == 1 ) {
+        nqcCoeffsInput->data[0] = nqcCoeffs.a1;
+        nqcCoeffsInput->data[1] = nqcCoeffs.a2;
+        nqcCoeffsInput->data[2] = nqcCoeffs.a3;
+        nqcCoeffsInput->data[3] = nqcCoeffs.a3S;
+        nqcCoeffsInput->data[4] = nqcCoeffs.a4;
+        nqcCoeffsInput->data[5] = nqcCoeffs.a5;
+        nqcCoeffsInput->data[6] = nqcCoeffs.b1;
+        nqcCoeffsInput->data[7] = nqcCoeffs.b2;
+        nqcCoeffsInput->data[8] = nqcCoeffs.b3;
+        nqcCoeffsInput->data[9] = nqcCoeffs.b4;
+        return XLAL_SUCCESS;
+    }
+    
 #if debugOutput
   printf
     ("Only spin NQC should be 0 here: %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
@@ -1763,8 +1804,6 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
             }
         }
     }
-
-    printf ("RD completed\n");
 
   /*
    * STEP 7) Generate full inspiral waveform using desired sampling frequency
