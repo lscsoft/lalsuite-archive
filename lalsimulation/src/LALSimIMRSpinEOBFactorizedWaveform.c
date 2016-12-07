@@ -2005,8 +2005,6 @@ XLALSimIMRSpinEOBWaveformTidal (COMPLEX16 * restrict hlm,
                                             /**< Spin EOB parameters */
 )
 {
-    /* Status of function calls */
-    INT4 status;
     REAL8 eta;
     COMPLEX16 hNewton;
     REAL8 v2 = v*v;
@@ -2037,7 +2035,7 @@ XLALSimIMRSpinEOBWaveformTidal (COMPLEX16 * restrict hlm,
 
     
     /* Calculate the newtonian multipole, 1st term in Eq. 17, given by Eq. A1 */
-    status = XLALSimIMRSpinEOBCalculateNewtonianMultipole (&hNewton, v2, 1/v2,
+    XLALSimIMRSpinEOBCalculateNewtonianMultipole (&hNewton, v2, 1/v2,
                                                            values->data[1],
                                                            (UINT4) l, m,
                                                            params->eobParams);
