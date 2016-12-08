@@ -205,6 +205,14 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
     params->meanPerAno = 0.;
     XLALSimInspiralWaveformParamsInsertTidalLambda1(params->params, 0.);
     XLALSimInspiralWaveformParamsInsertTidalLambda2(params->params, 0.);
+    XLALSimInspiralWaveformParamsInsertTidalk31(params->params, 0.);
+    XLALSimInspiralWaveformParamsInsertTidalk32(params->params, 0.);
+    XLALSimInspiralWaveformParamsInsertCompactness1(params->params, 0.);
+    XLALSimInspiralWaveformParamsInsertCompactness2(params->params, 0.);
+    XLALSimInspiralWaveformParamsInsertTidalQuadrupolarFMode1(params->params, 0.);
+    XLALSimInspiralWaveformParamsInsertTidalQuadrupolarFMode2(params->params, 0.);
+    XLALSimInspiralWaveformParamsInsertTidalOctupolarFMode1(params->params, 0.);
+    XLALSimInspiralWaveformParamsInsertTidalOctupolarFMode2(params->params, 0.);
     strncpy(params->outname, "simulation.dat", 256); /* output to this file */
     params->verbose = 0; /* No verbosity */
 
@@ -268,6 +276,22 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
 	    XLALSimInspiralWaveformParamsInsertTidalLambda1(params->params, atoi(argv[++i]));
         } else if (strcmp(argv[i], "--tidal-lambda2") == 0) {
 	    XLALSimInspiralWaveformParamsInsertTidalLambda2(params->params, atoi(argv[++i]));
+        } else if (strcmp(argv[i], "--tidal-k31") == 0) {
+        XLALSimInspiralWaveformParamsInsertTidalk32(params->params, atoi(argv[++i]));
+        } else if (strcmp(argv[i], "--tidal-k32") == 0) {
+        XLALSimInspiralWaveformParamsInsertTidalk31(params->params, atoi(argv[++i]));
+        } else if (strcmp(argv[i], "--tidal-quad-fmode1") == 0) {
+        XLALSimInspiralWaveformParamsInsertTidalQuadrupolarFMode1(params->params, atoi(argv[++i]));
+        } else if (strcmp(argv[i], "--tidal-quad-fmode2") == 0) {
+        XLALSimInspiralWaveformParamsInsertTidalQuadrupolarFMode2(params->params, atoi(argv[++i]));
+        } else if (strcmp(argv[i], "--tidal-octu-fmode1") == 0) {
+        XLALSimInspiralWaveformParamsInsertTidalOctupolarFMode1(params->params, atoi(argv[++i]));
+        } else if (strcmp(argv[i], "--tidal-octu-fmode2") == 0) {
+        XLALSimInspiralWaveformParamsInsertTidalOctupolarFMode2(params->params, atoi(argv[++i]));
+        } else if (strcmp(argv[i], "--compactness1") == 0) {
+        XLALSimInspiralWaveformParamsInsertCompactness1(params->params, atoi(argv[++i]));
+        } else if (strcmp(argv[i], "--compactness2") == 0) {
+        XLALSimInspiralWaveformParamsInsertCompactness2(params->params, atoi(argv[++i]));
         } else if (strcmp(argv[i], "--spin-order") == 0) {
 	    XLALSimInspiralWaveformParamsInsertPNSpinOrder(params->params, atoi(argv[++i]));
         } else if (strcmp(argv[i], "--tidal-order") == 0) {

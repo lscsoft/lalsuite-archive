@@ -389,46 +389,56 @@ XLALSimIMRSpinAlignedEOBWaveform (REAL8TimeSeries ** hplus,	     /**<< OUTPUT, +
 				  const REAL8 inc,		     /**<< inclination angle */
 				  const REAL8 spin1z,		     /**<< z-component of spin-1, dimensionless */
 				  const REAL8 spin2z,		      /**<< z-component of spin-2, dimensionless */
-				  UINT4 SpinAlignedEOBversion		      /**<< 1 for SEOBNRv1, 2 for SEOBNRv2, 4 for SEOBNRv4 */
+				  UINT4 SpinAlignedEOBversion,		      /**<< 1 for SEOBNRv1, 2 for SEOBNRv2, 4 for SEOBNRv4 */
+                  LALDict *LALParams
   )
 {
   int ret;
-  //Shibata's H4 BNS
-//  REAL8 comp1 = 0.1470;
-//  REAL8 k2Tidal1 = 0.115;
-//  REAL8 omega02Tidal1 = 0.1255;
-//  REAL8 k3Tidal1 = 0.0326;
-//  REAL8 omega03Tidal1 = 0.140521;
-//    
-//  REAL8 comp2 = 0.1470;
-//  REAL8 k2Tidal2 = 0.115;
-//  REAL8 omega02Tidal2 = 0.1255;
-//  REAL8 k3Tidal2 = 0.0326;
-//  REAL8 omega03Tidal2 = 0.140521;
+    
+  REAL8 comp1 = 0;
+  REAL8 k2Tidal1 = 0;
+  REAL8 omega02Tidal1 = 0;
+  REAL8 k3Tidal1 = 0;
+  REAL8 omega03Tidal1 = 0;
+  REAL8 comp2 = 0;
+  REAL8 k2Tidal2 = 0;
+  REAL8 omega02Tidal2 = 0;
+  REAL8 k3Tidal2 = 0;
+  REAL8 omega03Tidal2 = 0;
+    
+  REAL8 lambda1hat = XLALSimInspiralWaveformParamsLookupTidalLambda1(LALParams);
+  REAL8 lambda2hat = XLALSimInspiralWaveformParamsLookupTidalLambda2(LALParams);
+  if ( lambda1hat != 0. ) {
+      comp1 = XLALSimInspiralWaveformParamsLookupCompactness1(LALParams);
+      omega02Tidal1 = XLALSimInspiralWaveformParamsLookupTidalQuadrupolarFMode1(LALParams);
+      if ( comp1 == 0. || omega02Tidal1 == 0. ) {
+          XLALPrintError ("XLAL Error - %s: Tidal parameters are not set correctly! Always provide non-zero compactness and f-mode frequency when k2 is non-zero!\n", __func__);
+          XLAL_ERROR (XLAL_EDOM);
+      }
+      k2Tidal1 = 1.5 * lambda1hat * comp1*comp1*comp1*comp1*comp1;
+      k3Tidal1 = XLALSimInspiralWaveformParamsLookupTidalk31(LALParams);
+      omega03Tidal1 = XLALSimInspiralWaveformParamsLookupTidalOctupolarFMode1(LALParams);
+      if ( k3Tidal1 != 0. && omega03Tidal1 == 0. ) {
+          XLALPrintError ("XLAL Error - %s: Tidal parameters are not set correctly! Always provide non-zero octupolar f-mode frequency when k3 is non-zero!\n", __func__);
+          XLAL_ERROR (XLAL_EDOM);
+      }
+  }
+  if ( lambda2hat != 0. ) {
+      comp2 = XLALSimInspiralWaveformParamsLookupCompactness2(LALParams);
+      omega02Tidal2 = XLALSimInspiralWaveformParamsLookupTidalQuadrupolarFMode2(LALParams);
+      if ( comp2 == 0. || omega02Tidal2 == 0. ) {
+          XLALPrintError ("XLAL Error - %s: Tidal parameters are not set correctly! Always provide non-zero compactness and f-mode frequency when k2 is non-zero!\n", __func__);
+          XLAL_ERROR (XLAL_EDOM);
+      }
+      k2Tidal2 = 1.5 * lambda2hat * comp2*comp2*comp2*comp2*comp2;
+      k3Tidal2 = XLALSimInspiralWaveformParamsLookupTidalk32(LALParams);
+      omega03Tidal2 = XLALSimInspiralWaveformParamsLookupTidalOctupolarFMode2(LALParams);
+      if ( k2Tidal2 != 0. && omega03Tidal2 == 0. ) {
+          XLALPrintError ("XLAL Error - %s: Tidal parameters are not set correctly! Always provide non-zero octupolar f-mode frequency when k3 is non-zero!\n", __func__);
+          XLAL_ERROR (XLAL_EDOM);
+      }
+    }
 
-    REAL8 comp1 = 0.15653;
-    REAL8 k2Tidal1 = 0.1217;
-    REAL8 omega02Tidal1 = 0.06659*2.5/1.5;
-    REAL8 k3Tidal1 = 0.03525;
-    REAL8 omega03Tidal1 = 0.090585*2.5/1.5;
-    
-    REAL8 comp2 = 0.10853978;
-    REAL8 k2Tidal2 = 0.15863;
-    REAL8 omega02Tidal2 = 0.0402698*2.5/1.;
-    REAL8 k3Tidal2 = 0.0493466;
-    REAL8 omega03Tidal2 = 0.055518*2.5/1;
-    
-//    REAL8 comp1 = 0;
-//    REAL8 k2Tidal1 = 0;
-//    REAL8 omega02Tidal1 = 0;
-//    REAL8 k3Tidal1 = 0;
-//    REAL8 omega03Tidal1 = 0;
-//    REAL8 comp2 = 0;
-//    REAL8 k2Tidal2 = 0;
-//    REAL8 omega02Tidal2 = 0;
-//    REAL8 k3Tidal2 = 0;
-//    REAL8 omega03Tidal2 = 0;
-    
   REAL8Vector   *tVec = NULL;
   REAL8Vector   *rVec = NULL;
   REAL8Vector   *phiVec = NULL;
@@ -554,13 +564,13 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
     {
         if ( (k2Tidal1 != 0. && (comp1 == 0. || omega02Tidal1 == 0.))
             || (k2Tidal2 != 0. && (comp2 == 0. || omega02Tidal2 == 0.)) ) {
-            XLALPrintError ("XLAL Error - %s: Tidal parameters are not set correctly! Always provide non-zero compactness and f-mode freqeuncy when k2 is non-zero!\n",
+            XLALPrintError ("XLAL Error - %s: Tidal parameters are not set correctly! Always provide non-zero compactness and f-mode frequency when k2 is non-zero!\n",
                  __func__);
             XLAL_ERROR (XLAL_EDOM);
         }
         if ( (k3Tidal1 != 0. && (comp1 == 0. || omega03Tidal1 == 0.))
             || (k3Tidal2 != 0. && (comp2 == 0. || omega03Tidal2 == 0.)) ) {
-            XLALPrintError ("XLAL Error - %s: Tidal parameters are not set correctly! Always provide non-zero compactness and f-mode freqeuncy when k3 is non-zero!\n",
+            XLALPrintError ("XLAL Error - %s: Tidal parameters are not set correctly! Always provide non-zero compactness and f-mode frequency when k3 is non-zero!\n",
                             __func__);
             XLAL_ERROR (XLAL_EDOM);
         }
