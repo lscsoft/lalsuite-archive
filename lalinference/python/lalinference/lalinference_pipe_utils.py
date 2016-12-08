@@ -2114,6 +2114,7 @@ class BayesWavePSDJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
     self.set_sub_file(submitFile)
     self.set_stdout_file(os.path.join(logdir,'bayeswavepsd-$(cluster)-$(process).out'))
     self.set_stderr_file(os.path.join(logdir,'bayeswavepsd-$(cluster)-$(process).err'))
+    self.add_condor_cmd('request_memory','4000')
     self.add_condor_cmd('getenv','True')
     self.ispreengine = False
 
