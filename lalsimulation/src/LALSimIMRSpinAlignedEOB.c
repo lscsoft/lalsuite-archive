@@ -439,6 +439,9 @@ XLALSimIMRSpinAlignedEOBWaveform (REAL8TimeSeries ** hplus,	     /**<< OUTPUT, +
       }
     }
 
+    
+
+    
   REAL8Vector   *tVec = NULL;
   REAL8Vector   *rVec = NULL;
   REAL8Vector   *phiVec = NULL;
@@ -449,8 +452,11 @@ XLALSimIMRSpinAlignedEOBWaveform (REAL8TimeSeries ** hplus,	     /**<< OUTPUT, +
 
   if ( SpinAlignedEOBversion == 4 && ( k2Tidal1 != 0. || k2Tidal2 != 0 ) ) {
       nqcFlag = 1;
+      REAL8 m1BH, m2BH;
+      m1BH = m1SI / (m1SI + m2SI) * 50. * LAL_MSUN_SI;
+      m2BH = m2SI / (m1SI + m2SI) * 50. * LAL_MSUN_SI;
       ret = XLALSimIMRSpinAlignedEOBWaveformAll (hplus, hcross, tVec, rVec, phiVec, prVec, pPhiVec,
-                     phiC, deltaT, m1SI, m2SI, 2*pow(10.,-1.5)/(2.*LAL_PI)/((m1SI + m2SI)*LAL_MTSUN_SI/LAL_MSUN_SI), r, inc, spin1z, spin2z, 400,
+                     phiC, deltaT, m1BH, m2BH, 2*pow(10.,-1.5)/(2.*LAL_PI)/((m1BH + m2BH)*LAL_MTSUN_SI/LAL_MSUN_SI), r, inc, spin1z, spin2z, 400,
 					 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, nqcCoeffsInput, nqcFlag);
       nqcFlag = 2;
   }
