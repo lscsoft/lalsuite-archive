@@ -1902,55 +1902,42 @@ def gaussian_window(*bins, **kwargs):
 		return window
 
 
-def tophat_window(bins):
+def tophat_window(*bins):
 	"""
-	Generate a normalized (integral = 1) top-hat window in 1 dimension.
-	bins sets the width of the window in bin counts, which is rounded
-	up to the nearest odd integer.
+	Generate a normalized (integral = 1) rectangular window in N
+	dimensions.  The bins parameters set the width of the window in bin
+	counts in each dimension, each of which is rounded up to the
+	nearest odd integer.
 
 	Example:
 
 	>>> tophat_window(4)
 	array([ 0.2,  0.2,  0.2,  0.2,  0.2])
+	>>> tophat_window(4, 4)
+	array([[ 0.04,  0.04,  0.04,  0.04,  0.04],
+	       [ 0.04,  0.04,  0.04,  0.04,  0.04],
+	       [ 0.04,  0.04,  0.04,  0.04,  0.04],
+	       [ 0.04,  0.04,  0.04,  0.04,  0.04],
+	       [ 0.04,  0.04,  0.04,  0.04,  0.04]])
 	"""
-	if bins <= 0:
-		raise ValueError(bins)
-	w = lal.CreateRectangularREAL8Window(int(math.floor(bins / 2.0)) * 2 + 1)
-	return w.data.data / w.sum
-
-
-def tophat_window2d(bins_x, bins_y):
-	"""
-	Generate a normalized (integral = 1) top-hat window in 2
-	dimensions.  bins_x and bins_y set the widths of the window in bin
-	counts, which are both rounded up to the nearest odd integer.  The
-	result is a rectangular array, with an elliptical pattern of
-	elements set to a constant value centred on the array's mid-point,
-	and all other elements set to 0.
-	"""
-	if bins_x <= 0:
-		raise ValueError(bins_x)
-	if bins_y <= 0:
-		raise ValueError(bins_y)
-
-	# This might appear to be using a screwy, slow, algorithm but it's
-	# the only way I have found to get a window with the correct bins
-	# set and cleared as appropriate.  I'd love this to be replaced by
-	# something that's easier to know is correct.
-
-	# fill rectangle with ones, making the number of bins odd in each
-	# direction
-	window = numpy.ones((int(bins_x / 2.0) * 2 + 1, int(bins_y / 2.0) * 2 + 1), "Float64")
-
-	# zero the bins outside the window
-	for x, y in iterutils.MultiIter(*map(range, window.shape)):
-		if ((x - window.shape[0] // 2) / float(bins_x) * 2.0)**2 + ((y - window.shape[1] // 2) / float(bins_y) * 2.0)**2 > 1.0:
-			window[x, y] = 0.0
-
-	# normalize
-	window /= window.sum()
-
-	return window
+	if not bins:
+		raise ValueError("function requires at least 1 width")
+	windows = []
+	for b in bins:
+		if bins <= 0:
+			raise ValueError("negative width: %s" % repr(b))
+		w = lal.CreateRectangularREAL8Window(int(math.floor(b / 2.0)) * 2 + 1)
+		windows.append(w.data.data / w.sum)
+	if len(windows) == 1:
+		# 1D short-cut
+		return windows[0]
+	try:
+		return numpy.einsum(",".join("abcdefghijklmnopqrstuvwxyz"[:len(windows)]), *windows)
+	except AttributeError:
+		# numpy < 1.6
+		window = reduce(numpy.outer, windows)
+		window.shape = tuple(len(w) for w in windows)
+		return window
 
 
 #
