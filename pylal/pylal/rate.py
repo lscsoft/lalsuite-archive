@@ -1323,10 +1323,7 @@ def bins_spanned(bins, seglist):
 	# performance improvement:  pre-clip segments to the domain of the
 	# binning
 	seglist = seglist & segments.segmentlist([segments.segment(lower[0], upper[-1])])
-	array = numpy.zeros((len(bins),), dtype = lower.dtype)
-	for i, (a, b) in enumerate(zip(lower, upper)):
-		array[i] = abs(seglist & segments.segmentlist([segments.segment(a, b)]))
-	return array
+	return numpy.fromiter((abs(seglist & segments.segmentlist([seg])) for seg in zip(lower, upper)), dtype = lower.dtype, count = len(bins))
 
 
 #
