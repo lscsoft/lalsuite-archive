@@ -1291,7 +1291,7 @@ class NDBins(tuple):
 #
 
 
-def bins_spanned(bins, seglist, dtype = "double"):
+def bins_spanned(bins, seglist):
 	"""
 	Input is a Bins subclass instance and a glue.segments.segmentlist
 	instance.  The output is an array object the length of the binning,
@@ -1323,7 +1323,7 @@ def bins_spanned(bins, seglist, dtype = "double"):
 	# performance improvement:  pre-clip segments to the domain of the
 	# binning
 	seglist = seglist & segments.segmentlist([segments.segment(lower[0], upper[-1])])
-	array = numpy.zeros((len(bins),), dtype = dtype)
+	array = numpy.zeros((len(bins),), dtype = lower.dtype)
 	for i, (a, b) in enumerate(zip(lower, upper)):
 		array[i] = abs(seglist & segments.segmentlist([segments.segment(a, b)]))
 	return array
