@@ -1429,10 +1429,10 @@ class BinnedArray(object):
 			self.array = array
 
 	def __getitem__(self, coords):
-		return self.array[self.bins[coords]]
+		return self.array[self.bins(*coords)]
 
 	def __setitem__(self, coords, val):
-		self.array[self.bins[coords]] = val
+		self.array[self.bins(*coords)] = val
 
 	def __len__(self):
 		return len(self.array)
