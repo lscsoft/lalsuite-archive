@@ -1565,11 +1565,8 @@ class BinnedRatios(object):
 		of this one.  Note that this is not the same as adding the
 		ratios.  The binnings must be identical.
 		"""
-		try:
-			self.numerator += other.numerator
-			self.denominator += other.denominator
-		except TypeError:
-			raise TypeError("incompatible binning: %s" % repr(other))
+		self.numerator += other.numerator
+		self.denominator += other.denominator
 		return self
 
 	def incnumerator(self, coords, weight = 1):
