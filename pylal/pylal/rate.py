@@ -93,38 +93,27 @@ class Bins(object):
 	intended to be used directly, but to be subclassed for use in real
 	bins classes.
 	"""
-	def __init__(self, min, max, n):
+	def __init__(self):
 		"""
-		Initialize a Bins instance.  The three arguments are the
-		minimum and maximum of the values spanned by the bins, and
-		the number of bins to place between them.  Subclasses may
-		require additional arguments, or different arguments
-		altogether.
+		Initialize a Bins instance.  Subclasses must override this
+		method.
 		"""
-		# convenience code to do some common initialization and
-		# input checking
-		if not isinstance(n, int):
-			raise TypeError(n)
-		if n < 1:
-			raise ValueError(n)
-		if max <= min:
-			raise ValueError((min, max))
-		self.min = min
-		self.max = max
-		self.n = n
+		raise NotImplementedError
 
 	def __len__(self):
-		return self.n
+		"""
+		The number of bins in the binning.  Subclasses must
+		override this method.
+		"""
+		raise NotImplementedError
 
 	def __cmp__(self, other):
 		"""
 		Two binnings are the same if they are instances of the same
-		class, have the same lower and upper bounds, and the same
-		count of bins.
+		class, and describe the same binnings.  Subclasses should
+		override this method but need not.
 		"""
-		if not isinstance(other, type(self)):
-			return -1
-		return cmp((type(self), self.min, self.max, len(self)), (type(other), other.min, other.max, len(other)))
+		raise NotImplementedError
 
 	def __getitem__(self, x):
 		"""
@@ -137,39 +126,50 @@ class Bins(object):
 		falls, and whose upper bound is 1 greater than the index of
 		the bin in which the slice's upper bound falls.  Steps are
 		not supported in slices.
+
+		Subclasses must override this method, but may chain to this
+		to handle slices:
+
+		def __getitem__(self, x):
+			if isinstance(x, slice)
+				return super(type(self), self).__getitem__(x)
+			# now handle non-slices ...
 		"""
-		if isinstance(x, slice):
-			if x.step is not None:
-				raise NotImplementedError("step not supported: %s" % repr(x))
-			return slice(self[x.start] if x.start is not None else 0, self[x.stop] + 1 if x.stop is not None else len(self))
-		raise NotImplementedError
+		# assumes x is a slice.  works with anything that defines
+		# .start, .stop and .step (but .step must be None).
+		if x.step is not None:
+			raise NotImplementedError("step not supported: %s" % repr(x))
+		return slice(self[x.start] if x.start is not None else 0, self[x.stop] + 1 if x.stop is not None else len(self))
 
 	def __iter__(self):
 		"""
 		If __iter__ does not exist, Python uses __getitem__ with
 		range(0) as input to define iteration. This is nonsensical
 		for bin objects, so explicitly unsupport iteration.
+		Subclasses do not need to override this method.
 		"""
 		raise NotImplementedError
 
 	def lower(self):
 		"""
 		Return an array containing the locations of the lower
-		boundaries of the bins.
+		boundaries of the bins.  Subclasses should override this
+		method.
 		"""
 		raise NotImplementedError
 
 	def centres(self):
 		"""
 		Return an array containing the locations of the bin
-		centres.
+		centres.  Subclasses should override this method.
 		"""
 		raise NotImplementedError
 
 	def upper(self):
 		"""
 		Return an array containing the locations of the upper
-		boundaries of the bins.
+		boundaries of the bins.  Subclasses should override this
+		method.
 		"""
 		raise NotImplementedError
 
@@ -226,6 +226,8 @@ class Bins(object):
 		Traceback (most recent call last):
 			...
 		NotImplementedError: step not supported: slice(None, None, 2)
+
+		Subclasses should not override this method.
 		"""
 		if len(self) < 1:
 			raise ValueError("empty binning")
@@ -270,14 +272,16 @@ class Bins(object):
 	@staticmethod
 	def xml_bins_name_enc(name, suffix = u"pylal_rate_bins"):
 		"""
-		For internal use by XML I/O code.
+		For internal use by XML I/O code.  Subclasses should not
+		override this method.
 		"""
 		return u"%s:%s" % (name, suffix)
 
 	@staticmethod
 	def xml_bins_name_dec(name, suffix = u"pylal_rate_bins"):
 		"""
-		For internal use by XML I/O code.
+		For internal use by XML I/O code.  Subclasses should not
+		override this method.
 		"""
 		name = name.rsplit(u":", 1)
 		if name[-1] != suffix:
@@ -287,14 +291,17 @@ class Bins(object):
 	@classmethod
 	def xml_bins_check(cls, elem, name):
 		"""
-		For internal use by XML I/O code.
+		For internal use by XML I/O code.  Subclasses should not
+		override this method.
 		"""
 		return elem.tagName == ligolw.Param.tagName and elem.hasAttribute(u"Name") and name == cls.xml_bins_name_dec(elem.Name)
 
 	def to_xml(self):
 		"""
 		Construct a LIGO Light Weight XML representation of the
-		Bins instance.
+		Bins instance.  Subclasses must override this method to be
+		serializable to LIGO Light Weight XML, otherwise they need
+		not override it.
 		"""
 		raise NotImplementedError
 
@@ -302,19 +309,57 @@ class Bins(object):
 	def from_xml(cls, xml):
 		"""
 		From the XML Param element at xml, return the Bins object
-		it describes.
+		it describes.  Subclasses must override this method to be
+		de-serializable from LIGO Light Weight XML, otherwise they
+		need not override it.
 		"""
 		raise NotImplementedError
 
 
-class LoHiCountToFromXMLMixin(object):
+class LoHiCountBins(Bins):
 	"""
-	For internal use by XML I/O code.
+	Base class to help implement binnings that can be defined by a
+	lower bound, an upper bound, and a count of bins.  This is not a
+	binning.
 	"""
+	def __init__(self, min, max, n):
+		"""
+		The three arguments are the minimum and maximum of the
+		values spanned by the bins, and the number of bins to place
+		between them.
+		"""
+		if not isinstance(n, int):
+			raise TypeError(n)
+		if n < 1:
+			raise ValueError(n)
+		if max <= min:
+			raise ValueError((min, max))
+		self.min = min
+		self.max = max
+		self.n = n
+
+	def __len__(self):
+		return self.n
+
+	def __cmp__(self, other):
+		"""
+		Two binnings are the same if they are instances of the same
+		class, have the same lower and upper bounds, and the same
+		count of bins.
+		"""
+		if not isinstance(other, type(self)):
+			return -1
+		return cmp((type(self), self.min, self.max, self.n), (type(other), other.min, other.max, other.n))
+
+	#
+	# XML I/O related methods and data
+	#
+
 	def to_xml(self):
 		"""
 		Construct a LIGO Light Weight XML representation of the
-		Bins instance.
+		Bins instance.  Subclasses must define the .xml_bins_name
+		class attribute.
 		"""
 		return ligolw_param.Param.from_pyvalue(self.xml_bins_name_enc(self.xml_bins_name), u"%s,%s,%s" % (ligolw_types.FormatFunc[u"real_8"](self.min), ligolw_types.FormatFunc[u"real_8"](self.max), ligolw_types.FormatFunc[u"int_8s"](self.n)))
 
@@ -322,7 +367,8 @@ class LoHiCountToFromXMLMixin(object):
 	def from_xml(cls, xml):
 		"""
 		From the XML Param element at xml, return the Bins object
-		it describes.
+		it describes.  Subclasses must define the .xml_bins_name
+		class attribute.
 		"""
 		if not cls.xml_bins_check(xml, cls.xml_bins_name):
 			raise ValueError("not a %s" % repr(cls))
@@ -437,7 +483,7 @@ class IrregularBins(Bins):
 		return cls(map(ligolw_types.ToPyType[u"real_8"], xml.pcdata.split(u",")))
 
 
-class LinearBins(LoHiCountToFromXMLMixin, Bins):
+class LinearBins(LoHiCountBins):
 	"""
 	Linearly-spaced bins.  There are n bins of equal size, the first
 	bin starts on the lower bound and the last bin ends on the upper
@@ -510,7 +556,7 @@ class LinearBins(LoHiCountToFromXMLMixin, Bins):
 	xml_bins_name = u"linbins"
 
 
-class LinearPlusOverflowBins(LoHiCountToFromXMLMixin, Bins):
+class LinearPlusOverflowBins(LoHiCountBins):
 	"""
 	Linearly-spaced bins with overflow at the edges.  There are n-2
 	bins of equal size.  The bin 1 starts on the lower bound and bin
@@ -588,7 +634,7 @@ class LinearPlusOverflowBins(LoHiCountToFromXMLMixin, Bins):
 	xml_bins_name = u"linplusoverflowbins"
 
 
-class LogarithmicBins(LoHiCountToFromXMLMixin, Bins):
+class LogarithmicBins(LoHiCountBins):
 	"""
 	Logarithmically-spaced bins.  There are n bins, each of whose upper
 	and lower bounds differ by the same factor.  The first bin starts
@@ -640,7 +686,7 @@ class LogarithmicBins(LoHiCountToFromXMLMixin, Bins):
 	xml_bins_name = u"logbins"
 
 
-class LogarithmicPlusOverflowBins(LoHiCountToFromXMLMixin, Bins):
+class LogarithmicPlusOverflowBins(LoHiCountBins):
 	"""
 	Logarithmically-spaced bins plus one bin at each end that goes to
 	zero and positive infinity respectively.  There are n-2 bins each
@@ -712,7 +758,7 @@ class LogarithmicPlusOverflowBins(LoHiCountToFromXMLMixin, Bins):
 	xml_bins_name = u"logplusoverflowbins"
 
 
-class ATanBins(LoHiCountToFromXMLMixin, Bins):
+class ATanBins(LoHiCountBins):
 	"""
 	Bins spaced uniformly in tan^-1 x.  Provides approximately linear
 	binning in the middle portion, with the bin density dropping
@@ -779,7 +825,7 @@ class ATanBins(LoHiCountToFromXMLMixin, Bins):
 	xml_bins_name = u"atanbins"
 
 
-class ATanLogarithmicBins(LoHiCountToFromXMLMixin, IrregularBins):
+class ATanLogarithmicBins(LoHiCountBins, IrregularBins):
 	"""
 	Provides the same binning as the ATanBins class but in the
 	logarithm of the variable.  The min and max parameters set the
@@ -832,11 +878,13 @@ class ATanLogarithmicBins(LoHiCountToFromXMLMixin, IrregularBins):
 			boundaries = numpy.exp(boundaries)
 		boundaries = numpy.hstack((boundaries, [PosInf, 0.]))
 		keepers = boundaries[:-1] != boundaries[1:]
-		super(ATanLogarithmicBins, self).__init__(boundaries[:-1][keepers])
+		IrregularBins.__init__(self, boundaries[:-1][keepers])
 		self.keepers = keepers[:-1]
 		self.min = min
 		self.max = max
 		self.n = n
+
+	__len__ = IrregularBins.__len__
 
 	def centres(self):
 		offset = 0.5 * math.pi * self.delta
