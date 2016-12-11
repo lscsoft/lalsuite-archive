@@ -942,21 +942,22 @@ class Categories(Bins):
 	"""
 	def __init__(self, categories):
 		"""
-		categories is an iterable of containers defining the
-		categories.  (Recall that containers are collections that
-		support the "in" operator.) Objects will be mapped to the
-		integer index of the container that contains them.
+		categories is an iterable of containers (objects that
+		support the "in" operator) defining the categories.
+		Objects will be mapped to the integer index of the
+		container that contains them.
 		"""
-		self.containers = tuple(categories)  # need to set an order and len
+		# make immutable copy
+		self.containers = tuple(categories)
 
 	def __len__(self):
 		return len(self.containers)
 
 	def __getitem__(self, value):
 		"""
-		Return i if value is contained in i-th container. If value
+		Return i if value is contained in i-th container.  If value
 		is not contained in any of the containers, raise an
-		IndexError.
+		IndexError.  This is O(n).
 		"""
 		for i, s in enumerate(self.containers):
 			if value in s:
@@ -1319,10 +1320,8 @@ def bins_spanned(bins, seglist, dtype = "double"):
 	"""
 	lower = bins.lower()
 	upper = bins.upper()
-	# make an intersection of the segment list with the extend of the bins
-	# need to use lower/upper instead of min/max because the latter sometimes
-	# merely correspond to low and high parameters used to construct the binning
-	# (see, for example, the atan binning)
+	# performance improvement:  pre-clip segments to the domain of the
+	# binning
 	seglist = seglist & segments.segmentlist([segments.segment(lower[0], upper[-1])])
 	array = numpy.zeros((len(bins),), dtype = dtype)
 	for i, (a, b) in enumerate(zip(lower, upper)):
@@ -1447,15 +1446,6 @@ class BinnedArray(object):
 			raise TypeError("incompatible binning: %s" % repr(other))
 		self.array += other.array
 		return self
-		# here's an implementation that allows the binnings to
-		# differ.  each bin in other is added to whichever bin in
-		# self its centre is found in.  this behaviour probably
-		# leads to undesirable results if other's binning is less
-		# dense than self's.  would need to spread other's bins'
-		# contents out somehow.  probably there's no behaviour that
-		# is correct for all use cases.
-		#for coords in iterutils.MultiIter(*other.bins.centres()):
-		#	self[coords] += other[coords]
 
 	def copy(self):
 		"""
@@ -1576,9 +1566,7 @@ class BinnedRatios(object):
 		Add the weights from another BinnedRatios object's
 		numerator and denominator to the numerator and denominator
 		of this one.  Note that this is not the same as adding the
-		ratios.  It is not necessary for the binnings to be
-		identical, but an integer number of the bins in other must
-		fit into each bin in self.
+		ratios.  The binnings must be identical.
 		"""
 		try:
 			self.numerator += other.numerator
