@@ -117,9 +117,8 @@ static REAL8 XLALSimIMRTEOBk2effMode (
 static COMPLEX16 XLALhTidal(
                             INT4 l, /**<< Mode index */
                             INT4 m, /**<< Mode index */
-                            REAL8 v2, /**<< Orbital speed^2 */
-                            REAL8 Omega, /**<< Orbital frequency */
-                            COMPLEX16 hNewton, /**<< Restricted waveform */
+                            REAL8 phase, /**<< Orbutal phase */
+                            REAL8 v, /**<< Orbital speed^2 */
                             REAL8 eta, /**<< Symmetric mass ratio */
                             TidalEOBParams *tidal1, /**<< Tidal parameters of body 1 */
                             TidalEOBParams *tidal2 /**<< Tidal parameters of body 2 */
@@ -127,6 +126,8 @@ static COMPLEX16 XLALhTidal(
 {
     COMPLEX16 hNewtonTidal = 0;
     COMPLEX16 hhatTidal = 0;
+    REAL8 v2 = v*v;
+    REAL8 Omega = v*v*v;
     REAL8 v10 = v2*v2*v2*v2*v2;
     REAL8 m1 = tidal1->mass;
     REAL8 m2 = tidal2->mass;
@@ -149,9 +150,6 @@ static COMPLEX16 XLALhTidal(
     REAL8 k2Tidal2 = tidal2->k2Tidal;
     REAL8 omega02Tidal1 = tidal1->omega02Tidal;
     REAL8 omega02Tidal2 = tidal2->omega02Tidal;
-    INT4 eps = (l+m)%2;
-    REAL8 cleps = pow(X2,l+eps-1) + pow(-1,l+eps)*pow(X1,l+eps-1);
-    hNewtonTidal = hNewton / cleps;
     REAL8 k2Tidal1effHam = 0.;
     REAL8 k2Tidal2effHam = 0.;
     REAL8 k2Tidal1eff = 0.;
@@ -172,10 +170,12 @@ static COMPLEX16 XLALhTidal(
         case 2:
             switch (m) {
                 case 2:
+                    hNewtonTidal = -8. * v2 * sqrt(LAL_PI/5.);
                     hhatTidal = (3.*q*lambda1*(X1/X2 + 3.)*(1. + XLALTEOBbeta221(X1)*v2)*k2Tidal1eff
                                     +  3./q*lambda2*(X2/X1 + 3.)*(1. + XLALTEOBbeta221(X2)*v2)*k2Tidal2eff) * v10;
                     break;
                 case 1:
+                    hNewtonTidal = 8./3. * I * v*v2 * sqrt(LAL_PI/5.);
                     hhatTidal = (-3*q*lambda1*(4.5 - 6.*X1) - (-3./q*lambda2*(4.5 - 6.*X2))) * v10;
                     break;
                 default:
@@ -184,12 +184,19 @@ static COMPLEX16 XLALhTidal(
             }
             break;
         case 3:
+            hhatTidal = -18.*(X2*q*lambda1 - X1/q*lambda2) * v10;
             switch (m) {
                 case 3:
+                    hNewtonTidal = -3. * I * v*v2 * sqrt(6.*LAL_PI/7.);
+                    break;
                 case 2:
+                    hNewtonTidal = -8./3. * v2*v2 * sqrt(LAL_PI/7.);
+                    break;
                 case 1:
+                    hNewtonTidal = 1./3. * I * v*v2 * sqrt(2.*LAL_PI/35.);
+                    break;
                 case 0:
-                    hhatTidal = -18.*(X2*q*lambda1 - X1/q*lambda2) * v10;
+                    return 0.;
                     break;
                 default:
                     return 0.;
@@ -200,7 +207,7 @@ static COMPLEX16 XLALhTidal(
             return 0.;
             break;
     }
-        return hNewtonTidal*hhatTidal;
+    return eta*hNewtonTidal*hhatTidal*( cos(-m*phase) + I * sin(-m*phase) );
 }
 
 /**
@@ -2006,10 +2013,6 @@ XLALSimIMRSpinEOBWaveformTidal (COMPLEX16 * restrict hlm,
 )
 {
     REAL8 eta;
-    COMPLEX16 hNewton;
-    REAL8 v2 = v*v;
-//    REAL8 r;
-//    r = values->data[0];
     if (abs (m) > (INT4) l)
     {
         XLAL_ERROR (XLAL_EINVAL);
@@ -2033,14 +2036,7 @@ XLALSimIMRSpinEOBWaveformTidal (COMPLEX16 * restrict hlm,
         XLAL_ERROR (XLAL_EINVAL);
     }
 
-    
-    /* Calculate the newtonian multipole, 1st term in Eq. 17, given by Eq. A1 */
-    XLALSimIMRSpinEOBCalculateNewtonianMultipole (&hNewton, v2, 1/v2,
-                                                           values->data[1],
-                                                           (UINT4) l, m,
-                                                           params->eobParams);
-
-    COMPLEX16 hTidal = XLALhTidal( l, m, v2, v*v2, hNewton, eta, params->seobCoeffs->tidal1, params->seobCoeffs->tidal2 );
+    COMPLEX16 hTidal = XLALhTidal( l, m, values->data[1], v, eta, params->seobCoeffs->tidal1, params->seobCoeffs->tidal2 );
     *hlm = hTidal;
     return XLAL_SUCCESS;
 }
