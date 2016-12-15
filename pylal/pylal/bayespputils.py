@@ -6893,8 +6893,7 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
   return inj_strains,rec_strains
 
 
-def plot_psd(psd_files,outpath=None):
-  f_min=30.
+def plot_psd(psd_files,outpath=None,f_min=30.):
   myfig2=plt.figure(figsize=(15,15),dpi=500)
   ax=plt.subplot(1,1,1)
   colors={'H1':'r','L1':'g','V1':'m','I1':'k','J1':'y'}
@@ -6923,11 +6922,11 @@ def plot_psd(psd_files,outpath=None):
     fr=[]
     da=[]
     for (f,d) in zip(freq,data):
-      if f>f_min and d!=0.0:
+      if f>f_min and d!=0.0 and np.isfinite(d):
         fr.append(f)
         da.append(d)
     plt.loglog(fr,da,colors[ifo],label=ifo,alpha=0.5,linewidth=3)
-  plt.xlim([min(freq),max(freq)])
+  plt.xlim([min(fr),max(fr)])
   plt.xlabel("Frequency [Hz]",fontsize=26)
   plt.ylabel("PSD",fontsize=26)
   plt.legend(loc='best')
