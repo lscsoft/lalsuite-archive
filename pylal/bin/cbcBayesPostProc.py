@@ -662,7 +662,11 @@ def cbcBayesPostProc(
       if not os.path.isdir(psddir):
         os.makedirs(psddir)
       try:
-        bppu.plot_psd(psd_files,outpath=psddir)
+        if 'flow' in pos.names:
+          f_low = pos['flow'].samples.min()
+        else:
+          f_low = 30.
+        bppu.plot_psd(psd_files,outpath=psddir, f_min=f_low)
         wfsection.write('<a href="PSDs/PSD.png" target="_blank"><img src="PSDs/PSD.png"/></a>')
       except  Exception,e:
         print "Could not create PSD plot. The error was: %s\n"%str(e)
