@@ -252,7 +252,7 @@ REAL8 XLALSimRingdownQNMAmplitudes(INT4 l, INT4 m, REAL8 eta, REAL8 chiEff){
 	else if (l==2 && abs(m)==1){ A *= 0.43*(sqrt(1.0 - 4.*eta) - chiEff); }	
 	else if (l==3 && abs(m)==3){ A *= 0.44*pow(1.0 - 4.*eta, 0.45); }
 	else if (l==3 && abs(m)==2){ A *= 3.69*(eta - 0.2)*(eta - 0.2) + 0.053; }
-	else if (l==4 && abs(m)==4){ A *= 5.41*((eta - 0.22)*(eta - 0.22) + 0.04); }
+	else if (l==4 && abs(m)==4){ A *= 5.41*(eta - 0.22)*(eta - 0.22) + 0.04; }
 	else A = 0.0;
 	return A;
 	}
