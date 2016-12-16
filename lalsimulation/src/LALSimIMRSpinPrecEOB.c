@@ -591,7 +591,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   INspin2[1] = INspin2y;
   INspin2[2] = INspin2z;
 
-  INT4 debugPK = 0, debugCustomIC = 0, debugNoNQC = 0;
+  INT4 debugPK = 1, debugCustomIC = 0, debugNoNQC = 0;
   INT4 debugRD = 0;
   FILE *out = NULL;
   INT4 i=0;
@@ -608,7 +608,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   if ( PrecEOBversion == 300 || PrecEOBversion == 304 ) { spinEOBApproximant = SEOBNRv3_opt; use_optimized = 1; }
 
   /* The underlying aligned-spin EOB model is hard-coded here */
-  INT4 SpinAlignedEOBversion = 2;
+  INT4 SpinAlignedEOBversion = 4;
 
   /* Vector to store the initial spins */
   //REAL8 spin1[3] = {0,0,0}, spin2[3] = {0,0,0}, InitLhat[3] = {sin(inc),0.,cos(inc)};
@@ -1414,11 +1414,12 @@ int XLALSimIMRSpinEOBWaveformAll(
       tplspin = 0.0;
       break;
     case 2:
+    case 4:
       /* See below Eq. 4 of PRD 89, 061502(R) (2014)*/
       tplspin = (1.-2.*eta) * chiS + (m1 - m2)/(m1 + m2) * chiA;
       break;
     default:
-        XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
+        XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1, v2 and v4 are available.\n", __func__);
         XLALDestroyREAL8Vector( sigmaKerr );
         XLALDestroyREAL8Vector( sigmaStar );
         XLALDestroyREAL8Vector( values );
@@ -1509,8 +1510,20 @@ int XLALSimIMRSpinEOBWaveformAll(
 	    if(debugPK)XLAL_PRINT_INFO("\t NQC: spins used = %.12e, %.12e\n", spinNQC, chiA);
 	    XLALSimIMRGetEOBCalibratedSpinNQC3D( &nqcCoeffs, 2, 2, m1, m2, spinNQC, chiA );
 	    break;
+      case 4:
+          nqcCoeffs.a1 = 0.;
+          nqcCoeffs.a2 = 0.;
+          nqcCoeffs.a3 = 0.;
+          nqcCoeffs.a3S = 0.;
+          nqcCoeffs.a4 = 0.;
+          nqcCoeffs.a5 = 0.;
+          nqcCoeffs.b1 = 0.;
+          nqcCoeffs.b2 = 0.;
+          nqcCoeffs.b3 = 0.;
+          nqcCoeffs.b4 = 0.;
+        break;
 	  default:
-        XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
+        XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1, v2 and v4 are available.\n", __func__);
         XLALDestroyREAL8Vector( sigmaKerr );
         XLALDestroyREAL8Vector( sigmaStar );
         XLALDestroyREAL8Vector( values );
@@ -2245,12 +2258,16 @@ int XLALSimIMRSpinEOBWaveformAll(
       break;
      /* The following if's are documented in sections "DeltaNQC" and "￼PseudoQNM prescriptions" of  https://dcc.ligo.org/T1400476 */
     case 2:
+    case 4:
       combSize = 12.;
       if ( chi1L == 0. && chi2L == 0. ) combSize = 11.;
       if (chiL >= 0.8 && eta >30.0/(31.*31) && eta <10.0/121.) combSize = 13.5;
       if (chiL >= 0.9 && eta < 30./(31.*31.)) combSize = 12.0;
       if (chiL >= 0.8 && eta > 10./121.) combSize = 8.5;
       deltaNQC = XLALSimIMREOBGetNRSpinPeakDeltaTv2(2, 2, m1, m2, chi1L, chi2L );
+    if ( SpinAlignedEOBversion == 4 ) {
+        deltaNQC = XLALSimIMREOBGetNRSpinPeakDeltaTv4(2, 2, m1, m2, chi1L, chi2L );
+      }
       if ( debugPK ) {
         XLAL_PRINT_INFO("v2 RD prescriptions are used! %3.10f %3.10f\n",
                 combSize, deltaNQC);
@@ -2258,7 +2275,7 @@ int XLALSimIMRSpinEOBWaveformAll(
       }
       break;
     default:
-      XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2!\n", __func__ );
+      XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1, 2 or 4!\n", __func__ );
       FREE_EVERYTHING
       FREE_SPHHARM
       PRINT_PARAMS
@@ -2737,11 +2754,12 @@ int XLALSimIMRSpinEOBWaveformAll(
             tplspin = 0.0;
             break;
           case 2:
+          case 4:
             /* See below Eq. 4 of PRD 89, 061502(R) (2014)*/
             tplspin = (1.-2.*eta) * chiS + (m1 - m2)/(m1 + m2) * chiA;
             break;
           default:
-            XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
+            XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1, v2 and v4 are available.\n", __func__);
             FREE_EVERYTHING
               FREE_SPHHARM
               XLAL_ERROR( XLAL_EINVAL );
@@ -3023,11 +3041,12 @@ int XLALSimIMRSpinEOBWaveformAll(
             tplspin = 0.0;
             break;
           case 2:
+          case 4:
             /* See below Eq. 4 of PRD 89, 061502(R) (2014)*/
             tplspin = (1.-2.*eta) * chiS + (m1 - m2)/(m1 + m2) * chiA;
             break;
           default:
-            XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
+            XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1, v2 and v4 are available.\n", __func__);
             FREE_EVERYTHING
               XLALDestroyREAL8Vector( tlistHi );
             XLALDestroyREAL8Vector( timeJFull );
