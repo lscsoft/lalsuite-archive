@@ -1088,6 +1088,9 @@ class NDBins(tuple):
 	Note that the co-ordinates to be converted must be a tuple, even if
 	it is only a 1-dimensional co-ordinate.
 	"""
+	def __init__(self, binnings):
+		self._getitems = tuple(binning.__getitem__ for binning in binnings)
+
 	def __getitem__(self, coords):
 		"""
 		When coords is a tuple this is a synonym for self(*coords),
@@ -1143,7 +1146,7 @@ class NDBins(tuple):
 		"""
 		if len(coords) != len(self):
 			raise ValueError("dimension mismatch")
-		return tuple(b[c] for b, c in zip(self, coords))
+		return tuple(g(c) for g, c in zip(self._getitems, coords))
 
 	@property
 	def shape(self):
