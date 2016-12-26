@@ -137,7 +137,7 @@ class Bins(object):
 		"""
 		# assumes x is a slice.  works with anything that defines
 		# .start, .stop and .step (but .step must be None).
-		if x.step is not None:
+		if x.step is not None and x.step != 1:
 			raise NotImplementedError("step not supported: %s" % repr(x))
 		return slice(self[x.start] if x.start is not None else 0, self[x.stop] + 1 if x.stop is not None else len(self))
 
