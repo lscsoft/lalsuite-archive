@@ -230,9 +230,17 @@ if __name__ == '__main__':
     P_dipolepar, dipolepar_bins = np.histogram(dipolepar, bins=dipolepar_bins, normed=True)
     P_dipolepar_corr = P_dipolepar/P_dipolepar_pr_interp_obj(dipolepar_bins_intp)
 
-    # remove any nans and infinities
-    P_dipolepar_corr[np.isnan(P_dipolepar_corr)] = 0.
-    P_dipolepar_corr[np.isinf(P_dipolepar_corr)] = 0.
+    # check for nans and infinities
+    num_nan = len(np.where(np.isnan(P_dipolepar_corr))[0])
+    num_inf = len(np.where(np.isinf(P_dipolepar_corr))[0])
+
+    # remove any nans and infinities (N-samp warning)
+    if num_nan != 0.:
+      P_dipolepar_corr[np.isnan(P_dipolepar_corr)] = 0.
+      print "%d nans removed from prior-corrected posterior; insufficient N-samp"%num_nan
+    if num_inf != 0.:
+      P_dipolepar_corr[np.isinf(P_dipolepar_corr)] = 0.
+      print "%d infinities removed from prior-corrected posterior; insufficient N-samp"%num_inf  
 
     print '... computed prior-corrected posterior'
 
