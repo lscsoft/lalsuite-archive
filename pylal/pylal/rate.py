@@ -1,4 +1,4 @@
-# Copyright (C) 2006--2014  Kipp Cannon
+# Copyright (C) 2006--2016  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -93,38 +93,27 @@ class Bins(object):
 	intended to be used directly, but to be subclassed for use in real
 	bins classes.
 	"""
-	def __init__(self, min, max, n):
+	def __init__(self):
 		"""
-		Initialize a Bins instance.  The three arguments are the
-		minimum and maximum of the values spanned by the bins, and
-		the number of bins to place between them.  Subclasses may
-		require additional arguments, or different arguments
-		altogether.
+		Initialize a Bins instance.  Subclasses must override this
+		method.
 		"""
-		# convenience code to do some common initialization and
-		# input checking
-		if not isinstance(n, int):
-			raise TypeError(n)
-		if n < 1:
-			raise ValueError(n)
-		if max <= min:
-			raise ValueError((min, max))
-		self.min = min
-		self.max = max
-		self.n = n
+		raise NotImplementedError
 
 	def __len__(self):
-		return self.n
+		"""
+		The number of bins in the binning.  Subclasses must
+		override this method.
+		"""
+		raise NotImplementedError
 
 	def __cmp__(self, other):
 		"""
 		Two binnings are the same if they are instances of the same
-		class, have the same lower and upper bounds, and the same
-		count of bins.
+		class, and describe the same binnings.  Subclasses should
+		override this method but need not.
 		"""
-		if not isinstance(other, type(self)):
-			return -1
-		return cmp((type(self), self.min, self.max, len(self)), (type(other), other.min, other.max, len(other)))
+		raise NotImplementedError
 
 	def __getitem__(self, x):
 		"""
@@ -137,39 +126,50 @@ class Bins(object):
 		falls, and whose upper bound is 1 greater than the index of
 		the bin in which the slice's upper bound falls.  Steps are
 		not supported in slices.
+
+		Subclasses must override this method, but may chain to this
+		to handle slices:
+
+		def __getitem__(self, x):
+			if isinstance(x, slice)
+				return super(type(self), self).__getitem__(x)
+			# now handle non-slices ...
 		"""
-		if isinstance(x, slice):
-			if x.step is not None:
-				raise NotImplementedError("step not supported: %s" % repr(x))
-			return slice(self[x.start] if x.start is not None else 0, self[x.stop] + 1 if x.stop is not None else len(self))
-		raise NotImplementedError
+		# assumes x is a slice.  works with anything that defines
+		# .start, .stop and .step (but .step must be None).
+		if x.step is not None and x.step != 1:
+			raise NotImplementedError("step not supported: %s" % repr(x))
+		return slice(self[x.start] if x.start is not None else 0, self[x.stop] + 1 if x.stop is not None else len(self))
 
 	def __iter__(self):
 		"""
 		If __iter__ does not exist, Python uses __getitem__ with
 		range(0) as input to define iteration. This is nonsensical
 		for bin objects, so explicitly unsupport iteration.
+		Subclasses do not need to override this method.
 		"""
 		raise NotImplementedError
 
 	def lower(self):
 		"""
 		Return an array containing the locations of the lower
-		boundaries of the bins.
+		boundaries of the bins.  Subclasses should override this
+		method.
 		"""
 		raise NotImplementedError
 
 	def centres(self):
 		"""
 		Return an array containing the locations of the bin
-		centres.
+		centres.  Subclasses should override this method.
 		"""
 		raise NotImplementedError
 
 	def upper(self):
 		"""
 		Return an array containing the locations of the upper
-		boundaries of the bins.
+		boundaries of the bins.  Subclasses should override this
+		method.
 		"""
 		raise NotImplementedError
 
@@ -226,6 +226,8 @@ class Bins(object):
 		Traceback (most recent call last):
 			...
 		NotImplementedError: step not supported: slice(None, None, 2)
+
+		Subclasses should not override this method.
 		"""
 		if len(self) < 1:
 			raise ValueError("empty binning")
@@ -270,14 +272,16 @@ class Bins(object):
 	@staticmethod
 	def xml_bins_name_enc(name, suffix = u"pylal_rate_bins"):
 		"""
-		For internal use by XML I/O code.
+		For internal use by XML I/O code.  Subclasses should not
+		override this method.
 		"""
 		return u"%s:%s" % (name, suffix)
 
 	@staticmethod
 	def xml_bins_name_dec(name, suffix = u"pylal_rate_bins"):
 		"""
-		For internal use by XML I/O code.
+		For internal use by XML I/O code.  Subclasses should not
+		override this method.
 		"""
 		name = name.rsplit(u":", 1)
 		if name[-1] != suffix:
@@ -287,14 +291,17 @@ class Bins(object):
 	@classmethod
 	def xml_bins_check(cls, elem, name):
 		"""
-		For internal use by XML I/O code.
+		For internal use by XML I/O code.  Subclasses should not
+		override this method.
 		"""
 		return elem.tagName == ligolw.Param.tagName and elem.hasAttribute(u"Name") and name == cls.xml_bins_name_dec(elem.Name)
 
 	def to_xml(self):
 		"""
 		Construct a LIGO Light Weight XML representation of the
-		Bins instance.
+		Bins instance.  Subclasses must override this method to be
+		serializable to LIGO Light Weight XML, otherwise they need
+		not override it.
 		"""
 		raise NotImplementedError
 
@@ -302,19 +309,57 @@ class Bins(object):
 	def from_xml(cls, xml):
 		"""
 		From the XML Param element at xml, return the Bins object
-		it describes.
+		it describes.  Subclasses must override this method to be
+		de-serializable from LIGO Light Weight XML, otherwise they
+		need not override it.
 		"""
 		raise NotImplementedError
 
 
-class LoHiCountToFromXMLMixin(object):
+class LoHiCountBins(Bins):
 	"""
-	For internal use by XML I/O code.
+	Base class to help implement binnings that can be defined by a
+	lower bound, an upper bound, and a count of bins.  This is not a
+	binning.
 	"""
+	def __init__(self, min, max, n):
+		"""
+		The three arguments are the minimum and maximum of the
+		values spanned by the bins, and the number of bins to place
+		between them.
+		"""
+		if not isinstance(n, int):
+			raise TypeError(n)
+		if n < 1:
+			raise ValueError(n)
+		if max <= min:
+			raise ValueError((min, max))
+		self.min = min
+		self.max = max
+		self.n = n
+
+	def __len__(self):
+		return self.n
+
+	def __cmp__(self, other):
+		"""
+		Two binnings are the same if they are instances of the same
+		class, have the same lower and upper bounds, and the same
+		count of bins.
+		"""
+		if not isinstance(other, type(self)):
+			return -1
+		return cmp((type(self), self.min, self.max, self.n), (type(other), other.min, other.max, other.n))
+
+	#
+	# XML I/O related methods and data
+	#
+
 	def to_xml(self):
 		"""
 		Construct a LIGO Light Weight XML representation of the
-		Bins instance.
+		Bins instance.  Subclasses must define the .xml_bins_name
+		class attribute.
 		"""
 		return ligolw_param.Param.from_pyvalue(self.xml_bins_name_enc(self.xml_bins_name), u"%s,%s,%s" % (ligolw_types.FormatFunc[u"real_8"](self.min), ligolw_types.FormatFunc[u"real_8"](self.max), ligolw_types.FormatFunc[u"int_8s"](self.n)))
 
@@ -322,7 +367,8 @@ class LoHiCountToFromXMLMixin(object):
 	def from_xml(cls, xml):
 		"""
 		From the XML Param element at xml, return the Bins object
-		it describes.
+		it describes.  Subclasses must define the .xml_bins_name
+		class attribute.
 		"""
 		if not cls.xml_bins_check(xml, cls.xml_bins_name):
 			raise ValueError("not a %s" % repr(cls))
@@ -437,7 +483,7 @@ class IrregularBins(Bins):
 		return cls(map(ligolw_types.ToPyType[u"real_8"], xml.pcdata.split(u",")))
 
 
-class LinearBins(LoHiCountToFromXMLMixin, Bins):
+class LinearBins(LoHiCountBins):
 	"""
 	Linearly-spaced bins.  There are n bins of equal size, the first
 	bin starts on the lower bound and the last bin ends on the upper
@@ -510,7 +556,7 @@ class LinearBins(LoHiCountToFromXMLMixin, Bins):
 	xml_bins_name = u"linbins"
 
 
-class LinearPlusOverflowBins(LoHiCountToFromXMLMixin, Bins):
+class LinearPlusOverflowBins(LoHiCountBins):
 	"""
 	Linearly-spaced bins with overflow at the edges.  There are n-2
 	bins of equal size.  The bin 1 starts on the lower bound and bin
@@ -588,7 +634,7 @@ class LinearPlusOverflowBins(LoHiCountToFromXMLMixin, Bins):
 	xml_bins_name = u"linplusoverflowbins"
 
 
-class LogarithmicBins(LoHiCountToFromXMLMixin, Bins):
+class LogarithmicBins(LoHiCountBins):
 	"""
 	Logarithmically-spaced bins.  There are n bins, each of whose upper
 	and lower bounds differ by the same factor.  The first bin starts
@@ -640,7 +686,7 @@ class LogarithmicBins(LoHiCountToFromXMLMixin, Bins):
 	xml_bins_name = u"logbins"
 
 
-class LogarithmicPlusOverflowBins(LoHiCountToFromXMLMixin, Bins):
+class LogarithmicPlusOverflowBins(LoHiCountBins):
 	"""
 	Logarithmically-spaced bins plus one bin at each end that goes to
 	zero and positive infinity respectively.  There are n-2 bins each
@@ -712,7 +758,7 @@ class LogarithmicPlusOverflowBins(LoHiCountToFromXMLMixin, Bins):
 	xml_bins_name = u"logplusoverflowbins"
 
 
-class ATanBins(LoHiCountToFromXMLMixin, Bins):
+class ATanBins(LoHiCountBins):
 	"""
 	Bins spaced uniformly in tan^-1 x.  Provides approximately linear
 	binning in the middle portion, with the bin density dropping
@@ -779,7 +825,7 @@ class ATanBins(LoHiCountToFromXMLMixin, Bins):
 	xml_bins_name = u"atanbins"
 
 
-class ATanLogarithmicBins(LoHiCountToFromXMLMixin, IrregularBins):
+class ATanLogarithmicBins(LoHiCountBins, IrregularBins):
 	"""
 	Provides the same binning as the ATanBins class but in the
 	logarithm of the variable.  The min and max parameters set the
@@ -832,11 +878,13 @@ class ATanLogarithmicBins(LoHiCountToFromXMLMixin, IrregularBins):
 			boundaries = numpy.exp(boundaries)
 		boundaries = numpy.hstack((boundaries, [PosInf, 0.]))
 		keepers = boundaries[:-1] != boundaries[1:]
-		super(ATanLogarithmicBins, self).__init__(boundaries[:-1][keepers])
+		IrregularBins.__init__(self, boundaries[:-1][keepers])
 		self.keepers = keepers[:-1]
 		self.min = min
 		self.max = max
 		self.n = n
+
+	__len__ = IrregularBins.__len__
 
 	def centres(self):
 		offset = 0.5 * math.pi * self.delta
@@ -894,21 +942,22 @@ class Categories(Bins):
 	"""
 	def __init__(self, categories):
 		"""
-		categories is an iterable of containers defining the
-		categories.  (Recall that containers are collections that
-		support the "in" operator.) Objects will be mapped to the
-		integer index of the container that contains them.
+		categories is an iterable of containers (objects that
+		support the "in" operator) defining the categories.
+		Objects will be mapped to the integer index of the
+		container that contains them.
 		"""
-		self.containers = tuple(categories)  # need to set an order and len
+		# make immutable copy
+		self.containers = tuple(categories)
 
 	def __len__(self):
 		return len(self.containers)
 
 	def __getitem__(self, value):
 		"""
-		Return i if value is contained in i-th container. If value
+		Return i if value is contained in i-th container.  If value
 		is not contained in any of the containers, raise an
-		IndexError.
+		IndexError.  This is O(n).
 		"""
 		for i, s in enumerate(self.containers):
 			if value in s:
@@ -1039,6 +1088,9 @@ class NDBins(tuple):
 	Note that the co-ordinates to be converted must be a tuple, even if
 	it is only a 1-dimensional co-ordinate.
 	"""
+	def __init__(self, binnings):
+		self._getitems = tuple(binning.__getitem__ for binning in binnings)
+
 	def __getitem__(self, coords):
 		"""
 		When coords is a tuple this is a synonym for self(*coords),
@@ -1094,7 +1146,7 @@ class NDBins(tuple):
 		"""
 		if len(coords) != len(self):
 			raise ValueError("dimension mismatch")
-		return tuple(b[c] for b, c in zip(self, coords))
+		return tuple(g(c) for g, c in zip(self._getitems, coords))
 
 	@property
 	def shape(self):
@@ -1242,7 +1294,7 @@ class NDBins(tuple):
 #
 
 
-def bins_spanned(bins, seglist, dtype = "double"):
+def bins_spanned(bins, seglist):
 	"""
 	Input is a Bins subclass instance and a glue.segments.segmentlist
 	instance.  The output is an array object the length of the binning,
@@ -1271,15 +1323,10 @@ def bins_spanned(bins, seglist, dtype = "double"):
 	"""
 	lower = bins.lower()
 	upper = bins.upper()
-	# make an intersection of the segment list with the extend of the bins
-	# need to use lower/upper instead of min/max because the latter sometimes
-	# merely correspond to low and high parameters used to construct the binning
-	# (see, for example, the atan binning)
+	# performance improvement:  pre-clip segments to the domain of the
+	# binning
 	seglist = seglist & segments.segmentlist([segments.segment(lower[0], upper[-1])])
-	array = numpy.zeros((len(bins),), dtype = dtype)
-	for i, (a, b) in enumerate(zip(lower, upper)):
-		array[i] = abs(seglist & segments.segmentlist([segments.segment(a, b)]))
-	return array
+	return numpy.fromiter((abs(seglist & segments.segmentlist([seg])) for seg in zip(lower, upper)), dtype = lower.dtype, count = len(bins))
 
 
 #
@@ -1382,10 +1429,10 @@ class BinnedArray(object):
 			self.array = array
 
 	def __getitem__(self, coords):
-		return self.array[self.bins[coords]]
+		return self.array[self.bins(*coords)]
 
 	def __setitem__(self, coords, val):
-		self.array[self.bins[coords]] = val
+		self.array[self.bins(*coords)] = val
 
 	def __len__(self):
 		return len(self.array)
@@ -1399,15 +1446,6 @@ class BinnedArray(object):
 			raise TypeError("incompatible binning: %s" % repr(other))
 		self.array += other.array
 		return self
-		# here's an implementation that allows the binnings to
-		# differ.  each bin in other is added to whichever bin in
-		# self its centre is found in.  this behaviour probably
-		# leads to undesirable results if other's binning is less
-		# dense than self's.  would need to spread other's bins'
-		# contents out somehow.  probably there's no behaviour that
-		# is correct for all use cases.
-		#for coords in iterutils.MultiIter(*other.bins.centres()):
-		#	self[coords] += other[coords]
 
 	def copy(self):
 		"""
@@ -1528,15 +1566,10 @@ class BinnedRatios(object):
 		Add the weights from another BinnedRatios object's
 		numerator and denominator to the numerator and denominator
 		of this one.  Note that this is not the same as adding the
-		ratios.  It is not necessary for the binnings to be
-		identical, but an integer number of the bins in other must
-		fit into each bin in self.
+		ratios.  The binnings must be identical.
 		"""
-		try:
-			self.numerator += other.numerator
-			self.denominator += other.denominator
-		except TypeError:
-			raise TypeError("incompatible binning: %s" % repr(other))
+		self.numerator += other.numerator
+		self.denominator += other.denominator
 		return self
 
 	def incnumerator(self, coords, weight = 1):
@@ -1872,55 +1905,42 @@ def gaussian_window(*bins, **kwargs):
 		return window
 
 
-def tophat_window(bins):
+def tophat_window(*bins):
 	"""
-	Generate a normalized (integral = 1) top-hat window in 1 dimension.
-	bins sets the width of the window in bin counts, which is rounded
-	up to the nearest odd integer.
+	Generate a normalized (integral = 1) rectangular window in N
+	dimensions.  The bins parameters set the width of the window in bin
+	counts in each dimension, each of which is rounded up to the
+	nearest odd integer.
 
 	Example:
 
 	>>> tophat_window(4)
 	array([ 0.2,  0.2,  0.2,  0.2,  0.2])
+	>>> tophat_window(4, 4)
+	array([[ 0.04,  0.04,  0.04,  0.04,  0.04],
+	       [ 0.04,  0.04,  0.04,  0.04,  0.04],
+	       [ 0.04,  0.04,  0.04,  0.04,  0.04],
+	       [ 0.04,  0.04,  0.04,  0.04,  0.04],
+	       [ 0.04,  0.04,  0.04,  0.04,  0.04]])
 	"""
-	if bins <= 0:
-		raise ValueError(bins)
-	w = lal.CreateRectangularREAL8Window(int(math.floor(bins / 2.0)) * 2 + 1)
-	return w.data.data / w.sum
-
-
-def tophat_window2d(bins_x, bins_y):
-	"""
-	Generate a normalized (integral = 1) top-hat window in 2
-	dimensions.  bins_x and bins_y set the widths of the window in bin
-	counts, which are both rounded up to the nearest odd integer.  The
-	result is a rectangular array, with an elliptical pattern of
-	elements set to a constant value centred on the array's mid-point,
-	and all other elements set to 0.
-	"""
-	if bins_x <= 0:
-		raise ValueError(bins_x)
-	if bins_y <= 0:
-		raise ValueError(bins_y)
-
-	# This might appear to be using a screwy, slow, algorithm but it's
-	# the only way I have found to get a window with the correct bins
-	# set and cleared as appropriate.  I'd love this to be replaced by
-	# something that's easier to know is correct.
-
-	# fill rectangle with ones, making the number of bins odd in each
-	# direction
-	window = numpy.ones((int(bins_x / 2.0) * 2 + 1, int(bins_y / 2.0) * 2 + 1), "Float64")
-
-	# zero the bins outside the window
-	for x, y in iterutils.MultiIter(*map(range, window.shape)):
-		if ((x - window.shape[0] // 2) / float(bins_x) * 2.0)**2 + ((y - window.shape[1] // 2) / float(bins_y) * 2.0)**2 > 1.0:
-			window[x, y] = 0.0
-
-	# normalize
-	window /= window.sum()
-
-	return window
+	if not bins:
+		raise ValueError("function requires at least 1 width")
+	windows = []
+	for b in bins:
+		if bins <= 0:
+			raise ValueError("negative width: %s" % repr(b))
+		w = lal.CreateRectangularREAL8Window(int(math.floor(b / 2.0)) * 2 + 1)
+		windows.append(w.data.data / w.sum)
+	if len(windows) == 1:
+		# 1D short-cut
+		return windows[0]
+	try:
+		return numpy.einsum(",".join("abcdefghijklmnopqrstuvwxyz"[:len(windows)]), *windows)
+	except AttributeError:
+		# numpy < 1.6
+		window = reduce(numpy.outer, windows)
+		window.shape = tuple(len(w) for w in windows)
+		return window
 
 
 #

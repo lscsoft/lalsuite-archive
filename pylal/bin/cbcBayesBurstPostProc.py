@@ -50,7 +50,6 @@ from matplotlib import pyplot as plt
 #local application/library specific imports
 from pylal import SimInspiralUtils
 from pylal import bayespputils as bppu
-from pylal import SimBurstUtils
 
 from pylal import git_version
 
@@ -122,7 +121,7 @@ class LIGOLWContentHandlerExtractSimInspiralTable(ligolw.LIGOLWContentHandler):
       self.intable=False
       self.tableElementName=''
     def startElement(self,name,attrs):
-      if attrs.has_key('Name') and attrs['Name']==self.tabname:
+      if attrs.has_key('Name') and table.Table.TableName(attrs['Name'])==self.tabname:
         self.tableElementName=name
         # Got the right table, let's see if it's the right event
         ligolw.LIGOLWContentHandler.startElement(self,name,attrs)
@@ -142,7 +141,7 @@ class LIGOLWContentHandlerExtractSimBurstTable(ligolw.LIGOLWContentHandler):
       self.intable=False
       self.tableElementName=''
     def startElement(self,name,attrs):
-      if attrs.has_key('Name') and attrs['Name']==self.tabname:
+      if attrs.has_key('Name') and table.Table.TableName(attrs['Name'])==self.tabname:
         self.tableElementName=name
         # Got the right table, let's see if it's the right event
         ligolw.LIGOLWContentHandler.startElement(self,name,attrs)
@@ -388,9 +387,7 @@ def cbcBayesBurstPostProc(
 
     if eventnum is None and injfile is not None:
         import itertools
-        if got_burst_table==1:
-            injections = SimBurstUtils.ReadSimBurstFromFiles([injfile])
-        elif got_inspiral_table==1:
+        if got_inspiral_table==1:
             injections = SimInspiralUtils.ReadSimInpiralFromFiles([injfile])
 
         if(len(injections)<1):

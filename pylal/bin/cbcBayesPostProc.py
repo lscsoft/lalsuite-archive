@@ -112,8 +112,18 @@ def email_notify(address,path):
         webpath=os.path.join('~%s'%(USER),b,webpath)
         onweb=True
     else:
-        webpath=os.path.join(fslocation,'posplots.html')
-        onweb=False
+        (c,d)=outpath.split(os.environ['USER'])
+        for k in ['public_html','WWW','www_html']:
+            trypath=c+os.environ['USER']+'/'+k+d
+            #Follow symlinks
+            if os.path.realpath(trypath)==os.path.normpath(outpath):
+                (a,b)=trypath.split(k)
+                webpath=os.path.join('~%s'%(USER),b,webpath)
+                onweb=True
+                break
+            else:
+                webpath=os.path.join(fslocation,'posplots.html')
+                onweb=False
     if 'atlas' in HOST:
         url="https://atlas1.atlas.aei.uni-hannover.de/"
     elif 'cit' in HOST or 'caltech' in HOST:
@@ -128,6 +138,8 @@ def email_notify(address,path):
         url="https://sugar-jobs.phy.syr.edu/"
     elif 'arcca.cf.ac.uk' in HOST:
         url="https://geo2.arcca.cf.ac.uk/"
+    elif 'vulcan' in HOST:
+        url="https://galahad.aei.mpg.de/"
     else:
         if onweb:
           url="http://%s/"%(HOST)
@@ -141,7 +153,7 @@ def email_notify(address,path):
     (out, err) = proc.communicate()
     #print "program output %s error %s:"%(out,err)
 
-#Import content handler 
+#Import content handler
 from pylal.SimInspiralUtils import ExtractSimInspiralTableLIGOLWContentHandler
 lsctables.use_in(ExtractSimInspiralTableLIGOLWContentHandler)
 
@@ -229,7 +241,7 @@ def cbcBayesPostProc(
                         #spinspiral/mcmc options
                         ss_flag=False,ss_spin_flag=False,
                         #lalinferenceMCMC options
-                        li_flag=False,deltaLogL=None,fixedBurnins=None,nDownsample=None,oldMassConvention=False,
+                        li_flag=False,deltaLogP=None,fixedBurnins=None,nDownsample=None,oldMassConvention=False,
                         #followupMCMC options
                         fm_flag=False,
                         #spin frame for the injection
@@ -287,11 +299,11 @@ def cbcBayesPostProc(
 
     elif ss_flag and not ns_flag:
         peparser=bppu.PEOutputParser('mcmc_burnin')
-        commonResultsObj=peparser.parse(data,spin=ss_spin_flag,deltaLogL=deltaLogL)
+        commonResultsObj=peparser.parse(data,spin=ss_spin_flag,deltaLogP=deltaLogP)
 
     elif li_flag:
         peparser=bppu.PEOutputParser('inf_mcmc')
-        commonResultsObj=peparser.parse(data,outdir=outdir,deltaLogL=deltaLogL,fixedBurnins=fixedBurnins,nDownsample=nDownsample,oldMassConvention=oldMassConvention)
+        commonResultsObj=peparser.parse(data,outdir=outdir,deltaLogP=deltaLogP,fixedBurnins=fixedBurnins,nDownsample=nDownsample,oldMassConvention=oldMassConvention)
 
     elif ss_flag and ns_flag:
         raise RuntimeError("Undefined input format. Choose only one of:")
@@ -304,11 +316,11 @@ def cbcBayesPostProc(
     elif '.hdf' in data[0] or '.h5' in data[0]:
         if len(data) > 1:
             peparser = bppu.PEOutputParser('hdf5s')
-            commonResultsObj=peparser.parse(data,deltaLogL=deltaLogL,fixedBurnins=fixedBurnins,nDownsample=nDownsample)
+            commonResultsObj=peparser.parse(data,deltaLogP=deltaLogP,fixedBurnins=fixedBurnins,nDownsample=nDownsample)
         else:
             fixedBurnins = fixedBurnins if fixedBurnins is not None else None
             peparser = bppu.PEOutputParser('hdf5')
-            commonResultsObj=peparser.parse(data[0],deltaLogL=deltaLogL,fixedBurnin=fixedBurnins,nDownsample=nDownsample)
+            commonResultsObj=peparser.parse(data[0],deltaLogP=deltaLogP,fixedBurnin=fixedBurnins,nDownsample=nDownsample)
     else:
         peparser=bppu.PEOutputParser('common')
         commonResultsObj=peparser.parse(open(data[0],'r'),info=[header,None])
@@ -316,7 +328,7 @@ def cbcBayesPostProc(
         if os.path.isfile(data[0]+"_header.txt"):
           import shutil
           shutil.copy2(data[0]+"_header.txt", os.path.join(outdir,'nest_headers.txt'))
-    
+
     #Extract f_ref from CRO if present.  This is needed to calculate orbital angular momentum
     #  when converting spin parameters.  Ideally this info will be provided in the
     #  SimInspiralTable in the near future.
@@ -382,7 +394,7 @@ def cbcBayesPostProc(
     #Create an instance of the posterior class using the posterior values loaded
     #from the file and any injection information (if given).
     pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection,inj_spin_frame=inj_spin_frame, injFref=injFref,SnglInpiralList=triggers,votfile=votfile)
- 
+
     #Create analytic likelihood functions if covariance matrices and mean vectors were given
     analyticLikelihood = None
     if covarianceMatrices and meanVectors:
@@ -455,7 +467,7 @@ def cbcBayesPostProc(
     # Save posterior samples
     posfilename=os.path.join(outdir,'posterior_samples.dat')
     pos.write_to_file(posfilename)
-    
+
     #==================================================================#
     #Create web page
     #==================================================================#
@@ -485,18 +497,19 @@ def cbcBayesPostProc(
     SampsStats.p(filenames)
     td=html_meta.insert_td(row,'',label='SummaryLinks')
     legend=html.add_section_to_element('Sections',td)
-    
+
     # Create a section for HDF5 metadata if available
     if '.h5' in data[0] or '.hdf' in data[0]:
         html_hdf=html.add_section('Metadata',legend=legend)
         import h5py
         with h5py.File(data[0],'r') as h5grp:
             extract_hdf5_metadata(h5grp,parent=html_hdf)
-    
+
     #Create a section for model selection results (if they exist)
-    if bayesfactornoise is not None:
+    if bayesfactorcoherent is not None or bayesfactornoise is not None:
         html_model=html.add_section('Model selection',legend=legend)
-        html_model.p('log Bayes factor ( coherent vs gaussian noise) = %s, Bayes factor=%f'%(BSN,exp(float(BSN))))
+        if bayesfactornoise is not None:
+            html_model.p('log Bayes factor ( coherent vs gaussian noise) = %s, Bayes factor=%f'%(BSN,exp(float(BSN))))
         if bayesfactorcoherent is not None:
             html_model.p('log Bayes factor ( coherent vs incoherent OR noise ) = %s, Bayes factor=%f'%(BCI,exp(float(BCI))))
 
@@ -556,7 +569,7 @@ def cbcBayesPostProc(
     statfilename=os.path.join(outdir,"summary_statistics.dat")
     statout=open(statfilename,"w")
     statout.write("\tmaP\tmaxL\tKL\tstdev\tmean\tmedian\tstacc\tinjection\tvalue\n")
-    
+
     warned_about_kl = False
     for statname,statoned_pos in pos:
 
@@ -577,23 +590,23 @@ def cbcBayesPostProc(
       statmedian=str(squeeze(statoned_pos.median))
       statstacc=str(statoned_pos.stacc)
       statinjval=str(statoned_pos.injval)
-      
+
       statarray=[str(i) for i in [statname,statmaxP,statmaxL,statKL,statstdev,statmean,statmedian,statstacc,statinjval]]
       statout.write("\t".join(statarray))
       statout.write("\n")
-      
+
     statout.close()
 
     #==================================================================#
     #Generate sky map, WF, and PSDs
     #==================================================================#
-   
+
     skyreses=None
     sky_injection_cl=None
     inj_position=None
     tabid='skywftable'
     html_wf=html.add_collapse_section('Sky Localization and Waveform',innertable_id=tabid)
-    
+
     table=html_wf.tab(idtable=tabid)
     row=html_wf.insert_row(table,label='SkyandWF')
     skytd=html_wf.insert_td(row,'',label='SkyMap',legend=legend)
@@ -609,10 +622,10 @@ def cbcBayesPostProc(
 
         hpmap = pos.healpix_map(float(skyres), nest=True)
         bppu.plot_sky_map(hpmap, outdir, inj=inj_position, nest=True)
-        
+
         if inj_position is not None:
             html_sky.p('Injection found at p = %g'%bppu.skymap_inj_pvalue(hpmap, inj_position, nest=True))
-            
+
         html_sky.write('<a href="skymap.png" target="_blank"><img src="skymap.png"/></a>')
 
         html_sky_write='<table border="1" id="statstable"><tr><th>Confidence region</th><th>size (sq. deg)</th></tr>'
@@ -640,7 +653,7 @@ def cbcBayesPostProc(
     else:
       print "Could not create WF plot.\n"
       wfsection.write("<b>No Waveform generated!</b>")
-      
+
     wftd=html_wf.insert_td(row,'',label='PSDs',legend=legend)
     wfsection=html.add_section_to_element('PSDs',wftd)
     if psd_files is not None:
@@ -649,7 +662,11 @@ def cbcBayesPostProc(
       if not os.path.isdir(psddir):
         os.makedirs(psddir)
       try:
-        bppu.plot_psd(psd_files,outpath=psddir)
+        if 'flow' in pos.names:
+          f_low = pos['flow'].samples.min()
+        else:
+          f_low = 30.
+        bppu.plot_psd(psd_files,outpath=psddir, f_min=f_low)
         wfsection.write('<a href="PSDs/PSD.png" target="_blank"><img src="PSDs/PSD.png"/></a>')
       except  Exception,e:
         print "Could not create PSD plot. The error was: %s\n"%str(e)
@@ -687,14 +704,14 @@ def cbcBayesPostProc(
     if not os.path.isdir(sampsdir):
         os.makedirs(sampsdir)
     reses={}
-    
+
     for i in oneDMenus.keys():
       rss=bppu.make_1d_table(html,legend,i,pos,oneDMenus[i],noacf,GreedyRes,onepdfdir,sampsdir,savepdfs,greedy,analyticLikelihood,nDownsample)
       reses.update(rss)
 
-    
-    
-    
+
+
+
     tabid='onedconftable'
     html_ogci=html.add_collapse_section('1D confidence intervals (greedy binning)',legend=legend,innertable_id=tabid)
     html_ogci_write='<table id="%s" border="1"><tr><th/>'%tabid
@@ -1057,30 +1074,30 @@ def cbcBayesPostProc(
 
     if RconvergenceTests is True:
         convergenceResults=bppu.convergenceTests(pos,gelman=False)
-        
+
         if convergenceResults is not None:
             tabid='convtable'
             html_conv_test=html.add_collapse_section('Convergence tests',legend=legend,innertable_id=tabid)
             data_found=False
             for test,test_data in convergenceResults.items():
-                
+
                 if test_data:
                     data_found=True
                     html_conv_test.h3(test)
-                                       
+
                     html_conv_table_rows={}
                     html_conv_table_header=''
                     for chain,chain_data in test_data.items():
                         html_conv_table_header+='<th>%s</th>'%chain
-                        
-                        
+
+
                         for data in chain_data:
                             if len(data)==2:
                                 try:
                                     html_conv_table_rows[data[0]]+='<td>'+data[1]+'</td>'
                                 except KeyError:
                                     html_conv_table_rows[data[0]]='<td>'+data[1]+'</td>'
-                                
+
                     html_conv_table='<table id="%s"><tr><th>Chain</th>'%tabid+html_conv_table_header+'</tr>'
                     for row_name,row in html_conv_table_rows.items():
                         html_conv_table+='<tr><td>%s</td>%s</tr>'%(row_name,row)
@@ -1122,14 +1139,14 @@ def cbcBayesPostProc(
     if pos._votfile is not None:
         html_vot=html.add_section('Run information',legend=legend)
         html_vot.write(pos.write_vot_info())
-    
+
     html_footer=html.add_section('')
     html_footer.p('Produced using cbcBayesPostProc.py at '+strftime("%Y-%m-%d %H:%M:%S")+' .')
 
     cc_args=''
     for arg in sys.argv:
         cc_args+=arg+' '
-        
+
     html_footer.p('Command line: %s'%cc_args)
     html_footer.p(git_version.verbose_msg)
 
@@ -1165,7 +1182,7 @@ if __name__=='__main__':
     parser.add_option("--dievidence",action="store_true",default=False,help="Calculate the direct integration evidence for the posterior samples")
     parser.add_option("--boxing",action="store",default=64,help="Boxing parameter for the direct integration evidence calculation",type="int",dest="boxing")
     parser.add_option("--evidenceFactor",action="store",default=1.0,help="Overall factor (normalization) to apply to evidence",type="float",dest="difactor",metavar="FACTOR")
-    
+
     parser.add_option('--ellipticEvidence', action='store_true', default=False,help='Estimate the evidence by fitting ellipse to highest-posterior points.', dest='ellevidence')
 
     parser.add_option("--plot-2d", action="store_true", default=False,help="Make individual 2-D plots.")
@@ -1181,7 +1198,8 @@ if __name__=='__main__':
     parser.add_option("--lalinfmcmc",action="store_true",default=False,help="(LALInferenceMCMC) Parse input from LALInferenceMCMC.")
     parser.add_option("--inj-spin-frame",default='OrbitalL', help="The reference frame used for the injection (default: OrbitalL)")
     parser.add_option("--downsample",action="store",default=None,help="(LALInferenceMCMC) approximate number of samples to record in the posterior",type="int")
-    parser.add_option("--deltaLogL",action="store",default=None,help="(LALInferenceMCMC) Difference in logL to use for convergence test.",type="float")
+    parser.add_option("--deltaLogL",action="store",default=None,help="(LALInferenceMCMC) Difference in logL to use for convergence test. (DEPRECATED)",type="float")
+    parser.add_option("--deltaLogP",action="store",default=None,help="(LALInferenceMCMC) Difference in logpost to use for burnin criteria.",type="float")
     parser.add_option("--fixedBurnin",dest="fixedBurnin",action="callback",callback=multipleFileCB,help="(LALInferenceMCMC) Fixed number of iteration for burnin.")
     parser.add_option("--oldMassConvention",action="store_true",default=False,help="(LALInferenceMCMC) if activated, m2 > m1; otherwise m1 > m2 in PTMCMC.output.*.00")
     #FM
@@ -1207,7 +1225,7 @@ if __name__=='__main__':
       datafiles=datafiles+args
     if opts.data:
       datafiles=datafiles + opts.data
-    
+
     if opts.fixedBurnin:
       # If only one value for multiple chains, assume it's to be applied to all chains
       if len(opts.fixedBurnin) == 1:
@@ -1217,7 +1235,7 @@ if __name__=='__main__':
     else:
       fixedBurnins = None
 
-    import pylal 
+    import pylal
     from pylal.bayespputils import massParams,spinParams,cosmoParam,strongFieldParams,distParams,incParams,polParams,skyParams,phaseParams,timeParams,endTimeParams,statsParams,calibParams,snrParams,tidalParams
 
     oneDMenus={'Masses':None,'SourceFrame':None,'Timing':None,'Extrinsic':None,'Spins':None,'StrongField':None,'Others':None}
@@ -1229,7 +1247,7 @@ if __name__=='__main__':
     oneDMenus['StrongField']= strongFieldParams
     oneDMenus['Others']=snrParams+statsParams+calibParams
     oneDMenus['SourceFrame']= cosmoParam
-    
+
     if opts.noplot_source_frame:
       oneDMenus['SourceFrame']= []
 
@@ -1304,13 +1322,19 @@ if __name__=='__main__':
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
     greedyBinSizes=bppu.greedyBinSizes
-    
-    
+
+
     if opts.plot_2d:
         for dt1,dt2 in combinations(['h1_end_time','l1_end_time','v1_end_time'],2):
           twoDGreedyMenu.append([dt1,dt2])
         for dt1,dt2 in combinations( ['h1l1_delay','l1v1_delay','h1v1_delay'],2):
           twoDGreedyMenu.append([dt1,dt2])
+
+    if opts.deltaLogL and not opts.deltaLogP:
+        print("DEPRECATION WARNING: --deltaLogL has been replaced by --deltaLogP.  Using the posterior to define burnin criteria")
+        deltaLogP = opts.deltaLogL
+    else:
+        deltaLogP = opts.deltaLogP
 
     confidenceLevels=bppu.confidenceLevels
     #2D plots list
@@ -1336,7 +1360,7 @@ if __name__=='__main__':
                         #spinspiral/mcmc options
                         ss_flag=opts.ss,ss_spin_flag=opts.spin,
                         #LALInferenceMCMC options
-                        li_flag=opts.lalinfmcmc,deltaLogL=opts.deltaLogL,fixedBurnins=fixedBurnins,nDownsample=opts.downsample,oldMassConvention=opts.oldMassConvention,
+                        li_flag=opts.lalinfmcmc,deltaLogP=deltaLogP,fixedBurnins=fixedBurnins,nDownsample=opts.downsample,oldMassConvention=opts.oldMassConvention,
                         #followupMCMC options
                         fm_flag=opts.fm,
                         #injected spin frame

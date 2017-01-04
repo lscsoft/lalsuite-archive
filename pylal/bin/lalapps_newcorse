@@ -36,6 +36,8 @@ import sys
 import copy
 import time
 
+from lal import utils as lalutils
+
 from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
@@ -44,7 +46,6 @@ from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
 from pylal import rate
 from pylal import db_thinca_rings
-from glue import lal
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -138,7 +139,7 @@ def parse_command_line():
 	#
 
 	if options.input_cache is not None:
-		filenames += [lal.CacheEntry(line).path for filename in options.input_cache for line in file(filename)]
+		filenames += [lalutils.CacheEntry(line).path for filename in options.input_cache for line in file(filename)]
 
 	#
 	# done

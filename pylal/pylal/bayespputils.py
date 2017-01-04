@@ -114,7 +114,7 @@ def replace_column(table, old, new):
 # Constants
 #===============================================================================
 #Parameters which are not to be exponentiated when found
-logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior']
+logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior','logpost']
 #Parameters known to cbcBPP
 relativePhaseParams=[ a+b+'_relative_phase' for a,b in combinations(['h1','l1','v1'],2)]
 snrParams=['snr','optimal_snr','matched_filter_snr'] + ['%s_optimal_snr'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_amp'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_arg'%(i) for i in ['h1', 'l1', 'v1']] + relativePhaseParams
@@ -3851,10 +3851,10 @@ def orbital_momentum(fref, m1,m2, inclination):
 #
 #
 def orbital_momentum_mag(fref, m1,m2,eta):
-    v0 = np.power(pi_constant * lal.MTSUN_SI * fref, 1.0/3.0)
+    v0 = np.power((m1+m2) *pi_constant * lal.MTSUN_SI * fref, 1.0/3.0)
     #1 PN Mtot*Mtot*eta/v
     PNFirst = (((m1+m2)**2)*eta)/v0
-    PNSecond = 1+ (v0**2) * (3.0/2.0 -eta/6.0)
+    PNSecond = 1+ (v0**2) * (3.0/2.0 +eta/6.0)
     Lmag= PNFirst*PNSecond
     return Lmag
 
@@ -5396,9 +5396,9 @@ def contigious_interval_one_param(posterior,contInt1Params,confidence_levels):
 
     return oneDContCL,oneDContInj
 #
-def burnin(data,spin_flag,deltaLogL,outputfile):
+def burnin(data,spin_flag,deltaLogP,outputfile):
 
-    pos,bayesfactor=_burnin(data,spin_flag,deltaLogL,outputfile)
+    pos,bayesfactor=_burnin(data,spin_flag,deltaLogP,outputfile)
 
     return pos,bayesfactor
 
@@ -5528,6 +5528,9 @@ def find_ndownsample(samples, nDownsample):
                      "time_mean", "time_maxl","sky_frame","psdscaleflag","logdeltaf","flow","f_ref",
                      "lal_amporder","lal_pnorder","lal_approximant","tideo","spino","signalmodelflag",
                      "t0", "phase_maxl", "azimuth", "cosalpha", "lal_amporder"] + logParams + snrParams + splineParams
+        fixedParams = [p for p in samples.colnames if all(x==samples[p][0] for x in samples[p])]
+        print "Fixed parameters: "+str(fixedParams)
+        nonParams.extend(fixedParams)
         params = [p for p in samples.colnames if p.lower() not in nonParams]
         stride=np.diff(samples['cycle'])[0]
         results = np.array([np.array(effectiveSampleSize(samples[param])[:2]) for param in params])
@@ -5586,13 +5589,13 @@ class PEOutputParser(object):
         """
         return self._parser(files,**kwargs)
 
-    def _infmcmc_to_pos(self,files,outdir=None,deltaLogL=None,fixedBurnins=None,nDownsample=None,oldMassConvention=False,**kwargs):
+    def _infmcmc_to_pos(self,files,outdir=None,deltaLogP=None,fixedBurnins=None,nDownsample=None,oldMassConvention=False,**kwargs):
         """
         Parser for lalinference_mcmcmpi output.
         """
         if not (fixedBurnins is None):
-            if not (deltaLogL is None):
-                print "Warning: using deltaLogL criteria in addition to fixed burnin"
+            if not (deltaLogP is None):
+                print "Warning: using deltaLogP criteria in addition to fixed burnin"
             if len(fixedBurnins) == 1 and len(files) > 1:
                 print "Only one fixedBurnin criteria given for more than one output.  Applying this to all outputs."
                 fixedBurnins = np.ones(len(files),'int')*fixedBurnins[0]
@@ -5601,16 +5604,16 @@ class PEOutputParser(object):
             print "Fixed burning criteria: ",fixedBurnins
         else:
             fixedBurnins = np.zeros(len(files))
-        logLThreshold=-1e200 # Really small?
-        if not (deltaLogL is None):
-            logLThreshold= - deltaLogL
-            print "Eliminating any samples before log(Post) = ", logLThreshold
-        nskips=self._find_ndownsample(files, logLThreshold, fixedBurnins, nDownsample)
+        logPThreshold=-np.inf
+        if not (deltaLogP is None):
+            logPThreshold= - deltaLogP
+            print "Eliminating any samples before log(Post) = ", logPThreshold
+        nskips=self._find_ndownsample(files, logPThreshold, fixedBurnins, nDownsample)
         if nDownsample is None:
             print "Downsampling to take only uncorrelated posterior samples from each file."
             if len(nskips) == 1 and np.isnan(nskips[0]):
                 print "WARNING: All samples in chain are correlated.  Downsampling to 10000 samples for inspection!!!"
-                nskips=self._find_ndownsample(files, logLThreshold, fixedBurnins, 10000)
+                nskips=self._find_ndownsample(files, logPThreshold, fixedBurnins, 10000)
             else:
                 for i in range(len(nskips)):
                     if np.isnan(nskips[i]):
@@ -5624,18 +5627,18 @@ class PEOutputParser(object):
         runfile=open(runfileName, 'w')
         outfile=open(postName, 'w')
         try:
-            self._infmcmc_output_posterior_samples(files, runfile, outfile, logLThreshold, fixedBurnins, nskips, oldMassConvention)
+            self._infmcmc_output_posterior_samples(files, runfile, outfile, logPThreshold, fixedBurnins, nskips, oldMassConvention)
         finally:
             runfile.close()
             outfile.close()
         return self._common_to_pos(open(postName,'r'))
 
 
-    def _infmcmc_output_posterior_samples(self, files, runfile, outfile, logLThreshold, fixedBurnins, nskips=None, oldMassConvention=False):
+    def _infmcmc_output_posterior_samples(self, files, runfile, outfile, logPThreshold, fixedBurnins, nskips=None, oldMassConvention=False):
         """
         Concatenate all the samples from the given files into outfile.
         For each file, only those samples past the point where the
-        log(L) > logLThreshold are concatenated after eliminating
+        log(post) > logPThreshold are concatenated after eliminating
         fixedBurnin.
         """
         nRead=0
@@ -5671,14 +5674,14 @@ class PEOutputParser(object):
                     outfile.write("\n")
                     outputHeader=header
                 iterindex=header.index("cycle")
-                loglindex=header.index("logpost")
+                logpindex=header.index("logpost")
                 output=False
                 for line in infile:
                     line=line.lstrip()
                     lineParams=line.split()
                     iter=int(lineParams[iterindex])
-                    logL=float(lineParams[loglindex])
-                    if (iter > fixedBurnin) and (logL >= logLThreshold):
+                    logP=float(lineParams[logpindex])
+                    if (iter > fixedBurnin) and (logP >= logPThreshold):
                         output=True
                     if output:
                         if nRead % nskip == 0:
@@ -5709,27 +5712,27 @@ class PEOutputParser(object):
         else:
             return label[:]
 
-    def _find_max_logL(self, files):
+    def _find_max_logP(self, files):
         """
-        Given a list of files, reads them, finding the maximum log(L)
+        Given a list of files, reads them, finding the maximum log(post)
         """
-        maxLogL = -1e200  # Really small, I hope!
+        maxLogP = -np.inf
         for inpname in files:
             infile=open(inpname, 'r')
             try:
                 runInfo,header=self._clear_infmcmc_header(infile)
-                loglindex=header.index("logpost")
+                logpindex=header.index("logpost")
                 for line in infile:
                     line=line.lstrip().split()
-                    logL=float(line[loglindex])
-                    if logL > maxLogL:
-                        maxLogL=logL
+                    logP=float(line[logpindex])
+                    if logP > maxLogP:
+                        maxLogP=logP
             finally:
                 infile.close()
-        print "Found max log(Post) = ", maxLogL
-        return maxLogL
+        print "Found max log(post) = ", maxLogP
+        return maxLogP
 
-    def _find_ndownsample(self, files, logLthreshold, fixedBurnins, nDownsample):
+    def _find_ndownsample(self, files, logPthreshold, fixedBurnins, nDownsample):
         """
         Given a list of files, threshold value, and a desired
         number of outputs posterior samples, return the skip number to
@@ -5744,7 +5747,7 @@ class PEOutputParser(object):
             try:
                 runInfo,header = self._clear_infmcmc_header(infile)
                 header = [name.lower() for name in header]
-                loglindex = header.index("logpost")
+                logpindex = header.index("logpost")
                 iterindex = header.index("cycle")
                 deltaLburnedIn = False
                 fixedBurnedIn  = False
@@ -5754,10 +5757,15 @@ class PEOutputParser(object):
                 for line in infile:
                     line = line.lstrip().split()
                     iter = int(line[iterindex])
-                    logL = float(line[loglindex])
+                    logP = float(line[logpindex])
                     if iter > fixedBurnin:
                         fixedBurnedIn = True
-                    if logL > logLthreshold:
+                    # If adaptation reset, throw out what was collected so far
+                    elif fixedBurnedIn:
+                        fixedBurnedIn = False
+                        ntot = 0
+                        lines = []
+                    if logP > logPthreshold:
                         deltaLburnedIn = True
                     if iter > 0:
                         adapting = False
@@ -5893,13 +5901,13 @@ class PEOutputParser(object):
         return runInfo[:-1],headers
 
 
-    def _mcmc_burnin_to_pos(self,files,spin=False,deltaLogL=None):
+    def _mcmc_burnin_to_pos(self,files,spin=False,deltaLogP=None):
         """
         Parser for SPINspiral output .
         """
         raise NotImplementedError
-        if deltaLogL is not None:
-            pos,bayesfactor=burnin(data,spin,deltaLogL,"posterior_samples.dat")
+        if deltaLogP is not None:
+            pos,bayesfactor=burnin(data,spin,deltaLogP,"posterior_samples.dat")
             return self._common_to_pos(open("posterior_samples.dat",'r'))
 
     def _ns_to_pos(self,files,Nlive=None,Npost=None,posfilename='posterior_samples.dat'):
@@ -6054,7 +6062,7 @@ class PEOutputParser(object):
         print 'Read columns %s'%(str(header))
         return header,flines
 
-    def _hdf5s_to_pos(self, infiles, fixedBurnins=None, deltaLogL=None, nDownsample=None, **kwargs):
+    def _hdf5s_to_pos(self, infiles, fixedBurnins=None, deltaLogP=None, nDownsample=None, **kwargs):
         from astropy.table import vstack
 
         if fixedBurnins is None:
@@ -6065,21 +6073,21 @@ class PEOutputParser(object):
 
         chains = []
         for i, [infile, fixedBurnin] in enumerate(zip(infiles, fixedBurnins)):
-            chain = self._hdf5_to_table(infile, fixedBurnin=fixedBurnin, deltaLogL=deltaLogL, nDownsample=nDownsample, multiple_chains=multiple_chains, **kwargs)
+            chain = self._hdf5_to_table(infile, fixedBurnin=fixedBurnin, deltaLogP=deltaLogP, nDownsample=nDownsample, multiple_chains=multiple_chains, **kwargs)
             chain.add_column(astropy.table.Column(i*np.ones(len(chain)), name='chain'))
             chains.append(chain)
 
-        # Apply deltaLogL criteria across chains
-        if deltaLogL is not None:
-            logLThreshold = -np.inf
+        # Apply deltaLogP criteria across chains
+        if deltaLogP is not None:
+            logPThreshold = -np.inf
             for chain in chains:
                 if len(chain) > 0:
-                    logLThreshold = max([logLThreshold, max(chain['logl'])- deltaLogL])
-            print("Eliminating any samples before log(L) = {}".format(logLThreshold))
+                    logPThreshold = max([logPThreshold, max(chain['logpost'])- deltaLogP])
+            print("Eliminating any samples before log(L) = {}".format(logPThreshold))
 
         for i, chain in enumerate(chains):
-            if deltaLogL is not None:
-                above_threshold = np.arange(len(chain))[chain['logl'] > logLThreshold]
+            if deltaLogP is not None:
+                above_threshold = np.arange(len(chain))[chain['logpost'] > logPThreshold]
                 burnin_idx = above_threshold[0] if len(above_threshold) > 0 else len(chain)
             else:
                 burnin_idx = 0
@@ -6094,7 +6102,7 @@ class PEOutputParser(object):
 
         return samples.colnames, samples.as_array().view(float).reshape(-1, len(samples.columns))
 
-    def _hdf5_to_table(self, infile, deltaLogL=None, fixedBurnin=None, nDownsample=None, multiple_chains=False, **kwargs):
+    def _hdf5_to_table(self, infile, deltaLogP=None, fixedBurnin=None, nDownsample=None, multiple_chains=False, **kwargs):
         """
         Parse a HDF5 file and return an array of posterior samples ad list of
         parameter names. Equivalent to '_common_to_pos' and work in progress.
@@ -6137,21 +6145,21 @@ class PEOutputParser(object):
         # MCMC burnin and downsampling
         if 'cycle' in params:
             if not (fixedBurnin is None):
-                if not (deltaLogL is None):
-                    print "Warning: using deltaLogL criteria in addition to fixed burnin"
+                if not (deltaLogP is None):
+                    print "Warning: using deltaLogP criteria in addition to fixed burnin"
                 print "Fixed burning criteria: ",fixedBurnin
             else:
                 fixedBurnin = 0
 
-            post_burnin = np.arange(len(samples))[samples['cycle'] > fixedBurnin]
-            burnin_idx = post_burnin[0] if len(post_burnin) > 0 else len(samples)
+            burned_in_cycles = np.arange(len(samples))[samples['cycle'] > fixedBurnin]
+            burnin_idx = burned_in_cycles[0] if len(burned_in_cycles) > 0 else len(samples)
             samples = samples[burnin_idx:]
 
-            logLThreshold=-1e200 # Really small?
-            if len(samples) > 0 and not (deltaLogL is None):
-                logLThreshold = max(samples['logl'])- deltaLogL
-                print "Eliminating any samples before log(L) = ", logLThreshold
-                burnin_idx = np.arange(len(samples))[samples['logl'] > logLThreshold][0]
+            logPThreshold=-np.inf
+            if len(samples) > 0 and not (deltaLogP is None):
+                logPThreshold = max(samples['logpost'])- deltaLogP
+                print "Eliminating any samples before log(post) = ", logPThreshold
+                burnin_idx = np.arange(len(samples))[samples['logpost'] > logPThreshold][0]
                 samples = samples[burnin_idx:]
 
             if len(samples) > 0:
@@ -6875,8 +6883,7 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
   return inj_strains,rec_strains
 
 
-def plot_psd(psd_files,outpath=None):
-  f_min=30.
+def plot_psd(psd_files,outpath=None,f_min=30.):
   myfig2=plt.figure(figsize=(15,15),dpi=500)
   ax=plt.subplot(1,1,1)
   colors={'H1':'r','L1':'g','V1':'m','I1':'k','J1':'y'}
@@ -6905,11 +6912,11 @@ def plot_psd(psd_files,outpath=None):
     fr=[]
     da=[]
     for (f,d) in zip(freq,data):
-      if f>f_min and d!=0.0:
+      if f>f_min and d!=0.0 and np.isfinite(d):
         fr.append(f)
         da.append(d)
     plt.loglog(fr,da,colors[ifo],label=ifo,alpha=0.5,linewidth=3)
-  plt.xlim([min(freq),max(freq)])
+  plt.xlim([min(fr),max(fr)])
   plt.xlabel("Frequency [Hz]",fontsize=26)
   plt.ylabel("PSD",fontsize=26)
   plt.legend(loc='best')
@@ -7083,7 +7090,7 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
       self.intable=False
       self.tableElementName=''
     def startElement(self,name,attrs):
-      if attrs.has_key('Name') and attrs['Name']==self.tabname:
+      if attrs.has_key('Name') and table.Table.TableName(attrs['Name'])==self.tabname:
         self.tableElementName=name
         # Got the right table, let's see if it's the right event
         ligolw.LIGOLWContentHandler.startElement(self,name,attrs)
@@ -7095,8 +7102,6 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
       if self.intable and name==self.tableElementName: self.intable=False
 
   lsctables.use_in(LIGOLWContentHandlerExtractSimBurstTable)
-  #from pylal.SimBurstUtils import ExtractSimBurstTableLIGOLWContentHandler
-  #lsctables.use_in(ExtractSimBurstTableLIGOLWContentHandler)
 
   # time and freq data handling variables
   srate=4096.0

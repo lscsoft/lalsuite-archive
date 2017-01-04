@@ -1,4 +1,6 @@
 import random
+from six.moves import range
+from six.moves import zip
 
 
 #
@@ -13,12 +15,12 @@ def random_coalesced_list(n):
 	def r():
 		return random.randint(1, 127) / 128.0
 	if n < 1:
-		raise ValueError, n
+		raise ValueError(n)
 	l = segments.segmentlist([None] * n)
 	x = r()
 	l[0] = segments.segment(x, x + r())
 	x = l[0][1] + r()
-	for i in xrange(1, n):
+	for i in range(1, n):
 		l[i] = segments.segment(x, x + r())
 		x = l[i][1] + r()
 	return l
@@ -32,10 +34,10 @@ def random_uncoalesced_list(n):
 	def r():
 		return float(random.randint(1, 999)) / 1000
 	if n < 1:
-		raise ValueError, n
+		raise ValueError(n)
 	x = r()
 	l = segments.segmentlist([segments.segment(x, x + r() / 100.0)])
-	for i in xrange(n - 1):
+	for i in range(n - 1):
 		x = r()
 		l.append(segments.segment(x, x + r() / 100.0))
 	return l

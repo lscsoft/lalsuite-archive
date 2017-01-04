@@ -44,7 +44,6 @@ from glue import iterutils
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw.utils import coincs as ligolw_coincs
-from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import time_slide as ligolw_time_slide
 from glue.text_progress_bar import ProgressBar
 from pylal import git_version
@@ -282,30 +281,6 @@ class DocContents(object):
 #
 # =============================================================================
 #
-#                           Add Process Information
-#
-# =============================================================================
-#
-
-
-process_program_name = "ligolw_inspinjfind"
-
-
-def append_process(xmldoc, match_algorithm, comment):
-	"""
-	Convenience wrapper for adding process metadata to the document.
-	"""
-	process = ligolw_process.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
-
-	params = [(u"--match-algorithm", u"lstring", match_algorithm)]
-	ligolw_process.append_process_params(xmldoc, process, params)
-
-	return process
-
-
-#
-# =============================================================================
-#
 #                 Build sim_inspiral <--> sngl_inspiral Coincidences
 #
 # =============================================================================
@@ -485,7 +460,7 @@ def ligolw_inspinjfind(xmldoc, process, search, snglcomparefunc, nearcoinccompar
 #
 
 
-def revert(xmldoc, program = process_program_name, verbose = False):
+def revert(xmldoc, program, verbose = False):
 	#
 	# remove entries from process metadata tables
 	#

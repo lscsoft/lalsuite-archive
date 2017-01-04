@@ -17,6 +17,7 @@
 Text-mode progress bars
 """
 from __future__ import division, print_function, unicode_literals
+from six.moves import range
 __copyright__ = "Copyright 2010, Leo Singer"
 __author__ = "Leo Singer <leo.singer@ligo.org>"
 __all__ = ["ProgressBar", "ProgressBarTheme"]
@@ -261,9 +262,9 @@ def demo():
             sleep(0.01)
             progressbar.update(i + 1)
     progressbar2 = ProgressBar(max=maxProgress)
-    for s in progressbar2.iterate(range(maxProgress)):
+    for s in progressbar2.iterate(list(range(maxProgress))):
         sleep(0.01)
-    for s in progressbar2.iterate(range(maxProgress), format='iteration %d'):
+    for s in progressbar2.iterate(list(range(maxProgress)), format='iteration %d'):
         sleep(0.01)
 
 

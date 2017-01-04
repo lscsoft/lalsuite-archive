@@ -30,10 +30,10 @@ except ImportError:
     import pyRXPU as pyRXP
 import exceptions
 import socket
-import cPickle
+import six.moves.cPickle
 import logging
 import logging.handlers
-import ConfigParser
+import six.moves.configparser
 import M2Crypto
 import selector
 import cjson
@@ -58,25 +58,25 @@ configuration = {
   }
 
 # grab configuration from file
-myConfigParser = ConfigParser.ConfigParser()
+myConfigParser = six.moves.configparser.ConfigParser()
 
 try:
     ldbdserver_ini = os.environ.get('LDBD_CONFIG_DIR', '/usr3/ldbd/etc')
     config_file = os.path.join(ldbdserver_ini, "ldbdserver.ini")
     myConfigParser.read(config_file)
-except Exception, e:
+except Exception as e:
     sys.stder.write("Error: unable to read configuration file : %s\n" % config_file)
     sys.exit(1)
 
 for k in configuration.keys():
     try:
         value = myConfigParser.get('ldbdd',k)
-    except ConfigParser.NoOptionError, e:
+    except six.moves.configparser.NoOptionError as e:
         sys.stderr.write("Error: missing configuration option %s: %s\n" % (k, e))
         sys.exit(1)
     try:
         configuration[k] = eval(value)
-    except Exception, e:
+    except Exception as e:
         configuration[k] = value
 
 # set up logging
@@ -228,11 +228,11 @@ class Server(object):
             mapfile = configuration['gridmap']
         try:
             g = GridMap(mapfile)
-            if g.has_key(subject):
+            if subject in g:
                 authorized = True
             else:
                 authorized = False
-        except Exception, e:
+        except Exception as e:
             logger.error("Unable to check authorization in grid-mapfile %s: %s" % (mapfile, e))
 
         return (authorized, subject)
@@ -245,7 +245,7 @@ class Server(object):
     # determine protocol
     try:
         protocol = cjson.decode(environ['wsgi.input'].read())
-    except Exception, e:
+    except Exception as e:
         if (str(e)).strip() == "empty JSON description":
            logger.debug("No protocol given, request may come from Web GUI")
            protocol = "https"
@@ -276,7 +276,7 @@ class Server(object):
     try:
       hostname = socket.getfqdn()
       msg = "LDBD server at %s is alive" % hostname
-    except Exception, e:
+    except Exception as e:
       msg = "LDBD server is alive" 
 
     format = environ['wsgiorg.routing_args'][1]['format']
@@ -302,7 +302,7 @@ class Server(object):
     # determine protocol
     try:
         protocol, querystr = (cjson.decode(environ['wsgi.input'].read())).split(":")
-    except Exception, e:
+    except Exception as e:
         start_response("400 Bad Request", [('Content-type', 'text/plain')])
         msg = "400 Bad Request"
         logger.debug("Error decoding input: %s" % e)
@@ -349,7 +349,7 @@ class Server(object):
       result = ligomd.xml()
 
       logger.debug("Method query: %d rows returned" % rowcount)
-    except Exception, e:
+    except Exception as e:
       start_response("500 Internal Server Error", [('Content-type', 'text/plain')])
       msg = "500 Internal Server Error\n\n%s" % e
       logger.error(msg)
@@ -358,7 +358,7 @@ class Server(object):
     try:
       del ligomd
       del lwtparser
-    except Exception, e:
+    except Exception as e:
       logger.error("Error deleting metadata object in method query: %s" % e)
 
     # encode the result
@@ -405,7 +405,7 @@ class Server(object):
         wsgiIn=environ['wsgi.input'].read()
         inputString=simplejson.loads(wsgiIn)
         #inputString = cjson.decode(environ['wsgi.input'].read())
-    except Exception, e:
+    except Exception as e:
         start_response("400 Bad Request", [('Content-type', 'text/plain')])
         msg = "400 Bad Request"
         logger.debug("Error decoding input: %s" % e)
@@ -428,7 +428,7 @@ class Server(object):
       result = str(ligomd.insert())
 
       logger.info("Method insert: %s rows affected by insert" % result)
-    except Exception, e:
+    except Exception as e:
       start_response("500 Internal Server Error", [('Content-type', 'text/plain')])
       msg = "500 Internal Server Error\n\n%s" % e
       logger.error(msg)
@@ -437,7 +437,7 @@ class Server(object):
     try:
       del ligomd
       del lwtparser
-    except Exception, e:
+    except Exception as e:
       logger.error("Error deleting metadata object in method query: %s" % e)
 
     # encode the result
@@ -519,7 +519,7 @@ class Server(object):
     # read the incoming payload
     try:
         inputString = cjson.decode(environ['wsgi.input'].read())
-    except Exception, e:
+    except Exception as e:
         start_response("400 Bad Request", [('Content-type', 'text/plain')])
         msg = "400 Bad Request"
         logger.debug("Error decoding input: %s" % e)
@@ -599,7 +599,7 @@ class Server(object):
 
       # delete the duplicate process_params rows and clear the table if necessary
       # (the DMT does not write a process_params table, so check for one first)
-      if ligomd.table.has_key('process_params'):
+      if 'process_params' in ligomd.table:
         ppid_col = ligomd.table['process_params']['orderedcol'].index('process_id')
         newstream = []
         for row_idx,row in enumerate(ligomd.table['process_params']['stream']):
@@ -736,7 +736,7 @@ class Server(object):
 
       logger.info("Method insert: %s rows affected by insert" % result)
 
-    except Exception, e:
+    except Exception as e:
       start_response("500 Internal Server Error", [('Content-type', 'text/plain')])
       msg = "500 Internal Server Error\n\n%s" % e
       logger.error(msg)
@@ -748,7 +748,7 @@ class Server(object):
       del known_proc
       del seg_def_key
       del proc_key
-    except Exception, e:
+    except Exception as e:
       logger.error("Error deleting metadata object in method insertdmt: %s" % e)
 
     # encode the result
@@ -790,7 +790,7 @@ class GridMap(dict):
         # parse the grid-mapfile
         try:
             f = open(self.path, 'r')
-        except Exception, e:
+        except Exception as e:
             msg = "Unable to open %s for reading: %s" % (self.path, e)
             raise GridMapError(msg)
 

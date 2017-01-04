@@ -25,17 +25,13 @@
 
 
 """
-This module provides a few convenience wrappers around bits of LAL's inject
-package.
+Obsolete module.  Do not use.
 """
 
 
-import math
-
-
-from lal import C_SI as _LAL_C_SI
-from lal import CachedDetectors as _lalCachedDetectors
+from lal import cached_detector_by_prefix, cached_detector_by_name, name_to_prefix, prefix_to_name
 from pylal import git_version
+from pylal.snglcoinc import light_travel_time
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -43,30 +39,7 @@ __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
 
 
-#
-# =============================================================================
-#
-#                                Look-up Tables
-#
-# =============================================================================
-#
-
-
-cached_detector_by_prefix = dict((cd.frDetector.prefix, cd) for cd in _lalCachedDetectors)
-# make sure there were no duplicates
-assert len(cached_detector_by_prefix) == len(_lalCachedDetectors)
-
-
-cached_detector_by_name = dict((cd.frDetector.name, cd) for cd in _lalCachedDetectors)
-# make sure there were no duplicates
-assert len(cached_detector_by_name) == len(_lalCachedDetectors)
-
-# FIXME:  backwards compatibility.  remove when no longer used
 cached_detector = cached_detector_by_name
-
-
-name_to_prefix = dict((name, detector.frDetector.prefix) for name, detector in cached_detector_by_name.items())
-prefix_to_name = dict((prefix, name) for name, prefix in name_to_prefix.items())
 
 
 # FIXME:  this is a hack to allow inject.light_travel_time(), which is used
@@ -75,25 +48,3 @@ prefix_to_name = dict((prefix, name) for name, prefix in name_to_prefix.items())
 # might be inappropriate and should be re-considered.  in the meantime,
 # this will get the sub-solar mass search working.
 prefix_to_name["H1H2"] = "LHO_4k"
-
-
-#
-# =============================================================================
-#
-#                              Function Wrappers
-#
-# =============================================================================
-#
-
-
-def light_travel_time(instrument1, instrument2):
-	"""
-	Compute and return the time required for light to travel through
-	free space the distance separating the two instruments.  The inputs
-	are two instrument prefixes (e.g., "H1"), and the result is
-	returned in seconds.  Note how this differs from LAL's
-	XLALLightTravelTime() function, which takes two detector objects as
-	input, and returns the time truncated to integer nanoseconds.
-	"""
-	dx = cached_detector_by_prefix[instrument1].location - cached_detector_by_prefix[instrument2].location
-	return math.sqrt((dx * dx).sum()) / _LAL_C_SI

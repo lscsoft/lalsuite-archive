@@ -19,6 +19,7 @@
 #
 
 
+from __future__ import print_function
 from optparse import OptionParser
 import sqlite3
 import sys
@@ -59,7 +60,7 @@ def parse_command_line():
 
     def require(flag, message):
         if not flag:
-            print >>sys.stdout, message
+            print(message, file=sys.stdout)
             sys.exit(1)
 
     parser = OptionParser(
@@ -120,53 +121,53 @@ def sigfigs(num):
 
 
 def generate_html(outf, triggers, colors, options):
-    print >>outf, '<p>'
-    print >>outf, '<table border=1>'
+    print('<p>', file=outf)
+    print('<table border=1>', file=outf)
 
     if options.statistic == 'newsnr':
-        print >>outf, '  <tr bgcolor="#9999ff"><th>ifo</th><th>end time UTC</th>',
-        print >>outf, '<th>end_time</th><th>end_time_ns</th>',
-        print >>outf, '<th>SNR</th><th>&chi;<sup>2</sup></th><th>New SNR</th><th>eff_distance</th>' 
-        print >>outf, "<th>M<sub>chirp</sub></th>",
-        print >>outf, "<th>M<sub>total</sub></th>",
-        print >>outf, "<th>&Omega; scan</th><th>DQ flags</th></tr>"
+        print('  <tr bgcolor="#9999ff"><th>ifo</th><th>end time UTC</th>', end=' ', file=outf)
+        print('<th>end_time</th><th>end_time_ns</th>', end=' ', file=outf)
+        print('<th>SNR</th><th>&chi;<sup>2</sup></th><th>New SNR</th><th>eff_distance</th>', file=outf)
+        print("<th>M<sub>chirp</sub></th>", end=' ', file=outf)
+        print("<th>M<sub>total</sub></th>", end=' ', file=outf)
+        print("<th>&Omega; scan</th><th>DQ flags</th></tr>", file=outf)
     else:
-        print >>outf, '  <tr bgcolor="#9999ff"><th>ifo</th><th>end time UTC</th><th>end_time</th><th>end_time_ns</th><th>SNR</th><th>eff_distance</th>' 
-        print >>outf, "<th>M<sub>chirp</sub></th>",
-        print >>outf, "<th>M<sub>total</sub></th>",
-        print >>outf, "<th>&chi;<sup>2</sup></th>",
-        print >>outf, "<th>Reduced cont. &chi;<sup>2</sup></th>",
-        print >>outf, "<th>&Omega; scan</th><th>DQ flags</th></tr>"
+        print('  <tr bgcolor="#9999ff"><th>ifo</th><th>end time UTC</th><th>end_time</th><th>end_time_ns</th><th>SNR</th><th>eff_distance</th>', file=outf)
+        print("<th>M<sub>chirp</sub></th>", end=' ', file=outf)
+        print("<th>M<sub>total</sub></th>", end=' ', file=outf)
+        print("<th>&chi;<sup>2</sup></th>", end=' ', file=outf)
+        print("<th>Reduced cont. &chi;<sup>2</sup></th>", end=' ', file=outf)
+        print("<th>&Omega; scan</th><th>DQ flags</th></tr>", file=outf)
 
     for count, trig in enumerate(triggers):
-        print >>outf, '  <tr valign="top" bgcolor="%s">' % colors[count % 2]
+        print('  <tr valign="top" bgcolor="%s">' % colors[count % 2], file=outf)
 
-        print >>outf, '    <td>%s</td>' % (trig[0])
+        print('    <td>%s</td>' % (trig[0]), file=outf)
 
         end_time_utc = os.popen('lalapps_tconvert %d' % trig[1]).next().strip()
-        print >>outf, '    <td>%s</td>' % (end_time_utc)
+        print('    <td>%s</td>' % (end_time_utc), file=outf)
 
         for res in trig[1:-1]:
             if str(res).find('.') > 0:
                 res = sigfigs(float(res))
 
-            print >>outf, '    <td>%s</td>' % res
+            print('    <td>%s</td>' % res, file=outf)
         
-        print >>outf, '    <td><a href="omega/%s.%s/index.html">&Omega; scan</a></td>' % (trig[1], trig[2])
+        print('    <td><a href="omega/%s.%s/index.html">&Omega; scan</a></td>' % (trig[1], trig[2]), file=outf)
 
-        print >>outf, '    <td>'
+        print('    <td>', file=outf)
         for name, value in trig[-1].items():
             if name.find('Light') != -1 or name.find('Up') != -1 or name.find('Calibrated') != -1:
-                print >>outf, '      <b>%s</b><br>' % name
+                print('      <b>%s</b><br>' % name, file=outf)
             else:
-                print >>outf, '      %s %s %s<br>' % (name, value[0], value[2])
-        print >>outf, '    </td>'
+                print('      %s %s %s<br>' % (name, value[0], value[2]), file=outf)
+        print('    </td>', file=outf)
 
-        print >>outf, '  </tr>'
-    print >>outf, '</table>'
+        print('  </tr>', file=outf)
+    print('</table>', file=outf)
 
-    print >>outf
-    print >>outf
+    print(file=outf)
+    print(file=outf)
 
 
 
@@ -327,7 +328,7 @@ def get_triggers_in_times(options, gps_start_time, gps_end_time, valid_times, co
 
         pipe  = os.popen('ligolw_dq_query --segment=%s --include-segments %s --in-segments-only --report %d' % (options.segments, ifo, end_time))
         for line in pipe:
-            flag, beforet, timet, aftert = filter(lambda x: x != '', line.split())
+            flag, beforet, timet, aftert = [x for x in line.split() if x != '']
     
             ifo, name, version = flag.split(':')
             flags[name] = (beforet, timet, aftert)
@@ -373,7 +374,7 @@ if __name__ == '__main__':
     omega_ok = options.omega_conf and options.omega_frame_dir and options.omega_out_dir
 
     if not omega_ok:
-        print >>sys.stderr, "Warning: Missing omega options, omega scans will not be run"
+        print("Warning: Missing omega options, omega scans will not be run", file=sys.stderr)
 
 
     kcount = int(options.known_count)
@@ -392,7 +393,7 @@ if __name__ == '__main__':
         gps_start_time = int(options.gps_start_time)
     elif os.path.exists(options.timestamp_file):
         f = open(options.timestamp_file)
-        gps_start_time = int(f.next())
+        gps_start_time = int(next(f))
         f.close()
     else:
         # Looks like we've never run before, start a day ago
@@ -451,31 +452,31 @@ if __name__ == '__main__':
     start_time_str = os.popen('lalapps_tconvert %d' % gps_start_time).next().strip()
     end_time_str   = os.popen('lalapps_tconvert %d' % gps_end_time).next().strip()
 
-    print >>out_tmp, "<h3>%s through %s</h3>" % (start_time_str, end_time_str)
+    print("<h3>%s through %s</h3>" % (start_time_str, end_time_str), file=out_tmp)
 
-    print >>out_tmp, '<h3>Glitches without associated DQ flag</h3>'
+    print('<h3>Glitches without associated DQ flag</h3>', file=out_tmp)
     generate_html(out_tmp, unknown_trigs, ['#ffdddd', '#ffcccc'], options)
     
 
-    print >>out_tmp, '<h3>Glitches with associated DQ flag</h3>'
+    print('<h3>Glitches with associated DQ flag</h3>', file=out_tmp)
     generate_html(out_tmp, known_trigs, ['#ddffdd', '#ccffcc'], options)
 
-    print >>out_tmp, "<hr>"
+    print("<hr>", file=out_tmp)
 
     if os.path.exists(options.html_file):
         in_tmp = open(options.html_file)
         for l in in_tmp:
-            print >>out_tmp, l,
+            print(l, end=' ', file=out_tmp)
         in_tmp.close()
 
     out_html = open(options.html_file,'w')
-    print >>out_html, out_tmp.getvalue()
+    print(out_tmp.getvalue(), file=out_html)
     out_html.close()
 
     # All done, if we weren't given an ending time update the timestamp
     if not options.gps_end_time:
         f = open(options.timestamp_file, 'w')
-        print >>f,  gps_end_time
+        print(gps_end_time, file=f)
         f.close()
 
     # If we created our own database, clean up after ourselves.

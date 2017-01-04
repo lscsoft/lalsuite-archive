@@ -270,7 +270,7 @@ class FollowupTrigger:
     # read in the 'converted' injection
     doc = ligolw_add.ligolw_add(ligolw.Document(), [file2])
     # return a single SimInspiral table
-    return = lsctables.SimInspiralTable.get_table(doc)
+    return lsctables.SimInspiralTable.get_table(doc)
 
   # -----------------------------------------------------
   def setTag(self, tag):

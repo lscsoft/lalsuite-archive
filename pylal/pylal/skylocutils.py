@@ -647,7 +647,7 @@ class Coincidences(list):
 ##############################################################################
 
 class SkyLocTable(tab.Table):
-  tableName = "SkyLoc:table"
+  tableName = "SkyLoc"
   validcolumns = {
     "end_time": "int_4s",
     "comb_snr": "real_4",
@@ -689,7 +689,7 @@ class SkyLocRow(object):
 SkyLocTable.RowType = SkyLocRow
 
 class SkyLocInjTable(tab.Table):
-  tableName = "SkyLocInj:table"
+  tableName = "SkyLocInj"
   validcolumns = {
     "end_time": "int_4s",
     "ifos": "lstring",
@@ -736,7 +736,7 @@ class SkyLocInjRow(object):
 SkyLocInjTable.RowType = SkyLocInjRow
 
 class GalaxyTable(tab.Table):
-  tableName = "Galaxy:table"
+  tableName = "Galaxy"
   validcolumns = {
     "end_time": "int_4s",
     "name": "lstring",

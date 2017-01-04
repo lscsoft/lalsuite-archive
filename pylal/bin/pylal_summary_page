@@ -63,6 +63,7 @@ import lal
 import lalframe
 import lalsimulation
 import lalburst
+from lalburst import snglcluster
 
 # import laldetchar
 import laldetchar
@@ -71,8 +72,8 @@ from laldetchar.triggers import (omega, kw, daily_ihope, excesspower, trigfind)
 
 # import PyLAL modules
 from pylal import (git_version, seriesutils, plotutils, htmlutils,
-                   omegautils, hacrutils, rangeutils, hdf5utils, snglcluster,
-                   SnglInspiralUtils, ligolw_sicluster, ligolw_bucluster)
+                   omegautils, hacrutils, rangeutils, hdf5utils,
+                   SnglInspiralUtils, ligolw_sicluster)
 from pylal.dq import (dqSegmentUtils, dqTriggerUtils, stateutils, summary)
 
 # import GLUE modules
@@ -2069,12 +2070,8 @@ def archive_triggers(outdir, start, end, param_dict, clustered=False):
                               "%s table for %s has type %s instead of "
                               "ligolw.Table" % (etg, seg, type(trig_table)))
                 continue
-            sid = ilwd.get_ilwdchar_class(table.StripTableName(
-                                              seg_table.tableName),
-                                          "process_id")
-            pid = ilwd.get_ilwdchar_class(table.StripTableName(
-                                              event_table.tableName),
-                                          "process_id")
+            sid = ilwd.get_ilwdchar_class(seg_table.tableName, "process_id")
+            pid = ilwd.get_ilwdchar_class(event_table.tableName, "process_id")
             seg = map(LIGOTimeGPS, map(float, seg))
             segment = lsctables.Segment()
             segment.start_time = seg[0].gpsSeconds
@@ -2542,10 +2539,10 @@ def cluster_table(trigtable, dt):
     tablecopy = table.new_from_template(trigtable)
     tablecopy.extend(trigtable)
     if isinstance(trigtable, lsctables.SnglBurstTable):
-        testfunc = ligolw_bucluster.ExcessPowerTestFunc
-        clusterfunc = ligolw_bucluster.OmegaClusterFunc
-        sortfunc = ligolw_bucluster.ExcessPowerSortFunc
-        bailoutfunc = ligolw_bucluster.ExcessPowerBailoutFunc
+        testfunc = lalburst.ligolw_bucluster.ExcessPowerTestFunc
+        clusterfunc = lalburst.ligolw_bucluster.OmegaClusterFunc
+        sortfunc = lalburst.ligolw_bucluster.ExcessPowerSortFunc
+        bailoutfunc = lalburst.ligolw_bucluster.ExcessPowerBailoutFunc
     elif isinstance(trigtable, lsctables.SnglInspiralTable):
         testfunc = lambda a, b: SnglInspiralUtils.CompareSnglInspiral(a, b, dt)
         clusterfunc = ligolw_sicluster.SnglInspiralCluster

@@ -22,13 +22,12 @@
 # =============================================================================
 #
 
-from glue import iterutils
+import itertools
 from glue import segments
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw.utils import search_summary as ligolw_search_summary
 from glue.ligolw.utils import segments as ligolw_segments
-from pylal import SnglBurstUtils
 from pylal import db_thinca_rings
 
 # get choices from a set (useful for on/off ifos)
@@ -36,8 +35,8 @@ def detector_combos( instruments ):
 	out = []
 	instruments = tuple(instruments)
 	for i in range(1, len(instruments)):
-		X = list(iterutils.choices(instruments, i))
-		Y = list(iterutils.choices(instruments, len(instruments) - i))
+		X = list(itertools.combinations(instruments, i))
+		Y = list(itertools.combinations(instruments, len(instruments) - i))
 		Y.reverse()
 		out.extend(zip(X,Y)) #out.extend(zip(X, Y))
 	instruments = list(instruments)
@@ -53,7 +52,7 @@ def background_livetime_nonring_by_slide(connection, seglists, veto_segments=Non
 	if veto_segments is not None:
 		seglists -= veto_segments
 
-	zero_lag_time_slides, background_time_slides = SnglBurstUtils.get_time_slides(connection)
+	background_time_slides = dict((time_slide_id, offsetvector) for time_slide_id, offsetvector in dbtables.TimeSlideTable(connection = connection).as_dict() if any(offsetvector.values()))
 	instruments = frozenset(seglists.keys())
 	background_livetime = {}
 	for on_inst, off_inst in detector_combos(list(instruments)):

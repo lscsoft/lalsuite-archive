@@ -326,7 +326,7 @@ def read_segfile_xml(segfile,verbose):
   def ContentHandler(xmldoc):
     return ligolw.PartialLIGOLWContentHandler(xmldoc, lambda name, attrs:\
                (name == ligolw.Table.tagName) and\
-               (table.StripTableName(attrs["Name"]) in ["segment"]))
+               (table.Table.TableName(attrs["Name"]) in ["segment"]))
   try:
     table.use_in(ligolw.PartialLIGOLWContentHandler)
   except AttributeError:
@@ -354,7 +354,7 @@ def find_version_xml(segfile,seg,verbose):
   def ContentHandler(xmldoc):
     return ligolw.PartialLIGOLWContentHandler(xmldoc, lambda name, attrs:\
                (name == ligolw.Table.tagName) and\
-               (table.StripTableName(attrs["Name"]) in ["segment_definer","segment_summary"]))
+               (table.Table.TableName(attrs["Name"]) in ["segment_definer","segment_summary"]))
   try:
     table.use_in(ligolw.PartialLIGOLWContentHandler)
   except AttributeError:
