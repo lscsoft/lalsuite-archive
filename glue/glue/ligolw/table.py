@@ -538,16 +538,6 @@ class TableStream(ligolw.Stream):
 #
 
 
-class TableRow(object):
-	"""
-	Helpful parent class for row objects.  Also used as the default row
-	class by Table instances.
-	"""
-	def __init__(self, **kwargs):
-		for key, value in kwargs.items():
-			setattr(self, key, value)
-
-
 class Table(ligolw.Table, list):
 	"""
 	High-level Table element that knows about its columns and rows.
@@ -563,8 +553,17 @@ class Table(ligolw.Table, list):
 	interncolumns = None
 	constraints = None
 	how_to_index = None
-	RowType = TableRow
 	next_id = None
+
+	class RowType(object):
+		"""
+		Helpful parent class for row objects.  Also used as the
+		default row class by Table instances.
+		"""
+		def __init__(self, **kwargs):
+			for key, value in kwargs.items():
+				setattr(self, key, value)
+
 
 	def __init__(self, *args):
 		"""
