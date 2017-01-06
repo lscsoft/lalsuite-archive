@@ -81,6 +81,50 @@ ds=sqrt(x*x+y*y+z*z);
 return ds;
 }
 
+void compute_e_vector(float ra, float dec, float *e)
+{
+SKY_GRID_TYPE e2,e3,e4,e5;
+	
+e2=cosf(M_PI_2-dec);
+e3=sinf(M_PI_2-dec);
+e4=cosf(ra);
+e5=sinf(ra);
+
+/* unit vector */
+e[0]=e3*e4;
+e[1]=e3*e5;
+e[2]=e2;
+/* other useful values */
+e[3]=e3;
+e[4]=e4;
+e[5]=e5;
+/* these values are needed for regression of plus and cross */
+e[6]=e4*e5;
+e[7]=e3*e4;
+e[8]=e3*e5;
+
+e[9]=e2*e2*e4;
+e[10]=e2*e2*e5;
+e[11]=e3*e3*e4;
+e[12]=e3*e3*e5;
+e[13]=e2*e3*e4;
+e[14]=e2*e3*e5;
+
+e[15]=e2*e4*e4;
+e[16]=e2*e5*e5;
+e[17]=e3*e4*e4;
+e[18]=e3*e5*e5;
+e[19]=e2*e4*e5;
+
+e[20]=e2*e2*e4*e4;
+e[21]=e2*e2*e5*e5;
+e[22]=e3*e3*e4*e4;
+e[23]=e3*e3*e5*e5;
+
+e[24]=e2*e2*e4*e5;
+e[25]=e3*e3*e4*e5;
+}
+
 /* Precompute values that are used later */
 void precompute_values(SKY_GRID *grid)
 {

@@ -288,6 +288,15 @@ struct gengetopt_args_info
   char * focus_type_arg;	/**< @brief focus type (equatorial, ecliptic) (default='equatorial').  */
   char * focus_type_orig;	/**< @brief focus type (equatorial, ecliptic) original value given at command line.  */
   const char *focus_type_help; /**< @brief focus type (equatorial, ecliptic) help description.  */
+  char * binary_template_file_arg;	/**< @brief use data from this file to generate templates, file has same format as diverted.log. (default='').  */
+  char * binary_template_file_orig;	/**< @brief use data from this file to generate templates, file has same format as diverted.log. original value given at command line.  */
+  const char *binary_template_file_help; /**< @brief use data from this file to generate templates, file has same format as diverted.log. help description.  */
+  int binary_template_nsky_arg;	/**< @brief size of square sky grid to use for followup (default='3').  */
+  char * binary_template_nsky_orig;	/**< @brief size of square sky grid to use for followup original value given at command line.  */
+  const char *binary_template_nsky_help; /**< @brief size of square sky grid to use for followup help description.  */
+  int binary_template_nshift_arg;	/**< @brief number of subfrequency shifts to followup (default='3').  */
+  char * binary_template_nshift_orig;	/**< @brief number of subfrequency shifts to followup original value given at command line.  */
+  const char *binary_template_nshift_help; /**< @brief number of subfrequency shifts to followup help description.  */
   const char *fake_linear_help; /**< @brief Inject linearly polarized fake signal help description.  */
   const char *fake_circular_help; /**< @brief Inject circularly polarized fake signal help description.  */
   double fake_ref_time_arg;	/**< @brief time of signal start (default='0').  */
@@ -356,6 +365,12 @@ struct gengetopt_args_info
   double min_candidate_snr_arg;	/**< @brief Do not optimize candidates with SNR below this level (default='5.0').  */
   char * min_candidate_snr_orig;	/**< @brief Do not optimize candidates with SNR below this level original value given at command line.  */
   const char *min_candidate_snr_help; /**< @brief Do not optimize candidates with SNR below this level help description.  */
+  double divert_snr_arg;	/**< @brief Divert templates with SNR at or above this level for separate analysis (default='-1.0').  */
+  char * divert_snr_orig;	/**< @brief Divert templates with SNR at or above this level for separate analysis original value given at command line.  */
+  const char *divert_snr_help; /**< @brief Divert templates with SNR at or above this level for separate analysis help description.  */
+  double divert_ul_arg;	/**< @brief Divert templates with SNR at or above this upper limit level for separate analysis (default='-1.0').  */
+  char * divert_ul_orig;	/**< @brief Divert templates with SNR at or above this upper limit level for separate analysis original value given at command line.  */
+  const char *divert_ul_help; /**< @brief Divert templates with SNR at or above this upper limit level for separate analysis help description.  */
   int output_initial_arg;	/**< @brief write initial candidates into log file (default='0').  */
   char * output_initial_orig;	/**< @brief write initial candidates into log file original value given at command line.  */
   const char *output_initial_help; /**< @brief write initial candidates into log file help description.  */
@@ -571,6 +586,9 @@ struct gengetopt_args_info
   unsigned int focus_radius_given ;	/**< @brief Whether focus-radius was given.  */
   unsigned int only_large_cos_given ;	/**< @brief Whether only-large-cos was given.  */
   unsigned int focus_type_given ;	/**< @brief Whether focus-type was given.  */
+  unsigned int binary_template_file_given ;	/**< @brief Whether binary-template-file was given.  */
+  unsigned int binary_template_nsky_given ;	/**< @brief Whether binary-template-nsky was given.  */
+  unsigned int binary_template_nshift_given ;	/**< @brief Whether binary-template-nshift was given.  */
   unsigned int fake_linear_given ;	/**< @brief Whether fake-linear was given.  */
   unsigned int fake_circular_given ;	/**< @brief Whether fake-circular was given.  */
   unsigned int fake_ref_time_given ;	/**< @brief Whether fake-ref-time was given.  */
@@ -595,6 +613,8 @@ struct gengetopt_args_info
   unsigned int snr_precision_given ;	/**< @brief Whether snr-precision was given.  */
   unsigned int max_candidates_given ;	/**< @brief Whether max-candidates was given.  */
   unsigned int min_candidate_snr_given ;	/**< @brief Whether min-candidate-snr was given.  */
+  unsigned int divert_snr_given ;	/**< @brief Whether divert-snr was given.  */
+  unsigned int divert_ul_given ;	/**< @brief Whether divert-ul was given.  */
   unsigned int output_initial_given ;	/**< @brief Whether output-initial was given.  */
   unsigned int output_optimized_given ;	/**< @brief Whether output-optimized was given.  */
   unsigned int output_cache_given ;	/**< @brief Whether output-cache was given.  */
