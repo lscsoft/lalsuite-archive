@@ -303,10 +303,10 @@ class segment(tuple):
 			return tuple.__new__(cls, (args[1], args[0]))
 
 	def __repr__(self):
-		return "segment(" + repr(self[0]) + ", " + repr(self[1]) + ")"
+		return "segment(%s, %s)" % (repr(self[0]), repr(self[1]))
 
 	def __str__(self):
-		return "[" + str(self[0]) + " ... " + str(self[1]) + ")"
+		return "[%s ... %s)" % (str(self[0]), str(self[1]))
 
 	# accessors
 
