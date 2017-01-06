@@ -70,20 +70,12 @@ __date__ = git_version.date
 #
 
 
-def getArraysByName(elem, name):
-	"""
-	Return a list of arrays with name name under elem.
-	"""
-	name = Array.ArrayName(name)
-	return elem.getElements(lambda e: (e.tagName == ligolw.Array.tagName) and (e.Name == name))
-
-
 def get_array(xmldoc, name):
 	"""
 	Scan xmldoc for an array named name.  Raises ValueError if not
 	exactly 1 such array is found.
 	"""
-	arrays = getArraysByName(xmldoc, name)
+	arrays = Array.getArraysByName(xmldoc, name)
 	if len(arrays) != 1:
 		raise ValueError("document must contain exactly one %s array" % Array.ArrayName(name))
 	return arrays[0]
@@ -230,6 +222,14 @@ class Array(ligolw.Array):
 		elem.appendChild(ArrayStream(Attributes({u"Type": ArrayStream.Type.default, u"Delimiter": ArrayStream.Delimiter.default})))
 		elem.array = array
 		return elem
+
+	@classmethod
+	def getArraysByName(cls, elem, name):
+		"""
+		Return a list of arrays with name name under elem.
+		"""
+		name = cls.ArrayName(name)
+		return elem.getElements(lambda e: (e.tagName == cls.tagName) and (e.Name == name))
 
 	#
 	# Element methods

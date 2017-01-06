@@ -495,11 +495,19 @@ PyTypeObject segments_Segment_Type = {
 "True\n" \
 ">>> segment(1, 2) in segment(0, 10)\n" \
 "True\n" \
+">>> segment(1, 11) in segment(0, 10)\n" \
+"False\n" \
+">>> segment(0, 1)\n" \
+"segment(0, 1)\n" \
+">>> segment(1, 0)\n" \
+"segment(0, 1)\n" \
+">>> bool(segment(0, 1))\n" \
+"True\n" \
 ">>> bool(segment(0, 0))\n" \
 "False\n" \
 ">>> segment(\"AAA Towing\", \"York University\") & segment(\"Pool\", \"Zoo\")\n" \
 "segment('Pool', 'York University')\n" \
-">>> x = [0, 1]\n" \
+">>> x = [0, 1]	# a list\n" \
 ">>> segment(x)\n" \
 "segment(0, 1)\n" \
 ">>> y = segment(0, 1)\n" \

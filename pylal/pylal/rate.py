@@ -422,11 +422,9 @@ class IrregularBins(Bins):
 		# check pre-conditions
 		if len(boundaries) < 2:
 			raise ValueError("less than two boundaries provided")
-		boundaries = tuple(boundaries)
-		if any(a > b for a, b in zip(boundaries[:-1], boundaries[1:])):
+		self.boundaries = tuple(boundaries)
+		if any(a > b for a, b in zip(self.boundaries[:-1], self.boundaries[1:])):
 			raise ValueError("non-monotonic boundaries provided")
-
-		self.boundaries = boundaries
 
 	def __cmp__(self, other):
 		"""
@@ -983,11 +981,14 @@ class Categories(Bins):
 		Construct a LIGO Light Weight XML representation of the
 		Bins instance.
 		"""
-		# FIXME:  make use of new "yaml" type for params when we
-		# can rely on a new-enough glue
-		#return ligolw_param.Param.build(self.xml_bins_name_enc(self.xml_bins_name), u"yaml", self.containers)
+		# FIXME:  switch to "pickle" type for params when it won't
+		# break on-going O2 analyses
+		#return ligolw_param.Param.build(self.xml_bins_name_enc(self.xml_bins_name), u"pickle", self.containers)
 		import pickle
 		return ligolw_param.Param.from_pyvalue(self.xml_bins_name_enc(self.xml_bins_name), pickle.dumps(self.containers))
+		# FIXME:  switch to "yaml" type if we can rely on the yaml
+		# module's availability
+		#return ligolw_param.Param.build(self.xml_bins_name_enc(self.xml_bins_name), u"yaml", self.containers)
 
 	@classmethod
 	def from_xml(cls, xml):
@@ -1006,7 +1007,8 @@ class Categories(Bins):
 
 class HashableBins(Categories):
 	"""
-	Maps hashable objects (things that can be used as dictionary keys) to integers.
+	Maps hashable objects (things that can be used as dictionary keys)
+	to integers.
 
 	Example:
 	>>> x = HashableBins([
@@ -1123,19 +1125,24 @@ class NDBins(tuple):
 	def __call__(self, *coords):
 		"""
 		Convert an N-dimensional co-ordinate to an N-tuple of bin
-		indices using the Bins instances in this object.
+		indices using the Bins instances in this object.  Calling
+		the NDBins instance instead of using indexing (the "[]"
+		operator) provides a more direct, faster, interface to the
+		Bins instances contained herein, but slices cannot be given
+		syntactically in the argument list
 
 		Example:
 
 		>>> x = NDBins((LinearBins(1, 25, 3), LogarithmicBins(1, 25, 3)))
-		>>> x(1, 1)
+		>>> x[1, 1]	# access using index operator
+		(0, 0)
+		>>> x(1, 1)	# access by calling
 		(0, 0)
 		>>> x = NDBins((LinearBins(1, 25, 3),))
-		>>> x(1)
+		>>> x(1)	# explicit tuples not required for 1D
 		(0,)
 		>>> x = NDBins((LinearBins(1, 25, 1000),))
-		>>> # slices require manual construction
-		>>> x(slice(10, 12))
+		>>> x(slice(10, 12))	# slices (constructed manually)
 		(slice(375, 459, None),)
 		>>> x = NDBins((Categories([set(("Cow", "Chicken", "Goat")), set(("Tractor", "Plough")), set(("Barn", "House"))]),))
 		>>> x("Cow")
@@ -1150,6 +1157,14 @@ class NDBins(tuple):
 
 	@property
 	def shape(self):
+		"""
+		Tuple of the number of bins along each dimension.
+
+		Example:
+
+		>>> NDBins((LinearBins(0, 6, 3), LinearBins(0, 10, 5))).shape
+		(3, 5)
+		"""
 		return tuple(len(b) for b in self)
 
 	def lower(self):
@@ -1157,6 +1172,11 @@ class NDBins(tuple):
 		Return a tuple of arrays, where each array contains the
 		locations of the lower boundaries of the bins in the
 		corresponding dimension.
+
+		Example:
+
+		>>> NDBins((LinearBins(0, 6, 3), LinearBins(0, 10, 5))).lower()
+		(array([ 0.,  2.,  4.]), array([ 0.,  2.,  4.,  6.,  8.]))
 		"""
 		return tuple(b.lower() for b in self)
 
@@ -1165,6 +1185,11 @@ class NDBins(tuple):
 		Return a tuple of arrays, where each array contains the
 		locations of the bin centres for the corresponding
 		dimension.
+
+		Example:
+
+		>>> NDBins((LinearBins(0, 6, 3), LinearBins(0, 10, 5))).centres()
+		(array([ 1.,  3.,  5.]), array([ 1.,  3.,  5.,  7.,  9.]))
 		"""
 		return tuple(b.centres() for b in self)
 
@@ -1173,6 +1198,11 @@ class NDBins(tuple):
 		Return a tuple of arrays, where each array contains the
 		locations of the upper boundaries of the bins in the
 		corresponding dimension.
+
+		Example:
+
+		>>> NDBins((LinearBins(0, 6, 3), LinearBins(0, 10, 5))).upper()
+		(array([ 2.,  4.,  6.]), array([  2.,   4.,   6.,   8.,  10.]))
 		"""
 		return tuple(b.upper() for b in self)
 

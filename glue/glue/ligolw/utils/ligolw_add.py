@@ -98,9 +98,9 @@ def reassign_ids(doc, verbose = False):
 	"""
 	# Can't simply run reassign_ids() on doc because we need to
 	# construct a fresh old --> new mapping within each LIGO_LW block.
-	for n, elem in enumerate(doc.childNodes):
+	for n, elem in enumerate(doc.childNodes, 1):
 		if verbose:
-			sys.stderr.write("reassigning row IDs: %.1f%%\r" % (100.0 * (n + 1) / len(doc.childNodes)))
+			sys.stderr.write("reassigning row IDs: %.1f%%\r" % (100.0 * n / len(doc.childNodes)))
 		if elem.tagName == ligolw.LIGO_LW.tagName:
 			table.reassign_ids(elem)
 	if verbose:
@@ -143,7 +143,7 @@ def merge_compatible_tables(elem):
 	a single table, etc..
 	"""
 	for name in lsctables.TableByName.keys():
-		tables = table.getTablesByName(elem, name)
+		tables = table.Table.getTablesByName(elem, name)
 		if tables:
 			dest = tables.pop(0)
 			for src in tables:
