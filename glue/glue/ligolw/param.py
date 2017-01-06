@@ -59,20 +59,12 @@ __date__ = git_version.date
 #
 
 
-def getParamsByName(elem, name):
-	"""
-	Return a list of params with name name under elem.
-	"""
-	name = Param.ParamName(name)
-	return elem.getElements(lambda e: (e.tagName == ligolw.Param.tagName) and (e.Name == name))
-
-
 def get_param(xmldoc, name):
 	"""
 	Scan xmldoc for a param named name.  Raises ValueError if not
 	exactly 1 such param is found.
 	"""
-	params = getParamsByName(xmldoc, name)
+	params = Param.getParamsByName(xmldoc, name)
 	if len(params) != 1:
 		raise ValueError("document must contain exactly one %s param" % Param.ParamName(name))
 	return params[0]
@@ -190,6 +182,14 @@ class Param(ligolw.Param):
 		.build() for a description of the valid keyword arguments.
 		"""
 		return cls.build(name, ligolwtypes.FromPyType[type(value)], value, **kwargs)
+
+	@classmethod
+	def getParamsByName(cls, elem, name):
+		"""
+		Return a list of params with name name under elem.
+		"""
+		name = cls.ParamName(name)
+		return elem.getElements(lambda e: (e.tagName == cls.tagName) and (e.Name == name))
 
 
 #
