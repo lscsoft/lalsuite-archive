@@ -44,7 +44,7 @@ __author__ = "Duncan Brown <dbrown@ligo.caltech.edu>"
 # Use interning row builder to save memory.
 #
 
-lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
+lsctables.table.TableStream.RowBuilder = lsctables.table.InterningRowBuilder
 
 #
 # =============================================================================

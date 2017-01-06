@@ -89,7 +89,7 @@ def parse_command_line():
 #
 
 
-lalapps_cbc_injfind.table.RowBuilder = lalapps_cbc_injfind.table.InterningRowBuilder
+lalapps_cbc_injfind.table.TableStream.RowBuilder = lalapps_cbc_injfind.table.InterningRowBuilder
 
 #
 # =============================================================================

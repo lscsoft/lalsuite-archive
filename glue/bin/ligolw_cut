@@ -118,7 +118,7 @@ table.use_in(ContentHandler)
 #
 
 
-table.RowBuilder = table.InterningRowBuilder
+table.TableStream.RowBuilder = table.InterningRowBuilder
 
 
 #

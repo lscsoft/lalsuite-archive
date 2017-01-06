@@ -305,7 +305,7 @@ def load_cache(xmldoc, cache, sieve_pattern, exact_match=False,
     lsctables.SnglInspiralTable.next_id = SnglInspiralID_old(0)
 
     # reduce memory footprint at the expense of speed
-    # table.RowBuilder = table.InterningRowBuilder
+    # table.TableStream.RowBuilder = table.InterningRowBuilder
 
     urls = [c.url for c in found]
     try:

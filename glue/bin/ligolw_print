@@ -113,7 +113,7 @@ def parse_command_line():
 #
 
 
-table.RowBuilder = table.InterningRowBuilder
+table.TableStream.RowBuilder = table.InterningRowBuilder
 
 
 #

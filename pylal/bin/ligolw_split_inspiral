@@ -121,7 +121,7 @@ inspiral_cache = lal.Cache([lal.CacheEntry(line) for line in file(opts.inspiral_
 
 # optimize table for speed and memory usage
 lsctables.SnglInspiralTable.updateKeyMapping = lsctables.table.Table.updateKeyMapping
-lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
+lsctables.table.TableStream.RowBuilder = lsctables.table.InterningRowBuilder
 
 # get desired template parameters
 tmplt_xmldoc = utils.load_filename(opts.tmplt_file, verbose = opts.verbose)

@@ -48,7 +48,6 @@ import copy
 import itertools
 import re
 import sys
-import warnings
 from xml.sax.saxutils import escape as xmlescape
 from xml.sax.xmlreader import AttributesImpl
 
@@ -433,14 +432,6 @@ class InterningRowBuilder(tokenizer.RowBuilder):
 
 
 #
-# Select the RowBuilder class to use when parsing tables.
-#
-
-
-RowBuilder = tokenizer.RowBuilder
-
-
-#
 # Stream class
 #
 
@@ -452,6 +443,12 @@ class TableStream(ligolw.Stream):
 	that it appends into the list-like parent element, and knows how to
 	turn the parent's rows back into a character stream.
 	"""
+	#
+	# Select the RowBuilder class to use when parsing tables.
+	#
+
+	RowBuilder = tokenizer.RowBuilder
+
 	def config(self, parentNode):
 		# some initialization that requires access to the
 		# parentNode, and so cannot be done inside the __init__()
@@ -467,7 +464,7 @@ class TableStream(ligolw.Stream):
 		# FIXME:  convert interncolumns attributes to sets to
 		# simplify computing the intersection
 		interncolumns = [name for name in (parentNode.interncolumns or set()) if name in columnnames]
-		self._rowbuilder = RowBuilder(parentNode.RowType, columnnames, interncolumns)
+		self._rowbuilder = self.RowBuilder(parentNode.RowType, columnnames, interncolumns)
 		return self
 
 	def appendData(self, content):
