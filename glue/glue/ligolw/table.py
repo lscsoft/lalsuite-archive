@@ -158,8 +158,7 @@ def reset_next_ids(classes):
 	>>> reset_next_ids(lsctables.TableByName.values())
 	"""
 	for cls in classes:
-		if cls.next_id is not None:
-			cls.set_next_id(type(cls.next_id)(0))
+		cls.reset_next_id()
 
 
 #
@@ -853,6 +852,20 @@ class Table(ligolw.Table, list):
 		attribute.
 		"""
 		cls.next_id = id
+
+	@classmethod
+	def reset_next_id(cls):
+		"""
+		If the current value of the next_id class attribute is not
+		None then set it to 0, otherwise it is left unmodified.
+
+		Example:
+
+		>>> import lsctables
+		>>> for cls in lsctables.TableByName.values(): cls.reset_next_id()
+		"""
+		if cls.next_id is not None:
+			cls.set_next_id(type(cls.next_id)(0))
 
 	def sync_next_id(self):
 		"""
