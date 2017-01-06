@@ -73,15 +73,6 @@ __date__ = git_version.date
 #
 
 
-def StripColumnName(name):
-	warnings.warn("use Column.ColumnName() instead", DeprecationWarning)
-	return Column.ColumnName(name)
-
-def CompareColumnNames(name1, name2):
-	warnings.warn("use cmp(Column.ColumnName(), Column.ColumnName()) instead", DeprecationWarning)
-	return cmp(Column.ColumnName(name1), Column.ColumnName(name2))
-
-
 def getColumnsByName(elem, name):
 	"""
 	Return a list of Column elements named name under elem.
@@ -97,15 +88,6 @@ def getColumnsByName(elem, name):
 #
 # =============================================================================
 #
-
-
-def StripTableName(name):
-	warnings.warn("use Table.TableName() instead", DeprecationWarning)
-	return Table.TableName(name)
-
-def CompareTableNames(name1, name2):
-	warnings.warn("use cmp(Table.TableName(), Table.TableName()) instead", DeprecationWarning)
-	return cmp(Table.TableName(name1), Table.TableName(name2))
 
 
 def getTablesByName(elem, name):
