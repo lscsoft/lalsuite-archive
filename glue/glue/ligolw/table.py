@@ -67,40 +67,6 @@ __date__ = git_version.date
 #
 # =============================================================================
 #
-#                           Column Name Manipulation
-#
-# =============================================================================
-#
-
-
-def getColumnsByName(elem, name):
-	"""
-	Return a list of Column elements named name under elem.
-	"""
-	name = Column.ColumnName(name)
-	return elem.getElements(lambda e: (e.tagName == ligolw.Column.tagName) and (e.Name == name))
-
-
-#
-# =============================================================================
-#
-#                           Table Name Manipulation
-#
-# =============================================================================
-#
-
-
-def getTablesByName(elem, name):
-	"""
-	Return a list of Table elements named name under elem.
-	"""
-	name = Table.TableName(name)
-	return elem.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (e.Name == name))
-
-
-#
-# =============================================================================
-#
 #                                  Utilities
 #
 # =============================================================================
@@ -134,7 +100,7 @@ def get_table(xmldoc, name):
 
 	See also the .get_table() class method of the Table class.
 	"""
-	tables = getTablesByName(xmldoc, name)
+	tables = Table.getTablesByName(xmldoc, name)
 	if len(tables) != 1:
 		raise ValueError("document must contain exactly one %s table" % Table.TableName(name))
 	return tables[0]
@@ -391,6 +357,14 @@ class Column(ligolw.Column):
 			raise TypeError("cannot determine numpy dtype for Column '%s': %s" % (self.getAttribute("Name"), e))
 		return numpy.fromiter(self, dtype = dtype)
 
+	@classmethod
+	def getColumnsByName(cls, elem, name):
+		"""
+		Return a list of Column elements named name under elem.
+		"""
+		name = cls.ColumnName(name)
+		return elem.getElements(lambda e: (e.tagName == cls.tagName) and (e.Name == name))
+
 
 #
 # =============================================================================
@@ -611,6 +585,14 @@ class Table(ligolw.Table, list):
 
 
 	@classmethod
+	def getTablesByName(cls, elem, name):
+		"""
+		Return a list of Table elements named name under elem.
+		"""
+		name = cls.TableName(name)
+		return elem.getElements(lambda e: (e.tagName == cls.tagName) and (e.Name == name))
+
+	@classmethod
 	def get_table(cls, xmldoc):
 		"""
 		Equivalent to the module-level function get_table(), but
@@ -701,7 +683,7 @@ class Table(ligolw.Table, list):
 		>>> col = tbl.getColumnByName("mass1")
 		"""
 		try:
-			col, = getColumnsByName(self, name)
+			col, = Column.getColumnsByName(self, name)
 		except ValueError:
 			# did not find exactly 1 matching child
 			raise KeyError(name)

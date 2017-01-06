@@ -143,7 +143,7 @@ def merge_compatible_tables(elem):
 	a single table, etc..
 	"""
 	for name in lsctables.TableByName.keys():
-		tables = table.getTablesByName(elem, name)
+		tables = table.Table.getTablesByName(elem, name)
 		if tables:
 			dest = tables.pop(0)
 			for src in tables:
