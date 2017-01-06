@@ -261,11 +261,19 @@ class segment(tuple):
 	True
 	>>> segment(1, 2) in segment(0, 10)
 	True
+	>>> segment(1, 11) in segment(0, 10)
+	False
+	>>> segment(0, 1)
+	segment(0, 1)
+	>>> segment(1, 0)
+	segment(0, 1)
+	>>> bool(segment(0, 1))
+	True
 	>>> bool(segment(0, 0))
 	False
 	>>> segment("AAA Towing", "York University") & segment("Pool", "Zoo")
 	segment('Pool', 'York University')
-	>>> x = [0, 1]
+	>>> x = [0, 1]	# a list
 	>>> segment(x)
 	segment(0, 1)
 	>>> y = segment(0, 1)
