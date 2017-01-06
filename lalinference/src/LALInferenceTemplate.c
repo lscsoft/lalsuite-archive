@@ -855,7 +855,28 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceModel *model)  // 
   }
   else maxl = XLALSphHarmTimeSeriesGetMaxL(qnmodes);
   qnmorder = maxl; 
-      
+  
+ REAL8 phi21 = 0.0;
+ REAL8 phi22 = 0.0;
+ REAL8 phi32 = 0.0;
+ REAL8 phi33 = 0.0;
+ REAL8 phi44 = 0.0;
+ 
+ if(LALInferenceCheckVariable(model->params, "phi21")){
+    phi21 = *(REAL8*) LALInferenceGetVariable(model->params, "phi21");
+  }
+ if(LALInferenceCheckVariable(model->params, "phi22")){
+    phi22 = *(REAL8*) LALInferenceGetVariable(model->params, "phi22");
+  }
+ if(LALInferenceCheckVariable(model->params, "phi32")){
+    phi32 = *(REAL8*) LALInferenceGetVariable(model->params, "phi32");
+  }
+ if(LALInferenceCheckVariable(model->params, "phi33")){
+    phi33 = *(REAL8*) LALInferenceGetVariable(model->params, "phi33");
+  }
+ if(LALInferenceCheckVariable(model->params, "phi44")){
+    phi44 = *(REAL8*) LALInferenceGetVariable(model->params, "phi44");
+  }
 
   if (model_domain == LAL_SIM_DOMAIN_FREQUENCY){
     
@@ -863,7 +884,7 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceModel *model)  // 
     XLAL_ERROR_VOID(XLAL_EFAILED);*/
     
     //TODO: add spin parameter like effective spin or component spins or whatever is necessary
-    XLAL_TRY(ret = XLALSimBlackHoleRingdownTigerFD(&hptilde, &hctilde, phi, deltaF, f_max, f_low, 
+    XLAL_TRY(ret = XLALSimBlackHoleRingdownTigerFD(&hptilde, &hctilde, phi0, phi21, phi22, phi32, phi33, phi44, deltaF, f_max, f_low, 
                                                  mass*LAL_MSUN_SI, spin, eta, chiEff, distance,
                                                  inclination, nonGRparams), errnum); 
 
