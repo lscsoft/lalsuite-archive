@@ -177,7 +177,7 @@ fprintf(stderr,"seconds elapsed: %ld\n",end_time-start_time);
 fclose(LOG);
 fclose(FILE_LOG);
 fclose(DATA_LOG);
-fclose(DIVERT_LOG);
+if(DIVERT_LOG!=NULL)fclose(DIVERT_LOG);
 }
 
 int main(int argc, char *argv[])
