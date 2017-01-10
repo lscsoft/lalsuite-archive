@@ -87,6 +87,42 @@ UNUSED int XLALSimRingdownGenerateSingleModeTD(
   UNUSED complex double CWk               /**< COMPLEX QNM Frequency */
 );
 
+/* XLALSimRingdownMMRDNSFD: Frequency domain waveformgenerator for all QNM with angular dependence */
+int XLALSimRingdownMMRDNSFD(
+        COMPLEX16FrequencySeries **hptilde,          /**< OUTPUT FD h_+ polarization */
+        COMPLEX16FrequencySeries **hctilde,          /**< OUTPUT FD h_x polarization */
+        const REAL8 deltaF,                          /**< Frequency resolution (Hz) */
+        const REAL8 fStart,                          /**< Start GW frequency (Hz) */
+        const REAL8 fEnd,                            /**< Highest GW frequency (Hz) */
+        REAL8 Mf,                                    /**< Final BH Mass (solar mass) */
+        REAL8 jf,                                    /**< Final BH dimensionaless spin */
+        REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
+        REAL8 iota,                                  /**< inclination angle (in rad) */
+        REAL8 phi,                                   /**< azimuthal angle (in rad) */
+        REAL8 r,                                     /**< distance of source (m) */
+        LALSimInspiralTestGRParam *nonGRparams       /**< testing GR parameters */
+);
+
+/* XLALSimRingdownGenerateSingleModeFD: Frequency domain waveformgenerator for single QNM with angular dependence */
+int XLALSimRingdownGenerateSingleModeFD(
+      COMPLEX16FrequencySeries **hptilde_lmn,      /**< OUTPUT FD h_+ polarization */
+      COMPLEX16FrequencySeries **hctilde_lmn,      /**< OUTPUT FD h_x polarization */
+      const REAL8 deltaF,                          /**< Frequency resolution (Hz) */
+      const REAL8 fStart,                          /**< Start GW frequency (Hz) */
+      const REAL8 fEnd,                            /**< Highest GW frequency (Hz) */
+      REAL8 Mf,                                    /**< Final BH Mass (solar mass) */
+      REAL8 jf,                                    /**< Final BH dimensionaless spin */
+      REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
+      REAL8 iota,                                  /**< inclination angle */
+      REAL8 phi,                                   /**< azimuthal angle */
+      UINT4 l,                                     /**< Polar eigenvalue */
+      UINT4 m,                                     /**< Azimuthal eigenvalue */
+      UINT4 n,                                     /**< Overtone Number */
+      REAL8 r,                                     /**< distance of source (m) */
+      REAL8 dfreq,                                 /**< relative shift in the real frequency parameter */
+      REAL8 dtau                                   /**< relative shift in the damping time parameter */
+);
+
 /* Convert NR Code Time to Physical Units */
 //UNUSED static double XLALNRtoPhysTime( UNUSED double NRtime  );
 
