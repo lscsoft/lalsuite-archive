@@ -240,7 +240,7 @@ if __name__ == '__main__':
       print "%d nans removed from prior-corrected posterior; insufficient N-samp"%num_nan
     if num_inf != 0.:
       P_dipolepar_corr[np.isinf(P_dipolepar_corr)] = 0.
-      print "%d infinities removed from prior-corrected posterior; insufficient N-samp"%num_inf  
+      print "%d infinities removed from prior-corrected posterior; insufficient N-samp"%num_inf
 
     print '... computed prior-corrected posterior'
 
