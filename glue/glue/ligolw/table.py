@@ -557,11 +557,36 @@ class Table(ligolw.Table, list):
 	class RowType(object):
 		"""
 		Helpful parent class for row objects.  Also used as the
-		default row class by Table instances.
+		default row class by Table instances.  Provides an
+		__init__() method that accepts keyword arguments from which
+		the object's attributes are initialized.
+
+		Example:
+
+		>>> x = Table.RowType(a = 0.0, b = "test", c = True)
+		>>> x.a
+		0.0
+		>>> x.b
+		'test'
+		>>> x.c
+		True
 		"""
+		#"""
+		#Also provides .__getstate__() and .__setstate__() methods
+		#to allow row objects to be pickled (otherwise, because they
+		#all use __slots__ to reduce their memory footprint, they
+		#aren't pickleable).
+		#"""
+
 		def __init__(self, **kwargs):
 			for key, value in kwargs.items():
 				setattr(self, key, value)
+
+		#def __getstate__(self):
+		#	return dict((key, getattr(self, key)) for key in self.__slots__ if hasattr(self, key))
+
+		#def __setstate__(self, state):
+		#	self.__init__(**state)
 
 
 	def __init__(self, *args):

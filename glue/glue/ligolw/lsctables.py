@@ -65,27 +65,6 @@ __date__ = git_version.date
 #
 
 
-class TableRow(table.Table.RowType):
-	# FIXME:  figure out what needs to be done to allow the C row
-	# classes that are floating around to be derived from this easily
-
-	# FIXME:  DON'T USE THIS!!!  I'm experimenting with solutions to
-	# the pickling problem.  --Kipp
-	"""
-	Base class for row classes.  Provides an __init__() method that
-	accepts keyword arguments that are used to initialize the objects
-	attributes.  Also provides .__getstate__() and .__setstate__()
-	methods to allow row objects to be pickled (otherwise, because they
-	all use __slots__ to reduce their memory footprint, they aren't
-	pickleable).
-	"""
-	__slots__ = ()
-	def __getstate__(self):
-		return dict((key, getattr(self, key)) for key in self.__slots__ if hasattr(self, key))
-	def __setstate__(self, state):
-		self.__init__(**state)
-
-
 def New(cls, columns = None, **kwargs):
 	"""
 	Construct a pre-defined LSC table.  The optional columns argument
