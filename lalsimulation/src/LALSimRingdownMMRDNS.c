@@ -443,7 +443,7 @@ UNUSED static complex double XLALMMRDNSAmplitudes( double eta, int l, int input_
 UNUSED static complex double XLALMMRDNSAmplitudes( double eta, int l, int input_m, int n ){
 
   /* Initialize the answer */
-  double complex ans;
+  double complex ans = 0.0;
 
   /* NOTE that |m| will be used to determine the fit to use, and if input_m < 0, then a conjugate will be taken */
   int m = abs(input_m);
@@ -670,4 +670,262 @@ int XLALSimRingdownGenerateSingleModeTD(
 
   return 0;
 
+}
+
+
+/* XLALSimRingdownMMRDNSFD: Frequency domain waveformgenerator for all QNM with angular dependence */
+int XLALSimRingdownMMRDNSFD(
+        COMPLEX16FrequencySeries **hptilde,          /**< OUTPUT FD h_+ polarization */
+        COMPLEX16FrequencySeries **hctilde,          /**< OUTPUT FD h_x polarization */
+        const REAL8 deltaF,                          /**< Frequency resolution (Hz) */
+        const REAL8 fStart,                          /**< Start GW frequency (Hz) */
+        const REAL8 fEnd,                            /**< Highest GW frequency (Hz) */
+        REAL8 Mf,                                    /**< Final BH Mass (solar mass) */
+        REAL8 jf,                                    /**< Final BH dimensionaless spin */
+        REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
+        REAL8 iota,                                  /**< inclination angle (in rad) */
+        REAL8 phi,                                   /**< azimuthal angle (in rad) */
+        REAL8 r,                                     /**< distance of source (m) */
+        LALSimInspiralTestGRParam *nonGRparams       /**< testing GR parameters */
+    ){
+        /* Perform some initial checks */
+        if (Mf <= 0) XLAL_ERROR(XLAL_EDOM);
+        if (jf >= 1) XLAL_ERROR(XLAL_EDOM);
+        if (eta > 0.25 || eta <= 0) XLAL_ERROR(XLAL_EDOM);
+        if (fStart <= 0) XLAL_ERROR(XLAL_EDOM);
+        if (r <= 0) XLAL_ERROR(XLAL_EDOM);
+
+        /* Declarations */
+        UINT4 jStart, jMax;
+        REAL8 f, f_max;
+        LIGOTimeGPS tC = {0,0};
+        //XLALGPSAdd(&tC, -1 / deltaF);
+
+        REAL8 dfreq220=0., dfreq221=0., dfreq330=0., dfreq331=0., dfreq440=0., dfreq550=0., dfreq210=0., dfreq320=0., dfreq430=0.;
+        REAL8 dtau220=0.,  dtau221=0.,  dtau330=0.,  dtau331=0.,  dtau440=0.,  dtau550=0.,  dtau210=0.,  dtau320=0.,  dtau430=0.;
+
+        COMPLEX16FrequencySeries *hp220, *hp221, *hp330, *hp331, *hp440, *hp550, *hp210, *hp320, *hp430;
+        COMPLEX16FrequencySeries *hc220, *hc221, *hc330, *hc331, *hc440, *hc550, *hc210, *hc320, *hc430;
+
+        /* Get nonGRparams */
+        char *nonGRParamName = malloc(512*sizeof(char));
+
+        sprintf(nonGRParamName,"dfreq220") ;
+        if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+          dfreq220 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+        sprintf(nonGRParamName,"dtau220") ;
+        if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+          dtau220 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+        sprintf(nonGRParamName,"dfreq221") ;
+        if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+          dfreq221 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+        sprintf(nonGRParamName,"dtau221") ;
+        if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+          dtau221 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+        sprintf(nonGRParamName,"dfreq330") ;
+        if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+          dfreq330 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+        sprintf(nonGRParamName,"dtau330") ;
+        if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+          dtau330 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+        sprintf(nonGRParamName,"dfreq331") ;
+        if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+          dfreq331 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+        sprintf(nonGRParamName,"dtau331") ;
+        if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+          dtau331 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+        sprintf(nonGRParamName,"dfreq440") ;
+        if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+          dfreq440 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+        sprintf(nonGRParamName,"dtau440") ;
+        if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+          dtau440 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+        sprintf(nonGRParamName,"dfreq550") ;
+        if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+          dfreq550 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+        sprintf(nonGRParamName,"dtau550") ;
+        if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+          dtau550 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+        sprintf(nonGRParamName,"dfreq210") ;
+        if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+          dfreq210 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+        sprintf(nonGRParamName,"dtau210") ;
+        if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+          dtau210 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+        sprintf(nonGRParamName,"dfreq320") ;
+        if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+          dfreq320 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+        sprintf(nonGRParamName,"dtau320") ;
+        if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+          dtau320 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+        sprintf(nonGRParamName,"dfreq430") ;
+        if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+          dfreq430 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+        sprintf(nonGRParamName,"dtau430") ;
+        if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+          dtau430 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+
+        /* allocate hptilde and hctilde */
+        if ( fEnd == 0. ){
+          f_max = 2048.0;
+        } else {
+          f_max = fEnd;
+        }
+        jMax = (UINT4)(f_max/deltaF + 1);
+
+        XLALSimRingdownGenerateSingleModeFD(&hp220, &hc220, deltaF, fStart, fEnd, Mf, jf, eta, iota, phi, 2, 2, 0, r, dfreq220, dtau220);
+        XLALSimRingdownGenerateSingleModeFD(&hp221, &hc221, deltaF, fStart, fEnd, Mf, jf, eta, iota, phi, 2, 2, 1, r, dfreq221, dtau221);
+        XLALSimRingdownGenerateSingleModeFD(&hp330, &hc330, deltaF, fStart, fEnd, Mf, jf, eta, iota, phi, 3, 3, 0, r, dfreq330, dtau330);
+        XLALSimRingdownGenerateSingleModeFD(&hp331, &hc331, deltaF, fStart, fEnd, Mf, jf, eta, iota, phi, 3, 3, 1, r, dfreq331, dtau331);
+        XLALSimRingdownGenerateSingleModeFD(&hp440, &hc440, deltaF, fStart, fEnd, Mf, jf, eta, iota, phi, 4, 4, 0, r, dfreq440, dtau440);
+        XLALSimRingdownGenerateSingleModeFD(&hp550, &hc550, deltaF, fStart, fEnd, Mf, jf, eta, iota, phi, 5, 5, 0, r, dfreq550, dtau550);
+        XLALSimRingdownGenerateSingleModeFD(&hp210, &hc210, deltaF, fStart, fEnd, Mf, jf, eta, iota, phi, 2, 1, 0, r, dfreq210, dtau210);
+        XLALSimRingdownGenerateSingleModeFD(&hp320, &hc320, deltaF, fStart, fEnd, Mf, jf, eta, iota, phi, 3, 2, 0, r, dfreq320, dtau320);
+        XLALSimRingdownGenerateSingleModeFD(&hp430, &hc430, deltaF, fStart, fEnd, Mf, jf, eta, iota, phi, 4, 3, 0, r, dfreq430, dtau430);
+
+        *hptilde = XLALCreateCOMPLEX16FrequencySeries("hptilde: FD waveform", &tC, 0.0, deltaF, &lalStrainUnit, jMax);
+        if (!(*hptilde)) XLAL_ERROR(XLAL_EFUNC);
+        memset((*hptilde)->data->data, 0, jMax * sizeof(COMPLEX16));
+        XLALUnitMultiply(&(*hptilde)->sampleUnits, &(*hptilde)->sampleUnits, &lalSecondUnit);
+        *hctilde = XLALCreateCOMPLEX16FrequencySeries("hctilde: FD waveform", &tC, 0.0, deltaF, &lalStrainUnit, jMax);
+        if (!(*hctilde)) XLAL_ERROR(XLAL_EFUNC);
+        memset((*hctilde)->data->data, 0, jMax * sizeof(COMPLEX16));
+        XLALUnitMultiply(&(*hctilde)->sampleUnits, &(*hctilde)->sampleUnits, &lalSecondUnit);
+
+        jStart   = (UINT4) ceil(fStart / deltaF);
+        f        = jStart*deltaF;
+
+        for ( UINT4 j=jStart ; j<jMax ; j++ ) {
+          (*hptilde)->data->data[j] = hp220->data->data[j];
+          (*hptilde)->data->data[j] += hp221->data->data[j];
+          (*hptilde)->data->data[j] += hp330->data->data[j];
+          (*hptilde)->data->data[j] += hp331->data->data[j];
+          (*hptilde)->data->data[j] += hp440->data->data[j];
+          (*hptilde)->data->data[j] += hp550->data->data[j];
+          (*hptilde)->data->data[j] += hp210->data->data[j];
+          (*hptilde)->data->data[j] += hp320->data->data[j];
+          (*hptilde)->data->data[j] += hp430->data->data[j];
+
+          (*hctilde)->data->data[j] = hc220->data->data[j];
+          (*hctilde)->data->data[j] += hc221->data->data[j];
+          (*hctilde)->data->data[j] += hc330->data->data[j];
+          (*hctilde)->data->data[j] += hc331->data->data[j];
+          (*hctilde)->data->data[j] += hc440->data->data[j];
+          (*hctilde)->data->data[j] += hc550->data->data[j];
+          (*hctilde)->data->data[j] += hc210->data->data[j];
+          (*hctilde)->data->data[j] += hc320->data->data[j];
+          (*hctilde)->data->data[j] += hc430->data->data[j];
+
+          f+=deltaF;
+        }
+
+        /* Destroy the COMPLEX16FrequencySeries object */
+        if (hp220) XLALDestroyCOMPLEX16FrequencySeries(hp220);
+        if (hp221) XLALDestroyCOMPLEX16FrequencySeries(hp221);
+        if (hp330) XLALDestroyCOMPLEX16FrequencySeries(hp330);
+        if (hp331) XLALDestroyCOMPLEX16FrequencySeries(hp331);
+        if (hp440) XLALDestroyCOMPLEX16FrequencySeries(hp440);
+        if (hp550) XLALDestroyCOMPLEX16FrequencySeries(hp550);
+        if (hp210) XLALDestroyCOMPLEX16FrequencySeries(hp210);
+        if (hp320) XLALDestroyCOMPLEX16FrequencySeries(hp320);
+        if (hp430) XLALDestroyCOMPLEX16FrequencySeries(hp430);
+
+        if (hc220) XLALDestroyCOMPLEX16FrequencySeries(hc220);
+        if (hc221) XLALDestroyCOMPLEX16FrequencySeries(hc221);
+        if (hc330) XLALDestroyCOMPLEX16FrequencySeries(hc330);
+        if (hc331) XLALDestroyCOMPLEX16FrequencySeries(hc331);
+        if (hc440) XLALDestroyCOMPLEX16FrequencySeries(hc440);
+        if (hc550) XLALDestroyCOMPLEX16FrequencySeries(hc550);
+        if (hc210) XLALDestroyCOMPLEX16FrequencySeries(hc210);
+        if (hc320) XLALDestroyCOMPLEX16FrequencySeries(hc320);
+        if (hc430) XLALDestroyCOMPLEX16FrequencySeries(hc430);
+
+  return XLAL_SUCCESS;
+}
+
+/* XLALSimRingdownGenerateSingleModeFD: Frequency domain waveformgenerator for single QNM with angular dependence */
+int XLALSimRingdownGenerateSingleModeFD(
+        COMPLEX16FrequencySeries **hptilde_lmn,      /**< OUTPUT FD h_+ polarization */
+        COMPLEX16FrequencySeries **hctilde_lmn,      /**< OUTPUT FD h_x polarization */
+        const REAL8 deltaF,                          /**< Frequency resolution (Hz) */
+        const REAL8 fStart,                          /**< Start GW frequency (Hz) */
+        const REAL8 fEnd,                            /**< Highest GW frequency (Hz) */
+        REAL8 Mf,                                    /**< Final BH Mass (solar mass) */
+        REAL8 jf,                                    /**< Final BH dimensionaless spin */
+        REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
+        REAL8 iota,                                  /**< inclination angle (in rad) */
+        REAL8 phi,                                   /**< azimuthal angle (in rad) */
+        UINT4 l,                                     /**< Polar eigenvalue */
+        UINT4 m,                                     /**< Azimuthal eigenvalue */
+        UINT4 n,                                     /**< Overtone Number */
+        REAL8 r,                                     /**< distance of source (m) */
+        REAL8 dfreq,                                 /**< relative shift in the real frequency parameter */
+        REAL8 dtau                                   /**< relative shift in the damping time parameter */
+        ){
+
+        /* Perform some initial checks */
+        if (Mf <= 0) XLAL_ERROR(XLAL_EDOM);
+        if (jf >= 1) XLAL_ERROR(XLAL_EDOM);
+        if (eta > 0.25 || eta <= 0) XLAL_ERROR(XLAL_EDOM);
+        if (fStart <= 0) XLAL_ERROR(XLAL_EDOM);
+        if (r <= 0) XLAL_ERROR(XLAL_EDOM);
+
+        /* Declarations */
+        UINT4 jStart, jMax;
+        COMPLEX16 h_f, hconj_mf;
+        REAL8 f, f_max;
+        LIGOTimeGPS tC = {0,0};
+        //XLALGPSAdd(&tC, -1 / deltaF);
+
+        REAL8 kappa   = KAPPA( jf, l, m );
+        REAL8 Mf_sec  = Mf*LAL_MTSUN_SI/LAL_MSUN_SI;
+        REAL8 r_sec   = r/LAL_C_SI;
+
+        COMPLEX16 A_lmn, S_lmn, Omega_lmn, Prefactor;
+
+        /* Mode Component Calculation*/
+        A_lmn = XLALMMRDNSAmplitudes(eta, l, m, n);
+        S_lmn = XLALSpinWeightedSpheroidalHarmonic(jf, l, m, n, iota, phi);
+        Omega_lmn = CW07102016(kappa, l, m, n);
+        Omega_lmn = creal(Omega_lmn)*(1.+dfreq) + I * cimag(Omega_lmn)/(1.+dtau);
+        Prefactor = (Mf_sec/r_sec)*(A_lmn*S_lmn)/(I*Omega_lmn*Omega_lmn);
+
+        /* allocate htilde_p and htilde_c */
+        /* The COMPLEX16FrequencySeries has to be destroyed by whom created it. */
+        if ( fEnd == 0. ){
+          f_max = 2048.0;
+        } else {
+          f_max = fEnd;
+        }
+ 
+        jMax = (UINT4)(f_max/deltaF + 1);
+
+        *hptilde_lmn = XLALCreateCOMPLEX16FrequencySeries("hptilde_lmn: FD waveform", &tC, 0.0, deltaF, &lalStrainUnit, jMax);
+        if (!(*hptilde_lmn)) XLAL_ERROR(XLAL_EFUNC);
+        memset((*hptilde_lmn)->data->data, 0, jMax * sizeof(COMPLEX16));
+        XLALUnitMultiply(&(*hptilde_lmn)->sampleUnits, &(*hptilde_lmn)->sampleUnits, &lalSecondUnit);
+        *hctilde_lmn = XLALCreateCOMPLEX16FrequencySeries("hctilde_lmn: FD waveform", &tC, 0.0, deltaF, &lalStrainUnit, jMax);
+        if (!(*hctilde_lmn)) XLAL_ERROR(XLAL_EFUNC);
+        memset((*hctilde_lmn)->data->data, 0, jMax * sizeof(COMPLEX16));
+        XLALUnitMultiply(&(*hctilde_lmn)->sampleUnits, &(*hctilde_lmn)->sampleUnits, &lalSecondUnit);
+
+        jStart   = (UINT4) ceil(fStart / deltaF);
+        f        = jStart*deltaF;
+        h_f      = 0.0;
+        hconj_mf = 0.0;
+
+        for ( UINT4 j=jStart ; j<jMax ; j++ ) {
+        h_f      =      Prefactor/(Omega_lmn+LAL_TWOPI*f);
+        hconj_mf = conj(Prefactor/(Omega_lmn-LAL_TWOPI*f));
+
+        (*hptilde_lmn)->data->data[j] = 0.5 * (h_f + hconj_mf);
+        (*hctilde_lmn)->data->data[j] = 0.5 * I * (h_f - hconj_mf);
+
+        h_f      = 0.0;
+        hconj_mf = 0.0;
+        f+=deltaF;
+
+        }
+
+  return XLAL_SUCCESS;
 }
