@@ -850,7 +850,7 @@ int XLALSimRingdownGenerateSingleModeFD(
         const REAL8 deltaF,                          /**< Frequency resolution (Hz) */
         const REAL8 fStart,                          /**< Start GW frequency (Hz) */
         const REAL8 fEnd,                            /**< Highest GW frequency (Hz) */
-        REAL8 Mf,                                    /**< Final BH Mass (solar mass) */
+        REAL8 Mf,                                    /**< Final BH Mass (kg) */
         REAL8 jf,                                    /**< Final BH dimensionaless spin */
         REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
         REAL8 iota,                                  /**< inclination angle (in rad) */
@@ -886,7 +886,7 @@ int XLALSimRingdownGenerateSingleModeFD(
         /* Mode Component Calculation*/
         A_lmn = XLALMMRDNSAmplitudes(eta, l, m, n);
         S_lmn = XLALSpinWeightedSpheroidalHarmonic(jf, l, m, n, iota, phi);
-        Omega_lmn = CW07102016(kappa, l, m, n);
+        Omega_lmn = CW07102016(kappa, l, m, n)/Mf_sec;
         Omega_lmn = creal(Omega_lmn)*(1.+dfreq) + I * cimag(Omega_lmn)/(1.+dtau);
         Prefactor = (Mf_sec/r_sec)*(A_lmn*S_lmn)/(I*Omega_lmn*Omega_lmn);
 
