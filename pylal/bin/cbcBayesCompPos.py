@@ -52,7 +52,7 @@ __version__= "git id %s"%git_version.id
 __date__= git_version.date
 
 #List of parameters to plot/bin . Need to match (converted) column names.
-oneDMenu=['mtotal','m1','m2','mchirp','mc','chirpmass','distance','distMPC','dist','iota','psi','eta','q','asym_massratio','spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','costhetas','cosbeta','phi_orb', 'lambdat', 'dlambdat', 'lambda1', 'lambda2', 'lam_tilde', 'dlam_tilde','theta_jn','a1z','a2z'] + bppu.snrParams
+oneDMenu=['mtotal','m1','m2','mchirp','mc','chirpmass','distance','distMPC','dist','iota','psi','eta','q','asym_massratio','spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','costhetas','cosbeta','phi_orb', 'lambdat', 'dlambdat', 'lambda1', 'lambda2', 'lam_tilde', 'dlam_tilde','theta_jn','a1z','a2z'] + bppu.snrParams + bppu.spinParams + bppu.cosmoParam
 #List of parameter pairs to bin . Need to match (converted) column names.
 twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['chirpmass','eta'],['mc','q'],['mchirp','q'],['chirpmass','q'],['mc','asym_massratio'],['mchirp','asym_massratio'],['chirpmass','asym_massratio'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec'],['dist','cos(iota)'],['phi_orb','iota'],['theta_jn','dist'],['spin1','spin2'],['spin1','mchirp'],['spin1','m1'],['a1','a2'],['a1','mchirp'],['a1','m1'],['tilt1','tilt2'],['tilt1','mchirp'],['tilt1','m1'],['a1z','a2z']]
 #Bin size/resolution for binning. Need to match (converted) column names.
@@ -80,6 +80,12 @@ for s in bppu.calParams:
         greedyBinSizes[s]=0.02
 for s in bppu.tigerParams:
   greedyBinSizes[s]=0.01
+for s in bppu.spinParams:
+        greedyBinSizes[s]=0.02
+for s in bppu.cosmoParam:
+        greedyBinSizes[s]=0.1
+greedyBinSizes['redshift']=0.005
+
 #Confidence levels
 OneDconfidenceLevels=[0.9]#[0.68,0.9,0.95,0.997]
 TwoDconfidenceLevels=OneDconfidenceLevels
