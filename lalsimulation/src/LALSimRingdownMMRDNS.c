@@ -76,8 +76,8 @@ static double KAPPA( double jf, int l, int m ){
 /*
 * Dimensionless QNM Frequencies: Note that name encodes date of writing
 */
-static double complex CW07102016( double kappa, int l, int input_m, int n );
-static double complex CW07102016( double kappa,  /* Domain mapping for  remnant BH's spin (Dimensionless) */
+static double complex complexOmega( double kappa, int l, int input_m, int n );
+static double complex complexOmega( double kappa,  /* Domain mapping for  remnant BH's spin (Dimensionless) */
                           int l,        /* Polar eigenvalue */
                           int input_m,  /* Azimuthal eigenvalue*/
                           int n ) {     /* Overtone Number*/
@@ -94,7 +94,7 @@ static double complex CW07102016( double kappa,  /* Domain mapping for  remnant 
   complex double j = _Complex_I;
 
   /* Initialize the answer*/
-  double complex ans;
+  double complex ans = 0.0;
 
   /* Use If-Else ladder to determine which mode function to evaluate*/
   if ( 2==l && 2==m && 0==n  ){
@@ -205,7 +205,7 @@ static double complex CW07102016( double kappa,  /* Domain mapping for  remnant 
 
   return ans;
 
-} /* END of CW07102016 */
+} /* END of complexOmega */
 
 
 /*
@@ -217,8 +217,8 @@ static double complex CW07102016( double kappa,  /* Domain mapping for  remnant 
 /*
 * QNM Separation Constants: Note that name encodes date of writing
 */
-static double complex SC07102016( double kappa, int l, int input_m, int n );
-static double complex SC07102016( double kappa,  /* Domain mapping for remnant BH's spin (Dimensionless) */
+static double complex separationConstant( double kappa, int l, int input_m, int n );
+static double complex separationConstant( double kappa,  /* Domain mapping for remnant BH's spin (Dimensionless) */
                           int l,        /* Polar eigenvalue */
                           int input_m,  /* Azimuthal eigenvalue */
                           int n ) {     /* Overtone Number */
@@ -238,7 +238,7 @@ static double complex SC07102016( double kappa,  /* Domain mapping for remnant B
   complex double j = _Complex_I;
 
   /* Initialize the answer */
-  double complex ans;
+  double complex ans = 0.0;
 
   /* Use If-Else ladder to determine which mode function to evaluate */
   if ( 2==l && 2==m && 0==n  ){
@@ -301,14 +301,14 @@ static double complex SC07102016( double kappa,  /* Domain mapping for remnant B
 
   return ans;
 
-} /* END of SC07102016 */
+} /* END of separationConstant */
 
 
 /*
 * Spheroidal Harmonic Normalization Constants: Note that name encodes date of writing
 */
-UNUSED static double CC09102016( double kappa, int l, int input_m, int n );
-UNUSED static double CC09102016( double kappa,  /* Domain mapping for remnant BH's spin (Dimensionless)*/
+static double spheroidalHarmonicNormalization( double kappa, int l, int input_m, int n );
+static double spheroidalHarmonicNormalization( double kappa,  /* Domain mapping for remnant BH's spin (Dimensionless)*/
                           int l,        /* Polar eigenvalue*/
                           int input_m,  /* Azimuthal eigenvalue*/
                           int n ) {     /* Overtone Number*/
@@ -324,7 +324,7 @@ UNUSED static double CC09102016( double kappa,  /* Domain mapping for remnant BH
   int m = abs(input_m);
 
   /* Initialize the answer*/
-  double complex ans;
+  double complex ans = 0.0;
 
   /* Use If-Else ladder to determine which mode function to evaluate */
   if ( 2==l && 2==m && 0==n  ){
@@ -381,14 +381,14 @@ UNUSED static double CC09102016( double kappa,  /* Domain mapping for remnant BH
 
   return ans;
 
-} /* END of CC09102016 */
+} /* END of spheroidalHarmonicNormalization */
 
 
 /*
 * Final Spin (Dimensionless)
 */
-UNUSED static double JFNS07102016( double eta );
-UNUSED static double JFNS07102016( double eta ) {
+UNUSED static double finalSpinFit( double eta );
+UNUSED static double finalSpinFit( double eta ) {
   /* Implement Final Spin Fit from arXiv:1404.3197 */
   return eta*( 3.4339 - eta*( 3.7988 + eta*(5.7733 - 6.3780*eta) ) );
 }
@@ -396,8 +396,8 @@ UNUSED static double JFNS07102016( double eta ) {
 /*
 * Final Mass (Dimensionless: Relative to M=1 initially)
 */
-UNUSED static double MFNS07102016( double eta );
-UNUSED static double MFNS07102016( double eta ) {
+UNUSED static double finalMassFit( double eta );
+UNUSED static double finalMassFit( double eta ) {
   /* Implement Final Mass Fit from arXiv:1404.3197 */
   return 1.0 - eta*(0.046297 - eta*(0.71006 + eta*(1.5028 - eta*(4.0124 - eta*0.28448))));
 }
@@ -406,29 +406,29 @@ UNUSED static double MFNS07102016( double eta ) {
 /* ------------------------------------------------
           Angular parameter functions
  ------------------------------------------------ */
-UNUSED static double K1( int m, int s );
-UNUSED static double K1( int m, int s ){
+static double K1( int m, int s );
+static double K1( int m, int s ){
   return 0.5*abs(m-s);
 }
-UNUSED static double K2( int m, int s );
-UNUSED static double K2( int m, int s ){
+static double K2( int m, int s );
+static double K2( int m, int s ){
   return 0.5*abs(m+s);
 }
-UNUSED static complex double ALPHA_RD( int m, int s, int p );
-UNUSED static complex double ALPHA_RD( int m, int s, int p ){
+static complex double ALPHA_RD( int m, int s, int p );
+static complex double ALPHA_RD( int m, int s, int p ){
   /**/
   double k1 = 0.5*abs(m-s);
   return -2.0*(p+1.0)*(p+2.0*k1+1.0);
 }
-UNUSED static complex double BETA_RD( int m, int s, int p, complex double aw, complex double A_lm );
-UNUSED static complex double BETA_RD( int m, int s, int p, complex double aw, complex double A_lm ){
+static complex double BETA_RD( int m, int s, int p, complex double aw, complex double A_lm );
+static complex double BETA_RD( int m, int s, int p, complex double aw, complex double A_lm ){
   /**/
   double k1 = K1(m,s);
   double k2 = K2(m,s);
   return  p*(p-1.0)+2.0*p*(k1+k2+1.0-2.0*aw) - ( 2.0*aw*(2.0*k1+s+1.0)-(k1+k2) * (k1+k2+1.0) ) - ( aw*aw + s*(s+1.0) + A_lm);
 }
-UNUSED static complex double GAMMA_RD( int m, int s, int p, complex double aw );
-UNUSED static complex double GAMMA_RD( int m, int s, int p, complex double aw ){
+static complex double GAMMA_RD( int m, int s, int p, complex double aw );
+static complex double GAMMA_RD( int m, int s, int p, complex double aw ){
   /**/
   double k1 = K1(m,s);
   double k2 = K2(m,s);
@@ -439,8 +439,8 @@ UNUSED static complex double GAMMA_RD( int m, int s, int p, complex double aw ){
 * QNM Ampliutde models for MMRDNS
 * NOTE that the terms here differ from 1404.3197v3 for accurate relative phases
 */
-UNUSED static complex double XLALMMRDNSAmplitudes( double eta, int l, int input_m, int n );
-UNUSED static complex double XLALMMRDNSAmplitudes( double eta, int l, int input_m, int n ){
+static complex double XLALMMRDNSAmplitudeOverOmegaSquared( double eta, int l, int input_m, int n );
+static complex double XLALMMRDNSAmplitudeOverOmegaSquared( double eta, int l, int input_m, int n ){
 
   /* Initialize the answer */
   double complex ans = 0.0;
@@ -515,9 +515,9 @@ UNUSED static complex double XLALMMRDNSAmplitudes( double eta, int l, int input_
 /*
 * Spheroical Harmonic Functions (Leaver's Formulation circa 1986/85)
 */
-UNUSED static complex double XLALSpinWeightedSpheroidalHarmonic( double jf, int l, int m, int n, double theta, double phi);
-UNUSED static complex double XLALSpinWeightedSpheroidalHarmonic( double jf,           /* Spin of remnant */
-                   int l, int m, int n, /* QNM indeces */
+static complex double XLALSpinWeightedSpheroidalHarmonic( double jf, int l, int m, int n, double theta, double phi);
+static complex double XLALSpinWeightedSpheroidalHarmonic( double jf,           /* Spin of remnant */
+                   int l, int m, int n, /* QNM indices */
                    double theta,        /* polar angle */
                    double phi          /* azimuthal angle */
                  ) {
@@ -529,14 +529,14 @@ UNUSED static complex double XLALSpinWeightedSpheroidalHarmonic( double jf,     
   double complex cw, sc, aw;
   double kappa = KAPPA(jf,l,m);
 
-  cw = CW07102016( kappa, l, m, n );
-  sc = SC07102016( kappa, l, m, n );
+  cw = complexOmega( kappa, l, m, n );
+  sc = separationConstant( kappa, l, m, n );
 
   /* Define dimensionless deformation parameter */
   aw = jf*cw;
 
   /* ------------------------------------------------
-      Calculate the angular eighenfunction
+      Calculate the angular eigenfunction
    ------------------------------------------------ */
 
   /* Variable map for theta */
@@ -548,7 +548,7 @@ UNUSED static complex double XLALSpinWeightedSpheroidalHarmonic( double jf,     
   X = X * pow(1.0-u,K2(m,s));
 
   /* NOTE that here we apply the normalization constant */
-  X = X / CC09102016(kappa,l,m,n);
+  X = X / spheroidalHarmonicNormalization(kappa,l,m,n);
 
   /* initial series values */
   double a0 = 1.0;
@@ -623,8 +623,8 @@ int XLALSimRingdownMMRDNSTD(
         /* Declarations */
         const LIGOTimeGPS T0=LIGOTIMEGPSZERO;
         double kappa = KAPPA( 0.68, 2, 2 );
-        UNUSED double w22 = creal( CW07102016(kappa,2,2,0) );
-        UNUSED double tau22 = cimag( CW07102016(kappa,2,2,0) );
+        UNUSED double w22 = creal( complexOmega(kappa,2,2,0) );
+        UNUSED double tau22 = cimag( complexOmega(kappa,2,2,0) );
         int waveform_length = 1000;
 
 
@@ -680,11 +680,11 @@ int XLALSimRingdownMMRDNSFD(
         const REAL8 deltaF,                          /**< Frequency resolution (Hz) */
         const REAL8 fStart,                          /**< Start GW frequency (Hz) */
         const REAL8 fEnd,                            /**< Highest GW frequency (Hz) */
-        REAL8 Mf,                                    /**< Final BH Mass (solar mass) */
+        REAL8 Mf,                                    /**< Final BH Mass (kg) */
         REAL8 jf,                                    /**< Final BH dimensionaless spin */
         REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
         REAL8 iota,                                  /**< inclination angle (in rad) */
-        REAL8 phi,                                   /**< azimuthal angle (in rad) */
+        REAL8 phi_offset,                            /**< intrinsic phase offset */
         REAL8 r,                                     /**< distance of source (m) */
         LALSimInspiralTestGRParam *nonGRparams       /**< testing GR parameters */
     ){
@@ -773,15 +773,15 @@ int XLALSimRingdownMMRDNSFD(
         }
         jMax = (UINT4)(f_max/deltaF + 1);
 
-        XLALSimRingdownGenerateSingleModeFD(&hp220, &hc220, deltaF, fStart, fEnd, Mf, jf, eta, iota, phi, 2, 2, 0, r, dfreq220, dtau220);
-        XLALSimRingdownGenerateSingleModeFD(&hp221, &hc221, deltaF, fStart, fEnd, Mf, jf, eta, iota, phi, 2, 2, 1, r, dfreq221, dtau221);
-        XLALSimRingdownGenerateSingleModeFD(&hp330, &hc330, deltaF, fStart, fEnd, Mf, jf, eta, iota, phi, 3, 3, 0, r, dfreq330, dtau330);
-        XLALSimRingdownGenerateSingleModeFD(&hp331, &hc331, deltaF, fStart, fEnd, Mf, jf, eta, iota, phi, 3, 3, 1, r, dfreq331, dtau331);
-        XLALSimRingdownGenerateSingleModeFD(&hp440, &hc440, deltaF, fStart, fEnd, Mf, jf, eta, iota, phi, 4, 4, 0, r, dfreq440, dtau440);
-        XLALSimRingdownGenerateSingleModeFD(&hp550, &hc550, deltaF, fStart, fEnd, Mf, jf, eta, iota, phi, 5, 5, 0, r, dfreq550, dtau550);
-        XLALSimRingdownGenerateSingleModeFD(&hp210, &hc210, deltaF, fStart, fEnd, Mf, jf, eta, iota, phi, 2, 1, 0, r, dfreq210, dtau210);
-        XLALSimRingdownGenerateSingleModeFD(&hp320, &hc320, deltaF, fStart, fEnd, Mf, jf, eta, iota, phi, 3, 2, 0, r, dfreq320, dtau320);
-        XLALSimRingdownGenerateSingleModeFD(&hp430, &hc430, deltaF, fStart, fEnd, Mf, jf, eta, iota, phi, 4, 3, 0, r, dfreq430, dtau430);
+        XLALSimRingdownGenerateSingleModeFD(&hp220, &hc220, deltaF, fStart, fEnd, Mf, jf, eta, iota, phi_offset, 2, 2, 0, r, dfreq220, dtau220);
+        XLALSimRingdownGenerateSingleModeFD(&hp221, &hc221, deltaF, fStart, fEnd, Mf, jf, eta, iota, phi_offset, 2, 2, 1, r, dfreq221, dtau221);
+        XLALSimRingdownGenerateSingleModeFD(&hp330, &hc330, deltaF, fStart, fEnd, Mf, jf, eta, iota, phi_offset, 3, 3, 0, r, dfreq330, dtau330);
+        XLALSimRingdownGenerateSingleModeFD(&hp331, &hc331, deltaF, fStart, fEnd, Mf, jf, eta, iota, phi_offset, 3, 3, 1, r, dfreq331, dtau331);
+        XLALSimRingdownGenerateSingleModeFD(&hp440, &hc440, deltaF, fStart, fEnd, Mf, jf, eta, iota, phi_offset, 4, 4, 0, r, dfreq440, dtau440);
+        XLALSimRingdownGenerateSingleModeFD(&hp550, &hc550, deltaF, fStart, fEnd, Mf, jf, eta, iota, phi_offset, 5, 5, 0, r, dfreq550, dtau550);
+        XLALSimRingdownGenerateSingleModeFD(&hp210, &hc210, deltaF, fStart, fEnd, Mf, jf, eta, iota, phi_offset, 2, 1, 0, r, dfreq210, dtau210);
+        XLALSimRingdownGenerateSingleModeFD(&hp320, &hc320, deltaF, fStart, fEnd, Mf, jf, eta, iota, phi_offset, 3, 2, 0, r, dfreq320, dtau320);
+        XLALSimRingdownGenerateSingleModeFD(&hp430, &hc430, deltaF, fStart, fEnd, Mf, jf, eta, iota, phi_offset, 4, 3, 0, r, dfreq430, dtau430);
 
         *hptilde = XLALCreateCOMPLEX16FrequencySeries("hptilde: FD waveform", &tC, 0.0, deltaF, &lalStrainUnit, jMax);
         if (!(*hptilde)) XLAL_ERROR(XLAL_EFUNC);
@@ -854,7 +854,7 @@ int XLALSimRingdownGenerateSingleModeFD(
         REAL8 jf,                                    /**< Final BH dimensionaless spin */
         REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
         REAL8 iota,                                  /**< inclination angle (in rad) */
-        REAL8 phi,                                   /**< azimuthal angle (in rad) */
+        REAL8 phi_offset,                            /**< intrinsic phase offset (in rad) */
         UINT4 l,                                     /**< Polar eigenvalue */
         UINT4 m,                                     /**< Azimuthal eigenvalue */
         UINT4 n,                                     /**< Overtone Number */
@@ -884,11 +884,11 @@ int XLALSimRingdownGenerateSingleModeFD(
         COMPLEX16 A_lmn, S_lmn, Omega_lmn, Prefactor;
 
         /* Mode Component Calculation*/
-        A_lmn = XLALMMRDNSAmplitudes(eta, l, m, n);
-        S_lmn = XLALSpinWeightedSpheroidalHarmonic(jf, l, m, n, iota, phi);
-        Omega_lmn = CW07102016(kappa, l, m, n)/Mf_sec;
+        Omega_lmn = complexOmega(kappa, l, m, n)/Mf_sec;
         Omega_lmn = creal(Omega_lmn)*(1.+dfreq) + I * cimag(Omega_lmn)/(1.+dtau);
-        Prefactor = (Mf_sec/r_sec)*(A_lmn*S_lmn)/(I*Omega_lmn*Omega_lmn);
+        A_lmn = creal(Omega_lmn)*creal(Omega_lmn)*XLALMMRDNSAmplitudeOverOmegaSquared(eta, l, m, n);
+        S_lmn = XLALSpinWeightedSpheroidalHarmonic(jf, l, m, n, iota, 0.0);
+        Prefactor = exp(I*phi_offset)*(Mf_sec/r_sec)*(A_lmn*S_lmn)/(I*Omega_lmn*Omega_lmn);
 
         /* allocate htilde_p and htilde_c */
         /* The COMPLEX16FrequencySeries has to be destroyed by whom created it. */

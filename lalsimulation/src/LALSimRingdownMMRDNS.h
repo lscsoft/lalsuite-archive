@@ -94,11 +94,11 @@ int XLALSimRingdownMMRDNSFD(
         const REAL8 deltaF,                          /**< Frequency resolution (Hz) */
         const REAL8 fStart,                          /**< Start GW frequency (Hz) */
         const REAL8 fEnd,                            /**< Highest GW frequency (Hz) */
-        REAL8 Mf,                                    /**< Final BH Mass (solar mass) */
+        REAL8 Mf,                                    /**< Final BH Mass (kg) */
         REAL8 jf,                                    /**< Final BH dimensionaless spin */
         REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
         REAL8 iota,                                  /**< inclination angle (in rad) */
-        REAL8 phi,                                   /**< azimuthal angle (in rad) */
+        REAL8 phi_offset,                            /**< intrinsic phase offset (in rad) */
         REAL8 r,                                     /**< distance of source (m) */
         LALSimInspiralTestGRParam *nonGRparams       /**< testing GR parameters */
 );
@@ -114,7 +114,7 @@ int XLALSimRingdownGenerateSingleModeFD(
       REAL8 jf,                                    /**< Final BH dimensionaless spin */
       REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
       REAL8 iota,                                  /**< inclination angle */
-      REAL8 phi,                                   /**< azimuthal angle */
+      REAL8 phi_offset,                            /**< intrinsic phase offset */
       UINT4 l,                                     /**< Polar eigenvalue */
       UINT4 m,                                     /**< Azimuthal eigenvalue */
       UINT4 n,                                     /**< Overtone Number */
