@@ -221,4 +221,65 @@ static void EulerAnglesP2J(
     }
 }
 
+/// This function computes components of the spins in L-based frame close to the merger
+
+static void ComputeSpinsInLframe(
+        REAL8Vector* S1hatL,
+        REAL8Vector* S2hatL,
+        const REAL8 s1x,
+        const REAL8 s1y,
+        const REAL8 s1z,
+        const REAL8 s2x,
+        const REAL8 s2y,
+        const REAL8 s2z,
+        const REAL8 lhx,
+        const REAL8 lhy,
+        const REAL8 lhz)
+{
+
+    REAL8 Lmag = sqrt(lhx*lhx + lhy*lhy + lhz*lhz);
+    REAL8 S1mag = sqrt(s1x*s1x + s1y*s1y + s1z*s1z);
+    REAL8 S2mag = sqrt(s2x*s2x + s2y*s2y + s2z*s2z);
+
+    REAL8 th = acos(lhz/Lmag);
+    REAL8 ph = atan2(lhy, lhx);
+    REAL8 th1 = 0.0;
+    REAL8 ph1 = 0.0;
+    if (S1mag>1e-8){
+       th1=acos(s1z/S1mag);
+       ph1= atan2(s1y, s1x);
+    }
+    REAL8 th2 = 0.0;
+    REAL8 ph2 = 0.0;
+    if (S2mag>1e-8){
+       th2 = acos(s2z/S2mag);
+       ph2 = atan2(s2y, s2x);
+    }
+   
+
+    // I want to find components of S1, S2 in the frame where L is along z
+    // (up to a overall rotation angle)
+    
+    //REAL8 ths1l = acos((lhx*s1x + lhy*s1y + lhz*s1z)/(S1mag*Lmag) ); 
+    //REAL8 ths2l = acos((lhx*s1x + lhy*s1y + lhz*s1z)/(S1mag*Lmag) ); 
+
+    // The easieast is to rotate to the frame 
+    // where L is along z: RY[-th].RZ[-ph]:
+
+    S1hatL->data[0] = S1mag*(-cos(th1)*sin(th) + cos(th)*cos(ph - ph1)*sin(th1));
+    S1hatL->data[1] = S1mag*(-sin(th1)*sin(ph - ph1));
+    S1hatL->data[2] = S1mag*(cos(th)*cos(th1) + sin(th)*sin(th1)*cos(ph-ph1));
+    // z -component should aagree with ths1l
+
+    S2hatL->data[0] = S2mag*(-cos(th2)*sin(th) + cos(th)*cos(ph - ph2)*sin(th2));
+    S2hatL->data[1] = S2mag*(-sin(th2)*sin(ph - ph2));
+    S2hatL->data[2] = S2mag*(cos(th)*cos(th2) + sin(th)*sin(th2)*cos(ph-ph2));
+     
+}
+
+
+
+
+
+
 #endif // _LALSIMIMRSPINPRECEOBEULERANGLES_C
