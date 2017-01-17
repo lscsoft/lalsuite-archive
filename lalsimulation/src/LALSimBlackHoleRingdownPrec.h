@@ -72,6 +72,15 @@ INT4 XLALSimIMREOBGenerateQNMFreqV2Prec(
   Approximant      approximant/**<< The waveform approximant being used */
   );
 
+extern REAL8 XLALSimRadiusKerrISCO ( REAL8 a );
+extern REAL8 XLALSimEnergyKerrISCO ( REAL8 rISCO );
+extern REAL8 XLALSimAngMomKerrISCO ( REAL8 rISCO );
+static const REAL8 k00 = -3.821158  ;
+static const REAL8 k01 =   -1.2019;
+static const REAL8 k02 =  -1.20764 ;
+static const REAL8 k10 =3.79245 ;
+static const REAL8 k11 = 1.18385;
+static const REAL8 k12 = 4.90494 ;
 #if 0
 { /* so that editors will match succeeding brace */
 #elif defined(__cplusplus)

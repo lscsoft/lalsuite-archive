@@ -699,7 +699,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   INspin2[2] = INspin2z;
 
   INT4 debugPK = 1, debugCustomIC = 0, debugNoNQC = 0;
-  INT4 debugRD = 0;
+  INT4 debugRD = 1;
   FILE *out = NULL;
   INT4 i=0;
   INT4 k=0;
@@ -2364,11 +2364,40 @@ int XLALSimIMRSpinEOBWaveformAll(
   chi1L /=  magL*m1*m1/mTotal/mTotal;
   chi2L /=  magL*m2*m2/mTotal/mTotal;
   chiL = (chi1L+chi2L)/2. + (chi1L-chi2L)/2.*((m1-m2)/(m1+m2))/(1. - 2.*eta);
+  
+  //-------------------------------------------
+  REAL8Vector* S1hatL = NULL; 
+  REAL8Vector* S2hatL  = NULL;
+  S1hatL = XLALCreateREAL8Vector( 3 );
+  S2hatL = XLALCreateREAL8Vector( 3 );
+ 
+  ComputeSpinsInLframe(S1hatL, S2hatL, values->data[6], values->data[7], values->data[8], 
+          values->data[9], values->data[10], values->data[11], Lx, Ly, Lz);
+
+  
+  REAL8 chi1Lx = S1hatL->data[0]/(m1*m1)*mTotal*mTotal; 
+  REAL8 chi1Ly = S1hatL->data[1]/(m1*m1)*mTotal*mTotal; 
+  REAL8 chi1Lz = S1hatL->data[2]/(m1*m1)*mTotal*mTotal; 
+
+  REAL8 chi2Lx = S2hatL->data[0]/(m2*m2)*mTotal*mTotal; 
+  REAL8 chi2Ly = S2hatL->data[1]/(m2*m2)*mTotal*mTotal; 
+  REAL8 chi2Lz = S2hatL->data[2]/(m2*m2)*mTotal*mTotal; 
+
+  printf("chi1: %.5f %.5f \n",chi1L,chi1Lz);
+  printf("chi2: %.5f %.5f \n",chi2L,chi2Lz);
+  // Stas: chi1Lz should be equal to chi1L (I think chi1L was normalized by 1/m_1^2, similar for chi2Lz.
+  // Now we can destroy vectors
+  XLALDestroyREAL8Vector( S1hatL );
+  XLALDestroyREAL8Vector( S2hatL );
+
+  //--------------------------------------------
 
 
   if(debugPK) {
       XLAL_PRINT_INFO("chi1J,chi2J,chiJ = %3.10f %3.10f %3.10f\n", chi1J,chi2J,chiJ); fflush(NULL); fflush(NULL);
       XLAL_PRINT_INFO("chi1L,chi2L,chiL = %3.10f %3.10f %3.10f\n", chi1L,chi2L,chiL); fflush(NULL); fflush(NULL);
+      XLAL_PRINT_INFO("chi1Lx,chi1Ly,chi1Lz = %3.10f %3.10f %3.10f\n", chi1Lx,chi1Ly,chi1Lx); fflush(NULL); fflush(NULL);
+      XLAL_PRINT_INFO("chi2Lx,chi2Ly,chi2Lz = %3.10f %3.10f %3.10f\n", chi2Lx,chi2Ly,chi2Lx); fflush(NULL); fflush(NULL);
       XLAL_PRINT_INFO("J.L = %4.11f \n", kappaJL); fflush(NULL);
       XLAL_PRINT_INFO("J.LN = %4.11f \n", JLN);
       XLAL_PRINT_INFO("L.LN = %4.11f \n", (Lx*rcrossrdot[0] + Ly*rcrossrdot[1] + Lz*rcrossrdot[2])/magL/magLN);
@@ -3478,8 +3507,11 @@ int XLALSimIMRSpinEOBWaveformAll(
           sigImHi->data[i] = cimag(h22JTSHi->data->data[i]);
         }
 
+      //if( XLALSimCheckRDattachment(sigReHi, sigImHi, &ratio22, tAttach, 2, 2,
+      //              deltaTHigh, m1, m2, 0.0, 0.0, chi1L, 0.0, 0.0, chi2L,
+      //              &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL, &timediff) == XLAL_FAILURE )
       if( XLALSimCheckRDattachment(sigReHi, sigImHi, &ratio22, tAttach, 2, 2,
-                    deltaTHigh, m1, m2, 0.0, 0.0, chi1L, 0.0, 0.0, chi2L,
+                    deltaTHigh, m1, m2, chi1Lx, chi1Ly, chi1Lz, chi2Lx, chi2Ly, chi2Lz,
                     &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL, &timediff) == XLAL_FAILURE )
       {
           FREE_EVERYTHING
@@ -3502,8 +3534,11 @@ int XLALSimIMRSpinEOBWaveformAll(
         }
 
       if( XLALSimCheckRDattachment(sigReHi, sigImHi, &ratio2m2, tAttach, 2, -2,
-                    deltaTHigh, m1, m2, 0.0, 0.0, chi1L, 0.0, 0.0, chi2L,
+                    deltaTHigh, m1, m2, chi1Lx, chi1Ly, chi1L, chi2Lx, chi2Ly, chi2L,
                     &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL, &timediff ) == XLAL_FAILURE ) {
+      //if( XLALSimCheckRDattachment(sigReHi, sigImHi, &ratio2m2, tAttach, 2, -2,
+      //              deltaTHigh, m1, m2, 0.0, 0.0, chi1L, 0.0, 0.0, chi2L,
+      //              &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL, &timediff ) == XLAL_FAILURE ) {
           FREE_EVERYTHING
           XLALDestroyREAL8Vector( timeJFull );
           XLALDestroyREAL8Vector( timeIFull );
@@ -3531,9 +3566,13 @@ int XLALSimIMRSpinEOBWaveformAll(
            memset( sigReHi->data, 0, sigReHi->length * sizeof( sigReHi->data[0] ));
            memset( sigImHi->data, 0, sigImHi->length * sizeof( sigImHi->data[0] ));
 
+           //int found_att = XLALSimAdjustRDattachmentTime( sigReHi, sigImHi, h22JTSHi, h2m2JTSHi,
+           //         &ratio22, &ratio2m2, &tAttach, thr,
+           //         deltaTHigh, m1, m2, 0.0, 0.0, chi1L, 0.0, 0.0, chi2L,
+           //         &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL, combSize, tMaxOmega, tMaxAmp);
            int found_att = XLALSimAdjustRDattachmentTime( sigReHi, sigImHi, h22JTSHi, h2m2JTSHi,
                     &ratio22, &ratio2m2, &tAttach, thr,
-                    deltaTHigh, m1, m2, 0.0, 0.0, chi1L, 0.0, 0.0, chi2L,
+                    deltaTHigh, m1, m2, chi1Lx, chi1Ly, chi1Lz, chi2Lx, chi2Ly, chi2Lz,
                     &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL, combSize, tMaxOmega, tMaxAmp);
 
            if (debugPK){
@@ -3589,8 +3628,11 @@ int XLALSimIMRSpinEOBWaveformAll(
       sigReHi->data[i] = creal(hJTSHi->data->data[i]);
       sigImHi->data[i] = cimag(hJTSHi->data->data[i]);
     }
+    //if ( XLALSimIMREOBHybridAttachRingdownPrec( sigReHi, sigImHi, 2, m,
+    //            deltaTHigh, m1, m2, 0.0, 0.0, chi1L, 0.0, 0.0, chi2L,
+    //            &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL )
     if ( XLALSimIMREOBHybridAttachRingdownPrec( sigReHi, sigImHi, 2, m,
-                deltaTHigh, m1, m2, 0.0, 0.0, chi1L, 0.0, 0.0, chi2L,
+                deltaTHigh, m1, m2, chi1Lx, chi1Ly, chi1Lz, chi2Lx, chi2Ly, chi2Lz,
                 &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL )
             == XLAL_FAILURE ) {
         FREE_EVERYTHING
