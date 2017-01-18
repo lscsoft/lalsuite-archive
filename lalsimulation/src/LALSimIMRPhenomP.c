@@ -192,7 +192,7 @@ int XLALSimIMRPhenomPCalculateModelParameters(
   }
 
   REAL8 phiJ; // We only use this angle internally since it is degenerate with alpha0.
-  if (Jx0 < DBL_MIN && Jy0 < DBL_MIN)
+  if (fabs(Jx0) < DBL_MIN && fabs(Jy0) < DBL_MIN)
     phiJ = 0;
   else
     phiJ = atan2(Jy0, Jx0); /* Angle of J0 in the plane of the sky */
