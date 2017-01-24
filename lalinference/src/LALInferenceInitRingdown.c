@@ -1059,15 +1059,6 @@ LALInferenceModel *LALInferenceInitRingdownModel(LALInferenceRunState *state)
   else {
 	  LALInferenceRegisterUniformVariableREAL8(state, model->params, "rd_mass", start_mass, mMin, mMax, LALINFERENCE_PARAM_LINEAR);
   }
-          LALInferenceRegisterUniformVariableREAL8(state,model->params,"azimuth_angle_BH",0.0,0.0,LAL_TWOPI,LALINFERENCE_PARAM_CIRCULAR);
-  ppt = LALInferenceGetProcParamVal(commandLine, "--mode_phase");
-  if (ppt) {
-          LALInferenceRegisterUniformVariableREAL8(state, model->params, "phi21",start_phase, phiMin, phiMax, LALINFERENCE_PARAM_CIRCULAR);
-          LALInferenceRegisterUniformVariableREAL8(state, model->params, "phi22",start_phase, phiMin, phiMax, LALINFERENCE_PARAM_CIRCULAR);
-          LALInferenceRegisterUniformVariableREAL8(state, model->params, "phi32",start_phase, phiMin, phiMax, LALINFERENCE_PARAM_CIRCULAR);
-          LALInferenceRegisterUniformVariableREAL8(state, model->params, "phi33",start_phase, phiMin, phiMax, LALINFERENCE_PARAM_CIRCULAR);
-          LALInferenceRegisterUniformVariableREAL8(state, model->params, "phi44",start_phase, phiMin, phiMax, LALINFERENCE_PARAM_CIRCULAR);
-  }
 
 
   // if(!LALInferenceGetProcParamVal(commandLine,"--margphi")){

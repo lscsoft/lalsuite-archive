@@ -90,11 +90,6 @@ int XLALSimBlackHoleRingdownTigerFD(
                 COMPLEX16FrequencySeries **hptilde,    /**< FD plus polarization */
                 COMPLEX16FrequencySeries **hctilde,    /**< FD cross polarization */
                 REAL8 phi0,                            /**<initial phase of ringdown*/
-		REAL8 phi21,
-		REAL8 phi22,
-		REAL8 phi32,	
-		REAL8 phi33,
-		REAL8 phi44,
                 REAL8 deltaF,                         /**<sampling interval (Hz)*/
                 REAL8 fEnd,
                 REAL8 fStart,
@@ -114,7 +109,6 @@ int XLALSimBlackHoleRingdownModeTigerFD(
                 const REAL8 fStart,                    /**< Start GW frequency (Hz)*/
                 const REAL8 fEnd,                      /**< Highest GW frequency (Hz)*/
                 REAL8 phi0,                       /**< initial phase of ringdown */
-		REAL8 philm,                          /** initial phase of ringdown mode lm*/
                 REAL8 mass,                       /**< black hole mass (kg) */
                 REAL8 a,  /**< black hole dimensionless spin parameter */
                 REAL8 distance,           /**< distance to source (m) */

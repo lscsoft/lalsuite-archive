@@ -28,12 +28,7 @@
 int XLALSimBlackHoleRingdownTigerFD(
 		COMPLEX16FrequencySeries **hptilde,    /**< FD plus polarization */
 		COMPLEX16FrequencySeries **hctilde,    /**< FD cross polarization */
-		REAL8 phi0,                            /**< azimuth angle at which the black hole is observed*/
-		REAL8 phi21, 
-		REAL8 phi22,
-		REAL8 phi32,
-		REAL8 phi33,
-		REAL8 phi44,
+		REAL8 phi0,                            /**<initial phase of ringdown*/
 		REAL8 deltaF,                         /**<sampling interval (Hz)*/
 		REAL8 fEnd,
 		REAL8 fStart,
@@ -111,11 +106,11 @@ int XLALSimBlackHoleRingdownTigerFD(
 	COMPLEX16FrequencySeries *hp22, *hc22, *hp21, *hc21, *hp33, *hc33, *hp32, *hc32, *hp44, *hc44; /* *hp2m2, *hc2m2, *hp2m1, *hc2m1, *hp3m3, *hc3m3, *hp3m2, *hc3m2, *hp4m4, *hc4m4;*/
 
 	/*importing waveforms of different mode*/
-	XLALSimBlackHoleRingdownModeTigerFD(&hp22, &hc22, deltaF, fStart, fEnd, phi0, phi22, mass, a, distance, inclination, eta, 2, 2, chiEff, dfreq22, dtau22); 
-	XLALSimBlackHoleRingdownModeTigerFD(&hp21, &hc21, deltaF, fStart, fEnd, phi0, phi21, mass, a, distance, inclination, eta, 2, 1, chiEff, dfreq21, dtau21);
-	XLALSimBlackHoleRingdownModeTigerFD(&hp33, &hc33, deltaF, fStart, fEnd, phi0, phi33, mass, a, distance, inclination, eta, 3, 3, chiEff, dfreq33, dtau33);
-	XLALSimBlackHoleRingdownModeTigerFD(&hp32, &hc32, deltaF, fStart, fEnd, phi0, phi32, mass, a, distance, inclination, eta, 3, 2, chiEff, dfreq32, dtau32);
-	XLALSimBlackHoleRingdownModeTigerFD(&hp44, &hc44, deltaF, fStart, fEnd, phi0, phi44, mass, a, distance, inclination, eta, 4, 4, chiEff, dfreq44, dtau44);
+	XLALSimBlackHoleRingdownModeTigerFD(&hp22, &hc22, deltaF, fStart, fEnd, phi0, mass, a, distance, inclination, eta, 2, 2, chiEff, dfreq22, dtau22);
+	XLALSimBlackHoleRingdownModeTigerFD(&hp21, &hc21, deltaF, fStart, fEnd, phi0, mass, a, distance, inclination, eta, 2, 1, chiEff, dfreq21, dtau21);
+	XLALSimBlackHoleRingdownModeTigerFD(&hp33, &hc33, deltaF, fStart, fEnd, phi0, mass, a, distance, inclination, eta, 3, 3, chiEff, dfreq33, dtau33);
+	XLALSimBlackHoleRingdownModeTigerFD(&hp32, &hc32, deltaF, fStart, fEnd, phi0, mass, a, distance, inclination, eta, 3, 2, chiEff, dfreq32, dtau32);
+	XLALSimBlackHoleRingdownModeTigerFD(&hp44, &hc44, deltaF, fStart, fEnd, phi0, mass, a, distance, inclination, eta, 4, 4, chiEff, dfreq44, dtau44);
 
 /*	XLALSimBlackHoleRingdownModeTigerFD(&hp2m2, &hc2m2, deltaF, fStart, fEnd, phi0, mass, a, distance, inclination, eta, 2, -2, chiEff, dfreq22, dtau22);
 	XLALSimBlackHoleRingdownModeTigerFD(&hp2m1, &hc2m1, deltaF, fStart, fEnd, phi0, mass, a, distance, inclination, eta, 2, -1, chiEff, dfreq21, dtau21);
@@ -214,8 +209,7 @@ int XLALSimBlackHoleRingdownModeTigerFD(
 		const REAL8 deltaF,                    /**< Frequency resolution */
 		const REAL8 fStart,                    /**< Start GW frequency (Hz) */
 		const REAL8 fEnd,                      /**< Highest GW frequency (Hz)*/
-		REAL8 phi0,                       /**< azimuth angle at which the black hole is observed*/
-		REAL8 philm,                      /**< initial phase of ringdown mode lm*/
+		REAL8 phi0,                       /**< initial phase of ringdown */
 		REAL8 mass,                       /**< black hole mass (kg) */
 		REAL8 a,  /**< black hole dimensionless spin parameter */
 		REAL8 distance,           /**< distance to source (m) */
@@ -290,8 +284,8 @@ int XLALSimBlackHoleRingdownModeTigerFD(
 
 	for ( j=jStart;j<n;j++) {
 
-	data_p[j] = (A_plus/2.)*(cos(f*shift) - I*sin(f*shift))*((tau-I*tau*tau*(freq+LAL_TWOPI*f))*(cos(m*phi0-philm)+I*sin(m*phi0-philm))/(1.+ tau*tau*(freq+LAL_TWOPI*f)*(freq+LAL_TWOPI*f)) + (tau-I*tau*tau*(-freq+LAL_TWOPI*f))*(cos(m*phi0+philm)-I*sin(m*phi0+philm))/(1.+ tau*tau*(-freq+LAL_TWOPI*f)*(-freq+LAL_TWOPI*f)));
-	data_c[j] = (-I*A_cross/2.)*(cos(f*shift) - I*sin(f*shift))*((tau-I*tau*tau*(freq+LAL_TWOPI*f))*(cos(m*phi0-philm)+I*sin(m*phi0-philm))/(1.+ tau*tau*(freq+LAL_TWOPI*f)*(freq+LAL_TWOPI*f)) - (tau-I*tau*tau*(-freq+LAL_TWOPI*f))*(cos(m*phi0+philm)-I*sin(m*phi0+philm))/(1.+ tau*tau*(-freq+LAL_TWOPI*f)*(-freq+LAL_TWOPI*f)));
+	data_p[j] = (A_plus/2.)*(cos(f*shift) - I*sin(f*shift))*((tau-I*tau*tau*(freq+LAL_TWOPI*f))*(cos(m*phi0)+I*sin(m*phi0))/(1.+ tau*tau*(freq+LAL_TWOPI*f)*(freq+LAL_TWOPI*f)) + (tau-I*tau*tau*(-freq+LAL_TWOPI*f))*(cos(m*phi0)-I*sin(m*phi0))/(1.+ tau*tau*(-freq+LAL_TWOPI*f)*(-freq+LAL_TWOPI*f)));
+	data_c[j] = (-I*A_cross/2.)*(cos(f*shift) - I*sin(f*shift))*((tau-I*tau*tau*(freq+LAL_TWOPI*f))*(cos(m*phi0)+I*sin(m*phi0))/(1.+ tau*tau*(freq+LAL_TWOPI*f)*(freq+LAL_TWOPI*f)) - (tau-I*tau*tau*(-freq+LAL_TWOPI*f))*(cos(m*phi0)-I*sin(m*phi0))/(1.+ tau*tau*(-freq+LAL_TWOPI*f)*(-freq+LAL_TWOPI*f)));
 
 
 	f+=deltaF;

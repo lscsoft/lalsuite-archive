@@ -2367,14 +2367,8 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
       spin2[1] = inj_table->spin2y;
       spin2[2] = inj_table->spin2z;
 
-     REAL8 phi21 = 0.0; /*gsl_rng_uniform(21.)*(LAL_TWOPI-0.0);*/
-     REAL8 phi22 = 0.0; 
-     REAL8 phi32 = 0.0;
-     REAL8 phi33 = 0.0;
-     REAL8 phi44 = 0.0;
-
     REAL8 chiEff = XLALChiEffRingdown(inj_table->mass1, inj_table->mass2, spin1, spin2);
-    XLALSimBlackHoleRingdownTigerFD(&hptilde, &hctilde, inj_table->coa_phase, phi21, phi22, phi32, phi33, phi44, deltaF,f_max,f_min,inj_table->rdMass*LAL_MSUN_SI,inj_table->rdSpin,inj_table->eta,chiEff,inj_table->distance*LAL_PC_SI * 1.0e6,inj_table->inclination,nonGRparams);
+    XLALSimBlackHoleRingdownTigerFD(&hptilde, &hctilde, inj_table->coa_phase,deltaF,f_max,f_min,inj_table->rdMass*LAL_MSUN_SI,inj_table->rdSpin,inj_table->eta,chiEff,inj_table->distance*LAL_PC_SI * 1.0e6,inj_table->inclination,nonGRparams);
  
   }
 
