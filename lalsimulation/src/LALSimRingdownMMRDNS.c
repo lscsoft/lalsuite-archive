@@ -68,7 +68,7 @@ static double KAPPA( double jf, int l, int m ){
   /* */
   /* if ( jf > 1.0 ) XLAL_ERROR(XLAL_EDOM, "Spin (dimensionless Kerr parameter) must not be greater than 1.0\n"); */
   /**/
-  double alpha = log( 2.0 - jf ) / log(3);
+  double alpha = log( 2.0 - jf ) * 0.91023922662; // 1/log(3)=1.09861228867
   double beta  = 1.0 / ( 2.0 + l-abs(m) );
   return pow( alpha , beta );
 }

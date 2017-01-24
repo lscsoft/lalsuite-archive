@@ -2040,6 +2040,7 @@ void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenceModel 
            LALInferenceRegisterUniformVariableREAL8(state, model->params, "dtau22", tmpVal, dtau_min, dtau_max, LALINFERENCE_PARAM_LINEAR);
            //printf("Added dtau22 to the parameters that are sampled\n");
         }
+        //RingdownFD parameters
         if (checkParamInList(ppt->value,"dfreq22")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dfreq22", tmpVal, dfreq_min, dfreq_max, LALINFERENCE_PARAM_LINEAR);
         if (checkParamInList(ppt->value,"dtau21")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dtau21", tmpVal, dtau_min, dtau_max, LALINFERENCE_PARAM_LINEAR);
         if (checkParamInList(ppt->value,"dfreq21")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dfreq21", tmpVal, dfreq_min, dfreq_max, LALINFERENCE_PARAM_LINEAR);
@@ -2049,6 +2050,26 @@ void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenceModel 
         if (checkParamInList(ppt->value,"dfreq32")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dfreq32", tmpVal, dfreq_min, dfreq_max, LALINFERENCE_PARAM_LINEAR);
         if (checkParamInList(ppt->value,"dtau44")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dtau44", tmpVal, dtau_min, dtau_max, LALINFERENCE_PARAM_LINEAR);
         if (checkParamInList(ppt->value,"dfreq44")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dfreq44", tmpVal, dfreq_min, dfreq_max, LALINFERENCE_PARAM_LINEAR);
+        //RingdownMMRDNS parameters
+        if (checkParamInList(ppt->value,"dtau220")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dtau220", tmpVal, dtau_min, dtau_max, LALINFERENCE_PARAM_LINEAR);
+       if (checkParamInList(ppt->value,"dfreq220")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dfreq220", tmpVal, dfreq_min, dfreq_max, LALINFERENCE_PARAM_LINEAR);
+        if (checkParamInList(ppt->value,"dtau221")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dtau221", tmpVal, dtau_min, dtau_max, LALINFERENCE_PARAM_LINEAR);
+       if (checkParamInList(ppt->value,"dfreq221")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dfreq221", tmpVal, dfreq_min, dfreq_max, LALINFERENCE_PARAM_LINEAR);
+        if (checkParamInList(ppt->value,"dtau330")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dtau330", tmpVal, dtau_min, dtau_max, LALINFERENCE_PARAM_LINEAR);
+       if (checkParamInList(ppt->value,"dfreq330")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dfreq330", tmpVal, dfreq_min, dfreq_max, LALINFERENCE_PARAM_LINEAR);
+        if (checkParamInList(ppt->value,"dtau331")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dtau331", tmpVal, dtau_min, dtau_max, LALINFERENCE_PARAM_LINEAR);
+       if (checkParamInList(ppt->value,"dfreq331")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dfreq331", tmpVal, dfreq_min, dfreq_max, LALINFERENCE_PARAM_LINEAR);
+        if (checkParamInList(ppt->value,"dtau440")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dtau440", tmpVal, dtau_min, dtau_max, LALINFERENCE_PARAM_LINEAR);
+       if (checkParamInList(ppt->value,"dfreq440")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dfreq440", tmpVal, dfreq_min, dfreq_max, LALINFERENCE_PARAM_LINEAR);
+        if (checkParamInList(ppt->value,"dtau550")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dtau550", tmpVal, dtau_min, dtau_max, LALINFERENCE_PARAM_LINEAR);
+       if (checkParamInList(ppt->value,"dfreq550")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dfreq550", tmpVal, dfreq_min, dfreq_max, LALINFERENCE_PARAM_LINEAR);
+        if (checkParamInList(ppt->value,"dtau210")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dtau210", tmpVal, dtau_min, dtau_max, LALINFERENCE_PARAM_LINEAR);
+       if (checkParamInList(ppt->value,"dfreq210")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dfreq210", tmpVal, dfreq_min, dfreq_max, LALINFERENCE_PARAM_LINEAR);
+        if (checkParamInList(ppt->value,"dtau320")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dtau320", tmpVal, dtau_min, dtau_max, LALINFERENCE_PARAM_LINEAR);
+       if (checkParamInList(ppt->value,"dfreq320")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dfreq320", tmpVal, dfreq_min, dfreq_max, LALINFERENCE_PARAM_LINEAR);
+        if (checkParamInList(ppt->value,"dtau430")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dtau430", tmpVal, dtau_min, dtau_max, LALINFERENCE_PARAM_LINEAR);
+       if (checkParamInList(ppt->value,"dfreq430")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dfreq430", tmpVal, dfreq_min, dfreq_max, LALINFERENCE_PARAM_LINEAR);
+
     }
     ppt=LALInferenceGetProcParamVal(commandLine,"--ppe-parameters");
     if (ppt)

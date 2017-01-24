@@ -2573,13 +2573,12 @@ void LALInferenceInjectRingdownSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	REPORTSTATUS(&status);
 	
 	/* Check for frequency domain injection (TF2 only at present) */
-	if(strstr(injTable->waveform,"RingdownFD"))
-	{ printf("Injecting RingdownFD in the frequency domain...\n");
-    XLALPrintError(" ERROR in LALInferenceTemplateXLALSimBlackHoleRingdown(): FD waveform not implemented yet.\n");
-    XLAL_ERROR_VOID(XLAL_EFAILED);
-//	 InjectRingdownFD(IFOdata, injTable, commandLine);  //TODO: write injection for FD
-	 return;
-	}
+        if(XLALSimInspiralImplementedFDApproximants(XLALGetApproximantFromString(injEvent->waveform)))
+        {
+         InjectFD(IFOdata, injTable, commandLine);
+         LALInferencePrintDataWithInjection(IFOdata,commandLine);
+         return;
+        }
 
 	/* Begin loop over interferometers */
 	while(thisData){
