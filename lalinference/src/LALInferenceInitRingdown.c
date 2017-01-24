@@ -1130,79 +1130,10 @@ LALInferenceModel *LALInferenceInitRingdownModel(LALInferenceRunState *state)
     LALInferenceInitNonGRParams(state, model);
   }
 
-  /* The strcmp("",ppt->value) is just to avoid that calling --GRtestparameter without any parameters (which is a GR recovery) pins all the dchis */
-  if (ppt && strcmp("",ppt->value) )
-  {
-    REAL8 testParameter_max=.5;
-    REAL8 testParameter_min=-.5;
-    REAL8 tmpVal=testParameter_min+(testParameter_max - testParameter_min)/2.0;
-    //REAL8 zeroVal=0.0;
-
-/* Without helper function */    
-//     if (checkParamInList(ppt->value,"dchi0")) {
-//       XLALPrintInfo("Adding %s to the template parameters \n",ppt->value);
-//       LALInferenceAddVariable(model->params,"dchi0",  &tmpVal,  LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-//       LALInferenceAddMinMaxPrior(priorArgs, "dchi0",     &testParameter_min, &testParameter_max,   LALINFERENCE_REAL8_t);
-//     } else {
-//       LALInferenceAddVariable(model->params,"dchi0",  &zeroVal,        LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-//     }
-    if (checkParamInList(ppt->value,"dtau21")) {
-      XLALPrintInfo("Adding dtau21 to the template parameters \n");
-      LALInferenceRegisterUniformVariableREAL8(state, model->params, "dtau21", tmpVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_LINEAR);
-    } /*else {
-      LALInferenceRegisterUniformVariableREAL8(state, model->params, "dtau21", zeroVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_FIXED);
-    }*/
-    if (checkParamInList(ppt->value,"dtau22")) {
-      XLALPrintInfo("Adding dtau22 to the template parameters \n");
-      LALInferenceRegisterUniformVariableREAL8(state, model->params, "dtau22", tmpVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_LINEAR);
-    } /*else {
-      LALInferenceRegisterUniformVariableREAL8(state, model->params, "dtau22", zeroVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_FIXED);
-    }  */     
-    if (checkParamInList(ppt->value,"dtau33")) {
-      XLALPrintInfo("Adding dtau33 to the template parameters \n");
-      LALInferenceRegisterUniformVariableREAL8(state, model->params, "dtau33", tmpVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_LINEAR);
-    } /*else {
-      LALInferenceRegisterUniformVariableREAL8(state, model->params, "dtau33", zeroVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_FIXED);
-    } */  
-    if (checkParamInList(ppt->value,"dtau44")) {
-      XLALPrintInfo("Adding dtau44 to the template parameters \n");
-      LALInferenceRegisterUniformVariableREAL8(state, model->params, "dtau44", tmpVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_LINEAR);
-    } /*else {
-      LALInferenceRegisterUniformVariableREAL8(state, model->params, "dtau44", zeroVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_FIXED);
-    }*/
-
-    if (checkParamInList(ppt->value,"dfreq21")) {
-      XLALPrintInfo("Adding dfreq21 to the template parameters \n");
-      LALInferenceRegisterUniformVariableREAL8(state, model->params, "dfreq21", tmpVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_LINEAR);
-    } /*else {
-      LALInferenceRegisterUniformVariableREAL8(state, model->params, "dfreq21", zeroVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_FIXED);
-    }*/
-    if (checkParamInList(ppt->value,"dfreq22")) {
-      XLALPrintInfo("Adding dfreq22 to the template parameters \n");
-      LALInferenceRegisterUniformVariableREAL8(state, model->params, "dfreq22", tmpVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_LINEAR);
-    } /*else {
-      LALInferenceRegisterUniformVariableREAL8(state, model->params, "dfreq22", zeroVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_FIXED);
-    }*/
-    if (checkParamInList(ppt->value,"dfreq33")) {
-      XLALPrintInfo("Adding dfreq33 to the template parameters \n");
-      LALInferenceRegisterUniformVariableREAL8(state, model->params, "dfreq33", tmpVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_LINEAR);
-    } /*else {
-      LALInferenceRegisterUniformVariableREAL8(state, model->params, "dfreq33", zeroVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_FIXED);
-    }*/
-    if (checkParamInList(ppt->value,"dfreq44")) {
-      XLALPrintInfo("Adding dfreq44 to the template parameters \n");
-      LALInferenceRegisterUniformVariableREAL8(state, model->params, "dfreq44", tmpVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_LINEAR);
-    } /*else {
-      LALInferenceRegisterUniformVariableREAL8(state, model->params, "dfreq44", zeroVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_FIXED);
-    } */
- 
-  }
-
-
-     /* Print info about orders and waveflags used for templates */
-     fprintf(stdout,"\n\n---\t\t ---\n");
-     fprintf(stdout,"Templates will run using ringdown Approximant %i (%s) in the %s domain.\n",approx,XLALGetStringFromApproximant(approx),model->domain==LAL_SIM_DOMAIN_TIME?"time":"frequency");
-     fprintf(stdout,"---\t\t ---\n\n");
+  /* Print info about orders and waveflags used for templates */
+  fprintf(stdout,"\n\n---\t\t ---\n");
+  fprintf(stdout,"Templates will run using ringdown Approximant %i (%s) in the %s domain.\n",approx,XLALGetStringFromApproximant(approx),model->domain==LAL_SIM_DOMAIN_TIME?"time":"frequency");
+  fprintf(stdout,"---\t\t ---\n\n");
 
   /* Initialize waveform buffers */
   model->timehPlus  = XLALCreateREAL8TimeSeries("timehPlus",

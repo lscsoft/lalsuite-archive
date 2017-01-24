@@ -101,7 +101,7 @@ int main(int argc, char *argv[]){
 
   /* Perform injections if data successful read or created */
   if (state&&!helpflag){
-    if (LALInferenceGetProcParamVal(state->commandLine, "--ringdown")&&strstr(LALInferencePrintCommandLine(state->commandLine),"RingdownFD") == NULL){  // time domain injection has it's own function but not frequency domain
+    if (LALInferenceGetProcParamVal(state->commandLine, "--ringdown")){
       fprintf(stdout, " LALInferenceInjectRingdownSignal(): started.\n"); // FIXME: remove after debug
       LALInferenceInjectRingdownSignal(state->data, state->commandLine);
       fprintf(stdout, " LALInferenceInjectRingdownSignal(): finished.\n"); //FM

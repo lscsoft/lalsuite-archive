@@ -42,6 +42,7 @@
 #include <lal/LALInferenceTemplate.h>
 #include <lal/LALInferenceMultibanding.h>
 #include <lal/LALSimBlackHoleRingdownTiger.h>
+#include <lal/LALSimRingdownMMRDNS.h>
 
 /* LIB imports*/
 #include <lal/LALInferenceBurstRoutines.h>
@@ -598,7 +599,7 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceModel *model)  // 
  */
 
 {
-  Approximant UNUSED approximant = (Approximant) 0;
+  Approximant approximant = (Approximant) 0;
   UINT4 qnmorder=0;
   
   unsigned long	i;
@@ -863,10 +864,14 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceModel *model)  // 
     XLAL_ERROR_VOID(XLAL_EFAILED);*/
     
     //TODO: add spin parameter like effective spin or component spins or whatever is necessary
-    XLAL_TRY(ret = XLALSimBlackHoleRingdownTigerFD(&hptilde, &hctilde, phi, deltaF, f_max, f_low, 
+    if(approximant==(int)RingdownFD){XLAL_TRY(ret = XLALSimBlackHoleRingdownTigerFD(&hptilde, &hctilde, phi, deltaF, f_max, f_low, 
                                                  mass*LAL_MSUN_SI, spin, eta, chiEff, distance,
                                                  inclination, nonGRparams), errnum); 
-
+    }
+    /*TODO: Is there anything wrong with using this phi?*/
+    if(approximant==(int)RingdownMMRDNSFD){
+        XLAL_TRY(ret = XLALSimRingdownMMRDNSFD(&hptilde, &hctilde, deltaF, f_low, f_max,mass*LAL_MSUN_SI, spin,eta,inclination,phi,distance,nonGRparams),errnum);
+    }
 	if (hptilde==NULL || hptilde->data==NULL || hptilde->data->data==NULL ) {
 	if (hptilde==NULL){ XLALPrintError("Error1");}
 	if (hptilde->data==NULL){ XLALPrintError("Error2");}
