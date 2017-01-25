@@ -78,6 +78,7 @@
 #include <lal/LALInferenceInit.h>
 #include <lal/LALSimNoise.h>
 #include <lal/LALSimBlackHoleRingdownTiger.h>
+#include <lal/LALSimRingdownMMRDNS.h> 
 #include <LALInferenceRemoveLines.h>
 /* LIB deps */
 #include <lal/LALInferenceBurstRoutines.h>
@@ -2369,6 +2370,71 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
 
     REAL8 chiEff = XLALChiEffRingdown(inj_table->mass1, inj_table->mass2, spin1, spin2);
     XLALSimBlackHoleRingdownTigerFD(&hptilde, &hctilde, inj_table->coa_phase,deltaF,f_max,f_min,inj_table->rdMass*LAL_MSUN_SI,inj_table->rdSpin,inj_table->eta,chiEff,inj_table->distance*LAL_PC_SI * 1.0e6,inj_table->inclination,nonGRparams);
+ 
+  }
+
+  if(approximant==(int)RingdownMMRDNSFD){
+      printf("Calling desired functions\n");
+      /* Ugliest method to inject the nonGRparams ever*/
+      /* dfreq */
+      if(inj_table->dfreq221 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dfreq221",inj_table->dfreq210) ;
+      }
+      if(inj_table->dfreq220 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dfreq220",inj_table->dfreq220) ;
+      }
+      if(inj_table->dfreq330 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dfreq330",inj_table->dfreq330) ;
+      }
+      if(inj_table->dfreq331 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dfreq331",inj_table->dfreq331) ;
+      }
+      if(inj_table->dfreq440 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dfreq440",inj_table->dfreq440) ;
+      }
+      if(inj_table->dfreq550 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dfreq550",inj_table->dfreq550) ;
+      }
+      if(inj_table->dfreq210 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dfreq210",inj_table->dfreq210) ;
+      }
+      if(inj_table->dfreq320 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dfreq320",inj_table->dfreq320) ;
+      }
+      if(inj_table->dfreq430 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dfreq430",inj_table->dfreq430) ;
+      }
+    
+      /* dtau */ 
+      if(inj_table->dtau221 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dtau221",inj_table->dtau210) ;
+      }
+      if(inj_table->dtau220 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dtau220",inj_table->dtau220) ;
+      }
+      if(inj_table->dtau330 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dtau330",inj_table->dtau330) ;
+      }
+      if(inj_table->dtau331 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dtau331",inj_table->dtau331) ;
+      }
+      if(inj_table->dtau440 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dtau440",inj_table->dtau440) ;
+      }
+      if(inj_table->dtau550 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dtau550",inj_table->dtau550) ;
+      }
+      if(inj_table->dtau210 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dtau210",inj_table->dtau210) ;
+      }
+      if(inj_table->dtau320 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dtau320",inj_table->dtau320) ;
+      }
+      if(inj_table->dtau430 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dtau430",inj_table->dtau430) ;
+      }
+
+    XLALSimRingdownMMRDNSFD(&hptilde, &hctilde,deltaF,f_min,f_max,inj_table->rdMass*LAL_MSUN_SI,inj_table->rdSpin,inj_table->eta,inj_table->inclination,inj_table->coa_phase,inj_table->distance*LAL_PC_SI * 1.0e6,nonGRparams);
  
   }
 

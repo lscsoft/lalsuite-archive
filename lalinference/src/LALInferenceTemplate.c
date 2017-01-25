@@ -75,10 +75,10 @@ static void eta2q(REAL8 eta, REAL8 *q);
 /* list of testing GR parameters to be passed to the waveform */
 
 const char list_extra_parameters[34][16] = {"dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep","dxi1","dxi2","dxi3","dxi4","dxi5","dxi6","dalpha1","dalpha2","dalpha3","dalpha4","dalpha5","dbeta1","dbeta2","dbeta3","dsigma1","dsigma2","dsigma3","dsigma4"};
-const char list_hairy_parameters[8][16] = {"dtau21","dtau22","dtau33","dtau44","dfreq21","dfreq22","dfreq33","dfreq44"};
+const char list_hairy_parameters[26][16] = {"dtau21","dtau22","dtau33","dtau44","dfreq21","dfreq22","dfreq33","dfreq44","dfreq220","dfreq221","dfreq330","dfreq331","dfreq440","dfreq550","dfreq210","dfreq320","dfreq430","dtau220","dtau221","dtau330","dtau331","dtau440","dtau550","dtau210","dtau320","dtau430"};
 
 const UINT4 N_extra_params = 34;
-const UINT4 N_hairy_params = 8;
+const UINT4 N_hairy_params = 26;
 
 
 static int InterpolateWaveform(REAL8Vector *freqs, COMPLEX16FrequencySeries *src, COMPLEX16FrequencySeries *dest);

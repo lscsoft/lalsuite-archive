@@ -555,7 +555,7 @@ tagSimInspiralTable
   /* Ringdown Parameters */
   REAL4          rdMass;
   REAL4          rdSpin;
-  /* Parameters for the GR test waveforms */
+  /* Parameters for the GR test Gossan's Waveforms */
   REAL4 dtau21 ;
   REAL4 dtau22 ;
   REAL4 dtau33 ;
@@ -564,7 +564,25 @@ tagSimInspiralTable
   REAL4 dfreq22 ;
   REAL4 dfreq33 ;
   REAL4 dfreq44 ;
-
+  /* Parameters for the GR test Lionel's Waveform */
+  REAL4 dfreq220;
+  REAL4 dfreq221;
+  REAL4 dfreq330;
+  REAL4 dfreq331;
+  REAL4 dfreq440;
+  REAL4 dfreq550;
+  REAL4 dfreq210;
+  REAL4 dfreq320;
+  REAL4 dfreq430;
+  REAL4 dtau220;
+  REAL4 dtau221;
+  REAL4 dtau330;
+  REAL4 dtau331;
+  REAL4 dtau440;
+  REAL4 dtau550;
+  REAL4 dtau210;
+  REAL4 dtau320;
+  REAL4 dtau430;
   REAL4          f_lower;
   REAL4          f_final;
   REAL4          mchirp;

@@ -560,6 +560,29 @@ REAL8 dfreq21 = 0.0 ;
 REAL8 dfreq33 = 0.0 ;
 REAL8 dfreq44 = 0.0 ;
 
+/* Lionel Waveform TestGR */
+
+/* dfreq */
+REAL8 dfreq220 = 0.0;
+REAL8 dfreq221 = 0.0;
+REAL8 dfreq330 = 0.0;
+REAL8 dfreq331 = 0.0;
+REAL8 dfreq440 = 0.0;
+REAL8 dfreq550 = 0.0;
+REAL8 dfreq210 = 0.0;
+REAL8 dfreq320 = 0.0;
+REAL8 dfreq430 = 0.0;
+
+/* dtau  */
+REAL8 dtau220  = 0.0;
+REAL8 dtau221  = 0.0;
+REAL8 dtau330  = 0.0;
+REAL8 dtau331  = 0.0;
+REAL8 dtau440  = 0.0;
+REAL8 dtau550  = 0.0;
+REAL8 dtau210  = 0.0;
+REAL8 dtau320  = 0.0;
+REAL8 dtau430  = 0.0;
 
 REAL8 single_IFO_SNR_threshold=0.0;
 char ** ifonames=NULL;
@@ -1134,16 +1157,22 @@ static void print_usage(char *program)
           "  [--min-rdmass] rdmmin       set the min ringdown mass to rdmmin\n"\
           "  [--max-rdmass] rdmmax       set the max ringdown mass to rdmmax\n");
   fprintf(stderr,
-          "Ringdown test parameter information:\n"\
+          "Gossan's Ringdown test parameter information:\n"\
           " --dtau21 value             value of the dtau21 parameter\n"\
           " --dtau22 value             value of the dtau22 parameter\n"\
           " --dtau33 value             value of the dtau33 parameter\n"\
           " --dtau44 value             value of the dtau44 parameter\n"\
-          " --dfreq21 value             value of the dfreq21 parameter\n"\
-          " --dfreq22 value             value of the dfreq22 parameter\n"\
+          " --dfreq21 value            value of the dfreq21 parameter\n"\
+          " --dfreq22 value            value of the dfreq22 parameter\n"\
           " --dfreq33 value            value of the dfreq33 parameter\n"\
-          " --dfreq44 value             value of the dfreq44 parameter\n\n");
+          " --dfreq44 value            value of the dfreq44 parameter\n\n");
   fprintf(stderr,
+          "Lionel's Ringdown test parameter information:\n"\
+          "dfreq: dfreq220, dfreq221, dfreq330, dfreq331, dfreq440, dfreq550, dfreq210 ,dfreq 320, dfreq430\n"\
+          "dtau:  dtau220, dtau221, dtau330, dtau331, dtau440, dtau550, dtau210, dtau320, dtau430\n"\
+          "Example:\n"\
+          " --dtau330 value            value of the dtau330 parameter\n\n");
+ fprintf(stderr,
       "Tapering the injection waveform:\n"\
       "  [--taper-injection] OPT  Taper the inspiral template using option OPT\n"\
       "                            (start|end|startend) \n"\
@@ -2063,20 +2092,38 @@ int main( int argc, char *argv[] )
     {"stdev-spin2",             required_argument, 0,                 1004},
     {"mean-spin1",              required_argument, 0,                 1005},
     {"mean-spin2",              required_argument, 0,                 1006},
-    {"min-rdspin",           required_argument,       0,                 1009},
-    {"max-rdspin",             required_argument, 0,                 1010},
+    {"min-rdspin",              required_argument, 0,                 1009},
+    {"max-rdspin",              required_argument, 0,                 1010},
     {"mean-rdspin",             required_argument, 0,                 1011},
-    {"stdev-rdspin",              required_argument, 0,                 1012},
+    {"stdev-rdspin",            required_argument, 0,                 1012},
     {"min-rdmass",              required_argument, 0,                 1013},
     {"max-rdmass",              required_argument, 0,                 1014},
-    {"dtau21",                   required_argument, 0,                 1016},
-    {"dtau22",                   required_argument, 0,                 1017},
-    {"dtau33",                   required_argument, 0,                 1018},
-    {"dtau44",                   required_argument, 0,                 1019},
-    {"dfreq21",                   required_argument, 0,                 1020},
-    {"dfreq22",                   required_argument, 0,                 1021},
-    {"dfreq33",                  required_argument, 0,                 1022},
-    {"dfreq44",                   required_argument, 0,                 1023},
+    {"dtau21",                  required_argument, 0,                 1016},
+    {"dtau22",                  required_argument, 0,                 1017},
+    {"dtau33",                  required_argument, 0,                 1018},
+    {"dtau44",                  required_argument, 0,                 1019},
+    {"dfreq21",                 required_argument, 0,                 1020},
+    {"dfreq22",                 required_argument, 0,                 1021},
+    {"dfreq33",                 required_argument, 0,                 1022},
+    {"dfreq44",                 required_argument, 0,                 1023},
+    {"dfreq220",                required_argument, 0,                 1042},
+    {"dfreq221",                required_argument, 0,                 1025},
+    {"dfreq330",                required_argument, 0,                 1026},
+    {"dfreq331",                required_argument, 0,                 1027},
+    {"dfreq440",                required_argument, 0,                 1028},
+    {"dfreq550",                required_argument, 0,                 1029},
+    {"dfreq210",                required_argument, 0,                 1030},
+    {"dfreq320",                required_argument, 0,                 1031},
+    {"dfreq430",                required_argument, 0,                 1032},
+    {"dtau220",                 required_argument, 0,                 1033},
+    {"dtau221",                 required_argument, 0,                 1034},
+    {"dtau330",                 required_argument, 0,                 1043},
+    {"dtau331",                 required_argument, 0,                 1036},
+    {"dtau440",                 required_argument, 0,                 1037},
+    {"dtau550",                 required_argument, 0,                 1038},
+    {"dtau210",                 required_argument, 0,                 1039},
+    {"dtau320",                 required_argument, 0,                 1040},
+    {"dtau430",                 required_argument, 0,                 1041},
     {0, 0, 0, 0}
   };
   int c;
@@ -3357,6 +3404,129 @@ int main( int argc, char *argv[] )
                             "float", "%le", dfreq44 );
         break;
 
+      case 1042:
+        dfreq220 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dfreq220 );
+        break;
+
+      case 1025:
+        dfreq221 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dfreq221 );
+        break;
+
+      case 1026:
+        dfreq330 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dfreq330 );
+        break;
+
+      case 1027:
+        dfreq331 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dfreq331 );
+        break;
+
+      case 1028:
+        dfreq440 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dfreq440 );
+        break;
+
+      case 1029:
+        dfreq550 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dfreq550 );
+        break;
+
+      case 1030:
+        dfreq210 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dfreq210 );
+        break;
+
+      case 1031:
+        dfreq320 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dfreq320 );
+        break;
+
+      case 1032:
+        dfreq430 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dfreq430 );
+
+      case 1033:
+        dtau220 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dtau220 );
+        break;
+
+      case 1034:
+        dtau221 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dtau221 );
+        break;
+
+      case 1043:
+        dtau330 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dtau330 );
+        break;
+
+      case 1036:
+        dtau331 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dtau331 );
+        break;
+
+      case 1037:
+        dtau440 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dtau440 );
+        break;
+
+      case 1038:
+        dtau550 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dtau550 );
+        break;
+
+      case 1039:
+        dtau210 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dtau210 );
+        break;
+
+      case 1040:
+        dtau320 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dtau320 );
+        break;
+
+      case 1041:
+        dtau430 = atof( LALoptarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dtau430 );
 
       default:
         fprintf( stderr, "unknown error while parsing options\n" );
@@ -4702,6 +4872,26 @@ int main( int argc, char *argv[] )
     simTable->dfreq33 = dfreq33 ;
     simTable->dfreq44 = dfreq44 ;
 
+    /* populate Lionel's TestGR params*/
+    simTable->dfreq220 = dfreq220 ;
+    simTable->dfreq221 = dfreq221 ;
+    simTable->dfreq330 = dfreq330 ;
+    simTable->dfreq331 = dfreq331 ;
+    simTable->dfreq440 = dfreq440 ;
+    simTable->dfreq550 = dfreq550 ;
+    simTable->dfreq210 = dfreq210 ;
+    simTable->dfreq320 = dfreq320 ;
+    simTable->dfreq430 = dfreq430 ;
+
+    simTable->dtau220  = dtau220 ;
+    simTable->dtau221  = dtau221 ;
+    simTable->dtau330  = dtau330 ;
+    simTable->dtau331  = dtau331 ;
+    simTable->dtau440  = dtau440 ;
+    simTable->dtau550  = dtau550 ;
+    simTable->dtau210  = dtau210 ;
+    simTable->dtau320  = dtau320 ;
+    simTable->dtau430  = dtau430 ;
 
     /* populate the sim_ringdown table */
     if ( writeSimRing )
