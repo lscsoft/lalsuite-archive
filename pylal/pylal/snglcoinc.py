@@ -1247,18 +1247,18 @@ class CoincSynthesizer(object):
 
 	def plausible_toas(self, instruments):
 		"""
-		Generator that yields dictionaries of random event
-		time-of-arrivals for the instruments in instruments such
-		that the time-of-arrivals are mutually coincident given the
-		maximum allowed inter-instrument \Delta t's.
+		Generator that yields dictionaries of random noise event
+		time-of-arrival offsets for the given instruments such that
+		the time-of-arrivals are mutually coincident given the
+		maximum allowed inter-instrument \Delta t's.  The values
+		returned are offsets, and would need to be added to some
+		common time to yield absolute arrival times.
 
 		Example:
 
-		>>> tau = {frozenset(['V1', 'H1']): 0.028287979933844225, frozenset(['H1', 'L1']): 0.011012846152223924, frozenset(['V1', 'L1']): 0.027448341016726496}
-		>>> instruments = set(("H1", "L1", "V1"))
-		>>> coinc_synth = CoincSynthesizer()
-		>>> coinc_synth.tau = tau	# override
-		>>> toas = coinc_synth.plausible_toas(instruments)
+		>>> # minimal initialization for this method
+		>>> coinc_synth = CoincSynthesizer(segmentlists = {"H1": None, "L1": None, "V1": None}, delta_t = 0.005)
+		>>> toas = coinc_synth.plausible_toas(("H1", "L1", "V1"))
 		>>> toas.next()
 		>>> toas.next()
 		"""
