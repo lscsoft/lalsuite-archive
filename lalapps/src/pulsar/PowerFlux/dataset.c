@@ -510,6 +510,16 @@ p->segment_start=d->gps[segment];
 p->coherence_time=d->coherence_time;
 p->detector=d->detector;
 
+/* Check whether injection segment is allowed by interval lists */
+
+if(!check_intervals(d->injection_list, p->segment_start)){
+	return;
+	}
+if(check_intervals(d->veto_injection_list, p->segment_start)>0){
+	return;
+	}
+
+
 compute_signal(&re, &im, &f, d->gps[segment]+(int)(d->coherence_time/2), p);
 
 
@@ -524,6 +534,14 @@ w=gsl_integration_workspace_alloc(w_size);
 
 for(i=bin-window; i<=bin+window; i++) {
 	p->bin=i+d->first_bin;
+	
+	
+	if(!check_intervals(d->injection_fbin_list, p->bin)){
+		continue;
+		}
+	if(check_intervals(d->veto_injection_fbin_list, p->bin)>0){
+		continue;
+		}
 
 	F.function=signal_re;
 	err=gsl_integration_qag(&F, d->gps[segment], d->gps[segment]+d->coherence_time,
@@ -602,6 +620,11 @@ d->first_bin=first_bin;
 d->segment_list=NULL;
 d->veto_segment_list=NULL;
 d->no_duplicate_gps=1;
+
+d->injection_list=NULL;
+d->veto_injection_list=NULL;
+d->injection_fbin_list=NULL;
+d->veto_injection_fbin_list=NULL;
 
 d->size=1000;
 d->free=0;
@@ -1816,6 +1839,42 @@ if(!strncasecmp(line, "veto_segments_file", 18)) {
 	datasets[d_free-1].veto_segment_list=new_interval_set();
 	s2=strndup(&(line[ai]), aj-ai);
 	add_intervals_from_file(datasets[d_free-1].veto_segment_list, s2);
+	free(s2);
+	} else
+if(!strncasecmp(line, "injection_file", 14)) {
+	char *s2;
+	locate_arg(line, length, 1, &ai, &aj);
+	if(datasets[d_free-1].injection_list!=NULL)free_interval_set(datasets[d_free-1].injection_list);
+	datasets[d_free-1].injection_list=new_interval_set();
+	s2=strndup(&(line[ai]), aj-ai);
+	add_intervals_from_file(datasets[d_free-1].injection_list, s2);
+	free(s2);
+	} else
+if(!strncasecmp(line, "veto_injection_file", 19)) {
+	char *s2;
+	locate_arg(line, length, 1, &ai, &aj);
+	if(datasets[d_free-1].veto_injection_list!=NULL)free_interval_set(datasets[d_free-1].veto_injection_list);
+	datasets[d_free-1].veto_injection_list=new_interval_set();
+	s2=strndup(&(line[ai]), aj-ai);
+	add_intervals_from_file(datasets[d_free-1].veto_injection_list, s2);
+	free(s2);
+	} else
+if(!strncasecmp(line, "injection_fbin_file", 19)) {
+	char *s2;
+	locate_arg(line, length, 1, &ai, &aj);
+	if(datasets[d_free-1].injection_fbin_list!=NULL)free_interval_set(datasets[d_free-1].injection_fbin_list);
+	datasets[d_free-1].injection_fbin_list=new_interval_set();
+	s2=strndup(&(line[ai]), aj-ai);
+	add_intervals_from_file(datasets[d_free-1].injection_fbin_list, s2);
+	free(s2);
+	} else
+if(!strncasecmp(line, "veto_injection_fbin_file", 24)) {
+	char *s2;
+	locate_arg(line, length, 1, &ai, &aj);
+	if(datasets[d_free-1].veto_injection_fbin_list!=NULL)free_interval_set(datasets[d_free-1].veto_injection_fbin_list);
+	datasets[d_free-1].veto_injection_fbin_list=new_interval_set();
+	s2=strndup(&(line[ai]), aj-ai);
+	add_intervals_from_file(datasets[d_free-1].veto_injection_fbin_list, s2);
 	free(s2);
 	} else
 if(!strncasecmp(line, "no_duplicate_gps", 15)) {

@@ -24,16 +24,20 @@ extern struct gengetopt_args_info args_info;
 
 extern SKY_GRID *fine_grid, *patch_grid;
 
-extern FILE * DATA_LOG, * LOG, *FILE_LOG;
+extern FILE * DATA_LOG, * LOG, *FILE_LOG, *DIVERT_LOG, *INPUT_TEMPLATE_LOG;
 
 extern int first_bin, side_cut, nsegments, useful_bins;
 
 extern DATASET *datasets;
 extern int d_free;
 
+extern int input_templates;
+MUTEX input_template_mutex;
+
 int data_log_index=0;
 
 int write_data_log_header=1;
+int write_diverted_log_header=1;
 
 typedef struct {
 	unsigned int veto_mask;
@@ -213,11 +217,16 @@ MUTEX data_logging_mutex;
 void pstats_log_extremes(SUMMING_CONTEXT *ctx, POWER_SUM_STATS *tmp_pstat, POWER_SUM **ps, int count, EXTREME_INFO *ei, int pi)
 {
 int i;
-POWER_SUM_STATS pstats, pstats_accum;
+POWER_SUM_STATS pstats, pstats_accum, *tp;
 int highest_ul_idx=0;
 int highest_circ_ul_idx=0;
 int highest_snr_idx=0;
 int skyband;
+char *diverted;
+TEMPLATE_INFO ti;
+
+diverted=alloca(count*sizeof(*diverted));
+memset(diverted, 0, count*sizeof(*diverted));
 
 memset(&pstats_accum, 0, sizeof(pstats_accum));
 pstats_accum.max_weight=-1;
@@ -229,6 +238,13 @@ for(i=0;i<count;i++) {
 
 
 	skyband=ps[0][i].skyband;
+	
+	if((args_info.divert_snr_arg>0 && (pstats.highest_snr.snr>args_info.divert_snr_arg)) ||
+	   (args_info.divert_ul_arg>0 && (pstats.highest_ul.ul>args_info.divert_ul_arg))) {
+		diverted[i]=1;
+		ei->band_diverted_count[skyband]++;
+		continue;
+		}
 
 	if(pstats.max_weight_loss_fraction>=1) {
 		ei->band_masked_count[skyband]++;
@@ -347,6 +363,45 @@ for(i=0;i<count;i++) {
 thread_mutex_unlock(&(ei->mutex));
 
 thread_mutex_lock(&data_logging_mutex);
+
+if(write_diverted_log_header) {
+	write_diverted_log_header=0;
+	fprintf(LOG, "diverted_log_structure_size: %ld\n", sizeof(ti));
+	}
+
+for(i=0;i<count;i++) {
+	if(!diverted[i])continue;
+	
+	tp=&(tmp_pstat[i]);
+	
+	ti.skyband=ps[0][i].skyband;
+	ti.snr=tp->highest_snr.snr;
+	ti.ul=tp->highest_ul.ul;
+	ti.circ_ul=tp->highest_circ_ul.ul;
+	
+	ti.freq_modulation_freq=ps[0][i].freq_modulation_freq;
+	ti.freq_modulation_phase=ps[0][i].freq_modulation_phase;
+	ti.freq_modulation_depth=ps[0][i].freq_modulation_depth;
+	
+	ti.spindown=ps[0][i].spindown;
+	ti.fdotdot=ps[0][i].fdotdot;
+	ti.ra=ps[0][i].ra;
+	ti.dec=ps[0][i].dec;
+	
+	ti.freq_shift=ps[0][i].freq_shift;
+	ti.first_bin=first_bin+side_cut;
+	ti.snr_bin=tp->highest_snr.bin;
+	/* This just shows the start of the band to analyze 
+	 * The actual frequency where the maximum is achieved can be different for SNR and UL.
+	 */
+	ti.frequency=(double)ps[0][i].freq_shift+ti.first_bin/args_info.sft_coherence_time_arg;
+	
+	ti.first_chunk=ei->first_chunk;
+	ti.last_chunk=ei->last_chunk;
+	ti.veto_num=ei->veto_num;
+	
+	fwrite(&ti, sizeof(ti), 1, DIVERT_LOG);
+	}
 
 if(write_data_log_header) {
 	write_data_log_header=0;
@@ -479,6 +534,11 @@ ei->name=strdup(name);
 thread_mutex_init(&(ei->mutex));
 
 if(args_info.compute_skymaps_arg) {
+	if(input_templates>=0) {
+		fprintf(stderr, "compute-skymaps is incompatible with binary-template-file\n");
+		exit(-1);
+		}
+	
 	ei->ul_skymap=do_alloc(patch_grid->npoints, sizeof(float));
 	ei->ul_freq_skymap=do_alloc(patch_grid->npoints, sizeof(float));
 	ei->circ_ul_skymap=do_alloc(patch_grid->npoints, sizeof(float));
@@ -497,8 +557,10 @@ memset(ei->band_info, 0, fine_grid->nbands*sizeof(*ei->band_info));
 
 ei->band_valid_count=do_alloc(fine_grid->nbands, sizeof(*ei->band_valid_count));
 ei->band_masked_count=do_alloc(fine_grid->nbands, sizeof(*ei->band_masked_count));
+ei->band_diverted_count=do_alloc(fine_grid->nbands, sizeof(*ei->band_diverted_count));
 memset(ei->band_valid_count, 0, fine_grid->nbands*sizeof(*ei->band_valid_count));
 memset(ei->band_masked_count, 0, fine_grid->nbands*sizeof(*ei->band_masked_count));
+memset(ei->band_diverted_count, 0, fine_grid->nbands*sizeof(*ei->band_diverted_count));
 
 for(i=0;i<fine_grid->nbands;i++) {
 	ei->band_info[i].max_weight=-1;
@@ -536,11 +598,11 @@ void output_extreme_info(RGBPic *p, EXTREME_INFO *ei)
 {
 int skyband;
 
-fprintf(LOG, "tag: kind label skyband skyband_name set first_bin frequency spindown fdotdot freq_modulation_freq freq_modulation_depth freq_modulation_phase ra dec iota psi snr ul ll M S ks_value ks_count m1_neg m3_neg m4 frequency_bin max_weight weight_loss_fraction max_ks_value max_m1_neg min_m1_neg max_m3_neg min_m3_neg max_m4 min_m4 max_weight_loss_fraction valid_count masked_count template_count\n");
+fprintf(LOG, "tag: kind label skyband skyband_name set first_bin frequency spindown fdotdot freq_modulation_freq freq_modulation_depth freq_modulation_phase ra dec iota psi snr ul ll M S ks_value ks_count m1_neg m3_neg m4 frequency_bin max_weight weight_loss_fraction max_ks_value max_m1_neg min_m1_neg max_m3_neg min_m3_neg max_m4 min_m4 max_weight_loss_fraction valid_count masked_count diverted_count template_count\n");
 
 /* now that we know extreme points go and characterize them */
 #define WRITE_SKYBAND_POINT(pstat, kind)	\
-	fprintf(LOG, "band_info: %s \"%s\" %d %s %s %d %lf %lg %lg %lg %lg %lg %lf %lf %lf %lf %lf %lg %lg %lg %lg %lf %d %lf %lf %lf %d %lg %lf %lf %lf %lf %lf %lf %lf %lf %lf %d %d %d\n", \
+	fprintf(LOG, "band_info: %s \"%s\" %d %s %s %d %lf %lg %lg %lg %lg %lg %lf %lf %lf %lf %lf %lg %lg %lg %lg %lf %d %lf %lf %lf %d %lg %lf %lf %lf %lf %lf %lf %lf %lf %lf %d %d %d %d\n", \
 		kind, \
 		args_info.label_arg, \
 		skyband, \
@@ -580,6 +642,7 @@ fprintf(LOG, "tag: kind label skyband skyband_name set first_bin frequency spind
 		ei->band_info[skyband].max_weight_loss_fraction, \
 		ei->band_valid_count[skyband], \
 		ei->band_masked_count[skyband], \
+		ei->band_diverted_count[skyband], \
 		ei->band_info[skyband].ntemplates \
 		); 
 
@@ -926,12 +989,25 @@ int i,k,m,count;
 POWER_SUM **ps=cruncher_contexts[thread_id+1].ps;
 POWER_SUM **ps_tmp=cruncher_contexts[thread_id+1].ps_tmp;
 POWER_SUM_STATS *le_pstats;
+TEMPLATE_INFO ti;
 
 ctx->nchunks=nchunks;
 ctx->power_sums_idx=0;
 
 //fprintf(stderr, "%d ", pi);
-generate_patch_templates(ctx, pi, &(ps[0]), &count);
+
+if(input_templates>=0) {
+	thread_mutex_lock(&input_template_mutex);
+	
+	fseek(INPUT_TEMPLATE_LOG, pi*sizeof(TEMPLATE_INFO), SEEK_SET);
+	fread(&ti, sizeof(TEMPLATE_INFO), 1, INPUT_TEMPLATE_LOG);
+	
+	thread_mutex_unlock(&input_template_mutex);
+	
+	generate_followup_templates(ctx, &ti, &(ps[0]), &count);
+	} else {
+	generate_patch_templates(ctx, pi, &(ps[0]), &count);
+	}
 
 if(count<1) {
 	//free(ps[0]);
@@ -997,6 +1073,7 @@ RGBPic *p;
 PLOT *plot;
 
 thread_mutex_init(&data_logging_mutex);
+thread_mutex_init(&input_template_mutex);
 
 assign_per_dataset_cutoff_veto();
 assign_cutoff_veto();
@@ -1030,9 +1107,16 @@ fprintf(LOG, "Outer loop iteration start memory: %g MB\n", (MEMUSAGE*10.0/(1024.
 
 time(&start_time);
 
-fprintf(stderr, "%d patches to process\n", patch_grid->npoints);
-for(pi=0;pi<patch_grid->npoints;pi++) {
-	submit_job(outer_loop_cruncher, (void *)((long)pi));
+if(input_templates>=0) {
+	fprintf(stderr, "%d patches to process\n", input_templates);
+	for(pi=0;pi<input_templates;pi++) {
+		submit_job(outer_loop_cruncher, (void *)((long)pi));
+		}
+	} else {
+	fprintf(stderr, "%d patches to process\n", patch_grid->npoints);
+	for(pi=0;pi<patch_grid->npoints;pi++) {
+		submit_job(outer_loop_cruncher, (void *)((long)pi));
+		}
 	}
 k=0;
 while(do_single_job(-1)) {

@@ -200,7 +200,7 @@ def get_trigs_xml(GWcursor,trigger_file,segs,min_thresh,tracker,verbose):
     lsctables.LIGOTimeGPS = LIGOTimeGPS 
 
     # Enable column interning to save memory
-    table.RowBuilder = table.InterningRowBuilder
+    table.TableStream.RowBuilder = table.InterningRowBuilder
 
     # for now, hardcode the table/column names
     # FIXME: assuming there is only one of those tables in the file

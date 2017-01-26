@@ -23,6 +23,7 @@ typedef ALIGN_DECLSPEC struct {
 	POWER_SUM_STATS *band_info;
 	int *band_valid_count;
 	int *band_masked_count;
+	int *band_diverted_count;
 
 	/* convenience info for keeping track of which ei is which */
 	int first_chunk;

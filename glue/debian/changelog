@@ -1,3 +1,10 @@
+glue (1.54.0-1) unstable; urgency=low
+
+  * O2 mid-run updated release. Updated python 3 compatibility fix from Leo to
+    fix Debian package build for lalsuite.  Various updates from Kipp.
+
+ -- Ryan Fisher <ryan.fisher@ligo.org>  Wed, 25 Jan 2017 16:14:00 -0500
+
 glue (1.53.0-1) unstable; urgency=low
 
   * ER10 updated release. Python 3 compatibility from Leo, various updates

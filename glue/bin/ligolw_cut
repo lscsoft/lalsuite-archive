@@ -118,7 +118,7 @@ table.use_in(ContentHandler)
 #
 
 
-table.RowBuilder = table.InterningRowBuilder
+table.TableStream.RowBuilder = table.InterningRowBuilder
 
 
 #
@@ -138,7 +138,7 @@ table.RowBuilder = table.InterningRowBuilder
 def RemoveColumns(doc, columns):
 	for table_elem in doc.getElementsByTagName(ligolw.Table.tagName):
 		for name in columns:
-			for column in table.getColumnsByName(table_elem, name):
+			for column in table.Column.getColumnsByName(table_elem, name):
 				table_elem.removeChild(column)
 
 

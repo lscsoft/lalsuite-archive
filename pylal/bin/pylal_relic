@@ -139,13 +139,7 @@ def get_loudest_stats_by_trial_slide_cat(onoff_doc, coinc_stat,
     (mchirp_ind, IFO) combos.
     """
     # read unclustered background coincs
-    tables = lsctables.SnglInspiralTable.getTablesByName(onoff_doc)
-    if len(tables) == 1:
-      onoff_trigs = tables[0]
-    elif len(tables) == 0:
-      onoff_trigs = []
-    else:
-      raise ValueError, "why are there multiple SnglInspiral tables?"
+    onoff_trigs = lsctables.SnglInspiralTable.get_table(onoff_doc)
     onoff_coincs = CoincInspiralUtils.coincInspiralTable(onoff_trigs,
         coinc_stat)
 
@@ -389,8 +383,8 @@ for slide_num in range(-nominal_num_slides, nominal_num_slides+1):
   for ring in rings:
     slid_seglistdict = SnglInspiralUtils.slideSegListDictOnRing(ring, veto_segs, shift_dict)
     slid_seglist = slid_seglistdict.union(slid_seglistdict.keys())
-    trial_veto_mask_2d[slide_bins[slide_num], :] |= rate.bins_spanned(trial_bins, slid_seglist, dtype=numpy.bool8)
-trial_veto_mask_2d[slide_bins[0], :] |= rate.bins_spanned(trial_bins, buffer_segs, dtype=numpy.bool8)
+    trial_veto_mask_2d[slide_bins[slide_num], :] |= rate.bins_spanned(trial_bins, slid_seglist).astype(bool)
+trial_veto_mask_2d[slide_bins[0], :] |= rate.bins_spanned(trial_bins, buffer_segs).astype(bool)
 if total_num_slides != array_size:  # these are equal iff we are including zero-lag background
   trial_veto_mask_2d[slide_bins[0]] |= True
 
@@ -435,7 +429,7 @@ if opts.write_offsource or opts.write_onsource:
 # so we cannot use it for off-source anymore.
 if opts.write_onsource:
   # get the trial number that contains the on-source segment
-  onsource_trial_mask = rate.bins_spanned(trial_bins, on_segs, dtype=bool)
+  onsource_trial_mask = rate.bins_spanned(trial_bins, on_segs).astype(bool)
   assert (onsource_trial_mask == True).sum() == 1
   onsource_trial_ind = onsource_trial_mask.nonzero()[0][0]
 

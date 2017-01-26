@@ -98,7 +98,7 @@ def parse_command_line():
 #
 
 
-lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
+lsctables.table.TableStream.RowBuilder = lsctables.table.InterningRowBuilder
 
 
 #
@@ -215,4 +215,4 @@ for n, filename in enumerate(filenames, start = 1):
 
 	ligolw_utils.write_filename(xmldoc, filename, verbose = options.verbose, gz = (filename or "stdout").endswith(".gz"))
 	xmldoc.unlink()
-	lsctables.table.reset_next_ids(lsctables.TableByName.values())
+	lsctables.reset_next_ids(lsctables.TableByName.values())

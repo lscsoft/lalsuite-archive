@@ -65,27 +65,6 @@ __date__ = git_version.date
 #
 
 
-class TableRow(table.TableRow):
-	# FIXME:  figure out what needs to be done to allow the C row
-	# classes that are floating around to be derived from this easily
-
-	# FIXME:  DON'T USE THIS!!!  I'm experimenting with solutions to
-	# the pickling problem.  --Kipp
-	"""
-	Base class for row classes.  Provides an __init__() method that
-	accepts keyword arguments that are used to initialize the objects
-	attributes.  Also provides .__getstate__() and .__setstate__()
-	methods to allow row objects to be pickled (otherwise, because they
-	all use __slots__ to reduce their memory footprint, they aren't
-	pickleable).
-	"""
-	__slots__ = ()
-	def __getstate__(self):
-		return dict((key, getattr(self, key)) for key in self.__slots__ if hasattr(self, key))
-	def __setstate__(self, state):
-		self.__init__(**state)
-
-
 def New(cls, columns = None, **kwargs):
 	"""
 	Construct a pre-defined LSC table.  The optional columns argument
@@ -420,7 +399,7 @@ class ProcessTable(table.Table):
 		return set(row.process_id for row in self if row.program == program)
 
 
-class Process(table.TableRow):
+class Process(table.Table.RowType):
 	"""
 	Example:
 
@@ -479,7 +458,7 @@ class LfnTable(table.Table):
 	next_id = LfnID(0)
 
 
-class Lfn(table.TableRow):
+class Lfn(table.Table.RowType):
 	__slots__ = tuple(LfnTable.validcolumns.keys())
 
 
@@ -518,7 +497,7 @@ class ProcessParamsTable(table.Table):
 		table.Table.append(self, row)
 
 
-class ProcessParams(table.TableRow):
+class ProcessParams(table.Table.RowType):
 	"""
 	Example:
 
@@ -669,7 +648,7 @@ class SearchSummaryTable(table.Table):
 		return seglists
 
 
-class SearchSummary(table.TableRow):
+class SearchSummary(table.Table.RowType):
 	"""
 	Example:
 
@@ -770,7 +749,7 @@ class SearchSummVarsTable(table.Table):
 	next_id = SearchSummVarsID(0)
 
 
-class SearchSummVars(table.TableRow):
+class SearchSummVars(table.Table.RowType):
 	__slots__ = tuple(SearchSummVarsTable.validcolumns.keys())
 
 
@@ -875,7 +854,7 @@ class ExperimentTable(table.Table):
 		return row[0]
 
 
-class Experiment(table.TableRow):
+class Experiment(table.Table.RowType):
 	__slots__ = tuple(ExperimentTable.validcolumns.keys())
 
 	def get_instruments(self):
@@ -1053,7 +1032,7 @@ class ExperimentSummaryTable(table.Table):
 		raise ValueError("'%s' could not be found in the table" % (str(experiment_summ_id)))
 
 
-class ExperimentSummary(table.TableRow):
+class ExperimentSummary(table.Table.RowType):
 	__slots__ = tuple(ExperimentSummaryTable.validcolumns.keys())
 
 
@@ -1093,7 +1072,7 @@ class ExperimentMapTable(table.Table):
 		return experiment_summ_ids
 
 
-class ExperimentMap(table.TableRow):
+class ExperimentMap(table.Table.RowType):
 	__slots__ = tuple(ExperimentMapTable.validcolumns.keys())
 
 
@@ -1148,7 +1127,7 @@ class GDSTriggerTable(table.Table):
 	interncolumns = ("process_id", "ifo", "subtype")
 
 
-class GDSTrigger(table.TableRow):
+class GDSTrigger(table.Table.RowType):
 	__slots__ = tuple(GDSTriggerTable.validcolumns.keys())
 
 	#
@@ -1379,7 +1358,7 @@ class SnglBurstTable(table.Table):
 		return vetoed
 
 
-class SnglBurst(table.TableRow):
+class SnglBurst(table.Table.RowType):
 	__slots__ = tuple(SnglBurstTable.validcolumns.keys())
 
 	#
@@ -1596,7 +1575,7 @@ class MultiBurstTable(table.Table):
 	}
 
 
-class MultiBurst(table.TableRow):
+class MultiBurst(table.Table.RowType):
 	__slots__ = tuple(MultiBurstTable.validcolumns.keys())
 
 	instruments = instrumentsproperty("ifos")
@@ -1895,7 +1874,7 @@ class SnglInspiralTable(table.Table):
 		return slideTrigs
 
 
-class SnglInspiral(table.TableRow):
+class SnglInspiral(table.Table.RowType):
 	__slots__ = tuple(SnglInspiralTable.validcolumns.keys())
 
 	@staticmethod
@@ -2051,7 +2030,7 @@ class CoincInspiralTable(table.Table):
 	interncolumns = ("coinc_event_id", "ifos")
 
 
-class CoincInspiral(table.TableRow):
+class CoincInspiral(table.Table.RowType):
 	"""
 	Example:
 
@@ -2138,7 +2117,7 @@ class SnglRingdownTable(table.Table):
 		return [row.get_start() for row in self]
 
 
-class SnglRingdown(table.TableRow):
+class SnglRingdown(table.Table.RowType):
 	__slots__ = tuple(SnglRingdownTable.validcolumns.keys())
 
 	def get_start(self):
@@ -2198,7 +2177,7 @@ class CoincRingdownTable(table.Table):
 	interncolumns = ("coinc_event_id", "ifos")
 
 
-class CoincRingdown(table.TableRow):
+class CoincRingdown(table.Table.RowType):
 	__slots__ = tuple(CoincRingdownTable.validcolumns.keys())
 
 	def get_start(self):
@@ -2625,7 +2604,7 @@ class MultiInspiralTable(table.Table):
 		return newsnr
 
 
-class MultiInspiral(table.TableRow):
+class MultiInspiral(table.Table.RowType):
 	__slots__ = tuple(MultiInspiralTable.validcolumns.keys())
 	instrument_id = MultiInspiralTable.instrument_id
 
@@ -2966,7 +2945,7 @@ class SimInspiralTable(table.Table):
 		return numpy.asarray([row.get_end(site=site) for row in self])
 
 
-class SimInspiral(table.TableRow):
+class SimInspiral(table.Table.RowType):
 	"""
 	Example:
 
@@ -3136,7 +3115,7 @@ class SimBurstTable(table.Table):
 	interncolumns = ("process_id", "waveform")
 
 
-class SimBurst(TableRow):
+class SimBurst(table.Table.RowType):
 	"""
 	Example:
 
@@ -3278,7 +3257,7 @@ class SimRingdownTable(table.Table):
 	interncolumns = ("process_id", "waveform", "coordinates")
 
 
-class SimRingdown(table.TableRow):
+class SimRingdown(table.Table.RowType):
 	__slots__ = tuple(SimRingdownTable.validcolumns.keys())
 
 	def get_start(self, site = None):
@@ -3328,7 +3307,7 @@ class SummValueTable(table.Table):
 	interncolumns = ("program", "process_id", "ifo", "name", "comment")
 
 
-class SummValue(table.TableRow):
+class SummValue(table.Table.RowType):
 	"""
 	Example:
 
@@ -3381,7 +3360,7 @@ class SimInstParamsTable(table.Table):
 	next_id = SimInstParamsID(0)
 
 
-class SimInstParams(table.TableRow):
+class SimInstParams(table.Table.RowType):
 	__slots__ = tuple(SimInstParamsTable.validcolumns.keys())
 
 
@@ -3416,7 +3395,7 @@ class StochasticTable(table.Table):
 	}
 
 
-class Stochastic(table.TableRow):
+class Stochastic(table.Table.RowType):
 	__slots__ = tuple(StochasticTable.validcolumns.keys())
 
 
@@ -3451,7 +3430,7 @@ class StochSummTable(table.Table):
 	}
 
 
-class StochSumm(table.TableRow):
+class StochSumm(table.Table.RowType):
 	__slots__ = tuple(StochSummTable.validcolumns.keys())
 
 
@@ -3517,7 +3496,7 @@ class ExtTriggersTable(table.Table):
 	}
 
 
-class ExtTriggers(table.TableRow):
+class ExtTriggers(table.Table.RowType):
 	__slots__ = tuple(ExtTriggersTable.validcolumns.keys())
 
 
@@ -3551,7 +3530,7 @@ class FilterTable(table.Table):
 	next_id = FilterID(0)
 
 
-class Filter(table.TableRow):
+class Filter(table.Table.RowType):
 	__slots__ = tuple(FilterTable.validcolumns.keys())
 
 
@@ -3588,7 +3567,7 @@ class SegmentTable(table.Table):
 	interncolumns = ("process_id",)
 
 
-class Segment(table.TableRow):
+class Segment(table.Table.RowType):
 	"""
 	Example:
 
@@ -3740,7 +3719,7 @@ class SegmentDefTable(table.Table):
 	interncolumns = ("process_id",)
 
 
-class SegmentDef(table.TableRow):
+class SegmentDef(table.Table.RowType):
 	"""
 	Example:
 
@@ -3942,7 +3921,7 @@ class TimeSlideTable(table.Table):
 		return self.append_offsetvector(offsetdict, create_new)
 
 
-class TimeSlide(table.TableRow):
+class TimeSlide(table.Table.RowType):
 	__slots__ = tuple(TimeSlideTable.validcolumns.keys())
 
 
@@ -4008,7 +3987,7 @@ class CoincDefTable(table.Table):
 		return row.coinc_def_id
 
 
-class CoincDef(table.TableRow):
+class CoincDef(table.Table.RowType):
 	__slots__ = tuple(CoincDefTable.validcolumns.keys())
 
 
@@ -4047,7 +4026,7 @@ class CoincTable(table.Table):
 	}
 
 
-class Coinc(table.TableRow):
+class Coinc(table.Table.RowType):
 	__slots__ = tuple(CoincTable.validcolumns.keys())
 
 	insts = instrumentsproperty("instruments")
@@ -4085,7 +4064,7 @@ class CoincMapTable(table.Table):
 	}
 
 
-class CoincMap(table.TableRow):
+class CoincMap(table.Table.RowType):
 	__slots__ = tuple(CoincMapTable.validcolumns.keys())
 
 
@@ -4119,7 +4098,7 @@ class DQSpecListTable(table.Table):
 	next_id = DQSpecListID(0)
 
 
-class DQSpec(table.TableRow):
+class DQSpec(table.Table.RowType):
 	__slots__ = tuple(DQSpecListTable.validcolumns.keys())
 
 	def apply_to_segmentlist(self, seglist):
@@ -4163,7 +4142,7 @@ class LIGOLWMonTable(table.Table):
 	next_id = LIGOLWMonID(0)
 
 
-class LIGOLWMon(table.TableRow):
+class LIGOLWMon(table.Table.RowType):
 	__slots__ = tuple(LIGOLWMonTable.validcolumns.keys())
 
 	def get_time(self):
@@ -4202,7 +4181,7 @@ class VetoDefTable(table.Table):
 	interncolumns = ("process_id","ifo")
 
 
-class VetoDef(table.TableRow):
+class VetoDef(table.Table.RowType):
 	__slots__ = tuple(VetoDefTable.validcolumns.keys())
 
 
@@ -4246,7 +4225,7 @@ class SummMimeTable(table.Table):
 	next_id = SummMimeID(0)
 
 
-class SummMime(table.TableRow):
+class SummMime(table.Table.RowType):
 	__slots__ = tuple(SummMimeTable.validcolumns.keys())
 
 	def get_start(self):
@@ -4282,7 +4261,7 @@ class TimeSlideSegmentMapTable(table.Table):
 	}
 
 
-class TimeSlideSegmentMap(table.TableRow):
+class TimeSlideSegmentMap(table.Table.RowType):
 	__slots__ = tuple(TimeSlideSegmentMapTable.validcolumns.keys())
 
 
@@ -4304,44 +4283,65 @@ TimeSlideSegmentMapTable.RowType = TimeSlideSegmentMap
 
 
 TableByName = {
-	ProcessTable.tableName: ProcessTable,
-	LfnTable.tableName: LfnTable,
-	ProcessParamsTable.tableName: ProcessParamsTable,
-	SearchSummaryTable.tableName: SearchSummaryTable,
-	SearchSummVarsTable.tableName: SearchSummVarsTable,
-	ExperimentTable.tableName: ExperimentTable,
-	ExperimentSummaryTable.tableName: ExperimentSummaryTable,
-	ExperimentMapTable.tableName: ExperimentMapTable,
-	GDSTriggerTable.tableName: GDSTriggerTable,
-	SnglBurstTable.tableName: SnglBurstTable,
-	MultiBurstTable.tableName: MultiBurstTable,
-	SnglInspiralTable.tableName: SnglInspiralTable,
+	CoincDefTable.tableName: CoincDefTable,
 	CoincInspiralTable.tableName: CoincInspiralTable,
-	SnglRingdownTable.tableName: SnglRingdownTable,
+	CoincMapTable.tableName: CoincMapTable,
 	CoincRingdownTable.tableName: CoincRingdownTable,
-	MultiInspiralTable.tableName: MultiInspiralTable,
-	SimInspiralTable.tableName: SimInspiralTable,
-	SimBurstTable.tableName: SimBurstTable,
-	SimRingdownTable.tableName: SimRingdownTable,
-	SummValueTable.tableName: SummValueTable,
-	SimInstParamsTable.tableName: SimInstParamsTable,
-	StochasticTable.tableName: StochasticTable,
-	StochSummTable.tableName: StochSummTable,
+	CoincTable.tableName: CoincTable,
+	DQSpecListTable.tableName: DQSpecListTable,
+	ExperimentMapTable.tableName: ExperimentMapTable,
+	ExperimentSummaryTable.tableName: ExperimentSummaryTable,
+	ExperimentTable.tableName: ExperimentTable,
 	ExtTriggersTable.tableName: ExtTriggersTable,
 	FilterTable.tableName: FilterTable,
-	SegmentTable.tableName: SegmentTable,
+	GDSTriggerTable.tableName: GDSTriggerTable,
+	LfnTable.tableName: LfnTable,
+	LIGOLWMonTable.tableName: LIGOLWMonTable,
+	MultiBurstTable.tableName: MultiBurstTable,
+	MultiInspiralTable.tableName: MultiInspiralTable,
+	ProcessParamsTable.tableName: ProcessParamsTable,
+	ProcessTable.tableName: ProcessTable,
+	SearchSummaryTable.tableName: SearchSummaryTable,
+	SearchSummVarsTable.tableName: SearchSummVarsTable,
 	SegmentDefTable.tableName: SegmentDefTable,
 	SegmentSumTable.tableName: SegmentSumTable,
-	TimeSlideTable.tableName: TimeSlideTable,
-	CoincDefTable.tableName: CoincDefTable,
-	CoincTable.tableName: CoincTable,
-	CoincMapTable.tableName: CoincMapTable,
-	DQSpecListTable.tableName: DQSpecListTable,
-	LIGOLWMonTable.tableName: LIGOLWMonTable,
-	VetoDefTable.tableName: VetoDefTable,
+	SegmentTable.tableName: SegmentTable,
+	SimBurstTable.tableName: SimBurstTable,
+	SimInspiralTable.tableName: SimInspiralTable,
+	SimInstParamsTable.tableName: SimInstParamsTable,
+	SimRingdownTable.tableName: SimRingdownTable,
+	SnglBurstTable.tableName: SnglBurstTable,
+	SnglInspiralTable.tableName: SnglInspiralTable,
+	SnglRingdownTable.tableName: SnglRingdownTable,
+	StochasticTable.tableName: StochasticTable,
+	StochSummTable.tableName: StochSummTable,
+	SummValueTable.tableName: SummValueTable,
 	SummMimeTable.tableName: SummMimeTable,
-	TimeSlideSegmentMapTable.tableName: TimeSlideSegmentMapTable
+	TimeSlideSegmentMapTable.tableName: TimeSlideSegmentMapTable,
+	TimeSlideTable.tableName: TimeSlideTable,
+	VetoDefTable.tableName: VetoDefTable
 }
+
+
+def reset_next_ids(classes):
+	"""
+	For each class in the list, if the .next_id attribute is not None
+	(meaning the table has an ID generator associated with it), set
+	.next_id to 0.  This has the effect of reseting the ID generators,
+	and is useful in applications that process multiple documents and
+	add new rows to tables in those documents.  Calling this function
+	between documents prevents new row IDs from growing continuously
+	from document to document.  There is no need to do this, it's
+	purpose is merely aesthetic, but it can be confusing to open a
+	document and find process ID 300 in the process table and wonder
+	what happened to the other 299 processes.
+
+	Example:
+
+	>>> reset_next_ids(TableByName.values())
+	"""
+	for cls in classes:
+		cls.reset_next_id()
 
 
 #

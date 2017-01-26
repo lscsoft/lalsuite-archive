@@ -110,6 +110,16 @@ def replace_column(table, old, new):
     table.remove_column(old)
     table.add_column(astropy.table.Column(new, name=old), index=index)
 
+def as_array(table):
+    """Workaround for missing astropy.table.Table.as_array method,
+    which was added in Astropy 1.0.
+
+    FIXME: remove this function when LALSuite depends on Astropy >= 1.0."""
+    try:
+        return table.as_array()
+    except:
+        return table._data
+
 #===============================================================================
 # Constants
 #===============================================================================
@@ -1972,7 +1982,7 @@ class Posterior(object):
                 lalsim.SimInspiralInitialConditionsPrecessingApproxs(inj.inclination,
                                                                      inj.spin1x, inj.spin1y, inj.spin1z,
                                                                      inj.spin2x, inj.spin2y, inj.spin2z,
-                                                                     m1*lal.MSUN_SI, m2*lal.MSUN_SI, f_ref, axis)
+                                                                     m1*lal.MSUN_SI, m2*lal.MSUN_SI, f_ref, inj.coa_phase, axis)
 
             a1, theta1, phi1 = cart2sph(s1x, s1y, s1z)
             a2, theta2, phi2 = cart2sph(s2x, s2y, s2z)
@@ -3851,10 +3861,10 @@ def orbital_momentum(fref, m1,m2, inclination):
 #
 #
 def orbital_momentum_mag(fref, m1,m2,eta):
-    v0 = np.power(pi_constant * lal.MTSUN_SI * fref, 1.0/3.0)
+    v0 = np.power((m1+m2) *pi_constant * lal.MTSUN_SI * fref, 1.0/3.0)
     #1 PN Mtot*Mtot*eta/v
     PNFirst = (((m1+m2)**2)*eta)/v0
-    PNSecond = 1+ (v0**2) * (3.0/2.0 -eta/6.0)
+    PNSecond = 1+ (v0**2) * (3.0/2.0 +eta/6.0)
     Lmag= PNFirst*PNSecond
     return Lmag
 
@@ -6100,7 +6110,7 @@ class PEOutputParser(object):
             nskip = find_ndownsample(samples, nDownsample)
             samples = samples[::nskip]
 
-        return samples.colnames, samples.as_array().view(float).reshape(-1, len(samples.columns))
+        return samples.colnames, as_array(samples).view(float).reshape(-1, len(samples.columns))
 
     def _hdf5_to_table(self, infile, deltaLogP=None, fixedBurnin=None, nDownsample=None, multiple_chains=False, **kwargs):
         """
@@ -6183,7 +6193,7 @@ class PEOutputParser(object):
     def _hdf5_to_pos(self, infile, **kwargs):
         samples = self._hdf5_to_table(infile, **kwargs)
 
-        return samples.colnames, samples.as_array().view(float).reshape(-1, len(samples.columns))
+        return samples.colnames, as_array(samples).view(float).reshape(-1, len(samples.columns))
 
     def _common_to_pos(self,infile,info=[None,None]):
         """
@@ -6883,8 +6893,7 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
   return inj_strains,rec_strains
 
 
-def plot_psd(psd_files,outpath=None):
-  f_min=30.
+def plot_psd(psd_files,outpath=None,f_min=30.):
   myfig2=plt.figure(figsize=(15,15),dpi=500)
   ax=plt.subplot(1,1,1)
   colors={'H1':'r','L1':'g','V1':'m','I1':'k','J1':'y'}
@@ -6913,11 +6922,11 @@ def plot_psd(psd_files,outpath=None):
     fr=[]
     da=[]
     for (f,d) in zip(freq,data):
-      if f>f_min and d!=0.0:
+      if f>f_min and d!=0.0 and np.isfinite(d):
         fr.append(f)
         da.append(d)
     plt.loglog(fr,da,colors[ifo],label=ifo,alpha=0.5,linewidth=3)
-  plt.xlim([min(freq),max(freq)])
+  plt.xlim([min(fr),max(fr)])
   plt.xlabel("Frequency [Hz]",fontsize=26)
   plt.ylabel("PSD",fontsize=26)
   plt.legend(loc='best')

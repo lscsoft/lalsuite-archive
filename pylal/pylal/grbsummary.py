@@ -246,11 +246,10 @@ def get_exttrig_trials(on_segs, off_segs, veto_files):
         if new_veto_segs.intersects(on_segs):
             print >>sys.stderr, "warning: %s overlaps on-source segment" \
                 % veto_file
-        trial_veto_mask |= rate.bins_spanned(trial_bins, new_veto_segs,
-                                             dtype=numpy.bool8)
+        trial_veto_mask |= rate.bins_spanned(trial_bins, new_veto_segs).astype(bool)
 
     # identify onsource trial index
-    onsource_mask = rate.bins_spanned(trial_bins, on_segs, dtype=numpy.bool8)
+    onsource_mask = rate.bins_spanned(trial_bins, on_segs).astype(bool)
     if sum(onsource_mask) != 1:
         raise ValueError, "on-source segment spans more or less than one trial"
     onsource_ind = numpy.arange(len(onsource_mask))[onsource_mask]
@@ -306,7 +305,7 @@ def load_cache(xmldoc, cache, sieve_pattern, exact_match=False,
     lsctables.SnglInspiralTable.next_id = SnglInspiralID_old(0)
 
     # reduce memory footprint at the expense of speed
-    # table.RowBuilder = table.InterningRowBuilder
+    # table.TableStream.RowBuilder = table.InterningRowBuilder
 
     urls = [c.url for c in found]
     try:

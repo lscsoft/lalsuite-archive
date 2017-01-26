@@ -261,11 +261,19 @@ class segment(tuple):
 	True
 	>>> segment(1, 2) in segment(0, 10)
 	True
+	>>> segment(1, 11) in segment(0, 10)
+	False
+	>>> segment(0, 1)
+	segment(0, 1)
+	>>> segment(1, 0)
+	segment(0, 1)
+	>>> bool(segment(0, 1))
+	True
 	>>> bool(segment(0, 0))
 	False
 	>>> segment("AAA Towing", "York University") & segment("Pool", "Zoo")
 	segment('Pool', 'York University')
-	>>> x = [0, 1]
+	>>> x = [0, 1]	# a list
 	>>> segment(x)
 	segment(0, 1)
 	>>> y = segment(0, 1)
@@ -295,10 +303,10 @@ class segment(tuple):
 			return tuple.__new__(cls, (args[1], args[0]))
 
 	def __repr__(self):
-		return "segment(" + repr(self[0]) + ", " + repr(self[1]) + ")"
+		return "segment(%s, %s)" % (repr(self[0]), repr(self[1]))
 
 	def __str__(self):
-		return "[" + str(self[0]) + " ... " + str(self[1]) + ")"
+		return "[%s ... %s)" % (str(self[0]), str(self[1]))
 
 	# accessors
 
@@ -362,6 +370,17 @@ class segment(tuple):
 		if isinstance(other, tuple):
 			return tuple.__ge__(self, other)
 		return self[0] >= other
+
+	#
+	# From <https://docs.python.org/3/reference/datamodel.html#object.__hash__>:
+	#
+	# "if [a class] defines __eq__() but not __hash__(), its instances will not
+	# be usable as items in hashable collections... If a class that overrides
+	# __eq__() needs to retain the implementation of __hash__() from a parent
+	# class, the interpreter must be told this explicitly by setting __hash__ =
+	# <ParentClass>.__hash__."
+	#
+	__hash__ = tuple.__hash__
 
 	# some arithmetic operations that (mostly) make sense for segments
 
