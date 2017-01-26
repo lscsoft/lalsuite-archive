@@ -123,7 +123,7 @@ if __name__ == "__main__":
     for fp in segfiles:
         if xml.search(fp):
             xmldoc = ligolw_utils.load_filename(fp, gz=fp.endswith(".gz"))
-            seg_table = ligolw_table.get_table(xmldoc, SegmentTable.tableName)
+            seg_table = SegmentTable.get_table(xmldoc)
             try:
                 seg_table.getColumnByName("start_time_ns")
             except KeyError:
@@ -135,8 +135,7 @@ if __name__ == "__main__":
                 for row in seg_table:
                     segments["_"].append(row.get())
             else:
-                seg_def_table = ligolw_table.get_table(xmldoc,
-                                                SegmentDefTable.tableName)
+                seg_def_table = SegmentDefTable.get_table(xmldoc)
                 flags = dict()
                 for row in seg_def_table:
                     ifo = "".join(sorted(row.get_ifos()))

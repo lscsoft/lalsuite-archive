@@ -1,13 +1,12 @@
+from setuptools import setup
 
-from distutils.core import setup
-
-version = "1.0.1"
+version = "1.0.2"
 
 setup(
   name = "ligo-common",
   version = version,
-  maintainer = "Brian Moe",
-  maintainer_email = "brian.moe@ligo.org",
+  maintainer = "Tanner Prestegard",
+  maintainer_email = "tanner.prestegard@ligo.org",
   description = "Empty LIGO modules",
   long_description = "Empty module placeholder for other LIGO modules",
   license = 'GPL',

@@ -31,6 +31,7 @@ Cut pieces out of LIGO LW XML files containing LSC tables.
 """
 
 
+from __future__ import print_function
 from optparse import OptionParser
 import sys
 
@@ -68,7 +69,7 @@ def parse_command_line():
 	options, filenames = parser.parse_args()
 
 	# strip column names
-	options.delete_column = set(map(table.StripColumnName, options.delete_column))
+	options.delete_column = set(map(table.Column.ColumnName, options.delete_column))
 
 	# parse element specs
 	def parse_delete_element(arg):
@@ -77,7 +78,7 @@ def parse_command_line():
 	options.delete_element = set(map(parse_delete_element, options.delete_element))
 
 	# strip table names
-	options.delete_table = set(map(table.StripTableName, options.delete_table))
+	options.delete_table = set(map(table.Table.TableName, options.delete_table))
 
 	return options, (filenames or [None])
 
@@ -101,11 +102,7 @@ class ElementFilter(object):
 
 	def element_filter(self, name, attrs):
 		# check for unwanted tables
-		if name == ligolw.Table.tagName:
-			for delete_table in self.delete_tables:
-				if not table.CompareTableNames(delete_table, attrs["Name"]):
-					return False
-		return True
+		return name != ligolw.Table.tagName or table.Table.TableName(attrs["Name"]) not in self.delete_tables
 
 
 class ContentHandler(ligolw.FilteringLIGOLWContentHandler):
@@ -121,7 +118,7 @@ table.use_in(ContentHandler)
 #
 
 
-table.RowBuilder = table.InterningRowBuilder
+table.TableStream.RowBuilder = table.InterningRowBuilder
 
 
 #
@@ -141,7 +138,7 @@ table.RowBuilder = table.InterningRowBuilder
 def RemoveColumns(doc, columns):
 	for table_elem in doc.getElementsByTagName(ligolw.Table.tagName):
 		for name in columns:
-			for column in table.getColumnsByName(table_elem, name):
+			for column in table.Column.getColumnsByName(table_elem, name):
 				table_elem.removeChild(column)
 
 
@@ -194,11 +191,11 @@ options, filenames = parse_command_line()
 
 for n, filename in enumerate(filenames):
 	if options.verbose:
-		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+		print("%d/%d:" % (n + 1, len(filenames)), end=' ', file=sys.stderr)
 	doc = utils.load_filename(filename, verbose = options.verbose, contenthandler = ContentHandler)
 	table.InterningRowBuilder.strings.clear()
 	if options.verbose:
-		print >>sys.stderr, "processing"
+		print("processing", file=sys.stderr)
 	if options.delete_column:
 		RemoveColumns(doc, options.delete_column)
 	if options.delete_element:

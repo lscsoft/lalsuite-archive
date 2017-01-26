@@ -50,20 +50,15 @@ except:
 	pass
 import numpy
 from optparse import OptionParser
-try:
-	import sqlite3
-except ImportError:
-	# pre 2.5.x
-	from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 import sys
 
+from lal import utils as lalutils
 
-from pylal import SimBurstUtils	# this must come before the dbtables import (sigh, I know, I *know*)
 from glue import iterutils
 from glue import segments
 from glue.ligolw import dbtables
 from glue.ligolw.utils import segments as ligolw_segments
-from glue import lal
 from pylal import db_thinca_rings
 from pylal import git_version
 from pylal import rate
@@ -118,7 +113,7 @@ Generate the given plot group.  Can be given multiple times (default = make all 
 		options.format = ["png"]
 
 	if not filenames: filenames = []
-	if options.input_cache: filenames.extend([lal.CacheEntry(l).path for l in open(options.input_cache).readlines()])
+	if options.input_cache: filenames.extend([lalutils.CacheEntry(l).path for l in open(options.input_cache).readlines()])
 
 	return options, (filenames or [])
 

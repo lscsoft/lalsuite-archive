@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2011--2014 Karl Wette
+// Copyright (C) 2011--2017 Karl Wette
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -20,15 +20,9 @@
 // SWIG interface code specific to Octave.
 // Author: Karl Wette
 
-// # General SWIG directives and interface code
-
-// Call VCS information check function when module is loaded
-%init %{
-  if (VCS_INFO_CHECK() != XLAL_SUCCESS) {
-    SWIG_Error(SWIG_RuntimeError, "Could not load SWIG module");
-    return false;
-  }
-%}
+//
+// General SWIG directives and interface code
+//
 
 // In SWIG Octave modules, only variables are namespaced, everything else
 // is inserted in the global symbol table, so we rename only variables
@@ -46,10 +40,14 @@ extern "C++" {
 #include <octave/ov-re-mat.h>
 #include <octave/ov-flt-cx-mat.h>
 #include <octave/ov-cx-mat.h>
-#include <octave/toplev.h>
 #include <octave/Array-util.h>
 }
 #if defined(SWIG_OCTAVE_PREREQ)
+# if SWIG_OCTAVE_PREREQ(4,2,0)
+#  define SWIGLAL_OCT_PREREQ_4_2_0 1
+# else
+#  define SWIGLAL_OCT_PREREQ_4_2_0 0
+# endif
 # if SWIG_OCTAVE_PREREQ(4,0,0)
 #  define SWIGLAL_OCT_PREREQ_4_0_0 1
 # else
@@ -80,8 +78,7 @@ extern "C++" {
 #define swiglal_1starg()  (args.length() > 0 ? args(0) : octave_value())
 %}
 
-// Return a reference to the supplied octave_value; since Octave handles reference counting, just
-// return it.
+// Return a reference to the supplied octave_value; since Octave handles reference counting, just return it.
 %header %{
 #define swiglal_get_reference(v) (v)
 %}
@@ -91,7 +88,14 @@ extern "C++" {
 #define swiglal_append_output_if_empty(v) if (_outp->length() == 0) _outp = SWIG_Octave_AppendOutput(_outp, v)
 %}
 
-// # SWIG directives for operators
+// Evaluates true if an octave_value represents a null pointer, false otherwise.
+%header %{
+#define swiglal_null_ptr(v)  (!(v).is_string() && (v).is_matrix_type() && (v).rows() == 0 && (v).columns() == 0)
+%}
+
+//
+// SWIG directives for operators
+//
 
 // Unary operators which return a new object, and thus require %newobject to be set.
 %define %swiglal_oct_urn_op(NAME, OCTNAME)
@@ -125,7 +129,18 @@ extern "C++" {
 // Comparison operators.
 %typemap(in, numinputs=0, noblock=1) int SWIGLAL_CMP_OP_RETN_HACK "";
 
-// # General fragments, typemaps, and macros
+//
+// Octave-specific extensions to structs
+//
+
+// Extend a struct TAGNAME.
+%define %swiglal_struct_extend_specific(TAGNAME, OPAQUE, DTORFUNC)
+
+%enddef // %swiglal_struct_extend_specific
+
+//
+// General fragments, typemaps, and macros
+//
 
 // SWIG conversion fragments and typemaps for GSL complex numbers.
 %swig_cplxflt_convn(gsl_complex_float, gsl_complex_float_rect, GSL_REAL, GSL_IMAG);
@@ -150,7 +165,7 @@ extern "C++" {
     dim_vector dims = $input.dims();
     if (dims.length() == 2 && dims.num_ones() == 1 && 3 <= dims.numel() && dims.numel() <= 6) {
       RowVector datevec = $input.row_vector_value();
-      for (int i = 0; i < datevec.length(); ++i) {
+      for (int i = 0; i < datevec.numel(); ++i) {
         datenum_args.append(octave_value(datevec(i)));
       }
     }
@@ -200,7 +215,9 @@ extern "C++" {
 
 }
 
-// # Interface code to track object parents
+//
+// Interface code to track object parents
+//
 
 // Interface code which tracks the parent structs of SWIG-wrapped struct members, so that the parent
 // struct is not destroyed as long as a SWIG-wrapped object containing any of its members exists.
@@ -267,7 +284,9 @@ SWIGINTERN bool swiglal_release_parent(void *ptr) {
 
 %} // %init
 
-// # Fragments and typemaps for arrays
+//
+// Fragments and typemaps for arrays
+//
 
 // This section implements a series of array view classes, through which arbitrary C array data can
 // be viewed as native Octave matrices, etc.
@@ -626,6 +645,15 @@ SWIGINTERN bool swiglal_release_parent(void *ptr) {
 #define SLOAV_OBV_METH_FROM_ARRAY_3(N, R, A, B, C) R N(A a, B b, C c) const { return sloav_array_out().N(a, b, c); }
 #define SLOAV_OBV_METH_FROM_ARRAY_4(N, R, A, B, C, D) R N(A a, B b, C c, D d) const { return sloav_array_out().N(a, b, c, d); }
 #define SLOAV_OBV_METH_FROM_ARRAY_5(N, R, A, B, C, D, E) R N(A a, B b, C c, D d, E e) const { return sloav_array_out().N(a, b, c, d, e); }
+%#if SWIGLAL_OCT_PREREQ_4_2_0
+      SLOAV_OBV_METH_FROM_ARRAY_0(as_double, octave_value);
+      SLOAV_OBV_METH_FROM_ARRAY_0(as_single, octave_value);
+%#endif
+%#if SWIGLAL_OCT_PREREQ_3_3_52
+      SLOAV_OBV_METH_FROM_ARRAY_0(map_value, octave_map);
+%#else
+      SLOAV_OBV_METH_FROM_ARRAY_0(map_value, Octave_map);
+%#endif
       SLOAV_OBV_METH_FROM_ARRAY_0(abs, octave_value);
       SLOAV_OBV_METH_FROM_ARRAY_0(acos, octave_value);
       SLOAV_OBV_METH_FROM_ARRAY_0(acosh, octave_value);
@@ -668,11 +696,6 @@ SWIGINTERN bool swiglal_release_parent(void *ptr) {
       SLOAV_OBV_METH_FROM_ARRAY_0(log10, octave_value);
       SLOAV_OBV_METH_FROM_ARRAY_0(log1p, octave_value);
       SLOAV_OBV_METH_FROM_ARRAY_0(log2, octave_value);
-%#if SWIGLAL_OCT_PREREQ_3_3_52
-      SLOAV_OBV_METH_FROM_ARRAY_0(map_value, octave_map);
-%#else
-      SLOAV_OBV_METH_FROM_ARRAY_0(map_value, Octave_map);
-%#endif
       SLOAV_OBV_METH_FROM_ARRAY_0(matrix_type, MatrixType);
       SLOAV_OBV_METH_FROM_ARRAY_0(nnz, octave_idx_type);
       SLOAV_OBV_METH_FROM_ARRAY_0(nzmax, octave_idx_type);

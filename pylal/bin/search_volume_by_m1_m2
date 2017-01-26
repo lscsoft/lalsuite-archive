@@ -2,11 +2,7 @@
 import scipy
 from scipy import interpolate
 import numpy
-try:
-        import sqlite3
-except ImportError:
-        # pre 2.5.x
-        from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 from math import *
 import sys
 import glob
@@ -74,7 +70,7 @@ class upper_limit(object):
       sim = False
       # look for a sim table
       try:
-        sim_inspiral_table = table.get_table(xmldoc, dbtables.lsctables.SimInspiralTable.tableName)
+        sim_inspiral_table = dbtables.lsctables.SimInspiralTable.get_table(xmldoc)
         self.inj_fnames.append(f)
         sim = True
       except ValueError:
@@ -82,15 +78,15 @@ class upper_limit(object):
 
       # FIGURE OUT IF IT IS A BURST OR INSPIRAL RUN OR RINGDOWN RUN
       try:
-        self.multi_burst_table = table.get_table(xmldoc, dbtables.lsctables.MultiBurstTable.tableName)
+        self.multi_burst_table = dbtables.lsctables.MultiBurstTable.get_table(xmldoc)
       except ValueError:
         self.multi_burst_table = None
       try:
-        self.coinc_inspiral_table = table.get_table(xmldoc, dbtables.lsctables.CoincInspiralTable.tableName)
+        self.coinc_inspiral_table = dbtables.lsctables.CoincInspiralTable.get_table(xmldoc)
       except ValueError:
         self.coinc_inspiral_table = None
       try:
-        self.coinc_ringdown_table = table.get_table(xmldoc, dbtables.lsctables.CoincRingdownTable.tableName)
+        self.coinc_ringdown_table = dbtables.lsctables.CoincRingdownTable.get_table(xmldoc)
       except ValueError:
         self.coinc_ringdown_table = None
 
@@ -361,7 +357,7 @@ class upper_limit(object):
         return lsctables.LIGOTimeGPS(geocent_end_time, geocent_end_time_ns) in zero_lag_segments
 
       connection.create_function("injection_was_made", 2, injection_was_made)
-      make_sim_inspiral = lsctables.table.get_table(dbtables.get_xml(connection), lsctables.SimInspiralTable.tableName).row_from_cols
+      make_sim_inspiral = lsctables.SimInspiralTable.get_table(dbtables.get_xml(connection)).row_from_cols
 
       # INSPIRAL
       if self.coinc_inspiral_table is not None:

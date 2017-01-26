@@ -33,14 +33,9 @@ Generates a 'quick and dirty' glitch page
 """
 
 
+from __future__ import print_function
 from optparse import OptionParser
-
-try:
-    import sqlite3
-except ImportError:
-    # pre 2.5.x
-    from pysqlite2 import dbapi2 as sqlite3
-
+import sqlite3
 import sys
 import os
 import glob
@@ -92,7 +87,7 @@ def parse_command_line():
     options, filenames = parser.parse_args()
 
     if not options.injection_file:
-        print >>sys.stderr, "Injection filename must be specified"
+        print("Injection filename must be specified", file=sys.stderr)
         sys.exit(1)
 
     return options, filenames
@@ -119,7 +114,7 @@ def list_results(ifo, time, segment_url, filenames):
         pipe = []
 
     for line in pipe:
-        flag, beforet, timet, aftert = filter(lambda x: x != '', line.split())
+        flag, beforet, timet, aftert = [x for x in line.split() if x != '']
     
         ifo, name, version = flag.split(':')
         flags[name] = (beforet, timet, aftert)
@@ -188,11 +183,11 @@ def list_results(ifo, time, segment_url, filenames):
         WHERE end_time BETWEEN %d AND %d AND ifo = '%s' ORDER BY snr DESC """ % (end_time, end_time + 5, ifo))
 
         for m_end_time, m_end_time_ns, mass1, mass2, snr, eff_distance in rows2:
-            print '  <tr valign="top" bgcolor="ddffdd">'
-            print '    <td>%s</td><td>%d</td><td>%d</td><td>%.2f</td><td>%.2f</td><td>%.2f</td><td>%.2f</td><td>%s</td>' % (ifo, end_time, end_time_ns, mass1, mass2, eff_distance, snr, dq_flags)
-            print '  </tr>'
+            print('  <tr valign="top" bgcolor="ddffdd">')
+            print('    <td>%s</td><td>%d</td><td>%d</td><td>%.2f</td><td>%.2f</td><td>%.2f</td><td>%.2f</td><td>%s</td>' % (ifo, end_time, end_time_ns, mass1, mass2, eff_distance, snr, dq_flags))
+            print('  </tr>')
     else:
-        print '  <tr valign="top" bgcolor="ddffdd"><td>%s</td><td colspan="6">Not found</td><td>%s</td></tr>' % (ifo, dq_flags)
+        print('  <tr valign="top" bgcolor="ddffdd"><td>%s</td><td colspan="6">Not found</td><td>%s</td></tr>' % (ifo, dq_flags))
 
     # clean up after ourselves
     connection2.close()
@@ -231,18 +226,18 @@ if __name__ == '__main__':
     FROM sim_inspiral""")
     
     for end_time, end_time_ns, mass1, mass2, eff_dist_h in rows:
-        print '<table>'
-        print '  <tr bgcolor="#9999ff"><th>ifo</th><th>end_time</th><th>end_time_ns</th><th>mass 1</th><th>mass 2</th><th>eff_distance_h</th><th>snr</th><th>DQ flags</th>'
-        print '  <tr valign="top" bgcolor="ffdddd">'
-        print '    <td></td><td>%d</td><td>%d</td><td>%.2f</td><td>%.2f</td><td>%.2f</td><td></td><td></td>' % (end_time, end_time_ns, mass1, mass2, eff_dist_h) 
-        print '  </tr>'
+        print('<table>')
+        print('  <tr bgcolor="#9999ff"><th>ifo</th><th>end_time</th><th>end_time_ns</th><th>mass 1</th><th>mass 2</th><th>eff_distance_h</th><th>snr</th><th>DQ flags</th>')
+        print('  <tr valign="top" bgcolor="ffdddd">')
+        print('    <td></td><td>%d</td><td>%d</td><td>%.2f</td><td>%.2f</td><td>%.2f</td><td></td><td></td>' % (end_time, end_time_ns, mass1, mass2, eff_dist_h))
+        print('  </tr>')
     
         # Generate rows for triggers in H1 and H2
         list_results('H1', end_time, options.segment, filenames)
         list_results('H2', end_time, options.segment, filenames)
     
-        print '</table>'
-        print '<p>'
+        print('</table>')
+        print('<p>')
         sys.stdout.flush()
     
     # Clean up

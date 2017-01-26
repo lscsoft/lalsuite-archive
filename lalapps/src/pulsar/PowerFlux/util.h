@@ -47,5 +47,7 @@ VARRAY *new_varray(int item_size);
 void free_varray(VARRAY *v);
 int varray_add(VARRAY *v, void *item);
 
+void compute_range_F(float * __restrict__ data, int length, float *max_value, float *min_value, int *max_bin);
+void sse_compute_range_F(float * __restrict__ data, int length, float *max_value, float *min_value, int *max_bin);
 
 #endif

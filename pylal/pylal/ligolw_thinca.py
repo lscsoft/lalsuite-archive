@@ -25,6 +25,7 @@
 
 
 import bisect
+import itertools
 import math
 import sys
 
@@ -333,10 +334,10 @@ def replicate_threshold(threshold, instruments):
 	# uniqueify
 	instruments = list(set(instruments))
 	# first order
-	thresholds = dict((pair, threshold) for pair in iterutils.choices(instruments, 2))
+	thresholds = dict((pair, threshold) for pair in itertools.combinations(instruments, 2))
 	# other order
 	instruments.reverse()
-	thresholds.update(dict((pair, threshold) for pair in iterutils.choices(instruments, 2)))
+	thresholds.update(dict((pair, threshold) for pair in itertools.combinations(instruments, 2)))
 	# done
 	return thresholds
 
@@ -602,9 +603,9 @@ class sngl_inspiral_coincs(object):
 		newxmldoc = ligolw.Document()
 		ligolw_elem = newxmldoc.appendChild(ligolw.LIGO_LW())
 
-		# when making these, we can't use table.new_from_template()
-		# because we need to ensure we have a Table subclass, not a
-		# DBTable subclass
+		# when making these, we can't use .copy() method of Table
+		# instances because we need to ensure we have a Table
+		# subclass, not a DBTable subclass
 		new_process_table = ligolw_elem.appendChild(lsctables.New(lsctables.ProcessTable, self.process_table.columnnames))
 		new_process_params_table = ligolw_elem.appendChild(lsctables.New(lsctables.ProcessParamsTable, self.process_params_table.columnnames))
 		new_search_summary_table = ligolw_elem.appendChild(lsctables.New(lsctables.SearchSummaryTable, self.search_summary_table.columnnames))

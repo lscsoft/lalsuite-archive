@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 
 from glue.segmentdb import segmentdb_utils
@@ -66,14 +67,14 @@ if __name__ == '__main__':
 
     ligolw_sqlite.insert(connection, ['test_segdb_utils.xml'])
 
-    print "Testing basic segment summary...",
-    print test_basic_seg_summary(engine) and "suceeded." or "FAILED."
+    print("Testing basic segment summary...", end=' ')
+    print(test_basic_seg_summary(engine) and "suceeded." or "FAILED.")
 
-    print "Testing expanding version numbers...",
-    print test_expand_versions(engine) and "suceeded." or "FAILED."
+    print("Testing expanding version numbers...", end=' ')
+    print(test_expand_versions(engine) and "suceeded." or "FAILED.")
 
-    print "Testing optimized segment query...",
-    print test_optimized_query(engine) and "suceeded." or "FAILED."
+    print("Testing optimized segment query...", end=' ')
+    print(test_optimized_query(engine) and "suceeded." or "FAILED.")
 
 
     connection.close()

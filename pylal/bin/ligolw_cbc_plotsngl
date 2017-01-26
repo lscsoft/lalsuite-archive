@@ -8,11 +8,7 @@
 # ============================================================================
 
 from optparse import OptionParser
-try:
-    import sqlite3
-except ImportError:
-    # pre 2.5.x
-    from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 import sys, os, math, re
 import numpy
 
@@ -385,7 +381,7 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
         # get sngl table columns
         sngl_table_cols = sqlutils.get_column_names_from_table( connection, sngl_table )
         class StorageTable(table.Table):
-            tableName = "storage:table"
+            tableName = "storage"
             validcolumns = {}
             for col_name in sngl_table_cols:
                 if col_name in lsctables.TableByName[sngl_table].validcolumns.keys():

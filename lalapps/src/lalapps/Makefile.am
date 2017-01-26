@@ -3,6 +3,7 @@ MOSTLYCLEANFILES =
 EXTRA_DIST =
 include $(top_srcdir)/gnuscripts/lalsuite_vcs_info.am
 include $(top_srcdir)/gnuscripts/lalsuite_python.am
+include $(top_srcdir)/gnuscripts/lalsuite_help2man.am
 
 if FRAME
 if LALFRAME
@@ -31,17 +32,19 @@ FFTWPROGS = \
 endif
 
 noinst_LTLIBRARIES = liblalapps.la
+
 liblalapps_la_SOURCES = \
+	LALAppsVCSInfo.h \
+	LALAppsVCSInfoHeader.h \
 	lalapps.c \
 	lalapps.h \
-	LALAppsVCSInfo.c \
-	LALAppsVCSInfo.h \
 	$(FRAMESRCS) \
 	$(LALMETAIOSRCS)
-nodist_liblalapps_la_SOURCES = LALAppsBuildInfo.c
 
-noinst_HEADERS = \
-	LALAppsVCSInfoHeader.h
+nodist_liblalapps_la_SOURCES = \
+	LALAppsBuildInfoHeader.h \
+	LALAppsVCSInfo.c \
+	$(END_OF_LIST)
 
 bin_PROGRAMS = \
 	lalapps_version \
@@ -49,14 +52,13 @@ bin_PROGRAMS = \
 	lalapps_cache \
 	$(FFTWPROGS)
 
-lalapps_version_SOURCES = \
-	version.c \
-	lalapps.h \
-	LALAppsVCSInfo.h
+lalapps_version_SOURCES = version2.c
+
 lalapps_tconvert_SOURCES = \
 	tconvert.c \
 	getdate.c \
 	getdate.h
+
 lalapps_cache_SOURCES = \
 	cache.c
 
@@ -71,11 +73,14 @@ pybin_scripts = \
 	lalapps_searchsum2cache
 endif
 
-TESTS = lalapps_version
+TESTS = \
+	lalapps_version
+	$(END_OF_LIST)
 
+vcs_build_info_source = LALAppsVCSInfo.c
 vcs_info_sources = LALAppsVCSInfoHeader.h git_version.py
-build_info_source = LALAppsBuildInfo.c
-$(build_info_source): $(liblalapps_la_DEPENDENCIES)
+build_info_source = LALAppsBuildInfoHeader.h
+build_info_dependencies = $(liblalapps_la_DEPENDENCIES)
 
 EXTRA_DIST += \
 	__init__.py \

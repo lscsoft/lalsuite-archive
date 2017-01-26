@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.63-64
+VERSION=1.4.68-64
 # This version is developed against LAL-6.30
 LALROOT=./../../../../
 LALROOT=/home/vdergach/opt/
@@ -507,18 +507,18 @@ upload: powerflux-condor powerflux-mt powerflux-condor2 powerflux-mt2
 	gsiscp -C $(FILES) hydra.phys.uwm.edu:PowerFlux/
 	
 upload.a: powerflux-condor powerflux-mt powerflux-condor2 powerflux-mt2
-	gsiscp -C powerflux-condor h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor.$(VERSION)
-	gsiscp -C powerflux-mt h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt.$(VERSION)
-	gsiscp -C powerflux-condor2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor2.$(VERSION)
-	gsiscp -C powerflux-mt2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt2.$(VERSION)
-	gsiscp -C $(FILES) h2.atlas.aei.uni-hannover.de:PowerFlux/
+	gsiscp -C powerflux-condor atlas7.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor.$(VERSION)
+	gsiscp -C powerflux-mt atlas7.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt.$(VERSION)
+	gsiscp -C powerflux-condor2 atlas7.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor2.$(VERSION)
+	gsiscp -C powerflux-mt2 atlas7.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt2.$(VERSION)
+	gsiscp -C $(FILES) atlas7.atlas.aei.uni-hannover.de:PowerFlux/
 	
 upload.a2: powerflux-mt2
-#	gsiscp -C powerflux-condor h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor.$(VERSION)
-#	gsiscp -C powerflux-mt h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt.$(VERSION)
-#	gsiscp -C powerflux-condor2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor2.$(VERSION)
-	gsiscp -C powerflux-mt2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt2.$(VERSION)
-#	gsiscp -C $(FILES) h2.atlas.aei.uni-hannover.de:PowerFlux/
+#	gsiscp -C powerflux-condor atlas7.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor.$(VERSION)
+#	gsiscp -C powerflux-mt atlas7.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt.$(VERSION)
+#	gsiscp -C powerflux-condor2 atlas7.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor2.$(VERSION)
+	gsiscp -C powerflux-mt2 atlas7.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt2.$(VERSION)
+#	gsiscp -C $(FILES) atlas7.atlas.aei.uni-hannover.de:PowerFlux/
 	
 upload.g: powerflux-condor powerflux-mt
 	scp -C powerflux-condor gallatin.physics.lsa.umich.edu:PowerFlux/powerflux-condor.$(VERSION)
@@ -545,7 +545,7 @@ upload.c: powerflux-condor powerflux-mt powerflux-condor2 powerflux-mt2
 upload.c2:  powerflux-mt powerflux-mt2
 #	gsiscp -C powerflux-mt ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt.$(VERSION)
 	gsiscp -C powerflux-mt2 ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt2.$(VERSION)
-	gsiscp -C $(FILES) ldas-grid.ligo.caltech.edu:PowerFlux/
+#	gsiscp -C $(FILES) ldas-grid.ligo.caltech.edu:PowerFlux/
 
 upload.v2:  powerflux-valgrind2
 	gsiscp -C powerflux-valgrind2 ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt2.$(VERSION)

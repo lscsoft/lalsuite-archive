@@ -33,14 +33,9 @@ the segments, and produces veto files as XML
 """
 
 
+from __future__ import print_function
 from optparse import OptionParser
-
-try:
-    import sqlite3
-except ImportError:
-    # pre 2.5.x
-    from pysqlite2 import dbapi2 as sqlite3
-
+import sqlite3
 import sys
 import os
 import pwd
@@ -125,7 +120,7 @@ def parse_command_line():
    
     # User must specify how to treat the categories
     if not (options.cumulative_categories or options.separate_categories) or (options.cumulative_categories and options.separate_categories):
-        print >>sys.stderr, "Must provide one of --cumulative-categories | --separate-categories"
+        print("Must provide one of --cumulative-categories | --separate-categories", file=sys.stderr)
         sys.exit(-1)
 
     tmp_dir = None
@@ -145,7 +140,7 @@ def parse_command_line():
 
         outfile = open(loaded_file, 'w')
         for l in inurl:
-            print >>outfile, l,
+            print(l, end=' ', file=outfile)
 
         inurl.close()
         outfile.close()
@@ -172,7 +167,7 @@ def parse_command_line():
             inurl   = urllib.urlopen(options.segment_url)
             outfile = open(tmp_dir + "/" + fname, 'w')
             for l in inurl:
-                print >>outfile, l,
+                print(l, end=' ', file=outfile)
 
             inurl.close()
             outfile.close()

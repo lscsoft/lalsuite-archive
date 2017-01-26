@@ -145,37 +145,33 @@ if __name__ == "__main__":
     xmldoc = ligolw_utils.load_filename(xmlfile, gz=xmlfile.endswith(".gz"), contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
 
     # read SearchSummaryTable
-    search_summ_table = table.get_table(xmldoc,
-                                        lsctables.SearchSummaryTable.tableName)
+    search_summ_table = lsctables.SearchSummaryTable.get_table(xmldoc)
     ifos = search_summ_table[-1].get_ifos()
     if not ifos:
-        process_table = table.get_table(xmldoc,
-                                        lsctables.ProcessTable.tableName)
+        process_table = lsctables.ProcessTable.get_table(xmldoc)
         ifos = process_table[0].get_ifos()
     process.set_ifos(ifos)
     outxml.childNodes[-1].appendChild(search_summ_table)
 
     # read Experiment and ExperimentSummary tables
-    expr_table = table.get_table(xmldoc, lsctables.ExperimentTable.tableName)
-    expr_summ_table = table.get_table(
-                          xmldoc, lsctables.ExperimentSummaryTable.tableName)
+    expr_table = lsctables.ExperimentTable.get_table(xmldoc)
+    expr_summ_table = lsctables.ExperimentSummaryTable.get_table(xmldoc)
 
     # read MultiInspiralTable
-    mi_table = table.get_table(xmldoc, lsctables.MultiInspiralTable.tableName)
+    mi_table = lsctables.MultiInspiralTable.get_table(xmldoc)
     nevents = len(mi_table)
     print_verbose("MultiInspiralTable read, %d events found.\n" % nevents)
 
     # read SimInspiralTable (if it has one)
     try:
-        sim_table = table.get_table(xmldoc,
-                                    lsctables.SimInspiralTable.tableName)
+        sim_table = lsctables.SimInspiralTable.get_table(xmldoc)
     except ValueError:
         sim_table = None
     else:
         print_verbose("SimInspiralTable read.\n")
 
     # read TimeSlideTable
-    slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+    slide_table = lsctables.TimeSlideTable.get_table(xmldoc)
     slides = slide_table.as_dict()
     outxml.childNodes[-1].appendChild(slide_table)
     print_verbose("TimeSlideTable read and copied.\n")
@@ -184,9 +180,8 @@ if __name__ == "__main__":
     veto_segments = SegmentListDict((ifo, SegmentList()) for ifo in ifos)
     for fp in segment_files:
         xmldoc = ligolw_utils.load_filename(fp, gz=fp.endswith(".gz"), contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
-        seg_def_table = table.get_table(xmldoc,
-                                        lsctables.SegmentDefTable.tableName)
-        seg_table = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
+        seg_def_table = lsctables.SegmentDefTable.get_table(xmldoc)
+        seg_table = lsctables.SegmentTable.get_table(xmldoc)
         ifo_index = dict((int(row.segment_def_id), row.get_ifos()) for
                          row in seg_def_table)
         for ifo in ifo_index:

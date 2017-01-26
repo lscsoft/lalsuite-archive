@@ -163,9 +163,9 @@ void LALInferenceDrawThreads(LALInferenceRunState *run_state) {
         LALInferenceCopyUnsetREAL8Variables(priorDraw, thread->currentParams,
                                             run_state->commandLine);
 
-        while (run_state->prior(run_state,
-                                thread->currentParams,
-                                thread->model) <= -DBL_MAX) {
+        while(isinf(run_state->prior(run_state,
+                                     thread->currentParams,
+                                     thread->model))) {
             LALInferenceDrawApproxPrior(thread,
                                         thread->currentParams,
                                         thread->currentParams);
@@ -210,7 +210,7 @@ void LALInferenceInitCBCThreads(LALInferenceRunState *run_state, INT4 nthreads) 
   LALInferenceThreadState *thread;
   INT4 t, nifo;
   INT4 randomseed;
-  LALInferenceIFOData *data = run_state->data;
+  LALInferenceIFOData *data;
   run_state->nthreads = nthreads;
   run_state->threads = LALInferenceInitThreads(nthreads);
 
@@ -226,6 +226,7 @@ void LALInferenceInitCBCThreads(LALInferenceRunState *run_state, INT4 nthreads) 
 
     /* Allocate IFO likelihood holders */
     nifo = 0;
+    data = run_state->data;
     while (data != NULL) {
         data = data->next;
         nifo++;
@@ -279,7 +280,7 @@ LALInferenceTemplateFunction LALInferenceInitCBCTemplate(LALInferenceRunState *r
   if(ppt) {
     if(!strcmp("LALSim",ppt->value))
       templt=&LALInferenceTemplateXLALSimInspiralChooseWaveform;
-	else if(!strcmp("null",ppt->value))
+    else if(!strcmp("null",ppt->value))
         templt=&LALInferenceTemplateNullFreqdomain;
 	else if(!strcmp("multiband",ppt->value)){
         templt=&LALInferenceTemplateXLALSimInspiralChooseWaveformPhaseInterpolated;
@@ -1241,16 +1242,14 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
    * assumes the LALSimulations default frame */
   LALSimInspiralFrameAxis frameAxis = LAL_SIM_INSPIRAL_FRAME_AXIS_DEFAULT;
 
-  model->waveFlags = XLALSimInspiralCreateWaveformFlags();
-  XLALSimInspiralSetSpinOrder(model->waveFlags,  spinO);
-  XLALSimInspiralSetTidalOrder(model->waveFlags, tideO);
-  XLALSimInspiralSetFrameAxis(model->waveFlags,frameAxis);
+  model->LALpars = XLALCreateDict();
+  XLALSimInspiralWaveformParamsInsertPNSpinOrder(model->LALpars,  spinO);
+  XLALSimInspiralWaveformParamsInsertPNTidalOrder(model->LALpars, tideO);
+  XLALSimInspiralWaveformParamsInsertFrameAxis(model->LALpars,frameAxis);
   if((ppt=LALInferenceGetProcParamVal(commandLine,"--numreldata"))) {
-    XLALSimInspiralSetNumrelData(model->waveFlags, ppt->value);
+    XLALSimInspiralWaveformParamsInsertNumRelData(model->LALpars, ppt->value);
     fprintf(stdout,"Template will use %s.\n",ppt->value);
   }
-
-
 
   fprintf(stdout,"\n\n---\t\t ---\n");
   LALInferenceInitSpinVariables(state, model);

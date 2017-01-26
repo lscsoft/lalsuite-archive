@@ -103,8 +103,7 @@ def keep_only_loudest_events_by_cat(xmldoc, coincstat, mc_bins, mc_ifo_cats, kee
     """
     # read unclustered on-source coincs
     try:
-      onsource_trigs = table.get_table(xmldoc,
-          lsctables.SnglInspiralTable.tableName)
+      onsource_trigs = lsctables.SnglInspiralTable.get_table(xmldoc)
     except ValueError:
       onsource_trigs = lsctables.New(lsctables.SnglInspiralTable)
       xmldoc.childNodes[0].appendChild(onsource_trigs)
@@ -140,14 +139,7 @@ def get_loudest_stats_by_trial_slide_cat(onoff_doc, coinc_stat,
     (mchirp_ind, IFO) combos.
     """
     # read unclustered background coincs
-    tables = table.getTablesByName(onoff_doc,
-        lsctables.SnglInspiralTable.tableName)
-    if len(tables) == 1:
-      onoff_trigs = tables[0]
-    elif len(tables) == 0:
-      onoff_trigs = []
-    else:
-      raise ValueError, "why are there multiple SnglInspiral tables?"
+    onoff_trigs = lsctables.SnglInspiralTable.get_table(onoff_doc)
     onoff_coincs = CoincInspiralUtils.coincInspiralTable(onoff_trigs,
         coinc_stat)
 
@@ -170,7 +162,7 @@ def get_loudest_stats_by_inj_cat(inj_doc, coinc_doc, coinc_stat, trial_bins,
     Categories object to bin up the (mchirp_ind, IFO) combos.
     """
     # get injection info
-    sims = table.get_table(inj_doc, lsctables.SimInspiralTable.tableName)
+    sims = lsctables.SimInspiralTable.get_table(inj_doc)
     sim_trials = [trial_bins[s.geocent_end_time] for s in sims]
 
     # sanity check: no two injections went into the same trial
@@ -178,8 +170,7 @@ def get_loudest_stats_by_inj_cat(inj_doc, coinc_doc, coinc_stat, trial_bins,
 
     # get coincs
     try:
-      inj_trigs = table.get_table(coinc_doc,
-          lsctables.SnglInspiralTable.tableName)
+      inj_trigs = lsctables.SnglInspiralTable.get_table(coinc_doc)
     except ValueError:
       print "WARNING: coinc_doc contains no triggers."
       inj_trigs = lsctables.New(lsctables.SnglInspiralTable)
@@ -368,7 +359,7 @@ num_trials_buffers_onsource = abs(buffer_segs) // trial_len
 
 # get slide amounts in seconds
 shift_unit_vector = dict((ifo, 0) for ifo in ifo_list)  # default to 0
-for row in table.get_table(onoff_doc, lsctables.ProcessParamsTable.tableName):
+for row in lsctables.ProcessParamsTable.get_table(onoff_doc):
   for ifo in ifo_list:
     if row.param == "--%s-slide" % ifo:
         shift_unit_vector[ifo] = int(float(row.value))
@@ -392,8 +383,8 @@ for slide_num in range(-nominal_num_slides, nominal_num_slides+1):
   for ring in rings:
     slid_seglistdict = SnglInspiralUtils.slideSegListDictOnRing(ring, veto_segs, shift_dict)
     slid_seglist = slid_seglistdict.union(slid_seglistdict.keys())
-    trial_veto_mask_2d[slide_bins[slide_num], :] |= rate.bins_spanned(trial_bins, slid_seglist, dtype=numpy.bool8)
-trial_veto_mask_2d[slide_bins[0], :] |= rate.bins_spanned(trial_bins, buffer_segs, dtype=numpy.bool8)
+    trial_veto_mask_2d[slide_bins[slide_num], :] |= rate.bins_spanned(trial_bins, slid_seglist).astype(bool)
+trial_veto_mask_2d[slide_bins[0], :] |= rate.bins_spanned(trial_bins, buffer_segs).astype(bool)
 if total_num_slides != array_size:  # these are equal iff we are including zero-lag background
   trial_veto_mask_2d[slide_bins[0]] |= True
 
@@ -438,7 +429,7 @@ if opts.write_offsource or opts.write_onsource:
 # so we cannot use it for off-source anymore.
 if opts.write_onsource:
   # get the trial number that contains the on-source segment
-  onsource_trial_mask = rate.bins_spanned(trial_bins, on_segs, dtype=bool)
+  onsource_trial_mask = rate.bins_spanned(trial_bins, on_segs).astype(bool)
   assert (onsource_trial_mask == True).sum() == 1
   onsource_trial_ind = onsource_trial_mask.nonzero()[0][0]
 
@@ -452,7 +443,7 @@ if opts.write_onsource:
 
   # remove non-zero lag coincs
   # FIXME: fix this code when we get new-style coincs
-  onoff_triggers = table.get_table(onoff_doc, lsctables.SnglInspiralTable.tableName)
+  onoff_triggers = lsctables.SnglInspiralTable.get_table(onoff_doc)
   iterutils.inplace_filter(lambda c: c.get_id_parts()[1] == 0, onoff_triggers)
 
   # filter the document to contain only the loudest event in each MC bin

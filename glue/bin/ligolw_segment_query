@@ -37,14 +37,9 @@ segment database or a collection of DMT XML files:
 """
 
 
+from __future__ import print_function
 from optparse import OptionParser
-
-try:
-    import sqlite3
-except ImportError:
-    # pre 2.5.x
-    from pysqlite2 import dbapi2 as sqlite3
-
+import sqlite3
 import sys
 import os
 import operator
@@ -71,6 +66,7 @@ from glue.ligolw.utils import ligolw_sqlite
 from glue.ligolw import dbtables
 
 from glue import git_version
+import six
 
 PROGRAM_NAME = sys.argv[0].replace('./','')
 PROGRAM_PID  = os.getpid()
@@ -167,7 +163,7 @@ def parse_command_line():
             inurl   = urllib.urlopen(options.segment_url)
             outfile = open(tmp_dir + "/" + fname, 'w')
             for l in inurl:
-                print >>outfile, l,
+                print(l, end=' ', file=outfile)
 
             inurl.close()
             outfile.close()
@@ -239,7 +235,7 @@ def seg_spec_to_sql(spec):
 # define a new type so that the ligolw routines can generate the XML
 #
 class ShowTypesResultTable(table.Table):
-    tableName = "show_types_result:table"
+    tableName = "show_types_result"
 
     validcolumns = {
         "ifos": "lstring",
@@ -254,7 +250,7 @@ class ShowTypesResultTable(table.Table):
 
 
 class ShowTypesResult(object):
-    __slots__ = ShowTypesResultTable.validcolumns.keys()
+    __slots__ = tuple(ShowTypesResultTable.validcolumns.keys())
 
     def get_pyvalue(self):
         if self.value is None:
@@ -298,7 +294,7 @@ def run_show_types(doc, connection, engine, gps_start_time, gps_end_time, includ
 
         seg_dict[key].append(glue.segments.segment(segment_summary_start_time, segment_summary_end_time))
 
-    for key, value in seg_dict.iteritems():
+    for key, value in six.iteritems(seg_dict):
         segmentlist = glue.segments.segmentlist(value)
         segmentlist.coalesce()
 
@@ -330,7 +326,7 @@ def run_query_types(doc, proc_id, connection, engine, gps_start_time, gps_end_ti
     AND NOT(%d > segment_summary.end_time OR segment_summary.start_time > %d)
     """ % (gps_start_time, gps_end_time)
 
-    type_clauses = map(seg_spec_to_sql, included_segments.split(','))
+    type_clauses = list(map(seg_spec_to_sql, included_segments.split(',')))
 
     if type_clauses != []:
         sql += " AND (" + "OR ".join(type_clauses) + ")"
@@ -395,7 +391,7 @@ def run_query_segments(doc, process_id, engine, gps_start_time, gps_end_time, in
         spec = included.split(':')
 
         if len(spec) < 2 or len(spec) > 3:
-            print >>sys.stderr, "Included segements must be of the form ifo:name:version or ifo:name:*"
+            print("Included segements must be of the form ifo:name:version or ifo:name:*", file=sys.stderr)
             sys.exit(1)
 
         ifo     = spec[0]
@@ -403,7 +399,7 @@ def run_query_segments(doc, process_id, engine, gps_start_time, gps_end_time, in
         if len(spec) is 3 and spec[2] is not '*':
             version = int(spec[2])
             if version < 1:
-                print >>sys.stderr, "Segment version numbers must be greater than zero"
+                print("Segment version numbers must be greater than zero", file=sys.stderr)
                 sys.exit(1)
         else:
             version = '*'
@@ -428,7 +424,7 @@ def run_query_segments(doc, process_id, engine, gps_start_time, gps_end_time, in
             spec = excluded.split(':')
 
             if len(spec) < 2:
-                print >>sys.stderr, "Excluded segements must be of the form ifo:name:version or ifo:name:*"
+                print("Excluded segements must be of the form ifo:name:version or ifo:name:*", file=sys.stderr)
                 sys.exit(1)
 
             ifo     = spec[0]
@@ -507,7 +503,7 @@ if __name__ == '__main__':
     # Ping the database and exit if requested
     if options.ping:
         connection = segmentdb_utils.setup_database(database_location)
-        print connection.ping()
+        print(connection.ping())
         sys.exit( 0 )
 
     gps_start_time = int(options.gps_start_time)

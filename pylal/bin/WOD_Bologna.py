@@ -2,11 +2,7 @@
 
 from optparse import OptionParser
 
-try:
-	import sqlite3
-except ImportError:
-	# pre 2.5.x
-	from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 import sys, os, copy, math, re, subprocess, string, tempfile, socket
 import time as time_method
 import ConfigParser

@@ -38,8 +38,9 @@ if not os.getenv("DISPLAY", None):
     matplotlib.use("agg", warn=False)
 
 
-from pylal import (antenna, date, git_version, plotutils, MultiInspiralUtils,
+from pylal import (antenna, git_version, plotutils, MultiInspiralUtils,
                    coh_PTF_pyutils, htmlutils)
+from lalburst import date
 from lalburst import timeslides as ligolw_tisi
 from pylal.dq import dqSegmentUtils
 from lal import GPSTimeNow
@@ -120,8 +121,7 @@ def read_ligolw(lalcache):
     """
     xmldoc = ligolw.Document()
     ligolw_add.ligolw_add(xmldoc, lalcache.pfnlist())
-    time_slide_table = table.get_table(xmldoc,
-                                       lsctables.TimeSlideTable.tableName)
+    time_slide_table = lsctables.TimeSlideTable.get_table(xmldoc)
     time_slide_mapping = ligolw_tisi.time_slides_vacuum(
                              time_slide_table.as_dict())
     iterutils.inplace_filter(lambda row: row.time_slide_id not in
@@ -141,10 +141,10 @@ def read_found_missed(xmldoc, loudest_by="snr"):
         of multiple MultiInspiral events mapped to one SimInspiral
     """
     # get coinc_table
-    coinc_table = table.get_table(xmldoc, lsctables.CoincTable.tableName)
-    coinc_map_table = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
-    all_sims = table.get_table(xmldoc, lsctables.SimInspiralTable.tableName)
-    all_multis = table.get_table(xmldoc, lsctables.MultiInspiralTable.tableName)
+    coinc_table = lsctables.CoincTable.get_table(xmldoc)
+    coinc_map_table = lsctables.CoincMapTable.get_table(xmldoc)
+    all_sims = lsctables.SimInspiralTable.get_table(xmldoc)
+    all_multis = lsctables.MultiInspiralTable.get_table(xmldoc)
     found_sims = table.new_from_template(all_sims)
     found_multis = table.new_from_template(all_multis)
     missed_sims = table.new_from_template(all_sims)
@@ -507,10 +507,8 @@ if __name__ == "__main__":
     if background:
         print_verbose("Reading background events:\n", profile=False)
         xmldoc = read_ligolw(bg_cache)
-        time_slide_table = table.get_table(xmldoc,
-                                           lsctables.TimeSlideTable.tableName)
-        bg_mi_table = table.get_table(
-                              xmldoc, lsctables.MultiInspiralTable.tableName)
+        time_slide_table = lsctables.TimeSlideTable.get_table(xmldoc)
+        bg_mi_table = lsctables.MultiInspiralTable.get_table(xmldoc)
         slide_dict = time_slide_table.as_dict()
         num_slides = len(slide_dict)
         print_verbose("%d time slides identified.\n" % num_slides)
@@ -519,8 +517,7 @@ if __name__ == "__main__":
     if foreground:
         print_verbose("Reading foreground events:\n", profile=False)
         xmldoc = read_ligolw(fg_cache)
-        fg_mi_table = table.get_table(
-                             xmldoc, lsctables.MultiInspiralTable.tableName)
+        fg_mi_table = lsctables.MultiInspiralTable.get_table(xmldoc)
     else:
         fg_mi_table = None
     if simulations:

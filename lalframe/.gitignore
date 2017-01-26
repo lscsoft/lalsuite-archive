@@ -14,6 +14,7 @@ AUTHORS
 Makefile
 Makefile.in
 config.lt
+debian/control
 doxygen/autogen.dox
 doxygen/doxygen.cfg
 doxygen/doxygen_objdb_*.tmp
@@ -27,6 +28,7 @@ include/lal/*.i
 include/lal/header-link-stamp
 lalframe-*.tar.xz
 lalframe-user-env.csh
+lalframe-user-env.fish
 lalframe-user-env.sh
 lalframe-user-env.shell
 lalframe.spec
@@ -36,7 +38,7 @@ python/lalframe/__init__.py
 python/lalframe/_lalframe*
 python/lalframe/git_version.py
 python/lalframe/lalframe.py
-src/LALFrameBuildInfo.c
+src/LALFrameBuildInfoHeader.h
 src/LALFrameConfig.h
 src/LALFrameVCSInfo.c
 src/LALFrameVCSInfo.h
@@ -44,8 +46,10 @@ src/LALFrameVCSInfoHeader.h
 src/config.h
 src/config.h.in
 src/lalfr-*[!1]
+src/lalframe_version
 src/stamp-h1
 src/stamp-h2
+src/version.c
 swig/swiglal*
 test/AggregationTest
 test/H1:LSC-AS_Q.???

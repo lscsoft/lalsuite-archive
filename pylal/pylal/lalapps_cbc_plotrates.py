@@ -13,11 +13,7 @@ description = 'Creates plots of histogram counts and cumulative rates vs. a give
 usage = '%s [options] file1.sqlite file2.sqlite ...'
 
 from optparse import OptionParser
-try:
-    import sqlite3
-except ImportError:
-    # pre 2.5.x
-    from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 import sys
 import os
 import re

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2009,2011  Kipp C. Cannon
+ * Copyright (C) 2006-2009,2011,2014--2016  Kipp C. Cannon
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -597,9 +597,9 @@ static PyObject *next(PyObject *self)
 #if PY_MAJOR_VERSION < 3
 	} else if(type == (PyObject *) &PyString_Type) {
 		token = PyUnicode_Encode(start, end - start, NULL, NULL);
-#endif
 	} else if(type == (PyObject *) &PyInt_Type) {
 		token = PyInt_FromUnicode(start, end - start, 0);
+#endif
 	} else if(type == (PyObject *) &PyLong_Type) {
 		token = PyLong_FromUnicode(start, end - start, 0);
 	} else {
@@ -740,7 +740,11 @@ PyTypeObject ligolw_Tokenizer_Type = {
 "with only whitespace between them) is returned as None regardless of the\n" \
 "requested type.  To prevent a zero-length string token from being interpreted\n" \
 "as None, place it in quotes.",
-	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES,
+	.tp_flags = Py_TPFLAGS_DEFAULT
+#if PY_MAJOR_VERSION < 3
+	| Py_TPFLAGS_CHECKTYPES
+#endif
+	,
 	.tp_init = __init__,
 	.tp_iter = __iter__,
 	.tp_iternext = next,

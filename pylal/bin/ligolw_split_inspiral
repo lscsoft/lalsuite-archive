@@ -121,11 +121,11 @@ inspiral_cache = lal.Cache([lal.CacheEntry(line) for line in file(opts.inspiral_
 
 # optimize table for speed and memory usage
 lsctables.SnglInspiralTable.updateKeyMapping = lsctables.table.Table.updateKeyMapping
-lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
+lsctables.table.TableStream.RowBuilder = lsctables.table.InterningRowBuilder
 
 # get desired template parameters
 tmplt_xmldoc = utils.load_filename(opts.tmplt_file, verbose = opts.verbose)
-tmplt_tbl = table.get_table(tmplt_xmldoc, lsctables.SnglInspiralTable.tableName)
+tmplt_tbl = lsctables.SnglInspiralTable.get_table(tmplt_xmldoc)
 if opts.tmplt_num >= len(tmplt_tbl):
     raise ValueError, "The given template number: %d is too large for this bank" % opts.tmplt_num
 
@@ -163,7 +163,7 @@ for n, file in enumerate(inspiral_cache):
     ligolw_add.merge_compatible_tables(xmldoc)
 
     # Select desired triggers
-    sngl_insp_tbl = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+    sngl_insp_tbl = lsctables.SnglInspiralTable.get_table(xmldoc)
     max_idx = len(sngl_insp_tbl) - 1
     for idx, row in enumerate( reversed(sngl_insp_tbl) ):
         # if template params don't match desired ones, remove
@@ -176,7 +176,7 @@ lsctables.ProcessTable.next_id = lsctables.ProcessID(0)
 ligolw_add.reassign_ids(xmldoc, verbose = opts.verbose)
 
 # Reassign event_ids
-sngl_insp_tbl = lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+sngl_insp_tbl = lsctables.SnglInspiralTable.get_table(xmldoc)
 sngl_insp_tbl.set_next_id(lsctables.SnglInspiralID(0))
 for row in sngl_insp_tbl:
     row.event_id = sngl_insp_tbl.get_next_id()

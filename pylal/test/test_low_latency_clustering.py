@@ -26,12 +26,6 @@ import numpy as np
 from collections import deque
 from pylal.low_latency_clustering import SlidingMaxHeap, clustered
 
-try:
-	all
-except NameError:
-	# pre Python 2.5
-	from glue.iterutils import all
-
 
 def all_distinct(iterable):
 	l = list(iterable)

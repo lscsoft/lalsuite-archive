@@ -44,7 +44,7 @@ class LIGOLWContentHandlerExtractSimBurstTable(ligolw.LIGOLWContentHandler):
       self.intable=False
       self.tableElementName=''
     def startElement(self,name,attrs):
-      if attrs.has_key('Name') and attrs['Name']==self.tabname:
+      if attrs.has_key('Name') and table.Table.TableName(attrs['Name'])==self.tabname:
         self.tableElementName=name
         # Got the right table, let's see if it's the right event
         ligolw.LIGOLWContentHandler.startElement(self,name,attrs)
@@ -238,8 +238,7 @@ if __name__ == '__main__':
 
     (options, args) = parser.parse_args()
 
-    injs = table.get_table(utils.load_filename(options.injxml,contenthandler=LIGOLWContentHandlerExtractSimBurstTable),
-                           lsctables.SimBurstTable.tableName)
+    injs = lsctables.SimBurstTable.get_table(utils.load_filename(options.injxml,contenthandler=LIGOLWContentHandlerExtractSimBurstTable))
 
     if options.par == []:
         parameters = ['frequency', 'quality', 'hrss', 'ra', 'dec', 'psi', 'time', 'alpha','polar_eccentricity']

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2013-2015  Leo Singer
+# Copyright (C) 2013-2017  Leo Singer
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -27,17 +27,34 @@ import logging
 import time
 import numpy as np
 import healpy as hp
+from .decorator import with_numpy_random_seed
+from . import distance
+from . import ligolw
 from . import filter
 from . import postprocess
 from . import timing
-from . import _sky_map
-import lal, lalsimulation
-
-# FIXME: Remove this Python 2 workaround.
 try:
-    long
-except NameError:
-    long = int
+    from ._moc import rasterize
+except ImportError:
+    raise ImportError(
+        'Could not import the lalinference.bayestar._moc Python C '
+        'extension module. This probably means that LALInfernece was built '
+        'without HEALPix support. Please install CHEALPix '
+        '(https://sourceforge.net/projects/healpix/files/Healpix_3.30/'
+        'chealpix-3.30.0.tar.gz), rebuild LALInference, and try again.')
+try:
+    from . import _sky_map
+except ImportError:
+    raise ImportError(
+        'Could not import the lalinference.bayestar._sky_map Python C '
+        'extension module. This probably means that LALInfernece was built '
+        'without HEALPix support. Please install CHEALPix '
+        '(https://sourceforge.net/projects/healpix/files/Healpix_3.30/'
+        'chealpix-3.30.0.tar.gz), rebuild LALInference, and try again.')
+import lal, lalsimulation
+from glue.ligolw import table as ligolw_table
+from glue.ligolw import utils as ligolw_utils
+from glue.ligolw import lsctables
 
 log = logging.getLogger('BAYESTAR')
 
@@ -56,6 +73,7 @@ def toa_phoa_snr_log_prior(
         else -np.inf)
 
 
+@with_numpy_random_seed
 def emcee_sky_map(
         logl, loglargs, logp, logpargs, xmin, xmax,
         nside=-1, kde=False, chain_dump=None, max_horizon=1.0):
@@ -87,6 +105,7 @@ def emcee_sky_map(
     # are ra, sin(dec).
     theta = np.arccos(chain[:, 1])
     phi = chain[:, 0]
+    dist = chain[:, 2]
 
     # Do adaptive histogram binning if the user has not selected the KDE,
     # or if the user has selected the KDE but we need to guess the resolution.
@@ -101,13 +120,13 @@ def emcee_sky_map(
         nside *= 2
 
     if kde:
-        from sky_area.sky_area_clustering import ClusteredSkyKDEPosterior
+        from sky_area.sky_area_clustering import Clustered3DKDEPosterior
         ra = phi
         dec = 0.5 * np.pi - theta
-        pts = np.column_stack((ra, dec))
+        pts = np.column_stack((ra, dec, dist))
         # Pass a random subset of 1000 points to the KDE, to save time.
         pts = np.random.permutation(pts)[:1000, :]
-        prob = ClusteredSkyKDEPosterior(pts).as_healpix(nside)
+        prob = Clustered3DKDEPosterior(pts).as_healpix(nside)
 
     # Optionally save posterior sample chain to file.
     # Read back in with np.load().
@@ -125,7 +144,8 @@ def ligolw_sky_map(
         sngl_inspirals, waveform, f_low,
         min_distance=None, max_distance=None, prior_distance_power=None,
         method="toa_phoa_snr", psds=None, nside=-1, chain_dump=None,
-        phase_convention='antifindchirp'):
+        phase_convention='antifindchirp', snr_series=None,
+        enable_snr_series=False):
     """Convenience function to produce a sky map from LIGO-LW rows. Note that
     min_distance and max_distance should be in Mpc.
 
@@ -143,30 +163,9 @@ def ligolw_sky_map(
 
     ifos = [sngl_inspiral.ifo for sngl_inspiral in sngl_inspirals]
 
-    # Extract TOAs in GPS nanoseconds from table.
-    toas_ns = [sngl_inspiral.get_end().ns()
-        for sngl_inspiral in sngl_inspirals]
-
-    # Retrieve phases on arrival from table.
-    phoas = np.asarray([sngl_inspiral.coa_phase
-        for sngl_inspiral in sngl_inspirals])
-
-    # If using 'findchirp' phase convention rather than gstlal/mbta,
-    # then flip signs of phases.
-    if phase_convention.lower() == 'antifindchirp':
-        log.warn('Using anti-FINDCHIRP phase convention; inverting phases. '
-                 'This is currently the default and it is appropriate for '
-                 'gstlal and MBTA but not pycbc as of observing run 1 ("O1"). '
-                 'The default setting is likely to change in the future.')
-        phoas = -phoas
-
     # Extract SNRs from table.
     snrs = np.asarray([sngl_inspiral.snr
         for sngl_inspiral in sngl_inspirals])
-
-    # Fudge factor for excess estimation error in gstlal_inspiral.
-    fudge = 0.83
-    snrs *= fudge
 
     # Look up physical parameters for detector.
     detectors = [lalsimulation.DetectorPrefixToLALDetector(str(ifo))
@@ -178,10 +177,14 @@ def ligolw_sky_map(
     if psds is None:
         psds = [timing.get_noise_psd_func(ifo) for ifo in ifos]
 
+    log.debug('calculating templates')
     H = filter.sngl_inspiral_psd(sngl_inspirals[0], waveform, f_min=f_low)
+
+    log.debug('calculating noise PSDs')
     HS = [filter.signal_psd_series(H, S) for S in psds]
 
     # Signal models for each detector.
+    log.debug('calculating Fisher matrix elements')
     signal_models = [timing.SignalModel(_) for _ in HS]
 
     # Get SNR=1 horizon distances for each detector.
@@ -194,6 +197,92 @@ def ligolw_sky_map(
     # Center detector array.
     locations -= np.average(locations, weights=weights, axis=0)
 
+    if enable_snr_series:
+        log.warn('Enabling input of SNR time series. This feature is UNREVIEWED.')
+    else:
+        snr_series = None
+
+    if snr_series is None:
+        log.warn("No SNR time series found, so we are creating a zero-noise "
+                 "SNR time series from the whitened template's autocorrelation "
+                 "sequence. The sky localization uncertainty may be "
+                 "underestimated.")
+
+        # Maximum barycentered arrival time error:
+        # |distance from array barycenter to furthest detector| / c + 5 ms.
+        # For LHO+LLO, this is 15.0 ms.
+        # For an arbitrary terrestrial detector network, the maximum is 26.3 ms.
+        max_abs_t = np.max(
+            np.sqrt(np.sum(np.square(locations / lal.C_SI), axis=1))) + 0.005
+
+        acors, sample_rates = zip(
+            *[filter.autocorrelation(_, max_abs_t) for _ in HS])
+        sample_rate = sample_rates[0]
+        deltaT = 1 / sample_rate
+        nsamples = len(acors[0])
+        assert all(sample_rate == _ for _ in sample_rates)
+        assert all(nsamples == len(_) for _ in acors)
+        nsamples = nsamples * 2 - 1
+
+        snr_series = []
+        for acor, sngl in zip(acors, sngl_inspirals):
+            series = lal.CreateCOMPLEX8TimeSeries(
+                'fake SNR', 0, 0, deltaT, lal.StrainUnit, nsamples)
+            series.epoch = sngl.end - 0.5 * (nsamples - 1) * deltaT
+            acor = np.concatenate((np.conj(acor[:0:-1]), acor))
+            if phase_convention.lower() == 'antifindchirp':
+                # The matched filter phase convention does NOT affect the
+                # template autocorrelation sequence; however it DOES affect
+                # the maximum-likelihood phase estimate AND the SNR time series.
+                # So if we are going to apply the anti-findchirp phase
+                # correction later, we'll have to apply a complex conjugate to
+                # the autocorrelation sequence to cancel it here.
+                acor = np.conj(acor)
+            series.data.data = sngl.snr * filter.exp_i(sngl.coa_phase) * acor
+            snr_series.append(series)
+
+    # Ensure that all of the SNR time series have the same sample rate.
+    # FIXME: for now, the Python wrapper expects all of the SNR time sries to
+    # also be the same length.
+    deltaT = snr_series[0].deltaT
+    sample_rate = 1 / deltaT
+    if any(deltaT != series.deltaT for series in snr_series):
+        raise ValueError('BAYESTAR does not yet support SNR time series with mixed sample rates')
+
+    # FIXME: for now, the Python wrapper expects all of the SNR time sries to
+    # also be the same length.
+    nsamples = len(snr_series[0].data.data)
+    if any(nsamples != len(series.data.data) for series in snr_series):
+        raise ValueError('BAYESTAR does not yet support SNR time series of mixed lengths')
+
+    # Perform sanity checks that the middle sample of the SNR time series match
+    # the sngl_inspiral records.
+    for sngl_inspiral, series in zip(sngl_inspirals, snr_series):
+        if np.abs(0.5 * (nsamples - 1) * series.deltaT
+                  + float(series.epoch - sngl_inspiral.end)) >= 0.5 * deltaT:
+            raise ValueError('BAYESTAR expects the SNR time series to be centered on the sngl_inspiral end times')
+
+    # Extract the TOAs in GPS nanoseconds from the SNR time series, assuming
+    # that the trigger happened in the middle.
+    toas_ns = [series.epoch.ns() + 1e9 * 0.5 * (len(series.data.data) - 1)
+               * series.deltaT for series in snr_series]
+
+    # Collect all of the SNR series in one array.
+    snr_series = np.vstack([series.data.data for series in snr_series])
+
+    # Fudge factor for excess estimation error in gstlal_inspiral.
+    fudge = 0.83
+    snr_series *= fudge
+
+    # If using 'findchirp' phase convention rather than gstlal/mbta,
+    # then flip signs of phases.
+    if phase_convention.lower() == 'antifindchirp':
+        log.warn('Using anti-FINDCHIRP phase convention; inverting phases. '
+                 'This is currently the default and it is appropriate for '
+                 'gstlal and MBTA but not pycbc as of observing run 1 ("O1"). '
+                 'The default setting is likely to change in the future.')
+        snr_series = np.conj(snr_series)
+
     # Center times of arrival and compute GMST at mean arrival time.
     # Pre-center in integer nanoseconds to preserve precision of
     # initial datatype.
@@ -201,22 +290,12 @@ def ligolw_sky_map(
     toas = 1e-9 * (np.asarray(toas_ns) - epoch)
     mean_toa = np.average(toas, weights=weights, axis=0)
     toas -= mean_toa
-    epoch += long(round(1e9 * mean_toa))
-    epoch = lal.LIGOTimeGPS(0, epoch)
+    epoch += int(np.round(1e9 * mean_toa))
+    epoch = lal.LIGOTimeGPS(0, int(epoch))
     gmst = lal.GreenwichMeanSiderealTime(epoch)
 
-    # Maximum barycentered arrival time error:
-    # |distance from array barycenter to furthest detector| / c + 5 ms
-    max_abs_t = np.max(
-        np.sqrt(np.sum(np.square(locations / lal.C_SI), axis=1))) + 0.005
-
-    acors, sample_rates = zip(
-        *[filter.autocorrelation(_, max_abs_t) for _ in HS])
-    sample_rate = sample_rates[0]
-    nsamples = len(acors[0])
-    assert all(sample_rate == _ for _ in sample_rates)
-    assert all(nsamples == len(_) for _ in acors)
-    acors = np.asarray(acors)
+    # Translate SNR time series back to time of first sample.
+    toas -= 0.5 * (nsamples - 1) * deltaT
 
     # If minimum distance is not specified, then default to 0 Mpc.
     if min_distance is None:
@@ -252,41 +331,39 @@ def ligolw_sky_map(
         kde = False
 
     # Time and run sky localization.
+    log.debug('starting computationally-intensive section')
     start_time = time.time()
     if method == "toa_phoa_snr":
-        prob = _sky_map.toa_phoa_snr(
+        skymap = _sky_map.toa_phoa_snr(
             min_distance, max_distance, prior_distance_power, gmst, sample_rate,
-            acors, responses, locations, horizons, toas, phoas, snrs, nside).T
-        prob[1] *= max_horizon * fudge
-        prob[2] *= max_horizon * fudge
-        prob[3] /= np.square(max_horizon * fudge)
-    elif method == "toa_snr_mcmc":
-        prob = emcee_sky_map(
-            logl=_sky_map.log_likelihood_toa_snr,
-            loglargs=(gmst, sample_rate, acors, responses, locations, horizons,
-                toas, snrs),
-            logp=toa_phoa_snr_log_prior,
-            logpargs=(min_distance, max_distance, prior_distance_power,
-                max_abs_t),
-            xmin=[0, -1, min_distance, -1, 0, -max_abs_t],
-            xmax=[2*np.pi, 1, max_distance, 1, 2*np.pi, max_abs_t],
-            nside=nside, kde=kde, chain_dump=chain_dump,
-            max_horizon=max_horizon)
+            toas, snr_series, responses, locations, horizons)
+        distmu, distsigma, distnorm = distance.moments_to_parameters(
+            skymap['DISTMEAN'], skymap['DISTSTD'])
+        skymap = np.rec.fromarrays(
+            [skymap['UNIQ'], skymap['PROBDENSITY'], distmu, distsigma, distnorm],
+            names='UNIQ,PROBDENSITY,DISTMU,DISTSIGMA,DISTNORM')
+        skymap = rasterize(skymap)
+        prob = [4 * np.pi / len(skymap) * skymap['PROBDENSITY'], skymap['DISTMU'], skymap['DISTSIGMA'], skymap['DISTNORM']]
     elif method == "toa_phoa_snr_mcmc":
-        prob = emcee_sky_map(
-            logl=_sky_map.log_likelihood_toa_phoa_snr,
-            loglargs=(gmst, sample_rate, acors, responses, locations, horizons,
-                toas, phoas, snrs),
-            logp=toa_phoa_snr_log_prior,
-            logpargs=(min_distance, max_distance, prior_distance_power,
-                max_abs_t),
-            xmin=[0, -1, min_distance, -1, 0, -max_abs_t],
-            xmax=[2*np.pi, 1, max_distance, 1, 2*np.pi, max_abs_t],
-            nside=nside, kde=kde, chain_dump=chain_dump,
-            max_horizon=max_horizon)
+        # prob = emcee_sky_map(
+        #     logl=_sky_map.log_likelihood_toa_phoa_snr,
+        #     loglargs=(gmst, sample_rate, toas, snr_series, responses, locations,
+        #         horizons),
+        #     logp=toa_phoa_snr_log_prior,
+        #     logpargs=(min_distance, max_distance, prior_distance_power,
+        #         max_abs_t),
+        #     xmin=[0, -1, min_distance, -1, 0, 0],
+        #     xmax=[2*np.pi, 1, max_distance, 1, 2*np.pi, 2 * max_abs_t],
+        #     nside=nside, kde=kde, chain_dump=chain_dump,
+        #     max_horizon=max_horizon)
+        raise NotImplemented('Working on porting this to new MOC format')
     else:
         raise ValueError("Unrecognized method: %s" % method)
+    prob[1] *= max_horizon * fudge
+    prob[2] *= max_horizon * fudge
+    prob[3] /= np.square(max_horizon * fudge)
     end_time = time.time()
+    log.debug('finished computationally-intensive section')
 
     # Find elapsed run time.
     elapsed_time = end_time - start_time
@@ -299,17 +376,11 @@ def gracedb_sky_map(
         coinc_file, psd_file, waveform, f_low, min_distance=None,
         max_distance=None, prior_distance_power=None,
         method="toa_phoa_snr", nside=-1, chain_dump=None,
-        phase_convention='antifindchirp', f_high_truncate=1.0):
-    # LIGO-LW XML imports.
-    from . import ligolw
-    from glue.ligolw import table as ligolw_table
-    from glue.ligolw import utils as ligolw_utils
-    from glue.ligolw import lsctables
-    import lal.series
-
+        f_high_truncate=1.0, enable_snr_series=False):
     # Read input file.
+    log.debug('reading coinc file')
     xmldoc, _ = ligolw_utils.load_fileobj(
-        coinc_file, contenthandler=ligolw.LSCTablesContentHandler)
+        coinc_file, contenthandler=ligolw.LSCTablesAndSeriesContentHandler)
 
     # Locate the tables that we need.
     coinc_inspiral_table = ligolw_table.get_table(xmldoc,
@@ -319,6 +390,19 @@ def gracedb_sky_map(
     sngl_inspiral_table = ligolw_table.get_table(xmldoc,
         lsctables.SnglInspiralTable.tableName)
 
+    # Attempt to determine phase convention from process table.
+    try:
+        process_table = ligolw_table.get_table(xmldoc,
+            lsctables.ProcessTable.tableName)
+        process, = process_table
+        process_name = process.program.lower()
+    except ValueError:
+        process_name = ''
+    if 'pycbc' in process_name:
+        phase_convention = 'findchirp'
+    else:
+        phase_convention = 'antifindchirp'
+
     # Locate the sngl_inspiral rows that we need.
     coinc_inspiral = coinc_inspiral_table[0]
     coinc_event_id = coinc_inspiral.coinc_event_id
@@ -326,17 +410,26 @@ def gracedb_sky_map(
         if coinc_map.coinc_event_id == coinc_event_id]
     sngl_inspirals = [next((sngl_inspiral for sngl_inspiral in sngl_inspiral_table
         if sngl_inspiral.event_id == event_id)) for event_id in event_ids]
-    instruments = set(sngl_inspiral.ifo for sngl_inspiral in sngl_inspirals)
+    instruments = {sngl_inspiral.ifo for sngl_inspiral in sngl_inspirals}
+
+    # Try to load complex SNR time series.
+    snrs = ligolw.snr_series_by_sngl_inspiral_id_for_xmldoc(xmldoc)
+    try:
+        snrs = [snrs[sngl.event_id] for sngl in sngl_inspirals]
+    except KeyError:
+        snrs = None
 
     # Read PSDs.
+    log.debug('reading PSDs time series')
     xmldoc, _ = ligolw_utils.load_fileobj(
         psd_file, contenthandler=lal.series.PSDContentHandler)
-    psds = lal.series.read_psd_xmldoc(xmldoc)
+    psds = lal.series.read_psd_xmldoc(xmldoc, root_name=None)
 
     # Rearrange PSDs into the same order as the sngl_inspirals.
     psds = [psds[sngl_inspiral.ifo] for sngl_inspiral in sngl_inspirals]
 
     # Interpolate PSDs.
+    log.debug('constructing PSD interpolants')
     psds = [timing.InterpolatedPSD(filter.abscissa(psd), psd.data.data,
             f_high_truncate=f_high_truncate)
         for psd in psds]
@@ -345,7 +438,8 @@ def gracedb_sky_map(
     prob, epoch, elapsed_time = ligolw_sky_map(sngl_inspirals, waveform, f_low,
         min_distance, max_distance, prior_distance_power, method=method,
         nside=nside, psds=psds, phase_convention=phase_convention,
-        chain_dump=chain_dump)
+        chain_dump=chain_dump, snr_series=snrs,
+        enable_snr_series=enable_snr_series)
 
     return prob, epoch, elapsed_time, instruments
 

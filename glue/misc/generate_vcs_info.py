@@ -25,6 +25,7 @@
 #
 
 # metadata
+from __future__ import print_function
 __author__ = 'Adam Mercer <adam.mercer@ligo.org>'
 
 try:  # python 3
@@ -125,7 +126,7 @@ def check_call_out(command):
   # throw exception if process failed
   if p.returncode != 0:
     raise GitInvocationError('failed to run "%s"' % " ".join(command))
-  return out.strip().decode()
+  return out.strip().decode('utf8')
 
 #
 # git version method

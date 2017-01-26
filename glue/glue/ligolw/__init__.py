@@ -1,4 +1,4 @@
-# Copyright (C) 2006  Kipp Cannon
+# Copyright (C) 2006,2007,2009,2011,2013  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -39,7 +39,6 @@ Example:
 
 >>> # import modules
 >>> from glue.ligolw import ligolw
->>> from glue.ligolw import table
 >>> from glue.ligolw import lsctables
 >>> from glue.ligolw import utils as ligolw_utils
 >>>

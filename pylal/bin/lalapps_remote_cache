@@ -1,8 +1,8 @@
 #!/usr/bin/python
 import sys, subprocess, os, re, socket
-from glue import lal
 from optparse import OptionParser
-from glue import git_version
+from lal import utils as lalutils
+from pylal import git_version
 import tempfile
 
 __author__ = "Chad Hanna <channa@caltech.edu>"
@@ -109,7 +109,7 @@ class RemoteCache(object):
 				pat = re.compile(self.regex)
 				if not pat.search(l): continue
 			if self.verbose: print >>sys.stderr, "\tparsing cache for directory set %d\r" % (i,),
-			c = lal.CacheEntry(l)
+			c = lalutils.CacheEntry(l)
 			self.remote_cache_parsed.append(c)
 			self.remote_dir_set.add(os.path.split(c.path)[0])
 			self.remote_cache_parsed_dict.setdefault(os.path.split(c.path)[0], []).append(c)
@@ -130,7 +130,7 @@ class RemoteCache(object):
 			for i,c in enumerate(val):
 				if self.verbose: print >>sys.stderr, "\tgenerating local cache %d\r" % (i,),
 				newpath = os.path.join(self.dir_dict[os.path.split(c.path)[0]], os.path.split(c.path)[1])
-				cr = lal.CacheEntry(str(c))
+				cr = lalutils.CacheEntry(str(c))
 				cr.url = "file://localhost" + newpath
 				self.local_cache.append(cr)
 				#FIXME We dont want two copies of this, one a list and one a dict!!

@@ -5,6 +5,7 @@ Copyright (C) 2010 by Peter F. Couvares, Syracuse University
 mailto: pfcouvar@syr.edu
 """
 
+from __future__ import print_function
 import os
 import sys
 import errno

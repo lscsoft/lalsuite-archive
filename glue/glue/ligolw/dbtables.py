@@ -1,4 +1,4 @@
-# Copyright (C) 2007-2015  Kipp Cannon
+# Copyright (C) 2007-2016  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -53,6 +53,7 @@ from . import ligolw
 from . import table
 from . import lsctables
 from . import types as ligolwtypes
+import six
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -178,7 +179,7 @@ def uninstall_signal_trap(signums = None):
 	"""
 	# NOTE:  this must be called with the temporary_files_lock held.
 	if signums is None:
-		signums = origactions.keys()
+		signums = list(origactions.keys())
 	for signum in signums:
 		signal.signal(signum, origactions.pop(signum))
 
@@ -218,9 +219,9 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 		# only by owner;  we should respect umask.  note that
 		# os.umask() sets it, too, so we have to set it back after
 		# we know what it is
-		umsk = os.umask(0777)
+		umsk = os.umask(0o777)
 		os.umask(umsk)
-		os.chmod(filename, 0666 & ~umsk)
+		os.chmod(filename, 0o666 & ~umsk)
 		return filename
 
 	def truncate(filename, verbose = False):
@@ -374,7 +375,7 @@ def put_connection_filename(filename, working_filename, verbose = False):
 
 		# restore original handlers, and send ourselves any trapped signals
 		# in order
-		for sig, oldhandler in oldhandlers.iteritems():
+		for sig, oldhandler in six.iteritems(oldhandlers):
 			signal.signal(sig, oldhandler)
 		while deferred_signals:
 			os.kill(os.getpid(), deferred_signals.pop(0))
@@ -653,7 +654,7 @@ class DBTable(table.Table):
 		if not hasattr(cls, "tableName"):
 			# no, try to retrieve it from lsctables
 			attrs, = args
-			name = table.StripTableName(attrs[u"Name"])
+			name = table.Table.TableName(attrs[u"Name"])
 			if name in lsctables.TableByName:
 				# found metadata in lsctables, construct
 				# custom subclass.  the class from
@@ -870,7 +871,7 @@ class TimeSlideTable(DBTable):
 		Return a ditionary mapping time slide IDs to offset
 		dictionaries.
 		"""
-		return dict((ilwd.ilwdchar(id), offsetvector.offsetvector((instrument, offset) for id, instrument, offset in values)) for id, values in itertools.groupby(self.cursor.execute("SELECT time_slide_id, instrument, offset FROM time_slide ORDER BY time_slide_id"), lambda (id, instrument, offset): id))
+		return dict((ilwd.ilwdchar(time_slide_id), offsetvector.offsetvector((instrument, offset) for time_slide_id, instrument, offset in values)) for time_slide_id, values in itertools.groupby(self.cursor.execute("SELECT time_slide_id, instrument, offset FROM time_slide ORDER BY time_slide_id"), lambda time_slide_id_instrument_offset: time_slide_id_instrument_offset[0]))
 
 	def get_time_slide_id(self, offsetdict, create_new = None, superset_ok = False, nonunique_ok = False):
 		"""
@@ -969,7 +970,7 @@ def build_indexes(connection, verbose = False):
 		if how_to_index is not None:
 			if verbose:
 				sys.stderr.write("indexing %s table ...\n" % table_name)
-			for index_name, cols in how_to_index.iteritems():
+			for index_name, cols in six.iteritems(how_to_index):
 				cursor.execute("CREATE INDEX IF NOT EXISTS %s ON %s (%s)" % (index_name, table_name, ",".join(cols)))
 	connection.commit()
 
@@ -989,8 +990,8 @@ def build_indexes(connection, verbose = False):
 
 
 TableByName = {
-	table.StripTableName(ProcessParamsTable.tableName): ProcessParamsTable,
-	table.StripTableName(TimeSlideTable.tableName): TimeSlideTable
+	ProcessParamsTable.tableName: ProcessParamsTable,
+	TimeSlideTable.tableName: TimeSlideTable
 }
 
 
@@ -1036,7 +1037,7 @@ def use_in(ContentHandler):
 	ContentHandler = lsctables.use_in(ContentHandler)
 
 	def startTable(self, parent, attrs):
-		name = table.StripTableName(attrs[u"Name"])
+		name = table.Table.TableName(attrs[u"Name"])
 		if name in TableByName:
 			return TableByName[name](attrs, connection = self.connection)
 		return DBTable(attrs, connection = self.connection)

@@ -1,4 +1,4 @@
-# Copyright (C) 2006--2015  Kipp Cannon
+# Copyright (C) 2006--2016  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -53,6 +53,7 @@ from glue import git_version
 from . import ligolw
 from . import tokenizer
 from . import types as ligolwtypes
+from six.moves import range
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -69,20 +70,12 @@ __date__ = git_version.date
 #
 
 
-def getArraysByName(elem, name):
-	"""
-	Return a list of arrays with name name under elem.
-	"""
-	name = Array.ArrayName(name)
-	return elem.getElements(lambda e: (e.tagName == ligolw.Array.tagName) and (e.Name == name))
-
-
 def get_array(xmldoc, name):
 	"""
 	Scan xmldoc for an array named name.  Raises ValueError if not
 	exactly 1 such array is found.
 	"""
-	arrays = getArraysByName(xmldoc, name)
+	arrays = Array.getArraysByName(xmldoc, name)
 	if len(arrays) != 1:
 		raise ValueError("document must contain exactly one %s array" % Array.ArrayName(name))
 	return arrays[0]
@@ -158,7 +151,7 @@ class ArrayStream(ligolw.Stream):
 			w(newline)
 			w(xmlescape(join(islice(tokens, linelen))))
 			newline = self.Delimiter + newline
-			for i in xrange(lines - 1):
+			for i in range(lines - 1):
 				w(newline)
 				w(xmlescape(join(islice(tokens, linelen))))
 		w(u"\n" + self.end_tag(indent) + u"\n")
@@ -229,6 +222,14 @@ class Array(ligolw.Array):
 		elem.appendChild(ArrayStream(Attributes({u"Type": ArrayStream.Type.default, u"Delimiter": ArrayStream.Delimiter.default})))
 		elem.array = array
 		return elem
+
+	@classmethod
+	def getArraysByName(cls, elem, name):
+		"""
+		Return a list of arrays with name name under elem.
+		"""
+		name = cls.ArrayName(name)
+		return elem.getElements(lambda e: (e.tagName == cls.tagName) and (e.Name == name))
 
 	#
 	# Element methods

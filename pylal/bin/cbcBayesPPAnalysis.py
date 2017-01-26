@@ -241,7 +241,7 @@ if __name__ == '__main__':
 
     (options, args) = parser.parse_args()
 
-    injs = table.get_table(utils.load_filename(options.injxml,contenthandler=ExtractSimInspiralTableLIGOLWContentHandler),lsctables.SimInspiralTable.tableName)
+    injs = lsctables.SimInspiralTable.get_table(utils.load_filename(options.injxml,contenthandler=ExtractSimInspiralTableLIGOLWContentHandler))
 
     if options.par == []:
         parameters = ['m1', 'm2', 'mc', 'eta', 'q',  'theta_jn', 'a1', 'a2', 'tilt1', 'tilt2', 'phi12', 'phi_jl', 'ra', 'dec', 'distance', 'time', 'phi_orb', 'psi']
