@@ -153,22 +153,27 @@ static PyObject *ligolw_ilwdchar___new__(PyTypeObject *type, PyObject *args, PyO
 	((ligolw_ilwdchar *) new)->i = 0;
 
 	if(PyArg_ParseTuple(args, "U", &obj)) {
+		PyObject *stripped = PyObject_CallMethod(obj, "strip", NULL);
+		if (!stripped) {
+			Py_DECREF(new);
+			return NULL;
+		}
 		/* we've been passed a unicode string, see if we can parse
 		 * it */
-		Py_ssize_t len = PyUnicode_GetSize(obj);
-		wchar_t s[len + 1];
+		Py_ssize_t len = PyUnicode_GetSize(stripped);
+		wchar_t s[len + 1], tbl_name[len + 1], col_name[len + 1];
 		int converted_len = -1;
-		wchar_t *tbl_name = NULL, *col_name = NULL;
 
-		PyUnicode_AsWideChar((PyUnicodeObject *) obj, s, len);
+		PyUnicode_AsWideChar((PyUnicodeObject *) stripped, s, len);
 		s[len] = 0;
+		Py_DECREF(stripped);
 
 		/* can we parse it as an ilwd:char string? */
-		swscanf(s, L" %ml[^:]:%ml[^:]:%zu %n", &tbl_name, &col_name, &((ligolw_ilwdchar *) new)->i, &converted_len);
+		swscanf(s, L"%l[^:]:%l[^:]:%zu%n", tbl_name, col_name, &((ligolw_ilwdchar *) new)->i, &converted_len);
 		if(converted_len < len) {
 			/* nope, how 'bout just an int? */
 			converted_len = -1;
-			swscanf(s, L" %zu %n", &((ligolw_ilwdchar *) new)->i, &converted_len);
+			swscanf(s, L"%zu%n", &((ligolw_ilwdchar *) new)->i, &converted_len);
 			if(converted_len < len) {
 				/* nope */
 #if PY_MAJOR_VERSION < 3
@@ -213,9 +218,6 @@ static PyObject *ligolw_ilwdchar___new__(PyTypeObject *type, PyObject *args, PyO
 			Py_XDECREF(tbl);
 			Py_XDECREF(col);
 		}
-
-		free(tbl_name);
-		free(col_name);
 	} else if(PyArg_ParseTuple(args, "|l", &((ligolw_ilwdchar *) new)->i)) {
 		/* we were passed nothing or an int:  i has either been set
 		 * from the int, or we'll use the default value of 0.
