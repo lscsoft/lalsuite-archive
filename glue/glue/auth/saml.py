@@ -6,9 +6,8 @@ interoperate with the @LIGO.ORG infrastructure.
 
 import re
 from six.moves import urllib
-import exceptions
 
-class LIGOSAMLClientException(exceptions.Exception):
+class LIGOSAMLClientException(Exception):
     """
     """
     pass

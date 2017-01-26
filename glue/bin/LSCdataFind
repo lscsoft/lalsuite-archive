@@ -29,7 +29,6 @@ import sys
 import os
 import getopt
 import re
-import exceptions
 
 try:
         from pyGlobus import security

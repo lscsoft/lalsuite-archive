@@ -28,7 +28,6 @@ try:
     import pyRXP
 except ImportError:
     import pyRXPU as pyRXP
-import exceptions
 import socket
 import six.moves.cPickle
 import logging
@@ -760,7 +759,7 @@ class Server(object):
 
     return [ result ]
 
-class GridMapError(exceptions.Exception):
+class GridMapError(Exception):
     """
     Raised for errors in GridMap class
     """

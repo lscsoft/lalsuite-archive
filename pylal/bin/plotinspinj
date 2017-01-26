@@ -8,7 +8,6 @@ __title__ = "Injection Plots"
 import sys
 import os
 import re
-import exceptions
 import glob
 import itertools
 from types import *

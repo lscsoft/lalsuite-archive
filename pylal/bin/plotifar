@@ -6,7 +6,6 @@ __prog__ = "plotifar"
 import sys,os,re
 import copy
 from optparse import *
-import exceptions
 import glob
 from types import * 
 from operator import itemgetter

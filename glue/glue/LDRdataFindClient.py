@@ -25,7 +25,6 @@ __version__ = git_version.id
 
 import sys
 import os
-import exceptions
 
 from pyGlobus import io
 from pyGlobus import security
@@ -35,7 +34,7 @@ def version():
         return __version__
 
 
-class LSCdataFindClientException(exceptions.Exception):
+class LSCdataFindClientException(Exception):
         """
         Exceptions raised by the classes and methods in this client
         will be instances of this class.
@@ -51,7 +50,7 @@ class LSCdataFindClientException(exceptions.Exception):
                 self.args = args
 
 
-class LDRdataFindClientException(exceptions.Exception):
+class LDRdataFindClientException(Exception):
         """
         Exceptions raised by the classes and methods in this module
         will be instances of this class.

@@ -25,7 +25,6 @@ import sys
 import pwd
 import os
 import re
-import exceptions
 import signal
 import re
 import time
