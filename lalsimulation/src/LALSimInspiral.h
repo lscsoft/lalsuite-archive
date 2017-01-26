@@ -457,6 +457,9 @@ SphHarmTimeSeries *XLALSimInspiralChooseTDModes(REAL8 phiRef, REAL8 deltaT, REAL
 SphHarmTimeSeries *XLALSimInspiralModesTD(REAL8 phiRef, REAL8 deltaT, REAL8 m1, REAL8 m2, REAL8 f_min, REAL8 f_ref, REAL8 r, REAL8 lambda1, REAL8 lambda2, LALSimInspiralWaveformFlags *waveFlags, LALSimInspiralTestGRParam *nonGRparams, int amplitudeO, int phaseO, int lmax, Approximant approximant);
 COMPLEX16TimeSeries *XLALSimInspiralChooseTDMode(REAL8 phiRef, REAL8 deltaT, REAL8 m1, REAL8 m2, REAL8 f_min, REAL8 f_ref, REAL8 r, REAL8 lambda1, REAL8 lambda2, LALSimInspiralWaveformFlags *waveFlags, LALSimInspiralTestGRParam *nonGRparams, int amplitudeO, int phaseO, int l, int m, Approximant approximant);
 
+/* routine for checking Lorentz violation */
+int XLALSimLorentzInvarianceViolationTerm(COMPLEX16FrequencySeries **hptilde, COMPLEX16FrequencySeries **hctilde, REAL8 m1, REAL8 m2, REAL8 r, REAL8 lambda_a, REAL8 nonGR_alpha);
+
 /* routines for generating inspiral waveforms from orbital data */
 int XLALSimInspiralPNPolarizationWaveforms(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, REAL8TimeSeries *V, REAL8TimeSeries *Phi, REAL8 v0, REAL8 m1, REAL8 m2, REAL8 r, REAL8 i, int ampO);
 int XLALSimInspiralPNPolarizationWaveformsFromModes(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, REAL8TimeSeries *v, REAL8TimeSeries *phi, REAL8 v0, REAL8 m1, REAL8 m2, REAL8 r, REAL8 i, int O);
