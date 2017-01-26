@@ -36,7 +36,6 @@ import sys
 import string
 import re
 import csv
-import exceptions
 try:
   import DB2
 except:
@@ -68,12 +67,12 @@ class LIGOLWStream(csv.Dialect):
 csv.register_dialect("LIGOLWStream",LIGOLWStream)
 
 
-class LIGOLwParseError(exceptions.Exception):
+class LIGOLwParseError(Exception):
   """Error parsing LIGO lightweight XML file"""
   pass
 
 
-class LIGOLwDBError(exceptions.Exception):
+class LIGOLwDBError(Exception):
   """Error interacting with database"""
   pass
 

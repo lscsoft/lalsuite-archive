@@ -28,7 +28,6 @@ __version__ = git_version.id
 import os
 import sys
 import string, re
-import exceptions
 import time
 import random
 import math
@@ -347,7 +346,7 @@ def recurse_pfn_cache(node,caches=[]):
   return caches
 
 
-class CondorError(exceptions.Exception):
+class CondorError(Exception):
   """Error thrown by Condor Jobs"""
   def __init__(self, args=None):
     self.args = args
@@ -361,7 +360,7 @@ class CondorDAGJobError(CondorError):
   pass
 class CondorDAGNodeError(CondorError):
   pass
-class SegmentError(exceptions.Exception):
+class SegmentError(Exception):
   def __init__(self, args=None):
     self.args = args
 

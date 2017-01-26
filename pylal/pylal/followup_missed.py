@@ -18,7 +18,7 @@ __author__ = "Darren Woods and Stephen Fairhurst <sfairhurs@gravity.phys.uwm.edu
 __prog__ = "followup_missed.py"
 __title__ = "Followup missed injections"
 
-import os, sys, exceptions, copy
+import os, sys, copy
 from math import sqrt, pi
 
 from pylab import rcParams, fill, figtext, figure, plot, axes, axis, xlabel, ylabel, title, close, grid, legend
