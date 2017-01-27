@@ -45,7 +45,7 @@ containing an ilwd:char ID into a more memory efficient representation.
 Example:
 
 >>> x = ilwdchar("process:process_id:10")
->>> print x
+>>> print(x)
 process:process_id:10
 
 Like strings, the object resulting from this is immutable.  It provides two
@@ -91,7 +91,7 @@ columns, None is allowed as an input value and is not converted.
 
 Example:
 
->>> print ilwdchar(None)
+>>> print(ilwdchar(None))
 None
 
 
@@ -118,7 +118,7 @@ False
 <class 'glue.ligolw.ilwd.foo_bar_class'>
 >>> "foo_bar_class" in ilwd.__dict__
 True
->>> print ilwd.foo_bar_class(10)
+>>> print(ilwd.foo_bar_class(10))
 foo:bar:10
 
 The ilwdchar class itself is never instantiated, its .__new__() method
@@ -261,7 +261,7 @@ class ilwdchar(object):
 		19
 		>>> str(x)[x.index_offset:]
 		'10'
-		>>> print ilwdchar(None)
+		>>> print(ilwdchar(None))
 		None
 		"""
 		#

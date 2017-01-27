@@ -202,7 +202,7 @@ class Bins(object):
 
 		>>> import math
 		>>> # natural log of 1/10
-		>>> print "%.15g" % math.log(1./10)
+		>>> print("%.15g" % math.log(1./10))
 		-2.30258509299405
 		>>> # linear bins spanning [0, 10]
 		>>> x = LinearBins(0, 10, 5).randcoord().next
@@ -215,7 +215,7 @@ class Bins(object):
 		>>> # bins, but values from final bin will be disallowed, so
 		>>> # return values will be uniform in part of the second 
 		>>> # last bin, [0.5, 0.6366]
-		>>> print "%.15g" % math.log(1. / (x.upper()[-2] - 0.5))
+		>>> print("%.15g" % math.log(1. / (x.upper()[-2] - 0.5)))
 		1.99055359585182
 		>>> x = x.randcoord(domain = slice(0.5, None)).next
 		>>> x() # doctest: +ELLIPSIS

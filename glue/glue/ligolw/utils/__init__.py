@@ -87,7 +87,7 @@ def local_path_from_url(url):
 
 	Example:
 
-	>>> print local_path_from_url(None)
+	>>> print(local_path_from_url(None))
 	None
 	>>> local_path_from_url("file:///home/me/somefile.xml.gz")
 	'/home/me/somefile.xml.gz'
