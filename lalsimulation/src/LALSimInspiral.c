@@ -1461,8 +1461,8 @@ int XLALSimInspiralChooseFDWaveform(
 
     if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
     if (nonGRparams!=NULL) {
-      if (XLALSimInspiralTestGRParamExists(nonGRparams, "log10lambda_eff")) ret = XLALSimLorentzInvarianceViolationTerm(hptilde, hctilde, m1/LAL_MSUN_SI, m2/LAL_MSUN_SI, r, pow(10, XLALSimInspiralGetTestGRParam(nonGRparams, "log10lambda_eff")), XLALSimInspiralGetTestGRParam(nonGRparams, "nonGR_alpha"));
-      else if (XLALSimInspiralTestGRParamExists(nonGRparams, "lambda_eff")) ret = XLALSimLorentzInvarianceViolationTerm(hptilde, hctilde, m1/LAL_MSUN_SI, m2/LAL_MSUN_SI, r, XLALSimInspiralGetTestGRParam(nonGRparams, "lambda_eff"), XLALSimInspiralGetTestGRParam(nonGRparams, "nonGR_alpha"));
+      if (XLALSimInspiralTestGRParamExists(nonGRparams, "log10lambda_eff")) ret = XLALSimLorentzInvarianceViolationTerm(hptilde, hctilde, m1/LAL_MSUN_SI, m2/LAL_MSUN_SI, r, pow(10, XLALSimInspiralGetTestGRParam(nonGRparams, "log10lambda_eff")), XLALSimInspiralGetTestGRParam(nonGRparams, "nonGR_alpha"), XLALSimInspiralGetTestGRParam(nonGRparams, "LIV_A_sign"));
+      else if (XLALSimInspiralTestGRParamExists(nonGRparams, "lambda_eff")) ret = XLALSimLorentzInvarianceViolationTerm(hptilde, hctilde, m1/LAL_MSUN_SI, m2/LAL_MSUN_SI, r, XLALSimInspiralGetTestGRParam(nonGRparams, "lambda_eff"), XLALSimInspiralGetTestGRParam(nonGRparams, "nonGR_alpha"), XLALSimInspiralGetTestGRParam(nonGRparams, "LIV_A_sign"));
       if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
     }
 
@@ -4556,7 +4556,8 @@ int XLALSimLorentzInvarianceViolationTerm(
                                           REAL8 m2,                           /**< Mass 2 in solar masses */
                                           REAL8 r,                            /**< distance in metres*/
                                           REAL8 lambda_eff,                 /**< Effective wavelength-like parameter in phase in metres */
-                                          REAL8 nonGR_alpha                  /**< Exponent defined in terms of PN order characterising LIV*/
+                                          REAL8 nonGR_alpha,                  /**< Exponent defined in terms of PN order characterising LIV*/
+                                          int LIV_A_sign                     /**<  Sign of A determining the sign of LV phase */
                                           )
 {
   REAL8 f0, f, df;
@@ -4585,7 +4586,7 @@ int XLALSimLorentzInvarianceViolationTerm(
   }
 
   if (nonGR_alpha == 1) {
-    zeta = LAL_PI*r/lambda_eff; /*Eqn. (32) of arxiv:1110.2720*/
+    zeta = LIV_A_sign*LAL_PI*r/lambda_eff; /*Eqn. (32) of arxiv:1110.2720*/
     dPhiPref = zeta*log(LAL_PI*Mc*LAL_MTSUN_SI); /*Eqn. (31) of arxiv:1110.2720;the frequency dependence is treated below*/
     for (i=0; i<len; i++) {
       f = f0 + i*df;
@@ -4597,7 +4598,7 @@ int XLALSimLorentzInvarianceViolationTerm(
     }
   }
   else {
-    zeta = pow(LAL_PI, (2. - nonGR_alpha))*r*pow(Mc*LAL_MRSUN_SI, (1. - nonGR_alpha))/((1. - nonGR_alpha)*pow(lambda_eff, (2. - nonGR_alpha))); /*Eqn. (30) of arxiv:1110.2720*/
+    zeta = LIV_A_sign*pow(LAL_PI, (2. - nonGR_alpha))*r*pow(Mc*LAL_MRSUN_SI, (1. - nonGR_alpha))/((1. - nonGR_alpha)*pow(lambda_eff, (2. - nonGR_alpha))); /*Eqn. (30) of arxiv:1110.2720*/
     dPhiPref = zeta*pow(LAL_PI*Mc*LAL_MTSUN_SI, (nonGR_alpha - 1.)); /*Eqn. (28) of arxiv:1110.2720;the frequency dependence is treated below*/
     for (i=0; i<len; i++) {
       f = f0 + i*df;
