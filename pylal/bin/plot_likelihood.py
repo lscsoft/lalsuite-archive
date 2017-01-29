@@ -4,9 +4,7 @@ __author__ = "Rahul Biswas <rahul@gravity.phys.uwm.edu>, Kipp Cannon <kipp.canno
 
 
 import sys
-import exceptions
 import glob
-import exceptions
 import matplotlib.numerix.ma as ma
 import matplotlib.colors as colors
 import glob

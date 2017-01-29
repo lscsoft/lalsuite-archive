@@ -15,7 +15,6 @@ import os
 import socket, time
 from optparse import *
 import re, string
-import exceptions
 import glob
 import tempfile
 import ConfigParser

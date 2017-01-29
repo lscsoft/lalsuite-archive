@@ -469,15 +469,15 @@ PyTypeObject ligolw_ilwdchar_Type = {
 "...     column_name = u\"column_b\"\n" \
 "... \n" \
 ">>> x = ID(10)\n" \
-">>> print x\n" \
+">>> print(x)\n" \
 "table_a:column_b:10\n" \
 ">>> x = ID(u\" 10 \")	# ignores whitespace\n" \
-">>> print x\n" \
+">>> print(x)\n" \
 "table_a:column_b:10\n" \
-">>> print x + 35\n" \
+">>> print(x + 35)\n" \
 "table_a:column_b:45\n" \
 ">>> y = ID(u\" table_a:column_b:10 \")	# ignores whitespace\n" \
-">>> print x - y\n" \
+">>> print(x - y)\n" \
 "table_a:column_b:0\n" \
 ">>> x == y\n" \
 "True\n" \

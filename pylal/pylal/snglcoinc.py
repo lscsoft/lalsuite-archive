@@ -1915,16 +1915,16 @@ class CoincParamsDistributions(object):
 # starting from Bayes' theorem:
 #
 # P(coinc is a g.w. | its parameters)
-#     P(those parameters | a coinc known to be a g.w.) * P(coinc is g.w.)
-#   = -------------------------------------------------------------------
-#                                P(parameters)
+#     P(those parameters | coinc is g.w.) * P(coinc is g.w.)
+#   = ------------------------------------------------------
+#                         P(parameters)
 #
-#     P(those parameters | a coinc known to be a g.w.) * P(coinc is g.w.)
-#   = -------------------------------------------------------------------
+#               P(those parameters | coinc is g.w.) * P(coinc is g.w.)
+#   = -------------------------------------------------------------------------
 #     P(noise params) * P(coinc is not g.w.) + P(inj params) * P(coinc is g.w.)
 #
-#                       P(inj params) * P(coinc is g.w.)
-#   = -------------------------------------------------------------------
+#                        P(inj params) * P(coinc is g.w.)
+#   = ---------------------------------------------------------------------------
 #     P(noise params) * [1 - P(coinc is g.w.)] + P(inj params) * P(coinc is g.w.)
 #
 #                        P(inj params) * P(coinc is g.w.)

@@ -36,7 +36,6 @@ __date__ = git_version.date
 import os
 import getopt
 import re
-import exceptions
 import six.moves.http_client
 import urlparse
 import time
