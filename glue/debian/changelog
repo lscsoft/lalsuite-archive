@@ -1,3 +1,9 @@
+glue (1.54.1-1) unstable; urgency=low
+
+  * Bug-fix to remove explicit imports of exceptions module with Leo commit.
+
+ -- Ryan Fisher <ryan.fisher@ligo.org>  Mon, 30 Jan 2017 15:44:00 -0500
+
 glue (1.54.0-1) unstable; urgency=low
 
   * O2 mid-run updated release. Updated python 3 compatibility fix from Leo to
