@@ -169,6 +169,146 @@ XLALPrintError("--approximant SEOBNRv3 --f-min %.16e --m1 %.16e --m2 %.16e --spi
                fMin, m1SI/LAL_MSUN_SI, m2SI/LAL_MSUN_SI, INspin1x, INspin1y, INspin1z, INspin2x, INspin2y, INspin2z, inc, r/(1e6 * LAL_PC_SI), phiC, 1./deltaT);\
 } while(0);
 
+static REAL8 XLALSimIMRSpinEOBChiS (
+                                    REAL8 s1dotLN,
+                                    REAL8 s2dotLN
+)
+{
+    return 0.5 * (s1dotLN + s2dotLN);
+}
+
+static REAL8 XLALSimIMRSpinEOBChiA (
+                                    REAL8 s1dotLN,
+                                    REAL8 s2dotLN
+                                    )
+{
+    return 0.5 * (s1dotLN - s2dotLN);
+}
+
+static REAL8 XLALSimIMRSpinEOBtplspin (
+                                REAL8 m1,
+                                REAL8 m2,
+                                REAL8 eta,
+                                REAL8 s1dotLN,
+                                REAL8 s2dotLN,
+                                INT4 SpinAlignedEOBversion )
+{
+    REAL8 chiS, chiA, tplspin;
+    chiS = XLALSimIMRSpinEOBChiS(s1dotLN, s2dotLN);
+    chiA = XLALSimIMRSpinEOBChiA(s1dotLN, s2dotLN);
+    
+    switch ( SpinAlignedEOBversion )
+    {
+        case 1:
+            /* See below Eq. 17 of PRD 86, 041011 (2012) */
+            tplspin = 0.0;
+            break;
+        case 2:
+        case 4:
+            /* See below Eq. 4 of PRD 89, 061502(R) (2014)*/
+            tplspin = (1.-2.*eta) * chiS + (m1 - m2)/(m1 + m2) * chiA;
+            break;
+        default:
+            XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1, v2 and v4 are available.\n", __func__);
+            XLAL_ERROR( XLAL_EINVAL );
+            break;
+    }
+    return tplspin;
+}
+
+static REAL8 XLALSimIMRGetPrecessingEOBHamiltonian (
+                                                    REAL8Vector *values,
+                                                    REAL8Vector *dvalues,
+                                                    REAL8 m1,
+                                                    REAL8 m2,
+                                                    REAL8 eta,
+                                                    EOBParams eobParams,
+                                                    SpinEOBParams seobParams,
+                                                    SpinEOBHCoeffs seobCoeffs,
+                                                    UINT4 SpinAlignedEOBversion
+                                                    )
+{
+    REAL8 mTotal = m1+m2;
+    REAL8Vector cartPosVec, cartMomVec, s1Vec, s2Vec;
+    cartPosVec.length = cartMomVec.length = s1Vec.length = s2Vec.length = 3;
+    REAL8  cartPosData[3], cartMomData[3], s1Data[3], s2Data[3];
+    cartPosVec.data = cartPosData;
+    cartMomVec.data = cartMomData;
+    s1Vec.data = s1Data;
+    s2Vec.data = s2Data;
+    memset( cartPosData, 0, sizeof( cartPosData ) );
+    memset( cartMomData, 0, sizeof( cartMomData ) );
+    memset( s1Data, 0, sizeof( s1Data ) );
+    memset( s2Data, 0, sizeof( s2Data ) );
+
+    memcpy( cartPosVec.data, values->data, 3*sizeof(REAL8) );
+    memcpy( cartMomVec.data, values->data+3, 3*sizeof(REAL8) );
+    memcpy( s1Vec.data, values->data+6, 3*sizeof(REAL8) );
+    memcpy( s2Vec.data, values->data+9, 3*sizeof(REAL8) );
+
+    REAL8Vector s1VecOverMtMt, s2VecOverMtMt;
+    REAL8 s1VecOverMtMtData[3], s2VecOverMtMtData[3];
+    s1VecOverMtMt.data = s1VecOverMtMtData;
+    s2VecOverMtMt.data = s2VecOverMtMtData;
+    memset( s1VecOverMtMtData, 0, sizeof( s1VecOverMtMtData ) );
+    memset( s2VecOverMtMtData, 0, sizeof( s2VecOverMtMtData ) );
+    memcpy( s1VecOverMtMt.data, values->data+6, 3*sizeof(REAL8) );
+    memcpy( s2VecOverMtMt.data, values->data+9, 3*sizeof(REAL8) );
+    
+    for( UINT4 k = 0; k < 3; k++ )
+    {
+        s1Vec.data[k] =  s1Vec.data[k]  * mTotal * mTotal;
+        s2Vec.data[k] =  s2Vec.data[k]  * mTotal * mTotal;
+    }
+
+    seobParams.s1Vec = &s1VecOverMtMt;
+    seobParams.s2Vec = &s2VecOverMtMt;
+
+    REAL8Vector *sigmaStar = NULL, *sigmaKerr = NULL;
+    sigmaStar = XLALCreateREAL8Vector( 3 );
+    sigmaKerr = XLALCreateREAL8Vector( 3 );
+
+    XLALSimIMRSpinEOBCalculateSigmaStar( sigmaStar, m1, m2, &s1Vec, &s2Vec );
+    XLALSimIMRSpinEOBCalculateSigmaKerr( sigmaKerr, m1, m2, &s1Vec, &s2Vec );
+
+    REAL8 a;
+    seobParams.a = a = sqrt(inner_product(sigmaKerr->data, sigmaKerr->data));
+    
+    REAL8 rcrossrdot[3] = {0,0,0};
+    REAL8 rvec[3] = {0,0,0};
+    REAL8 rdotvec[3] = {0,0,0};
+    memcpy( rdotvec, dvalues->data, 3*sizeof(REAL8) );
+    memcpy( rvec,    values->data,  3*sizeof(REAL8) );
+    cross_product( rvec, rdotvec, rcrossrdot );
+    REAL8 rcrossrdotNorm = sqrt(inner_product( rcrossrdot, rcrossrdot ));
+    for( UINT4 i = 0; i < 3; i++ ) { rcrossrdot[i] /= rcrossrdotNorm; }
+    
+    /* Eq. 16 of PRD 89, 084006 (2014): it's S_{1,2}/m_{1,2}^2.LNhat */
+    REAL8 s1dotLN = inner_product(s1Vec.data, rcrossrdot) / (m1*m1);
+    REAL8 s2dotLN = inner_product(s2Vec.data, rcrossrdot) / (m2*m2);
+    
+    REAL8 chiS = XLALSimIMRSpinEOBChiS(s1dotLN, s2dotLN);
+    REAL8 chiA = XLALSimIMRSpinEOBChiA(s1dotLN, s2dotLN);
+    REAL8 tplspin =  XLALSimIMRSpinEOBtplspin ( m1, m2, eta, s1dotLN, s2dotLN, SpinAlignedEOBversion );
+
+    if ( XLALSimIMRCalculateSpinPrecEOBHCoeffs( &seobCoeffs, eta, a,
+                                               SpinAlignedEOBversion ) == XLAL_FAILURE )
+        XLAL_PRINT_INFO("\nSomething went wrong evaluating XLALSimIMRCalculateSpinPrecEOBHCoeffs\n");
+    
+    /* Update hlm coefficients */
+    if ( XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients( eobParams.hCoeffs, m1, m2, eta,
+                                                          tplspin, chiS, chiA, 3 ) == XLAL_FAILURE ) /* This function returns XLAL_SUCCESS or calls XLAL_ERROR( XLAL_EINVAL ) */
+    {
+        XLAL_PRINT_INFO("\nSomething went wrong evaluating XLALSimIMRCalculateSpinPrecEOBHCoeffs\n" );
+        XLALPrintError("XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients failed!\n");
+        XLAL_ERROR( XLAL_EFUNC );
+    }
+    
+    return XLALSimIMRSpinPrecEOBHamiltonian( eta, &cartPosVec, &cartMomVec,
+                                           &s1VecOverMtMt, &s2VecOverMtMt,
+                                           sigmaKerr, sigmaStar, seobParams.tortoise, &seobCoeffs );
+}
+
 /**
  * Stopping conditions for dynamics integration for SEOBNRv3
  */
@@ -1269,7 +1409,7 @@ int XLALSimIMRSpinEOBWaveformAll(
         seobParams.alignedSpins = 0;
     }
     else {
-      /* This function returns XLAL_SUCCESS or calls XLAL_ERROR with XLAL_EINVAL, XLAL_ENOMEM, or XLAL_EMAXITER */
+        /* This function returns XLAL_SUCCESS or calls XLAL_ERROR with XLAL_EINVAL, XLAL_ENOMEM, or XLAL_EMAXITER */
       if ( XLALSimIMRSpinEOBInitialConditionsPrec( values, m1, m2, fMin, incl_temp, mSpin1, mSpin2, &seobParams, use_optimized ) == XLAL_FAILURE )
         {
             XLALDestroyREAL8Vector( sigmaKerr );
@@ -1959,7 +2099,21 @@ int XLALSimIMRSpinEOBWaveformAll(
     fclose( out );
   }
 
+    
+//    nqcCoeffs.a1 = 39.772513;
+//    nqcCoeffs.a2 = -342.775686;
+//    nqcCoeffs.a3 = 379.250267;
+//    nqcCoeffs.a3S = 0.;
+//    nqcCoeffs.a4 = 0.;
+//    nqcCoeffs.a5 = 0.;
+//    nqcCoeffs.b1 = 16.070708;
+//    nqcCoeffs.b2 =-198.267812;
+//    nqcCoeffs.b3 = 0.;
+//    nqcCoeffs.b4 = 0.;
 
+
+
+    
 /* *********************************************************************************
  * *********************************************************************************
  * STEP 3) Compute Euler angles to go from initial inertial frame to
@@ -2244,7 +2398,7 @@ int XLALSimIMRSpinEOBWaveformAll(
       if (chiL >= 0.9 && eta < 30./(31.*31.)) combSize = 12.0;
       if (chiL >= 0.8 && eta > 10./121.) combSize = 8.5;
       deltaNQC = XLALSimIMREOBGetNRSpinPeakDeltaTv2(2, 2, m1, m2, chi1L, chi2L );
-    if ( SpinAlignedEOBversion == 4 ) {
+      if ( SpinAlignedEOBversion == 4 ) {
         deltaNQC = XLALSimIMREOBGetNRSpinPeakDeltaTv4(2, 2, m1, m2, chi1L, chi2L );
       }
       if ( debugPK ) {
@@ -2314,7 +2468,84 @@ int XLALSimIMRSpinEOBWaveformAll(
     XLAL_PRINT_INFO("J-frameEx = [%.16e\t%.16e\t%.16e]\n", JframeEx[0], JframeEx[1], JframeEx[2]);XLAL_PRINT_INFO("J-frameEy = [%.16e\t%.16e\t%.16e]\n", JframeEy[0], JframeEy[1], JframeEy[2]);
     XLAL_PRINT_INFO("J-frameEz = [%.16e\t%.16e\t%.16e]\n", JframeEz[0], JframeEz[1], JframeEz[2]);fflush(NULL);
   }
+    
+    if ( SpinAlignedEOBversion == 4 ) {
+        polarDynamics.length = 4;
+        polarDynamics.data   = polData;
+        REAL8Vector *rHi, *prHi, *omegaHi, *ampNQC, *phaseNQC;
+        rHi = XLALCreateREAL8Vector( retLenHi );
+        prHi = XLALCreateREAL8Vector( retLenHi );
+        omegaHi = XLALCreateREAL8Vector( retLenHi );
+        ampNQC = XLALCreateREAL8Vector( retLenHi );
+        phaseNQC = XLALCreateREAL8Vector( retLenHi );
+        INT4 phaseCounter = 0;
+        for ( i = 0; i < retLenHi; i++) {
+            rHi->data[i] = sqrt( posVecxHi.data[i]*posVecxHi.data[i] + posVecyHi.data[i]*posVecyHi.data[i] + posVeczHi.data[i]*posVeczHi.data[i] );
+            prHi->data[i] = ( posVecxHi.data[i]*momVecxHi.data[i] + posVecyHi.data[i]*momVecyHi.data[i] + posVeczHi.data[i]*momVeczHi.data[i] ) / rHi->data[i];
+            for ( j=0; j<14; j++) {
+                values->data[j] = dynamicsHi->data[i + (j+1)*retLenHi];
+            }
+            XLALSpinPrecHcapRvecDerivative( 0, values->data, dvalues->data, (void*) &seobParams);
+            for (j=0; j<3; j++){
+                rvec[j] = values->data[j];
+                rdotvec[j] = dvalues->data[j];
+            }
+            cross_product( rvec, rdotvec, rcrossrdot );
+            omegaHi->data[i] = sqrt(inner_product(rcrossrdot, rcrossrdot)) / (rHi->data[i]*rHi->data[i]);
+            
+            rcrossrdotNorm = sqrt(inner_product( rcrossrdot, rcrossrdot ));
+            for( UINT4 kk = 0; kk< 3; kk++ ) { rcrossrdot[kk] /= rcrossrdotNorm; }
+            s1dotLN = inner_product(s1Vec.data, rcrossrdot) / (m1*m1);
+            s2dotLN = inner_product(s2Vec.data, rcrossrdot) / (m2*m2);
+            chiS = XLALSimIMRSpinEOBChiS(s1dotLN, s2dotLN);
+            chiA = XLALSimIMRSpinEOBChiA(s1dotLN, s2dotLN);
+            tplspin =  XLALSimIMRSpinEOBtplspin ( m1, m2, eta, s1dotLN, s2dotLN, SpinAlignedEOBversion );
+            
+            if ( XLALSimIMRCalculateSpinPrecEOBHCoeffs( &seobCoeffs, eta, a, SpinAlignedEOBversion ) == XLAL_FAILURE )
+                XLAL_PRINT_INFO("\nSomething went wrong evaluating XLALSimIMRCalculateSpinPrecEOBHCoeffs in step %d of coarse dynamics\n", i );
+            if ( XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients( eobParams.hCoeffs, m1, m2, eta, tplspin, chiS, chiA, 3 ) == XLAL_FAILURE )
+            {
+                XLAL_PRINT_INFO("\nSomething went wrong evaluating XLALSimIMRCalculateSpinPrecEOBHCoeffs in step %d of coarse dynamics\n", i );
+                XLALPrintError("XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients failed!\n");
+                PRINT_PARAMS
+                XLAL_ERROR( XLAL_EFUNC );
+            }
+            ham = XLALSimIMRGetPrecessingEOBHamiltonian ( values, dvalues, m1, m2, eta, eobParams, seobParams, seobCoeffs, SpinAlignedEOBversion );
 
+            cross_product( values->data, values->data+3, rcrossp );
+            magL = sqrt(inner_product(rcrossp, rcrossp));
+            polarDynamics.data[0] = rHi->data[i];
+            polarDynamics.data[1] = phiModHi.data[i] + phiDModHi.data[i];
+            polarDynamics.data[2] = prHi->data[i];
+            polarDynamics.data[3] = magL;
+            v = cbrt( omegaHi->data[i] );
+            if ( XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform( &hLM, &polarDynamics, values, v, ham, 2, 2, &seobParams ) == XLAL_FAILURE )
+            {
+                FREE_EVERYTHING
+                FREE_SPHHARM
+                XLALPrintError("XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform failed!\n");
+                PRINT_PARAMS
+                XLAL_ERROR( XLAL_EDOM );
+            }
+            ampNQC->data[i] = cabs( hLM );
+            phaseNQC->data[i] = carg ( hLM ) + phaseCounter * LAL_TWOPI;
+            if (i && phaseNQC->data[i] > phaseNQC->data[i - 1])
+            {
+                phaseCounter--;
+                phaseNQC->data[i] -= LAL_TWOPI;
+            }
+        }
+        if (XLALSimIMRSpinEOBCalculateNQCCoefficientsV4 (ampNQC, phaseNQC, rHi, prHi, omegaHi, 2, 2,
+                                                       tPeakOmega, deltaTHigh / mTScaled, m1, m2, a, chiA, chiS, &nqcCoeffs, SpinAlignedEOBversion) == XLAL_FAILURE)
+        {
+            XLAL_ERROR (XLAL_EFUNC);
+        }
+    }
+    
+    if ( debugPK ) XLAL_PRINT_INFO(" NQC: a1 = %.16e, a2 = %.16e,\n a3 = %.16e, a3S = %.16e,\n a4 = %.16e, a5 = %.16e\n b1 = %.16e, b2 = %.16e,\n b3 = %.16e, b4 = %.16e\n",
+                    nqcCoeffs.a1, nqcCoeffs.a2, nqcCoeffs.a3,
+                    nqcCoeffs.a3S, nqcCoeffs.a4, nqcCoeffs.a5,
+                    nqcCoeffs.b1, nqcCoeffs.b2, nqcCoeffs.b3, nqcCoeffs.b4 );
 /* *********************************************************************************
  * *********************************************************************************
  * STEP 5) Generate quasi-nonprecessing waveforms in precessing frame
@@ -2694,81 +2925,7 @@ int XLALSimIMRSpinEOBWaveformAll(
         betaP2JTS->data->data[i] = bP2J;
         gammaP2JTS->data->data[i] = -gP2J;
 
-
-        /* Calculate the value of the Hamiltonian */
-        memcpy( cartPosVec.data, values->data,   3*sizeof(REAL8) );
-        memcpy( cartMomVec.data, values->data+3, 3*sizeof(REAL8) );
-
-        /* Update Hamiltonian coefficients as per |Skerr| */
-        s1Vec.data = s1Data;
-        s2Vec.data = s2Data;
-      
-        s1VecOverMtMt.data = s1DataNorm;
-        s2VecOverMtMt.data = s2DataNorm;
-        for( k = 0; k < 3; k++ )
-          {
-            s1VecOverMtMt.data[k] = values->data[k+6];
-            s2VecOverMtMt.data[k] = values->data[k+9];
-            s1Vec.data[k] = s1VecOverMtMt.data[k] * mTotal * mTotal;
-            s2Vec.data[k] = s2VecOverMtMt.data[k] * mTotal * mTotal;
-          }
-
-        seobParams.s1Vec = &s1VecOverMtMt;
-        seobParams.s2Vec = &s2VecOverMtMt;
-
-        XLALSimIMRSpinEOBCalculateSigmaStar( sigmaStar, m1, m2, &s1Vec, &s2Vec );
-        XLALSimIMRSpinEOBCalculateSigmaKerr( sigmaKerr, m1, m2, &s1Vec, &s2Vec );
-
-        seobParams.a = a = sqrt(inner_product(sigmaKerr->data, sigmaKerr->data));
-
-        rcrossrdot[0] = LNhx;
-        rcrossrdot[1] = LNhy;
-        rcrossrdot[2] = LNhz;
-        /* Eq. 16 of PRD 89, 084006 (2014): it's S_{1,2}/m_{1,2}^2.LNhat */
-        s1dotLN = inner_product(s1Vec.data, rcrossrdot) / (m1*m1);
-        s2dotLN = inner_product(s2Vec.data, rcrossrdot) / (m2*m2);
-
-        chiS = 0.5 * (s1dotLN + s2dotLN);
-        chiA = 0.5 * (s1dotLN - s2dotLN);
-
-        switch ( SpinAlignedEOBversion )
-          {
-          case 1:
-            /* See below Eq. 17 of PRD 86, 041011 (2012) */
-            tplspin = 0.0;
-            break;
-          case 2:
-          case 4:
-            /* See below Eq. 4 of PRD 89, 061502(R) (2014)*/
-            tplspin = (1.-2.*eta) * chiS + (m1 - m2)/(m1 + m2) * chiA;
-            break;
-          default:
-            XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1, v2 and v4 are available.\n", __func__);
-            FREE_EVERYTHING
-              FREE_SPHHARM
-              XLAL_ERROR( XLAL_EINVAL );
-            break;
-          }
-
-        if ( XLALSimIMRCalculateSpinPrecEOBHCoeffs( &seobCoeffs, eta, a,
-                                                    SpinAlignedEOBversion ) == XLAL_FAILURE )
-          XLAL_PRINT_INFO("\nSomething went wrong evaluating XLALSimIMRCalculateSpinPrecEOBHCoeffs in step %d of coarse dynamics\n",
-                          i );
-
-        /* Update hlm coefficients */
-        if ( XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients( eobParams.hCoeffs, m1, m2, eta,
-                                                               tplspin, chiS, chiA, 3 ) == XLAL_FAILURE ) /* This function returns XLAL_SUCCESS or calls XLAL_ERROR( XLAL_EINVAL ) */
-          {
-            XLAL_PRINT_INFO("\nSomething went wrong evaluating XLALSimIMRCalculateSpinPrecEOBHCoeffs in step %d of coarse dynamics\n",
-                            i );
-            XLALPrintError("XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients failed!\n");
-            PRINT_PARAMS
-              XLAL_ERROR( XLAL_EFUNC );
-          }
-
-        ham = XLALSimIMRSpinPrecEOBHamiltonian( eta, &cartPosVec, &cartMomVec,
-                                                &s1VecOverMtMt, &s2VecOverMtMt,
-                                                sigmaKerr, sigmaStar, seobParams.tortoise, &seobCoeffs );
+        ham = XLALSimIMRGetPrecessingEOBHamiltonian ( values, dvalues, m1, m2, eta, eobParams, seobParams, seobCoeffs, SpinAlignedEOBversion );
 
         /* Calculate the polar data */
         polarDynamics.length = 4;
@@ -2983,89 +3140,8 @@ int XLALSimIMRSpinEOBWaveformAll(
         betaP2JTSHi->data->data[i] = bP2J;
         gammaP2JTSHi->data->data[i] = -gP2J;
 
-        /* Calculate the value of the Hamiltonian */
-        memcpy( cartPosVec.data, values->data,   3*sizeof(REAL8) );
-        memcpy( cartMomVec.data, values->data+3, 3*sizeof(REAL8) );
+        ham = XLALSimIMRGetPrecessingEOBHamiltonian ( values, dvalues, m1, m2, eta, eobParams, seobParams, seobCoeffs, SpinAlignedEOBversion );
 
-        /* Update Hamiltonian coefficients as per |Skerr| */
-        s1Vec.data = s1Data;
-        s2Vec.data = s2Data;
-
-        s1VecOverMtMt.data = s1DataNorm;
-        s2VecOverMtMt.data = s2DataNorm;
-        for( k = 0; k < 3; k++ )
-          {
-            s1VecOverMtMt.data[k] = values->data[k+6];
-            s2VecOverMtMt.data[k] = values->data[k+9];
-            s1Vec.data[k] = s1VecOverMtMt.data[k] * mTotal * mTotal;
-            s2Vec.data[k] = s2VecOverMtMt.data[k] * mTotal * mTotal;
-          }
-
-        seobParams.s1Vec = &s1VecOverMtMt;
-        seobParams.s2Vec = &s2VecOverMtMt;
-
-        XLALSimIMRSpinEOBCalculateSigmaStar( sigmaStar, m1, m2, &s1Vec, &s2Vec );
-        XLALSimIMRSpinEOBCalculateSigmaKerr( sigmaKerr, m1, m2, &s1Vec, &s2Vec );
-
-        seobParams.a = a = sqrt(inner_product(sigmaKerr->data, sigmaKerr->data));
-
-        rcrossrdot[0] = LNhx;
-        rcrossrdot[1] = LNhy;
-        rcrossrdot[2] = LNhz;
-        s1dotLN = inner_product(s1Vec.data, rcrossrdot) / (m1*m1);
-        s2dotLN = inner_product(s2Vec.data, rcrossrdot) / (m2*m2);
-
-        chiS = 0.5 * (s1dotLN + s2dotLN);
-        chiA = 0.5 * (s1dotLN - s2dotLN);
-
-        switch ( SpinAlignedEOBversion )
-          {
-          case 1:
-            /* See below Eq. 17 of PRD 86, 041011 (2012) */
-            tplspin = 0.0;
-            break;
-          case 2:
-          case 4:
-            /* See below Eq. 4 of PRD 89, 061502(R) (2014)*/
-            tplspin = (1.-2.*eta) * chiS + (m1 - m2)/(m1 + m2) * chiA;
-            break;
-          default:
-            XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1, v2 and v4 are available.\n", __func__);
-            FREE_EVERYTHING
-              XLALDestroyREAL8Vector( tlistHi );
-            XLALDestroyREAL8Vector( timeJFull );
-            XLALDestroyREAL8Vector( timeIFull );
-            XLALDestroyREAL8Vector( tlistRDPatch );
-            XLALDestroyREAL8Vector( tlistRDPatchHi );
-            PRINT_PARAMS
-              XLAL_ERROR( XLAL_EINVAL );
-            break;
-          }
-
-        if ( XLALSimIMRCalculateSpinPrecEOBHCoeffs( &seobCoeffs, eta, a,
-                                                    SpinAlignedEOBversion ) == XLAL_FAILURE )
-          XLAL_PRINT_INFO("\nSomething went wrong evaluating XLALSimIMRCalculateSpinPrecEOBHCoeffs in step %d of coarse dynamics\n",
-                          i );
-
-        /* Update hlm coefficients */
-        if ( XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients( eobParams.hCoeffs, m1, m2, eta,
-                                                               tplspin, chiS, chiA, 3 ) == XLAL_FAILURE ) {
-          XLAL_PRINT_INFO("\nSomething went wrong evaluating XLALSimIMRCalculateSpinPrecEOBHCoeffs in step %d of coarse dynamics\n",
-                          i );
-          FREE_EVERYTHING
-            XLALDestroyREAL8Vector( tlistHi );
-          XLALDestroyREAL8Vector( timeJFull );
-          XLALDestroyREAL8Vector( timeIFull );
-          XLALDestroyREAL8Vector( tlistRDPatch );
-          XLALDestroyREAL8Vector( tlistRDPatchHi );
-          XLALPrintError("XLALSimIMREOBCalcSpinPrecFacWaveformCoefficients failed!\n");
-          PRINT_PARAMS
-            XLAL_ERROR( XLAL_EDOM );
-        }
-
-        ham = XLALSimIMRSpinPrecEOBHamiltonian( eta, &cartPosVec, &cartMomVec,
-                                                &s1VecOverMtMt, &s2VecOverMtMt,
-                                                sigmaKerr, sigmaStar, seobParams.tortoise, &seobCoeffs );
 
         /* Calculate the polar data */
         polarDynamics.length = 4;
