@@ -652,7 +652,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
     (--noSpin, --disable-spin)      template will assume no spins (giving this will void spinOrder!=0) \n\
     (--no-detector-frame)              model will NOT use detector-centred coordinates and instead RA,dec\n\
     (--nonGR_alpha value) this is a LIV parameter which should only be passed when log10lambda_eff/lambda_eff is passed as a grtest-parameter for LIV test\n\
-    (--LIV_A_sign) this is a LIV parameter determining if +A or -A is being tested; A occurs in the modified dispersion relation and has to be either +1 or -1 \n\
+    (--LIV_A_sign) this is a LIV parameter determining if +A or -A is being tested; A occurs in the modified dispersion relation. LIV_A_sign has to be either +1 or -1 \n\
     (--grtest-parameters dchi0,..,dxi1,..,dalpha1,..,log10lambda_eff or lambda_eff) template will assume deformations in the corresponding phase coefficients; log10lambda_eff/lambda_eff are LIV parameters and will add a deformation to the total phase\n\
     (--ppe-parameters aPPE1,....     template will assume the presence of an arbitrary number of PPE parameters. They must be paired correctly.\n\
 \n\
@@ -2008,9 +2008,10 @@ static void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenc
           int LIV_A_sign;
           LIV_A_sign = atoi(pptb->value);
           if ((LIV_A_sign != -1) && (LIV_A_sign != 1)) {
-            XLALPrintError("A is an integer and can only take either +1 or -1.\n");
+            XLALPrintError("LIV_A_sign is an integer and can only take either +1 or -1.\n");
             XLAL_ERROR_VOID(XLAL_EFAULT);
           }
+         else LALInferenceAddVariable(model->params,"LIV_A_sign", &LIV_A_sign, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
         }
         if ((ppta=LALInferenceGetProcParamVal(commandLine,"--nonGR_alpha"))) {
           REAL8 nonGR_alpha;
@@ -2055,12 +2056,12 @@ static void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenc
         if (checkParamInList(ppt->value,"dbeta2")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dbeta2", tmpVal, dbeta_min, dbeta_max, LALINFERENCE_PARAM_LINEAR);
         if (checkParamInList(ppt->value,"dbeta3")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dbeta3", tmpVal, dbeta_min, dbeta_max, LALINFERENCE_PARAM_LINEAR);
         if (checkParamInList(ppt->value,"lambda_eff")) {
-          if (ppta==NULL) {
+          if ((ppta==NULL)) {
             XLALPrintError("A value for nonGR_alpha has to be passed with lambda_eff.\n");
             XLAL_ERROR_VOID(XLAL_EFAULT);
            }
           else if (pptb==NULL) {
-	    XLALPrintError("A value of +1 or -1 for LIV_A_sign, has to be passed with lambda_eff, respectively determing if +A or -A in the MDR is being tested.\n");
+	    XLALPrintError("A value of +1 or -1 for LIV_A_sign has to be passed with lambda_eff, respectively determing if +A or -A in the MDR is being tested.\n");
             XLAL_ERROR_VOID(XLAL_EFAULT);
           }
           else {
@@ -2070,12 +2071,12 @@ static void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenc
           }
         }
         if (checkParamInList(ppt->value,"log10lambda_eff")) {
-          if (ppta==NULL) {
-            XLALPrintError("A value for nonGR_alpha has to be passed with log10lambda_eff.\n");
+          if ((ppta==NULL)) {
+            XLALPrintError("A value for nonGR_alpha has to be passed with log10lambda_eff. A value for LIV_A_sign also has to be passed!\n");
             XLAL_ERROR_VOID(XLAL_EFAULT);
            }
           else if (pptb==NULL) {
-            XLALPrintError("A value of +1 or -1 for LIV_A_sign, has to be passed with log10lambda_eff, respectively determing if +A or -A in the MDR is being tested.\n");
+            XLALPrintError("A value of +1 or -1 for LIV_A_sign has to be passed with log10lambda_eff, respectively determing if +A or -A in the MDR is being tested.\n");
             XLAL_ERROR_VOID(XLAL_EFAULT);
           }
           else { 
