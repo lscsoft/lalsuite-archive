@@ -923,10 +923,10 @@ int XLALSimInspiralChooseFDWaveform(
      * If non-GR approximants are added, include them in
      * XLALSimInspiralApproximantAcceptTestGRParams()
      */
-    if( nonGRparams && XLALSimInspiralApproximantAcceptTestGRParams(approximant) != LAL_SIM_INSPIRAL_TESTGR_PARAMS ) {
+   /* if( nonGRparams && XLALSimInspiralApproximantAcceptTestGRParams(approximant) != LAL_SIM_INSPIRAL_TESTGR_PARAMS ) {
         XLALPrintError("XLAL Error - %s: Passed in non-NULL pointer to LALSimInspiralTestGRParam for an approximant that does not use LALSimInspiralTestGRParam\n", __func__);
         XLAL_ERROR(XLAL_EINVAL);
-    }
+    }*/
 
     /* General sanity check the input parameters - only give warnings! */
     if( deltaF > 1. )
@@ -4593,7 +4593,7 @@ int XLALSimLorentzInvarianceViolationTerm(
       tmpExp = cexp(I*(dPhiPref + zeta*log(f)));
       hplus = (*hptilde)->data->data[i] * tmpExp;
       (*hptilde)->data->data[i] = hplus;
-      hcross = (*hctilde)->data->data[i] * tmpExp ;
+      hcross = (*hctilde)->data->data[i] * tmpExp;
       (*hctilde)->data->data[i] = hcross;
     }
   }

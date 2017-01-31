@@ -1195,7 +1195,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
 
    /*Check for waveform compatibility with inclusion of LIV parameters */
   ppt=LALInferenceGetProcParamVal(commandLine,"--grtest-parameters");
-  if ((checkParamInList(ppt->value,"log10lambda_eff") && (!(approx==IMRPhenomPv2))) || (checkParamInList(ppt->value,"lambda_eff") && (!(approx==IMRPhenomPv2)))){
+  if ((checkParamInList(ppt->value,"log10lambda_eff") && (!(approx==IMRPhenomPv2)) && (!(approx==SEOBNRv4_ROM))) || (checkParamInList(ppt->value,"lambda_eff") && (!(approx==IMRPhenomPv2)) && (!(approx==SEOBNRv4_ROM)))){
     XLALPrintWarning("LIV parameters not compatible with approximant %s. Can be used only with IMRPhenomPv2.\n",XLALSimInspiralGetStringFromApproximant(approx));
     }
     /* If requested by the user populate the testing GR or PPE model parameters */
