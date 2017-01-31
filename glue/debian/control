@@ -2,14 +2,14 @@ Source: glue
 Section: python
 Priority: optional
 Maintainer: Steffen Grunewald <steffen.grunewald@aei.mpg.de>
-Build-Depends: debhelper (>= 9), python-all-dev, python3-all-dev, python-setuptools, python3-setuptools, python-six, python3-six, dh-python, git-core, help2man
+Build-Depends: debhelper (>= 9), python-all-dev, python3-all-dev, python-setuptools, python3-setuptools, python-kerberos, python3-kerberos, python-six, python3-six, dh-python, git-core, help2man
 X-Python-Version: >= 2.7
 X-Python3-Version: >= 3.4
 Standards-Version: 3.9.3
 
 Package: python-glue
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}, python-cjson, python-m2crypto, python-six, python-glue-segments (= ${source:Version})
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}, python-cjson, python-kerberos, python-m2crypto, python-six, python-glue-segments (= ${source:Version})
 Recommends: python-numpy (>= 1.0), python-xml, libsqlite3-0 (>= 3.3), pyrxp | python-pyrxp
 Replaces: glue
 Conflicts: glue
@@ -37,7 +37,7 @@ Description: Grid LSC User Environment
 
 Package: python3-glue
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, ${python3:Depends}, python3-six, python3-glue-segments (= ${source:Version})
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python3:Depends}, python3-kerberos, python3-six, python3-glue-segments (= ${source:Version})
 Recommends: python3-numpy (>= 1.0), python3-xml, libsqlite3-0 (>= 3.3), pyrxp | python3-pyrxp
 Replaces: glue
 Conflicts: glue
