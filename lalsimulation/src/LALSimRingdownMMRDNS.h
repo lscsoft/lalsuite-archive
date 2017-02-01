@@ -139,7 +139,7 @@ int XLALSimRingdownMMRDNS_time(
 );
 
 /* XLALSimRingdownGenerateSingleModeMMRDNS_time: Time domain waveformgenerator for single QNM with angular dependence */
-int LALSimRingdownGenerateSingleModeMMRDNS_time(
+int XLALSimRingdownGenerateSingleModeMMRDNS_time(
         COMPLEX16TimeSeries **htilde_lmn,            /**< OUTPUT TD waveform mode lmn */
         const LIGOTimeGPS *t0,                       /**< start time of ringdown */
         REAL8 deltaT,                                /**< sampling interval (s) */

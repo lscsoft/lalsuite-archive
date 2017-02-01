@@ -951,7 +951,7 @@ int XLALSimRingdownMMRDNS_time(
         REAL8 dfreq220=0., dfreq221=0., dfreq330=0., dfreq331=0., dfreq440=0., dfreq550=0., dfreq210=0., dfreq320=0., dfreq430=0.;
         REAL8 dtau220=0.,  dtau221=0.,  dtau330=0.,  dtau331=0.,  dtau440=0.,  dtau550=0.,  dtau210=0.,  dtau320=0.,  dtau430=0.;
         COMPLEX16TimeSeries *h220, *h221, *h330, *h331, *h440, *h550, *h210, *h320, *h430;
-        UINT4 Nsamples = 1000; //TODO: determine waveform length differently, use mass maybe ...?
+        UINT4 Nsamples = 4000; //TODO: determine waveform length differently, use mass maybe ...?
 
         /* Get nonGRparams */
         char *nonGRParamName = malloc(512*sizeof(char));
