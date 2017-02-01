@@ -4561,8 +4561,8 @@ int XLALSimLorentzInvarianceViolationTerm(
                                           )
 {
   REAL8 f0, f, df;
-  COMPLEX16 hplus, hcross;
-  REAL8 M, eta, zeta, dPhiPref, Mc, tmpVal, tmpExp;
+  COMPLEX16 hplus, hcross, tmpExp;
+  REAL8 M, eta, zeta, dPhiPref, Mc, tmpVal;
   UINT4 len, i;
   M = m1+m2;
   eta = m1*m2/(M*M);
