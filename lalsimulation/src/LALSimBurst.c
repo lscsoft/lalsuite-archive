@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2007--2015 J. Creighton, K. Cannon, K. Wette, R. Prix, A. Mercer
+ * Copyright (C) 2007--2017 J. Creighton, K. Cannon, K. Wette, R. Prix, 
+ *                          A. Mercer, D. Williams
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -481,6 +482,8 @@ int XLALGenerateBurstFromFile(
 			      REAL8 incl,
 			      REAL8 psi,
 			      REAL8 delta_t
+			      REAL8 file_distance,
+			      REAL8 distance
 ) {
 
     LALFILE *fp;
@@ -495,6 +498,9 @@ int XLALGenerateBurstFromFile(
     char *header;
     char buffer[1024];
     unsigned int i;
+
+    fprintf(file_distance);
+    fprintf(distance);
 
     fp = XLALFileOpenRead(file);
     if (!fp)
@@ -622,15 +628,18 @@ int XLALGenerateBurstFromFile(
             hptmp = hxtmp = NULL;
             XLAL_ERROR(XLAL_EFUNC);
         }
+	/* Calculate the distance re-scaling */
+	distance_scale = 1.0 / (file_distance / distance)
+
 
         /* populate */
         for(i = 0; i < hptmp->data->length; i++) {
             /* Mix with inclination */
             //hplusdat[i] *= 0.5 * (1 + cos(incl)*cos(incl) );
 	  //hcrossdat[i] *= cos(incl);
-            /* ... and polarization */
-            hptmp->data->data[i] = hplusdat[i] * cos(psi) + hcrossdat[i] * sin(psi);
-            hxtmp->data->data[i] = -hplusdat[i] * sin(psi) + hcrossdat[i] * cos(psi);
+            /* ... and polarization and distance rescaling*/
+            hptmp->data->data[i] = hplusdat[i] * cos(psi) * distance_scale + hcrossdat[i] * sin(psi) * distance_scale;
+            hxtmp->data->data[i] = -hplusdat[i] * sin(psi) * distance_scale + hcrossdat[i] * cos(psi) * distance_scale;
         }
         hplus = &hptmp;
         hcross = &hxtmp;
