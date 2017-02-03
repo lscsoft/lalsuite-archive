@@ -481,7 +481,7 @@ int XLALGenerateBurstFromFile(
 			      const char* file,
 			      REAL8 incl,
 			      REAL8 psi,
-			      REAL8 delta_t
+			      REAL8 delta_t,
 			      REAL8 file_distance,
 			      REAL8 distance
 ) {
@@ -498,10 +498,8 @@ int XLALGenerateBurstFromFile(
     char *header;
     char buffer[1024];
     unsigned int i;
-
-    fprintf(file_distance);
-    fprintf(distance);
-
+    double distance_scale;
+    //double ratio = file_distance / distance;
     fp = XLALFileOpenRead(file);
     if (!fp)
         XLAL_ERROR(XLAL_EINVAL, "Could not open burst injection file for reading.");
@@ -629,9 +627,7 @@ int XLALGenerateBurstFromFile(
             XLAL_ERROR(XLAL_EFUNC);
         }
 	/* Calculate the distance re-scaling */
-	distance_scale = 1.0 / (file_distance / distance)
-
-
+	distance_scale = 1.0 / (file_distance / distance);
         /* populate */
         for(i = 0; i < hptmp->data->length; i++) {
             /* Mix with inclination */
