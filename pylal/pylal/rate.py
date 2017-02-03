@@ -1571,123 +1571,6 @@ class BinnedArray(object):
 		return self
 
 
-class BinnedRatios(object):
-	"""
-	Like BinnedArray, but provides a numerator array and a denominator
-	array.  The incnumerator() method increments a bin in the numerator
-	by the given weight, and the incdenominator() method increments a
-	bin in the denominator by the given weight.  There are no methods
-	provided for setting or decrementing either, but the they are
-	accessible as the numerator and denominator attributes, which are
-	both BinnedArray objects.
-	"""
-	def __init__(self, bins, dtype = "double"):
-		self.numerator = BinnedArray(bins, dtype = dtype)
-		self.denominator = BinnedArray(bins, dtype = dtype)
-
-	def __getitem__(self, coords):
-		return self.numerator[coords] / self.denominator[coords]
-
-	def bins(self):
-		return self.numerator.bins
-
-	def __iadd__(self, other):
-		"""
-		Add the weights from another BinnedRatios object's
-		numerator and denominator to the numerator and denominator
-		of this one.  Note that this is not the same as adding the
-		ratios.  The binnings must be identical.
-		"""
-		self.numerator += other.numerator
-		self.denominator += other.denominator
-		return self
-
-	def incnumerator(self, coords, weight = 1):
-		"""
-		Add weight to the numerator bin at coords.
-		"""
-		self.numerator[coords] += weight
-
-	def incdenominator(self, coords, weight = 1):
-		"""
-		Add weight to the denominator bin at coords.
-		"""
-		self.denominator[coords] += weight
-
-	def ratio(self):
-		"""
-		Compute and return the array of ratios.
-		"""
-		return self.numerator.array / self.denominator.array
-
-	def regularize(self):
-		"""
-		Find bins in the denominator that are 0, and set them to 1.
-		Presumably the corresponding bin in the numerator is also
-		0, so this has the effect of allowing the ratio array to be
-		evaluated without error, returning zeros in those bins that
-		have had no weight added to them.
-		"""
-		self.denominator.array[self.denominator.array == 0] = 1
-		return self
-
-	def logregularize(self, epsilon = 2**-1074):
-		"""
-		Find bins in the denominator that are 0, and set them to 1,
-		while setting the corresponding bin in the numerator to
-		float epsilon.  This has the effect of allowing the
-		logarithm of the ratio array to be evaluated without error.
-		"""
-		self.numerator.array[self.denominator.array == 0] = epsilon
-		self.denominator.array[self.denominator.array == 0] = 1
-		return self
-
-	def centres(self):
-		"""
-		Return a tuple of arrays containing the bin centres for
-		each dimension.
-		"""
-		return self.numerator.bins.centres()
-
-	def used(self):
-		"""
-		Return the number of bins with non-zero denominator.
-		"""
-		return numpy.sum(self.denominator.array != 0)
-
-	def to_pdf(self):
-		"""
-		Convert the numerator and denominator into a pdf.
-		"""
-		self.numerator.to_pdf()
-		self.denominator.to_pdf()
-
-	def to_xml(self, name):
-		"""
-		Return an XML document tree describing a rate.BinnedRatios object.
-		"""
-		xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_rate_binnedratios" % name})
-		xml.appendChild(self.numerator.to_xml(u"numerator"))
-		xml.appendChild(self.denominator.to_xml(u"denominator"))
-		return xml
-
-	@classmethod
-	def from_xml(cls, xml, name):
-		"""
-		Search for the description of a rate.BinnedRatios object named
-		"name" in the XML document tree rooted at xml, and construct and
-		return a new rate.BinnedRatios object from the data contained
-		therein.
-		"""
-		xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == u"%s:pylal_rate_binnedratios" % name]
-		self = cls(NDBins())
-		self.numerator = BinnedArray.from_xml(xml, u"numerator")
-		self.denominator = BinnedArray.from_xml(xml, u"denominator")
-		# normally they share a single NDBins instance
-		self.denominator.bins = self.numerator.bins
-		return self
-
-
 #
 # =============================================================================
 #
@@ -2073,43 +1956,6 @@ def filter_array(a, window, cyclic = False, use_fft = True):
 	return a
 
 
-def filter_binned_ratios(ratios, window, cyclic = False):
-	"""
-	Convolve the numerator and denominator of a BinnedRatios instance
-	each with the same window function.  This has the effect of
-	interpolating the ratio of the two between bins where it has been
-	measured, weighting bins by the number of measurements made in
-	each.  For example, consider a 1-dimensional binning, with zeros in
-	the denominator and numerator bins everywhere except in one bin
-	where both are set to 1.0.  The ratio is 1.0 in that bin, and
-	undefined everywhere else, where it has not been measured.
-	Convolving both numerator and denominator with a Gaussian window
-	will replace the "delta function" in each with a smooth hill
-	spanning some number of bins.  Since the same smooth hill will be
-	seen in both the numerator and the denominator bins, the ratio of
-	the two is now 1.0 --- the ratio from the bin where a measurement
-	was made --- everywhere the window function had support.  Contrast
-	this to the result of convolving the ratio with a window function.
-
-	Convolving the numerator and denominator bins separately preserves
-	the integral of each.  In other words the total number of events in
-	each of the denominator and numerator is conserved, only their
-	locations are shuffled about.  Convolving, instead, the ratios with
-	a window function would preserve the integral of the ratio, which
-	is probably meaningless.
-
-	Note that you should be using the window functions defined in this
-	module, which are carefully designed to be norm preserving (the
-	integrals of the numerator and denominator bins are preserved), and
-	phase preserving.
-
-	Note, also, that you should apply this function *before* using
-	either of the regularize() methods of the BinnedRatios object.
-	"""
-	filter_array(ratios.numerator.array, window, cyclic = cyclic)
-	filter_array(ratios.denominator.array, window, cyclic = cyclic)
-
-
 #
 # =============================================================================
 #
@@ -2182,19 +2028,4 @@ def marginalize(pdf, dim):
 	result = BinnedArray(NDBins(pdf.bins[:dim] + pdf.bins[dim+1:]))
 	result.array = (pdf.array * dx).sum(axis = dim)
 
-	return result
-
-
-def marginalize_ratios(likelihood, dim):
-	"""
-	Marginalize the numerator and denominator of a BinnedRatios object
-	containing likelihood-ratio data (i.e., the numerator and
-	denominator both contain probability density data) over dimension
-	dim.
-	"""
-	result = BinnedRatios(NDBins())
-	result.numerator = marginalize(likelihood.numerator, dim)
-	result.denominator = marginalize(likelihood.denominator, dim)
-	# normally they share an NDBins instance
-	result.denominator.bins = result.numerator.bins
 	return result
