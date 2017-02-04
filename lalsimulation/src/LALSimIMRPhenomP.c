@@ -703,7 +703,7 @@ static int PhenomPCore(
   if (f_final < freqs->data[0])
   {
     XLALPrintError("XLAL Error - %s: f_ringdown = %f < f_min\n", __func__, f_final);
-    errcode = XLAL_EDOM;
+    errcode = XLAL_SUCCESS;
     goto cleanup;
   }
 
