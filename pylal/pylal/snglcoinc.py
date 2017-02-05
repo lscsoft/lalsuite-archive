@@ -813,8 +813,6 @@ class CoincSynthesizer(object):
 		self.min_instruments = min_instruments
 		self.abundance_rel_accuracy = abundance_rel_accuracy
 
-		self.verbose = False	# turn on for diagnostics
-
 
 	def reset(self):
 		"""
@@ -991,8 +989,6 @@ class CoincSynthesizer(object):
 		# of the coincidence window is 2 tau
 				for instrument in instruments:
 					rate *= self.mu[instrument] * 2 * self.tau[frozenset((anchor, instrument))]
-				if self.verbose:
-					print >>sys.stderr, "%s uncorrected mean event rate = %g Hz" % (",".join(sorted(key)), rate)
 
 		# if there are more than two instruments, correct for the
 		# probability of full N-way coincidence by computing the
@@ -1055,13 +1051,8 @@ class CoincSynthesizer(object):
 					n //= 2
 
 					rate *= float(n) / float(d)
-					if self.verbose:
-						print >>sys.stderr, "	multi-instrument correction factor = %g" % (float(n)/float(d))
-						print >>sys.stderr, "	%s mean event rate = %g Hz" % (",".join(sorted(key)), rate)
 
 				self._rates[key] = rate
-				if self.verbose:
-					print >>sys.stderr, "%s mean event rate = %g Hz" % (",".join(sorted(key)), rate)
 
 		# self._rates now contains the mean rate at which each
 		# combination of instruments can be found in a coincidence
