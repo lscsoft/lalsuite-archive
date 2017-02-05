@@ -150,20 +150,22 @@ INT4 XLALSimIMREOBFinalMassSpinPrec(
       if (chi1>1e-4){
 	beta=acos(spin1[2]/chi1);
       }
-    
+
       if (chi2>1e-4){
         gamma=acos(spin2[2]/chi2);
       }
+
      
           REAL8 tmp = spin1[0]*spin2[0]+spin1[1]*spin2[1]+spin1[2]*spin2[2];
           tmp /= chi1;
           tmp /= chi2;
+
       if (chi1>1e-4 && chi2>1e-4){
           if ( tmp > 1. && tmp <= 1. + 1e-4) tmp = 1.;
           if ( tmp < -1. && tmp >= -1. - 1e-4) tmp = -1.;
         alpha=acos(tmp);
       }
-     
+
 
       epsilon_alpha=0.0;
       epsilon_beta=0.024;
@@ -171,7 +173,7 @@ INT4 XLALSimIMREOBFinalMassSpinPrec(
 //      alpha=2*atan((1+epsilon_alpha)*tan(alpha/2.));
       beta=2*atan((1+epsilon_beta)*tan(beta/2.));
       gamma=2*atan((1+epsilon_gamma)*tan(gamma/2.));
-      
+
       if ( mass1 > mass2 )
       {
         q = mass2 / mass1;
@@ -207,25 +209,26 @@ INT4 XLALSimIMREOBFinalMassSpinPrec(
       eISCO = XLALSimEnergyKerrISCO( rISCO );
       LISCO = XLALSimAngMomKerrISCO( rISCO );
       /* The k00, k01, ... coefficients are defined in LALSimBlackHoleRingdown.h */
-    
+
       if (fabs(aeff) > 0.) {
 	REAL8 aeff2 = aeff * aeff;
 	fitpart = k00*eta+k01*eta*aeff+k02*eta*aeff2+k10*eta2+k11*eta2*aeff+k12*eta2*aeff2;
-	 
+
       } else {
 	fitpart = k00 * eta2 + k10 * eta2;
       }
-       //printf("Part2\n");
-      printf("Spin components: %.3f %.3f %.3f %.3f %.3f %.3f\n",spin1[0],spin1[1],spin1[2],spin2[0],spin2[1],spin2[2]);
-      printf("%.3f %.3f %.3f %.3f %.3f %.3f\n",alpha,beta,gamma,chi1,chi2,q);
-      
+        
+
       REAL8 ell_norm=fabs(LISCO-2*a_tot_prec*(eISCO-1.0)+fitpart);
       REAL8 prefactor=1./((1+q)*(1+q));
-       
+
       *finalSpin=prefactor*sqrt(pow(chi1,2)+pow(chi2,2)*pow(q,4)+2*chi1*chi2*pow(q,2)*cos(alpha)+
 				 2*(chi1*cos(beta)+chi2*pow(q,2)*cos(gamma))*ell_norm*q+pow(ell_norm,2)*pow(q,2));
-      printf("%.16f\n",*finalSpin);
-       
+
+			if (*finalSpin>1){
+				*finalSpin=1-1e-6;
+			}
+
       /* Stas: Below is original Rez.-Bar. implementation,
       Above I use the aligned case fit because spin1 and spin2
       currently have only z-components equal to projection of the spins on
