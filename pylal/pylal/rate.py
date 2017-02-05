@@ -1507,12 +1507,6 @@ class BinnedArray(object):
 		"""
 		return tuple(centres[index] for centres, index in zip(self.centres(), numpy.unravel_index(self.array.argmax(), self.array.shape)))
 
-	def to_density(self):
-		"""
-		Divide each bin's value by the volume of the bin.
-		"""
-		self.array /= self.bins.volumes()
-
 	def to_pdf(self):
 		"""
 		Convert into a probability density.
@@ -1523,7 +1517,7 @@ class BinnedArray(object):
 		# make sum = 1
 		self.array /= self.array.sum()
 		# make integral = 1
-		self.to_density()
+		self.array /= self.bins.volumes()
 
 	def logregularize(self, epsilon = 2**-1074):
 		"""
@@ -2010,7 +2004,7 @@ def to_moving_mean_density(binned_array, filterdata, cyclic = False):
 	zero values from beyond the ends of the array.
 	"""
 	filter_array(binned_array.array, filterdata, cyclic = cyclic)
-	binned_array.to_density()
+	binned_array.array /= binned_array.volumes()
 
 
 def marginalize(pdf, dim):
