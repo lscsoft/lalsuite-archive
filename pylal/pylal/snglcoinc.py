@@ -839,7 +839,7 @@ class CoincSynthesizer(object):
 		except AttributeError:
 			pass
 		try:
-			del self._rates
+			del self._coincidence_rate_factors
 		except AttributeError:
 			pass
 
@@ -907,11 +907,6 @@ class CoincSynthesizer(object):
 	@mu.setter
 	def mu(self, val):
 		self._mu = val
-		# force re-computation of coincidence rates
-		try:
-			del self._rates
-		except AttributeError:
-			pass
 
 
 	@property
@@ -936,9 +931,119 @@ class CoincSynthesizer(object):
 		self._tau = val
 		# force re-computation of coincidence rates
 		try:
-			del self._rates
+			del self._coincidence_rate_factors
 		except AttributeError:
 			pass
+
+
+	@property
+	def coincidence_rate_factors(self):
+		"""
+		For instruments {1, ..., N}, with rates \mu_{1}, ...,
+		\mu_{N}, the rate of coincidences is
+
+		\propto \prod_{i} \mu_{i}.
+
+		The proportionality constant depends only on the
+		coincidence windows.  This function computes and returns a
+		dictionary of the proportionality constants keyed by
+		instrument set.
+
+		The return value is a reference to an internally-cached
+		dictionary.  Modifications will be retained until the
+		cached data is regenerated (after .reset() is invoked or
+		the .tau attribute is assigned to).
+		"""
+		try:
+			return self._coincidence_rate_factors
+		except AttributeError:
+			pass
+
+		# initialize the proportionality constants
+		self._coincidence_rate_factors = dict.fromkeys(self.all_instrument_combos, 1.0)
+
+		for instruments in self.all_instrument_combos:
+		# choose the instrument whose TOA forms the "epoch" of the
+		# coinc.  to improve the convergence rate this should be
+		# the instrument with the smallest Cartesian product of
+		# coincidence windows with other instruments (so that
+		# coincidence with this instrument provides the tightest
+		# prior constraint on the time differences between the
+		# other instruments).
+			key = instruments
+			anchor = min(instruments, key = lambda a: sum(math.log(self.tau[frozenset((a, b))]) for b in instruments - set([a])))
+			instruments = tuple(instruments - set([anchor]))
+		# the computation of a coincidence rate starts by computing
+		# \mu_{1} * \mu_{2} ... \mu_{N} * 2 * \tau_{12} * 2 *
+		# \tau_{13} ... 2 * \tau_{1N}.  this is the rate at which
+		# events from instrument 1 are coincident with events from
+		# all of instruments 2...N.  later, we will multiply this
+		# by the probability that events from instruments 2...N
+		# known to be coincident with an event from instrument 1
+		# are themselves mutually coincident.  the factor of 2 is
+		# because to be coincident the time difference can be
+		# anywhere in [-tau, +tau], so the size of the coincidence
+		# window is 2 tau.  here we compute the part of the
+		# expression with the \mu factors removed.
+			for instrument in instruments:
+				self._coincidence_rate_factors[key] *= 2. * self.tau[frozenset((anchor, instrument))]
+
+		# if there are more than two instruments, correct for the
+		# probability of full N-way coincidence by computing the
+		# volume of the allowed parameter space by stone throwing.
+		# FIXME:  it might be practical to solve this with some
+		# sort of computational geometry library and convex hull
+		# volume calculator.
+			if len(instruments) > 1:
+		# for each instrument 2...N, the interval within which an
+		# event is coincident with instrument 1
+				windows = tuple((-self.tau[frozenset((anchor, instrument))], +self.tau[frozenset((anchor, instrument))]) for instrument in instruments)
+		# pre-assemble a sequence of instrument index pairs and the
+		# maximum allowed \Delta t between them to avoid doing the
+		# work associated with assembling the sequence inside a
+		# loop
+				ijseq = tuple((i, j, self.tau[frozenset((instruments[i], instruments[j]))]) for (i, j) in itertools.combinations(range(len(instruments)), 2))
+		# compute the numerator and denominator of the fraction of
+		# events coincident with the anchor instrument that are
+		# also mutually coincident.  this is done by picking a
+		# vector of allowed \Delta ts and testing them against the
+		# coincidence windows.  the loop's exit criterion is
+		# arrived at as follows.  after d trials, the number of
+		# successful outcomes is a binomially-distributed RV with
+		# variance = d p (1 - p) <= d/4 where p is the probability
+		# of a successful outcome.  we quit when the ratio of the
+		# bound on the standard deviation of the number of
+		# successful outcomes (d/4) to the actual number of
+		# successful outcomes (n) falls below rel accuracy:
+		# \sqrt{d/4} / n < rel accuracy, or
+		#
+		# \sqrt{d} < 2 * rel accuracy * n
+		#
+		# note that if the true probability is 0, so that n=0
+		# identically, then the loop will never terminate; from the
+		# nature of the problem we know 0<p<1 so the loop will,
+		# eventually, terminate.  note that if instead of using the
+		# upper bound on the variance, we replace p with the
+		# estimate of p at the current iteration (=n/d) and use
+		# that to estimate the variance the loop can be shown to
+		# require many fewer iterations to meet the desired
+		# accuracy, but that choice creates a rather strong bias
+		# that, to overcome, requires some extra hacks to force the
+		# loop to run for additional iterations.  the approach used
+		# here is much simpler.
+				math_sqrt = math.sqrt
+				random_uniform = random.uniform
+				two_epsilon = 2. * self.abundance_rel_accuracy
+				n, d = 0, 0
+				while math_sqrt(d) >= two_epsilon * n:
+					dt = tuple(random_uniform(*window) for window in windows)
+					if all(abs(dt[i] - dt[j]) <= maxdt for i, j, maxdt in ijseq):
+						n += 1
+					d += 1
+				self._coincidence_rate_factors[key] *= float(n) / float(d)
+
+		# done
+		return self._coincidence_rate_factors
 
 
 	@property
@@ -955,106 +1060,18 @@ class CoincSynthesizer(object):
 		example, the rate for frozenset(("H1", "L1")) is the rate,
 		in Hz, at which that combination of instruments
 		participates in coincidences, not the rate of H1,L1
-		doubles.  This is a reference to a cached internal
-		dictionary.  Modifications will be retained until the
-		cached data is regenerated (after .reset() is invoked or
-		the .tau or .mu attributes are assigned to).
+		doubles.  The return value is not cached.
 		"""
-		try:
-			return self._rates
-		except AttributeError:
-			all_instruments = set(self.mu)
-			self._rates = {}
-			for instruments in self.all_instrument_combos:
-		# choose the instrument whose TOA forms the "epoch" of the
-		# coinc.  to improve the convergence rate this should be
-		# the instrument with the smallest Cartesian product of
-		# coincidence windows with other instruments (so that
-		# coincidence with this instrument provides the tightest
-		# prior constraint on the time differences between the
-		# other instruments).
-				key = instruments
-				anchor = min(instruments, key = lambda a: sum(math.log(self.tau[frozenset((a, b))]) for b in instruments - set([a])))
-				instruments = tuple(instruments - set([anchor]))
-		# compute \mu_{1} * \mu_{2} ... \mu_{N} * 2 * \tau_{12} * 2
-		# * \tau_{13} ... 2 * \tau_{1N}.  this is the rate at which
-		# events from instrument 1 are coincident with events from
-		# all of instruments 2...N.  later, we will multiply this
-		# by the probability that events from instruments 2...N
-		# known to be coincident with an event from instrument 1
-		# are themselves mutually coincident
-				rate = self.mu[anchor]
-		# the factor of 2 is because to be coincident the time
-		# difference can be anywhere in [-tau, +tau], so the size
-		# of the coincidence window is 2 tau
-				for instrument in instruments:
-					rate *= self.mu[instrument] * 2 * self.tau[frozenset((anchor, instrument))]
+		# compute \mu_{1} * \mu_{2} ... \mu_{N} * FACTOR where
+		# FACTOR is the previously-computed proportionality
+		# constant from coincidence_rate_factors.
 
-		# if there are more than two instruments, correct for the
-		# probability of full N-way coincidence by computing the
-		# volume of the allowed parameter space by stone throwing.
-		# FIXME:  it might be practical to solve this with some
-		# sort of computational geometry library and convex hull
-		# volume calculator.
-		# FIXME:  in any case, these correction factors depend only
-		# on the coincidence windows and can be computed and saved
-		# when self.tau is updated allowing the rates, here, to be
-		# computed very quickly if only the single-instrument
-		# trigger rates have changed and not the coincidence
-		# windows.
-				if len(instruments) > 1:
-		# for each instrument 2...N, the interval within which an
-		# event is coincident with instrument 1
-					windows = tuple((-self.tau[frozenset((anchor, instrument))], +self.tau[frozenset((anchor, instrument))]) for instrument in instruments)
-		# pre-assemble a sequence of instrument index pairs and the
-		# maximum allowed \Delta t between them to avoid doing the
-		# work associated with assembling the sequence inside a
-		# loop
-					ijseq = tuple((i, j, self.tau[frozenset((instruments[i], instruments[j]))]) for (i, j) in itertools.combinations(range(len(instruments)), 2))
-		# compute the numerator and denominator of the fraction of
-		# events coincident with the anchor instrument that are
-		# also mutually coincident.  this is done by picking a
-		# vector of allowed \Delta ts and testing them against the
-		# coincidence windows.  the loop's exit criterion is
-		# arrived at as follows.  after d trials, the number of
-		# successful outcomes is a binomially-distributed RV with
-		# variance = d p (1 - p) <= d/4 where p is the probability
-		# of a successful outcome.  we quit when the ratio of the
-		# bound on the standard deviation of the number of
-		# successful outcomes (d/4) to the actual number of
-		# successful outcomes (n) falls below rel accuracy:
-		# \sqrt{d/4} / n < rel accuracy.  note that if the true
-		# probability is 0, so that n=0 identically, then the loop
-		# will never terminate; from the nature of the problem we
-		# know 0<p<1 so the loop will, eventually, terminate.  note
-		# that if instead of using the upper bound on the variance,
-		# we replace p with the estimate of p at the current
-		# iteration (=n/d) and use that to estimate the variance
-		# the loop can be shown to require many fewer iterations to
-		# meet the desired accuracy, but that choice creates a
-		# rather strong bias that, to overcome, requires some extra
-		# hacks to force the loop to run for additional iterations.
-		# the approach used here is much simpler.
-					math_sqrt = math.sqrt
-					random_uniform = random.uniform
-					epsilon = self.abundance_rel_accuracy
-					n, d = 0, 0
-					while math_sqrt(d) >= epsilon * n:
-						dt = tuple(random_uniform(*window) for window in windows)
-						if all(abs(dt[i] - dt[j]) <= maxdt for i, j, maxdt in ijseq):
-		# instead of adding 1 here and multiplying n by 2 in the
-		# loop exit test, we increment n by 2 and then fix it
-		# afterwards.
-							n += 2
-						d += 1
-		# fix n (see above)
-					n //= 2
+		rates = dict(self.coincidence_rate_factors)
+		for instruments in rates:
+			for instrument in instruments:
+				rates[instruments] *= self.mu[instrument]
 
-					rate *= float(n) / float(d)
-
-				self._rates[key] = rate
-
-		# self._rates now contains the mean rate at which each
+		# rates now contains the mean rate at which each
 		# combination of instruments can be found in a coincidence
 		# during the times when at least those instruments are
 		# available to form coincidences.  Note:  the rate, e.g.,
@@ -1063,8 +1080,7 @@ class CoincSynthesizer(object):
 		# other higher-order coincidences in which H1 and L1
 		# participate.
 
-			# done
-			return self._rates
+		return rates
 
 
 	@property
