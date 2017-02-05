@@ -1078,7 +1078,8 @@ class CoincSynthesizer(object):
 		are possible, not the mean rate over all time.  The result
 		is not cached.
 		"""
-		coinc_rate = dict.fromkeys(self.rates, 0.0)
+		rates = self.rates	# don't re-evalute in loop
+		coinc_rate = dict.fromkeys(rates, 0.0)
 		# iterate over probabilities in order for better numerical
 		# accuracy
 		for on_instruments, P_on_instruments in sorted(self.P_live.items(), key = lambda (ignored, P): P):
@@ -1088,7 +1089,7 @@ class CoincSynthesizer(object):
 
 			# rates for instrument combinations that are
 			# possible given the instruments that are on
-			allowed_rates = dict((participating_instruments, rate) for participating_instruments, rate in self.rates.items() if participating_instruments <= on_instruments)
+			allowed_rates = dict((participating_instruments, rate) for participating_instruments, rate in rates.items() if participating_instruments <= on_instruments)
 
 			# subtract from each rate the rate at which that
 			# combination of instruments is found in (allowed)
