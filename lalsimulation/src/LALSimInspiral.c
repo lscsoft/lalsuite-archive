@@ -4557,7 +4557,7 @@ int XLALSimLorentzInvarianceViolationTerm(
                                           REAL8 r,                            /**< distance in metres*/
                                           REAL8 lambda_eff,                 /**< Effective wavelength-like parameter in phase in metres */
                                           REAL8 nonGR_alpha,                  /**< Exponent defined in terms of PN order characterising LIV*/
-                                          int LIV_A_sign                     /**<  Sign of A determining the sign of LV phase */
+                                          REAL8 LIV_A_sign                     /**<  Sign of A determining the sign of LV phase */
                                           )
 {
   REAL8 f0, f, df;

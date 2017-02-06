@@ -2005,13 +2005,13 @@ static void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenc
         REAL8 dsigma_min=-1.;
         REAL8 tmpVal=0.0;
         if ((pptb=LALInferenceGetProcParamVal(commandLine,"--LIV_A_sign"))) {
-          int LIV_A_sign;
-          LIV_A_sign = atoi(pptb->value);
+          REAL8 LIV_A_sign;
+          LIV_A_sign = atof(pptb->value);
           if ((LIV_A_sign != -1) && (LIV_A_sign != 1)) {
             XLALPrintError("LIV_A_sign is an integer and can only take either +1 or -1.\n");
             XLAL_ERROR_VOID(XLAL_EFAULT);
           }
-         else LALInferenceAddVariable(model->params,"LIV_A_sign", &LIV_A_sign, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
+          else LALInferenceAddVariable(model->params,"LIV_A_sign", &LIV_A_sign, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
         }
         if ((ppta=LALInferenceGetProcParamVal(commandLine,"--nonGR_alpha"))) {
           REAL8 nonGR_alpha;
