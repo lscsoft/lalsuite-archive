@@ -154,7 +154,9 @@ int XLALSimRingdownGenerateSingleModeMMRDNS_time(
         REAL8 r,                                     /**< distance of source (m) */
         REAL8 dfreq,                                 /**< relative shift in the real frequency parameter */
         REAL8 dtau,                                  /**< relative shift in the damping time parameter */
-        UINT4 Nsamples                               /**< waveform length */
+        UINT4 Nsamples,                               /**< waveform length */
+        REAL8 Tstart                                 /**< starting time of waveform (10M at zero) */
+
 );
 
 /* Convert NR Code Time to Physical Units */
