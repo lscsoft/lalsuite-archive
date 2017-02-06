@@ -1380,11 +1380,11 @@ class BinnedArray(object):
 	Note that even for 1 dimensional arrays the index must be a tuple.
 
 	>>> x = BinnedArray(NDBins((LinearBins(0, 10, 5),)))
-	>>> x.array
+	>>> x.at_centres()
 	array([ 0.,  0.,  0.,  0.,  0.])
 	>>> x[0,] += 1
 	>>> x[0.5,] += 1
-	>>> x.array
+	>>> x.at_centres()
 	array([ 2.,  0.,  0.,  0.,  0.])
 	>>> x.argmax()
 	(1.0,)
@@ -1399,7 +1399,7 @@ class BinnedArray(object):
 	>>> x[0, 1] = 1
 	>>> x[1, 0] = 2
 	>>> x[1, 1] = 4
-	>>> x.array
+	>>> x.at_centres()
 	array([[ 0.,  1.],
 	       [ 2.,  4.]])
 	>>> x[0, 0]
@@ -1491,13 +1491,36 @@ class BinnedArray(object):
 		"""
 		return self.bins.centres()
 
+	def at_centres(self):
+		"""
+		Return an array of the BinnedArray's value evaluated at the
+		bin centres.  In many cases this is simply a reference to
+		the internal array object, but for subclasses that override
+		item retrieval and assignment some additional work might be
+		required to obtain this array.  In those cases, this method
+		is a convenience wrapper to avoid coding the evaluation
+		loop in the calling code.
+
+		Because subclasses expect to be able to override this, in
+		almost call cases calling code that wishes to access the
+		internal array directly should probably use this method
+		instead.
+
+		Notes:
+
+		- The return value might be a newly-constructed object or a
+		  reference to an internal object.
+		"""
+		return self.array
+
 	def argmin(self):
 		"""
 		Return the co-ordinates of the bin centre containing the
 		minimum value.  Same as numpy.argmin(), converting the
 		indexes to bin co-ordinates.
 		"""
-		return tuple(centres[index] for centres, index in zip(self.centres(), numpy.unravel_index(self.array.argmin(), self.array.shape)))
+		array = self.at_centres()
+		return tuple(centres[index] for centres, index in zip(self.centres(), numpy.unravel_index(array.argmin(), array.shape)))
 
 	def argmax(self):
 		"""
@@ -1505,7 +1528,8 @@ class BinnedArray(object):
 		maximum value.  Same as numpy.argmax(), converting the
 		indexes to bin co-ordinates.
 		"""
-		return tuple(centres[index] for centres, index in zip(self.centres(), numpy.unravel_index(self.array.argmax(), self.array.shape)))
+		array = self.at_centres()
+		return tuple(centres[index] for centres, index in zip(self.centres(), numpy.unravel_index(array.argmax(), array.shape)))
 
 	def to_pdf(self):
 		"""
@@ -1659,14 +1683,8 @@ def InterpBinnedArray(binnedarray, fill_value = 0.0):
 
 	# pad the contents of the binned array with 1 element of fill_value
 	# on each side in each dimension
-	try:
-		z = numpy.pad(binnedarray.array, [(1, 1)] * len(binnedarray.array.shape), mode = "constant", constant_values = [(fill_value, fill_value)] * len(binnedarray.array.shape))
-	except AttributeError:
-		# numpy < 1.7 didn't have pad().  FIXME:  remove when we
-		# can rely on a newer numpy
-		z = numpy.empty(tuple(l + 2 for l in binnedarray.array.shape))
-		z.fill(fill_value)
-		z[(slice(1, -1),) * len(binnedarray.array.shape)] = binnedarray.array
+	z = binnedarray.at_centres()
+	z = numpy.pad(z, [(1, 1)] * z.ndim, mode = "constant", constant_values = [(fill_value, fill_value)] * z.ndim)
 
 	# if any co-ordinates are infinite, remove them.  also remove
 	# degenerate co-ordinates from ends
