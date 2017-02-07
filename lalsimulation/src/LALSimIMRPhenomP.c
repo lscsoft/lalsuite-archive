@@ -525,7 +525,7 @@ static int PhenomPCore(
       errcode = init_phi_ins_prefactors(&phi_prefactors, pPhi, pn);
       XLAL_CHECK(XLAL_SUCCESS == errcode, errcode, "init_phi_ins_prefactors failed");
 
-      ComputeIMRPhenDPhaseConnectionCoefficients(pPhi, pn, &phi_prefactors);
+      ComputeIMRPhenDPhaseConnectionCoefficients(pPhi, pn, &phi_prefactors, m1, m2, extraParams);
       // This should be the same as the ending frequency in PhenomD
       fCut = f_CUT / m_sec;
       f_final = pAmp->fRD / m_sec;
@@ -674,7 +674,7 @@ static int PhenomPCore(
     per_thread_errcode = PhenomPCoreOneFrequency(f, eta, chi1_l, chi2_l, chip, distance, M, phic,
                               pAmp, pPhi, PCparams, pn, &angcoeffs, &Y2m,
                               alphaNNLOoffset - alpha0, epsilonNNLOoffset,
-                              &hp_val, &hc_val, &phasing, IMRPhenomP_version, &amp_prefactors, &phi_prefactors);
+                              &hp_val, &hc_val, &phasing, IMRPhenomP_version, &amp_prefactors, &phi_prefactors, extraParams);
 
     if (per_thread_errcode != XLAL_SUCCESS) {
       errcode = per_thread_errcode;
@@ -824,7 +824,8 @@ static int PhenomPCoreOneFrequency(
   REAL8 *phasing,                             /**< [out] overall phasing */
   IMRPhenomP_version_type IMRPhenomP_version, /**< IMRPhenomP(v1) uses IMRPhenomC, IMRPhenomPv2 uses IMRPhenomD */
   AmpInsPrefactors *amp_prefactors,           /**< pre-calculated (cached for saving runtime) coefficients for amplitude. See LALSimIMRPhenomD_internals.c*/
-  PhiInsPrefactors *phi_prefactors            /**< pre-calculated (cached for saving runtime) coefficients for phase. See LALSimIMRPhenomD_internals.*/)
+  PhiInsPrefactors *phi_prefactors,           /**< pre-calculated (cached for saving runtime) coefficients for phase. See LALSimIMRPhenomD_internals.*/
+  const LALSimInspiralTestGRParam *extraParams /**< linked list containing the extra testing GR parameters */)
 {
   XLAL_CHECK(angcoeffs != NULL, XLAL_EFAULT);
   XLAL_CHECK(hp != NULL, XLAL_EFAULT);
@@ -863,7 +864,10 @@ static int PhenomPCoreOneFrequency(
       errcode = init_useful_powers(&powers_of_f, f);
       XLAL_CHECK(errcode == XLAL_SUCCESS, errcode, "init_useful_powers failed for f");
       aPhenom = IMRPhenDAmplitude(f, pAmp, &powers_of_f, amp_prefactors);
-      phPhenom = IMRPhenDPhase(f, pPhi, PNparams, &powers_of_f, phi_prefactors);
+      /* Mass parameters required for implementation of dipole radiation in inspiral phasing */
+      const REAL8 m1_dipole = m1*M; /* to get correct masses in case of dipole radiation contributions*/
+      const REAL8 m2_dipole = m2*M; /* to get correct masses in case of dipole radiation contributions*/
+      phPhenom = IMRPhenDPhase(f, pPhi, PNparams, &powers_of_f, phi_prefactors, m1_dipole, m2_dipole, extraParams);
       SL = chi1_l*m1*m1 + chi2_l*m2*m2;        /* Dimensionfull aligned spin. */
       break;
     default:

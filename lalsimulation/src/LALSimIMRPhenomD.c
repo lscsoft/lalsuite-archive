@@ -271,7 +271,7 @@ static int IMRPhenomDGenerateFD(
   XLAL_CHECK(XLAL_SUCCESS == status, status, "init_phi_ins_prefactors failed");
 
   // Compute coefficients to make phase C^1 continuous (phase and first derivative)
-  ComputeIMRPhenDPhaseConnectionCoefficients(pPhi, pn, &phi_prefactors);
+  ComputeIMRPhenDPhaseConnectionCoefficients(pPhi, pn, &phi_prefactors, m1, m2, extraParams);
 
   //time shift so that peak amplitude is approximately at t=0
   //For details see https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/WaveformsReview/IMRPhenomDCodeReview/timedomain
@@ -286,7 +286,7 @@ static int IMRPhenomDGenerateFD(
   UsefulPowers powers_of_fRef;
   status = init_useful_powers(&powers_of_fRef, MfRef);
   XLAL_CHECK(XLAL_SUCCESS == status, status, "init_useful_powers failed for MfRef");
-  const REAL8 phifRef = IMRPhenDPhase(MfRef, pPhi, pn, &powers_of_fRef, &phi_prefactors);
+  const REAL8 phifRef = IMRPhenDPhase(MfRef, pPhi, pn, &powers_of_fRef, &phi_prefactors, m1, m2, extraParams);
 
   // factor of 2 b/c phi0 is orbital phase
   const REAL8 phi_precalc = 2.*phi0 + phifRef;
@@ -307,7 +307,7 @@ static int IMRPhenomDGenerateFD(
     else
     {
       REAL8 amp = IMRPhenDAmplitude(Mf, pAmp, &powers_of_f, &amp_prefactors);
-      REAL8 phi = IMRPhenDPhase(Mf, pPhi, pn, &powers_of_f, &phi_prefactors);
+      REAL8 phi = IMRPhenDPhase(Mf, pPhi, pn, &powers_of_f, &phi_prefactors, m1, m2, extraParams);
 
       phi -= t0*(Mf-MfRef) + phi_precalc;
       ((*htilde)->data->data)[i] = amp0 * amp * cexp(-I * phi);
@@ -378,7 +378,7 @@ double XLALIMRPhenomDGetPeakFreq(
 
 
 // protoype
-static double PhenDPhaseDerivFrequencyPoint(double Mf, IMRPhenomDPhaseCoefficients *p, PNPhasingSeries *pn);
+static double PhenDPhaseDerivFrequencyPoint(double Mf, IMRPhenomDPhaseCoefficients *p, PNPhasingSeries *pn, const REAL8 m1 /* in M_sol */, const REAL8 m2 /* in M_sol */, const LALSimInspiralTestGRParam *extraParams);
 
 /**
  * Helper function to return the value of the frequency derivative of the
@@ -387,14 +387,14 @@ static double PhenDPhaseDerivFrequencyPoint(double Mf, IMRPhenomDPhaseCoefficien
  * when estimating the length of the time domain version of the waveform.
  * unreviewed
  */
-static double PhenDPhaseDerivFrequencyPoint(double Mf, IMRPhenomDPhaseCoefficients *p, PNPhasingSeries *pn)
+static double PhenDPhaseDerivFrequencyPoint(double Mf, IMRPhenomDPhaseCoefficients *p, PNPhasingSeries *pn, const REAL8 m1 /* in M_sol */, const REAL8 m2 /* in M_sol */, const LALSimInspiralTestGRParam *extraParams)
 {
 
   // split the calculation to just 1 of 3 possible mutually exclusive ranges
 
   if (!StepFunc_boolean(Mf, p->fInsJoin))	// Inspiral range
   {
-      double DPhiIns = DPhiInsAnsatzInt(Mf, p, pn);
+      double DPhiIns = DPhiInsAnsatzInt(Mf, p, pn, m1, m2, extraParams);
 	  return DPhiIns;
   }
 
@@ -490,7 +490,7 @@ double XLALSimIMRPhenomDChirpTime(
     XLAL_CHECK(XLAL_SUCCESS == status, status, "init_phi_ins_prefactors failed");
 
     // Compute coefficients to make phase C^1 continuous (phase and first derivative)
-    ComputeIMRPhenDPhaseConnectionCoefficients(pPhi, pn, &phi_prefactors);
+    ComputeIMRPhenDPhaseConnectionCoefficients(pPhi, pn, &phi_prefactors, m1, m2, extraParams);
 
     // We estimate the length of the time domain signal (i.e., the chirp time)
     // By computing the difference between the values of the Fourier domain
@@ -501,9 +501,9 @@ double XLALSimIMRPhenomDChirpTime(
     const REAL8 MfPeak = XLALIMRPhenomDGetPeakFreq(m1, m2, chi1, chi2) / M_sec;
 
     // Compute phase derivative at starting frequency
-    const REAL8 dphifSt = PhenDPhaseDerivFrequencyPoint(MfSt, pPhi, pn);
+    const REAL8 dphifSt = PhenDPhaseDerivFrequencyPoint(MfSt, pPhi, pn, m1, m2, extraParams);
     // Compute phase derivative at ending (ringdown) frequency
-    const REAL8 dphifRD = PhenDPhaseDerivFrequencyPoint(MfPeak, pPhi, pn);
+    const REAL8 dphifRD = PhenDPhaseDerivFrequencyPoint(MfPeak, pPhi, pn, m1, m2, extraParams);
     const REAL8 dphidiff = dphifRD - dphifSt;
 
     // The length of time is estimated as dphidiff / 2 / pi * M (In units of seconds)
