@@ -155,15 +155,20 @@ INT4 XLALSimIMREOBFinalMassSpinPrec(
         gamma=acos(spin2[2]/chi2);
       }
      
+          REAL8 tmp = spin1[0]*spin2[0]+spin1[1]*spin2[1]+spin1[2]*spin2[2];
+          tmp /= chi1;
+          tmp /= chi2;
       if (chi1>1e-4 && chi2>1e-4){
-        alpha=acos((spin1[0]*spin2[0]+spin1[1]*spin2[1]+spin1[2]*spin2[2])/(chi1*chi2));
+          if ( tmp > 1. && tmp <= 1. + 1e-4) tmp = 1.;
+          if ( tmp < -1. && tmp >= -1. - 1e-4) tmp = -1.;
+        alpha=acos(tmp);
       }
      
 
       epsilon_alpha=0.0;
       epsilon_beta=0.024;
       epsilon_gamma=0.024;
-      alpha=2*atan((1+epsilon_alpha)*tan(alpha/2.));
+//      alpha=2*atan((1+epsilon_alpha)*tan(alpha/2.));
       beta=2*atan((1+epsilon_beta)*tan(beta/2.));
       gamma=2*atan((1+epsilon_gamma)*tan(gamma/2.));
       
