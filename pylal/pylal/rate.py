@@ -1564,6 +1564,16 @@ class BinnedArray(object):
 		return elem
 
 	@classmethod
+	def get_xml_root(cls, xml, name):
+		name = u"%s:pylal_rate_binnedarray" % name
+		elem = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == name]
+		try:
+			elem, = elem
+		except ValueError:
+			raise ValueError("XML tree at '%s' must contain exactly one '%s' LIGO_LW element" % (repr(xml), name))
+		return elem
+
+	@classmethod
 	def from_xml(cls, xml, name):
 		"""
 		Search for the description of a rate.BinnedArray object
@@ -1575,12 +1585,7 @@ class BinnedArray(object):
 		attribute of the XML element.  Changes to the contents of
 		the BinnedArray object affect the XML document tree.
 		"""
-		name = u"%s:pylal_rate_binnedarray" % name
-		elem = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == name]
-		try:
-			elem, = elem
-		except ValueError:
-			raise ValueError("XML tree at '%s' must contain exactly one '%s' LIGO_LW element" % (repr(xml), name))
+		elem = cls.get_xml_root(xml, name)
 		self = cls(NDBins.from_xml(elem), array = ligolw_array.get_array(elem, u"array").array)
 		# sanity check
 		if self.bins.shape != self.array.shape:
