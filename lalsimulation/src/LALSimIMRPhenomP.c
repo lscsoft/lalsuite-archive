@@ -702,7 +702,7 @@ static int PhenomPCore(
     f_final = freqs->data[L_fCut-1];
   if (f_final < freqs->data[0])
   {
-    XLAL_CHECK ( f_final > f_min, XLAL_EDOM, "f_ringdown = %.2g/M <= f_min", f_final );
+    XLAL_PRINT_INFO("f_ringdown = %.2g/M <= f_min", f_final);
     goto cleanup;
   }
 
