@@ -1193,11 +1193,6 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
 	  }
   }
 
-   /*Check for waveform compatibility with inclusion of LIV parameters */
-  ppt=LALInferenceGetProcParamVal(commandLine,"--grtest-parameters");
-  if ((checkParamInList(ppt->value,"log10lambda_eff") && (!(approx==IMRPhenomPv2)) && (!(approx==SEOBNRv4_ROM))) || (checkParamInList(ppt->value,"lambda_eff") && (!(approx==IMRPhenomPv2)) && (!(approx==SEOBNRv4_ROM)))){
-    XLALPrintWarning("LIV parameters not compatible with approximant %s. Can be used only with IMRPhenomPv2.\n",XLALSimInspiralGetStringFromApproximant(approx));
-    }
     /* If requested by the user populate the testing GR or PPE model parameters */
   if (LALInferenceGetProcParamVal(commandLine,"--grtest-parameters") || LALInferenceGetProcParamVal(commandLine,"--ppe-parameters"))
   {
@@ -1208,6 +1203,10 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   if (checkParamInList(ppt->value,"dipolecoeff") && (! approx==TaylorF2) && (! approx==IMRPhenomD) && (! approx==IMRPhenomPv2)){
        XLALPrintWarning("You have selected the GR test parameter 'dipolecoeff' which is not compatible with the approximant %s. Use one of the following approximants for dipole analysis: TaylorF2, IMRPhenomD, or IMRPhenomPv2.\n",XLALSimInspiralGetStringFromApproximant(approx));
   }
+   /*Check for waveform compatibility with inclusion of LIV parameters */
+  if ((checkParamInList(ppt->value,"log10lambda_eff") && (!(approx==IMRPhenomPv2)) && (!(approx==SEOBNRv4_ROM))) || (checkParamInList(ppt->value,"lambda_eff") && (!(approx==IMRPhenomPv2)) && (!(approx==SEOBNRv4_ROM)))){
+    XLALPrintWarning("LIV parameters not compatible with approximant %s. Can be used only with IMRPhenomPv2.\n",XLALSimInspiralGetStringFromApproximant(approx));
+    }
   /* PPE parameters */
 
   ppt=LALInferenceGetProcParamVal(commandLine, "--TaylorF2ppE");
@@ -2090,13 +2089,13 @@ static void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenc
             LALInferenceRegisterUniformVariableREAL8(state, model->params, "log10lambda_eff", 3.0, log10lambda_eff_min, log10lambda_eff_max, LALINFERENCE_PARAM_LINEAR);
           }
       }
-    }
         /* Generic -1PN inspiral phase coefficient, parametrizing generic type of dipole radiation contribution */
         /* Implemented at -1PN order in inspiral phasing of TaylorF2/IMRPhenomD/IMRPhenomPv2 */
         REAL8 dipole_min = -1.;
         REAL8 dipole_max = 1.;
         REAL8 dipole_tmpval = 0.0;
         if (checkParamInList(ppt->value,"dipolecoeff")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dipolecoeff", dipole_tmpval, dipole_min, dipole_max, LALINFERENCE_PARAM_LINEAR);
+    }
     ppt=LALInferenceGetProcParamVal(commandLine,"--ppe-parameters");
     if (ppt)
     {
