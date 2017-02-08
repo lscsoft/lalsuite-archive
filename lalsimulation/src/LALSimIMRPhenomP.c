@@ -700,7 +700,7 @@ static int PhenomPCore(
   // Prevent gsl interpolation errors
   if (f_final > freqs->data[L_fCut-1])
     f_final = freqs->data[L_fCut-1];
-  if (f_final > freqs->data[0])
+  if (f_final < freqs->data[0])
   {
     XLAL_PRINT_INFO("f_ringdown = %.2g/M <= f_min", f_final);
     goto cleanup;
