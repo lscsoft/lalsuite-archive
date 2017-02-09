@@ -1453,9 +1453,9 @@ class BinnedArray(object):
 		self.bins = bins
 		if array is None:
 			self.array = numpy.zeros(bins.shape, dtype = dtype)
+		elif array.shape != bins.shape:
+			raise ValueError("bins (shape = %s) and array (shape = %s), if supplied, must have the same shape" % (str(bins.shape), str(array.shape)))
 		else:
-			if array.shape != bins.shape:
-				raise ValueError("input array and input bins must have the same shape:  %s != %s" % (str(array.shape), str(bins.shape)))
 			self.array = array
 
 	def __getitem__(self, coords):
