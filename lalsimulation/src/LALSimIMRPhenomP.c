@@ -268,7 +268,7 @@ int XLALSimIMRPhenomP(
 
   int retcode = PhenomPCore(hptilde, hctilde,
       chi1_l, chi2_l, chip, thetaJ, m1_SI, m2_SI, distance, alpha0, phic, f_ref, freqs, deltaF, IMRPhenomP_version, extraParams);
-  XLAL_CHECK(retcode == XLAL_SUCCESS, XLAL_EFUNC, "Failed to generate IMRPhenomP waveform.");
+  XLAL_CHECK(retcode == XLAL_SUCCESS, XLAL_EDOM, "Failed to generate IMRPhenomP waveform.");
   XLALDestroyREAL8Sequence(freqs);
   return (retcode);
 }
@@ -702,7 +702,8 @@ static int PhenomPCore(
     f_final = freqs->data[L_fCut-1];
   if (f_final < freqs->data[0])
   {
-    XLAL_PRINT_INFO("Warning - %s: f_ringdown = %.2g/M <= f_min", __func__, f_final);
+    XLALPrintError("XLAL Error - %s: f_ringdown = %f < f_min\n", __func__, f_final);
+    errcode = XLAL_EDOM;
     goto cleanup;
   }
 
