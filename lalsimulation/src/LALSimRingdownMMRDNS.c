@@ -515,8 +515,7 @@ static complex double XLALMMRDNSAmplitudeOverOmegaSquared( double eta, int l, in
 /*
 * Spheroical Harmonic Functions (Leaver's Formulation circa 1986/85)
 */
-static complex double XLALSpinWeightedSpheroidalHarmonic( double jf, int l, int m, int n, double theta, double phi);
-static complex double XLALSpinWeightedSpheroidalHarmonic( double jf,           /* Spin of remnant */
+COMPLEX16 XLALSpinWeightedSpheroidalHarmonic( double jf,           /* Spin of remnant */
                    int l, int m, int n, /* QNM indices */
                    double theta,        /* polar angle */
                    double phi          /* azimuthal angle */
@@ -912,8 +911,8 @@ int XLALSimRingdownGenerateSingleModeFD(
         hconj_mf = 0.0;
 
         for ( UINT4 j=jStart ; j<jMax ; j++ ) {
-        h_f      =      Prefactor/(Omega_lmn+LAL_TWOPI*f);
-        hconj_mf = conj(Prefactor/(Omega_lmn-LAL_TWOPI*f));
+        h_f      =      Prefactor/(Omega_lmn-LAL_TWOPI*f);
+        hconj_mf = conj(Prefactor/(Omega_lmn+LAL_TWOPI*f));
 
         (*hptilde_lmn)->data->data[j] = 0.5 * (h_f + hconj_mf);
         (*hctilde_lmn)->data->data[j] = 0.5 * I * (h_f - hconj_mf);
@@ -1011,8 +1010,8 @@ int XLALSimRingdownMMRDNS_time(
           dtau430 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
 
         /* time runs from Mstart to Mend after merger */
-        REAL8 Tstart = 5.0*Mf*LAL_MTSUN_SI/LAL_MSUN_SI;
-        REAL8 Tend = 60.0*Mf*LAL_MTSUN_SI/LAL_MSUN_SI;
+        REAL8 Tstart = 0.0*Mf*LAL_MTSUN_SI/LAL_MSUN_SI;
+        REAL8 Tend = 80.0*Mf*LAL_MTSUN_SI/LAL_MSUN_SI;
         UINT4 Nsamples = ceil((Tend-Tstart)/deltaT);
 
         /* Compute the modes seperately */
@@ -1111,7 +1110,7 @@ int XLALSimRingdownGenerateSingleModeMMRDNS_time(
         memset((*htilde_lmn)->data->data, 0, Nsamples * sizeof(COMPLEX16));
         
         /* 10M is zero in model -> shift 10M to 0 on time axis*/
-        Tstart -=10.0*Mf_sec;
+        Tstart = 0.0*Mf_sec;
 
         /* fill waveform */
         for ( UINT4 i=0 ; i<Nsamples ; i++ ) {

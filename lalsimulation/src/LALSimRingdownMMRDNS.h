@@ -159,6 +159,11 @@ int XLALSimRingdownGenerateSingleModeMMRDNS_time(
 
 );
 
+/*
+* Spheroical Harmonic Functions (Leaver's Formulation circa 1986/85)
+*/
+COMPLEX16 XLALSpinWeightedSpheroidalHarmonic( double jf, int l, int m, int n, double theta, double phi);
+
 /* Convert NR Code Time to Physical Units */
 //UNUSED static double XLALNRtoPhysTime( UNUSED double NRtime  );
 
