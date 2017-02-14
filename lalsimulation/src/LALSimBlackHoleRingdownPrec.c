@@ -42,7 +42,8 @@ INT4 XLALSimIMREOBFinalMassSpinPrec(
   Approximant     approximant /**<< The waveform approximant being used */
 )
 {
-  REAL8  LISCO,csi,aeff, a_tot_prec,fitpart,alpha,beta,gamma,epsilon_alpha,epsilon_beta,epsilon_gamma;
+  REAL8  LISCO,csi,aeff, a_tot_prec,fitpart,alpha,beta,gamma,epsilon_beta,epsilon_gamma;
+  UNUSED REAL8 epsilon_alpha;
   static const REAL8 root9ovr8minus1 = -0.057190958417936644;
   static const REAL8 root12          = 3.4641016151377544;
 
