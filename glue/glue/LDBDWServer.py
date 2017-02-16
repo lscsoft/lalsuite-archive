@@ -35,8 +35,12 @@ import logging.handlers
 import six.moves.configparser
 import M2Crypto
 import selector
-import cjson
 import simplejson
+
+try:
+    from cjson import (decode, encode)
+except ImportError:
+    from json import (loads as decode, dumps as encode)
 
 from glue import ldbd
 
@@ -243,7 +247,7 @@ class Server(object):
 
     # determine protocol
     try:
-        protocol = cjson.decode(environ['wsgi.input'].read())
+        protocol = decode(environ['wsgi.input'].read())
     except Exception as e:
         if (str(e)).strip() == "empty JSON description":
            logger.debug("No protocol given, request may come from Web GUI")
@@ -280,7 +284,7 @@ class Server(object):
 
     format = environ['wsgiorg.routing_args'][1]['format']
     if format == 'json':
-        result = cjson.encode(msg)
+        result = encode(msg)
         contentType = 'application/json'
     else:
         result = msg
@@ -300,7 +304,7 @@ class Server(object):
 
     # determine protocol
     try:
-        protocol, querystr = (cjson.decode(environ['wsgi.input'].read())).split(":")
+        protocol, querystr = (decode(environ['wsgi.input'].read())).split(":")
     except Exception as e:
         start_response("400 Bad Request", [('Content-type', 'text/plain')])
         msg = "400 Bad Request"
@@ -361,7 +365,7 @@ class Server(object):
       logger.error("Error deleting metadata object in method query: %s" % e)
 
     # encode the result
-    result = cjson.encode(result)
+    result = encode(result)
     
     # return the result
     header = [('Content-Type', 'application/json')]
@@ -403,7 +407,7 @@ class Server(object):
         #import simplejson  (moved to top)
         wsgiIn=environ['wsgi.input'].read()
         inputString=simplejson.loads(wsgiIn)
-        #inputString = cjson.decode(environ['wsgi.input'].read())
+        #inputString = decode(environ['wsgi.input'].read())
     except Exception as e:
         start_response("400 Bad Request", [('Content-type', 'text/plain')])
         msg = "400 Bad Request"
@@ -440,7 +444,7 @@ class Server(object):
       logger.error("Error deleting metadata object in method query: %s" % e)
 
     # encode the result
-    result = cjson.encode(result)
+    result = encode(result)
     
     # return the result
     header = [('Content-Type', 'application/json')]
@@ -517,7 +521,7 @@ class Server(object):
 
     # read the incoming payload
     try:
-        inputString = cjson.decode(environ['wsgi.input'].read())
+        inputString = decode(environ['wsgi.input'].read())
     except Exception as e:
         start_response("400 Bad Request", [('Content-type', 'text/plain')])
         msg = "400 Bad Request"
@@ -751,7 +755,7 @@ class Server(object):
       logger.error("Error deleting metadata object in method insertdmt: %s" % e)
 
     # encode the result
-    result = cjson.encode(result)
+    result = encode(result)
     
     # return the result
     header = [('Content-Type', 'application/json')]
