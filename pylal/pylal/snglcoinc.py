@@ -1273,14 +1273,14 @@ class CoincSynthesizer(object):
 		# this algorithm is documented in slideless_coinc_generator_rates()
 		instruments = tuple(instruments)
 		anchor, instruments = instruments[0], instruments[1:]
-		anchor_offset = [(anchor, 0.0)]	 # don't build inside loop
+		anchor_offset = ((anchor, 0.0),)	 # don't build inside loop
 		uniform = random.uniform
-		windows = tuple((-self.tau[frozenset((anchor, instrument))], +self.tau[frozenset((anchor, instrument))]) for instrument in instruments)
+		windows = tuple((instrument, -self.tau[frozenset((anchor, instrument))], +self.tau[frozenset((anchor, instrument))]) for instrument in instruments)
 		ijseq = tuple((i, j, self.tau[frozenset((instruments[i], instruments[j]))]) for (i, j) in itertools.combinations(range(len(instruments)), 2))
 		while 1:
-			dt = tuple(uniform(*window) for window in windows)
-			if all(abs(dt[i] - dt[j]) <= maxdt for i, j, maxdt in ijseq):
-				yield dict(anchor_offset + zip(instruments, dt))
+			dt = tuple((instrument, uniform(lo, hi)) for instrument, lo, hi in windows)
+			if all(abs(dt[i][1] - dt[j][1]) <= maxdt for i, j, maxdt in ijseq):
+				yield dict(anchor_offset + dt)
 
 
 #
