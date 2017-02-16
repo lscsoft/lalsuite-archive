@@ -370,7 +370,9 @@ typedef enum tagApproximant {
                          * @remarks Implemented in lalsimulation (time domain). */
    RingdownFD,          /**< Frequency domain, ringdown only, multiple quasi-normal modes
                          * @remarks Implemented in lalsimulation (frequency domain). */
-   RingdownMMRDNSFD,      /**< Frequency domain, ringdown only, multiple quasi-normal modes
+   RingdownMMRDNSTD,      /**< Time domain, ringdown only, multiple quasi-normal modes
+                         * @remarks Implemented in lalsimulation (time domain). */
+   RingdownMMRDNSFD,       /**< Frequency domain, ringdown only, multiple quasi-normal modes
                          * @remarks Implemented in lalsimulation (frequency domain). */
    NumApproximants	/**< Number of elements in enum, useful for checking bounds */
  } Approximant;

@@ -2744,7 +2744,8 @@ void LALInferenceInjectRingdownSignal(LALInferenceIFOData *IFOdata, ProcessParam
       
       chiEff = XLALChiEffRingdown(m1, m2, spin1, spin2);
       
-      
+      if(approximant==(int)RingdownTD){
+ 
       /* Ugly method to inject the nonGRparams */
       if(injEvent->dfreq21 != 0.0) {
         XLALSimInspiralAddTestGRParam(&nonGRparams,"dfreq21",injEvent->dfreq21) ;
@@ -2774,10 +2775,76 @@ void LALInferenceInjectRingdownSignal(LALInferenceIFOData *IFOdata, ProcessParam
       XLALSimBlackHoleRingdownTiger(&hplus, &hcross, qnmodes, &t0, phase, 1.0/InjSampleRate, Mbh*LAL_MSUN_SI,
                                     spin, eta, spin1, spin2, chiEff, injEvent->distance*LAL_PC_SI * 1.0e6, 
                                     injEvent->inclination, nonGRparams);
+      }
+      else if(approximant==RingdownMMRDNSTD){
+
+      /* Ugliest method to inject the nonGRparams ever*/
+      /* dfreq */
+      if(injEvent->dfreq221 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dfreq221",injEvent->dfreq210) ;
+      }
+      if(injEvent->dfreq220 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dfreq220",injEvent->dfreq220) ;
+      }
+      if(injEvent->dfreq330 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dfreq330",injEvent->dfreq330) ;
+      }
+      if(injEvent->dfreq331 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dfreq331",injEvent->dfreq331) ;
+      }
+      if(injEvent->dfreq440 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dfreq440",injEvent->dfreq440) ;
+      }
+      if(injEvent->dfreq550 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dfreq550",injEvent->dfreq550) ;
+      }
+      if(injEvent->dfreq210 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dfreq210",injEvent->dfreq210) ;
+      }
+      if(injEvent->dfreq320 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dfreq320",injEvent->dfreq320) ;
+      }
+      if(injEvent->dfreq430 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dfreq430",injEvent->dfreq430) ;
+      }
+    
+      /* dtau */ 
+      if(injEvent->dtau221 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dtau221",injEvent->dtau210) ;
+      }
+      if(injEvent->dtau220 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dtau220",injEvent->dtau220) ;
+      }
+      if(injEvent->dtau330 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dtau330",injEvent->dtau330) ;
+      }
+      if(injEvent->dtau331 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dtau331",injEvent->dtau331) ;
+      }
+      if(injEvent->dtau440 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dtau440",injEvent->dtau440) ;
+      }
+      if(injEvent->dtau550 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dtau550",injEvent->dtau550) ;
+      }
+      if(injEvent->dtau210 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dtau210",injEvent->dtau210) ;
+      }
+      if(injEvent->dtau320 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dtau320",injEvent->dtau320) ;
+      }
+      if(injEvent->dtau430 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dtau430",injEvent->dtau430) ;
+      }
+
+      XLALSimRingdownMMRDNS_time(&hplus, &hcross, &t0, 1.0/InjSampleRate, Mbh*LAL_MSUN_SI, spin, eta, injEvent->inclination, phase, injEvent->distance*LAL_PC_SI*1.0e6, nonGRparams);
+
+}
       if(!hplus || !hcross) {
         fprintf(stderr,"Error: XLALSimInspiralChooseWaveform() failed to produce waveform.\n");
         exit(-1);
       }
+
       XLALSimInspiralDestroyWaveformFlags(waveFlags);
       XLALSimInspiralDestroyTestGRParam(nonGRparams);
       XLALResampleREAL8TimeSeries(hplus,thisData->timeData->deltaT);

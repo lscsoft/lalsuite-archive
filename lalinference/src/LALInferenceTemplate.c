@@ -928,10 +928,13 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceModel *model)  // 
                                                  mass*LAL_MSUN_SI, spin, eta, distance,
                                                  inclination, waveFlags, nonGRparams,
                                                  qnmorder, qnmodes, approximant), errnum); */
-    XLAL_TRY(ret=XLALSimBlackHoleRingdownTiger(&hplus, &hcross, qnmodes, (&model->timehCross->epoch), phi, 
-					       deltaT, mass*LAL_MSUN_SI,
-					       spin, eta, spin1, spin2, chiEff, distance, 
-					       inclination, nonGRparams), errnum);
+
+    if(approximant==(int)RingdownTD){
+    XLAL_TRY(ret=XLALSimBlackHoleRingdownTiger(&hplus, &hcross, qnmodes, (&model->timehCross->epoch), phi, deltaT, mass*LAL_MSUN_SI,spin, eta, spin1, spin2, chiEff, distance, inclination, nonGRparams), errnum);
+    }
+    else if(approximant==(int)RingdownMMRDNSTD){
+    XLAL_TRY(ret=XLALSimRingdownMMRDNS_time(&hplus, &hcross, (&model->timehCross->epoch), deltaT, mass*LAL_MSUN_SI, spin, eta, inclination, phi, distance, nonGRparams), errnum);
+    }
     // XLALSimInspiralDestroyWaveformFlags(waveFlags);
     XLALSimInspiralDestroyTestGRParam(nonGRparams);
     if (ret == XLAL_FAILURE || hplus == NULL || hcross == NULL)
