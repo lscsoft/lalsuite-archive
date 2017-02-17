@@ -115,7 +115,6 @@ def GravitonMass(lambda_g):
     m c^2 = h c / \lambda_g
     Valid for \Omega_0 = 1 and for all z.
     """
-#    return 1.23982e-6/(lambda_g*sqrt((1 + (2+redshift)*(1+redshift+sqrt(1+redshift)))/(5*(1+redshift)**3)))
     return 1.23982e-6/lambda_g
 
 
