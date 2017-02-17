@@ -1305,7 +1305,7 @@ class segmentlistdict(dict):
 
 
 try:
-	from __segments import *
+	from .__segments import *
 except ImportError:
 	pass
 
