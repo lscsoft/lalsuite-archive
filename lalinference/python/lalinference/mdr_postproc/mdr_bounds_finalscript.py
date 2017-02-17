@@ -113,6 +113,7 @@ if __name__ == "__main__":
   print datafiles
   for (dfile, lab) in zip(datafiles, labels):
     if os.path.splitext(dfile)[1] is '.hdf5':
+      #  with h5py.File(dfile, 'r') as h5file:
       h5file = h5py.File(dfile, 'r') 
       ns = h5file['lalinference']['lalinference_nest']['posterior_samples']
       data = array(ns[()])
@@ -124,10 +125,10 @@ if __name__ == "__main__":
 
     """Converting (log)distance posterior to meters"""
     if "logdistance" in data.dtype.names:
-      distdata = exp(data["logdistance"]) * 1e6 * pc_SI
+      distdata = exp(data["logdistance"]) * 1e6 * lal.PC_SI
       print "Logarithmic distance parameter detected."
     elif "distance" in data.dtype.names:
-      distdata = data["distance"] * 1e6 * pc_SI
+      distdata = data["distance"] * 1e6 * lal.PC_SI
       print "Linear distance parameter detected."
     else:
       print "ERROR: No distance posterior! Exiting..."
@@ -148,12 +149,12 @@ if __name__ == "__main__":
     elif "lambda_eff" in data.dtype.names:
       leffdata = data["lambda_eff"]
       logleffdata = log10(leffdata)
-      lamAdata = GComptonWavelength(leffdata, zdata, alphaLIV, this_cosmology)
+      lamAdata = lambda_A_of_eff(leffdata, zdata, alphaLIV, this_cosmology)
       lameff = True
     elif "log10lambda_eff" in data.dtype.names:
       logleffdata = data["log10lambda_eff"]
       leffdata = pow(10, logleffdata)
-      lamAdata = GComptonWavelength(leffdata, zdata, alphaLIV, this_cosmology)
+      lamAdata = lambda_A_of_eff(leffdata, zdata, alphaLIV, this_cosmology)
       loglamAdata = log10(lamAdata)
       lameff = True
     if alphaLIV == 0.0:
@@ -167,6 +168,16 @@ if __name__ == "__main__":
     else:
         weights = None
         logweights = None
-    figlamA_hist = plotPosteriorHist(lamAdata, xlabel="$\lambda_\mathbb{A}$", label=lab, weights=weights)
+
+    CI_68 = weighted_1dQuantile(0.32, loglamAdata,logweights)
+    CI_90 = weighted_1dQuantile(0.1, loglamAdata, logweights)
+    CI_95 = weighted_1dQuantile(0.05, loglamAdata, logweights)
+    CI_99 = weighted_1dQuantile(0.01, loglamAdata, logweights)
+
+    # print min(loglamAdata)
+    print " Summary"
+    print "=-=-=-=-="
+    print "shape:", shape(loglamAdata), " min:", min(loglamAdata), " max:", max(loglamAdata)
+    print "\t68% CI: ", CI_68, "\t90% CI: ", CI_90, "\t95% CI: ", CI_95, "\t99% CI: ", CI_99
 
     
