@@ -83,7 +83,7 @@ def calc_bounds(sampleFiles):
         print "alpha is mandatory to be passed with hdf5 file! Exiting..."
         sys.exit(-1)
       else:
-        alpha=float(nongralpha)
+        alpha=float(opt.nongralpha)
         sampObj = h5py.File(posfile)
         loglambda_eff = sampObj['lalinference']['lalinference_nest']['posterior_samples']['log10lambda_eff']
         lambda_eff = np.power(10,samps)
