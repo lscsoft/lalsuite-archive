@@ -1,6 +1,6 @@
 from scipy import integrate
 from scipy.optimize import newton
-import os, sys, optparse
+import os, sys, optparse, h5py
 import numpy as np
 import lal
 import pickle as pkl
@@ -69,7 +69,7 @@ def lambda_a(redshift, nonGR_alpha, lambda_eff, distance):
     Dfunc = np.vectorize(DistanceMeasure)
     D_alpha = Dfunc(redshift, nonGR_alpha)
     dl = distance*lal.PC_SI*1e6  ## luminosity distane in metres
-    return lambda_eff*(D_alpha/(distance*(1.0+redshift)**(1.0-nonGR_alpha)))**(1./(2.0-nonGR_alpha))
+    return lambda_eff*(D_alpha/(dl*(1.0+redshift)**(1.0-nonGR_alpha)))**(1./(2.0-nonGR_alpha))
 
 def calc_bounds(sampleFiles,lab):
   mpc=1e6*lal.PC_SI
@@ -84,12 +84,12 @@ def calc_bounds(sampleFiles,lab):
         print "alpha is mandatory to be passed with hdf5 file! Exiting..."
         sys.exit(-1)
       else:
-        alpha=float(opt.nongralpha)
+        alpha=float(opts.nongralpha)
         sampObj = h5py.File(posfile)
         loglambda_eff = sampObj['lalinference']['lalinference_nest']['posterior_samples']['log10lambda_eff']
-        lambda_eff = np.power(10,samps)
+        lambda_eff = np.power(10,loglambda_eff) ## in metres
         logdistance = sampObj['lalinference']['lalinference_nest']['posterior_samples']['logdistance']
-        distance = np.exp(samples) ## in Mpc
+        distance = np.exp(logdistance)  ## in Mpc
         z = calculate_redshift(distance)
         loglambdaA = np.log10(lambda_a(z, alpha, lambda_eff, distance))
         minLim = loglambdaA.min()
@@ -115,7 +115,7 @@ def calc_bounds(sampleFiles,lab):
     if RESCALE:
       pdf/=(10**x) 
         #pdf/=(pdf*np.diff(x)[0]).sum()
-    cdf  +=(pdf*np.diff(x)[0]).cumsum()
+    cdf += (pdf*np.diff(x)[0]).cumsum()
 
   if alpha < 2.0: ## checking values of alpha
     lb = x[np.abs(cdf-0.1).argmin()]
