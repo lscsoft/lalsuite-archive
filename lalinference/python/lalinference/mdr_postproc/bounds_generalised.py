@@ -10,6 +10,7 @@ parser = optparse.OptionParser()
 
 parser.add_option('-p', help='path to posterior file(s) in hdf5 or dat format', dest='pos', action='append')
 parser.add_option('-a', help='mandatory to be passed with hdf5 file as no other way to extract it!', dest='nongralpha', action='store')
+parser.add_option('-l', help='label to check which bound is extracted', dest='lab', action='store')
 
 (opts, args) = parser.parse_args()
 
@@ -70,7 +71,7 @@ def lambda_a(redshift, nonGR_alpha, lambda_eff, distance):
     dl = distance*lal.PC_SI*1e6  ## luminosity distane in metres
     return lambda_eff*(D_alpha/(distance*(1.0+redshift)**(1.0-nonGR_alpha)))**(1./(2.0-nonGR_alpha))
 
-def calc_bounds(sampleFiles):
+def calc_bounds(sampleFiles,lab):
   mpc=1e6*lal.PC_SI
   bounds={}
   cdf=0.0
@@ -95,9 +96,9 @@ def calc_bounds(sampleFiles):
         maxLim = loglambdaA.max()
     elif 'dat' in filext:
       ## extract lambdaA directly
-      with open(sampleFile) as f:
+      with open(posfile) as f:
         params=f.readline().split()
-      d = np.loadtxt(sampleFile,skiprows=1)
+      d = np.loadtxt(posfile,skiprows=1)
       alpha = d[:,params.index("nongr_alpha")][0]
       parid = params.index("log10lambda_a")
       loglambdaA = d[:,parid]
@@ -114,15 +115,15 @@ def calc_bounds(sampleFiles):
     if RESCALE:
       pdf/=(10**x) 
         #pdf/=(pdf*np.diff(x)[0]).sum()
-    cdf = +=(pdf*np.diff(x)[0]).cumsum()
+    cdf  +=(pdf*np.diff(x)[0]).cumsum()
 
-  if v < 2.0: ## checking values of alpha
+  if alpha < 2.0: ## checking values of alpha
     lb = x[np.abs(cdf-0.1).argmin()]
-    bounds[run][l]=pow(10,lb)
+    bounds[lab]=pow(10,lb)
   else:
     ub = x[np.abs(cdf-0.1).argmax()]
-    bounds[run][l] =pow(10,ub)
+    bounds[lab] =pow(10,ub)
 
   return bounds
-LV_bounds = calc_bounds(opts.pos)
+LV_bounds = calc_bounds(opts.pos,opts.lab)
 print LV_bounds
