@@ -27,7 +27,7 @@ def MassScale(lambda_A):
     m c^2 = h c / \lambda_A
     Valid for alpha != 2
     """
-    return lal.c_SI*lal.h_SI/lambda_A
+    return lal.C_SI*lal.H_SI/lambda_A
 
 
 def calculate_redshift(distance,h=0.6790,om=0.3065,ol=0.6935,w0=-1.0):
@@ -48,6 +48,11 @@ def calculate_redshift(distance,h=0.6790,om=0.3065,ol=0.6935,w0=-1.0):
     z = np.array([newton(find_z_root,np.random.uniform(0.0,2.0),args = (d,omega)) for d in distance])
     return z
 
+def lambda_A_of_eff(leffdata, zdata, alphaLIV, cosmology):
+    """
+    PLACEHOLDER
+    """
+    return leffdata
 
 def weighted_1dQuantile(quantile, data, weights=None):
   '''Calculate quantiles for confidence intervals on sorted weighted posteriors'''
@@ -97,10 +102,10 @@ if __name__ == "__main__":
   outfolder = args.outputfolder
   MASSPRIOR = args.mprior
   alphaLIV = args.alphaLIV
-
-    cosmology = lal.CreateCosmologicalParameters(0.7,0.3,0.7,-1.0,0.0,0.0) ## these are dummy parameters that are being used for the initialization. they are going to be set to their defaults Planck 2015 values in the next line
-    lal.SetCosmologicalParametersDefaultValue(cosmology) ## setting h, omega_matter and omega_lambda to their default Pla
-    #this_cosmology = LCDM_Cosmology(67.90, 0.3065, 0.6935)
+  
+  cosmology = lal.CreateCosmologicalParameters(0.7,0.3,0.7,-1.0,0.0,0.0) ## these are dummy parameters that are being used for the initialization. they are going to be set to their defaults Planck 2015 values in the next line
+  lal.SetCosmologicalParametersDefaultValue(cosmology) ## setting h, omega_matter and omega_lambda to their default Pla
+  #this_cosmology = LCDM_Cosmology(67.90, 0.3065, 0.6935)
 
   if not os.path.exists(outfolder):
     os.makedirs(outfolder)
@@ -112,13 +117,13 @@ if __name__ == "__main__":
 
   print datafiles
   for (dfile, lab) in zip(datafiles, labels):
-    if os.path.splitext(dfile)[1] is '.hdf5':
+    if os.path.splitext(dfile)[1] == '.hdf5':
       #  with h5py.File(dfile, 'r') as h5file:
       h5file = h5py.File(dfile, 'r') 
       ns = h5file['lalinference']['lalinference_nest']['posterior_samples']
       data = array(ns[()])
     else:
-      if os.path.splitext(dfile)[1] is not '.dat':
+      if os.path.splitext(dfile)[1] !=  '.dat':
         print 'WARNING: data format seems to be incompatible...'
       data = genfromtxt(dfile, names=True)
 
@@ -149,16 +154,16 @@ if __name__ == "__main__":
     elif "lambda_eff" in data.dtype.names:
       leffdata = data["lambda_eff"]
       logleffdata = log10(leffdata)
-      lamAdata = lambda_A_of_eff(leffdata, zdata, alphaLIV, this_cosmology)
+      lamAdata = lambda_A_of_eff(leffdata, zdata, alphaLIV, cosmology)
       lameff = True
     elif "log10lambda_eff" in data.dtype.names:
       logleffdata = data["log10lambda_eff"]
       leffdata = pow(10, logleffdata)
-      lamAdata = lambda_A_of_eff(leffdata, zdata, alphaLIV, this_cosmology)
+      lamAdata = lambda_A_of_eff(leffdata, zdata, alphaLIV, cosmology)
       loglamAdata = log10(lamAdata)
       lameff = True
     if alphaLIV == 0.0:
-        mgdata = GravitonMass(lamAdata)
+        mgdata = MassScale(lamAdata)
     if MASSPRIOR:
         # apply uniform mass prior
         print "Weighing posterior points by 1/\lambda_\mathbb{A}^2"
@@ -168,7 +173,8 @@ if __name__ == "__main__":
     else:
         weights = None
         logweights = None
-
+#    sys.exit(0)
+        
     CI_68 = weighted_1dQuantile(0.32, loglamAdata,logweights)
     CI_90 = weighted_1dQuantile(0.1, loglamAdata, logweights)
     CI_95 = weighted_1dQuantile(0.05, loglamAdata, logweights)
