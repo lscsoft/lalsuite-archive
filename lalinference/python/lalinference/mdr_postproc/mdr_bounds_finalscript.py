@@ -20,6 +20,7 @@ import random
 import h5py
 import lal
 import pickle
+from pylal.bayespputils import calculate_redshift, DistanceMeasure, lambda_a, amplitudeMeasure
 
 def MassScale(lambda_A):
     """
@@ -29,30 +30,12 @@ def MassScale(lambda_A):
     """
     return lal.C_SI*lal.H_SI/lambda_A
 
-
-def calculate_redshift(distance,h=0.6790,om=0.3065,ol=0.6935,w0=-1.0):
+def lambda_A_of_eff(leffedata, zdata, alphaLIV, cosmology):
     """
-    Calculate the redshift from the luminosity distance measurement using the
-    Cosmology Calculator provided in LAL.
-    By default assuming cosmological parameters from arXiv:1502.01589 - 'Planck 2015 results. XIII. Cosmological parameters'
-    Using parameters from table 4, column 'TT+lowP+lensing+ext'
-    This corresponds to Omega_M = 0.3065, Omega_Lambda = 0.6935, H_0 = 67.90 km s^-1 Mpc^-1
-    Returns an array of redshifts
+    Interface function for lambda_a
     """
-    def find_z_root(z,dl,omega):
-        return dl - lal.LuminosityDistance(omega,z)
-
-    omega = lal.CreateCosmologicalParameters(h,om,ol,w0,0.0,0.0) ## initialising with dummy parameters
-    lal.SetCosmologicalParametersDefaultValue(omega) ## setting to default Planck 2015 values
-
-    z = np.array([newton(find_z_root,np.random.uniform(0.0,2.0),args = (d,omega)) for d in distance])
-    return z
-
-def lambda_A_of_eff(leffdata, zdata, alphaLIV, cosmology):
-    """
-    PLACEHOLDER
-    """
-    return leffdata
+    dist = vectorize(lal.LuminosityDistance, excluded=[0])(cosmology, zdata)
+    return lambda_a(zdata, alphaLIV, leffedata, dist)
 
 def weighted_1dQuantile(quantile, data, weights=None):
   '''Calculate quantiles for confidence intervals on sorted weighted posteriors'''
@@ -76,6 +59,8 @@ def weighted_1dQuantile(quantile, data, weights=None):
   # Interpolate if possible
   if iplus > 0:
     x -= (cumw[iplus] - quantile) * (sdata[iplus] - sdata[iplus-1])/(cumw[iplus] - cumw[iplus-1])
+  else:
+    print "WARNING: Quantile interpolation not possible, edge value used."
   return x
 
 
@@ -104,8 +89,7 @@ if __name__ == "__main__":
   alphaLIV = args.alphaLIV
   
   cosmology = lal.CreateCosmologicalParameters(0.7,0.3,0.7,-1.0,0.0,0.0) ## these are dummy parameters that are being used for the initialization. they are going to be set to their defaults Planck 2015 values in the next line
-  lal.SetCosmologicalParametersDefaultValue(cosmology) ## setting h, omega_matter and omega_lambda to their default Pla
-  #this_cosmology = LCDM_Cosmology(67.90, 0.3065, 0.6935)
+  lal.SetCosmologicalParametersDefaultValue(cosmology) ## setting h, omega_matter and omega_lambda to their default Planck 2015 values available in LAL
 
   if not os.path.exists(outfolder):
     os.makedirs(outfolder)
@@ -130,17 +114,17 @@ if __name__ == "__main__":
 
     """Converting (log)distance posterior to meters"""
     if "logdistance" in data.dtype.names:
-      distdata = exp(data["logdistance"]) * 1e6 * lal.PC_SI
+      distdata = exp(data["logdistance"]) #* 1e6 * lal.PC_SI
       print "Logarithmic distance parameter detected."
     elif "distance" in data.dtype.names:
-      distdata = data["distance"] * 1e6 * lal.PC_SI
+      distdata = data["distance"] #* 1e6 * lal.PC_SI
       print "Linear distance parameter detected."
     else:
       print "ERROR: No distance posterior! Exiting..."
       sys.exit(-1)
 
     """Calculating redshifts"""
-    zdata = calculate_redshift(distdata)
+    zdata = vectorize(calculate_redshift)(distdata, cosmology.h, cosmology.om, cosmology.ol, cosmology.w0)
 
     logldata = data["logL"]
 
@@ -166,24 +150,26 @@ if __name__ == "__main__":
         mgdata = MassScale(lamAdata)
     if MASSPRIOR:
         # apply uniform mass prior
-        print "Weighing posterior points by 1/\lambda_\mathbb{A}^2"
         print "TODO: Update for arbitrary values of alpha!"
+        print "Weighing lambda_A posterior points by 1/\lambda_\mathbb{A}^2"
         weights = 1.0/lamAdata**2
+        print "Weighing loglambda_A posterior points by 1/\lambda_\mathbb{A}"
         logweights = 1.0/lamAdata
     else:
         weights = None
         logweights = None
-#    sys.exit(0)
         
-    CI_68 = weighted_1dQuantile(0.32, loglamAdata,logweights)
-    CI_90 = weighted_1dQuantile(0.1, loglamAdata, logweights)
-    CI_95 = weighted_1dQuantile(0.05, loglamAdata, logweights)
-    CI_99 = weighted_1dQuantile(0.01, loglamAdata, logweights)
+
+    """Calculating Posterior Quantiles (upper)"""
+    PQ_68 = weighted_1dQuantile(0.32, loglamAdata,logweights)
+    PQ_90 = weighted_1dQuantile(0.1, loglamAdata, logweights)
+    PQ_95 = weighted_1dQuantile(0.05, loglamAdata, logweights)
+    PQ_99 = weighted_1dQuantile(0.01, loglamAdata, logweights)
 
     # print min(loglamAdata)
     print " Summary"
     print "=-=-=-=-="
     print "shape:", shape(loglamAdata), " min:", min(loglamAdata), " max:", max(loglamAdata)
-    print "\t68% CI: ", CI_68, "\t90% CI: ", CI_90, "\t95% CI: ", CI_95, "\t99% CI: ", CI_99
+    print "\t68% PQ: ", PQ_68, "\t90% PQ: ", PQ_90, "\t95% PQ: ", PQ_95, "\t99% PQ: ", PQ_99
 
     
