@@ -22,13 +22,21 @@ import lal
 import pickle
 from pylal.bayespputils import calculate_redshift, DistanceMeasure, lambda_a, amplitudeMeasure
 
-def MassScale(lambda_A):
+def EnergyScale(lambda_A):
     """
     Calculate mass/energy scale in eV as:    
     m c^2 = h c / \lambda_A
     Valid for alpha != 2
     """
-    return lal.C_SI*lal.H_SI/lambda_A
+    return 4.135667662E-15*lal.C_SI/lambda_A
+
+def A_LIV(lambda_A, alpha):
+    """
+    Calculate \mathbb{A}*c^{2-alpha} in (eV)^{2-a} as: 
+    A = (m_A*c)^{2-alpha} = (h/lambda_A)^{2-alpha}
+    Valid for alpha != 2
+    """
+    return (4.135667662E-15*lal.C_SI/lambda_A)**(2-alpha)
 
 def lambda_A_of_eff(leffedata, zdata, alphaLIV, cosmology):
     """
@@ -147,7 +155,7 @@ if __name__ == "__main__":
       loglamAdata = log10(lamAdata)
       lameff = True
     if alphaLIV == 0.0:
-        mgdata = MassScale(lamAdata)
+        mgdata = EnergyScale(lamAdata)
     if MASSPRIOR:
         # apply uniform mass prior
         print "Weighing lambda_A posterior points by 1/\lambda_\mathbb{A}^2"
@@ -181,6 +189,7 @@ if __name__ == "__main__":
     print "shape:", shape(loglamAdata), " min:", min(loglamAdata), " max:", max(loglamAdata)
     print "log(lambda_A)\t68% PQ: ", PQ_68, "\t90% PQ: ", PQ_90, "\t95% PQ: ", PQ_95, "\t99% PQ: ", PQ_99
     print "lambda_A [m]\t68% PQ: ", 10**PQ_68, "\t90% PQ: ", 10**PQ_90, "\t95% PQ: ", 10**PQ_95, "\t99% PQ: ", 10**PQ_99
-    print "m_A [eV]\t68% PQ: ", MassScale(PQ_68), "\t90% PQ: ", MassScale(PQ_90), "\t95% PQ: ", MassScale(PQ_95), "\t99% PQ: ", MassScale(PQ_99)
-    
+    print "E_A [eV]\t68% PQ: ", EnergyScale(10**PQ_68), "\t90% PQ: ", EnergyScale(10**PQ_90), "\t95% PQ: ", EnergyScale(10**PQ_95), "\t99% PQ: ", EnergyScale(10**PQ_99)
+    print "A [(eV/c)^", str(2-alphaLIV), "]\t68% PQ: ", A_LIV(10**PQ_68, alphaLIV), "\t90% PQ: ", A_LIV(10**PQ_90, alphaLIV), "\t95% PQ: ", A_LIV(10**PQ_95, alphaLIV), "\t99% PQ: ", A_LIV(10**PQ_99, alphaLIV)
+
     
