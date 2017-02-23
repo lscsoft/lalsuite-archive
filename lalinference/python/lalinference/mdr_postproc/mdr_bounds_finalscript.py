@@ -150,7 +150,6 @@ if __name__ == "__main__":
         mgdata = MassScale(lamAdata)
     if MASSPRIOR:
         # apply uniform mass prior
-        print "TODO: Update for arbitrary values of alpha!"
         print "Weighing lambda_A posterior points by 1/\lambda_\mathbb{A}^2"
         weights = 1.0/lamAdata**2
         print "Weighing loglambda_A posterior points by 1/\lambda_\mathbb{A}"
