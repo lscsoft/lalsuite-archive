@@ -184,12 +184,12 @@ if __name__ == "__main__":
         sys.exit(-1)
 
     # print min(loglamAdata)
-    print " Summary"
-    print "=-=-=-=-="
+    print " Summary ( alpha = ", str(alphaLIV), ")"
+    print "=-=-=-=-=-=-=-=-=-=-=-=-="
     print "shape:", shape(loglamAdata), " min:", min(loglamAdata), " max:", max(loglamAdata)
     print "log(lambda_A)\t68% PQ: ", PQ_68, "\t90% PQ: ", PQ_90, "\t95% PQ: ", PQ_95, "\t99% PQ: ", PQ_99
     print "lambda_A [m]\t68% PQ: ", 10**PQ_68, "\t90% PQ: ", 10**PQ_90, "\t95% PQ: ", 10**PQ_95, "\t99% PQ: ", 10**PQ_99
     print "E_A [eV]\t68% PQ: ", EnergyScale(10**PQ_68), "\t90% PQ: ", EnergyScale(10**PQ_90), "\t95% PQ: ", EnergyScale(10**PQ_95), "\t99% PQ: ", EnergyScale(10**PQ_99)
-    print "A [(eV/c)^", str(2-alphaLIV), "]\t68% PQ: ", A_LIV(10**PQ_68, alphaLIV), "\t90% PQ: ", A_LIV(10**PQ_90, alphaLIV), "\t95% PQ: ", A_LIV(10**PQ_95, alphaLIV), "\t99% PQ: ", A_LIV(10**PQ_99, alphaLIV)
+    print "A [(eV/c)^" + str(2-alphaLIV) + "]\t68% PQ: ", A_LIV(10**PQ_68, alphaLIV), "\t90% PQ: ", A_LIV(10**PQ_90, alphaLIV), "\t95% PQ: ", A_LIV(10**PQ_95, alphaLIV), "\t99% PQ: ", A_LIV(10**PQ_99, alphaLIV)
 
     
