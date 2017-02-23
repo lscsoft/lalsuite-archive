@@ -114,10 +114,10 @@ if __name__ == "__main__":
 
     """Converting (log)distance posterior to meters"""
     if "logdistance" in data.dtype.names:
-      distdata = exp(data["logdistance"]) #* 1e6 * lal.PC_SI
+      distdata = exp(data["logdistance"]) # calculate_redshift needs distances in Mpc. Use * 1e6 * lal.PC_SI to convert to meters
       print "Logarithmic distance parameter detected."
     elif "distance" in data.dtype.names:
-      distdata = data["distance"] #* 1e6 * lal.PC_SI
+      distdata = data["distance"] # calculate_redshift needs distances in Mpc. * 1e6 * lal.PC_SI to convert to meters
       print "Linear distance parameter detected."
     else:
       print "ERROR: No distance posterior! Exiting..."
@@ -126,7 +126,7 @@ if __name__ == "__main__":
     """Calculating redshifts"""
     zdata = vectorize(calculate_redshift)(distdata, cosmology.h, cosmology.om, cosmology.ol, cosmology.w0)
 
-    logldata = data["logL"]
+    #logldata = data["logl"]
 
     """Calculating posteriors for lambda_{eff} parameters"""
     if "log10lambda_a" in data.dtype.names:
@@ -160,16 +160,28 @@ if __name__ == "__main__":
         logweights = None
         
 
-    """Calculating Posterior Quantiles (upper)"""
-    PQ_68 = weighted_1dQuantile(0.32, loglamAdata,logweights)
-    PQ_90 = weighted_1dQuantile(0.1, loglamAdata, logweights)
-    PQ_95 = weighted_1dQuantile(0.05, loglamAdata, logweights)
-    PQ_99 = weighted_1dQuantile(0.01, loglamAdata, logweights)
+    if alphaLIV < 2.0:
+        """Calculating Posterior Quantiles (lower)"""
+        PQ_68 = weighted_1dQuantile(0.32, loglamAdata,logweights)
+        PQ_90 = weighted_1dQuantile(0.1, loglamAdata, logweights)
+        PQ_95 = weighted_1dQuantile(0.05, loglamAdata, logweights)
+        PQ_99 = weighted_1dQuantile(0.01, loglamAdata, logweights)
+    elif alphaLIV > 2.0:
+        """Calculating Posterior Quantiles (upper)"""
+        PQ_68 = -weighted_1dQuantile(0.32, -loglamAdata,logweights)
+        PQ_90 = -weighted_1dQuantile(0.1, -loglamAdata, logweights)
+        PQ_95 = -weighted_1dQuantile(0.05, -loglamAdata, logweights)
+        PQ_99 = -weighted_1dQuantile(0.01, -loglamAdata, logweights)
+    else:
+        print "Cannot handle alpha=2 yet. Exiting..."
+        sys.exit(-1)
 
     # print min(loglamAdata)
     print " Summary"
     print "=-=-=-=-="
     print "shape:", shape(loglamAdata), " min:", min(loglamAdata), " max:", max(loglamAdata)
-    print "\t68% PQ: ", PQ_68, "\t90% PQ: ", PQ_90, "\t95% PQ: ", PQ_95, "\t99% PQ: ", PQ_99
-
+    print "log(lambda_A)\t68% PQ: ", PQ_68, "\t90% PQ: ", PQ_90, "\t95% PQ: ", PQ_95, "\t99% PQ: ", PQ_99
+    print "lambda_A [m]\t68% PQ: ", 10**PQ_68, "\t90% PQ: ", 10**PQ_90, "\t95% PQ: ", 10**PQ_95, "\t99% PQ: ", 10**PQ_99
+    print "m_A [eV]\t68% PQ: ", MassScale(PQ_68), "\t90% PQ: ", MassScale(PQ_90), "\t95% PQ: ", MassScale(PQ_95), "\t99% PQ: ", MassScale(PQ_99)
+    
     
