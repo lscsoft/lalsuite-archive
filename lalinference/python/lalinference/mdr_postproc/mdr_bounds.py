@@ -159,9 +159,9 @@ if __name__ == "__main__":
     if MASSPRIOR:
         # apply uniform mass prior
         print "Weighing lambda_A posterior points by 1/\lambda_\mathbb{A}^2"
-        weights = 1.0/lamAdata**2
+        weights = lamAdata**(alphaLIV-3)
         print "Weighing loglambda_A posterior points by 1/\lambda_\mathbb{A}"
-        logweights = 1.0/lamAdata
+        logweights = lamAdata**(alphaLIV-2)
     else:
         weights = None
         logweights = None
