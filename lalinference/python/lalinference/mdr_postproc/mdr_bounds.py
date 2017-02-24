@@ -84,7 +84,7 @@ if __name__ == "__main__":
   parser.add_argument("-i", "--input", type=str, dest="datafiles", nargs='+', help="list of .hdf5 or .dat file(s) containing data points (one file per chain)", metavar="POSTERIOR FILES")
   parser.add_argument("-l", "--label", type=str, dest="labels", nargs='+', help="source-identifying string(s)", default=None)
   parser.add_argument("-o", "--output", type=str, dest="outputfolder", help="outputfolder", metavar="OUTPUT FOLDER",default=".")
-  parser.add_argument("--mprior", action="store_true", dest="mprior", help="use uniform mass prior")
+  parser.add_argument("--prior", type=str, dest="prior", choices=['mass','A'], help="use prior uniform in {mass, A} (default is uniform in lalinference parameter used)")
   parser.add_argument("-a", "--alpha", type=float, dest="alphaLIV", help="Exponent of Lorentz invariance violating term", default=0.0)
 
 
@@ -93,7 +93,7 @@ if __name__ == "__main__":
   datafiles = args.datafiles
   labels = args.labels
   outfolder = args.outputfolder
-  MASSPRIOR = args.mprior
+  prior = args.prior
   alphaLIV = args.alphaLIV
   
   cosmology = lal.CreateCosmologicalParameters(0.7,0.3,0.7,-1.0,0.0,0.0) ## these are dummy parameters that are being used for the initialization. they are going to be set to their defaults Planck 2015 values in the next line
@@ -156,13 +156,22 @@ if __name__ == "__main__":
       lameff = True
     if alphaLIV == 0.0:
         mgdata = EnergyScale(lamAdata)
-    if MASSPRIOR:
+    if prior == 'mass':
         # apply uniform mass prior
-        print "Weighing lambda_A posterior points by 1/\lambda_\mathbb{A}^2"
-        weights = lamAdata**(alphaLIV-3)
+        print 'Applying prior uniform in mass scale'
         print "Weighing loglambda_A posterior points by 1/\lambda_\mathbb{A}"
+        logweights = 1.0/lamAdata
+        print "Weighing lambda_A posterior points by 1/\lambda_\mathbb{A}^2"
+        weights = lamAdata**(-2)
+    elif prior == 'A':
+        #apply uniform A prior
+        print 'Applying prior uniform in A'
+        print "Weighing loglambda_A posterior points by \lambda_\mathbb{A}^{alpha-2}"
         logweights = lamAdata**(alphaLIV-2)
+        print "Weighing lambda_A posterior points by \lambda_\mathbb{A}^{alpha-3}"
+        weights = lamAdata**(alphaLIV-3)
     else:
+        print "Using default priors"
         weights = None
         logweights = None
         
