@@ -1619,7 +1619,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     if engine=='lalinferenceburst':
       prefix='LIB'
     elif engine is None:
-      prefix=""
+      prefix="skymap"
     else:
       prefix='LALInference'
     nodes=None
@@ -1638,7 +1638,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
               #for p in sk.__parents:
               #  if isinstance(p,ResultPageNode):
               #    resultpagenode=p
-              node.set_filename(sk.outdir+'/%s_skymap.fits.gz'%prefix)
+              node.set_filename(sk.outdir+'/%s.fits.gz'%prefix)
               node.set_message('%s FITS sky map'%prefix)
               self.add_node(node)
               nodes.append(node)
@@ -2570,7 +2570,7 @@ class SkyAreaNode(pipeline.CondorDAGNode):
   def set_fits_name(self):
       name='skymap.fits.gz'
       if self.prefix is not None:
-        name=self.prefix+name
+        name=self.prefix+'.fits.gz'
       self.add_var_opt('fitsoutname',name)
   def set_injection(self,injfile,eventnum):
       if injfile is not None:
