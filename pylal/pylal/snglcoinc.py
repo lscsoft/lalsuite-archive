@@ -242,7 +242,7 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 
 	The signature of the comparison function should be
 
-	>>> comparefunc(event1, offset1, event2, offset2, light_travel_time, threshold_data)
+	comparefunc(event1, offset1, event2, offset2, light_travel_time, threshold_data)
 
 	where event1 and event2 are two objects drawn from the event lists
 	(of different instruments), offset1 and offset2 are the time shifts
@@ -257,7 +257,7 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 
 	The thresholds dictionary should look like
 
-	>>> {("H1", "L1"): 10.0, ("L1", "H1"): -10.0}
+	{("H1", "L1"): 10.0, ("L1", "H1"): -10.0}
 
 	i.e., the keys are tuples of instrument pairs and the values
 	specify the "threshold data" for that instrument pair.  The
@@ -1171,7 +1171,8 @@ class CoincSynthesizer(object):
 		>>> seglists = segmentlistdict({"H1": segmentlist([segment(0, 30)]), "L1": segmentlist([segment(10, 50)]), "V1": segmentlist([segment(20, 70)])})
 		>>> coinc_synth = CoincSynthesizer(eventlists, seglists, 0.001)
 		>>> combos = coinc_synth.instrument_combos()
-		>>> combos.next()	# returns a frozenset of instruments
+		>>> combos.next()	# doctest: +SKIP
+		frozenset(['V1', 'L1'])
 		"""
 		#
 		# retrieve sorted tuple of (probability mass, instrument
