@@ -1,6 +1,6 @@
 import doctest
-from pylal import date
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+from lalburst import date
+from lal import LIGOTimeGPS
 import unittest
 
 
