@@ -1423,7 +1423,7 @@ class BinnedArray(object):
 	>>> x = BinnedArray(NDBins((LinearBins(0, 10, 5),)), array = numpy.zeros((5,1)))
 	Traceback (most recent call last):
 		...
-	ValueError: input array and input bins must have the same shape:  (5, 1) != (5,)
+	ValueError: bins (shape = (5,)) and array (shape = (5, 1)), if supplied, must have the same shape
 
 	A BinnedArray can be serialized to LIGO Light Weight XML.
 
