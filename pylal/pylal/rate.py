@@ -1783,6 +1783,134 @@ def InterpBinnedArray(binnedarray, fill_value = 0.0):
 #
 # =============================================================================
 #
+#                                BinnedDensity
+#
+# =============================================================================
+#
+
+
+class BinnedDensity(BinnedArray):
+	"""
+	Variant of the BinnedArray type that interprets its contents as a
+	density.  When initialized, the volumes of the NDBins used to
+	create the BinnedDensity are computed and stored in the .volume
+	attribute.  When a value is retrieved from a bin, the value
+	reported is the value stored in the bin divided by the bin's
+	volume.  When a value is assigned to a bin, the value recorded is
+	the assigned value multiplied by the bin's volume.  The true values
+	recorded in the bins can be accessed via the .count attribute,
+	which is a BinnedArray object wrapping the same array and binning.
+
+	Because the internal array stores counts, not the densities, when
+	the data in an instance of this class is processed with the
+	filter_array() function the result is the density of smoothed
+	counts, not the smoothed density.  This is best illustrated with an
+	example.
+
+	Example:  linear bins
+
+	>>> # bins are 2 units, each
+	>>> x = BinnedDensity(NDBins((LinearBins(0, 10, 5),)))
+	>>> x.volume
+	array([ 2.,  2.,  2.,  2.,  2.])
+	>>> # set count at 5 to 1
+	>>> x.count[5.0,] = 1
+	>>> # internal array set to 1 in that bin
+	>>> x.array
+	array([ 0.,  0.,  1.,  0.,  0.])
+	>>> # density reported is 0.5
+	>>> print x[5.0,]
+	0.5
+	>>> # convolve counts with 3-bin top hat window
+	>>> filter_array(x.array, tophat_window(3))
+	array([ 0.        ,  0.33333333,  0.33333333,  0.33333333,  0.        ])
+	>>> # density at 5 is now 1/6 counts / unit interval
+	>>> print x[5.0,]
+	0.166666666667
+	>>> # total count has been preserved
+	>>> print x.array.sum()
+	1.0
+
+	Example:  logarithmic bins
+
+	>>> # bins increase in size by a factor of 2, each
+	>>> x = BinnedDensity(NDBins((LogarithmicBins(1, 32, 5),)))
+	>>> x.volume
+	array([  1.,   2.,   4.,   8.,  16.])
+	>>> # set count at 5 to 1
+	>>> x.count[5.0,] = 1
+	>>> # internal array set to 1 in that bin
+	>>> x.array
+	array([ 0.,  0.,  1.,  0.,  0.])
+	>>> # density reported is 0.25
+	>>> print x[5.0,]
+	0.25
+	>>> # convolve counts with 3-bin top hat window
+	>>> filter_array(x.array, tophat_window(3))
+	array([ 0.        ,  0.33333333,  0.33333333,  0.33333333,  0.        ])
+	>>> # density at 5 is now 1/12 counts / unit interval
+	>>> print x[5.0,]
+	0.0833333333333
+	>>> # density is 1/6 in bin below
+	>>> print x[3,]
+	0.166666666667
+	>>> # and 1/24 in bin above
+	>>> print x[10,]
+	0.0416666666667
+	>>> # total count has been preserved
+	>>> print x.array.sum()
+	1.0
+
+	Explanation.  In the linear case there are five bins spanning the
+	interval [0, 10], making each bin 2 "units" in size.  A single
+	count is placed at 5.0, which is bin number 2.  The averaging
+	filter is a top-hat window 3 bins wide.  The single count in bin
+	#2, when averaged over the three bins around it, becomes an average
+	of 1/3 count per bin, each of which is 2 units in size, so the
+	average density is 1/6 events / unit.  The count has been spread
+	out over several bins but the integral of the density, the total
+	count, is unchanged.  The logarithmic case is identical but because
+	the bin sizes are non-uniform, when the single count is spread
+	across the three bins the density is non-uniform.  The integral is
+	still preserved.
+
+	Some binnings have infinite-sized bins.  For such bins, the counts
+	may be manipulated directly, as usual, but for all finite counts a
+	density of 0 will be reported for those bins (and NaN for infinite
+	counts), and ValueError will be raised if an attempt is made to
+	assign a density to those bins.
+
+	NOTES:
+
+	- While it is technically possible to modify the binning parameters
+	  after creating an instance of this class, the steps required to
+	  bring all internal data back into consistency following such a
+	  change are undocumented.  One should consider the metadata
+	  carried by these objects to be immutable.
+	"""
+	def __init__(self, *args, **kwargs):
+		super(BinnedDensity, self).__init__(*args, **kwargs)
+		self.count = BinnedArray(self.bins, array = self.array)
+		self.volume = self.bins.volumes()
+
+	def __getitem__(self, coords):
+		coords = self.bins(*coords)
+		return self.array[coords] / self.volume[coords]
+
+	def __setitem__(self, coords, val):
+		coords = self.bins(*coords)
+		vol = self.volume[coords]
+		if numpy.isinf(vol).any():
+			raise ValueError("cannot assign density values to infinite-volume bins, try assigning a count instead")
+		self.array[coords] = val * vol
+
+	def at_centres(self):
+		return self.array / self.volume
+
+
+#
+# =============================================================================
+#
 #                                   Windows
 #
 # =============================================================================
@@ -1980,54 +2108,6 @@ def filter_array(a, window, cyclic = False, use_fft = True):
 #
 # =============================================================================
 #
-
-
-def to_moving_mean_density(binned_array, filterdata, cyclic = False):
-	"""
-	Convolve a BinnedArray with a filter function, then divide all bins
-	by their volumes.  The result is the density function smoothed by
-	the filter.  The default is to assume 0 values beyond the ends of
-	the array when convolving with the filter function.  Set the
-	optional cyclic parameter to True for periodic boundaries.
-
-	Example:
-
-	>>> x = BinnedArray(NDBins((LinearBins(0, 10, 5),)))
-	>>> x[5.0,] = 1
-	>>> x.array
-	array([ 0.,  0.,  1.,  0.,  0.])
-	>>> to_moving_mean_density(x, tophat_window(3))
-	>>> x.array
-	array([ 0.        ,  0.16666667,  0.16666667,  0.16666667,  0.        ])
-
-	Explanation.  There are five bins spanning the interval [0, 10],
-	making each bin 2 "units" in size.  A single count is placed at
-	5.0, which is bin number 2.  The averaging filter is a top-hat
-	window 3 bins wide.  The single count in bin #2, when averaged over
-	the three bins around it, is equivalent to a mean density of 1/6
-	events / unit.
-
-	Example:
-
-	>>> x = BinnedArray(NDBins((LinearBins(0, 10, 5),)))
-	>>> x[1,] = 1
-	>>> x[3,] = 1
-	>>> x[5,] = 1
-	>>> x[7,] = 1
-	>>> x[9,] = 1
-	>>> x.array
-	array([ 1.,  1.,  1.,  1.,  1.])
-	>>> to_moving_mean_density(x, tophat_window(3))
-	>>> x.array
-	array([ 0.33333333,  0.5       ,  0.5       ,  0.5       ,  0.33333333])
-
-	We have uniformly distributed events at 2 unit intervals (the first
-	is at 1, the second at 3, etc.).  The event density is 0.5 events /
-	unit, except at the edges where the smoothing window has picked up
-	zero values from beyond the ends of the array.
-	"""
-	filter_array(binned_array.array, filterdata, cyclic = cyclic)
-	binned_array.array /= binned_array.volumes()
 
 
 def marginalize(pdf, dim):
