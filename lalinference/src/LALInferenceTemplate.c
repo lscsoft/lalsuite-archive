@@ -85,10 +85,10 @@ static int InterpolateWaveform(REAL8Vector *freqs, COMPLEX16FrequencySeries *src
   UINT4 j=ceil(freqs->data[0] / deltaF);
   COMPLEX16 *d=dest->data->data;
   memset(d, 0, sizeof(*(d))*j);
-  
+
   /* Loop over reduced frequency set */
   for(UINT4 i=0;i<freqs->length-1;i++)
-  {  
+  {
     double startpsi = carg(src->data->data[i]);
     double startamp = cabs(src->data->data[i]);
     double endpsi = carg(src->data->data[i+1]);
@@ -98,7 +98,7 @@ static int InterpolateWaveform(REAL8Vector *freqs, COMPLEX16FrequencySeries *src
     double endf=freqs->data[i+1];
 
     double df = endf - startf; /* Big freq step */
-    
+
     /* linear interpolation setup */
     double dpsi = (endpsi - startpsi);
 
@@ -108,12 +108,12 @@ static int InterpolateWaveform(REAL8Vector *freqs, COMPLEX16FrequencySeries *src
      * the phase wrapping around (e.g. TF2 1.4-1.4 srate=4096)
      */
     if (dpsi/df<-LAL_PI ) {dpsi+=LAL_TWOPI;}
-    
+
     double dpsidf = dpsi/df;
     double dampdf = (endamp - startamp)/df;
 
     double damp = dampdf *deltaF;
-    
+
     const double dim = sin(dpsidf*deltaF);
     const double dre = 2.0*sin(dpsidf*deltaF*0.5)*sin(dpsidf*deltaF*0.5);
 
@@ -122,9 +122,9 @@ static int InterpolateWaveform(REAL8Vector *freqs, COMPLEX16FrequencySeries *src
     for(f=j*deltaF,
 	re = cos(startpsi), im = sin(startpsi),
         a = startamp;
-        
+
         f<endf;
-        
+
         j++, f+=deltaF,
         newRe = re - dre*re-dim*im,
         newIm = im + re*dim-dre*im,
@@ -1345,8 +1345,8 @@ model->waveFlags(%d,%d,%d,%d,numreldata),nonGRparams,%d,%d,%d,model->waveformCac
             XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'hctilde'.\n");
             XLAL_ERROR_VOID(XLAL_EFAULT);
         }
-        
-        
+
+
         InterpolateWaveform(frequencies, hptilde, model->freqhPlus);
         InterpolateWaveform(frequencies, hctilde, model->freqhCross);
 
@@ -2014,11 +2014,11 @@ static REAL8 SORFUNC (REAL8 x, void *params)
   REAL8 ly = 0.0;
   REAL8 lz = 1.0;
 
-  /* Full Angular momentum vector; magnitude scaled by 1/M^2 where M is total mass.
-   * For L see eq. 2.9 of arxiv:gr-qc/9506022  */
+  /* Full Angular momentum vector accurate upto 1PN; magnitude scaled by 1/M^2 where M is total mass.
+   * For L see eq. (6.10) of PHYSICAL REVIEW D 74, 104034 (2006) */
   REAL8 Lx = 0.0;
   REAL8 Ly = 0.0;
-  REAL8 Lz = (eta/sqrt(xx))*(1+xx*(2.5 -eta/6.));
+  REAL8 Lz = (eta/sqrt(xx))*(1+xx*(1.5 + eta/6.));
 
   REAL8 phi12 = LALInferenceGetREAL8Variable(parameters->params, "SpinOrbitResonancePhi12");
   fprintf(stderr, "phi12 = %f\n", phi12);
