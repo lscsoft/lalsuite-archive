@@ -39,9 +39,13 @@ import glue.segments
 from hashlib import md5
 
 try:
+  from cjson import decode
+except ImportError:
+  from json import loads as decode
+
+try:
   import six.moves.http_client
   import M2Crypto
-  import cjson
 except:
   pass
 
@@ -3961,7 +3965,7 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
           body = response.read()
 
           # decode the JSON
-          urlList = cjson.decode(body)
+          urlList = decode(body)
           lfnDict = {}
           for url in urlList:
             path = urllib.parse.urlparse(url)[2]

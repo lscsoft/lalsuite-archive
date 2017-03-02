@@ -1380,11 +1380,11 @@ class BinnedArray(object):
 	Note that even for 1 dimensional arrays the index must be a tuple.
 
 	>>> x = BinnedArray(NDBins((LinearBins(0, 10, 5),)))
-	>>> x.array
+	>>> x.at_centres()
 	array([ 0.,  0.,  0.,  0.,  0.])
 	>>> x[0,] += 1
 	>>> x[0.5,] += 1
-	>>> x.array
+	>>> x.at_centres()
 	array([ 2.,  0.,  0.,  0.,  0.])
 	>>> x.argmax()
 	(1.0,)
@@ -1399,7 +1399,7 @@ class BinnedArray(object):
 	>>> x[0, 1] = 1
 	>>> x[1, 0] = 2
 	>>> x[1, 1] = 4
-	>>> x.array
+	>>> x.at_centres()
 	array([[ 0.,  1.],
 	       [ 2.,  4.]])
 	>>> x[0, 0]
@@ -1423,7 +1423,7 @@ class BinnedArray(object):
 	>>> x = BinnedArray(NDBins((LinearBins(0, 10, 5),)), array = numpy.zeros((5,1)))
 	Traceback (most recent call last):
 		...
-	ValueError: input array and input bins must have the same shape:  (5, 1) != (5,)
+	ValueError: bins (shape = (5,)) and array (shape = (5, 1)), if supplied, must have the same shape
 
 	A BinnedArray can be serialized to LIGO Light Weight XML.
 
@@ -1491,13 +1491,36 @@ class BinnedArray(object):
 		"""
 		return self.bins.centres()
 
+	def at_centres(self):
+		"""
+		Return an array of the BinnedArray's value evaluated at the
+		bin centres.  In many cases this is simply a reference to
+		the internal array object, but for subclasses that override
+		item retrieval and assignment some additional work might be
+		required to obtain this array.  In those cases, this method
+		is a convenience wrapper to avoid coding the evaluation
+		loop in the calling code.
+
+		Because subclasses expect to be able to override this, in
+		almost call cases calling code that wishes to access the
+		internal array directly should probably use this method
+		instead.
+
+		Notes:
+
+		- The return value might be a newly-constructed object or a
+		  reference to an internal object.
+		"""
+		return self.array
+
 	def argmin(self):
 		"""
 		Return the co-ordinates of the bin centre containing the
 		minimum value.  Same as numpy.argmin(), converting the
 		indexes to bin co-ordinates.
 		"""
-		return tuple(centres[index] for centres, index in zip(self.centres(), numpy.unravel_index(self.array.argmin(), self.array.shape)))
+		array = self.at_centres()
+		return tuple(centres[index] for centres, index in zip(self.centres(), numpy.unravel_index(array.argmin(), array.shape)))
 
 	def argmax(self):
 		"""
@@ -1505,13 +1528,8 @@ class BinnedArray(object):
 		maximum value.  Same as numpy.argmax(), converting the
 		indexes to bin co-ordinates.
 		"""
-		return tuple(centres[index] for centres, index in zip(self.centres(), numpy.unravel_index(self.array.argmax(), self.array.shape)))
-
-	def to_density(self):
-		"""
-		Divide each bin's value by the volume of the bin.
-		"""
-		self.array /= self.bins.volumes()
+		array = self.at_centres()
+		return tuple(centres[index] for centres, index in zip(self.centres(), numpy.unravel_index(array.argmax(), array.shape)))
 
 	def to_pdf(self):
 		"""
@@ -1523,7 +1541,7 @@ class BinnedArray(object):
 		# make sum = 1
 		self.array /= self.array.sum()
 		# make integral = 1
-		self.to_density()
+		self.array /= self.bins.volumes()
 
 	def logregularize(self, epsilon = 2**-1074):
 		"""
@@ -1546,6 +1564,16 @@ class BinnedArray(object):
 		return elem
 
 	@classmethod
+	def get_xml_root(cls, xml, name):
+		name = u"%s:pylal_rate_binnedarray" % name
+		elem = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == name]
+		try:
+			elem, = elem
+		except ValueError:
+			raise ValueError("XML tree at '%s' must contain exactly one '%s' LIGO_LW element" % (repr(xml), name))
+		return elem
+
+	@classmethod
 	def from_xml(cls, xml, name):
 		"""
 		Search for the description of a rate.BinnedArray object
@@ -1557,12 +1585,7 @@ class BinnedArray(object):
 		attribute of the XML element.  Changes to the contents of
 		the BinnedArray object affect the XML document tree.
 		"""
-		name = u"%s:pylal_rate_binnedarray" % name
-		elem = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == name]
-		try:
-			elem, = elem
-		except ValueError:
-			raise ValueError("XML tree at '%s' must contain exactly one '%s' LIGO_LW element" % (repr(xml), name))
+		elem = cls.get_xml_root(xml, name)
 		self = cls(NDBins.from_xml(elem), array = ligolw_array.get_array(elem, u"array").array)
 		# sanity check
 		if self.bins.shape != self.array.shape:
@@ -1665,14 +1688,8 @@ def InterpBinnedArray(binnedarray, fill_value = 0.0):
 
 	# pad the contents of the binned array with 1 element of fill_value
 	# on each side in each dimension
-	try:
-		z = numpy.pad(binnedarray.array, [(1, 1)] * len(binnedarray.array.shape), mode = "constant", constant_values = [(fill_value, fill_value)] * len(binnedarray.array.shape))
-	except AttributeError:
-		# numpy < 1.7 didn't have pad().  FIXME:  remove when we
-		# can rely on a newer numpy
-		z = numpy.empty(tuple(l + 2 for l in binnedarray.array.shape))
-		z.fill(fill_value)
-		z[(slice(1, -1),) * len(binnedarray.array.shape)] = binnedarray.array
+	z = binnedarray.at_centres()
+	z = numpy.pad(z, [(1, 1)] * z.ndim, mode = "constant", constant_values = [(fill_value, fill_value)] * z.ndim)
 
 	# if any co-ordinates are infinite, remove them.  also remove
 	# degenerate co-ordinates from ends
@@ -1761,6 +1778,134 @@ def InterpBinnedArray(binnedarray, fill_value = 0.0):
 			return interp
 		interp = LinearNDInterpolator(list(itertools.product(*coords)), z.flat, fill_value = fill_value)
 		return lambda *coords: float(interp(*coords))
+
+
+#
+# =============================================================================
+#
+#                                BinnedDensity
+#
+# =============================================================================
+#
+
+
+class BinnedDensity(BinnedArray):
+	"""
+	Variant of the BinnedArray type that interprets its contents as a
+	density.  When initialized, the volumes of the NDBins used to
+	create the BinnedDensity are computed and stored in the .volume
+	attribute.  When a value is retrieved from a bin, the value
+	reported is the value stored in the bin divided by the bin's
+	volume.  When a value is assigned to a bin, the value recorded is
+	the assigned value multiplied by the bin's volume.  The true values
+	recorded in the bins can be accessed via the .count attribute,
+	which is a BinnedArray object wrapping the same array and binning.
+
+	Because the internal array stores counts, not the densities, when
+	the data in an instance of this class is processed with the
+	filter_array() function the result is the density of smoothed
+	counts, not the smoothed density.  This is best illustrated with an
+	example.
+
+	Example:  linear bins
+
+	>>> # bins are 2 units, each
+	>>> x = BinnedDensity(NDBins((LinearBins(0, 10, 5),)))
+	>>> x.volume
+	array([ 2.,  2.,  2.,  2.,  2.])
+	>>> # set count at 5 to 1
+	>>> x.count[5.0,] = 1
+	>>> # internal array set to 1 in that bin
+	>>> x.array
+	array([ 0.,  0.,  1.,  0.,  0.])
+	>>> # density reported is 0.5
+	>>> print x[5.0,]
+	0.5
+	>>> # convolve counts with 3-bin top hat window
+	>>> filter_array(x.array, tophat_window(3))
+	array([ 0.        ,  0.33333333,  0.33333333,  0.33333333,  0.        ])
+	>>> # density at 5 is now 1/6 counts / unit interval
+	>>> print x[5.0,]
+	0.166666666667
+	>>> # total count has been preserved
+	>>> print x.array.sum()
+	1.0
+
+	Example:  logarithmic bins
+
+	>>> # bins increase in size by a factor of 2, each
+	>>> x = BinnedDensity(NDBins((LogarithmicBins(1, 32, 5),)))
+	>>> x.volume
+	array([  1.,   2.,   4.,   8.,  16.])
+	>>> # set count at 5 to 1
+	>>> x.count[5.0,] = 1
+	>>> # internal array set to 1 in that bin
+	>>> x.array
+	array([ 0.,  0.,  1.,  0.,  0.])
+	>>> # density reported is 0.25
+	>>> print x[5.0,]
+	0.25
+	>>> # convolve counts with 3-bin top hat window
+	>>> filter_array(x.array, tophat_window(3))
+	array([ 0.        ,  0.33333333,  0.33333333,  0.33333333,  0.        ])
+	>>> # density at 5 is now 1/12 counts / unit interval
+	>>> print x[5.0,]
+	0.0833333333333
+	>>> # density is 1/6 in bin below
+	>>> print x[3,]
+	0.166666666667
+	>>> # and 1/24 in bin above
+	>>> print x[10,]
+	0.0416666666667
+	>>> # total count has been preserved
+	>>> print x.array.sum()
+	1.0
+
+	Explanation.  In the linear case there are five bins spanning the
+	interval [0, 10], making each bin 2 "units" in size.  A single
+	count is placed at 5.0, which is bin number 2.  The averaging
+	filter is a top-hat window 3 bins wide.  The single count in bin
+	#2, when averaged over the three bins around it, becomes an average
+	of 1/3 count per bin, each of which is 2 units in size, so the
+	average density is 1/6 events / unit.  The count has been spread
+	out over several bins but the integral of the density, the total
+	count, is unchanged.  The logarithmic case is identical but because
+	the bin sizes are non-uniform, when the single count is spread
+	across the three bins the density is non-uniform.  The integral is
+	still preserved.
+
+	Some binnings have infinite-sized bins.  For such bins, the counts
+	may be manipulated directly, as usual, but for all finite counts a
+	density of 0 will be reported for those bins (and NaN for infinite
+	counts), and ValueError will be raised if an attempt is made to
+	assign a density to those bins.
+
+	NOTES:
+
+	- While it is technically possible to modify the binning parameters
+	  after creating an instance of this class, the steps required to
+	  bring all internal data back into consistency following such a
+	  change are undocumented.  One should consider the metadata
+	  carried by these objects to be immutable.
+	"""
+	def __init__(self, *args, **kwargs):
+		super(BinnedDensity, self).__init__(*args, **kwargs)
+		self.count = BinnedArray(self.bins, array = self.array)
+		self.volume = self.bins.volumes()
+
+	def __getitem__(self, coords):
+		coords = self.bins(*coords)
+		return self.array[coords] / self.volume[coords]
+
+	def __setitem__(self, coords, val):
+		coords = self.bins(*coords)
+		vol = self.volume[coords]
+		if numpy.isinf(vol).any():
+			raise ValueError("cannot assign density values to infinite-volume bins, try assigning a count instead")
+		self.array[coords] = val * vol
+
+	def at_centres(self):
+		return self.array / self.volume
 
 
 #
@@ -1963,54 +2108,6 @@ def filter_array(a, window, cyclic = False, use_fft = True):
 #
 # =============================================================================
 #
-
-
-def to_moving_mean_density(binned_array, filterdata, cyclic = False):
-	"""
-	Convolve a BinnedArray with a filter function, then divide all bins
-	by their volumes.  The result is the density function smoothed by
-	the filter.  The default is to assume 0 values beyond the ends of
-	the array when convolving with the filter function.  Set the
-	optional cyclic parameter to True for periodic boundaries.
-
-	Example:
-
-	>>> x = BinnedArray(NDBins((LinearBins(0, 10, 5),)))
-	>>> x[5.0,] = 1
-	>>> x.array
-	array([ 0.,  0.,  1.,  0.,  0.])
-	>>> to_moving_mean_density(x, tophat_window(3))
-	>>> x.array
-	array([ 0.        ,  0.16666667,  0.16666667,  0.16666667,  0.        ])
-
-	Explanation.  There are five bins spanning the interval [0, 10],
-	making each bin 2 "units" in size.  A single count is placed at
-	5.0, which is bin number 2.  The averaging filter is a top-hat
-	window 3 bins wide.  The single count in bin #2, when averaged over
-	the three bins around it, is equivalent to a mean density of 1/6
-	events / unit.
-
-	Example:
-
-	>>> x = BinnedArray(NDBins((LinearBins(0, 10, 5),)))
-	>>> x[1,] = 1
-	>>> x[3,] = 1
-	>>> x[5,] = 1
-	>>> x[7,] = 1
-	>>> x[9,] = 1
-	>>> x.array
-	array([ 1.,  1.,  1.,  1.,  1.])
-	>>> to_moving_mean_density(x, tophat_window(3))
-	>>> x.array
-	array([ 0.33333333,  0.5       ,  0.5       ,  0.5       ,  0.33333333])
-
-	We have uniformly distributed events at 2 unit intervals (the first
-	is at 1, the second at 3, etc.).  The event density is 0.5 events /
-	unit, except at the edges where the smoothing window has picked up
-	zero values from beyond the ends of the array.
-	"""
-	filter_array(binned_array.array, filterdata, cyclic = cyclic)
-	binned_array.to_density()
 
 
 def marginalize(pdf, dim):

@@ -7,20 +7,8 @@ interoperate with the @LIGO.ORG infrastructure.
 import re
 from six.moves import urllib
 
-class LIGOSAMLClientException(Exception):
-    """
-    """
-    pass
+import kerberos
 
-try:
-    import kerberos
-except ImportError as e:
-    msg = """\n
-The glue.auth.saml module requires the python-kerberos Python module to
-be installed. On both Debian and RedHat-based systems like CentOS and
-Scientific Linux the name of the package to install is 'python-kerberos'.
-"""
-    raise LIGOSAMLClientException(msg)
 
 class HTTPNegotiateAuthHandler(urllib.request.BaseHandler):
     """

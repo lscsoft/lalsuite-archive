@@ -44,27 +44,28 @@ import calendar
 import glue.segments
 
 try:
+    from cjson import decode
+except ImportError:
+    from json import loads as decode
+
+try:
     import M2Crypto
-    import cjson
 except ImportError as e:
     print("""
-ligo_data_find requires the M2Crypto and cjson
-modules.
+ligo_data_find requires M2Crypto
 
 On CentOS 5 and other RHEL based platforms
-these packages are available from the EPEL
+this package is available from the EPEL
 repository by doing
 
 yum install m2crypto
-yum install python-cjson
 
-For Debian Lenny these packages are available
+For Debian Lenny this package is available
 by doing
 
 apt-get install python-m2crypto
-apt-get install python-cjson
 
-Mac OS X users can find these packages in
+Mac OS X users can find this package in
 MacPorts.
 
 %s
@@ -655,7 +656,7 @@ be present when searching for groups of files
     body = response.read()
 
     # decode the JSON
-    urlList = cjson.decode(body)
+    urlList = decode(body)
 
     # if searching for SFTs replace '.gwf' file suffix with '.sft'
     if 'SFT' in frameType:
@@ -835,7 +836,7 @@ def showObservatories(args):
     body = response.read()
 
     # decode the JSON
-    siteList = cjson.decode(body)
+    siteList = decode(body)
 
     for site in siteList:
         print(site, file=output_file)
@@ -886,7 +887,7 @@ def showTypes(args):
     body = response.read()
 
     # decode the JSON
-    frameTypes = cjson.decode(body)
+    frameTypes = decode(body)
 
     for type in frameTypes:
         print(type, file=output_file)
@@ -958,7 +959,7 @@ or just a beginning or just an end time.
     body = response.read()
 
     # decode the JSON
-    segmentList = cjson.decode(body)
+    segmentList = decode(body)
 
     if len(segmentList) == 0:
         print("No segments found!", file=sys.stderr)
@@ -1043,7 +1044,7 @@ def singleFrameFind(args):
     body = response.read()
 
     # decode the JSON
-    urlList = cjson.decode(body)
+    urlList = decode(body)
 
     if len(urlList) == 0:
         print("No files found!", file=sys.stderr)
@@ -1142,7 +1143,7 @@ be present when searching for the latest file
     body = response.read()
 
     # decode the JSON
-    urlList = cjson.decode(body)
+    urlList = decode(body)
 
     if len(urlList) == 0:
         print("No files found!", file=sys.stderr)
