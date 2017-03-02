@@ -40,6 +40,8 @@
 #include <lal/LALSimInspiral.h>
 #include <lal/LALInferenceTemplate.h>
 #include <lal/LALInferenceMultibanding.h>
+#include <lal/FindRoot.h>
+#include <lal/LALDatatypes.h>
 
 /* LIB imports*/
 #include <lal/LALInferenceBurstRoutines.h>
@@ -67,6 +69,7 @@
 #define log4 1.3862943611198906188344642429163531
 
 static void q2masses(double mc, double q, double *m1, double *m2);
+static REAL8 SORFUNC (REAL8 x, void *params); // Spin-orbit resonance; Schnittman, Phys.Rev. D70 (2004) 124020
 
 /* list of testing GR parameters to be passed to the waveform */
 
@@ -724,9 +727,26 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
   if(LALInferenceCheckVariable(model->params, "tilt_spin1"))
       tilt1 = LALInferenceGetREAL8Variable(model->params, "tilt_spin1");
   if(LALInferenceCheckVariable(model->params, "tilt_spin2"))
-      tilt2 = LALInferenceGetREAL8Variable(model->params, "tilt_spin2");
+  {
+      if(!(LALInferenceCheckVariable(model->params, "SpinOrbitResonance")))
+          tilt2 = LALInferenceGetREAL8Variable(model->params, "tilt_spin2");
+      else
+      {
+          REAL8 (*SORFunction)(REAL8, void *);
+          REAL8 tilt2_min = 0.0;
+          REAL8 tilt2_max = LAL_PI;
+          REAL8 tilt2_acc = 1.0e-12;
+          SORFunction = SORFUNC;
+          tilt2 = XLALDBisectionFindRoot(SORFunction, tilt2_min, tilt2_max, tilt2_acc, model);
+      }
+  }
   if(LALInferenceCheckVariable(model->params, "phi12"))
-      phi12 = LALInferenceGetREAL8Variable(model->params, "phi12");
+  {
+      if(!(LALInferenceCheckVariable(model->params, "SpinOrbitResonance")))
+          phi12 = LALInferenceGetREAL8Variable(model->params, "phi12");
+      else
+          phi12 = LALInferenceGetREAL8Variable(model->params, "SpinOrbitResonancePhi12");
+  }
 
   /* If we have tilt angles zero, then the spins are aligned and we just set the z component */
   /* However, if the waveform supports precession then we still need to get the right coordinate components */
@@ -1945,4 +1965,120 @@ void LALInferenceDumptemplateTimeDomain(LALInferenceVariables *currentParams,
   }
   fclose(outfile);
   fprintf(stdout, " wrote (time-domain) template to CSV file \"%s\".\n", filename);
+}
+
+/* Spin-orbit resonance condition; Eqn. 3.5 of Schnittman, Phys.Rev. D70 (2004) 124020 */
+static REAL8 SORFUNC (REAL8 x, void *params)
+{
+  LALInferenceModel *parameters;
+  parameters = ( LALInferenceModel *) params;
+
+  REAL8 m1, m2, mc, q, eta;
+  if(LALInferenceCheckVariable(parameters->params,"mass1")&&LALInferenceCheckVariable(parameters->params,"mass2"))
+  {
+    m1=*(REAL8 *)LALInferenceGetVariable(parameters->params,"mass1");
+    m2=*(REAL8 *)LALInferenceGetVariable(parameters->params,"mass2");
+  }
+  else
+  {
+    if (LALInferenceCheckVariable(parameters->params,"q"))
+    {
+      q = *(REAL8 *)LALInferenceGetVariable(parameters->params,"q");
+      eta = q / ((1.+q)*(1.+q)); //q2eta(q, &eta);
+    }
+    else eta = *(REAL8*) LALInferenceGetVariable(parameters->params, "eta");
+    mc = *(REAL8*) LALInferenceGetVariable(parameters->params, "chirpmass");
+    mc2masses(mc, eta, &m1, &m2);
+  }
+
+  REAL8 mtotal = m1+m2;
+  REAL8 m1m = m1/mtotal;
+  REAL8 m2m = m2/mtotal;
+  eta = m1*m2/mtotal/mtotal;
+  REAL8 delta1 = eta/2. + 3*(1.-sqrt(1.-4*eta))/4.;
+  REAL8 delta2 = eta/2. + 3*(1.+sqrt(1.-4*eta))/4.;
+
+  REAL8 f_ref = *(REAL8*) LALInferenceGetVariable(parameters->params, "f_ref");
+  REAL8 xx = pow(LAL_MTSUN_SI*mtotal*LAL_PI*f_ref, 2./3.);
+
+  REAL8 chi1 = *(REAL8*) LALInferenceGetVariable(parameters->params, "a_spin1");
+  REAL8 chi2 = *(REAL8*) LALInferenceGetVariable(parameters->params, "a_spin2");
+
+  REAL8 tilt1 = *(REAL8*) LALInferenceGetVariable(parameters->params, "tilt_spin1");
+
+  /* unit angular momentum vector */
+  REAL8 lx = 0.0;
+  REAL8 ly = 0.0;
+  REAL8 lz = 1.0;
+
+  /* Full Angular momentum vector; magnitude scaled by 1/M^2 where M is total mass.
+   * For L see eq. 2.9 of arxiv:gr-qc/9506022  */
+  REAL8 Lx = 0.0;
+  REAL8 Ly = 0.0;
+  REAL8 Lz = (eta/sqrt(xx))*(1+xx*(2.5 -eta/6.));
+
+  REAL8 phi12 = LALInferenceGetREAL8Variable(parameters->params, "SpinOrbitResonancePhi12");
+  fprintf(stderr, "phi12 = %f\n", phi12);
+
+  /* In lalsimulation convention, phi12 is defined such that Spin1 is in XZ plane, with L||Z. This means, phi1=0 */
+  /* unit spin vectors */
+  REAL8 s1x = sin(tilt1);
+  REAL8 s1y = 0.0;
+  REAL8 s1z = cos(tilt1);
+
+  REAL8 s2x = sin(x)*cos(phi12);
+  REAL8 s2y = sin(x)*sin(phi12);
+  REAL8 s2z = cos(x);
+
+  /*In the equations below, the spin and orbital angular momentum vectors are
+   * scaled with 1/M^2, where M is the total mass. Moreover, notations used in
+   * the definition of Omega1,2 are consistent with Eq. (7) of arXiv:1312.0217.
+   * */
+
+  /* full spin vecors: S_{1,2} = (m_{1, 2}/M)^2 * chi_{1, 2} * s_{1, 2}^ */
+  REAL8 S1x = m1m*m1m*chi1*sin(tilt1);
+  REAL8 S1y = 0.0;
+  REAL8 S1z = m1m*m1m*chi1*cos(tilt1);
+
+  REAL8 S2x = m2m*m2m*chi2*sin(x)*cos(phi12);
+  REAL8 S2y = m2m*m2m*chi2*sin(x)*sin(phi12);
+  REAL8 S2z = m2m*m2m*chi2*cos(x);
+
+  /* Eq. (7) of arXiv:1312.0217. The terms in the big curly bracket without the
+   * crossproduct with s_1^*/
+  REAL8 Omega1x = delta1*lx + 0.5*sqrt(xx)*(m2m*m2m*chi2*s2x-3*m2m*m2m*chi2*lx*(lx*s2x+ly*s2y+lz*s2z)-3*eta*chi1*lx*(lx*s1x+ly*s1y+lz*s1z));
+  REAL8 Omega1y = delta1*ly + 0.5*sqrt(xx)*(m2m*m2m*chi2*s2y-3*m2m*m2m*chi2*ly*(lx*s2x+ly*s2y+lz*s2z)-3*eta*chi1*ly*(lx*s1x+ly*s1y+lz*s1z));
+  REAL8 Omega1z = delta1*lz + 0.5*sqrt(xx)*(m2m*m2m*chi2*s2z-3*m2m*m2m*chi2*lz*(lx*s2x+ly*s2y+lz*s2z)-3*eta*chi1*lz*(lx*s1x+ly*s1y+lz*s1z));
+
+  /* Eq. (7) of arXiv:1312.0217. The terms in the big curly bracket without the
+   * crossproduct with s_2^*/
+  REAL8 Omega2x = delta2*lx + 0.5*sqrt(xx)*(m1m*m1m*chi1*s1x-3*m1m*m1m*chi1*lx*(lx*s1x+ly*s1y+lz*s1z)-3*eta*chi2*lx*(lx*s2x+ly*s2y+lz*s2z));
+  REAL8 Omega2y = delta2*ly + 0.5*sqrt(xx)*(m1m*m1m*chi1*s1y-3*m1m*m1m*chi1*ly*(lx*s1x+ly*s1y+lz*s1z)-3*eta*chi2*ly*(lx*s2x+ly*s2y+lz*s2z));
+  REAL8 Omega2z = delta2*lz + 0.5*sqrt(xx)*(m1m*m1m*chi1*s1z-3*m1m*m1m*chi1*lz*(lx*s1x+ly*s1y+lz*s1z)-3*eta*chi2*lz*(lx*s2x+ly*s2y+lz*s2z));
+
+  /* \Omega_1 x S_1*/
+  REAL8 Omega1cS1_x = Omega1y*S1z - Omega1z*S1y;
+  REAL8 Omega1cS1_y = Omega1z*S1x - Omega1x*S1z;
+  REAL8 Omega1cS1_z = Omega1x*S1y - Omega1y*S1x;
+
+  /* \Omega_2 x S_2*/
+  REAL8 Omega2cS2_x = Omega2y*S2z - Omega2z*S2y;
+  REAL8 Omega2cS2_y = Omega2z*S2x - Omega2x*S2z;
+  REAL8 Omega2cS2_z = Omega2x*S2y - Omega2y*S2x;
+
+  /* S2 x (L + S1)*/
+  REAL8 S2cLplusS1_x = S2y*(Lz+S1z) - S2z*(Ly+S1y);
+  REAL8 S2cLplusS1_y = S2z*(Lx+S1x) - S2x*(Lz+S1z);
+  REAL8 S2cLplusS1_z = S2x*(Ly+S1y) - S2y*(Lx+S1x);
+
+  /* S1 x (L + S2)*/
+  REAL8 S1cLplusS2_x = S1y*(Lz+S2z) - S1z*(Ly+S2y);
+  REAL8 S1cLplusS2_y = S1z*(Lx+S2x) - S1x*(Lz+S2z);
+  REAL8 S1cLplusS2_z = S1x*(Ly+S2y) - S1y*(Lx+S2x);
+
+  /* Eq. (3) in arXiv:1312.0217*/
+  REAL8 LHS = Omega1cS1_x*S2cLplusS1_x + Omega1cS1_y*S2cLplusS1_y + Omega1cS1_z*S2cLplusS1_z;
+  REAL8 RHS = Omega2cS2_x*S1cLplusS2_x + Omega2cS2_y*S1cLplusS2_y + Omega2cS2_z*S1cLplusS2_z;
+
+  return (LHS-RHS);
 }
