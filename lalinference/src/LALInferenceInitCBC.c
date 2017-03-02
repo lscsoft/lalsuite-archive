@@ -762,6 +762,8 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   REAL8 endtime=0.0, timeParam=0.0;
   REAL8 timeMin=endtime-dt,timeMax=endtime+dt;
   REAL8 zero=0.0; /* just a number that will be overwritten anyway*/
+  /* Spin-orbit resonance variables */
+  INT4 SpinOrbitResonance = 0; //Spin-orbit resonance flag
 
   /* Over-ride prior bounds if analytic test */
   if (LALInferenceGetProcParamVal(commandLine, "--correlatedGaussianLikelihood"))
@@ -1141,6 +1143,16 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
     if(!LALInferenceGetProcParamVal(commandLine,"--margphi") && !LALInferenceGetProcParamVal(commandLine, "--margtimephi")){
       LALInferenceRegisterUniformVariableREAL8(state, model->params, "phase", zero, phiMin, phiMax, LALINFERENCE_PARAM_CIRCULAR);
     }
+
+  /* If spin-orbit resonance condition is specified, set lock angle phi12 */
+  if (LALInferenceCheckVariable(state->priorArgs, "spin_orbit_resonance"))
+  {
+    SpinOrbitResonance = 1;
+    REAL8 SpinOrbitResonancePhi12 = *(REAL8 *)LALInferenceGetVariable(state->priorArgs, "spin_orbit_resonance_phi12");
+    fprintf(stdout, "Spin-orbit resonance condition with phi12 = %f will be forced.\n", SpinOrbitResonancePhi12);
+    LALInferenceAddVariable(model->params, "SpinOrbitResonance", &SpinOrbitResonance, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(model->params, "SpinOrbitResonancePhi12", &SpinOrbitResonancePhi12, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  }
 
   /* Check for distance prior for use if the user samples in logdistance */
   if((ppt=LALInferenceGetProcParamVal(commandLine,"--distance-max"))) Dmax=atof(ppt->value);
