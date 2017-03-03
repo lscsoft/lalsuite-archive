@@ -2086,26 +2086,28 @@ def filter_array(a, window, cyclic = False, use_fft = True):
 
 	if use_fft:
 		# this loop works around dynamic range limits in the FFT
-		# convolution code.  we move data 4 orders of magnitude at a time
-		# from the original array into a work space, convolve the work
-		# space with the filter, zero the workspace in any elements that
-		# are more than 14 orders of magnitude below the maximum value in
-		# the result, and add the result to the total.
+		# convolution code.  we move data 4 orders of magnitude at
+		# a time from the original array into a work space,
+		# convolve the work space with the filter, zero the
+		# workspace in any elements that are more than 14 orders of
+		# magnitude below the maximum value in the result, and add
+		# the result to the total.
 		result = numpy.zeros_like(a)
 		while a.any():
 			# copy contents of input array to work space
 			workspace = numpy.copy(a)
 
-			# mask = indexes of elements of work space not more than 4
-			# orders of magnitude larger than the smallest non-zero
-			# element.  these are the elements to be processed in this
-			# iteration
+			# mask = indexes of elements of work space not more
+			# than 4 orders of magnitude larger than the
+			# smallest non-zero element.  these are the
+			# elements to be processed in this iteration
 			abs_workspace = abs(workspace)
 			mask = abs_workspace <= abs_workspace[abs_workspace > 0].min() * 1e4
 			del abs_workspace
 
 			# zero the masked elements in the input array, zero
-			# everything except the masked elements in the work space
+			# everything except the masked elements in the work
+			# space
 			a[mask] = 0.
 			workspace[~mask] = 0.
 			del mask
@@ -2113,8 +2115,9 @@ def filter_array(a, window, cyclic = False, use_fft = True):
 			# convolve the work space with the kernel
 			workspace = signaltools.fftconvolve(workspace, window, mode = "same")
 
-			# determine the largest value in the work space, and set to
-			# zero anything more than 14 orders of magnitude smaller
+			# determine the largest value in the work space,
+			# and set to zero anything more than 14 orders of
+			# magnitude smaller
 			abs_workspace = abs(workspace)
 			workspace[abs_workspace < abs_workspace.max() * 1e-14] = 0.
 			del abs_workspace
