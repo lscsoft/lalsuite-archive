@@ -1907,6 +1907,36 @@ class BinnedDensity(BinnedArray):
 	def at_centres(self):
 		return self.array / self.volume
 
+	def marginalize(self, dim):
+		"""
+		Return a new BinnedDensity object containing the density
+		integrated over dimension dim.
+
+		Example:
+
+		>>> x = BinnedDensity(NDBins((LinearBins(0, 10, 5), LinearBins(0, 10, 5))))
+		>>> # set count at 5,5 to 1
+		>>> x.count[5.0, 5.0] = 1
+		>>> # convolve counts with 3-bin top-hat window
+		>>> filter_array(x.array, tophat_window(3, 3))
+		array([[ 0.        ,  0.        ,  0.        ,  0.        ,  0.        ],
+		       [ 0.        ,  0.11111111,  0.11111111,  0.11111111,  0.        ],
+		       [ 0.        ,  0.11111111,  0.11111111,  0.11111111,  0.        ],
+		       [ 0.        ,  0.11111111,  0.11111111,  0.11111111,  0.        ],
+		       [ 0.        ,  0.        ,  0.        ,  0.        ,  0.        ]])
+		>>> # integrate over dimension 1
+		>>> x = x.marginalize(1)
+		>>> x.at_centres()
+		array([ 0.        ,  0.33333333,  0.33333333,  0.33333333,  0.        ])
+		>>> x.at_centres().sum()
+		1.0
+		"""
+		dx = self.bins[dim].upper() - self.bins[dim].lower()
+		dx_shape = [1] * len(self.bins)
+		dx_shape[dim] = len(dx)
+		dx.shape = dx_shape
+		return type(self)(NDBins(self.bins[:dim] + self.bins[dim+1:]), (self.array * dx).sum(axis = dim))
+
 
 #
 # =============================================================================
@@ -2099,30 +2129,3 @@ def filter_array(a, window, cyclic = False, use_fft = True):
 	a.flat = result.flat
 
 	return a
-
-
-#
-# =============================================================================
-#
-#                                    Rates
-#
-# =============================================================================
-#
-
-
-def marginalize(pdf, dim):
-	"""
-	From a BinnedArray object containing probability density data (bins
-	whose volume integral is 1), return a new BinnedArray object
-	containing the probability density marginalized over dimension
-	dim.
-	"""
-	dx = pdf.bins[dim].upper() - pdf.bins[dim].lower()
-	dx_shape = [1] * len(pdf.bins)
-	dx_shape[dim] = len(dx)
-	dx.shape = dx_shape
-
-	result = BinnedArray(NDBins(pdf.bins[:dim] + pdf.bins[dim+1:]))
-	result.array = (pdf.array * dx).sum(axis = dim)
-
-	return result
