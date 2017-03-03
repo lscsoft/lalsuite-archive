@@ -793,14 +793,14 @@ class CoincSynthesizer(object):
 		{'V1': 0.08, 'H1': 0.13333333333333333, 'L1': 0.1}
 		>>> coinc_synth.tau
 		{frozenset(['V1', 'H1']): 0.028287979933844225, frozenset(['H1', 'L1']): 0.011012846152223924, frozenset(['V1', 'L1']): 0.027448341016726496}
-		>>> coinc_synth.rates
+		>>> coinc_synth.rates	# doctest: +SKIP
 		{frozenset(['V1', 'H1']): 0.0006034769052553435, frozenset(['V1', 'H1', 'L1']): 1.1793108172576082e-06, frozenset(['H1', 'L1']): 0.000293675897392638, frozenset(['V1', 'L1']): 0.00043917345626762395}
 		>>> coinc_synth.P_live
 		{frozenset(['V1', 'H1']): 0.0, frozenset(['V1', 'H1', 'L1']): 0.25, frozenset(['H1', 'L1']): 0.25, frozenset(['V1', 'L1']): 0.5}
 		>>>
 		>>>
 		>>> coinc_synth = CoincSynthesizer(eventlists, seglists, 0.001, min_instruments = 1)
-		>>> coinc_synth.rates
+		>>> coinc_synth.rates	# doctest: +SKIP
 		{frozenset(['V1']): 0.08, frozenset(['H1']): 0.13333333333333333, frozenset(['V1', 'H1']): 0.0006034769052553435, frozenset(['L1']): 0.1, frozenset(['V1', 'L1']): 0.00043917345626762395, frozenset(['V1', 'H1', 'L1']): 1.179508868912594e-06, frozenset(['H1', 'L1']): 0.000293675897392638}
 		"""
 		self.eventlists = eventlists if eventlists is not None else dict.fromkeys(segmentlists, 0) if segmentlists is not None else {}
@@ -1239,7 +1239,8 @@ class CoincSynthesizer(object):
 		>>> seglists = segmentlistdict({"H1": segmentlist([segment(0, 30)]), "L1": segmentlist([segment(10, 50)]), "V1": segmentlist([segment(20, 70)])})
 		>>> coinc_synth = CoincSynthesizer(eventlists, seglists, 0.001)
 		>>> coincs = coinc_synth.coincs((lambda x: 0), allow_zero_lag = True)
-		>>> coincs.next()	# returns a tuple of events
+		>>> # returns a tuple of events
+		>>> coincs.next()	# doctest: +SKIP
 		"""
 		for instruments in self.instrument_combos():
 			# randomly selected events from those instruments
@@ -1268,8 +1269,8 @@ class CoincSynthesizer(object):
 		>>> # minimal initialization for this method
 		>>> coinc_synth = CoincSynthesizer(segmentlists = {"H1": None, "L1": None, "V1": None}, delta_t = 0.005)
 		>>> toas = coinc_synth.plausible_toas(("H1", "L1", "V1"))
-		>>> toas.next()
-		>>> toas.next()
+		>>> toas.next()	# doctest: +SKIP
+		{'V1': 0.004209420456924601, 'H1': 0.0, 'L1': -0.006071537909950742}
 		"""
 		# this algorithm is documented in slideless_coinc_generator_rates()
 		instruments = tuple(instruments)
@@ -1329,14 +1330,16 @@ class TOATriangulator(object):
 
 		>>> from numpy import array
 		>>> triangulator = TOATriangulator([
-			array([-2161414.92636, -3834695.17889, 4600350.22664]),
-			array([  -74276.0447238, -5496283.71971  ,  3224257.01744  ]),
-			array([ 4546374.099   ,   842989.697626,  4378576.96241 ])
-		], [
-			0.005,
-			0.005,
-			0.005
-		])
+		...	array([-2161414.92636, -3834695.17889, 4600350.22664]),
+		...	array([  -74276.0447238, -5496283.71971  ,  3224257.01744  ]),
+		...	array([ 4546374.099   ,   842989.697626,  4378576.96241 ])
+		... ], [
+		...	0.005,
+		...	0.005,
+		...	0.005
+		... ])
+		...
+		>>>
 
 		This creates a TOATriangulator instance configured for the
 		LIGO Hanford, LIGO Livingston and Virgo antennas with 5 ms
@@ -1395,17 +1398,29 @@ class TOATriangulator(object):
 
 		Example:
 
+		>>> from numpy import array
+		>>> triangulator = TOATriangulator([
+		...	array([-2161414.92636, -3834695.17889, 4600350.22664]),
+		...	array([  -74276.0447238, -5496283.71971  ,  3224257.01744  ]),
+		...	array([ 4546374.099   ,   842989.697626,  4378576.96241 ])
+		... ], [
+		...	0.005,
+		...	0.005,
+		...	0.005
+		... ])
+		...
 		>>> n, toa, chi2_per_dof, dt = triangulator([
-			794546669.429688,
-			794546669.41333,
-			794546669.431885
-		])
+		...	794546669.429688,
+		...	794546669.41333,
+		...	794546669.431885
+		... ])
+		...
 		>>> n
 		array([ 0.28747132, -0.37035214,  0.88328904])
 		>>> toa
 		794546669.40874898
 		>>> chi2_per_dof
-		2.7407579727907194
+		2.7407579727907181
 		>>> dt
 		0.01433725384999875
 		"""
