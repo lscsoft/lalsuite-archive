@@ -1453,21 +1453,24 @@ class TOATriangulator(object):
 					np = n_prime(l)
 					return numpy.dot(np, np) - 1
 
-				# values of l that make the denominator of n'(l) 0
+				# values of l that make the denominator of
+				# n'(l) 0
 				lsing = -self.S * self.S
-				# least negative of them is used as lower bound for
-				# bisection search root finder (elements of S are
-				# ordered from greatest to least, so the last
-				# element of lsing is the least negative)
+				# least negative of them is used as lower
+				# bound for bisection search root finder
+				# (elements of S are ordered from greatest
+				# to least, so the last element of lsing is
+				# the least negative)
 				l_lo = lsing[-1]
 
-				# find a suitable upper bound for the root finder
-				# FIXME:  in Jolien's original code l_hi was
-				# hard-coded to 1 but we can't figure out why the
-				# root must be <= 1, so I put this loop to be safe
-				# but at some point it would be good to figure out
-				# if 1.0 can be used because it would allow this
-				# loop to be skipped
+				# find a suitable upper bound for the root
+				# finder FIXME:  in Jolien's original code
+				# l_hi was hard-coded to 1 but we can't
+				# figure out why the root must be <= 1, so
+				# I put this loop to be safe but at some
+				# point it would be good to figure out if
+				# 1.0 can be used because it would allow
+				# this loop to be skipped
 				l_hi = 1.0
 				while secular_equation(l_lo) / secular_equation(l_hi) > 0:
 					l_lo, l_hi = l_hi, l_hi * 2
