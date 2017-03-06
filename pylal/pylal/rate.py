@@ -1907,6 +1907,36 @@ class BinnedDensity(BinnedArray):
 	def at_centres(self):
 		return self.array / self.volume
 
+	def marginalize(self, dim):
+		"""
+		Return a new BinnedDensity object containing the density
+		integrated over dimension dim.
+
+		Example:
+
+		>>> x = BinnedDensity(NDBins((LinearBins(0, 10, 5), LinearBins(0, 10, 5))))
+		>>> # set count at 5,5 to 1
+		>>> x.count[5.0, 5.0] = 1
+		>>> # convolve counts with 3-bin top-hat window
+		>>> filter_array(x.array, tophat_window(3, 3))
+		array([[ 0.        ,  0.        ,  0.        ,  0.        ,  0.        ],
+		       [ 0.        ,  0.11111111,  0.11111111,  0.11111111,  0.        ],
+		       [ 0.        ,  0.11111111,  0.11111111,  0.11111111,  0.        ],
+		       [ 0.        ,  0.11111111,  0.11111111,  0.11111111,  0.        ],
+		       [ 0.        ,  0.        ,  0.        ,  0.        ,  0.        ]])
+		>>> # integrate over dimension 1
+		>>> x = x.marginalize(1)
+		>>> x.at_centres()
+		array([ 0.        ,  0.33333333,  0.33333333,  0.33333333,  0.        ])
+		>>> x.at_centres().sum()
+		1.0
+		"""
+		dx = self.bins[dim].upper() - self.bins[dim].lower()
+		dx_shape = [1] * len(self.bins)
+		dx_shape[dim] = len(dx)
+		dx.shape = dx_shape
+		return type(self)(NDBins(self.bins[:dim] + self.bins[dim+1:]), (self.array * dx).sum(axis = dim))
+
 
 #
 # =============================================================================
@@ -2056,26 +2086,28 @@ def filter_array(a, window, cyclic = False, use_fft = True):
 
 	if use_fft:
 		# this loop works around dynamic range limits in the FFT
-		# convolution code.  we move data 4 orders of magnitude at a time
-		# from the original array into a work space, convolve the work
-		# space with the filter, zero the workspace in any elements that
-		# are more than 14 orders of magnitude below the maximum value in
-		# the result, and add the result to the total.
+		# convolution code.  we move data 4 orders of magnitude at
+		# a time from the original array into a work space,
+		# convolve the work space with the filter, zero the
+		# workspace in any elements that are more than 14 orders of
+		# magnitude below the maximum value in the result, and add
+		# the result to the total.
 		result = numpy.zeros_like(a)
 		while a.any():
 			# copy contents of input array to work space
 			workspace = numpy.copy(a)
 
-			# mask = indexes of elements of work space not more than 4
-			# orders of magnitude larger than the smallest non-zero
-			# element.  these are the elements to be processed in this
-			# iteration
+			# mask = indexes of elements of work space not more
+			# than 4 orders of magnitude larger than the
+			# smallest non-zero element.  these are the
+			# elements to be processed in this iteration
 			abs_workspace = abs(workspace)
 			mask = abs_workspace <= abs_workspace[abs_workspace > 0].min() * 1e4
 			del abs_workspace
 
 			# zero the masked elements in the input array, zero
-			# everything except the masked elements in the work space
+			# everything except the masked elements in the work
+			# space
 			a[mask] = 0.
 			workspace[~mask] = 0.
 			del mask
@@ -2083,8 +2115,9 @@ def filter_array(a, window, cyclic = False, use_fft = True):
 			# convolve the work space with the kernel
 			workspace = signaltools.fftconvolve(workspace, window, mode = "same")
 
-			# determine the largest value in the work space, and set to
-			# zero anything more than 14 orders of magnitude smaller
+			# determine the largest value in the work space,
+			# and set to zero anything more than 14 orders of
+			# magnitude smaller
 			abs_workspace = abs(workspace)
 			workspace[abs_workspace < abs_workspace.max() * 1e-14] = 0.
 			del abs_workspace
@@ -2099,30 +2132,3 @@ def filter_array(a, window, cyclic = False, use_fft = True):
 	a.flat = result.flat
 
 	return a
-
-
-#
-# =============================================================================
-#
-#                                    Rates
-#
-# =============================================================================
-#
-
-
-def marginalize(pdf, dim):
-	"""
-	From a BinnedArray object containing probability density data (bins
-	whose volume integral is 1), return a new BinnedArray object
-	containing the probability density marginalized over dimension
-	dim.
-	"""
-	dx = pdf.bins[dim].upper() - pdf.bins[dim].lower()
-	dx_shape = [1] * len(pdf.bins)
-	dx_shape[dim] = len(dx)
-	dx.shape = dx_shape
-
-	result = BinnedArray(NDBins(pdf.bins[:dim] + pdf.bins[dim+1:]))
-	result.array = (pdf.array * dx).sum(axis = dim)
-
-	return result
