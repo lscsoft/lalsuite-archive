@@ -19,8 +19,74 @@ from scipy.optimize import newton
 import random 
 import h5py
 import lal
-import pickle
 from pylal.bayespputils import calculate_redshift, DistanceMeasure, lambda_a, amplitudeMeasure
+
+###########################################
+#
+#  Define hardcoded
+#
+###########################################
+
+fig_width_pt = 2*246.0/1.0  # Get this from LaTeX using \showthe\columnwidth
+inches_per_pt = 1.0/72.27               # Convert pt to inch
+golden_mean = (sqrt(5)-1.0)/2.0         # Aesthetic ratio
+fig_width = fig_width_pt*inches_per_pt  # width in inches
+fig_height = fig_width*golden_mean      # height in inches
+fig_size =  [fig_width,fig_height]
+
+plot_params = {'axes.grid' : True,
+               'savefig.dpi' : 150,
+               'axes.labelsize': 16, 
+               'axes.titlesize': 20, 
+               'font.size': 16, 
+               'font.family': 'serif', 
+               'legend.fontsize': 10, 
+               'xtick.labelsize': 12, 
+               'ytick.labelsize': 0, 
+               'xtick.major.size': 8,
+               'ytick.major.size': 8,
+               'xtick.major.pad': 6,
+               'xtick.minor.size': 5,
+               'ytick.minor.size': 5,
+               'axes.grid' : True,
+               'text.usetex': False,
+               'lines.markersize' : 4, 
+#               'lines.linewidth' : 2, 
+               'lines.markeredgewidth' : 1, 
+               'figure.figsize': fig_size
+               }
+          
+rcParams.update(plot_params)
+
+parlabels = {'log10lambda_a':r'$\log \lambda_\mathbb{A}$',
+                    'log10lambda_eff':r'$\log \lambda_{\mathrm{eff}}$',
+                    'lambda_a':r'$\lambda_\mathbb{A}$',
+                    'lambda_eff':r'$\lambda_{\mathrm{eff}}$'}
+
+lambda_a_min = 1.0e13
+lambda_a_max = 1.0e26
+KDE_bandwidth = 0.02
+x_min = log10(lambda_a_min)
+x_max = log10(lambda_a_max)
+
+def mirrorEdges(data, left, right, margin=0.2, weights=None):
+  '''Mirror data left and right of the edges to reduce kde edge effects'''
+  lmirr = left - (data - left)
+  rmirr = right - (data - right)
+  mwidth = (right - left)*margin
+  ledge = left - mwidth
+  redge = right + mwidth
+  lidx = where(lmirr > ledge)[0]
+  ldata = lmirr[lidx]
+  ridx = where(rmirr < redge)[0]
+  rdata = rmirr[ridx]
+  extdata = hstack((ldata, data, rdata))
+  if weights is not None:
+    lw = weights[lidx]
+    rw = weights[ridx]
+    extweights = hstack((lw, weights, rw))
+    return extdata, extweights
+  return extdata
 
 def EnergyScale(lambda_A):
     """
@@ -71,6 +137,9 @@ def weighted_1dQuantile(quantile, data, weights=None):
     print "WARNING: Quantile interpolation not possible, edge value used."
   return x
 
+def normalize(pdf, x):
+    '''Normalize a 1-dim posterior function on a given grid'''
+    return pdf/trapz(pdf,x)
 
 if __name__ == "__main__":
 
@@ -86,6 +155,8 @@ if __name__ == "__main__":
   parser.add_argument("-o", "--output", type=str, dest="outputfolder", help="outputfolder", metavar="OUTPUT FOLDER",default=".")
   parser.add_argument("--prior", type=str, dest="prior", choices=['mass','A'], help="use prior uniform in {mass, A} (default is uniform in lalinference parameter used)")
   parser.add_argument("-a", "--alpha", type=float, dest="alphaLIV", help="Exponent of Lorentz invariance violating term", default=0.0)
+  parser.add_argument("--combine-param", type=str, dest="combine_param", choices=['mass','logmass','lambda_A','log10lambda_a','A'], help="Parameter for which to compute joint posterior {logmass, log10lambda_a, logA}")
+  parser.add_argument("-n", type=int, dest="nbins", help="number of interpolation points for the  gaussian KDE (default 256)", default=256)
 
 
   args = parser.parse_args()
@@ -95,20 +166,29 @@ if __name__ == "__main__":
   outfolder = args.outputfolder
   prior = args.prior
   alphaLIV = args.alphaLIV
+  combine_param = args.combine_param
   
   cosmology = lal.CreateCosmologicalParameters(0.7,0.3,0.7,-1.0,0.0,0.0) ## these are dummy parameters that are being used for the initialization. they are going to be set to their defaults Planck 2015 values in the next line
   lal.SetCosmologicalParametersDefaultValue(cosmology) ## setting h, omega_matter and omega_lambda to their default Planck 2015 values available in LAL
+
+  # Prior PDFs for log10lambda_A
+  priorPDF = {}
+  priorPDF['mass'] = lambda loglA,loglAmin,loglAmax: log(10)*(pow(10.0,loglAmax)-pow(10.0,loglAmin))/(pow(10.0,loglA+loglAmax+loglAmin))
+  priorPDF['A'] = lambda loglA,loglAmin,loglAmax: log(10)*(alphaLIV - 2.0)*pow(10.0,loglA*(alphaLIV-2.0))/(pow(10.0,loglAmax*(alphaLIV-2.0))-pow(10.0,loglAmin*(alphaLIV-2.0)))
 
   if not os.path.exists(outfolder):
     os.makedirs(outfolder)
   
   if labels:
-    if len(labels)!=len(datafiles):
-      print "ERROR: need to give same number of datafiles and labels"
+    if len(set(labels))!=len(datafiles):
+      print "ERROR: need to give same number of datafiles and discrete labels"
       sys.exit(-1)
 
   print datafiles
+  wpostlist = []
+  postlist = []
   for (dfile, lab) in zip(datafiles, labels):
+    print "Post-processing " + lab
     if os.path.splitext(dfile)[1] == '.hdf5':
       #  with h5py.File(dfile, 'r') as h5file:
       h5file = h5py.File(dfile, 'r') 
@@ -120,7 +200,7 @@ if __name__ == "__main__":
       data = genfromtxt(dfile, names=True)
 
 
-    """Converting (log)distance posterior to meters"""
+    """Converting (log)distance posterior to Mpc"""
     if "logdistance" in data.dtype.names:
       distdata = exp(data["logdistance"]) # calculate_redshift needs distances in Mpc. Use * 1e6 * lal.PC_SI to convert to meters
       print "Logarithmic distance parameter detected."
@@ -154,8 +234,8 @@ if __name__ == "__main__":
       lamAdata = lambda_A_of_eff(leffdata, zdata, alphaLIV, cosmology)
       loglamAdata = log10(lamAdata)
       lameff = True
-    if alphaLIV == 0.0:
-        mgdata = EnergyScale(lamAdata)
+
+    mgdata = EnergyScale(lamAdata)
     if prior == 'mass':
         # apply uniform mass prior
         print 'Applying prior uniform in mass scale'
@@ -179,7 +259,7 @@ if __name__ == "__main__":
     if alphaLIV < 2.0:
         """Calculating Posterior Quantiles (lower)"""
         PQ_68 = weighted_1dQuantile(0.32, loglamAdata,logweights)
-        PQ_90 = weighted_1dQuantile(0.1, loglamAdata, logweights)
+        PQ_90 = weighted_1dQuantile(0.1, loglamAdata, logweights) 
         PQ_95 = weighted_1dQuantile(0.05, loglamAdata, logweights)
         PQ_99 = weighted_1dQuantile(0.01, loglamAdata, logweights)
     elif alphaLIV > 2.0:
@@ -200,5 +280,70 @@ if __name__ == "__main__":
     print "lambda_A [m]\t68% PQ: ", 10**PQ_68, "\t90% PQ: ", 10**PQ_90, "\t95% PQ: ", 10**PQ_95, "\t99% PQ: ", 10**PQ_99
     print "E_A [eV]\t68% PQ: ", EnergyScale(10**PQ_68), "\t90% PQ: ", EnergyScale(10**PQ_90), "\t95% PQ: ", EnergyScale(10**PQ_95), "\t99% PQ: ", EnergyScale(10**PQ_99)
     print "A [(eV/c)^" + str(2-alphaLIV) + "]\t68% PQ: ", A_LIV(10**PQ_68, alphaLIV), "\t90% PQ: ", A_LIV(10**PQ_90, alphaLIV), "\t95% PQ: ", A_LIV(10**PQ_95, alphaLIV), "\t99% PQ: ", A_LIV(10**PQ_99, alphaLIV)
-
     
+    savetxt(os.path.join(outfolder,'credible_regions_%s_%s.txt'%(combine_param,lab)),
+             array([PQ_68, PQ_90, PQ_95, PQ_99]).transpose(),
+             header = "68%\t90%\t95%\t99%",
+             fmt = '%10.7f')
+
+    #wpostlist.append(mirrorEdges(loglamAdata, x_min, x_max, weights=logweights)) 
+    postlist.append(mirrorEdges(loglamAdata, x_min, x_max))
+    
+
+# Combine sources & get joint posterior for loglambda_A
+
+  x = linspace(x_min, x_max, args.nbins)
+
+  # KDE for each source
+  kdes = map(lambda x : stats.gaussian_kde(x, bw_method=0.02), postlist)
+
+  # Prior PDF on x
+  yp = priorPDF[prior](x, x_min, x_max)
+
+  # evaluate the KDEs on the bins
+  pdfs = squeeze(array([map(kde, x) for kde in kdes]), axis=2)
+
+  # compute the joint pdf accounting for the prior
+  joint_pdf = sum(log(pdfs), axis=0) + log(yp)
+  joint_pdf = normalize(exp(joint_pdf), x)
+
+  # array of unique colors for the single pdfs
+  colors = cm.rainbow(linspace(0,1,len(postlist)))
+
+  # calculate joint CDF
+  from scipy.integrate import cumtrapz
+  cdf = cumtrapz(joint_pdf, x, initial=0.0)
+  combined_90bound = x[where(cdf>0.1)[0][0]]
+
+  # Plot posteriors and joint PDF/CDF (all normalized)
+  fig = plt.figure()
+  ax = fig.add_subplot(111)
+
+  # Plot bounds as vertical lines
+  lambdag_bounds = {"Solar system":(2.8e15,'r','-.'), "Binary Pulsars":(1.6e13,'g','--')}
+  for lb in lambdag_bounds:
+    (bound, lc, ls) = lambdag_bounds[lb]
+    ax.axvline(log10(bound), linestyle=ls, linewidth=3, color=lc, label=lb)
+  ax.axvline(combined_90bound, linewidth=3, color='k', label="GW combined")
+
+  for c,pdf,lab in zip(colors, pdfs, labels):
+    ax.plot(x, normalize(pdf*yp, x), color=c, label=lab)
+  ax.plot(x, joint_pdf,color='k')
+  ax.plot(x, cdf,color='k')
+
+  # Labels and legend
+  try:
+    ax.set_xlabel(parlabels[combine_param])
+  except:
+    ax.set_xlabel(combine_param)
+  ax.set_ylabel(r"$\mathrm{probability}$ $\mathrm{density}$")
+  ax.legend(loc='upper right')
+
+  savefig(os.path.join(outfolder,'joint_posteriors_%s.pdf'%combine_param),bbox_inches='tight')
+
+  # Compute a few credible regions from the joint CDF
+  regions = matrix([pow(10,x[np.abs(cdf-cl).argmin()]) if alphaLIV < 2.0 else pow(10,x[np.abs(cdf-(1.-cl)).argmin()]) for cl in [0.05,0.1,0.32,0.50,0.68,0.9,0.95]])
+
+  savetxt(os.path.join(outfolder,'joint_credible_regions_%s.txt'%combine_param), regions, header = "5%\t10%\t32%\t50%\t68%\t90%\t95%")
+
+  print "DONE!"
