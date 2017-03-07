@@ -1345,7 +1345,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
     if(LALInferenceGetProcParamVal(commandLine, "--nltides-taylor")){
       printf("Using Taylor expansion of NL Tides\n");
       LALInferenceRegisterUniformVariableREAL8(state, model->params, "NLTides_N0", 1., -1., 3., LALINFERENCE_PARAM_LINEAR);
-      LALInferenceRegisterUniformVariableREAL8(state, model->params, "NLTides_N0",30., 10., 100., LALINFERENCE_PARAM_LINEAR);
+      LALInferenceRegisterUniformVariableREAL8(state, model->params, "NLTides_F0",30., 10., 100., LALINFERENCE_PARAM_LINEAR);
       LALInferenceRegisterUniformVariableREAL8(state, model->params, "log10NLTides_A0", -7., -10., -4., LALINFERENCE_PARAM_LINEAR);
 
       LALInferenceRegisterUniformVariableREAL8(state, model->params, "NLTides_dNdm", 0., -1., 1., LALINFERENCE_PARAM_LINEAR);
