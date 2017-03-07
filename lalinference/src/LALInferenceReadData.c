@@ -2323,6 +2323,36 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
     fref = atoi(LALInferenceGetProcParamVal(commandLine,"--inj-fref")->value);
   }
 
+  /* injected values for non-linear tides when sampling the parameterization directly */
+  if(LALInferenceGetProcParamVal(commandLine,"--inj-nltides_n1")&&LALInferenceGetProcParamVal(commandLine,"--inj-nltides_f1")&&LALInferenceGetProcParamVal(commandLine,"--inj-nltides_a1")&&LALInferenceGetProcParamVal(commandLine,"--inj-nltides_n2")&&LALInferenceGetProcParamVal(commandLine,"--inj-nltides_f2")&&LALInferenceGetProcParamVal(commandLine,"--inj-nltides_a2")){
+    XLALSimInspiralWaveformParamsInsertNLTidesN1(LALpars, atof(LALInferenceGetProcParamVal(commandLine,"--inj-nltides_n1")->value));
+    XLALSimInspiralWaveformParamsInsertNLTidesF1(LALpars, atof(LALInferenceGetProcParamVal(commandLine,"--inj-nltides_f1")->value));
+    XLALSimInspiralWaveformParamsInsertNLTidesA1(LALpars, atof(LALInferenceGetProcParamVal(commandLine,"--inj-nltides_a1")->value));
+
+    XLALSimInspiralWaveformParamsInsertNLTidesN2(LALpars, atof(LALInferenceGetProcParamVal(commandLine,"--inj-nltides_n2")->value));
+    XLALSimInspiralWaveformParamsInsertNLTidesF2(LALpars, atof(LALInferenceGetProcParamVal(commandLine,"--inj-nltides_f2")->value));
+    XLALSimInspiralWaveformParamsInsertNLTidesA2(LALpars, atof(LALInferenceGetProcParamVal(commandLine,"--inj-nltides_a2")->value));
+  } else {
+    /* inject non-linear parameters from Taylor expansion coefficients */
+    if(LALInferenceGetProcParamVal(commandLine,"--inj-nltides_a0")&&LALInferenceGetProcParamVal(commandLine,"--inj-nltides_n0")&&LALInferenceGetProcParamVal(commandLine,"--inj-nltides_f0")&&LALInferenceGetProcParamVal(commandLine,"--inj-nltides_dadm")&&LALInferenceGetProcParamVal(commandLine,"--inj-nltides_dndm")&&LALInferenceGetProcParamVal(commandLine,"--inj-nltides_dfdm")){
+        REAL8 A0, F0, N0, dAdm, dFdm, dNdm ;
+        A0 = atof(LALInferenceGetProcParamVal(commandLine,"--inj-nltides_a0")->value) ;
+        F0 = atof(LALInferenceGetProcParamVal(commandLine,"--inj-nltides_f0")->value) ;
+        N0 = atof(LALInferenceGetProcParamVal(commandLine,"--inj-nltides_n0")->value) ;
+        dAdm = atof(LALInferenceGetProcParamVal(commandLine,"--inj-nltides_dadm")->value) ;
+        dFdm = atof(LALInferenceGetProcParamVal(commandLine,"--inj-nltides_dfdm")->value) ;
+        dNdm = atof(LALInferenceGetProcParamVal(commandLine,"--inj-nltides_dndm")->value) ;
+
+        XLALSimInspiralWaveformParamsInsertNLTidesN1(LALpars, LALInferenceNonLinearTidesFromTaylor(inj_table->mass1, N0, dNdm));
+        XLALSimInspiralWaveformParamsInsertNLTidesF1(LALpars, LALInferenceNonLinearTidesFromTaylor(inj_table->mass1, F0, dFdm));
+        XLALSimInspiralWaveformParamsInsertNLTidesA1(LALpars, LALInferenceNonLinearTidesFromTaylor(inj_table->mass1, A0, dAdm));
+    
+        XLALSimInspiralWaveformParamsInsertNLTidesN2(LALpars, LALInferenceNonLinearTidesFromTaylor(inj_table->mass2, N0, dNdm));
+        XLALSimInspiralWaveformParamsInsertNLTidesF2(LALpars, LALInferenceNonLinearTidesFromTaylor(inj_table->mass2, F0, dFdm));
+        XLALSimInspiralWaveformParamsInsertNLTidesA2(LALpars, LALInferenceNonLinearTidesFromTaylor(inj_table->mass2, A0, dAdm));
+    }
+  }
+
  /* Print a line with information about approximant, amp_order, phaseorder, tide order and spin order */
   fprintf(stdout,"\n\n---\t\t ---\n");
  fprintf(stdout,"Injection will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i, tidal order %i, in the frequency domain.\n",approximant,XLALSimInspiralGetStringFromApproximant(approximant),phase_order,amp_order,(int) spinO,(int) tideO);

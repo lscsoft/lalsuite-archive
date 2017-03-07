@@ -1158,6 +1158,8 @@ CHAR* LALInferenceGetstringVariable(LALInferenceVariables * vars, const char * n
 
 void LALInferenceSetstringVariable(LALInferenceVariables* vars,const char* name,CHAR* value);
 
+REAL8 LALInferenceNonLinearTidesFromTaylor( REAL8 mass, REAL8 term0, REAL8 term1 );
+
 /**
  * Print spline calibration parameter names as tab-separated ASCII
  */

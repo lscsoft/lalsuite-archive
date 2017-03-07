@@ -1330,6 +1330,30 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
         LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
   }
 
+  /* Option to use NL Tides */
+  if(LALInferenceGetProcParamVal(commandLine,"--nltides")){
+    printf("Using NL Tides\n");
+    LALInferenceRegisterUniformVariableREAL8(state, model->params, "NLTidesN1", 1., -1., 3., LALINFERENCE_PARAM_LINEAR);
+    LALInferenceRegisterUniformVariableREAL8(state, model->params, "NLTidesF1", 30., 10., 100., LALINFERENCE_PARAM_LINEAR);
+    LALInferenceRegisterUniformVariableREAL8(state, model->params, "log10NLTidesA1", -7., -10.,-4., LALINFERENCE_PARAM_LINEAR);
+
+    LALInferenceRegisterUniformVariableREAL8(state, model->params, "NLTidesN2", 1., -1., 3., LALINFERENCE_PARAM_LINEAR);
+    LALInferenceRegisterUniformVariableREAL8(state, model->params, "NLTidesF2", 30., 10., 100., LALINFERENCE_PARAM_LINEAR);
+    LALInferenceRegisterUniformVariableREAL8(state, model->params, "log10NLTidesA2", -7., -10., -4., LALINFERENCE_PARAM_LINEAR);
+  } else{ 
+    /* Option to use Taylor expansion of NL Tides */
+    if(LALInferenceGetProcParamVal(commandLine, "--nltides-taylor")){
+      printf("Using Taylor expansion of NL Tides\n");
+      LALInferenceRegisterUniformVariableREAL8(state, model->params, "NLTides_N0", 1., -1., 3., LALINFERENCE_PARAM_LINEAR);
+      LALInferenceRegisterUniformVariableREAL8(state, model->params, "NLTides_N0",30., 10., 100., LALINFERENCE_PARAM_LINEAR);
+      LALInferenceRegisterUniformVariableREAL8(state, model->params, "log10NLTides_A0", -7., -10., -4., LALINFERENCE_PARAM_LINEAR);
+
+      LALInferenceRegisterUniformVariableREAL8(state, model->params, "NLTides_dNdm", 0., -1., 1., LALINFERENCE_PARAM_LINEAR);
+      LALInferenceRegisterUniformVariableREAL8(state, model->params, "NLTides_dFdm", 0., -10., 10., LALINFERENCE_PARAM_LINEAR);
+      LALInferenceRegisterUniformVariableREAL8(state, model->params, "NLTides_dlogAdm", -0., -1., 1., LALINFERENCE_PARAM_LINEAR);
+    }
+  }
+  
   /* LALInference uses a proprietary spin parameterization, the conversion from which
    * assumes the LALSimulations default frame */
   LALSimInspiralFrameAxis frameAxis = LAL_SIM_INSPIRAL_FRAME_AXIS_DEFAULT;

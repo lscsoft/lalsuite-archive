@@ -797,7 +797,36 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
     }
   }
 
+  /* sample NL tides for each mass separately */
+  if(LALInferenceCheckVariable(model->params, "NLTidesN1")&&LALInferenceCheckVariable(model->params, "log10NLTidesA1")&&LALInferenceCheckVariable(model->params, "NLTidesF1")&&LALInferenceCheckVariable(model->params, "NLTidesN2")&&LALInferenceCheckVariable(model->params, "log10NLTidesA2")&&LALInferenceCheckVariable(model->params, "NLTidesF2")){
+    XLALSimInspiralWaveformParamsInsertNLTidesA1(model->LALpars, pow(10.0,*(REAL8 *)LALInferenceGetVariable(model->params, "log10NLTidesA1")));
+    XLALSimInspiralWaveformParamsInsertNLTidesF1(model->LALpars, *(REAL8 *)LALInferenceGetVariable(model->params, "NLTidesF1"));
+    XLALSimInspiralWaveformParamsInsertNLTidesN1(model->LALpars, *(REAL8 *)LALInferenceGetVariable(model->params, "NLTidesN1"));
 
+    XLALSimInspiralWaveformParamsInsertNLTidesA2(model->LALpars, pow(10.0,*(REAL8 *)LALInferenceGetVariable(model->params, "log10NLTidesA2")));
+    XLALSimInspiralWaveformParamsInsertNLTidesF2(model->LALpars, *(REAL8 *)LALInferenceGetVariable(model->params, "NLTidesF2"));
+    XLALSimInspiralWaveformParamsInsertNLTidesN2(model->LALpars, *(REAL8 *)LALInferenceGetVariable(model->params, "NLTidesN2"));
+  } else {
+  /* sample the Taylor expansion of the NL tide params */
+    if(LALInferenceCheckVariable(model->params, "NLTides_N0")&&LALInferenceCheckVariable(model->params, "log10NLTides_A0")&&LALInferenceCheckVariable(model->params, "NLTides_F0")&&LALInferenceCheckVariable(model->params, "NLTides_dNdm")&&LALInferenceCheckVariable(model->params, "NLTides_dlogAdm")&&LALInferenceCheckVariable(model->params, "NLTides_dFdm")){
+      REAL8 N0, dNdm, F0, dFdm, A0, dAdm ;
+      N0 = *(REAL8*) LALInferenceGetVariable(model->params, "NLTides_N0") ;
+      F0 = *(REAL8*) LALInferenceGetVariable(model->params, "NLTides_F0") ;
+      A0 = pow(10, *(REAL8*) LALInferenceGetVariable(model->params, "log10NLTides_A0"));
+      dNdm = *(REAL8*) LALInferenceGetVariable(model->params, "NLTides_dNdm") ;
+      dFdm = *(REAL8*) LALInferenceGetVariable(model->params, "NLTides_dFdm") ;
+      dAdm = *(REAL8*) LALInferenceGetVariable(model->params, "NLTides_dlogAdm") ;
+      dAdm *= A0 ; // convert from dlogAdm to dAdm
+
+      XLALSimInspiralWaveformParamsInsertNLTidesA1(model->LALpars, LALInferenceNonLinearTidesFromTaylor(m1, A0, dAdm));
+      XLALSimInspiralWaveformParamsInsertNLTidesF1(model->LALpars, LALInferenceNonLinearTidesFromTaylor(m1, F0, dFdm));
+      XLALSimInspiralWaveformParamsInsertNLTidesN1(model->LALpars, LALInferenceNonLinearTidesFromTaylor(m1, F0, dNdm));
+
+      XLALSimInspiralWaveformParamsInsertNLTidesA2(model->LALpars, LALInferenceNonLinearTidesFromTaylor(m2, A0, dAdm));
+      XLALSimInspiralWaveformParamsInsertNLTidesF2(model->LALpars, LALInferenceNonLinearTidesFromTaylor(m2, F0, dFdm));
+      XLALSimInspiralWaveformParamsInsertNLTidesN2(model->LALpars, LALInferenceNonLinearTidesFromTaylor(m2, N0, dNdm));
+    }
+  }
 
   /* ==== Call the waveform generator ==== */
   if(model->domain == LAL_SIM_DOMAIN_FREQUENCY) {
