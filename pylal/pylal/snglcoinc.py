@@ -2094,38 +2094,35 @@ class CoincParamsDistributions(object):
 # against NaNs in the Lambda = +inf/+inf case.
 
 
-class LnLikelihoodRatio(object):
+class LnLikelihoodRatioMixin(object):
 	"""
-	Class for computing signal hypothesis / noise hypothesis likelihood
-	ratios from the measurements in a
-	snglcoinc.CoincParamsDistributions instance.
+	Mixin class to provide the standard log likelihood ratio methods.
+	Intended to be added to the parent classes of a ranking statistic
+	class defining .numerator and .denominator attributes that are both
+	instances of (subclasses of) the LnLRDensity class.  The ranking
+	statistic class will then acquire a .__call__() method allowing it
+	to be used as a log likelihood ratio function, and also a
+	.ln_lr_samples() method providing importance-weighted sampling of
+	the log likelihood ratio distribution in the signal and noise
+	(numerator and denominator) populations.
 	"""
-	def __init__(self, coinc_param_distributions):
-		self.lnP_noise = coinc_param_distributions.lnP_noise
-		self.lnP_signal = coinc_param_distributions.lnP_signal
-
 	def __call__(self, *args, **kwargs):
 		"""
 		Return the natural logarithm of the likelihood ratio for
-		the hypothesis that the list of events are the result of a
-		gravitational wave.  The likelihood ratio is the ratio
-		P(inj params) / P(noise params).  The probability that the
+		the given parameters.  The likelihood ratio is P(params |
+		signal) / P(params | noise).  The probability that the
 		events are the result of a gravitiational wave is a
 		monotonically increasing function of the likelihood ratio,
 		so ranking events from "most like a gravitational wave" to
 		"least like a gravitational wave" can be performed by
-		calculating the (logarithm of the) likelihood ratios, which
-		has the advantage of not requiring a prior probability to
-		be provided (knowing how many gravitational waves you've
-		actually detected).
+		calculating the (logarithm of the) likelihood ratios.
 
-		The arguments are passed verbatim to the .lnP_noise and
-		.lnP_signal() methods of the
-		snglcoinc.CoincParamsDistributions instance with which this
-		object is associated.
+		The arguments are passed verbatim to the .__call__()
+		methods of the .numerator and .denominator attributes of
+		self.
 		"""
-		lnP_noise = self.lnP_noise(*args, **kwargs)
-		lnP_signal = self.lnP_signal(*args, **kwargs)
+		lnP_signal = self.numerator(*args, **kwargs)
+		lnP_noise = self.denominator(*args, **kwargs)
 		if math.isinf(lnP_noise) and math.isinf(lnP_signal):
 			# need to handle a special case
 			if lnP_noise < 0. and lnP_signal < 0.:
@@ -2133,14 +2130,13 @@ class LnLikelihoodRatio(object):
 				# answer is -inf, because if a candidate is
 				# in a region of parameter space where the
 				# probability of a signal occuring is 0
-				# then there is no way it is a signal.
-				# there is also, aparently, no way it's a
-				# noise event, which is puzzling, but
-				# that's irrelevant because we are supposed
-				# to be computing something that is a
-				# monotonically increasing function of the
-				# probability that a candidate is a signal,
-				# which is 0 in this part of the parameter
+				# then it is not a signal.  is it also,
+				# aparently, not noise, which is curious
+				# but irrelevant because we are seeking a
+				# result that is a monotonically increasing
+				# function of the probability that a
+				# candidate is a signal, which is
+				# impossible in this part of the parameter
 				# space.
 				return NegInf
 			# all remaining cases are handled correctly by the
@@ -2148,39 +2144,78 @@ class LnLikelihoodRatio(object):
 			# warning
 			if lnP_noise > 0. and lnP_signal > 0.:
 				# both probabilities are +inf.  no correct
-				# answer.
+				# answer.  NaN will be returned in thise
+				# case, and it helps to have a record in
+				# the log of why that happened.
 				warnings.warn("inf/inf encountered")
 		return  lnP_signal - lnP_noise
 
-	def samples(self, random_params_seq, sampler_coinc_params = None, **kwargs):
+	def ln_lr_samples(self, random_params_seq, sampler_coinc_params = None, **kwargs):
 		"""
 		Generator that yields an unending sequence of 3-element
 		tuples.  Each tuple's elements are a value of the natural
 		logarithm of the likelihood rato, the natural logarithm of
-		the probability density of that likelihood ratio in the
-		signal population, the natural logarithm of the probability
-		density of that likelihood ratio in the noise population.
+		the relative frequency of occurance of that likelihood
+		ratio in the signal population corrected for the relative
+		frequency at which the sampler is yielding that value, and
+		the natural logarithm of the relative frequency of
+		occurance of that likelihood ratio in the noise population
+		similarly corrected for the relative frequency at which the
+		sampler is yielding that value.  The intention is for the
+		return values to be added to histograms using the given
+		probability densities as weights, i.e., the two relative
+		frequencies give the number of times one should consider
+		this one draw of log likelihood ratio to have occured in
+		the two populations.
 
-		random_params_seq should be a sequence (or generator) that
-		yielding 2-element tuples whose first element is a choice
-		of parameter values and whose second element is the natural
+		random_params_seq is a sequence (generator is OK) yielding
+		2-element tuples whose first element is a choice of
+		parameter values and whose second element is the natural
 		logarithm of the probability density from which the
 		parameters have been drawn evaluated at the parameters.
 
-		The parameter values yielded by the random_params_seq are
-		passed as the first argument, verbatim, to the .lnP_noise()
-		an .lnP_signal() methods of the CoincParamsDistributions
-		object with which this object is associated, followed by
-		any (optional) key-word arguments.
+		On each iteration, the sample of parameter values yielded
+		by random_params_seq is passed to our own .__call__()
+		method to evalute the log likelihood ratio at that choice
+		of parameter values.  If sampler_coinc_params is None the
+		parameters are also passed to the .__call__() mehods of the
+		.numerator and .denominator attributes of self to obtain
+		the signal and noise population densities at those
+		parameters.  If sample_coinc_params is not None then,
+		instead, the parameters are passed to the .__call__()
+		methods of its .numerator and .denominator attributes.
+
+		If histograming the results as described above, the effect
+		is to draw paramter values from the signal and noise
+		populations defined by sampler_coinc_params' PDFs but with
+		log likelihood ratios evaluted using our own PDFs.
 		"""
 		if sampler_coinc_params is None:
-			lnP_noise_func = self.lnP_noise
-			lnP_signal_func = self.lnP_signal
+			lnP_signal_func = self.numerator
+			lnP_noise_func = self.denominator
 		else:
-			lnP_noise_func = sampler_coinc_params.lnP_noise
-			lnP_signal_func = sampler_coinc_params.lnP_signal
+			lnP_signal_func = sampler_coinc_params.numerator
+			lnP_noise_func = sampler_coinc_params.denominator
 		isinf = math.isinf
 		for params, lnP_params in random_params_seq:
-			lnP_noise = lnP_noise_func(params, **kwargs)
 			lnP_signal = lnP_signal_func(params, **kwargs)
+			lnP_noise = lnP_noise_func(params, **kwargs)
 			yield self(params, **kwargs), lnP_signal - lnP_params, lnP_noise - lnP_params
+
+
+class LnLikelihoodRatio(LnLikelihoodRatioMixin):
+	"""
+	Compatibility shim for old style ranking statistic code.  Don't use
+	in new code.
+	"""
+	def __init__(self, coinc_param_distributions):
+		self.numerator = coinc_param_distributions.lnP_signal
+		self.denominator = coinc_param_distributions.lnP_noise
+
+	def samples(self, random_params_seq, sampler_coinc_params = None, **kwargs):
+		# hack to create an object with .numerator and .denominator
+		# attributes instead of .lnP_signal and .lnP_noise
+		# respectively
+		if sampler_coinc_params is not None:
+			sampler_coinc_params = LnLikelihoodRatio(sampler_coinc_params)
+		return super(LnLikelihoodRatio, self).ln_lr_samples(random_params_seq, sampler_coinc_params, **kwargs)
