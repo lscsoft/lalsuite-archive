@@ -1956,6 +1956,246 @@ class BinnedDensity(BinnedArray):
 
 
 #
+# A discretely sampled PDF.
+#
+
+
+class BinnedLnPDF(BinnedDensity):
+	"""
+	Variant of the BinnedDensity class that (i) tracks a normalization
+	which it uses to rescale the reported density so that its integral
+	is one, and (ii) reports the natural logarithm of that normalized
+	density.
+
+	The .normalize() method needs to be invoked after any manipulation
+	of the contents of the array before the results of .__getitem__()
+	are meaningful.
+
+	How the normalization is tracked should be assumed to be
+	undocumented.  In this class the .norm attribute contains the
+	natural log of the sum of the counts in all bins and this value is
+	subtracted from the natural log of the (unnormalized) density in
+	the .__getitem__() method, but subclasses are free to implement
+	whatever unique mechanism is appropriate for themselves.
+
+	As with the BinnedDensity class, the internal array contains counts
+	(not densities, nor natural logarithms of densities), and the
+	.counts attribute continues to be a BinnedArray interface to those
+	counts.  The intention is for the counts themselves to provide an
+	additional degree of freedom apart from the normalized density.
+	For example, see the .__iadd__() method where it is assumed that
+	the total count encodes a relative weight to be used when
+	marginalizing over two PDFs.
+
+	Example:
+
+	>>> # 5x5 mesh of bins each with volume = 4
+	>>> x = BinnedLnPDF(NDBins((LinearBins(0, 10, 5), LinearBins(0, 10, 5))))
+	>>> # set count at 5,5 to 36 and normalize
+	>>> x.count[5.0, 5.0] = 36
+	>>> x.normalize()
+	>>> # log probability density = ln 1/4 = -1.3862943611198906
+	>>> x.at_centres()
+	array([[       -inf,        -inf,        -inf,        -inf,        -inf],
+	       [       -inf,        -inf,        -inf,        -inf,        -inf],
+	       [       -inf,        -inf, -1.38629436,        -inf,        -inf],
+	       [       -inf,        -inf,        -inf,        -inf,        -inf],
+	       [       -inf,        -inf,        -inf,        -inf,        -inf]])
+	>>> # convolve with 3x3 top-hat window.  in general one must renormalize after this, but we'll skip that here because the demo is constructed so as to not need it
+	>>> filter_array(x.array, tophat_window(3, 3))
+	array([[ 0.,  0.,  0.,  0.,  0.],
+	       [ 0.,  4.,  4.,  4.,  0.],
+	       [ 0.,  4.,  4.,  4.,  0.],
+	       [ 0.,  4.,  4.,  4.,  0.],
+	       [ 0.,  0.,  0.,  0.,  0.]])
+	>>> # ln probability density = ln 1/(4 * 9) = -3.58351893845611
+	>>> x.at_centres()
+	array([[       -inf,        -inf,        -inf,        -inf,        -inf],
+	       [       -inf, -3.58351894, -3.58351894, -3.58351894,        -inf],
+	       [       -inf, -3.58351894, -3.58351894, -3.58351894,        -inf],
+	       [       -inf, -3.58351894, -3.58351894, -3.58351894,        -inf],
+	       [       -inf,        -inf,        -inf,        -inf,        -inf]])
+	>>> # .marginzlize() preserves normalization
+	>>> y = x.marginalize(1)
+	>>> y.count.at_centres()
+	array([  0.,  12.,  12.,  12.,   0.])
+	>>> # ln probability density = ln 1/(2 * 3) = -1.791759469228055
+	>>> y.at_centres()
+	array([       -inf, -1.79175947, -1.79175947, -1.79175947,        -inf])
+	>>> # assuming \sqrt{N} counting flucutations, compute the fractional uncertainty
+	>>> import numpy
+	>>> d = BinnedArray(x.bins, 1. / numpy.sqrt(x.count.at_centres()))
+	>>> d.at_centres()
+	array([[ inf,  inf,  inf,  inf,  inf],
+	       [ inf,  0.5,  0.5,  0.5,  inf],
+	       [ inf,  0.5,  0.5,  0.5,  inf],
+	       [ inf,  0.5,  0.5,  0.5,  inf],
+	       [ inf,  inf,  inf,  inf,  inf]])
+	"""
+	def __init__(self, *args, **kwargs):
+		super(BinnedLnPDF, self).__init__(*args, **kwargs)
+		self.norm = 0.0
+
+	def __getitem__(self, coords):
+		return numpy.log(super(BinnedLnPDF, self).__getitem__(coords)) - self.norm
+
+	def __setitem__(self, coords, val):
+		#
+		# the relationship between the density, p, the
+		# volume, Delta, the count, x, and the overall
+		# normalization, N, for a bin i is
+		#
+		# p_i = x_i / (Delta_i * N)
+		#
+		# where N = sum_j x_j, and 0 <= p_i * Delta_i <= 1.
+		#
+		# to maintain the requirement that the density integrate to
+		# 1, it is not possible to change the density in one bin
+		# without changing the densities in all other bins.
+		# because there is no unique way to assign new densities to
+		# all other bins that preserves the normalization invariant
+		# there is an ambiguity in how to implement the assignment
+		# operation.  instead of choosing one, we elect to forbid
+		# this operation.
+		#
+		# one interpretation could be to require the counts in all
+		# other bins to be preserved, and solve for the new count
+		# for the bin in question (and new total count).  because
+		# the counts in other bins are held constant the likelihood
+		# ratios among them are preserved.
+		#
+		# solving for x_i,
+		#
+		#         p_i * Delta_i
+		# x_i = ----------------- sum_(j != i) x_j.
+		#       1 - p_i * Delta_i
+		#
+		# the normalization would then need to be recomputed given
+		# the new count for bin i.  forbidden cases include:
+		# infinite bin size, total count is initially 0,
+		# p_i*Delta_i = 1 unless bin i is the only non-zero bin to
+		# begin with.
+		#
+		# another interpretation could be to require the total
+		# count to be preserved and also the likelihood ratios
+		# among all other bins.  because the total count is being
+		# preserved, the new x_i can be obtained immediately as
+		#
+		# x_i' = N * p_i * Delta_i
+		#
+		# the counts in all other bins are obtained by rescaling by
+		# the after-to-before ratio of the non-bin-i count.
+		#
+		# x_(j != i) = x_(j != i) * (N - x_i') / (N - x_i)
+		#
+		# because they are scaled by a common factor, the ratios
+		# between them are preserved.  forbidden cases include:
+		# infinite bin size, total count is initially 0.
+		#
+		raise NotImplementedError("item assignment operation not defined.  assign to .counts then invoke .normalize()")
+
+	def mkinterp(self):
+		"""
+		Return an interpolator to evaluate the density as a smooth
+		function of co-ordinates.  If the density has not been
+		normalized the interpolator's behaviour is undefined.
+
+		NOTE:  the interpolator is the InterpBinnedArray object
+		which might have limitations in 3 or more dimensions.  See
+		its documentation for more information.
+
+		NOTE:  in the future this is likely to be replaced with
+		some sort of internal mechanism.
+
+		Example:
+
+		>>> # 5-bin linear mesh of bins each with volume = 2
+		>>> x = BinnedLnPDF(NDBins((LinearBins(0, 10, 5), )))
+		>>> # set some counts and normalize
+		>>> x.count[3,] = x.count[7,] = 1
+		>>> x.count[5,] = 2
+		>>> x.normalize()
+		>>> x.count.at_centres()
+		array([ 0.,  1.,  2.,  1.,  0.])
+		>>> x.at_centres()
+		array([       -inf, -2.07944154, -1.38629436, -2.07944154,        -inf])
+		>>> # construct interpolator object
+		>>> x = x.mkinterp()
+		>>> # log(P) is interpolated linearly, so it can be counter-intuitive where the density drops to 0 in neighbouring bins
+		>>> x(3)
+		-inf
+		>>> # otherwise behaviour is as expected
+		>>> x(4)
+		-1.732867951399863
+		>>> x(4.5)
+		-1.5595811562598769
+		>>> x(5)
+		-1.3862943611198906
+		"""
+		return InterpBinnedArray(self)
+
+	def at_centres(self):
+		return numpy.log(super(BinnedLnPDF, self).at_centres()) - self.norm
+
+	def marginalize(self, dim):
+		new = super(BinnedLnPDF, self).marginalize(dim)
+		new.norm = self.norm
+		return new
+
+	def __iadd__(self, other):
+		"""
+		Adds the counts array and normalization of other to self.
+		If the original two PDFs were normalized then the result is
+		also normalized, otherwise .normalize() needs to be invoked
+		to normalize the result.  Once normalized, the result is
+		the PDF marginalized over the two original PDFs (the sum of
+		the two PDFs weighted by the relative total frequency of
+		events in each).
+		"""
+		super(BinnedLnPDF, self).__iadd__(other)
+		# c = a + b
+		# if b is smaller than a:
+		# c = a (1 + b/a)
+		# log c = log a + log1p(b / a)
+		# log c = log a + log1p(exp(log b - log a))
+		# otherwise, swap a and b.
+		if self.norm >= other.norm:
+			self.norm += math.log1p(math.exp(other.norm - self.norm))
+		else:
+			self.norm = other.norm + math.log1p(math.exp(self.norm - other.norm))
+
+	def copy(self):
+		new = super(BinnedLnPDF, self).copy()
+		new.norm = self.norm
+		return new
+
+	def normalize(self):
+		"""
+		Updates the internal normalization.  Subclasses override
+		this with custom normalization mechanisms if required.
+
+		Note that counts contained in infinite-sized bins are
+		included in the normalization.  In this way the relative
+		frequency with which counts occur in those bins is
+		accounted for in the normalization although the density
+		reported for those bins will be 0.
+		"""
+		self.norm = math.log(self.array.sum())
+
+	def to_xml(self, *args, **kwargs):
+		elem = super(BinnedLnPDF, self).to_xml(*args, **kwargs)
+		elem.appendChild(ligolw_param.Param.from_pyvalue("norm", self.norm))
+		return elem
+
+	@classmethod
+	def from_xml(cls, xml, name):
+		elem = cls.get_xml_root(xml, name)
+		self = super(BinnedLnPDF, cls).from_xml(elem, name)
+		self.norm = ligolw_param.get_pyvalue(elem, "norm")
+		return self
+
+
+#
 # =============================================================================
 #
 #                                   Windows
