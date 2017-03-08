@@ -76,8 +76,11 @@ static REAL8 XLALNSNSMergerFreq(
     REAL8 m2 = tidal2->mass;
     REAL8 M = m1 + m2;
     REAL8 Mto5 = M*M*M*M*M;
-    REAL8 R1 = m1/tidal1->comp;
-    REAL8 R2 = m2/tidal2->comp;
+    REAL8 R1 = 0., R2 = 0.;
+    if ( tidal1->comp != 0. )
+        R1 = m1/tidal1->comp;
+    if ( tidal2->comp != 0. )
+        R2 = m2/tidal2->comp;
     REAL8 R1to5 = R1*R1*R1*R1*R1;
     REAL8 R2to5 = R2*R2*R2*R2*R2;
     REAL8 lambda1 = 2./3.*tidal1->k2Tidal*R1to5;
@@ -217,6 +220,7 @@ XLALSpinAlignedNSNSStopCondition (double UNUSED t, /**< UNUSED */
       || isnan (dvalues[3]) || isnan (dvalues[2]) || isnan (dvalues[1])
       || isnan (dvalues[0]) || omega >= omegaMerger/2. ))
     {
+//        printf("omegaMerger %.16e\n", omegaMerger);
 //        if ( dvalues[2] >= 0 ) printf("dvalues[2] >= 0\n");
 //        if ( params->eobParams->omegaPeaked == 5 ) printf("params->eobParams->omegaPeaked == 5\n");
 //        if ( isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) ) printf("%.16e %.16e %.16e %.16e\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3]);
@@ -1763,8 +1767,25 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
       XLALPrintError ("The comb size looks to be too big!!!\n");
     }
 
-    if (use_tidal == 1)
+    if (use_tidal == 1) {
+        printf("timePeak old %.16e\n", timePeak);
+
         timeshiftPeak = 0.;
+        UINT4 indAmax = 0;
+        REAL8 Anew, Aval = sqrt( sigReHi->data[0]*sigReHi->data[0] +sigImHi->data[0]*sigImHi->data[0] );
+        for (i = 0; i < (INT4) timeHi.length; i++) {
+            Anew = sqrt( sigReHi->data[i]*sigReHi->data[i] +sigImHi->data[i]*sigImHi->data[i]);
+            if ( Anew >= Aval ) {
+                    indAmax = i;
+                    Aval = Anew;
+            }
+            else {
+                break;
+            }
+        }
+        timePeak = timeHi.data[indAmax];
+        printf("timePeak new %.16e\n", timePeak);
+    }
     
   rdMatchPoint->data[0] =
     combSize <

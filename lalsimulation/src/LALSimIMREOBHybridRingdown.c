@@ -1170,15 +1170,21 @@ static UNUSED INT4 XLALSimIMREOBTaper(
     }
 
     /* Search for index at which the maximum of the amplitude occurs */
-    REAL8 valAmax = ampWave->data[timeVec->length-1];
-    REAL8 tofAmax = timeVec->data[timeVec->length-1];
-    UINT4 indAmax = timeVec->length-1;
-//    if ( XLALSimFindIndexMaxAmpli( &indAmax, timeVec, ampWave, &valAmax, tofAmax ) == XLAL_FAILURE )
-//    {
-//        XLALPrintError("Time of maximum amplitude is not found .\n");
-//        XLALDestroyCOMPLEX16Vector(modefreqs);
-//        XLAL_ERROR(XLAL_EFUNC);
-//    }
+    REAL8 valAmax;
+    REAL8 tofAmax = matchrange->data[1];
+    UINT4 indAmax;
+    if ( tofAmax != timeVec->data[timeVec->length-1] ) {
+    if ( XLALSimFindIndexMaxAmpli( &indAmax, timeVec, ampWave, &valAmax, tofAmax ) == XLAL_FAILURE )
+    {
+        XLALPrintError("Time of maximum amplitude is not found .\n");
+        XLALDestroyCOMPLEX16Vector(modefreqs);
+        XLAL_ERROR(XLAL_EFUNC);
+    }
+    }
+    else {
+        indAmax = timeVec->length-1;
+        valAmax = ampWave->data[indAmax];
+    }
     if (debugSB) {
         printf("Check: The maximum of amplitude is %.16e found at t=%f, index = %d (out of %d) \n", valAmax, tofAmax, indAmax, timeVec->length);
     }
