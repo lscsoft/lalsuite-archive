@@ -39,7 +39,7 @@ plot_params = {'axes.grid' : True,
                'axes.labelsize': 16, 
                'axes.titlesize': 20, 
                'font.size': 16, 
-               'font.family': 'serif', 
+               #'font.family': 'serif', 
                'legend.fontsize': 10, 
                'xtick.labelsize': 12, 
                'ytick.labelsize': 0, 
@@ -287,11 +287,18 @@ if __name__ == "__main__":
              fmt = '%10.7f')
 
     #wpostlist.append(mirrorEdges(loglamAdata, x_min, x_max, weights=logweights)) 
-    postlist.append(mirrorEdges(loglamAdata, x_min, x_max))
+    #postlist.append(mirrorEdges(loglamAdata, x_min, x_max))
+    postlist.append(loglamAdata)
     
+  if len(postlist) == 1:
+    print 'DONE! (single source only)'
+    sys.exit(0)
 
-# Combine sources & get joint posterior for loglambda_A
-
+  # Combine sources & get joint posterior for loglambda_A
+  print "\n==============================\nCombining all of the above sources\n==============================\n"
+  x_min = min(map(min,postlist))-1 # one decade wider for the KDE to fit the plot
+  x_max = max(map(max,postlist))+1 # one decade wider for the KDE to fit the plot
+  print "log10lambda_a in [" + str(x_min) + ',' + str(x_max) + ']'
   x = linspace(x_min, x_max, args.nbins)
 
   # KDE for each source
@@ -313,23 +320,28 @@ if __name__ == "__main__":
   # calculate joint CDF
   from scipy.integrate import cumtrapz
   cdf = cumtrapz(joint_pdf, x, initial=0.0)
-  combined_90bound = x[where(cdf>0.1)[0][0]]
+
+  combined_90bound = x[abs(cdf-0.1).argmin()] if alphaLIV < 2.0 else x[abs(cdf - 0.9).argmin()]
+  print "COMBINED 90pc BOUND : ", pow(10.0,combined_90bound)
 
   # Plot posteriors and joint PDF/CDF (all normalized)
   fig = plt.figure()
   ax = fig.add_subplot(111)
+  ax.set_title("$\\alpha = " + str(alphaLIV) + "$")
+  ax.set_xlim([x_min, x_max])
 
   # Plot bounds as vertical lines
-  lambdag_bounds = {"Solar system":(2.8e15,'r','-.'), "Binary Pulsars":(1.6e13,'g','--')}
-  for lb in lambdag_bounds:
-    (bound, lc, ls) = lambdag_bounds[lb]
-    ax.axvline(log10(bound), linestyle=ls, linewidth=3, color=lc, label=lb)
-  ax.axvline(combined_90bound, linewidth=3, color='k', label="GW combined")
+  if alphaLIV==0:
+    lambdag_bounds = {"Solar system":(2.8e15,'r','-.'), "Binary Pulsars":(1.6e13,'g','--')}
+    for lb in lambdag_bounds:
+      (bound, lc, ls) = lambdag_bounds[lb]
+      ax.axvline(log10(bound), linestyle=ls, linewidth=2, color=lc, label=lb)
+  ax.axvline(combined_90bound, linewidth=2, color='k', label="GW combined")
 
   for c,pdf,lab in zip(colors, pdfs, labels):
     ax.plot(x, normalize(pdf*yp, x), color=c, label=lab)
   ax.plot(x, joint_pdf,color='k')
-  ax.plot(x, cdf,color='k')
+  ax.plot(x, cdf if alphaLIV < 2.0 else 1.0 - cdf,color='k')
 
   # Labels and legend
   try:
@@ -342,7 +354,7 @@ if __name__ == "__main__":
   savefig(os.path.join(outfolder,'joint_posteriors_%s.pdf'%combine_param),bbox_inches='tight')
 
   # Compute a few credible regions from the joint CDF
-  regions = matrix([pow(10,x[np.abs(cdf-cl).argmin()]) if alphaLIV < 2.0 else pow(10,x[np.abs(cdf-(1.-cl)).argmin()]) for cl in [0.05,0.1,0.32,0.50,0.68,0.9,0.95]])
+  regions = matrix([pow(10,x[abs(cdf-cl).argmin()]) if alphaLIV < 2.0 else pow(10,x[abs(cdf-(1.-cl)).argmin()]) for cl in [0.05,0.1,0.32,0.50,0.68,0.9,0.95]])
 
   savetxt(os.path.join(outfolder,'joint_credible_regions_%s.txt'%combine_param), regions, header = "5%\t10%\t32%\t50%\t68%\t90%\t95%")
 
