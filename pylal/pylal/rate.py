@@ -1914,9 +1914,17 @@ class BinnedDensity(BinnedArray):
 
 		Example:
 
+		>>> # 5x5 mesh of bins, each with volume = 4
 		>>> x = BinnedDensity(NDBins((LinearBins(0, 10, 5), LinearBins(0, 10, 5))))
 		>>> # set count at 5,5 to 1
 		>>> x.count[5.0, 5.0] = 1
+		>>> # density in central bin is 1/4
+		>>> x.at_centres()
+		array([[ 0.  ,  0.  ,  0.  ,  0.  ,  0.  ],
+		       [ 0.  ,  0.  ,  0.  ,  0.  ,  0.  ],
+		       [ 0.  ,  0.  ,  0.25,  0.  ,  0.  ],
+		       [ 0.  ,  0.  ,  0.  ,  0.  ,  0.  ],
+		       [ 0.  ,  0.  ,  0.  ,  0.  ,  0.  ]])
 		>>> # convolve counts with 3-bin top-hat window
 		>>> filter_array(x.array, tophat_window(3, 3))
 		array([[ 0.        ,  0.        ,  0.        ,  0.        ,  0.        ],
@@ -1924,18 +1932,27 @@ class BinnedDensity(BinnedArray):
 		       [ 0.        ,  0.11111111,  0.11111111,  0.11111111,  0.        ],
 		       [ 0.        ,  0.11111111,  0.11111111,  0.11111111,  0.        ],
 		       [ 0.        ,  0.        ,  0.        ,  0.        ,  0.        ]])
+		>>> # density is now 1/(4 * 9) = 1/36 in 9 central bins
+		>>> x.at_centres()
+		array([[ 0.        ,  0.        ,  0.        ,  0.        ,  0.        ],
+		       [ 0.        ,  0.02777778,  0.02777778,  0.02777778,  0.        ],
+		       [ 0.        ,  0.02777778,  0.02777778,  0.02777778,  0.        ],
+		       [ 0.        ,  0.02777778,  0.02777778,  0.02777778,  0.        ],
+		       [ 0.        ,  0.        ,  0.        ,  0.        ,  0.        ]])
+		>>> # densities still sum (not integrate) to 1/4
+		>>> x.at_centres().sum()
+		0.25
 		>>> # integrate over dimension 1
 		>>> x = x.marginalize(1)
+		>>> # bin volumes are now 2
+		>>> # densities in 3 central bins are = 1/(2 * 3) = 1/6
 		>>> x.at_centres()
-		array([ 0.        ,  0.33333333,  0.33333333,  0.33333333,  0.        ])
+		array([ 0.        ,  0.16666667,  0.16666667,  0.16666667,  0.        ])
+		>>> # densities sum (not integrate) to 1/2
 		>>> x.at_centres().sum()
-		1.0
+		0.5
 		"""
-		dx = self.bins[dim].upper() - self.bins[dim].lower()
-		dx_shape = [1] * len(self.bins)
-		dx_shape[dim] = len(dx)
-		dx.shape = dx_shape
-		return type(self)(NDBins(self.bins[:dim] + self.bins[dim+1:]), (self.array * dx).sum(axis = dim))
+		return type(self)(NDBins(self.bins[:dim] + self.bins[dim+1:]), self.array.sum(axis = dim))
 
 
 #
