@@ -808,7 +808,8 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
             spin2x, spin2y, spin2z, f_start, f_max, f_ref, distance, inclination,lambda1, lambda2, model->waveFlags, nonGRparams, amporder, order,
             approximant,model->waveformCache, NULL), errnum);
 
-
+	XLALSimInspiralDestroyTestGRParam(nonGRparams);
+    
     /* if the waveform failed to generate, fill the buffer with zeros
      * so that the previous waveform is not left there
      */
@@ -817,7 +818,6 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
       memset(model->freqhCross->data->data,0,sizeof(model->freqhCross->data->data[0])*model->freqhCross->data->length);
       if ( hptilde ) XLALDestroyCOMPLEX16FrequencySeries(hptilde);
       if ( hctilde ) XLALDestroyCOMPLEX16FrequencySeries(hctilde);
-      XLALSimInspiralDestroyTestGRParam(nonGRparams);
       errnum&=~XLAL_EFUNC; /* Mask out the internal function failure bit */
       switch(errnum)
       {
@@ -870,6 +870,7 @@ model->waveFlags(%d,%d,%d,%d,numreldata),nonGRparams,%d,%d,%d,model->waveformCac
             spin2x, spin2y, spin2z, f_start, f_ref, distance,
             inclination, lambda1, lambda2, model->waveFlags, nonGRparams,
             amporder, order, approximant,model->waveformCache), errnum);
+	XLALSimInspiralDestroyTestGRParam(nonGRparams);
     /* if the waveform failed to generate, fill the buffer with zeros
      * so that the previous waveform is not left there
      */
@@ -880,7 +881,6 @@ model->waveFlags(%d,%d,%d,%d,numreldata),nonGRparams,%d,%d,%d,model->waveformCac
       if ( hctilde ) XLALDestroyCOMPLEX16FrequencySeries(hctilde);
       if ( hplus) XLALDestroyREAL8TimeSeries(hplus);
       if ( hcross ) XLALDestroyREAL8TimeSeries(hcross);
-      XLALSimInspiralDestroyTestGRParam(nonGRparams);
       errnum&=~XLAL_EFUNC; /* Mask out the internal function failure bit */
       switch(errnum)
       {
@@ -1287,7 +1287,8 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveformPhaseInterpolated(LALInfer
                                                               0.0, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
                                                               spin2x, spin2y, spin2z, f_start, f_max, f_ref, distance, inclination,lambda1, lambda2, model->waveFlags, nonGRparams, amporder, order,
                                                               approximant,model->waveformCache, frequencies), errnum);
-
+        /* Destroy the nonGr params */
+	    XLALSimInspiralDestroyTestGRParam(nonGRparams);
         /* if the waveform failed to generate, fill the buffer with zeros
          * so that the previous waveform is not left there
          */
@@ -1296,7 +1297,6 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveformPhaseInterpolated(LALInfer
             memset(model->freqhCross->data->data,0,sizeof(model->freqhCross->data->data[0])*model->freqhCross->data->length);
             if ( hptilde ) XLALDestroyCOMPLEX16FrequencySeries(hptilde);
             if ( hctilde ) XLALDestroyCOMPLEX16FrequencySeries(hctilde);
-            XLALSimInspiralDestroyTestGRParam(nonGRparams);
             errnum&=~XLAL_EFUNC; /* Mask out the internal function failure bit */
             switch(errnum)
             {
@@ -1330,9 +1330,6 @@ model->waveFlags(%d,%d,%d,%d,numreldata),nonGRparams,%d,%d,%d,model->waveformCac
         InterpolateWaveform(frequencies, hptilde, model->freqhPlus);
         InterpolateWaveform(frequencies, hctilde, model->freqhCross);
 
-        /* Destroy the nonGr params */
-        XLALSimInspiralDestroyTestGRParam(nonGRparams);
-
         REAL8 instant = model->freqhPlus->epoch.gpsSeconds + 1e-9*model->freqhPlus->epoch.gpsNanoSeconds;
         LALInferenceSetVariable(model->params, "time", &instant);
 
@@ -1344,6 +1341,7 @@ model->waveFlags(%d,%d,%d,%d,numreldata),nonGRparams,%d,%d,%d,model->waveformCac
                                                               spin2x, spin2y, spin2z, f_start, f_ref, distance,
                                                               inclination, lambda1, lambda2, model->waveFlags, nonGRparams,
                                                               amporder, order, approximant,model->waveformCache), errnum);
+		XLALSimInspiralDestroyTestGRParam(nonGRparams);
         /* if the waveform failed to generate, fill the buffer with zeros
          * so that the previous waveform is not left there
          */
@@ -1352,7 +1350,6 @@ model->waveFlags(%d,%d,%d,%d,numreldata),nonGRparams,%d,%d,%d,model->waveformCac
             memset(model->freqhCross->data->data,0,sizeof(model->freqhCross->data->data[0])*model->freqhCross->data->length);
             if ( hptilde ) XLALDestroyCOMPLEX16FrequencySeries(hptilde);
             if ( hctilde ) XLALDestroyCOMPLEX16FrequencySeries(hctilde);
-            XLALSimInspiralDestroyTestGRParam(nonGRparams);
             errnum&=~XLAL_EFUNC; /* Mask out the internal function failure bit */
             switch(errnum)
             {
