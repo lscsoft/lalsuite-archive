@@ -1548,6 +1548,122 @@ def InstrumentBins(names = ("E0", "E1", "E2", "E3", "G1", "H1", "H2", "H1H2+", "
 
 
 #
+# Base class for parameter distribution densities for use in log likelihood
+# ratio ranking statistics
+#
+
+
+class LnLRDensity(object):
+	"""
+	Base class for parameter distribution densities for use in log
+	likelihood ratio ranking statistics.  Generally several instances
+	of (subclasses of) this will be grouped together to construct a log
+	likelihood ratio class for use as a ranking statistic in a
+	trigger-based search.  For example, as a minimum one would expect
+	one instance for the numerator and another for the denominator, but
+	additional ones might be included in a practical ranking statistic
+	implementation, for example a third might be used for storing a
+	histogram of the candidates observed in a search.
+
+	Typically, the ranking statistic implementation will provide a
+	function to transform a candidate to a "params" object for use with
+	the .__call__() implementation, and so in this way a LnLRDensity
+	object is generally only meaningful in the context of the ranking
+	statistic class for which it has been constructed.
+	"""
+	def __call__(self, params):
+		"""
+		Evaluate.  Return the natural logarithm of the density
+		evaluated at the given parameters.
+		"""
+		raise NotImplementedError
+
+	def __iadd__(self, other):
+		"""
+		Marginalize the two densities.
+		"""
+		raise NotImplementedError
+
+	def increment(self, params, weight = 1.0):
+		"""
+		Increment the counts defining this density by weight
+		(default = 1) at the given parameters.
+		"""
+		raise NotImplementedError
+
+	def copy(self):
+		"""
+		Return a duplicate copy of this object.
+		"""
+		raise NotImplementedError
+
+	def finish(self):
+		"""
+		Ensure all internal densities are normalized, and
+		initialize interpolator objects as needed for smooth
+		evaluation.  Must be invoked before .__call__() will yield
+		sensible results.
+
+		NOTE:  for some implementations this operation will
+		irreversibly alter the contents of the counts array, for
+		example often this operation will involve the convolution
+		of the counts with a density estimation kernel.  If it is
+		necessary to preserve a pristine copy of the counts data,
+		use the .copy() method to obtain a copy of the data, first,
+		and then .finish() the copy.
+		"""
+		raise NotImplementedError
+
+	def samples(self):
+		"""
+		Generator returning a sequence of parameter values drawn
+		from the distribution density.  Some subclasses might
+		choose not to implement this, and those that do might
+		choose to use an MCMC-style sample generator and so the
+		samples should not assumed to be statistically independent.
+		"""
+		raise NotImplementedError
+
+	def to_xml(self, name):
+		"""
+		Serialize to an XML fragment and return the root element of
+		the resulting XML tree.
+
+		Subclasses must chain to this method, then customize the
+		return value as needed.
+		"""
+		return ligolw.LIGO_LW({u"Name": u"%s:lnlrdensity" % name})
+
+	@classmethod
+	def get_xml_root(cls, xml, name):
+		"""
+		Sub-classes can use this in their overrides of the
+		.from_xml() method to find the root element of the XML
+		serialization.
+		"""
+		name = u"%s:lnlrdensity" % name
+		xml = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == name]
+		if len(xml) != 1:
+			raise ValueError("XML tree must contain exactly one %s element named %s" % (ligolw.LIGO_LW.tagName, name))
+		return xml[0]
+
+	@classmethod
+	def from_xml(cls, xml, name):
+		"""
+		In the XML document tree rooted at xml, search for the
+		serialized LnLRDensity object named name, and deserialize
+		it.  The return value is the deserialized LnLRDensity
+		object.
+		"""
+		# Generally implementations should start with something
+		# like this:
+		#xml = cls.get_xml_root(xml, name)
+		#self = cls()
+		#return self
+		raise NotImplementedError
+
+
+#
 # A class for measuring parameter distributions
 #
 
