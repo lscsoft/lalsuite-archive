@@ -748,6 +748,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     * posVeczEOM = &posVeczEOMv, * tVecEOM = &tVecEOMv;
 
   posVecxEOMv.data = posVecyEOMv.data = posVeczEOMv.data = tVecEOMv.data = NULL;
+  posVecxEOMv.length = posVecyEOMv.length = posVeczEOMv.length = tVecEOMv.length = 0; /* OPTV3: Initialize to avoid GCC warnings like "‘posVecyEOMv.length’ may be used uninitialized in this function" */
   /* OPTV3 END */
 
   /* Cartesian vectors needed to calculate Hamiltonian */
@@ -3758,8 +3759,8 @@ int XLALSimIMRSpinEOBWaveformAll(
     //OPTV3: copy over the low sampling part
     for ( i = 0; i < idxRD; i++ )
       {
-        hPlusTS->data->data[i]  = amp0*hVec->data[i+retLenLow]*cos(hVec->data[i+2*retLenLow]);
-        hCrossTS->data->data[i] = -amp0*hVec->data[i+retLenLow]*sin(hVec->data[i+2*retLenLow]);
+        hPlusTS->data->data[i]  =  amp0*hVec->data[i+retLenLow];
+        hCrossTS->data->data[i] = -amp0*hVec->data[i+2*retLenLow];
       }
 
     XLALDestroyREAL8Array(hVec);

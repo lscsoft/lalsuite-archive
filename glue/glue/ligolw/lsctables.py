@@ -160,7 +160,7 @@ class instrumentsproperty(object):
 
 		Example:
 
-		>>> print instrumentsproperty.get(None)
+		>>> print(instrumentsproperty.get(None))
 		None
 		>>> instrumentsproperty.get(u"")
 		set([])
@@ -230,7 +230,7 @@ class instrumentsproperty(object):
 
 		Example:
 
-		>>> print instrumentsproperty.set(None)
+		>>> print(instrumentsproperty.set(None))
 		None
 		>>> instrumentsproperty.set(())
 		u''
@@ -517,11 +517,11 @@ class ProcessParams(table.Table.RowType):
 	>>> x.pyvalue
 	6.0
 	>>> x.pyvalue = None
-	>>> print x.type
+	>>> print(x.type)
 	None
-	>>> print x.value
+	>>> print(x.value)
 	None
-	>>> print x.pyvalue
+	>>> print(x.pyvalue)
 	None
 	>>> x.pyvalue = True
 	>>> x.type
@@ -665,9 +665,9 @@ class SearchSummary(table.Table.RowType):
 	>>> x.out_segment
 	segment(LIGOTimeGPS(0, 0), LIGOTimeGPS(10, 0))
 	>>> x.in_segment = x.out_segment = None
-	>>> print x.in_segment
+	>>> print(x.in_segment)
 	None
-	>>> print x.out_segment
+	>>> print(x.out_segment)
 	None
 	"""
 	__slots__ = tuple(SearchSummaryTable.validcolumns.keys())
@@ -2044,7 +2044,7 @@ class CoincInspiral(table.Table.RowType):
 	>>> x.end
 	LIGOTimeGPS(10, 0)
 	>>> x.end = None
-	>>> print x.end
+	>>> print(x.end)
 	None
 	"""
 	__slots__ = tuple(CoincInspiralTable.validcolumns.keys())
@@ -2954,17 +2954,17 @@ class SimInspiral(table.Table.RowType):
 	>>> x.ra_dec
 	(0.0, 0.0)
 	>>> x.ra_dec = None
-	>>> print x.ra_dec
+	>>> print(x.ra_dec)
 	None
 	>>> x.time_geocent = None
-	>>> print x.time_geocent
+	>>> print(x.time_geocent)
 	None
-	>>> print x.end_time_gmst
+	>>> print(x.end_time_gmst)
 	None
 	>>> x.time_geocent = LIGOTimeGPS(6e8)
-	>>> print x.time_geocent
+	>>> print(x.time_geocent)
 	600000000
-	>>> print x.end_time_gmst
+	>>> print(x.end_time_gmst)
 	-2238.39417156
 	"""
 	__slots__ = tuple(SimInspiralTable.validcolumns.keys())
@@ -3124,17 +3124,17 @@ class SimBurst(table.Table.RowType):
 	>>> x.ra_dec
 	(0.0, 0.0)
 	>>> x.ra_dec = None
-	>>> print x.ra_dec
+	>>> print(x.ra_dec)
 	None
 	>>> x.time_geocent = None
-	>>> print x.time_geocent
+	>>> print(x.time_geocent)
 	None
-	>>> print x.time_geocent_gmst
+	>>> print(x.time_geocent_gmst)
 	None
 	>>> x.time_geocent = LIGOTimeGPS(6e8)
-	>>> print x.time_geocent
+	>>> print(x.time_geocent)
 	600000000
-	>>> print x.time_geocent_gmst
+	>>> print(x.time_geocent_gmst)
 	-2238.39417156
 	"""
 	__slots__ = tuple(SimBurstTable.validcolumns.keys())
@@ -3322,7 +3322,7 @@ class SummValue(table.Table.RowType):
 	>>> x.segment
 	segment(LIGOTimeGPS(0, 0), LIGOTimeGPS(10, 0))
 	>>> x.segment = None
-	>>> print x.segment
+	>>> print(x.segment)
 	None
 	"""
 	__slots__ = tuple(SummValueTable.validcolumns.keys())
@@ -3577,9 +3577,9 @@ class Segment(table.Table.RowType):
 	>>> x.segment
 	segment(LIGOTimeGPS(0, 0), LIGOTimeGPS(10, 0))
 	>>> x.segment = None
-	>>> print x.segment
+	>>> print(x.segment)
 	None
-	>>> print x.start
+	>>> print(x.start)
 	None
 	>>> # non-LIGOTimeGPS times are converted to LIGOTimeGPS
 	>>> x.segment = (20, 30.125)

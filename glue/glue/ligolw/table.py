@@ -892,7 +892,7 @@ class Table(ligolw.Table, list):
 
 		>>> import lsctables
 		>>> tbl = lsctables.New(lsctables.ProcessTable)
-		>>> print tbl.sync_next_id()
+		>>> print(tbl.sync_next_id())
 		process:process_id:0
 		"""
 		if self.next_id is not None:

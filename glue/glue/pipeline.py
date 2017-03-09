@@ -28,7 +28,6 @@ __version__ = git_version.id
 import os
 import sys
 import string, re
-import exceptions
 import time
 import random
 import math
@@ -40,9 +39,13 @@ import glue.segments
 from hashlib import md5
 
 try:
+  from cjson import decode
+except ImportError:
+  from json import loads as decode
+
+try:
   import six.moves.http_client
   import M2Crypto
-  import cjson
 except:
   pass
 
@@ -347,7 +350,7 @@ def recurse_pfn_cache(node,caches=[]):
   return caches
 
 
-class CondorError(exceptions.Exception):
+class CondorError(Exception):
   """Error thrown by Condor Jobs"""
   def __init__(self, args=None):
     self.args = args
@@ -361,7 +364,7 @@ class CondorDAGJobError(CondorError):
   pass
 class CondorDAGNodeError(CondorError):
   pass
-class SegmentError(exceptions.Exception):
+class SegmentError(Exception):
   def __init__(self, args=None):
     self.args = args
 
@@ -3962,7 +3965,7 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
           body = response.read()
 
           # decode the JSON
-          urlList = cjson.decode(body)
+          urlList = decode(body)
           lfnDict = {}
           for url in urlList:
             path = urllib.parse.urlparse(url)[2]

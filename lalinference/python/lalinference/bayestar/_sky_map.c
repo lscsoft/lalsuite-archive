@@ -19,7 +19,11 @@
 
 #include "config.h"
 #include <Python.h>
+/* Ignore warnings in Numpy API itself */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-qual"
 #include <numpy/arrayobject.h>
+#pragma GCC diagnostic pop
 #include <chealpix.h>
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_nan.h>
@@ -128,10 +132,14 @@ static PyObject *sky_map_toa_phoa_snr(
         "responses", "locations", "horizons", NULL};
 
     /* Parse arguments */
+    /* FIXME: PyArg_ParseTupleAndKeywords should expect keywords to be const */
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wincompatible-pointer-types"
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "ddiddOOOOO",
         keywords, &min_distance, &max_distance, &prior_distance_power, &gmst,
         &sample_rate, &epochs_obj, &snrs_obj, &responses_obj, &locations_obj,
         &horizons_obj)) return NULL;
+    #pragma GCC diagnostic pop
 
     /* Determine number of detectors */
     {
@@ -189,9 +197,12 @@ static PyObject *sky_map_toa_phoa_snr(
     /* Call function */
     gsl_error_handler_t *old_handler = gsl_set_error_handler_off();
     size_t len;
-    bayestar_pixel *pixels = bayestar_sky_map_toa_phoa_snr(&len, min_distance,
+    bayestar_pixel *pixels;
+    Py_BEGIN_ALLOW_THREADS
+    pixels = bayestar_sky_map_toa_phoa_snr(&len, min_distance,
         max_distance, prior_distance_power, gmst, nifos, nsamples, sample_rate,
         epochs, snrs, responses, locations, horizons);
+    Py_END_ALLOW_THREADS
     gsl_set_error_handler(old_handler);
 
     if (!pixels)
@@ -212,7 +223,7 @@ static PyObject *sky_map_toa_phoa_snr(
         goto fail;
     }
 
-    if (PyArray_SetBaseObject(out, capsule))
+    if (PyArray_SetBaseObject((PyArrayObject *) out, capsule))
     {
         Py_DECREF(out);
         out = NULL;
@@ -254,10 +265,14 @@ static PyObject *log_likelihood_toa_phoa_snr(
         "snrs", "responses", "locations", "horizons", NULL};
 
     /* Parse arguments */
+    /* FIXME: PyArg_ParseTupleAndKeywords should expect keywords to be const */
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wincompatible-pointer-types"
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "(dddddd)ddOOOOO",
         keywords, &ra, &sin_dec, &distance, &u, &twopsi, &t, &gmst,
         &sample_rate, &epochs_obj, &snrs_obj, &responses_obj, &locations_obj,
         &horizons_obj)) return NULL;
+    #pragma GCC diagnostic pop
 
     /* Determine number of detectors */
     {
@@ -335,8 +350,11 @@ fail: /* Cleanup */
 static PyObject *test(
     PyObject *NPY_UNUSED(module), PyObject *NPY_UNUSED(arg))
 {
+    int ret;
     gsl_error_handler_t *old_handler = gsl_set_error_handler_off();
-    int ret = bayestar_test();
+    Py_BEGIN_ALLOW_THREADS
+    ret = bayestar_test();
+    Py_END_ALLOW_THREADS
     gsl_set_error_handler(old_handler);
     return PyLong_FromLong(ret);
 }
@@ -355,7 +373,8 @@ static PyMethodDef methods[] = {
 
 static PyModuleDef moduledef = {
     PyModuleDef_HEAD_INIT,
-    "_sky_map", NULL, -1, methods
+    "_sky_map", NULL, -1, methods,
+    NULL, NULL, NULL, NULL
 };
 
 
@@ -364,6 +383,7 @@ PyMODINIT_FUNC PyInit__sky_map(void)
 {
     PyObject *module = NULL;
 
+    gsl_set_error_handler_off();
     import_array();
 
     sky_map_descr = sky_map_create_descr();

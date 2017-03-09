@@ -35,6 +35,7 @@ pkginclude_HEADERS = \
 	LALInferenceBurstRoutines.h \
 	LALInferenceHDF5.h \
 	LALInferencePriorVolumes.h \
+	cubic_interp.h \
 	$(BAYESTARHDR) \
 	$(XMLHDR)
 
@@ -63,6 +64,7 @@ liblalinference_la_SOURCES = \
 	LALInferencePriorVolumes.c \
 	DetectorFixedSkyCoords.c \
 	logaddexp.h \
+	cubic_interp.c \
 	$(BAYESTARSRC) \
 	$(XMLSRC)
 
@@ -73,10 +75,9 @@ nodist_liblalinference_la_SOURCES = \
 
 noinst_HEADERS = six.h
 
-liblalinference_la_LDFLAGS = $(AM_LDFLAGS) $(HDF5_LDFLAGS) -version-info $(LIBVERSION)
-liblalinference_la_LIBADD = $(HDF5_LIBS)
 liblalinference_la_CFLAGS = $(AM_CFLAGS) $(HDF5_CFLAGS)
 liblalinference_la_CPPFLAGS = $(AM_CPPFLAGS) $(HDF5_CPPFLAGS)
+liblalinference_la_LDFLAGS = $(AM_LDFLAGS) $(HDF5_LDFLAGS) $(HDF5_LIBS) -version-info $(LIBVERSION)
 
 LDADD = liblalinference.la
 
