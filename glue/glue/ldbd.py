@@ -36,11 +36,15 @@ import sys
 import string
 import re
 import csv
-import exceptions
 try:
   import DB2
 except:
   pass
+
+try:  # python < 3
+    long
+except NameError:  # python >= 3
+    long = int
 
 from glue.ligolw.types import string_format_func
 
@@ -63,12 +67,12 @@ class LIGOLWStream(csv.Dialect):
 csv.register_dialect("LIGOLWStream",LIGOLWStream)
 
 
-class LIGOLwParseError(exceptions.Exception):
+class LIGOLwParseError(Exception):
   """Error parsing LIGO lightweight XML file"""
   pass
 
 
-class LIGOLwDBError(exceptions.Exception):
+class LIGOLwDBError(Exception):
   """Error interacting with database"""
   pass
 
@@ -213,7 +217,7 @@ class LIGOLwParser:
     istr = self.licrx.sub('',istr.encode('ascii'))
     istr = self.ricrx.sub('',istr)
     if self.octrx.match(istr):
-      exec "istr = '"+istr+"'"
+      exec("istr = '"+istr+"'")
       # if the DB2 module is loaded, the string should be converted
       # to an instance of the DB2.Binary class. If not, leave it as 
       # a string containing binary data.
@@ -293,7 +297,7 @@ class LIGOLwParser:
 
 
           # strip newlines from the stream and parse it
-          stream = csv.reader([re.sub(r'\n','',tag[2][0])],LIGOLWStream).next()
+          stream = next(csv.reader([re.sub(r'\n','',tag[2][0])],LIGOLWStream))
 
           # turn the csv stream into a list of lists
           slen = len(stream)
@@ -312,12 +316,12 @@ class LIGOLwParser:
                 lst[j][k] = None
               else:
                 lst[j][k] = self.types[table[tab]['column'][thiscol]](stream[i])
-            except (KeyError, ValueError), errmsg:
+            except (KeyError, ValueError) as errmsg:
               msg = "stream translation error (%s) " % str(errmsg)
               msg += "for column %s in table %s: %s -> %s" \
                 % (tab,thiscol,stream[i],str(table[tab])) 
               raise LIGOLwParseError(msg)
-          table[tab]['stream'] = map(tuple,lst)
+          table[tab]['stream'] = list(map(tuple,lst))
 
     # return the created table to the caller
     return table
@@ -457,7 +461,7 @@ class LIGOMetadata:
           msg += str(self.table[tab]['query']) + '\n' 
           msg += str(self.table[tab]['stream']) + '\n'
           raise LIGOLwDBError(msg)
-        except DB2.Warning, e:
+        except DB2.Warning as e:
           self.curs.execute('rollback')
           raise LIGOLwDBError(e[2])
         #except Exception, e:

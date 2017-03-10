@@ -71,6 +71,13 @@ import base64
 
 from glue import git_version
 from . import ilwd
+import six
+
+
+try:  # python < 3
+    long
+except NameError:  # python >= 3
+    long = int
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -130,7 +137,7 @@ def string_format_func(s):
 	Escapes back-slashes and quotes, and wraps the resulting string in
 	quotes.
 	"""
-	return u"\"%s\"" % unicode(s).replace(u"\\", u"\\\\").replace(u"\"", u"\\\"")
+	return u"\"%s\"" % six.text_type(s).replace(u"\\", u"\\\\").replace(u"\"", u"\\\"")
 
 
 def blob_format_func(b):
@@ -191,13 +198,13 @@ glue.ligolw XML writing codes.
 
 
 ToPyType = {
-	u"char_s": unicode,
-	u"char_v": unicode,
+	u"char_s": six.text_type,
+	u"char_v": six.text_type,
 	u"ilwd:char": ilwd.ilwdchar,
-	u"ilwd:char_u": lambda s: buffer(base64.b64decode(s)),
-	u"blob": lambda s: buffer(base64.b64decode(s)),
-	u"lstring": unicode,
-	u"string": unicode,
+	u"ilwd:char_u": lambda s: memoryview(base64.b64decode(s)),
+	u"blob": lambda s: memoryview(base64.b64decode(s)),
+	u"lstring": six.text_type,
+	u"string": six.text_type,
 	u"int_2s": int,
 	u"int_2u": int,
 	u"int_4s": int,
@@ -224,7 +231,7 @@ class FromPyTypeCls(dict):
 		try:
 			return super(FromPyTypeCls, self).__getitem__(key)
 		except KeyError:
-			for test_key, val in self.iteritems():
+			for test_key, val in six.iteritems(self):
 				if issubclass(key, test_key):
 					return val
 			raise
@@ -232,9 +239,9 @@ class FromPyTypeCls(dict):
 
 FromPyType = FromPyTypeCls({
 	ilwd._ilwd.ilwdchar: u"ilwd:char",
-	buffer: u"blob",
+	memoryview: u"blob",
 	str: u"lstring",
-	unicode: u"lstring",
+	six.text_type: u"lstring",
 	bool: u"int_4s",
 	int: u"int_8s",
 	long: u"int_8s",

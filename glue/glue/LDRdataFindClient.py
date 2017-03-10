@@ -25,7 +25,6 @@ __version__ = git_version.id
 
 import sys
 import os
-import exceptions
 
 from pyGlobus import io
 from pyGlobus import security
@@ -35,7 +34,7 @@ def version():
         return __version__
 
 
-class LSCdataFindClientException(exceptions.Exception):
+class LSCdataFindClientException(Exception):
         """
         Exceptions raised by the classes and methods in this client
         will be instances of this class.
@@ -51,7 +50,7 @@ class LSCdataFindClientException(exceptions.Exception):
                 self.args = args
 
 
-class LDRdataFindClientException(exceptions.Exception):
+class LDRdataFindClientException(Exception):
         """
         Exceptions raised by the classes and methods in this module
         will be instances of this class.
@@ -332,7 +331,7 @@ class LDRdataFindClient(object):
                         stringList = response.split('\0')
                         code = int(stringList[0])
                         output = stringList[1:]
-                except Exception, e:
+                except Exception as e:
                         msg = "Error parsing response from server : %s" % e
                         try:
                                 f.close()
@@ -699,7 +698,7 @@ class LSCdataFindClient(LDRdataFindClient):
 
                 try:
                         a = int(gpsString)
-                except Exception, e:
+                except Exception as e:
                         msg = "GPS times must be 9 digits"
                         raise LSCdataFindClientException(msg)
 

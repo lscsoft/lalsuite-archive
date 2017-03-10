@@ -23,36 +23,35 @@ __version__ = git_version.id
 
 import sys
 import os
-import exceptions
 import types
 import re
-import cPickle
+import six.moves.cPickle
 import xml.parsers.expat
-import httplib
-import urlparse
+import six.moves.http_client
+
+try:
+    from cjson import (decode, encode)
+except ImportError:
+    from json import (loads as decode, dumps as encode)
 
 try:
     import M2Crypto
-    import cjson
-except ImportError, e:
+except ImportError as e:
     sys.stderr.write("""
-ligo_data_find requires the M2Crypto and cjson
-modules.
+ligo_data_find requires M2Crypto
 
 On CentOS 5 and other RHEL based platforms
-these packages are available from the EPEL
+this package is available from the EPEL
 repository by doing
 
 yum install m2crypto
-yum install python-cjson
 
-For Debian Lenny these packages are available
+For Debian Lenny this package is available
 by doing
 
 apt-get install python-m2crypto
-apt-get install python-cjson
 
-Mac OS X users can find these packages in
+Mac OS X users can find this package in
 MacPorts.
 
 %s
@@ -157,7 +156,7 @@ def findCredential():
     """
 
     # use X509_USER_PROXY from environment if set
-    if os.environ.has_key('X509_USER_PROXY'):
+    if 'X509_USER_PROXY' in os.environ:
         filePath = os.environ['X509_USER_PROXY']
         if validateProxy(filePath):
             return filePath, filePath
@@ -166,8 +165,8 @@ def findCredential():
             sys.exit(1)
 
     # use X509_USER_CERT and X509_USER_KEY if set
-    if os.environ.has_key('X509_USER_CERT'):
-        if os.environ.has_key('X509_USER_KEY'):
+    if 'X509_USER_CERT' in os.environ:
+        if 'X509_USER_KEY' in os.environ:
             certFile = os.environ['X509_USER_CERT']
             keyFile = os.environ['X509_USER_KEY']
             return certFile, keyFile
@@ -304,14 +303,14 @@ class LDBDClient(object):
 
     if protocol == "https":
     #if self.certFile and self.keyFile:
-        h = httplib.HTTPSConnection(server, key_file = self.keyFile, cert_file = self.certFile)
+        h = six.moves.http_client.HTTPSConnection(server, key_file = self.keyFile, cert_file = self.certFile)
     else:
-        h = httplib.HTTPConnection(server)
+        h = six.moves.http_client.HTTPConnection(server)
 
     url = "/ldbd/ping.json"
     headers = {"Content-type" : "application/json"}
     data = ""
-    body = cjson.encode(protocol)
+    body = encode(protocol)
 
     try:
         h.request("POST", url, body, headers)
@@ -328,7 +327,7 @@ class LDBDClient(object):
 
     # since status is 200 OK the ping was good
     body = response.read()
-    msg  = cjson.decode(body)
+    msg  = decode(body)
 
     return msg
 
@@ -339,13 +338,13 @@ class LDBDClient(object):
     server = self.server
     protocol = self.protocol
     if protocol == "https":
-        h = httplib.HTTPSConnection(server, key_file = self.keyFile, cert_file = self.certFile)
+        h = six.moves.http_client.HTTPSConnection(server, key_file = self.keyFile, cert_file = self.certFile)
     else:
-        h = httplib.HTTPConnection(server)
+        h = six.moves.http_client.HTTPConnection(server)
 
     url = "/ldbd/query.json"
     headers = {"Content-type" : "application/json"}
-    body = cjson.encode(protocol + ":" + sql)
+    body = encode(protocol + ":" + sql)
 
     try:
         h.request("POST", url, body, headers)
@@ -362,7 +361,7 @@ class LDBDClient(object):
 
     # since status is 200 OK the query was good
     body = response.read()
-    msg  = cjson.decode(body)
+    msg  = decode(body)
 
     return msg
 
@@ -373,7 +372,7 @@ class LDBDClient(object):
     server = self.server
     protocol = self.protocol
     if protocol == "https":
-        h = httplib.HTTPSConnection(server, key_file = self.keyFile, cert_file = self.certFile)
+        h = six.moves.http_client.HTTPSConnection(server, key_file = self.keyFile, cert_file = self.certFile)
     else:
         msg = "Insecure connection DOES NOT surpport INSERT."
         msg += '\nTo INSERT, authorized users please specify protocol "https" in your --segment-url argument.'
@@ -382,7 +381,7 @@ class LDBDClient(object):
 
     url = "/ldbd/insert.json"
     headers = {"Content-type" : "application/json"}
-    body = cjson.encode(xmltext)
+    body = encode(xmltext)
 
     try:
         h.request("POST", url, body, headers)
@@ -399,7 +398,7 @@ class LDBDClient(object):
 
     # since status is 200 OK the query was good
     body = response.read()
-    msg  = cjson.decode(body)
+    msg  = decode(body)
 
     return msg
 
@@ -409,7 +408,7 @@ class LDBDClient(object):
     server = self.server
     protocol = self.protocol
     if protocol == "https":
-        h = httplib.HTTPSConnection(server, key_file = self.keyFile, cert_file = self.certFile)
+        h = six.moves.http_client.HTTPSConnection(server, key_file = self.keyFile, cert_file = self.certFile)
     else:
         msg = "Insecure connection DOES NOT surpport INSERTMAP."
         msg += '\nTo INSERTMAP, authorized users please specify protocol "https" in your --segment-url argument.'
@@ -419,9 +418,9 @@ class LDBDClient(object):
     url = "/ldbd/insertmap.json"
     headers = {"Content-type" : "application/json"}
 
-    pmsg = cPickle.dumps(lfnpfn_dict)
+    pmsg = six.moves.cPickle.dumps(lfnpfn_dict)
     data = [xmltext, pmsg]
-    body = cjson.encode(data)
+    body = encode(data)
 
     try:
         h.request("POST", url, body, headers)
@@ -438,7 +437,7 @@ class LDBDClient(object):
 
     # since status is 200 OK the query was good
     body = response.read()
-    msg  = cjson.decode(body)
+    msg  = decode(body)
 
     return msg
 
@@ -449,7 +448,7 @@ class LDBDClient(object):
     server = self.server
     protocol = self.protocol
     if protocol == "https":
-        h = httplib.HTTPSConnection(server, key_file = self.keyFile, cert_file = self.certFile)
+        h = six.moves.http_client.HTTPSConnection(server, key_file = self.keyFile, cert_file = self.certFile)
     else:
         msg = "Insecure connection DOES NOT surpport INSERTDMT."
         msg += '\nTo INSERTDMT, authorized users please specify protocol "https" in your --segment-url argument.'
@@ -458,7 +457,7 @@ class LDBDClient(object):
 
     url = "/ldbd/insertdmt.json"
     headers = {"Content-type" : "application/json"}
-    body = cjson.encode(xmltext)
+    body = encode(xmltext)
 
     try:
         h.request("POST", url, body, headers)
@@ -475,7 +474,7 @@ class LDBDClient(object):
 
     # since status is 200 OK the query was good
     body = response.read()
-    msg  = cjson.decode(body)
+    msg  = decode(body)
 
     return msg
 

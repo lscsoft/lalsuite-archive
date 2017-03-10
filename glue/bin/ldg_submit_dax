@@ -25,7 +25,8 @@ Specifying --ini-file is probably required unless you already have a tc.data
 for this workflow.
 """
 
-import ConfigParser
+from __future__ import print_function
+import six.moves.configparser
 import optparse
 import os
 import socket
@@ -60,7 +61,7 @@ class PegasusTransformationCatalog(list):
         file_obj.write("\n".join(map(str, self)) + "\n")
     
     def from_hipe_ini(cls, ini_fileobj):
-        cp = ConfigParser.ConfigParser()
+        cp = six.moves.configparser.ConfigParser()
         cp.readfp(ini_fileobj)
         hostname = socket.getfqdn()
 
@@ -105,7 +106,7 @@ def parse_args():
     opts, args = parser.parse_args()
     
     if len(args) < 2:
-        print >>sys.stderr, "not enough arguments"
+        print("not enough arguments", file=sys.stderr)
     
     return opts, args
 
@@ -151,7 +152,7 @@ if not opts.no_submit:
 if opts.pegasus_cache: plan_args.append('--cache='+opts.pegasus_cache)
 plan_command = " ".join(plan_args)
 
-if opts.verbose: print "Executing: " + plan_command
+if opts.verbose: print("Executing: " + plan_command)
 sto = open(".ldg_submit_dax.stdout","w");
 ste = open(".ldg_submit_dax.stderr","w");
 
@@ -163,9 +164,9 @@ sto.close()
 ste.close()
 
 if status != 0:
-    print >>sys.stderr, "External call failed."
-    print >>sys.stderr, "  status: %d" % status
-    print >>sys.stderr, "  stdout: %s" % open(".ldg_submit_dax.stdout","r").readlines()
-    print >>sys.stderr, "  stderr: %s" % open(".ldg_submit_dax.stderr","r").readlines()
-    print >>sys.stderr, "  command: %s" % plan_command
+    print("External call failed.", file=sys.stderr)
+    print("  status: %d" % status, file=sys.stderr)
+    print("  stdout: %s" % open(".ldg_submit_dax.stdout","r").readlines(), file=sys.stderr)
+    print("  stderr: %s" % open(".ldg_submit_dax.stderr","r").readlines(), file=sys.stderr)
+    print("  command: %s" % plan_command, file=sys.stderr)
     sys.exit(1) 

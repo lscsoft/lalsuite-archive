@@ -15,7 +15,6 @@ import os
 import socket, time
 from optparse import *
 import re, string
-import exceptions
 import glob
 import tempfile
 import ConfigParser
@@ -684,7 +683,7 @@ if extension == 'gz': gz = True
 else: gz = False
 doc = utils.load_filename(opts.chiaXmlFile,verbose=False, gz=gz, xmldoc=None, contenthandler=None)
 proc = lsctables.ProcessParamsTable.get_table(doc)
-multiInspiralTable = lsctables.MultiInspiralTable.getTablesByName(doc)
+multiInspiralTable = lsctables.MultiInspiralTable.get_table(doc)
 if len(multiInspiralTable) == 0:
   print >> sys.stdout, "document does not contain any multi_inspiral table, which means no trigger found"
   sys.exit(0)

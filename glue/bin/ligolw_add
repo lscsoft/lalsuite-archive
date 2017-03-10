@@ -85,7 +85,7 @@ def parse_command_line():
 	if options.lfn_end_time:
 		options.lfn_end_time = int(options.lfn_end_time)
 
-	urls += [CacheEntry(line).url for cache in options.input_cache for line in file(cache)]
+	urls += [CacheEntry(line).url for cache in options.input_cache for line in open(cache)]
 
 	if len(urls) < 1:
 		raise ValueError("no input files!")
@@ -119,7 +119,7 @@ def update_lfn_table(xmldoc, pathname, start_time = None, end_time = None, comme
 	# in the tables
 	lfn_table = None
 	existing_pids = set()
-	for lfn_table in lsctables.table.getTablesByName(xmldoc, lsctables.LfnTable.tableName):
+	for lfn_table in lsctables.LfnTable.getTablesByName(xmldoc, lsctables.LfnTable.tableName):
 		lfn_table.sync_next_id()
 		existing_pids.update(lfn_table.getColumnByName("process_id"))
 	if lfn_table is None:
@@ -133,7 +133,7 @@ def update_lfn_table(xmldoc, pathname, start_time = None, end_time = None, comme
 	pathname = os.path.basename(pathname)
 	# add a row to the LFN table for every process in every process
 	# table
-	for process_table in lsctables.table.getTablesByName(xmldoc, lsctables.ProcessTable.tableName):
+	for process_table in lsctables.ProcessTable.getTablesByName(xmldoc, lsctables.ProcessTable.tableName):
 		for pid in process_table.getColumnByName("process_id"):
 			if pid in existing_pids:
 				# LFN table already has an entry for this
@@ -179,7 +179,7 @@ ligolw_array.use_in(ContentHandler)
 lsctables.use_in(ContentHandler)
 
 
-lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
+lsctables.table.TableStream.RowBuilder = lsctables.table.InterningRowBuilder
 
 
 xmldoc = ligolw_add.ligolw_add(ligolw.Document(), urls, non_lsc_tables_ok = options.non_lsc_tables_ok, verbose = options.verbose, contenthandler = ContentHandler)

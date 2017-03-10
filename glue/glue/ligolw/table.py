@@ -48,7 +48,6 @@ import copy
 import itertools
 import re
 import sys
-import warnings
 from xml.sax.saxutils import escape as xmlescape
 from xml.sax.xmlreader import AttributesImpl
 
@@ -62,58 +61,6 @@ from . import types as ligolwtypes
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
-
-
-#
-# =============================================================================
-#
-#                           Column Name Manipulation
-#
-# =============================================================================
-#
-
-
-def StripColumnName(name):
-	warnings.warn("use Column.ColumnName() instead", DeprecationWarning)
-	return Column.ColumnName(name)
-
-def CompareColumnNames(name1, name2):
-	warnings.warn("use cmp(Column.ColumnName(), Column.ColumnName()) instead", DeprecationWarning)
-	return cmp(Column.ColumnName(name1), Column.ColumnName(name2))
-
-
-def getColumnsByName(elem, name):
-	"""
-	Return a list of Column elements named name under elem.
-	"""
-	name = Column.ColumnName(name)
-	return elem.getElements(lambda e: (e.tagName == ligolw.Column.tagName) and (e.Name == name))
-
-
-#
-# =============================================================================
-#
-#                           Table Name Manipulation
-#
-# =============================================================================
-#
-
-
-def StripTableName(name):
-	warnings.warn("use Table.TableName() instead", DeprecationWarning)
-	return Table.TableName(name)
-
-def CompareTableNames(name1, name2):
-	warnings.warn("use cmp(Table.TableName(), Table.TableName()) instead", DeprecationWarning)
-	return cmp(Table.TableName(name1), Table.TableName(name2))
-
-
-def getTablesByName(elem, name):
-	"""
-	Return a list of Table elements named name under elem.
-	"""
-	name = Table.TableName(name)
-	return elem.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (e.Name == name))
 
 
 #
@@ -152,7 +99,7 @@ def get_table(xmldoc, name):
 
 	See also the .get_table() class method of the Table class.
 	"""
-	tables = getTablesByName(xmldoc, name)
+	tables = Table.getTablesByName(xmldoc, name)
 	if len(tables) != 1:
 		raise ValueError("document must contain exactly one %s table" % Table.TableName(name))
 	return tables[0]
@@ -190,29 +137,6 @@ def reassign_ids(elem):
 			tbl.updateKeyMapping(mapping)
 	for tbl in elem.getElementsByTagName(ligolw.Table.tagName):
 		tbl.applyKeyMapping(mapping)
-
-
-def reset_next_ids(classes):
-	"""
-	For each class in the list, if the .next_id attribute is not None
-	(meaning the table has an ID generator associated with it), set
-	.next_id to 0.  This has the effect of reseting the ID generators,
-	and is useful in applications that process multiple documents and
-	add new rows to tables in those documents.  Calling this function
-	between documents prevents new row IDs from growing continuously
-	from document to document.  There is no need to do this, it's
-	purpose is merely aesthetic, but it can be confusing to open a
-	document and find process ID 300 in the process table and wonder
-	what happened to the other 299 processes.
-
-	Example:
-
-	>>> import lsctables
-	>>> reset_next_ids(lsctables.TableByName.values())
-	"""
-	for cls in classes:
-		if cls.next_id is not None:
-			cls.set_next_id(type(cls.next_id)(0))
 
 
 #
@@ -263,6 +187,8 @@ class Column(ligolw.Column):
 	</Table>
 	>>> col.index(10)
 	1
+	>>> 12 in col
+	True
 	>>> col[0] = 9.
 	>>> col[1] = 9.
 	>>> col[2] = 9.
@@ -334,7 +260,7 @@ class Column(ligolw.Column):
 		Retrieve the value in this column in row i.
 		"""
 		if isinstance(i, slice):
-			return map(lambda r: getattr(r, self.Name), self.parentNode[i])
+			return [getattr(r, self.Name) for r in self.parentNode[i]]
 		else:
 			return getattr(self.parentNode[i], self.Name)
 
@@ -372,15 +298,15 @@ class Column(ligolw.Column):
 		"""
 		Return the number of rows with this column equal to value.
 		"""
-		return sum(getattr(row, self.Name) == value for row in self.parentNode)
+		return sum(x == value for x in self)
 
 	def index(self, value):
 		"""
 		Return the smallest index of the row(s) with this column
 		equal to value.
 		"""
-		for i in xrange(len(self.parentNode)):
-			if getattr(self.parentNode[i], self.Name) == value:
+		for i, x in enumerate(self):
+			if x == value:
 				return i
 		raise ValueError(value)
 
@@ -389,10 +315,7 @@ class Column(ligolw.Column):
 		Returns True or False if there is or is not, respectively,
 		a row containing val in this column.
 		"""
-		for i in xrange(len(self.parentNode)):
-			if getattr(self.parentNode[i], self.Name) == value:
-				return True
-		return False
+		return value in iter(self)
 
 	def asarray(self):
 		"""
@@ -409,6 +332,14 @@ class Column(ligolw.Column):
 		except KeyError as e:
 			raise TypeError("cannot determine numpy dtype for Column '%s': %s" % (self.getAttribute("Name"), e))
 		return numpy.fromiter(self, dtype = dtype)
+
+	@classmethod
+	def getColumnsByName(cls, elem, name):
+		"""
+		Return a list of Column elements named name under elem.
+		"""
+		name = cls.ColumnName(name)
+		return elem.getElements(lambda e: (e.tagName == cls.tagName) and (e.Name == name))
 
 
 #
@@ -478,14 +409,6 @@ class InterningRowBuilder(tokenizer.RowBuilder):
 
 
 #
-# Select the RowBuilder class to use when parsing tables.
-#
-
-
-RowBuilder = tokenizer.RowBuilder
-
-
-#
 # Stream class
 #
 
@@ -497,6 +420,12 @@ class TableStream(ligolw.Stream):
 	that it appends into the list-like parent element, and knows how to
 	turn the parent's rows back into a character stream.
 	"""
+	#
+	# Select the RowBuilder class to use when parsing tables.
+	#
+
+	RowBuilder = tokenizer.RowBuilder
+
 	def config(self, parentNode):
 		# some initialization that requires access to the
 		# parentNode, and so cannot be done inside the __init__()
@@ -512,7 +441,7 @@ class TableStream(ligolw.Stream):
 		# FIXME:  convert interncolumns attributes to sets to
 		# simplify computing the intersection
 		interncolumns = [name for name in (parentNode.interncolumns or set()) if name in columnnames]
-		self._rowbuilder = RowBuilder(parentNode.RowType, columnnames, interncolumns)
+		self._rowbuilder = self.RowBuilder(parentNode.RowType, columnnames, interncolumns)
 		return self
 
 	def appendData(self, content):
@@ -549,7 +478,7 @@ class TableStream(ligolw.Stream):
 		rowdumper = tokenizer.RowDumper(self.parentNode.columnnames, [ligolwtypes.FormatFunc[coltype] for coltype in self.parentNode.columntypes], self.Delimiter)
 		rowdumper.dump(self.parentNode)
 		try:
-			line = rowdumper.next()
+			line = next(rowdumper)
 		except StopIteration:
 			# table is empty
 			pass
@@ -586,16 +515,6 @@ class TableStream(ligolw.Stream):
 #
 
 
-class TableRow(object):
-	"""
-	Helpful parent class for row objects.  Also used as the default row
-	class by Table instances.
-	"""
-	def __init__(self, **kwargs):
-		for key, value in kwargs.items():
-			setattr(self, key, value)
-
-
 class Table(ligolw.Table, list):
 	"""
 	High-level Table element that knows about its columns and rows.
@@ -611,8 +530,42 @@ class Table(ligolw.Table, list):
 	interncolumns = None
 	constraints = None
 	how_to_index = None
-	RowType = TableRow
 	next_id = None
+
+	class RowType(object):
+		"""
+		Helpful parent class for row objects.  Also used as the
+		default row class by Table instances.  Provides an
+		__init__() method that accepts keyword arguments from which
+		the object's attributes are initialized.
+
+		Example:
+
+		>>> x = Table.RowType(a = 0.0, b = "test", c = True)
+		>>> x.a
+		0.0
+		>>> x.b
+		'test'
+		>>> x.c
+		True
+		"""
+		#"""
+		#Also provides .__getstate__() and .__setstate__() methods
+		#to allow row objects to be pickled (otherwise, because they
+		#all use __slots__ to reduce their memory footprint, they
+		#aren't pickleable).
+		#"""
+
+		def __init__(self, **kwargs):
+			for key, value in kwargs.items():
+				setattr(self, key, value)
+
+		#def __getstate__(self):
+		#	return dict((key, getattr(self, key)) for key in self.__slots__ if hasattr(self, key))
+
+		#def __setstate__(self, state):
+		#	self.__init__(**state)
+
 
 	def __init__(self, *args):
 		"""
@@ -628,6 +581,14 @@ class Table(ligolw.Table, list):
 	# Table retrieval
 	#
 
+
+	@classmethod
+	def getTablesByName(cls, elem, name):
+		"""
+		Return a list of Table elements named name under elem.
+		"""
+		name = cls.TableName(name)
+		return elem.getElements(lambda e: (e.tagName == cls.tagName) and (e.Name == name))
 
 	@classmethod
 	def get_table(cls, xmldoc):
@@ -664,9 +625,9 @@ class Table(ligolw.Table, list):
 		attribute on the Table object.
 		"""
 		new = copy.copy(self)
-		new.childNodes = map(copy.copy, self.childNodes)
-		for child in new.childNodes:
-			child.parentNode = new
+		new.childNodes = []	# got reference to original list
+		for elem in self.childNodes:
+			new.appendChild(copy.copy(elem))
 		del new[:]
 		new._end_of_columns()
 		new._end_of_rows()
@@ -700,8 +661,7 @@ class Table(ligolw.Table, list):
 		>>> lsctables.ProcessTable.CheckProperties(u"Table", {u"Name": u"process:table"})
 		True
 		"""
-		# FIXME:  are these tests correct?
-		return tagname == cls.tagName and not cmp(cls.TableName(attrs[u"Name"]), cls.TableName(cls.tableName))
+		return tagname == cls.tagName and cls.TableName(attrs[u"Name"]) == cls.tableName
 
 
 	#
@@ -721,7 +681,7 @@ class Table(ligolw.Table, list):
 		>>> col = tbl.getColumnByName("mass1")
 		"""
 		try:
-			col, = getColumnsByName(self, name)
+			col, = Column.getColumnsByName(self, name)
 		except ValueError:
 			# did not find exactly 1 matching child
 			raise KeyError(name)
@@ -758,7 +718,7 @@ class Table(ligolw.Table, list):
 			raise ValueError("duplicate Column '%s'" % name)
 		except KeyError:
 			pass
-		column = Column(AttributesImpl({u"Name": "%s:%s" % (self.TableName(self.tableName), name), u"Type": self.validcolumns[name]}))
+		column = Column(AttributesImpl({u"Name": "%s:%s" % (self.Name, name), u"Type": self.validcolumns[name]}))
 		streams = self.getElementsByTagName(ligolw.Stream.tagName)
 		if streams:
 			self.insertBefore(column, streams[0])
@@ -896,6 +856,20 @@ class Table(ligolw.Table, list):
 		"""
 		cls.next_id = id
 
+	@classmethod
+	def reset_next_id(cls):
+		"""
+		If the current value of the next_id class attribute is not
+		None then set it to 0, otherwise it is left unmodified.
+
+		Example:
+
+		>>> import lsctables
+		>>> for cls in lsctables.TableByName.values(): cls.reset_next_id()
+		"""
+		if cls.next_id is not None:
+			cls.set_next_id(type(cls.next_id)(0))
+
 	def sync_next_id(self):
 		"""
 		Determines the highest-numbered ID in this table, and sets
@@ -918,7 +892,7 @@ class Table(ligolw.Table, list):
 
 		>>> import lsctables
 		>>> tbl = lsctables.New(lsctables.ProcessTable)
-		>>> print tbl.sync_next_id()
+		>>> print(tbl.sync_next_id())
 		process:process_id:0
 		"""
 		if self.next_id is not None:

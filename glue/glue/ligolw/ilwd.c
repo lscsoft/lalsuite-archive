@@ -31,9 +31,11 @@
 #include <stdlib.h>
 #include <wchar.h>
 #include <ilwd.h>
+#include "six.h"
 
 
 #define MODULE_NAME "glue.ligolw._ilwd"
+#define MODULE_DOC "C extension module providing the ilwdchar parent class for row ID classes."
 
 
 /*
@@ -85,7 +87,7 @@ static PyObject *column_name;
 
 static PyObject *ligolw_ilwdchar___add__(PyObject *self, PyObject *other)
 {
-	long delta = PyInt_AsLong(other);
+	long delta = PyLong_AsLong(other);
 	PyObject *new;
 
 	if(PyErr_Occurred())
@@ -130,7 +132,11 @@ static long ligolw_ilwdchar___hash__(PyObject *self)
 
 static PyObject *ligolw_ilwdchar___int__(PyObject *self)
 {
+#if PY_MAJOR_VERSION < 3
 	return PyInt_FromLong(((ligolw_ilwdchar *) self)->i);
+#else
+	return PyLong_FromLong(((ligolw_ilwdchar *) self)->i);
+#endif
 }
 
 
@@ -146,71 +152,7 @@ static PyObject *ligolw_ilwdchar___new__(PyTypeObject *type, PyObject *args, PyO
 	/* initialize to default value */
 	((ligolw_ilwdchar *) new)->i = 0;
 
-	if(PyArg_ParseTuple(args, "U", &obj)) {
-		/* we've been passed a unicode string, see if we can parse
-		 * it */
-		Py_ssize_t len = PyUnicode_GetSize(obj);
-		wchar_t s[len + 1];
-		int converted_len = -1;
-		wchar_t *tbl_name = NULL, *col_name = NULL;
-
-		PyUnicode_AsWideChar((PyUnicodeObject *) obj, s, len);
-		s[len] = 0;
-
-		/* can we parse it as an ilwd:char string? */
-		swscanf(s, L" %ml[^:]:%ml[^:]:%zu %n", &tbl_name, &col_name, &((ligolw_ilwdchar *) new)->i, &converted_len);
-		if(converted_len < len) {
-			/* nope, how 'bout just an int? */
-			converted_len = -1;
-			swscanf(s, L" %zu %n", &((ligolw_ilwdchar *) new)->i, &converted_len);
-			if(converted_len < len) {
-				/* nope */
-#if PY_MAJOR_VERSION < 3
-				PyObject *str = PyUnicode_AsEncodedString(obj, NULL, NULL);
-				PyErr_Format(PyExc_TypeError, "invalid literal for ilwdchar(): '%s'", PyString_AS_STRING(str));
-				Py_DECREF(str);
-#else
-				PyErr_Format(PyExc_ValueError, "invalid literal for ilwdchar(): '%u'", obj);
-#endif
-				Py_DECREF(new);
-				new = NULL;
-			}
-		} else {
-			/* yes, it's an ilwd:char string, so confirm
-			 * that the table and column names are
-			 * correct */
-			PyObject *tbl, *col;
-			PyObject *tbl_attr, *col_attr;
-
-			tbl = PyUnicode_FromWideChar(tbl_name, wcslen(tbl_name));
-			col = PyUnicode_FromWideChar(col_name, wcslen(col_name));
-			tbl_attr = PyObject_GetAttr(new, table_name);
-			col_attr = PyObject_GetAttr(new, column_name);
-
-			if(!tbl || !col || !tbl_attr || !col_attr ||
-			PyUnicode_Compare(tbl_attr, tbl) ||
-			PyUnicode_Compare(col_attr, col)) {
-				/* mismatch */
-#if PY_MAJOR_VERSION < 3
-				PyObject *str = PyUnicode_AsEncodedString(obj, NULL, NULL);
-				PyErr_Format(PyExc_TypeError, "ilwdchar type mismatch: '%s'", PyString_AS_STRING(str));
-				Py_DECREF(str);
-#else
-				PyErr_Format(PyExc_TypeError, "ilwdchar type mismatch: '%u'", obj);
-#endif
-				Py_DECREF(new);
-				new = NULL;
-			}
-
-			Py_XDECREF(tbl_attr);
-			Py_XDECREF(col_attr);
-			Py_XDECREF(tbl);
-			Py_XDECREF(col);
-		}
-
-		free(tbl_name);
-		free(col_name);
-	} else if(PyArg_ParseTuple(args, "|l", &((ligolw_ilwdchar *) new)->i)) {
+	if(PyArg_ParseTuple(args, "|l", &((ligolw_ilwdchar *) new)->i)) {
 		/* we were passed nothing or an int:  i has either been set
 		 * from the int, or we'll use the default value of 0.
 		 * clear the error from the earlier ParseTuple failures */
@@ -224,10 +166,9 @@ static PyObject *ligolw_ilwdchar___new__(PyTypeObject *type, PyObject *args, PyO
 		new = obj;
 		Py_INCREF(new);
 	} else {
-		/* we weren't passed a unicode or an int or an ilwdchar
-		 * instance:  if args contains exactly 1 object then this
-		 * is a type error, otherwise it's a wrong number of
-		 * arguments error */
+		/* we weren't passed an int or an ilwdchar instance:  if args
+		 * contains exactly 1 object then this is a type error,
+		 * otherwise it's a wrong number of arguments error */
 		Py_DECREF(new);
 		if(PyArg_ParseTuple(args, "O", &new))
 			PyErr_SetObject(PyExc_TypeError, new);
@@ -375,7 +316,7 @@ static PyObject *ligolw_ilwdchar___str__(PyObject *self)
 
 static PyObject *ligolw_ilwdchar___sub__(PyObject *self, PyObject *other)
 {
-	long delta = PyInt_AsLong(other);
+	long delta = PyLong_AsLong(other);
 	PyObject *new;
 
 	if(PyErr_Occurred()) {
@@ -388,7 +329,11 @@ static PyObject *ligolw_ilwdchar___sub__(PyObject *self, PyObject *other)
 
 		/* yes it is, return the ID difference as an int */
 		PyErr_Clear();
+#if PY_MAJOR_VERSION < 3
 		return PyInt_FromLong(((ligolw_ilwdchar *) self)->i - ((ligolw_ilwdchar *) other)->i);
+#else
+		return PyLong_FromLong(((ligolw_ilwdchar *) self)->i - ((ligolw_ilwdchar *) other)->i);
+#endif
 	}
 
 	if(!delta) {
@@ -423,7 +368,11 @@ static PyObject *ligolw_ilwdchar___sub__(PyObject *self, PyObject *other)
 
 static PyObject *ligolw_ilwdchar___conform__(PyObject *self, PyObject *protocol)
 {
+#if PY_MAJOR_VERSION < 3
 	return PyObject_Unicode(self);
+#else
+	return PyObject_Str(self);
+#endif
 }
 
 
@@ -455,15 +404,12 @@ PyTypeObject ligolw_ilwdchar_Type = {
 "...     column_name = u\"column_b\"\n" \
 "... \n" \
 ">>> x = ID(10)\n" \
-">>> print x\n" \
+">>> print(x)\n" \
 "table_a:column_b:10\n" \
-">>> x = ID(u\" 10 \")	# ignores whitespace\n" \
-">>> print x\n" \
-"table_a:column_b:10\n" \
-">>> print x + 35\n" \
+">>> print(x + 35)\n" \
 "table_a:column_b:45\n" \
-">>> y = ID(u\" table_a:column_b:10 \")	# ignores whitespace\n" \
-">>> print x - y\n" \
+">>> y = ID(10)\n" \
+">>> print(x - y)\n" \
 "table_a:column_b:0\n" \
 ">>> x == y\n" \
 "True\n" \
@@ -475,7 +421,11 @@ PyTypeObject ligolw_ilwdchar_Type = {
 "Note that the two instances have the same hash value and compare as equal,\n" \
 "and so only one of them remains in the set although they are not the same\n" \
 "object.",
-	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES,
+	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE
+#if PY_MAJOR_VERSION < 3
+	| Py_TPFLAGS_CHECKTYPES
+#endif
+	,
 	.tp_hash = ligolw_ilwdchar___hash__,
 	.tp_richcompare = ligolw_ilwdchar___richcompare__,
 	.tp_str = ligolw_ilwdchar___str__,
@@ -498,22 +448,31 @@ PyTypeObject ligolw_ilwdchar_Type = {
  */
 
 
-void init_ilwd(void)
+static PyModuleDef moduledef = {
+	PyModuleDef_HEAD_INIT,
+	MODULE_NAME, MODULE_DOC, -1, NULL
+};
+
+PyMODINIT_FUNC PyInit__ilwd(void); /* Silence -Wmissing-prototypes */
+PyMODINIT_FUNC PyInit__ilwd(void)
 {
+	PyObject *module = NULL;
+
+	if(PyType_Ready(&ligolw_ilwdchar_Type) < 0)
+		goto done;
+
 	/*
 	 * Create the module.
 	 */
 
-	PyObject *module = Py_InitModule3(MODULE_NAME, NULL,
-"C extension module providing the ilwdchar parent class for row ID classes."
-	);
+	module = PyModule_Create(&moduledef);
+	if (!module)
+		goto done;
 
 	/*
 	 * Add the ilwdchar class.
 	 */
 
-	if(PyType_Ready(&ligolw_ilwdchar_Type) < 0)
-		return;
 	Py_INCREF(&ligolw_ilwdchar_Type);
 	PyModule_AddObject(module, "ilwdchar", (PyObject *) &ligolw_ilwdchar_Type);
 
@@ -524,4 +483,10 @@ void init_ilwd(void)
 
 	table_name = PyUnicode_FromString("table_name");
 	column_name = PyUnicode_FromString("column_name");
+
+done:
+	return module;
 }
+
+
+SIX_COMPAT_MODULE(_ilwd)

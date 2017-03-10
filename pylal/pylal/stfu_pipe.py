@@ -27,7 +27,7 @@ from glue import pipeline
 from glue import lal
 #from pylal import db_thinca_rings
 from lalapps import inspiral
-from pylal import date
+from lalburst import date
 from pylal.xlal import date as xlaldate
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 #dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS

@@ -40,6 +40,14 @@ typedef struct {
 	/* these describe which time periods we are interested in */
 	INTERVAL_SET *segment_list;
 	INTERVAL_SET *veto_segment_list;
+	
+	/* Same but for injections */
+	INTERVAL_SET *injection_list;
+	INTERVAL_SET *veto_injection_list;
+	
+	/* Same but for injections in frequency domain. The intervals describe bins */
+	INTERVAL_SET *injection_fbin_list;
+	INTERVAL_SET *veto_injection_fbin_list;
 
 	/* when on, ignore segments with duplicate GPS times - useful for implementing poor mans RAID of the nodes */
 	int no_duplicate_gps;

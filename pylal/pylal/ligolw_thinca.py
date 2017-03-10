@@ -25,6 +25,7 @@
 
 
 import bisect
+import itertools
 import math
 import sys
 
@@ -333,10 +334,10 @@ def replicate_threshold(threshold, instruments):
 	# uniqueify
 	instruments = list(set(instruments))
 	# first order
-	thresholds = dict((pair, threshold) for pair in iterutils.choices(instruments, 2))
+	thresholds = dict((pair, threshold) for pair in itertools.combinations(instruments, 2))
 	# other order
 	instruments.reverse()
-	thresholds.update(dict((pair, threshold) for pair in iterutils.choices(instruments, 2)))
+	thresholds.update(dict((pair, threshold) for pair in itertools.combinations(instruments, 2)))
 	# done
 	return thresholds
 
@@ -462,12 +463,12 @@ class sngl_inspiral_coincs(object):
 	Example:
 
 	>>> coincs = sngl_inspiral_coincs(xmldoc)
-	>>> print coincs.coinc_def_id
+	>>> print(coincs.coinc_def_id)
 	coinc_definer:coinc_def_id:0
 	>>> coincs.keys()
 	[<glue.ligolw.ilwd.cached_ilwdchar_class object at 0x41a4328>]
 	>>> coinc_id = coincs.keys()[0]
-	>>> print coinc_id
+	>>> print(coinc_id)
 	coinc_event:coinc_event_id:83763
 	>>> coincs[coinc_id].write()
 	<?xml version='1.0' encoding='utf-8'?>

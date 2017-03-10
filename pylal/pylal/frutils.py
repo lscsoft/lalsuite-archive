@@ -59,7 +59,7 @@ Example:
 >>> data = d.fetch("H1:LSC-STRAIN", 861417967, 861417969)
 Copying /Users/nvf/temp/H-H1_RDS_C03_L2-861417967-128.gwf -->
           /tmp/H-H1_RDS_C03_L2-861417967-128.gwf.
->>> print data
+>>> print(data)
 [  1.68448009e-16   1.69713183e-16   1.71046196e-16 ...,   1.80974629e-16
    1.80911765e-16   1.80804879e-16] {'dt': 6.103515625e-05, 'segments': [segment(861417967, 861417969)], 'comments': [], 'name': 'H1:LSC-STRAIN'}
 >>> exit()
@@ -448,7 +448,7 @@ Example:
 >>> data = d.fetch("H1:LSC-STRAIN", 861417967, 861417969)
 Copying /Users/nvf/temp/H-H1_RDS_C03_L2-861417967-128.gwf -->
           /tmp/H-H1_RDS_C03_L2-861417967-128.gwf.
->>> print data
+>>> print(data)
 [  1.68448009e-16   1.69713183e-16   1.71046196e-16 ...,   1.80974629e-16
    1.80911765e-16   1.80804879e-16] {'dt': 6.103515625e-05, 'segments': [segment(861417967, 861417969)], 'comments': [], 'name': 'H1:LSC-STRAIN'}
 >>> exit()

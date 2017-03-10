@@ -26,10 +26,9 @@ __version__ = git_version.id
 
 import sys
 import os
-import exceptions
 import types
 import re
-import cPickle
+import six.moves.cPickle
 import xml.parsers.expat
 
 from pyGlobus import io
@@ -147,7 +146,7 @@ class LDBDClient(object):
     """
     try:
       self.__connect__(host,port,identity)
-    except Exception, e:
+    except Exception as e:
       raise 
 
   def __del__(self):
@@ -281,11 +280,11 @@ class LDBDClient(object):
     try:
       if response[-1] != '\0':
         msg = "Bad server reponse format. Contact server administrator."
-        raise LDBDClientException, msg
+        raise LDBDClientException(msg)
     except:
       msg = "Connection refused. The server may be down or you may not have" + \
         "authorization to access this server. Contact server administrator."
-      raise LDBDClientException, msg
+      raise LDBDClientException(msg)
 
     # delete the last \0 before splitting into strings
     response = response[0:-1]
@@ -294,13 +293,13 @@ class LDBDClient(object):
       stringList = response.split('\0')
       code = int(stringList[0])
       output = stringList[1:]
-    except Exception, e:
+    except Exception as e:
       msg = "Error parsing response from server : %s" % e
       try:
         f.close()
       except:
         pass
-      raise LDBDClientException, msg
+      raise LDBDClientException(msg)
 
 
     f.close()
@@ -322,7 +321,7 @@ class LDBDClient(object):
 
     if ret:
       msg = "Error pinging server %d:%s" % (ret, reply)
-      raise LDBDClientException, msg
+      raise LDBDClientException(msg)
 
     return reply
 
@@ -342,7 +341,7 @@ class LDBDClient(object):
 
     if ret:
       msg = "Error executing query on server %d:%s" % (ret, reply)
-      raise LDBDClientException, msg
+      raise LDBDClientException(msg)
 
     return reply
 
@@ -361,7 +360,7 @@ class LDBDClient(object):
 
     if ret:
       msg = "Error executing insert on server %d:%s" % (ret, reply)
-      raise LDBDClientException, msg
+      raise LDBDClientException(msg)
 
     return reply
 
@@ -372,7 +371,7 @@ class LDBDClient(object):
     @return: message received (may be empty) from LDBD Server as a string
     """
 
-    pmsg = cPickle.dumps(lfnpfn_dict)
+    pmsg = six.moves.cPickle.dumps(lfnpfn_dict)
 
     msg = "INSERTMAP\0" + xmltext + "\0" + pmsg + "\0"
     self.sfile.write(msg)
@@ -382,7 +381,7 @@ class LDBDClient(object):
 
     if ret:
       msg = "Error executing insert on server %d:%s" % (ret, reply)
-      raise LDBDClientException, msg
+      raise LDBDClientException(msg)
 
     return reply
 
@@ -401,6 +400,6 @@ class LDBDClient(object):
 
     if ret:
       msg = "Error executing insert on server %d:%s" % (ret, reply)
-      raise LDBDClientException, msg
+      raise LDBDClientException(msg)
 
     return reply

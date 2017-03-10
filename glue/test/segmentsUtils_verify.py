@@ -7,6 +7,8 @@ from glue import iterutils
 from glue import segments
 from glue import segmentsUtils
 import verifyutils
+from six.moves import range
+from functools import reduce
 verifyutils.segments = segments
 
 

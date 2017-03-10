@@ -41,7 +41,7 @@ __date__ = git_version.date
 
 # Use interning row builder to save memory.
 
-lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
+lsctables.table.TableStream.RowBuilder = lsctables.table.InterningRowBuilder
 
 
 # Use C row classes for memory efficiency and speed.

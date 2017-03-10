@@ -200,7 +200,7 @@ def get_trigs_xml(GWcursor,trigger_file,segs,min_thresh,tracker,verbose):
     lsctables.LIGOTimeGPS = LIGOTimeGPS 
 
     # Enable column interning to save memory
-    table.RowBuilder = table.InterningRowBuilder
+    table.TableStream.RowBuilder = table.InterningRowBuilder
 
     # for now, hardcode the table/column names
     # FIXME: assuming there is only one of those tables in the file
@@ -214,7 +214,7 @@ def get_trigs_xml(GWcursor,trigger_file,segs,min_thresh,tracker,verbose):
     def ContentHandler(xmldoc):
         return ligolw.PartialLIGOLWContentHandler(xmldoc, lambda name, attrs:\
                            (name == ligolw.Table.tagName) and\
-                           (table.StripTableName(attrs["Name"]) in tables))
+                           (table.Table.TableName(attrs["Name"]) in tables))
     try:
       lsctables.use_in(ligolw.PartialLIGOLWContentHandler)
     except AttributeError:
@@ -232,11 +232,11 @@ def get_trigs_xml(GWcursor,trigger_file,segs,min_thresh,tracker,verbose):
     for table_elem in xmldoc.getElements(lambda e:\
                                         (e.tagName == ligolw.Table.tagName)):
       # trigger specific time retrieval functions
-      if table_elem.tableName[:-6] in ('sngl_inspiral'):
+      if table_elem.tableName in ('sngl_inspiral'):
         get_time = lambda row: row.get_end()
-      elif table_elem.tableName[:-6] in ('sngl_burst'):
+      elif table_elem.tableName in ('sngl_burst'):
         get_time = lambda row: row.get_peak()
-      elif table_elem.tableName[:-6] in ('sngl_ringdown'):
+      elif table_elem.tableName in ('sngl_ringdown'):
         get_time = lambda row: row.get_start()
       else:
         print >> sys.stderr, "Error: This should not be happening. Please contact to the author with the error trace."

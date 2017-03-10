@@ -34,8 +34,7 @@ import gzip
 from hashlib import md5
 import warnings
 import os
-import urllib2
-import urlparse
+from six.moves import urllib
 import signal
 import stat
 import sys
@@ -88,14 +87,14 @@ def local_path_from_url(url):
 
 	Example:
 
-	>>> print local_path_from_url(None)
+	>>> print(local_path_from_url(None))
 	None
 	>>> local_path_from_url("file:///home/me/somefile.xml.gz")
 	'/home/me/somefile.xml.gz'
 	"""
 	if url is None:
 		return None
-	scheme, host, path = urlparse.urlparse(url)[:3]
+	scheme, host, path = urllib.parse.urlparse(url)[:3]
 	if scheme.lower() not in ("", "file") or host.lower() not in ("", "localhost"):
 		raise ValueError("%s is not a local file" % repr(url))
 	return path
@@ -136,7 +135,7 @@ class RewindableInputFile(object):
 		# getting more data
 		self.reuse = 0
 		# the internal buffer
-		self.buf = buffer(" " * buffer_size)
+		self.buf = b' ' * buffer_size
 		# flag indicating a .seek()-based EOF test is in progress
 		self.gzip_hack_pretend_to_be_at_eof = False
 		# avoid attribute look-ups
@@ -149,7 +148,7 @@ class RewindableInputFile(object):
 
 	def next(self):
 		if self.gzip_hack_pretend_to_be_at_eof:
-			return buffer()
+			return b''
 		if self.reuse:
 			buf = self.buf[-self.reuse:]
 			self.reuse = 0
@@ -161,7 +160,7 @@ class RewindableInputFile(object):
 
 	def read(self, size = None):
 		if self.gzip_hack_pretend_to_be_at_eof:
-			return buffer()
+			return b''
 		if self.reuse:
 			if self.reuse < 0:
 				buf = self._read(size - self.reuse)
@@ -320,7 +319,7 @@ class SignalsTrap(object):
 
 	def __exit__(self, *args):
 		# restore original handlers
-		for sig, oldhandler in self.oldhandlers.iteritems():
+		for sig, oldhandler in self.oldhandlers.items():
 			signal.signal(sig, oldhandler)
 		# send ourselves the trapped signals in order
 		while self.deferred_signals:
@@ -370,7 +369,7 @@ def load_fileobj(fileobj, gz = None, xmldoc = None, contenthandler = None):
 		fileobj = RewindableInputFile(fileobj)
 		magic = fileobj.read(2)
 		fileobj.seek(0, os.SEEK_SET)
-		if gz or magic == '\037\213':
+		if gz or magic == b'\037\213':
 			fileobj = gzip.GzipFile(mode = "rb", fileobj = fileobj)
 	if xmldoc is None:
 		xmldoc = ligolw.Document()
@@ -408,7 +407,7 @@ def load_url(url, verbose = False, **kwargs):
 	"""
 	Parse the contents of file at the given URL and return the contents
 	as a LIGO Light Weight document tree.  Any source from which
-	Python's urllib2 library can read data is acceptable.  stdin is
+	Python's urllib library can read data is acceptable.  stdin is
 	parsed if url is None.  Helpful verbosity messages are printed to
 	stderr if verbose is True.  All other keyword arguments are passed
 	to load_fileobj(), see that function for more information.  In
@@ -423,11 +422,11 @@ def load_url(url, verbose = False, **kwargs):
 	if verbose:
 		sys.stderr.write("reading %s ...\n" % (("'%s'" % url) if url is not None else "stdin"))
 	if url is not None:
-		scheme, host, path = urlparse.urlparse(url)[:3]
+		scheme, host, path = urllib.parse.urlparse(url)[:3]
 		if scheme.lower() in ("", "file") and host.lower() in ("", "localhost"):
 			fileobj = open(path)
 		else:
-			fileobj = urllib2.urlopen(url)
+			fileobj = urllib.request.urlopen(url)
 	else:
 		fileobj = sys.stdin
 	xmldoc, hexdigest = load_fileobj(fileobj, **kwargs)

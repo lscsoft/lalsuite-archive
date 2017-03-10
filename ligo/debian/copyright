@@ -1,6 +1,6 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Contact: Brian Moe <brian.moe@ligo.org>
-Source: https://versions.ligo.org/cgit/lvalert/
+Upstream-Contact: Tanner Prestegard <tanner.prestegard@ligo.org>
+Source: https://git.ligo.org/lscsoft/lvalert
 
 Files: *
 Copyright: 2011-2016 The LIGO Scientific Collaboration

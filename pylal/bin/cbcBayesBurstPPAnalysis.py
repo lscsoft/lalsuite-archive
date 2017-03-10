@@ -44,7 +44,7 @@ class LIGOLWContentHandlerExtractSimBurstTable(ligolw.LIGOLWContentHandler):
       self.intable=False
       self.tableElementName=''
     def startElement(self,name,attrs):
-      if attrs.has_key('Name') and attrs['Name']==self.tabname:
+      if attrs.has_key('Name') and table.Table.TableName(attrs['Name'])==self.tabname:
         self.tableElementName=name
         # Got the right table, let's see if it's the right event
         ligolw.LIGOLWContentHandler.startElement(self,name,attrs)

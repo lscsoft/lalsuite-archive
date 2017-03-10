@@ -1,33 +1,20 @@
 """
 This module is intended to make it easier to build web clients
-written in Python using the urllib2 module that can
+written in Python using the urllib module that can
 interoperate with the @LIGO.ORG infrastructure.
 """
 
 import re
-import urllib2
-import exceptions
+from six.moves import urllib
 
-class LIGOSAMLClientException(exceptions.Exception):
-    """
-    """
-    pass
+import kerberos
 
-try:
-    import kerberos
-except ImportError as e:
-    msg = """\n
-The glue.auth.saml module requires the python-kerberos Python module to
-be installed. On both Debian and RedHat-based systems like CentOS and
-Scientific Linux the name of the package to install is 'python-kerberos'.
-"""
-    raise LIGOSAMLClientException(msg)
 
-class HTTPNegotiateAuthHandler(urllib2.BaseHandler):
+class HTTPNegotiateAuthHandler(urllib.request.BaseHandler):
     """
     This class uses an existing Kerberos ticket to authenticate
     via HTTP Negotiate Authentication. An instance of this class
-    can be passed into the build_opener function from the urllib2
+    can be passed into the build_opener function from the urllib
     module.
 
     Modified from source found at
@@ -65,7 +52,7 @@ class HTTPNegotiateAuthHandler(urllib2.BaseHandler):
             return None
 
         if self.retried > 5:
-            raise urllib2.HTTPError(req.get_full_url(), 401, "negotiate auth failed", headers, None)
+            raise urllib.error.HTTPError(req.get_full_url(), 401, "negotiate auth failed", headers, None)
 
         self.retried += 1
 

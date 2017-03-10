@@ -87,6 +87,7 @@ option "ks-test"        - "perform Kolmogorov-Smirnov test for normality of aver
 option "compute-betas"  - "compute beta coefficients as described in PowerFlux polarizations document" int default="0" no
 option "upper-limit-comp" - "upper limit compensation factor - used to account for windowing in SFTs (possible values: Hann, flat, arbitrary number)" string default="Hann" no
 option "lower-limit-comp" - "lower limit compensation factor - used to account for windowing in SFTs (possible values: Hann, flat, arbitrary number)" string default="Hann" no
+option "viterbi-power-sums" - "Use Viterbi-like algorithm to accumulate power sums between segments, accomodating long term deviations in frequency evolution" int default="0" no
 
 
 option "write-dat"      - "regular expression describing which *.dat files to write" string default=".*" no
@@ -99,6 +100,10 @@ option "focus-dec"	- "focus computation on a circular area with center at this D
 option "focus-radius"	- "focus computation on a circular area with this radius" double no
 option "only-large-cos" - "restrict computation to points on the sky with cos of angle to band axis larger than a given number" double no
 option "focus-type"	- "focus type (equatorial, ecliptic)" string default="equatorial" no
+option "binary-template-file" - "use data from this file to generate templates, file has same format as diverted.log." string default="" no
+option "binary-template-nsky" - "size of square sky grid to use for followup" int default="3" no
+option "binary-template-nshift" - "number of subfrequency shifts to followup" int default="3" no
+
 
 defgroup "injection" groupdesc=""
 groupoption "fake-linear" - "Inject linearly polarized fake signal" group="injection"
@@ -128,14 +133,19 @@ option "fake-injection-w-size" - "internal parameter specifying integration work
 option "snr-precision"	- "Assumed level of error in detection strength - used for listing candidates" double default="0.2" no
 option "max-candidates"	- "Do not optimize more than this number of candidates" int default="-1" no
 option "min-candidate-snr" - "Do not optimize candidates with SNR below this level" double default="5.0" no
+option "divert-snr" - "Divert templates with SNR at or above this level for separate analysis" double default="-1.0" no
+option "divert-ul" - "Divert templates with SNR at or above this upper limit level for separate analysis" double default="-1.0" no
 option "output-initial" - "write initial candidates into log file" int default="0" no
 option "output-optimized" - "write optimized (second pass) candidates into log file" int default="0" no
 option "output-cache" - "write out all candidates in cache to log file" int default="0" no
+
+option "progress-update-interval" - "integer value controlling frequency of progress updates" int default="100" no
 
 option "extended-test" - "Perform extended self test functions given by this bitmask" int default="1" no
 option "max-sft-report" - "Maximum count of SFTs to report with veto information" int default="100" no
 
 option "num-threads"  - "Use that many threads for computation" int default="-1" no
+option "num-threads-env"  - "Use this environment variable to obtain num-threads" string default="" no
 
 #
 # Options for v2 code
@@ -143,7 +153,9 @@ option "num-threads"  - "Use that many threads for computation" int default="-1"
 option "niota" - "Number of iota values to use in alignment grid" int default="3" no
 option "npsi" - "Number of psi values to use in alignment grid" int default="6" no
 option "nfshift" - "Number of sub-bin frequency shifts to sample" int default="2" no
-option "nchunks" - "Partition the timebase into this many chunks for sub period analysis" int default="5" no
+option "nchunks" - "Partition the timebase into this many chunks for sub period analysis" int default="5" no 
+option "nchunks-refinement" - "Reduce reported statistics by this factor." int default="1" no
+option "min-nchunks" - "Do not output statistics with fewer than this many chunks" int default="1" no
 option "split-ifos" - "Split interferometers in separate chunks" int default="1" no
 option "default-dataset-veto-level" - "Default value for veto_level dataset parameter" double default="1e-2" no
 option "default-dataset-veto-spike-level" - "Default value for veto_spike_level dataset parameter" double default="1.7" no

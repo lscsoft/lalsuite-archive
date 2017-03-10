@@ -120,6 +120,7 @@ SKY_GRID *make_sin_theta_grid(SKY_GRID_TYPE resolution);
 /* This reduces the grid by eliminating band=-1 points */
 SKY_GRID * reduced_grid(SKY_GRID *g);
 
+void compute_e_vector(float ra, float dec, float *e);
 void precompute_values(SKY_GRID *grid);
 void free_values(SKY_GRID *grid);
 

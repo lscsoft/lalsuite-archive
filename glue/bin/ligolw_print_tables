@@ -9,6 +9,7 @@
 #
 
 
+from six.moves import zip
 description = \
 """
 The executable front-end of print_tables.py. This program prints tables in
@@ -132,7 +133,7 @@ def parse_command_line():
 options, filenames = parse_command_line()
 
 # Also treat the special name 'stdin' as stdin
-filenames = map(lambda x: x != 'stdin' and x or None, filenames)
+filenames = [x != 'stdin' and x or None for x in filenames]
 
 # get the xmldocs
 if options.merge_docs:

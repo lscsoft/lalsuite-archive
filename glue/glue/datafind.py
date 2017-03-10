@@ -59,12 +59,16 @@ import os
 import sys
 import time
 import calendar
-import httplib
+import six.moves.http_client
 import M2Crypto
 import re
 import unittest
 
-from cjson import decode
+try:
+    from cjson import decode
+except ImportError:
+    from json import loads as decode
+
 from glue import (lal, git_version, segments)
 
 __author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
@@ -76,7 +80,7 @@ _server_env = "LIGO_DATAFIND_SERVER"
 _url_prefix = "/LDR/services/data/v1"
 
 
-class GWDataFindHTTPConnection(httplib.HTTPConnection):
+class GWDataFindHTTPConnection(six.moves.http_client.HTTPConnection):
     """Connection to LIGO data replicator service using HTTP.
 
     @param host: the name of the server with which to connect
@@ -95,7 +99,7 @@ class GWDataFindHTTPConnection(httplib.HTTPConnection):
         if not host:
             host,port = find_server()
             kwargs.setdefault("port", port)
-        httplib.HTTPConnection.__init__(self, host, **kwargs)
+        six.moves.http_client.HTTPConnection.__init__(self, host, **kwargs)
     __init__.__doc__ %= _server_env
 
     def _requestresponse(self, method, url, body=None, headers={}):
@@ -391,7 +395,7 @@ class GWDataFindHTTPConnection(httplib.HTTPConnection):
                 else:
                     raise RuntimeError(msg)
 
-class GWDataFindHTTPSConnection(httplib.HTTPSConnection, GWDataFindHTTPConnection):
+class GWDataFindHTTPSConnection(six.moves.http_client.HTTPSConnection, GWDataFindHTTPConnection):
     """Secured connection to LIGO data replicator service using HTTPS.
     """
     def __init__(self, host=None, **kwargs):
@@ -402,7 +406,7 @@ class GWDataFindHTTPSConnection(httplib.HTTPSConnection, GWDataFindHTTPConnectio
         if not host:
             host, port = find_server()
             kwargs.setdefault("port", port)
-        httplib.HTTPSConnection.__init__(self, host, **kwargs)
+        six.moves.http_client.HTTPSConnection.__init__(self, host, **kwargs)
     __init__.__doc__ %= _server_env
 
 
@@ -472,7 +476,7 @@ def find_credential():
                      "Please run 'grid-proxy-init -rfc' and try again.")
 
     # use X509_USER_PROXY from environment if set
-    if os.environ.has_key('X509_USER_PROXY'):
+    if 'X509_USER_PROXY' in os.environ:
         filePath = os.environ['X509_USER_PROXY']
         if validate_proxy(filePath):
             return filePath, filePath
@@ -480,8 +484,8 @@ def find_credential():
             raise RuntimeError(rfc_proxy_msg)
 
     # use X509_USER_CERT and X509_USER_KEY if set
-    if (os.environ.has_key('X509_USER_CERT') and
-        os.environ.has_key('X509_USER_KEY')):
+    if ('X509_USER_CERT' in os.environ and
+        'X509_USER_KEY' in os.environ):
         certFile = os.environ['X509_USER_CERT']
         keyFile = os.environ['X509_USER_KEY']
         return certFile, keyFile
@@ -511,7 +515,7 @@ def find_server():
                           is not set
     """
 
-    if os.environ.has_key(_server_env):
+    if _server_env in os.environ:
         host = os.environ[_server_env]
         port = None
         if re.search(':', host):

@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 /* We need this define to get NAN values */
-#define __USE_ISOC99
+//#define __USE_ISOC99
 #include <math.h>
 #include <time.h>
 
@@ -24,16 +24,20 @@ extern struct gengetopt_args_info args_info;
 
 extern SKY_GRID *fine_grid, *patch_grid;
 
-extern FILE * DATA_LOG, * LOG, *FILE_LOG;
+extern FILE * DATA_LOG, * LOG, *FILE_LOG, *DIVERT_LOG, *INPUT_TEMPLATE_LOG;
 
 extern int first_bin, side_cut, nsegments, useful_bins;
 
 extern DATASET *datasets;
 extern int d_free;
 
+extern int input_templates;
+MUTEX input_template_mutex;
+
 int data_log_index=0;
 
 int write_data_log_header=1;
+int write_diverted_log_header=1;
 
 typedef struct {
 	unsigned int veto_mask;
@@ -210,46 +214,37 @@ free(w);
 
 MUTEX data_logging_mutex;
 
-void log_extremes(SUMMING_CONTEXT *ctx, POWER_SUM_STATS *tmp_pstat, EXTREME_INFO *ei, int pi, POWER_SUM **ps, int nchunks, int count)
+void pstats_log_extremes(SUMMING_CONTEXT *ctx, POWER_SUM_STATS *tmp_pstat, POWER_SUM **ps, int count, EXTREME_INFO *ei, int pi)
 {
-PARTIAL_POWER_SUM_F *pps=ctx->log_extremes_pps;
-POWER_SUM_STATS pstats, pstats_accum;
-int i, k;
+int i;
+POWER_SUM_STATS pstats, pstats_accum, *tp;
 int highest_ul_idx=0;
 int highest_circ_ul_idx=0;
 int highest_snr_idx=0;
 int skyband;
+char *diverted;
+TEMPLATE_INFO ti;
 
-//fprintf(stderr, "count=%d\n", count);
-//pps=allocate_partial_power_sum_F(useful_bins, 1);
+diverted=alloca(count*sizeof(*diverted));
+memset(diverted, 0, count*sizeof(*diverted));
+
 memset(&pstats_accum, 0, sizeof(pstats_accum));
 pstats_accum.max_weight=-1;
-
-for(i=0;i<count;i++) {
-	zero_partial_power_sum_F(pps);
-	for(k=0;k<nchunks;k++) {
-#if MANUAL_SSE
-		sse_accumulate_partial_power_sum_F(pps, (ps[k][i].pps));
-#else
-		accumulate_partial_power_sum_F(pps, (ps[k][i].pps));
-#endif
-		}
-	power_sum_stats(pps, &(tmp_pstat[i]));
-	}
 
 thread_mutex_lock(&(ei->mutex));
 for(i=0;i<count;i++) {
 	memcpy(&pstats, &(tmp_pstat[i]), sizeof(POWER_SUM_STATS));
 
-	if(args_info.dump_power_sums_arg) {
-		fprintf(DATA_LOG, "power_sum %s %d %d %lf %lf %lf %lg ", ei->name, pi, first_bin+side_cut, ps[0][i].ra, ps[0][i].dec, ps[0][i].freq_shift, ps[0][i].spindown);
-		dump_partial_power_sum_F(DATA_LOG, pps);
-		fprintf(DATA_LOG, "\n");
-		}
-
 
 
 	skyband=ps[0][i].skyband;
+	
+	if((args_info.divert_snr_arg>0 && (pstats.highest_snr.snr>args_info.divert_snr_arg)) ||
+	   (args_info.divert_ul_arg>0 && (pstats.highest_ul.ul>args_info.divert_ul_arg))) {
+		diverted[i]=1;
+		ei->band_diverted_count[skyband]++;
+		continue;
+		}
 
 	if(pstats.max_weight_loss_fraction>=1) {
 		ei->band_masked_count[skyband]++;
@@ -369,6 +364,45 @@ thread_mutex_unlock(&(ei->mutex));
 
 thread_mutex_lock(&data_logging_mutex);
 
+if(write_diverted_log_header) {
+	write_diverted_log_header=0;
+	fprintf(LOG, "diverted_log_structure_size: %ld\n", sizeof(ti));
+	}
+
+for(i=0;i<count;i++) {
+	if(!diverted[i])continue;
+	
+	tp=&(tmp_pstat[i]);
+	
+	ti.skyband=ps[0][i].skyband;
+	ti.snr=tp->highest_snr.snr;
+	ti.ul=tp->highest_ul.ul;
+	ti.circ_ul=tp->highest_circ_ul.ul;
+	
+	ti.freq_modulation_freq=ps[0][i].freq_modulation_freq;
+	ti.freq_modulation_phase=ps[0][i].freq_modulation_phase;
+	ti.freq_modulation_depth=ps[0][i].freq_modulation_depth;
+	
+	ti.spindown=ps[0][i].spindown;
+	ti.fdotdot=ps[0][i].fdotdot;
+	ti.ra=ps[0][i].ra;
+	ti.dec=ps[0][i].dec;
+	
+	ti.freq_shift=ps[0][i].freq_shift;
+	ti.first_bin=first_bin+side_cut;
+	ti.snr_bin=tp->highest_snr.bin;
+	/* This just shows the start of the band to analyze 
+	 * The actual frequency where the maximum is achieved can be different for SNR and UL.
+	 */
+	ti.frequency=(double)ps[0][i].freq_shift+ti.first_bin/args_info.sft_coherence_time_arg;
+	
+	ti.first_chunk=ei->first_chunk;
+	ti.last_chunk=ei->last_chunk;
+	ti.veto_num=ei->veto_num;
+	
+	fwrite(&ti, sizeof(ti), 1, DIVERT_LOG);
+	}
+
 if(write_data_log_header) {
 	write_data_log_header=0;
 	/* we write this into the main log file so that data.log files can simply be concatenated together */
@@ -451,6 +485,40 @@ FILL_SKYMAP(weight_loss_fraction_skymap, pstats_accum.max_weight_loss_fraction);
 FILL_SKYMAP(ks_skymap, pstats_accum.highest_ks.ks_value);
 }
 
+void log_extremes(SUMMING_CONTEXT *ctx, POWER_SUM_STATS *tmp_pstat, EXTREME_INFO *ei, int pi, POWER_SUM **ps, int nchunks, int count)
+{
+PARTIAL_POWER_SUM_F *pps=ctx->log_extremes_pps;
+int i, k;
+
+//fprintf(stderr, "count=%d\n", count);
+//pps=allocate_partial_power_sum_F(useful_bins, 1);
+
+for(i=0;i<count;i++) {
+	zero_partial_power_sum_F(pps);
+	for(k=0;k<nchunks;k++) {
+#if MANUAL_SSE
+		sse_accumulate_partial_power_sum_F(pps, (ps[k][i].pps));
+#else
+		accumulate_partial_power_sum_F(pps, (ps[k][i].pps));
+#endif
+		}
+	power_sum_stats(pps, &(tmp_pstat[i]));
+	
+	if(args_info.dump_power_sums_arg) {
+		thread_mutex_lock(&data_logging_mutex);
+		
+		fprintf(DATA_LOG, "power_sum %s %d %d %lf %lf %lf %lg ", ei->name, pi, first_bin+side_cut, ps[0][i].ra, ps[0][i].dec, ps[0][i].freq_shift, ps[0][i].spindown);
+		dump_partial_power_sum_F(DATA_LOG, pps);
+		fprintf(DATA_LOG, "\n");
+		
+		thread_mutex_unlock(&data_logging_mutex);
+		}
+
+	}
+	
+pstats_log_extremes(ctx, tmp_pstat, ps, count, ei, pi);
+}
+
 static char s[20000];
 
 EXTREME_INFO * allocate_extreme_info(char *name)
@@ -466,6 +534,11 @@ ei->name=strdup(name);
 thread_mutex_init(&(ei->mutex));
 
 if(args_info.compute_skymaps_arg) {
+	if(input_templates>=0) {
+		fprintf(stderr, "compute-skymaps is incompatible with binary-template-file\n");
+		exit(-1);
+		}
+	
 	ei->ul_skymap=do_alloc(patch_grid->npoints, sizeof(float));
 	ei->ul_freq_skymap=do_alloc(patch_grid->npoints, sizeof(float));
 	ei->circ_ul_skymap=do_alloc(patch_grid->npoints, sizeof(float));
@@ -484,8 +557,10 @@ memset(ei->band_info, 0, fine_grid->nbands*sizeof(*ei->band_info));
 
 ei->band_valid_count=do_alloc(fine_grid->nbands, sizeof(*ei->band_valid_count));
 ei->band_masked_count=do_alloc(fine_grid->nbands, sizeof(*ei->band_masked_count));
+ei->band_diverted_count=do_alloc(fine_grid->nbands, sizeof(*ei->band_diverted_count));
 memset(ei->band_valid_count, 0, fine_grid->nbands*sizeof(*ei->band_valid_count));
 memset(ei->band_masked_count, 0, fine_grid->nbands*sizeof(*ei->band_masked_count));
+memset(ei->band_diverted_count, 0, fine_grid->nbands*sizeof(*ei->band_diverted_count));
 
 for(i=0;i<fine_grid->nbands;i++) {
 	ei->band_info[i].max_weight=-1;
@@ -523,11 +598,11 @@ void output_extreme_info(RGBPic *p, EXTREME_INFO *ei)
 {
 int skyband;
 
-fprintf(LOG, "tag: kind label skyband skyband_name set first_bin frequency spindown fdotdot freq_modulation_freq freq_modulation_depth freq_modulation_phase ra dec iota psi snr ul ll M S ks_value ks_count m1_neg m3_neg m4 frequency_bin max_weight weight_loss_fraction max_ks_value max_m1_neg min_m1_neg max_m3_neg min_m3_neg max_m4 min_m4 max_weight_loss_fraction valid_count masked_count template_count\n");
+fprintf(LOG, "tag: kind label skyband skyband_name set first_bin frequency spindown fdotdot freq_modulation_freq freq_modulation_depth freq_modulation_phase ra dec iota psi snr ul ll M S ks_value ks_count m1_neg m3_neg m4 frequency_bin max_weight weight_loss_fraction max_ks_value max_m1_neg min_m1_neg max_m3_neg min_m3_neg max_m4 min_m4 max_weight_loss_fraction valid_count masked_count diverted_count template_count\n");
 
 /* now that we know extreme points go and characterize them */
 #define WRITE_SKYBAND_POINT(pstat, kind)	\
-	fprintf(LOG, "band_info: %s \"%s\" %d %s %s %d %lf %lg %lg %lg %lg %lg %lf %lf %lf %lf %lf %lg %lg %lg %lg %lf %d %lf %lf %lf %d %lg %lf %lf %lf %lf %lf %lf %lf %lf %lf %d %d %d\n", \
+	fprintf(LOG, "band_info: %s \"%s\" %d %s %s %d %lf %lg %lg %lg %lg %lg %lf %lf %lf %lf %lf %lg %lg %lg %lg %lf %d %lf %lf %lf %d %lg %lf %lf %lf %lf %lf %lf %lf %lf %lf %d %d %d %d\n", \
 		kind, \
 		args_info.label_arg, \
 		skyband, \
@@ -567,6 +642,7 @@ fprintf(LOG, "tag: kind label skyband skyband_name set first_bin frequency spind
 		ei->band_info[skyband].max_weight_loss_fraction, \
 		ei->band_valid_count[skyband], \
 		ei->band_masked_count[skyband], \
+		ei->band_diverted_count[skyband], \
 		ei->band_info[skyband].ntemplates \
 		); 
 
@@ -635,19 +711,23 @@ EXTREME_INFO **ei;
 ei=do_alloc(args_info.nchunks_arg*(args_info.nchunks_arg+1)*(veto_free+1)/2, sizeof(*ei));
 
 fprintf(LOG, "nchunks: %d\n", args_info.nchunks_arg);
+fprintf(LOG, "nchunks refinement: %d\n", args_info.nchunks_refinement_arg);
+fprintf(LOG, "min nchunks: %d\n", args_info.min_nchunks_arg);
 fprintf(LOG, "veto_free: %d\n", veto_free);
 
 nei=0;
 
-for(i=0;i<args_info.nchunks_arg;i++)
-	for(k=0;k< args_info.nchunks_arg-i;k++)
+for(i=0;i<args_info.nchunks_arg;i+=args_info.nchunks_refinement_arg)
+	for(k=0;k< args_info.nchunks_arg-i;k+=args_info.nchunks_refinement_arg) {
+		if(k+1<args_info.min_nchunks_arg)continue;
+		
 		for(m=-1;m<veto_free;m++) {
 			if(m<0) {
 				if((veto_free<=1) && args_info.split_ifos_arg)continue; /* if there is only one detector no reason to compute "all" twice */
-				snprintf(s, 19999, "%d_%d_all", i, i+k);
+				snprintf(s, 19999, "%d_%d_all", i/args_info.nchunks_refinement_arg, (i+k)/args_info.nchunks_refinement_arg);
 				} else {
 				if(!args_info.split_ifos_arg)continue; /* combine data from all detectors */
-				snprintf(s, 19999, "%d_%d_%s", i, i+k, veto_info[m].name);
+				snprintf(s, 19999, "%d_%d_%s", i/args_info.nchunks_refinement_arg, (i+k)/args_info.nchunks_refinement_arg, veto_info[m].name);
 				}
 			ei[nei]=allocate_extreme_info(s);
 			ei[nei]->first_chunk=i;
@@ -655,6 +735,7 @@ for(i=0;i<args_info.nchunks_arg;i++)
 			ei[nei]->veto_num=m;
 			nei++;
 			}
+		}
 
 *out_nei=nei;
 *out_ei=ei;
@@ -664,6 +745,7 @@ SUMMING_CONTEXT **summing_contexts=NULL;
 struct {
 	POWER_SUM **ps;
 	POWER_SUM **ps_tmp;
+	float *temp;
 	} *cruncher_contexts=NULL;
 int n_contexts=0;
 
@@ -673,6 +755,229 @@ int nchunks;
 
 double gps_start;
 double gps_stop;
+
+#if MANUAL_SSE
+#define MODE(a)	(args_info.sse_arg ? (sse_ ## a) : (a) )
+#else
+#define MODE(a)	(a)
+#endif
+
+extern ALIGNMENT_COEFFS *alignment_grid;
+extern int alignment_grid_free;
+
+void log_extremes_viterbi(SUMMING_CONTEXT *ctx, int pi, POWER_SUM **ps, int count)
+{
+int i,j,k,m,r, lm;
+POINT_STATS pst;
+POWER_SUM_STATS *stats;
+float *tmp;
+float *tmp2a, *tmp2b, *tmp_min_weight, *tmp_max_weight;
+float *p1, *p2, *p3, *p4, *p5;
+float min_weight, max_weight, inv_weight, weight, *total_weight;
+int fshift_count=args_info.nfshift_arg; /* number of frequency offsets */
+int shift;
+long tmp_stride=(useful_bins+(ALIGNMENT-1)) & (~(ALIGNMENT-1));
+long tmp_size;
+
+if(args_info.filter_lines_arg) {
+	/* To fix this we would need to pass and process per-frequency weight arrays. This needs to be done carefully to maintain efficiency 
+	 * The code will work as is if this is disabled, using an approximation to true weight. 
+	 * But the checks that enough weight was accumulated to compute power will not work */
+	fprintf(stderr, "*** ERROR: viterbi filtering is incompatible with filter-lines=1\n");
+	exit(-1);
+	}
+
+	/* size of tmp array */
+tmp_size=args_info.nchunks_arg*veto_free*fshift_count*tmp_stride*sizeof(float);
+	/* size of tmp2 arrays */
+tmp_size+=2*(tmp_stride*fshift_count)*sizeof(float);
+	/* size of stats array */
+tmp_size+=nei*count*sizeof(*stats)+ALIGNMENT;
+	/* sizes of tmp_min_weight and tmp_max_weight arrays */
+tmp_size+=2*args_info.nchunks_arg*veto_free*fshift_count*sizeof(float)+2*ALIGNMENT;
+	/* sizes of total_weight array */
+tmp_size+=fshift_count*sizeof(float)+2*ALIGNMENT;
+
+if(ctx->log_extremes_pstats_scratch_size<tmp_size) {
+	free(ctx->log_extremes_pstats_scratch);
+
+	ctx->log_extremes_pstats_scratch_size=tmp_size;
+
+	ctx->log_extremes_pstats_scratch=do_alloc(1, tmp_size);
+	
+	p1=(float *)ctx->log_extremes_pstats_scratch;
+	PRAGMA_IVDEP
+	for(i=0;i<(ctx->log_extremes_pstats_scratch_size/sizeof(*p1));i++)p1[i]=NAN;
+	
+	fprintf(stderr, "Expanded log_extremes_pstats_scratch to %f MB nchunks=%d veto_free=%d count=%d nei=%d\n", ctx->log_extremes_pstats_scratch_size*1e-6, args_info.nchunks_arg, veto_free, count, nei);
+	}
+
+p1=(float *)ctx->log_extremes_pstats_scratch;
+
+tmp=p1; p1=ALIGN_POINTER(p1+args_info.nchunks_arg*veto_free*fshift_count*tmp_stride);
+tmp2a=p1; p1=ALIGN_POINTER(p1+tmp_stride*fshift_count);
+tmp2b=p1; p1=ALIGN_POINTER(p1+tmp_stride*fshift_count);
+stats=(POWER_SUM_STATS *)p1; p1=ALIGN_POINTER(p1+((nei*count*sizeof(*stats)+3)>>2));
+tmp_min_weight=p1; p1=ALIGN_POINTER(p1+args_info.nchunks_arg*veto_free*fshift_count);
+tmp_max_weight=p1; p1=ALIGN_POINTER(p1+args_info.nchunks_arg*veto_free*fshift_count);
+total_weight=p1; p1=ALIGN_POINTER(p1+fshift_count);
+
+/* Check that size was computed accurately */
+if(((char *)p1)-ctx->log_extremes_pstats_scratch>ctx->log_extremes_pstats_scratch_size) {
+	fprintf(stderr, "*** ERROR: log_extremes_pstats_scratch_size=%ld but need %ld memory\n", 
+		ctx->log_extremes_pstats_scratch_size, ((char *)p1)-ctx->log_extremes_pstats_scratch);
+	exit(-1);
+	}
+
+for(i=0;i<nei;i++) {
+	for(j=0;j<count;j++)
+		prepare_power_sum_stats(&stats[i*count+j]);
+	}
+
+for(lm=0;lm<alignment_grid_free;lm++) {
+
+
+	for(j=0;j<count;j+=fshift_count) {
+		
+	for(i=0;i<args_info.nchunks_arg;i++) {
+		for(k=0;k<veto_free;k++) {
+			for(shift=0;shift<fshift_count;shift++) {
+ 				MODE(compute_power)(ps[i*veto_free+k][j+shift].pps, &(alignment_grid[lm]), &(tmp[((i*veto_free+k)*fshift_count+shift)*tmp_stride]), &(tmp_min_weight[(i*veto_free+k)*fshift_count+shift]), &(tmp_max_weight[(i*veto_free+k)*fshift_count+shift]));
+				
+				}
+			}
+		}
+		
+	for(i=0;i<nei;i++) {
+		max_weight=0;
+		min_weight=0;
+		memset(tmp2a, 0, sizeof(*tmp2a)*tmp_stride*fshift_count);
+		memset(total_weight, 0, sizeof(*total_weight)*fshift_count);
+		
+		for(k=ei[i]->first_chunk;k<=ei[i]->last_chunk;k++) {
+			/* Accumulate tmp2 from tmp using Viterbi-like algorithm */
+			/* We need to do all sub-bin shifts in one go */
+			if(k>ei[i]->first_chunk) {
+				for(shift=0;shift<fshift_count;shift++) {
+					p2=&(tmp2a[tmp_stride*shift]);
+					
+					if(shift>0)p3=&(tmp2a[tmp_stride*(shift-1)]);
+						else p3=&(tmp2a[tmp_stride*(shift+fshift_count-1)-1]);
+						
+					if(shift<fshift_count-1)p4=&(tmp2a[tmp_stride*(shift+1)]);
+						else p4=&(tmp2a[tmp_stride*(shift-fshift_count+1)+1]);
+						
+					p5=&(tmp2b[tmp_stride*shift]);
+						
+					if(shift==0)p5[0]=fmaxf(p2[0], p4[0]);
+						else
+						p5[0]=fmaxf(p2[0], fmaxf(p3[0], p4[0]));
+
+					if(shift==fshift_count-1)p5[useful_bins-1]=fmaxf(p2[useful_bins-1], p3[useful_bins-1]);
+						else
+						p5[useful_bins-1]=fmaxf(p2[useful_bins-1], fmaxf(p3[useful_bins-1], p4[useful_bins-1]));
+							
+					PRAGMA_IVDEP
+					for(r=1;r<useful_bins-1;r++) {
+						p5[r]=fmaxf(p2[r], fmaxf(p3[r], p4[r]));
+						}
+				
+					}
+				p1=tmp2b;
+				tmp2b=tmp2a;
+				tmp2a=p1;
+				}
+				
+			if(ei[i]->veto_num<0) {
+				for(m=0;m<veto_free;m++) {
+					/* Accumulate tmp2 from tmp incorporating all per-ifo pieces */
+					/* We need to do all sub-bin shifts in one go */
+					for(shift=0;shift<fshift_count;shift++) {
+						/* It could be that the chunk is too small to contain any SFTs. 
+						 * Skip and continue */
+						if(tmp_max_weight[(k*veto_free+m)*fshift_count+shift]<=0)continue;
+						
+						p1=&(tmp[((k*veto_free+m)*fshift_count+shift)*tmp_stride]);
+						p5=&(tmp2a[tmp_stride*shift]);
+															
+						/* This is at best an approximation when line filtering is on */
+						weight=0.5*(tmp_min_weight[(k*veto_free+m)*fshift_count+shift]+tmp_max_weight[(k*veto_free+m)*fshift_count+shift]);
+						total_weight[shift]+=weight;
+						
+						PRAGMA_IVDEP
+						for(r=0;r<useful_bins;r++) {
+							p5[r]+=p1[r]*weight;
+							}
+					
+					
+						min_weight+=tmp_min_weight[(k*veto_free+m)*fshift_count+shift];
+						max_weight+=tmp_max_weight[(k*veto_free+m)*fshift_count+shift];
+// 						if(min_weight>tmp_min_weight[(k*veto_free+m)*fshift_count+shift])min_weight=tmp_min_weight[(k*veto_free+m)*fshift_count+shift];
+// 						if(max_weight<tmp_max_weight[(k*veto_free+m)*fshift_count+shift])max_weight=tmp_max_weight[(k*veto_free+m)*fshift_count+shift];
+						}
+					
+					}
+				} else {
+				m=ei[i]->veto_num;
+				
+				/* Accumulate tmp2 from tmp incorporating all per-ifo pieces */
+				/* We need to do all sub-bin shifts in one go */
+				for(shift=0;shift<fshift_count;shift++) {
+					/* It could be that the chunk is too small to contain any SFTs. 
+						* Skip and continue */
+					if(tmp_max_weight[(k*veto_free+m)*fshift_count+shift]<=0)continue;
+					
+					p1=&(tmp[((k*veto_free+m)*fshift_count+shift)*tmp_stride]);
+					p5=&(tmp2a[tmp_stride*shift]);
+														
+					/* This is at best an approximation when line filtering is on */
+					weight=0.5*(tmp_min_weight[(k*veto_free+m)*fshift_count+shift]+tmp_max_weight[(k*veto_free+m)*fshift_count+shift]);
+					total_weight[shift]+=weight;
+					
+					PRAGMA_IVDEP
+					for(r=0;r<useful_bins;r++) {
+						p5[r]+=p1[r]*weight;
+						}
+				
+
+					min_weight+=tmp_min_weight[(k*veto_free+m)*fshift_count+shift];
+					max_weight+=tmp_max_weight[(k*veto_free+m)*fshift_count+shift];
+// 					if(min_weight>tmp_min_weight[(k*veto_free+m)*fshift_count+shift])min_weight=tmp_min_weight[(k*veto_free+m)*fshift_count+shift];
+// 					if(max_weight<tmp_max_weight[(k*veto_free+m)*fshift_count+shift])max_weight=tmp_max_weight[(k*veto_free+m)*fshift_count+shift];
+					}
+				}
+			}
+			
+		for(shift=0;shift<fshift_count;shift++) {
+			p5=&(tmp2a[tmp_stride*shift]);
+			
+			
+			inv_weight=1.0f/total_weight[shift];
+			PRAGMA_IVDEP
+			for(r=0;r<useful_bins;r++) {
+				p5[r]*=inv_weight;
+				}
+			MODE(compute_universal_statistics)(p5, min_weight, max_weight, &(alignment_grid[lm]), &pst);
+			
+			if(!isfinite(pst.snr)) {
+				/* This is not fatal, but possibly needs checking */
+				fprintf(stderr, "*** ERROR: non-finite max_dx pi=%d lm=%d i=%d j=%d shift=%d count=%d tmp_stride=%ld min_weight=%g max_weight=%g total_weight=%g veto_num=%d %d_%d\n", pi, lm, i, j, shift, count, tmp_stride, min_weight, max_weight, total_weight[shift], ei[i]->veto_num, ei[i]->first_chunk, ei[i]->last_chunk); 
+// 				fprintf(stderr, "p5={");
+// 				for(r=0;r<useful_bins;r++)fprintf(stderr, " %g", p5[r]);
+// 				fprintf(stderr, "}\n");
+				}
+			
+			update_power_sum_stats(&pst, &(alignment_grid[lm]), &(stats[i*count+j+shift]));
+			}
+		}
+	}
+			
+}
+/* find largest strain and largest SNR candidates for this patch and log info */
+for(i=0;i<nei;i++) {
+	pstats_log_extremes(ctx, &(stats[i*count]), ps, count, ei[i], pi);
+	}
+}
 
 
 void outer_loop_cruncher(int thread_id, void *data)
@@ -684,20 +989,25 @@ int i,k,m,count;
 POWER_SUM **ps=cruncher_contexts[thread_id+1].ps;
 POWER_SUM **ps_tmp=cruncher_contexts[thread_id+1].ps_tmp;
 POWER_SUM_STATS *le_pstats;
+TEMPLATE_INFO ti;
 
 ctx->nchunks=nchunks;
 ctx->power_sums_idx=0;
 
 //fprintf(stderr, "%d ", pi);
-generate_patch_templates(ctx, pi, &(ps[0]), &count);
-if(ctx->log_extremes_pstats_scratch_size<count*sizeof(*le_pstats)) {
-	free(ctx->log_extremes_pstats_scratch);
 
-	ctx->log_extremes_pstats_scratch_size=count*sizeof(*le_pstats);
-
-	ctx->log_extremes_pstats_scratch=do_alloc(count, sizeof(*le_pstats));
+if(input_templates>=0) {
+	thread_mutex_lock(&input_template_mutex);
+	
+	fseek(INPUT_TEMPLATE_LOG, pi*sizeof(TEMPLATE_INFO), SEEK_SET);
+	fread(&ti, sizeof(TEMPLATE_INFO), 1, INPUT_TEMPLATE_LOG);
+	
+	thread_mutex_unlock(&input_template_mutex);
+	
+	generate_followup_templates(ctx, &ti, &(ps[0]), &count);
+	} else {
+	generate_patch_templates(ctx, pi, &(ps[0]), &count);
 	}
-le_pstats=(POWER_SUM_STATS *)ctx->log_extremes_pstats_scratch;
 
 if(count<1) {
 	//free(ps[0]);
@@ -715,22 +1025,37 @@ for(i=0;i<args_info.nchunks_arg;i++) {
 		}
 	}
 
-/* find largest strain and largest SNR candidates for this patch */
-for(i=0;i<nei;i++) {
-	ps_tmp_len=0;
-	for(k=ei[i]->first_chunk;k<=ei[i]->last_chunk;k++) {
-		if(ei[i]->veto_num<0) {
-			for(m=0;m<veto_free;m++) {
-				ps_tmp[ps_tmp_len]=ps[k*veto_free+m];
+if(args_info.viterbi_power_sums_arg) {
+	log_extremes_viterbi(ctx, pi, ps, count);
+	} else {
+	/* find largest strain and largest SNR candidates for this patch */
+	
+	
+	if(ctx->log_extremes_pstats_scratch_size<count*sizeof(*le_pstats)) {
+		free(ctx->log_extremes_pstats_scratch);
+
+		ctx->log_extremes_pstats_scratch_size=count*sizeof(*le_pstats);
+
+		ctx->log_extremes_pstats_scratch=do_alloc(count, sizeof(*le_pstats));
+		}
+	le_pstats=(POWER_SUM_STATS *)ctx->log_extremes_pstats_scratch;
+	
+	for(i=0;i<nei;i++) {
+		ps_tmp_len=0;
+		for(k=ei[i]->first_chunk;k<=ei[i]->last_chunk;k++) {
+			if(ei[i]->veto_num<0) {
+				for(m=0;m<veto_free;m++) {
+					ps_tmp[ps_tmp_len]=ps[k*veto_free+m];
+					ps_tmp_len++;
+					}
+				} else {
+				ps_tmp[ps_tmp_len]=ps[k*veto_free+ei[i]->veto_num];
 				ps_tmp_len++;
 				}
-			} else {
-			ps_tmp[ps_tmp_len]=ps[k*veto_free+ei[i]->veto_num];
-			ps_tmp_len++;
 			}
-		}
 
-	log_extremes(ctx, le_pstats, ei[i], pi, ps_tmp, ps_tmp_len, count);
+		log_extremes(ctx, le_pstats, ei[i], pi, ps_tmp, ps_tmp_len, count);
+		}
 	}
 
 for(i=0;i<nchunks;i++) {
@@ -748,6 +1073,7 @@ RGBPic *p;
 PLOT *plot;
 
 thread_mutex_init(&data_logging_mutex);
+thread_mutex_init(&input_template_mutex);
 
 assign_per_dataset_cutoff_veto();
 assign_cutoff_veto();
@@ -781,9 +1107,16 @@ fprintf(LOG, "Outer loop iteration start memory: %g MB\n", (MEMUSAGE*10.0/(1024.
 
 time(&start_time);
 
-fprintf(stderr, "%d patches to process\n", patch_grid->npoints);
-for(pi=0;pi<patch_grid->npoints;pi++) {
-	submit_job(outer_loop_cruncher, (void *)((long)pi));
+if(input_templates>=0) {
+	fprintf(stderr, "%d patches to process\n", input_templates);
+	for(pi=0;pi<input_templates;pi++) {
+		submit_job(outer_loop_cruncher, (void *)((long)pi));
+		}
+	} else {
+	fprintf(stderr, "%d patches to process\n", patch_grid->npoints);
+	for(pi=0;pi<patch_grid->npoints;pi++) {
+		submit_job(outer_loop_cruncher, (void *)((long)pi));
+		}
 	}
 k=0;
 while(do_single_job(-1)) {
@@ -795,8 +1128,11 @@ while(do_single_job(-1)) {
 	fprintf(stderr, "%d\n", pi);
 	#endif
 
-	if(k % 10 == 0)fprintf(stderr, "% 3.1f ", jobs_done_ratio()*100);
 	k++;
+	if(k > args_info.progress_update_interval_arg) {
+		fprintf(stderr, "% 3.1f ", jobs_done_ratio()*100);
+		k=0;
+		}
 	}
 wait_for_all_done();
 fprintf(stderr, "\n");

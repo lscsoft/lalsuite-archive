@@ -49,7 +49,7 @@ class SkyPositionTable(table.Table):
     glue.ligolw.table.Table holding SkyPosition objects.
     """
 
-    tableName     = "sky_positions:table"
+    tableName     = "sky_positions"
     valid_columns = {"process_id":  "ilwd:char",\
                      "latitude":    "real_4",\
                      "longitude":   "real_4",\

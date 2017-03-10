@@ -147,7 +147,7 @@ def which(prog):
 
 def user_and_date():
 	tmstr = "/".join([str(i) for i in time.gmtime()[0:3]])
-        tmstr += " " + ":".join([str(i) for i in time.gmtime()[3:5]])
+	tmstr += " " + ":".join([str(i) for i in time.gmtime()[3:5]])
 	return "%s - %s" % (os.environ['USER'], tmstr)
 
 def image_glob(pat,cols=3,ignore_thumb=True, width=240):
@@ -165,8 +165,8 @@ def image_table_from_url_table(table):
 	out = []
 	for col in table:
 		row = [_imagelinkcpy(url) for url in col]
-	 	out.append(row)
-        return out
+		out.append(row)
+	return out
 
 def image_table_from_cache(inputcache,cols=3,ignore_thumb=True):
 	image_list = []
@@ -308,9 +308,9 @@ class _section(markup.page):
 		self.div(id="div_"+secnum , style=style)
 
 	def add_section(self, tag, title="", open_by_default=False):
-		secnum = "%s.%d" % (self.secnum, len(self.sections.values())+1)
+		secnum = "%s.%d" % (self.secnum, len(list(self.sections.values()))+1)
 		self.sections[tag] = _section(tag, title=title, secnum=secnum, pagenum=self.pagenum, level=self.level+1, open_by_default=open_by_default)
-		self.section_ids.append([len(self.sections.values()), tag])
+		self.section_ids.append([len(list(self.sections.values())), tag])
 		return self.sections[tag]
 
 	def get_content(self):
@@ -376,7 +376,7 @@ class cbcpage(markup.page):
 		""" 
 		"""
 
-		subpage_num = len(self.subpages.values()) + 1
+		subpage_num = len(list(self.subpages.values())) + 1
 		if not link_text: link_text=str(subpage_num)
 
 		# tuple including number so it can be sorted later
@@ -444,7 +444,7 @@ class cbcpage(markup.page):
 		for num, key in self.section_ids:
 			self.content.extend(self.sections[key].get_content())
 		self.fnames.append('%s/%s.html' % (self.path, file_name))
-		pagefile = file('%s/%s.html' % (self.path, file_name), 'w')
+		pagefile = open('%s/%s.html' % (self.path, file_name), 'w')
 		pagefile.write(str(self))
 		pagefile.close()
 		return '%s/%s.html' % (self.path, file_name)
@@ -452,7 +452,7 @@ class cbcpage(markup.page):
 	def add_section(self, tag, title="", level=2, open_by_default=False):
 		"""
 		"""
-		secnum = len(self.sections.values()) + 1
+		secnum = len(list(self.sections.values())) + 1
 		self.section_ids.append([secnum, tag])
 		self.sections[tag] = _section(title=title, tag=tag, secnum=str(secnum), pagenum=str(self.pagenum), level=level, open_by_default=open_by_default)
 		return self.sections[tag]

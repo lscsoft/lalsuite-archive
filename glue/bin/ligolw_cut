@@ -31,6 +31,7 @@ Cut pieces out of LIGO LW XML files containing LSC tables.
 """
 
 
+from __future__ import print_function
 from optparse import OptionParser
 import sys
 
@@ -117,7 +118,7 @@ table.use_in(ContentHandler)
 #
 
 
-table.RowBuilder = table.InterningRowBuilder
+table.TableStream.RowBuilder = table.InterningRowBuilder
 
 
 #
@@ -137,7 +138,7 @@ table.RowBuilder = table.InterningRowBuilder
 def RemoveColumns(doc, columns):
 	for table_elem in doc.getElementsByTagName(ligolw.Table.tagName):
 		for name in columns:
-			for column in table.getColumnsByName(table_elem, name):
+			for column in table.Column.getColumnsByName(table_elem, name):
 				table_elem.removeChild(column)
 
 
@@ -190,11 +191,11 @@ options, filenames = parse_command_line()
 
 for n, filename in enumerate(filenames):
 	if options.verbose:
-		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+		print("%d/%d:" % (n + 1, len(filenames)), end=' ', file=sys.stderr)
 	doc = utils.load_filename(filename, verbose = options.verbose, contenthandler = ContentHandler)
 	table.InterningRowBuilder.strings.clear()
 	if options.verbose:
-		print >>sys.stderr, "processing"
+		print("processing", file=sys.stderr)
 	if options.delete_column:
 		RemoveColumns(doc, options.delete_column)
 	if options.delete_element:

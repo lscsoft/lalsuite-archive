@@ -28,6 +28,7 @@
 
 #include <Python.h>
 #include <segments.h>
+#include "six.h"
 
 
 /*
@@ -39,20 +40,43 @@
  */
 
 
-void init__segments(void)
+#define MODULE_DOC "C implementations of the infinity, segment, and segmentlist classes from the segments module."
+
+
+static PyModuleDef moduledef = {
+	PyModuleDef_HEAD_INIT,
+	MODULE_NAME, MODULE_DOC, -1, NULL
+};
+
+
+PyMODINIT_FUNC PyInit___segments(void); /* Silence -Wmissing-prototypes */
+PyMODINIT_FUNC PyInit___segments(void)
 {
+	PyObject *module = NULL;
+
+	if(PyType_Ready(&segments_Infinity_Type) < 0)
+		goto done;
+
+	if(!segments_Segment_Type.tp_hash)
+		segments_Segment_Type.tp_hash = PyTuple_Type.tp_hash;
+	if(PyType_Ready(&segments_Segment_Type) < 0)
+		goto done;
+
+	if(PyType_Ready(&segments_SegmentList_Type) < 0)
+		goto done;
+
 	/*
 	 * Initialize module
 	 */
 
-	PyObject *module = Py_InitModule3(MODULE_NAME, NULL, "C implementations of the infinity, segment, and segmentlist classes from the segments module.");
+	module = PyModule_Create(&moduledef);
+	if (!module)
+		goto done;
 
 	/*
 	 * Create infinity class
 	 */
 
-	if(PyType_Ready(&segments_Infinity_Type) < 0)
-		return;
 	Py_INCREF(&segments_Infinity_Type);
 	PyModule_AddObject(module, "infinity", (PyObject *) &segments_Infinity_Type);
 
@@ -74,10 +98,6 @@ void init__segments(void)
 	 * unhappy with that.
 	 */
 
-	if(!segments_Segment_Type.tp_hash)
-		segments_Segment_Type.tp_hash = PyTuple_Type.tp_hash;
-	if(PyType_Ready(&segments_Segment_Type) < 0)
-		return;
 	Py_INCREF(&segments_Segment_Type);
 	PyModule_AddObject(module, "segment", (PyObject *) &segments_Segment_Type);
 	/* uninherit tp_print from tuple class */
@@ -87,8 +107,12 @@ void init__segments(void)
 	 * Create segmentlist class
 	 */
 
-	if(PyType_Ready(&segments_SegmentList_Type) < 0)
-		return;
 	Py_INCREF(&segments_SegmentList_Type);
 	PyModule_AddObject(module, "segmentlist", (PyObject *) &segments_SegmentList_Type);
+
+done:
+	return module;
 }
+
+
+SIX_COMPAT_MODULE(__segments)
