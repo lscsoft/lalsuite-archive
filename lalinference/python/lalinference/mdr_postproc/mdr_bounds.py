@@ -155,7 +155,8 @@ if __name__ == "__main__":
   parser.add_argument("-o", "--output", type=str, dest="outputfolder", help="outputfolder", metavar="OUTPUT FOLDER",default=".")
   parser.add_argument("--prior", type=str, dest="prior", choices=['mass','A'], help="use prior uniform in {mass, A} (default is uniform in lalinference parameter used)")
   parser.add_argument("-a", "--alpha", type=float, dest="alphaLIV", help="Exponent of Lorentz invariance violating term", default=0.0)
-  parser.add_argument("--combine-param", type=str, dest="combine_param", choices=['mass','logmass','lambda_A','log10lambda_a','A'], help="Parameter for which to compute joint posterior {logmass, log10lambda_a, logA}")
+  parser.add_argument("-s", "--single-source", action="store_true", dest="single_source", help="All posterior input files will be marginalized over as coming from a single source", default=False)
+  # parser.add_argument("--combine-param", type=str, dest="combine_param", choices=['mass','logmass','lambda_A','log10lambda_a','A'], help="Parameter for which to compute joint posterior {logmass, log10lambda_a, logA}")
   parser.add_argument("-n", type=int, dest="nbins", help="number of interpolation points for the  gaussian KDE (default 256)", default=256)
 
 
@@ -166,7 +167,8 @@ if __name__ == "__main__":
   outfolder = args.outputfolder
   prior = args.prior
   alphaLIV = args.alphaLIV
-  combine_param = args.combine_param
+  # combine_param = args.combine_param
+  combine_param = "log10lambda_a"
   
   cosmology = lal.CreateCosmologicalParameters(0.7,0.3,0.7,-1.0,0.0,0.0) ## these are dummy parameters that are being used for the initialization. they are going to be set to their defaults Planck 2015 values in the next line
   lal.SetCosmologicalParametersDefaultValue(cosmology) ## setting h, omega_matter and omega_lambda to their default Planck 2015 values available in LAL
@@ -290,11 +292,11 @@ if __name__ == "__main__":
     #postlist.append(mirrorEdges(loglamAdata, x_min, x_max))
     postlist.append(loglamAdata)
     
-  if len(postlist) == 1:
+  if len(postlist) == 1 or single_source:
     print 'DONE! (single source only)'
     sys.exit(0)
 
-  # Combine sources & get joint posterior for loglambda_A
+  # Get combined posterior for loglambda_A
   print "\n==============================\nCombining all of the above sources\n==============================\n"
   x_min = min(map(min,postlist))-1 # one decade wider for the KDE to fit the plot
   x_max = max(map(max,postlist))+1 # one decade wider for the KDE to fit the plot
@@ -317,14 +319,14 @@ if __name__ == "__main__":
   # array of unique colors for the single pdfs
   colors = cm.rainbow(linspace(0,1,len(postlist)))
 
-  # calculate joint CDF
+  # calculate combined CDF
   from scipy.integrate import cumtrapz
-  cdf = cumtrapz(joint_pdf, x, initial=0.0)
+  cdf = cumtrapz(combined_pdf, x, initial=0.0)
 
   combined_90bound = x[abs(cdf-0.1).argmin()] if alphaLIV < 2.0 else x[abs(cdf - 0.9).argmin()]
   print "COMBINED 90pc BOUND : ", pow(10.0,combined_90bound)
 
-  # Plot posteriors and joint PDF/CDF (all normalized)
+  # Plot posteriors and combined PDF/CDF (all normalized)
   fig = plt.figure()
   ax = fig.add_subplot(111)
   ax.set_title("$\\alpha = " + str(alphaLIV) + "$")
@@ -340,7 +342,7 @@ if __name__ == "__main__":
 
   for c,pdf,lab in zip(colors, pdfs, labels):
     ax.plot(x, normalize(pdf*yp, x), color=c, label=lab)
-  ax.plot(x, joint_pdf,color='k')
+  ax.plot(x, combined_pdf,color='k')
   ax.plot(x, cdf if alphaLIV < 2.0 else 1.0 - cdf,color='k')
 
   # Labels and legend
@@ -351,11 +353,11 @@ if __name__ == "__main__":
   ax.set_ylabel(r"$\mathrm{probability}$ $\mathrm{density}$")
   ax.legend(loc='upper right')
 
-  savefig(os.path.join(outfolder,'joint_posteriors_%s.pdf'%combine_param),bbox_inches='tight')
+  savefig(os.path.join(outfolder,'comb_post_%s.pdf'%combine_param),bbox_inches='tight')
 
-  # Compute a few credible regions from the joint CDF
+  # Compute a few credible regions from the combined CDF
   regions = matrix([pow(10,x[abs(cdf-cl).argmin()]) if alphaLIV < 2.0 else pow(10,x[abs(cdf-(1.-cl)).argmin()]) for cl in [0.05,0.1,0.32,0.50,0.68,0.9,0.95]])
 
-  savetxt(os.path.join(outfolder,'joint_credible_regions_%s.txt'%combine_param), regions, header = "5%\t10%\t32%\t50%\t68%\t90%\t95%")
+  savetxt(os.path.join(outfolder,'comb_credible_regions_%s.txt'%combine_param), regions, header = "5%\t10%\t32%\t50%\t68%\t90%\t95%")
 
   print "DONE!"
