@@ -2236,21 +2236,3 @@ class LnLikelihoodRatioMixin(object):
 			lnP_signal = lnP_signal_func(params, **kwargs)
 			lnP_noise = lnP_noise_func(params, **kwargs)
 			yield self(params, **kwargs), lnP_signal - lnP_params, lnP_noise - lnP_params
-
-
-class LnLikelihoodRatio(LnLikelihoodRatioMixin):
-	"""
-	Compatibility shim for old style ranking statistic code.  Don't use
-	in new code.
-	"""
-	def __init__(self, coinc_param_distributions):
-		self.numerator = coinc_param_distributions.lnP_signal
-		self.denominator = coinc_param_distributions.lnP_noise
-
-	def samples(self, random_params_seq, sampler_coinc_params = None, **kwargs):
-		# hack to create an object with .numerator and .denominator
-		# attributes instead of .lnP_signal and .lnP_noise
-		# respectively
-		if sampler_coinc_params is not None:
-			sampler_coinc_params = LnLikelihoodRatio(sampler_coinc_params)
-		return super(LnLikelihoodRatio, self).ln_lr_samples(random_params_seq, sampler_coinc_params, **kwargs)
