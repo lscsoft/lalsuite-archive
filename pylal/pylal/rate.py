@@ -2165,6 +2165,21 @@ class BinnedLnPDF(BinnedDensity):
 		the PDF marginalized over the two original PDFs (the sum of
 		the two PDFs weighted by the relative total frequency of
 		events in each).
+
+		Example:
+
+		>>> # 5-bin linear mesh of bins each with volume = 2
+		>>> x = BinnedLnPDF(NDBins((LinearBins(0, 10, 5), )))
+		>>> y = BinnedLnPDF(NDBins((LinearBins(0, 10, 5), )))
+		>>> x.count[5,] = 2
+		>>> y.count[3,] = 2
+		>>> x.normalize()
+		>>> y.normalize()
+		>>> x.at_centres()
+		array([       -inf,        -inf, -0.69314718,        -inf,        -inf])
+		>>> x += y
+		>>> x.at_centres()
+		array([       -inf, -1.38629436, -1.38629436,        -inf,        -inf])
 		"""
 		super(BinnedLnPDF, self).__iadd__(other)
 		# c = a + b
@@ -2177,6 +2192,7 @@ class BinnedLnPDF(BinnedDensity):
 			self.norm += math.log1p(math.exp(other.norm - self.norm))
 		else:
 			self.norm = other.norm + math.log1p(math.exp(self.norm - other.norm))
+		return self
 
 	def copy(self):
 		new = super(BinnedLnPDF, self).copy()
