@@ -2415,7 +2415,6 @@ def filter_array(a, window, cyclic = False, use_fft = True):
 	else:
 		result = signaltools.convolve(a, window, mode = "same")
 	# overwrite the input with the result
-	# FIXME:  in numpy >= 1.7.0 there is a copyto() function
-	a.flat = result.flat
+	numpy.copyto(a, result, casting = "no")
 
 	return a
