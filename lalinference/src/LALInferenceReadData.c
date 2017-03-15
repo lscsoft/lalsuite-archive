@@ -2224,7 +2224,7 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
   INT4 errnum;
   char SNRpath[FILENAME_MAX];
   ProcessParamsTable *ppt=NULL;
-
+  
   ppt = LALInferenceGetProcParamVal(commandLine,"--outfile");
   if (ppt)
     sprintf(SNRpath, "%s_snr.txt", ppt->value);
@@ -2309,6 +2309,17 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
   }
 
   LALSimInspiralTestGRParam *nonGRparams = NULL;
+
+  REAL8 dipolecoeff=0.0;
+  if(LALInferenceGetProcParamVal(commandLine,"--inj-dipolecoeff")) {
+	  
+	if( (! approximant==TaylorF2) && (! approximant==IMRPhenomD) && (! approximant==IMRPhenomPv2)){
+	  XLALPrintWarning("You have selected the GR test parameter 'dipolecoeff' which is not compatible with the approximant %s. Use one of the following approximants for dipole analysis: TaylorF2, IMRPhenomD, or IMRPhenomPv2.\n",XLALSimInspiralGetStringFromApproximant(approximant));	  
+    dipolecoeff= atof(LALInferenceGetProcParamVal(commandLine,"--inj-dipolecoeff")->value);
+    fprintf(stdout,"Injection dipolecoeff set to %f\n",dipolecoeff);
+	XLALSimInspiralAddTestGRParam(&nonGRparams,"dipolecoeff",dipolecoeff);
+  }
+
 
  /* Print a line with information about approximant, amp_order, phaseorder, tide order and spin order */
   fprintf(stdout,"\n\n---\t\t ---\n");
