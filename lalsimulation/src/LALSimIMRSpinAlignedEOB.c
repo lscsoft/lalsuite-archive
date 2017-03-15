@@ -62,6 +62,42 @@
 #define UNUSED
 #endif
 
+/**< Generic form of universal relation */
+REAL8 XLALSimUniversalRelation( REAL8 x, REAL8 coeffs[] ) {
+    return coeffs[0] + coeffs[1] * x + coeffs[2] * x * x + coeffs[3] * x * x * x + coeffs[4] * x *x * x * x;
+}
+
+/**< Eq. (61) with coeffs from 1st row of Table I of  https://arxiv.org/pdf/1311.0872.pdf */
+UNUSED REAL8 XLALSimUniversalRelationlambda3TidalVSlambda2Tidal(
+                                        REAL8 lambda2Tidal /**< l=2 tidal defomability */
+)
+{
+    REAL8 coeffs[] = {-1.15, 1.18, 2.51e-2, -1.31e-3, 2.52e-5};
+    REAL8 lnx = log( lambda2Tidal );
+    REAL8 lny = XLALSimUniversalRelation( lnx, coeffs );
+    return exp(lny);
+}
+
+/**< Eq. (3.5) with coeffs from 1st column of Table I of https://arxiv.org/pdf/1408.3789.pdf */
+UNUSED REAL8 XLALSimUniversalRelationomega02TidalVSlambda2Tidal(
+                                                                REAL8 lambda2Tidal /**< l=2 tidal defomability */
+)
+{
+    REAL8 coeffs[] = {1.82e-1, -6.836e-3, -4.196e-3, 5.215e-4, -1.857e-5};
+    REAL8 lnx = log( lambda2Tidal );
+    return XLALSimUniversalRelation( lnx, coeffs );
+}
+
+/**< Eq. (3.5) with coeffs from 2nd column of Table I of https://arxiv.org/pdf/1408.3789.pdf */
+UNUSED REAL8 XLALSimUniversalRelationomega03TidalVSlambda3Tidal(
+                                                           REAL8 lambda3Tidal /**< l=3 tidal defomability */
+)
+{
+    REAL8 coeffs[] = {2.245e-1, -1.5e-2, -1.412e-3, 1.832e-4, -5.561e-6};
+    REAL8 lnx = log( lambda3Tidal );
+    return XLALSimUniversalRelation( lnx, coeffs );
+}
+
 /**
  * NR fit to the geometric GW frequency \omega_{22} of a BNS merger,
  * defined by the time when the (2,2) amplitude peaks
@@ -453,6 +489,7 @@ XLALSimIMRSpinAlignedEOBWaveform (REAL8TimeSeries ** hplus,	     /**<< OUTPUT, +
   REAL8Vector   *pPhiVec = NULL;
   REAL8Vector *nqcCoeffsInput = XLALCreateREAL8Vector(10);
   INT4 nqcFlag = 0;
+
 
   if ( SpinAlignedEOBversion == 4 && ( k2Tidal1 != 0. || k2Tidal2 != 0 ) ) {
       nqcFlag = 1;
@@ -1768,8 +1805,6 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
     }
 
     if (use_tidal == 1) {
-        printf("timePeak old %.16e\n", timePeak);
-
         timeshiftPeak = 0.;
         UINT4 indAmax = 0;
         REAL8 Anew, Aval = sqrt( sigReHi->data[0]*sigReHi->data[0] +sigImHi->data[0]*sigImHi->data[0] );
@@ -1784,7 +1819,6 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
             }
         }
         timePeak = timeHi.data[indAmax];
-        printf("timePeak new %.16e\n", timePeak);
     }
     
   rdMatchPoint->data[0] =

@@ -780,6 +780,11 @@ REAL8 XLALSimInspiralfLow2fStart(REAL8 fLow, INT4 ampOrder, INT4 approximant);
 int XLALSimInspiralREAL4WaveTaper(REAL4Vector *signalvec, LALSimInspiralApplyTaper bookends);
 int XLALSimInspiralREAL8WaveTaper(REAL8Vector *signalvec, LALSimInspiralApplyTaper bookends);
 
+REAL8 XLALSimUniversalRelation( REAL8 x, REAL8 coeffs[] );
+REAL8 XLALSimUniversalRelationlambda3TidalVSlambda2Tidal( REAL8 lambda2Tidal );
+REAL8 XLALSimUniversalRelationomega02TidalVSlambda2Tidal( REAL8 lambda2Tidal );
+REAL8 XLALSimUniversalRelationomega03TidalVSlambda3Tidal( REAL8 lambda3Tidal );
+
 #if 0
 { /* so that editors will match succeeding brace */
 #elif defined(__cplusplus)
