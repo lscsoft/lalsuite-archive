@@ -67,6 +67,9 @@ tagPostcohInspiralTable
   REAL4		far_h;
   REAL4		far_l;
   REAL4		far_v;
+  REAL4		far_2h;
+  REAL4		far_1d;
+  REAL4		far_1w;
   CHAR		skymap_fname[MAX_SKYMAP_FNAME_LEN];			// location of skymap
   REAL8		template_duration;
   REAL4		mass1;
