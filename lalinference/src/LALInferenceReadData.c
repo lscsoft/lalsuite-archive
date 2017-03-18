@@ -2313,8 +2313,10 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
   REAL8 dipolecoeff=0.0;
   if(LALInferenceGetProcParamVal(commandLine,"--inj-dipolecoeff")) {
 	  
-	if( (! approximant==TaylorF2) && (! approximant==IMRPhenomD) && (! approximant==IMRPhenomPv2)){
-	  XLALPrintWarning("You have selected the GR test parameter 'dipolecoeff' which is not compatible with the approximant %s. Use one of the following approximants for dipole analysis: TaylorF2, IMRPhenomD, or IMRPhenomPv2.\n",XLALSimInspiralGetStringFromApproximant(approximant));	  
+	if(! (approximant==TaylorF2 || approximant==IMRPhenomD ||approximant==IMRPhenomPv2)){
+	  XLALPrintWarning("You have selected the GR test parameter 'dipolecoeff' which is not compatible with the approximant %s. Use one of the following approximants for dipole analysis: TaylorF2, IMRPhenomD, or IMRPhenomPv2.\n",XLALSimInspiralGetStringFromApproximant(approximant));	 
+	  exit(1);
+	  } 
     dipolecoeff= atof(LALInferenceGetProcParamVal(commandLine,"--inj-dipolecoeff")->value);
     fprintf(stdout,"Injection dipolecoeff set to %f\n",dipolecoeff);
 	XLALSimInspiralAddTestGRParam(&nonGRparams,"dipolecoeff",dipolecoeff);
