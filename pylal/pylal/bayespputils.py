@@ -124,7 +124,7 @@ def as_array(table):
 # Constants
 #===============================================================================
 #Parameters which are not to be exponentiated when found
-logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior','logpost','nulllogl','chain_log_evidence','chain_delta_log_evidence','chain_log_noise_evidence','chain_log_bayes_factor']
+logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior','logpost','nulllogl','chain_log_evidence','chain_delta_log_evidence','chain_log_noise_evidence','chain_log_bayes_factor','log10nltidesa1','log10nltidesa2','log10nltides_a0', 'nltides_dlogadm']
 #Parameters known to cbcBPP
 relativePhaseParams=[ a+b+'_relative_phase' for a,b in combinations(['h1','l1','v1'],2)]
 snrParams=['snr','optimal_snr','matched_filter_snr'] + ['%s_optimal_snr'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_amp'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_arg'%(i) for i in ['h1', 'l1', 'v1']] + relativePhaseParams
