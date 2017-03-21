@@ -90,12 +90,12 @@ def New(cls, columns = None, **kwargs):
 	new = cls(sax.xmlreader.AttributesImpl({u"Name": cls.TableName.enc(cls.tableName)}), **kwargs)
 	colnamefmt = new.Name + u":%s"
 	if columns is not None:
-		for key in columns:
+		for key in sorted(columns):
 			if key not in new.validcolumns:
 				raise ligolw.ElementError("invalid Column '%s' for Table '%s'" % (key, new.Name))
 			new.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % key, u"Type": new.validcolumns[key]})))
 	else:
-		for key, value in new.validcolumns.items():
+		for key, value in sorted(new.validcolumns.items()):
 			new.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % key, u"Type": value})))
 	new._end_of_columns()
 	new.appendChild(table.TableStream(sax.xmlreader.AttributesImpl({u"Name": new.getAttribute(u"Name"), u"Delimiter": table.TableStream.Delimiter.default, u"Type": table.TableStream.Type.default})))
