@@ -164,6 +164,30 @@ int XLALSimRingdownGenerateSingleModeMMRDNS_time(
 */
 COMPLEX16 XLALSpinWeightedSpheroidalHarmonic( double jf, int l, int m, int n, double theta, double phi);
 
+/*
+* Domain mapping for dimnesionless BH spin
+*/
+REAL8 XLALKAPPA( double jf, int l, int m );
+
+/*
+* -------------------------------------------------------------------------------- *
+* Low level models: QNM Frequencies, Separation Constants and Spheroidal Harmonics
+* -------------------------------------------------------------------------------- *
+*/
+
+/*
+* QNM Separation Constants: Note that name encodes date of writing
+*/
+COMPLEX16 XLALseparationConstant( double kappa, int l, int input_m, int n );
+
+/*
+* Dimensionless QNM Frequencies: Note that name encodes date of writing
+*/
+COMPLEX16 XLALcomplexOmega( double kappa, int l, int input_m, int n );
+
+
+
+
 /* Convert NR Code Time to Physical Units */
 //UNUSED static double XLALNRtoPhysTime( UNUSED double NRtime  );
 

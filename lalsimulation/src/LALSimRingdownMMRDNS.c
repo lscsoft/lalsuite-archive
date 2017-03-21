@@ -63,8 +63,7 @@
 /*
 * Domain mapping for dimnesionless BH spin
 */
-static double KAPPA( double jf, int l, int m );
-static double KAPPA( double jf, int l, int m ){
+REAL8 XLALKAPPA( double jf, int l, int m ){
   /* */
   /* if ( jf > 1.0 ) XLAL_ERROR(XLAL_EDOM, "Spin (dimensionless Kerr parameter) must not be greater than 1.0\n"); */
   /**/
@@ -76,8 +75,7 @@ static double KAPPA( double jf, int l, int m ){
 /*
 * Dimensionless QNM Frequencies: Note that name encodes date of writing
 */
-static double complex complexOmega( double kappa, int l, int input_m, int n );
-static double complex complexOmega( double kappa,  /* Domain mapping for  remnant BH's spin (Dimensionless) */
+COMPLEX16 XLALcomplexOmega( double kappa,  /* Domain mapping for  remnant BH's spin (Dimensionless) */
                           int l,        /* Polar eigenvalue */
                           int input_m,  /* Azimuthal eigenvalue*/
                           int n ) {     /* Overtone Number*/
@@ -217,8 +215,7 @@ static double complex complexOmega( double kappa,  /* Domain mapping for  remnan
 /*
 * QNM Separation Constants: Note that name encodes date of writing
 */
-static double complex separationConstant( double kappa, int l, int input_m, int n );
-static double complex separationConstant( double kappa,  /* Domain mapping for remnant BH's spin (Dimensionless) */
+COMPLEX16 XLALseparationConstant( double kappa,  /* Domain mapping for remnant BH's spin (Dimensionless) */
                           int l,        /* Polar eigenvalue */
                           int input_m,  /* Azimuthal eigenvalue */
                           int n ) {     /* Overtone Number */
@@ -526,10 +523,10 @@ COMPLEX16 XLALSpinWeightedSpheroidalHarmonic( double jf,           /* Spin of re
 
   /* Use tabulated cw and sc values from the core package*/
   double complex cw, sc, aw;
-  double kappa = KAPPA(jf,l,m);
+  double kappa = XLALKAPPA(jf,l,m);
 
-  cw = complexOmega( kappa, l, m, n );
-  sc = separationConstant( kappa, l, m, n );
+  cw = XLALcomplexOmega( kappa, l, m, n );
+  sc = XLALseparationConstant( kappa, l, m, n );
 
   /* Define dimensionless deformation parameter */
   aw = jf*cw;
@@ -621,9 +618,9 @@ int XLALSimRingdownMMRDNSTD(
 
         /* Declarations */
         const LIGOTimeGPS T0=LIGOTIMEGPSZERO;
-        double kappa = KAPPA( 0.68, 2, 2 );
-        UNUSED double w22 = creal( complexOmega(kappa,2,2,0) );
-        UNUSED double tau22 = cimag( complexOmega(kappa,2,2,0) );
+        double kappa = XLALKAPPA( 0.68, 2, 2 );
+        UNUSED double w22 = creal( XLALcomplexOmega(kappa,2,2,0) );
+        UNUSED double tau22 = cimag( XLALcomplexOmega(kappa,2,2,0) );
         int waveform_length = 1000;
 
 
@@ -873,18 +870,18 @@ int XLALSimRingdownGenerateSingleModeFD(
         LIGOTimeGPS tC = {0,0};
         //XLALGPSAdd(&tC, -1 / deltaF);
 
-        REAL8 kappa   = KAPPA( jf, l, m );
+        REAL8 kappa   = XLALKAPPA( jf, l, m );
         REAL8 Mf_sec  = Mf*LAL_MTSUN_SI/LAL_MSUN_SI;
         REAL8 r_sec   = r/LAL_C_SI;
 
         COMPLEX16 A_lmn, S_lmn, Omega_lmn, Prefactor;
 
         /* Mode Component Calculation*/
-        Omega_lmn = complexOmega(kappa, l, m, n)/Mf_sec;
-        A_lmn = creal(Omega_lmn)*creal(Omega_lmn)*XLALMMRDNSAmplitudeOverOmegaSquared(eta, l, m, n);
+        Omega_lmn = XLALcomplexOmega(kappa, l, m, n)/Mf_sec;
+        A_lmn = XLALMMRDNSAmplitudeOverOmegaSquared(eta, l, m, n);
         Omega_lmn = creal(Omega_lmn)*(1.+dfreq) + I * cimag(Omega_lmn)/(1.+dtau);
         S_lmn = XLALSpinWeightedSpheroidalHarmonic(jf, l, m, n, iota, 0.0);
-        Prefactor = cexp(I*phi_offset)*(Mf_sec/r_sec)*(A_lmn*S_lmn)/(I*Omega_lmn*Omega_lmn);
+        Prefactor = cexp(I*phi_offset)*(Mf_sec/r_sec)*(A_lmn*S_lmn)*(-I);
 
         /* allocate htilde_p and htilde_c */
         /* The COMPLEX16FrequencySeries has to be destroyed by whom created it. */
@@ -911,8 +908,8 @@ int XLALSimRingdownGenerateSingleModeFD(
         hconj_mf = 0.0;
 
         for ( UINT4 j=jStart ; j<jMax ; j++ ) {
-        h_f      =      Prefactor/(Omega_lmn-LAL_TWOPI*f);
-        hconj_mf = conj(Prefactor/(Omega_lmn+LAL_TWOPI*f));
+        h_f      =      Prefactor/(Omega_lmn-LAL_TWOPI*f)*cexp(I*Omega_lmn*10.0*Mf_sec-I*LAL_TWOPI*f*10.0*Mf_sec);
+        hconj_mf = conj(Prefactor/(Omega_lmn+LAL_TWOPI*f)*cexp(I*Omega_lmn*10.0*Mf_sec+I*LAL_TWOPI*f*10.0*Mf_sec));
 
         (*hptilde_lmn)->data->data[j] = 0.5 * (h_f + hconj_mf);
         (*hctilde_lmn)->data->data[j] = 0.5 * I * (h_f - hconj_mf);
@@ -1010,8 +1007,8 @@ int XLALSimRingdownMMRDNS_time(
           dtau430 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
 
         /* time runs from Mstart to Mend after merger */
-        REAL8 Tstart = 0.0*Mf*LAL_MTSUN_SI/LAL_MSUN_SI;
-        REAL8 Tend = 80.0*Mf*LAL_MTSUN_SI/LAL_MSUN_SI;
+        REAL8 Tstart = 10.0*Mf*LAL_MTSUN_SI/LAL_MSUN_SI;
+        REAL8 Tend = 60.0*Mf*LAL_MTSUN_SI/LAL_MSUN_SI;
         UINT4 Nsamples = ceil((Tend-Tstart)/deltaT);
 
         /* Compute the modes seperately */
@@ -1089,7 +1086,7 @@ int XLALSimRingdownGenerateSingleModeMMRDNS_time(
         /* Declarations */
         COMPLEX16 h_lmn = 0;
         COMPLEX16 prefactor = 0;
-        REAL8 kappa   = KAPPA( jf, l, m );
+        REAL8 kappa   = XLALKAPPA( jf, l, m );
         REAL8 Mf_sec  = Mf*LAL_MTSUN_SI/LAL_MSUN_SI;
         REAL8 r_sec   = r/LAL_C_SI;
         REAL8 t = 0;
@@ -1098,11 +1095,11 @@ int XLALSimRingdownGenerateSingleModeMMRDNS_time(
         COMPLEX16 Omega_lmn = 0;
 
         /* Mode Component Calculation*/
-        Omega_lmn = complexOmega(kappa, l, m, n)/Mf_sec;
-        A_lmn = creal(Omega_lmn)*creal(Omega_lmn)*XLALMMRDNSAmplitudeOverOmegaSquared(eta, l, m, n);
+        Omega_lmn = XLALcomplexOmega(kappa, l, m, n)/Mf_sec;
+        A_lmn = XLALMMRDNSAmplitudeOverOmegaSquared(eta, l, m, n);
         Omega_lmn = creal(Omega_lmn)*(1.+dfreq) + I * cimag(Omega_lmn)/(1.+dtau);
         S_lmn = XLALSpinWeightedSpheroidalHarmonic(jf, l, m, n, iota, 0.0);
-        prefactor = -A_lmn*S_lmn*Mf_sec/(r_sec*Omega_lmn*Omega_lmn)*cexp(I*phi_offset);
+        prefactor = -A_lmn*S_lmn*Mf_sec/(r_sec)*cexp(I*phi_offset);
 
         /* allocate htilde_lmn */
         *htilde_lmn = XLALCreateCOMPLEX16TimeSeries("htilde_lmn: TD waveform", T0, 0.0, deltaT, &lalStrainUnit, Nsamples);
@@ -1110,7 +1107,7 @@ int XLALSimRingdownGenerateSingleModeMMRDNS_time(
         memset((*htilde_lmn)->data->data, 0, Nsamples * sizeof(COMPLEX16));
         
         /* 10M is zero in model -> shift 10M to 0 on time axis*/
-        Tstart = 0.0*Mf_sec;
+        Tstart -= 10.0*Mf_sec;
 
         /* fill waveform */
         for ( UINT4 i=0 ; i<Nsamples ; i++ ) {
