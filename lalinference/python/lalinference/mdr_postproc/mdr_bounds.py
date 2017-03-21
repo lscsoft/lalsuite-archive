@@ -292,7 +292,7 @@ if __name__ == "__main__":
     #postlist.append(mirrorEdges(loglamAdata, x_min, x_max))
     postlist.append(loglamAdata)
     
-  if len(postlist) == 1 or single_source:
+  if len(postlist) == 1 or args.single_source:
     print 'DONE! (single source only)'
     sys.exit(0)
 
@@ -312,9 +312,9 @@ if __name__ == "__main__":
   # evaluate the KDEs on the bins
   pdfs = squeeze(array([map(kde, x) for kde in kdes]), axis=2)
 
-  # compute the joint pdf accounting for the prior
-  joint_pdf = sum(log(pdfs), axis=0) + log(yp)
-  joint_pdf = normalize(exp(joint_pdf), x)
+  # compute the combined pdf accounting for the prior
+  combined_pdf = sum(log(pdfs), axis=0) + log(yp)
+  combined_pdf = normalize(exp(combined_pdf), x)
 
   # array of unique colors for the single pdfs
   colors = cm.rainbow(linspace(0,1,len(postlist)))
