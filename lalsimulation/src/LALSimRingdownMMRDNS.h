@@ -185,6 +185,11 @@ COMPLEX16 XLALseparationConstant( double kappa, int l, int input_m, int n );
 */
 COMPLEX16 XLALcomplexOmega( double kappa, int l, int input_m, int n );
 
+/*
+* QNM Ampliutde models for MMRDNS
+* NOTE that the terms here differ from 1404.3197v3 for accurate relative phases
+*/
+COMPLEX16 XLALMMRDNSAmplitudeOverOmegaSquared( double eta, int l, int input_m, int n );
 
 
 

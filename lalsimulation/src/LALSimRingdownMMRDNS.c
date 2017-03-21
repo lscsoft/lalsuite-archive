@@ -436,8 +436,8 @@ static complex double GAMMA_RD( int m, int s, int p, complex double aw ){
 * QNM Ampliutde models for MMRDNS
 * NOTE that the terms here differ from 1404.3197v3 for accurate relative phases
 */
-static complex double XLALMMRDNSAmplitudeOverOmegaSquared( double eta, int l, int input_m, int n );
-static complex double XLALMMRDNSAmplitudeOverOmegaSquared( double eta, int l, int input_m, int n ){
+COMPLEX16 XLALMMRDNSAmplitudeOverOmegaSquared( double eta, int l, int input_m, int n );
+COMPLEX16 XLALMMRDNSAmplitudeOverOmegaSquared( double eta, int l, int input_m, int n ){
 
   /* Initialize the answer */
   double complex ans = 0.0;
