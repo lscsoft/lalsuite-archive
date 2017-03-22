@@ -49,6 +49,23 @@ COMPLEX16 XLALSimRingdownFitOmegaFD(UINT4 l, INT4 m, UINT4 n, REAL8 a);
 REAL8 XLALQNMFreqOfOmegaFD(COMPLEX16 omega, REAL8 mtot);
 REAL8 XLALQNMTauOfOmegaFD(COMPLEX16 omega, REAL8 mtot); */
 
+int XLALSimBlackHoleRingdownTigerAllModes(
+    REAL8TimeSeries **hplus,      /**< plus-polarization waveform [returned] */
+    REAL8TimeSeries **hcross,     /**< cross-polarization waveform [returned] */
+    const LIGOTimeGPS *t0,                /**< start time of ringdown */
+    REAL8 phi0,                   /**< initial phase of ringdown (rad) */
+    REAL8 deltaT,                 /**< sampling interval (s) */
+    REAL8 mass,                   /**< black hole mass (kg) */
+    REAL8 a,      /**< black hole dimensionless spin parameter */
+    REAL8 eta,         /**< symmetric mass ratio of progenitor */
+    REAL8 spin1[3],    /**< initial spin for 1st component */
+    REAL8 spin2[3],    /**< initial spin for 2nd component */
+    REAL8 chiEff,      /**< effective spin parameter for initial spins */
+    REAL8 distance,               /**< distance to source (m) */
+    REAL8 inclination,            /**< inclination of source's spin axis (rad) */
+    LALSimInspiralTestGRParam *nonGRparams  /**< testing GR parameters */
+                                         );
+
 int XLALSimBlackHoleRingdownTiger(
                                   REAL8TimeSeries **hplus,	/**< plus-polarization waveform [returned] */
                                   REAL8TimeSeries **hcross,	/**< cross-polarization waveform [returned] */

@@ -21,7 +21,35 @@
 #define UNUSED
 #endif
 
-// TODO: Add a top-level function to get combination of all modes
+// Top-level function to get combination of all modes
+// Note: currently not used by LALInference for recovery
+// Can be called from SWIG-wrapped lalsimulation for plotting
+int XLALSimBlackHoleRingdownTigerAllModes(
+    REAL8TimeSeries **hplus,      /**< plus-polarization waveform [returned] */
+    REAL8TimeSeries **hcross,     /**< cross-polarization waveform [returned] */
+    const LIGOTimeGPS *t0,                /**< start time of ringdown */
+    REAL8 phi0,                   /**< initial phase of ringdown (rad) */
+    REAL8 deltaT,                 /**< sampling interval (s) */
+    REAL8 mass,                   /**< black hole mass (kg) */
+    REAL8 a,      /**< black hole dimensionless spin parameter */
+    REAL8 eta,         /**< symmetric mass ratio of progenitor */ 
+    REAL8 spin1[3],    /**< initial spin for 1st component */
+    REAL8 spin2[3],    /**< initial spin for 2nd component */
+    REAL8 chiEff,      /**< effective spin parameter for initial spins */
+    REAL8 distance,               /**< distance to source (m) */
+    REAL8 inclination,            /**< inclination of source's spin axis (rad) */
+    LALSimInspiralTestGRParam *nonGRparams  /**< testing GR parameters */
+                                         )
+{
+    SphHarmTimeSeries *qnmodes=NULL;        /**< List containing empty Quasi-Normal Modes  */
+
+    qnmodes = XLALSphHarmTimeSeriesAddMode(qnmodes, NULL, 2, 2);
+    qnmodes = XLALSphHarmTimeSeriesAddMode(qnmodes, NULL, 2, 1);
+    qnmodes = XLALSphHarmTimeSeriesAddMode(qnmodes, NULL, 3, 3);
+    qnmodes = XLALSphHarmTimeSeriesAddMode(qnmodes, NULL, 4, 4);
+   
+    return XLALSimBlackHoleRingdownTiger(hplus, hcross, qnmodes, t0, phi0, deltaT, mass, a, eta, spin1, spin2, chiEff, distance, inclination, nonGRparams);
+}
 
 int XLALSimBlackHoleRingdownTiger(
 				  REAL8TimeSeries **hplus,	/**< plus-polarization waveform [returned] */
