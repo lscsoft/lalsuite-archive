@@ -39,7 +39,7 @@ from distutils import log
 
 from misc import generate_vcs_info as gvcsi
 
-ver = "1.54.0"
+ver = "2.0.0"
 
 def remove_root(path,root):
   if root:
@@ -219,7 +219,8 @@ class glue_sdist(sdist.sdist):
     sdist.sdist.run(self)
 
 setup(
-  name = "glue",
+  name = "lscsoft-glue",
+  provides=['glue'],
   version = ver,
   author = "Duncan Brown",
   author_email = "dbrown@ligo.caltech.edu",

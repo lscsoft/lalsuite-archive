@@ -1,3 +1,9 @@
+glue (2.0.0-1) unstable; urgency=low
+
+  * Test of python setup.py name change for pip compatibility.
+
+ -- Ryan Fisher <ryan.fisher@ligo.org>  Wed, 22 Mar 2017 17:14:00 -0500
+
 glue (1.54.0-1) unstable; urgency=low
 
   * O2 mid-run updated release. Updated python 3 compatibility fix from Leo to
