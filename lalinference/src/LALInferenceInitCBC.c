@@ -1202,13 +1202,20 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   if (LALInferenceGetProcParamVal(commandLine,"--grtest-parameters"))
   {
     ppt=LALInferenceGetProcParamVal(commandLine,"--grtest-parameters");
-    if (checkParamInList(ppt->value,"dipolecoeff") && (! approx==TaylorF2) && (! approx==IMRPhenomD) && (! approx==IMRPhenomPv2)){
+    //if (checkParamInList(ppt->value,"dipolecoeff") && (! approx==TaylorF2) && (! approx==IMRPhenomD) && (! approx==IMRPhenomPv2)){
+    if (checkParamInList(ppt->value,"dipolecoeff") && ( approx != TaylorF2) && ( approx !=IMRPhenomD) && ( approx !=IMRPhenomPv2)){
       XLALPrintWarning("You have selected the GR test parameter 'dipolecoeff' which is not compatible with the approximant %s. Use one of the following approximants for dipole analysis: TaylorF2, IMRPhenomD, or IMRPhenomPv2.\n",XLALSimInspiralGetStringFromApproximant(approx));
   }
    /*Check for waveform compatibility with inclusion of LIV parameters */
-    if ((checkParamInList(ppt->value,"log10lambda_eff") && (!(approx==IMRPhenomPv2)) && (!(approx==SEOBNRv4_ROM))) || (checkParamInList(ppt->value,"lambda_eff") && (!(approx==IMRPhenomPv2)) && (!(approx==SEOBNRv4_ROM)))){
-      XLALPrintWarning("LIV parameters not compatible with approximant %s. Can be used only with IMRPhenomPv2 and SEOBNRv4_ROM.\n",XLALSimInspiralGetStringFromApproximant(approx));
-   }
+    //if ((checkParamInList(ppt->value,"log10lambda_eff") && (!(approx==IMRPhenomPv2)) && (!(approx==SEOBNRv4_ROM))) || (checkParamInList(ppt->value,"lambda_eff") && (!(approx==IMRPhenomPv2)) && (!(approx==SEOBNRv4_ROM)))){
+    //  XLALPrintWarning("LIV parameters not compatible with approximant %s. Can be used only with IMRPhenomPv2 and SEOBNRv4_ROM.\n",XLALSimInspiralGetStringFromApproximant(approx));
+   //}
+    if ((checkParamInList(ppt->value,"log10lambda_eff")) || (checkParamInList(ppt->value,"lambda_eff")) ){
+        if ( (approx != IMRPhenomPv2) && (approx != IMRPhenomD) && (approx != SEOBNRv4_ROM) && (approx != SEOBNRv3FD) )
+            {
+            XLALPrintWarning("LIV parameters not compatible with approximant %s. Can be used only with IMRPhenomPv2, IMRPhenomD and SEOBNRv4_ROM, SEOBNRv3FD.\n",XLALSimInspiralGetStringFromApproximant(approx));
+            }
+    }
   }
   /* PPE parameters */
 
