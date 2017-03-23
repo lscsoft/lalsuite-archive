@@ -1,0 +1,4 @@
+usr/bin/ligolw_add
+usr/bin/ligolw_cut
+usr/bin/ligolw_print
+usr/bin/ligolw_sqlite

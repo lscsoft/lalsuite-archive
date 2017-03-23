@@ -15,7 +15,7 @@ Group:		Development/Libraries
 Source:		lscsoft-%{name}-%{version}.tar.gz
 Url:		http://www.lsc-group.phys.uwm.edu/daswg/projects/glue.html
 BuildRoot:	%{_tmppath}/%{name}-%{version}-root
-Requires:	python-cjson pyOpenSSL python-six glue-common glue-segments python >= 2.6
+Requires:	python-cjson pyOpenSSL python-six glue-common glue-segments glue-ligolw-tools python >= 2.6
 BuildRequires:  python-devel, python-setuptools
 Prefix:         %{_glue_prefix}
 %description
@@ -35,6 +35,13 @@ Group:          Development/Libraries
 Requires:       python glue-common
 %description segments
 This is for the segments subpackage, written by Kipp.
+
+%package ligolw-tools
+Summary:        The Grid LSC User Environment XML tools
+Group:          Development/Libraries
+Requires:       glue
+%description ligolw-tools
+Selected XML tools
 
 %prep
 %setup -n lscsoft-%{name}-%{version}
@@ -57,6 +64,10 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root)
 %{glue_python_sitearch}/glue/
 %{_glue_prefix}/bin/*
+%exclude %{_glue_prefix}/bin/ligolw_add
+%exclude %{_glue_prefix}/bin/ligolw_cut
+%exclude %{_glue_prefix}/bin/ligolw_print
+%exclude %{_glue_prefix}/bin/ligolw_sqlite
 %exclude %{_glue_prefix}/etc/
 %exclude %{_glue_prefix}/var/
 %exclude %{_glue_prefix}/share/nmi/lalsuite-build*
@@ -91,6 +102,12 @@ rm -rf $RPM_BUILD_ROOT
 %{glue_python_sitearch}/glue/iterutils.py
 %{glue_python_sitearch}/glue/git_version.py
 %{glue_python_sitearch}/glue/git_version.pyc
+
+%files ligolw-tools
+%{_glue_prefix}/bin/ligolw_add
+%{_glue_prefix}/bin/ligolw_cut
+%{_glue_prefix}/bin/ligolw_print
+%{_glue_prefix}/bin/ligolw_sqlite
 
 %changelog
 * Thu Apr 13 2017 Duncan Macleod <duncan.macleod@ligo.org>
