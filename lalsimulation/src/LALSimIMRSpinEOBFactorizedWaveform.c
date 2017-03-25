@@ -134,20 +134,8 @@ static COMPLEX16 XLALhTidal(
     REAL8 M = m1 + m2;
     REAL8 X1 = m1 / M;
     REAL8 X2 = m2 / M;
-    REAL8 R1 = 0.;
-    REAL8 R2 = 0.;
-    REAL8 R1to5 = 0.;
-    REAL8 R2to5 = 0.;
-    if ( tidal1->comp != 0.) {
-        R1 = m1/tidal1->comp;
-        R1to5 = R1*R1*R1*R1*R1;
-    }
-    if ( tidal2->comp != 0.) {
-        R2 = m2/tidal2->comp;
-        R2to5 = R2*R2*R2*R2*R2;
-    }
-    REAL8 k2Tidal1 = tidal1->k2Tidal;
-    REAL8 k2Tidal2 = tidal2->k2Tidal;
+    REAL8 lambda1 = tidal1->lambda2Tidal;
+    REAL8 lambda2 = tidal2->lambda2Tidal;
     REAL8 omega02Tidal1 = tidal1->omega02Tidal;
     REAL8 omega02Tidal2 = tidal2->omega02Tidal;
     REAL8 k2Tidal1effHam = 0.;
@@ -155,16 +143,14 @@ static COMPLEX16 XLALhTidal(
     REAL8 k2Tidal1eff = 0.;
     REAL8 k2Tidal2eff = 0.;
     REAL8 u = 1./pow(Omega,-2./3);
-    if ( k2Tidal1 != 0.) {
+    if ( lambda1 != 0.) {
         k2Tidal1effHam = XLALSimIMRTEOBk2eff(u, eta, tidal1);
         k2Tidal1eff = XLALSimIMRTEOBk2effMode (Omega,  k2Tidal1effHam, omega02Tidal1, X2);
     }
-    if ( k2Tidal2 != 0.) {
+    if ( lambda2 != 0.) {
         k2Tidal2effHam = XLALSimIMRTEOBk2eff(u, eta, tidal2);
         k2Tidal2eff = XLALSimIMRTEOBk2effMode (Omega,  k2Tidal2effHam, omega02Tidal2, X1);
     }
-    REAL8 lambda1 = 2./3.*k2Tidal1*R1to5;
-    REAL8 lambda2 = 2./3.*k2Tidal2*R2to5;
     REAL8 q = m2/m1;
     switch (l) {
         case 2:

@@ -195,7 +195,7 @@ XLALInspiralSpinFactorizedFlux (REAL8Vector * values,	/**< dynamical variables *
       for (m = 1; m <= l; m++)
 	{
 	  INT4 use_optimized_v2 = 0;
-        if ( (ak->seobCoeffs->tidal1->k2Tidal != 0. && ak->seobCoeffs->tidal1->omega02Tidal != 0.) || (ak->seobCoeffs->tidal2->k2Tidal != 0. && ak->seobCoeffs->tidal2->omega02Tidal != 0.) ) {
+        if ( (ak->seobCoeffs->tidal1->lambda2Tidal != 0. && ak->seobCoeffs->tidal1->omega02Tidal != 0.) || (ak->seobCoeffs->tidal2->lambda2Tidal != 0. && ak->seobCoeffs->tidal2->omega02Tidal != 0.) ) {
             if (XLALSimIMRSpinEOBGetSpinFactorizedWaveform
                 (&hLM, values, v, H, l, m, ak, use_optimized_v2
                  ) == XLAL_FAILURE)

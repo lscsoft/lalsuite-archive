@@ -52,17 +52,16 @@ extern "C"
  * Tidal parameters for EOB model of NS:
  * mass - dimensionless ratio mass/M
  * comp - compactness
- * k2Tidal - adiabatic quadrupole Love number
+ * lambda2Tidal - adiabatic quadrupole tidal deformability
  * omega02Tidal - quadrupole f-mode freq
- * k3Tidal - adiabatic octupole Love number
+ * lambda2Tidal - adiabatic octupole tidal deformability
  * omega03Tidal - octupole f-mode freq
  */
 typedef struct tagTidalEOBParams
 {
     REAL8 mass;
-    REAL8 comp;
-    REAL8 k2Tidal;
-    REAL8 k3Tidal;
+    REAL8 lambda2Tidal;
+    REAL8 lambda3Tidal;
     REAL8 omega02Tidal;
     REAL8 omega03Tidal;
 }
