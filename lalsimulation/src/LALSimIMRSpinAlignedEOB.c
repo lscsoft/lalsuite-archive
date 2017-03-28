@@ -923,17 +923,19 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
       XLAL_ERROR (XLAL_ENOMEM);
     }
     
+// Rescale tidal polarizabilites by powers of mNS/M
+// Rescale f-mode freqs by M/mNS
   tidal1.mass = m1SI / (m1SI + m2SI);
   tidal1.lambda2Tidal = lambda2Tidal1 * pow(tidal1.mass,5);
-  tidal1.omega02Tidal = omega02Tidal1;
+  tidal1.omega02Tidal = omega02Tidal1 / tidal1.mass;
   tidal1.lambda3Tidal = lambda3Tidal1 * pow(tidal1.mass,7);
-  tidal1.omega03Tidal = omega03Tidal1;
+  tidal1.omega03Tidal = omega03Tidal1 / tidal1.mass;
     
   tidal2.mass = m2SI / (m1SI + m2SI);
   tidal2.lambda2Tidal = lambda2Tidal2 * pow(tidal2.mass,5);
-  tidal2.omega02Tidal = omega02Tidal2;
+  tidal2.omega02Tidal = omega02Tidal2 / tidal2.mass;
   tidal2.lambda3Tidal = lambda3Tidal2 * pow(tidal2.mass,7);
-  tidal2.omega03Tidal = omega03Tidal2;
+  tidal2.omega03Tidal = omega03Tidal2 / tidal2.mass;
     
   seobCoeffs.tidal1 = &tidal1;
   seobCoeffs.tidal2 = &tidal2;
