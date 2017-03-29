@@ -1443,6 +1443,8 @@ if(patch_grid->max_n_dec<800){
 	}
 
 
+trim_divert_buffer();
+
 fprintf(stderr, "%d points written into the data log\n", data_log_index);
 fprintf(LOG, "%d points written into the data log\n", data_log_index);
 
