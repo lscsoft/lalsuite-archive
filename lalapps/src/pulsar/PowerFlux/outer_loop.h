@@ -2,6 +2,7 @@
 #define __OUTER_LOOP_H__
 
 #include "power_sum_stats.h"
+#include "power_sums.h"
 #include "jobs.h"
 
 typedef ALIGN_DECLSPEC struct {
@@ -31,6 +32,10 @@ typedef ALIGN_DECLSPEC struct {
 	int veto_num;
 	} EXTREME_INFO;
 
+typedef struct {
+	TEMPLATE_INFO ti;
+	POWER_SUM_STATS pstat;
+	} DIVERTED_ENTRY;
 
 void outer_loop(void);
 

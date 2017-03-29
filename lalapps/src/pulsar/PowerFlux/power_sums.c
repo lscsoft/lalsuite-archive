@@ -135,7 +135,7 @@ p_size=ctx->nchunks*args_info.binary_template_nsky_arg*args_info.binary_template
         args_info.freq_modulation_depth_count_arg*
         args_info.freq_modulation_phase_count_arg*
         args_info.fdotdot_count_arg*
-        args_info.binary_template_nshift_arg*sizeof(*p);
+        fshift_count*sizeof(*p);
 
 if(p_size>ctx->power_sums_scratch_size) {
 	free(ctx->power_sums_scratch);
@@ -204,8 +204,8 @@ for(i=0;i<args_info.spindown_count_arg;i++) {
 		
 		skyband=ti->skyband;
 
-		for(j=0;j<args_info.binary_template_nshift_arg;j++) {
-			p->freq_shift=ti->freq_shift+(j-0.5*(args_info.binary_template_nshift_arg-1))/(args_info.sft_coherence_time_arg*fshift_count);
+		for(j=0;j<fshift_count;j++) {
+			p->freq_shift=args_info.frequency_offset_arg+j/(args_info.sft_coherence_time_arg*fshift_count);
 			p->spindown=ti->spindown+(i-0.5*(args_info.spindown_count_arg-1))*args_info.spindown_step_arg;
 			p->fdotdot=ti->fdotdot+(idd-0.5*(args_info.fdotdot_count_arg-1))*args_info.fdotdot_step_arg;
 			p->freq_modulation_freq=ti->freq_modulation_freq+(ifmf-0.5*(args_info.freq_modulation_freq_count_arg-1))*args_info.freq_modulation_freq_step_arg;

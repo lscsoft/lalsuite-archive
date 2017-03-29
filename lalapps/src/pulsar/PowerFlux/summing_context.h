@@ -48,6 +48,7 @@ typedef ALIGN_DECLSPEC struct S_SUMMING_CONTEXT {
 	PARTIAL_POWER_SUM_F *log_extremes_pps;
 	char *log_extremes_pstats_scratch;
 	long log_extremes_pstats_scratch_size;
+	char *diverted;
 
 	/* dynamic parameters */
 	int loose_first_half_count;

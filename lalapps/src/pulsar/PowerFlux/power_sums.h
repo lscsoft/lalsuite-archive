@@ -4,8 +4,6 @@
 #include "power_cache.h"
 
 typedef struct {
-	double frequency;
-	
 	/* These are double so we can follow parameters of observed source, e.g. Sco-X1
 	   It is possible that depth does not need to be a float */
 	double freq_modulation_freq;
@@ -18,11 +16,8 @@ typedef struct {
 	float dec;
 	
 	int skyband;
-	int first_bin;
-	int snr_bin;
+	int snr_subbin;
 	
-	float freq_shift;
-		
 	/* These are auxiliary values for diverted templates */
 	float snr;
 	float ul;

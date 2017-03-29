@@ -20,6 +20,11 @@
 #include "summing_context.h"
 #include "jobs.h"
 
+#define DIVERT_TEMPLATE_MARKED  (1<<0)
+#define DIVERT_TEMPLATE_MARKED_UL  (1<<2)
+
+#define DIVERT_TEMPLATE_WRITTEN (1<<7)
+
 extern struct gengetopt_args_info args_info;
 
 extern SKY_GRID *fine_grid, *patch_grid;
@@ -38,6 +43,15 @@ int data_log_index=0;
 
 int write_data_log_header=1;
 int write_diverted_log_header=1;
+
+int total_diverted_count=0;
+
+int divert_buffer_free=0;
+int divert_buffer_size=0;
+double divert_buffer_ul_threshold=0.0;
+DIVERTED_ENTRY *divert_buffer=NULL;
+float *divert_sort_buffer=NULL;
+MUTEX divert_buffer_mutex;
 
 typedef struct {
 	unsigned int veto_mask;
@@ -212,40 +226,118 @@ for(k=0;k<d_free;k++) {
 free(w);
 }
 
+void trim_divert_buffer(void)
+{
+int i,j;
+if(divert_buffer_free<args_info.divert_ul_count_limit_arg)return;
+
+for(i=0;i<divert_buffer_free;i++)divert_sort_buffer[i]=divert_buffer[i].ti.ul;
+sort_floats(divert_sort_buffer, divert_buffer_free);
+fprintf(stderr, "trim_divert_buffer 1: %g %g %g\n", divert_sort_buffer[0], divert_sort_buffer[1], divert_sort_buffer[2]);
+divert_buffer_ul_threshold=divert_sort_buffer[divert_buffer_free-args_info.divert_ul_count_limit_arg];
+
+j=0;
+for(i=0;i<divert_buffer_free;i++) {
+	if(divert_buffer[i].ti.ul>divert_buffer_ul_threshold) {
+		if(j<i) {
+			divert_buffer[j]=divert_buffer[i];
+			}
+		j++;
+		continue;
+		}
+	/* TODO replay data point to properly include in extreme info */
+	}
+divert_buffer_free=j;
+}
+
 MUTEX data_logging_mutex;
 
 void pstats_log_extremes(SUMMING_CONTEXT *ctx, POWER_SUM_STATS *tmp_pstat, POWER_SUM **ps, int count, EXTREME_INFO *ei, int pi)
 {
-int i;
+int i,j, i_start, highest_ul_j;
 POWER_SUM_STATS pstats, pstats_accum, *tp;
 int highest_ul_idx=0;
 int highest_circ_ul_idx=0;
 int highest_snr_idx=0;
 int skyband;
 char *diverted;
+double average_S;
 TEMPLATE_INFO ti;
+int fshift_count=args_info.nfshift_arg; /* number of frequency offsets */
 
-diverted=alloca(count*sizeof(*diverted));
-memset(diverted, 0, count*sizeof(*diverted));
+diverted=ctx->diverted;
 
 memset(&pstats_accum, 0, sizeof(pstats_accum));
 pstats_accum.max_weight=-1;
 
+average_S=tmp_pstat[0].highest_circ_ul.S;
+for(i=1;i<count;i++)average_S+=tmp_pstat[i].highest_circ_ul.S;
+average_S/=count;
+
+/* process SNR thresholds first */
+if(total_diverted_count<args_info.divert_count_limit_arg) {
+	for(i=0;i<count;i++) {
+		if(diverted[i])continue;
+		
+		tp=&(tmp_pstat[i]);
+		
+		if(tp->max_weight_loss_fraction>=1) {
+			continue;
+			}
+		
+		if(args_info.divert_snr_arg>0 && (tp->highest_snr.snr>args_info.divert_snr_arg)) {
+			
+			/* divert all frequencies in the template */
+			i_start=fshift_count*(i/fshift_count);
+			for(j=0;j<fshift_count;j++)
+				diverted[i_start+j]|=DIVERT_TEMPLATE_MARKED;
+			
+			continue;
+			}
+			
+		}
+	}
+
+/* Process upper limit toplist */
+if((ei->last_chunk-ei->first_chunk+1==args_info.nchunks_arg) && ((ei->veto_num==-1) || (veto_free<=1)))
+for(i=0;i<count;i++) {
+	if(diverted[i])continue;
+	
+	tp=&(tmp_pstat[i]);
+	
+	if(tp->max_weight_loss_fraction>=1) {
+		continue;
+		}
+	
+	if(((args_info.divert_ul_arg>0 && (tp->highest_ul.ul>args_info.divert_ul_arg)) ||
+	(args_info.divert_ul_rel_arg>0 && (tp->highest_ul.ul>args_info.divert_ul_rel_arg*average_S))) && 
+		(tp->highest_ul.ul>divert_buffer_ul_threshold)
+		) {
+		
+		
+		/* divert all frequencies in the template */
+		i_start=fshift_count*(i/fshift_count);
+		for(j=0;j<fshift_count;j++)
+			diverted[i_start+j]|=DIVERT_TEMPLATE_MARKED_UL;
+		}
+	}
+	
+	
 thread_mutex_lock(&(ei->mutex));
 for(i=0;i<count;i++) {
-	memcpy(&pstats, &(tmp_pstat[i]), sizeof(POWER_SUM_STATS));
-
-
-
 	skyband=ps[0][i].skyband;
 	
-	if((args_info.divert_snr_arg>0 && (pstats.highest_snr.snr>args_info.divert_snr_arg)) ||
-	   (args_info.divert_ul_arg>0 && (pstats.highest_ul.ul>args_info.divert_ul_arg))) {
-		diverted[i]=1;
+	if(diverted[i] & DIVERT_TEMPLATE_MARKED) {
 		ei->band_diverted_count[skyband]++;
 		continue;
 		}
 
+	if((ei->last_chunk-ei->first_chunk+1==args_info.nchunks_arg) && ((ei->veto_num==-1) || (veto_free<=1)) && (diverted[i] & DIVERT_TEMPLATE_MARKED_UL)) {
+		continue;
+		}
+		
+	memcpy(&pstats, &(tmp_pstat[i]), sizeof(POWER_SUM_STATS));
+	
 	if(pstats.max_weight_loss_fraction>=1) {
 		ei->band_masked_count[skyband]++;
 		continue;
@@ -369,13 +461,23 @@ if(write_diverted_log_header) {
 	fprintf(LOG, "diverted_log_structure_size: %ld\n", sizeof(ti));
 	}
 
-for(i=0;i<count;i++) {
-	if(!diverted[i])continue;
+for(i=0;i<count;i+=fshift_count) {
+	if((diverted[i] & DIVERT_TEMPLATE_WRITTEN))continue;
+	if(!(diverted[i] & DIVERT_TEMPLATE_MARKED))continue;
 	
 	tp=&(tmp_pstat[i]);
 	
 	ti.skyband=ps[0][i].skyband;
+	
 	ti.snr=tp->highest_snr.snr;
+	ti.snr_subbin=tp->highest_snr.bin*fshift_count;
+	
+	for(j=1;j<fshift_count;j++)
+		if(ti.snr<tp[j].highest_snr.snr) {
+			ti.snr=tp[j].highest_snr.snr;
+			ti.snr_subbin=tp[j].highest_snr.bin*fshift_count+j;
+			}
+			
 	ti.ul=tp->highest_ul.ul;
 	ti.circ_ul=tp->highest_circ_ul.ul;
 	
@@ -388,19 +490,43 @@ for(i=0;i<count;i++) {
 	ti.ra=ps[0][i].ra;
 	ti.dec=ps[0][i].dec;
 	
-	ti.freq_shift=ps[0][i].freq_shift;
-	ti.first_bin=first_bin+side_cut;
-	ti.snr_bin=tp->highest_snr.bin;
 	/* This just shows the start of the band to analyze 
 	 * The actual frequency where the maximum is achieved can be different for SNR and UL.
 	 */
-	ti.frequency=(double)ps[0][i].freq_shift+ti.first_bin/args_info.sft_coherence_time_arg;
+	/* ti.frequency=(double)ps[0][i].freq_shift+ti.first_bin/args_info.sft_coherence_time_arg; */
 	
 	ti.first_chunk=ei->first_chunk;
 	ti.last_chunk=ei->last_chunk;
 	ti.veto_num=ei->veto_num;
 	
+
+	if(diverted[i]==DIVERT_TEMPLATE_MARKED_UL) {
+		highest_ul_j=0;
+		for(j=1;j<fshift_count;j++)
+			if(ti.ul<tp[j].highest_ul.ul) {
+				ti.ul=tp[j].highest_ul.ul;
+				highest_ul_j=j;
+				}
+	
+		
+		
+		thread_mutex_lock(&divert_buffer_mutex);
+		
+		if(divert_buffer_free>=divert_buffer_size)trim_divert_buffer();
+		
+		memcpy(&(divert_buffer[divert_buffer_free].ti), &ti, sizeof(ti));
+		memcpy(&(divert_buffer[divert_buffer_free].pstat), &(tp[highest_ul_j]), sizeof(*tp));
+		divert_buffer_free++;		
+		
+		thread_mutex_unlock(&divert_buffer_mutex);
+		diverted[i]|=DIVERT_TEMPLATE_WRITTEN;
+		total_diverted_count++;
+		continue;
+		}
+	
 	fwrite(&ti, sizeof(ti), 1, DIVERT_LOG);
+	diverted[i]|=DIVERT_TEMPLATE_WRITTEN;
+	total_diverted_count++;
 	}
 
 if(write_data_log_header) {
@@ -797,6 +923,8 @@ tmp_size+=nei*count*sizeof(*stats)+ALIGNMENT;
 tmp_size+=2*args_info.nchunks_arg*veto_free*fshift_count*sizeof(float)+2*ALIGNMENT;
 	/* sizes of total_weight array */
 tmp_size+=fshift_count*sizeof(float)+2*ALIGNMENT;
+	/* size of diverted array */
+tmp_size+=count*sizeof(*ctx->diverted)+2*ALIGNMENT;
 
 if(ctx->log_extremes_pstats_scratch_size<tmp_size) {
 	free(ctx->log_extremes_pstats_scratch);
@@ -813,7 +941,7 @@ if(ctx->log_extremes_pstats_scratch_size<tmp_size) {
 	}
 
 p1=(float *)ctx->log_extremes_pstats_scratch;
-
+ctx->diverted=p1; p1=ALIGN_POINTER(p1+((count+3)>>2));
 tmp=p1; p1=ALIGN_POINTER(p1+args_info.nchunks_arg*veto_free*fshift_count*tmp_stride);
 tmp2a=p1; p1=ALIGN_POINTER(p1+tmp_stride*fshift_count);
 tmp2b=p1; p1=ALIGN_POINTER(p1+tmp_stride*fshift_count);
@@ -828,6 +956,8 @@ if(((char *)p1)-ctx->log_extremes_pstats_scratch>ctx->log_extremes_pstats_scratc
 		ctx->log_extremes_pstats_scratch_size, ((char *)p1)-ctx->log_extremes_pstats_scratch);
 	exit(-1);
 	}
+	
+memset(ctx->diverted, 0, count*sizeof(*ctx->diverted));
 
 for(i=0;i<nei;i++) {
 	for(j=0;j<count;j++)
@@ -1031,14 +1161,17 @@ if(args_info.viterbi_power_sums_arg) {
 	/* find largest strain and largest SNR candidates for this patch */
 	
 	
-	if(ctx->log_extremes_pstats_scratch_size<count*sizeof(*le_pstats)) {
+	if(ctx->log_extremes_pstats_scratch_size<count*(sizeof(*le_pstats)+sizeof(*ctx->diverted))+2*ALIGNMENT) {
 		free(ctx->log_extremes_pstats_scratch);
 
-		ctx->log_extremes_pstats_scratch_size=count*sizeof(*le_pstats);
+		ctx->log_extremes_pstats_scratch_size=count*(sizeof(*le_pstats)+sizeof(*ctx->diverted))+2*ALIGNMENT;
 
 		ctx->log_extremes_pstats_scratch=do_alloc(count, sizeof(*le_pstats));
 		}
-	le_pstats=(POWER_SUM_STATS *)ctx->log_extremes_pstats_scratch;
+	ctx->diverted=(char *)ctx->log_extremes_pstats_scratch;
+	le_pstats=(POWER_SUM_STATS *)ALIGN_POINTER(ctx->diverted+count);
+	
+	memset(ctx->diverted, 0, count*sizeof(*ctx->diverted));
 	
 	for(i=0;i<nei;i++) {
 		ps_tmp_len=0;
@@ -1074,6 +1207,7 @@ PLOT *plot;
 
 thread_mutex_init(&data_logging_mutex);
 thread_mutex_init(&input_template_mutex);
+thread_mutex_init(&divert_buffer_mutex);
 
 assign_per_dataset_cutoff_veto();
 assign_cutoff_veto();
@@ -1096,6 +1230,13 @@ for(i=0;i<n_contexts;i++) {
 	}
 
 fprintf(LOG, "nei: %d\n", nei);
+
+divert_buffer_size=args_info.divert_buffer_size_arg;
+divert_buffer_free=0;
+divert_buffer_ul_threshold=0.0;
+fprintf(stderr, "Allocating %.1fMB for divert buffer\n", divert_buffer_size*sizeof(DIVERTED_ENTRY));
+divert_buffer=do_alloc(divert_buffer_size, sizeof(*divert_buffer));
+divert_sort_buffer=do_alloc(divert_buffer_size, sizeof(*divert_sort_buffer));
 
 gps_start=min_gps();
 gps_stop=max_gps()+1;
@@ -1165,12 +1306,24 @@ if(patch_grid->max_n_dec<800){
 	p=make_RGBPic(patch_grid->max_n_ra+140, patch_grid->max_n_dec);
 	}
 
-plot=make_plot(p->width, p->height);
 
 fprintf(stderr, "%d points written into the data log\n", data_log_index);
 fprintf(LOG, "%d points written into the data log\n", data_log_index);
 
+fprintf(stderr, "total_diverted_count: %d\n", total_diverted_count);
+fprintf(LOG, "total_diverted_count: %d\n", total_diverted_count);
+
+fprintf(LOG, "divert_buffer_ul_threshold: %g\n", divert_buffer_ul_threshold);
+
+if(total_diverted_count>=args_info.divert_count_limit_arg && n_contexts>1) {
+	/* This is because we don't know which thread hits the limit first */
+	fprintf(stderr, "*** WARNING: divert count limit exceeded, the results are non-repeatable when multiple threads are used\n");
+	fprintf(LOG, "*** WARNING: divert count limit exceeded, the results are non-repeatable when multiple threads are used\n");
+	}
+
 fprintf(stderr, "Writing skymaps\n");
+
+plot=make_plot(p->width, p->height);
 
 for(i=0;i<nei;i++)
 	output_extreme_info(p, ei[i]);
