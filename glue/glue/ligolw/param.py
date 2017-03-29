@@ -66,7 +66,7 @@ __date__ = git_version.date
 #
 
 
-ParamPattern = re.compile(r"(?P<Name>[a-z0-9_:]+):param\Z")
+ParamPattern = re.compile(r"(?P<Name>[a-zA-Z0-9_:]+):param\Z")
 
 
 def StripParamName(name):
