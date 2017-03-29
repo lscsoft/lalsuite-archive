@@ -30,11 +30,17 @@ typedef ALIGN_DECLSPEC struct {
 	int first_chunk;
 	int last_chunk;
 	int veto_num;
+	int idx;
 	} EXTREME_INFO;
 
 typedef struct {
 	TEMPLATE_INFO ti;
-	POWER_SUM_STATS pstat;
+	POWER_SUM_STATS pstats_ul;
+	POWER_SUM_STATS pstats_snr;
+	int ei_idx;
+	int pi;
+	int highest_snr_j;
+	int highest_ul_j;
 	} DIVERTED_ENTRY;
 
 void outer_loop(void);

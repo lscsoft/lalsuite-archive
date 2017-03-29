@@ -53,6 +53,10 @@ DIVERTED_ENTRY *divert_buffer=NULL;
 float *divert_sort_buffer=NULL;
 MUTEX divert_buffer_mutex;
 
+int nei;
+EXTREME_INFO **ei=NULL;
+int nchunks;
+
 typedef struct {
 	unsigned int veto_mask;
 	char *name;
@@ -226,6 +230,133 @@ for(k=0;k<d_free;k++) {
 free(w);
 }
 
+void replay_diverted_entry(DIVERTED_ENTRY *de, EXTREME_INFO *ei)
+{
+int skyband;
+int fshift_count=args_info.nfshift_arg;
+int pi=de->pi;
+
+skyband=de->ti.skyband;
+
+thread_mutex_lock(&(ei->mutex));
+
+if(de->pstats_ul.max_weight_loss_fraction>=1) {
+	ei->band_masked_count[skyband]++;
+	return;
+	}
+if(de->pstats_snr.max_weight_loss_fraction>=1) {
+	ei->band_masked_count[skyband]++;
+	return;
+	}
+ei->band_valid_count[skyband]++;
+
+#define RFILL_EXTRA_PARAMS(target) {\
+	target.ra=de->ti.ra; \
+	target.dec=de->ti.dec; \
+	target.spindown=de->ti.spindown; \
+	target.fdotdot=de->ti.fdotdot; \
+	target.freq_modulation_freq=de->ti.freq_modulation_freq; \
+	target.freq_modulation_depth=de->ti.freq_modulation_depth; \
+	target.freq_modulation_phase=de->ti.freq_modulation_phase; \
+	target.frequency=((double)(de->ti.snr_subbin)/fshift_count+first_bin+side_cut)/args_info.sft_coherence_time_arg; \
+	}
+
+#define RFILL_POINT_STATS(target, source)	{\
+	memcpy(&(target), &(source), sizeof(target)); \
+	RFILL_EXTRA_PARAMS(target); \
+	}
+
+/* Note: approximation - we only update MAX and MIN for highest_ul and highest_snr, not all freq_shifts as is for non-diverted templates */
+/* This introduces a possible non-repeatability in multi-threaded execution affecting secondary quantities like max_m4 */
+	
+#define RUPDATE_MAX(target, field) {\
+	if(de->pstats_ul.field>target.field) { \
+		target.field=de->pstats_ul.field;\
+		} \
+	if(de->pstats_snr.field>target.field) { \
+		target.field=de->pstats_snr.field;\
+		} \
+	}
+
+#define RUPDATE_MIN(target, field) {\
+	if(de->pstats_ul.field<target.field) { \
+		target.field=de->pstats_ul.field;\
+		} \
+	if(de->pstats_snr.field<target.field) { \
+		target.field=de->pstats_snr.field;\
+		} \
+	}
+
+if(ei->band_info[skyband].max_weight<0) {
+	memcpy(&(ei->band_info[skyband]), &(de->pstats_ul), sizeof(de->pstats_ul));
+	RFILL_EXTRA_PARAMS(ei->band_info[skyband].highest_ul);
+	RFILL_EXTRA_PARAMS(ei->band_info[skyband].highest_circ_ul);
+	RFILL_EXTRA_PARAMS(ei->band_info[skyband].highest_snr);
+	RFILL_EXTRA_PARAMS(ei->band_info[skyband].highest_ks);
+	} else {
+
+	ei->band_info[skyband].ntemplates+=de->pstats_ul.ntemplates*fshift_count;
+
+	if(de->pstats_ul.highest_ul.ul>ei->band_info[skyband].highest_ul.ul) {
+		RFILL_POINT_STATS(ei->band_info[skyband].highest_ul, de->pstats_ul.highest_ul);
+		}
+
+		/* circ_ul and highest_ks fields are not updated by this code */
+		
+// 	if(pstats->highest_circ_ul.ul>ei->band_info[skyband].highest_circ_ul.ul) {
+// 		RFILL_POINT_STATS(ei->band_info[skyband].highest_circ_ul, pstats->highest_circ_ul);
+// 		}
+
+	if(de->pstats_snr.highest_snr.snr>ei->band_info[skyband].highest_snr.snr) {
+		RFILL_POINT_STATS(ei->band_info[skyband].highest_snr, de->pstats_snr.highest_snr);
+		}
+
+// 	if(pstats->highest_ks.ks_value>ei->band_info[skyband].highest_ks.ks_value) {
+// 		RFILL_POINT_STATS(ei->band_info[skyband].highest_ks, pstats->highest_ks);
+// 		}
+
+	RUPDATE_MAX(ei->band_info[skyband], max_weight);
+	RUPDATE_MIN(ei->band_info[skyband], min_weight);
+	RUPDATE_MAX(ei->band_info[skyband], max_weight_loss_fraction);
+
+	RUPDATE_MAX(ei->band_info[skyband], max_m1_neg);
+	RUPDATE_MIN(ei->band_info[skyband], min_m1_neg);
+	RUPDATE_MAX(ei->band_info[skyband], max_m3_neg);
+	RUPDATE_MIN(ei->band_info[skyband], min_m3_neg);
+	RUPDATE_MAX(ei->band_info[skyband], max_m4);
+	RUPDATE_MIN(ei->band_info[skyband], min_m4);
+	}
+
+thread_mutex_unlock(&(ei->mutex));
+
+/* During main run operation the skymaps are not enabled (NULL) to save space and computation */
+
+#define FILL_SKYMAP(skymap, value)	if(ei->skymap!=NULL)ei->skymap[pi]=value;
+
+if(ei->ul_skymap!=NULL && (de->pstats_ul.highest_ul.ul>ei->ul_skymap[pi])) {
+	FILL_SKYMAP(ul_skymap, de->pstats_ul.highest_ul.ul);
+	FILL_SKYMAP(ul_freq_skymap, (de->pstats_ul.highest_ul.bin)/args_info.sft_coherence_time_arg+(double)de->highest_ul_j/fshift_count);
+	}
+
+/* Not filled in properly
+FILL_SKYMAP(circ_ul_skymap, pstats_accum.highest_circ_ul.ul);
+FILL_SKYMAP(circ_ul_freq_skymap, (pstats_accum.highest_circ_ul.bin)/args_info.sft_coherence_time_arg+ps[0][highest_circ_ul_idx].freq_shift);
+*/
+
+if(ei->snr_skymap!=NULL && (de->pstats_snr.highest_snr.snr>ei->snr_skymap[pi])) {
+	FILL_SKYMAP(snr_skymap, de->pstats_snr.highest_snr.snr);
+	FILL_SKYMAP(snr_ul_skymap, de->pstats_snr.highest_snr.ul);
+	FILL_SKYMAP(snr_freq_skymap, (de->pstats_snr.highest_snr.bin)/args_info.sft_coherence_time_arg+(double)de->highest_snr_j/fshift_count);
+	}
+
+// Not filled in properly
+// FILL_SKYMAP(max_weight_skymap, pstats_accum.max_weight);
+// FILL_SKYMAP(min_weight_skymap, pstats_accum.min_weight);
+// FILL_SKYMAP(weight_loss_fraction_skymap, pstats_accum.max_weight_loss_fraction);
+// 
+// FILL_SKYMAP(ks_skymap, pstats_accum.highest_ks.ks_value);
+}
+
 void trim_divert_buffer(void)
 {
 int i,j;
@@ -245,7 +376,9 @@ for(i=0;i<divert_buffer_free;i++) {
 		j++;
 		continue;
 		}
-	/* TODO replay data point to properly include in extreme info */
+	
+	replay_diverted_entry(&(divert_buffer[i]), ei[divert_buffer[i].ei_idx]);
+	
 	}
 divert_buffer_free=j;
 }
@@ -254,7 +387,7 @@ MUTEX data_logging_mutex;
 
 void pstats_log_extremes(SUMMING_CONTEXT *ctx, POWER_SUM_STATS *tmp_pstat, POWER_SUM **ps, int count, EXTREME_INFO *ei, int pi)
 {
-int i,j, i_start, highest_ul_j;
+int i,j, i_start, highest_ul_j, highest_snr_j;
 POWER_SUM_STATS pstats, pstats_accum, *tp;
 int highest_ul_idx=0;
 int highest_circ_ul_idx=0;
@@ -471,11 +604,13 @@ for(i=0;i<count;i+=fshift_count) {
 	
 	ti.snr=tp->highest_snr.snr;
 	ti.snr_subbin=tp->highest_snr.bin*fshift_count;
+	highest_snr_j=0;
 	
 	for(j=1;j<fshift_count;j++)
 		if(ti.snr<tp[j].highest_snr.snr) {
 			ti.snr=tp[j].highest_snr.snr;
 			ti.snr_subbin=tp[j].highest_snr.bin*fshift_count+j;
+			highest_snr_j=j;
 			}
 			
 	ti.ul=tp->highest_ul.ul;
@@ -515,7 +650,12 @@ for(i=0;i<count;i+=fshift_count) {
 		if(divert_buffer_free>=divert_buffer_size)trim_divert_buffer();
 		
 		memcpy(&(divert_buffer[divert_buffer_free].ti), &ti, sizeof(ti));
-		memcpy(&(divert_buffer[divert_buffer_free].pstat), &(tp[highest_ul_j]), sizeof(*tp));
+		memcpy(&(divert_buffer[divert_buffer_free].pstats_ul), &(tp[highest_ul_j]), sizeof(*tp));
+		memcpy(&(divert_buffer[divert_buffer_free].pstats_snr), &(tp[highest_snr_j]), sizeof(*tp));
+		divert_buffer[divert_buffer_free].ei_idx=ei->idx;
+		divert_buffer[divert_buffer_free].pi=pi;
+		divert_buffer[divert_buffer_free].highest_snr_j=highest_snr_j;
+		divert_buffer[divert_buffer_free].highest_ul_j=highest_ul_j;
 		divert_buffer_free++;		
 		
 		thread_mutex_unlock(&divert_buffer_mutex);
@@ -591,8 +731,6 @@ if((pstats_accum.highest_snr.snr>args_info.min_candidate_snr_arg) &
    (pstats_accum.highest_snr.bin<(useful_bins-args_info.tail_veto_arg)))WRITE_POINT(ps[0][highest_snr_idx], pstats_accum.highest_snr, "snr");
 
 thread_mutex_unlock(&data_logging_mutex);
-
-#define FILL_SKYMAP(skymap, value)	if(ei->skymap!=NULL)ei->skymap[pi]=value;
 
 FILL_SKYMAP(ul_skymap, pstats_accum.highest_ul.ul);
 FILL_SKYMAP(ul_freq_skymap, (pstats_accum.highest_ul.bin)/args_info.sft_coherence_time_arg+ps[0][highest_ul_idx].freq_shift);
@@ -859,6 +997,7 @@ for(i=0;i<args_info.nchunks_arg;i+=args_info.nchunks_refinement_arg)
 			ei[nei]->first_chunk=i;
 			ei[nei]->last_chunk=i+k;
 			ei[nei]->veto_num=m;
+			ei[nei]->idx=nei;
 			nei++;
 			}
 		}
@@ -875,9 +1014,6 @@ struct {
 	} *cruncher_contexts=NULL;
 int n_contexts=0;
 
-int nei;
-EXTREME_INFO **ei=NULL;
-int nchunks;
 
 double gps_start;
 double gps_stop;
@@ -1314,6 +1450,11 @@ fprintf(stderr, "total_diverted_count: %d\n", total_diverted_count);
 fprintf(LOG, "total_diverted_count: %d\n", total_diverted_count);
 
 fprintf(LOG, "divert_buffer_ul_threshold: %g\n", divert_buffer_ul_threshold);
+fprintf(LOG, "divert_buffer_free: %g\n", divert_buffer_free);
+
+for(i=0;i<divert_buffer_free;i++) {
+	fwrite(&(divert_buffer[i].ti), sizeof(divert_buffer[i].ti), 1, DIVERT_LOG);
+	}
 
 if(total_diverted_count>=args_info.divert_count_limit_arg && n_contexts>1) {
 	/* This is because we don't know which thread hits the limit first */
