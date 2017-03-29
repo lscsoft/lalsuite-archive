@@ -240,7 +240,7 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 	event comparison function, generate a sequence of tuples of
 	mutually coincident events.
 
-	The signature of the comparison function should be
+	The signature of the comparison function is
 
 	comparefunc(event1, offset1, event2, offset2, light_travel_time, threshold_data)
 
@@ -282,17 +282,9 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 	# retrieve the event lists for the requested instrument combination
 
 	instruments = tuple(instruments)
-	assert len(instruments) == 2
-	for instrument in instruments:
-		assert eventlists[instrument].instrument == instrument
+	assert len(instruments) == 2, "instruments must be an iterable of exactly two names, not %d" % len(instruments)
 	eventlista, eventlistb = [eventlists[instrument] for instrument in instruments]
-
-	# insure eventlist a is the shorter of the two event lists;  record
-	# the length of the shortest
-
-	if len(eventlista) > len(eventlistb):
-		eventlista, eventlistb = eventlistb, eventlista
-	length = len(eventlista)
+	assert eventlista.instrument, eventlistb.instrument == instruments, "internal consistency failure:  EventList instruments do not match EventListDict keys"
 
 	# extract the thresholds and pre-compute the light travel time
 
@@ -302,19 +294,24 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 		raise KeyError("no coincidence thresholds provided for instrument pair %s, %s" % e.args[0])
 	dt = light_travel_time(eventlista.instrument, eventlistb.instrument)
 
+	# choose the shorter of the two lists for the outer loop
+
+	if len(eventlista) > len(eventlistb):
+		eventlista, eventlistb = eventlistb, eventlista
+
 	# for each event in the shortest list
 
-	for n, eventa in enumerate(eventlista):
-		if verbose and not (n % 2000):
-			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / length),
-
+	progressbar = ProgressBar(text = "searching", max = len(eventlista)) if verbose else None
+	for eventa in eventlista:
 		# iterate over events from the other list that are
 		# coincident with the event, and return the pairs
 
 		for eventb in eventlistb.get_coincs(eventa, eventlista.offset, dt, threshold_data, comparefunc):
 			yield (eventa, eventb)
-	if verbose:
-		print >>sys.stderr, "\t100.0%"
+
+		if progressbar is not None:
+			progressbar.increment()
+	del progressbar
 
 	# done
 
@@ -371,8 +368,6 @@ class TimeSlideGraphNode(object):
 			# apply offsets to events
 			#
 
-			if verbose:
-				print >>sys.stderr, "\tapplying offsets ..."
 			eventlists.offsetvector = self.offset_vector
 
 			#
@@ -382,8 +377,6 @@ class TimeSlideGraphNode(object):
 			# instrument name
 			#
 
-			if verbose:
-				print >>sys.stderr, "\tsearching ..."
 			# FIXME:  assumes the instrument column is named
 			# "ifo".  works for inspirals, bursts, and
 			# ring-downs.  note that the event order in each
