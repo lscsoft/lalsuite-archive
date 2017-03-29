@@ -276,8 +276,7 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 	instruments.
 
 	NOTE:  the order of the events in each tuple returned by this
-	function is arbitrary, in particular it does not necessarily match
-	the order of the instruments sequence.
+	function matches the order of the instruments sequence.
 	"""
 	# retrieve the event lists for the requested instrument combination
 
@@ -296,8 +295,11 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 
 	# choose the shorter of the two lists for the outer loop
 
-	if len(eventlista) > len(eventlistb):
+	if len(eventlistb) < len(eventlista):
+		swapped = True
 		eventlista, eventlistb = eventlistb, eventlista
+	else:
+		swapped = False
 
 	# for each event in the shortest list
 
@@ -307,7 +309,10 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 		# coincident with the event, and return the pairs
 
 		for eventb in eventlistb.get_coincs(eventa, eventlista.offset, dt, threshold_data, comparefunc):
-			yield (eventa, eventb)
+			if swapped:
+				yield (eventb, eventa)
+			else
+				yield (eventa, eventb)
 
 		if progressbar is not None:
 			progressbar.increment()
@@ -374,17 +379,14 @@ class TimeSlideGraphNode(object):
 			# search for and record coincidences.  coincs is a
 			# sorted tuple of event ID pairs, where each pair
 			# of IDs is, itself, ordered alphabetically by
-			# instrument name
+			# instrument name.  note that the event order in
+			# each tuple returned by get_doubles() is set by
+			# the order of the instrument names passed to it,
+			# which we make be alphabetical
 			#
 
-			# FIXME:  assumes the instrument column is named
-			# "ifo".  works for inspirals, bursts, and
-			# ring-downs.  note that the event order in each
-			# tuple returned by get_doubles() is arbitrary so
-			# we need to sort each tuple by instrument name
-			# explicitly
 			self.unused_coincs = set((event.event_id,) for instrument in self.offset_vector for event in eventlists[instrument])
-			self.coincs = tuple(sorted((a.event_id, b.event_id) if a.ifo <= b.ifo else (b.event_id, a.event_id) for (a, b) in get_doubles(eventlists, event_comparefunc, tuple(self.offset_vector), thresholds, verbose = verbose)))
+			self.coincs = tuple(sorted((a.event_id, b.event_id) for (a, b) in get_doubles(eventlists, event_comparefunc, sorted(self.offset_vector), thresholds, verbose = verbose)))
 			self.unused_coincs -= set((event_id,) for coinc in self.coincs for event_id in coinc)
 			return self.coincs
 
