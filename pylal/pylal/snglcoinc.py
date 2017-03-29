@@ -397,7 +397,7 @@ class TimeSlideGraphNode(object):
 
 		if len(self.components) == 1:
 			if verbose:
-				print >>sys.stderr, "\tgetting coincs from %s ..." % str(self.components[0].offset_vector)
+				print >>sys.stderr, "\tcopying from %s ..." % str(self.components[0].offset_vector)
 			self.coincs = self.components[0].get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose)
 			self.unused_coincs = self.components[0].unused_coincs
 
@@ -450,10 +450,8 @@ class TimeSlideGraphNode(object):
 		allcoincs1 = self.components[1].get_coincs(eventlists, event_comparefunc, thresholds, verbose = False)
 		allcoincs2 = self.components[-1].get_coincs(eventlists, event_comparefunc, thresholds, verbose = False)
 		# for each coinc in list 0
-		length = len(allcoincs0)
-		for n, coinc0 in enumerate(allcoincs0):
-			if verbose and not (n % 200):
-				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / length),
+		progressbar = ProgressBar(text = "searching", max = len(allcoincs0)) if verbose else None
+		for coinc0 in allcoincs0:
 			# find all the coincs in list 1 whose first (n-2)
 			# event IDs are the same as the first (n-2) event
 			# IDs in coinc0.  note that they are guaranteed to
@@ -487,7 +485,7 @@ class TimeSlideGraphNode(object):
 			# all the other events that are in coinc 1.  if the
 			# coincidence holds then that combination of event
 			# IDs must be found in the coincs2 list, because we
-			# assume the coincs2 list is complete  the
+			# assume the coincs2 list is complete the
 			# bisection search above to extract the coincs2
 			# list could be skipped, but by starting with a
 			# shorter list the bisection searches inside the
@@ -503,8 +501,9 @@ class TimeSlideGraphNode(object):
 					# record the coinc and move on
 					self.unused_coincs -= set(itertools.combinations(new_coinc, len(new_coinc) - 1))
 					self.coincs.append(new_coinc)
-		if verbose:
-			print >>sys.stderr, "\t100.0%"
+			if progressbar is not None:
+				progressbar.increment()
+		del progressbar
 		# sort the coincs we just constructed by the component
 		# event IDs and convert to a tuple for speed
 		self.coincs.sort()
