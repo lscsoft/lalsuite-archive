@@ -596,7 +596,7 @@ if(write_diverted_log_header) {
 
 for(i=0;i<count;i+=fshift_count) {
 	if((diverted[i] & DIVERT_TEMPLATE_WRITTEN))continue;
-	if(!(diverted[i] & DIVERT_TEMPLATE_MARKED))continue;
+	if(!(diverted[i] & (DIVERT_TEMPLATE_MARKED|DIVERT_TEMPLATE_MARKED_UL)))continue;
 	
 	tp=&(tmp_pstat[i]);
 	

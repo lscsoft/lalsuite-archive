@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.73-64
+VERSION=1.4.74-64
 # This version is developed against LAL-6.30
 LALROOT=./../../../../
 LALROOT=/home/vdergach/opt/
