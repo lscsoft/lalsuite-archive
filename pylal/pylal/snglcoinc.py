@@ -283,7 +283,7 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 	instruments = tuple(instruments)
 	assert len(instruments) == 2, "instruments must be an iterable of exactly two names, not %d" % len(instruments)
 	eventlista, eventlistb = [eventlists[instrument] for instrument in instruments]
-	assert eventlista.instrument, eventlistb.instrument == instruments, "internal consistency failure:  EventList instruments do not match EventListDict keys"
+	assert (eventlista.instrument, eventlistb.instrument) == instruments, "internal consistency failure:  EventList instruments do not match EventListDict keys"
 
 	# extract the thresholds and pre-compute the light travel time
 
@@ -311,7 +311,7 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 		for eventb in eventlistb.get_coincs(eventa, eventlista.offset, dt, threshold_data, comparefunc):
 			if swapped:
 				yield (eventb, eventa)
-			else
+			else:
 				yield (eventa, eventb)
 
 		if progressbar is not None:
