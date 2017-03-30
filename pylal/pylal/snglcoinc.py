@@ -238,7 +238,7 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 	function, an iterable (e.g., a list) of instruments, and a
 	dictionary mapping instrument pair to threshold data for use by the
 	event comparison function, generate a sequence of tuples of
-	mutually coincident events.
+	mutually coincident event IDs.
 
 	The signature of the comparison function is
 
@@ -269,13 +269,16 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 	orders.
 
 	Each tuple returned by this generator will contain exactly two
-	events, one from each of the two instruments in the instruments
+	event IDs, one from each of the two instruments in the instruments
 	sequence.
+
+	NOTE:  the event objects must each have a .event_id attribute
+	providing the ID to return.
 
 	NOTE:  the instruments sequence must contain exactly two
 	instruments.
 
-	NOTE:  the order of the events in each tuple returned by this
+	NOTE:  the order of the event IDs in each tuple returned by this
 	function matches the order of the instruments sequence.
 	"""
 	# retrieve the event lists for the requested instrument combination
@@ -296,24 +299,20 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 	# choose the shorter of the two lists for the outer loop
 
 	if len(eventlistb) < len(eventlista):
-		swapped = True
 		eventlista, eventlistb = eventlistb, eventlista
+		unswap = lambda a, b: (b, a)
 	else:
-		swapped = False
+		unswap = lambda a, b: (a, b)
 
-	# for each event in the shortest list
+	# for each event in the shortest list iterate over events from the
+	# other list that are coincident with the event, and return the
+	# pairs
 
 	progressbar = ProgressBar(text = "searching", max = len(eventlista)) if verbose else None
 	for eventa in eventlista:
-		# iterate over events from the other list that are
-		# coincident with the event, and return the pairs
-
+		eventa_id = eventa.event_id
 		for eventb in eventlistb.get_coincs(eventa, eventlista.offset, dt, threshold_data, comparefunc):
-			if swapped:
-				yield (eventb, eventa)
-			else:
-				yield (eventa, eventb)
-
+			yield unswap(eventa_id, eventb.event_id)
 		if progressbar is not None:
 			progressbar.increment()
 	del progressbar
@@ -385,8 +384,8 @@ class TimeSlideGraphNode(object):
 			# which we make be alphabetical
 			#
 
+			self.coincs = tuple(sorted(get_doubles(eventlists, event_comparefunc, sorted(self.offset_vector), thresholds, verbose = verbose)))
 			self.unused_coincs = set((event.event_id,) for instrument in self.offset_vector for event in eventlists[instrument])
-			self.coincs = tuple(sorted((a.event_id, b.event_id) for (a, b) in get_doubles(eventlists, event_comparefunc, sorted(self.offset_vector), thresholds, verbose = verbose)))
 			self.unused_coincs -= set((event_id,) for coinc in self.coincs for event_id in coinc)
 			return self.coincs
 
