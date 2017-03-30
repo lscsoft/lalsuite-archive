@@ -69,6 +69,25 @@ class SnglInspiral(lsctables.SnglInspiral):
 		# ranges of triggers quickly
 		return cmp(self.end, other)
 
+	#
+	# simulate mtotal, eta, and mchirp from mass1 and mass2.  this (a)
+	# works around documents that have incorrect values in those three
+	# columns (yes, yes people do that) and (b) allows us to process
+	# documents that don't have the columns at all
+	#
+
+	@property
+	def mtotal(self):
+		return self.mass1 + self.mass2
+
+	@property
+	def eta(self):
+		return self.mass1 * self.mass2 / self.mtotal**2.
+
+	@property
+	def mchirp(self):
+		return self.mtotal * self.eta**0.6
+
 
 #
 # =============================================================================
