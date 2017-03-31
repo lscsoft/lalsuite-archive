@@ -650,6 +650,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
     (--spinAligned or --aligned-spin)  template will assume spins aligned with the orbital angular momentum.\n\
     (--singleSpin)                  template will assume only the spin of the most massive binary component exists.\n\
     (--noSpin, --disable-spin)      template will assume no spins (giving this will void spinOrder!=0) \n\
+    (--spin-orbit-resonance-phi12 PHI12)    template will impose spin orbit resonance and set locking angle PHI12 (allowed values are 0 and 180, in degrees) \n\
     (--no-detector-frame)              model will NOT use detector-centred coordinates and instead RA,dec\n\
     (--grtest-parameters dchi0,..,dxi1,..,dalpha1,..) template will assume deformations in the corresponding phase coefficients.\n\
     (--ppe-parameters aPPE1,....     template will assume the presence of an arbitrary number of PPE parameters. They must be paired correctly.\n\
@@ -762,8 +763,6 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   REAL8 endtime=0.0, timeParam=0.0;
   REAL8 timeMin=endtime-dt,timeMax=endtime+dt;
   REAL8 zero=0.0; /* just a number that will be overwritten anyway*/
-  /* Spin-orbit resonance variables */
-  INT4 SpinOrbitResonance = 0; //Spin-orbit resonance flag
 
   /* Over-ride prior bounds if analytic test */
   if (LALInferenceGetProcParamVal(commandLine, "--correlatedGaussianLikelihood"))
@@ -1143,16 +1142,6 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
     if(!LALInferenceGetProcParamVal(commandLine,"--margphi") && !LALInferenceGetProcParamVal(commandLine, "--margtimephi")){
       LALInferenceRegisterUniformVariableREAL8(state, model->params, "phase", zero, phiMin, phiMax, LALINFERENCE_PARAM_CIRCULAR);
     }
-
-  /* If spin-orbit resonance condition is specified, set lock angle phi12 */
-  if (LALInferenceCheckVariable(state->priorArgs, "spin_orbit_resonance"))
-  {
-    SpinOrbitResonance = 1;
-    REAL8 SpinOrbitResonancePhi12 = *(REAL8 *)LALInferenceGetVariable(state->priorArgs, "spin_orbit_resonance_phi12");
-    fprintf(stdout, "Spin-orbit resonance condition with phi12 = %f will be forced.\n", SpinOrbitResonancePhi12);
-    LALInferenceAddVariable(model->params, "SpinOrbitResonance", &SpinOrbitResonance, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
-    LALInferenceAddVariable(model->params, "SpinOrbitResonancePhi12", &SpinOrbitResonancePhi12, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-  }
 
   /* Check for distance prior for use if the user samples in logdistance */
   if((ppt=LALInferenceGetProcParamVal(commandLine,"--distance-max"))) Dmax=atof(ppt->value);
@@ -1743,6 +1732,9 @@ void LALInferenceInitSpinVariables(LALInferenceRunState *state, LALInferenceMode
   UINT4 spinAligned=0;
   UINT4 singleSpin=0;
   UINT4 noSpin=0;
+  /* For spin-orbit resonance */
+  UINT4 spinOrbitResonance=0;
+  REAL8 spinOrbitResonancePhi12=0.0;
 
   /* Let's first check that the user asked, then we check the approximant can make it happen */
   /* Check for spin disabled */
@@ -1760,6 +1752,13 @@ void LALInferenceInitSpinVariables(LALInferenceRunState *state, LALInferenceMode
   ppt=LALInferenceGetProcParamVal(commandLine,"--singleSpin");
   if(ppt){
     singleSpin=1;
+  }
+
+  /* Check for spin-orbit resonance */
+  ppt=LALInferenceGetProcParamVal(commandLine,"--spin-orbit-resonance-phi12");
+  if(ppt){
+    spinOrbitResonance=1;
+    spinOrbitResonancePhi12=atof(ppt->value)*LAL_PI/180;
   }
 
   SpinSupport spin_support=XLALSimInspiralGetSpinSupportFromApproximant(approx);
@@ -1826,8 +1825,15 @@ void LALInferenceInitSpinVariables(LALInferenceRunState *state, LALInferenceMode
       LALInferenceRegisterUniformVariableREAL8(state, model->params, "phi_jl", 0.0, phiJLmin,  phiJLmax, phiJLVary);
       LALInferenceRegisterUniformVariableREAL8(state, model->params, "tilt_spin1", 0.0, tilt1min,tilt1max,tilt1Vary);
       if (!singleSpin){
-        LALInferenceRegisterUniformVariableREAL8(state, model->params, "tilt_spin2", 0.0, tilt2min,tilt2max,tilt2Vary);
-        LALInferenceRegisterUniformVariableREAL8(state, model->params, "phi12", 0.0, phi12min,phi12max,phi12Vary);
+        if (!spinOrbitResonance){
+          LALInferenceRegisterUniformVariableREAL8(state, model->params, "tilt_spin2", 0.0, tilt2min,tilt2max,tilt2Vary);
+          LALInferenceRegisterUniformVariableREAL8(state, model->params, "phi12", 0.0, phi12min,phi12max,phi12Vary);
+        }
+        else{
+          // Spin-orbit resonance
+          LALInferenceAddVariable(model->params, "SOR_FLAG", &spinOrbitResonance, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
+          LALInferenceAddVariable(model->params, "phi12", &spinOrbitResonancePhi12, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_OUTPUT);
+        }
       }
     }
   }
@@ -1844,6 +1850,8 @@ void LALInferenceInitSpinVariables(LALInferenceRunState *state, LALInferenceMode
       fprintf(stdout,"Templates will run with precessing spin 1 \n");
     if (!spinAligned && !singleSpin)
       fprintf(stdout,"Templates will run with precessing spins \n");
+    if (spinOrbitResonance)
+      fprintf(stdout,"Spin-orbit resonance condition with phi12 = %f will be forced.\n", spinOrbitResonancePhi12);
   }
 }
 

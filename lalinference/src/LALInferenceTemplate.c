@@ -726,27 +726,23 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
       phiJL = LALInferenceGetREAL8Variable(model->params, "phi_jl");
   if(LALInferenceCheckVariable(model->params, "tilt_spin1"))
       tilt1 = LALInferenceGetREAL8Variable(model->params, "tilt_spin1");
-  if(LALInferenceCheckVariable(model->params, "tilt_spin2"))
+  if(LALInferenceCheckVariable(model->params, "SOR_FLAG"))
   {
-      if(!(LALInferenceCheckVariable(model->params, "SpinOrbitResonance")))
-          tilt2 = LALInferenceGetREAL8Variable(model->params, "tilt_spin2");
-      else
-      {
-          REAL8 (*SORFunction)(REAL8, void *);
-          REAL8 tilt2_min = 0.0;
-          REAL8 tilt2_max = LAL_PI;
-          REAL8 tilt2_acc = 1.0e-12;
-          SORFunction = SORFUNC;
-          tilt2 = XLALDBisectionFindRoot(SORFunction, tilt2_min, tilt2_max, tilt2_acc, model);
-      }
+      // Spin-orbit resonance
+      REAL8 (*SORFunction)(REAL8, void *);
+      REAL8 tilt2_min = 0.0;
+      REAL8 tilt2_max = LAL_PI;
+      REAL8 tilt2_acc = 1.0e-12;
+      SORFunction = SORFUNC;
+      tilt2 = XLALDBisectionFindRoot(SORFunction, tilt2_min, tilt2_max, tilt2_acc, model);
+      if(LALInferenceCheckVariable(model->params, "tilt_spin2"))
+          LALInferenceRemoveVariable(model->params,"tilt_spin2");
+      LALInferenceAddVariable(model->params, "tilt_spin2", &tilt2, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_OUTPUT);
   }
+  else if(LALInferenceCheckVariable(model->params, "tilt_spin2"))
+      tilt2 = LALInferenceGetREAL8Variable(model->params, "tilt_spin2");
   if(LALInferenceCheckVariable(model->params, "phi12"))
-  {
-      if(!(LALInferenceCheckVariable(model->params, "SpinOrbitResonance")))
-          phi12 = LALInferenceGetREAL8Variable(model->params, "phi12");
-      else
-          phi12 = LALInferenceGetREAL8Variable(model->params, "SpinOrbitResonancePhi12");
-  }
+      phi12 = LALInferenceGetREAL8Variable(model->params, "phi12");
 
   /* If we have tilt angles zero, then the spins are aligned and we just set the z component */
   /* However, if the waveform supports precession then we still need to get the right coordinate components */
@@ -2017,8 +2013,7 @@ static REAL8 SORFUNC (REAL8 x, void *params)
   REAL8 Ly = 0.0;
   REAL8 Lz = (eta/sqrt(xx))*(1+xx*(1.5 + eta/6.));
 
-  REAL8 phi12 = LALInferenceGetREAL8Variable(parameters->params, "SpinOrbitResonancePhi12");
-  fprintf(stderr, "phi12 = %f\n", phi12);
+  REAL8 phi12 = LALInferenceGetREAL8Variable(parameters->params, "phi12");
 
   /* In lalsimulation convention, phi12 is defined such that Spin1 is in XZ plane, with L||Z. This means, phi1=0 */
   /* unit spin vectors */

@@ -54,7 +54,6 @@ void LALInferenceInitCBCPrior(LALInferenceRunState *runState)
     ----------------------------------------------\n\
     --- Prior Arguments --------------------------\n\
     ----------------------------------------------\n\
-    (--spin-orbit-resonance-phi12)    Imposes spin orbit resonance and sets locking angle phi12 (allowed values are 0 and 180) \n\
     (--distance-prior-uniform)       Impose uniform prior on distance and not volume (False)\n\
     (--malmquistprior)               Impose selection effects on the prior (False)\n\
     (--malmquist-loudest-snr)        Threshold SNR in the loudest detector (0.0)\n\
@@ -87,24 +86,6 @@ void LALInferenceInitCBCPrior(LALInferenceRunState *runState)
         runState->prior = &LALInferenceInspiralPrior;
         runState->CubeToPrior = &LALInferenceInspiralCubeToPrior;
 
-    }
-
-    /* Spin-orbit resonance */
-    INT4 spin_orbit_resonance = 0; // Spin-orbit resonance flag
-    if (LALInferenceGetProcParamVal(commandLine, "--spin-orbit-resonance-phi12")) {
-      spin_orbit_resonance = 1;
-      REAL8 spin_orbit_resonance_phi12 = 0; // Spin-orbit resonance locking angle phi12
-      ppt = LALInferenceGetProcParamVal(commandLine, "--spin-orbit-resonance-phi12");
-      // FIXME Need to raise error if values other than 0 or 180 are passed
-      if (ppt) spin_orbit_resonance_phi12 = atof(ppt->value)*LAL_PI/180;
-      LALInferenceAddVariable(runState->priorArgs,
-                                  "spin_orbit_resonance", &spin_orbit_resonance,
-                                  LALINFERENCE_INT4_t,
-                                  LALINFERENCE_PARAM_OUTPUT);
-      LALInferenceAddVariable(runState->priorArgs,
-                                  "spin_orbit_resonance_phi12", &spin_orbit_resonance_phi12,
-                                  LALINFERENCE_REAL8_t,
-                                  LALINFERENCE_PARAM_OUTPUT);
     }
 
     /* Optional uniform prior on distance */
@@ -494,9 +475,7 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
     LALInferenceParamVaryType vtype=LALInferenceGetVariableVaryType(params,"tilt_spin2");
     if(vtype!=LALINFERENCE_PARAM_FIXED && vtype!=LALINFERENCE_PARAM_OUTPUT)
     {
-      // Do not impose prior on tilt_spin2 if system is under spin-orbit resonance
-      if (!(LALInferenceCheckVariable(priorParams,"spin_orbit_resonance")))
-        logPrior+=log(fabs(sin(*(REAL8 *)LALInferenceGetVariable(params,"tilt_spin2"))));
+      logPrior+=log(fabs(sin(*(REAL8 *)LALInferenceGetVariable(params,"tilt_spin2"))));
     }
   }
 
