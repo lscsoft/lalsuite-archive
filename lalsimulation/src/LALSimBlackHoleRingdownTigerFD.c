@@ -93,7 +93,6 @@ int XLALSimBlackHoleRingdownTigerFD(
 		f_max = fEnd;
 	n = (size_t) (f_max / deltaF + 1);
 	jStart = (size_t) ceil(fStart / deltaF);
-	XLALGPSAdd(&tC, -1 / deltaF);  /* coalesce at t=0 */
 
 	*hptilde = XLALCreateCOMPLEX16FrequencySeries("hptilde: FD waveform", &tC, 0.0, deltaF, &lalStrainUnit, n);
 	if (!(*hptilde)) XLAL_ERROR(XLAL_EFUNC);
@@ -267,7 +266,6 @@ int XLALSimBlackHoleRingdownModeTigerFD(
 
 	n = (size_t)(f_max/deltaF + 1);
 	shift = LAL_TWOPI*(tC.gpsSeconds + 1e-9 * tC.gpsNanoSeconds);
-	XLALGPSAdd(&tC, -1 / deltaF);  /*coalesce at t=0*/
 	
 	*hptilde_lm = XLALCreateCOMPLEX16FrequencySeries("hptilde_lm: FD waveform", &tC, 0.0, deltaF, &lalStrainUnit, n);
 	if (!(*hptilde_lm)) XLAL_ERROR(XLAL_EFUNC);
