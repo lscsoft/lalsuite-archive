@@ -594,7 +594,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
     char **timeslides=NULL;
     UINT4 Ntimeslides=0;
     LIGOTimeGPS GPSstart,GPStrig,segStart;
-    REAL8 PSDdatalength=0;
+    REAL8 PSDdatalength=0, offset=0.;
     REAL8 AIGOang=0.0; //orientation angle for the proposed Australian detector.
     procparam=LALInferenceGetProcParamVal(commandLine,"--aigoang");
     if(!procparam) procparam=LALInferenceGetProcParamVal(commandLine,"--AIGOang");
@@ -759,6 +759,26 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
         fprintf(stderr,"Unknown interferometer %s. Valid codes: H1 H2 L1 V1 GEO A1 K1 I1 E1 E2 E3 HM1 HM2 EM1 EM2\n",IFOnames[i]); exit(-1);
     }
 
+    if(!(ppt=LALInferenceGetProcParamVal(commandLine,"--segment-start")))
+    {
+        /* Trigger time = 2 seconds before end of segment (was 1 second, but Common Inputs for The Events are -6 +2*/
+        memcpy(&segStart,&GPStrig,sizeof(LIGOTimeGPS));
+        offset=SegmentLength-2.;
+	fprintf(stdout, "The segment starts %f seconds before the trigger time.\n",offset);
+        /* If we are using a burst approximant, put at the center */
+        if ((ppt=LALInferenceGetProcParamVal(commandLine,"--approx"))){
+          if (XLALCheckBurstApproximantFromString(ppt->value)) offset=SegmentLength/2.;
+        }
+        XLALGPSAdd(&segStart,-offset);
+    }
+    else
+    {
+        /* Segment starts at given time */
+        REAL8 segstartR8 = atof(ppt->value);
+	offset = GPStrig.gpsSeconds + 1e-9*GPStrig.gpsNanoSeconds;
+        XLALGPSSetREAL8(&segStart,segstartR8);
+    }
+
     /* Set up FFT structures and window */
     for (i=0;i<Nifo;i++){
         /* Create FFT plans (flag 1 to measure performance) */
@@ -770,37 +790,62 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
         if(!IFOdata[i].margFFTPlan) XLAL_ERROR_NULL(XLAL_ENOMEM);
         /* Setup windows */
         ppt=LALInferenceGetProcParamVal(commandLine,"--padding");
-        if (ppt){
+        if (ppt&&!(LALInferenceGetProcParamVal(commandLine,"--cut-waveform-lt")||LALInferenceGetProcParamVal(commandLine,"--cut-waveform-l"))){
             padding=atof(ppt->value);
+	    IFOdata[i].padding=padding;
+	    IFOdata[i].window=XLALCreateTukeyREAL8Window(seglen,(REAL8)2.0*padding*SampleRate/(REAL8)seglen);
+	    if(!IFOdata[i].window) XLAL_ERROR_NULL(XLAL_EFUNC);
+
             fprintf(stdout,"Using %lf seconds of padding for IFO %s \n",padding, IFOdata[i].name);
         }
+	else if(LALInferenceGetProcParamVal(commandLine,"--cut-waveform-lt")||LALInferenceGetProcParamVal(commandLine,"--cut-waveform-l")){
+	    if(ppt){
+	    padding=atof(ppt->value);
+	    IFOdata[i].padding=padding;}
+	    else{
+	    IFOdata[i].padding=padding;}
+	    fprintf(stdout, "Offset is set to be %f.\n", offset);
+	    if(LALInferenceGetProcParamVal(commandLine,"--cut-waveform-l")){
+	    if(LALInferenceGetProcParamVal(commandLine,"--default-psd")){
+	    padding=0.;
+	    IFOdata[i].padding=padding;
+	    IFOdata[i].window=XLALCreateTukeyREAL8Window(seglen,(REAL8)2.0*padding*SampleRate/(REAL8)seglen);
+	    fprintf(stdout,"Using step window (padding = %lf) for IFO %s (for Lionel's waveform) and default window for psd \n", padding, IFOdata[i].name);}
+
+	    else{
+	    IFOdata[i].window=XLALCreateLionelREAL8Window(seglen, (REAL8)offset*SampleRate);
+	    padding=0.0;
+	    IFOdata[i].padding=padding;
+            fprintf(stdout,"Using step window (padding = %lf) for IFO %s (for Lionel's waveform) \n", padding, IFOdata[i].name);}
+	    }
+	    if(LALInferenceGetProcParamVal(commandLine,"--cut-waveform-lt")){
+
+	    if(LALInferenceGetProcParamVal(commandLine,"--default-psd")){
+	    IFOdata[i].padding=padding;
+	    IFOdata[i].window=XLALCreateTukeyREAL8Window(seglen,(REAL8)2.0*padding*SampleRate/(REAL8)seglen);
+	    fprintf(stdout,"Using step-Tukey window (padding = %lf) for IFO %s (for Lionel's waveform) and default window for psd \n", padding, IFOdata[i].name);}
+
+	    else{
+	    IFOdata[i].window=XLALCreateLionelTukeyREAL8Window(seglen, (REAL8)offset*SampleRate, (REAL8)2.0*padding*SampleRate);
+	    fprintf(stdout,"Using step-Tukey window (padding = %lf) for IFO %s (for Lionel's waveform) \n", padding, IFOdata[i].name);}
+	    }
+
+	    if(!IFOdata[i].window) XLAL_ERROR_NULL(XLAL_EFUNC);
+
+	}
+        else if (!ppt&&!(LALInferenceGetProcParamVal(commandLine,"--cut-waveform-l"))&&!(LALInferenceGetProcParamVal(commandLine,"--cut-waveform-lt"))){
+	    IFOdata[i].padding=padding;
+	    IFOdata[i].window=XLALCreateTukeyREAL8Window(seglen,(REAL8)2.0*padding*SampleRate/(REAL8)seglen);
+	    if(!IFOdata[i].window) XLAL_ERROR_NULL(XLAL_EFUNC);
+
+            fprintf(stdout,"Using %lf seconds of padding for IFO %s (default)\n",padding, IFOdata[i].name);
+        }
+
         if ((REAL8)2.0*padding*SampleRate/(REAL8)seglen <0.0 ||(REAL8)2.0*padding*SampleRate/(REAL8)seglen >1 ){
             fprintf(stderr,"Padding is negative or 2*padding is bigger than the whole segment. Consider reducing it using --padding or increase --seglen. Exiting\n");
             exit(1);
         }
-        IFOdata[i].padding=padding;
-        IFOdata[i].window=XLALCreateTukeyREAL8Window(seglen,(REAL8)2.0*padding*SampleRate/(REAL8)seglen);
-        if(!IFOdata[i].window) XLAL_ERROR_NULL(XLAL_EFUNC);
-    }
-
-    if(!(ppt=LALInferenceGetProcParamVal(commandLine,"--segment-start")))
-    {
-        /* Trigger time = 2 seconds before end of segment (was 1 second, but Common Inputs for The Events are -6 +2*/
-        memcpy(&segStart,&GPStrig,sizeof(LIGOTimeGPS));
-        REAL8 offset=SegmentLength-2.;
-        /* If we are using a burst approximant, put at the center */
-        if ((ppt=LALInferenceGetProcParamVal(commandLine,"--approx"))){
-          if (XLALCheckBurstApproximantFromString(ppt->value)) offset=SegmentLength/2.;
-        }
-        XLALGPSAdd(&segStart,-offset);
-    }
-    else
-    {
-        /* Segment starts at given time */
-        REAL8 segstartR8 = atof(ppt->value);
-        XLALGPSSetREAL8(&segStart,segstartR8);
-    }
-
+	}
 
     /* Read the PSD data */
     for(i=0;i<Nifo;i++) {

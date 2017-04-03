@@ -23,6 +23,7 @@
 
 #include <complex.h>
 #include <assert.h>
+#include <lal/LALInferenceReadData.h>
 #include <lal/LALInferenceLikelihood.h>
 #include <lal/LALInferencePrior.h>
 #include <lal/LALInference.h>
@@ -33,6 +34,7 @@
 #include <lal/Sequence.h>
 #include <lal/FrequencySeries.h>
 #include <lal/TimeFreqFFT.h>
+#include <lal/VectorOps.h>
 
 #include <gsl/gsl_sf_bessel.h>
 #include <gsl/gsl_sf_dawson.h>
@@ -340,7 +342,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
   double GPSdouble=0.0, t0=0.0;
   LIGOTimeGPS GPSlal;
   double chisquared;
-  double timedelay;  /* time delay b/w iterferometer & geocenter w.r.t. sky location */
+  double timedelay=0;  /* time delay b/w iterferometer & geocenter w.r.t. sky location */
   double timeshift=0;  /* time shift (not necessarily same as above)                   */
   double deltaT, TwoDeltaToverN, deltaF, twopit=0.0, re, im, dre, dim, newRe, newIm;
   double timeTmp;
@@ -364,7 +366,9 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 
   /* ROQ likelihood stuff */
   REAL8 d_inner_h=0.0;
-
+  REAL8 cuttime = 0.0;
+  REAL8 d_stime = 0.0;
+  REAL8 cuttime_i = 0.0;
 
   if (LALInferenceCheckVariable(currentParams, "spcal_active") && (*(UINT4 *)LALInferenceGetVariable(currentParams, "spcal_active"))) {
     spcal_active = 1;
@@ -826,6 +830,62 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
     }
 
     else{
+
+	cuttime = GPSdouble + timedelay;
+/*	fprintf(stdout, "The gsptime is %f\n", GPSdouble);
+	fprintf(stdout, "The timedelay is %f\n", timedelay);*/
+	d_stime = (REAL8)(dataPtr->timeData->epoch.gpsSeconds+1e-9*dataPtr->timeData->epoch.gpsNanoSeconds);
+	cuttime_i = (cuttime-d_stime)/(REAL8)dataPtr->timeData->deltaT;
+
+	if(LALInferenceCheckVariable(currentParams, "cut_waveform_lt")||LALInferenceCheckVariable(currentParams, "cut_waveform_l")){
+
+	/*Destroy and recreate the window*/
+	XLALDestroyREAL8Window(dataPtr->window);
+
+	if(LALInferenceCheckVariable(currentParams, "cut_waveform_lt")){
+	dataPtr->window=XLALCreateLionelTukeyREAL8Window(dataPtr->timeData->data->length, cuttime_i, (REAL8)2.0*dataPtr->padding/(REAL8)dataPtr->timeData->deltaT);
+	}
+
+	if(LALInferenceCheckVariable(currentParams, "cut_waveform_l")){
+	dataPtr->window=XLALCreateLionelREAL8Window(dataPtr->timeData->data->length, cuttime_i);
+        }
+
+	XLALDDVectorMultiply(dataPtr->windowedTimeData->data,dataPtr->timeData->data,dataPtr->window->data);
+	XLALREAL8TimeFreqFFT(dataPtr->freqData,dataPtr->windowedTimeData,dataPtr->timeToFreqFFTPlan);
+	UINT4 l = 0;
+	for(l=0;l< (UINT4) dataPtr->freqData->data->length;l++){
+	dataPtr->freqData->data->data[l] /= sqrt(dataPtr->window->sumofsquares / dataPtr->window->data->length);
+	dataPtr->windowedTimeData->data->data[l] /= sqrt(dataPtr->window->sumofsquares / dataPtr->window->data->length);
+	}
+	/*print the dat to check*/
+//	FILE *uncutfile;
+//	FILE *cutfile;
+//	int m;
+//
+//	fprintf(stdout, "The cuttine is %f\n", cuttime);
+//
+//	uncutfile = fopen("/home/tsun-ho.pang/uncut_TD_data.dat", "w");
+//	cutfile   = fopen("/home/tsun-ho.pang/cut_TD_data.dat", "w");
+//
+//	REAL8 t0_uc = dataPtr->timeData->epoch.gpsSeconds+1e-9*dataPtr->timeData->epoch.gpsNanoSeconds;
+//	REAL8 t0_c = dataPtr->windowedTimeData->epoch.gpsSeconds+1e-9*dataPtr->windowedTimeData->epoch.gpsNanoSeconds;
+//
+//	for(m=0;m< (int)dataPtr->timeData->data->length; m++){
+//	REAL8 t_series_uc = t0_uc + (REAL8) m*dataPtr->timeData->deltaT;
+//	REAL8 strain_uc   = dataPtr->timeData->data->data[m];
+//	REAL8 t_series_c  = t0_c  + (REAL8) m*dataPtr->windowedTimeData->deltaT; 
+//	REAL8 strain_c    = dataPtr->windowedTimeData->data->data[m];
+//
+//	fprintf(uncutfile, "%f %.10e\n", t_series_uc, strain_uc);
+//	fprintf(cutfile, "%f %.10e\n", t_series_c, strain_c);
+//	}
+//	fclose(uncutfile);
+//	fclose(cutfile);
+//	XLALFree(uncutfile);
+//	XLALFree(cutfile);
+//	exit(1);
+	/*end of printing*/
+	}
 
     	REAL8 *psd=&(dataPtr->oneSidedNoisePowerSpectrum->data->data[lower]);
     COMPLEX16 *dtilde=&(dataPtr->freqData->data->data[lower]);
