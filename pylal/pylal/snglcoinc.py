@@ -1,4 +1,4 @@
-# Copyright (C) 2006--2016  Kipp Cannon, Drew G. Keppel, Jolien Creighton
+# Copyright (C) 2006--2017  Kipp Cannon, Drew G. Keppel, Jolien Creighton
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -288,14 +288,6 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 	eventlista, eventlistb = [eventlists[instrument] for instrument in instruments]
 	assert (eventlista.instrument, eventlistb.instrument) == instruments, "internal consistency failure:  EventList instruments do not match EventListDict keys"
 
-	# extract the thresholds and pre-compute the light travel time
-
-	try:
-		threshold_data = thresholds[(eventlista.instrument, eventlistb.instrument)]
-	except KeyError as e:
-		raise KeyError("no coincidence thresholds provided for instrument pair %s, %s" % e.args[0])
-	dt = light_travel_time(eventlista.instrument, eventlistb.instrument)
-
 	# choose the shorter of the two lists for the outer loop
 
 	if len(eventlistb) < len(eventlista):
@@ -303,6 +295,16 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 		unswap = lambda a, b: (b, a)
 	else:
 		unswap = lambda a, b: (a, b)
+
+	# extract the thresholds and pre-compute the light travel time.
+	# need to do this after swapping the event lists (if they need to
+	# be swapped).
+
+	try:
+		threshold_data = thresholds[(eventlista.instrument, eventlistb.instrument)]
+	except KeyError as e:
+		raise KeyError("no coincidence thresholds provided for instrument pair %s, %s" % e.args[0])
+	dt = light_travel_time(eventlista.instrument, eventlistb.instrument)
 
 	# for each event in the shortest list iterate over events from the
 	# other list that are coincident with the event, and return the
