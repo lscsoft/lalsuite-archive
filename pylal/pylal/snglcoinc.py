@@ -120,8 +120,10 @@ class EventList(list):
 
 	def get_coincs(self, event_a, offset_a, light_travel_time, threshold, comparefunc):
 		"""
-		Return a list of the events from this list that are
-		coincident with event_a.
+		Return a sequence of the events from this list that are
+		coincident with event_a.  The object returned must support
+		being passed to bool() to determine if the sequence is
+		empty.
 
 		offset_a is the time shift to be added to the time of
 		event_a before comparing to the times of events in this
@@ -232,13 +234,15 @@ def light_travel_time(instrument1, instrument2):
 	return math.sqrt((dx * dx).sum()) / lal.C_SI
 
 
-def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = False):
+def get_doubles(eventlists, comparefunc, instruments, thresholds, unused, verbose = False):
 	"""
 	Given an instance of an EventListDict, an event comparison
 	function, an iterable (e.g., a list) of instruments, and a
 	dictionary mapping instrument pair to threshold data for use by the
 	event comparison function, generate a sequence of tuples of
-	mutually coincident event IDs.
+	mutually coincident event IDs, and populate a set (unused) of
+	1-element tuples of the event IDs that did not participate in
+	coincidences.
 
 	The signature of the comparison function is
 
@@ -278,6 +282,10 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 	NOTE:  the instruments sequence must contain exactly two
 	instruments.
 
+	NOTE:  the "unused" parameter passed to this function must be a set
+	or set-like object.  It will be cleared by invoking .clear(), then
+	populated by invoking .update(), .add(), and .remove().
+
 	NOTE:  the order of the event IDs in each tuple returned by this
 	function matches the order of the instruments sequence.
 	"""
@@ -306,15 +314,28 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 		raise KeyError("no coincidence thresholds provided for instrument pair %s, %s" % e.args[0])
 	dt = light_travel_time(eventlista.instrument, eventlistb.instrument)
 
-	# for each event in the shortest list iterate over events from the
-	# other list that are coincident with the event, and return the
-	# pairs
+	# populate the unused set with all event IDs from list B
+
+	unused.clear()
+	unused.update((event.event_id,) for event in eventlistb)
+
+	# for each event in list A, iterate over events from the other list
+	# that are coincident with the event, and return the pairs.  if
+	# nothing is coincident with it add its ID to the set of unused
+	# IDs, otherwise remove the IDs of the things that are coincident
+	# with it from the set.
 
 	progressbar = ProgressBar(text = "searching", max = len(eventlista)) if verbose else None
 	for eventa in eventlista:
 		eventa_id = eventa.event_id
-		for eventb in eventlistb.get_coincs(eventa, eventlista.offset, dt, threshold_data, comparefunc):
-			yield unswap(eventa_id, eventb.event_id)
+		matches = eventlistb.get_coincs(eventa, eventlista.offset, dt, threshold_data, comparefunc)
+		if matches:
+			for eventb in matches:
+				eventb_id = eventb.event_id
+				unused.discard((eventb_id,))
+				yield unswap(eventa_id, eventb_id)
+		else:
+			unused.add((eventa_id,))
 		if progressbar is not None:
 			progressbar.increment()
 	del progressbar
@@ -386,9 +407,8 @@ class TimeSlideGraphNode(object):
 			# which we make be alphabetical
 			#
 
-			self.coincs = tuple(sorted(get_doubles(eventlists, event_comparefunc, sorted(self.offset_vector), thresholds, verbose = verbose)))
-			self.unused_coincs = set((event.event_id,) for instrument in self.offset_vector for event in eventlists[instrument])
-			self.unused_coincs -= set((event_id,) for coinc in self.coincs for event_id in coinc)
+			self.unused_coincs = set()
+			self.coincs = tuple(sorted(get_doubles(eventlists, event_comparefunc, sorted(self.offset_vector), thresholds, self.unused_coincs, verbose = verbose)))
 			return self.coincs
 
 		#
