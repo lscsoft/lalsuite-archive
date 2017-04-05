@@ -12,12 +12,6 @@ glue (1.53.0-1) unstable; urgency=low
 
  -- Ryan Fisher <ryan.fisher@ligo.org>  Wed, 19 Oct 2016 16:14:00 -0500
 
-glue (1.52.0.1-1) UNRELEASED; urgency=medium
-
-  * Back to development
-
- -- Leo Singer <leo.singer@ligo.org>  Thu, 13 Oct 2016 17:53:08 -0400
-
 glue (1.52.0-1) unstable; urgency=low
 
   * ER10 release of glue.

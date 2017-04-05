@@ -1,4 +1,4 @@
-# Copyright (C) 2008--2015  Kipp Cannon, Drew G. Keppel
+# Copyright (C) 2008--2017  Kipp Cannon, Drew G. Keppel
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -24,7 +24,7 @@
 #
 
 
-import bisect
+from bisect import bisect_left, bisect_right
 import itertools
 import math
 import sys
@@ -68,6 +68,25 @@ class SnglInspiral(lsctables.SnglInspiral):
 		# other.  allows bisection searches by GPS time to find
 		# ranges of triggers quickly
 		return cmp(self.end, other)
+
+	#
+	# simulate mtotal, eta, and mchirp from mass1 and mass2.  this (a)
+	# works around documents that have incorrect values in those three
+	# columns (yes, yes people do that) and (b) allows us to process
+	# documents that don't have the columns at all
+	#
+
+	@property
+	def mtotal(self):
+		return self.mass1 + self.mass2
+
+	@property
+	def eta(self):
+		return self.mass1 * self.mass2 / self.mtotal**2.
+
+	@property
+	def mchirp(self):
+		return self.mtotal * self.eta**0.6
 
 
 #
@@ -262,10 +281,12 @@ class InspiralEventList(snglcoinc.EventList):
 
 	def get_coincs(self, event_a, offset_a, light_travel_time, threshold, comparefunc):
 		#
-		# event_a's end time, with time shift applied
+		# event_a's end time with offsets applied for to be respect
+		# to end times in this list
 		#
 
-		end = event_a.end + offset_a - self.offset
+		offset_b = self.offset
+		end = event_a.end + offset_a - offset_b
 
 		#
 		# extract the subset of events from this list that pass
@@ -274,7 +295,7 @@ class InspiralEventList(snglcoinc.EventList):
 		# a subset of the full list)
 		#
 
-		return [event_b for event_b in self[bisect.bisect_left(self, end - self.dt) : bisect.bisect_right(self, end + self.dt)] if not comparefunc(event_a, offset_a, event_b, self.offset, light_travel_time, threshold)]
+		return [event_b for event_b in self[bisect_left(self, end - self.dt) : bisect_right(self, end + self.dt)] if not comparefunc(event_a, offset_a, event_b, offset_b, light_travel_time, threshold)]
 
 
 #

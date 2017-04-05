@@ -1,4 +1,4 @@
-# Copyright (C) 2006--2016  Kipp Cannon, Drew G. Keppel, Jolien Creighton
+# Copyright (C) 2006--2017  Kipp Cannon, Drew G. Keppel, Jolien Creighton
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -30,7 +30,7 @@ Light Weight XML documents.
 """
 
 
-import bisect
+from bisect import bisect_left
 try:
 	from fpconst import NaN, NegInf, PosInf
 except ImportError:
@@ -120,8 +120,10 @@ class EventList(list):
 
 	def get_coincs(self, event_a, offset_a, light_travel_time, threshold, comparefunc):
 		"""
-		Return a list of the events from this list that are
-		coincident with event_a.
+		Return a sequence of the events from this list that are
+		coincident with event_a.  The object returned must support
+		being passed to bool() to determine if the sequence is
+		empty.
 
 		offset_a is the time shift to be added to the time of
 		event_a before comparing to the times of events in this
@@ -232,15 +234,17 @@ def light_travel_time(instrument1, instrument2):
 	return math.sqrt((dx * dx).sum()) / lal.C_SI
 
 
-def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = False):
+def get_doubles(eventlists, comparefunc, instruments, thresholds, unused, verbose = False):
 	"""
 	Given an instance of an EventListDict, an event comparison
 	function, an iterable (e.g., a list) of instruments, and a
 	dictionary mapping instrument pair to threshold data for use by the
 	event comparison function, generate a sequence of tuples of
-	mutually coincident events.
+	mutually coincident event IDs, and populate a set (unused) of
+	1-element tuples of the event IDs that did not participate in
+	coincidences.
 
-	The signature of the comparison function should be
+	The signature of the comparison function is
 
 	comparefunc(event1, offset1, event2, offset2, light_travel_time, threshold_data)
 
@@ -269,32 +273,40 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 	orders.
 
 	Each tuple returned by this generator will contain exactly two
-	events, one from each of the two instruments in the instruments
+	event IDs, one from each of the two instruments in the instruments
 	sequence.
+
+	NOTE:  the event objects must each have a .event_id attribute
+	providing the ID to return.
 
 	NOTE:  the instruments sequence must contain exactly two
 	instruments.
 
-	NOTE:  the order of the events in each tuple returned by this
-	function is arbitrary, in particular it does not necessarily match
-	the order of the instruments sequence.
+	NOTE:  the "unused" parameter passed to this function must be a set
+	or set-like object.  It will be cleared by invoking .clear(), then
+	populated by invoking .update(), .add(), and .remove().
+
+	NOTE:  the order of the event IDs in each tuple returned by this
+	function matches the order of the instruments sequence.
 	"""
 	# retrieve the event lists for the requested instrument combination
 
 	instruments = tuple(instruments)
-	assert len(instruments) == 2
-	for instrument in instruments:
-		assert eventlists[instrument].instrument == instrument
+	assert len(instruments) == 2, "instruments must be an iterable of exactly two names, not %d" % len(instruments)
 	eventlista, eventlistb = [eventlists[instrument] for instrument in instruments]
+	assert (eventlista.instrument, eventlistb.instrument) == instruments, "internal consistency failure:  EventList instruments do not match EventListDict keys"
 
-	# insure eventlist a is the shorter of the two event lists;  record
-	# the length of the shortest
+	# choose the shorter of the two lists for the outer loop
 
-	if len(eventlista) > len(eventlistb):
+	if len(eventlistb) < len(eventlista):
 		eventlista, eventlistb = eventlistb, eventlista
-	length = len(eventlista)
+		unswap = lambda a, b: (b, a)
+	else:
+		unswap = lambda a, b: (a, b)
 
-	# extract the thresholds and pre-compute the light travel time
+	# extract the thresholds and pre-compute the light travel time.
+	# need to do this after swapping the event lists (if they need to
+	# be swapped).
 
 	try:
 		threshold_data = thresholds[(eventlista.instrument, eventlistb.instrument)]
@@ -302,19 +314,31 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 		raise KeyError("no coincidence thresholds provided for instrument pair %s, %s" % e.args[0])
 	dt = light_travel_time(eventlista.instrument, eventlistb.instrument)
 
-	# for each event in the shortest list
+	# populate the unused set with all event IDs from list B
 
-	for n, eventa in enumerate(eventlista):
-		if verbose and not (n % 2000):
-			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / length),
+	unused.clear()
+	unused.update((event.event_id,) for event in eventlistb)
 
-		# iterate over events from the other list that are
-		# coincident with the event, and return the pairs
+	# for each event in list A, iterate over events from the other list
+	# that are coincident with the event, and return the pairs.  if
+	# nothing is coincident with it add its ID to the set of unused
+	# IDs, otherwise remove the IDs of the things that are coincident
+	# with it from the set.
 
-		for eventb in eventlistb.get_coincs(eventa, eventlista.offset, dt, threshold_data, comparefunc):
-			yield (eventa, eventb)
-	if verbose:
-		print >>sys.stderr, "\t100.0%"
+	progressbar = ProgressBar(text = "searching", max = len(eventlista)) if verbose else None
+	for eventa in eventlista:
+		eventa_id = eventa.event_id
+		matches = eventlistb.get_coincs(eventa, eventlista.offset, dt, threshold_data, comparefunc)
+		if matches:
+			for eventb in matches:
+				eventb_id = eventb.event_id
+				unused.discard((eventb_id,))
+				yield unswap(eventa_id, eventb_id)
+		else:
+			unused.add((eventa_id,))
+		if progressbar is not None:
+			progressbar.increment()
+	del progressbar
 
 	# done
 
@@ -371,28 +395,20 @@ class TimeSlideGraphNode(object):
 			# apply offsets to events
 			#
 
-			if verbose:
-				print >>sys.stderr, "\tapplying offsets ..."
 			eventlists.offsetvector = self.offset_vector
 
 			#
 			# search for and record coincidences.  coincs is a
 			# sorted tuple of event ID pairs, where each pair
 			# of IDs is, itself, ordered alphabetically by
-			# instrument name
+			# instrument name.  note that the event order in
+			# each tuple returned by get_doubles() is set by
+			# the order of the instrument names passed to it,
+			# which we make be alphabetical
 			#
 
-			if verbose:
-				print >>sys.stderr, "\tsearching ..."
-			# FIXME:  assumes the instrument column is named
-			# "ifo".  works for inspirals, bursts, and
-			# ring-downs.  note that the event order in each
-			# tuple returned by get_doubles() is arbitrary so
-			# we need to sort each tuple by instrument name
-			# explicitly
-			self.unused_coincs = set((event.event_id,) for instrument in self.offset_vector for event in eventlists[instrument])
-			self.coincs = tuple(sorted((a.event_id, b.event_id) if a.ifo <= b.ifo else (b.event_id, a.event_id) for (a, b) in get_doubles(eventlists, event_comparefunc, tuple(self.offset_vector), thresholds, verbose = verbose)))
-			self.unused_coincs -= set((event_id,) for coinc in self.coincs for event_id in coinc)
+			self.unused_coincs = set()
+			self.coincs = tuple(sorted(get_doubles(eventlists, event_comparefunc, sorted(self.offset_vector), thresholds, self.unused_coincs, verbose = verbose)))
 			return self.coincs
 
 		#
@@ -402,7 +418,7 @@ class TimeSlideGraphNode(object):
 
 		if len(self.components) == 1:
 			if verbose:
-				print >>sys.stderr, "\tgetting coincs from %s ..." % str(self.components[0].offset_vector)
+				print >>sys.stderr, "\tcopying from %s ..." % str(self.components[0].offset_vector)
 			self.coincs = self.components[0].get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose)
 			self.unused_coincs = self.components[0].unused_coincs
 
@@ -455,10 +471,8 @@ class TimeSlideGraphNode(object):
 		allcoincs1 = self.components[1].get_coincs(eventlists, event_comparefunc, thresholds, verbose = False)
 		allcoincs2 = self.components[-1].get_coincs(eventlists, event_comparefunc, thresholds, verbose = False)
 		# for each coinc in list 0
-		length = len(allcoincs0)
-		for n, coinc0 in enumerate(allcoincs0):
-			if verbose and not (n % 200):
-				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / length),
+		progressbar = ProgressBar(text = "searching", max = len(allcoincs0)) if verbose else None
+		for coinc0 in allcoincs0:
 			# find all the coincs in list 1 whose first (n-2)
 			# event IDs are the same as the first (n-2) event
 			# IDs in coinc0.  note that they are guaranteed to
@@ -469,13 +483,13 @@ class TimeSlideGraphNode(object):
 			# things in each tuple, we need to use bisect_left
 			# after incrementing the last of the (n-2) things
 			# by one to obtain the correct range of indexes
-			coincs1 = allcoincs1[bisect.bisect_left(allcoincs1, coinc0[:-1]):bisect.bisect_left(allcoincs1, coinc0[:-2] + (coinc0[-2] + 1,))]
+			coincs1 = allcoincs1[bisect_left(allcoincs1, coinc0[:-1]):bisect_left(allcoincs1, coinc0[:-2] + (coinc0[-2] + 1,))]
 			# find all the coincs in list 2 whose first (n-2)
 			# event IDs are the same as the last (n-2) event
 			# IDs in coinc0.  note that they are guaranteed to
 			# be arranged together in the list and can be
 			# identified with two bisection searches
-			coincs2 = allcoincs2[bisect.bisect_left(allcoincs2, coinc0[1:]):bisect.bisect_left(allcoincs2, coinc0[1:-1] + (coinc0[-1] + 1,))]
+			coincs2 = allcoincs2[bisect_left(allcoincs2, coinc0[1:]):bisect_left(allcoincs2, coinc0[1:-1] + (coinc0[-1] + 1,))]
 			# for each coinc extracted from list 1 above search
 			# for a coinc extracted from list 2 above whose
 			# first (n-2) event IDs are the last (n-2) event
@@ -492,13 +506,13 @@ class TimeSlideGraphNode(object):
 			# all the other events that are in coinc 1.  if the
 			# coincidence holds then that combination of event
 			# IDs must be found in the coincs2 list, because we
-			# assume the coincs2 list is complete  the
+			# assume the coincs2 list is complete the
 			# bisection search above to extract the coincs2
 			# list could be skipped, but by starting with a
 			# shorter list the bisection searches inside the
 			# following loop are faster.
 			for coinc1 in coincs1:
-				i = bisect.bisect_left(coincs2, coinc0[1:] + coinc1[-1:])
+				i = bisect_left(coincs2, coinc0[1:] + coinc1[-1:])
 				if i < len(coincs2) and coincs2[i] == coinc0[1:] + coinc1[-1:]:
 					new_coinc = coinc0[:1] + coincs2[i]
 					# break the new coinc into
@@ -508,8 +522,9 @@ class TimeSlideGraphNode(object):
 					# record the coinc and move on
 					self.unused_coincs -= set(itertools.combinations(new_coinc, len(new_coinc) - 1))
 					self.coincs.append(new_coinc)
-		if verbose:
-			print >>sys.stderr, "\t100.0%"
+			if progressbar is not None:
+				progressbar.increment()
+		del progressbar
 		# sort the coincs we just constructed by the component
 		# event IDs and convert to a tuple for speed
 		self.coincs.sort()
@@ -1206,7 +1221,7 @@ class CoincSynthesizer(object):
 		#
 
 		while 1:	# 1 is immutable, so faster than True
-			yield P[bisect.bisect_left(P, [random.uniform(0.0, 1.0)])][1]
+			yield P[bisect_left(P, [random.uniform(0.0, 1.0)])][1]
 
 
 	def coincs(self, timefunc, allow_zero_lag = False):

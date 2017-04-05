@@ -25,7 +25,7 @@ allow users to run LSC codes on the grid.
 %package common
 Summary:	The common files needed for all sub-packages
 Group: 		Development/Libraries
-Requires: 	python 
+Requires: 	python
 %description common
 This is for the files that are common across the glue subpackages, namely git_version, iterutils and __init__.py
 
@@ -37,7 +37,7 @@ Requires:       python glue-common
 This is for the segments subpackage, written by Kipp.
 
 %prep
-%setup 
+%setup
 
 %build
 CFLAGS="%{optflags}" %{__python} setup.py build
@@ -142,25 +142,25 @@ rm -rf $RPM_BUILD_ROOT
 - New Release of glue for ER3 with updates to ligolw and lal codes.
 
 * Tue Sep 4 2012 Ryan Fisher <rpfisher@syr.edu>
-- New Release of glue with upgrades and bugfixes to segment database infrastructure. 
+- New Release of glue with upgrades and bugfixes to segment database infrastructure.
 
 * Fri May 18 2012 Ryan Fisher <rpfisher@syr.edu>
-- Bugfix release of 1.39 labelled 1.39.2.  Includes fix to ligolw for URL reading, and packaging fixes. 
+- Bugfix release of 1.39 labelled 1.39.2.  Includes fix to ligolw for URL reading, and packaging fixes.
 
 * Fri May 11 2012 Ryan Fisher <rpfisher@syr.edu>
-- Bugfix release of 1.39 labelled 1.39.1 
+- Bugfix release of 1.39 labelled 1.39.1
 
 * Thu May 10 2012 Ryan Fisher <rpfisher@syr.edu>
 - New release of glue to replace Apr 12 near-release.  This includes ligolw changes and updates for job submission over remote pools.
 
 * Thu Apr 12 2012 Ryan Fisher <rpfisher@syr.edu>
-- New release of glue with updates to ligolw library, including some bug fixes for ligowl_sqlite and ligolw_print.  
+- New release of glue with updates to ligolw library, including some bug fixes for ligowl_sqlite and ligolw_print.
 
 * Wed Nov 16 2011 Ryan Fisher <rpfisher@syr.edu>
 - New release of glue with glue-segments and glue-common split from glue, lvalerts, lars and gracedb removed.
 
 * Mon Oct 10 2011 Ryan Fisher <rpfisher@syr.edu>
-- New release of glue to fix build issues called 1.36. 
+- New release of glue to fix build issues called 1.36.
 
 * Fri Oct 7 2011 Ryan Fisher <rpfisher@syr.edu>
 - New release of glue with Kipp's fixes to ligolw_sqlite bugs, Kipp's checksums added, and Peter and my change to the coalescing script for segment databases.
