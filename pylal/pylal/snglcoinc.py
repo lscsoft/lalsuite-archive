@@ -30,7 +30,7 @@ Light Weight XML documents.
 """
 
 
-import bisect
+from bisect import bisect_left
 try:
 	from fpconst import NaN, NegInf, PosInf
 except ImportError:
@@ -483,13 +483,13 @@ class TimeSlideGraphNode(object):
 			# things in each tuple, we need to use bisect_left
 			# after incrementing the last of the (n-2) things
 			# by one to obtain the correct range of indexes
-			coincs1 = allcoincs1[bisect.bisect_left(allcoincs1, coinc0[:-1]):bisect.bisect_left(allcoincs1, coinc0[:-2] + (coinc0[-2] + 1,))]
+			coincs1 = allcoincs1[bisect_left(allcoincs1, coinc0[:-1]):bisect_left(allcoincs1, coinc0[:-2] + (coinc0[-2] + 1,))]
 			# find all the coincs in list 2 whose first (n-2)
 			# event IDs are the same as the last (n-2) event
 			# IDs in coinc0.  note that they are guaranteed to
 			# be arranged together in the list and can be
 			# identified with two bisection searches
-			coincs2 = allcoincs2[bisect.bisect_left(allcoincs2, coinc0[1:]):bisect.bisect_left(allcoincs2, coinc0[1:-1] + (coinc0[-1] + 1,))]
+			coincs2 = allcoincs2[bisect_left(allcoincs2, coinc0[1:]):bisect_left(allcoincs2, coinc0[1:-1] + (coinc0[-1] + 1,))]
 			# for each coinc extracted from list 1 above search
 			# for a coinc extracted from list 2 above whose
 			# first (n-2) event IDs are the last (n-2) event
@@ -512,7 +512,7 @@ class TimeSlideGraphNode(object):
 			# shorter list the bisection searches inside the
 			# following loop are faster.
 			for coinc1 in coincs1:
-				i = bisect.bisect_left(coincs2, coinc0[1:] + coinc1[-1:])
+				i = bisect_left(coincs2, coinc0[1:] + coinc1[-1:])
 				if i < len(coincs2) and coincs2[i] == coinc0[1:] + coinc1[-1:]:
 					new_coinc = coinc0[:1] + coincs2[i]
 					# break the new coinc into
@@ -1221,7 +1221,7 @@ class CoincSynthesizer(object):
 		#
 
 		while 1:	# 1 is immutable, so faster than True
-			yield P[bisect.bisect_left(P, [random.uniform(0.0, 1.0)])][1]
+			yield P[bisect_left(P, [random.uniform(0.0, 1.0)])][1]
 
 
 	def coincs(self, timefunc, allow_zero_lag = False):
