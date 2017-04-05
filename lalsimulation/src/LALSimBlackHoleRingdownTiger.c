@@ -10,7 +10,7 @@
 #include <lal/Units.h>
 #include <lal/SphericalHarmonics.h>
 #include <lal/LALSimInspiralTestGRParams.h>
-
+#include <lal/Window.h>
 #include <lal/LALSimBlackHoleRingdownTiger.h>
 #define EPS LAL_REAL4_EPS
 #define TINY LAL_REAL8_MIN
@@ -116,17 +116,23 @@ int XLALSimBlackHoleRingdownTiger(
   memset( (*hplus)->data->data, 0, length*sizeof(REAL8) );
   memset( (*hcross)->data->data, 0, length*sizeof(REAL8) );
   
+  /* prepare window */
+  REAL8Window *window_rd;
+  REAL8 start = 0.0; //TODO: starting time of window might be adjusted later on
+  window_rd = XLALCreatePlanckREAL8Window(length,start,length*deltaT-2.0,1.0/deltaT);
+
   /* Fill in the plus and cross polarization vectors */
   thisMode = modeList;
   COMPLEX16 hpc = 0.0;
   while (thisMode){
     for (j=0; j<thisMode->mode->data->length; j++){
       hpc = (thisMode->mode->data->data[j]);
-      (*hplus)->data->data[j] += creal(hpc); // or * prefac(thisMode->l, thisMode->m) ?
-      (*hcross)->data->data[j] -= cimag(hpc);
+      (*hplus)->data->data[j] += creal(hpc)*(window_rd->data->data)[j]; // or * prefac(thisMode->l, thisMode->m) ?
+      (*hcross)->data->data[j] -= cimag(hpc)*(window_rd->data->data)[j];
     }
     thisMode = thisMode->next;
   }
+  
   
   free(nonGRParamName);
   

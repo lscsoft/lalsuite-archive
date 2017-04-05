@@ -646,6 +646,31 @@ REAL8Window *XLALCreateGaussREAL8Window(UINT4 length, REAL8 beta)
 	return XLALCreateREAL8WindowFromSequence(sequence);
 }
 
+REAL8Window *XLALCreatePlanckREAL8Window(UINT4 length, REAL8 start, REAL8 trigtime, REAL8 SampleRate)
+{
+    REAL8Sequence *sequence;
+    sequence = XLALCreateREAL8Sequence(length);
+    UINT4 i;
+
+    /*check sequence is initialized correctly*/
+    if(!sequence)
+        XLAL_ERROR_NULL(XLAL_EFUNC);
+
+    REAL8 data_start = start;
+    REAL8 data_end = data_start+0.001; //TODO: this value is still a random choice
+
+    /*window similar to arxiv 1003.2939 but one-sided with different parametrization*/
+    for(i = 0; i< length; i++){
+        REAL8 time = trigtime+2.0-(REAL8)length/SampleRate+(REAL8)i/SampleRate;
+        if(time < data_start){sequence->data[i] = 0.0;}
+        else if(time < data_end){sequence->data[i] = 1.0/(exp((data_end-data_start)/(time-data_start)+(data_end-data_start)/(time-data_end))+1.0);}
+        else{sequence->data[i] = 1.0;}
+    }
+
+   return XLALCreateREAL8WindowFromSequence(sequence);
+
+}
+
 
 REAL8Window *XLALCreateLanczosREAL8Window(UINT4 length)
 {
