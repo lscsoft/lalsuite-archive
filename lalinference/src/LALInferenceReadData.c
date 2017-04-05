@@ -779,7 +779,26 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
             exit(1);
         }
         IFOdata[i].padding=padding;
-        IFOdata[i].window=XLALCreateTukeyREAL8Window(seglen,(REAL8)2.0*padding*SampleRate/(REAL8)seglen);
+        if(LALInferenceGetProcParamVal(commandLine, "--ringdown")){
+            fprintf(stdout,"Setting windows for ringdown\n");
+            if(i==0){
+                ppt=LALInferenceGetProcParamVal(commandLine,"--gps_time_H");
+                if(!ppt){fprintf(stderr,"need to give --gps_time_H\n"); exit(0);}
+                REAL8 window_start = atof(ppt->value);
+                REAL8 trig_time = GPStrig.gpsSeconds+1e-9*GPStrig.gpsNanoSeconds;
+                printf("Using a planck window for detector H, starting at %f\n",window_start);
+                IFOdata[i].window=XLALCreatePlanckREAL8Window(seglen,window_start,trig_time,SampleRate);
+            }
+            if(i==1){
+                ppt=LALInferenceGetProcParamVal(commandLine,"--gps_time_L");
+                if(!ppt){fprintf(stderr,"need to give --gps_time_L\n"); exit(0);}
+                REAL8 window_start = atof(ppt->value);
+                REAL8 trig_time = GPStrig.gpsSeconds+1e-9*GPStrig.gpsNanoSeconds;
+                printf("Using a planck window for detector L, starting at  %f\n",window_start);
+                IFOdata[i].window=XLALCreatePlanckREAL8Window(seglen,window_start,trig_time,SampleRate); 
+            }
+        }
+        else IFOdata[i].window=XLALCreateTukeyREAL8Window(seglen,(REAL8)2.0*padding*SampleRate/(REAL8)seglen);
         if(!IFOdata[i].window) XLAL_ERROR_NULL(XLAL_EFUNC);
     }
 
@@ -1170,10 +1189,55 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
                 IFOdata[i].windowedTimeData->data->data[j] /= sqrt(IFOdata[i].window->sumofsquares / IFOdata[i].window->data->length);
             }
 
-        XLALDestroyCache(cache); // Clean up cache
-        } /* End of data reading process */
+        /*dump the time data and the windowed time data into files to display them LAURA*/
+        if(i==0){
+            FILE *file_time;
+            file_time=fopen("/home/dapper/Ringdown_stuff/tmp/file_time_H.txt", "w");
+            /*loop over IFO data*/
+            UINT4 length_time = IFOdata[i].timeData->data->length;
+            UINT4 k;
+            for(k=0;k<length_time;k++){
+                fprintf(file_time,"%f\n",IFOdata[i].timeData->data->data[k]*1e24);
+            }
+            fclose(file_time);
 
+            FILE *file_time_window;
+            file_time_window=fopen("/home/dapper/Ringdown_stuff/tmp/file_time_window_H.txt", "w");
+            UINT4 length_time_windowed = IFOdata[i].windowedTimeData->data->length;
+            /*loop over IFO data*/
+            for(k=0;k<length_time_windowed;k++){
+                fprintf(file_time_window,"%f\n",IFOdata[i].windowedTimeData->data->data[k]*1e24);
+            }
+            fclose(file_time_window);
+        }
+
+        if(i==1){
+            FILE *file_time;
+            file_time=fopen("/home/dapper/Ringdown_stuff/tmp/file_time_L.txt", "w");
+            /*loop over IFO data*/
+            UINT4 length_time = IFOdata[i].timeData->data->length;
+            UINT4 k;
+            for(k=0;k<length_time;k++){
+                fprintf(file_time,"%f\n",IFOdata[i].timeData->data->data[k]*1e24);
+            }
+            fclose(file_time);
+
+            FILE *file_time_window;
+            file_time_window=fopen("/home/dapper/Ringdown_stuff/tmp/file_time_window_L.txt", "w");
+            UINT4 length_time_windowed = IFOdata[i].windowedTimeData->data->length;
+            /*loop over IFO data*/
+            for(k=0;k<length_time_windowed;k++){
+               fprintf(file_time_window,"%f\n",IFOdata[i].windowedTimeData->data->data[k]*1e24);
+            }
+            fclose(file_time_window);
+        }
+        XLALDestroyCache(cache); // Clean up cache
+        }
+        /* End of data reading process */
+        
         makeWhiteData(&(IFOdata[i]));
+      
+
 
       /* Store ASD of noise spectrum to whiten glitch model */
       IFOdata[i].noiseASD=(REAL8FrequencySeries *)XLALCreateREAL8FrequencySeries("asd",&GPSstart,0.0,(REAL8)(SampleRate)/seglen,&lalDimensionlessUnit,seglen/2 +1);
@@ -2773,7 +2837,7 @@ void LALInferenceInjectRingdownSignal(LALInferenceIFOData *IFOdata, ProcessParam
       } 
       
       XLALSimBlackHoleRingdownTiger(&hplus, &hcross, qnmodes, &t0, phase, 1.0/InjSampleRate, Mbh*LAL_MSUN_SI,
-                                    spin, eta, spin1, spin2, chiEff, injEvent->distance*LAL_PC_SI * 1.0e6, 
+                                    spin, eta, spin1, spin2, chiEff, injEvent->distance*LAL_PC_SI * 1.0e6,
                                     injEvent->inclination, nonGRparams);
       }
       else if(approximant==RingdownMMRDNSTD){

@@ -294,6 +294,8 @@ REAL8Window *XLALCreateCreightonREAL8Window(UINT4 length, REAL8 beta);
 REAL8Window *XLALCreateTukeyREAL8Window(UINT4 length, REAL8 beta);
 REAL8Window *XLALCreateGaussREAL8Window(UINT4 length, REAL8 beta);
 REAL8Window *XLALCreateLanczosREAL8Window(UINT4 length);
+REAL8Window *XLALCreatePlanckREAL8Window(UINT4 length, REAL8 start, REAL8 end, REAL8 SampleRate);
+
 
 void XLALDestroyREAL4Window(REAL4Window *window);
 void XLALDestroyREAL8Window(REAL8Window *window);

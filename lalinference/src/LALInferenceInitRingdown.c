@@ -403,6 +403,20 @@ LALInferenceModel *LALInferenceInitRingdownModel(LALInferenceRunState *state)
         }
     }
 
+  ppt=LALInferenceGetProcParamVal(commandLine,"--eta-min");
+  if(!ppt) ppt=LALInferenceGetProcParamVal(commandLine,"--etamin");
+  if(ppt)
+    {
+      etaMin=atof(ppt->value);
+      if (etaMin < 0.0)
+        {
+          fprintf(stderr,"ERROR: Minimum value of eta must be > 0");
+          exit(1);
+        }
+    }
+
+
+
   ppt=LALInferenceGetProcParamVal(commandLine,"--eta-max");
   if(!ppt) ppt=LALInferenceGetProcParamVal(commandLine,"--etamax");
   if(ppt)
@@ -481,8 +495,7 @@ LALInferenceModel *LALInferenceInitRingdownModel(LALInferenceRunState *state)
   //  REAL8 start_iota    =0.0+gsl_rng_uniform(GSLrandom)*(LAL_PI-0.0);
   REAL8 start_a_spin  =0.0+gsl_rng_uniform(GSLrandom)*(amax-amin);
   REAL8 start_chiEff  =0.0+gsl_rng_uniform(GSLrandom)*(chiEffmax - chiEffmin);
-  
-  
+ 
   /* Read time parameter from injection file */
   if(injTable)
   {
@@ -1169,10 +1182,15 @@ LALInferenceModel *LALInferenceInitRingdownModel(LALInferenceRunState *state)
   model->templt = LALInferenceInitCBCTemplate(state);
 
   /* Use same window and FFT plans on model as data */
-  model->window = state->data->window;
+  /* For ringdown signals the window is applied in the generator -> no additional window needed */
+  if(approx==(int)RingdownTD){ //LAURA
+    fprintf(stdout,"Putting the window in init ringdown to ones (hopefully ...) as windowing is taken care of in generator in this case.\n");
+    model->window = XLALCreateRectangularREAL8Window(state->data->timeData->data->length);
+  }
+  else {model->window = state->data->window;}
   model->timeToFreqFFTPlan = state->data->timeToFreqFFTPlan;
   model->freqToTimeFFTPlan = state->data->freqToTimeFFTPlan;
-
+   
   /* Initialize waveform cache */
   model->waveformCache = XLALCreateSimInspiralWaveformCache();
 
