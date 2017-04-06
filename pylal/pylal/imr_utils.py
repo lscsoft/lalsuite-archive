@@ -21,7 +21,7 @@ from glue import segments
 from glue import segmentsUtils
 from glue.ligolw import table
 from pylal import db_thinca_rings
-from pylal import rate
+from lal import rate
 import numpy
 import math
 import copy

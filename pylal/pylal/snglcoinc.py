@@ -50,6 +50,7 @@ import warnings
 
 
 import lal
+from lal import rate
 
 
 from glue import offsetvector
@@ -60,7 +61,6 @@ from glue.ligolw import param as ligolw_param
 from glue.ligolw import lsctables
 from glue.text_progress_bar import ProgressBar
 from pylal import git_version
-from pylal import rate
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
