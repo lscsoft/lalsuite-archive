@@ -8,11 +8,11 @@
 
 Name: 		glue
 Summary:	The Grid LSC User Environment
-Version:	1.54.0
+Version:	1.55.0
 Release:	1%{?dist}
 License:	None
 Group:		Development/Libraries
-Source:		%{name}-%{version}.tar.gz
+Source:		lscsoft-%{name}-%{version}.tar.gz
 Url:		http://www.lsc-group.phys.uwm.edu/daswg/projects/glue.html
 BuildRoot:	%{_tmppath}/%{name}-%{version}-root
 Requires:	python-cjson m2crypto python-six glue-common glue-segments python >= 2.6
@@ -37,7 +37,7 @@ Requires:       python glue-common
 This is for the segments subpackage, written by Kipp.
 
 %prep
-%setup
+%setup -n lscsoft-%{name}-%{version}
 
 %build
 CFLAGS="%{optflags}" %{__python} setup.py build
@@ -60,6 +60,7 @@ rm -rf $RPM_BUILD_ROOT
 %exclude %{_glue_prefix}/etc/
 %exclude %{_glue_prefix}/var/
 %exclude %{_glue_prefix}/share/nmi/lalsuite-build*
+%exclude %{glue_python_sitearch}/*egg-info*
 %exclude %{glue_python_sitearch}/glue/__init__.py
 %exclude %{glue_python_sitearch}/glue/__init__.pyc
 %exclude %{glue_python_sitearch}/glue/segments.py
@@ -92,6 +93,9 @@ rm -rf $RPM_BUILD_ROOT
 %{glue_python_sitearch}/glue/git_version.pyc
 
 %changelog
+* Thu April 6 2017 Duncan Brown <duncan.brown@ligo.org>
+- O2 mid-run updated release. Change sdist name for PyPi compatibility.
+
 * Wed Jan 25 2017 Ryan Fisher <rpfisher@syr.edu>
 - O2 mid-run updated release. Updated python 3 compatibility fix from Leo to fix Debian package build for lalsuite.  Various updates from Kipp.
 
