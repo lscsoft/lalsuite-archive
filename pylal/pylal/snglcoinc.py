@@ -511,15 +511,16 @@ class TimeSlideGraphNode(object):
 			# shorter list the bisection searches inside the
 			# following loop are faster.
 			for coinc1 in coincs1:
-				i = bisect_left(coincs2, coinc0[1:] + coinc1[-1:])
-				if i < len(coincs2) and coincs2[i] == coinc0[1:] + coinc1[-1:]:
-					new_coinc = coinc0[:1] + coincs2[i]
+				confirmation = coinc0[1:] + coinc1[-1:]
+				i = bisect_left(coincs2, confirmation)
+				if i < len(coincs2) and coincs2[i] == confirmation:
+					new_coinc = coinc0[:1] + confirmation
 					# break the new coinc into
 					# (n-1)-instrument components and
 					# remove them from the unused list
 					# because we just used them, then
 					# record the coinc and move on
-					self.unused_coincs -= set(itertools.combinations(new_coinc, len(new_coinc) - 1))
+					self.unused_coincs.difference_update(itertools.combinations(new_coinc, len(new_coinc) - 1))
 					self.coincs.append(new_coinc)
 			if progressbar is not None:
 				progressbar.increment()
