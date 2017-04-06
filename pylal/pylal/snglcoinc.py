@@ -407,7 +407,6 @@ class TimeSlideGraphNode(object):
 			# which we make be alphabetical
 			#
 
-			self.unused_coincs = set()
 			self.coincs = tuple(sorted(get_doubles(eventlists, event_comparefunc, sorted(self.offset_vector), thresholds, self.unused_coincs, verbose = verbose)))
 			return self.coincs
 
@@ -450,7 +449,7 @@ class TimeSlideGraphNode(object):
 		# components to ensure they are initialized, it must be
 		# executed before any of what follows
 		for component in self.components:
-			self.unused_coincs |= set(component.get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose))
+			self.unused_coincs.update(component.get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose))
 		# of the (< n-1)-instrument coincs that were not used in
 		# forming the (n-1)-instrument coincs, any that remained
 		# unused after forming two compontents cannot have been
@@ -512,15 +511,16 @@ class TimeSlideGraphNode(object):
 			# shorter list the bisection searches inside the
 			# following loop are faster.
 			for coinc1 in coincs1:
-				i = bisect_left(coincs2, coinc0[1:] + coinc1[-1:])
-				if i < len(coincs2) and coincs2[i] == coinc0[1:] + coinc1[-1:]:
-					new_coinc = coinc0[:1] + coincs2[i]
+				confirmation = coinc0[1:] + coinc1[-1:]
+				i = bisect_left(coincs2, confirmation)
+				if i < len(coincs2) and coincs2[i] == confirmation:
+					new_coinc = coinc0[:1] + confirmation
 					# break the new coinc into
 					# (n-1)-instrument components and
 					# remove them from the unused list
 					# because we just used them, then
 					# record the coinc and move on
-					self.unused_coincs -= set(itertools.combinations(new_coinc, len(new_coinc) - 1))
+					self.unused_coincs.difference_update(itertools.combinations(new_coinc, len(new_coinc) - 1))
 					self.coincs.append(new_coinc)
 			if progressbar is not None:
 				progressbar.increment()
