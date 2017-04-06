@@ -407,7 +407,6 @@ class TimeSlideGraphNode(object):
 			# which we make be alphabetical
 			#
 
-			self.unused_coincs = set()
 			self.coincs = tuple(sorted(get_doubles(eventlists, event_comparefunc, sorted(self.offset_vector), thresholds, self.unused_coincs, verbose = verbose)))
 			return self.coincs
 
