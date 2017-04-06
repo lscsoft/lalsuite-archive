@@ -93,7 +93,7 @@ rm -rf $RPM_BUILD_ROOT
 %{glue_python_sitearch}/glue/git_version.pyc
 
 %changelog
-* Thu April 6 2017 Duncan Brown <duncan.brown@ligo.org>
+* Thu Apr 6 2017 Duncan Brown <duncan.brown@ligo.org>
 - O2 mid-run updated release. Change sdist name for PyPi compatibility.
 
 * Wed Jan 25 2017 Ryan Fisher <rpfisher@syr.edu>
