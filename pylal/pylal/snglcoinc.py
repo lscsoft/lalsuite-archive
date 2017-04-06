@@ -449,7 +449,7 @@ class TimeSlideGraphNode(object):
 		# components to ensure they are initialized, it must be
 		# executed before any of what follows
 		for component in self.components:
-			self.unused_coincs |= set(component.get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose))
+			self.unused_coincs.update(component.get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose))
 		# of the (< n-1)-instrument coincs that were not used in
 		# forming the (n-1)-instrument coincs, any that remained
 		# unused after forming two compontents cannot have been
