@@ -1,3 +1,9 @@
+lscsoft-glue (1.55.1-1) unstable; urgency=low
+
+  * Fixes for Debian packaging.
+
+ -- Ryan Fisher <ryan.fisher@ligo.org>  Thu, 6 Apr 2017 18:14:00 -0500
+
 glue (1.55.0-1) unstable; urgency=low
 
   * O2 mid-run updated release. Change sdist name for PyPi compatibility.
