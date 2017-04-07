@@ -150,18 +150,6 @@ options, process_params, filenames = parse_command_line()
 
 
 #
-# Select event_comparefunc form
-#
-
-
-if options.match == "exact":
-	event_comparefunc = ligolw_thinca.inspiral_coinc_compare_exact
-else:
-	# not possible
-	assert False
-
-
-#
 # Select ntuple_comparefunc form
 #
 
@@ -175,7 +163,7 @@ if options.coinc_end_time_segs is not None:
 		"""
 		return ligolw_thinca.coinc_inspiral_end_time(events, offset_vector) not in seg
 else:
-	ntuple_comparefunc = ligolw_thinca.default_ntuple_comparefunc
+	ntuple_comparefunc = ligolw_thinca.InspiralCoincTables.ntuple_comparefunc
 
 
 #
@@ -271,7 +259,6 @@ for n, filename in enumerate(filenames, start = 1):
 		xmldoc,
 		process_id = process.process_id,
 		coinc_definer_row = ligolw_thinca.InspiralCoincDef,
-		event_comparefunc = event_comparefunc,
 		thresholds = options.threshold,
 		max_dt = max_dt,
 		ntuple_comparefunc = ntuple_comparefunc,

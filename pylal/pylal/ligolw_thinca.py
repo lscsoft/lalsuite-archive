@@ -206,6 +206,14 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		return coinc, coincmaps, coinc_inspiral
 
 
+	@staticmethod
+	def ntuple_comparefunc(events, offset_vector):
+		"""
+		Default ntuple test function.  Accept all ntuples.
+		"""
+		return False
+
+
 	def append_coinc(self, coinc_event, coinc_event_maps, coinc_inspiral):
 		coinc_event = super(InspiralCoincTables, self).append_coinc(coinc_event, coinc_event_maps)
 		coinc_inspiral.coinc_event_id = coinc_event.coinc_event_id
@@ -279,7 +287,17 @@ class InspiralEventList(snglcoinc.EventList):
 		# avoid doing type conversion in loops
 		self.dt = lal.LIGOTimeGPS(dt * 1.01)
 
-	def get_coincs(self, event_a, offset_a, light_travel_time, threshold, comparefunc):
+	@staticmethod
+	def comparefunc(a, offseta, b, offsetb, light_travel_time, delta_t):
+		"""
+		Returns False (a & b are coincident) if they have the same
+		masses and spins (assumed to indicate the templates are
+		identical) and their end times are within delta_t of each
+		other.
+		"""
+		return abs(a.end + offseta - b.end - offsetb) > light_travel_time + delta_t or (a.mass1 != b.mass1) or (a.mass2 != b.mass2) or (a.spin1 != b.spin1).any() or (a.spin2 != b.spin2).any()
+
+	def get_coincs(self, event_a, offset_a, light_travel_time, threshold):
 		#
 		# event_a's end time with offsets applied for to be respect
 		# to end times in this list
@@ -295,41 +313,7 @@ class InspiralEventList(snglcoinc.EventList):
 		# a subset of the full list)
 		#
 
-		return [event_b for event_b in self[bisect_left(self, end - self.dt) : bisect_right(self, end + self.dt)] if not comparefunc(event_a, offset_a, event_b, offset_b, light_travel_time, threshold)]
-
-
-#
-# =============================================================================
-#
-#                              Coincidence Tests
-#
-# =============================================================================
-#
-
-
-def inspiral_coinc_compare_exact(a, offseta, b, offsetb, light_travel_time, delta_t):
-	"""
-	Returns False (a & b are coincident) if they have the same masses
-	and spins (assumed to indicate the templates are identical) and
-	their end times are within delta_t of each other.
-	"""
-	return abs(a.end + offseta - b.end - offsetb) > light_travel_time + delta_t or (a.mass1 != b.mass1) or (a.mass2 != b.mass2) or (a.spin1 != b.spin1).any() or (a.spin2 != b.spin2).any()
-
-
-#
-# =============================================================================
-#
-#                              Compare Functions
-#
-# =============================================================================
-#
-
-
-def default_ntuple_comparefunc(events, offset_vector):
-	"""
-	Default ntuple test function.  Accept all ntuples.
-	"""
-	return False
+		return [event_b for event_b in self[bisect_left(self, end - self.dt) : bisect_right(self, end + self.dt)] if not self.comparefunc(event_a, offset_a, event_b, offset_b, light_travel_time, threshold)]
 
 
 #
@@ -367,10 +351,9 @@ def ligolw_thinca(
 	xmldoc,
 	process_id,
 	coinc_definer_row,
-	event_comparefunc,
 	thresholds,
 	max_dt,
-	ntuple_comparefunc = default_ntuple_comparefunc,
+	ntuple_comparefunc = InspiralCoincTables.ntuple_comparefunc,
 	veto_segments = None,
 	trigger_program = u"inspiral",
 	likelihood_func = None,
@@ -436,7 +419,7 @@ def ligolw_thinca(
 	# and record the survivors
 	#
 
-	for node, coinc in time_slide_graph.get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose):
+	for node, coinc in time_slide_graph.get_coincs(eventlists, thresholds, verbose = verbose):
 		if len(coinc) < min_instruments:
 			continue
 		if not ntuple_comparefunc(coinc, node.offset_vector):
