@@ -730,16 +730,14 @@ class CoincTables(object):
 		coinc.coinc_def_id = coinc_def_id
 		coinc.coinc_event_id = None
 		coinc.time_slide_id = time_slide_id
-		coinc.set_instruments(None)
+		coinc.insts = None
 		coinc.likelihood = None
 
-		coincmaps = []
-		for event in events:
-			coincmap = self.coincmaptable.RowType()
-			coincmap.coinc_event_id = coinc.coinc_event_id
-			coincmap.table_name = event.event_id.table_name
-			coincmap.event_id = event.event_id
-			coincmaps.append(coincmap)
+		coincmaps = [self.coincmaptable.RowType(
+			coinc_event_id = None,
+			table_name = event.event_id.table_name,
+			event_id = event.event_id
+		) for event in events]
 
 		coinc.nevents = len(coincmaps)
 
