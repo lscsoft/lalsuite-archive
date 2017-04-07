@@ -8,7 +8,7 @@
 
 Name: 		glue
 Summary:	The Grid LSC User Environment
-Version:	1.55.1
+Version:	1.55.2
 Release:	1%{?dist}
 License:	None
 Group:		Development/Libraries
@@ -48,7 +48,7 @@ rm -rf %{buildroot}
         --skip-build \
         --root=%{buildroot} \
         --prefix=%{_glue_prefix}
-rm -rf $RPM_BUILD_ROOT/usr/lib64/python2.?/site-packages/glue-1.55.1-py2.?.egg-info
+rm -rf $RPM_BUILD_ROOT/usr/lib64/python2.?/site-packages/glue-1.55.2-py2.?.egg-info
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -93,6 +93,12 @@ rm -rf $RPM_BUILD_ROOT
 %{glue_python_sitearch}/glue/git_version.pyc
 
 %changelog
+* Fri Apr 7 2017 Ryan Fisher <ryan.fisher@ligo.org>
+- Added install_requires for pip installations.
+
+* Thu Apr 6 2017 Ryan Fisher <ryan.fisher@ligo.org>
+- Cleaned up RPM and debian codes.
+
 * Thu Apr 6 2017 Duncan Brown <duncan.brown@ligo.org>
 - O2 mid-run updated release. Change sdist name for PyPi compatibility.
 
