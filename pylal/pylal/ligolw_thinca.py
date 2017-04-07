@@ -397,7 +397,6 @@ def ligolw_thinca(
 	coinc_tables = InspiralCoincTables(xmldoc, vetoes = veto_segments, program = trigger_program, likelihood_func = likelihood_func, likelihood_params_func = likelihood_params_func)
 	coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
 	sngl_inspiral_table = lsctables.SnglInspiralTable.get_table(xmldoc)
-	sngl_index = dict((row.event_id, row) for row in sngl_inspiral_table)
 
 	#
 	# build the event list accessors, populated with events from those
@@ -440,7 +439,6 @@ def ligolw_thinca(
 	for node, coinc in time_slide_graph.get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose):
 		if len(coinc) < min_instruments:
 			continue
-		coinc = tuple(sngl_index[event_id] for event_id in coinc)
 		if not ntuple_comparefunc(coinc, node.offset_vector):
 			coinc, coincmaps, coinc_inspiral = coinc_tables.coinc_rows(process_id, node.time_slide_id, coinc_def_id, coinc)
 			if min_log_L is None or coinc.likelihood >= min_log_L:

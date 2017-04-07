@@ -178,13 +178,16 @@ class EventListDict(dict):
 		"""
 		for instrument in instruments if instruments is not None else set(event_table.getColumnByName("ifo")):
 			self[instrument] = EventListType(instrument)
+		self.idx = {}
 		if process_ids is None:
 			for event in event_table:
 				self[event.ifo].append(event)
+				self.idx[id(event)] = event
 		else:
 			for event in event_table:
 				if event.process_id in process_ids:
 					self[event.ifo].append(event)
+					self.idx[id(event)] = event
 		for l in self.values():
 			l.make_index()
 
@@ -239,10 +242,10 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, unused, verbos
 	Given an instance of an EventListDict, an event comparison
 	function, an iterable (e.g., a list) of instruments, and a
 	dictionary mapping instrument pair to threshold data for use by the
-	event comparison function, generate a sequence of tuples of
-	mutually coincident event IDs, and populate a set (unused) of
-	1-element tuples of the event IDs that did not participate in
-	coincidences.
+	event comparison function, generate a sequence of tuples of Python
+	IDs of mutually coincident events, and populate a set (unused) of
+	1-element tuples of the Python IDs of the events that did not
+	participate in coincidences.
 
 	The signature of the comparison function is
 
@@ -273,11 +276,8 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, unused, verbos
 	orders.
 
 	Each tuple returned by this generator will contain exactly two
-	event IDs, one from each of the two instruments in the instruments
+	Python IDs, one from each of the two instruments in the instruments
 	sequence.
-
-	NOTE:  the event objects must each have a .event_id attribute
-	providing the ID to return.
 
 	NOTE:  the instruments sequence must contain exactly two
 	instruments.
@@ -286,8 +286,8 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, unused, verbos
 	or set-like object.  It will be cleared by invoking .clear(), then
 	populated by invoking .update(), .add(), and .remove().
 
-	NOTE:  the order of the event IDs in each tuple returned by this
-	function matches the order of the instruments sequence.
+	NOTE:  the order of the IDs in each tuple returned by this function
+	matches the order of the instruments sequence.
 	"""
 	# retrieve the event lists for the requested instrument combination
 
@@ -314,10 +314,10 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, unused, verbos
 		raise KeyError("no coincidence thresholds provided for instrument pair %s, %s" % e.args[0])
 	dt = light_travel_time(eventlista.instrument, eventlistb.instrument)
 
-	# populate the unused set with all event IDs from list B
+	# populate the unused set with all IDs from list B
 
 	unused.clear()
-	unused.update((event.event_id,) for event in eventlistb)
+	unused.update((id(event),) for event in eventlistb)
 
 	# for each event in list A, iterate over events from the other list
 	# that are coincident with the event, and return the pairs.  if
@@ -327,11 +327,11 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, unused, verbos
 
 	progressbar = ProgressBar(text = "searching", max = len(eventlista)) if verbose else None
 	for eventa in eventlista:
-		eventa_id = eventa.event_id
+		eventa_id = id(eventa)
 		matches = eventlistb.get_coincs(eventa, eventlista.offset, dt, threshold_data, comparefunc)
 		if matches:
 			for eventb in matches:
-				eventb_id = eventb.event_id
+				eventb_id = id(eventb)
 				unused.discard((eventb_id,))
 				yield unswap(eventa_id, eventb_id)
 		else:
@@ -632,6 +632,7 @@ class TimeSlideGraph(object):
 	def get_coincs(self, eventlists, event_comparefunc, thresholds, verbose = False):
 		if verbose:
 			print >>sys.stderr, "constructing coincs for target offset vectors ..."
+		sngl_index = eventlists.idx
 		for n, node in enumerate(self.head, start = 1):
 			if verbose:
 				print >>sys.stderr, "%d/%d: %s" % (n, len(self.head), str(node.offset_vector))
@@ -639,7 +640,7 @@ class TimeSlideGraph(object):
 			# the call to .get_coincs() because the former is
 			# computed as a side effect of the latter
 			for coinc in itertools.chain(node.get_coincs(eventlists, event_comparefunc, thresholds, verbose), node.unused_coincs):
-				yield node, coinc
+				yield node, tuple(sngl_index[event_id] for event_id in coinc)
 
 
 	def write(self, fileobj):
