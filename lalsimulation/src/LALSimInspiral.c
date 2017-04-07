@@ -122,6 +122,7 @@ static const char *lalSimulationApproximantNames[] = {
     INITIALIZE_NAME(SEOBNRv2),
     INITIALIZE_NAME(SEOBNRv2_opt),
     INITIALIZE_NAME(SEOBNRv3),
+    INITIALIZE_NAME(SEOBNRv3FD),
     INITIALIZE_NAME(SEOBNRv4),
     INITIALIZE_NAME(SEOBNRv4_opt),
     INITIALIZE_NAME(SEOBNRv1_ROM_EffectiveSpin),
@@ -257,6 +258,10 @@ static double fixReferenceFrequency(double f_ref, double f_min, Approximant appr
         case SpinTaylorT4Fourier:
         case SpinTaylorF2:
         case IMRPhenomP:
+        case SEOBNRv3:
+            return f_min;
+        case SEOBNRv3FD:
+            return f_min;
         case IMRPhenomPv2:
             return f_min;
         default:
@@ -1293,6 +1298,18 @@ int XLALSimInspiralChooseFDWaveform(
                     phiRef, deltaF, f_min, f_max, f_ref, r, i, m1, m2, S1z, S2z, -1);
             break;
 
+        case SEOBNRv3FD:
+            if( !XLALSimInspiralWaveformFlagsIsDefault(waveFlags) )
+                ABORT_NONDEFAULT_WAVEFORM_FLAGS(waveFlags);
+            if( !checkTidesZero(lambda1, lambda2) )
+                ABORT_NONZERO_TIDES(waveFlags);
+            if( f_ref != 0.)
+                XLALPrintWarning("XLAL Warning - %s: This approximant does use f_ref. The reference phase will be defined as f_min.\n", __func__);
+            /* Call the waveform driver routine */
+            ret = XLALSimComputeSpinPrecEOBNR_FD(hptilde, hctilde, phiRef, deltaF, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_max, f_ref, r, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, approximant);
+
+            break;
+
         case SEOBNRv4_ROM:
             /* Waveform-specific sanity checks */
             if( !XLALSimInspiralWaveformFlagsIsDefault(waveFlags) )
@@ -1468,6 +1485,8 @@ int XLALSimInspiralChooseFDWaveform(
 
     return ret;
 }
+
+
 
 /**
  * @brief Generates an time domain inspiral waveform using the specified approximant; the
@@ -2113,6 +2132,160 @@ int XLALSimInspiralFD(
 
     return 0;
 }
+
+/**
+  * @brief Conditions and transforms precessing SEOBNR wwaveform to frequency domain
+  * It is similar to XLALSimInspiralFD except it generates the waveform in time domain 
+  * starting from f_ref=f_min and then tapers are applied on both sides of the waveform 
+  * before the FFT. The interface is the same as in XLALSimInspiralFD except it doesn't 
+  * have redshift
+  *
+  * @note So far it accepts only one approximant SEOBNRv3FD
+  */
+
+int XLALSimComputeSpinPrecEOBNR_FD(
+    COMPLEX16FrequencySeries **hptilde,     /**< FD plus polarization */
+    COMPLEX16FrequencySeries **hctilde,     /**< FD cross polarization */
+    REAL8 phiRef,                           /**< reference orbital phase (rad) */
+    REAL8 deltaF,                           /**< sampling interval (Hz) */
+    REAL8 m1,                               /**< mass of companion 1 (kg) */
+    REAL8 m2,                               /**< mass of companion 2 (kg) */
+    REAL8 S1x,                              /**< x-component of the dimensionless spin of object 1 */
+    REAL8 S1y,                              /**< y-component of the dimensionless spin of object 1 */
+    REAL8 S1z,                              /**< z-component of the dimensionless spin of object 1 */
+    REAL8 S2x,                              /**< x-component of the dimensionless spin of object 2 */
+    REAL8 S2y,                              /**< y-component of the dimensionless spin of object 2 */
+    REAL8 S2z,                              /**< z-component of the dimensionless spin of object 2 */
+    REAL8 f_min,                            /**< starting GW frequency (Hz) */
+    REAL8 f_max,                            /**< ending GW frequency (Hz) */
+    REAL8 f_ref,                            /**< Reference frequency (Hz) */
+    REAL8 r,                                /**< distance of source (m) */
+    REAL8 i,                                /**< inclination of source (rad) */
+    REAL8 lambda1,                          /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
+    REAL8 lambda2,                          /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
+    LALSimInspiralWaveformFlags *waveFlags, /**< Set of flags to control special behavior of some waveform families. Pass in NULL (or None in python) for default flags */
+    LALSimInspiralTestGRParam *nonGRparams, /**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
+    int amplitudeO,                         /**< twice post-Newtonian amplitude order */
+    int phaseO,                             /**< twice post-Newtonian order */
+    Approximant approximant                 /**< post-Newtonian approximant to use for waveform production */
+    )
+{
+    int retval;
+    int chirplen;
+    double deltaT;
+    double fisco;
+    int chirplen_exp;
+
+    /*printf("Stas test creating fft plan\n");
+    REAL8FFTPlan *planStas;
+    printf("Stas, creating the plan ....\n");
+    planStas = XLALCreateForwardREAL8FFTPlan(1024, 0);
+    printf("done \n");
+    XLALDestroyREAL8FFTPlan(planStas);
+    printf("plan deleted \n");*/
+
+    f_ref = fixReferenceFrequency(f_ref, f_min, approximant);
+
+    deltaT = 0.5 / f_max;
+
+    // FIXME STAS If we extend this function we need to put cases and 
+    // initialize apprT accordingly
+    if (approximant != SEOBNRv3FD){
+        XLALPrintError("XLAL Error - %s: Using unknown approximant. \n", __func__);
+        XLAL_ERROR(XLAL_EINVAL);
+    }
+
+    if (f_min <= 0.0){
+        XLALPrintError("XLAL Error - %s: The fmin must be positive. \n", __func__);
+        XLAL_ERROR(XLAL_EINVAL);
+    }
+
+
+
+    REAL8TimeSeries *hplus = NULL;
+    REAL8TimeSeries *hcross = NULL;
+
+    Approximant apprT = SEOBNRv3;
+
+    /*printf("Stas: masses %e, %e \n", m1/LAL_MSUN_SI, m2/LAL_MSUN_SI);
+    printf("Stas: spin1: %f, %f, %f \n", S1x, S1y, S1z);
+    printf("Stas: spin2: %f, %f, %f \n", S2x, S2y, S2z);
+    printf("Stas: d=%e, i=%f \n", r, i);
+    printf("Stas: phiRef = %f, dt = %f \n", phiRef, deltaT);*/
+
+    // generating the waveform in time domain
+    retval = XLALSimInspiralChooseTDWaveform(&hplus, &hcross, phiRef, deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, apprT);
+    if (retval < 0)
+        XLAL_ERROR(XLAL_EFUNC);
+    
+    chirplen = hplus->data->length;
+    // Condition the waveform:
+    // first we remove any padding at the end of the waveform:
+    size_t nzeros;
+    nzeros = 0;
+    while (hplus->data->data[hplus->data->length - nzeros - 1] == 0.0 && hcross->data->data[hcross->data->length - nzeros - 1] == 0.0)
+        ++nzeros;
+    
+    if (nzeros) {
+        XLALShrinkREAL8TimeSeries(hplus, 0, hplus->data->length - nzeros);
+        XLALShrinkREAL8TimeSeries(hcross, 0, hcross->data->length - nzeros);
+    }
+
+    // Here I will believe Jolien and use fisco as f_max, so that we taper 
+    // one cycle at freq = fisco at the end of the waveform, and we taper 
+    // one cycle at f=fmin in the beginning of the waveform
+    fisco = 1.0 / (pow(6.0, 1.5) * LAL_PI * (m1 + m2) * LAL_MTSUN_SI / LAL_MSUN_SI);
+    retval = XLALSimInspiralTDConditionStage2(hplus, hcross, f_min, fisco);
+
+    // Here I repeat what Jolien did for the f0n ...InspiralFD
+    chirplen = hplus->data->length;
+    //printf("Stas: cirplen 1 = %d \n", chirplen);
+    if (deltaF == 0.0)
+            deltaF = 1.0 / (chirplen * hplus->deltaT);
+    else { /* recompute chirplen based on deltaF and f_max */
+        size_t n;
+        if (deltaF > 1.0 / (chirplen * deltaT))
+            XLAL_PRINT_WARNING("Specified frequency interval of %g Hz is too large for a chirp of duration %g s", deltaF, chirplen * deltaT);
+        n = chirplen = round(2.0 * f_max / deltaF);
+        if ((n & (n - 1))) { /* not a power of 2 */
+            /* what do we do here?... we need to change either
+             * f_max or deltaF so that chirplen is a power of 2
+             * so that the FFT can be done, so choose to change f_max */
+            /* round chirplen up to next power of 2 */
+            frexp(chirplen, &chirplen_exp);
+            chirplen = ldexp(1.0, chirplen_exp);
+            XLAL_PRINT_WARNING("f_max/deltaF = %g/%g = %g is not a power of two: changing f_max to %g", f_max, deltaF, f_max/deltaF, (chirplen / 2) * deltaF);
+            f_max = (chirplen / 2) * deltaF;
+        }
+    }
+    //int padsz = chirplen - hplus->data->length;
+    /* resize waveforms to the required length */
+    XLALResizeREAL8TimeSeries(hplus, hplus->data->length - (size_t) chirplen, (size_t) chirplen);
+    XLALResizeREAL8TimeSeries(hcross, hcross->data->length - (size_t) chirplen, (size_t) chirplen);
+
+    /* put the waveform in the frequency domain */
+    /* (the units will correct themselves) */
+    *hptilde = XLALCreateCOMPLEX16FrequencySeries("FD H_PLUS", &hplus->epoch, 0.0, deltaF, &lalDimensionlessUnit, (size_t) chirplen / 2 + 1);
+    printf("Stas, Created hptilde \n");
+    *hctilde = XLALCreateCOMPLEX16FrequencySeries("FD H_CROSS", &hcross->epoch, 0.0, deltaF, &lalDimensionlessUnit, (size_t) chirplen / 2 + 1);
+    printf("Stas, Created hctilde \n");
+
+    REAL8FFTPlan *plan;
+    plan = XLALCreateForwardREAL8FFTPlan((size_t) chirplen, 0);
+    XLALREAL8TimeFreqFFT(*hctilde, hcross, plan);
+    XLALREAL8TimeFreqFFT(*hptilde, hplus, plan);
+
+    /* clean up */
+    XLALDestroyREAL8FFTPlan(plan);
+    XLALDestroyREAL8TimeSeries(hcross);
+    XLALDestroyREAL8TimeSeries(hplus);
+
+    return 0;
+}
+
+
+
+
 
 /**
  * @deprecated Use XLALSimInspiralChooseTDWaveform() instead
@@ -4013,6 +4186,7 @@ int XLALSimInspiralImplementedFDApproximants(
         case SEOBNRv2_ROM_DoubleSpin_HI:
         case Lackey_Tidal_2013_SEOBNRv2_ROM:
         case SEOBNRv4_ROM:
+        case SEOBNRv3FD:
         //case TaylorR2F4:
         case TaylorF2:
 	case EccentricFD:
@@ -4407,6 +4581,7 @@ int XLALSimInspiralGetSpinSupportFromApproximant(Approximant approx){
     case SpinTaylorT4Fourier:
     case SpinDominatedWf:
     case SEOBNRv3:
+    case SEOBNRv3FD:
     case NR_hdf5:
       spin_support=LAL_SIM_INSPIRAL_PRECESSINGSPIN;
       break;

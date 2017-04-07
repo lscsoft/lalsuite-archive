@@ -313,6 +313,8 @@ typedef enum tagApproximant {
                          * @remarks Implemented in lalsimulation (time domain). */
    SEOBNRv3,		/**< Spin precessing EOBNR model v3
                          * @todo Fix implementation in lalsimulation (time domain). */
+   SEOBNRv3FD,		/**< Spin precessing EOBNR model v3 transformed in Frequency domain (FFT)
+                         * @todo Fix implementation in lalsimulation (time domain). */
    SEOBNRv4,		/**< Spin nonprecessing EOBNR model v4 */
    SEOBNRv4_opt,	/**< Optimized Spin-aligned EOBNR model v4
                          * @remarks Implemented in lalsimulation (time domain). */
@@ -451,6 +453,7 @@ int XLALSimInspiralTD(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, REAL8 p
 SphHarmTimeSeries* XLALSimInspiralTDModesFromPolarizations(REAL8 deltaT, REAL8 m1, REAL8 m2, REAL8 S1x, REAL8 S1y, REAL8 S1z, REAL8 S2x, REAL8 S2y, REAL8 S2z, REAL8 f_min, REAL8 f_ref, REAL8 r, REAL8 z, REAL8 lambda1, REAL8 lambda2, LALSimInspiralWaveformFlags *waveFlags, LALSimInspiralTestGRParam *nonGRparams, int amplitudeO, int phaseO, Approximant approximant);
 int XLALSimInspiralFD(COMPLEX16FrequencySeries **hptilde, COMPLEX16FrequencySeries **hcross, REAL8 phiRef, REAL8 deltaF, REAL8 m1, REAL8 m2, REAL8 S1x, REAL8 S1y, REAL8 S1z, REAL8 S2x, REAL8 S2y, REAL8 S2z, REAL8 f_min, REAL8 f_max, REAL8 f_ref, REAL8 r, REAL8 z, REAL8 i, REAL8 lambda1, REAL8 lambda2, LALSimInspiralWaveformFlags *waveFlags, LALSimInspiralTestGRParam *nonGRparams, int amplitudeO, int phaseO, Approximant approximant);
 int XLALSimInspiralChooseWaveform(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, REAL8 phiRef, REAL8 deltaT, REAL8 m1, REAL8 m2, REAL8 S1x, REAL8 S1y, REAL8 S1z, REAL8 S2x, REAL8 S2y, REAL8 S2z, REAL8 f_min, REAL8 f_ref, REAL8 r, REAL8 i, REAL8 lambda1, REAL8 lambda2, LALSimInspiralWaveformFlags *waveFlags, LALSimInspiralTestGRParam *nonGRparams, int amplitudeO, int phaseO, Approximant approximant); /* DEPRECATED */
+int XLALSimComputeSpinPrecEOBNR_FD(COMPLEX16FrequencySeries **hptilde, COMPLEX16FrequencySeries **hcross, REAL8 phiRef, REAL8 deltaF, REAL8 m1, REAL8 m2, REAL8 S1x, REAL8 S1y, REAL8 S1z, REAL8 S2x, REAL8 S2y, REAL8 S2z, REAL8 f_min, REAL8 f_max, REAL8 f_ref, REAL8 r, REAL8 i, REAL8 lambda1, REAL8 lambda2, LALSimInspiralWaveformFlags *waveFlags, LALSimInspiralTestGRParam *nonGRparams, int amplitudeO, int phaseO, Approximant approximant);
 
 /* general waveform switching mode generation routines */
 SphHarmTimeSeries *XLALSimInspiralChooseTDModes(REAL8 phiRef, REAL8 deltaT, REAL8 m1, REAL8 m2, REAL8 f_min, REAL8 f_ref, REAL8 r, REAL8 lambda1, REAL8 lambda2, LALSimInspiralWaveformFlags *waveFlags, LALSimInspiralTestGRParam *nonGRparams, int amplitudeO, int phaseO, int lmax, Approximant approximant);
