@@ -5565,7 +5565,7 @@ def find_ndownsample(samples, nDownsample):
                 nskip = ceil(len(samples)/nEff)
         else:
             nskip = np.nan
-    return nskip
+    return int(nskip)
 
 class PEOutputParser(object):
     """
