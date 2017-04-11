@@ -141,6 +141,50 @@ def normalize(pdf, x):
     '''Normalize a 1-dim posterior function on a given grid'''
     return pdf/trapz(pdf,x)
 
+def downsample(data, k):
+  '''downsample a dataset'''
+  n = len(data)
+  s = random.choice(n, k, replace=False)
+  ds_data = data[s]
+  return ds_data
+  
+  
+def merge_posterior_samples(post_list, weights_list, label_list, weighted=False):
+  '''Merge posterior samples from different runs with e.g. different template approximants'''
+  merged_label = "_".join(label_list)
+  n_list = [len(post) for post in post_list]
+  ntot = sum(n)
+  N = len(post_list)
+  print n_list, len(post_list), ntot
+
+  # Check if columns for all parameters exist in all datasets
+  # for data in post_list:
+  #  if not set(param_list) < set(data.dtype.names):
+  #      print "ERROR: No data for " + param_list
+  #      sys.exit(-1)
+    # Now only keep the wanted columns
+  #  data = data[param_list]
+
+  # Check weighted flag; if true keep all samples and apply appropriate weights
+  if weighted:
+    merged_post = vstack(tuple(post_list))
+    # Populate a list of arrays with the weights of each posterior sample.
+    # Each run i must carry the same overall weight, \propto 1/n_i
+    # which we normalize according to the total number of samples ntot.
+    new_weights_list = [ntot/(len(post)*N)*ones(len(post))*weights for post,weights in zip(post_list,weights_list)]
+    return merged_post, merged_label, vstack(tuple(new_weights_list))
+  # If not weighted, then downsample each run to the smallest n_i in the list
+  nmin = min(n_list)
+  ds_post=[]
+  ds_weight=[]
+  for post, weight in zip(post_list, weights_list):
+    s = random.choice(len(post), nmin, replace=False)
+    ds_post.append(post[s])
+    ds_weight.append(weight[s])
+  merged_post = vstack(tuple(ds_post))
+  merged_weight = vstack(tuple(ds_weight))
+  return merged_post, merged_label, 
+  
 if __name__ == "__main__":
 
 ###########################################
@@ -156,7 +200,6 @@ if __name__ == "__main__":
   parser.add_argument("--prior", type=str, dest="prior", choices=['mass','A'], help="use prior uniform in {mass, A} (default is uniform in lalinference parameter used)")
   parser.add_argument("-a", "--alpha", type=float, dest="alphaLIV", help="Exponent of Lorentz invariance violating term", default=0.0)
   parser.add_argument("-s", "--single-source", action="store_true", dest="single_source", help="All posterior input files will be marginalized over as coming from a single source", default=False)
-  # parser.add_argument("--combine-param", type=str, dest="combine_param", choices=['mass','logmass','lambda_A','log10lambda_a','A'], help="Parameter for which to compute joint posterior {logmass, log10lambda_a, logA}")
   parser.add_argument("-n", type=int, dest="nbins", help="number of interpolation points for the  gaussian KDE (default 256)", default=256)
 
 
@@ -169,6 +212,7 @@ if __name__ == "__main__":
   alphaLIV = args.alphaLIV
   # combine_param = args.combine_param
   combine_param = "log10lambda_a"
+  merge_weights = True
   
   cosmology = lal.CreateCosmologicalParameters(0.7,0.3,0.7,-1.0,0.0,0.0) ## these are dummy parameters that are being used for the initialization. they are going to be set to their defaults Planck 2015 values in the next line
   lal.SetCosmologicalParametersDefaultValue(cosmology) ## setting h, omega_matter and omega_lambda to their default Planck 2015 values available in LAL
@@ -189,6 +233,8 @@ if __name__ == "__main__":
   print datafiles
   wpostlist = []
   postlist = []
+  weightlist = []
+  logweightlist = []
   for (dfile, lab) in zip(datafiles, labels):
     print "Post-processing " + lab
     if os.path.splitext(dfile)[1] == '.hdf5':
@@ -254,8 +300,8 @@ if __name__ == "__main__":
         weights = lamAdata**(alphaLIV-3)
     else:
         print "Using default priors"
-        weights = None
-        logweights = None
+        weights = lamAdata*0+1.0
+        logweights = lamAdata*0+1.0
         
 
     if alphaLIV < 2.0:
@@ -291,6 +337,41 @@ if __name__ == "__main__":
     #wpostlist.append(mirrorEdges(loglamAdata, x_min, x_max, weights=logweights)) 
     #postlist.append(mirrorEdges(loglamAdata, x_min, x_max))
     postlist.append(loglamAdata)
+    logweightlist.append(logweights)
+    weightlist.append(weights)
+
+  if args.single_source:
+    print 'Merging posteriors'
+    merged_loglamA, merged_label = merge_posterior_samples(post_list, logweightlist, labels, weighted=False)
+    if alphaLIV < 2.0:
+        """Calculating Posterior Quantiles (lower)"""
+        PQ_68 = weighted_1dQuantile(0.32, loglamAdata,logweights)
+        PQ_90 = weighted_1dQuantile(0.1, loglamAdata, logweights) 
+        PQ_95 = weighted_1dQuantile(0.05, loglamAdata, logweights)
+        PQ_99 = weighted_1dQuantile(0.01, loglamAdata, logweights)
+    elif alphaLIV > 2.0:
+        """Calculating Posterior Quantiles (upper)"""
+        PQ_68 = -weighted_1dQuantile(0.32, -loglamAdata,logweights)
+        PQ_90 = -weighted_1dQuantile(0.1, -loglamAdata, logweights)
+        PQ_95 = -weighted_1dQuantile(0.05, -loglamAdata, logweights)
+        PQ_99 = -weighted_1dQuantile(0.01, -loglamAdata, logweights)
+    else:
+        print "Cannot handle alpha=2 yet. Exiting..."
+        sys.exit(-1)
+
+    # print min(loglamAdata)
+    print " Summary ( alpha = ", str(alphaLIV), ")"
+    print "=-=-=-=-=-=-=-=-=-=-=-=-="
+    print "shape:", shape(loglamAdata), " min:", min(loglamAdata), " max:", max(loglamAdata)
+    print "log(lambda_A)\t68% PQ: ", PQ_68, "\t90% PQ: ", PQ_90, "\t95% PQ: ", PQ_95, "\t99% PQ: ", PQ_99
+    print "lambda_A [m]\t68% PQ: ", 10**PQ_68, "\t90% PQ: ", 10**PQ_90, "\t95% PQ: ", 10**PQ_95, "\t99% PQ: ", 10**PQ_99
+    print "E_A [eV]\t68% PQ: ", EnergyScale(10**PQ_68), "\t90% PQ: ", EnergyScale(10**PQ_90), "\t95% PQ: ", EnergyScale(10**PQ_95), "\t99% PQ: ", EnergyScale(10**PQ_99)
+    print "A [(eV/c)^" + str(2-alphaLIV) + "]\t68% PQ: ", A_LIV(10**PQ_68, alphaLIV), "\t90% PQ: ", A_LIV(10**PQ_90, alphaLIV), "\t95% PQ: ", A_LIV(10**PQ_95, alphaLIV), "\t99% PQ: ", A_LIV(10**PQ_99, alphaLIV)
+    
+    savetxt(os.path.join(outfolder,'credible_regions_%s_%s.txt'%(combine_param,lab)),
+             array([PQ_68, PQ_90, PQ_95, PQ_99]).transpose(),
+             header = "68%\t90%\t95%\t99%",
+             fmt = '%10.7f')
     
   if len(postlist) == 1 or args.single_source:
     print 'DONE! (single source only)'
