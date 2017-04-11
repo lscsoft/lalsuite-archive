@@ -89,15 +89,11 @@ class EventList(list):
 	class need to be overridden, indeed they probably should not be
 	unless you know what you're doing.
 	"""
-	def __init__(self, instrument):
+	def __init__(self):
 		# the offset that should be added to the times of events in
 		# this list when comparing to the times of other events.
 		# used to implement time-shifted coincidence tests
 		self.offset = lsctables.LIGOTimeGPS(0)
-
-		# the name of the instrument from which the events in this
-		# list have been taken
-		self.instrument = instrument
 
 	def make_index(self):
 		"""
@@ -161,30 +157,35 @@ class EventListDict(dict):
 		# wrapper to shield dict.__new__() from our arguments.
 		return dict.__new__(cls)
 
-	def __init__(self, EventListType, event_table, instruments = None, process_ids = None):
+	def __init__(self, EventListType, events, instruments):
 		"""
 		Initialize a newly-created instance.  EventListType is a
 		subclass of EventList (the subclass itself, not an instance
-		of the subclass).  event_table is a list of events (e.g.,
-		an instance of a glue.ligolw.table.Table subclass).  If the
-		optional process_ids arguments is not None, then it is
-		assumed to be a list or set or other thing implementing the
-		"in" operator which is used to define the set of
-		process_ids whose events should be considered in the
-		coincidence analysis, otherwise all events are considered.
+		of the subclass).  events is an iterable of events (e.g.,
+		an instance of a glue.ligolw.table.Table subclass).
+		instruments is an iterable of instrument names.
+
+		For each instrument in instruments, an instance of
+		EventListType will be created, and the event objects in
+		events whose .ifo attribute equals that instrument will be
+		.append()'ed to that list.  If an event has a .ifo value
+		that is not equal to one of the instruments, KeyError is
+		raised.  It is not an error for there to be no events for a
+		given instrument.
+
+		NOTE:  the event objects in events must have a .ifo
+		attribute.
+
+		NOTE:  both the events and instruments iterables will only
+		be iterated over once, so generator expressions are
+		acceptable.
 		"""
-		for instrument in instruments if instruments is not None else set(event_table.getColumnByName("ifo")):
-			self[instrument] = EventListType(instrument)
+		for instrument in instruments:
+			self[instrument] = EventListType()
 		self.idx = {}
-		if process_ids is None:
-			for event in event_table:
-				self[event.ifo].append(event)
-				self.idx[id(event)] = event
-		else:
-			for event in event_table:
-				if event.process_id in process_ids:
-					self[event.ifo].append(event)
-					self.idx[id(event)] = event
+		for event in events:
+			self[event.ifo].append(event)
+			self.idx[id(event)] = event
 		for l in self.values():
 			l.make_index()
 
@@ -276,13 +277,13 @@ def get_doubles(eventlists, instruments, thresholds, unused, verbose = False):
 
 	instruments = tuple(instruments)
 	assert len(instruments) == 2, "instruments must be an iterable of exactly two names, not %d" % len(instruments)
-	eventlista, eventlistb = [eventlists[instrument] for instrument in instruments]
-	assert (eventlista.instrument, eventlistb.instrument) == instruments, "internal consistency failure:  EventList instruments do not match EventListDict keys"
+	eventlista, eventlistb = eventlists[instruments[0]], eventlists[instruments[1]]
 
 	# choose the shorter of the two lists for the outer loop
 
 	if len(eventlistb) < len(eventlista):
 		eventlista, eventlistb = eventlistb, eventlista
+		instruments = instruments[1], instruments[0]
 		unswap = lambda a, b: (b, a)
 	else:
 		unswap = lambda a, b: (a, b)
@@ -292,10 +293,10 @@ def get_doubles(eventlists, instruments, thresholds, unused, verbose = False):
 	# be swapped).
 
 	try:
-		threshold_data = thresholds[(eventlista.instrument, eventlistb.instrument)]
+		threshold_data = thresholds[instruments]
 	except KeyError as e:
 		raise KeyError("no coincidence thresholds provided for instrument pair %s, %s" % e.args[0])
-	dt = light_travel_time(eventlista.instrument, eventlistb.instrument)
+	dt = light_travel_time(*instruments)
 
 	# populate the unused set with all IDs from list B
 
