@@ -235,7 +235,7 @@ def light_travel_time(instrument1, instrument2):
 	return math.sqrt((dx * dx).sum()) / lal.C_SI
 
 
-def get_doubles(eventlists, instruments, thresholds, unused, verbose = False):
+def get_doubles(eventlists, instruments, thresholds, unused):
 	"""
 	Given an instance of an EventListDict, an iterable (e.g., a list)
 	of instruments, and a dictionary mapping instrument pair to
@@ -309,7 +309,6 @@ def get_doubles(eventlists, instruments, thresholds, unused, verbose = False):
 	# IDs, otherwise remove the IDs of the things that are coincident
 	# with it from the set.
 
-	progressbar = ProgressBar(text = "searching", max = len(eventlista)) if verbose else None
 	offset_a = eventlista.offset
 	for eventa in eventlista:
 		eventa_id = id(eventa)
@@ -321,9 +320,6 @@ def get_doubles(eventlists, instruments, thresholds, unused, verbose = False):
 				yield unswap(eventa_id, eventb_id)
 		else:
 			unused.add((eventa_id,))
-		if progressbar is not None:
-			progressbar.increment()
-	del progressbar
 
 	# done
 
@@ -393,7 +389,7 @@ class TimeSlideGraphNode(object):
 			# which we make be alphabetical
 			#
 
-			self.coincs = tuple(sorted(get_doubles(eventlists, sorted(self.offset_vector), thresholds, self.unused_coincs, verbose = verbose)))
+			self.coincs = tuple(sorted(get_doubles(eventlists, sorted(self.offset_vector), thresholds, self.unused_coincs)))
 			if not self.keep_unused:
 				self.unused_coincs.clear()
 			return self.coincs
@@ -468,7 +464,6 @@ class TimeSlideGraphNode(object):
 		allcoincs1 = self.components[1].get_coincs(eventlists, thresholds, verbose = False)
 		allcoincs2 = self.components[-1].get_coincs(eventlists, thresholds, verbose = False)
 		# for each coinc in list 0
-		progressbar = ProgressBar(text = "searching", max = len(allcoincs0)) if verbose else None
 		for coinc0 in allcoincs0:
 			# find all the coincs in list 1 whose first (n-2)
 			# event IDs are the same as the first (n-2) event
@@ -520,9 +515,6 @@ class TimeSlideGraphNode(object):
 					# record the coinc and move on
 					self.unused_coincs.difference_update(itertools.combinations(new_coinc, len(new_coinc) - 1))
 					self.coincs.append(new_coinc)
-			if progressbar is not None:
-				progressbar.increment()
-		del progressbar
 		# sort the coincs we just constructed by the component
 		# event IDs and convert to a tuple for speed
 		self.coincs.sort()
