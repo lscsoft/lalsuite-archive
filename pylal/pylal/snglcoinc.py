@@ -338,13 +338,14 @@ def get_doubles(eventlists, instruments, thresholds, unused, verbose = False):
 
 
 class TimeSlideGraphNode(object):
-	def __init__(self, offset_vector, time_slide_id = None):
+	def __init__(self, offset_vector, time_slide_id = None, keep_unused = True):
 		self.time_slide_id = time_slide_id
 		self.offset_vector = offset_vector
 		self.deltas = frozenset(offset_vector.deltas.items())
 		self.components = None
 		self.coincs = None
 		self.unused_coincs = set()
+		self.keep_unused = keep_unused
 
 	@property
 	def name(self):
@@ -393,6 +394,8 @@ class TimeSlideGraphNode(object):
 			#
 
 			self.coincs = tuple(sorted(get_doubles(eventlists, sorted(self.offset_vector), thresholds, self.unused_coincs, verbose = verbose)))
+			if not self.keep_unused:
+				self.unused_coincs.clear()
 			return self.coincs
 
 		#
@@ -404,7 +407,12 @@ class TimeSlideGraphNode(object):
 			if verbose:
 				print >>sys.stderr, "\tcopying from %s ..." % str(self.components[0].offset_vector)
 			self.coincs = self.components[0].get_coincs(eventlists, thresholds, verbose = verbose)
-			self.unused_coincs = self.components[0].unused_coincs
+			if self.keep_unused:
+				# don't copy reference, always do in-place
+				# manipulation of our own .unused_coincs so
+				# that calling codes that might hold a
+				# reference to it get the correct result
+				self.unused_coincs.update(self.components[0].unused_coincs)
 
 			#
 			# done.  unlink the graph as we go to release
@@ -432,7 +440,9 @@ class TimeSlideGraphNode(object):
 		# remove things from this set as we use them
 		# NOTE:  this function call is the recursion into the
 		# components to ensure they are initialized, it must be
-		# executed before any of what follows
+		# executed before any of what follows, and in particular it
+		# must be done whether or not we'll be keeping the
+		# collection of return values
 		for component in self.components:
 			self.unused_coincs.update(component.get_coincs(eventlists, thresholds, verbose = verbose))
 		# of the (< n-1)-instrument coincs that were not used in
@@ -441,8 +451,11 @@ class TimeSlideGraphNode(object):
 		# used by any other components, they definitely won't be
 		# used to construct our n-instrument coincs, and so they go
 		# into our unused pile
-		for componenta, componentb in itertools.combinations(self.components, 2):
-			self.unused_coincs |= componenta.unused_coincs & componentb.unused_coincs
+		if self.keep_unused:
+			for componenta, componentb in itertools.combinations(self.components, 2):
+				self.unused_coincs |= componenta.unused_coincs & componentb.unused_coincs
+		else:
+			self.unused_coincs.clear()
 
 		if verbose:
 			print >>sys.stderr, "\tassembling %s ..." % str(self.offset_vector)
@@ -525,14 +538,32 @@ class TimeSlideGraphNode(object):
 
 
 class TimeSlideGraph(object):
-	def __init__(self, offset_vector_dict, verbose = False):
+	def __init__(self, offset_vector_dict, min_instruments = 2, verbose = False):
 		#
 		# safety check input
 		#
 
+		if min_instruments < 1:
+			raise ValueError("min_instruments must be >= 1: %d" % min_instruments)
 		offset_vector = min(offset_vector_dict.values(), key = lambda x: len(x))
 		if len(offset_vector) < 2:
 			raise ValueError("encountered offset vector with fewer than 2 instruments: %s", str(offset_vector))
+		if len(offset_vector) < min_instruments:
+			# this test is part of the logic that ensures we
+			# will only extract coincs that meet the
+			# min_instruments criterion
+			raise ValueError("encountered offset vector smaller than min_instruments (%d): %s", (min_instruments, str(offset_vector)))
+
+		#
+		# plays no role in the coincidence engine.  used for early
+		# memory clean-up, to remove coincs from intermediate data
+		# products that the calling code will not retain.  also as
+		# a convenience for the calling code, implementing the
+		# ubiquitous "minimum instruments" cut here in the
+		# .get_coincs() method
+		#
+
+		self.min_instruments = min_instruments
 
 		#
 		# populate the graph head nodes.  these represent the
@@ -541,7 +572,7 @@ class TimeSlideGraph(object):
 
 		if verbose:
 			print >>sys.stderr, "constructing coincidence assembly graph for %d target offset vectors ..." % len(offset_vector_dict)
-		self.head = tuple(TimeSlideGraphNode(offset_vector, time_slide_id) for time_slide_id, offset_vector in sorted(offset_vector_dict.items()))
+		self.head = tuple(TimeSlideGraphNode(offset_vector, time_slide_id = time_slide_id, keep_unused = len(offset_vector) > min_instruments) for time_slide_id, offset_vector in sorted(offset_vector_dict.items()))
 
 		#
 		# populate the graph generations.  generations[n] is a
@@ -553,7 +584,7 @@ class TimeSlideGraph(object):
 
 		self.generations = {}
 		n = max(len(offset_vector) for offset_vector in offset_vector_dict.values())
-		self.generations[n] = tuple(TimeSlideGraphNode(offset_vector) for offset_vector in offsetvector.component_offsetvectors((node.offset_vector for node in self.head if len(node.offset_vector) == n), n))
+		self.generations[n] = tuple(TimeSlideGraphNode(offset_vector, keep_unused = len(offset_vector) > min_instruments) for offset_vector in offsetvector.component_offsetvectors((node.offset_vector for node in self.head if len(node.offset_vector) == n), n))
 		for n in range(n, 2, -1):	# [n, n-1, ..., 3]
 			#
 			# collect all offset vectors of length n that we
@@ -570,7 +601,7 @@ class TimeSlideGraph(object):
 			# as the n-1'st generation
 			#
 
-			self.generations[n - 1] = tuple(TimeSlideGraphNode(offset_vector) for offset_vector in offsetvector.component_offsetvectors(offset_vectors, n - 1))
+			self.generations[n - 1] = tuple(TimeSlideGraphNode(offset_vector, keep_unused = len(offset_vector) > min_instruments) for offset_vector in offsetvector.component_offsetvectors(offset_vectors, n - 1))
 
 		#
 		# link each n-instrument node to the n-1 instrument nodes
@@ -617,14 +648,27 @@ class TimeSlideGraph(object):
 	def get_coincs(self, eventlists, thresholds, verbose = False):
 		if verbose:
 			print >>sys.stderr, "constructing coincs for target offset vectors ..."
+		# don't do attribute look-ups in the loop
 		sngl_index = eventlists.idx
+		min_instruments = self.min_instruments
 		for n, node in enumerate(self.head, start = 1):
 			if verbose:
 				print >>sys.stderr, "%d/%d: %s" % (n, len(self.head), str(node.offset_vector))
-			# note that unused_coincs must be retrieved after
-			# the call to .get_coincs() because the former is
-			# computed as a side effect of the latter
+			# the contents of .unused_coincs must be iterated
+			# over after the call to .get_coincs() because the
+			# former is populated as a side effect of the
+			# latter, but .unused_coincs is populated in-place
+			# so the following is not sensitive to the order of
+			# evaluation of arguments (the .unused_coincs
+			# attribute look-up can occur before or after
+			# .get_coincs() is called as long as its contents
+			# are not iterated over until after).
 			for coinc in itertools.chain(node.get_coincs(eventlists, thresholds, verbose), node.unused_coincs):
+				# we don't need to check that coinc
+				# contains at least min_instruments events
+				# because those that don't meet the
+				# criteria are excluded during coinc
+				# construction.
 				yield node, tuple(sngl_index[event_id] for event_id in coinc)
 
 
