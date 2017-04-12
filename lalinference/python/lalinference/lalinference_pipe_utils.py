@@ -729,9 +729,9 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       self.skyareajob=SkyAreaJob(self.config,os.path.join(self.basepath,'skyarea.sub'),self.logpath,dax=self.is_dax())
       respagenodes=filter(lambda x: isinstance(x,ResultsPageNode) ,self.get_nodes())
       if self.engine=='lalinferenceburst':
-          prefix='LIB_'
+          prefix='LIB'
       else:
-          prefix='LALInference_'
+          prefix='LALInference'
       for p in respagenodes:
           skyareanode=SkyAreaNode(self.skyareajob,prefix=prefix)
           skyareanode.add_resultspage_parent(p)
@@ -1030,7 +1030,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
         respagenode.set_psd_files(enginenodes[0].get_psd_files())
         respagenode.set_snr_file(enginenodes[0].get_snr_file())
         if os.path.exists(self.basepath+'/coinc.xml'):
-          respagenode.set_coinc_file(self.basepath+'/coinc.xml')
+          respagenode.set_coinc_file(self.basepath+'/coinc.xml',self.config.get('input','gid'))
         mkdirs(os.path.join(self.basepath,'coherence_test'))
         par_mergenodes=[]
         for ifo in enginenodes[0].ifos:
@@ -1067,7 +1067,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
             subresnode.set_psd_files(cotest_nodes[0].get_psd_files())
             subresnode.set_snr_file(cotest_nodes[0].get_snr_file())
             if os.path.exists(self.basepath+'/coinc.xml'):
-              subresnode.set_coinc_file(self.basepath+'/coinc.xml')
+              subresnode.set_coinc_file(self.basepath+'/coinc.xml',self.config.get('input','gid'))
             if self.config.has_option('input','injection-file') and event.event_id is not None:
                 subresnode.set_injection(self.config.get('input','injection-file'),event.event_id)
             elif self.config.has_option('input','burst-injection-file') and event.event_id is not None:
@@ -1088,7 +1088,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
         respagenode.set_psd_files(enginenodes[0].get_psd_files())
         respagenode.set_snr_file(enginenodes[0].get_snr_file())
         if os.path.exists(self.basepath+'/coinc.xml'):
-          respagenode.set_coinc_file(self.basepath+'/coinc.xml')
+          respagenode.set_coinc_file(self.basepath+'/coinc.xml',self.config.get('input','gid'))
     if self.config.has_option('input','injection-file') and event.event_id is not None:
         respagenode.set_injection(self.config.get('input','injection-file'),event.event_id)
     elif self.config.has_option('input','burst-injection-file') and event.event_id is not None:
@@ -1139,7 +1139,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     respagenode.set_psd_files(enginenodes[0].get_psd_files())
     respagenode.set_snr_file(enginenodes[0].get_snr_file())
     if os.path.exists(self.basepath+'/coinc.xml'):
-        respagenode.set_coinc_file(self.basepath+'/coinc.xml')
+        respagenode.set_coinc_file(self.basepath+'/coinc.xml',self.config.get('input','gid'))
     if self.config.has_option('input','injection-file') and event.event_id is not None:
         respagenode.set_injection(self.config.get('input','injection-file'),event.event_id)
     if self.config.has_option('input','burst-injection-file') and event.event_id is not None:
@@ -1178,7 +1178,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     respagenode.set_psd_files(enginenodes[0].get_psd_files())
     respagenode.set_snr_file(enginenodes[0].get_snr_file())
     if os.path.exists(self.basepath+'/coinc.xml'):
-      respagenode.set_coinc_file(self.basepath+'/coinc.xml')
+      respagenode.set_coinc_file(self.basepath+'/coinc.xml',self.config.get('input','gid'))
     respagenode.set_header_file(enginenodes[0].get_header_file())
     if self.config.has_option('input','injection-file') and event.event_id is not None:
         respagenode.set_injection(self.config.get('input','injection-file'),event.event_id)
@@ -1619,7 +1619,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     if engine=='lalinferenceburst':
       prefix='LIB'
     elif engine is None:
-      prefix=""
+      prefix="skymap"
     else:
       prefix='LALInference'
     nodes=None
@@ -1638,7 +1638,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
               #for p in sk.__parents:
               #  if isinstance(p,ResultPageNode):
               #    resultpagenode=p
-              node.set_filename(sk.outdir+'/%s_skymap.fits.gz'%prefix)
+              node.set_filename(sk.outdir+'/%s.fits.gz'%prefix)
               node.set_message('%s FITS sky map'%prefix)
               self.add_node(node)
               nodes.append(node)
@@ -2231,7 +2231,9 @@ class ResultsPageNode(pipeline.CondorDAGNode):
         return
       self.add_file_opt('snr',st)
 
-    def set_coinc_file(self,coinc):
+    def set_coinc_file(self,coinc,gid=None):
+      if gid:
+        self.__event=gid
       if coinc is None:
         return
       self.add_var_arg('--trig '+coinc)
@@ -2570,7 +2572,7 @@ class SkyAreaNode(pipeline.CondorDAGNode):
   def set_fits_name(self):
       name='skymap.fits.gz'
       if self.prefix is not None:
-        name=self.prefix+name
+        name=self.prefix+'.fits.gz'
       self.add_var_opt('fitsoutname',name)
   def set_injection(self,injfile,eventnum):
       if injfile is not None:
