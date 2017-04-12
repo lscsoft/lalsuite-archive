@@ -4689,6 +4689,7 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
     case SEOBNRv2_ROM_DoubleSpin_HI:
     case Lackey_Tidal_2013_SEOBNRv2_ROM:
     case SEOBNRv4_ROM:
+    case SEOBNRv3FD:
     case IMRPhenomA:
     case IMRPhenomB:
     case IMRPhenomFA:
