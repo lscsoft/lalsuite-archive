@@ -2266,9 +2266,9 @@ int XLALSimComputeSpinPrecEOBNR_FD(
     /* put the waveform in the frequency domain */
     /* (the units will correct themselves) */
     *hptilde = XLALCreateCOMPLEX16FrequencySeries("FD H_PLUS", &hplus->epoch, 0.0, deltaF, &lalDimensionlessUnit, (size_t) chirplen / 2 + 1);
-    printf("Stas, Created hptilde \n");
+//    printf("Stas, Created hptilde \n");
     *hctilde = XLALCreateCOMPLEX16FrequencySeries("FD H_CROSS", &hcross->epoch, 0.0, deltaF, &lalDimensionlessUnit, (size_t) chirplen / 2 + 1);
-    printf("Stas, Created hctilde \n");
+//    printf("Stas, Created hctilde \n");
 
     REAL8FFTPlan *plan;
     plan = XLALCreateForwardREAL8FFTPlan((size_t) chirplen, 0);

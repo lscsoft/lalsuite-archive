@@ -5604,7 +5604,7 @@ def find_ndownsample(samples, nDownsample):
                      "margtime","margtimephi","margtime","time_max","time_min",
                      "time_mean", "time_maxl","sky_frame","psdscaleflag","logdeltaf","flow","f_ref",
                      "lal_amporder","lal_pnorder","lal_approximant","tideo","spino","signalmodelflag",
-                     "t0", "phase_maxl", "azimuth", "cosalpha", "lal_amporder"] + logParams + snrParams + splineParams
+                     "t0", "phase_maxl", "azimuth", "cosalpha", "lal_amporder","liv_a_sign","nongr_alpha"] + logParams + snrParams + splineParams
         fixedParams = [p for p in samples.colnames if all(x==samples[p][0] for x in samples[p])]
         print "Fixed parameters: "+str(fixedParams)
         nonParams.extend(fixedParams)

@@ -2070,7 +2070,7 @@ static void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenc
         if (checkParamInList(ppt->value,"dbeta2")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dbeta2", tmpVal, dbeta_min, dbeta_max, LALINFERENCE_PARAM_LINEAR);
         if (checkParamInList(ppt->value,"dbeta3")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dbeta3", tmpVal, dbeta_min, dbeta_max, LALINFERENCE_PARAM_LINEAR);
         if (checkParamInList(ppt->value,"lambda_eff")) {
-          if ((ppta==NULL)) {
+          if (ppta==NULL) {
             XLALPrintError("A value for nonGR_alpha has to be passed with lambda_eff.\n");
             XLAL_ERROR_VOID(XLAL_EFAULT);
            }
@@ -2085,7 +2085,7 @@ static void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenc
           }
         }
         if (checkParamInList(ppt->value,"log10lambda_eff")) {
-          if ((ppta==NULL)) {
+          if (ppta==NULL) {
             XLALPrintError("A value for nonGR_alpha has to be passed with log10lambda_eff. A value for LIV_A_sign also has to be passed!\n");
             XLAL_ERROR_VOID(XLAL_EFAULT);
            }

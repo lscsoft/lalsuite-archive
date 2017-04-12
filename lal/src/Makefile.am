@@ -35,7 +35,7 @@ liblal_la_SOURCES = \
 
 nodist_liblal_la_SOURCES = LALBuildInfo.c
 
-liblal_la_DEPENDENCIES = \
+EXTRA_liblal_la_DEPENDENCIES = \
 	std/libstd.la \
 	tools/libtools.la \
 	factories/libfactories.la \
@@ -50,8 +50,7 @@ liblal_la_DEPENDENCIES = \
 	noisemodels/libnoisemodels.la \
 	$(END_OF_LIST)
 
-liblal_la_LIBADD = $(liblal_la_DEPENDENCIES)
-liblal_la_LDFLAGS = $(AM_LDFLAGS) -version-info $(LIBVERSION)
+liblal_la_LDFLAGS = $(EXTRA_liblal_la_DEPENDENCIES) $(AM_LDFLAGS) -version-info $(LIBVERSION)
 
 EXTRA_DIST = \
 	config.h.in \
@@ -62,7 +61,8 @@ DISTCLEANFILES = config.h
 
 vcs_info_sources = LALVCSInfoHeader.h
 build_info_source = LALBuildInfo.c
-$(build_info_source): $(liblal_la_DEPENDENCIES)
+$(build_info_source): $(EXTRA_liblal_la_DEPENDENCIES)
+LDADD = liblal.la
 
 bin_PROGRAMS = \
 	lal-simd-detect \
