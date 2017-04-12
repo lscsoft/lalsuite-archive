@@ -16,7 +16,7 @@ from pylab import *
 from scipy import stats
 from scipy import integrate
 from scipy.optimize import newton 
-import random 
+from numpy import random 
 import h5py
 import lal
 from pylal.bayespputils import calculate_redshift, DistanceMeasure, lambda_a, amplitudeMeasure
@@ -153,7 +153,7 @@ def merge_posterior_samples(post_list, weights_list, label_list, weighted=False)
   '''Merge posterior samples from different runs with e.g. different template approximants'''
   merged_label = "_".join(label_list)
   n_list = [len(post) for post in post_list]
-  ntot = sum(n)
+  ntot = sum(array(n_list))
   N = len(post_list)
   print n_list, len(post_list), ntot
 
@@ -167,12 +167,12 @@ def merge_posterior_samples(post_list, weights_list, label_list, weighted=False)
 
   # Check weighted flag; if true keep all samples and apply appropriate weights
   if weighted:
-    merged_post = vstack(tuple(post_list))
+    merged_post = hstack(tuple(post_list))
     # Populate a list of arrays with the weights of each posterior sample.
     # Each run i must carry the same overall weight, \propto 1/n_i
     # which we normalize according to the total number of samples ntot.
     new_weights_list = [ntot/(len(post)*N)*ones(len(post))*weights for post,weights in zip(post_list,weights_list)]
-    return merged_post, merged_label, vstack(tuple(new_weights_list))
+    return merged_post, merged_label, hstack(tuple(new_weights_list))
   # If not weighted, then downsample each run to the smallest n_i in the list
   nmin = min(n_list)
   ds_post=[]
@@ -181,11 +181,44 @@ def merge_posterior_samples(post_list, weights_list, label_list, weighted=False)
     s = random.choice(len(post), nmin, replace=False)
     ds_post.append(post[s])
     ds_weight.append(weight[s])
-  merged_post = vstack(tuple(ds_post))
-  merged_weight = vstack(tuple(ds_weight))
-  return merged_post, merged_label, 
+  merged_post = hstack(tuple(ds_post))
+  merged_weight = hstack(tuple(ds_weight))
+  return merged_post, merged_label, merged_weight
   
-if __name__ == "__main__":
+
+def output_stats(outdir, post, weights, label):
+    if alphaLIV < 2.0:
+        """Calculating Posterior Quantiles (lower)"""
+        PQ_68 = weighted_1dQuantile(0.32, post, weights)
+        PQ_90 = weighted_1dQuantile(0.1, post, weights) 
+        PQ_95 = weighted_1dQuantile(0.05, post, weights)
+        PQ_99 = weighted_1dQuantile(0.01, post, weights)
+    elif alphaLIV > 2.0:
+        """Calculating Posterior Quantiles (upper)"""
+        PQ_68 = -weighted_1dQuantile(0.32, -post,weights)
+        PQ_90 = -weighted_1dQuantile(0.1, -post, weights)
+        PQ_95 = -weighted_1dQuantile(0.05, -post, weights)
+        PQ_99 = -weighted_1dQuantile(0.01, -post, weights)
+    else:
+        print "Cannot handle alpha=2 yet. Exiting..."
+        sys.exit(-1)
+
+    # print min(post)
+    print " Summary ( alpha = ", str(alphaLIV), ")"
+    print "=-=-=-=-=-=-=-=-=-=-=-=-="
+    print "shape:", shape(post), " min:", min(post), " max:", max(post)
+    print "log(lambda_A)\t68% PQ: ", PQ_68, "\t90% PQ: ", PQ_90, "\t95% PQ: ", PQ_95, "\t99% PQ: ", PQ_99
+    print "lambda_A [m]\t68% PQ: ", 10**PQ_68, "\t90% PQ: ", 10**PQ_90, "\t95% PQ: ", 10**PQ_95, "\t99% PQ: ", 10**PQ_99
+    print "E_A [eV]\t68% PQ: ", EnergyScale(10**PQ_68), "\t90% PQ: ", EnergyScale(10**PQ_90), "\t95% PQ: ", EnergyScale(10**PQ_95), "\t99% PQ: ", EnergyScale(10**PQ_99)
+    print "A [(eV/c)^" + str(2-alphaLIV) + "]\t68% PQ: ", A_LIV(10**PQ_68, alphaLIV), "\t90% PQ: ", A_LIV(10**PQ_90, alphaLIV), "\t95% PQ: ", A_LIV(10**PQ_95, alphaLIV), "\t99% PQ: ", A_LIV(10**PQ_99, alphaLIV)
+    
+    savetxt(os.path.join(outdir, 'credible_regions_%s_%s.txt'%(combine_param, label)),
+             array([PQ_68, PQ_90, PQ_95, PQ_99]).transpose(),
+             header = "68%\t90%\t95%\t99%",
+             fmt = '%10.7f')
+
+
+    if __name__ == "__main__":
 
 ###########################################
 #
@@ -303,36 +336,7 @@ if __name__ == "__main__":
         weights = lamAdata*0+1.0
         logweights = lamAdata*0+1.0
         
-
-    if alphaLIV < 2.0:
-        """Calculating Posterior Quantiles (lower)"""
-        PQ_68 = weighted_1dQuantile(0.32, loglamAdata,logweights)
-        PQ_90 = weighted_1dQuantile(0.1, loglamAdata, logweights) 
-        PQ_95 = weighted_1dQuantile(0.05, loglamAdata, logweights)
-        PQ_99 = weighted_1dQuantile(0.01, loglamAdata, logweights)
-    elif alphaLIV > 2.0:
-        """Calculating Posterior Quantiles (upper)"""
-        PQ_68 = -weighted_1dQuantile(0.32, -loglamAdata,logweights)
-        PQ_90 = -weighted_1dQuantile(0.1, -loglamAdata, logweights)
-        PQ_95 = -weighted_1dQuantile(0.05, -loglamAdata, logweights)
-        PQ_99 = -weighted_1dQuantile(0.01, -loglamAdata, logweights)
-    else:
-        print "Cannot handle alpha=2 yet. Exiting..."
-        sys.exit(-1)
-
-    # print min(loglamAdata)
-    print " Summary ( alpha = ", str(alphaLIV), ")"
-    print "=-=-=-=-=-=-=-=-=-=-=-=-="
-    print "shape:", shape(loglamAdata), " min:", min(loglamAdata), " max:", max(loglamAdata)
-    print "log(lambda_A)\t68% PQ: ", PQ_68, "\t90% PQ: ", PQ_90, "\t95% PQ: ", PQ_95, "\t99% PQ: ", PQ_99
-    print "lambda_A [m]\t68% PQ: ", 10**PQ_68, "\t90% PQ: ", 10**PQ_90, "\t95% PQ: ", 10**PQ_95, "\t99% PQ: ", 10**PQ_99
-    print "E_A [eV]\t68% PQ: ", EnergyScale(10**PQ_68), "\t90% PQ: ", EnergyScale(10**PQ_90), "\t95% PQ: ", EnergyScale(10**PQ_95), "\t99% PQ: ", EnergyScale(10**PQ_99)
-    print "A [(eV/c)^" + str(2-alphaLIV) + "]\t68% PQ: ", A_LIV(10**PQ_68, alphaLIV), "\t90% PQ: ", A_LIV(10**PQ_90, alphaLIV), "\t95% PQ: ", A_LIV(10**PQ_95, alphaLIV), "\t99% PQ: ", A_LIV(10**PQ_99, alphaLIV)
-    
-    savetxt(os.path.join(outfolder,'credible_regions_%s_%s.txt'%(combine_param,lab)),
-             array([PQ_68, PQ_90, PQ_95, PQ_99]).transpose(),
-             header = "68%\t90%\t95%\t99%",
-             fmt = '%10.7f')
+    output_stats(outfolder, loglamAdata, logweights, lab, alphaLIV)
 
     #wpostlist.append(mirrorEdges(loglamAdata, x_min, x_max, weights=logweights)) 
     #postlist.append(mirrorEdges(loglamAdata, x_min, x_max))
@@ -342,36 +346,10 @@ if __name__ == "__main__":
 
   if args.single_source:
     print 'Merging posteriors'
-    merged_loglamA, merged_label = merge_posterior_samples(post_list, logweightlist, labels, weighted=False)
-    if alphaLIV < 2.0:
-        """Calculating Posterior Quantiles (lower)"""
-        PQ_68 = weighted_1dQuantile(0.32, loglamAdata,logweights)
-        PQ_90 = weighted_1dQuantile(0.1, loglamAdata, logweights) 
-        PQ_95 = weighted_1dQuantile(0.05, loglamAdata, logweights)
-        PQ_99 = weighted_1dQuantile(0.01, loglamAdata, logweights)
-    elif alphaLIV > 2.0:
-        """Calculating Posterior Quantiles (upper)"""
-        PQ_68 = -weighted_1dQuantile(0.32, -loglamAdata,logweights)
-        PQ_90 = -weighted_1dQuantile(0.1, -loglamAdata, logweights)
-        PQ_95 = -weighted_1dQuantile(0.05, -loglamAdata, logweights)
-        PQ_99 = -weighted_1dQuantile(0.01, -loglamAdata, logweights)
-    else:
-        print "Cannot handle alpha=2 yet. Exiting..."
-        sys.exit(-1)
-
-    # print min(loglamAdata)
-    print " Summary ( alpha = ", str(alphaLIV), ")"
-    print "=-=-=-=-=-=-=-=-=-=-=-=-="
-    print "shape:", shape(loglamAdata), " min:", min(loglamAdata), " max:", max(loglamAdata)
-    print "log(lambda_A)\t68% PQ: ", PQ_68, "\t90% PQ: ", PQ_90, "\t95% PQ: ", PQ_95, "\t99% PQ: ", PQ_99
-    print "lambda_A [m]\t68% PQ: ", 10**PQ_68, "\t90% PQ: ", 10**PQ_90, "\t95% PQ: ", 10**PQ_95, "\t99% PQ: ", 10**PQ_99
-    print "E_A [eV]\t68% PQ: ", EnergyScale(10**PQ_68), "\t90% PQ: ", EnergyScale(10**PQ_90), "\t95% PQ: ", EnergyScale(10**PQ_95), "\t99% PQ: ", EnergyScale(10**PQ_99)
-    print "A [(eV/c)^" + str(2-alphaLIV) + "]\t68% PQ: ", A_LIV(10**PQ_68, alphaLIV), "\t90% PQ: ", A_LIV(10**PQ_90, alphaLIV), "\t95% PQ: ", A_LIV(10**PQ_95, alphaLIV), "\t99% PQ: ", A_LIV(10**PQ_99, alphaLIV)
-    
-    savetxt(os.path.join(outfolder,'credible_regions_%s_%s.txt'%(combine_param,lab)),
-             array([PQ_68, PQ_90, PQ_95, PQ_99]).transpose(),
-             header = "68%\t90%\t95%\t99%",
-             fmt = '%10.7f')
+    merged_loglamA, merged_label, merged_logweights = merge_posterior_samples(postlist, logweightlist, labels, weighted=False)
+    print shape(merged_loglamA)
+    print shape(merged_logweights)
+    output_stats(outfolder, merged_loglamA, merged_logweights, merged_label, alphaLIV)
     
   if len(postlist) == 1 or args.single_source:
     print 'DONE! (single source only)'
