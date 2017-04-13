@@ -15,7 +15,7 @@ Group:		Development/Libraries
 Source:		lscsoft-%{name}-%{version}.tar.gz
 Url:		http://www.lsc-group.phys.uwm.edu/daswg/projects/glue.html
 BuildRoot:	%{_tmppath}/%{name}-%{version}-root
-Requires:	python-cjson m2crypto python-six glue-common glue-segments python >= 2.6
+Requires:	python-cjson pyOpenSSL python-six glue-common glue-segments python >= 2.6
 BuildRequires:  python-devel, python-setuptools
 Prefix:         %{_glue_prefix}
 %description
@@ -93,6 +93,9 @@ rm -rf $RPM_BUILD_ROOT
 %{glue_python_sitearch}/glue/git_version.pyc
 
 %changelog
+* Thu Apr 13 2017 Duncan Macleod <duncan.macleod@ligo.org>
+- Switched dependency from M2Crypto -> pyOpenSSL.
+
 * Fri Apr 7 2017 Ryan Fisher <ryan.fisher@ligo.org>
 - Added install_requires for pip installations.
 
