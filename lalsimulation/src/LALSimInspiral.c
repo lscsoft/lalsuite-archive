@@ -2206,6 +2206,10 @@ int XLALSimComputeSpinPrecEOBNR_FD(
     REAL8TimeSeries *hcross = NULL;
 
     Approximant apprT = SEOBNRv3;
+    LALSimInspiralTestGRParam *nonGRprT = NULL;
+    if (nonGRparams != NULL){
+        XLALPrintWarning("XLAL Warning - Passed non-zero nonGRparams to function %s. They will be ignored here.  \n", __func__);
+    }
 
     /*printf("Stas: masses %e, %e \n", m1/LAL_MSUN_SI, m2/LAL_MSUN_SI);
     printf("Stas: spin1: %f, %f, %f \n", S1x, S1y, S1z);
@@ -2214,7 +2218,8 @@ int XLALSimComputeSpinPrecEOBNR_FD(
     printf("Stas: phiRef = %f, dt = %f \n", phiRef, deltaT);*/
 
     // generating the waveform in time domain
-    retval = XLALSimInspiralChooseTDWaveform(&hplus, &hcross, phiRef, deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, apprT);
+    //retval = XLALSimInspiralChooseTDWaveform(&hplus, &hcross, phiRef, deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, apprT);
+    retval = XLALSimInspiralChooseTDWaveform(&hplus, &hcross, phiRef, deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, i, lambda1, lambda2, waveFlags, nonGRprT, amplitudeO, phaseO, apprT);
     if (retval < 0)
         XLAL_ERROR(XLAL_EFUNC);
     
@@ -4761,10 +4766,14 @@ int XLALSimLorentzInvarianceViolationTerm(
     XLAL_ERROR(XLAL_EINVAL);
   }
 
+  UINT4 k = 0;
+  if (f0 == 0.0)
+      k=1;
+
   if (nonGR_alpha == 1) {
     zeta = LIV_A_sign*LAL_PI*r/lambda_eff; /*Eqn. (32) of arxiv:1110.2720*/
     dPhiPref = zeta*log(LAL_PI*Mc*LAL_MTSUN_SI); /*Eqn. (31) of arxiv:1110.2720;the frequency dependence is treated below*/
-    for (i=0; i<len; i++) {
+    for (i=k; i<len; i++) {
       f = f0 + i*df;
       tmpExp = cexp(I*(dPhiPref + zeta*log(f)));
       hplus = (*hptilde)->data->data[i] * tmpExp;
@@ -4776,7 +4785,7 @@ int XLALSimLorentzInvarianceViolationTerm(
   else {
     zeta = LIV_A_sign*pow(LAL_PI, (2. - nonGR_alpha))*r*pow(Mc*LAL_MRSUN_SI, (1. - nonGR_alpha))/((1. - nonGR_alpha)*pow(lambda_eff, (2. - nonGR_alpha))); /*Eqn. (30) of arxiv:1110.2720*/
     dPhiPref = zeta*pow(LAL_PI*Mc*LAL_MTSUN_SI, (nonGR_alpha - 1.)); /*Eqn. (28) of arxiv:1110.2720;the frequency dependence is treated below*/
-    for (i=0; i<len; i++) {
+    for (i=k; i<len; i++) {
       f = f0 + i*df;
       tmpVal = pow(f, (nonGR_alpha - 1.));
       tmpExp=cexp(-I*dPhiPref*tmpVal);
