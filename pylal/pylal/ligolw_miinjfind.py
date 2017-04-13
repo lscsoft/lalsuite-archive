@@ -40,7 +40,7 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 
-from pylal import git_version, ligolw_thinca, llwapp, \
+from pylal import git_version, llwapp, \
                   SimInspiralUtils, MultiInspiralUtils
 from lalburst import timeslides as ligolw_tisi
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS

@@ -44,7 +44,7 @@ from glue.ligolw import lsctables
 from glue.ligolw.utils import coincs as ligolw_coincs
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
-from pylal import ligolw_thinca
+from lalinspiral import thinca
 from pylal import ligolw_rinca
 from lalburst import timeslides as ligolw_tisi
 from pylal import SimInspiralUtils
@@ -434,7 +434,7 @@ def lalapps_cbc_injfind(xmldoc, process, search, snglcomparefunc, nearcoinccompa
 	if verbose:
 		print >>sys.stderr, "indexing ..."
 
-	bbdef = {"inspiral": ligolw_thinca.InspiralCoincDef, "ringdown": ligolw_rinca.RingdownCoincDef}[search]
+	bbdef = {"inspiral": thinca.InspiralCoincDef, "ringdown": ligolw_rinca.RingdownCoincDef}[search]
 	sbdef = {"inspiral": InspiralSICoincDef, "ringdown": RingdownSICoincDef}[search]
 	scndef = {"inspiral": InspiralSCNearCoincDef, "ringdown": RingdownSCNearCoincDef}[search]
 	sngl_type = {"inspiral": lsctables.SnglInspiralTable, "ringdown": lsctables.SnglRingdownTable}[search]

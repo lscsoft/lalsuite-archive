@@ -1,4 +1,4 @@
-# Copyright (C) 2006--2011,2013,2014,2016  Kipp Cannon
+# Copyright (C) 2006--2011,2013,2014,2016,2017  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -46,13 +46,12 @@ from glue.ligolw import lsctables
 from glue.ligolw.utils import coincs as ligolw_coincs
 from glue.ligolw.utils import time_slide as ligolw_time_slide
 from glue.text_progress_bar import ProgressBar
-from pylal import git_version
-from pylal import ligolw_thinca
+from . import thinca
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
-__version__ = "git id %s" % git_version.id
-__date__ = git_version.date
+from git_version import date as __data__
+from git_version import version as __version__
 
 
 #
@@ -271,7 +270,7 @@ class DocContents(object):
 		coinc.coinc_def_id = coinc_def_id
 		coinc.coinc_event_id = self.coinctable.get_next_id()
 		coinc.time_slide_id = self.tisi_id
-		coinc.set_instruments(None)
+		coinc.insts = None
 		coinc.nevents = 0
 		coinc.likelihood = None
 		self.coinctable.append(coinc)
@@ -301,7 +300,7 @@ def add_sim_inspiral_coinc(contents, sim, inspirals):
 	sngl_inspiral rows to the new coinc_event row.
 	"""
 	coinc = contents.new_coinc(contents.sb_coinc_def_id)
-	coinc.set_instruments(set(event.ifo for event in inspirals))
+	coinc.insts = (event.ifo for event in inspirals)
 	coinc.nevents = len(inspirals)
 
 	coincmap = lsctables.CoincMap()
@@ -397,7 +396,7 @@ def ligolw_inspinjfind(xmldoc, process, search, snglcomparefunc, nearcoinccompar
 	if verbose:
 		print >>sys.stderr, "indexing ..."
 
-	bbdef = {"inspiral": ligolw_thinca.InspiralCoincDef}[search]
+	bbdef = {"inspiral": thinca.InspiralCoincDef}[search]
 	sbdef = {"inspiral": InspiralSICoincDef}[search]
 	scedef = {"inspiral": InspiralSCExactCoincDef}[search]
 	scndef = {"inspiral": InspiralSCNearCoincDef}[search]
