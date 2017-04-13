@@ -1,6 +1,5 @@
-#!/usr/bin/env python
 #
-# Copyright (C) 2006--2009,2013,2014,2016  Kipp Cannon
+# Copyright (C) 2006--2009,2013,2014,2016,2017  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -38,16 +37,23 @@ import sys
 from glue.ligolw import lsctables
 from glue.ligolw import utils as ligolw_utils
 from glue.ligolw.utils import process as ligolw_process
-from pylal import git_version
-from pylal import ligolw_inspinjfind
+from lalinspiral import inspinjfind
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
-__version__ = "git id %s" % git_version.id
-__date__ = git_version.date
+from lalapps.git_version import date as __date__
+from lalapps.git_version import version as __version__
 
 
-process_program_name = "ligolw_inspinjfind"
+process_program_name = "lalapps_inspinjfind"
+
+
+#
+# Must use injection finder's custom sngl_inspiral table row type.
+#
+
+
+lsctables.SnglInspiralTable.RowType = lsctables.SnglInspiral = inspinjfind.SnglInspiral
 
 
 #
@@ -61,17 +67,19 @@ process_program_name = "ligolw_inspinjfind"
 
 def parse_command_line():
 	parser = OptionParser(
-		version = "Name: %%prog\n%s" % git_version.verbose_msg,
+		version = "Name: %%prog\n%s" % __version__,
 		usage = "%prog [options] [file ...]",
 		description = "Accepts as input one or more LIGO Light Weight XML files, each containing CBC candidates and a list of injections, and adds entries to the coincidence tables indicating which events match which injections."
 	)
 	parser.add_option("-f", "--force", action = "store_true", help = "Process even if file has already been processed.")
 	parser.add_option("--comment", metavar = "text", help = "Set the comment string to be written to the process table (default = None).")
 	parser.add_option("-c", "--match-algorithm", metavar = "[inspiral]", default = "inspiral", help = "Set the algorithm used to match event candidates with injections (default = \"inspiral\").")
-	parser.add_option("-r", "--revert", action = "store_true", help = "Revert a previously-processed XML file to its pre-ligolw_inspinjfind state, allowing it to be re-processed.  This is achieved by removing ligolw_inspinjfind's entries from the process metadata tables, removing injection-related entries from the coinc_definer table, and removing all coincs created by ligolw_inspinjfind.  NOTE:  generally this is only possible if ligolw_inspinjfind was the last transformation applied to the file, otherwise data that has been added subsequently might be broken due to dangling cross-references to deleted data.  It is left as an exercise to the user to ensure that reverting the file is sensible.")
+	parser.add_option("-r", "--revert", action = "store_true", help = "Revert a previously-processed XML file to its pre-lalapps_inspinjfind state, allowing it to be re-processed.  This is achieved by removing lalapps_inspinjfind's entries from the process metadata tables, removing injection-related entries from the coinc_definer table, and removing all coincs created by lalapps_inspinjfind.  NOTE:  generally this is only possible if lalapps_inspinjfind was the last transformation applied to the file, otherwise data that has been added subsequently might be broken due to dangling cross-references to deleted data.  It is left as an exercise to the user to ensure that reverting the file is sensible.")
 	parser.add_option("-w", "--time-window", metavar = "seconds", type = 'float', default = 9., help = "Set the time window used by the \"inspiral\" match algorithm (default = 9.0).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
+
+	paramdict = options.__dict__.copy()
 
 	if options.match_algorithm is None:
 		raise ValueError("missing required --match-algorithm option")
@@ -81,32 +89,7 @@ def parse_command_line():
 	if options.time_window < 0.:
 		raise ValueError("--time-window must be non-negative")
 
-	return options, (filenames or [None])
-
-
-#
-# =============================================================================
-#
-#                                    Input
-#
-# =============================================================================
-#
-
-
-#
-# Use interning row builder to save memory.
-#
-
-
-lsctables.table.TableStream.RowBuilder = lsctables.table.InterningRowBuilder
-
-
-#
-# Must use injection finder's custom sngl_inspiral table row type.
-#
-
-
-lsctables.SnglInspiralTable.RowType = lsctables.SnglInspiral = ligolw_inspinjfind.SnglInspiral
+	return options, paramdict, (filenames or [None])
 
 
 #
@@ -123,7 +106,7 @@ lsctables.SnglInspiralTable.RowType = lsctables.SnglInspiral = ligolw_inspinjfin
 #
 
 
-options, filenames = parse_command_line()
+options, paramdict, filenames = parse_command_line()
 
 # must match columns in sngl_inspiral table
 search = {
@@ -147,11 +130,8 @@ def InspiralSnglCompare(sim, sngl, twindow = lsctables.LIGOTimeGPS(options.time_
 NearCoincCompare = InspiralSnglCompare
 
 
-snglcomparefunc = {
-	"inspiral": InspiralSnglCompare
-}[options.match_algorithm]
-nearcoinccomparefunc = {
-	"inspiral": NearCoincCompare
+snglcomparefunc, nearcoinccomparefunc = {
+	"inspiral": (InspiralSnglCompare, NearCoincCompare)
 }[options.match_algorithm]
 
 
@@ -167,15 +147,14 @@ for n, filename in enumerate(filenames, start = 1):
 
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n, len(filenames)),
-	xmldoc = ligolw_utils.load_filename(filename, contenthandler = ligolw_inspinjfind.LIGOLWContentHandler, verbose = options.verbose)
-	lsctables.table.InterningRowBuilder.strings.clear()
+	xmldoc = ligolw_utils.load_filename(filename, contenthandler = inspinjfind.LIGOLWContentHandler, verbose = options.verbose)
 
 	#
 	# process
 	#
 
 	if options.revert:
-		ligolw_inspinjfind.revert(xmldoc, process_program_name, verbose = options.verbose)
+		inspinjfind.revert(xmldoc, process_program_name, verbose = options.verbose)
 	else:
 		#
 		# have we already processed it?
@@ -195,13 +174,21 @@ for n, filename in enumerate(filenames, start = 1):
 		# add process metadata to document
 		#
 
-		process = ligolw_process.register_to_xmldoc(xmldoc, process_program_name, options.__dict__, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = options.comment)
+		process = ligolw_process.register_to_xmldoc(xmldoc, process_program_name, paramdict, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = options.comment)
 
 		#
 		# run inspinjfind algorithm
 		#
 
-		ligolw_inspinjfind.ligolw_inspinjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefunc, end_time_bisect_window = 1.5 * options.time_window, verbose = options.verbose)
+		inspinjfind.ligolw_inspinjfind(
+			xmldoc,
+			process,
+			search,
+			snglcomparefunc,
+			nearcoinccomparefunc,
+			end_time_bisect_window = 1.5 * options.time_window,
+			verbose = options.verbose
+		)
 
 		#
 		# close out the process metadata
