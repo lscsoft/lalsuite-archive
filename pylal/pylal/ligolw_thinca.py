@@ -36,7 +36,7 @@ from glue.ligolw.utils import search_summary as ligolw_search_summary
 from glue.ligolw.utils import coincs as ligolw_coincs
 from glue import offsetvector
 from pylal import git_version
-from pylal import snglcoinc
+from lalburst import snglcoinc
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
