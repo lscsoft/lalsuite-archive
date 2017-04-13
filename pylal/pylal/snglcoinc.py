@@ -309,9 +309,10 @@ def get_doubles(eventlists, instruments, thresholds, unused, verbose = False):
 	# with it from the set.
 
 	progressbar = ProgressBar(text = "searching", max = len(eventlista)) if verbose else None
+	offset_a = eventlista.offset
 	for eventa in eventlista:
 		eventa_id = id(eventa)
-		matches = eventlistb.get_coincs(eventa, eventlista.offset, dt, threshold_data)
+		matches = eventlistb.get_coincs(eventa, offset_a, dt, threshold_data)
 		if matches:
 			for eventb in matches:
 				eventb_id = id(eventb)
