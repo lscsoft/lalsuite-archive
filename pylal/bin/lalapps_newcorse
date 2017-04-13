@@ -36,6 +36,7 @@ import sys
 import copy
 import time
 
+from lal import rate
 from lal import utils as lalutils
 
 from glue import segments
@@ -44,7 +45,6 @@ from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
-from pylal import rate
 from pylal import db_thinca_rings
 
 

@@ -1,4 +1,4 @@
-Source: glue
+Source: lscsoft-glue
 Section: python
 Priority: optional
 Maintainer: Steffen Grunewald <steffen.grunewald@aei.mpg.de>

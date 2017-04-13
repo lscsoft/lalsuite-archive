@@ -50,6 +50,7 @@ import warnings
 
 
 import lal
+from lal import rate
 
 
 from glue import offsetvector
@@ -60,7 +61,6 @@ from glue.ligolw import param as ligolw_param
 from glue.ligolw import lsctables
 from glue.text_progress_bar import ProgressBar
 from pylal import git_version
-from pylal import rate
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -730,16 +730,14 @@ class CoincTables(object):
 		coinc.coinc_def_id = coinc_def_id
 		coinc.coinc_event_id = None
 		coinc.time_slide_id = time_slide_id
-		coinc.set_instruments(None)
+		coinc.insts = None
 		coinc.likelihood = None
 
-		coincmaps = []
-		for event in events:
-			coincmap = self.coincmaptable.RowType()
-			coincmap.coinc_event_id = coinc.coinc_event_id
-			coincmap.table_name = event.event_id.table_name
-			coincmap.event_id = event.event_id
-			coincmaps.append(coincmap)
+		coincmaps = [self.coincmaptable.RowType(
+			coinc_event_id = None,
+			table_name = event.event_id.table_name,
+			event_id = event.event_id
+		) for event in events]
 
 		coinc.nevents = len(coincmaps)
 
