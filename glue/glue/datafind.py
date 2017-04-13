@@ -60,9 +60,10 @@ import sys
 import time
 import calendar
 import six.moves.http_client
-import M2Crypto
 import re
 import unittest
+
+from OpenSSL import crypto
 
 try:
     from cjson import decode
@@ -421,41 +422,32 @@ def validate_proxy(path):
     """
     # load the proxy from path
     try:
-        proxy = M2Crypto.X509.load_cert(path)
-    except Exception as e:
-        msg = "Unable to load proxy from path %s : %s" % (path, e)
-        raise RuntimeError(msg)
+        with open(path, 'rt') as f:
+            cert = crypto.load_certificate(crypto.FILETYPE_PEM, f.read())
+    except IOError as e:
+        e.args = ('Failed to load proxy certificate: %s' % str(e),)
+        raise
 
-    # make sure the proxy is RFC 3820 compliant
-    try:
-        proxy.get_ext("proxyCertInfo")
-    except LookupError:
-        subject = proxy.get_subject().as_text()
-        if re.search(r'.+CN=proxy$', subject):
-            raise RuntimeError("Could not find a RFC 3820 compliant proxy "
-                               "credential. Please run 'grid-proxy-init -rfc' "
-                               "and try again.")
+    # try and read proxyCertInfo
+    rfc3820 = False
+    for i in range(cert.get_extension_count()):
+        if cert.get_extension(i).get_short_name() == 'proxyCertInfo':
+            rfc3820 = True
+            break
 
-    # attempt to make sure the proxy is still good for more than 15 minutes
-    try:
-        expireASN1 = proxy.get_not_after().__str__()
-        expireGMT  = time.strptime(expireASN1, "%b %d %H:%M:%S %Y %Z")
-        expireUTC  = calendar.timegm(expireGMT)
-        now = int(time.time())
-        secondsLeft = expireUTC - now
-    except Exception as e:
-        # problem getting or parsing time so just let the client
-        # continue and pass the issue along to the server
-        secondsLeft = 3600
+    # otherwise test common name
+    if not rfc3820:
+        subject = cert.get_subject()
+        if subject.CN.startswith('proxy'):
+            raise RuntimeError('Could not find a valid proxy credential')
 
-    if secondsLeft <= 0:
-        raise RuntimeError("Your proxy certificate is expired.\n"
-                           "Please generate a new proxy certificate and "
-                           "try again. ")
-    if secondsLeft < (60 * 15):
-        raise RuntimeError("Your proxy certificate expires in less than 15 "
-                           "minutes.\nPlease generate a new proxy "
-                           "certificate and try again.")
+    # check time remaining
+    expiry = cert.get_notAfter()
+    if isinstance(expiry, bytes):
+        expiry = expiry.decode('utf-8')
+    expiryu = calendar.timegm(time.strptime(expiry, "%Y%m%d%H%M%SZ"))
+    if expiryu < time.time():
+        raise RuntimeError('Required proxy credential has expired')
 
     # return True to indicate validated proxy
     return True
