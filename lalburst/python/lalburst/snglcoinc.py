@@ -60,12 +60,11 @@ from glue.ligolw import array as ligolw_array
 from glue.ligolw import param as ligolw_param
 from glue.ligolw import lsctables
 from glue.text_progress_bar import ProgressBar
-from pylal import git_version
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
-__version__ = "git id %s" % git_version.id
-__date__ = git_version.date
+from git_version import date as __date__
+from git_version import version as __version__
 
 
 #
@@ -93,7 +92,7 @@ class EventList(list):
 		# the offset that should be added to the times of events in
 		# this list when comparing to the times of other events.
 		# used to implement time-shifted coincidence tests
-		self.offset = lsctables.LIGOTimeGPS(0)
+		self.offset = lal.LIGOTimeGPS(0)
 
 	def make_index(self):
 		"""
@@ -112,7 +111,7 @@ class EventList(list):
 		"""
 		# cast offset to LIGOTimeGPS to avoid repeated conversion
 		# when applying the offset to each event.
-		self.offset = lsctables.LIGOTimeGPS(offset)
+		self.offset = lal.LIGOTimeGPS(offset)
 
 	def get_coincs(self, event_a, offset_a, light_travel_time, threshold):
 		"""
@@ -720,7 +719,7 @@ class CoincTables(object):
 		# FIXME:  I believe the arithmetic in the time slide graph
 		# construction can be cleaned up so that this isn't
 		# required.  when that is fixed, remove this
-		self.time_slide_index = dict((time_slide_id, type(offset_vector)((instrument, lsctables.LIGOTimeGPS(offset)) for instrument, offset in offset_vector.items())) for time_slide_id, offset_vector in self.time_slide_index.items())
+		self.time_slide_index = dict((time_slide_id, type(offset_vector)((instrument, lal.LIGOTimeGPS(offset)) for instrument, offset in offset_vector.items())) for time_slide_id, offset_vector in self.time_slide_index.items())
 
 	def coinc_rows(self, process_id, time_slide_id, coinc_def_id, events):
 		"""
@@ -974,10 +973,10 @@ class CoincSynthesizer(object):
 	@property
 	def coincidence_rate_factors(self):
 		"""
-		For instruments {1, ..., N}, with rates \mu_{1}, ...,
-		\mu_{N}, the rate of coincidences is
+		For instruments {1, ..., N}, with rates \\mu_{1}, ...,
+		\\mu_{N}, the rate of coincidences is
 
-		\propto \prod_{i} \mu_{i}.
+		\\propto \\prod_{i} \\mu_{i}.
 
 		The proportionality constant depends only on the
 		coincidence windows.  This function computes and returns a
@@ -1295,7 +1294,7 @@ class CoincSynthesizer(object):
 		Generator that yields dictionaries of random noise event
 		time-of-arrival offsets for the given instruments such that
 		the time-of-arrivals are mutually coincident given the
-		maximum allowed inter-instrument \Delta t's.  The values
+		maximum allowed inter-instrument \\Delta t's.  The values
 		returned are offsets, and would need to be added to some
 		common time to yield absolute arrival times.
 
@@ -1427,7 +1426,7 @@ class TOATriangulator(object):
 		where n is a unit 3-vector pointing from the co-ordinate
 		origin towards the source of the signal, toa is the
 		time-of-arrival of the signal at the co-ordinate origin,
-		chi2 / DOF is the \chi^{2} per degree-of-freedom from to
+		chi2 / DOF is the \\chi^{2} per degree-of-freedom from to
 		the arrival time residuals, and dt is the root-sum-square
 		of the arrival time residuals.
 
