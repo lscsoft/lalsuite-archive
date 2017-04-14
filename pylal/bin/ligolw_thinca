@@ -50,14 +50,6 @@ __date__ = git_version.date
 
 
 #
-# Use interning row builder to save memory.
-#
-
-
-lsctables.table.TableStream.RowBuilder = lsctables.table.InterningRowBuilder
-
-
-#
 # Must use coincidence code's custom sngl_inspiral table row type.
 #
 
@@ -86,7 +78,7 @@ def parse_command_line():
 	parser.add_option("-t", "--threshold", metavar = "float", type = "float", help = "Set the coincidence threshold (required).  The meaning is defined by the match algorithm.  For --match=exact this sets the Delta t window in seconds.")
 	parser.add_option("--min-instruments", metavar = "number", default = "2", type = "int", help = "Set the minimum number of instruments that must participate in a coincidence (default = 2).  The value must be greater than 0.")
 	parser.add_option("--vetoes-name", metavar = "string", default = "vetoes", help = "From the input document, exatract the segment list having this name to use as the veto segments (default = \"vetoes\").  Warning:  if no segments by this name are found in the document then vetoes will not be applied, this is not an error condition.")
-	parser.add_option("--trigger-program", metavar = "name", default = "inspiral", help = "Set the name of the program that generated the event list as it appears in the process table (default = \"inspiral\").")
+	parser.add_option("--trigger-program", metavar = "name", default = "inspiral", help = "Set the name of the program that generated the event list as it appears in the process table (default = \"inspiral\").  This is used to identify the search_summary table entries to be used to define instrument on and off times.")
 	parser.add_option("--coinc-end-time-segment", metavar = "seg", help = "The segment of time to retain coincident triggers from. Uses segmentUtils.from_range_strings() format \"START:END\" for an interval of the form [START,END), \"START:\" for an interval of the form [START,INF), and \":END\" for an interval of the form (-INF,END).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
@@ -109,7 +101,7 @@ def parse_command_line():
 	if options.coinc_end_time_segment is not None:
 		if ',' in options.coinc_end_time_segment:
 			raise ValueError("--coinc-end-time-segment may only contain a single segment")
-		options.coinc_end_time_segs = segmentsUtils.from_range_strings([options.coinc_end_time_segment], boundtype = lsctables.LIGOTimeGPS).coalesce()
+		options.coinc_end_time_segs = segmentsUtils.from_range_strings([options.coinc_end_time_segment], boundtype = lal.LIGOTimeGPS).coalesce()
 	else:
 		options.coinc_end_time_segs = None
 
@@ -150,18 +142,6 @@ options, process_params, filenames = parse_command_line()
 
 
 #
-# Select event_comparefunc form
-#
-
-
-if options.match == "exact":
-	event_comparefunc = ligolw_thinca.inspiral_coinc_compare_exact
-else:
-	# not possible
-	assert False
-
-
-#
 # Select ntuple_comparefunc form
 #
 
@@ -175,7 +155,7 @@ if options.coinc_end_time_segs is not None:
 		"""
 		return ligolw_thinca.coinc_inspiral_end_time(events, offset_vector) not in seg
 else:
-	ntuple_comparefunc = ligolw_thinca.default_ntuple_comparefunc
+	ntuple_comparefunc = ligolw_thinca.InspiralCoincTables.ntuple_comparefunc
 
 
 #
@@ -191,7 +171,6 @@ for n, filename in enumerate(filenames, start = 1):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n, len(filenames)),
 	xmldoc = ligolw_utils.load_filename(filename, verbose = options.verbose, contenthandler = ligolw.LIGOLWContentHandler)
-	lsctables.table.InterningRowBuilder.strings.clear()
 
 	#
 	# Have we already processed it?
@@ -230,19 +209,6 @@ for n, filename in enumerate(filenames, start = 1):
 	assert len(set(tbl.getColumnByName("event_id"))) == len(tbl), "degenerate sngl_inspiral event_id detected"
 
 	#
-	# Set max_dt.  Upper bound on maximum time that can separate two
-	# triggers and they still pass coincidence.
-	#
-
-	if options.match == "exact":
-		# add 10% to coincidence window for safety + the
-		# light-crossing time of the Earth
-		max_dt = 1.1 * options.threshold + 2. * lal.REARTH_SI / lal.C_SI
-	else:
-		# not possible
-		assert False
-
-	#
 	# Extract veto segments if present.
 	#
 	# FIXME:  using the tools in the glue.ligolw.utils.segments module
@@ -271,9 +237,7 @@ for n, filename in enumerate(filenames, start = 1):
 		xmldoc,
 		process_id = process.process_id,
 		coinc_definer_row = ligolw_thinca.InspiralCoincDef,
-		event_comparefunc = event_comparefunc,
 		thresholds = options.threshold,
-		max_dt = max_dt,
 		ntuple_comparefunc = ntuple_comparefunc,
 		veto_segments = vetoes,
 		trigger_program = options.trigger_program,

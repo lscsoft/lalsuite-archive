@@ -89,15 +89,11 @@ class EventList(list):
 	class need to be overridden, indeed they probably should not be
 	unless you know what you're doing.
 	"""
-	def __init__(self, instrument):
+	def __init__(self):
 		# the offset that should be added to the times of events in
 		# this list when comparing to the times of other events.
 		# used to implement time-shifted coincidence tests
 		self.offset = lsctables.LIGOTimeGPS(0)
-
-		# the name of the instrument from which the events in this
-		# list have been taken
-		self.instrument = instrument
 
 	def make_index(self):
 		"""
@@ -118,12 +114,12 @@ class EventList(list):
 		# when applying the offset to each event.
 		self.offset = lsctables.LIGOTimeGPS(offset)
 
-	def get_coincs(self, event_a, offset_a, light_travel_time, threshold, comparefunc):
+	def get_coincs(self, event_a, offset_a, light_travel_time, threshold):
 		"""
 		Return a sequence of the events from this list that are
-		coincident with event_a.  The object returned must support
-		being passed to bool() to determine if the sequence is
-		empty.
+		coincident with event_a.  The object returned by this
+		method must support being passed to bool() to determine if
+		the sequence is empty.
 
 		offset_a is the time shift to be added to the time of
 		event_a before comparing to the times of events in this
@@ -147,9 +143,6 @@ class EventList(list):
 		instrument_a is the instrument for event_a, and
 		instrument_b is the instrument for the events in this
 		EventList.
-
-		comparefunc is the function to use to compare events in
-		this list to event_a.
 		"""
 		raise NotImplementedError
 
@@ -164,27 +157,35 @@ class EventListDict(dict):
 		# wrapper to shield dict.__new__() from our arguments.
 		return dict.__new__(cls)
 
-	def __init__(self, EventListType, event_table, instruments = None, process_ids = None):
+	def __init__(self, EventListType, events, instruments):
 		"""
 		Initialize a newly-created instance.  EventListType is a
 		subclass of EventList (the subclass itself, not an instance
-		of the subclass).  event_table is a list of events (e.g.,
-		an instance of a glue.ligolw.table.Table subclass).  If the
-		optional process_ids arguments is not None, then it is
-		assumed to be a list or set or other thing implementing the
-		"in" operator which is used to define the set of
-		process_ids whose events should be considered in the
-		coincidence analysis, otherwise all events are considered.
+		of the subclass).  events is an iterable of events (e.g.,
+		an instance of a glue.ligolw.table.Table subclass).
+		instruments is an iterable of instrument names.
+
+		For each instrument in instruments, an instance of
+		EventListType will be created, and the event objects in
+		events whose .ifo attribute equals that instrument will be
+		.append()'ed to that list.  If an event has a .ifo value
+		that is not equal to one of the instruments, KeyError is
+		raised.  It is not an error for there to be no events for a
+		given instrument.
+
+		NOTE:  the event objects in events must have a .ifo
+		attribute.
+
+		NOTE:  both the events and instruments iterables will only
+		be iterated over once, so generator expressions are
+		acceptable.
 		"""
-		for instrument in instruments if instruments is not None else set(event_table.getColumnByName("ifo")):
-			self[instrument] = EventListType(instrument)
-		if process_ids is None:
-			for event in event_table:
-				self[event.ifo].append(event)
-		else:
-			for event in event_table:
-				if event.process_id in process_ids:
-					self[event.ifo].append(event)
+		for instrument in instruments:
+			self[instrument] = EventListType()
+		self.idx = {}
+		for event in events:
+			self[event.ifo].append(event)
+			self.idx[id(event)] = event
 		for l in self.values():
 			l.make_index()
 
@@ -234,30 +235,15 @@ def light_travel_time(instrument1, instrument2):
 	return math.sqrt((dx * dx).sum()) / lal.C_SI
 
 
-def get_doubles(eventlists, comparefunc, instruments, thresholds, unused, verbose = False):
+def get_doubles(eventlists, instruments, thresholds, unused):
 	"""
-	Given an instance of an EventListDict, an event comparison
-	function, an iterable (e.g., a list) of instruments, and a
-	dictionary mapping instrument pair to threshold data for use by the
-	event comparison function, generate a sequence of tuples of
-	mutually coincident event IDs, and populate a set (unused) of
-	1-element tuples of the event IDs that did not participate in
-	coincidences.
-
-	The signature of the comparison function is
-
-	comparefunc(event1, offset1, event2, offset2, light_travel_time, threshold_data)
-
-	where event1 and event2 are two objects drawn from the event lists
-	(of different instruments), offset1 and offset2 are the time shifts
-	that should be added to the arrival times of event1 and event2
-	respectively, light_travel_time is the distance in light seconds
-	between the instruments from which event1 and event2 have been
-	drawn, and threshold_data is the value contained in the thresholds
-	dictionary for that pair of instruments.  The return value should
-	be 0 (False) if the events are coincident, and non-zero otherwise
-	(the behaviour of the comparison function is like a subtraction
-	operator, returning 0 when the two events are "the same").
+	Given an instance of an EventListDict, an iterable (e.g., a list)
+	of instruments, and a dictionary mapping instrument pair to
+	threshold data for use by the event comparison test defined by the
+	EventListDict, generate a sequence of tuples of Python IDs of
+	mutually coincident events, and populate a set (unused) of
+	1-element tuples of the Python IDs of the events that did not
+	participate in coincidences.
 
 	The thresholds dictionary should look like
 
@@ -267,17 +253,15 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, unused, verbos
 	specify the "threshold data" for that instrument pair.  The
 	threshold data itself is an arbitrary Python object.  Floats are
 	shown in the example above, but any Python object can be provided
-	and will be passed to the comparefunc().  Note that it is assumed
-	that order matters in the comparison function and so the thresholds
-	dictionary must provide a threshold for the instruments in both
-	orders.
+	and will be passed to the .get_coincs() method of an EventList
+	object in the EventListDict.  Note that it is assumed that order
+	matters in the selection of the threshold object function and so
+	the thresholds dictionary must provide a threshold for the
+	instruments in both orders.
 
 	Each tuple returned by this generator will contain exactly two
-	event IDs, one from each of the two instruments in the instruments
+	Python IDs, one from each of the two instruments in the instruments
 	sequence.
-
-	NOTE:  the event objects must each have a .event_id attribute
-	providing the ID to return.
 
 	NOTE:  the instruments sequence must contain exactly two
 	instruments.
@@ -286,20 +270,20 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, unused, verbos
 	or set-like object.  It will be cleared by invoking .clear(), then
 	populated by invoking .update(), .add(), and .remove().
 
-	NOTE:  the order of the event IDs in each tuple returned by this
-	function matches the order of the instruments sequence.
+	NOTE:  the order of the IDs in each tuple returned by this function
+	matches the order of the instruments sequence.
 	"""
 	# retrieve the event lists for the requested instrument combination
 
 	instruments = tuple(instruments)
 	assert len(instruments) == 2, "instruments must be an iterable of exactly two names, not %d" % len(instruments)
-	eventlista, eventlistb = [eventlists[instrument] for instrument in instruments]
-	assert (eventlista.instrument, eventlistb.instrument) == instruments, "internal consistency failure:  EventList instruments do not match EventListDict keys"
+	eventlista, eventlistb = eventlists[instruments[0]], eventlists[instruments[1]]
 
 	# choose the shorter of the two lists for the outer loop
 
 	if len(eventlistb) < len(eventlista):
 		eventlista, eventlistb = eventlistb, eventlista
+		instruments = instruments[1], instruments[0]
 		unswap = lambda a, b: (b, a)
 	else:
 		unswap = lambda a, b: (a, b)
@@ -309,15 +293,15 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, unused, verbos
 	# be swapped).
 
 	try:
-		threshold_data = thresholds[(eventlista.instrument, eventlistb.instrument)]
+		threshold_data = thresholds[instruments]
 	except KeyError as e:
 		raise KeyError("no coincidence thresholds provided for instrument pair %s, %s" % e.args[0])
-	dt = light_travel_time(eventlista.instrument, eventlistb.instrument)
+	dt = light_travel_time(*instruments)
 
-	# populate the unused set with all event IDs from list B
+	# populate the unused set with all IDs from list B
 
 	unused.clear()
-	unused.update((event.event_id,) for event in eventlistb)
+	unused.update((id(event),) for event in eventlistb)
 
 	# for each event in list A, iterate over events from the other list
 	# that are coincident with the event, and return the pairs.  if
@@ -325,20 +309,17 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, unused, verbos
 	# IDs, otherwise remove the IDs of the things that are coincident
 	# with it from the set.
 
-	progressbar = ProgressBar(text = "searching", max = len(eventlista)) if verbose else None
+	offset_a = eventlista.offset
 	for eventa in eventlista:
-		eventa_id = eventa.event_id
-		matches = eventlistb.get_coincs(eventa, eventlista.offset, dt, threshold_data, comparefunc)
+		eventa_id = id(eventa)
+		matches = eventlistb.get_coincs(eventa, offset_a, dt, threshold_data)
 		if matches:
 			for eventb in matches:
-				eventb_id = eventb.event_id
+				eventb_id = id(eventb)
 				unused.discard((eventb_id,))
 				yield unswap(eventa_id, eventb_id)
 		else:
 			unused.add((eventa_id,))
-		if progressbar is not None:
-			progressbar.increment()
-	del progressbar
 
 	# done
 
@@ -353,19 +334,20 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, unused, verbos
 
 
 class TimeSlideGraphNode(object):
-	def __init__(self, offset_vector, time_slide_id = None):
+	def __init__(self, offset_vector, time_slide_id = None, keep_unused = True):
 		self.time_slide_id = time_slide_id
 		self.offset_vector = offset_vector
 		self.deltas = frozenset(offset_vector.deltas.items())
 		self.components = None
 		self.coincs = None
 		self.unused_coincs = set()
+		self.keep_unused = keep_unused
 
 	@property
 	def name(self):
 		return self.offset_vector.__str__(compact = True)
 
-	def get_coincs(self, eventlists, event_comparefunc, thresholds, verbose = False):
+	def get_coincs(self, eventlists, thresholds, verbose = False):
 		#
 		# has this node already been visited?  if so, return the
 		# answer we already know
@@ -407,7 +389,9 @@ class TimeSlideGraphNode(object):
 			# which we make be alphabetical
 			#
 
-			self.coincs = tuple(sorted(get_doubles(eventlists, event_comparefunc, sorted(self.offset_vector), thresholds, self.unused_coincs, verbose = verbose)))
+			self.coincs = tuple(sorted(get_doubles(eventlists, sorted(self.offset_vector), thresholds, self.unused_coincs)))
+			if not self.keep_unused:
+				self.unused_coincs.clear()
 			return self.coincs
 
 		#
@@ -418,8 +402,13 @@ class TimeSlideGraphNode(object):
 		if len(self.components) == 1:
 			if verbose:
 				print >>sys.stderr, "\tcopying from %s ..." % str(self.components[0].offset_vector)
-			self.coincs = self.components[0].get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose)
-			self.unused_coincs = self.components[0].unused_coincs
+			self.coincs = self.components[0].get_coincs(eventlists, thresholds, verbose = verbose)
+			if self.keep_unused:
+				# don't copy reference, always do in-place
+				# manipulation of our own .unused_coincs so
+				# that calling codes that might hold a
+				# reference to it get the correct result
+				self.unused_coincs.update(self.components[0].unused_coincs)
 
 			#
 			# done.  unlink the graph as we go to release
@@ -447,17 +436,22 @@ class TimeSlideGraphNode(object):
 		# remove things from this set as we use them
 		# NOTE:  this function call is the recursion into the
 		# components to ensure they are initialized, it must be
-		# executed before any of what follows
+		# executed before any of what follows, and in particular it
+		# must be done whether or not we'll be keeping the
+		# collection of return values
 		for component in self.components:
-			self.unused_coincs.update(component.get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose))
+			self.unused_coincs.update(component.get_coincs(eventlists, thresholds, verbose = verbose))
 		# of the (< n-1)-instrument coincs that were not used in
 		# forming the (n-1)-instrument coincs, any that remained
 		# unused after forming two compontents cannot have been
 		# used by any other components, they definitely won't be
 		# used to construct our n-instrument coincs, and so they go
 		# into our unused pile
-		for componenta, componentb in itertools.combinations(self.components, 2):
-			self.unused_coincs |= componenta.unused_coincs & componentb.unused_coincs
+		if self.keep_unused:
+			for componenta, componentb in itertools.combinations(self.components, 2):
+				self.unused_coincs |= componenta.unused_coincs & componentb.unused_coincs
+		else:
+			self.unused_coincs.clear()
 
 		if verbose:
 			print >>sys.stderr, "\tassembling %s ..." % str(self.offset_vector)
@@ -466,11 +460,10 @@ class TimeSlideGraphNode(object):
 		# what n is (n > 2).  note that we pass verbose=False
 		# because we've already called the .get_coincs() methods
 		# above, these are no-ops to retrieve the answers again
-		allcoincs0 = self.components[0].get_coincs(eventlists, event_comparefunc, thresholds, verbose = False)
-		allcoincs1 = self.components[1].get_coincs(eventlists, event_comparefunc, thresholds, verbose = False)
-		allcoincs2 = self.components[-1].get_coincs(eventlists, event_comparefunc, thresholds, verbose = False)
+		allcoincs0 = self.components[0].get_coincs(eventlists, thresholds, verbose = False)
+		allcoincs1 = self.components[1].get_coincs(eventlists, thresholds, verbose = False)
+		allcoincs2 = self.components[-1].get_coincs(eventlists, thresholds, verbose = False)
 		# for each coinc in list 0
-		progressbar = ProgressBar(text = "searching", max = len(allcoincs0)) if verbose else None
 		for coinc0 in allcoincs0:
 			# find all the coincs in list 1 whose first (n-2)
 			# event IDs are the same as the first (n-2) event
@@ -522,9 +515,6 @@ class TimeSlideGraphNode(object):
 					# record the coinc and move on
 					self.unused_coincs.difference_update(itertools.combinations(new_coinc, len(new_coinc) - 1))
 					self.coincs.append(new_coinc)
-			if progressbar is not None:
-				progressbar.increment()
-		del progressbar
 		# sort the coincs we just constructed by the component
 		# event IDs and convert to a tuple for speed
 		self.coincs.sort()
@@ -540,14 +530,32 @@ class TimeSlideGraphNode(object):
 
 
 class TimeSlideGraph(object):
-	def __init__(self, offset_vector_dict, verbose = False):
+	def __init__(self, offset_vector_dict, min_instruments = 2, verbose = False):
 		#
 		# safety check input
 		#
 
+		if min_instruments < 1:
+			raise ValueError("min_instruments must be >= 1: %d" % min_instruments)
 		offset_vector = min(offset_vector_dict.values(), key = lambda x: len(x))
 		if len(offset_vector) < 2:
 			raise ValueError("encountered offset vector with fewer than 2 instruments: %s", str(offset_vector))
+		if len(offset_vector) < min_instruments:
+			# this test is part of the logic that ensures we
+			# will only extract coincs that meet the
+			# min_instruments criterion
+			raise ValueError("encountered offset vector smaller than min_instruments (%d): %s", (min_instruments, str(offset_vector)))
+
+		#
+		# plays no role in the coincidence engine.  used for early
+		# memory clean-up, to remove coincs from intermediate data
+		# products that the calling code will not retain.  also as
+		# a convenience for the calling code, implementing the
+		# ubiquitous "minimum instruments" cut here in the
+		# .get_coincs() method
+		#
+
+		self.min_instruments = min_instruments
 
 		#
 		# populate the graph head nodes.  these represent the
@@ -556,7 +564,7 @@ class TimeSlideGraph(object):
 
 		if verbose:
 			print >>sys.stderr, "constructing coincidence assembly graph for %d target offset vectors ..." % len(offset_vector_dict)
-		self.head = tuple(TimeSlideGraphNode(offset_vector, time_slide_id) for time_slide_id, offset_vector in sorted(offset_vector_dict.items()))
+		self.head = tuple(TimeSlideGraphNode(offset_vector, time_slide_id = time_slide_id, keep_unused = len(offset_vector) > min_instruments) for time_slide_id, offset_vector in sorted(offset_vector_dict.items()))
 
 		#
 		# populate the graph generations.  generations[n] is a
@@ -568,7 +576,7 @@ class TimeSlideGraph(object):
 
 		self.generations = {}
 		n = max(len(offset_vector) for offset_vector in offset_vector_dict.values())
-		self.generations[n] = tuple(TimeSlideGraphNode(offset_vector) for offset_vector in offsetvector.component_offsetvectors((node.offset_vector for node in self.head if len(node.offset_vector) == n), n))
+		self.generations[n] = tuple(TimeSlideGraphNode(offset_vector, keep_unused = len(offset_vector) > min_instruments) for offset_vector in offsetvector.component_offsetvectors((node.offset_vector for node in self.head if len(node.offset_vector) == n), n))
 		for n in range(n, 2, -1):	# [n, n-1, ..., 3]
 			#
 			# collect all offset vectors of length n that we
@@ -585,7 +593,7 @@ class TimeSlideGraph(object):
 			# as the n-1'st generation
 			#
 
-			self.generations[n - 1] = tuple(TimeSlideGraphNode(offset_vector) for offset_vector in offsetvector.component_offsetvectors(offset_vectors, n - 1))
+			self.generations[n - 1] = tuple(TimeSlideGraphNode(offset_vector, keep_unused = len(offset_vector) > min_instruments) for offset_vector in offsetvector.component_offsetvectors(offset_vectors, n - 1))
 
 		#
 		# link each n-instrument node to the n-1 instrument nodes
@@ -629,17 +637,31 @@ class TimeSlideGraph(object):
 			print >>sys.stderr, "\t%d offset vectors total" % sum(len(self.generations[n]) for n in self.generations)
 
 
-	def get_coincs(self, eventlists, event_comparefunc, thresholds, verbose = False):
+	def get_coincs(self, eventlists, thresholds, verbose = False):
 		if verbose:
 			print >>sys.stderr, "constructing coincs for target offset vectors ..."
+		# don't do attribute look-ups in the loop
+		sngl_index = eventlists.idx
+		min_instruments = self.min_instruments
 		for n, node in enumerate(self.head, start = 1):
 			if verbose:
 				print >>sys.stderr, "%d/%d: %s" % (n, len(self.head), str(node.offset_vector))
-			# note that unused_coincs must be retrieved after
-			# the call to .get_coincs() because the former is
-			# computed as a side effect of the latter
-			for coinc in itertools.chain(node.get_coincs(eventlists, event_comparefunc, thresholds, verbose), node.unused_coincs):
-				yield node, coinc
+			# the contents of .unused_coincs must be iterated
+			# over after the call to .get_coincs() because the
+			# former is populated as a side effect of the
+			# latter, but .unused_coincs is populated in-place
+			# so the following is not sensitive to the order of
+			# evaluation of arguments (the .unused_coincs
+			# attribute look-up can occur before or after
+			# .get_coincs() is called as long as its contents
+			# are not iterated over until after).
+			for coinc in itertools.chain(node.get_coincs(eventlists, thresholds, verbose), node.unused_coincs):
+				# we don't need to check that coinc
+				# contains at least min_instruments events
+				# because those that don't meet the
+				# criteria are excluded during coinc
+				# construction.
+				yield node, tuple(sngl_index[event_id] for event_id in coinc)
 
 
 	def write(self, fileobj):
