@@ -59,6 +59,72 @@
  * @{
  */
 
+/** \brief Set up structure containing spin-aligned, eccentric TaylorF2 phasing coefficients for
+ *  * eccentric variant of IMRPhenomD.
+ *   */
+int XLALSimInspiralEccTF2AlignedPhasing(
+        PNPhasingSeries **pn,   /**< phasing coefficients (output) */
+        PNPhasingSeries **pfv19by3,   /**< phasing coefficients (output) */
+        PNPhasingSeries **pfv25by3,   /**< phasing coefficients (output) */
+        PNPhasingSeries **pfv28by3,   /**< phasing coefficients (output) */
+        PNPhasingSeries **pfv31by3,   /**< phasing coefficients (output) */
+        PNPhasingSeries **pfv34by3,   /**< phasing coefficients (output) */
+        PNPhasingSeries **pfv37by3,   /**< phasing coefficients (output) */
+        const REAL8 m1,         /**< mass of body 1 */
+        const REAL8 m2,         /**< mass of body 2 */
+        const REAL8 chi1,       /**< aligned spin parameter of body 1 */
+        const REAL8 chi2,       /**< aligned spin parameter of body 2 */
+        const REAL8 eccentricity, /**< eccentricity at reference epoch (here: initial eccentricity at f_min) */
+        const REAL8 f_min, /**< starting frequency (Hz) */
+        LALDict *p              /**< LAL dictionary containing accessory parameters */
+        )
+{
+    PNPhasingSeries *pfcir;
+    PNPhasingSeries *pfecc19by3;
+    PNPhasingSeries *pfecc25by3;
+    PNPhasingSeries *pfecc28by3;
+    PNPhasingSeries *pfecc31by3;
+    PNPhasingSeries *pfecc34by3;
+    PNPhasingSeries *pfecc37by3;
+
+    if (!pn) XLAL_ERROR(XLAL_EFAULT);
+    if (*pn) XLAL_ERROR(XLAL_EFAULT);
+    if (!pfv19by3) XLAL_ERROR(XLAL_EFAULT);
+    if (*pfv19by3) XLAL_ERROR(XLAL_EFAULT);
+    if (!pfv25by3) XLAL_ERROR(XLAL_EFAULT);
+    if (*pfv25by3) XLAL_ERROR(XLAL_EFAULT);
+    if (!pfv28by3) XLAL_ERROR(XLAL_EFAULT);
+    if (*pfv28by3) XLAL_ERROR(XLAL_EFAULT);
+    if (!pfv31by3) XLAL_ERROR(XLAL_EFAULT);
+    if (*pfv31by3) XLAL_ERROR(XLAL_EFAULT);
+    if (!pfv34by3) XLAL_ERROR(XLAL_EFAULT);
+    if (*pfv34by3) XLAL_ERROR(XLAL_EFAULT);
+    if (!pfv37by3) XLAL_ERROR(XLAL_EFAULT);
+    if (*pfv37by3) XLAL_ERROR(XLAL_EFAULT);
+
+
+    pfcir = (PNPhasingSeries *) LALMalloc(sizeof(PNPhasingSeries));
+    pfecc19by3 = (PNPhasingSeries *) LALMalloc(sizeof(PNPhasingSeries));
+    pfecc25by3 = (PNPhasingSeries *) LALMalloc(sizeof(PNPhasingSeries));
+    pfecc28by3 = (PNPhasingSeries *) LALMalloc(sizeof(PNPhasingSeries));
+    pfecc31by3 = (PNPhasingSeries *) LALMalloc(sizeof(PNPhasingSeries));
+    pfecc34by3 = (PNPhasingSeries *) LALMalloc(sizeof(PNPhasingSeries));
+    pfecc37by3 = (PNPhasingSeries *) LALMalloc(sizeof(PNPhasingSeries));
+
+    XLALSimInspiralPNPhasing_F2(pfcir, m1, m2, chi1, chi2, chi1*chi1, chi2*chi2, chi1*chi2, p);
+    XLALSimInspiralPNPhasing_eccF2(pfecc19by3, pfecc25by3, pfecc28by3, pfecc31by3, pfecc34by3, pfecc37by3, m1, m2, eccentricity, f_min);
+
+    *pn = pfcir;
+    *pfv19by3 = pfecc19by3;
+    *pfv25by3 = pfecc25by3;
+    *pfv28by3 = pfecc28by3;
+    *pfv31by3 = pfecc31by3;
+    *pfv34by3 = pfecc34by3;
+    *pfv37by3 = pfecc37by3;
+
+    return XLAL_SUCCESS;
+}
+
 
 int XLALSimInspiralEccTF2Core(
         COMPLEX16FrequencySeries **htilde_out, /**< FD waveform */

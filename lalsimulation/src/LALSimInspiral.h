@@ -642,6 +642,7 @@ int XLALSimInspiralTaylorF2NLTides(COMPLEX16FrequencySeries **htilde, const REAL
 /* EccF2 functions */
 /* in module LALSimInspiralEccTF2.c */
 
+int XLALSimInspiralEccTF2AlignedPhasing(PNPhasingSeries **pn, PNPhasingSeries **pfv19by3, PNPhasingSeries **pfv25by3, PNPhasingSeries **pfv28by3, PNPhasingSeries **pfv31by3, PNPhasingSeries **pfv34by3, PNPhasingSeries **pfv37by3, const REAL8 m1, const REAL8 m2, const REAL8 chi1, const REAL8 chi2, const REAL8 eccentricity, const REAL8 f_min, LALDict *extrapars);
 int XLALSimInspiralEccTF2Core(COMPLEX16FrequencySeries **htilde, const REAL8Sequence *freqs, const REAL8 phi_ref, const REAL8 m1_SI, const REAL8 m2_SI, const REAL8 S1z, const REAL8 S2z, const REAL8 f_ref, const REAL8 shft, const REAL8 r, const REAL8 eccentricity, const REAL8 f_min, LALDict *LALparams);
 int XLALSimInspiralEccTF2(COMPLEX16FrequencySeries **htilde, const REAL8 phi_ref, const REAL8 deltaF, const REAL8 m1_SI, const REAL8 m2_SI, const REAL8 S1z, const REAL8 S2z, const REAL8 fStart, const REAL8 fEnd, const REAL8 f_ref, const REAL8 r, const REAL8 eccentricity, LALDict *LALpars);
 
