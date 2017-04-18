@@ -218,7 +218,7 @@ def output_stats(outdir, post, weights, label):
              fmt = '%10.7f')
 
 
-    if __name__ == "__main__":
+if __name__ == "__main__":
 
 ###########################################
 #
@@ -336,7 +336,7 @@ def output_stats(outdir, post, weights, label):
         weights = lamAdata*0+1.0
         logweights = lamAdata*0+1.0
         
-    output_stats(outfolder, loglamAdata, logweights, lab, alphaLIV)
+    output_stats(outfolder, loglamAdata, logweights, lab)
 
     #wpostlist.append(mirrorEdges(loglamAdata, x_min, x_max, weights=logweights)) 
     #postlist.append(mirrorEdges(loglamAdata, x_min, x_max))
@@ -349,7 +349,9 @@ def output_stats(outdir, post, weights, label):
     merged_loglamA, merged_label, merged_logweights = merge_posterior_samples(postlist, logweightlist, labels, weighted=False)
     print shape(merged_loglamA)
     print shape(merged_logweights)
-    output_stats(outfolder, merged_loglamA, merged_logweights, merged_label, alphaLIV)
+    output_stats(outfolder, merged_loglamA, merged_logweights, merged_label)
+    outdata = vstack((merged_loglamA, merged_logweights)).T
+    savetxt(os.path.join(outfolder,'merged_loglambdaA_posteriors_%s.dat'%merged_label), outdata, header = "log10lambda_a\tweights")
     
   if len(postlist) == 1 or args.single_source:
     print 'DONE! (single source only)'
