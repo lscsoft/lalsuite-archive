@@ -137,6 +137,7 @@ noinst_HEADERS = \
 	LALSimIMRSpinEOBInitialConditionsPrec.c \
 	LALSimInspiralPNCoefficients.c \
 	LALSimInspiraldEnergyFlux.c \
+        LALSimInspiralEccentricPhasingCoeffs.c \
 	LALSimNeutronStarEOSPiecewisePolytrope.c \
 	LALSimNeutronStarEOSTabular.c \
 	LALSimIMRSpinEOBHamiltonian.h
@@ -179,6 +180,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimInspiralTaylorEt.c \
 	LALSimInspiralTaylorF2.c \
 	LALSimInspiralTaylorF2NLTides.c \
+        LALSimInspiralEccTF2.c \
 	LALSimInspiralTaylorF2ReducedSpin.c \
 	LALSimInspiralTaylorF2ReducedSpinMetric.c \
 	LALSimInspiralTaylorF2ReducedSpinTidal.c \

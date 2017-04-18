@@ -199,6 +199,7 @@ extern "C" {
  * @defgroup LALSimInspiralEccentricityFD_c        Module LALSimInspiralEccentricityFD.c
  * @defgroup LALSimInspiralSpinDominatedWaveform_c Module LALSimInspiralSpinDominatedWaveform.c
  * @defgroup LALSimInspiralTaylorF2ReducedSpin_c   Module LALSimInspiralTaylorF2ReducedSpin.c
+ * @defgroup LALSimInspiralEccTF2.c                Module LALSimInspiralEccTF2.c
  * @defgroup LALSimInspiralHGimri_c                Module LALSimInspiralHGimri.c
  * @defgroup LALSimInspiralWaveformFlags_c         Module LALSimInspiralWaveformFlags.c
  * @defgroup LALSimInspiralTestGRParams_c          Module LALSimInspiralTestGRParams.c
@@ -240,6 +241,8 @@ typedef enum tagApproximant {
    TaylorF2,		/**< The standard stationary phase approximation; Outputs a frequency-domain wave.
                          * @remarks Implemented in lalsimulation (frequency domain). */
    TaylorF2NLTides,     /**< The standard stationary phase approximation including a phenomenological model of nonlinear tidal effects; Outputs a frequency-domain wave.
+                         * @remarks Implemented in lalsimulation (frequency domain). */
+   EccTF2,              /**< A variant of TaylorF2 including leading-order eccentricity corrections up to 3PN order in the phasing
                          * @remarks Implemented in lalsimulation (frequency domain). */
    TaylorR2F4,		/**< A frequency domain model closely related to TaylorT4
                          * @attention Not implemented in lalsimulation. */
@@ -635,6 +638,12 @@ int XLALSimInspiralTaylorF2AlignedPhasingNLTides(PNPhasingSeries **pfa, const RE
 int XLALSimInspiralTaylorF2NLPhase(REAL8Sequence *dphi, const REAL8Sequence *freqs, const REAL8 Anl1, const REAL8 n1, const REAL8 fo1, const REAL8 m1_SI, const REAL8 Anl2, const REAL8 n2, const REAL8 fo2, const REAL8 m2_SI);
 int XLALSimInspiralTaylorF2CoreNLTides(COMPLEX16FrequencySeries **htilde, const REAL8Sequence *freqs, const REAL8 phi_ref, const REAL8 m1_SI, const REAL8 m2_SI, const REAL8 S1z, const REAL8 S2z, const REAL8 f_ref, const REAL8 shft, const REAL8 r, LALDict *LALparams);
 int XLALSimInspiralTaylorF2NLTides(COMPLEX16FrequencySeries **htilde, const REAL8 phi_ref, const REAL8 deltaF, const REAL8 m1_SI, const REAL8 m2_SI, const REAL8 S1z, const REAL8 S2z, const REAL8 fStart, const REAL8 fEnd, const REAL8 f_ref, const REAL8 r, LALDict *LALpars);
+
+/* EccF2 functions */
+/* in module LALSimInspiralEccTF2.c */
+
+int XLALSimInspiralEccTF2Core(COMPLEX16FrequencySeries **htilde, const REAL8Sequence *freqs, const REAL8 phi_ref, const REAL8 m1_SI, const REAL8 m2_SI, const REAL8 S1z, const REAL8 S2z, const REAL8 f_ref, const REAL8 shft, const REAL8 r, const REAL8 eccentricity, const REAL8 f_min, LALDict *LALparams);
+int XLALSimInspiralEccTF2(COMPLEX16FrequencySeries **htilde, const REAL8 phi_ref, const REAL8 deltaF, const REAL8 m1_SI, const REAL8 m2_SI, const REAL8 S1z, const REAL8 S2z, const REAL8 fStart, const REAL8 fEnd, const REAL8 f_ref, const REAL8 r, const REAL8 eccentricity, LALDict *LALpars);
 
 
 /* SpinTaylor precessing waveform functions */
