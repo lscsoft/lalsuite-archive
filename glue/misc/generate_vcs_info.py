@@ -28,11 +28,6 @@
 from __future__ import print_function
 __author__ = 'Adam Mercer <adam.mercer@ligo.org>'
 
-try:  # python 3
-    LookupError
-except NameError:  # python 2
-    from exceptions import LookupError
-
 # import required system modules
 import os
 import sys

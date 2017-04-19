@@ -926,7 +926,7 @@ class DAG(object):
 
 		Example:
 
-		>>> print dag.dot_source(statecolours = None)
+		>>> print(dag.dot_source(statecolours = None))
 
 		BUGS:  the JOB class does not implement the ability to
 		retrieve the job state at this time, therefore it is always

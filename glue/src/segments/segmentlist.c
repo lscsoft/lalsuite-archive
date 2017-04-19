@@ -1416,9 +1416,9 @@ PyTypeObject segments_SegmentList_Type = {
 ">>> x = segmentlist([segment(-10, 10)])\n" \
 ">>> x |= segmentlist([segment(20, 30)])\n" \
 ">>> x -= segmentlist([segment(-5, 5)])\n" \
-">>> print x\n" \
+">>> print(x)\n" \
 "[segment(-10, -5), segment(5, 10), segment(20, 30)]\n" \
-">>> print ~x\n" \
+">>> print(~x)\n" \
 "[segment(-infinity, -10), segment(-5, 5), segment(10, 20), segment(30, infinity)]",
 	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE
 #if PY_MAJOR_VERSION < 3

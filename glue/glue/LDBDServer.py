@@ -33,7 +33,6 @@ try:
     import pyRXP
 except ImportError:
     import pyRXPU as pyRXP
-import exceptions
 import socket
 import six.moves.socketserver
 import six.moves.cPickle
@@ -110,7 +109,7 @@ def shutdown():
   del dmt_proc_dict
   del dmt_seg_def_dict
 
-class ServerHandlerException(exceptions.Exception):
+class ServerHandlerException(Exception):
   """
   Class representing exceptions within the ServerHandler class.
   """

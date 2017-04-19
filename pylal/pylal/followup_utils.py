@@ -28,7 +28,6 @@ from subprocess import *
 import copy
 import re
 from StringIO import StringIO
-import exceptions
 import glob
 import fileinput
 import linecache

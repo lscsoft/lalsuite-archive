@@ -64,7 +64,11 @@ import M2Crypto
 import re
 import unittest
 
-from cjson import decode
+try:
+    from cjson import decode
+except ImportError:
+    from json import loads as decode
+
 from glue import (lal, git_version, segments)
 
 __author__ = "Duncan Macleod <duncan.macleod@ligo.org>"

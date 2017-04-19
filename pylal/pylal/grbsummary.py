@@ -13,7 +13,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import ligolw_add
 from glue.ligolw.utils import search_summary as ligolw_search_summary
-from pylal import rate
+from lal import rate
 from pylal.SnglInspiralUtils import SnglInspiralID_old
 
 ##############################################################################

@@ -494,10 +494,10 @@ def idmap_get_max_id(connection, id_class):
 	Example:
 
 	>>> event_id = ilwd.ilwdchar("sngl_burst:event_id:0")
-	>>> print event_id
+	>>> print(event_id)
 	sngl_inspiral:event_id:0
 	>>> max_id = get_max_id(connection, type(event_id))
-	>>> print max_id
+	>>> print(max_id)
 	sngl_inspiral:event_id:1054
 	"""
 	cursor = connection.cursor()

@@ -54,7 +54,7 @@ def get_rinca_rings_by_available_instruments(connection, program_name = "rinca")
   Example:
 
   >>> seglists = get_rinca_rings_by_available_instruments(connection)
-  >>> print seglists.keys()
+  >>> print(seglists.keys())
   [frozenset(['H1', 'L1'])]
   """
   # extract raw rings indexed by available instrument set
@@ -94,7 +94,7 @@ def get_rinca_zero_lag_segments(connection, program_name = "rinca"):
   Example:
 
   >>> seglists = get_rinca_zero_lag_segments(connection)
-  >>> print seglists.keys()
+  >>> print(seglists.keys())
   ['H1', 'L1']
 
   This function is most useful if only zero-lag segments are desired

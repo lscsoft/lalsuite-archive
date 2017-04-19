@@ -11,6 +11,6 @@ setup(
   long_description = "Empty module placeholder for other LIGO modules",
   license = 'GPL',
   provides = ['ligo'],
-  packages = [ 'ligo'],
+  packages = ['ligo'],
 )
 

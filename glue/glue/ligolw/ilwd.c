@@ -152,71 +152,7 @@ static PyObject *ligolw_ilwdchar___new__(PyTypeObject *type, PyObject *args, PyO
 	/* initialize to default value */
 	((ligolw_ilwdchar *) new)->i = 0;
 
-	if(PyArg_ParseTuple(args, "U", &obj)) {
-		/* we've been passed a unicode string, see if we can parse
-		 * it */
-		Py_ssize_t len = PyUnicode_GetSize(obj);
-		wchar_t s[len + 1];
-		int converted_len = -1;
-		wchar_t *tbl_name = NULL, *col_name = NULL;
-
-		PyUnicode_AsWideChar((PyUnicodeObject *) obj, s, len);
-		s[len] = 0;
-
-		/* can we parse it as an ilwd:char string? */
-		swscanf(s, L" %ml[^:]:%ml[^:]:%zu %n", &tbl_name, &col_name, &((ligolw_ilwdchar *) new)->i, &converted_len);
-		if(converted_len < len) {
-			/* nope, how 'bout just an int? */
-			converted_len = -1;
-			swscanf(s, L" %zu %n", &((ligolw_ilwdchar *) new)->i, &converted_len);
-			if(converted_len < len) {
-				/* nope */
-#if PY_MAJOR_VERSION < 3
-				PyObject *str = PyUnicode_AsEncodedString(obj, NULL, NULL);
-				PyErr_Format(PyExc_TypeError, "invalid literal for ilwdchar(): '%s'", PyString_AS_STRING(str));
-				Py_DECREF(str);
-#else
-				PyErr_Format(PyExc_ValueError, "invalid literal for ilwdchar(): '%u'", obj);
-#endif
-				Py_DECREF(new);
-				new = NULL;
-			}
-		} else {
-			/* yes, it's an ilwd:char string, so confirm
-			 * that the table and column names are
-			 * correct */
-			PyObject *tbl, *col;
-			PyObject *tbl_attr, *col_attr;
-
-			tbl = PyUnicode_FromWideChar(tbl_name, wcslen(tbl_name));
-			col = PyUnicode_FromWideChar(col_name, wcslen(col_name));
-			tbl_attr = PyObject_GetAttr(new, table_name);
-			col_attr = PyObject_GetAttr(new, column_name);
-
-			if(!tbl || !col || !tbl_attr || !col_attr ||
-			PyUnicode_Compare(tbl_attr, tbl) ||
-			PyUnicode_Compare(col_attr, col)) {
-				/* mismatch */
-#if PY_MAJOR_VERSION < 3
-				PyObject *str = PyUnicode_AsEncodedString(obj, NULL, NULL);
-				PyErr_Format(PyExc_TypeError, "ilwdchar type mismatch: '%s'", PyString_AS_STRING(str));
-				Py_DECREF(str);
-#else
-				PyErr_Format(PyExc_TypeError, "ilwdchar type mismatch: '%u'", obj);
-#endif
-				Py_DECREF(new);
-				new = NULL;
-			}
-
-			Py_XDECREF(tbl_attr);
-			Py_XDECREF(col_attr);
-			Py_XDECREF(tbl);
-			Py_XDECREF(col);
-		}
-
-		free(tbl_name);
-		free(col_name);
-	} else if(PyArg_ParseTuple(args, "|l", &((ligolw_ilwdchar *) new)->i)) {
+	if(PyArg_ParseTuple(args, "|l", &((ligolw_ilwdchar *) new)->i)) {
 		/* we were passed nothing or an int:  i has either been set
 		 * from the int, or we'll use the default value of 0.
 		 * clear the error from the earlier ParseTuple failures */
@@ -230,10 +166,9 @@ static PyObject *ligolw_ilwdchar___new__(PyTypeObject *type, PyObject *args, PyO
 		new = obj;
 		Py_INCREF(new);
 	} else {
-		/* we weren't passed a unicode or an int or an ilwdchar
-		 * instance:  if args contains exactly 1 object then this
-		 * is a type error, otherwise it's a wrong number of
-		 * arguments error */
+		/* we weren't passed an int or an ilwdchar instance:  if args
+		 * contains exactly 1 object then this is a type error,
+		 * otherwise it's a wrong number of arguments error */
 		Py_DECREF(new);
 		if(PyArg_ParseTuple(args, "O", &new))
 			PyErr_SetObject(PyExc_TypeError, new);
@@ -469,15 +404,12 @@ PyTypeObject ligolw_ilwdchar_Type = {
 "...     column_name = u\"column_b\"\n" \
 "... \n" \
 ">>> x = ID(10)\n" \
-">>> print x\n" \
+">>> print(x)\n" \
 "table_a:column_b:10\n" \
-">>> x = ID(u\" 10 \")	# ignores whitespace\n" \
-">>> print x\n" \
-"table_a:column_b:10\n" \
-">>> print x + 35\n" \
+">>> print(x + 35)\n" \
 "table_a:column_b:45\n" \
-">>> y = ID(u\" table_a:column_b:10 \")	# ignores whitespace\n" \
-">>> print x - y\n" \
+">>> y = ID(10)\n" \
+">>> print(x - y)\n" \
 "table_a:column_b:0\n" \
 ">>> x == y\n" \
 "True\n" \
