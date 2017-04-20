@@ -34,19 +34,20 @@ extern "C" {
 #include <lal/LALDatatypes.h>
 #include <lal/LALSimInspiral.h>
 
-int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries **htilde,       /**< input htilde, will be modified in place */
+int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       /**< input htilde, will be modified in place */
                                         const REAL8 m1_SI,
                                         const REAL8 m2_SI,
+                                        const REAL8 f_low,
+                                        const REAL8 deltaF,
                                         const LALSimInspiralTestGRParam *pnCorrections    /**< input linked list of testing gr parameters */
 );
 
-int XLALSimInspiralNonSpinningPNCorrections(PNPhasingSeries *pfa, const REAL8 eta, const LALSimInspiralTestGRParam *pnCorrections);
+void XLALSimInspiralNonSpinningPNCorrections(PNPhasingSeries *pfa, const REAL8 eta, const LALSimInspiralTestGRParam *pnCorrections);
 
-int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries **htilde,       /**< input htilde, will be modified in place */
+int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,       /**< input htilde, will be modified in place */
                                            const REAL8Sequence *freqs,
                                            PNPhasingSeries pfa,
-                                           const REAL8 mtot, /** this must be in seconds **/
-                                           const REAL8 eta);
+                                           const REAL8 mtot); /** this must be in seconds **/
 
 #if 0
 { /* so that editors will match succeeding brace */
