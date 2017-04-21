@@ -53,7 +53,6 @@ int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       
     /* Fill with non-zero vals from fStart to fEnd */
     iStart = (INT4) ceil(f_low / deltaF);
     iEnd = (INT4) ceil(fISCO / deltaF);
-    
     /* Sequence of frequencies where corrections to the model need to be evaluated */
     REAL8Sequence *freqs =NULL;
     freqs = XLALCreateREAL8Sequence(n - iStart);
@@ -64,7 +63,7 @@ int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       
     }
     PNPhasingSeries pfa;
     XLALSimInspiralNonSpinningPNCorrections(&pfa, eta, pnCorrections);
-    XLALSimInspiralPhaseCorrectionsPhasing(htilde,freqs,pfa,m_sec);
+    XLALSimInspiralPhaseCorrectionsPhasing(htilde,freqs,iStart,iEnd,pfa,m_sec);
     XLALDestroyREAL8Sequence(freqs);
     return 0;
 }
@@ -139,6 +138,8 @@ void XLALSimInspiralNonSpinningPNCorrections(PNPhasingSeries *pfa, const REAL8 e
 
 int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,       /**< input htilde, will be modified in place */
                                            const REAL8Sequence *freqs,
+                                           const INT4 iStart,
+                                           const INT4 iEnd,
                                            PNPhasingSeries pfa,
                                            const REAL8 mtot) /** this must be in seconds **/
 {
@@ -153,9 +154,6 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
     const REAL8 pfa2 = pfa.v[2];
     const REAL8 pfa1 = pfa.v[1];
     const REAL8 pfaN = pfa.v[0];
-    
-    INT4 iStart = htilde->data->length - freqs->length; //index shift to fill pre-allocated data
-    if(iStart < 0) XLAL_ERROR(XLAL_EFAULT);
     
     COMPLEX16 *data = NULL;
     /* Compute the SPA phase at the reference point
@@ -189,9 +187,9 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
         ref_phasing /= v5ref;
     }
     */
-    for (UINT4 i = 0; i < freqs->length; i++)
+    for (INT4 i = iStart; i < iEnd; i++)
     {
-        const REAL8 f = freqs->data[i];
+        const REAL8 f = freqs->data[i-iStart];
         if (f>0)
         {
             const REAL8 v = cbrt(piM*f);
@@ -215,7 +213,8 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
             phasing /= v5;
             
             phasing -= ref_phasing;
-            data[i+iStart] += cos(phasing)- sin(phasing) * 1.0j;
+            data[i] *= cos(phasing)- sin(phasing) * 1.0j;
+//            printf("i %d freq: %.2f data %e + %e i\n", i, f, creal(data[i+iStart]), cimag(data[i+iStart]));
         }
     }
     return 0;

@@ -46,6 +46,8 @@ void XLALSimInspiralNonSpinningPNCorrections(PNPhasingSeries *pfa, const REAL8 e
 
 int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,       /**< input htilde, will be modified in place */
                                            const REAL8Sequence *freqs,
+                                           const INT4 iStart,
+                                           const INT4 iEnd,
                                            PNPhasingSeries pfa,
                                            const REAL8 mtot); /** this must be in seconds **/
 
