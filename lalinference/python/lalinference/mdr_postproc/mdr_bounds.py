@@ -167,12 +167,12 @@ def merge_posterior_samples(post_list, weights_list, label_list, weighted=False)
 
   # Check weighted flag; if true keep all samples and apply appropriate weights
   if weighted:
-    merged_post = hstack(tuple(post_list))
+    merged_post = concatenate(post_list)
     # Populate a list of arrays with the weights of each posterior sample.
     # Each run i must carry the same overall weight, \propto 1/n_i
     # which we normalize according to the total number of samples ntot.
     new_weights_list = [ntot/(len(post)*N)*ones(len(post))*weights for post,weights in zip(post_list,weights_list)]
-    return merged_post, merged_label, hstack(tuple(new_weights_list))
+    return merged_post, concatenate(new_weights_list), merged_label
   # If not weighted, then downsample each run to the smallest n_i in the list
   nmin = min(n_list)
   ds_post=[]
@@ -181,9 +181,9 @@ def merge_posterior_samples(post_list, weights_list, label_list, weighted=False)
     s = random.choice(len(post), nmin, replace=False)
     ds_post.append(post[s])
     ds_weight.append(weight[s])
-  merged_post = hstack(tuple(ds_post))
-  merged_weight = hstack(tuple(ds_weight))
-  return merged_post, merged_label, merged_weight
+  merged_post = concatenate(ds_post)
+  merged_weight = concatenate(ds_weight)
+  return merged_post, merged_weight, merged_label 
   
 
 def output_stats(outdir, post, weights, label):
@@ -234,6 +234,7 @@ if __name__ == "__main__":
   parser.add_argument("-a", "--alpha", type=float, dest="alphaLIV", help="Exponent of Lorentz invariance violating term", default=0.0)
   parser.add_argument("-s", "--single-source", action="store_true", dest="single_source", help="All posterior input files will be marginalized over as coming from a single source", default=False)
   parser.add_argument("-n", type=int, dest="nbins", help="number of interpolation points for the  gaussian KDE (default 256)", default=256)
+  parser.add_argument("-r", type=int, dest="rseed", help="Random seed for re-sampling.", default=12345)
 
 
   args = parser.parse_args()
@@ -246,6 +247,8 @@ if __name__ == "__main__":
   # combine_param = args.combine_param
   combine_param = "log10lambda_a"
   merge_weights = True
+
+  random.seed(args.rseed)
   
   cosmology = lal.CreateCosmologicalParameters(0.7,0.3,0.7,-1.0,0.0,0.0) ## these are dummy parameters that are being used for the initialization. they are going to be set to their defaults Planck 2015 values in the next line
   lal.SetCosmologicalParametersDefaultValue(cosmology) ## setting h, omega_matter and omega_lambda to their default Planck 2015 values available in LAL
@@ -315,6 +318,9 @@ if __name__ == "__main__":
       lamAdata = lambda_A_of_eff(leffdata, zdata, alphaLIV, cosmology)
       loglamAdata = log10(lamAdata)
       lameff = True
+    else:
+      print "No valid lambda parameter found in " + lab + " data! Exiting..."
+      sys.exit(-1)
 
     mgdata = EnergyScale(lamAdata)
     if prior == 'mass':
@@ -346,7 +352,7 @@ if __name__ == "__main__":
 
   if args.single_source:
     print 'Merging posteriors'
-    merged_loglamA, merged_label, merged_logweights = merge_posterior_samples(postlist, logweightlist, labels, weighted=False)
+    merged_loglamA, merged_logweights, merged_label = merge_posterior_samples(postlist, logweightlist, labels, weighted=True)
     print shape(merged_loglamA)
     print shape(merged_logweights)
     output_stats(outfolder, merged_loglamA, merged_logweights, merged_label)
