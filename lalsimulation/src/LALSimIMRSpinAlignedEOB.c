@@ -103,7 +103,7 @@ UNUSED REAL8 XLALSimUniversalRelationomega03TidalVSlambda3Tidal(
  * defined by the time when the (2,2) amplitude peaks
  * Fit provided by Tim Dietrich
  */
-static REAL8 XLALNSNSMergerFreq(
+static UNUSED REAL8 XLALSimNSNSMergerFreq(
                                        TidalEOBParams *tidal1, /**< Tidal parameters of body 1 */
                                        TidalEOBParams *tidal2  /**< Tidal parameters of body 2 */
 )
@@ -119,6 +119,7 @@ static REAL8 XLALNSNSMergerFreq(
     REAL8 m2Om1lam1 = m2/m1*lambda1;
     REAL8 m1Om2lam2 = m1/m2*lambda2;
     REAL8 combo = (m2Om1lam1 + m1Om2lam2)/Mto5;
+//    printf("Combo, freq %.16e %.16e\n", combo, 0.3596 * (1. +  0.073152*combo  - 0.000154503*combo*combo) / (1. + 0.206595*combo));
     return 0.3596 * (1. +  0.073152*combo  - 0.000154503*combo*combo) / (1. + 0.206595*combo);
 }
 
@@ -234,13 +235,14 @@ XLALSpinAlignedNSNSStopCondition (double UNUSED t, /**< UNUSED */
   REAL8 omega, r;
   UINT4 counter;
   SpinEOBParams *params = (SpinEOBParams *) funcParams;
-  TidalEOBParams *tidal1 = params->seobCoeffs->tidal1;
-  TidalEOBParams *tidal2 = params->seobCoeffs->tidal2;
-  REAL8 omegaMerger = XLALNSNSMergerFreq( tidal1, tidal2 );
+  //TidalEOBParams *tidal1 = params->seobCoeffs->tidal1;
+  //TidalEOBParams *tidal2 = params->seobCoeffs->tidal2;
+  //REAL8 omegaMerger = XLALSimNSNSMergerFreq( tidal1, tidal2 );
   r = values[0];
   omega = dvalues[1];
   counter = params->eobParams->omegaPeaked;
 //  printf("function NSNS: r = %.16e, omega = %.16e, pr = %.16e, dpr = %.16e, count = %.16u \n",values[0],dvalues[1],values[2],dvalues[2],counter);
+//  printf("%.16e %.16e %.16e %.16e\n",values[0],dvalues[1],values[2],dvalues[2]);
 //  printf("%.16e %.16e\n",omega, omegaMerger/2.);
   if (r < 10. && omega < params->eobParams->omega)
     {
@@ -249,7 +251,7 @@ XLALSpinAlignedNSNSStopCondition (double UNUSED t, /**< UNUSED */
     }
   if (r < 10. && (dvalues[2] >= 0. || params->eobParams->omegaPeaked == 5
       || isnan (dvalues[3]) || isnan (dvalues[2]) || isnan (dvalues[1])
-      || isnan (dvalues[0]) || omega >= omegaMerger/2. ))
+      || isnan (dvalues[0]) ))//|| omega >= omegaMerger/2. ))
     {
 //        printf("omegaMerger %.16e\n", omegaMerger);
 //        if ( dvalues[2] >= 0 ) printf("dvalues[2] >= 0\n");
@@ -444,7 +446,7 @@ XLALSimIMRSpinAlignedEOBWaveform (REAL8TimeSeries ** hplus,	     /**<< OUTPUT, +
   if ( lambda2Tidal1 != 0. ) {
       omega02Tidal1 = XLALSimInspiralWaveformParamsLookupTidalQuadrupolarFMode1(LALParams);
       if ( omega02Tidal1 == 0. ) {
-          XLALPrintError ("XLAL Error - %s: Tidal parameters are not set correctly! Always provide non-zero compactness and f-mode frequency when lambda2 is non-zero!\n", __func__);
+          XLALPrintError ("XLAL Error - %s: Tidal parameters are not set correctly! Always provide non-zero f-mode frequency when lambda2 is non-zero!\n", __func__);
           XLAL_ERROR (XLAL_EDOM);
       }
       lambda3Tidal1 = XLALSimInspiralWaveformParamsLookupTidalOctupolarLambda1(LALParams);
@@ -457,7 +459,7 @@ XLALSimIMRSpinAlignedEOBWaveform (REAL8TimeSeries ** hplus,	     /**<< OUTPUT, +
   if ( lambda2Tidal2 != 0. ) {
       omega02Tidal2 = XLALSimInspiralWaveformParamsLookupTidalQuadrupolarFMode2(LALParams);
       if ( omega02Tidal2 == 0. ) {
-          XLALPrintError ("XLAL Error - %s: Tidal parameters are not set correctly! Always provide non-zero compactness and f-mode frequency when lambda2 is non-zero!\n", __func__);
+          XLALPrintError ("XLAL Error - %s: Tidal parameters are not set correctly! Always provide non-zero  f-mode frequency when lambda2 is non-zero!\n", __func__);
           XLAL_ERROR (XLAL_EDOM);
       }
       lambda3Tidal2 = XLALSimInspiralWaveformParamsLookupTidalOctupolarLambda2(LALParams);
@@ -1593,16 +1595,16 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
   printf ("timePeak %.16e\n", timePeak);
 #endif
   /* Calculate phase NQC coefficients */
-  if (SpinAlignedEOBversion == 2)
-    {
-      if (XLALSimIMRSpinEOBCalculateNQCCoefficients
-	  (ampNQC, phaseNQC, &rHi, &prHi, omegaHi, 2, 2, timePeak,
-	   deltaTHigh / mTScaled, m1, m2, a, chiA, chiS, &nqcCoeffs,
-	   SpinAlignedEOBversion) == XLAL_FAILURE)
-	{
-	  XLAL_ERROR (XLAL_EFUNC);
-	}
-    }
+//  if (SpinAlignedEOBversion == 2)
+//    {
+//      if (XLALSimIMRSpinEOBCalculateNQCCoefficients
+//	  (ampNQC, phaseNQC, &rHi, &prHi, omegaHi, 2, 2, timePeak,
+//	   deltaTHigh / mTScaled, m1, m2, a, chiA, chiS, &nqcCoeffs,
+//	   SpinAlignedEOBversion) == XLAL_FAILURE)
+//	{
+//	  XLAL_ERROR (XLAL_EFUNC);
+//	}
+//    }
   if (SpinAlignedEOBversion == 4)
     {
         if ( use_tidal == 1 && nqcFlag == 2 ) {
@@ -1644,7 +1646,7 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
     
 #if debugOutput
   printf
-    ("Only spin NQC should be 0 here: %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
+    ("Only spin NQC should not be 0 here: %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
      nqcCoeffs.a1, nqcCoeffs.a2, nqcCoeffs.a3, nqcCoeffs.a3S, nqcCoeffs.a4,
      nqcCoeffs.a5, nqcCoeffs.b1, nqcCoeffs.b2, nqcCoeffs.b3, nqcCoeffs.b4);
 #endif
@@ -2108,7 +2110,6 @@ XLALGPSAdd (&tc, deltaT * (REAL8) kMin);
   XLALDestroyREAL8Vector (sigReHi);
   XLALDestroyREAL8Vector (sigImHi);
   XLALDestroyREAL8Vector (omegaHi);
-
   return XLAL_SUCCESS;
 }
 
