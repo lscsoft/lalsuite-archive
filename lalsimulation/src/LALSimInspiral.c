@@ -2186,9 +2186,6 @@ int XLALSimComputeSpinPrecEOBNR_FD(
 
     f_ref = fixReferenceFrequency(f_ref, f_min, approximant);
 
-    if (f_max <= 0.0){
-        f_max = 2048.0;
-    }
     deltaT = 0.5 / f_max;
 
     // FIXME STAS If we extend this function we need to put cases and 
