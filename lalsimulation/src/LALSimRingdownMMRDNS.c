@@ -518,6 +518,8 @@ COMPLEX16 XLALSpinWeightedSpheroidalHarmonic( double jf,           /* Spin of re
                    double phi          /* azimuthal angle */
                  ) {
 
+  if (m<0) return (1.0-2.0*((l+m)%2))*conj(XLALSpinWeightedSpheroidalHarmonic(jf, l, -m, n, LAL_PI-theta, LAL_PI+phi));
+
   /* Set spin weight */
   const int s = -2;
 
@@ -1086,20 +1088,29 @@ int XLALSimRingdownGenerateSingleModeMMRDNS_time(
         /* Declarations */
         COMPLEX16 h_lmn = 0;
         COMPLEX16 prefactor = 0;
+        COMPLEX16 prefactor_m = 0;
         REAL8 kappa   = XLALKAPPA( jf, l, m );
         REAL8 Mf_sec  = Mf*LAL_MTSUN_SI/LAL_MSUN_SI;
         REAL8 r_sec   = r/LAL_C_SI;
         REAL8 t = 0;
         COMPLEX16 A_lmn = 0;
+        COMPLEX16 A_lmmn = 0;
         COMPLEX16 S_lmn = 0;
+        COMPLEX16 S_lmmn = 0;
         COMPLEX16 Omega_lmn = 0;
+        COMPLEX16 Omega_lpmn = 0;
+        COMPLEX16 Omega_lmmn = 0;
 
         /* Mode Component Calculation*/
         Omega_lmn = XLALcomplexOmega(kappa, l, m, n)/Mf_sec;
         A_lmn = XLALMMRDNSAmplitudeOverOmegaSquared(eta, l, m, n);
-        Omega_lmn = creal(Omega_lmn)*(1.+dfreq) + I * cimag(Omega_lmn)/(1.+dtau);
+        A_lmmn = XLALMMRDNSAmplitudeOverOmegaSquared(eta, l, -m, n);
+        Omega_lpmn = creal(Omega_lmn)*(1.+dfreq) + I * cimag(Omega_lmn)/(1.+dtau);
+        Omega_lmmn = -1.0 * creal(Omega_lmn)*(1.+dfreq) + I * cimag(Omega_lmn)/(1.+dtau);
         S_lmn = XLALSpinWeightedSpheroidalHarmonic(jf, l, m, n, iota, 0.0);
+        S_lmmn = XLALSpinWeightedSpheroidalHarmonic(jf, l, -m, n, iota, 0.0);
         prefactor = -A_lmn*S_lmn*Mf_sec/(r_sec)*cexp(I*phi_offset);
+        prefactor_m = -(1.0-2.0*(l%2))*A_lmmn*S_lmmn*Mf_sec/(r_sec)*cexp(-I*phi_offset);
 
         /* allocate htilde_lmn */
         *htilde_lmn = XLALCreateCOMPLEX16TimeSeries("htilde_lmn: TD waveform", T0, 0.0, deltaT, &lalStrainUnit, Nsamples);
@@ -1112,7 +1123,7 @@ int XLALSimRingdownGenerateSingleModeMMRDNS_time(
         /* fill waveform */
         for ( UINT4 i=0 ; i<Nsamples ; i++ ) {
             t = Tstart+i*deltaT;
-            h_lmn = prefactor*cexp(I*Omega_lmn*t);
+            h_lmn = prefactor*cexp(I*Omega_lpmn*t) + prefactor_m*cexp(I*Omega_lmmn*t);
             (*htilde_lmn)->data->data[i] = h_lmn;
             h_lmn = 0.0;
             t = 0.0;
