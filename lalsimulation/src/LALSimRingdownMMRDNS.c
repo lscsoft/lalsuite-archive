@@ -52,7 +52,7 @@
 #include <lal/LALSimSphHarmSeries.h>
 #include <lal/LALStdlib.h>
 #include <lal/LALSimInspiral.h>
-
+#include <lal/Window.h>
 #include <lal/TimeSeries.h>
 #include <lal/FrequencySeries.h>
 
@@ -1030,6 +1030,13 @@ int XLALSimRingdownMMRDNS_time(
         if (!(*hcross)) XLAL_ERROR(XLAL_EFUNC);
         memset((*hcross)->data->data, 0, Nsamples * sizeof(REAL8));
 
+
+        /* prepare window */
+        REAL8Window *window_rd;
+        REAL8 start = 0; //TODO: adjust window
+        window_rd = XLALCreatePlanckREAL8Window(Nsamples,start,Nsamples*deltaT-2.0,1.0/deltaT);
+
+
         COMPLEX16 h_val = 0.0;
         for ( UINT4 i=0 ; i<Nsamples ; i++ ) {
           h_val = h220->data->data[i];
@@ -1042,8 +1049,8 @@ int XLALSimRingdownMMRDNS_time(
           h_val += h320->data->data[i];
           h_val += h430->data->data[i];
 
-          (*hplus)->data->data[i] = creal(h_val);
-          (*hcross)->data->data[i] = -cimag(h_val);
+          (*hplus)->data->data[i] = creal(h_val)*(window_rd->data->data)[i];
+          (*hcross)->data->data[i] = -cimag(h_val)*(window_rd->data->data)[i];
           h_val = 0.0;
         }
 

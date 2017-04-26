@@ -135,7 +135,7 @@ int XLALSimBlackHoleRingdownTiger(
   
   
   free(nonGRParamName);
-  
+  free(window_rd); 
   return 0;
 }
 
