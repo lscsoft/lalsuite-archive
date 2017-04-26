@@ -1189,48 +1189,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
                 IFOdata[i].windowedTimeData->data->data[j] /= sqrt(IFOdata[i].window->sumofsquares / IFOdata[i].window->data->length);
             }
 
-        /*dump the time data and the windowed time data into files to display them LAURA*/
-        if(i==0){
-            FILE *file_time;
-            file_time=fopen("/home/dapper/Ringdown_stuff/tmp/file_time_H.txt", "w");
-            /*loop over IFO data*/
-            UINT4 length_time = IFOdata[i].timeData->data->length;
-            UINT4 k;
-            for(k=0;k<length_time;k++){
-                fprintf(file_time,"%f\n",IFOdata[i].timeData->data->data[k]*1e24);
-            }
-            fclose(file_time);
-
-            FILE *file_time_window;
-            file_time_window=fopen("/home/dapper/Ringdown_stuff/tmp/file_time_window_H.txt", "w");
-            UINT4 length_time_windowed = IFOdata[i].windowedTimeData->data->length;
-            /*loop over IFO data*/
-            for(k=0;k<length_time_windowed;k++){
-                fprintf(file_time_window,"%f\n",IFOdata[i].windowedTimeData->data->data[k]*1e24);
-            }
-            fclose(file_time_window);
-        }
-
-        if(i==1){
-            FILE *file_time;
-            file_time=fopen("/home/dapper/Ringdown_stuff/tmp/file_time_L.txt", "w");
-            /*loop over IFO data*/
-            UINT4 length_time = IFOdata[i].timeData->data->length;
-            UINT4 k;
-            for(k=0;k<length_time;k++){
-                fprintf(file_time,"%f\n",IFOdata[i].timeData->data->data[k]*1e24);
-            }
-            fclose(file_time);
-
-            FILE *file_time_window;
-            file_time_window=fopen("/home/dapper/Ringdown_stuff/tmp/file_time_window_L.txt", "w");
-            UINT4 length_time_windowed = IFOdata[i].windowedTimeData->data->length;
-            /*loop over IFO data*/
-            for(k=0;k<length_time_windowed;k++){
-               fprintf(file_time_window,"%f\n",IFOdata[i].windowedTimeData->data->data[k]*1e24);
-            }
-            fclose(file_time_window);
-        }
+        
         XLALDestroyCache(cache); // Clean up cache
         }
         /* End of data reading process */
