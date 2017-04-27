@@ -1147,7 +1147,7 @@ class Posterior(object):
               print "Using non-precessing fit formula [Healy at al (2014)] for final mass and spin (on masses and projected spin components)."
               try:
                   pos.append_mapping('af', bbh_final_spin_non_precessing_Healyetal, ['m1', 'm2', 'a1z', 'a2z'])
-                  pos.append_mapping('mf', bbh_final_mass_non_precessing_Healyetal, ['m1', 'm2', 'a1z', 'a2z', 'af'])
+                  pos.append_mapping('mf', lambda m1, m2, chi1z, chi2z, chif: bbh_final_mass_non_precessing_Healyetal(m1, m2, chi1z, chi2z, chif=chif), ['m1', 'm2', 'a1z', 'a2z', 'af'])
               except Exception,e:
                   print "Could not calculate final parameters. The error was: %s"%(str(e))
           elif ('a1' in pos.names) and ('a2' in pos.names):
@@ -1162,7 +1162,7 @@ class Posterior(object):
                   print "Using non-precessing fit formula [Healy at al (2014)] for final mass and spin (on masses and spin magnitudes)."
                   try:
                       pos.append_mapping('af', bbh_final_spin_non_precessing_Healyetal, ['m1', 'm2', 'a1', 'a2'])
-                      pos.append_mapping('mf', bbh_final_mass_non_precessing_Healyetal, ['m1', 'm2', 'a1', 'a2', 'af'])
+                      pos.append_mapping('mf', lambda m1, m2, chi1, chi2, chif: bbh_final_mass_non_precessing_Healyetal(m1, m2, chi1, chi2, chif=chif), ['m1', 'm2', 'a1', 'a2', 'af'])
                   except Exception,e:
                       print "Could not calculate final parameters. The error was: %s"%(str(e))
           else:
