@@ -231,7 +231,6 @@ XLALEOBSpinPrecStopConditionBasedOnPR(double UNUSED t,
   /* ********************************************************** */
   /* *******  Unphysical orbital conditions  ******** */
   /* ********************************************************** */
-
   /* Terminate if p_r points outwards */
   if ( r2 < 16 && pDotr >= 0  )
   {
@@ -953,7 +952,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   //const REAL8 EPS_REL = 1.0e-10;
 
   /* Relax abs accuracy in case of highly symmetric case that would otherwise slow down significantly */
-  if (sqrt((INspin1[0] + INspin2[0])*(INspin1[0] + INspin2[0]) + (INspin1[1] + INspin2[1])*(INspin1[1] + INspin2[1])) < 1.0e-10 && !SpinsAlmostAligned)
+  if (sqrt((INspin1[0] + INspin2[0])*(INspin1[0] + INspin2[0]) + (INspin1[1] + INspin2[1])*(INspin1[1] + INspin2[1])) < 1.0e-10 && !SpinsAlmostAligned && !use_optimized)
   {
       if (debugPK) XLAL_PRINT_INFO("EPS_ABS is decreased!\n");
       EPS_ABS = 1.0e-4;
@@ -1728,7 +1727,35 @@ int XLALSimIMRSpinEOBWaveformAll(
     }
     if(debugPK) { XLAL_PRINT_INFO("\n\n FINISHED THE EVOLUTION\n\n"); fflush(NULL);  }
 
-  if (debugPK) {
+    if (debugPK && use_optimized) {
+        /* Write the dynamics to file */
+        out = fopen( "seobDynamics.dat", "w" );
+        for ( i = 0; i < retLenEOMLow; i++ )
+        {
+            //YP: output orbital phase and phase modulation separately, instead of their sum
+            fprintf( out, "%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
+                    dynamicsEOMLo->data[i],
+                    dynamicsEOMLo->data[retLenEOMLow+i],
+                    dynamicsEOMLo->data[2*retLenEOMLow+i],
+                    dynamicsEOMLo->data[3*retLenEOMLow+i],
+                    dynamicsEOMLo->data[4*retLenEOMLow+i],
+                    dynamicsEOMLo->data[5*retLenEOMLow+i],
+                    dynamicsEOMLo->data[6*retLenEOMLow+i],
+                    dynamicsEOMLo->data[7*retLenEOMLow+i],
+                    dynamicsEOMLo->data[8*retLenEOMLow+i],
+                    dynamicsEOMLo->data[9*retLenEOMLow+i],
+                    dynamicsEOMLo->data[10*retLenEOMLow+i],
+                    dynamicsEOMLo->data[11*retLenEOMLow+i],
+                    dynamicsEOMLo->data[12*retLenEOMLow+i],
+                    dynamicsEOMLo->data[13*retLenEOMLow+i],
+                    dynamicsEOMLo->data[14*retLenEOMLow+i]
+                    );
+        }
+        fclose( out );
+        fflush(NULL);
+    }
+    
+  if (debugPK && !use_optimized) {
     /* Write the dynamics to file */
     out = fopen( "seobDynamics.dat", "w" );
     for ( i = 0; i < retLenLow; i++ )
@@ -2360,7 +2387,8 @@ int XLALSimIMRSpinEOBWaveformAll(
       tlistRDPatch->data[i] = i * deltaT/mTScaled;
     }
     // END OPTIMIZED CODE CHUNK
-  } else {
+  }
+  else {
     // START UNOPTIMIZED CODE CHUNK
     /* Create time-series containers for euler angles and hlm harmonics */
     if ( !(alphaI2PTS = XLALCreateREAL8TimeSeries( "alphaI2P", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow )) + !(betaI2PTS = XLALCreateREAL8TimeSeries(  "betaI2P", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow )) + !(gammaI2PTS = XLALCreateREAL8TimeSeries( "gammaI2P", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow )) + !(alphaP2JTS = XLALCreateREAL8TimeSeries( "alphaP2J", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow )) + !(betaP2JTS = XLALCreateREAL8TimeSeries(  "betaP2J", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow )) + !(gammaP2JTS = XLALCreateREAL8TimeSeries( "gammaP2J", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow )) ) {
@@ -2588,7 +2616,8 @@ int XLALSimIMRSpinEOBWaveformAll(
     }
 
     // END OPTIMIZED CODE CHUNK
-  } else {
+  }
+  else {
     // START UNOPTIMIZED CODE CHUNK (straight from LALSuite master, Nov 14, 2016). CONTINUES ALL THE WAY TO START OF STEP 6!
     /* Main loop for quasi-nonprecessing waveform generation */
     // Generating modes for coarsely sampled portion
@@ -3568,7 +3597,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   *hIMRlmJTSHiOutput = hIMRlmJTSHi;
   if (debugPK){
     out = fopen( "JIMRWavesHi.dat", "w" );
-    for ( i = 0; i < retLenHi + retLenRDPatchHi; i++ )
+    for ( i = 0; i < (INT4) hIMR22JTSHi->data->length; i++ )
     {
       fprintf( out,
         "%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
@@ -3690,7 +3719,7 @@ int XLALSimIMRSpinEOBWaveformAll(
 
   if (debugPK){
      out = fopen( "JIMRWaves.dat", "w" );
-     for ( i = 0; i < retLenLow + retLenRDPatchLow; i++ )
+     for ( i = 0; i < (INT4) hIMR22JTS->data->length; i++ )
      {
         fprintf( out,
           "%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
@@ -3820,23 +3849,23 @@ int XLALSimIMRSpinEOBWaveformAll(
   *hIMRoutput = XLALSphHarmTimeSeriesAddMode( *hIMRoutput, hIMR2m1ITS, 2, -1 );
   *hIMRoutput = XLALSphHarmTimeSeriesAddMode( *hIMRoutput, hIMR2m2ITS, 2, -2 );
   XLALSphHarmTimeSeriesSetTData( *hIMRoutput, tlistRDPatch );
-
-    if (debugPK){
-      out = fopen( "IWaves.dat", "w" );
-      for ( i = 0; i < retLenLow + retLenRDPatchLow; i++ )
-        {
-          fprintf( out,
-                   "%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
-                   tlistRDPatch->data[i],
-                   creal(hIMR22ITS->data->data[i]), cimag(hIMR22ITS->data->data[i]),
-                   creal(hIMR21ITS->data->data[i]), cimag(hIMR21ITS->data->data[i]),
-                   creal(hIMR20ITS->data->data[i]), cimag(hIMR20ITS->data->data[i]),
-                   creal(hIMR2m1ITS->data->data[i]), cimag(hIMR2m1ITS->data->data[i]),
-                   creal(hIMR2m2ITS->data->data[i]), cimag(hIMR2m2ITS->data->data[i]) );
-        }
-      fclose( out );
-    }
   }
+    
+    if (debugPK){
+        out = fopen( "IWaves.dat", "w" );
+        for ( i = 0; i < (INT4) hIMR22ITS->data->length; i++ )
+        {
+            fprintf( out,
+                    "%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
+                    tlistRDPatch->data[i],
+                    creal(hIMR22ITS->data->data[i]), cimag(hIMR22ITS->data->data[i]),
+                    creal(hIMR21ITS->data->data[i]), cimag(hIMR21ITS->data->data[i]),
+                    creal(hIMR20ITS->data->data[i]), cimag(hIMR20ITS->data->data[i]),
+                    creal(hIMR2m1ITS->data->data[i]), cimag(hIMR2m1ITS->data->data[i]),
+                    creal(hIMR2m2ITS->data->data[i]), cimag(hIMR2m2ITS->data->data[i]) );
+        }
+        fclose( out );
+    }
 
 /* *********************************************************************************
  * *********************************************************************************

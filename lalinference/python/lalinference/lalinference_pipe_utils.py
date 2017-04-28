@@ -1066,7 +1066,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
         respagenode.set_psd_files(enginenodes[0].get_psd_files())
         respagenode.set_snr_file(enginenodes[0].get_snr_file())
         if os.path.exists(self.basepath+'/coinc.xml'):
-          respagenode.set_coinc_file(self.basepath+'/coinc.xml')
+          respagenode.set_coinc_file(self.basepath+'/coinc.xml',self.config.get('input','gid'))
         mkdirs(os.path.join(self.basepath,'coherence_test'))
         par_mergenodes=[]
         for ifo in enginenodes[0].ifos:
@@ -1103,7 +1103,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
             subresnode.set_psd_files(cotest_nodes[0].get_psd_files())
             subresnode.set_snr_file(cotest_nodes[0].get_snr_file())
             if os.path.exists(self.basepath+'/coinc.xml'):
-              subresnode.set_coinc_file(self.basepath+'/coinc.xml')
+              subresnode.set_coinc_file(self.basepath+'/coinc.xml',self.config.get('input','gid'))
             if self.config.has_option('input','injection-file') and event.event_id is not None:
                 subresnode.set_injection(self.config.get('input','injection-file'),event.event_id)
             elif self.config.has_option('input','burst-injection-file') and event.event_id is not None:
@@ -1124,7 +1124,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
         respagenode.set_psd_files(enginenodes[0].get_psd_files())
         respagenode.set_snr_file(enginenodes[0].get_snr_file())
         if os.path.exists(self.basepath+'/coinc.xml'):
-          respagenode.set_coinc_file(self.basepath+'/coinc.xml')
+          respagenode.set_coinc_file(self.basepath+'/coinc.xml',self.config.get('input','gid'))
     if self.config.has_option('input','injection-file') and event.event_id is not None:
         respagenode.set_injection(self.config.get('input','injection-file'),event.event_id)
     elif self.config.has_option('input','burst-injection-file') and event.event_id is not None:
@@ -1195,7 +1195,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     respagenode.set_psd_files(enginenodes[0].get_psd_files())
     respagenode.set_snr_file(enginenodes[0].get_snr_file())
     if os.path.exists(self.basepath+'/coinc.xml'):
-        respagenode.set_coinc_file(self.basepath+'/coinc.xml')
+        respagenode.set_coinc_file(self.basepath+'/coinc.xml',self.config.get('input','gid'))
     if self.config.has_option('input','injection-file') and event.event_id is not None:
         respagenode.set_injection(self.config.get('input','injection-file'),event.event_id)
     if self.config.has_option('input','burst-injection-file') and event.event_id is not None:
@@ -1233,7 +1233,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     respagenode.set_psd_files(enginenodes[0].get_psd_files())
     respagenode.set_snr_file(enginenodes[0].get_snr_file())
     if os.path.exists(self.basepath+'/coinc.xml'):
-      respagenode.set_coinc_file(self.basepath+'/coinc.xml')
+      respagenode.set_coinc_file(self.basepath+'/coinc.xml',self.config.get('input','gid'))
     respagenode.set_header_file(enginenodes[0].get_header_file())
     if self.config.has_option('input','injection-file') and event.event_id is not None:
         respagenode.set_injection(self.config.get('input','injection-file'),event.event_id)
@@ -1829,6 +1829,10 @@ class EngineJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
     # For LALInferenceNest demand only 1 thread (to be tuned later)
     if self.engine=='lalinferencenest':
             self.add_condor_cmd('environment','OMP_NUM_THREADS=1')
+    if cp.has_option('condor','notification'):
+        self.set_notification(cp.get('condor','notification'))
+        if cp.has_option('resultspage','email'):
+            self.add_condor_cmd('notify_user',cp.get('resultspage','email'))
 
   def set_grid_site(self,site=None):
     """
@@ -2290,7 +2294,9 @@ class ResultsPageNode(pipeline.CondorDAGNode):
         return
       self.add_file_opt('snr',st)
 
-    def set_coinc_file(self,coinc):
+    def set_coinc_file(self,coinc,gid=None):
+      if gid:
+        self.__event=gid
       if coinc is None:
         return
       self.add_var_arg('--trig '+coinc)

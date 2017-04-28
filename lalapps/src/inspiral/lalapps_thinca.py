@@ -1,6 +1,5 @@
-#!/usr/bin/python
 #
-# Copyright (C) 2008--2015  Kipp Cannon
+# Copyright (C) 2008--2017  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -37,24 +36,15 @@ from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import segments as ligolw_segments
 from glue import segmentsUtils
 import lal
-from pylal import git_version
-from pylal import ligolw_thinca
+from lalinspiral import thinca
 
 
 lsctables.use_in(ligolw.LIGOLWContentHandler)
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
-__version__ = "git id %s" % git_version.id
-__date__ = git_version.date
-
-
-#
-# Use interning row builder to save memory.
-#
-
-
-lsctables.table.TableStream.RowBuilder = lsctables.table.InterningRowBuilder
+from lalapps.git_version import date as __date__
+from lalapps.git_version import version as __version__
 
 
 #
@@ -62,7 +52,7 @@ lsctables.table.TableStream.RowBuilder = lsctables.table.InterningRowBuilder
 #
 
 
-lsctables.SnglInspiralTable.RowType = lsctables.SnglInspiral = ligolw_thinca.SnglInspiral
+lsctables.SnglInspiralTable.RowType = lsctables.SnglInspiral = thinca.SnglInspiral
 
 
 #
@@ -76,7 +66,7 @@ lsctables.SnglInspiralTable.RowType = lsctables.SnglInspiral = ligolw_thinca.Sng
 
 def parse_command_line():
 	parser = OptionParser(
-		version = "Name: %%prog\n%s" % git_version.verbose_msg,
+		version = "Name: %%prog\n%s" % __version__,
 		usage = "%prog [options] [file ...]",
 		description = "%prog implements the inspiral coincidence algorithm for use in performing trigger-based multi-instrument searches for gravitational wave events.  The LIGO Light Weight XML files listed on the command line are processed one by one in order, and over-written with the results.  If no files are named, then input is read from stdin and output written to stdout.  Gzipped files will be autodetected on input, if a file's name ends in \".gz\" it will be gzip-compressed on output."
 	)
@@ -84,8 +74,9 @@ def parse_command_line():
 	parser.add_option("-f", "--force", action = "store_true", help = "Process document even if it has already been processed.")
 	parser.add_option("-m", "--match", metavar = "algorithm", default = "exact", help = "Select the coincidence test.  Allowed values are:  \"exact\" (require exact template match, the default).")
 	parser.add_option("-t", "--threshold", metavar = "float", type = "float", help = "Set the coincidence threshold (required).  The meaning is defined by the match algorithm.  For --match=exact this sets the Delta t window in seconds.")
+	parser.add_option("--min-instruments", metavar = "number", default = "2", type = "int", help = "Set the minimum number of instruments that must participate in a coincidence (default = 2).  The value must be greater than 0.")
 	parser.add_option("--vetoes-name", metavar = "string", default = "vetoes", help = "From the input document, exatract the segment list having this name to use as the veto segments (default = \"vetoes\").  Warning:  if no segments by this name are found in the document then vetoes will not be applied, this is not an error condition.")
-	parser.add_option("--trigger-program", metavar = "name", default = "inspiral", help = "Set the name of the program that generated the event list as it appears in the process table (default = \"inspiral\").")
+	parser.add_option("--trigger-program", metavar = "name", default = "inspiral", help = "Set the name of the program that generated the event list as it appears in the process table (default = \"inspiral\").  This is used to identify the search_summary table entries to be used to define instrument on and off times.")
 	parser.add_option("--coinc-end-time-segment", metavar = "seg", help = "The segment of time to retain coincident triggers from. Uses segmentUtils.from_range_strings() format \"START:END\" for an interval of the form [START,END), \"START:\" for an interval of the form [START,INF), and \":END\" for an interval of the form (-INF,END).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
@@ -102,11 +93,13 @@ def parse_command_line():
 		raise ValueError("missing required option(s) %s" % ", ".join("--%s" % option.replace("_", "-") for option in missing_options))
 	if options.match not in ("exact",):
 		raise ValueError("unrecognized value for --match: \"%s\"" % options.match)
+	if options.min_instruments < 1:
+		raise ValueError("invalid --min-instruments: \"%s\"" % options.min_instruments)
 
 	if options.coinc_end_time_segment is not None:
 		if ',' in options.coinc_end_time_segment:
 			raise ValueError("--coinc-end-time-segment may only contain a single segment")
-		options.coinc_end_time_segs = segmentsUtils.from_range_strings([options.coinc_end_time_segment], boundtype = lsctables.LIGOTimeGPS).coalesce()
+		options.coinc_end_time_segs = segmentsUtils.from_range_strings([options.coinc_end_time_segment], boundtype = lal.LIGOTimeGPS).coalesce()
 	else:
 		options.coinc_end_time_segs = None
 
@@ -126,7 +119,7 @@ def parse_command_line():
 #
 
 
-process_program_name = u"ligolw_thinca"
+process_program_name = u"lalapps_thinca"
 
 
 #
@@ -147,18 +140,6 @@ options, process_params, filenames = parse_command_line()
 
 
 #
-# Select event_comparefunc form
-#
-
-
-if options.match == "exact":
-	event_comparefunc = ligolw_thinca.inspiral_coinc_compare_exact
-else:
-	# not possible
-	assert False
-
-
-#
 # Select ntuple_comparefunc form
 #
 
@@ -170,9 +151,9 @@ if options.coinc_end_time_segs is not None:
 		Return False (ntuple should be retained) if the end time of
 		the coinc is in the segmentlist segs.
 		"""
-		return ligolw_thinca.coinc_inspiral_end_time(events, offset_vector) not in seg
+		return thinca.coinc_inspiral_end_time(events, offset_vector) not in seg
 else:
-	ntuple_comparefunc = ligolw_thinca.default_ntuple_comparefunc
+	ntuple_comparefunc = thinca.InspiralCoincTables.ntuple_comparefunc
 
 
 #
@@ -188,7 +169,6 @@ for n, filename in enumerate(filenames, start = 1):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n, len(filenames)),
 	xmldoc = ligolw_utils.load_filename(filename, verbose = options.verbose, contenthandler = ligolw.LIGOLWContentHandler)
-	lsctables.table.InterningRowBuilder.strings.clear()
 
 	#
 	# Have we already processed it?
@@ -227,19 +207,6 @@ for n, filename in enumerate(filenames, start = 1):
 	assert len(set(tbl.getColumnByName("event_id"))) == len(tbl), "degenerate sngl_inspiral event_id detected"
 
 	#
-	# Set max_dt.  Upper bound on maximum time that can separate two
-	# triggers and they still pass coincidence.
-	#
-
-	if options.match == "exact":
-		# add 10% to coincidence window for safety + the
-		# light-crossing time of the Earth
-		max_dt = 1.1 * options.threshold + 2. * lal.REARTH_SI / lal.C_SI
-	else:
-		# not possible
-		assert False
-
-	#
 	# Extract veto segments if present.
 	#
 	# FIXME:  using the tools in the glue.ligolw.utils.segments module
@@ -264,16 +231,15 @@ for n, filename in enumerate(filenames, start = 1):
 	# Run coincidence algorithm.
 	#
 
-	ligolw_thinca.ligolw_thinca(
+	thinca.ligolw_thinca(
 		xmldoc,
 		process_id = process.process_id,
-		coinc_definer_row = ligolw_thinca.InspiralCoincDef,
-		event_comparefunc = event_comparefunc,
+		coinc_definer_row = thinca.InspiralCoincDef,
 		thresholds = options.threshold,
-		max_dt = max_dt,
 		ntuple_comparefunc = ntuple_comparefunc,
 		veto_segments = vetoes,
 		trigger_program = options.trigger_program,
+		min_instruments = options.min_instruments,
 		verbose = options.verbose
 	)
 

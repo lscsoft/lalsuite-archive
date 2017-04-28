@@ -119,6 +119,7 @@ static const char *lalSimulationApproximantNames[] = {
     INITIALIZE_NAME(EOBNRv2HM),
     INITIALIZE_NAME(EOBNRv2_ROM),
     INITIALIZE_NAME(EOBNRv2HM_ROM),
+    INITIALIZE_NAME(TEOBResum_ROM),
     INITIALIZE_NAME(SEOBNRv1),
     INITIALIZE_NAME(SEOBNRv2),
     INITIALIZE_NAME(SEOBNRv2_opt),
@@ -466,6 +467,20 @@ int XLALSimInspiralChooseTDWaveform(
                     XLALSimInspiralWaveformParamsLookupPNTidalOrder(LALparams), amplitudeO, phaseO);
             break;
 
+        case TEOBResum_ROM:
+          /* Waveform-specific sanity checks */
+          if( !XLALSimInspiralWaveformParamsFrameAxisIsDefault(LALparams) )
+            ABORT_NONDEFAULT_FRAME_AXIS(LALparams);
+          if( !XLALSimInspiralWaveformParamsModesChoiceIsDefault(LALparams) )
+            ABORT_NONDEFAULT_MODES_CHOICE(LALparams);
+          if( !XLALSimInspiralWaveformParamsPNSpinOrderIsDefault(LALparams) )
+            ABORT_NONDEFAULT_SPIN_ORDER(LALparams);
+          if( !checkSpinsZero(S1x, S1y, S1z, S2x, S2y, S2z) )
+            ABORT_NONZERO_SPINS(LALparams);
+          /* Call the waveform driver routine */
+          ret = XLALSimInspiralTEOBResumROM(hplus,hcross,phiRef,deltaT,f_min,f_ref,distance,inclination,m1,m2,lambda1,lambda2);
+          break;
+
 	case EccentricTD:
 	    /* Waveform-specific sanity checks */
 	    if( !XLALSimInspiralWaveformParamsFrameAxisIsDefault(LALparams) )
@@ -536,8 +551,8 @@ int XLALSimInspiralChooseTDWaveform(
         /* spinning inspiral-only models */
         case SpinTaylorT2:
             /* Waveform-specific sanity checks */
-	    if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) && (XLALSimInspiralWaveformParamsLookupPNSpinOrder(LALparams)>5) )
-	      ABORT_NONZERO_TRANSVERSE_SPINS_HIGH_SPINO(LALparams);
+	    //if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) && (XLALSimInspiralWaveformParamsLookupPNSpinOrder(LALparams)>5) )
+	  //ABORT_NONZERO_TRANSVERSE_SPINS_HIGH_SPINO(LALparams);
 	    XLALSimInspiralInitialConditionsPrecessingApproxs(&incl,&spin1x,&spin1y,&spin1z,&spin2x,&spin2y,&spin2z,inclination,S1x,S1y,S1z,S2x,S2y,S2z,m1,m2,f_ref,phiRef,XLALSimInspiralWaveformParamsLookupFrameAxis(LALparams));
             LNhatx = sin(incl);
             LNhaty = 0.;
@@ -567,8 +582,8 @@ int XLALSimInspiralChooseTDWaveform(
         // initial ** L **.
         case SpinTaylorT4:
             /* Waveform-specific sanity checks */
-	    if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) && (XLALSimInspiralWaveformParamsLookupPNSpinOrder(LALparams)>5) )
-	      ABORT_NONZERO_TRANSVERSE_SPINS_HIGH_SPINO(LALparams);
+	    //if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) && (XLALSimInspiralWaveformParamsLookupPNSpinOrder(LALparams)>5) )
+	    //  ABORT_NONZERO_TRANSVERSE_SPINS_HIGH_SPINO(LALparams);
             XLALSimInspiralInitialConditionsPrecessingApproxs(&incl,&spin1x,&spin1y,&spin1z,&spin2x,&spin2y,&spin2z,inclination,S1x,S1y,S1z,S2x,S2y,S2z,m1,m2,f_ref,phiRef,XLALSimInspiralWaveformParamsLookupFrameAxis(LALparams));
             LNhatx = sin(incl);
             LNhaty = 0.;
@@ -592,8 +607,8 @@ int XLALSimInspiralChooseTDWaveform(
 	 case SpinTaylorT1:
             /* Waveform-specific sanity checks */
             /* Waveform-specific sanity checks */
-	    if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) && (XLALSimInspiralWaveformParamsLookupPNSpinOrder(LALparams)>5) )
-	      ABORT_NONZERO_TRANSVERSE_SPINS_HIGH_SPINO(LALparams);
+	    //if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) && (XLALSimInspiralWaveformParamsLookupPNSpinOrder(LALparams)>5) )
+	    //  ABORT_NONZERO_TRANSVERSE_SPINS_HIGH_SPINO(LALparams);
 	    XLALSimInspiralInitialConditionsPrecessingApproxs(&incl,&spin1x,&spin1y,&spin1z,&spin2x,&spin2y,&spin2z,inclination,S1x,S1y,S1z,S2x,S2y,S2z,m1,m2,f_ref,phiRef,XLALSimInspiralWaveformParamsLookupFrameAxis(LALparams));
             LNhatx = sin(incl);
             LNhaty = 0.;
@@ -4394,6 +4409,7 @@ int XLALSimInspiralImplementedTDApproximants(
         case SEOBNRv4:
         case SEOBNRv4_opt:
         case NR_hdf5:
+        case TEOBResum_ROM:
             return 1;
 
         default:
@@ -4872,6 +4888,7 @@ int XLALSimInspiralGetSpinSupportFromApproximant(Approximant approx){
     case EOB:
     case IMRPhenomFA:
     case GeneratePPN:
+    case TEOBResum_ROM:
       spin_support=LAL_SIM_INSPIRAL_SPINLESS;
       break;
     default:
@@ -4921,6 +4938,7 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
     case EOBNRv2_ROM:
     case EOBNRv2HM:
     case EOBNRv2HM_ROM:
+    case TEOBResum_ROM:
     case SEOBNRv1:
     case SEOBNRv2:
     case SEOBNRv2_opt:

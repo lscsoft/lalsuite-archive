@@ -5529,7 +5529,7 @@ def find_ndownsample(samples, nDownsample):
         print "Max ACL(s):"
         splineParams=["spcal_npts", "spcal_active","constantcal_active"]
         for i in np.arange(5):
-          for k in ['h1','l1']:
+          for k in lal.cached_detector_by_prefix:
             splineParams.append(k+'_spcal_freq_'+str(i))
             splineParams.append(k+'_spcal_logfreq_'+str(i))
 
@@ -5557,6 +5557,7 @@ def find_ndownsample(samples, nDownsample):
     if nDownsample is not None:
         if len(samples) > nDownsample:
             nskip *= floor(len(samples)/nDownsample)
+            nskip = int(nskip)
 
     else:
         nEff = nEffective
@@ -6195,8 +6196,8 @@ class PEOutputParser(object):
 
         return samples
 
-    def _hdf5_to_pos(self, infile, **kwargs):
-        samples = self._hdf5_to_table(infile, **kwargs)
+    def _hdf5_to_pos(self, infile, fixedBurnins=None, deltaLogP=None, nDownsample=None, tablename=None, **kwargs):
+        samples = self._hdf5_to_table(infile, fixedBurnins=None, deltaLogP=None, nDownsample=None, tablename=None, **kwargs)
 
         return samples.colnames, as_array(samples).view(float).reshape(-1, len(samples.columns))
 

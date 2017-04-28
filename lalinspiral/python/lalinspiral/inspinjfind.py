@@ -1,4 +1,4 @@
-# Copyright (C) 2006--2011,2013,2014,2016  Kipp Cannon
+# Copyright (C) 2006--2011,2013,2014,2016,2017  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -24,6 +24,10 @@
 #
 
 
+from __future__ import division
+from __future__ import print_function
+
+
 """
 Inspiral injection identification library.  Contains code providing the
 capacity to search a list of sngl_inspiral candidates for events
@@ -46,13 +50,12 @@ from glue.ligolw import lsctables
 from glue.ligolw.utils import coincs as ligolw_coincs
 from glue.ligolw.utils import time_slide as ligolw_time_slide
 from glue.text_progress_bar import ProgressBar
-from pylal import git_version
-from pylal import ligolw_thinca
+from . import thinca
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
-__version__ = "git id %s" % git_version.id
-__date__ = git_version.date
+from .git_version import date as __data__
+from .git_version import version as __version__
 
 
 #
@@ -224,7 +227,7 @@ class DocContents(object):
 		# this it is *impossible* for them to match one another.
 		#
 
-                self.end_time_bisect_window = lsctables.LIGOTimeGPS(end_time_bisect_window)
+		self.end_time_bisect_window = lsctables.LIGOTimeGPS(end_time_bisect_window)
 
 
 	def inspirals_near_endtime(self, t):
@@ -271,7 +274,7 @@ class DocContents(object):
 		coinc.coinc_def_id = coinc_def_id
 		coinc.coinc_event_id = self.coinctable.get_next_id()
 		coinc.time_slide_id = self.tisi_id
-		coinc.set_instruments(None)
+		coinc.insts = None
 		coinc.nevents = 0
 		coinc.likelihood = None
 		self.coinctable.append(coinc)
@@ -301,7 +304,7 @@ def add_sim_inspiral_coinc(contents, sim, inspirals):
 	sngl_inspiral rows to the new coinc_event row.
 	"""
 	coinc = contents.new_coinc(contents.sb_coinc_def_id)
-	coinc.set_instruments(set(event.ifo for event in inspirals))
+	coinc.insts = (event.ifo for event in inspirals)
 	coinc.nevents = len(inspirals)
 
 	coincmap = lsctables.CoincMap()
@@ -395,9 +398,9 @@ def ligolw_inspinjfind(xmldoc, process, search, snglcomparefunc, nearcoinccompar
 	#
 
 	if verbose:
-		print >>sys.stderr, "indexing ..."
+		print("indexing ...", file=sys.stderr)
 
-	bbdef = {"inspiral": ligolw_thinca.InspiralCoincDef}[search]
+	bbdef = {"inspiral": thinca.InspiralCoincDef}[search]
 	sbdef = {"inspiral": InspiralSICoincDef}[search]
 	scedef = {"inspiral": InspiralSCExactCoincDef}[search]
 	scndef = {"inspiral": InspiralSCNearCoincDef}[search]
@@ -441,7 +444,7 @@ def ligolw_inspinjfind(xmldoc, process, search, snglcomparefunc, nearcoinccompar
 	#
 
 	if verbose:
-		print >>sys.stderr, "finishing ..."
+		print("finishing ...", file=sys.stderr)
 	contents.sort_triggers_by_id()
 
 	#
@@ -466,7 +469,7 @@ def revert(xmldoc, program, verbose = False):
 	#
 
 	if verbose:
-		print >>sys.stderr, "removing process metadata ..."
+		print("removing process metadata ...", file=sys.stderr)
 	process_table = lsctables.ProcessTable.get_table(xmldoc)
 	# IDs of things to delete
 	process_ids = process_table.get_ids_by_program(program)
@@ -478,7 +481,7 @@ def revert(xmldoc, program, verbose = False):
 	#
 
 	if verbose:
-		print >>sys.stderr, "removing coincs ..."
+		print("removing coincs ...", file=sys.stderr)
 	coinc_event_table = lsctables.CoincTable.get_table(xmldoc)
 	# IDs of things to delete
 	coinc_ids = frozenset(row.coinc_event_id for row in coinc_event_table if row.process_id in process_ids)
@@ -493,7 +496,7 @@ def revert(xmldoc, program, verbose = False):
 	#
 
 	if verbose:
-		print >>sys.stderr, "removing coinc metadata ..."
+		print("removing coinc metadata ...", file=sys.stderr)
 	# coinc types to delete
 	coinc_defs = frozenset((row.search, row.search_coinc_type) for row in (InspiralSICoincDef, InspiralSCNearCoincDef, InspiralSCExactCoincDef))
 	iterutils.inplace_filter((lambda row: row.process_id not in process_ids or row.time_slide_id in time_slide_ids), lsctables.TimeSlideTable.get_table(xmldoc))

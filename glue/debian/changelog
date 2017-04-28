@@ -1,3 +1,21 @@
+lscsoft-glue (1.55.2-1) unstable; urgency=low
+
+  * Added install_requires to python installation.
+
+ -- Ryan Fisher <ryan.fisher@ligo.org>  Fri, 7 Apr 2017 18:14:00 -0500
+
+lscsoft-glue (1.55.1-1) unstable; urgency=low
+
+  * Fixes for Debian packaging.
+
+ -- Ryan Fisher <ryan.fisher@ligo.org>  Thu, 6 Apr 2017 18:14:00 -0500
+
+glue (1.55.0-1) unstable; urgency=low
+
+  * O2 mid-run updated release. Change sdist name for PyPi compatibility.
+
+ -- Duncan Brown <duncan.brown@ligo.org>  Thu, 6 Apr 2017 16:39:00 -0500
+
 glue (1.54.0-1) unstable; urgency=low
 
   * O2 mid-run updated release. Updated python 3 compatibility fix from Leo to
@@ -11,12 +29,6 @@ glue (1.53.0-1) unstable; urgency=low
     from Kipp.
 
  -- Ryan Fisher <ryan.fisher@ligo.org>  Wed, 19 Oct 2016 16:14:00 -0500
-
-glue (1.52.0.1-1) UNRELEASED; urgency=medium
-
-  * Back to development
-
- -- Leo Singer <leo.singer@ligo.org>  Thu, 13 Oct 2016 17:53:08 -0400
 
 glue (1.52.0-1) unstable; urgency=low
 

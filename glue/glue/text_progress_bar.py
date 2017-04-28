@@ -167,7 +167,7 @@ class ProgressBar:
             return
 
         if len(self.text) > self.textwidth:
-            label = self.text[0:self.textwidth]
+            label = self.text[:self.textwidth]
         else:
             label = self.text.rjust(self.textwidth)
 

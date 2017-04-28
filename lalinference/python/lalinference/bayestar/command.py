@@ -24,6 +24,7 @@ __author__ = "Leo Singer <leo.singer@ligo.org>"
 
 import argparse
 import contextlib
+import copy
 from distutils.dir_util import mkpath
 from distutils.errors import DistutilsFileError
 import errno
@@ -59,9 +60,15 @@ def TemporaryDirectory(suffix='', prefix='tmp', dir=None, delete=True):
             shutil.rmtree(dir)
 
 
-def chainglob(patterns):
-    """Generate a list of all files matching a list of globs."""
-    return itertools.chain.from_iterable(glob.iglob(s) for s in patterns)
+class GlobAction(argparse._StoreAction):
+    """Generate a list of filenames from a list of filenames and globs."""
+
+    def __call__(self, parser, namespace, values, *args, **kwargs):
+        values = list(
+            itertools.chain.from_iterable(glob.iglob(s) for s in values))
+        if values:
+            super(GlobAction, self).__call__(
+                parser, namespace, values, *args, **kwargs)
 
 
 waveform_parser = argparse.ArgumentParser(add_help=False)
@@ -95,6 +102,8 @@ group.add_argument('--max-distance', type=float, metavar='Mpc',
 group.add_argument('--prior-distance-power', type=int, metavar='-1|2',
     default=2, help='Distance prior '
     '[-1 for uniform in log, 2 for uniform in volume, default: %(default)s]')
+group.add_argument('--cosmology', default=False, action='store_true',
+    help='Apply cosmological comoving volume correction [default: %(default)s]')
 group.add_argument('--enable-snr-series', default=False, action='store_true',
     help='Enable input of SNR time series (WARNING: UNREVIEWED!) [default: no]')
 del group
@@ -186,6 +195,11 @@ def dpi(value):
     from matplotlib import rcParams
     rcParams['figure.dpi'] = rcParams['savefig.dpi'] = float(value)
 
+@type_with_sideeffect(int)
+def transparent(value):
+    from matplotlib import rcParams
+    rcParams['savefig.transparent'] = bool(value)
+
 figure_parser = argparse.ArgumentParser(add_help=False)
 colormap_choices = sorted(cm.cmap_d.keys())
 group = figure_parser.add_argument_group(
@@ -209,6 +223,9 @@ group.add_argument(
 group.add_argument(
     '--dpi', metavar='PIXELS', type=dpi, default=300,
     help='resolution of figure in dots per inch [default: %(default)s]')
+group.add_argument(
+    '--transparent', const='1', default='0', nargs='?', type=transparent,
+    help='Save image with transparent background [default: false]')
 del colormap_choices
 del group
 
@@ -271,6 +288,7 @@ class ArgumentParser(argparse.ArgumentParser):
                  conflict_handler=conflict_handler,
                  add_help=add_help)
         self.add_argument('--version', action=VersionAction)
+        self.register('action', 'glob', GlobAction)
 
 
 class DirType(object):
@@ -337,6 +355,15 @@ def rename(src, dst):
                 os.remove(tmpdst)
                 raise
         else:
+            raise
+
+
+def rm_f(filename):
+    """Remove a file, or be silent if the file does not exist, like `rm -f`."""
+    try:
+        os.remove(filename)
+    except OSError as e:
+        if e.errno != errno.ENOENT:
             raise
 
 

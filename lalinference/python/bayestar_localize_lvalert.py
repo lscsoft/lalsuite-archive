@@ -55,6 +55,8 @@ parser = command.ArgumentParser(
     parents=[command.waveform_parser, command.prior_parser, command.skymap_parser])
 parser.add_argument('-N', '--dry-run', default=False, action='store_true',
     help='Dry run; do not update GraceDB entry [default: %(default)s]')
+parser.add_argument('--no-tag', default=False, action='store_true',
+    help='Do not set lvem tag for GraceDB entry [default: %(default)s]')
 parser.add_argument('-o', '--output', metavar='FILE.fits[.gz]',
     default='bayestar.fits.gz',
     help='Name for uploaded file [default: %(default)s]')
@@ -95,6 +97,10 @@ if opts.chain_dump:
 else:
     chain_dump = None
 
+tags = ("sky_loc",)
+if not opts.no_tag:
+    tags += ("lvem",)
+
 for graceid in graceids:
 
     # Send log messages to GraceDb too
@@ -116,8 +122,8 @@ for graceid in graceids:
         # perform sky localization
         log.info("starting sky localization")
         sky_map = rasterize(gracedb_sky_map(
-            coinc_file, psd_file, opts.waveform, opts.f_low,
-            opts.min_distance, opts.max_distance, opts.prior_distance_power,
+            coinc_file, psd_file, opts.waveform, opts.f_low, opts.min_distance,
+            opts.max_distance, opts.prior_distance_power, opts.cosmology,
             nside=opts.nside, f_high_truncate=opts.f_high_truncate,
             method=opts.method, chain_dump=chain_dump,
             enable_snr_series=opts.enable_snr_series))
@@ -135,7 +141,7 @@ for graceid in graceids:
             else:
                 gracedb.writeLog(
                     graceid, "BAYESTAR rapid sky localization ready",
-                    filename=fitspath, tagname=("sky_loc", "lvem"))
+                    filename=fitspath, tagname=tags)
             log.debug('uploaded FITS file')
     except:
         # Produce log message for any otherwise uncaught exception

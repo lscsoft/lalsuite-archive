@@ -9,7 +9,7 @@ from optparse import *
 from pylab    import *
 import numpy
 from numpy import power
-from pylal import rate
+from lal import rate
 
 #####################################################################
 # use tex labels

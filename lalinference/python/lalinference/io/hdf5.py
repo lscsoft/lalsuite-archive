@@ -184,9 +184,8 @@ def read_samples(filename, path=None, tablename=POSTERIOR_SAMPLES):
         table.add_column(Column([value] * len(table), name=key,
                          meta={'vary': FIXED}))
 
-    # Delete table attributes.
-    for key in table.meta:
-        del table.meta[key]
+    # Delete remaining table attributes.
+    table.meta.clear()
 
     # Normalize column names.
     _remap_colnames(table)
@@ -238,7 +237,7 @@ def write_samples(table, filename, metadata=None, **kwargs):
     table = table.copy()
 
     # Reconstruct table attributes.
-    for colname, column in table.columns.items():
+    for colname, column in tuple(table.columns.items()):
         if column.meta['vary'] == FIXED:
             np.testing.assert_array_equal(column[1:], column[0],
                                           'Column {0} is a fixed column, but '

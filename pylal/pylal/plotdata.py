@@ -39,7 +39,7 @@ import lal
 from pylal import plotutils
 from pylal import seriesutils
 from pylal import git_version
-from pylal import rate
+from lal import rate
 
 __author__  = "Duncan M. Macleod <duncan.macleod@ligo.org>"
 __version__ = git_version.id
