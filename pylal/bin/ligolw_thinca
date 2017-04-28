@@ -39,7 +39,6 @@ from glue import segmentsUtils
 import lal
 from pylal import git_version
 from pylal import ligolw_thinca
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 lsctables.use_in(ligolw.LIGOLWContentHandler)
@@ -55,11 +54,11 @@ __date__ = git_version.date
 #
 
 
-lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
+lsctables.table.TableStream.RowBuilder = lsctables.table.InterningRowBuilder
 
 
 #
-# Use C row classes for memory efficiency and speed.
+# Must use coincidence code's custom sngl_inspiral table row type.
 #
 
 
@@ -83,8 +82,8 @@ def parse_command_line():
 	)
 	parser.add_option("-c", "--comment", metavar = "text", help = "Set comment string in process table (default = None).")
 	parser.add_option("-f", "--force", action = "store_true", help = "Process document even if it has already been processed.")
-	parser.add_option("-m", "--match", metavar = "algorithm", default = "e-thinca", help = "Select the coincidence test.  Allowed values are \"e-thinca\" (use lalinspiral's e-thinca test, the default), \"exact\" (require exact template match).")
-	parser.add_option("-t", "--threshold", metavar = "float", type = "float", help = "Set the coincidence threshold (required).  The meaning is defined by the match algorithm.  For --match=e-thinca this sets the ellipsoidal coincidence algorithm's threshold.  For --match=exact this sets the Delta t window in seconds.")
+	parser.add_option("-m", "--match", metavar = "algorithm", default = "exact", help = "Select the coincidence test.  Allowed values are:  \"exact\" (require exact template match, the default).")
+	parser.add_option("-t", "--threshold", metavar = "float", type = "float", help = "Set the coincidence threshold (required).  The meaning is defined by the match algorithm.  For --match=exact this sets the Delta t window in seconds.")
 	parser.add_option("--vetoes-name", metavar = "string", default = "vetoes", help = "From the input document, exatract the segment list having this name to use as the veto segments (default = \"vetoes\").  Warning:  if no segments by this name are found in the document then vetoes will not be applied, this is not an error condition.")
 	parser.add_option("--trigger-program", metavar = "name", default = "inspiral", help = "Set the name of the program that generated the event list as it appears in the process table (default = \"inspiral\").")
 	parser.add_option("--coinc-end-time-segment", metavar = "seg", help = "The segment of time to retain coincident triggers from. Uses segmentUtils.from_range_strings() format \"START:END\" for an interval of the form [START,END), \"START:\" for an interval of the form [START,INF), and \":END\" for an interval of the form (-INF,END).")
@@ -101,13 +100,13 @@ def parse_command_line():
 	missing_options = [option for option in required_options if getattr(options, option) is None]
 	if missing_options:
 		raise ValueError("missing required option(s) %s" % ", ".join("--%s" % option.replace("_", "-") for option in missing_options))
-	if options.match not in ("e-thinca", "exact"):
+	if options.match not in ("exact",):
 		raise ValueError("unrecognized value for --match: \"%s\"" % options.match)
 
 	if options.coinc_end_time_segment is not None:
 		if ',' in options.coinc_end_time_segment:
 			raise ValueError("--coinc-end-time-segment may only contain a single segment")
-		options.coinc_end_time_segs = segmentsUtils.from_range_strings([options.coinc_end_time_segment], boundtype = LIGOTimeGPS).coalesce()
+		options.coinc_end_time_segs = segmentsUtils.from_range_strings([options.coinc_end_time_segment], boundtype = lsctables.LIGOTimeGPS).coalesce()
 	else:
 		options.coinc_end_time_segs = None
 
@@ -152,9 +151,7 @@ options, process_params, filenames = parse_command_line()
 #
 
 
-if options.match == "e-thinca":
-	event_comparefunc = ligolw_thinca.inspiral_coinc_compare
-elif options.match == "exact":
+if options.match == "exact":
 	event_comparefunc = ligolw_thinca.inspiral_coinc_compare_exact
 else:
 	# not possible
@@ -168,14 +165,12 @@ else:
 
 if options.coinc_end_time_segs is not None:
 	# Custom Ntuple Comparison Function
-	def restricted_endtime_ntuple_comparefunc(events, offset_vector, seg = options.coinc_end_time_segs):
+	def ntuple_comparefunc(events, offset_vector, seg = options.coinc_end_time_segs):
 		"""
-		Return False (ntuple should be retained) if the end time of the
-		coinc is in the segmentlist segs.
+		Return False (ntuple should be retained) if the end time of
+		the coinc is in the segmentlist segs.
 		"""
 		return ligolw_thinca.coinc_inspiral_end_time(events, offset_vector) not in seg
-
-	ntuple_comparefunc = restricted_endtime_ntuple_comparefunc
 else:
 	ntuple_comparefunc = ligolw_thinca.default_ntuple_comparefunc
 
@@ -236,9 +231,7 @@ for n, filename in enumerate(filenames, start = 1):
 	# triggers and they still pass coincidence.
 	#
 
-	if options.match == "e-thinca":
-		max_dt = ligolw_thinca.inspiral_ethinca_max_dt(lsctables.SnglInspiralTable.get_table(xmldoc), options.threshold)
-	elif options.match == "exact":
+	if options.match == "exact":
 		# add 10% to coincidence window for safety + the
 		# light-crossing time of the Earth
 		max_dt = 1.1 * options.threshold + 2. * lal.REARTH_SI / lal.C_SI
@@ -296,4 +289,4 @@ for n, filename in enumerate(filenames, start = 1):
 
 	ligolw_utils.write_filename(xmldoc, filename, verbose = options.verbose, gz = (filename or "stdout").endswith(".gz"))
 	xmldoc.unlink()
-	lsctables.table.reset_next_ids(lsctables.TableByName.values())
+	lsctables.reset_next_ids(lsctables.TableByName.values())

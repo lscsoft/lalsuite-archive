@@ -4,7 +4,6 @@ import sys
 import os
 import shutil
 import re
-import exceptions
 import glob
 import string
 
@@ -114,8 +113,7 @@ bbhinjFile = "HL-INJECTIONS_123-729273613-5094000.xml"
 doc = utils.load_filename(bbhinjFile)
 sims = None
 try: 
-  simInspiralTable = \
-      table.get_table(doc, lsctables.SimInspiralTable.tableName)
+  simInspiralTable = lsctables.SimInspiralTable.get_table(doc)
   sims = simInspiralTable
 except: simInspiralTable = None
 sims.sort(lambda a, b: cmp(a.distance, b.distance))

@@ -27,7 +27,8 @@
 from optparse import OptionParser
 import sys
 
-from glue.lal import CacheEntry
+from lal.utils import CacheEntry
+
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils
@@ -43,7 +44,7 @@ __author__ = "Duncan Brown <dbrown@ligo.caltech.edu>"
 # Use interning row builder to save memory.
 #
 
-lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
+lsctables.table.TableStream.RowBuilder = lsctables.table.InterningRowBuilder
 
 #
 # =============================================================================

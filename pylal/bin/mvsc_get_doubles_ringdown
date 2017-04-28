@@ -1,10 +1,6 @@
 #!/usr/bin/python
 
-try:
-	import sqlite3
-except ImportError:
-	# pre 2.5.x
-	from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 from glue.ligolw import dbtables
 from glue.ligolw import table
 from glue.ligolw import ilwd
@@ -93,10 +89,10 @@ for database in databases:
 	dbtables.DBTable_set_connection(connection)
 	xmldoc = dbtables.get_xml(connection)
 	cursor = connection.cursor()
-	num_sngl_cols = len(table.get_table(xmldoc, dbtables.lsctables.SnglRingdownTable.tableName).dbcolumnnames)
+	num_sngl_cols = len(dbtables.lsctables.SnglRingdownTable.get_table(xmldoc).dbcolumnnames)
 	rings = db_rinca_rings.get_rinca_rings_by_available_instruments(connection)
-	offset_vectors = dbtables.lsctables.table.get_table(dbtables.get_xml(connection), dbtables.lsctables.TimeSlideTable.tableName).as_dict()
-	sngl_ringdown_row_from_cols = table.get_table(xmldoc, dbtables.lsctables.SnglRingdownTable.tableName).row_from_cols
+	offset_vectors = dbtables.lsctables.TimeSlideTable.table.get_table(dbtables.get_xml(connection)).as_dict()
+	sngl_ringdown_row_from_cols = dbtables.lsctables.SnglRingdownTable.get_table(xmldoc).row_from_cols
 
 	def gQQ(Qa,Qb):
 		Q = (Qa+Qb)/2.
@@ -182,7 +178,7 @@ for database in databases:
 # in S6, the timeslides, zerolag, and injections are all stored in the same sqlite database, thus this database must include a sim inspiral table
 # if you provide a database that does not include injections, the code will still run as long as one of the databases you provide includes injections
 	try:
-		sim_inspiral_table = table.get_table(xmldoc, dbtables.lsctables.SimInspiralTable.tableName)
+		sim_inspiral_table = dbtables.lsctables.SimInspiralTable.get_table(xmldoc)
 		is_injections = True
 	except ValueError:
 		is_injections = False

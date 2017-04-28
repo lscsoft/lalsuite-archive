@@ -22,11 +22,11 @@
 # =============================================================================
 #
 
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw import ligolw
+
 #
 # =============================================================================
 #
@@ -42,10 +42,7 @@ class ExtractSimInspiralTableLIGOLWContentHandler(ligolw.PartialLIGOLWContentHan
   """
   def __init__(self,document):
     def filterfunc(name,attrs):
-      if name==ligolw.Table.tagName and attrs.has_key('Name'):
-        return 0==table.CompareTableNames(attrs.get('Name'), lsctables.SimInspiralTable.tableName)
-      else:
-        return False
+      return name==ligolw.Table.tagName and attrs.has_key('Name') and table.Table.TableName(attrs.get('Name'))==lsctables.SimInspiralTable.tableName
     ligolw.PartialLIGOLWContentHandler.__init__(self,document,filterfunc)
 
 
@@ -62,8 +59,7 @@ def ReadSimInspiralFromFiles(fileList, verbose=False):
   for thisFile in fileList:
     doc = utils.load_filename(thisFile, gz=(thisFile or "stdin").endswith(".gz"), verbose=verbose, contenthandler=ExtractSimInspiralTableLIGOLWContentHandler)
     # extract the sim inspiral table
-    try: simInspiralTable = \
-      table.get_table(doc, lsctables.SimInspiralTable.tableName)
+    try: simInspiralTable = lsctables.SimInspiralTable.get_table(doc)
     except: simInspiralTable = None
     if simInspiralTriggers and simInspiralTable: 
       simInspiralTriggers.extend(simInspiralTable)

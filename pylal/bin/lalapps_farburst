@@ -29,11 +29,7 @@
 import bisect
 from new import instancemethod
 from optparse import OptionParser
-try:
-	import sqlite3
-except ImportError:
-	# pre 2.5.x
-	from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 import sys
 
 
@@ -44,10 +40,7 @@ from glue.ligolw.utils import search_summary as ligolw_search_summary
 from glue.ligolw.utils import segments as ligolw_segments
 from pylal import git_version
 from pylal import db_thinca_rings
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-from pylal import SnglBurstUtils
-
-lsctables.LIGOTimeGPS = LIGOTimeGPS
+from lalburst import SnglBurstUtils
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -165,7 +158,7 @@ class Summaries(object):
 		if veto_segments_name is not None:
 			if verbose:
 				print >>sys.stderr, "\tretrieving veto segments \"%s\" ..." % veto_segments_name
-			veto_segments = db_thinca_rings.get_veto_segments(connection, veto_segments_name)
+			veto_segments = ligolw_segments.segmenttable_get_by_name(dbtables.get_xml(connection), veto_segments_name).coalesce()
 		else:
 			veto_segments = segments.segmentlistdict()
 

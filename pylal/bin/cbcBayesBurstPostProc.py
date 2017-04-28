@@ -50,7 +50,6 @@ from matplotlib import pyplot as plt
 #local application/library specific imports
 from pylal import SimInspiralUtils
 from pylal import bayespputils as bppu
-from pylal import SimBurstUtils
 
 from pylal import git_version
 
@@ -122,7 +121,7 @@ class LIGOLWContentHandlerExtractSimInspiralTable(ligolw.LIGOLWContentHandler):
       self.intable=False
       self.tableElementName=''
     def startElement(self,name,attrs):
-      if attrs.has_key('Name') and attrs['Name']==self.tabname:
+      if attrs.has_key('Name') and table.Table.TableName(attrs['Name'])==self.tabname:
         self.tableElementName=name
         # Got the right table, let's see if it's the right event
         ligolw.LIGOLWContentHandler.startElement(self,name,attrs)
@@ -142,7 +141,7 @@ class LIGOLWContentHandlerExtractSimBurstTable(ligolw.LIGOLWContentHandler):
       self.intable=False
       self.tableElementName=''
     def startElement(self,name,attrs):
-      if attrs.has_key('Name') and attrs['Name']==self.tabname:
+      if attrs.has_key('Name') and table.Table.TableName(attrs['Name'])==self.tabname:
         self.tableElementName=name
         # Got the right table, let's see if it's the right event
         ligolw.LIGOLWContentHandler.startElement(self,name,attrs)
@@ -288,6 +287,9 @@ def cbcBayesBurstPostProc(
         commonResultsObj=peparser.parse(data[0])
         thefile=open(data[0],'r')
         votfile=thefile.read()
+    elif '.hdf' in data[0] or '.h5' in data[0]:
+        peparser = bppu.PEOutputParser('hdf5')
+        commonResultsObj = peparser.parse(data[0])
     else:
         peparser=bppu.PEOutputParser('common')
         commonResultsObj=peparser.parse(open(data[0],'r'),info=[header,None])
@@ -317,10 +319,10 @@ def cbcBayesBurstPostProc(
         got_burst_table=1
         try:
             lsctables.use_in(LIGOLWContentHandlerExtractSimBurstTable)
-            simtable=table.get_table(xmldoc,lsctables.SimBurstTable.tableName)
+            simtable=lsctables.SimBurstTable.get_table(xmldoc)
         except ValueError:
             lsctables.use_in(LIGOLWContentHandlerExtractSimInspiralTable)
-            simtable=table.get_table(xmldoc,lsctables.SimInspiralTable.tableName)
+            simtable=lsctables.SimInspiralTable.get_table(xmldoc)
             got_inspiral_table=1
             got_burst_table=0
         
@@ -385,9 +387,7 @@ def cbcBayesBurstPostProc(
 
     if eventnum is None and injfile is not None:
         import itertools
-        if got_burst_table==1:
-            injections = SimBurstUtils.ReadSimBurstFromFiles([injfile])
-        elif got_inspiral_table==1:
+        if got_inspiral_table==1:
             injections = SimInspiralUtils.ReadSimInpiralFromFiles([injfile])
 
         if(len(injections)<1):
@@ -507,6 +507,14 @@ def cbcBayesBurstPostProc(
     SampsStats.p(filenames)
     td=html_meta.insert_td(row,'',label='SummaryLinks')
     legend=html.add_section_to_element('Sections',td)
+
+    # Create a section for HDF5 metadata if available
+    if '.h5' in data[0] or '.hdf' in data[0]:
+        html_hdf=html.add_section('Metadata',legend=legend)
+        import h5py
+        with h5py.File(data[0],'r') as h5grp:
+            extract_hdf5_metadata(h5grp,parent=html_hdf)
+
     #Create a section for model selection results (if they exist)
     
     if bayesfactornoise is not None:

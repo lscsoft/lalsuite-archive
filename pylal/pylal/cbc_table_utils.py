@@ -68,10 +68,10 @@ def depopulate_sngl_inspiral(xmldoc, verbose = False):
     tables and determine the difference, such that the newlist contains only  non-coinc 
     single-ifo triggers. Then it remove these non-coinc triggers from the sngl_inspiral table.
     """
-    sngls_tbl = lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+    sngls_tbl = lsctables.SnglInspiralTable.table.get_table(xmldoc)
     sngls_tbl_eid = sngls_tbl.getColumnByName("event_id")
 
-    coinc_map_tbl = lsctables.table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+    coinc_map_tbl = lsctables.CoincMapTable.get_table(xmldoc)
 
     if len(coinc_map_tbl) == 0:
         if verbose:
@@ -103,8 +103,8 @@ def depopulate_sngl_inspiral(xmldoc, verbose = False):
 
 
 def remove_process_rows(xmldoc, process_ids, verbose = False):
-    proc_tbl = table.get_table(xmldoc, lsctables.ProcessTable.tableName)
-    proc_param_tbl = table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName)
+    proc_tbl = lsctables.ProcessTable.get_table(xmldoc)
+    proc_param_tbl = lsctables.ProcessParamsTable.get_table(xmldoc)
 
     # Remove rows in process table whose process_id are found in sd_pids
     len_p_tbl = len(proc_tbl)
@@ -131,9 +131,9 @@ def drop_segment_tables(xmldoc, verbose = False):
     xmldoc. In addition, remove the rows in the process & process_params
     tables that have process_ids found in the segment_definer table.
     """
-    seg_tbl = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
-    seg_sum_tbl = table.get_table(xmldoc, lsctables.SegmentSumTable.tableName)
-    seg_def_tbl = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
+    seg_tbl = lsctables.SegmentTable.get_table(xmldoc)
+    seg_sum_tbl = lsctables.SegmentSumTable.get_table(xmldoc)
+    seg_def_tbl = lsctables.SegmentDefTable.get_table(xmldoc)
     # determine the unique process_ids for the segment tables
     sd_pids = set(seg_def_tbl.getColumnByName("process_id"))
 
@@ -158,7 +158,7 @@ def drop_vetodef_table(xmldoc, verbose = False):
     process & process_params tables that have process_ids found in the
     veto_definer table.
     """
-    veto_def_tbl = table.get_table(xmldoc, lsctables.VetoDefTable.tableName)
+    veto_def_tbl = lsctables.VetoDefTable.get_table(xmldoc)
     # determine the unique process_ids for the segment tables
     vd_pids = set(veto_def_tbl.getColumnByName("process_id"))
 
@@ -197,7 +197,7 @@ def depopulate_experiment_tables(xmldoc, verbose = False):
     #
 
     try:
-        experiment_table = table.get_table(xmldoc, lsctables.ExperimentTable.tableName)
+        experiment_table = lsctables.ExperimentTable.get_table(xmldoc)
     except ValueError:
         # no table --> no-op
         if verbose:
@@ -205,7 +205,7 @@ def depopulate_experiment_tables(xmldoc, verbose = False):
         return
 
     try:
-        experiment_summ_table = table.get_table(xmldoc, lsctables.ExperimentSummaryTable.tableName)
+        experiment_summ_table = lsctables.ExperimentSummaryTable.get_table(xmldoc)
     except ValueError:
         # no table --> no-op
         if verbose:
@@ -259,7 +259,7 @@ def get_experiment_times(xmldoc):
     the experiment times.  This presumes that the vetoes file has been added
     to the file being analyzed.
     """
-    segment_summary_tbl = lsctables.table.get_table(xmldoc, lsctables.SegmentSumTable.tableName)
+    segment_summary_tbl = lsctables.SegmentSumTable.get_table(xmldoc)
     expr_start_time = min(segment_summary_tbl.getColumnByName("start_time"))
     expr_end_time = max(segment_summary_tbl.getColumnByName("end_time"))
 
@@ -298,7 +298,7 @@ def populate_experiment_table(
 
     # find the experiment table or create one if needed
     try:
-        expr_table = table.get_table(xmldoc, lsctables.ExperimentTable.tableName)
+        expr_table = lsctables.ExperimentTable.get_table(xmldoc)
     except ValueError:
         expr_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.ExperimentTable))
 
@@ -336,7 +336,7 @@ def get_experiment_type(xmldoc, time_slide_dict):
     one entry, then the triggers are from a slide run.
     """
     # get the param column of the process_params table
-    process_params_tbl = lsctables.table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName)
+    process_params_tbl = lsctables.ProcessParamsTable.get_table(xmldoc)
     pp_value = set(process_params_tbl.getColumnByName("value"))
     pp_param = set(process_params_tbl.getColumnByName("param"))
 
@@ -382,7 +382,7 @@ def populate_experiment_summ_table(
 
     # find the experiment_summary table or create one if needed
     try:
-        expr_summ_table = table.get_table(xmldoc, lsctables.ExperimentSummaryTable.tableName)
+        expr_summ_table = lsctables.ExperimentSummaryTable.get_table(xmldoc)
     except ValueError:
         expr_summ_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.ExperimentSummaryTable))
 
@@ -406,7 +406,7 @@ def populate_experiment_summ_table(
                 break
 
 def get_on_instruments(xmldoc, trigger_program):
-    process_tbl = table.get_table(xmldoc, lsctables.ProcessTable.tableName)
+    process_tbl = lsctables.ProcessTable.get_table(xmldoc)
     instruments = set([])
     for row in process_tbl:
         if row.program == trigger_program:
@@ -430,12 +430,12 @@ def generate_experiment_tables(xmldoc, **cmdline_opts):
 
     # find the experiment & experiment_summary table or create one if needed
     try:
-        table.get_table(xmldoc, lsctables.ExperimentSummaryTable.tableName)
+        lsctables.ExperimentSummaryTable.get_table(xmldoc)
     except ValueError:
         xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.ExperimentSummaryTable))
 
     try:
-        table.get_table(xmldoc, lsctables.ExperimentTable.tableName)
+        lsctables.ExperimentTable.get_table(xmldoc)
     except ValueError:
         xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.ExperimentTable))
 
@@ -452,7 +452,7 @@ def generate_experiment_tables(xmldoc, **cmdline_opts):
     )
 
     # Get the time_slide table as dict
-    time_slide_dict = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict()
+    time_slide_dict = lsctables.TimeSlideTable.get_table(xmldoc).as_dict()
 
     # Populate the experiment_summary table
     for instruments in experiment_ids:
@@ -475,7 +475,7 @@ def populate_experiment_map(xmldoc, veto_def_name, verbose = False):
         print >> sys.stderr, "\tMapping coinc events to experiment_summary table..."
 
     try:
-        expr_map_table = table.get_table(xmldoc, lsctables.ExperimentMapTable.tableName)
+        expr_map_table = lsctables.ExperimentMapTable.get_table(xmldoc)
     except ValueError:
         expr_map_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.ExperimentMapTable))
 
@@ -483,26 +483,26 @@ def populate_experiment_map(xmldoc, veto_def_name, verbose = False):
     # find the coinc_event table
     #
 
-    coinc_event_table = table.get_table(xmldoc, lsctables.CoincTable.tableName)
+    coinc_event_table = lsctables.CoincTable.get_table(xmldoc)
 
     #
     # Index the coinc_inspiral table as a dictionary
     #
 
-    coinc_index = dict((row.coinc_event_id, row) for row in table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName))
+    coinc_index = dict((row.coinc_event_id, row) for row in lsctables.CoincInspiralTable.get_table(xmldoc))
 
     #
     # Get the time_slide_table as dict
     #
 
-    time_slide_dict = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict()
+    time_slide_dict = lsctables.TimeSlideTable.get_table(xmldoc).as_dict()
 
     #
     # find the experiment & experiment summary tables
     #
 
-    expr_table = table.get_table(xmldoc, lsctables.ExperimentTable.tableName)
-    expr_summ_table = table.get_table(xmldoc, lsctables.ExperimentSummaryTable.tableName)
+    expr_table = lsctables.ExperimentTable.get_table(xmldoc)
+    expr_summ_table = lsctables.ExperimentSummaryTable.get_table(xmldoc)
 
     #
     # determine what experiment datatypes are in this file

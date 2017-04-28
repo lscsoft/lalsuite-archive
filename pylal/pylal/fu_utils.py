@@ -9,17 +9,12 @@ __author__ = 'Chad Hanna <channa@phys.lsu.edu>'
 import sys
 import os, shutil
 import urllib
-try:
-  import sqlite3
-except ImportError:
-  # pre 2.5.x
-  from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 
 from subprocess import *
 import copy
 import re
 from StringIO import StringIO
-import exceptions
 import glob
 import fileinput
 import linecache
@@ -311,9 +306,9 @@ class getCache(UserDict):
         elif opts.create_localcopy:
           path = self.doFileCopyAndEventIdConvert(cp,[path])[0]
         doc = utils.load_filename(path)
-        proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
+        proc = lsctables.ProcessParamsTable.get_table(doc)
         if getInsp:
-          insp = table.get_table(doc, lsctables.SnglInspiralTable.tableName)
+          insp = lsctables.SnglInspiralTable.get_table(doc)
         for row in proc:          
           if str(row.param).find("--ifo-tag") >= 0:
              ifoTag = row.value
@@ -349,7 +344,7 @@ class getCache(UserDict):
             # if time[ifo] is not defined (happens for a double coinc in triple
             #  times) then use the end_time in the first ifo of the coinc
             time_ifo = time[ifo_in_coinc[0]]
-          search = table.get_table(doc, lsctables.SearchSummaryTable.tableName)
+          search = lsctables.SearchSummaryTable.get_table(doc)
           for row in search:
             out_start_time = float(row.out_start_time)
             out_start_time_ns = float(row.out_start_time_ns)/1000000000
@@ -501,7 +496,7 @@ def getPathFromCache(fileName,type,ifo=None,time=None):
 ##############################################################################
 
 class QscanIntermediateTable(table.Table):
-  tableName = "qscan:intermediate:table"
+  tableName = "qscan:intermediate"
   validcolumns = {
     "type": "lstring",
     "param": "lstring",
@@ -689,12 +684,12 @@ def _bandaid_(sqlFile,triggerCap=100,statistic=None,excludeTags=None):
   coincs=None
   #Create emtpy table object
   #Build by Hand
-  snglInspiralTable=lsctables.SnglInspiralTable(sax.xmlreader.AttributesImpl({u"Name":lsctables.SnglInspiralTable.tableName}))
-  colnamefmt = u":".join(snglInspiralTable.tableName.split(":")[:-1]) + u":%s"
+  snglInspiralTable=lsctables.SnglInspiralTable(sax.xmlreader.AttributesImpl({u"Name":table.Table.TableName.enc(lsctables.SnglInspiralTable.tableName)}))
+  colnamefmt = snglInspiralTable.Name + u":%s"
   for key, value in snglInspiralTable.validcolumns.items():
     snglInspiralTable.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % key, u"Type": value})))
   snglInspiralTable._end_of_columns()
-  dataStream=table.TableStream(sax.xmlreader.AttributesImpl({u'Name':snglInspiralTable.tableName})).config(snglInspiralTable)
+  dataStream=table.TableStream(sax.xmlreader.AttributesImpl({u'Name':snglInspiralTable.getAttribute("Name")})).config(snglInspiralTable)
   #Pull in sqlite data
   try:
     sqlDB=sqlite3.connect(sqlFile)
@@ -758,12 +753,12 @@ def _bandaid_(sqlFile,triggerCap=100,statistic=None,excludeTags=None):
     fp.close()
     # SETUP SEARCH SUMMARY TABLE
     #Create a search summary table to return here
-    SearchSummaryTable=lsctables.SearchSummaryTable(sax.xmlreader.AttributesImpl({u"Name":lsctables.SearchSummaryTable.tableName}))
-    colnamefmt = u":".join(SearchSummaryTable.tableName.split(":")[:-1]) + u":%s"
+    SearchSummaryTable=lsctables.SearchSummaryTable(sax.xmlreader.AttributesImpl({u"Name":table.TableName.enc(lsctables.SearchSummaryTable.tableName)}))
+    colnamefmt = SearchSummaryTable.Name + u":%s"
     for key, value in SearchSummaryTable.validcolumns.items():
       SearchSummaryTable.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % key, u"Type": value})))
       SearchSummaryTable._end_of_columns()
-      SearchSummaryStream=table.TableStream(sax.xmlreader.AttributesImpl({u'Name':SearchSummaryTable.tableName})).config(SearchSummaryTable)
+      SearchSummaryStream=table.TableStream(sax.xmlreader.AttributesImpl({u'Name':SearchSummaryTable.getAttribute("Name")})).config(SearchSummaryTable)
     oString05=""
     for col in SearchSummaryTable.columnnames:
       oString05="%s,search_summary.%s"%(str(oString05),str(col))
@@ -843,15 +838,13 @@ def readFiles(fileGlob,statistic=None,excludedTags=None):
     doc = utils.load_filename(thisFile)
     # extract the sim inspiral table
     try:
-      simInspiralTable = \
-          table.get_table(doc, lsctables.SimInspiralTable.tableName)
+      simInspiralTable = lsctables.SimInspiralTable.get_table(doc)
       if sims: sims.extend(simInspiralTable)
       else: sims = simInspiralTable
     except: simInspiralTable = None
 
     # extract the sngl inspiral table, construct coincs
-    try: snglInspiralTable = \
-      table.get_table(doc, lsctables.SnglInspiralTable.tableName)
+    try: snglInspiralTable = lsctables.SnglInspiralTable.get_table(doc)
     except: 
       snglInspiralTable = None
       searchSumTable = None
@@ -861,7 +854,7 @@ def readFiles(fileGlob,statistic=None,excludedTags=None):
       if simInspiralTable:
         coincInspiralTable.add_sim_inspirals(simInspiralTable)
       # extract the search_summary table only if a sngl inspiral table is found
-      searchSumTable = table.get_table(doc,lsctables.SearchSummaryTable.tableName)
+      searchSumTable = lsctables.SearchSummaryTable.get_table(doc)
       if coincs: 
         coincs.extend(coincInspiralTable)
         search.extend(searchSumTable)         

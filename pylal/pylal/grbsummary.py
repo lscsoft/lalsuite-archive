@@ -246,11 +246,10 @@ def get_exttrig_trials(on_segs, off_segs, veto_files):
         if new_veto_segs.intersects(on_segs):
             print >>sys.stderr, "warning: %s overlaps on-source segment" \
                 % veto_file
-        trial_veto_mask |= rate.bins_spanned(trial_bins, new_veto_segs,
-                                             dtype=numpy.bool8)
+        trial_veto_mask |= rate.bins_spanned(trial_bins, new_veto_segs).astype(bool)
 
     # identify onsource trial index
-    onsource_mask = rate.bins_spanned(trial_bins, on_segs, dtype=numpy.bool8)
+    onsource_mask = rate.bins_spanned(trial_bins, on_segs).astype(bool)
     if sum(onsource_mask) != 1:
         raise ValueError, "on-source segment spans more or less than one trial"
     onsource_ind = numpy.arange(len(onsource_mask))[onsource_mask]
@@ -270,13 +269,7 @@ def get_mean_mchirp(coinc):
 
 def load_external_triggers(filename):
     doc = ligolw_add.ligolw_add(ligolw.Document(), [filename])
-    ext_trigger_tables = lsctables.table.getTablesByName(doc, lsctables.ExtTriggersTable.tableName)
-    if ext_trigger_tables is None:
-        print >>sys.stderr, "No tables named external_trigger:table found in " + filename
-    else:
-        assert len(ext_trigger_tables) == 1  # ligolw_add should merge them
-        ext_triggers = ext_trigger_tables[0]
-    return ext_triggers
+    return lsctables.ExtTriggersTable.get_table(doc)
 
 def write_rows(rows, table_type, filename):
     """
@@ -312,7 +305,7 @@ def load_cache(xmldoc, cache, sieve_pattern, exact_match=False,
     lsctables.SnglInspiralTable.next_id = SnglInspiralID_old(0)
 
     # reduce memory footprint at the expense of speed
-    # table.RowBuilder = table.InterningRowBuilder
+    # table.TableStream.RowBuilder = table.InterningRowBuilder
 
     urls = [c.url for c in found]
     try:
@@ -333,13 +326,10 @@ def get_num_slides(xmldoc):
     Return the value of --num-slides found in the process_params table of
     xmldoc.  If no such entry is found, return 0.
     """
-    tbl_name = lsctables.ProcessParamsTable.tableName
-
     # don't be too picky what program had --num-slides
-    for tbl in table.getTablesByName(xmldoc, tbl_name):
-        for row in tbl:
-           if row.param == "--num-slides":
-               return int(row.value)
+    for row in lsctables.ProcessParamsTable.get_table(xmldoc):
+       if row.param == "--num-slides":
+           return int(row.value)
     return 0
 #####################################################################################
 #timeslides functions#

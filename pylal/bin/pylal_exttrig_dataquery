@@ -70,8 +70,8 @@ def plot_segments_around(gpstime, cat, plotrange, grbtag, useold = False, verbos
       
     # load the content of the veto-file
     xmldoc = utils.load_filename(vetofile, gz = False)
-    segments = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
-    segdefs = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
+    segments = lsctables.SegmentTable.get_table(xmldoc)
+    segdefs = lsctables.SegmentDefTable.get_table(xmldoc)
     
     # create a mapping between the segments and their definitions
     defdict = {}
@@ -195,8 +195,7 @@ if opts.grb_file:
   
   # open the file and get the SnglInspiral table
   xmldoc = utils.load_filename(opts.grb_file, gz=opts.grb_file.endswith(".gz"))
-  ext_table = table.get_table(xmldoc,
-       lsctables.ExtTriggersTable.tableName)
+  ext_table = lsctables.ExtTriggersTable.get_table(xmldoc)
 
   # extract the required information
   grb_name = os.path.basename(opts.grb_file)[3:-4]

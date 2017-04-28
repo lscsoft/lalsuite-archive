@@ -25,52 +25,19 @@
 
 
 """
-This module is a wrapper of the xlal.fft module, supplementing the C
-code in that module with additional features that are more easily
-implemented in Python.  It is recommended that you import this module
-rather than importing xlal.fft directly.
+This module provides some utilities to assist with FFTs
 """
 
 
-import numpy
+import lal
 
 
 import git_version
-from xlal.datatypes.complex16frequencyseries import COMPLEX16FrequencySeries
-from xlal.datatypes.complex16fftplan import COMPLEX16FFTPlan
-from xlal.datatypes.lalunit import lalSecondUnit
-from xlal.datatypes.real8fftplan import REAL8FFTPlan
-from xlal.fft import *
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
-
-
-#
-# =============================================================================
-#
-#                              Function Wrappers
-#
-# =============================================================================
-#
-
-
-def XLALCreateForwardCOMPLEX16FFTPlan(size, measurelvl = 0):
-	return COMPLEX16FFTPlan(size, 1, measurelvl)
-
-
-def XLALCreateReverseCOMPLEX16FFTPlan(size, measurelvl = 0):
-	return COMPLEX16FFTPlan(size, 0, measurelvl)
-
-
-def XLALCreateForwardREAL8FFTPlan(size, measurelvl = 0):
-	return REAL8FFTPlan(size, 1, measurelvl)
-
-
-def XLALCreateReverseREAL8FFTPlan(size, measurelvl = 0):
-	return REAL8FFTPlan(size, 0, measurelvl)
 
 
 #
@@ -87,14 +54,14 @@ def prepare_fseries_for_real8tseries(series):
 	Construct a COMPLEX16FrequencySeries object suitable for storing
 	the Fourier transform of a REAL8TimeSeries object.
 	"""
-	n = len(series.data)
-	return COMPLEX16FrequencySeries(
+	n = len(series.data.data)
+	return lal.CreateCOMPLEX16FrequencySeries(
 		name = series.name,
 		epoch = series.epoch,
 		f0 = series.f0,	# note: non-zero f0 not supported by LAL
 		deltaF = 1.0 / (n * series.deltaT),
-		sampleUnits = series.sampleUnits * lalSecondUnit,
-		data = numpy.zeros((n / 2 + 1,), dtype = "cdouble")
+		sampleUnits = series.sampleUnits * lal.SecondUnit,
+		length = n // 2 + 1
 	)
 
 
@@ -103,12 +70,12 @@ def prepare_fseries_for_complex16tseries(series):
 	Construct a COMPLEX16FrequencySeries object suitable for storing
 	the Fourier transform of a COMPLEX16TimeSeries object.
 	"""
-	n = len(series.data)
-	return COMPLEX16FrequencySeries(
+	n = len(series.data.data)
+	return lal.CreateCOMPLEX16FrequencySeries(
 		name = series.name,
 		epoch = series.epoch,
 		f0 = series.f0,	# note: non-zero f0 not supported by LAL
 		deltaF = 1.0 / (n * series.deltaT),
-		sampleUnits = series.sampleUnits * lalSecondUnit,
-		data = numpy.zeros((n,), dtype = "cdouble")
+		sampleUnits = series.sampleUnits * lal.SecondUnit,
+		length = n
 	)

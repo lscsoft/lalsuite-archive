@@ -52,7 +52,7 @@ from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
 from pylal import llwapp
 from pylal import ligolw_rinca
-from pylal import ligolw_tisi
+from lalburst import timeslides as ligolw_tisi
 from pylal import SnglInspiralUtils
 
 
@@ -244,8 +244,8 @@ def add_metadata(xmldoc, metadata_cache, verbose = False):
 	# set() to uniquify the list.
 	#
 
-	process_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program("rinca")
-	urls = sorted(set(metadata_cache[row.string] for row in table.get_table(xmldoc, lsctables.SearchSummVarsTable.tableName) if row.process_id in process_ids and row.name == "input_file"))
+	process_ids = lsctables.ProcessTable.get_table(xmldoc).get_ids_by_program("rinca")
+	urls = sorted(set(metadata_cache[row.string] for row in lsctables.SearchSummVarsTable.get_table(xmldoc) if row.process_id in process_ids and row.name == "input_file"))
 
 	#
 	# insert the metadata from the URLs into xmldoc, remapping IDs to
@@ -261,7 +261,7 @@ def add_metadata(xmldoc, metadata_cache, verbose = False):
 	#
 
 	try:
-		table.get_table(xmldoc, lsctables.SnglRingdownTable.tableName)
+		lsctables.SnglRingdownTable.get_table(xmldoc)
 	except ValueError:
 		# no ringdown table --> no-op
 		if verbose:
@@ -274,10 +274,10 @@ def add_metadata(xmldoc, metadata_cache, verbose = False):
 
 	if verbose:
 		print >>sys.stderr, "re-linking sngl_ringdown rows to process rows ..."
-	process_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program("lalapps_ring")
+	process_ids = lsctables.ProcessTable.get_table(xmldoc).get_ids_by_program("lalapps_ring")
 	segs = {}
 	ids = {}
-	for row in table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName):
+	for row in lsctables.SearchSummaryTable.get_table(xmldoc):
 		if row.process_id in process_ids:
 			segs.setdefault(row.ifos, segments.segmentlist()).append(row.get_out())
 			ids.setdefault(row.ifos, []).append(row.process_id)
@@ -287,7 +287,7 @@ def add_metadata(xmldoc, metadata_cache, verbose = False):
 	# lalapps_ring job
 	#
 
-	for row in table.get_table(xmldoc, lsctables.SnglRingdownTable.tableName):
+	for row in lsctables.SnglRingdownTable.get_table(xmldoc):
 		row.process_id = ids[row.ifo][segs[row.ifo].find(row.get_start())]
 
 	#
@@ -436,7 +436,7 @@ def fix_ifos_columns(xmldoc, verbose = False):
 
 
 def get_rinca_process_ids(xmldoc):
-	return table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program("rinca")
+	return lsctables.ProcessTable.get_table(xmldoc).get_ids_by_program("rinca")
 
 
 def get_search_summary_instruments(xmldoc, rinca_process_ids):
@@ -444,7 +444,7 @@ def get_search_summary_instruments(xmldoc, rinca_process_ids):
 	Extract the list of analyzed instruments from the rinca entries in
 	the search summary table.
 	"""
-	search_summary_instruments = set(frozenset(row.get_ifos()) for row in table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName) if row.process_id in rinca_process_ids)
+	search_summary_instruments = set(frozenset(row.get_ifos()) for row in lsctables.SearchSummaryTable.get_table(xmldoc) if row.process_id in rinca_process_ids)
 	if len(search_summary_instruments) < 1:
 		raise ValueError, "cannot find entries for rinca jobs in search_summary table"
 	if len(search_summary_instruments) > 1:
@@ -465,7 +465,7 @@ def populate_rinca_time_slide_table(xmldoc, process, instruments = None, verbose
 	#
 
 	try:
-		time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+		time_slide_table = lsctables.TimeSlideTable.get_table(xmldoc)
 	except ValueError:
 		time_slide_table = lsctables.New(lsctables.TimeSlideTable)
 		xmldoc.childNodes[0].appendChild(time_slide_table)
@@ -494,7 +494,7 @@ def populate_rinca_time_slide_table(xmldoc, process, instruments = None, verbose
 	#
 
 	rinca_process_ids = get_rinca_process_ids(xmldoc)
-	slides_process_ids = rinca_process_ids & set(row.process_id for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName) if row.param == u"--num-slides")
+	slides_process_ids = rinca_process_ids & set(row.process_id for row in lsctables.ProcessParamsTable.get_table(xmldoc) if row.param == u"--num-slides")
 
 	if len(rinca_process_ids - slides_process_ids) > 1:
 		raise ValueError, "document contains more than 1 zero-lag rinca job"
@@ -547,7 +547,7 @@ def populate_rinca_time_slide_table(xmldoc, process, instruments = None, verbose
 		offset_vector = {}
 		slide_option_pattern = re.compile("--(?P<ifo>[a-zA-Z][0-9])-slide")
 
-		for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName):
+		for row in lsctables.ProcessParamsTable.get_table(xmldoc):
 			if row.process_id in slides_process_ids:
 				if row.param == u"--num-slides":
 					num_slides = row.pyvalue
@@ -621,7 +621,7 @@ def depopulate_time_slide_table(xmldoc, verbose = False):
 	# find the time_slide table
 	#
 
-	time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+	time_slide_table = lsctables.TimeSlideTable.get_table(xmldoc)
 
 	length_before = len(set(time_slide_table.getColumnByName("time_slide_id")))
 
@@ -707,7 +707,7 @@ def populate_experiment_table(xmldoc, search_group, search, lars_id, instruments
 
 	# find the experiment table or create one if needed
 	try:
-		expr_table = table.get_table(xmldoc, lsctables.ExperimentTable.tableName)
+		expr_table = lsctables.ExperimentTable.get_table(xmldoc)
 	except ValueError:
 		expr_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.ExperimentTable))
 	
@@ -749,7 +749,7 @@ def populate_experiment_summ_table( xmldoc, experiment_id, time_slide_dict, veto
 
 	# find the experiment_summary table or create one if needed
 	try:
-		expr_summ_table = table.get_table(xmldoc, lsctables.ExperimentSummaryTable.tableName)
+		expr_summ_table = lsctables.ExperimentSummaryTable.get_table(xmldoc)
 	except ValueError:
 		expr_summ_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.ExperimentSummaryTable))
 	
@@ -784,7 +784,7 @@ def generate_experiment_tables(xmldoc, search_group, search, lars_id, veto_def_n
 	experiment_ids = populate_experiment_table(xmldoc, search_group, search, lars_id, instruments, expr_start_time, expr_end_time, comments = comments, add_inst_subsets = True, verbose = verbose)
 	
 	# Get the time_slide table as dict
-	time_slide_dict = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict()
+	time_slide_dict = lsctables.TimeSlideTable.get_table(xmldoc).as_dict()
 
 	# Populate the experiment_summary table
 	for instruments in experiment_ids:
@@ -824,7 +824,7 @@ def depopulate_experiment_tables(xmldoc, verbose = False):
 	#
 
 	try:
-		experiment_table = table.get_table(xmldoc, lsctables.ExperimentTable.tableName)
+		experiment_table = lsctables.ExperimentTable.get_table(xmldoc)
 	except ValueError:
 		# no table --> no-op
 		if verbose:
@@ -832,7 +832,7 @@ def depopulate_experiment_tables(xmldoc, verbose = False):
 		return
 
 	try:
-		experiment_summ_table = table.get_table(xmldoc, lsctables.ExperimentSummaryTable.tableName)
+		experiment_summ_table = lsctables.ExperimentSummaryTable.get_table(xmldoc)
 	except ValueError:
 		# no table --> no-op
 		if verbose:
@@ -965,7 +965,7 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ch
 	#
 
 	try:
-		coinc_event_table = table.get_table(xmldoc, lsctables.CoincTable.tableName)
+		coinc_event_table = lsctables.CoincTable.get_table(xmldoc)
 	except ValueError:
 		coinc_event_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.CoincTable))
 
@@ -981,7 +981,7 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ch
 	#
 
 	try:
-		coinc_event_map_table = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+		coinc_event_map_table = lsctables.CoincMapTable.get_table(xmldoc)
 	except ValueError:
 		coinc_event_map_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.CoincMapTable))
 
@@ -990,7 +990,7 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ch
 	#
 
 	try:
-		coinc_ringdown_table = table.get_table(xmldoc, lsctables.CoincRingdownTable.tableName)
+		coinc_ringdown_table = lsctables.CoincRingdownTable.get_table(xmldoc)
 	except ValueError:
 		coinc_ringdown_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.CoincRingdownTable))
 
@@ -999,7 +999,7 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ch
 	#
 
 	try:
-		sngl_ringdown_table = table.get_table(xmldoc, lsctables.SnglRingdownTable.tableName)
+		sngl_ringdown_table = lsctables.SnglRingdownTable.get_table(xmldoc)
 	except ValueError:
 		# no sngl_ringdown table --> no-op
 		if verbose:
@@ -1011,7 +1011,7 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ch
 	# offset vectors
 	#
 
-	time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+	time_slide_table = lsctables.TimeSlideTable.get_table(xmldoc)
 	time_slides = time_slide_table.as_dict()
 
 	#
@@ -1157,7 +1157,7 @@ def depopulate_sngl_ringdown(xmldoc, verbose = False):
 	#
 
 	try:
-		sngl_ringdown_table = table.get_table(xmldoc, lsctables.SnglRingdownTable.tableName)
+		sngl_ringdown_table = lsctables.SnglRingdownTable.get_table(xmldoc)
 	except ValueError:
 		# no sngl_ringdown table --> no-op
 		if verbose:
@@ -1216,7 +1216,7 @@ def populate_experiment_map(xmldoc, search_group, search, lars_id, veto_def_name
 		print >> sys.stderr, "Mapping coinc events to experiment_summary table..."
 
 	try:
-		expr_map_table = table.get_table(xmldoc, lsctables.ExperimentMapTable.tableName)
+		expr_map_table = lsctables.ExperimentMapTable.get_table(xmldoc)
 	except ValueError:
 		expr_map_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.ExperimentMapTable))
 
@@ -1224,31 +1224,31 @@ def populate_experiment_map(xmldoc, search_group, search, lars_id, veto_def_name
 	# find the coinc_event table
 	#
 
-	coinc_event_table = table.get_table(xmldoc, lsctables.CoincTable.tableName)
+	coinc_event_table = lsctables.CoincTable.get_table(xmldoc)
 
 	#
 	# Index the coinc_ringdown table as a dictionary
 	#
 
-	coinc_index = dict((row.coinc_event_id, row) for row in table.get_table(xmldoc, lsctables.CoincRingdownTable.tableName))
+	coinc_index = dict((row.coinc_event_id, row) for row in lsctables.CoincRingdownTable.get_table(xmldoc))
 
 	#
 	# Get the time_slide_table as dict
 	#
 
-	time_slide_dict = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict()
+	time_slide_dict = lsctables.TimeSlideTable.get_table(xmldoc).as_dict()
 
 	#
 	# find the experiment table
 	#
 
-	expr_table = table.get_table(xmldoc, lsctables.ExperimentTable.tableName)
+	expr_table = lsctables.ExperimentTable.get_table(xmldoc)
 
 	#
 	# find the experiment_summary table
 	#
 
-	expr_summ_table = table.get_table(xmldoc, lsctables.ExperimentSummaryTable.tableName)
+	expr_summ_table = lsctables.ExperimentSummaryTable.get_table(xmldoc)
 
 	#
 	# Get the on_instruments from the search summary table
@@ -1356,19 +1356,19 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 	#
 	
 	try:
-		sngl_ringdown_table = table.get_table(xmldoc, lsctables.SnglRingdownTable.tableName)
+		sngl_ringdown_table = lsctables.SnglRingdownTable.get_table(xmldoc)
 	except ValueError:
 		# no sngl_ringdown table --> no-op
 		if verbose:
 			print >>sys.stderr, "\tcannot find sngl_ringdown table"
 		return
-	coinc_table = table.get_table(xmldoc, lsctables.CoincTable.tableName)
-	coinc_map_table = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
-	coinc_ringdown_table = table.get_table(xmldoc, lsctables.CoincRingdownTable.tableName)
-	time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
-	expr_table = table.get_table(xmldoc, lsctables.ExperimentTable.tableName)
-	expr_summ_table = table.get_table(xmldoc, lsctables.ExperimentSummaryTable.tableName)
-	expr_map_table = table.get_table(xmldoc, lsctables.ExperimentMapTable.tableName)
+	coinc_table = lsctables.CoincTable.get_table(xmldoc)
+	coinc_map_table = lsctables.CoincMapTable.get_table(xmldoc)
+	coinc_ringdown_table = lsctables.CoincRingdownTable.get_table(xmldoc)
+	time_slide_table = lsctables.TimeSlideTable.get_table(xmldoc)
+	expr_table = lsctables.ExperimentTable.get_table(xmldoc)
+	expr_summ_table = lsctables.ExperimentSummaryTable.get_table(xmldoc)
+	expr_map_table = lsctables.ExperimentMapTable.get_table(xmldoc)
 
 	#
 	# turn the time slide table into a dictionary

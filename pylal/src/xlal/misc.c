@@ -45,7 +45,7 @@ PyObject *pylal_inline_string_get(PyObject *obj, void *data)
 	const struct pylal_inline_string_description *desc = data;
 	char *s = (void *) obj + desc->offset;
 
-	if(strlen(s) >= desc->length) {
+	if((ssize_t) strlen(s) >= desc->length) {
 		/* something's wrong, obj probably isn't a valid address */
 	}
 
@@ -61,7 +61,7 @@ int pylal_inline_string_set(PyObject *obj, PyObject *val, void *data)
 
 	if(!v)
 		return -1;
-	if(strlen(v) >= desc->length) {
+	if((ssize_t) strlen(v) >= desc->length) {
 		PyErr_Format(PyExc_ValueError, "string too long \'%s\'", v);
 		return -1;
 	}

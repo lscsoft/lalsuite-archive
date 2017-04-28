@@ -41,7 +41,7 @@ __date__ = git_version.date
 
 # Use interning row builder to save memory.
 
-lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
+lsctables.table.TableStream.RowBuilder = lsctables.table.InterningRowBuilder
 
 
 # Use C row classes for memory efficiency and speed.
@@ -127,7 +127,7 @@ for n, filename in enumerate(filenames):
 	# a unique id. This is purely a temporary fix to deal with files
 	# that already exist. New files should not have this problem.
 
-	snglinsp_tbl = lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+	snglinsp_tbl = lsctables.SnglInspiralTable.get_table(xmldoc)
 	snglinsp_tbl.set_next_id(lsctables.SnglInspiralID(0))
 	for row in snglinsp_tbl:
 		row.event_id = snglinsp_tbl.get_next_id()

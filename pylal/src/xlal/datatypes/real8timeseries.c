@@ -27,6 +27,7 @@
 
 
 #include <Python.h>
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include <numpy/arrayobject.h>
 #include <lal/LALDatatypes.h>
 #include <lal/TimeSeries.h>
@@ -112,17 +113,14 @@ static PyObject *__getattro__(PyObject *self, PyObject *attr_name)
 	if(!strcmp(name, "data")) {
 		npy_intp dims[] = {obj->series->data->length};
 		PyObject *array = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, obj->series->data->data);
-		PyObject *copy;
 		if(!array)
 			return NULL;
 		/* incref self to prevent data from disappearing while
 		 * array is still in use, and tell numpy to decref self
 		 * when the array is deallocated */
 		Py_INCREF(self);
-		PyArray_BASE(array) = self;
-		copy = PyArray_NewCopy((PyArrayObject *) array, NPY_ANYORDER);
-		Py_DECREF(array);
-		return copy;
+		PyArray_SetBaseObject((PyArrayObject *) array, self);
+		return array;
 	}
 	PyErr_SetString(PyExc_AttributeError, name);
 	return NULL;
@@ -178,19 +176,19 @@ static int __setattro__(PyObject *self, PyObject *attr_name, PyObject *value)
 	if(!strcmp(name, "data")) {
 		int n;
 		/* require array of double precision floats */
-		if(!PyArray_Check(value) || (PyArray_TYPE(value) != NPY_DOUBLE)) {
+		if(!PyArray_Check(value) || (PyArray_TYPE((PyArrayObject *) value) != NPY_DOUBLE)) {
 			PyErr_SetObject(PyExc_TypeError, value);
 			return -1;
 		}
 		/* require exactly 1 dimension */
-		if(((PyArrayObject *) value)->nd != 1) {
+		if(PyArray_NDIM((PyArrayObject *) value) != 1) {
 			PyErr_SetObject(PyExc_ValueError, value);
 			return -1;
 		}
-		n = PyArray_DIM(value, 0);
+		n = PyArray_DIM((PyArrayObject *) value, 0);
 		if(n != obj->series->data->length)
 			obj->series->data = XLALResizeREAL8Sequence(obj->series->data, 0, n);
-		memcpy(obj->series->data->data, PyArray_GETPTR1(value, 0), n * sizeof(*obj->series->data->data));
+		memcpy(obj->series->data->data, PyArray_GETPTR1((PyArrayObject *) value, 0), n * sizeof(*obj->series->data->data));
 		return 0;
 	}
 	PyErr_SetString(PyExc_AttributeError, name);

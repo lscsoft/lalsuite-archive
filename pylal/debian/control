@@ -2,7 +2,7 @@ Source: pylal
 Section: python
 Priority: optional
 Maintainer: Jameson Rollins <jameson.rollins@ligo.org>
-X-Python-Version: >= 2.6
+X-Python-Version: >= 2.7
 Build-Depends:
  pkg-config,
  python,
@@ -14,20 +14,19 @@ Build-Depends:
  lalframe-dev (>= 1.2.5),
  lalinspiral-dev (>= 1.6.5),
  lalmetaio-dev (>= 1.2.6),
- debhelper (>= 7)
+ lalsimulation-dev,
+ debhelper (>= 9)
 Standards-Version: 3.9.3
 
 Package: python-pylal
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends},
- lal,
  lal-python,
- lalburst,
  lalburst-python,
- lalframe,
  lalframe-python,
- lalinspiral,
  lalinspiral-python,
+ lalmetaio-python,
+ lalsimulation-python,
  python-glue,
  python-glue-segments,
  python-matplotlib,

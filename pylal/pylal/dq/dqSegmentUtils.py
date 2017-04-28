@@ -79,8 +79,8 @@ def fromsegmentxml(file, dict=False, id=None):
 
   # load xmldocument and SegmentDefTable and SegmentTables
   xmldoc, digest = utils.load_fileobj(file, gz=file.name.endswith(".gz"), contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
-  seg_def_table  = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
-  seg_table      = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
+  seg_def_table  = lsctables.SegmentDefTable.get_table(xmldoc)
+  seg_table      = lsctables.SegmentTable.get_table(xmldoc)
 
   if dict:
     segs = segments.segmentlistdict()
@@ -151,7 +151,8 @@ def tosegmentxml(file, segs):
   ligolw_process.set_process_end_time(process)
 
   # write file
-  utils.write_fileobj(xmldoc, file, gz=False)
+  with utils.SignalsTrap():
+    utils.write_fileobj(xmldoc, file, gz=False)
 
 # ==============================================================================
 # Function to load segments from a csv file
@@ -344,7 +345,7 @@ def dump_flags(ifos=None, segment_url=None, match=None, unmatch=None,\
 
   reply = StringIO(myClient.query(squery))
   xmldoc, digest = utils.load_fileobj(reply)
-  seg_def_table = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
+  seg_def_table = lsctables.SegmentDefTable.get_table(xmldoc)
 
   # sort table by ifo, name and version
   seg_def_table.sort(key=lambda flag: (flag.ifos[0], flag.name, \

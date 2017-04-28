@@ -275,7 +275,7 @@ ifo_list = set(opts.ifos[2*i:2*i+2].lower() for i in range(len(opts.ifos)/2))
 
 #get slide amounts
 shift_unit_vector = dict((ifo, 0) for ifo in ifo_list)  # default to 0
-for row in table.get_table(offsource_doc, lsctables.ProcessParamsTable.tableName):
+for row in lsctables.ProcessParamsTable.get_table(offsource_doc):
   for ifo in ifo_list:
     if row.param == "--%s-slide" % ifo:
         shift_unit_vector[ifo] = int(float(row.value))
@@ -308,8 +308,8 @@ for slide_num in range(-nominal_num_slides, nominal_num_slides+1):
   for ring in rings:
     slid_seglistdict = SnglInspiralUtils.slideSegListDictOnRing(ring, veto_segs, shift_dict)
     slid_seglist = slid_seglistdict.union(slid_seglistdict.keys())
-    trial_veto_mask_2d[slide_num, :] |= rate.bins_spanned(trial_bins, slid_seglist, dtype=numpy.bool8)
-trial_veto_mask_2d[0, :] |= rate.bins_spanned(trial_bins, buffer_segs, dtype=numpy.bool8)
+    trial_veto_mask_2d[slide_num, :] |= rate.bins_spanned(trial_bins, slid_seglist).astype(bool)
+trial_veto_mask_2d[0, :] |= rate.bins_spanned(trial_bins, buffer_segs).astype(bool)
 if total_num_slides != array_size:  # these are equal iff we are including zero-lag background
   trial_veto_mask_2d[0] |= True
 
@@ -319,7 +319,7 @@ mc_bins = rate.IrregularBins(opts.mc_boundaries)
 
 ##############################################################################
 # read triggers, veto them, and reconstruct coincidences
-triggers = table.get_table(offsource_doc, lsctables.SnglInspiralTable.tableName)
+triggers = lsctables.SnglInspiralTable.get_table(offsource_doc)
 
 stat = CoincInspiralUtils.coincStatistic(opts.coinc_statistic)
 coincTable = CoincInspiralUtils.coincInspiralTable(triggers, stat)

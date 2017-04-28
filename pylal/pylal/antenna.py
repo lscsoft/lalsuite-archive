@@ -29,10 +29,8 @@ This module provides functions to calculate antenna factors for a given time, a 
 """
 import sys
 from math import *
-from pylal.xlal import date
-from pylal import date
+import lal
 from pylal import inject
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 __author__ = "Alexander Dietz <Alexander.Dietz@astro.cf.ac.uk>"
@@ -70,8 +68,8 @@ def response( gpsTime, rightAscension, declination, inclination,
     raise ValueError, "Unknown unit %s" % unit
 
   # calculate GMST if the GPS time
-  gps=LIGOTimeGPS( gpsTime )
-  gmst_rad = date.XLALGreenwichMeanSiderealTime(gps)
+  gps = lal.LIGOTimeGPS( gpsTime )
+  gmst_rad = lal.GreenwichMeanSiderealTime(gps)
 
   # create detector-name map
   detMap = {'H1': 'LHO_4k', 'H2': 'LHO_2k', 'L1': 'LLO_4k',
@@ -92,7 +90,7 @@ def response( gpsTime, rightAscension, declination, inclination,
   response = inject.cached_detector[detector].response
 
   # actual computation of antenna factors
-  f_plus, f_cross = inject.XLALComputeDetAMResponse(response, ra_rad, de_rad,
+  f_plus, f_cross = lal.ComputeDetAMResponse(response, ra_rad, de_rad,
                                                     psi_rad, gmst_rad)
 
   f_ave=sqrt( (f_plus*f_plus + f_cross*f_cross)/2.0 );
@@ -149,7 +147,7 @@ def timeDelay( gpsTime, rightAscension, declination, unit, det1, det2 ):
   if det1 == det2:
     return 0.0
   
-  gps = LIGOTimeGPS( gpsTime )
+  gps = lal.LIGOTimeGPS( gpsTime )
 
   # create detector-name map
   detMap = {'H1': 'LHO_4k', 'H2': 'LHO_2k', 'L1': 'LLO_4k',
@@ -157,7 +155,7 @@ def timeDelay( gpsTime, rightAscension, declination, unit, det1, det2 ):
   
   x1 = inject.cached_detector[detMap[det1]].location
   x2 = inject.cached_detector[detMap[det2]].location
-  timedelay=date.XLALArrivalTimeDiff(list(x1), list(x2), ra_rad, de_rad, gps)
+  timedelay = lal.ArrivalTimeDiff(list(x1), list(x2), ra_rad, de_rad, gps)
 
   return timedelay
   

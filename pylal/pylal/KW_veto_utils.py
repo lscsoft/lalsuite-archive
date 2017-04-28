@@ -33,11 +33,7 @@ import glob
 import shutil
 import tempfile
 
-try:
-    import sqlite3
-except ImportError:
-    # pre 2.5.x
-    from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 
 from glue.segments import segment, segmentlist
 from glue import segmentsUtils
@@ -330,7 +326,7 @@ def read_segfile_xml(segfile,verbose):
   def ContentHandler(xmldoc):
     return ligolw.PartialLIGOLWContentHandler(xmldoc, lambda name, attrs:\
                (name == ligolw.Table.tagName) and\
-               (table.StripTableName(attrs["Name"]) in ["segment"]))
+               (table.Table.TableName(attrs["Name"]) in ["segment"]))
   try:
     table.use_in(ligolw.PartialLIGOLWContentHandler)
   except AttributeError:
@@ -358,7 +354,7 @@ def find_version_xml(segfile,seg,verbose):
   def ContentHandler(xmldoc):
     return ligolw.PartialLIGOLWContentHandler(xmldoc, lambda name, attrs:\
                (name == ligolw.Table.tagName) and\
-               (table.StripTableName(attrs["Name"]) in ["segment_definer","segment_summary"]))
+               (table.Table.TableName(attrs["Name"]) in ["segment_definer","segment_summary"]))
   try:
     table.use_in(ligolw.PartialLIGOLWContentHandler)
   except AttributeError:

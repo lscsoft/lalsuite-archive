@@ -4,11 +4,7 @@ This module contains condor jobs / node classes for the SQlite Triggered Follow 
 
 __author__ = 'Chad Hanna <channa@phys.lsu.edu>, Cristina Torres <cristina.torres@ligo.org>, Romain Gouaty <gouaty@lapp.in2p3.fr>'
 
-try:
-	import sqlite3
-except ImportError:
-	# pre 2.5.x
-	from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 
 import sys, os, copy, math, math, subprocess, socket, re, string
 import time as time_method
@@ -31,7 +27,7 @@ from glue import pipeline
 from glue import lal
 #from pylal import db_thinca_rings
 from lalapps import inspiral
-from pylal import date
+from lalburst import date
 from pylal.xlal import date as xlaldate
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 #dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS

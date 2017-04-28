@@ -264,8 +264,8 @@ int main( int argc, char *argv[] )
   /* create the process and process params tables */
   proctable.processTable = (ProcessTable *) calloc( 1, sizeof(ProcessTable) );
   XLALGPSTimeNow(&(proctable.processTable->start_time));
-  XLALPopulateProcessTable(proctable.processTable, PROGRAM_NAME, lalAppsVCSIdentId,
-      lalAppsVCSIdentStatus, lalAppsVCSIdentDate, 0);
+  XLALPopulateProcessTable(proctable.processTable, PROGRAM_NAME, lalAppsVCSIdentInfo.vcsId,
+      lalAppsVCSIdentInfo.vcsStatus, lalAppsVCSIdentInfo.vcsDate, 0);
   this_proc_param = procparams.processParamsTable = (ProcessParamsTable *) 
     calloc( 1, sizeof(ProcessParamsTable) );
   memset( comment, 0, LIGOMETA_COMMENT_MAX * sizeof(CHAR) );
@@ -1128,7 +1128,7 @@ int main( int argc, char *argv[] )
         snprintf( H1FoundSngl->channel, LIGOMETA_CHANNEL_MAX, "LSC-STRAIN" );
         snprintf( H1FoundSngl->search, LIGOMETA_SEARCH_MAX, "sned" );
         H1FoundSngl->eff_distance = thisInjection->eff_dist_h; 
-        H1FoundSngl->end_time = thisInjection->h_end_time;
+        H1FoundSngl->end = thisInjection->h_end_time;
         H1FoundSngl->mass1 = thisInjection->mass1;
         H1FoundSngl->mass2 = thisInjection->mass2;
         H1FoundSngl->mtotal = thisInjection->mass1 + thisInjection->mass2;
@@ -1145,7 +1145,7 @@ int main( int argc, char *argv[] )
         L1FoundSngl->next = NULL;
         snprintf( L1FoundSngl->ifo, LIGOMETA_IFO_MAX, "L1" );
         L1FoundSngl->eff_distance = thisInjection->eff_dist_l; 
-        L1FoundSngl->end_time = thisInjection->l_end_time;
+        L1FoundSngl->end = thisInjection->l_end_time;
       }
       else /* Missed; save to thisMissedSim */
       {

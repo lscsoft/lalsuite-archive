@@ -18,7 +18,7 @@ __author__ = "Darren Woods and Stephen Fairhurst <sfairhurs@gravity.phys.uwm.edu
 __prog__ = "followup_missed.py"
 __title__ = "Followup missed injections"
 
-import os, sys, exceptions, copy
+import os, sys, copy
 from math import sqrt, pi
 
 from pylab import rcParams, fill, figtext, figure, plot, axes, axis, xlabel, ylabel, title, close, grid, legend
@@ -145,8 +145,7 @@ class FollowupMissed:
     coire_file = self.cache.sieve(description = "FOUND").checkfilesexist()[0].pfnlist()[0]
     try:
       doc = SearchSummaryUtils.ReadTablesFromFiles([coire_file],[ lsctables.ProcessParamsTable])
-      process_params = table.get_table(doc, lsctables.ProcessParamsTable.\
-                                       tableName)
+      process_params = lsctables.ProcessParamsTable.get_table(doc)
     except IOError: 	    
       sys.stderr.write("ERROR (IOError) while reading process_params table from file %s. "\
                        "Does this file exist and does it contain a search_summary table?\n" %(coire_file))

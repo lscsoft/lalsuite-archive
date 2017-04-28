@@ -107,6 +107,7 @@ const char *gengetopt_args_info_help[] = {
   "      --compute-betas=INT       compute beta coefficients as described in\n                                  PowerFlux polarizations document\n                                  (default=`0')",
   "      --upper-limit-comp=STRING upper limit compensation factor - used to\n                                  account for windowing in SFTs (possible\n                                  values: Hann, flat, arbitrary number)\n                                  (default=`Hann')",
   "      --lower-limit-comp=STRING lower limit compensation factor - used to\n                                  account for windowing in SFTs (possible\n                                  values: Hann, flat, arbitrary number)\n                                  (default=`Hann')",
+  "      --viterbi-power-sums=INT  Use Viterbi-like algorithm to accumulate power\n                                  sums between segments, accomodating long term\n                                  deviations in frequency evolution\n                                  (default=`0')",
   "      --write-dat=STRING        regular expression describing which *.dat files\n                                  to write  (default=`.*')",
   "      --write-png=STRING        regular expression describing which *.png files\n                                  to write  (default=`.*')",
   "      --dump-points=INT         output averaged power bins for each point in\n                                  the sky  (default=`0')",
@@ -116,6 +117,9 @@ const char *gengetopt_args_info_help[] = {
   "      --focus-radius=DOUBLE     focus computation on a circular area with this\n                                  radius",
   "      --only-large-cos=DOUBLE   restrict computation to points on the sky with\n                                  cos of angle to band axis larger than a given\n                                  number",
   "      --focus-type=STRING       focus type (equatorial, ecliptic)\n                                  (default=`equatorial')",
+  "      --binary-template-file=STRING\n                                use data from this file to generate templates,\n                                  file has same format as diverted.log.\n                                  (default=`')",
+  "      --binary-template-nsky=INT\n                                size of square sky grid to use for followup\n                                  (default=`3')",
+  "      --binary-template-nshift=INT\n                                number of subfrequency shifts to followup\n                                  (default=`3')",
   "\n Group: injection",
   "      --fake-linear             Inject linearly polarized fake signal",
   "      --fake-circular           Inject circularly polarized fake signal",
@@ -141,16 +145,22 @@ const char *gengetopt_args_info_help[] = {
   "      --snr-precision=DOUBLE    Assumed level of error in detection strength -\n                                  used for listing candidates  (default=`0.2')",
   "      --max-candidates=INT      Do not optimize more than this number of\n                                  candidates  (default=`-1')",
   "      --min-candidate-snr=DOUBLE\n                                Do not optimize candidates with SNR below this\n                                  level  (default=`5.0')",
+  "      --divert-snr=DOUBLE       Divert templates with SNR at or above this\n                                  level for separate analysis  (default=`-1.0')",
+  "      --divert-ul=DOUBLE        Divert templates with SNR at or above this\n                                  upper limit level for separate analysis\n                                  (default=`-1.0')",
   "      --output-initial=INT      write initial candidates into log file\n                                  (default=`0')",
   "      --output-optimized=INT    write optimized (second pass) candidates into\n                                  log file  (default=`0')",
   "      --output-cache=INT        write out all candidates in cache to log file\n                                  (default=`0')",
+  "      --progress-update-interval=INT\n                                integer value controlling frequency of progress\n                                  updates  (default=`100')",
   "      --extended-test=INT       Perform extended self test functions given by\n                                  this bitmask  (default=`1')",
   "      --max-sft-report=INT      Maximum count of SFTs to report with veto\n                                  information  (default=`100')",
   "      --num-threads=INT         Use that many threads for computation\n                                  (default=`-1')",
+  "      --num-threads-env=STRING  Use this environment variable to obtain\n                                  num-threads  (default=`')",
   "      --niota=INT               Number of iota values to use in alignment grid\n                                  (default=`3')",
   "      --npsi=INT                Number of psi values to use in alignment grid\n                                  (default=`6')",
   "      --nfshift=INT             Number of sub-bin frequency shifts to sample\n                                  (default=`2')",
   "      --nchunks=INT             Partition the timebase into this many chunks\n                                  for sub period analysis  (default=`5')",
+  "      --nchunks-refinement=INT  Reduce reported statistics by this factor.\n                                  (default=`1')",
+  "      --min-nchunks=INT         Do not output statistics with fewer than this\n                                  many chunks  (default=`1')",
   "      --split-ifos=INT          Split interferometers in separate chunks\n                                  (default=`1')",
   "      --default-dataset-veto-level=DOUBLE\n                                Default value for veto_level dataset parameter\n                                  (default=`1e-2')",
   "      --default-dataset-veto-spike-level=DOUBLE\n                                Default value for veto_spike_level dataset\n                                  parameter  (default=`1.7')",
@@ -304,6 +314,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->compute_betas_given = 0 ;
   args_info->upper_limit_comp_given = 0 ;
   args_info->lower_limit_comp_given = 0 ;
+  args_info->viterbi_power_sums_given = 0 ;
   args_info->write_dat_given = 0 ;
   args_info->write_png_given = 0 ;
   args_info->dump_points_given = 0 ;
@@ -313,6 +324,9 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->focus_radius_given = 0 ;
   args_info->only_large_cos_given = 0 ;
   args_info->focus_type_given = 0 ;
+  args_info->binary_template_file_given = 0 ;
+  args_info->binary_template_nsky_given = 0 ;
+  args_info->binary_template_nshift_given = 0 ;
   args_info->fake_linear_given = 0 ;
   args_info->fake_circular_given = 0 ;
   args_info->fake_ref_time_given = 0 ;
@@ -337,16 +351,22 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->snr_precision_given = 0 ;
   args_info->max_candidates_given = 0 ;
   args_info->min_candidate_snr_given = 0 ;
+  args_info->divert_snr_given = 0 ;
+  args_info->divert_ul_given = 0 ;
   args_info->output_initial_given = 0 ;
   args_info->output_optimized_given = 0 ;
   args_info->output_cache_given = 0 ;
+  args_info->progress_update_interval_given = 0 ;
   args_info->extended_test_given = 0 ;
   args_info->max_sft_report_given = 0 ;
   args_info->num_threads_given = 0 ;
+  args_info->num_threads_env_given = 0 ;
   args_info->niota_given = 0 ;
   args_info->npsi_given = 0 ;
   args_info->nfshift_given = 0 ;
   args_info->nchunks_given = 0 ;
+  args_info->nchunks_refinement_given = 0 ;
+  args_info->min_nchunks_given = 0 ;
   args_info->split_ifos_given = 0 ;
   args_info->default_dataset_veto_level_given = 0 ;
   args_info->default_dataset_veto_spike_level_given = 0 ;
@@ -519,6 +539,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->upper_limit_comp_orig = NULL;
   args_info->lower_limit_comp_arg = gengetopt_strdup ("Hann");
   args_info->lower_limit_comp_orig = NULL;
+  args_info->viterbi_power_sums_arg = 0;
+  args_info->viterbi_power_sums_orig = NULL;
   args_info->write_dat_arg = gengetopt_strdup (".*");
   args_info->write_dat_orig = NULL;
   args_info->write_png_arg = gengetopt_strdup (".*");
@@ -533,6 +555,12 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->only_large_cos_orig = NULL;
   args_info->focus_type_arg = gengetopt_strdup ("equatorial");
   args_info->focus_type_orig = NULL;
+  args_info->binary_template_file_arg = gengetopt_strdup ("");
+  args_info->binary_template_file_orig = NULL;
+  args_info->binary_template_nsky_arg = 3;
+  args_info->binary_template_nsky_orig = NULL;
+  args_info->binary_template_nshift_arg = 3;
+  args_info->binary_template_nshift_orig = NULL;
   args_info->fake_ref_time_arg = 0;
   args_info->fake_ref_time_orig = NULL;
   args_info->fake_ra_arg = 0.0;
@@ -576,18 +604,26 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->max_candidates_orig = NULL;
   args_info->min_candidate_snr_arg = 5.0;
   args_info->min_candidate_snr_orig = NULL;
+  args_info->divert_snr_arg = -1.0;
+  args_info->divert_snr_orig = NULL;
+  args_info->divert_ul_arg = -1.0;
+  args_info->divert_ul_orig = NULL;
   args_info->output_initial_arg = 0;
   args_info->output_initial_orig = NULL;
   args_info->output_optimized_arg = 0;
   args_info->output_optimized_orig = NULL;
   args_info->output_cache_arg = 0;
   args_info->output_cache_orig = NULL;
+  args_info->progress_update_interval_arg = 100;
+  args_info->progress_update_interval_orig = NULL;
   args_info->extended_test_arg = 1;
   args_info->extended_test_orig = NULL;
   args_info->max_sft_report_arg = 100;
   args_info->max_sft_report_orig = NULL;
   args_info->num_threads_arg = -1;
   args_info->num_threads_orig = NULL;
+  args_info->num_threads_env_arg = gengetopt_strdup ("");
+  args_info->num_threads_env_orig = NULL;
   args_info->niota_arg = 3;
   args_info->niota_orig = NULL;
   args_info->npsi_arg = 6;
@@ -596,6 +632,10 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->nfshift_orig = NULL;
   args_info->nchunks_arg = 5;
   args_info->nchunks_orig = NULL;
+  args_info->nchunks_refinement_arg = 1;
+  args_info->nchunks_refinement_orig = NULL;
+  args_info->min_nchunks_arg = 1;
+  args_info->min_nchunks_orig = NULL;
   args_info->split_ifos_arg = 1;
   args_info->split_ifos_orig = NULL;
   args_info->default_dataset_veto_level_arg = 1e-2;
@@ -734,78 +774,88 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->compute_betas_help = gengetopt_args_info_help[70] ;
   args_info->upper_limit_comp_help = gengetopt_args_info_help[71] ;
   args_info->lower_limit_comp_help = gengetopt_args_info_help[72] ;
-  args_info->write_dat_help = gengetopt_args_info_help[73] ;
-  args_info->write_png_help = gengetopt_args_info_help[74] ;
-  args_info->dump_points_help = gengetopt_args_info_help[75] ;
-  args_info->dump_candidates_help = gengetopt_args_info_help[76] ;
-  args_info->focus_ra_help = gengetopt_args_info_help[77] ;
-  args_info->focus_dec_help = gengetopt_args_info_help[78] ;
-  args_info->focus_radius_help = gengetopt_args_info_help[79] ;
-  args_info->only_large_cos_help = gengetopt_args_info_help[80] ;
-  args_info->focus_type_help = gengetopt_args_info_help[81] ;
-  args_info->fake_linear_help = gengetopt_args_info_help[83] ;
-  args_info->fake_circular_help = gengetopt_args_info_help[84] ;
-  args_info->fake_ref_time_help = gengetopt_args_info_help[85] ;
-  args_info->fake_ra_help = gengetopt_args_info_help[86] ;
-  args_info->fake_dec_help = gengetopt_args_info_help[87] ;
-  args_info->fake_iota_help = gengetopt_args_info_help[88] ;
-  args_info->fake_psi_help = gengetopt_args_info_help[89] ;
-  args_info->fake_phi_help = gengetopt_args_info_help[90] ;
-  args_info->fake_spindown_help = gengetopt_args_info_help[91] ;
-  args_info->fake_fdotdot_help = gengetopt_args_info_help[92] ;
-  args_info->fake_strain_help = gengetopt_args_info_help[93] ;
-  args_info->fake_freq_help = gengetopt_args_info_help[94] ;
-  args_info->fake_dInv_help = gengetopt_args_info_help[95] ;
-  args_info->fake_freq_modulation_depth_help = gengetopt_args_info_help[96] ;
-  args_info->fake_freq_modulation_freq_help = gengetopt_args_info_help[97] ;
-  args_info->fake_freq_modulation_phase_help = gengetopt_args_info_help[98] ;
-  args_info->fake_phase_modulation_depth_help = gengetopt_args_info_help[99] ;
-  args_info->fake_phase_modulation_freq_help = gengetopt_args_info_help[100] ;
-  args_info->fake_phase_modulation_phase_help = gengetopt_args_info_help[101] ;
-  args_info->fake_injection_window_help = gengetopt_args_info_help[102] ;
-  args_info->fake_injection_w_size_help = gengetopt_args_info_help[103] ;
-  args_info->snr_precision_help = gengetopt_args_info_help[104] ;
-  args_info->max_candidates_help = gengetopt_args_info_help[105] ;
-  args_info->min_candidate_snr_help = gengetopt_args_info_help[106] ;
-  args_info->output_initial_help = gengetopt_args_info_help[107] ;
-  args_info->output_optimized_help = gengetopt_args_info_help[108] ;
-  args_info->output_cache_help = gengetopt_args_info_help[109] ;
-  args_info->extended_test_help = gengetopt_args_info_help[110] ;
-  args_info->max_sft_report_help = gengetopt_args_info_help[111] ;
-  args_info->num_threads_help = gengetopt_args_info_help[112] ;
-  args_info->niota_help = gengetopt_args_info_help[113] ;
-  args_info->npsi_help = gengetopt_args_info_help[114] ;
-  args_info->nfshift_help = gengetopt_args_info_help[115] ;
-  args_info->nchunks_help = gengetopt_args_info_help[116] ;
-  args_info->split_ifos_help = gengetopt_args_info_help[117] ;
-  args_info->default_dataset_veto_level_help = gengetopt_args_info_help[118] ;
-  args_info->default_dataset_veto_spike_level_help = gengetopt_args_info_help[119] ;
-  args_info->weight_cutoff_fraction_help = gengetopt_args_info_help[120] ;
-  args_info->per_dataset_weight_cutoff_fraction_help = gengetopt_args_info_help[121] ;
-  args_info->power_max_median_factor_help = gengetopt_args_info_help[122] ;
-  args_info->tmedian_noise_level_help = gengetopt_args_info_help[123] ;
-  args_info->summing_step_help = gengetopt_args_info_help[124] ;
-  args_info->max_first_shift_help = gengetopt_args_info_help[125] ;
-  args_info->statistics_function_help = gengetopt_args_info_help[126] ;
-  args_info->confidence_level_help = gengetopt_args_info_help[127] ;
-  args_info->x_epsilon_help = gengetopt_args_info_help[128] ;
-  args_info->dump_power_sums_help = gengetopt_args_info_help[129] ;
-  args_info->compute_skymaps_help = gengetopt_args_info_help[130] ;
-  args_info->fine_grid_skymarks_help = gengetopt_args_info_help[131] ;
-  args_info->half_window_help = gengetopt_args_info_help[132] ;
-  args_info->tail_veto_help = gengetopt_args_info_help[133] ;
-  args_info->cache_granularity_help = gengetopt_args_info_help[134] ;
-  args_info->diff_shift_granularity_help = gengetopt_args_info_help[135] ;
-  args_info->sidereal_group_count_help = gengetopt_args_info_help[136] ;
-  args_info->time_group_count_help = gengetopt_args_info_help[137] ;
-  args_info->phase_mismatch_help = gengetopt_args_info_help[138] ;
-  args_info->bypass_powersum_cache_help = gengetopt_args_info_help[139] ;
-  args_info->compute_cross_terms_help = gengetopt_args_info_help[140] ;
-  args_info->mixed_dataset_only_help = gengetopt_args_info_help[141] ;
-  args_info->preallocate_memory_help = gengetopt_args_info_help[142] ;
-  args_info->memory_allocation_retries_help = gengetopt_args_info_help[143] ;
-  args_info->sse_help = gengetopt_args_info_help[144] ;
-  args_info->extra_phase_help = gengetopt_args_info_help[145] ;
+  args_info->viterbi_power_sums_help = gengetopt_args_info_help[73] ;
+  args_info->write_dat_help = gengetopt_args_info_help[74] ;
+  args_info->write_png_help = gengetopt_args_info_help[75] ;
+  args_info->dump_points_help = gengetopt_args_info_help[76] ;
+  args_info->dump_candidates_help = gengetopt_args_info_help[77] ;
+  args_info->focus_ra_help = gengetopt_args_info_help[78] ;
+  args_info->focus_dec_help = gengetopt_args_info_help[79] ;
+  args_info->focus_radius_help = gengetopt_args_info_help[80] ;
+  args_info->only_large_cos_help = gengetopt_args_info_help[81] ;
+  args_info->focus_type_help = gengetopt_args_info_help[82] ;
+  args_info->binary_template_file_help = gengetopt_args_info_help[83] ;
+  args_info->binary_template_nsky_help = gengetopt_args_info_help[84] ;
+  args_info->binary_template_nshift_help = gengetopt_args_info_help[85] ;
+  args_info->fake_linear_help = gengetopt_args_info_help[87] ;
+  args_info->fake_circular_help = gengetopt_args_info_help[88] ;
+  args_info->fake_ref_time_help = gengetopt_args_info_help[89] ;
+  args_info->fake_ra_help = gengetopt_args_info_help[90] ;
+  args_info->fake_dec_help = gengetopt_args_info_help[91] ;
+  args_info->fake_iota_help = gengetopt_args_info_help[92] ;
+  args_info->fake_psi_help = gengetopt_args_info_help[93] ;
+  args_info->fake_phi_help = gengetopt_args_info_help[94] ;
+  args_info->fake_spindown_help = gengetopt_args_info_help[95] ;
+  args_info->fake_fdotdot_help = gengetopt_args_info_help[96] ;
+  args_info->fake_strain_help = gengetopt_args_info_help[97] ;
+  args_info->fake_freq_help = gengetopt_args_info_help[98] ;
+  args_info->fake_dInv_help = gengetopt_args_info_help[99] ;
+  args_info->fake_freq_modulation_depth_help = gengetopt_args_info_help[100] ;
+  args_info->fake_freq_modulation_freq_help = gengetopt_args_info_help[101] ;
+  args_info->fake_freq_modulation_phase_help = gengetopt_args_info_help[102] ;
+  args_info->fake_phase_modulation_depth_help = gengetopt_args_info_help[103] ;
+  args_info->fake_phase_modulation_freq_help = gengetopt_args_info_help[104] ;
+  args_info->fake_phase_modulation_phase_help = gengetopt_args_info_help[105] ;
+  args_info->fake_injection_window_help = gengetopt_args_info_help[106] ;
+  args_info->fake_injection_w_size_help = gengetopt_args_info_help[107] ;
+  args_info->snr_precision_help = gengetopt_args_info_help[108] ;
+  args_info->max_candidates_help = gengetopt_args_info_help[109] ;
+  args_info->min_candidate_snr_help = gengetopt_args_info_help[110] ;
+  args_info->divert_snr_help = gengetopt_args_info_help[111] ;
+  args_info->divert_ul_help = gengetopt_args_info_help[112] ;
+  args_info->output_initial_help = gengetopt_args_info_help[113] ;
+  args_info->output_optimized_help = gengetopt_args_info_help[114] ;
+  args_info->output_cache_help = gengetopt_args_info_help[115] ;
+  args_info->progress_update_interval_help = gengetopt_args_info_help[116] ;
+  args_info->extended_test_help = gengetopt_args_info_help[117] ;
+  args_info->max_sft_report_help = gengetopt_args_info_help[118] ;
+  args_info->num_threads_help = gengetopt_args_info_help[119] ;
+  args_info->num_threads_env_help = gengetopt_args_info_help[120] ;
+  args_info->niota_help = gengetopt_args_info_help[121] ;
+  args_info->npsi_help = gengetopt_args_info_help[122] ;
+  args_info->nfshift_help = gengetopt_args_info_help[123] ;
+  args_info->nchunks_help = gengetopt_args_info_help[124] ;
+  args_info->nchunks_refinement_help = gengetopt_args_info_help[125] ;
+  args_info->min_nchunks_help = gengetopt_args_info_help[126] ;
+  args_info->split_ifos_help = gengetopt_args_info_help[127] ;
+  args_info->default_dataset_veto_level_help = gengetopt_args_info_help[128] ;
+  args_info->default_dataset_veto_spike_level_help = gengetopt_args_info_help[129] ;
+  args_info->weight_cutoff_fraction_help = gengetopt_args_info_help[130] ;
+  args_info->per_dataset_weight_cutoff_fraction_help = gengetopt_args_info_help[131] ;
+  args_info->power_max_median_factor_help = gengetopt_args_info_help[132] ;
+  args_info->tmedian_noise_level_help = gengetopt_args_info_help[133] ;
+  args_info->summing_step_help = gengetopt_args_info_help[134] ;
+  args_info->max_first_shift_help = gengetopt_args_info_help[135] ;
+  args_info->statistics_function_help = gengetopt_args_info_help[136] ;
+  args_info->confidence_level_help = gengetopt_args_info_help[137] ;
+  args_info->x_epsilon_help = gengetopt_args_info_help[138] ;
+  args_info->dump_power_sums_help = gengetopt_args_info_help[139] ;
+  args_info->compute_skymaps_help = gengetopt_args_info_help[140] ;
+  args_info->fine_grid_skymarks_help = gengetopt_args_info_help[141] ;
+  args_info->half_window_help = gengetopt_args_info_help[142] ;
+  args_info->tail_veto_help = gengetopt_args_info_help[143] ;
+  args_info->cache_granularity_help = gengetopt_args_info_help[144] ;
+  args_info->diff_shift_granularity_help = gengetopt_args_info_help[145] ;
+  args_info->sidereal_group_count_help = gengetopt_args_info_help[146] ;
+  args_info->time_group_count_help = gengetopt_args_info_help[147] ;
+  args_info->phase_mismatch_help = gengetopt_args_info_help[148] ;
+  args_info->bypass_powersum_cache_help = gengetopt_args_info_help[149] ;
+  args_info->compute_cross_terms_help = gengetopt_args_info_help[150] ;
+  args_info->mixed_dataset_only_help = gengetopt_args_info_help[151] ;
+  args_info->preallocate_memory_help = gengetopt_args_info_help[152] ;
+  args_info->memory_allocation_retries_help = gengetopt_args_info_help[153] ;
+  args_info->sse_help = gengetopt_args_info_help[154] ;
+  args_info->extra_phase_help = gengetopt_args_info_help[155] ;
   args_info->extra_phase_min = 0;
   args_info->extra_phase_max = 0;
   
@@ -1028,6 +1078,7 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->upper_limit_comp_orig));
   free_string_field (&(args_info->lower_limit_comp_arg));
   free_string_field (&(args_info->lower_limit_comp_orig));
+  free_string_field (&(args_info->viterbi_power_sums_orig));
   free_string_field (&(args_info->write_dat_arg));
   free_string_field (&(args_info->write_dat_orig));
   free_string_field (&(args_info->write_png_arg));
@@ -1040,6 +1091,10 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->only_large_cos_orig));
   free_string_field (&(args_info->focus_type_arg));
   free_string_field (&(args_info->focus_type_orig));
+  free_string_field (&(args_info->binary_template_file_arg));
+  free_string_field (&(args_info->binary_template_file_orig));
+  free_string_field (&(args_info->binary_template_nsky_orig));
+  free_string_field (&(args_info->binary_template_nshift_orig));
   free_string_field (&(args_info->fake_ref_time_orig));
   free_string_field (&(args_info->fake_ra_orig));
   free_string_field (&(args_info->fake_dec_orig));
@@ -1062,16 +1117,23 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->snr_precision_orig));
   free_string_field (&(args_info->max_candidates_orig));
   free_string_field (&(args_info->min_candidate_snr_orig));
+  free_string_field (&(args_info->divert_snr_orig));
+  free_string_field (&(args_info->divert_ul_orig));
   free_string_field (&(args_info->output_initial_orig));
   free_string_field (&(args_info->output_optimized_orig));
   free_string_field (&(args_info->output_cache_orig));
+  free_string_field (&(args_info->progress_update_interval_orig));
   free_string_field (&(args_info->extended_test_orig));
   free_string_field (&(args_info->max_sft_report_orig));
   free_string_field (&(args_info->num_threads_orig));
+  free_string_field (&(args_info->num_threads_env_arg));
+  free_string_field (&(args_info->num_threads_env_orig));
   free_string_field (&(args_info->niota_orig));
   free_string_field (&(args_info->npsi_orig));
   free_string_field (&(args_info->nfshift_orig));
   free_string_field (&(args_info->nchunks_orig));
+  free_string_field (&(args_info->nchunks_refinement_orig));
+  free_string_field (&(args_info->min_nchunks_orig));
   free_string_field (&(args_info->split_ifos_orig));
   free_string_field (&(args_info->default_dataset_veto_level_orig));
   free_string_field (&(args_info->default_dataset_veto_spike_level_orig));
@@ -1285,6 +1347,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "upper-limit-comp", args_info->upper_limit_comp_orig, 0);
   if (args_info->lower_limit_comp_given)
     write_into_file(outfile, "lower-limit-comp", args_info->lower_limit_comp_orig, 0);
+  if (args_info->viterbi_power_sums_given)
+    write_into_file(outfile, "viterbi-power-sums", args_info->viterbi_power_sums_orig, 0);
   if (args_info->write_dat_given)
     write_into_file(outfile, "write-dat", args_info->write_dat_orig, 0);
   if (args_info->write_png_given)
@@ -1303,6 +1367,12 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "only-large-cos", args_info->only_large_cos_orig, 0);
   if (args_info->focus_type_given)
     write_into_file(outfile, "focus-type", args_info->focus_type_orig, 0);
+  if (args_info->binary_template_file_given)
+    write_into_file(outfile, "binary-template-file", args_info->binary_template_file_orig, 0);
+  if (args_info->binary_template_nsky_given)
+    write_into_file(outfile, "binary-template-nsky", args_info->binary_template_nsky_orig, 0);
+  if (args_info->binary_template_nshift_given)
+    write_into_file(outfile, "binary-template-nshift", args_info->binary_template_nshift_orig, 0);
   if (args_info->fake_linear_given)
     write_into_file(outfile, "fake-linear", 0, 0 );
   if (args_info->fake_circular_given)
@@ -1351,18 +1421,26 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "max-candidates", args_info->max_candidates_orig, 0);
   if (args_info->min_candidate_snr_given)
     write_into_file(outfile, "min-candidate-snr", args_info->min_candidate_snr_orig, 0);
+  if (args_info->divert_snr_given)
+    write_into_file(outfile, "divert-snr", args_info->divert_snr_orig, 0);
+  if (args_info->divert_ul_given)
+    write_into_file(outfile, "divert-ul", args_info->divert_ul_orig, 0);
   if (args_info->output_initial_given)
     write_into_file(outfile, "output-initial", args_info->output_initial_orig, 0);
   if (args_info->output_optimized_given)
     write_into_file(outfile, "output-optimized", args_info->output_optimized_orig, 0);
   if (args_info->output_cache_given)
     write_into_file(outfile, "output-cache", args_info->output_cache_orig, 0);
+  if (args_info->progress_update_interval_given)
+    write_into_file(outfile, "progress-update-interval", args_info->progress_update_interval_orig, 0);
   if (args_info->extended_test_given)
     write_into_file(outfile, "extended-test", args_info->extended_test_orig, 0);
   if (args_info->max_sft_report_given)
     write_into_file(outfile, "max-sft-report", args_info->max_sft_report_orig, 0);
   if (args_info->num_threads_given)
     write_into_file(outfile, "num-threads", args_info->num_threads_orig, 0);
+  if (args_info->num_threads_env_given)
+    write_into_file(outfile, "num-threads-env", args_info->num_threads_env_orig, 0);
   if (args_info->niota_given)
     write_into_file(outfile, "niota", args_info->niota_orig, 0);
   if (args_info->npsi_given)
@@ -1371,6 +1449,10 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "nfshift", args_info->nfshift_orig, 0);
   if (args_info->nchunks_given)
     write_into_file(outfile, "nchunks", args_info->nchunks_orig, 0);
+  if (args_info->nchunks_refinement_given)
+    write_into_file(outfile, "nchunks-refinement", args_info->nchunks_refinement_orig, 0);
+  if (args_info->min_nchunks_given)
+    write_into_file(outfile, "min-nchunks", args_info->min_nchunks_orig, 0);
   if (args_info->split_ifos_given)
     write_into_file(outfile, "split-ifos", args_info->split_ifos_orig, 0);
   if (args_info->default_dataset_veto_level_given)
@@ -2073,6 +2155,7 @@ cmdline_parser_internal (
         { "compute-betas",	1, NULL, 0 },
         { "upper-limit-comp",	1, NULL, 0 },
         { "lower-limit-comp",	1, NULL, 0 },
+        { "viterbi-power-sums",	1, NULL, 0 },
         { "write-dat",	1, NULL, 0 },
         { "write-png",	1, NULL, 0 },
         { "dump-points",	1, NULL, 0 },
@@ -2082,6 +2165,9 @@ cmdline_parser_internal (
         { "focus-radius",	1, NULL, 0 },
         { "only-large-cos",	1, NULL, 0 },
         { "focus-type",	1, NULL, 0 },
+        { "binary-template-file",	1, NULL, 0 },
+        { "binary-template-nsky",	1, NULL, 0 },
+        { "binary-template-nshift",	1, NULL, 0 },
         { "fake-linear",	0, NULL, 0 },
         { "fake-circular",	0, NULL, 0 },
         { "fake-ref-time",	1, NULL, 0 },
@@ -2106,16 +2192,22 @@ cmdline_parser_internal (
         { "snr-precision",	1, NULL, 0 },
         { "max-candidates",	1, NULL, 0 },
         { "min-candidate-snr",	1, NULL, 0 },
+        { "divert-snr",	1, NULL, 0 },
+        { "divert-ul",	1, NULL, 0 },
         { "output-initial",	1, NULL, 0 },
         { "output-optimized",	1, NULL, 0 },
         { "output-cache",	1, NULL, 0 },
+        { "progress-update-interval",	1, NULL, 0 },
         { "extended-test",	1, NULL, 0 },
         { "max-sft-report",	1, NULL, 0 },
         { "num-threads",	1, NULL, 0 },
+        { "num-threads-env",	1, NULL, 0 },
         { "niota",	1, NULL, 0 },
         { "npsi",	1, NULL, 0 },
         { "nfshift",	1, NULL, 0 },
         { "nchunks",	1, NULL, 0 },
+        { "nchunks-refinement",	1, NULL, 0 },
+        { "min-nchunks",	1, NULL, 0 },
         { "split-ifos",	1, NULL, 0 },
         { "default-dataset-veto-level",	1, NULL, 0 },
         { "default-dataset-veto-spike-level",	1, NULL, 0 },
@@ -3143,6 +3235,20 @@ cmdline_parser_internal (
               goto failure;
           
           }
+          /* Use Viterbi-like algorithm to accumulate power sums between segments, accomodating long term deviations in frequency evolution.  */
+          else if (strcmp (long_options[option_index].name, "viterbi-power-sums") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->viterbi_power_sums_arg), 
+                 &(args_info->viterbi_power_sums_orig), &(args_info->viterbi_power_sums_given),
+                &(local_args_info.viterbi_power_sums_given), optarg, 0, "0", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "viterbi-power-sums", '-',
+                additional_error))
+              goto failure;
+          
+          }
           /* regular expression describing which *.dat files to write.  */
           else if (strcmp (long_options[option_index].name, "write-dat") == 0)
           {
@@ -3265,6 +3371,48 @@ cmdline_parser_internal (
                 &(local_args_info.focus_type_given), optarg, 0, "equatorial", ARG_STRING,
                 check_ambiguity, override, 0, 0,
                 "focus-type", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* use data from this file to generate templates, file has same format as diverted.log..  */
+          else if (strcmp (long_options[option_index].name, "binary-template-file") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->binary_template_file_arg), 
+                 &(args_info->binary_template_file_orig), &(args_info->binary_template_file_given),
+                &(local_args_info.binary_template_file_given), optarg, 0, "", ARG_STRING,
+                check_ambiguity, override, 0, 0,
+                "binary-template-file", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* size of square sky grid to use for followup.  */
+          else if (strcmp (long_options[option_index].name, "binary-template-nsky") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->binary_template_nsky_arg), 
+                 &(args_info->binary_template_nsky_orig), &(args_info->binary_template_nsky_given),
+                &(local_args_info.binary_template_nsky_given), optarg, 0, "3", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "binary-template-nsky", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* number of subfrequency shifts to followup.  */
+          else if (strcmp (long_options[option_index].name, "binary-template-nshift") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->binary_template_nshift_arg), 
+                 &(args_info->binary_template_nshift_orig), &(args_info->binary_template_nshift_given),
+                &(local_args_info.binary_template_nshift_given), optarg, 0, "3", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "binary-template-nshift", '-',
                 additional_error))
               goto failure;
           
@@ -3611,6 +3759,34 @@ cmdline_parser_internal (
               goto failure;
           
           }
+          /* Divert templates with SNR at or above this level for separate analysis.  */
+          else if (strcmp (long_options[option_index].name, "divert-snr") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->divert_snr_arg), 
+                 &(args_info->divert_snr_orig), &(args_info->divert_snr_given),
+                &(local_args_info.divert_snr_given), optarg, 0, "-1.0", ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "divert-snr", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Divert templates with SNR at or above this upper limit level for separate analysis.  */
+          else if (strcmp (long_options[option_index].name, "divert-ul") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->divert_ul_arg), 
+                 &(args_info->divert_ul_orig), &(args_info->divert_ul_given),
+                &(local_args_info.divert_ul_given), optarg, 0, "-1.0", ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "divert-ul", '-',
+                additional_error))
+              goto failure;
+          
+          }
           /* write initial candidates into log file.  */
           else if (strcmp (long_options[option_index].name, "output-initial") == 0)
           {
@@ -3653,6 +3829,20 @@ cmdline_parser_internal (
               goto failure;
           
           }
+          /* integer value controlling frequency of progress updates.  */
+          else if (strcmp (long_options[option_index].name, "progress-update-interval") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->progress_update_interval_arg), 
+                 &(args_info->progress_update_interval_orig), &(args_info->progress_update_interval_given),
+                &(local_args_info.progress_update_interval_given), optarg, 0, "100", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "progress-update-interval", '-',
+                additional_error))
+              goto failure;
+          
+          }
           /* Perform extended self test functions given by this bitmask.  */
           else if (strcmp (long_options[option_index].name, "extended-test") == 0)
           {
@@ -3691,6 +3881,20 @@ cmdline_parser_internal (
                 &(local_args_info.num_threads_given), optarg, 0, "-1", ARG_INT,
                 check_ambiguity, override, 0, 0,
                 "num-threads", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Use this environment variable to obtain num-threads.  */
+          else if (strcmp (long_options[option_index].name, "num-threads-env") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->num_threads_env_arg), 
+                 &(args_info->num_threads_env_orig), &(args_info->num_threads_env_given),
+                &(local_args_info.num_threads_env_given), optarg, 0, "", ARG_STRING,
+                check_ambiguity, override, 0, 0,
+                "num-threads-env", '-',
                 additional_error))
               goto failure;
           
@@ -3747,6 +3951,34 @@ cmdline_parser_internal (
                 &(local_args_info.nchunks_given), optarg, 0, "5", ARG_INT,
                 check_ambiguity, override, 0, 0,
                 "nchunks", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Reduce reported statistics by this factor..  */
+          else if (strcmp (long_options[option_index].name, "nchunks-refinement") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->nchunks_refinement_arg), 
+                 &(args_info->nchunks_refinement_orig), &(args_info->nchunks_refinement_given),
+                &(local_args_info.nchunks_refinement_given), optarg, 0, "1", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "nchunks-refinement", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Do not output statistics with fewer than this many chunks.  */
+          else if (strcmp (long_options[option_index].name, "min-nchunks") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->min_nchunks_arg), 
+                 &(args_info->min_nchunks_orig), &(args_info->min_nchunks_given),
+                &(local_args_info.min_nchunks_given), optarg, 0, "1", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "min-nchunks", '-',
                 additional_error))
               goto failure;
           

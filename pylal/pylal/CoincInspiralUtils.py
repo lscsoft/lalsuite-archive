@@ -25,10 +25,7 @@ class ExtractCoincInspiralTableLIGOLWContentHandler(ligolw.PartialLIGOLWContentH
   """
   def __init__(self,document):
     def filterfunc(name,attrs):
-      if name==ligolw.Table.tagName and attrs.has_key('Name'):
-        return 0==table.CompareTableNames(attrs.get('Name'), lsctables.CoincInspiralTable.tableName)
-      else:
-        return False
+      return name==ligolw.Table.tagName and attrs.has_key('Name') and table.Table.TableName(attrs.get('Name'))==lsctables.CoincInspiralTable.tableName
     ligolw.PartialLIGOLWContentHandler.__init__(self,document,filterfunc)
 
 
@@ -93,15 +90,13 @@ def readCoincInspiralFromFiles(fileList,statistic=None):
     doc = utils.load_filename(thisFile, gz = (thisFile or "stdin").endswith(".gz"), contenthandler=ExtractCoincInspiralTableLIGOLWContentHandler)
     # extract the sim inspiral table
     try: 
-      simInspiralTable = \
-          table.get_table(doc, lsctables.SimInspiralTable.tableName)
+      simInspiralTable = lsctables.SimInspiralTable.get_table(doc)
       if sims: sims.extend(simInspiralTable)
       else: sims = simInspiralTable
     except: simInspiralTable = None
 
     # extract the sngl inspiral table, construct coincs
-    try: snglInspiralTable = \
-      table.get_table(doc, lsctables.SnglInspiralTable.tableName)
+    try: snglInspiralTable = lsctables.SnglInspiralTable.get_table(doc)
     except: snglInspiralTable = None
     if snglInspiralTable:
       coincFromFile = coincInspiralTable(snglInspiralTable,statistic)

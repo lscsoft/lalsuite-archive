@@ -6,8 +6,8 @@
 #       Benjamin Aylott <benjamin.aylott@ligo.org>,
 #       Benjamin Farr <bfarr@u.northwestern.edu>,
 #       Will M. Farr <will.farr@ligo.org>,
-#       John Veitch <john.veitch@ligo.org>
-#       Salvatore Vitale <salvatore.vitale@ligo.org>
+#       John Veitch <john.veitch@ligo.org>,
+#       Salvatore Vitale <salvatore.vitale@ligo.org>,
 #       Vivien Raymond <vivien.raymond@ligo.org>
 #
 #       This program is free software; you can redistribute it and/or modify
@@ -43,9 +43,10 @@ from xml.dom import minidom
 from operator import itemgetter
 
 #related third party imports
+from lalinference.io import read_samples
 import healpy as hp
-import lalinference.cmap
-import lalinference.plot as lp
+import astropy.table
+import lalinference.plot.cmap
 import numpy as np
 from numpy import fmod
 import matplotlib
@@ -59,6 +60,8 @@ from numpy import linspace
 import random
 import socket
 from itertools import combinations
+from lalinference import LALInferenceHDF5PosteriorSamplesDatasetName as posterior_grp_name
+import re
 
 try:
     import lalsimulation as lalsim
@@ -83,11 +86,7 @@ if hostname_short=='ligo.caltech.edu' or hostname_short=='cluster.ldas.cit': #Th
                              'mathtext.fallback_to_cm' : True
                              })
 
-try:
-    from xml.etree.cElementTree import Element, SubElement, ElementTree, Comment, tostring, XMLParser
-except ImportError:
-    #Python < 2.5
-    from cElementTree import Element, SubElement, ElementTree, Comment, tostring, XMLParser
+from xml.etree.cElementTree import Element, SubElement, ElementTree, Comment, tostring, XMLParser
 
 #local application/library specific imports
 import pylal
@@ -102,11 +101,30 @@ __author__="Ben Aylott <benjamin.aylott@ligo.org>, Ben Farr <bfarr@u.northwester
 __version__= "git id %s"%git_version.id
 __date__= git_version.date
 
+def replace_column(table, old, new):
+    """Workaround for missing astropy.table.Table.replace_column method,
+    which was added in Astropy 1.1.
+
+    FIXME: remove this function when LALSuite depends on Astropy >= 1.1."""
+    index = table.colnames.index(old)
+    table.remove_column(old)
+    table.add_column(astropy.table.Column(new, name=old), index=index)
+
+def as_array(table):
+    """Workaround for missing astropy.table.Table.as_array method,
+    which was added in Astropy 1.0.
+
+    FIXME: remove this function when LALSuite depends on Astropy >= 1.0."""
+    try:
+        return table.as_array()
+    except:
+        return table._data
+
 #===============================================================================
 # Constants
 #===============================================================================
 #Parameters which are not to be exponentiated when found
-logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior']
+logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior','logpost','nulllogl','chain_log_evidence','chain_delta_log_evidence','chain_log_noise_evidence','chain_log_bayes_factor']
 #Parameters known to cbcBPP
 relativePhaseParams=[ a+b+'_relative_phase' for a,b in combinations(['h1','l1','v1'],2)]
 snrParams=['snr','optimal_snr','matched_filter_snr'] + ['%s_optimal_snr'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_amp'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_arg'%(i) for i in ['h1', 'l1', 'v1']] + relativePhaseParams
@@ -124,7 +142,7 @@ spinParams=spinParamsPrec+spinParamsEff+spinParamsAli
 cosmoParam=['m1_source','m2_source','mtotal_source','mc_source','redshift','mf_source']
 #Strong Field
 ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB','alphaPPE','aPPE','betaPPE','bPPE']
-tigerParams=['dphi%i'%(i) for i in range(7)] + ['dphi%il'%(i) for i in [5,6] ]
+tigerParams=['dchi%i'%(i) for i in range(8)] + ['dchi%il'%(i) for i in [5,6] ] + ['dxi%d'%(i+1) for i in range(6)] + ['dalpha%i'%(i+1) for i in range(5)] + ['dbeta%i'%(i+1) for i in range(3)] + ['dsigma%i'%(i+1) for i in range(4)]
 bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
 massiveGravitonParams=['lambdaG']
 tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat']
@@ -359,6 +377,7 @@ def plot_label(param):
   ra_names = ['rightascension','ra']
   dec_names = ['declination','dec']
   phase_names = ['phi_orb', 'phi', 'phase', 'phi0']
+  gr_test_names = ['dchi%d'%i for i in range(8)]+['dchil%d'%i for i in [5,6]]+['dxi%d'%(i+1) for i in range(6)]+['dalpha%d'%(i+1) for i in range(5)]+['dbeta%d'%(i+1) for i in range(3)]+['dsigma%d'%(i+1) for i in range(4)]
 
   labels={
       'm1':r'$m_1\,(\mathrm{M}_\odot)$',
@@ -428,7 +447,35 @@ def plot_label(param):
       'calpha_l1' : r'$\delta \phi_{L1}$',
       'polar_eccentricity':r'$\epsilon_{polar}$',
       'polar_angle':r'$\alpha_{polar}$',
-      'alpha':r'$\alpha_{polar}$'
+      'alpha':r'$\alpha_{polar}$',
+      'dchi0':r'$d\chi_0$',
+      'dchi1':r'$d\chi_1$',
+      'dchi2':r'$d\chi_2$',
+      'dchi3':r'$d\chi_3$',
+      'dchi4':r'$d\chi_4$',
+      'dchi5':r'$d\chi_5$',
+      'dchi5l':r'$d\chi_{5}^{(l)}$',
+      'dchi6':r'$d\chi_6$',
+      'dchi6l':r'$d\chi_{6}^{(l)}$',
+      'dchi7':r'$d\chi_7$',
+      'dxi1':r'$d\xi_1$',
+      'dxi2':r'$d\xi_2$',
+      'dxi3':r'$d\xi_3$',
+      'dxi4':r'$d\xi_4$',
+      'dxi5':r'$d\xi_5$',
+      'dxi6':r'$d\xi_6$',
+      'dalpha1':r'$d\alpha_1$',
+      'dalpha2':r'$d\alpha_2$',
+      'dalpha3':r'$d\alpha_3$',
+      'dalpha4':r'$d\alpha_4$',
+      'dalpha5':r'$d\alpha_5$',
+      'dbeta1':r'$d\beta_1$',
+      'dbeta2':r'$d\beta_2$',
+      'dbeta3':r'$d\beta_3$',
+      'dsigma1':r'$d\sigma_1$',
+      'dsigma2':r'$d\sigma_2$',
+      'dsigma3':r'$d\sigma_3$',
+      'dsigma4':r'$d\sigma_4$',
     }
 
   # Handle cases where multiple names have been used
@@ -653,13 +700,13 @@ class PosteriorOneDPDF(object):
     def KL(self):
         """Returns the KL divergence between the prior and the posterior.
         It measures the relative information content in nats. The prior is evaluated
-        at run time. It defaults to None. If None is passed, it just returns the information content 
+        at run time. It defaults to None. If None is passed, it just returns the information content
         of the posterior."
         """
-        
+
         def uniform(x):
             return np.array([1./(np.max(x)-np.min(x)) for _ in x])
-        
+
         posterior, dx = np.histogram(self.samples,bins=36,normed=True)
         from scipy.stats import entropy
         # check the kind of prior and process the string accordingly
@@ -680,9 +727,9 @@ class PosteriorOneDPDF(object):
             prior_dist = eval(prior)
         except:
             raise ValueError
-        
+
         return entropy(posterior, qk=prior_dist)
-    
+
     def prob_interval(self,intervals):
         """
         Evaluate probability intervals.
@@ -907,7 +954,6 @@ class Posterior(object):
           and ('declination' in pos.names or 'dec' in pos.names) \
           and 'time' in pos.names:
               from pylal import xlal,inject
-              from pylal.xlal import datatypes
               from pylal import date
               from pylal.date import XLALTimeDelayFromEarthCenter
               from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -954,7 +1000,7 @@ class Posterior(object):
               pos.append_mapping(new_spin_params, spin_angles, old_params)
           except KeyError:
               print "Warning: Cannot find spin parameters.  Skipping spin angle calculations."
-                
+
       #Calculate effective precessing spin magnitude
       if ('a1' in pos.names and 'tilt1' in pos.names and 'm1' in pos.names ) and ('a2' in pos.names and 'tilt2' in pos.names and 'm2' in pos.names):
           pos.append_mapping('chi_p', chi_precessing, ['a1', 'tilt1', 'm1', 'a2', 'tilt2', 'm2'])
@@ -963,14 +1009,14 @@ class Posterior(object):
       # Calculate redshift from luminosity distance measurements
       if('distance' in pos.names):
           pos.append_mapping('redshift', calculate_redshift, 'distance')
-     
+
       # Calculate source mass parameters
       if ('m1' in pos.names) and ('redshift' in pos.names):
           pos.append_mapping('m1_source', source_mass, ['m1', 'redshift'])
 
       if ('m2' in pos.names) and ('redshift' in pos.names):
           pos.append_mapping('m2_source', source_mass, ['m2', 'redshift'])
-        
+
       if ('mtotal' in pos.names) and ('redshift' in pos.names):
           pos.append_mapping('mtotal_source', source_mass, ['mtotal', 'redshift'])
 
@@ -1112,14 +1158,14 @@ class Posterior(object):
               pos.append_mapping('mf_source', source_mass, ['mf', 'redshift'])
           except Exception,e:
               print "Could not calculate final source frame mass. The error was: %s"%(str(e))
-    
+
       # Calculate radiated energy and peak luminosity
       if ('mtotal_source' in pos.names) and ('mf_source' in pos.names):
           try:
               pos.append_mapping('e_rad', lambda mtot_s, mf_s: mtot_s-mf_s, ['mtotal_source', 'mf_source'])
           except Exception,e:
               print "Could not calculate radiated energy. The error was: %s"%(str(e))
-      
+
       if ('q' in pos.names) and ('a1z' in pos.names) and ('a2z' in pos.names):
           try:
               pos.append_mapping('l_peak', bbh_aligned_Lpeak_6mode_SHXJDK, ['q', 'a1z', 'a2z'])
@@ -1195,7 +1241,7 @@ class Posterior(object):
         """
 
         return -2.0*(np.mean(self._logL) - np.var(self._logL))
-    
+
     @property
     def injection(self):
         """
@@ -1236,9 +1282,10 @@ class Posterior(object):
         header=header.split()
         if not ('cycle' in header):
             raise RuntimeError("Cannot compute number of cycles in longest chain")
+
+        cycle_col=header.index('cycle')
         if 'chain' in header:
             chain_col=header.index('chain')
-            cycle_col=header.index('cycle')
             chain_indexes=np.unique(samps[:,chain_col])
             max_cycle=0
             for ind in chain_indexes:
@@ -1802,7 +1849,7 @@ class Posterior(object):
             hpmap = hp.reorder(hpmap, r2n=True)
 
         return hpmap
-        
+
     def __str__(self):
         """
         Define a string representation of the Posterior class ; returns
@@ -1935,7 +1982,7 @@ class Posterior(object):
                 lalsim.SimInspiralInitialConditionsPrecessingApproxs(inj.inclination,
                                                                      inj.spin1x, inj.spin1y, inj.spin1z,
                                                                      inj.spin2x, inj.spin2y, inj.spin2z,
-                                                                     m1*lal.MSUN_SI, m2*lal.MSUN_SI, f_ref, axis)
+                                                                     m1*lal.MSUN_SI, m2*lal.MSUN_SI, f_ref, inj.coa_phase, axis)
 
             a1, theta1, phi1 = cart2sph(s1x, s1y, s1z)
             a2, theta2, phi2 = cart2sph(s2x, s2y, s2z)
@@ -1949,7 +1996,7 @@ class Posterior(object):
                 spins['a1z'] = inj.spin1z
                 spins['a2z'] = inj.spin2z
 
-            L  = orbital_momentum(f_ref, mc, iota)
+            L  = orbital_momentum(f_ref, m1,m2, iota)
             S1 = np.hstack((s1x, s1y, s1z))
             S2 = np.hstack((s2x, s2y, s2z))
 
@@ -3597,9 +3644,10 @@ def plot_sky_map(hpmap, outdir, inj=None, nest=True):
     :param nest: Flag indicating the pixel ordering in healpix.
 
     """
+    import lalinference.plot as lp
 
     fig = plt.figure(frameon=False, figsize=(8,6))
-    ax = plt.subplot(111, projection='astro mollweide')
+    ax = plt.subplot(111, projection='astro hours mollweide')
     ax.cla()
     ax.grid()
     lp.healpix_heatmap(hpmap, nest=nest, vmin=0.0, vmax=np.max(hpmap), cmap=plt.get_cmap('cylon'))
@@ -3624,7 +3672,7 @@ def skymap_confidence_areas(hpmap, cls):
 
     pixarea = hp.nside2pixarea(hp.npix2nside(hpmap.shape[0]))
     pixarea = pixarea*(180.0/np.pi)**2 # In square degrees
-    
+
     areas = []
     for cl in cls:
         npix = np.sum(cum_hpmap < cl) # How many pixels to sum before cl?
@@ -3797,7 +3845,7 @@ def ROTATEY(angle, vx, vy, vz):
     tmp2 = - vx*np.sin(angle) + vz*np.cos(angle);
     return np.asarray([tmp1,vy,tmp2])
 
-def orbital_momentum(fref, mc, inclination):
+def orbital_momentum(fref, m1,m2, inclination):
     """
     Calculate orbital angular momentum vector.
     Note: The units of Lmag are different than what used in lalsimulation.
@@ -3806,13 +3854,19 @@ def orbital_momentum(fref, mc, inclination):
     Note that if one wants to build J=L+S1+S2 with L returned by this function, S1 and S2
     must not get the Msun^2 factor.
     """
-    Lmag = orbital_momentum_mag(fref, mc)
+    eta = m1*m2/( (m1+m2)*(m1+m2) )
+    Lmag = orbital_momentum_mag(fref, m1,m2,eta)
     Lx, Ly, Lz = sph2cart(Lmag, inclination, 0.0)
     return np.hstack((Lx,Ly,Lz))
 #
 #
-def orbital_momentum_mag(fref, mc):
-    return np.power(mc, 5.0/3.0) / np.power(pi_constant * lal.MTSUN_SI * fref, 1.0/3.0)
+def orbital_momentum_mag(fref, m1,m2,eta):
+    v0 = np.power((m1+m2) *pi_constant * lal.MTSUN_SI * fref, 1.0/3.0)
+    #1 PN Mtot*Mtot*eta/v
+    PNFirst = (((m1+m2)**2)*eta)/v0
+    PNSecond = 1+ (v0**2) * (3.0/2.0 +eta/6.0)
+    Lmag= PNFirst*PNSecond
+    return Lmag
 
 def component_momentum(m, a, theta, phi):
     """
@@ -3837,7 +3891,7 @@ def spin_angles(fref,mc,eta,incl,a1,theta1,phi1,a2=None,theta2=None,phi2=None):
     """
     singleSpin = None in (a2,theta2,phi2)
     m1, m2 = mc2ms(mc,eta)
-    L  = orbital_momentum(fref, mc, incl)
+    L  = orbital_momentum(fref, m1,m2, incl)
     S1 = component_momentum(m1, a1, theta1, phi1)
     if not singleSpin:
         S2 = component_momentum(m2, a2, theta2, phi2)
@@ -3937,7 +3991,7 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
             a2,theta2,phi2 = cart2sph(spin2x,spin2y,spin2z)
 
             mc = np.power(m1*m2,3./5.)*np.power(m1+m2,-1./5.)
-            L  = orbital_momentum(fref, mc, iota)
+            L  = orbital_momentum(fref, m1,m2, iota)
             S1 = np.hstack([m1*m1*spin1x,m1*m1*spin1y,m1*m1*spin1z])
             S2 = np.hstack([m2*m2*spin2x,m2*m2*spin2y,m2*m2*spin2z])
             J = L + S1 + S2
@@ -3969,7 +4023,7 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
             a2,theta2,phi2 = cart2sph(spin2x,spin2y,spin2z)
 
             mc = np.power(m1*m2,3./5.)*np.power(m1+m2,-1./5.)
-            L  = orbital_momentum(fref, mc, iota)
+            L  = orbital_momentum(fref, m1,m2, iota)
             S1 = m1*m1*np.hstack([spin1x,spin1y,spin1z])
             S2 = m2*m2*np.hstack([spin2x,spin2y,spin2z])
             J = L + S1 + S2
@@ -5352,9 +5406,9 @@ def contigious_interval_one_param(posterior,contInt1Params,confidence_levels):
 
     return oneDContCL,oneDContInj
 #
-def burnin(data,spin_flag,deltaLogL,outputfile):
+def burnin(data,spin_flag,deltaLogP,outputfile):
 
-    pos,bayesfactor=_burnin(data,spin_flag,deltaLogL,outputfile)
+    pos,bayesfactor=_burnin(data,spin_flag,deltaLogP,outputfile)
 
     return pos,bayesfactor
 
@@ -5465,6 +5519,54 @@ def readCoincXML(xml_file, trignum):
 # Parameter estimation codes results parser
 #===============================================================================
 
+def find_ndownsample(samples, nDownsample):
+    """
+    Given a list of files, threshold value, and a desired
+    number of outputs posterior samples, return the skip number to
+    achieve the desired number of posterior samples.
+    """
+    if nDownsample is None:
+        print "Max ACL(s):"
+        splineParams=["spcal_npts", "spcal_active","constantcal_active"]
+        for i in np.arange(5):
+          for k in lal.cached_detector_by_prefix:
+            splineParams.append(k+'_spcal_freq_'+str(i))
+            splineParams.append(k+'_spcal_logfreq_'+str(i))
+
+        nonParams = ["logpost", "post", "cycle", "timestamp", "snrh1", "snrl1", "snrv1",
+                     "margtime","margtimephi","margtime","time_max","time_min",
+                     "time_mean", "time_maxl","sky_frame","psdscaleflag","logdeltaf","flow","f_ref",
+                     "lal_amporder","lal_pnorder","lal_approximant","tideo","spino","signalmodelflag",
+                     "temperature","nifo","nlocaltemps","ntemps","randomseed","samplerate","segmentlength","segmentstart",
+                     "t0", "phase_maxl", "azimuth", "cosalpha", "lal_amporder"] + logParams + snrParams + splineParams
+        fixedParams = [p for p in samples.colnames if all(x==samples[p][0] for x in samples[p])]
+        print "Fixed parameters: "+str(fixedParams)
+        nonParams.extend(fixedParams)
+        params = [p for p in samples.colnames if p.lower() not in nonParams]
+        stride=np.diff(samples['cycle'])[0]
+        results = np.array([np.array(effectiveSampleSize(samples[param])[:2]) for param in params])
+        nEffs = results[:,0]
+        nEffective = min(nEffs)
+        ACLs  = results[:,1]
+        maxACLind = np.argmax(ACLs)
+        maxACL = ACLs[maxACLind]
+        # Get index in header, which includes "non-params"
+        print "%i (%s)." %(stride*maxACL,params[maxACLind])
+
+    nskip = 1
+    if nDownsample is not None:
+        if len(samples) > nDownsample:
+            nskip *= floor(len(samples)/nDownsample)
+
+    else:
+        nEff = nEffective
+        if nEff > 1:
+            if len(samples) > nEff:
+                nskip = ceil(len(samples)/nEff)
+        else:
+            nskip = np.nan
+    return nskip
+
 class PEOutputParser(object):
     """
     A parser for the output of Bayesian parameter estimation codes.
@@ -5485,6 +5587,12 @@ class PEOutputParser(object):
             self._parser=self._infmcmc_to_pos
         elif inputtype is "xml":
             self._parser=self._xml_to_pos
+        elif inputtype == 'hdf5':
+            self._parser = self._hdf5_to_pos
+        elif inputtype == 'hdf5s':
+            self._parser = self._hdf5s_to_pos
+        else:
+            raise ValueError('Invalid value for "inputtype": %r' % inputtype)
 
     def parse(self,files,**kwargs):
         """
@@ -5492,13 +5600,13 @@ class PEOutputParser(object):
         """
         return self._parser(files,**kwargs)
 
-    def _infmcmc_to_pos(self,files,outdir=None,deltaLogL=None,fixedBurnins=None,nDownsample=None,oldMassConvention=False,**kwargs):
+    def _infmcmc_to_pos(self,files,outdir=None,deltaLogP=None,fixedBurnins=None,nDownsample=None,oldMassConvention=False,**kwargs):
         """
         Parser for lalinference_mcmcmpi output.
         """
         if not (fixedBurnins is None):
-            if not (deltaLogL is None):
-                print "Warning: using deltaLogL criteria in addition to fixed burnin"
+            if not (deltaLogP is None):
+                print "Warning: using deltaLogP criteria in addition to fixed burnin"
             if len(fixedBurnins) == 1 and len(files) > 1:
                 print "Only one fixedBurnin criteria given for more than one output.  Applying this to all outputs."
                 fixedBurnins = np.ones(len(files),'int')*fixedBurnins[0]
@@ -5507,16 +5615,16 @@ class PEOutputParser(object):
             print "Fixed burning criteria: ",fixedBurnins
         else:
             fixedBurnins = np.zeros(len(files))
-        logLThreshold=-1e200 # Really small?
-        if not (deltaLogL is None):
-            logLThreshold=self._find_max_logL(files) - deltaLogL
-            print "Eliminating any samples before log(Post) = ", logLThreshold
-        nskips=self._find_ndownsample(files, logLThreshold, fixedBurnins, nDownsample)
+        logPThreshold=-np.inf
+        if not (deltaLogP is None):
+            logPThreshold= - deltaLogP
+            print "Eliminating any samples before log(Post) = ", logPThreshold
+        nskips=self._find_ndownsample(files, logPThreshold, fixedBurnins, nDownsample)
         if nDownsample is None:
             print "Downsampling to take only uncorrelated posterior samples from each file."
             if len(nskips) == 1 and np.isnan(nskips[0]):
                 print "WARNING: All samples in chain are correlated.  Downsampling to 10000 samples for inspection!!!"
-                nskips=self._find_ndownsample(files, logLThreshold, fixedBurnins, 10000)
+                nskips=self._find_ndownsample(files, logPThreshold, fixedBurnins, 10000)
             else:
                 for i in range(len(nskips)):
                     if np.isnan(nskips[i]):
@@ -5530,18 +5638,18 @@ class PEOutputParser(object):
         runfile=open(runfileName, 'w')
         outfile=open(postName, 'w')
         try:
-            self._infmcmc_output_posterior_samples(files, runfile, outfile, logLThreshold, fixedBurnins, nskips, oldMassConvention)
+            self._infmcmc_output_posterior_samples(files, runfile, outfile, logPThreshold, fixedBurnins, nskips, oldMassConvention)
         finally:
             runfile.close()
             outfile.close()
         return self._common_to_pos(open(postName,'r'))
 
 
-    def _infmcmc_output_posterior_samples(self, files, runfile, outfile, logLThreshold, fixedBurnins, nskips=None, oldMassConvention=False):
+    def _infmcmc_output_posterior_samples(self, files, runfile, outfile, logPThreshold, fixedBurnins, nskips=None, oldMassConvention=False):
         """
         Concatenate all the samples from the given files into outfile.
         For each file, only those samples past the point where the
-        log(L) > logLThreshold are concatenated after eliminating
+        log(post) > logPThreshold are concatenated after eliminating
         fixedBurnin.
         """
         nRead=0
@@ -5577,14 +5685,14 @@ class PEOutputParser(object):
                     outfile.write("\n")
                     outputHeader=header
                 iterindex=header.index("cycle")
-                loglindex=header.index("logpost")
+                logpindex=header.index("logpost")
                 output=False
                 for line in infile:
                     line=line.lstrip()
                     lineParams=line.split()
                     iter=int(lineParams[iterindex])
-                    logL=float(lineParams[loglindex])
-                    if (iter > fixedBurnin) and (logL >= logLThreshold):
+                    logP=float(lineParams[logpindex])
+                    if (iter > fixedBurnin) and (logP >= logPThreshold):
                         output=True
                     if output:
                         if nRead % nskip == 0:
@@ -5615,27 +5723,27 @@ class PEOutputParser(object):
         else:
             return label[:]
 
-    def _find_max_logL(self, files):
+    def _find_max_logP(self, files):
         """
-        Given a list of files, reads them, finding the maximum log(L)
+        Given a list of files, reads them, finding the maximum log(post)
         """
-        maxLogL = -1e200  # Really small, I hope!
+        maxLogP = -np.inf
         for inpname in files:
             infile=open(inpname, 'r')
             try:
                 runInfo,header=self._clear_infmcmc_header(infile)
-                loglindex=header.index("logpost")
+                logpindex=header.index("logpost")
                 for line in infile:
                     line=line.lstrip().split()
-                    logL=float(line[loglindex])
-                    if logL > maxLogL:
-                        maxLogL=logL
+                    logP=float(line[logpindex])
+                    if logP > maxLogP:
+                        maxLogP=logP
             finally:
                 infile.close()
-        print "Found max log(Post) = ", maxLogL
-        return maxLogL
+        print "Found max log(post) = ", maxLogP
+        return maxLogP
 
-    def _find_ndownsample(self, files, logLthreshold, fixedBurnins, nDownsample):
+    def _find_ndownsample(self, files, logPthreshold, fixedBurnins, nDownsample):
         """
         Given a list of files, threshold value, and a desired
         number of outputs posterior samples, return the skip number to
@@ -5650,7 +5758,7 @@ class PEOutputParser(object):
             try:
                 runInfo,header = self._clear_infmcmc_header(infile)
                 header = [name.lower() for name in header]
-                loglindex = header.index("logpost")
+                logpindex = header.index("logpost")
                 iterindex = header.index("cycle")
                 deltaLburnedIn = False
                 fixedBurnedIn  = False
@@ -5660,10 +5768,15 @@ class PEOutputParser(object):
                 for line in infile:
                     line = line.lstrip().split()
                     iter = int(line[iterindex])
-                    logL = float(line[loglindex])
+                    logP = float(line[logpindex])
                     if iter > fixedBurnin:
                         fixedBurnedIn = True
-                    if logL > logLthreshold:
+                    # If adaptation reset, throw out what was collected so far
+                    elif fixedBurnedIn:
+                        fixedBurnedIn = False
+                        ntot = 0
+                        lines = []
+                    if logP > logPthreshold:
                         deltaLburnedIn = True
                     if iter > 0:
                         adapting = False
@@ -5683,10 +5796,13 @@ class PEOutputParser(object):
                                      "margtime","margtimephi","margtime","time_max","time_min",
                                      "time_mean", "time_maxl","sky_frame","psdscaleflag","logdeltaf","flow","f_ref",
                                      "lal_amporder","lal_pnorder","lal_approximant","tideo","spino","signalmodelflag",
+                                     "temperature","nifo","nlocaltemps","ntemps","randomseed","samplerate","segmentlength","segmentstart",
                                      "t0", "phase_maxl", "azimuth", "cosalpha"] + logParams + snrParams + splineParams
                         nonParamsIdxs = [header.index(name) for name in nonParams if name in header]
-                        paramIdxs = [i for i in range(len(header)) if i not in nonParamsIdxs]
                         samps = np.array(lines).astype(float)
+                        fixedIdxs = np.where(np.amin(samps,axis=0)-np.amax(samps,axis=0) == 0.0)[0]
+                        nonParamsIdxs.extend(fixedIdxs)
+                        paramIdxs = [i for i in range(len(header)) if i not in nonParamsIdxs]
                         stride=samps[1,iterindex] - samps[0,iterindex]
                         results = np.array([np.array(effectiveSampleSize(samps[:,i])[:2]) for i in paramIdxs])
                         nEffs = results[:,0]
@@ -5797,13 +5913,13 @@ class PEOutputParser(object):
         return runInfo[:-1],headers
 
 
-    def _mcmc_burnin_to_pos(self,files,spin=False,deltaLogL=None):
+    def _mcmc_burnin_to_pos(self,files,spin=False,deltaLogP=None):
         """
         Parser for SPINspiral output .
         """
         raise NotImplementedError
-        if deltaLogL is not None:
-            pos,bayesfactor=burnin(data,spin,deltaLogL,"posterior_samples.dat")
+        if deltaLogP is not None:
+            pos,bayesfactor=burnin(data,spin,deltaLogP,"posterior_samples.dat")
             return self._common_to_pos(open("posterior_samples.dat",'r'))
 
     def _ns_to_pos(self,files,Nlive=None,Npost=None,posfilename='posterior_samples.dat'):
@@ -5939,25 +6055,150 @@ class PEOutputParser(object):
             llines.append(np.array(map(lambda a:float(a.text),row)))
         flines=np.array(llines)
         for i in range(0,len(header)):
-            if header[i].lower().find('log')!=-1 and header[i].lower() not in logParams:
+            if header[i].lower().find('log')!=-1 and header[i].lower() not in logParams and re.sub('log', '', header[i].lower()) not in [h.lower() for h in header]:
                 print 'exponentiating %s'%(header[i])
 
                 flines[:,i]=np.exp(flines[:,i])
 
-                header[i]=header[i].replace('log','')
-            if header[i].lower().find('sin')!=-1:
+                header[i]=re.sub('log', '', header[i], flags=re.IGNORECASE)
+            if header[i].lower().find('sin')!=-1 and re.sub('sin', '', header[i].lower()) not in [h.lower() for h in header]:
                 print 'asining %s'%(header[i])
                 flines[:,i]=np.arcsin(flines[:,i])
-                header[i]=header[i].replace('sin','')
-            if header[i].lower().find('cos')!=-1:
+                header[i]=re.sub('sin', '', header[i], flags=re.IGNORECASE)
+            if header[i].lower().find('cos')!=-1 and re.sub('cos', '', header[i].lower()) not in [h.lower() for h in header]:
                 print 'acosing %s'%(header[i])
                 flines[:,i]=np.arccos(flines[:,i])
-                header[i]=header[i].replace('cos','')
+                header[i]=re.sub('cos', '', header[i], flags=re.IGNORECASE)
             header[i]=header[i].replace('(','')
             header[i]=header[i].replace(')','')
         print 'Read columns %s'%(str(header))
         return header,flines
 
+    def _hdf5s_to_pos(self, infiles, fixedBurnins=None, deltaLogP=None, nDownsample=None, tablename=None, **kwargs):
+        from astropy.table import vstack
+
+        if fixedBurnins is None:
+            fixedBurnins = np.zeros(len(infiles))
+
+        if len(infiles) > 1:
+            multiple_chains = True
+
+        chains = []
+        for i, [infile, fixedBurnin] in enumerate(zip(infiles, fixedBurnins)):
+            chain = self._hdf5_to_table(infile, fixedBurnin=fixedBurnin, deltaLogP=deltaLogP, nDownsample=nDownsample, multiple_chains=multiple_chains, tablename=tablename, **kwargs)
+            chain.add_column(astropy.table.Column(i*np.ones(len(chain)), name='chain'))
+            chains.append(chain)
+
+        # Apply deltaLogP criteria across chains
+        if deltaLogP is not None:
+            logPThreshold = -np.inf
+            for chain in chains:
+                if len(chain) > 0:
+                    logPThreshold = max([logPThreshold, max(chain['logpost'])- deltaLogP])
+            print("Eliminating any samples before log(L) = {}".format(logPThreshold))
+
+        for i, chain in enumerate(chains):
+            if deltaLogP is not None:
+                above_threshold = np.arange(len(chain))[chain['logpost'] > logPThreshold]
+                burnin_idx = above_threshold[0] if len(above_threshold) > 0 else len(chain)
+            else:
+                burnin_idx = 0
+            chains[i] = chain[burnin_idx:]
+
+        samples = vstack(chains)
+
+        # Downsample one more time
+        if nDownsample is not None:
+            nskip = find_ndownsample(samples, nDownsample)
+            samples = samples[::nskip]
+
+        return samples.colnames, as_array(samples).view(float).reshape(-1, len(samples.columns))
+
+    def _hdf5_to_table(self, infile, deltaLogP=None, fixedBurnin=None, nDownsample=None, multiple_chains=False, tablename=None, **kwargs):
+        """
+        Parse a HDF5 file and return an array of posterior samples ad list of
+        parameter names. Equivalent to '_common_to_pos' and work in progress.
+        """
+        if not tablename:
+            samples = read_samples(infile, tablename=lalinference.LALInferenceHDF5PosteriorSamplesDatasetName)
+        else:
+            samples = read_samples(infile, tablename=tablename)
+        params = samples.colnames
+
+        for param in params:
+            param_low = param.lower()
+            if param_low.find('log') != -1 and param_low not in logParams and re.sub('log', '', param_low) not in [p.lower() for p in params]:
+                print('exponentiating %s' % param)
+                new_param = re.sub('log', '', param, flags=re.IGNORECASE)
+                samples[new_param] = np.exp(samples[param])
+                del samples[param]
+                param = new_param
+            if param_low.find('sin') != -1 and re.sub('sin', '', param_low) not in [p.lower() for p in params]:
+                print('asining %s' % param)
+                new_param = re.sub('sin', '', param, flags=re.IGNORECASE)
+                samples[new_param] = np.arcsin(samples[param])
+                del samples[param]
+                param = new_param
+            if param_low.find('cos') != -1 and re.sub('cos', '', param_low) not in [p.lower() for p in params]:
+                print('acosing %s' % param)
+                new_param = re.sub('cos', '', param, flags=re.IGNORECASE)
+                samples[new_param] = np.arccos(samples[param])
+                del samples[param]
+                param = new_param
+
+            if param != param.replace('(', ''):
+                samples.rename_column(param, param.replace('(', ''))
+            if param != param.replace(')', ''):
+                samples.rename_column(param, param.replace(')', ''))
+
+            #Make everything a float, since that's what's excected of a CommonResultsObj
+            replace_column(samples, param, samples[param].astype(float))
+
+        params = samples.colnames
+        print('Read columns %s' % str(params))
+
+        # MCMC burnin and downsampling
+        if 'cycle' in params:
+            if not (fixedBurnin is None):
+                if not (deltaLogP is None):
+                    print "Warning: using deltaLogP criteria in addition to fixed burnin"
+                print "Fixed burning criteria: ",fixedBurnin
+            else:
+                fixedBurnin = 0
+
+            burned_in_cycles = np.arange(len(samples))[samples['cycle'] > fixedBurnin]
+            burnin_idx = burned_in_cycles[0] if len(burned_in_cycles) > 0 else len(samples)
+            samples = samples[burnin_idx:]
+
+            logPThreshold=-np.inf
+            if len(samples) > 0 and not (deltaLogP is None):
+                logPThreshold = max(samples['logpost'])- deltaLogP
+                print "Eliminating any samples before log(post) = ", logPThreshold
+                burnin_idx = np.arange(len(samples))[samples['logpost'] > logPThreshold][0]
+                samples = samples[burnin_idx:]
+
+            if len(samples) > 0:
+                nskip = find_ndownsample(samples, nDownsample)
+                if nDownsample is None:
+                    print "Downsampling to take only uncorrelated posterior samples from each file."
+                    if np.isnan(nskip) and not multiple_chains:
+                        print "WARNING: All samples in chain are correlated.  Downsampling to 10000 samples for inspection!!!"
+                        nskip = find_ndownsample(samples, 10000)
+                        samples = samples[::nskip]
+                    else:
+                        if np.isnan(nskip):
+                            print "WARNING: All samples in {} are correlated.".format(infile)
+                            samples = samples[-1:]
+                        else:
+                            print "Downsampling by a factor of ", nskip, " to achieve approximately ", nDownsample, " posterior samples"
+                            samples = samples[::nskip]
+
+        return samples
+
+    def _hdf5_to_pos(self, infile, **kwargs):
+        samples = self._hdf5_to_table(infile, **kwargs)
+
+        return samples.colnames, as_array(samples).view(float).reshape(-1, len(samples.columns))
 
     def _common_to_pos(self,infile,info=[None,None]):
         """
@@ -5982,7 +6223,6 @@ class PEOutputParser(object):
         header[-1]=header[-1].rstrip('\n')
         nparams=len(header)
         llines=[]
-        import re
         dec=re.compile(r'^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$|^inf$')
 
         for line_number,line in enumerate(infile):
@@ -6015,25 +6255,25 @@ class PEOutputParser(object):
 
 
         for i in range(0,len(header)):
-            if header[i].lower().find('log')!=-1 and header[i].lower() not in logParams:
+            if header[i].lower().find('log')!=-1 and header[i].lower() not in logParams and re.sub('log', '', header[i].lower()) not in [h.lower() for h in header]:
                 print 'exponentiating %s'%(header[i])
 
                 flines[:,i]=np.exp(flines[:,i])
 
-                header[i]=header[i].replace('log','')
-            if header[i].lower().find('sin')!=-1:
+                header[i]=re.sub('log', '', header[i], flags=re.IGNORECASE)
+            if header[i].lower().find('sin')!=-1 and re.sub('sin', '', header[i].lower()) not in [h.lower() for h in header]:
                 print 'asining %s'%(header[i])
                 flines[:,i]=np.arcsin(flines[:,i])
-                header[i]=header[i].replace('sin','')
-            if header[i].lower().find('cos')!=-1:
+                header[i]=re.sub('sin', '', header[i], flags=re.IGNORECASE)
+            if header[i].lower().find('cos')!=-1 and re.sub('cos', '', header[i].lower()) not in [h.lower() for h in header]:
                 print 'acosing %s'%(header[i])
                 flines[:,i]=np.arccos(flines[:,i])
-                header[i]=header[i].replace('cos','')
+                header[i]=re.sub('cos', '', header[i], flags=re.IGNORECASE)
             header[i]=header[i].replace('(','')
             header[i]=header[i].replace(')','')
         print 'Read columns %s'%(str(header))
         return header,flines
-#
+
 
 def parse_converge_output_section(fo):
         result={}
@@ -6658,8 +6898,7 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
   return inj_strains,rec_strains
 
 
-def plot_psd(psd_files,outpath=None):
-  f_min=30.
+def plot_psd(psd_files,outpath=None,f_min=30.):
   myfig2=plt.figure(figsize=(15,15),dpi=500)
   ax=plt.subplot(1,1,1)
   colors={'H1':'r','L1':'g','V1':'m','I1':'k','J1':'y'}
@@ -6688,11 +6927,11 @@ def plot_psd(psd_files,outpath=None):
     fr=[]
     da=[]
     for (f,d) in zip(freq,data):
-      if f>f_min and d!=0.0:
+      if f>f_min and d!=0.0 and np.isfinite(d):
         fr.append(f)
         da.append(d)
     plt.loglog(fr,da,colors[ifo],label=ifo,alpha=0.5,linewidth=3)
-  plt.xlim([min(freq),max(freq)])
+  plt.xlim([min(fr),max(fr)])
   plt.xlabel("Frequency [Hz]",fontsize=26)
   plt.ylabel("PSD",fontsize=26)
   plt.legend(loc='best')
@@ -6728,7 +6967,7 @@ def spline_angle_xform(delta_psi):
     rot = (2.0 + 1.0j*delta_psi)/(2.0 - 1.0j*delta_psi)
 
     return 180.0/np.pi*np.arctan2(np.imag(rot), np.real(rot))
-    
+
 def plot_spline_pos(logf, ys, nf=100, level=0.9, color='k', label=None, xform=None):
     """Plot calibration posterior estimates for a spline model in log space.
     Args:
@@ -6749,7 +6988,7 @@ def plot_spline_pos(logf, ys, nf=100, level=0.9, color='k', label=None, xform=No
         zs = ys
     else:
         zs = xform(ys)
-        
+
     mu = np.mean(zs, axis=0)
     lower_cl = mu - cred_interval(zs, level, lower=True)
     upper_cl = cred_interval(zs, level, lower=False) - mu
@@ -6828,7 +7067,7 @@ def plot_calibration_pos(pos, level=.9, outpath=None):
 
 
 def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1','V1']):
-  
+
   from lalinference.lalinference import SimBurstChooseFDWaveform,SimBurstChooseTDWaveform
   from lalinference.lalinference import SimBurstImplementedFDApproximants,SimBurstImplementedTDApproximants
   from lal.lal import StrainUnit
@@ -6854,7 +7093,7 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
     event=0
   colors_inj={'H1':'r','L1':'g','V1':'m','I1':'b','J1':'y'}
   colors_rec={'H1':'k','L1':'k','V1':'k','I1':'k','J1':'k'}
-  #import sim inspiral table content handler 
+  #import sim inspiral table content handler
   from glue.ligolw import ligolw
   from glue.ligolw import lsctables
   from glue.ligolw import table
@@ -6866,7 +7105,7 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
       self.intable=False
       self.tableElementName=''
     def startElement(self,name,attrs):
-      if attrs.has_key('Name') and attrs['Name']==self.tabname:
+      if attrs.has_key('Name') and table.Table.TableName(attrs['Name'])==self.tabname:
         self.tableElementName=name
         # Got the right table, let's see if it's the right event
         ligolw.LIGOLWContentHandler.startElement(self,name,attrs)
@@ -6878,10 +7117,8 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
       if self.intable and name==self.tableElementName: self.intable=False
 
   lsctables.use_in(LIGOLWContentHandlerExtractSimBurstTable)
-  #from pylal.SimBurstUtils import ExtractSimBurstTableLIGOLWContentHandler
-  #lsctables.use_in(ExtractSimBurstTableLIGOLWContentHandler)
-  
-  # time and freq data handling variables 
+
+  # time and freq data handling variables
   srate=4096.0
   seglen=10.
   length=srate*seglen # lenght of 10 secs, hardcoded.
@@ -6900,7 +7137,7 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
   strainFrec= CreateCOMPLEX16FrequencySeries("strainF",segStart,0.0,deltaF,DimensionlessUnit,int(length/2. +1));
   strainTrec=CreateREAL8TimeSeries("strainT",segStart,0.0,1.0/srate,DimensionlessUnit,int(length));
   GlobREAL8time=None
-  f_min=25 # hardcoded default (may be changed below) 
+  f_min=25 # hardcoded default (may be changed below)
   f_ref=100 # hardcoded default (may be changed below)
   f_max=srate/2.0
 
@@ -6911,7 +7148,7 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
 
   inj_strains=dict((i,{"T":{'x':None,'strain':None},"F":{'x':None,'strain':None}}) for i in ifos)
   rec_strains=dict((i,{"T":{'x':None,'strain':None},"F":{'x':None,'strain':None}}) for i in ifos)
-  
+
   inj_domain=None
   rec_domain=None
   font_size=26
@@ -6919,7 +7156,7 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
     skip=0
     try:
       xmldoc = utils.load_filename(simburst,contenthandler=LIGOLWContentHandlerExtractSimBurstTable)
-      tbl = lsctables.table.get_table(xmldoc,  lsctables.SimBurstTable.tableName)
+      tbl = lsctables.SimBurstTable.get_table(xmldoc)
       if event>0:
         tbl=tbl[event]
       else:
@@ -6939,11 +7176,11 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
       hrss=tbl.hrss
       polar_e_angle=tbl.pol_ellipse_angle
       polar_e_ecc=tbl.pol_ellipse_e
-  
+
       BurstExtraParams=None
       wf=str(tbl.waveform)
 
-      injapproximant=lalinf.GetBurstApproximantFromString(wf)  
+      injapproximant=lalinf.GetBurstApproximantFromString(wf)
       ra=tbl.ra
       dec=tbl.dec
       psi=tbl.psi
@@ -6957,14 +7194,14 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
       else:
         print "\nThe approximant %s doesn't seem to be recognized by lalinference!\n Skipping WF plots\n"%injapproximant
         return None
-      
+
       for ifo in ifos:
         (fp,fc,fa,qv)=ant.response(REAL8time,ra,dec,0.0,psi,'radians',ifo)
         if inj_domain=='T':
           # bin of ref time as seen in strainT
           tCinstrain=np.floor(REAL8time-float(strainTinj.epoch))/deltaT
           # bin of strainT where we need to start copying the WF over
-          #tSinstrain=floor(tCinstrain-float(plus.data.length)/2.)+1 
+          #tSinstrain=floor(tCinstrain-float(plus.data.length)/2.)+1
           tSinstrain=int(  (REAL8time-fabs(float(plus.epoch)) - fabs(float(strainTinj.epoch)))/deltaT)
           rem=(REAL8time-fabs(float(plus.epoch)) - fabs(float(strainTinj.epoch)))/deltaT-tSinstrain
           # strain is a temporary container for this IFO strain.
@@ -7037,10 +7274,10 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
 
 
   if pos is not None:
-    
+
     # Select the maxP sample
     _,which=pos._posMap()
-    
+
     if 'time' in pos.names:
       REAL8time=pos['time'].samples[which][0]
     elif 'time_maxl' in pos.names:
@@ -7053,9 +7290,9 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
       print "ERROR: could not find any time parameter in the posterior file. Not plotting the WF...\n"
       return None
 
-    # first check we have approx in posterior samples, otherwise skip 
+    # first check we have approx in posterior samples, otherwise skip
     skip=0
-    
+
     try:
       approximant=int(pos['LAL_APPROXIMANT'].samples[which][0])
     except:
@@ -7096,7 +7333,7 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
       BurstExtraParams=None
       #if alpha:
       #  BurstExtraParams=lalsim.SimBurstCreateExtraParam("alpha",alpha)
-      
+
       if SimBurstImplementedFDApproximants(approximant):
         rec_domain='F'
         [plus,cross]=SimBurstChooseFDWaveform(deltaF, deltaT, f0, q,dur, f_min, f_max,hrss,polar_e_angle ,polar_e_ecc,BurstExtraParams, approximant)
@@ -7189,10 +7426,10 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
             plot_tmax=REAL8time+6.*sigmaT
 
   myfig=plt.figure(1,figsize=(10,7))
-  
+
   rows=len(ifos)
   cols=2
-  
+
   #this variables decide which domain will be plotted on the left column of the plot.
   # only plot Time domain if both injections and recovery are TD
   global_domain="F"
@@ -7205,7 +7442,7 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
   elif inj_domain is not None:
     if inj_domain=="T":
       global_domain="T"
-  
+
   A,axes=plt.subplots(nrows=rows,ncols=cols,sharex=False,sharey=False)
   plt.setp(A,figwidth=10,figheight=7)
   for (r,i) in zip(np.arange(rows),ifos):
@@ -7272,26 +7509,26 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
             ax.set_xlabel("frequency [Hz]",fontsize=font_size)
         else:
           ax.set_xlabel("frequency [Hz]",fontsize=font_size)
-      
+
       ax.legend(loc='best')
       ax.grid(True)
-      
+
       #ax.tight_layout()
   A.savefig(os.path.join(path,'WF_DetFrame.png'),bbox_inches='tight')
   return inj_strains, rec_strains
 
 def make_1d_table(html,legend,label,pos,pars,noacf,GreedyRes,onepdfdir,sampsdir,savepdfs,greedy,analyticLikelihood,nDownsample):
-    
+
     from numpy import unique, sort
     global confidenceLevels
     confidence_levels=confidenceLevels
-    
+
     out={}
     if pars==[]:
       return out
     if set(pos.names)-set(pars)==set(pos.names):
       return out
-    
+
     #2D plots list
     tabid='onedmargtable_'+label.lower()
     html_ompdf=html.add_collapse_section('1D marginal posterior PDFs (%s)'%label,legend=legend,innertable_id=tabid)
@@ -7308,13 +7545,24 @@ def make_1d_table(html,legend,label,pos,pars,noacf,GreedyRes,onepdfdir,sampsdir,
         chain_index=pos.names.index("chain")
         chains=unique(pos["chain"].samples)
         chainCycles = [sort(data[ data[:,chain_index] == chain, par_index ]) for chain in chains]
-        chainNcycles = [cycles[-1]-cycles[0] for cycles in chainCycles]
-        chainNskips = [cycles[1] - cycles[0] for cycles in chainCycles]
+        chainNcycles = []
+        chainNskips = []
+        for cycles in chainCycles:
+            if len(cycles) > 1:
+                chainNcycles.append(cycles[-1] - cycles[0])
+                chainNskips.append(cycles[1] - cycles[0])
+            else:
+                chainNcycles.append(1)
+                chainNskips.append(1)
     elif 'cycle' in pos.names:
         cycles = sort(pos['cycle'].samples)
-        Ncycles = cycles[-1]-cycles[0]
-        Nskip = cycles[1]-cycles[0]
-    
+        if len(cycles) > 1:
+            Ncycles = cycles[-1]-cycles[0]
+            Nskip = cycles[1]-cycles[0]
+        else:
+            Ncycles = 1
+            Nskip = 1
+
     printed=0
     for par_name in pars:
         par_name=par_name.lower()
@@ -7468,9 +7716,8 @@ def make_1d_table(html,legend,label,pos,pars,noacf,GreedyRes,onepdfdir,sampsdir,
           html_ompdf_write+='<tr><td width="30%"><img width="100%" src="1Dpdf/'+figname+'"/></td><td width="30%"><img width="100%" src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td>'+acfhtml+'</tr>'
         else:
             html_ompdf_write+='<tr><td width="30%"><img width="100%" src="1Dpdf/'+figname+'"/></td><td width="30%"><img width="100%" src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td></tr>'
-    
+
     html_ompdf_write+='</table>'
     html_ompdf.write(html_ompdf_write)
-    
+
     return out
-    

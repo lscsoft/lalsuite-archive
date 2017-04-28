@@ -12,21 +12,21 @@ import os
 import sys
 from optparse import OptionParser
 
+import lal
+from lal import utils as lalutils
+
 from glue import segments, segmentsUtils
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw import utils
 from glue.ligolw import array
-from glue import lal
 from glue import iterutils
 
 from pylal import ligolw_cbc_compute_durations as compute_dur
 from pylal import rate
 from pylal import InspiralUtils
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
-import lal as constants
 from pylal import upper_limit_utils
 from pylal import imr_utils
 
@@ -49,9 +49,6 @@ matplotlib.rcParams.update({
         "text.usetex": True,
         "path.simplify": True
 })
-
-
-lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 def chirp_mass(m1,m2):
@@ -114,7 +111,7 @@ class upperLimit(object):
       self.livetime = {}
       for inst in self.instruments:
           # compute live time in years from zero lag segments
-          self.livetime[inst] = abs(self.zero_lag_segments[inst].coalesce()).seconds/float(constants.YRJUL_SI)
+          self.livetime[inst] = abs(self.zero_lag_segments[inst].coalesce()).seconds/float(lal.YRJUL_SI)
 
       return
 
@@ -882,7 +879,7 @@ for bin_type in UL.mass_bins:
     for j in range(dim):
       xml = ligolw.LIGO_LW({u"Name": u"mass%d_bins:%s" % (j+1,bin_type)})
       edges = tuple( numpy.concatenate((l,u[-1:])) for l,u in zip(UL.mass_bins[bin_type].lower(),UL.mass_bins[bin_type].upper()) )
-      xml.appendChild(array.from_array(u"array", edges[j]))
+      xml.appendChild(array.Array.build(u"array", edges[j]))
       child.appendChild(xml)
 
     output_arrays = {"SearchVolumeFirstMoment":vA.array,
@@ -893,13 +890,13 @@ for bin_type in UL.mass_bins:
                      "SearchVolumeLiveTime":ltA.array}
     for arr in output_arrays:
       xml = ligolw.LIGO_LW({u"Name": u"binned_array:%s" % arr})
-      xml.appendChild(array.from_array(u"array",output_arrays[arr]))
+      xml.appendChild(array.Array.build(u"array",output_arrays[arr]))
       child.appendChild(xml)
 
     output_filename = opts.output_path+"%s-SEARCH_VOLUME_BINNED_BY_%s_%s-%d-%d.xml" % \
         ("".join(sorted(list(instr))),bin_type.upper(),opts.user_tag,UL.start_time,UL.end_time-UL.start_time)
     utils.write_filename(xmldoc, output_filename)
-    cache_entry =  lal.CacheEntry( "".join(sorted(list(instr))),
+    cache_entry =  lalutils.CacheEntry( "".join(sorted(list(instr))),
                                    bin_type,
                                    segments.segment(UL.start_time, UL.end_time),
                                    "file://localhost%s/%s" % (os.getcwd(),output_filename) )

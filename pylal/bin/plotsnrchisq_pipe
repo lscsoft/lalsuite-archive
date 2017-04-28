@@ -12,7 +12,6 @@ import os
 import socket, time
 from optparse import *
 import re, string
-import exceptions
 import glob
 import tempfile
 import ConfigParser
@@ -478,7 +477,7 @@ if not opts.inspiral_xml_file:
 opts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 
 doc = utils.load_filename(opts.inspiral_xml_file)
-proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
+proc = lsctables.ProcessParamsTable.get_table(doc)
 
 plotsnrchisq(opts,args,str(opts.gps),opts.frame_file,opts.output_path,proc,opts.user_tag)
 

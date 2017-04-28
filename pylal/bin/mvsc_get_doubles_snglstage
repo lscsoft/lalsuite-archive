@@ -1,15 +1,10 @@
 #!/usr/bin/python
-try:
-	import sqlite3
-except ImportError:
-	# pre 2.5.x
-	from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 from glue.ligolw import dbtables 
 from glue.ligolw import table
 from glue.ligolw import ilwd
 from glue import segments
 from pylal.xlal import tools as xlaltools
-from pylal.xlal.datatypes import snglinspiraltable
 from pylal import SnglInspiralUtils
 from pylal import db_thinca_rings
 from pylal import git_version
@@ -57,21 +52,6 @@ ifos.sort()
 time1=time()
 
 
-class SnglInspiral(snglinspiraltable.SnglInspiralTable):
-	"""
-	You need to make this subclass of xlaltools.SnglInspiralTable because the C version doesn't have the methods 
-	you need to slide the triggers on the ring, which you need to do for a correct calculation of ethinca
-	"""
-	__slots__ = ()
-
-	def get_end(self):
-		return dbtables.lsctables.LIGOTimeGPS(self.end_time, self.end_time_ns)
-
-	def set_end(self, gps):
-		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
-
-dbtables.lsctables.SnglInspiralTable.RowType = SnglInspiral
-
 parameters = mvsc_queries_snglstage.CandidateEventQuery.parameters
 print "your MVSC analysis will use the following dimensions: "+parameters
  
@@ -97,10 +77,10 @@ for database in databases:
 	connection = sqlite3.connect(working_filename)
 	xmldoc = dbtables.get_xml(connection)
 	cursor = connection.cursor()
-	num_sngl_cols = len(table.get_table(xmldoc, dbtables.lsctables.SnglInspiralTable.tableName).dbcolumnnames)
+	num_sngl_cols = len(dbtables.lsctables.SnglInspiralTable.get_table(xmldoc).dbcolumnnames)
 	rings = db_thinca_rings.get_thinca_rings_by_available_instruments(connection)
-	offset_vectors = dbtables.lsctables.table.get_table(dbtables.get_xml(connection), dbtables.lsctables.TimeSlideTable.tableName).as_dict()
-	sngl_inspiral_row_from_cols = table.get_table(xmldoc, dbtables.lsctables.SnglInspiralTable.tableName).row_from_cols
+	offset_vectors = dbtables.lsctables.TimeSlideTable.get_table(dbtables.get_xml(connection)).as_dict()
+	sngl_inspiral_row_from_cols = dbtables.lsctables.SnglInspiralTable.get_table(xmldoc).row_from_cols
 	def calc_effective_snr(snr, chisq, chisq_dof, fac=opts.factor):
 		print >>sys.stderr, "Calculating effective SNR"
 		return snr/ (1 + snr**2/fac)**(0.25) / (chisq/(2*chisq_dof - 2) )**(0.25)
@@ -149,7 +129,7 @@ for database in databases:
 # in S6, the timeslides, zerolag, and injections are all stored in the same sqlite database, thus this database must include a sim inspiral table
 # if you provide a database that does not include injections, the code will still run as long as one of the databases you provide includes injections 
 	try:
-		sim_inspiral_table = table.get_table(xmldoc, dbtables.lsctables.SimInspiralTable.tableName)
+		sim_inspiral_table = dbtables.lsctables.SimInspiralTable.get_table(xmldoc)
 		is_injections = True
 	except ValueError:
 		is_injections = False

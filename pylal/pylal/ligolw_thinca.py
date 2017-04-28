@@ -25,6 +25,7 @@
 
 
 import bisect
+import itertools
 import math
 import sys
 
@@ -38,9 +39,6 @@ from glue import offsetvector
 import lal
 from pylal import git_version
 from pylal import snglcoinc
-from pylal.xlal import tools as xlaltools
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-from pylal.xlal.datatypes import snglinspiraltable
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -58,40 +56,18 @@ __date__ = git_version.date
 
 
 #
-# Use C row classes for memory and speed
+# Construct a subclass of the sngl_inspiral row class with the methods that
+# are needed
 #
 
 
-lsctables.CoincMapTable.RowType = lsctables.CoincMap = xlaltools.CoincMap
-
-
-#
-# Construct a subclass of the C sngl_inspiral row class with the methods
-# that are needed
-#
-
-
-class SnglInspiral(snglinspiraltable.SnglInspiralTable):
+class SnglInspiral(lsctables.SnglInspiral):
 	__slots__ = ()
-
-	spin1 = lsctables.SnglInspiral.spin1
-	spin2 = lsctables.SnglInspiral.spin2
-
-	__eq__ = lsctables.SnglInspiral.__eq__
-
 	def __cmp__(self, other):
 		# compare self's end time to the LIGOTimeGPS instance
 		# other.  allows bisection searches by GPS time to find
 		# ranges of triggers quickly
 		return cmp(self.end, other)
-
-
-#
-# Use C LIGOTimeGPS type
-#
-
-
-lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 #
@@ -146,19 +122,17 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 			xmldoc.childNodes[0].appendChild(self.coinc_inspiral_table)
 
 		#
-		# extract the coalesced out segment lists from the trigger generator
+		# extract the coalesced out segment lists from the trigger
+		# generator
 		#
 
 		self.seglists = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, program = program).coalesce()
 		if vetoes is not None:
 			self.seglists -= vetoes
 
-	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events):
-		#
-		# populate the coinc_event and coinc_event_map tables
-		#
 
-		coinc = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, coinc_def_id, events)
+	def coinc_rows(self, process_id, time_slide_id, coinc_def_id, events):
+		coinc, coincmaps = super(InspiralCoincTables, self).coinc_rows(process_id, time_slide_id, coinc_def_id, events)
 
 		#
 		# populate the coinc_inspiral table:
@@ -173,7 +147,7 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		#
 
 		coinc_inspiral = self.coinc_inspiral_table.RowType()
-		coinc_inspiral.coinc_event_id = coinc.coinc_event_id
+		coinc_inspiral.coinc_event_id = coinc.coinc_event_id	# = None
 		coinc_inspiral.mass = sum(event.mass1 + event.mass2 for event in events) / len(events)
 		coinc_inspiral.mchirp = sum(event.mchirp for event in events) / len(events)
 		coinc_inspiral.snr = math.sqrt(sum(event.snr**2 for event in events))
@@ -183,7 +157,6 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		offsetvector = self.time_slide_index[time_slide_id]
 		coinc_inspiral.end = coinc_inspiral_end_time(events, offsetvector)
 		coinc_inspiral.instruments = (event.ifo for event in events)
-		self.coinc_inspiral_table.append(coinc_inspiral)
 
 		#
 		# record the instruments that were on at the time of the
@@ -211,11 +184,14 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		coinc.instruments = self.uniquifier.setdefault(coinc.instruments, coinc.instruments)
 		coinc_inspiral.ifos = self.uniquifier.setdefault(coinc_inspiral.ifos, coinc_inspiral.ifos)
 
-		#
-		# done
-		#
+		return coinc, coincmaps, coinc_inspiral
 
-		return coinc
+
+	def append_coinc(self, coinc_event, coinc_event_maps, coinc_inspiral):
+		coinc_event = super(InspiralCoincTables, self).append_coinc(coinc_event, coinc_event_maps)
+		coinc_inspiral.coinc_event_id = coinc_event.coinc_event_id
+		self.coinc_inspiral_table.append(coinc_inspiral)
+		return coinc_event
 
 
 #
@@ -225,11 +201,26 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 
 def coinc_inspiral_end_time(events, offset_vector):
 	"""
-	Function to compute the end time of an inspiral coincidence.
+	Compute the end time of an inspiral coincidence.
 	@events: a tuple of sngl_inspiral triggers making up a single
 	coinc_inspiral trigger
 	@offset_vector: a dictionary of offsets to apply to different
 	detectors keyed by detector name
+
+	In this context, the "end time" is the (time shifted) end time of
+	the constituent trigger with the highest SNR.  In particular, it is
+	*not* an estimate of the time at which the peak strain passed
+	through the geocentre (something that might come out of a proper
+	parameter estimation code).  The "end time" reported by this code
+	gets used for things like plot titles, alert messages, and so on.
+
+	This end time is also used to parallelize ligolw_thinca by allowing
+	a single lock stretch to be split across several jobs without
+	missing or double counting any coincs.  This is achieved by using a
+	definition that is guaranteed to return a bit-identical "end time"
+	for a given set of triggers.  Guaranteeing that allows
+	ligolw_thinca to clip coincs to a sequence of contiguous segments
+	and know that every coinc will reproducibly fall in exactly one.
 	"""
 	event = max(events, key = lambda event: event.snr)
 	return event.end + offset_vector[event.ifo]
@@ -267,7 +258,7 @@ class InspiralEventList(snglcoinc.EventList):
 		"""
 		# add 1% for safety, and pre-convert to LIGOTimeGPS to
 		# avoid doing type conversion in loops
-		self.dt = LIGOTimeGPS(dt * 1.01)
+		self.dt = lal.LIGOTimeGPS(dt * 1.01)
 
 	def get_coincs(self, event_a, offset_a, light_travel_time, threshold, comparefunc):
 		#
@@ -293,37 +284,6 @@ class InspiralEventList(snglcoinc.EventList):
 #
 # =============================================================================
 #
-
-
-def inspiral_ethinca_max_dt(events, e_thinca_parameter):
-	"""
-	Given an e-thinca parameter and a list of sngl_inspiral events,
-	return the greatest \Delta t that can separate two events and they
-	still be considered coincident.
-	"""
-	# for each instrument present in the event list, compute the
-	# largest \Delta t interval for the events from that instrument,
-	# and return the sum of the largest two such \Delta t's.
-	return sum(sorted(max(xlaltools.XLALSnglInspiralTimeError(event, e_thinca_parameter) for event in events if event.ifo == instrument) for instrument in set(event.ifo for event in events))[-2:]) + 2. * lal.REARTH_SI / lal.C_SI
-
-
-def inspiral_coinc_compare(a, offseta, b, offsetb, light_travel_time, e_thinca_parameter):
-	"""
-	Returns False (a & b are coincident) if they pass the ellipsoidal
-	thinca test.
-	"""
-	if offseta: a.end += offseta
-	if offsetb: b.end += offsetb
-	try:
-		# FIXME:  should it be "<" or "<="?
-		coincident = xlaltools.XLALCalculateEThincaParameter(a, b) <= e_thinca_parameter
-	except ValueError:
-		# ethinca test failed to converge == events are not
-		# coincident
-		coincident = False
-	if offseta: a.end -= offseta
-	if offsetb: b.end -= offsetb
-	return not coincident
 
 
 def inspiral_coinc_compare_exact(a, offseta, b, offsetb, light_travel_time, delta_t):
@@ -371,10 +331,14 @@ def replicate_threshold(threshold, instruments):
 	>>> replicate_threshold(6, ["H1", "H2"])
 	{("H1", "H2"): 6, ("H2", "H1"): 6}
 	"""
-	instruments = sorted(instruments)
-	thresholds = dict((pair, threshold) for pair in iterutils.choices(instruments, 2))
+	# uniqueify
+	instruments = list(set(instruments))
+	# first order
+	thresholds = dict((pair, threshold) for pair in itertools.combinations(instruments, 2))
+	# other order
 	instruments.reverse()
-	thresholds.update(dict((pair, threshold) for pair in iterutils.choices(instruments, 2)))
+	thresholds.update(dict((pair, threshold) for pair in itertools.combinations(instruments, 2)))
+	# done
 	return thresholds
 
 
@@ -390,8 +354,19 @@ def ligolw_thinca(
 	trigger_program = u"inspiral",
 	likelihood_func = None,
 	likelihood_params_func = None,
+	min_instruments = 2,
+	min_log_L = None,
 	verbose = False
 ):
+	#
+	# validate input
+	#
+
+	if min_instruments < 1:
+		raise ValueError("min_instruments (=%d) must be >= 1" % min_instruments)
+	if min_log_L is not None and likelihood_func is None:
+		raise ValueError("must supply likelihood_func to impose min_log_L cut")
+
 	#
 	# prepare the coincidence table interface.
 	#
@@ -400,7 +375,8 @@ def ligolw_thinca(
 		print >>sys.stderr, "indexing ..."
 	coinc_tables = InspiralCoincTables(xmldoc, vetoes = veto_segments, program = trigger_program, likelihood_func = likelihood_func, likelihood_params_func = likelihood_params_func)
 	coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
-	sngl_index = dict((row.event_id, row) for row in lsctables.SnglInspiralTable.get_table(xmldoc))
+	sngl_inspiral_table = lsctables.SnglInspiralTable.get_table(xmldoc)
+	sngl_index = dict((row.event_id, row) for row in sngl_inspiral_table)
 
 	#
 	# build the event list accessors, populated with events from those
@@ -408,7 +384,7 @@ def ligolw_thinca(
 	# removing events from the lists that fall in vetoed segments
 	#
 
-	eventlists = snglcoinc.make_eventlists(xmldoc, InspiralEventList, lsctables.SnglInspiralTable.tableName)
+	eventlists = snglcoinc.EventListDict(InspiralEventList, sngl_inspiral_table, instruments = set(coinc_tables.time_slide_table.getColumnByName("instrument")))
 	if veto_segments is not None:
 		for eventlist in eventlists.values():
 			iterutils.inplace_filter((lambda event: event.ifo not in veto_segments or event.end not in veto_segments[event.ifo]), eventlist)
@@ -427,7 +403,7 @@ def ligolw_thinca(
 	# pair
 	#
 
-	thresholds = replicate_threshold(thresholds, set(eventlists))
+	thresholds = replicate_threshold(thresholds, eventlists)
 
 	#
 	# construct offset vector assembly graph
@@ -441,15 +417,13 @@ def ligolw_thinca(
 	#
 
 	for node, coinc in time_slide_graph.get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose):
+		if len(coinc) < min_instruments:
+			continue
 		coinc = tuple(sngl_index[event_id] for event_id in coinc)
 		if not ntuple_comparefunc(coinc, node.offset_vector):
-			coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, coinc)
-
-	#
-	# remove time offsets from events
-	#
-
-	del eventlists.offsetvector
+			coinc, coincmaps, coinc_inspiral = coinc_tables.coinc_rows(process_id, node.time_slide_id, coinc_def_id, coinc)
+			if min_log_L is None or coinc.likelihood >= min_log_L:
+				coinc_tables.append_coinc(coinc, coincmaps, coinc_inspiral)
 
 	#
 	# done
@@ -489,12 +463,12 @@ class sngl_inspiral_coincs(object):
 	Example:
 
 	>>> coincs = sngl_inspiral_coincs(xmldoc)
-	>>> print coincs.coinc_def_id
+	>>> print(coincs.coinc_def_id)
 	coinc_definer:coinc_def_id:0
 	>>> coincs.keys()
 	[<glue.ligolw.ilwd.cached_ilwdchar_class object at 0x41a4328>]
 	>>> coinc_id = coincs.keys()[0]
-	>>> print coinc_id
+	>>> print(coinc_id)
 	coinc_event:coinc_event_id:83763
 	>>> coincs[coinc_id].write()
 	<?xml version='1.0' encoding='utf-8'?>
@@ -556,6 +530,7 @@ class sngl_inspiral_coincs(object):
 		self.time_slide_index = {}
 		for row in self.time_slide_table:
 			self.time_slide_index.setdefault(row.time_slide_id, []).append(row)
+		self.zero_lag_time_slide_ids = frozenset(time_slide_id for time_slide_id, offset_vector in self.time_slide_table.as_dict().items() if not any(offset_vector.values()))
 
 		#
 		# find the sngl_inspiral<-->sngl_inspiral coincs
@@ -587,6 +562,32 @@ class sngl_inspiral_coincs(object):
 		"""
 		return [self.sngl_inspiral_index[row.event_id] for row in self.coinc_event_map_index[coinc_event_id]]
 
+	def single_sngl_inspirals(self):
+		"""
+		Generator returns a sequence of the sngl_inspiral table
+		rows that formed zero-lag single-instrument "coincs".
+
+		This is only meaningful if the coincidence engine was run
+		with min_instruments = 1, otherwise this sequence will be
+		empty by construction.  Also, if there was no zero-lag time
+		slide included in the time slide graph then this sequence
+		will be empty.
+
+		This method is used by codes that want lists of
+		non-coincident triggers for background models even if
+		min_instruments has been set below 2.
+
+		The constraint that they be "zero-lag" singles might at
+		first seem nonsensical but is included to exclude triggers
+		that form genuine coincidences at zero-lag but are present
+		only as single-detector candidates in one or more time
+		slides.
+		"""
+		for coinc_event_id, coinc_event in self.coinc_event_index.items():
+			if coinc_event.time_slide_id in self.zero_lag_time_slide_ids and coinc_event.nevents < 2:
+				row, = self.coinc_event_map_index[coinc_event_id]
+				yield self.sngl_inspiral_index[row.event_id]
+
 	def offset_vector(self, time_slide_id):
 		"""
 		Return the offsetvector given by time_slide_id.
@@ -600,20 +601,20 @@ class sngl_inspiral_coincs(object):
 		coinc_event_id.
 		"""
 		newxmldoc = ligolw.Document()
-		newxmldoc.appendChild(ligolw.LIGO_LW())
+		ligolw_elem = newxmldoc.appendChild(ligolw.LIGO_LW())
 
-		# when making these, we can't use table.new_from_template()
-		# because we need to ensure we have a Table subclass, not a
-		# DBTable subclass
-		new_process_table = newxmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.ProcessTable, self.process_table.columnnames))
-		new_process_params_table = newxmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.ProcessParamsTable, self.process_params_table.columnnames))
-		new_search_summary_table = newxmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.SearchSummaryTable, self.search_summary_table.columnnames))
-		new_sngl_inspiral_table = newxmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.SnglInspiralTable, self.sngl_inspiral_table.columnnames))
-		new_coinc_def_table = newxmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.CoincDefTable, self.coinc_def_table.columnnames))
-		new_coinc_event_table = newxmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.CoincTable, self.coinc_event_table.columnnames))
-		new_coinc_inspiral_table = newxmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.CoincInspiralTable, self.coinc_inspiral_table.columnnames))
-		new_coinc_event_map_table = newxmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.CoincMapTable, self.coinc_event_map_table.columnnames))
-		new_time_slide_table = newxmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.TimeSlideTable, self.time_slide_table.columnnames))
+		# when making these, we can't use .copy() method of Table
+		# instances because we need to ensure we have a Table
+		# subclass, not a DBTable subclass
+		new_process_table = ligolw_elem.appendChild(lsctables.New(lsctables.ProcessTable, self.process_table.columnnames))
+		new_process_params_table = ligolw_elem.appendChild(lsctables.New(lsctables.ProcessParamsTable, self.process_params_table.columnnames))
+		new_search_summary_table = ligolw_elem.appendChild(lsctables.New(lsctables.SearchSummaryTable, self.search_summary_table.columnnames))
+		new_sngl_inspiral_table = ligolw_elem.appendChild(lsctables.New(lsctables.SnglInspiralTable, self.sngl_inspiral_table.columnnames))
+		new_coinc_def_table = ligolw_elem.appendChild(lsctables.New(lsctables.CoincDefTable, self.coinc_def_table.columnnames))
+		new_coinc_event_table = ligolw_elem.appendChild(lsctables.New(lsctables.CoincTable, self.coinc_event_table.columnnames))
+		new_coinc_inspiral_table = ligolw_elem.appendChild(lsctables.New(lsctables.CoincInspiralTable, self.coinc_inspiral_table.columnnames))
+		new_coinc_event_map_table = ligolw_elem.appendChild(lsctables.New(lsctables.CoincMapTable, self.coinc_event_map_table.columnnames))
+		new_time_slide_table = ligolw_elem.appendChild(lsctables.New(lsctables.TimeSlideTable, self.time_slide_table.columnnames))
 
 		new_coinc_def_table.append(self.coinc_def)
 		coinc_event = self.coinc_event_index[coinc_event_id]

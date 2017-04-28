@@ -20,11 +20,7 @@ injection, then the coincident event is also mapped to the injection.
 usage = "%s --input INDB.SQLITE --output OUTDB.SQLITE --simulation-table SIM_TABLE --recovery-table SNGL_TABLE --match-criteria CRITERIA --map-label LABEL [options]"
 
 from optparse import OptionParser
-try:
-    import sqlite3
-except ImportError:
-    # pre 2.5.x
-    from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 sqlite3.enable_callback_tracebacks(True)
 import sys
 import os

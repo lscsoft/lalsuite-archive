@@ -1,4 +1,4 @@
-# Copyright (C) 2006--2014  Kipp Cannon
+# Copyright (C) 2006--2016  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -46,17 +46,20 @@ except ImportError:
 import itertools
 import math
 import numpy
-import pickle
 import random
 import scipy
-__numpy__version__ = tuple(map(int, numpy.__version__.strip().split(".")))
-__scipy__version__ = tuple(map(int, scipy.__version__.strip().split(".")))
+__numpy__version__ = tuple(map(int, numpy.__version__.strip().split(".")[:2]))
+__scipy__version__ = tuple(map(int, scipy.__version__.strip().split(".")[:2]))
+# FIXME Uncomment these lines when the interpolator problem is fixed or when we
+# figure out the correct version numbers to check for 
+'''
 if __scipy__version__ >= (0, 9) and __numpy__version__ >= (1, 7):
 	from scipy.interpolate import interp1d, interp2d, LinearNDInterpolator
 else:
 	# pre scipy/numpy 0.9/1.7 had busted/missing interpolation code.
 	# replacements are provided below
 	pass
+'''
 from scipy.signal import signaltools
 
 
@@ -90,38 +93,27 @@ class Bins(object):
 	intended to be used directly, but to be subclassed for use in real
 	bins classes.
 	"""
-	def __init__(self, min, max, n):
+	def __init__(self):
 		"""
-		Initialize a Bins instance.  The three arguments are the
-		minimum and maximum of the values spanned by the bins, and
-		the number of bins to place between them.  Subclasses may
-		require additional arguments, or different arguments
-		altogether.
+		Initialize a Bins instance.  Subclasses must override this
+		method.
 		"""
-		# convenience code to do some common initialization and
-		# input checking
-		if not isinstance(n, int):
-			raise TypeError(n)
-		if n < 1:
-			raise ValueError(n)
-		if max <= min:
-			raise ValueError((min, max))
-		self.min = min
-		self.max = max
-		self.n = n
+		raise NotImplementedError
 
 	def __len__(self):
-		return self.n
+		"""
+		The number of bins in the binning.  Subclasses must
+		override this method.
+		"""
+		raise NotImplementedError
 
 	def __cmp__(self, other):
 		"""
 		Two binnings are the same if they are instances of the same
-		class, have the same lower and upper bounds, and the same
-		count of bins.
+		class, and describe the same binnings.  Subclasses should
+		override this method but need not.
 		"""
-		if not isinstance(other, type(self)):
-			return -1
-		return cmp((type(self), self.min, self.max, len(self)), (type(other), other.min, other.max, len(other)))
+		raise NotImplementedError
 
 	def __getitem__(self, x):
 		"""
@@ -134,39 +126,50 @@ class Bins(object):
 		falls, and whose upper bound is 1 greater than the index of
 		the bin in which the slice's upper bound falls.  Steps are
 		not supported in slices.
+
+		Subclasses must override this method, but may chain to this
+		to handle slices:
+
+		def __getitem__(self, x):
+			if isinstance(x, slice)
+				return super(type(self), self).__getitem__(x)
+			# now handle non-slices ...
 		"""
-		if isinstance(x, slice):
-			if x.step is not None:
-				raise NotImplementedError("step not supported: %s" % repr(x))
-			return slice(self[x.start] if x.start is not None else 0, self[x.stop] + 1 if x.stop is not None else len(self))
-		raise NotImplementedError
+		# assumes x is a slice.  works with anything that defines
+		# .start, .stop and .step (but .step must be None).
+		if x.step is not None and x.step != 1:
+			raise NotImplementedError("step not supported: %s" % repr(x))
+		return slice(self[x.start] if x.start is not None else 0, self[x.stop] + 1 if x.stop is not None else len(self))
 
 	def __iter__(self):
 		"""
 		If __iter__ does not exist, Python uses __getitem__ with
 		range(0) as input to define iteration. This is nonsensical
 		for bin objects, so explicitly unsupport iteration.
+		Subclasses do not need to override this method.
 		"""
 		raise NotImplementedError
 
 	def lower(self):
 		"""
 		Return an array containing the locations of the lower
-		boundaries of the bins.
+		boundaries of the bins.  Subclasses should override this
+		method.
 		"""
 		raise NotImplementedError
 
 	def centres(self):
 		"""
 		Return an array containing the locations of the bin
-		centres.
+		centres.  Subclasses should override this method.
 		"""
 		raise NotImplementedError
 
 	def upper(self):
 		"""
 		Return an array containing the locations of the upper
-		boundaries of the bins.
+		boundaries of the bins.  Subclasses should override this
+		method.
 		"""
 		raise NotImplementedError
 
@@ -199,7 +202,7 @@ class Bins(object):
 
 		>>> import math
 		>>> # natural log of 1/10
-		>>> print "%.15g" % math.log(1./10)
+		>>> print("%.15g" % math.log(1./10))
 		-2.30258509299405
 		>>> # linear bins spanning [0, 10]
 		>>> x = LinearBins(0, 10, 5).randcoord().next
@@ -212,7 +215,7 @@ class Bins(object):
 		>>> # bins, but values from final bin will be disallowed, so
 		>>> # return values will be uniform in part of the second 
 		>>> # last bin, [0.5, 0.6366]
-		>>> print "%.15g" % math.log(1. / (x.upper()[-2] - 0.5))
+		>>> print("%.15g" % math.log(1. / (x.upper()[-2] - 0.5)))
 		1.99055359585182
 		>>> x = x.randcoord(domain = slice(0.5, None)).next
 		>>> x() # doctest: +ELLIPSIS
@@ -223,6 +226,8 @@ class Bins(object):
 		Traceback (most recent call last):
 			...
 		NotImplementedError: step not supported: slice(None, None, 2)
+
+		Subclasses should not override this method.
 		"""
 		if len(self) < 1:
 			raise ValueError("empty binning")
@@ -267,14 +272,16 @@ class Bins(object):
 	@staticmethod
 	def xml_bins_name_enc(name, suffix = u"pylal_rate_bins"):
 		"""
-		For internal use by XML I/O code.
+		For internal use by XML I/O code.  Subclasses should not
+		override this method.
 		"""
 		return u"%s:%s" % (name, suffix)
 
 	@staticmethod
 	def xml_bins_name_dec(name, suffix = u"pylal_rate_bins"):
 		"""
-		For internal use by XML I/O code.
+		For internal use by XML I/O code.  Subclasses should not
+		override this method.
 		"""
 		name = name.rsplit(u":", 1)
 		if name[-1] != suffix:
@@ -284,14 +291,17 @@ class Bins(object):
 	@classmethod
 	def xml_bins_check(cls, elem, name):
 		"""
-		For internal use by XML I/O code.
+		For internal use by XML I/O code.  Subclasses should not
+		override this method.
 		"""
 		return elem.tagName == ligolw.Param.tagName and elem.hasAttribute(u"Name") and name == cls.xml_bins_name_dec(elem.Name)
 
 	def to_xml(self):
 		"""
 		Construct a LIGO Light Weight XML representation of the
-		Bins instance.
+		Bins instance.  Subclasses must override this method to be
+		serializable to LIGO Light Weight XML, otherwise they need
+		not override it.
 		"""
 		raise NotImplementedError
 
@@ -299,27 +309,66 @@ class Bins(object):
 	def from_xml(cls, xml):
 		"""
 		From the XML Param element at xml, return the Bins object
-		it describes.
+		it describes.  Subclasses must override this method to be
+		de-serializable from LIGO Light Weight XML, otherwise they
+		need not override it.
 		"""
 		raise NotImplementedError
 
 
-class LoHiCountToFromXMLMixin(object):
+class LoHiCountBins(Bins):
 	"""
-	For internal use by XML I/O code.
+	Base class to help implement binnings that can be defined by a
+	lower bound, an upper bound, and a count of bins.  This is not a
+	binning.
 	"""
+	def __init__(self, min, max, n):
+		"""
+		The three arguments are the minimum and maximum of the
+		values spanned by the bins, and the number of bins to place
+		between them.
+		"""
+		if not isinstance(n, int):
+			raise TypeError(n)
+		if n < 1:
+			raise ValueError(n)
+		if max <= min:
+			raise ValueError((min, max))
+		self.min = min
+		self.max = max
+		self.n = n
+
+	def __len__(self):
+		return self.n
+
+	def __cmp__(self, other):
+		"""
+		Two binnings are the same if they are instances of the same
+		class, have the same lower and upper bounds, and the same
+		count of bins.
+		"""
+		if not isinstance(other, type(self)):
+			return -1
+		return cmp((type(self), self.min, self.max, self.n), (type(other), other.min, other.max, other.n))
+
+	#
+	# XML I/O related methods and data
+	#
+
 	def to_xml(self):
 		"""
 		Construct a LIGO Light Weight XML representation of the
-		Bins instance.
+		Bins instance.  Subclasses must define the .xml_bins_name
+		class attribute.
 		"""
-		return ligolw_param.from_pyvalue(self.xml_bins_name_enc(self.xml_bins_name), u"%s,%s,%s" % (ligolw_types.FormatFunc[u"real_8"](self.min), ligolw_types.FormatFunc[u"real_8"](self.max), ligolw_types.FormatFunc[u"int_8s"](self.n)))
+		return ligolw_param.Param.from_pyvalue(self.xml_bins_name_enc(self.xml_bins_name), u"%s,%s,%s" % (ligolw_types.FormatFunc[u"real_8"](self.min), ligolw_types.FormatFunc[u"real_8"](self.max), ligolw_types.FormatFunc[u"int_8s"](self.n)))
 
 	@classmethod
 	def from_xml(cls, xml):
 		"""
 		From the XML Param element at xml, return the Bins object
-		it describes.
+		it describes.  Subclasses must define the .xml_bins_name
+		class attribute.
 		"""
 		if not cls.xml_bins_check(xml, cls.xml_bins_name):
 			raise ValueError("not a %s" % repr(cls))
@@ -373,11 +422,9 @@ class IrregularBins(Bins):
 		# check pre-conditions
 		if len(boundaries) < 2:
 			raise ValueError("less than two boundaries provided")
-		boundaries = tuple(boundaries)
-		if any(a > b for a, b in zip(boundaries[:-1], boundaries[1:])):
+		self.boundaries = tuple(boundaries)
+		if any(a > b for a, b in zip(self.boundaries[:-1], self.boundaries[1:])):
 			raise ValueError("non-monotonic boundaries provided")
-
-		self.boundaries = boundaries
 
 	def __cmp__(self, other):
 		"""
@@ -421,7 +468,7 @@ class IrregularBins(Bins):
 		Construct a LIGO Light Weight XML representation of the
 		Bins instance.
 		"""
-		return ligolw_param.from_pyvalue(self.xml_bins_name_enc(self.xml_bins_name), u",".join(map(ligolw_types.FormatFunc[u"real_8"], self.boundaries)))
+		return ligolw_param.Param.from_pyvalue(self.xml_bins_name_enc(self.xml_bins_name), u",".join(map(ligolw_types.FormatFunc[u"real_8"], self.boundaries)))
 
 	@classmethod
 	def from_xml(cls, xml):
@@ -434,7 +481,7 @@ class IrregularBins(Bins):
 		return cls(map(ligolw_types.ToPyType[u"real_8"], xml.pcdata.split(u",")))
 
 
-class LinearBins(LoHiCountToFromXMLMixin, Bins):
+class LinearBins(LoHiCountBins):
 	"""
 	Linearly-spaced bins.  There are n bins of equal size, the first
 	bin starts on the lower bound and the last bin ends on the upper
@@ -507,7 +554,7 @@ class LinearBins(LoHiCountToFromXMLMixin, Bins):
 	xml_bins_name = u"linbins"
 
 
-class LinearPlusOverflowBins(LoHiCountToFromXMLMixin, Bins):
+class LinearPlusOverflowBins(LoHiCountBins):
 	"""
 	Linearly-spaced bins with overflow at the edges.  There are n-2
 	bins of equal size.  The bin 1 starts on the lower bound and bin
@@ -585,7 +632,7 @@ class LinearPlusOverflowBins(LoHiCountToFromXMLMixin, Bins):
 	xml_bins_name = u"linplusoverflowbins"
 
 
-class LogarithmicBins(LoHiCountToFromXMLMixin, Bins):
+class LogarithmicBins(LoHiCountBins):
 	"""
 	Logarithmically-spaced bins.  There are n bins, each of whose upper
 	and lower bounds differ by the same factor.  The first bin starts
@@ -637,7 +684,7 @@ class LogarithmicBins(LoHiCountToFromXMLMixin, Bins):
 	xml_bins_name = u"logbins"
 
 
-class LogarithmicPlusOverflowBins(LoHiCountToFromXMLMixin, Bins):
+class LogarithmicPlusOverflowBins(LoHiCountBins):
 	"""
 	Logarithmically-spaced bins plus one bin at each end that goes to
 	zero and positive infinity respectively.  There are n-2 bins each
@@ -709,7 +756,7 @@ class LogarithmicPlusOverflowBins(LoHiCountToFromXMLMixin, Bins):
 	xml_bins_name = u"logplusoverflowbins"
 
 
-class ATanBins(LoHiCountToFromXMLMixin, Bins):
+class ATanBins(LoHiCountBins):
 	"""
 	Bins spaced uniformly in tan^-1 x.  Provides approximately linear
 	binning in the middle portion, with the bin density dropping
@@ -776,7 +823,7 @@ class ATanBins(LoHiCountToFromXMLMixin, Bins):
 	xml_bins_name = u"atanbins"
 
 
-class ATanLogarithmicBins(LoHiCountToFromXMLMixin, IrregularBins):
+class ATanLogarithmicBins(LoHiCountBins, IrregularBins):
 	"""
 	Provides the same binning as the ATanBins class but in the
 	logarithm of the variable.  The min and max parameters set the
@@ -829,11 +876,13 @@ class ATanLogarithmicBins(LoHiCountToFromXMLMixin, IrregularBins):
 			boundaries = numpy.exp(boundaries)
 		boundaries = numpy.hstack((boundaries, [PosInf, 0.]))
 		keepers = boundaries[:-1] != boundaries[1:]
-		super(ATanLogarithmicBins, self).__init__(boundaries[keepers])
+		IrregularBins.__init__(self, boundaries[:-1][keepers])
 		self.keepers = keepers[:-1]
 		self.min = min
 		self.max = max
 		self.n = n
+
+	__len__ = IrregularBins.__len__
 
 	def centres(self):
 		offset = 0.5 * math.pi * self.delta
@@ -887,25 +936,26 @@ class Categories(Bins):
 	IndexError: -1
 
 	This last example demonstrates the behaviour when the intersection
-	of the categorys is not the empty set.
+	of the categories is not the empty set.
 	"""
 	def __init__(self, categories):
 		"""
-		categories is an iterable of containers defining the
-		categories.  (Recall that containers are collections that
-		support the "in" operator.) Objects will be mapped to the
-		integer index of the container that contains them.
+		categories is an iterable of containers (objects that
+		support the "in" operator) defining the categories.
+		Objects will be mapped to the integer index of the
+		container that contains them.
 		"""
-		self.containers = tuple(categories)  # need to set an order and len
+		# make immutable copy
+		self.containers = tuple(categories)
 
 	def __len__(self):
 		return len(self.containers)
 
 	def __getitem__(self, value):
 		"""
-		Return i if value is contained in i-th container. If value
+		Return i if value is contained in i-th container.  If value
 		is not contained in any of the containers, raise an
-		IndexError.
+		IndexError.  This is O(n).
 		"""
 		for i, s in enumerate(self.containers):
 			if value in s:
@@ -931,9 +981,14 @@ class Categories(Bins):
 		Construct a LIGO Light Weight XML representation of the
 		Bins instance.
 		"""
-		# can't use ligolw_param.pickle_to_param() because it
-		# mangles the name encoding
-		return ligolw_param.from_pyvalue(self.xml_bins_name_enc(self.xml_bins_name), pickle.dumps(self.containers))
+		# FIXME:  switch to "pickle" type for params when it won't
+		# break on-going O2 analyses
+		#return ligolw_param.Param.build(self.xml_bins_name_enc(self.xml_bins_name), u"pickle", self.containers)
+		import pickle
+		return ligolw_param.Param.from_pyvalue(self.xml_bins_name_enc(self.xml_bins_name), pickle.dumps(self.containers))
+		# FIXME:  switch to "yaml" type if we can rely on the yaml
+		# module's availability
+		#return ligolw_param.Param.build(self.xml_bins_name_enc(self.xml_bins_name), u"yaml", self.containers)
 
 	@classmethod
 	def from_xml(cls, xml):
@@ -943,7 +998,59 @@ class Categories(Bins):
 		"""
 		if not cls.xml_bins_check(xml, cls.xml_bins_name):
 			raise ValueError("not a %s" % repr(cls))
+		# FIXME:  replace with commented-out code when we can rely
+		# on new "pickle" type for params
+		#return cls(xml.pcdata)
+		import pickle
 		return cls(pickle.loads(xml.pcdata))
+
+
+class HashableBins(Categories):
+	"""
+	Maps hashable objects (things that can be used as dictionary keys)
+	to integers.
+
+	Example:
+	>>> x = HashableBins([
+	...    frozenset(("H1", "L1")),
+	...    frozenset(("H1", "V1")),
+	...    frozenset(("L1", "V1")),
+	...    frozenset(("H1", "L1", "V1"))
+	... ])
+	>>> x[frozenset(("H1", "L1"))]
+	0
+	>>> x[set(("H1", "L1"))]	# equal, but not hashable
+	Traceback (most recent call last):
+		...
+	IndexError: set(['H1', 'L1'])
+	>>> x.centres()[2]
+	frozenset(['V1', 'L1'])
+	"""
+	def __init__(self, hashables):
+		super(HashableBins, self).__init__(hashables)
+		self.mapping = dict(zip(self.containers, range(len(self.containers))))
+
+	def __getitem__(self, value):
+		try:
+			return self.mapping[value]
+		except (KeyError, TypeError):
+			raise IndexError(value)
+
+	# FIXME:  hack to allow instrument binnings to be included as a
+	# dimension in multi-dimensional PDFs by defining a volume for
+	# them.  investigate more sensible ways to do this.  a
+	# purpose-built instrument binning could be introduced but that (a)
+	# breaks on-going analysis code by changing the file format of
+	# ranking statistic data files and (b) doesn't solve the problem
+	# when something else like this comes along.  maybe NDBins and
+	# BinnedDensity should understand the difference between functional
+	# and parametric co-ordinates.
+	def lower(self):
+		return numpy.arange(0, len(self), dtype = "double")
+	def upper(self):
+		return numpy.arange(1, len(self) + 1, dtype = "double")
+
+	xml_bins_name = u"hashablebins"
 
 
 class NDBins(tuple):
@@ -997,37 +1104,81 @@ class NDBins(tuple):
 	Note that the co-ordinates to be converted must be a tuple, even if
 	it is only a 1-dimensional co-ordinate.
 	"""
+	def __init__(self, binnings):
+		self._getitems = tuple(binning.__getitem__ for binning in binnings)
+
 	def __getitem__(self, coords):
 		"""
-		When coords is a tuple, it is interpreted as an
-		N-dimensional co-ordinate which is converted to an N-tuple
-		of bin indices by the Bins instances in this object.
-		Otherwise coords is interpeted as an index into the tuple,
-		and the corresponding Bins instance is returned.
+		When coords is a tuple this is a synonym for self(*coords),
+		otherwise coords is interpreted as an index into ourselves
+		and the Bins object at that index is returned
 
 		Example:
 
 		>>> x = NDBins((LinearBins(1, 25, 3), LogarithmicBins(1, 25, 3)))
 		>>> x[1, 1]
 		(0, 0)
+		>>> # slices can be given syntactically
+		>>> x[10:12, 1]
+		(slice(1, 2, None), 0)
 		>>> type(x[1])
 		<class 'pylal.rate.LogarithmicBins'>
 
-		When used to convert co-ordinates to bin indices, each
-		co-ordinate can be anything the corresponding Bins instance
-		will accept.  Note that the co-ordinates to be converted
-		must be a tuple, even if it is only a 1-dimensional
-		co-ordinate.
+		Note that if the argument is to be interpreted as a
+		co-ordinate it must be a tuple even if it is only a
+		1-dimensional co-ordinate.
+
+		Example:
+
+		>>> x = NDBins((LinearBins(1, 25, 3),))
+		>>> x[1,]
+		(0,)
 		"""
-		if isinstance(coords, tuple):
-			if len(coords) != len(self):
-				raise ValueError("dimension mismatch")
-			return tuple(map(lambda b, c: b[c], self, coords))
-		else:
-			return tuple.__getitem__(self, coords)
+		return self(*coords) if isinstance(coords, tuple) else tuple.__getitem__(self, coords)
+
+	def __call__(self, *coords):
+		"""
+		Convert an N-dimensional co-ordinate to an N-tuple of bin
+		indices using the Bins instances in this object.  Calling
+		the NDBins instance instead of using indexing (the "[]"
+		operator) provides a more direct, faster, interface to the
+		Bins instances contained herein, but slices cannot be given
+		syntactically in the argument list
+
+		Example:
+
+		>>> x = NDBins((LinearBins(1, 25, 3), LogarithmicBins(1, 25, 3)))
+		>>> x[1, 1]	# access using index operator
+		(0, 0)
+		>>> x(1, 1)	# access by calling
+		(0, 0)
+		>>> x = NDBins((LinearBins(1, 25, 3),))
+		>>> x(1)	# explicit tuples not required for 1D
+		(0,)
+		>>> x = NDBins((LinearBins(1, 25, 1000),))
+		>>> x(slice(10, 12))	# slices (constructed manually)
+		(slice(375, 459, None),)
+		>>> x = NDBins((Categories([set(("Cow", "Chicken", "Goat")), set(("Tractor", "Plough")), set(("Barn", "House"))]),))
+		>>> x("Cow")
+		(0,)
+
+		Each co-ordinate can be anything the corresponding Bins
+		instance will accept.
+		"""
+		if len(coords) != len(self):
+			raise ValueError("dimension mismatch")
+		return tuple(g(c) for g, c in zip(self._getitems, coords))
 
 	@property
 	def shape(self):
+		"""
+		Tuple of the number of bins along each dimension.
+
+		Example:
+
+		>>> NDBins((LinearBins(0, 6, 3), LinearBins(0, 10, 5))).shape
+		(3, 5)
+		"""
 		return tuple(len(b) for b in self)
 
 	def lower(self):
@@ -1035,6 +1186,11 @@ class NDBins(tuple):
 		Return a tuple of arrays, where each array contains the
 		locations of the lower boundaries of the bins in the
 		corresponding dimension.
+
+		Example:
+
+		>>> NDBins((LinearBins(0, 6, 3), LinearBins(0, 10, 5))).lower()
+		(array([ 0.,  2.,  4.]), array([ 0.,  2.,  4.,  6.,  8.]))
 		"""
 		return tuple(b.lower() for b in self)
 
@@ -1043,6 +1199,11 @@ class NDBins(tuple):
 		Return a tuple of arrays, where each array contains the
 		locations of the bin centres for the corresponding
 		dimension.
+
+		Example:
+
+		>>> NDBins((LinearBins(0, 6, 3), LinearBins(0, 10, 5))).centres()
+		(array([ 1.,  3.,  5.]), array([ 1.,  3.,  5.,  7.,  9.]))
 		"""
 		return tuple(b.centres() for b in self)
 
@@ -1051,6 +1212,11 @@ class NDBins(tuple):
 		Return a tuple of arrays, where each array contains the
 		locations of the upper boundaries of the bins in the
 		corresponding dimension.
+
+		Example:
+
+		>>> NDBins((LinearBins(0, 6, 3), LinearBins(0, 10, 5))).upper()
+		(array([ 2.,  4.,  6.]), array([  2.,   4.,   6.,   8.,  10.]))
 		"""
 		return tuple(b.upper() for b in self)
 
@@ -1117,7 +1283,7 @@ class NDBins(tuple):
 	# XML I/O methods and data
 	#
 
-	xml_bins_name_mapping = dict((cls.xml_bins_name, cls) for cls in (LinearBins, LinearPlusOverflowBins, LogarithmicBins, LogarithmicPlusOverflowBins, ATanBins, ATanLogarithmicBins, Categories))
+	xml_bins_name_mapping = dict((cls.xml_bins_name, cls) for cls in (LinearBins, LinearPlusOverflowBins, LogarithmicBins, LogarithmicPlusOverflowBins, ATanBins, ATanLogarithmicBins, Categories, HashableBins))
 	xml_bins_name_mapping.update(zip(xml_bins_name_mapping.values(), xml_bins_name_mapping.keys()))
 
 	def to_xml(self, elem):
@@ -1172,7 +1338,7 @@ class NDBins(tuple):
 #
 
 
-def bins_spanned(bins, seglist, dtype = "double"):
+def bins_spanned(bins, seglist):
 	"""
 	Input is a Bins subclass instance and a glue.segments.segmentlist
 	instance.  The output is an array object the length of the binning,
@@ -1201,15 +1367,10 @@ def bins_spanned(bins, seglist, dtype = "double"):
 	"""
 	lower = bins.lower()
 	upper = bins.upper()
-	# make an intersection of the segment list with the extend of the bins
-	# need to use lower/upper instead of min/max because the latter sometimes
-	# merely correspond to low and high parameters used to construct the binning
-	# (see, for example, the atan binning)
+	# performance improvement:  pre-clip segments to the domain of the
+	# binning
 	seglist = seglist & segments.segmentlist([segments.segment(lower[0], upper[-1])])
-	array = numpy.zeros((len(bins),), dtype = dtype)
-	for i, (a, b) in enumerate(zip(lower, upper)):
-		array[i] = abs(seglist & segments.segmentlist([segments.segment(a, b)]))
-	return array
+	return numpy.fromiter((abs(seglist & segments.segmentlist([seg])) for seg in zip(lower, upper)), dtype = lower.dtype, count = len(bins))
 
 
 #
@@ -1233,11 +1394,11 @@ class BinnedArray(object):
 	Note that even for 1 dimensional arrays the index must be a tuple.
 
 	>>> x = BinnedArray(NDBins((LinearBins(0, 10, 5),)))
-	>>> x.array
+	>>> x.at_centres()
 	array([ 0.,  0.,  0.,  0.,  0.])
 	>>> x[0,] += 1
 	>>> x[0.5,] += 1
-	>>> x.array
+	>>> x.at_centres()
 	array([ 2.,  0.,  0.,  0.,  0.])
 	>>> x.argmax()
 	(1.0,)
@@ -1252,7 +1413,7 @@ class BinnedArray(object):
 	>>> x[0, 1] = 1
 	>>> x[1, 0] = 2
 	>>> x[1, 1] = 4
-	>>> x.array
+	>>> x.at_centres()
 	array([[ 0.,  1.],
 	       [ 2.,  4.]])
 	>>> x[0, 0]
@@ -1276,7 +1437,7 @@ class BinnedArray(object):
 	>>> x = BinnedArray(NDBins((LinearBins(0, 10, 5),)), array = numpy.zeros((5,1)))
 	Traceback (most recent call last):
 		...
-	ValueError: input array and input bins must have the same shape:  (5, 1) != (5,)
+	ValueError: bins (shape = (5,)) and array (shape = (5, 1)), if supplied, must have the same shape
 
 	A BinnedArray can be serialized to LIGO Light Weight XML.
 
@@ -1306,16 +1467,16 @@ class BinnedArray(object):
 		self.bins = bins
 		if array is None:
 			self.array = numpy.zeros(bins.shape, dtype = dtype)
+		elif array.shape != bins.shape:
+			raise ValueError("bins (shape = %s) and array (shape = %s), if supplied, must have the same shape" % (str(bins.shape), str(array.shape)))
 		else:
-			if array.shape != bins.shape:
-				raise ValueError("input array and input bins must have the same shape:  %s != %s" % (str(array.shape), str(bins.shape)))
 			self.array = array
 
 	def __getitem__(self, coords):
-		return self.array[self.bins[coords]]
+		return self.array[self.bins(*coords)]
 
 	def __setitem__(self, coords, val):
-		self.array[self.bins[coords]] = val
+		self.array[self.bins(*coords)] = val
 
 	def __len__(self):
 		return len(self.array)
@@ -1329,15 +1490,6 @@ class BinnedArray(object):
 			raise TypeError("incompatible binning: %s" % repr(other))
 		self.array += other.array
 		return self
-		# here's an implementation that allows the binnings to
-		# differ.  each bin in other is added to whichever bin in
-		# self its centre is found in.  this behaviour probably
-		# leads to undesirable results if other's binning is less
-		# dense than self's.  would need to spread other's bins'
-		# contents out somehow.  probably there's no behaviour that
-		# is correct for all use cases.
-		#for coords in iterutils.MultiIter(*other.bins.centres()):
-		#	self[coords] += other[coords]
 
 	def copy(self):
 		"""
@@ -1353,13 +1505,36 @@ class BinnedArray(object):
 		"""
 		return self.bins.centres()
 
+	def at_centres(self):
+		"""
+		Return an array of the BinnedArray's value evaluated at the
+		bin centres.  In many cases this is simply a reference to
+		the internal array object, but for subclasses that override
+		item retrieval and assignment some additional work might be
+		required to obtain this array.  In those cases, this method
+		is a convenience wrapper to avoid coding the evaluation
+		loop in the calling code.
+
+		Because subclasses expect to be able to override this, in
+		almost call cases calling code that wishes to access the
+		internal array directly should probably use this method
+		instead.
+
+		Notes:
+
+		- The return value might be a newly-constructed object or a
+		  reference to an internal object.
+		"""
+		return self.array
+
 	def argmin(self):
 		"""
 		Return the co-ordinates of the bin centre containing the
 		minimum value.  Same as numpy.argmin(), converting the
 		indexes to bin co-ordinates.
 		"""
-		return tuple(centres[index] for centres, index in zip(self.centres(), numpy.unravel_index(self.array.argmin(), self.array.shape)))
+		array = self.at_centres()
+		return tuple(centres[index] for centres, index in zip(self.centres(), numpy.unravel_index(array.argmin(), array.shape)))
 
 	def argmax(self):
 		"""
@@ -1367,20 +1542,20 @@ class BinnedArray(object):
 		maximum value.  Same as numpy.argmax(), converting the
 		indexes to bin co-ordinates.
 		"""
-		return tuple(centres[index] for centres, index in zip(self.centres(), numpy.unravel_index(self.array.argmax(), self.array.shape)))
-
-	def to_density(self):
-		"""
-		Divide each bin's value by the volume of the bin.
-		"""
-		self.array /= self.bins.volumes()
+		array = self.at_centres()
+		return tuple(centres[index] for centres, index in zip(self.centres(), numpy.unravel_index(array.argmax(), array.shape)))
 
 	def to_pdf(self):
 		"""
 		Convert into a probability density.
 		"""
-		self.array /= self.array.sum()  # make sum = 1
-		self.to_density()	# make integral = 1
+		# zero bins whose volumes are infinite so the rest will
+		# appear to be normalized
+		self.array[numpy.isinf(self.bins.volumes())] = 0.
+		# make sum = 1
+		self.array /= self.array.sum()
+		# make integral = 1
+		self.array /= self.bins.volumes()
 
 	def logregularize(self, epsilon = 2**-1074):
 		"""
@@ -1399,7 +1574,17 @@ class BinnedArray(object):
 		elem = ligolw.LIGO_LW()
 		elem.Name = u"%s:pylal_rate_binnedarray" % name
 		self.bins.to_xml(elem)
-		elem.appendChild(ligolw_array.from_array(u"array", self.array))
+		elem.appendChild(ligolw_array.Array.build(u"array", self.array))
+		return elem
+
+	@classmethod
+	def get_xml_root(cls, xml, name):
+		name = u"%s:pylal_rate_binnedarray" % name
+		elem = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == name]
+		try:
+			elem, = elem
+		except ValueError:
+			raise ValueError("XML tree at '%s' must contain exactly one '%s' LIGO_LW element" % (repr(xml), name))
 		return elem
 
 	@classmethod
@@ -1414,139 +1599,12 @@ class BinnedArray(object):
 		attribute of the XML element.  Changes to the contents of
 		the BinnedArray object affect the XML document tree.
 		"""
-		name = u"%s:pylal_rate_binnedarray" % name
-		elem = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == name]
-		try:
-			elem, = elem
-		except ValueError:
-			raise ValueError("XML tree at '%s' must contain exactly one '%s' LIGO_LW element" % (repr(xml), name))
+		elem = cls.get_xml_root(xml, name)
 		self = cls(NDBins.from_xml(elem), array = ligolw_array.get_array(elem, u"array").array)
 		# sanity check
 		if self.bins.shape != self.array.shape:
 			raise ValueError("'%s' binning shape does not match array shape:  %s != %s" % (name, self.bins.shape, self.array.shape))
 		# done
-		return self
-
-
-class BinnedRatios(object):
-	"""
-	Like BinnedArray, but provides a numerator array and a denominator
-	array.  The incnumerator() method increments a bin in the numerator
-	by the given weight, and the incdenominator() method increments a
-	bin in the denominator by the given weight.  There are no methods
-	provided for setting or decrementing either, but the they are
-	accessible as the numerator and denominator attributes, which are
-	both BinnedArray objects.
-	"""
-	def __init__(self, bins, dtype = "double"):
-		self.numerator = BinnedArray(bins, dtype = dtype)
-		self.denominator = BinnedArray(bins, dtype = dtype)
-
-	def __getitem__(self, coords):
-		return self.numerator[coords] / self.denominator[coords]
-
-	def bins(self):
-		return self.numerator.bins
-
-	def __iadd__(self, other):
-		"""
-		Add the weights from another BinnedRatios object's
-		numerator and denominator to the numerator and denominator
-		of this one.  Note that this is not the same as adding the
-		ratios.  It is not necessary for the binnings to be
-		identical, but an integer number of the bins in other must
-		fit into each bin in self.
-		"""
-		try:
-			self.numerator += other.numerator
-			self.denominator += other.denominator
-		except TypeError:
-			raise TypeError("incompatible binning: %s" % repr(other))
-		return self
-
-	def incnumerator(self, coords, weight = 1):
-		"""
-		Add weight to the numerator bin at coords.
-		"""
-		self.numerator[coords] += weight
-
-	def incdenominator(self, coords, weight = 1):
-		"""
-		Add weight to the denominator bin at coords.
-		"""
-		self.denominator[coords] += weight
-
-	def ratio(self):
-		"""
-		Compute and return the array of ratios.
-		"""
-		return self.numerator.array / self.denominator.array
-
-	def regularize(self):
-		"""
-		Find bins in the denominator that are 0, and set them to 1.
-		Presumably the corresponding bin in the numerator is also
-		0, so this has the effect of allowing the ratio array to be
-		evaluated without error, returning zeros in those bins that
-		have had no weight added to them.
-		"""
-		self.denominator.array[self.denominator.array == 0] = 1
-		return self
-
-	def logregularize(self, epsilon = 2**-1074):
-		"""
-		Find bins in the denominator that are 0, and set them to 1,
-		while setting the corresponding bin in the numerator to
-		float epsilon.  This has the effect of allowing the
-		logarithm of the ratio array to be evaluated without error.
-		"""
-		self.numerator.array[self.denominator.array == 0] = epsilon
-		self.denominator.array[self.denominator.array == 0] = 1
-		return self
-
-	def centres(self):
-		"""
-		Return a tuple of arrays containing the bin centres for
-		each dimension.
-		"""
-		return self.numerator.bins.centres()
-
-	def used(self):
-		"""
-		Return the number of bins with non-zero denominator.
-		"""
-		return numpy.sum(self.denominator.array != 0)
-
-	def to_pdf(self):
-		"""
-		Convert the numerator and denominator into a pdf.
-		"""
-		self.numerator.to_pdf()
-		self.denominator.to_pdf()
-
-	def to_xml(self, name):
-		"""
-		Return an XML document tree describing a rate.BinnedRatios object.
-		"""
-		xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_rate_binnedratios" % name})
-		xml.appendChild(self.numerator.to_xml(u"numerator"))
-		xml.appendChild(self.denominator.to_xml(u"denominator"))
-		return xml
-
-	@classmethod
-	def from_xml(cls, xml, name):
-		"""
-		Search for the description of a rate.BinnedRatios object named
-		"name" in the XML document tree rooted at xml, and construct and
-		return a new rate.BinnedRatios object from the data contained
-		therein.
-		"""
-		xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == u"%s:pylal_rate_binnedratios" % name]
-		self = cls(NDBins())
-		self.numerator = BinnedArray.from_xml(xml, u"numerator")
-		self.denominator = BinnedArray.from_xml(xml, u"denominator")
-		# normally they share a single NDBins instance
-		self.denominator.bins = self.numerator.bins
 		return self
 
 
@@ -1644,14 +1702,8 @@ def InterpBinnedArray(binnedarray, fill_value = 0.0):
 
 	# pad the contents of the binned array with 1 element of fill_value
 	# on each side in each dimension
-	try:
-		z = numpy.pad(binnedarray.array, [(1, 1)] * len(binnedarray.array.shape), mode = "constant", constant_values = [(fill_value, fill_value)] * len(binnedarray.array.shape))
-	except AttributeError:
-		# numpy < 1.7 didn't have pad().  FIXME:  remove when we
-		# can rely on a newer numpy
-		z = numpy.empty(tuple(l + 2 for l in binnedarray.array.shape))
-		z.fill(fill_value)
-		z[(slice(1, -1),) * len(binnedarray.array.shape)] = binnedarray.array
+	z = binnedarray.at_centres()
+	z = numpy.pad(z, [(1, 1)] * z.ndim, mode = "constant", constant_values = [(fill_value, fill_value)] * z.ndim)
 
 	# if any co-ordinates are infinite, remove them.  also remove
 	# degenerate co-ordinates from ends
@@ -1745,6 +1797,437 @@ def InterpBinnedArray(binnedarray, fill_value = 0.0):
 #
 # =============================================================================
 #
+#                                BinnedDensity
+#
+# =============================================================================
+#
+
+
+class BinnedDensity(BinnedArray):
+	"""
+	Variant of the BinnedArray type that interprets its contents as a
+	density.  When initialized, the volumes of the NDBins used to
+	create the BinnedDensity are computed and stored in the .volume
+	attribute.  When a value is retrieved from a bin, the value
+	reported is the value stored in the bin divided by the bin's
+	volume.  When a value is assigned to a bin, the value recorded is
+	the assigned value multiplied by the bin's volume.  The true values
+	recorded in the bins can be accessed via the .count attribute,
+	which is a BinnedArray object wrapping the same array and binning.
+
+	Because the internal array stores counts, not the densities, when
+	the data in an instance of this class is processed with the
+	filter_array() function the result is the density of smoothed
+	counts, not the smoothed density.  This is best illustrated with an
+	example.
+
+	Example:  linear bins
+
+	>>> # bins are 2 units, each
+	>>> x = BinnedDensity(NDBins((LinearBins(0, 10, 5),)))
+	>>> x.volume
+	array([ 2.,  2.,  2.,  2.,  2.])
+	>>> # set count at 5 to 1
+	>>> x.count[5.0,] = 1
+	>>> # internal array set to 1 in that bin
+	>>> x.array
+	array([ 0.,  0.,  1.,  0.,  0.])
+	>>> # density reported is 0.5
+	>>> print x[5.0,]
+	0.5
+	>>> # convolve counts with 3-bin top hat window
+	>>> filter_array(x.array, tophat_window(3))
+	array([ 0.        ,  0.33333333,  0.33333333,  0.33333333,  0.        ])
+	>>> # density at 5 is now 1/6 counts / unit interval
+	>>> print x[5.0,]
+	0.166666666667
+	>>> # total count has been preserved
+	>>> print x.array.sum()
+	1.0
+
+	Example:  logarithmic bins
+
+	>>> # bins increase in size by a factor of 2, each
+	>>> x = BinnedDensity(NDBins((LogarithmicBins(1, 32, 5),)))
+	>>> x.volume
+	array([  1.,   2.,   4.,   8.,  16.])
+	>>> # set count at 5 to 1
+	>>> x.count[5.0,] = 1
+	>>> # internal array set to 1 in that bin
+	>>> x.array
+	array([ 0.,  0.,  1.,  0.,  0.])
+	>>> # density reported is 0.25
+	>>> print x[5.0,]
+	0.25
+	>>> # convolve counts with 3-bin top hat window
+	>>> filter_array(x.array, tophat_window(3))
+	array([ 0.        ,  0.33333333,  0.33333333,  0.33333333,  0.        ])
+	>>> # density at 5 is now 1/12 counts / unit interval
+	>>> print x[5.0,]
+	0.0833333333333
+	>>> # density is 1/6 in bin below
+	>>> print x[3,]
+	0.166666666667
+	>>> # and 1/24 in bin above
+	>>> print x[10,]
+	0.0416666666667
+	>>> # total count has been preserved
+	>>> print x.array.sum()
+	1.0
+
+	Explanation.  In the linear case there are five bins spanning the
+	interval [0, 10], making each bin 2 "units" in size.  A single
+	count is placed at 5.0, which is bin number 2.  The averaging
+	filter is a top-hat window 3 bins wide.  The single count in bin
+	#2, when averaged over the three bins around it, becomes an average
+	of 1/3 count per bin, each of which is 2 units in size, so the
+	average density is 1/6 events / unit.  The count has been spread
+	out over several bins but the integral of the density, the total
+	count, is unchanged.  The logarithmic case is identical but because
+	the bin sizes are non-uniform, when the single count is spread
+	across the three bins the density is non-uniform.  The integral is
+	still preserved.
+
+	Some binnings have infinite-sized bins.  For such bins, the counts
+	may be manipulated directly, as usual, but for all finite counts a
+	density of 0 will be reported for those bins (and NaN for infinite
+	counts), and ValueError will be raised if an attempt is made to
+	assign a density to those bins.
+
+	NOTES:
+
+	- While it is technically possible to modify the binning parameters
+	  after creating an instance of this class, the steps required to
+	  bring all internal data back into consistency following such a
+	  change are undocumented.  One should consider the metadata
+	  carried by these objects to be immutable.
+	"""
+	def __init__(self, *args, **kwargs):
+		super(BinnedDensity, self).__init__(*args, **kwargs)
+		self.count = BinnedArray(self.bins, array = self.array)
+		self.volume = self.bins.volumes()
+
+	def __getitem__(self, coords):
+		coords = self.bins(*coords)
+		return self.array[coords] / self.volume[coords]
+
+	def __setitem__(self, coords, val):
+		coords = self.bins(*coords)
+		vol = self.volume[coords]
+		if numpy.isinf(vol).any():
+			raise ValueError("cannot assign density values to infinite-volume bins, try assigning a count instead")
+		self.array[coords] = val * vol
+
+	def at_centres(self):
+		return self.array / self.volume
+
+	def marginalize(self, dim):
+		"""
+		Return a new BinnedDensity object containing the density
+		integrated over dimension dim.
+
+		Example:
+
+		>>> # 5x5 mesh of bins, each with volume = 4
+		>>> x = BinnedDensity(NDBins((LinearBins(0, 10, 5), LinearBins(0, 10, 5))))
+		>>> # set count at 5,5 to 1
+		>>> x.count[5.0, 5.0] = 1
+		>>> # density in central bin is 1/4
+		>>> x.at_centres()
+		array([[ 0.  ,  0.  ,  0.  ,  0.  ,  0.  ],
+		       [ 0.  ,  0.  ,  0.  ,  0.  ,  0.  ],
+		       [ 0.  ,  0.  ,  0.25,  0.  ,  0.  ],
+		       [ 0.  ,  0.  ,  0.  ,  0.  ,  0.  ],
+		       [ 0.  ,  0.  ,  0.  ,  0.  ,  0.  ]])
+		>>> # convolve counts with 3-bin top-hat window
+		>>> filter_array(x.array, tophat_window(3, 3))
+		array([[ 0.        ,  0.        ,  0.        ,  0.        ,  0.        ],
+		       [ 0.        ,  0.11111111,  0.11111111,  0.11111111,  0.        ],
+		       [ 0.        ,  0.11111111,  0.11111111,  0.11111111,  0.        ],
+		       [ 0.        ,  0.11111111,  0.11111111,  0.11111111,  0.        ],
+		       [ 0.        ,  0.        ,  0.        ,  0.        ,  0.        ]])
+		>>> # density is now 1/(4 * 9) = 1/36 in 9 central bins
+		>>> x.at_centres()
+		array([[ 0.        ,  0.        ,  0.        ,  0.        ,  0.        ],
+		       [ 0.        ,  0.02777778,  0.02777778,  0.02777778,  0.        ],
+		       [ 0.        ,  0.02777778,  0.02777778,  0.02777778,  0.        ],
+		       [ 0.        ,  0.02777778,  0.02777778,  0.02777778,  0.        ],
+		       [ 0.        ,  0.        ,  0.        ,  0.        ,  0.        ]])
+		>>> # densities still sum (not integrate) to 1/4
+		>>> x.at_centres().sum()
+		0.25
+		>>> # integrate over dimension 1
+		>>> x = x.marginalize(1)
+		>>> # bin volumes are now 2
+		>>> # densities in 3 central bins are = 1/(2 * 3) = 1/6
+		>>> x.at_centres()
+		array([ 0.        ,  0.16666667,  0.16666667,  0.16666667,  0.        ])
+		>>> # densities sum (not integrate) to 1/2
+		>>> x.at_centres().sum()
+		0.5
+		"""
+		return type(self)(NDBins(self.bins[:dim] + self.bins[dim+1:]), self.array.sum(axis = dim))
+
+
+#
+# A discretely sampled PDF.
+#
+
+
+class BinnedLnPDF(BinnedDensity):
+	"""
+	Variant of the BinnedDensity class that (i) tracks a normalization
+	which it uses to rescale the reported density so that its integral
+	is one, and (ii) reports the natural logarithm of that normalized
+	density.
+
+	The .normalize() method needs to be invoked after any manipulation
+	of the contents of the array before the results of .__getitem__()
+	are meaningful.
+
+	How the normalization is tracked should be assumed to be
+	undocumented.  In this class the .norm attribute contains the
+	natural log of the sum of the counts in all bins and this value is
+	subtracted from the natural log of the (unnormalized) density in
+	the .__getitem__() method, but subclasses are free to implement
+	whatever unique mechanism is appropriate for themselves.
+
+	As with the BinnedDensity class, the internal array contains counts
+	(not densities, nor natural logarithms of densities), and the
+	.counts attribute continues to be a BinnedArray interface to those
+	counts.  The intention is for the counts themselves to provide an
+	additional degree of freedom apart from the normalized density.
+	For example, see the .__iadd__() method where it is assumed that
+	the total count encodes a relative weight to be used when
+	marginalizing over two PDFs.
+
+	Example:
+
+	>>> # 5x5 mesh of bins each with volume = 4
+	>>> x = BinnedLnPDF(NDBins((LinearBins(0, 10, 5), LinearBins(0, 10, 5))))
+	>>> # set count at 5,5 to 36 and normalize
+	>>> x.count[5.0, 5.0] = 36
+	>>> x.normalize()
+	>>> # log probability density = ln 1/4 = -1.3862943611198906
+	>>> x.at_centres()
+	array([[       -inf,        -inf,        -inf,        -inf,        -inf],
+	       [       -inf,        -inf,        -inf,        -inf,        -inf],
+	       [       -inf,        -inf, -1.38629436,        -inf,        -inf],
+	       [       -inf,        -inf,        -inf,        -inf,        -inf],
+	       [       -inf,        -inf,        -inf,        -inf,        -inf]])
+	>>> # convolve with 3x3 top-hat window.  in general one must renormalize after this, but we'll skip that here because the demo is constructed so as to not need it
+	>>> filter_array(x.array, tophat_window(3, 3))
+	array([[ 0.,  0.,  0.,  0.,  0.],
+	       [ 0.,  4.,  4.,  4.,  0.],
+	       [ 0.,  4.,  4.,  4.,  0.],
+	       [ 0.,  4.,  4.,  4.,  0.],
+	       [ 0.,  0.,  0.,  0.,  0.]])
+	>>> # ln probability density = ln 1/(4 * 9) = -3.58351893845611
+	>>> x.at_centres()
+	array([[       -inf,        -inf,        -inf,        -inf,        -inf],
+	       [       -inf, -3.58351894, -3.58351894, -3.58351894,        -inf],
+	       [       -inf, -3.58351894, -3.58351894, -3.58351894,        -inf],
+	       [       -inf, -3.58351894, -3.58351894, -3.58351894,        -inf],
+	       [       -inf,        -inf,        -inf,        -inf,        -inf]])
+	>>> # .marginzlize() preserves normalization
+	>>> y = x.marginalize(1)
+	>>> y.count.at_centres()
+	array([  0.,  12.,  12.,  12.,   0.])
+	>>> # ln probability density = ln 1/(2 * 3) = -1.791759469228055
+	>>> y.at_centres()
+	array([       -inf, -1.79175947, -1.79175947, -1.79175947,        -inf])
+	>>> # assuming \sqrt{N} counting flucutations, compute the fractional uncertainty
+	>>> import numpy
+	>>> d = BinnedArray(x.bins, 1. / numpy.sqrt(x.count.at_centres()))
+	>>> d.at_centres()
+	array([[ inf,  inf,  inf,  inf,  inf],
+	       [ inf,  0.5,  0.5,  0.5,  inf],
+	       [ inf,  0.5,  0.5,  0.5,  inf],
+	       [ inf,  0.5,  0.5,  0.5,  inf],
+	       [ inf,  inf,  inf,  inf,  inf]])
+	"""
+	def __init__(self, *args, **kwargs):
+		super(BinnedLnPDF, self).__init__(*args, **kwargs)
+		self.norm = 0.0
+
+	def __getitem__(self, coords):
+		return numpy.log(super(BinnedLnPDF, self).__getitem__(coords)) - self.norm
+
+	def __setitem__(self, coords, val):
+		#
+		# the relationship between the density, p, the
+		# volume, Delta, the count, x, and the overall
+		# normalization, N, for a bin i is
+		#
+		# p_i = x_i / (Delta_i * N)
+		#
+		# where N = sum_j x_j, and 0 <= p_i * Delta_i <= 1.
+		#
+		# to maintain the requirement that the density integrate to
+		# 1, it is not possible to change the density in one bin
+		# without changing the densities in all other bins.
+		# because there is no unique way to assign new densities to
+		# all other bins that preserves the normalization invariant
+		# there is an ambiguity in how to implement the assignment
+		# operation.  instead of choosing one, we elect to forbid
+		# this operation.
+		#
+		# one interpretation could be to require the counts in all
+		# other bins to be preserved, and solve for the new count
+		# for the bin in question (and new total count).  because
+		# the counts in other bins are held constant the likelihood
+		# ratios among them are preserved.
+		#
+		# solving for x_i,
+		#
+		#         p_i * Delta_i
+		# x_i = ----------------- sum_(j != i) x_j.
+		#       1 - p_i * Delta_i
+		#
+		# the normalization would then need to be recomputed given
+		# the new count for bin i.  forbidden cases include:
+		# infinite bin size, total count is initially 0,
+		# p_i*Delta_i = 1 unless bin i is the only non-zero bin to
+		# begin with.
+		#
+		# another interpretation could be to require the total
+		# count to be preserved and also the likelihood ratios
+		# among all other bins.  because the total count is being
+		# preserved, the new x_i can be obtained immediately as
+		#
+		# x_i' = N * p_i * Delta_i
+		#
+		# the counts in all other bins are obtained by rescaling by
+		# the after-to-before ratio of the non-bin-i count.
+		#
+		# x_(j != i) = x_(j != i) * (N - x_i') / (N - x_i)
+		#
+		# because they are scaled by a common factor, the ratios
+		# between them are preserved.  forbidden cases include:
+		# infinite bin size, total count is initially 0.
+		#
+		raise NotImplementedError("item assignment operation not defined.  assign to .counts then invoke .normalize()")
+
+	def mkinterp(self):
+		"""
+		Return an interpolator to evaluate the density as a smooth
+		function of co-ordinates.  If the density has not been
+		normalized the interpolator's behaviour is undefined.
+
+		NOTE:  the interpolator is the InterpBinnedArray object
+		which might have limitations in 3 or more dimensions.  See
+		its documentation for more information.
+
+		NOTE:  in the future this is likely to be replaced with
+		some sort of internal mechanism.
+
+		Example:
+
+		>>> # 5-bin linear mesh of bins each with volume = 2
+		>>> x = BinnedLnPDF(NDBins((LinearBins(0, 10, 5), )))
+		>>> # set some counts and normalize
+		>>> x.count[3,] = x.count[7,] = 1
+		>>> x.count[5,] = 2
+		>>> x.normalize()
+		>>> x.count.at_centres()
+		array([ 0.,  1.,  2.,  1.,  0.])
+		>>> x.at_centres()
+		array([       -inf, -2.07944154, -1.38629436, -2.07944154,        -inf])
+		>>> # construct interpolator object
+		>>> x = x.mkinterp()
+		>>> # log(P) is interpolated linearly, so it can be counter-intuitive where the density drops to 0 in neighbouring bins
+		>>> x(3)
+		-inf
+		>>> # otherwise behaviour is as expected
+		>>> x(4)
+		-1.732867951399863
+		>>> x(4.5)
+		-1.5595811562598769
+		>>> x(5)
+		-1.3862943611198906
+		"""
+		return InterpBinnedArray(self)
+
+	def at_centres(self):
+		return numpy.log(super(BinnedLnPDF, self).at_centres()) - self.norm
+
+	def marginalize(self, dim):
+		new = super(BinnedLnPDF, self).marginalize(dim)
+		new.norm = self.norm
+		return new
+
+	def __iadd__(self, other):
+		"""
+		Adds the counts array and normalization of other to self.
+		If the original two PDFs were normalized then the result is
+		also normalized, otherwise .normalize() needs to be invoked
+		to normalize the result.  Once normalized, the result is
+		the PDF marginalized over the two original PDFs (the sum of
+		the two PDFs weighted by the relative total frequency of
+		events in each).
+
+		Example:
+
+		>>> # 5-bin linear mesh of bins each with volume = 2
+		>>> x = BinnedLnPDF(NDBins((LinearBins(0, 10, 5), )))
+		>>> y = BinnedLnPDF(NDBins((LinearBins(0, 10, 5), )))
+		>>> x.count[5,] = 2
+		>>> y.count[3,] = 2
+		>>> x.normalize()
+		>>> y.normalize()
+		>>> x.at_centres()
+		array([       -inf,        -inf, -0.69314718,        -inf,        -inf])
+		>>> x += y
+		>>> x.at_centres()
+		array([       -inf, -1.38629436, -1.38629436,        -inf,        -inf])
+		"""
+		super(BinnedLnPDF, self).__iadd__(other)
+		# c = a + b
+		# if b is smaller than a:
+		# c = a (1 + b/a)
+		# log c = log a + log1p(b / a)
+		# log c = log a + log1p(exp(log b - log a))
+		# otherwise, swap a and b.
+		if self.norm >= other.norm:
+			self.norm += math.log1p(math.exp(other.norm - self.norm))
+		else:
+			self.norm = other.norm + math.log1p(math.exp(self.norm - other.norm))
+		return self
+
+	def copy(self):
+		new = super(BinnedLnPDF, self).copy()
+		new.norm = self.norm
+		return new
+
+	def normalize(self):
+		"""
+		Updates the internal normalization.  Subclasses override
+		this with custom normalization mechanisms if required.
+
+		Note that counts contained in infinite-sized bins are
+		included in the normalization.  In this way the relative
+		frequency with which counts occur in those bins is
+		accounted for in the normalization although the density
+		reported for those bins will be 0.
+		"""
+		self.norm = math.log(self.array.sum())
+
+	def to_xml(self, *args, **kwargs):
+		elem = super(BinnedLnPDF, self).to_xml(*args, **kwargs)
+		elem.appendChild(ligolw_param.Param.from_pyvalue("norm", self.norm))
+		return elem
+
+	@classmethod
+	def from_xml(cls, xml, name):
+		elem = cls.get_xml_root(xml, name)
+		self = super(BinnedLnPDF, cls).from_xml(elem, name)
+		self.norm = ligolw_param.get_pyvalue(elem, "norm")
+		return self
+
+
+#
+# =============================================================================
+#
 #                                   Windows
 #
 # =============================================================================
@@ -1797,55 +2280,42 @@ def gaussian_window(*bins, **kwargs):
 		return window
 
 
-def tophat_window(bins):
+def tophat_window(*bins):
 	"""
-	Generate a normalized (integral = 1) top-hat window in 1 dimension.
-	bins sets the width of the window in bin counts, which is rounded
-	up to the nearest odd integer.
+	Generate a normalized (integral = 1) rectangular window in N
+	dimensions.  The bins parameters set the width of the window in bin
+	counts in each dimension, each of which is rounded up to the
+	nearest odd integer.
 
 	Example:
 
 	>>> tophat_window(4)
 	array([ 0.2,  0.2,  0.2,  0.2,  0.2])
+	>>> tophat_window(4, 4)
+	array([[ 0.04,  0.04,  0.04,  0.04,  0.04],
+	       [ 0.04,  0.04,  0.04,  0.04,  0.04],
+	       [ 0.04,  0.04,  0.04,  0.04,  0.04],
+	       [ 0.04,  0.04,  0.04,  0.04,  0.04],
+	       [ 0.04,  0.04,  0.04,  0.04,  0.04]])
 	"""
-	if bins <= 0:
-		raise ValueError(bins)
-	w = lal.CreateRectangularREAL8Window(int(math.floor(bins / 2.0)) * 2 + 1)
-	return w.data.data / w.sum
-
-
-def tophat_window2d(bins_x, bins_y):
-	"""
-	Generate a normalized (integral = 1) top-hat window in 2
-	dimensions.  bins_x and bins_y set the widths of the window in bin
-	counts, which are both rounded up to the nearest odd integer.  The
-	result is a rectangular array, with an elliptical pattern of
-	elements set to a constant value centred on the array's mid-point,
-	and all other elements set to 0.
-	"""
-	if bins_x <= 0:
-		raise ValueError(bins_x)
-	if bins_y <= 0:
-		raise ValueError(bins_y)
-
-	# This might appear to be using a screwy, slow, algorithm but it's
-	# the only way I have found to get a window with the correct bins
-	# set and cleared as appropriate.  I'd love this to be replaced by
-	# something that's easier to know is correct.
-
-	# fill rectangle with ones, making the number of bins odd in each
-	# direction
-	window = numpy.ones((int(bins_x / 2.0) * 2 + 1, int(bins_y / 2.0) * 2 + 1), "Float64")
-
-	# zero the bins outside the window
-	for x, y in iterutils.MultiIter(*map(range, window.shape)):
-		if ((x - window.shape[0] // 2) / float(bins_x) * 2.0)**2 + ((y - window.shape[1] // 2) / float(bins_y) * 2.0)**2 > 1.0:
-			window[x, y] = 0.0
-
-	# normalize
-	window /= window.sum()
-
-	return window
+	if not bins:
+		raise ValueError("function requires at least 1 width")
+	windows = []
+	for b in bins:
+		if bins <= 0:
+			raise ValueError("negative width: %s" % repr(b))
+		w = lal.CreateRectangularREAL8Window(int(math.floor(b / 2.0)) * 2 + 1)
+		windows.append(w.data.data / w.sum)
+	if len(windows) == 1:
+		# 1D short-cut
+		return windows[0]
+	try:
+		return numpy.einsum(",".join("abcdefghijklmnopqrstuvwxyz"[:len(windows)]), *windows)
+	except AttributeError:
+		# numpy < 1.6
+		window = reduce(numpy.outer, windows)
+		window.shape = tuple(len(w) for w in windows)
+		return window
 
 
 #
@@ -1903,26 +2373,28 @@ def filter_array(a, window, cyclic = False, use_fft = True):
 
 	if use_fft:
 		# this loop works around dynamic range limits in the FFT
-		# convolution code.  we move data 4 orders of magnitude at a time
-		# from the original array into a work space, convolve the work
-		# space with the filter, zero the workspace in any elements that
-		# are more than 14 orders of magnitude below the maximum value in
-		# the result, and add the result to the total.
+		# convolution code.  we move data 4 orders of magnitude at
+		# a time from the original array into a work space,
+		# convolve the work space with the filter, zero the
+		# workspace in any elements that are more than 14 orders of
+		# magnitude below the maximum value in the result, and add
+		# the result to the total.
 		result = numpy.zeros_like(a)
 		while a.any():
 			# copy contents of input array to work space
 			workspace = numpy.copy(a)
 
-			# mask = indexes of elements of work space not more than 4
-			# orders of magnitude larger than the smallest non-zero
-			# element.  these are the elements to be processed in this
-			# iteration
+			# mask = indexes of elements of work space not more
+			# than 4 orders of magnitude larger than the
+			# smallest non-zero element.  these are the
+			# elements to be processed in this iteration
 			abs_workspace = abs(workspace)
 			mask = abs_workspace <= abs_workspace[abs_workspace > 0].min() * 1e4
 			del abs_workspace
 
 			# zero the masked elements in the input array, zero
-			# everything except the masked elements in the work space
+			# everything except the masked elements in the work
+			# space
 			a[mask] = 0.
 			workspace[~mask] = 0.
 			del mask
@@ -1930,8 +2402,9 @@ def filter_array(a, window, cyclic = False, use_fft = True):
 			# convolve the work space with the kernel
 			workspace = signaltools.fftconvolve(workspace, window, mode = "same")
 
-			# determine the largest value in the work space, and set to
-			# zero anything more than 14 orders of magnitude smaller
+			# determine the largest value in the work space,
+			# and set to zero anything more than 14 orders of
+			# magnitude smaller
 			abs_workspace = abs(workspace)
 			workspace[abs_workspace < abs_workspace.max() * 1e-14] = 0.
 			del abs_workspace
@@ -1942,134 +2415,6 @@ def filter_array(a, window, cyclic = False, use_fft = True):
 	else:
 		result = signaltools.convolve(a, window, mode = "same")
 	# overwrite the input with the result
-	# FIXME:  in numpy >= 1.7.0 there is a copyto() function
-	a.flat = result.flat
+	numpy.copyto(a, result, casting = "no")
 
 	return a
-
-
-def filter_binned_ratios(ratios, window, cyclic = False):
-	"""
-	Convolve the numerator and denominator of a BinnedRatios instance
-	each with the same window function.  This has the effect of
-	interpolating the ratio of the two between bins where it has been
-	measured, weighting bins by the number of measurements made in
-	each.  For example, consider a 1-dimensional binning, with zeros in
-	the denominator and numerator bins everywhere except in one bin
-	where both are set to 1.0.  The ratio is 1.0 in that bin, and
-	undefined everywhere else, where it has not been measured.
-	Convolving both numerator and denominator with a Gaussian window
-	will replace the "delta function" in each with a smooth hill
-	spanning some number of bins.  Since the same smooth hill will be
-	seen in both the numerator and the denominator bins, the ratio of
-	the two is now 1.0 --- the ratio from the bin where a measurement
-	was made --- everywhere the window function had support.  Contrast
-	this to the result of convolving the ratio with a window function.
-
-	Convolving the numerator and denominator bins separately preserves
-	the integral of each.  In other words the total number of events in
-	each of the denominator and numerator is conserved, only their
-	locations are shuffled about.  Convolving, instead, the ratios with
-	a window function would preserve the integral of the ratio, which
-	is probably meaningless.
-
-	Note that you should be using the window functions defined in this
-	module, which are carefully designed to be norm preserving (the
-	integrals of the numerator and denominator bins are preserved), and
-	phase preserving.
-
-	Note, also, that you should apply this function *before* using
-	either of the regularize() methods of the BinnedRatios object.
-	"""
-	filter_array(ratios.numerator.array, window, cyclic = cyclic)
-	filter_array(ratios.denominator.array, window, cyclic = cyclic)
-
-
-#
-# =============================================================================
-#
-#                                    Rates
-#
-# =============================================================================
-#
-
-
-def to_moving_mean_density(binned_array, filterdata, cyclic = False):
-	"""
-	Convolve a BinnedArray with a filter function, then divide all bins
-	by their volumes.  The result is the density function smoothed by
-	the filter.  The default is to assume 0 values beyond the ends of
-	the array when convolving with the filter function.  Set the
-	optional cyclic parameter to True for periodic boundaries.
-
-	Example:
-
-	>>> x = BinnedArray(NDBins((LinearBins(0, 10, 5),)))
-	>>> x[5.0,] = 1
-	>>> x.array
-	array([ 0.,  0.,  1.,  0.,  0.])
-	>>> to_moving_mean_density(x, tophat_window(3))
-	>>> x.array
-	array([ 0.        ,  0.16666667,  0.16666667,  0.16666667,  0.        ])
-
-	Explanation.  There are five bins spanning the interval [0, 10],
-	making each bin 2 "units" in size.  A single count is placed at
-	5.0, which is bin number 2.  The averaging filter is a top-hat
-	window 3 bins wide.  The single count in bin #2, when averaged over
-	the three bins around it, is equivalent to a mean density of 1/6
-	events / unit.
-
-	Example:
-
-	>>> x = BinnedArray(NDBins((LinearBins(0, 10, 5),)))
-	>>> x[1,] = 1
-	>>> x[3,] = 1
-	>>> x[5,] = 1
-	>>> x[7,] = 1
-	>>> x[9,] = 1
-	>>> x.array
-	array([ 1.,  1.,  1.,  1.,  1.])
-	>>> to_moving_mean_density(x, tophat_window(3))
-	>>> x.array
-	array([ 0.33333333,  0.5       ,  0.5       ,  0.5       ,  0.33333333])
-
-	We have uniformly distributed events at 2 unit intervals (the first
-	is at 1, the second at 3, etc.).  The event density is 0.5 events /
-	unit, except at the edges where the smoothing window has picked up
-	zero values from beyond the ends of the array.
-	"""
-	filter_array(binned_array.array, filterdata, cyclic = cyclic)
-	binned_array.to_density()
-
-
-def marginalize(pdf, dim):
-	"""
-	From a BinnedArray object containing probability density data (bins
-	whose volume integral is 1), return a new BinnedArray object
-	containing the probability density marginalized over dimension
-	dim.
-	"""
-	dx = pdf.bins[dim].upper() - pdf.bins[dim].lower()
-	dx_shape = [1] * len(pdf.bins)
-	dx_shape[dim] = len(dx)
-	dx.shape = dx_shape
-
-	result = BinnedArray(NDBins(pdf.bins[:dim] + pdf.bins[dim+1:]))
-	result.array = (pdf.array * dx).sum(axis = dim)
-
-	return result
-
-
-def marginalize_ratios(likelihood, dim):
-	"""
-	Marginalize the numerator and denominator of a BinnedRatios object
-	containing likelihood-ratio data (i.e., the numerator and
-	denominator both contain probability density data) over dimension
-	dim.
-	"""
-	result = BinnedRatios(NDBins())
-	result.numerator = marginalize(likelihood.numerator, dim)
-	result.denominator = marginalize(likelihood.denominator, dim)
-	# normally they share an NDBins instance
-	result.denominator.bins = result.numerator.bins
-	return result

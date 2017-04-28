@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import os, sys, exceptions
+import os, sys
 from optparse import *
 
 import matplotlib
@@ -332,7 +332,7 @@ if verbose:
 coireFile = coireVetoMissedCache.pfnlist()[0]
 doc = utils.load_filename( coireFile, gz=(coireFile).endswith(".gz") )
 try:
-  processParams = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
+  processParams = lsctables.ProcessParamsTable.get_table(doc)
 except:
   print >>sys.stderr, "Error while reading process_params table from file ", coireFils
   print >>sys.stderr, "Probably files does not exist"

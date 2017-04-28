@@ -4,7 +4,6 @@ import sys
 import os
 from optparse import *
 import re
-import exceptions
 import glob
 from types import * #!!!what does this do?
 from operator import itemgetter
@@ -373,7 +372,7 @@ while not flag:
   try:
     outputFile=utils.load_filename(corsefiles[integ],\
        gz=corsefiles[integ].endswith('.gz'))
-    origtbl = tab.get_table(outputFile, lsctables.SnglInspiralTable.tableName)
+    origtbl = lsctables.SnglInspiralTable.get_table(outputFile)
     flag = True
   except:
     integ = integ + 1
@@ -384,7 +383,7 @@ utils.write_filename(outputFile,opts.output_file, \
 if opts.min_rate:
   for trig in loudestTrig:
     trig.alpha = trig.alpha / (FrgrndTime/3.15567360E7)
-  newtbl = tab.get_table(outputFile, lsctables.SnglInspiralTable.tableName)
+  newtbl = lsctables.SnglInspiralTable.get_table(outputFile)
   parent = newtbl.parentNode
   parent.replaceChild(loudestTrig,newtbl)
   utils.write_filename(outputFile,opts.output_file_loudest, \

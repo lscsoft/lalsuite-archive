@@ -54,14 +54,14 @@ def get_thinca_rings_by_available_instruments(connection, program_name = "thinca
   Example:
 
   >>> seglists = get_thinca_rings_by_available_instruments(connection)
-  >>> print seglists.keys()
+  >>> print(seglists.keys())
   [frozenset(['H1', 'L1'])]
   """
   # extract raw rings indexed by available instrument set
 
   xmldoc = dbtables.get_xml(connection)
   seglists = segments.segmentlistdict()
-  for row in map(dbtables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).row_from_cols, connection.cursor().execute("""
+  for row in map(lsctables.SearchSummaryTable.get_table(xmldoc).row_from_cols, connection.cursor().execute("""
 SELECT
   search_summary.*
 FROM
@@ -94,7 +94,7 @@ def get_thinca_zero_lag_segments(connection, program_name = "thinca"):
   Example:
 
   >>> seglists = get_thinca_zero_lag_segments(connection)
-  >>> print seglists.keys()
+  >>> print(seglists.keys())
   ['H1', 'L1']
 
   This function is most useful if only zero-lag segments are desired
@@ -146,7 +146,7 @@ def get_background_offset_vectors(connection):
   mapping instrument name to offset.
   """
   xmldoc = dbtables.get_xml(connection)
-  offset_vectors = [offsetvector for offsetvector in dbtables.table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict().values() if any(offsetvector.values())]
+  offset_vectors = [offsetvector for offsetvector in lsctables.TimeSlideTable.get_table(xmldoc).as_dict().values() if any(offsetvector.values())]
   xmldoc.unlink()
   return offset_vectors
 

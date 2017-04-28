@@ -1,10 +1,6 @@
 #!/usr/bin/python
 
-try:
-  import sqlite3
-except ImportError:
-  # pre 2.5.x
-  from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 
 import subprocess
 import sys
@@ -20,7 +16,6 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import git_version
-from pylal import ligolw_cafe
 from pylal import mvsc_queries
 from glue import pipeline
 import ConfigParser

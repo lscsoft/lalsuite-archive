@@ -27,13 +27,10 @@
 
 
 #include <Python.h>
-#include <lal/ComplexFFT.h>
 #include <lal/RealFFT.h>
 #include <lal/TimeFreqFFT.h>
 #include <misc.h>
-#include <datatypes/complex16fftplan.h>
 #include <datatypes/complex16frequencyseries.h>
-#include <datatypes/complex16timeseries.h>
 #include <datatypes/real8fftplan.h>
 #include <datatypes/real8frequencyseries.h>
 #include <datatypes/real8timeseries.h>
@@ -49,25 +46,6 @@
  *
  * ============================================================================
  */
-
-
-static PyObject *pylal_XLALCOMPLEX16FreqTimeFFT(PyObject *self, PyObject *args)
-{
-	pylal_COMPLEX16TimeSeries *tser;
-	pylal_COMPLEX16FrequencySeries *fser;
-	pylal_COMPLEX16FFTPlan *plan;
-
-	if(!PyArg_ParseTuple(args, "O!O!O!", &pylal_COMPLEX16TimeSeries_Type, &tser, &pylal_COMPLEX16FrequencySeries_Type, &fser, &pylal_COMPLEX16FFTPlan_Type, &plan))
-		return NULL;
-
-	if(XLALCOMPLEX16FreqTimeFFT(tser->series, fser->series, plan->plan)) {
-		pylal_set_exception_from_xlalerrno();
-		return NULL;
-	}
-
-	Py_INCREF(Py_None);
-	return Py_None;
-}
 
 
 static PyObject *pylal_XLALREAL8TimeFreqFFT(PyObject *self, PyObject *args)
@@ -136,7 +114,6 @@ static PyObject *pylal_XLALWhitenCOMPLEX16FrequencySeries(PyObject *self, PyObje
 
 
 static struct PyMethodDef module_methods[] = {
-	{"XLALCOMPLEX16FreqTimeFFT", pylal_XLALCOMPLEX16FreqTimeFFT, METH_VARARGS, NULL},
 	{"XLALREAL8TimeFreqFFT", pylal_XLALREAL8TimeFreqFFT, METH_VARARGS, NULL},
 	{"XLALREAL8FreqTimeFFT", pylal_XLALREAL8FreqTimeFFT, METH_VARARGS, NULL},
 	{"XLALWhitenCOMPLEX16FrequencySeries", pylal_XLALWhitenCOMPLEX16FrequencySeries, METH_VARARGS, NULL},
@@ -149,9 +126,7 @@ PyMODINIT_FUNC initfft(void)
 	/* commented out to silence warning */
 	/*PyObject *module = */Py_InitModule3(MODULE_NAME, module_methods, "Wrapper for LAL's fft package.");
 
-	pylal_complex16fftplan_import();
 	pylal_complex16frequencyseries_import();
-	pylal_complex16timeseries_import();
 	pylal_real8fftplan_import();
 	pylal_real8frequencyseries_import();
 	pylal_real8timeseries_import();

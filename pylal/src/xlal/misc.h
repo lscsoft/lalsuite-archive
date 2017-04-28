@@ -44,13 +44,8 @@
 
 
 struct pylal_inline_string_description {
-#if PY_VERSION_HEX < 0x02050000
-	int offset;
-	int length;
-#else
 	Py_ssize_t offset;
 	Py_ssize_t length;
-#endif
 };
 
 
@@ -59,11 +54,7 @@ int pylal_inline_string_set(PyObject *obj, PyObject *val, void *data);
 
 
 struct pylal_ilwdchar_id_description {
-#if PY_VERSION_HEX < 0x02050000
-	int offset;
-#else
 	Py_ssize_t offset;
-#endif
 	PyObject **id_type;
 };
 

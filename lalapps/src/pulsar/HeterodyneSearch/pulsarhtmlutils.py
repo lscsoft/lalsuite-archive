@@ -46,19 +46,49 @@ paramlatexdict = {'H0': '$h_0$',
                   'F3': '$f_3$ (Hz/s$^3$)',
                   'F4': '$f_4$ (Hz/s$^4$)',
                   'F5': '$f_5$ (Hz/s$^5$)',
+                  'F6': '$f_6$ (Hz/s$^6$)',
+                  'F7': '$f_7$ (Hz/s$^7$)',
+                  'F8': '$f_8$ (Hz/s$^8$)',
+                  'F9': '$f_9$ (Hz/s$^9$)',
+                  'F10': '$f_{10}$ (Hz/s$^{10}$)',
                   'LOGL': '$\log{L}$',
-                  'PMRA': 'proper motion $\\alpha$ (rad/s)',
-                  'PMDEC': 'proper motion $\delta$ (rad/s)',
-                  'PMDC': 'proper motion $\delta$ (rad/s)',
-                  'X': '$a \sin{i}$ (lt s)',
-                  'PB': 'Period (days)',
+                  'PMRA': 'p.m. $\\alpha$ (rad/s)',
+                  'PMDEC': 'p.m. $\delta$ (rad/s)',
+                  'PMDC': 'p.m. $\delta$ (rad/s)',
+                  'PX': '$\pi$ (rad)',
+                  'A1': '$a \sin{i}$ (lt s)',
+                  'A1_2': '$(a \sin{i})_{2}$ (lt s)',
+                  'A1_3': '$(a \sin{i})_{3}$ (lt s)',
+                  'SINI': '$\sin{i}$',
+                  'PB': '$P_b$ (s)',
+                  'PB_2': '$(P_b)_2$ (s)',
+                  'PB_3': '$(P_b)_3$ (s)',
                   'T0': '$T_0$ (s)',
+                  'T0_2': '$(T_0)_2$ (s)',
+                  'T0_3': '$(T_0)_3$ (s)',
                   'TASC': '$T_{\\textrm{asc}}$ (s)',
-                  'OM': '$\omega_0$ (deg)',
+                  'OM': '$\omega_0$ (rad)',
+                  'OM_2': '$(\omega_0)_2$ (rad)',
+                  'OM_3': '$(\omega_0)_3$ (rad)',
                   'PBDT': '$\dot{P}$ (s/s)',
                   'PBDOT': '$\dot{P}$ (s/s)',
                   'GAMMA': '$\gamma$',
-                  'E': 'eccentricity',
+                  'E': '$e$',
+                  'ECC': '$e$',
+                  'ECC_2': '$e_2$',
+                  'ECC_3': '$e_3$',
+                  'FB0': '$(f_b)_0$ (Hz)',
+                  'FB1': '$(f_b)_1$ (Hz)',
+                  'FB2': '$(f_b)_2$ (Hz)',
+                  'FB3': '$(f_b)_3$ (Hz)',
+                  'FB4': '$(f_b)_4$ (Hz)',
+                  'FB5': '$(f_b)_5$ (Hz)',
+                  'FB6': '$(f_b)_6$ (Hz)',
+                  'FB7': '$(f_b)_7$ (Hz)',
+                  'FB8': '$(f_b)_8$ (Hz)',
+                  'FB9': '$(f_b)_9$ (Hz)',
+                  'M2': '$m_2$ (kg)',
+                  'MTOT': '$M$ (kg)',
                   'ELL': '$\\varepsilon$',
                   'H95': '$h_0^{95\%}$',
                   'H0UL': '$h_0^{{{}\%}}$',
@@ -71,6 +101,7 @@ paramlatexdict = {'H0': '$h_0$',
                   'F1ROT': '$\dot{f}_{\\rm rot}$ (Hz/s)',
                   'F1GW': '$\dot{f}_{\\rm gw}$ (Hz/s)',
                   'SDPOWRAT': 'power ratio (\%)',
+                  'OMDOT': '$\dot{\omega}$',
                   'OMDT': '$\dot{\omega}$',
                   'EPS1': '$\\epsilon_1$',
                   'EPS2': '$\\epsilon_2$',
@@ -104,19 +135,48 @@ paramhtmldict = {'RAJ': '&alpha;',
                  'F3': 'f<sub>3</sub> (Hz/s<sup>3</sup>)',
                  'F4': 'f<sub>4</sub> (Hz/s<sup>4</sup>)',
                  'F5': 'f<sub>5</sub> (Hz/s<sup>5</sup>)',
+                 'F6': 'f<sub>6</sub> (Hz/s<sup>6</sup>)',
+                 'F7': 'f<sub>7</sub> (Hz/s<sup>7</sup>)',
+                 'F8': 'f<sub>8</sub> (Hz/s<sup>8</sup>)',
+                 'F9': 'f<sub>9</sub> (Hz/s<sup>9</sup>)',
+                 'F10': 'f<sub>10</sub> (Hz/s<sup>10</sup>)',
                  'F0ROT': 'f<sub>rotation</sub> (Hz)',
                  'F1ROT': 'Spin-down<sub>rotation</sub> (Hz/s)',
                  'F0GW': 'f<sub>GW</sub> (Hz)',
                  'F1GW': 'Spin-down<sub>GW</sub> (Hz/s)',
                  'PEPOCH': 'epoch (MJD)',
                  'A1': 'a sin<it>i</i> (lt s)',
+                 'A1_2': '(a sin<it>i</i>)<sub>2</sub> (lt s)',
+                 'A1_3': '(a sin<it>i</i>)<sub>3</sub> (lt s)',
+                 'SINI': 'sin<it>i</it>$',
                  'E': '<it>e</it>',
+                 'ECC': '<it>e</it>',
+                 'ECC_2': '<it>e</it><sub>2</sub>',
+                 'ECC_3': '<it>e</it><sub>3</sub>',
                  'EPS1': '&epsilon;<sub>1</sub>',
                  'EPS2': '&epsilon;<sub>2</sub>',
                  'T0': 'T<sub>0</sub> (MJD)',
+                 'T0_2': '(T<sub>0</sub>)<sub>2</sub> (MJD)',
+                 'T0_3': '(T<sub>0</sub>)<sub>3</sub> (MJD)',
                  'TASC': 'T<sub>asc</sub> (MJD)',
                  'OM': '&omega;<sub>0</sub> (deg)',
-                 'PB': 'Period (days)',
+                 'OM_2': '(&omega;<sub>0</sub>)<sub>2</sub> (deg)',
+                 'OM_3': '(&omega;<sub>0</sub>)<sub>3</sub> (deg)',
+                 'M2': '<it>m</it><sub>2</sub> (kg)',
+                 'MTOT': '<it>M</it> (kg)',
+                 'PB': '<it>P</it><sub>b</sub> (days)',
+                 'PB_2': '(<it>P</it><sub>b</sub>)<sub>2</sub> (days)',
+                 'PB_3': '(<it>P</it><sub>b</sub>)<sub>3</sub> (days)',
+                 'FB0': '(<it>f</it><sub>b</sub>)<sub>0</sub> (Hz)',
+                 'FB1': '(<it>f</it><sub>b</sub>)<sub>1</sub> (Hz)',
+                 'FB2': '(<it>f</it><sub>b</sub>)<sub>2</sub> (Hz)',
+                 'FB3': '(<it>f</it><sub>b</sub>)<sub>3</sub> (Hz)',
+                 'FB4': '(<it>f</it><sub>b</sub>)<sub>4</sub> (Hz)',
+                 'FB5': '(<it>f</it><sub>b</sub>)<sub>5</sub> (Hz)',
+                 'FB6': '(<it>f</it><sub>b</sub>)<sub>6</sub> (Hz)',
+                 'FB7': '(<it>f</it><sub>b</sub>)<sub>7</sub> (Hz)',
+                 'FB8': '(<it>f</it><sub>b</sub>)<sub>8</sub> (Hz)',
+                 'FB9': '(<it>f</it><sub>b</sub>)<sub>9</sub> (Hz)',
                  'H0': 'h<sub>0</sub>',
                  'C21': 'C<sub>21</sub>',
                  'C21UL': 'C<sub>21</sub><sup>{}%</sup>',
@@ -134,6 +194,7 @@ paramhtmldict = {'RAJ': '&alpha;',
                  'PMRA': 'p.m. &alpha; (rad/s)',
                  'PMDC': 'p.m. &delta; (rad/s)',
                  'PMDEC': 'p.m. &delta; (rad/s)',
+                 'PX': '&pi; (rad)',
                  'DIST': 'Distance (kpc)',
                  'SDLIM': 'Spin-down limit',
                  'ELL': '&#949;',
@@ -161,7 +222,10 @@ def sigfig(x, sf):
 def dec_or_exp(f, dp=2, horl='html'):
   fv = float(f)
   if np.abs(fv) > 0.01 and np.abs(fv) < 1000.:
-    return repr(round(fv, dp))
+    if horl == 'html':
+      return repr(round(fv, dp))
+    else:
+      return '$%s$' % repr(round(fv, dp))
   else:
     return exp_str(fv, dp, otype=horl)
 
@@ -188,19 +252,41 @@ class paramhtmldispfunc:
       return dec_str(f)
     else: # output in radians
       return dec_or_exp(f)
+  def PMRA(f): return dec_or_exp(f)
+  def PMDEC(f): return dec_or_exp(f)
+  def PMDC(f): return dec_or_exp(f)
   def F0(f, dp=5): # default to returning with 5
     return dec_or_exp(f, dp=dp)
   def F1(f): return exp_str(float(f), 2)
   def F2(f): return exp_str(float(f), 2)
-  def PEPOCH(f): return '%d' % int(44244. + (float(f)+51.184)/86400.) # return epoch as an integer (converted from GPS to MJD)
+  def F3(f): return exp_str(float(f), 2)
+  def F4(f): return exp_str(float(f), 2)
+  def F5(f): return exp_str(float(f), 2)
+  def F6(f): return exp_str(float(f), 2)
+  def F7(f): return exp_str(float(f), 2)
+  def F8(f): return exp_str(float(f), 2)
+  def F9(f): return exp_str(float(f), 2)
+  def F10(f): return exp_str(float(f), 2)
+  def PEPOCH(f): return '%.1f' % float(repr(44244. + (float(f)+51.184)/86400.)) # return epoch as an float (converted from GPS to MJD)
   def A1(f): return dec_or_exp(f)
   def E(f): return dec_or_exp(f)
   def EPS1(f): return dec_or_exp(f)
   def EPS2(f): return dec_or_exp(f)
-  def T0(f): return dec_or_exp(repr(44244. + ((float(f)+51.184)/86400.)))   # convert from GPS to MJD for display
-  def TASC(f): return dec_or_exp(repr(44244. + ((float(f)+51.184)/86400.))) # convert from GPS to MJD for display
-  def OM(f): return dec_or_exp(repr(float(f)*180./math.pi), dp=1)           # convert from rads to deg
-  def PB(f): return dec_or_exp(repr(float(f)/86400.))                       # convert from seconds to days
+  def M2(f): return dec_or_exp(f)
+  def MTOT(f): return dec_or_exp(f)
+  def SINI(f): return dec_or_exp(f)
+  def T0(f, stype=None):
+    if stype == 'diff':
+      return dec_or_exp(repr((float(f)+51.184)/86400.), dp=2)
+    else:
+      return '%.2f' % float(repr(44244. + ((float(f)+51.184)/86400.)))   # convert from GPS to MJD for display
+  def TASC(f, stype=None):
+    if stype == 'diff':
+      return dec_or_exp(repr((float(f)+51.184)/86400.), dp=2)
+    else:
+      return '%.2f' % float(repr(44244. + ((float(f)+51.184)/86400.))) # convert from GPS to MJD for display
+  def OM(f): return dec_or_exp(repr(float(f)*180./math.pi), dp=1)               # convert from rads to deg
+  def PB(f): return dec_or_exp(repr(float(f)/86400.))                           # convert from seconds to days
   def H0(f): return exp_str(float(f), 1)
   def H0UL(f): return exp_str(float(f), 1)
   def C21(f): return exp_str(float(f), 1)
@@ -269,6 +355,11 @@ class paramlatexdispfunc:
   def DECJ(f): return dec_str(f, 'latex') # dec in string format
   def RA(f): return ra_str(f, 'latex') # RA in string format
   def DEC(f): return dec_str(f, 'latex') # dec in string format
+  def PMRA(f): return dec_or_exp(f, horl='latex')
+  def PMDEC(f): return dec_or_exp(f, horl='latex')
+  def PMDC(f): return dec_or_exp(f, horl='latex')
+  def M2(f): return dec_or_exp(f, horl='latex')
+  def MTOT(f): return dec_or_exp(f, horl='latex')
   def DIST(f): return '%.1f' % float(f)
   def SDPOWRAT(f): return '%d' % int(f)
   def Q22(f): return exp_str(float(f), 1, 'latex') # quadrupole moment
@@ -276,6 +367,15 @@ class paramlatexdispfunc:
   def F0ROT(f): return '%.2f' % float(f)
   def F0GW(f): return '%.2f' % float(f)
   def F1(f): return exp_str(float(f), 1, 'latex')
+  def F2(f): return exp_str(float(f), 1, 'latex')
+  def F3(f): return exp_str(float(f), 1, 'latex')
+  def F4(f): return exp_str(float(f), 1, 'latex')
+  def F5(f): return exp_str(float(f), 1, 'latex')
+  def F6(f): return exp_str(float(f), 1, 'latex')
+  def F7(f): return exp_str(float(f), 1, 'latex')
+  def F8(f): return exp_str(float(f), 1, 'latex')
+  def F9(f): return exp_str(float(f), 1, 'latex')
+  def F10(f): return exp_str(float(f), 1, 'latex')
   def F1ROT(f): return exp_str(float(f), 1, 'latex')
   def F1GW(f): return exp_str(float(f), 1, 'latex')
   def BSN(f): return dec_or_exp(f, horl='latex')

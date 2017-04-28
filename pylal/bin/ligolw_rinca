@@ -41,7 +41,6 @@ from glue import segmentsUtils
 from pylal import git_version
 from pylal import ligolw_rinca
 from pylal import snglcoinc
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -54,7 +53,7 @@ __date__ = git_version.date
 #
 
 
-lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
+lsctables.table.TableStream.RowBuilder = lsctables.table.InterningRowBuilder
 
 
 #
@@ -98,7 +97,7 @@ def parse_command_line():
 	if options.coinc_end_time_segment is not None:
 		if ',' in options.coinc_end_time_segment:
 			raise ValueError, "--coinc-end-time-segment may only contain a single segment"
-		options.coinc_end_time_segs = segmentsUtils.from_range_strings([options.coinc_end_time_segment], boundtype = LIGOTimeGPS).coalesce()
+		options.coinc_end_time_segs = segmentsUtils.from_range_strings([options.coinc_end_time_segment], boundtype = lsctables.LIGOTimeGPS).coalesce()
 	else:
 		options.coinc_end_time_segs = None
 
@@ -199,7 +198,7 @@ for n, filename in enumerate(filenames):
 	# IDs.
 	#
 
-	tbl = lsctables.table.get_table(xmldoc, lsctables.SnglRingdownTable.tableName)
+	tbl = lsctables.SnglRingdownTable.get_table(xmldoc)
 	tbl.set_next_id(lsctables.SnglRingdownID(0))
 	for row in tbl:
 		row.event_id = tbl.get_next_id()

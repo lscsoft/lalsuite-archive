@@ -30,11 +30,7 @@ from glue.ligolw.utils import segments as ligolw_segments
 from glue.ligolw.utils import process
 from lalsimulation import SimInspiralTaylorF2ReducedSpinComputeChi, SimIMRPhenomBComputeChi
 
-try:
-	import sqlite3
-except ImportError:
-	# pre 2.5.x
-	from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 
 
 def allowed_analysis_table_names():
@@ -46,7 +42,7 @@ def make_sim_inspiral_row_from_columns_in_db(connection):
 	get the unique mapping of a sim inspiral row from columns in this
 	database
 	"""
-	return lsctables.table.get_table(dbtables.get_xml(connection), lsctables.SimInspiralTable.tableName).row_from_cols
+	return lsctables.SimInspiralTable.get_table(dbtables.get_xml(connection)).row_from_cols
 
 
 def time_within_segments(geocent_end_time, geocent_end_time_ns, zero_lag_segments = None):
@@ -258,23 +254,29 @@ def compute_search_efficiency_in_bins(found, total, ndbins, sim_to_bins_function
 	function that maps a sim inspiral row to the correct tuple to index the ndbins.
 	"""
 
-	input = rate.BinnedRatios(ndbins)
+	num = rate.BinnedArray(ndbins)
+	den = rate.BinnedArray(ndbins)
 
-	# increment the numerator with the missed injections
-	[input.incnumerator(sim_to_bins_function(sim)) for sim in found]
+	# increment the numerator with the found injections
+	for sim in found:
+		num[sim_to_bins_function(sim)] += 1
 
 	# increment the denominator with the total injections
-	[input.incdenominator(sim_to_bins_function(sim)) for sim in total]
+	for sim in total:
+		den[sim_to_bins_function(sim)] += 1
+
+	# sanity check
+	assert (num.array <= den.array).all(), "some bins have more found injections than were made"
 
 	# regularize by setting empty bins to zero efficiency
-	input.denominator.array[input.numerator.array < 1] = 1e35
+	den.array[numpy.logical_and(num.array == 0, den.array == 0)] = 1
 
 	# pull out the efficiency array, it is the ratio
-	eff = rate.BinnedArray(rate.NDBins(ndbins), array = input.ratio())
+	eff = rate.BinnedArray(rate.NDBins(ndbins), array = num.array / den.array)
 
 	# compute binomial uncertainties in each bin
-	k = input.numerator.array
-	N = input.denominator.array
+	k = num.array
+	N = den.array
 	eff_lo_arr = ( N*(2*k + 1) - numpy.sqrt(4*N*k*(N - k) + N**2) ) / (2*N*(N + 1))
 	eff_hi_arr = ( N*(2*k + 1) + numpy.sqrt(4*N*k*(N - k) + N**2) ) / (2*N*(N + 1))
 

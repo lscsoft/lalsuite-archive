@@ -95,8 +95,6 @@ enum tagMATH_OP_TYPE {
 /** user input variables */
 typedef struct
 {
-  BOOLEAN help;
-
   CHAR *inputData;    	/**< directory for input sfts */
   CHAR *outputPSD;    	/**< directory for output sfts */
   CHAR *outputSpectBname;
@@ -201,10 +199,6 @@ main(int argc, char *argv[])
       return (0);
     }
 
-  /* exit if help was required */
-  if (uvar.help)
-    return EXIT_SUCCESS;
-
   MultiSFTVector *inputSFTs = NULL;
   if ( ( inputSFTs = XLALReadSFTs ( &cfg, &uvar ) ) == NULL )
     {
@@ -240,7 +234,7 @@ main(int argc, char *argv[])
 
   /* get power running-median rngmed[ |data|^2 ] from SFTs */
   MultiPSDVector *multiPSD = NULL;
-  LAL_CALL( LALNormalizeMultiSFTVect (&status, &multiPSD, inputSFTs, uvar.blocksRngMed), &status);
+  XLAL_CHECK_MAIN( ( multiPSD = XLALNormalizeMultiSFTVect ( inputSFTs, uvar.blocksRngMed, NULL ) ) != NULL, XLAL_EFUNC);
   /* restrict this PSD to just the "physical" band if requested using {--Freq, --FreqBand} */
   if ( ( XLALCropMultiPSDandSFTVectors ( multiPSD, inputSFTs, cfg.firstBin, cfg.lastBin )) != XLAL_SUCCESS ) {
     XLALPrintError ("%s: XLALCropMultiPSDandSFTVectors (inputPSD, inputSFTs, %d, %d) failed with xlalErrno = %d\n", __func__, cfg.firstBin, cfg.lastBin, xlalErrno );
@@ -461,10 +455,10 @@ main(int argc, char *argv[])
   }
 
   /* we are now done with the psd */
-  LAL_CALL ( LALDestroyMultiPSDVector  ( &status, &multiPSD), &status);
-  LAL_CALL ( LALDestroyMultiSFTVector  (&status, &inputSFTs), &status);
+  XLALDestroyMultiPSDVector  ( multiPSD);
+  XLALDestroyMultiSFTVector  ( inputSFTs);
 
-  LAL_CALL (LALDestroyUserVars(&status), &status);
+  XLALDestroyUserVars();
 
   XLALDestroyREAL8Vector ( overSFTs );
   XLALDestroyREAL8Vector ( overIFOs );
@@ -569,8 +563,6 @@ initUserVars (int argc, char *argv[], UserVariables_t *uvar)
 {
 
   /* set a few defaults */
-  uvar->help = FALSE;
-
   uvar->maxBinsClean = 100;
   uvar->blocksRngMed = 101;
 
@@ -606,7 +598,6 @@ initUserVars (int argc, char *argv[], UserVariables_t *uvar)
   uvar->version = FALSE;
 
   /* register user input variables */
-  XLALRegisterUvarMember(help,             BOOLEAN, 'h', HELP,     "Print this message" );
   XLALRegisterUvarMember(inputData,        STRING, 'i', REQUIRED, "Input SFT pattern");
   XLALRegisterUvarMember(outputPSD,        STRING, 'o', OPTIONAL, "Output PSD into this file");
   XLALRegisterUvarMember(outputQ,	     STRING, 0,  OPTIONAL, "Output the 'data-quality factor' Q(f) into this file");
@@ -661,8 +652,11 @@ initUserVars (int argc, char *argv[], UserVariables_t *uvar)
 
 
   /* read all command line variables */
-  if (XLALUserVarReadAllInput(argc, argv) != XLAL_SUCCESS)
-    return XLAL_FAILURE;
+  BOOLEAN should_exit = 0;
+  XLAL_CHECK( XLALUserVarReadAllInput( &should_exit, argc, argv ) == XLAL_SUCCESS, XLAL_EFUNC );
+  if ( should_exit ) {
+    exit(1);
+  }
 
   /* check user-input consistency */
   if (XLALUserVarWasSet(&(uvar->PSDmthopSFTs)) && !(0 <= uvar->PSDmthopSFTs && uvar->PSDmthopSFTs < MATH_OP_LAST)) {
@@ -993,10 +987,8 @@ XLALReadSFTs ( ConfigVariables_t *cfg,		/**< [out] return derived configuration 
 
   /* get sft catalog */
   LogPrintf ( LOG_DEBUG, "Finding all SFTs to load ... ");
-  LALStatus status = blank_status;
-  LALSFTdataFind ( &status, &catalog, uvar->inputData, &constraints);
-  if ( status.statusCode != 0 ) {
-    XLALPrintError ("%s: LALSFTdataFind() failed with statusCode = %d\n", __func__, status.statusCode );
+  if ( ( catalog = XLALSFTdataFind ( uvar->inputData, &constraints) ) == NULL ) {
+    XLALPrintError ("%s: XLALSFTdataFind() failed with xlalErrno = %d\n", __func__, xlalErrno );
     XLAL_ERROR_NULL ( XLAL_EFAILED );
   }
   if ( (catalog == NULL) || (catalog->length == 0) ) {

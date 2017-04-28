@@ -63,6 +63,7 @@ import lal
 import lalframe
 import lalsimulation
 import lalburst
+from lalburst import snglcluster
 
 # import laldetchar
 import laldetchar
@@ -71,8 +72,8 @@ from laldetchar.triggers import (omega, kw, daily_ihope, excesspower, trigfind)
 
 # import PyLAL modules
 from pylal import (git_version, seriesutils, plotutils, htmlutils,
-                   omegautils, hacrutils, rangeutils, hdf5utils, snglcluster,
-                   SnglInspiralUtils, ligolw_sicluster, ligolw_bucluster)
+                   omegautils, hacrutils, rangeutils, hdf5utils,
+                   SnglInspiralUtils, ligolw_sicluster)
 from pylal.dq import (dqSegmentUtils, dqTriggerUtils, stateutils, summary)
 
 # import GLUE modules
@@ -2060,7 +2061,7 @@ def archive_triggers(outdir, start, end, param_dict, clustered=False):
                            G_TRIGGERS[etg][channel].iteritems())
         for i,(seg,trig_table) in enumerate(global_triggers):
             try:
-                event_table = table.get_table(xmldoc, trig_table.tableName)
+                event_table = trig_table.get_table(xmldoc)
             except ValueError:
                 event_table = table.new_from_template(trig_table)
                 xmldoc.childNodes[-1].appendChild(event_table)
@@ -2069,12 +2070,8 @@ def archive_triggers(outdir, start, end, param_dict, clustered=False):
                               "%s table for %s has type %s instead of "
                               "ligolw.Table" % (etg, seg, type(trig_table)))
                 continue
-            sid = ilwd.get_ilwdchar_class(table.StripTableName(
-                                              seg_table.tableName),
-                                          "process_id")
-            pid = ilwd.get_ilwdchar_class(table.StripTableName(
-                                              event_table.tableName),
-                                          "process_id")
+            sid = ilwd.get_ilwdchar_class(seg_table.tableName, "process_id")
+            pid = ilwd.get_ilwdchar_class(event_table.tableName, "process_id")
             seg = map(LIGOTimeGPS, map(float, seg))
             segment = lsctables.Segment()
             segment.start_time = seg[0].gpsSeconds
@@ -2391,12 +2388,10 @@ def load_archive_segments(cp, flag, seglist, mode=0, verbose=False):
             with open(fp, "r") as f:
                 xmldoc, digest = ligolw_utils.load_fileobj(
                                      f, gz=fp.endswith(".gz"))
-                seg_def_table = table.get_table(
-                                    xmldoc, lsctables.SegmentDefTable.tableName)
+                seg_def_table = lsctables.SegmentDefTable.get_table(xmldoc)
                 seg_def_ids = [row.segment_def_id for row in seg_def_table if
                                row.name == name and row.version == version]
-                seg_sum_table = table.get_table(
-                                    xmldoc, lsctables.SegmentSumTable.tableName)
+                seg_sum_table = lsctables.SegmentSumTable.get_table(xmldoc)
                 seg_sum_list = SegmentList()
                 for row in seg_sum_table:
                     if row.segment_def_id in seg_def_ids:
@@ -2405,8 +2400,7 @@ def load_archive_segments(cp, flag, seglist, mode=0, verbose=False):
                         else:
                             seg = Segment(row.start_time, row.end_time)
                         seg_sum_list.append(seg)
-                seg_table = table.get_table(xmldoc,
-                                            lsctables.SegmentTable.tableName)
+                seg_table = lsctables.SegmentTable.get_table(xmldoc)
                 seg_list = SegmentList()
                 for row in seg_table:
                     if row.segment_def_id in seg_def_ids:
@@ -2504,8 +2498,7 @@ def load_archive_triggers(cp, ifo, channel, etg, segment_list, mode=0,
                                      f, gz=fp.endswith(".gz"))
                 # load segment table
                 try:
-                    seg_table = table.get_table(
-                                    xmldoc, lsctables.SegmentTable.tableName)
+                    seg_table = lsctables.SegmentTable.get_table(xmldoc)
                 except:
                     seg_table = []
                 # load trigger table
@@ -2513,15 +2506,12 @@ def load_archive_triggers(cp, ifo, channel, etg, segment_list, mode=0,
                                    "gstlal_excesspower"]:
                     events = lsctables.New(lsctables.SnglBurstTable,
                                             columns=columns)
-                    events.extend(table.get_table(
-                                      xmldoc,
-                                      lsctables.SnglBurstTable.tableName))
+                    events.extend(lsctables.SnglBurstTable.get_table(xmldoc))
                 elif re.search("(inspiral|ihope)", etg, re.I):
                     events = lsctables.New(lsctables.SnglInspiralTable,
                                            columns=columns)
-                    events.extend(table.get_table(
-                                     xmldoc,
-                                     lsctables.SnglInspiralTable.tableName))
+                    events.extend(lsctables.SnglInspiralTable.get_table(
+                                     xmldoc))
                 # map triggers to segments
                 for row in seg_table:
                     segment_events = lsctables.New(type(events),
@@ -2549,10 +2539,10 @@ def cluster_table(trigtable, dt):
     tablecopy = table.new_from_template(trigtable)
     tablecopy.extend(trigtable)
     if isinstance(trigtable, lsctables.SnglBurstTable):
-        testfunc = ligolw_bucluster.ExcessPowerTestFunc
-        clusterfunc = ligolw_bucluster.OmegaClusterFunc
-        sortfunc = ligolw_bucluster.ExcessPowerSortFunc
-        bailoutfunc = ligolw_bucluster.ExcessPowerBailoutFunc
+        testfunc = lalburst.ligolw_bucluster.ExcessPowerTestFunc
+        clusterfunc = lalburst.ligolw_bucluster.OmegaClusterFunc
+        sortfunc = lalburst.ligolw_bucluster.ExcessPowerSortFunc
+        bailoutfunc = lalburst.ligolw_bucluster.ExcessPowerBailoutFunc
     elif isinstance(trigtable, lsctables.SnglInspiralTable):
         testfunc = lambda a, b: SnglInspiralUtils.CompareSnglInspiral(a, b, dt)
         clusterfunc = ligolw_sicluster.SnglInspiralCluster

@@ -459,7 +459,8 @@ def totrigxml(file, table, program=None, params=[]):
 
   # write triggers to file object file
   ligolw_process.set_process_end_time(process)
-  utils.write_fileobj(xmldoc, file, gz=file.name.endswith('gz'))
+  with utils.SignalsTrap():
+    utils.write_fileobj(xmldoc, file, gz=file.name.endswith('gz'))
 
 # =============================================================================
 # Write triggers to text file in etg standard form

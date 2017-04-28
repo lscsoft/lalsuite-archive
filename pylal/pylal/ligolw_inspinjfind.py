@@ -1,4 +1,4 @@
-# Copyright (C) 2006--2011,2013,2014  Kipp Cannon
+# Copyright (C) 2006--2011,2013,2014,2016  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -44,17 +44,10 @@ from glue import iterutils
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw.utils import coincs as ligolw_coincs
-from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import time_slide as ligolw_time_slide
 from glue.text_progress_bar import ProgressBar
 from pylal import git_version
 from pylal import ligolw_thinca
-from pylal import SimInspiralUtils
-from pylal.xlal import tools as xlaltools
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-
-
-lsctables.CoincMapTable.RowType = lsctables.CoincMap = xlaltools.CoincMap
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -65,35 +58,27 @@ __date__ = git_version.date
 #
 # =============================================================================
 #
-#                                 Speed Hacks
+#                               Content Handler
 #
 # =============================================================================
 #
 
 
-lsctables.LIGOTimeGPS = LIGOTimeGPS
+class SnglInspiral(lsctables.SnglInspiral):
+	"""
+	Version of lsctables.SnglInspiral who's .__cmp__() method compares
+	this object's .end value directly to the value of other.  Allows a
+	list of instances of this class sorted by .end to be bisection
+	searched for a LIGOTimeGPS end time.
+	"""
+	__slots__ = ()
+	def __cmp__(self, other):
+		return cmp(self.end, other)
 
 
-def sngl_inspiral___cmp__(self, other):
-	# compare self's end time to the LIGOTimeGPS instance other
-	return cmp(self.end_time, other.seconds) or cmp(self.end_time_ns, other.nanoseconds)
-
-
-lsctables.SnglInspiral.__cmp__ = sngl_inspiral___cmp__
-
-
-#
-# =============================================================================
-#
-#                           Typical Content Handler
-#
-# =============================================================================
-#
-
-
+@lsctables.use_in
 class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
 	pass
-lsctables.use_in(LIGOLWContentHandler)
 
 
 #
@@ -227,13 +212,10 @@ class DocContents(object):
 		self.coincoffsets = dict((row.coinc_event_id, self.offsetvectors[row.time_slide_id]) for row in self.coinctable if row.coinc_def_id == ii_coinc_def_id)
 
 		#
-		# sort sngl_inspiral table by end time, and sort the coincs
-		# list by the end time of the first (earliest) event in
-		# each coinc (recall that the event tuple for each coinc
-		# has been time-ordered)
+		# sort sngl_inspiral table by end time
 		#
 
-		self.snglinspiraltable.sort(lambda a, b: cmp(a.end_time, b.end_time) or cmp(a.end_time_ns, b.end_time_ns))
+		self.snglinspiraltable.sort(key = lambda row: row.end)
 
 		#
 		# set the window for inspirals_near_endtime().  this window
@@ -242,12 +224,12 @@ class DocContents(object):
 		# this it is *impossible* for them to match one another.
 		#
 
-                self.end_time_bisect_window = LIGOTimeGPS(end_time_bisect_window)
+                self.end_time_bisect_window = lsctables.LIGOTimeGPS(end_time_bisect_window)
 
 
 	def inspirals_near_endtime(self, t):
 		"""
-		Return a list of the inspiral events whose peak times are
+		Return a list of the inspiral events whose end times are
 		within self.end_time_bisect_window of t.
 		"""
 		return self.snglinspiraltable[bisect.bisect_left(self.snglinspiraltable, t - self.end_time_bisect_window):bisect.bisect_right(self.snglinspiraltable, t + self.end_time_bisect_window)]
@@ -264,7 +246,11 @@ class DocContents(object):
 		# yet
 		coinc_event_ids = set()
 		for event in self.inspirals_near_endtime(t):
-			coinc_event_ids |= self.coincs[event.event_id]
+			try:
+				coinc_event_ids |= self.coincs[event.event_id]
+			except KeyError:
+				# this single isn't in any coincs
+				pass
 		return [(coinc_event_id, self.sngls[coinc_event_id]) for coinc_event_id in coinc_event_ids]
 
 	def sort_triggers_by_id(self):
@@ -272,7 +258,7 @@ class DocContents(object):
 		Sort the sngl_inspiral table's rows by ID (tidy-up document
 		for output).
 		"""
-		self.snglinspiraltable.sort(lambda a, b: cmp(a.event_id, b.event_id))
+		self.snglinspiraltable.sort(key = lambda row: row.event_id)
 
 	def new_coinc(self, coinc_def_id):
 		"""
@@ -295,30 +281,6 @@ class DocContents(object):
 #
 # =============================================================================
 #
-#                           Add Process Information
-#
-# =============================================================================
-#
-
-
-process_program_name = "ligolw_inspinjfind"
-
-
-def append_process(xmldoc, match_algorithm, comment):
-	"""
-	Convenience wrapper for adding process metadata to the document.
-	"""
-	process = ligolw_process.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
-
-	params = [(u"--match-algorithm", u"lstring", match_algorithm)]
-	ligolw_process.append_process_params(xmldoc, process, params)
-
-	return process
-
-
-#
-# =============================================================================
-#
 #                 Build sim_inspiral <--> sngl_inspiral Coincidences
 #
 # =============================================================================
@@ -329,7 +291,7 @@ def find_sngl_inspiral_matches(contents, sim, comparefunc):
 	"""
 	Scan the inspiral table for triggers matching sim.
 	"""
-	return [inspiral for inspiral in contents.inspirals_near_endtime(sim.get_end()) if not comparefunc(sim, inspiral)]
+	return [inspiral for inspiral in contents.inspirals_near_endtime(sim.time_geocent) if not comparefunc(sim, inspiral)]
 
 
 def add_sim_inspiral_coinc(contents, sim, inspirals):
@@ -464,7 +426,7 @@ def ligolw_inspinjfind(xmldoc, process, search, snglcomparefunc, nearcoinccompar
 		for sim in contents.siminspiraltable:
 			if progressbar is not None:
 				progressbar.increment()
-			coincs = contents.coincs_near_endtime(sim.get_end())
+			coincs = contents.coincs_near_endtime(sim.time_geocent)
 			exact_coinc_event_ids = find_exact_coinc_matches(coincs, sim, snglcomparefunc)
 			near_coinc_event_ids = find_near_coinc_matches(coincs, sim, nearcoinccomparefunc)
 			assert exact_coinc_event_ids.issubset(near_coinc_event_ids)
@@ -498,7 +460,7 @@ def ligolw_inspinjfind(xmldoc, process, search, snglcomparefunc, nearcoinccompar
 #
 
 
-def revert(xmldoc, program = process_program_name, verbose = False):
+def revert(xmldoc, program, verbose = False):
 	#
 	# remove entries from process metadata tables
 	#

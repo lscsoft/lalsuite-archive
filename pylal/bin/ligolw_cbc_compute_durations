@@ -9,11 +9,7 @@
 #
 
 from optparse import OptionParser
-try:
-    import sqlite3
-except ImportError:
-    # pre 2.5.x
-    from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 import sys
 import os
 import copy
@@ -177,7 +173,7 @@ proc_id = process.register_to_xmldoc(xmldoc, __prog__, options.__dict__, version
 #
 
 # turn the time slide table into a dictionary
-time_slide_dict = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict()
+time_slide_dict = lsctables.TimeSlideTable.get_table(xmldoc).as_dict()
 zero_lag_dict = dict([dict_entry for dict_entry in time_slide_dict.items() if not any( dict_entry[1].values() )])
 del time_slide_dict[ zero_lag_dict.keys()[0] ]
 

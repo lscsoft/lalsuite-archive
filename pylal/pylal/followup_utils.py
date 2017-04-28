@@ -22,17 +22,12 @@ import sys
 import numpy
 import os, shutil
 import urllib
-try:
-  import sqlite3
-except ImportError:
-  # pre 2.5.x
-  from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 
 from subprocess import *
 import copy
 import re
 from StringIO import StringIO
-import exceptions
 import glob
 import fileinput
 import linecache

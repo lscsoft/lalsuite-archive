@@ -19,7 +19,7 @@ __author__ = "Darren Woods and Stephen Fairhurst <sfairhurs@gravity.phys.uwm.edu
 __prog__ = "plotinspmissed"
 __title__ = "Found and Missed plots for triggers"
 
-import sys, os, re, glob, exceptions
+import sys, os, re, glob
 from types    import *
 from optparse import *
 from matplotlib.ticker import FormatStrFormatter
