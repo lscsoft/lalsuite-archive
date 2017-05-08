@@ -1345,7 +1345,7 @@ int XLALSimRingdownGenerateSingleModeMMRDNS_time(
         /* fill waveform */
         for ( UINT4 i=0 ; i<Nsamples ; i++ ) {
             t = Tstart+i*deltaT;
-            h_lmn = A*Yplus*exp(-t/tau)*cos(t*freq - phi_relative - phi_offset) - I*A*Ycross*exp(-t/tau)*sin(t*freq - phi_relative - phi_offset);
+            h_lmn = A*Yplus*exp(-t/tau)*cos(t*freq + phi_relative + phi_offset) - I*A*Ycross*exp(-t/tau)*sin(t*freq + phi_relative + phi_offset);
             (*htilde_lmn)->data->data[i] = h_lmn;
             h_lmn = 0.0;
             t = 0.0;
