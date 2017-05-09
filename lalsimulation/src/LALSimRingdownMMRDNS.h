@@ -159,42 +159,6 @@ int XLALSimRingdownGenerateSingleModeMMRDNS_time(
 
 );
 
-/* XLALSimRingdownMMRDNS_time_hack: Time domain waveformgenerator for all QNM with angular dependence */
-int XLALSimRingdownMMRDNS_time_hack(
-        REAL8TimeSeries **hplus,                     /**< OUTPUT TD waveform */
-        REAL8TimeSeries **hcross,                     /**< OUTPUT TD waveform */
-        const LIGOTimeGPS *t0,                       /**< start time of ringdown => NEEDS TO BE CHECKED! */
-        REAL8 deltaT,                                /**< sampling interval (s) */
-        REAL8 Mf,                                    /**< Final BH Mass (kg) */
-        REAL8 jf,                                    /**< Final BH dimensionaless spin */
-        REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
-        REAL8 iota,                                  /**< inclination angle (in rad) */
-        REAL8 phi_offset,                            /**< intrinsic phase offset */
-        REAL8 r,                                     /**< distance of source (m) */
-        LALSimInspiralTestGRParam *nonGRparams       /**< testing GR parameters */
-);
-
-/* XLALSimRingdownGenerateSingleModeMMRDNS_time_hack: Time domain waveformgenerator for single QNM with angular dependence */
-int XLALSimRingdownGenerateSingleModeMMRDNS_time_hack(
-        COMPLEX16TimeSeries **htilde_lmn,            /**< OUTPUT TD waveform mode lmn */
-        const LIGOTimeGPS *t0,                       /**< start time of ringdown */
-        REAL8 deltaT,                                /**< sampling interval (s) */
-        REAL8 Mf,                                    /**< Final BH Mass (kg) */
-        REAL8 jf,                                    /**< Final BH dimensionaless spin */
-        REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
-        REAL8 iota,                                  /**< inclination angle (in rad) */
-        REAL8 phi_offset,                            /**< intrinsic phase offset (in rad) */
-        UINT4 l,                                     /**< Polar eigenvalue */
-        UINT4 m,                                     /**< Azimuthal eigenvalue */
-        UINT4 n,                                     /**< Overtone Number */
-        REAL8 r,                                     /**< distance of source (m) */
-        REAL8 dfreq,                                 /**< relative shift in the real frequency parameter */
-        REAL8 dtau,                                  /**< relative shift in the damping time parameter */
-        UINT4 Nsamples,                               /**< waveform length */
-        REAL8 Tstart                                 /**< starting time of waveform (10M at zero) */
-
-);
-
 /* Spheroidal Harmonic Plus and Cross modes */
 REAL8 XLALSimSpheroidalHarmonicPlus(REAL8 jf, UINT4 l, INT4 m, UINT4 n, REAL8 iota);
 REAL8 XLALSimSpheroidalHarmonicCross(REAL8 jf, UINT4 l, INT4 m, UINT4 n, REAL8 iota);
