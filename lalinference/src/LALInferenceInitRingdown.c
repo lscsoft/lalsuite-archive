@@ -98,78 +98,77 @@ LALInferenceModel *LALInferenceInitRingdownModel(LALInferenceRunState *state)
 {
 
   char help[]="\
-               \n\
-               ------------------------------------------------------------------------------------------------------------------\n\
-               --- Injection Arguments ------------------------------------------------------------------------------------------\n\
-               ------------------------------------------------------------------------------------------------------------------\n\
-               (--inj injections.xml)          Injection XML file to use.\n\
-               (--event N)                     Event number from Injection XML file to use.\n\
-               \n\
-               ------------------------------------------------------------------------------------------------------------------\n\
-               --- Template Arguments -------------------------------------------------------------------------------------------\n\
-               ------------------------------------------------------------------------------------------------------------------\n\
-               (--symMassRatio)                Jump in symmetric mass ratio eta, instead of q=m2/m1.\n\
-               (--use-logdistance)             Jump in log(distance) instead of distance.\n\
-               (--system-frame                 Jump in spin parameters defined in the system coordinates, relative to total angular momentum\n\
-               (--approx)                      Specify a template approximant to use.\n\
-                                               (default RingdownTD). Available approximants:\n\
-                                               default modeldomain=\"time\": RingdownTD, RingdownLeaver, RingdownNumRel.\n\
-                                               default modeldomain=\"frequency\": RingdownFD.\n\
-               (--fref f_ref)                   Specify a reference frequency at which parameters are defined (default 0).\n\
-               (--modeldomain)                 domain the waveform template will be computed in (\"time\" or \"frequency\").\n\
-               (--enable-a)                    Treat final BH spin as a free parameter.\n\
-               (--disable-a)                   Calculate spin from progenitor parameters.\n\
-               (--enable-chiEff)               Effective spin.\n\
-               \n\
-               ------------------------------------------------------------------------------------------------------------------\n\
-               --- Starting Parameters ------------------------------------------------------------------------------------------\n\
-               ------------------------------------------------------------------------------------------------------------------\n\
-               (--trigtime time)               Trigger time to use.\n\
-               (--time time)                   Waveform time (overrides random about trigtime).\n\
-               (--mass mass)                   Trigger mass (total mass of the final black hole).\n\
-               (--a a_spin)                    Trigger a (dimensionless) spin to use.\n\
-               (--chiEff chi_eff)              Trigger an effective spin to use.\n\
-               (--eta eta)                     Trigger eta (symmetric mass ratio) to use.\n\
-               (--q q)                         Trigger q (asymmetric mass ratio) to use.\n\
-               (--phi phase)                   Trigger phase to use.\n\
-               (--iota inclination)            Trigger inclination to use. FIXME: theta_jn\n\
-               (--dist dist)                   Trigger distance.\n\
-               (--ra ra)                       Trigger RA.\n\
-               (--dec dec)                     Trigger declination.\n\
-               (--psi psi)                     Trigger psi.\n\
-               \n\
-               ------------------------------------------------------------------------------------------------------------------\n\
-               --- Prior Arguments ----------------------------------------------------------------------------------------------\n\
-               ------------------------------------------------------------------------------------------------------------------\n\
-               (--mass-min massMin)            Minimum mass.\n\
-               (--mass-max massMax)            Maximum mass.\n\
-               (--eta-min etaMin)              Minimum eta. Use with --symMassRatio.\n\
-               (--eta-max etaMax)              Maximum eta. Use with --symMassRatio.\n\
-               (--q-min qMin)                  Minimum q.\n\
-               (--q-max qMax)                  Maximum q.\n\
-               (--a-min min)                   Minimum component spin (-1.0).\n\
-               (--a-max max)                   Maximum component spin (1.0).\n\
-               (--chiEff-min min)              Minimum effective spin (-1.0).\n\
-               (--chiEff-max max)              Maximum effective spin (1.0).\n\
-               (--Dmin dist)                   Minimum distance in Mpc (1).\n\
-               (--Dmax dist)                   Maximum distance in Mpc (100).\n\
-               (--dt time)                     Width of time prior, centred around trigger (0.1s).\n\
-               \n\
-               ------------------------------------------------------------------------------------------------------------------\n\
-               --- Fix Parameters -----------------------------------------------------------------------------------------------\n\
-               ------------------------------------------------------------------------------------------------------------------\n\
-               (--fixMass)                     Do not allow final BH to vary.\n\
-               (--fixEta)                      Do not allow mass ratio to vary.\n\
-               (--fixQ)                        Do not allow mass ratio to vary.\n\
-               (--fixPhi)                      Do not allow phase to vary.\n\
-               (--fixDist)                     Do not allow distance to vary.\n\
-               (--fixRa)                       Do not allow RA to vary.\n\
-               (--fixDec)                      Do not allow declination to vary.\n\
-               (--fixPsi)                      Do not allow polarization to vary.\n\
-               (--fixTime)                     Do not allow coalescence time to vary.\n\
-               (--fixSpin)                     Do not allow final BH spin (a) to vary.\n\
-               (--pinparams)                   List of parameters to set to injected values [mchirp,asym_massratio,etc].\n";
-
+    ------------------------------------------------------------------------------------------------------------------\n\
+    --- Injection Arguments ------------------------------------------------------------------------------------------\n\
+    ------------------------------------------------------------------------------------------------------------------\n\
+    (--inj injections.xml)          Injection XML file to use.\n\
+    (--event N)                     Event number from Injection XML file to use.\n\
+    \n\
+    ------------------------------------------------------------------------------------------------------------------\n\
+    --- Template Arguments -------------------------------------------------------------------------------------------\n\
+    ------------------------------------------------------------------------------------------------------------------\n\
+    (--symMassRatio)                Jump in symmetric mass ratio eta, instead of q=m2/m1.\n\
+    (--use-logdistance)             Jump in log(distance) instead of distance.\n\
+    (--system-frame                 Jump in spin parameters defined in the system coordinates, relative to total angular momentum\n\
+    (--approx)                      Specify a template approximant to use.\n\
+                                    (default RingdownTD). Available approximants:\n\
+                                    default modeldomain=\"time\": RingdownTD, RingdownLeaver, RingdownNumRel.\n\
+                                    default modeldomain=\"frequency\": RingdownFD.\n\
+    (--fref f_ref)                   Specify a reference frequency at which parameters are defined (default 0).\n\
+    (--modeldomain)                 domain the waveform template will be computed in (\"time\" or \"frequency\").\n\
+    (--enable-a)                    Treat final BH spin as a free parameter.\n\
+    (--disable-a)                   Calculate spin from progenitor parameters.\n\
+    (--enable-chiEff)               Effective spin.\n\
+    \n\
+    ------------------------------------------------------------------------------------------------------------------\n\
+    --- Starting Parameters ------------------------------------------------------------------------------------------\n\
+    ------------------------------------------------------------------------------------------------------------------\n\
+    (--trigtime time)               Trigger time to use.\n\
+    (--time time)                   Waveform time (overrides random about trigtime).\n\
+    (--mass mass)                   Trigger mass (total mass of the final black hole).\n\
+    (--a a_spin)                    Trigger a (dimensionless) spin to use.\n\
+    (--chiEff chi_eff)              Trigger an effective spin to use.\n\
+    (--eta eta)                     Trigger eta (symmetric mass ratio) to use.\n\
+    (--q q)                         Trigger q (asymmetric mass ratio) to use.\n\
+    (--phi phase)                   Trigger phase to use.\n\
+    (--iota inclination)            Trigger inclination to use. FIXME: theta_jn\n\
+    (--dist dist)                   Trigger distance.\n\
+    (--ra ra)                       Trigger RA.\n\
+    (--dec dec)                     Trigger declination.\n\
+    (--psi psi)                     Trigger psi.\n\
+    \n\
+    ------------------------------------------------------------------------------------------------------------------\n\
+    --- Prior Arguments ----------------------------------------------------------------------------------------------\n\
+    ------------------------------------------------------------------------------------------------------------------\n\
+    (--mass-min massMin)            Minimum mass.\n\
+    (--mass-max massMax)            Maximum mass.\n\
+    (--eta-min etaMin)              Minimum eta. Use with --symMassRatio.\n\
+    (--eta-max etaMax)              Maximum eta. Use with --symMassRatio.\n\
+    (--q-min qMin)                  Minimum q.\n\
+    (--q-max qMax)                  Maximum q.\n\
+    (--a-min min)                   Minimum component spin (-1.0).\n\
+    (--a-max max)                   Maximum component spin (1.0).\n\
+    (--chiEff-min min)              Minimum effective spin (-1.0).\n\
+    (--chiEff-max max)              Maximum effective spin (1.0).\n\
+    (--Dmin dist)                   Minimum distance in Mpc (1).\n\
+    (--Dmax dist)                   Maximum distance in Mpc (100).\n\
+    (--dt time)                     Width of time prior, centred around trigger (0.1s).\n\
+    \n\
+    ------------------------------------------------------------------------------------------------------------------\n\
+    --- Fix Parameters -----------------------------------------------------------------------------------------------\n\
+    ------------------------------------------------------------------------------------------------------------------\n\
+    (--fixMass)                     Do not allow final BH to vary.\n\
+    (--fixEta)                      Do not allow mass ratio to vary.\n\
+    (--fixQ)                        Do not allow mass ratio to vary.\n\
+    (--fixPhi)                      Do not allow phase to vary.\n\
+    (--fixDist)                     Do not allow distance to vary.\n\
+    (--fixRa)                       Do not allow RA to vary.\n\
+    (--fixDec)                      Do not allow declination to vary.\n\
+    (--fixPsi)                      Do not allow polarization to vary.\n\
+    (--fixTime)                     Do not allow coalescence time to vary.\n\
+    (--fixSpin)                     Do not allow final BH spin (a) to vary.\n\
+    (--pinparams)                   List of parameters to set to injected values [mchirp,asym_massratio,etc].\n\
+\n";
 
   /* Print command line arguments if state was not allocated */
   if(state==NULL)
@@ -1113,6 +1112,17 @@ LALInferenceModel *LALInferenceInitRingdownModel(LALInferenceRunState *state)
         /* add the time parameter then remove it so that the prior is set up properly */
         LALInferenceRegisterUniformVariableREAL8(state, model->params, "time", timeParam, timeMin, timeMax,LALINFERENCE_PARAM_LINEAR);
         LALInferenceRemoveVariable(model->params,"time");
+
+	if(LALInferenceGetProcParamVal(commandLine,"--cut-waveform-l")){
+	LALInferenceRegisterUniformVariableREAL8(state, model->params, "cut_waveform_l", 0.5, 0.0, 1.0, LALINFERENCE_PARAM_FIXED);
+	fprintf(stdout, "Dynamic cut in data with step window is activited");
+	}
+
+	if(LALInferenceGetProcParamVal(commandLine,"--cut-waveform-lt")){
+	LALInferenceRegisterUniformVariableREAL8(state, model->params, "cut_waveform_lt", 0.5, 0.0, 1.0, LALINFERENCE_PARAM_FIXED);
+	fprintf(stdout, "Dynamic cut in data with step-Tukey window is activited");
+	}
+
         INT4 one=1;
         LALInferenceAddVariable(model->params,"SKY_FRAME",&one,LALINFERENCE_INT4_t,LALINFERENCE_PARAM_FIXED);
   }
@@ -1168,8 +1178,12 @@ LALInferenceModel *LALInferenceInitRingdownModel(LALInferenceRunState *state)
   /* Choose proper template */
   model->templt = LALInferenceInitCBCTemplate(state);
 
-  /* Use same window and FFT plans on model as data */
-  model->window = state->data->window;
+  /* Use same window and FFT plans on model as data except for Lionel's waveform*/
+  if(LALInferenceGetProcParamVal(commandLine,"--cut-waveform-l")||LALInferenceGetProcParamVal(commandLine,"--cut-waveform-lt")){
+  model->window = XLALCreateLionelREAL8Window(state->data->timeData->data->length, 0.);
+  fprintf(stdout, "Window on model changed.\n");}
+  else{
+  model->window = state->data->window;}
   model->timeToFreqFFTPlan = state->data->timeToFreqFFTPlan;
   model->freqToTimeFFTPlan = state->data->freqToTimeFFTPlan;
 

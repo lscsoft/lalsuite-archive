@@ -619,6 +619,60 @@ REAL8Window *XLALCreateTukeyREAL8Window(UINT4 length, REAL8 beta)
 	return XLALCreateREAL8WindowFromSequence(sequence);
 }
 
+REAL8Window *XLALCreateLionelREAL8Window(UINT4 length, REAL8 beta)
+{
+	REAL8Sequence *sequence;
+	UINT4 alpha = round(beta);
+	UINT4 i;
+	if(beta < 0 || alpha > (UINT4)round(length))
+		XLAL_ERROR_NULL(XLAL_ERANGE);
+
+	sequence = XLALCreateREAL8Sequence(length);
+	if(!sequence)
+		XLAL_ERROR_NULL(XLAL_EFUNC);
+
+	/*Step window for Lionel's waveform*/
+	for(i = 0; i < alpha; i++){
+		sequence->data[i] = 0;}
+	for(i = alpha; i < length; i++){
+		sequence->data[i] = 1;}
+
+	return XLALCreateREAL8WindowFromSequence(sequence);
+}
+
+REAL8Window *XLALCreateLionelTukeyREAL8Window(UINT4 length, REAL8 beta, REAL8 gamma)
+{
+	REAL8Sequence *sequence;
+	UINT4 alpha = round(beta);
+	UINT4 transition_length = round(gamma);
+	UINT4 i;
+	if(beta < 0 || alpha > (UINT4)round(length))
+		XLAL_ERROR_NULL(XLAL_ERANGE);
+
+	if(gamma < 0 || transition_length > length)
+		XLAL_ERROR_NULL(XLAL_ERANGE);
+
+	if((transition_length+1)/2>alpha)
+		XLAL_ERROR_NULL(XLAL_ERANGE);
+
+	sequence = XLALCreateREAL8Sequence(length);
+	if(!sequence)
+		XLAL_ERROR_NULL(XLAL_EFUNC);
+
+	/*Step window cut at alpha and 1.0 and flat in the middle, cos^2 transition at right end, zero
+	 * at end points, 0.0 <= gamma <= 1.0 sets what fraction of the window is transition * */
+
+	for(i = 0; i < alpha; i++){
+		sequence->data[i] = 0;}
+
+	for(i = alpha; i < round(length-(transition_length+1)/2); i++){
+		sequence->data[i] = 1;}
+
+	for(i = round(length-(transition_length+1)/2); i < length; i++){
+		sequence->data[i] = pow(cos(LAL_PI_2 * Y(transition_length, length - 1 - i)), 2);}
+
+	return XLALCreateREAL8WindowFromSequence(sequence);
+}
 
 REAL8Window *XLALCreateGaussREAL8Window(UINT4 length, REAL8 beta)
 {

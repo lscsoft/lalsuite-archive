@@ -134,8 +134,14 @@ int main(int argc, char *argv[]){
      }
 
   /* Set up the threads */
-  if (LALInferenceGetProcParamVal(state->commandLine, "--ringdown")) LALInferenceInitRingdownThreads(state,1);
-  else LALInferenceInitCBCThreads(state,1);
+  if (!helpflag && LALInferenceGetProcParamVal(state->commandLine, "--ringdown")){
+  LALInferenceInitRingdownThreads(state,1);}
+  else if (!helpflag && !(LALInferenceGetProcParamVal(state->commandLine, "--ringdown"))){
+  LALInferenceInitCBCThreads(state,1);}
+  else if (helpflag){
+  LALInferenceInitRingdownThreads(state,1);
+  LALInferenceInitCBCThreads(state,1);
+  }
 
   /* Init the prior */
   LALInferenceInitCBCPrior(state);

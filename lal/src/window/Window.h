@@ -292,6 +292,8 @@ REAL8Window *XLALCreateHammingREAL8Window(UINT4 length);
 REAL8Window *XLALCreateKaiserREAL8Window(UINT4 length, REAL8 beta);
 REAL8Window *XLALCreateCreightonREAL8Window(UINT4 length, REAL8 beta);
 REAL8Window *XLALCreateTukeyREAL8Window(UINT4 length, REAL8 beta);
+REAL8Window *XLALCreateLionelREAL8Window(UINT4 length, REAL8 beta);
+REAL8Window *XLALCreateLionelTukeyREAL8Window(UINT4 length, REAL8 beta, REAL8 gamma);
 REAL8Window *XLALCreateGaussREAL8Window(UINT4 length, REAL8 beta);
 REAL8Window *XLALCreateLanczosREAL8Window(UINT4 length);
 
