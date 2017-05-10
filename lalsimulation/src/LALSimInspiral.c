@@ -4695,7 +4695,7 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
     case SpinDominatedWf:
     case NumApproximants:
     case NR_hdf5:
-      testGR_accept=LAL_SIM_INSPIRAL_NO_TESTGR_PARAMS;
+      testGR_accept=LAL_SIM_INSPIRAL_TESTGR_PARAMS;
       break;
     case TaylorF2:
     case SpinTaylorF2:

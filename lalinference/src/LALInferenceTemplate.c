@@ -806,7 +806,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
 
 	XLAL_TRY(ret=XLALSimInspiralChooseFDWaveformFromCache(&hptilde, &hctilde, phi0,
             deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
-            spin2x, spin2y, spin2z, f_start, f_max, f_ref, distance, inclination,lambda1, lambda2, model->waveFlags, nonGRparams, amporder, order,
+            spin2x, spin2y, spin2z, f_start, f_max, f_ref, distance, inclination,lambda1, lambda2, model->waveFlags, NULL, amporder, order,
             approximant,model->waveformCache, NULL), errnum);
     
     /* apply the generic PN corrections to \tilde{h}_+ and \tilde{h}_x */
@@ -872,7 +872,7 @@ model->waveFlags(%d,%d,%d,%d,numreldata),nonGRparams,%d,%d,%d,model->waveformCac
     XLAL_TRY(ret=XLALSimInspiralChooseTDWaveformFromCache(&hplus, &hcross, phi0, deltaT,
             m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
             spin2x, spin2y, spin2z, f_start, f_ref, distance,
-            inclination, lambda1, lambda2, model->waveFlags, nonGRparams,
+            inclination, lambda1, lambda2, model->waveFlags, NULL,
             amporder, order, approximant,model->waveformCache), errnum);
       
     /* apply the generic PN corrections to \tilde{h}_+ and \tilde{h}_x */
