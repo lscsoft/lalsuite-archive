@@ -40,7 +40,7 @@
 #include <lal/LALSimInspiral.h>
 #include <lal/LALInferenceTemplate.h>
 #include <lal/LALInferenceMultibanding.h>
-
+#include <lal/LALSimInspiralTestingGRCorrections.h>
 /* LIB imports*/
 #include <lal/LALInferenceBurstRoutines.h>
 
@@ -383,6 +383,7 @@ void LALInferenceROQWrapperForXLALSimInspiralChooseFDWaveformSequence(LALInferen
   XLAL_TRY(ret=XLALSimInspiralChooseFDWaveformSequence (&(model->roq->hptildeQuadratic), &(model->roq->hctildeQuadratic), phi0, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI,
                   spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_ref, distance, inclination, lambda1, lambda2,
                   model->waveFlags, nonGRparams, amporder, order, approximant, (model->roq->frequencyNodesQuadratic)), errnum);
+    
     /* Destroy the nonGr params */
     XLALSimInspiralDestroyTestGRParam(nonGRparams);
 
@@ -807,7 +808,10 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
             deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
             spin2x, spin2y, spin2z, f_start, f_max, f_ref, distance, inclination,lambda1, lambda2, model->waveFlags, nonGRparams, amporder, order,
             approximant,model->waveformCache, NULL), errnum);
-
+    
+    /* apply the generic PN corrections to \tilde{h}_+ and \tilde{h}_x */
+    XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(hptilde,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI,f_low,deltaF,nonGRparams), errnum);
+    XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(hctilde,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI,f_low,deltaF,nonGRparams), errnum);
 	XLALSimInspiralDestroyTestGRParam(nonGRparams);
     
     /* if the waveform failed to generate, fill the buffer with zeros
@@ -870,6 +874,10 @@ model->waveFlags(%d,%d,%d,%d,numreldata),nonGRparams,%d,%d,%d,model->waveformCac
             spin2x, spin2y, spin2z, f_start, f_ref, distance,
             inclination, lambda1, lambda2, model->waveFlags, nonGRparams,
             amporder, order, approximant,model->waveformCache), errnum);
+      
+    /* apply the generic PN corrections to \tilde{h}_+ and \tilde{h}_x */
+    XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(model->freqhPlus,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI,f_low,model->deltaF,nonGRparams), errnum);
+    XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(model->freqhCross,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI,f_low,model->deltaF,nonGRparams), errnum);
 	XLALSimInspiralDestroyTestGRParam(nonGRparams);
     /* if the waveform failed to generate, fill the buffer with zeros
      * so that the previous waveform is not left there

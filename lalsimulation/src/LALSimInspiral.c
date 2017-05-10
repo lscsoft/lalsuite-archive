@@ -39,7 +39,7 @@
 #include <lal/BandPassTimeSeries.h>
 #include <lal/Units.h>
 #include <lal/LALSimBlackHoleRingdown.h>
-
+#include <lal/LALSimInspiralTestingGRCorrections.h>
 #include "LALSimInspiralPNCoefficients.c"
 #include "check_series_macros.h"
 #include "check_waveform_macros.h"
@@ -928,10 +928,10 @@ int XLALSimInspiralChooseFDWaveform(
      * If non-GR approximants are added, include them in
      * XLALSimInspiralApproximantAcceptTestGRParams()
      */
-   /* if( nonGRparams && XLALSimInspiralApproximantAcceptTestGRParams(approximant) != LAL_SIM_INSPIRAL_TESTGR_PARAMS ) {
+    if( nonGRparams && XLALSimInspiralApproximantAcceptTestGRParams(approximant) != LAL_SIM_INSPIRAL_TESTGR_PARAMS ) {
         XLALPrintError("XLAL Error - %s: Passed in non-NULL pointer to LALSimInspiralTestGRParam for an approximant that does not use LALSimInspiralTestGRParam\n", __func__);
         XLAL_ERROR(XLAL_EINVAL);
-    }*/
+    }
 
     /* General sanity check the input parameters - only give warnings! */
     if( deltaF > 1. )
@@ -1480,7 +1480,6 @@ int XLALSimInspiralChooseFDWaveform(
     if (nonGRparams!=NULL) {
       if (XLALSimInspiralTestGRParamExists(nonGRparams, "log10lambda_eff")) ret = XLALSimLorentzInvarianceViolationTerm(hptilde, hctilde, m1/LAL_MSUN_SI, m2/LAL_MSUN_SI, r, pow(10, XLALSimInspiralGetTestGRParam(nonGRparams, "log10lambda_eff")), XLALSimInspiralGetTestGRParam(nonGRparams, "nonGR_alpha"), XLALSimInspiralGetTestGRParam(nonGRparams, "LIV_A_sign"));
       else if (XLALSimInspiralTestGRParamExists(nonGRparams, "lambda_eff")) ret = XLALSimLorentzInvarianceViolationTerm(hptilde, hctilde, m1/LAL_MSUN_SI, m2/LAL_MSUN_SI, r, XLALSimInspiralGetTestGRParam(nonGRparams, "lambda_eff"), XLALSimInspiralGetTestGRParam(nonGRparams, "nonGR_alpha"), XLALSimInspiralGetTestGRParam(nonGRparams, "LIV_A_sign"));
-      if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
     }
 
     return ret;
@@ -2369,7 +2368,7 @@ SphHarmTimeSeries *XLALSimInspiralChooseTDModes(
      * If non-GR approximants are added, change the below to
      * if( nonGRparams && approximant != nonGR1 && approximant != nonGR2 )
      */
-    if( nonGRparams )
+    if( nonGRparams  && XLALSimInspiralApproximantAcceptTestGRParams(approximant) != LAL_SIM_INSPIRAL_TESTGR_PARAMS)
     {
         XLALPrintError("XLAL Error - %s: Passed in non-NULL pointer to LALSimInspiralTestGRParam for an approximant that does not use LALSimInspiralTestGRParam\n", __func__);
         XLAL_ERROR_NULL(XLAL_EINVAL);
@@ -2669,7 +2668,7 @@ COMPLEX16TimeSeries *XLALSimInspiralChooseTDMode(
      * If non-GR approximants are added, change the below to
      * if( nonGRparams && approximant != nonGR1 && approximant != nonGR2 )
      */
-    if( nonGRparams )
+    if( nonGRparams && XLALSimInspiralApproximantAcceptTestGRParams(approximant))
     {
         XLALPrintError("XLAL Error - %s: Passed in non-NULL pointer to LALSimInspiralTestGRParam for an approximant that does not use LALSimInspiralTestGRParam\n", __func__);
         XLAL_ERROR_NULL(XLAL_EINVAL);
@@ -4682,14 +4681,7 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
     case SEOBNRv2_opt:
     case SEOBNRv4:
     case SEOBNRv4_opt:
-    case SEOBNRv1_ROM_EffectiveSpin:
-    case SEOBNRv1_ROM_DoubleSpin:
-    case SEOBNRv2_ROM_EffectiveSpin:
-    case SEOBNRv2_ROM_DoubleSpin:
-    case SEOBNRv2_ROM_DoubleSpin_HI:
     case Lackey_Tidal_2013_SEOBNRv2_ROM:
-    case SEOBNRv4_ROM:
-    case SEOBNRv3FD:
     case IMRPhenomA:
     case IMRPhenomB:
     case IMRPhenomFA:
@@ -4712,6 +4704,13 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
     case PhenSpinTaylor:
     case PhenSpinTaylorRD:
     case EccentricTD:
+    case SEOBNRv1_ROM_EffectiveSpin:
+    case SEOBNRv1_ROM_DoubleSpin:
+    case SEOBNRv2_ROM_EffectiveSpin:
+    case SEOBNRv2_ROM_DoubleSpin:
+    case SEOBNRv2_ROM_DoubleSpin_HI:
+    case SEOBNRv4_ROM:
+    case SEOBNRv3FD:
     case IMRPhenomC:
     case IMRPhenomD:
     case IMRPhenomP:
