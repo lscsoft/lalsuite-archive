@@ -20,23 +20,22 @@
 # You should have received a copy of the GNU General Public License along with
 # this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import print_function
 import sys
 import os
 import getopt
-import re
-import exceptions
 import re
 
 try:
   from glue.segmentdb import segmentdb_utils
 except ImportError as e:
-  print >> sys.stderr, """
+  print("""
 Error: unable to import modules from glue.
 
 Check that glue is correctly installed and in your PYTHONPATH.
 
 %s
-""" % e
+""" % e, file=sys.stderr)
   sys.exit(1)
 
 
@@ -51,7 +50,7 @@ Usage: dmtdq_seg_insert [OPTIONS]
 
 \
 """
-  print msg
+  print(msg)
 
 def help():
   usage()
@@ -68,7 +67,7 @@ longop = [
 try:
   opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
 except getopt.GetoptError as e:
-  print >>sys.stderr, "Error: %s \n" % str(e)
+  print("Error: %s \n" % str(e), file=sys.stderr)
   usage()
   sys.exit(1)
 
@@ -96,13 +95,13 @@ for o, a in opts:
 
 # determine server and port
 if not segment_url:
-  print >>sys.stderr, "No --segment-url specified"
-  print >>sys.stderr, "Enter 'dmtdq_seg_insert --help' for usage"
+  print("No --segment-url specified", file=sys.stderr)
+  print("Enter 'dmtdq_seg_insert --help' for usage", file=sys.stderr)
   sys.exit(1)
 
 
 if not ping and not infile:
-  print "\nNo file specified\n"
+  print("\nNo file specified\n")
   usage()
   sys.exit(1)
 
@@ -112,7 +111,7 @@ myClient = segmentdb_utils.setup_database(segment_url)
 try:
   if ping:
     # ping the server and print the response
-    print myClient.ping()
+    print(myClient.ping())
 
   else:
     # open the input file and send it to the server
@@ -122,7 +121,7 @@ try:
     fh.close()
 
 except Exception as e:
-  print >>sys.stderr, "Error inserting segments: %s" % str(e)
+  print("Error inserting segments: %s" % str(e), file=sys.stderr)
   sys.exit(1)
 
 if infile:

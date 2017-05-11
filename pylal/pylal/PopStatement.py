@@ -28,7 +28,7 @@ from scipy import stats
 
 from glue import iterutils
 from pylal import plotutils
-from pylal import rate
+from lal import rate
 from pylal.stats import rankdata
 
 ####################################################

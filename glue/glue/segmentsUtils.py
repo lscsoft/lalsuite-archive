@@ -30,14 +30,14 @@ objects.
 """
 
 
-import itertools
 import re
 
 
 from glue import git_version
-from glue import iterutils
-from glue import lal
+from glue.lal import CacheEntry
+from .lal import LIGOTimeGPS
 from glue import segments
+from six.moves import range
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -101,14 +101,14 @@ def fromlalcache(cachefile, coltype = int):
 
 	Example:
 
-	>>> from glue.lal import LIGOTimeGPS
+	>>> from lal import LIGOTimeGPS
 	>>> cache_seglists = fromlalcache(open(filename), coltype = LIGOTimeGPS).coalesce()
 
 	See also:
 
 	glue.lal.CacheEntry
 	"""
-	return segments.segmentlist(lal.CacheEntry(l, coltype = coltype).segment for l in cachefile)
+	return segments.segmentlist(CacheEntry(l, coltype = coltype).segment for l in cachefile)
 
 
 #
@@ -147,19 +147,19 @@ def fromsegwizard(file, coltype = int, strict = True):
 		try:
 			[tokens] = fourcolsegpat.findall(line)
 			num = int(tokens[0])
-			seg = segments.segment(map(coltype, tokens[1:3]))
+			seg = segments.segment(list(map(coltype, tokens[1:3])))
 			duration = coltype(tokens[3])
 			this_line_format = 4
 		except ValueError:
 			try:
 				[tokens] = threecolsegpat.findall(line)
-				seg = segments.segment(map(coltype, tokens[0:2]))
+				seg = segments.segment(list(map(coltype, tokens[0:2])))
 				duration = coltype(tokens[2])
 				this_line_format = 3
 			except ValueError:
 				try:
 					[tokens] = twocolsegpat.findall(line)
-					seg = segments.segment(map(coltype, tokens[0:2]))
+					seg = segments.segment(list(map(coltype, tokens[0:2])))
 					duration = abs(seg)
 					this_line_format = 2
 				except ValueError:
@@ -194,7 +194,7 @@ def tosegwizard(file, seglist, header = True, coltype = int):
 #
 
 
-def fromtama(file, coltype = lal.LIGOTimeGPS):
+def fromtama(file, coltype = LIGOTimeGPS):
 	"""
 	Read a segmentlist from the file object file containing TAMA
 	locked-segments data.  Parsing stops on the first line that cannot
@@ -215,7 +215,7 @@ def fromtama(file, coltype = lal.LIGOTimeGPS):
 	for line in file:
 		try:
 			[tokens] = segmentpat.findall(line)
-			l.append(segments.segment(map(coltype, tokens[0:2])))
+			l.append(segments.segment(list(map(coltype, tokens[0:2]))))
 		except ValueError:
 			break
 	return l
@@ -376,11 +376,11 @@ def from_bitstream(bitstream, start, dt, minlen = 1):
 	bitstream = iter(bitstream)
 	i = 0
 	while 1:
-		if bitstream.next():
+		if next(bitstream):
 			# found start of True block; find the end
 			j = i + 1
 			try:
-				while bitstream.next():
+				while next(bitstream):
 					j += 1
 			finally:  # make sure StopIteration doesn't kill final segment
 				if j - i >= minlen:
@@ -512,7 +512,7 @@ def vote(seglists, n):
 	def pop_min(l):
 		# remove and return the smallest value from a list
 		val = min(l)
-		for i in xrange(len(l) - 1, -1, -1):
+		for i in range(len(l) - 1, -1, -1):
 			if l[i] is val:
 				return l.pop(i)
 		assert False	# cannot get here
@@ -522,7 +522,7 @@ def vote(seglists, n):
 		for seglist in seglists:
 			segiter = iter(seglist)
 			try:
-				seg = segiter.next()
+				seg = next(segiter)
 			except StopIteration:
 				continue
 			# put them in so that the smallest boundary is
@@ -544,7 +544,7 @@ def vote(seglists, n):
 				votes = delta
 			if segiter is not None:
 				try:
-					seg = segiter.next()
+					seg = next(segiter)
 				except StopIteration:
 					continue
 				queue.append((seg[1], -1, segiter))

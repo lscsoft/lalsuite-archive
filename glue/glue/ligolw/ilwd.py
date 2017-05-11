@@ -1,4 +1,4 @@
-# Copyright (C) 2006,2012  Kipp Cannon
+# Copyright (C) 2006,2012,2013,2016  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -45,7 +45,7 @@ containing an ilwd:char ID into a more memory efficient representation.
 Example:
 
 >>> x = ilwdchar("process:process_id:10")
->>> print x
+>>> print(x)
 process:process_id:10
 
 Like strings, the object resulting from this is immutable.  It provides two
@@ -56,7 +56,7 @@ suffix can be retrieved by converting the object to an integer.
 Example:
 
 >>> x.table_name
-'process'
+u'process'
 >>> int(x)
 10
 
@@ -91,7 +91,7 @@ columns, None is allowed as an input value and is not converted.
 
 Example:
 
->>> print ilwdchar(None)
+>>> print(ilwdchar(None))
 None
 
 
@@ -118,7 +118,7 @@ False
 <class 'glue.ligolw.ilwd.foo_bar_class'>
 >>> "foo_bar_class" in ilwd.__dict__
 True
->>> print ilwd.foo_bar_class(10)
+>>> print(ilwd.foo_bar_class(10))
 foo:bar:10
 
 The ilwdchar class itself is never instantiated, its .__new__() method
@@ -128,11 +128,12 @@ neccessary.
 """
 
 
-import copy_reg
+import six.moves.copyreg
 
 
 from glue import git_version
 from . import _ilwd
+import six
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -193,8 +194,8 @@ def get_ilwdchar_class(tbl_name, col_name, namespace = globals()):
 	# if the class already exists, retrieve and return it
 	#
 
-	key = (str(tbl_name), str(col_name))
-	cls_name = "%s_%s_class" % key
+	key = six.text_type(tbl_name), six.text_type(col_name)
+	cls_name = str("%s_%s_class" % key)
 	assert cls_name != "get_ilwdchar_class"
 	try:
 		return namespace[cls_name]
@@ -208,7 +209,7 @@ def get_ilwdchar_class(tbl_name, col_name, namespace = globals()):
 	class new_class(_ilwd.ilwdchar):
 		__slots__ = ()
 		table_name, column_name = key
-		index_offset = len("%s:%s:" % key)
+		index_offset = len(u"%s:%s:" % key)
 
 	new_class.__name__ = cls_name
 
@@ -218,7 +219,7 @@ def get_ilwdchar_class(tbl_name, col_name, namespace = globals()):
 	# pickle support
 	#
 
-	copy_reg.pickle(new_class, lambda x: (ilwdchar, (unicode(x),)))
+	six.moves.copyreg.pickle(new_class, lambda x: (ilwdchar, (six.text_type(x),)))
 
 	#
 	# return the new class
@@ -247,20 +248,20 @@ class ilwdchar(object):
 
 		Example:
 
-		>>> x = ilwdchar("process:process_id:10")
+		>>> x = ilwdchar(u"process:process_id:10")
 		>>> str(x)
 		'process:process_id:10'
 		>>> x.table_name
-		'process'
+		u'process'
 		>>> x.column_name
-		'process_id'
+		u'process_id'
 		>>> int(x)
 		10
 		>>> x.index_offset
 		19
 		>>> str(x)[x.index_offset:]
 		'10'
-		>>> print ilwdchar(None)
+		>>> print(ilwdchar(None))
 		None
 		"""
 		#
@@ -275,7 +276,7 @@ class ilwdchar(object):
 		#
 
 		try:
-			table_name, column_name, i = s.strip().split(":")
+			table_name, column_name, i = s.strip().split(u":")
 		except (ValueError, AttributeError):
 			raise ValueError("invalid ilwd:char '%s'" % repr(s))
 

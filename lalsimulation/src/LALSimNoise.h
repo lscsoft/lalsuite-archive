@@ -43,14 +43,22 @@ extern "C" {
 #endif
 
 #ifdef SWIG // SWIG interface directives
-SWIGLAL(FUNCTION_POINTER(XLALSimNoisePSDiLIGOSRD, XLALSimNoisePSDiLIGOModel,
-	XLALSimNoisePSDeLIGOModel, XLALSimNoisePSDVirgo, XLALSimNoisePSDGEO,
-	XLALSimNoisePSDTAMA, XLALSimNoisePSDaLIGONoSRMLowPower,
-	XLALSimNoisePSDaLIGONoSRMHighPower,
-	XLALSimNoisePSDaLIGOZeroDetLowPower,
-	XLALSimNoisePSDaLIGOZeroDetHighPower, XLALSimNoisePSDaLIGONSNSOpt,
+SWIGLAL(FUNCTION_POINTER(aLIGOQuantumHighFrequency, XLALSimNoisePSDAdvVirgo,
 	XLALSimNoisePSDaLIGOBHBH20Deg, XLALSimNoisePSDaLIGOHighFrequency,
-	XLALSimNoisePSDKAGRA, XLALSimNoisePSDAdvVirgo));
+	XLALSimNoisePSDaLIGONoSRMHighPower, XLALSimNoisePSDaLIGONoSRMLowPower,
+	XLALSimNoisePSDaLIGONSNSOpt, XLALSimNoisePSDaLIGOQuantumBHBH20Deg,
+	XLALSimNoisePSDaLIGOQuantumHighFrequency,
+	XLALSimNoisePSDaLIGOQuantumNoSRMHighPower,
+	XLALSimNoisePSDaLIGOQuantumNoSRMLowPower,
+	XLALSimNoisePSDaLIGOQuantumNSNSOpt,
+	XLALSimNoisePSDaLIGOQuantumZeroDetHighPower,
+	XLALSimNoisePSDaLIGOQuantumZeroDetLowPower, XLALSimNoisePSDaLIGOThermal,
+	XLALSimNoisePSDaLIGOZeroDetHighPower, XLALSimNoisePSDaLIGOZeroDetLowPower,
+	XLALSimNoisePSDeLIGOModel, XLALSimNoisePSDeLIGOShot, XLALSimNoisePSDGEO,
+	XLALSimNoisePSDGEOHF, XLALSimNoisePSDiLIGOModel,
+	XLALSimNoisePSDiLIGOSeismic, XLALSimNoisePSDiLIGOShot,
+	XLALSimNoisePSDiLIGOSRD, XLALSimNoisePSDiLIGOThermal, XLALSimNoisePSDKAGRA,
+	XLALSimNoisePSDTAMA, XLALSimNoisePSDVirgo));
 #endif
 
 
@@ -157,6 +165,16 @@ int XLALSimNoisePSDAdVLateLowSensitivityP1200087(REAL8FrequencySeries *psd, doub
 int XLALSimNoisePSDAdVLateHighSensitivityP1200087(REAL8FrequencySeries *psd, double flow);
 int XLALSimNoisePSDAdVDesignSensitivityP1200087(REAL8FrequencySeries *psd, double flow);
 int XLALSimNoisePSDAdVBNSOptimizedSensitivityP1200087(REAL8FrequencySeries *psd, double flow);
+
+/*
+ * NOISE PSDs FROM LIGO-T1600593
+ */
+
+int XLALSimNoisePSDKAGRAOpeningSensitivityT1600593(REAL8FrequencySeries *psd, double flow);
+int XLALSimNoisePSDKAGRAEarlySensitivityT1600593(REAL8FrequencySeries *psd, double flow);
+int XLALSimNoisePSDKAGRAMidSensitivityT1600593(REAL8FrequencySeries *psd, double flow);
+int XLALSimNoisePSDKAGRALateSensitivityT1600593(REAL8FrequencySeries *psd, double flow);
+int XLALSimNoisePSDKAGRADesignSensitivityT1600593(REAL8FrequencySeries *psd, double flow);
 
 #if 0
 { /* so that editors will match succeeding brace */

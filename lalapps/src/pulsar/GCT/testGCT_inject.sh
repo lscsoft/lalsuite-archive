@@ -106,14 +106,15 @@ iSeg=1
 while [ $iSeg -le $Nsegments ]; do
     t0=$tmpTime
     t1=$(($t0 + $Tsegment))
-    TspanHours=`echo $Tsegment | awk '{printf "%.7f", $1 / 3600.0 }'`
-        ## first and last segment will be single-IFO only
+
     if [ $iSeg -eq 1 -o $iSeg -eq $Nsegments ]; then
+        ## first and last segment will be single-IFO only
         NSFT=`echo $Tsegment $Tsft |  awk '{print int(1.0 * $1 / $2 + 0.5) }'`
-    else	## while all other segments are 2-IFO
+    else
+	## while all other segments are 2-IFO
         NSFT=`echo $Tsegment $Tsft |  awk '{print int(2.0 * $1 / $2 + 0.5) }'`
     fi
-    echo "$t0 $t1 $TspanHours $NSFT" >> $segFile
+    echo "$t0 $t1 $NSFT" >> $segFile
 
     segs[$iSeg]=$tmpTime # save seg's beginning for later use
     echo "Segment: $iSeg of $Nsegments	GPS start time: ${segs[$iSeg]}"
@@ -191,7 +192,7 @@ fi
 rm -f checkpoint.cpt # delete checkpoint to start correctly
 outfile_GCT2="${testDir}/GCT2.dat"
 
-cmdline="$gct_code $gct_CL_common --DataFiles=\"$SFTdir$dirsep*$label*.sft\" --fnameout='$outfile_GCT2' --injectionSources=\"$injectionSources\""
+cmdline="$gct_code $gct_CL_common --DataFiles=\"$SFTdir$dirsep*$label*.sft\" --fnameout='$outfile_GCT2' --injectionSources=\"$injectionSources\" --loudestTwoFPerSeg"
 echo $cmdline
 if ! eval "$cmdline"; then
     echo "Error.. something failed when running '$gct_code' ..."

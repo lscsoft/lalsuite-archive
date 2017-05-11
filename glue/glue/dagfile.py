@@ -926,7 +926,7 @@ class DAG(object):
 
 		Example:
 
-		>>> print dag.dot_source(statecolours = None)
+		>>> print(dag.dot_source(statecolours = None))
 
 		BUGS:  the JOB class does not implement the ability to
 		retrieve the job state at this time, therefore it is always
@@ -942,7 +942,7 @@ class DAG(object):
 
 		# generate dot code
 
-		code = 'digraph "%s" {\nnode [color="%s", href="\N"];\ngraph [bgcolor="%s"];\n' % (title, colour, bgcolour)
+		code = 'digraph "%s" {\nnode [color="%s", href="\\N"];\ngraph [bgcolor="%s"];\n' % (title, colour, bgcolour)
 		for node in self.nodes.values():
 			if statecolours is not None:
 				code += '"%s"[color="%s"];\n' % (namemap[node.name], statecolours[node.state])

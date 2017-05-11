@@ -29,7 +29,7 @@
 
 #include <lal/VectorMath.h>
 
-/* for access to internal prototypes for FPU functions, for reference results */
+/* for access to internal prototypes for generic (GEN) functions, for reference results */
 #include "../../src/vectorops/VectorMath_internal.h"
 
 // ---------- Macros ----------
@@ -39,7 +39,7 @@
 // ----- test and benchmark operators with 1 REAL4 vector input and 1 REAL4 vector output (S2S) ----------
 #define TESTBENCH_VECTORMATH_S2S(name,in)                               \
   {                                                                     \
-    XLAL_CHECK ( XLALVector##name##REAL4_FPU( xOutRef, in, Ntrials ) == XLAL_SUCCESS, XLAL_EFUNC ); \
+    XLAL_CHECK ( XLALVector##name##REAL4_GEN( xOutRef, in, Ntrials ) == XLAL_SUCCESS, XLAL_EFUNC ); \
     tic = XLALGetCPUTime();                                           \
     for (UINT4 l=0; l < Nruns; l ++ ) {                                 \
       XLAL_CHECK ( XLALVector##name##REAL4( xOut, in, Ntrials ) == XLAL_SUCCESS, XLAL_EFUNC ); \
@@ -61,7 +61,7 @@
 
 #define TESTBENCH_VECTORMATH_S2SS(name,in)                              \
   {                                                                     \
-    XLAL_CHECK ( XLALVector##name##REAL4_FPU( xOutRef, xOutRef2, xIn, Ntrials ) == XLAL_SUCCESS, XLAL_EFUNC ); \
+    XLAL_CHECK ( XLALVector##name##REAL4_GEN( xOutRef, xOutRef2, xIn, Ntrials ) == XLAL_SUCCESS, XLAL_EFUNC ); \
     tic = XLALGetCPUTime();                                               \
     for (UINT4 l=0; l < Nruns; l ++ ) {                                 \
       XLAL_CHECK ( XLALVector##name##REAL4( xOut, xOut2, xIn, Ntrials ) == XLAL_SUCCESS, XLAL_EFUNC ); \
@@ -87,7 +87,7 @@
 
 #define TESTBENCH_VECTORMATH_SS2S(name,in1,in2)                         \
   {                                                                     \
-    XLAL_CHECK ( XLALVector##name##REAL4_FPU( xOutRef, in1, in2, Ntrials ) == XLAL_SUCCESS, XLAL_EFUNC ); \
+    XLAL_CHECK ( XLALVector##name##REAL4_GEN( xOutRef, in1, in2, Ntrials ) == XLAL_SUCCESS, XLAL_EFUNC ); \
     tic = XLALGetCPUTime();                                             \
     for (UINT4 l=0; l < Nruns; l ++ ) {                                 \
       XLAL_CHECK ( XLALVector##name##REAL4( xOut, in1, in2, Ntrials ) == XLAL_SUCCESS, XLAL_EFUNC ); \
@@ -111,7 +111,6 @@
 // local types
 typedef struct
 {
-  BOOLEAN help;		/**< Print this help/usage message */
   INT4 randSeed;	/**< allow user to specify random-number seed for reproducible noise-realizations */
   INT4 Nruns;		// number of repated timing 'runs' to average over in order to improve variance of result
   INT4 inAlign;		// alignment of input vectors; default is sizeof(void*), i.e. no particular alignment
@@ -130,15 +129,15 @@ main ( int argc, char *argv[] )
   uvar->Nruns = 1;
   uvar->inAlign = uvar->outAlign = sizeof(void*);
   // ---------- register user-variable ----------
-  XLALRegisterUvarMember(  help,                BOOLEAN, 'h', HELP    , "Print this help/usage message");
   XLALRegisterUvarMember(  randSeed,            INT4, 's', OPTIONAL, "Random-number seed");
   XLALRegisterUvarMember(  Nruns,               INT4, 'r', OPTIONAL, "Number of repeated timing 'runs' to average over (=improves variance)" );
   XLALRegisterUvarMember(  inAlign,             INT4, 'a', OPTIONAL, "Alignment of input vectors; default is sizeof(void*), i.e. no particular alignment" );
   XLALRegisterUvarMember(  outAlign,            INT4, 'b', OPTIONAL, "Alignment of output vectors; default is sizeof(void*), i.e. no particular alignment" );
 
-  XLAL_CHECK ( XLALUserVarReadAllInput ( argc, argv ) == XLAL_SUCCESS, XLAL_EFUNC );
-  if ( uvar->help ) {	/* if help was requested, we're done */
-    exit (0);
+  BOOLEAN should_exit = 0;
+  XLAL_CHECK( XLALUserVarReadAllInput( &should_exit, argc, argv ) == XLAL_SUCCESS, XLAL_EFUNC );
+  if ( should_exit ) {
+    exit (1);
   }
 
   srand ( uvar->randSeed );
@@ -190,7 +189,7 @@ main ( int argc, char *argv[] )
     xIn[i] = 20 * ( frand() - 0.5 );
   }
 
-  abstol = 3e-3, reltol = 2e-7;
+  abstol = 4e-3, reltol = 3e-7;
   TESTBENCH_VECTORMATH_S2S(Exp,xIn);
 
   // ==================== LOG() ====================

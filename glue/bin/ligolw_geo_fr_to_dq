@@ -22,6 +22,7 @@
 
 # TODO: convert debugging output from print() to logger()
 
+from __future__ import print_function
 import os
 import sys
 import time
@@ -158,19 +159,19 @@ if/when you want to process a newer version of any frame files, since
 the segments may overlap with previous versions.
 """
 def get_pending_segments(state_file, gps_start, gps_end, verbose=False):
-    if verbose: print "reading state from %s" % state_file
+    if verbose: print("reading state from %s" % state_file)
     # load our state file and extract processed/excluded segment lists
     indoc = ligolw_utils.load_url(state_file)
     processed_segments = segmentdb_utils.find_segments(indoc,"P1:PROCESSED:0")
     exclude_segments = segmentdb_utils.find_segments(indoc,"P1:EXCLUDE:0")
-    if verbose: print "processed segments =", processed_segments
-    if verbose: print "excluded segments =", exclude_segments
+    if verbose: print("processed segments =", processed_segments)
+    if verbose: print("excluded segments =", exclude_segments)
     # calculate segments to be processed
     gps_range = segments.segmentlist([segments.segment(gps_start, gps_end)])
-    if verbose: print "gps range =", gps_range
+    if verbose: print("gps range =", gps_range)
     pending_segments = (gps_range - processed_segments) - exclude_segments
     if verbose:
-        print "pending segments within %s = %s" % (gps_range, pending_segments)
+        print("pending segments within %s = %s" % (gps_range, pending_segments))
     return pending_segments
 
 
@@ -183,8 +184,8 @@ Given a state file and segmentlist, add the segments to the table of
 processed segments.
 """
 def append_processed_segments(state_file, segmentlist, exclude_segmentlist, verbose=False):
-    if verbose: print "appending segmentlist %s to state file %s" % (segmentlist, state_file)
-    if verbose: print "appending exclude_segmentlist %s to state file %s" % (segmentlist, state_file)
+    if verbose: print("appending segmentlist %s to state file %s" % (segmentlist, state_file))
+    if verbose: print("appending exclude_segmentlist %s to state file %s" % (segmentlist, state_file))
     # load existing state file and extract processed/excluded segment lists
     indoc = ligolw_utils.load_url(state_file)
     processed_segments = segmentdb_utils.find_segments(indoc,"P1:PROCESSED:0")
@@ -195,15 +196,15 @@ def append_processed_segments(state_file, segmentlist, exclude_segmentlist, verb
     proc_id = ligolw_process.register_to_xmldoc(outdoc, PROGRAM_NAME, options.__dict__).process_id
     excl_def_id = segmentdb_utils.add_to_segment_definer(outdoc,proc_id,"P1","EXCLUDE",0)
     pub_def_id = segmentdb_utils.add_to_segment_definer(outdoc,proc_id,"P1","PROCESSED",0)
-    if verbose: print "previously processed segments = %s" % processed_segments
+    if verbose: print("previously processed segments = %s" % processed_segments)
     # append new segments
     processed_segments += segmentlist
     exclude_segments += exclude_segmentlist
     # Do I need to explicity coalesce here?  Let's do so, just to be safe.
     processed_segments.coalesce()
     exclude_segments.coalesce()
-    if verbose: print "new processed segments = %s" % processed_segments
-    if verbose: print "new excluded segments = %s" % exclude_segments
+    if verbose: print("new processed segments = %s" % processed_segments)
+    if verbose: print("new excluded segments = %s" % exclude_segments)
     segmentdb_utils.add_to_segment(outdoc,proc_id,excl_def_id,exclude_segments)
     segmentdb_utils.add_to_segment(outdoc,proc_id,pub_def_id,processed_segments)
     ligolw_utils.write_filename(outdoc, state_file)
@@ -230,7 +231,7 @@ def get_dq_flags(file, ifo, bitmask=4032, verbose=False):
     frame_len = 1
     total_len = num_frames * frame_len
 
-    if verbose: print "gps_start =", gps_start, "num_frames =", num_frames
+    if verbose: print("gps_start =", gps_start, "num_frames =", num_frames)
 
     # initialize name->segmentlist hashes for summary segments and segments
     summary_segs = {}
@@ -301,16 +302,16 @@ def frame_to_dq_xml(frame_file, xml_root, ifo, type, version, comment, verbose=F
     # create a segment_definer for each flag
     for flag in summary_segs:
         summary_segs[flag].coalesce()
-        if verbose: print "flag =", flag, "\nsums =", summary_segs[flag]
+        if verbose: print("flag =", flag, "\nsums =", summary_segs[flag])
         seg_def_id = segmentdb_utils.add_to_segment_definer(outdoc,proc_id,ifo,flag,version,comment=comment)
         segmentdb_utils.add_to_segment_summary(outdoc,proc_id,seg_def_id,summary_segs[flag],comment=type)
         if flag in segs:
             segs[flag].coalesce()
-            if verbose: print "segs =", segs[flag]
+            if verbose: print("segs =", segs[flag])
             segmentdb_utils.add_to_segment(outdoc,proc_id,seg_def_id,segs[flag])
 
     # write the xml doc to disk
-    proctable = table.get_table(outdoc, lsctables.ProcessTable.tableName)
+    proctable = lsctables.ProcessTable.get_table(outdoc)
     proctable[0].end_time = gpstime.GpsSecondsFromPyUTC(time.time())
     outname = gen_dq_xml_filename(xml_root, ifo, gps_start, duration)
     glue.utils.mkdir_p(os.path.dirname(outname))
@@ -398,7 +399,7 @@ if options.state_file:
                                             options.verbose)
 else:
     pending_segments = segments.segmentlist([segments.segment(options.gps_start, options.gps_end)])
-if options.verbose: print "pending_segments =", pending_segments
+if options.verbose: print("pending_segments =", pending_segments)
 
 pending_files = []
 if options.cache_file:
@@ -418,14 +419,14 @@ if options.cache_file:
             if not pending_segments.intersects_segment(segment):
                 continue
             if not os.path.isfile(framefile):
-                if options.verbose: print "warning: %s not found" % framefile
+                if options.verbose: print("warning: %s not found" % framefile)
                 True
             else:
                 pending_files.append(framefile)
 else:
     pending_files = argv_frame_files
 
-if options.verbose: print "pending files =", pending_files
+if options.verbose: print("pending files =", pending_files)
 
 newly_processed_segments = segments.segmentlist([])
 corrupt_frame_segments = segments.segmentlist([])

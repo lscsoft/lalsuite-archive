@@ -26,6 +26,9 @@ from glue.ligolw import lsctables
 from glue.ligolw import table
 from glue.segmentdb import query_engine
 from glue.ligolw import types as ligolwtypes
+from six.moves import filter
+from six.moves import map
+from six.moves import range
 
 
 
@@ -55,7 +58,17 @@ def get_all_files_in_range(dirname, starttime, endtime, pad=64):
     first_four_start = starttime / 100000
     first_four_end   = endtime   / 100000
 
-    for filename in os.listdir(dirname):
+    # Screen for files starting with . and ending with .xml.*
+    # i.e. those leftover by rsync
+    file_list=os.listdir(dirname)
+    file_list.sort()
+    for filename in file_list:
+        a = re.match("\..*\.xml\..*$",filename)
+        if a != None:
+            file_list.remove(a.group(0))
+
+    #for filename in os.listdir(dirname):
+    for filename in file_list:
         if re.match('.*-[0-9]{5}$', filename):
             dirtime = int(filename[-5:])
             if dirtime >= first_four_start and dirtime <= first_four_end:
@@ -68,6 +81,9 @@ def get_all_files_in_range(dirname, starttime, endtime, pad=64):
             file_time = int(filename.split('-')[-2])
             if file_time >= (starttime-pad) and file_time <= (endtime+pad):
                 ret.append(os.path.join(dirname,filename))
+        elif os.path.isfile(os.path.join(dirname,filename)):
+            # Non .xml file, don't recurse:
+            return ret
         else:
             # Keep recursing, we may be looking at directories of
             # ifos, each of which has directories with times
@@ -80,81 +96,81 @@ def get_all_files_in_range(dirname, starttime, endtime, pad=64):
 def setup_database(database_location):
     """ 1. Determine protocol"""
     try:
-	# When no protocol is given:
-    	if database_location.find('://') == -1:
-           msg = "Error: Please specify protocol in your --segment-url argument in the format PROTOCOL://HOST"
-	   msg +="\nFor example: --segment-url https://segdb.ligo.caltech.edu"
-    	   msg += "\nSupported protocols include: http, https, ldbd, ldbdi"
-    	   msg += "\nRun with --help for usage"
-	   raise ValueError(msg)
+        # When no protocol is given:
+        if database_location.find('://') == -1:
+            msg = "Error: Please specify protocol in your --segment-url argument in the format PROTOCOL://HOST"
+            msg +="\nFor example: --segment-url https://segdb.ligo.caltech.edu"
+            msg += "\nSupported protocols include: http, https, ldbd, ldbdi"
+            msg += "\nRun with --help for usage"
+            raise ValueError(msg)
 
-	# When wrong protocol is given:
-	protocol = database_location[:database_location.find('://')].lower()
-	if protocol not in ("http","https","ldbd","ldbdi"): 
-	   msg = "Error: protocol %s not supported" % protocol
-           msg += "\nPlease specify correct protocol in your --segment-url argument in the format PROTOCOL://HOST"
-    	   msg += "\nSupported protocols include: http, https, ldbd, ldbdi"
-	   msg += "\nRun with --help for usage"
-	   raise ValueError(msg)
-    except ValueError, e:
-      	sys.stderr.write('%s\n' % str(e))
-      	sys.exit(1)
+        # When wrong protocol is given:
+        protocol = database_location[:database_location.find('://')].lower()
+        if protocol not in ("http","https","ldbd","ldbdi"):
+            msg = "Error: protocol %s not supported" % protocol
+            msg += "\nPlease specify correct protocol in your --segment-url argument in the format PROTOCOL://HOST"
+            msg += "\nSupported protocols include: http, https, ldbd, ldbdi"
+            msg += "\nRun with --help for usage"
+            raise ValueError(msg)
+    except ValueError as e:
+        sys.stderr.write('%s\n' % str(e))
+        sys.exit(1)
 
     """ 2. Determine host and port"""
     host_and_port = database_location[(len(protocol)+3):]
     if host_and_port.find(':') < 0:
-       # if no port number given, set default port respectively:
-       host = host_and_port
-       if protocol == 'http':
-         port = 80
-       elif protocol == 'https':
-         port = 443
-       elif protocol == 'ldbd':
-         port = 30015
-       elif protocol == 'ldbdi':
-         port = 30016
-    else:
-       host, portString = host_and_port.split(':')
-       port = int(portString)
+        # if no port number given, set default port respectively:
+        host = host_and_port
+        if protocol == 'http':
+            port = 80
+        elif protocol == 'https':
+            port = 443
+        elif protocol == 'ldbd':
+            port = 30015
+        elif protocol == 'ldbdi':
+            port = 30016
+        else:
+            host, portString = host_and_port.split(':')
+            port = int(portString)
 
     if port == 30020:
-       sys.stderr.write("Error: PORT 30020 no longer provide segment database service\n")
-       sys.exit(1)
+        sys.stderr.write("Error: PORT 30020 no longer provide segment database service\n")
+        sys.exit(1)
 
     """ 3. Set up connection to LDBD(W)Server """
     client = None
     identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/"
 
     if protocol.startswith('http'):
-      from glue import LDBDWClient
-      if protocol == "https":
-         identity += host
-      else:
-         identity = None
-      try:
-        client = LDBDWClient.LDBDClient(host,port,protocol,identity)
-      except Exception, e:
-        sys.stderr.write("Unable to connect to LDBD Server at %s://%s:%d \n" % (protocol,host, port) + str(e))
-        sys.exit(1)
+        from glue import LDBDWClient
+        if protocol == "https":
+            identity += host
+        else:
+            identity = None
+        try:
+            client = LDBDWClient.LDBDClient(host,port,protocol,identity)
+        except Exception as e:
+            sys.stderr.write("Unable to connect to LDBD Server at %s://%s:%d \n" % (protocol,host, port) + str(e))
+            sys.exit(1)
 
     elif protocol.startswith('ldbd'):
-      from glue import LDBDClient
-      if protocol == "ldbd":
-         identity += host
-         from glue import gsiserverutils
-      else:
-         identity = None
-      try:
-        client = LDBDClient.LDBDClient(host,port,identity)
-      except Exception, e:
-        sys.stderr.write("Unable to connect to LDBD Server at %s://%s:%d\n" % (protocol,host, port) + str(e))
+        from glue import LDBDClient
+        if protocol == "ldbd":
+            identity += host
+            from glue import gsiserverutils
+        else:
+            identity = None
         try:
-          if gsiserverutils.checkCredentials():
-             sys.stderr.write("Got the following error : \n" + str(e))
-             sys.stderr.write("Run wiht --help for usage\n")
-        except UnboundLocalError:
-          pass
-        sys.exit(1)
+            client = LDBDClient.LDBDClient(host,port,identity)
+        except Exception as e:
+            sys.stderr.write("Unable to connect to LDBD Server at %s://%s:%d\n" % (protocol,host, port) + str(e))
+            try:
+                if gsiserverutils.checkCredentials():
+                    sys.stderr.write("Got the following error : \n" + str(e))
+                    sys.stderr.write("Run wiht --help for usage\n")
+            except UnboundLocalError:
+                pass
+            sys.exit(1)
 
     else:
         raise ValueError( "invalid url for segment database" )
@@ -313,20 +329,20 @@ def find_segments(doc, key, use_segment_table = True):
     filter_func = lambda x: str(x.ifos) == key_pieces[0] and (str(x.name) == key_pieces[1] or key_pieces[1] == '*') and (str(x.version) == key_pieces[2] or key_pieces[2] == '*') 
 
     # Find all segment definers matching the critieria
-    seg_def_table = table.get_table(doc, lsctables.SegmentDefTable.tableName)
-    seg_defs      = filter(filter_func, seg_def_table)
-    seg_def_ids   = map(lambda x: str(x.segment_def_id), seg_defs)
+    seg_def_table = lsctables.SegmentDefTable.get_table(doc)
+    seg_defs      = list(filter(filter_func, seg_def_table))
+    seg_def_ids   = [str(x.segment_def_id) for x in seg_defs]
 
     # Find all segments belonging to those definers
     if use_segment_table:
-        seg_table     = table.get_table(doc, lsctables.SegmentTable.tableName)
-        seg_entries   = filter(lambda x: str(x.segment_def_id) in seg_def_ids, seg_table)
+        seg_table     = lsctables.SegmentTable.get_table(doc)
+        seg_entries   = [x for x in seg_table if str(x.segment_def_id) in seg_def_ids]
     else:
-        seg_sum_table = table.get_table(doc, lsctables.SegmentSumTable.tableName)
-        seg_entries   = filter(lambda x: str(x.segment_def_id) in seg_def_ids, seg_sum_table)
+        seg_sum_table = lsctables.SegmentSumTable.get_table(doc)
+        seg_entries   = [x for x in seg_sum_table if str(x.segment_def_id) in seg_def_ids]
 
     # Combine into a segmentlist
-    ret = segmentlist(map(lambda x: segment(x.start_time, x.end_time), seg_entries))
+    ret = segmentlist([segment(x.start_time, x.end_time) for x in seg_entries])
 
     ret.coalesce()
 
@@ -348,7 +364,7 @@ def ensure_segment_table(connection):
     if count == 0:
         sys.stderr.write("WARNING: None of the loaded files contain a segment table\n")
         theClass  = lsctables.TableByName['segment']
-        statement = "CREATE TABLE IF NOT EXISTS segment (" + ", ".join(map(lambda key: "%s %s" % (key, ligolwtypes.ToSQLiteType[theClass.validcolumns[key]]), theClass.validcolumns)) + ")"
+        statement = "CREATE TABLE IF NOT EXISTS segment (" + ", ".join(["%s %s" % (key, ligolwtypes.ToSQLiteType[theClass.validcolumns[key]]) for key in theClass.validcolumns]) + ")"
 
         connection.cursor().execute(statement)
 
@@ -363,7 +379,7 @@ def ensure_segment_table(connection):
 
 def add_to_segment_definer(xmldoc, proc_id, ifo, name, version, comment=''):
     try:
-        seg_def_table = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
+        seg_def_table = lsctables.SegmentDefTable.get_table(xmldoc)
     except:
         seg_def_table = lsctables.New(lsctables.SegmentDefTable, columns = ["process_id", "segment_def_id", "ifos", "name", "version", "comment"])
         xmldoc.childNodes[0].appendChild(seg_def_table)
@@ -385,7 +401,7 @@ def add_to_segment_definer(xmldoc, proc_id, ifo, name, version, comment=''):
 
 def add_to_segment(xmldoc, proc_id, seg_def_id, sgmtlist):
     try:
-        segtable = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
+        segtable = lsctables.SegmentTable.get_table(xmldoc)
     except:
         segtable = lsctables.New(lsctables.SegmentTable, columns = ["process_id", "segment_def_id", "segment_id", "start_time", "start_time_ns", "end_time", "end_time_ns"])
         xmldoc.childNodes[0].appendChild(segtable)
@@ -405,7 +421,7 @@ def add_to_segment(xmldoc, proc_id, seg_def_id, sgmtlist):
 
 def add_to_segment_summary(xmldoc, proc_id, seg_def_id, sgmtlist, comment=''):
     try:
-        seg_sum_table = table.get_table(xmldoc, lsctables.SegmentSumTable.tableName)
+        seg_sum_table = lsctables.SegmentSumTable.get_table(xmldoc)
     except:
         seg_sum_table = lsctables.New(lsctables.SegmentSumTable, columns = ["process_id", "segment_def_id", "segment_sum_id", "start_time", "start_time_ns", "end_time", "end_time_ns", "comment"])
         xmldoc.childNodes[0].appendChild(seg_sum_table)
@@ -531,7 +547,7 @@ def run_query_segments(doc, proc_id, engine, gps_start_time, gps_end_time, inclu
             all_ifos[ifo] = True
 
 
-        new_seg_def_id = add_to_segment_definer(doc, proc_id, ''.join(all_ifos.keys()), 'result', 0)
+        new_seg_def_id = add_to_segment_definer(doc, proc_id, ''.join(list(all_ifos.keys())), 'result', 0)
         add_to_segment_summary(doc, proc_id, new_seg_def_id, [[gps_start_time, gps_end_time]])
 
     result = segmentlist([])
@@ -581,6 +597,6 @@ def split_segment_ids(segment_ids):
             
         return temp
 
-    return map(split_segment_id, segment_ids)
+    return list(map(split_segment_id, segment_ids))
 
 

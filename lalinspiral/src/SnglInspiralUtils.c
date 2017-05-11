@@ -85,12 +85,6 @@
  * "loudest" trigger, as determined by the selected algorithm, within each time
  * window is returned.
  *
- * <tt>XLALClusterInEventID</tt> clusters single inspiral triggers with the
- * same event ID. The triggers are compared by the clustering choice specified.
- *
- * <tt>XLALCoincSegCutSnglInspiral</tt> keeps only those single inspiral triggers
- * in the input list that are within the specified time interval.
- *
  * <tt>LALTimeCutSingleInspiral()</tt> and
  * <tt>XLALTimeCutSingleInspiral()</tt>takes in a linked list of single inspiral
  * tables and returns only those which occur after the given \c startTime
@@ -187,17 +181,17 @@
 
 static INT8 end_time(const SnglInspiralTable *x)
 {
-	return(XLALGPSToINT8NS(&x->end_time));
+	return(XLALGPSToINT8NS(&x->end));
 }
 
 static INT4 end_time_sec(const SnglInspiralTable *x)
 {
-	return(x->end_time.gpsSeconds);
+	return(x->end.gpsSeconds);
 }
 
 static INT4 end_time_nsec(const SnglInspiralTable *x)
 {
-	return(x->end_time.gpsNanoSeconds);
+	return(x->end.gpsNanoSeconds);
 }
 
 
@@ -221,28 +215,6 @@ XLALFreeSnglInspiral (
     )
 
 {
-  EventIDColumn        *eventId;
-  CoincInspiralTable   *thisCoinc;
-  InterferometerNumber  ifoNumber;
-
-  while ( (eventId = (*eventHead)->event_id) )
-  {
-    /* free any associated event_id's */
-    (*eventHead)->event_id = (*eventHead)->event_id->next;
-
-    if( (thisCoinc = eventId->coincInspiralTable) )
-    {
-      /* this Sngl is still part of a coinc, set pointer to NULL */
-      for ( ifoNumber = (InterferometerNumber) 0; ifoNumber < LAL_NUM_IFO; ifoNumber++)
-      {
-        if ( *eventHead == thisCoinc->snglInspiral[ifoNumber] )
-        {
-          thisCoinc->snglInspiral[ifoNumber] = NULL;
-        }
-      }
-    }
-    LALFree( eventId );
-  }
   LALFree( *eventHead );
 
   return (0);
@@ -400,39 +372,14 @@ LALCompareSnglInspiralByTime (
   INT8 ta, tb;
 
   memset( &status, 0, sizeof(LALStatus) );
-  ta = XLALGPSToINT8NS( &(aPtr->end_time) );
-  tb = XLALGPSToINT8NS( &(bPtr->end_time) );
+  ta = XLALGPSToINT8NS( &(aPtr->end) );
+  tb = XLALGPSToINT8NS( &(bPtr->end) );
 
   if ( ta > tb )
   {
     return 1;
   }
   else if ( ta < tb )
-  {
-    return -1;
-  }
-  else
-  {
-    return 0;
-  }
-}
-
-
-int
-LALCompareSnglInspiralByID (
-    const void *a,
-    const void *b
-    )
-
-{
-  const SnglInspiralTable *aPtr = *((const SnglInspiralTable * const *)a);
-  const SnglInspiralTable *bPtr = *((const SnglInspiralTable * const *)b);
-
-  if ( aPtr->event_id->id > bPtr->event_id->id )
-  {
-    return 1;
-  }
-  else if ( aPtr->event_id->id < bPtr->event_id->id )
   {
     return -1;
   }
@@ -475,8 +422,8 @@ LALCompareSnglInspiral (
     params->match = 0;
   }
 
-  ta = XLALGPSToINT8NS( &(aPtr->end_time) );
-  tb = XLALGPSToINT8NS( &(bPtr->end_time) );
+  ta = XLALGPSToINT8NS( &(aPtr->end) );
+  tb = XLALGPSToINT8NS( &(bPtr->end) );
 
   /* compare on trigger time coincidence */
   if ( labs( ta - tb ) < params->dt && params->match)
@@ -626,8 +573,8 @@ XLALCompareInspirals (
   ifoaNum = (InterferometerNumber) XLALIFONumber( aPtr->ifo );
   ifobNum = (InterferometerNumber) XLALIFONumber( bPtr->ifo );
 
-  ta = XLALGPSToINT8NS( &(aPtr->end_time) );
-  tb = XLALGPSToINT8NS( &(bPtr->end_time) );
+  ta = XLALGPSToINT8NS( &(aPtr->end) );
+  tb = XLALGPSToINT8NS( &(bPtr->end) );
 
   /* compare on trigger time coincidence */
   aAcc = params->ifoAccuracy[ifoaNum];
@@ -842,8 +789,8 @@ XLALClusterSnglInspiralTable (
 
   while ( nextEvent )
   {
-    INT8 thisTime = XLALGPSToINT8NS( &(thisEvent->end_time) );
-    INT8 nextTime = XLALGPSToINT8NS( &(nextEvent->end_time) );;
+    INT8 thisTime = XLALGPSToINT8NS( &(thisEvent->end) );
+    INT8 nextTime = XLALGPSToINT8NS( &(nextEvent->end) );;
 
     /* find events within the cluster window */
     if ( (nextTime - thisTime) < dtimeNS )
@@ -888,161 +835,6 @@ XLALClusterSnglInspiralTable (
   if ( ! (*inspiralList) )
   {
     *inspiralList = thisEvent;
-  }
-  ++numSnglClust;
-
-  return(numSnglClust);
-}
-
-
-int XLALCoincSegCutSnglInspiral(
-    INT4                        startTimeS,
-    INT4                        endTimeS,
-    SnglInspiralTable         **inspiralList
-    )
-
-{
-  SnglInspiralTable     *thisEvent=NULL;
-  SnglInspiralTable     *prevEvent=NULL;
-  SnglInspiralTable     *nextEvent=NULL;
-
-  int                    numSnglClust = 0;
-  UINT8                  timeExtract  = 1000000000L;
-  INT4 timeCheck=0;
-  if ( !inspiralList )
-  {
-    XLALPrintInfo(
-      "XLALCoincSegCutSnglInspiral: Empty trigger list passed as input\n" );
-    return( 0 );
-  }
-
-  if ( ! *inspiralList )
-  {
-    XLALPrintInfo(
-      "XLALCoincSegCutSnglInspiral: Empty trigger list passed as input\n" );
-    return( 0 );
-  }
-
-  thisEvent = *inspiralList;
-  *inspiralList = NULL;
-
-  while ( thisEvent ) {
-    fprintf(stdout, "This event's END TIME NS is %" LAL_INT4_FORMAT "\n",thisEvent->end_time.gpsNanoSeconds);
-    fprintf(stdout, "This event's id is %" LAL_UINT8_FORMAT "\n",thisEvent->event_id->id);
-    timeCheck = floor(thisEvent->event_id->id/timeExtract);
-    fprintf(stdout, "This event's gps-start time is %" LAL_INT4_FORMAT "\n",
-            timeCheck);
-
-    /* find events in the same coinc-segment */
-    if ( !( (timeCheck >= startTimeS) && (timeCheck <= endTimeS) ) ) {
-      /* displace this event in cluster */
-      nextEvent = thisEvent->next;
-      if( prevEvent )
-      {
-         prevEvent->next = nextEvent;
-      }
-      XLALFreeSnglInspiral( &thisEvent );
-      thisEvent = nextEvent;
-      nextEvent = thisEvent->next;
-    }
-    else {
-      /* otherwise we keep this unique event trigger */
-      if ( ! *inspiralList )
-	{
-	  *inspiralList = thisEvent;
-	}
-      prevEvent = thisEvent;
-      thisEvent = thisEvent->next;
-      if ( !thisEvent )
-        nextEvent = thisEvent->next;
-      ++numSnglClust;
-    }
-  }
-
-  fprintf(stdout, "This last time-check is %" LAL_INT4_FORMAT "\n", timeCheck);
-
-  return(numSnglClust);
-}
-
-
-int XLALClusterInEventID(
-    SnglInspiralTable         **inspiralList,
-    SnglInspiralClusterChoice   clusterchoice
-    )
-
-{
-  SnglInspiralTable     *thisEvent=NULL;
-  SnglInspiralTable     *prevEvent=NULL;
-  SnglInspiralTable     *nextEvent=NULL;
-
-  int                    numSnglClust = 0;
-
-  if ( !inspiralList )
-  {
-    XLALPrintInfo(
-      "XLALClusterInEventID: Empty trigger list passed as input\n" );
-    return( 0 );
-  }
-
-  if ( ! *inspiralList )
-  {
-    XLALPrintInfo(
-      "XLALClusterInEventID: Empty trigger list passed as input\n" );
-    return( 0 );
-  }
-
-  thisEvent = *inspiralList;
-  nextEvent = (*inspiralList)->next;
-  *inspiralList = NULL;
-
-  while ( nextEvent ) {
-    /* find events with the same eventID in the same IFO */
-    if ( (thisEvent->event_id->id == nextEvent->event_id->id )
-	 && !strcmp(thisEvent->ifo,nextEvent->ifo ) ) {
-      REAL4 thisStat = XLALSnglInspiralStat( thisEvent, clusterchoice );
-      REAL4 nextStat = XLALSnglInspiralStat( nextEvent, clusterchoice );
-
-      fprintf(stdout, "Next event's id is %" LAL_UINT8_FORMAT "\n",nextEvent->event_id->id);
-      fprintf(stdout, "Next-statistic is %e\n",nextStat);
-      fprintf(stdout, "Next IFO is %s\n",nextEvent->ifo);
-
-
-      if ( nextStat > thisStat ) {
-        /* displace previous event in cluster */
-        if( prevEvent )
-	  {
-	    prevEvent->next = nextEvent;
-	  }
-        XLALFreeSnglInspiral( &thisEvent );
-        thisEvent = nextEvent;
-        nextEvent = thisEvent->next;
-      }
-      else
-	{
-	  /* otherwise just dump next event from cluster */
-	  thisEvent->next = nextEvent->next;
-	  XLALFreeSnglInspiral ( &nextEvent );
-	  nextEvent = thisEvent->next;
-	}
-    }
-    else
-      {
-	/* otherwise we keep this unique event trigger */
-	if ( ! *inspiralList )
-	  {
-	    *inspiralList = thisEvent;
-	  }
-	prevEvent = thisEvent;
-	thisEvent = thisEvent->next;
-	nextEvent = thisEvent->next;
-	++numSnglClust;
-      }
-  }
-
-  /* store the last event */
-  if ( ! (*inspiralList) )
-    {
-      *inspiralList = thisEvent;
   }
   ++numSnglClust;
 
@@ -1258,7 +1050,7 @@ XLALVetoSingleInspiral (
   while ( thisEvent )
   {
     /*-- Check the time of this event against the veto segment list --*/
-    if ( XLALSegListSearch( vetoSegs, &(thisEvent->end_time) )
+    if ( XLALSegListSearch( vetoSegs, &(thisEvent->end) )
 	&& (strcmp(thisEvent->ifo, ifo)==0) )
     {
       /*-- This event's end_time falls within one of the veto segments --*/
@@ -1697,7 +1489,7 @@ XLALTimeSlideSingleInspiral(
     /* calculate the slide time in nanoseconds */
     INT8 slideNS = XLALGPSToINT8NS( &slideTimes[XLALIFONumber(triggerList->ifo)] );
     /* and trigger time in nanoseconds */
-    INT8 trigTimeNS = XLALGPSToINT8NS( &triggerList->end_time );
+    INT8 trigTimeNS = XLALGPSToINT8NS( &triggerList->end );
 
     /* slide trigger time */
     trigTimeNS += slideNS;
@@ -1707,7 +1499,7 @@ XLALTimeSlideSingleInspiral(
       trigTimeNS = thinca_ring_wrap(trigTimeNS, ringStartNS, ringLengthNS);
 
     /* convert back to LIGOTimeGPS */
-    XLALINT8NSToGPS( &triggerList->end_time, trigTimeNS);
+    XLALINT8NSToGPS( &triggerList->end, trigTimeNS);
   }
 }
 
@@ -1740,7 +1532,7 @@ XLALPlayTestSingleInspiral(
       SnglInspiralTable *tmpEvent = thisEvent;
       thisEvent = thisEvent->next;
 
-      triggerTime = XLALGPSToINT8NS( &(tmpEvent->end_time) );
+      triggerTime = XLALGPSToINT8NS( &(tmpEvent->end) );
       isPlay = XLALINT8NanoSecIsPlayground( triggerTime );
 
       if ( ( (*dataType == playground_only)  && isPlay ) ||
@@ -1965,13 +1757,13 @@ LALIncaCoincidenceTest(
   for( currentTrigger[0]=ifoAInput; currentTrigger[0];
       currentTrigger[0] = currentTrigger[0]->next  )
   {
-    ta = XLALGPSToINT8NS( &(currentTrigger[0]->end_time) );
+    ta = XLALGPSToINT8NS( &(currentTrigger[0]->end) );
 
     /* spin ifo b until the current trigger is within the coinicdence */
     /* window of the current ifo a trigger                            */
     while ( currentTrigger[1] )
     {
-      tb = XLALGPSToINT8NS( &(currentTrigger[1]->end_time) );
+      tb = XLALGPSToINT8NS( &(currentTrigger[1]->end) );
 
       if ( tb > ta - errorParams->dt )
       {
@@ -1986,7 +1778,7 @@ LALIncaCoincidenceTest(
 
     while ( currentTrigger[1] )
     {
-      tb = XLALGPSToINT8NS( &(currentTrigger[1]->end_time) );
+      tb = XLALGPSToINT8NS( &(currentTrigger[1]->end) );
 
       if (tb > ta + errorParams->dt )
       {
@@ -2085,17 +1877,17 @@ LALTamaCoincidenceTest(
   for( currentTrigger[0]=ifoAInput; currentTrigger[0];
       currentTrigger[0] = currentTrigger[0]->next  )
   {
-    ta = XLALGPSToINT8NS( &(currentTrigger[0]->end_time) );
+    ta = XLALGPSToINT8NS( &(currentTrigger[0]->end) );
 
     LALInfo( status, printf("  using IFO A trigger at %d + %10.10f\n",
-          currentTrigger[0]->end_time.gpsSeconds,
-          ((REAL4) currentTrigger[0]->end_time.gpsNanoSeconds * 1e-9) ));
+          currentTrigger[0]->end.gpsSeconds,
+          ((REAL4) currentTrigger[0]->end.gpsNanoSeconds * 1e-9) ));
 
     /* spin ifo b until the current trigger is within the coinicdence */
     /* window of the current ifo a trigger                            */
     while ( currentTrigger[1] )
     {
-      tb = XLALGPSToINT8NS( &(currentTrigger[1]->end_time) );
+      tb = XLALGPSToINT8NS( &(currentTrigger[1]->end) );
 
       if ( tb > ta - errorParams->dt )
       {
@@ -2111,7 +1903,7 @@ LALTamaCoincidenceTest(
 
     while ( currentTrigger[1] )
     {
-      tb = XLALGPSToINT8NS( &(currentTrigger[1]->end_time) );
+      tb = XLALGPSToINT8NS( &(currentTrigger[1]->end) );
 
       if (tb > ta + errorParams->dt )
       {

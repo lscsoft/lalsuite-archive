@@ -66,9 +66,7 @@ int XLALSimInspiralTaylorF2AlignedPhasing(
         const REAL8 m2,		/**< mass of body 2 */
         const REAL8 chi1,	/**< aligned spin parameter of body 1 */
         const REAL8 chi2,	/**< aligned spin parameter of body 2 */
-        const REAL8 qm_def1,	/**< quadrupole-monopole parameter of body 1 (set 1 for BH) */
-        const REAL8 qm_def2,	/**< quadrupole-monopole parameter of body 2 (set 1 for BH) */
-        const LALSimInspiralSpinOrder spinO  /**< PN order for spin contributions */
+        LALDict *p              /**< LAL dictionary containing accessory parameters */
 	)
 {
     PNPhasingSeries *pfa;
@@ -79,7 +77,7 @@ int XLALSimInspiralTaylorF2AlignedPhasing(
 
     pfa = (PNPhasingSeries *) LALMalloc(sizeof(PNPhasingSeries));
 
-    XLALSimInspiralPNPhasing_F2(pfa, m1, m2, chi1, chi2, chi1*chi1, chi2*chi2, chi1*chi2, qm_def1, qm_def2, spinO);
+    XLALSimInspiralPNPhasing_F2(pfa, m1, m2, chi1, chi2, chi1*chi1, chi2*chi2, chi1*chi2, p);
 
     *pn = pfa;
 
@@ -97,14 +95,7 @@ int XLALSimInspiralTaylorF2Core(
         const REAL8 f_ref,                     /**< Reference GW frequency (Hz) - if 0 reference point is coalescence */
 	const REAL8 shft,		       /**< time shift to be applied to frequency-domain phase (sec)*/
         const REAL8 r,                         /**< distance of source (m) */
-        const REAL8 quadparam1,                /**< quadrupole deformation parameter of body 1 (dimensionless, 1 for BH) */
-        const REAL8 quadparam2,                /**< quadrupole deformation parameter of body 2 (dimensionless, 1 for BH) */
-        const REAL8 lambda1,                   /**< (tidal deformation of body 1)/(mass of body 1)^5 */
-        const REAL8 lambda2,                   /**< (tidal deformation of body 2)/(mass of body 2)^5 */
-        const LALSimInspiralSpinOrder spinO,  /**< twice PN order of spin effects */
-        const LALSimInspiralTidalOrder tideO,  /**< flag to control tidal effects */
-        const INT4 phaseO,                     /**< twice PN phase order */
-        const INT4 amplitudeO                  /**< twice PN amplitude order */
+        LALDict *p /**< Linked list containing the extra testing GR parameters >**/
         )
 {
 
@@ -140,14 +131,15 @@ int XLALSimInspiralTaylorF2Core(
 
     /* phasing coefficients */
     PNPhasingSeries pfa;
-    XLALSimInspiralPNPhasing_F2(&pfa, m1, m2, S1z, S2z, S1z*S1z, S2z*S2z, S1z*S2z, quadparam1, quadparam2, spinO);
+    XLALSimInspiralPNPhasing_F2(&pfa, m1, m2, S1z, S2z, S1z*S1z, S2z*S2z, S1z*S2z, p);
 
-    REAL8 pfaN = 0.;
+    REAL8 pfaN = 0.; REAL8 pfa1 = 0.;
     REAL8 pfa2 = 0.; REAL8 pfa3 = 0.; REAL8 pfa4 = 0.;
     REAL8 pfa5 = 0.; REAL8 pfl5 = 0.;
     REAL8 pfa6 = 0.; REAL8 pfl6 = 0.;
     REAL8 pfa7 = 0.;
 
+    INT4 phaseO=XLALSimInspiralWaveformParamsLookupPNPhaseOrder(p);
     switch (phaseO)
     {
         case -1:
@@ -165,11 +157,9 @@ int XLALSimInspiralTaylorF2Core(
             pfa3 = pfa.v[3];
         case 2:
             pfa2 = pfa.v[2];
+        case 1:
+            pfa1 = pfa.v[1];
         case 0:
-            pfaN = pfa.v[0];
-            break;
-	case 1:
-	    XLALPrintWarning( "There is no 0.5PN phase coefficient, returning Newtonian-order phase.\n" );
             pfaN = pfa.v[0];
             break;
         default:
@@ -183,6 +173,7 @@ int XLALSimInspiralTaylorF2Core(
      */
 
     /* Validate amplitude PN order. */
+    INT4 amplitudeO=XLALSimInspiralWaveformParamsLookupPNAmplitudeOrder(p);
     switch (amplitudeO)
     {
         case -1:
@@ -203,9 +194,11 @@ int XLALSimInspiralTaylorF2Core(
      */
     REAL8 pft10 = 0.;
     REAL8 pft12 = 0.;
-    switch( tideO )
+    REAL8 lambda1=XLALSimInspiralWaveformParamsLookupTidalLambda1(p);
+    REAL8 lambda2=XLALSimInspiralWaveformParamsLookupTidalLambda2(p);
+    switch( XLALSimInspiralWaveformParamsLookupPNTidalOrder(p) )
     {
-	    case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
+        case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_6PN:
 	    pft12 = pfaN * (lambda1*XLALSimInspiralTaylorF2Phasing_12PNTidalCoeff(m1OverM) + lambda2*XLALSimInspiralTaylorF2Phasing_12PNTidalCoeff(m2OverM) );
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_5PN:
@@ -213,7 +206,7 @@ int XLALSimInspiralTaylorF2Core(
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_0PN:
             break;
         default:
-            XLAL_ERROR(XLAL_EINVAL, "Invalid tidal PN order %d", tideO);
+	    XLAL_ERROR(XLAL_EINVAL, "Invalid tidal PN order %d", XLALSimInspiralWaveformParamsLookupPNTidalOrder(p) );
     }
 
     /* The flux and energy coefficients below are used to compute SPA amplitude corrections */
@@ -273,6 +266,7 @@ int XLALSimInspiralTaylorF2Core(
         ref_phasing += pfa4 * v4ref;
         ref_phasing += pfa3 * v3ref;
         ref_phasing += pfa2 * v2ref;
+        ref_phasing += pfa1 * vref;
         ref_phasing += pfaN;
 
         /* Tidal terms in reference phasing */
@@ -308,6 +302,7 @@ int XLALSimInspiralTaylorF2Core(
         phasing += pfa4 * v4;
         phasing += pfa3 * v3;
         phasing += pfa2 * v2;
+        phasing += pfa1 * v;
         phasing += pfaN;
 
         /* Tidal terms in phasing */
@@ -387,14 +382,7 @@ int XLALSimInspiralTaylorF2(
         const REAL8 fEnd,                      /**< highest GW frequency (Hz) of waveform generation - if 0, end at Schwarzschild ISCO */
         const REAL8 f_ref,                     /**< Reference GW frequency (Hz) - if 0 reference point is coalescence */
         const REAL8 r,                         /**< distance of source (m) */
-        const REAL8 quadparam1,                /**< quadrupole deformation parameter of body 1 (dimensionless, 1 for BH) */
-        const REAL8 quadparam2,                /**< quadrupole deformation parameter of body 2 (dimensionless, 1 for BH) */
-        const REAL8 lambda1,                   /**< (tidal deformation of body 1)/(mass of body 1)^5 */
-        const REAL8 lambda2,                   /**< (tidal deformation of body 2)/(mass of body 2)^5 */
-        const LALSimInspiralSpinOrder spinO,  /**< twice PN order of spin effects */
-        const LALSimInspiralTidalOrder tideO,  /**< flag to control tidal effects */
-        const INT4 phaseO,                     /**< twice PN phase order */
-        const INT4 amplitudeO                  /**< twice PN amplitude order */
+        LALDict *p /**< Linked list containing the extra testing GR parameters >**/
         )
 {
     /* external: SI; internal: solar masses */
@@ -454,8 +442,7 @@ int XLALSimInspiralTaylorF2(
         freqs->data[i-iStart] = i * deltaF;
     }
     ret = XLALSimInspiralTaylorF2Core(&htilde, freqs, phi_ref, m1_SI, m2_SI,
-                                      S1z, S2z, f_ref, shft, r, quadparam1, quadparam2,
-                                      lambda1, lambda2, spinO, tideO, phaseO, amplitudeO);
+                                      S1z, S2z, f_ref, shft, r, p);
 
     XLALDestroyREAL8Sequence(freqs);
 

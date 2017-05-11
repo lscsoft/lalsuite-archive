@@ -5557,6 +5557,7 @@ def find_ndownsample(samples, nDownsample):
     if nDownsample is not None:
         if len(samples) > nDownsample:
             nskip *= floor(len(samples)/nDownsample)
+            nskip = int(nskip)
 
     else:
         nEff = nEffective
@@ -6195,8 +6196,8 @@ class PEOutputParser(object):
 
         return samples
 
-    def _hdf5_to_pos(self, infile, **kwargs):
-        samples = self._hdf5_to_table(infile, **kwargs)
+    def _hdf5_to_pos(self, infile, fixedBurnins=None, deltaLogP=None, nDownsample=None, tablename=None, **kwargs):
+        samples = self._hdf5_to_table(infile, fixedBurnins=None, deltaLogP=None, nDownsample=None, tablename=None, **kwargs)
 
         return samples.colnames, as_array(samples).view(float).reshape(-1, len(samples.columns))
 

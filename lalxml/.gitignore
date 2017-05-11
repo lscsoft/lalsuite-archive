@@ -14,6 +14,7 @@ AUTHORS
 Makefile
 Makefile.in
 config.lt
+debian/control
 doxygen/autogen.dox
 doxygen/doxygen.cfg
 doxygen/doxygen_objdb_*.tmp
@@ -27,6 +28,7 @@ include/lal/*.i
 include/lal/header-link-stamp
 lalxml-*.tar.xz
 lalxml-user-env.csh
+lalxml-user-env.fish
 lalxml-user-env.sh
 lalxml-user-env.shell
 lalxml.spec
@@ -36,7 +38,7 @@ python/lalxml/__init__.py
 python/lalxml/_lalxml*
 python/lalxml/git_version.py
 python/lalxml/lalxml.py
-src/LALXMLBuildInfo.c
+src/LALXMLBuildInfoHeader.h
 src/LALXMLConfig.h
 src/LALXMLVCSInfo.c
 src/LALXMLVCSInfo.h
@@ -44,7 +46,9 @@ src/LALXMLVCSInfoHeader.h
 src/config.h
 src/config.h.in
 src/git_version
+src/lalxml_version
 src/stamp-h1
 src/stamp-h2
+src/version.c
 swig/swiglal*
 test/LALXMLTest

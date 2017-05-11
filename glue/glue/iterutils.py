@@ -82,8 +82,8 @@ def MultiIter(*sequences):
 	if len(sequences) > 1:
 		# FIXME:  this loop is about 5% faster if done the other
 		# way around, if the last list is iterated over in the
-		# inner loop.  but there is code, like snglcoinc.py in
-		# pylal, that has been optimized for the current order and
+		# inner loop.  but there is code, like snglcoinc.py,
+		# that has been optimized for the current order and
 		# would need to be reoptimized if this function were to be
 		# reversed.
 		head = tuple((x,) for x in sequences[0])
@@ -233,7 +233,7 @@ def inplace_filter(func, sequence):
 	processed faster.
 	"""
 	target = 0
-	for source in xrange(len(sequence)):
+	for source in range(len(sequence)):
 		if func(sequence[source]):
 			sequence[target] = sequence[source]
 			target += 1
@@ -290,7 +290,7 @@ def inorder(*iterables, **kwargs):
 	reverse = kwargs.pop("reverse", False)
 	keyfunc = kwargs.pop("key", lambda x: x) # default = identity
 	if kwargs:
-		raise TypeError("invalid keyword argument '%s'" % kwargs.keys()[0])
+		raise TypeError("invalid keyword argument '%s'" % list(kwargs.keys())[0])
 	nextvals = {}
 	for iterable in iterables:
 		next = iter(iterable).next
@@ -384,181 +384,3 @@ def randindex(lo, hi, n = 1.):
 		# range safety check on index
 		assert index >= lo
 		yield index, lnP[index - lo]
-
-
-#
-# =============================================================================
-#
-#           Thing for keeping only the highest values in a sequence
-#
-# =============================================================================
-#
-
-
-class Highest(list):
-	"""
-	A class for use when you need to collect the largest in a very long
-	sequence of things, a sequence too long to hold in memory all at
-	once and sort.  This class behaves like a list, in fact it is a
-	Python list, but one that stores only some fraction of all items
-	that have been added to it.  The list is always sorted in
-	decreasing order, so the 0th element is the highest-valued item
-	added to the list.
-
-	For this class to function correctly the list must remain sorted,
-	so the insert() and __setitem__() methods are disabled.  Only the
-	append() and extend() methods can be used to add elements to the
-	list.  The __len__() method returns the total number of items that
-	have been added to the list ever, not the number that are actually
-	stored in it at any given time.  To retrieve the number of items
-	actually stored in memory, use the list class' __len__() method.
-	See the example below.
-
-	Example:
-
-	>>> l = Highest(max = 3)
-	>>> for i in range(10000):
-	...	l.append(i)
-	...
-	>>> l
-	[9999, 9998, 9997]
-	>>> len(l)
-	10000
-	>>> list.__len__(l)
-	3
-	"""
-	def __init__(self, sequence = tuple(), max = None):
-		list.__init__(self, sequence)
-		self.n = list.__len__(self)
-		self.max = int(max)
-		list.sort(self, reverse = True)
-		del self[self.max:]
-
-	def __len__(self):
-		return self.n
-
-	def __reduce__(self):
-		return (type(self), ((), self.max), {"n": self.n}, iter(self))
-
-	def append(self, value):
-		# can't use bisect module because list is sorted in reverse
-		# order
-		hi = list.__len__(self)
-		lo = 0
-		while lo < hi:
-			mid = (lo + hi) // 2
-			if value > self[mid]:
-				hi = mid
-			else:
-				lo = mid + 1
-		list.insert(self, lo, value)
-		self.n += 1
-		del self[self.max:]
-
-	def __iadd__(self, other):
-		"""
-		In-place addition.  Add the contents of another Highest
-		object to this one.  This method only works correctly with
-		other Highest objects.
-
-		Example:
-
-		>>> x = Highest(max = 10)
-		>>> x.extend(range(50))
-		>>> x
-		[49, 48, 47, 46, 45, 44, 43, 42, 41, 40]
-		>>> y = Highest(max = 5)
-		>>> y.append(100)
-		>>> y.append(49)
-		>>> y
-		[100, 49]
-		>>> x += y
-		>>> x
-		[100, 49, 49, 48, 47]
-		>>> len(x)
-		52
-		"""
-		# only works with other Highest objects
-		assert isinstance(other, type(self))
-		self.n += other.n
-		# check for no-op
-		if not list.__len__(other):
-			return self
-		# we can only claim to provide the minimum of the two max's
-		# worth of the highest valued objects
-		self.max = min(self.max, other.max)
-		# FIXME:  since the lists are sorted, lots could be done to
-		# speed this up
-		i = j = 0
-		while i + j < self.max:
-			if i >= list.__len__(self):
-				j = min(self.max - i, list.__len__(other))
-				break
-			if j >= list.__len__(other):
-				i = min(self.max - j, list.__len__(self))
-				break
-			if self[i] >= other[j]:
-				i += 1
-			else:
-				j += 1
-		self[i:] = other[:j]
-		list.sort(self, reverse = True)
-		del self[self.max:]	# should be a no-op
-		return self
-
-	def extend(self, sequence):
-		# this method will not work correctly with other Highest
-		# objects
-		assert not isinstance(sequence, type(self))
-		# FIXME:  could be implemented with heapq.merge() when 2.6
-		# is generally available
-		sequence = sorted(sequence, reverse = True)
-		self.n += len(sequence)
-		# check for no-op
-		if not sequence:
-			return
-		# FIXME:  since the lists are sorted, lots could be done to
-		# speed this up
-		i = j = 0
-		while i + j < self.max:
-			if i >= list.__len__(self):
-				j = min(self.max - i, len(sequence))
-				break
-			if j >= len(sequence):
-				i = min(self.max - j, list.__len__(self))
-				break
-			if self[i] >= sequence[j]:
-				i += 1
-			else:
-				j += 1
-		self[i:] = sequence[:j]
-		list.sort(self, reverse = True)
-		del self[self.max:]	# should be a no-op
-
-	#
-	# Stubs to prevent bugs
-	#
-
-	def __setitem__(*args, **kwargs):
-		raise NotImplementedError
-
-	def reverse(*args, **kwargs):
-		raise NotImplementedError
-
-	def remove(*args, **kwargs):
-		raise NotImplementedError
-
-	def pop(*args, **kwargs):
-		raise NotImplementedError
-
-	def insert(*args, **kwargs):
-		raise NotImplementedError
-
-	def index(*args, **kwargs):
-		raise NotImplementedError
-
-	def count(*args, **kwargs):
-		raise NotImplementedError
-
-	def sort(*args, **kwargs):
-		raise NotImplementedError

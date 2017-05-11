@@ -1,4 +1,4 @@
-# Copyright (C) 2010--2013  Kipp Cannon
+# Copyright (C) 2010--2013,2015,2016  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -24,8 +24,10 @@
 #
 
 
+import itertools
+
+
 from glue import git_version
-from glue import iterutils
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -61,7 +63,7 @@ class offsetvector(dict):
 	example the Python cmp() operation compares two offset vectors by
 	the relative offsets between instruments rather than their absolute
 	offsets, whereas the == operation compares two offset vectors by
-	demanding string equality.  There is also the ability to check if
+	demanding strict equality.  There is also the ability to check if
 	one offset vector is a subset of another one.
 	"""
 	@property
@@ -146,10 +148,10 @@ class offsetvector(dict):
 
 		>>> a = offsetvector({"H1": -10.1234567, "L1": 0.1})
 		>>> repr(a)
-		"offsetvector({'H1': -10.1234567, 'L1': 0.10000000000000001})"
+		"offsetvector({'H1': -10.1234567, 'L1': 0.1})"
 		>>> b = eval(repr(a))
 		>>> b
-		offsetvector({'H1': -10.1234567, 'L1': 0.10000000000000001})
+		offsetvector({'H1': -10.1234567, 'L1': 0.1})
 		>>> b == a
 		True
 		>>> b is a
@@ -293,9 +295,7 @@ def component_offsetvectors(offsetvectors, n):
 	"L1": 20} can be constructed from the coincs for the vectors {"H1":
 	0, "H2": 10} and {"H2": 0, "L1": 10}, that is only the relative
 	offsets are significant in determining if two events are
-	coincident, not the absolute offsets.  This assumption is not true
-	for the standard inspiral pipeline, where the absolute offsets are
-	significant due to the periodic wrapping of triggers around rings.
+	coincident, not the absolute offsets.
 	"""
 	#
 	# collect unique instrument set / deltas combinations
@@ -303,7 +303,7 @@ def component_offsetvectors(offsetvectors, n):
 
 	delta_sets = {}
 	for vect in offsetvectors:
-		for instruments in iterutils.choices(sorted(vect), n):
+		for instruments in itertools.combinations(sorted(vect), n):
 			# NOTE:  the arithmetic used to construct the
 			# offsets *must* match the arithmetic used by
 			# offsetvector.deltas so that the results of the

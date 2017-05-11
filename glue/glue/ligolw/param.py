@@ -1,4 +1,4 @@
-# Copyright (C) 2006--2009,2012--2015  Kipp Cannon
+# Copyright (C) 2006--2009,2012--2016  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -29,7 +29,6 @@ High-level support for Param elements.
 """
 
 
-import pickle
 import re
 import sys
 from xml.sax.saxutils import escape as xmlescape
@@ -54,80 +53,10 @@ __date__ = git_version.date
 #
 # =============================================================================
 #
-#                           Param Name Manipulation
-#
-# =============================================================================
-#
-
-
-#
-# Regular expression used to extract the signifcant portion of a param
-# name, according to LIGO LW naming conventions.
-#
-
-
-ParamPattern = re.compile(r"(?P<Name>[a-z0-9_:]+):param\Z")
-
-
-def StripParamName(name):
-	"""
-	Return the significant portion of a param name according to LIGO LW
-	naming conventions.
-	"""
-	try:
-		return ParamPattern.search(name).group("Name")
-	except AttributeError:
-		return name
-
-
-def CompareParamNames(name1, name2):
-	"""
-	Convenience function to compare two param names according to LIGO
-	LW naming conventions.
-	"""
-	return cmp(StripParamName(name1), StripParamName(name2))
-
-
-def getParamsByName(elem, name):
-	"""
-	Return a list of params with name name under elem.
-	"""
-	name = StripParamName(name)
-	return elem.getElements(lambda e: (e.tagName == ligolw.Param.tagName) and (e.Name == name))
-
-
-#
-# =============================================================================
-#
 #                                  Utilities
 #
 # =============================================================================
 #
-
-
-def new_param(name, type, value, start = None, scale = None, unit = None, dataunit = None, comment = None):
-	"""
-	Construct a LIGO Light Weight XML Param document subtree.  FIXME:
-	document keyword arguments.
-	"""
-	elem = Param()
-	elem.Name = name
-	elem.Type = type
-	elem.pcdata = value
-	# FIXME:  I have no idea how most of the attributes should be
-	# encoded, I don't even know what they're supposed to be.
-	if dataunit is not None:
-		elem.DataUnit = dataunit
-	if scale is not None:
-		elem.Scale = scale
-	if start is not None:
-		elem.Start = start
-	if unit is not None:
-		elem.Unit = unit
-	if comment is not None:
-		elem.appendChild(ligolw.Comment())
-		elem.childNodes[-1].pcdata = comment
-	return elem
 
 
 def get_param(xmldoc, name):
@@ -135,19 +64,10 @@ def get_param(xmldoc, name):
 	Scan xmldoc for a param named name.  Raises ValueError if not
 	exactly 1 such param is found.
 	"""
-	params = getParamsByName(xmldoc, name)
+	params = Param.getParamsByName(xmldoc, name)
 	if len(params) != 1:
-		raise ValueError("document must contain exactly one %s param" % StripParamName(name))
+		raise ValueError("document must contain exactly one %s param" % Param.ParamName(name))
 	return params[0]
-
-
-def from_pyvalue(name, value, **kwargs):
-	"""
-	Convenience wrapper for new_param() that constructs a Param element
-	from an instance of a Python builtin type.  See new_param() for a
-	description of the valid keyword arguments.
-	"""
-	return new_param(name, ligolwtypes.FromPyType[type(value)], value, **kwargs)
 
 
 def get_pyvalue(xml, name):
@@ -158,63 +78,6 @@ def get_pyvalue(xml, name):
 	# Note:  the Param is automatically parsed into the correct Python
 	# type, so this function is mostly a no-op.
 	return get_param(xml, name).pcdata
-
-
-#
-# =============================================================================
-#
-#                        (De-)Serialization via Params
-#
-# =============================================================================
-#
-
-
-def pickle_to_param(obj, name):
-	"""
-	Return the top-level element of a document sub-tree containing the
-	pickled serialization of a Python object.
-	"""
-	return from_pyvalue(u"pickle:%s" % name, unicode(pickle.dumps(obj)))
-
-
-def pickle_from_param(elem, name):
-	"""
-	Retrieve a pickled Python object from the document tree rooted at
-	elem.
-	"""
-	return pickle.loads(str(get_pyvalue(elem, u"pickle:%s" % name)))
-
-
-def yaml_to_param(obj, name):
-	"""
-	Return the top-level element of a document sub-tree containing the
-	YAML serialization of a Python object.
-	"""
-	return from_pyvalue(u"yaml:%s" % name, unicode(yaml.dump(obj)))
-
-
-def yaml_from_param(elem, name):
-	"""
-	Retrieve a YAMLed Python object from the document tree rooted at
-	elem.
-	"""
-	return yaml.load(get_pyvalue(elem, u"yaml:%s" % name))
-
-
-try:
-	yaml
-except NameError:
-	# yaml module not loaded, disable (de-)serializers
-	def yaml_to_param(obj, name):
-		"""
-		Not available.  Install yaml to use.
-		"""
-		raise NameError("yaml not installed")
-	def yaml_from_param(elem, name):
-		"""
-		Not available.  Install yaml to use.
-		"""
-		raise NameError("yaml not installed")
 
 
 #
@@ -248,17 +111,25 @@ class Param(ligolw.Param):
 	High-level Param element.  The value is stored in the pcdata
 	attribute as the native Python type rather than as a string.
 	"""
-	def __init__(self, *args):
-		"""
-		Initialize a new Param element.
-		"""
-		super(Param, self).__init__(*args)
-		self.pytype = ligolwtypes.ToPyType[self.Type]
+	class ParamName(ligolw.LLWNameAttr):
+		dec_pattern = re.compile(r"(?P<Name>[a-z0-9_:]+):param\Z")
+		enc_pattern = u"%s:param"
+
+	Name = ligolw.attributeproxy(u"Name", enc = ParamName.enc, dec = ParamName)
+	Scale = ligolw.attributeproxy(u"Scale", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
+	Type = ligolw.attributeproxy(u"Type", default = u"lstring")
 
 	def endElement(self):
 		if self.pcdata is not None:
 			# convert pcdata from string to native Python type
-			self.pcdata = self.pytype(self.pcdata.strip())
+			if self.Type == u"yaml":
+				try:
+					yaml
+				except NameError:
+					raise NotImplementedError("yaml support not installed")
+				self.pcdata = yaml.load(self.pcdata)
+			else:
+				self.pcdata = ligolwtypes.ToPyType[self.Type](self.pcdata.strip())
 
 	def write(self, fileobj = sys.stdout, indent = u""):
 		fileobj.write(self.start_tag(indent))
@@ -267,14 +138,58 @@ class Param(ligolw.Param):
 				raise ligolw.ElementError("invalid child %s for %s" % (c.tagName, self.tagName))
 			c.write(fileobj, indent + ligolw.Indent)
 		if self.pcdata is not None:
-			# we have to strip quote characters from string
-			# formats (see comment above)
-			fileobj.write(xmlescape(ligolwtypes.FormatFunc[self.Type](self.pcdata).strip(u"\"")))
+			if self.Type == u"yaml":
+				try:
+					yaml
+				except NameError:
+					raise NotImplementedError("yaml support not installed")
+				fileobj.write(xmlescape(yaml.dump(self.pcdata).strip()))
+			else:
+				# we have to strip quote characters from
+				# string formats (see comment above)
+				fileobj.write(xmlescape(ligolwtypes.FormatFunc[self.Type](self.pcdata).strip(u"\"")))
 		fileobj.write(self.end_tag(u"") + u"\n")
 
-	Name = ligolw.attributeproxy(u"Name", enc = (lambda name: u"%s:param" % name), dec = StripParamName)
-	Scale = ligolw.attributeproxy(u"Scale", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
-	Type = ligolw.attributeproxy(u"Type", default = u"lstring")
+	@classmethod
+	def build(cls, name, Type, value, start = None, scale = None, unit = None, dataunit = None, comment = None):
+		"""
+		Construct a LIGO Light Weight XML Param document subtree.
+		FIXME: document keyword arguments.
+		"""
+		elem = cls()
+		elem.Name = name
+		elem.Type = Type
+		elem.pcdata = value
+		# FIXME:  I have no idea how most of the attributes should be
+		# encoded, I don't even know what they're supposed to be.
+		if dataunit is not None:
+			elem.DataUnit = dataunit
+		if scale is not None:
+			elem.Scale = scale
+		if start is not None:
+			elem.Start = start
+		if unit is not None:
+			elem.Unit = unit
+		if comment is not None:
+			elem.appendChild(ligolw.Comment()).pcdata = comment
+		return elem
+
+	@classmethod
+	def from_pyvalue(cls, name, value, **kwargs):
+		"""
+		Convenience wrapper for .build() that constructs a Param
+		element from an instance of a Python builtin type.  See
+		.build() for a description of the valid keyword arguments.
+		"""
+		return cls.build(name, ligolwtypes.FromPyType[type(value)], value, **kwargs)
+
+	@classmethod
+	def getParamsByName(cls, elem, name):
+		"""
+		Return a list of params with name name under elem.
+		"""
+		name = cls.ParamName(name)
+		return elem.getElements(lambda e: (e.tagName == cls.tagName) and (e.Name == name))
 
 
 #

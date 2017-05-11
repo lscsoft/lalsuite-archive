@@ -51,23 +51,6 @@ extern "C" {
  */
 /*@{*/
 
-/** \name Error codes */
-/*@{*/
-#define LALBARYCENTERH_ENULL  2	/**< Null input to Barycenter routine. */
-#define LALBARYCENTERH_EOUTOFRANGEE  4	/**< tgps not in range of earth.dat file */
-#define LALBARYCENTERH_EOUTOFRANGES  8	/**< tgps not in range of sun.dat file */
-#define LALBARYCENTERH_EBADSOURCEPOS 16	/**< source position not in standard range */
-#define LALBARYCENTERH_EXLAL 	     32	/**< XLAL function failed. */
-/*@}*/
-
-/** \cond DONT_DOXYGEN */
-#define LALBARYCENTERH_MSGENULL  "Null input to Barycenter routine."
-#define LALBARYCENTERH_MSGEOUTOFRANGEE  "tgps not in range of earth.dat file"
-#define LALBARYCENTERH_MSGEOUTOFRANGES  "tgps not in range of sun.dat file"
-#define LALBARYCENTERH_MSGEBADSOURCEPOS "source position not in standard range"
-#define LALBARYCENTERH_MSGEXLAL 	"XLAL function failed."
-/** \endcond */
-
 /**
  * \brief Enumerated type denoting the time system type to be produced in
  * the solar system barycentring routines.
@@ -86,7 +69,7 @@ extern "C" {
  * (\c TIMECORRECTION_TEMPO2 is so-called because the pulsar timing software
  * TEMPO2 uses the TCB time system by default).
  */
-typedef enum{
+typedef enum tagTimeCorrectionType {
   TIMECORRECTION_NONE = 0,
   TIMECORRECTION_TDB,
   TIMECORRECTION_TCB,
@@ -100,7 +83,7 @@ typedef enum{
  * \brief Enumerated type denoting the JPL solar system ephemeris to be used
  * in calculating barycentre time corrections.
  */
-typedef enum {
+typedef enum tagEphemerisType {
   EPHEM_NONE = 0,
   EPHEM_DE200,
   EPHEM_DE405,
@@ -126,30 +109,6 @@ typedef enum {
 #define JPL_AU_DE200 149597870.6600000 	/**< Definition of 1 AU from the JPL DE200 ephemeris in km */
 #define CURT_AU 149597870.6600 		/**< 1 AU from create_solar_system_barycenter.c as used in Curt's original routines */
 
-/**
- * \brief This structure contains
- * two pointers to the ephemeris data files containing arrays
- * of center-of-mass positions for the Earth and Sun, respectively.
- *
- * The tables are derived from the JPL ephemeris.
- *
- * Files tabulate positions for one calendar year
- * (actually, a little more than one year, to deal
- * with overlaps).  The first line of each table summarizes
- * what is in it. Subsequent lines give the time (GPS) and the
- * Earth's position \f$(x,y,z)\f$,
- * velocity \f$(v_x, v_y, v_z)\f$, and acceleration \f$(a_x, a_y, a_z)\f$
- * at that instant.  All in units of seconds; e.g. positions have
- * units of seconds, and accelerations have units 1/sec.
- *
- */
-typedef struct tagEphemerisFilenames
-{
-  CHAR *earthEphemeris;         /**< File containing Earth's position.  */
-  CHAR *sunEphemeris;           /**< File containing Sun's position. */
-}
-EphemerisFilenames;
-
 /** Structure holding a REAL8 time, and a position, velocity and acceleration vector. */
 typedef struct tagPosVelAcc
 {
@@ -167,8 +126,9 @@ PosVelAcc;
  */
 typedef struct tagEphemerisData
 {
-  EphemerisFilenames ephiles; /**< Names of the two files containing positions of
-                               * Earth and Sun, respectively at evenly spaced times. */
+  CHAR *filenameE;      /**< File containing Earth's position.  */
+  CHAR *filenameS;      /**< File containing Sun's position. */
+
 #ifdef SWIG /* SWIG interface directives */
   SWIGLAL(ARRAY_1D(EphemerisData, PosVelAcc, ephemE, INT4, nentriesE));
   SWIGLAL(ARRAY_1D(EphemerisData, PosVelAcc, ephemS, INT4, nentriesS));
@@ -315,23 +275,6 @@ int XLALBarycenterEarthNew ( EarthState *earth,
                              const EphemerisData *edat,
                              const TimeCorrectionData *tdat,
                              TimeCorrectionType ttype );
-
-/* Function to calculate positions */
-void precessionMatrix( REAL8 prn[3][3],
-                       REAL8 mjd,
-                       REAL8 dpsi,
-                       REAL8 deps );
-void observatoryEarth( REAL8 obsearth[3],
-                       const LALDetector det,
-                       const LIGOTimeGPS *tgps,
-                       REAL8 gmst,
-                       REAL8 dpsi,
-                       REAL8 deps );
-
-// deprecated LAL interface
-
-void LALBarycenterEarth ( LALStatus *status, EarthState *earth, const LIGOTimeGPS *tGPS, const EphemerisData *edat);
-void LALBarycenter ( LALStatus *status, EmissionTime *emit, const BarycenterInput *baryinput, const EarthState *earth);
 
 /*@}*/
 

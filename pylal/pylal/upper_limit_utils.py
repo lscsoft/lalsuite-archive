@@ -5,7 +5,7 @@ import sys
 
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
-from pylal import rate
+from lal import rate
 
 
 def margLikelihoodMonteCarlo(VTs, lambs, mu, mcerrs=None):

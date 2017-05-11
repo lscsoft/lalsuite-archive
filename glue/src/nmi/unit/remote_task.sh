@@ -47,7 +47,7 @@ for dir in $BASE_DIR/opt/lscsoft/*/lib64/python*/site-packages; do
 done
 
 # useful info to have logged for later debugging
-$BASE_DIR/opt/lscsoft/lal/bin/lal-version
+$BASE_DIR/opt/lscsoft/lal/bin/lal_version
 
 # create and work in a subdir named after the git id we're testing so
 # that later diff tests can keep straight which results which

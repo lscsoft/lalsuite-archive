@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([LAL],[6.16.0.1],[lal-discuss@ligo.org])
+AC_INIT([LAL],[6.18.0.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([src/config.h src/LALConfig.h])
 AC_CONFIG_SRCDIR([src/std/LALStdio.h])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -7,6 +7,7 @@ AC_CONFIG_MACRO_DIR([gnuscripts])
 AC_CONFIG_FILES([ \
   Makefile \
   debian/Makefile \
+  debian/control \
   doxygen/Makefile \
   doxygen/doxygen.cfg \
   include/Makefile \
@@ -34,6 +35,7 @@ AC_CONFIG_FILES([ \
   src/tools/Makefile \
   src/utilities/Makefile \
   src/vectorops/Makefile \
+  src/version.c \
   src/window/Makefile \
   swig/Makefile \
   test/Makefile \
@@ -42,6 +44,7 @@ AC_CONFIG_FILES([ \
   test/fft/Makefile \
   test/inject/Makefile \
   test/noisemodels/Makefile \
+  test/python/Makefile \
   test/stats/Makefile \
   test/std/Makefile \
   test/support/Makefile \
@@ -62,6 +65,10 @@ AM_INIT_AUTOMAKE([ \
   no-dist-gzip \
 ])
 
+# version requirements
+MIN_GLUE_VERSION="1.54.1"
+AC_SUBST([MIN_GLUE_VERSION])
+
 AC_CANONICAL_HOST
 
 LALSUITE_CHECK_GIT_REPO
@@ -81,7 +88,7 @@ LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 #    then increment age.
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
-AC_SUBST([LIBCURRENT],[12])
+AC_SUBST([LIBCURRENT],[14])
 AC_SUBST([LIBREVISION],[0])
 AC_SUBST([LIBAGE],[0])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
@@ -100,7 +107,7 @@ AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
 #    then increment age.
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
-AC_SUBST([LIBCURRENT_SUPPORT],[8])
+AC_SUBST([LIBCURRENT_SUPPORT],[11])
 AC_SUBST([LIBREVISION_SUPPORT],[0])
 AC_SUBST([LIBAGE_SUPPORT],[0])
 AC_SUBST([LIBVERSION_SUPPORT],[${LIBCURRENT_SUPPORT}:${LIBREVISION_SUPPORT}:${LIBAGE_SUPPORT}])
@@ -114,10 +121,12 @@ LALSUITE_WITH_NVCC_CFLAGS
 LALSUITE_ENABLE_BOINC
 LALSUITE_ENABLE_GCC_FLAGS
 
-LAL_ENABLE_DEBUG
+LAL_WITH_DEFAULT_DEBUG_LEVEL
 LAL_ENABLE_MACROS
 LAL_ENABLE_PTHREAD_LOCK
 LALSUITE_ENABLE_NIGHTLY
+
+LAL_ENABLE_DEBUG   ## option no longer supported, now just prints an error message
 
 # enable SWIG wrapping modules
 LALSUITE_ENABLE_SWIG
@@ -192,7 +201,8 @@ esac
 # check for zlib libraries and headers
 PKG_CHECK_MODULES([ZLIB],[zlib],[true],[false])
 LALSUITE_PUSH_UVARS
-LALSUITE_ADD_FLAGS([C],[${ZLIB_CFLAGS}],[${ZLIB_LIBS}])
+CFLAGS="${CFLAGS} ${ZLIB_CFLAGS}"
+LIBS="${ZLIB_LIBS} ${LIBS}"
 AC_SEARCH_LIBS([compress],[],[:],[AC_MSG_ERROR([could not find the zlib library])])
 AC_CHECK_HEADER([zlib.h],[:],[AC_MSG_ERROR([could not find the zlib.h header])])
 LALSUITE_POP_UVARS
@@ -241,34 +251,6 @@ if test "${intelfft}" = "false" ; then
   AC_CHECK_HEADERS([fftw3.h],,[AC_MSG_ERROR([could not find the fftw3.h header])])
 fi
 
-# check for boinc
-if test "x${boinc}" = xtrue; then
-  # do compilation checks with c++
-  AC_LANG_PUSH([C++])
-
-  # set boinc flags
-  AC_ARG_VAR([BOINC_PREFIX],[BOINC installation directory (optional)])
-  AC_ARG_VAR([BOINC_EXTRA_CFLAGS],[extra BOINC compiler flags (optional)])
-  AC_ARG_VAR([BOINC_EXTRA_LIBS],[extra BOINC libraries (optional)])
-  AC_SUBST(BOINC_CFLAGS,"${BOINC_EXTRA_CFLAGS}")
-  AC_SUBST(BOINC_LIBS,"-lboinc_api -lboinc ${BOINC_EXTRA_LIBS}")
-  if test "x${BOINC_PREFIX}" != x; then
-    BOINC_CFLAGS="-I${BOINC_PREFIX}/include ${BOINC_CFLAGS}"
-    BOINC_LIBS="-L${BOINC_PREFIX}/lib ${BOINC_LIBS}"
-  fi
-  LALSUITE_ADD_FLAGS([C],[${BOINC_CFLAGS}],[${BOINC_LIBS}])
-
-  # check for boinc libraries
-  AC_CHECK_LIB([boinc],[boinc_fopen],[:],[AC_MSG_ERROR([could not find the boinc library])])
-  AC_CHECK_LIB([boinc_api],[boinc_finish],[:],[AC_MSG_ERROR([could not find the boinc_api library])])
-
-  # check for boinc headers
-  AC_CHECK_HEADERS([boinc/boinc_api.h],[:],[AC_MSG_ERROR([could not find the boinc_api.h header])])
-
-  # go back to c
-  AC_LANG_POP([C++])
-fi
-
 # define what is being enabled
 if test "${cuda}" = "true"; then
   AC_DEFINE([LAL_CUDA_ENABLED],[1],[Define if using cuda library])
@@ -279,25 +261,21 @@ if test "${fftw3}" = "true"; then
     AC_DEFINE([LAL_FFTW3_MEMALIGN_ENABLED],[1],[Define if using fftw3 library])
   fi
 fi
-if test "${boinc}" = "true"; then
-  AC_DEFINE([LAL_BOINC_ENABLED],[1],[Define if using boinc library])
-  AC_SUBST(BOINC_CFLAGS)
-  AC_SUBST(BOINC_LIBS)
-fi
 
 # check for hdf5 support
 HDF5_ENABLE_VAL="DISABLED"
+# Note that AX_LIB_HDF5 uses h5cc to determine compiler for configure tests.
+# Make sure that it uses the same compiler as we are using.
+# Otherwise the configure tests may fail if we are using icc.
+HDF5_CC="${CC}"; export HDF5_CC
+HDF5_CLINKER="${CC}"; export HDF5_CLINKER
 AX_LIB_HDF5()
+unset HDF5_CC
+unset HDF5_CLINKER
 if test "${with_hdf5}" = "yes"; then
   AC_DEFINE([LAL_HDF5_ENABLED],[1],[Define if using HDF5 library])
   HDF5_ENABLE_VAL="ENABLED"
 fi
-
-# configure SWIG wrapping modules
-LALSUITE_USE_SWIG
-
-# configure Doxygen documentation
-LALSUITE_USE_DOXYGEN
 
 # checks for typedefs, structures, and compiler characteristics
 AC_C_BIGENDIAN
@@ -310,9 +288,39 @@ AC_HEADER_TIME
 # checks for library functions
 AC_CHECK_FUNCS([gmtime_r localtime_r stat putenv posix_memalign backtrace clock_gettime])
 
+# check for CPU timer
+AC_CHECK_DECLS([CLOCK_PROCESS_CPUTIME_ID],,,[AC_INCLUDES_DEFAULT
+#include <time.h>
+])
+
+# check for pager programs
+LALSUITE_CHECK_PAGER
+
+# check for functions used to determine terminal size
+AC_CHECK_HEADERS([sys/ioctl.h])
+m4_pushdef([includes],[AC_INCLUDES_DEFAULT
+#ifdef HAVE_SYS_IOCTL_H
+#include <sys/ioctl.h>
+#endif
+])
+AC_CHECK_FUNCS([isatty fileno ioctl],,,includes)
+AC_CHECK_DECLS([TIOCGWINSZ],,,includes)
+AC_CHECK_MEMBERS([struct winsize.ws_col],,,includes)
+m4_popdef([includes])
+
 # set automake conditionals
 AM_CONDITIONAL([INTELFFT],[test x$intelfft = xtrue])
 AM_CONDITIONAL([QTHREAD],[test x$qthread = xtrue])
+
+# check for boinc --- must happen after all compiler checks are done
+LALSUITE_CHECK_BOINC
+LALSUITE_END_CHECK_BOINC
+
+# configure SWIG wrapping modules
+LALSUITE_USE_SWIG
+
+# configure Doxygen documentation
+LALSUITE_USE_DOXYGEN
 
 # add gcc specific flags --- must be done at end or tests will break!
 LALSUITE_ADD_GCC_FLAGS

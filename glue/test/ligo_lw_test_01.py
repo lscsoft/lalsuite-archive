@@ -1,4 +1,7 @@
+from __future__ import print_function
 import matplotlib
+from six.moves import map
+from six.moves import range
 matplotlib.use("Agg")
 from matplotlib import figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
@@ -19,10 +22,10 @@ xmldoc = ligolw_utils.load_filename("ligo_lw_test_01.xml", contenthandler = Cont
 ligolw_utils.write_filename(xmldoc, "/dev/null")
 
 t, = xmldoc.getElementsByTagName(ligolw.Time.tagName)
-print >>sys.stderr, "%s: %s" % (t.Name, t.pcdata)
+print("%s: %s" % (t.Name, t.pcdata), file=sys.stderr)
 
 for n, a in enumerate(xmldoc.getElementsByTagName(ligolw.Array.tagName)):
-	print >>sys.stderr, "found %s array '%s'" % ("x".join(map(str, a.array.shape)), a.Name)
+	print("found %s array '%s'" % ("x".join(map(str, a.array.shape)), a.Name), file=sys.stderr)
 	fig = figure.Figure()
 	FigureCanvas(fig)
 	axes = fig.gca()
@@ -31,9 +34,9 @@ for n, a in enumerate(xmldoc.getElementsByTagName(ligolw.Array.tagName)):
 	for i in range(1, a.array.shape[0]):
 		axes.plot(numpy.fabs(a.array[0]), numpy.fabs(a.array[i]))
 	axes.set_title(a.Name)
-	print >>sys.stderr, "saving as 'ligo_lw_test_01_%d.png' ..." % n
+	print("saving as 'ligo_lw_test_01_%d.png' ..." % n, file=sys.stderr)
 	fig.savefig("ligo_lw_test_01_%d.png" % n)
-	print >>sys.stderr, "done."
+	print("done.", file=sys.stderr)
 
 	# try turning it back into XML
-	ligolw_array.from_array(a.Name, a.array)
+	ligolw_array.Array.build(a.Name, a.array)

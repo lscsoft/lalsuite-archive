@@ -901,7 +901,7 @@ class ImagePlot(BasicPlot):
     @method_callable_once
     def finalize(self, colorbar=True, logcolor=False, minorticks=False,\
                  clim=None):
-        from pylal import rate
+        from lal import rate
 
         logx = False
         logy = False

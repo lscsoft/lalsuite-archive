@@ -31,7 +31,7 @@ include a reference in your work as follows:
 
 1. Determine your Python version
 
-Python version 2.4 or greater is required to install Glue. Type:
+Python version 2.7 or greater is required to install Glue. Type:
 
   python -V
 
@@ -39,9 +39,9 @@ to determine the version of python installed on your machine. For
 example:
 
   [duncan@contra lalapps]$ python -V
-  Python 2.4.3
+  Python 2.7
 
-If you do not have version 2.4 or greater installed, contact your system
+If you do not have version 2.7 or greater installed, contact your system
 administrator for help installing Python.
 
 ------------------------------------------------------------------------------

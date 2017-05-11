@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2017 Arunava Mukherjee
  * Copyright (C) 2012--2015 Karl Wette
  * Copyright (C) 2008, 2009 Reinhard Prix
  *
@@ -33,8 +34,7 @@
 #include <gsl/gsl_integration.h>
 #include <gsl/gsl_eigen.h>
 
-#include <lal/FlatPulsarMetric.h>
-#include <lal/PulsarTimes.h>
+#include <lal/GetEarthTimes.h>
 #include <lal/ComputeFstat.h>
 #include <lal/XLALGSL.h>
 #include <lal/Factorial.h>
@@ -137,8 +137,13 @@ static const struct {
   [DOPPLERCOORD_ASINI]    = {"asini",   1,                "Projected semimajor axis of binary orbit in small-eccentricy limit (ELL1 model) [Units: light seconds]."},
   [DOPPLERCOORD_TASC]     = {"tasc",    1,                "Time of ascension (neutron star crosses line of nodes moving away from observer) for binary orbit (ELL1 model) [Units: GPS seconds]."},
   [DOPPLERCOORD_PORB]     = {"porb",    1,                "Period of binary orbit (ELL1 model) [Units: s]."},
-  [DOPPLERCOORD_KAPPA]    = {"kappa", 	1,		  "Lagrange parameter 'kappa = ecc * cos(argp)', ('ecc' = eccentricity, 'argp' = argument of periapse) of binary orbit (ELL1 model) [Units: none]."},
-  [DOPPLERCOORD_ETA]      = {"eta",     1,                "Lagrange parameter 'eta = ecc * sin(argp) of binary orbit (ELL1 model) [Units: none]."}
+  [DOPPLERCOORD_KAPPA]    = {"kappa",   1,                "Lagrange parameter 'kappa = ecc * cos(argp)', ('ecc' = eccentricity, 'argp' = argument of periapse) of binary orbit (ELL1 model) [Units: none]."},
+  [DOPPLERCOORD_ETA]      = {"eta",     1,                "Lagrange parameter 'eta = ecc * sin(argp) of binary orbit (ELL1 model) [Units: none]."},
+
+  [DOPPLERCOORD_DASC]     = {"dasc",    1,                "Distance traversed on the arc of binary orbit (ELL1 model) 'dasc = 2 * pi * (ap/porb) * tasc' [Units: light second]."},
+  [DOPPLERCOORD_VP]       = {"vp",      1,                "Rescaled (by asini) differential-coordinate 'dvp = asini * dOMEGA', ('OMEGA' = 2 * pi/'porb') of binary orbit (ELL1 model) [Units: (light second)/(GPS second)]."},
+  [DOPPLERCOORD_KAPPAP]   = {"kappap",  1,                "Rescaled (by asini) differential-coordinate 'dkappap = asini * dkappa' [Units: light seconds]."},
+  [DOPPLERCOORD_ETAP]     = {"etap",    1,                "Rescaled (by asini) differential-coordinate 'detap = asini * deta' [Units: light seconds]."}
 
 };
 
@@ -714,6 +719,23 @@ CW_Phi_i ( double tt, void *params )
       ret = LAL_PI * Freq * orb_asini * cos2Psi;
       break;
 
+      // --------- rescaled binary orbital parameters for (approximately) flat metric
+    case DOPPLERCOORD_DASC:  /**< Distance traversed on the arc of binary orbit (ELL1 model) 'dasc = 2 * pi * (ap/porb) * tasc' [Units: light second]." */
+      ret = LAL_TWOPI * Freq * ( cosPsi + orb_kappa * cos2Psi + orb_eta * sin2Psi );
+      break;
+
+    case DOPPLERCOORD_VP: /**< Rescaled (by asini) differential-coordinate 'dvp = asini * dOMEGA', ('OMEGA' = 2 * pi/'porb') of binary orbit (ELL1 model) [Units: (light second)/(GPS second)]. */
+      ret = - LAL_TWOPI * Freq * ( orb_phase/orb_Omega ) * ( cosPsi + orb_kappa * cos2Psi + orb_eta * sin2Psi );
+      break;
+
+    case DOPPLERCOORD_KAPPAP: /**< Rescaled (by asini) differential-coordinate 'dkappap = asini * dkappa' [Units: light seconds]. */
+      ret = - LAL_PI * Freq * sin2Psi;
+      break;
+
+    case DOPPLERCOORD_ETAP: /**< Rescaled (by asini) differential-coordinate 'detap = asini * deta' [Units: light seconds]. */
+      ret = LAL_PI * Freq * cos2Psi;
+      break;
+
       // ------------------------------------------------
     default:
       par->errnum = XLAL_EINVAL;
@@ -861,24 +883,18 @@ XLALPtolemaicPosVel ( PosVel3D_t *posvel,		/**< [out] instantaneous position and
 		      const LIGOTimeGPS *tGPS		/**< [in] GPS time */
 		      )
 {
-  PulsarTimesParamStruc XLAL_INIT_DECL(times);
+  REAL8 tMidnight, tAutumn;
   REAL8 phiOrb;   /* Earth orbital revolution angle, in radians. */
   REAL8 sinOrb, cosOrb;
-  LALStatus XLAL_INIT_DECL(status);
 
   if ( !posvel || !tGPS ) {
     XLALPrintError ( "%s: Illegal NULL pointer passed!\n", __func__);
     XLAL_ERROR( XLAL_EINVAL );
   }
 
-  times.epoch = (*tGPS);	/* get tAutumn */
-  LALGetEarthTimes ( &status, &times );
-  if ( status.statusCode ) {
-    XLALPrintError ( "%s: call to LALGetEarthTimes() failed!\n\n", __func__);
-    XLAL_ERROR( XLAL_EFUNC );
-  }
+  XLAL_CHECK( XLALGetEarthTimes ( tGPS, &tMidnight, &tAutumn) == XLAL_SUCCESS, XLAL_EFUNC );
 
-  phiOrb = - LAL_TWOPI * times.tAutumn / LAL_YRSID_SI;
+  phiOrb = - LAL_TWOPI * tAutumn / LAL_YRSID_SI;
   sinOrb = sin(phiOrb);
   cosOrb = cos(phiOrb);
 
@@ -1018,11 +1034,10 @@ XLALCovariance_Phi_ij ( const MultiLALDetector *multiIFO,		//!< [in] detectors t
       }
     }
 #pragma omp parallel for schedule(static)
-    for ( size_t index = 0; index < index_max; ++index )
+    for ( size_t indx = 0; indx < index_max; ++indx )
       {
-    
         // break single index into 'k', 'X', and 'n'
-        size_t k = 0, X = 0, n = 0, index_break = index + 1;
+        size_t k = 0, X = 0, n = 0, index_break = indx + 1;
         for ( k = 0; k < Nseg; ++k ) {
           for ( X = 0; X < numDet; ++X ) {
             if ( index_break > intN[k][X] ) {
@@ -1088,7 +1103,7 @@ XLALCovariance_Phi_ij ( const MultiLALDetector *multiIFO,		//!< [in] detectors t
           io->av_j_err_sq = SQUARE( scale2 * abserr);
         }
 
-      } /* for index < index_max */
+      } /* for indx < index_max */
   }
 
   // restore GSL error handling
@@ -2422,7 +2437,7 @@ XLALmatrix33_in_vect3 ( vect3D_t out, mat33_t mat, const vect3D_t in )
  * Compute time-derivatives up to 'maxorder' of the Earths' orbital position vector
  * \f$r_{\mathrm{orb}}(t)\f$.
  *
- * Algorithm: using 5-point differentiation expressions on r_orb(t) returned from LALBarycenterEarth().
+ * Algorithm: using 5-point differentiation expressions on r_orb(t) returned from XLALBarycenterEarth().
  *
  * Returns a vector of derivatives \f$\frac{d^n\,r_{\mathrm{orb}}}{d\,t^n}\f$ at the given
  * GPS time. Note, the return vector includes the zeroth-order derivative, so we return

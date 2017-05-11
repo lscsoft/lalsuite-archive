@@ -8,15 +8,15 @@
 
 Name: 		glue
 Summary:	The Grid LSC User Environment
-Version:	1.49.1
+Version:	1.55.2
 Release:	1%{?dist}
 License:	None
 Group:		Development/Libraries
-Source:		%{name}-%{version}.tar.gz
+Source:		lscsoft-%{name}-%{version}.tar.gz
 Url:		http://www.lsc-group.phys.uwm.edu/daswg/projects/glue.html
 BuildRoot:	%{_tmppath}/%{name}-%{version}-root
-Requires:	python-cjson m2crypto glue-common glue-segments python >= 2.6
-BuildRequires:  python-devel
+Requires:	python-cjson pyOpenSSL python-six glue-common glue-segments glue-ligolw-tools python >= 2.6
+BuildRequires:  python-devel, python-setuptools
 Prefix:         %{_glue_prefix}
 %description
 Glue (Grid LSC User Environment) is a suite of python modules and programs to
@@ -25,7 +25,7 @@ allow users to run LSC codes on the grid.
 %package common
 Summary:	The common files needed for all sub-packages
 Group: 		Development/Libraries
-Requires: 	python 
+Requires: 	python
 %description common
 This is for the files that are common across the glue subpackages, namely git_version, iterutils and __init__.py
 
@@ -36,8 +36,15 @@ Requires:       python glue-common
 %description segments
 This is for the segments subpackage, written by Kipp.
 
+%package ligolw-tools
+Summary:        The Grid LSC User Environment XML tools
+Group:          Development/Libraries
+Requires:       glue
+%description ligolw-tools
+Selected XML tools
+
 %prep
-%setup 
+%setup -n lscsoft-%{name}-%{version}
 
 %build
 CFLAGS="%{optflags}" %{__python} setup.py build
@@ -48,7 +55,7 @@ rm -rf %{buildroot}
         --skip-build \
         --root=%{buildroot} \
         --prefix=%{_glue_prefix}
-rm -rf $RPM_BUILD_ROOT/usr/lib64/python2.?/site-packages/glue-1.49.1-py2.?.egg-info
+rm -rf $RPM_BUILD_ROOT/usr/lib64/python2.?/site-packages/glue-1.55.2-py2.?.egg-info
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -57,9 +64,14 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root)
 %{glue_python_sitearch}/glue/
 %{_glue_prefix}/bin/*
+%exclude %{_glue_prefix}/bin/ligolw_add
+%exclude %{_glue_prefix}/bin/ligolw_cut
+%exclude %{_glue_prefix}/bin/ligolw_print
+%exclude %{_glue_prefix}/bin/ligolw_sqlite
 %exclude %{_glue_prefix}/etc/
 %exclude %{_glue_prefix}/var/
 %exclude %{_glue_prefix}/share/nmi/lalsuite-build*
+%exclude %{glue_python_sitearch}/*egg-info*
 %exclude %{glue_python_sitearch}/glue/__init__.py
 %exclude %{glue_python_sitearch}/glue/__init__.pyc
 %exclude %{glue_python_sitearch}/glue/segments.py
@@ -91,7 +103,34 @@ rm -rf $RPM_BUILD_ROOT
 %{glue_python_sitearch}/glue/git_version.py
 %{glue_python_sitearch}/glue/git_version.pyc
 
+%files ligolw-tools
+%{_glue_prefix}/bin/ligolw_add
+%{_glue_prefix}/bin/ligolw_cut
+%{_glue_prefix}/bin/ligolw_print
+%{_glue_prefix}/bin/ligolw_sqlite
+
 %changelog
+* Thu Apr 13 2017 Duncan Macleod <duncan.macleod@ligo.org>
+- Switched dependency from M2Crypto -> pyOpenSSL.
+
+* Fri Apr 7 2017 Ryan Fisher <ryan.fisher@ligo.org>
+- Added install_requires for pip installations.
+
+* Thu Apr 6 2017 Ryan Fisher <ryan.fisher@ligo.org>
+- Cleaned up RPM and debian codes.
+
+* Thu Apr 6 2017 Duncan Brown <duncan.brown@ligo.org>
+- O2 mid-run updated release. Change sdist name for PyPi compatibility.
+
+* Wed Jan 25 2017 Ryan Fisher <rpfisher@syr.edu>
+- O2 mid-run updated release. Updated python 3 compatibility fix from Leo to fix Debian package build for lalsuite.  Various updates from Kipp.
+
+* Wed Oct 19 2016 Ryan Fisher <rpfisher@syr.edu>
+- ER10 updated release. Python 3 compatibility from Leo, various updates from Kipp.
+
+* Tue Sep 13 2016 Ryan Fisher <rpfisher@syr.edu>
+- ER10 release. (forgot to update this changelog for last several releases)
+
 * Thu Jul 23 2015 Ryan Fisher <rpfisher@syr.edu>
 - Pre-ER8 release, attempt 2.
 
@@ -133,25 +172,25 @@ rm -rf $RPM_BUILD_ROOT
 - New Release of glue for ER3 with updates to ligolw and lal codes.
 
 * Tue Sep 4 2012 Ryan Fisher <rpfisher@syr.edu>
-- New Release of glue with upgrades and bugfixes to segment database infrastructure. 
+- New Release of glue with upgrades and bugfixes to segment database infrastructure.
 
 * Fri May 18 2012 Ryan Fisher <rpfisher@syr.edu>
-- Bugfix release of 1.39 labelled 1.39.2.  Includes fix to ligolw for URL reading, and packaging fixes. 
+- Bugfix release of 1.39 labelled 1.39.2.  Includes fix to ligolw for URL reading, and packaging fixes.
 
 * Fri May 11 2012 Ryan Fisher <rpfisher@syr.edu>
-- Bugfix release of 1.39 labelled 1.39.1 
+- Bugfix release of 1.39 labelled 1.39.1
 
 * Thu May 10 2012 Ryan Fisher <rpfisher@syr.edu>
 - New release of glue to replace Apr 12 near-release.  This includes ligolw changes and updates for job submission over remote pools.
 
 * Thu Apr 12 2012 Ryan Fisher <rpfisher@syr.edu>
-- New release of glue with updates to ligolw library, including some bug fixes for ligowl_sqlite and ligolw_print.  
+- New release of glue with updates to ligolw library, including some bug fixes for ligowl_sqlite and ligolw_print.
 
 * Wed Nov 16 2011 Ryan Fisher <rpfisher@syr.edu>
 - New release of glue with glue-segments and glue-common split from glue, lvalerts, lars and gracedb removed.
 
 * Mon Oct 10 2011 Ryan Fisher <rpfisher@syr.edu>
-- New release of glue to fix build issues called 1.36. 
+- New release of glue to fix build issues called 1.36.
 
 * Fri Oct 7 2011 Ryan Fisher <rpfisher@syr.edu>
 - New release of glue with Kipp's fixes to ligolw_sqlite bugs, Kipp's checksums added, and Peter and my change to the coalescing script for segment databases.
@@ -177,10 +216,10 @@ rm -rf $RPM_BUILD_ROOT
 * Wed Jun 24 2009 Duncan Brown <dabrown@physics.syr.edu>
 - Post E14 release of glue
 
-* Tue Jun 11 2009 Duncan Brown <dabrown@physics.syr.edu>
+* Thu Jun 11 2009 Duncan Brown <dabrown@physics.syr.edu>
 - Allow segment tools to see multiple ifos
 
-* Tue Jun 10 2009 Duncan Brown <dabrown@physics.syr.edu>
+* Wed Jun 10 2009 Duncan Brown <dabrown@physics.syr.edu>
 - Restored LSCdataFindcheck and fixed debian control files
 
 * Tue Jun 09 2009 Duncan Brown <dabrown@physics.syr.edu>
@@ -189,7 +228,7 @@ rm -rf $RPM_BUILD_ROOT
 * Tue Jun 24 2008 Ping Wei <piwei@syr.edu>
 - Build for glue 1.18-1
 
-* Wed Jun 19 2008 Duncan Brown <dabrown@physics.syr.edu>
+* Thu Jun 19 2008 Duncan Brown <dabrown@physics.syr.edu>
 - Build for glue 1.17
 
 * Fri Nov 04 2005 Duncan Brown <dbrown@ligo.caltech.edu>

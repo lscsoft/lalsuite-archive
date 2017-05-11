@@ -32,13 +32,10 @@ databases.
 """
 
 
+from __future__ import print_function
 from optparse import OptionParser
 import os
-try:
-	import sqlite3
-except ImportError:
-	# pre 2.5.x
-	from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 import sys
 
 
@@ -48,10 +45,11 @@ from glue.ligolw import ligolw
 from glue.ligolw import dbtables
 from glue.ligolw.utils import local_path_from_url
 from glue.ligolw.utils import ligolw_sqlite
+import six
 
 
 # so they can be inserted into a database
-dbtables.ligolwtypes.ToPyType["ilwd:char"] = unicode
+dbtables.ligolwtypes.ToPyType["ilwd:char"] = six.text_type
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -135,7 +133,7 @@ if __name__ == '__main__':
 
 
 	if will_read_from_file and not will_write_to_file and not os.path.exists(options.database):
-		print >>sys.stderr, "'%s': no such file" % options.database
+		print("'%s': no such file" % options.database, file=sys.stderr)
 		sys.exit(1)
 	target = dbtables.get_connection_filename(options.database, tmp_path = options.tmp_space if will_use_tmp_space else None, replace_file = will_replace_file, verbose = options.verbose)
 	ContentHandler.connection = sqlite3.connect(target)
@@ -149,11 +147,11 @@ if __name__ == '__main__':
 	if will_write_to_file:
 		for n, url in enumerate(urls):
 			if options.verbose:
-				print >>sys.stderr, "%d/%d:" % (n + 1, len(urls)),
+				print("%d/%d:" % (n + 1, len(urls)), end=' ', file=sys.stderr)
 			if url.endswith(".sqlite"):
 				source_filename = dbtables.get_connection_filename(local_path_from_url(url), tmp_path = options.tmp_space, verbose = options.verbose)
 				if options.verbose:
-					print >>sys.stderr, "reading '%s' ..." % source_filename
+					print("reading '%s' ..." % source_filename, file=sys.stderr)
 				xmldoc = dbtables.get_xml(sqlite3.connect(source_filename))
 				ligolw_sqlite.insert_from_xmldoc(ContentHandler.connection, xmldoc, preserve_ids = options.preserve_ids, verbose = options.verbose)
 				xmldoc.unlink()
@@ -198,4 +196,4 @@ if __name__ == '__main__':
 
 
 	if options.verbose:
-		print >>sys.stderr, "done."
+		print("done.", file=sys.stderr)

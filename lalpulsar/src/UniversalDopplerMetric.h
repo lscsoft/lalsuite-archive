@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2017 Arunava Mukherjee
  * Copyright (C) 2012--2015 Karl Wette
  * Copyright (C) 2008, 2009 Reinhard Prix
  *
@@ -90,7 +91,7 @@ typedef struct tagPosVel3D_t {
 
 
 /** Bitfield of different types of detector-motion to use in order to compute the Doppler-metric */
-typedef enum {
+typedef enum tagDetectorMotionType {
   DETMOTION_SPIN       = 0x01,   /**< Full spin motion */
   DETMOTION_SPINZ      = 0x02,   /**< Ecliptic-Z component of spin motion only */
   DETMOTION_SPINXY     = 0x03,   /**< Ecliptic-X+Y components of spin motion only */
@@ -106,7 +107,7 @@ typedef enum {
  * enum listing symbolic 'names' for all Doppler Coordinates
  * supported by the metric codes in FstatMetric
  */
-typedef enum {
+typedef enum tagDopplerCoordinateID {
   DOPPLERCOORD_NONE = -1,	/**< No Doppler component */
 
   DOPPLERCOORD_FREQ,		/**< Frequency [Units: Hz]. */
@@ -150,6 +151,12 @@ typedef enum {
   DOPPLERCOORD_PORB,		/**< Period of binary orbit (ELL1 model) [Units: s]. */
   DOPPLERCOORD_KAPPA,		/**< Lagrange parameter 'kappa = ecc * cos(argp)', ('ecc' = eccentricity, 'argp' = argument of periapse) of binary orbit (ELL1 model) [Units: none] */
   DOPPLERCOORD_ETA,		/**< Lagrange parameter 'eta = ecc * sin(argp) of binary orbit (ELL1 model) [Units: none] */
+
+  DOPPLERCOORD_VP,		/**< Rescaled (by asini) differential-coordinate 'dvp = asini * dOMEGA', ('OMEGA' = 2 * pi/'porb') of binary orbit (ELL1 model) [Units: (light second)/(GPS second)]. */
+  DOPPLERCOORD_DASC,		/**< Distance traversed on the arc of binary orbit (ELL1 model) 'dasc = 2 * pi * (ap/porb) * tasc' [Units: light second]. */
+  DOPPLERCOORD_KAPPAP,		/**< Rescaled (by asini) differential-coordinate 'dkappap = asini * dkappa' [Units: light seconds]. */
+  DOPPLERCOORD_ETAP,		/**< Rescaled (by asini) differential-coordinate 'detap = asini * deta' [Units: light seconds]. */
+
 
   DOPPLERCOORD_LAST
 } DopplerCoordinateID;

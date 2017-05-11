@@ -24,12 +24,17 @@
 
 #include <lal/UserInput.h>
 
+// for test print usage and help page
+int XLALUserVarPrintUsage ( FILE *file );
+int XLALUserVarPrintHelp ( FILE *file );
+
 typedef struct
 {
   REAL8 argNum;
   CHAR * argStr;
   BOOLEAN argBool;
   INT4 argInt;
+  UINT4 argUInt;
   BOOLEAN argB2;
   CHAR *string2;	// will be read from config-file
   INT4 dummy;
@@ -40,6 +45,7 @@ typedef struct
   REAL8 latDMS;
   REAL8 latRad;
   INT8 longInt;
+  BOOLEAN long_help;
 } UserInput_t;
 
 /**
@@ -47,23 +53,21 @@ typedef struct
  * but should be enough to catch big obvious malfunctions
  */
 int
-main(int argc, char *argv[])
+main(void)
 {
-  int i, my_argc = 8;
-  char **my_argv;
-  const char *argv_in[] = { "progname", "--argNum=1", "--argStr=xyz", "--argBool=true", "-a", "1", "-b", "@" TEST_DATA_DIR "ConfigFileSample.cfg" };
-  UserInput_t XLAL_INIT_DECL(my_uvars);
 
-  XLAL_CHECK ( argc == 1, XLAL_EINVAL, "No input arguments allowed.\n");
+  const char *argv_in[] = { "progname", "--argNum=1", "--argStr=xyz", "--argBool=true", "-a", "-1", "-A", "7", "-b", "@" TEST_DATA_DIR "ConfigFileSample.cfg" };
 
-  my_argv = XLALCalloc ( my_argc, sizeof(char*) );
-  for (i=0; i < my_argc; i ++ )
+  const int my_argc = XLAL_NUM_ELEM( argv_in );
+  char **my_argv = XLALCalloc ( my_argc, sizeof(char*) );
+  for ( int i=0; i < my_argc; i ++ )
     {
       my_argv[i] = XLALCalloc ( 1, strlen(argv_in[i])+1);
       strcpy ( my_argv[i], argv_in[i] );
     }
 
   /* ---------- Register all test user-variables ---------- */
+  UserInput_t XLAL_INIT_DECL(my_uvars);
   UserInput_t *uvar = &my_uvars;
   uvar->string2 = XLALStringDuplicate ( "this is the default value");
 
@@ -71,6 +75,7 @@ main(int argc, char *argv[])
   XLAL_CHECK ( XLALRegisterUvarMember( argStr, STRING, 0, REQUIRED, "Testing string argument") == XLAL_SUCCESS, XLAL_EFUNC );
   XLAL_CHECK ( XLALRegisterUvarMember( argBool, BOOLEAN, 0, REQUIRED, "Testing bool argument") == XLAL_SUCCESS, XLAL_EFUNC );
   XLAL_CHECK ( XLALRegisterUvarMember( argInt, INT4, 'a', REQUIRED, "Testing INT4 argument") == XLAL_SUCCESS, XLAL_EFUNC );
+  XLAL_CHECK ( XLALRegisterUvarMember( argUInt, UINT4, 'A', REQUIRED, "Testing UINT4 argument") == XLAL_SUCCESS, XLAL_EFUNC );
   XLAL_CHECK ( XLALRegisterUvarMember( dummy,  INT4, 'c', OPTIONAL, "Testing INT4 argument") == XLAL_SUCCESS, XLAL_EFUNC );
   XLAL_CHECK ( XLALRegisterUvarMember( argB2, BOOLEAN, 'b', REQUIRED, "Testing short-option bool argument") == XLAL_SUCCESS, XLAL_EFUNC );
   XLAL_CHECK ( XLALRegisterUvarMember( string2, STRING, 0, REQUIRED, "Testing another string argument") == XLAL_SUCCESS, XLAL_EFUNC );
@@ -81,14 +86,33 @@ main(int argc, char *argv[])
   XLAL_CHECK ( XLALRegisterUvarMember( latDMS, DECJ, 0, REQUIRED, "Testing DECJ(DMS) argument") == XLAL_SUCCESS, XLAL_EFUNC );
   XLAL_CHECK ( XLALRegisterUvarMember( latRad, DECJ, 0, REQUIRED, "Testing DECJ(rad) argument") == XLAL_SUCCESS, XLAL_EFUNC );
   XLAL_CHECK ( XLALRegisterUvarMember( longInt, INT8, 0, REQUIRED, "Testing INT8 argument") == XLAL_SUCCESS, XLAL_EFUNC );
+  XLAL_CHECK ( XLALRegisterUvarMember( long_help, BOOLEAN, 0, NODEFAULT,
+                                       "This option is here to test the help page wrapping of long strings. "
+                                       "This option is here to test the help page wrapping of long strings. "
+                                       "This option is here to test the help page wrapping of long strings. "
+                                       "This option is here to test the help page wrapping of long strings. "
+                                       "This option is here to test the help page wrapping of long strings. "
+                                       "\n"
+                                       "This~option~is~here~to~test~the~help~page~wrapping~of~long~strings~without~spaces.~"
+                                       "This~option~is~here~to~test~the~help~page~wrapping~of~long~strings~without~spaces.~"
+                                       "This~option~is~here~to~test~the~help~page~wrapping~of~long~strings~without~spaces."
+                 ) == XLAL_SUCCESS, XLAL_EFUNC );
 
   /* ---------- now read all input from commandline and config-file ---------- */
-  XLAL_CHECK ( XLALUserVarReadAllInput ( my_argc, my_argv ) == XLAL_SUCCESS, XLAL_EFUNC );
+  BOOLEAN should_exit = 0;
+  XLAL_CHECK ( XLALUserVarReadAllInput ( &should_exit, my_argc, my_argv ) == XLAL_SUCCESS, XLAL_EFUNC );
+  XLAL_CHECK ( should_exit == 0, XLAL_EFUNC );
 
-  /* ---------- test help-string generation */
-  CHAR *helpstr;
-  XLAL_CHECK ( (helpstr = XLALUserVarHelpString ( argv[0])) != NULL, XLAL_EFUNC );
-  XLALFree ( helpstr );
+  /* ---------- test print usage and help page */
+  printf( "=== Begin usage string ===\n" );
+  fflush( stdout );
+  XLALUserVarPrintUsage( stdout );
+  printf( "--- End usage string ---\n" );
+  printf( "=== Begin help page ===\n" );
+  fflush( stdout );
+  XLALUserVarPrintHelp( stdout );
+  printf( "--- End help page ---\n" );
+  fflush( stdout );
 
   /* ---------- test log-generation */
   CHAR *logstr;
@@ -99,7 +123,8 @@ main(int argc, char *argv[])
   XLAL_CHECK ( uvar->argNum == 1, XLAL_EFAILED, "Failed to read in argNum\n" );
   XLAL_CHECK ( strcmp ( uvar->argStr, "xyz" ) == 0, XLAL_EFAILED, "Failed to read in argStr\n" );
   XLAL_CHECK ( uvar->argBool, XLAL_EFAILED, "Failed to read in argBool\n" );
-  XLAL_CHECK ( uvar->argInt == 1, XLAL_EFAILED, "Failed to read in argInt\n" );
+  XLAL_CHECK ( uvar->argInt == -1, XLAL_EFAILED, "Failed to read in argInt\n" );
+  XLAL_CHECK ( uvar->argUInt == 7, XLAL_EFAILED, "Failed to read in argUInt\n" );
   XLAL_CHECK ( uvar->argB2, XLAL_EFAILED, "Failed to read in argB2\n" );
   XLAL_CHECK ( strcmp ( uvar->string2, "this is also possible, and # here does nothing; and neither does semi-colon " ) == 0, XLAL_EFAILED, "Failed to read in string2\n" );
 
@@ -115,7 +140,7 @@ main(int argc, char *argv[])
 
   /* ----- cleanup ---------- */
   XLALDestroyUserVars();
-  for (i=0; i < my_argc; i ++ ) {
+  for ( int i=0; i < my_argc; i ++ ) {
     XLALFree ( my_argv[i] );
   }
   XLALFree ( my_argv );

@@ -1,35 +1,136 @@
-Source: glue
-Section: lscsoft
+Source: lscsoft-glue
+Section: python
 Priority: optional
 Maintainer: Steffen Grunewald <steffen.grunewald@aei.mpg.de>
-Build-Depends: debhelper (>= 7.0.50), python-all-dev, git-core
-X-Python-Version: >= 2.6
+Build-Depends: debhelper (>= 9),
+               python-all-dev,
+               python3-all-dev,
+               python-setuptools,
+               python3-setuptools,
+               python-kerberos,
+               python3-kerberos,
+               python-six,
+               python3-six,
+               dh-python,
+               git-core,
+               help2man
+X-Python-Version: >= 2.7
+X-Python3-Version: >= 3.4
 Standards-Version: 3.9.3
 
 Package: python-glue
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}, python (>= 2.6), python-cjson, python-m2crypto, python-glue-segments (= ${Source-Version})
-Recommends: python-numpy (>= 1.0), python-xml, python-pysqlite2 (>= 2.2), libsqlite3-0 (>= 3.3), pyrxp | python-pyrxp
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         ${python:Depends},
+         python-cjson,
+         python-kerberos,
+         python-openssl,
+         python-six,
+         python-glue-segments (= ${source:Version}),
+         python-glue-ligolw-tools
+Recommends: python-numpy (>= 1.0),
+            python-xml,
+            libsqlite3-0 (>= 3.3),
+            pyrxp | python-pyrxp
 Replaces: glue
 Conflicts: glue
-Description: The Grid LSC User Environment
+Description: Grid LSC User Environment
  Glue (Grid LSC User Environment) is a suite of python modules and programs to
  allow users to run LSC codes on the grid.
 
 Package: python-glue-segments
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}, python (>= 2.6), python-cjson, python-m2crypto, python-glue-common (= ${Source-Version})
-Recommends: python-numpy (>= 1.0), python-xml, python-pysqlite2 (>= 2.2), libsqlite3-0 (>= 3.3), pyrxp | python-pyrxp
-Description: The Grid LSC User Environment
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         ${python:Depends},
+         python-cjson,
+         python-openssl,
+         python-six,
+         python-glue-common (= ${source:Version})
+Recommends: python-numpy (>= 1.0),
+            python-xml,
+            libsqlite3-0 (>= 3.3),
+            pyrxp | python-pyrxp
+Description: Grid LSC User Environment
  Glue (Grid LSC User Environment) is a suite of python modules and programs to
  allow users to run LSC codes on the grid.
  Segments handling part.
 
-Package: python-glue-common
-Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}, python (>= 2.6), python-cjson, python-m2crypto
-Recommends: python-numpy (>= 1.0), python-xml, python-pysqlite2 (>= 2.2), libsqlite3-0 (>= 3.3), pyrxp | python-pyrxp
-Description: The Grid LSC User Environment
+Package: python-glue-ligolw-tools
+Architecture: all
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         ${python:Depends},
+         python-glue
+Description: Grid LSC User Environment XML Tools
  Glue (Grid LSC User Environment) is a suite of python modules and programs to
+ allow users to run LSC codes on the grid.
+ Selected XML tools.
+
+Package: python-glue-common
+Architecture: all
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         ${python:Depends},
+         python-cjson,
+         python-openssl,
+         python-six
+Recommends: python-numpy (>= 1.0),
+            python-xml,
+            libsqlite3-0 (>= 3.3),
+            pyrxp | python-pyrxp
+Description: Grid LSC User Environment
+ Glue (Grid LSC User Environment) is a suite of python modules and programs to
+ allow users to run LSC codes on the grid.
+ Common routines.
+
+Package: python3-glue
+Architecture: any
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         ${python3:Depends},
+         python3-kerberos,
+         python3-openssl,
+         python3-six,
+         python3-glue-segments (= ${source:Version})
+Recommends: python3-numpy (>= 1.0),
+            python3-xml,
+            libsqlite3-0 (>= 3.3),
+            pyrxp | python3-pyrxp
+Replaces: glue
+Conflicts: glue
+Description: Grid LSC User Environment
+ Glue (Grid LSC User Environment) is a suite of python3 modules and programs to
+ allow users to run LSC codes on the grid.
+
+Package: python3-glue-segments
+Architecture: any
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         ${python3:Depends},
+         python3-six,
+         python3-glue-common (= ${source:Version})
+Recommends: python3-numpy (>= 1.0),
+            python3-xml,
+            libsqlite3-0 (>= 3.3),
+            pyrxp | python3-pyrxp
+Description: Grid LSC User Environment
+ Glue (Grid LSC User Environment) is a suite of python3 modules and programs to
+ allow users to run LSC codes on the grid.
+ Segments handling part.
+
+Package: python3-glue-common
+Architecture: all
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         ${python3:Depends},
+         python3-six
+Recommends: python3-numpy (>= 1.0),
+            python3-xml,
+            libsqlite3-0 (>= 3.3),
+            pyrxp | python3-pyrxp
+Description: Grid LSC User Environment
+ Glue (Grid LSC User Environment) is a suite of python3 modules and programs to
  allow users to run LSC codes on the grid.
  Common routines.

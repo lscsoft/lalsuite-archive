@@ -61,14 +61,14 @@ static int segments_Segment_Check(PyObject *obj)
 PyObject *segments_Segment_New(PyTypeObject *type, PyObject *a, PyObject *b)
 {
 	PyObject *new;
-	int delta;
+	int cmp;
 	if(!type->tp_alloc) {
 		PyErr_SetObject(PyExc_TypeError, (PyObject *) type);
 		return NULL;
 	}
 	new = type->tp_alloc(type, 2);
-	if(new && PyObject_Cmp(a, b, &delta) >= 0) {
-		if(delta <= 0) {
+	if(new && (cmp = PyObject_RichCompareBool(a, b, Py_LE)) >= 0) {
+		if(cmp) {
 			PyTuple_SET_ITEM(new, 0, a);
 			PyTuple_SET_ITEM(new, 1, b);
 		} else {
@@ -106,6 +106,7 @@ static PyObject *__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
 static PyObject *__repr__(PyObject *self)
 {
+#if PY_MAJOR_VERSION < 3
 	PyObject *a = PyObject_Repr(PyTuple_GET_ITEM(self, 0));
 	PyObject *b = PyObject_Repr(PyTuple_GET_ITEM(self, 1));
 	PyObject *result;
@@ -116,11 +117,15 @@ static PyObject *__repr__(PyObject *self)
 	Py_XDECREF(a);
 	Py_XDECREF(b);
 	return result;
+#else
+	return PyUnicode_FromFormat("segment(%R, %R)", PyTuple_GET_ITEM(self, 0), PyTuple_GET_ITEM(self, 1));
+#endif
 }
 
 
 static PyObject *__str__(PyObject *self)
 {
+#if PY_MAJOR_VERSION < 3
 	PyObject *a = PyObject_Str(PyTuple_GET_ITEM(self, 0));
 	PyObject *b = PyObject_Str(PyTuple_GET_ITEM(self, 1));
 	PyObject *result;
@@ -131,6 +136,9 @@ static PyObject *__str__(PyObject *self)
 	Py_XDECREF(a);
 	Py_XDECREF(b);
 	return result;
+#else
+	return PyUnicode_FromFormat("[%S ... %S)", PyTuple_GET_ITEM(self, 0), PyTuple_GET_ITEM(self, 1));
+#endif
 }
 
 
@@ -152,7 +160,7 @@ static PyObject *__abs__(PyObject *self)
 
 static int __nonzero__(PyObject *self)
 {
-	return PyObject_Compare(PyTuple_GET_ITEM(self, 0), PyTuple_GET_ITEM(self, 1)) != 0;
+	return PyObject_RichCompareBool(PyTuple_GET_ITEM(self, 0), PyTuple_GET_ITEM(self, 1), Py_NE);
 }
 
 
@@ -182,7 +190,7 @@ static PyObject *intersects(PyObject *self, PyObject *other)
 	}
 	oa = PyTuple_GET_ITEM(other, 0);
 	ob = PyTuple_GET_ITEM(other, 1);
-	result = (PyObject_Compare(sb, oa) > 0) && (PyObject_Compare(sa, ob) < 0) ? Py_True : Py_False;
+	result = PyObject_RichCompareBool(sb, oa, Py_GT) && PyObject_RichCompareBool(sa, ob, Py_LT) ? Py_True : Py_False;
 	Py_INCREF(result);
 	return result;
 }
@@ -195,12 +203,12 @@ static int __contains__(PyObject *self, PyObject *other)
 	if(segments_Segment_Check(other)) {
 		PyObject *oa = PyTuple_GET_ITEM(other, 0);
 		PyObject *ob = PyTuple_GET_ITEM(other, 1);
-		return (PyObject_Compare(sa, oa) <= 0) && (PyObject_Compare(sb, ob) >= 0);
+		return PyObject_RichCompareBool(sa, oa, Py_LE) && PyObject_RichCompareBool(sb, ob, Py_GE);
 	} else {
 		PyObject *oa = PySequence_GetItem(other, 0);
 		PyObject *ob = PySequence_GetItem(other, 1);
 		if(oa && ob && PySequence_Length(other) == 2) {
-			int result = (PyObject_Compare(sa, oa) <= 0) && (PyObject_Compare(sb, ob) >= 0);
+			int result = PyObject_RichCompareBool(sa, oa, Py_LE) && PyObject_RichCompareBool(sb, ob, Py_GE);
 			Py_DECREF(oa);
 			Py_DECREF(ob);
 			return result;
@@ -208,7 +216,7 @@ static int __contains__(PyObject *self, PyObject *other)
 		Py_XDECREF(oa);
 		Py_XDECREF(ob);
 		PyErr_Clear();
-		return (PyObject_Compare(sa, other) <= 0) && (PyObject_Compare(other, sb) < 0);
+		return PyObject_RichCompareBool(sa, other, Py_LE) && PyObject_RichCompareBool(other, sb, Py_LT);
 	}
 }
 
@@ -224,11 +232,23 @@ static PyObject *disjoint(PyObject *self, PyObject *other)
 	}
 	oa = PyTuple_GET_ITEM(other, 0);
 	ob = PyTuple_GET_ITEM(other, 1);
-	if(PyObject_Compare(sa, ob) > 0)
+	if(PyObject_RichCompareBool(sa, ob, Py_GT))
+#if PY_MAJOR_VERSION < 3
 		return PyInt_FromLong(1);
-	if(PyObject_Compare(sb, oa) < 0)
+#else
+		return PyLong_FromLong(1);
+#endif
+	if(PyObject_RichCompareBool(sb, oa, Py_LT))
+#if PY_MAJOR_VERSION < 3
 		return PyInt_FromLong(-1);
+#else
+		return PyLong_FromLong(-1);
+#endif
+#if PY_MAJOR_VERSION < 3
 	return PyInt_FromLong(0);
+#else
+	return PyLong_FromLong(0);
+#endif
 }
 
 
@@ -254,13 +274,13 @@ static PyObject *__and__(PyObject *self, PyObject *other)
 	sb = PyTuple_GET_ITEM(self, 1);
 	oa = PyTuple_GET_ITEM(other, 0);
 	ob = PyTuple_GET_ITEM(other, 1);
-	if((PyObject_Compare(sb, oa) <= 0) || (PyObject_Compare(sa, ob) >= 0)) {
+	if(PyObject_RichCompareBool(sb, oa, Py_LE) || PyObject_RichCompareBool(sa, ob, Py_GE)) {
 		/* self and other don't intersect */
 		PyErr_SetObject(PyExc_ValueError, other);
 		return NULL;
 	}
-	a = (PyObject_Compare(sa, oa) >= 0) ? sa : oa;
-	b = (PyObject_Compare(sb, ob) <= 0) ? sb : ob;
+	a = PyObject_RichCompareBool(sa, oa, Py_GE) ? sa : oa;
+	b = PyObject_RichCompareBool(sb, ob, Py_LE) ? sb : ob;
 	if((a == sa) && (b == sb)) {
 		/* re-use self */
 		Py_INCREF(self);
@@ -294,13 +314,13 @@ static PyObject *__or__(PyObject *self, PyObject *other)
 	sb = PyTuple_GET_ITEM(self, 1);
 	oa = PyTuple_GET_ITEM(other, 0);
 	ob = PyTuple_GET_ITEM(other, 1);
-	if((PyObject_Compare(sb, oa) < 0) || (PyObject_Compare(sa, ob) > 0)) {
+	if(PyObject_RichCompareBool(sb, oa, Py_LT) || PyObject_RichCompareBool(sa, ob, Py_GT)) {
 		/* self and other are disjoint */
 		PyErr_SetObject(PyExc_ValueError, other);
 		return NULL;
 	}
-	a = (PyObject_Compare(sa, oa) <= 0) ? sa : oa;
-	b = (PyObject_Compare(sb, ob) >= 0) ? sb : ob;
+	a = PyObject_RichCompareBool(sa, oa, Py_LE) ? sa : oa;
+	b = PyObject_RichCompareBool(sb, ob, Py_GE) ? sb : ob;
 	if((a == sa) && (b == sb)) {
 		/* re-use self */
 		Py_INCREF(self);
@@ -334,17 +354,17 @@ static PyObject *__sub__(PyObject *self, PyObject *other)
 	sb = PyTuple_GET_ITEM(self, 1);
 	oa = PyTuple_GET_ITEM(other, 0);
 	ob = PyTuple_GET_ITEM(other, 1);
-	if((PyObject_Compare(sb, oa) <= 0) || (PyObject_Compare(sa, ob) >= 0)) {
+	if(PyObject_RichCompareBool(sb, oa, Py_LE) || PyObject_RichCompareBool(sa, ob, Py_GE)) {
 		/* self and other do not intersect */
 		Py_INCREF(self);
 		return self;
 	}
-	if(__contains__(other, self) || ((PyObject_Compare(sa, oa) < 0) && (PyObject_Compare(sb, ob) > 0))) {
+	if(__contains__(other, self) || (PyObject_RichCompareBool(sa, oa, Py_LT) && PyObject_RichCompareBool(sb, ob, Py_GT))) {
 		/* result is not exactly 1 segment */
 		PyErr_SetObject(PyExc_ValueError, other);
 		return NULL;
 	}
-	if(PyObject_Compare(sa, oa) < 0) {
+	if(PyObject_RichCompareBool(sa, oa, Py_LT)) {
 		a = sa;
 		b = oa;
 	} else {
@@ -410,7 +430,11 @@ static PyNumberMethods as_number = {
 	.nb_add = __or__,
 	.nb_and = __and__,
 	.nb_absolute = __abs__,
+#if PY_MAJOR_VERSION < 3
 	.nb_nonzero = __nonzero__,
+#else
+	.nb_bool = __nonzero__,
+#endif
 	.nb_or = __or__,
 	.nb_subtract = __sub__,
 };
@@ -471,11 +495,19 @@ PyTypeObject segments_Segment_Type = {
 "True\n" \
 ">>> segment(1, 2) in segment(0, 10)\n" \
 "True\n" \
+">>> segment(1, 11) in segment(0, 10)\n" \
+"False\n" \
+">>> segment(0, 1)\n" \
+"segment(0, 1)\n" \
+">>> segment(1, 0)\n" \
+"segment(0, 1)\n" \
+">>> bool(segment(0, 1))\n" \
+"True\n" \
 ">>> bool(segment(0, 0))\n" \
 "False\n" \
 ">>> segment(\"AAA Towing\", \"York University\") & segment(\"Pool\", \"Zoo\")\n" \
 "segment('Pool', 'York University')\n" \
-">>> x = [0, 1]\n" \
+">>> x = [0, 1]	# a list\n" \
 ">>> segment(x)\n" \
 "segment(0, 1)\n" \
 ">>> y = segment(0, 1)\n" \
@@ -488,7 +520,11 @@ PyTypeObject segments_Segment_Type = {
 "True\n" \
 ">>> z[y]\n" \
 "['/path/to/file1', '/path/to/file2']",
-	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES | Py_TPFLAGS_BASETYPE,
+	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE
+#if PY_MAJOR_VERSION < 3
+	| Py_TPFLAGS_CHECKTYPES
+#endif
+	,
 	.tp_methods = methods,
 	.tp_name = MODULE_NAME ".segment",
 	.tp_new = __new__,

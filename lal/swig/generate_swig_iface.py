@@ -168,11 +168,14 @@ for header_name in headers:
         constants[constant_name] = constant
         constant_names[constant_name] = constant_name
 
-    # enumeration constants
+    # enumerations and enumeration constants
     for enum in headers[header_name].findall('enum'):
+        enum_name = get_swig_attr(enum, 'name')
+        if get_swig_attr(enum, 'unnamed') != None:
+            fail("enum '%s' in header '%s' has no tag-name" % (enum_name, header_name))
         for enumitem in enum.findall('enumitem'):
             enumitem_name = get_swig_attr(enumitem, 'name')
-            constants[enumitem_name] = cdecl
+            constants[enumitem_name] = enumitem
             constant_names[enumitem_name] = enumitem_name
 
 # function: build renaming map for symbols, using symbol prefix order
@@ -310,9 +313,6 @@ for header_name in ordered_headers:
     f.write('#include <lal/%s>\n' % header_name)
 f.write('%}\n')
 
-# write name of VCS information check function, called when module is loaded
-f.write('%%header %%{#define VCS_INFO_CHECK X%sVCSInfoCheck%%}\n' % package_name)
-
 # perform symbol renames
 for name in sorted(renames):
     rename = renames[name]
@@ -364,10 +364,10 @@ for header_name in ordered_headers:
         f.write('SWIGLAL_CLEAR(%s);\n' % macro_name)
 f.write('%%include <lal/SWIG%sOmega.i>\n' % package_name)
 
-# create constructors and destructors for structs
+# add extensions to structs, e.g. constructors and destructors
 for struct_name in sorted(tdstructs):
     struct_tagname = tdstruct_names[struct_name]
     struct_opaque = '%i' % (not struct_tagname in structs)
     struct_dtor_function = dtor_functions.get(struct_name, '')
     struct_args = (struct_tagname, struct_opaque, struct_dtor_function)
-    f.write('%%swiglal_struct_create_cdtors(%s)\n' % ','.join(struct_args))
+    f.write('%%swiglal_struct_extend(%s)\n' % ','.join(struct_args))

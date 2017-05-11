@@ -4,6 +4,7 @@
 *.o
 *.pc
 *.pyc
+*.pyman
 *.pyo
 .deps
 .libs
@@ -14,6 +15,7 @@ AUTHORS
 Makefile
 Makefile.in
 config.lt
+debian/control
 doxygen/autogen.dox
 doxygen/doxygen.cfg
 doxygen/doxygen_objdb_*.tmp
@@ -27,6 +29,7 @@ include/lal/*.i
 include/lal/header-link-stamp
 laldetchar-*.tar.xz
 laldetchar-user-env.csh
+laldetchar-user-env.fish
 laldetchar-user-env.sh
 laldetchar-user-env.shell
 laldetchar.spec
@@ -64,7 +67,7 @@ python/laldetchar/__init__.py
 python/laldetchar/_laldetchar*
 python/laldetchar/git_version.py
 python/laldetchar/laldetchar.py
-src/LALDetCharBuildInfo.c
+src/LALDetCharBuildInfoHeader.h
 src/LALDetCharConfig.h
 src/LALDetCharVCSInfo.c
 src/LALDetCharVCSInfo.h
@@ -72,6 +75,8 @@ src/LALDetCharVCSInfoHeader.h
 src/config.h
 src/config.h.in
 src/laldetchar-hveto
+src/laldetchar_version
 src/stamp-h1
 src/stamp-h2
+src/version.c
 swig/swiglal*

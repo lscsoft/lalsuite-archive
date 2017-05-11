@@ -33,10 +33,9 @@ try:
     import pyRXP
 except ImportError:
     import pyRXPU as pyRXP
-import exceptions
 import socket
-import SocketServer
-import cPickle
+import six.moves.socketserver
+import six.moves.cPickle
 from glue import ldbd
 try:
   import rlsClient
@@ -110,7 +109,7 @@ def shutdown():
   del dmt_proc_dict
   del dmt_seg_def_dict
 
-class ServerHandlerException(exceptions.Exception):
+class ServerHandlerException(Exception):
   """
   Class representing exceptions within the ServerHandler class.
   """
@@ -124,7 +123,7 @@ class ServerHandlerException(exceptions.Exception):
     """
     self.args = args
         
-class ServerHandler(SocketServer.BaseRequestHandler):
+class ServerHandler(six.moves.socketserver.BaseRequestHandler):
   """
   An instance of this class is created to service each request of the server.
   """
@@ -186,7 +185,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       methodString = stringList[0]
       argStringList = stringList[1:-1]
                         
-    except Exception, e:
+    except Exception as e:
       logger.error("Error parsing method and argument string: %s" % e)
 
       msg = "ERROR LDBDServer Error: " + \
@@ -218,7 +217,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
            logger.error(msg) 
            self.__reply__(1,msg)
            raise ServerHandlerException(msg)
-    except Exception, e:
+    except Exception as e:
       logger.error("Error filtering allowed commands: %s" % e) 
       return
 
@@ -226,7 +225,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     try:
       # look up method in dictionary
       method = methodDict[methodString]
-    except Exception, e:
+    except Exception as e:
       msg = "Error converting method string %s to method call: %s" % \
         (methodString, e)
       logger.error(msg)
@@ -238,7 +237,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       # call the method requested with the rest of strings as input
       result = method(argStringList) 
       self.__reply__( result[0], result[1] )
-    except Exception, e:
+    except Exception as e:
       logger.error("Error while calling method %s: %s" % (methodString, e))
 
     return
@@ -278,7 +277,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     try:
       hostname = socket.getfqdn()
       msg = "%s at %s is alive" % (__name__, hostname)
-    except Exception, e:
+    except Exception as e:
       msg = "%s is alive" % __name__
 
     return (0, msg)
@@ -314,14 +313,14 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
       logger.debug("Method query: %d rows returned" % rowcount)
       code = 0
-    except Exception, e:
+    except Exception as e:
       result = ("Error querying metadata database: %s" % e)
       logger.error(result)
 
     try:
       del ligomd
       del lwtparser
-    except Exception, e:
+    except Exception as e:
       logger.error(
         "Error deleting metadata object in method query: %s" % e)
 
