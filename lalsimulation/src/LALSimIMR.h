@@ -121,7 +121,8 @@ int XLALSimIMRSpinEOBWaveform(
                               const REAL8     inc,
                               const REAL8     spin1[],
                               const REAL8     spin2[],
-                              const UINT4     PrecEOBversion
+                              const UINT4     PrecEOBversion,
+                              const REAL8    fOut
                               );
 
 int XLALSimIMRSpinEOBWaveformAll(
@@ -146,7 +147,8 @@ int XLALSimIMRSpinEOBWaveformAll(
                                  const REAL8     INspin2x,
                                  const REAL8     INspin2y,
                                  const REAL8     INspin2z,
-                                 const UINT4     PrecEOBversion
+                                 const UINT4     PrecEOBversion,
+                                 const REAL8    fOut
                                  );
 
 /* in module LALSimIMREOBNRv2HMROM.c */

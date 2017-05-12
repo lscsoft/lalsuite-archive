@@ -31,7 +31,8 @@ static int EulerAnglesI2P(REAL8Vector *Alpha, /**<< output: alpha Euler angle */
                  const UINT4 retLenLow, /**<< Array length of the trajectory */
                  const REAL8 InitialAlpha, /**<< Initial alpha (used only if flag_highSR=1) */
                  const REAL8 InitialGamma, /**<< Initial gamma */
-                 UINT4 flag_highSR /**<< Flag to indicate whether one is analyzing the high SR trajectory */) {
+                 UINT4 flag_highSR, /**<< Flag to indicate whether one is analyzing the high SR trajectory */
+                 UINT4 backInt) {
     UINT4 i = 0;
     REAL8Vector *LN_x = NULL, *LN_y = NULL, *LN_z = NULL;
     REAL8 tmpR[3], tmpRdot[3], magLN;
@@ -63,6 +64,11 @@ static int EulerAnglesI2P(REAL8Vector *Alpha, /**<< output: alpha Euler angle */
         tmpRdot[0] = gsl_spline_eval_deriv( x_spline, tVec.data[i], x_acc );
         tmpRdot[1] = gsl_spline_eval_deriv( y_spline, tVec.data[i], y_acc );
         tmpRdot[2] = gsl_spline_eval_deriv( z_spline, tVec.data[i], z_acc );
+        if ( backInt==1 ) {
+                      tmpRdot[0] *= -1.0;
+                      tmpRdot[1] *= -1.0;
+                      tmpRdot[2] *= -1.0;
+        }
 
         LN_x->data[i] = tmpR[1] * tmpRdot[2] - tmpR[2] * tmpRdot[1];
         LN_y->data[i] = tmpR[2] * tmpRdot[0] - tmpR[0] * tmpRdot[2];
@@ -80,16 +86,24 @@ static int EulerAnglesI2P(REAL8Vector *Alpha, /**<< output: alpha Euler angle */
         } else {
             Alpha->data[i] = atan2( LN_y->data[i], LN_x->data[i] )
                              +  *phaseCounterA * LAL_TWOPI;
+            if (backInt==0) {
+                                Alpha->data[i] = atan2( LN_y->data[i], LN_x->data[i] )
+                                +  *phaseCounterA * LAL_TWOPI;
+            }
+            else {
+                                Alpha->data[i] = atan2( LN_y->data[i], LN_x->data[i] )
+                                -  *phaseCounterA * LAL_TWOPI;
+            }
             if (i==0 && flag_highSR != 1){
                 inGamma = -Alpha->data[i];
             }
         }
 
-        if( i>0 && Alpha->data[i] - Alpha->data[i-1] > 5. ) {
+        if( i>0 && Alpha->data[i] - Alpha->data[i-1] > 6. ) {
             *phaseCounterA = *phaseCounterA - 1;
             Alpha->data[i] -= LAL_TWOPI;
         }
-        else if ( i && Alpha->data[i] - Alpha->data[i-1] < -5. ) {
+        else if ( i && Alpha->data[i] - Alpha->data[i-1] < -6. ) {
             *phaseCounterA = *phaseCounterA + 1;
             Alpha->data[i] += LAL_TWOPI;
         }

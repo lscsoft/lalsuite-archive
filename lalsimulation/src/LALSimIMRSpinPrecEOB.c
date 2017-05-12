@@ -170,6 +170,40 @@ XLALPrintError("--approximant SEOBNRv3 --f-min %.16e --m1 %.16e --m2 %.16e --spi
 } while(0);
 
 /**
+* Stopping conditions for backwards integration for SEOBNRv3
+*/
+UNUSED static int XLALEOBSpinPrecStopConditionBackward(double UNUSED t,
+                                                                            const double values[],
+                                                                            double dvalues[],
+                                                                            void UNUSED *funcParams
+                                                                            )
+{
+        int debugPK = 0;
+        SpinEOBParams *params = (SpinEOBParams *)funcParams;
+    
+        REAL8 r2;
+        REAL8 r[3];
+        REAL8 omega, omega_xyz[3];
+    
+        memcpy( r, values, 3*sizeof(REAL8));
+    
+        r2 = inner_product(r,r);
+        cross_product( values, dvalues, omega_xyz );
+        omega = sqrt(inner_product( omega_xyz, omega_xyz )) / r2;
+    
+        if ( omega <= params->omegaOut )
+            {
+                    if(debugPK){
+                            XLAL_PRINT_INFO("\n Reached fOut\n");
+                            fflush(NULL);
+                        }
+                    return 1;
+                }
+        return GSL_SUCCESS;
+    }
+
+
+/**
  * Stopping conditions for dynamics integration for SEOBNRv3
  */
 UNUSED static int
@@ -436,7 +470,8 @@ int XLALSimIMRSpinEOBWaveform(
         const REAL8     inc, /**<< inclination angle */
         const REAL8     INspin1[],  /**<< spin1 */
         const REAL8     INspin2[], /**<< spin2 */
-        const UINT4     PrecEOBversion /**<< Precessing EOB waveform generator model */ // David new
+        const UINT4     PrecEOBversion, /**<< Precessing EOB waveform generator model */ // David new
+        const REAL8     fOut
      )
 
 {
@@ -453,7 +488,7 @@ int XLALSimIMRSpinEOBWaveform(
     SphHarmTimeSeries *hIMR = NULL;
 
     ret = XLALSimIMRSpinEOBWaveformAll(hplus, hcross, &dynamicsHi, &hlmPTSout, &hlmPTSHi, &hIMRlmJTSHi, &hIMR, &AttachPars,
-                                       phiC, deltaT, m1SI, m2SI, fMin, r, inc, INspin1[0], INspin1[1], INspin1[2], INspin2[0], INspin2[1], INspin2[2], PrecEOBversion); // David new
+                                       phiC, deltaT, m1SI, m2SI, fMin, r, inc, INspin1[0], INspin1[1], INspin1[2], INspin2[0], INspin2[1], INspin2[2], PrecEOBversion, fOut); // David new
     if (ret == XLAL_SUCCESS){
         if (*hplus == NULL || *hcross == NULL){
              XLALPrintError("Houston-2, we've got a problem SOS, SOS, SOS, the waveform generator returns NULL!!!... m1 = %.18e, m2 = %.18e, fMin = %.18e, inclination = %.18e,   spin1 = {%.18e, %.18e, %.18e},   spin2 = {%.18e, %.18e, %.18e} \n", 
@@ -545,10 +580,22 @@ int XLALSimIMRSpinEOBWaveformAll(
         const REAL8     INspin2x,   /**<< spin2 x-component */
         const REAL8     INspin2y,   /**<< spin2 y-component */
         const REAL8     INspin2z,    /**<< spin2 z-component */
-        const UINT4     PrecEOBversion /**<< Precessing EOB waveform generator model */ // David new
+        const UINT4      PrecEOBversion, /**<< Precessing EOB waveform generator model */ // David new
+        const REAL8     fOut
      )
 
 {
+    INT4 backInt = 0;
+    if ( fOut != 0. ) {
+        if ( fOut < fMin ) {
+            backInt = 1;
+        }
+        else {
+            XLAL_PRINT_INFO("fOut must be smaller than fMin!\n");
+            XLAL_ERROR(  XLAL_EDOM );
+        }
+    }
+    
   REAL8 INspin1[3], INspin2[3];
   INspin1[0] = INspin1x;
   INspin1[1] = INspin1y;
@@ -557,7 +604,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   INspin2[1] = INspin2y;
   INspin2[2] = INspin2z;
 
-  INT4 debugPK = 0, debugCustomIC = 0, debugNoNQC = 0;
+  INT4 debugPK = 1, debugCustomIC = 0, debugNoNQC = 0;
   INT4 debugRD = 0;
   FILE *out = NULL;
   INT4 i=0;
@@ -1285,6 +1332,19 @@ int XLALSimIMRSpinEOBWaveformAll(
   /* Initial phases */
   values->data[12] = 0.;
   values->data[13] = 0.;
+    
+    if ( backInt==1 ) {
+        values->data[3] = -values->data[3];
+        values->data[4] = -values->data[4];
+        values->data[5] = -values->data[5];
+        values->data[6] = -values->data[6];
+        values->data[7] = -values->data[7];
+        values->data[8] = -values->data[8];
+        values->data[9] = -values->data[9];
+        values->data[10] = -values->data[10];
+        values->data[11] = -values->data[11];
+    }
+    seobParams.omegaOut = LAL_PI*fOut*mTScaled;
 
   if(debugCustomIC) {
       /* Hardcode initial conditions for debugging purposes here */
@@ -1558,6 +1618,12 @@ int XLALSimIMRSpinEOBWaveformAll(
         XLAL_ERROR(  XLAL_ENOMEM );
     }
     memset( valuesV2->data, 0, valuesV2->length * sizeof( REAL8 ));
+    
+    REAL8 InitialAlpha = 0.;
+    REAL8 InitialGamma = 0.5*LAL_PI;
+    INT4 flag_highSR = 0;
+    backLabel: ;
+    
     /* If spins are almost aligned with LNhat, use SEOBNRv2 dynamics */
     if ( SpinsAlmostAligned ) {
         /* In SEOBNRv2 the dynamical variables are r, phi, p_r^*, p_phi */
@@ -1585,11 +1651,20 @@ int XLALSimIMRSpinEOBWaveformAll(
         seobParams.alignedSpins = 0;
     } else {
       if (use_optimized && PrecEOBversion == 300) {
-        integrator = XLALAdaptiveRungeKutta4InitEighthOrderInstead(14, XLALSpinPrecHcapExactDerivative, XLALEOBSpinPrecStopConditionBasedOnPR, EPS_ABS, EPS_REL);
+          if ( backInt == 0 ) {
+              integrator = XLALAdaptiveRungeKutta4InitEighthOrderInstead(14, XLALSpinPrecHcapExactDerivative, XLALEOBSpinPrecStopConditionBasedOnPR, EPS_ABS, EPS_REL);
+          } else {
+              integrator = XLALAdaptiveRungeKutta4InitEighthOrderInstead(14, XLALSpinPrecHcapExactDerivative, XLALEOBSpinPrecStopConditionBackward, EPS_ABS, EPS_REL); }
       } else if (use_optimized && PrecEOBversion == 304) {
-        integrator = XLALAdaptiveRungeKutta4Init(14, XLALSpinPrecHcapExactDerivative, XLALEOBSpinPrecStopConditionBasedOnPR, EPS_ABS, EPS_REL);
+          if ( backInt == 0 ) {
+              integrator = XLALAdaptiveRungeKutta4Init(14, XLALSpinPrecHcapExactDerivative, XLALEOBSpinPrecStopConditionBasedOnPR, EPS_ABS, EPS_REL);
+          } else {
+              integrator = XLALAdaptiveRungeKutta4Init(14, XLALSpinPrecHcapExactDerivative, XLALEOBSpinPrecStopConditionBackward, EPS_ABS, EPS_REL);}
       } else {
-        integrator = XLALAdaptiveRungeKutta4Init(14, XLALSpinPrecHcapNumericalDerivative, XLALEOBSpinPrecStopConditionBasedOnPR, EPS_ABS, EPS_REL);
+          if ( backInt == 0 ) {
+              integrator = XLALAdaptiveRungeKutta4Init(14, XLALSpinPrecHcapNumericalDerivative, XLALEOBSpinPrecStopConditionBasedOnPR, EPS_ABS, EPS_REL);
+          } else {
+              integrator = XLALAdaptiveRungeKutta4Init(14, XLALSpinPrecHcapNumericalDerivative, XLALEOBSpinPrecStopConditionBackward, EPS_ABS, EPS_REL);}
       }
       if (!integrator)
       {
@@ -1729,7 +1804,12 @@ int XLALSimIMRSpinEOBWaveformAll(
 
   if (debugPK) {
     /* Write the dynamics to file */
-    out = fopen( "seobDynamics.dat", "w" );
+  if ( backInt ==0 ) {
+                  out = fopen( "seobDynamics.dat", "w" );
+    }
+    else {
+                  out = fopen( "seobDynamicsBWD.dat", "w" );
+    }
     for ( i = 0; i < retLenLow; i++ )
     {
        //YP: output orbital phase and phase modulation separately, instead of their sum
@@ -1800,6 +1880,10 @@ int XLALSimIMRSpinEOBWaveformAll(
   seobParams.prev_dr=0.;
   /* For HiSR evolution, we stop whenver XLALEOBSpinPrecStopConditionBasedOnPR is triggered */
   integrator->stop = XLALEOBSpinPrecStopConditionBasedOnPR;
+    if ( backInt == 0 ) {
+        integrator->stop = XLALEOBSpinPrecStopConditionBasedOnPR;
+    } else {
+       integrator->stop = XLALEOBSpinPrecStopConditionBackward;}
 
   REAL8Vector rVecHi, phiVecHi, prVecHi, pPhiVecHi;
   rVecHi.length = phiVecHi.length = prVecHi.length = pPhiVecHi.length = 0;
@@ -1960,13 +2044,61 @@ int XLALSimIMRSpinEOBWaveformAll(
       Alpha = XLALCreateREAL8Vector( retLenEOMLow );
       Beta  = XLALCreateREAL8Vector( retLenEOMLow );
       Gamma = XLALCreateREAL8Vector( retLenEOMLow );
-      EulerAnglesI2P(Alpha, Beta, Gamma, &phaseCounterA, &phaseCounterB, *tVecEOM, *posVecxEOM, *posVecyEOM, *posVeczEOM, retLenEOMLow, 0., 0.5*LAL_PI, 0);
+      EulerAnglesI2P(Alpha, Beta, Gamma, &phaseCounterA, &phaseCounterB, *tVecEOM, *posVecxEOM, *posVecyEOM, *posVeczEOM, retLenEOMLow, 0., 0.5*LAL_PI, 0, backInt);
     } else {
       Alpha = XLALCreateREAL8Vector( retLenLow );
       Beta  = XLALCreateREAL8Vector( retLenLow );
       Gamma = XLALCreateREAL8Vector( retLenLow );
-      EulerAnglesI2P(Alpha, Beta, Gamma, &phaseCounterA, &phaseCounterB, tVec, posVecx, posVecy, posVecz, retLenLow, 0., 0.5*LAL_PI, 0);
+      EulerAnglesI2P(Alpha, Beta, Gamma, &phaseCounterA, &phaseCounterB, tVec, posVecx, posVecy, posVecz, retLenLow, 0., 0.5*LAL_PI, 0, backInt);
     }
+    if ( backInt == 1 ) {
+                for ( i = retLenLow-1; i < retLenLow; i++ )
+                    {
+                            for ( j = 0; j < values->length; j++ )
+                                {
+                                        values->data[j] = dynamics->data[(j+1)*retLenLow + i];
+                                    }
+                        }
+                values->data[3] = -values->data[3];
+                values->data[4] = -values->data[4];
+                values->data[5] = -values->data[5];
+                values->data[6] = -values->data[6];
+                values->data[7] = -values->data[7];
+                values->data[8] = -values->data[8];
+                values->data[9] = -values->data[9];
+                values->data[10] = -values->data[10];
+                values->data[11] = -values->data[11];
+                values->data[12] = -values->data[12] ;
+                values->data[13] = -values->data[13] ;
+                seobParams.omegaOut = 0.;
+                backInt = 0;
+                InitialAlpha = -Alpha->data[Alpha->length-1];
+                InitialGamma = -Gamma->data[Gamma->length-1];
+        //        phaseCounterA = 0;
+                printf("Backward integration %.16e\n",  dynamics->data[retLenLow-1]);
+                printf("InitialAlpha %.16e\n",  InitialAlpha);
+                printf("InitialGamma %.16e\n",  InitialGamma);
+                flag_highSR = 1;
+                if (debugPK){
+                        XLAL_PRINT_INFO("Writing Alpha and Beta angle timeseries at low SR to alphaANDbetaBWD.dat\n" );
+                        fflush(NULL);
+                        out = fopen( "alphaANDbetaBWD.dat","w");
+                        for( i = 0; i < retLenLow; i++ ) {
+                                fprintf( out, "%.16e %.16e %.16e\n", tVec.data[i], Alpha->data[i], Beta->data[i]);
+                            }
+                        fclose(out);
+            
+                        XLAL_PRINT_INFO("Writing Gamma angle timeseries at low SR to gammaBWD.dat\n");
+                        fflush(NULL);
+                        out = fopen( "gammaBWD.dat","w");
+                        for( i = 0; i < retLenLow; i++ ) {
+                                fprintf( out, "%.16e %.16e\n",  tVec.data[i], Gamma->data[i]);
+                        }
+                    fclose(out);
+            }
+        goto backLabel;
+    }
+
     if (debugPK){
         XLAL_PRINT_INFO("Writing Alpha and Beta angle timeseries at low SR to alphaANDbeta.dat\n" );
         fflush(NULL);
@@ -2031,9 +2163,9 @@ int XLALSimIMRSpinEOBWaveformAll(
       gsl_interp_accel_free(beta_acc);
       gsl_integration_workspace_free(precEulerw);
 
-      EulerAnglesI2P(AlphaHi, BetaHi, GammaHi, &phaseCounterA, &phaseCounterB, timeHi, posVecxHi, posVecyHi, posVeczHi, retLenHi, alphaHiSRndx, gammaHiSRndx, 1);
+      EulerAnglesI2P(AlphaHi, BetaHi, GammaHi, &phaseCounterA, &phaseCounterB, timeHi, posVecxHi, posVecyHi, posVeczHi, retLenHi, alphaHiSRndx, gammaHiSRndx, 1, backInt);
     } else {
-      EulerAnglesI2P(AlphaHi, BetaHi, GammaHi, &phaseCounterA, &phaseCounterB, timeHi, posVecxHi, posVecyHi, posVeczHi, retLenHi, Alpha->data[hiSRndx], Gamma->data[hiSRndx], 1);
+      EulerAnglesI2P(AlphaHi, BetaHi, GammaHi, &phaseCounterA, &phaseCounterB, timeHi, posVecxHi, posVecyHi, posVeczHi, retLenHi, Alpha->data[hiSRndx], Gamma->data[hiSRndx], 1, backInt);
     }
 
     if (debugPK){
@@ -2173,6 +2305,11 @@ int XLALSimIMRSpinEOBWaveformAll(
   Jx = eta*Lx + values->data[6] + values->data[9];
   Jy = eta*Ly + values->data[7] + values->data[10];
   Jz = eta*Lz + values->data[8] + values->data[11];
+    if ( backInt==1 ) {
+        Jx = -Jx;
+        Jy = -Jy;
+        Jz = -Jz;
+    }
   magJ = sqrt( Jx*Jx + Jy*Jy + Jz*Jz );
 
   if(debugPK){
@@ -3494,18 +3631,25 @@ int XLALSimIMRSpinEOBWaveformAll(
       sigReHi->data[i] = creal(hJTSHi->data->data[i]);
       sigImHi->data[i] = cimag(hJTSHi->data->data[i]);
     }
-    if ( XLALSimIMREOBHybridAttachRingdownPrec( sigReHi, sigImHi, 2, m,
-                deltaTHigh, m1, m2, 0.0, 0.0, chi1L, 0.0, 0.0, chi2L,
-                &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL )
-            == XLAL_FAILURE ) {
-        FREE_EVERYTHING
-        XLALDestroyREAL8Vector( timeJFull );
-        XLALDestroyREAL8Vector( timeIFull );
-        XLALDestroyREAL8Vector( tlistRDPatch );
-        XLALDestroyREAL8Vector( tlistRDPatchHi );
-        XLALPrintError("XLALSimIMREOBHybridAttachRingdownPrec failed!\n");
-        PRINT_PARAMS
-        XLAL_ERROR( XLAL_EDOM );
+    if ( backInt==0 ) {
+        if ( XLALSimIMREOBHybridAttachRingdownPrec( sigReHi, sigImHi, 2, m,
+                    deltaTHigh, m1, m2, 0.0, 0.0, chi1L, 0.0, 0.0, chi2L,
+                    &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL )
+                == XLAL_FAILURE ) {
+            FREE_EVERYTHING
+            XLALDestroyREAL8Vector( timeJFull );
+            XLALDestroyREAL8Vector( timeIFull );
+            XLALDestroyREAL8Vector( tlistRDPatch );
+            XLALDestroyREAL8Vector( tlistRDPatchHi );
+            XLALPrintError("XLALSimIMREOBHybridAttachRingdownPrec failed!\n");
+            PRINT_PARAMS
+            XLAL_ERROR( XLAL_EDOM );
+        }
+    } else {
+        for ( i = 0; i < retLenHi + retLenRDPatchHi; i++ ) {
+            sigReHi->data[i] = 0.;
+            sigImHi->data[i] = 0.;
+        }
     }
 
     for ( i = 0; i < (int)sigReHi->length; i++ )

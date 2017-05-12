@@ -823,13 +823,13 @@ int XLALSimInspiralChooseTDWaveform(
             if(approximant==SEOBNRv3_pert) {
               const double m1pert = m1*(1.0 + 1e-15);
               ret = XLALSimIMRSpinEOBWaveform(hplus, hcross, /*&epoch,*/ phiRef,
-                                              deltaT, m1pert, m2, f_min, distance, inclination, spin1, spin2, PrecEOBversion);
+                                              deltaT, m1pert, m2, f_min, distance, inclination, spin1, spin2, PrecEOBversion, f_ref);
 
             } else {
               if(approximant==SEOBNRv3_opt) PrecEOBversion = 300;
               if(approximant==SEOBNRv3_opt_rk4) PrecEOBversion = 304;
               ret = XLALSimIMRSpinEOBWaveform(hplus, hcross, /*&epoch,*/ phiRef,
-                                              deltaT, m1, m2, f_min, distance, inclination, spin1, spin2, PrecEOBversion);
+                                              deltaT, m1, m2, f_min, distance, inclination, spin1, spin2, PrecEOBversion, f_ref);
             }
             break;
 
@@ -6140,7 +6140,7 @@ int XLALSimInspiralChooseTDWaveformOLD(
             spin2[0] = S2x; spin2[1] = S2y; spin2[2] = S2z;
             PrecEOBversion = 3;
             ret = XLALSimIMRSpinEOBWaveform(hplus, hcross, /*&epoch,*/ phiRef,
-                                            deltaT, m1, m2, f_min, distance, inclination, spin1, spin2, PrecEOBversion);
+                                            deltaT, m1, m2, f_min, distance, inclination, spin1, spin2, PrecEOBversion, f_ref);
             break;
 
         case SEOBNRv4_opt:
