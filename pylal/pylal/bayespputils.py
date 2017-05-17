@@ -5557,6 +5557,7 @@ def find_ndownsample(samples, nDownsample):
     if nDownsample is not None:
         if len(samples) > nDownsample:
             nskip *= floor(len(samples)/nDownsample)
+            nskip = int(nskip)
 
     else:
         nEff = nEffective

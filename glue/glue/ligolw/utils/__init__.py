@@ -424,7 +424,7 @@ def load_url(url, verbose = False, **kwargs):
 	if url is not None:
 		scheme, host, path = urllib.parse.urlparse(url)[:3]
 		if scheme.lower() in ("", "file") and host.lower() in ("", "localhost"):
-			fileobj = open(path)
+			fileobj = open(path, "rb")
 		else:
 			fileobj = urllib.request.urlopen(url)
 	else:

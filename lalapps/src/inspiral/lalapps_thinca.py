@@ -1,4 +1,3 @@
-#!/usr/bin/python
 #
 # Copyright (C) 2008--2017  Kipp Cannon
 #
@@ -37,16 +36,15 @@ from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import segments as ligolw_segments
 from glue import segmentsUtils
 import lal
-from pylal import git_version
-from pylal import ligolw_thinca
+from lalinspiral import thinca
 
 
 lsctables.use_in(ligolw.LIGOLWContentHandler)
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
-__version__ = "git id %s" % git_version.id
-__date__ = git_version.date
+from lalapps.git_version import date as __date__
+from lalapps.git_version import version as __version__
 
 
 #
@@ -54,7 +52,7 @@ __date__ = git_version.date
 #
 
 
-lsctables.SnglInspiralTable.RowType = lsctables.SnglInspiral = ligolw_thinca.SnglInspiral
+lsctables.SnglInspiralTable.RowType = lsctables.SnglInspiral = thinca.SnglInspiral
 
 
 #
@@ -68,7 +66,7 @@ lsctables.SnglInspiralTable.RowType = lsctables.SnglInspiral = ligolw_thinca.Sng
 
 def parse_command_line():
 	parser = OptionParser(
-		version = "Name: %%prog\n%s" % git_version.verbose_msg,
+		version = "Name: %%prog\n%s" % __version__,
 		usage = "%prog [options] [file ...]",
 		description = "%prog implements the inspiral coincidence algorithm for use in performing trigger-based multi-instrument searches for gravitational wave events.  The LIGO Light Weight XML files listed on the command line are processed one by one in order, and over-written with the results.  If no files are named, then input is read from stdin and output written to stdout.  Gzipped files will be autodetected on input, if a file's name ends in \".gz\" it will be gzip-compressed on output."
 	)
@@ -121,7 +119,7 @@ def parse_command_line():
 #
 
 
-process_program_name = u"ligolw_thinca"
+process_program_name = u"lalapps_thinca"
 
 
 #
@@ -153,9 +151,9 @@ if options.coinc_end_time_segs is not None:
 		Return False (ntuple should be retained) if the end time of
 		the coinc is in the segmentlist segs.
 		"""
-		return ligolw_thinca.coinc_inspiral_end_time(events, offset_vector) not in seg
+		return thinca.coinc_inspiral_end_time(events, offset_vector) not in seg
 else:
-	ntuple_comparefunc = ligolw_thinca.InspiralCoincTables.ntuple_comparefunc
+	ntuple_comparefunc = thinca.InspiralCoincTables.ntuple_comparefunc
 
 
 #
@@ -233,10 +231,10 @@ for n, filename in enumerate(filenames, start = 1):
 	# Run coincidence algorithm.
 	#
 
-	ligolw_thinca.ligolw_thinca(
+	thinca.ligolw_thinca(
 		xmldoc,
 		process_id = process.process_id,
-		coinc_definer_row = ligolw_thinca.InspiralCoincDef,
+		coinc_definer_row = thinca.InspiralCoincDef,
 		thresholds = options.threshold,
 		ntuple_comparefunc = ntuple_comparefunc,
 		veto_segments = vetoes,

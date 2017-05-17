@@ -8,14 +8,14 @@
 
 Name: 		glue
 Summary:	The Grid LSC User Environment
-Version:	1.55.2
+Version:	1.56.0
 Release:	1%{?dist}
 License:	None
 Group:		Development/Libraries
 Source:		lscsoft-%{name}-%{version}.tar.gz
 Url:		http://www.lsc-group.phys.uwm.edu/daswg/projects/glue.html
 BuildRoot:	%{_tmppath}/%{name}-%{version}-root
-Requires:	python-cjson m2crypto python-six glue-common glue-segments python >= 2.6
+Requires:	python-cjson pyOpenSSL python-six glue-common glue-segments glue-ligolw-tools python >= 2.6
 BuildRequires:  python-devel, python-setuptools
 Prefix:         %{_glue_prefix}
 %description
@@ -36,6 +36,13 @@ Requires:       python glue-common
 %description segments
 This is for the segments subpackage, written by Kipp.
 
+%package ligolw-tools
+Summary:        The Grid LSC User Environment XML tools
+Group:          Development/Libraries
+Requires:       glue
+%description ligolw-tools
+Selected XML tools
+
 %prep
 %setup -n lscsoft-%{name}-%{version}
 
@@ -48,7 +55,7 @@ rm -rf %{buildroot}
         --skip-build \
         --root=%{buildroot} \
         --prefix=%{_glue_prefix}
-rm -rf $RPM_BUILD_ROOT/usr/lib64/python2.?/site-packages/glue-1.55.2-py2.?.egg-info
+rm -rf $RPM_BUILD_ROOT/usr/lib64/python2.?/site-packages/glue-1.56.0-py2.?.egg-info
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -57,6 +64,10 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root)
 %{glue_python_sitearch}/glue/
 %{_glue_prefix}/bin/*
+%exclude %{_glue_prefix}/bin/ligolw_add
+%exclude %{_glue_prefix}/bin/ligolw_cut
+%exclude %{_glue_prefix}/bin/ligolw_print
+%exclude %{_glue_prefix}/bin/ligolw_sqlite
 %exclude %{_glue_prefix}/etc/
 %exclude %{_glue_prefix}/var/
 %exclude %{_glue_prefix}/share/nmi/lalsuite-build*
@@ -92,7 +103,16 @@ rm -rf $RPM_BUILD_ROOT
 %{glue_python_sitearch}/glue/git_version.py
 %{glue_python_sitearch}/glue/git_version.pyc
 
+%files ligolw-tools
+%{_glue_prefix}/bin/ligolw_add
+%{_glue_prefix}/bin/ligolw_cut
+%{_glue_prefix}/bin/ligolw_print
+%{_glue_prefix}/bin/ligolw_sqlite
+
 %changelog
+* Thu Apr 13 2017 Duncan Macleod <duncan.macleod@ligo.org>
+- Switched dependency from M2Crypto -> pyOpenSSL.
+
 * Fri Apr 7 2017 Ryan Fisher <ryan.fisher@ligo.org>
 - Added install_requires for pip installations.
 

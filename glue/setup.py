@@ -39,7 +39,7 @@ from distutils import log
 
 from misc import generate_vcs_info as gvcsi
 
-ver = "1.55.2"
+ver = "1.56.0"
 
 def remove_root(path,root):
   if root:
@@ -227,7 +227,7 @@ setup(
   url = "http://www.lsc-group.phys.uwm.edu/daswg/",
   license = 'See file LICENSE',
   packages = [ 'glue', 'glue.ligolw', 'glue.ligolw.utils', 'glue.segmentdb', 'glue.nmi', 'glue.auth'],
-  install_requires=['six','M2Crypto','numpy'],
+  install_requires=['six','pyOpenSSL','numpy'],
   cmdclass = {
     'build_py' : glue_build_py,
     'install' : glue_install,
