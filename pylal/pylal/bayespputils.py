@@ -6186,13 +6186,13 @@ class PEOutputParser(object):
                         print "WARNING: All samples in chain are correlated.  Downsampling to 10000 samples for inspection!!!"
                         nskip = find_ndownsample(samples, 10000)
                         samples = samples[::nskip]
+                else:
+                    if np.isnan(nskip):
+                        print "WARNING: All samples in {} are correlated.".format(infile)
+                        samples = samples[-1:]
                     else:
-                        if np.isnan(nskip):
-                            print "WARNING: All samples in {} are correlated.".format(infile)
-                            samples = samples[-1:]
-                        else:
-                            print "Downsampling by a factor of ", nskip, " to achieve approximately ", nDownsample, " posterior samples"
-                            samples = samples[::nskip]
+                        print "Downsampling by a factor of ", nskip, " to achieve approximately ", nDownsample, " posterior samples"
+                        samples = samples[::nskip]
 
         return samples
 
