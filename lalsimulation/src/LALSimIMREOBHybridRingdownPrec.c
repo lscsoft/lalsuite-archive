@@ -13,6 +13,9 @@
  * between the two models in ring-down waveform is the pseudo-QNM introduced
  * in the latter (see Taracchini et al. PRD 86, 024011 (2012) for more details).
  */
+#ifndef _LALSIMIMREOBHYBRIDRINGDOWNPREC_C
+#define _LALSIMIMREOBHYBRIDRINGDOWNPREC_C
+
 #include <math.h>
 #include <complex.h>
 #include <stdlib.h>
@@ -30,8 +33,6 @@
 #include "LALSimIMREOBNQCCorrection.c"
 //#include "LALSimIMREOBHybridRingdown.c"
 
-#ifndef _LALSIMIMREOBHYBRIDRINGDOWNPREC_C
-#define _LALSIMIMREOBHYBRIDRINGDOWNPREC_C
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -458,7 +459,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 		XLALDestroyCOMPLEX16Vector(modefreqs);
 		XLAL_ERROR(XLAL_EFUNC);
 	}
-	if (approximant == SEOBNRv3) {
+	if (approximant == SEOBNRv3 || approximant == SEOBNRv3_opt) {
 
         if (JLN > 0){
             mHere = (int)fabs((REAL8) m);
@@ -502,7 +503,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 		/* Replace the last QNM with pQNM */
 		/* We assume aligned/antialigned spins here */
 		a = (spin1[2] + spin2[2]) / 2. * (1.0 - 2.0 * eta) + (spin1[2] - spin2[2]) / 2. * (mass1 - mass2) / (mass1 + mass2);
-		NRPeakOmega22 = GetNRSpinPeakOmega(l, m, eta, a) / mTot;
+		NRPeakOmega22 = XLALSimIMREOBGetNRSpinPeakOmega(l, m, eta, a) / mTot;
 		/*
 		 * XLAL_PRINT_INFO("a and NRomega in QNM freq: %.16e %.16e %.16e %.16e
 		 * %.16e\n",spin1[2],spin2[2],
@@ -523,7 +524,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 			 * T1400476-v3.
 			 */
 			a = (spin1[2] + spin2[2]) / 2. * (1.0 - 2.0 * eta) + (spin1[2] - spin2[2]) / 2. * (mass1 - mass2) / (mass1 + mass2);
-			NRPeakOmega22 = GetNRSpinPeakOmegav2(l, m, eta, a) / mTot;
+			NRPeakOmega22 = XLALSimIMREOBGetNRSpinPeakOmegav2(l, m, eta, a) / mTot;
 
 			/* Define chi */
 			chi = (spin1[2] + spin2[2]) / 2. + (spin1[2] - spin2[2]) / 2. * ((mass1 - mass2) / (mass1 + mass2)) / (1. - 2. * eta);
@@ -629,7 +630,7 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 			 * 1./cimag(modefreqs->data[5])/mTot);
 			 */
 		}
-	if (approximant == SEOBNRv3) {
+	if (approximant == SEOBNRv3 || approximant == SEOBNRv3_opt) {
         REAL8 kappa_thr = 0.175;
         //REAL8 eJL_thr = 7.5e-3;
         REAL8 eJL_thr = 5.0e-2;
@@ -763,13 +764,13 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 
 		a = (chi1 + chi2) / 2. * (1.0 - 2.0 * eta) + (chi1 - chi2) / 2. * (mass1 - mass2) / (mass1 + mass2);
         NRPeakOmega22 = fabs(omegaWavePeak);
-//        NRPeakOmega22 = GetNRSpinPeakOmegav2(l, m, eta, a) / mTot;
+//        NRPeakOmega22 = XLALSimIMREOBGetNRSpinPeakOmegav2(l, m, eta, a) / mTot;
         gsl_spline_free(spline);
         gsl_interp_accel_free(acc);
         LALFree(y);
         // FIXME
         //NRPeakOmega22 = 0.3;
-		//NRPeakOmega22 = GetNRSpinPeakOmegav2(l, m, eta, a) / mTot;
+		//NRPeakOmega22 = XLALSimIMREOBGetNRSpinPeakOmegav2(l, m, eta, a) / mTot;
 //        NRPeakOmega22 = omegaWavePeak/mTot;
 //        XLAL_PRINT_INFO("(hRe, hIm, dhRe, dhIm)=(%.16e, %.16e, %.16e, %.16e)\n", hRe, hIm, dhRe, dhIm);
 //        XLAL_PRINT_INFO("hNorm %.16e, tmatch %.16e\n",sqrt(hNorm2), matchrange->data[1]);

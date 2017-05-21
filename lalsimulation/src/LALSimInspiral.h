@@ -309,11 +309,18 @@ typedef enum tagApproximant {
                          * @remarks Implemented in lalsimulation (time domain). */
    SEOBNRv2,		/**< Spin-aligned EOBNR model v2
                          * @remarks Implemented in lalsimulation (time domain). */
-   SEOBNRv2_opt,	/**< Optimized Spin-aligned EOBNR model v2
+   SEOBNRv2_opt,        /**< Optimized Spin-aligned EOBNR model v2
                          * @remarks Implemented in lalsimulation (time domain). */
-   SEOBNRv3,		/**< Spin precessing EOBNR model v3
+   SEOBNRv3,            /**< Spin precessing EOBNR model v3
                          * @todo Fix implementation in lalsimulation (time domain). */
-   SEOBNRv4,		/**< Spin nonprecessing EOBNR model v4 */
+   SEOBNRv3_pert,        /**< Perturbed [m1 -> m1*(1+1e-15)] Spin precessing EOBNR model v3
+                         * @remarks Implemented in lalsimulation (time domain). */
+   SEOBNRv3_opt,        /**< Optimized Spin precessing EOBNR model v3
+                         * @remarks Implemented in lalsimulation (time domain). */
+   SEOBNRv3_opt_rk4,        /**< USE RK4 Optimized Spin precessing EOBNR model v3
+                         * @todo Fix implementation in lalsimulation (time domain). */
+   SEOBNRv4,            /**< Spin nonprecessing EOBNR model v4
+                         * @remarks Implemented in lalsimulation (time domain). */
    SEOBNRv4_opt,	/**< Optimized Spin-aligned EOBNR model v4
                          * @remarks Implemented in lalsimulation (time domain). */
    SEOBNRv1_ROM_EffectiveSpin, /**< Single-spin frequency domain reduced order model of spin-aligned EOBNR model SEOBNRv1 See [Purrer:2014fza]
@@ -783,6 +790,11 @@ REAL8 XLALSimInspiralfLow2fStart(REAL8 fLow, INT4 ampOrder, INT4 approximant);
 
 int XLALSimInspiralREAL4WaveTaper(REAL4Vector *signalvec, LALSimInspiralApplyTaper bookends);
 int XLALSimInspiralREAL8WaveTaper(REAL8Vector *signalvec, LALSimInspiralApplyTaper bookends);
+
+/* in module LALSimInspiralTEOBResumROM.c */
+
+//int XLALSimInspiralTEOBResumROM(REAL8TimeSeries **hPlus, REAL8TimeSeries **hCross, REAL8 phiRef, REAL8 deltaT, REAL8 fLow, REAL8 fRef, REAL8 distance, REAL8 inclination, REAL8 m1SI, REAL8 m2SI, REAL8 lambda1, REAL8 lambda2);
+
 
 #if 0
 { /* so that editors will match succeeding brace */

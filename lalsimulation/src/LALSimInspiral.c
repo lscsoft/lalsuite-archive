@@ -122,6 +122,9 @@ static const char *lalSimulationApproximantNames[] = {
     INITIALIZE_NAME(SEOBNRv2),
     INITIALIZE_NAME(SEOBNRv2_opt),
     INITIALIZE_NAME(SEOBNRv3),
+    INITIALIZE_NAME(SEOBNRv3_opt),
+    INITIALIZE_NAME(SEOBNRv3_pert),
+    INITIALIZE_NAME(SEOBNRv3_opt_rk4),
     INITIALIZE_NAME(SEOBNRv4),
     INITIALIZE_NAME(SEOBNRv4_opt),
     INITIALIZE_NAME(SEOBNRv1_ROM_EffectiveSpin),
@@ -346,6 +349,7 @@ int XLALSimInspiralChooseTDWaveform(
 
     /* SEOBNR flag for model version. 1 for SEOBNRv1, 2 for SEOBNRv2 */
     UINT4 SpinAlignedEOBversion;
+    UINT4 PrecEOBversion;
     REAL8 spin1[3], spin2[3];
     //LIGOTimeGPS epoch = LIGOTIMEGPSZERO;
 
@@ -801,6 +805,38 @@ int XLALSimInspiralChooseTDWaveform(
                      deltaT, m1, m2, f_min, r, i, S1z, S2z, SpinAlignedEOBversion);
              break;
 
+        case SEOBNRv3_opt_rk4:
+        case SEOBNRv3_opt:
+        case SEOBNRv3_pert:
+        case SEOBNRv3:
+            /* Waveform-specific sanity checks */
+            if( !XLALSimInspiralWaveformFlagsIsDefault(waveFlags) )
+                 ABORT_NONDEFAULT_WAVEFORM_FLAGS(waveFlags);
+            if( !checkTidesZero(lambda1, lambda2) )
+                ABORT_NONZERO_TIDES(waveFlags);
+            if( f_ref != 0.)
+                XLALPrintWarning("XLAL Warning - %s: This approximant does use f_ref. The reference phase will be defined at coalescence.\n", __func__);
+            /* Call the waveform driver routine */
+            //REAL8 spin1[3], spin2[3];
+            //XLALSimInspiralInitialConditionsPrecessingApproxs(&i,&S1x,&S1y,&S1z,&S2x,&S2y,&S2z,iTmp,spin1[0],spin1[1],spin1[2],spin2[0],spin2[1],spin2[2],m1,m2,f_ref,XLALSimInspiralGetFrameAxis(waveFlags));
+            spin1[0] = S1x; spin1[1] = S1y; spin1[2] = S1z;
+            spin2[0] = S2x; spin2[1] = S2y; spin2[2] = S2z;
+            iTmp=i;
+            PrecEOBversion = 3;
+            if(approximant==SEOBNRv3_pert) {
+              const double m1pert = m1*(1.0 + 1e-15);
+              ret = XLALSimIMRSpinEOBWaveform(hplus, hcross, /*&epoch,*/ phiRef,
+                                              deltaT, m1pert, m2, f_min, r, i, spin1, spin2, PrecEOBversion);
+
+            } else {
+              if(approximant==SEOBNRv3_opt) PrecEOBversion = 300;
+              if(approximant==SEOBNRv3_opt_rk4) PrecEOBversion = 304;
+              ret = XLALSimIMRSpinEOBWaveform(hplus, hcross, /*&epoch,*/ phiRef,
+                                              deltaT, m1, m2, f_min, r, i, spin1, spin2, PrecEOBversion);
+            }
+            break;
+
+#if 0
         case SEOBNRv3:
             /* Waveform-specific sanity checks */
             if( !XLALSimInspiralWaveformFlagsIsDefault(waveFlags) )
@@ -819,6 +855,7 @@ int XLALSimInspiralChooseTDWaveform(
             ret = XLALSimIMRSpinEOBWaveform(hplus, hcross, /*&epoch,*/ phiRef,
                     deltaT, m1, m2, f_min, r, i, spin1, spin2);
             break;
+#endif
 
         case SEOBNRv4_opt:
             /* Waveform-specific sanity checks */
@@ -3971,6 +4008,9 @@ int XLALSimInspiralImplementedTDApproximants(
         case SpinDominatedWf:
         case SEOBNRv2:
         case SEOBNRv2_opt:
+        case SEOBNRv3_opt_rk4:
+        case SEOBNRv3_opt:
+        case SEOBNRv3_pert:
         case SEOBNRv3:
         case SEOBNRv4:
         case SEOBNRv4_opt:
@@ -4401,6 +4441,9 @@ int XLALSimInspiralGetSpinSupportFromApproximant(Approximant approx){
     case SpinTaylorT2Fourier:
     case SpinTaylorT4Fourier:
     case SpinDominatedWf:
+    case SEOBNRv3_opt_rk4:
+    case SEOBNRv3_opt:
+    case SEOBNRv3_pert:
     case SEOBNRv3:
     case NR_hdf5:
       spin_support=LAL_SIM_INSPIRAL_PRECESSINGSPIN;

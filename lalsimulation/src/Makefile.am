@@ -75,7 +75,6 @@ pkginclude_HEADERS = \
 	LALSimulationVCSInfoHeader.h
 
 noinst_HEADERS = \
-	LALSimBlackHoleRingdownPrec.c \
 	LALSimBlackHoleRingdownPrec.h \
 	LALSimFindAttachTime.h \
 	LALSimIMREOBFactorizedFlux.c \
@@ -117,6 +116,15 @@ noinst_HEADERS = \
 	LALSimIMRSpinEOBHcapNumericalDerivativePrec.c \
 	LALSimIMRSpinEOBInitialConditions.c \
 	LALSimIMRSpinEOBInitialConditionsPrec.c \
+       LALSimIMRSpinEOBHcapExactDerivativePrec_v3opt.c \
+       LALSimIMRSpinPrecEOBEulerAngles.c \
+       LALSimIMRSpinPrecEOBWfGen.c \
+       LALSimIMRSpinAlignedEOBOptimizedInterpolatorGeneral.c \
+       LALSimIMRSpinPrecEOBGSLOptimizedInterpolation.c \
+       LALSimIMRSpinPrecEOBHcapExactDerivative.c \
+       LALSimIMRSpinEOBFactorizedWaveformPrec_v3opt.c \
+       LALSimIMRSpinEOBFactorizedFluxPrec_v3opt.c \
+       LALSimIMRCalculateSpinPrecEOBHCoeffs.c \
 	LALSimInspiralPNCoefficients.c \
 	LALSimInspiraldEnergyFlux.c \
 	LALSimNeutronStarEOSPiecewisePolytrope.c \
@@ -124,6 +132,7 @@ noinst_HEADERS = \
 
 lib_LTLIBRARIES = liblalsimulation.la
 liblalsimulation_la_SOURCES = \
+	LALSimBlackHoleRingdownPrec.c \
 	LALSimBlackHoleRingdown.c \
 	LALSimBurst.c \
 	LALSimBurstImg.c \
@@ -138,6 +147,8 @@ liblalsimulation_la_SOURCES = \
 	LALSimIMRSEOBNRv2ChirpTime.c \
   LALSimIMRSEOBNRv4ROM.c \
 	LALSimIMREOBNRv2HMROM.c \
+        LALSimIMRSpinEOBHamiltonian.h \
+	LALSimIMRSpinEOB.c \
   LALSimIMRLackeyTidal2013.c \
 	LALSimIMRPhenom.c \
 	LALSimIMRPhenomC.c \

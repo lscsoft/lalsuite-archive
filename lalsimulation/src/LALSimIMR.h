@@ -102,7 +102,7 @@ SphHarmTimeSeries *XLALSimIMREOBNRv2Modes(const REAL8 phiRef, const REAL8 deltaT
 
 double XLALSimIMRSpinAlignedEOBPeakFrequency(REAL8 m1SI, REAL8 m2SI, const REAL8 spin1z, const REAL8 spin2z, UINT4 SpinAlignedEOBversion);
 int XLALSimIMRSpinAlignedEOBWaveform(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, const REAL8 phiC, REAL8 deltaT, const REAL8 m1SI, const REAL8 m2SI, const REAL8 fMin, const REAL8 r, const REAL8 inc, const REAL8 spin1z, const REAL8 spin2z, UINT4 SpinAlignedEOBversion);
-int XLALSimIMRSpinAlignedEOBWaveformAll(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, const REAL8 phiC, REAL8 deltaT, const REAL8 m1SI, const REAL8 m2SI, const REAL8 fMin, const REAL8 r, const REAL8 inc, const REAL8 spin1z, const REAL8 spin2z, const REAL8 comp1, const REAL8 comp2, const REAL8 k2Tidal1, const REAL8 k2Tidal2, const REAL8 omega02Tidal1, const REAL8 omega02Tidal2, const REAL8 k3Tidal1, const REAL8 k3Tidal2, const REAL8 omega03Tidal1, const REAL8 omega03Tidal2, UINT4 SpinAlignedEOBversion);
+int XLALSimIMRSpinAlignedEOBWaveformAll(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, REAL8Vector * tVec, REAL8Vector * rVec, REAL8Vector * phiVec, REAL8Vector * prVec, REAL8Vector * pphiVec, const REAL8 phiC, REAL8 deltaT, const REAL8 m1SI, const REAL8 m2SI, const REAL8 fMin, const REAL8 r, const REAL8 inc, const REAL8 spin1z, const REAL8 spin2z, UINT4 SpinAlignedEOBversion, const REAL8 comp1, const REAL8 comp2, const REAL8 k2Tidal1, const REAL8 k2Tidal2, const REAL8 omega02Tidal1, const REAL8 omega02Tidal2, const REAL8 k3Tidal1, const REAL8 k3Tidal2, const REAL8 omega03Tidal1, const REAL8 omega03Tidal2);
 /*int XLALSimIMRSpinEOBWaveform(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, const REAL8 phiC, const REAL8 deltaT, const REAL8 m1SI, const REAL8 m2SI, const REAL8 fMin, const REAL8 r, const REAL8 inc, const REAL8 spin1[], const REAL8 spin2[]);
  */
 
@@ -118,7 +118,8 @@ int XLALSimIMRSpinEOBWaveform(
                               const REAL8     r,
                               const REAL8     inc,
                               const REAL8     spin1[],
-                              const REAL8     spin2[]
+                              const REAL8     spin2[],
+                              const UINT4     PrecEOBversion
                               );
 
 int XLALSimIMRSpinEOBWaveformAll(
@@ -142,7 +143,8 @@ int XLALSimIMRSpinEOBWaveformAll(
                                  const REAL8     INspin1z,
                                  const REAL8     INspin2x,
                                  const REAL8     INspin2y,
-                                 const REAL8     INspin2z
+                                 const REAL8     INspin2z,
+                                 const UINT4     PrecEOBversion
                                  );
 
 /* in module LALSimIMREOBNRv2HMROM.c */
@@ -166,6 +168,7 @@ int XLALSimIMRSEOBNRv2ROMEffectiveSpin(struct tagCOMPLEX16FrequencySeries **hpti
 int XLALSimIMRSEOBNRv2ROMEffectiveSpinFrequencySequence(struct tagCOMPLEX16FrequencySeries **hptilde, struct tagCOMPLEX16FrequencySeries **hctilde, const REAL8Sequence *freqs, REAL8 phiRef, REAL8 fRef, REAL8 distance, REAL8 inclination, REAL8 m1SI, REAL8 m2SI, REAL8 chi);
 int XLALSimIMRSEOBNRv2ROMEffectiveSpinTimeOfFrequency(REAL8 *t, REAL8 frequency, REAL8 m1SI, REAL8 m2SI, REAL8 chi);
 int XLALSimIMRSEOBNRv2ROMEffectiveSpinFrequencyOfTime(REAL8 *frequency, REAL8 t, REAL8 m1SI, REAL8 m2SI, REAL8 chi);
+int XLALSimIMRSEOBNRv2ROMDoubleSpinAmpPhaseInterpolants( struct tagREAL8Vector **amplitude_interp, struct tagREAL8Vector **amplitude_freq_points, struct tagREAL8Vector **phase_interp, struct tagREAL8Vector **phase_freq_points, REAL8 phiRef, REAL8 deltaF, REAL8 fLow, REAL8 fHigh, REAL8 fRef, REAL8 distance, REAL8 inclination, REAL8 m1SI, REAL8 m2SI, REAL8 chi1, REAL8 chi2);
 
 
 /* in module LALSimIMRSEOBNRv2ROMDoubleSpin.c */

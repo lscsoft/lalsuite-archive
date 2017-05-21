@@ -5,7 +5,7 @@
 
 //#include <lal/LALDatatypes.h>
 //#include <lal/LALStdlib.h>
-//#include <lal/LALConstants.h>
+#include <lal/LALConstants.h>
 //#include <lal/TimeSeries.h>
 //#include <lal/Units.h>
 
