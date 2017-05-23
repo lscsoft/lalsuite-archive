@@ -146,6 +146,7 @@ static const char *lalSimulationApproximantNames[] = {
     INITIALIZE_NAME(IMRPhenomD),
     INITIALIZE_NAME(IMRPhenomP),
     INITIALIZE_NAME(IMRPhenomPv2),
+    INITIALIZE_NAME(EccIMRpD),
     INITIALIZE_NAME(IMRPhenomFC),
     INITIALIZE_NAME(TaylorEt),
     INITIALIZE_NAME(TaylorT4),
@@ -700,6 +701,7 @@ int XLALSimInspiralChooseTDWaveform(
             break;
 
 	case IMRPhenomD:
+	case EccIMRpD:
 	    if( !XLALSimInspiralWaveformParamsFlagsAreDefault(LALparams) )
 		    ABORT_NONDEFAULT_LALDICT_FLAGS(LALparams);
 	    if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
@@ -1239,6 +1241,28 @@ int XLALSimInspiralChooseFDWaveform(
             /* Call the waveform driver routine */
             ret = XLALSimIMRPhenomDGenerateFD(hptilde, phiRef, f_ref, deltaF, m1, m2,
                   S1z, S2z, f_min, f_max, distance, LALparams);
+            if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
+            /* Produce both polarizations */
+            *hctilde = XLALCreateCOMPLEX16FrequencySeries("FD hcross",
+                    &((*hptilde)->epoch), (*hptilde)->f0, (*hptilde)->deltaF,
+                    &((*hptilde)->sampleUnits), (*hptilde)->data->length);
+            for(j = 0; j < (*hptilde)->data->length; j++) {
+                (*hctilde)->data->data[j] = -I*cfac * (*hptilde)->data->data[j];
+                (*hptilde)->data->data[j] *= pfac;
+            }
+            break;
+
+        case EccIMRpD:
+            /* Waveform-specific sanity checks */
+            if( !XLALSimInspiralWaveformParamsFlagsAreDefault(LALparams) )
+                ABORT_NONDEFAULT_LALDICT_FLAGS(LALparams);
+            if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
+                ABORT_NONZERO_TRANSVERSE_SPINS(LALparams);
+            if( !checkTidesZero(lambda1, lambda2) )
+                ABORT_NONZERO_TIDES(LALparams);
+            /* Call the waveform driver routine */
+            ret = XLALSimEccIMRPhenomDGenerateFD(hptilde, phiRef, f_ref, deltaF, m1, m2,
+                  S1z, S2z, f_min, f_max, distance, eccentricity, LALparams);
             if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
             /* Produce both polarizations */
             *hctilde = XLALCreateCOMPLEX16FrequencySeries("FD hcross",
@@ -4423,6 +4447,7 @@ int XLALSimInspiralImplementedTDApproximants(
         case IMRPhenomC:
 	case IMRPhenomD:
 	case IMRPhenomPv2:
+	case EccIMRpD:
         case PhenSpinTaylorRD:
         case SEOBNRv1:
         case SpinDominatedWf:
@@ -4460,6 +4485,7 @@ int XLALSimInspiralImplementedFDApproximants(
         case IMRPhenomD:
         case IMRPhenomP:
         case IMRPhenomPv2:
+	case EccIMRpD:
         case EOBNRv2_ROM:
         case EOBNRv2HM_ROM:
         case SEOBNRv1_ROM_EffectiveSpin:
@@ -4883,6 +4909,7 @@ int XLALSimInspiralGetSpinSupportFromApproximant(Approximant approx){
     case IMRPhenomB:
     case IMRPhenomC:
     case IMRPhenomD:
+    case EccIMRpD:
     case SEOBNRv1:
     case SEOBNRv2:
     case SEOBNRv4:
@@ -5011,6 +5038,7 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
     case IMRPhenomD:
     case IMRPhenomP:
     case IMRPhenomPv2:
+    case EccIMRpD:
       testGR_accept=LAL_SIM_INSPIRAL_TESTGR_PARAMS;
       break;
     default:
@@ -6073,6 +6101,42 @@ int XLALSimInspiralChooseTDWaveformOLD(
 	    XLALGPSSetREAL8(&(hc->epoch), (-1.) * deltaT * maxind);
 	    break;
 
+        case EccIMRpD:
+            if( !XLALSimInspiralWaveformFlagsIsDefaultOLD(waveFlags) )
+                    ABORT_NONDEFAULT_WAVEFORM_FLAGS(waveFlags);
+            if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
+                    ABORT_NONZERO_TRANSVERSE_SPINS_OLD(waveFlags);
+            if( !checkTidesZero(lambda1, lambda2) )
+                    ABORT_NONZERO_TIDES_OLD(waveFlags);
+            // generate TD waveforms with zero inclincation so that amplitude can be
+            // calculated from hplus and hcross, apply inclination-dependent factors
+            // in loop below
+            /* FIXME: BUSTED -- EXTRA PARAMS NOT IMPLEMENTED */
+            ret = XLALSimInspiralTDFromFD(hplus, hcross, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, distance, 0.0, phiRef, 0.0, eccentricity, 0.0, deltaT, f_min, f_ref, NULL, approximant);
+            REAL8 MAXAMP=0;
+            REAL8TimeSeries *HP = *hplus;
+            REAL8TimeSeries *HC = *hcross;
+            INT4 MAXIND=HP->data->length - 1;
+            INT4 LOOPI;
+            const REAL8 CFAC=cos(inclination);
+            const REAL8 PFAC = 0.5 * (1. + CFAC*CFAC);
+
+            for (LOOPI=HP->data->length - 1; LOOPI > -1; LOOPI--)
+            {
+                    REAL8 AMPSQR = (HP->data->data[LOOPI])*(HP->data->data[LOOPI]) +
+                           (HC->data->data[LOOPI])*(HC->data->data[LOOPI]);
+                    if (AMPSQR > MAXAMP)
+                    {
+                            MAXIND=LOOPI;
+                            MAXAMP=AMPSQR;
+                    }
+                    HP->data->data[LOOPI] *= PFAC;
+                    HC->data->data[LOOPI] *= CFAC;
+            }
+            XLALGPSSetREAL8(&(HP->epoch), (-1.) * deltaT * MAXIND);
+            XLALGPSSetREAL8(&(HC->epoch), (-1.) * deltaT * MAXIND);
+            break;
+
 	case IMRPhenomPv2:
             /* FIXME: BUSTED -- EXTRA PARAMS NOT IMPLEMENTED */
 	    ret = XLALSimInspiralTDFromFD(hplus, hcross, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, distance, inclination, phiRef, 0.0, 0.0, 0.0, deltaT, f_min, f_ref, NULL, approximant);
@@ -6609,6 +6673,28 @@ int XLALSimInspiralChooseFDWaveformOLD(
             /* Call the waveform driver routine */
             ret = XLALSimIMRPhenomDGenerateFD(hptilde, phiRef, f_ref, deltaF, m1, m2,
                   S1z, S2z, f_min, f_max, distance, NULL);
+            if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
+            /* Produce both polarizations */
+            *hctilde = XLALCreateCOMPLEX16FrequencySeries("FD hcross",
+                    &((*hptilde)->epoch), (*hptilde)->f0, (*hptilde)->deltaF,
+                    &((*hptilde)->sampleUnits), (*hptilde)->data->length);
+            for(j = 0; j < (*hptilde)->data->length; j++) {
+                (*hctilde)->data->data[j] = -I*cfac * (*hptilde)->data->data[j];
+                (*hptilde)->data->data[j] *= pfac;
+            }
+            break;
+
+        case EccIMRpD:
+            /* Waveform-specific sanity checks */
+            if( !XLALSimInspiralWaveformFlagsIsDefaultOLD(waveFlags) )
+                ABORT_NONDEFAULT_WAVEFORM_FLAGS(waveFlags);
+            if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
+                ABORT_NONZERO_TRANSVERSE_SPINS_OLD(waveFlags);
+            if( !checkTidesZero(lambda1, lambda2) )
+                ABORT_NONZERO_TIDES_OLD(waveFlags);
+            /* Call the waveform driver routine */
+            ret = XLALSimEccIMRPhenomDGenerateFD(hptilde, phiRef, f_ref, deltaF, m1, m2,
+                  S1z, S2z, f_min, f_max, distance, eccentricity, NULL);
             if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
             /* Produce both polarizations */
             *hctilde = XLALCreateCOMPLEX16FrequencySeries("FD hcross",

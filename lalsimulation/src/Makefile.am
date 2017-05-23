@@ -112,6 +112,7 @@ noinst_HEADERS = \
 	LALSimIMRPhenomD_internals.h \
 	LALSimIMRPhenomP.c \
 	LALSimIMRPhenomP.h \
+	LALSimEccIMRpD_internals.c \
 	LALSimIMRSEOBNRROMUtilities.c \
 	LALSimIMRSpinAlignedEOBGSLOptimizedInterpolation.c \
 	LALSimIMRSpinAlignedEOBHcapDerivative.c \
@@ -165,6 +166,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimIMRPhenomC.c \
 	LALSimIMRPhenomD.c \
 	LALSimIMRPhenomP.c \
+	LALSimEccIMRpD.c \
 	LALSimIMRPSpinInspiralRD.c \
 	LALSimPhenSpinRingDown.c \
 	LALSimInspiralWaveformFlags.c \

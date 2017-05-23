@@ -362,6 +362,8 @@ typedef enum tagApproximant {
                          * @remarks Implemented in lalsimulation (frequency domain).  */
    IMRPhenomPv2,		/**< Frequency domain (generic spins) inspiral-merger-ringdown templates of Hannam et al., arXiv:1308.3271 [gr-qc]. Based on IMRPhenomD, arXiv:1508.07250 and arXiv:1508.07253.
                          * @remarks Implemented in lalsimulation (frequency domain).  */
+   EccIMRpD,		/**< Eccentric variant of the IMRPhenomD waveform family. Incorporates effects of residual orbital eccentricity during the inspiral regime, based on arXiv:1602.03081 [gr-qc].
+			 * @remarks Implemented in lalsimulation (frequency domain).  */
    IMRPhenomFC,		/**< Frequency domain (non-precessing spins) inspiral-merger-ringdown templates of Santamaria et al [Santamaria:2010yb] with phenomenological coefficients defined in the Table II of [Santamaria:2010yb]
                          * @attention Not implemented in lalsimulation.*/
    TaylorEt,		/**< UNDOCUMENTED
