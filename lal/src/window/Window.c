@@ -671,6 +671,35 @@ REAL8Window *XLALCreatePlanckREAL8Window(UINT4 length, REAL8 start, REAL8 trigti
 
 }
 
+REAL8Window *XLALCreateDoublePlanckREAL8Window(UINT4 length, REAL8 start_time, REAL8 trigtime, REAL8 SampleRate, REAL8 rise_time, REAL8 duration)
+{
+    REAL8Sequence *sequence;
+    sequence = XLALCreateREAL8Sequence(length);
+    UINT4 i;
+    
+    /*check sequence is initialized correctly*/
+    if(!sequence)
+    XLAL_ERROR_NULL(XLAL_EFUNC);
+    
+    REAL8 stop_time = start_time + rise_time;
+    REAL8 fall_time = stop_time  + duration ;
+    REAL8 end_time  = fall_time  + rise_time;
+    
+    
+    /*Ref: arxiv 1003.2939, but different parametrization*/
+    for(i = 0; i< length; i++)
+    {/* trigtime+2.0 is the end of frame's data */
+        REAL8 time = trigtime+2.0-(REAL8)length/SampleRate+(REAL8)i/SampleRate;
+        if(time < start_time){sequence->data[i] = 0.0;}
+        else if(time < stop_time){sequence->data[i] = 1.0/(exp((stop_time-start_time)/(time-start_time)+(stop_time-start_time)/(time-stop_time))+1.0);}
+        else if(time < fall_time){sequence->data[i] = 1.0;}
+        else if(time < end_time){sequence->data[i] = 1.0/(exp((fall_time-end_time)/(time-fall_time)+(fall_time-end_time)/(time-end_time))+1.0);}
+        else{sequence->data[i] = 0.0;}
+    }
+    
+    return XLALCreateREAL8WindowFromSequence(sequence);
+    
+}
 
 REAL8Window *XLALCreateLanczosREAL8Window(UINT4 length)
 {

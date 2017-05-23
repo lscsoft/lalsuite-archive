@@ -1050,13 +1050,15 @@ int XLALSimRingdownMMRDNS_time(
 
         /* prepare window */
         REAL8Window *window_rd;
-        REAL8 start = 0; //TODO: adjust window
-        window_rd = XLALCreatePlanckREAL8Window(Nsamples,start,Nsamples*deltaT-2.0,1.0/deltaT);
+        REAL8 start_time = 0; /*In the model 0 corresponds to 10 M after the merger. */
+        REAL8 rise_time  = 0.001;
+        REAL8 duration   = 0.0202;
+        window_rd = XLALCreateDoublePlanckREAL8Window(Nsamples, start_time , Nsamples*deltaT-2.0, 1.0/deltaT, rise_time, duration);
 
 
         COMPLEX16 h_val = 0.0;
-        for ( UINT4 i=0 ; i<Nsamples ; i++ ) {
-          h_val = h220->data->data[i];
+        for ( UINT4 i=0 ; i<Nsamples ; i++ ){
+          h_val  = h220->data->data[i];
           h_val += h221->data->data[i];
           h_val += h330->data->data[i];
           h_val += h331->data->data[i];
@@ -1066,7 +1068,7 @@ int XLALSimRingdownMMRDNS_time(
           h_val += h320->data->data[i];
           h_val += h430->data->data[i];
 
-          (*hplus)->data->data[i] = creal(h_val)*(window_rd->data->data)[i];
+           (*hplus)->data->data[i] =  creal(h_val)*(window_rd->data->data)[i];
           (*hcross)->data->data[i] = -cimag(h_val)*(window_rd->data->data)[i];
           h_val = 0.0;
         }
