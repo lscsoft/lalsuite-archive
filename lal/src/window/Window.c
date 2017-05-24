@@ -688,7 +688,7 @@ REAL8Window *XLALCreateDoublePlanckREAL8Window(UINT4 length, REAL8 start_time, R
     
     /*Ref: arxiv 1003.2939, but different parametrization*/
     for(i = 0; i< length; i++)
-    {/* trigtime+2.0 is the end of frame's data */
+    {
         REAL8 time = trigtime+2.0-(REAL8)length/SampleRate+(REAL8)i/SampleRate;
         if(time < start_time){sequence->data[i] = 0.0;}
         else if(time < stop_time){sequence->data[i] = 1.0/(exp((stop_time-start_time)/(time-start_time)+(stop_time-start_time)/(time-stop_time))+1.0);}
