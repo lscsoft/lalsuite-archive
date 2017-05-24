@@ -1052,7 +1052,7 @@ int XLALSimRingdownMMRDNS_time(
         REAL8Window *window_rd;
         REAL8 start_time = 0; /*In the model 0 corresponds to 10 M after the merger. */
         REAL8 rise_time  = 0.001;
-        REAL8 duration   = 0.0202;
+        REAL8 duration   = 0.0257;
         window_rd = XLALCreateDoublePlanckREAL8Window(Nsamples, start_time , Nsamples*deltaT-2.0, 1.0/deltaT, rise_time, duration);
 
 
