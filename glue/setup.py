@@ -6,6 +6,9 @@ import os, sys
 import subprocess
 import time
 
+reload(sys)
+sys.setdefaultencoding('utf8')
+
 try:
   from sys import version_info
 except:
