@@ -52,6 +52,7 @@
 #include <lal/LALSimSphHarmSeries.h>
 #include <lal/LALStdlib.h>
 #include <lal/LALSimInspiral.h>
+#include <lal/LIGOMetadataTables.h>
 #include <lal/Window.h>
 #include <lal/TimeSeries.h>
 #include <lal/FrequencySeries.h>
@@ -968,6 +969,10 @@ int XLALSimRingdownMMRDNS_time(
         /* Get nonGRparams */
         char *nonGRParamName = malloc(512*sizeof(char));
 
+        /* Pointer to read window parameters*/
+        ProcessParamsTable *ppt=NULL;
+        ProcessParamsTable *LALInferenceGetProcParamVal(ProcessParamsTable *procparams,const char *name);
+        
         sprintf(nonGRParamName,"dfreq220") ;
         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
           dfreq220 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
@@ -1023,9 +1028,24 @@ int XLALSimRingdownMMRDNS_time(
         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
           dtau430 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
 
-        /* time runs from Mstart to Mend after merger */
-        REAL8 Tstart = 10.0*Mf*LAL_MTSUN_SI/LAL_MSUN_SI;
-        REAL8 Tend = 60.0*Mf*LAL_MTSUN_SI/LAL_MSUN_SI;
+        
+        /* prepare window */
+        fprintf(stdout,"Setting windows for ringdown\n");
+        REAL8Window *window_rd;
+        /*Window start time is gps time*/
+        ppt=LALInferenceGetProcParamVal(commandLine,"--window_shift");
+        if(!ppt){fprintf(stderr,"need to give --window_shift\n"); exit(0);}
+        REAL8 start_time = 0 + atof(ppt->value); /* In the model 0 corresponds to 10 M after the merger. */
+        ppt=LALInferenceGetProcParamVal(commandLine,"--window_rise_time");
+        if(!ppt){fprintf(stderr,"need to give --window_rise_time\n"); exit(0);}
+        REAL8 rise_time  = atof(ppt->value);
+        ppt=LALInferenceGetProcParamVal(commandLine,"--window_duration");
+        if(!ppt){fprintf(stderr,"need to give --window_duration\n"); exit(0);}
+        REAL8 duration   = atof(ppt->value);
+        
+        /* time runs from Tstart to Tend after merger */
+        REAL8 Tstart   = (10.0*Mf*LAL_MTSUN_SI/LAL_MSUN_SI) + start_time ;
+        REAL8 Tend     = (10.0*Mf*LAL_MTSUN_SI/LAL_MSUN_SI) + start_time + 2*(duration + rise_time);
         UINT4 Nsamples = ceil((Tend-Tstart)/deltaT);
 
         /* Compute the modes seperately */
@@ -1046,13 +1066,7 @@ int XLALSimRingdownMMRDNS_time(
         *hcross = XLALCreateREAL8TimeSeries( "hcross: TD waveform", T0, 0.0, deltaT, &lalStrainUnit, Nsamples);
         if (!(*hcross)) XLAL_ERROR(XLAL_EFUNC);
         memset((*hcross)->data->data, 0, Nsamples * sizeof(REAL8));
-
-
-        /* prepare window */
-        REAL8Window *window_rd;
-        REAL8 start_time = 0; /*In the model 0 corresponds to 10 M after the merger. */
-        REAL8 rise_time  = 0.001;
-        REAL8 duration   = 0.0257;
+        
         window_rd = XLALCreateDoublePlanckREAL8Window(Nsamples, start_time , Nsamples*deltaT-2.0, 1.0/deltaT, rise_time, duration);
 
 

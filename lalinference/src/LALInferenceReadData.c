@@ -786,7 +786,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
                 if(!ppt){fprintf(stderr,"need to give --window_start_time_H\n"); exit(0);}
                 REAL8 window_start = atof(ppt->value);
                 ppt=LALInferenceGetProcParamVal(commandLine,"--window_rise_time");
-                if(!ppt){fprintf(stderr,"need to give --window_rise_time_H\n"); exit(0);}
+                if(!ppt){fprintf(stderr,"need to give --window_rise_time\n"); exit(0);}
                 REAL8 rise_time = atof(ppt->value);
                 ppt=LALInferenceGetProcParamVal(commandLine,"--window_duration");
                 if(!ppt){fprintf(stderr,"need to give --window_duration\n"); exit(0);}
@@ -800,7 +800,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
                 if(!ppt){fprintf(stderr,"need to give --window_start_time_L\n"); exit(0);}
                 REAL8 window_start = atof(ppt->value);
                 ppt=LALInferenceGetProcParamVal(commandLine,"--window_rise_time");
-                if(!ppt){fprintf(stderr,"need to give --window_rise_time_L\n"); exit(0);}
+                if(!ppt){fprintf(stderr,"need to give --window_rise_time\n"); exit(0);}
                 REAL8 rise_time = atof(ppt->value);
                 ppt=LALInferenceGetProcParamVal(commandLine,"--window_duration");
                 if(!ppt){fprintf(stderr,"need to give --window_duration\n"); exit(0);}
