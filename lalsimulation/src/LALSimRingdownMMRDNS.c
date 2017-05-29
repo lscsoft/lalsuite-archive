@@ -52,13 +52,14 @@
 #include <lal/LALSimSphHarmSeries.h>
 #include <lal/LALStdlib.h>
 #include <lal/LALSimInspiral.h>
-#include <lal/LIGOMetadataTables.h>
 #include <lal/Window.h>
 #include <lal/TimeSeries.h>
 #include <lal/FrequencySeries.h>
 
 #include "LALSimRingdownMMRDNS.h"
 #include <lal/LALSimInspiralTestGRParams.h>
+
+#include </Users/gregoriocarullo/Repos/LAL_branches/src_ringdownFD_nikhef/lalinference/src/LALInferenceReadData.h>
 
 
 /*
@@ -968,10 +969,6 @@ int XLALSimRingdownMMRDNS_time(
 
         /* Get nonGRparams */
         char *nonGRParamName = malloc(512*sizeof(char));
-
-        /* Pointer to read window parameters*/
-        ProcessParamsTable *ppt=NULL;
-        ProcessParamsTable *LALInferenceGetProcParamVal(ProcessParamsTable *procparams,const char *name);
         
         sprintf(nonGRParamName,"dfreq220") ;
         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
@@ -1032,20 +1029,14 @@ int XLALSimRingdownMMRDNS_time(
         /* prepare window */
         fprintf(stdout,"Setting windows for ringdown\n");
         REAL8Window *window_rd;
+        /*Window parameters are (temporarily) imported by a structure defined in ReadData, which reads them from the command line (or .ini file)*/
+        
         /*Window start time is gps time*/
-        ppt=LALInferenceGetProcParamVal(commandLine,"--window_shift");
-        if(!ppt){fprintf(stderr,"need to give --window_shift\n"); exit(0);}
-        REAL8 start_time = 0 + atof(ppt->value); /* In the model 0 corresponds to 10 M after the merger. */
-        ppt=LALInferenceGetProcParamVal(commandLine,"--window_rise_time");
-        if(!ppt){fprintf(stderr,"need to give --window_rise_time\n"); exit(0);}
-        REAL8 rise_time  = atof(ppt->value);
-        ppt=LALInferenceGetProcParamVal(commandLine,"--window_duration");
-        if(!ppt){fprintf(stderr,"need to give --window_duration\n"); exit(0);}
-        REAL8 duration   = atof(ppt->value);
+        REAL8 start_time = 0 + window_par.window_shift; /* In the model 0 corresponds to 10 M after the merger. */
         
         /* time runs from Tstart to Tend after merger */
         REAL8 Tstart   = (10.0*Mf*LAL_MTSUN_SI/LAL_MSUN_SI) + start_time ;
-        REAL8 Tend     = (10.0*Mf*LAL_MTSUN_SI/LAL_MSUN_SI) + start_time + 2*(duration + rise_time);
+        REAL8 Tend     = (10.0*Mf*LAL_MTSUN_SI/LAL_MSUN_SI) + start_time + 2*(window_par.duration + window_par.rise_time);
         UINT4 Nsamples = ceil((Tend-Tstart)/deltaT);
 
         /* Compute the modes seperately */
@@ -1067,7 +1058,7 @@ int XLALSimRingdownMMRDNS_time(
         if (!(*hcross)) XLAL_ERROR(XLAL_EFUNC);
         memset((*hcross)->data->data, 0, Nsamples * sizeof(REAL8));
         
-        window_rd = XLALCreateDoublePlanckREAL8Window(Nsamples, start_time , Nsamples*deltaT-2.0, 1.0/deltaT, rise_time, duration);
+        window_rd = XLALCreateDoublePlanckREAL8Window(Nsamples, start_time , Nsamples*deltaT-2.0, 1.0/deltaT, window_par.rise_time, window_par.duration);
 
 
         COMPLEX16 h_val = 0.0;

@@ -81,6 +81,12 @@ REAL8 XLALChiEffRingdown(REAL8 m1, REAL8 m2, REAL8 spin1[3], REAL8 spin2[3]);
  */
 void LALInferenceInjectRingdownSignal(struct tagLALInferenceIFOData *IFOdata, ProcessParamsTable *commandLine);
 
+struct tagPlanckwindowparams {
+    REAL8 window_shift;
+    REAL8 duration;
+    REAL8 rise_time;
+} window_par;
+
 /*@}*/
 
 #endif
