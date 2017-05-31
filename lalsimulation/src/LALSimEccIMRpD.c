@@ -53,6 +53,7 @@
 #include <lal/FrequencySeries.h>
 #include <lal/Units.h>
 */
+#include <gsl/gsl_math.h>
 #include "LALSimEccIMRpD_internals.c"
 UsefulPowers Powers_of_Pi;	// declared in LALSimEccIMRpD_internals.c
 
@@ -244,10 +245,12 @@ static int EccIMRPhenomDGenerateFD(
   XLAL_CHECK(XLAL_SUCCESS == status, status, "Failed to initiate useful powers of pi.");
 
   const REAL8 M = m1 + m2;
-  const REAL8 eta = m1 * m2 / (M * M);
-
+  REAL8 eta = m1 * m2 / (M * M);
+ 
+  if (eta > 0.25)
+      nudge(&eta, 0.25, 1e-6);
   if (eta > 0.25 || eta < 0.0)
-    XLAL_ERROR(XLAL_EDOM, "Unphysical eta. Must be between 0. and 0.25\n");
+      XLAL_ERROR(XLAL_EDOM, "Unphysical eta. Must be between 0. and 0.25\n");
 
   const REAL8 M_sec = M * LAL_MTSUN_SI;
 
@@ -373,3 +376,25 @@ static int EccIMRPhenomDGenerateFD(
   return status;
 }
 
+// Taken from LALSimIMRPhenomP.c
+// This function determines whether x and y are approximately equal to a relative accuracy epsilon.
+// Note that x and y are compared to relative accuracy, so this function is not suitable for testing whether a value is approximately zero.
+static bool approximately_equal(REAL8 x, REAL8 y, REAL8 epsilon) {
+  return !gsl_fcmp(x, y, epsilon);
+}
+
+// If x and X are approximately equal to relative accuracy epsilon then set x = X.
+// If X = 0 then use an absolute comparison.
+// Taken from LALSimIMRPhenomP.c
+static void nudge(REAL8 *x, REAL8 X, REAL8 epsilon) {
+  if (X != 0.0) {
+    if (approximately_equal(*x, X, epsilon)) {
+      XLAL_PRINT_INFO("Nudging value %.15g to %.15g\n", *x, X);
+      *x = X;
+    }
+  }
+  else {
+    if (fabs(*x - X) < epsilon)
+      *x = X;
+  }
+}
