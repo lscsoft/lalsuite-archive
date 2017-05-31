@@ -72,6 +72,7 @@ int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       
     iStart = (INT4) ceil(f_low / deltaF);
     iEnd = (INT4) ceil(fISCO / deltaF);
     iEnd = (INT4) ceil(fPeak / deltaF);
+//    printf("fPeak %.16e\n", fPeak);
     /* Sequence of frequencies where corrections to the model need to be evaluated */
     REAL8Sequence *freqs =NULL;
     freqs = XLALCreateREAL8Sequence(n - iStart);
@@ -208,8 +209,9 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
     */
 
     const REAL8 vPeak = cbrt(piM*freqs->data[iEnd-iStart]); //Center of the tapering step function in v-space
-    const INT4 NCyclesStep = 5; //Choose no. of GW cycles over which to taper the non-GR phase correction
+    const INT4 NCyclesStep = 2; //Choose no. of GW cycles over which to taper the non-GR phase correction
     const REAL8 width = NCyclesStep * ( sqrt( 2./3.*piM*LAL_PI/vPeak + 0.25*vPeak*vPeak ) - 0.5*vPeak );
+//    printf("width %.16e\n",width);
     for (INT4 i = iStart; i < (INT4) htilde->data->length; i++)
     {
         const REAL8 f = freqs->data[i-iStart];
