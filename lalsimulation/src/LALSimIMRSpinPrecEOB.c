@@ -2075,9 +2075,9 @@ int XLALSimIMRSpinEOBWaveformAll(
                 InitialAlpha = -Alpha->data[Alpha->length-1];
                 InitialGamma = -Gamma->data[Gamma->length-1];
         //        phaseCounterA = 0;
-                printf("Backward integration %.16e\n",  dynamics->data[retLenLow-1]);
-                printf("InitialAlpha %.16e\n",  InitialAlpha);
-                printf("InitialGamma %.16e\n",  InitialGamma);
+//                printf("Backward integration %.16e\n",  dynamics->data[retLenLow-1]);
+//                printf("InitialAlpha %.16e\n",  InitialAlpha);
+//                printf("InitialGamma %.16e\n",  InitialGamma);
                 flag_highSR = 1;
                 if (debugPK){
                         XLAL_PRINT_INFO("Writing Alpha and Beta angle timeseries at low SR to alphaANDbetaBWD.dat\n" );
