@@ -43,7 +43,7 @@
  * \author John Veitch
  */
 struct tagLALInferenceIFOData * LALInferenceReadData (ProcessParamsTable * commandLine);
-
+void GetWindowParamsFromReadDataToTemplate(REAL8 * rise_time, REAL8 * duration, REAL8 * window_shift);
 /**
  * \brief Convenience function to inject a signal into the data, using a SimInspiralTable
  * Injects a signal from a SimInspiralTable into a pre-existing \c IFOdata structure,
@@ -80,12 +80,6 @@ REAL8 XLALChiEffRingdown(REAL8 m1, REAL8 m2, REAL8 spin1[3], REAL8 spin2[3]);
  * \author Michalis Agathos
  */
 void LALInferenceInjectRingdownSignal(struct tagLALInferenceIFOData *IFOdata, ProcessParamsTable *commandLine);
-
-struct tagPlanckwindowparams {
-    REAL8 window_shift;
-    REAL8 duration;
-    REAL8 rise_time;
-} window_par;
 
 /*@}*/
 

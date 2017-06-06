@@ -94,6 +94,8 @@ struct fvec {
 
 static void LALInferenceSetGPSTrigtime(LIGOTimeGPS *GPStrig, ProcessParamsTable *commandLine);
 struct fvec *interpFromFile(char *filename, REAL8 squareinput);
+REAL8 RingodownTemplateWindow_rise_time, RingodownTemplateWindow_duration,RingodownTemplateWindow_shift;
+
 
 struct fvec *interpFromFile(char *filename, REAL8 squareinput){
 	UINT4 fileLength=0;
@@ -782,34 +784,38 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
         if(LALInferenceGetProcParamVal(commandLine, "--ringdown"))
         {
             fprintf(stdout,"Setting windows for ringdown\n");
-            
+            REAL8 rise_time, duration, window_shift;
             ppt=LALInferenceGetProcParamVal(commandLine,"--window_rise_time");
             if(!ppt){fprintf(stderr,"need to give --window_rise_time\n"); exit(0);}
-            window_par.rise_time = atof(ppt->value);
+            rise_time = atof(ppt->value);
             ppt=LALInferenceGetProcParamVal(commandLine,"--window_duration");
             if(!ppt){fprintf(stderr,"need to give --window_duration\n"); exit(0);}
-            window_par.duration = atof(ppt->value);
+            duration = atof(ppt->value);
             ppt=LALInferenceGetProcParamVal(commandLine,"--window_shift");
             if(!ppt){fprintf(stderr,"need to give --window_shift\n"); exit(0);}
-            window_par.window_shift = atof(ppt->value);
+            window_shift = atof(ppt->value);
+            /* Parameters to be passed to the template window */
+            RingodownTemplateWindow_rise_time = rise_time;
+            RingodownTemplateWindow_duration  = duration;
+            RingodownTemplateWindow_shift     = window_shift;
             
             if(i==0)
             {/*Window start time is gps time*/
                 ppt=LALInferenceGetProcParamVal(commandLine,"--window_start_time_H");
                 if(!ppt){fprintf(stderr,"need to give --window_start_time_H\n"); exit(0);}
                 REAL8 window_start = atof(ppt->value);
-                REAL8 trig_time = GPStrig.gpsSeconds+1e-9*GPStrig.gpsNanoSeconds;
+//                REAL8 trig_time = GPStrig.gpsSeconds+1e-9*GPStrig.gpsNanoSeconds;
                 printf("Using a planck window for detector H, starting at %f\n", window_start);
-                IFOdata[i].window=XLALCreateDoublePlanckREAL8Window(seglen, window_start, trig_time, SampleRate, window_par.rise_time, window_par.duration);
+                IFOdata[i].window=XLALCreateDoublePlanckREAL8Window(seglen, window_start, SampleRate, rise_time, duration);
             }
             if(i==1)
             {/*Window start time is gps time*/
                 ppt=LALInferenceGetProcParamVal(commandLine,"--window_start_time_L");
                 if(!ppt){fprintf(stderr,"need to give --window_start_time_L\n"); exit(0);}
                 REAL8 window_start = atof(ppt->value);
-                REAL8 trig_time = GPStrig.gpsSeconds+1e-9*GPStrig.gpsNanoSeconds;
+//                REAL8 trig_time = GPStrig.gpsSeconds+1e-9*GPStrig.gpsNanoSeconds;
                 printf("Using a planck window for detector L, starting at  %f\n", window_start);
-                IFOdata[i].window=XLALCreateDoublePlanckREAL8Window(seglen, window_start, trig_time, SampleRate, window_par.rise_time, window_par.duration);
+                IFOdata[i].window=XLALCreateDoublePlanckREAL8Window(seglen, window_start, SampleRate, rise_time, duration);
             }
         }
         else IFOdata[i].window=XLALCreateTukeyREAL8Window(seglen,(REAL8)2.0*padding*SampleRate/(REAL8)seglen);
@@ -1340,6 +1346,14 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 
 
     return headIFO;
+}
+
+void GetWindowParamsFromReadDataToTemplate(REAL8 * rise_time, REAL8 * duration, REAL8 * window_shift)
+{
+    *rise_time    = RingodownTemplateWindow_rise_time;
+    *duration     = RingodownTemplateWindow_duration;
+    *window_shift = RingodownTemplateWindow_shift;
+    
 }
 
 static void makeWhiteData(LALInferenceIFOData *IFOdata) {
@@ -2873,8 +2887,8 @@ void LALInferenceInjectRingdownSignal(LALInferenceIFOData *IFOdata, ProcessParam
       if(injEvent->dtau430 != 0.0) {
         XLALSimInspiralAddTestGRParam(&nonGRparams,"dtau430",injEvent->dtau430) ;
       }
-
-      XLALSimRingdownMMRDNS_time(&hplus, &hcross, &t0, 1.0/InjSampleRate, Mbh*LAL_MSUN_SI, spin, eta, injEvent->inclination, phase, injEvent->distance*LAL_PC_SI*1.0e6, nonGRparams);
+      UINT4 window_temp = 0;
+      XLALSimRingdownMMRDNS_time(&hplus, &hcross, &t0, 1.0/InjSampleRate, Mbh*LAL_MSUN_SI, spin, eta, injEvent->inclination, phase, injEvent->distance*LAL_PC_SI*1.0e6, nonGRparams, &window_temp);
 
 }
       if(!hplus || !hcross) {
@@ -3938,3 +3952,4 @@ void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOD
     return ;
 
 }
+
