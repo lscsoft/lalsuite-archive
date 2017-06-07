@@ -412,7 +412,7 @@ for(i=1;i<count;i++)average_S+=tmp_pstat[i].highest_circ_ul.S;
 average_S/=count;
 
 /* process SNR thresholds first */
-if(total_diverted_count<args_info.divert_count_limit_arg) {
+if(total_diverted_count<args_info.divert_count_limit_arg && (DIVERT_LOG!=NULL)) {
 	for(i=0;i<count;i++) {
 		if(diverted[i])continue;
 		
@@ -436,7 +436,7 @@ if(total_diverted_count<args_info.divert_count_limit_arg) {
 	}
 
 /* Process upper limit toplist */
-if(((ei->last_chunk-ei->first_chunk+1)==args_info.nchunks_arg) && ((ei->veto_num==-1) || ((veto_free<=1) && args_info.split_ifos_arg)))
+if(((ei->last_chunk-ei->first_chunk+1)==args_info.nchunks_arg) && ((ei->veto_num==-1) || ((veto_free<=1) && args_info.split_ifos_arg)) && (DIVERT_LOG!=NULL))
 for(i=0;i<count;i++) {
 	if(diverted[i])continue;
 	
@@ -604,6 +604,8 @@ if(write_diverted_log_header) {
 for(i=0;i<count;i+=fshift_count) {
 	if((diverted[i] & DIVERT_TEMPLATE_WRITTEN))continue;
 	if(!(diverted[i] & (DIVERT_TEMPLATE_MARKED|DIVERT_TEMPLATE_MARKED_UL)))continue;
+	
+	fprintf(stderr, "diverted[%d]=%08x\n", i, diverted[i]);
 	
 	tp=&(tmp_pstat[i]);
 	
@@ -1395,7 +1397,7 @@ if(args_info.viterbi_power_sums_arg) {
 
 		ctx->log_extremes_pstats_scratch_size=count*(sizeof(*le_pstats)+sizeof(*ctx->diverted))+2*ALIGNMENT;
 
-		ctx->log_extremes_pstats_scratch=do_alloc(count, sizeof(*le_pstats));
+		ctx->log_extremes_pstats_scratch=do_alloc(ctx->log_extremes_pstats_scratch_size, 1);
 		}
 	ctx->diverted=(char *)ctx->log_extremes_pstats_scratch;
 	le_pstats=(POWER_SUM_STATS *)ALIGN_POINTER(ctx->diverted+count);
@@ -1460,12 +1462,14 @@ for(i=0;i<n_contexts;i++) {
 
 fprintf(LOG, "nei: %d\n", nei);
 
-divert_buffer_size=args_info.divert_buffer_size_arg;
-divert_buffer_free=0;
-divert_buffer_ul_threshold=0.0;
-fprintf(stderr, "Allocating %.1fMB for divert buffer\n", divert_buffer_size*sizeof(DIVERTED_ENTRY));
-divert_buffer=do_alloc(divert_buffer_size, sizeof(*divert_buffer));
-divert_sort_buffer=do_alloc(divert_buffer_size, sizeof(*divert_sort_buffer));
+if(DIVERT_LOG!=NULL) {
+	divert_buffer_size=args_info.divert_buffer_size_arg;
+	divert_buffer_free=0;
+	divert_buffer_ul_threshold=0.0;
+	fprintf(stderr, "Allocating %.6fMB for divert buffer\n", divert_buffer_size*sizeof(DIVERTED_ENTRY)*1e-6);
+	divert_buffer=do_alloc(divert_buffer_size, sizeof(*divert_buffer));
+	divert_sort_buffer=do_alloc(divert_buffer_size, sizeof(*divert_sort_buffer));
+	}
 
 gps_start=min_gps();
 gps_stop=max_gps()+1;
@@ -1551,8 +1555,10 @@ fprintf(LOG, "total_diverted_count: %d\n", total_diverted_count);
 fprintf(LOG, "divert_buffer_ul_threshold: %g\n", divert_buffer_ul_threshold);
 fprintf(LOG, "divert_buffer_free: %d\n", divert_buffer_free);
 
-for(i=0;i<divert_buffer_free;i++) {
-	fwrite(&(divert_buffer[i].ti), sizeof(divert_buffer[i].ti), 1, DIVERT_LOG);
+if(DIVERT_LOG!=NULL) {
+	for(i=0;i<divert_buffer_free;i++) {
+		fwrite(&(divert_buffer[i].ti), sizeof(divert_buffer[i].ti), 1, DIVERT_LOG);
+		}
 	}
 
 if(total_diverted_count>=args_info.divert_count_limit_arg && n_contexts>1) {
