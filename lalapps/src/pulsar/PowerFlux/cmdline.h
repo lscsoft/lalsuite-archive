@@ -294,6 +294,9 @@ struct gengetopt_args_info
   int binary_template_nsky_arg;	/**< @brief size of square sky grid to use for followup (default='3').  */
   char * binary_template_nsky_orig;	/**< @brief size of square sky grid to use for followup original value given at command line.  */
   const char *binary_template_nsky_help; /**< @brief size of square sky grid to use for followup help description.  */
+  int binary_template_ngroup_arg;	/**< @brief maximum number of input templates in a group (default='5').  */
+  char * binary_template_ngroup_orig;	/**< @brief maximum number of input templates in a group original value given at command line.  */
+  const char *binary_template_ngroup_help; /**< @brief maximum number of input templates in a group help description.  */
   const char *fake_linear_help; /**< @brief Inject linearly polarized fake signal help description.  */
   const char *fake_circular_help; /**< @brief Inject circularly polarized fake signal help description.  */
   double fake_ref_time_arg;	/**< @brief time of signal start (default='0').  */
@@ -410,6 +413,9 @@ struct gengetopt_args_info
   int npsi_arg;	/**< @brief Number of psi values to use in alignment grid (default='6').  */
   char * npsi_orig;	/**< @brief Number of psi values to use in alignment grid original value given at command line.  */
   const char *npsi_help; /**< @brief Number of psi values to use in alignment grid help description.  */
+  int averaged_polarization_arg;	/**< @brief Include an approximate average polarization, like F-statistics (default='1').  */
+  char * averaged_polarization_orig;	/**< @brief Include an approximate average polarization, like F-statistics original value given at command line.  */
+  const char *averaged_polarization_help; /**< @brief Include an approximate average polarization, like F-statistics help description.  */
   int nfshift_arg;	/**< @brief Number of sub-bin frequency shifts to sample (default='2').  */
   char * nfshift_orig;	/**< @brief Number of sub-bin frequency shifts to sample original value given at command line.  */
   const char *nfshift_help; /**< @brief Number of sub-bin frequency shifts to sample help description.  */
@@ -597,6 +603,7 @@ struct gengetopt_args_info
   unsigned int focus_type_given ;	/**< @brief Whether focus-type was given.  */
   unsigned int binary_template_file_given ;	/**< @brief Whether binary-template-file was given.  */
   unsigned int binary_template_nsky_given ;	/**< @brief Whether binary-template-nsky was given.  */
+  unsigned int binary_template_ngroup_given ;	/**< @brief Whether binary-template-ngroup was given.  */
   unsigned int fake_linear_given ;	/**< @brief Whether fake-linear was given.  */
   unsigned int fake_circular_given ;	/**< @brief Whether fake-circular was given.  */
   unsigned int fake_ref_time_given ;	/**< @brief Whether fake-ref-time was given.  */
@@ -637,6 +644,7 @@ struct gengetopt_args_info
   unsigned int num_threads_env_given ;	/**< @brief Whether num-threads-env was given.  */
   unsigned int niota_given ;	/**< @brief Whether niota was given.  */
   unsigned int npsi_given ;	/**< @brief Whether npsi was given.  */
+  unsigned int averaged_polarization_given ;	/**< @brief Whether averaged-polarization was given.  */
   unsigned int nfshift_given ;	/**< @brief Whether nfshift was given.  */
   unsigned int nchunks_given ;	/**< @brief Whether nchunks was given.  */
   unsigned int nchunks_refinement_given ;	/**< @brief Whether nchunks-refinement was given.  */

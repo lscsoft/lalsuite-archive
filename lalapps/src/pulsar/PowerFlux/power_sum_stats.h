@@ -3,6 +3,9 @@
 
 #include "power_sums.h"
 
+#define TYPE_POLARIZATION_CIRCULAR	0
+#define TYPE_POLARIZATION_ELLIPTICAL	1
+
 typedef struct {
 	float iota;
 	float psi;
@@ -18,6 +21,8 @@ typedef struct {
 	float pccc;
 	float cccc;
 	float im_ppcc;
+	
+	int type;
 	} ALIGNMENT_COEFFS;
 
 typedef struct {
@@ -61,6 +66,7 @@ typedef struct {
 	POINT_STATS highest_M;
 	POINT_STATS highest_S;
 	POINT_STATS highest_circ_ul;
+	double avg_ul;
 	double max_weight_loss_fraction;
 	double max_weight;
 	double min_weight;
@@ -84,6 +90,7 @@ void sse_compute_universal_statistics(float *tmp, float min_weight, float max_we
 
 void prepare_power_sum_stats(POWER_SUM_STATS *stats);
 void update_power_sum_stats(POINT_STATS *pst, ALIGNMENT_COEFFS *ag, POWER_SUM_STATS *stats);
+void finalize_power_sum_stats(POWER_SUM_STATS *stats);
 
 //void point_power_sum_stats(PARTIAL_POWER_SUM_F *pps, ALIGNMENT_COEFFS *ag, POINT_STATS *pst);
 void power_sum_stats(PARTIAL_POWER_SUM_F *pps, POWER_SUM_STATS *stats);

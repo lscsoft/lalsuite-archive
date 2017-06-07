@@ -5,7 +5,7 @@
 
 typedef struct {
 	/* These are double so we can follow parameters of observed source, e.g. Sco-X1
-	   It is possible that depth does not need to be a float */
+	   It is possible that depth could be a float */
 	double freq_modulation_freq;
 	double freq_modulation_phase;
 	double freq_modulation_depth;
@@ -26,6 +26,7 @@ typedef struct {
 	int first_chunk;
 	int last_chunk;
 	int veto_num;
+	int pi;   /* this is patch index, but could also be arbitrary grouping parameter. It is useful to group templates to increase cache efficiency in followup stages */
 	} TEMPLATE_INFO;
 
 typedef struct S_POWER_SUM {
@@ -33,7 +34,7 @@ typedef struct S_POWER_SUM {
 	float spindown;
 	
 	/* These are double so we can follow parameters of observed source, e.g. Sco-X1
-	   It is possible that depth does not need to be a float */
+	   It is possible that depth could be a float */
 	double freq_modulation_freq;
 	double freq_modulation_phase;
 	double freq_modulation_depth;
@@ -58,7 +59,7 @@ typedef struct S_POWER_SUM {
 #include "summing_context.h"
 	
 void generate_patch_templates(SUMMING_CONTEXT *ctx, int pi, POWER_SUM **ps, int *count);
-void generate_followup_templates(SUMMING_CONTEXT *ctx, TEMPLATE_INFO *ti, POWER_SUM **ps, int *count);
+void generate_followup_templates(SUMMING_CONTEXT *ctx, TEMPLATE_INFO *template_info, int ti_count, POWER_SUM **ps, int *count);
 void clone_templates(SUMMING_CONTEXT *ctx, POWER_SUM *ps, int count, POWER_SUM **ps_out);
 //void free_templates(POWER_SUM *ps, int count);
 void free_templates_ctx(SUMMING_CONTEXT *ctx, POWER_SUM *ps, int count);

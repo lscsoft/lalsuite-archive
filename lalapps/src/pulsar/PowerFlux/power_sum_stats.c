@@ -73,19 +73,23 @@ if(args_info.compute_cross_terms_arg)
 	alignment_grid_size=npsi*(2*niota-1)+2;
 	else
 	alignment_grid_size=npsi*niota+1;
+
 alignment_grid_free=alignment_grid_size;
+
 alignment_grid=do_alloc(alignment_grid_size, sizeof(*alignment_grid));
 
 /* First polarization is circular one */
 alignment_grid[0].psi=0.0;
 alignment_grid[0].iota=0.0;
+alignment_grid[0].type=TYPE_POLARIZATION_CIRCULAR;
 
 k=1;
 for(j=0;j<niota;j++)
 	for(i=0;i<npsi;i++) {
 		/* note: make better grid by not overcovering circular polarization neighbourhood */
 		alignment_grid[k].psi=(0.5*M_PI*(i+0.5*(j&1)))/npsi;
-		alignment_grid[k].iota=acos((1.0*j)/niota); 
+		alignment_grid[k].iota=acos((1.0*j)/niota);
+		alignment_grid[k].type=TYPE_POLARIZATION_ELLIPTICAL;
 		k++;
 		}
 		
@@ -112,6 +116,7 @@ for(k=0;k<alignment_grid_free;k++) {
 	fprintf(LOG, "alignment entry %d: %f %f\n", k, alignment_grid[k].iota, alignment_grid[k].psi);
 	compute_alignment_coeffs(&(alignment_grid[k]));
 	}
+	
 fprintf(stderr, "Alignment grid size: %d\n", alignment_grid_free);
 fprintf(LOG, "Alignment grid size: %d\n", alignment_grid_free);
 }
@@ -3346,6 +3351,7 @@ stats->highest_snr.snr=-1;
 stats->highest_ks.ks_value=-1;
 stats->highest_M.M=-1;
 stats->highest_S.S=-1;
+stats->avg_ul=0;
 stats->max_weight_loss_fraction=-1;
 stats->max_weight=-1;
 stats->min_weight=1e50;
@@ -3381,10 +3387,13 @@ if(pst->M>stats->highest_M.M) {
 if(pst->S>stats->highest_S.S) {
 	memcpy(&(stats->highest_S), pst, sizeof(*pst));
 	}
+	
+/* accumulate average ul */
+stats->avg_ul+=pst->ul;
 
 /* Let us consider anything with iota < 1e-5 as circular. 
 	In practice this should only be one point */
-if(ag->iota<1e-5) {
+if(ag->type==TYPE_POLARIZATION_CIRCULAR) {
 	memcpy(&(stats->highest_circ_ul), pst, sizeof(*pst));
 	}
 
@@ -3398,6 +3407,13 @@ if(pst->m3_neg>stats->max_m3_neg)stats->max_m3_neg=pst->m3_neg;
 if(pst->m3_neg<stats->min_m3_neg)stats->min_m3_neg=pst->m3_neg;
 if(pst->m4>stats->max_m4)stats->max_m4=pst->m4;
 if(pst->m4<stats->min_m4)stats->min_m4=pst->m4;
+}
+
+void finalize_power_sum_stats(POWER_SUM_STATS *stats)
+{
+/* to properly compute population average we would need to take median which is expensive */
+/* instead use arithmetic mean after excluding smallest and highest values */
+stats->avg_ul=(stats->avg_ul-stats->highest_circ_ul.ul-stats->highest_ul.ul)/(stats->ntemplates-2);
 }
 
 void power_sum_stats(PARTIAL_POWER_SUM_F *pps, POWER_SUM_STATS *stats)
@@ -3423,6 +3439,8 @@ for(k=0;k<alignment_grid_free;k++) {
 		
 	update_power_sum_stats(&pst, &(alignment_grid[k]), stats);
 	}
+	
+finalize_power_sum_stats(stats);
 }
 
 void power_sum_stats_selftest(void)

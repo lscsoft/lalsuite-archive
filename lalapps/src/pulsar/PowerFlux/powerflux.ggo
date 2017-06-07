@@ -102,6 +102,7 @@ option "only-large-cos" - "restrict computation to points on the sky with cos of
 option "focus-type"	- "focus type (equatorial, ecliptic)" string default="equatorial" no
 option "binary-template-file" - "use data from this file to generate templates, file has same format as diverted.log." string default="" no
 option "binary-template-nsky" - "size of square sky grid to use for followup" int default="3" no
+option "binary-template-ngroup" - "maximum number of input templates in a group" int default="5" no
 
 defgroup "injection" groupdesc=""
 groupoption "fake-linear" - "Inject linearly polarized fake signal" group="injection"
@@ -149,11 +150,9 @@ option "max-sft-report" - "Maximum count of SFTs to report with veto information
 option "num-threads"  - "Use that many threads for computation" int default="-1" no
 option "num-threads-env"  - "Use this environment variable to obtain num-threads" string default="" no
 
-#
-# Options for v2 code
-#
 option "niota" - "Number of iota values to use in alignment grid" int default="3" no
 option "npsi" - "Number of psi values to use in alignment grid" int default="6" no
+option "averaged-polarization" - "Include an approximate average polarization, like F-statistics" int default="1" no
 option "nfshift" - "Number of sub-bin frequency shifts to sample" int default="2" no
 option "nchunks" - "Partition the timebase into this many chunks for sub period analysis" int default="5" no 
 option "nchunks-refinement" - "Reduce reported statistics by this factor." int default="1" no

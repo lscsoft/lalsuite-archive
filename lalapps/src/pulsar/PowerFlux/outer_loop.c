@@ -18,6 +18,7 @@
 #include "hookup.h"
 #include "outer_loop.h"
 #include "summing_context.h"
+#include "statistics.h"
 #include "jobs.h"
 
 #define DIVERT_TEMPLATE_MARKED  (1<<0)
@@ -38,6 +39,9 @@ extern int d_free;
 
 extern int input_templates;
 MUTEX input_template_mutex;
+
+TEMPLATE_INFO *input_templates_buffer=NULL;
+int input_template_start=0;
 
 int data_log_index=0;
 
@@ -234,7 +238,7 @@ void replay_diverted_entry(DIVERTED_ENTRY *de, EXTREME_INFO *ei)
 {
 int skyband;
 int fshift_count=args_info.nfshift_arg;
-int pi=de->pi;
+int pi=de->ti.pi;
 
 skyband=de->ti.skyband;
 
@@ -301,16 +305,16 @@ if(ei->band_info[skyband].max_weight<0) {
 		RFILL_POINT_STATS(ei->band_info[skyband].highest_ul, de->pstats_ul.highest_ul);
 		}
 
-		/* circ_ul and highest_ks fields are not updated by this code */
-		
-// 	if(pstats->highest_circ_ul.ul>ei->band_info[skyband].highest_circ_ul.ul) {
-// 		RFILL_POINT_STATS(ei->band_info[skyband].highest_circ_ul, pstats->highest_circ_ul);
-// 		}
+ 	if(de->pstats_circ_ul.highest_circ_ul.ul>ei->band_info[skyband].highest_circ_ul.ul) {
+ 		RFILL_POINT_STATS(ei->band_info[skyband].highest_circ_ul, de->pstats_circ_ul.highest_circ_ul);
+ 		}
 
 	if(de->pstats_snr.highest_snr.snr>ei->band_info[skyband].highest_snr.snr) {
 		RFILL_POINT_STATS(ei->band_info[skyband].highest_snr, de->pstats_snr.highest_snr);
 		}
 
+		/* highest_ks fields are not updated by this code */
+		
 // 	if(pstats->highest_ks.ks_value>ei->band_info[skyband].highest_ks.ks_value) {
 // 		RFILL_POINT_STATS(ei->band_info[skyband].highest_ks, pstats->highest_ks);
 // 		}
@@ -338,10 +342,10 @@ if(ei->ul_skymap!=NULL && (de->pstats_ul.highest_ul.ul>ei->ul_skymap[pi])) {
 	FILL_SKYMAP(ul_freq_skymap, (de->pstats_ul.highest_ul.bin)/args_info.sft_coherence_time_arg+(double)de->highest_ul_j/fshift_count);
 	}
 
-/* Not filled in properly
-FILL_SKYMAP(circ_ul_skymap, pstats_accum.highest_circ_ul.ul);
-FILL_SKYMAP(circ_ul_freq_skymap, (pstats_accum.highest_circ_ul.bin)/args_info.sft_coherence_time_arg+ps[0][highest_circ_ul_idx].freq_shift);
-*/
+if(ei->ul_skymap!=NULL && (de->pstats_circ_ul.highest_ul.ul>ei->circ_ul_skymap[pi])) {
+	FILL_SKYMAP(circ_ul_skymap, de->pstats_circ_ul.highest_ul.ul);
+	FILL_SKYMAP(circ_ul_freq_skymap, (de->pstats_circ_ul.highest_ul.bin)/args_info.sft_coherence_time_arg+(double)de->highest_circ_ul_j/fshift_count);
+	}
 
 if(ei->snr_skymap!=NULL && (de->pstats_snr.highest_snr.snr>ei->snr_skymap[pi])) {
 	FILL_SKYMAP(snr_skymap, de->pstats_snr.highest_snr.snr);
@@ -364,7 +368,7 @@ if(divert_buffer_free<args_info.divert_ul_count_limit_arg)return;
 
 for(i=0;i<divert_buffer_free;i++)divert_sort_buffer[i]=divert_buffer[i].ti.ul;
 sort_floats(divert_sort_buffer, divert_buffer_free);
-fprintf(stderr, "trim_divert_buffer 1: %g %g %g\n", divert_sort_buffer[0], divert_sort_buffer[1], divert_sort_buffer[2]);
+//fprintf(stderr, "trim_divert_buffer 1: %g %g %g\n", divert_sort_buffer[0], divert_sort_buffer[1], divert_sort_buffer[2]);
 divert_buffer_ul_threshold=divert_sort_buffer[divert_buffer_free-args_info.divert_ul_count_limit_arg];
 
 j=0;
@@ -387,7 +391,7 @@ MUTEX data_logging_mutex;
 
 void pstats_log_extremes(SUMMING_CONTEXT *ctx, POWER_SUM_STATS *tmp_pstat, POWER_SUM **ps, int count, EXTREME_INFO *ei, int pi)
 {
-int i,j, i_start, highest_ul_j, highest_snr_j;
+int i,j, i_start, highest_ul_j, highest_circ_ul_j, highest_snr_j;
 POWER_SUM_STATS pstats, pstats_accum, *tp;
 int highest_ul_idx=0;
 int highest_circ_ul_idx=0;
@@ -432,7 +436,7 @@ if(total_diverted_count<args_info.divert_count_limit_arg) {
 	}
 
 /* Process upper limit toplist */
-if((ei->last_chunk-ei->first_chunk+1==args_info.nchunks_arg) && ((ei->veto_num==-1) || (veto_free<=1)))
+if(((ei->last_chunk-ei->first_chunk+1)==args_info.nchunks_arg) && ((ei->veto_num==-1) || ((veto_free<=1) && args_info.split_ifos_arg)))
 for(i=0;i<count;i++) {
 	if(diverted[i])continue;
 	
@@ -440,14 +444,13 @@ for(i=0;i<count;i++) {
 	
 	if(tp->max_weight_loss_fraction>=1) {
 		continue;
-		}
+		}	
 	
 	if(((args_info.divert_ul_arg>0 && (tp->highest_ul.ul>args_info.divert_ul_arg)) ||
 	(args_info.divert_ul_rel_arg>0 && (tp->highest_ul.ul>args_info.divert_ul_rel_arg*average_S))) && 
 		(tp->highest_ul.ul>divert_buffer_ul_threshold)
 		) {
-		
-		
+				
 		/* divert all frequencies in the template */
 		i_start=fshift_count*(i/fshift_count);
 		for(j=0;j<fshift_count;j++)
@@ -465,7 +468,7 @@ for(i=0;i<count;i++) {
 		continue;
 		}
 
-	if((ei->last_chunk-ei->first_chunk+1==args_info.nchunks_arg) && ((ei->veto_num==-1) || (veto_free<=1)) && (diverted[i] & DIVERT_TEMPLATE_MARKED_UL)) {
+	if((ei->last_chunk-ei->first_chunk+1==args_info.nchunks_arg) && ((ei->veto_num==-1) || ((veto_free<=1) && args_info.split_ifos_arg)) && (diverted[i] & DIVERT_TEMPLATE_MARKED_UL)) {
 		continue;
 		}
 		
@@ -531,6 +534,8 @@ for(i=0;i<count;i++) {
 			FILL_POINT_STATS(ei->band_info[skyband].highest_ks, pstats.highest_ks);
 			}
 	
+		UPDATE_MAX(ei->band_info[skyband], avg_ul);
+		
 		UPDATE_MAX(ei->band_info[skyband], max_weight);
 		UPDATE_MIN(ei->band_info[skyband], min_weight);
 		UPDATE_MAX(ei->band_info[skyband], max_weight_loss_fraction);
@@ -572,6 +577,8 @@ for(i=0;i<count;i++) {
 		memcpy(&pstats_accum.highest_ks, &pstats.highest_ks, sizeof(pstats.highest_ks));
 		}
 
+	UPDATE_MAX(pstats_accum, avg_ul);
+	
 	UPDATE_MAX(pstats_accum, max_weight);
 	UPDATE_MIN(pstats_accum, min_weight);
 	UPDATE_MAX(pstats_accum, max_weight_loss_fraction);
@@ -634,14 +641,22 @@ for(i=0;i<count;i+=fshift_count) {
 	ti.last_chunk=ei->last_chunk;
 	ti.veto_num=ei->veto_num;
 	
+	ti.pi=pi;
+	
 
 	if(diverted[i]==DIVERT_TEMPLATE_MARKED_UL) {
 		highest_ul_j=0;
-		for(j=1;j<fshift_count;j++)
+		highest_circ_ul_j=0;
+		for(j=1;j<fshift_count;j++) {
 			if(ti.ul<tp[j].highest_ul.ul) {
 				ti.ul=tp[j].highest_ul.ul;
 				highest_ul_j=j;
 				}
+			if(ti.circ_ul<tp[j].highest_circ_ul.ul) {
+				ti.circ_ul=tp[j].highest_circ_ul.ul;
+				highest_circ_ul_j=j;
+				}
+			}
 	
 		
 		
@@ -651,16 +666,16 @@ for(i=0;i<count;i+=fshift_count) {
 		
 		memcpy(&(divert_buffer[divert_buffer_free].ti), &ti, sizeof(ti));
 		memcpy(&(divert_buffer[divert_buffer_free].pstats_ul), &(tp[highest_ul_j]), sizeof(*tp));
+		memcpy(&(divert_buffer[divert_buffer_free].pstats_circ_ul), &(tp[highest_circ_ul_j]), sizeof(*tp));
 		memcpy(&(divert_buffer[divert_buffer_free].pstats_snr), &(tp[highest_snr_j]), sizeof(*tp));
 		divert_buffer[divert_buffer_free].ei_idx=ei->idx;
-		divert_buffer[divert_buffer_free].pi=pi;
 		divert_buffer[divert_buffer_free].highest_snr_j=highest_snr_j;
 		divert_buffer[divert_buffer_free].highest_ul_j=highest_ul_j;
+		divert_buffer[divert_buffer_free].highest_circ_ul_j=highest_circ_ul_j;
 		divert_buffer_free++;		
 		
 		thread_mutex_unlock(&divert_buffer_mutex);
 		diverted[i]|=DIVERT_TEMPLATE_WRITTEN;
-		total_diverted_count++;
 		continue;
 		}
 	
@@ -738,6 +753,8 @@ FILL_SKYMAP(ul_freq_skymap, (pstats_accum.highest_ul.bin)/args_info.sft_coherenc
 FILL_SKYMAP(circ_ul_skymap, pstats_accum.highest_circ_ul.ul);
 FILL_SKYMAP(circ_ul_freq_skymap, (pstats_accum.highest_circ_ul.bin)/args_info.sft_coherence_time_arg+ps[0][highest_circ_ul_idx].freq_shift);
 
+FILL_SKYMAP(avg_ul_skymap, pstats_accum.avg_ul);
+
 FILL_SKYMAP(snr_skymap, pstats_accum.highest_snr.snr);
 FILL_SKYMAP(snr_ul_skymap, pstats_accum.highest_snr.ul);
 FILL_SKYMAP(snr_freq_skymap, (pstats_accum.highest_snr.bin)/args_info.sft_coherence_time_arg+ps[0][highest_snr_idx].freq_shift);
@@ -807,6 +824,7 @@ if(args_info.compute_skymaps_arg) {
 	ei->ul_freq_skymap=do_alloc(patch_grid->npoints, sizeof(float));
 	ei->circ_ul_skymap=do_alloc(patch_grid->npoints, sizeof(float));
 	ei->circ_ul_freq_skymap=do_alloc(patch_grid->npoints, sizeof(float));
+	ei->avg_ul_skymap=do_alloc(patch_grid->npoints, sizeof(float));
 	ei->snr_skymap=do_alloc(patch_grid->npoints, sizeof(float));
 	ei->snr_ul_skymap=do_alloc(patch_grid->npoints, sizeof(float));
 	ei->snr_freq_skymap=do_alloc(patch_grid->npoints, sizeof(float));
@@ -847,6 +865,7 @@ FREE(ul_skymap);
 FREE(ul_freq_skymap);
 FREE(circ_ul_skymap);
 FREE(circ_ul_freq_skymap);
+FREE(avg_ul_skymap);
 FREE(snr_skymap);
 FREE(snr_ul_skymap);
 FREE(snr_freq_skymap);
@@ -928,6 +947,10 @@ for(skyband=0;skyband<fine_grid->nbands;skyband++) {
 		ei->band_info[skyband].highest_circ_ul.spindown,
 		ei->name);
 
+	fprintf(LOG, "max_avg_ul_band: %d %lg %s\n", skyband, 
+		ei->band_info[skyband].avg_ul,
+		ei->name);
+	
 	fprintf(LOG, "max_dx_band: %d %s %lf %lf %lg %lf %lf %lf %lf %s\n", skyband,
 		fine_grid->band_name[skyband],
 		ei->band_info[skyband].highest_snr.snr,
@@ -959,6 +982,7 @@ OUTPUT_SKYMAP(ul_skymap, "upper_limit");
 OUTPUT_SKYMAP(ul_freq_skymap, "upper_limit_frequency");
 OUTPUT_SKYMAP(circ_ul_skymap, "circular_upper_limit");
 OUTPUT_SKYMAP(circ_ul_freq_skymap, "circular_upper_limit_frequency");
+OUTPUT_SKYMAP(avg_ul_skymap, "polarization_averaged_upper_limit");
 OUTPUT_SKYMAP(snr_skymap, "snr");
 OUTPUT_SKYMAP(snr_ul_skymap, "snr_upper_limit");
 OUTPUT_SKYMAP(snr_freq_skymap, "snr_frequency");
@@ -982,7 +1006,7 @@ fprintf(LOG, "veto_free: %d\n", veto_free);
 nei=0;
 
 for(i=0;i<args_info.nchunks_arg;i+=args_info.nchunks_refinement_arg)
-	for(k=0;k< args_info.nchunks_arg-i;k+=args_info.nchunks_refinement_arg) {
+	for(k=args_info.nchunks_refinement_arg-1;k< args_info.nchunks_arg-i;k+=args_info.nchunks_refinement_arg) {
 		if(k+1<args_info.min_nchunks_arg)continue;
 		
 		for(m=-1;m<veto_free;m++) {
@@ -1239,12 +1263,57 @@ for(lm=0;lm<alignment_grid_free;lm++) {
 	}
 			
 }
+
+for(i=0;i<nei;i++) {
+	for(j=0;j<count;j++)
+		finalize_power_sum_stats(&stats[i*count+j]);
+	}
+
 /* find largest strain and largest SNR candidates for this patch and log info */
 for(i=0;i<nei;i++) {
 	pstats_log_extremes(ctx, &(stats[i*count]), ps, count, ei[i], pi);
 	}
 }
 
+void load_input_templates(void)
+{
+fprintf(stderr, "Allocating %f MB for input templates buffer\n", input_templates*1e-6*sizeof(*input_templates_buffer));
+fprintf(LOG, "Allocating %f MB for input templates buffer\n", input_templates*1e-6*sizeof(*input_templates_buffer));
+
+thread_mutex_lock(&input_template_mutex);
+input_templates_buffer=do_alloc(input_templates, sizeof(*input_templates_buffer));
+
+fprintf(stderr, "Loading templates\n");
+fseek(INPUT_TEMPLATE_LOG, 0, SEEK_SET);
+fread(input_templates_buffer, sizeof(TEMPLATE_INFO), input_templates, INPUT_TEMPLATE_LOG);
+input_template_start=0;
+thread_mutex_unlock(&input_template_mutex);
+}
+
+int ti_cmp(TEMPLATE_INFO *a, TEMPLATE_INFO *b)
+{
+if(a->pi>b->pi)return 1;
+if(a->pi<b->pi)return -1;
+
+if(a->dec<b->dec)return 1;
+if(a->dec>b->dec)return -1;
+
+if(a->ra<b->ra)return 1;
+if(a->ra>b->ra) return -1;
+
+if(a->spindown>b->spindown)return 1;
+if(a->spindown<b->spindown)return -1;
+/* could sort on other parameters, but unncessary for now */
+return 0;
+}
+
+void sort_input_templates(void)
+{
+fprintf(stderr, "Sorting input templates\n");
+thread_mutex_lock(&input_template_mutex);
+qsort(input_templates_buffer, input_templates, sizeof(*input_templates_buffer), ti_cmp);
+thread_mutex_unlock(&input_template_mutex);
+}
 
 void outer_loop_cruncher(int thread_id, void *data)
 {
@@ -1255,7 +1324,7 @@ int i,k,m,count;
 POWER_SUM **ps=cruncher_contexts[thread_id+1].ps;
 POWER_SUM **ps_tmp=cruncher_contexts[thread_id+1].ps_tmp;
 POWER_SUM_STATS *le_pstats;
-TEMPLATE_INFO ti;
+int ti_start, ti_end;
 
 ctx->nchunks=nchunks;
 ctx->power_sums_idx=0;
@@ -1265,12 +1334,36 @@ ctx->power_sums_idx=0;
 if(input_templates>=0) {
 	thread_mutex_lock(&input_template_mutex);
 	
+	if(input_template_start>=input_templates) {
+		/* Nothing to do - everything else was processed in groups>1 earlier */
+		thread_mutex_unlock(&input_template_mutex);
+		return;
+		}
+	
+	/* Directly read from file */
+#if 0
 	fseek(INPUT_TEMPLATE_LOG, pi*sizeof(TEMPLATE_INFO), SEEK_SET);
 	fread(&ti, sizeof(TEMPLATE_INFO), 1, INPUT_TEMPLATE_LOG);
+#else
+	/* Use in-memory buffer that allows templates to be sorted */
+
+	ti_start=input_template_start;
+	i=1;
+	input_template_start++;
+	
+	while(i<args_info.binary_template_ngroup_arg) {
+		if(input_template_start>=input_templates)break;
+		if(input_templates_buffer[ti_start].pi!=input_templates_buffer[input_template_start].pi)break;
+		i++;
+		input_template_start++;
+		}
+	
+	ti_end=input_template_start;
+#endif
 	
 	thread_mutex_unlock(&input_template_mutex);
 	
-	generate_followup_templates(ctx, &ti, &(ps[0]), &count);
+	generate_followup_templates(ctx, &(input_templates_buffer[ti_start]), ti_end-ti_start, &(ps[0]), &count);
 	} else {
 	generate_patch_templates(ctx, pi, &(ps[0]), &count);
 	}
@@ -1386,6 +1479,10 @@ time(&start_time);
 
 if(input_templates>=0) {
 	fprintf(stderr, "%d patches to process\n", input_templates);
+	
+	load_input_templates();
+	sort_input_templates();
+	
 	for(pi=0;pi<input_templates;pi++) {
 		submit_job(outer_loop_cruncher, (void *)((long)pi));
 		}
@@ -1452,7 +1549,7 @@ fprintf(stderr, "total_diverted_count: %d\n", total_diverted_count);
 fprintf(LOG, "total_diverted_count: %d\n", total_diverted_count);
 
 fprintf(LOG, "divert_buffer_ul_threshold: %g\n", divert_buffer_ul_threshold);
-fprintf(LOG, "divert_buffer_free: %g\n", divert_buffer_free);
+fprintf(LOG, "divert_buffer_free: %d\n", divert_buffer_free);
 
 for(i=0;i<divert_buffer_free;i++) {
 	fwrite(&(divert_buffer[i].ti), sizeof(divert_buffer[i].ti), 1, DIVERT_LOG);
