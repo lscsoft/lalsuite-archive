@@ -1274,7 +1274,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       skynodes=filter(lambda x: isinstance(x,SkyAreaNode) ,self.get_nodes())
       for sk in skynodes:
         if len(sk.ifos)>1:
-          skymap=sk.outdir+'/%s_skymap.fits.gz'%prefix
+          skymap=sk.outdir+'/%s.fits.gz'%prefix
           message=' %s FITS sky map'%prefix
           node=PostRunInfoNode(self.postruninfojob,parent=sk,gid=gid,samples=None)
           node.set_skymap(skymap)
@@ -1317,7 +1317,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       for sk in skynodes:
         if len(sk.ifos)>1:
           node=GraceDBNode(self.gracedbjob,parent=sk,gid=gid,tag='sky_loc,lvem')
-          node.set_filename(sk.outdir+'/%s_skymap.fits.gz'%prefix)
+          node.set_filename(sk.outdir+'/%s.fits.gz'%prefix)
           node.set_message(' %s FITS sky map'%prefix)
           self.add_node(node)
           nodes.append(node)
