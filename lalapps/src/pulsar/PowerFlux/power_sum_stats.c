@@ -25,6 +25,7 @@ double upper_limit_comp=NAN, strain_comp=NAN;
 ALIGNMENT_COEFFS *alignment_grid=NULL;
 int alignment_grid_free=0;
 int alignment_grid_size=0;
+double alignment_grid_total_weight=-1.0;
 
 extern FILE *LOG;
 
@@ -68,6 +69,7 @@ void generate_alignment_grid(void)
 {
 int i, j, k;
 int npsi=args_info.npsi_arg, niota=args_info.niota_arg;
+int full_sphere=args_info.compute_cross_terms_arg;
 
 if(args_info.compute_cross_terms_arg)
 	alignment_grid_size=npsi*(2*niota-1)+2;
@@ -82,6 +84,10 @@ alignment_grid=do_alloc(alignment_grid_size, sizeof(*alignment_grid));
 alignment_grid[0].psi=0.0;
 alignment_grid[0].iota=0.0;
 alignment_grid[0].type=TYPE_POLARIZATION_CIRCULAR;
+/* This approximation to weight is pretty good - the Voronoi cells of the grid are spherical hexagons with sides given by spherical geodesics (arcs). */
+/* The level 0.5*(acos(j*1.0/niota)+acos((j+1.0)/niota)) cuts across the centerline of the hexagons. */
+alignment_grid[0].weight=2.0*M_PI*(1-cos(0.5*acos((niota-1.0)/niota)));
+if(!full_sphere)alignment_grid[0].weight*=2.0;
 
 k=1;
 for(j=0;j<niota;j++)
@@ -90,12 +96,20 @@ for(j=0;j<niota;j++)
 		alignment_grid[k].psi=(0.5*M_PI*(i+0.5*(j&1)))/npsi;
 		alignment_grid[k].iota=acos((1.0*j)/niota);
 		alignment_grid[k].type=TYPE_POLARIZATION_ELLIPTICAL;
+		if(j>0) {
+			alignment_grid[k].weight=2.0*M_PI*(cos(0.5*(acos(j*1.0/niota)+acos((j+1.0)/niota)))-cos(0.5*(acos(j*1.0/niota)+acos((j-1.0)/niota))))/npsi;
+			if(!full_sphere)alignment_grid[k].weight*=2.0;
+			} else {
+			alignment_grid[k].weight=2.0*M_PI*(cos(0.5*(acos(j*1.0/niota)+acos((j+1.0)/niota)))*2)/npsi;
+			}
 		k++;
 		}
 		
-if(args_info.compute_cross_terms_arg) {
+if(full_sphere) {
 	alignment_grid[k].psi=0.0;
 	alignment_grid[k].iota=M_PI;
+	alignment_grid[k].type=TYPE_POLARIZATION_CIRCULAR;
+	alignment_grid[k].weight=2.0*M_PI*(1-cos(0.5*acos((niota-1.0)/niota)));
 	k++;
 
 	for(j=1;j<niota;j++)
@@ -103,6 +117,8 @@ if(args_info.compute_cross_terms_arg) {
 			/* note: make better grid by not overcovering circular polarization neighbourhood */
 			alignment_grid[k].psi=(0.5*M_PI*(i+0.5*(j&1)))/npsi;
 			alignment_grid[k].iota=acos(-(1.0*j)/niota); 
+			alignment_grid[k].type=TYPE_POLARIZATION_ELLIPTICAL;
+			alignment_grid[k].weight=2.0*M_PI*(cos(0.5*(acos(j*1.0/niota)+acos((j+1.0)/niota)))-cos(0.5*(acos(j*1.0/niota)+acos((j-1.0)/niota))))/npsi;
 			k++;
 			}	
 	}
@@ -112,13 +128,16 @@ if(k-1>alignment_grid_free) {
 	exit(-1);
 	}
 
+alignment_grid_total_weight=0.0;
 for(k=0;k<alignment_grid_free;k++) {
-	fprintf(LOG, "alignment entry %d: %f %f\n", k, alignment_grid[k].iota, alignment_grid[k].psi);
+	fprintf(LOG, "alignment entry %d: %f %f %d %f\n", k, alignment_grid[k].iota, alignment_grid[k].psi, alignment_grid[k].type, alignment_grid[k].weight);
 	compute_alignment_coeffs(&(alignment_grid[k]));
+	alignment_grid_total_weight+=alignment_grid[k].weight;
 	}
 	
 fprintf(stderr, "Alignment grid size: %d\n", alignment_grid_free);
 fprintf(LOG, "Alignment grid size: %d\n", alignment_grid_free);
+fprintf(LOG, "Alignment grid total weight: %g\n", alignment_grid_total_weight);
 }
 
 /* an implementation of merge sort - this modifies input array */
@@ -482,6 +501,7 @@ void set_missing_point_stats(POINT_STATS *pst)
 pst->bin=0;
 pst->iota=-1;
 pst->psi=-1;
+pst->alignment_weight=0;
 
 pst->S=-1;
 pst->M=-1;
@@ -722,6 +742,7 @@ if(max_dx<=0) {
 pst->bin=max_dx_bin;
 pst->iota=ag->iota;
 pst->psi=ag->psi;
+pst->alignment_weight=ag->weight;
 
 /* convert to upper limit units */
 pst->S=sqrt(S)*strain_comp;
@@ -894,6 +915,7 @@ if(max_dx<=0 || !isfinite(max_dx)) {
 pst->bin=max_dx_bin;
 pst->iota=ag->iota;
 pst->psi=ag->psi;
+pst->alignment_weight=ag->weight;
 
 /* convert to upper limit units */
 pst->S=sqrt(S)*strain_comp;
@@ -1107,6 +1129,7 @@ if(max_dx<=0 || !isfinite(max_dx)) {
 pst->bin=max_dx_bin;
 pst->iota=ag->iota;
 pst->psi=ag->psi;
+pst->alignment_weight=ag->weight;
 
 /* convert to upper limit units */
 pst->S=sqrt(S)*strain_comp;
@@ -1530,6 +1553,7 @@ if(max_dx<=0 || !isfinite(max_dx)) {
 pst->bin=max_dx_bin;
 pst->iota=ag->iota;
 pst->psi=ag->psi;
+pst->alignment_weight=ag->weight;
 
 /* convert to upper limit units */
 pst->S=sqrt(S)*strain_comp;
@@ -1766,6 +1790,7 @@ s3=SIGMA/(1.0-sum_c/(1.0-LEVEL));
 pst->bin=max_dx_bin;
 pst->iota=ag->iota;
 pst->psi=ag->psi;
+pst->alignment_weight=ag->weight;
 
 /* convert to upper limit units */
 pst->S=sqrt(S)*strain_comp;
@@ -2023,6 +2048,7 @@ if(sum_c<=1)
 pst->bin=max_dx_bin;
 pst->iota=ag->iota;
 pst->psi=ag->psi;
+pst->alignment_weight=ag->weight;
 
 /* convert to upper limit units */
 pst->S=sqrt(S)*strain_comp;
@@ -2268,6 +2294,7 @@ if(sum_c<=1)
 pst->bin=max_dx_bin;
 pst->iota=ag->iota;
 pst->psi=ag->psi;
+pst->alignment_weight=ag->weight;
 
 /* convert to upper limit units */
 pst->S=sqrt(S)*strain_comp;
@@ -2790,6 +2817,7 @@ if(sum_c<=1)
 pst->bin=max_dx_bin;
 pst->iota=ag->iota;
 pst->psi=ag->psi;
+pst->alignment_weight=ag->weight;
 
 /* convert to upper limit units */
 pst->S=sqrt(S)*strain_comp;
@@ -3308,6 +3336,7 @@ if(sum_c<=1)
 pst->bin=max_dx_bin;
 pst->iota=ag->iota;
 pst->psi=ag->psi;
+pst->alignment_weight=ag->weight;
 
 /* convert to upper limit units */
 pst->S=sqrt(S)*strain_comp;
@@ -3389,11 +3418,10 @@ if(pst->S>stats->highest_S.S) {
 	}
 	
 /* accumulate average ul */
-stats->avg_ul+=pst->ul;
+stats->avg_ul+=pst->ul*ag->weight;
 
-/* Let us consider anything with iota < 1e-5 as circular. 
-	In practice this should only be one point */
-if(ag->type==TYPE_POLARIZATION_CIRCULAR) {
+/* This happens only once, unless we include imaginary parts in loosely coherent mode which add iota=pi polarization */
+if((ag->type==TYPE_POLARIZATION_CIRCULAR) && (pst->ul>stats->highest_circ_ul.ul)) {
 	memcpy(&(stats->highest_circ_ul), pst, sizeof(*pst));
 	}
 
@@ -3411,9 +3439,15 @@ if(pst->m4<stats->min_m4)stats->min_m4=pst->m4;
 
 void finalize_power_sum_stats(POWER_SUM_STATS *stats)
 {
+double excluded_weight;
 /* to properly compute population average we would need to take median which is expensive */
-/* instead use arithmetic mean after excluding smallest and highest values */
-stats->avg_ul=(stats->avg_ul-stats->highest_circ_ul.ul-stats->highest_ul.ul)/(stats->ntemplates-2);
+/* instead use weighted mean after excluding smallest and highest values */
+
+excluded_weight=stats->highest_ul.alignment_weight;
+/* This case does not happen for main upper limit runs */
+if(stats->highest_circ_ul.alignment_weight<excluded_weight)excluded_weight=stats->highest_circ_ul.alignment_weight;
+
+stats->avg_ul=(stats->avg_ul-(stats->highest_ul.ul+stats->highest_circ_ul.ul)*excluded_weight)/(alignment_grid_total_weight-2.0*excluded_weight);
 }
 
 void power_sum_stats(PARTIAL_POWER_SUM_F *pps, POWER_SUM_STATS *stats)

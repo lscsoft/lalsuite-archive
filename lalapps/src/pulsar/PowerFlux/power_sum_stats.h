@@ -22,12 +22,14 @@ typedef struct {
 	float cccc;
 	float im_ppcc;
 	
+	float weight; /* spherical angle covered by polarization - used for computing avg_ul */
 	int type;
 	} ALIGNMENT_COEFFS;
 
 typedef struct {
 	double iota;
 	double psi;
+	double alignment_weight;
 
 	double ul;
 	double ll;
