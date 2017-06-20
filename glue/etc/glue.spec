@@ -8,7 +8,7 @@
 
 Name: 		glue
 Summary:	The Grid LSC User Environment
-Version:	1.55.2
+Version:	1.57.0
 Release:	1%{?dist}
 License:	None
 Group:		Development/Libraries
@@ -55,7 +55,7 @@ rm -rf %{buildroot}
         --skip-build \
         --root=%{buildroot} \
         --prefix=%{_glue_prefix}
-rm -rf $RPM_BUILD_ROOT/usr/lib64/python2.?/site-packages/glue-1.55.2-py2.?.egg-info
+rm -rf $RPM_BUILD_ROOT/usr/lib64/python2.?/site-packages/glue-1.57.0-py2.?.egg-info
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -110,6 +110,9 @@ rm -rf $RPM_BUILD_ROOT
 %{_glue_prefix}/bin/ligolw_sqlite
 
 %changelog
+* Tue Jun 13 2017 Ryan Fisher <rpfisher@syr.edu>
+- Mid O2 release to include M2Crypto removal and Kipp packaging changes. 
+
 * Thu Apr 13 2017 Duncan Macleod <duncan.macleod@ligo.org>
 - Switched dependency from M2Crypto -> pyOpenSSL.
 
