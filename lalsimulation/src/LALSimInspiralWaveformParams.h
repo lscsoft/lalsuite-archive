@@ -18,6 +18,8 @@ int XLALSimInspiralWaveformParamsInsertNumRelData(LALDict *params, const char * 
 
 int XLALSimInspiralWaveformParamsInsertLmax(LALDict *params, INT4 value);
 
+int XLALSimInspiralWaveformParamsInsertModeArray(LALDict *params,  LALValue *value);
+
 int XLALSimInspiralWaveformParamsInsertPNPhaseOrder(LALDict *params, INT4 value);
 int XLALSimInspiralWaveformParamsInsertPNAmplitudeOrder(LALDict *params, INT4 value);
 int XLALSimInspiralWaveformParamsInsertPNEccentricityOrder(LALDict *params, INT4 value);
@@ -97,6 +99,8 @@ const char * XLALSimInspiralWaveformParamsLookupNumRelData(LALDict *params);
 
 INT4 XLALSimInspiralWaveformParamsLookupLmax(LALDict *params);
 
+LALValue* XLALSimInspiralWaveformParamsLookupModeArray(LALDict *params);
+
 INT4 XLALSimInspiralWaveformParamsLookupPNPhaseOrder(LALDict *params);
 INT4 XLALSimInspiralWaveformParamsLookupPNAmplitudeOrder(LALDict *params);
 INT4 XLALSimInspiralWaveformParamsLookupPNEccentricityOrder(LALDict *params);
@@ -174,6 +178,8 @@ int XLALSimInspiralWaveformParamsSidebandIsDefault(LALDict *params);
 int XLALSimInspiralWaveformParamsNumRelDataIsDefault(LALDict *params);
 
 int XLALSimInspiralWaveformParamsLmaxIsDefault(LALDict *params);
+
+int XLALSimInspiralWaveformParamsModeArrayIsDefault(LALDict *params);
 
 int XLALSimInspiralWaveformParamsPNPhaseOrderIsDefault(LALDict *params);
 int XLALSimInspiralWaveformParamsPNAmplitudeOrderIsDefault(LALDict *params);
