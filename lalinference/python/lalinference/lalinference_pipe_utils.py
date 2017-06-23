@@ -132,7 +132,7 @@ def readLValert(threshold_snr=None,gid=None,flow=40.0,gracedb="gracedb",basepath
         srate.append(pow(2.0, ceil( log(float(strlen.splitlines()[1].split()[5]), 2) ) ) * 2 )
       snr = e.snr
       eff_dist = e.eff_distance
-      if threshold_snr is not None:
+      if threshold_snr is not None and eff_dist is not None:
           if snr > threshold_snr:
               horizon_distance.append(eff_dist * snr/threshold_snr)
           else:
