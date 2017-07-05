@@ -65,27 +65,6 @@ __date__ = git_version.date
 #
 
 
-class TableRow(table.Table.RowType):
-	# FIXME:  figure out what needs to be done to allow the C row
-	# classes that are floating around to be derived from this easily
-
-	# FIXME:  DON'T USE THIS!!!  I'm experimenting with solutions to
-	# the pickling problem.  --Kipp
-	"""
-	Base class for row classes.  Provides an __init__() method that
-	accepts keyword arguments that are used to initialize the objects
-	attributes.  Also provides .__getstate__() and .__setstate__()
-	methods to allow row objects to be pickled (otherwise, because they
-	all use __slots__ to reduce their memory footprint, they aren't
-	pickleable).
-	"""
-	__slots__ = ()
-	def __getstate__(self):
-		return dict((key, getattr(self, key)) for key in self.__slots__ if hasattr(self, key))
-	def __setstate__(self, state):
-		self.__init__(**state)
-
-
 def New(cls, columns = None, **kwargs):
 	"""
 	Construct a pre-defined LSC table.  The optional columns argument
@@ -111,12 +90,12 @@ def New(cls, columns = None, **kwargs):
 	new = cls(sax.xmlreader.AttributesImpl({u"Name": cls.TableName.enc(cls.tableName)}), **kwargs)
 	colnamefmt = new.Name + u":%s"
 	if columns is not None:
-		for key in columns:
+		for key in sorted(columns):
 			if key not in new.validcolumns:
 				raise ligolw.ElementError("invalid Column '%s' for Table '%s'" % (key, new.Name))
 			new.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % key, u"Type": new.validcolumns[key]})))
 	else:
-		for key, value in new.validcolumns.items():
+		for key, value in sorted(new.validcolumns.items()):
 			new.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % key, u"Type": value})))
 	new._end_of_columns()
 	new.appendChild(table.TableStream(sax.xmlreader.AttributesImpl({u"Name": new.getAttribute(u"Name"), u"Delimiter": table.TableStream.Delimiter.default, u"Type": table.TableStream.Type.default})))
@@ -181,7 +160,7 @@ class instrumentsproperty(object):
 
 		Example:
 
-		>>> print instrumentsproperty.get(None)
+		>>> print(instrumentsproperty.get(None))
 		None
 		>>> instrumentsproperty.get(u"")
 		set([])
@@ -251,7 +230,7 @@ class instrumentsproperty(object):
 
 		Example:
 
-		>>> print instrumentsproperty.set(None)
+		>>> print(instrumentsproperty.set(None))
 		None
 		>>> instrumentsproperty.set(())
 		u''
@@ -538,11 +517,11 @@ class ProcessParams(table.Table.RowType):
 	>>> x.pyvalue
 	6.0
 	>>> x.pyvalue = None
-	>>> print x.type
+	>>> print(x.type)
 	None
-	>>> print x.value
+	>>> print(x.value)
 	None
-	>>> print x.pyvalue
+	>>> print(x.pyvalue)
 	None
 	>>> x.pyvalue = True
 	>>> x.type
@@ -686,9 +665,9 @@ class SearchSummary(table.Table.RowType):
 	>>> x.out_segment
 	segment(LIGOTimeGPS(0, 0), LIGOTimeGPS(10, 0))
 	>>> x.in_segment = x.out_segment = None
-	>>> print x.in_segment
+	>>> print(x.in_segment)
 	None
-	>>> print x.out_segment
+	>>> print(x.out_segment)
 	None
 	"""
 	__slots__ = tuple(SearchSummaryTable.validcolumns.keys())
@@ -2065,7 +2044,7 @@ class CoincInspiral(table.Table.RowType):
 	>>> x.end
 	LIGOTimeGPS(10, 0)
 	>>> x.end = None
-	>>> print x.end
+	>>> print(x.end)
 	None
 	"""
 	__slots__ = tuple(CoincInspiralTable.validcolumns.keys())
@@ -2975,17 +2954,17 @@ class SimInspiral(table.Table.RowType):
 	>>> x.ra_dec
 	(0.0, 0.0)
 	>>> x.ra_dec = None
-	>>> print x.ra_dec
+	>>> print(x.ra_dec)
 	None
 	>>> x.time_geocent = None
-	>>> print x.time_geocent
+	>>> print(x.time_geocent)
 	None
-	>>> print x.end_time_gmst
+	>>> print(x.end_time_gmst)
 	None
 	>>> x.time_geocent = LIGOTimeGPS(6e8)
-	>>> print x.time_geocent
+	>>> print(x.time_geocent)
 	600000000
-	>>> print x.end_time_gmst
+	>>> print(x.end_time_gmst)
 	-2238.39417156
 	"""
 	__slots__ = tuple(SimInspiralTable.validcolumns.keys())
@@ -3145,17 +3124,17 @@ class SimBurst(table.Table.RowType):
 	>>> x.ra_dec
 	(0.0, 0.0)
 	>>> x.ra_dec = None
-	>>> print x.ra_dec
+	>>> print(x.ra_dec)
 	None
 	>>> x.time_geocent = None
-	>>> print x.time_geocent
+	>>> print(x.time_geocent)
 	None
-	>>> print x.time_geocent_gmst
+	>>> print(x.time_geocent_gmst)
 	None
 	>>> x.time_geocent = LIGOTimeGPS(6e8)
-	>>> print x.time_geocent
+	>>> print(x.time_geocent)
 	600000000
-	>>> print x.time_geocent_gmst
+	>>> print(x.time_geocent_gmst)
 	-2238.39417156
 	"""
 	__slots__ = tuple(SimBurstTable.validcolumns.keys())
@@ -3343,7 +3322,7 @@ class SummValue(table.Table.RowType):
 	>>> x.segment
 	segment(LIGOTimeGPS(0, 0), LIGOTimeGPS(10, 0))
 	>>> x.segment = None
-	>>> print x.segment
+	>>> print(x.segment)
 	None
 	"""
 	__slots__ = tuple(SummValueTable.validcolumns.keys())
@@ -3598,9 +3577,9 @@ class Segment(table.Table.RowType):
 	>>> x.segment
 	segment(LIGOTimeGPS(0, 0), LIGOTimeGPS(10, 0))
 	>>> x.segment = None
-	>>> print x.segment
+	>>> print(x.segment)
 	None
-	>>> print x.start
+	>>> print(x.start)
 	None
 	>>> # non-LIGOTimeGPS times are converted to LIGOTimeGPS
 	>>> x.segment = (20, 30.125)
@@ -4342,6 +4321,27 @@ TableByName = {
 	TimeSlideTable.tableName: TimeSlideTable,
 	VetoDefTable.tableName: VetoDefTable
 }
+
+
+def reset_next_ids(classes):
+	"""
+	For each class in the list, if the .next_id attribute is not None
+	(meaning the table has an ID generator associated with it), set
+	.next_id to 0.  This has the effect of reseting the ID generators,
+	and is useful in applications that process multiple documents and
+	add new rows to tables in those documents.  Calling this function
+	between documents prevents new row IDs from growing continuously
+	from document to document.  There is no need to do this, it's
+	purpose is merely aesthetic, but it can be confusing to open a
+	document and find process ID 300 in the process table and wonder
+	what happened to the other 299 processes.
+
+	Example:
+
+	>>> reset_next_ids(TableByName.values())
+	"""
+	for cls in classes:
+		cls.reset_next_id()
 
 
 #

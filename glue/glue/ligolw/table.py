@@ -139,28 +139,6 @@ def reassign_ids(elem):
 		tbl.applyKeyMapping(mapping)
 
 
-def reset_next_ids(classes):
-	"""
-	For each class in the list, if the .next_id attribute is not None
-	(meaning the table has an ID generator associated with it), set
-	.next_id to 0.  This has the effect of reseting the ID generators,
-	and is useful in applications that process multiple documents and
-	add new rows to tables in those documents.  Calling this function
-	between documents prevents new row IDs from growing continuously
-	from document to document.  There is no need to do this, it's
-	purpose is merely aesthetic, but it can be confusing to open a
-	document and find process ID 300 in the process table and wonder
-	what happened to the other 299 processes.
-
-	Example:
-
-	>>> import lsctables
-	>>> reset_next_ids(lsctables.TableByName.values())
-	"""
-	for cls in classes:
-		cls.reset_next_id()
-
-
 #
 # =============================================================================
 #
@@ -557,11 +535,36 @@ class Table(ligolw.Table, list):
 	class RowType(object):
 		"""
 		Helpful parent class for row objects.  Also used as the
-		default row class by Table instances.
+		default row class by Table instances.  Provides an
+		__init__() method that accepts keyword arguments from which
+		the object's attributes are initialized.
+
+		Example:
+
+		>>> x = Table.RowType(a = 0.0, b = "test", c = True)
+		>>> x.a
+		0.0
+		>>> x.b
+		'test'
+		>>> x.c
+		True
 		"""
+		#"""
+		#Also provides .__getstate__() and .__setstate__() methods
+		#to allow row objects to be pickled (otherwise, because they
+		#all use __slots__ to reduce their memory footprint, they
+		#aren't pickleable).
+		#"""
+
 		def __init__(self, **kwargs):
 			for key, value in kwargs.items():
 				setattr(self, key, value)
+
+		#def __getstate__(self):
+		#	return dict((key, getattr(self, key)) for key in self.__slots__ if hasattr(self, key))
+
+		#def __setstate__(self, state):
+		#	self.__init__(**state)
 
 
 	def __init__(self, *args):
@@ -889,7 +892,7 @@ class Table(ligolw.Table, list):
 
 		>>> import lsctables
 		>>> tbl = lsctables.New(lsctables.ProcessTable)
-		>>> print tbl.sync_next_id()
+		>>> print(tbl.sync_next_id())
 		process:process_id:0
 		"""
 		if self.next_id is not None:

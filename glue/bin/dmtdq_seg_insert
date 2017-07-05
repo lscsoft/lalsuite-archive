@@ -25,8 +25,6 @@ import sys
 import os
 import getopt
 import re
-import exceptions
-import re
 
 try:
   from glue.segmentdb import segmentdb_utils

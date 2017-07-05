@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import os, sys, exceptions
+import os, sys
 from optparse import *
 
 import matplotlib

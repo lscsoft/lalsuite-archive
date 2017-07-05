@@ -8,7 +8,7 @@ np.seterr(all="raise")
 from scipy import integrate
 
 from pylal import moving_histogram as mh
-from pylal import rate
+from lal import rate
 
 num_tests = 100
 

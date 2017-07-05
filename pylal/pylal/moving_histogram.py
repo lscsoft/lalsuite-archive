@@ -20,7 +20,7 @@ import collections
 
 import numpy as np
 
-from pylal import rate
+from lal import rate
 
 class MovingHistogramFixedN(object):
 	"""

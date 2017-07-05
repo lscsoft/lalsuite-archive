@@ -110,11 +110,21 @@ def replace_column(table, old, new):
     table.remove_column(old)
     table.add_column(astropy.table.Column(new, name=old), index=index)
 
+def as_array(table):
+    """Workaround for missing astropy.table.Table.as_array method,
+    which was added in Astropy 1.0.
+
+    FIXME: remove this function when LALSuite depends on Astropy >= 1.0."""
+    try:
+        return table.as_array()
+    except:
+        return table._data
+
 #===============================================================================
 # Constants
 #===============================================================================
 #Parameters which are not to be exponentiated when found
-logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior','logpost']
+logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior','logpost','nulllogl','chain_log_evidence','chain_delta_log_evidence','chain_log_noise_evidence','chain_log_bayes_factor']
 #Parameters known to cbcBPP
 relativePhaseParams=[ a+b+'_relative_phase' for a,b in combinations(['h1','l1','v1'],2)]
 snrParams=['snr','optimal_snr','matched_filter_snr'] + ['%s_optimal_snr'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_amp'%(i) for i in ['h1','l1','v1']] + ['%s_cplx_snr_arg'%(i) for i in ['h1', 'l1', 'v1']] + relativePhaseParams
@@ -1118,7 +1128,7 @@ class Posterior(object):
               print "Using non-precessing fit formula [Healy at al (2014)] for final mass and spin (on masses and projected spin components)."
               try:
                   pos.append_mapping('af', bbh_final_spin_non_precessing_Healyetal, ['m1', 'm2', 'a1z', 'a2z'])
-                  pos.append_mapping('mf', bbh_final_mass_non_precessing_Healyetal, ['m1', 'm2', 'a1z', 'a2z', 'af'])
+                  pos.append_mapping('mf', lambda m1, m2, chi1z, chi2z, chif: bbh_final_mass_non_precessing_Healyetal(m1, m2, chi1z, chi2z, chif=chif), ['m1', 'm2', 'a1z', 'a2z', 'af'])
               except Exception,e:
                   print "Could not calculate final parameters. The error was: %s"%(str(e))
           elif ('a1' in pos.names) and ('a2' in pos.names):
@@ -1133,7 +1143,7 @@ class Posterior(object):
                   print "Using non-precessing fit formula [Healy at al (2014)] for final mass and spin (on masses and spin magnitudes)."
                   try:
                       pos.append_mapping('af', bbh_final_spin_non_precessing_Healyetal, ['m1', 'm2', 'a1', 'a2'])
-                      pos.append_mapping('mf', bbh_final_mass_non_precessing_Healyetal, ['m1', 'm2', 'a1', 'a2', 'af'])
+                      pos.append_mapping('mf', lambda m1, m2, chi1, chi2, chif: bbh_final_mass_non_precessing_Healyetal(m1, m2, chi1, chi2, chif=chif), ['m1', 'm2', 'a1', 'a2', 'af'])
                   except Exception,e:
                       print "Could not calculate final parameters. The error was: %s"%(str(e))
           else:
@@ -1972,7 +1982,7 @@ class Posterior(object):
                 lalsim.SimInspiralInitialConditionsPrecessingApproxs(inj.inclination,
                                                                      inj.spin1x, inj.spin1y, inj.spin1z,
                                                                      inj.spin2x, inj.spin2y, inj.spin2z,
-                                                                     m1*lal.MSUN_SI, m2*lal.MSUN_SI, f_ref, axis)
+                                                                     m1*lal.MSUN_SI, m2*lal.MSUN_SI, f_ref, inj.coa_phase, axis)
 
             a1, theta1, phi1 = cart2sph(s1x, s1y, s1z)
             a2, theta2, phi2 = cart2sph(s2x, s2y, s2z)
@@ -5519,7 +5529,7 @@ def find_ndownsample(samples, nDownsample):
         print "Max ACL(s):"
         splineParams=["spcal_npts", "spcal_active","constantcal_active"]
         for i in np.arange(5):
-          for k in ['h1','l1']:
+          for k in lal.cached_detector_by_prefix:
             splineParams.append(k+'_spcal_freq_'+str(i))
             splineParams.append(k+'_spcal_logfreq_'+str(i))
 
@@ -5527,6 +5537,7 @@ def find_ndownsample(samples, nDownsample):
                      "margtime","margtimephi","margtime","time_max","time_min",
                      "time_mean", "time_maxl","sky_frame","psdscaleflag","logdeltaf","flow","f_ref",
                      "lal_amporder","lal_pnorder","lal_approximant","tideo","spino","signalmodelflag",
+                     "temperature","nifo","nlocaltemps","ntemps","randomseed","samplerate","segmentlength","segmentstart",
                      "t0", "phase_maxl", "azimuth", "cosalpha", "lal_amporder"] + logParams + snrParams + splineParams
         fixedParams = [p for p in samples.colnames if all(x==samples[p][0] for x in samples[p])]
         print "Fixed parameters: "+str(fixedParams)
@@ -5546,6 +5557,7 @@ def find_ndownsample(samples, nDownsample):
     if nDownsample is not None:
         if len(samples) > nDownsample:
             nskip *= floor(len(samples)/nDownsample)
+            nskip = int(nskip)
 
     else:
         nEff = nEffective
@@ -5785,6 +5797,7 @@ class PEOutputParser(object):
                                      "margtime","margtimephi","margtime","time_max","time_min",
                                      "time_mean", "time_maxl","sky_frame","psdscaleflag","logdeltaf","flow","f_ref",
                                      "lal_amporder","lal_pnorder","lal_approximant","tideo","spino","signalmodelflag",
+                                     "temperature","nifo","nlocaltemps","ntemps","randomseed","samplerate","segmentlength","segmentstart",
                                      "t0", "phase_maxl", "azimuth", "cosalpha"] + logParams + snrParams + splineParams
                         nonParamsIdxs = [header.index(name) for name in nonParams if name in header]
                         samps = np.array(lines).astype(float)
@@ -6062,7 +6075,7 @@ class PEOutputParser(object):
         print 'Read columns %s'%(str(header))
         return header,flines
 
-    def _hdf5s_to_pos(self, infiles, fixedBurnins=None, deltaLogP=None, nDownsample=None, **kwargs):
+    def _hdf5s_to_pos(self, infiles, fixedBurnins=None, deltaLogP=None, nDownsample=None, tablename=None, **kwargs):
         from astropy.table import vstack
 
         if fixedBurnins is None:
@@ -6073,7 +6086,7 @@ class PEOutputParser(object):
 
         chains = []
         for i, [infile, fixedBurnin] in enumerate(zip(infiles, fixedBurnins)):
-            chain = self._hdf5_to_table(infile, fixedBurnin=fixedBurnin, deltaLogP=deltaLogP, nDownsample=nDownsample, multiple_chains=multiple_chains, **kwargs)
+            chain = self._hdf5_to_table(infile, fixedBurnin=fixedBurnin, deltaLogP=deltaLogP, nDownsample=nDownsample, multiple_chains=multiple_chains, tablename=tablename, **kwargs)
             chain.add_column(astropy.table.Column(i*np.ones(len(chain)), name='chain'))
             chains.append(chain)
 
@@ -6100,14 +6113,17 @@ class PEOutputParser(object):
             nskip = find_ndownsample(samples, nDownsample)
             samples = samples[::nskip]
 
-        return samples.colnames, samples.as_array().view(float).reshape(-1, len(samples.columns))
+        return samples.colnames, as_array(samples).view(float).reshape(-1, len(samples.columns))
 
-    def _hdf5_to_table(self, infile, deltaLogP=None, fixedBurnin=None, nDownsample=None, multiple_chains=False, **kwargs):
+    def _hdf5_to_table(self, infile, deltaLogP=None, fixedBurnin=None, nDownsample=None, multiple_chains=False, tablename=None, **kwargs):
         """
         Parse a HDF5 file and return an array of posterior samples ad list of
         parameter names. Equivalent to '_common_to_pos' and work in progress.
         """
-        samples = read_samples(infile,tablename=lalinference.LALInferenceHDF5PosteriorSamplesDatasetName)
+        if not tablename:
+            samples = read_samples(infile, tablename=lalinference.LALInferenceHDF5PosteriorSamplesDatasetName)
+        else:
+            samples = read_samples(infile, tablename=tablename)
         params = samples.colnames
 
         for param in params:
@@ -6170,20 +6186,20 @@ class PEOutputParser(object):
                         print "WARNING: All samples in chain are correlated.  Downsampling to 10000 samples for inspection!!!"
                         nskip = find_ndownsample(samples, 10000)
                         samples = samples[::nskip]
+                else:
+                    if np.isnan(nskip):
+                        print "WARNING: All samples in {} are correlated.".format(infile)
+                        samples = samples[-1:]
                     else:
-                        if np.isnan(nskip):
-                            print "WARNING: All samples in {} are correlated.".format(infile)
-                            samples = samples[-1:]
-                        else:
-                            print "Downsampling by a factor of ", nskip, " to achieve approximately ", nDownsample, " posterior samples"
-                            samples = samples[::nskip]
+                        print "Downsampling by a factor of ", nskip, " to achieve approximately ", nDownsample, " posterior samples"
+                        samples = samples[::nskip]
 
         return samples
 
-    def _hdf5_to_pos(self, infile, **kwargs):
-        samples = self._hdf5_to_table(infile, **kwargs)
+    def _hdf5_to_pos(self, infile, fixedBurnins=None, deltaLogP=None, nDownsample=None, tablename=None, **kwargs):
+        samples = self._hdf5_to_table(infile, fixedBurnins=fixedBurnins, deltaLogP=deltaLogP, nDownsample=nDownsample, tablename=tablename, **kwargs)
 
-        return samples.colnames, samples.as_array().view(float).reshape(-1, len(samples.columns))
+        return samples.colnames, as_array(samples).view(float).reshape(-1, len(samples.columns))
 
     def _common_to_pos(self,infile,info=[None,None]):
         """

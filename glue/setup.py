@@ -39,7 +39,7 @@ from distutils import log
 
 from misc import generate_vcs_info as gvcsi
 
-ver = "1.53.0"
+ver = "1.57.0"
 
 def remove_root(path,root):
   if root:
@@ -219,7 +219,7 @@ class glue_sdist(sdist.sdist):
     sdist.sdist.run(self)
 
 setup(
-  name = "glue",
+  name = "lscsoft-glue",
   version = ver,
   author = "Duncan Brown",
   author_email = "dbrown@ligo.caltech.edu",
@@ -227,6 +227,7 @@ setup(
   url = "http://www.lsc-group.phys.uwm.edu/daswg/",
   license = 'See file LICENSE',
   packages = [ 'glue', 'glue.ligolw', 'glue.ligolw.utils', 'glue.segmentdb', 'glue.nmi', 'glue.auth'],
+  install_requires=['six','pyOpenSSL','numpy'],
   cmdclass = {
     'build_py' : glue_build_py,
     'install' : glue_install,

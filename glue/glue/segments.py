@@ -371,6 +371,17 @@ class segment(tuple):
 			return tuple.__ge__(self, other)
 		return self[0] >= other
 
+	#
+	# From <https://docs.python.org/3/reference/datamodel.html#object.__hash__>:
+	#
+	# "if [a class] defines __eq__() but not __hash__(), its instances will not
+	# be usable as items in hashable collections... If a class that overrides
+	# __eq__() needs to retain the implementation of __hash__() from a parent
+	# class, the interpreter must be told this explicitly by setting __hash__ =
+	# <ParentClass>.__hash__."
+	#
+	__hash__ = tuple.__hash__
+
 	# some arithmetic operations that (mostly) make sense for segments
 
 	def __and__(self, other):
@@ -508,9 +519,9 @@ class segmentlist(list):
 	>>> x = segmentlist([segment(-10, 10)])
 	>>> x |= segmentlist([segment(20, 30)])
 	>>> x -= segmentlist([segment(-5, 5)])
-	>>> print x
+	>>> print(x)
 	[segment(-10, -5), segment(5, 10), segment(20, 30)]
-	>>> print ~x
+	>>> print(~x)
 	[segment(-infinity, -10), segment(-5, 5), segment(10, 20), segment(30, infinity)]
 	"""
 
@@ -896,13 +907,13 @@ class segmentlistdict(dict):
 
 	>>> x = segmentlistdict()
 	>>> x["H1"] = segmentlist([segment(0, 10)])
-	>>> print x
+	>>> print(x)
 	{'H1': [segment(0, 10)]}
 	>>> x.offsets["H1"] = 6
-	>>> print x
+	>>> print(x)
 	{'H1': [segment(6.0, 16.0)]}
 	>>> x.offsets.clear()
-	>>> print x
+	>>> print(x)
 	{'H1': [segment(0.0, 10.0)]}
 	>>> x["H2"] = segmentlist([segment(5, 15)])
 	>>> x.intersection(["H1", "H2"])
@@ -1294,7 +1305,7 @@ class segmentlistdict(dict):
 
 
 try:
-	from __segments import *
+	from .__segments import *
 except ImportError:
 	pass
 
