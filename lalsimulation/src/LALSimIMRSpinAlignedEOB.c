@@ -1545,23 +1545,6 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
 
   //XLALPrintInfo( "Estimation of the peak is now at time %.16e\n", timePeak );
 
-  /* Having located the peak of orbital frequency, we set time and phase of coalescence */
-  XLALGPSAdd (&tc, -mTScaled * (dynamics->data[hiSRndx] + timePeak));
-  gsl_spline_init (spline, dynamicsHi->data, phiHi.data, retLen);
-  sSub = 0*gsl_spline_eval (spline, timePeak, acc) - phiC;
-  gsl_spline_free (spline);
-  gsl_interp_accel_free (acc);
-  /* Apply phiC to hi-sampling waveforms */
-  REAL8 thisReHi, thisImHi;
-  REAL8 csSub2 = cos (2.0 * sSub);
-  REAL8 ssSub2 = sin (2.0 * sSub);
-  for (i = 0; i < retLen; i++)
-    {
-      thisReHi = sigReHi->data[i];
-      thisImHi = sigImHi->data[i];
-      sigReHi->data[i] = thisReHi * csSub2 - thisImHi * ssSub2;
-      sigImHi->data[i] = thisReHi * ssSub2 + thisImHi * csSub2;
-    }
 
   /*
    * STEP 5) Calculate NQC correction using hi-sampling data
@@ -1801,11 +1784,50 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
                     indAmax = i;
                     Aval = Anew;
             }
-            else {
-                break;
+        }
+
+        UINT4 indOmax = 0;
+        REAL8 dt = timeHi.data[1] - timeHi.data[0];
+        REAL8 re = sigReHi->data[0], im = sigImHi->data[0];
+        REAL8 red = ( sigReHi->data[1] - sigReHi->data[0] ) / dt, imd = ( sigImHi->data[1] - sigImHi->data[0] ) / dt;
+        REAL8 Onew, Oval = - (imd*re - red*im) / (re*re + im*im);
+
+        for (i = 1; i < (INT4) timeHi.length-1; i++) {
+            re = sigReHi->data[i];
+            im = sigImHi->data[i];
+            red = ( sigReHi->data[i+1] - sigReHi->data[i] ) / dt;
+            imd = ( sigImHi->data[i+1] - sigImHi->data[i] ) / dt;
+            Onew = - (imd*re - red*im) / (re*re + im*im);
+            if ( Onew >= Oval ) {
+                indOmax = i;
+                Oval = Onew;
             }
         }
-        timePeak = timeHi.data[indAmax];
+        
+        if ( timeHi.data[indAmax] <= timeHi.data[indOmax] ) {
+            timePeak = timeHi.data[indAmax] ;
+        }
+        else {
+            timePeak = timeHi.data[indOmax];
+        }
+    }
+    
+    /* Having located the peak of orbital frequency, we set time and phase of coalescence */
+    XLALGPSAdd (&tc, -mTScaled * (dynamics->data[hiSRndx] + timePeak));
+    gsl_spline_init (spline, dynamicsHi->data, phiHi.data, retLen);
+    sSub = 0*gsl_spline_eval (spline, timePeak, acc) - phiC;
+    gsl_spline_free (spline);
+    gsl_interp_accel_free (acc);
+    /* Apply phiC to hi-sampling waveforms */
+    REAL8 thisReHi, thisImHi;
+    REAL8 csSub2 = cos (2.0 * sSub);
+    REAL8 ssSub2 = sin (2.0 * sSub);
+    for (i = 0; i < retLen; i++)
+    {
+        thisReHi = sigReHi->data[i];
+        thisImHi = sigImHi->data[i];
+        sigReHi->data[i] = thisReHi * csSub2 - thisImHi * ssSub2;
+        sigImHi->data[i] = thisReHi * ssSub2 + thisImHi * csSub2;
     }
     
   rdMatchPoint->data[0] =
