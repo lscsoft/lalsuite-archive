@@ -156,7 +156,7 @@ UNUSED REAL8 XLALSimUniversalRelationomega03TidalVSlambda3Tidal(
  * NR fit to the geometric GW frequency M_{total}omega_{22} of a BNS merger,
  * defined by the time when the (2,2) amplitude peaks
  * See Eq.(2) in https://arxiv.org/pdf/1504.01764.pdf with coefficients
- * given by the 3rd row of Table II therein
+ * given by the 3rd row of Table II therein. Compared to NR for 0 <= kappa2T <= 500
  */
 static UNUSED REAL8 XLALSimNSNSMergerFreq(
                                        TidalEOBParams *tidal1, /**< Tidal parameters of body 1 */
@@ -165,11 +165,19 @@ static UNUSED REAL8 XLALSimNSNSMergerFreq(
 {
     REAL8 X1 = tidal1->mByM;
     REAL8 X2 = tidal2->mByM;
-    REAL8 lambda1 = tidal1->lambda2Tidal;
-    REAL8 lambda2 = tidal2->lambda2Tidal;
+    REAL8 lambda1 = tidal1->lambda2Tidal; // Dimensionless quadrupolar tidal deformability normalized to M^5
+    REAL8 lambda2 = tidal2->lambda2Tidal; // Dimensionless quadrupolar tidal deformability normalized to M^5
     REAL8 kappa2T = 1.5*(X2/X1*lambda1 + X1/X2*lambda2);
 //    printf("kappa2T, freq %.16e %.16e\n", kappa2T, 0.3596*(1. + 0.024384*kappa2T - 0.000017167*kappa2T*kappa2T)/(1. + 0.068865*kappa2T));
-    return 0.3596*(1. + 0.024384*kappa2T - 0.000017167*kappa2T*kappa2T)/(1. + 0.068865*kappa2T);
+    if ( kappa2T < 0. ) {
+        XLAL_ERROR (XLAL_EFUNC);
+    }
+    else {
+        if ( kappa2T > 500. ) {
+            kappa2T = 500.;
+        }
+        return 0.3596*(1. + 0.024384*kappa2T - 0.000017167*kappa2T*kappa2T)/(1. + 0.068865*kappa2T);
+    }
 }
 
 static int UNUSED
@@ -284,29 +292,47 @@ XLALSpinAlignedNSNSStopCondition (double UNUSED t, /**< UNUSED */
   REAL8 omega, r;
   UINT4 counter;
   SpinEOBParams *params = (SpinEOBParams *) funcParams;
-  //TidalEOBParams *tidal1 = params->seobCoeffs->tidal1;
-  //TidalEOBParams *tidal2 = params->seobCoeffs->tidal2;
-  //REAL8 omegaMerger = XLALSimNSNSMergerFreq( tidal1, tidal2 );
+  TidalEOBParams *tidal1 = params->seobCoeffs->tidal1;
+  TidalEOBParams *tidal2 = params->seobCoeffs->tidal2;
+  REAL8 omegaMerger = XLALSimNSNSMergerFreq( tidal1, tidal2 );
+  REAL8 rMerger = pow ( omegaMerger/2., -2./3. );
+//  printf("omegaMerger %.16e\n", omegaMerger);
   r = values[0];
   omega = dvalues[1];
   counter = params->eobParams->omegaPeaked;
-//  printf("function NSNS: r = %.16e, omega = %.16e, pr = %.16e, dpr = %.16e, count = %.16u \n",values[0],dvalues[1],values[2],dvalues[2],counter);
+//    printf("function NSNS: r = %.16e, omega = %.16e, pr = %.16e, dpr = %.16e, count = %.16u \n",values[0],dvalues[1],values[2],dvalues[2],counter);
 //  printf("%.16e %.16e %.16e %.16e\n",values[0],dvalues[1],values[2],dvalues[2]);
-//  printf("%.16e %.16e\n",omega, omegaMerger/2.);
-  if (r < 10. && omega < params->eobParams->omega)
+  if (r < 2.*rMerger && omega < params->eobParams->omega)
     {
-//        printf("Peak detection %.16e %.16e\n", omega, params->eobParams->omega);
+      if (debugOutput) printf("Peak detection %.16e %.16e\n", omega, params->eobParams->omega);
       params->eobParams->omegaPeaked = counter + 1;
     }
-  if (r < 10. && (dvalues[2] >= 0. || params->eobParams->omegaPeaked == 5
-      || isnan (dvalues[3]) || isnan (dvalues[2]) || isnan (dvalues[1])
-      || isnan (dvalues[0]) ))//|| omega >= omegaMerger/2. ))
-    {
-//        printf("omegaMerger %.16e\n", omegaMerger);
-//        if ( dvalues[2] >= 0 ) printf("dvalues[2] >= 0\n");
-//        if ( params->eobParams->omegaPeaked == 5 ) printf("params->eobParams->omegaPeaked == 5\n");
-//        if ( isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) ) printf("%.16e %.16e %.16e %.16e\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3]);
+  if ( omega >= omegaMerger/2. ) {
+      if (debugOutput) printf("Stop at Tim's freq at r=%.16e\n", r);
       return 1;
+  }
+   if ( r < 2.*rMerger && values[2] >= 0 ) {
+        if (debugOutput) printf("Stop at pr >= 0 at r=%.16e\n", r);
+        return 1;
+   }
+    if ( r < 2.*rMerger && dvalues[0] >= 0 ) {
+        if (debugOutput) printf("Stop at dr/dt >= 0 at r=%.16e\n", r);
+        return 1;
+    }
+   if ( r < 2.*rMerger && dvalues[2] >= 0 ) {
+       params->eobParams->omegaPeaked = counter + 1;
+       if (debugOutput) printf("Stop at dpr/dt >= 0 at r=%.16e\n", r);
+       // return 1;
+  }
+  if (r < 2.*rMerger && params->eobParams->omegaPeaked == 3 )
+    {
+     params->eobParams->omegaPeaked = 0;
+     if (debugOutput) printf("params->eobParams->omegaPeaked == 3 at r=%.16e\n", r);
+     return 1;
+  }
+    if (  isnan (dvalues[3]) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) ) {
+        if (debugOutput) printf("Stop at nan's at r=%.16e\n", r);
+        return 1;
     }
   params->eobParams->omega = omega;
   return GSL_SUCCESS;
@@ -1585,8 +1611,8 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
     }
   while (time2 - time1 > 1.0e-5);
     
-    if (use_tidal == 1)
-        timePeak = dynamicsHi->data[retLen-1];
+//    if (use_tidal == 1)
+//        timePeak = dynamicsHi->data[retLen-1];
 
   /*gsl_spline_free( spline );
      gsl_interp_accel_free( acc );
