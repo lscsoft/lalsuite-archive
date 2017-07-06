@@ -174,7 +174,7 @@ static UNUSED REAL8 XLALSimNSNSMergerFreq(
     REAL8 m1Om2lam2 = m1/m2*lambda2;
     REAL8 combo = (m2Om1lam1 + m1Om2lam2)/Mto5;
 //    printf("Combo, freq %.16e %.16e\n", combo, 0.3596 * (1. +  0.073152*combo  - 0.000154503*combo*combo) / (1. + 0.206595*combo));
-    return 0.3596 * (1. +  0.073152*combo  - 0.000154503*combo*combo) / (1. + 0.206595*combo);
+    return 0.3596*(1. + 0.024384*combo - 0.000017167*combo*combo)/(1. + 0.068865*combo);
 }
 
 static int UNUSED
@@ -623,21 +623,21 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
                      UINT4 SpinAlignedEOBversion,
                      /**<< 1 for SEOBNRv1, 2 for SEOBNRv2, 4 for SEOBNRv4 */
 				     const REAL8 lambda2Tidal1,
-                     /**<< adiabatic quadrupole tidal deformability for body 1 (for NS) */
+                     /**<< dimensionless adiabatic quadrupole tidal deformability for body 1 (2/3 k2/C^5) */
 				     const REAL8 lambda2Tidal2,
-                     /**<< adiabatic quadrupole tidal deformability for body 2 (for NS) */
+                     /**<< dimensionless adiabatic quadrupole tidal deformability for body 2 (2/3 k2/C^5) */
 				     const REAL8 omega02Tidal1,
-                     /**<< quadrupole f-mode freq for body 1 (for NS) */
+                     /**<< quadrupole f-mode angular freq for body 1 m_1*omega_{02,1}*/
 				     const REAL8 omega02Tidal2,
-                     /**<< quadrupole f-mode freq for body 2 (for NS) */
+                      /**<< quadrupole f-mode angular freq for body 2 m_2*omega_{02,2}*/
 				     const REAL8 lambda3Tidal1,
-                     /**<< adiabatic octupole tidal deformability for body 1 (for NS) */
+                     /**<< dimensionless adiabatic octupole tidal deformability for body 1 (2/15 k3/C^7) */
 				     const REAL8 lambda3Tidal2,
-                     /**<< adiabatic octupole tidal deformability for body 2 (for NS) */
+                     /**<< dimensionless adiabatic octupole tidal deformability for body 2 (2/15 k3/C^7) */
 				     const REAL8 omega03Tidal1,
-                     /**<< octupole f-mode freq for body 1 (for NS) */
+                     /**<< octupole f-mode angular freq for body 1 m_1*omega_{03,1}*/
 				     const REAL8 omega03Tidal2,
-                     /**<< octupole f-mode freq for body 2 (for NS) */
+                     /**<< octupole f-mode angular freq for body 2 m_2*omega_{03,2}*/
                     REAL8Vector *nqcCoeffsInput,
                     const INT4 nqcFlag
   )
