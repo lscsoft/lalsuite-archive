@@ -163,19 +163,13 @@ static UNUSED REAL8 XLALSimNSNSMergerFreq(
                                        TidalEOBParams *tidal2  /**< Tidal parameters of body 2 */
 )
 {
-    REAL8 m1 = tidal1->mByM;
-    REAL8 m2 = tidal2->mByM;
-    REAL8 M = m1 + m2;
-    REAL8 Mto5 = M*M*M*M*M;
-//    REAL8 m1to5 = m1*m1*m1*m1*m1;
-//    REAL8 m2to5 = m2*m2*m2*m2*m2;
+    REAL8 X1 = tidal1->mByM;
+    REAL8 X2 = tidal2->mByM;
     REAL8 lambda1 = tidal1->lambda2Tidal;
     REAL8 lambda2 = tidal2->lambda2Tidal;
-    REAL8 m2Om1lam1 = m2/m1*lambda1;
-    REAL8 m1Om2lam2 = m1/m2*lambda2;
-    REAL8 combo = (m2Om1lam1 + m1Om2lam2)/Mto5;
-//    printf("Combo, freq %.16e %.16e\n", combo, 0.3596 * (1. +  0.073152*combo  - 0.000154503*combo*combo) / (1. + 0.206595*combo));
-    return 0.3596*(1. + 0.024384*combo - 0.000017167*combo*combo)/(1. + 0.068865*combo);
+    REAL8 kappa2T = 1.5*(X2/X1*lambda1 + X1/X2*lambda2);
+//    printf("kappa2T, freq %.16e %.16e\n", kappa2T, 0.3596*(1. + 0.024384*kappa2T - 0.000017167*kappa2T*kappa2T)/(1. + 0.068865*kappa2T));
+    return 0.3596*(1. + 0.024384*kappa2T - 0.000017167*kappa2T*kappa2T)/(1. + 0.068865*kappa2T);
 }
 
 static int UNUSED
