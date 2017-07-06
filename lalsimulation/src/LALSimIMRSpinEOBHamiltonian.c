@@ -489,13 +489,13 @@ static REAL8 XLALSimIMRTEOBdeltaUTidalQuadSingleNS (
                                                     REAL8 u, /**<< Inverse of radial separation in units of M */
                                                     REAL8 u2, /**<< Inverse of radial separation^2 in units of M */
                                                     REAL8 u6, /**<< Inverse of radial separation^6 in units of M */
-                                                    REAL8 mNS, /**<< NS mass */
-                                                    REAL8 mCompanion, /**<< Companion mass */
+                                                    REAL8 XNS, /**<< NS mass by M */
+                                                    REAL8 XCompanion, /**<< Companion mass by M */
                                                     REAL8 lambda2TidalNS, /**<< NS dimensionless quadrupolar tidal deformability */
                                                     REAL8 k2TidalNSeff /**<< Dynamical enhancement of k2TidalNS */
 )
 {
-    return - 3.*mCompanion/mNS*lambda2TidalNS*k2TidalNSeff*u6* ( 1. + 5./2.*u*mNS + u2*(3. + mNS/8. + 337./28.*mNS*mNS) );
+    return - 3.*XCompanion/XNS*lambda2TidalNS*k2TidalNSeff*u6* ( 1. + 5./2.*u*XNS + u2*(3. + XNS/8. + 337./28.*XNS*XNS) );
 }
 
 /**
@@ -506,15 +506,15 @@ static REAL8 XLALSimIMRTEOBdeltaUTidalQuadSingleNS_u (
                                                     REAL8 u, /**<< Inverse of radial separation in units of M */
                                                     REAL8 u2, /**<< Inverse of radial separation^2 in units of M */
                                                     REAL8 u6, /**<< Inverse of radial separation^6 in units of M */
-                                                    REAL8 mNS, /**<< NS mass */
-                                                    REAL8 mCompanion, /**<< Companion mass */
+                                                    REAL8 XNS, /**<< NS mass by M */
+                                                    REAL8 XCompanion, /**<< Companion mass by M */
                                                     REAL8 lambda2TidalNS, /**<< NS dimensionless quadrupolar tidal deformability */
                                                     REAL8 k2TidalNSeff, /**<< Dynamical enhancement of k2TidalNS */
                                                     REAL8 k2TidalNSeff_u /**<< u-derivative of the dynamical enhancement of k2TidalNS */
 )
 {
-    REAL8 deltaUQSingle = XLALSimIMRTEOBdeltaUTidalQuadSingleNS(u, u2, u6, mNS, mCompanion, lambda2TidalNS, k2TidalNSeff);
-    return (6./u +  ( 5./2.*mNS + 2.*u*(3. + mNS/8. + 337./28.*mNS*mNS) )/( 1. + 5./2.*u*mNS + u2*(3. + mNS/8. + 337./28.*mNS*mNS) ) + k2TidalNSeff_u/k2TidalNSeff)*deltaUQSingle;
+    REAL8 deltaUQSingle = XLALSimIMRTEOBdeltaUTidalQuadSingleNS(u, u2, u6, XNS, XCompanion, lambda2TidalNS, k2TidalNSeff);
+    return (6./u +  ( 5./2.*XNS + 2.*u*(3. + XNS/8. + 337./28.*XNS*XNS) )/( 1. + 5./2.*u*XNS + u2*(3. + XNS/8. + 337./28.*XNS*XNS) ) + k2TidalNSeff_u/k2TidalNSeff)*deltaUQSingle;
 }
 
 
@@ -536,11 +536,11 @@ static REAL8 XLALSimIMRTEOBdeltaUTidalQuad (
     REAL8 deltaUQ = 0.;
     if ( tidal1->lambda2Tidal != 0.) {
         k2Tidal1eff = XLALSimIMRTEOBk2eff(u, eta, tidal1);
-        deltaUQ +=  XLALSimIMRTEOBdeltaUTidalQuadSingleNS(u, u2, u6, tidal1->mass, tidal2->mass, tidal1->lambda2Tidal, k2Tidal1eff);
+        deltaUQ +=  XLALSimIMRTEOBdeltaUTidalQuadSingleNS(u, u2, u6, tidal1->mByM, tidal2->mByM, tidal1->lambda2Tidal, k2Tidal1eff);
     }
     if ( tidal2->lambda2Tidal != 0.) {
         k2Tidal2eff = XLALSimIMRTEOBk2eff(u, eta, tidal2);
-        deltaUQ += XLALSimIMRTEOBdeltaUTidalQuadSingleNS(u, u2, u6, tidal2->mass, tidal1->mass, tidal2->lambda2Tidal, k2Tidal2eff);
+        deltaUQ += XLALSimIMRTEOBdeltaUTidalQuadSingleNS(u, u2, u6, tidal2->mByM, tidal1->mByM, tidal2->lambda2Tidal, k2Tidal2eff);
     }
     return deltaUQ;
 }
@@ -566,12 +566,12 @@ static REAL8 XLALSimIMRTEOBdeltaUTidalQuad_u (
     if ( tidal1->lambda2Tidal != 0.) {
         k2Tidal1eff = XLALSimIMRTEOBk2eff(u, eta, tidal1);
         k2Tidal1eff_u = XLALSimIMRTEOBk2eff_u(u, eta, tidal1);
-        deltaUQ_u += XLALSimIMRTEOBdeltaUTidalQuadSingleNS_u(u, u2, u6, tidal1->mass, tidal2->mass, tidal1->lambda2Tidal, k2Tidal1eff, k2Tidal1eff_u);
+        deltaUQ_u += XLALSimIMRTEOBdeltaUTidalQuadSingleNS_u(u, u2, u6, tidal1->mByM, tidal2->mByM, tidal1->lambda2Tidal, k2Tidal1eff, k2Tidal1eff_u);
     }
     if ( tidal2->lambda2Tidal != 0.) {
         k2Tidal2eff = XLALSimIMRTEOBk2eff(u, eta, tidal2);
         k2Tidal2eff_u = XLALSimIMRTEOBk2eff_u(u, eta, tidal2);
-        deltaUQ_u += XLALSimIMRTEOBdeltaUTidalQuadSingleNS_u(u, u2, u6, tidal2->mass, tidal1->mass, tidal2->lambda2Tidal, k2Tidal2eff, k2Tidal2eff_u);
+        deltaUQ_u += XLALSimIMRTEOBdeltaUTidalQuadSingleNS_u(u, u2, u6, tidal2->mByM, tidal1->mByM, tidal2->lambda2Tidal, k2Tidal2eff, k2Tidal2eff_u);
     }
     return deltaUQ_u;
 }
@@ -585,13 +585,13 @@ static REAL8 XLALSimIMRTEOBdeltaUTidalOctuSingleNS (
                                             REAL8 u, /**<< Inverse of radial separation in units of M */
                                             REAL8 u2, /**<< Inverse of radial separation^2 in units of M */
                                             REAL8 u8, /**<< Inverse of radial separation^8 in units of M */
-                                            REAL8 mNS, /**<< NS mass */
-                                            REAL8 mCompanion, /**<< Companion mass */
+                                            REAL8 XNS, /**<< NS mass by M */
+                                            REAL8 XCompanion, /**<< Companion mass by M */
                                             REAL8 lambda3TidalNS, /**<< NS dimensionless octupolar tidal deformability */
                                             REAL8 k3TidalNSeff /**<< Dynamical enhancement of k3TidalNS */
 )
 {
-    return - 15.*mCompanion/mNS*lambda3TidalNS*k3TidalNSeff*u8* (1. + u*(15./2.*mNS - 2.) + u2*(8./3. - 311./24.*mNS + 110./3.*mNS*mNS) );
+    return - 15.*XCompanion/XNS*lambda3TidalNS*k3TidalNSeff*u8* (1. + u*(15./2.*XNS - 2.) + u2*(8./3. - 311./24.*XNS + 110./3.*XNS*XNS) );
 }
 
 /**
@@ -602,15 +602,15 @@ static REAL8 XLALSimIMRTEOBdeltaUTidalOctuSingleNS_u (
                                                     REAL8 u, /**<< Inverse of radial separation in units of M */
                                                     REAL8 u2, /**<< Inverse of radial separation^2 in units of M */
                                                     REAL8 u8, /**<< Inverse of radial separation^8 in units of M */
-                                                    REAL8 mNS, /**<< NS mass */
-                                                    REAL8 mCompanion, /**<< Companion mass */
+                                                    REAL8 XNS, /**<< NS mass by M */
+                                                    REAL8 XCompanion, /**<< Companion mass by M */
                                                     REAL8 lambda3TidalNS, /**<< NS dimensionless octupolar tidal deformability */
                                                     REAL8 k3TidalNSeff, /**<< Dynamical enhancement of k3TidalNS */
                                                     REAL8 k3TidalNSeff_u /**<< u-derivative of dynamical enhancement of k3TidalNS */
 )
 {
-    REAL8 deltaUOSingle = XLALSimIMRTEOBdeltaUTidalOctuSingleNS(u, u2, u8, mNS, mCompanion, lambda3TidalNS, k3TidalNSeff);
-    return (8./u + ((15./2.*mNS - 2.) + 2.*u*(8./3. - 311./24.*mNS + 110./3.*mNS*mNS) )/(1. + u*(15./2.*mNS - 2.) + u2*(8./3. - 311./24.*mNS + 110./3.*mNS*mNS) ) + k3TidalNSeff_u/k3TidalNSeff)*deltaUOSingle;
+    REAL8 deltaUOSingle = XLALSimIMRTEOBdeltaUTidalOctuSingleNS(u, u2, u8, XNS, XCompanion, lambda3TidalNS, k3TidalNSeff);
+    return (8./u + ((15./2.*XNS - 2.) + 2.*u*(8./3. - 311./24.*XNS + 110./3.*XNS*XNS) )/(1. + u*(15./2.*XNS - 2.) + u2*(8./3. - 311./24.*XNS + 110./3.*XNS*XNS) ) + k3TidalNSeff_u/k3TidalNSeff)*deltaUOSingle;
 }
 
 /**
@@ -631,11 +631,11 @@ static REAL8 XLALSimIMRTEOBdeltaUTidalOctu (
     REAL8 deltaUO = 0.;
     if ( tidal1->lambda3Tidal != 0.) {
         k3Tidal1eff = XLALSimIMRTEOBk3eff(u, eta, tidal1);
-        deltaUO += XLALSimIMRTEOBdeltaUTidalOctuSingleNS(u, u2, u8, tidal1->mass, tidal2->mass, tidal1->lambda3Tidal, k3Tidal1eff);
+        deltaUO += XLALSimIMRTEOBdeltaUTidalOctuSingleNS(u, u2, u8, tidal1->mByM, tidal2->mByM, tidal1->lambda3Tidal, k3Tidal1eff);
     }
     if ( tidal2->lambda3Tidal != 0.) {
         k3Tidal2eff = XLALSimIMRTEOBk3eff(u, eta, tidal2);
-       deltaUO += XLALSimIMRTEOBdeltaUTidalOctuSingleNS(u, u2, u8, tidal2->mass, tidal1->mass, tidal2->lambda3Tidal, k3Tidal2eff);
+       deltaUO += XLALSimIMRTEOBdeltaUTidalOctuSingleNS(u, u2, u8, tidal2->mByM, tidal1->mByM, tidal2->lambda3Tidal, k3Tidal2eff);
     }
     return deltaUO;
 }
@@ -661,12 +661,12 @@ static REAL8 XLALSimIMRTEOBdeltaUTidalOctu_u (
     if ( tidal1->lambda3Tidal != 0.) {
         k3Tidal1eff = XLALSimIMRTEOBk3eff(u, eta, tidal1);
         k3Tidal1eff_u = XLALSimIMRTEOBk3eff_u(u, eta, tidal1);
-        deltaUO_u += XLALSimIMRTEOBdeltaUTidalOctuSingleNS_u(u, u2, u8, tidal1->mass, tidal2->mass, tidal1->lambda3Tidal, k3Tidal1eff, k3Tidal1eff_u);
+        deltaUO_u += XLALSimIMRTEOBdeltaUTidalOctuSingleNS_u(u, u2, u8, tidal1->mByM, tidal2->mByM, tidal1->lambda3Tidal, k3Tidal1eff, k3Tidal1eff_u);
     }
     if ( tidal2->lambda3Tidal != 0.) {
         k3Tidal2eff = XLALSimIMRTEOBk3eff(u, eta, tidal2);
         k3Tidal2eff_u = XLALSimIMRTEOBk3eff_u(u, eta, tidal2);
-        deltaUO_u += XLALSimIMRTEOBdeltaUTidalOctuSingleNS_u(u, u2, u8, tidal2->mass, tidal1->mass, tidal2->lambda3Tidal, k3Tidal2eff, k3Tidal2eff_u);
+        deltaUO_u += XLALSimIMRTEOBdeltaUTidalOctuSingleNS_u(u, u2, u8, tidal2->mByM, tidal1->mByM, tidal2->lambda3Tidal, k3Tidal2eff, k3Tidal2eff_u);
     }
     return deltaUO_u;
 }

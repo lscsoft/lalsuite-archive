@@ -129,11 +129,8 @@ static COMPLEX16 XLALhTidal(
     REAL8 v2 = v*v;
     REAL8 Omega = v*v*v;
     REAL8 v10 = v2*v2*v2*v2*v2;
-    REAL8 m1 = tidal1->mass;
-    REAL8 m2 = tidal2->mass;
-    REAL8 M = m1 + m2;
-    REAL8 X1 = m1 / M;
-    REAL8 X2 = m2 / M;
+    REAL8 X1 = tidal1->mByM;
+    REAL8 X2 = tidal2->mByM;
     REAL8 lambda1 = tidal1->lambda2Tidal;
     REAL8 lambda2 = tidal2->lambda2Tidal;
     REAL8 omega02Tidal1 = tidal1->omega02Tidal;
@@ -151,7 +148,7 @@ static COMPLEX16 XLALhTidal(
         k2Tidal2effHam = XLALSimIMRTEOBk2eff(u, eta, tidal2);
         k2Tidal2eff = XLALSimIMRTEOBk2effMode (Omega,  k2Tidal2effHam, omega02Tidal2, X1);
     }
-    REAL8 q = m2/m1;
+    REAL8 q = X2/X1;
     switch (l) {
         case 2:
             switch (m) {

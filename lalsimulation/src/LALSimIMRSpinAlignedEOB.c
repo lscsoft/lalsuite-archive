@@ -155,15 +155,16 @@ UNUSED REAL8 XLALSimUniversalRelationomega03TidalVSlambda3Tidal(
 /**
  * NR fit to the geometric GW frequency M_{total}omega_{22} of a BNS merger,
  * defined by the time when the (2,2) amplitude peaks
- * Fit provided by Tim Dietrich
+ * See Eq.(2) in https://arxiv.org/pdf/1504.01764.pdf with coefficients
+ * given by the 3rd row of Table II therein
  */
 static UNUSED REAL8 XLALSimNSNSMergerFreq(
                                        TidalEOBParams *tidal1, /**< Tidal parameters of body 1 */
                                        TidalEOBParams *tidal2  /**< Tidal parameters of body 2 */
 )
 {
-    REAL8 m1 = tidal1->mass;
-    REAL8 m2 = tidal2->mass;
+    REAL8 m1 = tidal1->mByM;
+    REAL8 m2 = tidal2->mByM;
     REAL8 M = m1 + m2;
     REAL8 Mto5 = M*M*M*M*M;
 //    REAL8 m1to5 = m1*m1*m1*m1*m1;
@@ -981,17 +982,17 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
     
 // Rescale tidal polarizabilites by powers of mNS/M
 // Rescale f-mode freqs by M/mNS
-  tidal1.mass = m1SI / (m1SI + m2SI);
-  tidal1.lambda2Tidal = lambda2Tidal1 * pow(tidal1.mass,5);
-  tidal1.omega02Tidal = omega02Tidal1 / tidal1.mass;
-  tidal1.lambda3Tidal = lambda3Tidal1 * pow(tidal1.mass,7);
-  tidal1.omega03Tidal = omega03Tidal1 / tidal1.mass;
+  tidal1.mByM = m1SI / (m1SI + m2SI);
+  tidal1.lambda2Tidal = lambda2Tidal1 * pow(tidal1.mByM,5);
+  tidal1.omega02Tidal = omega02Tidal1 / tidal1.mByM;
+  tidal1.lambda3Tidal = lambda3Tidal1 * pow(tidal1.mByM,7);
+  tidal1.omega03Tidal = omega03Tidal1 / tidal1.mByM;
     
-  tidal2.mass = m2SI / (m1SI + m2SI);
-  tidal2.lambda2Tidal = lambda2Tidal2 * pow(tidal2.mass,5);
-  tidal2.omega02Tidal = omega02Tidal2 / tidal2.mass;
-  tidal2.lambda3Tidal = lambda3Tidal2 * pow(tidal2.mass,7);
-  tidal2.omega03Tidal = omega03Tidal2 / tidal2.mass;
+  tidal2.mByM = m2SI / (m1SI + m2SI);
+  tidal2.lambda2Tidal = lambda2Tidal2 * pow(tidal2.mByM,5);
+  tidal2.omega02Tidal = omega02Tidal2 / tidal2.mByM;
+  tidal2.lambda3Tidal = lambda3Tidal2 * pow(tidal2.mByM,7);
+  tidal2.omega03Tidal = omega03Tidal2 / tidal2.mByM;
     
   seobCoeffs.tidal1 = &tidal1;
   seobCoeffs.tidal2 = &tidal2;
