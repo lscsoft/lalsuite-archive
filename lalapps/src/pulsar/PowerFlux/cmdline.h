@@ -294,9 +294,9 @@ struct gengetopt_args_info
   int binary_template_nsky_arg;	/**< @brief size of square sky grid to use for followup (default='3').  */
   char * binary_template_nsky_orig;	/**< @brief size of square sky grid to use for followup original value given at command line.  */
   const char *binary_template_nsky_help; /**< @brief size of square sky grid to use for followup help description.  */
-  int binary_template_nshift_arg;	/**< @brief number of subfrequency shifts to followup (default='3').  */
-  char * binary_template_nshift_orig;	/**< @brief number of subfrequency shifts to followup original value given at command line.  */
-  const char *binary_template_nshift_help; /**< @brief number of subfrequency shifts to followup help description.  */
+  int binary_template_ngroup_arg;	/**< @brief maximum number of input templates in a group (default='5').  */
+  char * binary_template_ngroup_orig;	/**< @brief maximum number of input templates in a group original value given at command line.  */
+  const char *binary_template_ngroup_help; /**< @brief maximum number of input templates in a group help description.  */
   const char *fake_linear_help; /**< @brief Inject linearly polarized fake signal help description.  */
   const char *fake_circular_help; /**< @brief Inject circularly polarized fake signal help description.  */
   double fake_ref_time_arg;	/**< @brief time of signal start (default='0').  */
@@ -371,6 +371,18 @@ struct gengetopt_args_info
   double divert_ul_arg;	/**< @brief Divert templates with SNR at or above this upper limit level for separate analysis (default='-1.0').  */
   char * divert_ul_orig;	/**< @brief Divert templates with SNR at or above this upper limit level for separate analysis original value given at command line.  */
   const char *divert_ul_help; /**< @brief Divert templates with SNR at or above this upper limit level for separate analysis help description.  */
+  double divert_ul_rel_arg;	/**< @brief Divert templates with upper limit/noise estimate at or above this level for separate analysis (default='-1.0').  */
+  char * divert_ul_rel_orig;	/**< @brief Divert templates with upper limit/noise estimate at or above this level for separate analysis original value given at command line.  */
+  const char *divert_ul_rel_help; /**< @brief Divert templates with upper limit/noise estimate at or above this level for separate analysis help description.  */
+  int divert_count_limit_arg;	/**< @brief Turn off template diversion when total count of diverted templates exceeds this number (default='20000').  */
+  char * divert_count_limit_orig;	/**< @brief Turn off template diversion when total count of diverted templates exceeds this number original value given at command line.  */
+  const char *divert_count_limit_help; /**< @brief Turn off template diversion when total count of diverted templates exceeds this number help description.  */
+  int divert_ul_count_limit_arg;	/**< @brief Turn off template diversion when total count of diverted templates exceeds this number (default='20000').  */
+  char * divert_ul_count_limit_orig;	/**< @brief Turn off template diversion when total count of diverted templates exceeds this number original value given at command line.  */
+  const char *divert_ul_count_limit_help; /**< @brief Turn off template diversion when total count of diverted templates exceeds this number help description.  */
+  int divert_buffer_size_arg;	/**< @brief Allocates buffer for this many diverted templates (default='100000').  */
+  char * divert_buffer_size_orig;	/**< @brief Allocates buffer for this many diverted templates original value given at command line.  */
+  const char *divert_buffer_size_help; /**< @brief Allocates buffer for this many diverted templates help description.  */
   int output_initial_arg;	/**< @brief write initial candidates into log file (default='0').  */
   char * output_initial_orig;	/**< @brief write initial candidates into log file original value given at command line.  */
   const char *output_initial_help; /**< @brief write initial candidates into log file help description.  */
@@ -401,6 +413,9 @@ struct gengetopt_args_info
   int npsi_arg;	/**< @brief Number of psi values to use in alignment grid (default='6').  */
   char * npsi_orig;	/**< @brief Number of psi values to use in alignment grid original value given at command line.  */
   const char *npsi_help; /**< @brief Number of psi values to use in alignment grid help description.  */
+  int averaged_polarization_arg;	/**< @brief Include an approximate average polarization, like F-statistics (default='1').  */
+  char * averaged_polarization_orig;	/**< @brief Include an approximate average polarization, like F-statistics original value given at command line.  */
+  const char *averaged_polarization_help; /**< @brief Include an approximate average polarization, like F-statistics help description.  */
   int nfshift_arg;	/**< @brief Number of sub-bin frequency shifts to sample (default='2').  */
   char * nfshift_orig;	/**< @brief Number of sub-bin frequency shifts to sample original value given at command line.  */
   const char *nfshift_help; /**< @brief Number of sub-bin frequency shifts to sample help description.  */
@@ -588,7 +603,7 @@ struct gengetopt_args_info
   unsigned int focus_type_given ;	/**< @brief Whether focus-type was given.  */
   unsigned int binary_template_file_given ;	/**< @brief Whether binary-template-file was given.  */
   unsigned int binary_template_nsky_given ;	/**< @brief Whether binary-template-nsky was given.  */
-  unsigned int binary_template_nshift_given ;	/**< @brief Whether binary-template-nshift was given.  */
+  unsigned int binary_template_ngroup_given ;	/**< @brief Whether binary-template-ngroup was given.  */
   unsigned int fake_linear_given ;	/**< @brief Whether fake-linear was given.  */
   unsigned int fake_circular_given ;	/**< @brief Whether fake-circular was given.  */
   unsigned int fake_ref_time_given ;	/**< @brief Whether fake-ref-time was given.  */
@@ -615,6 +630,10 @@ struct gengetopt_args_info
   unsigned int min_candidate_snr_given ;	/**< @brief Whether min-candidate-snr was given.  */
   unsigned int divert_snr_given ;	/**< @brief Whether divert-snr was given.  */
   unsigned int divert_ul_given ;	/**< @brief Whether divert-ul was given.  */
+  unsigned int divert_ul_rel_given ;	/**< @brief Whether divert-ul-rel was given.  */
+  unsigned int divert_count_limit_given ;	/**< @brief Whether divert-count-limit was given.  */
+  unsigned int divert_ul_count_limit_given ;	/**< @brief Whether divert-ul-count-limit was given.  */
+  unsigned int divert_buffer_size_given ;	/**< @brief Whether divert-buffer-size was given.  */
   unsigned int output_initial_given ;	/**< @brief Whether output-initial was given.  */
   unsigned int output_optimized_given ;	/**< @brief Whether output-optimized was given.  */
   unsigned int output_cache_given ;	/**< @brief Whether output-cache was given.  */
@@ -625,6 +644,7 @@ struct gengetopt_args_info
   unsigned int num_threads_env_given ;	/**< @brief Whether num-threads-env was given.  */
   unsigned int niota_given ;	/**< @brief Whether niota was given.  */
   unsigned int npsi_given ;	/**< @brief Whether npsi was given.  */
+  unsigned int averaged_polarization_given ;	/**< @brief Whether averaged-polarization was given.  */
   unsigned int nfshift_given ;	/**< @brief Whether nfshift was given.  */
   unsigned int nchunks_given ;	/**< @brief Whether nchunks was given.  */
   unsigned int nchunks_refinement_given ;	/**< @brief Whether nchunks-refinement was given.  */

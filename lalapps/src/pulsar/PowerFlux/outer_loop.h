@@ -2,6 +2,7 @@
 #define __OUTER_LOOP_H__
 
 #include "power_sum_stats.h"
+#include "power_sums.h"
 #include "jobs.h"
 
 typedef ALIGN_DECLSPEC struct {
@@ -10,6 +11,7 @@ typedef ALIGN_DECLSPEC struct {
 
 	float *ul_skymap;
 	float *circ_ul_skymap;
+	float *avg_ul_skymap;
 	float *snr_skymap;
 	float *ul_freq_skymap;
 	float *circ_ul_freq_skymap;
@@ -29,8 +31,19 @@ typedef ALIGN_DECLSPEC struct {
 	int first_chunk;
 	int last_chunk;
 	int veto_num;
+	int idx;
 	} EXTREME_INFO;
 
+typedef struct {
+	TEMPLATE_INFO ti;
+	POWER_SUM_STATS pstats_ul;
+	POWER_SUM_STATS pstats_circ_ul;
+	POWER_SUM_STATS pstats_snr;
+	int ei_idx;
+	int highest_snr_j;
+	int highest_ul_j;
+	int highest_circ_ul_j;
+	} DIVERTED_ENTRY;
 
 void outer_loop(void);
 

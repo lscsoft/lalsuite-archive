@@ -173,7 +173,7 @@ void free_summing_context(SUMMING_CONTEXT *ctx)
 {
 int i;
 
-fprintf(stderr, "pps_hits=%ld pps_misses=%ld pps_rollbacks=%ld pool_size=%ld\n", ctx->pps_hits, ctx->pps_misses, ctx->pps_rollbacks, ctx->pps_pool_size);
+fprintf(stderr, "pps_hits=%ld pps_misses=%ld pps_rollbacks=%ld pool_size=%d\n", ctx->pps_hits, ctx->pps_misses, ctx->pps_rollbacks, ctx->pps_pool_size);
 
 if(ctx->free_cache!=NULL)ctx->free_cache(ctx);
 

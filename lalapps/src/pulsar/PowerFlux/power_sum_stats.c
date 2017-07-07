@@ -20,11 +20,12 @@
 extern struct gengetopt_args_info args_info;
 extern int nbins, first_bin, side_cut, useful_bins;
 
-double upper_limit_comp=NAN, strain_comp=NAN; 
+double upper_limit_comp=NAN, strain_comp=NAN;
 
 ALIGNMENT_COEFFS *alignment_grid=NULL;
 int alignment_grid_free=0;
 int alignment_grid_size=0;
+double alignment_grid_total_weight=-1.0;
 
 extern FILE *LOG;
 
@@ -68,52 +69,75 @@ void generate_alignment_grid(void)
 {
 int i, j, k;
 int npsi=args_info.npsi_arg, niota=args_info.niota_arg;
+int full_sphere=args_info.compute_cross_terms_arg;
 
 if(args_info.compute_cross_terms_arg)
 	alignment_grid_size=npsi*(2*niota-1)+2;
 	else
 	alignment_grid_size=npsi*niota+1;
+
 alignment_grid_free=alignment_grid_size;
+
 alignment_grid=do_alloc(alignment_grid_size, sizeof(*alignment_grid));
 
 /* First polarization is circular one */
 alignment_grid[0].psi=0.0;
 alignment_grid[0].iota=0.0;
+alignment_grid[0].type=TYPE_POLARIZATION_CIRCULAR;
+/* This approximation to weight is pretty good - the Voronoi cells of the grid are spherical hexagons with sides given by spherical geodesics (arcs). */
+/* The level 0.5*(acos(j*1.0/niota)+acos((j+1.0)/niota)) cuts across the centerline of the hexagons. */
+alignment_grid[0].weight=2.0*M_PI*(1-cos(0.5*acos((niota-1.0)/niota)));
+if(!full_sphere)alignment_grid[0].weight*=2.0;
 
 k=1;
 for(j=0;j<niota;j++)
 	for(i=0;i<npsi;i++) {
 		/* note: make better grid by not overcovering circular polarization neighbourhood */
 		alignment_grid[k].psi=(0.5*M_PI*(i+0.5*(j&1)))/npsi;
-		alignment_grid[k].iota=acos((1.0*j)/niota); 
+		alignment_grid[k].iota=acos((1.0*j)/niota);
+		alignment_grid[k].type=TYPE_POLARIZATION_ELLIPTICAL;
+		if(j>0) {
+			alignment_grid[k].weight=2.0*M_PI*(cos(0.5*(acos(j*1.0/niota)+acos((j+1.0)/niota)))-cos(0.5*(acos(j*1.0/niota)+acos((j-1.0)/niota))))/npsi;
+			if(!full_sphere)alignment_grid[k].weight*=2.0;
+			} else {
+			alignment_grid[k].weight=2.0*M_PI*(cos(0.5*(acos(j*1.0/niota)+acos((j+1.0)/niota)))*2)/npsi;
+			}
 		k++;
 		}
-		
-if(args_info.compute_cross_terms_arg) {
+
+if(full_sphere) {
 	alignment_grid[k].psi=0.0;
 	alignment_grid[k].iota=M_PI;
+	alignment_grid[k].type=TYPE_POLARIZATION_CIRCULAR;
+	alignment_grid[k].weight=2.0*M_PI*(1-cos(0.5*acos((niota-1.0)/niota)));
 	k++;
 
 	for(j=1;j<niota;j++)
 		for(i=0;i<npsi;i++) {
 			/* note: make better grid by not overcovering circular polarization neighbourhood */
 			alignment_grid[k].psi=(0.5*M_PI*(i+0.5*(j&1)))/npsi;
-			alignment_grid[k].iota=acos(-(1.0*j)/niota); 
+			alignment_grid[k].iota=acos(-(1.0*j)/niota);
+			alignment_grid[k].type=TYPE_POLARIZATION_ELLIPTICAL;
+			alignment_grid[k].weight=2.0*M_PI*(cos(0.5*(acos(j*1.0/niota)+acos((j+1.0)/niota)))-cos(0.5*(acos(j*1.0/niota)+acos((j-1.0)/niota))))/npsi;
 			k++;
-			}	
+			}
 	}
-	
+
 if(k-1>alignment_grid_free) {
 	fprintf(stderr, "*** INTERNAL ERROR: insuffient space allocated for alignment coefficients array (%d vs %d)\n", k, alignment_grid_free);
 	exit(-1);
 	}
 
+alignment_grid_total_weight=0.0;
 for(k=0;k<alignment_grid_free;k++) {
-	fprintf(LOG, "alignment entry %d: %f %f\n", k, alignment_grid[k].iota, alignment_grid[k].psi);
+	fprintf(LOG, "alignment entry %d: %f %f %d %f\n", k, alignment_grid[k].iota, alignment_grid[k].psi, alignment_grid[k].type, alignment_grid[k].weight);
 	compute_alignment_coeffs(&(alignment_grid[k]));
+	alignment_grid_total_weight+=alignment_grid[k].weight;
 	}
+
 fprintf(stderr, "Alignment grid size: %d\n", alignment_grid_free);
 fprintf(LOG, "Alignment grid size: %d\n", alignment_grid_free);
+fprintf(LOG, "Alignment grid total weight: %g\n", alignment_grid_total_weight);
 }
 
 /* an implementation of merge sort - this modifies input array */
@@ -477,6 +501,7 @@ void set_missing_point_stats(POINT_STATS *pst)
 pst->bin=0;
 pst->iota=-1;
 pst->psi=-1;
+pst->alignment_weight=0;
 
 pst->S=-1;
 pst->M=-1;
@@ -536,10 +561,10 @@ TEST(dec, "%g", 1e-4)
 return 0;
 }
 
-/* Special version for testing universal statistics 
- * 
+/* Special version for testing universal statistics
+ *
  * Ignore m1_neg field (used for diagnostics) as it can jump due to floating point errors.
- * 
+ *
  */
 int compare_point_stats_universal(char *prefix, POINT_STATS *ref, POINT_STATS *test)
 {
@@ -640,7 +665,7 @@ if(pps->weight_arrays_non_zero) {
 			pps->weight_ppcc[i]*ag->ppcc+
 			pps->weight_pccc[i]*ag->pccc+
 			pps->weight_cccc[i]*ag->cccc);
-	
+
 		if(weight>max_weight)max_weight=weight;
 		if(weight<min_weight)min_weight=weight;
 
@@ -668,7 +693,7 @@ if(min_weight<= args_info.small_weight_ratio_arg*max_weight) {
 	set_missing_point_stats(pst);
 	return;
 	}
-	
+
 /* find highest bin */
 max_dx=tmp[0];
 max_dx_bin=0;
@@ -717,6 +742,7 @@ if(max_dx<=0) {
 pst->bin=max_dx_bin;
 pst->iota=ag->iota;
 pst->psi=ag->psi;
+pst->alignment_weight=ag->weight;
 
 /* convert to upper limit units */
 pst->S=sqrt(S)*strain_comp;
@@ -778,12 +804,12 @@ if(pps->weight_arrays_non_zero) {
 			pps->weight_ppcc[i]*ag->ppcc+
 			pps->weight_pccc[i]*ag->pccc+
 			pps->weight_cccc[i]*ag->cccc);
-	
+
 		if(weight>max_weight)max_weight=weight;
 		if(weight<min_weight)min_weight=weight;
 
 		tmp[i]=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc+pps->power_im_pc[i]*ag->im_pc)/weight;
-			
+
 		}
 	} else {
 	weight=(pps->c_weight_pppp*ag->pppp+
@@ -807,7 +833,7 @@ if(min_weight<= args_info.small_weight_ratio_arg*max_weight) {
 	set_missing_point_stats(pst);
 	return;
 	}
-	
+
 /* find highest bin */
 compute_range_F(tmp, useful_bins, &max_dx, &min_val, &max_dx_bin);
 
@@ -881,7 +907,7 @@ if(max_dx<=0 || !isfinite(max_dx)) {
 			M,
 			S,
 			inv_S,
-			tmp, 
+			tmp,
 			tmp[0], tmp[1], tmp[250], tmp[251]);
 	/* this is not fatal - complain, but continue */
 	}
@@ -889,6 +915,7 @@ if(max_dx<=0 || !isfinite(max_dx)) {
 pst->bin=max_dx_bin;
 pst->iota=ag->iota;
 pst->psi=ag->psi;
+pst->alignment_weight=ag->weight;
 
 /* convert to upper limit units */
 pst->S=sqrt(S)*strain_comp;
@@ -986,8 +1013,8 @@ if(pps->weight_arrays_non_zero) {
 			pps->weight_ppcc[i]*ag->ppcc+
 			pps->weight_pccc[i]*ag->pccc+
 			pps->weight_cccc[i]*ag->cccc);*/
-	
-		weight=weight_tmp[i];	
+
+		weight=weight_tmp[i];
 
 		if(weight>max_weight)max_weight=weight;
 		if(weight<min_weight)min_weight=weight;
@@ -1020,7 +1047,7 @@ if(min_weight<= args_info.small_weight_ratio_arg*max_weight) {
 	set_missing_point_stats(pst);
 	return;
 	}
-	
+
 /* find highest bin */
 compute_range_F(tmp, useful_bins, &max_dx, &min_val, &max_dx_bin);
 
@@ -1094,7 +1121,7 @@ if(max_dx<=0 || !isfinite(max_dx)) {
 			M,
 			S,
 			inv_S,
-			tmp, 
+			tmp,
 			tmp[0], tmp[1], tmp[250], tmp[251]);
 	/* this is not fatal - complain, but continue */
 	}
@@ -1102,6 +1129,7 @@ if(max_dx<=0 || !isfinite(max_dx)) {
 pst->bin=max_dx_bin;
 pst->iota=ag->iota;
 pst->psi=ag->psi;
+pst->alignment_weight=ag->weight;
 
 /* convert to upper limit units */
 pst->S=sqrt(S)*strain_comp;
@@ -1268,12 +1296,12 @@ if(pps->weight_arrays_non_zero) {
 			pps->weight_ppcc[i]*ag->ppcc+
 			pps->weight_pccc[i]*ag->pccc+
 			pps->weight_cccc[i]*ag->cccc);
-	
+
 		if(weight>max_weight)max_weight=weight;
 		if(weight<min_weight)min_weight=weight;
 
 		tmp[i]=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc+pps->power_im_pc[i]*ag->im_pc)/weight;
-			
+
 		}
 
 	/* verify */
@@ -1289,31 +1317,31 @@ if(pps->weight_arrays_non_zero) {
 				pps->weight_ppcc[i]*ag->ppcc+
 				pps->weight_pccc[i]*ag->pccc+
 				pps->weight_cccc[i]*ag->cccc);
-		
+
 			if(weight>max_weight) fprintf(stderr, "*1*  %d %g %g %g\n", i, weight, max_weight, tmp[i]);
 			if(weight<min_weight) fprintf(stderr, "*2*  %d %g %g %g\n", i, weight, min_weight, tmp[i]);
-	
+
 			if(weight>m1) m1=weight;
 			if(weight<m2) m2=weight;
-	
+
 			a1=tmp[i];
 			a2=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc)/weight;
-	
+
 			if(*b1!=*b2){
 				fprintf(stderr, " *3* %d %g %g %g %g %g\n", i, (pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc)/weight, tmp[i], weight, min_weight, max_weight);
 				}
-				
+
 			}
 		a1=m1;
 		a2=max_weight;
-	
+
 		if(*b1!=*b2){
 			fprintf(stderr, " *4* %g %g %g %g\n", m2, m1, min_weight, max_weight);
 			}
-	
+
 		a1=m2;
 		a2=min_weight;
-	
+
 		if(*b1!=*b2) {
 			fprintf(stderr, " *5* %g %g %g %g\n", m2, m1, min_weight, max_weight);
 			}
@@ -1373,7 +1401,7 @@ if(min_weight<= args_info.small_weight_ratio_arg*max_weight) {
 	set_missing_point_stats(pst);
 	return;
 	}
-	
+
 /* find highest bin */
 compute_range_F(tmp, useful_bins, &max_dx, &min_val, &max_dx_bin);
 
@@ -1517,7 +1545,7 @@ if(max_dx<=0 || !isfinite(max_dx)) {
 			M,
 			S,
 			inv_S,
-			tmp, 
+			tmp,
 			tmp[0], tmp[1], tmp[250], tmp[251]);
 	/* this is not fatal - complain, but continue */
 	}
@@ -1525,6 +1553,7 @@ if(max_dx<=0 || !isfinite(max_dx)) {
 pst->bin=max_dx_bin;
 pst->iota=ag->iota;
 pst->psi=ag->psi;
+pst->alignment_weight=ag->weight;
 
 /* convert to upper limit units */
 pst->S=sqrt(S)*strain_comp;
@@ -1598,12 +1627,12 @@ if(pps->weight_arrays_non_zero) {
 			pps->weight_ppcc[i]*ag->ppcc+
 			pps->weight_pccc[i]*ag->pccc+
 			pps->weight_cccc[i]*ag->cccc);
-	
+
 		if(weight>max_weight)max_weight=weight;
 		if(weight<min_weight)min_weight=weight;
 
 		tmp[i]=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc+pps->power_im_pc[i]*ag->im_pc)/weight;
-			
+
 		}
 	} else {
 	weight=(pps->c_weight_pppp*ag->pppp+
@@ -1627,7 +1656,7 @@ if(min_weight<= args_info.small_weight_ratio_arg*max_weight) {
 	set_missing_point_stats(pst);
 	return;
 	}
-	
+
 /* find highest bin */
 
 compute_range_F(tmp, useful_bins, &max_dx, &min_val, &max_dx_bin);
@@ -1729,13 +1758,13 @@ if(max_dx<=0 || !isfinite(max_dx)) {
 			M,
 			S,
 			inv_S,
-			tmp, 
+			tmp,
 			tmp[0], tmp[1], tmp[250], tmp[251]);
 	/* this is not fatal - complain, but continue */
 	}
-	
+
 /* Third pass - compute c */
-	
+
 sum_c=0.0;
 for(i=0;i<max_dx_bin-half_window;i++) {
 	a=(M-tmp[i]);
@@ -1755,12 +1784,13 @@ for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 		}
 	}
 sum_c=sum_c/count;
-	
+
 s3=SIGMA/(1.0-sum_c/(1.0-LEVEL));
 
 pst->bin=max_dx_bin;
 pst->iota=ag->iota;
 pst->psi=ag->psi;
+pst->alignment_weight=ag->weight;
 
 /* convert to upper limit units */
 pst->S=sqrt(S)*strain_comp;
@@ -1822,12 +1852,12 @@ if(pps->weight_arrays_non_zero) {
 				pps->weight_ppcc[i]*ag->ppcc+
 				pps->weight_pccc[i]*ag->pccc+
 				pps->weight_cccc[i]*ag->cccc);
-		
+
 			if(weight>*max_weight)*max_weight=weight;
 			if(weight<*min_weight)*min_weight=weight;
 
 			tmp[i]=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc+pps->power_im_pc[i]*ag->im_pc)/weight;
-				
+
 			}
 		} else {
 		PRAGMA_IVDEP
@@ -1837,12 +1867,12 @@ if(pps->weight_arrays_non_zero) {
 				pps->weight_ppcc[i]*ag->ppcc+
 				pps->weight_pccc[i]*ag->pccc+
 				pps->weight_cccc[i]*ag->cccc);
-		
+
 			if(weight>*max_weight)*max_weight=weight;
 			if(weight<*min_weight)*min_weight=weight;
 
 			tmp[i]=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc)/weight;
-				
+
 			}
 		}
 	} else {
@@ -1887,7 +1917,7 @@ if(min_weight<= args_info.small_weight_ratio_arg*max_weight) {
 	set_missing_point_stats(pst);
 	return;
 	}
-	
+
 /* find highest bin */
 compute_range_F(tmp, useful_bins, &max_dx, &min_val, &max_dx_bin);
 
@@ -1980,13 +2010,13 @@ if(max_dx<=0 || !isfinite(max_dx)) {
 			M,
 			S,
 			inv_S,
-			tmp, 
+			tmp,
 			tmp[0], tmp[1], tmp[250], tmp[251]);
 	/* this is not fatal - complain, but continue */
 	}
-	
+
 /* Third pass - compute delta */
-	
+
 sum_c=0.0;
 
 PRAGMA_IVDEP
@@ -2018,6 +2048,7 @@ if(sum_c<=1)
 pst->bin=max_dx_bin;
 pst->iota=ag->iota;
 pst->psi=ag->psi;
+pst->alignment_weight=ag->weight;
 
 /* convert to upper limit units */
 pst->S=sqrt(S)*strain_comp;
@@ -2102,12 +2133,12 @@ if(pps->weight_arrays_non_zero) {
 			pps->weight_ppcc[i]*ag->ppcc+
 			pps->weight_pccc[i]*ag->pccc+
 			pps->weight_cccc[i]*ag->cccc);
-	
+
 		if(weight>max_weight)max_weight=weight;
 		if(weight<min_weight)min_weight=weight;
 
 		tmp[i]=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc+pps->power_im_pc[i]*ag->im_pc)/weight;
-			
+
 		}
 	} else {
 	weight=(pps->c_weight_pppp*ag->pppp+
@@ -2132,7 +2163,7 @@ if(min_weight<= args_info.small_weight_ratio_arg*max_weight) {
 	set_missing_point_stats(pst);
 	return;
 	}
-	
+
 /* find highest bin */
 compute_range_F(tmp, useful_bins, &max_dx, &min_val, &max_dx_bin);
 
@@ -2225,13 +2256,13 @@ if(max_dx<=0 || !isfinite(max_dx)) {
 			M,
 			S,
 			inv_S,
-			tmp, 
+			tmp,
 			tmp[0], tmp[1], tmp[250], tmp[251]);
 	/* this is not fatal - complain, but continue */
 	}
-	
+
 /* Third pass - compute delta */
-	
+
 sum_c=0.0;
 
 PRAGMA_IVDEP
@@ -2263,6 +2294,7 @@ if(sum_c<=1)
 pst->bin=max_dx_bin;
 pst->iota=ag->iota;
 pst->psi=ag->psi;
+pst->alignment_weight=ag->weight;
 
 /* convert to upper limit units */
 pst->S=sqrt(S)*strain_comp;
@@ -2297,11 +2329,11 @@ __m128 v4a,v4b, v4c, v4weight, v4tmp, v4_max_weight, v4_min_weight;
 float weight, inv_weight;
 
 tmp2=aligned_alloca(4*sizeof(tmp2));
-	
+
 if(pps->weight_arrays_non_zero) {
 	*max_weight=0;
 	*min_weight=1e50;
-	
+
 	v4_max_weight=_mm_load1_ps(max_weight);
 	v4_min_weight=_mm_load1_ps(min_weight);
 
@@ -2389,18 +2421,18 @@ if(pps->weight_arrays_non_zero) {
 		}
 
 	_mm_store_ps(tmp2, v4_max_weight);
-	
+
 	for(i=0;i<4;i++) {
 		weight=tmp2[i];
 		if(weight>*max_weight)*max_weight=weight;
-		}	
+		}
 
 	_mm_store_ps(tmp2, v4_min_weight);
-	
+
 	for(i=0;i<4;i++) {
 		weight=tmp2[i];
 		if(weight<*min_weight)*min_weight=weight;
-		}	
+		}
 
 	if(pps->power_im_pc!=NULL) {
 		for(;i<useful_bins;i++) {
@@ -2409,12 +2441,12 @@ if(pps->weight_arrays_non_zero) {
 				pps->weight_ppcc[i]*ag->ppcc+
 				pps->weight_pccc[i]*ag->pccc+
 				pps->weight_cccc[i]*ag->cccc);
-		
+
 			if(weight>*max_weight)*max_weight=weight;
 			if(weight<*min_weight)*min_weight=weight;
 
 			tmp[i]=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc+pps->power_im_pc[i]*ag->im_pc)/weight;
-				
+
 			}
 		} else {
 		for(;i<useful_bins;i++) {
@@ -2423,12 +2455,12 @@ if(pps->weight_arrays_non_zero) {
 				pps->weight_ppcc[i]*ag->ppcc+
 				pps->weight_pccc[i]*ag->pccc+
 				pps->weight_cccc[i]*ag->cccc);
-		
+
 			if(weight>*max_weight)*max_weight=weight;
 			if(weight<*min_weight)*min_weight=weight;
 
 			tmp[i]=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc)/weight;
-				
+
 			}
 		}
 
@@ -2445,31 +2477,31 @@ if(pps->weight_arrays_non_zero) {
 				pps->weight_ppcc[i]*ag->ppcc+
 				pps->weight_pccc[i]*ag->pccc+
 				pps->weight_cccc[i]*ag->cccc);
-		
+
 			if(weight>max_weight) fprintf(stderr, "*1*  %d %g %g %g\n", i, weight, max_weight, tmp[i]);
 			if(weight<min_weight) fprintf(stderr, "*2*  %d %g %g %g\n", i, weight, min_weight, tmp[i]);
-	
+
 			if(weight>m1) m1=weight;
 			if(weight<m2) m2=weight;
-	
+
 			a1=tmp[i];
 			a2=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc)/weight;
-	
+
 			if(*b1!=*b2){
 				fprintf(stderr, " *3* %d %g %g %g %g %g\n", i, (pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc)/weight, tmp[i], weight, min_weight, max_weight);
 				}
-				
+
 			}
 		a1=m1;
 		a2=max_weight;
-	
+
 		if(*b1!=*b2){
 			fprintf(stderr, " *4* %g %g %g %g\n", m2, m1, min_weight, max_weight);
 			}
-	
+
 		a1=m2;
 		a2=min_weight;
-	
+
 		if(*b1!=*b2) {
 			fprintf(stderr, " *5* %g %g %g %g\n", m2, m1, min_weight, max_weight);
 			}
@@ -2549,7 +2581,7 @@ float sum, sum_sq, sum1, sum3, sum4, sum_c;
 int half_window=args_info.half_window_arg;
 float *tmp2=NULL;
 __m128 v4a,v4b, v4c, v4d, v4tmp, v4sum, v4sum_sq, v4sum3, v4sum4, v4zero;
-	
+
 tmp2=aligned_alloca(4*sizeof(*tmp2));
 
 /* 0 weight can happen due to extreme line veto at low frequencies and small spindowns */
@@ -2557,7 +2589,7 @@ if(min_weight<= args_info.small_weight_ratio_arg*max_weight) {
 	set_missing_point_stats(pst);
 	return;
 	}
-	
+
 /* find highest bin */
 compute_range_F(tmp, useful_bins, &max_dx, &min_val, &max_dx_bin);
 
@@ -2701,7 +2733,7 @@ if(max_dx<=0 || !isfinite(max_dx)) {
 			M,
 			S,
 			inv_S,
-			tmp, 
+			tmp,
 			tmp[0], tmp[1], tmp[250], tmp[251]);
 	/* this is not fatal - complain, but continue */
 	}
@@ -2718,7 +2750,7 @@ if(max_dx<=0 || !isfinite(max_dx)) {
 // 		sum_c+=a+UNIV_INV_B*S;
 // 		}
 // 	}
-// 
+//
 // for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 // 	a=(M-tmp[i])-x_epsilon*S;
 // 	/* collect negative threshold statistics */
@@ -2760,7 +2792,7 @@ for(;i<useful_bins-3;i+=4) {
 	v4tmp=_mm_sub_ps(v4a, _mm_load_ps(&(tmp[i])));
 	v4sum=_mm_add_ps(v4sum, _mm_add_ps(_mm_max_ps(v4tmp, v4zero), _mm_and_ps(_mm_cmpge_ps(v4tmp, v4zero), v4b)));
 	}
-	
+
 for(;i<useful_bins;i++) {
 	a=(M-x_epsilon*S)-tmp[i];
 	/* collect negative threshold statistics */
@@ -2785,6 +2817,7 @@ if(sum_c<=1)
 pst->bin=max_dx_bin;
 pst->iota=ag->iota;
 pst->psi=ag->psi;
+pst->alignment_weight=ag->weight;
 
 /* convert to upper limit units */
 pst->S=sqrt(S)*strain_comp;
@@ -2865,7 +2898,7 @@ if(pps->power_im_pc==NULL) {
 if(pps->weight_arrays_non_zero) {
 	max_weight=0;
 	min_weight=1e50;
-	
+
 	v4_max_weight=_mm_load1_ps(&max_weight);
 	v4_min_weight=_mm_load1_ps(&min_weight);
 
@@ -2951,18 +2984,18 @@ if(pps->weight_arrays_non_zero) {
 		}
 
 	_mm_store_ps(tmp2, v4_max_weight);
-	
+
 	for(i=0;i<4;i++) {
 		weight=tmp2[i];
 		if(weight>max_weight)max_weight=weight;
-		}	
+		}
 
 	_mm_store_ps(tmp2, v4_min_weight);
-	
+
 	for(i=0;i<4;i++) {
 		weight=tmp2[i];
 		if(weight<min_weight)min_weight=weight;
-		}	
+		}
 
 	for(;i<useful_bins;i++) {
 		weight=(pps->weight_pppp[i]*ag->pppp+
@@ -2970,12 +3003,12 @@ if(pps->weight_arrays_non_zero) {
 			pps->weight_ppcc[i]*ag->ppcc+
 			pps->weight_pccc[i]*ag->pccc+
 			pps->weight_cccc[i]*ag->cccc);
-	
+
 		if(weight>max_weight)max_weight=weight;
 		if(weight<min_weight)min_weight=weight;
 
 		tmp[i]=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc+pps->power_im_pc[i]*ag->im_pc)/weight;
-			
+
 		}
 
 	/* verify */
@@ -2991,31 +3024,31 @@ if(pps->weight_arrays_non_zero) {
 				pps->weight_ppcc[i]*ag->ppcc+
 				pps->weight_pccc[i]*ag->pccc+
 				pps->weight_cccc[i]*ag->cccc);
-		
+
 			if(weight>max_weight) fprintf(stderr, "*1*  %d %g %g %g\n", i, weight, max_weight, tmp[i]);
 			if(weight<min_weight) fprintf(stderr, "*2*  %d %g %g %g\n", i, weight, min_weight, tmp[i]);
-	
+
 			if(weight>m1) m1=weight;
 			if(weight<m2) m2=weight;
-	
+
 			a1=tmp[i];
 			a2=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc)/weight;
-	
+
 			if(*b1!=*b2){
 				fprintf(stderr, " *3* %d %g %g %g %g %g\n", i, (pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc)/weight, tmp[i], weight, min_weight, max_weight);
 				}
-				
+
 			}
 		a1=m1;
 		a2=max_weight;
-	
+
 		if(*b1!=*b2){
 			fprintf(stderr, " *4* %g %g %g %g\n", m2, m1, min_weight, max_weight);
 			}
-	
+
 		a1=m2;
 		a2=min_weight;
-	
+
 		if(*b1!=*b2) {
 			fprintf(stderr, " *5* %g %g %g %g\n", m2, m1, min_weight, max_weight);
 			}
@@ -3075,7 +3108,7 @@ if(min_weight<= args_info.small_weight_ratio_arg*max_weight) {
 	set_missing_point_stats(pst);
 	return;
 	}
-	
+
 /* find highest bin */
 compute_range_F(tmp, useful_bins, &max_dx, &min_val, &max_dx_bin);
 
@@ -3219,7 +3252,7 @@ if(max_dx<=0 || !isfinite(max_dx)) {
 			M,
 			S,
 			inv_S,
-			tmp, 
+			tmp,
 			tmp[0], tmp[1], tmp[250], tmp[251]);
 	/* this is not fatal - complain, but continue */
 	}
@@ -3236,7 +3269,7 @@ if(max_dx<=0 || !isfinite(max_dx)) {
 // 		sum_c+=a+UNIV_INV_B*S;
 // 		}
 // 	}
-// 
+//
 // for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 // 	a=(M-tmp[i])-x_epsilon*S;
 // 	/* collect negative threshold statistics */
@@ -3278,7 +3311,7 @@ for(;i<useful_bins-3;i+=4) {
 	v4tmp=_mm_sub_ps(v4a, _mm_load_ps(&(tmp[i])));
 	v4sum=_mm_add_ps(v4sum, _mm_add_ps(_mm_max_ps(v4tmp, v4zero), _mm_and_ps(_mm_cmpge_ps(v4tmp, v4zero), v4b)));
 	}
-	
+
 for(;i<useful_bins;i++) {
 	a=(M-x_epsilon*S)-tmp[i];
 	/* collect negative threshold statistics */
@@ -3303,6 +3336,7 @@ if(sum_c<=1)
 pst->bin=max_dx_bin;
 pst->iota=ag->iota;
 pst->psi=ag->psi;
+pst->alignment_weight=ag->weight;
 
 /* convert to upper limit units */
 pst->S=sqrt(S)*strain_comp;
@@ -3346,6 +3380,7 @@ stats->highest_snr.snr=-1;
 stats->highest_ks.ks_value=-1;
 stats->highest_M.M=-1;
 stats->highest_S.S=-1;
+stats->avg_ul=0;
 stats->max_weight_loss_fraction=-1;
 stats->max_weight=-1;
 stats->min_weight=1e50;
@@ -3382,9 +3417,11 @@ if(pst->S>stats->highest_S.S) {
 	memcpy(&(stats->highest_S), pst, sizeof(*pst));
 	}
 
-/* Let us consider anything with iota < 1e-5 as circular. 
-	In practice this should only be one point */
-if(ag->iota<1e-5) {
+/* accumulate average ul */
+stats->avg_ul+=pst->ul*ag->weight;
+
+/* This happens only once, unless we include imaginary parts in loosely coherent mode which add iota=pi polarization */
+if((ag->type==TYPE_POLARIZATION_CIRCULAR) && (pst->ul>stats->highest_circ_ul.ul)) {
 	memcpy(&(stats->highest_circ_ul), pst, sizeof(*pst));
 	}
 
@@ -3398,6 +3435,19 @@ if(pst->m3_neg>stats->max_m3_neg)stats->max_m3_neg=pst->m3_neg;
 if(pst->m3_neg<stats->min_m3_neg)stats->min_m3_neg=pst->m3_neg;
 if(pst->m4>stats->max_m4)stats->max_m4=pst->m4;
 if(pst->m4<stats->min_m4)stats->min_m4=pst->m4;
+}
+
+void finalize_power_sum_stats(POWER_SUM_STATS *stats)
+{
+double excluded_weight;
+/* to properly compute population average we would need to take median which is expensive */
+/* instead use weighted mean after excluding smallest and highest values */
+
+excluded_weight=stats->highest_ul.alignment_weight;
+/* This case does not happen for main upper limit runs */
+if(stats->highest_circ_ul.alignment_weight<excluded_weight)excluded_weight=stats->highest_circ_ul.alignment_weight;
+
+stats->avg_ul=(stats->avg_ul-(stats->highest_ul.ul+stats->highest_circ_ul.ul)*excluded_weight)/(alignment_grid_total_weight-2.0*excluded_weight);
 }
 
 void power_sum_stats(PARTIAL_POWER_SUM_F *pps, POWER_SUM_STATS *stats)
@@ -3420,9 +3470,11 @@ for(k=0;k<alignment_grid_free;k++) {
 		return;
 		continue;
 		}
-		
+
 	update_power_sum_stats(&pst, &(alignment_grid[k]), stats);
 	}
+
+finalize_power_sum_stats(stats);
 }
 
 void power_sum_stats_selftest(void)
@@ -3472,7 +3524,7 @@ for(k=0;k<alignment_grid_free;k++) {
 	sse_point_power_sum_stats_linear(ps2, &(alignment_grid[k]), &(pst_test));
 	result+=compare_point_stats("sse1:", &pst_ref, &pst_test);
 #endif
-	
+
 	/* piecewise linear stats */
 	zero_partial_power_sum_F(ps2);
 	accumulate_partial_power_sum_F(ps2, ps1);
@@ -3484,7 +3536,7 @@ for(k=0;k<alignment_grid_free;k++) {
 	sse_point_power_sum_stats_universal_piecewise_linear(ps2, &(alignment_grid[k]), &(pst_test));
 	result+=compare_point_stats_universal("universal sse1:", &pst_ref, &pst_test);
 #endif
-	
+
 	}
 
 ps1->weight_arrays_non_zero=0;
@@ -3519,13 +3571,13 @@ for(k=0;k<alignment_grid_free;k++) {
 	accumulate_partial_power_sum_F(ps2, ps1);
 	point_power_sum_stats_universal_piecewise_linearA(ps2, &(alignment_grid[k]), &(pst_test));
 	result+=compare_point_stats_universal("universalA:", &pst_ref, &pst_test);
-	
+
 #if MANUAL_SSE
 	zero_partial_power_sum_F(ps2);
 	accumulate_partial_power_sum_F(ps2, ps1);
 	sse_point_power_sum_stats_universal_piecewise_linear(ps2, &(alignment_grid[k]), &(pst_test));
 	result+=compare_point_stats_universal("universal sse2:", &pst_ref, &pst_test);
-	
+
 	zero_partial_power_sum_F(ps2);
 	accumulate_partial_power_sum_F(ps2, ps1);
 	sse_point_power_sum_stats_universal_piecewise_linearA(ps2, &(alignment_grid[k]), &(pst_ref));
@@ -3597,34 +3649,34 @@ fprintf(LOG, "x_epsilon: %g\n", x_epsilon);
 if(!strcasecmp("Hann", args_info.upper_limit_comp_arg)){
 	if(!strcasecmp(args_info.averaging_mode_arg, "matched")) {
 		/* Matched filter correctly reconstructs power in the bin */
-		upper_limit_comp=1.0; 
+		upper_limit_comp=1.0;
 		} else
 	if(!strcasecmp(args_info.averaging_mode_arg, "single_bin_loose")) {
-		/* 0.85 is a ratio between amplitude of 
+		/* 0.85 is a ratio between amplitude of
 		   half-bin centered signal and bin centered signal
 		   *amplitude*
 
 		   */
 		/* Usual worst case single-bin correction for loss of power when not bin centered. */
-		upper_limit_comp=1.0/0.85; 
+		upper_limit_comp=1.0/0.85;
 		} else
 	if(!strcasecmp(args_info.averaging_mode_arg, "matched_loose")) {
 		/* Matched filter  correctly reconstructs power in the bin */
-		upper_limit_comp=1.0; 
+		upper_limit_comp=1.0;
 		} else
 	if(!strcasecmp(args_info.averaging_mode_arg, "3") || !strcasecmp(args_info.averaging_mode_arg, "three")){
 		/* 3 bins should contain the entire signal, regardless
 		   of positioning */
 		upper_limit_comp=sqrt(3.0);
-		} else 
+		} else
 	if(!strcasecmp(args_info.averaging_mode_arg, "1") || !strcasecmp(args_info.averaging_mode_arg, "one")){
-		/* 0.85 is a ratio between amplitude of 
+		/* 0.85 is a ratio between amplitude of
 		   half-bin centered signal and bin centered signal
 		   *amplitude*
 
 		   */
 		upper_limit_comp=1.0/0.85;
-		} else 
+		} else
 		{
 		fprintf(stderr, "ERROR: do not know how to compensate upper limits for averaging mode \"%s\", try specifying upper_limit_comp option directly\n", args_info.averaging_mode_arg);
 		}

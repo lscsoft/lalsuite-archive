@@ -24,6 +24,7 @@
 #
 
 
+from __future__ import print_function
 from bisect import bisect_left, bisect_right
 import itertools
 import math
@@ -35,13 +36,12 @@ from glue.ligolw import lsctables
 from glue.ligolw.utils import search_summary as ligolw_search_summary
 from glue.ligolw.utils import coincs as ligolw_coincs
 from glue import offsetvector
-from pylal import git_version
-from pylal import snglcoinc
+from lalburst import snglcoinc
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
-__version__ = "git id %s" % git_version.id
-__date__ = git_version.date
+from .git_version import date as __date__
+from .git_version import version as __version__
 
 
 #
@@ -214,26 +214,24 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 
 def coinc_inspiral_end_time(events, offset_vector):
 	"""
-	Compute the end time of an inspiral coincidence.
-	@events: a tuple of sngl_inspiral triggers making up a single
-	coinc_inspiral trigger
-	@offset_vector: a dictionary of offsets to apply to different
-	detectors keyed by detector name
+	Compute the end time of an inspiral coincidence.  events is an
+	iterable of sngl_inspiral triggers, offset_vector is a dictionary
+	mapping instrument to offset.
 
-	In this context, the "end time" is the (time shifted) end time of
-	the constituent trigger with the highest SNR.  In particular, it is
-	*not* an estimate of the time at which the peak strain passed
-	through the geocentre (something that might come out of a proper
-	parameter estimation code).  The "end time" reported by this code
-	gets used for things like plot titles, alert messages, and so on.
+	This function returns the time shifted end time of the trigger with
+	the highest SNR.  The end time reported by this function gets used
+	for things like plot titles, alert messages, and so on.  It is not
+	meant to be an accurate estimate of the time at which the
+	gravitational wave passed through the geocentre, or any other such
+	thing.
 
-	This end time is also used to parallelize ligolw_thinca by allowing
-	a single lock stretch to be split across several jobs without
-	missing or double counting any coincs.  This is achieved by using a
+	This end time is also used to parallelize thinca by allowing a
+	single lock stretch to be split across several jobs without missing
+	or double counting any coincs.  This is achieved by using a
 	definition that is guaranteed to return a bit-identical "end time"
-	for a given set of triggers.  Guaranteeing that allows
-	ligolw_thinca to clip coincs to a sequence of contiguous segments
-	and know that every coinc will reproducibly fall in exactly one.
+	for a given set of triggers.  Guaranteeing that allows thinca to
+	clip coincs to a sequence of contiguous segments and know that no
+	coinc will missed or double counted.
 	"""
 	event = max(events, key = lambda event: event.snr)
 	return event.end + offset_vector[event.ifo]
@@ -370,7 +368,7 @@ def ligolw_thinca(
 	#
 
 	if verbose:
-		print >>sys.stderr, "indexing ..."
+		print("indexing ...", file=sys.stderr)
 	coinc_tables = InspiralCoincTables(xmldoc, vetoes = veto_segments, program = trigger_program, likelihood_func = likelihood_func, likelihood_params_func = likelihood_params_func)
 	coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
 	instruments = set(coinc_tables.time_slide_table.getColumnByName("instrument"))

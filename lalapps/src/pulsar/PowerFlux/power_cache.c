@@ -8,6 +8,7 @@
 
 #include <pmmintrin.h>
 #include <xmmintrin.h>
+#include <immintrin.h>
 
 #include "polarization.h"
 #include "dataset.h"
@@ -61,7 +62,7 @@ for(k=0;k<d_free;k++) {
 		r[*count].f_cross=NAN;
 		r[*count].bin_shift=NAN;
 		r[*count].diff_bin_shift=NAN;
-		
+
 		(*count)++;
 		}
 	}
@@ -116,6 +117,28 @@ exit(-2);
 static void inline sse_sum_unaligned_F(int count, float *partial, float *accum)
 {
 #if MANUAL_SSE
+#if USE_AVX
+int i;
+__m256 v8in, v8acc;
+
+//fprintf(stderr, "unaligned %d %p %p\n", i, partial, accum);
+for(i=0; ((long)&(accum[i]) & 0x0f) && (i<count);i++) {
+	accum[i]+=partial[i];
+	}
+
+PRAGMA_IVDEP
+for(;i<(count-7);i+=8) {
+	v8in=_mm256_loadu_ps(&(partial[i]));
+	v8acc=_mm256_load_ps(&(accum[i]));
+	v8acc=_mm256_add_ps(v8acc, v8in);
+	_mm256_store_ps(&(accum[i]), v8acc);
+	}
+
+PRAGMA_IVDEP
+for(;i<count;i++) {
+	accum[i]+=partial[i];
+	}
+#else
 int i;
 __m128 v4in, v4acc;
 float *tmp=aligned_alloca(16*sizeof(*tmp));
@@ -150,9 +173,12 @@ for(;i<(count-15);i+=16) {
 	v4acc=_mm_add_ps(v4acc, v4in);
 	_mm_store_ps(&(accum[i+12]), v4acc);
 	}
+
+PRAGMA_IVDEP
 for(;i<count;i++) {
 	accum[i]+=partial[i];
 	}
+#endif
 #else
 fprintf(stderr, "**** MANUAL_SSE disabled in %s\n", __FUNCTION__);
 exit(-2);
@@ -409,7 +435,7 @@ for(k=0;k<count;k++) {
 
 	bin_shift=rintf(si_local->bin_shift)-pps->offset;
 	if((bin_shift+side_cut<0) || (bin_shift>pps_bins+side_cut)) {
-		fprintf(stderr, "*** Attempt to sample outside loaded range bin_shift=%d bin_shift=%lg, aborting\n", 
+		fprintf(stderr, "*** Attempt to sample outside loaded range bin_shift=%d bin_shift=%lg, aborting\n",
 			bin_shift, si_local->bin_shift);
 		exit(-1);
 		}
@@ -438,14 +464,14 @@ for(k=0;k<count;k++) {
 	sum=0.0;
 	sum_sq=0.0;
 	p=power;
-	
+
 PRAGMA_IVDEP
 	for(i=0;i<pps_bins;i++) {
 		a=(re[i]*re[i]+im[i]*im[i]-TM*fm[i]);
 		//if(a>pmax)pmax=a;
 		p[i]=a;
 		}
-		
+
 PRAGMA_IVDEP
 	for(i=0;i<pps_bins;i++) {
 		a=p[i];
@@ -459,18 +485,18 @@ PRAGMA_IVDEP
 		sum*=pps_bins_inv;
 		sum_sq*=pps_bins_inv;
 		sum_sq-=sum*sum;
-	// 
+	//
 	// 	pmax*=pmax_factor; /* scale factor to bring it down to power median */
 	// 	a=pmax*pmax;
 	// 	//if(a>weight)weight=a;
-	// 
+	//
 		weight=1.0/sum_sq;
 		}
 
 	f_pp=f_plus*f_plus;
 	f_pc=f_plus*f_cross;
 	f_cc=f_cross*f_cross;
-	
+
 
 	weight_pppp+=weight*f_pp*f_pp;
 	weight_pppc+=weight*f_pp*f_pc;
@@ -486,7 +512,7 @@ PRAGMA_IVDEP
 	pp=pps->power_pp;
 	pc=pps->power_pc;
 	cc=pps->power_cc;
-	
+
 PRAGMA_IVDEP
 	for(i=0;i<pps_bins;i++) {
 		a=p[i];
@@ -515,7 +541,7 @@ PRAGMA_IVDEP
 		pps->weight_pppc[i]-=weight*f_plus*f_plus*f_plus*f_cross;
 		pps->weight_ppcc[i]-=weight*f_plus*f_plus*f_cross*f_cross;
 		pps->weight_pccc[i]-=weight*f_plus*f_cross*f_cross*f_cross;
-		pps->weight_cccc[i]-=weight*f_cross*f_cross*f_cross*f_cross;		
+		pps->weight_cccc[i]-=weight*f_cross*f_cross*f_cross*f_cross;
 
 		pps->weight_arrays_non_zero=1;
 		}
@@ -599,7 +625,7 @@ for(k=0;k<count;k++) {
 
 	bin_shift=rintf(si_local->bin_shift)-pps->offset;
 	if((bin_shift+side_cut<0) || (bin_shift>pps_bins+side_cut)) {
-		fprintf(stderr, "*** Attempt to sample outside loaded range bin_shift=%d bin_shift=%lg, aborting\n", 
+		fprintf(stderr, "*** Attempt to sample outside loaded range bin_shift=%d bin_shift=%lg, aborting\n",
 			bin_shift, si_local->bin_shift);
 		exit(-1);
 		}
@@ -650,7 +676,7 @@ for(k=0;k<count;k++) {
 				\
 			v4sum=_mm_add_ps(v4sum, v4power); \
 			v4a=_mm_mul_ps(v4power, v4power); \
-			v4sum_sq=_mm_add_ps(v4sum_sq, v4a); 
+			v4sum_sq=_mm_add_ps(v4sum_sq, v4a);
 
 		S1(tmp1, tmp2, tmp3, p)
 		S1(&(tmp1[4]), &(tmp2[4]), &(tmp3[4]), &(p[4]))
@@ -687,18 +713,18 @@ for(k=0;k<count;k++) {
 		sum*=pps_bins_inv;
 		sum_sq*=pps_bins_inv;
 		sum_sq-=sum*sum;
-	// 
+	//
 	// 	pmax*=pmax_factor; /* scale factor to bring it down to power median */
 	// 	a=pmax*pmax;
 	// 	//if(a>weight)weight=a;
-	// 
+	//
 		weight=1.0/sum_sq;
 		}
 
 	f_pp=f_plus*f_plus;
 	f_pc=f_plus*f_cross;
 	f_cc=f_cross*f_cross;
-	
+
 
 	weight_pppp+=weight*f_pp*f_pp;
 	weight_pppc+=weight*f_pp*f_pc;
@@ -766,7 +792,7 @@ for(k=0;k<count;k++) {
 		pps->weight_pppc[i]-=weight*f_plus*f_plus*f_plus*f_cross;
 		pps->weight_ppcc[i]-=weight*f_plus*f_plus*f_cross*f_cross;
 		pps->weight_pccc[i]-=weight*f_plus*f_cross*f_cross*f_cross;
-		pps->weight_cccc[i]-=weight*f_cross*f_cross*f_cross*f_cross;		
+		pps->weight_cccc[i]-=weight*f_cross*f_cross*f_cross*f_cross;
 
 		pps->weight_arrays_non_zero=1;
 		}
@@ -850,7 +876,7 @@ for(k=0;k<count;k++) {
 
 	bin_shift=rintf(si_local->bin_shift)-pps->offset;
 	if((bin_shift+side_cut<0) || (bin_shift>pps_bins+side_cut)) {
-		fprintf(stderr, "*** Attempt to sample outside loaded range bin_shift=%d bin_shift=%lg, aborting\n", 
+		fprintf(stderr, "*** Attempt to sample outside loaded range bin_shift=%d bin_shift=%lg, aborting\n",
 			bin_shift, si_local->bin_shift);
 		exit(-1);
 		}
@@ -884,7 +910,7 @@ for(k=0;k<count;k++) {
 	for(i=0;i<pps_bins;i++) {
 		x=re[-3]*filter[0]+re[-2]*filter[1]+re[-1]*filter[2]+re[0]*filter[3]+re[1]*filter[4]+re[2]*filter[5]+re[3]*filter[6];
 		y=im[-3]*filter[0]+im[-2]*filter[1]+im[-1]*filter[2]+im[0]*filter[3]+im[1]*filter[4]+im[2]*filter[5]+im[3]*filter[6];
-	
+
 		a=x*x+y*y;
 
 		//a=((*re)*(*re)+(*im)*(*im)-TM*(*fm));
@@ -894,7 +920,7 @@ for(k=0;k<count;k++) {
 		sum_sq+=a*a;
 
 		im++;
-		re++;		
+		re++;
 		fm++;
 		p++;
 		}
@@ -905,18 +931,18 @@ for(k=0;k<count;k++) {
 		sum*=pps_bins_inv;
 		sum_sq*=pps_bins_inv;
 		sum_sq-=sum*sum;
-	// 
+	//
 	// 	pmax*=pmax_factor; /* scale factor to bring it down to power median */
 	// 	a=pmax*pmax;
 	// 	//if(a>weight)weight=a;
-	// 
+	//
 		weight=1.0/sum_sq;
 		}
 
 	f_pp=f_plus*f_plus;
 	f_pc=f_plus*f_cross;
 	f_cc=f_cross*f_cross;
-	
+
 
 	weight_pppp+=weight*f_pp*f_pp;
 	weight_pppc+=weight*f_pp*f_pc;
@@ -968,7 +994,7 @@ for(k=0;k<count;k++) {
 		pps->weight_pppc[i]-=weight*f_plus*f_plus*f_plus*f_cross;
 		pps->weight_ppcc[i]-=weight*f_plus*f_plus*f_cross*f_cross;
 		pps->weight_pccc[i]-=weight*f_plus*f_cross*f_cross*f_cross;
-		pps->weight_cccc[i]-=weight*f_cross*f_cross*f_cross*f_cross;		
+		pps->weight_cccc[i]-=weight*f_cross*f_cross*f_cross*f_cross;
 
 		pps->weight_arrays_non_zero=1;
 		}
@@ -1055,7 +1081,7 @@ for(k=0;k<count;k++) {
 
 	bin_shift=rintf(si_local->bin_shift)-pps->offset;
 	if((bin_shift+side_cut<0) || (bin_shift>pps_bins+side_cut)) {
-		fprintf(stderr, "*** Attempt to sample outside loaded range bin_shift=%d bin_shift=%lg, aborting\n", 
+		fprintf(stderr, "*** Attempt to sample outside loaded range bin_shift=%d bin_shift=%lg, aborting\n",
 			bin_shift, si_local->bin_shift);
 		exit(-1);
 		}
@@ -1113,7 +1139,7 @@ for(k=0;k<count;k++) {
 
 //		v4a=_mm_add_ps(_mm_mul_ps(v4filt0, _mm_loadu_ps(&(re[-3]))), _mm_mul_ps(v4filt1, _mm_load_ps(&(re[1]))));
 //		v4b=_mm_add_ps(_mm_mul_ps(v4filt0, _mm_loadu_ps(&(im[-3]))), _mm_mul_ps(v4filt1, _mm_load_ps(&(im[1]))));
-	
+
 		v4power0=_mm_hadd_ps(v4a, v4b);
 		v4power0=_mm_hadd_ps(v4power0, v4power0);
 		v4power1=_mm_mul_ps(v4power0, v4power0);
@@ -1137,18 +1163,18 @@ for(k=0;k<count;k++) {
 		sum*=pps_bins_inv;
 		sum_sq*=pps_bins_inv;
 		sum_sq-=sum*sum;
-	// 
+	//
 	// 	pmax*=pmax_factor; /* scale factor to bring it down to power median */
 	// 	a=pmax*pmax;
 	// 	//if(a>weight)weight=a;
-	// 
+	//
 		weight=1.0/sum_sq;
 		}
 
 	f_pp=f_plus*f_plus;
 	f_pc=f_plus*f_cross;
 	f_cc=f_cross*f_cross;
-	
+
 
 	weight_pppp+=weight*f_pp*f_pp;
 	weight_pppc+=weight*f_pp*f_pc;
@@ -1217,7 +1243,7 @@ for(k=0;k<count;k++) {
 		pps->weight_pppc[i]-=weight*f_plus*f_plus*f_plus*f_cross;
 		pps->weight_ppcc[i]-=weight*f_plus*f_plus*f_cross*f_cross;
 		pps->weight_pccc[i]-=weight*f_plus*f_cross*f_cross*f_cross;
-		pps->weight_cccc[i]-=weight*f_cross*f_cross*f_cross*f_cross;		
+		pps->weight_cccc[i]-=weight*f_cross*f_cross*f_cross*f_cross;
 
 		pps->weight_arrays_non_zero=1;
 		}
@@ -1355,7 +1381,7 @@ if((sc==NULL) || (sc->id!=SIMPLE_CACHE_ID)) {
 	exit(-1);
 	}
 
-if(count!=sc->segment_count) { 
+if(count!=sc->segment_count) {
 	fprintf(stderr, "Internal error: segment counts don't match.\n");
 	exit(-1);
 	}

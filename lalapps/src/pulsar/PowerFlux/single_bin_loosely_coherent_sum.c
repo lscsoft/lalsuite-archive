@@ -1947,7 +1947,6 @@ int i, j;
 int count;
 int result=0;
 SINGLE_BIN_LOOSELY_COHERENT_PATCH_PRIVATE_DATA *priv;
-LALStatus status={level:0, statusPtr:NULL};
 EarthState earth_state;
 LIGOTimeGPS tGPS;
 BarycenterInput baryinput;
@@ -1984,8 +1983,6 @@ for(j=0;j<count;j++) {
 
 	tGPS.gpsSeconds=si[j].gps+si[j].coherence_time*0.5;
 	tGPS.gpsNanoSeconds=0;
-// 	LALBarycenterEarth(&status, &earth_state, &tGPS, &ephemeris);
-// 	TESTSTATUS(&status);
 	if(XLALBarycenterEarth(&earth_state, &tGPS, &ephemeris)!=XLAL_SUCCESS) {
 		fprintf(stderr, "XLALBarycenterEarth failed for seconds=%g index=%d\n", (double)tGPS.gpsSeconds, j);
 		}
@@ -2001,8 +1998,6 @@ for(j=0;j<count;j++) {
 	baryinput.dInv=0;
 
 
-// 	LALBarycenter(&status, &(priv->emission_time[j]), &baryinput, &earth_state);
-// 	TESTSTATUS(&status);
 	if(XLALBarycenter(&(priv->emission_time[j]), &baryinput, &earth_state)!=XLAL_SUCCESS) {
 		fprintf(stderr, "XLALBarycenter failed for seconds=%g index=%d\n", (double)tGPS.gpsSeconds, j);
 		}

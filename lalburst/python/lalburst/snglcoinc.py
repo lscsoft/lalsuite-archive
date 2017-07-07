@@ -24,6 +24,9 @@
 #
 
 
+from __future__ import print_function
+
+
 """
 Generic coincidence engine for use with time-based event lists in LIGO
 Light Weight XML documents.
@@ -60,12 +63,11 @@ from glue.ligolw import array as ligolw_array
 from glue.ligolw import param as ligolw_param
 from glue.ligolw import lsctables
 from glue.text_progress_bar import ProgressBar
-from pylal import git_version
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
-__version__ = "git id %s" % git_version.id
-__date__ = git_version.date
+from .git_version import date as __date__
+from .git_version import version as __version__
 
 
 #
@@ -93,7 +95,7 @@ class EventList(list):
 		# the offset that should be added to the times of events in
 		# this list when comparing to the times of other events.
 		# used to implement time-shifted coincidence tests
-		self.offset = lsctables.LIGOTimeGPS(0)
+		self.offset = lal.LIGOTimeGPS(0)
 
 	def make_index(self):
 		"""
@@ -112,7 +114,7 @@ class EventList(list):
 		"""
 		# cast offset to LIGOTimeGPS to avoid repeated conversion
 		# when applying the offset to each event.
-		self.offset = lsctables.LIGOTimeGPS(offset)
+		self.offset = lal.LIGOTimeGPS(offset)
 
 	def get_coincs(self, event_a, offset_a, light_travel_time, threshold):
 		"""
@@ -355,7 +357,7 @@ class TimeSlideGraphNode(object):
 
 		if self.coincs is not None:
 			if verbose:
-				print >>sys.stderr, "\treusing %s" % str(self.offset_vector)
+				print("\treusing %s" % str(self.offset_vector), file=sys.stderr)
 			return self.coincs
 
 		#
@@ -364,7 +366,7 @@ class TimeSlideGraphNode(object):
 
 		if self.components is None:
 			if verbose:
-				print >>sys.stderr, "\tconstructing %s ..." % str(self.offset_vector)
+				print("\tconstructing %s ..." % str(self.offset_vector), file=sys.stderr)
 
 			#
 			# sanity check input
@@ -401,7 +403,7 @@ class TimeSlideGraphNode(object):
 
 		if len(self.components) == 1:
 			if verbose:
-				print >>sys.stderr, "\tcopying from %s ..." % str(self.components[0].offset_vector)
+				print("\tcopying from %s ..." % str(self.components[0].offset_vector), file=sys.stderr)
 			self.coincs = self.components[0].get_coincs(eventlists, thresholds, verbose = verbose)
 			if self.keep_unused:
 				# don't copy reference, always do in-place
@@ -454,7 +456,7 @@ class TimeSlideGraphNode(object):
 			self.unused_coincs.clear()
 
 		if verbose:
-			print >>sys.stderr, "\tassembling %s ..." % str(self.offset_vector)
+			print("\tassembling %s ..." % str(self.offset_vector), file=sys.stderr)
 		# magic:  we can form all n-instrument coincs by knowing
 		# just three sets of the (n-1)-instrument coincs no matter
 		# what n is (n > 2).  note that we pass verbose=False
@@ -563,7 +565,7 @@ class TimeSlideGraph(object):
 		#
 
 		if verbose:
-			print >>sys.stderr, "constructing coincidence assembly graph for %d target offset vectors ..." % len(offset_vector_dict)
+			print("constructing coincidence assembly graph for %d target offset vectors ..." % len(offset_vector_dict), file=sys.stderr)
 		self.head = tuple(TimeSlideGraphNode(offset_vector, time_slide_id = time_slide_id, keep_unused = len(offset_vector) > min_instruments) for time_slide_id, offset_vector in sorted(offset_vector_dict.items()))
 
 		#
@@ -631,21 +633,21 @@ class TimeSlideGraph(object):
 		#
 
 		if verbose:
-			print >>sys.stderr, "graph contains:"
+			print("graph contains:", file=sys.stderr)
 			for n in sorted(self.generations):
-				print >>sys.stderr,"\t%d %d-insrument offset vectors (%s)" % (len(self.generations[n]), n, ("to be constructed directly" if n == 2 else "to be constructed indirectly"))
-			print >>sys.stderr, "\t%d offset vectors total" % sum(len(self.generations[n]) for n in self.generations)
+				print("\t%d %d-insrument offset vectors (%s)" % (len(self.generations[n]), n, ("to be constructed directly" if n == 2 else "to be constructed indirectly")), file=sys.stderr)
+			print("\t%d offset vectors total" % sum(len(self.generations[n]) for n in self.generations), file=sys.stderr)
 
 
 	def get_coincs(self, eventlists, thresholds, verbose = False):
 		if verbose:
-			print >>sys.stderr, "constructing coincs for target offset vectors ..."
+			print("constructing coincs for target offset vectors ...", file=sys.stderr)
 		# don't do attribute look-ups in the loop
 		sngl_index = eventlists.idx
 		min_instruments = self.min_instruments
 		for n, node in enumerate(self.head, start = 1):
 			if verbose:
-				print >>sys.stderr, "%d/%d: %s" % (n, len(self.head), str(node.offset_vector))
+				print("%d/%d: %s" % (n, len(self.head), str(node.offset_vector)), file=sys.stderr)
 			# the contents of .unused_coincs must be iterated
 			# over after the call to .get_coincs() because the
 			# former is populated as a side effect of the
@@ -669,17 +671,17 @@ class TimeSlideGraph(object):
 		Write a DOT graph representation of the time slide graph to
 		fileobj.
 		"""
-		print >>fileobj, "digraph \"Time Slides\" {"
+		print("digraph \"Time Slides\" {", file=fileobj)
 		for node in itertools.chain(*self.generations.values()):
-			print >>fileobj, "\t\"%s\" [shape=box];" % node.name
+			print("\t\"%s\" [shape=box];" % node.name, file=fileobj)
 			if node.components is not None:
 				for component in node.components:
-					print >>fileobj, "\t\"%s\" -> \"%s\";" % (component.name, node.name)
+					print("\t\"%s\" -> \"%s\";" % (component.name, node.name), file=fileobj)
 		for node in self.head:
-			print >>fileobj, "\t\"%s\" [shape=ellipse];" % node.name
+			print("\t\"%s\" [shape=ellipse];" % node.name, file=fileobj)
 			for component in node.components:
-				print >>fileobj, "\t\"%s\" -> \"%s\";" % (component.name, node.name)
-		print >>fileobj, "}"
+				print("\t\"%s\" -> \"%s\";" % (component.name, node.name), file=fileobj)
+		print("}", file=fileobj)
 
 
 #
@@ -720,7 +722,7 @@ class CoincTables(object):
 		# FIXME:  I believe the arithmetic in the time slide graph
 		# construction can be cleaned up so that this isn't
 		# required.  when that is fixed, remove this
-		self.time_slide_index = dict((time_slide_id, type(offset_vector)((instrument, lsctables.LIGOTimeGPS(offset)) for instrument, offset in offset_vector.items())) for time_slide_id, offset_vector in self.time_slide_index.items())
+		self.time_slide_index = dict((time_slide_id, type(offset_vector)((instrument, lal.LIGOTimeGPS(offset)) for instrument, offset in offset_vector.items())) for time_slide_id, offset_vector in self.time_slide_index.items())
 
 	def coinc_rows(self, process_id, time_slide_id, coinc_def_id, events):
 		"""
@@ -974,10 +976,10 @@ class CoincSynthesizer(object):
 	@property
 	def coincidence_rate_factors(self):
 		"""
-		For instruments {1, ..., N}, with rates \mu_{1}, ...,
-		\mu_{N}, the rate of coincidences is
+		For instruments {1, ..., N}, with rates \\mu_{1}, ...,
+		\\mu_{N}, the rate of coincidences is
 
-		\propto \prod_{i} \mu_{i}.
+		\\propto \\prod_{i} \\mu_{i}.
 
 		The proportionality constant depends only on the
 		coincidence windows.  This function computes and returns a
@@ -1133,7 +1135,7 @@ class CoincSynthesizer(object):
 		coinc_rate = dict.fromkeys(rates, 0.0)
 		# iterate over probabilities in order for better numerical
 		# accuracy
-		for on_instruments, P_on_instruments in sorted(self.P_live.items(), key = lambda (ignored, P): P):
+		for on_instruments, P_on_instruments in sorted(self.P_live.items(), key = lambda ignored_P: ignored_P[1]):
 			# short cut
 			if not P_on_instruments:
 				continue
@@ -1295,7 +1297,7 @@ class CoincSynthesizer(object):
 		Generator that yields dictionaries of random noise event
 		time-of-arrival offsets for the given instruments such that
 		the time-of-arrivals are mutually coincident given the
-		maximum allowed inter-instrument \Delta t's.  The values
+		maximum allowed inter-instrument \\Delta t's.  The values
 		returned are offsets, and would need to be added to some
 		common time to yield absolute arrival times.
 
@@ -1427,7 +1429,7 @@ class TOATriangulator(object):
 		where n is a unit 3-vector pointing from the co-ordinate
 		origin towards the source of the signal, toa is the
 		time-of-arrival of the signal at the co-ordinate origin,
-		chi2 / DOF is the \chi^{2} per degree-of-freedom from to
+		chi2 / DOF is the \\chi^{2} per degree-of-freedom from to
 		the arrival time residuals, and dt is the root-sum-square
 		of the arrival time residuals.
 
@@ -2236,21 +2238,3 @@ class LnLikelihoodRatioMixin(object):
 			lnP_signal = lnP_signal_func(params, **kwargs)
 			lnP_noise = lnP_noise_func(params, **kwargs)
 			yield self(params, **kwargs), lnP_signal - lnP_params, lnP_noise - lnP_params
-
-
-class LnLikelihoodRatio(LnLikelihoodRatioMixin):
-	"""
-	Compatibility shim for old style ranking statistic code.  Don't use
-	in new code.
-	"""
-	def __init__(self, coinc_param_distributions):
-		self.numerator = coinc_param_distributions.lnP_signal
-		self.denominator = coinc_param_distributions.lnP_noise
-
-	def samples(self, random_params_seq, sampler_coinc_params = None, **kwargs):
-		# hack to create an object with .numerator and .denominator
-		# attributes instead of .lnP_signal and .lnP_noise
-		# respectively
-		if sampler_coinc_params is not None:
-			sampler_coinc_params = LnLikelihoodRatio(sampler_coinc_params)
-		return super(LnLikelihoodRatio, self).ln_lr_samples(random_params_seq, sampler_coinc_params, **kwargs)

@@ -99,12 +99,12 @@ for(i=0;i<args_info.spindown_count_arg;i++) {
 			memcpy(p->e, e, GRID_E_COUNT*sizeof(float));
 			memcpy(p->patch_e, patch_e, GRID_E_COUNT*sizeof(float));
 
-			/* TODO - this effectively requires skybands do not depend on spindown it would be nice if that was not so */			
+			/* TODO - this effectively requires skybands do not depend on spindown it would be nice if that was not so */
 			p->skyband=skyband;
 
 			//p->pps=allocate_partial_power_sum_F(useful_bins, ctx->cross_terms_present);
 			p->pps=get_partial_power_sum_F(ctx, useful_bins, ctx->cross_terms_present);
-			
+
 			zero_partial_power_sum_F(p->pps);
 
 			(*count)++;
@@ -114,11 +114,11 @@ for(i=0;i<args_info.spindown_count_arg;i++) {
 	}
 }
 
-void generate_followup_templates(SUMMING_CONTEXT *ctx, TEMPLATE_INFO *ti, POWER_SUM **ps, int *count)
+void generate_followup_templates(SUMMING_CONTEXT *ctx, TEMPLATE_INFO *template_info, int ti_count, POWER_SUM **ps, int *count)
 {
 POWER_SUM *p;
-int i, j, k, kk, ifmf, ifmd, ifmp, idd, ira, idec;
-int skyband;
+TEMPLATE_INFO *ti;
+int i, j, ti_idx, ifmf, ifmd, ifmp, idd, ira, idec;
 int fshift_count=args_info.nfshift_arg; /* number of frequency offsets */
 long p_size;
 
@@ -129,13 +129,13 @@ float e1[3], e2[3];
 
 *count=0;
 
-p_size=ctx->nchunks*args_info.binary_template_nsky_arg*args_info.binary_template_nsky_arg*
+p_size=ti_count*ctx->nchunks*args_info.binary_template_nsky_arg*args_info.binary_template_nsky_arg*
 	args_info.spindown_count_arg*
         args_info.freq_modulation_freq_count_arg*
         args_info.freq_modulation_depth_count_arg*
         args_info.freq_modulation_phase_count_arg*
         args_info.fdotdot_count_arg*
-        args_info.binary_template_nshift_arg*sizeof(*p);
+        fshift_count*sizeof(*p);
 
 if(p_size>ctx->power_sums_scratch_size) {
 	free(ctx->power_sums_scratch);
@@ -155,81 +155,85 @@ p=(POWER_SUM *)ctx->power_sums_scratch;
 
 *ps=p;
 
-compute_e_vector(ti->ra, ti->dec, patch_e);
 
-for(ifmf=0;ifmf<args_info.freq_modulation_freq_count_arg;ifmf++)
-for(ifmd=0;ifmd<args_info.freq_modulation_depth_count_arg;ifmd++)
-for(ifmp=0;ifmp<args_info.freq_modulation_phase_count_arg;ifmp++)
-for(idd=0;idd<args_info.fdotdot_count_arg;idd++)
-for(i=0;i<args_info.spindown_count_arg;i++) {
-	for(ira=0;ira<args_info.binary_template_nsky_arg;ira++)
-	for(idec=0;idec<args_info.binary_template_nsky_arg;idec++) {
-		x=ira-0.5*(args_info.binary_template_nsky_arg-1);
-		y=idec-0.5*(args_info.binary_template_nsky_arg-1);
-		
-		/* Scan disk around template center */
-		if(4*(x*x+y*y)>args_info.binary_template_nsky_arg*args_info.binary_template_nsky_arg+1)continue;
-		
-		
-		a=x*resolution;
-		b=y*resolution;
-		
-		/* (0, 0) -> (1, 0, 0) */
-		e1[0]=cosf(b)*cosf(a);
-		e1[1]=cosf(b)*sinf(a);
-		e1[2]=sinf(b);
+for(ti_idx=0;ti_idx<ti_count;ti_idx++) {
 
-		/* rotate by DEC around Oy */
+	ti=&(template_info[ti_idx]);
 
-		e2[0]=e1[0]*cosf(ti->dec)-e1[2]*sinf(ti->dec);
-		e2[1]=e1[1];
-		e2[2]=e1[0]*sinf(ti->dec)+e1[2]*cosf(ti->dec);
+	compute_e_vector(ti->ra, ti->dec, patch_e);
 
-		/* rotate by RA around 0z */
+	for(ifmf=0;ifmf<args_info.freq_modulation_freq_count_arg;ifmf++)
+	for(ifmd=0;ifmd<args_info.freq_modulation_depth_count_arg;ifmd++)
+	for(ifmp=0;ifmp<args_info.freq_modulation_phase_count_arg;ifmp++)
+	for(idd=0;idd<args_info.fdotdot_count_arg;idd++)
+	for(i=0;i<args_info.spindown_count_arg;i++) {
+		for(ira=0;ira<args_info.binary_template_nsky_arg;ira++)
+		for(idec=0;idec<args_info.binary_template_nsky_arg;idec++) {
+			x=ira-0.5*(args_info.binary_template_nsky_arg-1);
+			y=idec-0.5*(args_info.binary_template_nsky_arg-1);
 
-		e1[0]=e2[0]*cosf(ti->ra)-e2[1]*sinf(ti->ra);
-		e1[1]=e2[0]*sinf(ti->ra)+e2[1]*cosf(ti->ra);
-		e1[2]=e2[2];
+			/* Scan disk around template center */
+			if(4*(x*x+y*y)>args_info.binary_template_nsky_arg*args_info.binary_template_nsky_arg+1)continue;
 
 
-		dec=asinf(e1[2]);
-		ra=atan2f(e1[1], e1[0]);
-		/* Fixup (0, 0, 1) vector which would produce NaNs */
-		if(e1[0]*e1[0]+e1[1]*e1[1]<=0)ra=0.0;
+			a=x*resolution;
+			b=y*resolution;
 
-		/* make sure right ascension is positive as in other grids */
-		if(ra<0.0)ra+=2*M_PI;
-		
-		compute_e_vector(ra, dec, e);
-		
-		skyband=ti->skyband;
+			/* (0, 0) -> (1, 0, 0) */
+			e1[0]=cosf(b)*cosf(a);
+			e1[1]=cosf(b)*sinf(a);
+			e1[2]=sinf(b);
 
-		for(j=0;j<args_info.binary_template_nshift_arg;j++) {
-			p->freq_shift=ti->freq_shift+(j-0.5*(args_info.binary_template_nshift_arg-1))/(args_info.sft_coherence_time_arg*fshift_count);
-			p->spindown=ti->spindown+(i-0.5*(args_info.spindown_count_arg-1))*args_info.spindown_step_arg;
-			p->fdotdot=ti->fdotdot+(idd-0.5*(args_info.fdotdot_count_arg-1))*args_info.fdotdot_step_arg;
-			p->freq_modulation_freq=ti->freq_modulation_freq+(ifmf-0.5*(args_info.freq_modulation_freq_count_arg-1))*args_info.freq_modulation_freq_step_arg;
-			p->freq_modulation_depth=ti->freq_modulation_depth+(ifmd-0.5*(args_info.freq_modulation_depth_count_arg-1))*args_info.freq_modulation_depth_step_arg;
-			p->freq_modulation_phase=ti->freq_modulation_phase+(ifmp-0.5*(args_info.freq_modulation_phase_count_arg-1))*args_info.freq_modulation_phase_step_arg;
-			p->ra=ra;
-			p->dec=dec;
-			p->min_gps=-1;
-			p->max_gps=-1;
-			p->patch_ra=ti->ra;
-			p->patch_dec=ti->dec;
+			/* rotate by DEC around Oy */
 
-			memcpy(p->e, e, GRID_E_COUNT*sizeof(float));
-			memcpy(p->patch_e, patch_e, GRID_E_COUNT*sizeof(float));
+			e2[0]=e1[0]*cosf(ti->dec)-e1[2]*sinf(ti->dec);
+			e2[1]=e1[1];
+			e2[2]=e1[0]*sinf(ti->dec)+e1[2]*cosf(ti->dec);
 
-			p->skyband=ti->skyband;
+			/* rotate by RA around 0z */
 
-			//p->pps=allocate_partial_power_sum_F(useful_bins, ctx->cross_terms_present);
-			p->pps=get_partial_power_sum_F(ctx, useful_bins, ctx->cross_terms_present);
-			
-			zero_partial_power_sum_F(p->pps);
+			e1[0]=e2[0]*cosf(ti->ra)-e2[1]*sinf(ti->ra);
+			e1[1]=e2[0]*sinf(ti->ra)+e2[1]*cosf(ti->ra);
+			e1[2]=e2[2];
 
-			(*count)++;
-			p++;
+
+			dec=asinf(e1[2]);
+			ra=atan2f(e1[1], e1[0]);
+			/* Fixup (0, 0, 1) vector which would produce NaNs */
+			if(e1[0]*e1[0]+e1[1]*e1[1]<=0)ra=0.0;
+
+			/* make sure right ascension is positive as in other grids */
+			if(ra<0.0)ra+=2*M_PI;
+
+			compute_e_vector(ra, dec, e);
+
+			for(j=0;j<fshift_count;j++) {
+				p->freq_shift=args_info.frequency_offset_arg+j/(args_info.sft_coherence_time_arg*fshift_count);
+				p->spindown=ti->spindown+(i-0.5*(args_info.spindown_count_arg-1))*args_info.spindown_step_arg;
+				p->fdotdot=ti->fdotdot+(idd-0.5*(args_info.fdotdot_count_arg-1))*args_info.fdotdot_step_arg;
+				p->freq_modulation_freq=ti->freq_modulation_freq+(ifmf-0.5*(args_info.freq_modulation_freq_count_arg-1))*args_info.freq_modulation_freq_step_arg;
+				p->freq_modulation_depth=ti->freq_modulation_depth+(ifmd-0.5*(args_info.freq_modulation_depth_count_arg-1))*args_info.freq_modulation_depth_step_arg;
+				p->freq_modulation_phase=ti->freq_modulation_phase+(ifmp-0.5*(args_info.freq_modulation_phase_count_arg-1))*args_info.freq_modulation_phase_step_arg;
+				p->ra=ra;
+				p->dec=dec;
+				p->min_gps=-1;
+				p->max_gps=-1;
+				p->patch_ra=ti->ra;
+				p->patch_dec=ti->dec;
+
+				memcpy(p->e, e, GRID_E_COUNT*sizeof(float));
+				memcpy(p->patch_e, patch_e, GRID_E_COUNT*sizeof(float));
+
+				p->skyband=ti->skyband;
+
+				//p->pps=allocate_partial_power_sum_F(useful_bins, ctx->cross_terms_present);
+				p->pps=get_partial_power_sum_F(ctx, useful_bins, ctx->cross_terms_present);
+
+				zero_partial_power_sum_F(p->pps);
+
+				(*count)++;
+				p++;
+				}
 			}
 		}
 	}
@@ -345,7 +349,7 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 		if(ps_local->freq_modulation_freq>0) {
 			fmodomega_t=(si_local->gps-spindown_start+0.5*si_local->coherence_time)*ps_local->freq_modulation_freq;
 			fmodomega_t=fmodomega_t-floor(fmodomega_t);
-								
+
 			a+=si_local->coherence_time*ps_local->freq_modulation_depth*cosf(2.0*M_PI*fmodomega_t+ps_local->freq_modulation_phase)*(1.0+(float)args_info.doppler_multiplier_arg*(ps_local->e[0]*si_local->detector_velocity[0]
 				+ps_local->e[1]*si_local->detector_velocity[1]
 				+ps_local->e[2]*si_local->detector_velocity[2]));
@@ -383,7 +387,7 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 		if(ps_local->freq_modulation_freq>0) {
 			fmodomega_t=(si_local->gps-spindown_start+0.5*si_local->coherence_time)*ps_local->freq_modulation_freq;
 			fmodomega_t=fmodomega_t-floor(fmodomega_t);
-								
+
 			a+=si_local->coherence_time*ps_local->freq_modulation_depth*cosf(2.0*M_PI*fmodomega_t+ps_local->freq_modulation_phase)*(1.0+(float)args_info.doppler_multiplier_arg*(ps_local->e[0]*si_local->detector_velocity[0]
 				+ps_local->e[1]*si_local->detector_velocity[1]
 				+ps_local->e[2]*si_local->detector_velocity[2]));
@@ -395,7 +399,7 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 
 		memcpy(&(groups[k][group_segment_count[k]]), si_local, sizeof(SEGMENT_INFO));
 		group_segment_count[k]++;
-		
+
 		si_local++;
 		}
 
@@ -409,33 +413,33 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
  		//fprintf(stderr, "group %d has %d segments\n", k, group_segment_count[k]);
 		if(group_segment_count[k]<1)continue;
 		ctx->reset_cache(ctx, group_segment_count[k], count);
-	
+
 		/* loop over templates */
 		ps_local=ps;
 		for(i=0;i<count;i++) {
 			/* fill in segment info appropriate to this template */
 			si_local=groups[k];
-			for(j=0;j<group_segment_count[k];j++) {	
-				
+			for(j=0;j<group_segment_count[k];j++) {
+
 				mid_t=(float)(si_local->gps-spindown_start);
 
 				si_local->bin_shift=si_local->coherence_time*(ps_local->freq_shift+ps_local->spindown*mid_t+0.5*ps_local->fdotdot*mid_t*mid_t)+
 					center_frequency*(float)args_info.doppler_multiplier_arg*(ps_local->e[0]*si_local->detector_velocity[0]
 						+ps_local->e[1]*si_local->detector_velocity[1]
 						+ps_local->e[2]*si_local->detector_velocity[2]);
-					
+
 				/* This computation involves doubles and trigonometric functions. Avoid it if there is no modulation */
 				if(ps_local->freq_modulation_freq>0) {
 					fmodomega_t=(si_local->gps-spindown_start+0.5*si_local->coherence_time)*ps_local->freq_modulation_freq;
 					fmodomega_t=fmodomega_t-floor(fmodomega_t);
-										
+
 					si_local->bin_shift+=si_local->coherence_time*ps_local->freq_modulation_depth*cosf(2.0*M_PI*fmodomega_t+ps_local->freq_modulation_phase)*(1.0+(float)args_info.doppler_multiplier_arg*(ps_local->e[0]*si_local->detector_velocity[0]
 						+ps_local->e[1]*si_local->detector_velocity[1]
 						+ps_local->e[2]*si_local->detector_velocity[2]));
 					}
 				si_local++;
 				}
-	
+
 			ctx->accumulate_power_sum_cached(ctx, groups[k], group_segment_count[k], ps_local->pps);
 			ps_local++;
 			}
@@ -513,14 +517,14 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 	/* loop over groups */
 
 	ctx->reset_cache(ctx, segment_count, count);
-	
+
 		/* loop over templates */
 		ps_local=ps;
 		for(i=0;i<count;i++) {
 			/* fill in segment info appropriate to this template */
 			si_local=si;
 			for(j=0;j<segment_count;j++) {
-	
+
 				mid_t=(float)(si_local->gps-spindown_start);
 				si_local->bin_shift=si_local->coherence_time*(ps_local->freq_shift+ps_local->spindown*mid_t+0.5*(float)args_info.fdotdot_arg*mid_t*mid_t)+
 					center_frequency*(float)args_info.doppler_multiplier_arg*(ps_local->e[0]*si_local->detector_velocity[0]
@@ -538,7 +542,7 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 
 				si_local++;
 				}
-	
+
 			ctx->accumulate_power_sum_cached(ctx, si, segment_count, ps_local->pps);
 			ps_local++;
 			}

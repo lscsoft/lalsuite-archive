@@ -1,3 +1,16 @@
+lscsoft-glue (1.57.0-1) unstable; urgency=low
+
+  * O2 mid-run updated release to include change to ssl libraries and Kipp
+    packaging change.
+
+ -- Ryan Fisher <ryan.fisher@ligo.org>  Tue, 13 Jun 2017 17:14:00 -0500
+
+lscsoft-glue (1.56.0-1) unstable; urgency=low
+
+  * O2 mid-run updated release to include change to ssl libraries.
+
+ -- Ryan Fisher <ryan.fisher@ligo.org>  Thu, 4 May 2017 17:14:00 -0500
+
 lscsoft-glue (1.55.2-1) unstable; urgency=low
 
   * Added install_requires to python installation.

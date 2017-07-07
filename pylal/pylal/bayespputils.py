@@ -1128,7 +1128,7 @@ class Posterior(object):
               print "Using non-precessing fit formula [Healy at al (2014)] for final mass and spin (on masses and projected spin components)."
               try:
                   pos.append_mapping('af', bbh_final_spin_non_precessing_Healyetal, ['m1', 'm2', 'a1z', 'a2z'])
-                  pos.append_mapping('mf', bbh_final_mass_non_precessing_Healyetal, ['m1', 'm2', 'a1z', 'a2z', 'af'])
+                  pos.append_mapping('mf', lambda m1, m2, chi1z, chi2z, chif: bbh_final_mass_non_precessing_Healyetal(m1, m2, chi1z, chi2z, chif=chif), ['m1', 'm2', 'a1z', 'a2z', 'af'])
               except Exception,e:
                   print "Could not calculate final parameters. The error was: %s"%(str(e))
           elif ('a1' in pos.names) and ('a2' in pos.names):
@@ -1143,7 +1143,7 @@ class Posterior(object):
                   print "Using non-precessing fit formula [Healy at al (2014)] for final mass and spin (on masses and spin magnitudes)."
                   try:
                       pos.append_mapping('af', bbh_final_spin_non_precessing_Healyetal, ['m1', 'm2', 'a1', 'a2'])
-                      pos.append_mapping('mf', bbh_final_mass_non_precessing_Healyetal, ['m1', 'm2', 'a1', 'a2', 'af'])
+                      pos.append_mapping('mf', lambda m1, m2, chi1, chi2, chif: bbh_final_mass_non_precessing_Healyetal(m1, m2, chi1, chi2, chif=chif), ['m1', 'm2', 'a1', 'a2', 'af'])
                   except Exception,e:
                       print "Could not calculate final parameters. The error was: %s"%(str(e))
           else:
@@ -5557,6 +5557,7 @@ def find_ndownsample(samples, nDownsample):
     if nDownsample is not None:
         if len(samples) > nDownsample:
             nskip *= floor(len(samples)/nDownsample)
+            nskip = int(nskip)
 
     else:
         nEff = nEffective
@@ -5565,7 +5566,7 @@ def find_ndownsample(samples, nDownsample):
                 nskip = ceil(len(samples)/nEff)
         else:
             nskip = np.nan
-    return int(nskip)
+    return nskip
 
 class PEOutputParser(object):
     """
@@ -6185,18 +6186,18 @@ class PEOutputParser(object):
                         print "WARNING: All samples in chain are correlated.  Downsampling to 10000 samples for inspection!!!"
                         nskip = find_ndownsample(samples, 10000)
                         samples = samples[::nskip]
+                else:
+                    if np.isnan(nskip):
+                        print "WARNING: All samples in {} are correlated.".format(infile)
+                        samples = samples[-1:]
                     else:
-                        if np.isnan(nskip):
-                            print "WARNING: All samples in {} are correlated.".format(infile)
-                            samples = samples[-1:]
-                        else:
-                            print "Downsampling by a factor of ", nskip, " to achieve approximately ", nDownsample, " posterior samples"
-                            samples = samples[::nskip]
+                        print "Downsampling by a factor of ", nskip, " to achieve approximately ", nDownsample, " posterior samples"
+                        samples = samples[::nskip]
 
         return samples
 
     def _hdf5_to_pos(self, infile, fixedBurnins=None, deltaLogP=None, nDownsample=None, tablename=None, **kwargs):
-        samples = self._hdf5_to_table(infile, fixedBurnins=None, deltaLogP=None, nDownsample=None, tablename=None, **kwargs)
+        samples = self._hdf5_to_table(infile, fixedBurnins=fixedBurnins, deltaLogP=deltaLogP, nDownsample=nDownsample, tablename=tablename, **kwargs)
 
         return samples.colnames, as_array(samples).view(float).reshape(-1, len(samples.columns))
 

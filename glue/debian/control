@@ -25,9 +25,10 @@ Depends: ${shlibs:Depends},
          ${python:Depends},
          python-cjson,
          python-kerberos,
-         python-m2crypto,
+         python-openssl,
          python-six,
-         python-glue-segments (= ${source:Version})
+         python-glue-segments (= ${source:Version}),
+         python-glue-ligolw-tools
 Recommends: python-numpy (>= 1.0),
             python-xml,
             libsqlite3-0 (>= 3.3),
@@ -44,7 +45,7 @@ Depends: ${shlibs:Depends},
          ${misc:Depends},
          ${python:Depends},
          python-cjson,
-         python-m2crypto,
+         python-openssl,
          python-six,
          python-glue-common (= ${source:Version})
 Recommends: python-numpy (>= 1.0),
@@ -56,13 +57,24 @@ Description: Grid LSC User Environment
  allow users to run LSC codes on the grid.
  Segments handling part.
 
+Package: python-glue-ligolw-tools
+Architecture: all
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         ${python:Depends},
+         python-glue
+Description: Grid LSC User Environment XML Tools
+ Glue (Grid LSC User Environment) is a suite of python modules and programs to
+ allow users to run LSC codes on the grid.
+ Selected XML tools.
+
 Package: python-glue-common
 Architecture: all
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          ${python:Depends},
          python-cjson,
-         python-m2crypto,
+         python-openssl,
          python-six
 Recommends: python-numpy (>= 1.0),
             python-xml,
@@ -79,8 +91,10 @@ Depends: ${shlibs:Depends},
          ${misc:Depends},
          ${python3:Depends},
          python3-kerberos,
+         python3-openssl,
          python3-six,
          python3-glue-segments (= ${source:Version})
+         python3-glue-ligolw-tools
 Recommends: python3-numpy (>= 1.0),
             python3-xml,
             libsqlite3-0 (>= 3.3),
@@ -90,6 +104,17 @@ Conflicts: glue
 Description: Grid LSC User Environment
  Glue (Grid LSC User Environment) is a suite of python3 modules and programs to
  allow users to run LSC codes on the grid.
+
+Package: python3-glue-ligolw-tools
+Architecture: all
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         ${python3:Depends},
+         python3-glue
+Description: Grid LSC User Environment XML Tools
+ Glue (Grid LSC User Environment) is a suite of python modules and programs to
+ allow users to run LSC codes on the grid.
+ Selected XML tools.
 
 Package: python3-glue-segments
 Architecture: any

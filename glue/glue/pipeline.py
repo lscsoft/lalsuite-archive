@@ -45,7 +45,6 @@ except ImportError:
 
 try:
   import six.moves.http_client
-  import M2Crypto
 except:
   pass
 
