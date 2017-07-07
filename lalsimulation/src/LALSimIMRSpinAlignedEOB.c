@@ -82,7 +82,7 @@ UNUSED REAL8 XLALSimUniversalRelationlambda3TidalVSlambda2Tidal(
     if ( lambda2bar < 0. ) {
         XLAL_ERROR (XLAL_EFUNC);
     }
-    else if ( 0. <= lambda2bar < 0.01 ) {
+    else if ( 0. <= lambda2bar && lambda2bar  < 0.01 ) {
         /* This is a function fitted to the universal relation in the range
          0.00001 <= lambda2hat <= 0.01 with the requirements that it goes to 0 at 
          lambda2hat=0 and is exactly equal to the universal relation at lambda2hat=0.01 */
@@ -112,10 +112,10 @@ UNUSED REAL8 XLALSimUniversalRelationomega02TidalVSlambda2Tidal(
     if ( lambda2bar < 0. ) {
         XLAL_ERROR (XLAL_EFUNC);
     }
-    else if ( 0. <= lambda2bar < 1. ) {
+    else if ( 0. <= lambda2bar && lambda2bar < 1. ) {
         lnx = 0.;
     }
-    else if ( 1. <= lambda2bar < exp(9.) ) {
+    else if ( 1. <= lambda2bar && lambda2bar < exp(9.) ) {
         lnx = log( lambda2bar );
     }
     else {
@@ -140,10 +140,10 @@ UNUSED REAL8 XLALSimUniversalRelationomega03TidalVSlambda3Tidal(
     if ( lambda3bar < 0. ) {
         XLAL_ERROR (XLAL_EFUNC);
     }
-    else if ( 0. <= lambda3bar < exp(-1.) ) {
+    else if ( 0. <= lambda3bar && lambda3bar < exp(-1.) ) {
         lnx = -1.;
     }
-    else if ( exp(-1.) <= lambda3bar < exp(10.) ) {
+    else if ( exp(-1.) <= lambda3bar && lambda3bar < exp(10.) ) {
         lnx = log( lambda3bar );
     }
     else {
