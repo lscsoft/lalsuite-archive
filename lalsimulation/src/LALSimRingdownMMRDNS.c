@@ -52,6 +52,7 @@
 #include <lal/LALSimSphHarmSeries.h>
 #include <lal/LALStdlib.h>
 #include <lal/LALSimInspiral.h>
+#include <lal/Window.h>
 #include <lal/TimeSeries.h>
 #include <lal/FrequencySeries.h>
 
@@ -649,39 +650,39 @@ int XLALSimRingdownMMRDNSTD(
 
 
 /* XLALSimRingdownSingleModeTD: Time domain waveformgenerator for single QNM without angular dependence (i.e. this function generates multipole moments only ). In  */
-//int XLALSimRingdownGenerateSingleModeTD(
-//  UNUSED COMPLEX16TimeSeries **hk,            /**< OUTPUT vector for QNM time series */
-//  UNUSED const LIGOTimeGPS T0,                /**< Start time  */
-//  UNUSED REAL8 deltaT,                        /**< sampling interval (s) */
-//  UNUSED REAL8 Nsamples,                      /**< Number of time domain samples */
-//  UNUSED complex double Ak,                   /**< COMPLEX QNM Strain Amplitude */
-//  UNUSED complex double CWk                   /**< COMPLEX QNM Frequency */
-//){
-//
-//  /*  */
-//  *hk = XLALCreateCOMPLEX16TimeSeries( "SingleRDTDMode", &T0, 0.0, deltaT, &lalStrainUnit, Nsamples);
-//  memset( (*hk)->data->data, 0, Nsamples*sizeof(COMPLEX16) ) ;
-//
-//  /**/
-//  COMPLEX16 cwdt = 0;
-//
-//  /**/
-//  cwdt = 0; /* CWk*deltaT; */
-//
-//  /**/
-//  int k;
-//  for ( k=0; k < Nsamples; ++k ){
-//
-//    /**/
-//    COMPLEX16 h;
-//    h = Ak * cexp(-I * cwdt * k);
-//    (*hk)->data->data[k] = h;
-//
-//  }
-//
-//  return 0;
-//
-//}
+int XLALSimRingdownGenerateSingleModeTD(
+  UNUSED COMPLEX16TimeSeries **hk,            /**< OUTPUT vector for QNM time series */
+  UNUSED const LIGOTimeGPS T0,                /**< Start time  */
+  UNUSED REAL8 deltaT,                        /**< sampling interval (s) */
+  UNUSED REAL8 Nsamples,                      /**< Number of time domain samples */
+  UNUSED complex double Ak,                   /**< COMPLEX QNM Strain Amplitude */
+  UNUSED complex double CWk                   /**< COMPLEX QNM Frequency */
+){
+
+  /*  */
+  *hk = XLALCreateCOMPLEX16TimeSeries( "SingleRDTDMode", &T0, 0.0, deltaT, &lalStrainUnit, Nsamples);
+  memset( (*hk)->data->data, 0, Nsamples*sizeof(COMPLEX16) ) ;
+
+  /**/
+  COMPLEX16 cwdt = 0;
+
+  /**/
+  cwdt = 0; /* CWk*deltaT; */
+
+  /**/
+  int k;
+  for ( k=0; k < Nsamples; ++k ){
+
+    /**/
+    COMPLEX16 h;
+    h = Ak * cexp(-I * cwdt * k);
+    (*hk)->data->data[k] = h;
+
+  }
+
+  return 0;
+
+}
 
 
 /* XLALSimRingdownMMRDNSFD: Frequency domain waveformgenerator for all QNM with angular dependence */
@@ -951,8 +952,7 @@ int XLALSimRingdownMMRDNS_time(
         REAL8 iota,                                  /**< inclination angle (in rad) */
         REAL8 phi_offset,                            /**< intrinsic phase offset */
         REAL8 r,                                     /**< distance of source (m) */
-        LALSimInspiralTestGRParam *nonGRparams,       /**< testing GR parameters */
-        UINT4 * Num_samples_window                   /**< lenght of the window [returned] */
+        LALSimInspiralTestGRParam *nonGRparams       /**< testing GR parameters */
     ){
         /* Perform some initial checks */
         if (Mf <= 0) XLAL_ERROR(XLAL_EDOM);
@@ -967,7 +967,7 @@ int XLALSimRingdownMMRDNS_time(
 
         /* Get nonGRparams */
         char *nonGRParamName = malloc(512*sizeof(char));
-        
+
         sprintf(nonGRParamName,"dfreq220") ;
         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
           dfreq220 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
@@ -1023,15 +1023,11 @@ int XLALSimRingdownMMRDNS_time(
         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
           dtau430 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
 
-        
-        
-        /* time runs from Tstart to Tend after merger */
-        /* 10M is zero in model -> shift 10M to 0 on time axis*/
-
-        REAL8 Tstart   = 0.0;
-        REAL8 Tend     = (100.0*Mf*LAL_MTSUN_SI/LAL_MSUN_SI);
+        /* time runs from Mstart to Mend after merger */
+        REAL8 Tstart = 0.0*Mf*LAL_MTSUN_SI/LAL_MSUN_SI;
+        REAL8 Tend   = 50.0*Mf*LAL_MTSUN_SI/LAL_MSUN_SI;
         UINT4 Nsamples = ceil((Tend-Tstart)/deltaT);
-        *Num_samples_window = Nsamples;
+
         /* Compute the modes seperately */
         XLALSimRingdownGenerateSingleModeMMRDNS_time(&h220, T0, deltaT, Mf, jf, eta, iota, phi_offset, 2, 2, 0, r, dfreq220, dtau220,Nsamples,Tstart);
         XLALSimRingdownGenerateSingleModeMMRDNS_time(&h221, T0, deltaT, Mf, jf, eta, iota, phi_offset, 2, 2, 1, r, dfreq221, dtau221,Nsamples,Tstart);
@@ -1053,10 +1049,10 @@ int XLALSimRingdownMMRDNS_time(
 
 
 
+
         COMPLEX16 h_val = 0.0;
-        for ( UINT4 i=0; i<Nsamples; i++)
-        {
-          h_val  = h220->data->data[i];
+        for ( UINT4 i=0 ; i<Nsamples ; i++ ) {
+          h_val = h220->data->data[i];
           h_val += h221->data->data[i];
           h_val += h330->data->data[i];
           h_val += h331->data->data[i];
@@ -1066,7 +1062,7 @@ int XLALSimRingdownMMRDNS_time(
           h_val += h320->data->data[i];
           h_val += h430->data->data[i];
 
-           (*hplus)->data->data[i] =  creal(h_val);
+          (*hplus)->data->data[i] = creal(h_val);
           (*hcross)->data->data[i] = -cimag(h_val);
           h_val = 0.0;
         }
@@ -1082,8 +1078,8 @@ int XLALSimRingdownMMRDNS_time(
         if (h210) XLALDestroyCOMPLEX16TimeSeries(h210);
         if (h320) XLALDestroyCOMPLEX16TimeSeries(h320);
         if (h430) XLALDestroyCOMPLEX16TimeSeries(h430);
+	
         free(nonGRParamName);
-
         return 0;
         
 }
@@ -1104,7 +1100,7 @@ int XLALSimRingdownGenerateSingleModeMMRDNS_time(
         REAL8 r,                                     /**< distance of source (m) */
         REAL8 dfreq,                                 /**< relative shift in the real frequency parameter */
         REAL8 dtau,                                  /**< relative shift in the damping time parameter */
-        UINT4 Nsamples,                                    /**< waveform length */
+        UINT4 Nsamples,                              /**< waveform length */
         REAL8 Tstart                                 /**< starting time of waveform (10M at zero) */
         ){
 
@@ -1122,6 +1118,7 @@ int XLALSimRingdownGenerateSingleModeMMRDNS_time(
         REAL8 tau = 0.0;
         REAL8 Yplus = 0.0;
         REAL8 Ycross = 0.0;
+
         /* Mode Component Calculation*/
         A_lmn = XLALMMRDNSAmplitudeOverOmegaSquared(eta, l, m, n);
         A = cabs(A_lmn)*Mf_sec/(r_sec);
@@ -1138,7 +1135,7 @@ int XLALSimRingdownGenerateSingleModeMMRDNS_time(
         memset((*htilde_lmn)->data->data, 0, Nsamples * sizeof(COMPLEX16));
         
         /* fill waveform */
-        for ( UINT4 i=0 ; i<Nsamples ; i++ ){
+        for ( UINT4 i=0 ; i<Nsamples ; i++ ) {
             t = Tstart+i*deltaT;
             h_lmn = A*Yplus*exp(-t/tau)*cos(t*freq + phi_relative + m*phi_offset) - I*A*Ycross*exp(-t/tau)*sin(t*freq + phi_relative + m*phi_offset);
             (*htilde_lmn)->data->data[i] = h_lmn;

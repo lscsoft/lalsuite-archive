@@ -41,11 +41,11 @@
 #include <lal/LALSimInspiral.h>
 #include <lal/LALInferenceTemplate.h>
 #include <lal/LALInferenceMultibanding.h>
-
 #include <lal/LALSimBlackHoleRingdownTiger.h>
 #include <lal/LALSimRingdownMMRDNS.h>
 #include <lal/Window.h>
 #include <lal/LALInferenceReadData.h>
+#include <lal/LALConstants.h>
 
 /* LIB imports*/
 #include <lal/LALInferenceBurstRoutines.h>
@@ -939,15 +939,16 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceModel *model)  // 
     {
         /* prepare window */
         fprintf(stdout,"Setting windows for ringdown\n");
-        /*Window parameters are (temporarily) imported by a structure defined in ReadData, which reads them from the command line (or .ini file)*/
-        REAL8 rise_time, duration, window_shift;
-        GetWindowParamsFromReadDataToTemplate(&rise_time, &duration, &window_shift);
-        REAL8 start_time = 0 + window_shift; /* In the model 0 corresponds to 10 M after the merger. */
-        UINT4 Num_samples_window;
-        
-        XLAL_TRY(ret=XLALSimRingdownMMRDNS_time(&hplus, &hcross, (&model->timehCross->epoch), deltaT, mass*LAL_MSUN_SI, spin, eta, inclination, phi, distance, nonGRparams, &Num_samples_window), errnum);
-        XLAL_TRY(ret=XLALApplyDoublePlanckWindowToTemplate(&hplus, &hcross, Num_samples_window, start_time, 1.0/deltaT, rise_time, duration), errnum);
-        
+	REAL8 rise_time, window_shift;
+	GetWindowParamsFromReadDataToTemplate(&rise_time, &window_shift);
+	REAL8 Tstart = 0.0*mass*LAL_MTSUN_SI;
+        REAL8 Tend   = 50.0*mass*LAL_MTSUN_SI;
+        UINT4 Num_samples_window=ceil((Tend-Tstart)/(deltaT));	
+
+        XLAL_TRY(ret=XLALSimRingdownMMRDNS_time(&hplus, &hcross, (&model->timehCross->epoch), deltaT, mass*LAL_MSUN_SI, spin, eta, inclination, phi, distance, nonGRparams), errnum); 
+        XLAL_TRY(ret=XLALApplyPlanckWindowToTemplate(&hplus, &hcross, Num_samples_window, LAL_MTSUN_SI*window_shift, (Num_samples_window*deltaT)-2.0, 1.0/deltaT, rise_time), errnum);	
+
+
     }
     // XLALSimInspiralDestroyWaveformFlags(waveFlags);
     XLALSimInspiralDestroyTestGRParam(nonGRparams);
@@ -2461,5 +2462,3 @@ void LALInferenceDumptemplateTimeDomain(LALInferenceVariables *currentParams,
   fclose(outfile);
   fprintf(stdout, " wrote (time-domain) template to CSV file \"%s\".\n", filename);
 }
-
-
