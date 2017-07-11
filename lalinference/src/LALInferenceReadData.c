@@ -1541,16 +1541,20 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
         lambda1= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")->value);
         fprintf(stdout,"Injection lambda1 set to %f\n",lambda1);
       }
-      else 
+      else { 
         lambda1 = injEvent->lambda1;
+        fprintf(stdout,"Injection lambda1 set to %f\n",lambda1);
+      }
 
       REAL8 lambda2 = 0.;
       if(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")) {
         lambda2= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")->value);
         fprintf(stdout,"Injection lambda2 set to %f\n",lambda2);
       }
-      else 
+      else { 
         lambda2 = injEvent->lambda2;
+        fprintf(stdout,"Injection lambda2 set to %f\n",lambda2);
+      }
 
       REAL8 lambdaT = 0.;
       REAL8 dLambdaT = 0.;
@@ -2234,10 +2238,18 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
     lambda1= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")->value);
     fprintf(stdout,"Injection lambda1 set to %f\n",lambda1);
   }
+  else {
+    lambda1 = inj_table->lambda1;
+    fprintf(stdout,"Injection lambda1 set to %f\n",lambda1);
+  }
 
   REAL8 lambda2 = 0.;
   if(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")) {
     lambda2= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")->value);
+    fprintf(stdout,"Injection lambda2 set to %f\n",lambda2);
+  }
+  else {
+    lambda2 = inj_table->lambda2;
     fprintf(stdout,"Injection lambda2 set to %f\n",lambda2);
   }
 
