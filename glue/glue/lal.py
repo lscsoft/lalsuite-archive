@@ -504,11 +504,13 @@ class Cache(list):
 		Return a Cache which has every element of self, but without
 		duplication.  Preserve order.  Does not hash, so a bit slow.
 		"""
-		new = self.__class__([])
-		for elem in self:
-			if elem not in new:
-				new.append(elem)
-		return new
+		seen = set()
+            return self.__class__([x for x in self if x not in seen and not seen.add(x)])
+        #new = self.__class__([])
+        #for elem in self:
+        #       if elem not in new:
+        #               new.append(elem)
+        #return new
 
 	# other useful manipulations
 	def tofile(self, fileobj):
