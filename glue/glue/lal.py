@@ -34,9 +34,14 @@ import math
 import os
 import re
 import sys
-import urlparse
+from six.moves import urllib
 import warnings
+import six
 
+try:  # python < 3
+    long
+except NameError:  # python >= 3
+    long = int
 
 from glue import git_version
 from glue import segments
@@ -93,7 +98,7 @@ class LIGOTimeGPS(object):
 		LIGOTimeGPS(100, 500000000)
 		>>> LIGOTimeGPS(100, 500000000)
 		LIGOTimeGPS(100, 500000000)
-		>>> LIGOTimeGPS(0, 100500000000L)
+		>>> LIGOTimeGPS(0, 100500000000)
 		LIGOTimeGPS(100, 500000000)
 		>>> LIGOTimeGPS(100.2, 300000000)
 		LIGOTimeGPS(100, 500000000)
@@ -108,17 +113,17 @@ class LIGOTimeGPS(object):
 		>>> LIGOTimeGPS("-1.2")
 		LIGOTimeGPS(-2, 800000000)
 		"""
-		if type(nanoseconds) not in (float, int, long):
+		if not isinstance(nanoseconds, (float, int, long)):
 			try:
 				nanoseconds = float(nanoseconds)
 			except:
 				raise TypeError(nanoseconds)
-		if type(seconds) is float:
+		if isinstance(seconds, float):
 			ns, seconds = math.modf(seconds)
 			seconds = int(seconds)
 			nanoseconds += ns * 1e9
-		elif type(seconds) not in (int, long):
-			if type(seconds) in (str, unicode):
+		elif not isinstance(seconds, six.integer_types):
+			if isinstance(seconds, (six.binary_type, six.text_type)):
 				sign = -1 if seconds.lstrip().startswith("-") else +1
 				try:
 					if "." in seconds:
@@ -130,15 +135,20 @@ class LIGOTimeGPS(object):
 				except:
 					raise TypeError("invalid literal for LIGOTimeGPS(): %s" % seconds)
 				nanoseconds += ns
+			elif hasattr(seconds, "gpsSeconds") and hasattr(seconds, "gpsNanoSeconds"):
+				# handle LIGOTimeGPS(x) where x is an
+				# object with gpsSeconds and gpsNanoSeconds
+				# fields.
+				nanoseconds += seconds.gpsNanoSeconds
+				seconds = seconds.gpsSeconds
+			elif hasattr(seconds, "seconds") and hasattr(seconds, "nanoseconds"):
+				# handle LIGOTimeGPS(x) where x is an
+				# object with seconds and nanoseconds
+				# fields.
+				nanoseconds += seconds.nanoseconds
+				seconds = seconds.seconds
 			else:
-				try:
-					# handle LIGOTimeGPS(x) where x is an
-					# object with seconds and nanoseconds
-					# fields.
-					nanoseconds += seconds.nanoseconds
-					seconds = seconds.seconds
-				except:
-					raise TypeError(seconds)
+				raise TypeError(seconds)
 		self.__seconds = seconds + int(nanoseconds // 1000000000)
 		self.__nanoseconds = int(nanoseconds % 1000000000)
 
@@ -147,7 +157,7 @@ class LIGOTimeGPS(object):
 
 	def __repr__(self):
 		return "LIGOTimeGPS(%d, %u)" % (self.__seconds, self.__nanoseconds)
-	
+
 	def __str__(self):
 		"""
 		Return an ASCII string representation of a LIGOTimeGPS.
@@ -202,9 +212,9 @@ class LIGOTimeGPS(object):
 		Example:
 
 		>>> LIGOTimeGPS(100.5).ns()
-		100500000000L
+		100500000000
 		"""
-		return self.__seconds * 1000000000L + self.__nanoseconds
+		return self.__seconds * 1000000000 + self.__nanoseconds
 
 	# comparison
 
@@ -226,7 +236,7 @@ class LIGOTimeGPS(object):
 		>>> LIGOTimeGPS(100.5) < "200"
 		True
 		"""
-		if not type(other) == LIGOTimeGPS:
+		if not isinstance(other, LIGOTimeGPS):
 			try:
 				other = LIGOTimeGPS(other)
 			except TypeError:
@@ -261,7 +271,7 @@ class LIGOTimeGPS(object):
 		>>> LIGOTimeGPS(100.5) + "3"
 		LIGOTimeGPS(103, 500000000)
 		"""
-		if not type(other) == LIGOTimeGPS:
+		if not isinstance(other, LIGOTimeGPS):
 			other = LIGOTimeGPS(other)
 		return LIGOTimeGPS(self.__seconds + other.seconds, self.__nanoseconds + other.nanoseconds)
 
@@ -283,7 +293,7 @@ class LIGOTimeGPS(object):
 		>>> LIGOTimeGPS(100.5) - "3"
 		LIGOTimeGPS(97, 500000000)
 		"""
-		if not type(other) == LIGOTimeGPS:
+		if not isinstance(other, LIGOTimeGPS):
 			other = LIGOTimeGPS(other)
 		return LIGOTimeGPS(self.__seconds - other.seconds, self.__nanoseconds - other.nanoseconds)
 
@@ -291,7 +301,7 @@ class LIGOTimeGPS(object):
 		"""
 		Subtract a LIGOTimeGPS from a value.
 		"""
-		if not type(other) == LIGOTimeGPS:
+		if not isinstance(other, LIGOTimeGPS):
 			other = LIGOTimeGPS(other)
 		return LIGOTimeGPS(other.seconds - self.__seconds, other.nanoseconds - self.__nanoseconds)
 
@@ -341,7 +351,7 @@ class LIGOTimeGPS(object):
 		LIGOTimeGPS(50, 250000000)
 		"""
 		quotient = LIGOTimeGPS(float(self) / float(other))
-		for n in xrange(100):
+		for n in range(100):
 			residual = float(self - quotient * other) / float(other)
 			quotient += residual
 			if abs(residual) <= 0.5e-9:
@@ -383,256 +393,13 @@ class LIGOTimeGPS(object):
 #
 
 
-#
-# Representation of a line in a LAL cache file
-#
-
-
-class CacheEntry(object):
-	"""
-	An object representing one line in a LAL cache file.
-
-	The LAL cache format is defined elsewhere, and what follows is
-	meant only to be informative, not an official specification.  Each
-	line in a LAL cache identifies a single file, and the line consists
-	of five columns of white-space delimited text.
-
-	The first column, "observatory", generally stores the name of an
-	observatory site or one or more instruments (preferably delimited
-	by ",", but often there is no delimiter between instrument names in
-	which case they should be 2 characters each).
-
-	The second column, "description", stores a short string tag that is
-	usually all capitals with "_" separating components, in the style
-	of the description part of the LIGO-Virgo frame filename format.
-
-	The third and fourth columns store the start time and duration in
-	GPS seconds of the interval spanned by the file identified by the
-	cache line.  When the file does not start on an integer second or
-	its duration is not an integer number of seconds, the conventions
-	of the LIGO-Virgo frame filename format apply.
-
-	The fifth (last) column stores the file's URL.
-
-	The values for these columns are stored in the .observatory,
-	.description, .segment and .url attributes of instances of this
-	class, respectively.  The .segment attribute stores a
-	glue.segments.segment object describing the interval spanned by the
-	file.  Any of these attributes except the URL is allowed to be
-	None.
-
-	This module also provides a Cache class, which some codes use to
-	represent an entire LAL cache file.  However, for most use cases a
-	simple Python list or set of CacheEntry objects is sufficient for
-	representing a LAL cache file.
-
-	Example (parse a string):
-
-	>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
-	>>> c.scheme
-	'file'
-	>>> c.host
-	'localhost'
-
-	Example (one-liners to read and write a cache file):
-
-	>>> filename = "874000000-20000.cache"
-	>>> cache = map(CacheEntry, open(filename))
-	>>> f = open(filename + ".new", "w")
-	>>> for cacheentry in cache: print >>f, str(cacheentry)
-
-	Example (extract segmentlist dictionary from LAL cache):
-
-	>>> from glue import segments
-	>>> seglists = segments.segmentlistdict()
-	>>> for cacheentry in cache:
-	...	seglists |= cacheentry.segmentlistdict
-	...
-
-	See also:
-
-	glue.segmentsUtils.fromlalcache()
-	"""
-	# How to parse a line in a LAL cache file.  Five white-space
-	# delimited columns.
-	_regex = re.compile(r"\A\s*(?P<obs>\S+)\s+(?P<dsc>\S+)\s+(?P<strt>\S+)\s+(?P<dur>\S+)\s+(?P<url>\S+)\s*\Z")
-	_url_regex = re.compile(r"\A((.*/)*(?P<obs>[^/]+)-(?P<dsc>[^/]+)-(?P<strt>[^/]+)-(?P<dur>[^/\.]+)\.[^/]+)\Z")
-
+import imp
+lal = imp.load_module("lal", *imp.find_module("lal", sys.path[1:]))
+lal.utils = imp.load_module("lal.utils", *imp.find_module("utils", lal.__path__))
+class CacheEntry(lal.utils.CacheEntry):
 	def __init__(self, *args, **kwargs):
-		"""
-		Intialize a CacheEntry object.  The arguments can take two
-		forms:  a single string argument, which is interpreted and
-		parsed as a line from a LAL cache file, or four arguments
-		used to explicitly initialize the observatory, description,
-		segment and URL in that order.  When parsing a single line
-		of text from a LAL cache, an optional key-word argument
-		"coltype" can be provided to set the type the start and
-		durations are parsed as.  The default is
-		glue.lal.LIGOTimeGPS.
-
-		Example:
-
-		>>> c = CacheEntry("H1", "S5", segments.segment(815901601, 815902177.5), "file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
-		>>> print c.segment
-		[815901601 ... 815902177.5)
-		>>> print str(c)
-		H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml
-		>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
-		>>> print c.segment
-		[815901601 ... 815902177.5)
-		>>> print CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml", coltype = float).segment
-		[815901601.0 ... 815902177.5)
-
-		See also the .from_T050017() class method for an
-		alternative initialization mechanism.
-		"""
-		if len(args) == 1:
-			# parse line of text as an entry in a cache file
-			match = self._regex.search(args[0])
-			try:
-				match = match.groupdict()
-			except AttributeError:
-				raise ValueError("could not convert %s to CacheEntry" % repr(args[0]))
-			self.observatory = match["obs"]
-			self.description = match["dsc"]
-			start = match["strt"]
-			duration = match["dur"]
-			coltype = kwargs.pop("coltype", LIGOTimeGPS)
-			if start == "-" and duration == "-":
-				# no segment information
-				self.segment = None
-			else:
-				start = coltype(start)
-				self.segment = segments.segment(start, start + coltype(duration))
-			self.url = match["url"]
-			if kwargs:
-				raise TypeError("unrecognized keyword arguments: %s" % ", ".join(kwargs))
-		elif len(args) == 4:
-			# parse arguments as observatory, description,
-			# segment, url
-			if kwargs:
-				raise TypeError("invalid arguments: %s" % ", ".join(kwargs))
-			self.observatory, self.description, self.segment, self.url = args
-		else:
-			raise TypeError("invalid arguments: %s" % args)
-
-		# "-" indicates an empty column
-		if self.observatory == "-":
-			self.observatory = None
-		if self.description == "-":
-			self.description = None
-
-
-	def __str__(self):
-		"""
-		Convert the CacheEntry to a string in the format of a line
-		in a LAL cache.  Used to write the CacheEntry to a file.
-
-		Example:
-
-		>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
-		>>> str(c)
-		'H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml'
-		"""
-		if self.segment is not None:
-			start = str(self.segment[0])
-			duration = str(abs(self.segment))
-		else:
-			start = "-"
-			duration = "-"
-		return "%s %s %s %s %s" % (self.observatory or "-", self.description or "-", start, duration, self.url)
-
-	def __cmp__(self, other):
-		"""
-		Compare two CacheEntry objects by observatory, then
-		description, then segment, then URL.
-		"""
-		if type(other) != CacheEntry:
-			raise TypeError("can only compare CacheEntry to CacheEntry")
-		return cmp((self.observatory, self.description, self.segment, self.url), (other.observatory, other.description, other.segment, other.url))
-
-	def __hash__(self):
-		return hash((self.observatory, self.description, self.segment, self.url))
-
-	@property
-	def url(self):
-		"""
-		The cache entry's URL.  The URL is constructed from the
-		values of the scheme, host, and path attributes.  Assigning
-		a value to the URL attribute causes the value to be parsed
-		and the scheme, host and path attributes updated.
-		"""
-		return urlparse.urlunparse((self.scheme, self.host, self.path, None, None, None))
-
-	@url.setter
-	def url(self, url):
-		self.scheme, self.host, self.path = urlparse.urlparse(url)[:3]
-
-	@property
-	def segmentlistdict(self):
-		"""
-		A segmentlistdict object describing the instruments and
-		time spanned by this CacheEntry.  A new object is
-		constructed each time this attribute is accessed (segments
-		are immutable so there is no reason to try to share a
-		reference to the CacheEntry's internal segment;
-		modifications of one would not be reflected in the other
-		anyway).
-
-		Example:
-
-		>>> c = CacheEntry(u"H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
-		>>> c.segmentlistdict
-		{u'H1': [segment(LIGOTimeGPS(815901601, 0), LIGOTimeGPS(815902177, 500000000))]}
-
-		The \"observatory\" column of the cache entry, which is
-		frequently used to store instrument names, is parsed into
-		instrument names for the dictionary keys using the same
-		rules as glue.ligolw.lsctables.instrument_set_from_ifos().
-
-		Example:
-
-		>>> c = CacheEntry(u"H1H2, S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1H2-815901601-576.xml")
-		>>> c.segmentlistdict
-		{u'H1H2': [segment(LIGOTimeGPS(815901601, 0), LIGOTimeGPS(815902177, 500000000))]}
-		"""
-		# the import has to be done here to break the cyclic
-		# dependancy
-		from glue.ligolw.lsctables import instrument_set_from_ifos
-		instruments = instrument_set_from_ifos(self.observatory) or (None,)
-		return segments.segmentlistdict((instrument, segments.segmentlist(self.segment is not None and [self.segment] or [])) for instrument in instruments)
-
-	@classmethod
-	def from_T050017(cls, url, coltype = LIGOTimeGPS):
-		"""
-		Parse a URL in the style of T050017-00 into a CacheEntry.
-		The T050017-00 file name format is, essentially,
-
-		observatory-description-start-duration.extension
-
-		Example:
-
-		>>> c = CacheEntry.from_T050017("file://localhost/data/node144/frames/S5/strain-L2/LLO/L-L1_RDS_C03_L2-8365/L-L1_RDS_C03_L2-836562330-83.gwf")
-		>>> c.observatory
-		'L'
-		>>> c.host
-		'localhost'
-		>>> os.path.basename(c.path)
-		'L-L1_RDS_C03_L2-836562330-83.gwf'
-		"""
-		match = cls._url_regex.search(url)
-		if not match:
-			raise ValueError("could not convert %s to CacheEntry" % repr(url))
-		observatory = match.group("obs")
-		description = match.group("dsc")
-		start = match.group("strt")
-		duration = match.group("dur")
-		if start == "-" and duration == "-":
-			# no segment information
-			segment = None
-		else:
-			segment = segments.segment(coltype(start), coltype(start) + coltype(duration))
-		return cls(observatory, description, segment, url)
+		warnings.warn("glue.lal.CacheEntry is deprecated, use lal.utils.CacheEntry instead", DeprecationWarning)
+		return super(CacheEntry, self).__init__(*args, **kwargs)
 
 
 #
@@ -678,9 +445,9 @@ class Cache(list):
 		The filenames must be in the format set forth by DASWG in T050017-00.
 		"""
 		def pfn_to_url(url):
-			scheme, host, path, dummy, dummy = urlparse.urlsplit(url)
+			scheme, host, path, dummy, dummy = urllib.parse.urlsplit(url)
 			if scheme == "": path = os.path.abspath(path)
-			return urlparse.urlunsplit((scheme or "file", host or "localhost",
+			return urllib.parse.urlunsplit((scheme or "file", host or "localhost",
 			                            path, "", ""))
 		return cls([cls.entry_class.from_T050017(pfn_to_url(f), coltype=coltype) \
 		            for f in urllist])
@@ -737,14 +504,11 @@ class Cache(list):
 		Return a Cache which has every element of self, but without
 		duplication.  Preserve order.  Does not hash, so a bit slow.
 		"""
-                seen = set()
-                return self.__class__([x for x in self if x not in seen and not seen.add(x)])
-
-		#new = self.__class__([])
-		#for elem in self:
-		#	if elem not in new:
-		#		new.append(elem)
-		#return new
+		new = self.__class__([])
+		for elem in self:
+			if elem not in new:
+				new.append(elem)
+		return new
 
 	# other useful manipulations
 	def tofile(self, fileobj):
@@ -752,7 +516,7 @@ class Cache(list):
 		write a cache object to the fileobj as a lal cache file
 		"""
 		for entry in self:
-			print >>fileobj, str(entry)
+			fileobj.write('%s\n' % str(entry))
 		fileobj.close()
 
 	def topfnfile(self, fileobj):
@@ -760,7 +524,7 @@ class Cache(list):
 		write a cache object to filename as a plain text pfn file
 		"""
 		for entry in self:
-			print >>fileobj, entry.path
+			fileobj.write('%s\n' % entry.path)
 		fileobj.close()
 
 	def to_segmentlistdict(self):
@@ -853,7 +617,7 @@ class Cache(list):
 			msg = "%d of %d files in the cache were not found "\
 			    "on disk" % (len(c_missed), len(self))
 			if on_missing == "warn":
-				print >>sys.stderr, "warning: " + msg
+				sys.stderr.write("warning: %s\n" % msg)
 			elif on_missing == "error":
 				raise ValueError(msg)
 			elif on_missing == "ignore":
