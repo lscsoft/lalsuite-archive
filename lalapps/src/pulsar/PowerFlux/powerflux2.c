@@ -177,7 +177,7 @@ fprintf(stderr,"seconds elapsed: %ld\n",end_time-start_time);
 fclose(LOG);
 fclose(FILE_LOG);
 fclose(DATA_LOG);
-fclose(DIVERT_LOG);
+if(DIVERT_LOG!=NULL)fclose(DIVERT_LOG);
 }
 
 int main(int argc, char *argv[])
@@ -283,7 +283,7 @@ unlink(s);
 DATA_LOG=fopen(s,"w");
 setbuffer(DATA_LOG, do_alloc(1024*1024*32, 1), 1024*1024*32);
 
-if((args_info.divert_snr_arg>0) || (args_info.divert_ul_arg>0)) {
+if((args_info.divert_snr_arg>0) || (args_info.divert_ul_arg>0) || (args_info.divert_ul_rel_arg>0)) {
 	snprintf(s,20000,"%s/divert.log", output_dir);
 	unlink(s);
 	DIVERT_LOG=fopen(s,"w");
@@ -620,6 +620,7 @@ fprintf(LOG, "skymarks: %s\n", args_info.fine_grid_skymarks_arg ? "spindown_inde
 
 fprintf(LOG, "divert snr: %g\n", args_info.divert_snr_arg);
 fprintf(LOG, "divert upper limit: %g\n", args_info.divert_ul_arg);
+fprintf(LOG, "divert upper limit rel: %g\n", args_info.divert_ul_rel_arg);
 
 fprintf(LOG, "subtract background: %s\n", args_info.subtract_background_arg ? "yes" : "no");
 fprintf(LOG, "cache bypass: %s\n", args_info.bypass_powersum_cache_arg ? "enabled" : "disabled");

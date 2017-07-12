@@ -141,6 +141,7 @@ def localize(
 
     Returns a 'NESTED' ordering HEALPix image as a Numpy array.
     """
+    start_time = lal.GPSTimeNow()
 
     singles = event.singles
     if not enable_snr_series:
@@ -161,8 +162,7 @@ def localize(
 
     # Power spectra for each detector.
     psds = [single.psd for single in singles]
-    psds = [timing.InterpolatedPSD(filter.abscissa(psd),
-                                   psd.data.data,
+    psds = [timing.InterpolatedPSD(filter.abscissa(psd), psd.data.data,
                                    f_high_truncate=f_high_truncate)
                                    for psd in psds]
 
@@ -316,7 +316,6 @@ def localize(
 
     # Time and run sky localization.
     log.debug('starting computationally-intensive section')
-    start_time = lal.GPSTimeNow()
     if method == 'toa_phoa_snr':
         skymap, log_bci, log_bsn = _sky_map.toa_phoa_snr(
             min_distance, max_distance, prior_distance_power, cosmology, gmst,
@@ -354,8 +353,8 @@ def localize(
     skymap.meta['distmean'] = rbar
     skymap.meta['diststd'] = np.sqrt(r2bar - np.square(rbar))
 
-    end_time = lal.GPSTimeNow()
     log.debug('finished computationally-intensive section')
+    end_time = lal.GPSTimeNow()
 
     # Fill in metadata and return.
     skymap.meta['creator'] = 'BAYESTAR'
@@ -385,7 +384,9 @@ def derasterize(skymap):
         *healpix_tree.reconstruct_nested(skymap))
     nside = np.asarray(nside)
     ipix = np.asarray(ipix)
-    value = np.stack(value)
+    # FIXME: replace with np.stack() when Numpy 1.10.0 is on all
+    # of the LIGO Data Grid clusters
+    value = np.hstack(value)
     uniq = (4 * np.square(nside) + ipix).astype(np.uint64)
     old_units = [column.unit for column in skymap.columns.values()]
     skymap = Table(value, meta=skymap.meta)

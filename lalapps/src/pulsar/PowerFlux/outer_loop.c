@@ -18,7 +18,13 @@
 #include "hookup.h"
 #include "outer_loop.h"
 #include "summing_context.h"
+#include "statistics.h"
 #include "jobs.h"
+
+#define DIVERT_TEMPLATE_MARKED  (1<<0)
+#define DIVERT_TEMPLATE_MARKED_UL  (1<<2)
+
+#define DIVERT_TEMPLATE_WRITTEN (1<<7)
 
 extern struct gengetopt_args_info args_info;
 
@@ -34,10 +40,26 @@ extern int d_free;
 extern int input_templates;
 MUTEX input_template_mutex;
 
+TEMPLATE_INFO *input_templates_buffer=NULL;
+int input_template_start=0;
+
 int data_log_index=0;
 
 int write_data_log_header=1;
 int write_diverted_log_header=1;
+
+int total_diverted_count=0;
+
+int divert_buffer_free=0;
+int divert_buffer_size=0;
+double divert_buffer_ul_threshold=0.0;
+DIVERTED_ENTRY *divert_buffer=NULL;
+float *divert_sort_buffer=NULL;
+MUTEX divert_buffer_mutex;
+
+int nei;
+EXTREME_INFO **ei=NULL;
+int nchunks;
 
 typedef struct {
 	unsigned int veto_mask;
@@ -212,40 +234,246 @@ for(k=0;k<d_free;k++) {
 free(w);
 }
 
+void replay_diverted_entry(DIVERTED_ENTRY *de, EXTREME_INFO *ei)
+{
+int skyband;
+int fshift_count=args_info.nfshift_arg;
+int pi=de->ti.pi;
+
+skyband=de->ti.skyband;
+
+thread_mutex_lock(&(ei->mutex));
+
+if(de->pstats_ul.max_weight_loss_fraction>=1) {
+	ei->band_masked_count[skyband]++;
+	return;
+	}
+if(de->pstats_snr.max_weight_loss_fraction>=1) {
+	ei->band_masked_count[skyband]++;
+	return;
+	}
+ei->band_valid_count[skyband]++;
+
+#define RFILL_EXTRA_PARAMS(target) {\
+	target.ra=de->ti.ra; \
+	target.dec=de->ti.dec; \
+	target.spindown=de->ti.spindown; \
+	target.fdotdot=de->ti.fdotdot; \
+	target.freq_modulation_freq=de->ti.freq_modulation_freq; \
+	target.freq_modulation_depth=de->ti.freq_modulation_depth; \
+	target.freq_modulation_phase=de->ti.freq_modulation_phase; \
+	target.frequency=((double)(de->ti.snr_subbin)/fshift_count+first_bin+side_cut)/args_info.sft_coherence_time_arg; \
+	}
+
+#define RFILL_POINT_STATS(target, source)	{\
+	memcpy(&(target), &(source), sizeof(target)); \
+	RFILL_EXTRA_PARAMS(target); \
+	}
+
+/* Note: approximation - we only update MAX and MIN for highest_ul and highest_snr, not all freq_shifts as is for non-diverted templates */
+/* This introduces a possible non-repeatability in multi-threaded execution affecting secondary quantities like max_m4 */
+	
+#define RUPDATE_MAX(target, field) {\
+	if(de->pstats_ul.field>target.field) { \
+		target.field=de->pstats_ul.field;\
+		} \
+	if(de->pstats_snr.field>target.field) { \
+		target.field=de->pstats_snr.field;\
+		} \
+	}
+
+#define RUPDATE_MIN(target, field) {\
+	if(de->pstats_ul.field<target.field) { \
+		target.field=de->pstats_ul.field;\
+		} \
+	if(de->pstats_snr.field<target.field) { \
+		target.field=de->pstats_snr.field;\
+		} \
+	}
+
+if(ei->band_info[skyband].max_weight<0) {
+	memcpy(&(ei->band_info[skyband]), &(de->pstats_ul), sizeof(de->pstats_ul));
+	RFILL_EXTRA_PARAMS(ei->band_info[skyband].highest_ul);
+	RFILL_EXTRA_PARAMS(ei->band_info[skyband].highest_circ_ul);
+	RFILL_EXTRA_PARAMS(ei->band_info[skyband].highest_snr);
+	RFILL_EXTRA_PARAMS(ei->band_info[skyband].highest_ks);
+	} else {
+
+	ei->band_info[skyband].ntemplates+=de->pstats_ul.ntemplates*fshift_count;
+
+	if(de->pstats_ul.highest_ul.ul>ei->band_info[skyband].highest_ul.ul) {
+		RFILL_POINT_STATS(ei->band_info[skyband].highest_ul, de->pstats_ul.highest_ul);
+		}
+
+ 	if(de->pstats_circ_ul.highest_circ_ul.ul>ei->band_info[skyband].highest_circ_ul.ul) {
+ 		RFILL_POINT_STATS(ei->band_info[skyband].highest_circ_ul, de->pstats_circ_ul.highest_circ_ul);
+ 		}
+
+	if(de->pstats_snr.highest_snr.snr>ei->band_info[skyband].highest_snr.snr) {
+		RFILL_POINT_STATS(ei->band_info[skyband].highest_snr, de->pstats_snr.highest_snr);
+		}
+
+		/* highest_ks fields are not updated by this code */
+		
+// 	if(pstats->highest_ks.ks_value>ei->band_info[skyband].highest_ks.ks_value) {
+// 		RFILL_POINT_STATS(ei->band_info[skyband].highest_ks, pstats->highest_ks);
+// 		}
+
+	RUPDATE_MAX(ei->band_info[skyband], max_weight);
+	RUPDATE_MIN(ei->band_info[skyband], min_weight);
+	RUPDATE_MAX(ei->band_info[skyband], max_weight_loss_fraction);
+
+	RUPDATE_MAX(ei->band_info[skyband], max_m1_neg);
+	RUPDATE_MIN(ei->band_info[skyband], min_m1_neg);
+	RUPDATE_MAX(ei->band_info[skyband], max_m3_neg);
+	RUPDATE_MIN(ei->band_info[skyband], min_m3_neg);
+	RUPDATE_MAX(ei->band_info[skyband], max_m4);
+	RUPDATE_MIN(ei->band_info[skyband], min_m4);
+	}
+
+thread_mutex_unlock(&(ei->mutex));
+
+/* During main run operation the skymaps are not enabled (NULL) to save space and computation */
+
+#define FILL_SKYMAP(skymap, value)	if(ei->skymap!=NULL)ei->skymap[pi]=value;
+
+if(ei->ul_skymap!=NULL && (de->pstats_ul.highest_ul.ul>ei->ul_skymap[pi])) {
+	FILL_SKYMAP(ul_skymap, de->pstats_ul.highest_ul.ul);
+	FILL_SKYMAP(ul_freq_skymap, (de->pstats_ul.highest_ul.bin)/args_info.sft_coherence_time_arg+(double)de->highest_ul_j/fshift_count);
+	}
+
+if(ei->ul_skymap!=NULL && (de->pstats_circ_ul.highest_ul.ul>ei->circ_ul_skymap[pi])) {
+	FILL_SKYMAP(circ_ul_skymap, de->pstats_circ_ul.highest_ul.ul);
+	FILL_SKYMAP(circ_ul_freq_skymap, (de->pstats_circ_ul.highest_ul.bin)/args_info.sft_coherence_time_arg+(double)de->highest_circ_ul_j/fshift_count);
+	}
+
+if(ei->snr_skymap!=NULL && (de->pstats_snr.highest_snr.snr>ei->snr_skymap[pi])) {
+	FILL_SKYMAP(snr_skymap, de->pstats_snr.highest_snr.snr);
+	FILL_SKYMAP(snr_ul_skymap, de->pstats_snr.highest_snr.ul);
+	FILL_SKYMAP(snr_freq_skymap, (de->pstats_snr.highest_snr.bin)/args_info.sft_coherence_time_arg+(double)de->highest_snr_j/fshift_count);
+	}
+
+// Not filled in properly
+// FILL_SKYMAP(max_weight_skymap, pstats_accum.max_weight);
+// FILL_SKYMAP(min_weight_skymap, pstats_accum.min_weight);
+// FILL_SKYMAP(weight_loss_fraction_skymap, pstats_accum.max_weight_loss_fraction);
+// 
+// FILL_SKYMAP(ks_skymap, pstats_accum.highest_ks.ks_value);
+}
+
+void trim_divert_buffer(void)
+{
+int i,j;
+if(divert_buffer_free<args_info.divert_ul_count_limit_arg)return;
+
+for(i=0;i<divert_buffer_free;i++)divert_sort_buffer[i]=divert_buffer[i].ti.ul;
+sort_floats(divert_sort_buffer, divert_buffer_free);
+//fprintf(stderr, "trim_divert_buffer 1: %g %g %g\n", divert_sort_buffer[0], divert_sort_buffer[1], divert_sort_buffer[2]);
+divert_buffer_ul_threshold=divert_sort_buffer[divert_buffer_free-args_info.divert_ul_count_limit_arg];
+
+j=0;
+for(i=0;i<divert_buffer_free;i++) {
+	if(divert_buffer[i].ti.ul>divert_buffer_ul_threshold) {
+		if(j<i) {
+			divert_buffer[j]=divert_buffer[i];
+			}
+		j++;
+		continue;
+		}
+	
+	replay_diverted_entry(&(divert_buffer[i]), ei[divert_buffer[i].ei_idx]);
+	
+	}
+divert_buffer_free=j;
+}
+
 MUTEX data_logging_mutex;
 
 void pstats_log_extremes(SUMMING_CONTEXT *ctx, POWER_SUM_STATS *tmp_pstat, POWER_SUM **ps, int count, EXTREME_INFO *ei, int pi)
 {
-int i;
+int i,j, i_start, highest_ul_j, highest_circ_ul_j, highest_snr_j;
 POWER_SUM_STATS pstats, pstats_accum, *tp;
 int highest_ul_idx=0;
 int highest_circ_ul_idx=0;
 int highest_snr_idx=0;
 int skyband;
 char *diverted;
+double average_S;
 TEMPLATE_INFO ti;
+int fshift_count=args_info.nfshift_arg; /* number of frequency offsets */
 
-diverted=alloca(count*sizeof(*diverted));
-memset(diverted, 0, count*sizeof(*diverted));
+diverted=ctx->diverted;
 
 memset(&pstats_accum, 0, sizeof(pstats_accum));
 pstats_accum.max_weight=-1;
 
+average_S=tmp_pstat[0].highest_circ_ul.S;
+for(i=1;i<count;i++)average_S+=tmp_pstat[i].highest_circ_ul.S;
+average_S/=count;
+
+/* process SNR thresholds first */
+if(total_diverted_count<args_info.divert_count_limit_arg && (DIVERT_LOG!=NULL)) {
+	for(i=0;i<count;i++) {
+		if(diverted[i])continue;
+		
+		tp=&(tmp_pstat[i]);
+		
+		if(tp->max_weight_loss_fraction>=1) {
+			continue;
+			}
+		
+		if(args_info.divert_snr_arg>0 && (tp->highest_snr.snr>args_info.divert_snr_arg)) {
+			
+			/* divert all frequencies in the template */
+			i_start=fshift_count*(i/fshift_count);
+			for(j=0;j<fshift_count;j++)
+				diverted[i_start+j]|=DIVERT_TEMPLATE_MARKED;
+			
+			continue;
+			}
+			
+		}
+	}
+
+/* Process upper limit toplist */
+if(((ei->last_chunk-ei->first_chunk+1)==args_info.nchunks_arg) && ((ei->veto_num==-1) || ((veto_free<=1) && args_info.split_ifos_arg)) && (DIVERT_LOG!=NULL))
+for(i=0;i<count;i++) {
+	if(diverted[i])continue;
+	
+	tp=&(tmp_pstat[i]);
+	
+	if(tp->max_weight_loss_fraction>=1) {
+		continue;
+		}	
+	
+	if(((args_info.divert_ul_arg>0 && (tp->highest_ul.ul>args_info.divert_ul_arg)) ||
+	(args_info.divert_ul_rel_arg>0 && (tp->highest_ul.ul>args_info.divert_ul_rel_arg*average_S))) && 
+		(tp->highest_ul.ul>divert_buffer_ul_threshold)
+		) {
+				
+		/* divert all frequencies in the template */
+		i_start=fshift_count*(i/fshift_count);
+		for(j=0;j<fshift_count;j++)
+			diverted[i_start+j]|=DIVERT_TEMPLATE_MARKED_UL;
+		}
+	}
+	
+	
 thread_mutex_lock(&(ei->mutex));
 for(i=0;i<count;i++) {
-	memcpy(&pstats, &(tmp_pstat[i]), sizeof(POWER_SUM_STATS));
-
-
-
 	skyband=ps[0][i].skyband;
 	
-	if((args_info.divert_snr_arg>0 && (pstats.highest_snr.snr>args_info.divert_snr_arg)) ||
-	   (args_info.divert_ul_arg>0 && (pstats.highest_ul.ul>args_info.divert_ul_arg))) {
-		diverted[i]=1;
+	if(diverted[i] & DIVERT_TEMPLATE_MARKED) {
 		ei->band_diverted_count[skyband]++;
 		continue;
 		}
 
+	if((ei->last_chunk-ei->first_chunk+1==args_info.nchunks_arg) && ((ei->veto_num==-1) || ((veto_free<=1) && args_info.split_ifos_arg)) && (diverted[i] & DIVERT_TEMPLATE_MARKED_UL)) {
+		continue;
+		}
+		
+	memcpy(&pstats, &(tmp_pstat[i]), sizeof(POWER_SUM_STATS));
+	
 	if(pstats.max_weight_loss_fraction>=1) {
 		ei->band_masked_count[skyband]++;
 		continue;
@@ -306,6 +534,8 @@ for(i=0;i<count;i++) {
 			FILL_POINT_STATS(ei->band_info[skyband].highest_ks, pstats.highest_ks);
 			}
 	
+		UPDATE_MAX(ei->band_info[skyband], avg_ul);
+		
 		UPDATE_MAX(ei->band_info[skyband], max_weight);
 		UPDATE_MIN(ei->band_info[skyband], min_weight);
 		UPDATE_MAX(ei->band_info[skyband], max_weight_loss_fraction);
@@ -347,6 +577,8 @@ for(i=0;i<count;i++) {
 		memcpy(&pstats_accum.highest_ks, &pstats.highest_ks, sizeof(pstats.highest_ks));
 		}
 
+	UPDATE_MAX(pstats_accum, avg_ul);
+	
 	UPDATE_MAX(pstats_accum, max_weight);
 	UPDATE_MIN(pstats_accum, min_weight);
 	UPDATE_MAX(pstats_accum, max_weight_loss_fraction);
@@ -369,13 +601,27 @@ if(write_diverted_log_header) {
 	fprintf(LOG, "diverted_log_structure_size: %ld\n", sizeof(ti));
 	}
 
-for(i=0;i<count;i++) {
-	if(!diverted[i])continue;
+for(i=0;i<count;i+=fshift_count) {
+	if((diverted[i] & DIVERT_TEMPLATE_WRITTEN))continue;
+	if(!(diverted[i] & (DIVERT_TEMPLATE_MARKED|DIVERT_TEMPLATE_MARKED_UL)))continue;
+	
+	fprintf(stderr, "diverted[%d]=%08x\n", i, diverted[i]);
 	
 	tp=&(tmp_pstat[i]);
 	
 	ti.skyband=ps[0][i].skyband;
+	
 	ti.snr=tp->highest_snr.snr;
+	ti.snr_subbin=tp->highest_snr.bin*fshift_count;
+	highest_snr_j=0;
+	
+	for(j=1;j<fshift_count;j++)
+		if(ti.snr<tp[j].highest_snr.snr) {
+			ti.snr=tp[j].highest_snr.snr;
+			ti.snr_subbin=tp[j].highest_snr.bin*fshift_count+j;
+			highest_snr_j=j;
+			}
+			
 	ti.ul=tp->highest_ul.ul;
 	ti.circ_ul=tp->highest_circ_ul.ul;
 	
@@ -388,19 +634,56 @@ for(i=0;i<count;i++) {
 	ti.ra=ps[0][i].ra;
 	ti.dec=ps[0][i].dec;
 	
-	ti.freq_shift=ps[0][i].freq_shift;
-	ti.first_bin=first_bin+side_cut;
-	ti.snr_bin=tp->highest_snr.bin;
 	/* This just shows the start of the band to analyze 
 	 * The actual frequency where the maximum is achieved can be different for SNR and UL.
 	 */
-	ti.frequency=(double)ps[0][i].freq_shift+ti.first_bin/args_info.sft_coherence_time_arg;
+	/* ti.frequency=(double)ps[0][i].freq_shift+ti.first_bin/args_info.sft_coherence_time_arg; */
 	
 	ti.first_chunk=ei->first_chunk;
 	ti.last_chunk=ei->last_chunk;
 	ti.veto_num=ei->veto_num;
 	
+	ti.pi=pi;
+	
+
+	if(diverted[i]==DIVERT_TEMPLATE_MARKED_UL) {
+		highest_ul_j=0;
+		highest_circ_ul_j=0;
+		for(j=1;j<fshift_count;j++) {
+			if(ti.ul<tp[j].highest_ul.ul) {
+				ti.ul=tp[j].highest_ul.ul;
+				highest_ul_j=j;
+				}
+			if(ti.circ_ul<tp[j].highest_circ_ul.ul) {
+				ti.circ_ul=tp[j].highest_circ_ul.ul;
+				highest_circ_ul_j=j;
+				}
+			}
+	
+		
+		
+		thread_mutex_lock(&divert_buffer_mutex);
+		
+		if(divert_buffer_free>=divert_buffer_size)trim_divert_buffer();
+		
+		memcpy(&(divert_buffer[divert_buffer_free].ti), &ti, sizeof(ti));
+		memcpy(&(divert_buffer[divert_buffer_free].pstats_ul), &(tp[highest_ul_j]), sizeof(*tp));
+		memcpy(&(divert_buffer[divert_buffer_free].pstats_circ_ul), &(tp[highest_circ_ul_j]), sizeof(*tp));
+		memcpy(&(divert_buffer[divert_buffer_free].pstats_snr), &(tp[highest_snr_j]), sizeof(*tp));
+		divert_buffer[divert_buffer_free].ei_idx=ei->idx;
+		divert_buffer[divert_buffer_free].highest_snr_j=highest_snr_j;
+		divert_buffer[divert_buffer_free].highest_ul_j=highest_ul_j;
+		divert_buffer[divert_buffer_free].highest_circ_ul_j=highest_circ_ul_j;
+		divert_buffer_free++;		
+		
+		thread_mutex_unlock(&divert_buffer_mutex);
+		diverted[i]|=DIVERT_TEMPLATE_WRITTEN;
+		continue;
+		}
+	
 	fwrite(&ti, sizeof(ti), 1, DIVERT_LOG);
+	diverted[i]|=DIVERT_TEMPLATE_WRITTEN;
+	total_diverted_count++;
 	}
 
 if(write_data_log_header) {
@@ -466,13 +749,13 @@ if((pstats_accum.highest_snr.snr>args_info.min_candidate_snr_arg) &
 
 thread_mutex_unlock(&data_logging_mutex);
 
-#define FILL_SKYMAP(skymap, value)	if(ei->skymap!=NULL)ei->skymap[pi]=value;
-
 FILL_SKYMAP(ul_skymap, pstats_accum.highest_ul.ul);
 FILL_SKYMAP(ul_freq_skymap, (pstats_accum.highest_ul.bin)/args_info.sft_coherence_time_arg+ps[0][highest_ul_idx].freq_shift);
 
 FILL_SKYMAP(circ_ul_skymap, pstats_accum.highest_circ_ul.ul);
 FILL_SKYMAP(circ_ul_freq_skymap, (pstats_accum.highest_circ_ul.bin)/args_info.sft_coherence_time_arg+ps[0][highest_circ_ul_idx].freq_shift);
+
+FILL_SKYMAP(avg_ul_skymap, pstats_accum.avg_ul);
 
 FILL_SKYMAP(snr_skymap, pstats_accum.highest_snr.snr);
 FILL_SKYMAP(snr_ul_skymap, pstats_accum.highest_snr.ul);
@@ -543,6 +826,7 @@ if(args_info.compute_skymaps_arg) {
 	ei->ul_freq_skymap=do_alloc(patch_grid->npoints, sizeof(float));
 	ei->circ_ul_skymap=do_alloc(patch_grid->npoints, sizeof(float));
 	ei->circ_ul_freq_skymap=do_alloc(patch_grid->npoints, sizeof(float));
+	ei->avg_ul_skymap=do_alloc(patch_grid->npoints, sizeof(float));
 	ei->snr_skymap=do_alloc(patch_grid->npoints, sizeof(float));
 	ei->snr_ul_skymap=do_alloc(patch_grid->npoints, sizeof(float));
 	ei->snr_freq_skymap=do_alloc(patch_grid->npoints, sizeof(float));
@@ -583,6 +867,7 @@ FREE(ul_skymap);
 FREE(ul_freq_skymap);
 FREE(circ_ul_skymap);
 FREE(circ_ul_freq_skymap);
+FREE(avg_ul_skymap);
 FREE(snr_skymap);
 FREE(snr_ul_skymap);
 FREE(snr_freq_skymap);
@@ -664,6 +949,10 @@ for(skyband=0;skyband<fine_grid->nbands;skyband++) {
 		ei->band_info[skyband].highest_circ_ul.spindown,
 		ei->name);
 
+	fprintf(LOG, "max_avg_ul_band: %d %lg %s\n", skyband, 
+		ei->band_info[skyband].avg_ul,
+		ei->name);
+	
 	fprintf(LOG, "max_dx_band: %d %s %lf %lf %lg %lf %lf %lf %lf %s\n", skyband,
 		fine_grid->band_name[skyband],
 		ei->band_info[skyband].highest_snr.snr,
@@ -695,6 +984,7 @@ OUTPUT_SKYMAP(ul_skymap, "upper_limit");
 OUTPUT_SKYMAP(ul_freq_skymap, "upper_limit_frequency");
 OUTPUT_SKYMAP(circ_ul_skymap, "circular_upper_limit");
 OUTPUT_SKYMAP(circ_ul_freq_skymap, "circular_upper_limit_frequency");
+OUTPUT_SKYMAP(avg_ul_skymap, "polarization_averaged_upper_limit");
 OUTPUT_SKYMAP(snr_skymap, "snr");
 OUTPUT_SKYMAP(snr_ul_skymap, "snr_upper_limit");
 OUTPUT_SKYMAP(snr_freq_skymap, "snr_frequency");
@@ -718,7 +1008,7 @@ fprintf(LOG, "veto_free: %d\n", veto_free);
 nei=0;
 
 for(i=0;i<args_info.nchunks_arg;i+=args_info.nchunks_refinement_arg)
-	for(k=0;k< args_info.nchunks_arg-i;k+=args_info.nchunks_refinement_arg) {
+	for(k=args_info.nchunks_refinement_arg-1;k< args_info.nchunks_arg-i;k+=args_info.nchunks_refinement_arg) {
 		if(k+1<args_info.min_nchunks_arg)continue;
 		
 		for(m=-1;m<veto_free;m++) {
@@ -733,6 +1023,7 @@ for(i=0;i<args_info.nchunks_arg;i+=args_info.nchunks_refinement_arg)
 			ei[nei]->first_chunk=i;
 			ei[nei]->last_chunk=i+k;
 			ei[nei]->veto_num=m;
+			ei[nei]->idx=nei;
 			nei++;
 			}
 		}
@@ -749,9 +1040,6 @@ struct {
 	} *cruncher_contexts=NULL;
 int n_contexts=0;
 
-int nei;
-EXTREME_INFO **ei=NULL;
-int nchunks;
 
 double gps_start;
 double gps_stop;
@@ -797,6 +1085,8 @@ tmp_size+=nei*count*sizeof(*stats)+ALIGNMENT;
 tmp_size+=2*args_info.nchunks_arg*veto_free*fshift_count*sizeof(float)+2*ALIGNMENT;
 	/* sizes of total_weight array */
 tmp_size+=fshift_count*sizeof(float)+2*ALIGNMENT;
+	/* size of diverted array */
+tmp_size+=count*sizeof(*ctx->diverted)+2*ALIGNMENT;
 
 if(ctx->log_extremes_pstats_scratch_size<tmp_size) {
 	free(ctx->log_extremes_pstats_scratch);
@@ -813,7 +1103,7 @@ if(ctx->log_extremes_pstats_scratch_size<tmp_size) {
 	}
 
 p1=(float *)ctx->log_extremes_pstats_scratch;
-
+ctx->diverted=p1; p1=ALIGN_POINTER(p1+((count+3)>>2));
 tmp=p1; p1=ALIGN_POINTER(p1+args_info.nchunks_arg*veto_free*fshift_count*tmp_stride);
 tmp2a=p1; p1=ALIGN_POINTER(p1+tmp_stride*fshift_count);
 tmp2b=p1; p1=ALIGN_POINTER(p1+tmp_stride*fshift_count);
@@ -828,6 +1118,8 @@ if(((char *)p1)-ctx->log_extremes_pstats_scratch>ctx->log_extremes_pstats_scratc
 		ctx->log_extremes_pstats_scratch_size, ((char *)p1)-ctx->log_extremes_pstats_scratch);
 	exit(-1);
 	}
+	
+memset(ctx->diverted, 0, count*sizeof(*ctx->diverted));
 
 for(i=0;i<nei;i++) {
 	for(j=0;j<count;j++)
@@ -973,12 +1265,57 @@ for(lm=0;lm<alignment_grid_free;lm++) {
 	}
 			
 }
+
+for(i=0;i<nei;i++) {
+	for(j=0;j<count;j++)
+		finalize_power_sum_stats(&stats[i*count+j]);
+	}
+
 /* find largest strain and largest SNR candidates for this patch and log info */
 for(i=0;i<nei;i++) {
 	pstats_log_extremes(ctx, &(stats[i*count]), ps, count, ei[i], pi);
 	}
 }
 
+void load_input_templates(void)
+{
+fprintf(stderr, "Allocating %f MB for input templates buffer\n", input_templates*1e-6*sizeof(*input_templates_buffer));
+fprintf(LOG, "Allocating %f MB for input templates buffer\n", input_templates*1e-6*sizeof(*input_templates_buffer));
+
+thread_mutex_lock(&input_template_mutex);
+input_templates_buffer=do_alloc(input_templates, sizeof(*input_templates_buffer));
+
+fprintf(stderr, "Loading templates\n");
+fseek(INPUT_TEMPLATE_LOG, 0, SEEK_SET);
+fread(input_templates_buffer, sizeof(TEMPLATE_INFO), input_templates, INPUT_TEMPLATE_LOG);
+input_template_start=0;
+thread_mutex_unlock(&input_template_mutex);
+}
+
+int ti_cmp(TEMPLATE_INFO *a, TEMPLATE_INFO *b)
+{
+if(a->pi>b->pi)return 1;
+if(a->pi<b->pi)return -1;
+
+if(a->dec<b->dec)return 1;
+if(a->dec>b->dec)return -1;
+
+if(a->ra<b->ra)return 1;
+if(a->ra>b->ra) return -1;
+
+if(a->spindown>b->spindown)return 1;
+if(a->spindown<b->spindown)return -1;
+/* could sort on other parameters, but unncessary for now */
+return 0;
+}
+
+void sort_input_templates(void)
+{
+fprintf(stderr, "Sorting input templates\n");
+thread_mutex_lock(&input_template_mutex);
+qsort(input_templates_buffer, input_templates, sizeof(*input_templates_buffer), ti_cmp);
+thread_mutex_unlock(&input_template_mutex);
+}
 
 void outer_loop_cruncher(int thread_id, void *data)
 {
@@ -989,7 +1326,7 @@ int i,k,m,count;
 POWER_SUM **ps=cruncher_contexts[thread_id+1].ps;
 POWER_SUM **ps_tmp=cruncher_contexts[thread_id+1].ps_tmp;
 POWER_SUM_STATS *le_pstats;
-TEMPLATE_INFO ti;
+int ti_start, ti_end;
 
 ctx->nchunks=nchunks;
 ctx->power_sums_idx=0;
@@ -999,12 +1336,36 @@ ctx->power_sums_idx=0;
 if(input_templates>=0) {
 	thread_mutex_lock(&input_template_mutex);
 	
+	if(input_template_start>=input_templates) {
+		/* Nothing to do - everything else was processed in groups>1 earlier */
+		thread_mutex_unlock(&input_template_mutex);
+		return;
+		}
+	
+	/* Directly read from file */
+#if 0
 	fseek(INPUT_TEMPLATE_LOG, pi*sizeof(TEMPLATE_INFO), SEEK_SET);
 	fread(&ti, sizeof(TEMPLATE_INFO), 1, INPUT_TEMPLATE_LOG);
+#else
+	/* Use in-memory buffer that allows templates to be sorted */
+
+	ti_start=input_template_start;
+	i=1;
+	input_template_start++;
+	
+	while(i<args_info.binary_template_ngroup_arg) {
+		if(input_template_start>=input_templates)break;
+		if(input_templates_buffer[ti_start].pi!=input_templates_buffer[input_template_start].pi)break;
+		i++;
+		input_template_start++;
+		}
+	
+	ti_end=input_template_start;
+#endif
 	
 	thread_mutex_unlock(&input_template_mutex);
 	
-	generate_followup_templates(ctx, &ti, &(ps[0]), &count);
+	generate_followup_templates(ctx, &(input_templates_buffer[ti_start]), ti_end-ti_start, &(ps[0]), &count);
 	} else {
 	generate_patch_templates(ctx, pi, &(ps[0]), &count);
 	}
@@ -1031,14 +1392,17 @@ if(args_info.viterbi_power_sums_arg) {
 	/* find largest strain and largest SNR candidates for this patch */
 	
 	
-	if(ctx->log_extremes_pstats_scratch_size<count*sizeof(*le_pstats)) {
+	if(ctx->log_extremes_pstats_scratch_size<count*(sizeof(*le_pstats)+sizeof(*ctx->diverted))+2*ALIGNMENT) {
 		free(ctx->log_extremes_pstats_scratch);
 
-		ctx->log_extremes_pstats_scratch_size=count*sizeof(*le_pstats);
+		ctx->log_extremes_pstats_scratch_size=count*(sizeof(*le_pstats)+sizeof(*ctx->diverted))+2*ALIGNMENT;
 
-		ctx->log_extremes_pstats_scratch=do_alloc(count, sizeof(*le_pstats));
+		ctx->log_extremes_pstats_scratch=do_alloc(ctx->log_extremes_pstats_scratch_size, 1);
 		}
-	le_pstats=(POWER_SUM_STATS *)ctx->log_extremes_pstats_scratch;
+	ctx->diverted=(char *)ctx->log_extremes_pstats_scratch;
+	le_pstats=(POWER_SUM_STATS *)ALIGN_POINTER(ctx->diverted+count);
+	
+	memset(ctx->diverted, 0, count*sizeof(*ctx->diverted));
 	
 	for(i=0;i<nei;i++) {
 		ps_tmp_len=0;
@@ -1074,6 +1438,7 @@ PLOT *plot;
 
 thread_mutex_init(&data_logging_mutex);
 thread_mutex_init(&input_template_mutex);
+thread_mutex_init(&divert_buffer_mutex);
 
 assign_per_dataset_cutoff_veto();
 assign_cutoff_veto();
@@ -1097,6 +1462,15 @@ for(i=0;i<n_contexts;i++) {
 
 fprintf(LOG, "nei: %d\n", nei);
 
+if(DIVERT_LOG!=NULL) {
+	divert_buffer_size=args_info.divert_buffer_size_arg;
+	divert_buffer_free=0;
+	divert_buffer_ul_threshold=0.0;
+	fprintf(stderr, "Allocating %.6fMB for divert buffer\n", divert_buffer_size*sizeof(DIVERTED_ENTRY)*1e-6);
+	divert_buffer=do_alloc(divert_buffer_size, sizeof(*divert_buffer));
+	divert_sort_buffer=do_alloc(divert_buffer_size, sizeof(*divert_sort_buffer));
+	}
+
 gps_start=min_gps();
 gps_stop=max_gps()+1;
 
@@ -1109,6 +1483,10 @@ time(&start_time);
 
 if(input_templates>=0) {
 	fprintf(stderr, "%d patches to process\n", input_templates);
+	
+	load_input_templates();
+	sort_input_templates();
+	
 	for(pi=0;pi<input_templates;pi++) {
 		submit_job(outer_loop_cruncher, (void *)((long)pi));
 		}
@@ -1165,12 +1543,33 @@ if(patch_grid->max_n_dec<800){
 	p=make_RGBPic(patch_grid->max_n_ra+140, patch_grid->max_n_dec);
 	}
 
-plot=make_plot(p->width, p->height);
+
+trim_divert_buffer();
 
 fprintf(stderr, "%d points written into the data log\n", data_log_index);
 fprintf(LOG, "%d points written into the data log\n", data_log_index);
 
+fprintf(stderr, "total_diverted_count: %d\n", total_diverted_count);
+fprintf(LOG, "total_diverted_count: %d\n", total_diverted_count);
+
+fprintf(LOG, "divert_buffer_ul_threshold: %g\n", divert_buffer_ul_threshold);
+fprintf(LOG, "divert_buffer_free: %d\n", divert_buffer_free);
+
+if(DIVERT_LOG!=NULL) {
+	for(i=0;i<divert_buffer_free;i++) {
+		fwrite(&(divert_buffer[i].ti), sizeof(divert_buffer[i].ti), 1, DIVERT_LOG);
+		}
+	}
+
+if(total_diverted_count>=args_info.divert_count_limit_arg && n_contexts>1) {
+	/* This is because we don't know which thread hits the limit first */
+	fprintf(stderr, "*** WARNING: divert count limit exceeded, the results are non-repeatable when multiple threads are used\n");
+	fprintf(LOG, "*** WARNING: divert count limit exceeded, the results are non-repeatable when multiple threads are used\n");
+	}
+
 fprintf(stderr, "Writing skymaps\n");
+
+plot=make_plot(p->width, p->height);
 
 for(i=0;i<nei;i++)
 	output_extreme_info(p, ei[i]);
