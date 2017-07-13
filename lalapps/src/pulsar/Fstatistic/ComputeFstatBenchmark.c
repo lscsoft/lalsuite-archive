@@ -30,13 +30,14 @@
 #include <lal/LFTandTSutils.h>
 #include <lal/LALString.h>
 #include <lal/UserInput.h>
+#include <lal/LALPulsarVCSInfo.h>
 
 // benchmark ComputeFstat() functions for performance and memory usage
 REAL8 XLALGetCurrentHeapUsageMB ( void );
 
 typedef struct
 {
-  CHAR *FstatMethod;		//!< select which method/algorithm to use to compute the F-statistic
+  int FstatMethod;		//!< select which method/algorithm to use to compute the F-statistic
   REAL8Range Alpha;
   REAL8Range Delta;
   REAL8Range Freq;
@@ -77,7 +78,7 @@ main ( int argc, char *argv[] )
   UserInput_t XLAL_INIT_DECL(uvar_s);
   UserInput_t *uvar = &uvar_s;
 
-  uvar->FstatMethod = XLALStringDuplicate("ResampBest");
+  uvar->FstatMethod = FMETHOD_RESAMP_BEST;
   uvar->Alpha[0] = 0;
   uvar->Alpha[1] = LAL_TWOPI;
   uvar->Delta[0] = -LAL_PI/2;
@@ -112,8 +113,7 @@ main ( int argc, char *argv[] )
   XLAL_CHECK_MAIN ( (uvar->IFOs = XLALCreateStringVector ( "H1", NULL )) != NULL, XLAL_EFUNC );
   uvar->outputInfo = NULL;
 
-  XLAL_CHECK_MAIN ( XLALRegisterUvarMember ( FstatMethod,    STRING,         0, OPTIONAL,  "F-statistic method to use. Available methods: %s", XLALFstatMethodHelpString() ) == XLAL_SUCCESS, XLAL_EFUNC );
-
+  XLAL_CHECK ( XLALRegisterUvarAuxDataMember ( FstatMethod, UserEnum, XLALFstatMethodChoices(), 0, OPTIONAL, "F-statistic method to use" ) == XLAL_SUCCESS, XLAL_EFUNC );
   XLAL_CHECK_MAIN ( XLALRegisterUvarMember ( Alpha,          RAJRange,       0, OPTIONAL,  "Skyposition [drawn isotropically]: Range in 'Alpha' = right ascension)" ) == XLAL_SUCCESS, XLAL_EFUNC );
   XLAL_CHECK_MAIN ( XLALRegisterUvarMember ( Delta,          DECJRange,      0, OPTIONAL,  "Skyposition [drawn isotropically]: Range in 'Delta' = declination" ) == XLAL_SUCCESS, XLAL_EFUNC );
   XLAL_CHECK_MAIN ( XLALRegisterUvarMember ( Freq,           REAL8Range,     0, OPTIONAL,  "Search frequency in Hz [range to draw from]" ) == XLAL_SUCCESS, XLAL_EFUNC );
@@ -141,20 +141,11 @@ main ( int argc, char *argv[] )
   XLAL_CHECK_MAIN ( XLALRegisterUvarMember ( ephemSun,       STRING,         0, DEVELOPER, "Sun ephemeris file to use") == XLAL_SUCCESS, XLAL_EFUNC );
   XLAL_CHECK_MAIN ( XLALRegisterUvarMember ( randSeed,       INT4,           0, DEVELOPER, "Random seed to use for rand() to draw randomized parameters.") == XLAL_SUCCESS, XLAL_EFUNC );
 
-  XLAL_CHECK_MAIN ( XLALRegisterUvarMember(  version,	     BOOLEAN, 	    'V', SPECIAL,  "Output version information") == XLAL_SUCCESS, XLAL_EFUNC );
-
   BOOLEAN should_exit = 0;
-  XLAL_CHECK_MAIN( XLALUserVarReadAllInput( &should_exit, argc, argv ) == XLAL_SUCCESS, XLAL_EFUNC );
+  XLAL_CHECK_MAIN ( XLALUserVarReadAllInput( &should_exit, argc, argv, lalPulsarVCSInfoList ) == XLAL_SUCCESS, XLAL_EFUNC );
   if ( should_exit ) {
     return EXIT_FAILURE;
   }
-
-  if ( uvar->version )
-    {
-      printf ( "%s\n", VCSInfoString );
-      XLALFree ( VCSInfoString );
-      exit (0);
-    }
 
   // produce log-string (for output-file headers)
   CHAR *logstring = NULL;
@@ -174,9 +165,6 @@ main ( int argc, char *argv[] )
   srand( uvar->randSeed );	// set random seed
 
   // common setup over repeated trials
-  FstatMethodType FstatMethod;
-  XLAL_CHECK_MAIN ( XLALParseFstatMethodString ( &FstatMethod, uvar->FstatMethod ) == XLAL_SUCCESS, XLAL_EFUNC );
-
   EphemerisData *ephem;
   XLAL_CHECK_MAIN ( (ephem = XLALInitBarycenter ( uvar->ephemEarth, uvar->ephemSun )) != NULL, XLAL_EFUNC );
   REAL8 memBase = XLALGetCurrentHeapUsageMB();
@@ -195,7 +183,7 @@ main ( int argc, char *argv[] )
     injectSqrtSX.sqrtSn[X] = 1;
   }
   optionalArgs.injectSqrtSX = &injectSqrtSX;
-  optionalArgs.FstatMethod = FstatMethod;
+  optionalArgs.FstatMethod = uvar->FstatMethod;
   optionalArgs.collectTiming = 1;
   optionalArgs.resampFFTPowerOf2 = uvar->resampFFTPowerOf2;
   optionalArgs.Dterms = uvar->Dterms;
