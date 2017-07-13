@@ -39,6 +39,7 @@
 #include <lal/LALStdlib.h>
 #include <lal/LALError.h>
 #include <lal/LALDatatypes.h>
+#include <lal/LIGOMetadataInspiralUtils.h>
 #include <lal/LIGOMetadataTables.h>
 #include <lal/LIGOMetadataUtils.h>
 #include <lal/AVFactories.h>
@@ -322,8 +323,8 @@ int main(INT4 argc, CHAR *argv[])
   proctable.processTable = (ProcessTable *)LALCalloc(1, sizeof(ProcessTable));
   XLALGPSTimeNow(&(proctable.processTable->start_time));
 
-  XLALPopulateProcessTable(proctable.processTable, PROGRAM_NAME, lalAppsVCSIdentId,
-      lalAppsVCSIdentStatus, lalAppsVCSIdentDate, 0);
+  XLALPopulateProcessTable(proctable.processTable, PROGRAM_NAME, lalAppsVCSIdentInfo.vcsId,
+      lalAppsVCSIdentInfo.vcsStatus, lalAppsVCSIdentInfo.vcsDate, 0);
   snprintf(proctable.processTable->comment, LIGOMETA_COMMENT_MAX, " ");
 
   memset(&xmlfp, 0, sizeof(LIGOLwXMLStream));
@@ -352,6 +353,7 @@ int main(INT4 argc, CHAR *argv[])
 
 
   /* and finally the simInspiralTable itself */
+  XLALSimInspiralAssignIDs(injections.simInspiralTable, 0, 0);
   if (injections.simInspiralTable)
   {
     LAL_CALL(LALBeginLIGOLwXMLTable(&status, &xmlfp, sim_inspiral_table),
@@ -373,7 +375,7 @@ int main(INT4 argc, CHAR *argv[])
   {
     this_inj = injections.simInspiralTable;
     injections.simInspiralTable = injections.simInspiralTable->next;
-    LALFree(this_inj);
+    XLALFreeSimInspiral(&this_inj);
   }
 
 #if 0

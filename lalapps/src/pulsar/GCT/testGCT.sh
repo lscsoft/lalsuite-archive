@@ -117,14 +117,15 @@ iSeg=1
 while [ $iSeg -le $Nsegments ]; do
     t0=$tmpTime
     t1=$(($t0 + $Tsegment))
-    TspanHours=`echo $Tsegment | awk '{printf "%.7f", $1 / 3600.0 }'`
-        ## first and last segment will be single-IFO only
+
     if [ $iSeg -eq 1 -o $iSeg -eq $Nsegments ]; then
+        ## first and last segment will be single-IFO only
         NSFT=`echo $Tsegment $Tsft |  awk '{print int(1.0 * $1 / $2 + 0.5) }'`
-    else	## while all other segments are 2-IFO
+    else
+	## while all other segments are 2-IFO
         NSFT=`echo $Tsegment $Tsft |  awk '{print int(2.0 * $1 / $2 + 0.5) }'`
     fi
-    echo "$t0 $t1 $TspanHours $NSFT" >> $segFile
+    echo "$t0 $t1 $NSFT" >> $segFile
 
     segs[$iSeg]=$tmpTime # save seg's beginning for later use
     echo "Segment: $iSeg of $Nsegments	GPS start time: ${segs[$iSeg]}"
@@ -147,7 +148,7 @@ done
 
 echo
 echo "----------------------------------------------------------------------"
-echo " STEP 1: Generate Fake Signal"
+echo " STEP 1: Generate Fake Signal with MFDv5"
 echo "----------------------------------------------------------------------"
 echo
 
@@ -155,7 +156,7 @@ FreqStep=`echo $mfd_FreqBand $numFreqBands |  awk '{print $1 / $2}'`
 mfd_fBand=`echo $FreqStep $Tsft |  awk '{print ($1 - 1.5 / $2)}'`	## reduce by 1/2 a bin to avoid including last freq-bins
 
 # construct common MFD cmd
-mfd_CL_common="--Band=${mfd_fBand} --injectionSources=\"{Freq=$Freq; f1dot=$f1dot; f2dot=$f2dot; Alpha=$Alpha; Delta=$Delta; psi=$psi; phi0=$phi0; h0=$h0; cosi=$cosi; refTime=$refTime}\" --Tsft=$Tsft --randSeed=1000 --outSingleSFT --IFOs=H1,L1 --timestampsFiles=${tsFile_H1},${tsFile_L1}"
+mfd_CL_common="--Band=${mfd_fBand} --Tsft=$Tsft --randSeed=1000 --outSingleSFT --IFOs=H1,L1 --timestampsFiles=${tsFile_H1},${tsFile_L1}"
 
 if [ "$sqrtSh" != "0" ]; then
     mfd_CL_common="$mfd_CL_common --sqrtSX=${sqrtSh},${sqrtSh}";
@@ -166,6 +167,9 @@ while [ $iFreq -le $numFreqBands ]; do
     mfd_fi=`echo $mfd_fmin $iFreq $FreqStep | awk '{print $1 + ($2 - 1) * $3}'`
 
     cmdline="$mfd_code $mfd_CL_common --fmin=$mfd_fi --outSFTdir=${SFTdir} --outLabel=freqBand$iFreq"
+    if [ $iFreq -eq 2 ]; then
+        cmdline="$cmdline --injectionSources=\"{Freq=$Freq; f1dot=$f1dot; f2dot=$f2dot; Alpha=$Alpha; Delta=$Delta; psi=$psi; phi0=$phi0; h0=$h0; cosi=$cosi; refTime=$refTime}\""
+    fi
     if [ -n "$DEBUG" ]; then
         cmdline="$cmdline"
     else
@@ -264,7 +268,7 @@ BSGL_flags="--computeBSGL --Fstar0=10 --oLGX='0.5,0.5' --recalcToplistStats"
 
 echo
 echo "----------------------------------------------------------------------------------------------------"
-echo " STEP 3: run HierarchSearchGCT using Resampling (perfect match) and segment-list file and --recalcToplistStats"
+echo " STEP 3: run HierarchSearchGCT using Resampling and default 2F toplist"
 echo "----------------------------------------------------------------------------------------------------"
 echo
 
@@ -294,7 +298,7 @@ resGCT_RSr_L1=$(echo $topline  | awk '{print $14}')
 
 echo
 echo "----------------------------------------------------------------------------------------------------"
-echo " STEP 4: run HierarchSearchGCT using LALDemod (perfect match) and --tStack and --nStacksMax and --recalcToplistStats"
+echo " STEP 4: run HierarchSearchGCT using LALDemod and default 2F toplist"
 echo "----------------------------------------------------------------------------------------------------"
 echo
 
@@ -326,7 +330,7 @@ resGCT_DMr_L1=$(echo $topline  | awk '{print $14}')
 
 echo
 echo "----------------------------------------------------------------------------------------------------"
-echo " STEP 5: run HierarchSearchGCT using LALDemod (perfect match) and --tStack and --nStacksMax and --computeBSGL"
+echo " STEP 5: run HierarchSearchGCT using LALDemod and BSGL toplist"
 echo "----------------------------------------------------------------------------------------------------"
 echo
 
@@ -355,7 +359,7 @@ freqGCT_DM_BSGL=$(echo $topline | awk '{print $1}')
 
 echo
 echo "----------------------------------------------------------------------------------------------------"
-echo " STEP 6: run HierarchSearchGCT using LALDemod (perfect match) with 'dual' toplist: 1st=F, 2nd=BSGL"
+echo " STEP 6: run HierarchSearchGCT using LALDemod and dual toplist: 1st=F, 2nd=BSGL"
 echo "----------------------------------------------------------------------------------------------------"
 echo
 
@@ -385,7 +389,8 @@ fi
 
 echo
 echo "----------------------------------------------------------------------------------------------------"
-echo " STEP 7: run HierarchSearchGCT using Resampling (perfect match), triple toplist and recalc "
+echo " STEP 7: run HierarchSearchGCT using Resampling and triple toplist (BSGL, BSGLtL and BtSGLtL), "
+echo "         compared with separate runs for each of these 3 toplist rankings"
 echo "----------------------------------------------------------------------------------------------------"
 echo
 

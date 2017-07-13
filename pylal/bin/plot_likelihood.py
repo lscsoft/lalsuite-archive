@@ -4,9 +4,7 @@ __author__ = "Rahul Biswas <rahul@gravity.phys.uwm.edu>, Kipp Cannon <kipp.canno
 
 
 import sys
-import exceptions
 import glob
-import exceptions
 import matplotlib.numerix.ma as ma
 import matplotlib.colors as colors
 import glob
@@ -25,7 +23,7 @@ from pylal import rate
 from pylal import git_version
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
-from pylal import ligolw_burca_tailor
+from lalburst import ligolw_burca_tailor
 from optparse import *
 from pylab import *
 

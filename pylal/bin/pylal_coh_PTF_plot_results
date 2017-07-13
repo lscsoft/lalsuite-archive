@@ -38,8 +38,9 @@ if not os.getenv("DISPLAY", None):
     matplotlib.use("agg", warn=False)
 
 
-from pylal import (antenna, date, git_version, plotutils, MultiInspiralUtils,
+from pylal import (antenna, git_version, plotutils, MultiInspiralUtils,
                    coh_PTF_pyutils, htmlutils)
+from lalburst import date
 from lalburst import timeslides as ligolw_tisi
 from pylal.dq import dqSegmentUtils
 from lal import GPSTimeNow

@@ -18,10 +18,6 @@ Text-mode progress bars
 """
 from __future__ import division, print_function, unicode_literals
 from six.moves import range
-__copyright__ = "Copyright 2010, Leo Singer"
-__author__ = "Leo Singer <leo.singer@ligo.org>"
-__all__ = ["ProgressBar", "ProgressBarTheme"]
-
 
 import locale
 import math
@@ -29,6 +25,8 @@ import os
 import struct
 import sys
 import collections
+
+__all__ = ('ProgressBar', 'ProgressBarTheme')
 
 
 # From http://stackoverflow.com/questions/566746
@@ -67,8 +65,11 @@ def getTerminalSize():
     return (25, 80)
 
 
-class ProgressBarTheme(collections.namedtuple(
-    '_ProgressBarTheme', 'sequence twiddle_sequence left_border right_border')):
+_ProgressBarTheme = collections.namedtuple(
+    '_ProgressBarTheme', 'sequence twiddle_sequence left_border right_border')
+
+
+class ProgressBarTheme(_ProgressBarTheme):
 
     def is_compatible_with_encoding(self, coding):
         if not coding:
@@ -116,9 +117,13 @@ class ProgressBar:
             theme=None):
         if fid is None:
             self.fid = sys.stderr
-        self.isatty = os.isatty(self.fid.fileno())
+        if hasattr(self.fid, 'fileno'):
+            self.isatty = os.isatty(self.fid.fileno())
+        else:
+            self.isatty = False
         if theme is None:
-            if self.isatty and default_unicode_theme.is_compatible_with_stream(self.fid) and 'xterm' in os.environ.get('TERM', ''):
+            if self.isatty and default_unicode_theme.is_compatible_with_stream(
+                    self.fid) and 'xterm' in os.environ.get('TERM', ''):
                 theme = default_unicode_theme
             else:
                 theme = default_ascii_theme
@@ -167,7 +172,7 @@ class ProgressBar:
             return
 
         if len(self.text) > self.textwidth:
-            label = self.text[0:self.textwidth]
+            label = self.text[:self.textwidth]
         else:
             label = self.text.rjust(self.textwidth)
 
@@ -177,13 +182,14 @@ class ProgressBar:
         else:
             terminalSize = terminalSize[1]
 
-        barWidth = terminalSize - self.textwidth - len(self.left_border) - len(self.right_border) - 7
+        barWidth = terminalSize - self.textwidth - len(self.left_border) \
+            - len(self.right_border) - 7
 
         if self.value is None or self.value < 0:
             pattern = self.twiddle_sequence[
                 self.twiddle % len(self.twiddle_sequence)]
             self.twiddle += 1
-            barSymbols = (pattern * int(math.ceil(barWidth/len(self.twiddle_sequence))))[0:barWidth]
+            barSymbols = (pattern * int(math.ceil(barWidth / len(self.twiddle_sequence))))[0:barWidth]
             progressFractionText = '      '
         else:
             progressFraction = max(0.0, min(1.0, float(self.value) / self.max))
@@ -264,7 +270,8 @@ def demo():
     progressbar2 = ProgressBar(max=maxProgress)
     for s in progressbar2.iterate(list(range(maxProgress))):
         sleep(0.01)
-    for s in progressbar2.iterate(list(range(maxProgress)), format='iteration %d'):
+    for s in progressbar2.iterate(
+            list(range(maxProgress)), format='iteration %d'):
         sleep(0.01)
 
 

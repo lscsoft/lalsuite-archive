@@ -42,13 +42,6 @@
 %include <typemaps.i>
 
 ///
-/// Suppress some SWIG warnings.
-///
-#pragma SWIG nowarn=SWIGWARN_PARSE_KEYWORD
-#pragma SWIG nowarn=SWIGWARN_LANG_VARARGS_KEYWORD
-#pragma SWIG nowarn=SWIGWARN_LANG_OVERLOAD_KEYWORD
-
-///
 /// Turn on auto-documentation of functions.
 ///
 %feature("autodoc", 1);
@@ -259,6 +252,7 @@ SWIGINTERNINLINE gsl_complex_float gsl_complex_float_rect(float x, float y) {
 %header %{
 #include <lal/LALDatatypes.h>
 #include <lal/LALMalloc.h>
+#include <lal/LALString.h>
 #include <lal/XLALError.h>
 #include <lal/Date.h>
 %}
@@ -824,8 +818,8 @@ if (strides[I-1] == 0) {
 /// Typemaps which convert to/from the dynamically-allocated array.
 %typemap(in, noblock=1) TYPE* DATA {
   if (arg1) {
-    const size_t dims[] = {NI};
-    const size_t strides[] = {SI};
+    const size_t dims[] = {%static_cast(NI, size_t)};
+    const size_t strides[] = {%static_cast(SI, size_t)};
     %swiglal_array_dynamic_check_strides(NAME, DATA, 1);
     $1 = %reinterpret_cast(arg1->DATA, TYPE*);
     /* swiglal_array_typeid input type: $1_type */
@@ -840,8 +834,8 @@ if (strides[I-1] == 0) {
 }
 %typemap(out, noblock=1) TYPE* DATA {
   if (arg1) {
-    const size_t dims[] = {NI};
-    const size_t strides[] = {SI};
+    const size_t dims[] = {%static_cast(NI, size_t)};
+    const size_t strides[] = {%static_cast(SI, size_t)};
     %swiglal_array_dynamic_check_strides(NAME, DATA, 1);
     $1 = %reinterpret_cast(arg1->DATA, TYPE*);
     /* swiglal_array_typeid input type: $1_type */
@@ -887,8 +881,8 @@ if (strides[I-1] == 0) {
 /// Typemaps which convert from the dynamically-allocated array, indexed by \c arg2
 %typemap(out, noblock=1) TYPE* DATA {
   if (arg1) {
-    const size_t dims[] = {NJ};
-    const size_t strides[] = {SJ};
+    const size_t dims[] = {%static_cast(NJ, size_t)};
+    const size_t strides[] = {%static_cast(SJ, size_t)};
     %swiglal_array_dynamic_check_strides(NAME, DATA, 1);
     if (((uint64_t)arg2) >= ((uint64_t)NI)) {
       SWIG_exception_fail(SWIG_IndexError, "Index to "#NAME"."#DATA" is outside of range [0,"#NI"]");
@@ -936,8 +930,8 @@ if (strides[I-1] == 0) {
 /// Typemaps which convert to/from the dynamically-allocated array.
 %typemap(in, noblock=1) TYPE* DATA {
   if (arg1) {
-    const size_t dims[] = {NI, NJ};
-    const size_t strides[] = {SI, SJ};
+    const size_t dims[] = {%static_cast(NI, size_t), %static_cast(NJ, size_t)};
+    const size_t strides[] = {%static_cast(SI, size_t), %static_cast(SJ, size_t)};
     %swiglal_array_dynamic_check_strides(NAME, DATA, 1);
     %swiglal_array_dynamic_check_strides(NAME, DATA, 2);
     $1 = %reinterpret_cast(arg1->DATA, TYPE*);
@@ -953,8 +947,8 @@ if (strides[I-1] == 0) {
 }
 %typemap(out, noblock=1) TYPE* DATA {
   if (arg1) {
-    const size_t dims[] = {NI, NJ};
-    const size_t strides[] = {SI, SJ};
+    const size_t dims[] = {%static_cast(NI, size_t), %static_cast(NJ, size_t)};
+    const size_t strides[] = {%static_cast(SI, size_t), %static_cast(SJ, size_t)};
     %swiglal_array_dynamic_check_strides(NAME, DATA, 1);
     %swiglal_array_dynamic_check_strides(NAME, DATA, 2);
     $1 = %reinterpret_cast(arg1->DATA, TYPE*);
@@ -997,7 +991,7 @@ if (strides[I-1] == 0) {
 
 ///
 /// The \b %swiglal_array_struct_<i>n</i>D() macros create typemaps which attempt to view a
-/// scripting-language array as a C array <tt>struct NAME</tt>. If the input is not already a
+/// C array <tt>struct NAME</tt> as a scripting-language array. If the input is not already a
 /// SWIG-wrapped object wrapping a <tt>struct NAME</tt>, an input view is attempted using \b
 /// %swiglal_array_viewin...().
 ///
@@ -1039,11 +1033,11 @@ if (strides[I-1] == 0) {
         if (!SWIG_IsOK(res)) {
           %argument_fail(res, "$type", $symname, $argnum);
         } else {
-          temp.NI = %reinterpret_cast(dims[0], SIZET);
+          temp.NI = %static_cast(dims[0], SIZET);
           argp = &temp;
         }
       } else {
-        temp.NI = %reinterpret_cast(dims[0], SIZET);
+        temp.NI = %static_cast(dims[0], SIZET);
         argp = &temp;
       }
     } else {
@@ -1077,7 +1071,7 @@ if (strides[I-1] == 0) {
       if (!SWIG_IsOK(res)) {
         %argument_fail(res, "$type", $symname, $argnum);
       } else {
-        temp.NI = %reinterpret_cast(dims[0], SIZET);
+        temp.NI = %static_cast(dims[0], SIZET);
         argp = &temp;
       }
     } else {
@@ -1116,7 +1110,7 @@ if (strides[I-1] == 0) {
         if (!SWIG_IsOK(res)) {
           %argument_fail(res, "$type", $symname, $argnum);
         } else {
-          temp.NI = %reinterpret_cast(dims[0], SIZET);
+          temp.NI = %static_cast(dims[0], SIZET);
           argp = &temp;
         }
       } else {
@@ -1132,7 +1126,7 @@ if (strides[I-1] == 0) {
 %}
 %typemap(argout, match="in", noblock=1) NAME* SWIGLAL_COPYINOUT_ARRAY %{
   if (temp_data$argnum) {
-    const size_t dims[] = {temp$argnum.NI};
+    const size_t dims[] = {%static_cast(temp$argnum.NI, size_t)};
     const size_t strides[] = {1};
     /* swiglal_array_typeid input type: TYPE* */
     %append_output(%swiglal_array_copyout(TYPE*)(swiglal_no_self(), %as_voidptr(temp_data$argnum),
@@ -1181,13 +1175,13 @@ if (strides[I-1] == 0) {
         if (!SWIG_IsOK(res)) {
           %argument_fail(res, "$type", $symname, $argnum);
         } else {
-          temp.NI = %reinterpret_cast(dims[0], SIZET);
-          temp.NJ = %reinterpret_cast(dims[1], SIZET);
+          temp.NI = %static_cast(dims[0], SIZET);
+          temp.NJ = %static_cast(dims[1], SIZET);
           argp = &temp;
         }
       } else {
-        temp.NI = %reinterpret_cast(dims[0], SIZET);
-        temp.NJ = %reinterpret_cast(dims[1], SIZET);
+        temp.NI = %static_cast(dims[0], SIZET);
+        temp.NJ = %static_cast(dims[1], SIZET);
         argp = &temp;
       }
     } else {
@@ -1221,8 +1215,8 @@ if (strides[I-1] == 0) {
       if (!SWIG_IsOK(res)) {
         %argument_fail(res, "$type", $symname, $argnum);
       } else {
-        temp.NI = %reinterpret_cast(dims[0], SIZET);
-        temp.NJ = %reinterpret_cast(dims[1], SIZET);
+        temp.NI = %static_cast(dims[0], SIZET);
+        temp.NJ = %static_cast(dims[1], SIZET);
         argp = &temp;
       }
     } else {
@@ -1261,8 +1255,8 @@ if (strides[I-1] == 0) {
         if (!SWIG_IsOK(res)) {
           %argument_fail(res, "$type", $symname, $argnum);
         } else {
-          temp.NI = %reinterpret_cast(dims[0], SIZET);
-          temp.NJ = %reinterpret_cast(dims[1], SIZET);
+          temp.NI = %static_cast(dims[0], SIZET);
+          temp.NJ = %static_cast(dims[1], SIZET);
           argp = &temp;
         }
       } else {
@@ -1278,7 +1272,7 @@ if (strides[I-1] == 0) {
 %}
 %typemap(argout, match="in", noblock=1) NAME* SWIGLAL_COPYINOUT_ARRAY %{
   if (temp_data$argnum) {
-    const size_t dims[] = {temp$argnum.NI, temp$argnum.NJ};
+    const size_t dims[] = {%static_cast(temp$argnum.NI, size_t), %static_cast(temp$argnum.NJ, size_t)};
     size_t strides[] = {dims[1], 1};
     /* swiglal_array_typeid input type: TYPE* */
     %append_output(%swiglal_array_copyout(TYPE*)(swiglal_no_self(), %as_voidptr(temp_data$argnum),
@@ -1334,9 +1328,15 @@ if (strides[I-1] == 0) {
 %swiglal_array_dynamic_1D(NAME, TYPE, SIZET, DATA, arg1->NI, 1);
 %ignore DATA;
 %ignore NI;
-%swiglal_array_struct_1D(NAME, TYPE, SIZET, DATA, NI);
 %enddef
 #define %swiglal_public_clear_ARRAY_1D(NAME, TYPE, DATA, SIZET, NI)
+/// </li><li>
+/// 1-D array structs, e.g <tt>typedef struct { SIZET NI; TYPE* DATA; } NAME;</tt>:
+%define %swiglal_public_ARRAY_STRUCT_1D(NAME, TYPE, DATA, SIZET, NI)
+%swiglal_public_ARRAY_1D(NAME, TYPE, DATA, SIZET, NI)
+%swiglal_array_struct_1D(NAME, TYPE, SIZET, DATA, NI);
+%enddef
+#define %swiglal_public_clear_ARRAY_STRUCT_1D(NAME, TYPE, DATA, SIZET, NI)
 /// </li><li>
 /// a 1-D array of pointers to 1-D arrays, e.g. <tt>SIZET NI; SIZET NJ; ATYPE* DATA[(NI
 /// members)];</tt>
@@ -1349,15 +1349,6 @@ if (strides[I-1] == 0) {
 %enddef
 #define %swiglal_public_clear_ARRAY_1D_PTR_1D(NAME, TYPE, DATA, SIZET, NI, NJ)
 /// </li><li>
-/// 2-D arrays of fixed-length arrays, e.g <tt>typedef ETYPE[NJ] ATYPE; SIZET NI; ATYPE* DATA;</tt>:
-%define %swiglal_public_ARRAY_2D_FIXED(NAME, ETYPE, ATYPE, DATA, SIZET, NI)
-%swiglal_array_dynamic_size(SIZET, NI);
-%swiglal_array_dynamic_2D(NAME, ETYPE, SIZET, DATA, arg1->NI, (sizeof(ATYPE)/sizeof(ETYPE)), (sizeof(ATYPE)/sizeof(ETYPE)), 1);
-%ignore DATA;
-%ignore NI;
-%enddef
-#define %swiglal_public_clear_ARRAY_2D_FIXED(NAME, ETYPE, ATYPE, DATA, SIZET, NI)
-/// </li><li>
 /// 2-D arrays, e.g <tt>SIZET NI, NJ; TYPE* DATA;</tt>:
 %define %swiglal_public_ARRAY_2D(NAME, TYPE, DATA, SIZET, NI, NJ)
 %swiglal_array_dynamic_size(SIZET, NI);
@@ -1366,9 +1357,24 @@ if (strides[I-1] == 0) {
 %ignore DATA;
 %ignore NI;
 %ignore NJ;
+%enddef
+#define %swiglal_public_clear_ARRAY_2D(NAME, TYPE, DATA, SIZET, NI, NJ)
+/// </li><li>
+/// 2-D array structs, e.g <tt>typedef { SIZET NI, NJ; TYPE* DATA; } NAME</tt>:
+%define %swiglal_public_ARRAY_STRUCT_2D(NAME, TYPE, DATA, SIZET, NI, NJ)
+%swiglal_public_ARRAY_2D(NAME, TYPE, DATA, SIZET, NI, NJ)
 %swiglal_array_struct_2D(NAME, TYPE, SIZET, DATA, NI, NJ);
 %enddef
 #define %swiglal_public_clear_ARRAY_2D(NAME, TYPE, DATA, SIZET, NI, NJ)
+/// </li><li>
+/// 2-D arrays of fixed-length arrays, e.g <tt>typedef ETYPE[NJ] ATYPE; SIZET NI; ATYPE* DATA;</tt>:
+%define %swiglal_public_ARRAY_2D_FIXED(NAME, ETYPE, ATYPE, DATA, SIZET, NI)
+%swiglal_array_dynamic_size(SIZET, NI);
+%swiglal_array_dynamic_2D(NAME, ETYPE, SIZET, DATA, arg1->NI, (sizeof(ATYPE)/sizeof(ETYPE)), (sizeof(ATYPE)/sizeof(ETYPE)), 1);
+%ignore DATA;
+%ignore NI;
+%enddef
+#define %swiglal_public_clear_ARRAY_2D_FIXED(NAME, ETYPE, ATYPE, DATA, SIZET, NI)
 /// </li></ul>
 ///
 

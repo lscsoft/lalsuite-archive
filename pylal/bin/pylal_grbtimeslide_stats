@@ -308,8 +308,8 @@ for slide_num in range(-nominal_num_slides, nominal_num_slides+1):
   for ring in rings:
     slid_seglistdict = SnglInspiralUtils.slideSegListDictOnRing(ring, veto_segs, shift_dict)
     slid_seglist = slid_seglistdict.union(slid_seglistdict.keys())
-    trial_veto_mask_2d[slide_num, :] |= rate.bins_spanned(trial_bins, slid_seglist, dtype=numpy.bool8)
-trial_veto_mask_2d[0, :] |= rate.bins_spanned(trial_bins, buffer_segs, dtype=numpy.bool8)
+    trial_veto_mask_2d[slide_num, :] |= rate.bins_spanned(trial_bins, slid_seglist).astype(bool)
+trial_veto_mask_2d[0, :] |= rate.bins_spanned(trial_bins, buffer_segs).astype(bool)
 if total_num_slides != array_size:  # these are equal iff we are including zero-lag background
   trial_veto_mask_2d[0] |= True
 

@@ -73,14 +73,14 @@ int XLALSimInspiralTaylorF2CoreEcc(
         const REAL8 quadparam2,                /**< quadrupole deformation parameter of body 2 (dimensionless, 1 for BH) */
         const REAL8 lambda1,                   /**< (tidal deformation of body 1)/(mass of body 1)^5 */
         const REAL8 lambda2,                   /**< (tidal deformation of body 2)/(mass of body 2)^5 */
-        const REAL8 ecc,                       /**< eccentricity effect control < 0 : no eccentricity effect */
+        const REAL8 eccentricity,                       /**< eccentricity effect control < 0 : no eccentricity effect */
         const INT4  ecc_order,                 /**< twice eccentricity effect PN order < 0 : maximum order 3PN */
         const REAL8 f_ecc,                     /**< eccentricity effect reference frequency */
         const LALSimInspiralSpinOrder spinO,  /**< twice PN order of spin effects */
         const LALSimInspiralTidalOrder tideO,  /**< flag to control tidal effects */
         const INT4 phaseO,                     /**< twice PN phase order */
         const INT4 amplitudeO,                  /**< twice PN amplitude order */
-        const LALSimInspiralTestGRParam *p /**< Linked list containing the extra testing GR parameters >**/
+        const LALDict *p                       /**< Linked list containing the extra parameters >**/
         )
 {
 
@@ -221,7 +221,7 @@ int XLALSimInspiralTaylorF2CoreEcc(
     data = htilde->data->data;
 
     REAL8 v_ecc_ref = 0.0;
-    if( ecc > 0 && f_ecc > 0) {
+    if( eccentricity > 0 && f_ecc > 0) {
         v_ecc_ref = cbrt(piM*f_ecc);
     }
 
@@ -260,8 +260,8 @@ int XLALSimInspiralTaylorF2CoreEcc(
         ref_phasing += pft10 * v10ref;
 
         /* Eccentricity terms in phasing */
-        if( ecc > 0 && f_ecc > 0) {
-          ref_phasing += eccentricityPhasing_F2(vref, v_ecc_ref, ecc, eta, ecc_order);
+        if( eccentricity > 0 && f_ecc > 0) {
+          ref_phasing += eccentricityPhasing_F2(vref, v_ecc_ref, eccentricity, eta, ecc_order);
         }
 
         ref_phasing /= v5ref;
@@ -301,8 +301,8 @@ int XLALSimInspiralTaylorF2CoreEcc(
         phasing += pft10 * v10;
 
         /* Eccentricity terms in phasing */
-        if( ecc > 0 && f_ecc > 0) {
-          phasing += eccentricityPhasing_F2(v, v_ecc_ref, ecc, eta, ecc_order);
+        if( eccentricity > 0 && f_ecc > 0) {
+          phasing += eccentricityPhasing_F2(v, v_ecc_ref, eccentricity, eta, ecc_order);
         }
         phasing /= v5;
 
@@ -383,7 +383,7 @@ int XLALSimInspiralTaylorF2Ecc(
         const REAL8 quadparam2,                /**< quadrupole deformation parameter of body 2 (dimensionless, 1 for BH) */
         const REAL8 lambda1,                   /**< (tidal deformation of body 1)/(mass of body 1)^5 */
         const REAL8 lambda2,                   /**< (tidal deformation of body 2)/(mass of body 2)^5 */
-        const REAL8 ecc,                       /**< eccentricity effect control < 0 : no eccentricity effect */
+        const REAL8 eccentricity,                       /**< eccentricity effect control < 0 : no eccentricity effect */
         const INT4  ecc_order,                 /**< twice eccentricity effect PN order < 0 : maximum order 3PN */
         const REAL8 f_ecc,                     /**< eccentricity effect reference frequency */
         const LALSimInspiralSpinOrder spinO,  /**< twice PN order of spin effects */
@@ -451,7 +451,7 @@ int XLALSimInspiralTaylorF2Ecc(
     }
     ret = XLALSimInspiralTaylorF2CoreEcc(&htilde, freqs, phi_ref, m1_SI, m2_SI,
                                       S1z, S2z, f_ref, shft, r, quadparam1, quadparam2,
-                                      lambda1, lambda2, ecc, ecc_order, f_ecc, spinO, tideO, phaseO, amplitudeO, p);
+                                      lambda1, lambda2, eccentricity, ecc_order, f_ecc, spinO, tideO, phaseO, amplitudeO, p);
 
     XLALDestroyREAL8Sequence(freqs);
 

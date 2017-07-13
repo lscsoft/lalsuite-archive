@@ -1,7 +1,5 @@
 from __future__ import print_function
 import doctest
-import filecmp
-import os
 import random
 import sys
 import unittest
@@ -25,10 +23,6 @@ class test_docstrings(unittest.TestCase):
 		failures = doctest.testmod(lal)[0]
 		if failures:
 			sys.exit(bool(failures))
-		cache_rw_is_identity = filecmp.cmp("874000000-20000.cache", "874000000-20000.cache.new")
-		if cache_rw_is_identity:
-			os.remove("874000000-20000.cache.new")
-		self.assertEqual(True, cache_rw_is_identity)
 
 
 class test_LIGOTimeGPS(unittest.TestCase):

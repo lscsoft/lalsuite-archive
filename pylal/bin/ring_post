@@ -14,7 +14,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
 from lalburst import timeslides as ligolw_tisi
-from pylal import ligolw_cafe
+from lalburst import cafe as ligolw_cafe
 from glue import pipeline
 import ConfigParser
 import tempfile

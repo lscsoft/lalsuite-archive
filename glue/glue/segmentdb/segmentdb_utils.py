@@ -58,7 +58,17 @@ def get_all_files_in_range(dirname, starttime, endtime, pad=64):
     first_four_start = starttime / 100000
     first_four_end   = endtime   / 100000
 
-    for filename in os.listdir(dirname):
+    # Screen for files starting with . and ending with .xml.*
+    # i.e. those leftover by rsync
+    file_list=os.listdir(dirname)
+    file_list.sort()
+    for filename in file_list:
+        a = re.match("\..*\.xml\..*$",filename)
+        if a != None:
+            file_list.remove(a.group(0))
+
+    #for filename in os.listdir(dirname):
+    for filename in file_list:
         if re.match('.*-[0-9]{5}$', filename):
             dirtime = int(filename[-5:])
             if dirtime >= first_four_start and dirtime <= first_four_end:
@@ -71,6 +81,9 @@ def get_all_files_in_range(dirname, starttime, endtime, pad=64):
             file_time = int(filename.split('-')[-2])
             if file_time >= (starttime-pad) and file_time <= (endtime+pad):
                 ret.append(os.path.join(dirname,filename))
+        elif os.path.isfile(os.path.join(dirname,filename)):
+            # Non .xml file, don't recurse:
+            return ret
         else:
             # Keep recursing, we may be looking at directories of
             # ifos, each of which has directories with times

@@ -53,12 +53,12 @@ from optparse import OptionParser
 import sqlite3
 import sys
 
+from lal import utils as lalutils
 
 from glue import iterutils
 from glue import segments
 from glue.ligolw import dbtables
 from glue.ligolw.utils import segments as ligolw_segments
-from glue import lal
 from pylal import db_thinca_rings
 from pylal import git_version
 from pylal import rate
@@ -113,7 +113,7 @@ Generate the given plot group.  Can be given multiple times (default = make all 
 		options.format = ["png"]
 
 	if not filenames: filenames = []
-	if options.input_cache: filenames.extend([lal.CacheEntry(l).path for l in open(options.input_cache).readlines()])
+	if options.input_cache: filenames.extend([lalutils.CacheEntry(l).path for l in open(options.input_cache).readlines()])
 
 	return options, (filenames or [])
 

@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.66-64
+VERSION=1.4.76-64
 # This version is developed against LAL-6.30
 LALROOT=./../../../../
 LALROOT=/home/vdergach/opt/
@@ -24,10 +24,10 @@ OPTFLAGS=-O3 -mtune=core2 -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -f
 #OPTFLAGS=-O3 -mtune=core2 -msse3 -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=0
 #
 # AVX lto manual sse
-#OPTFLAGS=-O3 -fopenmp -flto -mtune=core2 -mavx -ftree-loop-im -fvariable-expansion-in-unroller -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=1 -fno-associative-math -fno-math-errno -ffinite-math-only -fno-signed-zeros -fcx-limited-range -DLINUX_THREADS
+OPTFLAGS=-O3 -fopenmp -flto -mtune=core2 -mavx -ftree-loop-im -fvariable-expansion-in-unroller -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=1 -DUSE_AVX=1 -fno-associative-math -fno-math-errno -ffinite-math-only -fno-signed-zeros -fcx-limited-range -DLINUX_THREADS
 #
 # SSE lto manual sse
-OPTFLAGS=-O3 -fopenmp -flto -mtune=core2 -msse3 -ftree-loop-im -fvariable-expansion-in-unroller -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=1 -fno-associative-math -fno-math-errno -ffinite-math-only -fno-signed-zeros -fcx-limited-range -DLINUX_THREADS
+#OPTFLAGS=-O3 -fopenmp -flto -mtune=core2 -msse3 -ftree-loop-im -fvariable-expansion-in-unroller -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=1 -fno-associative-math -fno-math-errno -ffinite-math-only -fno-signed-zeros -fcx-limited-range -DLINUX_THREADS
 
 #OPTFLAGS=-O3 -march=haswell -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=0
 #OPTFLAGS=-fopenmp -O3 -march=haswell -fno-tree-vectorize -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=0
@@ -507,18 +507,18 @@ upload: powerflux-condor powerflux-mt powerflux-condor2 powerflux-mt2
 	gsiscp -C $(FILES) hydra.phys.uwm.edu:PowerFlux/
 	
 upload.a: powerflux-condor powerflux-mt powerflux-condor2 powerflux-mt2
-	gsiscp -C powerflux-condor h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor.$(VERSION)
-	gsiscp -C powerflux-mt h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt.$(VERSION)
-	gsiscp -C powerflux-condor2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor2.$(VERSION)
-	gsiscp -C powerflux-mt2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt2.$(VERSION)
-	gsiscp -C $(FILES) h2.atlas.aei.uni-hannover.de:PowerFlux/
+	gsiscp -C powerflux-condor atlas7.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor.$(VERSION)
+	gsiscp -C powerflux-mt atlas7.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt.$(VERSION)
+	gsiscp -C powerflux-condor2 atlas7.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor2.$(VERSION)
+	gsiscp -C powerflux-mt2 atlas7.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt2.$(VERSION)
+	gsiscp -C $(FILES) atlas7.atlas.aei.uni-hannover.de:PowerFlux/
 	
 upload.a2: powerflux-mt2
-#	gsiscp -C powerflux-condor h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor.$(VERSION)
-#	gsiscp -C powerflux-mt h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt.$(VERSION)
-#	gsiscp -C powerflux-condor2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor2.$(VERSION)
-	gsiscp -C powerflux-mt2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt2.$(VERSION)
-#	gsiscp -C $(FILES) h2.atlas.aei.uni-hannover.de:PowerFlux/
+#	gsiscp -C powerflux-condor atlas7.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor.$(VERSION)
+#	gsiscp -C powerflux-mt atlas7.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt.$(VERSION)
+#	gsiscp -C powerflux-condor2 atlas7.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor2.$(VERSION)
+	gsiscp -C powerflux-mt2 atlas7.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt2.$(VERSION)
+#	gsiscp -C $(FILES) atlas7.atlas.aei.uni-hannover.de:PowerFlux/
 	
 upload.g: powerflux-condor powerflux-mt
 	scp -C powerflux-condor gallatin.physics.lsa.umich.edu:PowerFlux/powerflux-condor.$(VERSION)

@@ -80,6 +80,7 @@ typedef enum {
   UVAR_TYPE_DECJ,    		// sky equatorial latitude (aka declination or DEC), in either radians or degrees:minutes:seconds format, translated into radians
   UVAR_TYPE_STRING, 		// normal string
 
+  UVAR_TYPE_INT4Range,		// range of INT4 values
   UVAR_TYPE_REAL8Range,		// range of REAL8 values
   UVAR_TYPE_EPOCHRange,		// range of LIGOTimeGPS values
   UVAR_TYPE_RAJRange,		// range of RAJ values
@@ -101,7 +102,7 @@ typedef struct tagLALUserVariable {
   UserVarType type;			// variable type: BOOLEAN, INT4, REAL8, ...
   CHAR optchar;				// cmd-line character
   CHAR help[2048];			// help-string
-  void *varp;				// pointer to the actual C-variable
+  void *cvar;				// pointer to the actual C-variable
   UserVarCategory category;		// category (optional, required, developer, ... )
   BOOLEAN was_set;			// was this set by the user: 0=no, 1=via cfg-file, 2=via cmdline
   struct tagLALUserVariable *next; 	// linked list
@@ -126,6 +127,7 @@ DEFN_REGISTER_UVAR(DECJ,REAL8);
 DEFN_REGISTER_UVAR(EPOCH,LIGOTimeGPS);
 DEFN_REGISTER_UVAR(STRING,CHAR*);
 
+DEFN_REGISTER_UVAR(INT4Range,INT4Range);
 DEFN_REGISTER_UVAR(REAL8Range,REAL8Range);
 DEFN_REGISTER_UVAR(EPOCHRange,LIGOTimeGPSRange);
 DEFN_REGISTER_UVAR(RAJRange,REAL8Range);
@@ -137,18 +139,18 @@ DEFN_REGISTER_UVAR(REAL8Vector,REAL8Vector*);
 DEFN_REGISTER_UVAR(STRINGVector,LALStringVector*);
 
 // ----- define helper types for casting
-typedef int (*parserT)(void*, const char*);
-typedef void (*destructorT)(void*);
-typedef char *(*printerT)(const void*);
+typedef void (*destructorT)(void *cvar);
+typedef int (*parserT)(void *cvar, const char *valstr);
+typedef char *(*printerT)(const void *cvar);
 
 // ----- handy macro to simplify adding 'regular' entries for new UTYPES into UserVarTypeMap
 #define REGULAR_MAP_ENTRY(UTYPE,DESTRUCTOR,FORMATHELP) \
   [UVAR_TYPE_##UTYPE] = { \
     .name = #UTYPE, \
-    .format_help = FORMATHELP, \
+    .destructor = (destructorT)DESTRUCTOR, \
     .parser = (parserT)XLALParseStringValueAs##UTYPE, \
     .printer = (printerT)XLALPrintStringValueOf##UTYPE, \
-    .destructor = (destructorT)DESTRUCTOR \
+    .format_help_str = FORMATHELP, \
   }
 
 // ---------- HOWTO add new UserInput variable types ----------
@@ -168,36 +170,41 @@ typedef char *(*printerT)(const void*);
 static const struct
 {
   const char *const name;			///< type name
-  const char *const format_help;		///< help string describing format of user variable
-  int (*parser)(void*, const char*);		///< parser function to parse string as this type
-  char *(*printer)(const void *);		///< 'printer' function returning string value for given type
-  void (*destructor)(void*);			///< destructor for this variable type, NULL if none required
+  destructorT destructor;			///< destructor for this variable type, NULL if none required
+  parserT parser;				///< parser function to parse string as this type
+  printerT printer;				///< 'printer' function returning string value for given type
+  const char *const format_help_str;   		///< help string describing format of user variable
 } UserVarTypeMap[UVAR_TYPE_END]
 = {
   // either use 'manual' entries of the form
-  // [UVAR_TYPE_\<UTYPE\>] = { "\<UTYPE\>",	(parserT)XLALParseStringValueAs\<UTYPE\>, (printerT)XLALPrintStringValueOf\<UTYPE\>, (destructorT)XLALDestroy\<UTYPE\> },
+  //   [UVAR_TYPE_\<UTYPE\>] = {
+  //     .name = "\<UTYPE\>", .destructor = (destructorT)XLALDestroy\<UTYPE\>, .format_help_str = "=help string for \<UTYPE\>",
+  //     .parser = (parserT)XLALParseStringValueAs\<UTYPE\>, .printer = (printerT)XLALPrintStringValueOf\<UTYPE\>,
+  //   },
   // or the convenience macro for cases using 'standard' function names and API
-  // REGULAR_MAP_ENTRY ( \<UTYPE\>, XLALDestroy\<UTYPE\> ),
-  REGULAR_MAP_ENTRY ( BOOLEAN, NULL, "[TRUE|FALSE | YES|NO | 1|0]" ),
-  REGULAR_MAP_ENTRY ( INT4, NULL, "<4-byte signed integer>" ),
-  REGULAR_MAP_ENTRY ( INT8, NULL, "<8-byte signed integer>" ),
-  REGULAR_MAP_ENTRY ( UINT4, NULL, "<4-byte unsigned integer>" ),
-  REGULAR_MAP_ENTRY ( UINT8, NULL, "<8-byte unsigned integer>" ),
-  REGULAR_MAP_ENTRY ( REAL8, NULL, "<8-byte real>" ),
-  REGULAR_MAP_ENTRY ( STRING, XLALFree, "<string>" ),
-  REGULAR_MAP_ENTRY ( EPOCH, NULL, "<seconds>[.<frac-seconds>][GPS] | <days>[.<frac-days>]MJD" ),
-  REGULAR_MAP_ENTRY ( RAJ, NULL, "<radians>|<hours>:<minutes>:<seconds>" ),
-  REGULAR_MAP_ENTRY ( DECJ, NULL, "<radians>|<degrees>:<minutes>:<seconds>" ),
+  //   REGULAR_MAP_ENTRY ( \<UTYPE\>, XLALDestroy\<UTYPE\>, "=help string for \<UTYPE\>" ),
 
-  REGULAR_MAP_ENTRY ( REAL8Range, NULL, "<start>[,<end>|/<band>|~<plus-minus>] where <>=<8-byte real>" ),
-  REGULAR_MAP_ENTRY ( EPOCHRange, NULL, "<start>[,<end>|/<band>|~<plus-minus>] where <>=<seconds>[.<frac-seconds>][GPS] | <days>[.<frac-days>]MJD" ),
-  REGULAR_MAP_ENTRY ( RAJRange, NULL, "<start>[,<end>|/<band>|~<plus-minus>] where <>=<radians>|<hours>:<minutes>:<seconds>" ),
-  REGULAR_MAP_ENTRY ( DECJRange, NULL, "<start>[,<end>|/<band>|~<plus-minus>] where <>=<radians>|<degrees>:<minutes>:<seconds>" ),
+  REGULAR_MAP_ENTRY ( BOOLEAN, NULL, "[=(TRUE|FALSE)|(YES|NO)|(1|0)]" ),
+  REGULAR_MAP_ENTRY ( INT4, NULL, "=<4-byte signed integer>" ),
+  REGULAR_MAP_ENTRY ( INT8, NULL, "=<8-byte signed integer>" ),
+  REGULAR_MAP_ENTRY ( UINT4, NULL, "=<4-byte unsigned integer>" ),
+  REGULAR_MAP_ENTRY ( UINT8, NULL, "=<8-byte unsigned integer>" ),
+  REGULAR_MAP_ENTRY ( REAL8, NULL, "=<8-byte real>" ),
+  REGULAR_MAP_ENTRY ( STRING, XLALFree, "=<string>" ),
+  REGULAR_MAP_ENTRY ( EPOCH, NULL, "=<seconds>[.<frac-seconds>][GPS] | <days>[.<frac-days>]MJD" ),
+  REGULAR_MAP_ENTRY ( RAJ, NULL, "=<radians>|<hours>:<minutes>:<seconds>" ),
+  REGULAR_MAP_ENTRY ( DECJ, NULL, "=<radians>|<degrees>:<minutes>:<seconds>" ),
 
-  REGULAR_MAP_ENTRY ( INT4Vector, XLALDestroyINT4Vector, "<4-byte signed integer>,..." ),
-  REGULAR_MAP_ENTRY ( UINT4Vector, XLALDestroyUINT4Vector, "<4-byte unsigned integer>,..." ),
-  REGULAR_MAP_ENTRY ( REAL8Vector, XLALDestroyREAL8Vector, "<8-byte real>,..." ),
-  REGULAR_MAP_ENTRY ( STRINGVector, XLALDestroyStringVector, "<string>,..." ),
+  REGULAR_MAP_ENTRY ( INT4Range, NULL, "=<start>[,<end>|/<band>|~<plus-minus>] where <>=<4-byte signed integer>" ),
+  REGULAR_MAP_ENTRY ( REAL8Range, NULL, "=<start>[,<end>|/<band>|~<plus-minus>] where <>=<8-byte real>" ),
+  REGULAR_MAP_ENTRY ( EPOCHRange, NULL, "=<start>[,<end>|/<band>|~<plus-minus>] where <>=<seconds>[.<frac-seconds>][GPS] | <days>[.<frac-days>]MJD" ),
+  REGULAR_MAP_ENTRY ( RAJRange, NULL, "=<start>[,<end>|/<band>|~<plus-minus>] where <>=<radians>|<hours>:<minutes>:<seconds>" ),
+  REGULAR_MAP_ENTRY ( DECJRange, NULL, "=<start>[,<end>|/<band>|~<plus-minus>] where <>=<radians>|<degrees>:<minutes>:<seconds>" ),
+
+  REGULAR_MAP_ENTRY ( INT4Vector, XLALDestroyINT4Vector, "=<4-byte signed integer>,..." ),
+  REGULAR_MAP_ENTRY ( UINT4Vector, XLALDestroyUINT4Vector, "=<4-byte unsigned integer>,..." ),
+  REGULAR_MAP_ENTRY ( REAL8Vector, XLALDestroyREAL8Vector, "=<8-byte real>,..." ),
+  REGULAR_MAP_ENTRY ( STRINGVector, XLALDestroyStringVector, "=<string>,..." ),
 };
 
 
@@ -276,7 +283,7 @@ XLALRegisterUserVar ( void *cvar,		/**< pointer to the actual C-variabe to link 
   // fill in entry values
   ptr->type 	= type;
   ptr->optchar 	= optchar;
-  ptr->varp 	= cvar;
+  ptr->cvar 	= cvar;
   ptr->category = category;
 
   return XLAL_SUCCESS;
@@ -300,8 +307,8 @@ XLALDestroyUserVars ( void )
       // is there a destructor function registered for this type?
       if ( UserVarTypeMap [ ptr->type ].destructor != NULL )
         {
-          UserVarTypeMap [ ptr->type ].destructor ( *(CHAR**)ptr->varp );
-          *(CHAR**)ptr->varp = NULL;
+          UserVarTypeMap [ ptr->type ].destructor ( *(CHAR**)ptr->cvar );
+          *(CHAR**)ptr->cvar = NULL;
         }
 
       /* free list-entry behind us (except for the head) */
@@ -445,7 +452,7 @@ XLALUserVarReadCmdline ( BOOLEAN *should_exit, int argc, char *argv[] )
             }
 
 	  if ( LALoptarg == NULL ) { // if no argument given, defaults to TRUE
-            *(BOOLEAN*)(ptr->varp) = TRUE;
+            *(BOOLEAN*)(ptr->cvar) = TRUE;
           } else {
             if ( LALoptarg == NULL || strlen(LALoptarg) == 0 )
               {
@@ -453,7 +460,7 @@ XLALUserVarReadCmdline ( BOOLEAN *should_exit, int argc, char *argv[] )
                 *should_exit = 1;
                 return XLAL_SUCCESS;
               }
-            if ( UserVarTypeMap [ ptr->type ].parser( ptr->varp, LALoptarg ) != XLAL_SUCCESS )
+            if ( UserVarTypeMap [ ptr->type ].parser( ptr->cvar, LALoptarg ) != XLAL_SUCCESS )
               {
                 XLALPrintError( "\n%s: could not parse value '%s' given to option " UVAR_FMT "\n\n", program_name, LALoptarg, ptr->name );
                 *should_exit = 1;
@@ -466,8 +473,8 @@ XLALUserVarReadCmdline ( BOOLEAN *should_exit, int argc, char *argv[] )
           // all other UVAR_TYPE_ types can be handled canonically: first destroy previous value, the parse new one
           if ( UserVarTypeMap [ ptr->type ].destructor != NULL )
             {
-              UserVarTypeMap [ ptr->type ].destructor( *(char**)ptr->varp );
-              *(char**)ptr->varp = NULL;
+              UserVarTypeMap [ ptr->type ].destructor( *(char**)ptr->cvar );
+              *(char**)ptr->cvar = NULL;
             } // if a destructor was registered
           if ( LALoptarg == NULL || strlen(LALoptarg) == 0 )
             {
@@ -475,7 +482,7 @@ XLALUserVarReadCmdline ( BOOLEAN *should_exit, int argc, char *argv[] )
               *should_exit = 1;
               return XLAL_SUCCESS;
             }
-          if ( UserVarTypeMap [ ptr->type ].parser( ptr->varp, LALoptarg ) != XLAL_SUCCESS )
+          if ( UserVarTypeMap [ ptr->type ].parser( ptr->cvar, LALoptarg ) != XLAL_SUCCESS )
             {
               XLALPrintError( "\n%s: could not parse value '%s' given to option " UVAR_FMT "\n\n", program_name, LALoptarg, ptr->name );
               *should_exit = 1;
@@ -558,8 +565,8 @@ XLALUserVarReadCfgfile ( BOOLEAN *should_exit, const CHAR *cfgfile )
           // destroy previous value, is applicable, then parse new one
           if ( UserVarTypeMap [ ptr->type ].destructor != NULL )
             {
-              UserVarTypeMap [ ptr->type ].destructor( *(char**)ptr->varp );
-              *(char**)ptr->varp = NULL;
+              UserVarTypeMap [ ptr->type ].destructor( *(char**)ptr->cvar );
+              *(char**)ptr->cvar = NULL;
             } // if a destructor was registered
           if ( valString == NULL || strlen(valString) == 0 )
             {
@@ -567,7 +574,7 @@ XLALUserVarReadCfgfile ( BOOLEAN *should_exit, const CHAR *cfgfile )
               *should_exit = 1;
               return XLAL_SUCCESS;
             }
-          if ( UserVarTypeMap [ ptr->type ].parser( ptr->varp, valString ) != XLAL_SUCCESS )
+          if ( UserVarTypeMap [ ptr->type ].parser( ptr->cvar, valString ) != XLAL_SUCCESS )
             {
               XLALPrintError( "\n%s: could not parse value '%s' given to option " UVAR_FMT "\n\n", program_name, valString, ptr->name );
               *should_exit = 1;
@@ -817,7 +824,7 @@ XLALUserVarPrintHelp ( FILE *file )
               fprintf( f, "--%s", ptr->name );
               if ( print_format_help )
                 {
-                  fprintf( f, "=%s", UserVarTypeMap [ ptr->type ].format_help );
+                  fprintf( f, "%s", UserVarTypeMap [ ptr->type ].format_help_str );
                 }
               if ( print_default_value )
                 {
@@ -832,7 +839,7 @@ XLALUserVarPrintHelp ( FILE *file )
                   else
                     {
                       char *valstr;
-                      XLAL_CHECK( (valstr = UserVarTypeMap [ ptr->type ].printer( ptr->varp )) != NULL, XLAL_EFUNC );
+                      XLAL_CHECK( (valstr = UserVarTypeMap [ ptr->type ].printer( ptr->cvar )) != NULL, XLAL_EFUNC );
                       fprintf( f, " [default: %s]",  valstr );
                       XLALFree( valstr );
                     }
@@ -996,7 +1003,7 @@ XLALUserVarWasSet ( const void *cvar )
   LALUserVariable *ptr = &UVAR_vars;
   while ( (ptr = ptr->next) != NULL )
     {
-      if ( ptr->varp == cvar) {
+      if ( ptr->cvar == cvar) {
         break;
       }
     } // while ptr = ptr->next
@@ -1060,7 +1067,7 @@ XLALUserVarGetLog ( UserVarLogFormat format 	/**< output format: return as confi
       }
 
       CHAR *valstr;
-      XLAL_CHECK_NULL ( (valstr = UserVarTypeMap [ ptr->type ].printer( ptr->varp )) != NULL, XLAL_EFUNC );
+      XLAL_CHECK_NULL ( (valstr = UserVarTypeMap [ ptr->type ].printer( ptr->cvar )) != NULL, XLAL_EFUNC );
 
       char append[256];
       switch (format)

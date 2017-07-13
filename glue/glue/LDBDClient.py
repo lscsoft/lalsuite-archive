@@ -26,7 +26,6 @@ __version__ = git_version.id
 
 import sys
 import os
-import exceptions
 import types
 import re
 import six.moves.cPickle

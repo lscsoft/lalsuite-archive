@@ -9,7 +9,7 @@ from optparse import *
 from pylab    import *
 import numpy
 from numpy import power
-from pylal import rate
+from lal import rate
 
 #####################################################################
 # use tex labels
@@ -1584,75 +1584,6 @@ def plotslides(slide_trigs, zerolag_trigs = None, ifolist = None, \
   title(title_text, size='x-large')
 
    
-######################################################################
-def tfplot(*args, **kwargs):
-  """
-  tfplot(x, y, s=20, c='b', marker='o', cmap=None, norm=None,
-    vmin=None, vmax=None, alpha=1.0)
-
-  Supported function signatures:
-
-  TFPLOT(x, y)  : make a scatter plot of x vs y
-
-  TFPLOT(x, y, s)  : make a scatter plot of x vs y with size in area
-  given by s
-
-  TFPLOT(x, y, s, c) : make a scatter plot of x vs y with size in area
-  given by s and colors given by c
-
-  TFPLOT(x, y, s, c, **kwargs) : control colormapping and scaling
-  with keyword args; see below
-
-  Make a scatter plot of x versus y.  s is a size in points^2 a scalar
-  or an array of the same length as x or y.  c is a color and can be a
-  """
-  shading = kwargs.get('shading', 'faceted')
-  cmap = kwargs.get('cmap', cm.get_cmap())
-  norm = kwargs.get('norm', normalize())
-  alpha = kwargs.get('alpha', 1.0)
-  vmin = kwargs.get('vmin', None)
-  vmax = kwargs.get('vmax', None)  
-  a = kwargs.get('axes', gca())
-
-  if len(args)==5:
-      X, dX, Y, dY, C = args
-  else:
-      raise TypeError, 'Illegal arguments to rectfill; see help(rectfill)'
-  
-  Nx, = X.shape
-  verts = [ ( (X[i,] , Y[i,]) , (X[i,]+dX[i,] , Y[i,]),
-              (X[i,]+dX[i,] , Y[i,]+dY[i,]), 
-              (X[i,] , Y[i,]+dY[i,]) )
-            for i in range(Nx-1) ] 
-  C = array([C[i,] for i in range(Nx-1)])
-              
-  if shading == 'faceted': edgecolors =  (0,0,0,1), 
-  else: edgecolors = 'None'
-  
-  collection = PolyCollection(
-          verts,
-          edgecolors   = edgecolors,
-          antialiaseds = (0,),
-          linewidths   = (0.25,),
-          )
-  collection.set_alpha(alpha)
-  collection.set_array(C)
-  if norm is not None: assert(isinstance(norm, normalize))
-  if cmap is not None: assert(isinstance(cmap, Colormap))
-  collection.set_cmap(cmap)
-  collection.set_norm(norm)
-  if norm is not None: collection.set_clim(vmin, vmax)
-  minx = amin(X)
-  maxx = amax(X)
-  miny = amin(Y)
-  maxy = amax(Y)
-  corners = (minx, miny), (maxx, maxy)      
-  a.update_datalim( corners )
-  a.autoscale_view()
-  # add the collection last
-  a.add_collection(collection)
-  return collection
-
 ######################################################################
 def rescale_axis(limNew, limOld):    
   """

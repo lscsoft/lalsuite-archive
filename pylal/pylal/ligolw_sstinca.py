@@ -668,12 +668,12 @@ class sngl_inspiral_coincs(object):
 	Example:
 
 	>>> coincs = sngl_inspiral_coincs(xmldoc)
-	>>> print coincs.coinc_def_id
+	>>> print(coincs.coinc_def_id)
 	coinc_definer:coinc_def_id:0
 	>>> coincs.keys()
 	[<glue.ligolw.ilwd.cached_ilwdchar_class object at 0x41a4328>]
 	>>> coinc_id = coincs.keys()[0]
-	>>> print coinc_id
+	>>> print(coinc_id)
 	coinc_event:coinc_event_id:83763
 	>>> coincs[coinc_id].write()
 	<?xml version='1.0' encoding='utf-8'?>
@@ -859,7 +859,7 @@ class sngl_inspiral_coincs(object):
 
 		Example:
 
-		>>> print coincs.column_index("coinc_event", "likelihood")
+		>>> print(coincs.column_index("coinc_event", "likelihood"))
 
 		Only columns in the coinc_event and coinc_inspiral tables
 		can be retrieved this way.

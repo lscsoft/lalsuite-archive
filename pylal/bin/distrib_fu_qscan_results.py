@@ -14,7 +14,6 @@ import os, shutil
 from subprocess import *
 import copy
 import re
-import exceptions
 import glob
 import fileinput
 import linecache

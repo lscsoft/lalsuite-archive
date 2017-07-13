@@ -31,7 +31,6 @@ import getopt
 import time
 import socket
 import six.moves.configparser
-import exceptions
 import logging
 import logging.handlers
 from pyGlobus import io
@@ -223,7 +222,7 @@ if runAsDaemon:
 logger = logging.getLogger('ldbdd')
 
 
-class LDBDDaemonException(exceptions.Exception):
+class LDBDDaemonException(Exception):
   """
   Class representing exceptions withing the LDBDDaemon class.
   """

@@ -99,7 +99,7 @@ def parse_command_line():
 # Use interning row builder to save memory.
 #
 
-ligolw_miinjfind.table.RowBuilder = ligolw_miinjfind.table\
+ligolw_miinjfind.table.TableStream.RowBuilder = ligolw_miinjfind.table\
                                           .InterningRowBuilder
 
 #

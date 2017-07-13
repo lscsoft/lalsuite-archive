@@ -52,7 +52,7 @@ __version__= "git id %s"%git_version.id
 __date__= git_version.date
 
 #List of parameters to plot/bin . Need to match (converted) column names.
-oneDMenu=['mtotal','m1','m2','mchirp','mc','chirpmass','distance','distMPC','dist','iota','psi','eta','q','asym_massratio','spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','costhetas','cosbeta','phi_orb', 'lambdat', 'dlambdat', 'lambda1', 'lambda2', 'lam_tilde', 'dlam_tilde','theta_jn','a1z','a2z'] + bppu.snrParams
+oneDMenu=['mtotal','m1','m2','mchirp','mc','chirpmass','distance','distMPC','dist','iota','psi','eta','q','asym_massratio','spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','costhetas','cosbeta','phi_orb', 'lambdat', 'dlambdat', 'lambda1', 'lambda2', 'lam_tilde', 'dlam_tilde','theta_jn','a1z','a2z'] + bppu.snrParams + bppu.spinParams + bppu.cosmoParam + bppu.calParams
 #List of parameter pairs to bin . Need to match (converted) column names.
 twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['chirpmass','eta'],['mc','q'],['mchirp','q'],['chirpmass','q'],['mc','asym_massratio'],['mchirp','asym_massratio'],['chirpmass','asym_massratio'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec'],['dist','cos(iota)'],['phi_orb','iota'],['theta_jn','dist'],['spin1','spin2'],['spin1','mchirp'],['spin1','m1'],['a1','a2'],['a1','mchirp'],['a1','m1'],['tilt1','tilt2'],['tilt1','mchirp'],['tilt1','m1'],['a1z','a2z']]
 #Bin size/resolution for binning. Need to match (converted) column names.
@@ -80,6 +80,12 @@ for s in bppu.calParams:
         greedyBinSizes[s]=0.02
 for s in bppu.tigerParams:
   greedyBinSizes[s]=0.01
+for s in bppu.spinParams:
+        greedyBinSizes[s]=0.02
+for s in bppu.cosmoParam:
+        greedyBinSizes[s]=0.1
+greedyBinSizes['redshift']=0.005
+
 #Confidence levels
 OneDconfidenceLevels=[0.9]#[0.68,0.9,0.95,0.997]
 TwoDconfidenceLevels=OneDconfidenceLevels
@@ -87,7 +93,7 @@ TwoDconfidenceLevels=OneDconfidenceLevels
 #2D plots list
 #twoDplots=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['ra','dec'],['m1','dist'],['m2','dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0'],['dist','cos(iota)']]
 twoDplots=[['m1','m2'],['mass1','mass2'],['RA','dec'],['ra','dec'],['cos(thetas)','cos(beta)'],['distance','iota'],['dist','iota'],['dist','cosiota'],['distance','cosiota'],['psi','iota'],['psi','distance'],['psi','phi0'],['dist','cos(iota)'],['phi_orb','iota'],['distance','inclination'],['dist','inclination'],['theta_jn','dist'],['spin1','spin2'],['spin1','mchirp'],['spin1','m1'],['a1','a2'],['a1','mchirp'],['a1','m1'],['tilt1','tilt2'],['tilt1','mchirp'],['tilt1','m1']]
-allowed_params=['mtotal','m1','m2','mchirp','mc','chirpmass','q','asym_massratio','distance','distMPC','dist','iota','psi','eta','ra','dec','a1','a2','spin1','spin2','phi1','theta1','phi2','theta2','cos(iota)','cos(tilt1)','cos(tilt2)','tilt1','tilt2','cos(thetas)','cos(beta)','phi_orb','inclination', 'logl', 'lambdat', 'dlambdat', 'lambda1', 'lambda2', 'lam_tilde', 'dlam_tilde','theta_jn','a1z','a2z']+bppu.snrParams+bppu.calParams
+allowed_params=['mtotal','m1','m2','mchirp','mc','chirpmass','q','asym_massratio','distance','distMPC','dist','iota','psi','eta','ra','dec','a1','a2','spin1','spin2','phi1','theta1','phi2','theta2','cos(iota)','cos(tilt1)','cos(tilt2)','tilt1','tilt2','cos(thetas)','cos(beta)','phi_orb','inclination', 'logl', 'lambdat', 'dlambdat', 'lambda1', 'lambda2', 'lam_tilde', 'dlam_tilde','theta_jn','a1z','a2z']+bppu.snrParams + bppu.spinParams + bppu.cosmoParam + bppu.calParams
 
 def open_url(url,username,password):
 
@@ -283,7 +289,9 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
             n,bins=np.histogram(posterior[param].samples,bins=posbins,normed=True,new=True)
         except:
             n,bins=np.histogram(posterior[param].samples,bins=posbins,normed=True)
-
+        if min(bins)==max(bins):
+            print 'Skipping '+param
+            continue
         locmaxy=max(n)
         if locmaxy>max_y: max_y=locmaxy
 #(n, bins, patches)=plt.hist(posterior[param].samples,bins=bins,facecolor='white',label=name,normed=True,hold=True,color=color_by_name[name])#range=(min_pos,max_pos)
@@ -410,6 +418,10 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
             n,bins=np.histogram(posterior[param].samples,bins=posbins,normed=True,new=True)
         except:
             n,bins=np.histogram(posterior[param].samples,bins=posbins,normed=True)
+
+        if min(bins)==max(bins):
+            print 'Skipping '+param
+            continue
 
         (n, bins, patches)=plt.hist(posterior[param].samples,bins=bins,histtype='step',label=name,normed=True,hold=True,color=color_by_name[name],cumulative='True')#range=(min_pos,max_pos)
 

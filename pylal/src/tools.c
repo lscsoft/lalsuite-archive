@@ -88,7 +88,6 @@ SnglInspiralTable *PySnglInspiral2CSnglInspiral(PyObject *row) {
 
     /* allocate new memory for row */
     event = calloc(1, sizeof(*event));
-    event->event_id = calloc(1, sizeof(*event->event_id));
 
     /* copy to C SnglInspiral row */
     GetAttrInPlaceString(event->ifo, LIGOMETA_IFO_MAX, row, "ifo");
@@ -153,10 +152,9 @@ SnglInspiralTable *PySnglInspiral2CSnglInspiral(PyObject *row) {
     event->spin2y = GetAttrFloat(row, "spin2y");
     event->spin2z = GetAttrFloat(row, "spin2z");
 
-    event->event_id->id = GetAttrLongLong(row, "event_id");
+    event->event_id = GetAttrLongLong(row, "event_id");
 
     if(PyErr_Occurred()) {
-        free(event->event_id);
         free(event);
         return NULL;
     }
@@ -172,7 +170,6 @@ SimInspiralTable *PySimInspiral2CSimInspiral(PyObject *row) {
 
     /* allocate new memory for row */
     event = calloc(1, sizeof(*event));
-    event->event_id = calloc(1, sizeof(*event->event_id));
 
     /* copy to C SimInspiral row */
     GetAttrInPlaceString(event->waveform, LIGOMETA_WAVEFORM_MAX, row, "waveform");
@@ -230,10 +227,9 @@ SimInspiralTable *PySimInspiral2CSimInspiral(PyObject *row) {
     event->eff_dist_t = GetAttrFloat(row, "eff_dist_t");
     event->eff_dist_v = GetAttrFloat(row, "eff_dist_v");
 
-    GetAttrInPlaceString(event->event_id->textId, LIGOMETA_UNIQUE_MAX, row, "simulation_id");
+    event->simulation_id = GetAttrLongLong(row, "simulation_id");
 
     if(PyErr_Occurred()) {
-        free(event->event_id);
         free(event);
         return NULL;
     }
@@ -259,7 +255,6 @@ static PyObject *PyCalculateEThincaParameter(PyObject *self, PyObject *args) {
         return NULL;
     c_row2 = PySnglInspiral2CSnglInspiral(py_row2);
     if(!c_row2) {
-        free(c_row1->event_id);
         free(c_row1);
         return NULL;
     }
@@ -271,9 +266,7 @@ static PyObject *PyCalculateEThincaParameter(PyObject *self, PyObject *args) {
     result = XLALCalculateEThincaParameter(c_row1, c_row2, &accuracyParams);
 
     /* Free temporary memory */
-    free(c_row1->event_id);
     free(c_row1);
-    free(c_row2->event_id);
     free(c_row2);
 
     if(XLAL_IS_REAL8_FAIL_NAN(result)) {
@@ -319,7 +312,6 @@ static PyObject *PyCalculateEThincaParameterExt(PyObject *self, PyObject *args) 
         return NULL;
     c_row2 = PySnglInspiral2CSnglInspiral(py_row2);
     if(!c_row2) {
-        free(c_row1->event_id);
         free(c_row1);
         return NULL;
     }
@@ -332,9 +324,7 @@ static PyObject *PyCalculateEThincaParameterExt(PyObject *self, PyObject *args) 
     result = XLALCalculateEThincaParameter(c_row1, c_row2, &accuracyParams);
 
     /* Free temporary memory */
-    free(c_row1->event_id);
     free(c_row1);
-    free(c_row2->event_id);
     free(c_row2);
 
     if(XLAL_IS_REAL8_FAIL_NAN(result)) {
@@ -366,7 +356,6 @@ static PyObject *PyEThincaParameterForInjection(PyObject *self, PyObject *args) 
         return NULL;
     c_row2 = PySnglInspiral2CSnglInspiral(py_row2);
     if(!c_row2) {
-        free(c_row1->event_id);
         free(c_row1);
         return NULL;
     }
@@ -375,9 +364,7 @@ static PyObject *PyEThincaParameterForInjection(PyObject *self, PyObject *args) 
     result = XLALEThincaParameterForInjection(c_row1, c_row2);
     
     /* Free temporary memory */
-    free(c_row1->event_id);
     free(c_row1);
-    free(c_row2->event_id);
     free(c_row2);
     
     return PyFloat_FromDouble(result);

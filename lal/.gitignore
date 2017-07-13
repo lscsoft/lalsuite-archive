@@ -7,6 +7,7 @@
 *.pc
 *.pyc
 *.pyo
+__pycache__
 .adoc
 .deps
 .dvi-dep
@@ -18,6 +19,7 @@ AUTHORS
 Makefile
 Makefile.in
 config.lt
+debian/control
 doxygen/autogen.dox
 doxygen/doxygen.cfg
 doxygen/doxygen_objdb_*.tmp
@@ -31,8 +33,8 @@ include/lal/*.i
 include/lal/header-link-stamp
 lal-*.tar.xz
 lal-user-env.csh
-lal-user-env.sh
 lal-user-env.fish
+lal-user-env.sh
 lal-user-env.shell
 lal.spec
 libtool
@@ -41,7 +43,7 @@ python/lal/__init__.py
 python/lal/_lal*
 python/lal/git_version.py
 python/lal/lal.py
-src/LALBuildInfo.c
+src/LALBuildInfoHeader.h
 src/LALConfig.h
 src/LALVCSInfo.c
 src/LALVCSInfo.h
@@ -50,10 +52,11 @@ src/config.h
 src/config.h.in
 src/fft/CudaFFT.cpp
 src/git_version
-src/lal-simd-detect
-src/lal-version
+src/lal_simd_detect
+src/lal_version
 src/stamp-h1
 src/stamp-h2
+src/version.c
 swig/swiglal*
 test/*/*.dat
 test/*/*.out
@@ -92,7 +95,6 @@ test/std/LALGSLTest
 test/std/LALMallocPerf
 test/std/LALMallocTest
 test/std/LALStringTest
-test/std/LALVersionTest
 test/std/StringConvertTest
 test/support/ConfigFileTest
 test/support/GzipTest

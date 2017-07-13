@@ -235,7 +235,7 @@ def seg_spec_to_sql(spec):
 # define a new type so that the ligolw routines can generate the XML
 #
 class ShowTypesResultTable(table.Table):
-    tableName = "show_types_result:table"
+    tableName = "show_types_result"
 
     validcolumns = {
         "ifos": "lstring",

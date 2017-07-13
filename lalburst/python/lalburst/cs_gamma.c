@@ -28,6 +28,7 @@
 /*Modified June 2010 by Andrew Mergl for use with Python*/
 
 #include <Python.h>
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include <numpy/arrayobject.h>
 #include <math.h>
 #include <stdlib.h>
@@ -36,6 +37,7 @@
 #include <gsl/gsl_errno.h>
 #include <lal/cs_cosmo.h>
 #include <lal/cs_lambda_cosmo.h>
+#include "six.h"
 
 #define CUSPS_PER_LOOP 1.0		/* c */
 #define LOOP_RAD_POWER 50.0		/* Gamma */
@@ -63,7 +65,7 @@ static PyObject *cs_gamma_finddRdz(PyObject *self, PyObject *args)
   PyArrayObject *Numpy_zofA;
   PyObject *Numpy_dRdz;
   double Gmu, alpha, f, Gamma, *zofA, *dRdz;
-  int Namp;
+  long int Namp;
   cs_cosmo_functions_t cosmofns;
   int j;
   (void)self;	/* silence unused parameter warning */
@@ -81,7 +83,7 @@ static PyObject *cs_gamma_finddRdz(PyObject *self, PyObject *args)
   npy_intp dims[1] = {Namp};
   Numpy_dRdz = PyArray_SimpleNew(1, dims, NPY_DOUBLE);
   }
-  dRdz = PyArray_DATA(Numpy_dRdz);
+  dRdz = PyArray_DATA((PyArrayObject *) Numpy_dRdz);
 
   cosmofns = XLALCSCosmoFunctions( zofA, Namp);
 
@@ -124,13 +126,13 @@ static PyObject *cs_gamma_findzofA(PyObject *self, PyObject *args)
   PyArrayObject *Numpy_amp;
   PyObject *Numpy_zofA;
   double Gmu, alpha, *zofA, *amp;
-  int Namp;
+  unsigned long int Namp;
   (void)self;	/* silence unused parameter warning */
 
   double z_min = 1e-20, z_max = 1e10;
   double dlnz = 0.05;
   unsigned numz = floor( (log(z_max) - log(z_min)) / dlnz );
-  int i;
+  unsigned long int i;
   cs_cosmo_functions_t cosmofns;
   double *fz,*z;
   double a;
@@ -150,7 +152,7 @@ static PyObject *cs_gamma_findzofA(PyObject *self, PyObject *args)
   npy_intp dims[1] = {Namp};
   Numpy_zofA = PyArray_SimpleNew(1, dims, NPY_DOUBLE);
   }
-  zofA = PyArray_DATA(Numpy_zofA);
+  zofA = PyArray_DATA((PyArrayObject *) Numpy_zofA);
 
   cosmofns = XLALCSCosmoFunctionsAlloc( z_min, dlnz, numz );
 
@@ -161,11 +163,11 @@ static PyObject *cs_gamma_findzofA(PyObject *self, PyObject *args)
 
   /* first compute the function that relates A and z */
   /* invert order; b/c fz is a monotonically decreasing func of z */
-  for ( i = cosmofns.n-1 ; i >= 0; i-- )
+  for ( i = cosmofns.n ; i > 0; i-- )
     {
-      int j = cosmofns.n-1 - i;
-      z[j] = cosmofns.z[i];
-      fz[j] = pow(cosmofns.phit[i], 2.0/3.0) * pow(1+z[j], -1.0/3.0) / cosmofns.phiA[i];
+      unsigned long int j = cosmofns.n - i;
+      z[j] = cosmofns.z[i-1];
+      fz[j] = pow(cosmofns.phit[i-1], 2.0/3.0) * pow(1+z[j], -1.0/3.0) / cosmofns.phiA[i-1];
     }
 
   gsl_interp_init (zofa_interp, fz, z, cosmofns.n);
@@ -204,11 +206,20 @@ static PyMethodDef cs_gammaMethods[] = {
   {NULL, NULL, 0, NULL}
 };
 
+static PyModuleDef moduledef = {
+  PyModuleDef_HEAD_INIT,
+  "cs_gamma", NULL, -1, cs_gammaMethods,
+  NULL, NULL, NULL, NULL
+};
+
 //They Python module initialization function.
-PyMODINIT_FUNC initcs_gamma(void);	/* silence no-previous-prototype warning */
+PyMODINIT_FUNC PyInit_cs_gamma(void);	/* silence no-previous-prototype warning */
 PyMODINIT_FUNC
-initcs_gamma(void)
+PyInit_cs_gamma(void)
 {
-  Py_InitModule("cs_gamma", cs_gammaMethods);
   import_array();
+  return PyModule_Create(&moduledef);
 }
+
+
+SIX_COMPAT_MODULE(cs_gamma)

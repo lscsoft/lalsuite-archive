@@ -22,7 +22,7 @@
 # =============================================================================
 #
 
-from glue import iterutils
+import itertools
 from glue import segments
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
@@ -35,8 +35,8 @@ def detector_combos( instruments ):
 	out = []
 	instruments = tuple(instruments)
 	for i in range(1, len(instruments)):
-		X = list(iterutils.choices(instruments, i))
-		Y = list(iterutils.choices(instruments, len(instruments) - i))
+		X = list(itertools.combinations(instruments, i))
+		Y = list(itertools.combinations(instruments, len(instruments) - i))
 		Y.reverse()
 		out.extend(zip(X,Y)) #out.extend(zip(X, Y))
 	instruments = list(instruments)

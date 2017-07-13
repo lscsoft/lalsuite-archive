@@ -40,7 +40,8 @@ except ImportError,e: warnings.warn(str(e))
 from datetime import datetime
 from glue import segments,git_version
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-from pylal import date,plotutils
+from lalburst import date
+from pylal import plotutils
 from pylal.dq.dqTriggerUtils import def_get_time,get_column
 
 __author__  = "Duncan Macleod <duncan.macleod@astro.cf.ac.uk>"

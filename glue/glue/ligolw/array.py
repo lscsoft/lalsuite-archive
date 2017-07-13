@@ -53,7 +53,7 @@ from glue import git_version
 from . import ligolw
 from . import tokenizer
 from . import types as ligolwtypes
-from six.moves import range
+from six.moves import map, range
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -70,20 +70,12 @@ __date__ = git_version.date
 #
 
 
-def getArraysByName(elem, name):
-	"""
-	Return a list of arrays with name name under elem.
-	"""
-	name = Array.ArrayName(name)
-	return elem.getElements(lambda e: (e.tagName == ligolw.Array.tagName) and (e.Name == name))
-
-
 def get_array(xmldoc, name):
 	"""
 	Scan xmldoc for an array named name.  Raises ValueError if not
 	exactly 1 such array is found.
 	"""
-	arrays = getArraysByName(xmldoc, name)
+	arrays = Array.getArraysByName(xmldoc, name)
 	if len(arrays) != 1:
 		raise ValueError("document must contain exactly one %s array" % Array.ArrayName(name))
 	return arrays[0]
@@ -147,8 +139,8 @@ class ArrayStream(ligolw.Stream):
 	def write(self, fileobj = sys.stdout, indent = u""):
 		# avoid symbol and attribute look-ups in inner loop
 		linelen = self.parentNode.array.shape[0]
-		lines = self.parentNode.array.size / linelen if self.parentNode.array.size else 0
-		tokens = itertools.imap(ligolwtypes.FormatFunc[self.parentNode.Type], self.parentNode.array.T.flat)
+		lines = self.parentNode.array.size // linelen if self.parentNode.array.size else 0
+		tokens = map(ligolwtypes.FormatFunc[self.parentNode.Type], self.parentNode.array.T.flat)
 		islice = itertools.islice
 		join = self.Delimiter.join
 		w = fileobj.write
@@ -222,7 +214,7 @@ class Array(ligolw.Array):
 			dim_names = [None] * len(array.shape)
 		elif len(dim_names) != len(array.shape):
 			raise ValueError("dim_names must be same length as number of dimensions")
-		for name, n in reversed(zip(dim_names, array.shape)):
+		for name, n in reversed(list(zip(dim_names, array.shape))):
 			child = elem.appendChild(ligolw.Dim())
 			if name is not None:
 				child.Name = name
@@ -230,6 +222,14 @@ class Array(ligolw.Array):
 		elem.appendChild(ArrayStream(Attributes({u"Type": ArrayStream.Type.default, u"Delimiter": ArrayStream.Delimiter.default})))
 		elem.array = array
 		return elem
+
+	@classmethod
+	def getArraysByName(cls, elem, name):
+		"""
+		Return a list of arrays with name name under elem.
+		"""
+		name = cls.ArrayName(name)
+		return elem.getElements(lambda e: (e.tagName == cls.tagName) and (e.Name == name))
 
 	#
 	# Element methods
