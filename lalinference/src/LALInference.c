@@ -4492,10 +4492,6 @@ void LALInferenceDestroyInferenceModel(LALInferenceModel *model)
     XLALDestroySimInspiralWaveformCache(model->waveformCache);
     model->waveformCache = NULL;
   }
-  if(model->waveFlags) {
-    XLALSimInspiralDestroyWaveformFlags(model->waveFlags);
-    model->waveFlags = NULL;
-  }
   return;
 }
 

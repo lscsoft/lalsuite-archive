@@ -777,7 +777,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
      lambda2                      lambda2.\n\
      lambdaT                      lambdaT.\n\
      dLambdaT                     dLambdaT.\n\
-     ecc                          ecc.\n\
+     eccentricity                 eccentricity.\n\
     ----------------------------------------------\n\
     --- Prior Ranges -----------------------------\n\
     ----------------------------------------------\n\
@@ -792,8 +792,8 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
     (--mtotal-min min)                      Minimum total mass (2.0).\n\
     (--mtotal-max max)                      Maximum total mass (200.0).\n\
     (--dt time)                             Width of time prior, centred around trigger (0.2s).\n\
-    (--ecc-min min)                         Minimum eccentricity (0.0).\n\
-    (--ecc-max max)                         Maximum eccentricity (1.0).\n\
+    (--eccentricity-min min)                         Minimum eccentricity (0.0).\n\
+    (--eccentricity-max max)                         Maximum eccentricity (1.0).\n\
 \n\
     (--varyFlow, --flowMin, --flowMax)       Allow the lower frequency bound of integration to vary in given range.\n\
     (--pinparams)                            List of parameters to set to injected values [mchirp,asym_massratio,etc].\n\
@@ -1030,21 +1030,21 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   REAL8 f_ecc = 10.0;
   if (injTable == NULL) 
   {
-    printf("WARNING: No injection table is specified, eccentricity values are set as default values, ecc=0, ecc_order=0, f_ecc=10.0Hz\n");
+    printf("WARNING: No injection table is specified, eccentricity values are set as default values, ecc=0, ecc_order=-1, f_ecc=10.0Hz\n");
   }
   else {
-    ecc = (REAL8) injTable->ecc;
+    ecc = (REAL8) injTable->eccentricity;
     ecc_order = (INT4) injTable->ecc_order;
     f_ecc = (REAL8) injTable->f_ecc;
   }
   LALInferenceVariableItem *node=NULL;
-  node=LALInferenceGetItem(model->params,"ecc");
-  ppt=LALInferenceGetProcParamVal(commandLine,"--ecc-min");
+  node=LALInferenceGetItem(model->params,"eccentricity");
+  ppt=LALInferenceGetProcParamVal(commandLine,"--eccentricity-min");
   if(ppt) eccmin=atof(ppt->value);
-  ppt=LALInferenceGetProcParamVal(commandLine,"--ecc-max");
+  ppt=LALInferenceGetProcParamVal(commandLine,"--eccentricity-max");
   if(ppt) eccmax=atof(ppt->value);
   if( !node ) { /* set to be uniformly variate for ecc if it was not fixed to injection value already */
-    LALInferenceRegisterUniformVariableREAL8(state, model->params, "ecc", ecc, eccmin, eccmax, LALINFERENCE_PARAM_LINEAR);
+    LALInferenceRegisterUniformVariableREAL8(state, model->params, "eccentricity", ecc, eccmin, eccmax, LALINFERENCE_PARAM_LINEAR);
   }
   LALInferenceAddVariable(model->params, "ecc_order", &ecc_order, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(model->params, "f_ecc", &f_ecc, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);

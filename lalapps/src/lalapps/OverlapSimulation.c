@@ -11,6 +11,7 @@
 #include <lal/LALSimInspiral.h>
 #include <lal/LALSimIMR.h>
 #include <lal/LALConstants.h>
+#include <lal/LALDict.h>
 #include <lal/LALStdlib.h>
 #include <lal/LALInference.h>
 #include <lal/LALInferenceReadData.h>
@@ -139,6 +140,7 @@ int main(int argc, char *argv[])
   REAL8 overlap, overlapNorm, p1, p1v;
   //LALInferenceVariables currentParams;
   FILE *outf=NULL;
+  LALDict *LALparams = XLALCreateDict();
   memset(&inParams, 0x00, sizeof(Parameter));
   /* Read command line and parse */
   //printf("main DEBUG -5\n");
@@ -181,6 +183,13 @@ int main(int argc, char *argv[])
   ecc = inParams.ecc;
   ecc_order = inParams.ecc_order;
   f_ecc = inParams.f_ecc;
+  XLALSimInspiralWaveformParamsInsertPNPhaseOrder(LALparams, phaseO);
+  XLALSimInspiralWaveformParamsInsertPNAmplitudeOrder(LALparams, amplitudeO);
+  XLALSimInspiralWaveformParamsInsertPNEccentricityOrder(LALparams, ecc_order);
+  XLALSimInspiralWaveformParamsInsertEccentricityFreq(LALparams, f_ecc);
+  XLALSimInspiralWaveformParamsInsertTidalLambda1(LALparams, 0.);
+  XLALSimInspiralWaveformParamsInsertTidalLambda2(LALparams, 0.);
+
   if(strstr(inParams.approx1, "TaylorF2Ecc"))
   {
     ret = XLALSimInspiralTaylorF2Ecc(&hptilde1, phiRef, deltaF, 
@@ -194,7 +203,7 @@ int main(int argc, char *argv[])
   {
     ret = XLALSimInspiralTaylorF2(&hptilde1, phiRef, deltaF, 
                     m1, m2, S1z, S2z,
-                    f_min, f_max, 0, r, 1, 1, 0, 0, 0, 0, phaseO, amplitudeO, NULL); // qm1=1, qm2=1 hard fixed
+                    f_min, f_max, 0, r, LALparams); // qm1=1, qm2=1 hard fixed
   }
   else 
   {
@@ -235,7 +244,7 @@ int main(int argc, char *argv[])
       {
         ret = XLALSimInspiralTaylorF2(&hptilde2, phiRef, deltaF, 
                     p1v, m2, S1z, S2z,
-                    f_min, f_max, 0, r, 1, 1, 0, 0, 0, 0, phaseO, amplitudeO, NULL); // qm1=qm2=1 hard code
+                    f_min, f_max, 0, r, LALparams); // qm1=qm2=1 hard code
       }
       else
       {
@@ -272,7 +281,7 @@ int main(int argc, char *argv[])
       {
         ret = XLALSimInspiralTaylorF2(&hptilde2, phiRef, deltaF, 
                     m1, m2, p1v, S2z,
-                    f_min, f_max, 0, r, 1, 1, 0, 0, 0, 0, phaseO, amplitudeO, NULL); // qm1=qm2 = 1 hard code
+                    f_min, f_max, 0, r, LALparams); // qm1=qm2 = 1 hard code
       }
       else
       {
@@ -353,6 +362,7 @@ int main(int argc, char *argv[])
   if ( hptilde2 ) XLALDestroyCOMPLEX16FrequencySeries(hptilde2);
   if ( hctilde1 ) XLALDestroyCOMPLEX16FrequencySeries(hctilde1);
   if ( hctilde2 ) XLALDestroyCOMPLEX16FrequencySeries(hctilde2);
+  if ( LALparams ) XLALDestroyDict(LALparams);
   printf("End of Ovelap program\n");
   return ret;
 }

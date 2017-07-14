@@ -97,6 +97,7 @@ tagLALSimInspiralWaveformCache {
     REAL8 f_max;
     REAL8 r;
     REAL8 i;
+    REAL8 eccentricity;
     LALDict *LALpars;
     Approximant approximant;
     REAL8Sequence *frequencies;

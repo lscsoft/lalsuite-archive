@@ -946,10 +946,16 @@ int XLALSimInspiralChooseFDWaveformSequence(
     cfac = cos(inclination);
     pfac = 0.5 * (1. + cfac*cfac);
 
+    REAL8 quadparam1 = 1.+XLALSimInspiralWaveformParamsLookupdQuadMon1(LALpars);
+    REAL8 quadparam2 = 1.+XLALSimInspiralWaveformParamsLookupdQuadMon2(LALpars);
     REAL8 lambda1=XLALSimInspiralWaveformParamsLookupTidalLambda1(LALpars);
     REAL8 lambda2=XLALSimInspiralWaveformParamsLookupTidalLambda2(LALpars);
     REAL8 f_ecc=XLALSimInspiralWaveformParamsLookupEccentricityFreq(LALpars);
     INT4 ecc_order=XLALSimInspiralWaveformParamsLookupPNEccentricityOrder(LALpars);
+    INT4 spin_order=XLALSimInspiralWaveformParamsLookupPNSpinOrder(LALpars);
+    INT4 tidal_order=XLALSimInspiralWaveformParamsLookupPNTidalOrder(LALpars);
+    INT4 phaseO=XLALSimInspiralWaveformParamsLookupPNPhaseOrder(LALpars);
+    INT4 amplitudeO=XLALSimInspiralWaveformParamsLookupPNAmplitudeOrder(LALpars);
 
  
     switch (approximant)
@@ -975,27 +981,25 @@ int XLALSimInspiralChooseFDWaveformSequence(
             for(j = 0; j < (*hptilde)->data->length; j++) {
                 (*hctilde)->data->data[j] = -I*cfac * (*hptilde)->data->data[j];
                 (*hptilde)->data->data[j] *= pfac;
-            }LSimInspiralWaveformParamsLookupPNEccentricityOrder(LALDict *params);
+            }
             break;
 
         case TaylorF2Ecc:
             /* Waveform-specific sanity checks */
-            if( !XLALSimInspiralFrameAxisIsDefault(
-                    XLALSimInspiralGetFrameAxis(waveFlags) ) )
-                ABORT_NONDEFAULT_FRAME_AXIS(waveFlags);
-            if( !XLALSimInspiralModesChoiceIsDefault(
-                    XLALSimInspiralGetModesChoice(waveFlags) ) )
-                ABORT_NONDEFAULT_MODES_CHOICE(waveFlags);
+            if( !XLALSimInspiralWaveformParamsFrameAxisIsDefault(LALpars) )
+                ABORT_NONDEFAULT_FRAME_AXIS(LALpars);
+            if( !XLALSimInspiralWaveformParamsModesChoiceIsDefault(LALpars) )
+                ABORT_NONDEFAULT_MODES_CHOICE(LALpars);
             if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
-                ABORT_NONZERO_TRANSVERSE_SPINS(waveFlags);
+                ABORT_NONZERO_TRANSVERSE_SPINS(LALpars);
 
             /* Call the waveform driver routine */
             ret = XLALSimInspiralTaylorF2CoreEcc(hptilde, frequencies, phiRef,
-                    m1, m2, S1z, S2z, f_ref, 0., r, quadparam1, quadparam2, lambda1, lambda2,
+                    m1, m2, S1z, S2z, f_ref, 0., distance, quadparam1, quadparam2, lambda1, lambda2,
                     eccentricity, ecc_order, f_ecc,
-                    XLALSimInspiralGetSpinOrder(waveFlags),
-                    XLALSimInspiralGetTidalOrder(waveFlags),
-                    phaseO, amplitudeO, nonGRparams);
+                    spin_order,
+                    tidal_order,
+                    phaseO, amplitudeO, LALpars);
             if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
             /* Produce both polarizations */
             *hctilde = XLALCreateCOMPLEX16FrequencySeries("FD hcross",

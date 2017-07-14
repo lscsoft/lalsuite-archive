@@ -69,18 +69,18 @@ int XLALSimInspiralTaylorF2CoreEcc(
         const REAL8 f_ref,                     /**< Reference GW frequency (Hz) - if 0 reference point is coalescence */
 	const REAL8 shft,		       /**< time shift to be applied to frequency-domain phase (sec)*/
         const REAL8 r,                         /**< distance of source (m) */
-        const REAL8 quadparam1,                /**< quadrupole deformation parameter of body 1 (dimensionless, 1 for BH) */
-        const REAL8 quadparam2,                /**< quadrupole deformation parameter of body 2 (dimensionless, 1 for BH) */
+        const UNUSED REAL8 quadparam1,         /**< quadrupole deformation parameter of body 1 (dimensionless, 1 for BH) */
+        const UNUSED REAL8 quadparam2,         /**< quadrupole deformation parameter of body 2 (dimensionless, 1 for BH) */
         const REAL8 lambda1,                   /**< (tidal deformation of body 1)/(mass of body 1)^5 */
         const REAL8 lambda2,                   /**< (tidal deformation of body 2)/(mass of body 2)^5 */
         const REAL8 eccentricity,                       /**< eccentricity effect control < 0 : no eccentricity effect */
         const INT4  ecc_order,                 /**< twice eccentricity effect PN order < 0 : maximum order 3PN */
         const REAL8 f_ecc,                     /**< eccentricity effect reference frequency */
-        const LALSimInspiralSpinOrder spinO,  /**< twice PN order of spin effects */
-        const LALSimInspiralTidalOrder tideO,  /**< flag to control tidal effects */
+        const UNUSED INT4 spinO,               /**< twice PN order of spin effects */
+        const INT4 tideO,                      /**< flag to control tidal effects */
         const INT4 phaseO,                     /**< twice PN phase order */
-        const INT4 amplitudeO,                  /**< twice PN amplitude order */
-        const LALDict *p                       /**< Linked list containing the extra parameters >**/
+        const INT4 amplitudeO,                 /**< twice PN amplitude order */
+        LALDict *p                       /**< Linked list containing the extra parameters >**/
         )
 {
 
@@ -116,7 +116,7 @@ int XLALSimInspiralTaylorF2CoreEcc(
 
     /* phasing coefficients */
     PNPhasingSeries pfa;
-    XLALSimInspiralPNPhasing_F2(&pfa, m1, m2, S1z, S2z, S1z*S1z, S2z*S2z, S1z*S2z, quadparam1, quadparam2, spinO, p);
+    XLALSimInspiralPNPhasing_F2(&pfa, m1, m2, S1z, S2z, S1z*S1z, S2z*S2z, S1z*S2z, p);
 
     REAL8 pfaN = 0.; REAL8 pfa1 = 0.;
     REAL8 pfa2 = 0.; REAL8 pfa3 = 0.; REAL8 pfa4 = 0.;
@@ -179,7 +179,7 @@ int XLALSimInspiralTaylorF2CoreEcc(
     REAL8 pft12 = 0.;
     switch( tideO )
     {
-	    case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
+	case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_6PN:
 	    pft12 = pfaN * (lambda1*XLALSimInspiralTaylorF2Phasing_12PNTidalCoeff(m1OverM) + lambda2*XLALSimInspiralTaylorF2Phasing_12PNTidalCoeff(m2OverM) );
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_5PN:
@@ -386,11 +386,11 @@ int XLALSimInspiralTaylorF2Ecc(
         const REAL8 eccentricity,                       /**< eccentricity effect control < 0 : no eccentricity effect */
         const INT4  ecc_order,                 /**< twice eccentricity effect PN order < 0 : maximum order 3PN */
         const REAL8 f_ecc,                     /**< eccentricity effect reference frequency */
-        const LALSimInspiralSpinOrder spinO,  /**< twice PN order of spin effects */
-        const LALSimInspiralTidalOrder tideO,  /**< flag to control tidal effects */
+        const INT4 spinO,                      /**< twice PN order of spin effects */
+        const INT4 tideO,                      /**< flag to control tidal effects */
         const INT4 phaseO,                     /**< twice PN phase order */
-        const INT4 amplitudeO,                  /**< twice PN amplitude order */
-        const LALSimInspiralTestGRParam *p /**< Linked list containing the extra testing GR parameters >**/
+        const INT4 amplitudeO,                 /**< twice PN amplitude order */
+        LALDict *p                             /**< Linked list containing the extra parameters >**/
         )
 {
     /* external: SI; internal: solar masses */
