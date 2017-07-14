@@ -29,8 +29,7 @@ int XLALSimInspiralWaveformParamsInsertTidalLambda2(LALDict *params, REAL8 value
 int XLALSimInspiralWaveformParamsInsertdQuadMon1(LALDict *params, REAL8 value);
 int XLALSimInspiralWaveformParamsInsertdQuadMon2(LALDict *params, REAL8 value);
 int XLALSimInspiralWaveformParamsInsertRedshift(LALDict *params, REAL8 value);
-int XLALSimInspiralWaveformParamsInsertEccentriciyFreq(LALDict *params, REAL8 value);
-int XLALSimInspiralWaveformParamsInsertEccentriciyOrder(LALDict *params, INT4 value);
+int XLALSimInspiralWaveformParamsInsertEccentricityFreq(LALDict *params, REAL8 value);
 
 int XLALSimInspiralWaveformParamsInsertNonGRPhi1(LALDict *params, REAL8 value);
 int XLALSimInspiralWaveformParamsInsertNonGRPhi2(LALDict *params, REAL8 value);
@@ -104,14 +103,13 @@ INT4 XLALSimInspiralWaveformParamsLookupPNAmplitudeOrder(LALDict *params);
 INT4 XLALSimInspiralWaveformParamsLookupPNEccentricityOrder(LALDict *params);
 INT4 XLALSimInspiralWaveformParamsLookupPNSpinOrder(LALDict *params);
 INT4 XLALSimInspiralWaveformParamsLookupPNTidalOrder(LALDict *params);
-INT4 XLALSimInspiralWaveformParamsLookupEccentriciyOrder(LALDict *params);
 
 REAL8 XLALSimInspiralWaveformParamsLookupTidalLambda1(LALDict *params);
 REAL8 XLALSimInspiralWaveformParamsLookupTidalLambda2(LALDict *params);
 REAL8 XLALSimInspiralWaveformParamsLookupdQuadMon1(LALDict *params);
 REAL8 XLALSimInspiralWaveformParamsLookupdQuadMon2(LALDict *params);
 REAL8 XLALSimInspiralWaveformParamsLookupRedshift(LALDict *params);
-REAL8 XLALSimInspiralWaveformParamsLookupEccentriciyFreq(LALDict *params);
+REAL8 XLALSimInspiralWaveformParamsLookupEccentricityFreq(LALDict *params);
 REAL8 XLALSimInspiralWaveformParamsLookupNonGRPhi1(LALDict *params);
 REAL8 XLALSimInspiralWaveformParamsLookupNonGRPhi2(LALDict *params);
 REAL8 XLALSimInspiralWaveformParamsLookupNonGRPhi3(LALDict *params);
@@ -190,6 +188,7 @@ int XLALSimInspiralWaveformParamsTidalLambda2IsDefault(LALDict *params);
 int XLALSimInspiralWaveformParamsdQuadMon1IsDefault(LALDict *params);
 int XLALSimInspiralWaveformParamsdQuadMon2IsDefault(LALDict *params);
 int XLALSimInspiralWaveformParamsRedshiftIsDefault(LALDict *params);
+int XLALSimInspiralWaveformParamsEccentricityFreqIsDefault(LALDict *params);
 
 int XLALSimInspiralWaveformParamsNonGRPhi1IsDefault(LALDict *params);
 int XLALSimInspiralWaveformParamsNonGRPhi2IsDefault(LALDict *params);
