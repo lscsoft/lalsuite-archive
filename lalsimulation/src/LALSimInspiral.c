@@ -802,6 +802,7 @@ int XLALSimInspiralChooseTDWaveform(
             SpinAlignedEOBversion = 41;
             ret = XLALSimIMRSpinAlignedEOBWaveform(hplus, hcross, phiRef,
                                                    deltaT, m1, m2, f_min, distance, inclination, S1z, S2z, SpinAlignedEOBversion, LALparams);
+
             break;
             
         case SEOBNRv3_opt_rk4:
