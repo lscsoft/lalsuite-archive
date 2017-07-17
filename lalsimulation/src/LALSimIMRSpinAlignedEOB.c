@@ -659,6 +659,19 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
       SpinAlignedEOBversion = 4;
       use_optimized_v2_or_v4 = 1;
     }
+    
+   INT4 use_hm = 0;
+    /* The list of available modes */
+//    const UINT4 lmModes[5][2] = {{2, 2}, {2, 1}, {3, 3}, {4, 4}, {5, 5}};
+    const UINT4 lmModes[2][2] = {{2, 2}, {3, 3}};
+    UINT4 nModes = 1;
+    /* If we want SEOBNRv4HM, then reset SpinAlignedEOBversion=4 and set use_hm=1 */
+    if (SpinAlignedEOBversion == 41)
+    {
+        SpinAlignedEOBversion = 4;
+        use_hm = 1;
+        nModes = 5;
+    }
 
   /* If the EOB version flag is neither 1, 2, nor 4, exit */
   if (SpinAlignedEOBversion != 1 && SpinAlignedEOBversion != 2
@@ -2061,6 +2074,9 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
 						   retLen_fromOptStep3,
 						   &dynamicsHi);
     }
+    
+
+
 
   /* Now create vectors at the correct sample rate, and compile the complete waveform */
   sigReVec =
@@ -2069,6 +2085,44 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
 
   memset (sigReVec->data, 0, sigReVec->length * sizeof (REAL8));
   memset (sigImVec->data, 0, sigImVec->length * sizeof (REAL8));
+    
+  INT4 modeL; INT4 modeM;
+  REAL8 nqcCoeffsMatrix[nModes][10];
+  /* Save NQC coeffs of (2,2) mode */
+  nqcCoeffsMatrix[0][0] = nqcCoeffs.a1;
+  nqcCoeffsMatrix[0][1] = nqcCoeffs.a2;
+  nqcCoeffsMatrix[0][2] = nqcCoeffs.a3;
+  nqcCoeffsMatrix[0][3] = nqcCoeffs.a3S;
+  nqcCoeffsMatrix[0][4] = nqcCoeffs.a4;
+  nqcCoeffsMatrix[0][5] = nqcCoeffs.a5;
+  nqcCoeffsMatrix[0][6] = nqcCoeffs.b1;
+  nqcCoeffsMatrix[0][7] = nqcCoeffs.b2;
+  nqcCoeffsMatrix[0][8] = nqcCoeffs.b3;
+  nqcCoeffsMatrix[0][9] = nqcCoeffs.b4;
+if (use_hm == 1)
+  {
+      for ( UINT4 currentMode = 1; currentMode < nModes; currentMode++ ) {
+          modeL  = lmModes[currentMode][0];
+          modeM = lmModes[currentMode][1];
+          if (XLALSimIMRSpinEOBCalculateNQCCoefficientsV4
+            (ampNQC, phaseNQC, &rHi, &prHi, omegaHi, modeL, modeM, timePeak,
+             deltaTHigh / mTScaled, m1, m2, a, chiA, chiS, &nqcCoeffs,
+             SpinAlignedEOBversion) == XLAL_FAILURE)
+          {
+              XLAL_ERROR (XLAL_EFUNC);
+          }
+          nqcCoeffsMatrix[currentMode][0] = nqcCoeffs.a1;
+          nqcCoeffsMatrix[currentMode][1] = nqcCoeffs.a2;
+          nqcCoeffsMatrix[currentMode][2] = nqcCoeffs.a3;
+          nqcCoeffsMatrix[currentMode][3] = nqcCoeffs.a3S;
+          nqcCoeffsMatrix[currentMode][4] = nqcCoeffs.a4;
+          nqcCoeffsMatrix[currentMode][5] = nqcCoeffs.a5;
+          nqcCoeffsMatrix[currentMode][6] = nqcCoeffs.b1;
+          nqcCoeffsMatrix[currentMode][7] = nqcCoeffs.b2;
+          nqcCoeffsMatrix[currentMode][8] = nqcCoeffs.b3;
+          nqcCoeffsMatrix[currentMode][9] = nqcCoeffs.b4;
+      }
+  }
 
   /* Generate full inspiral waveform using desired sampling frequency */
   if (use_optimized_v2_or_v4)
@@ -2107,13 +2161,22 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
 					  &s1VecOverMtMt, &s2VecOverMtMt,
 					  sigmaKerr, sigmaStar,
 					  seobParams.tortoise, &seobCoeffs);
-
-	  if (XLALSimIMRSpinEOBGetSpinFactorizedWaveform
-	      (&hLM, values, v, ham, 2, 2, &seobParams,
-	       0 /*use_optimized_v2_or_v4 */ )
-	      == XLAL_FAILURE)
+    for ( UINT4 currentMode = 0; currentMode < nModes; currentMode++ ) {
+        modeL  = lmModes[currentMode][0];
+        modeM = lmModes[currentMode][1];
+        nqcCoeffs.a1 = nqcCoeffsMatrix[currentMode][0];
+        nqcCoeffs.a2 = nqcCoeffsMatrix[currentMode][1];
+        nqcCoeffs.a3 = nqcCoeffsMatrix[currentMode][2];
+        nqcCoeffs.a3S = nqcCoeffsMatrix[currentMode][3];
+        nqcCoeffs.a4 = nqcCoeffsMatrix[currentMode][4];
+        nqcCoeffs.a5 = nqcCoeffsMatrix[currentMode][5];
+        nqcCoeffs.b1 = nqcCoeffsMatrix[currentMode][6];
+        nqcCoeffs.b2 = nqcCoeffsMatrix[currentMode][7];
+        nqcCoeffs.b3 = nqcCoeffsMatrix[currentMode][8];
+        nqcCoeffs.b4 = nqcCoeffsMatrix[currentMode][9];
+        if (XLALSimIMRSpinEOBGetSpinFactorizedWaveform
+	      (&hLM, values, v, ham, modeL, modeM, &seobParams, 0 /*use_optimized_v2_or_v4 */ ) == XLAL_FAILURE)
 	    {
-	      /* TODO: Clean-up */
 	      XLAL_ERROR (XLAL_EFUNC);
 	    }
 
@@ -2135,6 +2198,7 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
 
 	  hLM *= hNQC;
       hLM += hT;
+
 
         if (use_tidal==1) {
             REAL8 dtGeom = deltaTHigh / mTScaled;
