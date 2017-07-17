@@ -2191,6 +2191,46 @@ for ( UINT4 k = 0; k<nModes; k++) {
   memset (sigReVec->data, 0, sigReVec->length * sizeof (REAL8));
   memset (sigImVec->data, 0, sigImVec->length * sizeof (REAL8));
     
+
+  INT4 modeL; INT4 modeM;
+  REAL8 nqcCoeffsMatrix[nModes][10];
+  /* Save NQC coeffs of (2,2) mode */
+  nqcCoeffsMatrix[0][0] = nqcCoeffs.a1;
+  nqcCoeffsMatrix[0][1] = nqcCoeffs.a2;
+  nqcCoeffsMatrix[0][2] = nqcCoeffs.a3;
+  nqcCoeffsMatrix[0][3] = nqcCoeffs.a3S;
+  nqcCoeffsMatrix[0][4] = nqcCoeffs.a4;
+  nqcCoeffsMatrix[0][5] = nqcCoeffs.a5;
+  nqcCoeffsMatrix[0][6] = nqcCoeffs.b1;
+  nqcCoeffsMatrix[0][7] = nqcCoeffs.b2;
+  nqcCoeffsMatrix[0][8] = nqcCoeffs.b3;
+  nqcCoeffsMatrix[0][9] = nqcCoeffs.b4;
+if (use_hm == 1)
+  {
+      for ( UINT4 currentMode = 1; currentMode < nModes; currentMode++ ) {
+          modeL  = lmModes[currentMode][0];
+          modeM = lmModes[currentMode][1];
+          if (XLALSimIMRSpinEOBCalculateNQCCoefficientsV4
+            (ampNQC, phaseNQC, &rHi, &prHi, omegaHi, modeL, modeM, timePeak,
+             deltaTHigh / mTScaled, m1, m2, a, chiA, chiS, &nqcCoeffs,
+             SpinAlignedEOBversion) == XLAL_FAILURE)
+          {
+              XLAL_ERROR (XLAL_EFUNC);
+          }
+          nqcCoeffsMatrix[currentMode][0] = nqcCoeffs.a1;
+          nqcCoeffsMatrix[currentMode][1] = nqcCoeffs.a2;
+          nqcCoeffsMatrix[currentMode][2] = nqcCoeffs.a3;
+          nqcCoeffsMatrix[currentMode][3] = nqcCoeffs.a3S;
+          nqcCoeffsMatrix[currentMode][4] = nqcCoeffs.a4;
+          nqcCoeffsMatrix[currentMode][5] = nqcCoeffs.a5;
+          nqcCoeffsMatrix[currentMode][6] = nqcCoeffs.b1;
+          nqcCoeffsMatrix[currentMode][7] = nqcCoeffs.b2;
+          nqcCoeffsMatrix[currentMode][8] = nqcCoeffs.b3;
+          nqcCoeffsMatrix[currentMode][9] = nqcCoeffs.b4;
+      }
+  }
+
+>>>>>>> 24b3e72e24... SEOBNRv4HM Allow for HH in main wf generation, still not summed into h+ and hx though
   /* Generate full inspiral waveform using desired sampling frequency */
   if (use_optimized_v2_or_v4)
     {
