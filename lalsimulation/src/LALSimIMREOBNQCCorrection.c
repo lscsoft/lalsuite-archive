@@ -924,18 +924,18 @@ static inline REAL8 CombineTPLEQMFits (REAL8 eta, REAL8 A1, REAL8 fEQ, REAL8 fTP
 
 /**
  * Peak amplitude predicted by fitting NR results (currently only 2,2 available).
- * Unpublished. Used in building SEOBNRv4.
+ * Used in building SEOBNRv4.
  */
 UNUSED static inline REAL8
-XLALSimIMREOBGetNRSpinPeakAmplitudeV4 (INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED eta,
+XLALSimIMREOBGetNRSpinPeakAmplitudeV4 (INT4 modeL, INT4 modeM, REAL8 UNUSED eta,
 			  REAL8 UNUSED a)
 {
   REAL8 chi = a, chi2 = chi * chi, chi3 = chi * chi2;
   REAL8 res;
   REAL8 fTPL, fEQ, A1, e0, e1, e2, e3;
-  switch (l) {
+  switch (modeL) {
       case 2:
-          switch (m) {
+          switch (modeM) {
               case 2:
                   // TPL fit
                   fTPL = 1.4528573105413543 + 0.16613449160880395 * chi + 0.027355646661735258 * chi2 - 0.020072844926136438 * chi3;
@@ -950,20 +950,61 @@ XLALSimIMREOBGetNRSpinPeakAmplitudeV4 (INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSE
                   res = eta * CombineTPLEQMFits(eta, A1, fEQ, fTPL);
                   break;
               default:
-                  XLALPrintError("XLAL Error - %s: At present only fits for the (2,2) mode are available.\n", __func__);
+                  XLALPrintError("XLAL Error - %s: At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n", __func__);
                   XLAL_ERROR (XLAL_EINVAL);
                   break;
           }
           break;
       
       default:
-          XLALPrintError("XLAL Error - %s: At present only fits for the (2,2) mode are available.\n", __func__);
+          XLALPrintError("XLAL Error - %s: At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n", __func__);
           XLAL_ERROR (XLAL_EINVAL);
           break;
   }
 //    printf("A %.16e\n", res);
   return res;
 }
+
+/**
+ * Peak amplitude slope predicted by fitting NR results.
+ * Used in building SEOBNRv4.
+ */
+UNUSED static inline REAL8
+XLALSimIMREOBGetNRSpinPeakADotV4 (INT4 modeL, INT4 modeM, REAL8 UNUSED eta,
+                                  REAL8 UNUSED chi)
+{
+    REAL8 res;
+    switch (modeL) {
+        case 2:
+            switch (modeM) {
+                case 2:
+                    res = 0.;
+                    break;
+                default:
+                    XLALPrintError("XLAL Error - %s: At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n", __func__);
+                    XLAL_ERROR (XLAL_EINVAL);
+                    break;
+            }
+            break;
+        case 3:
+            switch (modeM) {
+                case 3:
+                    res = 0.;
+                    break;
+                default:
+                    XLALPrintError("XLAL Error - %s: At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n", __func__);
+                    XLAL_ERROR (XLAL_EINVAL);
+                    break;
+            }
+        default:
+            XLALPrintError("XLAL Error - %s: At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n", __func__);
+            XLAL_ERROR (XLAL_EINVAL);
+            break;
+    }
+    //    printf("ddA %.16e\n", res);
+    return res;
+}
+
 
 /**
  * Peak amplitude curvature predicted by fitting NR results (currently only 2,2 available).
@@ -1001,46 +1042,47 @@ XLALSimIMREOBGetNRSpinPeakADDotV2 (INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED et
 }
 
 /**
- * Peak amplitude curvature predicted by fitting NR results (currently only 2,2 available).
- * Unpublished. Used in building SEOBNRv4.
+ * Peak amplitude curvature predicted by fitting NR results.
+ * Used in building SEOBNRv4.
  */
 UNUSED static inline REAL8
-XLALSimIMREOBGetNRSpinPeakADDotV4 (INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED eta,
-		      REAL8 UNUSED a)
+XLALSimIMREOBGetNRSpinPeakADDotV4 (INT4 modeL, INT4 modeM, REAL8 UNUSED eta,
+                                   REAL8 UNUSED a)
 {
-  REAL8 chi = a;
-  REAL8 chiMinus1 = -1. + chi;
-  REAL8 res;
-  REAL8 fTPL, fEQ, A1, e0, e1;
-  switch (l) {
-      case 2:
-          switch (m) {
+    REAL8 chi = a;
+    REAL8 chiMinus1 = -1. + chi;
+    REAL8 res;
+    REAL8 fTPL, fEQ, A1, e0, e1;
+    switch (modeL) {
+        case 2:
+            switch (modeM) {
                 case 2:
-                  // TPL fit
-                  fTPL = 0.002395610769995033 * chiMinus1 -  0.00019273850675004356 * chiMinus1 * chiMinus1 - 0.00029666193167435337 * chiMinus1 * chiMinus1 * chiMinus1;
-                  // Equal-mass fit
-                  fEQ = -0.004126509071377509 + 0.002223999138735809 * chi;
-                  // Global fit coefficients
-                  e0 = -0.005776537350356959;
-                  e1 = 0.001030857482885267;
-                  A1 = e0 + e1 * chi;
-                  res = eta * CombineTPLEQMFits(eta, A1, fEQ, fTPL);;
-                  break;
+                    // TPL fit
+                    fTPL = 0.002395610769995033 * chiMinus1 -  0.00019273850675004356 * chiMinus1 * chiMinus1 - 0.00029666193167435337 * chiMinus1 * chiMinus1 * chiMinus1;
+                    // Equal-mass fit
+                    fEQ = -0.004126509071377509 + 0.002223999138735809 * chi;
+                    // Global fit coefficients
+                    e0 = -0.005776537350356959;
+                    e1 = 0.001030857482885267;
+                    A1 = e0 + e1 * chi;
+                    res = eta * CombineTPLEQMFits(eta, A1, fEQ, fTPL);;
+                    break;
                 default:
-                    XLALPrintError("XLAL Error - %s: At present only fits for the (2,2) mode are available.\n", __func__);
+                    XLALPrintError("XLAL Error - %s: At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n", __func__);
                     XLAL_ERROR (XLAL_EINVAL);
                     break;
             }
-          break;
-      
-      default:
-          XLALPrintError("XLAL Error - %s: At present only fits for the (2,2) mode are available.\n", __func__);
-          XLAL_ERROR (XLAL_EINVAL);
-          break;
-  }
-//    printf("ddA %.16e\n", res);
-  return res;
+            break;
+            
+        default:
+            XLALPrintError("XLAL Error - %s: At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n", __func__);
+            XLAL_ERROR (XLAL_EINVAL);
+            break;
+    }
+    //    printf("ddA %.16e\n", res);
+    return res;
 }
+
 
 /**
  * Peak frequency predicted by fitting NR results (currently only 2,2 available).
@@ -1110,17 +1152,17 @@ XLALSimIMREOBGetNRSpinPeakOmegaV2 (INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED et
 
 /**
  * Peak frequency predicted by fitting NR results (currently only 2,2 available).
- * Unpublished. Used in building SEOBNRv4.
+ * Used in building SEOBNRv4.
  */
 UNUSED static inline REAL8
-XLALSimIMREOBGetNRSpinPeakOmegaV4 (INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED eta, REAL8 a)
+XLALSimIMREOBGetNRSpinPeakOmegaV4 (INT4 modeL, INT4 modeM, REAL8 UNUSED eta, REAL8 a)
 {
   REAL8 chi = a;
   REAL8 res;
   REAL8 c0, c1, c2, c3, c4, d2, d3, A3, A4;
-  switch (l) {
+  switch (modeL) {
       case 2:
-          switch (m) {
+          switch (modeM) {
               case 2:
                   // From TPL fit
                   c0 = 0.5626787200433265;
@@ -1138,14 +1180,14 @@ XLALSimIMREOBGetNRSpinPeakOmegaV4 (INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED et
                   res = c0 + (c1 + c4 * chi) * log(A3 - A4 * chi);
                   break;
               default:
-                    XLALPrintError("XLAL Error - %s: At present only fits for the (2,2) mode are available.\n", __func__);
+                    XLALPrintError("XLAL Error - %s: At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n", __func__);
                     XLAL_ERROR (XLAL_EINVAL);
                     break;
             }
             break;
             
         default:
-            XLALPrintError("XLAL Error - %s: At present only fits for the (2,2) mode are available.\n", __func__);
+            XLALPrintError("XLAL Error - %s: At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n", __func__);
             XLAL_ERROR (XLAL_EINVAL);
             break;
     }
@@ -1190,18 +1232,18 @@ XLALSimIMREOBGetNRSpinPeakOmegaDotV2 (INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED
 
 /**
  * Peak frequency slope predicted by fitting NR results (currently only 2,2 available).
- * Unpublished. Used in building SEOBNRv4.
+ * Used in building SEOBNRv4.
  */
 UNUSED static inline REAL8
-XLALSimIMREOBGetNRSpinPeakOmegaDotV4 (INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED eta,
+XLALSimIMREOBGetNRSpinPeakOmegaDotV4 (INT4 modeL, INT4 modeM, REAL8 UNUSED eta,
 			 REAL8 UNUSED a)
 {
   REAL8 chi = a;
   REAL8 res;
   REAL8 fTPL, fEQ, A1, e0, e1;
-  switch (l) {
+  switch (modeL) {
       case 2:
-          switch (m) {
+          switch (modeM) {
               case 2:
                   // TPL fit
                   fTPL = -0.011209791668428353 +  (0.0040867958978563915 + 0.0006333925136134493 * chi) * log(68.47466578100956 - 58.301487557007206 * chi);
@@ -1215,14 +1257,14 @@ XLALSimIMREOBGetNRSpinPeakOmegaDotV4 (INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED
                   break;
               
               default:
-                  XLALPrintError("XLAL Error - %s: At present only fits for the (2,2) mode are available.\n", __func__);
+                  XLALPrintError("XLAL Error - %s: At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n", __func__);
                   XLAL_ERROR (XLAL_EINVAL);
                   break;
           }
           break;
       
       default:
-          XLALPrintError("XLAL Error - %s: At present only fits for the (2,2) mode are available.\n", __func__);
+          XLALPrintError("XLAL Error - %s: At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n", __func__);
           XLAL_ERROR (XLAL_EINVAL);
           break;
   }
@@ -2060,7 +2102,7 @@ XLALSimIMRSpinEOBCalculateNQCCoefficientsV4 (REAL8Vector * restrict amplitude,		
   UNUSED REAL8 qNSLMPeak, qNSLMDot, qNSLMDDot;
   UNUSED REAL8 pNSLMDot, pNSLMDDot;
 
-  REAL8 nra, nraDDot;
+  REAL8 nra, nraDot, nraDDot;
   REAL8 nromega, nromegaDot;
 
   REAL8 nrDeltaT, nrTimePeak;
@@ -2277,12 +2319,19 @@ XLALSimIMRSpinEOBCalculateNQCCoefficientsV4 (REAL8Vector * restrict amplitude,		
 			      chiS + chiA * (m1 - m2) / (m1 + m2) / (1. -
 								     2. *
 								     eta));
+    
+  nraDot =
+    XLALSimIMREOBGetNRSpinPeakADotV4 (modeL, modeM, eta,
+                                           chiS + chiA * (m1 - m2) / (m1 + m2) / (1. -
+                                                                                  2. *
+                                                                                  eta));
+
   nraDDot =
     XLALSimIMREOBGetNRSpinPeakADDotV4 (modeL, modeM, eta,
 			  chiS + chiA * (m1 - m2) / (m1 + m2) / (1. -
 								 2. * eta));
 //    printf("eta, chiS, chiA, dM/M, chi = %.16e %.16e %.16e %.16e %.16e\n",eta,chiS,chiA, (m1 - m2)/(m1 + m2),chiS + chiA*(m1 - m2)/(m1 + m2)/(1. - 2.*eta));
-  if (XLAL_IS_REAL8_FAIL_NAN (nra) || XLAL_IS_REAL8_FAIL_NAN (nraDDot))
+  if (XLAL_IS_REAL8_FAIL_NAN (nra) || XLAL_IS_REAL8_FAIL_NAN (nraDot) || XLAL_IS_REAL8_FAIL_NAN (nraDDot))
     {
       XLALDestroyREAL8Vector (timeVec);
       XLALDestroyREAL8Vector (q3);
@@ -2300,7 +2349,7 @@ XLALSimIMRSpinEOBCalculateNQCCoefficientsV4 (REAL8Vector * restrict amplitude,		
     }
 
   gsl_vector_set (amps, 0, nra - amp);
-  gsl_vector_set (amps, 1, -aDot);
+  gsl_vector_set (amps, 1, nraDot -aDot);
   gsl_vector_set (amps, 2, nraDDot - aDDot);
 //    printf("Amps %.16e %.16e %.16e\n", nra, amp, qNSLMPeak);
 //    printf("dAmps %.16e %.16e\n", aDot, qNSLMDot);
