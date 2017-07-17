@@ -132,6 +132,7 @@ static const char *lalSimulationApproximantNames[] = {
     INITIALIZE_NAME(SEOBNRv4_opt),
     INITIALIZE_NAME(TEOBv2),
     INITIALIZE_NAME(TEOBv4),
+    INITIALIZE_NAME(SEOBNRv4HM),
     INITIALIZE_NAME(SEOBNRv1_ROM_EffectiveSpin),
     INITIALIZE_NAME(SEOBNRv1_ROM_DoubleSpin),
     INITIALIZE_NAME(SEOBNRv2_ROM_EffectiveSpin),
@@ -787,6 +788,22 @@ int XLALSimInspiralChooseTDWaveform(
                     deltaT, m1, m2, f_min, distance, inclination, S1z, S2z, SpinAlignedEOBversion, LALparams);
             break;
 
+        case SEOBNRv4HM:
+            /* Waveform-specific sanity checks */
+            if(!XLALSimInspiralWaveformParamsFlagsAreDefault(LALparams))
+                ABORT_NONDEFAULT_LALDICT_FLAGS(LALparams);
+            if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
+                ABORT_NONZERO_TRANSVERSE_SPINS(LALparams);
+            if( !checkTidesZero(lambda1, lambda2) )
+                ABORT_NONZERO_TIDES(LALparams);
+            if( f_ref != 0.)
+                XLALPrintWarning("XLAL Warning - %s: This approximant does not use f_ref. The reference phase will be defined at coalescence.\n", __func__);
+            /* Call the waveform driver routine */
+            SpinAlignedEOBversion = 41;
+            ret = XLALSimIMRSpinAlignedEOBWaveform(hplus, hcross, phiRef,
+                                                   deltaT, m1, m2, f_min, distance, inclination, S1z, S2z, SpinAlignedEOBversion);
+            break;
+            
         case SEOBNRv3_opt_rk4:
         case SEOBNRv3_opt:
         case SEOBNRv3_pert:
