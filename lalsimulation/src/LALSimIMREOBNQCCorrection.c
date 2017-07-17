@@ -2021,8 +2021,8 @@ XLALSimIMRSpinEOBCalculateNQCCoefficientsV4 (REAL8Vector * restrict amplitude,		
 					     REAL8Vector * restrict rVec,			   /**<< Position-vector, function of time */
 					     REAL8Vector * restrict prVec,			   /**<< Momentum vector, function of time */
 					     REAL8Vector * restrict orbOmegaVec,		   /**<< Orbital frequency, func of time */
-					     INT4 l,						   /**<< Mode index l */
-					     INT4 m,						   /**<< Mode index m */
+					     INT4 modeL,						   /**<< Mode index l */
+					     INT4 modeM,						   /**<< Mode index m */
 					     REAL8 timePeak,					   /**<< Time of peak orbital frequency */
 					     REAL8 deltaT,					   /**<< Sampling interval */
 					     REAL8 m1,						   /**<< Component mass 1 */
@@ -2183,14 +2183,14 @@ XLALSimIMRSpinEOBCalculateNQCCoefficientsV4 (REAL8Vector * restrict amplitude,		
   switch (SpinAlignedEOBversion)
     {
     case 1:
-      nrDeltaT = XLALSimIMREOBGetNRSpinPeakDeltaT (l, m, eta, a);
+      nrDeltaT = XLALSimIMREOBGetNRSpinPeakDeltaT (modeL, modeM, eta, a);
       break;
     case 2:
-      nrDeltaT = XLALSimIMREOBGetNRSpinPeakDeltaT (l, m, eta, a);
+      nrDeltaT = XLALSimIMREOBGetNRSpinPeakDeltaT (modeL, modeM, eta, a);
       break;
     case 4:
       nrDeltaT =
-	XLALSimIMREOBGetNRSpinPeakDeltaTv4 (l, m, m1, m2, chi1, chi2);
+	XLALSimIMREOBGetNRSpinPeakDeltaTv4 (modeL, modeM, m1, m2, chi1, chi2);
       break;
     default:
       XLALPrintError
@@ -2273,12 +2273,12 @@ XLALSimIMRSpinEOBCalculateNQCCoefficientsV4 (REAL8Vector * restrict amplitude,		
   qNSLMDDot = gsl_spline_eval_deriv2 (spline, nrTimePeak, acc);
 
   nra =
-    XLALSimIMREOBGetNRSpinPeakAmplitudeV4 (l, m, eta,
+    XLALSimIMREOBGetNRSpinPeakAmplitudeV4 (modeL, modeM, eta,
 			      chiS + chiA * (m1 - m2) / (m1 + m2) / (1. -
 								     2. *
 								     eta));
   nraDDot =
-    XLALSimIMREOBGetNRSpinPeakADDotV4 (l, m, eta,
+    XLALSimIMREOBGetNRSpinPeakADDotV4 (modeL, modeM, eta,
 			  chiS + chiA * (m1 - m2) / (m1 + m2) / (1. -
 								 2. * eta));
 //    printf("eta, chiS, chiA, dM/M, chi = %.16e %.16e %.16e %.16e %.16e\n",eta,chiS,chiA, (m1 - m2)/(m1 + m2),chiS + chiA*(m1 - m2)/(m1 + m2)/(1. - 2.*eta));
@@ -2372,11 +2372,11 @@ XLALSimIMRSpinEOBCalculateNQCCoefficientsV4 (REAL8Vector * restrict amplitude,		
     }
 
   nromega =
-    XLALSimIMREOBGetNRSpinPeakOmegaV4 (l, m, eta,
+    XLALSimIMREOBGetNRSpinPeakOmegaV4 (modeL, modeM, eta,
 			  chiS + chiA * (m1 - m2) / (m1 + m2) / (1. -
 								 2. * eta));
   nromegaDot =
-    XLALSimIMREOBGetNRSpinPeakOmegaDotV4 (l, m, eta,
+    XLALSimIMREOBGetNRSpinPeakOmegaDotV4 (modeL, modeM, eta,
 			     chiS + chiA * (m1 - m2) / (m1 + m2) / (1. -
 								    2. *
 								    eta));
