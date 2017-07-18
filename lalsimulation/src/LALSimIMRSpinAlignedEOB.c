@@ -52,7 +52,7 @@
 #include "LALSimIMRSpinAlignedEOBHcapDerivativeOptimized.c"
 /* END OPTIMIZED */
 
-#define debugOutput 0
+#define debugOutput 1
 
 //static int debugPK = 0;
 
@@ -449,7 +449,7 @@ XLALSimIMRSpinAlignedEOBWaveform (REAL8TimeSeries ** hplus,	     /**<< OUTPUT, +
 				  const REAL8 inc,		     /**<< inclination angle */
 				  const REAL8 spin1z,		     /**<< z-component of spin-1, dimensionless */
 				  const REAL8 spin2z,		      /**<< z-component of spin-2, dimensionless */
-				  UINT4 SpinAlignedEOBversion,		      /**<< 1 for SEOBNRv1, 2 for SEOBNRv2, 4 for SEOBNRv4 */
+				  UINT4 SpinAlignedEOBversion,		      /**<< 1 for SEOBNRv1, 2 for SEOBNRv2, 4 for SEOBNRv4, 41 for SEOBNRv4HM */
                   LALDict *LALParams /**<< Dictionary of additional wf parameters, including tidal and nonGR */
   )
 {
@@ -670,7 +670,7 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
     {
         SpinAlignedEOBversion = 4;
         use_hm = 1;
-        nModes = 5;
+        nModes = 2;
     }
 
   /* If the EOB version flag is neither 1, 2, nor 4, exit */
