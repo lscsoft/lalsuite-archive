@@ -656,7 +656,7 @@ REAL8Window *XLALCreatePlanckREAL8Window(UINT4 length, REAL8 start_time, REAL8 t
     if(!sequence)
         XLAL_ERROR_NULL(XLAL_EFUNC);
 
-    REAL8 end_time = start_time + rise_time; //TODO: this value is still a random choice
+    REAL8 end_time = start_time + rise_time; 
 
     /*window similar to arxiv 1003.2939 but one-sided with different parametrization*/
     for(i = 0; i< length; i++){

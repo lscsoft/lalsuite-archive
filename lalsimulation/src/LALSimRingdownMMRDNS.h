@@ -136,7 +136,6 @@ int XLALSimRingdownMMRDNS_time(
         REAL8 phi_offset,                            /**< intrinsic phase offset */
         REAL8 r,                                     /**< distance of source (m) */
         LALSimInspiralTestGRParam *nonGRparams,       /**< testing GR parameters */
-        UINT4 * Num_samples_window
 );
 
 /* XLALSimRingdownGenerateSingleModeMMRDNS_time: Time domain waveformgenerator for single QNM with angular dependence */

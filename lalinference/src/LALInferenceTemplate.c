@@ -938,7 +938,6 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceModel *model)  // 
     else if(approximant==(int)RingdownMMRDNSTD)
     {
         /* prepare window */
-        fprintf(stdout,"Setting windows for ringdown\n");
 	REAL8 rise_time, window_shift;
 	GetWindowParamsFromReadDataToTemplate(&rise_time, &window_shift);
 	REAL8 Tstart = 0.0*mass*LAL_MTSUN_SI;
