@@ -43,9 +43,6 @@
 #include <lal/LALInferenceMultibanding.h>
 #include <lal/LALSimBlackHoleRingdownTiger.h>
 #include <lal/LALSimRingdownMMRDNS.h>
-#include <lal/Window.h>
-#include <lal/LALInferenceReadData.h>
-#include <lal/LALConstants.h>
 
 /* LIB imports*/
 #include <lal/LALInferenceBurstRoutines.h>
@@ -935,19 +932,8 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceModel *model)  // 
     if(approximant==(int)RingdownTD){
     XLAL_TRY(ret=XLALSimBlackHoleRingdownTiger(&hplus, &hcross, qnmodes, (&model->timehCross->epoch), phi, deltaT, mass*LAL_MSUN_SI,spin, eta, spin1, spin2, chiEff, distance, inclination, nonGRparams), errnum);
     }
-    else if(approximant==(int)RingdownMMRDNSTD)
-    {
-        /* prepare window */
-	REAL8 rise_time, window_shift;
-	GetWindowParamsFromReadDataToTemplate(&rise_time, &window_shift);
-	REAL8 Tstart = 0.0*mass*LAL_MTSUN_SI;
-        REAL8 Tend   = 50.0*mass*LAL_MTSUN_SI;
-        UINT4 Num_samples_window=ceil((Tend-Tstart)/(deltaT));	
-
-        XLAL_TRY(ret=XLALSimRingdownMMRDNS_time(&hplus, &hcross, (&model->timehCross->epoch), deltaT, mass*LAL_MSUN_SI, spin, eta, inclination, phi, distance, nonGRparams), errnum); 
-        XLAL_TRY(ret=XLALApplyPlanckWindowToTemplate(&hplus, &hcross, Num_samples_window, LAL_MTSUN_SI*window_shift, (Num_samples_window*deltaT)-2.0, 1.0/deltaT, rise_time), errnum);	
-
-
+    else if(approximant==(int)RingdownMMRDNSTD){
+    XLAL_TRY(ret=XLALSimRingdownMMRDNS_time(&hplus, &hcross, (&model->timehCross->epoch), deltaT, mass*LAL_MSUN_SI, spin, eta, inclination, phi, distance, nonGRparams), errnum);
     }
     // XLALSimInspiralDestroyWaveformFlags(waveFlags);
     XLALSimInspiralDestroyTestGRParam(nonGRparams);
