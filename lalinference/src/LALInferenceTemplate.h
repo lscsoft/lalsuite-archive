@@ -217,8 +217,6 @@ E * - \c "rdspin"       (REAL8, x component of the spin of object 1)
 void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceModel *model);
 
 /* NR fits to compute the initial total mass */
-REAL8 XLALE_rad_nonspinning_UIB2016(REAL8 eta);
-REAL8 XLALMf_to_M_nonspinning_UIB2016(REAL8 eta, REAL8 M_f);
 
 
 /*@}*/
