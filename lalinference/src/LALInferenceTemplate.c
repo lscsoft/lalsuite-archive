@@ -43,6 +43,9 @@
 #include <lal/LALInferenceMultibanding.h>
 #include <lal/LALSimBlackHoleRingdownTiger.h>
 #include <lal/LALSimRingdownMMRDNS.h>
+#include <lal/Window.h>
+#include <lal/LALInferenceReadData.h>
+#include <lal/LALConstants.h>
 
 /* LIB imports*/
 #include <lal/LALInferenceBurstRoutines.h>
@@ -68,6 +71,42 @@
 #define Pi_p2 9.8696044010893586188344909998761511
 #define Pi_p2by3 2.1450293971110256000774441009412356
 #define log4 1.3862943611198906188344642429163531
+
+
+REAL8 XLALE_rad_nonspinning_UIB2016(REAL8 eta)
+{
+    REAL8 a1, a2, a3, a4;
+    REAL8 eta2, eta3, eta4;
+    
+    /********************************************************************************************************************
+     * Formula taken from eq. (21) and table VII of Jimenez, Keitel, Husa et al.  arXiv:1611.00332                      *
+     * Note that the formula given there corresponds to E_rad = M - M_f = 1 - M_f (in units of the initial total mass). *
+     * Then M = M_f + E_rad * M ==> M = M_f/(1-E_rad)                                                                   *
+     ********************************************************************************************************************/
+    
+    a1   =  (1-(2.*sqrt(2.))/3.); /* Std error: 0 (Th) ; Rel error: 0   % */
+    a2   =  0.5610;               /* Std error: 0.0026 ; Rel error: 0.5 % */
+    a3   = -0.847;                /* Std error: 0.0270 ; Rel error: 3.2 % */
+    a4   =  3.145;                /* Std error: 0.0690 ; Rel error: 2.2 % */
+    
+    eta2 = eta  * eta;
+    eta3 = eta  * eta * eta;
+    eta4 = eta2 * eta2;
+    
+    return a4*eta4 + a3*eta3 + a2*eta2 + a1*eta;
+    
+}
+
+REAL8 XLALMf_to_M_nonspinning_UIB2016(REAL8 eta, REAL8 M_f)
+{
+    REAL8 M;
+    
+    M = M_f/(1-XLALE_rad_nonspinning_UIB2016(eta));
+    
+    return M;
+}
+
+
 
 static void q2masses(double mc, double q, double *m1, double *m2);
 static void eta2q(REAL8 eta, REAL8 *q);
@@ -932,8 +971,20 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceModel *model)  // 
     if(approximant==(int)RingdownTD){
     XLAL_TRY(ret=XLALSimBlackHoleRingdownTiger(&hplus, &hcross, qnmodes, (&model->timehCross->epoch), phi, deltaT, mass*LAL_MSUN_SI,spin, eta, spin1, spin2, chiEff, distance, inclination, nonGRparams), errnum);
     }
-    else if(approximant==(int)RingdownMMRDNSTD){
-    XLAL_TRY(ret=XLALSimRingdownMMRDNS_time(&hplus, &hcross, (&model->timehCross->epoch), deltaT, mass*LAL_MSUN_SI, spin, eta, inclination, phi, distance, nonGRparams), errnum);
+    else if(approximant==(int)RingdownMMRDNSTD)
+    {
+        /* prepare window */
+	REAL8 rise_time, window_shift;
+	GetWindowParamsFromReadDataToTemplate(&rise_time, &window_shift);
+	REAL8 M      = XLALMf_to_M_nonspinning_UIB2016(eta, mass);
+	REAL8 Tstart =  0.0*M*LAL_MTSUN_SI;
+        REAL8 Tend   = 50.0*M*LAL_MTSUN_SI;
+        UINT4 Num_samples_window=ceil((Tend-Tstart)/(deltaT));	
+
+        XLAL_TRY(ret=XLALSimRingdownMMRDNS_time(&hplus, &hcross, (&model->timehCross->epoch), deltaT, mass*LAL_MSUN_SI, spin, eta, inclination, phi, distance, nonGRparams), errnum); 
+        XLAL_TRY(ret=XLALApplyPlanckWindowToTemplate(&hplus, &hcross, Num_samples_window, LAL_MTSUN_SI*window_shift, (Num_samples_window*deltaT)-2.0, 1.0/deltaT, rise_time), errnum);	
+
+
     }
     // XLALSimInspiralDestroyWaveformFlags(waveFlags);
     XLALSimInspiralDestroyTestGRParam(nonGRparams);

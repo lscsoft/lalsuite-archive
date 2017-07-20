@@ -43,7 +43,7 @@
  * \author John Veitch
  */
 struct tagLALInferenceIFOData * LALInferenceReadData (ProcessParamsTable * commandLine);
-
+void GetWindowParamsFromReadDataToTemplate(REAL8 * rise_time, REAL8 * window_shift);
 /**
  * \brief Convenience function to inject a signal into the data, using a SimInspiralTable
  * Injects a signal from a SimInspiralTable into a pre-existing \c IFOdata structure,

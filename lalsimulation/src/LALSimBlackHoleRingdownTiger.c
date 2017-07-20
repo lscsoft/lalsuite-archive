@@ -119,7 +119,8 @@ int XLALSimBlackHoleRingdownTiger(
   /* prepare window */
   REAL8Window *window_rd;
   REAL8 start = 0.0; //TODO: starting time of window might be adjusted later on
-  window_rd = XLALCreatePlanckREAL8Window(length,start,length*deltaT-2.0,1.0/deltaT);
+  REAL8 rise_time = 0.001;
+  window_rd = XLALCreatePlanckREAL8Window(length,start,length*deltaT-2.0,1.0/deltaT, rise_time);
 
   /* Fill in the plus and cross polarization vectors */
   thisMode = modeList;
