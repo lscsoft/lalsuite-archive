@@ -195,7 +195,6 @@ COMPLEX16 XLALcomplexOmega( double kappa, int l, int input_m, int n );
 */
 COMPLEX16 XLALMMRDNSAmplitudeOverOmegaSquared( double eta, int l, int input_m, int n );
 
-/*Variable that needs to be passed to LALInferenceReadData in order to set the correct lenght of the window to be put on the model*/
 
 
 /* Convert NR Code Time to Physical Units */

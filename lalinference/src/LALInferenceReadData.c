@@ -70,7 +70,6 @@
 #include <math.h>
 #include <lal/LALInspiral.h>
 #include <lal/LALSimulation.h>
-#include <lal/LALConstants.h>
 
 #include <lal/LALInference.h>
 #include <lal/LALInferenceReadData.h>
@@ -95,7 +94,6 @@ struct fvec {
 
 static void LALInferenceSetGPSTrigtime(LIGOTimeGPS *GPStrig, ProcessParamsTable *commandLine);
 struct fvec *interpFromFile(char *filename, REAL8 squareinput);
-REAL8 RingdownTemplateWindow_rise_time, RingdownTemplateWindow_shift;
 
 struct fvec *interpFromFile(char *filename, REAL8 squareinput){
 	UINT4 fileLength=0;
@@ -781,44 +779,32 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
             exit(1);
         }
         IFOdata[i].padding=padding;
-        if(LALInferenceGetProcParamVal(commandLine, "--ringdown"))
-	{
+        if(LALInferenceGetProcParamVal(commandLine, "--ringdown")){
             fprintf(stdout,"Setting windows for ringdown\n");
-            REAL8 trig_time = GPStrig.gpsSeconds+1e-9*GPStrig.gpsNanoSeconds;
-	    ppt=LALInferenceGetProcParamVal(commandLine,"--window-rise-time");
-            if(!ppt){fprintf(stderr,"need to give --window-rise-time\n"); exit(0);}
-            REAL8 rise_time = atof(ppt->value);
-	    ppt=LALInferenceGetProcParamVal(commandLine,"--window-shift");
-            if(!ppt){fprintf(stderr,"need to give --window-shift\n"); exit(0);}
-            REAL8 window_shift = atof(ppt->value);
-           
-	    /* Parameters to be passed to the template window */
-            RingdownTemplateWindow_rise_time = rise_time;
-            RingdownTemplateWindow_shift     = window_shift;
-            if(strcmp(IFOdata[i].name, "H1") == 0)
-      	    {
-                ppt=LALInferenceGetProcParamVal(commandLine,"--window-start-time-H");
-                if(!ppt){fprintf(stderr,"need to give --window-start-time-H\n"); exit(0);}
-                REAL8 window_start_H = atof(ppt->value);
-                printf("Using a planck window for detector %s, starting at %f\n", IFOdata[i].name,  window_start_H);
-		IFOdata[i].window=XLALCreatePlanckREAL8Window(seglen, window_start_H, trig_time, SampleRate, rise_time);
+            if(strcmp(IFOdata[i].name, "H1") == 0){
+                ppt=LALInferenceGetProcParamVal(commandLine,"--gps_time_H");
+                if(!ppt){fprintf(stderr,"need to give --gps_time_H\n"); exit(0);}
+                REAL8 window_start = atof(ppt->value);
+                REAL8 trig_time = GPStrig.gpsSeconds+1e-9*GPStrig.gpsNanoSeconds;
+                printf("Using a planck window for detector %s, starting a  %f\n", IFOdata[i].name, window_start);
+		IFOdata[i].window=XLALCreatePlanckREAL8Window(seglen,window_start,trig_time,SampleRate);
             }
-	    else if(strcmp(IFOdata[i].name, "L1") == 0)
-	    {
-                ppt=LALInferenceGetProcParamVal(commandLine,"--window-start-time-L");
-                if(!ppt){fprintf(stderr,"need to give --window-start-time-L\n"); exit(0);}
-                REAL8 window_start_L = atof(ppt->value);
-                printf("Using a planck window for detector %s, starting at %f\n", IFOdata[i].name, window_start_L);
-                IFOdata[i].window=XLALCreatePlanckREAL8Window(seglen, window_start_L, trig_time, SampleRate, rise_time); 
+            else if(strcmp(IFOdata[i].name, "L1") == 0){
+                ppt=LALInferenceGetProcParamVal(commandLine,"--gps_time_L");
+                if(!ppt){fprintf(stderr,"need to give --gps_time_L\n"); exit(0);}
+                REAL8 window_start = atof(ppt->value);
+                REAL8 trig_time = GPStrig.gpsSeconds+1e-9*GPStrig.gpsNanoSeconds;
+                printf("Using a planck window for detector %s, starting a  %f\n", IFOdata[i].name, window_start);
+		IFOdata[i].window=XLALCreatePlanckREAL8Window(seglen,window_start,trig_time,SampleRate); 
             }
-            else if(strcmp(IFOdata[i].name, "V1") == 0)
-            {
-                ppt=LALInferenceGetProcParamVal(commandLine,"--window-start-time-V");
-                if(!ppt){fprintf(stderr,"need to give --window-start-time-V\n"); exit(0);}
-                REAL8 window_start_V = atof(ppt->value);
-                printf("Using a planck window for detector %s, starting at %f\n", IFOdata[i].name,  window_start_V);
-                IFOdata[i].window=XLALCreatePlanckREAL8Window(seglen, window_start_V, trig_time, SampleRate, rise_time);
-            }
+            else if(strcmp(IFOdata[i].name, "V1") == 0){
+		ppt=LALInferenceGetProcParamVal(commandLine,"--gps_time_V");
+                if(!ppt){fprintf(stderr,"need to give --gps_time_V\n"); exit(0);}
+                REAL8 window_start = atof(ppt->value);
+                REAL8 trig_time = GPStrig.gpsSeconds+1e-9*GPStrig.gpsNanoSeconds;
+                printf("Using a planck window for detector %s, starting a  %f\n", IFOdata[i].name, window_start);
+                IFOdata[i].window=XLALCreatePlanckREAL8Window(seglen,window_start,trig_time,SampleRate);
+	    }
         }
         else IFOdata[i].window=XLALCreateTukeyREAL8Window(seglen,(REAL8)2.0*padding*SampleRate/(REAL8)seglen);
         if(!IFOdata[i].window) XLAL_ERROR_NULL(XLAL_EFUNC);
@@ -1348,13 +1334,6 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 
 
     return headIFO;
-}
-
-void GetWindowParamsFromReadDataToTemplate(REAL8 * rise_time, REAL8 * window_shift)
-{
-    *rise_time    = RingdownTemplateWindow_rise_time;
-    *window_shift = RingdownTemplateWindow_shift;
-    
 }
 
 static void makeWhiteData(LALInferenceIFOData *IFOdata) {
@@ -2888,12 +2867,9 @@ void LALInferenceInjectRingdownSignal(LALInferenceIFOData *IFOdata, ProcessParam
       if(injEvent->dtau430 != 0.0) {
         XLALSimInspiralAddTestGRParam(&nonGRparams,"dtau430",injEvent->dtau430) ;
       }
-  	
-      REAL8 Tstart = (0.0+RingdownTemplateWindow_shift)*Mbh*LAL_MTSUN_SI;
-      REAL8 Tend   = 50.0*Mbh*LAL_MTSUN_SI;
-      UINT4 Num_samples_window=ceil((Tend-Tstart)/(1.0/InjSampleRate));
+
       XLALSimRingdownMMRDNS_time(&hplus, &hcross, &t0, 1.0/InjSampleRate, Mbh*LAL_MSUN_SI, spin, eta, injEvent->inclination, phase, injEvent->distance*LAL_PC_SI*1.0e6, nonGRparams);
-      XLALApplyPlanckWindowToTemplate(&hplus, &hcross, Num_samples_window,LAL_MTSUN_SI*RingdownTemplateWindow_shift, (Num_samples_window/InjSampleRate)-2.0, InjSampleRate, RingdownTemplateWindow_rise_time);
+
 }
       if(!hplus || !hcross) {
         fprintf(stderr,"Error: XLALSimInspiralChooseWaveform() failed to produce waveform.\n");
