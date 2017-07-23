@@ -785,31 +785,39 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 	{
             fprintf(stdout,"Setting windows for ringdown\n");
             REAL8 trig_time = GPStrig.gpsSeconds+1e-9*GPStrig.gpsNanoSeconds;
-	    ppt=LALInferenceGetProcParamVal(commandLine,"--window_rise_time");
-            if(!ppt){fprintf(stderr,"need to give --window_rise_time\n"); exit(0);}
+	    ppt=LALInferenceGetProcParamVal(commandLine,"--window-rise-time");
+            if(!ppt){fprintf(stderr,"need to give --window-rise-time\n"); exit(0);}
             REAL8 rise_time = atof(ppt->value);
-	    ppt=LALInferenceGetProcParamVal(commandLine,"--window_shift");
-            if(!ppt){fprintf(stderr,"need to give --window_shift\n"); exit(0);}
+	    ppt=LALInferenceGetProcParamVal(commandLine,"--window-shift");
+            if(!ppt){fprintf(stderr,"need to give --window-shift\n"); exit(0);}
             REAL8 window_shift = atof(ppt->value);
            
 	    /* Parameters to be passed to the template window */
             RingdownTemplateWindow_rise_time = rise_time;
             RingdownTemplateWindow_shift     = window_shift;
-	    if(i==0)
-	    {
-                ppt=LALInferenceGetProcParamVal(commandLine,"--window_start_time_H");
-                if(!ppt){fprintf(stderr,"need to give --window_start_time_H\n"); exit(0);}
+            if(strcmp(IFOdata[i].name, "H1") == 0)
+      	    {
+                ppt=LALInferenceGetProcParamVal(commandLine,"--window-start-time-H");
+                if(!ppt){fprintf(stderr,"need to give --window-start-time-H\n"); exit(0);}
                 REAL8 window_start_H = atof(ppt->value);
-                printf("Using a planck window for detector H, starting at %f\n", window_start_H);
+                printf("Using a planck window for detector %s, starting at %f\n", IFOdata[i].name,  window_start_H);
 		IFOdata[i].window=XLALCreatePlanckREAL8Window(seglen, window_start_H, trig_time, SampleRate, rise_time);
             }
-            if(i==1)
+	    else if(strcmp(IFOdata[i].name, "L1") == 0)
 	    {
-                ppt=LALInferenceGetProcParamVal(commandLine,"--window_start_time_L");
-                if(!ppt){fprintf(stderr,"need to give --window_start_time_L\n"); exit(0);}
+                ppt=LALInferenceGetProcParamVal(commandLine,"--window-start-time-L");
+                if(!ppt){fprintf(stderr,"need to give --window-start-time-L\n"); exit(0);}
                 REAL8 window_start_L = atof(ppt->value);
-                printf("Using a planck window for detector L, starting at  %f\n", window_start_L);
+                printf("Using a planck window for detector %s, starting at %f\n", IFOdata[i].name, window_start_L);
                 IFOdata[i].window=XLALCreatePlanckREAL8Window(seglen, window_start_L, trig_time, SampleRate, rise_time); 
+            }
+            else if(strcmp(IFOdata[i].name, "V1") == 0)
+            {
+                ppt=LALInferenceGetProcParamVal(commandLine,"--window-start-time-V");
+                if(!ppt){fprintf(stderr,"need to give --window-start-time-V\n"); exit(0);}
+                REAL8 window_start_V = atof(ppt->value);
+                printf("Using a planck window for detector %s, starting at %f\n", IFOdata[i].name,  window_start_V);
+                IFOdata[i].window=XLALCreatePlanckREAL8Window(seglen, window_start_V, trig_time, SampleRate, rise_time);
             }
         }
         else IFOdata[i].window=XLALCreateTukeyREAL8Window(seglen,(REAL8)2.0*padding*SampleRate/(REAL8)seglen);
