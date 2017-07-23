@@ -60,37 +60,36 @@
 #include <lal/LALSimInspiralTestGRParams.h>
 
 
-
 REAL8 XLALE_rad_nonspinning_UIB2016(REAL8 eta)
-{
+{   
     REAL8 a1, a2, a3, a4;
     REAL8 eta2, eta3, eta4;
-    
+ 
     /********************************************************************************************************************
      * Formula taken from eq. (21) and table VII of Jimenez, Keitel, Husa et al.  arXiv:1611.00332                      *
      * Note that the formula given there corresponds to E_rad = M - M_f = 1 - M_f (in units of the initial total mass). *
      * Then M = M_f + E_rad * M ==> M = M_f/(1-E_rad)                                                                   *
      ********************************************************************************************************************/
-    
+
     a1   =  (1-(2.*sqrt(2.))/3.); /* Std error: 0 (Th) ; Rel error: 0   % */
     a2   =  0.5610;               /* Std error: 0.0026 ; Rel error: 0.5 % */
     a3   = -0.847;                /* Std error: 0.0270 ; Rel error: 3.2 % */
     a4   =  3.145;                /* Std error: 0.0690 ; Rel error: 2.2 % */
-    
+
     eta2 = eta  * eta;
     eta3 = eta  * eta * eta;
     eta4 = eta2 * eta2;
-    
+
     return a4*eta4 + a3*eta3 + a2*eta2 + a1*eta;
-    
+
 }
 
 REAL8 XLALMf_to_M_nonspinning_UIB2016(REAL8 eta, REAL8 M_f)
 {
     REAL8 M;
-    
+
     M = M_f/(1-XLALE_rad_nonspinning_UIB2016(eta));
-    
+
     return M;
 }
 
@@ -1058,7 +1057,7 @@ int XLALSimRingdownMMRDNS_time(
         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
           dtau430 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
 
-        /* Time runs from Tstart to Tend after merger. Use total mass to agree with NR conventions. */
+        /* Time runs from Tstart to Tend after merger. Use total mass to agree with NR conventions. Inside the template t=0 corresponds to 10M after the merger.*/
         REAL8 M        = XLALMf_to_M_nonspinning_UIB2016(eta, Mf);
         REAL8 Tstart   =  0.0*M*LAL_MTSUN_SI/LAL_MSUN_SI;
         REAL8 Tend     = 50.0*M*LAL_MTSUN_SI/LAL_MSUN_SI;
@@ -1084,12 +1083,6 @@ int XLALSimRingdownMMRDNS_time(
         memset((*hcross)->data->data, 0, Nsamples * sizeof(REAL8));
 
 
-        /* prepare window */
-        REAL8Window *window_rd;
-        REAL8 start = 0.0*M*LAL_MTSUN_SI/LAL_MSUN_SI; 
-        window_rd   = XLALCreatePlanckREAL8Window(Nsamples,start,Nsamples*deltaT-2.0,1.0/deltaT);
-
-
         COMPLEX16 h_val = 0.0;
         for ( UINT4 i=0 ; i<Nsamples ; i++ ) 
 	{
@@ -1103,8 +1096,8 @@ int XLALSimRingdownMMRDNS_time(
           h_val += h320->data->data[i];
           h_val += h430->data->data[i];
 
-          (*hplus)->data->data[i]  =  creal(h_val)*(window_rd->data->data)[i];
-          (*hcross)->data->data[i] = -cimag(h_val)*(window_rd->data->data)[i];
+          (*hplus)->data->data[i]  =  creal(h_val);
+          (*hcross)->data->data[i] = -cimag(h_val);
           h_val = 0.0;
         }
 
@@ -1120,8 +1113,7 @@ int XLALSimRingdownMMRDNS_time(
         if (h320) XLALDestroyCOMPLEX16TimeSeries(h320);
         if (h430) XLALDestroyCOMPLEX16TimeSeries(h430);
 	
-	XLALDestroyREAL8Window(window_rd);
-	free(nonGRParamName);
+        free(nonGRParamName);
         return 0;
         
 }
@@ -1149,26 +1141,27 @@ int XLALSimRingdownGenerateSingleModeMMRDNS_time(
         /* Declarations: M is the initial total mass, Mf is the remnant mass */
         COMPLEX16 h_lmn     = 0.0;
         REAL8 kappa         = XLALKAPPA(jf, l, m);
-	REAL8 M             = XLALMf_to_M_nonspinning_UIB2016(eta, Mf);
+        REAL8 M             = XLALMf_to_M_nonspinning_UIB2016(eta, Mf);
         REAL8 Mf_sec        = Mf*LAL_MTSUN_SI/LAL_MSUN_SI;
-	REAL8 M_sec         = M*LAL_MTSUN_SI/LAL_MSUN_SI;
+        REAL8 M_sec         = M*LAL_MTSUN_SI/LAL_MSUN_SI;
         REAL8 r_sec         = r/LAL_C_SI;
         REAL8 t             = 0.0;
         COMPLEX16 A_lmn     = 0.0;
         REAL8 A             = 0.0;
         REAL8 phi_relative  = 0.0;
         COMPLEX16 Omega_lmn = 0.0;
-        REAL8 freq 	    = 0.0;
-        REAL8 tau 	    = 0.0;
-        REAL8 Yplus 	    = 0.0;
-        REAL8 Ycross 	    = 0.0;
+        REAL8 freq          = 0.0;
+        REAL8 tau           = 0.0;
+        REAL8 Yplus         = 0.0;
+        REAL8 Ycross        = 0.0;
+
 
         /* Mode Component Calculation*/
         A_lmn 	     = XLALMMRDNSAmplitudeOverOmegaSquared(eta, l, m, n);
-        A     	     = cabs(A_lmn)*M_sec/(r_sec);
-        phi_relative = carg(A_lmn);
+        A            = cabs(A_lmn)*M_sec/(r_sec);
+	phi_relative = carg(A_lmn);
         Omega_lmn    = XLALcomplexOmega(kappa, l, m, n)/Mf_sec;
-        freq 	     = creal(Omega_lmn)*(1.+dfreq);
+        freq         = creal(Omega_lmn)*(1.+dfreq);
         tau 	     = 1./(cimag(Omega_lmn)/(1.+dtau));
         Yplus 	     = XLALSimSpheroidalHarmonicPlus(jf, l, m, n, iota);
         Ycross 	     = XLALSimSpheroidalHarmonicCross(jf, l, m, n, iota);
@@ -1178,8 +1171,6 @@ int XLALSimRingdownGenerateSingleModeMMRDNS_time(
         if (!(*htilde_lmn)) XLAL_ERROR(XLAL_EFUNC);
         memset((*htilde_lmn)->data->data, 0, Nsamples * sizeof(COMPLEX16));
         
-        /* 10M is zero in model -> shift 10M to 0 on time axis*/
-
         /* fill waveform */
         for ( UINT4 i=0 ; i<Nsamples ; i++ ) 
 	{
