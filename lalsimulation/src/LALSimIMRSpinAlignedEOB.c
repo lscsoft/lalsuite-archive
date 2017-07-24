@@ -2230,7 +2230,6 @@ if (use_hm == 1)
       }
   }
 
->>>>>>> 24b3e72e24... SEOBNRv4HM Allow for HH in main wf generation, still not summed into h+ and hx though
   /* Generate full inspiral waveform using desired sampling frequency */
   if (use_optimized_v2_or_v4)
     {
