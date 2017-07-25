@@ -1514,7 +1514,7 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
       if (use_optimized_v2_or_v4)
 	{
 	  /* OPTIMIZED: */
-	  ham =
+	  hamV->data[i] =
 	    XLALSimIMRSpinEOBHamiltonianOptimized (eta, &cartPosVec,
 						   &cartMomVec,
 						   &s1VecOverMtMt,
