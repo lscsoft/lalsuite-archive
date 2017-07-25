@@ -150,6 +150,7 @@ static const char *lalSimulationApproximantNames[] = {
     INITIALIZE_NAME(SpinTaylorT4Fourier),
     INITIALIZE_NAME(SpinTaylorT2Fourier),
     INITIALIZE_NAME(SpinDominatedWf),
+    INITIALIZE_NAME(NRSur7dq2),
     INITIALIZE_NAME(NR_hdf5),
 };
 #undef INITIALIZE_NAME
@@ -901,6 +902,13 @@ int XLALSimInspiralChooseTDWaveform(
             XLALFree(numrel_data_path);
             break;
 
+        case NRSur7dq2:
+            /* Waveform-specific sanity checks */
+            /* Call the waveform driver routine */
+            ret = XLALSimInspiralNRSur7dq2Polarizations(hplus, hcross,
+                    phiRef, i, deltaT, m1, m2, r, f_min, f_ref,
+                    S1x, S1y, S1z, S2x, S2y, S2z);
+            break;
 
         default:
             XLALPrintError("TD version of approximant not implemented in lalsimulation\n");
@@ -2344,6 +2352,13 @@ SphHarmTimeSeries *XLALSimInspiralChooseTDModes(
                     XLALDestroyCOMPLEX16TimeSeries( tmpmode );
                 }
             }
+            break;
+
+        case NRSur7dq2:
+            /* Waveform-specific sanity checks */
+            /* Call the waveform driver routine */
+            hlm = XLALSimInspiralNRSur7dq2Modes(phiRef, deltaT, m1, m2, f_min,
+                    f_ref, r, lmax);
             break;
 
         default:
@@ -4021,6 +4036,7 @@ int XLALSimInspiralImplementedTDApproximants(
         case TEOBv2:
         case TEOBv4:
         case NR_hdf5:
+        case NRSur7dq2:
             return 1;
 
         default:
@@ -4449,6 +4465,7 @@ int XLALSimInspiralGetSpinSupportFromApproximant(Approximant approx){
     case SpinDominatedWf:
     case SEOBNRv3:
     case NR_hdf5:
+    case NRSur7dq2:
       spin_support=LAL_SIM_INSPIRAL_PRECESSINGSPIN;
       break;
     case SpinTaylorF2:
@@ -4570,6 +4587,7 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
     case TaylorT4:
     case TaylorN:
     case SpinDominatedWf:
+    case NRSur7dq2:
     case NumApproximants:
     case NR_hdf5:
       testGR_accept=LAL_SIM_INSPIRAL_NO_TESTGR_PARAMS;

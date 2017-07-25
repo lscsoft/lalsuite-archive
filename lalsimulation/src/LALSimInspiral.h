@@ -370,7 +370,8 @@ typedef enum tagApproximant {
    SpinDominatedWf,     /**< Time domain, inspiral only, 1 spin, precessing waveform, Tapai et al, arXiv: 1209.1722
                          * @remarks Implemented in lalsimulation (time domain). */
    NR_hdf5,              /**< Time domain, NR waveform from HDF file. From INSERT LINKS HERE */
-   NumApproximants	/**< Number of elements in enum, useful for checking bounds */
+   NRSur7dq2,           /**< Time domain, fully precessing NR surrogate model with up to ell=4 modes, arxiv: 1705.07089 */
+   NumApproximants,	/**< Number of elements in enum, useful for checking bounds */
  } Approximant;
 
 /** Enum of various frequency functions */
