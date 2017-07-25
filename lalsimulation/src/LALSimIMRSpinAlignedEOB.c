@@ -1006,6 +1006,7 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
   seobParams.seobCoeffs = &seobCoeffs;
   seobParams.eobParams = &eobParams;
   seobParams.nqcCoeffs = &nqcCoeffs;
+  seobParams.use_hm = use_hm;
   eobParams.hCoeffs = &hCoeffs;
   eobParams.prefixes = &prefixes;
 
