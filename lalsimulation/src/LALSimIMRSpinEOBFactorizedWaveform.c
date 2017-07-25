@@ -459,7 +459,7 @@ XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform (COMPLEX16 * restrict hlm,
 						(hCoeffs->rho33v8 +
 						 hCoeffs->rho33v8l *
 						 eulerlogxabs) * v))))));
-	  auxflm = v * (v2 * hCoeffs->f33v3 + v * v2 * hCoeffs->f33v4 + v2 * v2 * hCoeffs->f33v5  + v * v2 * v2 * hCoeffs->f33v6);
+	  auxflm = v * v2 * hCoeffs->f33v3;
 	  break;
 	case 2:
 	  rholm = 1. + v * (hCoeffs->rho32v
@@ -756,13 +756,15 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients (FacWaveformCoeffs * con
   REAL8 eta2 = eta * eta;
   REAL8 eta3 = eta2 * eta;
 
-  REAL8 dM, dM2;		//dM3;
+  REAL8 dM, dM2, chiA2, chiS2;		//dM3;
   REAL8 aDelta, a2, a3;
 
   /* Combination which appears a lot */
   REAL8 m1Plus3eta, m1Plus3eta2, m1Plus3eta3;
 
   dM2 = 1. - 4. * eta;
+  chiA2 = chiA * chiA;
+  chiS2 = chiS * chiS;
 
   //printf( "****************************** a = %e *********************************\n", a );
 
@@ -1001,21 +1003,33 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients (FacWaveformCoeffs * con
       //coeffs->rho33v3 = (chiS*dM*(-4. + 5.*eta) + chiA*(-4. + 19.*eta))/(6.*dM);
       coeffs->rho33v3 = 0.0;
       coeffs->rho33v4 =
-	-6719. / 3960. + a2 / 2. - (1861. * eta) / 990. +
-	(149. * eta2) / 330.;
+	-6719. / 3960. - (1861. * eta) / 990. +
+	(149. * eta2) / 330. + a2 / 2.;
+      coeffs->rho33v4Wave =
+        -6719. / 3960. - (1861. * eta) / 990. +
+        (149. * eta2) / 330.;
       coeffs->rho33v5 = (-4. * a) / 3.;
+      coeffs->rho33v5Wave = 0.;
       coeffs->rho33v6 = 3203101567. / 227026800. + (5. * a2) / 36.;
+      coeffs->rho33v6Wave = 3203101567. / 227026800.;
       coeffs->rho33v6l = -26. / 7.;
       coeffs->rho33v7 = (5297. * a) / 2970. + a * a2 / 3.;
+      coeffs->rho33v7Wave = 0.;
       coeffs->rho33v8 = -57566572157. / 8562153600.;
       coeffs->rho33v8l = 13. / 3.;
 
       coeffs->f33v3 =
 	(chiS * dM * (-4. + 5. * eta) + chiA * (-4. + 19. * eta)) / (2. * dM);
+      coeffs->f33v4 = (3./2. * chiS2 * dM + (3. - 12 * eta) * chiA * chiS + dM * (3./2. -6. * eta) * chiA2)/(dM);
+      coeffs->f33v5 = (dM * (241./30. * eta2 + 11./20. * eta + 2./3.) * chiS + (407./30. * eta2 - 593./60. * eta + 2./3.)* chiA)/(dM);
+      coeffs->f33v6 = (dM * (14. * eta2 -35. / 2. * eta - 5./ 4.) * chiS2 + (60. * eta2 - 9. * eta - 5./2.) * chiA * chiS + dM * (-12 * eta2 + 7./2. * eta - 5./4.) * chiA2)/dM;
     }
   else
     {
       coeffs->f33v3 = chiA * 3. / 8.;
+      coeffs->f33v4 = ((3. - 12 * eta) * chiA * chiS);
+      coeffs->f33v5 = ((407./30. * eta2 - 593./60. * eta + 2./3.)* chiA);
+      coeffs->f33v6 = ((60. * eta2 - 9. * eta - 5./2.) * chiA * chiS);
     }
 
   coeffs->delta32vh3 = (10. + 33. * eta) / (-15. * m1Plus3eta);
@@ -1660,15 +1674,15 @@ XLALSimIMRSpinEOBGetSpinFactorizedWaveform (COMPLEX16 * restrict hlm,
 	  rholm =
 	    1. + v2 * (hCoeffs->rho33v2 +
 		       v * (hCoeffs->rho33v3 +
-			    v * (hCoeffs->rho33v4 +
-				 v * (hCoeffs->rho33v5 +
-				      v * (hCoeffs->rho33v6 +
+			    v * (hCoeffs->rho33v4Wave +
+				 v * (hCoeffs->rho33v5Wave +
+				      v * (hCoeffs->rho33v6Wave +
 					   hCoeffs->rho33v6l * eulerlogxabs +
-					   v * (hCoeffs->rho33v7 +
+					   v * (hCoeffs->rho33v7Wave +
 						(hCoeffs->rho33v8 +
 						 hCoeffs->rho33v8l *
 						 eulerlogxabs) * v))))));
-	  auxflm = v * v2 * hCoeffs->f33v3;
+auxflm = v * (v2 * hCoeffs->f33v3 + v * v2 * hCoeffs->f33v4 + v2 * v2 * hCoeffs->f33v5  + v * v2 * v2 * hCoeffs->f33v6);
 	  break;
 	case 2:
 	  deltalm =
