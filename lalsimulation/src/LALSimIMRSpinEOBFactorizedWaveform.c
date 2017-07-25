@@ -459,7 +459,7 @@ XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform (COMPLEX16 * restrict hlm,
 						(hCoeffs->rho33v8 +
 						 hCoeffs->rho33v8l *
 						 eulerlogxabs) * v))))));
-	  auxflm = v * (v2 * hCoeffs->f33v3 + v * v2 * hCoeffs->f33v4 + v2 * v2 * hCoeffs->f33v5  + v * v2 * v2 * hCoeffs->f33v6);
+	  auxflm = v * v2 * hCoeffs->f33v3;
 	  break;
 	case 2:
 	  rholm = 1. + v * (hCoeffs->rho32v
