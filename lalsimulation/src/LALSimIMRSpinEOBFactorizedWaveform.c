@@ -996,6 +996,7 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients (FacWaveformCoeffs * con
     {
       coeffs->delta33vh3 = 13. / 10.;
       coeffs->delta33vh6 = (-81. * aDelta) / 20. + (39. * LAL_PI) / 7.;
+      coeffs->delta33vh6Wave = (39. * LAL_PI) / 7.;
       coeffs->delta33vh9 = -227827. / 3000. + (78. * LAL_PI * LAL_PI) / 7.;
       coeffs->delta33v5 = -80897. * eta / 2430.;
 
@@ -1023,6 +1024,7 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients (FacWaveformCoeffs * con
       coeffs->f33v4 = (3./2. * chiS2 * dM + (3. - 12 * eta) * chiA * chiS + dM * (3./2. -6. * eta) * chiA2)/(dM);
       coeffs->f33v5 = (dM * (241./30. * eta2 + 11./20. * eta + 2./3.) * chiS + (407./30. * eta2 - 593./60. * eta + 2./3.)* chiA)/(dM);
       coeffs->f33v6 = (dM * (14. * eta2 -35. / 2. * eta - 5./ 4.) * chiS2 + (60. * eta2 - 9. * eta - 5./2.) * chiA * chiS + dM * (-12 * eta2 + 7./2. * eta - 5./4.) * chiA2)/dM;
+      coeffs->f33vh6 = (dM * (593. / 108. * eta - 81./20.) * chiS + (7339./540. * eta - 81./20.) * chiA)/(dM);
     }
   else
     {
@@ -1030,6 +1032,7 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients (FacWaveformCoeffs * con
       coeffs->f33v4 = ((3. - 12 * eta) * chiA * chiS);
       coeffs->f33v5 = ((407./30. * eta2 - 593./60. * eta + 2./3.)* chiA);
       coeffs->f33v6 = ((60. * eta2 - 9. * eta - 5./2.) * chiA * chiS);
+      coeffs->f33vh6 = ((7339./540. * eta - 81./20.) * chiA);
     }
 
   coeffs->delta32vh3 = (10. + 33. * eta) / (-15. * m1Plus3eta);
@@ -1668,7 +1671,7 @@ XLALSimIMRSpinEOBGetSpinFactorizedWaveform (COMPLEX16 * restrict hlm,
 	case 3:
 	  deltalm =
 	    vh3 * (hCoeffs->delta33vh3 +
-		   vh3 * (hCoeffs->delta33vh6 + hCoeffs->delta33vh9 * vh3)) +
+		   vh3 * (hCoeffs->delta33vh6Wave + hCoeffs->delta33vh9 * vh3)) +
 	    hCoeffs->delta33v5 * v * v2 * v2 +
 	    hCoeffs->delta33v7 * v2 * v2 * v2 * v;
 	  rholm =
@@ -1682,7 +1685,7 @@ XLALSimIMRSpinEOBGetSpinFactorizedWaveform (COMPLEX16 * restrict hlm,
 						(hCoeffs->rho33v8 +
 						 hCoeffs->rho33v8l *
 						 eulerlogxabs) * v))))));
-auxflm = v * (v2 * hCoeffs->f33v3 + v * v2 * hCoeffs->f33v4 + v2 * v2 * hCoeffs->f33v5  + v * v2 * v2 * hCoeffs->f33v6);
+auxflm = v * (v2 * (hCoeffs->f33v3 + v * (hCoeffs->f33v4 + v * (hCoeffs->f33v5  + v * hCoeffs->f33v6)))) + _Complex_I * vh3 * vh3 * hCoeffs->f33vh6;
 	  break;
 	case 2:
 	  deltalm =
