@@ -167,18 +167,25 @@ typedef struct tagFacWaveformCoeffs
   REAL8 rho33v2;
   REAL8 rho33v3;
   REAL8 rho33v4;
+  REAL8 rho33v4Wave;
   REAL8 rho33v4S;
   REAL8 rho33v5;
+  REAL8 rho33v5Wave;
   REAL8 rho33v5S;
   REAL8 rho33v6;
+  REAL8 rho33v6Wave;
   REAL8 rho33v6S;
   REAL8 rho33v6l;
   REAL8 rho33v7;
+  REAL8 rho33v7Wave;
   REAL8 rho33v7S;
   REAL8 rho33v8;
   REAL8 rho33v8l;
 
   REAL8 f33v3;
+  REAL8 f33v4;
+  REAL8 f33v5;
+  REAL8 f33v6;
   REAL8 f33v3S;
 
   REAL8 delta32vh3;
