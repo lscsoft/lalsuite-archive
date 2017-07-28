@@ -664,7 +664,7 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
       use_optimized_v2_or_v4 = 1;
     }
     
-   INT4 use_hm = 0;
+   INT4 use_hm = 1;
     /* The list of available modes */
 //    const UINT4 lmModes[5][2] = {{2, 2}, {2, 1}, {3, 3}, {4, 4}, {5, 5}};
     const UINT4 lmModes[2][2] = {{2, 2}, {3, 3}};
@@ -779,7 +779,7 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
   REAL8 cartPosData[3], cartMomData[3];
 
   /* Signal mode */
-  COMPLEX16 hLM, hT;
+  COMPLEX16 hLM, hT, h33;   /* h33 has to be removed */
   REAL8Vector *sigReVec = NULL, *sigImVec = NULL;
 
   /* Non-quasicircular correction */
@@ -2357,6 +2357,7 @@ if (use_hm == 1)
             hLMAll->data[2*k*sigReVec->length + i] = sigReVec->data[i];
             hLMAll->data[(1+2*k)*sigReVec->length + i] = sigImVec->data[i];
         }
+	}
 #if outputDebug
          fclose (out);
         fclose(out2);
