@@ -1424,9 +1424,9 @@ XLALSimIMRSpinEOBGetSpinFactorizedWaveform (COMPLEX16 * restrict hlm,
 
   REAL8 eta;
   REAL8 r, pp, Omega, v2, vh, vh3, k, hathatk, eulerlogxabs;	//pr
-  REAL8 Slm, deltalm, rholm, rholmPwrl;
-  REAL8 auxflm = 0.0;
-  COMPLEX16 Tlm;
+  REAL8 Slm, deltalm, rholm;
+  COMPLEX16 auxflm = 0.0;
+  COMPLEX16 Tlm, rholmPwrl;
   COMPLEX16 hNewton;
   gsl_sf_result lnr1, arg1, z2;
 
