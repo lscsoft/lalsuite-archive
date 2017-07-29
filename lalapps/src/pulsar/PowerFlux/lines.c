@@ -276,5 +276,5 @@ for(i=0;i<lr->nlines;i++)
 		fprintf(f,"%s line bin: %d\n", tag, lr->lines_list[i]);
 for(i=0;i<lr->nlines;i++)
 	if(lr->lines_list[i]>=0)
-		fprintf(f,"%s line freq: %g Hz\n", tag, (first_bin+lr->lines_list[i])/args_info.sft_coherence_time_arg);
+		fprintf(f,"%s line freq: %.6f Hz\n", tag, (first_bin+lr->lines_list[i])/args_info.sft_coherence_time_arg);
 }

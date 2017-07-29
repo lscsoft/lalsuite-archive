@@ -117,7 +117,10 @@ class ProgressBar:
             theme=None):
         if fid is None:
             self.fid = sys.stderr
-        self.isatty = os.isatty(self.fid.fileno())
+        if hasattr(self.fid, 'fileno'):
+            self.isatty = os.isatty(self.fid.fileno())
+        else:
+            self.isatty = False
         if theme is None:
             if self.isatty and default_unicode_theme.is_compatible_with_stream(
                     self.fid) and 'xterm' in os.environ.get('TERM', ''):

@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.68-64
+VERSION=1.4.76-64
 # This version is developed against LAL-6.30
 LALROOT=./../../../../
 LALROOT=/home/vdergach/opt/
@@ -24,10 +24,10 @@ OPTFLAGS=-O3 -mtune=core2 -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -f
 #OPTFLAGS=-O3 -mtune=core2 -msse3 -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=0
 #
 # AVX lto manual sse
-#OPTFLAGS=-O3 -fopenmp -flto -mtune=core2 -mavx -ftree-loop-im -fvariable-expansion-in-unroller -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=1 -fno-associative-math -fno-math-errno -ffinite-math-only -fno-signed-zeros -fcx-limited-range -DLINUX_THREADS
+OPTFLAGS=-O3 -fopenmp -flto -mtune=core2 -mavx -ftree-loop-im -fvariable-expansion-in-unroller -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=1 -DUSE_AVX=1 -fno-associative-math -fno-math-errno -ffinite-math-only -fno-signed-zeros -fcx-limited-range -DLINUX_THREADS
 #
 # SSE lto manual sse
-OPTFLAGS=-O3 -fopenmp -flto -mtune=core2 -msse3 -ftree-loop-im -fvariable-expansion-in-unroller -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=1 -fno-associative-math -fno-math-errno -ffinite-math-only -fno-signed-zeros -fcx-limited-range -DLINUX_THREADS
+#OPTFLAGS=-O3 -fopenmp -flto -mtune=core2 -msse3 -ftree-loop-im -fvariable-expansion-in-unroller -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=1 -fno-associative-math -fno-math-errno -ffinite-math-only -fno-signed-zeros -fcx-limited-range -DLINUX_THREADS
 
 #OPTFLAGS=-O3 -march=haswell -ftree-vectorize -fopt-info-vec-missed=vec_info.txt -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=0
 #OPTFLAGS=-fopenmp -O3 -march=haswell -fno-tree-vectorize -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE -DMANUAL_SSE=0

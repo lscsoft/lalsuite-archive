@@ -119,7 +119,7 @@ const char *gengetopt_args_info_help[] = {
   "      --focus-type=STRING       focus type (equatorial, ecliptic)\n                                  (default=`equatorial')",
   "      --binary-template-file=STRING\n                                use data from this file to generate templates,\n                                  file has same format as diverted.log.\n                                  (default=`')",
   "      --binary-template-nsky=INT\n                                size of square sky grid to use for followup\n                                  (default=`3')",
-  "      --binary-template-nshift=INT\n                                number of subfrequency shifts to followup\n                                  (default=`3')",
+  "      --binary-template-ngroup=INT\n                                maximum number of input templates in a group\n                                  (default=`5')",
   "\n Group: injection",
   "      --fake-linear             Inject linearly polarized fake signal",
   "      --fake-circular           Inject circularly polarized fake signal",
@@ -147,6 +147,10 @@ const char *gengetopt_args_info_help[] = {
   "      --min-candidate-snr=DOUBLE\n                                Do not optimize candidates with SNR below this\n                                  level  (default=`5.0')",
   "      --divert-snr=DOUBLE       Divert templates with SNR at or above this\n                                  level for separate analysis  (default=`-1.0')",
   "      --divert-ul=DOUBLE        Divert templates with SNR at or above this\n                                  upper limit level for separate analysis\n                                  (default=`-1.0')",
+  "      --divert-ul-rel=DOUBLE    Divert templates with upper limit/noise\n                                  estimate at or above this level for separate\n                                  analysis  (default=`-1.0')",
+  "      --divert-count-limit=INT  Turn off template diversion when total count of\n                                  diverted templates exceeds this number\n                                  (default=`20000')",
+  "      --divert-ul-count-limit=INT\n                                Turn off template diversion when total count of\n                                  diverted templates exceeds this number\n                                  (default=`20000')",
+  "      --divert-buffer-size=INT  Allocates buffer for this many diverted\n                                  templates  (default=`100000')",
   "      --output-initial=INT      write initial candidates into log file\n                                  (default=`0')",
   "      --output-optimized=INT    write optimized (second pass) candidates into\n                                  log file  (default=`0')",
   "      --output-cache=INT        write out all candidates in cache to log file\n                                  (default=`0')",
@@ -157,6 +161,7 @@ const char *gengetopt_args_info_help[] = {
   "      --num-threads-env=STRING  Use this environment variable to obtain\n                                  num-threads  (default=`')",
   "      --niota=INT               Number of iota values to use in alignment grid\n                                  (default=`3')",
   "      --npsi=INT                Number of psi values to use in alignment grid\n                                  (default=`6')",
+  "      --averaged-polarization=INT\n                                Include an approximate average polarization,\n                                  like F-statistics  (default=`1')",
   "      --nfshift=INT             Number of sub-bin frequency shifts to sample\n                                  (default=`2')",
   "      --nchunks=INT             Partition the timebase into this many chunks\n                                  for sub period analysis  (default=`5')",
   "      --nchunks-refinement=INT  Reduce reported statistics by this factor.\n                                  (default=`1')",
@@ -326,7 +331,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->focus_type_given = 0 ;
   args_info->binary_template_file_given = 0 ;
   args_info->binary_template_nsky_given = 0 ;
-  args_info->binary_template_nshift_given = 0 ;
+  args_info->binary_template_ngroup_given = 0 ;
   args_info->fake_linear_given = 0 ;
   args_info->fake_circular_given = 0 ;
   args_info->fake_ref_time_given = 0 ;
@@ -353,6 +358,10 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->min_candidate_snr_given = 0 ;
   args_info->divert_snr_given = 0 ;
   args_info->divert_ul_given = 0 ;
+  args_info->divert_ul_rel_given = 0 ;
+  args_info->divert_count_limit_given = 0 ;
+  args_info->divert_ul_count_limit_given = 0 ;
+  args_info->divert_buffer_size_given = 0 ;
   args_info->output_initial_given = 0 ;
   args_info->output_optimized_given = 0 ;
   args_info->output_cache_given = 0 ;
@@ -363,6 +372,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->num_threads_env_given = 0 ;
   args_info->niota_given = 0 ;
   args_info->npsi_given = 0 ;
+  args_info->averaged_polarization_given = 0 ;
   args_info->nfshift_given = 0 ;
   args_info->nchunks_given = 0 ;
   args_info->nchunks_refinement_given = 0 ;
@@ -559,8 +569,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->binary_template_file_orig = NULL;
   args_info->binary_template_nsky_arg = 3;
   args_info->binary_template_nsky_orig = NULL;
-  args_info->binary_template_nshift_arg = 3;
-  args_info->binary_template_nshift_orig = NULL;
+  args_info->binary_template_ngroup_arg = 5;
+  args_info->binary_template_ngroup_orig = NULL;
   args_info->fake_ref_time_arg = 0;
   args_info->fake_ref_time_orig = NULL;
   args_info->fake_ra_arg = 0.0;
@@ -608,6 +618,14 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->divert_snr_orig = NULL;
   args_info->divert_ul_arg = -1.0;
   args_info->divert_ul_orig = NULL;
+  args_info->divert_ul_rel_arg = -1.0;
+  args_info->divert_ul_rel_orig = NULL;
+  args_info->divert_count_limit_arg = 20000;
+  args_info->divert_count_limit_orig = NULL;
+  args_info->divert_ul_count_limit_arg = 20000;
+  args_info->divert_ul_count_limit_orig = NULL;
+  args_info->divert_buffer_size_arg = 100000;
+  args_info->divert_buffer_size_orig = NULL;
   args_info->output_initial_arg = 0;
   args_info->output_initial_orig = NULL;
   args_info->output_optimized_arg = 0;
@@ -628,6 +646,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->niota_orig = NULL;
   args_info->npsi_arg = 6;
   args_info->npsi_orig = NULL;
+  args_info->averaged_polarization_arg = 1;
+  args_info->averaged_polarization_orig = NULL;
   args_info->nfshift_arg = 2;
   args_info->nfshift_orig = NULL;
   args_info->nchunks_arg = 5;
@@ -786,7 +806,7 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->focus_type_help = gengetopt_args_info_help[82] ;
   args_info->binary_template_file_help = gengetopt_args_info_help[83] ;
   args_info->binary_template_nsky_help = gengetopt_args_info_help[84] ;
-  args_info->binary_template_nshift_help = gengetopt_args_info_help[85] ;
+  args_info->binary_template_ngroup_help = gengetopt_args_info_help[85] ;
   args_info->fake_linear_help = gengetopt_args_info_help[87] ;
   args_info->fake_circular_help = gengetopt_args_info_help[88] ;
   args_info->fake_ref_time_help = gengetopt_args_info_help[89] ;
@@ -813,49 +833,54 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->min_candidate_snr_help = gengetopt_args_info_help[110] ;
   args_info->divert_snr_help = gengetopt_args_info_help[111] ;
   args_info->divert_ul_help = gengetopt_args_info_help[112] ;
-  args_info->output_initial_help = gengetopt_args_info_help[113] ;
-  args_info->output_optimized_help = gengetopt_args_info_help[114] ;
-  args_info->output_cache_help = gengetopt_args_info_help[115] ;
-  args_info->progress_update_interval_help = gengetopt_args_info_help[116] ;
-  args_info->extended_test_help = gengetopt_args_info_help[117] ;
-  args_info->max_sft_report_help = gengetopt_args_info_help[118] ;
-  args_info->num_threads_help = gengetopt_args_info_help[119] ;
-  args_info->num_threads_env_help = gengetopt_args_info_help[120] ;
-  args_info->niota_help = gengetopt_args_info_help[121] ;
-  args_info->npsi_help = gengetopt_args_info_help[122] ;
-  args_info->nfshift_help = gengetopt_args_info_help[123] ;
-  args_info->nchunks_help = gengetopt_args_info_help[124] ;
-  args_info->nchunks_refinement_help = gengetopt_args_info_help[125] ;
-  args_info->min_nchunks_help = gengetopt_args_info_help[126] ;
-  args_info->split_ifos_help = gengetopt_args_info_help[127] ;
-  args_info->default_dataset_veto_level_help = gengetopt_args_info_help[128] ;
-  args_info->default_dataset_veto_spike_level_help = gengetopt_args_info_help[129] ;
-  args_info->weight_cutoff_fraction_help = gengetopt_args_info_help[130] ;
-  args_info->per_dataset_weight_cutoff_fraction_help = gengetopt_args_info_help[131] ;
-  args_info->power_max_median_factor_help = gengetopt_args_info_help[132] ;
-  args_info->tmedian_noise_level_help = gengetopt_args_info_help[133] ;
-  args_info->summing_step_help = gengetopt_args_info_help[134] ;
-  args_info->max_first_shift_help = gengetopt_args_info_help[135] ;
-  args_info->statistics_function_help = gengetopt_args_info_help[136] ;
-  args_info->confidence_level_help = gengetopt_args_info_help[137] ;
-  args_info->x_epsilon_help = gengetopt_args_info_help[138] ;
-  args_info->dump_power_sums_help = gengetopt_args_info_help[139] ;
-  args_info->compute_skymaps_help = gengetopt_args_info_help[140] ;
-  args_info->fine_grid_skymarks_help = gengetopt_args_info_help[141] ;
-  args_info->half_window_help = gengetopt_args_info_help[142] ;
-  args_info->tail_veto_help = gengetopt_args_info_help[143] ;
-  args_info->cache_granularity_help = gengetopt_args_info_help[144] ;
-  args_info->diff_shift_granularity_help = gengetopt_args_info_help[145] ;
-  args_info->sidereal_group_count_help = gengetopt_args_info_help[146] ;
-  args_info->time_group_count_help = gengetopt_args_info_help[147] ;
-  args_info->phase_mismatch_help = gengetopt_args_info_help[148] ;
-  args_info->bypass_powersum_cache_help = gengetopt_args_info_help[149] ;
-  args_info->compute_cross_terms_help = gengetopt_args_info_help[150] ;
-  args_info->mixed_dataset_only_help = gengetopt_args_info_help[151] ;
-  args_info->preallocate_memory_help = gengetopt_args_info_help[152] ;
-  args_info->memory_allocation_retries_help = gengetopt_args_info_help[153] ;
-  args_info->sse_help = gengetopt_args_info_help[154] ;
-  args_info->extra_phase_help = gengetopt_args_info_help[155] ;
+  args_info->divert_ul_rel_help = gengetopt_args_info_help[113] ;
+  args_info->divert_count_limit_help = gengetopt_args_info_help[114] ;
+  args_info->divert_ul_count_limit_help = gengetopt_args_info_help[115] ;
+  args_info->divert_buffer_size_help = gengetopt_args_info_help[116] ;
+  args_info->output_initial_help = gengetopt_args_info_help[117] ;
+  args_info->output_optimized_help = gengetopt_args_info_help[118] ;
+  args_info->output_cache_help = gengetopt_args_info_help[119] ;
+  args_info->progress_update_interval_help = gengetopt_args_info_help[120] ;
+  args_info->extended_test_help = gengetopt_args_info_help[121] ;
+  args_info->max_sft_report_help = gengetopt_args_info_help[122] ;
+  args_info->num_threads_help = gengetopt_args_info_help[123] ;
+  args_info->num_threads_env_help = gengetopt_args_info_help[124] ;
+  args_info->niota_help = gengetopt_args_info_help[125] ;
+  args_info->npsi_help = gengetopt_args_info_help[126] ;
+  args_info->averaged_polarization_help = gengetopt_args_info_help[127] ;
+  args_info->nfshift_help = gengetopt_args_info_help[128] ;
+  args_info->nchunks_help = gengetopt_args_info_help[129] ;
+  args_info->nchunks_refinement_help = gengetopt_args_info_help[130] ;
+  args_info->min_nchunks_help = gengetopt_args_info_help[131] ;
+  args_info->split_ifos_help = gengetopt_args_info_help[132] ;
+  args_info->default_dataset_veto_level_help = gengetopt_args_info_help[133] ;
+  args_info->default_dataset_veto_spike_level_help = gengetopt_args_info_help[134] ;
+  args_info->weight_cutoff_fraction_help = gengetopt_args_info_help[135] ;
+  args_info->per_dataset_weight_cutoff_fraction_help = gengetopt_args_info_help[136] ;
+  args_info->power_max_median_factor_help = gengetopt_args_info_help[137] ;
+  args_info->tmedian_noise_level_help = gengetopt_args_info_help[138] ;
+  args_info->summing_step_help = gengetopt_args_info_help[139] ;
+  args_info->max_first_shift_help = gengetopt_args_info_help[140] ;
+  args_info->statistics_function_help = gengetopt_args_info_help[141] ;
+  args_info->confidence_level_help = gengetopt_args_info_help[142] ;
+  args_info->x_epsilon_help = gengetopt_args_info_help[143] ;
+  args_info->dump_power_sums_help = gengetopt_args_info_help[144] ;
+  args_info->compute_skymaps_help = gengetopt_args_info_help[145] ;
+  args_info->fine_grid_skymarks_help = gengetopt_args_info_help[146] ;
+  args_info->half_window_help = gengetopt_args_info_help[147] ;
+  args_info->tail_veto_help = gengetopt_args_info_help[148] ;
+  args_info->cache_granularity_help = gengetopt_args_info_help[149] ;
+  args_info->diff_shift_granularity_help = gengetopt_args_info_help[150] ;
+  args_info->sidereal_group_count_help = gengetopt_args_info_help[151] ;
+  args_info->time_group_count_help = gengetopt_args_info_help[152] ;
+  args_info->phase_mismatch_help = gengetopt_args_info_help[153] ;
+  args_info->bypass_powersum_cache_help = gengetopt_args_info_help[154] ;
+  args_info->compute_cross_terms_help = gengetopt_args_info_help[155] ;
+  args_info->mixed_dataset_only_help = gengetopt_args_info_help[156] ;
+  args_info->preallocate_memory_help = gengetopt_args_info_help[157] ;
+  args_info->memory_allocation_retries_help = gengetopt_args_info_help[158] ;
+  args_info->sse_help = gengetopt_args_info_help[159] ;
+  args_info->extra_phase_help = gengetopt_args_info_help[160] ;
   args_info->extra_phase_min = 0;
   args_info->extra_phase_max = 0;
   
@@ -1094,7 +1119,7 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->binary_template_file_arg));
   free_string_field (&(args_info->binary_template_file_orig));
   free_string_field (&(args_info->binary_template_nsky_orig));
-  free_string_field (&(args_info->binary_template_nshift_orig));
+  free_string_field (&(args_info->binary_template_ngroup_orig));
   free_string_field (&(args_info->fake_ref_time_orig));
   free_string_field (&(args_info->fake_ra_orig));
   free_string_field (&(args_info->fake_dec_orig));
@@ -1119,6 +1144,10 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->min_candidate_snr_orig));
   free_string_field (&(args_info->divert_snr_orig));
   free_string_field (&(args_info->divert_ul_orig));
+  free_string_field (&(args_info->divert_ul_rel_orig));
+  free_string_field (&(args_info->divert_count_limit_orig));
+  free_string_field (&(args_info->divert_ul_count_limit_orig));
+  free_string_field (&(args_info->divert_buffer_size_orig));
   free_string_field (&(args_info->output_initial_orig));
   free_string_field (&(args_info->output_optimized_orig));
   free_string_field (&(args_info->output_cache_orig));
@@ -1130,6 +1159,7 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->num_threads_env_orig));
   free_string_field (&(args_info->niota_orig));
   free_string_field (&(args_info->npsi_orig));
+  free_string_field (&(args_info->averaged_polarization_orig));
   free_string_field (&(args_info->nfshift_orig));
   free_string_field (&(args_info->nchunks_orig));
   free_string_field (&(args_info->nchunks_refinement_orig));
@@ -1371,8 +1401,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "binary-template-file", args_info->binary_template_file_orig, 0);
   if (args_info->binary_template_nsky_given)
     write_into_file(outfile, "binary-template-nsky", args_info->binary_template_nsky_orig, 0);
-  if (args_info->binary_template_nshift_given)
-    write_into_file(outfile, "binary-template-nshift", args_info->binary_template_nshift_orig, 0);
+  if (args_info->binary_template_ngroup_given)
+    write_into_file(outfile, "binary-template-ngroup", args_info->binary_template_ngroup_orig, 0);
   if (args_info->fake_linear_given)
     write_into_file(outfile, "fake-linear", 0, 0 );
   if (args_info->fake_circular_given)
@@ -1425,6 +1455,14 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "divert-snr", args_info->divert_snr_orig, 0);
   if (args_info->divert_ul_given)
     write_into_file(outfile, "divert-ul", args_info->divert_ul_orig, 0);
+  if (args_info->divert_ul_rel_given)
+    write_into_file(outfile, "divert-ul-rel", args_info->divert_ul_rel_orig, 0);
+  if (args_info->divert_count_limit_given)
+    write_into_file(outfile, "divert-count-limit", args_info->divert_count_limit_orig, 0);
+  if (args_info->divert_ul_count_limit_given)
+    write_into_file(outfile, "divert-ul-count-limit", args_info->divert_ul_count_limit_orig, 0);
+  if (args_info->divert_buffer_size_given)
+    write_into_file(outfile, "divert-buffer-size", args_info->divert_buffer_size_orig, 0);
   if (args_info->output_initial_given)
     write_into_file(outfile, "output-initial", args_info->output_initial_orig, 0);
   if (args_info->output_optimized_given)
@@ -1445,6 +1483,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "niota", args_info->niota_orig, 0);
   if (args_info->npsi_given)
     write_into_file(outfile, "npsi", args_info->npsi_orig, 0);
+  if (args_info->averaged_polarization_given)
+    write_into_file(outfile, "averaged-polarization", args_info->averaged_polarization_orig, 0);
   if (args_info->nfshift_given)
     write_into_file(outfile, "nfshift", args_info->nfshift_orig, 0);
   if (args_info->nchunks_given)
@@ -2167,7 +2207,7 @@ cmdline_parser_internal (
         { "focus-type",	1, NULL, 0 },
         { "binary-template-file",	1, NULL, 0 },
         { "binary-template-nsky",	1, NULL, 0 },
-        { "binary-template-nshift",	1, NULL, 0 },
+        { "binary-template-ngroup",	1, NULL, 0 },
         { "fake-linear",	0, NULL, 0 },
         { "fake-circular",	0, NULL, 0 },
         { "fake-ref-time",	1, NULL, 0 },
@@ -2194,6 +2234,10 @@ cmdline_parser_internal (
         { "min-candidate-snr",	1, NULL, 0 },
         { "divert-snr",	1, NULL, 0 },
         { "divert-ul",	1, NULL, 0 },
+        { "divert-ul-rel",	1, NULL, 0 },
+        { "divert-count-limit",	1, NULL, 0 },
+        { "divert-ul-count-limit",	1, NULL, 0 },
+        { "divert-buffer-size",	1, NULL, 0 },
         { "output-initial",	1, NULL, 0 },
         { "output-optimized",	1, NULL, 0 },
         { "output-cache",	1, NULL, 0 },
@@ -2204,6 +2248,7 @@ cmdline_parser_internal (
         { "num-threads-env",	1, NULL, 0 },
         { "niota",	1, NULL, 0 },
         { "npsi",	1, NULL, 0 },
+        { "averaged-polarization",	1, NULL, 0 },
         { "nfshift",	1, NULL, 0 },
         { "nchunks",	1, NULL, 0 },
         { "nchunks-refinement",	1, NULL, 0 },
@@ -3403,16 +3448,16 @@ cmdline_parser_internal (
               goto failure;
           
           }
-          /* number of subfrequency shifts to followup.  */
-          else if (strcmp (long_options[option_index].name, "binary-template-nshift") == 0)
+          /* maximum number of input templates in a group.  */
+          else if (strcmp (long_options[option_index].name, "binary-template-ngroup") == 0)
           {
           
           
-            if (update_arg( (void *)&(args_info->binary_template_nshift_arg), 
-                 &(args_info->binary_template_nshift_orig), &(args_info->binary_template_nshift_given),
-                &(local_args_info.binary_template_nshift_given), optarg, 0, "3", ARG_INT,
+            if (update_arg( (void *)&(args_info->binary_template_ngroup_arg), 
+                 &(args_info->binary_template_ngroup_orig), &(args_info->binary_template_ngroup_given),
+                &(local_args_info.binary_template_ngroup_given), optarg, 0, "5", ARG_INT,
                 check_ambiguity, override, 0, 0,
-                "binary-template-nshift", '-',
+                "binary-template-ngroup", '-',
                 additional_error))
               goto failure;
           
@@ -3787,6 +3832,62 @@ cmdline_parser_internal (
               goto failure;
           
           }
+          /* Divert templates with upper limit/noise estimate at or above this level for separate analysis.  */
+          else if (strcmp (long_options[option_index].name, "divert-ul-rel") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->divert_ul_rel_arg), 
+                 &(args_info->divert_ul_rel_orig), &(args_info->divert_ul_rel_given),
+                &(local_args_info.divert_ul_rel_given), optarg, 0, "-1.0", ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "divert-ul-rel", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Turn off template diversion when total count of diverted templates exceeds this number.  */
+          else if (strcmp (long_options[option_index].name, "divert-count-limit") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->divert_count_limit_arg), 
+                 &(args_info->divert_count_limit_orig), &(args_info->divert_count_limit_given),
+                &(local_args_info.divert_count_limit_given), optarg, 0, "20000", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "divert-count-limit", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Turn off template diversion when total count of diverted templates exceeds this number.  */
+          else if (strcmp (long_options[option_index].name, "divert-ul-count-limit") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->divert_ul_count_limit_arg), 
+                 &(args_info->divert_ul_count_limit_orig), &(args_info->divert_ul_count_limit_given),
+                &(local_args_info.divert_ul_count_limit_given), optarg, 0, "20000", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "divert-ul-count-limit", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Allocates buffer for this many diverted templates.  */
+          else if (strcmp (long_options[option_index].name, "divert-buffer-size") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->divert_buffer_size_arg), 
+                 &(args_info->divert_buffer_size_orig), &(args_info->divert_buffer_size_given),
+                &(local_args_info.divert_buffer_size_given), optarg, 0, "100000", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "divert-buffer-size", '-',
+                additional_error))
+              goto failure;
+          
+          }
           /* write initial candidates into log file.  */
           else if (strcmp (long_options[option_index].name, "output-initial") == 0)
           {
@@ -3923,6 +4024,20 @@ cmdline_parser_internal (
                 &(local_args_info.npsi_given), optarg, 0, "6", ARG_INT,
                 check_ambiguity, override, 0, 0,
                 "npsi", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Include an approximate average polarization, like F-statistics.  */
+          else if (strcmp (long_options[option_index].name, "averaged-polarization") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->averaged_polarization_arg), 
+                 &(args_info->averaged_polarization_orig), &(args_info->averaged_polarization_given),
+                &(local_args_info.averaged_polarization_given), optarg, 0, "1", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "averaged-polarization", '-',
                 additional_error))
               goto failure;
           

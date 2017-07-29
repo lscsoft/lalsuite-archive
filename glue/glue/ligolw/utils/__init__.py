@@ -483,10 +483,10 @@ class tildefile(object):
 	def __enter__(self):
 		try:
 			self.tildefilename = self.filename + "~"
-			self.fobj = open(self.tildefilename, "w")
+			self.fobj = open(self.tildefilename, "wb")
 		except IOError:
 			self.tildefilename = None
-			self.fobj = open(self.filename, "w")
+			self.fobj = open(self.filename, "wb")
 		return self.fobj
 
 	def __exit__(self, exc_type, exc_val, exc_tb):
@@ -543,7 +543,8 @@ def write_filename(xmldoc, filename, verbose = False, gz = False, with_mv = True
 		else:
 			if not gz and filename.endswith(".gz"):
 				warnings.warn("filename '%s' ends in '.gz' but file is not being gzip-compressed" % filename, UserWarning)
-			with (open if not with_mv else tildefile)(filename) as fileobj:
+			binary_open = lambda filename: open(filename, 'wb')
+			with (binary_open if not with_mv else tildefile)(filename) as fileobj:
 				hexdigest = write_fileobj(xmldoc, fileobj, gz = gz, **kwargs)
 	if verbose:
 		sys.stderr.write("md5sum: %s  %s\n" % (hexdigest, (filename if filename is not None else "")))
