@@ -1,5 +1,5 @@
 /*
-*  Copyright (C) 2012 Karl Wette
+*  Copyright (C) 2016 Karl Wette
 *  Copyright (C) 2007 Bernd Machenschalk, Jolien Creighton, Kipp Cannon
 *
 *  This program is free software; you can redistribute it and/or modify
@@ -79,7 +79,7 @@
  * monitoring UT1.
  *
  * Another way of representing the civil time in in terms of Julian days.
- * There is a routine for converting a UTC time into Julian days [in UTC time system].
+ * There is a routine for converting a civil time into Julian days [in the same time system].
  * The inverse conversion is not attempted.
  *
  */
@@ -161,7 +161,7 @@ int XLALLeapSecondsUTC( const struct tm *utc /**< [In] UTC as a broken down time
   REAL8 jd;
   int leap;
 
-  jd = XLALJulianDayUTC( utc );
+  jd = XLALConvertCivilTimeToJD( utc );
   if ( XLAL_IS_REAL8_FAIL_NAN( jd ) )
     XLAL_ERROR( XLAL_EFUNC );
 
@@ -181,6 +181,87 @@ int XLALLeapSecondsUTC( const struct tm *utc /**< [In] UTC as a broken down time
 
 
 /**
+ * Fill in derived fields, e.g. \c tm_wday and \c tm_yday, in a given UTC time structure
+ */
+struct tm *XLALFillUTC( struct tm *utc /**< [In] UTC time in a broken down time structure. */ )
+{
+  XLAL_CHECK_NULL(utc != NULL, XLAL_EINVAL);
+
+  /* Most code in this function comes from time/mktime.c and time/strptime_l.c in
+     glibc v2.23 (commit de51ff8c0516e66554044b27656c6855a9c2ef25), licensed under
+     GNU Lesser General Public License, version 2.1 */
+
+  /* Copy fields we need from 'utc', then erase it */
+  int sec = utc->tm_sec;
+  int min = utc->tm_min;
+  int hour = utc->tm_hour;
+  int mday = utc->tm_mday;
+  int mon = utc->tm_mon;
+  int year_requested = utc->tm_year;
+  XLAL_INIT_MEM(*utc);
+
+  /* Ensure that month is in range, and set year accordingly.  */
+  int mon_remainder = mon % 12;
+  int negative_mon_remainder = mon_remainder < 0;
+  int mon_years = mon / 12 - negative_mon_remainder;
+  long int lyear_requested = year_requested;
+  long int year = lyear_requested + mon_years;
+
+  /* How many days come before each month (0-12) */
+  const unsigned short int __mon_yday[2][13] =
+    {
+      /* Normal years.  */
+      { 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365 },
+      /* Leap years.  */
+      { 0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366 }
+    };
+
+  /* Compute day of week */
+  /* We know that January 1st 1970 was a Thursday (= 4).  Compute the
+     difference between this data in the one on TM and so determine
+     the weekday.  */
+  int corr_year = 1900 + year - (mon < 2);
+  int wday = (-473
+              + (365 * (year - 70))
+              + (corr_year / 4)
+              - ((corr_year / 4) / 25) + ((corr_year / 4) % 25 < 0)
+              + (((corr_year / 4) / 25) / 4)
+              + __mon_yday[0][mon]
+              + mday - 1);
+  wday = ((wday % 7) + 7) % 7;
+
+  /* Return 1 if 'year' + 1900 is a leap year.  */
+  int leapyear = 
+    /* Don't add 'year' to 1900, as that might overflow.
+       Also, work even if 'year' is negative.  */
+    ((year & 3) == 0
+     && (year % 100 != 0
+         || ((year / 100) & 3) == (- (1900 / 100) & 3)));
+
+  /* Calculate day of year from year, month, and day of month.
+     The result need not be in range.  */
+  int mon_yday = ((__mon_yday[leapyear]
+                   [mon_remainder + 12 * negative_mon_remainder])
+                  - 1);
+  long int lmday = mday;
+  long int yday = mon_yday + lmday;
+
+  /* Fill 'utc' */
+  utc->tm_sec = sec;
+  utc->tm_min = min;
+  utc->tm_hour = hour;
+  utc->tm_mday = mday;
+  utc->tm_mon = mon;
+  utc->tm_year = year;
+  utc->tm_wday = wday;
+  utc->tm_yday = yday;
+
+  return utc;
+
+}
+
+
+/**
  * Returns the GPS seconds since the GPS epoch for a
  * specified UTC time structure.
  */
@@ -189,6 +270,12 @@ INT4 XLALUTCToGPS( const struct tm *utc /**< [In] UTC time in a broken down time
   time_t unixsec;
   INT4 gpssec;
   int leapsec;
+
+  /* make sure derived fields in 'utc' are filled correctly */
+  struct tm utc_filled = *utc;
+  utc = XLALFillUTC(&utc_filled);
+  if ( utc == NULL )
+    XLAL_ERROR( XLAL_EFUNC );
 
   /* compute leap seconds */
   leapsec = XLALLeapSecondsUTC( utc );
@@ -237,8 +324,10 @@ struct tm * XLALGPSToUTC(
 
 
 /**
- * Returns the Julian Day (JD) corresponding to the date given in a broken
- * down time structure.
+ * Returns the Julian Day (JD) corresponding to the civil date and time given
+ * in a broken down time structure.
+ *
+ * The time system of the returned JD is the same as that of the input time.
  *
  * See \cite esaa1992 and \cite green1985 for details.  First, some
  * definitions:
@@ -284,129 +373,63 @@ struct tm * XLALGPSToUTC(
  * analyzable data from before 1900 March.
  *
  */
-REAL8 XLALJulianDayUTC( const struct tm *utc /**< [In] UTC time in a broken down time structure. */ )
+REAL8 XLALConvertCivilTimeToJD( const struct tm *civil /**< [In] civil time in a broken down time structure. */ )
 {
   const int sec_per_day = 60 * 60 * 24; /* seconds in a day */
   int year, month, day, sec;
   REAL8 jd;
 
   /* this routine only works for dates after 1900 */
-  if ( utc->tm_year <= 0 )
+  if ( civil->tm_year <= 0 )
   {
     XLALPrintError( "XLAL Error - Year must be after 1900\n" );
     XLAL_ERROR_REAL8( XLAL_EDOM );
   }
 
-  year  = utc->tm_year + 1900;
-  month = utc->tm_mon + 1;     /* month is in range 1-12 */
-  day   = utc->tm_mday;        /* day is in range 1-31 */
-  sec   = utc->tm_sec + 60*(utc->tm_min + 60*(utc->tm_hour)); /* seconds since midnight */
+  year  = civil->tm_year + 1900;
+  month = civil->tm_mon + 1;     /* month is in range 1-12 */
+  day   = civil->tm_mday;        /* day is in range 1-31 */
+  sec   = civil->tm_sec + 60*(civil->tm_min + 60*(civil->tm_hour)); /* seconds since midnight */
 
   jd = 367*year - 7*(year + (month + 9)/12)/4 + 275*month/9 + day + 1721014;
   /* note: Julian days start at noon: subtract half a day */
   jd += (REAL8)sec/(REAL8)sec_per_day - 0.5;
+
   return jd;
-}
+} // XLALConvertCivilTimeToJD()
 
 /**
- * Returns the Modified Julian Day MJD(UTC) [in UTC time system] corresponding to the date given
- * in a broken down time structure.
+ * Returns the Modified Julian Day MJD corresponding to the civil date and time given
+ * in a broken down time structure (using the same time system as the input).
  *
  * Note:
- * - By convention, MJD is an integer.
- * - MJD number starts at midnight rather than noon.
+ * - MJD numbers starts at midnight rather than noon.
  *
- * If you want a Modified Julian Day that has a fractional part, simply use
- * the macro:
- *
- * \#define XLAL_MODIFIED_JULIAN_DAY_UTC(utc) (XLALJulianDayUTC(utc)-XLAL_MJD_REF)
  */
-INT4 XLALModifiedJulianDayUTC( const struct tm *utc /**< [In] UTC time in a broken down time structure. */ )
+REAL8 XLALConvertCivilTimeToMJD( const struct tm *civil /**< [In] civil time in a broken down time structure. */ )
 {
-  REAL8 jd;
-  INT4 mjd;
-  jd = XLALJulianDayUTC( utc );
-  if ( XLAL_IS_REAL8_FAIL_NAN( jd ) )
-    XLAL_ERROR( XLAL_EFUNC );
-  mjd = floor( jd - XLAL_MJD_REF );
-  return mjd;
+  return XLAL_JD_TO_MJD ( XLALConvertCivilTimeToJD ( civil ) );
 }
 
-/** \deprecated Use XLALJulianDayUTC() instead, this is only provided for pylal backwards compatibility.
+/** \deprecated Use XLALConvertCivilTimeToJD() instead, this is only provided for pylal backwards compatibility.
  * (see #1856)
  */
 REAL8
-XLALJulianDay ( const struct tm *utc )
+XLALJulianDay ( const struct tm *civil )
 {
-  XLAL_PRINT_DEPRECATION_WARNING ( "XLALJulianDayUTC" );
-  return XLALJulianDayUTC ( utc );
+  XLAL_PRINT_DEPRECATION_WARNING ( "XLALConvertCivilTimeToJD" );
+  return XLALConvertCivilTimeToJD ( civil );
 } // XLALJulianDay()
 
-/** \deprecated Use XLALModifiedJulianDayUTC() instead, this is only provided for pylal backwards compatibility.
+/** \deprecated Use XLALConvertCivilTimeToJD() instead, this is only provided for pylal backwards compatibility.
  * (see #1856)
  */
 INT4
-XLALModifiedJulianDay ( const struct tm *utc )
+XLALModifiedJulianDay ( const struct tm *civil )
 {
-  XLAL_PRINT_DEPRECATION_WARNING ( "XLALModifiedJulianDayUTC" );
-  return XLALModifiedJulianDayUTC ( utc );
+  XLAL_PRINT_DEPRECATION_WARNING ( "XLALConvertCivilTimeToJD" );
+  return XLALConvertCivilTimeToJD ( civil );
 } // XLALModifiedJulianDay()
 
-
-/**
- * Fill in missing fields of a C 'tm' broken-down time struct.
- *
- * We want to use the C time functions in to fill in values for 'tm_wday' and
- * 'tm_yday', and normalise the ranges of the other members. mktime() does this,
- * but it also assumes local time, so that the 'tm' struct members are adjusted
- * according to the timezone. timegm() would be a more appropriate, but it seems
- * that it is not portable (BSD/Mac, but not standard GNU); neither is using the
- * 'timezone' variable to get the correct offset (works on GNU but not BSD/Mac!)
- * The method used here (idea from somewhere on the internet) should be safe.
- */
-int XLALFillBrokenDownTime(struct tm *tm /**< Broken-down time struct. */) {
-
-  /* Check input. */
-  XLAL_CHECK( tm, XLAL_EINVAL );
-
-  /* Set timezone. */
-  tzset();
-
-  /* Set daylight savings flag to zero, since we want to get the timezone
-     difference against UTC. We save its initial value for use later. */
-  int isdst = tm->tm_isdst;
-  tm->tm_isdst = 0;
-
-  /* Call mktime() to get a time 't1', adjusted for the timezone. */
-  time_t t1 = mktime(tm);
-  XLAL_CHECK( t1 >= 0, XLAL_ESYS );
-
-  /* If original daylight savings flag was -1 (i.e. daylight savings unknown),
-     save the current value of the flag for use later. */
-  if (isdst < 0) {
-    isdst = tm->tm_isdst;
-  }
-
-  /* Convert 't2' back into a 'tm' struct. gmtime_r() will preserve the timezone. */
-  XLAL_CHECK( gmtime_r(&t1, tm) != NULL, XLAL_ESYS );
-
-  /* Now call mktime() again to get time 't2', *twice* adjusted for the timezone. */
-  time_t t2 = mktime(tm);
-  XLAL_CHECK( t2 >= 0, XLAL_ESYS );
-
-  /* Since 't1' has been adjusted for the timezone once, and 't2' twice, their
-     difference is precisely the correct timezone difference! We substract this
-     from 't1', which is now the desired time in UTC. */
-  t1 -= t2 - t1;
-
-  /* Call gmtime_r() to convert the desired time 't1' back into a 'tm' struct. */
-  XLAL_CHECK( gmtime_r(&t1, tm) != NULL, XLAL_ESYS );
-
-  /* Restore the daylight savings flag. */
-  tm->tm_isdst = isdst;
-
-  return XLAL_SUCCESS;
-
-}
 
 /*@}*/
