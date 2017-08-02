@@ -1,5 +1,4 @@
 /*
-*  Copyright (C) 2012 Karl Wette
 *  Copyright (C) 2007 Duncan Brown, David Chin, Jolien Creighton, Kipp Cannon, Reinhard Prix, Stephen Fairhurst
 *
 *  This program is free software; you can redistribute it and/or modify
@@ -29,6 +28,7 @@
 #include <lal/LALAtomicDatatypes.h>
 #include <lal/LALDatatypes.h>
 #include <lal/LALStdlib.h>
+#include <lal/LALStdio.h>
 
 #include <lal/DetectorSite.h>
 
@@ -88,7 +88,7 @@ extern "C"
 #define XLAL_EPOCH_GPS_JD 2444244.5             /**< Julian Day (UTC) of the GPS epoch (1980 JAN 6 0h UTC) */
 #define XLAL_EPOCH_GPS_TAI_UTC 19               /**< Leap seconds (TAI-UTC) on the GPS epoch (1980 JAN 6 0h UTC) */
 #define XLAL_MJD_REF 2400000.5                  /**< Reference Julian Day for Mean Julian Day. */
-#define XLAL_MODIFIED_JULIEN_DAY_UTC(utc) (XLALJulianDayUTC(utc)-XLAL_MJD_REF) /**< Modified Julian Day (UTC) for specified civil time structure. */
+#define XLAL_JD_TO_MJD(jd) ((jd) - XLAL_MJD_REF) /**< Modified Julian Day for specified civil time structure. */
 
 /**
  * This structure stores pointers to a ::LALDetector and a
@@ -105,6 +105,21 @@ tagLALPlaceAndGPS
     LIGOTimeGPS *p_gps;        /**< Pointer to a GPS time structure */
 }
 LALPlaceAndGPS;
+
+/**
+ * \name Format macros for printing LIGOTimeGPS
+ *
+ * ### Example ###
+ *
+ * @code
+ * LIGOTimeGPS t = { 1122334455, 666777888 };
+ * printf("The time is %" LAL_GPS_FORMAT "\n", LAL_GPS_PRINT(t));
+ * @endcode
+ */
+/*@{*/
+#define LAL_GPS_FORMAT       LAL_INT8_FORMAT ".%09" LAL_INT4_FORMAT
+#define LAL_GPS_PRINT(gps)   (INT8)(XLALGPSToINT8NS(&(gps)) / XLAL_BILLION_INT8), (INT4)labs(XLALGPSToINT8NS(&(gps)) % XLAL_BILLION_INT8)
+/*@}*/
 
 /*@}*/
 
@@ -142,7 +157,10 @@ LIGOTimeGPS * XLALGPSAdd( LIGOTimeGPS *epoch, REAL8 dt );
 /* Adds two GPS times. */
 LIGOTimeGPS * XLALGPSAddGPS( LIGOTimeGPS *epoch, const LIGOTimeGPS *dt );
 
-/* Difference between two GPS times. */
+/* Subtract a GPS time from a GPS time.  Computes t1 - t0. */
+LIGOTimeGPS * XLALGPSSubGPS( LIGOTimeGPS *t1, const LIGOTimeGPS *t0 );
+
+/* Difference between two GPS times as a double.  Returns t1 - t0. */
 REAL8 XLALGPSDiff( const LIGOTimeGPS *t1, const LIGOTimeGPS *t0 );
 
   /* Compares two GPS times. */
@@ -182,6 +200,9 @@ int XLALGPSLeapSeconds( INT4 gpssec );
 /* Returns the leap seconds TAI-UTC for a given UTC broken down time. */
 int XLALLeapSecondsUTC( const struct tm *utc );
 
+/* Fill in derived fields in a given UTC time structure */
+struct tm *XLALFillUTC( struct tm *utc );
+
 /* Returns the GPS seconds since the GPS epoch for a specified UTC time structure. */
 INT4 XLALUTCToGPS( const struct tm *utc );
 
@@ -197,20 +218,17 @@ struct tm* XLALGPSToUTC( struct tm *utc, INT4 gpssec );
 SWIGLAL_CLEAR(EMPTY_ARGUMENT(struct tm*, utc));
 #endif
 
-/* Returns the Julian Day JD(UTC) [in UTC time system] corresponding to the date given in a broken
- * down time structure. */
-REAL8 XLALJulianDayUTC( const struct tm *utc );
+/* Returns the Julian Day JD corresponding to the civil date given in a broken
+ * down time structure (using same time system as input). */
+REAL8 XLALConvertCivilTimeToJD ( const struct tm *civil );
 
-/* Returns the Modified Julian Day MJD(UTC) [in UTC time system] corresponding to the date given in a broken down time structure.*/
-INT4 XLALModifiedJulianDayUTC( const struct tm *utc );
+/* Returns the Modified Julian Day MJD corresponding to the date given in a broken down time structure (using same time system as input).*/
+REAL8 XLALConvertCivilTimeToMJD ( const struct tm *civil );
 
 /* deprecated wrapper to XLALModifiedJulianDayUTC() for pylal backwards compatibility (see #1856) */
 INT4 XLALModifiedJulianDay( const struct tm *utc );
 /* deprecated wrapper to XLALJulianDayUTC() for pylal backwards compatibility (see #1856) */
 REAL8 XLALJulianDay( const struct tm *utc );
-
-/* Fill in missing fields of a C 'tm' broken-down time struct. */
-int XLALFillBrokenDownTime( struct tm *tm );
 
 /* Returns the Greenwich mean or aparent sideral time in radians. */
 REAL8 XLALGreenwichSiderealTime(
