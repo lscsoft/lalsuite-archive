@@ -405,10 +405,8 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState) {
             fclose(verbose_file);
 
         /* Check if run should end */
-        if (runState->threads[0]->step > Niter){
-          fprintf(stdout,"Thread %i has %i effective samples. Stopping with %i iterations...\n", MPIrank, runState->threads[0]->effective_sample_size, runState->threads[0]->step);
+        if (runState->threads[0]->step > Niter)
           runComplete=1;
-        }
 
         /* Have the cold chain decide when to compute ACLs, and calculate for all chains.  This is done
          * in a similar way to the write interval: ten times each sampling decade.
@@ -436,7 +434,6 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState) {
 
                 if (MPIrank == 0 && t == 0 && thread->effective_sample_size > Neff) {
                     fprintf(stdout,"Thread %i has %i effective samples. Stopping...\n", MPIrank, thread->effective_sample_size);
-                    total_iterations = runState->threads[0]->step; /* added by hwlee and KGWG to check elapsed time at 5 oct 2016 */
                     runComplete = 1;          // Sampling is done!
                 }
             }
