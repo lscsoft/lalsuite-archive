@@ -767,10 +767,10 @@ void LALCheckMemoryLeaks(void)
     }
 
     if (leak) {
-        lalRaiseHook(SIGSEGV, "LALCheckMemoryLeaks: memory leak, peak = %zd\n", lalMallocTotalPeak);
+        lalRaiseHook(SIGSEGV, "LALCheckMemoryLeaks: memory leak\n");
     } else if (lalDebugLevel & LALMEMINFOBIT) {
         XLALPrintError
-            ("LALCheckMemoryLeaks meminfo: no memory leaks detected, peak = %zd\n", lalMallocTotalPeak);
+            ("LALCheckMemoryLeaks meminfo: no memory leaks detected\n");
     }
 
     return;
