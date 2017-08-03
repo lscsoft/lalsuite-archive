@@ -147,7 +147,7 @@ bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
 massiveGravitonParams=['lambdaG']
 tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat']
 energyParams=['e_rad', 'l_peak']
-eccParams=['ecc']
+eccParams=['eccentricity']
 strongFieldParams=ppEParams+tigerParams+bransDickeParams+massiveGravitonParams+tidalParams+energyParams
 
 #Extrinsic
@@ -825,8 +825,7 @@ class Posterior(object):
                             'f_ref': lambda inj: self._injFref,
                             'polarisation':lambda inj:inj.polarization,
                             'polarization':lambda inj:inj.polarization,
-                            'ecc':lambda inj:inj.ecc,
-                            'eccentricity':lambda inj:inj.ecc,
+                            'eccentricity':lambda inj:inj.eccentricity,
                             'ecc_order':lambda inj:inj.ecc_order,
                             'f_ecc':lambda inj:inj.f_ecc,
                             'h1_end_time':lambda inj:float(inj.get_end('H')),
@@ -6593,7 +6592,7 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
       s2y = tbl.spin2y
       s2z = tbl.spin2z
 
-      ecc = tbl.ecc
+      eccentricity = tbl.eccentricity
       ecc_order = tbl.ecc_order
       f_ecc = tbl.f_ecc
 
@@ -6617,7 +6616,7 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
 
       if SimInspiralImplementedFDApproximants(injapproximant):
         inj_domain='F'
-        [plus,cross]=SimInspiralChooseFDWaveform(phiRef, deltaF,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min,f_max, f_ref,  r,   iota, lambda1, lambda2, ecc, ecc_order, f_ecc, waveFlags, nonGRparams, amplitudeO, phaseO, injapproximant)
+        [plus,cross]=SimInspiralChooseFDWaveform(phiRef, deltaF,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min,f_max, f_ref,  r,   iota, lambda1, lambda2, eccentricity, ecc_order, f_ecc, waveFlags, nonGRparams, amplitudeO, phaseO, injapproximant)
       elif SimInspiralImplementedTDApproximants(injapproximant):
         inj_domain='T'
         [plus,cross]=SimInspiralChooseTDWaveform(phiRef, deltaT,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min, f_ref,   r,   iota, lambda1,   lambda2,waveFlags, nonGRparams, amplitudeO, phaseO, injapproximant)
@@ -6741,7 +6740,7 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
         s2y = (a * sin(the) * sin(phi));
         s2z = (a * cos(the));
         iota=pos['inclination'].samples[which][0]
-        ecc=pos['ecc'].samples[which][0]
+        eccentricity=pos['eccentricity'].samples[which][0]
         ecc_order=pos['ecc_order'].samples[which][0]
         f_ecc=pos['f_ecc'].samples[which][0]
       except:
@@ -6765,10 +6764,10 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
                 iota=pos['inclination'].samples[which][0]
             else:
                 iota=pos['theta_jn'].samples[which][0]
-            if 'ecc' in pos.names:
-                ecc=pos['ecc'].samples[which][0]
+            if 'eccentricity' in pos.names:
+                eccentricity=pos['eccentricity'].samples[which][0]
             else:
-                ecc=0
+                eccentricity=0
             if 'ecc_order' in pos.names:
                 ecc_order=pos['ecc_order'].samples[which][0]
             else:
@@ -6790,7 +6789,7 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
 
       if SimInspiralImplementedFDApproximants(approximant):
         rec_domain='F'
-        [plus,cross]=SimInspiralChooseFDWaveform(phiRef, deltaF,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min, f_max,   f_ref,r,   iota, lambda1,   lambda2, ecc, ecc_order, f_ecc, waveFlags, nonGRparams, amplitudeO, phaseO, approximant)
+        [plus,cross]=SimInspiralChooseFDWaveform(phiRef, deltaF,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min, f_max,   f_ref,r,   iota, lambda1,   lambda2, eccentricity, ecc_order, f_ecc, waveFlags, nonGRparams, amplitudeO, phaseO, approximant)
       elif SimInspiralImplementedTDApproximants(approximant):
         rec_domain='T'
         [plus,cross]=SimInspiralChooseTDWaveform(phiRef, deltaT,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min, f_ref,  r,   iota, lambda1,   lambda2,waveFlags, nonGRparams, amplitudeO, phaseO, approximant)
