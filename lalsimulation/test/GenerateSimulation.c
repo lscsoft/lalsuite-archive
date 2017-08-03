@@ -59,7 +59,6 @@ typedef struct GSParams {
     LALDict *params;          /**<Container for all accessory parameters */
     int ampPhase;
     int verbose;
-    int runs;
 } GSParams;
 
 
@@ -213,9 +212,10 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
     params->meanPerAno = 0.;
     XLALSimInspiralWaveformParamsInsertTidalLambda1(params->params, 0.);
     XLALSimInspiralWaveformParamsInsertTidalLambda2(params->params, 0.);
+    XLALSimInspiralWaveformParamsInsertPNEccentricityOrder(params->params, 0);
+    XLALSimInspiralWaveformParamsInsertEccentricityFreq(params->params, 10.0);
     strncpy(params->outname, "simulation.dat", 256); /* output to this file */
     params->verbose = 0; /* No verbosity */
-    params->runs = 0;
 
     /* consume command line */
     for (i = 1; i < argc; ++i) {
@@ -281,8 +281,6 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
 	    XLALSimInspiralWaveformParamsInsertPNEccentricityOrder(params->params, atoi(argv[++i]));
         } else if (strcmp(argv[i], "--f_ecc") == 0) {
 	    XLALSimInspiralWaveformParamsInsertEccentricityFreq(params->params, atof(argv[++i]));
-        } else if (strcmp(argv[i], "--runs") == 0) {
-            params->runs = atoi(argv[++i]);
         } else if (strcmp(argv[i], "--spin-order") == 0) {
 	    XLALSimInspiralWaveformParamsInsertPNSpinOrder(params->params, atoi(argv[++i]));
         } else if (strcmp(argv[i], "--tidal-order") == 0) {
@@ -534,111 +532,6 @@ int main (int argc , char **argv) {
       if (status) goto fail;
     }
 
-    if ( params->runs > 0 &&
-           ( params->domain == LAL_SIM_DOMAIN_FREQUENCY ||
-             params->domain == LAL_SIM_DOMAIN_TIME )) { // check for generation time
-      clock_t start_clock, end_clock;
-      double cpu_used, ecc;
-      int i;
-      XLALDestroyCOMPLEX16FrequencySeries(hptilde);
-      XLALDestroyCOMPLEX16FrequencySeries(hctilde);
-      hptilde = NULL;
-      hctilde = NULL;
-      ecc = params->ecc;
-      params->ecc = 0.0;
-      start_clock = clock();
-      for ( i = 0; i < params->runs; i++) {
-        switch (params->domain) {
-          case LAL_SIM_DOMAIN_FREQUENCY:
-            XLALSimInspiralChooseFDWaveform(&hptilde, &hctilde,
-                    params->m1, params->m2, params->s1x,
-                    params->s1y, params->s1z, params->s2x, params->s2y,
-                    params->s2z, params->distance, params->inclination,
-                    params->phiRef, params->longAscNodes, params->ecc, params->meanPerAno,
-                    params->deltaF, params->f_min, params->f_max, params->fRef,
-                    params->params, params->approximant);
-            break;
-          case LAL_SIM_DOMAIN_TIME:
-            XLALSimInspiralChooseTDWaveform(&hplus, &hcross,
-                    params->m1, params->m2, params->s1x,
-                    params->s1y, params->s1z, params->s2x, params->s2y,
-                    params->s2z, params->distance, params->inclination,
-                    params->phiRef, params->longAscNodes, params->ecc, params->meanPerAno,
-                    params->deltaT, params->f_min, params->fRef,
-                    params->params,
-                    params->approximant);
-            break;
-          default:
-            XLALPrintError("Error: domain must be either TD or FD\n");
-        }
-        XLALDestroyCOMPLEX16FrequencySeries(hptilde);
-        XLALDestroyCOMPLEX16FrequencySeries(hctilde);
-        hptilde = NULL;
-        hctilde = NULL;
-      }
-      end_clock = clock();
-      cpu_used = (double)(end_clock - start_clock)/CLOCKS_PER_SEC;
-      fprintf(stdout, "Generation took %.3f seconds for %d waveforms, average time is %.3f ms with circular\n",
-                cpu_used, params->runs, cpu_used*1000.0/params->runs);
-
-      if ( ecc > 0.0) {
-        params->ecc = ecc;
-      }
-      else {
-        params->ecc = 0.01;
-      }
-      start_clock = clock();
-      for ( i = 0; i < params->runs; i++) {
-        switch (params->domain) {
-          case LAL_SIM_DOMAIN_FREQUENCY:
-            XLALSimInspiralChooseFDWaveform(&hptilde, &hctilde, params->phiRef,
-                    params->deltaF, params->m1, params->m2, params->s1x,
-                    params->s1y, params->s1z, params->s2x, params->s2y,
-                    params->s2z, params->f_min, params->f_max, params->fRef,
-                    params->distance, params->inclination, params->lambda1,
-                    params->lambda2, params->ecc, params->ecc_order,
-                    params->f_ecc, params->waveFlags, params->nonGRparams,
-                    params->ampO, params->phaseO, params->approximant);
-            break;
-          case LAL_SIM_DOMAIN_TIME:
-            XLALSimInspiralChooseTDWaveform(&hplus, &hcross, params->phiRef,
-                    params->deltaT, params->m1, params->m2, params->s1x,
-                    params->s1y, params->s1z, params->s2x, params->s2y,
-                    params->s2z, params->f_min, params->fRef,
-                    params->distance, params->inclination, params->lambda1,
-                    params->lambda2, params->waveFlags,
-                    params->nonGRparams, params->ampO, params->phaseO,
-                    params->approximant);
-            break;
-          default:
-            XLALPrintError("Error: domain must be either TD or FD\n");
-        }
-        XLALDestroyCOMPLEX16FrequencySeries(hptilde);
-        XLALDestroyCOMPLEX16FrequencySeries(hctilde);
-        hptilde = NULL;
-        hctilde = NULL;
-      }
-      end_clock = clock();
-      cpu_used = (double)(end_clock - start_clock)/CLOCKS_PER_SEC;
-      fprintf(stdout, "Generation took %.3f seconds for %d waveforms, average time is %.3f ms with eccentric\n",
-                cpu_used, params->runs, cpu_used*1000.0/params->runs);
-      /* clean up */
-      XLALDestroyREAL8TimeSeries(hplus);
-      XLALDestroyREAL8TimeSeries(hcross);
-      XLALSimInspiralDestroyWaveformFlags(params->waveFlags);
-      XLALSimInspiralDestroyTestGRParam(params->nonGRparams);
-      XLALFree(params);
-    }
-    else { // normal single generation
-      /* clean up */
-      XLALDestroyREAL8TimeSeries(hplus);
-      XLALDestroyREAL8TimeSeries(hcross);
-      XLALSimInspiralDestroyWaveformFlags(params->waveFlags);
-      XLALSimInspiralDestroyTestGRParam(params->nonGRparams);
-      XLALFree(params);
-      XLALDestroyCOMPLEX16FrequencySeries(hptilde);
-      XLALDestroyCOMPLEX16FrequencySeries(hctilde);
-    }
     /* clean up */
     XLALDestroyDict(params->params);
     XLALDestroyREAL8TimeSeries(hplus);
