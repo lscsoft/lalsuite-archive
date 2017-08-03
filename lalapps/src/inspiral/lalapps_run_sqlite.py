@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 #
 # Copyright (C) 2010 Chad Hanna
 #
@@ -24,7 +23,7 @@ import sys
 from glue.ligolw import ligolw
 from glue.ligolw import dbtables
 from glue.ligolw.utils import ligolw_sqlite
-from pylal import git_version
+from lalapps import git_version
 
 __author__ = "Chad Hanna <channa@ligo.caltech.edu>"
 __version__ = "git id %s" % git_version.id
