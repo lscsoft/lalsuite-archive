@@ -2870,7 +2870,7 @@ class SimInspiralTable(table.Table):
 		"amp_order": "int_4s",
 		"taper": "lstring",
 		"bandpass": "int_4s",
-		"ecc": "real_8",
+		"eccentricity": "real_8",
 		"ecc_order": "int_4s",
 		"f_ecc": "real_8",
 		"simulation_id": "ilwd:char"
