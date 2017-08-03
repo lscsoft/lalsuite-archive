@@ -2125,7 +2125,7 @@ class SkyAreaNode(pipeline.CondorDAGNode):
       return self.outdir
 
   def set_fits_name(self):
-    name='skymap.fits.gz'
+    name='fits.gz'
     if self.prefix is not None:
       name=self.prefix+name
     self.add_file_opt('fitsoutname',name,file_is_output_file=True)
