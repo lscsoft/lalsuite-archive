@@ -549,7 +549,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       self.skyareajob=SkyAreaJob(self.config,os.path.join(self.basepath,'skyarea.sub'),self.logpath,dax=self.is_dax())
       respagenodes=filter(lambda x: isinstance(x,ResultsPageNode) ,self.get_nodes())
       if 1:#self.engine=='lalinferenceburst':
-        prefix='LIB_'
+        prefix='LIB'
       #else:
       #  prefix='LALInference_'
       for p in respagenodes:
