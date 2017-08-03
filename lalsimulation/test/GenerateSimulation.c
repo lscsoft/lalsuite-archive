@@ -143,8 +143,6 @@ const char * usage =
 "                           (-1 for maximum order) (default -1)\n"
 "--f_ecc f                  reference frequency for initial eccentricity\n"
 "                           (10Hz) (default 10)\n"
-"--runs N                   number of waveform generations to compare time needed\n"
-"                           (0) (default 0), if this value is greather than zero will compare circular and eccentric\n"
 "--spin-order ORD           Twice PN order of spin effects\n"
 "                           (default ORD=-1 <==> All spin effects)\n"
 "--tidal-order ORD          Twice PN order of tidal effects\n"
@@ -212,7 +210,7 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
     params->meanPerAno = 0.;
     XLALSimInspiralWaveformParamsInsertTidalLambda1(params->params, 0.);
     XLALSimInspiralWaveformParamsInsertTidalLambda2(params->params, 0.);
-    XLALSimInspiralWaveformParamsInsertPNEccentricityOrder(params->params, 0);
+    XLALSimInspiralWaveformParamsInsertPNEccentricityOrder(params->params, -1);
     XLALSimInspiralWaveformParamsInsertEccentricityFreq(params->params, 10.0);
     strncpy(params->outname, "simulation.dat", 256); /* output to this file */
     params->verbose = 0; /* No verbosity */
