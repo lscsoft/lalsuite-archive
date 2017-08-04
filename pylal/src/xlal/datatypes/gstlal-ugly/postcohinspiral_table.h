@@ -36,6 +36,8 @@ typedef struct
 tagPostcohInspiralTable
 {
   struct tagPostcohInspiralTable *next;
+  long		process_id;
+  long		event_id;
   LIGOTimeGPS	end_time;
   LIGOTimeGPS	end_time_L;
   LIGOTimeGPS	end_time_H;

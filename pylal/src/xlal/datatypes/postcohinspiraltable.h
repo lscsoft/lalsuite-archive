@@ -56,7 +56,7 @@ typedef struct {
 	PostcohInspiralTable postcoh_inspiral;
 	/* FIXME:  these should be incorporated into the LAL structure */
 	long process_id_i;
-	EventIDColumn event_id;
+	long event_id_i;
 } pylal_PostcohInspiralTable;
 
 
@@ -84,12 +84,8 @@ static PyObject *pylal_PostcohInspiralTable_new(const PostcohInspiralTable *row)
 		return NULL;
 
 	obj->postcoh_inspiral = *row;
-	//obj->postcoh_inspiral.event_id = &obj->event_id;
+	obj->event_id_i = row->event_id;
 	obj->process_id_i = 0;
-	//if(row->event_id)
-	//	obj->event_id.id = row->event_id->id;
-	//else
-	//	obj->event_id.id = 0;
 
 	return (PyObject *) obj;
 }

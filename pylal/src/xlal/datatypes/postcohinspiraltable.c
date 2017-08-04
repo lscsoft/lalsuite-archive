@@ -51,7 +51,7 @@
  */
 
 
-//static PyObject *postcoh_inspiral_event_id_type = NULL;
+static PyObject *postcoh_inspiral_event_id_type = NULL;
 static PyObject *process_id_type = NULL;
 
 
@@ -162,6 +162,8 @@ static struct PyGetSetDef getset[] = {
 	{"pivotal_ifo", pylal_inline_string_get, pylal_inline_string_set, "pivotal_ifo", &(struct pylal_inline_string_description) {offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.pivotal_ifo), MAX_IFO_LEN}},
 	{"skymap_fname", pylal_inline_string_get, pylal_inline_string_set, "skymap_fname", &(struct pylal_inline_string_description) {offsetof(pylal_PostcohInspiralTable, postcoh_inspiral.skymap_fname), MAX_SKYMAP_FNAME_LEN}},
 	{"end", end_get, end_set, "end", NULL},
+	{"process_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "process_id", &(struct pylal_ilwdchar_id_description) {offsetof(pylal_PostcohInspiralTable, process_id_i), &process_id_type}},
+	{"event_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "event_id", &(struct pylal_ilwdchar_id_description) {offsetof(pylal_PostcohInspiralTable, event_id_i), &postcoh_inspiral_event_id_type}},
 	{NULL,}
 };
 
@@ -207,10 +209,10 @@ static PyObject *__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
 	/* link the event_id pointer in the postcoh_inspiral table structure
 	 * to the event_id structure */
-	//new->postcoh_inspiral.event_id = &new->event_id;
+	new->postcoh_inspiral.event_id = new->event_id_i;
 
-	//new->process_id_i = 0;
-	//new->event_id.id = 0;
+	new->process_id_i = 0;
+	new->event_id_i = 0;
 
 	/* done */
 	return (PyObject *) new;
@@ -245,7 +247,7 @@ static PyObject *from_buffer(PyObject *cls, PyObject *args)
 		/* memcpy postcoh_inspiral row */
 		((pylal_PostcohInspiralTable*)item)->postcoh_inspiral = *data++;
 		/* repoint event_id to event_id structure */
-		//((pylal_PostcohInspiralTable*)item)->postcoh_inspiral.event_id = &((pylal_PostcohInspiralTable*)item)->event_id;
+		((pylal_PostcohInspiralTable*)item)->event_id_i = ((pylal_PostcohInspiralTable*)item)->postcoh_inspiral.event_id;
 
 		PyTuple_SET_ITEM(result, i, item);
 	}
@@ -296,7 +298,7 @@ PyMODINIT_FUNC initpostcohinspiraltable(void)
 
 	/* Cached ID types */
 	process_id_type = pylal_get_ilwdchar_class("process", "process_id");
-	//postcoh_inspiral_event_id_type = pylal_get_ilwdchar_class("postcoh_inspiral", "event_id");
+	postcoh_inspiral_event_id_type = pylal_get_ilwdchar_class("postcoh", "event_id");
 
 	/* PostcohInspiralTable */
 	_pylal_PostcohInspiralTable_Type = &pylal_postcohinspiraltable_type;
