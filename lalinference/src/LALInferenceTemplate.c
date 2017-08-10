@@ -810,8 +810,8 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
             approximant,model->waveformCache, NULL), errnum);
     
     /* apply the generic PN corrections to \tilde{h}_+ and \tilde{h}_x */
-    XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(hptilde,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI,f_low,deltaF,nonGRparams), errnum);
-    XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(hctilde,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI,f_low,deltaF,nonGRparams), errnum);
+    XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(hptilde,distance,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI,nonGRparams), errnum);
+    XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(hctilde,distance,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI ,nonGRparams), errnum);
 	XLALSimInspiralDestroyTestGRParam(nonGRparams);
     
     /* if the waveform failed to generate, fill the buffer with zeros
@@ -876,8 +876,8 @@ model->waveFlags(%d,%d,%d,%d,numreldata),nonGRparams,%d,%d,%d,model->waveformCac
             amporder, order, approximant,model->waveformCache), errnum);
       
     /* apply the generic PN corrections to \tilde{h}_+ and \tilde{h}_x */
-    XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(model->freqhPlus,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI,f_low,model->deltaF,nonGRparams), errnum);
-    XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(model->freqhCross,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI,f_low,model->deltaF,nonGRparams), errnum);
+    XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(model->freqhPlus,distance,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI,nonGRparams), errnum);
+    XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(model->freqhCross,distance,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI,nonGRparams), errnum);
 	XLALSimInspiralDestroyTestGRParam(nonGRparams);
     /* if the waveform failed to generate, fill the buffer with zeros
      * so that the previous waveform is not left there
