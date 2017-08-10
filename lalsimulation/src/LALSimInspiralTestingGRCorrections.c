@@ -317,5 +317,17 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
         htilde->data->data[i] /= distance;
     }
     
+    gsl_spline_free(splineGR);
+    gsl_spline_free(splinenonGR);
+    gsl_spline_free(splineTot);
+    gsl_interp_accel_free(acc);
+    XLALDestroyREAL8Sequence(uphase);
+    XLALDestroyREAL8Sequence(phase);
+    XLALDestroyREAL8Sequence(d2phidf2);
+    XLALDestroyREAL8Sequence(d2phinonGRdf2);
+    XLALDestroyREAL8Sequence(phasenonGR);
+    XLALDestroyREAL8Sequence(d2phaseTotdf2);
+    XLALDestroyREAL8Sequence(dphaseTotdf);
+    XLALDestroyREAL8Sequence(phaseTot);
     return 0;
 }
