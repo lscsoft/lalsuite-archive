@@ -684,13 +684,13 @@ int XLALSimIMRPhenomHMPhasePreComp(HMPhasePreComp *q, const INT4 ell, const INT4
 
 double XLALSimIMRPhenomHMPhase( double Mf_wf, int mm, HMPhasePreComp *q, PNPhasingSeries *pn, IMRPhenomDPhaseCoefficients *pPhi, PhiInsPrefactors *phi_prefactors, double Rholm, double Taulm );
 double XLALSimIMRPhenomHMPhase( double Mf_wf, /**< input frequency in geometric units*/
-                                int mm,
-                                HMPhasePreComp *q,
-                                PNPhasingSeries *pn,
-                                IMRPhenomDPhaseCoefficients *pPhi,
-                                PhiInsPrefactors *phi_prefactors,
-                                double Rholm,
-                                double Taulm
+                                int mm, /**< spherical harmonic m number */
+                                HMPhasePreComp *q,  /**<  HMPhasePreComp *q*/
+                                PNPhasingSeries *pn, /**<  PNPhasingSeries *pn*/
+                                IMRPhenomDPhaseCoefficients *pPhi, /**<  IMRPhenomDPhaseCoefficients *pPhi*/
+                                PhiInsPrefactors *phi_prefactors, /**<  PhiInsPrefactors *phi_prefactors*/
+                                double Rholm, /**<  double Rholm*/
+                                double Taulm /**<  double Taulm*/
                               )
 {
 
@@ -828,19 +828,20 @@ static INT4 FDAddMode(COMPLEX16FrequencySeries *hptilde, COMPLEX16FrequencySerie
  * This returns the hlm of a single (l,m) mode at a single frequency Mf
  */
 static COMPLEX16 IMRPhenomHMSingleModehlm(
-        int ell,
-        int mm,
-        double Mf,
-        HMPhasePreComp *z,
-        IMRPhenomDAmplitudeCoefficients *pAmp,
-        AmpInsPrefactors *amp_prefactors,
-        PNPhasingSeries *pn,
-        IMRPhenomDPhaseCoefficients *pPhi,
-        PhiInsPrefactors *phi_prefactors,
-        double Rholm,
-        double Taulm,
+        int ell, /**< spherical harmonic ell number*/
+        int mm, /**< spherical harmonic m number*/
+        double Mf, /**< dimensionless frequency */
+        HMPhasePreComp *z, /**< HMPhasePreComp *zgot
+        */
+        IMRPhenomDAmplitudeCoefficients *pAmp, /**<  IMRPhenomDAmplitudeCoefficients *pAmp */
+        AmpInsPrefactors *amp_prefactors, /**<  AmpInsPrefactors *amp_prefactors */
+        PNPhasingSeries *pn, /**<  PNPhasingSeries *pn */
+        IMRPhenomDPhaseCoefficients *pPhi, /**<  IMRPhenomDPhaseCoefficients *pPhi */
+        PhiInsPrefactors *phi_prefactors, /**<  PhiInsPrefactors *phi_prefactors */
+        double Rholm, /**<  double Rholm */
+        double Taulm, /**<  double Taulm */
         double phi_precalc, /**< 0.5*phi22(fref) - phi0*/
-        PhenomDStorage *PhenomDQuantities
+        PhenomDStorage *PhenomDQuantities /**<  PhenomDStorage *PhenomDQuantities */
 ) {
 
     /*
@@ -1414,18 +1415,19 @@ int XLALIMRPhenomHMMultiModeStrain(
 int XLALSimIMRPhenomHMSingleModehlm(COMPLEX16FrequencySeries **hlmtilde, /**< [out] */
                                     REAL8 m1Msun, /**< mass1 in units of solar masses */
                                     REAL8 m2Msun, /**< mass2 in units of solar masses */
-                                    REAL8 chi1z,
-                                    REAL8 chi2z,
-                                    REAL8 deltaF,
-                                    REAL8 f_min,
-                                    REAL8 f_max,
-                                    REAL8 fRef_in,
-                                    REAL8 phi0,
-                                    REAL8 distance,
-                                    INT4 ell,
-                                    INT4 mm,
-                                    LALDict *extraParams){
-
+                                    REAL8 chi1z, /**< primary spin parameter */
+                                    REAL8 chi2z, /**< secondary spin parameter */
+                                    REAL8 deltaF, /**< Hz */
+                                    REAL8 f_min, /**< Hz */
+                                    REAL8 f_max, /**< Hz */
+                                    REAL8 fRef_in, /**< reference frequency in Hz */
+                                    REAL8 phi0, /**< reference orbital phase */
+                                    REAL8 distance, /**< distance to source in SI */
+                                    INT4 ell, /**< spherical harmonic ell number */
+                                    INT4 mm, /**< spherical harmonic m number */
+                                    LALDict *extraParams /**< LALDict structure */
+                                )
+{
     int errcode = XLAL_SUCCESS;
     errcode = init_useful_powers(&powers_of_pi, LAL_PI);
     XLAL_CHECK(XLAL_SUCCESS == errcode, errcode, "init_useful_powers() failed: failed to initiate useful powers of pi.");
