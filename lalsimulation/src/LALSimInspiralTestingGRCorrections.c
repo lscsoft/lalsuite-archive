@@ -65,8 +65,8 @@ int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       
 //    const REAL8 piM = LAL_PI * m_sec;
 //    const REAL8 vISCO = 1. / sqrt(6.);
 //    const REAL8 fISCO = vISCO * vISCO * vISCO / piM;
-    //const REAL8 fPeak = GetNRSpinPeakOmegaV4(2, 2, eta, 0.) / (2. * LAL_PI * m_sec);
-    const REAL8 fPeak =0.0165  /  m_sec;
+    const REAL8 fPeak = GetNRSpinPeakOmegaV4(2, 2, eta, 0.) / (2. * LAL_PI * m_sec);
+    //const REAL8 fPeak =0.0165  /  m_sec;
     
     INT4 i;
     INT4 n = (INT4) htilde->data->length;
