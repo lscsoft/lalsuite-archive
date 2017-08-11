@@ -159,6 +159,25 @@ int XLALSimRingdownGenerateSingleModeMMRDNS_time(
 
 );
 
+/* NOTE: Made for debugging purposes -- XLALSimRingdownGenerateSingleModeMMRDNS_time: Time domain waveformgenerator for single QNM with angular dependence */
+int XLALSimRingdownGenerateSingleBareModeMMRDNS_time(
+        COMPLEX16TimeSeries **htilde_lmn,            /**< OUTPUT TD waveform mode lmn */
+        const LIGOTimeGPS *t0,                       /**< start time of ringdown */
+        REAL8 deltaT,                                /**< sampling interval (s) */
+        REAL8 Mf,                                    /**< Final BH Mass (kg) */
+        REAL8 jf,                                    /**< Final BH dimensionaless spin */
+        REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
+        UINT4 l,                                     /**< Polar eigenvalue */
+        UINT4 m,                                     /**< Azimuthal eigenvalue */
+        UINT4 n,                                     /**< Overtone Number */
+        REAL8 r,                                     /**< distance of source (m) */
+        REAL8 dfreq,                                 /**< relative shift in the real frequency parameter */
+        REAL8 dtau,                                  /**< relative shift in the damping time parameter */
+        UINT4 Nsamples,                               /**< waveform length */
+        REAL8 Tstart                                 /**< starting time of waveform (10M at zero) */
+
+);
+
 /* Spheroidal Harmonic Plus and Cross modes */
 REAL8 XLALSimSpheroidalHarmonicPlus(REAL8 jf, UINT4 l, INT4 m, UINT4 n, REAL8 iota);
 REAL8 XLALSimSpheroidalHarmonicCross(REAL8 jf, UINT4 l, INT4 m, UINT4 n, REAL8 iota);
