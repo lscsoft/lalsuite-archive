@@ -240,12 +240,16 @@ static int IMRPhenomDGenerateFD(
           XLAL_PRINT_WARNING("Final spin (Mf=%g) and ISCO frequency of this system are small, \
                           the model might misbehave here.", finspin);
 
-  IMRPhenomDAmplitudeCoefficients *pAmp = ComputeIMRPhenomDAmplitudeCoefficients(eta, chi1, chi2, finspin);
+  IMRPhenomDAmplitudeCoefficients *pAmp;
+  pAmp = XLALMalloc(sizeof(IMRPhenomDAmplitudeCoefficients));
+  ComputeIMRPhenomDAmplitudeCoefficients(pAmp, eta, chi1, chi2, finspin);
   if (!pAmp) XLAL_ERROR(XLAL_EFUNC);
   if (extraParams==NULL)
     extraParams=XLALCreateDict();
   XLALSimInspiralWaveformParamsInsertPNSpinOrder(extraParams,LAL_SIM_INSPIRAL_SPIN_ORDER_35PN);
-  IMRPhenomDPhaseCoefficients *pPhi = ComputeIMRPhenomDPhaseCoefficients(eta, chi1, chi2, finspin, extraParams);
+  IMRPhenomDPhaseCoefficients *pPhi;
+  pPhi = XLALMalloc(sizeof(IMRPhenomDPhaseCoefficients));
+  ComputeIMRPhenomDPhaseCoefficients(pPhi, eta, chi1, chi2, finspin, extraParams);
   if (!pPhi) XLAL_ERROR(XLAL_EFUNC);
   PNPhasingSeries *pn = NULL;
   XLALSimInspiralTaylorF2AlignedPhasing(&pn, m1, m2, chi1, chi2, extraParams);
@@ -257,18 +261,18 @@ static int IMRPhenomDGenerateFD(
   testGRcor += XLALSimInspiralWaveformParamsLookupNonGRDChi6(extraParams);
 
   // was not available when PhenomD was tuned.
-  pn->v[6] -= (Subtract3PNSS(m1, m2, M, chi1, chi2) * pn->v[0])* testGRcor;
+  pn->v[6] -= (Subtract3PNSS(m1, m2, M, eta, chi1, chi2) * pn->v[0])* testGRcor;
 
   PhiInsPrefactors phi_prefactors;
   status = init_phi_ins_prefactors(&phi_prefactors, pPhi, pn);
   XLAL_CHECK(XLAL_SUCCESS == status, status, "init_phi_ins_prefactors failed");
 
   // Compute coefficients to make phase C^1 continuous (phase and first derivative)
-  ComputeIMRPhenDPhaseConnectionCoefficients(pPhi, pn, &phi_prefactors);
+  ComputeIMRPhenDPhaseConnectionCoefficients(pPhi, pn, &phi_prefactors, 1.0, 1.0);
 
   //time shift so that peak amplitude is approximately at t=0
   //For details see https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/WaveformsReview/IMRPhenomDCodeReview/timedomain
-  const REAL8 t0 = DPhiMRD(pAmp->fmaxCalc, pPhi);
+  const REAL8 t0 = DPhiMRD(pAmp->fmaxCalc, pPhi, 1.0, 1.0);
 
   AmpInsPrefactors amp_prefactors;
   status = init_amp_ins_prefactors(&amp_prefactors, pAmp);
@@ -279,7 +283,7 @@ static int IMRPhenomDGenerateFD(
   UsefulPowers powers_of_fRef;
   status = init_useful_powers(&powers_of_fRef, MfRef);
   XLAL_CHECK(XLAL_SUCCESS == status, status, "init_useful_powers failed for MfRef");
-  const REAL8 phifRef = IMRPhenDPhase(MfRef, pPhi, pn, &powers_of_fRef, &phi_prefactors);
+  const REAL8 phifRef = IMRPhenDPhase(MfRef, pPhi, pn, &powers_of_fRef, &phi_prefactors, 1.0, 1.0);
 
   // factor of 2 b/c phi0 is orbital phase
   const REAL8 phi_precalc = 2.*phi0 + phifRef;
@@ -287,9 +291,10 @@ static int IMRPhenomDGenerateFD(
   int status_in_for = XLAL_SUCCESS;
   /* Now generate the waveform */
   #pragma omp parallel for
+  REAL8 M_sec_deltaF = M_sec*deltaF;
   for (size_t i = ind_min; i < ind_max; i++)
   {
-    REAL8 Mf = M_sec * i * deltaF; // geometric frequency
+    REAL8 Mf = i * M_sec_deltaF; // geometric frequency
 
     UsefulPowers powers_of_f;
     status_in_for = init_useful_powers(&powers_of_f, Mf);
@@ -301,7 +306,7 @@ static int IMRPhenomDGenerateFD(
     else
     {
       REAL8 amp = IMRPhenDAmplitude(Mf, pAmp, &powers_of_f, &amp_prefactors);
-      REAL8 phi = IMRPhenDPhase(Mf, pPhi, pn, &powers_of_f, &phi_prefactors);
+      REAL8 phi = IMRPhenDPhase(Mf, pPhi, pn, &powers_of_f, &phi_prefactors, 1.0, 1.0);
 
       phi -= t0*(Mf-MfRef) + phi_precalc;
       ((*htilde)->data->data)[i] = amp0 * amp * cexp(-I * phi);
@@ -362,7 +367,9 @@ double XLALIMRPhenomDGetPeakFreq(
     if (finspin < MIN_FINAL_SPIN)
           XLAL_PRINT_WARNING("Final spin (Mf=%g) and ISCO frequency of this system are small, \
                           the model might misbehave here.", finspin);
-    IMRPhenomDAmplitudeCoefficients *pAmp = ComputeIMRPhenomDAmplitudeCoefficients(eta, chi1, chi2, finspin);
+    IMRPhenomDAmplitudeCoefficients *pAmp;
+    pAmp = XLALMalloc(sizeof(IMRPhenomDAmplitudeCoefficients));
+    ComputeIMRPhenomDAmplitudeCoefficients(pAmp, eta, chi1, chi2, finspin);
     if (!pAmp) XLAL_ERROR(XLAL_EFUNC);
 
     // PeakFreq, converted to Hz
@@ -397,7 +404,7 @@ static double PhenDPhaseDerivFrequencyPoint(double Mf, IMRPhenomDPhaseCoefficien
 
   if (StepFunc_boolean(Mf, p->fMRDJoin))	// MRD range
   {
-      double DPhiMRDval = DPhiMRD(Mf, p) + p->C2MRD;
+      double DPhiMRDval = DPhiMRD(Mf, p, 1.0, 1.0) + p->C2MRD;
 	  return DPhiMRDval;
   }
 
@@ -475,7 +482,9 @@ double XLALSimIMRPhenomDChirpTime(
     if (extraParams == NULL)
       extraParams = XLALCreateDict();
     XLALSimInspiralWaveformParamsInsertPNSpinOrder(extraParams, LAL_SIM_INSPIRAL_SPIN_ORDER_35PN);
-    IMRPhenomDPhaseCoefficients *pPhi = ComputeIMRPhenomDPhaseCoefficients(eta, chi1, chi2, finspin, extraParams);
+    IMRPhenomDPhaseCoefficients *pPhi;
+    pPhi = XLALMalloc(sizeof(IMRPhenomDPhaseCoefficients));
+    ComputeIMRPhenomDPhaseCoefficients(pPhi, eta, chi1, chi2, finspin, extraParams);
     if (!pPhi) XLAL_ERROR(XLAL_EFUNC);
     PNPhasingSeries *pn = NULL;
     XLALSimInspiralTaylorF2AlignedPhasing(&pn, m1, m2, chi1, chi2, extraParams);
@@ -484,7 +493,7 @@ double XLALSimIMRPhenomDChirpTime(
     // Subtract 3PN spin-spin term below as this is in LAL's TaylorF2 implementation
     // (LALSimInspiralPNCoefficients.c -> XLALSimInspiralPNPhasing_F2), but
     // was not available when PhenomD was tuned.
-    pn->v[6] -= (Subtract3PNSS(m1, m2, M, chi1, chi2) * pn->v[0]);
+    pn->v[6] -= (Subtract3PNSS(m1, m2, M, eta, chi1, chi2) * pn->v[0]);
 
 
     PhiInsPrefactors phi_prefactors;
@@ -492,7 +501,7 @@ double XLALSimIMRPhenomDChirpTime(
     XLAL_CHECK(XLAL_SUCCESS == status, status, "init_phi_ins_prefactors failed");
 
     // Compute coefficients to make phase C^1 continuous (phase and first derivative)
-    ComputeIMRPhenDPhaseConnectionCoefficients(pPhi, pn, &phi_prefactors);
+    ComputeIMRPhenDPhaseConnectionCoefficients(pPhi, pn, &phi_prefactors, 1.0, 1.0);
 
     // We estimate the length of the time domain signal (i.e., the chirp time)
     // By computing the difference between the values of the Fourier domain

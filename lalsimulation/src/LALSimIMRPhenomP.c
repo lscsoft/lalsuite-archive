@@ -734,8 +734,10 @@ static int PhenomPCore(
         finspin = copysign(1.0, finspin);
       }
       // IMRPhenomD assumes that m1 >= m2.
-      pAmp = ComputeIMRPhenomDAmplitudeCoefficients(eta, chi2_l, chi1_l, finspin);
-      pPhi = ComputeIMRPhenomDPhaseCoefficients(eta, chi2_l, chi1_l, finspin, extraParams);
+      pAmp = XLALMalloc(sizeof(IMRPhenomDAmplitudeCoefficients));
+      ComputeIMRPhenomDAmplitudeCoefficients(pAmp, eta, chi2_l, chi1_l, finspin);
+      pPhi = XLALMalloc(sizeof(IMRPhenomDPhaseCoefficients));
+      ComputeIMRPhenomDPhaseCoefficients(pPhi, eta, chi2_l, chi1_l, finspin, extraParams);
       if (extraParams==NULL)
       {
               extraParams=XLALCreateDict();
@@ -751,13 +753,13 @@ static int PhenomPCore(
       // Subtract 3PN spin-spin term below as this is in LAL's TaylorF2 implementation
       // (LALSimInspiralPNCoefficients.c -> XLALSimInspiralPNPhasing_F2), but
       // was not available when PhenomD was tuned.
-      pn->v[6] -= (Subtract3PNSS(m1, m2, M, chi1_l, chi2_l) * pn->v[0]);
+      pn->v[6] -= (Subtract3PNSS(m1, m2, M, eta, chi1_l, chi2_l) * pn->v[0]);
 
       PhiInsPrefactors phi_prefactors;
       errcode = init_phi_ins_prefactors(&phi_prefactors, pPhi, pn);
       XLAL_CHECK(XLAL_SUCCESS == errcode, errcode, "init_phi_ins_prefactors failed");
 
-      ComputeIMRPhenDPhaseConnectionCoefficients(pPhi, pn, &phi_prefactors);
+      ComputeIMRPhenDPhaseConnectionCoefficients(pPhi, pn, &phi_prefactors, 1.0, 1.0);
       // This should be the same as the ending frequency in PhenomD
       fCut = f_CUT / m_sec;
       f_final = pAmp->fRD / m_sec;
@@ -1112,7 +1114,7 @@ static int PhenomPCoreOneFrequency(
       errcode = init_useful_powers(&powers_of_f, f);
       XLAL_CHECK(errcode == XLAL_SUCCESS, errcode, "init_useful_powers failed for f");
       aPhenom = IMRPhenDAmplitude(f, pAmp, &powers_of_f, amp_prefactors);
-      phPhenom = IMRPhenDPhase(f, pPhi, PNparams, &powers_of_f, phi_prefactors);
+      phPhenom = IMRPhenDPhase(f, pPhi, PNparams, &powers_of_f, phi_prefactors, 1.0, 1.0);
       SL = chi1_l*m1*m1 + chi2_l*m2*m2;        /* Dimensionfull aligned spin. */
       break;
     default:
