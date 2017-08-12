@@ -60,6 +60,8 @@
 #include <lal/TimeSeries.h>
 #include <lal/FrequencySeries.h>
 
+#include <gsl/gsl_spline.h>
+
 /* ---------------------------------------- */
 /* General model methods and parameters     */
 /* ---------------------------------------- */
@@ -178,19 +180,39 @@ int XLALSimRingdownGenerateSingleBareModeMMRDNS_time(
 
 );
 
+/* Interpolate tabulated data for QNM frequency */
+COMPLEX16 XLALQNM_CW( REAL8 jf, UINT4 l, UINT4 m, UINT4 n );
+/* Interpolate tabulated data for QNM separation constant */
+COMPLEX16 XLALQNM_SC( REAL8 jf, UINT4 l, UINT4 m, UINT4 n );
+
 /* Spheroidal Harmonic Plus and Cross modes */
 REAL8 XLALSimSpheroidalHarmonicPlus(REAL8 jf, UINT4 l, INT4 m, UINT4 n, REAL8 iota);
 REAL8 XLALSimSpheroidalHarmonicCross(REAL8 jf, UINT4 l, INT4 m, UINT4 n, REAL8 iota);
 
+/* ------------------------------------------------
+          Angular parameter functions
+ ------------------------------------------------ */
+double XLALK1( int m, int s );
+double XLALK2( int m, int s );
+COMPLEX16 XLALALPHA_RD( int m, int s, int p );
+COMPLEX16 XLALBETA_RD( int m, int s, int p, COMPLEX16 aw, COMPLEX16 A_lm );
+COMPLEX16 XLALGAMMA_RD( int m, int s, int p, COMPLEX16 aw );
+
+
 /*
 * Spheroical Harmonic Functions (Leaver's Formulation circa 1986/85)
 */
-COMPLEX16 XLALSpinWeightedSpheroidalHarmonic( double jf, int l, int m, int n, double theta, double phi);
+COMPLEX16 XLALSpinWeightedSpheroidalHarmonic( REAL8 jf, int l, int m, int n, REAL8 theta, REAL8 phi);
 
 /*
 * Domain mapping for dimnesionless BH spin
 */
 REAL8 XLALKAPPA( double jf, int l, int m );
+
+/*
+*
+*/
+double XLALspheroidalHarmonicNormalization( double kappa, int l, int input_m, int n );
 
 /*
 * -------------------------------------------------------------------------------- *
