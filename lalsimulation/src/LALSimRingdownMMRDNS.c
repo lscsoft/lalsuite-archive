@@ -57,8 +57,201 @@
 #include <lal/FrequencySeries.h>
 
 #include "LALSimRingdownMMRDNS.h"
+#include "LALSimRingdownData.h"
 #include <lal/LALSimInspiralTestGRParams.h>
 
+/* note: use double-precision variables, but demand single-precision accuracy */
+#define EPS LAL_REAL4_EPS
+#define TINY LAL_REAL4_MIN
+
+/* Interpolate tabulated data for QNM frequency */
+COMPLEX16 XLALQNM_CW( REAL8 jf, UINT4 l, UINT4 m, UINT4 n ){
+
+  /* Setup GSL Splines: acceleration */
+  gsl_interp_accel *acc_real = gsl_interp_accel_alloc();
+  gsl_interp_accel *acc_imag = gsl_interp_accel_alloc();
+
+  /* Setup GSL Splines: spline "objects" */
+  gsl_spline *CWREAL = gsl_spline_alloc(gsl_interp_cspline, QNMDataLength);
+  gsl_spline *CWIMAG = gsl_spline_alloc(gsl_interp_cspline, QNMDataLength);
+
+  /**/
+  REAL8 cwreal=0, cwimag=0;
+
+  /**/
+  if ( 2==l && 2==m && 0==n  ){
+    /**/
+    gsl_spline_init( CWREAL, JF_DATA, CW220REAL_DATA, QNMDataLength);
+    cwreal = gsl_spline_eval( CWREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( CWIMAG, CW220REAL_DATA, CW220IMAG_DATA, QNMDataLength);
+    cwimag = gsl_spline_eval( CWIMAG, cwreal, acc_imag );
+
+  } else if ( 2==l && 2==m && 1==n ) {
+    /**/
+    gsl_spline_init( CWREAL, JF_DATA, CW221REAL_DATA, QNMDataLength);
+    cwreal = gsl_spline_eval( CWREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( CWIMAG, CW221REAL_DATA, CW221IMAG_DATA, QNMDataLength);
+    cwimag = gsl_spline_eval( CWIMAG, cwreal, acc_imag );
+
+  } else if ( 2==l && 1==m && 0==n ) {
+    /**/
+    gsl_spline_init( CWREAL, JF_DATA, CW210REAL_DATA, QNMDataLength);
+    cwreal = gsl_spline_eval( CWREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( CWIMAG, CW210REAL_DATA, CW210IMAG_DATA, QNMDataLength);
+    cwimag = gsl_spline_eval( CWIMAG, cwreal, acc_imag );
+
+  } else if ( 3==l && 3==m && 0==n ) {
+    /**/
+    gsl_spline_init( CWREAL, JF_DATA, CW330REAL_DATA, QNMDataLength);
+    cwreal = gsl_spline_eval( CWREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( CWIMAG, CW330REAL_DATA, CW330IMAG_DATA, QNMDataLength);
+    cwimag = gsl_spline_eval( CWIMAG, cwreal, acc_imag );
+
+  } else if ( 3==l && 3==m && 1==n ) {
+    /**/
+    gsl_spline_init( CWREAL, JF_DATA, CW331REAL_DATA, QNMDataLength);
+    cwreal = gsl_spline_eval( CWREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( CWIMAG, CW331REAL_DATA, CW331IMAG_DATA, QNMDataLength);
+    cwimag = gsl_spline_eval( CWIMAG, cwreal, acc_imag );
+
+  } else if ( 3==l && 2==m && 0==n ) {
+    /**/
+    gsl_spline_init( CWREAL, JF_DATA, CW320REAL_DATA, QNMDataLength);
+    cwreal = gsl_spline_eval( CWREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( CWIMAG, CW320REAL_DATA, CW320IMAG_DATA, QNMDataLength);
+    cwimag = gsl_spline_eval( CWIMAG, cwreal, acc_imag );
+
+  } else if ( 4==l && 4==m && 0==n ) {
+    /**/
+    gsl_spline_init( CWREAL, JF_DATA, CW440REAL_DATA, QNMDataLength);
+    cwreal = gsl_spline_eval( CWREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( CWIMAG, CW440REAL_DATA, CW440IMAG_DATA, QNMDataLength);
+    cwimag = gsl_spline_eval( CWIMAG, cwreal, acc_imag );
+
+  } else if ( 4==l && 3==m && 0==n ) {
+    /**/
+    gsl_spline_init( CWREAL, JF_DATA, CW430REAL_DATA, QNMDataLength);
+    cwreal = gsl_spline_eval( CWREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( CWIMAG, CW430REAL_DATA, CW430IMAG_DATA, QNMDataLength);
+    cwimag = gsl_spline_eval( CWIMAG, cwreal, acc_imag );
+
+  } else if ( 5==l && 5==m && 0==n ) {
+    /**/
+    gsl_spline_init( CWREAL, JF_DATA, CW550REAL_DATA, QNMDataLength);
+    cwreal = gsl_spline_eval( CWREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( CWIMAG, CW550REAL_DATA, CW550IMAG_DATA, QNMDataLength);
+    cwimag = gsl_spline_eval( CWIMAG, cwreal, acc_imag );
+
+  }
+
+  /**/
+  return cwreal + I*cwimag;
+
+}
+
+
+/* Interpolate tabulated data for QNM separation constant */
+COMPLEX16 XLALQNM_SC( REAL8 jf, UINT4 l, UINT4 m, UINT4 n ){
+
+  /* Setup GSL Splines: acceleration */
+  gsl_interp_accel *acc_real = gsl_interp_accel_alloc();
+  gsl_interp_accel *acc_imag = gsl_interp_accel_alloc();
+
+  /* Setup GSL Splines: spline "objects" */
+  gsl_spline *SCREAL = gsl_spline_alloc(gsl_interp_cspline, QNMDataLength);
+  gsl_spline *SCIMAG = gsl_spline_alloc(gsl_interp_cspline, QNMDataLength);
+
+  /**/
+  REAL8 screal=0, scimag=0;
+
+  /**/
+  if ( 2==l && 2==m && 0==n  ){
+    /**/
+    gsl_spline_init( SCREAL, JF_DATA, SC220REAL_DATA, QNMDataLength);
+    screal = gsl_spline_eval( SCREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( SCIMAG, JF_DATA, SC220IMAG_DATA, QNMDataLength);
+    scimag = gsl_spline_eval( SCIMAG, jf, acc_imag );
+
+  } else if ( 2==l && 2==m && 1==n ) {
+    /**/
+    gsl_spline_init( SCREAL, JF_DATA, SC221REAL_DATA, QNMDataLength);
+    screal = gsl_spline_eval( SCREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( SCIMAG, JF_DATA, SC221IMAG_DATA, QNMDataLength);
+    scimag = gsl_spline_eval( SCIMAG, jf, acc_imag );
+
+  } else if ( 2==l && 1==m && 0==n ) {
+    /**/
+    gsl_spline_init( SCREAL, JF_DATA, SC210REAL_DATA, QNMDataLength);
+    screal = gsl_spline_eval( SCREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( SCIMAG, JF_DATA, SC210IMAG_DATA, QNMDataLength);
+    scimag = gsl_spline_eval( SCIMAG, jf, acc_imag );
+
+  } else if ( 3==l && 3==m && 0==n ) {
+    /**/
+    gsl_spline_init( SCREAL, JF_DATA, SC330REAL_DATA, QNMDataLength);
+    screal = gsl_spline_eval( SCREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( SCIMAG, JF_DATA, SC330IMAG_DATA, QNMDataLength);
+    scimag = gsl_spline_eval( SCIMAG, jf, acc_imag );
+
+  } else if ( 3==l && 3==m && 1==n ) {
+    /**/
+    gsl_spline_init( SCREAL, JF_DATA, SC331REAL_DATA, QNMDataLength);
+    screal = gsl_spline_eval( SCREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( SCIMAG, JF_DATA, SC331IMAG_DATA, QNMDataLength);
+    scimag = gsl_spline_eval( SCIMAG, jf, acc_imag );
+
+  } else if ( 3==l && 2==m && 0==n ) {
+    /**/
+    gsl_spline_init( SCREAL, JF_DATA, SC320REAL_DATA, QNMDataLength);
+    screal = gsl_spline_eval( SCREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( SCIMAG, JF_DATA, SC320IMAG_DATA, QNMDataLength);
+    scimag = gsl_spline_eval( SCIMAG, jf, acc_imag );
+
+  } else if ( 4==l && 4==m && 0==n ) {
+    /**/
+    gsl_spline_init( SCREAL, JF_DATA, SC440REAL_DATA, QNMDataLength);
+    screal = gsl_spline_eval( SCREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( SCIMAG, JF_DATA, SC440IMAG_DATA, QNMDataLength);
+    scimag = gsl_spline_eval( SCIMAG, jf, acc_imag );
+
+  } else if ( 4==l && 3==m && 0==n ) {
+    /**/
+    gsl_spline_init( SCREAL, JF_DATA, SC430REAL_DATA, QNMDataLength);
+    screal = gsl_spline_eval( SCREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( SCIMAG, JF_DATA, SC430IMAG_DATA, QNMDataLength);
+    scimag = gsl_spline_eval( SCIMAG, jf, acc_imag );
+
+  } else if ( 5==l && 5==m && 0==n ) {
+    /**/
+    gsl_spline_init( SCREAL, JF_DATA, SC550REAL_DATA, QNMDataLength);
+    screal = gsl_spline_eval( SCREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( SCIMAG, JF_DATA, SC550IMAG_DATA, QNMDataLength);
+    scimag = gsl_spline_eval( SCIMAG, jf, acc_imag );
+
+  }
+
+  /**/
+  return screal + I*scimag;
+
+}
 
 REAL8 XLALE_rad_nonspinning_UIB2016(REAL8 eta)
 {
@@ -338,8 +531,7 @@ COMPLEX16 XLALseparationConstant( double kappa,  /* Domain mapping for remnant B
 /*
 * Spheroidal Harmonic Normalization Constants: Note that name encodes date of writing
 */
-static double spheroidalHarmonicNormalization( double kappa, int l, int input_m, int n );
-static double spheroidalHarmonicNormalization( double kappa,  /* Domain mapping for remnant BH's spin (Dimensionless)*/
+double XLALspheroidalHarmonicNormalization( double kappa,  /* Domain mapping for remnant BH's spin (Dimensionless)*/
                           int l,        /* Polar eigenvalue*/
                           int input_m,  /* Azimuthal eigenvalue*/
                           int n ) {     /* Overtone Number*/
@@ -412,7 +604,7 @@ static double spheroidalHarmonicNormalization( double kappa,  /* Domain mapping 
 
   return ans;
 
-} /* END of spheroidalHarmonicNormalization */
+} /* END of XLALspheroidalHarmonicNormalization */
 
 
 /*
@@ -437,32 +629,32 @@ UNUSED static double finalMassFit( double eta ) {
 /* ------------------------------------------------
           Angular parameter functions
  ------------------------------------------------ */
-static double K1( int m, int s );
-static double K1( int m, int s ){
+// double XLALK1( int m, int s );
+double XLALK1( int m, int s ){
   return 0.5*abs(m-s);
 }
-static double K2( int m, int s );
-static double K2( int m, int s ){
+// double XLALK2( int m, int s );
+double XLALK2( int m, int s ){
   return 0.5*abs(m+s);
 }
-static complex double ALPHA_RD( int m, int s, int p );
-static complex double ALPHA_RD( int m, int s, int p ){
+// complex double XLALALPHA_RD( int m, int s, int p );
+COMPLEX16 XLALALPHA_RD( int m, int s, int p ){
   /**/
-  double k1 = 0.5*abs(m-s);
+  double k1 = XLALK1(m,s);
   return -2.0*(p+1.0)*(p+2.0*k1+1.0);
 }
-static complex double BETA_RD( int m, int s, int p, complex double aw, complex double A_lm );
-static complex double BETA_RD( int m, int s, int p, complex double aw, complex double A_lm ){
+// COMPLEX16 XLALBETA_RD( int m, int s, int p, COMPLEX16 aw, COMPLEX16 A_lm );
+COMPLEX16 XLALBETA_RD( int m, int s, int p, COMPLEX16 aw, COMPLEX16 A_lm ){
   /**/
-  double k1 = K1(m,s);
-  double k2 = K2(m,s);
+  double k1 = XLALK1(m,s);
+  double k2 = XLALK2(m,s);
   return  p*(p-1.0)+2.0*p*(k1+k2+1.0-2.0*aw) - ( 2.0*aw*(2.0*k1+s+1.0)-(k1+k2) * (k1+k2+1.0) ) - ( aw*aw + s*(s+1.0) + A_lm);
 }
-static complex double GAMMA_RD( int m, int s, int p, complex double aw );
-static complex double GAMMA_RD( int m, int s, int p, complex double aw ){
+// COMPLEX16 XLALGAMMA_RD( int m, int s, int p, COMPLEX16 aw );
+COMPLEX16 XLALGAMMA_RD( int m, int s, int p, COMPLEX16 aw ){
   /**/
-  double k1 = K1(m,s);
-  double k2 = K2(m,s);
+  double k1 = XLALK1(m,s);
+  double k2 = XLALK2(m,s);
   return 2.0*aw*(p+k1+k2+s);
 }
 
@@ -550,23 +742,25 @@ COMPLEX16 XLALMMRDNSAmplitudeOverOmegaSquared( double eta, int l, int input_m, i
 /*
 * Spheroical Harmonic Functions (Leaver's Formulation circa 1986/85)
 */
-COMPLEX16 XLALSpinWeightedSpheroidalHarmonic( double jf,           /* Spin of remnant */
+COMPLEX16 XLALSpinWeightedSpheroidalHarmonic( REAL8 jf,           /* Spin of remnant */
                    int l, int m, int n, /* QNM indices */
-                   double theta,        /* polar angle */
-                   double phi          /* azimuthal angle */
+                   REAL8 theta,        /* polar angle */
+                   REAL8 phi          /* azimuthal angle */
                  ) {
 
   if (m<0) return (1.0-2.0*((l+m)%2))*conj(XLALSpinWeightedSpheroidalHarmonic(jf, l, -m, n, LAL_PI-theta, LAL_PI+phi));
 
   /* Set spin weight */
-  const int s = -2;
+  const REAL8 s = -2.0;
 
   /* Use tabulated cw and sc values from the core package*/
-  double complex cw, sc, aw;
-  double kappa = XLALKAPPA(jf,l,m);
+  complex double cw, sc, aw;
+  REAL8 kappa = XLALKAPPA(jf,l,m);
 
-  cw = XLALcomplexOmega( kappa, l, m, n );
-  sc = XLALseparationConstant( kappa, l, m, n );
+  /*cw = conj( XLALcomplexOmega( kappa, l, m, n ) );
+  sc = XLALseparationConstant( kappa, l, m, n );*/
+  cw = XLALQNM_CW(jf,l,m,n);
+  sc = XLALQNM_SC(jf,l,m,n);
 
   /* Define dimensionless deformation parameter */
   aw = jf*cw;
@@ -576,40 +770,39 @@ COMPLEX16 XLALSpinWeightedSpheroidalHarmonic( double jf,           /* Spin of re
    ------------------------------------------------ */
 
   /* Variable map for theta */
-  double u = cos(theta);
+  REAL8 u = cos(theta);
 
   /* the non-sum part of eq 18 */
-  complex double X = 1.0;
-  X = X * cexp(aw*u) * pow(1.0+u, K1(m,s) );
-  X = X * pow(1.0-u,K2(m,s));
+  COMPLEX16 X = 1.0;
+  X = X * cexp(aw*u) * pow(1.0+u, XLALK1(m,s) );
+  X = X * pow(1.0-u,XLALK2(m,s));
 
   /* NOTE that here we apply the normalization constant */
-  X = X / spheroidalHarmonicNormalization(kappa,l,m,n);
+  X = X / XLALspheroidalHarmonicNormalization(kappa,l,m,n);
 
   /* initial series values */
-  double a0 = 1.0;
+  COMPLEX16 a0 = 1.0;
 
-  double a1 = -BETA_RD( m, s, 0, aw, sc )/ALPHA_RD( m, s, 0 );
+  COMPLEX16 a1 = -XLALBETA_RD( m, s, 0, aw, sc )/XLALALPHA_RD( m, s, 0 );
 
   /* the sum part */
-  complex double Y = a0;
-  complex double S;
-  complex double dY;
-  double xx;
-  complex double a2;
-  int done = 0;
-  int k, j;
+  COMPLEX16 Y = a0;
   Y = Y + a1*(1.0+u);
+  COMPLEX16 S = 1.0;
+  COMPLEX16 dY = 0;
+  REAL8 xx = 0;
+  COMPLEX16 a2 = 0;
+  int done = 0;
+  REAL8 k = 0, j = 0;
   k = 1.0;
-  int kmax = 2e3;
-  double et = 1e-8;
+  int kmax = 5e3;
+  REAL8 et = 1e-8;
   while ( ! done ) {
-    k += 1;
-    j = k-1;
-    a2 = -1.0*( BETA_RD( m, s, j, aw, sc )*a1 + GAMMA_RD(m,s,j,aw)*a0 ) / ALPHA_RD(m,s,j);
-    // dY = pow(a2*(1.0+u),k);
+    k = k + 1.0;
+    j = k - 1.0;
+    a2 = -1.0*( XLALBETA_RD( m, s, j, aw, sc )*a1 + XLALGAMMA_RD(m,s,j,aw)*a0 ) / XLALALPHA_RD(m,s,j);
     dY = a2 * pow(1.0+u,k);
-    Y += dY;
+    Y = Y + dY;
     xx = cabs( dY );
 
     done = (k>=l) && ( (xx<et && k>30) || k>kmax );
@@ -617,18 +810,20 @@ COMPLEX16 XLALSpinWeightedSpheroidalHarmonic( double jf,           /* Spin of re
     a0 = a1;
     a1 = a2;
   }
+  // if (k > kmax) XLAL_ERROR(XLAL_EDOM, "sum did not converge\n");
 
   /* together now */
   S = X*Y*cexp( _Complex_I * m * phi );
 
   /* Use the same sign convention as spherical harmonics
   e.g http://en.wikipedia.org/wiki/Spin-weighted_spherical_harmonics#Calculating */
-  double C = 1.0;
+  REAL8 C = 1.0;
   C = C * pow(-1,fmax(-m,-s)) * pow(-1,l);
   S = C * S;
 
   /**/
-  return S;
+  // return Y;
+  return  S;
 
 } /* END of Spheroical Harmonic function */
 
@@ -673,7 +868,7 @@ int XLALSimRingdownMMRDNSTD(
 
         /* Declarations */
         const LIGOTimeGPS T0=LIGOTIMEGPSZERO;
-        double kappa = XLALKAPPA( 0.68, 2, 2 );
+        REAL8 kappa = XLALKAPPA( 0.68, 2, 2 );
         UNUSED double w22 = creal( XLALcomplexOmega(kappa,2,2,0) );
         UNUSED double tau22 = cimag( XLALcomplexOmega(kappa,2,2,0) );
         int waveform_length = 1000;

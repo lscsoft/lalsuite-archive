@@ -58,6 +58,7 @@ pkginclude_HEADERS = \
 	LALSimBlackHoleRingdown.h \
 	LALSimBlackHoleRingdownTiger.h \
         LALSimRingdownMMRDNS.h\
+			  LALSimRingdownData.h\
 	LALSimBurst.h \
 	LALSimIMR.h \
 	LALSimInspiral.h \
