@@ -60,6 +60,8 @@
 #include <lal/TimeSeries.h>
 #include <lal/FrequencySeries.h>
 
+#include <gsl/gsl_spline.h>
+
 /* ---------------------------------------- */
 /* General model methods and parameters     */
 /* ---------------------------------------- */
@@ -159,19 +161,58 @@ int XLALSimRingdownGenerateSingleModeMMRDNS_time(
 
 );
 
+/* NOTE: Made for debugging purposes -- XLALSimRingdownGenerateSingleModeMMRDNS_time: Time domain waveformgenerator for single QNM with angular dependence */
+int XLALSimRingdownGenerateSingleBareModeMMRDNS_time(
+        COMPLEX16TimeSeries **htilde_lmn,            /**< OUTPUT TD waveform mode lmn */
+        const LIGOTimeGPS *t0,                       /**< start time of ringdown */
+        REAL8 deltaT,                                /**< sampling interval (s) */
+        REAL8 Mf,                                    /**< Final BH Mass (kg) */
+        REAL8 jf,                                    /**< Final BH dimensionaless spin */
+        REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
+        UINT4 l,                                     /**< Polar eigenvalue */
+        UINT4 m,                                     /**< Azimuthal eigenvalue */
+        UINT4 n,                                     /**< Overtone Number */
+        REAL8 r,                                     /**< distance of source (m) */
+        REAL8 dfreq,                                 /**< relative shift in the real frequency parameter */
+        REAL8 dtau,                                  /**< relative shift in the damping time parameter */
+        UINT4 Nsamples,                               /**< waveform length */
+        REAL8 Tstart                                 /**< starting time of waveform (10M at zero) */
+
+);
+
+/* Interpolate tabulated data for QNM frequency */
+COMPLEX16 XLALQNM_CW( REAL8 jf, UINT4 l, UINT4 m, UINT4 n );
+/* Interpolate tabulated data for QNM separation constant */
+COMPLEX16 XLALQNM_SC( REAL8 jf, UINT4 l, UINT4 m, UINT4 n );
+
 /* Spheroidal Harmonic Plus and Cross modes */
 REAL8 XLALSimSpheroidalHarmonicPlus(REAL8 jf, UINT4 l, INT4 m, UINT4 n, REAL8 iota);
 REAL8 XLALSimSpheroidalHarmonicCross(REAL8 jf, UINT4 l, INT4 m, UINT4 n, REAL8 iota);
 
+/* ------------------------------------------------
+          Angular parameter functions
+ ------------------------------------------------ */
+double XLALK1( int m, int s );
+double XLALK2( int m, int s );
+COMPLEX16 XLALALPHA_RD( int m, int s, int p );
+COMPLEX16 XLALBETA_RD( int m, int s, int p, COMPLEX16 aw, COMPLEX16 A_lm );
+COMPLEX16 XLALGAMMA_RD( int m, int s, int p, COMPLEX16 aw );
+
+
 /*
 * Spheroical Harmonic Functions (Leaver's Formulation circa 1986/85)
 */
-COMPLEX16 XLALSpinWeightedSpheroidalHarmonic( double jf, int l, int m, int n, double theta, double phi);
+COMPLEX16 XLALSpinWeightedSpheroidalHarmonic( REAL8 jf, int l, int m, int n, REAL8 theta, REAL8 phi);
 
 /*
 * Domain mapping for dimnesionless BH spin
 */
 REAL8 XLALKAPPA( double jf, int l, int m );
+
+/*
+*
+*/
+double XLALspheroidalHarmonicNormalization( double kappa, int l, int input_m, int n );
 
 /*
 * -------------------------------------------------------------------------------- *

@@ -57,14 +57,207 @@
 #include <lal/FrequencySeries.h>
 
 #include "LALSimRingdownMMRDNS.h"
+#include "LALSimRingdownData.h"
 #include <lal/LALSimInspiralTestGRParams.h>
 
+/* note: use double-precision variables, but demand single-precision accuracy */
+#define EPS LAL_REAL4_EPS
+#define TINY LAL_REAL4_MIN
+
+/* Interpolate tabulated data for QNM frequency */
+COMPLEX16 XLALQNM_CW( REAL8 jf, UINT4 l, UINT4 m, UINT4 n ){
+
+  /* Setup GSL Splines: acceleration */
+  gsl_interp_accel *acc_real = gsl_interp_accel_alloc();
+  gsl_interp_accel *acc_imag = gsl_interp_accel_alloc();
+
+  /* Setup GSL Splines: spline "objects" */
+  gsl_spline *CWREAL = gsl_spline_alloc(gsl_interp_cspline, QNMDataLength);
+  gsl_spline *CWIMAG = gsl_spline_alloc(gsl_interp_cspline, QNMDataLength);
+
+  /**/
+  REAL8 cwreal=0, cwimag=0;
+
+  /**/
+  if ( 2==l && 2==m && 0==n  ){
+    /**/
+    gsl_spline_init( CWREAL, JF_DATA, CW220REAL_DATA, QNMDataLength);
+    cwreal = gsl_spline_eval( CWREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( CWIMAG, CW220REAL_DATA, CW220IMAG_DATA, QNMDataLength);
+    cwimag = gsl_spline_eval( CWIMAG, cwreal, acc_imag );
+
+  } else if ( 2==l && 2==m && 1==n ) {
+    /**/
+    gsl_spline_init( CWREAL, JF_DATA, CW221REAL_DATA, QNMDataLength);
+    cwreal = gsl_spline_eval( CWREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( CWIMAG, CW221REAL_DATA, CW221IMAG_DATA, QNMDataLength);
+    cwimag = gsl_spline_eval( CWIMAG, cwreal, acc_imag );
+
+  } else if ( 2==l && 1==m && 0==n ) {
+    /**/
+    gsl_spline_init( CWREAL, JF_DATA, CW210REAL_DATA, QNMDataLength);
+    cwreal = gsl_spline_eval( CWREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( CWIMAG, CW210REAL_DATA, CW210IMAG_DATA, QNMDataLength);
+    cwimag = gsl_spline_eval( CWIMAG, cwreal, acc_imag );
+
+  } else if ( 3==l && 3==m && 0==n ) {
+    /**/
+    gsl_spline_init( CWREAL, JF_DATA, CW330REAL_DATA, QNMDataLength);
+    cwreal = gsl_spline_eval( CWREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( CWIMAG, CW330REAL_DATA, CW330IMAG_DATA, QNMDataLength);
+    cwimag = gsl_spline_eval( CWIMAG, cwreal, acc_imag );
+
+  } else if ( 3==l && 3==m && 1==n ) {
+    /**/
+    gsl_spline_init( CWREAL, JF_DATA, CW331REAL_DATA, QNMDataLength);
+    cwreal = gsl_spline_eval( CWREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( CWIMAG, CW331REAL_DATA, CW331IMAG_DATA, QNMDataLength);
+    cwimag = gsl_spline_eval( CWIMAG, cwreal, acc_imag );
+
+  } else if ( 3==l && 2==m && 0==n ) {
+    /**/
+    gsl_spline_init( CWREAL, JF_DATA, CW320REAL_DATA, QNMDataLength);
+    cwreal = gsl_spline_eval( CWREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( CWIMAG, CW320REAL_DATA, CW320IMAG_DATA, QNMDataLength);
+    cwimag = gsl_spline_eval( CWIMAG, cwreal, acc_imag );
+
+  } else if ( 4==l && 4==m && 0==n ) {
+    /**/
+    gsl_spline_init( CWREAL, JF_DATA, CW440REAL_DATA, QNMDataLength);
+    cwreal = gsl_spline_eval( CWREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( CWIMAG, CW440REAL_DATA, CW440IMAG_DATA, QNMDataLength);
+    cwimag = gsl_spline_eval( CWIMAG, cwreal, acc_imag );
+
+  } else if ( 4==l && 3==m && 0==n ) {
+    /**/
+    gsl_spline_init( CWREAL, JF_DATA, CW430REAL_DATA, QNMDataLength);
+    cwreal = gsl_spline_eval( CWREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( CWIMAG, CW430REAL_DATA, CW430IMAG_DATA, QNMDataLength);
+    cwimag = gsl_spline_eval( CWIMAG, cwreal, acc_imag );
+
+  } else if ( 5==l && 5==m && 0==n ) {
+    /**/
+    gsl_spline_init( CWREAL, JF_DATA, CW550REAL_DATA, QNMDataLength);
+    cwreal = gsl_spline_eval( CWREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( CWIMAG, CW550REAL_DATA, CW550IMAG_DATA, QNMDataLength);
+    cwimag = gsl_spline_eval( CWIMAG, cwreal, acc_imag );
+
+  }
+
+  /**/
+  return cwreal + I*cwimag;
+
+}
+
+
+/* Interpolate tabulated data for QNM separation constant */
+COMPLEX16 XLALQNM_SC( REAL8 jf, UINT4 l, UINT4 m, UINT4 n ){
+
+  /* Setup GSL Splines: acceleration */
+  gsl_interp_accel *acc_real = gsl_interp_accel_alloc();
+  gsl_interp_accel *acc_imag = gsl_interp_accel_alloc();
+
+  /* Setup GSL Splines: spline "objects" */
+  gsl_spline *SCREAL = gsl_spline_alloc(gsl_interp_cspline, QNMDataLength);
+  gsl_spline *SCIMAG = gsl_spline_alloc(gsl_interp_cspline, QNMDataLength);
+
+  /**/
+  REAL8 screal=0, scimag=0;
+
+  /**/
+  if ( 2==l && 2==m && 0==n  ){
+    /**/
+    gsl_spline_init( SCREAL, JF_DATA, SC220REAL_DATA, QNMDataLength);
+    screal = gsl_spline_eval( SCREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( SCIMAG, JF_DATA, SC220IMAG_DATA, QNMDataLength);
+    scimag = gsl_spline_eval( SCIMAG, jf, acc_imag );
+
+  } else if ( 2==l && 2==m && 1==n ) {
+    /**/
+    gsl_spline_init( SCREAL, JF_DATA, SC221REAL_DATA, QNMDataLength);
+    screal = gsl_spline_eval( SCREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( SCIMAG, JF_DATA, SC221IMAG_DATA, QNMDataLength);
+    scimag = gsl_spline_eval( SCIMAG, jf, acc_imag );
+
+  } else if ( 2==l && 1==m && 0==n ) {
+    /**/
+    gsl_spline_init( SCREAL, JF_DATA, SC210REAL_DATA, QNMDataLength);
+    screal = gsl_spline_eval( SCREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( SCIMAG, JF_DATA, SC210IMAG_DATA, QNMDataLength);
+    scimag = gsl_spline_eval( SCIMAG, jf, acc_imag );
+
+  } else if ( 3==l && 3==m && 0==n ) {
+    /**/
+    gsl_spline_init( SCREAL, JF_DATA, SC330REAL_DATA, QNMDataLength);
+    screal = gsl_spline_eval( SCREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( SCIMAG, JF_DATA, SC330IMAG_DATA, QNMDataLength);
+    scimag = gsl_spline_eval( SCIMAG, jf, acc_imag );
+
+  } else if ( 3==l && 3==m && 1==n ) {
+    /**/
+    gsl_spline_init( SCREAL, JF_DATA, SC331REAL_DATA, QNMDataLength);
+    screal = gsl_spline_eval( SCREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( SCIMAG, JF_DATA, SC331IMAG_DATA, QNMDataLength);
+    scimag = gsl_spline_eval( SCIMAG, jf, acc_imag );
+
+  } else if ( 3==l && 2==m && 0==n ) {
+    /**/
+    gsl_spline_init( SCREAL, JF_DATA, SC320REAL_DATA, QNMDataLength);
+    screal = gsl_spline_eval( SCREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( SCIMAG, JF_DATA, SC320IMAG_DATA, QNMDataLength);
+    scimag = gsl_spline_eval( SCIMAG, jf, acc_imag );
+
+  } else if ( 4==l && 4==m && 0==n ) {
+    /**/
+    gsl_spline_init( SCREAL, JF_DATA, SC440REAL_DATA, QNMDataLength);
+    screal = gsl_spline_eval( SCREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( SCIMAG, JF_DATA, SC440IMAG_DATA, QNMDataLength);
+    scimag = gsl_spline_eval( SCIMAG, jf, acc_imag );
+
+  } else if ( 4==l && 3==m && 0==n ) {
+    /**/
+    gsl_spline_init( SCREAL, JF_DATA, SC430REAL_DATA, QNMDataLength);
+    screal = gsl_spline_eval( SCREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( SCIMAG, JF_DATA, SC430IMAG_DATA, QNMDataLength);
+    scimag = gsl_spline_eval( SCIMAG, jf, acc_imag );
+
+  } else if ( 5==l && 5==m && 0==n ) {
+    /**/
+    gsl_spline_init( SCREAL, JF_DATA, SC550REAL_DATA, QNMDataLength);
+    screal = gsl_spline_eval( SCREAL, jf, acc_real );
+    /**/
+    gsl_spline_init( SCIMAG, JF_DATA, SC550IMAG_DATA, QNMDataLength);
+    scimag = gsl_spline_eval( SCIMAG, jf, acc_imag );
+
+  }
+
+  /**/
+  return screal + I*scimag;
+
+}
 
 REAL8 XLALE_rad_nonspinning_UIB2016(REAL8 eta)
-{   
+{
     REAL8 a1, a2, a3, a4;
     REAL8 eta2, eta3, eta4;
- 
+
     /********************************************************************************************************************
      * Formula taken from eq. (21) and table VII of Jimenez, Keitel, Husa et al.  arXiv:1611.00332                      *
      * Note that the formula given there corresponds to E_rad = M - M_f = 1 - M_f (in units of the initial total mass). *
@@ -338,8 +531,7 @@ COMPLEX16 XLALseparationConstant( double kappa,  /* Domain mapping for remnant B
 /*
 * Spheroidal Harmonic Normalization Constants: Note that name encodes date of writing
 */
-static double spheroidalHarmonicNormalization( double kappa, int l, int input_m, int n );
-static double spheroidalHarmonicNormalization( double kappa,  /* Domain mapping for remnant BH's spin (Dimensionless)*/
+double XLALspheroidalHarmonicNormalization( double kappa,  /* Domain mapping for remnant BH's spin (Dimensionless)*/
                           int l,        /* Polar eigenvalue*/
                           int input_m,  /* Azimuthal eigenvalue*/
                           int n ) {     /* Overtone Number*/
@@ -412,7 +604,7 @@ static double spheroidalHarmonicNormalization( double kappa,  /* Domain mapping 
 
   return ans;
 
-} /* END of spheroidalHarmonicNormalization */
+} /* END of XLALspheroidalHarmonicNormalization */
 
 
 /*
@@ -437,32 +629,32 @@ UNUSED static double finalMassFit( double eta ) {
 /* ------------------------------------------------
           Angular parameter functions
  ------------------------------------------------ */
-static double K1( int m, int s );
-static double K1( int m, int s ){
+// double XLALK1( int m, int s );
+double XLALK1( int m, int s ){
   return 0.5*abs(m-s);
 }
-static double K2( int m, int s );
-static double K2( int m, int s ){
+// double XLALK2( int m, int s );
+double XLALK2( int m, int s ){
   return 0.5*abs(m+s);
 }
-static complex double ALPHA_RD( int m, int s, int p );
-static complex double ALPHA_RD( int m, int s, int p ){
+// complex double XLALALPHA_RD( int m, int s, int p );
+COMPLEX16 XLALALPHA_RD( int m, int s, int p ){
   /**/
-  double k1 = 0.5*abs(m-s);
+  double k1 = XLALK1(m,s);
   return -2.0*(p+1.0)*(p+2.0*k1+1.0);
 }
-static complex double BETA_RD( int m, int s, int p, complex double aw, complex double A_lm );
-static complex double BETA_RD( int m, int s, int p, complex double aw, complex double A_lm ){
+// COMPLEX16 XLALBETA_RD( int m, int s, int p, COMPLEX16 aw, COMPLEX16 A_lm );
+COMPLEX16 XLALBETA_RD( int m, int s, int p, COMPLEX16 aw, COMPLEX16 A_lm ){
   /**/
-  double k1 = K1(m,s);
-  double k2 = K2(m,s);
+  double k1 = XLALK1(m,s);
+  double k2 = XLALK2(m,s);
   return  p*(p-1.0)+2.0*p*(k1+k2+1.0-2.0*aw) - ( 2.0*aw*(2.0*k1+s+1.0)-(k1+k2) * (k1+k2+1.0) ) - ( aw*aw + s*(s+1.0) + A_lm);
 }
-static complex double GAMMA_RD( int m, int s, int p, complex double aw );
-static complex double GAMMA_RD( int m, int s, int p, complex double aw ){
+// COMPLEX16 XLALGAMMA_RD( int m, int s, int p, COMPLEX16 aw );
+COMPLEX16 XLALGAMMA_RD( int m, int s, int p, COMPLEX16 aw ){
   /**/
-  double k1 = K1(m,s);
-  double k2 = K2(m,s);
+  double k1 = XLALK1(m,s);
+  double k2 = XLALK2(m,s);
   return 2.0*aw*(p+k1+k2+s);
 }
 
@@ -499,17 +691,17 @@ COMPLEX16 XLALMMRDNSAmplitudeOverOmegaSquared( double eta, int l, int input_m, i
   } else if ( l==2 && m==1 && n==0 ) {
 
     /*A2101*/
-    ans = sqrt(1-4*eta)  * (  0.47952344*cexp(5.96556090*I)*eta + 1.17357614*cexp(3.97472217*I)*(eta2) + 1.23033028*cexp(2.17322465*I)*(eta3)  );
+    ans = sqrt(1.0-4.0*eta)  * (  0.47952344*cexp(5.96556090*I)*eta + 1.17357614*cexp(3.97472217*I)*(eta2) + 1.23033028*cexp(2.17322465*I)*(eta3)  );
 
   } else if ( l==3 && m==3 && n==0 ) {
 
     /*A3301*/
-    ans = sqrt(1-4*eta)  * (  0.42472339*cexp(4.54734400*I)*eta + 1.47423728*cexp(2.70187807*I)*(eta2) + 4.31385024*cexp(5.12815819*I)*(eta3) + 15.72642073*cexp(2.25473854*I)*(eta4)  );
+    ans = sqrt(1.0-4.0*eta)  * (  0.42472339*cexp(4.54734400*I)*eta + 1.47423728*cexp(2.70187807*I)*(eta2) + 4.31385024*cexp(5.12815819*I)*(eta3) + 15.72642073*cexp(2.25473854*I)*(eta4)  );
 
   } else if ( l==3 && m==3 && n==1 ) {
 
     /*A3311*/
-    ans = sqrt(1-4*eta)  * (  0.14797161*cexp(2.03957081*I)*eta + 1.48738894*cexp(5.89538621*I)*(eta2) + 10.16366839*cexp(3.28354928*I)*(eta3) + 29.47859659*cexp(0.81061521*I)*(eta4)  );
+    ans = sqrt(1.0-4.0*eta)  * (  0.14797161*cexp(2.03957081*I)*eta + 1.48738894*cexp(5.89538621*I)*(eta2) + 10.16366839*cexp(3.28354928*I)*(eta3) + 29.47859659*cexp(0.81061521*I)*(eta4)  );
 
   } else if ( l==3 && m==2 && n==0 ) {
 
@@ -524,19 +716,23 @@ COMPLEX16 XLALMMRDNSAmplitudeOverOmegaSquared( double eta, int l, int input_m, i
   } else if ( l==4 && m==3 && n==0 ) {
 
     /*A4301*/
-    ans = sqrt(1-4*eta)  * (  0.09383417*cexp(2.30765661*I)*eta + 0.82734483*cexp(6.10053234*I)*(eta2) + 3.33846327*cexp(3.87329126*I)*(eta3) + 4.66386840*cexp(1.75165690*I)*(eta4)  );
+    ans = sqrt(1.0-4.0*eta)  * (  0.09383417*cexp(2.30765661*I)*eta + 0.82734483*cexp(6.10053234*I)*(eta2) + 3.33846327*cexp(3.87329126*I)*(eta3) + 4.66386840*cexp(1.75165690*I)*(eta4)  );
 
   } else if ( l==5 && m==5 && n==0 ) {
 
     /*A5501*/
-    ans = sqrt(1-4*eta)  * (  0.15477314*cexp(1.06752431*I)*eta + 1.50914172*cexp(4.54983062*I)*(eta2) + 8.93331690*cexp(1.28981042*I)*(eta3) + 42.34309620*cexp(4.10035598*I)*(eta4) + 89.19466498*cexp(1.02508947*I)*(eta5)  );
+    ans = sqrt(1.0-4.0*eta)  * (  0.15477314*cexp(1.06752431*I)*eta + 1.50914172*cexp(4.54983062*I)*(eta2) + 8.93331690*cexp(1.28981042*I)*(eta3) + 42.34309620*cexp(4.10035598*I)*(eta4) + 89.19466498*cexp(1.02508947*I)*(eta5)  );
 
   }
+
+  /*NOTE that the MATLAB code used to perform the fitting uses a different convention when handling the real and imaginary parts of psi4 than we will use here. The conjugation below makes the output of MMRDNS consistent with nrutils, which injects no manual minus signs when handling psi4, but enforces a phase convention: m>0 has frequencies >0 (non-precessing). NOTE that this may change in the future if significantly precessing systems are found to not sufficiently obey this property. See https://github.com/llondon6/nrutils_dev/blob/master/nrutils/core/nrsc.py#L1714-L1728 for more details.*/
+  ans = conj( ans );
 
   /* If m<0, then take the conjugate */
   if ( input_m < 0 ) {
     /**/
-    ans = conj( ans );
+    // ans = conj( ans );
+    ans = pow(-1,l) * conj( ans );
   }
 
   return ans;
@@ -546,23 +742,25 @@ COMPLEX16 XLALMMRDNSAmplitudeOverOmegaSquared( double eta, int l, int input_m, i
 /*
 * Spheroical Harmonic Functions (Leaver's Formulation circa 1986/85)
 */
-COMPLEX16 XLALSpinWeightedSpheroidalHarmonic( double jf,           /* Spin of remnant */
+COMPLEX16 XLALSpinWeightedSpheroidalHarmonic( REAL8 jf,           /* Spin of remnant */
                    int l, int m, int n, /* QNM indices */
-                   double theta,        /* polar angle */
-                   double phi          /* azimuthal angle */
+                   REAL8 theta,        /* polar angle */
+                   REAL8 phi          /* azimuthal angle */
                  ) {
 
   if (m<0) return (1.0-2.0*((l+m)%2))*conj(XLALSpinWeightedSpheroidalHarmonic(jf, l, -m, n, LAL_PI-theta, LAL_PI+phi));
 
   /* Set spin weight */
-  const int s = -2;
+  const REAL8 s = -2.0;
 
   /* Use tabulated cw and sc values from the core package*/
-  double complex cw, sc, aw;
-  double kappa = XLALKAPPA(jf,l,m);
+  complex double cw, sc, aw;
+  REAL8 kappa = XLALKAPPA(jf,l,m);
 
-  cw = XLALcomplexOmega( kappa, l, m, n );
-  sc = XLALseparationConstant( kappa, l, m, n );
+  /*cw = conj( XLALcomplexOmega( kappa, l, m, n ) );
+  sc = XLALseparationConstant( kappa, l, m, n );*/
+  cw = XLALQNM_CW(jf,l,m,n);
+  sc = XLALQNM_SC(jf,l,m,n);
 
   /* Define dimensionless deformation parameter */
   aw = jf*cw;
@@ -572,39 +770,39 @@ COMPLEX16 XLALSpinWeightedSpheroidalHarmonic( double jf,           /* Spin of re
    ------------------------------------------------ */
 
   /* Variable map for theta */
-  double u = cos(theta);
+  REAL8 u = cos(theta);
 
   /* the non-sum part of eq 18 */
-  complex double X = 1.0;
-  X = X * cexp(aw*u) * pow(1.0+u, K1(m,s) );
-  X = X * pow(1.0-u,K2(m,s));
+  COMPLEX16 X = 1.0;
+  X = X * cexp(aw*u) * pow(1.0+u, XLALK1(m,s) );
+  X = X * pow(1.0-u,XLALK2(m,s));
 
   /* NOTE that here we apply the normalization constant */
-  X = X / spheroidalHarmonicNormalization(kappa,l,m,n);
+  X = X / XLALspheroidalHarmonicNormalization(kappa,l,m,n);
 
   /* initial series values */
-  double a0 = 1.0;
+  COMPLEX16 a0 = 1.0;
 
-  double a1 = -BETA_RD( m, s, 0, aw, sc )/ALPHA_RD( m, s, 0 );
+  COMPLEX16 a1 = -XLALBETA_RD( m, s, 0, aw, sc )/XLALALPHA_RD( m, s, 0 );
 
   /* the sum part */
-  complex double Y = a0;
-  complex double S;
-  complex double dY;
-  double xx;
-  complex double a2;
-  int done = 0;
-  int k, j;
+  COMPLEX16 Y = a0;
   Y = Y + a1*(1.0+u);
-  k = 1;
-  int kmax = 2e3;
-  double et = 1e-8;
+  COMPLEX16 S = 1.0;
+  COMPLEX16 dY = 0;
+  REAL8 xx = 0;
+  COMPLEX16 a2 = 0;
+  int done = 0;
+  REAL8 k = 0, j = 0;
+  k = 1.0;
+  int kmax = 5e3;
+  REAL8 et = 1e-8;
   while ( ! done ) {
-    k += 1;
-    j = k-1;
-    a2 = -1.0*( BETA_RD( m, s, j, aw, sc )*a1 + GAMMA_RD(m,s,j,aw)*a0 ) / ALPHA_RD(m,s,j);
-    dY = pow(a2*(1.0+u),k);
-    Y += dY;
+    k = k + 1.0;
+    j = k - 1.0;
+    a2 = -1.0*( XLALBETA_RD( m, s, j, aw, sc )*a1 + XLALGAMMA_RD(m,s,j,aw)*a0 ) / XLALALPHA_RD(m,s,j);
+    dY = a2 * pow(1.0+u,k);
+    Y = Y + dY;
     xx = cabs( dY );
 
     done = (k>=l) && ( (xx<et && k>30) || k>kmax );
@@ -612,18 +810,20 @@ COMPLEX16 XLALSpinWeightedSpheroidalHarmonic( double jf,           /* Spin of re
     a0 = a1;
     a1 = a2;
   }
+  // if (k > kmax) XLAL_ERROR(XLAL_EDOM, "sum did not converge\n");
 
   /* together now */
   S = X*Y*cexp( _Complex_I * m * phi );
 
   /* Use the same sign convention as spherical harmonics
   e.g http://en.wikipedia.org/wiki/Spin-weighted_spherical_harmonics#Calculating */
-  double C = 1.0;
+  REAL8 C = 1.0;
   C = C * pow(-1,fmax(-m,-s)) * pow(-1,l);
   S = C * S;
 
   /**/
-  return S;
+  // return Y;
+  return  S;
 
 } /* END of Spheroical Harmonic function */
 
@@ -668,7 +868,7 @@ int XLALSimRingdownMMRDNSTD(
 
         /* Declarations */
         const LIGOTimeGPS T0=LIGOTIMEGPSZERO;
-        double kappa = XLALKAPPA( 0.68, 2, 2 );
+        REAL8 kappa = XLALKAPPA( 0.68, 2, 2 );
         UNUSED double w22 = creal( XLALcomplexOmega(kappa,2,2,0) );
         UNUSED double tau22 = cimag( XLALcomplexOmega(kappa,2,2,0) );
         int waveform_length = 1000;
@@ -940,7 +1140,7 @@ int XLALSimRingdownGenerateSingleModeFD(
         } else {
           f_max = fEnd;
         }
- 
+
         jMax = (UINT4)(f_max/deltaF + 1);
 
         *hptilde_lmn = XLALCreateCOMPLEX16FrequencySeries("hptilde_lmn: FD waveform", &tC, 0.0, deltaF, &lalStrainUnit, jMax);
@@ -1060,7 +1260,9 @@ int XLALSimRingdownMMRDNS_time(
         /* Time runs from Tstart to Tend after merger. Use total mass to agree with NR conventions. Inside the template t=0 corresponds to 10M after the merger.*/
         REAL8 M        = XLALMf_to_M_nonspinning_UIB2016(eta, Mf);
         REAL8 Tstart   =  0.0*M*LAL_MTSUN_SI/LAL_MSUN_SI;
-        REAL8 Tend     = 50.0*M*LAL_MTSUN_SI/LAL_MSUN_SI;
+        REAL8 Tend     = 80.0*M*LAL_MTSUN_SI/LAL_MSUN_SI;
+        // REAL8 Tstart   =  10.0*M*LAL_MTSUN_SI/LAL_MSUN_SI;
+        // REAL8 Tend     = 80.0*M*LAL_MTSUN_SI/LAL_MSUN_SI;
         UINT4 Nsamples = ceil((Tend-Tstart)/deltaT);
 
         /* Compute the modes seperately */
@@ -1084,7 +1286,7 @@ int XLALSimRingdownMMRDNS_time(
 
 
         COMPLEX16 h_val = 0.0;
-        for ( UINT4 i=0 ; i<Nsamples ; i++ ) 
+        for ( UINT4 i=0 ; i<Nsamples ; i++ )
 	{
           h_val = h220->data->data[i];
           h_val += h221->data->data[i];
@@ -1112,10 +1314,10 @@ int XLALSimRingdownMMRDNS_time(
         if (h210) XLALDestroyCOMPLEX16TimeSeries(h210);
         if (h320) XLALDestroyCOMPLEX16TimeSeries(h320);
         if (h430) XLALDestroyCOMPLEX16TimeSeries(h430);
-	
+
         free(nonGRParamName);
         return 0;
-        
+
 }
 
 
@@ -1170,9 +1372,9 @@ int XLALSimRingdownGenerateSingleModeMMRDNS_time(
         *htilde_lmn = XLALCreateCOMPLEX16TimeSeries("htilde_lmn: TD waveform", T0, 0.0, deltaT, &lalStrainUnit, Nsamples);
         if (!(*htilde_lmn)) XLAL_ERROR(XLAL_EFUNC);
         memset((*htilde_lmn)->data->data, 0, Nsamples * sizeof(COMPLEX16));
-        
+
         /* fill waveform */
-        for ( UINT4 i=0 ; i<Nsamples ; i++ ) 
+        for ( UINT4 i=0 ; i<Nsamples ; i++ )
 	{
             t     = Tstart+i*deltaT;
             h_lmn = A*Yplus*exp(-t/tau)*cos(t*freq + phi_relative + m*phi_offset) - I*A*Ycross*exp(-t/tau)*sin(t*freq + phi_relative + m*phi_offset);
@@ -1184,3 +1386,215 @@ int XLALSimRingdownGenerateSingleModeMMRDNS_time(
   return XLAL_SUCCESS;
 
 }
+
+/*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*/
+/*Functions for debugging and checks */
+/*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*/
+
+
+int XLALSimRingdownGenerateSingleBareModeMMRDNS_time(
+        COMPLEX16TimeSeries **htilde_lmn,            /**< OUTPUT TD waveform mode lmn */
+        const LIGOTimeGPS *T0,                       /**< start time of ringdown */
+        REAL8 deltaT,                                /**< sampling interval (s) */
+        REAL8 Mf,                                    /**< Final BH Mass (kg) */
+        REAL8 jf,                                    /**< Final BH dimensionaless spin */
+        REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
+        UINT4 l,                                     /**< Polar eigenvalue */
+        UINT4 m,                                     /**< Azimuthal eigenvalue */
+        UINT4 n,                                     /**< Overtone Number */
+        REAL8 r,                                     /**< distance of source (m) */
+        REAL8 dfreq,                                 /**< relative shift in the real frequency parameter */
+        REAL8 dtau,                                  /**< relative shift in the damping time parameter */
+        UINT4 Nsamples,                              /**< waveform length */
+        REAL8 Tstart                                 /**< starting time of waveform (10M at zero) */
+        ){
+
+        /* Declarations: M is the initial total mass, Mf is the remnant mass */
+        COMPLEX16 h_lmn     = 0.0;
+        REAL8 kappa         = XLALKAPPA(jf, l, m);
+        REAL8 M             = XLALMf_to_M_nonspinning_UIB2016(eta, Mf);
+        REAL8 M_sec         = M*LAL_MTSUN_SI/LAL_MSUN_SI;
+        REAL8 Mf_sec        = Mf*LAL_MTSUN_SI/LAL_MSUN_SI;
+        REAL8 r_sec         = r/LAL_C_SI;
+        REAL8 t             = 0.0;
+        COMPLEX16 A_lmn     = 0.0;
+        REAL8 A             = 0.0;
+        REAL8 phi_relative  = 0.0;
+        COMPLEX16 Omega_lmn = 0.0;
+        REAL8 freq          = 0.0;
+        REAL8 tau           = 0.0;
+
+
+        /* Mode Component Calculation*/
+        A_lmn 	     = XLALMMRDNSAmplitudeOverOmegaSquared(eta, l, m, n);
+        A            = A_lmn*M_sec/(r_sec);
+	      phi_relative = carg(A_lmn);
+        Omega_lmn    = XLALcomplexOmega(kappa, l, m, n)/ Mf_sec;
+        freq         = creal(Omega_lmn)*(1.+dfreq);
+        tau 	     = 1.0/(cimag(Omega_lmn)/(1.+dtau));
+
+        /* allocate htilde_lmn */
+        *htilde_lmn = XLALCreateCOMPLEX16TimeSeries("htilde_lmn: TD waveform", T0, 0.0, deltaT, &lalStrainUnit, Nsamples);
+        if (!(*htilde_lmn)) XLAL_ERROR(XLAL_EFUNC);
+        memset((*htilde_lmn)->data->data, 0, Nsamples * sizeof(COMPLEX16));
+
+        /* fill waveform */
+        for ( UINT4 i=0 ; i<Nsamples ; i++ )
+	      {
+            t     = Tstart+i*deltaT;
+            h_lmn = A * cexp( I * t * Omega_lmn );
+            (*htilde_lmn)->data->data[i] = h_lmn;
+            h_lmn = 0.0;
+            t     = 0.0;
+        }
+
+  /*return XLAL_SUCCESS;*/
+  return 0;
+
+}
+
+// Lionel: I've written this waveform generator as a fast cross check
+// int XLALSimRingdownMMRDNS_time(
+//         REAL8TimeSeries **hplus,                     /**< plus-polarization waveform [returned] */
+//         REAL8TimeSeries **hcross,                    /**< cross-polarization waveform [returned] */
+//         const LIGOTimeGPS *T0,                       /**< start time of ringdown => NEEDS TO BE CHECKED! */
+//         REAL8 deltaT,                                /**< sampling interval (s) */
+//         REAL8 Mf,                                    /**< Final BH Mass (kg) */
+//         REAL8 jf,                                    /**< Final BH dimensionaless spin */
+//         REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
+//         REAL8 iota,                                  /**< inclination angle (in rad) */
+//         REAL8 phi_offset,                            /**< intrinsic phase offset */
+//         REAL8 r,                                     /**< distance of source (m) */
+//         LALSimInspiralTestGRParam *nonGRparams       /**< testing GR parameters */
+//     ){
+//         /* Perform some initial checks */
+//         if (Mf <= 0) XLAL_ERROR(XLAL_EDOM);
+//         if (jf >= 1) XLAL_ERROR(XLAL_EDOM);
+//         if (eta > 0.25 || eta <= 0) XLAL_ERROR(XLAL_EDOM);
+//         if (r <= 0) XLAL_ERROR(XLAL_EDOM);
+//
+//         /* Declarations */
+//         REAL8 dfreq220=0., dfreq221=0., dfreq330=0., dfreq331=0., dfreq440=0., dfreq550=0., dfreq210=0., dfreq320=0., dfreq430=0.;
+//         REAL8 dtau220=0.,  dtau221=0.,  dtau330=0.,  dtau331=0.,  dtau440=0.,  dtau550=0.,  dtau210=0.,  dtau320=0.,  dtau430=0.;
+//         COMPLEX16TimeSeries *h220, *h221, *h330, *h331, *h440, *h550, *h210, *h320, *h430;
+//
+//         /* Get nonGRparams */
+//         char *nonGRParamName = malloc(512*sizeof(char));
+//
+//         sprintf(nonGRParamName,"dfreq220") ;
+//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+//           dfreq220 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+//         sprintf(nonGRParamName,"dtau220") ;
+//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+//           dtau220 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+//         sprintf(nonGRParamName,"dfreq221") ;
+//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+//           dfreq221 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+//         sprintf(nonGRParamName,"dtau221") ;
+//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+//           dtau221 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+//         sprintf(nonGRParamName,"dfreq330") ;
+//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+//           dfreq330 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+//         sprintf(nonGRParamName,"dtau330") ;
+//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+//           dtau330 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+//         sprintf(nonGRParamName,"dfreq331") ;
+//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+//           dfreq331 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+//         sprintf(nonGRParamName,"dtau331") ;
+//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+//           dtau331 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+//         sprintf(nonGRParamName,"dfreq440") ;
+//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+//           dfreq440 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+//         sprintf(nonGRParamName,"dtau440") ;
+//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+//           dtau440 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+//         sprintf(nonGRParamName,"dfreq550") ;
+//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+//           dfreq550 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+//         sprintf(nonGRParamName,"dtau550") ;
+//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+//           dtau550 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+//         sprintf(nonGRParamName,"dfreq210") ;
+//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+//           dfreq210 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+//         sprintf(nonGRParamName,"dtau210") ;
+//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+//           dtau210 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+//         sprintf(nonGRParamName,"dfreq320") ;
+//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+//           dfreq320 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+//         sprintf(nonGRParamName,"dtau320") ;
+//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+//           dtau320 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+//         sprintf(nonGRParamName,"dfreq430") ;
+//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+//           dfreq430 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+//         sprintf(nonGRParamName,"dtau430") ;
+//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+//           dtau430 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+//
+//         /* Time runs from Tstart to Tend after merger. Use total mass to agree with NR conventions. Inside the template t=0 corresponds to 10M after the merger.*/
+//         REAL8 M        = XLALMf_to_M_nonspinning_UIB2016(eta, Mf);
+//         /* REAL8 Tstart   =  0.0*M*LAL_MTSUN_SI/LAL_MSUN_SI;
+//         REAL8 Tend     = 50.0*M*LAL_MTSUN_SI/LAL_MSUN_SI;*/
+//         REAL8 Tstart   =  10.0*M*LAL_MTSUN_SI/LAL_MSUN_SI;
+//         REAL8 Tend     = 80.0*M*LAL_MTSUN_SI/LAL_MSUN_SI;
+//         UINT4 Nsamples = ceil((Tend-Tstart)/deltaT);
+//
+//         /* Compute the modes seperately */
+//         XLALSimRingdownGenerateSingleModeMMRDNS_time(&h220, T0, deltaT, Mf, jf, eta, iota, phi_offset, 2, 2, 0, r, dfreq220, dtau220,Nsamples,Tstart);
+//         XLALSimRingdownGenerateSingleModeMMRDNS_time(&h221, T0, deltaT, Mf, jf, eta, iota, phi_offset, 2, 2, 1, r, dfreq221, dtau221,Nsamples,Tstart);
+//         XLALSimRingdownGenerateSingleModeMMRDNS_time(&h330, T0, deltaT, Mf, jf, eta, iota, phi_offset, 3, 3, 0, r, dfreq330, dtau330,Nsamples,Tstart);
+//         XLALSimRingdownGenerateSingleModeMMRDNS_time(&h331, T0, deltaT, Mf, jf, eta, iota, phi_offset, 3, 3, 1, r, dfreq331, dtau331,Nsamples,Tstart);
+//         XLALSimRingdownGenerateSingleModeMMRDNS_time(&h440, T0, deltaT, Mf, jf, eta, iota, phi_offset, 4, 4, 0, r, dfreq440, dtau440,Nsamples,Tstart);
+//         XLALSimRingdownGenerateSingleModeMMRDNS_time(&h550, T0, deltaT, Mf, jf, eta, iota, phi_offset, 5, 5, 0, r, dfreq550, dtau550,Nsamples,Tstart);
+//         XLALSimRingdownGenerateSingleModeMMRDNS_time(&h210, T0, deltaT, Mf, jf, eta, iota, phi_offset, 2, 1, 0, r, dfreq210, dtau210,Nsamples,Tstart);
+//         XLALSimRingdownGenerateSingleModeMMRDNS_time(&h320, T0, deltaT, Mf, jf, eta, iota, phi_offset, 3, 2, 0, r, dfreq320, dtau320,Nsamples,Tstart);
+//         XLALSimRingdownGenerateSingleModeMMRDNS_time(&h430, T0, deltaT, Mf, jf, eta, iota, phi_offset, 4, 3, 0, r, dfreq430, dtau430,Nsamples,Tstart);
+//
+//         /* Add the modes to get the final waveform and  get cross and plus polarization */
+//         *hplus = XLALCreateREAL8TimeSeries( "hplus: TD waveform", T0, 0.0, deltaT, &lalStrainUnit, Nsamples);
+//         if (!(*hplus)) XLAL_ERROR(XLAL_EFUNC);
+//         memset((*hplus)->data->data, 0, Nsamples * sizeof(REAL8));
+//         *hcross = XLALCreateREAL8TimeSeries( "hcross: TD waveform", T0, 0.0, deltaT, &lalStrainUnit, Nsamples);
+//         if (!(*hcross)) XLAL_ERROR(XLAL_EFUNC);
+//         memset((*hcross)->data->data, 0, Nsamples * sizeof(REAL8));
+//
+//
+//         COMPLEX16 h_val = 0.0;
+//         for ( UINT4 i=0 ; i<Nsamples ; i++ )
+// 	{
+//           h_val = h220->data->data[i];
+//           h_val += h221->data->data[i];
+//           h_val += h330->data->data[i];
+//           h_val += h331->data->data[i];
+//           h_val += h440->data->data[i];
+//           h_val += h550->data->data[i];
+//           h_val += h210->data->data[i];
+//           h_val += h320->data->data[i];
+//           h_val += h430->data->data[i];
+//
+//           (*hplus)->data->data[i]  =  creal(h_val);
+//           (*hcross)->data->data[i] = -cimag(h_val);
+//           h_val = 0.0;
+//         }
+//
+//
+//         /* Destroy the COMPLEX16TimeSeries object */
+//         if (h220) XLALDestroyCOMPLEX16TimeSeries(h220);
+//         if (h221) XLALDestroyCOMPLEX16TimeSeries(h221);
+//         if (h330) XLALDestroyCOMPLEX16TimeSeries(h330);
+//         if (h331) XLALDestroyCOMPLEX16TimeSeries(h331);
+//         if (h440) XLALDestroyCOMPLEX16TimeSeries(h440);
+//         if (h550) XLALDestroyCOMPLEX16TimeSeries(h550);
+//         if (h210) XLALDestroyCOMPLEX16TimeSeries(h210);
+//         if (h320) XLALDestroyCOMPLEX16TimeSeries(h320);
+//         if (h430) XLALDestroyCOMPLEX16TimeSeries(h430);
+//
+//         free(nonGRParamName);
+//         return 0;
+//
+// }
