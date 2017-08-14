@@ -2888,12 +2888,12 @@ void LALInferenceInjectRingdownSignal(LALInferenceIFOData *IFOdata, ProcessParam
       if(injEvent->dtau430 != 0.0) {
         XLALSimInspiralAddTestGRParam(&nonGRparams,"dtau430",injEvent->dtau430) ;
       }
-  	
-      REAL8 Tstart = (0.0+RingdownTemplateWindow_shift)*Mbh*LAL_MTSUN_SI;
+      /*Needs to be cleaned up. Now we are setting the template time with the initial total mass.*/ 	
+      REAL8 Tstart = 0.0*Mbh*LAL_MTSUN_SI;
       REAL8 Tend   = 50.0*Mbh*LAL_MTSUN_SI;
       UINT4 Num_samples_window=ceil((Tend-Tstart)/(1.0/InjSampleRate));
       XLALSimRingdownMMRDNS_time(&hplus, &hcross, &t0, 1.0/InjSampleRate, Mbh*LAL_MSUN_SI, spin, eta, injEvent->inclination, phase, injEvent->distance*LAL_PC_SI*1.0e6, nonGRparams);
-      XLALApplyPlanckWindowToTemplate(&hplus, &hcross, Num_samples_window,LAL_MTSUN_SI*RingdownTemplateWindow_shift, (Num_samples_window/InjSampleRate)-2.0, InjSampleRate, RingdownTemplateWindow_rise_time);
+      XLALApplyPlanckWindowToTemplate(&hplus, &hcross, Num_samples_window,Mbh*LAL_MTSUN_SI*RingdownTemplateWindow_shift, (Num_samples_window/InjSampleRate)-2.0, InjSampleRate, RingdownTemplateWindow_rise_time);
 }
       if(!hplus || !hcross) {
         fprintf(stderr,"Error: XLALSimInspiralChooseWaveform() failed to produce waveform.\n");

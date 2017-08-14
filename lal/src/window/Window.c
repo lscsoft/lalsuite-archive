@@ -657,10 +657,11 @@ REAL8Window *XLALCreatePlanckREAL8Window(UINT4 length, REAL8 start_time, REAL8 t
         XLAL_ERROR_NULL(XLAL_EFUNC);
 
     REAL8 end_time = start_time + rise_time; 
-
+    REAL8 time= trigtime+2.0-(REAL8)length/SampleRate;
     /*window similar to arxiv 1003.2939 but one-sided with different parametrization*/
-    for(i = 0; i< length; i++){
-        REAL8 time = trigtime+2.0-(REAL8)length/SampleRate+(REAL8)i/SampleRate;
+    for(i = 0; i< length; i++)
+    {
+        time = time + (REAL8)1.0/SampleRate;
         if(time <= start_time){sequence->data[i] = 0.0;}
         else if(time < end_time){sequence->data[i] = 1.0/(exp((end_time-start_time)/(time-start_time)+(end_time-start_time)/(time-end_time))+1.0);}
         else{sequence->data[i] = 1.0;}
