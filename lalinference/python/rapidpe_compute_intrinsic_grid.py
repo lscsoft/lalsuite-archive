@@ -22,10 +22,12 @@ __author__ = "Chris Pankow <chris.pankow@ligo.org>"
 
 import os
 import sys
+import sklearn
 import glob
 import json
 import bisect
 import re
+from distutils.version import LooseVersion
 from collections import defaultdict
 from argparse import ArgumentParser
 from copy import copy
@@ -83,7 +85,10 @@ def find_olap_index(tree, intr_prms, exact=True, **kwargs):
     find_olap_index(tree, **intr_prms)
     """
     pt = numpy.array([kwargs[k] for k in intr_prms])
-
+    # sklearn accepts 2D arrays starting version 0.20
+    sklearn_version = sklearn.__version__
+    pt = pt.reshape(1,-1) if \
+    LooseVersion(sklearn_version) > LooseVersion("0.19") else pt
     # FIXME: Replace with standard function
     dist, m_idx = tree.query(pt, k=1)
     dist, m_idx = dist[0][0], int(m_idx[0][0])
@@ -91,7 +96,8 @@ def find_olap_index(tree, intr_prms, exact=True, **kwargs):
     # FIXME: There's still some tolerance from floating point conversions
     if exact and dist > 0.000001:
         exit("Could not find template in bank, closest pt was %f away" % dist)
-    return m_idx, pt
+    # hstack restores reshaping to 1D
+    return m_idx, numpy.hstack(pt)
 
 def write_to_xml(cells, intr_prms, pin_prms={}, fvals=None, fname=None, verbose=False):
     """
