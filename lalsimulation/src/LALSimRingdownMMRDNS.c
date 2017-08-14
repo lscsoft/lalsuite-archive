@@ -1411,15 +1411,21 @@ int XLALSimRingdownGenerateSingleBareModeMMRDNS_time(
 
         /* Declarations: M is the initial total mass, Mf is the remnant mass */
         COMPLEX16 h_lmn     = 0.0;
-        REAL8 kappa         = XLALKAPPA(jf, l, m);
+        // REAL8 kappa         = XLALKAPPA(jf, l, m);
         REAL8 M             = XLALMf_to_M_nonspinning_UIB2016(eta, Mf);
+
+        // REAL8 MSUN_SEC_SI   =  LAL_G_SI * LAL_MSUN_SI / (LAL_C_SI * LAL_C_SI * LAL_C_SI);
+        //
+        // REAL8 M_sec         = M  * MSUN_SEC_SI;
+        // REAL8 Mf_sec        = Mf * MSUN_SEC_SI;
+
         REAL8 M_sec         = M*LAL_MTSUN_SI/LAL_MSUN_SI;
         REAL8 Mf_sec        = Mf*LAL_MTSUN_SI/LAL_MSUN_SI;
+
         REAL8 r_sec         = r/LAL_C_SI;
         REAL8 t             = 0.0;
         COMPLEX16 A_lmn     = 0.0;
         REAL8 A             = 0.0;
-        REAL8 phi_relative  = 0.0;
         COMPLEX16 Omega_lmn = 0.0;
         REAL8 freq          = 0.0;
         REAL8 tau           = 0.0;
@@ -1428,8 +1434,11 @@ int XLALSimRingdownGenerateSingleBareModeMMRDNS_time(
         /* Mode Component Calculation*/
         A_lmn 	     = XLALMMRDNSAmplitudeOverOmegaSquared(eta, l, m, n);
         A            = A_lmn*M_sec/(r_sec);
-	      phi_relative = carg(A_lmn);
-        Omega_lmn    = XLALcomplexOmega(kappa, l, m, n)/ Mf_sec;
+
+        /* NOTE: Whether a fit for interopolation is used here makes not appreciable difference. But let's use a fit for consistency with the spheroidal function. */
+        Omega_lmn    = conj( XLALQNM_CW(jf,l,m,n) ) / Mf_sec ;
+        /* Omega_lmn    = XLALcomplexOmega(kappa, l, m, n)/ Mf_sec; */
+
         freq         = creal(Omega_lmn)*(1.+dfreq);
         tau 	     = 1.0/(cimag(Omega_lmn)/(1.+dtau));
 
@@ -1442,7 +1451,10 @@ int XLALSimRingdownGenerateSingleBareModeMMRDNS_time(
         for ( UINT4 i=0 ; i<Nsamples ; i++ )
 	      {
             t     = Tstart+i*deltaT;
+
             h_lmn = A * cexp( I * t * Omega_lmn );
+            // h_lmn = Omega_lmn;
+
             (*htilde_lmn)->data->data[i] = h_lmn;
             h_lmn = 0.0;
             t     = 0.0;
