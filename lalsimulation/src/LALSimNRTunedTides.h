@@ -24,6 +24,5 @@ static double NRTunedTidesFDTidalPhase(
     const REAL8 PN_x_5over2,
     const REAL8 Xa, /**< Mass of companion 1 divided by total mass */
     const REAL8 Xb, /**< Mass of companion 2 divided by total mass */
-    const REAL8 kappa2T, /**< tital coupling constant. Eq. 2 in arXiv:1706.02969 */
-    const REAL8 mtot
+    const REAL8 kappa2T /**< tidal coupling constant. Eq. 2 in arXiv:1706.02969 */
 );

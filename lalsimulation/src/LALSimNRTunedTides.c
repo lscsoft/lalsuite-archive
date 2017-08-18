@@ -40,14 +40,13 @@
  * Equation (7) in arXiv:1706.02969
  */
 static double NRTunedTidesFDTidalPhase(
-    UNUSED const REAL8 PN_x, /**< PN frequency parameter: PN_x = orb_freq^(2./3.) */
-    UNUSED const REAL8 PN_x_2,
-    UNUSED const REAL8 PN_x_3over2,
-    UNUSED const REAL8 PN_x_5over2,
-    UNUSED const REAL8 Xa, /**< Mass of companion 1 divided by total mass */
-    UNUSED const REAL8 Xb, /**< Mass of companion 2 divided by total mass */
-    UNUSED const REAL8 kappa2T, /**< tital coupling constant. Eq. 2 in arXiv:1706.02969 */
-    UNUSED const REAL8 mtot
+    const REAL8 PN_x, /**< PN frequency parameter: PN_x = orb_freq^(2./3.) */
+    const REAL8 PN_x_2,
+    const REAL8 PN_x_3over2,
+    const REAL8 PN_x_5over2,
+    const REAL8 Xa, /**< Mass of companion 1 divided by total mass */
+    const REAL8 Xb, /**< Mass of companion 2 divided by total mass */
+    const REAL8 kappa2T /**< tidal coupling constant. Eq. 2 in arXiv:1706.02969 */
     )
 {
 
@@ -75,11 +74,12 @@ static double NRTunedTidesFDTidalPhase(
 }
 
 int XLALSimNRTunedTidesFDTidalPhaseFrequencySeries(
-    UNUSED const REAL8Sequence *phi_tidal, /**< [out] tidal phase frequency series */
-    UNUSED const REAL8Sequence *fHz, /**< list of input Gravitational wave Frequency in Hz to evaluate */
-    UNUSED const REAL8 m1_SI, /**< Mass of companion 1 (kg) */
-    UNUSED const REAL8 m2_SI, /**< Mass of companion 2 (kg) */
-    UNUSED const REAL8 kappa2T /**< tital coupling constant. Eq. 2 in arXiv:1706.02969 */
+    const REAL8Sequence *phi_tidal, /**< [out] tidal phase frequency series */
+    const REAL8Sequence *fHz, /**< list of input Gravitational wave Frequency in Hz to evaluate */
+    const REAL8 m1_SI, /**< Mass of companion 1 (kg) */
+    const REAL8 m2_SI, /**< Mass of companion 2 (kg) */
+    const REAL8 lovenumber1, /**< quadrupolar love numer on body 1 */
+    const REAL8 lovenumber2 /**< quadrupolar love numer on body 2 */
     )
 {
 
@@ -89,8 +89,17 @@ int XLALSimNRTunedTidesFDTidalPhaseFrequencySeries(
 
     /* Xa and Xb are the masses normalised for a total mass = 1 */
     /* not the masses appear symmetrically so we don't need to switch them. */
-    const REAL8  Xa = m1 / mtot;
-    const REAL8  Xb = m2 / mtot;
+    const REAL8 Xa = m1 / mtot;
+    const REAL8 Xb = m2 / mtot;
+
+    //placeholders!
+    const REAL8 Ca = 1.0;
+    const REAL8 Cb = 1.0;
+
+    /**< tidal coupling constant. Eq. 2 in arXiv:1706.02969 */
+    const REAL8 term1 = (Xa / Xb) * pow(Xa/Ca, 5.0) * lovenumber1;
+    const REAL8 term2 = (Xb / Xa) * pow(Xb/Cb, 5.0) * lovenumber2;
+    const REAL8 kappa2T = 2.0 * ( term1 + term2 );
 
     REAL8 PN_x = 0.0;
     REAL8 PN_x_2 = 0.0;
@@ -106,7 +115,7 @@ int XLALSimNRTunedTidesFDTidalPhaseFrequencySeries(
         PN_x_3over2 = pow(PN_x, 3.0/2.0);
         PN_x_5over2 = pow(PN_x, 5.0/2.0);
 
-        (*phi_tidal).data[i] = NRTunedTidesFDTidalPhase(PN_x, PN_x_2, PN_x_3over2, PN_x_5over2, Xa, Xb, kappa2T, mtot);
+        (*phi_tidal).data[i] = NRTunedTidesFDTidalPhase(PN_x, PN_x_2, PN_x_3over2, PN_x_5over2, Xa, Xb, kappa2T);
     }
 
     return XLAL_SUCCESS;
