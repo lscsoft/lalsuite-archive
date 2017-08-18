@@ -242,13 +242,25 @@ int XLALSimInspiralNRWaveformGetHplusHcross(
         );
 
 /* in module LALSimNRTunedTides.c */
+double XLALSimNRTunedTidesComputeKappa2T(
+    REAL8 m1_SI, /**< Mass of companion 1 (kg) */
+    REAL8 m2_SI, /**< Mass of companion 2 (kg) */
+    REAL8 lambda1, /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
+    REAL8 lambda2 /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
+);
+
+double XLALSimNRTunedTidesMergerFrequency(
+    const REAL8 mtot_MSUN, /**< total mass of system (solar masses) */
+    const REAL8 kappa2T /**< tidal coupling constant. Eq. 2 in arXiv:1706.02969 */
+);
+
 int XLALSimNRTunedTidesFDTidalPhaseFrequencySeries(
     const REAL8Sequence *phi_tidal, /**< [out] tidal phase frequency series */
     const REAL8Sequence *fHz, /**< list of input Gravitational wave Frequency in Hz to evaluate */
-    const REAL8 m1_SI, /**< Mass of companion 1 (kg) */
-    const REAL8 m2_SI, /**< Mass of companion 2 (kg) */
-    const REAL8 lambda1, /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
-    const REAL8 lambda2 /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
+    REAL8 m1_SI, /**< Mass of companion 1 (kg) */
+    REAL8 m2_SI, /**< Mass of companion 2 (kg) */
+    REAL8 lambda1, /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
+    REAL8 lambda2 /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
     );
 
 
