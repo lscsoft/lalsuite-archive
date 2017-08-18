@@ -28,12 +28,13 @@
 #include <lal/Units.h>
 #include <lal/LALSimIMR.h>
 
+#include "LALSimNRTunedTides.h"
+
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
 #else
 #define UNUSED
 #endif
-
 
 /**
  * function to swap masses and lambda to enforece m1 >= m2
@@ -135,7 +136,7 @@ double XLALSimNRTunedTidesMergerFrequency(
  * Function to call the frequency domain tidal correction
  * Equation (7) in arXiv:1706.02969
  */
-static double NRTunedTidesFDTidalPhase(
+double XLALSimNRTunedTidesFDTidalPhase(
     const REAL8 PN_x, /**< PN frequency parameter: PN_x = orb_freq^(2./3.) */
     const REAL8 PN_x_2, /**< PN frequency parameter: PN_x**2 */
     const REAL8 PN_x_3over2, /**< PN frequency parameter: PN_x**(3./2.) */
@@ -218,7 +219,7 @@ int XLALSimNRTunedTidesFDTidalPhaseFrequencySeries(
         PN_x_3over2 = pow(PN_x, 3.0/2.0);
         PN_x_5over2 = pow(PN_x, 5.0/2.0);
 
-        (*phi_tidal).data[i] = NRTunedTidesFDTidalPhase(PN_x, PN_x_2, PN_x_3over2, PN_x_5over2, Xa, Xb, kappa2T);
+        (*phi_tidal).data[i] = XLALSimNRTunedTidesFDTidalPhase(PN_x, PN_x_2, PN_x_3over2, PN_x_5over2, Xa, Xb, kappa2T);
     }
 
     return XLAL_SUCCESS;

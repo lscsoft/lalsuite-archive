@@ -254,6 +254,17 @@ double XLALSimNRTunedTidesMergerFrequency(
     const REAL8 kappa2T /**< tidal coupling constant. Eq. 2 in arXiv:1706.02969 */
 );
 
+double XLALSimNRTunedTidesFDTidalPhase(
+    const REAL8 PN_x, /**< PN frequency parameter: PN_x = orb_freq^(2./3.) */
+    const REAL8 PN_x_2, /**< PN frequency parameter: PN_x**2 */
+    const REAL8 PN_x_3over2, /**< PN frequency parameter: PN_x**(3./2.) */
+    const REAL8 PN_x_5over2, /**< PN frequency parameter: PN_x**(5./2.) */
+    const REAL8 Xa, /**< Mass of companion 1 divided by total mass */
+    const REAL8 Xb, /**< Mass of companion 2 divided by total mass */
+    const REAL8 kappa2T /**< tidal coupling constant. Eq. 2 in arXiv:1706.02969 */
+);
+
+
 int XLALSimNRTunedTidesFDTidalPhaseFrequencySeries(
     const REAL8Sequence *phi_tidal, /**< [out] tidal phase frequency series */
     const REAL8Sequence *fHz, /**< list of input Gravitational wave Frequency in Hz to evaluate */
@@ -262,6 +273,9 @@ int XLALSimNRTunedTidesFDTidalPhaseFrequencySeries(
     REAL8 lambda1, /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
     REAL8 lambda2 /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
     );
+
+/* In module LALSimIMRPhenomD_NRTidal.c */
+int XLALSimIMRPhenomD_NRTidal_GenerateFD(COMPLEX16FrequencySeries **htilde, const REAL8 phi0, const REAL8 fRef, const REAL8 deltaF, REAL8 m1_SI_in, REAL8 m2_SI_in, const REAL8 chi1_in, const REAL8 chi2_in, const REAL8 f_min, const REAL8 f_max, const REAL8 distance, const REAL8 lambda1_in, const REAL8 lambda2_in, const LALSimInspiralTestGRParam *extraParams);
 
 
 #if 0
