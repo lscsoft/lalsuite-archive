@@ -242,7 +242,13 @@ int XLALSimInspiralNRWaveformGetHplusHcross(
         );
 
 /* in module LALSimNRTunedTides.c */
-
+int XLALSimNRTunedTidesFDTidalPhaseFrequencySeries(
+    const REAL8Sequence *phi_tidal, /**< [out] tidal phase frequency series */
+    const REAL8Sequence *fHz, /**< list of input Gravitational wave Frequency in Hz to evaluate */
+    const REAL8 m1_SI, /**< Mass of companion 1 (kg) */
+    const REAL8 m2_SI, /**< Mass of companion 2 (kg) */
+    const REAL8 kappa2T /**< tital coupling constant. Eq. 2 in arXiv:1706.02969 */
+    );
 
 
 #if 0

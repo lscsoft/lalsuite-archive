@@ -178,7 +178,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimNeutronStarTOV.c \
 	LALSimNoisePSD.c \
 	LALSimNoise.c \
-	LALSimNRTunedTides.h \
+	LALSimNRTunedTides.c \
 	LALSimReadData.c \
 	LALSimSGWB.c \
 	LALSimSGWBORF.c \
