@@ -78,8 +78,8 @@ int XLALSimNRTunedTidesFDTidalPhaseFrequencySeries(
     const REAL8Sequence *fHz, /**< list of input Gravitational wave Frequency in Hz to evaluate */
     const REAL8 m1_SI, /**< Mass of companion 1 (kg) */
     const REAL8 m2_SI, /**< Mass of companion 2 (kg) */
-    const REAL8 lovenumber1, /**< quadrupolar love numer on body 1 */
-    const REAL8 lovenumber2 /**< quadrupolar love numer on body 2 */
+    const REAL8 lambda1, /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
+    const REAL8 lambda2 /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
     )
 {
 
@@ -92,14 +92,10 @@ int XLALSimNRTunedTidesFDTidalPhaseFrequencySeries(
     const REAL8 Xa = m1 / mtot;
     const REAL8 Xb = m2 / mtot;
 
-    //placeholders!
-    const REAL8 Ca = 1.0;
-    const REAL8 Cb = 1.0;
-
     /**< tidal coupling constant. Eq. 2 in arXiv:1706.02969 */
-    const REAL8 term1 = (Xa / Xb) * pow(Xa/Ca, 5.0) * lovenumber1;
-    const REAL8 term2 = (Xb / Xa) * pow(Xb/Cb, 5.0) * lovenumber2;
-    const REAL8 kappa2T = 2.0 * ( term1 + term2 );
+    const REAL8 term1 = (Xa / Xb) * pow(Xa, 5.0) * lambda1;
+    const REAL8 term2 = (Xb / Xa) * pow(Xb, 5.0) * lambda2;
+    const REAL8 kappa2T = 3.0 * ( term1 + term2 );
 
     REAL8 PN_x = 0.0;
     REAL8 PN_x_2 = 0.0;
