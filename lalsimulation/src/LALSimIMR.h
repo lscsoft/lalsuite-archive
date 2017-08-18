@@ -241,6 +241,10 @@ int XLALSimInspiralNRWaveformGetHplusHcross(
         const char *NRDataFile          /**< Location of NR HDF file */
         );
 
+/* in module LALSimNRTunedTides.c */
+
+
+
 #if 0
 { /* so that editors will match succeeding brace */
 #elif defined(__cplusplus)
