@@ -548,23 +548,21 @@ class Table(ligolw.Table, list):
 		'test'
 		>>> x.c
 		True
-		"""
-		#"""
-		#Also provides .__getstate__() and .__setstate__() methods
-		#to allow row objects to be pickled (otherwise, because they
-		#all use __slots__ to reduce their memory footprint, they
-		#aren't pickleable).
-		#"""
 
+		Also provides .__getstate__() and .__setstate__() methods
+		to allow row objects to be pickled (otherwise, because they
+		all use __slots__ to reduce their memory footprint, they
+		aren't pickleable).
+		"""
 		def __init__(self, **kwargs):
 			for key, value in kwargs.items():
 				setattr(self, key, value)
 
-		#def __getstate__(self):
-		#	return dict((key, getattr(self, key)) for key in self.__slots__ if hasattr(self, key))
+		def __getstate__(self):
+			return dict((key, getattr(self, key)) for key in self.__slots__ if hasattr(self, key))
 
-		#def __setstate__(self, state):
-		#	self.__init__(**state)
+		def __setstate__(self, state):
+			self.__init__(**state)
 
 
 	def __init__(self, *args):

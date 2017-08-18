@@ -37,10 +37,10 @@
    found in the TEMPO documentation. Two function are available to extract these
    parameters from the <tt>.par</tt> files:
    <ul>
-   <li>\c XLALReadTEMPOParFile - this will read parameters into a \c BinaryPulsarParams structure and set
+   <li>\c XLALReadTEMPOParFileOrig - this will read parameters into a \c BinaryPulsarParams structure and set
    any unused parameters to zero or \c NULL. To use this you must know the correct parameter name within
-   the structure.</li>
-   <li>\c XLALReadTEMPOParFileNew - this reads the parameters into a linked list structure, from which the
+   the structure. This is deprecated in favour of \c XLALReadTEMPOParFile and is no longer maintained</li>
+   <li>\c XLALReadTEMPOParFile - this reads the parameters into a linked list \c PulsarParameters structure, from which the
    parameters can be accessed using the appropriate access function. These use a hash table to quick look-up.
    The parameters are assigned names, which are used as the hash table keys, which are fully uppercase
    versions of the TEMPO parameter names.
@@ -408,6 +408,34 @@ void PulsarAddParam( PulsarParameters *pars, const CHAR *name, void *value, Puls
   hash_elem *elem = new_elem( new->name, new );
   XLALHashTblAdd(pars->hash_table, (void *)elem);
   pars->nparams++;
+}
+
+
+void PulsarAddREAL8Param(PulsarParameters *pars, const CHAR * name, REAL8 value)
+/* Typed version of PulsarAddParam for REAL8 values.*/
+{
+  PulsarAddParam(pars, name, (void*)&value, PULSARTYPE_REAL8_t);
+}
+
+
+void PulsarAddUINT4Param(PulsarParameters *pars, const CHAR * name, UINT4 value)
+/* Typed version of PulsarAddParam for UINT4 values.*/
+{
+  PulsarAddParam(pars, name, (void*)&value, PULSARTYPE_UINT4_t);
+}
+
+
+void PulsarAddREAL8VectorParam(PulsarParameters *pars, const CHAR * name, REAL8Vector *value)
+/* Typed version of PulsarAddParam for REAL8Vector values.*/
+{
+  PulsarAddParam(pars, name, (void*)&value, PULSARTYPE_REAL8Vector_t);
+}
+
+
+void PulsarAddstringParam(PulsarParameters *pars, const CHAR * name, CHAR *value)
+/* Typed version of PulsarAddParam for string values.*/
+{
+  PulsarAddParam(pars, name, (void*)&value, PULSARTYPE_string_t);
 }
 
 
@@ -995,7 +1023,7 @@ static INT4 ParseParLine( PulsarParameters *par, const CHAR *name, FILE *fp ){
 
 
 /* read in the pulsar parameter file */
-PulsarParameters *XLALReadTEMPOParFileNew( const CHAR *pulsarAndPath ){
+PulsarParameters *XLALReadTEMPOParFile( const CHAR *pulsarAndPath ){
   FILE *fp = NULL;
   CHAR str[PULSAR_PARNAME_MAX]; /* string to contain first value on line */
 
@@ -1004,6 +1032,7 @@ PulsarParameters *XLALReadTEMPOParFileNew( const CHAR *pulsarAndPath ){
   /* open file */
   if((fp = fopen(pulsarAndPath, "r")) == NULL){
     XLAL_PRINT_ERROR("Error... Cannot open .par file %s\n", pulsarAndPath);
+    XLALFree( par );
     XLAL_ERROR_NULL( XLAL_EIO );
   }
 
@@ -1047,6 +1076,8 @@ PulsarParameters *XLALReadTEMPOParFileNew( const CHAR *pulsarAndPath ){
       }
       else{
         XLAL_PRINT_ERROR("Error... KIN not set in .par file %s\n", pulsarAndPath);
+        PulsarClearParams( par );
+        XLALFree( par );
         XLAL_ERROR_NULL( XLAL_EIO );
       }
     }
@@ -1066,9 +1097,11 @@ PulsarParameters *XLALReadTEMPOParFileNew( const CHAR *pulsarAndPath ){
 /* NOTE: Convert this function to be more like readParfile.C in TEMPO2 - read
  * in a line at a time using fgets and make each parameter a structure */
 void
-XLALReadTEMPOParFile( BinaryPulsarParams *output,
-                      CHAR      *pulsarAndPath )
+XLALReadTEMPOParFileOrig( BinaryPulsarParams *output,
+                          CHAR      *pulsarAndPath )
 {
+  XLAL_PRINT_DEPRECATION_WARNING("XLALReadTEMPOParFile");
+
   FILE *fp=NULL;
   CHAR val[500][40]; /* string array to hold all the read in values
                         500 strings of max 40 characters is enough */
@@ -1185,7 +1218,7 @@ XLALReadTEMPOParFile( BinaryPulsarParams *output,
   output->pepochErr=0.0;
 
   output->startTime=0.0;
-  output->finishTime=1./0.;
+  output->finishTime=INFINITY;
 
   output->xpbdotErr=0.0;  /* (10^-12) */
 

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2013-2016  Leo Singer
+# Copyright (C) 2013-2017  Leo Singer
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -21,6 +21,7 @@ Postprocessing utilities for HEALPix sky maps
 from __future__ import division
 
 
+import pkg_resources
 import numpy as np
 import healpy as hp
 import collections
@@ -30,6 +31,35 @@ from scipy.interpolate import interp1d
 from . import distance
 from . import moc
 from ..healpix_tree import *
+
+
+try:
+    pkg_resources.require('numpy >= 1.10.0')
+except pkg_resources.VersionConflict:
+    """FIXME: in numpy < 1.10.0, the digitize() function only works on 1D
+    arrays. Remove this workaround once we require numpy >= 1.10.0.
+
+    Example:
+    >>> digitize([3], np.arange(5))
+    array([4])
+    >>> digitize(3, np.arange(5))
+    array(4)
+    >>> digitize([[3]], np.arange(5))
+    array([[4]])
+    >>> digitize([], np.arange(5))
+    array([], dtype=int64)
+    >>> digitize([[], []], np.arange(5))
+    array([], shape=(2, 0), dtype=int64)
+    """
+    def digitize(x, *args, **kwargs):
+        x_flat = np.ravel(x)
+        x_shape = np.shape(x)
+        if len(x_flat) == 0:
+            return np.zeros(x_shape, dtype=np.intp)
+        else:
+            return np.digitize(x_flat, *args, **kwargs).reshape(x_shape)
+else:
+    digitize = np.digitize
 
 
 def flood_fill(nside, ipix, m, nest=False):
@@ -143,7 +173,7 @@ def find_injection_moc(sky_map, true_ra=None, true_dec=None, true_dist=None,
         true_phi = true_ra
         true_pix = hp.ang2pix(max_nside, true_theta, true_phi, nest=True)
         i = np.argsort(max_ipix)
-        true_idx = i[np.searchsorted(max_ipix[i], true_pix)]
+        true_idx = i[digitize(true_pix, max_ipix[i]) - 1]
 
     # Find the angular offset between the mode and true locations.
     mode_theta, mode_phi = hp.pix2ang(
@@ -184,7 +214,7 @@ def find_injection_moc(sky_map, true_ra=None, true_dec=None, true_dist=None,
         searched_prob = prob[true_idx]
 
     # Find the contours of the given credible levels.
-    contour_idxs = np.searchsorted(prob, contours)
+    contour_idxs = digitize(contours, prob) - 1
 
     # For each of the given confidence levels, compute the area of the
     # smallest region containing that probability.
@@ -231,8 +261,8 @@ def find_injection_moc(sky_map, true_ra=None, true_dec=None, true_dist=None,
             contour_dists = (hi - lo).tolist()
 
         # Set up distance grid.
-        n_r = 200
-        max_r = 6 * distmean
+        n_r = 1000
+        max_r = max(6 * distmean, np.max(true_dist))
         d_r = max_r / n_r
         r = d_r * np.arange(1, n_r)
 
@@ -255,7 +285,8 @@ def find_injection_moc(sky_map, true_ra=None, true_dec=None, true_dist=None,
         P_flat = np.cumsum(dP.ravel()[i])
         V_flat = np.cumsum(dV.ravel()[i])
 
-        contour_vols = interp1d(P_flat, V_flat)(contours).tolist()
+        contour_vols = interp1d(
+            P_flat, V_flat, bounds_error=False)(contours).tolist()
         P = np.empty_like(P_flat)
         V = np.empty_like(V_flat)
         P[i] = P_flat
@@ -266,7 +297,7 @@ def find_injection_moc(sky_map, true_ra=None, true_dec=None, true_dist=None,
             searched_vol = searched_prob_vol = np.nan
         else:
             i_radec = true_idx
-            i_dist = np.searchsorted(r, true_dist)
+            i_dist = digitize(true_dist, r) - 1
             searched_prob_vol = P[i_radec, i_dist]
             searched_vol = V[i_radec, i_dist]
     else:

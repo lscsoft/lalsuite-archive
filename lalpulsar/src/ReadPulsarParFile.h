@@ -450,6 +450,18 @@ REAL8 PulsarGetREAL8VectorParamIndividual( const PulsarParameters *pars, const C
  */
 void PulsarAddParam( PulsarParameters *pars, const CHAR *name, void *value, PulsarParamType type );
 
+/** \brief Add a \c REAL8 parameter to the \c PulsarParameters structure */
+void PulsarAddREAL8Param(PulsarParameters *pars, const CHAR * name, REAL8 value);
+
+/** \brief Add a \c UINT4 parameter to the \c PulsarParameters structure */
+void PulsarAddUINT4Param(PulsarParameters *pars, const CHAR * name, UINT4 value);
+
+/** \brief Add a \c REAL8Vector parameter to the \c PulsarParameters structure */
+void PulsarAddREAL8VectorParam(PulsarParameters *pars, const CHAR * name, REAL8Vector *value);
+
+/** \brief Add a string parameter to the \c PulsarParameters structure */
+void PulsarAddstringParam(PulsarParameters *pars, const CHAR * name, CHAR *value);
+
 /** \brief Free all the parameters from a \c PulsarParameters structure */
 void PulsarClearParams( PulsarParameters *pars );
 
@@ -526,23 +538,18 @@ void ParConvMicrosecToSec( const CHAR *in, void *out );
 /** \brief Read in the parameters from a TEMPO(2) parameter file into a \c PulsarParameters structure
  *
  * This function will read in a TEMPO(2) parameter file into a \c PulsarParameters structure. The structure of this
- * function is similar to those in the TEMPO2 code \c readParfile.C and this is intended to supersede the
- * \c XLALReadTEMPOParFile function.
+ * function is similar to those in the TEMPO2 code \c readParfile.C and this supersedes the
+ * \c XLALReadTEMPOParFileOrig function.
  *
  * \param pulsarAndPath [in] The path to the pulsar parameter file
  */
-PulsarParameters *XLALReadTEMPOParFileNew( const CHAR *pulsarAndPath );
+PulsarParameters *XLALReadTEMPOParFile( const CHAR *pulsarAndPath );
 
 /** function to read in a TEMPO parameter file
  */
 void
-XLALReadTEMPOParFile( BinaryPulsarParams    *output,
-                      CHAR                  *pulsarAndPath );
-
-void
-LALReadTEMPOParFile( LALStatus              *status,
-                     BinaryPulsarParams    *output,
-                     CHAR                  *pulsarAndPath );
+XLALReadTEMPOParFileOrig( BinaryPulsarParams    *output,
+                          CHAR                  *pulsarAndPath );
 
 /** \brief This function will read in a TEMPO-style parameter correlation matrix
  *
