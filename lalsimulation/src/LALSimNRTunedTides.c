@@ -205,6 +205,7 @@ int XLALSimNRTunedTidesFDTidalPhaseFrequencySeries(
     const REAL8 kappa2T = XLALSimNRTunedTidesComputeKappa2T(m1_SI, m2_SI, lambda1, lambda2);
 
     /* initialise */
+    REAL8 Mf = 0.0;
     REAL8 PN_x = 0.0;
     REAL8 PN_x_2 = 0.0;
     REAL8 PN_x_3over2 = 0.0;
@@ -214,7 +215,8 @@ int XLALSimNRTunedTidesFDTidalPhaseFrequencySeries(
         /* NRTunedTidesFDTidalPhase is Eq 7 in arXiv:1706.02969
          * and is a function of x = orb_freq^(2./3.)
          */
-        PN_x = pow((*fHz).data[i] / 2.0, 2.0/3.0);
+        Mf = (*fHz).data[i] / 2.0 * (mtot * LAL_MTSUN_SI); /* Mf is geometric frequency */
+        PN_x = pow(Mf, 2.0/3.0);
         PN_x_2 = PN_x * PN_x;
         PN_x_3over2 = pow(PN_x, 3.0/2.0);
         PN_x_5over2 = pow(PN_x, 5.0/2.0);
