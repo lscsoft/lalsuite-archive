@@ -884,13 +884,6 @@ int XLALSimInspiralChooseTDWaveform(
                     S2x, S2y, S2z, XLALSimInspiralWaveformParamsLookupNumRelData(LALparams), XLALSimInspiralWaveformParamsLookupModeArray(LALparams));
             break;
 
-        case NRSur7dq2:
-            /* Waveform-specific sanity checks */
-            /* Call the waveform driver routine */
-            ret = XLALSimInspiralNRSur7dq2Polarizations(hplus, hcross,
-                    phiRef, inclination, deltaT, m1, m2, distance, f_min, f_ref,
-                    S1x, S1y, S1z, S2x, S2y, S2z);
-            break;
 
         default:
             XLALPrintError("TD version of approximant not implemented in lalsimulation\n");
@@ -2410,13 +2403,6 @@ SphHarmTimeSeries *XLALSimInspiralChooseTDModes(
                     XLALDestroyCOMPLEX16TimeSeries( tmpmode );
                 }
             }
-            break;
-
-        case NRSur7dq2:
-            /* Waveform-specific sanity checks */
-            /* Call the waveform driver routine */
-            hlm = XLALSimInspiralNRSur7dq2Modes(phiRef, deltaT, m1, m2, f_min,
-                    f_ref, r, lmax);
             break;
 
         default:
@@ -4500,7 +4486,6 @@ int XLALSimInspiralImplementedTDApproximants(
         case TEOBv2:
         case TEOBv4:
         case NR_hdf5:
-        case NRSur7dq2:
         case TEOBResum_ROM:
             return 1;
 
@@ -4937,7 +4922,6 @@ int XLALSimInspiralGetSpinSupportFromApproximant(Approximant approx){
     case SEOBNRv3_opt_rk4:
     case NR_hdf5:
     case NRSur4d2s:
-    case NRSur7dq2:
       spin_support=LAL_SIM_INSPIRAL_PRECESSINGSPIN;
       break;
     case SpinTaylorF2:
@@ -5069,7 +5053,6 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
     case SpinDominatedWf:
     case NR_hdf5:
     case NRSur4d2s:
-    case NRSur7dq2:
     case NumApproximants:
       testGR_accept=LAL_SIM_INSPIRAL_NO_TESTGR_PARAMS;
       break;
