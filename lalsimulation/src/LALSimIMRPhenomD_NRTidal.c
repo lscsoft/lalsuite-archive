@@ -342,7 +342,7 @@ static int IMRPhenomD_NRTidal_GenerateFD(
   for (size_t i = ind_min; i < ind_max; i++)
   {
     REAL8 Mf = M_sec * i * deltaF; // geometric frequency
-    PN_x = pow(Mf / 2.0, 2.0/3.0); // these 'PN_x' variables are functions of Hz!
+    PN_x = pow(LAL_PI * Mf, 2.0/3.0); //PN_x = angular_orb_freq^(2/3.) in dimensionless units
     PN_x_2 = PN_x * PN_x;
     PN_x_3over2 = pow(PN_x, 3.0/2.0);
     PN_x_5over2 = pow(PN_x, 5.0/2.0);
