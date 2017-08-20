@@ -4020,6 +4020,7 @@ int XLALSimInspiralImplementedFDApproximants(
         case IMRPhenomB:
         case IMRPhenomC:
         case IMRPhenomD:
+        case IMRPhenomD_NRTidal:
         case IMRPhenomP:
         case IMRPhenomPv2:
         case EOBNRv2_ROM:
@@ -4438,6 +4439,7 @@ int XLALSimInspiralGetSpinSupportFromApproximant(Approximant approx){
     case IMRPhenomB:
     case IMRPhenomC:
     case IMRPhenomD:
+    case IMRPhenomD_NRTidal:
     case SEOBNRv1:
     case SEOBNRv2:
     case SEOBNRv4:
