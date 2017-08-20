@@ -5596,7 +5596,7 @@ def find_ndownsample(samples, nDownsample):
         print "Max ACL(s):"
         splineParams=["spcal_npts", "spcal_active","constantcal_active"]
         for i in np.arange(5):
-          for k in ['h1','l1']:
+          for k in ['h1','l1','v1','i1','k1']:
             splineParams.append(k+'_spcal_freq_'+str(i))
             splineParams.append(k+'_spcal_logfreq_'+str(i))
 
@@ -5854,7 +5854,7 @@ class PEOutputParser(object):
                     try:
                         splineParams=["spcal_npts", "spcal_active","constantcal_active"]
                         for i in np.arange(5):
-                          for k in ['h1','l1']:
+                          for k in ['h1','l1','v1','i1','k1']:
                             splineParams.append(k+'_spcal_freq'+str(i))
                             splineParams.append(k+'_spcal_logfreq'+str(i))
 
@@ -7081,6 +7081,8 @@ def plot_calibration_pos(pos, level=.9, outpath=None):
         if ifo=='h1': color = 'r'
         elif ifo=='l1': color = 'g'
         elif ifo=='v1': color = 'm'
+        elif ifo=='k1': color = 'b'
+        elif ifo=='i1': color = 'y'
         else: color = 'c'
 
         # Assume spline control frequencies are constant
