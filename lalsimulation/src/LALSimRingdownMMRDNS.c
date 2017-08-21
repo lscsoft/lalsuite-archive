@@ -754,7 +754,7 @@ COMPLEX16 XLALSpinWeightedSpheroidalHarmonic( REAL8 jf,           /* Spin of rem
   const REAL8 s = -2.0;
 
   /* Use tabulated cw and sc values from the core package*/
-  complex double cw, sc, aw;
+  COMPLEX16 cw, sc, aw;
   REAL8 kappa = XLALKAPPA(jf,l,m);
 
   /*cw = conj( XLALcomplexOmega( kappa, l, m, n ) );
@@ -1259,22 +1259,20 @@ int XLALSimRingdownMMRDNS_time(
 
         /* Time runs from Tstart to Tend after merger. Use total mass to agree with NR conventions. Inside the template t=0 corresponds to 10M after the merger.*/
         REAL8 M        = XLALMf_to_M_nonspinning_UIB2016(eta, Mf);
-        REAL8 Tstart   =  0.0*M*LAL_MTSUN_SI/LAL_MSUN_SI;
+        REAL8 Tstart   = 0.0*M*LAL_MTSUN_SI/LAL_MSUN_SI;
         REAL8 Tend     = 80.0*M*LAL_MTSUN_SI/LAL_MSUN_SI;
-        // REAL8 Tstart   =  10.0*M*LAL_MTSUN_SI/LAL_MSUN_SI;
-        // REAL8 Tend     = 80.0*M*LAL_MTSUN_SI/LAL_MSUN_SI;
         UINT4 Nsamples = ceil((Tend-Tstart)/deltaT);
 
         /* Compute the modes seperately */
-        XLALSimRingdownGenerateSingleModeMMRDNS_time(&h220, T0, deltaT, Mf, jf, eta, iota, phi_offset, 2, 2, 0, r, dfreq220, dtau220,Nsamples,Tstart);
-        XLALSimRingdownGenerateSingleModeMMRDNS_time(&h221, T0, deltaT, Mf, jf, eta, iota, phi_offset, 2, 2, 1, r, dfreq221, dtau221,Nsamples,Tstart);
-        XLALSimRingdownGenerateSingleModeMMRDNS_time(&h330, T0, deltaT, Mf, jf, eta, iota, phi_offset, 3, 3, 0, r, dfreq330, dtau330,Nsamples,Tstart);
-        XLALSimRingdownGenerateSingleModeMMRDNS_time(&h331, T0, deltaT, Mf, jf, eta, iota, phi_offset, 3, 3, 1, r, dfreq331, dtau331,Nsamples,Tstart);
-        XLALSimRingdownGenerateSingleModeMMRDNS_time(&h440, T0, deltaT, Mf, jf, eta, iota, phi_offset, 4, 4, 0, r, dfreq440, dtau440,Nsamples,Tstart);
-        XLALSimRingdownGenerateSingleModeMMRDNS_time(&h550, T0, deltaT, Mf, jf, eta, iota, phi_offset, 5, 5, 0, r, dfreq550, dtau550,Nsamples,Tstart);
-        XLALSimRingdownGenerateSingleModeMMRDNS_time(&h210, T0, deltaT, Mf, jf, eta, iota, phi_offset, 2, 1, 0, r, dfreq210, dtau210,Nsamples,Tstart);
-        XLALSimRingdownGenerateSingleModeMMRDNS_time(&h320, T0, deltaT, Mf, jf, eta, iota, phi_offset, 3, 2, 0, r, dfreq320, dtau320,Nsamples,Tstart);
-        XLALSimRingdownGenerateSingleModeMMRDNS_time(&h430, T0, deltaT, Mf, jf, eta, iota, phi_offset, 4, 3, 0, r, dfreq430, dtau430,Nsamples,Tstart);
+        XLALSimRingdownGenerateSingleModeMMRDNS_time( &h220, T0, deltaT, Mf, jf, eta, iota, phi_offset, 2, 2, 0, r, dfreq220, dtau220, Nsamples, Tstart );
+        XLALSimRingdownGenerateSingleModeMMRDNS_time( &h221, T0, deltaT, Mf, jf, eta, iota, phi_offset, 2, 2, 1, r, dfreq221, dtau221, Nsamples, Tstart );
+        XLALSimRingdownGenerateSingleModeMMRDNS_time( &h330, T0, deltaT, Mf, jf, eta, iota, phi_offset, 3, 3, 0, r, dfreq330, dtau330, Nsamples, Tstart );
+        XLALSimRingdownGenerateSingleModeMMRDNS_time( &h331, T0, deltaT, Mf, jf, eta, iota, phi_offset, 3, 3, 1, r, dfreq331, dtau331, Nsamples, Tstart );
+        XLALSimRingdownGenerateSingleModeMMRDNS_time( &h440, T0, deltaT, Mf, jf, eta, iota, phi_offset, 4, 4, 0, r, dfreq440, dtau440, Nsamples, Tstart );
+        XLALSimRingdownGenerateSingleModeMMRDNS_time( &h550, T0, deltaT, Mf, jf, eta, iota, phi_offset, 5, 5, 0, r, dfreq550, dtau550, Nsamples, Tstart );
+        XLALSimRingdownGenerateSingleModeMMRDNS_time( &h210, T0, deltaT, Mf, jf, eta, iota, phi_offset, 2, 1, 0, r, dfreq210, dtau210, Nsamples, Tstart );
+        XLALSimRingdownGenerateSingleModeMMRDNS_time( &h320, T0, deltaT, Mf, jf, eta, iota, phi_offset, 3, 2, 0, r, dfreq320, dtau320, Nsamples, Tstart );
+        XLALSimRingdownGenerateSingleModeMMRDNS_time( &h430, T0, deltaT, Mf, jf, eta, iota, phi_offset, 4, 3, 0, r, dfreq430, dtau430, Nsamples, Tstart );
 
         /* Add the modes to get the final waveform and  get cross and plus polarization */
         *hplus = XLALCreateREAL8TimeSeries( "hplus: TD waveform", T0, 0.0, deltaT, &lalStrainUnit, Nsamples);
@@ -1300,7 +1298,7 @@ int XLALSimRingdownMMRDNS_time(
 
           (*hplus)->data->data[i]  =  creal(h_val);
           (*hcross)->data->data[i] = -cimag(h_val);
-          h_val = 0.0;
+
         }
 
 
@@ -1329,7 +1327,7 @@ int XLALSimRingdownGenerateSingleModeMMRDNS_time(
         REAL8 jf,                                    /**< Final BH dimensionaless spin */
         REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
         REAL8 iota,                                  /**< inclination angle (in rad) */
-        REAL8 phi_offset,                            /**< intrinsic phase offset (in rad) */
+        REAL8 phi_offset,                            /**< intrinsic ORBITAL phase offset (in rad) */
         UINT4 l,                                     /**< Polar eigenvalue */
         UINT4 m,                                     /**< Azimuthal eigenvalue */
         UINT4 n,                                     /**< Overtone Number */
@@ -1340,47 +1338,21 @@ int XLALSimRingdownGenerateSingleModeMMRDNS_time(
         REAL8 Tstart                                 /**< starting time of waveform (10M at zero) */
         ){
 
-        /* Declarations: M is the initial total mass, Mf is the remnant mass */
-        COMPLEX16 h_lmn     = 0.0;
-        REAL8 kappa         = XLALKAPPA(jf, l, m);
-        REAL8 M             = XLALMf_to_M_nonspinning_UIB2016(eta, Mf);
-        REAL8 Mf_sec        = Mf*LAL_MTSUN_SI/LAL_MSUN_SI;
-        REAL8 M_sec         = M*LAL_MTSUN_SI/LAL_MSUN_SI;
-        REAL8 r_sec         = r/LAL_C_SI;
-        REAL8 t             = 0.0;
-        COMPLEX16 A_lmn     = 0.0;
-        REAL8 A             = 0.0;
-        REAL8 phi_relative  = 0.0;
-        COMPLEX16 Omega_lmn = 0.0;
-        REAL8 freq          = 0.0;
-        REAL8 tau           = 0.0;
-        REAL8 Yplus         = 0.0;
-        REAL8 Ycross        = 0.0;
-
-
-        /* Mode Component Calculation*/
-        A_lmn 	     = XLALMMRDNSAmplitudeOverOmegaSquared(eta, l, m, n);
-        A            = cabs(A_lmn)*M_sec/(r_sec);
-	phi_relative = carg(A_lmn);
-        Omega_lmn    = XLALcomplexOmega(kappa, l, m, n)/Mf_sec;
-        freq         = creal(Omega_lmn)*(1.+dfreq);
-        tau 	     = 1./(cimag(Omega_lmn)/(1.+dtau));
-        Yplus 	     = XLALSimSpheroidalHarmonicPlus(jf, l, m, n, iota);
-        Ycross 	     = XLALSimSpheroidalHarmonicCross(jf, l, m, n, iota);
+        /*  */
+        COMPLEX16 S = XLALSpinWeightedSpheroidalHarmonic(jf, l, m, n, iota, phi_offset);
 
         /* allocate htilde_lmn */
         *htilde_lmn = XLALCreateCOMPLEX16TimeSeries("htilde_lmn: TD waveform", T0, 0.0, deltaT, &lalStrainUnit, Nsamples);
         if (!(*htilde_lmn)) XLAL_ERROR(XLAL_EFUNC);
         memset((*htilde_lmn)->data->data, 0, Nsamples * sizeof(COMPLEX16));
 
-        /* fill waveform */
-        for ( UINT4 i=0 ; i<Nsamples ; i++ )
-	{
-            t     = Tstart+i*deltaT;
-            h_lmn = A*Yplus*exp(-t/tau)*cos(t*freq + phi_relative + m*phi_offset) - I*A*Ycross*exp(-t/tau)*sin(t*freq + phi_relative + m*phi_offset);
-            (*htilde_lmn)->data->data[i] = h_lmn;
-            h_lmn = 0.0;
-            t     = 0.0;
+        COMPLEX16TimeSeries *ch;
+        XLALSimRingdownGenerateSingleBareModeMMRDNS_time( &ch, T0, deltaT, Mf, jf, eta, l, m, n, r, dfreq, dtau, Nsamples, Tstart );
+
+        for ( UINT4 k=0; k<Nsamples; k++ )
+        {
+          /**/
+          (*htilde_lmn)->data->data[k] = S * (ch->data->data[k]);
         }
 
   return XLAL_SUCCESS;
@@ -1411,13 +1383,7 @@ int XLALSimRingdownGenerateSingleBareModeMMRDNS_time(
 
         /* Declarations: M is the initial total mass, Mf is the remnant mass */
         COMPLEX16 h_lmn     = 0.0;
-        // REAL8 kappa         = XLALKAPPA(jf, l, m);
         REAL8 M             = XLALMf_to_M_nonspinning_UIB2016(eta, Mf);
-
-        // REAL8 MSUN_SEC_SI   =  LAL_G_SI * LAL_MSUN_SI / (LAL_C_SI * LAL_C_SI * LAL_C_SI);
-        //
-        // REAL8 M_sec         = M  * MSUN_SEC_SI;
-        // REAL8 Mf_sec        = Mf * MSUN_SEC_SI;
 
         REAL8 M_sec         = M*LAL_MTSUN_SI/LAL_MSUN_SI;
         REAL8 Mf_sec        = Mf*LAL_MTSUN_SI/LAL_MSUN_SI;
@@ -1425,7 +1391,7 @@ int XLALSimRingdownGenerateSingleBareModeMMRDNS_time(
         REAL8 r_sec         = r/LAL_C_SI;
         REAL8 t             = 0.0;
         COMPLEX16 A_lmn     = 0.0;
-        REAL8 A             = 0.0;
+        COMPLEX16 A         = 0.0;
         COMPLEX16 Omega_lmn = 0.0;
         REAL8 freq          = 0.0;
         REAL8 tau           = 0.0;
@@ -1437,7 +1403,6 @@ int XLALSimRingdownGenerateSingleBareModeMMRDNS_time(
 
         /* NOTE: Whether a fit for interopolation is used here makes not appreciable difference. But let's use a fit for consistency with the spheroidal function. */
         Omega_lmn    = conj( XLALQNM_CW(jf,l,m,n) ) / Mf_sec ;
-        /* Omega_lmn    = XLALcomplexOmega(kappa, l, m, n)/ Mf_sec; */
 
         freq         = creal(Omega_lmn)*(1.+dfreq);
         tau 	     = 1.0/(cimag(Omega_lmn)/(1.+dtau));
@@ -1453,7 +1418,6 @@ int XLALSimRingdownGenerateSingleBareModeMMRDNS_time(
             t     = Tstart+i*deltaT;
 
             h_lmn = A * cexp( I * t * Omega_lmn );
-            // h_lmn = Omega_lmn;
 
             (*htilde_lmn)->data->data[i] = h_lmn;
             h_lmn = 0.0;
@@ -1464,149 +1428,3 @@ int XLALSimRingdownGenerateSingleBareModeMMRDNS_time(
   return 0;
 
 }
-
-// Lionel: I've written this waveform generator as a fast cross check
-// int XLALSimRingdownMMRDNS_time(
-//         REAL8TimeSeries **hplus,                     /**< plus-polarization waveform [returned] */
-//         REAL8TimeSeries **hcross,                    /**< cross-polarization waveform [returned] */
-//         const LIGOTimeGPS *T0,                       /**< start time of ringdown => NEEDS TO BE CHECKED! */
-//         REAL8 deltaT,                                /**< sampling interval (s) */
-//         REAL8 Mf,                                    /**< Final BH Mass (kg) */
-//         REAL8 jf,                                    /**< Final BH dimensionaless spin */
-//         REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
-//         REAL8 iota,                                  /**< inclination angle (in rad) */
-//         REAL8 phi_offset,                            /**< intrinsic phase offset */
-//         REAL8 r,                                     /**< distance of source (m) */
-//         LALSimInspiralTestGRParam *nonGRparams       /**< testing GR parameters */
-//     ){
-//         /* Perform some initial checks */
-//         if (Mf <= 0) XLAL_ERROR(XLAL_EDOM);
-//         if (jf >= 1) XLAL_ERROR(XLAL_EDOM);
-//         if (eta > 0.25 || eta <= 0) XLAL_ERROR(XLAL_EDOM);
-//         if (r <= 0) XLAL_ERROR(XLAL_EDOM);
-//
-//         /* Declarations */
-//         REAL8 dfreq220=0., dfreq221=0., dfreq330=0., dfreq331=0., dfreq440=0., dfreq550=0., dfreq210=0., dfreq320=0., dfreq430=0.;
-//         REAL8 dtau220=0.,  dtau221=0.,  dtau330=0.,  dtau331=0.,  dtau440=0.,  dtau550=0.,  dtau210=0.,  dtau320=0.,  dtau430=0.;
-//         COMPLEX16TimeSeries *h220, *h221, *h330, *h331, *h440, *h550, *h210, *h320, *h430;
-//
-//         /* Get nonGRparams */
-//         char *nonGRParamName = malloc(512*sizeof(char));
-//
-//         sprintf(nonGRParamName,"dfreq220") ;
-//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
-//           dfreq220 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
-//         sprintf(nonGRParamName,"dtau220") ;
-//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
-//           dtau220 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
-//         sprintf(nonGRParamName,"dfreq221") ;
-//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
-//           dfreq221 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
-//         sprintf(nonGRParamName,"dtau221") ;
-//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
-//           dtau221 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
-//         sprintf(nonGRParamName,"dfreq330") ;
-//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
-//           dfreq330 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
-//         sprintf(nonGRParamName,"dtau330") ;
-//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
-//           dtau330 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
-//         sprintf(nonGRParamName,"dfreq331") ;
-//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
-//           dfreq331 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
-//         sprintf(nonGRParamName,"dtau331") ;
-//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
-//           dtau331 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
-//         sprintf(nonGRParamName,"dfreq440") ;
-//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
-//           dfreq440 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
-//         sprintf(nonGRParamName,"dtau440") ;
-//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
-//           dtau440 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
-//         sprintf(nonGRParamName,"dfreq550") ;
-//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
-//           dfreq550 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
-//         sprintf(nonGRParamName,"dtau550") ;
-//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
-//           dtau550 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
-//         sprintf(nonGRParamName,"dfreq210") ;
-//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
-//           dfreq210 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
-//         sprintf(nonGRParamName,"dtau210") ;
-//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
-//           dtau210 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
-//         sprintf(nonGRParamName,"dfreq320") ;
-//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
-//           dfreq320 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
-//         sprintf(nonGRParamName,"dtau320") ;
-//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
-//           dtau320 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
-//         sprintf(nonGRParamName,"dfreq430") ;
-//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
-//           dfreq430 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
-//         sprintf(nonGRParamName,"dtau430") ;
-//         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
-//           dtau430 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
-//
-//         /* Time runs from Tstart to Tend after merger. Use total mass to agree with NR conventions. Inside the template t=0 corresponds to 10M after the merger.*/
-//         REAL8 M        = XLALMf_to_M_nonspinning_UIB2016(eta, Mf);
-//         /* REAL8 Tstart   =  0.0*M*LAL_MTSUN_SI/LAL_MSUN_SI;
-//         REAL8 Tend     = 50.0*M*LAL_MTSUN_SI/LAL_MSUN_SI;*/
-//         REAL8 Tstart   =  10.0*M*LAL_MTSUN_SI/LAL_MSUN_SI;
-//         REAL8 Tend     = 80.0*M*LAL_MTSUN_SI/LAL_MSUN_SI;
-//         UINT4 Nsamples = ceil((Tend-Tstart)/deltaT);
-//
-//         /* Compute the modes seperately */
-//         XLALSimRingdownGenerateSingleModeMMRDNS_time(&h220, T0, deltaT, Mf, jf, eta, iota, phi_offset, 2, 2, 0, r, dfreq220, dtau220,Nsamples,Tstart);
-//         XLALSimRingdownGenerateSingleModeMMRDNS_time(&h221, T0, deltaT, Mf, jf, eta, iota, phi_offset, 2, 2, 1, r, dfreq221, dtau221,Nsamples,Tstart);
-//         XLALSimRingdownGenerateSingleModeMMRDNS_time(&h330, T0, deltaT, Mf, jf, eta, iota, phi_offset, 3, 3, 0, r, dfreq330, dtau330,Nsamples,Tstart);
-//         XLALSimRingdownGenerateSingleModeMMRDNS_time(&h331, T0, deltaT, Mf, jf, eta, iota, phi_offset, 3, 3, 1, r, dfreq331, dtau331,Nsamples,Tstart);
-//         XLALSimRingdownGenerateSingleModeMMRDNS_time(&h440, T0, deltaT, Mf, jf, eta, iota, phi_offset, 4, 4, 0, r, dfreq440, dtau440,Nsamples,Tstart);
-//         XLALSimRingdownGenerateSingleModeMMRDNS_time(&h550, T0, deltaT, Mf, jf, eta, iota, phi_offset, 5, 5, 0, r, dfreq550, dtau550,Nsamples,Tstart);
-//         XLALSimRingdownGenerateSingleModeMMRDNS_time(&h210, T0, deltaT, Mf, jf, eta, iota, phi_offset, 2, 1, 0, r, dfreq210, dtau210,Nsamples,Tstart);
-//         XLALSimRingdownGenerateSingleModeMMRDNS_time(&h320, T0, deltaT, Mf, jf, eta, iota, phi_offset, 3, 2, 0, r, dfreq320, dtau320,Nsamples,Tstart);
-//         XLALSimRingdownGenerateSingleModeMMRDNS_time(&h430, T0, deltaT, Mf, jf, eta, iota, phi_offset, 4, 3, 0, r, dfreq430, dtau430,Nsamples,Tstart);
-//
-//         /* Add the modes to get the final waveform and  get cross and plus polarization */
-//         *hplus = XLALCreateREAL8TimeSeries( "hplus: TD waveform", T0, 0.0, deltaT, &lalStrainUnit, Nsamples);
-//         if (!(*hplus)) XLAL_ERROR(XLAL_EFUNC);
-//         memset((*hplus)->data->data, 0, Nsamples * sizeof(REAL8));
-//         *hcross = XLALCreateREAL8TimeSeries( "hcross: TD waveform", T0, 0.0, deltaT, &lalStrainUnit, Nsamples);
-//         if (!(*hcross)) XLAL_ERROR(XLAL_EFUNC);
-//         memset((*hcross)->data->data, 0, Nsamples * sizeof(REAL8));
-//
-//
-//         COMPLEX16 h_val = 0.0;
-//         for ( UINT4 i=0 ; i<Nsamples ; i++ )
-// 	{
-//           h_val = h220->data->data[i];
-//           h_val += h221->data->data[i];
-//           h_val += h330->data->data[i];
-//           h_val += h331->data->data[i];
-//           h_val += h440->data->data[i];
-//           h_val += h550->data->data[i];
-//           h_val += h210->data->data[i];
-//           h_val += h320->data->data[i];
-//           h_val += h430->data->data[i];
-//
-//           (*hplus)->data->data[i]  =  creal(h_val);
-//           (*hcross)->data->data[i] = -cimag(h_val);
-//           h_val = 0.0;
-//         }
-//
-//
-//         /* Destroy the COMPLEX16TimeSeries object */
-//         if (h220) XLALDestroyCOMPLEX16TimeSeries(h220);
-//         if (h221) XLALDestroyCOMPLEX16TimeSeries(h221);
-//         if (h330) XLALDestroyCOMPLEX16TimeSeries(h330);
-//         if (h331) XLALDestroyCOMPLEX16TimeSeries(h331);
-//         if (h440) XLALDestroyCOMPLEX16TimeSeries(h440);
-//         if (h550) XLALDestroyCOMPLEX16TimeSeries(h550);
-//         if (h210) XLALDestroyCOMPLEX16TimeSeries(h210);
-//         if (h320) XLALDestroyCOMPLEX16TimeSeries(h320);
-//         if (h430) XLALDestroyCOMPLEX16TimeSeries(h430);
-//
-//         free(nonGRParamName);
-//         return 0;
-//
-// }
