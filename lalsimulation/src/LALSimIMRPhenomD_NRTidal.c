@@ -361,7 +361,7 @@ static int IMRPhenomD_NRTidal_GenerateFD(
       REAL8 phi_tidal = XLALSimNRTunedTidesFDTidalPhase(PN_x, PN_x_2, PN_x_3over2, PN_x_5over2, Xa, Xb, kappa2T);
 
       phi -= t0*(Mf-MfRef) + phi_precalc;
-      phi -= phi_tidal; /* add tidal term */
+      phi += phi_tidal; /* add tidal term */
     //   printf("phi_tidal  = %f\n", phi_tidal);
       ((*htilde)->data->data)[i] = amp0 * amp * cexp(-I * phi);
     // ((*htilde)->data->data)[i] = amp0 * amp * cexp(-I * phi_tidal);
