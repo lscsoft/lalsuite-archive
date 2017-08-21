@@ -308,7 +308,6 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
         XLALSimInspiralWaveformParamsInsertTidalOctupolarFMode1(params->params, atof(argv[++i]));
         } else if (strcmp(argv[i], "--tidal-octufmode2") == 0) {
         XLALSimInspiralWaveformParamsInsertTidalOctupolarFMode2(params->params, atof(argv[++i]));
->>>>>>> master
         } else if (strcmp(argv[i], "--spin-order") == 0) {
 	    XLALSimInspiralWaveformParamsInsertPNSpinOrder(params->params, atoi(argv[++i]));
         } else if (strcmp(argv[i], "--tidal-order") == 0) {
