@@ -1336,9 +1336,8 @@ int XLALSimInspiralChooseFDWaveform(
                 ABORT_NONDEFAULT_WAVEFORM_FLAGS(waveFlags);
             if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
                 ABORT_NONZERO_TRANSVERSE_SPINS(waveFlags);
-            if( !checkTidesZero(lambda1, lambda2) )
-                ABORT_NONZERO_TIDES(waveFlags);
-
+			if( lambda1 <= 0 || lambda2 <= 0 )
+				XLAL_ERROR(XLAL_EFUNC, "lambda1 = %f, lambda2 = %f. Both should be greater than zero for SEOBNRv4_ROM_NRTidal", lambda1, lambda2);
             ret = XLALSimIMRSEOBNRv4ROMNRTidal(hptilde, hctilde,
                     phiRef, deltaF, f_min, f_max, f_ref, r, i, m1, m2, S1z, S2z, lambda1, lambda2);
             break;
