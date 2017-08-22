@@ -1090,6 +1090,28 @@ int XLALSimInspiralChooseFDWaveformSequence(
                     phiRef, f_ref, r, i, m1, m2, S1z, S2z, -1);
             break;
 
+        case SEOBNRv4_ROM:
+            /* Waveform-specific sanity checks */
+            if( !XLALSimInspiralWaveformFlagsIsDefault(waveFlags) )
+                ABORT_NONDEFAULT_WAVEFORM_FLAGS(waveFlags);
+            if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
+                ABORT_NONZERO_TRANSVERSE_SPINS(waveFlags);
+
+            ret = XLALSimIMRSEOBNRv4ROMFrequencySequence(hptilde, hctilde, frequencies,
+                    phiRef, f_ref, r, i, m1, m2, S1z, S2z, -1);
+            break;
+
+        case SEOBNRv4_ROM_NRTidal:
+            /* Waveform-specific sanity checks */
+            if( !XLALSimInspiralWaveformFlagsIsDefault(waveFlags) )
+                ABORT_NONDEFAULT_WAVEFORM_FLAGS(waveFlags);
+            if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
+                ABORT_NONZERO_TRANSVERSE_SPINS(waveFlags);
+
+            ret = XLALSimIMRSEOBNRv4ROMNRTidalFrequencySequence(hptilde, hctilde, frequencies,
+                    phiRef, f_ref, r, i, m1, m2, S1z, S2z, lambda1, lambda2);
+            break;
+
         case Lackey_Tidal_2013_SEOBNRv2_ROM:
             /* Waveform-specific sanity checks */
             if( !XLALSimInspiralWaveformFlagsIsDefault(waveFlags) )
