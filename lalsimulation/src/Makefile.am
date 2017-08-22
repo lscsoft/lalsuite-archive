@@ -137,9 +137,10 @@ liblalsimulation_la_SOURCES = \
 	LALSimIMRSEOBNRv2ROMDoubleSpin.c \
 	LALSimIMRSEOBNRv2ROMDoubleSpinHI.c \
 	LALSimIMRSEOBNRv2ChirpTime.c \
-  LALSimIMRSEOBNRv4ROM.c \
+	LALSimIMRSEOBNRv4ROM.c \
+	LALSimIMRSEOBNRv4ROM_NRTidal.c \
 	LALSimIMREOBNRv2HMROM.c \
-  LALSimIMRLackeyTidal2013.c \
+	LALSimIMRLackeyTidal2013.c \
 	LALSimIMRPhenom.c \
 	LALSimIMRPhenomC.c \
 	LALSimIMRPhenomD.c \
