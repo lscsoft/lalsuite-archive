@@ -282,6 +282,46 @@ SphHarmTimeSeries *XLALSimInspiralNRSur7dq2Modes(
         int lmax                        /**< Evaluates (l, m) modes with l <= lmax */
 );
 
+/* in module LALSimNRTunedTides.c */
+double XLALSimNRTunedTidesComputeKappa2T(
+    REAL8 m1_SI, /**< Mass of companion 1 (kg) */
+    REAL8 m2_SI, /**< Mass of companion 2 (kg) */
+    REAL8 lambda1, /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
+    REAL8 lambda2 /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
+);
+
+double XLALSimNRTunedTidesMergerFrequency(
+    const REAL8 mtot_MSUN, /**< total mass of system (solar masses) */
+    const REAL8 kappa2T /**< tidal coupling constant. Eq. 2 in arXiv:1706.02969 */
+);
+
+int XLALSimNRTunedTidesFDTidalPhaseFrequencySeries(
+    const REAL8Sequence *phi_tidal, /**< [out] tidal phase frequency series */
+    const REAL8Sequence *fHz, /**< list of input Gravitational wave Frequency in Hz to evaluate */
+    REAL8 m1_SI, /**< Mass of companion 1 (kg) */
+    REAL8 m2_SI, /**< Mass of companion 2 (kg) */
+    REAL8 lambda1, /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
+    REAL8 lambda2 /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
+    );
+
+/* In module LALSimIMRPhenomD_NRTidal.c */
+int XLALSimIMRPhenomD_NRTidal_GenerateFD(
+    COMPLEX16FrequencySeries **htilde,
+    const REAL8 phi0,
+    const REAL8 fRef,
+    const REAL8 deltaF,
+    REAL8 m1_SI_in,
+    REAL8 m2_SI_in,
+    const REAL8 chi1_in,
+    const REAL8 chi2_in,
+    const REAL8 f_min,
+    const REAL8 f_max,
+    const REAL8 distance,
+    const REAL8 lambda1_in,
+    const REAL8 lambda2_in,
+    LALDict *extraParams
+);
+
 #if 0
 { /* so that editors will match succeeding brace */
 #elif defined(__cplusplus)

@@ -145,6 +145,7 @@ static const char *lalSimulationApproximantNames[] = {
     INITIALIZE_NAME(IMRPhenomFB),
     INITIALIZE_NAME(IMRPhenomC),
     INITIALIZE_NAME(IMRPhenomD),
+    INITIALIZE_NAME(IMRPhenomD_NRTidal),
     INITIALIZE_NAME(IMRPhenomP),
     INITIALIZE_NAME(IMRPhenomPv2),
     INITIALIZE_NAME(IMRPhenomFC),
@@ -1254,6 +1255,29 @@ int XLALSimInspiralChooseFDWaveform(
             /* Call the waveform driver routine */
             ret = XLALSimIMRPhenomDGenerateFD(hptilde, phiRef, f_ref, deltaF, m1, m2,
                   S1z, S2z, f_min, f_max, distance, LALparams);
+            if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
+            /* Produce both polarizations */
+            *hctilde = XLALCreateCOMPLEX16FrequencySeries("FD hcross",
+                    &((*hptilde)->epoch), (*hptilde)->f0, (*hptilde)->deltaF,
+                    &((*hptilde)->sampleUnits), (*hptilde)->data->length);
+            for(j = 0; j < (*hptilde)->data->length; j++) {
+                (*hctilde)->data->data[j] = -I*cfac * (*hptilde)->data->data[j];
+                (*hptilde)->data->data[j] *= pfac;
+            }
+            break;
+
+
+        case IMRPhenomD_NRTidal:
+			/* Waveform-specific sanity checks */
+			if( !XLALSimInspiralWaveformParamsFlagsAreDefault(LALparams) )
+				ABORT_NONDEFAULT_LALDICT_FLAGS(LALparams);
+			if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
+				ABORT_NONZERO_TRANSVERSE_SPINS(LALparams);
+			if( lambda1 <= 0 || lambda2 <= 0 )
+				XLAL_ERROR(XLAL_EFUNC, "lambda1 = %f, lambda2 = %f. Both should be greater than zero for IMRPhenomD_NRTidal", lambda1, lambda2);
+            /* Call the waveform driver routine */
+            ret = XLALSimIMRPhenomD_NRTidal_GenerateFD(hptilde, phiRef, f_ref, deltaF, m1, m2,
+                  S1z, S2z, f_min, f_max, distance, lambda1, lambda2, LALparams);
             if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
             /* Produce both polarizations */
             *hctilde = XLALCreateCOMPLEX16FrequencySeries("FD hcross",
@@ -4489,6 +4513,7 @@ int XLALSimInspiralImplementedFDApproximants(
         case IMRPhenomB:
         case IMRPhenomC:
         case IMRPhenomD:
+        case IMRPhenomD_NRTidal:
         case IMRPhenomP:
         case IMRPhenomPv2:
         case EOBNRv2_ROM:
@@ -4915,6 +4940,7 @@ int XLALSimInspiralGetSpinSupportFromApproximant(Approximant approx){
     case IMRPhenomB:
     case IMRPhenomC:
     case IMRPhenomD:
+    case IMRPhenomD_NRTidal:
     case SEOBNRv1:
     case SEOBNRv2:
     case SEOBNRv4:
