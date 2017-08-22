@@ -124,7 +124,7 @@ int XLALSimIMRPhenomD_NRTidal_GenerateFD(
   const REAL8 kappa2T = XLALSimNRTunedTidesComputeKappa2T(m1_SI, m2_SI, lambda1, lambda2);
   const REAL8 BNS_Merger_frequ = XLALSimNRTunedTidesMergerFrequency( mtot_MSUN, kappa2T );
 
-  REAL8 f_max_prime = BNS_Merger_frequ;
+  REAL8 f_max_prime = 1.2 * BNS_Merger_frequ;
 
   /* if we ask for a frequency less than the ending frequency then generate up to user requested end frequency */
   if ((f_max > 0) && (f_max < f_max_prime))
@@ -147,11 +147,19 @@ int XLALSimIMRPhenomD_NRTidal_GenerateFD(
   XLAL_CHECK(XLAL_SUCCESS == status, status, "Failed to generate IMRPhenomD waveform.");
 
   size_t ind_min = (size_t) (f_min / deltaF);
-  size_t ind_max = (size_t) (f_max_prime / deltaF);
+  // size_t ind_max = (size_t) (f_max / deltaF);
+  size_t ind_max = (size_t) ((*htilde)->data->length);
 
   // Get FD tidal phase correction from arXiv:1706.02969
-  REAL8Sequence *freqs = XLALCreateREAL8Sequence(ind_max - ind_min);
-  REAL8Sequence *phi_tidal = XLALCreateREAL8Sequence(ind_max - ind_min);
+  REAL8Sequence *freqs = XLALCreateREAL8Sequence(ind_max);
+  // populate frequencies
+  for (size_t i = ind_min; i < ind_max; i++)
+  {
+    REAL8 fHz = i * deltaF; // geometric frequency
+    freqs->data[i] = fHz;
+  }
+
+  REAL8Sequence *phi_tidal = XLALCreateREAL8Sequence(freqs->length);
   status = XLALSimNRTunedTidesFDTidalPhaseFrequencySeries(
     phi_tidal, freqs,
     m1_SI, m2_SI, lambda1, lambda2
