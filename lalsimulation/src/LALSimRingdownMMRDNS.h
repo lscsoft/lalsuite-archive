@@ -151,7 +151,7 @@ int XLALSimRingdownGenerateSingleModeMMRDNS_time(
         REAL8 iota,                                  /**< inclination angle (in rad) */
         REAL8 phi_offset,                            /**< intrinsic phase offset (in rad) */
         UINT4 l,                                     /**< Polar eigenvalue */
-        UINT4 m,                                     /**< Azimuthal eigenvalue */
+        INT4 m,                                     /**< Azimuthal eigenvalue */
         UINT4 n,                                     /**< Overtone Number */
         REAL8 r,                                     /**< distance of source (m) */
         REAL8 dfreq,                                 /**< relative shift in the real frequency parameter */
@@ -170,7 +170,7 @@ int XLALSimRingdownGenerateSingleBareModeMMRDNS_time(
         REAL8 jf,                                    /**< Final BH dimensionaless spin */
         REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
         UINT4 l,                                     /**< Polar eigenvalue */
-        UINT4 m,                                     /**< Azimuthal eigenvalue */
+        INT4 m,                                     /**< Azimuthal eigenvalue */
         UINT4 n,                                     /**< Overtone Number */
         REAL8 r,                                     /**< distance of source (m) */
         REAL8 dfreq,                                 /**< relative shift in the real frequency parameter */
@@ -181,9 +181,9 @@ int XLALSimRingdownGenerateSingleBareModeMMRDNS_time(
 );
 
 /* Interpolate tabulated data for QNM frequency */
-COMPLEX16 XLALQNM_CW( REAL8 jf, UINT4 l, UINT4 m, UINT4 n );
+COMPLEX16 XLALQNM_CW( REAL8 jf, UINT4 l, INT4 m, UINT4 n );
 /* Interpolate tabulated data for QNM separation constant */
-COMPLEX16 XLALQNM_SC( REAL8 jf, UINT4 l, UINT4 m, UINT4 n );
+COMPLEX16 XLALQNM_SC( REAL8 jf, UINT4 l, INT4 m, UINT4 n );
 
 /* Spheroidal Harmonic Plus and Cross modes */
 REAL8 XLALSimSpheroidalHarmonicPlus(REAL8 jf, UINT4 l, INT4 m, UINT4 n, REAL8 iota);

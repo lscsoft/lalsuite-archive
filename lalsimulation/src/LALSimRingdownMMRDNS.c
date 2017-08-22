@@ -65,7 +65,7 @@
 #define TINY LAL_REAL4_MIN
 
 /* Interpolate tabulated data for QNM frequency */
-COMPLEX16 XLALQNM_CW( REAL8 jf, UINT4 l, UINT4 m, UINT4 n ){
+COMPLEX16 XLALQNM_CW( REAL8 jf, UINT4 l, INT4 input_m, UINT4 n ){
 
   /* Setup GSL Splines: acceleration */
   gsl_interp_accel *acc_real = gsl_interp_accel_alloc();
@@ -77,6 +77,7 @@ COMPLEX16 XLALQNM_CW( REAL8 jf, UINT4 l, UINT4 m, UINT4 n ){
 
   /**/
   REAL8 cwreal=0, cwimag=0;
+  INT4 m = abs(input_m);
 
   /**/
   if ( 2==l && 2==m && 0==n  ){
@@ -153,14 +154,17 @@ COMPLEX16 XLALQNM_CW( REAL8 jf, UINT4 l, UINT4 m, UINT4 n ){
 
   }
 
-  /**/
-  return cwreal + I*cwimag;
+  if ( input_m > 0 ) {
+    return  cwreal + I*cwimag;
+  } else {
+    return -cwreal + I*cwimag;
+  }
 
 }
 
 
 /* Interpolate tabulated data for QNM separation constant */
-COMPLEX16 XLALQNM_SC( REAL8 jf, UINT4 l, UINT4 m, UINT4 n ){
+COMPLEX16 XLALQNM_SC( REAL8 jf, UINT4 l, INT4 input_m, UINT4 n ){
 
   /* Setup GSL Splines: acceleration */
   gsl_interp_accel *acc_real = gsl_interp_accel_alloc();
@@ -172,6 +176,7 @@ COMPLEX16 XLALQNM_SC( REAL8 jf, UINT4 l, UINT4 m, UINT4 n ){
 
   /**/
   REAL8 screal=0, scimag=0;
+  INT4 m = abs(input_m);
 
   /**/
   if ( 2==l && 2==m && 0==n  ){
@@ -249,7 +254,11 @@ COMPLEX16 XLALQNM_SC( REAL8 jf, UINT4 l, UINT4 m, UINT4 n ){
   }
 
   /**/
-  return screal + I*scimag;
+  if ( input_m > 0 ) {
+    return  screal + I*scimag;
+  } else {
+    return  screal - I*scimag;
+  }
 
 }
 
@@ -666,10 +675,10 @@ COMPLEX16 XLALMMRDNSAmplitudeOverOmegaSquared( double eta, int l, int input_m, i
 COMPLEX16 XLALMMRDNSAmplitudeOverOmegaSquared( double eta, int l, int input_m, int n ){
 
   /* Initialize the answer */
-  double complex ans = 0.0;
+  COMPLEX16 ans = 0.0;
 
   /* NOTE that |m| will be used to determine the fit to use, and if input_m < 0, then a conjugate will be taken */
-  int m = abs(input_m);
+  INT4 m = abs(input_m);
 
   /**/
   double eta2 = eta*eta;
@@ -731,7 +740,6 @@ COMPLEX16 XLALMMRDNSAmplitudeOverOmegaSquared( double eta, int l, int input_m, i
   /* If m<0, then take the conjugate */
   if ( input_m < 0 ) {
     /**/
-    // ans = conj( ans );
     ans = pow(-1,l) * conj( ans );
   }
 
@@ -842,16 +850,16 @@ REAL8 XLALSimSpheroidalHarmonicCross(REAL8 jf, UINT4 l, INT4 m, UINT4 n, REAL8 i
 }
 
 /* Mode included within the model */
-UNUSED static const int MMRDNS_MODES[9][3] =  { {2,2,0},
-                                         {2,2,1},
-                                         {3,3,0},
-                                         {3,3,1},
-                                         {4,4,0},
-                                         {5,5,0},
-                                         {2,1,0},
-                                         {3,2,0},
-                                         {4,3,0}
-                                       };
+INT4 XLALMMRDNS_MODES[18][3] = { {2,2,0}, {2,-2,0},
+                                 {2,2,1}, {2,-2,1},
+                                 {3,3,0}, {3,-3,0},
+                                 {3,3,1}, {3,-3,1},
+                                 {4,4,0}, {4,-4,0},
+                                 {5,5,0}, {5,-5,0},
+                                 {2,1,0}, {2,-1,0},
+                                 {3,2,0}, {3,-2,0},
+                                 {4,3,0}, {4,-3,0}
+                               };
 
 /**/
 int XLALSimRingdownMMRDNSTD(
@@ -1198,6 +1206,7 @@ int XLALSimRingdownMMRDNS_time(
         REAL8 dfreq220=0., dfreq221=0., dfreq330=0., dfreq331=0., dfreq440=0., dfreq550=0., dfreq210=0., dfreq320=0., dfreq430=0.;
         REAL8 dtau220=0.,  dtau221=0.,  dtau330=0.,  dtau331=0.,  dtau440=0.,  dtau550=0.,  dtau210=0.,  dtau320=0.,  dtau430=0.;
         COMPLEX16TimeSeries *h220, *h221, *h330, *h331, *h440, *h550, *h210, *h320, *h430;
+        COMPLEX16TimeSeries *h2m20, *h2m21, *h3m30, *h3m31, *h4m40, *h5m50, *h2m10, *h3m20, *h4m30;
 
         /* Get nonGRparams */
         char *nonGRParamName = malloc(512*sizeof(char));
@@ -1274,6 +1283,17 @@ int XLALSimRingdownMMRDNS_time(
         XLALSimRingdownGenerateSingleModeMMRDNS_time( &h320, T0, deltaT, Mf, jf, eta, iota, phi_offset, 3, 2, 0, r, dfreq320, dtau320, Nsamples, Tstart );
         XLALSimRingdownGenerateSingleModeMMRDNS_time( &h430, T0, deltaT, Mf, jf, eta, iota, phi_offset, 4, 3, 0, r, dfreq430, dtau430, Nsamples, Tstart );
 
+        /* Compute the modes seperately */
+        XLALSimRingdownGenerateSingleModeMMRDNS_time( &h2m20, T0, deltaT, Mf, jf, eta, iota, phi_offset, 2,-2, 0, r, dfreq220, dtau220, Nsamples, Tstart );
+        XLALSimRingdownGenerateSingleModeMMRDNS_time( &h2m21, T0, deltaT, Mf, jf, eta, iota, phi_offset, 2,-2, 1, r, dfreq221, dtau221, Nsamples, Tstart );
+        XLALSimRingdownGenerateSingleModeMMRDNS_time( &h3m30, T0, deltaT, Mf, jf, eta, iota, phi_offset, 3,-3, 0, r, dfreq330, dtau330, Nsamples, Tstart );
+        XLALSimRingdownGenerateSingleModeMMRDNS_time( &h3m31, T0, deltaT, Mf, jf, eta, iota, phi_offset, 3,-3, 1, r, dfreq331, dtau331, Nsamples, Tstart );
+        XLALSimRingdownGenerateSingleModeMMRDNS_time( &h4m40, T0, deltaT, Mf, jf, eta, iota, phi_offset, 4,-4, 0, r, dfreq440, dtau440, Nsamples, Tstart );
+        XLALSimRingdownGenerateSingleModeMMRDNS_time( &h5m50, T0, deltaT, Mf, jf, eta, iota, phi_offset, 5,-5, 0, r, dfreq550, dtau550, Nsamples, Tstart );
+        XLALSimRingdownGenerateSingleModeMMRDNS_time( &h2m10, T0, deltaT, Mf, jf, eta, iota, phi_offset, 2,-1, 0, r, dfreq210, dtau210, Nsamples, Tstart );
+        XLALSimRingdownGenerateSingleModeMMRDNS_time( &h3m20, T0, deltaT, Mf, jf, eta, iota, phi_offset, 3,-2, 0, r, dfreq320, dtau320, Nsamples, Tstart );
+        XLALSimRingdownGenerateSingleModeMMRDNS_time( &h4m30, T0, deltaT, Mf, jf, eta, iota, phi_offset, 4,-3, 0, r, dfreq430, dtau430, Nsamples, Tstart );
+
         /* Add the modes to get the final waveform and  get cross and plus polarization */
         *hplus = XLALCreateREAL8TimeSeries( "hplus: TD waveform", T0, 0.0, deltaT, &lalStrainUnit, Nsamples);
         if (!(*hplus)) XLAL_ERROR(XLAL_EFUNC);
@@ -1285,8 +1305,11 @@ int XLALSimRingdownMMRDNS_time(
 
         COMPLEX16 h_val = 0.0;
         for ( UINT4 i=0 ; i<Nsamples ; i++ )
-	{
-          h_val = h220->data->data[i];
+	      {
+
+          h_val = 0;
+
+          h_val += h220->data->data[i];
           h_val += h221->data->data[i];
           h_val += h330->data->data[i];
           h_val += h331->data->data[i];
@@ -1295,6 +1318,16 @@ int XLALSimRingdownMMRDNS_time(
           h_val += h210->data->data[i];
           h_val += h320->data->data[i];
           h_val += h430->data->data[i];
+
+          h_val += h2m20->data->data[i];
+          h_val += h2m21->data->data[i];
+          h_val += h3m30->data->data[i];
+          h_val += h3m31->data->data[i];
+          h_val += h4m40->data->data[i];
+          h_val += h5m50->data->data[i];
+          h_val += h2m10->data->data[i];
+          h_val += h3m20->data->data[i];
+          h_val += h4m30->data->data[i];
 
           (*hplus)->data->data[i]  =  creal(h_val);
           (*hcross)->data->data[i] = -cimag(h_val);
@@ -1312,6 +1345,16 @@ int XLALSimRingdownMMRDNS_time(
         if (h210) XLALDestroyCOMPLEX16TimeSeries(h210);
         if (h320) XLALDestroyCOMPLEX16TimeSeries(h320);
         if (h430) XLALDestroyCOMPLEX16TimeSeries(h430);
+        /**/
+        if (h2m20) XLALDestroyCOMPLEX16TimeSeries(h2m20);
+        if (h2m21) XLALDestroyCOMPLEX16TimeSeries(h2m21);
+        if (h3m30) XLALDestroyCOMPLEX16TimeSeries(h3m30);
+        if (h3m31) XLALDestroyCOMPLEX16TimeSeries(h3m31);
+        if (h4m40) XLALDestroyCOMPLEX16TimeSeries(h4m40);
+        if (h5m50) XLALDestroyCOMPLEX16TimeSeries(h5m50);
+        if (h2m10) XLALDestroyCOMPLEX16TimeSeries(h2m10);
+        if (h3m20) XLALDestroyCOMPLEX16TimeSeries(h3m20);
+        if (h4m30) XLALDestroyCOMPLEX16TimeSeries(h4m30);
 
         free(nonGRParamName);
         return 0;
@@ -1329,7 +1372,7 @@ int XLALSimRingdownGenerateSingleModeMMRDNS_time(
         REAL8 iota,                                  /**< inclination angle (in rad) */
         REAL8 phi_offset,                            /**< intrinsic ORBITAL phase offset (in rad) */
         UINT4 l,                                     /**< Polar eigenvalue */
-        UINT4 m,                                     /**< Azimuthal eigenvalue */
+        INT4 m,                                     /**< Azimuthal eigenvalue */
         UINT4 n,                                     /**< Overtone Number */
         REAL8 r,                                     /**< distance of source (m) */
         REAL8 dfreq,                                 /**< relative shift in the real frequency parameter */
@@ -1355,6 +1398,19 @@ int XLALSimRingdownGenerateSingleModeMMRDNS_time(
           (*htilde_lmn)->data->data[k] = S * (ch->data->data[k]);
         }
 
+        // COMPLEX16TimeSeries *chpm;
+        // COMPLEX16TimeSeries *chmm;
+        // XLALSimRingdownGenerateSingleBareModeMMRDNS_time( &chpm, T0, deltaT, Mf, jf, eta, l, m, n, r, dfreq, dtau, Nsamples, Tstart );
+        // XLALSimRingdownGenerateSingleBareModeMMRDNS_time( &chmm, T0, deltaT, Mf, jf, eta, l,-m, n, r, dfreq, dtau, Nsamples, Tstart );
+        // COMPLEX16 Spm = XLALSpinWeightedSpheroidalHarmonic(jf, l, m, n, iota, phi_offset);
+        // COMPLEX16 Smm = XLALSpinWeightedSpheroidalHarmonic(jf, l,-m, n, iota, phi_offset);
+        //
+        // for ( UINT4 k=0; k<Nsamples; k++ )
+        // {
+        //   /**/
+        //   (*htilde_lmn)->data->data[k] = Spm * (chpm->data->data[k]) + Smm * (chmm->data->data[k]);
+        // }
+
   return XLAL_SUCCESS;
 
 }
@@ -1372,7 +1428,7 @@ int XLALSimRingdownGenerateSingleBareModeMMRDNS_time(
         REAL8 jf,                                    /**< Final BH dimensionaless spin */
         REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
         UINT4 l,                                     /**< Polar eigenvalue */
-        UINT4 m,                                     /**< Azimuthal eigenvalue */
+        INT4 m,                                     /**< Azimuthal eigenvalue */
         UINT4 n,                                     /**< Overtone Number */
         REAL8 r,                                     /**< distance of source (m) */
         REAL8 dfreq,                                 /**< relative shift in the real frequency parameter */
@@ -1392,20 +1448,23 @@ int XLALSimRingdownGenerateSingleBareModeMMRDNS_time(
         REAL8 t             = 0.0;
         COMPLEX16 A_lmn     = 0.0;
         COMPLEX16 A         = 0.0;
+        COMPLEX16 CW        = 0.0;
         COMPLEX16 Omega_lmn = 0.0;
         REAL8 freq          = 0.0;
         REAL8 tau           = 0.0;
 
+
+        // if (m<0) return (1.0-2.0*((l+m)%2))*conj(XLALSimRingdownGenerateSingleBareModeMMRDNS_time(htilde_lmn, T0, deltaT, Mf, jf, eta, l, m, n, r, dfreq, dtau, Nsamples, Tstart));
 
         /* Mode Component Calculation*/
         A_lmn 	     = XLALMMRDNSAmplitudeOverOmegaSquared(eta, l, m, n);
         A            = A_lmn*M_sec/(r_sec);
 
         /* NOTE: Whether a fit for interopolation is used here makes not appreciable difference. But let's use a fit for consistency with the spheroidal function. */
-        Omega_lmn    = conj( XLALQNM_CW(jf,l,m,n) ) / Mf_sec ;
-
-        freq         = creal(Omega_lmn)*(1.+dfreq);
-        tau 	     = 1.0/(cimag(Omega_lmn)/(1.+dtau));
+        CW        = conj( XLALQNM_CW(jf,l,m,n) ) / Mf_sec ;
+        freq      = creal(CW)*(1.+dfreq);
+        tau 	    = (1.0/cimag(CW)) * (1.+dtau) ;
+        Omega_lmn = freq + I/tau;
 
         /* allocate htilde_lmn */
         *htilde_lmn = XLALCreateCOMPLEX16TimeSeries("htilde_lmn: TD waveform", T0, 0.0, deltaT, &lalStrainUnit, Nsamples);
