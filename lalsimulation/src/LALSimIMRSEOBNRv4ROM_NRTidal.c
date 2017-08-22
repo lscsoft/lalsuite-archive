@@ -85,6 +85,10 @@ int SEOBNRv4ROM_NRTidal_Core(
 
   // Impose sanity checks and cutoffs on mass-ratio, and BH spins
   // FIXME: add limits if not checked in XLALSimNRTunedTidesFDTidalPhaseFrequencySeries()
+  // The model was calibrated up to mass-ratio q=1.5 and kappa2T in [40, 5000].
+  // The upper kappa2T limit is reache roughly for a 
+  // 1.4+1.4 BNS with lambda  = 2700 on both NSs.
+
   // if (mBH < mNS) XLAL_ERROR(XLAL_EDOM, "mBH = %g < mNS = %g ! ", mBH, mNS);
   // if (eta < 6./49.) XLAL_ERROR(XLAL_EDOM, "eta = %g < 6/49!", eta);
   // if (chi_BH > 0.75) XLAL_ERROR(XLAL_EDOM, "BH spin = %g > 0.75!", chi_BH);
