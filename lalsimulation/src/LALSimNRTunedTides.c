@@ -90,9 +90,10 @@ double XLALSimNRTunedTidesComputeKappa2T(
     const REAL8 Xa = m1 / mtot;
     const REAL8 Xb = m2 / mtot;
 
-    /**< tidal coupling constant. Eq. 2 in arXiv:1706.02969 */
-    const REAL8 term1 = (Xa / Xb) * pow(Xa, 5.0) * lambda1;
-    const REAL8 term2 = (Xb / Xa) * pow(Xb, 5.0) * lambda2;
+    /**< tidal coupling constant. Eq. (25) in Damour and Nagar, PRD 81, 084016 (2010) for \ell = 2 [Eq. (2) in arXiv:1706.02969 has a typo] */
+    /* Note that 2*k_2^A/c_A^5 = 3*lambda1 */
+    const REAL8 term1 = Xb * pow(Xa, 4.0) * lambda1;
+    const REAL8 term2 = Xa * pow(Xb, 4.0) * lambda2;
     const REAL8 kappa2T = 3.0 * ( term1 + term2 );
     return kappa2T;
 }
