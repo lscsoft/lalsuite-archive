@@ -303,7 +303,7 @@ static double bayestar_volume_render_inner(
     double vec[3];
     cblas_dgemv(
         CblasRowMajor, CblasNoTrans, 3, 3, 1, R, 3, xyz, 1, 0, vec, 1);
-    int64_t ipix;
+    hpint64 ipix; //int64_t ipix; //modified by hwlee for healpix  at 23 Aug. 2017
     if (nest)
         vec2pix_nest64(nside, vec, &ipix);
     else
