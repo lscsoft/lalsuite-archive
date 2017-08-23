@@ -38,12 +38,14 @@ int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       
                                         const REAL8 distance,
                                         const REAL8 m1_SI,
                                         const REAL8 m2_SI,
+                                        const REAL8 chi1z,
+                                        const REAL8 chi2z,
                                         const REAL8 f_low,
                                         const REAL8 f_ref,
                                         const LALSimInspiralTestGRParam *pnCorrections    /**< input linked list of testing gr parameters */
 );
 
-void XLALSimInspiralNonSpinningPNCorrections(PNPhasingSeries *pfa, const REAL8 eta, const LALSimInspiralTestGRParam *pnCorrections);
+void XLALSimInspiralPNCorrections(PNPhasingSeries *pfa, const REAL8 m1, const REAL8 m2, const REAL8 chi1L, const REAL8 chi2L, const REAL8 chi1sq, const REAL8 chi2sq, const REAL8 chi1dotchi2, const REAL8 qm_def1, const REAL8 qm_def2, const LALSimInspiralTestGRParam *pnCorrections);
 
 int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,       /**< input htilde, will be modified in place */
                                            const REAL8 distance,

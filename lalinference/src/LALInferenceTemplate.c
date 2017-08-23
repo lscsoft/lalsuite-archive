@@ -810,8 +810,8 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
             approximant,model->waveformCache, NULL), errnum);
     
     /* apply the generic PN corrections to \tilde{h}_+ and \tilde{h}_x */
-    XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(hptilde,distance,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI, f_start, f_ref, nonGRparams), errnum);
-    XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(hctilde,distance,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI, f_start, f_ref, nonGRparams), errnum);
+    XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(hptilde,distance,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI, spin1z, spin2z, f_start, f_ref, nonGRparams), errnum);
+    XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(hctilde,distance,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI, spin1z, spin2z, f_start, f_ref, nonGRparams), errnum);
 	XLALSimInspiralDestroyTestGRParam(nonGRparams);
     
     /* if the waveform failed to generate, fill the buffer with zeros
@@ -876,8 +876,8 @@ model->waveFlags(%d,%d,%d,%d,numreldata),nonGRparams,%d,%d,%d,model->waveformCac
             amporder, order, approximant,model->waveformCache), errnum);
       
     /* apply the generic PN corrections to \tilde{h}_+ and \tilde{h}_x */
-    XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(model->freqhPlus,distance,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI,f_start, f_ref, nonGRparams), errnum);
-    XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(model->freqhCross,distance,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI, f_start, f_ref, nonGRparams), errnum);
+    XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(model->freqhPlus,distance,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI, spin1z, spin2z, f_start, f_ref, nonGRparams), errnum);
+    XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(model->freqhCross,distance,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI, spin1z, spin2z, f_start, f_ref, nonGRparams), errnum);
 	XLALSimInspiralDestroyTestGRParam(nonGRparams);
     /* if the waveform failed to generate, fill the buffer with zeros
      * so that the previous waveform is not left there

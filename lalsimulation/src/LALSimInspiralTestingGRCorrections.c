@@ -47,6 +47,8 @@ int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       
                                         const REAL8 distance,
                                         const REAL8 m1_SI,
                                         const REAL8 m2_SI,
+                                        const REAL8 chi1z,
+                                        const REAL8 chi2z,
                                         const REAL8 f_low,
                                         const REAL8 f_ref,
                                         const LALSimInspiralTestGRParam *pnCorrections    /**< input linked list of testing gr parameters */
@@ -85,15 +87,44 @@ int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       
         freqs->data[i] = f0 + i * deltaF;
     }
     PNPhasingSeries pfa;
-    XLALSimInspiralNonSpinningPNCorrections(&pfa, eta, pnCorrections);
+    const REAL8 qm_def1 = 1.;
+    const REAL8 qm_def2 = 1.;
+    XLALSimInspiralPNCorrections(&pfa, m1, m2, chi1z, chi2z, chi1z*chi1z, chi2z*chi2z, chi1z*chi2z, qm_def1, qm_def2, pnCorrections);
     XLALSimInspiralPhaseCorrectionsPhasing(htilde,distance,freqs,iStart,iEnd,pfa,m_sec, eta,f_ref);
     XLALDestroyREAL8Sequence(freqs);
     return 0;
 }
 
-void XLALSimInspiralNonSpinningPNCorrections(PNPhasingSeries *pfa, const REAL8 eta, const LALSimInspiralTestGRParam *pnCorrections)
+void XLALSimInspiralPNCorrections(PNPhasingSeries *pfa,
+                                             const REAL8 m1, /**< Mass of body 1, in Msol */
+                                             const REAL8 m2, /**< Mass of body 2, in Msol */
+                                             const REAL8 chi1L, /**< Component of dimensionless spin 1 along Lhat */
+                                             const REAL8 chi2L, /**< Component of dimensionless spin 2 along Lhat */
+                                             const REAL8 chi1sq,/**< Magnitude of dimensionless spin 1 */
+                                             const REAL8 chi2sq, /**< Magnitude of dimensionless spin 2 */
+                                             const REAL8 chi1dotchi2, /**< Dot product of dimensionles spin 1 and spin 2 */
+                                             const REAL8 qm_def1, /**< Quadrupole deformation parameter of body 1 (dimensionless) */
+                                             const REAL8 qm_def2, /**< Quadrupole deformation parameter of body 2 (dimensionless) */
+                                             const LALSimInspiralTestGRParam *pnCorrections)
 {
+    const REAL8 mtot = m1 + m2;
+    const REAL8 eta = m1*m2/mtot/mtot;
     const REAL8 pfaN = 3.L/(128.L * eta);
+    const REAL8 d = (m1 - m2) / (m1 + m2);
+    const REAL8 m1M = m1/mtot;
+    const REAL8 m2M = m2/mtot;
+    const REAL8 SL = m1M*m1M*chi1L + m2M*m2M*chi2L;
+    const REAL8 dSigmaL = d*(m2M*chi2L - m1M*chi1L);
+    REAL8 pn_sigma = eta * (721.L/48.L*chi1L*chi2L - 247.L/48.L*chi1dotchi2);
+    pn_sigma += (720.L*qm_def1 - 1.L)/96.0L * m1M * m1M * chi1L * chi1L;
+    pn_sigma += (720.L*qm_def2 - 1.L)/96.0L * m2M * m2M * chi2L * chi2L;
+    pn_sigma -= (240.L*qm_def1 - 7.L)/96.0L * m1M * m1M * chi1sq;
+    pn_sigma -= (240.L*qm_def2 - 7.L)/96.0L * m2M * m2M * chi2sq;
+    REAL8 pn_ss3 =  (326.75L/1.12L + 557.5L/1.8L*eta)*eta*chi1L*chi2L;
+    pn_ss3 += ((4703.5L/8.4L+2935.L/6.L*m1M-120.L*m1M*m1M)*qm_def1 + (-4108.25L/6.72L-108.5L/1.2L*m1M+125.5L/3.6L*m1M*m1M)) *m1M*m1M * chi1sq;
+    pn_ss3 += ((4703.5L/8.4L+2935.L/6.L*m2M-120.L*m2M*m2M)*qm_def2 + (-4108.25L/6.72L-108.5L/1.2L*m2M+125.5L/3.6L*m2M*m2M)) *m2M*m2M * chi2sq;
+    const REAL8 pn_gamma = (554345.L/1134.L + 110.L*eta/9.L)*SL + (13915.L/84.L - 10.L*eta/3.L)*dSigmaL;
+
     /* initialise the PN correction  coefficients to 0 identically */
     memset(pfa, 0, sizeof(PNPhasingSeries));
     
@@ -109,22 +140,26 @@ void XLALSimInspiralNonSpinningPNCorrections(PNPhasingSeries *pfa, const REAL8 e
     if (XLALSimInspiralTestGRParamExists(pnCorrections,"dchi3"))
     {
         pfa->v[3] = -16.L*LAL_PI;
+        pfa->v[3] += 188.L*SL/3.L + 25.L*dSigmaL;
         pfa->v[3] *= XLALSimInspiralGetTestGRParam(pnCorrections,"dchi3");
     }
     if (XLALSimInspiralTestGRParamExists(pnCorrections,"dchi4"))
     {
         pfa->v[4] = 5.L*(3058.673L/7.056L + 5429.L/7.L * eta
                         + 617.L * eta*eta)/72.L;
+        pfa->v[4] += -10.L * pn_sigma;
         pfa->v[4] *= XLALSimInspiralGetTestGRParam(pnCorrections,"dchi4");
     }
     if (XLALSimInspiralTestGRParamExists(pnCorrections,"dchi5"))
     {
         pfa->v[5] = 5.L/9.L * (7729.L/84.L - 13.L * eta) * LAL_PI;
+        pfa->v[5] += -1.L * pn_gamma;
         pfa->v[5] *= XLALSimInspiralGetTestGRParam(pnCorrections,"dchi5");
     }
     if (XLALSimInspiralTestGRParamExists(pnCorrections,"dchi5l"))
     {
         pfa->vlogv[5] = 5.L/3.L * (7729.L/84.L - 13.L * eta) * LAL_PI;
+        pfa->vlogv[5] += -3.L * pn_gamma;
         pfa->vlogv[5] *= XLALSimInspiralGetTestGRParam(pnCorrections,"dchi5l");
     }
     if (XLALSimInspiralTestGRParamExists(pnCorrections,"dchi6"))
@@ -136,6 +171,7 @@ void XLALSimInspiralNonSpinningPNCorrections(PNPhasingSeries *pfa, const REAL8 e
         + eta*eta * 76055.L/1728.L
         - eta*eta*eta * 127825.L/1296.L;
         pfa->v[6] += (-6848.L/21.L)*log(4.);
+        pfa->v[6] += LAL_PI * (3760.L*SL + 1490.L*dSigmaL)/3.L + pn_ss3;
         pfa->v[6] *= XLALSimInspiralGetTestGRParam(pnCorrections,"dchi6");
     }
     if (XLALSimInspiralTestGRParamExists(pnCorrections,"dchi6l"))
@@ -147,8 +183,11 @@ void XLALSimInspiralNonSpinningPNCorrections(PNPhasingSeries *pfa, const REAL8 e
     {
         pfa->v[7] = LAL_PI * ( 77096675.L/254016.L
                               + 378515.L/1512.L * eta - 74045.L/756.L * eta*eta);
+        pfa->v[7] += (-8980424995.L/762048.L + 6586595.L*eta/756.L - 305.L*eta*eta/36.L)*SL - (170978035.L/48384.L - 2876425.L*eta/672.L - 4735.L*eta*eta/144.L) * dSigmaL;
         pfa->v[7] *= XLALSimInspiralGetTestGRParam(pnCorrections,"dchi7");
     }
+    
+    
     
     /* At the very end, multiply everything in the series by the newtonian term */
     for(int ii = 0; ii <= PN_PHASING_SERIES_MAX_ORDER; ii++)
