@@ -138,6 +138,7 @@ static const char *lalSimulationApproximantNames[] = {
     INITIALIZE_NAME(SEOBNRv2_ROM_DoubleSpin_HI),
     INITIALIZE_NAME(Lackey_Tidal_2013_SEOBNRv2_ROM),
     INITIALIZE_NAME(SEOBNRv4_ROM),
+    INITIALIZE_NAME(SEOBNRv4_ROM_NRTidal),
     INITIALIZE_NAME(HGimri),
     INITIALIZE_NAME(IMRPhenomA),
     INITIALIZE_NAME(IMRPhenomB),
@@ -1399,6 +1400,18 @@ int XLALSimInspiralChooseFDWaveform(
 
             ret = XLALSimIMRSEOBNRv4ROM(hptilde, hctilde,
                     phiRef, deltaF, f_min, f_max, f_ref, distance, inclination, m1, m2, S1z, S2z, -1);
+            break;
+
+		case SEOBNRv4_ROM_NRTidal:
+            /* Waveform-specific sanity checks */
+			if( !XLALSimInspiralWaveformParamsFlagsAreDefault(LALparams) )
+                ABORT_NONDEFAULT_LALDICT_FLAGS(LALparams);
+            if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
+                ABORT_NONZERO_TRANSVERSE_SPINS(LALparams);
+			if( lambda1 <= 0 || lambda2 <= 0 )
+				XLAL_ERROR(XLAL_EFUNC, "lambda1 = %f, lambda2 = %f. Both should be greater than zero for SEOBNRv4_ROM_NRTidal", lambda1, lambda2);
+            ret = XLALSimIMRSEOBNRv4ROMNRTidal(hptilde, hctilde,
+                    phiRef, deltaF, f_min, f_max, f_ref, distance, inclination, m1, m2, S1z, S2z, lambda1, lambda2);
             break;
 
         case Lackey_Tidal_2013_SEOBNRv2_ROM:
@@ -4525,6 +4538,7 @@ int XLALSimInspiralImplementedFDApproximants(
         case SEOBNRv2_ROM_DoubleSpin_HI:
         case Lackey_Tidal_2013_SEOBNRv2_ROM:
         case SEOBNRv4_ROM:
+		case SEOBNRv4_ROM_NRTidal:
         //case TaylorR2F4:
         case TaylorF2:
         case TaylorF2NLTides:
@@ -4955,6 +4969,7 @@ int XLALSimInspiralGetSpinSupportFromApproximant(Approximant approx){
     case SEOBNRv2_ROM_DoubleSpin_HI:
     case Lackey_Tidal_2013_SEOBNRv2_ROM:
     case SEOBNRv4_ROM:
+	case SEOBNRv4_ROM_NRTidal:
     case TaylorR2F4:
     case IMRPhenomFB:
     case FindChirpSP:
@@ -5045,6 +5060,7 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
     case SEOBNRv2_ROM_DoubleSpin_HI:
     case Lackey_Tidal_2013_SEOBNRv2_ROM:
     case SEOBNRv4_ROM:
+	case SEOBNRv4_ROM_NRTidal:
     case IMRPhenomA:
     case IMRPhenomB:
     case IMRPhenomFA:
