@@ -122,7 +122,7 @@ int XLALSimIMRPhenomD_NRTidal_GenerateFD(
    */
   /* compute kappa2T - inside it enforces m1>=m2 and spaws lambda accordingly */
   const REAL8 kappa2T = XLALSimNRTunedTidesComputeKappa2T(m1_SI, m2_SI, lambda1, lambda2);
-  const REAL8 BNS_Merger_frequ = XLALSimNRTunedTidesMergerFrequency( mtot_MSUN, kappa2T );
+  const REAL8 BNS_Merger_frequ = XLALSimNRTunedTidesMergerFrequency( mtot_MSUN, kappa2T, m1/m2 );
 
   REAL8 f_max_prime = 1.2 * BNS_Merger_frequ;
 

@@ -294,9 +294,15 @@ double XLALSimNRTunedTidesComputeKappa2T(
     REAL8 lambda2 /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
 );
 
-double XLALSimNRTunedTidesMergerFrequency(
+double XLALSimNRTunedTidesMergerFrequencyOld(
     const REAL8 mtot_MSUN, /**< total mass of system (solar masses) */
     const REAL8 kappa2T /**< tidal coupling constant. Eq. 2 in arXiv:1706.02969 */
+);
+
+double XLALSimNRTunedTidesMergerFrequency(
+    const REAL8 mtot_MSUN, /**< total mass of system (solar masses) */
+    const REAL8 kappa2T,   /**< tidal coupling constant. Eq. 2 in arXiv:1706.02969 */
+    const REAL8 q          /**< mass-ratio q >= 1 */
 );
 
 int XLALSimNRTunedTidesFDTidalPhaseFrequencySeries(
