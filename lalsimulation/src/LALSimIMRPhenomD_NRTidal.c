@@ -22,65 +22,30 @@
 
 
 
+
 #include <math.h>
 #include <lal/LALSimIMR.h>
-#include "LALSimIMRPhenomD_internals.c"
+#include <lal/FrequencySeries.h>
+#include <lal/Sequence.h>
+#include <lal/Units.h>
+#include <lal/LALConstants.h>
 
 #ifndef _OPENMP
 #define omp ignore
 #endif
 
-/*
- * private function prototypes; all internal functions use solar masses.
- *
- */
+static REAL8 PlanckTaper(const REAL8 t, const REAL8 t1, const REAL8 t2);
+static REAL8 PlanckTaper(const REAL8 t, const REAL8 t1, const REAL8 t2) {
+  REAL8 taper;
+  if (t <= t1)
+    taper = 0.;
+  else if (t >= t2)
+    taper = 1.;
+  else
+    taper = 1. / (exp((t2 - t1)/(t - t1) + (t2 - t1)/(t - t2)) + 1.);
 
-static int IMRPhenomD_NRTidal_GenerateFD(
-    COMPLEX16FrequencySeries **htilde, /**< [out] FD waveform */
-    const REAL8 phi0,                  /**< phase at fRef */
-    const REAL8 fRef,                  /**< reference frequency [Hz] */
-    const REAL8 deltaF,                /**< frequency resolution */
-    const REAL8 m1,                    /**< mass of companion 1 [solar masses] */
-    const REAL8 m2,                    /**< mass of companion 2 [solar masses] */
-    const REAL8 chi1,                  /**< aligned-spin of companion 1 */
-    const REAL8 chi2,                  /**< aligned-spin of companion 2 */
-    const REAL8 f_min,                 /**< start frequency */
-    const REAL8 f_max,                 /**< end frequency */
-    const REAL8 distance,              /**< distance to source (m) */
-    const REAL8 kappa2T,               /**< tidal coupling constant. Eq. 2 in arXiv:1706.02969 */
-    const LALSimInspiralTestGRParam *extraParams /**< linked list containing the extra testing GR parameters */
-);
-
-/**
- * @addtogroup LALSimIMRPhenom_c
- * @{
- *
- * @name Routines for IMR Phenomenological Model "D"
- * @{
- *
- * @author Michael Puerrer, Sebastian Khan, Frank Ohme
- *
- * @brief C code for IMRPhenomD phenomenological waveform model.
- *
- * This is an aligned-spin frequency domain model.
- * See Husa et al \cite Husa:2015iqa, and Khan et al \cite Khan:2015jqa
- * for details. Any studies that use this waveform model should include
- * a reference to both of these papers.
- *
- * @note The model was calibrated to mass-ratios [1:1,1:4,1:8,1:18].
- * * Along the mass-ratio 1:1 line it was calibrated to spins  [-0.95, +0.98].
- * * Along the mass-ratio 1:4 line it was calibrated to spins  [-0.75, +0.75].
- * * Along the mass-ratio 1:8 line it was calibrated to spins  [-0.85, +0.85].
- * * Along the mass-ratio 1:18 line it was calibrated to spins [-0.8, +0.4].
- * The calibration points will be given in forthcoming papers.
- *
- * @attention The model is usable outside this parameter range,
- * and in tests to date gives sensible physical results,
- * but conclusive statements on the physical fidelity of
- * the model for these parameters await comparisons against further
- * numerical-relativity simulations. For more information, see the review wiki
- * under https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/WaveformsReview/IMRPhenomDCodeReview
- */
+  return taper;
+}
 
 
 /**
@@ -128,6 +93,7 @@ int XLALSimIMRPhenomD_NRTidal_GenerateFD(
      m2_SI   = m1_SI_in;
   }
 
+
   /* external: SI; internal: solar masses */
   const REAL8 m1 = m1_SI / LAL_MSUN_SI;
   const REAL8 m2 = m2_SI / LAL_MSUN_SI;
@@ -143,11 +109,6 @@ int XLALSimIMRPhenomD_NRTidal_GenerateFD(
   if (f_max < 0) XLAL_ERROR(XLAL_EDOM, "f_max must be greater than 0\n");
   if (distance <= 0) XLAL_ERROR(XLAL_EDOM, "distance must be positive\n");
 
-  const REAL8 q = (m1 > m2) ? (m1 / m2) : (m2 / m1);
-
-  if (q > MAX_ALLOWED_MASS_RATIO)
-    XLAL_PRINT_WARNING("Warning: The model is not supported for high mass ratio, see MAX_ALLOWED_MASS_RATIO\n");
-
   if (chi1 > 1.0 || chi1 < -1.0 || chi2 > 1.0 || chi2 < -1.0)
     XLAL_ERROR(XLAL_EDOM, "Spins outside the range [-1,1] are not supported\n");
 
@@ -155,13 +116,6 @@ int XLALSimIMRPhenomD_NRTidal_GenerateFD(
   REAL8 fRef = (fRef_in == 0.0) ? f_min : fRef_in;
 
   const REAL8 mtot_MSUN = m1+m2;
-
-  const REAL8 M_sec = mtot_MSUN * LAL_MTSUN_SI; // Conversion factor Hz -> dimensionless frequency
-  const REAL8 fCut = f_CUT/M_sec; // convert Mf -> Hz
-  // Somewhat arbitrary end point for the waveform.
-  // Chosen so that the end of the waveform is well after the ringdown.
-  if (fCut <= f_min)
-    XLAL_ERROR(XLAL_EDOM, "(fCut = %g Hz) <= f_min = %g\n", fCut, f_min);
 
   /* In PhenomD_NRTidal we only evaluate the waveform upto the merger
    * frequency of the binary neutron star system given by
@@ -171,27 +125,58 @@ int XLALSimIMRPhenomD_NRTidal_GenerateFD(
   const REAL8 kappa2T = XLALSimNRTunedTidesComputeKappa2T(m1_SI, m2_SI, lambda1, lambda2);
   const REAL8 BNS_Merger_frequ = XLALSimNRTunedTidesMergerFrequency( mtot_MSUN, kappa2T );
 
-  REAL8 f_max_prime = BNS_Merger_frequ;
+  REAL8 f_max_prime = 1.2 * BNS_Merger_frequ;
 
   /* if we ask for a frequency less than the ending frequency then generate up to user requested end frequency */
   if ((f_max > 0) && (f_max < f_max_prime))
     f_max_prime = f_max;
 
-  // printf("f_min = %f, f_max_prime = %f\n", f_min, f_max_prime);
-
-  int status = IMRPhenomD_NRTidal_GenerateFD(htilde, phi0, fRef, deltaF,
-                                    m1, m2, chi1, chi2,
-                                    f_min, f_max_prime, distance, kappa2T, extraParams);
+  int status = XLALSimIMRPhenomDGenerateFD(
+      htilde,
+      phi0,
+      fRef,
+      deltaF,
+      m1_SI,
+      m2_SI,
+      chi1,
+      chi2,
+      f_min,
+      f_max_prime,
+      distance,
+      extraParams
+  );
   XLAL_CHECK(XLAL_SUCCESS == status, status, "Failed to generate IMRPhenomD waveform.");
 
-  if (f_max_prime < f_max) {
-    // The user has requested a higher f_max than Mf=fCut.
-    // Resize the frequency series to fill with zeros beyond the cutoff frequency.
-    size_t n = (*htilde)->data->length;
-    size_t n_full = NextPow2(f_max / deltaF) + 1; // we actually want to have the length be a power of 2 + 1
-    *htilde = XLALResizeCOMPLEX16FrequencySeries(*htilde, 0, n_full);
-    XLAL_CHECK ( *htilde, XLAL_ENOMEM, "Failed to resize waveform COMPLEX16FrequencySeries of length %zu (for internal fCut=%f) to new length %zu (for user-requested f_max=%f).", n, fCut, n_full, f_max );
+  size_t ind_min = (size_t) (f_min / deltaF);
+  // size_t ind_max = (size_t) (f_max / deltaF);
+  size_t ind_max = (size_t) ((*htilde)->data->length);
+
+  // Get FD tidal phase correction from arXiv:1706.02969
+  REAL8Sequence *freqs = XLALCreateREAL8Sequence(ind_max);
+  // populate frequencies
+  for (size_t i = ind_min; i < ind_max; i++)
+  {
+    REAL8 fHz = i * deltaF; // geometric frequency
+    freqs->data[i] = fHz;
   }
+
+  REAL8Sequence *phi_tidal = XLALCreateREAL8Sequence(freqs->length);
+  status = XLALSimNRTunedTidesFDTidalPhaseFrequencySeries(
+    phi_tidal, freqs,
+    m1_SI, m2_SI, lambda1, lambda2
+  );
+  XLAL_CHECK(XLAL_SUCCESS == status, status, "XLALSimNRTunedTidesFDTidalPhaseFrequencySeries Failed.");
+
+  /* loop over htilde and apply taper and phase shift */
+  for (size_t i=ind_min; i<ind_max; i++) { // loop over frequency points in sequence
+    // Apply tidal phase correction and amplitude taper
+    double taper = 1.0 - PlanckTaper(freqs->data[i], BNS_Merger_frequ, 1.2*BNS_Merger_frequ);
+    COMPLEX16 Corr = taper * cexp(-I*phi_tidal->data[i]);
+    (*htilde)->data->data[i] *= Corr;
+  }
+
+  XLALDestroyREAL8Sequence(freqs);
+  XLALDestroyREAL8Sequence(phi_tidal);
 
   return XLAL_SUCCESS;
 }
@@ -199,178 +184,3 @@ int XLALSimIMRPhenomD_NRTidal_GenerateFD(
 /** @} */
 
 /** @} */
-
-
-
-
-/* *********************************************************************************/
-/* The following private function generates IMRPhenomD frequency-domain waveforms  */
-/* given coefficients */
-/* *********************************************************************************/
-
-static int IMRPhenomD_NRTidal_GenerateFD(
-    COMPLEX16FrequencySeries **htilde, /**< [out] FD waveform */
-    const REAL8 phi0,                  /**< phase at fRef */
-    const REAL8 fRef,                  /**< reference frequency [Hz] */
-    const REAL8 deltaF,                /**< frequency resolution */
-    const REAL8 m1_in,                 /**< mass of companion 1 [solar masses] */
-    const REAL8 m2_in,                 /**< mass of companion 2 [solar masses] */
-    const REAL8 chi1_in,               /**< aligned-spin of companion 1 */
-    const REAL8 chi2_in,               /**< aligned-spin of companion 2 */
-    const REAL8 f_min,                 /**< start frequency */
-    const REAL8 f_max,                 /**< end frequency */
-    const REAL8 distance,              /**< distance to source (m) */
-    const REAL8 kappa2T,               /**< tidal coupling constant. Eq. 2 in arXiv:1706.02969 */
-    const LALSimInspiralTestGRParam *extraParams /**< linked list containing the extra testing GR parameters */
-) {
-  LIGOTimeGPS ligotimegps_zero = LIGOTIMEGPSZERO; // = {0, 0}
-
-  /* swap masses, spins to enforce that m1>=m2 */
-  REAL8 chi1, chi2, m1, m2;
-  if (m1_in>m2_in) {
-     chi1 = chi1_in;
-     chi2 = chi2_in;
-     m1   = m1_in;
-     m2   = m2_in;
-  } else { // swap spins and masses
-     chi1 = chi2_in;
-     chi2 = chi1_in;
-     m1   = m2_in;
-     m2   = m1_in;
-  }
-
-  int status = init_useful_powers(&powers_of_pi, LAL_PI);
-  XLAL_CHECK(XLAL_SUCCESS == status, status, "Failed to initiate useful powers of pi.");
-
-  const REAL8 M = m1 + m2;
-  const REAL8 eta = m1 * m2 / (M * M);
-
-  if (eta > 0.25 || eta < 0.0)
-    XLAL_ERROR(XLAL_EDOM, "Unphysical eta. Must be between 0. and 0.25\n");
-
-  const REAL8 M_sec = M * LAL_MTSUN_SI;
-
-  /* Compute the amplitude pre-factor */
-  const REAL8 amp0 = 2. * sqrt(5. / (64.*LAL_PI)) * M * LAL_MRSUN_SI * M * LAL_MTSUN_SI / distance;
-
-  /* Coalesce at t=0 */
-  // shift by overall length in time
-  XLAL_CHECK ( XLALGPSAdd(&ligotimegps_zero, -1. / deltaF), XLAL_EFUNC, "Failed to shift coalescence time to t=0, tried to apply shift of -1.0/deltaF with deltaF=%g.", deltaF);
-
-  /* Allocate htilde */
-  size_t n = NextPow2(f_max / deltaF) + 1;
-
-  *htilde = XLALCreateCOMPLEX16FrequencySeries("htilde: FD waveform", &ligotimegps_zero, 0.0,
-      deltaF, &lalStrainUnit, n);
-  XLAL_CHECK ( *htilde, XLAL_ENOMEM, "Failed to allocated waveform COMPLEX16FrequencySeries of length %zu for f_max=%f, deltaF=%g.", n, f_max, deltaF);
-
-  memset((*htilde)->data->data, 0, n * sizeof(COMPLEX16));
-  XLALUnitMultiply(&((*htilde)->sampleUnits), &((*htilde)->sampleUnits), &lalSecondUnit);
-
-  /* range that will have actual non-zero waveform values generated */
-  size_t ind_min = (size_t) (f_min / deltaF);
-  size_t ind_max = (size_t) (f_max / deltaF);
-  XLAL_CHECK ( (ind_max<=n) && (ind_min<=ind_max), XLAL_EDOM, "minimum freq index %zu and maximum freq index %zu do not fulfill 0<=ind_min<=ind_max<=htilde->data>length=%zu.", ind_min, ind_max, n);
-
-  // Calculate phenomenological parameters
-  const REAL8 finspin = FinalSpin0815(eta, chi1, chi2); //FinalSpin0815 - 0815 is like a version number
-
-  if (finspin < MIN_FINAL_SPIN)
-          XLAL_PRINT_WARNING("Final spin (Mf=%g) and ISCO frequency of this system are small, \
-                          the model might misbehave here.", finspin);
-
-  IMRPhenomDAmplitudeCoefficients *pAmp = ComputeIMRPhenomDAmplitudeCoefficients(eta, chi1, chi2, finspin);
-  if (!pAmp) XLAL_ERROR(XLAL_EFUNC);
-  IMRPhenomDPhaseCoefficients *pPhi = ComputeIMRPhenomDPhaseCoefficients(eta, chi1, chi2, finspin, extraParams);
-  if (!pPhi) XLAL_ERROR(XLAL_EFUNC);
-  PNPhasingSeries *pn = NULL;
-  XLALSimInspiralTaylorF2AlignedPhasing(&pn, m1, m2, chi1, chi2, 1.0, 1.0, LAL_SIM_INSPIRAL_SPIN_ORDER_35PN, extraParams);
-  if (!pn) XLAL_ERROR(XLAL_EFUNC);
-
-  // Subtract 3PN spin-spin term below as this is in LAL's TaylorF2 implementation
-  // (LALSimInspiralPNCoefficients.c -> XLALSimInspiralPNPhasing_F2), but
-  REAL8 testGRcor=1.0;
-  if (extraParams!=NULL)
-  {
-	  if (XLALSimInspiralTestGRParamExists(extraParams,"dchi6"))  testGRcor += XLALSimInspiralGetTestGRParam(extraParams,"dchi6");
-  }
-
-  // was not available when PhenomD was tuned.
-  pn->v[6] -= (Subtract3PNSS(m1, m2, M, chi1, chi2) * pn->v[0])* testGRcor;
-
-  PhiInsPrefactors phi_prefactors;
-  status = init_phi_ins_prefactors(&phi_prefactors, pPhi, pn);
-  XLAL_CHECK(XLAL_SUCCESS == status, status, "init_phi_ins_prefactors failed");
-
-  // Compute coefficients to make phase C^1 continuous (phase and first derivative)
-  ComputeIMRPhenDPhaseConnectionCoefficients(pPhi, pn, &phi_prefactors);
-
-  //time shift so that peak amplitude is approximately at t=0
-  //For details see https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/WaveformsReview/IMRPhenomDCodeReview/timedomain
-  const REAL8 t0 = DPhiMRD(pAmp->fmaxCalc, pPhi);
-
-  AmpInsPrefactors amp_prefactors;
-  status = init_amp_ins_prefactors(&amp_prefactors, pAmp);
-  XLAL_CHECK(XLAL_SUCCESS == status, status, "init_amp_ins_prefactors failed");
-
-
-  /* NRTidalPhase */
-
-  /* Xa and Xb are the masses normalised for a total mass = 1 */
-  const REAL8 Xa = m1 / M;
-  const REAL8 Xb = m2 / M;
-
-  /* initialise */
-  REAL8 PN_x = 0.0;
-  REAL8 PN_x_2 = 0.0;
-  REAL8 PN_x_3over2 = 0.0;
-  REAL8 PN_x_5over2 = 0.0;
-
-
-  // incorporating fRef
-  const REAL8 MfRef = M_sec * fRef;
-  UsefulPowers powers_of_fRef;
-  status = init_useful_powers(&powers_of_fRef, MfRef);
-  XLAL_CHECK(XLAL_SUCCESS == status, status, "init_useful_powers failed for MfRef");
-  const REAL8 phifRef = IMRPhenDPhase(MfRef, pPhi, pn, &powers_of_fRef, &phi_prefactors);
-
-  // factor of 2 b/c phi0 is orbital phase
-  const REAL8 phi_precalc = 2.*phi0 + phifRef;
-
-  int status_in_for = XLAL_SUCCESS;
-  /* Now generate the waveform */
-  for (size_t i = ind_min; i < ind_max; i++)
-  {
-    REAL8 Mf = M_sec * i * deltaF; // geometric frequency
-    PN_x = pow(LAL_PI * Mf, 2.0/3.0); //PN_x = angular_orb_freq^(2/3.) in dimensionless units
-    PN_x_2 = PN_x * PN_x;
-    PN_x_3over2 = pow(PN_x, 3.0/2.0);
-    PN_x_5over2 = pow(PN_x, 5.0/2.0);
-
-    UsefulPowers powers_of_f;
-    status_in_for = init_useful_powers(&powers_of_f, Mf);
-    if (XLAL_SUCCESS != status_in_for)
-    {
-      XLALPrintError("init_useful_powers failed for Mf, status_in_for=%d", status_in_for);
-      status = status_in_for;
-    }
-    else
-    {
-      REAL8 amp = IMRPhenDAmplitude(Mf, pAmp, &powers_of_f, &amp_prefactors);
-      REAL8 phi = IMRPhenDPhase(Mf, pPhi, pn, &powers_of_f, &phi_prefactors);
-      REAL8 phi_tidal = XLALSimNRTunedTidesFDTidalPhase(PN_x, PN_x_2, PN_x_3over2, PN_x_5over2, Xa, Xb, kappa2T);
-
-      phi -= t0*(Mf-MfRef) + phi_precalc;
-      phi += phi_tidal; /* add tidal term */
-    //   printf("phi_tidal  = %f\n", phi_tidal);
-      ((*htilde)->data->data)[i] = amp0 * amp * cexp(-I * phi);
-    // ((*htilde)->data->data)[i] = amp0 * amp * cexp(-I * phi_tidal);
-    }
-  }
-
-  LALFree(pAmp);
-  LALFree(pPhi);
-  LALFree(pn);
-
-  return status;
-}

@@ -258,17 +258,6 @@ double XLALSimNRTunedTidesMergerFrequency(
     const REAL8 kappa2T /**< tidal coupling constant. Eq. 2 in arXiv:1706.02969 */
 );
 
-double XLALSimNRTunedTidesFDTidalPhase(
-    const REAL8 PN_x, /**< PN frequency parameter: PN_x = orb_freq^(2./3.) */
-    const REAL8 PN_x_2, /**< PN frequency parameter: PN_x**2 */
-    const REAL8 PN_x_3over2, /**< PN frequency parameter: PN_x**(3./2.) */
-    const REAL8 PN_x_5over2, /**< PN frequency parameter: PN_x**(5./2.) */
-    const REAL8 Xa, /**< Mass of companion 1 divided by total mass */
-    const REAL8 Xb, /**< Mass of companion 2 divided by total mass */
-    const REAL8 kappa2T /**< tidal coupling constant. Eq. 2 in arXiv:1706.02969 */
-);
-
-
 int XLALSimNRTunedTidesFDTidalPhaseFrequencySeries(
     const REAL8Sequence *phi_tidal, /**< [out] tidal phase frequency series */
     const REAL8Sequence *fHz, /**< list of input Gravitational wave Frequency in Hz to evaluate */
