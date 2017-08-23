@@ -83,16 +83,28 @@ int SEOBNRv4ROM_NRTidal_Core(
   if(fRef == 0.0)
     fRef = fLow;
 
+  /* Internally we need m1 > m2, so change around if this is not the case */
+  if (m1_SI < m2_SI) {
+    // Swap m1 and m2
+    double m1temp = m1_SI;
+    double chi1temp = chi1;
+    double lambda1temp = lambda1;
+    m1_SI = m2_SI;
+    chi1 = chi2;
+    lambda1 = lambda2;
+    m2_SI = m1temp;
+    chi2 = chi1temp;
+    lambda2 = lambda1temp;
+  }
+
+  double Mtot_MSUN = (m1_SI + m2_SI) / LAL_MSUN_SI;
+  double q = m1_SI / m2_SI;
+
   // Impose sanity checks and cutoffs on mass-ratio, and BH spins
   // FIXME: add limits if not checked in XLALSimNRTunedTidesFDTidalPhaseFrequencySeries()
   // The model was calibrated up to mass-ratio q=1.5 and kappa2T in [40, 5000].
-  // The upper kappa2T limit is reache roughly for a 
+  // The upper kappa2T limit is reached roughly for a
   // 1.4+1.4 BNS with lambda  = 2700 on both NSs.
-
-  // if (mBH < mNS) XLAL_ERROR(XLAL_EDOM, "mBH = %g < mNS = %g ! ", mBH, mNS);
-  // if (eta < 6./49.) XLAL_ERROR(XLAL_EDOM, "eta = %g < 6/49!", eta);
-  // if (chi_BH > 0.75) XLAL_ERROR(XLAL_EDOM, "BH spin = %g > 0.75!", chi_BH);
-  // if (chi_BH < -0.75) XLAL_ERROR(XLAL_EDOM, "BH spin = %g < -0.75!", chi_BH);
 
   // Call SEOBNRv4 ROM. We call either the FrequencySequence version
   // or the regular LAL version depending on how we've been called.
@@ -151,7 +163,7 @@ int SEOBNRv4ROM_NRTidal_Core(
 
   // Prepare tapering of amplitude beyond merger frequency
   double kappa2T = XLALSimNRTunedTidesComputeKappa2T(m1_SI, m2_SI, lambda1, lambda2);
-  double fHz_mrg = XLALSimNRTunedTidesMergerFrequency((m1_SI + m2_SI)/LAL_MSUN_SI, kappa2T);
+  double fHz_mrg = XLALSimNRTunedTidesMergerFrequency(Mtot_MSUN, kappa2T, q);
 
   // Assemble waveform from amplitude and phase
   for (size_t i=0; i<freqs->length; i++) { // loop over frequency points in sequence

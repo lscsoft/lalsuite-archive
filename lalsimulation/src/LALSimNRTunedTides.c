@@ -1,5 +1,6 @@
 /*
-* Copyright (C) 2017 Tim Dietrich, Sebastiano Bernuzzi, Nathan Johnson-McDaniel, Shasvath J Kapadia, Francesco Pannarale and Sebastian Khan
+* Copyright (C) 2017 Tim Dietrich, Sebastiano Bernuzzi, Nathan Johnson-McDaniel,
+* Shasvath J Kapadia, Francesco Pannarale and Sebastian Khan, Michael Puerrer
 *
 *  This program is free software; you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -105,7 +106,7 @@ double XLALSimNRTunedTidesComputeKappa2T(
  * Note these should agree with Equation 2 and Table 2 from arXiv:1504.01764
  * but there is a typo in the power of the exponents
  */
-double XLALSimNRTunedTidesMergerFrequency(
+double XLALSimNRTunedTidesMergerFrequencyOld(
     const REAL8 mtot_MSUN, /**< total mass of system (solar masses) */
     const REAL8 kappa2T /**< tidal coupling constant. Eq. 2 in arXiv:1706.02969 */
 )
@@ -119,6 +120,46 @@ double XLALSimNRTunedTidesMergerFrequency(
 
     const REAL8 num = 1.0 + (n_1*kappa2T) + (n_2 * kappa2T*kappa2T);
     const REAL8 den = 1.0 + (d_1 * kappa2T);
+
+    /* dimensionless angular frequency of merger */
+    const REAL8 Momega_merger = Q_0 * (num / den);
+
+    /* convert from angular frequency to frequency (divide by 2*pi)
+     * and then convert from
+     * dimensionless frequency to Hz (divide by mtot * LAL_MTSUN_SI)
+     */
+    const REAL8 fHz_merger = Momega_merger / (LAL_TWOPI) / (mtot_MSUN * LAL_MTSUN_SI);
+
+    return fHz_merger;
+}
+
+/**
+ * compute the merger frequency of a BNS system.
+ * Tim's new fit that incorporates mass-ratio and asymptotes to zero for large kappa2T.
+ */
+double XLALSimNRTunedTidesMergerFrequency(
+    const REAL8 mtot_MSUN, /**< total mass of system (solar masses) */
+    const REAL8 kappa2T,   /**< tidal coupling constant. Eq. 2 in arXiv:1706.02969 */
+    const REAL8 q          /**< mass-ratio q >= 1 */
+)
+{
+    if (q < 1.0) {
+      XLALPrintError("XLAL Error - %s: q (%f) should be greater or equal to unity!\n",
+                     __func__, q);
+      XLAL_ERROR( XLAL_EDOM );
+    }
+
+    const REAL8 a_0 = 0.3586;
+    const REAL8 n_1 = 3.35411203e-2;
+    const REAL8 n_2 = 4.31460284e-5;
+    const REAL8 d_1 = 7.54224145e-2;
+    const REAL8 d_2 = 2.23626859e-4;
+
+    const REAL8 kappa2T2 = kappa2T * kappa2T;
+
+    const REAL8 num = 1.0 + n_1*kappa2T + n_2*kappa2T2;
+    const REAL8 den = 1.0 + d_1*kappa2T + d_2*kappa2T2;
+    const REAL8 Q_0 = a_0 / sqrt(q);
 
     /* dimensionless angular frequency of merger */
     const REAL8 Momega_merger = Q_0 * (num / den);
