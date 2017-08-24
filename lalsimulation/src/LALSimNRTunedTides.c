@@ -225,6 +225,15 @@ static double SimNRTunedTidesFDTidalPhase(
  * over an array of input frequencies
  * Note internally we use m1>=m2 - this is enforced in the code.
  * So any can be supplied
+ *
+ * The model for the tidal phase correction was calibrated
+ * up to mass-ratio q=1.5 and kappa2T in [40, 5000].
+ * The upper kappa2T limit is reached roughly for a
+ * 1.4+1.4 BNS with lambda  = 2700 on both NSs.
+ * In the high mass-ratio limit, the BNS merger frequency defined in
+ * XLALSimNRTunedTidesMergerFrequency() asymptotes to zero. The waveform
+ * amplitude should be tapered away starting at this frequency.
+ * Therefore, no explicit limits are enforced.
  */
 int XLALSimNRTunedTidesFDTidalPhaseFrequencySeries(
     const REAL8Sequence *phi_tidal, /**< [out] tidal phase frequency series */

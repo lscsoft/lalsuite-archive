@@ -100,12 +100,6 @@ int SEOBNRv4ROM_NRTidal_Core(
   double Mtot_MSUN = (m1_SI + m2_SI) / LAL_MSUN_SI;
   double q = m1_SI / m2_SI;
 
-  // Impose sanity checks and cutoffs on mass-ratio, and BH spins
-  // FIXME: add limits if not checked in XLALSimNRTunedTidesFDTidalPhaseFrequencySeries()
-  // The model was calibrated up to mass-ratio q=1.5 and kappa2T in [40, 5000].
-  // The upper kappa2T limit is reached roughly for a
-  // 1.4+1.4 BNS with lambda  = 2700 on both NSs.
-
   // Call SEOBNRv4 ROM. We call either the FrequencySequence version
   // or the regular LAL version depending on how we've been called.
 
@@ -176,6 +170,7 @@ int SEOBNRv4ROM_NRTidal_Core(
   }
 
   XLALDestroyREAL8Sequence(freqs);
+  XLALDestroyREAL8Sequence(phi_tidal);
 
   return XLAL_SUCCESS;
 }
