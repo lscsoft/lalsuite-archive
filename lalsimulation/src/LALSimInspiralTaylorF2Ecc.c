@@ -22,7 +22,7 @@
  *  Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
  *  MA  02111-1307  USA
  */
-
+/*
 #include <stdlib.h>
 #include <math.h>
 #include <lal/Date.h>
@@ -34,6 +34,7 @@
 #include <lal/Units.h>
 #include <lal/XLALError.h>
 #include "LALSimInspiralPNCoefficients.c"
+*/
 
 #ifndef _OPENMP
 #define omp ignore
@@ -57,34 +58,7 @@
  * @{
  */
 
-/** \brief Returns structure containing TaylorF2 phasing coefficients for given
- *  physical parameters.
- */
-int XLALSimInspiralTaylorF2AlignedPhasing(
-        PNPhasingSeries **pn,   /**< phasing coefficients (output) */
-        const REAL8 m1,         /**< mass of body 1 */
-        const REAL8 m2,		/**< mass of body 2 */
-        const REAL8 chi1,	/**< aligned spin parameter of body 1 */
-        const REAL8 chi2,	/**< aligned spin parameter of body 2 */
-        LALDict *p              /**< LAL dictionary containing accessory parameters */
-	)
-{
-    PNPhasingSeries *pfa;
-
-    if (!pn) XLAL_ERROR(XLAL_EFAULT);
-    if (*pn) XLAL_ERROR(XLAL_EFAULT);
-
-
-    pfa = (PNPhasingSeries *) LALMalloc(sizeof(PNPhasingSeries));
-
-    XLALSimInspiralPNPhasing_F2(pfa, m1, m2, chi1, chi2, chi1*chi1, chi2*chi2, chi1*chi2, p);
-
-    *pn = pfa;
-
-    return XLAL_SUCCESS;
-}
-
-int XLALSimInspiralTaylorF2Core(
+int XLALSimInspiralTaylorF2CoreEcc(
         COMPLEX16FrequencySeries **htilde_out, /**< FD waveform */
 	const REAL8Sequence *freqs,            /**< frequency points at which to evaluate the waveform (Hz) */
         const REAL8 phi_ref,                   /**< reference orbital phase (rad) */
@@ -95,7 +69,18 @@ int XLALSimInspiralTaylorF2Core(
         const REAL8 f_ref,                     /**< Reference GW frequency (Hz) - if 0 reference point is coalescence */
 	const REAL8 shft,		       /**< time shift to be applied to frequency-domain phase (sec)*/
         const REAL8 r,                         /**< distance of source (m) */
-        LALDict *p /**< Linked list containing the extra testing GR parameters >**/
+        const UNUSED REAL8 quadparam1,         /**< quadrupole deformation parameter of body 1 (dimensionless, 1 for BH) */
+        const UNUSED REAL8 quadparam2,         /**< quadrupole deformation parameter of body 2 (dimensionless, 1 for BH) */
+        const REAL8 lambda1,                   /**< (tidal deformation of body 1)/(mass of body 1)^5 */
+        const REAL8 lambda2,                   /**< (tidal deformation of body 2)/(mass of body 2)^5 */
+        const REAL8 eccentricity,                       /**< eccentricity effect control < 0 : no eccentricity effect */
+        const INT4  ecc_order,                 /**< twice eccentricity effect PN order < 0 : maximum order 3PN */
+        const REAL8 f_ecc,                     /**< eccentricity effect reference frequency */
+        const UNUSED INT4 spinO,               /**< twice PN order of spin effects */
+        const INT4 tideO,                      /**< flag to control tidal effects */
+        const INT4 phaseO,                     /**< twice PN phase order */
+        const INT4 amplitudeO,                 /**< twice PN amplitude order */
+        LALDict *p                       /**< Linked list containing the extra parameters >**/
         )
 {
 
@@ -139,7 +124,6 @@ int XLALSimInspiralTaylorF2Core(
     REAL8 pfa6 = 0.; REAL8 pfl6 = 0.;
     REAL8 pfa7 = 0.;
 
-    INT4 phaseO=XLALSimInspiralWaveformParamsLookupPNPhaseOrder(p);
     switch (phaseO)
     {
         case -1:
@@ -173,7 +157,6 @@ int XLALSimInspiralTaylorF2Core(
      */
 
     /* Validate amplitude PN order. */
-    INT4 amplitudeO=XLALSimInspiralWaveformParamsLookupPNAmplitudeOrder(p);
     switch (amplitudeO)
     {
         case -1:
@@ -194,11 +177,9 @@ int XLALSimInspiralTaylorF2Core(
      */
     REAL8 pft10 = 0.;
     REAL8 pft12 = 0.;
-    REAL8 lambda1=XLALSimInspiralWaveformParamsLookupTidalLambda1(p);
-    REAL8 lambda2=XLALSimInspiralWaveformParamsLookupTidalLambda2(p);
-    switch( XLALSimInspiralWaveformParamsLookupPNTidalOrder(p) )
+    switch( tideO )
     {
-        case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
+	case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_6PN:
 	    pft12 = pfaN * (lambda1*XLALSimInspiralTaylorF2Phasing_12PNTidalCoeff(m1OverM) + lambda2*XLALSimInspiralTaylorF2Phasing_12PNTidalCoeff(m2OverM) );
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_5PN:
@@ -206,7 +187,7 @@ int XLALSimInspiralTaylorF2Core(
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_0PN:
             break;
         default:
-	    XLAL_ERROR(XLAL_EINVAL, "Invalid tidal PN order %d", XLALSimInspiralWaveformParamsLookupPNTidalOrder(p) );
+            XLAL_ERROR(XLAL_EINVAL, "Invalid tidal PN order %d", tideO);
     }
 
     /* The flux and energy coefficients below are used to compute SPA amplitude corrections */
@@ -238,6 +219,11 @@ int XLALSimInspiralTaylorF2Core(
     amp0 = -4. * m1 * m2 / r * LAL_MRSUN_SI * LAL_MTSUN_SI * sqrt(LAL_PI/12.L);
 
     data = htilde->data->data;
+
+    REAL8 v_ecc_ref = 0.0;
+    if( eccentricity > 0 && f_ecc > 0) {
+        v_ecc_ref = cbrt(piM*f_ecc);
+    }
 
     /* Compute the SPA phase at the reference point
      * N.B. f_ref == 0 means we define the reference time/phase at "coalescence"
@@ -272,6 +258,11 @@ int XLALSimInspiralTaylorF2Core(
         /* Tidal terms in reference phasing */
         ref_phasing += pft12 * v12ref;
         ref_phasing += pft10 * v10ref;
+
+        /* Eccentricity terms in phasing */
+        if( eccentricity > 0 && f_ecc > 0) {
+          ref_phasing += eccentricityPhasing_F2(vref, v_ecc_ref, eccentricity, eta, ecc_order);
+        }
 
         ref_phasing /= v5ref;
     } /* End of if(f_ref != 0) block */
@@ -309,6 +300,10 @@ int XLALSimInspiralTaylorF2Core(
         phasing += pft12 * v12;
         phasing += pft10 * v10;
 
+        /* Eccentricity terms in phasing */
+        if( eccentricity > 0 && f_ecc > 0) {
+          phasing += eccentricityPhasing_F2(v, v_ecc_ref, eccentricity, eta, ecc_order);
+        }
         phasing /= v5;
 
     /* WARNING! Amplitude orders beyond 0 have NOT been reviewed!
@@ -357,7 +352,7 @@ int XLALSimInspiralTaylorF2Core(
 
 /**
  * Computes the stationary phase approximation to the Fourier transform of
- * a chirp waveform. The amplitude is given by expanding \f$1/\sqrt{\dot{F}}\f$.
+ * a chirp waveform with eccentric correction. The amplitude is given by expanding \f$1/\sqrt{\dot{F}}\f$.
  * If the PN order is set to -1, then the highest implemented order is used.
  *
  * @note f_ref is the GW frequency at which phi_ref is defined. The most common
@@ -368,10 +363,11 @@ int XLALSimInspiralTaylorF2Core(
  * See arXiv:0810.5336 and arXiv:astro-ph/0504538 for spin corrections
  * to the phasing.
  * See arXiv:1303.7412 for spin-orbit phasing corrections at 3 and 3.5PN order
+ * See Phys. Rev. Lett. 112, 101101(2014) for eccentric phasing corrections upto 3PN order
  *
  * The spin and tidal order enums are defined in LALSimInspiralWaveformFlags.h
  */
-int XLALSimInspiralTaylorF2(
+int XLALSimInspiralTaylorF2Ecc(
         COMPLEX16FrequencySeries **htilde_out, /**< FD waveform */
         const REAL8 phi_ref,                   /**< reference orbital phase (rad) */
         const REAL8 deltaF,                    /**< frequency resolution */
@@ -383,7 +379,18 @@ int XLALSimInspiralTaylorF2(
         const REAL8 fEnd,                      /**< highest GW frequency (Hz) of waveform generation - if 0, end at Schwarzschild ISCO */
         const REAL8 f_ref,                     /**< Reference GW frequency (Hz) - if 0 reference point is coalescence */
         const REAL8 r,                         /**< distance of source (m) */
-        LALDict *p /**< Linked list containing the extra testing GR parameters >**/
+        const REAL8 quadparam1,                /**< quadrupole deformation parameter of body 1 (dimensionless, 1 for BH) */
+        const REAL8 quadparam2,                /**< quadrupole deformation parameter of body 2 (dimensionless, 1 for BH) */
+        const REAL8 lambda1,                   /**< (tidal deformation of body 1)/(mass of body 1)^5 */
+        const REAL8 lambda2,                   /**< (tidal deformation of body 2)/(mass of body 2)^5 */
+        const REAL8 eccentricity,                       /**< eccentricity effect control < 0 : no eccentricity effect */
+        const INT4  ecc_order,                 /**< twice eccentricity effect PN order < 0 : maximum order 3PN */
+        const REAL8 f_ecc,                     /**< eccentricity effect reference frequency */
+        const INT4 spinO,                      /**< twice PN order of spin effects */
+        const INT4 tideO,                      /**< flag to control tidal effects */
+        const INT4 phaseO,                     /**< twice PN phase order */
+        const INT4 amplitudeO,                 /**< twice PN amplitude order */
+        LALDict *p                             /**< Linked list containing the extra parameters >**/
         )
 {
     /* external: SI; internal: solar masses */
@@ -442,8 +449,9 @@ int XLALSimInspiralTaylorF2(
     for (i = iStart; i < n; i++) {
         freqs->data[i-iStart] = i * deltaF;
     }
-    ret = XLALSimInspiralTaylorF2Core(&htilde, freqs, phi_ref, m1_SI, m2_SI,
-                                      S1z, S2z, f_ref, shft, r, p);
+    ret = XLALSimInspiralTaylorF2CoreEcc(&htilde, freqs, phi_ref, m1_SI, m2_SI,
+                                      S1z, S2z, f_ref, shft, r, quadparam1, quadparam2,
+                                      lambda1, lambda2, eccentricity, ecc_order, f_ecc, spinO, tideO, phaseO, amplitudeO, p);
 
     XLALDestroyREAL8Sequence(freqs);
 
@@ -451,9 +459,6 @@ int XLALSimInspiralTaylorF2(
 
     return ret;
 }
-
-/* include eccentric TaylorF2 waveform added by KGWG PE team */
-#include "LALSimInspiralTaylorF2Ecc.c"
 
 /** @} */
 /** @} */

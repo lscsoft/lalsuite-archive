@@ -64,7 +64,7 @@ LALSimInspiralWaveformFlags *XLALSimInspiralCreateWaveformFlags(void)
     waveFlags = XLALMalloc( sizeof(*waveFlags) );
     if( !waveFlags )
     {
-        XLALFree(waveFlags);
+        //XLALFree(waveFlags); // try to free NULL pointer commented out by hwlee and KGWG at 19 Sep 2016
         XLAL_ERROR_NULL(XLAL_ENOMEM);
     }
 
