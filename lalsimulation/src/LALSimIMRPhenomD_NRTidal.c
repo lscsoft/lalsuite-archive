@@ -68,7 +68,7 @@ int XLALSimIMRPhenomD_NRTidal_GenerateFD(
     const REAL8 chi1_in,                  /**< Aligned-spin parameter of companion 1 */
     const REAL8 chi2_in,                  /**< Aligned-spin parameter of companion 2 */
     const REAL8 f_min,                 /**< Starting GW frequency (Hz) */
-    const REAL8 f_max,                 /**< If f_max is 0 then generate upto the merger frequency given by XLALSimNRTunedTidesMergerFrequency. If given a frequency less than the merger then generate up to that. */
+    const REAL8 f_max,                 /**< End frequency; 0 defaults to Mf = \ref f_CUT for IMRPhenomD */
     const REAL8 distance,               /**< Distance of source (m) */
     const REAL8 lambda1_in,               /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
     const REAL8 lambda2_in,               /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
@@ -124,12 +124,6 @@ int XLALSimIMRPhenomD_NRTidal_GenerateFD(
   const REAL8 kappa2T = XLALSimNRTunedTidesComputeKappa2T(m1_SI, m2_SI, lambda1, lambda2);
   const REAL8 BNS_Merger_frequ = XLALSimNRTunedTidesMergerFrequency( mtot_MSUN, kappa2T, m1/m2 );
 
-  REAL8 f_max_prime = 1.2 * BNS_Merger_frequ;
-
-  /* if we ask for a frequency less than the ending frequency then generate up to user requested end frequency */
-  if ((f_max > 0) && (f_max < f_max_prime))
-    f_max_prime = f_max;
-
   int status = XLALSimIMRPhenomDGenerateFD(
       htilde,
       phi0,
@@ -140,7 +134,7 @@ int XLALSimIMRPhenomD_NRTidal_GenerateFD(
       chi1,
       chi2,
       f_min,
-      f_max_prime,
+      f_max,
       distance,
       extraParams
   );
