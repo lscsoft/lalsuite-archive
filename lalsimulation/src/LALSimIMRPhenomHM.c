@@ -1019,9 +1019,11 @@ int XLALIMRPhenomHMMultiModehlm(
     XLAL_CHECK(XLAL_SUCCESS == errcode, errcode, "init_PhenomD_Storage failed");
 
     const REAL8 M = PhenomDQuantities.Mtot;
-    const REAL8 eta = PhenomDQuantities.eta;
+    REAL8 eta = PhenomDQuantities.eta;
     const REAL8 M_sec = M * LAL_MTSUN_SI;
 
+    if (eta > 0.25)
+        nudge(&eta, 0.25, 1e-6);
     if (eta > 0.25 || eta < 0.0)
         XLAL_ERROR(XLAL_EDOM, "Unphysical eta. Must be between 0. and 0.25\n");
 
