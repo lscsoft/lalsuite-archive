@@ -60,7 +60,8 @@ class ChooseWaveformParams:
     def __init__(self, phiref=0., deltaT=1./4096., m1=10.*lal.MSUN_SI,
             m2=10.*lal.MSUN_SI, spin1x=0., spin1y=0., spin1z=0.,
             spin2x=0., spin2y=0., spin2z=0., fmin=40., fref=0., dist=1.e6*lal.PC_SI,
-            incl=0., lambda1=0., lambda2=0., waveFlags=None, nonGRparams=None,
+            incl=0., eccentricity=0., ecc_order=0, f_ecc=0., lambda1=0., lambda2=0., quadparam1=0., quadparam2=0., 
+            waveFlags=None, nonGRparams=None,
             ampO=0, phaseO=7, approx=lalsim.TaylorT4, 
             theta=0., phi=0., psi=0., tref=0., radec=False, detector="H1",
             deltaF=None, fmax=0., # for use w/ FD approximants
@@ -80,8 +81,13 @@ class ChooseWaveformParams:
         self.fref = fref
         self.dist = dist
         self.incl = incl
+        self.eccentricity = eccentricity
+        self.ecc_order = ecc_order
+        self.f_ecc = f_ecc
         self.lambda1 = lambda1
         self.lambda2 = lambda2
+        self.quadparam1 = quadparam1
+        self.quadparam2 = quadparam2
         self.waveFlags = waveFlags
         self.nonGRparams = nonGRparams
         self.ampO = ampO
@@ -116,8 +122,13 @@ class ChooseWaveformParams:
         print "spin2x =", self.spin2x
         print "spin2y =", self.spin2y
         print "spin2z =", self.spin2z
+        print "eccentricity =", self.eccentricity
+        print "ecc_order =", self.ecc_order
+        print "f_ecc =", self.f_ecc
         print "lambda1 =", self.lambda1
         print "lambda2 =", self.lambda2
+        print "quadparam1 =", self.quadparam1
+        print "quadparam2 =", self.quadparam2
         print "inclination =", self.incl
         print "distance =", self.dist / 1.e+6 / lal.PC_SI, "(Mpc)"
         print "reference orbital phase =", self.phiref
@@ -177,6 +188,13 @@ class ChooseWaveformParams:
         self.fmin = row.f_lower
         self.dist = row.distance * lal.PC_SI * 1.e6
         self.incl = row.inclination
+        self.eccentricity = row.eccentricity
+        self.ecc_order = row.ecc_order
+        self.f_ecc = row.f_ecc
+        self.lambda1 = row.lambda1
+        self.lambda2 = row.lambda2
+        self.quadparam1 = row.quadparam1
+        self.quadparam2 = row.quadparam2
         self.ampO = row.amp_order
         self.phaseO = lalsim.GetOrderFromString(row.waveform)
         self.approx = lalsim.GetApproximantFromString(row.waveform)
@@ -681,6 +699,9 @@ def generate_waveform_from_tmplt(tmplt, approximant, delta_f=0.125, f_low=40, am
         m1 = lal.MSUN_SI * tmplt.mass1, m2 = lal.MSUN_SI * tmplt.mass2,
         spin1x = tmplt.spin1x, spin1y = tmplt.spin1y, spin1z = tmplt.spin1z,
         spin2x = tmplt.spin2x, spin2y = tmplt.spin2y, spin2z = tmplt.spin2z,
+        eccentricity = tmplt.eccentricity, ecc_order = tmplt.ecc_order, f_ecc = tmplt.f_ecc,
+        lambda1 = tmplt.lambda1, lambda2 = tmplt.lambda2,
+        quadparam1 = tmplt.quadparam1, quadparam2 = tmplt.quadparam2,
         fmin = f_low, fref = 0,
         dist = 1.e6 * lal.PC_SI, # distance
         ampO = amporder, phaseO = phaseorder,
@@ -998,7 +1019,8 @@ def hoff_FD(P, Fp=None, Fc=None):
 
     hptilde, hctilde = lalsim.SimInspiralChooseFDWaveform(P.phiref, P.deltaF,
             P.m1, P.m2, P.spin1x, P.spin1y, P.spin1z, P.spin2x, P.spin2y, P.spin2z, P.fmin,
-            P.fmax, P.fref, P.dist, P.incl, P.lambda1, P.lambda2, P.waveFlags,
+            P.fmax, P.fref, P.dist, P.incl, P.eccentricity, P.ecc_order, P.f_ecc,
+            P.lambda1, P.lambda2, P.quadparam1, P.quadparam2, P.waveFlags,
             P.nonGRparams, P.ampO, P.phaseO, P.approx)
     if Fp is not None and Fc is not None:
         hptilde.data.data *= Fp

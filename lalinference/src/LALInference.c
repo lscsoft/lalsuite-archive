@@ -2309,6 +2309,17 @@ void LALInferenceLambdaTsEta2Lambdas(REAL8 lambdaT, REAL8 dLambdaT, REAL8 eta, R
   return;
 }
 
+/* added by hwlee to convert lambads to lambdaTs at 1 Sep. 2017 */
+void LALInferenceLambdasEta2LambdaTs(REAL8 lambda1, REAL8 lambda2, REAL8 eta, REAL8 *lambdaT, REAL8 *dLambdaT){
+  REAL8 a=(8./13.)*(1.+7.*eta-31.*eta*eta);
+  REAL8 b=(8./13.)*sqrt(1.-4.*eta)*(1.+9.*eta-11.*eta*eta);
+  REAL8 c=(1./2.)*sqrt(1.-4.*eta)*(1.-13272.*eta/1319.+8944.*eta*eta/1319.);
+  REAL8 d=(1./2.)*(1.-15910.*eta/1319.+32850.*eta*eta/1319.+3380.*eta*eta*eta/1319.);
+  *lambdaT=a*(lambda1+lambda2) + b*(lambda1 - lambda2);
+  *dLambdaT=c*(lambda1+lambda2) + d*(lambda1 - lambda2);
+  return;
+}
+
 static void deleteCell(LALInferenceKDTree *cell) {
   if (cell == NULL) {
     return; /* Our work here is done. */

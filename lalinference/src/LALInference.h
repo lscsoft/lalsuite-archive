@@ -877,6 +877,9 @@ void LALInferenceQ2Eta(double q, double *eta);
 /** Convert from lambdaT, dLambdaT, and eta to lambda1 and lambda2. */
 void LALInferenceLambdaTsEta2Lambdas(REAL8 lambdaT, REAL8 dLambdaT, REAL8 eta, REAL8 *lambda1, REAL8 *lambda2);
 
+/** Convert from lambda1, lambda2, and eta to lambdaT and dLambdaT. added by hwlee at 1 Sep. 2017*/
+void LALInferenceLambdasEta2LambdaTs(REAL8 lambda1, REAL8 lambda2, REAL8 eta, REAL8 *lambdaT, REAL8 *dLambdaT);
+
 /**
  * The kD trees in LALInference are composed of cells.  Each cell
  * represents a rectangular region in parameter space, defined by

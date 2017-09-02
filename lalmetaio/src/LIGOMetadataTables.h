@@ -534,6 +534,7 @@ typedef struct
 tagSimInspiralTable
 {
   struct tagSimInspiralTable *next;
+  long           process_id;
   CHAR           waveform[LIGOMETA_WAVEFORM_MAX];
   LIGOTimeGPS    geocent_end_time;
   LIGOTimeGPS    h_end_time;
@@ -587,6 +588,14 @@ tagSimInspiralTable
   INT4           amp_order;
   CHAR           taper[LIGOMETA_INSPIRALTAPER_MAX];
   INT4           bandpass;
+  long           simulation_id;
+  REAL8          eccentricity;
+  INT4           ecc_order;
+  REAL8          f_ecc;
+  REAL8          lambda1;
+  REAL8          lambda2;
+  REAL8          quadparam1;
+  REAL8          quadparam2;
 }
 SimInspiralTable;
 

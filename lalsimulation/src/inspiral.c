@@ -201,8 +201,13 @@
 #define DEFAULT_S2X 0.0
 #define DEFAULT_S2Y 0.0
 #define DEFAULT_S2Z 0.0
+#define DEFAULT_ECCENTRICITY 0.0
+#define DEFAULT_ECC_ORDER 0
+#define DEFAULT_F_ECC 10.0
 #define DEFAULT_LAMBDA1 0.0
 #define DEFAULT_LAMBDA2 0.0
+#define DEFAULT_QUADPARAM1 1.0
+#define DEFAULT_QUADPARAM2 1.0
 
 /* parameters given in command line arguments */
 struct params {
@@ -228,8 +233,13 @@ struct params {
     double s2x;
     double s2y;
     double s2z;
+    double eccentricity;
+    int ecc_order;
+    double f_ecc;
     double lambda1;
     double lambda2;
+    double quadparam1;
+    double quadparam2;
     LALSimInspiralWaveformFlags *waveFlags;
     LALSimInspiralTestGRParam *nonGRparams;
 };
@@ -452,7 +462,7 @@ int create_td_waveform(REAL8TimeSeries ** h_plus, REAL8TimeSeries ** h_cross, st
             fprintf(stderr, "generating waveform in frequency domain using XLALSimInspiralChooseFDWaveform...\n");
             timer_start = clock();
         }
-        XLALSimInspiralChooseFDWaveform(&htilde_plus, &htilde_cross, p.phiRef, deltaF, p.m1, p.m2, p.s1x, p.s1y, p.s1z, p.s2x, p.s2y, p.s2z, p.f_min, 0.5 * p.srate, p.fRef, p.distance, p.inclination, p.lambda1, p.lambda2, p.waveFlags, p.nonGRparams, p.ampO, p.phaseO, p.approx);
+        XLALSimInspiralChooseFDWaveform(&htilde_plus, &htilde_cross, p.phiRef, deltaF, p.m1, p.m2, p.s1x, p.s1y, p.s1z, p.s2x, p.s2y, p.s2z, p.f_min, 0.5 * p.srate, p.fRef, p.distance, p.inclination, p.eccentricity, p.ecc_order, p.f_ecc, p.lambda1, p.lambda2, p.quadparam1, p.quadparam2, p.waveFlags, p.nonGRparams, p.ampO, p.phaseO, p.approx);
         if (p.verbose)
             fprintf(stderr, "generation took %g seconds\n", (double)(clock() - timer_start) / CLOCKS_PER_SEC);
 
@@ -501,7 +511,7 @@ int create_fd_waveform(COMPLEX16FrequencySeries ** htilde_plus, COMPLEX16Frequen
             fprintf(stderr, "generating waveform in frequency domain using XLALSimInspiralFD...\n");
             timer_start = clock();
         }
-        XLALSimInspiralFD(htilde_plus, htilde_cross, p.phiRef, deltaF, p.m1, p.m2, p.s1x, p.s1y, p.s1z, p.s2x, p.s2y, p.s2z, p.f_min, 0.5 * p.srate, p.fRef, p.distance, redshift, p.inclination, p.lambda1, p.lambda2, p.waveFlags, p.nonGRparams, p.ampO, p.phaseO, p.approx);
+        XLALSimInspiralFD(htilde_plus, htilde_cross, p.phiRef, deltaF, p.m1, p.m2, p.s1x, p.s1y, p.s1z, p.s2x, p.s2y, p.s2z, p.f_min, 0.5 * p.srate, p.fRef, p.distance, redshift, p.inclination, p.eccentricity, p.ecc_order, p.f_ecc, p.lambda1, p.lambda2, p.quadparam1, p.quadparam2, p.waveFlags, p.nonGRparams, p.ampO, p.phaseO, p.approx);
         if (p.verbose)
             fprintf(stderr, "generation took %g seconds\n", (double)(clock() - timer_start) / CLOCKS_PER_SEC);
     } else if (p.domain == LAL_SIM_DOMAIN_FREQUENCY) {
@@ -509,7 +519,7 @@ int create_fd_waveform(COMPLEX16FrequencySeries ** htilde_plus, COMPLEX16Frequen
             fprintf(stderr, "generating waveform in frequency domain using XLALSimInspiralChooseFDWaveform...\n");
             timer_start = clock();
         }
-        XLALSimInspiralChooseFDWaveform(htilde_plus, htilde_cross, p.phiRef, deltaF, p.m1, p.m2, p.s1x, p.s1y, p.s1z, p.s2x, p.s2y, p.s2z, p.f_min, 0.5 * p.srate, p.fRef, p.distance, p.inclination, p.lambda1, p.lambda2, p.waveFlags, p.nonGRparams, p.ampO, p.phaseO, p.approx);
+        XLALSimInspiralChooseFDWaveform(htilde_plus, htilde_cross, p.phiRef, deltaF, p.m1, p.m2, p.s1x, p.s1y, p.s1z, p.s2x, p.s2y, p.s2z, p.f_min, 0.5 * p.srate, p.fRef, p.distance, p.inclination, p.eccentricity, p.ecc_order, p.f_ecc, p.lambda1, p.lambda2, p.quadparam1, p.quadparam2, p.waveFlags, p.nonGRparams, p.ampO, p.phaseO, p.approx);
         if (p.verbose)
             fprintf(stderr, "generation took %g seconds\n", (double)(clock() - timer_start) / CLOCKS_PER_SEC);
     } else {
@@ -705,8 +715,13 @@ int usage(const char *program)
     fprintf(stderr, "\t-x S2X, --spin2x=S2X            \n\t\tx-component of dimensionless spin of secondary [%g]\n", DEFAULT_S2X);
     fprintf(stderr, "\t-y S2Y, --spin2y=S2Y            \n\t\ty-component of dimensionless spin of secondary [%g]\n", DEFAULT_S2Y);
     fprintf(stderr, "\t-z S2Z, --spin2z=S2Z            \n\t\tz-component of dimensionless spin of secondary [%g]\n", DEFAULT_S2Z);
+    fprintf(stderr, "\t-e eccentricity, --eccentricity=eccentricity \n\t\teccentricity of source [%g]\n", DEFAULT_ECCENTRICITY);
+    fprintf(stderr, "\t-P ecc_order, --ecc_order=ecc_order \n\t\teccentricity PN order of source [%d]\n", DEFAULT_ECC_ORDER);
+    fprintf(stderr, "\t-H f_ecc, --f_ecc=f_ecc         \n\t\teccentricity ref. frq. of source [%g]\n", DEFAULT_F_ECC);
     fprintf(stderr, "\t-L LAM1, --tidal-lambda1=LAM1   \n\t\tdimensionless tidal deformability of primary [%g]\n", DEFAULT_LAMBDA1);
     fprintf(stderr, "\t-l LAM2, --tidal-lambda2=LAM2   \n\t\tdimensionless tidal deformability of secondary [%g]\n", DEFAULT_LAMBDA2);
+    fprintf(stderr, "\t-U QM1, --quadparam1=QM1        \n\t\tdimensionless quadrupole deformability of primary [%g]\n", DEFAULT_QUADPARAM1);
+    fprintf(stderr, "\t-u QM2, --quadparam2=QM2        \n\t\tdimensionless quadrupole deformability of secondary [%g]\n", DEFAULT_QUADPARAM2);
     fprintf(stderr, "\t-s SPINO, --spin-order=SPINO    \n\t\ttwice pN order of spin effects (-1 == all) [%d]\n", LAL_SIM_INSPIRAL_SPIN_ORDER_DEFAULT);
     fprintf(stderr, "\t-t TIDEO, --tidal-order=TIDEO   \n\t\ttwice pN order of tidal effects (-1 == all) [%d]\n", LAL_SIM_INSPIRAL_TIDAL_ORDER_DEFAULT);
     fprintf(stderr, "\t-f FMIN, --f-min=FMIN           \n\t\tfrequency to start waveform in Hertz [%g]\n", DEFAULT_F_MIN);
@@ -768,8 +783,13 @@ struct params parseargs(int argc, char **argv)
         .s2x = DEFAULT_S2X,
         .s2y = DEFAULT_S2Y,
         .s2z = DEFAULT_S2Z,
+        .eccentricity = DEFAULT_ECCENTRICITY,
+        .ecc_order = DEFAULT_ECC_ORDER,
+        .f_ecc = DEFAULT_F_ECC,
         .lambda1 = DEFAULT_LAMBDA1,
         .lambda2 = DEFAULT_LAMBDA2,
+        .quadparam1 = DEFAULT_QUADPARAM1,
+        .quadparam2 = DEFAULT_QUADPARAM2,
         .waveFlags = NULL,
         .nonGRparams = NULL
     };
@@ -796,8 +816,13 @@ struct params parseargs(int argc, char **argv)
         {"spin2x", required_argument, 0, 'x'},
         {"spin2y", required_argument, 0, 'y'},
         {"spin2z", required_argument, 0, 'z'},
+        {"eccentricity", required_argument, 0, 'e'},
+        {"ecc_order", required_argument, 0, 'P'},
+        {"f_ecc", required_argument, 0, 'H'},
         {"tidal-lambda1", required_argument, 0, 'L'},
         {"tidal-lambda2", required_argument, 0, 'l'},
+        {"quadparam1", required_argument, 0, 'U'},
+        {"quadparam2", required_argument, 0, 'u'},
         {"spin-order", required_argument, 0, 's'},
         {"tidal-order", required_argument, 0, 't'},
         {"f-min", required_argument, 0, 'f'},
@@ -809,7 +834,7 @@ struct params parseargs(int argc, char **argv)
         {"nonGRpar", required_argument, 0, 'p'},
         {0, 0, 0, 0}
     };
-    char args[] = "hvCFcQa:w:D:O:o:q:r:R:M:m:X:x:Y:y:Z:z:L:l:s:t:f:d:i:A:n:p:";
+    char args[] = "hvCFcQa:w:D:O:o:q:r:R:M:m:X:x:Y:y:Z:z:e:P:H:L:l:U:u:s:t:f:d:i:A:n:p:";
 
     while (1) {
         int option_index = 0;
@@ -917,11 +942,26 @@ struct params parseargs(int argc, char **argv)
         case 'z':      /* spin2z */
             p.s2z = atof(LALoptarg);
             break;
+        case 'e':      /* eccentricity */
+            p.eccentricity = atof(LALoptarg);
+            break;
+        case 'P':      /* eccentricity PN order */
+            p.ecc_order = atoi(LALoptarg);
+            break;
+        case 'H':      /* eccentricity ref. frq. */
+            p.f_ecc = atof(LALoptarg);
+            break;
         case 'L':      /* tidal-lambda1 */
             p.lambda1 = atof(LALoptarg);
             break;
         case 'l':      /* tidal-lambda2 */
             p.lambda2 = atof(LALoptarg);
+            break;
+        case 'U':      /* quadparam1 */
+            p.quadparam1 = atof(LALoptarg);
+            break;
+        case 'u':      /* quadparam2 */
+            p.quadparam2 = atof(LALoptarg);
             break;
         case 's':      /* spin-order */
             if (p.waveFlags == NULL)

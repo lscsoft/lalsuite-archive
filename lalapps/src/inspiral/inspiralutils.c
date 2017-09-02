@@ -1110,10 +1110,10 @@ REAL8 calculate_lalsim_snr(SimInspiralTable *inj, char *IFOname, REAL8FrequencyS
       exit(1);
   }
 
-  REAL8 m1,m2, s1x,s1y,s1z,s2x,s2y,s2z,phi0,f_min,f_max,iota,polarization,
+  REAL8 m1,m2, s1x,s1y,s1z,s2x,s2y,s2z,phi0,f_min,f_max,iota,polarization;
 
   /* No tidal PN terms until injtable is able to get them */
-  lambda1=0.0,lambda2=0.0;
+  //REAL8 lambda1=0.0,lambda2=0.0;
 
   LALSimInspiralWaveformFlags *waveFlags= XLALSimInspiralCreateWaveformFlags();
 
@@ -1149,6 +1149,13 @@ REAL8 calculate_lalsim_snr(SimInspiralTable *inj, char *IFOname, REAL8FrequencyS
   polarization=inj->polarization;
   REAL8 latitude=inj->latitude;
   REAL8 longitude=inj->longitude;
+  REAL8 eccentricity = inj->eccentricity; //added by hwlee for eccentricity
+  REAL8 f_ecc = inj->f_ecc;
+  INT4 ecc_order = inj->ecc_order;
+  REAL8 lambda1 = inj->lambda1; //added by hwlee for tides
+  REAL8 lambda2 = inj->lambda2;
+  REAL8 quadparam1 = inj->quadparam1;
+  REAL8 quadparam2 = inj->quadparam2;
 
   LIGOTimeGPS epoch;
   memcpy(&epoch,&(inj->geocent_end_time),sizeof(LIGOTimeGPS));
@@ -1193,8 +1200,8 @@ REAL8 calculate_lalsim_snr(SimInspiralTable *inj, char *IFOname, REAL8FrequencyS
     COMPLEX16FrequencySeries *hctilde=NULL;
     XLAL_TRY(ret=XLALSimInspiralChooseFDWaveform(&hptilde,&hctilde, phi0, deltaF, m1, m2,
       s1x, s1y, s1z, s2x, s2y, s2z, f_min, 0.0, 0.0, LAL_PC_SI * 1.0e6,
-      iota, lambda1, lambda2, waveFlags, nonGRparams,
-      amporder, order, approx),errnum
+      iota, eccentricity, ecc_order, f_ecc, lambda1, lambda2, quadparam1, quadparam2,
+      waveFlags, nonGRparams, amporder, order, approx),errnum
     );
 
     if(!hptilde|| hptilde->data==NULL || hptilde->data->data==NULL ||!hctilde|| hctilde->data==NULL || hctilde->data->data==NULL)

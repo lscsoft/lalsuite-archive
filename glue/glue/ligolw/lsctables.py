@@ -3007,6 +3007,13 @@ class SimInspiralTable(table.Table):
 		"amp_order": "int_4s",
 		"taper": "lstring",
 		"bandpass": "int_4s",
+		"eccentricity": "real_8",
+		"ecc_order": "int_4s",
+		"f_ecc": "real_8",
+		"lambda1": "real_8",
+		"lambda2": "real_8",
+		"quadparam1": "real_8",
+		"quadparam2": "real_8",
 		"simulation_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (simulation_id)"

@@ -2246,20 +2246,27 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
   REAL8 injtime=0.0;
   injtime=(REAL8) inj_table->geocent_end_time.gpsSeconds + (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9;
 
+  REAL8 eccentricity = (REAL8) inj_table->eccentricity;
+  INT4 ecc_order = (INT4) inj_table->ecc_order;
+  REAL8 f_ecc = (REAL8) inj_table->f_ecc;
+
   REAL8 lambda1 = 0.;
+  lambda1 = (REAL8) inj_table->lambda1;
   if(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")) {
     lambda1= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")->value);
-    fprintf(stdout,"Injection lambda1 set to %f\n",lambda1);
   }
+  fprintf(stdout,"Injection lambda1 set to %f\n",lambda1);
 
   REAL8 lambda2 = 0.;
+  lambda2 = (REAL8) inj_table->lambda2;
   if(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")) {
     lambda2= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")->value);
-    fprintf(stdout,"Injection lambda2 set to %f\n",lambda2);
   }
+  fprintf(stdout,"Injection lambda2 set to %f\n",lambda2);
 
   REAL8 lambdaT = 0.;
   REAL8 dLambdaT = 0.;
+  LALInferenceLambdasEta2LambdaTs(lambda1, lambda2, inj_table->eta, &lambdaT, &dLambdaT);
 
   if(LALInferenceGetProcParamVal(commandLine,"--inj-lambdaT")&&LALInferenceGetProcParamVal(commandLine,"--inj-dLambdaT")) {
     lambdaT= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambdaT")->value);
@@ -2270,6 +2277,11 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
     fprintf(stdout,"lambda1 set to %f\n",lambda1);
     fprintf(stdout,"lambda2 set to %f\n",lambda2);
   }
+
+  /* quadrupole deformation parameters */
+  REAL8 quadparam1 = 1.0, quadparam2 = 1.0;
+  quadparam1 = (REAL8) inj_table->quadparam1;
+  quadparam2 = (REAL8) inj_table->quadparam2;
 
   /* Set up wave flags */
   LALSimInspiralWaveformFlags *waveFlags = XLALSimInspiralCreateWaveformFlags();
@@ -2312,8 +2324,9 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
 
  /* Print a line with information about approximant, amp_order, phaseorder, tide order and spin order */
   fprintf(stdout,"\n\n---\t\t ---\n");
- fprintf(stdout,"Injection will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i, tidal order %i, in the frequency domain.\n",approximant,XLALSimInspiralGetStringFromApproximant(approximant),phase_order,amp_order,(int) spinO,(int) tideO);
-   fprintf(stdout,"---\t\t ---\n\n");
+  fprintf(stdout,"Injection will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i, tidal order %i, in the frequency domain.\n",approximant,XLALSimInspiralGetStringFromApproximant(approximant),phase_order,amp_order,(int) spinO,(int) tideO);
+  fprintf(stdout,"                eccentricity %g, ecc_order %i, f_ecc %g, lambda1 %g, lambda2 %g, lambdaT %g, dLambdaT %g, quadparam1 %g, quadparam2 %g\n",eccentricity, ecc_order, f_ecc, lambda1, lambda2, lambdaT, dLambdaT, quadparam1, quadparam2);
+  fprintf(stdout,"---\t\t ---\n\n");
 
   COMPLEX16FrequencySeries *hptilde=NULL, *hctilde=NULL;
 
@@ -2321,8 +2334,8 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
                                   inj_table->mass1*LAL_MSUN_SI, inj_table->mass2*LAL_MSUN_SI, inj_table->spin1x,
                                   inj_table->spin1y, inj_table->spin1z, inj_table->spin2x, inj_table->spin2y,
                                   inj_table->spin2z, f_min, f_max, fref, inj_table->distance*LAL_PC_SI * 1.0e6,
-                                  inj_table->inclination, lambda1, lambda2, waveFlags,
-                                  nonGRparams, amp_order, phase_order, approximant);
+                                  inj_table->inclination, eccentricity, ecc_order, f_ecc, lambda1, lambda2,
+                                  quadparam1, quadparam2, waveFlags, nonGRparams, amp_order, phase_order, approximant);
 
   /* Fail if injection waveform generation was not successful */
   errnum = *XLALGetErrnoPtr();
@@ -2561,6 +2574,19 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
         LALInferenceAddVariable(vars, "phi_spin2", &phi_spin2, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
       }
   }
+  /* add ecc and f_ecc parameters added by hwlee at 1 Sep. 2017*/
+  REAL8 eccentricity=theEventTable->eccentricity;
+  REAL8 f_ecc=theEventTable->f_ecc;
+  INT4 ecc_order = theEventTable->ecc_order;
+  LALInferenceAddVariable(vars, "eccentricity", &eccentricity, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddVariable(vars, "ecc_order", &ecc_order, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddVariable(vars, "f_ecc", &f_ecc, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  /* add lambda1, lambda2, quadparam1, quadparam2 parameters added by hwlee at 1 Sep. 2017*/
+  REAL8 lambda1, lambda2, quadparam1, quadparam2;
+  LALInferenceAddVariable(vars, "lambda1", &lambda1, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddVariable(vars, "lambda2", &lambda2, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddVariable(vars, "quadparam1", &quadparam1, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddVariable(vars, "quadparam2", &quadparam2, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
 
 }
 

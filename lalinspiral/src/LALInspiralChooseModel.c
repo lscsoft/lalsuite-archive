@@ -542,13 +542,14 @@ XLALInspiralChooseModel(
          case TaylorT3:
          case TaylorF1:
          case TaylorF2:
+         case TaylorF2Ecc:
          case TaylorF2RedSpin:
          case SpinTaylorFrameless:
          case SpinTaylorT3:
          case SpinTaylor:
          case SpinTaylorT4:
          case PhenSpinTaylorRD:
-		 case SpinQuadTaylor:
+         case SpinQuadTaylor:
          case IMRPhenomA:
          case IMRPhenomB:
          case IMRPhenomFA:
@@ -595,13 +596,14 @@ XLALInspiralChooseModel(
          case TaylorT3:
          case TaylorF1:
          case TaylorF2:
+         case TaylorF2Ecc:
          case TaylorF2RedSpin:
          case SpinTaylorFrameless:
          case SpinTaylorT3:
          case SpinTaylor:
          case SpinTaylorT4:
          case PhenSpinTaylorRD:
-		 case SpinQuadTaylor:
+         case SpinQuadTaylor:
          case IMRPhenomA:
          case IMRPhenomB:
          case IMRPhenomFA:
@@ -645,13 +647,14 @@ XLALInspiralChooseModel(
          case TaylorT3:
          case TaylorF1:
          case TaylorF2:
+         case TaylorF2Ecc:
          case TaylorF2RedSpin:
          case SpinTaylorFrameless:
          case SpinTaylorT3:
          case SpinTaylor:
          case SpinTaylorT4:
          case PhenSpinTaylorRD:
-		 case SpinQuadTaylor:
+         case SpinQuadTaylor:
          case IMRPhenomA:
          case IMRPhenomB:
          case IMRPhenomFA:
@@ -698,13 +701,14 @@ XLALInspiralChooseModel(
          case TaylorT3:
          case TaylorF1:
          case TaylorF2:
+         case TaylorF2Ecc:
          case TaylorF2RedSpin:
          case SpinTaylorFrameless:
          case SpinTaylorT3:
          case SpinTaylor:
          case SpinTaylorT4:
          case PhenSpinTaylorRD:
-		 case SpinQuadTaylor:
+         case SpinQuadTaylor:
 /*
    The value vlsoT4 is too large and doesn't work sometimes;
    so we use vlsoT2.
@@ -755,13 +759,14 @@ XLALInspiralChooseModel(
          case TaylorT3:
          case TaylorF1:
          case TaylorF2:
+         case TaylorF2Ecc:
          case TaylorF2RedSpin:
          case SpinTaylorFrameless:
          case SpinTaylorT3:
          case SpinTaylor:
          case SpinTaylorT4:
          case PhenSpinTaylorRD:
-		 case SpinQuadTaylor:
+         case SpinQuadTaylor:
 /*
    The value vlsoT4 is too large and doesn't work with 2.5 PN
    Taylor approximant; so we use vlsoT2.
@@ -812,13 +817,14 @@ XLALInspiralChooseModel(
          case TaylorT3:
          case TaylorF1:
          case TaylorF2:
+         case TaylorF2Ecc:
          case TaylorF2RedSpin:
          case SpinTaylorFrameless:
          case SpinTaylorT3:
          case SpinTaylorT4:
          case SpinTaylor:
          case PhenSpinTaylorRD:
-	     case SpinQuadTaylor:
+         case SpinQuadTaylor:
 /*
    vlsoT6 is as yet undetermined and vlsoT4 is too large in
    certain cases (TaylorT2 crashes for (1.4,10)); using vlsoT2;
@@ -869,13 +875,14 @@ XLALInspiralChooseModel(
          case TaylorT3:
          case TaylorF1:
          case TaylorF2:
+         case TaylorF2Ecc:
          case TaylorF2RedSpin:
          case SpinTaylorFrameless:
          case SpinTaylorT3:
          case SpinTaylor:
          case SpinTaylorT4:
          case PhenSpinTaylorRD:
-		 case SpinQuadTaylor:
+         case SpinQuadTaylor:
             ak->vn = ak->vlso = vlso = ak->vlsoT2;
             f->dEnergy = dEt6;
             f->flux = Ft7;
@@ -939,6 +946,7 @@ XLALInspiralChooseModel(
          case TaylorT3:
          case TaylorF1:
          case TaylorF2:
+         case TaylorF2Ecc:
          case TaylorF2RedSpin:
          case SpinTaylorFrameless:
          case SpinTaylorT3:
@@ -977,6 +985,7 @@ XLALInspiralChooseModel(
       case PadeT1:
       case PadeF1:
       case TaylorF2:
+      case TaylorF2Ecc:
       case TaylorF2RedSpin:
       case SpinTaylorFrameless:
       case SpinTaylorT3:

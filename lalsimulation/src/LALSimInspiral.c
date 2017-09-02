@@ -84,6 +84,7 @@ static const char *lalSimulationApproximantNames[] = {
     INITIALIZE_NAME(TaylorT3),
     INITIALIZE_NAME(TaylorF1),
     INITIALIZE_NAME(TaylorF2),
+    INITIALIZE_NAME(TaylorF2Ecc),
     INITIALIZE_NAME(TaylorR2F4),
     INITIALIZE_NAME(TaylorF2RedSpin),
     INITIALIZE_NAME(TaylorF2RedSpinTidal),
@@ -269,7 +270,7 @@ static double fixReferenceFrequency(double f_ref, double f_min, Approximant appr
  * some helper routines for XLALSimInspiralTD
  */
 static int XLALSimInspiralTDFromTD(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, REAL8 phiRef, REAL8 deltaT, REAL8 m1, REAL8 m2, REAL8 S1x, REAL8 S1y, REAL8 S1z, REAL8 S2x, REAL8 S2y, REAL8 S2z, REAL8 f_min, REAL8 f_ref, REAL8 r, REAL8 z, REAL8 i, REAL8 lambda1, REAL8 lambda2, LALSimInspiralWaveformFlags *waveFlags, LALSimInspiralTestGRParam *nonGRparams, int amplitudeO, int phaseO, Approximant approximant);
-static int XLALSimInspiralTDFromFD(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, REAL8 phiRef, REAL8 deltaT, REAL8 m1, REAL8 m2, REAL8 S1x, REAL8 S1y, REAL8 S1z, REAL8 S2x, REAL8 S2y, REAL8 S2z, REAL8 f_min, REAL8 f_ref, REAL8 r, REAL8 z, REAL8 i, REAL8 lambda1, REAL8 lambda2, LALSimInspiralWaveformFlags *waveFlags, LALSimInspiralTestGRParam *nonGRparams, int amplitudeO, int phaseO, Approximant approximant);
+static int XLALSimInspiralTDFromFD(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, REAL8 phiRef, REAL8 deltaT, REAL8 m1, REAL8 m2, REAL8 S1x, REAL8 S1y, REAL8 S1z, REAL8 S2x, REAL8 S2y, REAL8 S2z, REAL8 f_min, REAL8 f_ref, REAL8 r, REAL8 z, REAL8 i, REAL8 eccentricity, INT4 ecc_order, REAL8 f_ecc, REAL8 lambda1, REAL8 lambda2, REAL8 quadparam1, REAL8 quadparam2, LALSimInspiralWaveformFlags *waveFlags, LALSimInspiralTestGRParam *nonGRparams, int amplitudeO, int phaseO, Approximant approximant);
 
 
 /**
@@ -693,7 +694,7 @@ int XLALSimInspiralChooseTDWaveform(
 	    // calculated from hplus and hcross, apply inclination-dependent factors
 	    // in loop below
 	    ret = XLALSimInspiralTDFromFD(hplus, hcross, phiRef, deltaT, m1, m2, S1x, S1y, S1z,
-			    S2x, S2y, S2z, f_min, f_ref, r, 0, 0, lambda1, lambda2,
+			    S2x, S2y, S2z, f_min, f_ref, r, 0, 0, 0.0, 0, 10.0, lambda1, lambda2, 1.0, 1.0,
 			    waveFlags, nonGRparams, amplitudeO, phaseO, approximant);
 	    REAL8 maxamp=0;
 	    REAL8TimeSeries *hp = *hplus;
@@ -721,7 +722,7 @@ int XLALSimInspiralChooseTDWaveform(
 
 	case IMRPhenomPv2:
 	    ret = XLALSimInspiralTDFromFD(hplus, hcross, phiRef, deltaT, m1, m2, S1x, S1y, S1z,
-			    S2x, S2y, S2z, f_min, f_ref, r, 0, i, lambda1, lambda2,
+			    S2x, S2y, S2z, f_min, f_ref, r, 0, i, 0.0, 0, 10.0, lambda1, lambda2, 1.0, 1.0,
 			    waveFlags, nonGRparams, amplitudeO, phaseO, approximant);
 	    break;
 
@@ -891,8 +892,13 @@ int XLALSimInspiralChooseFDWaveform(
     REAL8 f_ref,                            /**< Reference frequency (Hz) */
     REAL8 r,                                /**< distance of source (m) */
     REAL8 i,                                /**< inclination of source (rad) */
+    REAL8 eccentricity,                      /**< eccentricity of source (dimensionless) */
+    INT4 ecc_order,                         /**< eccentricity PN order of source (dimensionless) */
+    REAL8 f_ecc,                            /**< eccentricity ref. frq. of source (Hz) */
     REAL8 lambda1,                          /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
     REAL8 lambda2,                          /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
+    REAL8 quadparam1,                       /**< (quadrupole deformation of mass 1) (dimensionless) */
+    REAL8 quadparam2,                       /**< (quadrupole deformation of mass 2) (dimensionless) */
     LALSimInspiralWaveformFlags *waveFlags, /**< Set of flags to control special behavior of some waveform families. Pass in NULL (or None in python) for default flags */
     LALSimInspiralTestGRParam *nonGRparams, /**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,                         /**< twice post-Newtonian amplitude order */
@@ -908,7 +914,7 @@ int XLALSimInspiralChooseFDWaveform(
     int ret;
     unsigned int j;
     REAL8 pfac, cfac;
-    REAL8 quadparam1 = 1., quadparam2 = 1.; /* FIXME: This cannot yet be set in the interface */
+    //REAL8 quadparam1 = 1., quadparam2 = 1.; /* FIXME: This cannot yet be set in the interface */
     INT4 phiRefAtEnd;
 
     /* Support variables for precessing wfs*/
@@ -1003,6 +1009,36 @@ int XLALSimInspiralChooseFDWaveform(
             /* Call the waveform driver routine */
             ret = XLALSimInspiralTaylorF2(hptilde, phiRef, deltaF, m1, m2,
                     S1z, S2z, f_min, f_max, f_ref, r,
+                    quadparam1, quadparam2, lambda1, lambda2,
+                    XLALSimInspiralGetSpinOrder(waveFlags),
+                    XLALSimInspiralGetTidalOrder(waveFlags),
+                    phaseO, amplitudeO, nonGRparams);
+            if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
+            /* Produce both polarizations */
+            *hctilde = XLALCreateCOMPLEX16FrequencySeries("FD hcross",
+                    &((*hptilde)->epoch), (*hptilde)->f0, (*hptilde)->deltaF,
+                    &((*hptilde)->sampleUnits), (*hptilde)->data->length);
+            for(j = 0; j < (*hptilde)->data->length; j++) {
+                (*hctilde)->data->data[j] = -I*cfac * (*hptilde)->data->data[j];
+                (*hptilde)->data->data[j] *= pfac;
+            }
+            break;
+
+        /* inspiral with eccentricity waveform models */
+        case TaylorF2Ecc:
+            /* Waveform-specific sanity checks */
+            if( !XLALSimInspiralFrameAxisIsDefault(
+                    XLALSimInspiralGetFrameAxis(waveFlags) ) )
+                ABORT_NONDEFAULT_FRAME_AXIS(waveFlags);
+            if( !XLALSimInspiralModesChoiceIsDefault(
+                    XLALSimInspiralGetModesChoice(waveFlags) ) )
+                ABORT_NONDEFAULT_MODES_CHOICE(waveFlags);
+            if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
+                ABORT_NONZERO_TRANSVERSE_SPINS(waveFlags);
+
+            /* Call the waveform driver routine */
+            ret = XLALSimInspiralTaylorF2Ecc(hptilde, phiRef, deltaF, m1, m2,
+                    S1z, S2z, f_min, f_max, f_ref, r, eccentricity, ecc_order, f_ecc,
                     quadparam1, quadparam2, lambda1, lambda2,
                     XLALSimInspiralGetSpinOrder(waveFlags),
                     XLALSimInspiralGetTidalOrder(waveFlags),
@@ -1664,8 +1700,13 @@ static int XLALSimInspiralTDFromFD(
     REAL8 r,                                    /**< distance of source (m) */
     REAL8 z,                                    /**< redshift of source frame relative to observer frame */
     REAL8 i,                                    /**< inclination of source (rad) */
+    REAL8 eccentricity,                         /**< eccentricty of source (dimensionless) */
+    INT4 ecc_order,                             /**< eccentricty iPN order of source (dimensinless) */
+    REAL8 f_ecc,                                /**< iref. frq. of eccentricty of source (Hz) */
     REAL8 lambda1,                              /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
     REAL8 lambda2,                              /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
+    REAL8 quadparam1,                           /**< (quadrupole deformation parameter of mass 1)(dimensionless) */
+    REAL8 quadparam2,                           /**< (quadrupole deformation parameter of mass 2)(dimensionless) */
     LALSimInspiralWaveformFlags *waveFlags,     /**< Set of flags to control special behavior of some waveform families. Pass in NULL (or None in python) for default flags */
     LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
@@ -1726,7 +1767,7 @@ static int XLALSimInspiralTDFromFD(
     /* generate the conditioned waveform in the frequency domain */
     /* note: redshift factor has already been applied above */
     /* set deltaF = 0 to get a small enough resolution */
-    retval = XLALSimInspiralFD(&hptilde, &hctilde, phiRef, 0.0, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, 0.5/deltaT, f_ref, r, 0.0, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, approximant);
+    retval = XLALSimInspiralFD(&hptilde, &hctilde, phiRef, 0.0, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, 0.5/deltaT, f_ref, r, 0.0, i, eccentricity, ecc_order, f_ecc, lambda1, lambda2, quadparam1, quadparam2, waveFlags, nonGRparams, amplitudeO, phaseO, approximant);
     if (retval < 0)
         XLAL_ERROR(XLAL_EFUNC);
 
@@ -1851,7 +1892,7 @@ int XLALSimInspiralTD(
         if (XLALSimInspiralTDFromTD(hplus, hcross, phiRef, deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, z, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, approximant) < 0)
             XLAL_ERROR(XLAL_EFUNC);
     } else if (XLALSimInspiralImplementedFDApproximants(approximant)) {
-        if (XLALSimInspiralTDFromFD(hplus, hcross, phiRef, deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, z, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, approximant) < 0)
+        if (XLALSimInspiralTDFromFD(hplus, hcross, phiRef, deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, z, i, 0.0,0, 10.0, lambda1, lambda2, 1.0, 1.0, waveFlags, nonGRparams, amplitudeO, phaseO, approximant) < 0)
             XLAL_ERROR(XLAL_EFUNC);
     } else
         XLAL_ERROR(XLAL_EINVAL, "Invalid approximant");
@@ -1913,8 +1954,13 @@ int XLALSimInspiralFD(
     REAL8 r,                                    /**< distance of source (m) */
     REAL8 z,                                    /**< redshift of source frame relative to observer frame */
     REAL8 i,                                    /**< inclination of source (rad) */
+    REAL8 eccentricity,                         /**< eccentricity of source (dimensionless) */
+    INT4 ecc_order,                             /**< eccentricity PN order of source (dimensionless) */
+    REAL8 f_ecc,                                /**< eccentricity ref. frq. of source (Hz) */
     REAL8 lambda1,                              /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
     REAL8 lambda2,                              /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
+    REAL8 quadparam1,                           /**< (quadrupole deformability of mass 1) (dimensionless) */
+    REAL8 quadparam2,                           /**< (quadrupole deformability of mass 1) (dimensionless) */
     LALSimInspiralWaveformFlags *waveFlags,     /**< Set of flags to control special behavior of some waveform families. Pass in NULL (or None in python) for default flags */
     LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
@@ -1970,6 +2016,7 @@ int XLALSimInspiralFD(
         /* upper bound on the final plunge, merger, and ringdown time */
         switch (approximant) {
         case TaylorF2:
+        case TaylorF2Ecc:
         case SpinTaylorF2:
         case TaylorF2RedSpin:
         case TaylorF2RedSpinTidal:
@@ -2012,7 +2059,7 @@ int XLALSimInspiralFD(
             XLAL_PRINT_WARNING("Specified frequency interval of %g Hz is too large for a chirp of duration %g s", deltaF, chirplen * deltaT);
 
         /* generate the waveform in the frequency domain starting at fstart */
-        retval = XLALSimInspiralChooseFDWaveform(hptilde, hctilde, phiRef, deltaF, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, fstart, f_max, f_ref, r, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, approximant);
+        retval = XLALSimInspiralChooseFDWaveform(hptilde, hctilde, phiRef, deltaF, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, fstart, f_max, f_ref, r, i, eccentricity, ecc_order, f_ecc, lambda1, lambda2, quadparam1, quadparam2, waveFlags, nonGRparams, amplitudeO, phaseO, approximant);
         if (retval < 0)
             XLAL_ERROR(XLAL_EFUNC);
 
@@ -4010,6 +4057,7 @@ int XLALSimInspiralImplementedFDApproximants(
         case SEOBNRv4_ROM:
         //case TaylorR2F4:
         case TaylorF2:
+        case TaylorF2Ecc:
 	case EccentricFD:
         case SpinTaylorF2:
         case TaylorF2RedSpin:
@@ -4410,6 +4458,7 @@ int XLALSimInspiralGetSpinSupportFromApproximant(Approximant approx){
       spin_support=LAL_SIM_INSPIRAL_SINGLESPIN;
       break;
     case TaylorF2:
+    case TaylorF2Ecc:
     case TaylorF2RedSpin:
     case TaylorF2RedSpinTidal:
     case IMRPhenomB:
@@ -4525,6 +4574,7 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
       testGR_accept=LAL_SIM_INSPIRAL_NO_TESTGR_PARAMS;
       break;
     case TaylorF2:
+    case TaylorF2Ecc:
     case SpinTaylorF2:
     case EccentricFD:
     case Eccentricity:
@@ -4873,6 +4923,7 @@ double XLALSimInspiralGetFinalFreq(
                 XLAL_ERROR(XLAL_EINVAL);
             }
         case TaylorF2:
+        case TaylorF2Ecc:
         case TaylorF2RedSpin:
         case TaylorF2RedSpinTidal:
             if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
