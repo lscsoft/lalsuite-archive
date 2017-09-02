@@ -867,7 +867,7 @@ static int StoreTDHCache(LALSimInspiralWaveformCache *cache,
     XLALDestroyREAL8TimeSeries(cache->hcross);
     if (hplus == NULL || hcross == NULL || hplus->data == NULL || hcross->data == NULL){
         XLALPrintError("We have null pointers for h+, hx in StoreTDHCache \n");
-        XLALPrintError("Houston-S, we've got a problem SOS, SOS, SOS, the waveform generator returns NULL!!!... m1 = %.18e, m2 = %.18e, fMin = %.18e, spin1 = {%.18e, %.18e, %.18e},   spin2 = {%.18e, %.18e, %.18e} \n", 
+        XLALPrintError("Houston-S, we've got a problem SOS, SOS, SOS, the waveform generator returns NULL!!!... m1 = %.18e, m2 = %.18e, fMin = %.18e, spin1 = {%.18e, %.18e, %.18e},   spin2 = {%.18e, %.18e, %.18e} \n",
                    m1, m2, (double)f_min, S1x, S1y, S1z, S2x, S2y, S2z);
         return XLAL_ENOMEM;
     }
@@ -1195,6 +1195,17 @@ int XLALSimInspiralChooseFDWaveformSequence(
                     phiRef, f_ref, r, i, m1, m2, S1z, S2z, -1);
             break;
 
+        case SEOBNRv4_ROM_NRTidal:
+            /* Waveform-specific sanity checks */
+            if( !XLALSimInspiralWaveformFlagsIsDefault(waveFlags) )
+                ABORT_NONDEFAULT_WAVEFORM_FLAGS(waveFlags);
+            if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
+                ABORT_NONZERO_TRANSVERSE_SPINS(waveFlags);
+
+            ret = XLALSimIMRSEOBNRv4ROMNRTidalFrequencySequence(hptilde, hctilde, frequencies,
+                    phiRef, f_ref, r, i, m1, m2, S1z, S2z, lambda1, lambda2);
+            break;
+
         case Lackey_Tidal_2013_SEOBNRv2_ROM:
             /* Waveform-specific sanity checks */
             if( !XLALSimInspiralWaveformFlagsIsDefault(waveFlags) )
@@ -1283,5 +1294,3 @@ int XLALSimInspiralChooseFDWaveformSequence(
 
     return ret;
 }
-
-
