@@ -2043,11 +2043,9 @@ SimInspiralTableFromLIGOLw (
           }
         }
         else if ( tableDir[j].idx == 58 ) {
-        	//thisSim->qmParameter1 = r4colData;
         	thisSim->eccentricity = r8colData;
         }
         else if ( tableDir[j].idx == 59 ) {
-        	//thisSim->qmParameter2 = r4colData;
         	thisSim->ecc_order = i4colData;
         }
         else if ( tableDir[j].idx == 60 ) {

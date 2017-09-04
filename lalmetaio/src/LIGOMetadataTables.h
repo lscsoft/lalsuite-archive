@@ -579,8 +579,8 @@ tagSimInspiralTable
   REAL4          eff_dist_g;
   REAL4          eff_dist_t;
   REAL4          eff_dist_v;
-  REAL4	         qmParameter1;
-  REAL4		 qmParameter2;
+//  REAL4	         qmParameter1; //these parameters renamed as quadparamer1, 2
+//  REAL4		 qmParameter2; // and modified relavants source by hwlee at 4 Sep. 2017
   EventIDColumn  *event_id;
   INT4           numrel_mode_min;
   INT4           numrel_mode_max;
