@@ -558,8 +558,10 @@ tagSimInspiralTable
   REAL4          eff_dist_g;
   REAL4          eff_dist_t;
   REAL4          eff_dist_v;
-  REAL4	         qmParameter1;
-  REAL4		 qmParameter2;
+  REAL8	         quadparam1; // changed from qmParameter1 to quadparam1 by hwlee at 5 Sep. 2017
+  REAL8		 quadparam2;
+  REAL8		 lambda1; // added for tides by hwlee at 5 Sep. 2017
+  REAL8		 lambda2;
   long           simulation_id;
   INT4           numrel_mode_min;
   INT4           numrel_mode_max;
