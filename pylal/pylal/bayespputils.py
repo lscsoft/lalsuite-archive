@@ -145,9 +145,10 @@ ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB',
 tigerParams=['dchi%i'%(i) for i in range(8)] + ['dchi%il'%(i) for i in [5,6] ] + ['dxi%d'%(i+1) for i in range(6)] + ['dalpha%i'%(i+1) for i in range(5)] + ['dbeta%i'%(i+1) for i in range(3)] + ['dsigma%i'%(i+1) for i in range(4)]
 bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
 massiveGravitonParams=['lambdaG']
-tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat']
+tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat','quadparam1','quadparam']
 energyParams=['e_rad', 'l_peak']
-strongFieldParams=ppEParams+tigerParams+bransDickeParams+massiveGravitonParams+tidalParams+energyParams
+eccentricityParams=['eccentricity']
+strongFieldParams=ppEParams+tigerParams+bransDickeParams+massiveGravitonParams+tidalParams+energyParams+eccentricityParams
 
 #Extrinsic
 distParams=['distance','distMPC','dist']
@@ -345,6 +346,9 @@ def get_prior(name):
       'dlambdat':None,
       'lambda1' : 'uniform',
       'lambda2': 'uniform',
+      'quadparam1' : 'uniform',
+      'quadparam2': 'uniform',
+      'eccentricity': 'uniform',
       'lam_tilde' : None,
       'dlam_tilde': None,
       'calamp_h1' : 'uniform',
@@ -439,6 +443,9 @@ def plot_label(param):
       'dlambdat': r'$\delta \tilde{\Lambda}$',
       'lambda1' : r'$\lambda_1$',
       'lambda2': r'$\lambda_2$',
+      'quadparam1' : r'$Qm_1$',
+      'quadparam2' : r'$Qm_2$',
+      'eccentricity': r'$\varepsilon$',
       'lam_tilde' : r'$\tilde{\Lambda}$',
       'dlam_tilde': r'$\delta \tilde{\Lambda}$',
       'calamp_h1' : r'$\delta A_{H1}$',
@@ -6584,8 +6591,13 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
       iota=tbl.inclination
       print "WARNING: Defaulting to inj_fref =100Hz to plot the injected WF. This is hardcoded since xml table does not carry this information\n"
 
-      lambda1=0
-      lambda2=0
+      lambda1=tbl.lambda1
+      lambda2=tbl.lambda2
+      quadparam1=tbl.quadparam1
+      quadparam2=tbl.quadparam2
+      eccentricity=tbl.eccentricity
+      ecc_order=tbl.ecc_order
+      f_ecc=tbl.f_ecc
       waveFlags=None
       nonGRparams=None
       wf=str(tbl.waveform)
@@ -6600,7 +6612,7 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
 
       if SimInspiralImplementedFDApproximants(injapproximant):
         inj_domain='F'
-        [plus,cross]=SimInspiralChooseFDWaveform(phiRef, deltaF,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min,f_max, f_ref,  r,   iota, lambda1,   lambda2,waveFlags, nonGRparams, amplitudeO, phaseO, injapproximant)
+        [plus,cross]=SimInspiralChooseFDWaveform(phiRef, deltaF,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min,f_max, f_ref,  r,   iota, eccentricity, ecc_order, f_ecc, lambda1, lambda2, quadparam1, quadparam2, waveFlags, nonGRparams, amplitudeO, phaseO, injapproximant)
       elif SimInspiralImplementedTDApproximants(injapproximant):
         inj_domain='T'
         [plus,cross]=SimInspiralChooseTDWaveform(phiRef, deltaT,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min, f_ref,   r,   iota, lambda1,   lambda2,waveFlags, nonGRparams, amplitudeO, phaseO, injapproximant)
@@ -6748,8 +6760,27 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
 
       r=D*LAL_PC_SI*1.0e6
 
-      lambda1=0
-      lambda2=0
+      lambda1=tbl.lambda1
+      if 'lambda1' in pos.names:
+        lambda1=pos['lambda1'].samples[which][0]
+      lambda2=tbl.lambda2
+      if 'lambda2' in pos.names:
+        lambda2=pos['lambda2'].samples[which][0]
+      quadparam1=tbl.quadparam1
+      if 'quadparam1' in pos.names:
+        quadparam1=pos['quadparam1'].samples[which][0]
+      quadparam2=tbl.quadparam2
+      if 'quadparam2' in pos.names:
+        quadparam2=pos['quadparam2'].samples[which][0]
+      eccentricity=tbl.eccentricity
+      if 'eccentricity' in pos.names:
+        eccentricity=pos['eccentricity'].samples[which][0]
+      ecc_order=tbl.ecc_order
+      if 'ecc_order' in pos.names:
+        ecc_order=pos['ecc_order'].samples[which][0]
+      f_ecc=tbl.f_ecc
+      if 'f_ecc' in pos.names:
+        f_ecc=pos['f_ecc'].samples[which][0]
       waveFlags=None
       nonGRparams=None
       approximant=int(pos['LAL_APPROXIMANT'].samples[which][0])
@@ -6758,7 +6789,7 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
 
       if SimInspiralImplementedFDApproximants(approximant):
         rec_domain='F'
-        [plus,cross]=SimInspiralChooseFDWaveform(phiRef, deltaF,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min, f_max,   f_ref,r,   iota, lambda1,   lambda2,waveFlags, nonGRparams, amplitudeO, phaseO, approximant)
+        [plus,cross]=SimInspiralChooseFDWaveform(phiRef, deltaF,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min, f_max, f_ref,r, iota, eccentricity, ecc_order, f_ecc,  lambda1, lambda2, quadparam1, quadparam2, waveFlags, nonGRparams, amplitudeO, phaseO, approximant)
       elif SimInspiralImplementedTDApproximants(approximant):
         rec_domain='T'
         [plus,cross]=SimInspiralChooseTDWaveform(phiRef, deltaT,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min, f_ref,  r,   iota, lambda1,   lambda2,waveFlags, nonGRparams, amplitudeO, phaseO, approximant)
