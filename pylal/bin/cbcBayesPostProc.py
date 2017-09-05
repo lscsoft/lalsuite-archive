@@ -808,7 +808,9 @@ def cbcBayesPostProc(
     timeParams=['time']
     spinParams=['spin1','spin2','a1','a2','a1z','a2z','phi1','theta1','phi2','theta2','chi','effectivespin','chi_eff','chi_tot','chi_p','beta','tilt1','tilt2','phi_jl','theta_jn','phi12']
     sourceParams=['m1_source','m2_source','mtotal_source','mc_source','redshift']
-    intrinsicParams=massParams+spinParams
+    tidalParams=['lambda1','lambda2','quadparam1','quadparam2']
+    eccentricityParams=['eccentricity']
+    intrinsicParams=massParams+spinParams+tidalParams+eccentricityParams
     extrinsicParams=incParams+distParams+polParams+skyParams
     sourceFrameParams=sourceParams+distParams
     try:
@@ -1240,7 +1242,7 @@ if __name__=='__main__':
       fixedBurnins = None
 
     import pylal
-    from pylal.bayespputils import massParams,spinParams,cosmoParam,strongFieldParams,distParams,incParams,polParams,skyParams,phaseParams,timeParams,endTimeParams,statsParams,calibParams,snrParams,tidalParams
+    from pylal.bayespputils import massParams,spinParams,cosmoParam,strongFieldParams,distParams,incParams,polParams,skyParams,phaseParams,timeParams,endTimeParams,statsParams,calibParams,snrParams,tidalParams,eccentricityParams
 
     oneDMenus={'Masses':None,'SourceFrame':None,'Timing':None,'Extrinsic':None,'Spins':None,'StrongField':None,'Others':None}
 
@@ -1312,6 +1314,8 @@ if __name__=='__main__':
         twoDGreedyMenu.append(['lambda1','lambda2'])
         twoDGreedyMenu.append(['lam_tilde','dlam_tilde'])
         twoDGreedyMenu.append(['lambdat','dlambdat'])
+        twoDGreedyMenu.append(['quadparam1','quadparam1'])
+        twoDGreedyMenu.append(['mc','eccentricity'])
         for psip in polParams:
             for phip in phaseParams:
                 twoDGreedyMenu.append([psip,phip])
