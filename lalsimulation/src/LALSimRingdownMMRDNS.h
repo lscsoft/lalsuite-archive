@@ -66,29 +66,6 @@
 /* General model methods and parameters     */
 /* ---------------------------------------- */
 
-/* Gnerate Time domain ringdown waveform  */
-UNUSED int XLALSimRingdownMMRDNSTD(
-        UNUSED REAL8TimeSeries **hplus,        /**< OUTPUT h_+ vector */
-        UNUSED REAL8TimeSeries **hcross,       /**< OUTPUT h_x vector */
-        UNUSED REAL8 phiRef,                   /**< orbital phase at reference pt. */
-        UNUSED REAL8 inclination,              /**< inclination angle */
-        UNUSED REAL8 deltaT,                   /**< sampling interval (s) */
-        UNUSED REAL8 m1,                       /**< mass of companion 1 (kg) */
-        UNUSED REAL8 m2,                       /**< mass of companion 2 (kg) */
-        UNUSED REAL8 r,                        /**< distance of source (m) */
-        UNUSED const LALSimInspiralTestGRParam *extraParams /**< linked list containing the extra testing GR parameters */
-        );
-
-/* XLALSimRingdownSingleModeTD: Time domain waveformgenerator for single QNM without angular dependence (i.e. this function generates multipole moments only ). In  */
-UNUSED int XLALSimRingdownGenerateSingleModeTD(
-  UNUSED COMPLEX16TimeSeries **hk,        /**< OUTPUT vector for QNM time series */
-  UNUSED const LIGOTimeGPS T0,            /**< Start time  */
-  UNUSED REAL8 deltaT,                    /**< sampling interval (s) */
-  UNUSED REAL8 Nsamples,                  /**< Number of time domain samples */
-  UNUSED complex double Ak,               /**< COMPLEX QNM Strain Amplitude */
-  UNUSED complex double CWk               /**< COMPLEX QNM Frequency */
-);
-
 /* XLALSimRingdownMMRDNSFD: Frequency domain waveformgenerator for all QNM with angular dependence */
 int XLALSimRingdownMMRDNSFD(
         COMPLEX16FrequencySeries **hptilde,          /**< OUTPUT FD h_+ polarization */
@@ -131,6 +108,7 @@ int XLALSimRingdownMMRDNS_time(
         REAL8TimeSeries **hcross,                     /**< OUTPUT TD waveform */
         const LIGOTimeGPS *t0,                       /**< start time of ringdown => NEEDS TO BE CHECKED! */
         REAL8 deltaT,                                /**< sampling interval (s) */
+        UINT4 Nsamples,                              /**< Number of samples (effective T_End) */
         REAL8 Mf,                                    /**< Final BH Mass (kg) */
         REAL8 jf,                                    /**< Final BH dimensionaless spin */
         REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
@@ -161,7 +139,7 @@ int XLALSimRingdownGenerateSingleModeMMRDNS_time(
 
 );
 
-/* NOTE: Made for debugging purposes -- XLALSimRingdownGenerateSingleModeMMRDNS_time: Time domain waveformgenerator for single QNM with angular dependence */
+/* Generate a single TD QNM without angular dependence */
 int XLALSimRingdownGenerateSingleBareModeMMRDNS_time(
         COMPLEX16TimeSeries **htilde_lmn,            /**< OUTPUT TD waveform mode lmn */
         const LIGOTimeGPS *t0,                       /**< start time of ringdown */
@@ -177,8 +155,92 @@ int XLALSimRingdownGenerateSingleBareModeMMRDNS_time(
         REAL8 dtau,                                  /**< relative shift in the damping time parameter */
         UINT4 Nsamples,                               /**< waveform length */
         REAL8 Tstart                                 /**< starting time of waveform (10M at zero) */
-
 );
+
+/*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*/
+/* Generate a full FD signal with angular dependence */
+/*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*/
+int XLALSimRingdownGenerateMMRDNS_freq(
+        COMPLEX16FrequencySeries **hptilde,          /**< OUTPUT FD h_+ polarization */
+        COMPLEX16FrequencySeries **hxtilde,          /**< OUTPUT FD h_x polarization */
+        REAL8 df,
+        REAL8 fmin,                                  /**< frequency at which to evaluate */
+        UINT4 Nsamples,
+        REAL8 Mf,                                    /**< Final BH Mass (kg) */
+        REAL8 jf,                                    /**< Final BH dimensionaless spin */
+        REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
+        REAL8 iota,                                  /**< Inclination */
+        REAL8 phi,                                   /**< Orbital phase */
+        REAL8 r,                                     /**< distance of source (m) */
+        REAL8 dfreq,                                 /**< relative shift in the real frequency parameter */
+        REAL8 dtau,                                  /**< relative shift in the damping time parameter */
+        REAL8 Tstart                                 /**< starting time of waveform (10M at zero) */
+);
+/*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*/
+/* Generate a single FD QNM without angular dependence */
+/*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*/
+int XLALSimRingdownGenerateSingleBareModeMMRDNS_freq(
+        COMPLEX16FrequencySeries **hptilde,          /**< OUTPUT FD h_+ polarization */
+        COMPLEX16FrequencySeries **hctilde,          /**< OUTPUT FD h_x polarization */
+        REAL8 df,                                    /**< Frequency resolution (Hz) */
+        REAL8 fmin,                                  /**< Start GW frequency (Hz) */
+        UINT4 Nsamples,                              /**< Highest GW frequency (Hz) */
+        REAL8 Mf,                                    /**< Final BH Mass (kg) */
+        REAL8 jf,                                    /**< Final BH dimensionaless spin */
+        REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
+        UINT4 l,                                     /**< Polar eigenvalue */
+        INT4 m,                                      /**< Azimuthal eigenvalue */
+        UINT4 n,                                     /**< Overtone Number */
+        REAL8 r,                                     /**< distance of source (m) */
+        REAL8 dfreq,                                 /**< relative shift in the real frequency parameter */
+        REAL8 dtau,                                  /**< relative shift in the damping time parameter */
+        REAL8 Tstart,                                 /**< starting time of waveform (10M at zero) */
+        COMPLEX16 Slmn
+);
+/*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*/
+/* Generate a single FD QNM WITH angular dependence */
+/*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*/
+int XLALSimRingdownGenerateSingleModeMMRDNS_freq(
+        COMPLEX16FrequencySeries **hptilde,          /**< OUTPUT FD h_+ polarization */
+        COMPLEX16FrequencySeries **hctilde,          /**< OUTPUT FD h_x polarization */
+        REAL8 df,                                    /**< Frequency resolution (Hz) */
+        REAL8 fmin,                                  /**< Start GW frequency (Hz) */
+        UINT4 Nsamples,                              /**< Highest GW frequency (Hz) */
+        REAL8 Mf,                                    /**< Final BH Mass (kg) */
+        REAL8 jf,                                    /**< Final BH dimensionaless spin */
+        REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
+        REAL8 iota,                                  /**< Inclination */
+        REAL8 phi,                                   /**< Orbital phase */
+        UINT4 l,                                     /**< Polar eigenvalue */
+        INT4 m,                                      /**< Azimuthal eigenvalue */
+        UINT4 n,                                     /**< Overtone Number */
+        REAL8 r,                                     /**< distance of source (m) */
+        REAL8 dfreq,                                 /**< relative shift in the real frequency parameter */
+        REAL8 dtau,                                  /**< relative shift in the damping time parameter */
+        REAL8 Tstart                                 /**< starting time of waveform (10M at zero) */
+);
+
+/*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*/
+/* Generate a single FD QNM without angular dependence: NOT separated into + and x */
+/*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*/
+int XLALSimRingdownEvalSinlgeModeMMRDNS_freq(
+        COMPLEX16FrequencySeries **htilde,          /**< OUTPUT FD h_+ polarization */
+        REAL8 df,                                    /**< Frequency resolution (Hz) */
+        REAL8 fMin,                                  /**< Start GW frequency (Hz) */
+        UINT4 Nsamples,                              /**< Highest GW frequency (Hz) */
+        REAL8 Mf,                                    /**< Final BH Mass (kg) */
+        REAL8 jf,                                    /**< Final BH dimensionaless spin */
+        REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
+        UINT4 l,                                     /**< Polar eigenvalue */
+        INT4 m,                                      /**< Azimuthal eigenvalue */
+        UINT4 n,                                     /**< Overtone Number */
+        REAL8 r,                                     /**< distance of source (m) */
+        REAL8 dfreq,                                 /**< relative shift in the real frequency parameter */
+        REAL8 dtau,                                  /**< relative shift in the damping time parameter */
+        REAL8 Tstart,                                 /**< starting time of waveform (10M at zero) */
+        COMPLEX16 Slmn
+);
+
 
 /* Interpolate tabulated data for QNM frequency */
 COMPLEX16 XLALQNM_CW( REAL8 jf, UINT4 l, INT4 m, UINT4 n );
@@ -186,8 +248,8 @@ COMPLEX16 XLALQNM_CW( REAL8 jf, UINT4 l, INT4 m, UINT4 n );
 COMPLEX16 XLALQNM_SC( REAL8 jf, UINT4 l, INT4 m, UINT4 n );
 
 /* Spheroidal Harmonic Plus and Cross modes */
-REAL8 XLALSimSpheroidalHarmonicPlus(REAL8 jf, UINT4 l, INT4 m, UINT4 n, REAL8 iota);
-REAL8 XLALSimSpheroidalHarmonicCross(REAL8 jf, UINT4 l, INT4 m, UINT4 n, REAL8 iota);
+REAL8 XLALSimSpheroidalHarmonicPlus(REAL8 jf, UINT4 l, INT4 m, UINT4 n, REAL8 iota, REAL8 phi);
+REAL8 XLALSimSpheroidalHarmonicCross(REAL8 jf, UINT4 l, INT4 m, UINT4 n, REAL8 iota, REAL8 phi);
 
 /* ------------------------------------------------
           Angular parameter functions
