@@ -69,17 +69,17 @@ int XLALSimInspiralTaylorF2CoreEcc(
         const REAL8 f_ref,                     /**< Reference GW frequency (Hz) - if 0 reference point is coalescence */
 	const REAL8 shft,		       /**< time shift to be applied to frequency-domain phase (sec)*/
         const REAL8 r,                         /**< distance of source (m) */
-        const UNUSED REAL8 quadparam1,         /**< quadrupole deformation parameter of body 1 (dimensionless, 1 for BH) */
-        const UNUSED REAL8 quadparam2,         /**< quadrupole deformation parameter of body 2 (dimensionless, 1 for BH) */
-        const REAL8 lambda1,                   /**< (tidal deformation of body 1)/(mass of body 1)^5 */
-        const REAL8 lambda2,                   /**< (tidal deformation of body 2)/(mass of body 2)^5 */
+        //const UNUSED REAL8 quadparam1,         /**< quadrupole deformation parameter of body 1 (dimensionless, 1 for BH) */
+        //const UNUSED REAL8 quadparam2,         /**< quadrupole deformation parameter of body 2 (dimensionless, 1 for BH) */
+        //const REAL8 lambda1,                   /**< (tidal deformation of body 1)/(mass of body 1)^5 */
+        //const REAL8 lambda2,                   /**< (tidal deformation of body 2)/(mass of body 2)^5 */
         const REAL8 eccentricity,                       /**< eccentricity effect control < 0 : no eccentricity effect */
-        const INT4  ecc_order,                 /**< twice eccentricity effect PN order < 0 : maximum order 3PN */
-        const REAL8 f_ecc,                     /**< eccentricity effect reference frequency */
-        const UNUSED INT4 spinO,               /**< twice PN order of spin effects */
-        const INT4 tideO,                      /**< flag to control tidal effects */
-        const INT4 phaseO,                     /**< twice PN phase order */
-        const INT4 amplitudeO,                 /**< twice PN amplitude order */
+        //const INT4  ecc_order,                 /**< twice eccentricity effect PN order < 0 : maximum order 3PN */
+        //const REAL8 f_ecc,                     /**< eccentricity effect reference frequency */
+        //const UNUSED INT4 spinO,               /**< twice PN order of spin effects */
+        //const INT4 tideO,                      /**< flag to control tidal effects */
+        //const INT4 phaseO,                     /**< twice PN phase order */
+        //const INT4 amplitudeO,                 /**< twice PN amplitude order */
         LALDict *p                       /**< Linked list containing the extra parameters >**/
         )
 {
@@ -100,6 +100,16 @@ int XLALSimInspiralTaylorF2CoreEcc(
     COMPLEX16 *data = NULL;
     LIGOTimeGPS tC = {0, 0};
     INT4 iStart = 0;
+    REAL8 f_ecc=XLALSimInspiralWaveformParamsLookupEccentricityFreq(LALparams);
+    INT4 ecc_order=XLALSimInspiralWaveformParamsLookupPNEccentricityOrder(LALparams);
+    REAL8 quadparam1 = 1.+XLALSimInspiralWaveformParamsLookupdQuadMon1(LALparams);
+    REAL8 quadparam2 = 1.+XLALSimInspiralWaveformParamsLookupdQuadMon2(LALparams);
+    REAL8 lambda1 = XLALSimInspiralWaveformParamsLookupTidalLambda1(LALparams);
+    REAL8 lambda2 = XLALSimInspiralWaveformParamsLookupTidalLambda2(LALparams);
+    INT4 amplitudeO = XLALSimInspiralWaveformParamsLookupPNAmplitudeOrder(LALparams);
+    INT4 phaseO =XLALSimInspiralWaveformParamsLookupPNPhaseOrder(LALparams);
+    INT4 spinO=XLALSimInspiralWaveformParamsLookupPNSpinOrder(LALparams);
+    INT4 tidalO=XLALSimInspiralWaveformParamsLookupPNTidalOrder(LALparams);
 
     COMPLEX16FrequencySeries *htilde = NULL;
 
@@ -379,17 +389,17 @@ int XLALSimInspiralTaylorF2Ecc(
         const REAL8 fEnd,                      /**< highest GW frequency (Hz) of waveform generation - if 0, end at Schwarzschild ISCO */
         const REAL8 f_ref,                     /**< Reference GW frequency (Hz) - if 0 reference point is coalescence */
         const REAL8 r,                         /**< distance of source (m) */
-        const REAL8 quadparam1,                /**< quadrupole deformation parameter of body 1 (dimensionless, 1 for BH) */
-        const REAL8 quadparam2,                /**< quadrupole deformation parameter of body 2 (dimensionless, 1 for BH) */
-        const REAL8 lambda1,                   /**< (tidal deformation of body 1)/(mass of body 1)^5 */
-        const REAL8 lambda2,                   /**< (tidal deformation of body 2)/(mass of body 2)^5 */
+        //const REAL8 quadparam1,                /**< quadrupole deformation parameter of body 1 (dimensionless, 1 for BH) */
+        //const REAL8 quadparam2,                /**< quadrupole deformation parameter of body 2 (dimensionless, 1 for BH) */
+        //const REAL8 lambda1,                   /**< (tidal deformation of body 1)/(mass of body 1)^5 */
+        //const REAL8 lambda2,                   /**< (tidal deformation of body 2)/(mass of body 2)^5 */
         const REAL8 eccentricity,                       /**< eccentricity effect control < 0 : no eccentricity effect */
-        const INT4  ecc_order,                 /**< twice eccentricity effect PN order < 0 : maximum order 3PN */
-        const REAL8 f_ecc,                     /**< eccentricity effect reference frequency */
-        const INT4 spinO,                      /**< twice PN order of spin effects */
-        const INT4 tideO,                      /**< flag to control tidal effects */
-        const INT4 phaseO,                     /**< twice PN phase order */
-        const INT4 amplitudeO,                 /**< twice PN amplitude order */
+        //const INT4  ecc_order,                 /**< twice eccentricity effect PN order < 0 : maximum order 3PN */
+        //const REAL8 f_ecc,                     /**< eccentricity effect reference frequency */
+        //const INT4 spinO,                      /**< twice PN order of spin effects */
+        //const INT4 tideO,                      /**< flag to control tidal effects */
+        //const INT4 phaseO,                     /**< twice PN phase order */
+        //const INT4 amplitudeO,                 /**< twice PN amplitude order */
         LALDict *p                             /**< Linked list containing the extra parameters >**/
         )
 {
@@ -410,6 +420,14 @@ int XLALSimInspiralTaylorF2Ecc(
     REAL8Sequence *freqs = NULL;
     LIGOTimeGPS tC = {0, 0};
     int ret;
+    //REAL8 quadparam1 = 1.+XLALSimInspiralWaveformParamsLookupdQuadMon1(LALparams);
+    //REAL8 quadparam2 = 1.+XLALSimInspiralWaveformParamsLookupdQuadMon2(LALparams);
+    //REAL8 lambda1 = XLALSimInspiralWaveformParamsLookupTidalLambda1(LALparams);
+    //REAL8 lambda2 = XLALSimInspiralWaveformParamsLookupTidalLambda2(LALparams);
+    //INT4 amplitudeO = XLALSimInspiralWaveformParamsLookupPNAmplitudeOrder(LALparams);
+    //INT4 phaseO =XLALSimInspiralWaveformParamsLookupPNPhaseOrder(LALparams);
+    //INT4 spinO=XLALSimInspiralWaveformParamsLookupPNSpinOrder(LALparams);
+    //INT4 tidalO=XLALSimInspiralWaveformParamsLookupPNTidalOrder(LALparams);
 
     COMPLEX16FrequencySeries *htilde = NULL;
 
@@ -450,8 +468,7 @@ int XLALSimInspiralTaylorF2Ecc(
         freqs->data[i-iStart] = i * deltaF;
     }
     ret = XLALSimInspiralTaylorF2CoreEcc(&htilde, freqs, phi_ref, m1_SI, m2_SI,
-                                      S1z, S2z, f_ref, shft, r, quadparam1, quadparam2,
-                                      lambda1, lambda2, eccentricity, ecc_order, f_ecc, spinO, tideO, phaseO, amplitudeO, p);
+                                      S1z, S2z, f_ref, shft, r, eccentricity,p);
 
     XLALDestroyREAL8Sequence(freqs);
 
