@@ -100,16 +100,16 @@ int XLALSimInspiralTaylorF2CoreEcc(
     COMPLEX16 *data = NULL;
     LIGOTimeGPS tC = {0, 0};
     INT4 iStart = 0;
-    REAL8 f_ecc=XLALSimInspiralWaveformParamsLookupEccentricityFreq(LALparams);
-    INT4 ecc_order=XLALSimInspiralWaveformParamsLookupPNEccentricityOrder(LALparams);
-    REAL8 quadparam1 = 1.+XLALSimInspiralWaveformParamsLookupdQuadMon1(LALparams);
-    REAL8 quadparam2 = 1.+XLALSimInspiralWaveformParamsLookupdQuadMon2(LALparams);
-    REAL8 lambda1 = XLALSimInspiralWaveformParamsLookupTidalLambda1(LALparams);
-    REAL8 lambda2 = XLALSimInspiralWaveformParamsLookupTidalLambda2(LALparams);
-    INT4 amplitudeO = XLALSimInspiralWaveformParamsLookupPNAmplitudeOrder(LALparams);
-    INT4 phaseO =XLALSimInspiralWaveformParamsLookupPNPhaseOrder(LALparams);
-    INT4 spinO=XLALSimInspiralWaveformParamsLookupPNSpinOrder(LALparams);
-    INT4 tidalO=XLALSimInspiralWaveformParamsLookupPNTidalOrder(LALparams);
+    REAL8 f_ecc=XLALSimInspiralWaveformParamsLookupEccentricityFreq(p);
+    INT4 ecc_order=XLALSimInspiralWaveformParamsLookupPNEccentricityOrder(p);
+    REAL8 quadparam1 = 1.+XLALSimInspiralWaveformParamsLookupdQuadMon1(p);
+    REAL8 quadparam2 = 1.+XLALSimInspiralWaveformParamsLookupdQuadMon2(p);
+    REAL8 lambda1 = XLALSimInspiralWaveformParamsLookupTidalLambda1(p);
+    REAL8 lambda2 = XLALSimInspiralWaveformParamsLookupTidalLambda2(p);
+    INT4 amplitudeO = XLALSimInspiralWaveformParamsLookupPNAmplitudeOrder(p);
+    INT4 phaseO =XLALSimInspiralWaveformParamsLookupPNPhaseOrder(p);
+    INT4 spinO=XLALSimInspiralWaveformParamsLookupPNSpinOrder(p);
+    INT4 tideO=XLALSimInspiralWaveformParamsLookupPNTidalOrder(p);
 
     COMPLEX16FrequencySeries *htilde = NULL;
 
