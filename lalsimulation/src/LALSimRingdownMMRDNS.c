@@ -1599,10 +1599,10 @@ int XLALSimRingdownGenerateSingleBareModeMMRDNS_freq(
   REAL8 r_sec         = r/LAL_C_SI;
   COMPLEX16 A_lmn     = 0.0;
   COMPLEX16 A         = 0.0;
-  COMPLEX16 conj_A    = 0.0;
+  //COMPLEX16 conj_A    = 0.0;
   COMPLEX16 CW        = 0.0;
   COMPLEX16 Omega_lmn = 0.0;
-  COMPLEX16 chr = 0, chl = 0, conj_Omega_lmn = 0;
+  COMPLEX16 chr = 0, chl = 0;//, conj_Omega_lmn = 0;
   REAL8 w, wmin, dw;
 
   /* Convert frequency input to angular freq from Hz */
@@ -1612,12 +1612,12 @@ int XLALSimRingdownGenerateSingleBareModeMMRDNS_freq(
   /* Evaluate QNM Amplitude model */
   A_lmn 	     = XLALMMRDNSAmplitudeOverOmegaSquared(eta, l, m, n);
   A            = A_lmn*M_sec/(r_sec);
-  conj_A       = conj(A);
+  //conj_A       = conj(A);
 
   /* Get QNM frequency and allow for deviations */
   CW        = conj( XLALQNM_CW(jf,l,m,n) ) / Mf_sec ;
   Omega_lmn = creal(CW)*(1.0+dfreq) + I*cimag(CW)/(1.0+dtau);
-  conj_Omega_lmn = creal(CW)*(1.0+dfreq) - I*cimag(CW)/(1.0+dtau);
+  //conj_Omega_lmn = creal(CW)*(1.0+dfreq) - I*cimag(CW)/(1.0+dtau);
 
   /**/
   LIGOTimeGPS tC = {0,0};
@@ -1675,7 +1675,7 @@ int XLALSimRingdownEvalSinlgeModeMMRDNS_freq(
   REAL8 r_sec         = r/LAL_C_SI;
   COMPLEX16 A_lmn     = 0.0;
   COMPLEX16 A         = 0.0;
-  COMPLEX16 conj_A    = 0.0;
+  //COMPLEX16 conj_A    = 0.0;
   COMPLEX16 CW        = 0.0;
   COMPLEX16 Omega_lmn = 0.0;
   REAL8 w, wmin, dw;
@@ -1687,7 +1687,7 @@ int XLALSimRingdownEvalSinlgeModeMMRDNS_freq(
   /* Evaluate QNM Amplitude model */
   A_lmn 	     = XLALMMRDNSAmplitudeOverOmegaSquared(eta, l, m, n);
   A            = A_lmn*M_sec/(r_sec);
-  conj_A       = conj(A);
+  //conj_A       = conj(A);
 
   /* Get QNM frequency and allow for deviations */
   CW        = conj( XLALQNM_CW(jf,l,m,n) ) / Mf_sec ;

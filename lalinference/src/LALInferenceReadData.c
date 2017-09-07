@@ -2892,7 +2892,7 @@ void LALInferenceInjectRingdownSignal(LALInferenceIFOData *IFOdata, ProcessParam
       REAL8 Tstart = 0.0*Mbh*LAL_MTSUN_SI;
       REAL8 Tend   = 50.0*Mbh*LAL_MTSUN_SI;
       UINT4 Num_samples_window=ceil((Tend-Tstart)/(1.0/InjSampleRate));
-      XLALSimRingdownMMRDNS_time(&hplus, &hcross, &t0, 1.0/InjSampleRate, Mbh*LAL_MSUN_SI, spin, eta, injEvent->inclination, phase, injEvent->distance*LAL_PC_SI*1.0e6, nonGRparams);
+      XLALSimRingdownMMRDNS_time(&hplus, &hcross, &t0, 1.0/InjSampleRate, Num_samples_window, Mbh*LAL_MSUN_SI, spin, eta, injEvent->inclination, phase, injEvent->distance*LAL_PC_SI*1.0e6, nonGRparams);
       XLALApplyPlanckWindowToTemplate(&hplus, &hcross, Num_samples_window,Mbh*LAL_MTSUN_SI*RingdownTemplateWindow_shift, (Num_samples_window/InjSampleRate)-2.0, InjSampleRate, RingdownTemplateWindow_rise_time);
 }
       if(!hplus || !hcross) {
