@@ -275,36 +275,22 @@ static void LT_FindBoundExtrema(
     return;
   }
 
-  // Original value of physical point in this dimension
+  // Sample parameter-space bounds at +/0/- half the lattice tiling step size
   const double phys_point_i = gsl_vector_get( phys_point, i );
-
-  // Sample parameter-space bounds at offset 'x' from original physical point
-#define LT_FindBoundExtrema_SAMPLE_BOUNDS(x) { \
-    LT_SetPhysPoint( tiling, phys_point_cache, phys_point, i, phys_point_i + (x) ); \
-    double phys_lower = *phys_lower_minimum; \
-    double phys_upper = *phys_upper_maximum; \
-    LT_FindBoundExtrema( tiling, i + 1, dim, phys_point_cache, phys_point, &phys_lower, &phys_upper ); \
-    *phys_lower_minimum = GSL_MIN( *phys_lower_minimum, phys_lower ); \
-    *phys_upper_maximum = GSL_MAX( *phys_upper_maximum, phys_upper ); \
+  const double phys_hstep_i = 0.5 * gsl_matrix_get( tiling->phys_from_int, i, i );
+  const double phys_point_sample_i[] = {
+    phys_point_i - phys_hstep_i,
+    phys_point_i + phys_hstep_i,
+    phys_point_i   // Must be last to reset physical point to original value
+  };
+  for ( size_t j = 0; j < XLAL_NUM_ELEM( phys_point_sample_i ); ++j ) {
+    LT_SetPhysPoint( tiling, phys_point_cache, phys_point, i, phys_point_sample_i[j] );
+    double phys_lower = *phys_lower_minimum;
+    double phys_upper = *phys_upper_maximum;
+    LT_FindBoundExtrema( tiling, i + 1, dim, phys_point_cache, phys_point, &phys_lower, &phys_upper );
+    *phys_lower_minimum = GSL_MIN( *phys_lower_minimum, phys_lower );
+    *phys_upper_maximum = GSL_MAX( *phys_upper_maximum, phys_upper );
   }
-
-  // Sample parameter-space bounds at original physical point
-  LT_FindBoundExtrema_SAMPLE_BOUNDS( 0 );
-
-  if ( bound->padf & LATTICE_TILING_PAD_EXTRA ) {
-
-    // Sample parameter-space bounds at +/- half the lattice tiling step size
-    const double phys_hstep_i = 0.5 * gsl_matrix_get( tiling->phys_from_int, i, i );
-    LT_FindBoundExtrema_SAMPLE_BOUNDS( -phys_hstep_i );
-    LT_FindBoundExtrema_SAMPLE_BOUNDS( +phys_hstep_i );
-
-  }
-
-  // Clear macro LT_FindBoundExtrema_SAMPLE_BOUNDS()
-#undef LT_FindBoundExtrema_SAMPLE_BOUNDS
-
-  // Reset physical point in this dimension to original value
-  LT_SetPhysPoint( tiling, phys_point_cache, phys_point, i, phys_point_i );
 
 }
 
@@ -825,7 +811,7 @@ LatticeTiling *XLALCreateLatticeTiling(
   tiling->ndim = ndim;
   tiling->lattice = TILING_LATTICE_MAX;
   for ( size_t i = 0; i < ndim; ++i ) {
-    tiling->bounds[i].padf = LATTICE_TILING_PAD_LOWER | LATTICE_TILING_PAD_UPPER;
+    tiling->bounds[i].padf = LATTICE_TILING_PAD_LHBBX | LATTICE_TILING_PAD_UHBBX;
   }
 
   // Allocate and initialise vectors and matrices
@@ -991,8 +977,7 @@ int XLALSetLatticeTilingConstantBound(
 int XLALSetLatticeTilingPaddingFlags(
   LatticeTiling *tiling,
   const size_t dim,
-  const LatticeTilingPaddingFlags setf,
-  const LatticeTilingPaddingFlags addf
+  const LatticeTilingPaddingFlags setf
   )
 {
 
@@ -1001,10 +986,29 @@ int XLALSetLatticeTilingPaddingFlags(
   XLAL_CHECK( tiling->lattice == TILING_LATTICE_MAX, XLAL_EINVAL );
   XLAL_CHECK( dim < tiling->ndim, XLAL_ESIZE );
   XLAL_CHECK( setf < LATTICE_TILING_PAD_MAX, XLAL_EINVAL );
-  XLAL_CHECK( addf < LATTICE_TILING_PAD_MAX, XLAL_EINVAL );
 
   // Set parameter-space padding control flags
-  tiling->bounds[dim].padf = ( setf > 0 ? setf : tiling->bounds[dim].padf ) | addf;
+  tiling->bounds[dim].padf = setf;
+
+  return XLAL_SUCCESS;
+
+}
+
+int XLALAddLatticeTilingPaddingFlags(
+  LatticeTiling *tiling,
+  const size_t dim,
+  const LatticeTilingPaddingFlags addf
+  )
+{
+
+  // Check input
+  XLAL_CHECK( tiling != NULL, XLAL_EFAULT );
+  XLAL_CHECK( tiling->lattice == TILING_LATTICE_MAX, XLAL_EINVAL );
+  XLAL_CHECK( dim < tiling->ndim, XLAL_ESIZE );
+  XLAL_CHECK( addf < LATTICE_TILING_PAD_MAX, XLAL_EINVAL );
+
+  // Add to parameter-space padding control flags
+  tiling->bounds[dim].padf |= addf;
 
   return XLAL_SUCCESS;
 
@@ -1826,10 +1830,10 @@ int XLALNextLatticeTilingPoint(
       // Add padding of half the extext of the metric ellipse bounding box, if requested
       {
         const double phys_hbbox_i = 0.5 * gsl_vector_get( itr->tiling->phys_bbox, i );
-        if ( bound->padf & LATTICE_TILING_PAD_LOWER ) {
+        if ( bound->padf & LATTICE_TILING_PAD_LHBBX ) {
           phys_lower -= phys_hbbox_i;
         }
-        if ( bound->padf & LATTICE_TILING_PAD_UPPER ) {
+        if ( bound->padf & LATTICE_TILING_PAD_UHBBX ) {
           phys_upper += phys_hbbox_i;
         }
       }
@@ -1858,6 +1862,14 @@ int XLALNextLatticeTilingPoint(
         // Set integer lower/upper bounds
         itr->int_lower[ti] = int_lower_i;
         itr->int_upper[ti] = GSL_MAX( int_lower_i, int_upper_i );
+
+        // Add padding of one integer point, if requested
+        if ( bound->padf & LATTICE_TILING_PAD_LINTP ) {
+          itr->int_lower[ti] -= 1;
+        }
+        if ( bound->padf & LATTICE_TILING_PAD_UINTP ) {
+          itr->int_upper[ti] += 1;
+        }
       }
       const INT4 int_lower_i = itr->int_lower[ti];
       const INT4 int_upper_i = itr->int_upper[ti];
