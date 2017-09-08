@@ -985,8 +985,8 @@ int XLALSimInspiralChooseFDWaveform(
     unsigned int j;
     REAL8 pfac, cfac;
     INT4 phiRefAtEnd;
-    //REAL8 quadparam1 = 1.+XLALSimInspiralWaveformParamsLookupdQuadMon1(LALparams);
-    //REAL8 quadparam2 = 1.+XLALSimInspiralWaveformParamsLookupdQuadMon2(LALparams);
+    REAL8 quadparam1 = 1.+XLALSimInspiralWaveformParamsLookupdQuadMon1(LALparams);
+    REAL8 quadparam2 = 1.+XLALSimInspiralWaveformParamsLookupdQuadMon2(LALparams);
     REAL8 lambda1 = XLALSimInspiralWaveformParamsLookupTidalLambda1(LALparams);
     REAL8 lambda2 = XLALSimInspiralWaveformParamsLookupTidalLambda2(LALparams);
     int amplitudeO = XLALSimInspiralWaveformParamsLookupPNAmplitudeOrder(LALparams);

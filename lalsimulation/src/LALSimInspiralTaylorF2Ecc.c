@@ -69,17 +69,7 @@ int XLALSimInspiralTaylorF2CoreEcc(
         const REAL8 f_ref,                     /**< Reference GW frequency (Hz) - if 0 reference point is coalescence */
 	const REAL8 shft,		       /**< time shift to be applied to frequency-domain phase (sec)*/
         const REAL8 r,                         /**< distance of source (m) */
-        //const UNUSED REAL8 quadparam1,         /**< quadrupole deformation parameter of body 1 (dimensionless, 1 for BH) */
-        //const UNUSED REAL8 quadparam2,         /**< quadrupole deformation parameter of body 2 (dimensionless, 1 for BH) */
-        //const REAL8 lambda1,                   /**< (tidal deformation of body 1)/(mass of body 1)^5 */
-        //const REAL8 lambda2,                   /**< (tidal deformation of body 2)/(mass of body 2)^5 */
         const REAL8 eccentricity,                       /**< eccentricity effect control < 0 : no eccentricity effect */
-        //const INT4  ecc_order,                 /**< twice eccentricity effect PN order < 0 : maximum order 3PN */
-        //const REAL8 f_ecc,                     /**< eccentricity effect reference frequency */
-        //const UNUSED INT4 spinO,               /**< twice PN order of spin effects */
-        //const INT4 tideO,                      /**< flag to control tidal effects */
-        //const INT4 phaseO,                     /**< twice PN phase order */
-        //const INT4 amplitudeO,                 /**< twice PN amplitude order */
         LALDict *p                       /**< Linked list containing the extra parameters >**/
         )
 {
@@ -102,13 +92,10 @@ int XLALSimInspiralTaylorF2CoreEcc(
     INT4 iStart = 0;
     REAL8 f_ecc=XLALSimInspiralWaveformParamsLookupEccentricityFreq(p);
     INT4 ecc_order=XLALSimInspiralWaveformParamsLookupPNEccentricityOrder(p);
-    REAL8 quadparam1 = 1.+XLALSimInspiralWaveformParamsLookupdQuadMon1(p);
-    REAL8 quadparam2 = 1.+XLALSimInspiralWaveformParamsLookupdQuadMon2(p);
     REAL8 lambda1 = XLALSimInspiralWaveformParamsLookupTidalLambda1(p);
     REAL8 lambda2 = XLALSimInspiralWaveformParamsLookupTidalLambda2(p);
     INT4 amplitudeO = XLALSimInspiralWaveformParamsLookupPNAmplitudeOrder(p);
     INT4 phaseO =XLALSimInspiralWaveformParamsLookupPNPhaseOrder(p);
-    INT4 spinO=XLALSimInspiralWaveformParamsLookupPNSpinOrder(p);
     INT4 tideO=XLALSimInspiralWaveformParamsLookupPNTidalOrder(p);
 
     COMPLEX16FrequencySeries *htilde = NULL;
