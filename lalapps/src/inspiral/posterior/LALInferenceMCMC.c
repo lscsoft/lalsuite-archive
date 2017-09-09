@@ -40,6 +40,7 @@
 #include <lal/LALInferenceInit.h>
 #include <lalapps.h>
 #include <lal/LALInferenceCalibrationErrors.h>
+#include <lal/LALInferenceVCSInfo.h>
 
 #include <mpi.h>
 
@@ -661,6 +662,13 @@ int main(int argc, char *argv[]){
     ProcessParamsTable *procParams = NULL, *ppt = NULL;
     LALInferenceRunState *runState = NULL;
     LALInferenceIFOData *data = NULL;
+  int helpflag=0;
+  char help[]="\
+  LALInferenceMCMC:\n\
+  Bayesian analysis tool using Metropolis Sampling algorithm\n\
+  for CBC analysis. Uses LALInference library for back-end.\n\n\
+  Arguments for each section follow:\n\n";
+
 
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &mpirank);
@@ -669,6 +677,14 @@ int main(int argc, char *argv[]){
 
     /* Read command line and parse */
     procParams = LALInferenceParseCommandLine(argc, argv);
+  procParams=LALInferenceParseCommandLine(argc,argv);
+  if(LALInferenceGetProcParamVal(procParams,"--help"))
+  {
+    helpflag=1;
+    fprintf(stdout,"%s",help);
+  }
+  /* write down git information */
+  fprintf(stdout,"\n\nLALInference version:%s,%s,%s,%s,%s\n\n", lalInferenceVCSId,lalInferenceVCSDate,lalInferenceVCSBranch,lalInferenceVCSAuthor,lalInferenceVCSStatus);
 
     ppt = LALInferenceGetProcParamVal(procParams, "--continue-run");
     if (ppt)
@@ -680,6 +696,26 @@ int main(int argc, char *argv[]){
     /* And allocating memory */
     runState = LALInferenceInitRunState(procParams);
 
+  /* Create header  */
+  if (runState!=NULL && !helpflag){
+    ppt=LALInferenceGetProcParamVal(runState->commandLine,"--outfile");
+    if(!ppt){
+    ppt=LALInferenceGetProcParamVal(runState->commandLine,"--outhdf");
+    if(!ppt){
+      fprintf(stderr,"Must specify --outfile <filename.dat> or --outhdf <filename.h5>\n");
+      exit(1);
+      }
+    }
+    char *outfile=ppt->value;
+    char headerfile[FILENAME_MAX];
+    FILE *fpout=NULL;
+    sprintf(headerfile,"%s_header.txt",outfile);
+    fpout=fopen(headerfile,"w");
+    fprintf(fpout,"LALInference version:%s,%s,%s,%s,%s\n", lalInferenceVCSId,lalInferenceVCSDate,lalInferenceVCSBranch,lalInferenceVCSAuthor,lalInferenceVCSStatus);
+    fprintf(fpout,"%s\n",LALInferencePrintCommandLine(runState->commandLine));
+    fclose(fpout);
+  }
+
     if (runState == NULL) {
         if (!LALInferenceGetProcParamVal(procParams, "--help")) {
             fprintf(stderr, "run_state not allocated (%s, line %d).\n",
@@ -690,7 +726,7 @@ int main(int argc, char *argv[]){
     }
 
     /* Perform injections if data successful read or created */
-    if (runState){
+    if (runState && !helpflag){
       LALInferenceInjectInspiralSignal(data, runState->commandLine);
     }
 
@@ -707,6 +743,12 @@ int main(int argc, char *argv[]){
 
     /* Choose the likelihood */
     LALInferenceInitLikelihood(runState);
+
+  /* Exit since we printed all command line arguments */
+  if(runState == NULL || helpflag )
+  {
+    exit(0);
+  }
 
     /* Draw starting positions */
     LALInferenceDrawThreads(runState);
