@@ -767,12 +767,12 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
      tilt_spin2                   Angle between spin2 and orbital angular momentum \n\
      phi_12                       Difference between spins' azimuthal angles \n\
      phi_jl                       Difference between total and orbital angular momentum azimuthal angles\n\
-    * Equation of State parameters (requires --use-tidal or --use-tidalT):\n\
+    * Equation of State parameters (requires --tidal or --tidalT):\n\
      lambda1                      lambda1.\n\
      lambda2                      lambda2.\n\
      lambdaT                      lambdaT.\n\
      dLambdaT                     dLambdaT.\n\
-    * Quadrupole deformation parameters (requires --quadparams):\n\
+    * Quadrupole deformation parameters (requires --quadparam):\n\
      quadparam1                   quadparam1.\n\
      quadparam2                   quadparam2.\n\
     * Eccentricity parameters :\n\
@@ -871,9 +871,9 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   REAL8 lambdaTMax=3000.0;
   REAL8 dLambdaTMin=-500.0;
   REAL8 dLambdaTMax=500.0;
-  REAL8 quadparam1Min=1.0; /* 1 for BH, 2~12 for NS */
+  REAL8 quadparam1Min=0.0; /* 1 for BH, 2~12 for NS actually we calculate as qm_def = 1+quadparam*/
   REAL8 quadparam1Max=100.0;
-  REAL8 quadparam2Min=1.0;
+  REAL8 quadparam2Min=0.0;
   REAL8 quadparam2Max=100.0;
   gsl_rng *GSLrandom=state->GSLrandom;
   REAL8 endtime=0.0, timeParam=0.0;
@@ -1427,6 +1427,14 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
       LALInferenceRegisterUniformVariableREAL8(state, model->params, "lambda2", lambda2, lambda2Min, lambda2Max, LALINFERENCE_PARAM_LINEAR);
 
   }
+  else { /* no tidal option is given */
+    node=LALInferenceGetItem(model->params,"lambda1");
+    if(!node) // if lambda1 is not pinned already, then fix now
+      LALInferenceAddVariable(model->params, "lambda1", &lambda1,  LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    node=LALInferenceGetItem(model->params,"lambda2");
+    if(!node) // if lambda2 is not pinned already, then fix now
+      LALInferenceAddVariable(model->params, "lambda2", &lambda2,  LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  }
 
   /* quadrupole tidal parameter measurement added by hwlee 31 Aug. 2017*/
   if(LALInferenceGetProcParamVal(commandLine,"--quadparam")) {
@@ -1436,6 +1444,14 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
     node=LALInferenceGetItem(model->params,"quadparam2");
     if(!node) // if quadparam2 is not pinned already
       LALInferenceRegisterUniformVariableREAL8(state, model->params, "quadparam2", quadparam2, quadparam2Min, quadparam2Max, LALINFERENCE_PARAM_LINEAR);
+  }
+  else { /* no quadparam option is given */
+    node=LALInferenceGetItem(model->params,"quadparam1");
+    if(!node) // if quadparam1 is not pinned already, then fix now
+      LALInferenceAddVariable(model->params, "quadparam1", &quadparam1,  LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    node=LALInferenceGetItem(model->params,"quadparam2");
+    if(!node) // if quadparam2 is not pinned already, then fix now
+      LALInferenceAddVariable(model->params, "quadparam2", &quadparam2,  LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
   }
 
   LALSimInspiralSpinOrder spinO = LAL_SIM_INSPIRAL_SPIN_ORDER_ALL;

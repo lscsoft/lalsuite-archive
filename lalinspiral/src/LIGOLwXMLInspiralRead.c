@@ -1626,10 +1626,10 @@ static void set_missed_column(SimInspiralTable *thisSim, int idx)
         	thisSim->lambda2 = 0;
         }
         else if ( idx == 63 ) {
-        	thisSim->quadparam1 = 1;
+        	thisSim->quadparam1 = 0;
         }
         else if ( idx == 64 ) {
-        	thisSim->quadparam2 = 1;
+        	thisSim->quadparam2 = 0;
         }
         else
         {
