@@ -25,7 +25,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <sys/types.h>
 #include <unistd.h>
+#include <string.h>
 
 #include <lal/LALStdio.h>
 #include <lal/LALStdlib.h>
@@ -1184,9 +1186,22 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
           ppt=LALInferenceGetProcParamVal(commandLine,"--outfile");
           if(ppt) {
             snprintf(filename, nameLength, "%s%s-PSD.dat", ppt->value, IFOdata[i].name);
+            ppt=LALInferenceGetProcParamVal(commandLine,"--usepid");
+            if(ppt) {
+              char tmpname[FILENAME_MAX];
+              strcpy(tmpname, filename);
+              snprintf(filename, nameLength, "PID_%d_%s", getpid(), tmpname);
+            }
           }
-          else
-            snprintf(filename, nameLength, "%.3f_%s-PSD.dat",GPStrig.gpsSeconds+1e-9*GPStrig.gpsNanoSeconds, IFOdata[i].name);
+          else {
+            snprintf(filename, nameLength, "%.3f_%s-PSD.dat", GPStrig.gpsSeconds+1e-9*GPStrig.gpsNanoSeconds, IFOdata[i].name);
+            ppt=LALInferenceGetProcParamVal(commandLine,"--usepid");
+            if(ppt) {
+              char tmpname[FILENAME_MAX];
+              strcpy(tmpname, filename);
+              snprintf(filename, nameLength, "PID_%d_%s", getpid(), tmpname);
+            }
+         }
 
           out = fopen(filename, "w");
           if(!out){
@@ -2230,6 +2245,12 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
     sprintf(SNRpath, "%s_snr.txt", ppt->value);
   else
     sprintf(SNRpath, "snr.txt");
+  ppt = LALInferenceGetProcParamVal(commandLine,"--usepid");
+  if(ppt) {
+    char tmpname[FILENAME_MAX];
+    strcpy(tmpname, SNRpath);
+    sprintf(SNRpath, "PID_%d_%s", getpid(), tmpname);
+  }
 
   Approximant approximant = XLALGetApproximantFromString(inj_table->waveform);
   if( (int) approximant == XLAL_FAILURE)
@@ -2592,7 +2613,7 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
 
 void LALInferencePrintInjectionSample(LALInferenceRunState *runState) {
     int errnum=0;
-    char *fname=NULL;
+    char fname[FILENAME_MAX];
     char defaultname[]="injection_params.dat";
     FILE *outfile=NULL;
 
@@ -2615,11 +2636,17 @@ void LALInferencePrintInjectionSample(LALInferenceRunState *runState) {
 
     ppt = LALInferenceGetProcParamVal(runState->commandLine, "--outfile");
     if (ppt) {
-        fname = XLALCalloc((strlen(ppt->value)+255)*sizeof(char),1);
+        //fname = XLALCalloc((strlen(ppt->value)+255)*sizeof(char),1);
         sprintf(fname,"%s.injection",ppt->value);
     }
     else
-        fname = defaultname;
+        strcpy(fname, defaultname);
+    ppt = LALInferenceGetProcParamVal(runState->commandLine, "--usepid");
+    if(ppt) {
+      char tmpname[FILENAME_MAX];
+      strcpy(tmpname, fname);
+      snprintf(fname, FILENAME_MAX, "PID_%d_%s", getpid(), tmpname);
+    }
 
     ppt = LALInferenceGetProcParamVal(runState->commandLine, "--event");
     if (ppt) {

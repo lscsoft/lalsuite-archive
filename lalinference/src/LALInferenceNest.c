@@ -90,7 +90,7 @@ int main(int argc, char *argv[]){
     char headerfile[FILENAME_MAX];
     FILE *fpout=NULL;
     sprintf(outfile,"PID_%d_%s", getpid(), outfilep);
-    sprintf(headerfile,"PID_%d_%s_header.txt",getpid(),outfile);
+    sprintf(headerfile,"%s_header.txt",getpid(),outfile);
     fpout=fopen(headerfile,"w");
     fprintf(fpout,"LALInference version:%s,%s,%s,%s,%s\n", lalInferenceVCSId,lalInferenceVCSDate,lalInferenceVCSBranch,lalInferenceVCSAuthor,lalInferenceVCSStatus);
     fprintf(fpout,"%s\n",LALInferencePrintCommandLine(state->commandLine));
