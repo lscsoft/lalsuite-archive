@@ -23,6 +23,9 @@
 
 
 #include <stdio.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <time.h>
 #include <lal/Date.h>
 #include <lal/GenerateInspiral.h>
 #include <lal/LALInference.h>
@@ -698,18 +701,15 @@ int main(int argc, char *argv[]){
 
   /* Create header  */
   if (runState!=NULL && !helpflag){
-    ppt=LALInferenceGetProcParamVal(runState->commandLine,"--outfile");
-    if(!ppt){
-    ppt=LALInferenceGetProcParamVal(runState->commandLine,"--outhdf");
-    if(!ppt){
-      fprintf(stderr,"Must specify --outfile <filename.dat> or --outhdf <filename.h5>\n");
-      exit(1);
-      }
-    }
-    char *outfile=ppt->value;
+    /* generate header name based on pid added by hwlee at 10 Sep. 2017 */
+    pid_t pid = getpid();
+    time_t t;
+    struct tm tm;
     char headerfile[FILENAME_MAX];
     FILE *fpout=NULL;
-    sprintf(headerfile,"%s_header.txt",outfile);
+    t = time(NULL);
+    tm = *localtime(&t);
+    sprintf(headerfile,"PID_%d_Date_%d-%d-%d:%d:%d:%d_header.txt",pid, tm.tm_year+1900, tm.tm_mon+1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
     fpout=fopen(headerfile,"w");
     fprintf(fpout,"LALInference version:%s,%s,%s,%s,%s\n", lalInferenceVCSId,lalInferenceVCSDate,lalInferenceVCSBranch,lalInferenceVCSAuthor,lalInferenceVCSStatus);
     fprintf(fpout,"%s\n",LALInferencePrintCommandLine(runState->commandLine));
