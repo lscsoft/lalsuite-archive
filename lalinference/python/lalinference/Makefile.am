@@ -43,7 +43,7 @@ endif
 all-local: _distance.so
 
 _distance.so:
-       rm -f $@ && $(LN_S) .libs/$@
+	rm -f $@ && $(LN_S) .libs/$@
 
 CLEANFILES = _distance.so
 
