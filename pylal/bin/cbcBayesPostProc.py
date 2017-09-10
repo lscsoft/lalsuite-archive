@@ -1244,9 +1244,10 @@ if __name__=='__main__':
     import pylal
     from pylal.bayespputils import massParams,spinParams,cosmoParam,strongFieldParams,distParams,incParams,polParams,skyParams,phaseParams,timeParams,endTimeParams,statsParams,calibParams,snrParams,tidalParams,eccentricityParams
 
-    oneDMenus={'Masses':None,'SourceFrame':None,'Timing':None,'Extrinsic':None,'Spins':None,'StrongField':None,'Others':None}
+    oneDMenus={'Masses':None,'Extra':None,'SourceFrame':None,'Timing':None,'Extrinsic':None,'Spins':None,'StrongField':None,'Others':None}
 
     oneDMenus['Masses']= massParams
+    oneDMenus['Extra']= eccentricityParams+tidalParams
     oneDMenus['Extrinsic']=incParams+distParams+polParams+skyParams+phaseParams
     oneDMenus['Spins']= spinParams
     oneDMenus['Timing']=timeParams+endTimeParams
@@ -1309,6 +1310,9 @@ if __name__=='__main__':
              for tp in tidalParams:
                  if not (mp == tp):
                      twoDGreedyMenu.append([mp, tp])
+             for ep in eccentricityParams:
+                 if not (mp == ep):
+                     twoDGreedyMenu.append([mp, ep])
         for sp1,sp2 in combinations(snrParams,2):
                 twoDGreedyMenu.append([sp1,sp2])
         twoDGreedyMenu.append(['lambda1','lambda2'])
@@ -1316,6 +1320,10 @@ if __name__=='__main__':
         twoDGreedyMenu.append(['lambdat','dlambdat'])
         twoDGreedyMenu.append(['quadparam1','quadparam1'])
         twoDGreedyMenu.append(['mc','eccentricity'])
+        twoDGreedyMenu.append(['lambdat','eccentricity'])
+        twoDGreedyMenu.append(['dlambdat','eccentricity'])
+        twoDGreedyMenu.append(['lam_tilde','eccentricity'])
+        twoDGreedyMenu.append(['dlam_tilde','eccentricity'])
         for psip in polParams:
             for phip in phaseParams:
                 twoDGreedyMenu.append([psip,phip])

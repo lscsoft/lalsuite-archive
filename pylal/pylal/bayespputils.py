@@ -147,8 +147,8 @@ bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
 massiveGravitonParams=['lambdaG']
 tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat','quadparam1','quadparam']
 energyParams=['e_rad', 'l_peak']
-eccentricityParams=['eccentricity']
-strongFieldParams=ppEParams+tigerParams+bransDickeParams+massiveGravitonParams+tidalParams+energyParams+eccentricityParams
+eccentricityParams=['eccentricity','ecc']
+strongFieldParams=ppEParams+tigerParams+bransDickeParams+massiveGravitonParams+tidalParams+energyParams
 
 #Extrinsic
 distParams=['distance','distMPC','dist']
