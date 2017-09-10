@@ -22,6 +22,10 @@
 
 
 #include <stdio.h>
+#include <sys/types.h>
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
 #include <lal/Date.h>
 #include <lal/GenerateInspiral.h>
 #include <lal/LALInference.h>
@@ -81,10 +85,12 @@ int main(int argc, char *argv[]){
       exit(1);
       }
   }
-    char *outfile=ppt->value;
+    char *outfilep=ppt->value;
+    char outfile[FILENAME_MAX];
     char headerfile[FILENAME_MAX];
     FILE *fpout=NULL;
-    sprintf(headerfile,"%s_header.txt",outfile);
+    sprintf(outfile,"PID_%d_%s", getpid(), outfilep);
+    sprintf(headerfile,"PID_%d_%s_header.txt",getpid(),outfile);
     fpout=fopen(headerfile,"w");
     fprintf(fpout,"LALInference version:%s,%s,%s,%s,%s\n", lalInferenceVCSId,lalInferenceVCSDate,lalInferenceVCSBranch,lalInferenceVCSAuthor,lalInferenceVCSStatus);
     fprintf(fpout,"%s\n",LALInferencePrintCommandLine(state->commandLine));

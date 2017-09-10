@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <float.h>
 #include <signal.h>
+#include <sys/types.h>
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -813,10 +814,12 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
       fprintf(stderr,"Must specify --outfile <filename.hdf5>\n");
       exit(1);
   }
-  char *outfile=ppt->value;
+  char *outfilep=ppt->value;
   /* Check if the output file has hdf5 extension */
-  if(strstr(outfile,".h5") || strstr(outfile,".hdf")) HDFOUTPUT=1;
+  if(strstr(outfilep,".h5") || strstr(outfilep,".hdf")) HDFOUTPUT=1;
   else HDFOUTPUT=0;
+  char outfile[FILENAME_MAX];
+  sprintf(outfile, "PID_%d_%s", getpid(), outfilep);
   
 #ifndef HAVE_HDF5
   if(HDFOUTPUT)
