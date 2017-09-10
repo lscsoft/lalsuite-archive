@@ -991,12 +991,6 @@ int XLALSimInspiralChooseFDWaveform(
     REAL8 lambda2 = XLALSimInspiralWaveformParamsLookupTidalLambda2(LALparams);
     int amplitudeO = XLALSimInspiralWaveformParamsLookupPNAmplitudeOrder(LALparams);
     int phaseO =XLALSimInspiralWaveformParamsLookupPNPhaseOrder(LALparams);
-    REAL8 f_ecc=XLALSimInspiralWaveformParamsLookupEccentricityFreq(LALparams);
-    INT4 ecc_order=XLALSimInspiralWaveformParamsLookupPNEccentricityOrder(LALparams);
-    INT4 spin_order=XLALSimInspiralWaveformParamsLookupPNSpinOrder(LALparams);
-    INT4 tidal_order=XLALSimInspiralWaveformParamsLookupPNTidalOrder(LALparams);
-
-
 
     /* Support variables for precessing wfs*/
     REAL8 spin1x,spin1y,spin1z;
@@ -1137,11 +1131,7 @@ int XLALSimInspiralChooseFDWaveform(
             /* Call the waveform driver routine */
             ret = XLALSimInspiralTaylorF2Ecc(hptilde, phiRef, deltaF, m1, m2,
                     S1z, S2z, f_min, f_max, f_ref, distance,
-                    quadparam1, quadparam2, lambda1, lambda2,
-                    eccentricity, ecc_order, f_ecc,
-                    spin_order,
-                    tidal_order,
-                    phaseO, amplitudeO, LALparams);
+                    eccentricity, LALparams);
             if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
             /* Produce both polarizations */
             *hctilde = XLALCreateCOMPLEX16FrequencySeries("FD hcross",
