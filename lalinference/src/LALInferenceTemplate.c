@@ -610,6 +610,8 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
 /*   OTHER PARAMETERS                                                                                                    */
 /*   - "lambda1"            tidal parameter of object 1; REAL8  OPTIONAL (0.0)                                           */
 /*   - "lambda2"            tidal parameter of object 1; REAL8  OPTIONAL (0.0)                                           */
+/*   - "quadparam1"         quadrupole deformation parameter of object 1; REAL8  OPTIONAL (1.0)                                           */
+/*   - "quadparam2"         quadrupole deformation parameter of object 2; REAL8  OPTIONAL (1.0)                                           */
 /*                                                                                                                       */
 /*   - "time"               used as an OUTPUT only; REAL8				                                 */
 /*                                                                                                                       */
@@ -1280,6 +1282,13 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveformPhaseInterpolated(LALInfer
         XLALSimInspiralWaveformParamsInsertTidalLambda1(model->LALpars, lambda1);
         XLALSimInspiralWaveformParamsInsertTidalLambda2(model->LALpars, lambda2);
     }
+  /* ==== Quadrupole deformation PARAMETERS ==== */
+  /* if we do not add quadparams to model parameteres they would be 1.0 */
+  REAL8 quadparam = 1., quadparam2 = 1.0;
+  if(LALInferenceCheckVariable(model->params, "quadparam1")) quadparam1 = *(REAL8*) LALInferenceGetVariable(model->params, "quadparam1");
+  if(LALInferenceCheckVariable(model->params, "quadparam2")) quadparam2 = *(REAL8*) LALInferenceGetVariable(model->params, "quadparam2");
+  XLALSimInspiralWaveformParamsInsertdQuadMon1(model->LALpars, quadparam1-1);
+  XLALSimInspiralWaveformParamsInsertdQuadMon2(model->LALpars, quadparam2-1);
 
   /* ==== ECCENTRICITY PARAMETERS ==== */
   /* if we do not add eccentricity to model parameteres eccentricity wouild be zero */
