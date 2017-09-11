@@ -352,9 +352,16 @@ void LALInferenceROQWrapperForXLALSimInspiralChooseFDWaveformSequence(LALInferen
     XLALSimInspiralWaveformParamsInsertTidalLambda2(model->LALpars,lambda2);
   }
 
+  /* ==== Quadrupole deformation PARAMETERS ==== */
+  /* if we do not add quadrupoel deformation parameteres they will be 1.0 */
+  REAL8 quadparam1 = 1.0, quadparam2 = 1.0;
+  if(LALInferenceCheckVariable(model->params, "quadparam1")) quadparam1 = *(REAL8*) LALInferenceGetVariable(model->params, "quadparam1");
+  if(LALInferenceCheckVariable(model->params, "quadparam2")) quadparam1 = *(REAL8*) LALInferenceGetVariable(model->params, "quadparam2");
+  XLALSimInspiralWaveformParamsInsertdQuadMon1(model->LALpars, quadparam1-1);
+  XLALSimInspiralWaveformParamsInsertdQuadMon2(model->LALpars, quadparam2-1);
 
   /* ==== ECCENTRICITY PARAMETERS ==== */
-  /* if we do not add eccentricity to model parameteres eccentricity wouild be zero */
+  /* if we do not add eccentricity to model parameteres eccentricity would be zero */
   REAL8 eccentricity = 0.;
   if(LALInferenceCheckVariable(model->params, "eccentricity")) eccentricity = *(REAL8*) LALInferenceGetVariable(model->params, "eccentricity");
   REAL8 f_ecc = 10;

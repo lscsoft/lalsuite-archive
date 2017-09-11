@@ -805,9 +805,9 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
     (--lambdaT-min min)                     Minimum lambdaT (0.0).\n\
     (--lambdaT-max max)                     Maximum lambdaT (3000.0).\n\
     (--dLambdaT-min min)                    Minimum dLambdaT (-500.0).\n\
-    (--quadparam1-min min)                  Minimum quadparam1 (0.0) for BH.\n\
+    (--quadparam1-min min)                  Minimum quadparam1 (1.0) for BH.\n\
     (--quadparam1-max max)                  Maximum quadparam1 (100.0).\n\
-    (--quadparam2-min min)                  Minimum quadparam2 (0.0) for BH.\n\
+    (--quadparam2-min min)                  Minimum quadparam2 (1.0) for BH.\n\
     (--quadparam2-max max)                  Maximum quadparam2 (100.0).\n\
     (--varyFlow, --flowMin, --flowMax)       Allow the lower frequency bound of integration to vary in given range.\n\
     (--pinparams)                            List of parameters to set to injected values [mchirp,asym_massratio,etc].\n\
@@ -873,9 +873,9 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   REAL8 lambdaTMax=3000.0;
   REAL8 dLambdaTMin=-500.0;
   REAL8 dLambdaTMax=500.0;
-  REAL8 quadparam1Min=0.0;
+  REAL8 quadparam1Min=1.0;
   REAL8 quadparam1Max=100.0;
-  REAL8 quadparam2Min=0.0;
+  REAL8 quadparam2Min=1.0;
   REAL8 quadparam2Max=100.0;
   gsl_rng *GSLrandom=state->GSLrandom;
   REAL8 endtime=0.0, timeParam=0.0;
@@ -1084,8 +1084,8 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   LALInferenceLambdasEta2LambdaTs(lambda1, lambda2, eta, &lambdaT, &dLambdaT);
 
   /* quadrupole deformation related variables, quadparam1, 2 is registered as uniform variate */
-  REAL8 quadparam1 = 0.0;
-  REAL8 quadparam2 = 0.0;
+  REAL8 quadparam1 = 1.0;
+  REAL8 quadparam2 = 1.0;
   if (injTable == NULL)
   {
     printf("WARNING: No injection table is specified, tide values are set as default values, quadparam1=0, quadparam2=0\n");

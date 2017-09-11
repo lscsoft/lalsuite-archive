@@ -2305,7 +2305,7 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
   }
 
   /* quadrupole deformation parameters */
-  REAL8 quadparam1 = 0.0, quadparam2 = 0.0;
+  REAL8 quadparam1 = 1.0, quadparam2 = 1.0;
   quadparam1 = (REAL8) inj_table->quadparam1;
   if(LALInferenceGetProcParamVal(commandLine,"--inj-quadparam1")) {
     quadparam1= atof(LALInferenceGetProcParamVal(commandLine,"--inj-quadparam1")->value);
@@ -2354,10 +2354,6 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
     fref = atoi(LALInferenceGetProcParamVal(commandLine,"--inj-fref")->value);
   }
 
-  REAL8 eccentricity = (REAL8) inj_table->eccentricity;
-  INT4 ecc_order = (INT4) inj_table->ecc_order;
-  REAL8 f_ecc = (REAL8) inj_table->f_ecc;
-
  /* Print a line with information about approximant, amp_order, phaseorder, tide order and spin order */
   fprintf(stdout,"\n\n---\t\t ---\n");
  fprintf(stdout,"Injection will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i, tidal order %i, eccentricity = %g, ecc order %i, reference frequency for ecc = %g(Hz), in the frequency domain.\n",approximant,XLALGetStringFromApproximant(approximant),phase_order,amp_order,(int) spinO,(int) tideO, eccentricity, ecc_order, f_ecc);
@@ -2367,8 +2363,8 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
 
   XLALSimInspiralWaveformParamsInsertTidalLambda1(LALpars,lambda1);
   XLALSimInspiralWaveformParamsInsertTidalLambda2(LALpars,lambda2);
-  XLALSimInspiralWaveformParamsInsertTidalQuadparam1(LALpars,quadparam1);
-  XLALSimInspiralWaveformParamsInsertTidalQuadparam2(LALpars,quadparam2);
+  XLALSimInspiralWaveformParamsInsertdQuadMon1(LALpars,quadparam1-1);
+  XLALSimInspiralWaveformParamsInsertdQuadMon2(LALpars,quadparam2-1);
   XLALSimInspiralWaveformParamsInsertPNAmplitudeOrder(LALpars,amp_order);
   XLALSimInspiralWaveformParamsInsertPNPhaseOrder(LALpars,phase_order);
   XLALSimInspiralWaveformParamsInsertPNEccentricityOrder(LALpars,ecc_order);
@@ -2622,22 +2618,33 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
   REAL8 eccentricity=theEventTable->eccentricity;
   REAL8 f_ecc=theEventTable->f_ecc;
   INT4 ecc_order = theEventTable->ecc_order;
-  /** bug(?) correction injected parameter value, which is fixed in template differently do not print injection value
-    * changed to if vars hase already the parametr and its value is different to injection value, then 
-    * then copy injection value else call LALInferenceAddVariable() function 
-    * by KGWG, hwlee, Jeongcho Kim and Chunglee KIm at 22 August 2016 */
-  if(LALInferenceCheckVariable(vars,"eccentricity")) {
-    REAL8 ecc1 = *(REAL8 *)LALInferenceGetVariable(vars, "eccentricity");
-    if(ecc1 != eccentricity) {
-      void *value = LALInferenceGetVariable(vars, "eccentricity");
-      memcpy(value, &eccentricity, sizeof(REAL8));
-    }
-  }
-  else {
-    LALInferenceAddVariable(vars, "eccentricity", &eccentricity, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-  }
+  LALInferenceAddVariable(vars, "eccentricity", &eccentricity, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(vars, "ecc_order", &ecc_order, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(vars, "f_ecc", &f_ecc, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  /* add lambda1, lambda2, quadparam1, quadparam2 parameters added by hwlee at 1 Sep. 2017*/
+  REAL8 lambda1, lambda2, quadparam1, quadparam2;
+  lambda1 = theEventTable->lambda1;
+  lambda2 = theEventTable->lambda2;
+  ProcessParamsTable *ppt=NULL;
+  ppt=LALInferenceGetProcParamVal(procParams,"--tidalT");
+  if(ppt) /* if tidal parameter given in lambdaT and dLambdaT */
+  {
+    REAL8 lambdaT, dLambdaT;
+    LALInferenceLambdasEta2LambdaTs(lambda1, lambda2, theEventTable->eta, &lambdaT, &dLambdaT);
+    LALInferenceAddVariable(vars, "lambdaT", &lambdaT, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(vars, "dLambdaT", &dLambdaT, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  }
+  else
+  {
+    LALInferenceAddVariable(vars, "lambda1", &lambda1, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(vars, "lambda2", &lambda2, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  }
+
+  quadparam1 = theEventTable->quadparam1;
+  quadparam2 = theEventTable->quadparam2;
+  LALInferenceAddVariable(vars, "quadparam1", &quadparam1, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddVariable(vars, "quadparam2", &quadparam2, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+
 }
 
 void LALInferencePrintInjectionSample(LALInferenceRunState *runState) {

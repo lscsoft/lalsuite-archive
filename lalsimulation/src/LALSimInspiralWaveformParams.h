@@ -26,8 +26,6 @@ int XLALSimInspiralWaveformParamsInsertPNTidalOrder(LALDict *params, INT4 value)
 
 int XLALSimInspiralWaveformParamsInsertTidalLambda1(LALDict *params, REAL8 value);
 int XLALSimInspiralWaveformParamsInsertTidalLambda2(LALDict *params, REAL8 value);
-int XLALSimInspiralWaveformParamsInsertTidalQuadparam1(LALDict *params, REAL8 value);
-int XLALSimInspiralWaveformParamsInsertTidalQuadparam2(LALDict *params, REAL8 value);
 int XLALSimInspiralWaveformParamsInsertTidalOctupolarLambda1(LALDict *params, REAL8 value);
 int XLALSimInspiralWaveformParamsInsertTidalOctupolarLambda2(LALDict *params, REAL8 value);
 int XLALSimInspiralWaveformParamsInsertTidalQuadrupolarFMode1(LALDict *params, REAL8 value);
