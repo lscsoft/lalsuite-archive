@@ -5528,7 +5528,7 @@ def find_ndownsample(samples, nDownsample):
     if nDownsample is None:
         print "Max ACL(s):"
         splineParams=["spcal_npts", "spcal_active","constantcal_active"]
-        for i in np.arange(5):
+        for i in np.arange(25):
           for k in lal.cached_detector_by_prefix:
             splineParams.append(k+'_spcal_freq_'+str(i))
             splineParams.append(k+'_spcal_logfreq_'+str(i))
