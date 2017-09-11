@@ -2647,7 +2647,7 @@ void LALInferencePrintInjectionSample(LALInferenceRunState *runState) {
         sprintf(fname,"%s.injection",ppt->value);
     }
     else
-        sprintf(fname,"PID_%d_%s", defaultname);
+        sprintf(fname,"PID_%d_%s", getpid(), defaultname);
 
     ppt = LALInferenceGetProcParamVal(runState->commandLine, "--event");
     if (ppt) {
