@@ -814,10 +814,6 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
     ----------------------------------------------\n\
     You can generally fix a parameter to be fixed to a given values by using --fix-paramname VALUE\n\
     where the known names have been listed above.\n\
-    ----------------------------------------------\n\
-    --- Filename Parameters ----------------------\n\
-    ----------------------------------------------\n\
-    (--usepid)                            Append pid number for file name.\n\
 \n";
 
   /* Print command line arguments if state was not allocated */

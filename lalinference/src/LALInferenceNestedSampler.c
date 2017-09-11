@@ -819,11 +819,7 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
   if(strstr(outfilep,".h5") || strstr(outfilep,".hdf")) HDFOUTPUT=1;
   else HDFOUTPUT=0;
   char outfile[FILENAME_MAX];
-  ppt=LALInferenceGetProcParamVal(runState->commandLine,"--usepid");
-  if(ppt)
-    sprintf(outfile, "PID_%d_%s", getpid(), outfilep);
-  else
-    sprintf(outfile, "%s", outfilep);
+  sprintf(outfile, "%s", outfilep);
   
 #ifndef HAVE_HDF5
   if(HDFOUTPUT)

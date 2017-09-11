@@ -22,10 +22,6 @@
 #include <config.h>
 
 #include <stdio.h>
-#include <sys/types.h>
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
 #include <lal/Date.h>
 #include <lal/GenerateInspiral.h>
 #include <lal/LALInference.h>
@@ -89,7 +85,7 @@ int main(int argc, char *argv[]){
     char outfile[FILENAME_MAX];
     char headerfile[FILENAME_MAX];
     FILE *fpout=NULL;
-    sprintf(outfile,"PID_%d_%s", getpid(), outfilep);
+    sprintf(outfile,"%s", outfilep);
     sprintf(headerfile,"%s_header.txt",outfile);
     fpout=fopen(headerfile,"w");
     fprintf(fpout,"LALInference version:%s,%s,%s,%s,%s\n", lalInferenceVCSId,lalInferenceVCSDate,lalInferenceVCSBranch,lalInferenceVCSAuthor,lalInferenceVCSStatus);

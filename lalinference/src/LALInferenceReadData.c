@@ -1186,21 +1186,9 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
           ppt=LALInferenceGetProcParamVal(commandLine,"--outfile");
           if(ppt) {
             snprintf(filename, nameLength, "%s%s-PSD.dat", ppt->value, IFOdata[i].name);
-            ppt=LALInferenceGetProcParamVal(commandLine,"--usepid");
-            if(ppt) {
-              char tmpname[FILENAME_MAX];
-              strcpy(tmpname, filename);
-              snprintf(filename, nameLength, "PID_%d_%s", getpid(), tmpname);
-            }
           }
           else {
             snprintf(filename, nameLength, "%.3f_%s-PSD.dat", GPStrig.gpsSeconds+1e-9*GPStrig.gpsNanoSeconds, IFOdata[i].name);
-            ppt=LALInferenceGetProcParamVal(commandLine,"--usepid");
-            if(ppt) {
-              char tmpname[FILENAME_MAX];
-              strcpy(tmpname, filename);
-              snprintf(filename, nameLength, "PID_%d_%s", getpid(), tmpname);
-            }
          }
 
           out = fopen(filename, "w");
@@ -2244,13 +2232,7 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
   if (ppt)
     sprintf(SNRpath, "%s_snr.txt", ppt->value);
   else
-    sprintf(SNRpath, "snr.txt");
-  ppt = LALInferenceGetProcParamVal(commandLine,"--usepid");
-  if(ppt) {
-    char tmpname[FILENAME_MAX];
-    strcpy(tmpname, SNRpath);
-    sprintf(SNRpath, "PID_%d_%s", getpid(), tmpname);
-  }
+    sprintf(SNRpath, "PID_%d_snr.txt", getpid());
 
   Approximant approximant = XLALGetApproximantFromString(inj_table->waveform);
   if( (int) approximant == XLAL_FAILURE)
@@ -2665,13 +2647,7 @@ void LALInferencePrintInjectionSample(LALInferenceRunState *runState) {
         sprintf(fname,"%s.injection",ppt->value);
     }
     else
-        strcpy(fname, defaultname);
-    ppt = LALInferenceGetProcParamVal(runState->commandLine, "--usepid");
-    if(ppt) {
-      char tmpname[FILENAME_MAX];
-      strcpy(tmpname, fname);
-      snprintf(fname, FILENAME_MAX, "PID_%d_%s", getpid(), tmpname);
-    }
+        sprintf(fname,"PID_%d_%s", defaultname);
 
     ppt = LALInferenceGetProcParamVal(runState->commandLine, "--event");
     if (ppt) {
