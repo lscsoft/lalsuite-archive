@@ -1284,7 +1284,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveformPhaseInterpolated(LALInfer
     }
   /* ==== Quadrupole deformation PARAMETERS ==== */
   /* if we do not add quadparams to model parameteres they would be 1.0 */
-  REAL8 quadparam = 1., quadparam2 = 1.0;
+  REAL8 quadparam1 = 1., quadparam2 = 1.0;
   if(LALInferenceCheckVariable(model->params, "quadparam1")) quadparam1 = *(REAL8*) LALInferenceGetVariable(model->params, "quadparam1");
   if(LALInferenceCheckVariable(model->params, "quadparam2")) quadparam2 = *(REAL8*) LALInferenceGetVariable(model->params, "quadparam2");
   XLALSimInspiralWaveformParamsInsertdQuadMon1(model->LALpars, quadparam1-1);
