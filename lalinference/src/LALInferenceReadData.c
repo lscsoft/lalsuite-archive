@@ -546,8 +546,8 @@ static void LALInferencePrintDataWithInjection(LALInferenceIFOData *IFOdata, Pro
     (--inj-fref)                Reference frequency of parameters in injection XML (default 100Hz)\n\
     (--inj-lambda1)             value of lambda1 to be injected, LALSimulation only (0)\n\
     (--inj-lambda2)             value of lambda2 to be injected, LALSimulation only (0)\n\
-    (--inj-lambdaT              value of lambdaT to be injected (0)\n\
-    (--inj-dlambdaT             value of dlambdaT to be injected (0)\n\
+    (--inj-lambdaT)              value of lambdaT to be injected (0)\n\
+    (--inj-dLambdaT)             value of dLambdaT to be injected (0)\n\
     (--inj-spinOrder PNorder)   Specify twice the injection PN order (e.g. 5 <==> 2.5PN)\n\
                                     of spin effects effects to use, only for LALSimulation\n\
                                     (default: -1 <==> Use all spin effects).\n\
@@ -2275,6 +2275,10 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
   REAL8 injtime=0.0;
   injtime=(REAL8) inj_table->geocent_end_time.gpsSeconds + (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9;
 
+  REAL8 eccentricity = (REAL8) inj_table->eccentricity;
+  INT4 ecc_order = (INT4) inj_table->ecc_order;
+  REAL8 f_ecc = (REAL8) inj_table->f_ecc;
+
   REAL8 lambda1 = 0.;
   if(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")) {
     lambda1= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")->value);
@@ -2299,6 +2303,19 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
     fprintf(stdout,"lambda1 set to %f\n",lambda1);
     fprintf(stdout,"lambda2 set to %f\n",lambda2);
   }
+
+  /* quadrupole deformation parameters */
+  REAL8 quadparam1 = 0.0, quadparam2 = 0.0;
+  quadparam1 = (REAL8) inj_table->quadparam1;
+  if(LALInferenceGetProcParamVal(commandLine,"--inj-quadparam1")) {
+    quadparam1= atof(LALInferenceGetProcParamVal(commandLine,"--inj-quadparam1")->value);
+  }
+  fprintf(stdout,"Injection quadparam1 set to %f\n",quadparam1);
+  quadparam2 = (REAL8) inj_table->quadparam2;
+  if(LALInferenceGetProcParamVal(commandLine,"--inj-quadparam2")) {
+    quadparam2= atof(LALInferenceGetProcParamVal(commandLine,"--inj-quadparam2")->value);
+  }
+  fprintf(stdout,"Injection quadparam2 set to %f\n",quadparam2);
 
   /* Set up LAL dictionary */
   LALDict* LALpars=XLALCreateDict();
@@ -2350,6 +2367,8 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
 
   XLALSimInspiralWaveformParamsInsertTidalLambda1(LALpars,lambda1);
   XLALSimInspiralWaveformParamsInsertTidalLambda2(LALpars,lambda2);
+  XLALSimInspiralWaveformParamsInsertTidalQuadparam1(LALpars,quadparam1);
+  XLALSimInspiralWaveformParamsInsertTidalQuadparam2(LALpars,quadparam2);
   XLALSimInspiralWaveformParamsInsertPNAmplitudeOrder(LALpars,amp_order);
   XLALSimInspiralWaveformParamsInsertPNPhaseOrder(LALpars,phase_order);
   XLALSimInspiralWaveformParamsInsertPNEccentricityOrder(LALpars,ecc_order);
@@ -2508,7 +2527,7 @@ static void PrintSNRsToFile(LALInferenceIFOData *IFOdata , char SNRpath[] ){
 * Fill the variables passed in vars with the parameters of the injection passed in event
 * will over-write and destroy any existing parameters. Param vary type will be fixed
 */
-void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInferenceVariables *vars)
+void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInferenceVariables *vars, ProcessParamsTable *procParams)
 {
   UINT4 spinCheck=0;
   if(!vars) {
@@ -2674,7 +2693,7 @@ void LALInferencePrintInjectionSample(LALInferenceRunState *runState) {
         return;
     }
     /* Fill named variables */
-    LALInferenceInjectionToVariables(theEventTable, injparams);
+    LALInferenceInjectionToVariables(theEventTable, injparams, runState->commandLine);
 
     REAL8 injPrior = runState->prior(runState, injparams, model);
     LALInferenceAddVariable(injparams, "logPrior", &injPrior, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_OUTPUT);

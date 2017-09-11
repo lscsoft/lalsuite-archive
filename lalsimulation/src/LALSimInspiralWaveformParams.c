@@ -70,6 +70,8 @@ DEFINE_INSERT_FUNC(PNTidalOrder, INT4, "tideO", -1)
 
 DEFINE_INSERT_FUNC(TidalLambda1, REAL8, "lambda1", 0)
 DEFINE_INSERT_FUNC(TidalLambda2, REAL8, "lambda2", 0)
+DEFINE_INSERT_FUNC(TidalQuadparam1, REAL8, "quadparam1", 0)
+DEFINE_INSERT_FUNC(TidalQuadparam2, REAL8, "quadparam2", 0)
 DEFINE_INSERT_FUNC(TidalOctupolarLambda1, REAL8, "TidalOctupolarLambda1", 0)
 DEFINE_INSERT_FUNC(TidalOctupolarLambda2, REAL8, "TidalOctupolarLambda2", 0)
 DEFINE_INSERT_FUNC(TidalQuadrupolarFMode1, REAL8, "TidalQuadrupolarFMode1", 0)
