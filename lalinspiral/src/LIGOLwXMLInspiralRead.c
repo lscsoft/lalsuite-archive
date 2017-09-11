@@ -1377,7 +1377,7 @@ static void set_missed_column(SimInspiralTable *thisSim, int idx)
         if ( idx == 0 )
         {
           snprintf(thisSim->waveform, LIGOMETA_WAVEFORM_MAX * sizeof(CHAR),
-              "%s", "TaylorF2threeointFivePN");
+              "%s", "TaylorF2threePointFivePN");
         }
         else if ( idx == 1 )
         {
