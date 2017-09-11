@@ -2300,9 +2300,17 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
   }
 
   /* quadrupole deformation parameters */
-  REAL8 quadparam1 = 1.0, quadparam2 = 1.0;
+  REAL8 quadparam1 = 0.0, quadparam2 = 0.0;
   quadparam1 = (REAL8) inj_table->quadparam1;
+  if(LALInferenceGetProcParamVal(commandLine,"--inj-quadparam1")) {
+    quadparam1= atof(LALInferenceGetProcParamVal(commandLine,"--inj-quadparam1")->value);
+  }
+  fprintf(stdout,"Injection quadparam1 set to %f\n",quadparam1);
   quadparam2 = (REAL8) inj_table->quadparam2;
+  if(LALInferenceGetProcParamVal(commandLine,"--inj-quadparam2")) {
+    quadparam2= atof(LALInferenceGetProcParamVal(commandLine,"--inj-quadparam2")->value);
+  }
+  fprintf(stdout,"Injection quadparam2 set to %f\n",quadparam2);
 
   /* Set up wave flags */
   LALSimInspiralWaveformFlags *waveFlags = XLALSimInspiralCreateWaveformFlags();
@@ -2506,7 +2514,7 @@ static void PrintSNRsToFile(LALInferenceIFOData *IFOdata , char SNRpath[] ){
 * Fill the variables passed in vars with the parameters of the injection passed in event
 * will over-write and destroy any existing parameters. Param vary type will be fixed
 */
-void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInferenceVariables *vars)
+void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInferenceVariables *vars, ProcessParamsTable *procParams)
 {
   UINT4 spinCheck=0;
   if(!vars) {
@@ -2604,8 +2612,25 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
   LALInferenceAddVariable(vars, "f_ecc", &f_ecc, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
   /* add lambda1, lambda2, quadparam1, quadparam2 parameters added by hwlee at 1 Sep. 2017*/
   REAL8 lambda1, lambda2, quadparam1, quadparam2;
-  LALInferenceAddVariable(vars, "lambda1", &lambda1, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-  LALInferenceAddVariable(vars, "lambda2", &lambda2, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  lambda1 = theEventTable->lambda1;
+  lambda2 = theEventTable->lambda2;
+  ProcessParamsTable *ppt=NULL;
+  ppt=LALInferenceGetProcParamVal(procParams,"--tidalT");
+  if(ppt) /* if tidal parameter given in lambdaT and dLambdaT */
+  {
+    REAL8 lambdaT, dLambdaT;
+    LALInferenceLambdasEta2LambdaTs(lambda1, lambda2, theEventTable->eta, &lambdaT, &dLambdaT);
+    LALInferenceAddVariable(vars, "lambdaT", &lambdaT, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(vars, "dLambdaT", &dLambdaT, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  }
+  else
+  {
+    LALInferenceAddVariable(vars, "lambda1", &lambda1, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(vars, "lambda2", &lambda2, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  }
+
+  quadparam1 = theEventTable->quadparam1;
+  quadparam2 = theEventTable->quadparam2;
   LALInferenceAddVariable(vars, "quadparam1", &quadparam1, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(vars, "quadparam2", &quadparam2, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
 
@@ -2670,7 +2695,7 @@ void LALInferencePrintInjectionSample(LALInferenceRunState *runState) {
         return;
     }
     /* Fill named variables */
-    LALInferenceInjectionToVariables(theEventTable, injparams);
+    LALInferenceInjectionToVariables(theEventTable, injparams, runState->commandLine);
 
     REAL8 injPrior = runState->prior(runState, injparams, model);
     LALInferenceAddVariable(injparams, "logPrior", &injPrior, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_OUTPUT);

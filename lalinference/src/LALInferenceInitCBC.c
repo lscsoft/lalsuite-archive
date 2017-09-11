@@ -933,7 +933,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
     char **strings=NULL;
     UINT4 N;
     LALInferenceParseCharacterOptionString(pinned_params,&strings,&N);
-    LALInferenceInjectionToVariables(injTable,&tempParams);
+    LALInferenceInjectionToVariables(injTable,&tempParams, commandLine);
     LALInferenceVariableItem *node=NULL;
     while(N>0){
       N--;
@@ -1083,13 +1083,12 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   }
   LALInferenceLambdasEta2LambdaTs(lambda1, lambda2, eta, &lambdaT, &dLambdaT);
 
-
-  /* quadrupole deformation related variables, quadparam1, 2 is registered as uniform variate */
-  REAL8 quadparam1 = 1.0;
-  REAL8 quadparam2 = 1.0;
+  /* quadruiole deformation related variables, quadparam1, 2 is registered as uniform variate */
+  REAL8 quadparam1 = 0.0;
+  REAL8 quadparam2 = 0.0;
   if (injTable == NULL)
   {
-    printf("WARNING: No injection table is specified, tide values are set as default values, quadparam1=1, quadparam2=1\n");
+    printf("WARNING: No injection table is specified, tide values are set as default values, quadparam1=0, quadparam2=0\n");
   }
   else {
     quadparam1 = (REAL8) injTable->quadparam1;
