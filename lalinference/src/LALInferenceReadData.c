@@ -2282,7 +2282,7 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
   }
 
   /* quadrupole deformation parameters */
-  REAL8 quadparam1 = 0.0, quadparam2 = 0.0;
+  REAL8 quadparam1 = 1.0, quadparam2 = 1.0;
   quadparam1 = (REAL8) inj_table->quadparam1;
   if(LALInferenceGetProcParamVal(commandLine,"--inj-quadparam1")) {
     quadparam1= atof(LALInferenceGetProcParamVal(commandLine,"--inj-quadparam1")->value);
