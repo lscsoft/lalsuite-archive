@@ -105,7 +105,7 @@ extern "C" {
  * COMPLEX16FrequencySeries *hptilde = NULL;  // plus polarization to be returned
  * COMPLEX16FrequencySeries *hctilde = NULL; // cross polarization to be returned
  * ...
- * XLALSimInspiralChooseFDWaveform(&hptilde, &hctilde, phiRef, deltaF, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_max, f_ref, r, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, approximant);
+ * XLALSimInspiralChooseFDWaveform(&hptilde, &hctilde, phiRef, deltaF, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_max, f_ref, r, i, ecentricity, ecc_order, f_ecc, lambda1, lambda2, quadparam1, quadparam2, waveFlags, nonGRparams, amplitudeO, phaseO, approximant);
  * @endcode
  *
  * ### Coordinate Systems

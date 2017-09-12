@@ -4417,11 +4417,16 @@ def plot_corner(posterior,levels,parnames=None):
   parnames=filter(lambda x: x in posterior.names, parnames)
   labels = [plot_label(parname) for parname in parnames]
   data = np.hstack([posterior[p].samples for p in parnames])
-  if posterior.injection:
-    injvals=[posterior[p].injval for p in parnames]
-    myfig=corner.corner(data,labels=labels,truths=injvals,quantiles=levels,plot_datapoints=False,bins=20)
-  else:
-    myfig=corner.corner(data,labels=labels,quantiles=levels,plot_datapoints=False,bins=20)
+  try:
+    if posterior.injection:
+      injvals=[posterior[p].injval for p in parnames]
+      myfig=corner.corner(data,labels=labels,truths=injvals,quantiles=levels,plot_datapoints=False,bins=20)
+    else:
+      myfig=corner.corner(data,labels=labels,quantiles=levels,plot_datapoints=False,bins=20)
+  except Rxception,e:
+      print "Error for coner graph : %s\n"%str(e)
+      print parnames
+      print labels
   return(myfig)
 
 
@@ -6650,7 +6655,7 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
 
       if SimInspiralImplementedFDApproximants(injapproximant):
         inj_domain='F'
-        [plus,cross]=SimInspiralChooseFDWaveform(phiRef, deltaF, m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, f_min, f_max, f_ref, r, iota, eccentricity, f_ecc, ecc_order, lambda1, lambda2, quadparam1, quadparam2, waveFlags, nonGRparams, amplitudeO, phaseO, injapproximant)
+        [plus,cross]=SimInspiralChooseFDWaveform(phiRef, deltaF, m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, f_min, f_max, f_ref, r, iota, eccentricity, ecc_order, f_ecc, lambda1, lambda2, quadparam1, quadparam2, waveFlags, nonGRparams, amplitudeO, phaseO, injapproximant)
       elif SimInspiralImplementedTDApproximants(injapproximant):
         inj_domain='T'
         [plus,cross]=SimInspiralChooseTDWaveform(phiRef, deltaT, m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, f_min, f_ref, r, iota, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, injapproximant)
@@ -6827,7 +6832,7 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
 
       if SimInspiralImplementedFDApproximants(approximant):
         rec_domain='F'
-        [plus,cross]=SimInspiralChooseFDWaveform(phiRef, deltaF, m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, f_min, f_max, f_ref, r, iota, eccentricity, f_ecc, ecc_order, lambda1, lambda2, quadparam1, quadparam2, waveFlags, nonGRparams, amplitudeO, phaseO, approximant)
+        [plus,cross]=SimInspiralChooseFDWaveform(phiRef, deltaF, m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, f_min, f_max, f_ref, r, iota, eccentricity, ecc_order, f_ecc, lambda1, lambda2, quadparam1, quadparam2, waveFlags, nonGRparams, amplitudeO, phaseO, approximant)
       elif SimInspiralImplementedTDApproximants(approximant):
         rec_domain='T'
         [plus,cross]=SimInspiralChooseTDWaveform(phiRef, deltaT, m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, f_min, f_ref, r, iota, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, approximant)
