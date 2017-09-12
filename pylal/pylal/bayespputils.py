@@ -145,7 +145,7 @@ ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB',
 tigerParams=['dchi%i'%(i) for i in range(8)] + ['dchi%il'%(i) for i in [5,6] ] + ['dxi%d'%(i+1) for i in range(6)] + ['dalpha%i'%(i+1) for i in range(5)] + ['dbeta%i'%(i+1) for i in range(3)] + ['dsigma%i'%(i+1) for i in range(4)]
 bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
 massiveGravitonParams=['lambdaG']
-tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat','quadparam1','quadparam']
+tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat','quadparam1','quadparam2']
 energyParams=['e_rad', 'l_peak']
 eccentricityParams=['eccentricity','ecc']
 strongFieldParams=ppEParams+tigerParams+bransDickeParams+massiveGravitonParams+tidalParams+energyParams
@@ -349,8 +349,8 @@ def get_prior(name):
       'quadparam1' : 'uniform',
       'quadparam2': 'uniform',
       'eccentricity': 'uniform',
-      'lam_tilde' : None,
-      'dlam_tilde': None,
+      'lam_tilde' : 'uniform',
+      'dlam_tilde': 'uniform',
       'calamp_h1' : 'uniform',
       'calamp_l1' : 'uniform',
       'calpha_h1' : 'uniform',
@@ -1092,6 +1092,16 @@ class Posterior(object):
               pos.append_mapping(new_tidal_params, symm_tidal_params, old_tidal_params)
           except KeyError:
               print "Warning: Cannot find tidal parameters.  Skipping tidal calculations."
+
+      #Calculate injection values for lam_tilde and dlam_tilde, injection are given only in lambda1 and lambda2??hwlee
+      if 'lambdat' in pos.names and 'dlambdat' in pos.names:
+         if injection is not None:
+           inj_lambda1 = injection.lambda1
+           inj_lambda2 = injection.lambda2
+           inj_eta = injection.eta
+           inj_lam_tilde, inj_dlam_tilde = tidal_params_sym(inj_lambda1, inj_lambda2, inj_eta)
+           pos['lam_tilde'].set_injval(inj_lam_tilde)
+           pos['dlam_tilde'].set_injval(inj_dlam_tilde)
 
       #If new spin params present, calculate old ones
       old_spin_params = ['iota', 'theta1', 'phi1', 'theta2', 'phi2', 'beta']
@@ -3891,6 +3901,19 @@ def symm_tidal_params(lambda1,lambda2,eta):
     lam_tilde = (8./13.)*((1.+7.*eta-31.*eta*eta)*(lambda1+lambda2) + np.sqrt(1.-4.*eta)*(1.+9.*eta-11.*eta*eta)*(lambda1-lambda2))
     dlam_tilde = (1./2.)*(np.sqrt(1.-4.*eta)*(1.-13272.*eta/1319.+8944.*eta*eta/1319.)*(lambda1+lambda2) + (1.-15910.*eta/1319.+32850.*eta*eta/1319.+3380.*eta*eta*eta/1319.)*(lambda1-lambda2))
     return lam_tilde, dlam_tilde
+
+def tidal_params_sym(lam_tilde,dlam_tilde,eta):
+    """
+    Calculate lambda1 and lambda2 for lam_tilde and dlam_tilde
+    """
+    a=(8./13.)*(1.+7.*eta-31.*eta*eta)
+    b=(8./13.)*np.sqrt(1.-4.*eta)*(1.+9.*eta-11.*eta*eta)
+    c=(1./2.)*np.sqrt(1.-4.*eta)*(1.-13272.*eta/1319.+8944.*eta*eta/1319.)
+    d=(1./2.)*(1.-15910.*eta/1319.+32850.*eta*eta/1319.+3380.*eta*eta*eta/1319.)
+
+    lambda1 = ((c-d)*lam_tilde - (a-b)*dlam_tilde)/(2.0*(b*c-a*d))
+    lambda2 = ((c+d)*lam_tilde - (a+b)*dlam_tilde)/(2.0*(a*d-b*c))
+    return lambda1, lambda2
 
 def spin_angles(fref,mc,eta,incl,a1,theta1,phi1,a2=None,theta2=None,phi2=None):
     """
