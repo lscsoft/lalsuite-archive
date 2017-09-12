@@ -112,6 +112,11 @@ static struct PyMemberDef members[] = {
 	{"numrel_mode_max", T_INT, offsetof(pylal_SimInspiralTable, sim_inspiral.numrel_mode_max), 0, "numrel_mode_max"},
 	{"amp_order", T_INT, offsetof(pylal_SimInspiralTable, sim_inspiral.amp_order), 0, "amp_order"},
 	{"bandpass", T_INT, offsetof(pylal_SimInspiralTable, sim_inspiral.bandpass), 0, "bandpass"},
+	{"eccentricity", T_DOUBLE, offsetof(pylal_SimInspiralTable, sim_inspiral.eccentricity), 0, "eccentricity"},
+	{"lambda1", T_DOUBLE, offsetof(pylal_SimInspiralTable, sim_inspiral.lambda1), 0, "lambda1"},
+	{"lambda2", T_DOUBLE, offsetof(pylal_SimInspiralTable, sim_inspiral.lambda1), 0, "lambda2"},
+	{"quadparam1", T_DOUBLE, offsetof(pylal_SimInspiralTable, sim_inspiral.quadparam1), 0, "quadparam1"},
+	{"quadparam2", T_DOUBLE, offsetof(pylal_SimInspiralTable, sim_inspiral.quadparam2), 0, "quadparam2"},
 	{NULL,}
 };
 

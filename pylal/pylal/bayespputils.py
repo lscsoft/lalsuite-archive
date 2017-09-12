@@ -147,7 +147,7 @@ bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
 massiveGravitonParams=['lambdaG']
 tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat','quadparam1','quadparam2']
 energyParams=['e_rad', 'l_peak']
-eccentricityParams=['eccentricity','ecc']
+eccentricityParams=['eccentricity']
 strongFieldParams=ppEParams+tigerParams+bransDickeParams+massiveGravitonParams+tidalParams+energyParams
 
 #Extrinsic
@@ -166,7 +166,7 @@ calibParams=['calpha_l1','calpha_h1','calpha_v1','calamp_l1','calamp_h1','calamp
 ## Greedy bin sizes for cbcBPP and confidence leves used for the greedy bin intervals
 confidenceLevels=[0.67,0.9,0.95,0.99]
 
-greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'mc_source':0.025,'m1_source':0.1,'m2_source':0.1,'mtotal_source':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'time_mean':1e-4,'distance':1.0,'dist':1.0,'redshift':0.01,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1z':0.04,'a2z':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'chi_eff':0.05,'chi_tot':0.05,'chi_p':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costheta_jn':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01,'phase':0.05,'tilt1':0.05,'tilt2':0.05,'phi_jl':0.05,'theta_jn':0.05,'phi12':0.05,'flow':1.0,'phase_maxl':0.05,'calamp_l1':0.01,'calamp_h1':0.01,'calamp_v1':0.01,'calpha_h1':0.01,'calpha_l1':0.01,'calpha_v1':0.01,'logdistance':0.1,'psi':0.1,'costheta_jn':0.1,'mf':0.1,'mf_source':0.1,'af':0.02,'e_rad':0.1,'l_peak':0.1}
+greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'mc_source':0.025,'m1_source':0.1,'m2_source':0.1,'mtotal_source':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'time_mean':1e-4,'distance':1.0,'dist':1.0,'redshift':0.01,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1z':0.04,'a2z':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'chi_eff':0.05,'chi_tot':0.05,'chi_p':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costheta_jn':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01,'phase':0.05,'tilt1':0.05,'tilt2':0.05,'phi_jl':0.05,'theta_jn':0.05,'phi12':0.05,'flow':1.0,'phase_maxl':0.05,'calamp_l1':0.01,'calamp_h1':0.01,'calamp_v1':0.01,'calpha_h1':0.01,'calpha_l1':0.01,'calpha_v1':0.01,'logdistance':0.1,'psi':0.1,'costheta_jn':0.1,'mf':0.1,'mf_source':0.1,'af':0.02,'e_rad':0.1,'l_peak':0.1,'eccentricity':0.05,'lambdat':5,'dlamdat':5,'quadparam1':0.5,'quadparam2':0.5}
 for s in snrParams:
   greedyBinSizes[s]=0.05
 for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
@@ -342,10 +342,10 @@ def get_prior(name):
       'h1l1_delay':None,
       'h1v1_delay':None,
       'l1v1_delay':None,
-      'lambdat' :None,
-      'dlambdat':None,
+      'lambdat' : 'uniform',
+      'dlambdat': 'uniform',
       'lambda1' : 'uniform',
-      'lambda2': 'uniform',
+      'lambda2' : 'uniform',
       'quadparam1' : 'uniform',
       'quadparam2': 'uniform',
       'eccentricity': 'uniform',
@@ -443,8 +443,8 @@ def plot_label(param):
       'dlambdat': r'$\delta \tilde{\Lambda}$',
       'lambda1' : r'$\lambda_1$',
       'lambda2': r'$\lambda_2$',
-      'quadparam1' : r'$Qm_1$',
-      'quadparam2' : r'$Qm_2$',
+      'quadparam1' : r'$QM_1$',
+      'quadparam2' : r'$QM_2$',
       'eccentricity': r'$\varepsilon$',
       'lam_tilde' : r'$\tilde{\Lambda}$',
       'dlam_tilde': r'$\delta \tilde{\Lambda}$',
@@ -829,6 +829,9 @@ class Posterior(object):
                             'f_ref': lambda inj: self._injFref,
                             'polarisation':lambda inj:inj.polarization,
                             'polarization':lambda inj:inj.polarization,
+                            'eccentricity':lambda inj:inj.eccentricity,
+                            'lambda1':lambda inj:inj.lambda1,
+                            'lambda2':lambda inj:inj.lambda2,
                             'h1_end_time':lambda inj:float(inj.get_end('H')),
                             'l1_end_time':lambda inj:float(inj.get_end('L')),
                             'v1_end_time':lambda inj:float(inj.get_end('V')),
@@ -1100,8 +1103,14 @@ class Posterior(object):
            inj_lambda2 = injection.lambda2
            inj_eta = injection.eta
            inj_lam_tilde, inj_dlam_tilde = tidal_params_sym(inj_lambda1, inj_lambda2, inj_eta)
-           pos['lam_tilde'].set_injval(inj_lam_tilde)
-           pos['dlam_tilde'].set_injval(inj_dlam_tilde)
+           pos['lambdat'].set_injval(inj_lam_tilde)
+           pos['dlambdat'].set_injval(inj_dlam_tilde)
+
+      #Calculate injection value for eccentricity
+      if 'eccentricity' in pos.names:
+         if injection is not None:
+           inj_ecc = injection.eccentricity
+           pos['eccentricity'].set_injval(inj_ecc)
 
       #If new spin params present, calculate old ones
       old_spin_params = ['iota', 'theta1', 'phi1', 'theta2', 'phi2', 'beta']
@@ -2125,7 +2134,7 @@ class BurstPosterior(Posterior):
                             'pol_ellipse_e':lambda inj:inj.pol_ellipse_e,
                             'alpha':lambda inj:inj.pol_ellipse_angle,
                             'polar_eccentricity':lambda inj:inj.pol_ellipse_e,
-                            'eccentricity':lambda inj:inj.pol_ellipse_e,
+                            'eccentricity':lambda inj:inj.eccentricity,
                             'time': lambda inj:float(inj.get_end()),
                             'end_time': lambda inj:float(inj.get_end()),
                             'ra':self._inj_longitude,
@@ -3587,6 +3596,8 @@ def cart2sph(x,y,z):
     Utility function to convert cartesian coords to r,theta,phi.
     """
     r = np.sqrt(x*x + y*y + z*z)
+    if r <= 0 :
+      return 0, 0, 0
     theta = np.arccos(z/r)
     phi = np.fmod(2*pi_constant + np.arctan2(y,x), 2*pi_constant)
 
@@ -6639,10 +6650,10 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
 
       if SimInspiralImplementedFDApproximants(injapproximant):
         inj_domain='F'
-        [plus,cross]=SimInspiralChooseFDWaveform(phiRef, deltaF,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min,f_max, f_ref,  r,   iota, eccentricity, ecc_order, f_ecc, lambda1, lambda2, quadparam1, quadparam2, waveFlags, nonGRparams, amplitudeO, phaseO, injapproximant)
+        [plus,cross]=SimInspiralChooseFDWaveform(phiRef, deltaF, m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, f_min, f_max, f_ref, r, iota, eccentricity, f_ecc, ecc_order, lambda1, lambda2, quadparam1, quadparam2, waveFlags, nonGRparams, amplitudeO, phaseO, injapproximant)
       elif SimInspiralImplementedTDApproximants(injapproximant):
         inj_domain='T'
-        [plus,cross]=SimInspiralChooseTDWaveform(phiRef, deltaT,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min, f_ref,   r,   iota, lambda1,   lambda2,waveFlags, nonGRparams, amplitudeO, phaseO, injapproximant)
+        [plus,cross]=SimInspiralChooseTDWaveform(phiRef, deltaT, m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, f_min, f_ref, r, iota, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, injapproximant)
       else:
         print "\nThe approximant %s doesn't seem to be recognized by lalsimulation!\n Skipping WF plots\n"%injapproximant
         return None
@@ -6816,10 +6827,10 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
 
       if SimInspiralImplementedFDApproximants(approximant):
         rec_domain='F'
-        [plus,cross]=SimInspiralChooseFDWaveform(phiRef, deltaF,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min, f_max, f_ref,r, iota, eccentricity, ecc_order, f_ecc,  lambda1, lambda2, quadparam1, quadparam2, waveFlags, nonGRparams, amplitudeO, phaseO, approximant)
+        [plus,cross]=SimInspiralChooseFDWaveform(phiRef, deltaF, m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, f_min, f_max, f_ref, r, iota, eccentricity, f_ecc, ecc_order, lambda1, lambda2, quadparam1, quadparam2, waveFlags, nonGRparams, amplitudeO, phaseO, approximant)
       elif SimInspiralImplementedTDApproximants(approximant):
         rec_domain='T'
-        [plus,cross]=SimInspiralChooseTDWaveform(phiRef, deltaT,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min, f_ref,  r,   iota, lambda1,   lambda2,waveFlags, nonGRparams, amplitudeO, phaseO, approximant)
+        [plus,cross]=SimInspiralChooseTDWaveform(phiRef, deltaT, m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, f_min, f_ref, r, iota, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, approximant)
       else:
         print "The approximant %s doesn't seem to be recognized by lalsimulation!\n Skipping WF plots\n"%approximant
         return None

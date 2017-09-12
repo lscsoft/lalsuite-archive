@@ -808,9 +808,11 @@ def cbcBayesPostProc(
     timeParams=['time']
     spinParams=['spin1','spin2','a1','a2','a1z','a2z','phi1','theta1','phi2','theta2','chi','effectivespin','chi_eff','chi_tot','chi_p','beta','tilt1','tilt2','phi_jl','theta_jn','phi12']
     sourceParams=['m1_source','m2_source','mtotal_source','mc_source','redshift']
-    tidalParams=['lambda1','lambda2','quadparam1','quadparam2']
+    tidalParams=['lambdat','dlambdat','lambda1','lambda2','quadparam1','quadparam2']
     eccentricityParams=['eccentricity']
-    intrinsicParams=massParams+spinParams+tidalParams+eccentricityParams
+    intrinsicParams=massParams+spinParams
+    intrinsicParams1=massParams+tidalParams+eccentricityParams
+    intrinsicParams2=spinParams+tidalParams+eccentricityParams
     extrinsicParams=incParams+distParams+polParams+skyParams
     sourceFrameParams=sourceParams+distParams
     try:
@@ -825,6 +827,31 @@ def cbcBayesPostProc(
       myfig.savefig(os.path.join(cornerdir,'intrinsic.png'))
       myfig.savefig(os.path.join(cornerdir,'intrinsic.pdf'))
       got_any+=1
+
+    try:
+      myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=intrinsicParams1)
+    except:
+      myfig=None
+    tabid='CornerTable'
+    html_corner=''
+    if myfig:
+      html_corner+='<tr><td width="100%"><a href="corner/mass-ecc-tide.png" target="_blank"><img width="70%" src="corner/mass-ecc-tide.png"/></a></td></tr>'
+      myfig.savefig(os.path.join(cornerdir,'mass-ecc-tide.png'))
+      myfig.savefig(os.path.join(cornerdir,'mass-ecc-tide.pdf'))
+      got_any+=1
+
+    try:
+      myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=intrinsicParams2)
+    except:
+      myfig=None
+    tabid='CornerTable'
+    html_corner=''
+    if myfig:
+      html_corner+='<tr><td width="100%"><a href="corner/spin-ecc-tide.png" target="_blank"><img width="70%" src="corner/spin-ecc-tide.png"/></a></td></tr>'
+      myfig.savefig(os.path.join(cornerdir,'spin-ecc-tide.png'))
+      myfig.savefig(os.path.join(cornerdir,'spin-ecc-tide.pdf'))
+      got_any+=1
+
     try:
       myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=extrinsicParams)
     except:
