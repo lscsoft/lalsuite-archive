@@ -1112,6 +1112,14 @@ class Posterior(object):
            inj_ecc = injection.eccentricity
            pos['eccentricity'].set_injval(inj_ecc)
 
+      #Calculate injection value for quadupole deformation parameters
+      if 'quadparam1' in pos.names and 'quadparam2' in pos.names:
+         if injection is not None:
+           inj_quadparam1 = injection.quadparam1
+           inj_quadparam2 = injection.quadparam2
+           pos['quadparam1'].set_injval(inj_quadparam1)
+           pos['quadparam2'].set_injval(inj_quadparam2)
+
       #If new spin params present, calculate old ones
       old_spin_params = ['iota', 'theta1', 'phi1', 'theta2', 'phi2', 'beta']
       new_spin_params = ['theta_jn', 'phi_jl', 'tilt1', 'tilt2', 'phi12', 'a1', 'a2', 'm1', 'm2', 'f_ref']
@@ -4414,7 +4422,13 @@ def plot_corner(posterior,levels,parnames=None):
           except ImportError:
                   print 'Cannot load corner module. Try running\n\t$ pip install corner'
                   return None
-  parnames=filter(lambda x: x in posterior.names, parnames)
+  parnames1=filter(lambda x: x in posterior.names, parnames)
+  # remove constant parameters
+  parnames = []
+  for p in parnames1:
+    std = np.std(posterior[p].samples)
+    if std > 0 :
+      parnames.append(p)
   labels = [plot_label(parname) for parname in parnames]
   data = np.hstack([posterior[p].samples for p in parnames])
   try:
@@ -4423,7 +4437,7 @@ def plot_corner(posterior,levels,parnames=None):
       myfig=corner.corner(data,labels=labels,truths=injvals,quantiles=levels,plot_datapoints=False,bins=20)
     else:
       myfig=corner.corner(data,labels=labels,quantiles=levels,plot_datapoints=False,bins=20)
-  except Rxception,e:
+  except Exception,e:
       print "Error for coner graph : %s\n"%str(e)
       print parnames
       print labels

@@ -832,6 +832,7 @@ def cbcBayesPostProc(
       myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=intrinsicParams1)
     except Exception,e:
       print '====== Corner plot error for instrinsicParams1 : %s'%str(e)
+      print intrinsicParams1
       myfig=None
     if myfig:
       html_corner+='<tr><td width="100%"><a href="corner/mass-ecc-tide.png" target="_blank"><img width="70%" src="corner/mass-ecc-tide.png"/></a></td></tr>'
@@ -842,7 +843,8 @@ def cbcBayesPostProc(
     try:
       myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=intrinsicParams2)
     except Exception,e:
-      print '== Corner plot error for instrinsicParams2 : %s'%str(e)
+      print '====== Corner plot error for instrinsicParams2 : %s'%str(e)
+      print intrinsicParams2
       myfig=None
     if myfig:
       html_corner+='<tr><td width="100%"><a href="corner/spin-ecc-tide.png" target="_blank"><img width="70%" src="corner/spin-ecc-tide.png"/></a></td></tr>'
