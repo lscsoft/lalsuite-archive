@@ -832,6 +832,8 @@ class Posterior(object):
                             'eccentricity':lambda inj:inj.eccentricity,
                             'lambda1':lambda inj:inj.lambda1,
                             'lambda2':lambda inj:inj.lambda2,
+                            'quadparam1':lambda inj:inj.quadparam1,
+                            'quadparam2':lambda inj:inj.quadparam2,
                             'h1_end_time':lambda inj:float(inj.get_end('H')),
                             'l1_end_time':lambda inj:float(inj.get_end('L')),
                             'v1_end_time':lambda inj:float(inj.get_end('V')),
