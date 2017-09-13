@@ -6820,7 +6820,7 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
         eccentricity=pos['eccentricity'].samples[which][0]
       ecc_order=tbl.ecc_order
       if 'ecc_order' in pos.names:
-        ecc_order=pos['ecc_order'].samples[which][0]
+        ecc_order=int(pos['ecc_order'].samples[which][0])
       f_ecc=tbl.f_ecc
       if 'f_ecc' in pos.names:
         f_ecc=pos['f_ecc'].samples[which][0]

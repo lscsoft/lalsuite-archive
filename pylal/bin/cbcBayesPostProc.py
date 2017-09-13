@@ -830,10 +830,9 @@ def cbcBayesPostProc(
 
     try:
       myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=intrinsicParams1)
-    except:
+    except Exception,e:
+      print '====== Corner plot error for instrinsicParams1 : %s'%str(e)
       myfig=None
-    tabid='CornerTable'
-    html_corner=''
     if myfig:
       html_corner+='<tr><td width="100%"><a href="corner/mass-ecc-tide.png" target="_blank"><img width="70%" src="corner/mass-ecc-tide.png"/></a></td></tr>'
       myfig.savefig(os.path.join(cornerdir,'mass-ecc-tide.png'))
@@ -842,10 +841,9 @@ def cbcBayesPostProc(
 
     try:
       myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=intrinsicParams2)
-    except:
+    except Exception,e:
+      print '== Corner plot error for instrinsicParams2 : %s'%str(e)
       myfig=None
-    tabid='CornerTable'
-    html_corner=''
     if myfig:
       html_corner+='<tr><td width="100%"><a href="corner/spin-ecc-tide.png" target="_blank"><img width="70%" src="corner/spin-ecc-tide.png"/></a></td></tr>'
       myfig.savefig(os.path.join(cornerdir,'spin-ecc-tide.png'))
@@ -854,7 +852,8 @@ def cbcBayesPostProc(
 
     try:
       myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=extrinsicParams)
-    except:
+    except Exception,e:
+      print '====== Corner plot error for extrinsicParams : %s'%str(e)
       myfig=None
 
     if myfig:
