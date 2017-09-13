@@ -251,6 +251,12 @@ COMPLEX16 XLALQNM_SC( REAL8 jf, UINT4 l, INT4 m, UINT4 n );
 REAL8 XLALSimSpheroidalHarmonicPlus(REAL8 jf, UINT4 l, INT4 m, UINT4 n, REAL8 iota, REAL8 phi);
 REAL8 XLALSimSpheroidalHarmonicCross(REAL8 jf, UINT4 l, INT4 m, UINT4 n, REAL8 iota, REAL8 phi);
 
+/* Function to compute spherical and spheroidal inner-products */
+COMPLEX16 XLALSphericalSpheroidalInnerProduct( REAL8 jf, UINT4 ll, INT4 mm, UINT4 l, INT4 m, UINT4 n, UINT4 N );
+
+/* Function to compute SPHEROIDAL and spheroidal inner-products */
+COMPLEX16 XLALSpheroidalSpheroidalInnerProduct( REAL8 jf, UINT4 ll, INT4 mm, UINT4 nn, UINT4 l, INT4 m, UINT4 n, UINT4 N );
+
 /* ------------------------------------------------
           Angular parameter functions
  ------------------------------------------------ */
@@ -264,7 +270,7 @@ COMPLEX16 XLALGAMMA_RD( int m, int s, int p, COMPLEX16 aw );
 /*
 * Spheroical Harmonic Functions (Leaver's Formulation circa 1986/85)
 */
-COMPLEX16 XLALSpinWeightedSpheroidalHarmonic( REAL8 jf, int l, int m, int n, REAL8 theta, REAL8 phi);
+COMPLEX16 XLALSpinWeightedSpheroidalHarmonic( REAL8 jf, int l, int m, int n, REAL8 theta, REAL8 phi );
 
 /*
 * Domain mapping for dimnesionless BH spin

@@ -59,6 +59,7 @@
 #include "LALSimRingdownMMRDNS.h"
 #include "LALSimRingdownData.h"
 #include <lal/LALSimInspiralTestGRParams.h>
+#include <lal/SphericalHarmonics.h>
 
 /* note: use double-precision variables, but demand single-precision accuracy */
 #define EPS LAL_REAL4_EPS
@@ -795,6 +796,7 @@ COMPLEX16 XLALSpinWeightedSpheroidalHarmonic( REAL8 jf,           /* Spin of rem
 
   /* NOTE that here we apply the normalization constant */
   X = X / XLALspheroidalHarmonicNormalization(kappa,l,m,n);
+  // X = X / sqrt( cabs(XLALSpheroidalSpheroidalInnerProduct( jf, l,m,n, l,m,n, 512 )) );
 
   /* initial series values */
   COMPLEX16 a0 = 1.0;
@@ -813,6 +815,7 @@ COMPLEX16 XLALSpinWeightedSpheroidalHarmonic( REAL8 jf,           /* Spin of rem
   k = 1.0;
   int kmax = 5e3;
   REAL8 et = 1e-8;
+  REAL8 lastxx = 0;
   while ( ! done ) {
     k = k + 1.0;
     j = k - 1.0;
@@ -823,6 +826,13 @@ COMPLEX16 XLALSpinWeightedSpheroidalHarmonic( REAL8 jf,           /* Spin of rem
 
     done = (k>=l) && ( (xx<et && k>30) || k>kmax );
     done = done || xx<et;
+
+    /* Jump out of the WHILE-LOOP is the convergence is non-monotonic */
+    if ( (k>3) && (lastxx<xx) ){
+      done = true;
+    }
+    lastxx = xx;
+
     a0 = a1;
     a1 = a2;
   }
@@ -856,6 +866,50 @@ REAL8 XLALSimSpheroidalHarmonicCross(REAL8 jf, UINT4 l, INT4 m, UINT4 n, REAL8 i
         Ycross = creal(XLALSpinWeightedSpheroidalHarmonic(jf, l, m, n, iota, phi) - (1.0 - 2.0*(l % 2))*XLALSpinWeightedSpheroidalHarmonic(jf, l, -m, n, iota, phi));
         return Ycross;
 }
+
+
+/* Function to compute spherical and spheroidal inner-products */
+COMPLEX16 XLALSphericalSpheroidalInnerProduct( REAL8 jf, UINT4 ll, INT4 mm, UINT4 l, INT4 m, UINT4 n, UINT4 N ){
+  /**/
+  REAL8 dtheta = LAL_PI/(N-1);
+  /**/
+  COMPLEX16 th = 0;
+  COMPLEX16 ans = 0;
+  /* NOTE that the k=0 and k=N terms of the trapezoidal rule do not contribute for integrands proportional to sin(th). */
+  for ( UINT4 k=1; k<N; k++ )
+  {
+    /**/
+    th   = k*dtheta;
+    /**/
+    ans += sin(th) * XLALSpinWeightedSpheroidalHarmonic( jf, l,m,n, th, 0 ) * conj( XLALSpinWeightedSphericalHarmonic( th, 0, -2, ll, mm  ) );
+  }
+  /**/
+  ans *= dtheta * LAL_TWOPI;
+  /**/
+  return ans;
+}
+
+/* Function to compute SPHEROIDAL and spheroidal inner-products */
+COMPLEX16 XLALSpheroidalSpheroidalInnerProduct( REAL8 jf, UINT4 ll, INT4 mm, UINT4 nn, UINT4 l, INT4 m, UINT4 n, UINT4 N ){
+  /**/
+  REAL8 dtheta = LAL_PI/(N-1);
+  /**/
+  COMPLEX16 th = 0;
+  COMPLEX16 ans = 0;
+  /* NOTE that the k=0 and k=N terms of the trapezoidal rule do not contribute for integrands proportional to sin(th). */
+  for ( UINT4 k=1; k<N; k++ )
+  {
+    /**/
+    th   = k*dtheta;
+    /**/
+    ans += sin(th) * XLALSpinWeightedSpheroidalHarmonic( jf, l,m,n, th, 0 ) * conj( XLALSpinWeightedSpheroidalHarmonic( jf, ll,mm,nn, th, 0 ) );
+  }
+  /**/
+  ans *= dtheta * LAL_TWOPI;
+  /**/
+  return ans;
+}
+
 
 /* Mode included within the model */
 INT4 XLALMMRDNS_NUM_MODES = 18;
@@ -1327,10 +1381,12 @@ int XLALSimRingdownGenerateSingleModeMMRDNS_time(
         /*  */
         COMPLEX16 S = XLALSpinWeightedSpheroidalHarmonic(jf, l, m, n, iota, phi_offset);
 
-        // /* allocate htilde_lmn */
-        // *htilde_lmn = XLALCreateCOMPLEX16TimeSeries("htilde_lmn: TD waveform", T0, 0.0, deltaT, &lalStrainUnit, Nsamples);
-        // if (!(*htilde_lmn)) XLAL_ERROR(XLAL_EFUNC);
-        // memset((*htilde_lmn)->data->data, 0, Nsamples * sizeof(COMPLEX16));
+        /* allocate htilde_lmn */
+        if ( ! *htilde_lmn ){
+          *htilde_lmn = XLALCreateCOMPLEX16TimeSeries("htilde_lmn: TD waveform", T0, 0.0, deltaT, &lalStrainUnit, Nsamples);
+          if (!(*htilde_lmn)) XLAL_ERROR(XLAL_EFUNC);
+          memset((*htilde_lmn)->data->data, 0, Nsamples * sizeof(COMPLEX16));
+        }
 
         XLALSimRingdownGenerateSingleBareModeMMRDNS_time( htilde_lmn, T0, deltaT, Mf, jf, eta, l, m, n, r, dfreq, dtau, Nsamples, Tstart );
 
@@ -1409,6 +1465,18 @@ int XLALSimRingdownGenerateSingleBareModeMMRDNS_time(
   return XLAL_SUCCESS;
 
 }
+
+
+
+
+
+
+
+
+
+
+
+
 
 /*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*/
 /* Generate a full FD signal with angular dependence */
