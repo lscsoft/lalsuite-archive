@@ -450,8 +450,8 @@ int XLALSimInspiralTaylorF2Ecc(
         freqs->data[i-iStart] = i * deltaF;
     }
     ret = XLALSimInspiralTaylorF2CoreEcc(&htilde, freqs, phi_ref, m1_SI, m2_SI,
-                                      S1z, S2z, f_ref, shft, r, quadparam1, quadparam2,
-                                      lambda1, lambda2, ecc, ecc_order, f_ecc, spinO, tideO, phaseO, amplitudeO, p);
+                                      S1z, S2z, f_ref, shft, r, ecc, ecc_order, f_ecc,
+                                      lambda1, lambda2, quadparam1, quadparam2, spinO, tideO, phaseO, amplitudeO, p);
 
     XLALDestroyREAL8Sequence(freqs);
 

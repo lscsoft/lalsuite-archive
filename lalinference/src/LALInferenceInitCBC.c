@@ -699,6 +699,8 @@ void LALInferenceRegisterUniformVariableREAL8(LALInferenceRunState *state, LALIn
   }
   /*End of mass parameters check */
 
+  /* hwlee DEBUG */
+  //if (strcmp(name,"quadparam1")==0 || strcmp(name,"quadparam2")==0) return;
   LALInferenceAddVariable(var,name,&startval,LALINFERENCE_REAL8_t,varytype);
   LALInferenceAddMinMaxPrior(state->priorArgs, name, &min, &max, LALINFERENCE_REAL8_t);
 
@@ -1053,10 +1055,6 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   }
   LALInferenceVariableItem *node=NULL;
   node=LALInferenceGetItem(model->params,"eccentricity");
-  ppt=LALInferenceGetProcParamVal(commandLine,"--eccentricity-min");
-  if(ppt) eccmin=atof(ppt->value);
-  ppt=LALInferenceGetProcParamVal(commandLine,"--eccentricity-max");
-  if(ppt) eccmax=atof(ppt->value);
   if( !node ) { /* set to be uniformly variate for ecc if it was not fixed to injection value already */
     LALInferenceRegisterUniformVariableREAL8(state, model->params, "eccentricity", eccentricity, eccmin, eccmax, LALINFERENCE_PARAM_LINEAR);
   }
@@ -1084,37 +1082,12 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   REAL8 quadparam2 = 1.0;
   if (injTable == NULL)
   {
-    printf("WARNING: No injection table is specified, tide values are set as default values, quadparam1=0, quadparam2=0\n");
+    printf("WARNING: No injection table is specified, tide values are set as default values, quadparam1=1, quadparam2=1\n");
   }
   else {
     quadparam1 = (REAL8) injTable->quadparam1;
     quadparam2 = (REAL8) injTable->quadparam2;
   }
-
-  ppt=LALInferenceGetProcParamVal(commandLine,"--lambda1-min");
-  if(ppt) lambda1Min=atof(ppt->value);
-  ppt=LALInferenceGetProcParamVal(commandLine,"--lambda1-max");
-  if(ppt) lambda1Max=atof(ppt->value);
-  ppt=LALInferenceGetProcParamVal(commandLine,"--lambda2-min");
-  if(ppt) lambda2Min=atof(ppt->value);
-  ppt=LALInferenceGetProcParamVal(commandLine,"--lambda2-max");
-  if(ppt) lambda2Max=atof(ppt->value);
-  ppt=LALInferenceGetProcParamVal(commandLine,"--lambdaT-min");
-  if(ppt) lambdaTMin=atof(ppt->value);
-  ppt=LALInferenceGetProcParamVal(commandLine,"--lambdaT-max");
-  if(ppt) lambdaTMax=atof(ppt->value);
-  ppt=LALInferenceGetProcParamVal(commandLine,"--dLambdaT-min");
-  if(ppt) dLambdaTMin=atof(ppt->value);
-  ppt=LALInferenceGetProcParamVal(commandLine,"--dLambdaT-max");
-  if(ppt) dLambdaTMax=atof(ppt->value);
-  ppt=LALInferenceGetProcParamVal(commandLine,"--quadparam1-min");
-  if(ppt) quadparam1Min=atof(ppt->value);
-  ppt=LALInferenceGetProcParamVal(commandLine,"--quadparam1-max");
-  if(ppt) quadparam1Max=atof(ppt->value);
-  ppt=LALInferenceGetProcParamVal(commandLine,"--quadparam2-min");
-  if(ppt) quadparam2Min=atof(ppt->value);
-  ppt=LALInferenceGetProcParamVal(commandLine,"--quadparam2-max");
-  if(ppt) quadparam2Max=atof(ppt->value);
 
   /* flow handling */
   REAL8 fLow = state->data->fLow;
@@ -1439,9 +1412,11 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   if(LALInferenceGetProcParamVal(commandLine,"--quadparam")) {
     node=LALInferenceGetItem(model->params,"quadparam1");
     if(!node) // if quadparam1 is not pinned already
+      //LALInferenceAddVariable(model->params, "quadparam1", &quadparam1,  LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
       LALInferenceRegisterUniformVariableREAL8(state, model->params, "quadparam1", quadparam1, quadparam1Min, quadparam1Max, LALINFERENCE_PARAM_LINEAR);
     node=LALInferenceGetItem(model->params,"quadparam2");
     if(!node) // if quadparam2 is not pinned already
+      //LALInferenceAddVariable(model->params, "quadparam2", &quadparam2,  LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
       LALInferenceRegisterUniformVariableREAL8(state, model->params, "quadparam2", quadparam2, quadparam2Min, quadparam2Max, LALINFERENCE_PARAM_LINEAR);
   }
   else { /* no quadparam option is given */

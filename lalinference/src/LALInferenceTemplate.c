@@ -349,7 +349,7 @@ void LALInferenceROQWrapperForXLALSimInspiralChooseFDWaveformSequence(LALInferen
     LALInferenceLambdaTsEta2Lambdas(lambdaT,dLambdaT,sym_mass_ratio_eta,&lambda1,&lambda2);
   }
 
-  /* ==== quadrupoel PARAMETERS ==== */
+  /* ==== quadrupole PARAMETERS ==== */
   REAL8 quadparam1 = 1.;
   if(LALInferenceCheckVariable(model->params, "quadparam1")) quadparam1 = *(REAL8*) LALInferenceGetVariable(model->params, "quadparam1");
   REAL8 quadparam2 = 1.;
