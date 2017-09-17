@@ -176,13 +176,13 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
    }
 
    /* Try to determine a model-less likelihood, if such a thing makes sense */
-   if (runState->likelihood==&LALInferenceUndecomposedFreqDomainLogLikelihood){
+   if (runState->likelihood==&LALInferenceUndecomposedFreqDomainLogLikelihood || runState->likelihood==&LALInferenceMarginalisedPhaseLogLikelihood ){
+
                 nullLikelihood = LALInferenceNullLogLikelihood(runState->data);
     }
     else if (runState->likelihood==&LALInferenceFreqDomainStudentTLogLikelihood ||
        runState->likelihood==&LALInferenceMarginalisedTimeLogLikelihood ||
-       runState->likelihood==&LALInferenceMarginalisedTimePhaseLogLikelihood ||
-       runState->likelihood==&LALInferenceMarginalisedPhaseLogLikelihood) {
+       runState->likelihood==&LALInferenceMarginalisedTimePhaseLogLikelihood) {
 
        void *oldtemplate = runState->threads[0]->model->templt;
        if (runState->threads[0]->model->domain == LAL_SIM_DOMAIN_FREQUENCY) {
@@ -392,6 +392,9 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
   if (marginalisationflags==MARGTIME || marginalisationflags==MARGTIMEPHI)
     margtime=1;
 
+  if(model->roq_flag && margtime) XLAL_ERROR_REAL8(XLAL_EINVAL,"ROQ does not support time marginalisation");
+
+  
   LALStatus status;
   memset(&status,0,sizeof(status));
 
@@ -800,11 +803,32 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 	}
 
 	d_inner_h += creal(this_ifo_d_inner_h);
-	S += this_ifo_s;
+        // D gets the factor of 2 inside nullloglikelihood
+        // R gets a factor of 2 later, before entering the Bessel function
+	S += 0.5*this_ifo_s;
+        D += -dataPtr->nullloglikelihood;
+        Rcplx += 0.5*this_ifo_d_inner_h;
+
+        
 	model->ifo_loglikelihoods[ifo] = creal(this_ifo_d_inner_h) - (0.5*this_ifo_s) + dataPtr->nullloglikelihood;
-
-	loglikelihood += model->ifo_loglikelihoods[ifo];
-
+    
+    switch(marginalisationflags)
+    {
+    case GAUSSIAN:
+    case STUDENTT:
+      loglikelihood += model->ifo_loglikelihoods[ifo];
+      break;
+    case MARGTIME:
+    case MARGPHI:
+    case MARGTIMEPHI:
+      /* These are non-separable likelihoods, so single IFO log(L)
+	 doesn't make sense. */
+      model->ifo_loglikelihoods[ifo] = 0.0;
+      break;
+    default:
+      break;
+    }
+    
 	char varname[VARNAME_MAX];
     	sprintf(varname,"%s_optimal_snr",dataPtr->name);
     	REAL8 this_ifo_snr = sqrt(this_ifo_s);
@@ -1037,7 +1061,6 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 		}
         }
 
-	return(loglikelihood); /* The ROQ isn't compatible with the stuff below, so we can just exit here */
   }
 
   // for models which are non-factorising
