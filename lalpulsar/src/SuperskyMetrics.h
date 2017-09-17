@@ -254,6 +254,10 @@ int XLALSetSuperskyPhysicalSpinBound(
 /// Register a lattice tiling callback function which computes the physical range covered
 /// by a reduced supersky lattice tiling.
 ///
+#ifdef SWIG // SWIG interface directives
+SWIGLAL( OUTPUT_OWNED_BY_1ST_ARG( PulsarDopplerParams **, min_phys ) );
+SWIGLAL( OUTPUT_OWNED_BY_1ST_ARG( PulsarDopplerParams **, max_phys ) );
+#endif
 int XLALRegisterSuperskyLatticePhysicalRangeCallback(
   LatticeTiling *tiling,                        ///< [in] Lattice tiling
   const SuperskyTransformData *rssky_transf,    ///< [in] Reduced supersky coordinate transform data
@@ -265,6 +269,10 @@ int XLALRegisterSuperskyLatticePhysicalRangeCallback(
 /// Register a lattice tiling callback function which computes the range covered by a
 /// reduced supersky lattice tiling in another set of reduced supersky coordinates.
 ///
+#ifdef SWIG // SWIG interface directives
+SWIGLAL( OUTPUT_OWNED_BY_1ST_ARG( gsl_vector **, min_rssky2 ) );
+SWIGLAL( OUTPUT_OWNED_BY_1ST_ARG( gsl_vector **, max_rssky2 ) );
+#endif
 int XLALRegisterSuperskyLatticeSuperskyRangeCallback(
   LatticeTiling *tiling,                        ///< [in] Lattice tiling
   const SuperskyTransformData *rssky_transf,    ///< [in] Reduced supersky coordinate transform data
@@ -281,17 +289,6 @@ int XLALSetSuperskyRangeBounds(
   LatticeTiling *tiling,                        ///< [in] Lattice tiling
   const gsl_vector *min_rssky,                  ///< [in] Minimum range of reduced supersky coordinates
   const gsl_vector *max_rssky                   ///< [in] Maximum range of reduced supersky coordinates
-  );
-
-///
-/// Fill two #PulsarDopplerParams structs with the physical ranges covered by a reduced supersky
-/// lattice tiling.
-///
-int XLALSuperskyLatticePhysicalRange(
-  PulsarDopplerParams* min_range,               ///< [in,out] Minima of physical ranges
-  PulsarDopplerParams* max_range,               ///< [in,out] Maxima of physical ranges
-  LatticeTiling *tiling,                        ///< [in] Lattice tiling
-  const SuperskyTransformData *rssky_transf     ///< [in] Reduced supersky coordinate transform data
   );
 
 /// @}
