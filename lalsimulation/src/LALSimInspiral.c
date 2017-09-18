@@ -1205,8 +1205,8 @@ int XLALSimInspiralChooseFDWaveform(
 			if( lambda1 < 0 || lambda2 < 0 )
 				XLAL_ERROR(XLAL_EFUNC, "lambda1 = %f, lambda2 = %f. Both should be greater than zero for IMRPhenomD_NRTidal", lambda1, lambda2);
             /* Call the waveform driver routine */
-            ret = XLALSimIMRPhenomD_NRTidal_GenerateFD(hptilde, phiRef, f_ref, deltaF, m1, m2,
-                  S1z, S2z, f_min, f_max, r, lambda1, lambda2, nonGRparams);
+			ret = XLALSimIMRPhenomDNRTidal(hptilde, phiRef, deltaF, f_min, f_max, f_ref,
+				r, m1, m2, S1z, S2z, lambda1, lambda2, nonGRparams);
             if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
             /* Produce both polarizations */
             *hctilde = XLALCreateCOMPLEX16FrequencySeries("FD hcross",
