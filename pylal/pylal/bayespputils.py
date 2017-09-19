@@ -1098,13 +1098,13 @@ class Posterior(object):
           except KeyError:
               print "Warning: Cannot find tidal parameters.  Skipping tidal calculations."
 
-      #Calculate injection values for lam_tilde and dlam_tilde, injection are given only in lambda1 and lambda2??hwlee
+      #Calculate injection values for lam_tilde and dlam_tilde, injection are given only in lambda1 and lambda2
       if 'lambdat' in pos.names and 'dlambdat' in pos.names:
          if injection is not None:
            inj_lambda1 = injection.lambda1
            inj_lambda2 = injection.lambda2
            inj_eta = injection.eta
-           inj_lam_tilde, inj_dlam_tilde = tidal_params_sym(inj_lambda1, inj_lambda2, inj_eta)
+           inj_lam_tilde, inj_dlam_tilde = symm_tidal_params(inj_lambda1, inj_lambda2, inj_eta)
            pos['lambdat'].set_injval(inj_lam_tilde)
            pos['dlambdat'].set_injval(inj_dlam_tilde)
 
@@ -3922,19 +3922,6 @@ def symm_tidal_params(lambda1,lambda2,eta):
     lam_tilde = (8./13.)*((1.+7.*eta-31.*eta*eta)*(lambda1+lambda2) + np.sqrt(1.-4.*eta)*(1.+9.*eta-11.*eta*eta)*(lambda1-lambda2))
     dlam_tilde = (1./2.)*(np.sqrt(1.-4.*eta)*(1.-13272.*eta/1319.+8944.*eta*eta/1319.)*(lambda1+lambda2) + (1.-15910.*eta/1319.+32850.*eta*eta/1319.+3380.*eta*eta*eta/1319.)*(lambda1-lambda2))
     return lam_tilde, dlam_tilde
-
-def tidal_params_sym(lam_tilde,dlam_tilde,eta):
-    """
-    Calculate lambda1 and lambda2 for lam_tilde and dlam_tilde
-    """
-    a=(8./13.)*(1.+7.*eta-31.*eta*eta)
-    b=(8./13.)*np.sqrt(1.-4.*eta)*(1.+9.*eta-11.*eta*eta)
-    c=(1./2.)*np.sqrt(1.-4.*eta)*(1.-13272.*eta/1319.+8944.*eta*eta/1319.)
-    d=(1./2.)*(1.-15910.*eta/1319.+32850.*eta*eta/1319.+3380.*eta*eta*eta/1319.)
-
-    lambda1 = ((c-d)*lam_tilde - (a-b)*dlam_tilde)/(2.0*(b*c-a*d))
-    lambda2 = ((c+d)*lam_tilde - (a+b)*dlam_tilde)/(2.0*(a*d-b*c))
-    return lambda1, lambda2
 
 def spin_angles(fref,mc,eta,incl,a1,theta1,phi1,a2=None,theta2=None,phi2=None):
     """
