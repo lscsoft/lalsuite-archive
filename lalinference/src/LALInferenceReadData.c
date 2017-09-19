@@ -1567,7 +1567,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
       /* FIXME - tidal lambda's and interactionFlag are just set to command line values here.
        * They should be added to injEvent and set to appropriate values
        */
-      REAL8 lambda1 = injEvent->lambad1;
+      REAL8 lambda1 = injEvent->lambda1;
       REAL8 lambda2 = injEvent->lambda2;
       REAL8 lambdaT = 0.;
       REAL8 dLambdaT = 0.;
