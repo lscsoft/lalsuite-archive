@@ -1559,6 +1559,11 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
         ABORTXLAL(&status);
       amporder = injEvent->amp_order;
       //if(amporder<0) amporder=0;
+      REAL8 m1=injEvent->mass1;
+      REAL8 m2=injEvent->mass2;
+      REAL8 Mt=m1+m2;
+      REAL8 eta=m1*m2/(Mt*Mt);
+
       /* FIXME - tidal lambda's and interactionFlag are just set to command line values here.
        * They should be added to injEvent and set to appropriate values
        */
@@ -1584,11 +1589,6 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
       fprintf(stdout,"Injection dLambdaT set to %f\n",dLambdaT);
       fprintf(stdout,"Injection lambda1 set to %f\n",lambda1);
       fprintf(stdout,"Injection lambda2 set to %f\n",lambda2);
-
-      REAL8 m1=injEvent->mass1;
-      REAL8 m2=injEvent->mass2;
-      REAL8 Mt=m1+m2;
-      REAL8 eta=m1*m2/(Mt*Mt);
 
       REAL8 fref = 100.;
       if(LALInferenceGetProcParamVal(commandLine,"--inj-fref")) {
