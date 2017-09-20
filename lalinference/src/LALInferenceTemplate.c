@@ -692,7 +692,12 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
     f_low = model->fLow;
 
   f_start = XLALSimInspiralfLow2fStart(f_low, amporder, approximant);
-  f_max = 0.0; /* for freq domain waveforms this will stop at ISCO. Previously found using model->fHigh causes NaNs in waveform (see redmine issue #750)*/
+
+  /* Don't let TaylorF2 generate unphysical inspiral up to Nyquist */
+  if (approximant == TaylorF2)
+      f_max = 0.0; /* this will stop at ISCO */
+  else
+      f_max = model->fHigh; /* this will be the highest frequency used across the network */
 
   /* ==== SPINS ==== */
   /* We will default to spinless signal and then add in the spin components if required */
