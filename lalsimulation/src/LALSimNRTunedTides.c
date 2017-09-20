@@ -54,8 +54,11 @@ static REAL8 PlanckTaper(const REAL8 t, const REAL8 t1, const REAL8 t2) {
  * function to swap masses and lambda to enforece m1 >= m2
  */
 static int EnforcePrimaryMassIsm1(REAL8 *m1, REAL8 *m2, REAL8 *lambda1, REAL8 *lambda2){
+    if ((*m1 == *m2) && (*lambda1 != *lambda2))
+        XLALPrintWarning("m1 == m2 (%g), but lambda1 != lambda2 (%g, %g).\n", *m1, *lambda1, *lambda2);
+
     REAL8 lambda1_tmp, lambda2_tmp, m1_tmp, m2_tmp;
-    if (*m1>*m2) {
+    if (*m1>=*m2) {
        lambda1_tmp = *lambda1;
        lambda2_tmp = *lambda2;
        m1_tmp   = *m1;
@@ -113,40 +116,6 @@ double XLALSimNRTunedTidesComputeKappa2T(
     const REAL8 kappa2T = (3.0/13.0) * ( term1 + term2 );
 
     return kappa2T;
-}
-
-/**
- * compute the merger frequency of a BNS system.
- * Equation 6.15a from TD thesis
- * https://www.db-thueringen.de/servlets/MCRFileNodeServlet/dbt_derivate_00035321/Dietrich_Thesis_PDFA.pdf
- * Note these should agree with Equation 2 and Table 2 from arXiv:1504.01764
- * but there is a typo in the power of the exponents
- */
-double XLALSimNRTunedTidesMergerFrequencyOld(
-    const REAL8 mtot_MSUN, /**< total mass of system (solar masses) */
-    const REAL8 kappa2T /**< tidal coupling constant. Eq. 2 in arXiv:1706.02969 */
-)
-{
-
-    //NOTE: check that m1 >= m2
-    const REAL8 Q_0 = 0.3596;
-    const REAL8 n_1 = 2.4384e-2;
-    const REAL8 n_2 = -1.7167e-5;
-    const REAL8 d_1 = 6.8865e-2;
-
-    const REAL8 num = 1.0 + (n_1*kappa2T) + (n_2 * kappa2T*kappa2T);
-    const REAL8 den = 1.0 + (d_1 * kappa2T);
-
-    /* dimensionless angular frequency of merger */
-    const REAL8 Momega_merger = Q_0 * (num / den);
-
-    /* convert from angular frequency to frequency (divide by 2*pi)
-     * and then convert from
-     * dimensionless frequency to Hz (divide by mtot * LAL_MTSUN_SI)
-     */
-    const REAL8 fHz_merger = Momega_merger / (LAL_TWOPI) / (mtot_MSUN * LAL_MTSUN_SI);
-
-    return fHz_merger;
 }
 
 /**
