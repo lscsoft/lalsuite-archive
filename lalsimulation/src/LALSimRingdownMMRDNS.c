@@ -65,6 +65,139 @@
 #define EPS LAL_REAL4_EPS
 #define TINY LAL_REAL4_MIN
 
+/* Fit for Spherical-Spheroidal inner-products */
+COMPLEX16 XLALQNM_YSPROD( REAL8 jf, UINT4 ll, INT4 mm, UINT4 l, INT4 m, UINT4 n ){
+
+  //
+  if ( mm<0 ) return pow(-1,l+ll) * conj( XLALQNM_YSPROD( jf, ll, -mm, l, -m, n ) );
+
+  //
+  COMPLEX16 ans = 0;
+  REAL8 kap = XLALKAPPA( jf, ll, mm );
+  REAL8 kap2 = kap*kap;
+  REAL8 kap3 = kap2*kap;
+
+  //
+  if ( mm != m ){
+    ans = 0;
+  } else {
+
+    if ( ll==2 && mm==2 && l==2 && n==0 ) {
+
+      /* Spherical (ll,mm) = (2,2), Spheroidal (l,m,n) = (2,2,0) */
+      ans = 0.99733430*cexp(6.28131482*I)  +
+            7.53361604e-03 * (  14.59237582*cexp(5.06005232*I)*kap +
+            28.76128310*cexp(1.62899784*I)*kap2 +
+            14.51135075*cexp(4.63622189*I)*kap3 +
+            1.96240925*cexp(3.01126131*I) ) /
+            ( 1.0 +  0.88674277*cexp(6.22025328*I)*(kap) + 1.00197923*cexp(3.27370110*I)*kap2 + 0.08214826*cexp(2.49527907*I)*kap3 );
+
+    } else if ( ll==2 && mm==2 && l==2 && n==1 ) {
+
+      /* Spherical (ll,mm) = (2,2), Spheroidal (l,m,n) = (2,2,1) */
+      ans = 0.99682510*cexp(6.27824650*I)  +
+            2.07578052e-02 * (  15.07688773*cexp(4.83228133*I)*kap +
+            31.13883493*cexp(1.58504497*I)*kap2 +
+            15.44864065*cexp(4.67273252*I)*kap3 +
+            0.71897499*cexp(2.80840474*I) ) / ( 1.0 +  0.80592193*cexp(0.25792353*I)*kap +
+            0.69501985*cexp(3.68434414*I)*kap2 + 0.35613451*cexp(2.81292594*I)*kap3 );
+
+    } else if ( ll==2 && mm==1 && l==2 && n==0 ) {
+
+      /* Spherical (ll,mm) = (2,1), Spheroidal (l,m,n) = (2,1,0) */
+      ans = 0.99715771*cexp(6.28150883*I)  +  6.35419212e-03 * (
+            143454.06162814*cexp(4.50608133*I)*kap + 354688.47508323*cexp(1.73266939*I)*kap2 +
+            240378.28541255*cexp(5.16291028*I)*kap3 + 6026.92526290*cexp(1.88805840*I) ) / (
+            1.0 +  73780.21592675*cexp(1.41292540*I)*kap + 97493.61722607*cexp(4.53958149*I)*kap2 +
+            34814.97776969*cexp(1.42067340*I)*kap3 );
+
+    } else if ( ll==3 && mm==3 && l==3 && n==0 ) {
+
+      /* Spherical (ll,mm) = (3,3), Spheroidal (l,m,n) = (3,3,0) */
+      ans = 0.99569351*cexp(6.27848234*I)  +  1.45455997e-02 * (  7.21123775*cexp(0.62810602*I)*kap +
+            6.53812261*cexp(4.62156760*I)*kap2 + 4.45103475*cexp(2.92276566*I)*kap3 +
+            1.71127741*cexp(2.95271076*I) ) / ( 1.0 +  1.49740070*cexp(4.81030326*I)*kap +
+            1.52875732*cexp(2.24686417*I)*kap2 + 0.52113989*cexp(5.68866116*I)*kap3 );
+
+    } else if ( ll==3 && mm==3 && l==3 && n==1 ) {
+
+      /* Spherical (ll,mm) = (3,3), Spheroidal (l,m,n) = (3,3,1) */
+      ans = 0.99477991*cexp(6.26878602*I)  +  4.04784842e-02 * (  4.41127340*cexp(1.25014631*I)*kap +
+            11.58762382*cexp(0.27959121*I)*kap2 + 17.32181411*cexp(3.79036872*I)*kap3 +
+            0.67723741*cexp(2.57968532*I) ) / ( 1.0 +  3.87820757*cexp(5.42802120*I)*kap +
+            3.49129316*cexp(2.52389826*I)*kap2 + 1.03677334*cexp(6.04982333*I)*kap3 );
+
+    } else if ( ll==3 && mm==2 && l==3 && n==0 ) {
+
+      /* Spherical (ll,mm) = (3,2), Spheroidal (l,m,n) = (3,2,0) */
+      ans = 0.99009488*cexp(6.28042487*I)  +  2.36900822e-02 * (
+            71893.02846884*cexp(1.23951995*I)*kap + 170547.75350114*cexp(5.03706013*I)*kap2 +
+            129473.06324008*cexp(2.35898347*I)*kap3 + 1935.50631290*cexp(4.66800539*I) ) / (
+            1.0 +  38206.44397720*cexp(4.36699213*I)*kap + 35811.01565015*cexp(0.82023766*I)*kap2 +
+            8378.33659199*cexp(3.25885566*I)*kap3 );
+
+    } else if ( ll==3 && mm==2 && l==2 && n==0 ) {
+
+      /* Spherical (ll,mm) = (3,2), Spheroidal (l,m,n) = (2,2,0) */
+      ans = 0.02059787*cexp(0.04742953*I)  +  6.91901622e-02 * (  2.76568066*cexp(2.13298172*I)*kap +
+            3.95621590*cexp(4.65301637*I)*kap2 + 2.33636985*cexp(2.64436467*I)*kap3 +
+            2.39898037*cexp(6.27665812*I) ) / ( 1.0 +  1.05953986*cexp(1.64486125*I)*kap +
+            0.91307743*cexp(6.02859766*I)*kap2 + 0.69468169*cexp(3.33278829*I)*kap3 );
+
+    } else if ( ll==3 && mm==2 && l==2 && n==1 ) {
+
+      /* Spherical (ll,mm) = (3,2), Spheroidal (l,m,n) = (2,2,1) */
+      ans = 0.02203038*cexp(0.16452240*I)  +  7.32333443e-02 * (  24.93221135*cexp(1.01806613*I)*kap +
+            30.19732202*cexp(4.40469119*I)*kap2 + 11.27412168*cexp(2.98101589*I)*kap3 +
+            2.43736370*cexp(6.19589588*I) ) / ( 1.0 +  11.39671828*cexp(0.85375374*I)*kap +
+            10.91505457*cexp(2.66095722*I)*kap2 + 7.21957683*cexp(4.95919117*I)*kap3 );
+
+    } else if ( ll==4 && mm==4 && l==4 && n==0 ) {
+
+      /* Spherical (ll,mm) = (4,4), Spheroidal (l,m,n) = (4,4,0) */
+      ans = 0.99478347*cexp(6.27759288*I)  +  2.47909254e-02 * (  6.51717929*cexp(0.79834752*I)*kap +
+            7.77481969*cexp(4.24851207*I)*kap2 + 1.15767997*cexp(1.59054524*I)*kap3 +
+            1.24344271*cexp(2.96155263*I) ) / ( 1.0 +  0.44548033*cexp(4.39121823*I)*kap +
+            0.59436720*cexp(2.53165593*I)*kap2 + 0.24743370*cexp(5.97075782*I)*kap3 );
+
+    } else if ( ll==4 && mm==3 && l==4 && n==0 ) {
+
+      /* Spherical (ll,mm) = (4,3), Spheroidal (l,m,n) = (4,3,0) */
+      ans = 0.98735236*cexp(6.27946510*I)  +  3.30278035e-02 * (
+            700838.90444419*cexp(1.10668663*I)*kap + 1843013.12162912*cexp(4.88083492*I)*kap2 +
+            1436658.36121341*cexp(2.14120510*I)*kap3 + 13844.41115020*cexp(4.56010157*I) ) / (
+            1.0 +  356669.13441405*cexp(4.15650528*I)*kap +
+            327401.16374453*cexp(0.63297714*I)*kap2 + 88620.86197318*cexp(3.24254228*I)*kap3 );
+
+    } else if ( ll==4 && mm==3 && l==3 && n==0 ) {
+
+      /* Spherical (ll,mm) = (4,3), Spheroidal (l,m,n) = (3,3,0) */
+      ans = 0.02811216*cexp(0.04848786*I)  +  8.63825699e-02 * (  12.08728952*cexp(0.47221221*I)*kap +
+            30.62626264*cexp(3.32811584*I)*kap2 + 16.32819913*cexp(6.17853751*I)*kap3 +
+            2.36032677*cexp(6.26623516*I) ) / ( 1.0 +  4.96381416*cexp(0.45147018*I)*kap +
+            6.25524720*cexp(3.05848542*I)*kap2 + 1.45381517*cexp(5.69553887*I)*kap3 );
+
+    } else if ( ll==5 && mm==5 && l==5 && n==0 ) {
+
+      /* Spherical (ll,mm) = (5,5), Spheroidal (l,m,n) = (5,5,0) */
+      ans = 0.99433654*cexp(6.27734803*I)  +  3.12598758e-02 * (  6.55080118*cexp(0.93398061*I)*kap +
+            8.05578622*cexp(4.28811876*I)*kap2 + 0.92971171*cexp(1.04364364*I)*kap3 +
+            1.09036011*cexp(2.97119894*I) ) / ( 1.0 +  0.23127696*cexp(4.90814345*I)*kap +
+            0.54957916*cexp(2.77620813*I)*kap2 + 0.21299995*cexp(6.15083758*I)*kap3 );
+
+    } else {
+
+      ans = 0;
+
+    }
+
+  } /* End of IF m==m */
+
+  //
+  return ans;
+
+}
+
 /* Interpolate tabulated data for QNM frequency */
 COMPLEX16 XLALQNM_CW( REAL8 jf, UINT4 l, INT4 input_m, UINT4 n ){
 
@@ -271,8 +404,7 @@ COMPLEX16 XLALQNM_SC( REAL8 jf, UINT4 l, INT4 input_m, UINT4 n ){
 
 }
 
-REAL8 XLALE_rad_nonspinning_UIB2016(REAL8 eta)
-{
+REAL8 XLALE_rad_nonspinning_UIB2016(REAL8 eta){
     REAL8 a1, a2, a3, a4;
     REAL8 eta2, eta3, eta4;
 
@@ -295,8 +427,7 @@ REAL8 XLALE_rad_nonspinning_UIB2016(REAL8 eta)
 
 }
 
-REAL8 XLALMf_to_M_nonspinning_UIB2016(REAL8 eta, REAL8 M_f)
-{
+REAL8 XLALMf_to_M_nonspinning_UIB2016(REAL8 eta, REAL8 M_f){
     REAL8 M;
 
     M = M_f/(1-XLALE_rad_nonspinning_UIB2016(eta));
@@ -680,20 +811,19 @@ COMPLEX16 XLALGAMMA_RD( int m, int s, int p, COMPLEX16 aw ){
 * QNM Ampliutde models for MMRDNS
 * NOTE that the terms here differ from 1404.3197v3 for accurate relative phases
 */
-COMPLEX16 XLALMMRDNSAmplitudeOverOmegaSquared( double eta, int l, int input_m, int n );
-COMPLEX16 XLALMMRDNSAmplitudeOverOmegaSquared( double eta, int l, int input_m, int n ){
+COMPLEX16 XLALMMRDNSAmplitudeOverOmegaSquared( REAL8 eta, UINT4 l, INT4 m, INT4 n ){
+
+  /* Handle m<0 through symmetry */
+  if ( m<0 ) return pow(-1,l) * conj( XLALMMRDNSAmplitudeOverOmegaSquared(eta,l,-m,n) );
 
   /* Initialize the answer */
   COMPLEX16 ans = 0.0;
 
-  /* NOTE that |m| will be used to determine the fit to use, and if input_m < 0, then a conjugate will be taken */
-  INT4 m = abs(input_m);
-
   /**/
-  double eta2 = eta*eta;
-  double eta3 = eta2*eta;
-  double eta4 = eta3*eta;
-  double eta5 = eta4*eta;
+  REAL8 eta2 = eta*eta;
+  REAL8 eta3 = eta2*eta;
+  REAL8 eta4 = eta3*eta;
+  REAL8 eta5 = eta4*eta;
 
   /*  Evaluate QNM amplitude models for input l m n */
   if ( l==2 && m==2 && n==0 ) {
@@ -745,12 +875,6 @@ COMPLEX16 XLALMMRDNSAmplitudeOverOmegaSquared( double eta, int l, int input_m, i
 
   /*NOTE that the MATLAB code used to perform the fitting uses a different convention when handling the real and imaginary parts of psi4 than we will use here. The conjugation below makes the output of MMRDNS consistent with nrutils, which injects no manual minus signs when handling psi4, but enforces a phase convention: m>0 has frequencies >0 (non-precessing). NOTE that this may change in the future if significantly precessing systems are found to not sufficiently obey this property. See https://github.com/llondon6/nrutils_dev/blob/master/nrutils/core/nrsc.py#L1714-L1728 for more details.*/
   ans = conj( ans );
-
-  /* If m<0, then take the conjugate */
-  if ( input_m < 0 ) {
-    /**/
-    ans = pow(-1,l) * conj( ans );
-  }
 
   return ans;
 
@@ -876,8 +1000,7 @@ COMPLEX16 XLALSphericalSpheroidalInnerProduct( REAL8 jf, UINT4 ll, INT4 mm, UINT
   COMPLEX16 th = 0;
   COMPLEX16 ans = 0;
   /* NOTE that the k=0 and k=N terms of the trapezoidal rule do not contribute for integrands proportional to sin(th). */
-  for ( UINT4 k=1; k<N; k++ )
-  {
+  for ( UINT4 k=1; k<N; k++ ) {
     /**/
     th   = k*dtheta;
     /**/
@@ -909,20 +1032,6 @@ COMPLEX16 XLALSpheroidalSpheroidalInnerProduct( REAL8 jf, UINT4 ll, INT4 mm, UIN
   /**/
   return ans;
 }
-
-
-/* Mode included within the model */
-INT4 XLALMMRDNS_NUM_MODES = 18;
-INT4 XLALMMRDNS_MODES[18][3] = { {2,2,0}, {2,-2,0},
-                                 {2,2,1}, {2,-2,1},
-                                 {3,3,0}, {3,-3,0},
-                                 {3,3,1}, {3,-3,1},
-                                 {4,4,0}, {4,-4,0},
-                                 {5,5,0}, {5,-5,0},
-                                 {2,1,0}, {2,-1,0},
-                                 {3,2,0}, {3,-2,0},
-                                 {4,3,0}, {4,-3,0}
-                               };
 
 
 /* XLALSimRingdownMMRDNSFD: Frequency domain waveformgenerator for all QNM with angular dependence */
@@ -1327,8 +1436,8 @@ int XLALSimRingdownMMRDNS_time(
           h_val += h3m20->data->data[i];
           h_val += h4m30->data->data[i];
 
-          (*hplus)->data->data[i]  = creal(h_val);
-          (*hcross)->data->data[i] = cimag(h_val);
+          (*hplus)->data->data[i]  =        creal(h_val);
+          (*hcross)->data->data[i] = -1.0 * cimag(h_val);
 
         }
 
@@ -1468,9 +1577,192 @@ int XLALSimRingdownGenerateSingleBareModeMMRDNS_time(
 
 
 
+/* Full waveform generator that uses the Spherical basis. */
+int XLALSimRingdownGenerateFullSphericalWaveform_time(
+  UNUSED REAL8TimeSeries **hplus,                     /**< OUTPUT TD waveform */
+  UNUSED REAL8TimeSeries **hcross,                     /**< OUTPUT TD waveform */
+  UNUSED const LIGOTimeGPS *T0,                       /**< start time of ringdown => NEEDS TO BE CHECKED! */
+  UNUSED REAL8 Tstart,                                /**< start time of ringdown => NEEDS TO BE CHECKED! */
+  UNUSED REAL8 deltaT,                                /**< sampling interval (s) */
+  UNUSED UINT4 Nsamples,                              /**< Number of samples (effective T_End) */
+  UNUSED REAL8 Mf,                                    /**< Final BH Mass (kg) */
+  UNUSED REAL8 jf,                                    /**< Final BH dimensionaless spin */
+  UNUSED REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
+  UNUSED REAL8 iota,                                  /**< inclination angle (in rad) */
+  UNUSED REAL8 phi_offset,                            /**< intrinsic phase offset */
+  UNUSED REAL8 r,                                     /**< distance of source (m) */
+  UNUSED LALSimInspiralTestGRParam *nonGRparams ){
+
+  /* allocate htilde */
+  COMPLEX16TimeSeries *htilde = XLALCreateCOMPLEX16TimeSeries("htilde: TD waveform", T0, 0.0, deltaT, &lalStrainUnit, Nsamples);
+  if (! htilde) XLAL_ERROR(XLAL_EFUNC);
+  memset(htilde->data->data, 0, Nsamples * sizeof(COMPLEX16));
+
+  /* initialize outputs */
+  *hplus = XLALCreateREAL8TimeSeries( "hplus: TD waveform", T0, 0.0, deltaT, &lalStrainUnit, Nsamples);
+  if (!(*hplus)) XLAL_ERROR(XLAL_EFUNC);
+  memset((*hplus)->data->data, 0, Nsamples * sizeof(REAL8));
+  *hcross = XLALCreateREAL8TimeSeries( "hcross: TD waveform", T0, 0.0, deltaT, &lalStrainUnit, Nsamples);
+  if (!(*hcross)) XLAL_ERROR(XLAL_EFUNC);
+  memset((*hcross)->data->data, 0, Nsamples * sizeof(REAL8));
+
+  /* Declare helper variables */
+  COMPLEX16 Prefactor=0;
+  UINT4 ll=0; INT4 mm=0;
+
+  /* FOR all MULTIPOLES in MMRDNS */
+  for ( UINT4 k=0; k<XLALMMRDNS_NUM_MULTIPOLES; k++ ) {
+    /* Extract the mode indeces from the master list */
+    ll = XLALMMRDNS_MULTIPOLES[k][0]; mm = XLALMMRDNS_MULTIPOLES[k][1];
+    /* Here the prefactor is the Spin weighted spherical harmonic */
+    Prefactor = XLALSpinWeightedSphericalHarmonic( iota, phi_offset, -2, ll, mm  );
+    /* Add the current mode to the intermediate timeseries */
+    XLALSimRingdownAddSphericalMultipoleTD( &htilde, T0, deltaT, Mf, jf, eta, ll, mm, r, nonGRparams, Nsamples, Tstart, Prefactor );
+  } /* END of FOR all MULTIPOLES */
+
+  /* Extract hplus and hcross */
+  COMPLEX16 h_val = 0.0;
+  for ( UINT4 i=0 ; i<Nsamples ; i++ ) {
+    h_val = htilde->data->data[i];
+    (*hplus)->data->data[i]  =        creal(h_val);
+    (*hcross)->data->data[i] = -1.0 * cimag(h_val);
+  } /* END of FOR all MULTIPOLES */
+
+  /* Destroy the COMPLEX16TimeSeries hlmn object */
+  if (htilde) XLALDestroyCOMPLEX16TimeSeries(htilde);
+
+  return XLAL_SUCCESS;
+
+}
+
+/* ADD a QNM timeseries to an existing waveform time series with a prefactor (e.g. harmonic for inner-product) */
+int XLALSimRingdownAddSphericalMultipoleTD(
+          UNUSED COMPLEX16TimeSeries **htilde,                /**< OUTPUT TD waveform mode lmn */
+          UNUSED const LIGOTimeGPS *T0,                       /**< start time of ringdown */
+          UNUSED REAL8 deltaT,                                /**< sampling interval (s) */
+          UNUSED REAL8 Mf,                                    /**< Final BH Mass (kg) */
+          UNUSED REAL8 jf,                                    /**< Final BH dimensionaless spin */
+          UNUSED REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
+          UNUSED UINT4 ll,                                     /**< Polar eigenvalue */
+          UNUSED INT4 mm,                                      /**< Azimuthal eigenvalue */
+          UNUSED REAL8 r,                                     /**< distance of source (m) */
+          UNUSED LALSimInspiralTestGRParam *nonGRparams,      /**< Testing GR params: fractional dfreq and dtau */
+          UNUSED UINT4 Nsamples,                              /**< waveform length */
+          UNUSED REAL8 Tstart,                                /**< starting time of waveform (10M at zero) */
+          UNUSED COMPLEX16 Prefactor                         /* The mode time series will be sclaed by this before being added to the htilde input. This can be a harmonic function or inner-product value. */
+        ){
+
+  /* Mode to be added to htilde */
+  COMPLEX16TimeSeries *hllmm = XLALCreateCOMPLEX16TimeSeries("htilde: TD waveform", T0, 0.0, deltaT, &lalStrainUnit, Nsamples);
+  if (! hllmm) XLAL_ERROR(XLAL_EFUNC);
+  memset(hllmm->data->data, 0, Nsamples * sizeof(COMPLEX16));
+  /* Compute the mode to be added */
+  XLALSimRingdownGenerateSphericalMultipoleMMRDNS_time( &hllmm, T0, deltaT, Mf, jf, eta, ll, mm, r, nonGRparams, Nsamples, Tstart );
+
+  /* Add the multipole to the reference timeseries including the prefactor */
+  for ( UINT4 k=0 ; k<Nsamples ; k++ ) (*htilde)->data->data[k] += Prefactor * (hllmm->data->data[k]);
+
+  /* Destroy the COMPLEX16TimeSeries hllmm object */
+  if (hllmm) XLALDestroyCOMPLEX16TimeSeries(hllmm);
+
+  return XLAL_SUCCESS;
+
+}
 
 
 
+
+/* Generate a single spherical harmonic multipole for MMRDNS */
+int XLALSimRingdownGenerateSphericalMultipoleMMRDNS_time(
+        COMPLEX16TimeSeries **htildeLM,            /**< OUTPUT TD waveform mode lmn */
+        const LIGOTimeGPS *T0,                       /**< start time of ringdown */
+        REAL8 deltaT,                                /**< sampling interval (s) */
+        REAL8 Mf,                                    /**< Final BH Mass (kg) */
+        REAL8 jf,                                    /**< Final BH dimensionaless spin */
+        REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
+        UINT4 ll,                                    /**< SPHERICAL Polar eigenvalue */
+        INT4 mm,                                     /**< SPHERICAL Azimuthal eigenvalue */
+        REAL8 r,                                     /**< distance of source (m) */
+        LALSimInspiralTestGRParam *nonGRparams,      /**< Testing GR params: fractional dfreq and dtau */
+        UINT4 Nsamples,                              /**< waveform length */
+        REAL8 Tstart                                 /**< starting time of waveform (10M at zero) */
+        ){
+
+        /* allocate htildeLM */
+        if ( ! *htildeLM ){
+          *htildeLM = XLALCreateCOMPLEX16TimeSeries("htildeLM: TD waveform", T0, 0.0, deltaT, &lalStrainUnit, Nsamples);
+          if (!(*htildeLM)) XLAL_ERROR(XLAL_EFUNC);
+          memset((*htildeLM)->data->data, 0, Nsamples * sizeof(COMPLEX16));
+        }
+
+        /* Declare helper variables */
+        COMPLEX16 Prefactor=0;
+        UINT4 l=0,n=0; INT4 m=0;
+
+        /* FOR all MODES in MMRDNS */
+        for ( UINT4 k=0; k<XLALMMRDNS_NUM_MODES; k++ ) {
+          /* Extract the mode indeces from the master list */
+          l = XLALMMRDNS_MODES[k][0]; m = XLALMMRDNS_MODES[k][1]; n = XLALMMRDNS_MODES[k][2];
+          /* NOTE that only QNMs with m==mm can appear in the ll,mm spherical multipole moment */
+          if ( m == mm ) {
+            /* In this setting the prefactor is the mixing coefficient between spherical and spheroidal harmonics */
+            /* NOTE that XLALSphericalSpheroidalInnerProduct produces a result by numerical integration. This means many calls the the Spheroidal WHILE-LOOP, and many calls to the QNM tables. This results in very slow C code! (but the same thing is fast in python. Why?). XLALQNM_YSPROD uses a fit. */
+            // Prefactor = XLALSphericalSpheroidalInnerProduct( jf, ll, mm, l, m, n, 256 );
+            Prefactor = XLALQNM_YSPROD( jf, ll, mm, l, m, n );
+            /* Add the current mode to the output timeseries */
+            XLALSimRingdownAddSpheroidalModeTD( htildeLM, T0, deltaT, Mf, jf, eta, l, m, n, r, nonGRparams, Nsamples, Tstart, Prefactor );
+          } /* END of IF m==mm */
+        } /* END of FOR all MODES */
+
+  return XLAL_SUCCESS;
+}
+
+/* ADD a QNM timeseries to an existing waveform time series with a prefactor (e.g. harmonic for inner-product) */
+int XLALSimRingdownAddSpheroidalModeTD(
+          COMPLEX16TimeSeries **htilde,                /**< OUTPUT TD waveform mode lmn */
+          const LIGOTimeGPS *T0,                       /**< start time of ringdown */
+          REAL8 deltaT,                                /**< sampling interval (s) */
+          REAL8 Mf,                                    /**< Final BH Mass (kg) */
+          REAL8 jf,                                    /**< Final BH dimensionaless spin */
+          REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
+          UINT4 l,                                     /**< Polar eigenvalue */
+          INT4 m,                                      /**< Azimuthal eigenvalue */
+          UINT4 n,                                     /**< Overtone Number */
+          REAL8 r,                                     /**< distance of source (m) */
+          LALSimInspiralTestGRParam *nonGRparams,      /**< Testing GR params: fractional dfreq and dtau */
+          UINT4 Nsamples,                              /**< waveform length */
+          REAL8 Tstart,                                /**< starting time of waveform (10M at zero) */
+          COMPLEX16 Prefactor                         /* The mode time series will be sclaed by this before being added to the htilde input. This can be a harmonic function or inner-product value. */
+        ){
+
+  /* Mode to be added to htilde */
+  COMPLEX16TimeSeries *hlmn;
+
+  /* Extract NonGR Params */
+  // NOTE: Recall that dfreq and dtau represent fractional changes, not shifts. This means this affects the handling of positive and negative m modes below.
+  REAL8 dfreq=0,dtau=0;
+  char *nonGRParamName = malloc(512*sizeof(char));
+  sprintf(nonGRParamName,"dfreq%d%d%d",l,abs(m),n) ;
+  if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+    dfreq = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+  sprintf(nonGRParamName,"dtau%d%d%d",l,abs(m),n) ;
+  if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+    dtau = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+
+  /* Compute the mode to be added */
+  XLALSimRingdownGenerateSingleBareModeMMRDNS_time( &hlmn, T0, deltaT, Mf, jf, eta, l, m, n, r, dfreq, dtau, Nsamples, Tstart );
+
+  /* Add the multipole to the reference timeseries including the prefactor */
+  for ( UINT4 k=0 ; k<Nsamples ; k++ ) (*htilde)->data->data[k] += Prefactor * hlmn->data->data[k];
+
+  /* Destroy the COMPLEX16TimeSeries hlmn object */
+  if (hlmn) XLALDestroyCOMPLEX16TimeSeries(hlmn);
+  /* Cleanup nonGRParamName */
+  free(nonGRParamName);
+
+  return XLAL_SUCCESS;
+
+}
 
 
 
