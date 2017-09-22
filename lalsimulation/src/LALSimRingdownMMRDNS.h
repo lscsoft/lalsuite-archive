@@ -63,30 +63,6 @@
 #include <gsl/gsl_spline.h>
 
 
-/* Mode included within the model */
-UINT4 XLALMMRDNS_NUM_MODES = 18;
-UINT4 XLALMMRDNS_NUM_MULTIPOLES = 14;
-/* Define list of Spherical Multipoles to be used */
-INT4 XLALMMRDNS_MULTIPOLES[14][2] = { {2,2}, {2,-2},
-                                      {2,1}, {2,-1},
-                                      {3,3}, {3,-3},
-                                      {3,2}, {3,-2},
-                                      {4,4}, {4,-4},
-                                      {4,3}, {4,-3},
-                                      {5,5}, {5,-5}
-                                    };
-/* Define list of QuasiNormal Modes to be used */
-INT4 XLALMMRDNS_MODES[18][3] = { {2,2,0}, {2,-2,0},
-                                 {2,2,1}, {2,-2,1},
-                                 {3,3,0}, {3,-3,0},
-                                 {3,3,1}, {3,-3,1},
-                                 {4,4,0}, {4,-4,0},
-                                 {5,5,0}, {5,-5,0},
-                                 {2,1,0}, {2,-1,0},
-                                 {3,2,0}, {3,-2,0},
-                                 {4,3,0}, {4,-3,0}
-                               };
-
 /* ------------------------------------------- */
 /* Low Level Methods for Interpolaton and Fits */
 /* ------------------------------------------- */
