@@ -419,7 +419,6 @@ LALInspiralWave(
 	   if (XLALInspiralStationaryPhaseApprox1(signalvec, params) == XLAL_FAILURE) ABORTXLAL(status);
 	   break;
       case TaylorF2:
-      case TaylorF2Ecc:
       case FindChirpSP:
            if (XLALInspiralStationaryPhaseApprox2(signalvec, params) == XLAL_FAILURE) ABORTXLAL(status);
 	   break;
@@ -577,7 +576,6 @@ LALInspiralWaveTemplates(
            break;
       case TaylorF1:
       case TaylorF2:
-      case TaylorF2Ecc:
       case FindChirpSP:
       case PadeF1:
       case BCV:
@@ -709,7 +707,6 @@ LALInspiralWaveForInjection(
       case BCVSpin:
       case TaylorF1:
       case TaylorF2:
-      case TaylorF2Ecc:
       case TaylorF2RedSpin:
       case FindChirpSP:
       case PadeF1:

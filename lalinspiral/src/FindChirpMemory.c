@@ -487,7 +487,6 @@ LALCreateFindChirpSegmentVector (
     case TaylorT2:
     case TaylorT3:
     case TaylorF2:
-    case TaylorF2Ecc:
     case GeneratePPN:
     case PadeT1:
     case EOB:
