@@ -507,7 +507,7 @@ int XLALSimInspiralChooseFDWaveformFromCache(
     }
 
     // case 1: Non-precessing, 2nd harmonic only
-    if( approximant == TaylorF2 || approximant == TaylorF2Ecc || approximant == TaylorF2RedSpin
+    if( approximant == TaylorF2 || approximant == TaylorF2RedSpin
                 || approximant == TaylorF2RedSpinTidal
                 || approximant == IMRPhenomA || approximant == IMRPhenomB
                 || approximant == IMRPhenomC ) {
@@ -929,7 +929,6 @@ int XLALSimInspiralChooseFDWaveformSequence(
     REAL8 lambda1=XLALSimInspiralWaveformParamsLookupTidalLambda1(LALpars);
     REAL8 lambda2=XLALSimInspiralWaveformParamsLookupTidalLambda2(LALpars);
 
- 
     switch (approximant)
     {
         /* inspiral-only models */
@@ -955,7 +954,6 @@ int XLALSimInspiralChooseFDWaveformSequence(
                 (*hptilde)->data->data[j] *= pfac;
             }
             break;
-
         /* inspiral-merger-ringdown models */
         case SEOBNRv1_ROM_EffectiveSpin:
             /* Waveform-specific sanity checks */

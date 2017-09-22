@@ -1979,22 +1979,6 @@ XLALSimInspiralTaylorEtZeta_7PNCoeff(
 	return (129.817/2.304 - 320.7739/4.8384 * eta + 61.3373/1.2096 * eta*eta) * LAL_PI;
 }
 
-static void UNUSED
-printPNCoeffs_F2(REAL8 eccPNCoeffs[LAL_MAX_ECC_PN_ORDER+1][LAL_MAX_ECC_PN_ORDER+1][LAL_MAX_ECC_PN_ORDER+1])
-{
-  int i, j, k;
-  fprintf(stdout,"============== DEBUG eccentricity PNCoeffs =================\n");
-  for(i=0; i<=LAL_MAX_ECC_PN_ORDER; i++) {
-    printf("ecc order = %d\n", i);
-    for(j=0; j<=i; j++) {
-      fprintf(stdout,"     ");
-      for(k=0; k<=i; k++) {
-        fprintf(stdout, "%16.8e ", eccPNCoeffs[i][j][k]);
-      }
-      fprintf(stdout,"\n");
-    }
-  }
-}
 // added for eccentricity corrections
 // the code is not approved, hence I will use function name as I want
 static INT4 UNUSED

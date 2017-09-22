@@ -1027,12 +1027,6 @@ struct params parseargs(int argc, char **argv)
             exit(1);
         }
     }
-    //f_ecc, ecc_order to be set a default values at moment, it will be changed when required.
-    // by KGWG at 2017/07/13.
-    if (p.params == NULL)
-      p.params = XLALCreateDict();
-    XLALSimInspiralWaveformParamsInsertEccentricityFreq(p.params, 10.0);
-    XLALSimInspiralWaveformParamsInsertPNEccentricityOrder(p.params, -1);
     if (LALoptind < argc) {
         fprintf(stderr, "extraneous command line arguments:\n");
         while (LALoptind < argc)

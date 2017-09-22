@@ -364,8 +364,6 @@ int XLALSimInspiralTaylorF2Core(
         phasing += pft12 * v12;
         phasing += pft10 * v10;
 
-        phasing /= v5;
-
     /* WARNING! Amplitude orders beyond 0 have NOT been reviewed!
      * Use at your own risk. The default is to turn them off.
      * These do not currently include spin corrections.
@@ -397,6 +395,7 @@ int XLALSimInspiralTaylorF2Core(
                 dEnergy += 1.;
         }
 
+        phasing /= v5;
         flux *= FTaN * v10;
         dEnergy *= dETaN * v;
         // Note the factor of 2 b/c phi_ref is orbital phase
