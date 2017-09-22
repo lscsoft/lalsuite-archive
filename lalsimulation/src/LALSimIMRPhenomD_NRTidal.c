@@ -30,7 +30,139 @@
 #endif
 
 
-// FIXME: limits below
+// internal function
+static int IMRPhenomD_NRTidal_Core(
+  COMPLEX16FrequencySeries **htilde,            /**< Output: Frequency-domain waveform h+ */
+  REAL8 phiRef,                                 /**< Phase at reference time */
+  REAL8 fRef,                                   /**< Reference frequency (Hz); 0 defaults to fLow */
+  REAL8 distance,                               /**< Distance of source (m) */
+  REAL8 m1_SI,                                  /**< Mass of neutron star 1 (kg) */
+  REAL8 m2_SI,                                  /**< Mass of neutron star 2 (kg) */
+  REAL8 chi1,                                   /**< Dimensionless aligned component spin of NS 1 */
+  REAL8 chi2,                                   /**< Dimensionless aligned component spin of NS 2 */
+  REAL8 lambda1,                                /**< Dimensionless tidal deformability of NS 1 */
+  REAL8 lambda2,                                /**< Dimensionless tidal deformability of NS 2 */
+  const LALSimInspiralTestGRParam *extraParams, /**< linked list containing the extra testing GR parameters */
+  const REAL8Sequence *freqs_in,                /**< Frequency points at which to evaluate the waveform (Hz) */
+  REAL8 deltaF                                  /**< Sampling frequency (Hz) */
+);
+
+// Implementation //////////////////////////////////////////////////////////////
+
+int IMRPhenomD_NRTidal_Core(
+  COMPLEX16FrequencySeries **htilde,            /**< Output: Frequency-domain waveform h+ */
+  REAL8 phiRef,                                 /**< Phase at reference time */
+  REAL8 fRef,                                   /**< Reference frequency (Hz); 0 defaults to fLow */
+  REAL8 distance,                               /**< Distance of source (m) */
+  REAL8 m1_SI,                                  /**< Mass of neutron star 1 (kg) */
+  REAL8 m2_SI,                                  /**< Mass of neutron star 2 (kg) */
+  REAL8 chi1,                                   /**< Dimensionless aligned component spin of NS 1 */
+  REAL8 chi2,                                   /**< Dimensionless aligned component spin of NS 2 */
+  REAL8 lambda1,                                /**< Dimensionless tidal deformability of NS 1 */
+  REAL8 lambda2,                                /**< Dimensionless tidal deformability of NS 2 */
+  const LALSimInspiralTestGRParam *extraParams, /**< linked list containing the extra testing GR parameters */
+  const REAL8Sequence *freqs_in,                /**< Frequency points at which to evaluate the waveform (Hz) */
+  REAL8 deltaF)                                 /**< Sampling frequency (Hz) */
+{
+  /* Check output arrays */
+  if(!htilde) XLAL_ERROR(XLAL_EFAULT);
+  if(*htilde) {
+    XLALPrintError("(*htilde) is supposed to be NULL, but got %p",(*htilde));
+    XLAL_ERROR(XLAL_EFAULT);
+  }
+
+  if (!freqs_in) XLAL_ERROR(XLAL_EFAULT);
+  double fLow  = freqs_in->data[0];
+  double fHigh = freqs_in->data[freqs_in->length - 1];
+  if(fRef == 0.0)
+    fRef = fLow;
+
+  /* Internally we need m1 > m2, so change around if this is not the case */
+  if (m1_SI < m2_SI) {
+    // Swap m1 and m2
+    double m1temp = m1_SI;
+    double chi1temp = chi1;
+    double lambda1temp = lambda1;
+    m1_SI = m2_SI;
+    chi1 = chi2;
+    lambda1 = lambda2;
+    m2_SI = m1temp;
+    chi2 = chi1temp;
+    lambda2 = lambda1temp;
+  }
+
+  // Call IMRPhenomD. We call either the FrequencySequence version
+  // or the regular LAL version depending on how we've been called.
+
+  int ret = XLAL_SUCCESS;
+  if (deltaF > 0)
+    ret = XLALSimIMRPhenomDGenerateFD(
+      htilde,
+      phiRef, fRef, deltaF,
+      m1_SI, m2_SI,
+      chi1, chi2,
+      fLow, fHigh,
+      distance,
+      extraParams);
+  else
+    ret = XLALSimIMRPhenomDFrequencySequence(
+      htilde,
+      freqs_in,
+      phiRef, fRef,
+      m1_SI, m2_SI,
+      chi1, chi2,
+      distance,
+      extraParams);
+
+  XLAL_CHECK(XLAL_SUCCESS == ret, ret, "Failed to generate IMRPhenomD waveform.");
+
+  UINT4 offset;
+  REAL8Sequence *freqs = NULL;
+  if (deltaF > 0) { // uniform frequencies
+    // Recreate freqs using only the lower and upper bounds
+    UINT4 iStart = (UINT4) (fLow / deltaF);
+    UINT4 iStop = (*htilde)->data->length - 1; // use the length calculated in the ROM function
+    freqs = XLALCreateREAL8Sequence(iStop - iStart);
+    if (!freqs) XLAL_ERROR(XLAL_EFUNC, "Frequency array allocation failed.");
+    for (UINT4 i=iStart; i<iStop; i++)
+      freqs->data[i-iStart] = i*deltaF;
+
+    offset = iStart;
+  }
+  else { // unequally spaced frequency sequence
+    freqs = XLALCreateREAL8Sequence(freqs_in->length);
+    if (!freqs) XLAL_ERROR(XLAL_EFUNC, "Frequency array allocation failed.");
+    for (UINT4 i=0; i<freqs_in->length; i++)
+      freqs->data[i] = freqs_in->data[i]; // just copy input
+    offset = 0;
+  }
+  COMPLEX16 *data=(*htilde)->data->data;
+
+  // Get FD tidal phase correction and amplitude factor from arXiv:1706.02969
+  REAL8Sequence *phi_tidal = XLALCreateREAL8Sequence(freqs->length);
+  REAL8Sequence *amp_tidal = XLALCreateREAL8Sequence(freqs->length);
+  ret = XLALSimNRTunedTidesFDTidalPhaseFrequencySeries(
+    phi_tidal, amp_tidal, freqs,
+    m1_SI, m2_SI, lambda1, lambda2
+  );
+  XLAL_CHECK(XLAL_SUCCESS == ret, ret, "XLALSimNRTunedTidesFDTidalPhaseFrequencySeries Failed.");
+
+  // Assemble waveform from amplitude and phase
+  for (size_t i=0; i<freqs->length; i++) { // loop over frequency points in sequence
+    int j = i + offset; // shift index for frequency series if needed
+    // Apply tidal phase correction and amplitude taper
+    COMPLEX16 Corr = amp_tidal->data[i] * cexp(-I*phi_tidal->data[i]);
+    data[j] *= Corr;
+  }
+
+  XLALDestroyREAL8Sequence(freqs);
+  XLALDestroyREAL8Sequence(phi_tidal);
+  XLALDestroyREAL8Sequence(amp_tidal);
+
+  return XLAL_SUCCESS;
+}
+
+
 /**
  * @addtogroup LALSimIMRTIDAL_c
  *
@@ -60,121 +192,85 @@
 
 
 /**
- * Driver routine to compute the spin-aligned, inspiral-merger-ringdown
- * phenomenological waveform IMRPhenomD in the frequency domain.
+ * Compute waveform in LAL format at specified frequencies for the IMRPhenomD_NRTidal
+ * tidal model based on IMRPhenomD.
  *
- * Reference:
- * - Waveform: Eq. 35 and 36 in arXiv:1508.07253
- * - Coefficients: Eq. 31 and Table V in arXiv:1508.07253
+ * XLALSimIMRIMRPhenomDNRTidal() returns the plus and cross polarizations as a complex
+ * frequency series with equal spacing deltaF and contains zeros from zero frequency
+ * to the starting frequency and zeros beyond the cutoff frequency in the ringdown.
  *
- *  All input parameters should be in SI units. Angles should be in radians.
+ * In contrast, XLALSimIMRIMRPhenomDNRTidalFrequencySequence() returns a
+ * complex frequency series with entries exactly at the frequencies specified in
+ * the sequence freqs (which can be unequally spaced). No zeros are added.
+ *
+ * If XLALSimIMRIMRPhenomDNRTidalFrequencySequence() is called with frequencies that
+ * are beyond the maxium allowed geometric frequency for the ROM, zero strain is returned.
+ * It is not assumed that the frequency sequence is ordered.
+ *
+ * This function is designed as an entry point for reduced order quadratures.
  */
-int XLALSimIMRPhenomD_NRTidal_GenerateFD(
-    COMPLEX16FrequencySeries **htilde, /**< [out] FD waveform */
-    const REAL8 phi0,                  /**< Orbital phase at fRef (rad) */
-    const REAL8 fRef_in,               /**< reference frequency (Hz) */
-    const REAL8 deltaF,                /**< Sampling frequency (Hz) */
-    const REAL8 m1_SI_in,                 /**< Mass of companion 1 (kg) */
-    const REAL8 m2_SI_in,                 /**< Mass of companion 2 (kg) */
-    const REAL8 chi1_in,                  /**< Aligned-spin parameter of companion 1 */
-    const REAL8 chi2_in,                  /**< Aligned-spin parameter of companion 2 */
-    const REAL8 f_min,                 /**< Starting GW frequency (Hz) */
-    const REAL8 f_max,                 /**< End frequency; 0 defaults to Mf = \ref f_CUT for IMRPhenomD */
-    const REAL8 distance,               /**< Distance of source (m) */
-    const REAL8 lambda1_in,               /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
-    const REAL8 lambda2_in,               /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
-    const LALSimInspiralTestGRParam *extraParams /**< linked list containing the extra testing GR parameters */
+int XLALSimIMRPhenomDNRTidalFrequencySequence(
+  COMPLEX16FrequencySeries **htilde,            /**< Output: Frequency-domain waveform h+ */
+  const REAL8Sequence *freqs,                   /**< Frequency points at which to evaluate the waveform (Hz) */
+  REAL8 phiRef,                                 /**< Phase at reference time */
+  REAL8 fRef,                                   /**< Reference frequency (Hz); 0 defaults to fLow */
+  REAL8 distance,                               /**< Distance of source (m) */
+  REAL8 m1_SI,                                  /**< Mass of neutron star 1 (kg) */
+  REAL8 m2_SI,                                  /**< Mass of neutron star 2 (kg) */
+  REAL8 chi1,                                   /**< Dimensionless aligned component spin of NS 1 */
+  REAL8 chi2,                                   /**< Dimensionless aligned component spin of NS 2 */
+  REAL8 lambda1,                                /**< Dimensionless tidal deformability of NS 1 */
+  REAL8 lambda2,                                /**< Dimensionless tidal deformability of NS 2 */
+  const LALSimInspiralTestGRParam *extraParams  /**< linked list containing the extra testing GR parameters */
 ) {
+  if (!freqs) XLAL_ERROR(XLAL_EFAULT);
 
-  /* swap masses, spins and lambdas to enforce that m1>=m2 */
-  REAL8 chi1, chi2, m1_SI, m2_SI, lambda1, lambda2;
-  if (m1_SI_in>m2_SI_in) {
-     lambda1 = lambda1_in;
-     lambda2 = lambda2_in;
-     chi1 = chi1_in;
-     chi2 = chi2_in;
-     m1_SI   = m1_SI_in;
-     m2_SI   = m2_SI_in;
-  } else { // swap spins, lambdas and masses
-     lambda1 = lambda2_in;
-     lambda2 = lambda1_in;
-     chi1 = chi2_in;
-     chi2 = chi1_in;
-     m1_SI   = m2_SI_in;
-     m2_SI   = m1_SI_in;
-  }
+  // Call the internal core function with deltaF = 0 to indicate that freqs is non-uniformly
+  // spaced and we want the strain only at these frequencies
+  int retcode = IMRPhenomD_NRTidal_Core(htilde,
+            phiRef, fRef, distance, m1_SI, m2_SI, chi1, chi2, lambda1, lambda2, extraParams, freqs, 0);
+
+  return(retcode);
+}
 
 
-  /* external: SI; internal: solar masses */
-  const REAL8 m1 = m1_SI / LAL_MSUN_SI;
-  const REAL8 m2 = m2_SI / LAL_MSUN_SI;
+/**
+ * Compute waveform in LAL format for the IMRPhenomD_NRTidal
+ * tidal model based on IMRPhenomD.
+ *
+ * Returns the plus and cross polarizations as a complex frequency series with
+ * equal spacing deltaF and contains zeros from zero frequency to the starting
+ * frequency fLow and zeros beyond the cutoff frequency in the ringdown.
+ */
+int XLALSimIMRPhenomDNRTidal(
+  COMPLEX16FrequencySeries **htilde,            /**< Output: Frequency-domain waveform h+ */
+  REAL8 phiRef,                                 /**< Phase at reference time */
+  REAL8 deltaF,                                 /**< Sampling frequency (Hz) */
+  REAL8 fLow,                                   /**< Starting GW frequency (Hz) */
+  REAL8 fHigh,                                  /**< End frequency; 0 defaults to Mf=0.14 */
+  REAL8 fRef,                                   /**< Reference frequency (Hz); 0 defaults to fLow */
+  REAL8 distance,                               /**< Distance of source (m) */
+  REAL8 m1_SI,                                  /**< Mass of neutron star 1 (kg) */
+  REAL8 m2_SI,                                  /**< Mass of neutron star 2 (kg) */
+  REAL8 chi1,                                   /**< Dimensionless aligned component spin of NS 1 */
+  REAL8 chi2,                                   /**< Dimensionless aligned component spin of NS 2 */
+  REAL8 lambda1,                                /**< Dimensionless tidal deformability of NS 1 */
+  REAL8 lambda2,                                /**< Dimensionless tidal deformability of NS 2 */
+  const LALSimInspiralTestGRParam *extraParams /**< linked list containing the extra testing GR parameters */
+) {
+  // Use fLow, fHigh, deltaF to compute freqs sequence
+  // Instead of building a full sequence we only transfer the boundaries and let
+  // the internal core function do the rest (and properly take care of corner cases).
+  REAL8Sequence *freqs = XLALCreateREAL8Sequence(2);
+  freqs->data[0] = fLow;
+  freqs->data[1] = fHigh;
 
-  /* check inputs for sanity */
-  XLAL_CHECK(0 != htilde, XLAL_EFAULT, "htilde is null");
-  if (*htilde) XLAL_ERROR(XLAL_EFAULT);
-  if (fRef_in < 0) XLAL_ERROR(XLAL_EDOM, "fRef_in must be positive (or 0 for 'ignore')\n");
-  if (deltaF <= 0) XLAL_ERROR(XLAL_EDOM, "deltaF must be positive\n");
-  if (m1 <= 0) XLAL_ERROR(XLAL_EDOM, "m1 must be positive\n");
-  if (m2 <= 0) XLAL_ERROR(XLAL_EDOM, "m2 must be positive\n");
-  if (f_min <= 0) XLAL_ERROR(XLAL_EDOM, "f_min must be positive\n");
-  if (f_max < 0) XLAL_ERROR(XLAL_EDOM, "f_max must be greater than 0\n");
-  if (distance <= 0) XLAL_ERROR(XLAL_EDOM, "distance must be positive\n");
-
-  if (chi1 > 1.0 || chi1 < -1.0 || chi2 > 1.0 || chi2 < -1.0)
-    XLAL_ERROR(XLAL_EDOM, "Spins outside the range [-1,1] are not supported\n");
-
-  // if no reference frequency given, set it to the starting GW frequency
-  REAL8 fRef = (fRef_in == 0.0) ? f_min : fRef_in;
-
-  int status = XLALSimIMRPhenomDGenerateFD(
-      htilde,
-      phi0,
-      fRef,
-      deltaF,
-      m1_SI,
-      m2_SI,
-      chi1,
-      chi2,
-      f_min,
-      f_max,
-      distance,
-      extraParams
-  );
-  XLAL_CHECK(XLAL_SUCCESS == status, status, "Failed to generate IMRPhenomD waveform.");
-
-  size_t ind_min = (size_t) (f_min / deltaF);
-  // size_t ind_max = (size_t) (f_max / deltaF);
-  size_t ind_max = (size_t) ((*htilde)->data->length);
-
-  // Get FD tidal phase correction from arXiv:1706.02969
-  REAL8Sequence *freqs = XLALCreateREAL8Sequence(ind_max);
-  // populate frequencies
-  for (size_t i = ind_min; i < ind_max; i++)
-  {
-    REAL8 fHz = i * deltaF; // geometric frequency
-    freqs->data[i] = fHz;
-  }
-
-  REAL8Sequence *phi_tidal = XLALCreateREAL8Sequence(freqs->length);
-  REAL8Sequence *amp_tidal = XLALCreateREAL8Sequence(freqs->length);
-  status = XLALSimNRTunedTidesFDTidalPhaseFrequencySeries(
-    phi_tidal, amp_tidal, freqs,
-    m1_SI, m2_SI, lambda1, lambda2
-  );
-  XLAL_CHECK(XLAL_SUCCESS == status, status, "XLALSimNRTunedTidesFDTidalPhaseFrequencySeries Failed.");
-
-  /* loop over htilde and apply taper and phase shift */
-  for (size_t i=ind_min; i<ind_max; i++) { // loop over frequency points in sequence
-    // Apply tidal phase correction and amplitude taper
-    COMPLEX16 Corr = amp_tidal->data[i] * cexp(-I*phi_tidal->data[i]);
-    (*htilde)->data->data[i] *= Corr;
-  }
+  int retcode = IMRPhenomD_NRTidal_Core(htilde,
+            phiRef, fRef, distance, m1_SI, m2_SI, chi1, chi2, lambda1, lambda2, extraParams, freqs, deltaF);
 
   XLALDestroyREAL8Sequence(freqs);
-  XLALDestroyREAL8Sequence(phi_tidal);
-  XLALDestroyREAL8Sequence(amp_tidal);
 
-  return XLAL_SUCCESS;
+  return(retcode);
 }
 
 /** @} */

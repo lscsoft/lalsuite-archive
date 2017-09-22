@@ -1089,8 +1089,25 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
     quadparam2 = (REAL8) injTable->quadparam2;
   }
 
-  /* flow handling */
-  REAL8 fLow = state->data->fLow;
+  /* Get frequency bounds */
+  REAL8 fLow = INFINITY; // lowest frequency being analyzed across the network
+  REAL8 fHigh = -INFINITY; // highest frequency being analyzed across the network
+
+  dataPtr = state->data;
+  while (dataPtr != NULL)
+  {
+    if (dataPtr->fLow < fLow)
+        fLow = dataPtr->fLow;
+    if (dataPtr->fHigh > fHigh)
+        fHigh = dataPtr->fHigh;
+
+    dataPtr = dataPtr->next;
+  }
+
+  model->fLow = fLow;
+  model->fHigh = fHigh;
+
+  /* Check if flow is varying */
   ppt=LALInferenceGetProcParamVal(commandLine,"--vary-flow");
   if(ppt){
     REAL8 fLow_min = fLow;
