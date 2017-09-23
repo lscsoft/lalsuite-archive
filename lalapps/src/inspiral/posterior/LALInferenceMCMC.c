@@ -709,7 +709,7 @@ int main(int argc, char *argv[]){
     FILE *fpout=NULL;
     t = time(NULL);
     tm = *localtime(&t);
-    sprintf(headerfile,"PID_%d_Date%4d%2d%2d_header.txt",pid, tm.tm_year+1900, tm.tm_mon+1, tm.tm_mday);
+    sprintf(headerfile,"PID_%d_Date%04d%02d%02d_header.txt",pid, tm.tm_year+1900, tm.tm_mon+1, tm.tm_mday);
     fpout=fopen(headerfile,"w");
     fprintf(fpout,"LALInference version:%s,%s,%s,%s,%s\n", lalInferenceVCSId,lalInferenceVCSDate,lalInferenceVCSBranch,lalInferenceVCSAuthor,lalInferenceVCSStatus);
     fprintf(fpout,"%s\n",LALInferencePrintCommandLine(runState->commandLine));
