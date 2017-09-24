@@ -865,18 +865,18 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   REAL8 costhetaJNmin=-1.0 , costhetaJNmax=1.0;
   REAL8 eccmin=0.0, eccmax=1.0;
   REAL8 dt=0.1;  /* Half the width of time prior */
-  REAL8 lambda1Min=0.0;
-  REAL8 lambda1Max=3000.0;
-  REAL8 lambda2Min=0.0;
-  REAL8 lambda2Max=3000.0;
-  REAL8 lambdaTMin=0.0;
-  REAL8 lambdaTMax=3000.0;
-  REAL8 dLambdaTMin=-500.0;
-  REAL8 dLambdaTMax=500.0;
-  REAL8 quadparam1Min=1.0; /* 1 for BH, 2~12 for NS actually we calculate as qm_def = 1+quadparam*/
-  REAL8 quadparam1Max=100.0;
-  REAL8 quadparam2Min=1.0;
-  REAL8 quadparam2Max=100.0;
+  REAL8 lambda1Min=DEFAULT_LAMBDA1_MIN; /* default values are defined in LALInferenceInit.h */
+  REAL8 lambda1Max=DEFAULT_LAMBDA1_MAX;
+  REAL8 lambda2Min=DEFAULT_LAMBDA2_MIN;
+  REAL8 lambda2Max=DEFAULT_LAMBDA2_MAX;
+  REAL8 lambdaTMin=DEFAULT_LAMBDAT_MIN;
+  REAL8 lambdaTMax=DEFAULT_LAMBDAT_MAX;
+  REAL8 dLambdaTMin=DEFAULT_DLAMBDAT_MIN;
+  REAL8 dLambdaTMax=DEFAULT_DLAMBDAT_MAX;
+  REAL8 quadparam1Min=DEFAULT_QUADPARAM1_MIN; /* 1 for BH, 2~12 for NS actually we calculate as qm_def = 1+quadparam*/
+  REAL8 quadparam1Max=DEFAULT_QUADPARAM1_MAX;
+  REAL8 quadparam2Min=DEFAULT_QUADPARAM2_MIN;
+  REAL8 quadparam2Max=DEFAULT_QUADPARAM2_MAX;
   gsl_rng *GSLrandom=state->GSLrandom;
   REAL8 endtime=0.0, timeParam=0.0;
   REAL8 timeMin=endtime-dt,timeMax=endtime+dt;
