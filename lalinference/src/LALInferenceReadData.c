@@ -762,7 +762,8 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
     }
 
     /* Set up FFT structures and window */
-    for (i=0;i<Nifo;i++){
+    for (i=0;i<Nifo;i++)
+    {
         /* Create FFT plans (flag 1 to measure performance) */
         IFOdata[i].timeToFreqFFTPlan = XLALCreateForwardREAL8FFTPlan((UINT4) seglen, 1 );
         if(!IFOdata[i].timeToFreqFFTPlan) XLAL_ERROR_NULL(XLAL_ENOMEM);
@@ -782,13 +783,13 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
         }
         IFOdata[i].padding=padding;
         if(LALInferenceGetProcParamVal(commandLine, "--ringdown"))
-	{
+        {
             fprintf(stdout,"Setting windows for ringdown\n");
             REAL8 trig_time = GPStrig.gpsSeconds+1e-9*GPStrig.gpsNanoSeconds;
-	    ppt=LALInferenceGetProcParamVal(commandLine,"--window-rise-time");
+            ppt=LALInferenceGetProcParamVal(commandLine,"--window-rise-time");
             if(!ppt){fprintf(stderr,"need to give --window-rise-time\n"); exit(0);}
             REAL8 rise_time = atof(ppt->value);
-	    ppt=LALInferenceGetProcParamVal(commandLine,"--window-shift");
+            ppt=LALInferenceGetProcParamVal(commandLine,"--window-shift");
             if(!ppt){fprintf(stderr,"need to give --window-shift\n"); exit(0);}
             REAL8 window_shift = atof(ppt->value);
            
@@ -801,7 +802,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
                 if(!ppt){fprintf(stderr,"need to give --window-start-time-H\n"); exit(0);}
                 REAL8 window_start_H = atof(ppt->value);
                 printf("Using a planck window for detector %s, starting at %f\n", IFOdata[i].name,  window_start_H);
-		IFOdata[i].window=XLALCreatePlanckREAL8Window(seglen, window_start_H, trig_time, SampleRate, rise_time);
+                IFOdata[i].window=XLALCreatePlanckREAL8Window(seglen, window_start_H, trig_time, SampleRate, rise_time);
             }
 	    else if(strcmp(IFOdata[i].name, "L1") == 0)
 	    {
@@ -2956,9 +2957,9 @@ void LALInferenceInjectRingdownSignal(LALInferenceIFOData *IFOdata, ProcessParam
     thisData->SNR=sqrt(SNR);
     NetworkSNR+=SNR;
 
-    if (!(SNRpath==NULL)){ /* If the user provided a path with --snrpath store a file with injected SNRs */
-      PrintSNRsToFile(IFOdata , SNRpath);
-    }
+    /* If the user provided a path with --snrpath store a file with injected SNRs */
+    PrintSNRsToFile(IFOdata , SNRpath);
+
     /* Actually inject the waveform */
     for(j=0;j<inj8Wave->data->length;j++) thisData->timeData->data->data[j]+=inj8Wave->data->data[j];
       fprintf(stdout,"Injected SNR in detector %s = %g\n",thisData->name,thisData->SNR);

@@ -1399,11 +1399,12 @@ int XLALSimRingdownMMRDNS_time(
         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
           dtau430 = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
 
-        /* Time runs from Tstart to Tend after merger. Use total mass to agree with NR conventions. Inside the template t=0 corresponds to 10M after the merger.*/
+        /* Use total mass to agree with NR conventions. Inside the template t=0 corresponds to 10M after the merger. 
+           Tend is computed inside LALInferenceTemplate.c to give the same number of samples to the window and to the generator.
+           Inside this routine Tend is effectively represented by Nsamples passed as input.*/
         REAL8 M        = XLALMf_to_M_nonspinning_UIB2016(eta, Mf);
         REAL8 Tstart   = 0.0*M*LAL_MTSUN_SI/LAL_MSUN_SI;
-        // REAL8 Tend     = 80.0*M*LAL_MTSUN_SI/LAL_MSUN_SI;
-        // UINT4 Nsamples = ceil((Tend-Tstart)/deltaT);
+
 
         /* Compute the modes seperately */
         XLALSimRingdownGenerateSingleModeMMRDNS_time( &h220, T0, deltaT, Mf, jf, eta, iota, phi_offset, 2, 2, 0, r, dfreq220, dtau220, Nsamples, Tstart );
@@ -1604,78 +1605,95 @@ int XLALSimRingdownGenerateSingleBareModeMMRDNS_time(
 
 
 /* Full waveform generator that uses the Spherical basis. */
-int XLALSimRingdownGenerateFullSphericalWaveform_time(
-  UNUSED REAL8TimeSeries **hplus,                     /**< OUTPUT TD waveform */
-  UNUSED REAL8TimeSeries **hcross,                     /**< OUTPUT TD waveform */
-  UNUSED const LIGOTimeGPS *T0,                       /**< start time of ringdown => NEEDS TO BE CHECKED! */
-  UNUSED REAL8 Tstart,                                /**< start time of ringdown => NEEDS TO BE CHECKED! */
-  UNUSED REAL8 deltaT,                                /**< sampling interval (s) */
-  UNUSED UINT4 Nsamples,                              /**< Number of samples (effective T_End) */
-  UNUSED REAL8 Mf,                                    /**< Final BH Mass (kg) */
-  UNUSED REAL8 jf,                                    /**< Final BH dimensionaless spin */
-  UNUSED REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
-  UNUSED REAL8 iota,                                  /**< inclination angle (in rad) */
-  UNUSED REAL8 phi_offset,                            /**< intrinsic phase offset */
-  UNUSED REAL8 r,                                     /**< distance of source (m) */
-  UNUSED LALSimInspiralTestGRParam *nonGRparams ){
+int XLALSimRingdownGenerateFullSphericalWaveform_time
+(
+    REAL8TimeSeries **hplus,                     /**< OUTPUT TD waveform */
+    REAL8TimeSeries **hcross,                    /**< OUTPUT TD waveform */
+    const LIGOTimeGPS *T0,                       /**< start time of ringdown => NEEDS TO BE CHECKED! */
+    REAL8 deltaT,                                /**< sampling interval (s) */
+    UINT4 Nsamples,                              /**< Number of samples (effective T_End) */
+    REAL8 Mf,                                    /**< Final BH Mass (kg) */
+    REAL8 jf,                                    /**< Final BH dimensionaless spin */
+    REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
+    REAL8 iota,                                  /**< inclination angle (in rad) */
+    REAL8 phi_offset,                            /**< intrinsic phase offset */
+    REAL8 r,                                     /**< distance of source (m) */
+    LALSimInspiralTestGRParam *nonGRparams
+)
+{
 
-  /* allocate htilde */
-  COMPLEX16TimeSeries *htilde = XLALCreateCOMPLEX16TimeSeries("htilde: TD waveform", T0, 0.0, deltaT, &lalStrainUnit, Nsamples);
-  if (! htilde) XLAL_ERROR(XLAL_EFUNC);
-  memset(htilde->data->data, 0, Nsamples * sizeof(COMPLEX16));
+    /* Perform some initial checks */
+    if (Mf <= 0) XLAL_ERROR(XLAL_EDOM);
+    if (jf >= 1) XLAL_ERROR(XLAL_EDOM);
+    if (eta > 0.25 || eta <= 0) XLAL_ERROR(XLAL_EDOM);
+    if (r <= 0) XLAL_ERROR(XLAL_EDOM);
+    
+    /* allocate htilde */
+    COMPLEX16TimeSeries *htilde = XLALCreateCOMPLEX16TimeSeries("htilde: TD waveform", T0, 0.0, deltaT, &lalStrainUnit, Nsamples);
+    if (! htilde) XLAL_ERROR(XLAL_EFUNC);
+    memset(htilde->data->data, 0, Nsamples * sizeof(COMPLEX16));
 
-  /* initialize outputs */
-  *hplus = XLALCreateREAL8TimeSeries( "hplus: TD waveform", T0, 0.0, deltaT, &lalStrainUnit, Nsamples);
-  if (!(*hplus)) XLAL_ERROR(XLAL_EFUNC);
-  memset((*hplus)->data->data, 0, Nsamples * sizeof(REAL8));
-  *hcross = XLALCreateREAL8TimeSeries( "hcross: TD waveform", T0, 0.0, deltaT, &lalStrainUnit, Nsamples);
-  if (!(*hcross)) XLAL_ERROR(XLAL_EFUNC);
-  memset((*hcross)->data->data, 0, Nsamples * sizeof(REAL8));
+    /* initialize outputs */
+    *hplus = XLALCreateREAL8TimeSeries( "hplus: TD waveform", T0, 0.0, deltaT, &lalStrainUnit, Nsamples);
+    if (!(*hplus)) XLAL_ERROR(XLAL_EFUNC);
+    memset((*hplus)->data->data, 0, Nsamples * sizeof(REAL8));
+    *hcross = XLALCreateREAL8TimeSeries( "hcross: TD waveform", T0, 0.0, deltaT, &lalStrainUnit, Nsamples);
+    if (!(*hcross)) XLAL_ERROR(XLAL_EFUNC);
+    memset((*hcross)->data->data, 0, Nsamples * sizeof(REAL8));
 
-  /* Declare helper variables */
-  COMPLEX16 Prefactor=0;
-  UINT4 ll=0; INT4 mm=0;
-
+    /* Declare helper variables */
+    COMPLEX16 Prefactor=0;
+    UINT4 ll=0; INT4 mm=0;
+    
+    /* Use total mass to agree with NR conventions. Inside the template t=0 corresponds to 10M after the merger.
+       Tend is computed inside LALInferenceTemplate.c to give the same number of samples to the window and to the generator.
+       Inside this routine Tend is effectively represented by Nsamples passed as input.*/
+    REAL8 M        = XLALMf_to_M_nonspinning_UIB2016(eta, Mf);
+    REAL8 Tstart   = 0.0*M*LAL_MTSUN_SI/LAL_MSUN_SI;
+    
+    
   /* FOR all MULTIPOLES in MMRDNS */
-  for ( UINT4 k=0; k<XLALMMRDNS_NUM_MULTIPOLES; k++ ) {
-    /* Extract the mode indeces from the master list */
-    ll = XLALMMRDNS_MULTIPOLES[k][0]; mm = XLALMMRDNS_MULTIPOLES[k][1];
-    /* Here the prefactor is the Spin weighted spherical harmonic */
-    Prefactor = XLALSpinWeightedSphericalHarmonic( iota, phi_offset, -2, ll, mm  );
-    /* Add the current mode to the intermediate timeseries */
-    XLALSimRingdownAddSphericalMultipoleTD( &htilde, T0, deltaT, Mf, jf, eta, ll, mm, r, nonGRparams, Nsamples, Tstart, Prefactor );
-  } /* END of FOR all MULTIPOLES */
+    for ( UINT4 k=0; k<XLALMMRDNS_NUM_MULTIPOLES; k++ )
+    {
+        /* Extract the mode indeces from the master list */
+        ll = XLALMMRDNS_MULTIPOLES[k][0]; mm = XLALMMRDNS_MULTIPOLES[k][1];
+        /* Here the prefactor is the Spin weighted spherical harmonic */
+        Prefactor = XLALSpinWeightedSphericalHarmonic( iota, phi_offset, -2, ll, mm  );
+        /* Add the current mode to the intermediate timeseries */
+        XLALSimRingdownAddSphericalMultipoleTD( &htilde, T0, deltaT, Mf, jf, eta, ll, mm, r, nonGRparams, Nsamples, Tstart, Prefactor );
+    } /* END of FOR all MULTIPOLES */
 
-  /* Extract hplus and hcross */
-  COMPLEX16 h_val = 0.0;
-  for ( UINT4 i=0 ; i<Nsamples ; i++ ) {
-    h_val = htilde->data->data[i];
-    (*hplus)->data->data[i]  =        creal(h_val);
-    (*hcross)->data->data[i] = -1.0 * cimag(h_val);
-  } /* END of FOR all MULTIPOLES */
+    /* Extract hplus and hcross */
+    COMPLEX16 h_val = 0.0;
+    for ( UINT4 i=0 ; i<Nsamples ; i++ )
+    {
+        h_val = htilde->data->data[i];
+        (*hplus)->data->data[i]  =        creal(h_val);
+        (*hcross)->data->data[i] = -1.0 * cimag(h_val);
+    } /* END of FOR all MULTIPOLES */
 
-  /* Destroy the COMPLEX16TimeSeries hlmn object */
-  if (htilde) XLALDestroyCOMPLEX16TimeSeries(htilde);
+    /* Destroy the COMPLEX16TimeSeries hlmn object */
+    if (htilde) XLALDestroyCOMPLEX16TimeSeries(htilde);
 
-  return XLAL_SUCCESS;
+    return XLAL_SUCCESS;
 
 }
 
 /* ADD a QNM timeseries to an existing waveform time series with a prefactor (e.g. harmonic for inner-product) */
 int XLALSimRingdownAddSphericalMultipoleTD(
-          UNUSED COMPLEX16TimeSeries **htilde,                /**< OUTPUT TD waveform mode lmn */
-          UNUSED const LIGOTimeGPS *T0,                       /**< start time of ringdown */
-          UNUSED REAL8 deltaT,                                /**< sampling interval (s) */
-          UNUSED REAL8 Mf,                                    /**< Final BH Mass (kg) */
-          UNUSED REAL8 jf,                                    /**< Final BH dimensionaless spin */
-          UNUSED REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
-          UNUSED UINT4 ll,                                     /**< Polar eigenvalue */
-          UNUSED INT4 mm,                                      /**< Azimuthal eigenvalue */
-          UNUSED REAL8 r,                                     /**< distance of source (m) */
-          UNUSED LALSimInspiralTestGRParam *nonGRparams,      /**< Testing GR params: fractional dfreq and dtau */
-          UNUSED UINT4 Nsamples,                              /**< waveform length */
-          UNUSED REAL8 Tstart,                                /**< starting time of waveform (10M at zero) */
-          UNUSED COMPLEX16 Prefactor                         /* The mode time series will be sclaed by this before being added to the htilde input. This can be a harmonic function or inner-product value. */
+     COMPLEX16TimeSeries **htilde,                /**< OUTPUT TD waveform mode lmn */
+     const LIGOTimeGPS *T0,                       /**< start time of ringdown */
+     REAL8 deltaT,                                /**< sampling interval (s) */
+     REAL8 Mf,                                    /**< Final BH Mass (kg) */
+     REAL8 jf,                                    /**< Final BH dimensionaless spin */
+     REAL8 eta,                                   /**< Symmetric mass ratio of two companions */
+     UINT4 ll,                                     /**< Polar eigenvalue */
+     INT4 mm,                                      /**< Azimuthal eigenvalue */
+     REAL8 r,                                     /**< distance of source (m) */
+     LALSimInspiralTestGRParam *nonGRparams,      /**< Testing GR params: fractional dfreq and dtau */
+     UINT4 Nsamples,                              /**< waveform length */
+     REAL8 Tstart,                                /**< starting time of waveform (10M at zero) */
+     COMPLEX16 Prefactor                         /* The mode time series will be sclaed by this before being added to the htilde input. This can be a harmonic function or inner-product value. */
         ){
 
   /* Mode to be added to htilde */

@@ -85,7 +85,6 @@ int XLALSimRingdownGenerateFullSphericalWaveform_time(
   REAL8TimeSeries **hplus,                     /**< OUTPUT TD waveform */
   REAL8TimeSeries **hcross,                     /**< OUTPUT TD waveform */
   const LIGOTimeGPS *T0,                       /**< start time of ringdown => NEEDS TO BE CHECKED! */
-  REAL8 Tstart,                                /**< start time of ringdown => NEEDS TO BE CHECKED! */
   REAL8 deltaT,                                /**< sampling interval (s) */
   UINT4 Nsamples,                              /**< Number of samples (effective T_End) */
   REAL8 Mf,                                    /**< Final BH Mass (kg) */

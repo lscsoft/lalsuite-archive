@@ -961,36 +961,38 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceModel *model)  // 
 
 
   }
-  else if (model_domain == LAL_SIM_DOMAIN_TIME){
+  else if (model_domain == LAL_SIM_DOMAIN_TIME)
+  {
     //TODO: add spin parameter like effective spin or component spins or whatever is necessary
     /* XLAL_TRY(ret=XLALSimRingdownChooseTDWaveform(&hplus, &hcross, phi, deltaT,
                                                  mass*LAL_MSUN_SI, spin, eta, distance,
                                                  inclination, waveFlags, nonGRparams,
                                                  qnmorder, qnmodes, approximant), errnum); */
 
-    if(approximant==(int)RingdownTD){
-    XLAL_TRY(ret=XLALSimBlackHoleRingdownTiger(&hplus, &hcross, qnmodes, (&model->timehCross->epoch), phi, deltaT, mass*LAL_MSUN_SI,spin, eta, spin1, spin2, chiEff, distance, inclination, nonGRparams), errnum);
+    if(approximant==(int)RingdownTD)
+    {
+        XLAL_TRY(ret=XLALSimBlackHoleRingdownTiger(&hplus, &hcross, qnmodes, (&model->timehCross->epoch), phi, deltaT, mass*LAL_MSUN_SI,spin, eta, spin1, spin2, chiEff, distance, inclination, nonGRparams), errnum);
     }
     else if(approximant==(int)RingdownMMRDNSTD)
     {
         /* prepare window */
-	REAL8 rise_time, window_shift;
-	GetWindowParamsFromReadDataToTemplate(&rise_time, &window_shift);
-	REAL8 M      = XLALMf_to_M_nonspinning_UIB2016(eta, mass);
-	REAL8 Tstart =  0.0*M*LAL_MTSUN_SI;
+        REAL8 rise_time, window_shift;
+        GetWindowParamsFromReadDataToTemplate(&rise_time, &window_shift);
+        REAL8 M      = XLALMf_to_M_nonspinning_UIB2016(eta, mass);
+        REAL8 Tstart =  0.0*M*LAL_MTSUN_SI;
         REAL8 Tend   = 50.0*M*LAL_MTSUN_SI;
         UINT4 Num_samples_window=ceil((Tend-Tstart)/(deltaT));	
 
         XLAL_TRY(ret=XLALSimRingdownMMRDNS_time(&hplus, &hcross, (&model->timehCross->epoch), deltaT, Num_samples_window, mass*LAL_MSUN_SI, spin, eta, inclination, phi, distance, nonGRparams), errnum); 
-        XLAL_TRY(ret=XLALApplyPlanckWindowToTemplate(&hplus, &hcross, Num_samples_window, M*LAL_MTSUN_SI*window_shift, (Num_samples_window*deltaT)-2.0, 1.0/deltaT, rise_time), errnum);	
-
-
+        XLAL_TRY(ret=XLALApplyPlanckWindowToTemplate(&hplus, &hcross, Num_samples_window, M*LAL_MTSUN_SI*window_shift, (Num_samples_window*deltaT)-2.0, 1.0/deltaT, rise_time), errnum);
     }
+    
     // XLALSimInspiralDestroyWaveformFlags(waveFlags);
     XLALSimInspiralDestroyTestGRParam(nonGRparams);
     if (ret == XLAL_FAILURE || hplus == NULL || hcross == NULL)
     {
-      for (i=0; i<model->timehCross->data->length; i++){
+      for (i=0; i<model->timehCross->data->length; i++)
+      {
         model->timehPlus->data->data[i] = 0.0;
         model->timehCross->data->data[i] = 0.0;
       }
@@ -1000,7 +1002,8 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceModel *model)  // 
     /* if the waveform failed to generate, fill the buffer with zeros
      * so that the previous waveform is not left there
      */
-    if(ret!=XLAL_SUCCESS){
+    if(ret!=XLAL_SUCCESS)
+    {
       memset(model->freqhPlus->data->data,0,sizeof(model->freqhPlus->data->data[0])*model->freqhPlus->data->length);
       memset(model->freqhCross->data->data,0,sizeof(model->freqhCross->data->data[0])*model->freqhCross->data->length);
       if ( hptilde ) XLALDestroyCOMPLEX16FrequencySeries(hptilde);
