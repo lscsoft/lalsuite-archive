@@ -699,8 +699,6 @@ void LALInferenceRegisterUniformVariableREAL8(LALInferenceRunState *state, LALIn
   }
   /*End of mass parameters check */
 
-  /* hwlee DEBUG */
-  //if (strcmp(name,"quadparam1")==0 || strcmp(name,"quadparam2")==0) return;
   LALInferenceAddVariable(var,name,&startval,LALINFERENCE_REAL8_t,varytype);
   LALInferenceAddMinMaxPrior(state->priorArgs, name, &min, &max, LALINFERENCE_REAL8_t);
 
@@ -1429,11 +1427,9 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   if(LALInferenceGetProcParamVal(commandLine,"--quadparam")) {
     node=LALInferenceGetItem(model->params,"quadparam1");
     if(!node) // if quadparam1 is not pinned already
-      //LALInferenceAddVariable(model->params, "quadparam1", &quadparam1,  LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
       LALInferenceRegisterUniformVariableREAL8(state, model->params, "quadparam1", quadparam1, quadparam1Min, quadparam1Max, LALINFERENCE_PARAM_LINEAR);
     node=LALInferenceGetItem(model->params,"quadparam2");
     if(!node) // if quadparam2 is not pinned already
-      //LALInferenceAddVariable(model->params, "quadparam2", &quadparam2,  LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
       LALInferenceRegisterUniformVariableREAL8(state, model->params, "quadparam2", quadparam2, quadparam2Min, quadparam2Max, LALINFERENCE_PARAM_LINEAR);
   }
   else { /* no quadparam option is given */
