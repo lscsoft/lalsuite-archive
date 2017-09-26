@@ -331,7 +331,8 @@ double bayestar_volume_render(
         double vec[3];
         cblas_dgemv(
             CblasRowMajor, CblasNoTrans, 3, 3, 1, R, 3, xyz, 1, 0, vec, 1);
-        int64_t ipix;
+        //int64_t ipix;
+        long long int ipix;
         if (nest)
             vec2pix_nest64(nside, vec, &ipix);
         else
