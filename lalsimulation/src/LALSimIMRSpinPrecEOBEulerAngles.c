@@ -255,15 +255,15 @@ static void ComputeSpinsInLframe(
        th2 = acos(s2z/S2mag);
        ph2 = atan2(s2y, s2x);
     }
-   
+
 
     // I want to find components of S1, S2 in the frame where L is along z
     // (up to a overall rotation angle)
-    
-    //REAL8 ths1l = acos((lhx*s1x + lhy*s1y + lhz*s1z)/(S1mag*Lmag) ); 
-    //REAL8 ths2l = acos((lhx*s1x + lhy*s1y + lhz*s1z)/(S1mag*Lmag) ); 
 
-    // The easieast is to rotate to the frame 
+    //REAL8 ths1l = acos((lhx*s1x + lhy*s1y + lhz*s1z)/(S1mag*Lmag) );
+    //REAL8 ths2l = acos((lhx*s1x + lhy*s1y + lhz*s1z)/(S1mag*Lmag) );
+
+    // The easieast is to rotate to the frame
     // where L is along z: RY[-th].RZ[-ph]:
 
     S1hatL->data[0] = S1mag*(-cos(th1)*sin(th) + cos(th)*cos(ph - ph1)*sin(th1));
@@ -274,8 +274,89 @@ static void ComputeSpinsInLframe(
     S2hatL->data[0] = S2mag*(-cos(th2)*sin(th) + cos(th)*cos(ph - ph2)*sin(th2));
     S2hatL->data[1] = S2mag*(-sin(th2)*sin(ph - ph2));
     S2hatL->data[2] = S2mag*(cos(th)*cos(th2) + sin(th)*sin(th2)*cos(ph-ph2));
-     
+
 }
+
+
+static int EulerAnglesP2I(REAL8Vector* Alpha, /**<< output: alpha Euler angle */
+                 REAL8Vector *Beta, /**<< output: beta Euler angle */
+                 REAL8Vector *Gamma, /**<< output: gamma Euler angle */
+				 REAL8TimeSeries* aI2P, /** low sample alpha I->P */
+				 REAL8TimeSeries* bI2P, /** low sample beta I->P */
+				 REAL8TimeSeries* gI2P, /** low sample gamma I->P */
+				 REAL8Vector* timeLow,
+				 REAL8TimeSeries* aI2Phi, /** high sample alpha I->P */
+				 REAL8TimeSeries* bI2Phi, /** high sample beta I->P */
+				 REAL8TimeSeries* gI2Phi, /** high sample gamma I->P */
+				 REAL8Vector* timeHi,
+				 REAL8Vector* timeFull)
+ {
+	unsigned int i;
+	// First we need to resample the hisample data
+	printf("length of aP2I is %d, length of time is %d \n", aI2P->data->length, timeLow->length);
+	printf("length of aP2I is %d, length of time is %d \n", bI2P->data->length, timeLow->length);
+	printf("length of aP2I is %d, length of time is %d \n", gI2P->data->length, timeLow->length);
+	printf("length of aP2Ihi is %d, length of timeHi is %d \n", aI2Phi->data->length, timeHi->length);
+	printf("length of aP2Ihi is %d, length of timeHi is %d \n", bI2Phi->data->length, timeHi->length);
+	printf("length of aP2Ihi is %d, length of timeHi is %d \n", gI2Phi->data->length, timeHi->length);
+	printf("length of timeFull is %d \n", timeFull->length);
+
+	printf("End of timeLow is %f \n", timeLow->data[timeLow->length-1]);
+	printf("Beginning  of timeHigh is %f \n", timeHi->data[0]);
+	printf("End  of timeHigh is %f \n", timeHi->data[timeHi->length-1]);
+	printf("End  of timeFull is %f \n", timeFull->data[timeFull->length-1]);
+
+
+
+	//Alpha  = XLALCreateREAL8Vector( timeFull->length);
+	//Beta  = XLALCreateREAL8Vector( timeFull->length);
+	//Gamma  = XLALCreateREAL8Vector( timeFull->length);
+
+	for (i=0; i<timeLow->length; i++){
+		//Alpha->data[i] = -1.0*gI2P->data->data[i];
+		//Beta->data[i] = -1.0*bI2P->data->data[i];
+		//Gamma->data[i] = -1.0*aI2P->data->data[i];
+		Alpha->data[i] = 1.0*gI2P->data->data[i];
+		Beta->data[i] = -1.0*bI2P->data->data[i];
+		Gamma->data[i] = 1.0*aI2P->data->data[i];
+	}
+    //for (i=0; i< timeLow->length; i++){
+    //    printf("Check %d, %f, %f \n", i, Alpha->data[i], -gI2P->data->data[i]);
+    //}
+
+
+	 // Resample Hi sampling part of it
+	int idX = i;
+	printf("Check  timeFull is %f, %f \n", timeFull->data[idX-1], timeFull->data[idX]);
+
+	for (i=idX; i<timeFull->length; i++){
+		//Alpha->data[i] = -1.0*gI2P->data->data[idX-1];
+		//Beta->data[i] = -1.0*bI2P->data->data[idX-1];
+		//Gamma->data[i] = -1.0*aI2P->data->data[idX-1];
+		Alpha->data[i] = 1.0*gI2P->data->data[idX-1];
+		Beta->data[i] = -1.0*bI2P->data->data[idX-1];
+		Gamma->data[i] = 1.0*aI2P->data->data[idX-1];
+	}
+
+	//int rlen = timeFull->length - timeLow->length;
+
+
+
+	//gsl_spline    *spline = NULL;
+	//gsl_interp_accel *acc = NULL;
+	//spline = gsl_spline_alloc( gsl_interp_cspline, timeHi->length);
+	//acc    = gsl_interp_accel_alloc();
+	//gsl_spline_init( spline, timeHi->data, aP2Ihi->data->data, timeHi->length);
+
+    //gsl_spline_free(spline);
+    //gsl_interp_accel_free(acc);
+	 // We need to extend it
+
+	return XLAL_SUCCESS;
+ }
+
+
+
 
 
 
