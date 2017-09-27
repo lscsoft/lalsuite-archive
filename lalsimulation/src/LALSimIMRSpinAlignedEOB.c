@@ -768,10 +768,6 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
   COMPLEX16Vector modefreqVec;
   COMPLEX16 modeFreq;
 
-  /* Spin-weighted spherical harmonics */
-  COMPLEX16 MultSphHarmP;
-  COMPLEX16 MultSphHarmM;
-
   /* We will have to switch to a high sample rate for ringdown attachment */
   REAL8 deltaTHigh;
   UINT4 resampFac;
@@ -791,9 +787,6 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
   /* Indices of peak frequency and final point */
   /* Needed to attach ringdown at the appropriate point */
   UINT4 peakIdx = 0, finalIdx = 0;
-
-  /* (2,2) and (2,-2) spherical harmonics needed in (h+,hx) */
-  REAL8 y_1, y_2, z1, z2;
 
   /* Variables for the integrator */
   LALAdaptiveRungeKuttaIntegrator *integrator = NULL;
@@ -2372,23 +2365,27 @@ XLALGPSAdd (&tc, deltaT * (REAL8) kMin);
   /* Compute spin-weighted spherical harmonics and generate waveform */
   REAL8 coa_phase = 0.0;
 
-
-  MultSphHarmP = XLALSpinWeightedSphericalHarmonic (inc, coa_phase, -2, 2, 2);
-  MultSphHarmM =
-    XLALSpinWeightedSphericalHarmonic (inc, coa_phase, -2, 2, -2);
-
-  y_1 = creal (MultSphHarmP) + creal (MultSphHarmM);
-  y_2 = cimag (MultSphHarmM) - cimag (MultSphHarmP);
-  z1 = -cimag (MultSphHarmM) - cimag (MultSphHarmP);
-  z2 = creal (MultSphHarmM) - creal (MultSphHarmP);
-
+  /* Spin-weighted spherical harmonics */
+  COMPLEX16 MultSphHarmP[nModes];
+  COMPLEX16 MultSphHarmM[nModes];
+  for ( UINT4 k = 0; k<nModes; k++) {
+      modeL  = lmModes[k][0];
+      modeM = lmModes[k][1];
+      MultSphHarmP[k] = XLALSpinWeightedSphericalHarmonic (inc, coa_phase, -2, modeL, modeM);
+      MultSphHarmM[k] = XLALSpinWeightedSphericalHarmonic (inc, coa_phase, -2, modeL, -modeM);
+  }
   for (i = kMin; i < (INT4) sigReVec->length; i++)
     {
-      REAL8 x1 = sigReVec->data[i];
-      REAL8 x2 = sigImVec->data[i];
-
-      hPlusTS->data->data[i - kMin] = (x1 * y_1) + (x2 * y_2);
-      hCrossTS->data->data[i - kMin] = (x1 * z1) + (x2 * z2);
+        COMPLEX16 hCplx = 0. + I*0.;
+        for ( UINT4 k = 0; k<nModes; k++) {
+            modeL  = lmModes[k][0];
+            modeM = lmModes[k][1];
+            REAL8 RehLM = hLMAll->data[2*k*sigReVec->length + i];
+            REAL8 ImhLM = hLMAll->data[(2*k+1)*sigReVec->length + i];
+            hCplx += MultSphHarmP[k]*(RehLM + I*ImhLM) + MultSphHarmM[k]*(RehLM - I*ImhLM);
+        }
+        hPlusTS->data->data[i - kMin] = creal( hCplx );
+        hCrossTS->data->data[i - kMin] = -cimag( hCplx );
     }
 
   /* Point the output pointers to the relevant time series and return */
