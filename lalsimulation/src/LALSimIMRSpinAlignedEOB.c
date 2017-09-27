@@ -2238,12 +2238,12 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
             sigReVec->data[i] = amp0 * creal (hLM);
             sigImVec->data[i] = amp0 * cimag (hLM);
         }
-	}
+    }
 #if outputDebug
          fclose (out);
         fclose(out2);
 #endif
-    }
+    }}
     if ( OmVec )
         XLALDestroyREAL8Vector(OmVec);
 
