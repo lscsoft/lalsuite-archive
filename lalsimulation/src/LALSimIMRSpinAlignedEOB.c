@@ -779,7 +779,7 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
   REAL8 cartPosData[3], cartMomData[3];
 
   /* Signal mode */
-  COMPLEX16 hLM, hT, h33;   /* h33 has to be removed */
+  COMPLEX16 hLM, hT;
   REAL8Vector *sigReVec = NULL, *sigImVec = NULL;
 
   /* Non-quasicircular correction */
@@ -2237,6 +2237,8 @@ if (use_hm == 1)
   }
 
   /* Generate full inspiral waveform using desired sampling frequency */
+    REAL8Vector *hamVec = NULL;
+    REAL8Vector *omegaVec = NULL;
   if (use_optimized_v2_or_v4)
     {
       for (i = 0; i < (INT4) rVec.length; i++)
@@ -2357,12 +2359,11 @@ if (use_hm == 1)
             hLMAll->data[2*k*sigReVec->length + i] = sigReVec->data[i];
             hLMAll->data[(1+2*k)*sigReVec->length + i] = sigImVec->data[i];
         }
-    }
 #if outputDebug
          fclose (out);
         fclose(out2);
 #endif
-    }}
+    }
     if ( OmVec )
         XLALDestroyREAL8Vector(OmVec);
     if ( omegaVec )
