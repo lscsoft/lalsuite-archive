@@ -3388,7 +3388,7 @@ int XLALSimIMRSpinEOBWaveformAll(
         {
             fprintf( out,
                    "%.16e %.16e %.16e \n",
-                   i*deltaT/mTScaled, sigReHi->data[i], sigImHi->data[i] );
+                   i*deltaTHigh/mTScaled, sigReHi->data[i], sigImHi->data[i] );
         }
         fclose( out );
         XLAL_PRINT_INFO("P-frame IMR waveforms written to file.\n");
@@ -3460,7 +3460,7 @@ int XLALSimIMRSpinEOBWaveformAll(
         {
             fprintf( out,
                    "%.16e %.16e %.16e \n",
-                   i*deltaT/mTScaled, sigReHi->data[i], sigImHi->data[i] );
+                   i*deltaTHigh/mTScaled, sigReHi->data[i], sigImHi->data[i] );
         }
         fclose( out );
         XLAL_PRINT_INFO("P-frame IMR waveforms written to file.\n");
