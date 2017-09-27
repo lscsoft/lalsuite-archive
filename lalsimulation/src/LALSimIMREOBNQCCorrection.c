@@ -1226,7 +1226,8 @@ XLALSimIMREOBGetNRSpinPeakOmegaV4 (INT4 modeL, INT4 modeM, REAL8 UNUSED eta, REA
         default:
           XLALPrintError("XLAL Error - %s: (%d,%d) mode. At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n",  __func__, modeL, modeM);
           XLAL_ERROR (XLAL_EINVAL);
-          break;    }
+          break;
+    }
 //    printf("w %.16e\n", res);
   return res;
 }
