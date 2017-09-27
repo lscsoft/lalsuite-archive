@@ -2357,12 +2357,12 @@ if (use_hm == 1)
             hLMAll->data[2*k*sigReVec->length + i] = sigReVec->data[i];
             hLMAll->data[(1+2*k)*sigReVec->length + i] = sigImVec->data[i];
         }
-	}
+    }
 #if outputDebug
          fclose (out);
         fclose(out2);
 #endif
-    }
+    }}
     if ( OmVec )
         XLALDestroyREAL8Vector(OmVec);
     if ( omegaVec )
