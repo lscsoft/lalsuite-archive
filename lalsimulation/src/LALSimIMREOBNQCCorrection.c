@@ -950,14 +950,26 @@ XLALSimIMREOBGetNRSpinPeakAmplitudeV4 (INT4 modeL, INT4 modeM, REAL8 UNUSED eta,
                   res = eta * CombineTPLEQMFits(eta, A1, fEQ, fTPL);
                   break;
               default:
-                  XLALPrintError("XLAL Error - %s: At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n", __func__);
+                  XLALPrintError("XLAL Error - %s: (%d,%d) mode. At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n",  __func__, modeL, modeM);
+                  XLAL_ERROR (XLAL_EINVAL);
+                  break;
+          }
+          break;
+          
+      case 3:
+          switch (modeM) {
+              case 3:
+                  res = 0.1;
+                  break;
+              default:
+                  XLALPrintError("XLAL Error - %s: (%d,%d) mode. At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n",  __func__, modeL, modeM);
                   XLAL_ERROR (XLAL_EINVAL);
                   break;
           }
           break;
       
       default:
-          XLALPrintError("XLAL Error - %s: At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n", __func__);
+          XLALPrintError("XLAL Error - %s: (%d,%d) mode. At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n",  __func__, modeL, modeM);
           XLAL_ERROR (XLAL_EINVAL);
           break;
   }
@@ -981,7 +993,7 @@ XLALSimIMREOBGetNRSpinPeakADotV4 (INT4 modeL, INT4 modeM, REAL8 UNUSED eta,
                     res = 0.;
                     break;
                 default:
-                    XLALPrintError("XLAL Error - %s: At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n", __func__);
+                    XLALPrintError("XLAL Error - %s: (%d,%d) mode. At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n",  __func__, modeL, modeM);
                     XLAL_ERROR (XLAL_EINVAL);
                     break;
             }
@@ -992,12 +1004,13 @@ XLALSimIMREOBGetNRSpinPeakADotV4 (INT4 modeL, INT4 modeM, REAL8 UNUSED eta,
                     res = 0.;
                     break;
                 default:
-                    XLALPrintError("XLAL Error - %s: At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n", __func__);
+                    XLALPrintError("XLAL Error - %s: (%d,%d) mode. At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n",  __func__, modeL, modeM);
                     XLAL_ERROR (XLAL_EINVAL);
                     break;
             }
+            break;
         default:
-            XLALPrintError("XLAL Error - %s: At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n", __func__);
+            XLALPrintError("XLAL Error - %s: (%d,%d) mode. At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n",  __func__, modeL, modeM);
             XLAL_ERROR (XLAL_EINVAL);
             break;
     }
@@ -1074,8 +1087,20 @@ XLALSimIMREOBGetNRSpinPeakADDotV4 (INT4 modeL, INT4 modeM, REAL8 UNUSED eta,
             }
             break;
             
+        case 3:
+            switch (modeM) {
+                case 3:
+                    res = -0.001;
+                    break;
+                default:
+                    XLALPrintError("XLAL Error - %s: (%d,%d) mode. At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n",  __func__, modeL, modeM);
+                    XLAL_ERROR (XLAL_EINVAL);
+                    break;
+            }
+            break;
+            
         default:
-            XLALPrintError("XLAL Error - %s: At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n", __func__);
+            XLALPrintError("XLAL Error - %s: (%d,%d) mode. At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n",  __func__, modeL, modeM);
             XLAL_ERROR (XLAL_EINVAL);
             break;
     }
@@ -1185,11 +1210,23 @@ XLALSimIMREOBGetNRSpinPeakOmegaV4 (INT4 modeL, INT4 modeM, REAL8 UNUSED eta, REA
                     break;
             }
             break;
+          
+      case 3:
+          switch (modeM) {
+              case 3:
+                  res = 0.3;
+                  break;
+              default:
+                  XLALPrintError("XLAL Error - %s: (%d,%d) mode. At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n",  __func__, modeL, modeM);
+                  XLAL_ERROR (XLAL_EINVAL);
+                  break;
+          }
+          break;
             
         default:
-            XLALPrintError("XLAL Error - %s: At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n", __func__);
-            XLAL_ERROR (XLAL_EINVAL);
-            break;
+          XLALPrintError("XLAL Error - %s: (%d,%d) mode. At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n",  __func__, modeL, modeM);
+          XLAL_ERROR (XLAL_EINVAL);
+          break;
     }
 //    printf("w %.16e\n", res);
   return res;
@@ -1257,14 +1294,27 @@ XLALSimIMREOBGetNRSpinPeakOmegaDotV4 (INT4 modeL, INT4 modeM, REAL8 UNUSED eta,
                   break;
               
               default:
-                  XLALPrintError("XLAL Error - %s: At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n", __func__);
+                  XLALPrintError("XLAL Error - %s: (%d,%d) mode. At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n",  __func__, modeL, modeM);
+                  XLAL_ERROR (XLAL_EINVAL);
+                  break;
+          }
+          break;
+    
+      case 3:
+          switch (modeM) {
+              case 3:
+                  res = 0.001;
+                  break;
+                  
+              default:
+                  XLALPrintError("XLAL Error - %s: (%d,%d) mode. At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n",  __func__, modeL, modeM);
                   XLAL_ERROR (XLAL_EINVAL);
                   break;
           }
           break;
       
       default:
-          XLALPrintError("XLAL Error - %s: At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n", __func__);
+          XLALPrintError("XLAL Error - %s: (%d,%d) mode. At present only fits for the (2,2), (2,1), (3,3), (4,4) and (5,5) mode are available.\n",  __func__, modeL, modeM);
           XLAL_ERROR (XLAL_EINVAL);
           break;
   }
@@ -1406,10 +1456,6 @@ XLALSimIMREOBGetNRSpinPeakDeltaTv4 (INT4 UNUSED l,				/**<< Mode l */
   REAL8 coeff20, coeff21, coeff22, coeff23;
   REAL8 coeff30, coeff31, coeff32, coeff33;
   REAL8 res;
-  switch (l) {
-      case 2:
-          switch (m) {
-              case 2:
                   // Calibrationv21_Sep8a
                   coeff00 = 2.50499;
                   coeff01 = 13.0064;
@@ -1432,21 +1478,6 @@ XLALSimIMREOBGetNRSpinPeakDeltaTv4 (INT4 UNUSED l,				/**<< Mode l */
                     coeff13 * eta * chiTo3 + coeff20 * eta2 + coeff21 * eta2 * chi +
                     coeff22 * eta2 * chiTo2 + coeff23 * eta2 * chiTo3 + coeff30 * eta3 +
                     coeff31 * eta3 * chi + coeff32 * eta3 * chiTo2 + coeff33 * eta3 * chiTo3;
-                  break;
-
-              default:
-                  XLALPrintError("XLAL Error - %s: At present only fits for the (2,2) mode are available.\n", __func__);
-                  XLAL_ERROR (XLAL_EINVAL);
-                  break;
-          }
-          break;
-          
-      default:
-          XLALPrintError("XLAL Error - %s: At present only fits for the (2,2) mode are available.\n", __func__);
-          XLAL_ERROR (XLAL_EINVAL);
-          break;
-  }
-//    printf("deltaNQC %.16e\n",res);
   return res;
 }
 
