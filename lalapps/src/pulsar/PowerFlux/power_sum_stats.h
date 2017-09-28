@@ -9,7 +9,7 @@
 typedef struct {
 	float iota;
 	float psi;
-	
+
 	float pp;
 	float pc;
 	float cc;
@@ -21,7 +21,7 @@ typedef struct {
 	float pccc;
 	float cccc;
 	float im_ppcc;
-	
+
 	float weight; /* spherical angle covered by polarization - used for computing avg_ul */
 	int type;
 	} ALIGNMENT_COEFFS;
