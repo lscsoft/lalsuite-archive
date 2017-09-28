@@ -1005,12 +1005,12 @@ int XLALSimIMRSpinEOBWaveformAll(
     COMPLEX16TimeSeries *h2m1PTSHi = NULL;
     COMPLEX16TimeSeries *h2m2PTSHi = NULL;
 
-    COMPLEX16TimeSeries *h22JTSHi  = NULL;
-    COMPLEX16TimeSeries *h21JTSHi  = NULL;
-    COMPLEX16TimeSeries *h20JTSHi  = NULL;
-    COMPLEX16TimeSeries *h2m1JTSHi = NULL;
-    COMPLEX16TimeSeries *h2m2JTSHi = NULL;
-    COMPLEX16TimeSeries *hJTSHi    = NULL;
+    UNUSED COMPLEX16TimeSeries *h22JTSHi  = NULL;
+    UNUSED COMPLEX16TimeSeries *h21JTSHi  = NULL;
+    UNUSED COMPLEX16TimeSeries *h20JTSHi  = NULL;
+    UNUSED COMPLEX16TimeSeries *h2m1JTSHi = NULL;
+    UNUSED COMPLEX16TimeSeries *h2m2JTSHi = NULL;
+    UNUSED COMPLEX16TimeSeries *hJTSHi    = NULL;
 
     COMPLEX16TimeSeries *hIMR22JTSHi  = NULL;
     COMPLEX16TimeSeries *hIMR21JTSHi  = NULL;
@@ -1032,11 +1032,11 @@ int XLALSimIMRSpinEOBWaveformAll(
     COMPLEX16TimeSeries *h2m1PTS = NULL;
     COMPLEX16TimeSeries *h2m2PTS = NULL;
 
-    COMPLEX16TimeSeries *h22JTS  = NULL;
-    COMPLEX16TimeSeries *h21JTS  = NULL;
-    COMPLEX16TimeSeries *h20JTS  = NULL;
-    COMPLEX16TimeSeries *h2m1JTS = NULL;
-    COMPLEX16TimeSeries *h2m2JTS = NULL;
+    UNUSED COMPLEX16TimeSeries *h22JTS  = NULL;
+    UNUSED COMPLEX16TimeSeries *h21JTS  = NULL;
+    UNUSED COMPLEX16TimeSeries *h20JTS  = NULL;
+    UNUSED COMPLEX16TimeSeries *h2m1JTS = NULL;
+    UNUSED COMPLEX16TimeSeries *h2m2JTS = NULL;
 
     COMPLEX16TimeSeries *hJTS    = NULL;
 
@@ -1052,7 +1052,7 @@ int XLALSimIMRSpinEOBWaveformAll(
 
   /* Miscellaneous memory for Ringdown attachment        */
   REAL8 tPeakOmega = 0, tAttach = 0, combSize = 0,/*longCombSize,*/ deltaNQC =0;
-  REAL8  sh  = 0;
+  //REAL8  sh  = 0;
   REAL8 magR = 0, Lx   = 0, Ly   = 0, Lz = 0, magL = 0, magJ = 0, //DAVID magR IS NOT IN OPT
         LNhx = 0, LNhy = 0, LNhz = 0, magLN =0, Jx = 0, Jy   = 0, Jz = 0;
       REAL8 aI2P = 0, bI2P = 0, gI2P = 0; //DAVID THIS LINE IS NOT IN OPT
@@ -1127,7 +1127,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     PRINT_PARAMS
     XLAL_ERROR( XLAL_ENOMEM );
   }
-  REAL8 alJtoI = 0, betJtoI = 0, gamJtoI = 0;
+  UNUSED REAL8 alJtoI = 0, betJtoI = 0, gamJtoI = 0;
   SphHarmTimeSeries *hIMRlmITS = NULL;
   COMPLEX16 x11 = 0.0 + 0.0j;
 
@@ -3267,6 +3267,8 @@ int XLALSimIMRSpinEOBWaveformAll(
     h2m1PTSHi = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, -1);
     h2m2PTSHi = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, -2);
 
+   *hlmPTSHiOutput = hlmPTSHi;
+
     if (debugPK){
       XLAL_PRINT_INFO("YP: SphHarmTS structures populated for HIgh SR.\n");
 
@@ -3587,9 +3589,9 @@ int XLALSimIMRSpinEOBWaveformAll(
                    tlist, alphaI2PTSHi, betaI2PTSHi, gammaI2PTSHi, tlistHi, timeJFull);
 
     //for (i=0; i< (int)timeJFull->length; i++){
-    for (i=0; i< (int)tlist->length; i++){
-        printf("Check %d, %f, %f \n", i, alphaP2I->data[i], -gammaI2PTS->data->data[i]);
-    }
+    //for (i=0; i< (int)tlist->length; i++){
+    //    printf("Check %d, %f, %f \n", i, alphaP2I->data[i], -gammaI2PTS->data->data[i]);
+    //}
 
     alpI        = XLALCreateREAL8TimeSeries( "alphaJ2I", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
     betI        = XLALCreateREAL8TimeSeries( "betaJ2I", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
@@ -3673,55 +3675,8 @@ int XLALSimIMRSpinEOBWaveformAll(
 
 
 
-
-
-
-/* *********************************************************************************
- * *********************************************************************************
- * STEP 6) Rotate quasi-nonprecessing waveforms from precessing to final J-frame
- * *********************************************************************************
- * **********************************************************************************/
-  if(!use_optimized) {
-    if ( XLALSimInspiralPrecessionRotateModes( hlmPTS, alphaP2JTS, betaP2JTS, gammaP2JTS ) == XLAL_FAILURE )
-      {
-        FREE_EVERYTHING
-        XLALDestroyREAL8Vector( timeJFull );
-        XLALDestroyREAL8Vector( timeIFull );
-        XLALDestroyREAL8Vector( tlistRDPatch );
-        XLALDestroyREAL8Vector( tlistRDPatchHi );
-        XLALPrintError("XLALSimInspiralPrecessionRotateModes failed!\n");
-        PRINT_PARAMS
-        XLAL_ERROR( XLAL_EFAILED );
-      }
-    h22JTS  = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, 2 );
-    h21JTS  = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, 1 );
-    h20JTS  = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, 0 );
-    h2m1JTS = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, -1);
-    h2m2JTS = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, -2);
-
-
-    if (debugPK){
-      XLAL_PRINT_INFO("YP: PtoJ rotation done.\n");
-      out = fopen( "JWaves.dat", "w" );
-      for ( i = 0; i < retLenLow; i++ )
-        {
-          fprintf( out,
-                   "%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
-                   i*deltaT/mTScaled,
-                   creal(h22JTS->data->data[i]), cimag(h22JTS->data->data[i]),
-                   creal(h21JTS->data->data[i]), cimag(h21JTS->data->data[i]),
-                   creal(h20JTS->data->data[i]), cimag(h20JTS->data->data[i]),
-                   creal(h2m1JTS->data->data[i]), cimag(h2m1JTS->data->data[i]),
-                   creal(h2m2JTS->data->data[i]), cimag(h2m2JTS->data->data[i]) );
-        }
-      fclose( out );
-      XLAL_PRINT_INFO("YP: P-frame waveforms written to file.\n");
-      fflush(NULL);
-    }
-  }
-
   /* Stas: Rotating the high sampling part */
-  if ( XLALSimInspiralPrecessionRotateModes( hlmPTSHi,
+  /*if ( XLALSimInspiralPrecessionRotateModes( hlmPTSHi,
         alphaP2JTSHi, betaP2JTSHi, gammaP2JTSHi ) == XLAL_FAILURE )
   {
       FREE_EVERYTHING
@@ -3755,7 +3710,7 @@ int XLALSimIMRSpinEOBWaveformAll(
         creal(h2m2JTSHi->data->data[i]), cimag(h2m2JTSHi->data->data[i]) );
      }
      fclose( out );
-  }
+ }
 
   sigReHi  = XLALCreateREAL8Vector( retLenHi + retLenRDPatchHi);
   sigImHi  = XLALCreateREAL8Vector( retLenHi + retLenRDPatchHi);
@@ -3766,14 +3721,14 @@ int XLALSimIMRSpinEOBWaveformAll(
     XLAL_ERROR( XLAL_ENOMEM );
   }
   memset( sigReHi->data, 0, sigReHi->length * sizeof( sigReHi->data[0] ));
-  memset( sigImHi->data, 0, sigImHi->length * sizeof( sigImHi->data[0] ));
+  memset( sigImHi->data, 0, sigImHi->length * sizeof( sigImHi->data[0] ));*/
 
 /* *********************************************************************************
  * *********************************************************************************
  * STEP 7) Attach ringdown to J-frame modes
  * *********************************************************************************
  * **********************************************************************************/
-  if ( combSize > tAttach )
+ /* if ( combSize > tAttach )
   {
       XLALPrintError( "Function: %s, The comb size looks to be too big!!!\n", __func__ );
       FREE_EVERYTHING
@@ -3823,10 +3778,10 @@ int XLALSimIMRSpinEOBWaveformAll(
         //This is case 6 in T1400476 - v3
         sh = 1. - 9. * (eta - 0.25) * (1. + 2. * exp(-(chi - 0.85) * (chi - 0.85) / 0.05 / 0.05)) * (1. + 1. / (1. + exp((eta - 0.01) / 0.001)));
     }
-
+  */
 
   /* Self-adjusting ringdown attachment. See https://dcc.ligo.org/T1500548 */
-  int CheckRDAttachment = 1;
+  /*int CheckRDAttachment = 1;
   if (CheckRDAttachment ){
 
       if (debugPK) XLAL_PRINT_INFO("Stas: checking the RD attachment point....\n");fflush(NULL);
@@ -3940,14 +3895,13 @@ int XLALSimIMRSpinEOBWaveformAll(
 
 
   } //end of RD attachment if
-
+  */
   if (debugRD){
      out = fopen( "tAttach.dat", "w" );
      fprintf( out, "%.16e    %.16e    %.16e   %.16e \n", tPeakOmega, deltaNQC, tAmpMax, tAttach);
      fclose(out);
-
   }
-  AttachParams->data[0] = tPeakOmega;
+  /*AttachParams->data[0] = tPeakOmega;
   AttachParams->data[1] = deltaNQC;
   AttachParams->data[2] = tAmpMax;
   AttachParams->data[3] = tAttach;
@@ -3960,10 +3914,10 @@ int XLALSimIMRSpinEOBWaveformAll(
   rdMatchPoint->data[2] = (retLenHi-1)*deltaTHigh/mTScaled;
   rdMatchPoint->data[0] = trunc(rdMatchPoint->data[0] / (deltaTHigh/mTScaled) ) * (deltaTHigh/mTScaled);
   rdMatchPoint->data[1] = trunc(rdMatchPoint->data[1] / (deltaTHigh/mTScaled) ) * (deltaTHigh/mTScaled);
-
+  */
 
   /*** Stas Let's try to attach RD to 2,2 mode: ***/
-  INT4 m = 0;
+  /*INT4 m = 0;
   for ( m = -2; m < 3; m++ )
   {
     hJTSHi  = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, m );
@@ -4003,7 +3957,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   hIMR20JTSHi  = XLALSphHarmTimeSeriesGetMode( hIMRlmJTSHi, 2, 0 );
   hIMR2m1JTSHi = XLALSphHarmTimeSeriesGetMode( hIMRlmJTSHi, 2, -1);
   hIMR2m2JTSHi = XLALSphHarmTimeSeriesGetMode( hIMRlmJTSHi, 2, -2);
-
+  */
   /** We search for maximum of the frame-invariant amplitude and set its time as time of
    * coalescence (or reference time) */
   // find tc which is accosiated with max of invariant amplitude:
@@ -4046,7 +4000,7 @@ int XLALSimIMRSpinEOBWaveformAll(
 
 
   *hIMRlmJTSHiOutput = hIMRlmJTSHi;
-  if (debugPK){
+  /*if (debugPK){
     out = fopen( "JIMRWavesHi.dat", "w" );
     for ( i = 0; i < retLenHi + retLenRDPatchHi; i++ )
     {
@@ -4063,20 +4017,12 @@ int XLALSimIMRSpinEOBWaveformAll(
 
      XLAL_PRINT_INFO("Stas: down sampling and make the complete waveform in J-frame\n");
      fflush(NULL);
-  }
+ }*/
 
   //int idxRD = 0; // V3OPT
 
   /*** attach hi sampling part and resample  */
-  if(use_optimized) { // David: making big, similar sections conditional here to avoid placing conditionals in for-loops and slowing down the program
-    for (i = 0; i< retLenLow; i++){
-      if (i*deltaT/mTScaled > rdMatchPoint->data[1]+HiSRstart) break;//Andrea
-    }
-    idxRD = i; //Andrea //OPTV3: Resampling begins at idxRD
-    hIMRJTS = XLALCreateCOMPLEX16TimeSeries( "HMRJLO2K", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow-idxRD );
-    *hIMRlmJTSHiOutput = hIMRlmJTSHi;
-  }
-  for ( k = 2; k > -3; k-- ) {
+  /*for ( k = 2; k > -3; k-- ) {
     hIMRJTS2mHi = XLALSphHarmTimeSeriesGetMode( hIMRlmJTSHi, 2, k );
     if (use_optimized) {
       for ( i = 0; i < retLenHi + retLenRDPatchHi; i++ )
@@ -4090,9 +4036,9 @@ int XLALSimIMRSpinEOBWaveformAll(
           sigReHi->data[i] = creal(hIMRJTS2mHi->data->data[i]);
           sigImHi->data[i] = cimag(hIMRJTS2mHi->data->data[i]);
         }
-    }
+    }*/
     /* recycling h20PTS */
-    if(!use_optimized) {
+    /*if(!use_optimized) {
       hJTS = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, k );
       for (i = 0; i< retLenLow; i++){
         if (i*deltaT/mTScaled > HiSRstart) break;//Andrea
@@ -4106,8 +4052,6 @@ int XLALSimIMRSpinEOBWaveformAll(
     if (use_optimized) {
       for (i = idxRD; i< retLenLow+retLenRDPatchLow; i++){
         if( i*deltaT/mTScaled <= tlistRDPatchHi->data[ retLenHi + retLenRDPatchHi- 1]) {
-          /* OPTV3: If the end of the high sampling+RD data is not reached then
-           * evaluate the high sampling spline at the desired times */
           hIMRJTS->data->data[i-idxRD] = gsl_spline_eval( spline, tlistRDPatch->data[i], acc );
         }
         else {
@@ -4185,7 +4129,7 @@ int XLALSimIMRSpinEOBWaveformAll(
      XLAL_PRINT_INFO("YP: IMR J wave written to file.\n");
      fflush(NULL);
   }
-
+  */
 
 /* *********************************************************************************
  * *********************************************************************************
@@ -4193,7 +4137,7 @@ int XLALSimIMRSpinEOBWaveformAll(
  * *********************************************************************************
  * **********************************************************************************/
  /* Euler Angles to go from final-J-frame to initial inertial frame  */
-  gamJtoI = atan2(JframeEz[1], -JframeEz[0]);
+  /*gamJtoI = atan2(JframeEz[1], -JframeEz[0]);
   betJtoI = acos(JframeEz[2]);
   alJtoI = atan2(JframeEy[2], JframeEx[2]);
   if (fabs(betJtoI - LAL_PI) < 1.e-10){
@@ -4219,51 +4163,11 @@ int XLALSimIMRSpinEOBWaveformAll(
     betI        = XLALCreateREAL8TimeSeries( "betaJ2I", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
     gamI        = XLALCreateREAL8TimeSeries( "gammaJ2I", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
   }
-
+  */
   /** NOTE we are making again transformation between notations of Arun et. al adopted here and
    * Wiegner matrix (active rotation) coded up in LAL */
-  if (use_optimized) {
-    for (i=0; i< retLenLow + retLenRDPatchLow -idxRD; i++){
-      alpI->data->data[i] = -alJtoI;
-      betI->data->data[i] = betJtoI;
-      gamI->data->data[i] = -gamJtoI;
-    }
 
-    //OPTV3: Rotate Hi modes
-    if ( XLALSimInspiralPrecessionRotateModes( hIMRlmJTS,
-                                               alpI, betI, gamI ) == XLAL_FAILURE )
-      {
-        XLAL_ERROR( XLAL_EFUNC );
-      }
-
-    //OPTV3: copy over the low sampling part
-    for ( i = 0; i < idxRD; i++ )
-      {
-        hPlusTS->data->data[i]  = amp0*hVec->data[i+retLenLow]*cos(hVec->data[i+2*retLenLow]);
-        hCrossTS->data->data[i] = -amp0*hVec->data[i+retLenLow]*sin(hVec->data[i+2*retLenLow]);
-      }
-
-    XLALDestroyREAL8Array(hVec);
-    XLALDestroyREAL8Vector(timeIFull);
-    XLALDestroyREAL8Vector(tlist);
-
-    /**OPTV3: Convert Highly sampled modes to hplus & hcross. Then append.**/
-    hIMR22ITS  = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 2 );
-    hIMR21ITS  = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 1 );
-    hIMR20ITS  = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 0 );
-    hIMR2m1ITS = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, -1);
-    hIMR2m2ITS = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, -2);
-
-    //OPTV3: Put the waveform in hIMRoutput
-    *hIMRoutput = XLALSphHarmTimeSeriesAddMode( *hIMRoutput, hIMR22ITS, 2, 2 );
-    *hIMRoutput = XLALSphHarmTimeSeriesAddMode( *hIMRoutput, hIMR21ITS, 2, 1 );
-    *hIMRoutput = XLALSphHarmTimeSeriesAddMode( *hIMRoutput, hIMR20ITS, 2, 0 );
-    *hIMRoutput = XLALSphHarmTimeSeriesAddMode( *hIMRoutput, hIMR2m1ITS, 2, -1 );
-    *hIMRoutput = XLALSphHarmTimeSeriesAddMode( *hIMRoutput, hIMR2m2ITS, 2, -2 );
-    XLALSphHarmTimeSeriesSetTData( *hIMRoutput, tlistRDPatch );
-  } else {
-
-    for (i=0; i< retLenLow + retLenRDPatchLow; i++){
+  /*  for (i=0; i< retLenLow + retLenRDPatchLow; i++){
       alpI->data->data[i] = -alJtoI;
       betI->data->data[i] = betJtoI;
       gamI->data->data[i] = -gamJtoI;
@@ -4278,9 +4182,9 @@ int XLALSimIMRSpinEOBWaveformAll(
   hIMRlmITS = XLALSphHarmTimeSeriesAddMode( hIMRlmITS, hIMR2m1JTS, 2, -1 );
   hIMRlmITS = XLALSphHarmTimeSeriesAddMode( hIMRlmITS, hIMR2m2JTS, 2, -2 );
   XLALSphHarmTimeSeriesSetTData( hIMRlmITS, timeIFull );
-
+   */
   /* Rotate J-frame modes */
-  if (debugPK){ XLAL_PRINT_INFO("Rotation to inertial I-frame\n"); fflush(NULL); }
+  /*if (debugPK){ XLAL_PRINT_INFO("Rotation to inertial I-frame\n"); fflush(NULL); }
   if ( XLALSimInspiralPrecessionRotateModes( hIMRlmITS,
                 alpI, betI, gamI ) == XLAL_FAILURE ) {
       FREE_EVERYTHING
@@ -4300,7 +4204,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   *hIMRoutput = XLALSphHarmTimeSeriesAddMode( *hIMRoutput, hIMR2m1ITS, 2, -1 );
   *hIMRoutput = XLALSphHarmTimeSeriesAddMode( *hIMRoutput, hIMR2m2ITS, 2, -2 );
   XLALSphHarmTimeSeriesSetTData( *hIMRoutput, tlistRDPatch );
-
+  */
     if (debugPK){
       out = fopen( "IWaves.dat", "w" );
       for ( i = 0; i < retLenLow + retLenRDPatchLow; i++ )
@@ -4316,52 +4220,12 @@ int XLALSimIMRSpinEOBWaveformAll(
         }
       fclose( out );
     }
-  }
 
 /* *********************************************************************************
  * *********************************************************************************
  * STEP 9) Compute h+, hx
  * ********************************************************************************
  * **********************************************************************************/
-  if(!use_optimized) {
-    //incl_temp = inc;
-    //incl_temp = 0.0;
-    /** NOTE that we have use  now different convention: the phi_ref (or one might call it phi_c) is now
-     * the azimuthal phase of the observer in the source (I-)frame. Together with inclination angle it defines
-     * the position of the observer in the (I-)frame associated with the source at t=0 */
-
-    Y22 =  XLALSpinWeightedSphericalHarmonic( inc, LAL_PI/2.-phiC, -2, 2, 2 );
-    Y2m2 = XLALSpinWeightedSphericalHarmonic( inc, LAL_PI/2.-phiC, -2, 2, -2 );
-    Y21 =  XLALSpinWeightedSphericalHarmonic( inc, LAL_PI/2.-phiC, -2, 2, 1 );
-    Y2m1 = XLALSpinWeightedSphericalHarmonic( inc, LAL_PI/2.-phiC, -2, 2, -1 );
-    Y20 =  XLALSpinWeightedSphericalHarmonic( inc, LAL_PI/2.-phiC, -2, 2, 0 );
-    /*if ( SpinsAlmostAligned ) {
-        Y22 = XLALSpinWeightedSphericalHarmonic( inc, coa_phase_offset, -2, 2, 2 );
-        Y2m2 = XLALSpinWeightedSphericalHarmonic( inc, coa_phase_offset, -2, 2, -2 );
-        Y21 = XLALSpinWeightedSphericalHarmonic( inc, coa_phase_offset, -2, 2, 1 );
-        Y2m1 = XLALSpinWeightedSphericalHarmonic( inc, coa_phase_offset, -2, 2, -1 );
-        Y20 = XLALSpinWeightedSphericalHarmonic( inc, coa_phase_offset, -2, 2, 0 );
-    }
-    else {
-        Y22 = XLALSpinWeightedSphericalHarmonic( incl_temp, coa_phase_offset, -2, 2, 2 );
-        Y2m2 = XLALSpinWeightedSphericalHarmonic( incl_temp, coa_phase_offset, -2, 2, -2 );
-        Y21 = XLALSpinWeightedSphericalHarmonic( incl_temp, coa_phase_offset, -2, 2, 1 );
-        Y2m1 = XLALSpinWeightedSphericalHarmonic( incl_temp, coa_phase_offset, -2, 2, -1 );
-        Y20 = XLALSpinWeightedSphericalHarmonic( incl_temp, coa_phase_offset, -2, 2, 0 );
-    }*/
-
-    if(debugPK){ XLAL_PRINT_INFO("Ylm %e %e %e %e %e %e %e %e %e %e \n", creal(Y22), cimag(Y22), creal(Y2m2), cimag(Y2m2), creal(Y21), cimag(Y21), creal(Y2m1), cimag(Y2m1), creal(Y20), cimag (Y20)); fflush(NULL); }
-  }
-  if (use_optimized) {
-    for ( i = 0; i < (INT4)hIMR22ITS->data->length; i++ )
-      {
-        x11 = Y22*hIMR22ITS->data->data[i] + Y21*hIMR21ITS->data->data[i]
-          + Y20*hIMR20ITS->data->data[i] + Y2m1*hIMR2m1ITS->data->data[i]
-          + Y2m2*hIMR2m2ITS->data->data[i];
-        hPlusTS->data->data[i+idxRD]  = amp0*creal(x11);
-        hCrossTS->data->data[i+idxRD] = -amp0*cimag(x11);
-      }
-  } else {
     for ( i = 0; i < (INT4)hIMR22ITS->data->length; i++ )
       {
         x11 = Y22*hIMR22ITS->data->data[i] + Y21*hIMR21ITS->data->data[i]
@@ -4370,7 +4234,6 @@ int XLALSimIMRSpinEOBWaveformAll(
         hPlusTS->data->data[i]  = amp0*creal(x11);
         hCrossTS->data->data[i] = -amp0*cimag(x11);
       }
-  }
 
   /* Point the output pointers to the relevant time series and return */
   (*hplus)  = hPlusTS;
@@ -4401,12 +4264,12 @@ int XLALSimIMRSpinEOBWaveformAll(
     XLALDestroySphHarmTimeSeries(hIMRlmJTS);
     XLALDestroySphHarmTimeSeries(hIMRlmITS);
     XLALDestroyCOMPLEX16TimeSeries(hIMRJTS);
-    XLALDestroyCOMPLEX16TimeSeries(h22TSHi);
-    XLALDestroyCOMPLEX16TimeSeries(h21TSHi);
-    XLALDestroyCOMPLEX16TimeSeries(h20TSHi);
-    XLALDestroyCOMPLEX16TimeSeries(h2m1TSHi);
-    XLALDestroyCOMPLEX16TimeSeries(h2m2TSHi);
-    XLALDestroyCOMPLEX16TimeSeries(hIMRJTSHi);
+    //XLALDestroyCOMPLEX16TimeSeries(h22TSHi);
+    //XLALDestroyCOMPLEX16TimeSeries(h21TSHi);
+    //XLALDestroyCOMPLEX16TimeSeries(h20TSHi);
+    //XLALDestroyCOMPLEX16TimeSeries(h2m1TSHi);
+    //XLALDestroyCOMPLEX16TimeSeries(h2m2TSHi);
+    //XLALDestroyCOMPLEX16TimeSeries(hIMRJTSHi);
     XLALDestroyREAL8Vector( values );
     XLALDestroyREAL8Vector( dvalues );
     XLALDestroyREAL8Vector( sigmaStar );
