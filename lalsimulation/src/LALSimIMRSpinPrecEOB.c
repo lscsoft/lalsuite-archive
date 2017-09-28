@@ -4238,6 +4238,11 @@ int XLALSimIMRSpinEOBWaveformAll(
  * STEP 9) Compute h+, hx
  * ********************************************************************************
  * **********************************************************************************/
+    Y22 =  XLALSpinWeightedSphericalHarmonic( inc, LAL_PI/2.-phiC, -2, 2, 2 );
+    Y2m2 = XLALSpinWeightedSphericalHarmonic( inc, LAL_PI/2.-phiC, -2, 2, -2 );
+    Y21 =  XLALSpinWeightedSphericalHarmonic( inc, LAL_PI/2.-phiC, -2, 2, 1 );
+    Y2m1 = XLALSpinWeightedSphericalHarmonic( inc, LAL_PI/2.-phiC, -2, 2, -1 );
+    Y20 =  XLALSpinWeightedSphericalHarmonic( inc, LAL_PI/2.-phiC, -2, 2, 0 );
     for ( i = 0; i < (INT4)hIMR22ITS->data->length; i++ )
       {
         x11 = Y22*hIMR22ITS->data->data[i] + Y21*hIMR21ITS->data->data[i]
