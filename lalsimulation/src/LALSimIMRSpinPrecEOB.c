@@ -115,6 +115,10 @@ XLALDestroyREAL8Vector( GammaHi ); \
 XLALDestroyREAL8Vector( sigReHi ); \
 XLALDestroyREAL8Vector( sigImHi ); \
 \
+if ( alphaP2I != NULL ) XLALDestroyREAL8Vector( alphaP2I ); \
+if ( betaP2I != NULL ) XLALDestroyREAL8Vector( betaP2I ); \
+if ( gammaP2I != NULL ) XLALDestroyREAL8Vector( gammaP2I ); \
+\
 XLALDestroyREAL8TimeSeries(alphaI2PTS); \
 XLALDestroyREAL8TimeSeries(betaI2PTS); \
 XLALDestroyREAL8TimeSeries(gammaI2PTS); \
@@ -992,6 +996,10 @@ int XLALSimIMRSpinEOBWaveformAll(
   memset( &eobParams,  0, sizeof(eobParams) );
   memset( &hCoeffs,    0, sizeof( hCoeffs ) );
   memset( &prefixes,   0, sizeof( prefixes ) );
+    
+    REAL8Vector* alphaP2I = NULL;
+    REAL8Vector* betaP2I = NULL;
+    REAL8Vector* gammaP2I = NULL;
 
     REAL8TimeSeries *alphaI2PTS = NULL, *betaI2PTS = NULL, *gammaI2PTS = NULL, *alphaP2JTS = NULL, *betaP2JTS = NULL, *gammaP2JTS = NULL;
     REAL8TimeSeries *alphaI2PTSHi = NULL, *betaI2PTSHi = NULL, *gammaI2PTSHi = NULL, *alphaP2JTSHi = NULL, *betaP2JTSHi = NULL, *gammaP2JTSHi = NULL;
@@ -3576,22 +3584,14 @@ int XLALSimIMRSpinEOBWaveformAll(
 
 
     // Now we need to extend the Euler angles beyond inspiral
+    alphaP2I  = XLALCreateREAL8Vector(retLenLow + retLenRDPatchLow);
+	betaP2I  = XLALCreateREAL8Vector(retLenLow + retLenRDPatchLow);
+	gammaP2I  = XLALCreateREAL8Vector(retLenLow + retLenRDPatchLow);
+    memset(alphaP2I->data, 0., alphaP2I->length * sizeof(REAL8));
+    memset(betaP2I->data, 0., betaP2I->length * sizeof(REAL8));
+    memset(gammaP2I->data, 0., gammaP2I->length * sizeof(REAL8));
 
-    REAL8Vector* alphaP2I = NULL;
-    REAL8Vector* betaP2I = NULL;
-    REAL8Vector* gammaP2I = NULL;
-
-    alphaP2I  = XLALCreateREAL8Vector( timeJFull->length);
-	betaP2I  = XLALCreateREAL8Vector( timeJFull->length);
-	gammaP2I  = XLALCreateREAL8Vector( timeJFull->length);
-
-    EulerAnglesP2I(alphaP2I, betaP2I, gammaP2I, alphaI2PTS, betaI2PTS, gammaI2PTS,
-                   tlist, alphaI2PTSHi, betaI2PTSHi, gammaI2PTSHi, tlistHi, timeJFull);
-
-    //for (i=0; i< (int)timeJFull->length; i++){
-    //for (i=0; i< (int)tlist->length; i++){
-    //    printf("Check %d, %f, %f \n", i, alphaP2I->data[i], -gammaI2PTS->data->data[i]);
-    //}
+    EulerAnglesP2I(alphaP2I, betaP2I, gammaP2I, alphaI2PTS, betaI2PTS, gammaI2PTS);
 
     alpI        = XLALCreateREAL8TimeSeries( "alphaJ2I", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
     betI        = XLALCreateREAL8TimeSeries( "betaJ2I", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
@@ -3610,6 +3610,18 @@ int XLALSimIMRSpinEOBWaveformAll(
       //betI->data->data[i] = betaP2I->data[i];
       //gamI->data->data[i] = gammaP2I->data[i];
     }
+    
+    
+    if (debugPK){
+        out = fopen( "ExtendedEulerAngles.dat", "w" );
+        for ( i = 0; i < retLenLow + retLenRDPatchLow; i++ )
+        {
+            fprintf( out, "%.16e %.16e %.16e %.16e\n",
+                   i*deltaT/mTScaled, alpI->data->data[i], betI->data->data[i], gamI->data->data[i]);
+        }
+        fclose( out );
+    }
+    
     printf("test0 \n");
     for (i=0; i<(int)tlistRDPatch->length; i++){
       timeIFull->data[i] = tlistRDPatch->data[i];
