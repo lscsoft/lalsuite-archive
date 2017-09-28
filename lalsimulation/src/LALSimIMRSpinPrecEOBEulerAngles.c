@@ -278,81 +278,26 @@ static void ComputeSpinsInLframe(
 }
 
 
-static int EulerAnglesP2I(REAL8Vector* Alpha, /**<< output: alpha Euler angle */
-                 REAL8Vector *Beta, /**<< output: beta Euler angle */
-                 REAL8Vector *Gamma, /**<< output: gamma Euler angle */
-				 REAL8TimeSeries* aI2P, /** low sample alpha I->P */
-				 REAL8TimeSeries* bI2P, /** low sample beta I->P */
-				 REAL8TimeSeries* gI2P, /** low sample gamma I->P */
-				 REAL8Vector* timeLow,
-				 REAL8TimeSeries* aI2Phi, /** high sample alpha I->P */
-				 REAL8TimeSeries* bI2Phi, /** high sample beta I->P */
-				 REAL8TimeSeries* gI2Phi, /** high sample gamma I->P */
-				 REAL8Vector* timeHi,
-				 REAL8Vector* timeFull)
- {
-	unsigned int i;
-	// First we need to resample the hisample data
-	printf("length of aP2I is %d, length of time is %d \n", aI2P->data->length, timeLow->length);
-	printf("length of aP2I is %d, length of time is %d \n", bI2P->data->length, timeLow->length);
-	printf("length of aP2I is %d, length of time is %d \n", gI2P->data->length, timeLow->length);
-	printf("length of aP2Ihi is %d, length of timeHi is %d \n", aI2Phi->data->length, timeHi->length);
-	printf("length of aP2Ihi is %d, length of timeHi is %d \n", bI2Phi->data->length, timeHi->length);
-	printf("length of aP2Ihi is %d, length of timeHi is %d \n", gI2Phi->data->length, timeHi->length);
-	printf("length of timeFull is %d \n", timeFull->length);
-
-	printf("End of timeLow is %f \n", timeLow->data[timeLow->length-1]);
-	printf("Beginning  of timeHigh is %f \n", timeHi->data[0]);
-	printf("End  of timeHigh is %f \n", timeHi->data[timeHi->length-1]);
-	printf("End  of timeFull is %f \n", timeFull->data[timeFull->length-1]);
-
-
-
-	//Alpha  = XLALCreateREAL8Vector( timeFull->length);
-	//Beta  = XLALCreateREAL8Vector( timeFull->length);
-	//Gamma  = XLALCreateREAL8Vector( timeFull->length);
-
-	for (i=0; i<timeLow->length; i++){
-		//Alpha->data[i] = -1.0*gI2P->data->data[i];
-		//Beta->data[i] = -1.0*bI2P->data->data[i];
-		//Gamma->data[i] = -1.0*aI2P->data->data[i];
-		Alpha->data[i] = 1.0*gI2P->data->data[i];
-		Beta->data[i] = -1.0*bI2P->data->data[i];
-		Gamma->data[i] = 1.0*aI2P->data->data[i];
-	}
-    //for (i=0; i< timeLow->length; i++){
-    //    printf("Check %d, %f, %f \n", i, Alpha->data[i], -gI2P->data->data[i]);
-    //}
-
-
-	 // Resample Hi sampling part of it
-	int idX = i;
-	printf("Check  timeFull is %f, %f \n", timeFull->data[idX-1], timeFull->data[idX]);
-
-	for (i=idX; i<timeFull->length; i++){
-		//Alpha->data[i] = -1.0*gI2P->data->data[idX-1];
-		//Beta->data[i] = -1.0*bI2P->data->data[idX-1];
-		//Gamma->data[i] = -1.0*aI2P->data->data[idX-1];
-		Alpha->data[i] = 1.0*gI2P->data->data[idX-1];
-		Beta->data[i] = -1.0*bI2P->data->data[idX-1];
-		Gamma->data[i] = 1.0*aI2P->data->data[idX-1];
-	}
-
-	//int rlen = timeFull->length - timeLow->length;
-
-
-
-	//gsl_spline    *spline = NULL;
-	//gsl_interp_accel *acc = NULL;
-	//spline = gsl_spline_alloc( gsl_interp_cspline, timeHi->length);
-	//acc    = gsl_interp_accel_alloc();
-	//gsl_spline_init( spline, timeHi->data, aP2Ihi->data->data, timeHi->length);
-
-    //gsl_spline_free(spline);
-    //gsl_interp_accel_free(acc);
-	 // We need to extend it
-
-	return XLAL_SUCCESS;
+static int EulerAnglesP2I(REAL8Vector* alphaP2I, /**<< output: alpha Euler angle */
+                 REAL8Vector *betaP2I, /**<< output: beta Euler angle */
+                 REAL8Vector *gammaP2I, /**<< output: gamma Euler angle */
+				 REAL8TimeSeries* alphaI2PTS, /** low sample alpha I->P */
+				 REAL8TimeSeries* betaI2PTS, /** low sample beta I->P */
+				 REAL8TimeSeries* gammaI2PTS /** low sample gamma I->P */)
+{
+     UINT4 i;
+     UINT4 retLenLow = gammaI2PTS->data->length;
+     for (i=0; i<retLenLow;i++) {
+            alphaP2I->data[i] = gammaI2PTS->data->data[i];
+            betaP2I->data[i] = -betaI2PTS->data->data[i];
+            gammaP2I->data[i] = alphaI2PTS->data->data[i];
+     }
+     for (i=retLenLow; i<alphaP2I->length; i++) {
+           alphaP2I->data[i] = gammaI2PTS->data->data[retLenLow-1];
+           betaP2I->data[i] = -betaI2PTS->data->data[retLenLow-1];
+           gammaP2I->data[i] = alphaI2PTS->data->data[retLenLow-1];
+     }
+	 return XLAL_SUCCESS;
  }
 
 
