@@ -450,7 +450,7 @@ static INT4 get_major_approximant( Approximant approximant /**<<The waveform app
  * SEOBNRv2 prescriptions can be found in  https://dcc.ligo.org/T1400476
  * SEONBRv3 prescriptions can be found in XXX
  */
-static INT4
+UNUSED static INT4
 XLALSimIMREOBHybridAttachRingdownPrec(
 				  REAL8Vector * signal1,	/**<< OUTPUT, Real of inspiral waveform to which we attach ringdown */
 				  REAL8Vector * signal2,	/**<< OUTPUT, Imag of inspiral waveform to which we attach ringdown */
