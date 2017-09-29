@@ -69,7 +69,7 @@ int XLALSimInspiralTaylorF2CoreEcc(
         const REAL8 f_ref,                     /**< Reference GW frequency (Hz) - if 0 reference point is coalescence */
 	const REAL8 shft,		       /**< time shift to be applied to frequency-domain phase (sec)*/
         const REAL8 r,                         /**< distance of source (m) */
-        const REAL8 eccentricity,                       /**< eccentricity effect control < 0 : no eccentricity effect */
+        const REAL8 eccentricity,              /**< eccentricity effect control < 0 : no eccentricity effect */
         LALDict *p                       /**< Linked list containing the extra parameters >**/
         )
 {
@@ -90,13 +90,6 @@ int XLALSimInspiralTaylorF2CoreEcc(
     COMPLEX16 *data = NULL;
     LIGOTimeGPS tC = {0, 0};
     INT4 iStart = 0;
-    REAL8 f_ecc=XLALSimInspiralWaveformParamsLookupEccentricityFreq(p);
-    INT4 ecc_order=XLALSimInspiralWaveformParamsLookupPNEccentricityOrder(p);
-    REAL8 lambda1 = XLALSimInspiralWaveformParamsLookupTidalLambda1(p);
-    REAL8 lambda2 = XLALSimInspiralWaveformParamsLookupTidalLambda2(p);
-    INT4 amplitudeO = XLALSimInspiralWaveformParamsLookupPNAmplitudeOrder(p);
-    INT4 phaseO =XLALSimInspiralWaveformParamsLookupPNPhaseOrder(p);
-    INT4 tideO=XLALSimInspiralWaveformParamsLookupPNTidalOrder(p);
 
     COMPLEX16FrequencySeries *htilde = NULL;
 
@@ -121,6 +114,7 @@ int XLALSimInspiralTaylorF2CoreEcc(
     REAL8 pfa6 = 0.; REAL8 pfl6 = 0.;
     REAL8 pfa7 = 0.;
 
+    INT4 phaseO=XLALSimInspiralWaveformParamsLookupPNPhaseOrder(p);
     switch (phaseO)
     {
         case -1:
@@ -154,6 +148,7 @@ int XLALSimInspiralTaylorF2CoreEcc(
      */
 
     /* Validate amplitude PN order. */
+    INT4 amplitudeO=XLALSimInspiralWaveformParamsLookupPNAmplitudeOrder(p);
     switch (amplitudeO)
     {
         case -1:
@@ -174,7 +169,9 @@ int XLALSimInspiralTaylorF2CoreEcc(
      */
     REAL8 pft10 = 0.;
     REAL8 pft12 = 0.;
-    switch( tideO )
+    REAL8 lambda1=XLALSimInspiralWaveformParamsLookupTidalLambda1(p);
+    REAL8 lambda2=XLALSimInspiralWaveformParamsLookupTidalLambda2(p);
+    switch( XLALSimInspiralWaveformParamsLookupPNTidalOrder(p) )
     {
 	case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_6PN:
@@ -184,7 +181,7 @@ int XLALSimInspiralTaylorF2CoreEcc(
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_0PN:
             break;
         default:
-            XLAL_ERROR(XLAL_EINVAL, "Invalid tidal PN order %d", tideO);
+            XLAL_ERROR(XLAL_EINVAL, "Invalid tidal PN order %d", XLALSimInspiralWaveformParamsLookupPNTidalOrder(p));
     }
 
     /* The flux and energy coefficients below are used to compute SPA amplitude corrections */
@@ -218,6 +215,7 @@ int XLALSimInspiralTaylorF2CoreEcc(
     data = htilde->data->data;
 
     REAL8 v_ecc_ref = 0.0;
+    REAL8 f_ecc = XLALSimInspiralWaveformParamsLookupEccentricityFreq(p);
     if( eccentricity > 0 && f_ecc > 0) {
         v_ecc_ref = cbrt(piM*f_ecc);
     }
@@ -230,6 +228,7 @@ int XLALSimInspiralTaylorF2CoreEcc(
      * evaluated at f_ref, store it as ref_phasing and subtract it off.
      */
     REAL8 ref_phasing = 0.;
+    INT4 ecc_order = XLALSimInspiralWaveformParamsLookupPNEccentricityOrder(p);
     if( f_ref != 0. ) {
         const REAL8 vref = cbrt(piM*f_ref);
         const REAL8 logvref = log(vref);
@@ -389,6 +388,8 @@ int XLALSimInspiralTaylorF2Ecc(
     const REAL8 piM = LAL_PI * m_sec;
     const REAL8 vISCO = 1. / sqrt(6.);
     const REAL8 fISCO = vISCO * vISCO * vISCO / piM;
+    //const REAL8 m1OverM = m1 / m;
+    // const REAL8 m2OverM = m2 / m;
     REAL8 shft, f_max;
     size_t i, n;
     INT4 iStart;
@@ -435,7 +436,7 @@ int XLALSimInspiralTaylorF2Ecc(
         freqs->data[i-iStart] = i * deltaF;
     }
     ret = XLALSimInspiralTaylorF2CoreEcc(&htilde, freqs, phi_ref, m1_SI, m2_SI,
-                                      S1z, S2z, f_ref, shft, r, eccentricity,p);
+                                      S1z, S2z, f_ref, shft, r, eccentricity, p);
 
     XLALDestroyREAL8Sequence(freqs);
 
