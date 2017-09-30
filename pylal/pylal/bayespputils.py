@@ -5558,12 +5558,11 @@ def find_ndownsample(samples, nDownsample):
         if len(samples) > nDownsample:
             nskip *= floor(len(samples)/nDownsample)
             nskip = int(nskip)
-
     else:
         nEff = nEffective
         if nEff > 1:
             if len(samples) > nEff:
-                nskip = ceil(len(samples)/nEff)
+                nskip = int(ceil(len(samples)/nEff))
         else:
             nskip = np.nan
     return nskip
@@ -5824,15 +5823,14 @@ class PEOutputParser(object):
         ntot = sum(ntots)
         if nDownsample is not None:
             if ntot > nDownsample:
-                nskips *= floor(ntot/nDownsample)
-
+                nskips *= int(floor(ntot/nDownsample))
         else:
             for i in range(nfiles):
                 nEff = nEffectives[i]
                 ntot = ntots[i]
                 if nEff > 1:
                     if ntot > nEff:
-                        nskips[i] = ceil(ntot/nEff)
+                        nskips[i] = int(ceil(ntot/nEff))
                 else:
                     nskips[i] = None
         return nskips
