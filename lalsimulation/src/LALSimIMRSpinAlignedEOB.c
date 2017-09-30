@@ -767,7 +767,9 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
   /* END OPTIMIZED */
 
   REAL8 omega, v;
-  REAL8Vector *hamV;
+  REAL8Vector *hamVHi;
+  REAL8Vector *hamV = NULL;
+  REAL8Vector *omegaVec = NULL;
     
   /* SEOBNRv4HM modes */
   INT4 modeL, modeM;
@@ -1445,9 +1447,9 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
 					 (cimag (modeFreq) * deltaTHigh)));
   ampNQC = XLALCreateREAL8Vector (retLen);
   phaseNQC = XLALCreateREAL8Vector (retLen);
-  hamV = XLALCreateREAL8Vector (retLen);
+  hamVHi = XLALCreateREAL8Vector (retLen);
 
-  if (!sigReHi || !sigImHi || !omegaHi || !ampNQC || !phaseNQC|| !hamV)
+  if (!sigReHi || !sigImHi || !omegaHi || !ampNQC || !phaseNQC|| !hamVHi)
     {
       XLAL_ERROR (XLAL_ENOMEM);
     }
@@ -1492,7 +1494,7 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
       if (use_optimized_v2_or_v4)
 	{
 	  /* OPTIMIZED: */
-	  hamV->data[i] =
+	  hamVHi->data[i] =
 	    XLALSimIMRSpinEOBHamiltonianOptimized (eta, &cartPosVec,
 						   &cartMomVec,
 						   &s1VecOverMtMt,
@@ -1504,7 +1506,7 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
 	}
       else
 	{
-	  hamV->data[i] =
+	  hamVHi->data[i] =
 	    XLALSimIMRSpinEOBHamiltonian (eta, &cartPosVec, &cartMomVec,
 					  &s1VecOverMtMt, &s2VecOverMtMt,
 					  sigmaKerr, sigmaStar,
@@ -1665,7 +1667,7 @@ for ( UINT4 k = 0; k<nModes; k++) {
         values->data[3] = pPhiHi.data[i];
         v = cbrt (omegaHi->data[i]);
         if (XLALSimIMRSpinEOBGetSpinFactorizedWaveform
-            (&hLM, values, v, hamV->data[i], modeL, modeM, &seobParams,
+            (&hLM, values, v, hamVHi->data[i], modeL, modeM, &seobParams,
              use_optimized_v2_or_v4) == XLAL_FAILURE)
         {
             /* TODO: Clean-up */
@@ -2190,8 +2192,6 @@ for ( UINT4 k = 0; k<nModes; k++) {
   memset (sigImVec->data, 0, sigImVec->length * sizeof (REAL8));
     
   /* Generate full inspiral waveform using desired sampling frequency */
-    REAL8Vector *hamVec = NULL;
-    REAL8Vector *omegaVec = NULL;
   if (use_optimized_v2_or_v4)
     {
       for (i = 0; i < (INT4) rVec.length; i++)
@@ -2208,10 +2208,14 @@ for ( UINT4 k = 0; k<nModes; k++) {
 #if debugOutput
         out = fopen ("saDynamics.dat", "w");
 #endif
-        hamVec = XLALCreateREAL8Vector(rVec.length);
-        memset(hamVec->data, 0., hamVec->length*sizeof(REAL8));
+        hamV = XLALCreateREAL8Vector(rVec.length);
+        memset(hamV->data, 0., hamV->length*sizeof(REAL8));
         omegaVec = XLALCreateREAL8Vector(rVec.length);
         memset(omegaVec->data, 0., omegaVec->length*sizeof(REAL8));
+        if (!omegaVec|| !hamV)
+        {
+            XLAL_ERROR (XLAL_ENOMEM);
+        }
       for (i = 0; i < (INT4) rVec.length; i++)
 	{
 	  values->data[0] = rVec.data[i];
@@ -2231,7 +2235,7 @@ for ( UINT4 k = 0; k<nModes; k++) {
 	  cartMomVec.data[0] = values->data[2];
 	  cartMomVec.data[1] = values->data[3] / values->data[0];
 
-	  hamVec->data[i] =
+	  hamV->data[i] =
 	    XLALSimIMRSpinEOBHamiltonian (eta, &cartPosVec, &cartMomVec,
 					  &s1VecOverMtMt, &s2VecOverMtMt,
 					  sigmaKerr, sigmaStar,
@@ -2267,7 +2271,7 @@ for ( UINT4 k = 0; k<nModes; k++) {
             values->data[2] = prVec.data[i];
             values->data[3] = pPhiVec.data[i];
             if (XLALSimIMRSpinEOBGetSpinFactorizedWaveform
-                (&hLM, values,  cbrt (omegaVec->data[i]), hamVec->data[i], modeL, modeM, &seobParams, 0 /*use_optimized_v2_or_v4 */ ) == XLAL_FAILURE)
+                (&hLM, values,  cbrt (omegaVec->data[i]), hamV->data[i], modeL, modeM, &seobParams, 0 /*use_optimized_v2_or_v4 */ ) == XLAL_FAILURE)
             {
                 XLAL_ERROR (XLAL_EFUNC);
             }
@@ -2471,10 +2475,10 @@ XLALGPSAdd (&tc, deltaT * (REAL8) kMin);
   XLALDestroyREAL8Vector (omegaHi);
   if ( hLMAllHi )
       XLALDestroyREAL8Vector (hLMAllHi);
-  if ( hamVec )
-      XLALDestroyREAL8Vector (hamVec);
   if ( hamV )
       XLALDestroyREAL8Vector (hamV);
+  if ( hamVHi )
+      XLALDestroyREAL8Vector (hamVHi);
   return XLAL_SUCCESS;
 }
 
