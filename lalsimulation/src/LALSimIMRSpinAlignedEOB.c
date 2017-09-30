@@ -664,7 +664,7 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
       use_optimized_v2_or_v4 = 1;
     }
     
-   INT4 use_hm = 1;
+   INT4 use_hm = 0;
     /* The list of available modes */
 //    const UINT4 lmModes[5][2] = {{2, 2}, {2, 1}, {3, 3}, {4, 4}, {5, 5}};
     const UINT4 lmModes[2][2] = {{2, 2}, {3, 3}};
