@@ -69,8 +69,6 @@
  * given by the 3rd row of Table II therein. Compared to NR for 0 <= kappa2T <= 500
  */
 static REAL8 XLALSimNSNSMergerFreq(
-                                       UNUSED REAL8 spin1z, /**< Spin z of body 1 */
-                                       UNUSED REAL8 spin2z, /**< Spin z  of body 2 */
                                        TidalEOBParams *tidal1, /**< Tidal parameters of body 1 */
                                        TidalEOBParams *tidal2  /**< Tidal parameters of body 2 */
 )
@@ -80,33 +78,20 @@ static REAL8 XLALSimNSNSMergerFreq(
     REAL8 lambda1 = tidal1->lambda2Tidal; // Dimensionless quadrupolar tidal deformability normalized to M^5
     REAL8 lambda2 = tidal2->lambda2Tidal; // Dimensionless quadrupolar tidal deformability normalized to M^5
     
-    UNUSED REAL8 X1v, X2v, spin1zv, spin2zv, lambda1v, lambda2v;
+    REAL8 X1v, X2v, lambda1v, lambda2v;
     if ( X1 >= X2 ) {
         X1v = X1;
         X2v = X2;
-        spin1zv = spin1z;
-        spin2zv = spin2z;
         lambda1v = lambda1;
         lambda2v = lambda2;
     }
     else {
         X1v = X2;
         X2v = X1;
-        spin1zv = spin2z;
-        spin2zv = spin1z;
         lambda1v = lambda2;
         lambda2v = lambda1;
     }
-    REAL8 kappa2T = 1.5*(X2v/X1v*lambda1v + X1v/X2v*lambda2v);
-    /*
-    const REAL8 n1 = 3.35411203e-2;
-    const REAL8 n2 = 4.31460284e-5;
-    const REAL8 d1 = 7.54224145e-2;
-    const REAL8 d2 = 2.23626859e-4;
-    REAL8 q = X1v/X2v;
-    REAL8 chi = X1v*spin1zv + X2v*spin2zv;
-    return (0.3586/sqrt(q)*(1. + n1*kappa2T + n2*kappa2T*kappa2T)/(1. + d1*kappa2T + d2*kappa2T*kappa2T))*(1. + 0.23456602*chi);
-     */
+    REAL8 kappa2T = 3*(X2v/X1v*lambda1v + X1v/X2v*lambda2v);
     if ( kappa2T < 0. ) {
         XLAL_ERROR (XLAL_EFUNC);
     }
@@ -230,15 +215,13 @@ XLALSpinAlignedNSNSStopCondition (double UNUSED t, /**< UNUSED */
   REAL8 omega, r;
   UINT4 counter;
   SpinEOBParams *params = (SpinEOBParams *) funcParams;
-  TidalEOBParams *tidal1 = params->seobCoeffs->tidal1;
-  TidalEOBParams *tidal2 = params->seobCoeffs->tidal2;
-  REAL8 omegaMerger = XLALSimNSNSMergerFreq( params->s1Vec->data[2], params->s2Vec->data[2], tidal1, tidal2 );
-  REAL8 rMerger = pow ( omegaMerger/2., -2./3. );
+  REAL8 rMerger = pow ( params->eobParams->omegaMerger/2., -2./3. );
 //  printf("rMerger %.16e\n", rMerger);
   r = values[0];
   omega = dvalues[1];
   counter = params->eobParams->omegaPeaked;
-  if (debugOutput)   printf("function NSNS: r = %.16e, omega = %.16e, pr = %.16e, dpr = %.16e, count = %.16u \n",values[0],dvalues[1],values[2],dvalues[2],counter);
+    REAL8 eta = params->eobParams->eta;
+  if (debugOutput)   printf("function NSNS: r = %.16e, omega = %.16e, pr = %.16e, dpr = %.16e, count = %.16u\n",values[0],dvalues[1],values[2],dvalues[2],counter);
 //  printf("%.16e %.16e %.16e %.16e\n",values[0],dvalues[1],values[2],dvalues[2]);
   REAL8 rCheck = 1.5*rMerger;
   if (r < rCheck && omega < params->eobParams->omega)
@@ -246,7 +229,7 @@ XLALSpinAlignedNSNSStopCondition (double UNUSED t, /**< UNUSED */
       if (debugOutput) printf("Peak detection %.16e %.16e\n", omega, params->eobParams->omega);
       params->eobParams->omegaPeaked = counter + 1;
     }
-  if ( omega >= omegaMerger/2. ) {
+  if ( omega >= params->eobParams->omegaMerger/2. ) {
       if (debugOutput) printf("Stop at Tim's freq at r=%.16e\n", r);
       return 1;
   }
@@ -273,7 +256,7 @@ XLALSpinAlignedNSNSStopCondition (double UNUSED t, /**< UNUSED */
         if (debugOutput) printf("Stop at nan's at r=%.16e\n", r);
         return 1;
     }
-    if ( fabs(r/params->eobParams->rad - 1.) < 1e-7 && fabs(r/params->eobParams->rad - 1.) > 0.) {
+    if ( fabs(r/params->eobParams->rad - 1.) < 1.e-3*64./5.*eta/(r*r*r*r)*0.02 && fabs(r/params->eobParams->rad - 1.) > 0.) {
         if (debugOutput) printf("Radius is stalling at r=%.16e and rad=%.16e\n", r, params->eobParams->rad);
         return 1;
     }
@@ -281,6 +264,7 @@ XLALSpinAlignedNSNSStopCondition (double UNUSED t, /**< UNUSED */
   params->eobParams->rad = r;
     if( LAL_PI/params->deltaT <= 2.*omega ) {
         if (debugOutput) printf("Stop at Nyquist at r=%.16e\n", r);
+        XLAL_PRINT_WARNING ("Waveform will be generated only up to half the sampling frequency, thus discarding any physical higher-frequency contect above that!\n");
         return 1;
     }
   return GSL_SUCCESS;
@@ -494,16 +478,16 @@ XLALSimIMRSpinAlignedEOBWaveform (REAL8TimeSeries ** hplus,	     /**<< OUTPUT, +
     }
 
 
-  REAL8Vector   *tVec = NULL;
-  REAL8Vector   *rVec = NULL;
-  REAL8Vector   *phiVec = NULL;
-  REAL8Vector   *prVec = NULL;
-  REAL8Vector   *pPhiVec = NULL;
   REAL8Vector *nqcCoeffsInput = XLALCreateREAL8Vector(10);
   INT4 nqcFlag = 0;
 
 
-  if ( SpinAlignedEOBversion == 401 ) {
+  if ( SpinAlignedEOBversion == 401 || SpinAlignedEOBversion == 4 ) {
+    REAL8Vector   *tVec = NULL;
+    REAL8Vector   *rVec = NULL;
+    REAL8Vector   *phiVec = NULL;
+    REAL8Vector   *prVec = NULL;
+    REAL8Vector   *pPhiVec = NULL;
       nqcFlag = 1;
       REAL8 m1BH, m2BH;
       m1BH = m1SI / (m1SI + m2SI) * 50. * LAL_MSUN_SI;
@@ -512,33 +496,52 @@ XLALSimIMRSpinAlignedEOBWaveform (REAL8TimeSeries ** hplus,	     /**<< OUTPUT, +
       printf("First run SEOBNRv4 to compute NQCs\n");
 #endif      
       ret = XLALSimIMRSpinAlignedEOBWaveformAll (hplus, hcross, tVec, rVec, phiVec, prVec, pPhiVec,
-                     phiC, deltaT, m1BH, m2BH, 2*pow(10.,-1.5)/(2.*LAL_PI)/((m1BH + m2BH)*LAL_MTSUN_SI/LAL_MSUN_SI), r, inc, spin1z, spin2z, 400,
+                     phiC, 1./32768, m1BH, m2BH, 2*pow(10.,-1.5)/(2.*LAL_PI)/((m1BH + m2BH)*LAL_MTSUN_SI/LAL_MSUN_SI), r, inc, spin1z, spin2z, 400,
 					 0, 0, 0, 0, 0, 0, 0, 0, nqcCoeffsInput, nqcFlag);
+
+      if( tVec )
+        XLALDestroyREAL8Vector( tVec );
+      if( rVec )
+        XLALDestroyREAL8Vector( rVec );
+      if( phiVec )
+        XLALDestroyREAL8Vector( phiVec );
+      if( prVec )
+        XLALDestroyREAL8Vector( prVec );
+      if( pPhiVec )
+        XLALDestroyREAL8Vector( pPhiVec );
       nqcFlag = 2;
   }
 #if debugOutput
     printf("Generate EOB wf\n");
 #endif
-  ret = XLALSimIMRSpinAlignedEOBWaveformAll (hplus, hcross, tVec, rVec, phiVec, prVec, pPhiVec,
-                                           phiC, deltaT, m1SI, m2SI, fMin, r, inc, spin1z, spin2z, SpinAlignedEOBversion,
-                                           lambda2Tidal1, lambda2Tidal2,
-                                           omega02Tidal1, omega02Tidal2,
-                                           lambda3Tidal1, lambda3Tidal2,
-                                           omega03Tidal1, omega03Tidal2,
-                                           nqcCoeffsInput, nqcFlag);
-
-  if( tVec )
+    {
+      REAL8Vector   *tVec = NULL;
+      REAL8Vector   *rVec = NULL;
+      REAL8Vector   *phiVec = NULL;
+      REAL8Vector   *prVec = NULL;
+      REAL8Vector   *pPhiVec = NULL;
+      //REAL8Vector *nqcCoeffsInput = XLALCreateREAL8Vector(10);
+      //INT4 nqcFlag = 0;
+      ret = XLALSimIMRSpinAlignedEOBWaveformAll (hplus, hcross, tVec, rVec, phiVec, prVec, pPhiVec,
+                                                 phiC, deltaT, m1SI, m2SI, fMin, r, inc, spin1z, spin2z, SpinAlignedEOBversion,
+                                                 lambda2Tidal1, lambda2Tidal2,
+                                                 omega02Tidal1, omega02Tidal2,
+                                                 lambda3Tidal1, lambda3Tidal2,
+                                                 omega03Tidal1, omega03Tidal2,
+                                                 nqcCoeffsInput, nqcFlag);
+      if( tVec )
         XLALDestroyREAL8Vector( tVec );
-  if( rVec )
+      if( rVec )
         XLALDestroyREAL8Vector( rVec );
-  if( phiVec )
+      if( phiVec )
         XLALDestroyREAL8Vector( phiVec );
-  if( prVec )
+      if( prVec )
         XLALDestroyREAL8Vector( prVec );
-  if( pPhiVec )
+      if( pPhiVec )
         XLALDestroyREAL8Vector( pPhiVec );
-  if ( nqcCoeffsInput )
-       XLALDestroyREAL8Vector( nqcCoeffsInput );
+      if ( nqcCoeffsInput )
+        XLALDestroyREAL8Vector( nqcCoeffsInput );
+    }
   return ret;
 }
 
@@ -613,9 +616,9 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
                      /**<< octupole f-mode angular freq for body 1 m_1*omega_{03,1}*/
 				     const REAL8 omega03Tidal2,
                      /**<< octupole f-mode angular freq for body 2 m_2*omega_{03,2}*/
-                    REAL8Vector *nqcCoeffsInput,
+                     REAL8Vector *nqcCoeffsInput,
                      /**<< Input NQC coeffs */
-                    const INT4 nqcFlag
+                     const INT4 nqcFlag
                      /**<< Flag to tell the code to use the NQC coeffs input thorugh nqcCoeffsInput */
   )
 {
@@ -871,6 +874,8 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
       tStepBack = 150. * mTScaled;
     }
   nStepBack = ceil (tStepBack / deltaT);
+    
+  
 
   /* Calculate the resample factor for attaching the ringdown */
   /* We want it to be a power of 2 */
@@ -1003,7 +1008,7 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
   s2VecOverMtMt.data = s2DataNorm;
     
     if ( use_tidal == 1 ) {
-        REAL8 omegaMerger = XLALSimNSNSMergerFreq( spin1z, spin2z, &tidal1, &tidal2 );
+        REAL8 omegaMerger = XLALSimNSNSMergerFreq( &tidal1, &tidal2 );
         REAL8 rMerger = pow ( omegaMerger/2., -2./3. );
         if ( pow( fStart*LAL_PI*mTScaled, -2./3. ) <= 2.*rMerger ) {
             XLALPrintError
@@ -1211,8 +1216,9 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
   values->data[2] = tmpValues->data[3];
   values->data[3] = tmpValues->data[0] * tmpValues->data[4];
     
-     eobParams.rad = values->data[0];
-     eobParams.omegaPeaked = 0;
+  eobParams.rad = values->data[0];
+  eobParams.omegaPeaked = 0;
+  eobParams.omegaMerger = XLALSimNSNSMergerFreq( &tidal1, &tidal2 );
   //fprintf( stderr, "Spherical initial conditions: %e %e %e %e\n", values->data[0], values->data[1], values->data[2], values->data[3] );
 
   /*
@@ -1320,13 +1326,12 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
 #endif
     
   // Output low sample rate dynamics
-
   tVecOut = &tVec;
   rVecOut = &rVec;
   phiVecOut = &phiVec;
   prVecOut = &prVec;
   pPhiVecOut = &pPhiVec;
-
+    
   if (tStepBack > retLen * deltaT)
     {
       tStepBack = 0.5 * retLen * deltaT;	//YPnote: if 100M of step back > actual time of evolution, step back 50% of the later
@@ -1360,6 +1365,7 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
   eobParams.omegaPeaked = 0;
 
 
+
   /* For HiSR evolution, we stop at a radius 0.3M from the deformed Kerr singularity,
    * or when any derivative of Hamiltonian becomes nan */
   integrator->stop = XLALSpinAlignedHiSRStopCondition;
@@ -1370,7 +1376,7 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
   if ( use_tidal == 1 ) {
       integrator->stop = XLALSpinAlignedNSNSStopCondition;
     }
-
+    
   if (use_optimized_v2_or_v4)
     {
       /* BEGIN OPTIMIZED: */
@@ -1424,7 +1430,7 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
   fclose (out);
 #endif
 
-  /* Allocate the high sample rate vectors */
+    /* Allocate the high sample rate vectors */
   sigReHi =
     XLALCreateREAL8Vector (retLen +
 			   (UINT4) ceil (20 /
@@ -1676,6 +1682,36 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
         nqcCoeffsInput->data[7] = nqcCoeffs.b2;
         nqcCoeffsInput->data[8] = nqcCoeffs.b3;
         nqcCoeffsInput->data[9] = nqcCoeffs.b4;
+
+        // FINISHED COMPUTING NQC. NOW MUST FREE ALLOCATED MEMORY!
+        gsl_spline_free (spline);
+        gsl_interp_accel_free (acc);
+
+        XLALDestroyREAL8Vector (tmpValues);
+        XLALDestroyREAL8Vector (sigmaKerr);
+        XLALDestroyREAL8Vector (sigmaStar);
+        XLALDestroyREAL8Vector (values);
+        XLALDestroyREAL8Vector (ampNQC);
+        XLALDestroyREAL8Vector (phaseNQC);
+        XLALDestroyREAL8Vector (sigReVec);
+        XLALDestroyREAL8Vector (sigImVec);
+        XLALAdaptiveRungeKuttaFree (integrator);
+        XLALDestroyREAL8Array (dynamics);
+        XLALDestroyREAL8Array (dynamicsHi);
+
+        if (dynamicstmp)
+          {
+            XLALDestroyREAL8Array (dynamicstmp);
+          }
+        if (dynamicsHitmp)
+          {
+            XLALDestroyREAL8Array (dynamicsHitmp);
+          }
+
+        XLALDestroyREAL8Vector (sigReHi);
+        XLALDestroyREAL8Vector (sigImHi);
+        XLALDestroyREAL8Vector (omegaHi);
+
         return XLAL_SUCCESS;
     }
 
@@ -1844,6 +1880,7 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
 #if debugOutput
         printf("indAmax %d\n",indAmax);
 #endif
+        
         if ( (INT4)indAmax== (INT4) timeHi.length-1 ) {
             INT4 peakDet = 0;
             REAL8 dAnew, dAval;
@@ -1898,7 +1935,7 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
             }
         }
 
-        if ( timeHi.data[indAmax] <= timeHi.data[indOmax] ) {
+        if ( indAmax>timeHi.length/2 && timeHi.data[indAmax] <= timeHi.data[indOmax] ) {
             timePeak = timeHi.data[indAmax] ;
         }
         else {
