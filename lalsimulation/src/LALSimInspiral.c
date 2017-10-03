@@ -43,7 +43,7 @@
 #include "LALSimInspiralPNCoefficients.c"
 #include "check_series_macros.h"
 #include "check_waveform_macros.h"
-#include "LALSimUniversalRelations.c"
+#include "LALSimUniversalRelations.h"
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -782,7 +782,7 @@ int XLALSimInspiralChooseTDWaveform(
             if(approximant==SEOBNRv1) SpinAlignedEOBversion = 1;
             if(approximant==SEOBNRv2) SpinAlignedEOBversion = 2;
             if(approximant==SEOBNRv2_opt) SpinAlignedEOBversion = 200;
-            if(approximant==SEOBNRv2) SpinAlignedEOBversion = 4;
+            if(approximant==SEOBNRv4) SpinAlignedEOBversion = 4;
             if(approximant==SEOBNRv4_opt) SpinAlignedEOBversion = 400;
             ret = XLALSimIMRSpinAlignedEOBWaveform(hplus, hcross, phiRef,
                     deltaT, m1, m2, f_min, distance, inclination, S1z, S2z, SpinAlignedEOBversion, LALparams);
