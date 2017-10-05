@@ -52,7 +52,7 @@
 #include "LALSimIMRSpinAlignedEOBHcapDerivativeOptimized.c"
 /* END OPTIMIZED */
 
-#define debugOutput 1
+#define debugOutput 0
 
 //static int debugPK = 0;
 
@@ -644,6 +644,7 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
     }
     
    INT4 use_hm = 0;
+
     /* The list of available modes */
 //    const UINT4 lmModes[5][2] = {{2, 2}, {2, 1}, {3, 3}, {4, 4}, {5, 5}};
     const UINT4 lmModes[2][2] = {{2, 2}, {3, 3}};
@@ -749,6 +750,7 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
   REAL8Vector *hamVHi;
   REAL8Vector *hamV = NULL;
   REAL8Vector *omegaVec = NULL;
+
     
   /* SEOBNRv4HM modes */
   INT4 modeL, modeM;
@@ -1469,8 +1471,8 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
       if (use_optimized_v2_or_v4)
 	{
 	  /* OPTIMIZED: */
-	  hamVHi->data[i] =
-	    XLALSimIMRSpinEOBHamiltonianOptimized (eta, &cartPosVec,
+
+	  hamVHi->data[i] = XLALSimIMRSpinEOBHamiltonianOptimized (eta, &cartPosVec,
 						   &cartMomVec,
 						   &s1VecOverMtMt,
 						   &s2VecOverMtMt, sigmaKerr,
@@ -1481,6 +1483,7 @@ XLALSimIMRSpinAlignedEOBWaveformAll (REAL8TimeSeries ** hplus,
 	}
       else
 	{
+
 	  hamVHi->data[i] =
 	    XLALSimIMRSpinEOBHamiltonian (eta, &cartPosVec, &cartMomVec,
 					  &s1VecOverMtMt, &s2VecOverMtMt,
