@@ -82,10 +82,10 @@ static int InterpolateWaveform(REAL8Vector *freqs, COMPLEX16FrequencySeries *src
   UINT4 j=ceil(freqs->data[0] / deltaF);
   COMPLEX16 *d=dest->data->data;
   memset(d, 0, sizeof(*(d))*j);
-
+  
   /* Loop over reduced frequency set */
   for(UINT4 i=0;i<freqs->length-1;i++)
-  {
+  {  
     double startpsi = carg(src->data->data[i]);
     double startamp = cabs(src->data->data[i]);
     double endpsi = carg(src->data->data[i+1]);
@@ -95,7 +95,7 @@ static int InterpolateWaveform(REAL8Vector *freqs, COMPLEX16FrequencySeries *src
     double endf=freqs->data[i+1];
 
     double df = endf - startf; /* Big freq step */
-
+    
     /* linear interpolation setup */
     double dpsi = (endpsi - startpsi);
 
@@ -105,12 +105,12 @@ static int InterpolateWaveform(REAL8Vector *freqs, COMPLEX16FrequencySeries *src
      * the phase wrapping around (e.g. TF2 1.4-1.4 srate=4096)
      */
     if (dpsi/df<-LAL_PI ) {dpsi+=LAL_TWOPI;}
-
+    
     double dpsidf = dpsi/df;
     double dampdf = (endamp - startamp)/df;
 
     double damp = dampdf *deltaF;
-
+    
     const double dim = sin(dpsidf*deltaF);
     const double dre = 2.0*sin(dpsidf*deltaF*0.5)*sin(dpsidf*deltaF*0.5);
 
@@ -119,9 +119,9 @@ static int InterpolateWaveform(REAL8Vector *freqs, COMPLEX16FrequencySeries *src
     for(f=j*deltaF,
 	re = cos(startpsi), im = sin(startpsi),
         a = startamp;
-
+        
         f<endf;
-
+        
         j++, f+=deltaF,
         newRe = re - dre*re-dim*im,
         newIm = im + re*dim-dre*im,
@@ -324,19 +324,6 @@ void LALInferenceROQWrapperForXLALSimInspiralChooseFDWaveformSequence(LALInferen
   {   /* Template is not aligned-spin only. */
       /* Set all the other spin components according to the angles we received above */
       /* The transformation function doesn't know fLow, so f_ref==0 isn't interpretted as a request to use the starting frequency for reference. */
-
-      /* For anti-aligned spins, use positive a_spin and tilt=pi. */
-      if (tilt1==0 && tilt2==0) {
-        if (a_spin1<0) {
-          tilt1=LAL_PI;
-          a_spin1=-a_spin1;
-        }
-        if (a_spin2<0) {
-          tilt2=LAL_PI;
-          a_spin2=-a_spin2;
-        }
-      }
-
       XLAL_TRY(ret=XLALSimInspiralTransformPrecessingNewInitialConditions(
                     &inclination, &spin1x, &spin1y, &spin1z, &spin2x, &spin2y, &spin2z,
                     thetaJN, phiJL, tilt1, tilt2, phi12, a_spin1, a_spin2, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, fTemp), errnum);
@@ -763,18 +750,6 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
       if(fTemp==0.0)
         fTemp = f_start;
 
-        /* For anti-aligned spins, use positive a_spin and tilt=pi. */
-        if (tilt1==0 && tilt2==0) {
-          if (a_spin1<0) {
-            tilt1=LAL_PI;
-            a_spin1=-a_spin1;
-          }
-          if (a_spin2<0) {
-            tilt2=LAL_PI;
-            a_spin2=-a_spin2;
-          }
-        }
-
       XLAL_TRY(ret=XLALSimInspiralTransformPrecessingNewInitialConditions(
                     &inclination, &spin1x, &spin1y, &spin1z, &spin2x, &spin2y, &spin2z,
                     thetaJN, phiJL, tilt1, tilt2, phi12, a_spin1, a_spin2, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, fTemp), errnum);
@@ -840,7 +815,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
             approximant,model->waveformCache, NULL), errnum);
 
 	XLALSimInspiralDestroyTestGRParam(nonGRparams);
-
+    
     /* if the waveform failed to generate, fill the buffer with zeros
      * so that the previous waveform is not left there
      */
@@ -1259,18 +1234,6 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveformPhaseInterpolated(LALInfer
         if(fTemp==0.0)
             fTemp = f_start;
 
-        /* For anti-aligned spins, use positive a_spin and tilt=pi. */
-        if (tilt1==0 && tilt2==0) {
-          if (a_spin1<0) {
-            tilt1=LAL_PI;
-            a_spin1=-a_spin1;
-          }
-          if (a_spin2<0) {
-            tilt2=LAL_PI;
-            a_spin2=-a_spin2;
-          }
-        }
-
         XLAL_TRY(ret=XLALSimInspiralTransformPrecessingNewInitialConditions(
                                                                             &inclination, &spin1x, &spin1y, &spin1z, &spin2x, &spin2y, &spin2z,
                                                                             thetaJN, phiJL, tilt1, tilt2, phi12, a_spin1, a_spin2, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, fTemp), errnum);
@@ -1373,8 +1336,8 @@ model->waveFlags(%d,%d,%d,%d,numreldata),nonGRparams,%d,%d,%d,model->waveformCac
             XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'hctilde'.\n");
             XLAL_ERROR_VOID(XLAL_EFAULT);
         }
-
-
+        
+        
         InterpolateWaveform(frequencies, hptilde, model->freqhPlus);
         InterpolateWaveform(frequencies, hctilde, model->freqhCross);
 
