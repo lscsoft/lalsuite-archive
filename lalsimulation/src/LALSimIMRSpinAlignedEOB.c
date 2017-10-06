@@ -2127,10 +2127,6 @@ for ( UINT4 k = 0; k<nModes; k++) {
             {
                 XLAL_ERROR (XLAL_EFUNC);
             }
-            for ( i=0; i<(INT4)sigReHi->length; i++) {
-                hLMAllHi->data[2*k*sigReHi->length + i] = sigReHi->data[i];
-                hLMAllHi->data[(1+2*k)*sigReHi->length + i] = sigImHi->data[i];
-            }
 #if debugOutput
             char filename[sizeof "saModesXXHiIMR.dat"];
             sprintf(filename,"saModes%01d%01dHiIMR.dat",modeL,modeM);
@@ -2142,6 +2138,11 @@ for ( UINT4 k = 0; k<nModes; k++) {
 #endif
 
         }
+        
+    }
+    for ( i=0; i<(INT4)sigReHi->length; i++) {
+        hLMAllHi->data[2*k*sigReHi->length + i] = sigReHi->data[i];
+        hLMAllHi->data[(1+2*k)*sigReHi->length + i] = sigImHi->data[i];
     }
 }
     
