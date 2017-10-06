@@ -121,7 +121,8 @@ noinst_HEADERS = \
 	LALSimInspiralPNCoefficients.c \
 	LALSimInspiraldEnergyFlux.c \
 	LALSimNeutronStarEOSPiecewisePolytrope.c \
-	LALSimNeutronStarEOSTabular.c
+	LALSimNeutronStarEOSTabular.c \
+	LALSimNRTunedTides.h
 
 lib_LTLIBRARIES = liblalsimulation.la
 liblalsimulation_la_SOURCES = \
@@ -137,12 +138,14 @@ liblalsimulation_la_SOURCES = \
 	LALSimIMRSEOBNRv2ROMDoubleSpin.c \
 	LALSimIMRSEOBNRv2ROMDoubleSpinHI.c \
 	LALSimIMRSEOBNRv2ChirpTime.c \
-  LALSimIMRSEOBNRv4ROM.c \
+	LALSimIMRSEOBNRv4ROM.c \
+	LALSimIMRSEOBNRv4ROM_NRTidal.c \
 	LALSimIMREOBNRv2HMROM.c \
-  LALSimIMRLackeyTidal2013.c \
+	LALSimIMRLackeyTidal2013.c \
 	LALSimIMRPhenom.c \
 	LALSimIMRPhenomC.c \
 	LALSimIMRPhenomD.c \
+	LALSimIMRPhenomD_NRTidal.c \
 	LALSimIMRPhenomP.c \
 	LALSimIMRPSpinInspiralRD.c \
 	LALSimPhenSpinRingDown.c \
@@ -179,6 +182,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimNeutronStarTOV.c \
 	LALSimNoisePSD.c \
 	LALSimNoise.c \
+	LALSimNRTunedTides.c \
 	LALSimReadData.c \
 	LALSimSGWB.c \
 	LALSimSGWBORF.c \

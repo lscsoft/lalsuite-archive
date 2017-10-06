@@ -1147,7 +1147,7 @@ class Posterior(object):
               print "Using non-precessing fit formula [Healy at al (2014)] for final mass and spin (on masses and projected spin components)."
               try:
                   pos.append_mapping('af', bbh_final_spin_non_precessing_Healyetal, ['m1', 'm2', 'a1z', 'a2z'])
-                  pos.append_mapping('mf', bbh_final_mass_non_precessing_Healyetal, ['m1', 'm2', 'a1z', 'a2z', 'af'])
+                  pos.append_mapping('mf', lambda m1, m2, chi1z, chi2z, chif: bbh_final_mass_non_precessing_Healyetal(m1, m2, chi1z, chi2z, chif=chif), ['m1', 'm2', 'a1z', 'a2z', 'af'])
               except Exception,e:
                   print "Could not calculate final parameters. The error was: %s"%(str(e))
           elif ('a1' in pos.names) and ('a2' in pos.names):
@@ -1162,7 +1162,7 @@ class Posterior(object):
                   print "Using non-precessing fit formula [Healy at al (2014)] for final mass and spin (on masses and spin magnitudes)."
                   try:
                       pos.append_mapping('af', bbh_final_spin_non_precessing_Healyetal, ['m1', 'm2', 'a1', 'a2'])
-                      pos.append_mapping('mf', bbh_final_mass_non_precessing_Healyetal, ['m1', 'm2', 'a1', 'a2', 'af'])
+                      pos.append_mapping('mf', lambda m1, m2, chi1, chi2, chif: bbh_final_mass_non_precessing_Healyetal(m1, m2, chi1, chi2, chif=chif), ['m1', 'm2', 'a1', 'a2', 'af'])
                   except Exception,e:
                       print "Could not calculate final parameters. The error was: %s"%(str(e))
           else:
@@ -5595,8 +5595,8 @@ def find_ndownsample(samples, nDownsample):
     if nDownsample is None:
         print "Max ACL(s):"
         splineParams=["spcal_npts", "spcal_active","constantcal_active"]
-        for i in np.arange(5):
-          for k in ['h1','l1']:
+        for i in np.arange(25):
+          for k in ['h1','l1','v1','i1','k1']:
             splineParams.append(k+'_spcal_freq_'+str(i))
             splineParams.append(k+'_spcal_logfreq_'+str(i))
 
@@ -5622,13 +5622,12 @@ def find_ndownsample(samples, nDownsample):
     nskip = 1
     if nDownsample is not None:
         if len(samples) > nDownsample:
-            nskip *= floor(len(samples)/nDownsample)
-
+            nskip *= int(floor(len(samples)/nDownsample))
     else:
         nEff = nEffective
         if nEff > 1:
             if len(samples) > nEff:
-                nskip = ceil(len(samples)/nEff)
+                nskip = int(ceil(len(samples)/nEff))
         else:
             nskip = np.nan
     return nskip
@@ -5854,7 +5853,7 @@ class PEOutputParser(object):
                     try:
                         splineParams=["spcal_npts", "spcal_active","constantcal_active"]
                         for i in np.arange(5):
-                          for k in ['h1','l1']:
+                          for k in ['h1','l1','v1','i1','k1']:
                             splineParams.append(k+'_spcal_freq'+str(i))
                             splineParams.append(k+'_spcal_logfreq'+str(i))
 
@@ -5888,15 +5887,14 @@ class PEOutputParser(object):
         ntot = sum(ntots)
         if nDownsample is not None:
             if ntot > nDownsample:
-                nskips *= floor(ntot/nDownsample)
-
+                nskips *= int(floor(ntot/nDownsample))
         else:
             for i in range(nfiles):
                 nEff = nEffectives[i]
                 ntot = ntots[i]
                 if nEff > 1:
                     if ntot > nEff:
-                        nskips[i] = ceil(ntot/nEff)
+                        nskips[i] = int(ceil(ntot/nEff))
                 else:
                     nskips[i] = None
         return nskips
@@ -7081,6 +7079,8 @@ def plot_calibration_pos(pos, level=.9, outpath=None):
         if ifo=='h1': color = 'r'
         elif ifo=='l1': color = 'g'
         elif ifo=='v1': color = 'm'
+        elif ifo=='k1': color = 'b'
+        elif ifo=='i1': color = 'y'
         else: color = 'c'
 
         # Assume spline control frequencies are constant

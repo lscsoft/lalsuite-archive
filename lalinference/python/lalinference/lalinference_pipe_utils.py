@@ -132,7 +132,7 @@ def readLValert(threshold_snr=None,gid=None,flow=40.0,gracedb="gracedb",basepath
         srate.append(pow(2.0, ceil( log(float(strlen.splitlines()[1].split()[5]), 2) ) ) * 2 )
       snr = e.snr
       eff_dist = e.eff_distance
-      if threshold_snr is not None:
+      if threshold_snr is not None and eff_dist is not None:
           if snr > threshold_snr:
               horizon_distance.append(eff_dist * snr/threshold_snr)
           else:
@@ -1502,16 +1502,20 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       node.set_psdlength(bw_seglen)
     if self.config.has_option('input','psd-length'):
       node.set_psdlength(self.config.getint('input','psd-length'))
+      prenode.set_psdlength(self.config.getint('input','psd-length'))
       if self.config.has_option('condor','bayeswave') and bayeswavepsdnode:
          for ifo in ifos:
            bayeswavepsdnode[ifo].set_psdlength(self.config.getint('input','psd-length'))
     if self.config.has_option('input','psd-start-time'):
       node.set_psdstart(self.config.getfloat('input','psd-start-time'))
+      prenode.set_psdstart(self.config.getfloat('input','psd-start-time'))
       if self.config.has_option('condor','bayeswave') and bayeswavepsdnode:
          for ifo in ifos:
            bayeswavepsdnode[ifo].set_psdstart(self.config.getfloat('input','psd-start-time'))
     node.set_max_psdlength(self.config.getint('input','max-psd-length'))
+    prenode.set_max_psdlength(self.config.getint('input','max-psd-length'))
     node.set_padding(self.config.getint('input','padding'))
+    prenode.set_padding(self.config.getint('input','padding'))
     if self.config.has_option('condor','bayeswave') and bayeswavepsdnode:
          for ifo in ifos:
            bayeswavepsdnode[ifo].set_max_psdlength(self.config.getint('input','max-psd-length'))
@@ -1763,7 +1767,7 @@ class EngineJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
       self.add_condor_cmd('request_cpus',self.machine_count)
       self.add_condor_cmd('request_memory',str(float(self.machine_count)*float(self.machine_memory)))
     if self.engine=='lalinferencenest':
-      self.add_condor_cmd('request_memory','2048')
+      self.add_condor_cmd('request_memory','4000') # 4GB RAM for high SNR BNS
     if cp.has_section(self.engine):
       if not ispreengine:
         self.add_ini_opts(cp,self.engine)
@@ -2474,7 +2478,7 @@ class ROMJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
     self.add_condor_cmd('getenv','True')
     self.add_arg('-B '+str(cp.get('paths','roq_b_matrix_directory')))
     if cp.has_option('engine','dt'):
-      dt=cp.get('engine','dt')
+      dt=cp.getfloat('engine','dt')
     self.add_arg('-t '+str(dt))
     if cp.has_option('engine','time_step'):
       time_step=cp.get('engine','time_step')
