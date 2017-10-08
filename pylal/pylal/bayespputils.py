@@ -4545,8 +4545,7 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
       zvalues.append(densort[ilevel])
     # following code gives error when zvalues are descending order, so change to ascending order
     # added by hwlee at 9 Sep. 2017
-    if zvalues[0] > zvalues[1] :
-      zvalues = zvalues[::-1]
+    zvalues.sort()
     CS=plt.contour(x, y, z, zvalues,colors=[colors_by_name[name]],linestyles=line_styles )
     CSlst.append(CS)
 
