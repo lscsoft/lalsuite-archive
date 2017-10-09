@@ -51,6 +51,8 @@ int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       
                                         const REAL8 chi2z,
                                         const REAL8 f_low,
                                         const REAL8 f_ref,
+					const REAL8 f_window_div_f_Peak,     /** Frequency at which to attach non-GR and GR waveforms, inputted as a fraction of f_Peak (should be between 0 and 1) */
+					const REAL8 NCyclesStep,                /** Number of GW cycles over which to taper the non-GR phase correction */
                                         const LALSimInspiralTestGRParam *pnCorrections    /**< input linked list of testing gr parameters */
 					)
 {
@@ -76,7 +78,7 @@ int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       
   INT4 iStart, iEnd;
   /* Fill with non-zero vals from f0 to fEnd */
   iStart = (UINT4) ceil((f_low-f0) / deltaF);
-  iEnd  = (UINT4) ceil(fPeak / deltaF);
+  iEnd  = (UINT4) ceil(f_window_div_f_Peak * fPeak / deltaF);
   //    printf("fPeak %.16e\n", fPeak);
   /* Sequence of frequencies where corrections to the model need to be evaluated */
   REAL8Sequence *freqs =NULL;
@@ -90,7 +92,7 @@ int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       
   const REAL8 qm_def1 = 1.;
   const REAL8 qm_def2 = 1.;
   XLALSimInspiralPNCorrections(&pfa, m1, m2, chi1z, chi2z, chi1z*chi1z, chi2z*chi2z, chi1z*chi2z, qm_def1, qm_def2, pnCorrections);
-  XLALSimInspiralPhaseCorrectionsPhasing(htilde,distance,freqs,iStart,iEnd,pfa,m_sec, eta,f_ref);
+  XLALSimInspiralPhaseCorrectionsPhasing(htilde,distance,freqs,iStart,iEnd,pfa,m_sec, eta,f_ref, NCyclesStep);
   XLALDestroyREAL8Sequence(freqs);
   return 0;
 }
@@ -131,8 +133,8 @@ void XLALSimInspiralPNCorrections(PNPhasingSeries *pfa,
     /* Non-spinning corrections to phasing terms - see arXiv:0907.0700, Eq. 3.18 */
     if (XLALSimInspiralTestGRParamExists(pnCorrections,"dchi0")) pfa->v[0] = XLALSimInspiralGetTestGRParam(pnCorrections,"dchi0");
     if (XLALSimInspiralTestGRParamExists(pnCorrections,"dchi1")) pfa->v[1] = XLALSimInspiralGetTestGRParam(pnCorrections,"dchi1");
-    if (XLALSimInspiralTestGRParamExists(pnCorrections,"dchiMinus1")) pfa->vneg[1] = XLALSimInspiralGetTestGRParam(pnCorrections,"dchiMinus1"); //Added by Noah
-    if (XLALSimInspiralTestGRParamExists(pnCorrections,"dchiMinus2")) pfa->vneg[2] = XLALSimInspiralGetTestGRParam(pnCorrections,"dchiMinus2"); //Added by Noah
+    if (XLALSimInspiralTestGRParamExists(pnCorrections,"dchiMinus1")) pfa->vneg[1] = XLALSimInspiralGetTestGRParam(pnCorrections,"dchiMinus1"); 
+    if (XLALSimInspiralTestGRParamExists(pnCorrections,"dchiMinus2")) pfa->vneg[2] = XLALSimInspiralGetTestGRParam(pnCorrections,"dchiMinus2"); 
     
     if (XLALSimInspiralTestGRParamExists(pnCorrections,"dchi2"))
     {
@@ -197,7 +199,7 @@ void XLALSimInspiralPNCorrections(PNPhasingSeries *pfa,
         pfa->v[ii] *= pfaN;
         pfa->vlogv[ii] *= pfaN;
         pfa->vlogvsq[ii] *= pfaN;
-	pfa->vneg[ii] *= pfaN;  //Added by Noah
+	pfa->vneg[ii] *= pfaN;  
     }
 }
 
@@ -209,7 +211,8 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
                                            PNPhasingSeries pfa,
                                            const REAL8 mtot,
                                            const REAL8 eta,
-                                           UNUSED const REAL8 f_ref) /** this must be in seconds **/
+                                           UNUSED const REAL8 f_ref, /** this must be in seconds **/
+					   const REAL8 NCyclesStep)  /** Choose number of GW cycles over which to taper the non-GR phase correction */
 {
   UINT4 i;
   REAL8Sequence *phase = NULL, *uphase = NULL, *d2phidf2 = NULL;
@@ -264,6 +267,9 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
   const REAL8 pfa2 = pfa.v[2];
   const REAL8 pfa1 = pfa.v[1];
   const REAL8 pfaN = pfa.v[0];
+  const REAL8 pfaMinus1 = pfa.vneg[1];
+  const REAL8 pfaMinus2 = pfa.vneg[2];
+
     
   /* Compute the SPA phase at the reference point
    * N.B. f_ref == 0 means we define the reference time/phase at "coalescence"
@@ -275,10 +281,10 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
   REAL8 ref_phasing = 0.;
     
 
-  const REAL8 vPeak = cbrt(piM*freqs->data[iEnd]); //Center of the tapering step function in v-space
-  const INT4 NCyclesStep = 1; //Choose no. of GW cycles over which to taper the non-GR phase correction
-  const REAL8 width = (NCyclesStep*LAL_PI*vPeak*vPeak*vPeak*vPeak*vPeak*vPeak)/(50.* pfaN0);
-  //    printf("vPeak %.16e width %.16e\n",vPeak,width);
+  const REAL8 vWindow = cbrt(piM*freqs->data[iEnd]); //Center of the tapering step function in v-space
+
+  const REAL8 width = (NCyclesStep*LAL_PI*vWindow*vWindow*vWindow*vWindow*vWindow*vWindow)/(50.* pfaN0);
+
   REAL8Sequence *phasenonGR = NULL, *d2phinonGRdf2 = NULL;
   phasenonGR = XLALCreateREAL8Sequence( (UINT4) freqs->length );
   d2phinonGRdf2 = XLALCreateREAL8Sequence( (UINT4) freqs->length );
@@ -305,6 +311,8 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
 	  phasing += pfa2 * v2;
 	  phasing += pfa1 * v;
 	  phasing += pfaN;
+	  phasing += pfaMinus1 / v;
+	  phasing += pfaMinus2 /v2;
 	  phasing /= v5;
             
 	  phasenonGR->data[i] = -phasing;
@@ -319,7 +327,7 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
   REAL8Sequence *d2phaseTotdf2 = NULL;
   d2phaseTotdf2 = XLALCreateREAL8Sequence( (UINT4) freqs->length );
   for ( i = 0; i < freqs->length; i++ )
-    d2phaseTotdf2->data[i] = d2phidf2->data[i] + d2phinonGRdf2->data[i] / (1. + exp( (cbrt(piM*freqs->data[i]) - vPeak) / width ) );
+    d2phaseTotdf2->data[i] = d2phidf2->data[i] + d2phinonGRdf2->data[i] / (1. + exp( (cbrt(piM*freqs->data[i]) - vWindow) / width ) );
     
   REAL8 dphaseTotGRIni = gsl_spline_eval_deriv(splineGR, freqs->data[iStart], acc) + gsl_spline_eval_deriv(splinenonGR, freqs->data[iStart], acc);
   REAL8 phaseTotIni = uphase->data[iStart] + phasenonGR->data[iStart];
@@ -437,7 +445,7 @@ int XLALSimInspiralPhaseCorrectionsPhasingWithDS(COMPLEX16FrequencySeries *htild
                                            const REAL8 mtot,
                                            const REAL8 eta,
 					   UNUSED const REAL8 f_ref, /** this must be in seconds **/
-					   const REAL8 f_DS,      //Frequency in which dynamical scalarization turns on
+					   const REAL8 f_DS,  /** Frequency in which dynamical scalarization turns on */
 					   const REAL8 width_DS)
 {
     UINT4 i;
@@ -543,8 +551,8 @@ int XLALSimInspiralPhaseCorrectionsPhasingWithDS(COMPLEX16FrequencySeries *htild
             phasing += pfa2 * v2;
             phasing += pfa1 * v;
             phasing += pfaN;
-	    phasing += pfaMinus1 / v;   //Added by Noah
-	    phasing += pfaMinus2 /v2;   //Added by Noah
+	    phasing += pfaMinus1 / v;
+	    phasing += pfaMinus2 /v2;
             phasing /= v5;
             
             phasenonGR->data[i] = -phasing;
