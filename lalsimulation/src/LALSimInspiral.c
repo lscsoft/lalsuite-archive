@@ -4737,8 +4737,6 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
     case SpinDominatedWf:
     case NumApproximants:
     case NR_hdf5:
-      testGR_accept=LAL_SIM_INSPIRAL_TESTGR_PARAMS;
-      break;
     case TaylorF2:
     case SpinTaylorF2:
     case EccentricFD:
@@ -4751,7 +4749,6 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
     case SEOBNRv2_ROM_EffectiveSpin:
     case SEOBNRv2_ROM_DoubleSpin:
     case SEOBNRv2_ROM_DoubleSpin_HI:
-    case SEOBNRv4_ROM:
     case SEOBNRv3FD:
     case IMRPhenomC:
     case IMRPhenomD:

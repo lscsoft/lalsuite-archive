@@ -613,6 +613,8 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
   INT4 order=-1;
   INT4 amporder;
 
+  INT4 generic_fd_correction;
+    
   static int sizeWarning = 0;
   int ret=0;
   INT4 errnum=0;
@@ -651,7 +653,13 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
     amporder = *(INT4*) LALInferenceGetVariable(model->params, "LAL_AMPORDER");
   else
     amporder = -1;
-
+    
+  /* Check if the user requested a generic testing GR phase correction */
+  if (LALInferenceCheckVariable(model->params, "generic_fd_correction"))
+    generic_fd_correction = *(INT4*) LALInferenceGetVariable(model->params, "generic_fd_correction");
+  else
+    generic_fd_correction = 0;
+    
   REAL8 f_ref = 100.0;
   if (LALInferenceCheckVariable(model->params, "f_ref")) f_ref = *(REAL8 *)LALInferenceGetVariable(model->params, "f_ref");
 
@@ -778,8 +786,6 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
     LALInferenceLambdaTsEta2Lambdas(lambdaT,dLambdaT,sym_mass_ratio_eta,&lambda1,&lambda2);
   }
 
-
-  /* Only use GR templates */
   LALSimInspiralTestGRParam *nonGRparams = NULL;
 
   /* Fill in the extra parameters for testing GR, if necessary */
@@ -810,15 +816,34 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
   /* ==== Call the waveform generator ==== */
   if(model->domain == LAL_SIM_DOMAIN_FREQUENCY) {
     deltaF = model->deltaF;
-
-	XLAL_TRY(ret=XLALSimInspiralChooseFDWaveformFromCache(&hptilde, &hctilde, phi0,
-            deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
-            spin2x, spin2y, spin2z, f_start, f_max, f_ref, distance, inclination,lambda1, lambda2, model->waveFlags, NULL, amporder, order,
-            approximant,model->waveformCache, NULL), errnum);
     
-    /* apply the generic PN corrections to \tilde{h}_+ and \tilde{h}_x */
-    XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(hptilde,distance,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI, spin1z, spin2z, f_start, f_ref, nonGRparams), errnum);
-    XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(hctilde,distance,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI, spin1z, spin2z, f_start, f_ref, nonGRparams), errnum);
+    /* check if the user requested a generic phase correction */
+    if (generic_fd_correction == 1)
+    {
+        XLAL_TRY(ret=XLALSimInspiralChooseFDWaveformFromCache(&hptilde, &hctilde, phi0,
+                deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
+                spin2x, spin2y, spin2z, f_start, f_max, f_ref, distance, inclination,lambda1, lambda2, model->waveFlags, NULL, amporder, order,
+                approximant,model->waveformCache, NULL), errnum);
+      
+        /* apply the generic PN corrections to \tilde{h}_+ and \tilde{h}_x */
+
+        REAL8 correction_window = 1.;
+        if(LALInferenceCheckVariable(model->params, "correction_window")) correction_window = *(REAL8*) LALInferenceGetVariable(model->params, "correction_window");
+        REAL8 correction_ncycles_taper = 3.;
+        if(LALInferenceCheckVariable(model->params, "correction_ncycles_taper")) correction_ncycles_taper = *(REAL8*) LALInferenceGetVariable(model->params, "correction_ncycles_taper");
+        
+        if(LALInferenceCheckVariable(model->params, "generic_fd_correction")) generic_fd_correction = *(INT4*) LALInferenceGetVariable(model->params, "generic_fd_correction");
+
+            XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(hptilde,distance,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI, spin1z, spin2z, f_start, f_ref, correction_window, correction_ncycles_taper, nonGRparams), errnum);
+            XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(hctilde,distance,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI, spin1z, spin2z, f_start, f_ref, correction_window, correction_ncycles_taper, nonGRparams), errnum);
+    }
+    else
+    {
+        XLAL_TRY(ret=XLALSimInspiralChooseFDWaveformFromCache(&hptilde, &hctilde, phi0,
+                                                                deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
+                                                                spin2x, spin2y, spin2z, f_start, f_max, f_ref, distance, inclination,lambda1, lambda2, model->waveFlags, nonGRparams, amporder, order,
+                                                                  approximant,model->waveformCache, NULL), errnum);
+    }
 	XLALSimInspiralDestroyTestGRParam(nonGRparams);
      
     /* if the waveform failed to generate, fill the buffer with zeros
@@ -879,13 +904,11 @@ model->waveFlags(%d,%d,%d,%d,numreldata),nonGRparams,%d,%d,%d,model->waveformCac
     XLAL_TRY(ret=XLALSimInspiralChooseTDWaveformFromCache(&hplus, &hcross, phi0, deltaT,
             m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
             spin2x, spin2y, spin2z, f_start, f_ref, distance,
-            inclination, lambda1, lambda2, model->waveFlags, NULL,
+            inclination, lambda1, lambda2, model->waveFlags, nonGRparams,
             amporder, order, approximant,model->waveformCache), errnum);
 
-    /* apply the generic PN corrections to \tilde{h}_+ and \tilde{h}_x */
-    XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(model->freqhPlus,distance,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI, spin1z, spin2z, f_start, f_ref, nonGRparams), errnum);
-    XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(model->freqhCross,distance,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI, spin1z, spin2z, f_start, f_ref, nonGRparams), errnum);
-	XLALSimInspiralDestroyTestGRParam(nonGRparams);
+    XLALSimInspiralDestroyTestGRParam(nonGRparams);
+
     /* if the waveform failed to generate, fill the buffer with zeros
      * so that the previous waveform is not left there
      */
@@ -931,7 +954,7 @@ model->waveFlags(%d,%d,%d,%d,numreldata),nonGRparams,%d,%d,%d,model->waveformCac
        the start/end of the buffer, since real templates are not
        periodic!
 
-       3) If the template apporaches the ends of the timeModel buffer,
+       3) If the template approaches the ends of the timeModel buffer,
        then it should be tapered in the same way as the timeData
        (currently 0.4 seconds, hard-coded! Tukey window; see
        LALInferenceReadData.c, near line 233) so that template and
