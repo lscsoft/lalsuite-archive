@@ -746,7 +746,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
     (--nonGR_alpha value) this is a LIV parameter which should only be passed when log10lambda_eff/lambda_eff is passed as a grtest-parameter for LIV test\n\
     (--LIV_A_sign) this is a LIV parameter determining if +A or -A is being tested; A occurs in the modified dispersion relation. LIV_A_sign has to be either +1 or -1 \n\
     (--grtest-parameters dchi0,..,dxi1,..,dalpha1,..,log10lambda_eff or lambda_eff,..,dipolecoeff) template will assume deformations in the corresponding phase coefficients; log10lambda_eff/lambda_eff are LIV parameters and will add a deformation to the total phase; use of dipolecoeff will assume a generic testing coefficient at -1PN phase order in the inspiral.\n\
-    (--generic-fd-correction) enables the generic frequency domain corrections to the template phas. \n\
+    (--generic-fd-correction) enables the generic frequency domain corrections to the template phase. \n\
     (--generic-fd-correction-window) sets the fraction of the peak frequency up to which the generic phase corrections are applied (default=1). \n\
     (--generic-fd-correction-ncycles) sets the number of  cycles for the tapering of the generic phase corrections (default=1). \n\
     (--ppe-parameters aPPE1,....     template will assume the presence of an arbitrary number of PPE parameters. They must be paired correctly.\n\
@@ -2115,7 +2115,7 @@ static void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenc
     
     INT4 generic_fd_correction = 0;
     REAL8 correction_window = 1.0;
-    REAL8 correction_ncycles_taper = 3.0;
+    REAL8 correction_ncycles_taper = 1.0;
     /* check that the user does not request both a TaylorF2Test and a PPE waveform model */
     if (LALInferenceGetProcParamVal(commandLine,"--grtest-parameters") && LALInferenceGetProcParamVal(commandLine,"--ppe-parameters"))
     {

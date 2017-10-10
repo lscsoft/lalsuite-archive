@@ -70,9 +70,9 @@ static void q2masses(double mc, double q, double *m1, double *m2);
 
 /* list of testing GR parameters to be passed to the waveform */
 
-const char list_extra_parameters[39][16] = {"dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep","dxi1","dxi2","dxi3","dxi4","dxi5","dxi6","dalpha1","dalpha2","dalpha3","dalpha4","dalpha5","dbeta1","dbeta2","dbeta3","dsigma1","dsigma2","dsigma3","dsigma4","log10lambda_eff","lambda_eff","nonGR_alpha","LIV_A_sign","dipolecoeff"};
+const char list_extra_parameters[41][16] = {"dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep","dxi1","dxi2","dxi3","dxi4","dxi5","dxi6","dalpha1","dalpha2","dalpha3","dalpha4","dalpha5","dbeta1","dbeta2","dbeta3","dsigma1","dsigma2","dsigma3","dsigma4","log10lambda_eff","lambda_eff","nonGR_alpha","LIV_A_sign","dipolecoeff","dchiMinus1","dchiMinus2"};
 
-const UINT4 N_extra_params = 39;
+const UINT4 N_extra_params = 41;
 
 
 static int InterpolateWaveform(REAL8Vector *freqs, COMPLEX16FrequencySeries *src, COMPLEX16FrequencySeries *dest);
@@ -829,7 +829,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
 
         REAL8 correction_window = 1.;
         if(LALInferenceCheckVariable(model->params, "correction_window")) correction_window = *(REAL8*) LALInferenceGetVariable(model->params, "correction_window");
-        REAL8 correction_ncycles_taper = 3.;
+        REAL8 correction_ncycles_taper = 1.;
         if(LALInferenceCheckVariable(model->params, "correction_ncycles_taper")) correction_ncycles_taper = *(REAL8*) LALInferenceGetVariable(model->params, "correction_ncycles_taper");
         
         if(LALInferenceCheckVariable(model->params, "generic_fd_correction")) generic_fd_correction = *(INT4*) LALInferenceGetVariable(model->params, "generic_fd_correction");
