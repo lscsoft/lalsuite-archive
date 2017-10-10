@@ -68,8 +68,10 @@ int XLALSimInspiralTestingGRCorrectionsWithDS(COMPLEX16FrequencySeries *htilde, 
                                         const REAL8 chi2z,
                                         const REAL8 f_low,
                                         const REAL8 f_ref,
-					const REAL8 f_DS,
-					const REAL8 width_DS, 
+					const REAL8 f_window_div_f_Peak,     /** Frequency at which to attach non-GR to GR waveforms, inputted as a fraction of f_Peak (should be between 0 and 1) */
+					const REAL8 NCyclesStep,             /** Number of GW cycles over which to taper the non-GR phase correction to GR waveform */
+					const REAL8 f_DS,                    /** Frequency at which to attach GR to non-GR waveforms, inputted in Hz */
+					const REAL8 NCyclesDS,               /** Number of GW cycles over which to taper the GR waveform to non-GR phase corrections */                 
                                         const LALSimInspiralTestGRParam *pnCorrections    /**< input linked list of testing gr parameters */
 );
 
@@ -82,9 +84,9 @@ int XLALSimInspiralPhaseCorrectionsPhasingWithDS(COMPLEX16FrequencySeries *htild
                                            const REAL8 mtot,
                                            const REAL8 eta,
 			  		   const REAL8 f_ref, /** this must be in seconds **/
-					   const REAL8 f_DS,      //Frequency at which dynamical scalarization turns on
-					   const REAL8 width_DS);
-
+					   const REAL8 NCyclesStep, /** Choose number of GW cycles over which to taper the non-GR phase correction */
+					   const REAL8 f_DS,  /** Frequency in which dynamical scalarization turns on */
+					   const REAL8 NCyclesDS); /** Choose number of GW cycles over which to taper the GR phase correction */
 
 #if 0
 { /* so that editors will match succeeding brace */
