@@ -111,7 +111,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %changelog
 * Tue Jun 13 2017 Ryan Fisher <rpfisher@syr.edu>
-- Mid O2 release to include M2Crypto removal and Kipp packaging changes. 
+- Mid O2 release to include M2Crypto removal and Kipp packaging changes.
 
 * Thu Apr 13 2017 Duncan Macleod <duncan.macleod@ligo.org>
 - Switched dependency from M2Crypto -> pyOpenSSL.
