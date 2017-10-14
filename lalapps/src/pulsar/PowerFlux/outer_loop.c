@@ -118,7 +118,7 @@ if(w1->weight>w2->weight)return 1;
 return 0;
 }
 
-/* instead of having per-skypatch 
+/* instead of having per-skypatch
 
  we simply discard a SFTs which contribute less than a certain fraction of weight in each dataset */
 void assign_cutoff_veto(void)
@@ -207,7 +207,7 @@ for(k=0;k<d_free;k++) {
 	//fprintf(stderr, "%d %d\n", m, nsegments);
 	qsort(w, m, sizeof(*w), weight_cmp);
 	//fprintf(stderr, "%g %g %g ... %g %g %g\n", w[0].weight, w[1].weight, w[2].weight, w[m-3].weight, w[m-2].weight, w[m-1].weight);accum_weight=0;
-	
+
 	accum_weight=0;
 	for(i=0;i<m;i++) {
 		accum_weight+=w[i].weight;
@@ -272,7 +272,7 @@ ei->band_valid_count[skyband]++;
 
 /* Note: approximation - we only update MAX and MIN for highest_ul and highest_snr, not all freq_shifts as is for non-diverted templates */
 /* This introduces a possible non-repeatability in multi-threaded execution affecting secondary quantities like max_m4 */
-	
+
 #define RUPDATE_MAX(target, field) {\
 	if(de->pstats_ul.field>target.field) { \
 		target.field=de->pstats_ul.field;\
@@ -314,7 +314,7 @@ if(ei->band_info[skyband].max_weight<0) {
 		}
 
 		/* highest_ks fields are not updated by this code */
-		
+
 // 	if(pstats->highest_ks.ks_value>ei->band_info[skyband].highest_ks.ks_value) {
 // 		RFILL_POINT_STATS(ei->band_info[skyband].highest_ks, pstats->highest_ks);
 // 		}
@@ -357,7 +357,7 @@ if(ei->snr_skymap!=NULL && (de->pstats_snr.highest_snr.snr>ei->snr_skymap[pi])) 
 // FILL_SKYMAP(max_weight_skymap, pstats_accum.max_weight);
 // FILL_SKYMAP(min_weight_skymap, pstats_accum.min_weight);
 // FILL_SKYMAP(weight_loss_fraction_skymap, pstats_accum.max_weight_loss_fraction);
-// 
+//
 // FILL_SKYMAP(ks_skymap, pstats_accum.highest_ks.ks_value);
 }
 
@@ -380,9 +380,9 @@ for(i=0;i<divert_buffer_free;i++) {
 		j++;
 		continue;
 		}
-	
+
 	replay_diverted_entry(&(divert_buffer[i]), ei[divert_buffer[i].ei_idx]);
-	
+
 	}
 divert_buffer_free=j;
 }
@@ -415,23 +415,23 @@ average_S/=count;
 if(total_diverted_count<args_info.divert_count_limit_arg && (DIVERT_LOG!=NULL)) {
 	for(i=0;i<count;i++) {
 		if(diverted[i])continue;
-		
+
 		tp=&(tmp_pstat[i]);
-		
+
 		if(tp->max_weight_loss_fraction>=1) {
 			continue;
 			}
-		
+
 		if(args_info.divert_snr_arg>0 && (tp->highest_snr.snr>args_info.divert_snr_arg)) {
-			
+
 			/* divert all frequencies in the template */
 			i_start=fshift_count*(i/fshift_count);
 			for(j=0;j<fshift_count;j++)
 				diverted[i_start+j]|=DIVERT_TEMPLATE_MARKED;
-			
+
 			continue;
 			}
-			
+
 		}
 	}
 
@@ -439,30 +439,30 @@ if(total_diverted_count<args_info.divert_count_limit_arg && (DIVERT_LOG!=NULL)) 
 if(((ei->last_chunk-ei->first_chunk+1)==args_info.nchunks_arg) && ((ei->veto_num==-1) || ((veto_free<=1) && args_info.split_ifos_arg)) && (DIVERT_LOG!=NULL))
 for(i=0;i<count;i++) {
 	if(diverted[i])continue;
-	
+
 	tp=&(tmp_pstat[i]);
-	
+
 	if(tp->max_weight_loss_fraction>=1) {
 		continue;
-		}	
-	
+		}
+
 	if(((args_info.divert_ul_arg>0 && (tp->highest_ul.ul>args_info.divert_ul_arg)) ||
-	(args_info.divert_ul_rel_arg>0 && (tp->highest_ul.ul>args_info.divert_ul_rel_arg*average_S))) && 
+	(args_info.divert_ul_rel_arg>0 && (tp->highest_ul.ul>args_info.divert_ul_rel_arg*average_S))) &&
 		(tp->highest_ul.ul>divert_buffer_ul_threshold)
 		) {
-				
+
 		/* divert all frequencies in the template */
 		i_start=fshift_count*(i/fshift_count);
 		for(j=0;j<fshift_count;j++)
 			diverted[i_start+j]|=DIVERT_TEMPLATE_MARKED_UL;
 		}
 	}
-	
-	
+
+
 thread_mutex_lock(&(ei->mutex));
 for(i=0;i<count;i++) {
 	skyband=ps[0][i].skyband;
-	
+
 	if(diverted[i] & DIVERT_TEMPLATE_MARKED) {
 		ei->band_diverted_count[skyband]++;
 		continue;
@@ -471,9 +471,9 @@ for(i=0;i<count;i++) {
 	if((ei->last_chunk-ei->first_chunk+1==args_info.nchunks_arg) && ((ei->veto_num==-1) || ((veto_free<=1) && args_info.split_ifos_arg)) && (diverted[i] & DIVERT_TEMPLATE_MARKED_UL)) {
 		continue;
 		}
-		
+
 	memcpy(&pstats, &(tmp_pstat[i]), sizeof(POWER_SUM_STATS));
-	
+
 	if(pstats.max_weight_loss_fraction>=1) {
 		ei->band_masked_count[skyband]++;
 		continue;
@@ -521,21 +521,21 @@ for(i=0;i<count;i++) {
 		if(pstats.highest_ul.ul>ei->band_info[skyband].highest_ul.ul) {
 			FILL_POINT_STATS(ei->band_info[skyband].highest_ul, pstats.highest_ul);
 			}
-	
+
 		if(pstats.highest_circ_ul.ul>ei->band_info[skyband].highest_circ_ul.ul) {
 			FILL_POINT_STATS(ei->band_info[skyband].highest_circ_ul, pstats.highest_circ_ul);
 			}
-	
+
 		if(pstats.highest_snr.snr>ei->band_info[skyband].highest_snr.snr) {
 			FILL_POINT_STATS(ei->band_info[skyband].highest_snr, pstats.highest_snr);
 			}
-	
+
 		if(pstats.highest_ks.ks_value>ei->band_info[skyband].highest_ks.ks_value) {
 			FILL_POINT_STATS(ei->band_info[skyband].highest_ks, pstats.highest_ks);
 			}
-	
+
 		UPDATE_MAX(ei->band_info[skyband], avg_ul);
-		
+
 		UPDATE_MAX(ei->band_info[skyband], max_weight);
 		UPDATE_MIN(ei->band_info[skyband], min_weight);
 		UPDATE_MAX(ei->band_info[skyband], max_weight_loss_fraction);
@@ -578,7 +578,7 @@ for(i=0;i<count;i++) {
 		}
 
 	UPDATE_MAX(pstats_accum, avg_ul);
-	
+
 	UPDATE_MAX(pstats_accum, max_weight);
 	UPDATE_MIN(pstats_accum, min_weight);
 	UPDATE_MAX(pstats_accum, max_weight_loss_fraction);
@@ -604,47 +604,47 @@ if(write_diverted_log_header) {
 for(i=0;i<count;i+=fshift_count) {
 	if((diverted[i] & DIVERT_TEMPLATE_WRITTEN))continue;
 	if(!(diverted[i] & (DIVERT_TEMPLATE_MARKED|DIVERT_TEMPLATE_MARKED_UL)))continue;
-	
+
 	fprintf(stderr, "diverted[%d]=%08x\n", i, diverted[i]);
-	
+
 	tp=&(tmp_pstat[i]);
-	
+
 	ti.skyband=ps[0][i].skyband;
-	
+
 	ti.snr=tp->highest_snr.snr;
 	ti.snr_subbin=tp->highest_snr.bin*fshift_count;
 	highest_snr_j=0;
-	
+
 	for(j=1;j<fshift_count;j++)
 		if(ti.snr<tp[j].highest_snr.snr) {
 			ti.snr=tp[j].highest_snr.snr;
 			ti.snr_subbin=tp[j].highest_snr.bin*fshift_count+j;
 			highest_snr_j=j;
 			}
-			
+
 	ti.ul=tp->highest_ul.ul;
 	ti.circ_ul=tp->highest_circ_ul.ul;
-	
+
 	ti.freq_modulation_freq=ps[0][i].freq_modulation_freq;
 	ti.freq_modulation_phase=ps[0][i].freq_modulation_phase;
 	ti.freq_modulation_depth=ps[0][i].freq_modulation_depth;
-	
+
 	ti.spindown=ps[0][i].spindown;
 	ti.fdotdot=ps[0][i].fdotdot;
 	ti.ra=ps[0][i].ra;
 	ti.dec=ps[0][i].dec;
-	
-	/* This just shows the start of the band to analyze 
+
+	/* This just shows the start of the band to analyze
 	 * The actual frequency where the maximum is achieved can be different for SNR and UL.
 	 */
 	/* ti.frequency=(double)ps[0][i].freq_shift+ti.first_bin/args_info.sft_coherence_time_arg; */
-	
+
 	ti.first_chunk=ei->first_chunk;
 	ti.last_chunk=ei->last_chunk;
 	ti.veto_num=ei->veto_num;
-	
+
 	ti.pi=pi;
-	
+
 
 	if(diverted[i]==DIVERT_TEMPLATE_MARKED_UL) {
 		highest_ul_j=0;
@@ -659,13 +659,13 @@ for(i=0;i<count;i+=fshift_count) {
 				highest_circ_ul_j=j;
 				}
 			}
-	
-		
-		
+
+
+
 		thread_mutex_lock(&divert_buffer_mutex);
-		
+
 		if(divert_buffer_free>=divert_buffer_size)trim_divert_buffer();
-		
+
 		memcpy(&(divert_buffer[divert_buffer_free].ti), &ti, sizeof(ti));
 		memcpy(&(divert_buffer[divert_buffer_free].pstats_ul), &(tp[highest_ul_j]), sizeof(*tp));
 		memcpy(&(divert_buffer[divert_buffer_free].pstats_circ_ul), &(tp[highest_circ_ul_j]), sizeof(*tp));
@@ -674,13 +674,13 @@ for(i=0;i<count;i+=fshift_count) {
 		divert_buffer[divert_buffer_free].highest_snr_j=highest_snr_j;
 		divert_buffer[divert_buffer_free].highest_ul_j=highest_ul_j;
 		divert_buffer[divert_buffer_free].highest_circ_ul_j=highest_circ_ul_j;
-		divert_buffer_free++;		
-		
+		divert_buffer_free++;
+
 		thread_mutex_unlock(&divert_buffer_mutex);
 		diverted[i]|=DIVERT_TEMPLATE_WRITTEN;
 		continue;
 		}
-	
+
 	fwrite(&ti, sizeof(ti), 1, DIVERT_LOG);
 	diverted[i]|=DIVERT_TEMPLATE_WRITTEN;
 	total_diverted_count++;
@@ -786,19 +786,19 @@ for(i=0;i<count;i++) {
 #endif
 		}
 	power_sum_stats(pps, &(tmp_pstat[i]));
-	
+
 	if(args_info.dump_power_sums_arg) {
 		thread_mutex_lock(&data_logging_mutex);
-		
+
 		fprintf(DATA_LOG, "power_sum %s %d %d %lf %lf %lf %lg ", ei->name, pi, first_bin+side_cut, ps[0][i].ra, ps[0][i].dec, ps[0][i].freq_shift, ps[0][i].spindown);
 		dump_partial_power_sum_F(DATA_LOG, pps);
 		fprintf(DATA_LOG, "\n");
-		
+
 		thread_mutex_unlock(&data_logging_mutex);
 		}
 
 	}
-	
+
 pstats_log_extremes(ctx, tmp_pstat, ps, count, ei, pi);
 }
 
@@ -821,7 +821,7 @@ if(args_info.compute_skymaps_arg) {
 		fprintf(stderr, "compute-skymaps is incompatible with binary-template-file\n");
 		exit(-1);
 		}
-	
+
 	ei->ul_skymap=do_alloc(patch_grid->npoints, sizeof(float));
 	ei->ul_freq_skymap=do_alloc(patch_grid->npoints, sizeof(float));
 	ei->circ_ul_skymap=do_alloc(patch_grid->npoints, sizeof(float));
@@ -929,7 +929,7 @@ fprintf(LOG, "tag: kind label skyband skyband_name set first_bin frequency spind
 		ei->band_masked_count[skyband], \
 		ei->band_diverted_count[skyband], \
 		ei->band_info[skyband].ntemplates \
-		); 
+		);
 
 for(skyband=0;skyband<fine_grid->nbands;skyband++) {
 	WRITE_SKYBAND_POINT(ei->band_info[skyband].highest_ul, "ul");
@@ -937,22 +937,22 @@ for(skyband=0;skyband<fine_grid->nbands;skyband++) {
 	WRITE_SKYBAND_POINT(ei->band_info[skyband].highest_snr, "snr");
 
 	/* old-style output for compatibility, but we have to attach ei->name to distinguish different sets */
-	fprintf(LOG, "max_high_ul_band: %d %lg %lf %lg %s\n", skyband, 
+	fprintf(LOG, "max_high_ul_band: %d %lg %lf %lg %s\n", skyband,
 		ei->band_info[skyband].highest_ul.ul,
 		ei->band_info[skyband].highest_ul.frequency,
 		ei->band_info[skyband].highest_ul.spindown,
 		ei->name);
 
-	fprintf(LOG, "max_circ_ul_band: %d %lg %lf %lg %s\n", skyband, 
+	fprintf(LOG, "max_circ_ul_band: %d %lg %lf %lg %s\n", skyband,
 		ei->band_info[skyband].highest_circ_ul.ul,
 		ei->band_info[skyband].highest_circ_ul.frequency,
 		ei->band_info[skyband].highest_circ_ul.spindown,
 		ei->name);
 
-	fprintf(LOG, "max_avg_ul_band: %d %lg %s\n", skyband, 
+	fprintf(LOG, "max_avg_ul_band: %d %lg %s\n", skyband,
 		ei->band_info[skyband].avg_ul,
 		ei->name);
-	
+
 	fprintf(LOG, "max_dx_band: %d %s %lf %lf %lg %lf %lf %lf %lf %s\n", skyband,
 		fine_grid->band_name[skyband],
 		ei->band_info[skyband].highest_snr.snr,
@@ -1010,7 +1010,7 @@ nei=0;
 for(i=0;i<args_info.nchunks_arg;i+=args_info.nchunks_refinement_arg)
 	for(k=args_info.nchunks_refinement_arg-1;k< args_info.nchunks_arg-i;k+=args_info.nchunks_refinement_arg) {
 		if(k+1<args_info.min_nchunks_arg)continue;
-		
+
 		for(m=-1;m<veto_free;m++) {
 			if(m<0) {
 				if((veto_free<=1) && args_info.split_ifos_arg)continue; /* if there is only one detector no reason to compute "all" twice */
@@ -1068,8 +1068,8 @@ long tmp_stride=(useful_bins+(ALIGNMENT-1)) & (~(ALIGNMENT-1));
 long tmp_size;
 
 if(args_info.filter_lines_arg) {
-	/* To fix this we would need to pass and process per-frequency weight arrays. This needs to be done carefully to maintain efficiency 
-	 * The code will work as is if this is disabled, using an approximation to true weight. 
+	/* To fix this we would need to pass and process per-frequency weight arrays. This needs to be done carefully to maintain efficiency
+	 * The code will work as is if this is disabled, using an approximation to true weight.
 	 * But the checks that enough weight was accumulated to compute power will not work */
 	fprintf(stderr, "*** ERROR: viterbi filtering is incompatible with filter-lines=1\n");
 	exit(-1);
@@ -1094,11 +1094,11 @@ if(ctx->log_extremes_pstats_scratch_size<tmp_size) {
 	ctx->log_extremes_pstats_scratch_size=tmp_size;
 
 	ctx->log_extremes_pstats_scratch=do_alloc(1, tmp_size);
-	
+
 	p1=(float *)ctx->log_extremes_pstats_scratch;
 	PRAGMA_IVDEP
 	for(i=0;i<(ctx->log_extremes_pstats_scratch_size/sizeof(*p1));i++)p1[i]=NAN;
-	
+
 	fprintf(stderr, "Expanded log_extremes_pstats_scratch to %f MB nchunks=%d veto_free=%d count=%d nei=%d\n", ctx->log_extremes_pstats_scratch_size*1e-6, args_info.nchunks_arg, veto_free, count, nei);
 	}
 
@@ -1114,11 +1114,11 @@ total_weight=p1; p1=ALIGN_POINTER(p1+fshift_count);
 
 /* Check that size was computed accurately */
 if(((char *)p1)-ctx->log_extremes_pstats_scratch>ctx->log_extremes_pstats_scratch_size) {
-	fprintf(stderr, "*** ERROR: log_extremes_pstats_scratch_size=%ld but need %ld memory\n", 
+	fprintf(stderr, "*** ERROR: log_extremes_pstats_scratch_size=%ld but need %ld memory\n",
 		ctx->log_extremes_pstats_scratch_size, ((char *)p1)-ctx->log_extremes_pstats_scratch);
 	exit(-1);
 	}
-	
+
 memset(ctx->diverted, 0, count*sizeof(*ctx->diverted));
 
 for(i=0;i<nei;i++) {
@@ -1130,37 +1130,37 @@ for(lm=0;lm<alignment_grid_free;lm++) {
 
 
 	for(j=0;j<count;j+=fshift_count) {
-		
+
 	for(i=0;i<args_info.nchunks_arg;i++) {
 		for(k=0;k<veto_free;k++) {
 			for(shift=0;shift<fshift_count;shift++) {
  				MODE(compute_power)(ps[i*veto_free+k][j+shift].pps, &(alignment_grid[lm]), &(tmp[((i*veto_free+k)*fshift_count+shift)*tmp_stride]), &(tmp_min_weight[(i*veto_free+k)*fshift_count+shift]), &(tmp_max_weight[(i*veto_free+k)*fshift_count+shift]));
-				
+
 				}
 			}
 		}
-		
+
 	for(i=0;i<nei;i++) {
 		max_weight=0;
 		min_weight=0;
 		memset(tmp2a, 0, sizeof(*tmp2a)*tmp_stride*fshift_count);
 		memset(total_weight, 0, sizeof(*total_weight)*fshift_count);
-		
+
 		for(k=ei[i]->first_chunk;k<=ei[i]->last_chunk;k++) {
 			/* Accumulate tmp2 from tmp using Viterbi-like algorithm */
 			/* We need to do all sub-bin shifts in one go */
 			if(k>ei[i]->first_chunk) {
 				for(shift=0;shift<fshift_count;shift++) {
 					p2=&(tmp2a[tmp_stride*shift]);
-					
+
 					if(shift>0)p3=&(tmp2a[tmp_stride*(shift-1)]);
 						else p3=&(tmp2a[tmp_stride*(shift+fshift_count-1)-1]);
-						
+
 					if(shift<fshift_count-1)p4=&(tmp2a[tmp_stride*(shift+1)]);
 						else p4=&(tmp2a[tmp_stride*(shift-fshift_count+1)+1]);
-						
+
 					p5=&(tmp2b[tmp_stride*shift]);
-						
+
 					if(shift==0)p5[0]=fmaxf(p2[0], p4[0]);
 						else
 						p5[0]=fmaxf(p2[0], fmaxf(p3[0], p4[0]));
@@ -1168,69 +1168,69 @@ for(lm=0;lm<alignment_grid_free;lm++) {
 					if(shift==fshift_count-1)p5[useful_bins-1]=fmaxf(p2[useful_bins-1], p3[useful_bins-1]);
 						else
 						p5[useful_bins-1]=fmaxf(p2[useful_bins-1], fmaxf(p3[useful_bins-1], p4[useful_bins-1]));
-							
+
 					PRAGMA_IVDEP
 					for(r=1;r<useful_bins-1;r++) {
 						p5[r]=fmaxf(p2[r], fmaxf(p3[r], p4[r]));
 						}
-				
+
 					}
 				p1=tmp2b;
 				tmp2b=tmp2a;
 				tmp2a=p1;
 				}
-				
+
 			if(ei[i]->veto_num<0) {
 				for(m=0;m<veto_free;m++) {
 					/* Accumulate tmp2 from tmp incorporating all per-ifo pieces */
 					/* We need to do all sub-bin shifts in one go */
 					for(shift=0;shift<fshift_count;shift++) {
-						/* It could be that the chunk is too small to contain any SFTs. 
+						/* It could be that the chunk is too small to contain any SFTs.
 						 * Skip and continue */
 						if(tmp_max_weight[(k*veto_free+m)*fshift_count+shift]<=0)continue;
-						
+
 						p1=&(tmp[((k*veto_free+m)*fshift_count+shift)*tmp_stride]);
 						p5=&(tmp2a[tmp_stride*shift]);
-															
+
 						/* This is at best an approximation when line filtering is on */
 						weight=0.5*(tmp_min_weight[(k*veto_free+m)*fshift_count+shift]+tmp_max_weight[(k*veto_free+m)*fshift_count+shift]);
 						total_weight[shift]+=weight;
-						
+
 						PRAGMA_IVDEP
 						for(r=0;r<useful_bins;r++) {
 							p5[r]+=p1[r]*weight;
 							}
-					
-					
+
+
 						min_weight+=tmp_min_weight[(k*veto_free+m)*fshift_count+shift];
 						max_weight+=tmp_max_weight[(k*veto_free+m)*fshift_count+shift];
 // 						if(min_weight>tmp_min_weight[(k*veto_free+m)*fshift_count+shift])min_weight=tmp_min_weight[(k*veto_free+m)*fshift_count+shift];
 // 						if(max_weight<tmp_max_weight[(k*veto_free+m)*fshift_count+shift])max_weight=tmp_max_weight[(k*veto_free+m)*fshift_count+shift];
 						}
-					
+
 					}
 				} else {
 				m=ei[i]->veto_num;
-				
+
 				/* Accumulate tmp2 from tmp incorporating all per-ifo pieces */
 				/* We need to do all sub-bin shifts in one go */
 				for(shift=0;shift<fshift_count;shift++) {
-					/* It could be that the chunk is too small to contain any SFTs. 
+					/* It could be that the chunk is too small to contain any SFTs.
 						* Skip and continue */
 					if(tmp_max_weight[(k*veto_free+m)*fshift_count+shift]<=0)continue;
-					
+
 					p1=&(tmp[((k*veto_free+m)*fshift_count+shift)*tmp_stride]);
 					p5=&(tmp2a[tmp_stride*shift]);
-														
+
 					/* This is at best an approximation when line filtering is on */
 					weight=0.5*(tmp_min_weight[(k*veto_free+m)*fshift_count+shift]+tmp_max_weight[(k*veto_free+m)*fshift_count+shift]);
 					total_weight[shift]+=weight;
-					
+
 					PRAGMA_IVDEP
 					for(r=0;r<useful_bins;r++) {
 						p5[r]+=p1[r]*weight;
 						}
-				
+
 
 					min_weight+=tmp_min_weight[(k*veto_free+m)*fshift_count+shift];
 					max_weight+=tmp_max_weight[(k*veto_free+m)*fshift_count+shift];
@@ -1239,31 +1239,31 @@ for(lm=0;lm<alignment_grid_free;lm++) {
 					}
 				}
 			}
-			
+
 		for(shift=0;shift<fshift_count;shift++) {
 			p5=&(tmp2a[tmp_stride*shift]);
-			
-			
+
+
 			inv_weight=1.0f/total_weight[shift];
 			PRAGMA_IVDEP
 			for(r=0;r<useful_bins;r++) {
 				p5[r]*=inv_weight;
 				}
 			MODE(compute_universal_statistics)(p5, min_weight, max_weight, &(alignment_grid[lm]), &pst);
-			
+
 			if(!isfinite(pst.snr)) {
 				/* This is not fatal, but possibly needs checking */
-				fprintf(stderr, "*** ERROR: non-finite max_dx pi=%d lm=%d i=%d j=%d shift=%d count=%d tmp_stride=%ld min_weight=%g max_weight=%g total_weight=%g veto_num=%d %d_%d\n", pi, lm, i, j, shift, count, tmp_stride, min_weight, max_weight, total_weight[shift], ei[i]->veto_num, ei[i]->first_chunk, ei[i]->last_chunk); 
+				fprintf(stderr, "*** ERROR: non-finite max_dx pi=%d lm=%d i=%d j=%d shift=%d count=%d tmp_stride=%ld min_weight=%g max_weight=%g total_weight=%g veto_num=%d %d_%d\n", pi, lm, i, j, shift, count, tmp_stride, min_weight, max_weight, total_weight[shift], ei[i]->veto_num, ei[i]->first_chunk, ei[i]->last_chunk);
 // 				fprintf(stderr, "p5={");
 // 				for(r=0;r<useful_bins;r++)fprintf(stderr, " %g", p5[r]);
 // 				fprintf(stderr, "}\n");
 				}
-			
+
 			update_power_sum_stats(&pst, &(alignment_grid[lm]), &(stats[i*count+j+shift]));
 			}
 		}
 	}
-			
+
 }
 
 for(i=0;i<nei;i++) {
@@ -1335,13 +1335,13 @@ ctx->power_sums_idx=0;
 
 if(input_templates>=0) {
 	thread_mutex_lock(&input_template_mutex);
-	
+
 	if(input_template_start>=input_templates) {
 		/* Nothing to do - everything else was processed in groups>1 earlier */
 		thread_mutex_unlock(&input_template_mutex);
 		return;
 		}
-	
+
 	/* Directly read from file */
 #if 0
 	fseek(INPUT_TEMPLATE_LOG, pi*sizeof(TEMPLATE_INFO), SEEK_SET);
@@ -1352,19 +1352,19 @@ if(input_templates>=0) {
 	ti_start=input_template_start;
 	i=1;
 	input_template_start++;
-	
+
 	while(i<args_info.binary_template_ngroup_arg) {
 		if(input_template_start>=input_templates)break;
 		if(input_templates_buffer[ti_start].pi!=input_templates_buffer[input_template_start].pi)break;
 		i++;
 		input_template_start++;
 		}
-	
+
 	ti_end=input_template_start;
 #endif
-	
+
 	thread_mutex_unlock(&input_template_mutex);
-	
+
 	generate_followup_templates(ctx, &(input_templates_buffer[ti_start]), ti_end-ti_start, &(ps[0]), &count);
 	} else {
 	generate_patch_templates(ctx, pi, &(ps[0]), &count);
@@ -1390,8 +1390,8 @@ if(args_info.viterbi_power_sums_arg) {
 	log_extremes_viterbi(ctx, pi, ps, count);
 	} else {
 	/* find largest strain and largest SNR candidates for this patch */
-	
-	
+
+
 	if(ctx->log_extremes_pstats_scratch_size<count*(sizeof(*le_pstats)+sizeof(*ctx->diverted))+2*ALIGNMENT) {
 		free(ctx->log_extremes_pstats_scratch);
 
@@ -1401,9 +1401,9 @@ if(args_info.viterbi_power_sums_arg) {
 		}
 	ctx->diverted=(char *)ctx->log_extremes_pstats_scratch;
 	le_pstats=(POWER_SUM_STATS *)ALIGN_POINTER(ctx->diverted+count);
-	
+
 	memset(ctx->diverted, 0, count*sizeof(*ctx->diverted));
-	
+
 	for(i=0;i<nei;i++) {
 		ps_tmp_len=0;
 		for(k=ei[i]->first_chunk;k<=ei[i]->last_chunk;k++) {
@@ -1483,10 +1483,10 @@ time(&start_time);
 
 if(input_templates>=0) {
 	fprintf(stderr, "%d patches to process\n", input_templates);
-	
+
 	load_input_templates();
 	sort_input_templates();
-	
+
 	for(pi=0;pi<input_templates;pi++) {
 		submit_job(outer_loop_cruncher, (void *)((long)pi));
 		}
