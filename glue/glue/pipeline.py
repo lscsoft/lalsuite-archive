@@ -3748,6 +3748,7 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
     self.__dax = dax
     self.__config_file = config_file
     self.__lsync_cache = None
+    self.add_condor_cmd('accounting_group',config_file.get('condor','accounting_group'))
     if lsync_cache_file:
       self.__lsync_cache = LsyncCache(lsync_cache_file)
       self.__lsync_cache.parse(lsync_type_regex)
@@ -3994,6 +3995,7 @@ class LigolwAddJob(CondorDAGJob, AnalysisJob):
     self.add_ini_opts(cp, "ligolw_add")
 
     self.add_condor_cmd('getenv','True')
+    self.add_condor_cmd('accounting_group',cp.get('condor','accounting_group'))
 
     self.set_stdout_file(os.path.join( log_dir, 'ligolw_add-$(cluster)-$(process).out') )
     self.set_stderr_file(os.path.join( log_dir, 'ligolw_add-$(cluster)-$(process).err') )
@@ -4161,6 +4163,7 @@ class NoopJob(CondorDAGJob, AnalysisJob):
 
     self.add_condor_cmd('getenv','True')
     self.add_condor_cmd('noop_job','True')
+    self.add_condor_cmd('accounting_group',cp.get('condor','accounting_group'))
 
     self.set_stdout_file(os.path.join( log_dir, 'noop-$(cluster)-$(process).out') )
     self.set_stderr_file(os.path.join( log_dir, 'noop-$(cluster)-$(process).err') )
@@ -4211,6 +4214,7 @@ class SqliteJob(CondorDAGJob, AnalysisJob):
         sys.stderr.write("warning: config file is missing section [" + sec + "]\n")
 
     self.add_condor_cmd('getenv', 'True')
+    self.add_condor_cmd('accounting_group',cp.get('condor','accounting_group'))
     self.set_stdout_file('logs/' + exec_name + '-$(cluster)-$(process).out')
     self.set_stderr_file('logs/' + exec_name + '-$(cluster)-$(process).err')
 
