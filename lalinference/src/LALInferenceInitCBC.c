@@ -2101,6 +2101,10 @@ static void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenc
         REAL8 dbeta_min=-1.;
         REAL8 dsigma_max=1.;
         REAL8 dsigma_min=-1.;
+        REAL8 dQuadMon1_min=0.0;
+        REAL8 dQuadMon1_max=20.0;
+        REAL8 dQuadMon2_min=0.0;
+        REAL8 dQuadMon2_max=20.0;
         REAL8 tmpVal=0.0;
 	/* Relative shifts for inspiral phase PN coefficients (absolute value for dchi1) */
         if (checkParamInList(ppt->value,"dchi0")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dchi0", tmpVal, dchi_min, dchi_max, LALINFERENCE_PARAM_LINEAR);
@@ -2135,6 +2139,9 @@ static void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenc
         if (checkParamInList(ppt->value,"dbeta1")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dbeta1", tmpVal, dbeta_min, dbeta_max, LALINFERENCE_PARAM_LINEAR);
         if (checkParamInList(ppt->value,"dbeta2")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dbeta2", tmpVal, dbeta_min, dbeta_max, LALINFERENCE_PARAM_LINEAR);
         if (checkParamInList(ppt->value,"dbeta3")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dbeta3", tmpVal, dbeta_min, dbeta_max, LALINFERENCE_PARAM_LINEAR);
+        /* Adding terms for spin-induced quadrupole moments  */
+        if (checkParamInList(ppt->value,"dQuadMon1")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dQuadMon1", tmpVal, dQuadMon1_min, dQuadMon1_max, LALINFERENCE_PARAM_LINEAR);
+        if (checkParamInList(ppt->value,"dQuadMon2")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dQuadMon2", tmpVal, dQuadMon2_min, dQuadMon2_max, LALINFERENCE_PARAM_LINEAR);
     }
     ppt=LALInferenceGetProcParamVal(commandLine,"--ppe-parameters");
     if (ppt)
