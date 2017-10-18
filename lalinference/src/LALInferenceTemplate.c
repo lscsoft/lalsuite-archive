@@ -804,7 +804,48 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
     }
   }
 
+  /* can these conditionals get expensive if we have to do them repeatedly? */
+  /* sample non-linear tides for each mass separately */
+  if(  LALInferenceCheckVariable(model->params, "NLTidesN1")
+    && LALInferenceCheckVariable(model->params, "log10NLTidesA1")
+    && LALInferenceCheckVariable(model->params, "NLTidesF1")
+    && LALInferenceCheckVariable(model->params, "NLTidesN2")
+    && LALInferenceCheckVariable(model->params, "log10NLTidesA2")
+    && LALInferenceCheckVariable(model->params, "NLTidesF2")
+  ){
+      XLALSimInspiralAddTestGRParam(&nonGRparams,"NLTidesN1",*(REAL8*) LALInferenceGetVariable(model->params, "NLTidesN1"));
+      XLALSimInspiralAddTestGRParam(&nonGRparams,"NLTidesF1",*(REAL8*) LALInferenceGetVariable(model->params, "NLTidesF1"));
+      XLALSimInspiralAddTestGRParam(&nonGRparams,"NLTidesA1", pow(10.0,*(REAL8*)LALInferenceGetVariable(model->params, "log10NLTidesA1")));
+      XLALSimInspiralAddTestGRParam(&nonGRparams,"NLTidesN2",*(REAL8*) LALInferenceGetVariable(model->params, "NLTidesN2"));
+      XLALSimInspiralAddTestGRParam(&nonGRparams,"NLTidesF2",*(REAL8*) LALInferenceGetVariable(model->params, "NLTidesF2"));
+      XLALSimInspiralAddTestGRParam(&nonGRparams,"NLTidesA2", pow(10.0,*(REAL8*)LALInferenceGetVariable(model->params, "log10NLTidesA2")));
+  }
+  /* sample the Taylor expansion of the non-linear tide params */
+  else{if(
+       LALInferenceCheckVariable(model->params, "NLides_N0")
+    && LALInferenceCheckVariable(model->params, "log10NLTides_A0")
+    && LALInferenceCheckVariable(model->params, "NLTides_F0")
+    && LALInferenceCheckVariable(model->params, "NLTides_dNdm")
+    && LALInferenceCheckVariable(model->params, "NLTides_dlogAdm")
+    && LALInferenceCheckVariable(model->params, "NLTides_dFdm")
+  ){
+    REAL8 n0, dndm, f0, dfdm, A0, dAdm ;
+    n0 = *(REAL8*) LALInferenceGetVariable(model->params, "NLTides_N0") ;
+    f0 = *(REAL8*) LALInferenceGetVariable(model->params, "NLTides_F0") ;
+    A0 = pow(10, *(REAL8*) LALInferenceGetVariable(model->params, "log10NLTides_A0"));
+    dndm = *(REAL8*) LALInferenceGetVariable(model->params, "NLTides_dNdm") ;
+    dfdm = *(REAL8*) LALInferenceGetVariable(model->params, "NLTides_dFdm") ;
+    dAdm = *(REAL8*) LALInferenceGetVariable(model->params, "NLTides_dlogAdm") ;
+    dAdm *= A0 ; // convert from dlogAdm to dAdm
 
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"NLTidesA1",LALInferenceNonLinearTidesFromTaylor( m1, A0, dAdm ));
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"NLTidesF1",LALInferenceNonLinearTidesFromTaylor( m1, f0, dfdm ));
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"NLTidesN1",LALInferenceNonLinearTidesFromTaylor( m1, n0, dndm ));
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"NLTidesA2",LALInferenceNonLinearTidesFromTaylor( m2, A0, dAdm ));
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"NLTidesF2",LALInferenceNonLinearTidesFromTaylor( m2, f0, dfdm ));
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"NLTidesN2",LALInferenceNonLinearTidesFromTaylor( m2, n0, dndm ));
+  }
+  }
 
   /* ==== Call the waveform generator ==== */
   if(model->domain == LAL_SIM_DOMAIN_FREQUENCY) {

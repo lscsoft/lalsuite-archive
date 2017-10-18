@@ -1265,6 +1265,32 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   LALInferenceRegisterUniformVariableREAL8(state, model->params, "polarisation", zero, psiMin, psiMax, LALINFERENCE_PARAM_LINEAR);
   LALInferenceRegisterUniformVariableREAL8(state, model->params, "costheta_jn", zero, costhetaJNmin, costhetaJNmax,LALINFERENCE_PARAM_LINEAR);
 
+  /* Option to use the non-linear tides */
+  if(LALInferenceGetProcParamVal(commandLine,"--nltides"))
+  {
+    printf("Using non linear tides\n");
+    LALInferenceRegisterUniformVariableREAL8(state,model->params,"NLTidesN1",1.,-1.,3.,LALINFERENCE_PARAM_LINEAR);
+    LALInferenceRegisterUniformVariableREAL8(state,model->params,"NLTidesF1",30.,10.,100.,LALINFERENCE_PARAM_LINEAR);
+    LALInferenceRegisterUniformVariableREAL8(state,model->params,"log10NLTidesA1",-7.,-10.,-4.,LALINFERENCE_PARAM_LINEAR);
+
+    LALInferenceRegisterUniformVariableREAL8(state,model->params,"NLTidesN2",1.,-1.,3.,LALINFERENCE_PARAM_LINEAR);
+    LALInferenceRegisterUniformVariableREAL8(state,model->params,"NLTidesF2",30.,10.,100.,LALINFERENCE_PARAM_LINEAR);
+    LALInferenceRegisterUniformVariableREAL8(state,model->params,"log10NLTidesA2",-7.,-10.,-4.,LALINFERENCE_PARAM_LINEAR);
+  }
+
+  /* Option to use the Taylor expansion of non-linear tides */
+  if(LALInferenceGetProcParamVal(commandLine,"--nltides-taylor"))
+  {
+    printf("Using Taylor expansion of non linear tides\n");
+    LALInferenceRegisterUniformVariableREAL8(state,model->params,"NLTides_N0",1.,-1.,3.,LALINFERENCE_PARAM_LINEAR);
+    LALInferenceRegisterUniformVariableREAL8(state,model->params,"NLTides_F0",30.,10.,100.,LALINFERENCE_PARAM_LINEAR);
+    LALInferenceRegisterUniformVariableREAL8(state,model->params,"log10NLTides_A0",-7.,-10.,-4.,LALINFERENCE_PARAM_LINEAR);
+
+    LALInferenceRegisterUniformVariableREAL8(state,model->params,"NLTides_dNdm",0.,-1.,1.,LALINFERENCE_PARAM_LINEAR);
+    LALInferenceRegisterUniformVariableREAL8(state,model->params,"NLTides_dFdm",0.,-10.,10.,LALINFERENCE_PARAM_LINEAR);
+    LALInferenceRegisterUniformVariableREAL8(state,model->params,"NLTides_dlogAdm",-0.,-1.,1.,LALINFERENCE_PARAM_LINEAR);
+  }
+
   /* Option to use the detector-aligned frame */
   if(!LALInferenceGetProcParamVal(commandLine,"--no-detector-frame") && nifo >1)
   {

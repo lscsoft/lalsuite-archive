@@ -4160,3 +4160,7 @@ void LALInferencePrintSplineCalibration(FILE *output, LALInferenceThreadState *t
         }
     }
 }
+
+REAL8 LALInferenceNonLinearTidesFromTaylor( REAL8 mass, REAL8 term0, REAL8 term1 ) {
+  return term0 + term1*(mass-1.4); // this is defined only as a ``good coding'' practice so we keep the magic number (1.4Msun) in only one place.
+}

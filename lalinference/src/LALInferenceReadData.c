@@ -1613,7 +1613,51 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	XLALSimInspiralSetNumrelData(waveFlags, ppt->value);
 	fprintf(stdout,"Injection will use %s.\n",ppt->value);
       }
+
       LALSimInspiralTestGRParam *nonGRparams = NULL;
+
+      /* injected values for NLTides when sampling the parameterization directly */
+      if(   LALInferenceGetProcParamVal(commandLine,"--inj-nltides_n1")
+         && LALInferenceGetProcParamVal(commandLine,"--inj-nltides_f1")
+         && LALInferenceGetProcParamVal(commandLine,"--inj-nltides_a1")
+         && LALInferenceGetProcParamVal(commandLine,"--inj-nltides_n2")
+         && LALInferenceGetProcParamVal(commandLine,"--inj-nltides_f2")
+         && LALInferenceGetProcParamVal(commandLine,"--inj-nltides_a2")
+        ){
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"NLTidesN1",atof(LALInferenceGetProcParamVal(commandLine,"--inj-nltides_n1")->value));
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"NLTidesF1",atof(LALInferenceGetProcParamVal(commandLine,"--inj-nltides_f1")->value));
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"NLTidesA1",atof(LALInferenceGetProcParamVal(commandLine,"--inj-nltides_a1")->value));
+    
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"NLTidesN2",atof(LALInferenceGetProcParamVal(commandLine,"--inj-nltides_n2")->value));
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"NLTidesF2",atof(LALInferenceGetProcParamVal(commandLine,"--inj-nltides_f2")->value));
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"NLTidesA2",atof(LALInferenceGetProcParamVal(commandLine,"--inj-nltides_a2")->value));
+      }
+      /* inject NLTides parameters from Taylor expansion coefficients */
+      else{if(
+           LALInferenceGetProcParamVal(commandLine,"--inj-nltides_a0")
+        && LALInferenceGetProcParamVal(commandLine,"--inj-nltides_n0")
+        && LALInferenceGetProcParamVal(commandLine,"--inj-nltides_f0")
+        && LALInferenceGetProcParamVal(commandLine,"--inj-nltides_dadm")
+        && LALInferenceGetProcParamVal(commandLine,"--inj-nltides_dndm")
+        && LALInferenceGetProcParamVal(commandLine,"--inj-nltides_dfdm")
+          ){
+            REAL8 A0, f0, n0, dAdm, dfdm, dndm ;
+            A0 = atof(LALInferenceGetProcParamVal(commandLine,"--inj-nltides_a0")->value) ;
+            f0 = atof(LALInferenceGetProcParamVal(commandLine,"--inj-nltides_f0")->value) ;
+            n0 = atof(LALInferenceGetProcParamVal(commandLine,"--inj-nltides_n0")->value) ;
+            dAdm = atof(LALInferenceGetProcParamVal(commandLine,"--inj-nltides_dadm")->value) ;
+            dfdm = atof(LALInferenceGetProcParamVal(commandLine,"--inj-nltides_dfdm")->value) ;
+            dndm = atof(LALInferenceGetProcParamVal(commandLine,"--inj-nltides_dndm")->value) ;
+
+            XLALSimInspiralAddTestGRParam(&nonGRparams,"NLTidesA1",LALInferenceNonLinearTidesFromTaylor( injEvent->mass1, A0, dAdm ));
+            XLALSimInspiralAddTestGRParam(&nonGRparams,"NLTidesF1",LALInferenceNonLinearTidesFromTaylor( injEvent->mass1, f0, dfdm ));
+            XLALSimInspiralAddTestGRParam(&nonGRparams,"NLTidesN1",LALInferenceNonLinearTidesFromTaylor( injEvent->mass1, n0, dndm ));
+            XLALSimInspiralAddTestGRParam(&nonGRparams,"NLTidesA2",LALInferenceNonLinearTidesFromTaylor( injEvent->mass2, A0, dAdm ));
+            XLALSimInspiralAddTestGRParam(&nonGRparams,"NLTidesF2",LALInferenceNonLinearTidesFromTaylor( injEvent->mass2, f0, dfdm ));
+            XLALSimInspiralAddTestGRParam(&nonGRparams,"NLTidesN2",LALInferenceNonLinearTidesFromTaylor( injEvent->mass2, n0, dndm ));
+          }
+      }
+
       /* Print a line with information about approximant, amporder, phaseorder, tide order and spin order */
       fprintf(stdout,"Injection will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i, tidal order %i, in the time domain with a reference frequency of %f.\n",approximant,XLALSimInspiralGetStringFromApproximant(approximant),order,amporder,(int) spinO, (int) tideO, (float) fref);
 
