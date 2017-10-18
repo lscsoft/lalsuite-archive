@@ -445,7 +445,7 @@ def plot_label(param):
       'lambda2': r'$\lambda_2$',
       'quadparam1' : r'$QM_1$',
       'quadparam2' : r'$QM_2$',
-      'eccentricity': r'$\varepsilon$',
+      'eccentricity': r'$e_0$',
       'lam_tilde' : r'$\tilde{\Lambda}$',
       'dlam_tilde': r'$\delta \tilde{\Lambda}$',
       'calamp_h1' : r'$\delta A_{H1}$',
