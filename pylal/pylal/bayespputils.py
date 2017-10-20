@@ -147,7 +147,8 @@ bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
 massiveGravitonParams=['lambdaG']
 tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat']
 energyParams=['e_rad', 'l_peak']
-strongFieldParams=ppEParams+tigerParams+bransDickeParams+massiveGravitonParams+tidalParams+energyParams
+spin_induced_quad_terms = ['dquadmon1', 'dquadmon2']
+strongFieldParams=ppEParams+tigerParams+bransDickeParams+massiveGravitonParams+tidalParams+energyParams+spin_induced_quad_terms
 
 #Extrinsic
 distParams=['distance','distMPC','dist']
@@ -172,7 +173,7 @@ for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v
   greedyBinSizes[derived_time]=greedyBinSizes['time']
 for derived_phase in relativePhaseParams:
   greedyBinSizes[derived_phase]=0.05
-for param in tigerParams + bransDickeParams + massiveGravitonParams:
+for param in tigerParams + bransDickeParams + massiveGravitonParams + spin_induced_quad_terms:
   greedyBinSizes[param]=0.01
 for param in tidalParams:
   greedyBinSizes[param]=2.5
@@ -476,6 +477,8 @@ def plot_label(param):
       'dsigma2':r'$d\sigma_2$',
       'dsigma3':r'$d\sigma_3$',
       'dsigma4':r'$d\sigma_4$',
+      'dquadmon1':r'$\kappa_1$',
+      'dquadmon2':r'$\kappa_2$',
     }
 
   # Handle cases where multiple names have been used
