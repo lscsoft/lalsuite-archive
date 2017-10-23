@@ -203,9 +203,18 @@ int XLALSimInspiralTaylorF2Core(
      */
     REAL8 pft10 = 0.;
     REAL8 pft12 = 0.;
+    REAL8 pft13 = 0.; 
+    REAL8 pft14 = 0.; 
+    REAL8 pft15 = 0.;
     switch( tideO )
     {
-	    case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
+	case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
+        case LAL_SIM_INSPIRAL_TIDAL_ORDER_75PN:
+            pft15 = pfaN * (lambda2*XLALSimInspiralTaylorF2Phasing_15PNTidalCoeff(m2OverM) + lambda1*XLALSimInspiralTaylorF2Phasing_15PNTidalCoeff(m1OverM));
+        case LAL_SIM_INSPIRAL_TIDAL_ORDER_7PN:
+            pft14 = pfaN * (lambda2*XLALSimInspiralTaylorF2Phasing_14PNTidalCoeff(m2OverM) + lambda1*XLALSimInspiralTaylorF2Phasing_14PNTidalCoeff(m1OverM));
+        case LAL_SIM_INSPIRAL_TIDAL_ORDER_65PN:
+            pft13 = pfaN * (lambda2*XLALSimInspiralTaylorF2Phasing_13PNTidalCoeff(m1OverM) + lambda1*XLALSimInspiralTaylorF2Phasing_13PNTidalCoeff(m2OverM));
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_6PN:
 	    pft12 = pfaN * (lambda1*XLALSimInspiralTaylorF2Phasing_12PNTidalCoeff(m1OverM) + lambda2*XLALSimInspiralTaylorF2Phasing_12PNTidalCoeff(m2OverM) );
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_5PN:
@@ -267,6 +276,9 @@ int XLALSimInspiralTaylorF2Core(
         const REAL8 v9ref = vref * v8ref;
         const REAL8 v10ref = vref * v9ref;
         const REAL8 v12ref = v2ref * v10ref;
+        const REAL8 v13ref = vref * v12ref;
+        const REAL8 v14ref = vref * v13ref;
+        const REAL8 v15ref = vref * v14ref;
         ref_phasing += pfa7 * v7ref;
         ref_phasing += (pfa6 + pfl6 * logvref) * v6ref;
         ref_phasing += (pfa5 + pfl5 * logvref) * v5ref;
@@ -277,6 +289,9 @@ int XLALSimInspiralTaylorF2Core(
         ref_phasing += pfaN;
 
         /* Tidal terms in reference phasing */
+        ref_phasing += pft15 * v15ref;
+        ref_phasing += pft14 * v14ref;
+        ref_phasing += pft13 * v13ref;
         ref_phasing += pft12 * v12ref;
         ref_phasing += pft10 * v10ref;
 
@@ -297,6 +312,9 @@ int XLALSimInspiralTaylorF2Core(
         const REAL8 v9 = v * v8;
         const REAL8 v10 = v * v9;
         const REAL8 v12 = v2 * v10;
+        const REAL8 v13 = v * v12;
+        const REAL8 v14 = v * v13;
+        const REAL8 v15 = v * v14;
         REAL8 phasing = 0.;
         REAL8 dEnergy = 0.;
         REAL8 flux = 0.;
@@ -312,6 +330,9 @@ int XLALSimInspiralTaylorF2Core(
         phasing += pfaN;
 
         /* Tidal terms in phasing */
+        phasing += pft15 * v15;
+        phasing += pft14 * v14;
+        phasing += pft13 * v13;
         phasing += pft12 * v12;
         phasing += pft10 * v10;
 
