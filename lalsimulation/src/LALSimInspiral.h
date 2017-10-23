@@ -24,6 +24,7 @@
 #include <lal/LALSimSphHarmSeries.h>
 #include <lal/LALSimInspiralTestGRParams.h>
 #include <lal/LALSimInspiralWaveformFlags.h>
+#include <lal/LALSimInspiralEOS.h>
 #include <gsl/gsl_matrix.h>
 
 #if defined(__cplusplus)

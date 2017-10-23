@@ -72,7 +72,8 @@ pkginclude_HEADERS = \
 	LALSimulation.h \
 	LALSimulationConfig.h \
 	LALSimulationVCSInfo.h \
-	LALSimulationVCSInfoHeader.h
+	LALSimulationVCSInfoHeader.h \
+        LALSimInspiralEOS.h
 
 noinst_HEADERS = \
 	LALSimBlackHoleRingdownPrec.c \
