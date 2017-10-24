@@ -782,7 +782,8 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
             exit(1);
         }
         IFOdata[i].padding=padding;
-        if(LALInferenceGetProcParamVal(commandLine, "--ringdown"))
+        if(LALInferenceGetProcParamVal(commandLine, "--inj")){IFOdata[i].window=XLALCreateTukeyREAL8Window(seglen,(REAL8)2.0*padding*SampleRate/(REAL8)seglen);}
+        else if(LALInferenceGetProcParamVal(commandLine, "--ringdown"))
         {
             fprintf(stdout,"Setting windows for ringdown\n");
             REAL8 trig_time = GPStrig.gpsSeconds+1e-9*GPStrig.gpsNanoSeconds;
@@ -2893,8 +2894,14 @@ void LALInferenceInjectRingdownSignal(LALInferenceIFOData *IFOdata, ProcessParam
       REAL8 Tstart = 0.0*Mbh*LAL_MTSUN_SI;
       REAL8 Tend   = 50.0*Mbh*LAL_MTSUN_SI;
       UINT4 Num_samples_window=ceil((Tend-Tstart)/(1.0/InjSampleRate));
-      XLALSimRingdownMMRDNS_time(&hplus, &hcross, &t0, 1.0/InjSampleRate, Num_samples_window, Mbh*LAL_MSUN_SI, spin, eta, injEvent->inclination, phase, injEvent->distance*LAL_PC_SI*1.0e6, nonGRparams);
-      XLALApplyPlanckWindowToTemplate(&hplus, &hcross, Num_samples_window,Mbh*LAL_MTSUN_SI*RingdownTemplateWindow_shift, (Num_samples_window/InjSampleRate)-2.0, InjSampleRate, RingdownTemplateWindow_rise_time);
+      REAL8 window_rise_time_inj = 0.0;
+      if (ppt){window_rise_time_inj = atof(ppt->value);}
+      REAL8 window_shift_time_inj = 0.0;
+      ppt=LALInferenceGetProcParamVal(commandLine,"--window_shift_time_inj");
+      if (ppt){window_shift_time_inj = atof(ppt->value);}
+      XLALSimRingdownGenerateFullSphericalWaveform_time(&hplus, &hcross, &t0, 1.0/InjSampleRate, Num_samples_window, Mbh*LAL_MSUN_SI, spin, eta, injEvent->inclination, phase, injEvent->distance*LAL_PC_SI*1.0e6, nonGRparams);
+      XLALApplyPlanckWindowToTemplate(&hplus, &hcross, Num_samples_window,Mbh*LAL_MTSUN_SI*window_shift_time_inj, (Num_samples_window/InjSampleRate)-2.0, InjSampleRate, window_rise_time_inj);
+
 }
       if(!hplus || !hcross) {
         fprintf(stderr,"Error: XLALSimInspiralChooseWaveform() failed to produce waveform.\n");

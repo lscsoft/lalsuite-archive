@@ -155,7 +155,8 @@ calibParams=['calpha_l1','calpha_h1','calpha_v1','calamp_l1','calamp_h1','calamp
 ## Greedy bin sizes for cbcBPP and confidence leves used for the greedy bin intervals
 confidenceLevels=[0.67,0.9,0.95,0.99]
 
-greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'mc_source':0.025,'m1_source':0.1,'m2_source':0.1,'mtotal_source':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'rd_mass':0.1,'rd_mass_source':0.1,'rd_spin':0.02,'iota':0.01,'cosiota':0.02,'time':1e-4,'time_mean':1e-4,'distance':1.0,'dist':1.0,'redshift':0.01,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1z':0.04,'a2z':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'chi_eff':0.05,'chi_tot':0.05,'chi_p':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costheta_jn':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01,'phase':0.05,'tilt1':0.05,'tilt2':0.05,'phi_jl':0.05,'theta_jn':0.05,'phi12':0.05,'flow':1.0,'phase_maxl':0.05,'calamp_l1':0.01,'calamp_h1':0.01,'calamp_v1':0.01,'calpha_h1':0.01,'calpha_l1':0.01,'calpha_v1':0.01,'logdistance':0.1,'psi':0.1,'costheta_jn':0.1,'mf':0.1,'mf_source':0.1,'af':0.02,'e_rad':0.1,'l_peak':0.1}
+greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'mc_source':0.025,'m1_source':0.1,'m2_source':0.1,'mtotal_source':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'rd_mass':0.1,'rd_mass_source':0.1,'rd_spin':0.02,'iota':0.01,'cosiota':0.02,'time':1e-4,'time_mean':1e-4,'distance':1.0,'dist':1.0,'redshift':0.01,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1z':0.04,'a2z':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'chi_eff':0.05,'chi_tot':0.05,'chi_p':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costheta_jn':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01,'phase':0.05,'tilt1':0.05,'tilt2':0.05,'phi_jl':0.05,'theta_jn':0.05,'phi12':0.05,'flow':1.0,'phase_maxl':0.05,'calamp_l1':0.01,'calamp_h1':0.01,'calamp_v1':0.01,'calpha_h1':0.01,'calpha_l1':0.01,'calpha_v1':0.01,'logdistance':0.1,'psi':0.1,'costheta_jn':0.1,'mf':0.1,'mf_source':0.1,'af':0.02,'e_rad':0.1,'l_peak':0.1,'dfreq220':0.01,'dfreq221':0.01,'dfreq330':0.01,'dfreq331':0.01,'dfreq440':0.01,'dfreq550':0.01,'dfreq210':0.01,'dfreq320':0.01,'dfreq430':0.01,'dtau220':0.01,'dtau221':0.01,'dtau330':0.01,'dtau331':0.01,'dtau440':0.01,'dtau550':0.01,'dtau210':0.01,'dtau320':0.01,'dtau430':0.01}
+
 for s in snrParams:
   greedyBinSizes[s]=0.05
 for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
@@ -472,6 +473,24 @@ def plot_label(param):
       'dsigma2':r'$d\sigma_2$',
       'dsigma3':r'$d\sigma_3$',
       'dsigma4':r'$d\sigma_4$',
+      'dfreq220':r'$d\omega_{220}$',
+      'dfreq221':r'$d\omega_{221}$',
+      'dfreq330':r'$d\omega_{330}$',
+      'dfreq331':r'$d\omega_{331}$',
+      'dfreq440':r'$d\omega_{440}$',
+      'dfreq550':r'$d\omega_{550}$',
+      'dfreq210':r'$d\omega_{210}$',
+      'dfreq320':r'$d\omega_{320}$',
+      'dfreq430':r'$d\omega_{430}$',
+      'dtau220':r'$d\tau_{220}$',
+      'dtau221':r'$d\tau_{221}$',
+      'dtau330':r'$d\tau_{330}$',
+      'dtau331':r'$d\tau_{331}$',
+      'dtau440':r'$d\tau_{440}$',
+      'dtau550':r'$d\tau_{550}$',
+      'dtau210':r'$d\tau_{210}$',
+      'dtau320':r'$d\tau_{320}$',
+      'dtau430':r'$d\tau_{430}$',
     }
 
   # Handle cases where multiple names have been used
@@ -794,6 +813,7 @@ class Posterior(object):
                             'mass2':lambda inj:inj.mass2,
                             'm2':lambda inj:inj.mass2,
                             'mtotal':lambda inj:float(inj.mass1)+float(inj.mass2),
+                            'rd_mass':lambda inj:inj.rdMass,
                             'eta':lambda inj:inj.eta,
                             'q':self._inj_q,
                             'asym_massratio':self._inj_q,
@@ -821,7 +841,25 @@ class Posterior(object):
                             'h1_end_time':lambda inj:float(inj.get_end('H')),
                             'l1_end_time':lambda inj:float(inj.get_end('L')),
                             'v1_end_time':lambda inj:float(inj.get_end('V')),
-                            'lal_amporder':lambda inj:inj.amp_order}
+                            'lal_amporder':lambda inj:inj.amp_order,
+                            'dfreq220': lambda inj:inj.dfreq220,
+                            'dfreq221': lambda inj:inj.dfreq221,
+                            'dfreq330': lambda inj:inj.dfreq330,
+                            'dfreq331': lambda inj:inj.dfreq331,
+                            'dfreq440': lambda inj:inj.dfreq440,
+                            'dfreq550': lambda inj:inj.dfreq550,
+                            'dfreq210': lambda inj:inj.dfreq220,
+                            'dfreq320': lambda inj:inj.dfreq320,
+                            'dfreq430': lambda inj:inj.dfreq430,
+                            'dtau220': lambda inj:inj.dtau220,
+                            'dtau221': lambda inj:inj.dtau221,
+                            'dtau330': lambda inj:inj.dtau330,
+                            'dtau331': lambda inj:inj.dtau331,
+                            'dtau440': lambda inj:inj.dtau440,
+                            'dtau550': lambda inj:inj.dtau550,
+                            'dtau210': lambda inj:inj.dtau210,
+                            'dtau320': lambda inj:inj.dtau320,
+                            'dtau430': lambda inj:inj.dtau430}
 
         # Add on all spin parameterizations
         for key, val in self._inj_spins(self._injection, frame=inj_spin_frame).items():
@@ -1978,7 +2016,9 @@ class Posterior(object):
                 lalsim.SimInspiralInitialConditionsPrecessingApproxs(inj.inclination,
                                                                      inj.spin1x, inj.spin1y, inj.spin1z,
                                                                      inj.spin2x, inj.spin2y, inj.spin2z,
-                                                                     m1*lal.MSUN_SI, m2*lal.MSUN_SI, f_ref, axis)
+                                                                     m1*lal.MSUN_SI, m2*lal.MSUN_SI, f_ref, inj.coa_phase, axis)
+
+#lalsim.SimInspiralInitialConditionsPrecessingApproxs(REAL8 *inc, REAL8 *S1x, REAL8 *S1y, REAL8 *S1z, REAL8 *S2x, REAL8 *S2y, REAL8 *S2z, const REAL8 inclIn, const REAL8 S1xIn, const REAL8 S1yIn, const REAL8 S1zIn, const REAL8 S2xIn, const REAL8 S2yIn, const REAL8 S2zIn, const REAL8 m1, const REAL8 m2, const REAL8 fRef, const REAL8 phiRef, LALSimInspiralFrameAxis axisChoice)
 
             a1, theta1, phi1 = cart2sph(s1x, s1y, s1z)
             a2, theta2, phi2 = cart2sph(s2x, s2y, s2z)
