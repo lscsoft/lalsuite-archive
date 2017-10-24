@@ -745,10 +745,11 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
     (--no-detector-frame)              model will NOT use detector-centred coordinates and instead RA,dec\n\
     (--nonGR_alpha value) this is a LIV parameter which should only be passed when log10lambda_eff/lambda_eff is passed as a grtest-parameter for LIV test\n\
     (--LIV_A_sign) this is a LIV parameter determining if +A or -A is being tested; A occurs in the modified dispersion relation. LIV_A_sign has to be either +1 or -1 \n\
-    (--grtest-parameters dchi0,..,dxi1,..,dalpha1,..,log10lambda_eff or lambda_eff,..,dipolecoeff) template will assume deformations in the corresponding phase coefficients; log10lambda_eff/lambda_eff are LIV parameters and will add a deformation to the total phase; use of dipolecoeff will assume a generic testing coefficient at -1PN phase order in the inspiral.\n\
+    (--grtest-parameters dchiMinus2, dchiMinus1, dchi0,..,dxi1,..,dalpha1,..,log10lambda_eff or lambda_eff,..,dipolecoeff, fDS, nCyclesDS) template will assume deformations in the corresponding phase coefficients; log10lambda_eff/lambda_eff are LIV parameters and will add a deformation to the total phase; use of dipolecoeff will assume a generic testing coefficient at -1PN phase order in the inspiral; fDS and nCyclesDS control the location and width of tapering window for the start of dynamical scalarization.\n\
     (--generic-fd-correction) enables the generic frequency domain corrections to the template phase. \n\
     (--generic-fd-correction-window) sets the fraction of the peak frequency up to which the generic phase corrections are applied (default=1). \n\
     (--generic-fd-correction-ncycles) sets the number of  cycles for the tapering of the generic phase corrections (default=1). \n\
+    (--dynamical-scalarization) enables a generic frequency domain correction over a closed frequency range \n\
     (--ppe-parameters aPPE1,....     template will assume the presence of an arbitrary number of PPE parameters. They must be paired correctly.\n\
 \n\
     ----------------------------------------------\n\
@@ -2114,6 +2115,7 @@ static void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenc
     ProcessParamsTable *pptb=NULL;
     
     INT4 generic_fd_correction = 0;
+    INT4 dynamical_scalarization = 0;
     REAL8 correction_window = 1.0;
     REAL8 correction_ncycles_taper = 1.0;
     /* check that the user does not request both a TaylorF2Test and a PPE waveform model */
@@ -2121,6 +2123,11 @@ static void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenc
     {
         fprintf(stderr,"--grtest-parameters and --ppe-parameters are not simultaneously supported. Please choose one. Aborting\n");
         exit(-1);
+    }
+    if (LALInferenceGetProcParamVal(commandLine,"--dynamical-scalarization") && (!LALInferenceGetProcParamVal(commandLine,"--generic-fd-correction")))
+    {
+        XLALPrintError("generic-fd-correction must be enabled to use dynamical-scalarization.\n");
+        XLAL_ERROR_VOID(XLAL_EFAULT);
     }
     ppt=LALInferenceGetProcParamVal(commandLine,"--grtest-parameters");
     if (ppt)
@@ -2136,6 +2143,10 @@ static void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenc
         REAL8 dsigma_max=1.;
         REAL8 dsigma_min=-1.;
         REAL8 tmpVal=0.0;
+        REAL8 fDS_min=10.;
+        REAL8 fDS_max=2000;
+        REAL8 nCyclesDS_min=0.0;
+        REAL8 nCyclesDS_max=1000.0;
         
         if ((pptb=LALInferenceGetProcParamVal(commandLine,"--LIV_A_sign"))) {
           REAL8 LIV_A_sign;
@@ -2219,6 +2230,10 @@ static void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenc
             REAL8 log10lambda_eff_max = 13.0;
             LALInferenceRegisterUniformVariableREAL8(state, model->params, "log10lambda_eff", 3.0, log10lambda_eff_min, log10lambda_eff_max, LALINFERENCE_PARAM_LINEAR);
           }
+    /* Frequency at which dynamical scalarization occurs */
+        if (checkParamInList(ppt->value,"fDS")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "fDS", tmpVal, fDS_min, fDS_max, LALINFERENCE_PARAM_LINEAR);
+    /* Number of gravitational wave cycles over which to taper dynamical scalarization */
+        if (checkParamInList(ppt->value,"nCyclesDS")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "nCyclesDS", tmpVal, nCyclesDS_min, nCyclesDS_max, LALINFERENCE_PARAM_LINEAR);
       }
         /* Generic -1PN inspiral phase coefficient, parametrizing generic type of dipole radiation contribution */
         /* Implemented at -1PN order in inspiral phasing of TaylorF2/IMRPhenomD/IMRPhenomPv2 */
@@ -2239,6 +2254,9 @@ static void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenc
         ppt=LALInferenceGetProcParamVal(commandLine,"--generic-fd-correction-ncyles");
         if (ppt) correction_ncycles_taper = atof(ppt->value);
         LALInferenceAddVariable(model->params,"correction_ncycles_taper", &correction_ncycles_taper, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+        ppt=LALInferenceGetProcParamVal(commandLine,"--dynamical-scalarization");
+        if (ppt) dynamical_scalarization = 1;
+        LALInferenceAddVariable(model->params,"dynamical_scalarization", &dynamical_scalarization, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
     }
     
     

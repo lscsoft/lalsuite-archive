@@ -23,3 +23,5 @@ configure
 cscope.*
 lalsuite-*.tar.xz
 tags
+*.xcodeproj
+*.xcodeproj/*

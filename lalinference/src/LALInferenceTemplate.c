@@ -70,9 +70,9 @@ static void q2masses(double mc, double q, double *m1, double *m2);
 
 /* list of testing GR parameters to be passed to the waveform */
 
-const char list_extra_parameters[41][16] = {"dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep","dxi1","dxi2","dxi3","dxi4","dxi5","dxi6","dalpha1","dalpha2","dalpha3","dalpha4","dalpha5","dbeta1","dbeta2","dbeta3","dsigma1","dsigma2","dsigma3","dsigma4","log10lambda_eff","lambda_eff","nonGR_alpha","LIV_A_sign","dipolecoeff","dchiMinus1","dchiMinus2"};
+const char list_extra_parameters[43][16] = {"dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep","dxi1","dxi2","dxi3","dxi4","dxi5","dxi6","dalpha1","dalpha2","dalpha3","dalpha4","dalpha5","dbeta1","dbeta2","dbeta3","dsigma1","dsigma2","dsigma3","dsigma4","log10lambda_eff","lambda_eff","nonGR_alpha","LIV_A_sign","dipolecoeff","dchiMinus1","dchiMinus2","fDS","nCyclesDS"};
 
-const UINT4 N_extra_params = 41;
+const UINT4 N_extra_params = 43;
 
 
 static int InterpolateWaveform(REAL8Vector *freqs, COMPLEX16FrequencySeries *src, COMPLEX16FrequencySeries *dest);
@@ -614,6 +614,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
   INT4 amporder;
 
   INT4 generic_fd_correction;
+  INT4 dynamical_scalarization;
     
   static int sizeWarning = 0;
   int ret=0;
@@ -659,6 +660,15 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
     generic_fd_correction = *(INT4*) LALInferenceGetVariable(model->params, "generic_fd_correction");
   else
     generic_fd_correction = 0;
+    
+  /* Check if the user requested a dynamical scalarization phase correction */
+  if (LALInferenceCheckVariable(model->params, "dynamical_scalarization"))
+    dynamical_scalarization = *(INT4*) LALInferenceGetVariable(model->params, "dynamical_scalarization");
+  else
+    dynamical_scalarization = 0;
+    
+    
+    
     
   REAL8 f_ref = 100.0;
   if (LALInferenceCheckVariable(model->params, "f_ref")) f_ref = *(REAL8 *)LALInferenceGetVariable(model->params, "f_ref");
@@ -833,9 +843,24 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
         if(LALInferenceCheckVariable(model->params, "correction_ncycles_taper")) correction_ncycles_taper = *(REAL8*) LALInferenceGetVariable(model->params, "correction_ncycles_taper");
         
         if(LALInferenceCheckVariable(model->params, "generic_fd_correction")) generic_fd_correction = *(INT4*) LALInferenceGetVariable(model->params, "generic_fd_correction");
-
+        
+        if (dynamical_scalarization == 1)
+        {
+            REAL8 fDS = 100.;
+            if(LALInferenceCheckVariable(model->params, "fDS")) fDS = *(REAL8*) LALInferenceGetVariable(model->params, "fDS");
+            REAL8 nCyclesDS = 1.;
+            if(LALInferenceCheckVariable(model->params, "nCyclesDS")) nCyclesDS = *(REAL8*) LALInferenceGetVariable(model->params, "nCyclesDS");
+            
+            if(LALInferenceCheckVariable(model->params, "dynamical_scalarization")) dynamical_scalarization = *(INT4*) LALInferenceGetVariable(model->params, "dynamical_scalarization");
+            
+            XLAL_TRY(ret = XLALSimInspiralTestingGRCorrectionsWithDS(hptilde,distance,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI, spin1z, spin2z, f_start, f_ref, correction_window, correction_ncycles_taper, fDS, nCyclesDS, nonGRparams), errnum);
+            XLAL_TRY(ret = XLALSimInspiralTestingGRCorrectionsWithDS(hctilde,distance,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI, spin1z, spin2z, f_start, f_ref, correction_window, correction_ncycles_taper, fDS, nCyclesDS, nonGRparams), errnum);
+        }
+        else
+        {
             XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(hptilde,distance,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI, spin1z, spin2z, f_start, f_ref, correction_window, correction_ncycles_taper, nonGRparams), errnum);
             XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(hctilde,distance,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI, spin1z, spin2z, f_start, f_ref, correction_window, correction_ncycles_taper, nonGRparams), errnum);
+        }
     }
     else
     {
