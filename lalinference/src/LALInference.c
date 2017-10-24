@@ -412,9 +412,9 @@ void LALInferenceCopyVariables(LALInferenceVariables *origin, LALInferenceVariab
     }
     else
     {
-      if(!ptr->value || !ptr->name){
-        XLAL_ERROR_VOID(XLAL_EFAULT, "Badly formed LALInferenceVariableItem structure!");
-      }
+//      if(!ptr->value || !ptr->name){
+//        XLAL_ERROR_VOID(XLAL_EFAULT, "Badly formed LALInferenceVariableItem structure!");
+//      }
       /* Deep copy matrix and vector types */
       switch (ptr->type)
       {

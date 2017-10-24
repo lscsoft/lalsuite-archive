@@ -95,7 +95,7 @@ Initialisation arguments:\n\
 	INT4 x=0;
 	ppt=LALInferenceGetProcParamVal(commandLine,"--verbose");
 	if(ppt) {
-	  if(ppt->value){
+//	  if((ppt->value)){
 	    x=atoi(ppt->value);
 	    switch(x){
 	     case 0:
@@ -114,8 +114,8 @@ Initialisation arguments:\n\
 	       verbose=LALMSGLVL2;
 	       break;
 	   }
-	  }
-	  else verbose=LALMSGLVL2; /* Errors and warnings */
+//	  }
+//	  else verbose=LALMSGLVL2; /* Errors and warnings */
 	  LALInferenceAddVariable(irs->algorithmParams,"verbose", &verbose , LALINFERENCE_INT4_t,
 				  LALINFERENCE_PARAM_FIXED);		
 	}

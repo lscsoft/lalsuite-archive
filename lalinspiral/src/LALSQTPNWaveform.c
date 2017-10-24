@@ -152,11 +152,11 @@ int XLALSQTPNFillCoefficients(LALSQTPNWaveformParams * const params) {
 	return XLAL_SUCCESS;
 }
 
-int LALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[], 
+/*int LALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[], 
 		void * param) {
 	return LALSQTPNDerivator(t, values, dvalues, param);
 }
-
+*/
 int XLALSQTPNDerivator(UNUSED REAL8 t, const REAL8 values[], REAL8 dvalues[],
 		void * param) {
 

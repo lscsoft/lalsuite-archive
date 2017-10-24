@@ -1873,7 +1873,7 @@ LALappsDoTSeriesSearch(REAL4TimeSeries   *signalSeries,
 		       TSSearchParams     params,
 		       INT4               callNum)
 {
-  CreateTimeFreqIn       tfInputs;/*Input params for map making*/
+//  CreateTimeFreqIn       tfInputs;/*Input params for map making*/
   INT4                   j;
   REAL4Window           *tempWindow = NULL;
   TimeFreqParam         *autoparams = NULL;/*SelfGenerated values for TFmap*/
@@ -1908,6 +1908,7 @@ LALappsDoTSeriesSearch(REAL4TimeSeries   *signalSeries,
    */
   if (injectionRun == 0)
     { 
+      CreateTimeFreqIn       tfInputs;
       tfInputs.type = params.TransformType;
       tfInputs.fRow = 2*params.FreqBins;
       /*
@@ -2124,8 +2125,10 @@ LALappsDoTSeriesSearch(REAL4TimeSeries   *signalSeries,
    * TFR.  MAKE SURE to account for proper TFR dims and time/freq
    * information.
    */
+//  CreateTimeFreqIn       tfInputs;
   tmpTSA=XLALMalloc(sizeof(TSAMap));
-  tmpTSA->imageCreateParams=tfInputs;
+//  CreateTimeFreqIn       tfInputs;
+//  tmpTSA->imageCreateParams=tfInputs;
   tmpTSA->clippedWith=0;
   tmpTSA->imageBorders=mapMarkerParams;
   tmpTSA->imageRep=tfmap;
@@ -2138,7 +2141,7 @@ LALappsDoTSeriesSearch(REAL4TimeSeries   *signalSeries,
   /* 
    *Copy information from cropping procedure to relevant structures.
    */
-  memcpy(&tfInputs,&(tmpTSA->imageCreateParams),sizeof(CreateTimeFreqIn));
+//  memcpy(&tfInputs,&(tmpTSA->imageCreateParams),sizeof(CreateTimeFreqIn));
   memcpy(&mapMarkerParams,&(tmpTSA->imageBorders),sizeof(TrackSearchMapMarkingParams));
   if (params.verbosity >= printFiles)
     LALappsTSAWritePGM(tmpTSA,NULL);
@@ -2194,7 +2197,7 @@ LALappsDoTSeriesSearch(REAL4TimeSeries   *signalSeries,
        * Assemble a tsaMap structure 
        */
       mapBuilder=XLALMalloc(sizeof(TSAMap));
-      mapBuilder->imageCreateParams=tfInputs;
+ //     mapBuilder->imageCreateParams=tfInputs;
       mapBuilder->clippedWith=0;
       mapBuilder->imageBorders=mapMarkerParams;
       mapBuilder->imageRep=tfmap;

@@ -682,8 +682,8 @@ int XLALFrameUFrameHFrDetectorAdd_FrameL_(LALFrameUFrameH * frame, LALFrameUFrDe
             XLAL_ERROR(XLAL_ENOMEM);
         }
     }
-    if (detector->handle->prefix)
-        memcpy(copy->prefix, detector->handle->prefix, 2);
+//    if (detector->handle->prefix)
+    memcpy(copy->prefix, detector->handle->prefix, 2);
 
     copy->longitude = detector->handle->longitude;
     copy->latitude = detector->handle->latitude;

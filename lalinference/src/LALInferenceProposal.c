@@ -319,7 +319,7 @@ void LALInferenceSetupDefaultNSProposal(LALInferenceRunState *runState, LALInfer
   const UINT4 BIGWEIGHT = 20;
   const UINT4 SMALLWEIGHT = 5;
   const UINT4 TINYWEIGHT = 1;
-  const char defaultPropName[]="none";
+  char defaultPropName[]="none";
   UINT4 fullProp = 1;
   UINT4 nDet = numDetectorsUniquePositions(runState);
 
@@ -419,7 +419,7 @@ SetupDefaultProposal(LALInferenceRunState *runState, LALInferenceVariables *curr
   const UINT4 BIGWEIGHT = 20;
   const UINT4 SMALLWEIGHT = 5;
   const UINT4 TINYWEIGHT = 1;
-  const char defaultPropName[]="none";
+  char defaultPropName[]="none";
   UINT4 fullProp = 1;
   UINT4 nDet = numDetectorsUniquePositions(runState);
 
@@ -4131,7 +4131,7 @@ void LALInferenceSetupSineGaussianProposal(LALInferenceRunState *runState, LALIn
   const UINT4 BIGWEIGHT = 20;
   const UINT4 SMALLWEIGHT = 5;
   const UINT4 TINYWEIGHT = 1;
-  const char defaultPropName[]="none";
+  char defaultPropName[]="none";
   UINT4 fullProp = 1;
   UINT4 nDet = numDetectorsUniquePositions(runState);
 

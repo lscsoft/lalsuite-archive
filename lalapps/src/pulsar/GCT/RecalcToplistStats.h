@@ -44,7 +44,7 @@ extern "C" {
 
 /* additional includes */
 #include "GCTtoplist.h"
-#include "../hough/src2/HoughFStatToplist.h"
+#include "../Hough/src2/HoughFStatToplist.h"
 
 /*---------- exported DEFINES ----------*/
 

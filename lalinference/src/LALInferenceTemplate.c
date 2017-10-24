@@ -1257,7 +1257,7 @@ void LALInferenceTemplatePrincipalComp(LALInferenceModel *model)
 {
 
     UINT4 i=0, lower=120;
-    REAL8 hrss = 1.0;
+    REAL8 hrss = 1.0e-4;
 
     /* Principle Component Coefficients */
     REAL8 betas[model->pcs->nPCs];

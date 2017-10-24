@@ -95,8 +95,8 @@ SnglInspiralTable *PySnglInspiral2CSnglInspiral(PyObject *row) {
     GetAttrInPlaceString(event->search, LIGOMETA_SEARCH_MAX, row, "search");
     GetAttrInPlaceString(event->channel, LIGOMETA_CHANNEL_MAX, row, "channel");
 
-    event->end_time.gpsSeconds = GetAttrLong(row, "end_time");
-    event->end_time.gpsNanoSeconds = GetAttrLong(row, "end_time_ns");
+//    event->end_time.gpsSeconds = GetAttrLong(row, "end_time");
+//    event->end_time.gpsNanoSeconds = GetAttrLong(row, "end_time_ns");
     event->end_time_gmst = GetAttrFloat(row, "end_time_gmst");
     event->impulse_time.gpsSeconds = GetAttrLong(row, "impulse_time");
     event->impulse_time.gpsNanoSeconds = GetAttrLong(row, "impulse_time_ns");
