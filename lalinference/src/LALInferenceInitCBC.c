@@ -2230,11 +2230,11 @@ static void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenc
             REAL8 log10lambda_eff_max = 13.0;
             LALInferenceRegisterUniformVariableREAL8(state, model->params, "log10lambda_eff", 3.0, log10lambda_eff_min, log10lambda_eff_max, LALINFERENCE_PARAM_LINEAR);
           }
+        }
     /* Frequency at which dynamical scalarization occurs */
         if (checkParamInList(ppt->value,"fDS")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "fDS", tmpVal, fDS_min, fDS_max, LALINFERENCE_PARAM_LINEAR);
     /* Number of gravitational wave cycles over which to taper dynamical scalarization */
         if (checkParamInList(ppt->value,"nCyclesDS")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "nCyclesDS", tmpVal, nCyclesDS_min, nCyclesDS_max, LALINFERENCE_PARAM_LINEAR);
-      }
         /* Generic -1PN inspiral phase coefficient, parametrizing generic type of dipole radiation contribution */
         /* Implemented at -1PN order in inspiral phasing of TaylorF2/IMRPhenomD/IMRPhenomPv2 */
         REAL8 dipole_min = -1.;
