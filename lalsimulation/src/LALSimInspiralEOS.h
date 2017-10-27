@@ -32,7 +32,7 @@ extern "C" {
  * The first enum types are available for both lambda and q
  * From EOS_Lambda_q_Specific, the EOS are only available for either q, or lambda.
  */
-typedef enum {
+typedef enum tagLALEquationOfState {
   /* First set is available for both lambda and q*/
   LAL_SIM_INSPIRAL_EOS_NONE, /**< A black hole */
   LAL_SIM_INSPIRAL_EOS_Lambda_q_Specific, /**< From here EOS only available for either lambda or q */
