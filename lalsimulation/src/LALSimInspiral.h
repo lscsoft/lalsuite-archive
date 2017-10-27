@@ -370,6 +370,7 @@ typedef enum tagApproximant {
                           * @remarks Implemented in lalsimulation (frequency domain). */
    IMRPhenomD_NRTidal,   /**< Uses arxiv:1706.02969 to upgrad IMRPhenomD to a tidal approximant
                           * @remarks Implemented in lalsimulation (frequency domain). */
+   IMRPhenomPv2_NRTidal, /**< FD waveform combining the phassing of IMRPhenomPv2 with the tidal component built from the infrastructure used in                         the IMRPhenomD_NRTidal waveform approximant */
    NumApproximants	/**< Number of elements in enum, useful for checking bounds */
  } Approximant;
 

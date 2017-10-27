@@ -758,6 +758,98 @@ static int PhenomPCore(
   }
 }
 
+/**
+ *  The following defines the function XLALSimIMRPhenomPv2NRTidal() which adds the tidal
+ *  infrastructure in IMRPhenomD_NRTidal to the IMRPhenomPv2 waveform.
+ */
+
+int XLALSimIMRPhenomPv2NRTidal(
+  COMPLEX16FrequencySeries **hptilde,         /**< [out] Frequency-domain waveform h+ */
+  COMPLEX16FrequencySeries **hctilde,         /**< [out] Frequency-domain waveform hx */
+  REAL8 chi1_l,                  /**< Dimensionless aligned spin on companion 1 */
+  REAL8 chi2_l,                  /**< Dimensionless aligned spin on companion 2 */
+  REAL8 chip,                    /**< Effective spin in the orbital plane */
+  REAL8 thetaJ,                  /**< Angle between J0 and line of sight (z-direction) */
+  REAL8 alpha0,                  /**< Initial value of alpha angle (azimuthal precession angle) */
+  const REAL8 lnhatx,             /**< Initial value of LNhatx: orbital angular momentum unit vector */
+  const REAL8 lnhaty,             /**< Initial value of LNhaty */
+  const REAL8 lnhatz,             /**< Initial value of LNhatz */
+  const REAL8 s1x,                /**< Initial value of s1x: dimensionless spin of mass 1 */
+  const REAL8 s1y,                /**< Initial value of s1y: dimensionless spin of mass 2 */
+  const REAL8 s1z,                /**< Initial value of s1z: dimensionless spin of mass 1 */
+  const REAL8 s2x,                /**< Initial value of s2x: dimensionless spin of mass 2 */
+  const REAL8 s2y,                /**< Initial value of s2y: dimensionless spin of mass 2 */
+  const REAL8 s2z,                /**< Initial value of s2z: dimensionless spin of mass 2 */
+  const REAL8 m1,              /**< Mass of companion 1 (kg) */
+  const REAL8 m2,              /**< Mass of companion 2 (kg) */
+  const REAL8 distance,           /**< Distance of source (m) */
+  const REAL8 lambda1,            /**< Dimensionless tidal deformability of mass 1 */
+  const REAL8 lambda2,            /**< Dimensionless tidal deformability of mass 2 */
+  const REAL8 quadparam1,
+  const REAL8 quadparam2,
+  const REAL8 phic,               /**< Orbital phase at the peak of the underlying non precessing model (rad) */
+  const REAL8 deltaF,             /**< Sampling frequency (Hz) */
+  const REAL8 f_min,              /**< Starting GW frequency (Hz) */
+  const REAL8 f_max,              /**< End frequency; 0 defaults to ringdown cutoff freq */
+  const REAL8 f_ref,              /**< Reference frequency */
+  IMRPhenomP_version_type IMRPhenomPv2_version, /**< IMRPhenomP(v1) uses IMRPhenomC, IMRPhenomPv2 uses IMRPhenomD */
+  const LALSimInspiralTestGRParam *nonGRparams)
+{
+  int ret;
+  /* Generating IMRPhenomPv2 waveform */
+  XLALSimIMRPhenomPCalculateModelParameters(
+                &chi1_l, &chi2_l, &chip, &thetaJ, &alpha0,
+                m1, m2, f_ref,
+                lnhatx, lnhaty, lnhatz,
+                s1x, s1y, s1z,
+                s2x, s2y, s2z, IMRPhenomPv2_version);
+
+  ret = XLALSimIMRPhenomP(hptilde, hctilde,
+              chi1_l, chi2_l, chip, thetaJ,
+              m1, m2, distance, quadparam1, quadparam2, alpha0, phic, deltaF, f_min, f_max, f_ref, IMRPhenomPv2_version, nonGRparams);
+
+  XLAL_CHECK(XLAL_SUCCESS == ret, ret, "Failed to generate IMRPhenomD waveform.");
+  /* Generating tidal phasing and amplitude corrections to generate final waveform */
+  UINT4 offset = 0;
+  REAL8Sequence *freqs = NULL;
+ if (deltaF > 0) { // uniform frequencies
+    /* Recreate freqs using only the lower and upper bounds */
+    UINT4 iStart = (UINT4) (f_min / deltaF);
+    UINT4 iStop = (*hptilde)->data->length - 1;
+    freqs = XLALCreateREAL8Sequence(iStop - iStart);
+    if (!freqs) XLAL_ERROR(XLAL_EFUNC, "Frequency array allocation failed.");
+
+    for (UINT4 i=iStart; i<iStop; i++)
+      freqs->data[i-iStart] = i*deltaF;
+
+    offset = iStart;
+  }
+  COMPLEX16 *hpdata=(*hptilde)->data->data;
+  COMPLEX16 *hcdata=(*hctilde)->data->data;
+
+  /* Get FD tidal phase correction and amplitude factor from arXiv:1706.02969 */
+  REAL8Sequence *phi_tidal = XLALCreateREAL8Sequence(freqs->length);
+  REAL8Sequence *amp_tidal = XLALCreateREAL8Sequence(freqs->length);
+  ret = XLALSimNRTunedTidesFDTidalPhaseFrequencySeries(
+    phi_tidal, amp_tidal, freqs,
+    m1, m2, lambda1, lambda2);
+  XLAL_CHECK(XLAL_SUCCESS == ret, ret, "XLALSimNRTunedTidesFDTidalPhaseFrequencySeries Failed.");
+
+  /* Assemble waveform from amplitude and phase */
+  for (size_t i=0; i<freqs->length; i++) { // loop over frequency points in sequence
+    int j = i + offset; // shift index for frequency series if needed
+    /* Apply tidal phase correction and amplitude taper */
+    COMPLEX16 Corr = amp_tidal->data[i] * cexp(-I*phi_tidal->data[i]);
+    hpdata[j] *= Corr;
+    hcdata[j] *= Corr;
+  }
+
+  XLALDestroyREAL8Sequence(freqs);
+  XLALDestroyREAL8Sequence(phi_tidal);
+  XLALDestroyREAL8Sequence(amp_tidal);
+  return XLAL_SUCCESS;
+}
+
 /* ***************************** PhenomP internal functions *********************************/
 
 /**

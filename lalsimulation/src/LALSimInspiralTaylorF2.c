@@ -30,6 +30,7 @@
 #include <lal/LALConstants.h>
 #include <lal/Sequence.h>
 #include <lal/LALDatatypes.h>
+#include <lal/LALSimInspiralEOS.h>
 #include <lal/LALSimInspiral.h>
 #include <lal/Units.h>
 #include <lal/XLALError.h>
@@ -406,7 +407,7 @@ int XLALSimInspiralTaylorF2(
         const REAL8 S1z,                       /**<  z component of the spin of companion 1 */
         const REAL8 S2z,                       /**<  z component of the spin of companion 2  */
         const REAL8 fStart,                    /**< start GW frequency (Hz) */
-        const REAL8 fEnd,                      /**< highest GW frequency (Hz) of waveform generation - if 0, end at Schwarzschild ISCO */
+        const REAL8 fEnd,                      /**< highest GW frequency (Hz) of waveform generation - if 0, end at Schwarzschild ISCO; if -1, end at minimum of ISCO and contact frequencies*/
         const REAL8 f_ref,                     /**< Reference GW frequency (Hz) - if 0 reference point is coalescence */
         const REAL8 r,                         /**< distance of source (m) */
         const REAL8 quadparam1,                /**< quadrupole deformation parameter of body 1 (dimensionless, 1 for BH) */
@@ -437,6 +438,7 @@ int XLALSimInspiralTaylorF2(
     REAL8Sequence *freqs = NULL;
     LIGOTimeGPS tC = {0, 0};
     int ret;
+    REAL8 fCONT;
 
     COMPLEX16FrequencySeries *htilde = NULL;
 
@@ -452,6 +454,10 @@ int XLALSimInspiralTaylorF2(
     /* allocate htilde */
     if ( fEnd == 0. ) // End at ISCO
         f_max = fISCO;
+    else if ( fEnd == -1. ) { // End at the minimum of the contact and ISCO frequencies
+        fCONT = XLALSimInspiralContactFrequency(m1, lambda1, m2, lambda2); /* Contact frequency of two compact objects */
+        f_max = (fCONT > fISCO) ? fISCO : fCONT;
+    }
     else // End at user-specified freq.
         f_max = fEnd;
     if (f_max <= fStart) XLAL_ERROR(XLAL_EDOM);
