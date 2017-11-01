@@ -822,7 +822,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
   }
   /* sample the Taylor expansion of the non-linear tide params */
   else{if(
-       LALInferenceCheckVariable(model->params, "NLides_N0")
+       LALInferenceCheckVariable(model->params, "NLTides_N0")
     && LALInferenceCheckVariable(model->params, "log10NLTides_A0")
     && LALInferenceCheckVariable(model->params, "NLTides_F0")
     && LALInferenceCheckVariable(model->params, "NLTides_dNdm")
