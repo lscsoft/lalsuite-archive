@@ -79,18 +79,25 @@ int XLALSimInspiralTaylorF2NLPhase(
 
     REAL8 a1 = n1 - 3. ; 
     REAL8 b1 = n1 - 4. ;
+
     REAL8 a2 = n2 - 3. ;
     REAL8 b2 = n2 - 4. ; 
 
     REAL8 xo1 = pow(fo1/fref, a1);
-    REAL8 xo2 = pow(fo1/fref, a2);
+    REAL8 xo2 = pow(fo2/fref, a2);
 
-    REAL8 B = pow(32./5 * pow(LAL_G_SI*Mchirp*LAL_PI*fref/pow(LAL_C_SI, 3.), 5./3), 2) ;
+    REAL8 B = 3*pow(32./5 * pow(LAL_G_SI*Mchirp*LAL_PI*fref/pow(LAL_C_SI, 3.), 5./3), 2) ;
     REAL8 C1 = pow(2*m1_SI/Mtot, 2./3) * Anl1 ;
     REAL8 C2 = pow(2*m2_SI/Mtot, 2./3) * Anl2 ; 
 
-    REAL8 prefact1 = -2*C1/(3*B*a1*b1);
-    REAL8 prefact2 = -2*C2/(3*B*a2*b2);
+    REAL8 prefact1 = -2*C1/(B*a1*b1);
+    REAL8 prefact2 = -2*C2/(B*a2*b2);
+
+    REAL8 dphi1 = prefact1*xo1;
+    REAL8 dt1 = dphi1*a1/fo1;
+
+    REAL8 dphi2 = prefact2*xo2;
+    REAL8 dt2 = dphi2*a2/fo2;
 
     // iterate through freqs and fill in 
     UINT4 i = 0;
@@ -104,21 +111,17 @@ int XLALSimInspiralTaylorF2NLPhase(
     /* REED's version, which aligns waveforms at merger rather than in the distant past */
     while (i<freqs->length) {
         f = freqs->data[i];
-        x = f/fref;
+        x = f/fref; // I will not always need this, so we could restructure the loop to only compute this when it is known to be needed. Probably a marginal speedup at best
 
         if (f < fo1) {
-//            dphi->data[i] = prefact1*xo1*(f/fo1 - 1);
-            dphi->data[i] = prefact1*xo1*f/fo1;
+            dphi->data[i] = dt1*(f-fo1) + dphi1;
         } else {
-//            dphi->data[i]  = prefact1*(pow(x, a1) - xo1);
             dphi->data[i]  = prefact1*pow(x, a1);
         }
 
         if (f < fo2) {
-//            dphi->data[i] += prefact2*xo2*(f/fo2 - 1);
-            dphi->data[i] += prefact2*xo2*f/fo2;
+            dphi->data[i] += dt2*(f-fo2) + dphi2;
         } else { 
-//            dphi->data[i] += prefact2*(pow(x, a2) - xo2);
             dphi->data[i] += prefact2*pow(x, a2);
         }
 
