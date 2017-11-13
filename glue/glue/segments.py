@@ -786,8 +786,7 @@ class segmentlist(list):
 		Execute the .protract() method on each segment in the list
 		and coalesce the result.  Segmentlist is modified in place.
 		"""
-		for i in range(len(self)):
-			self[i] = self[i].protract(x)
+		self[:] = (seg.protract(x) for seg in self)
 		return self.coalesce()
 
 	def contract(self, x):
@@ -795,8 +794,7 @@ class segmentlist(list):
 		Execute the .contract() method on each segment in the list
 		and coalesce the result.  Segmentlist is modified in place.
 		"""
-		for i in range(len(self)):
-			self[i] = self[i].contract(x)
+		self[:] = (seg.contract(x) for seg in self)
 		return self.coalesce()
 
 	def shift(self, x):
@@ -806,8 +804,7 @@ class segmentlist(list):
 		coalesced nor does it coalesce the list.  Segmentlist is
 		modified in place.
 		"""
-		for i in range(len(self)):
-			self[i] = self[i].shift(x)
+		self[:] = (seg.shift(x) for seg in self)
 		return self
 
 

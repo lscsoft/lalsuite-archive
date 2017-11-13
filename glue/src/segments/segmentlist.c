@@ -718,7 +718,7 @@ static PyObject *__ior__(PyObject *self, PyObject *other)
 	if(PySequence_Size(other) > PyList_GET_SIZE(self) / 2) {
 		if(pylist_extend((PyListObject *) self, other))
 			return NULL;
-		return coalesce(self, NULL);
+		return PyObject_CallMethod(self, "coalesce", NULL);
 	}
 
 	/* don't iterate over the same object twice */
@@ -1252,7 +1252,7 @@ static PyObject *protract(PyObject *self, PyObject *delta)
 
 	Py_DECREF(protract);
 
-	return coalesce(self, NULL);
+	return PyObject_CallMethod(self, "coalesce", NULL);
 }
 
 
@@ -1295,7 +1295,7 @@ static PyObject *contract(PyObject *self, PyObject *delta)
 
 	Py_DECREF(contract);
 
-	return coalesce(self, NULL);
+	return PyObject_CallMethod(self, "coalesce", NULL);
 }
 
 
