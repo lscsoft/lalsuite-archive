@@ -261,7 +261,8 @@ def cbcBayesPostProc(
                         #header file
                         header=None,
                         psd_files=None,
-                        greedy=True ## If true will use greedy bin for 1-d credible regions. Otherwise use 2-steps KDE
+                        greedy=True, ## If true will use greedy bin for 1-d credible regions. Otherwise use 2-steps KDE
+                        tablename=None
                     ):
     """
     This is a demonstration script for using the functionality/data structures
@@ -316,11 +317,11 @@ def cbcBayesPostProc(
     elif '.hdf' in data[0] or '.h5' in data[0]:
         if len(data) > 1:
             peparser = bppu.PEOutputParser('hdf5s')
-            commonResultsObj=peparser.parse(data,deltaLogP=deltaLogP,fixedBurnins=fixedBurnins,nDownsample=nDownsample)
+            commonResultsObj=peparser.parse(data,deltaLogP=deltaLogP,fixedBurnins=fixedBurnins,nDownsample=nDownsample,tablename=tablename)
         else:
             fixedBurnins = fixedBurnins if fixedBurnins is not None else None
             peparser = bppu.PEOutputParser('hdf5')
-            commonResultsObj=peparser.parse(data[0],deltaLogP=deltaLogP,fixedBurnin=fixedBurnins,nDownsample=nDownsample)
+            commonResultsObj=peparser.parse(data[0],deltaLogP=deltaLogP,fixedBurnin=fixedBurnins,nDownsample=nDownsample,tablename=tablename)
     else:
         peparser=bppu.PEOutputParser('common')
         commonResultsObj=peparser.parse(open(data[0],'r'),info=[header,None])
@@ -1218,6 +1219,7 @@ if __name__=='__main__':
     parser.add_option("--psdfiles",action="store",default=None,type="string",metavar="H1,L1,V1",help="comma separater list of ASCII files with PSDs, one per IFO")
     parser.add_option("--kdecredibleregions",action="store_true",default=False,help="If given, will use 2-step KDE trees to estimate 1-d credible regions [default false: use greedy binning]")
     parser.add_option("--noplot-source-frame", action="store_true", default=False,help="Don't make 1D plots of source-frame masses")
+    parser.add_option("--tablename",action="store",default=None,type="string",metavar="tablename",help="Table name from the HDF5 file to process")
     (opts,args)=parser.parse_args()
 
     datafiles=[]
@@ -1381,7 +1383,8 @@ if __name__=='__main__':
                         header=opts.header,
                         # ascii files (one per IFO) containing  freq - PSD columns
                         psd_files=opts.psdfiles,
-                        greedy=not(opts.kdecredibleregions)
+                        greedy=not(opts.kdecredibleregions),
+                        tablename=opts.tablename
                     )
 
     if opts.archive is not None:
