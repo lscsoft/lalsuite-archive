@@ -331,8 +331,30 @@ class test_segmentlist(unittest.TestCase):
 	def testprotract(self):
 		self.assertEqual(segments.segmentlist([segments.segment(0, 20)]), segments.segmentlist([segments.segment(3, 7), segments.segment(13, 17)]).protract(3))
 
+		# confirm that .protract() preserves the type of the
+		# segment objects
+		class MyCustomSegment(segments.segment):
+			pass
+		class MyCustomSegmentList(segments.segmentlist):
+			def coalesce(self):
+				# must override for test, but don't have to
+				# implement because test case is too simple
+				return self
+		self.assertEqual(type(MyCustomSegmentList([MyCustomSegment(0, 10)]).protract(1)[0] ), MyCustomSegment)
+
 	def testcontract(self):
 		self.assertEqual(segments.segmentlist([segments.segment(0, 20)]), segments.segmentlist([segments.segment(3, 7), segments.segment(13, 17)]).contract(-3))
+
+		# confirm that .contract() preserves the type of the
+		# segment objects
+		class MyCustomSegment(segments.segment):
+			pass
+		class MyCustomSegmentList(segments.segmentlist):
+			def coalesce(self):
+				# must override for test, but don't have to
+				# implement because test case is too simple
+				return self
+		self.assertEqual(type(MyCustomSegmentList([MyCustomSegment(0, 10)]).contract(1)[0] ), MyCustomSegment)
 
 	def testintersects(self):
 		for i in range(algebra_repeats):
