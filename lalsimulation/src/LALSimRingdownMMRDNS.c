@@ -1224,6 +1224,9 @@ int XLALSimRingdownMMRDNSFD(
         if (hc320) XLALDestroyCOMPLEX16FrequencySeries(hc320);
         if (hc430) XLALDestroyCOMPLEX16FrequencySeries(hc430);
 
+        /* Cleanup nonGRParamName */
+        free(nonGRParamName);
+
   return XLAL_SUCCESS;
 }
 
