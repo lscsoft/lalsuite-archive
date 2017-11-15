@@ -1498,12 +1498,15 @@ static double NRSur7dq2_get_t_ref(
     double *q_ref,      // coprecessing frame quaternion at reference point
     double phi_ref      // orbital phase at reference point
 ) {
+    if (NULL) {
+// FIXME
     if (fabs(omega_ref) < 1.e-10) {
         XLAL_PRINT_WARNING("WARNING: Treating omega_ref = 0 as a flag to use t_ref = t_0 = -4500M");
         return -4499.99999999; // The first time node is ever so slightly larger than -4500; this avoids out-of-range issues
     }
 
     if (omega_ref > 0.201) XLAL_ERROR_REAL8(XLAL_FAILURE, "Reference frequency omega_ref=%0.4f > 0.2, too large!\n", omega_ref);
+    }
 
     double y0[11];
     int i;
@@ -1515,8 +1518,11 @@ static double NRSur7dq2_get_t_ref(
     }
 
     double omega_min = NRSur7dq2_get_omega(0, q, y0);
+    if (NULL) {
+// FIXME
     if (omega_ref < omega_min) {
         XLAL_ERROR_REAL8(XLAL_FAILURE, "Got omega_ref=%0.4f smaller than omega0=%0.4f for this configuration!", omega_ref, omega_min);
+    }
     }
 
     // i0=0 is a lower bound; find the first index where omega > omega_ref, and the previous index will have omega <= omega_ref.
@@ -1529,8 +1535,11 @@ static double NRSur7dq2_get_t_ref(
         omega_max = NRSur7dq2_get_omega(imax, q, y0);
     }
 
+    if (NULL) {
+// FIXME
     if (omega_max <= omega_ref) {
         XLAL_ERROR_REAL8(XLAL_FAILURE, "Tried all nodes and still have omega=%0.4f <= omega_ref=%0.4f\n", omega_min, omega_ref);
+    }
     }
 
     // Do a linear interpolation between omega_min and omega_max
