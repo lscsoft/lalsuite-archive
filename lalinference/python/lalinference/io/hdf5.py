@@ -45,7 +45,7 @@ _colname_map = (('rightascension', 'ra'),
 
 def _remap_colnames(table):
     for old_name, new_name in _colname_map:
-        if old_name in table.colnames:
+        if old_name in table.colnames and not new_name in table.colnames:
             table.rename_column(old_name, new_name)
 
 
