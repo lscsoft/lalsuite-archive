@@ -5341,7 +5341,7 @@ def greedy_bin_one_param(posterior,greedy1Param,confidence_levels):
 
             cl_intervals.append((toppoints[ind[0],0],toppoints[ind[0],0]))
 
-    return toppoints,injectionconfidence,reses,injection_area,cl_intervals
+    return toppoints,injectionconfidence,reses,injection_area,cl_intervals,parpos_min,parpos_max
 
 #
 def contigious_interval_one_param(posterior,contInt1Params,confidence_levels):
@@ -7590,7 +7590,7 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
   A.savefig(os.path.join(path,'WF_DetFrame.png'),bbox_inches='tight')
   return inj_strains, rec_strains
 
-def make_1d_table(html,legend,label,pos,pars,noacf,GreedyRes,onepdfdir,sampsdir,savepdfs,greedy,analyticLikelihood,nDownsample):
+def make_1d_table(html,legend,label,pos,pars,noacf,GreedyRes,onepdfdir,sampsdir,savepdfs,greedy,analyticLikelihood,nDownsample,leftsigma,rightsigma):
 
     from numpy import unique, sort
     global confidenceLevels
@@ -7658,7 +7658,7 @@ def make_1d_table(html,legend,label,pos,pars,noacf,GreedyRes,onepdfdir,sampsdir,
           if printed==0:
             print "Using greedy 1-d binning credible regions\n"
             printed=1
-          toppoints,injectionconfidence,reses,injection_area,cl_intervals=greedy_bin_one_param(pos,binParams,confidence_levels)
+          toppoints,injectionconfidence,reses,injection_area,cl_intervals,parpos_min,parpos_max=greedy_bin_one_param(pos,binParams,confidence_levels)
         else:
           if printed==0:
             print "Using 2-step KDE 1-d credible regions\n"
@@ -7673,6 +7673,39 @@ def make_1d_table(html,legend,label,pos,pars,noacf,GreedyRes,onepdfdir,sampsdir,
             injection_area=injstats[4]
         #Generate 1D histogram/kde plots
         print "Generating 1D plot for %s."%par_name
+        #Get 1D pdf  plot range using sigma range
+        plot_range=None
+        if leftsigma != None and rightsigma == None:
+          rightsigma = leftsigma
+        elif leftsigma == None and rightsigma != None:
+          leftsigma = rightsigma
+        if leftsigma!=None:
+          sigma0=0
+          sigma1=0
+          sigma2=0
+          c1=0
+          i1=0
+          len1 = len(cl_intervals)
+          #print "[DEBUG]i1, len1 : ", i1, ", ", len1
+          while (len1 > 0 and i1 < len1 and len(cl_intervals[i1])>0 and  not np.isscalar(cl_intervals[i1][0])):
+            #print "[DEBUG]cl_intervals : ", i1, ", ", cl_intervals[i1][0]
+            i1=i1+1
+          if i1 < len1 and len(cl_intervals[i1])>0:
+            #print "[DEBUG]cl_intervals : ", i1, ", ", cl_intervals[i1][0], ", ", cl_intervals[i1][1]
+            sigma0=cl_intervals[i1][1]-cl_intervals[i1][0]
+            c1=(cl_intervals[i1][1]+cl_intervals[i1][0])*0.5
+            sigma1=sigma0*0.5*leftsigma
+            sigma2=sigma0*0.5*rightsigma
+            lower1 = c1-sigma1
+            upper1 = c1+sigma2
+            if (parpos_min>0 and lower1 < 0):
+              lower1 = 0
+            elif lower1 < parpos_min:
+              lower1 = parpos_min
+            if upper1 > parpos_max:
+              upper1 = parpos_max
+            plot_range=(lower1, upper1)
+        print "1D plotting range = ", plot_range
         out[par_name]=reses
         #Get analytic description if given
         pdf=cdf=None

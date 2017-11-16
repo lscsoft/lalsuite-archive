@@ -265,7 +265,10 @@ def cbcBayesPostProc(
                         #header file
                         header=None,
                         psd_files=None,
-                        greedy=True ## If true will use greedy bin for 1-d credible regions. Otherwise use 2-steps KDE
+                        greedy=True, ## If true will use greedy bin for 1-d credible regions. Otherwise use 2-steps KDE
+                        #1D PDF plot range control with sigma(left and right)
+                        leftsigma, 
+                        rightsigma
                     ):
     """
     This is a demonstration script for using the functionality/data structures
@@ -710,7 +713,7 @@ def cbcBayesPostProc(
     reses={}
 
     for i in oneDMenus.keys():
-      rss=bppu.make_1d_table(html,legend,i,pos,oneDMenus[i],noacf,GreedyRes,onepdfdir,sampsdir,savepdfs,greedy,analyticLikelihood,nDownsample)
+      rss=bppu.make_1d_table(html,legend,i,pos,oneDMenus[i],noacf,GreedyRes,onepdfdir,sampsdir,savepdfs,greedy,analyticLikelihood,nDownsample,leftsigma,rightsigma)
       reses.update(rss)
 
 
@@ -751,7 +754,7 @@ def cbcBayesPostProc(
                     if printed==0:
                         print "Using greedy 1-d binning credible regions\n"
                         printed=1
-                    toppoints,injectionconfidence,reses,injection_area,cl_intervals=bppu.greedy_bin_one_param(pos,binParams,confidence_levels)
+                    toppoints,injectionconfidence,reses,injection_area,cl_intervals,parpos_min,parpos_max=bppu.greedy_bin_one_param(pos,binParams,confidence_levels)
       else:
                     if printed==0:
                         print "Using 2-step KDE 1-d credible regions\n"
@@ -1252,6 +1255,8 @@ if __name__=='__main__':
     parser.add_option("--psdfiles",action="store",default=None,type="string",metavar="H1,L1,V1",help="comma separater list of ASCII files with PSDs, one per IFO")
     parser.add_option("--kdecredibleregions",action="store_true",default=False,help="If given, will use 2-step KDE trees to estimate 1-d credible regions [default false: use greedy binning]")
     parser.add_option("--noplot-source-frame", action="store_true", default=False,help="Don't make 1D plots of source-frame masses")
+    parser.add_option("--leftsigma",action="store",default=None,help="plotting 1D pdf with sigma range(left)",type="float",dest="leftsigma")
+    parser.add_option("--rightsigma",action="store",default=None,help="plotting 1D pdf with sigma range(right)",type="float",dest="rightsigma")
     (opts,args)=parser.parse_args()
 
     datafiles=[]
@@ -1425,7 +1430,10 @@ if __name__=='__main__':
                         header=opts.header,
                         # ascii files (one per IFO) containing  freq - PSD columns
                         psd_files=opts.psdfiles,
-                        greedy=not(opts.kdecredibleregions)
+                        greedy=not(opts.kdecredibleregions),
+                        # 1D plot range by sigma
+                        leftsigma=opts.leftsigma,
+                        rightsigma=opts.rightsigma
                     )
 
     if opts.archive is not None:
