@@ -4096,7 +4096,7 @@ def plot_one_param_pdf_line_hist(fig,pos_samps):
     plt.hist(pos_samps,kdepdf)
 
 
-def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,plotkde=False):
+def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,plotkde=False,confidence_levels=None):
     """
     Plots a 1D histogram and (gaussian) kernel density estimate of the
     distribution of posterior samples for a given parameter.
@@ -4140,7 +4140,10 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
       ax1_name=param+' + %i'%(int(offset))
     else: ax1_name=param
 
-    (n, bins, patches)=plt.hist(pos_samps,histbins,normed='true',facecolor='grey')
+    if confidence_levels==None:
+      (n, bins, patches)=plt.hist(pos_samps,histbins,normed='true',facecolor='grey')
+    else:
+      (n, bins, patches)=plt.hist(pos_samps,histbins,confidence_levels,normed='true',facecolor='grey')
     Nchars=max(map(lambda d:len(majorFormatterX.format_data(d)),axes.get_xticks()))
     if Nchars>8:
         Nticks=3
@@ -7698,12 +7701,14 @@ def make_1d_table(html,legend,label,pos,pars,noacf,GreedyRes,onepdfdir,sampsdir,
             sigma2=sigma0*0.5*rightsigma
             lower1 = c1-sigma1
             upper1 = c1+sigma2
+            #print "[DEBUG] lower1, upper1 : ",lower1, upper1
             if (parpos_min>0 and lower1 < 0):
               lower1 = 0
             elif lower1 < parpos_min:
               lower1 = parpos_min
             if upper1 > parpos_max:
               upper1 = parpos_max
+            #print "[DEBUG-1] lower1, upper1 : ",lower1, upper1
             plot_range=(lower1, upper1)
         print "1D plotting range = ", plot_range
         out[par_name]=reses
@@ -7715,7 +7720,7 @@ def make_1d_table(html,legend,label,pos,pars,noacf,GreedyRes,onepdfdir,sampsdir,
 
         oneDPDFParams={par_name:50}
         try:
-            rbins,plotFig=plot_one_param_pdf(pos,oneDPDFParams,pdf,cdf,plotkde=False)
+            rbins,plotFig=plot_one_param_pdf(pos,oneDPDFParams,pdf,cdf,False,plot_range)
         except:
             print "Failed to produce plot for %s."%par_name
             continue
