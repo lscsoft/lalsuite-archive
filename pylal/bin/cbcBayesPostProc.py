@@ -267,8 +267,8 @@ def cbcBayesPostProc(
                         psd_files=None,
                         greedy=True, ## If true will use greedy bin for 1-d credible regions. Otherwise use 2-steps KDE
                         #1D PDF plot range control with sigma(left and right)
-                        leftsigma, 
-                        rightsigma
+                        leftsigma=None, 
+                        rightsigma=None
                     ):
     """
     This is a demonstration script for using the functionality/data structures
