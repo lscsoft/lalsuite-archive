@@ -1500,11 +1500,6 @@ static double NRSur7dq2_get_t_ref(
 ) {
     if (NULL) {
 // FIXME
-    if (fabs(omega_ref) < 1.e-10) {
-        XLAL_PRINT_WARNING("WARNING: Treating omega_ref = 0 as a flag to use t_ref = t_0 = -4500M");
-        return -4499.99999999; // The first time node is ever so slightly larger than -4500; this avoids out-of-range issues
-    }
-
     if (omega_ref > 0.201) XLAL_ERROR_REAL8(XLAL_FAILURE, "Reference frequency omega_ref=%0.4f > 0.2, too large!\n", omega_ref);
     }
 
@@ -1518,11 +1513,17 @@ static double NRSur7dq2_get_t_ref(
     }
 
     double omega_min = NRSur7dq2_get_omega(0, q, y0);
+    if (omega_ref < omega_min) {
+      omega_ref = 0;
     if (NULL) {
 // FIXME
-    if (omega_ref < omega_min) {
         XLAL_ERROR_REAL8(XLAL_FAILURE, "Got omega_ref=%0.4f smaller than omega0=%0.4f for this configuration!", omega_ref, omega_min);
     }
+    }
+
+    if (fabs(omega_ref) < 1.e-10) {
+        XLAL_PRINT_WARNING("WARNING: Treating omega_ref = 0 as a flag to use t_ref = t_0 = -4500M");
+        return -4499.99999999; // The first time node is ever so slightly larger than -4500; this avoids out-of-range issues
     }
 
     // i0=0 is a lower bound; find the first index where omega > omega_ref, and the previous index will have omega <= omega_ref.
