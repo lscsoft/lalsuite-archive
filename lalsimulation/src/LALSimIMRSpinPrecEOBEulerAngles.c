@@ -1,6 +1,65 @@
 #ifndef _LALSIMIMRSPINPRECEOBEULERANGLES_C
 #define _LALSIMIMRSPINPRECEOBEULERANGLES_C
 
+static UINT4 FLAG_SEOBNRv3_EULEREXT_CONSTANT = 0;
+static UINT4 FLAG_SEOBNRv3_EULEREXT_QNM_SIMPLE_PRECESSION = 1;
+
+/**
+ * Computes the 3*3 active rotation matrix corresponding to given Euler angles in the (z,y,z) convention
+ * R has to be 3*3 and already allocated
+ */
+static int RotationMatrixActiveFromEulerAnglesZYZ(gsl_matrix* R, const double alpha, const double beta, const double gamma)
+{
+	double ca = cos(alpha);
+	double sa = sin(alpha);
+	double cb = cos(beta);
+	double sb = sin(beta);
+	double cc = cos(gamma);
+	double sc = sin(gamma);
+	gsl_matrix_set(R, 0, 0, -sa*sc + ca*cb*cc);
+	gsl_matrix_set(R, 0, 1, -sa*cc - ca*cb*sc);
+	gsl_matrix_set(R, 0, 2, ca*sb);
+	gsl_matrix_set(R, 1, 0, ca*sc + sa*cb*cc);
+	gsl_matrix_set(R, 1, 1, ca*cc - sa*cb*sc);
+	gsl_matrix_set(R, 1, 2, sa*sb);
+	gsl_matrix_set(R, 2, 0, -sb*cc);
+	gsl_matrix_set(R, 2, 1, sb*sc);
+	gsl_matrix_set(R, 2, 2, cb);
+	return XLAL_SUCCESS;
+}
+/**
+ * Computes the Euler angles in the (z,y,z) convention corresponding to a given 3*3 active rotation matrix
+ * R has to be 3*3
+ */
+static int EulerAnglesZYZFromRotationMatrixActive(double* alpha, double* beta, double* gamma, gsl_matrix* R)
+{
+	double a = atan2(gsl_matrix_get(R, 1, 2), gsl_matrix_get(R, 0, 2));
+	double b = acos(gsl_matrix_get(R, 2, 2));
+	double c = -atan2(gsl_matrix_get(R, 2, 1), gsl_matrix_get(R, 2, 0));
+	*alpha = a;
+	*beta = b;
+	*gamma = c;
+	return XLAL_SUCCESS;
+}
+/**
+ * Active rotation matrix from orthonormal basis (e1, e2, e3) to (e1', e2', e3')
+ * Input are e1', e2', e3' decomposed on (e1, e2, e3)
+ * All vectors are 3-vectors, gsl matrix 3*3 has to be already allocated
+ */
+static int RotationMatrixActiveFromBasisVectors(gsl_matrix* R, const REAL8 e1p[], const REAL8 e2p[], const REAL8 e3p[])
+{
+	gsl_matrix_set(R, 0, 0, e1p[0]);
+	gsl_matrix_set(R, 1, 0, e1p[1]);
+	gsl_matrix_set(R, 2, 0, e1p[2]);
+	gsl_matrix_set(R, 0, 1, e2p[0]);
+	gsl_matrix_set(R, 1, 1, e2p[1]);
+	gsl_matrix_set(R, 2, 1, e2p[2]);
+	gsl_matrix_set(R, 0, 2, e3p[0]);
+	gsl_matrix_set(R, 1, 2, e3p[1]);
+	gsl_matrix_set(R, 2, 2, e3p[2]);
+	return XLAL_SUCCESS;
+}
+
 /**
  * Computes RHS of ODE for gamma. Eq. 10 of PRD 89, 084006 (2014)
  */
@@ -278,26 +337,129 @@ static void ComputeSpinsInLframe(
 }
 
 
-static int EulerAnglesP2I(REAL8Vector* alphaP2I, /**<< output: alpha Euler angle */
-                 REAL8Vector *betaP2I, /**<< output: beta Euler angle */
-                 REAL8Vector *gammaP2I, /**<< output: gamma Euler angle */
+static int EulerAnglesP2I(
+	       REAL8Vector* alphaP2I, /**<< output: alpha Euler angle */
+         REAL8Vector *betaP2I, /**<< output: beta Euler angle */
+         REAL8Vector *gammaP2I, /**<< output: gamma Euler angle */
 				 REAL8TimeSeries* alphaI2PTS, /** low sample alpha I->P */
 				 REAL8TimeSeries* betaI2PTS, /** low sample beta I->P */
-				 REAL8TimeSeries* gammaI2PTS /** low sample gamma I->P */)
+				 REAL8TimeSeries* gammaI2PTS, /** low sample gamma I->P */
+				 const REAL8 chif[], /** 3-vector for the dimensionless final spin */
+				 const REAL8 omegaQNM220, /** QNM frequency 0th overtone for the 22 mode */
+				 const REAL8 omegaQNM210, /** QNM frequency 0th overtone for the 21 mode */
+				 const UINT4 flagEulerextension) /** Flag indicating how to extend the Euler angles post-merger */
 {
      UINT4 i;
      UINT4 retLenLow = gammaI2PTS->data->length;
+		 /* NOTE: changed gamma,-beta,alpha to -gamma,-beta,-alpha, previously was done ouside of this function */
      for (i=0; i<retLenLow;i++) {
-            alphaP2I->data[i] = gammaI2PTS->data->data[i];
+            alphaP2I->data[i] = -gammaI2PTS->data->data[i];
             betaP2I->data[i] = -betaI2PTS->data->data[i];
-            gammaP2I->data[i] = alphaI2PTS->data->data[i];
+            gammaP2I->data[i] = -alphaI2PTS->data->data[i];
      }
-     for (i=retLenLow; i<alphaP2I->length; i++) {
-           alphaP2I->data[i] = gammaI2PTS->data->data[retLenLow-1];
-           betaP2I->data[i] = -betaI2PTS->data->data[retLenLow-1];
-           gammaP2I->data[i] = alphaI2PTS->data->data[retLenLow-1];
-     }
-	 return XLAL_SUCCESS;
+		 /* Initial Euler angles from I-frame to P-frame at time of junction */
+		 REAL8 alpha0 = alphaI2PTS->data->data[retLenLow-1];
+		 REAL8 beta0 = betaI2PTS->data->data[retLenLow-1];
+		 REAL8 gamma0 = gammaI2PTS->data->data[retLenLow-1];
+		 /* Euler extension: here freeze the P-frame, extend with constant Euler angles */
+		 if(flagEulerextension==FLAG_SEOBNRv3_EULEREXT_CONSTANT) {
+	     for (i=retLenLow; i<alphaP2I->length; i++) {
+	           alphaP2I->data[i] = -gamma0;
+	           betaP2I->data[i] = -beta0;
+	           gammaP2I->data[i] = -alpha0;
+	     }
+	   }
+		 /* Euler extension: here rotate around the direction of the final spin with constant beta, at the rate omegaQNM220-omegaQNM210 */
+		 else if(flagEulerextension==FLAG_SEOBNRv3_EULEREXT_QNM_SIMPLE_PRECESSION) {
+			 UINT4 npt = alphaP2I->length - retLenLow;
+			 REAL8 deltaT = alphaI2PTS->deltaT;
+
+			 /* I-frame components (x,y,z) of the initial radiation axis vector Zrad(0) - same as z-vector of P-frame */
+			 REAL8 Zrad0[3] = {0, 0, 0};
+			 Zrad0[0] = sin(beta0)*cos(alpha0);
+			 Zrad0[1] = sin(beta0)*sin(alpha0);
+			 Zrad0[2] = cos(beta0);
+
+			 /* Build a J-frame adapted to the direction of the final spin */
+			 /* zJ is along chif, xJ is such that the radiation axis Zrad is in the plane (xJ,zJ) */
+			 REAL8 xJ[3] = {0, 0, 0}, yJ[3] = {0, 0, 0}, zJ[3] = {0, 0, 0};
+			 REAL8 chifnorm = sqrt(inner_product(chif, chif));
+			 zJ[0] = chif[0] / chifnorm;
+			 zJ[1] = chif[1] / chifnorm;
+			 zJ[2] = chif[2] / chifnorm;
+			 cross_product(zJ, Zrad0, yJ);
+			 REAL8 yJnorm = sqrt(inner_product(yJ, yJ));
+			 yJ[0] = yJ[0] / yJnorm;
+			 yJ[1] = yJ[1] / yJnorm;
+			 yJ[2] = yJ[2] / yJnorm;
+
+			 /* Active rotation matrix from I-frame basis (x,y,z) to J-frame (xJ, yJ, zJ) */
+			 gsl_matrix* RIJ = gsl_matrix_alloc(3, 3);
+			 RotationMatrixActiveFromBasisVectors(RIJ, xJ, yJ, zJ);
+			 /* Active rotation matrices from I to P and from J to P */
+			 gsl_matrix* RIP = gsl_matrix_alloc(3, 3);
+			 gsl_matrix* RJP = gsl_matrix_alloc(3, 3);
+			 /* Time series for Euler angles from J-frame to P-frame */
+			 REAL8Vector* alphaJ2P = XLALCreateREAL8Vector(npt);
+			 REAL8Vector* betaJ2P = XLALCreateREAL8Vector(npt);
+			 REAL8Vector* gammaJ2P = XLALCreateREAL8Vector(npt);
+			 REAL8Vector* alphaI2Pext = XLALCreateREAL8Vector(npt);
+			 REAL8Vector* betaI2Pext = XLALCreateREAL8Vector(npt);
+			 REAL8Vector* gammaI2Pext = XLALCreateREAL8Vector(npt);
+
+			 /* Compute initial values for Euler angles from J-frame to P-frame */
+			 /* R(aJ, bJ, cJ)(0) = R(aI, bI, cI)(0) . RIJ^-1 with RIJ^-1=RIJ^T */
+			 REAL8 alphaJ0, betaJ0, gammaJ0 = 0;
+			 RotationMatrixActiveFromEulerAnglesZYZ(RIP, alpha0, beta0, gamma0);
+			 gsl_blas_dgemm(CblasNoTrans, CblasTrans, 1.0, RIP, RIJ, 0.0, RJP); /* Note the transposition */
+			 EulerAnglesZYZFromRotationMatrixActive(&alphaJ0, &betaJ0, &gammaJ0, RJP);
+
+			 /* Compute extension of Euler angles from J-frame to P-frame */
+			 /* Simple precession around final spin with rate Omega_P */
+			 REAL8 Omega_P = omegaQNM220 - omegaQNM210;
+			 REAL8 cosbetaJ0 = cos(betaJ0);
+			 for (i=0; i<npt; i++) {
+				 alphaJ2P->data[i] = (i+1)*deltaT*Omega_P + alphaJ0;
+				 betaJ2P->data[i] = betaJ0;
+				 gammaJ2P->data[i] = -cosbetaJ0*(i+1)*deltaT*Omega_P + gammaJ0;
+			 }
+
+			 /* Translate to Euler angles from I-frame to P-frame */
+			 /* R(aI, bI, cI) = R(aJ, bJ, cJ) . RIJ */
+			 REAL8 alphaI, betaI, gammaI = 0;
+			 for (i=0; i<npt; i++) {
+				 RotationMatrixActiveFromEulerAnglesZYZ(RJP, alphaJ2P->data[i], betaJ2P->data[i], gammaJ2P->data[i]);
+				 gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1.0, RJP, RIJ, 0.0, RIP);
+				 EulerAnglesZYZFromRotationMatrixActive(&alphaI, &betaI, &gammaI, RIP);
+				 alphaI2Pext->data[i] = alphaI;
+				 betaI2Pext->data[i] = betaI;
+				 gammaI2Pext->data[i] = gammaI;
+			 }
+
+			 /* Invert to get Euler angles from P-frame to I-frame */
+			 for (i=0; i<npt; i++) {
+				 alphaP2I->data[retLenLow + i] = -gammaI2Pext->data[i];
+				 betaP2I->data[retLenLow + i] = -betaI2Pext->data[i];
+				 gammaP2I->data[retLenLow + i] = -alphaI2Pext->data[i];
+			 }
+
+			 /* Cleanup */
+			 gsl_matrix_free(RIJ);
+			 gsl_matrix_free(RIP);
+			 gsl_matrix_free(RJP);
+			 XLALDestroyREAL8Vector(alphaJ2P);
+			 XLALDestroyREAL8Vector(betaJ2P);
+			 XLALDestroyREAL8Vector(gammaJ2P);
+			 XLALDestroyREAL8Vector(alphaI2Pext);
+			 XLALDestroyREAL8Vector(betaI2Pext);
+			 XLALDestroyREAL8Vector(gammaI2Pext);
+
+		 }
+		 else {
+			 XLALPrintError("In EulerAnglesP2I, flagSEOBEulerExtension not recognized!\n");
+			 XLAL_ERROR( XLAL_EINVAL );
+		 }
+	   return XLAL_SUCCESS;
  }
 
 

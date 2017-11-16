@@ -597,8 +597,9 @@ int XLALSimIMRSpinEOBWaveform(
     /** stores harmonics of the full waveform in I-frame */
     SphHarmTimeSeries *hIMR = NULL;
 
+    UINT4 eulerextension = FLAG_SEOBNRv3_EULEREXT_CONSTANT; //for now, by default constant Euler angles post-merger
     ret = XLALSimIMRSpinEOBWaveformAll(hplus, hcross, &dynamicsHi, &hlmPTSout, &hlmPTSHi, &hIMRlmJTSHi, &hIMR, &AttachPars,
-                                       phiC, deltaT, m1SI, m2SI, fMin, r, inc, INspin1[0], INspin1[1], INspin1[2], INspin2[0], INspin2[1], INspin2[2], PrecEOBversion); // David new
+                                       phiC, deltaT, m1SI, m2SI, fMin, r, inc, INspin1[0], INspin1[1], INspin1[2], INspin2[0], INspin2[1], INspin2[2], PrecEOBversion, eulerextension); // David new
     if (ret == XLAL_SUCCESS){
         if (*hplus == NULL || *hcross == NULL){
              XLALPrintError("Houston-2, we've got a problem SOS, SOS, SOS, the waveform generator returns NULL!!!... m1 = %.18e, m2 = %.18e, fMin = %.18e, inclination = %.18e,   spin1 = {%.18e, %.18e, %.18e},   spin2 = {%.18e, %.18e, %.18e} \n",
@@ -690,7 +691,8 @@ int XLALSimIMRSpinEOBWaveformAll(
         const REAL8     INspin2x,   /**<< spin2 x-component */
         const REAL8     INspin2y,   /**<< spin2 y-component */
         const REAL8     INspin2z,    /**<< spin2 z-component */
-        const UINT4     PrecEOBversion /**<< Precessing EOB waveform generator model */ // David new
+        const UINT4     PrecEOBversion, /**<< Precessing EOB waveform generator model */ // David new
+        const UINT4     flagEulerextension /** Flag indicating how to extend the Euler angles post-merger */
      )
 
 {
@@ -996,7 +998,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   memset( &eobParams,  0, sizeof(eobParams) );
   memset( &hCoeffs,    0, sizeof( hCoeffs ) );
   memset( &prefixes,   0, sizeof( prefixes ) );
-    
+
     REAL8Vector* alphaP2I = NULL;
     REAL8Vector* betaP2I = NULL;
     REAL8Vector* gammaP2I = NULL;
@@ -1273,7 +1275,9 @@ int XLALSimIMRSpinEOBWaveformAll(
       fflush(NULL);
   }
 
-  if ( !(AttachParams = XLALCreateREAL8Vector( 5 )) )
+  //Added final mass and dimensionless final spin 3-vector to AttachParams for output
+  //if ( !(AttachParams = XLALCreateREAL8Vector( 5 )) )
+  if ( !(AttachParams = XLALCreateREAL8Vector( 9 )) )
   {
     XLALDestroyREAL8Vector( sigmaKerr );
     XLALDestroyREAL8Vector( sigmaStar );
@@ -3585,13 +3589,48 @@ int XLALSimIMRSpinEOBWaveformAll(
 
     // Now we need to extend the Euler angles beyond inspiral
     alphaP2I  = XLALCreateREAL8Vector(retLenLow + retLenRDPatchLow);
-	betaP2I  = XLALCreateREAL8Vector(retLenLow + retLenRDPatchLow);
-	gammaP2I  = XLALCreateREAL8Vector(retLenLow + retLenRDPatchLow);
+	  betaP2I  = XLALCreateREAL8Vector(retLenLow + retLenRDPatchLow);
+	  gammaP2I  = XLALCreateREAL8Vector(retLenLow + retLenRDPatchLow);
     memset(alphaP2I->data, 0., alphaP2I->length * sizeof(REAL8));
     memset(betaP2I->data, 0., betaP2I->length * sizeof(REAL8));
     memset(gammaP2I->data, 0., gammaP2I->length * sizeof(REAL8));
 
-    EulerAnglesP2I(alphaP2I, betaP2I, gammaP2I, alphaI2PTS, betaI2PTS, gammaI2PTS);
+    /* Final spin dimensionless vector used for the post-merger extension of Euler angles and output in AttachParams */
+    /* Direction is set by final J, magnitude (used for Euler extension only through the QNM) is set by the final spin formula */
+    REAL8 finalMass = 0, finalSpin = 0;
+    REAL8 chi1LVec[3] = {0,0,0}, chi2LVec[3] = {0,0,0};
+    chi1LVec[0] = chi1Lx;
+    chi1LVec[1] = chi1Ly;
+    chi1LVec[2] = chi1Lz;
+    chi2LVec[0] = chi2Lx;
+    chi2LVec[1] = chi2Ly;
+    chi2LVec[2] = chi2Lz;
+    if ( XLALSimIMREOBFinalMassSpinPrec(&finalMass, &finalSpin, m1, m2, chi1LVec, chi2LVec, SEOBNRv3) == XLAL_FAILURE )
+    {
+      XLAL_ERROR( XLAL_EFUNC );
+    }
+    REAL8 chif[3] = {0,0,0};
+    chif[0] = Jx/magJ * finalSpin;
+    chif[1] = Jy/magJ * finalSpin;
+    chif[2] = Jz/magJ * finalSpin;
+    /* QNM used for the post-merger extension of Euler angles */
+    COMPLEX16Vector* QNMfreq220 = XLALCreateCOMPLEX16Vector(1);
+    if (XLALSimIMREOBGenerateQNMFreqV2Prec(QNMfreq220, m1, m2, chi1LVec, chi2LVec, 2, 2, 1, SEOBNRv3) == XLAL_FAILURE) {
+        printf("Failed to get QNM freq \n");
+        XLALDestroyCOMPLEX16Vector(QNMfreq220);
+        XLAL_ERROR(XLAL_EFUNC);
+    }
+    COMPLEX16Vector* QNMfreq210 = XLALCreateCOMPLEX16Vector(1);
+    if (XLALSimIMREOBGenerateQNMFreqV2Prec(QNMfreq210, m1, m2, chi1LVec, chi2LVec, 2, 1, 1, SEOBNRv3) == XLAL_FAILURE) {
+        printf("Failed to get QNM freq \n");
+        XLALDestroyCOMPLEX16Vector(QNMfreq210);
+        XLAL_ERROR(XLAL_EFUNC);
+    }
+    REAL8 omegaQNM220 = creal(QNMfreq220->data[0]);
+    REAL8 omegaQNM210 = creal(QNMfreq210->data[0]);
+
+    /* Complete Euler angles with extension post-merger according to flagEulerextension and invert to get angles from P to I */
+    EulerAnglesP2I(alphaP2I, betaP2I, gammaP2I, alphaI2PTS, betaI2PTS, gammaI2PTS, chif, omegaQNM220, omegaQNM210, flagEulerextension);
 
     alpI        = XLALCreateREAL8TimeSeries( "alphaJ2I", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
     betI        = XLALCreateREAL8TimeSeries( "betaJ2I", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
@@ -3599,19 +3638,6 @@ int XLALSimIMRSpinEOBWaveformAll(
 
     printf("Check this: len of timeJFull = %d, compare to %d \n", timeJFull->length, retLenLow + retLenRDPatchLow);
 
-    for (i=0; i< retLenLow + retLenRDPatchLow; i++){
-      //alpI->data->data[i] = -alJtoI;
-      //betI->data->data[i] = betJtoI;
-      //gamI->data->data[i] = -gamJtoI;
-      alpI->data->data[i] = -alphaP2I->data[i];
-      betI->data->data[i] = betaP2I->data[i];
-      gamI->data->data[i] = -gammaP2I->data[i];
-      //alpI->data->data[i] = alphaP2I->data[i];
-      //betI->data->data[i] = betaP2I->data[i];
-      //gamI->data->data[i] = gammaP2I->data[i];
-    }
-    
-    
     if (debugPK){
         out = fopen( "ExtendedEulerAngles.dat", "w" );
         for ( i = 0; i < retLenLow + retLenRDPatchLow; i++ )
@@ -3621,7 +3647,7 @@ int XLALSimIMRSpinEOBWaveformAll(
         }
         fclose( out );
     }
-    
+
     printf("test0 \n");
     for (i=0; i<(int)tlistRDPatch->length; i++){
       timeIFull->data[i] = tlistRDPatch->data[i];
@@ -3913,12 +3939,18 @@ int XLALSimIMRSpinEOBWaveformAll(
      fprintf( out, "%.16e    %.16e    %.16e   %.16e \n", tPeakOmega, deltaNQC, tAmpMax, tAttach);
      fclose(out);
   }
-  /*AttachParams->data[0] = tPeakOmega;
+  AttachParams->data[0] = tPeakOmega;
   AttachParams->data[1] = deltaNQC;
   AttachParams->data[2] = tAmpMax;
   AttachParams->data[3] = tAttach;
   AttachParams->data[4] = HiSRstart;
+  //Add final mass and dimensionless spin to AttachParams for output
+  AttachParams->data[5] = finalMass;
+  AttachParams->data[6] = chif[0];
+  AttachParams->data[7] = chif[1];
+  AttachParams->data[8] = chif[2];
 
+  /*
   rdMatchPoint->data[0] = combSize < tAttach ? tAttach - combSize : 0;
   rdMatchPoint->data[1] = tAttach;
   rdMatchPoint->data[0] = rdMatchPoint->data[0] - sh;
@@ -4318,6 +4350,8 @@ int XLALSimIMRSpinEOBWaveformAll(
     if ( dynamicsV2EOMHi != NULL ) {
       XLALDestroyREAL8Array( dynamicsV2EOMHi );
     }
+    XLALDestroyCOMPLEX16Vector(QNMfreq220);
+    XLALDestroyCOMPLEX16Vector(QNMfreq210);
 
   /* FIXME: Temporary code to convert REAL8Array to REAL8Vector because SWIG
    *        doesn't seem to like REAL8Array */
