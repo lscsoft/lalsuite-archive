@@ -7683,34 +7683,26 @@ def make_1d_table(html,legend,label,pos,pars,noacf,GreedyRes,onepdfdir,sampsdir,
         elif leftsigma == None and rightsigma != None:
           leftsigma = rightsigma
         if leftsigma!=None:
-          sigma0=0
           sigma1=0
           sigma2=0
-          c1=0
-          i1=0
-          len1 = len(cl_intervals)
-          #print "[DEBUG]i1, len1 : ", i1, ", ", len1
-          while (len1 > 0 and i1 < len1 and len(cl_intervals[i1])>0 and  not np.isscalar(cl_intervals[i1][0])):
-            #print "[DEBUG]cl_intervals : ", i1, ", ", cl_intervals[i1][0]
-            i1=i1+1
-          if i1 < len1 and len(cl_intervals[i1])>0:
-            #print "[DEBUG]cl_intervals : ", i1, ", ", cl_intervals[i1][0], ", ", cl_intervals[i1][1]
-            sigma0=cl_intervals[i1][1]-cl_intervals[i1][0]
-            c1=(cl_intervals[i1][1]+cl_intervals[i1][0])*0.5
-            sigma1=sigma0*0.5*leftsigma
-            sigma2=sigma0*0.5*rightsigma
-            lower1 = c1-sigma1
-            upper1 = c1+sigma2
-            #print "[DEBUG] lower1, upper1 : ",lower1, upper1
-            if (parpos_min>0 and lower1 < 0):
-              lower1 = 0
-            elif lower1 < parpos_min:
-              lower1 = parpos_min
-            if upper1 > parpos_max:
-              upper1 = parpos_max
-            #print "[DEBUG-1] lower1, upper1 : ",lower1, upper1
-            plot_range=(lower1, upper1)
-        print "1D plotting range = ", plot_range
+          statoned_pos=pos._posterior[par_name]
+          statmax_pos,max_j=pos._posMap()
+          statmaxP=statoned_pos.samples[max_j][0]
+          statstdev=statoned_pos.stdev
+          sigma1=statstdev*leftsigma
+          sigma2=statstdev*rightsigma
+          lower1 = statmaxP-sigma1
+          upper1 = statmaxP+sigma2
+          #print "[DEBUG] lower1, upper1 : ",lower1,upper1
+          if (parpos_min>0 and lower1 < 0):
+            lower1 = 0
+          elif lower1 < parpos_min:
+            lower1 = parpos_min
+          if upper1 > parpos_max:
+            upper1 = parpos_max
+          #print "[DEBUG-1] lower1, upper1 : ",lower1, upper1
+          plot_range=(lower1, upper1)
+        print "1D plotting range, maxP, stdev : ", plot_range, statmaxP, statstdev
         out[par_name]=reses
         #Get analytic description if given
         pdf=cdf=None
