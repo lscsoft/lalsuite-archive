@@ -7678,6 +7678,8 @@ def make_1d_table(html,legend,label,pos,pars,noacf,GreedyRes,onepdfdir,sampsdir,
         print "Generating 1D plot for %s."%par_name
         #Get 1D pdf  plot range using sigma range
         plot_range=None
+        statmaxP=None
+        statstdev=None
         if leftsigma != None and rightsigma == None:
           rightsigma = leftsigma
         elif leftsigma == None and rightsigma != None:
