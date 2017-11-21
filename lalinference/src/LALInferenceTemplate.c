@@ -695,7 +695,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
 
   /* Don't let TaylorF2 generate unphysical inspiral up to Nyquist */
   if (approximant == TaylorF2)
-      f_max = -1.0; /* this will choose the minimum of ISCO or the contact frequency */
+      f_max = 0.0; /* this will end at ISCO */
   else
       f_max = model->fHigh; /* this will be the highest frequency used across the network */
 
