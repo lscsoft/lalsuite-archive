@@ -28,6 +28,9 @@
 #include <lal/Sequence.h>
 #include "LALSimInspiralPNCoefficients.c"
 
+#include <time.h>
+
+
 UNUSED static inline REAL8
 GetNRSpinPeakOmegaV4 (INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED eta, REAL8 a)
 {
@@ -214,6 +217,15 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
                                            UNUSED const REAL8 f_ref, /** this must be in seconds **/
 					   const REAL8 NCyclesStep)  /** Choose number of GW cycles over which to taper the non-GR phase correction */
 {
+  FILE *out = fopen ("timing.txt", "w");
+  fprintf(out,"%.16u\n",freqs->length);
+  
+  time_t start, end;
+  start = time(NULL);
+  
+  
+  
+  
   UINT4 i;
   REAL8Sequence *phase = NULL, *uphase = NULL, *d2phidf2 = NULL;
   phase = XLALCreateREAL8Sequence( (UINT4) freqs->length );
@@ -239,8 +251,13 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
     if ( diff> 5. ) phaseCounter--;
     if ( diff<-5. ) phaseCounter++;
     uphase->data[i] = phase->data[i] + LAL_TWOPI*phaseCounter;
-  }
     
+  }
+  
+  end = time(NULL);
+  fprintf(out,"%.16e\n",difftime(end,start));
+
+  
   gsl_spline *splineGR = NULL, *splinenonGR = NULL, *splineTot = NULL;
   gsl_interp_accel *acc = NULL;
   splineGR = gsl_spline_alloc (gsl_interp_cspline, freqs->length);
@@ -279,6 +296,7 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
    * evaluated at f_ref, store it as ref_phasing and subtract it off.
    */
   REAL8 ref_phasing = 0.;
+  REAL8 ref_dphasingdf = 0.;
     
 
   const REAL8 vWindow = cbrt(piM*freqs->data[iEnd]); //Center of the tapering step function in v-space
@@ -328,7 +346,7 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
   d2phaseTotdf2 = XLALCreateREAL8Sequence( (UINT4) freqs->length );
   for ( i = 0; i < freqs->length; i++ )
     d2phaseTotdf2->data[i] = d2phidf2->data[i] + d2phinonGRdf2->data[i] / (1. + exp( (cbrt(piM*freqs->data[i]) - vWindow) / width ) );
-    
+  
   REAL8 dphaseTotGRIni = gsl_spline_eval_deriv(splineGR, freqs->data[iStart], acc) + gsl_spline_eval_deriv(splinenonGR, freqs->data[iStart], acc);
   REAL8 phaseTotIni = uphase->data[iStart] + phasenonGR->data[iStart];
     
@@ -352,21 +370,33 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
   for ( i = iStart+1; i < freqs->length; i++ )
     phaseTot->data[i] = phaseTot->data[i-1] + gsl_spline_eval_integ(splineTot, freqs->data[i-1], freqs->data[i], acc);
 
-  //    FILE *out = fopen ("pin.dat", "w");
-  //    for ( i = 0; i < phase->length; i++ ) {
-  //        fprintf(out, "%.16e %.16e %.16e %.16e %.16e %.16e\n",freqs->data[i],uphase->data[i],phaseTot->data[i], phasenonGR->data[i], d2phaseTotdf2->data[i], dphaseTotdf->data[i] );
-  //    }
-  //    fclose(out);
+      //FILE *out = fopen ("pin.dat", "w");
+      //for ( i = 0; i < phase->length; i++ ) {
+      //    fprintf(out, "%.16e %.16e %.16e %.16e %.16e %.16e\n",freqs->data[i],uphase->data[i],phaseTot->data[i], phasenonGR->data[i], d2phaseTotdf2->data[i], dphaseTotdf->data[i] );
+      //}
+      //fclose(out);
 
   gsl_spline_init(splineTot, freqs->data, phaseTot->data, freqs->length);
   ref_phasing = gsl_spline_eval(splineTot, f_ref, acc);
+  ref_dphasingdf = gsl_spline_eval_deriv(splineTot, f_ref, acc);
+  //REAL8 start_dphasingdf = gsl_spline_eval_deriv(splineTot, freqs->data[iStart], acc);
   for ( i = 0; i < freqs->length; i++ ) {
     REAL8 phasing = 0.;
     phasing = phaseTot->data[i] - ref_phasing;
     htilde->data->data[i] = cabs(distance*htilde->data->data[i]) * (cos(phasing)+ sin(phasing) * 1.0j);
     htilde->data->data[i] /= distance;
   }
-    
+  
+  for ( i = 0; i < freqs->length; i++ ) {
+    tmph = distance*htilde->data->data[i];
+    if ( cabs(tmph) < 1.e-16 ) {
+      htilde->data->data[i] = cabs(distance*htilde->data->data[i]) * 1.0;
+      htilde->data->data[i] /= distance;
+    }
+  }
+  
+  fclose(out);
+  
   gsl_spline_free(splineGR);
   gsl_spline_free(splinenonGR);
   gsl_spline_free(splineTot);
@@ -524,7 +554,7 @@ int XLALSimInspiralPhaseCorrectionsPhasingWithDS(COMPLEX16FrequencySeries *htild
 
     const REAL8 width = (NCyclesStep*LAL_PI*vWindow*vWindow*vWindow*vWindow*vWindow*vWindow)/(50.* pfaN0);
     const REAL8 widthDS = (NCyclesDS*LAL_PI*vDS*vDS*vDS*vDS*vDS*vDS)/(50.* pfaN0); 
-    //printf("vPeak %.16e width %.16e\n",vPeak,width);
+    //printf("vPeak %.16e width %.16e\n",vWindow,width);
 
     REAL8Sequence *phasenonGR = NULL, *d1phinonGRdf1 = NULL;  //, *d2phinonGRdf2 = NULL;
     phasenonGR = XLALCreateREAL8Sequence( (UINT4) freqs->length );
@@ -553,11 +583,14 @@ int XLALSimInspiralPhaseCorrectionsPhasingWithDS(COMPLEX16FrequencySeries *htild
             phasing += pfa2 * v2;
             phasing += pfa1 * v;
             phasing += pfaN;
-	    phasing += pfaMinus1 / v;
-	    phasing += pfaMinus2 /v2;
+            phasing += pfaMinus1 / v;
+            phasing += pfaMinus2 /v2;
             phasing /= v5;
             
             phasenonGR->data[i] = -phasing;
+          
+            htilde->data->data[i] = phasenonGR->data[i];
+          
         }
     }
     
@@ -577,8 +610,8 @@ int XLALSimInspiralPhaseCorrectionsPhasingWithDS(COMPLEX16FrequencySeries *htild
       //REAL8 dphaseTotGRIni = gsl_spline_eval_deriv(splineGR, freqs->data[iStart], acc) + gsl_spline_eval_deriv(splinenonGR, freqs->data[iStart], acc);   //Removed by Noah
     REAL8 phaseTotIni = uphase->data[iStart] + phasenonGR->data[iStart];
     
-    REAL8Sequence *dphaseTotdf = NULL, *phaseTot = NULL;
-    dphaseTotdf = XLALCreateREAL8Sequence( (UINT4) freqs->length );
+    REAL8Sequence *phaseTot = NULL;   //, *dphaseTotdf = NULL,;
+    //dphaseTotdf = XLALCreateREAL8Sequence( (UINT4) freqs->length );
     phaseTot = XLALCreateREAL8Sequence( (UINT4) freqs->length );
   
     splineTot = gsl_spline_alloc (gsl_interp_cspline, freqs->length);
@@ -625,7 +658,7 @@ int XLALSimInspiralPhaseCorrectionsPhasingWithDS(COMPLEX16FrequencySeries *htild
     XLALDestroyREAL8Sequence(phasenonGR);
     XLALDestroyREAL8Sequence(d1phaseTotdf1);
     //XLALDestroyREAL8Sequence(d2phaseTotdf2);
-    XLALDestroyREAL8Sequence(dphaseTotdf);
+    //XLALDestroyREAL8Sequence(dphaseTotdf);
     XLALDestroyREAL8Sequence(phaseTot);
     return 0;
 }
