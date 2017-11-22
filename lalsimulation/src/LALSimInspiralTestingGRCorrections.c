@@ -256,7 +256,7 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
   //    }
   //    fclose(out);
 
-  const REAL8 pfaN0 = 3.L/(128.L * eta);
+   const REAL8 pfaN0 = 3.L/(128.L * eta);
 //  const REAL8 piM = LAL_PI * mtot;
 //  const REAL8 pfa7 = pfa.v[7];
 //  const REAL8 pfa6 = pfa.v[6];
@@ -613,9 +613,9 @@ int XLALSimInspiralPhaseCorrectionsPhasingWithDS(COMPLEX16FrequencySeries *htild
     return 0;
 }
 
-REAL8 PNPhase(REAL8 f, PNPhasingSeries pfa)
+REAL8 PNPhase(REAL8 f, PNPhasingSeries pfa, const REAL8 mtot)
 {
-    const REAL8 pfaN0 = 3.L/(128.L * eta);
+  //const REAL8 pfaN0 = 3.L/(128.L * eta);
     const REAL8 piM = LAL_PI * mtot;
     const REAL8 pfa7 = pfa.v[7];
     const REAL8 pfa6 = pfa.v[6];
@@ -655,9 +655,9 @@ REAL8 PNPhase(REAL8 f, PNPhasingSeries pfa)
     return -phasing;
 }
 
-REAL8 PNPhaseDerivative(REAL8 f, PNPhasingSeries pfa)
+REAL8 PNPhaseDerivative(REAL8 f, PNPhasingSeries pfa, const REAL8 mtot)
 {
-    const REAL8 pfaN0 = 3.L/(128.L * eta);
+  //const REAL8 pfaN0 = 3.L/(128.L * eta);
     const REAL8 piM = LAL_PI * mtot;
     const REAL8 pfa7 = pfa.v[7];
     const REAL8 pfa6 = pfa.v[6];
@@ -696,9 +696,9 @@ REAL8 PNPhaseDerivative(REAL8 f, PNPhasingSeries pfa)
 
     return -phasing;
 }
-REAL8 PNPhaseSecondDerivative(REAL8 f, PNPhasingSeries pfa)
+REAL8 PNPhaseSecondDerivative(REAL8 f, PNPhasingSeries pfa, const REAL8 mtot)
 {
-    const REAL8 pfaN0 = 3.L/(128.L * eta);
+  //const REAL8 pfaN0 = 3.L/(128.L * eta);
     const REAL8 piM = LAL_PI * mtot;
     const REAL8 pfa7 = pfa.v[7];
     const REAL8 pfa6 = pfa.v[6];
