@@ -654,3 +654,86 @@ REAL8 PNPhase(REAL8 f, PNPhasingSeries pfa)
 
     return -phasing;
 }
+
+REAL8 PNPhaseDerivative(REAL8 f, PNPhasingSeries pfa)
+{
+    const REAL8 pfaN0 = 3.L/(128.L * eta);
+    const REAL8 piM = LAL_PI * mtot;
+    const REAL8 pfa7 = pfa.v[7];
+    const REAL8 pfa6 = pfa.v[6];
+    const REAL8 pfl6 = pfa.vlogv[6];
+    const REAL8 pfa5 = pfa.v[5];
+    const REAL8 pfl5 = pfa.vlogv[5];
+    const REAL8 pfa4 = pfa.v[4];
+    const REAL8 pfa3 = pfa.v[3];
+    const REAL8 pfa2 = pfa.v[2];
+    const REAL8 pfa1 = pfa.v[1];
+    const REAL8 pfaN = pfa.v[0];
+    const REAL8 pfaMinus1 = pfa.vneg[1];
+    const REAL8 pfaMinus2 = pfa.vneg[2];
+    
+    const REAL8 v = cbrt(piM*f);
+    const REAL8 logv = log(v);
+    const REAL8 v2 = v * v;
+    const REAL8 v3 = v * v2;
+    const REAL8 v4 = v * v3;
+    const REAL8 v5 = v * v4;
+    const REAL8 v6 = v * v5;
+    const REAL8 v7 = v * v6;
+    REAL8 phasing = 0.0;
+
+    phasing += pfa7 * v7;
+    phasing += (pfa6 + pfl6 * logv) * v6;
+    phasing += (pfa5 + pfl5 * logv) * v5;
+    phasing += pfa4 * v4;
+    phasing += pfa3 * v3;
+    phasing += pfa2 * v2;
+    phasing += pfa1 * v;
+    phasing += pfaN;
+    phasing += pfaMinus1 / v;
+    phasing += pfaMinus2 /v2;
+    phasing /= v5;
+
+    return -phasing;
+}
+REAL8 PNPhaseSecondDerivative(REAL8 f, PNPhasingSeries pfa)
+{
+    const REAL8 pfaN0 = 3.L/(128.L * eta);
+    const REAL8 piM = LAL_PI * mtot;
+    const REAL8 pfa7 = pfa.v[7];
+    const REAL8 pfa6 = pfa.v[6];
+    const REAL8 pfl6 = pfa.vlogv[6];
+    const REAL8 pfa5 = pfa.v[5];
+    const REAL8 pfl5 = pfa.vlogv[5];
+    const REAL8 pfa4 = pfa.v[4];
+    const REAL8 pfa3 = pfa.v[3];
+    const REAL8 pfa2 = pfa.v[2];
+    const REAL8 pfa1 = pfa.v[1];
+    const REAL8 pfaN = pfa.v[0];
+    const REAL8 pfaMinus1 = pfa.vneg[1];
+    const REAL8 pfaMinus2 = pfa.vneg[2];
+    
+    const REAL8 v = cbrt(piM*f);
+    const REAL8 logv = log(v);
+    const REAL8 v2 = v * v;
+    const REAL8 v3 = v * v2;
+    const REAL8 v4 = v * v3;
+    const REAL8 v5 = v * v4;
+    const REAL8 v6 = v * v5;
+    const REAL8 v7 = v * v6;
+    REAL8 phasing = 0.0;
+
+    phasing += pfa7 * v7;
+    phasing += (pfa6 + pfl6 * logv) * v6;
+    phasing += (pfa5 + pfl5 * logv) * v5;
+    phasing += pfa4 * v4;
+    phasing += pfa3 * v3;
+    phasing += pfa2 * v2;
+    phasing += pfa1 * v;
+    phasing += pfaN;
+    phasing += pfaMinus1 / v;
+    phasing += pfaMinus2 /v2;
+    phasing /= v5;
+
+    return -phasing;
+}
