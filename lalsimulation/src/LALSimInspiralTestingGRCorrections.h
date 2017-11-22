@@ -53,11 +53,11 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
                                            const REAL8 distance,
                                            const REAL8Sequence *freqs,
                                            const UINT4 iStart,
+                                           const UINT4 iRef,
                                            const UINT4 iEnd,
                                            PNPhasingSeries pfa,
                                            const REAL8 mtot,
                                            const REAL8 eta,
-                                           const REAL8 f_ref, /** this must be in seconds **/
 					   const REAL8 NCyclesStep);  /** Choose number of GW cycles over which to taper the non-GR phase correction */
 
 int XLALSimInspiralTestingGRCorrectionsWithDS(COMPLEX16FrequencySeries *htilde,       /**< input htilde, will be modified in place */
