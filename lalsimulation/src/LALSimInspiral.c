@@ -1473,9 +1473,17 @@ int XLALSimInspiralChooseFDWaveform(
             /* Tranform to model parameters */
             if(f_ref==0.0)
                 f_ref = f_min; /* Default reference frequency is minimum frequency */
+            
+            XLALSimIMRPhenomPCalculateModelParameters(
+                &chi1_l, &chi2_l, &chip, &thetaJ, &alpha0,
+                m1, m2, f_ref,
+                LNhatx, LNhaty, LNhatz,
+                S1x, S1y, S1z,
+                S2x, S2y, S2z, IMRPhenomPv2_V);
+
             ret = XLALSimIMRPhenomPv2NRTidal_v2(hptilde, hctilde,
-              chi1_l, chi2_l, chip, thetaJ, alpha0, LNhatx, LNhaty, LNhatz, S1x, S1y, S1z, S2x, S2y, S2z,
-              m1, m2, r, lambda1, lambda2, quadparam1, quadparam2, phiRef, deltaF, f_min, f_max, f_ref, IMRPhenomPv2_V, nonGRparams);
+              chi1_l, chi2_l, chip, thetaJ, alpha0, 
+              m1, m2, r, lambda1, lambda2, quadparam1, quadparam2, phiRef, deltaF, f_min, f_max, f_ref, nonGRparams);
             if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
             break;
 
