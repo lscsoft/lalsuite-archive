@@ -216,11 +216,11 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
                                            const REAL8 NCyclesStep)  /** Choose number of GW cycles over which to taper the non-GR phase correction */
 {
   UINT4 i;
-  REAL8Sequence *phase = NULL, *uphase = NULL, *d2phidf2 = NULL;
-  phase = XLALCreateREAL8Sequence( (UINT4) freqs->length );
-  uphase = XLALCreateREAL8Sequence( (UINT4) freqs->length );
-  d2phidf2 = XLALCreateREAL8Sequence( (UINT4) freqs->length );
-  memset (phase->data, 0, freqs->length * sizeof (REAL8));
+//  REAL8Sequence *phase = NULL, *uphase = NULL, *d2phidf2 = NULL;
+//  phase = XLALCreateREAL8Sequence( (UINT4) freqs->length );
+//  uphase = XLALCreateREAL8Sequence( (UINT4) freqs->length );
+//  d2phidf2 = XLALCreateREAL8Sequence( (UINT4) freqs->length );
+//  memset (phase->data, 0, freqs->length * sizeof (REAL8));
 
 //  COMPLEX16 tmph;
 //  for ( i = 0; i < phase->length; i++ ) {
@@ -232,16 +232,16 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
 //      phase->data[i] = carg(tmph);
 //    }
 //  }
-  INT4 phaseCounter = 0;
-  REAL8 diff = 0.;
-  uphase->data[iStart] = phase->data[iStart];
-  for ( i = iStart+1; i < freqs->length; i++ ) {
-    diff = phase->data[i] - phase->data[i-1];
-    if ( diff> 5. ) phaseCounter--;
-    if ( diff<-5. ) phaseCounter++;
-    uphase->data[i] = phase->data[i] + LAL_TWOPI*phaseCounter;
-  }
-    
+//  INT4 phaseCounter = 0;
+//  REAL8 diff = 0.;
+//  uphase->data[iStart] = phase->data[iStart];
+//  for ( i = iStart+1; i < freqs->length; i++ ) {
+//    diff = phase->data[i] - phase->data[i-1];
+//    if ( diff> 5. ) phaseCounter--;
+//    if ( diff<-5. ) phaseCounter++;
+//    uphase->data[i] = phase->data[i] + LAL_TWOPI*phaseCounter;
+//  }
+//
 //  gsl_spline *splineGR = NULL, *splinenonGR = NULL, *splineTot = NULL;
 //  gsl_interp_accel *acc = NULL;
 //  splineGR = gsl_spline_alloc (gsl_interp_cspline, freqs->length);
@@ -286,8 +286,8 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
 
   const REAL8 width = (NCyclesStep*LAL_PI*vWindow*vWindow*vWindow*vWindow*vWindow*vWindow)/(50.* pfaN0);
 
-  REAL8Sequence *phasenonGR = NULL, *d2phinonGRdf2 = NULL;
-  phasenonGR = XLALCreateREAL8Sequence( (UINT4) freqs->length );
+  REAL8Sequence *d2phinonGRdf2 = NULL;
+//  phasenonGR = XLALCreateREAL8Sequence( (UINT4) freqs->length );
   d2phinonGRdf2 = XLALCreateREAL8Sequence( (UINT4) freqs->length );
   /* the loop below needs to be replaced to compute the second derivative wrt f */
   for ( i = iStart; i < freqs->length; i++)
@@ -354,12 +354,12 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
 //  gsl_spline_free(splinenonGR);
   gsl_spline_free(splineTot);
   gsl_interp_accel_free(acc);
-  XLALDestroyREAL8Sequence(uphase);
-  XLALDestroyREAL8Sequence(phase);
-  XLALDestroyREAL8Sequence(d2phidf2);
+//  XLALDestroyREAL8Sequence(uphase);
+//  XLALDestroyREAL8Sequence(phase);
+//  XLALDestroyREAL8Sequence(d2phidf2);
   XLALDestroyREAL8Sequence(d2phinonGRdf2);
-  XLALDestroyREAL8Sequence(phasenonGR);
-  XLALDestroyREAL8Sequence(d2phaseTotdf2);
+//  XLALDestroyREAL8Sequence(phasenonGR);
+//  XLALDestroyREAL8Sequence(d2phaseTotdf2);
   XLALDestroyREAL8Sequence(dphaseTotdf);
   XLALDestroyREAL8Sequence(phaseTot);
   return 0;
