@@ -241,14 +241,14 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
     uphase->data[i] = phase->data[i] + LAL_TWOPI*phaseCounter;
   }
     
-  gsl_spline *splineGR = NULL, *splinenonGR = NULL, *splineTot = NULL;
-  gsl_interp_accel *acc = NULL;
-  splineGR = gsl_spline_alloc (gsl_interp_cspline, freqs->length);
-  acc = gsl_interp_accel_alloc();
-  gsl_spline_init(splineGR, freqs->data, uphase->data, freqs->length);
-  for ( i = 0; i < freqs->length; i++ ) {
-    d2phidf2->data[i] = gsl_spline_eval_deriv2(splineGR, freqs->data[i], acc);
-  }
+//  gsl_spline *splineGR = NULL, *splinenonGR = NULL, *splineTot = NULL;
+//  gsl_interp_accel *acc = NULL;
+//  splineGR = gsl_spline_alloc (gsl_interp_cspline, freqs->length);
+//  acc = gsl_interp_accel_alloc();
+//  gsl_spline_init(splineGR, freqs->data, uphase->data, freqs->length);
+//  for ( i = 0; i < freqs->length; i++ ) {
+//    d2phidf2->data[i] = gsl_spline_eval_deriv2(splineGR, freqs->data[i], acc);
+//  }
   //    FILE *out = fopen ("unp.dat", "w");
   //    for ( i = 0; i < phase->length; i++ ) {
   //        fprintf(out, "%.16e %.16e %.16e %.16e\n",freqs->data[i],phase->data[i],uphase->data[i], d2phidf2->data[i] );
@@ -256,19 +256,19 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
   //    fclose(out);
 
   const REAL8 pfaN0 = 3.L/(128.L * eta);
-  const REAL8 piM = LAL_PI * mtot;
-  const REAL8 pfa7 = pfa.v[7];
-  const REAL8 pfa6 = pfa.v[6];
-  const REAL8 pfl6 = pfa.vlogv[6];
-  const REAL8 pfa5 = pfa.v[5];
-  const REAL8 pfl5 = pfa.vlogv[5];
-  const REAL8 pfa4 = pfa.v[4];
-  const REAL8 pfa3 = pfa.v[3];
-  const REAL8 pfa2 = pfa.v[2];
-  const REAL8 pfa1 = pfa.v[1];
-  const REAL8 pfaN = pfa.v[0];
-  const REAL8 pfaMinus1 = pfa.vneg[1];
-  const REAL8 pfaMinus2 = pfa.vneg[2];
+//  const REAL8 piM = LAL_PI * mtot;
+//  const REAL8 pfa7 = pfa.v[7];
+//  const REAL8 pfa6 = pfa.v[6];
+//  const REAL8 pfl6 = pfa.vlogv[6];
+//  const REAL8 pfa5 = pfa.v[5];
+//  const REAL8 pfl5 = pfa.vlogv[5];
+//  const REAL8 pfa4 = pfa.v[4];
+//  const REAL8 pfa3 = pfa.v[3];
+//  const REAL8 pfa2 = pfa.v[2];
+//  const REAL8 pfa1 = pfa.v[1];
+//  const REAL8 pfaN = pfa.v[0];
+//  const REAL8 pfaMinus1 = pfa.vneg[1];
+//  const REAL8 pfaMinus2 = pfa.vneg[2];
 
     
   /* Compute the SPA phase at the reference point
@@ -292,32 +292,7 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
   for ( i = iStart; i < iEnd; i++)
     {
       const REAL8 f = freqs->data[i];
-      if (f>0)
-        {
-	  const REAL8 v = cbrt(piM*f);
-	  const REAL8 logv = log(v);
-	  const REAL8 v2 = v * v;
-	  const REAL8 v3 = v * v2;
-	  const REAL8 v4 = v * v3;
-	  const REAL8 v5 = v * v4;
-	  const REAL8 v6 = v * v5;
-	  const REAL8 v7 = v * v6;
-	  REAL8 phasing = 0.0;
-            
-	  phasing += pfa7 * v7;
-	  phasing += (pfa6 + pfl6 * logv) * v6;
-	  phasing += (pfa5 + pfl5 * logv) * v5;
-	  phasing += pfa4 * v4;
-	  phasing += pfa3 * v3;
-	  phasing += pfa2 * v2;
-	  phasing += pfa1 * v;
-	  phasing += pfaN;
-	  phasing += pfaMinus1 / v;
-	  phasing += pfaMinus2 /v2;
-	  phasing /= v5;
-            
-	  phasenonGR->data[i] = -phasing;
-        }
+      if (f>0) phasenonGR->data[i] = PNPhase(f, pfa);
     }
     
   splinenonGR = gsl_spline_alloc (gsl_interp_cspline, freqs->length);
@@ -336,7 +311,9 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
   REAL8Sequence *dphaseTotdf = NULL, *phaseTot = NULL;
   dphaseTotdf = XLALCreateREAL8Sequence( (UINT4) freqs->length );
   phaseTot = XLALCreateREAL8Sequence( (UINT4) freqs->length );
-  
+
+  gsl_spline *splineTot = NULL;
+  gsl_interp_accel *acc = NULL;
   splineTot = gsl_spline_alloc (gsl_interp_cspline, freqs->length);
   gsl_spline_init(splineTot, freqs->data, d2phaseTotdf2->data, freqs->length);
 
@@ -361,15 +338,15 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
 
   gsl_spline_init(splineTot, freqs->data, phaseTot->data, freqs->length);
   ref_phasing = gsl_spline_eval(splineTot, f_ref, acc);
-  for ( i = 0; i < freqs->length; i++ ) {
+  for ( i = iStart; i < iEnd; i++ ) {
     REAL8 phasing = 0.;
     phasing = phaseTot->data[i] - ref_phasing;
-    htilde->data->data[i] = cabs(distance*htilde->data->data[i]) * (cos(phasing)+ sin(phasing) * 1.0j);
+    htilde->data->data[i] = cabs(distance*htilde->data->data[i]) * (cos(phasing)+sin(phasing) * 1.0j);
     htilde->data->data[i] /= distance;
   }
     
-  gsl_spline_free(splineGR);
-  gsl_spline_free(splinenonGR);
+//  gsl_spline_free(splineGR);
+//  gsl_spline_free(splinenonGR);
   gsl_spline_free(splineTot);
   gsl_interp_accel_free(acc);
   XLALDestroyREAL8Sequence(uphase);
@@ -629,4 +606,46 @@ int XLALSimInspiralPhaseCorrectionsPhasingWithDS(COMPLEX16FrequencySeries *htild
     XLALDestroyREAL8Sequence(dphaseTotdf);
     XLALDestroyREAL8Sequence(phaseTot);
     return 0;
+}
+
+REAL8 PNPhase(REAL8 f, PNPhasingSeries pfa)
+{
+    const REAL8 pfaN0 = 3.L/(128.L * eta);
+    const REAL8 piM = LAL_PI * mtot;
+    const REAL8 pfa7 = pfa.v[7];
+    const REAL8 pfa6 = pfa.v[6];
+    const REAL8 pfl6 = pfa.vlogv[6];
+    const REAL8 pfa5 = pfa.v[5];
+    const REAL8 pfl5 = pfa.vlogv[5];
+    const REAL8 pfa4 = pfa.v[4];
+    const REAL8 pfa3 = pfa.v[3];
+    const REAL8 pfa2 = pfa.v[2];
+    const REAL8 pfa1 = pfa.v[1];
+    const REAL8 pfaN = pfa.v[0];
+    const REAL8 pfaMinus1 = pfa.vneg[1];
+    const REAL8 pfaMinus2 = pfa.vneg[2];
+    
+    const REAL8 v = cbrt(piM*f);
+    const REAL8 logv = log(v);
+    const REAL8 v2 = v * v;
+    const REAL8 v3 = v * v2;
+    const REAL8 v4 = v * v3;
+    const REAL8 v5 = v * v4;
+    const REAL8 v6 = v * v5;
+    const REAL8 v7 = v * v6;
+    REAL8 phasing = 0.0;
+
+    phasing += pfa7 * v7;
+    phasing += (pfa6 + pfl6 * logv) * v6;
+    phasing += (pfa5 + pfl5 * logv) * v5;
+    phasing += pfa4 * v4;
+    phasing += pfa3 * v3;
+    phasing += pfa2 * v2;
+    phasing += pfa1 * v;
+    phasing += pfaN;
+    phasing += pfaMinus1 / v;
+    phasing += pfaMinus2 /v2;
+    phasing /= v5;
+
+    return -phasing;
 }
