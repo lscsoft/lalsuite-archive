@@ -44,7 +44,6 @@ GetNRSpinPeakOmegaV4 (INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED eta, REAL8 a)
 }
 
 int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       /**< input htilde, will be modified in place */
-                                        //const REAL8 distance,
                                         const REAL8 m1_SI,
                                         const REAL8 m2_SI,
                                         const REAL8 chi1z,
@@ -69,7 +68,10 @@ int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       
   //    const REAL8 piM = LAL_PI * m_sec;
   //    const REAL8 vISCO = 1. / sqrt(6.);
   //    const REAL8 fISCO = vISCO * vISCO * vISCO / piM;
-  const REAL8 fPeak = GetNRSpinPeakOmegaV4(2, 2, eta, 0.) / (2. * LAL_PI * m_sec);
+  
+  //const REAL8 fPeak = GetNRSpinPeakOmegaV4(2, 2, eta, 0.) / (2. * LAL_PI * m_sec);
+  const REAL8 fPeak = GetNRSpinPeakOmegaV4(2, 2, eta, 0.) / (LAL_PI * m_sec); //Used to differ by a factor of 2, but we want the GW frequency, not orbital frequency
+  
   //const REAL8 fPeak =0.0165  /  m_sec;
     
   INT4 i;
@@ -84,7 +86,7 @@ int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       
   /* Sequence of frequencies where corrections to the model need to be evaluated */
   REAL8Sequence *freqs =NULL;
   freqs = XLALCreateREAL8Sequence(n);
-    
+  
   for (i = 0; i < n; i++)
     {
       freqs->data[i] = f0 + i * deltaF;
@@ -289,13 +291,12 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
   REAL8Sequence *d2phasenonGRdf2Tapered = NULL;
 //  phasenonGR = XLALCreateREAL8Sequence( (UINT4) freqs->length );
   d2phasenonGRdf2Tapered = XLALCreateREAL8Sequence( (UINT4) freqs->length );
-  /* the loop below needs to be replaced to compute the second derivative wrt f */
   for ( i = iStart; i < freqs->length; i++)
     {
       const REAL8 f = freqs->data[i];
       if (f>0) d2phasenonGRdf2Tapered->data[i] = PNPhaseSecondDerivative(f, pfa, mtot)/ (1. + exp( (cbrt(piM*freqs->data[i]) - vWindow) / width ) );
     }
-    
+  
 //  splinenonGR = gsl_spline_alloc (gsl_interp_cspline, freqs->length);
 //  gsl_spline_init(splinenonGR, freqs->data, phasenonGR->data, freqs->length);
 //  for ( i = 0; i < freqs->length; i++ )
@@ -342,12 +343,16 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
   //    const REAL8 piM = LAL_PI * m_sec;
   //    const REAL8 vISCO = 1. / sqrt(6.);
   //    const REAL8 fISCO = vISCO * vISCO * vISCO / piM;
-  const REAL8 fPeak = GetNRSpinPeakOmegaV4(2, 2, eta, 0.) / (2. * LAL_PI * mtot * LAL_MTSUN_SI);
-  REAL8 PNPhaseRefDerivative = PNPhaseDerivative(fPeak, pfa, mtot);
+ 
+  const REAL8 fPeak = GetNRSpinPeakOmegaV4(2, 2, eta, 0.) / (LAL_PI * mtot);
+  const REAL8 f0 = htilde->f0;
+  const REAL8 deltaF = htilde->deltaF;
+  INT4 iPeak = (UINT4) ceil((fPeak-f0) / deltaF);
+  REAL8 PNPhaseRefDerivative = dphasenonGRdfTapered->data[iPeak];
+  
   for ( i = iStart; i < freqs->length; i++ ) {
-    REAL8 phasing = phasenonGRTapered->data[i] - PNPhaseRefDerivative*freqs->data[i];
-    htilde->data->data[i] *= cexp(phasing);
-//    htilde->data->data[i] /= distance;
+    REAL8 phasing = phasenonGRTapered->data[i] - PNPhaseRefDerivative*(freqs->data[i]-freqs->data[iRef]) ;
+    htilde->data->data[i] *= cexp(phasing * 1.j);
   }
     
 //  gsl_spline_free(splineGR);
@@ -536,8 +541,8 @@ int XLALSimInspiralPhaseCorrectionsPhasingWithDS(COMPLEX16FrequencySeries *htild
             phasing += pfa2 * v2;
             phasing += pfa1 * v;
             phasing += pfaN;
-	    phasing += pfaMinus1 / v;
-	    phasing += pfaMinus2 /v2;
+            phasing += pfaMinus1 / v;
+            phasing += pfaMinus2 /v2;
             phasing /= v5;
             
             phasenonGR->data[i] = -phasing;
@@ -693,6 +698,7 @@ REAL8 PNPhaseDerivative(REAL8 f, PNPhasingSeries pfa, const REAL8 mtot)
     phasing += -2. * pfaMinus1 / v4;
     phasing += -7./3. * pfaMinus2 /v5;
     phasing /= v5;
+    phasing *= piM;
 
     return -phasing;
 }
@@ -735,6 +741,7 @@ REAL8 PNPhaseSecondDerivative(REAL8 f, PNPhasingSeries pfa, const REAL8 mtot)
     phasing += 6. * pfaMinus1 / v7;
     phasing += 70./9. * pfaMinus2 /v8;
     phasing /= v5;
-
+    phasing *= piM;
+    phasing *= piM;
     return -phasing;
 }
