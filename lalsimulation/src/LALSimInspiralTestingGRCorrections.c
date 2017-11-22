@@ -318,17 +318,17 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
   splineTot = gsl_spline_alloc (gsl_interp_cspline, freqs->length);
   gsl_spline_init(splineTot, freqs->data, d2phinonGRdf2->data, freqs->length);
 
-  dphaseTotdf->data[iRef] = dphaseTotGRIni;
-  for ( i = iStart; i-- > 0;  )
+  dphaseTotdf->data[iRef] = 0.0;
+  for ( i = iRef; i-- > iStart;  )
     dphaseTotdf->data[i] = dphaseTotdf->data[i+1] - gsl_spline_eval_integ(splineTot, freqs->data[i], freqs->data[i+1], acc);
-  for ( i = iStart+1; i < freqs->length; i++ )
+  for ( i = iRef+1; i < freqs->length; i++ )
     dphaseTotdf->data[i] = dphaseTotdf->data[i-1] + gsl_spline_eval_integ(splineTot, freqs->data[i-1], freqs->data[i], acc);
     
   gsl_spline_init(splineTot, freqs->data, dphaseTotdf->data, freqs->length);
-  phaseTot->data[iStart] = phaseTotIni;
-  for ( i = iStart; i-- > 0;  )
+  phaseTot->data[iRef] = 0.0;
+  for ( i = iRef; i-- > iStart;  )
     phaseTot->data[i] = phaseTot->data[i+1] - gsl_spline_eval_integ(splineTot, freqs->data[i], freqs->data[i+1], acc);
-  for ( i = iStart+1; i < freqs->length; i++ )
+  for ( i = iRef+1; i < freqs->length; i++ )
     phaseTot->data[i] = phaseTot->data[i-1] + gsl_spline_eval_integ(splineTot, freqs->data[i-1], freqs->data[i], acc);
 
   //    FILE *out = fopen ("pin.dat", "w");
