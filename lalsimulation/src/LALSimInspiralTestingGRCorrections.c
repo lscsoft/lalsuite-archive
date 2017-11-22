@@ -51,8 +51,8 @@ int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       
                                         const REAL8 chi2z,
                                         const REAL8 f_low,
                                         const REAL8 f_ref,
-					const REAL8 f_window_div_f_Peak,     /** Frequency at which to attach non-GR and GR waveforms, inputted as a fraction of f_Peak (should be between 0 and 1) */
-					const REAL8 NCyclesStep,                /** Number of GW cycles over which to taper the non-GR phase correction */
+                                        const REAL8 f_window_div_f_Peak,     /** Frequency at which to attach non-GR and GR waveforms, inputted as a fraction of f_Peak (should be between 0 and 1) */
+                                        const REAL8 NCyclesStep,                /** Number of GW cycles over which to taper the non-GR phase correction */
                                         const LALSimInspiralTestGRParam *pnCorrections    /**< input linked list of testing gr parameters */
 					)
 {
@@ -199,7 +199,7 @@ void XLALSimInspiralPNCorrections(PNPhasingSeries *pfa,
         pfa->v[ii] *= pfaN;
         pfa->vlogv[ii] *= pfaN;
         pfa->vlogvsq[ii] *= pfaN;
-	pfa->vneg[ii] *= pfaN;  
+        pfa->vneg[ii] *= pfaN;
     }
 }
 
@@ -212,7 +212,7 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
                                            const REAL8 mtot,
                                            const REAL8 eta,
                                            UNUSED const REAL8 f_ref, /** this must be in seconds **/
-					   const REAL8 NCyclesStep)  /** Choose number of GW cycles over which to taper the non-GR phase correction */
+                                           const REAL8 NCyclesStep)  /** Choose number of GW cycles over which to taper the non-GR phase correction */
 {
   UINT4 i;
   REAL8Sequence *phase = NULL, *uphase = NULL, *d2phidf2 = NULL;
@@ -221,16 +221,16 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
   d2phidf2 = XLALCreateREAL8Sequence( (UINT4) freqs->length );
   memset (phase->data, 0, freqs->length * sizeof (REAL8));
 
-  COMPLEX16 tmph;
-  for ( i = 0; i < phase->length; i++ ) {
-    tmph = distance*htilde->data->data[i];
-    if ( cabs(tmph) < 1.e-16 ) {
-      phase->data[i] = 0.;
-    }
-    else {
-      phase->data[i] = carg(tmph);
-    }
-  }
+//  COMPLEX16 tmph;
+//  for ( i = 0; i < phase->length; i++ ) {
+//    tmph = distance*htilde->data->data[i];
+//    if ( cabs(tmph) < 1.e-16 ) {
+//      phase->data[i] = 0.;
+//    }
+//    else {
+//      phase->data[i] = carg(tmph);
+//    }
+//  }
   INT4 phaseCounter = 0;
   REAL8 diff = 0.;
   uphase->data[0] = phase->data[0];
