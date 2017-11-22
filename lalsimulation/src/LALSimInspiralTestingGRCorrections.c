@@ -289,10 +289,10 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
   phasenonGR = XLALCreateREAL8Sequence( (UINT4) freqs->length );
   d2phinonGRdf2 = XLALCreateREAL8Sequence( (UINT4) freqs->length );
   /* the loop below needs to be replaced to compute the second derivative wrt f */
-  for ( i = iStart; i < iEnd; i++)
+  for ( i = iStart; i < freqs->length; i++)
     {
       const REAL8 f = freqs->data[i];
-      if (f>0) phasenonGR->data[i] = PNPhase(f, pfa);
+      if (f>0) d2phinonGRdf2->data[i] = PNPhaseSecondDerivative(f, pfa);
     }
     
   splinenonGR = gsl_spline_alloc (gsl_interp_cspline, freqs->length);
