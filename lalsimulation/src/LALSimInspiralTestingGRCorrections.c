@@ -234,7 +234,7 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
   INT4 phaseCounter = 0;
   REAL8 diff = 0.;
   uphase->data[iStart] = phase->data[iStart];
-  for ( i = iStart+1; i < iEnd; i++ ) {
+  for ( i = iStart+1; i < freqs->length; i++ ) {
     diff = phase->data[i] - phase->data[i-1];
     if ( diff> 5. ) phaseCounter--;
     if ( diff<-5. ) phaseCounter++;
@@ -289,7 +289,7 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
   phasenonGR = XLALCreateREAL8Sequence( (UINT4) freqs->length );
   d2phinonGRdf2 = XLALCreateREAL8Sequence( (UINT4) freqs->length );
   /* the loop below needs to be replaced to compute the second derivative wrt f */
-  for ( i = iStart; i < iEnd; i++)
+  for ( i = iStart; i < freqs->length; i++)
     {
       const REAL8 f = freqs->data[i];
       if (f>0) phasenonGR->data[i] = PNPhase(f, pfa);
@@ -338,7 +338,7 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
 
   gsl_spline_init(splineTot, freqs->data, phaseTot->data, freqs->length);
   ref_phasing = gsl_spline_eval(splineTot, f_ref, acc);
-  for ( i = iStart; i < iEnd; i++ ) {
+  for ( i = iStart; i < freqs->length; i++ ) {
     REAL8 phasing = 0.;
     phasing = phaseTot->data[i] - ref_phasing;
     htilde->data->data[i] = cabs(distance*htilde->data->data[i]) * (cos(phasing)+sin(phasing) * 1.0j);
