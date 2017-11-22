@@ -44,7 +44,7 @@ GetNRSpinPeakOmegaV4 (INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED eta, REAL8 a)
 }
 
 int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       /**< input htilde, will be modified in place */
-                                        const REAL8 distance,
+                                        //const REAL8 distance,
                                         const REAL8 m1_SI,
                                         const REAL8 m2_SI,
                                         const REAL8 chi1z,
@@ -75,7 +75,7 @@ int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       
   INT4 i;
   INT4 n = (INT4) htilde->data->length;
     
-  INT4 iStart, iEnd;
+  INT4 iStart, iRef, iEnd;
   /* Fill with non-zero vals from f0 to fEnd */
   iStart = (UINT4) ceil((f_low-f0) / deltaF);
   iRef   = (UINT4) ceil((f_ref-f0) / deltaF);
@@ -93,7 +93,8 @@ int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       
   const REAL8 qm_def1 = 1.;
   const REAL8 qm_def2 = 1.;
   XLALSimInspiralPNCorrections(&pfa, m1, m2, chi1z, chi2z, chi1z*chi1z, chi2z*chi2z, chi1z*chi2z, qm_def1, qm_def2, pnCorrections);
-  XLALSimInspiralPhaseCorrectionsPhasing(htilde,distance,freqs,iStart,iRef,iEnd,pfa,m_sec, eta, NCyclesStep);
+  //  XLALSimInspiralPhaseCorrectionsPhasing(htilde,distance,freqs,iStart,iRef,iEnd,pfa,m_sec, eta, NCyclesStep);
+  XLALSimInspiralPhaseCorrectionsPhasing(htilde,freqs,iStart,iRef,iEnd,pfa,m_sec, eta, NCyclesStep);
   XLALDestroyREAL8Sequence(freqs);
   return 0;
 }
@@ -205,7 +206,6 @@ void XLALSimInspiralPNCorrections(PNPhasingSeries *pfa,
 }
 
 int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,       /**< input htilde, will be modified in place */
-                                           const REAL8 distance,
                                            const REAL8Sequence *freqs,
                                            const UINT4 iStart,
                                            const UINT4 iRef,
@@ -257,7 +257,7 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
   //    fclose(out);
 
    const REAL8 pfaN0 = 3.L/(128.L * eta);
-//  const REAL8 piM = LAL_PI * mtot;
+  const REAL8 piM = LAL_PI * mtot;
 //  const REAL8 pfa7 = pfa.v[7];
 //  const REAL8 pfa6 = pfa.v[6];
 //  const REAL8 pfl6 = pfa.vlogv[6];
@@ -279,7 +279,7 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
    * f_ref == infinity. If f_ref is finite, we must compute the SPA phase
    * evaluated at f_ref, store it as ref_phasing and subtract it off.
    */
-  REAL8 ref_phasing = 0.;
+  //REAL8 ref_phasing = 0.;
     
 
   const REAL8 vWindow = cbrt(piM*freqs->data[iEnd]); //Center of the tapering step function in v-space
@@ -293,7 +293,7 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
   for ( i = iStart; i < freqs->length; i++)
     {
       const REAL8 f = freqs->data[i];
-      if (f>0) d2phinonGRdf2->data[i] = PNPhaseSecondDerivative(f, pfa)/ (1. + exp( (cbrt(piM*freqs->data[i]) - vWindow) / width ) );
+      if (f>0) d2phinonGRdf2->data[i] = PNPhaseSecondDerivative(f, pfa, mtot)/ (1. + exp( (cbrt(piM*freqs->data[i]) - vWindow) / width ) );
     }
     
 //  splinenonGR = gsl_spline_alloc (gsl_interp_cspline, freqs->length);
@@ -343,7 +343,7 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
   //    const REAL8 vISCO = 1. / sqrt(6.);
   //    const REAL8 fISCO = vISCO * vISCO * vISCO / piM;
   const REAL8 fPeak = GetNRSpinPeakOmegaV4(2, 2, eta, 0.) / (2. * LAL_PI * mtot * LAL_MTSUN_SI);
-    REAL8 PNPhaseRefDerivative = PNPhaseDerivative(fPeak, pfa);
+  REAL8 PNPhaseRefDerivative = PNPhaseDerivative(fPeak, pfa, mtot);
   for ( i = iStart; i < freqs->length; i++ ) {
     REAL8 phasing = phaseTot->data[i] - PNPhaseRefDerivative*freqs->data[i];
     htilde->data->data[i] *= cexp(phasing);

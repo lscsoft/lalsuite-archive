@@ -35,7 +35,7 @@ extern "C" {
 #include <lal/LALSimInspiral.h>
 
 int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       /**< input htilde, will be modified in place */
-                                        const REAL8 distance,
+                                        //const REAL8 distance,
                                         const REAL8 m1_SI,
                                         const REAL8 m2_SI,
                                         const REAL8 chi1z,
@@ -50,7 +50,7 @@ int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       
 void XLALSimInspiralPNCorrections(PNPhasingSeries *pfa, const REAL8 m1, const REAL8 m2, const REAL8 chi1L, const REAL8 chi2L, const REAL8 chi1sq, const REAL8 chi2sq, const REAL8 chi1dotchi2, const REAL8 qm_def1, const REAL8 qm_def2, const LALSimInspiralTestGRParam *pnCorrections);
 
 int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,       /**< input htilde, will be modified in place */
-                                           const REAL8 distance,
+                                           //const REAL8 distance,
                                            const REAL8Sequence *freqs,
                                            const UINT4 iStart,
                                            const UINT4 iRef,
