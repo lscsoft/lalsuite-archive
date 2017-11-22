@@ -339,17 +339,15 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
 
 //  gsl_spline_init(splineTot, freqs->data, phaseTot->data, freqs->length);
 //  ref_phasing = gsl_spline_eval(splineTot, f_ref, acc);
-  const REAL8 m_sec = m * LAL_MTSUN_SI;  /* total mass in seconds */
-  const REAL8 eta = m1 * m2 / (m * m);
   //    const REAL8 piM = LAL_PI * m_sec;
   //    const REAL8 vISCO = 1. / sqrt(6.);
   //    const REAL8 fISCO = vISCO * vISCO * vISCO / piM;
-  const REAL8 fPeak = GetNRSpinPeakOmegaV4(2, 2, eta, 0.) / (2. * LAL_PI * m_sec);
+  const REAL8 fPeak = GetNRSpinPeakOmegaV4(2, 2, eta, 0.) / (2. * LAL_PI * mtot * LAL_MTSUN_SI);
     REAL8 PNPhaseRefDerivative = PNPhaseDerivative(fPeak, pfa);
   for ( i = iStart; i < freqs->length; i++ ) {
     REAL8 phasing = phaseTot->data[i] - PNPhaseRefDerivative*freqs->data[i];
-    htilde->data->data[i] = cabs(distance*htilde->data->data[i]) * (cos(phasing)+sin(phasing) * 1.0j);
-    htilde->data->data[i] /= distance;
+    htilde->data->data[i] *= cexp(phasing);
+//    htilde->data->data[i] /= distance;
   }
     
 //  gsl_spline_free(splineGR);
