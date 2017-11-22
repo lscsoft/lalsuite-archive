@@ -88,6 +88,10 @@ int XLALSimInspiralPhaseCorrectionsPhasingWithDS(COMPLEX16FrequencySeries *htild
 					   const REAL8 f_DS,  /** Frequency in which dynamical scalarization turns on */
 					   const REAL8 NCyclesDS); /** Choose number of GW cycles over which to taper the GR phase correction */
 
+REAL8 PNPhase(REAL8 f, PNPhasingSeries pfa);
+REAL8 PNPhaseDerivative(REAL8 f, PNPhasingSeries pfa);
+REAL8 PNPhaseSecondDerivative(REAL8 f, PNPhasingSeries pfa);
+
 #if 0
 { /* so that editors will match succeeding brace */
 #elif defined(__cplusplus)
