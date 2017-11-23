@@ -315,8 +315,9 @@ void LALInferenceROQWrapperForXLALSimInspiralChooseFDWaveformSequence(LALInferen
 
   /* If we have tilt angles zero, then the spins are aligned and we just set the z component */
   /* However, if the waveform supports precession then we still need to get the right coordinate components */
-  SpinSupport spin_support=XLALSimInspiralGetSpinSupportFromApproximant(approximant);
-  if(tilt1==0.0 && tilt2==0.0 && (spin_support==LAL_SIM_INSPIRAL_SPINLESS || spin_support==LAL_SIM_INSPIRAL_ALIGNEDSPIN))
+  /*SpinSupport spin_support=XLALSimInspiralGetSpinSupportFromApproximant(approximant);*/
+  /*if(tilt1==0.0 && tilt2==0.0 && (spin_support==LAL_SIM_INSPIRAL_SPINLESS || spin_support==LAL_SIM_INSPIRAL_ALIGNEDSPIN))*/
+  if(tilt1==0.0 && tilt2==0.0)
   {
       spin1z=a_spin1;
       spin2z=a_spin2;
@@ -694,7 +695,12 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
     f_low = model->fLow;
 
   f_start = XLALSimInspiralfLow2fStart(f_low, amporder, approximant);
-  f_max = 0.0; /* for freq domain waveforms this will stop at ISCO. Previously found using model->fHigh causes NaNs in waveform (see redmine issue #750)*/
+
+  /* Don't let TaylorF2 generate unphysical inspiral up to Nyquist */
+  if (approximant == TaylorF2)
+      f_max = 0.0; /* this will stop at ISCO */
+  else
+      f_max = model->fHigh; /* this will be the highest frequency used across the network */
 
   /* ==== SPINS ==== */
   /* We will default to spinless signal and then add in the spin components if required */
@@ -746,8 +752,9 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
 
   /* If we have tilt angles zero, then the spins are aligned and we just set the z component */
   /* However, if the waveform supports precession then we still need to get the right coordinate components */
-  SpinSupport spin_support=XLALSimInspiralGetSpinSupportFromApproximant(approximant);
-  if(tilt1==0.0 && tilt2==0.0 && (spin_support==LAL_SIM_INSPIRAL_SPINLESS || spin_support==LAL_SIM_INSPIRAL_ALIGNEDSPIN))
+  /*SpinSupport spin_support=XLALSimInspiralGetSpinSupportFromApproximant(approximant);*/
+  /*if(tilt1==0.0 && tilt2==0.0 && (spin_support==LAL_SIM_INSPIRAL_SPINLESS || spin_support==LAL_SIM_INSPIRAL_ALIGNEDSPIN))*/
+  if(tilt1==0.0 && tilt2==0.0)
   {
       spin1z=a_spin1;
       spin2z=a_spin2;
@@ -825,7 +832,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
             approximant,model->waveformCache, NULL), errnum);
 
 	XLALSimInspiralDestroyTestGRParam(nonGRparams);
-    
+
     /* if the waveform failed to generate, fill the buffer with zeros
      * so that the previous waveform is not left there
      */
@@ -1186,7 +1193,12 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveformPhaseInterpolated(LALInfer
         f_low = model->fLow;
 
     f_start = XLALSimInspiralfLow2fStart(f_low, amporder, approximant);
-    f_max = 0.0; /* for freq domain waveforms this will stop at ISCO. Previously found using model->fHigh causes NaNs in waveform (see redmine issue #750)*/
+
+    /* Don't let TaylorF2 generate unphysical inspiral up to Nyquist */
+    if (approximant == TaylorF2)
+        f_max = 0.0; /* this will stop at ISCO */
+    else
+        f_max = model->fHigh; /* this will be the highest frequency used across the network */
 
     /* ==== SPINS ==== */
     /* We will default to spinless signal and then add in the spin components if required */
@@ -1225,8 +1237,9 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveformPhaseInterpolated(LALInfer
 
     /* If we have tilt angles zero, then the spins are aligned and we just set the z component */
     /* However, if the waveform supports precession then we still need to get the right coordinate components */
-    SpinSupport spin_support=XLALSimInspiralGetSpinSupportFromApproximant(approximant);
-    if(tilt1==0.0 && tilt2==0.0 && (spin_support==LAL_SIM_INSPIRAL_SPINLESS || spin_support==LAL_SIM_INSPIRAL_ALIGNEDSPIN))
+    /*SpinSupport spin_support=XLALSimInspiralGetSpinSupportFromApproximant(approximant);*/
+    /*if(tilt1==0.0 && tilt2==0.0 && (spin_support==LAL_SIM_INSPIRAL_SPINLESS || spin_support==LAL_SIM_INSPIRAL_ALIGNEDSPIN))*/
+    if(tilt1==0.0 && tilt2==0.0)
     {
         spin1z=a_spin1;
         spin2z=a_spin2;
@@ -1586,7 +1599,7 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model)
     polar_ecc=*(REAL8*) LALInferenceGetVariable(model->params, "polar_eccentricity");
 
   f_low=0.0; // These are not really used for burst signals.
-  f_max = 0.0; /* for freq domain waveforms this will stop at Nyquist of lower, if the WF allows.*/
+  f_max = model->fHigh; /* this will be the highest frequency used across the network */
 
 
   if (model->timehCross==NULL) {

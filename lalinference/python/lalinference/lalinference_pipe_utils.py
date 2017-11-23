@@ -132,7 +132,7 @@ def readLValert(threshold_snr=None,gid=None,flow=40.0,gracedb="gracedb",basepath
         srate.append(pow(2.0, ceil( log(float(strlen.splitlines()[1].split()[5]), 2) ) ) * 2 )
       snr = e.snr
       eff_dist = e.eff_distance
-      if threshold_snr is not None:
+      if threshold_snr is not None and eff_dist is not None:
           if snr > threshold_snr:
               horizon_distance.append(eff_dist * snr/threshold_snr)
           else:
@@ -1422,16 +1422,6 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
                   bayeswavepsdnode[ifo].set_seed(randomseed)
                   if self.dataseed:
                      bayeswavepsdnode[ifo].set_dataseed(self.dataseed+event.event_id)
-                  if self.config.has_option('bayeswave','BayesWave_Niter'):
-                     bayeswavepsdnode[ifo].add_var_arg('--Niter '+str(self.config.getint('bayeswave','BayesWave_Niter')))
-                  if self.config.has_option('bayeswave','BayesWave_Nchain'):
-                     bayeswavepsdnode[ifo].add_var_arg('--Nchain '+str(self.config.getint('bayeswave','BayesWave_Nchain')))
-                  if self.config.has_option('bayeswave','BayesWave_Ncycle'):
-                     bayeswavepsdnode[ifo].add_var_arg('--Ncycle '+str(self.config.getint('bayeswave','BayesWave_Ncycle')))
-                  if self.config.has_option('bayeswave','BayesWave_Nburnin'):
-                     bayeswavepsdnode[ifo].add_var_arg('--Nburnin '+str(self.config.getint('bayeswave','BayesWave_Nburnin')))
-                  if self.config.has_option('bayeswave','BayesWave_Nbayesline'):
-                     bayeswavepsdnode[ifo].add_var_arg('--Nbayesline '+str(self.config.getint('bayeswave','BayesWave_Nbayesline')))
         if self.config.has_option('condor','bayesline') or self.config.has_option('condor','computeroqweights'):
           if gotdata and event.event_id not in self.prenodes.keys():
             if prenode not in self.get_nodes():
@@ -1502,16 +1492,20 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       node.set_psdlength(bw_seglen)
     if self.config.has_option('input','psd-length'):
       node.set_psdlength(self.config.getint('input','psd-length'))
+      prenode.set_psdlength(self.config.getint('input','psd-length'))
       if self.config.has_option('condor','bayeswave') and bayeswavepsdnode:
          for ifo in ifos:
            bayeswavepsdnode[ifo].set_psdlength(self.config.getint('input','psd-length'))
     if self.config.has_option('input','psd-start-time'):
       node.set_psdstart(self.config.getfloat('input','psd-start-time'))
+      prenode.set_psdstart(self.config.getfloat('input','psd-start-time'))
       if self.config.has_option('condor','bayeswave') and bayeswavepsdnode:
          for ifo in ifos:
            bayeswavepsdnode[ifo].set_psdstart(self.config.getfloat('input','psd-start-time'))
     node.set_max_psdlength(self.config.getint('input','max-psd-length'))
+    prenode.set_max_psdlength(self.config.getint('input','max-psd-length'))
     node.set_padding(self.config.getint('input','padding'))
+    prenode.set_padding(self.config.getint('input','padding'))
     if self.config.has_option('condor','bayeswave') and bayeswavepsdnode:
          for ifo in ifos:
            bayeswavepsdnode[ifo].set_max_psdlength(self.config.getint('input','max-psd-length'))
@@ -1763,7 +1757,7 @@ class EngineJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
       self.add_condor_cmd('request_cpus',self.machine_count)
       self.add_condor_cmd('request_memory',str(float(self.machine_count)*float(self.machine_memory)))
     if self.engine=='lalinferencenest':
-      self.add_condor_cmd('request_memory','2048')
+      self.add_condor_cmd('request_memory','4000') # 4GB RAM for high SNR BNS
     if cp.has_section(self.engine):
       if not ispreengine:
         self.add_ini_opts(cp,self.engine)
@@ -2124,6 +2118,8 @@ class BayesWavePSDJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
     exe=cp.get('condor','bayeswave')
     pipeline.CondorDAGJob.__init__(self,"vanilla",exe)
     pipeline.AnalysisJob.__init__(self,cp,dax=dax)
+    if cp.has_section('bayeswave'):
+        self.add_ini_opts(cp,'bayeswave')
     if cp.has_option('analysis','accounting_group'):
       self.add_condor_cmd('accounting_group',cp.get('analysis','accounting_group'))
     if cp.has_option('analysis','accounting_group_user'):
@@ -2474,7 +2470,7 @@ class ROMJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
     self.add_condor_cmd('getenv','True')
     self.add_arg('-B '+str(cp.get('paths','roq_b_matrix_directory')))
     if cp.has_option('engine','dt'):
-      dt=cp.get('engine','dt')
+      dt=cp.getfloat('engine','dt')
     self.add_arg('-t '+str(dt))
     if cp.has_option('engine','time_step'):
       time_step=cp.get('engine','time_step')
