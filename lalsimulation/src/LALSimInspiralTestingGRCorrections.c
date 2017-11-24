@@ -81,7 +81,7 @@ int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       
   /* Fill with non-zero vals from f0 to fEnd */
   iStart = (UINT4) ceil((f_low-f0) / deltaF);
   iRef   = (UINT4) ceil((f_ref-f0) / deltaF);
-  iEnd  = (UINT4) ceil(f_window_div_f_Peak * fPeak / deltaF);
+  iEnd  = (UINT4) fmin(ceil((f_window_div_f_Peak * fPeak - f0) / deltaF),n-1);
   //    printf("fPeak %.16e\n", fPeak);
   /* Sequence of frequencies where corrections to the model need to be evaluated */
   REAL8Sequence *freqs =NULL;
@@ -91,6 +91,7 @@ int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       
     {
       freqs->data[i] = f0 + i * deltaF;
     }
+  
   PNPhasingSeries pfa;
   const REAL8 qm_def1 = 1.;
   const REAL8 qm_def2 = 1.;
@@ -347,7 +348,14 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
   const REAL8 fPeak = GetNRSpinPeakOmegaV4(2, 2, eta, 0.) / (LAL_PI * mtot);
   const REAL8 f0 = htilde->f0;
   const REAL8 deltaF = htilde->deltaF;
-  INT4 iPeak = (UINT4) ceil((fPeak-f0) / deltaF);
+  INT4 iPeak = (UINT4) fmin(ceil((fPeak-f0) / deltaF), freqs->length - 1);
+  
+  
+  FILE *out = fopen ("ipeak2.txt", "w");
+    fprintf(out, "%.16u %.16u\n",iEnd, iPeak );
+  fclose(out);
+  
+  
   REAL8 PNPhaseRefDerivative = dphasenonGRdfTapered->data[iPeak];
   
   for ( i = iStart; i < freqs->length; i++ ) {
