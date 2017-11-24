@@ -284,9 +284,9 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
   //REAL8 ref_phasing = 0.;
     
 
-  const REAL8 vWindow = cbrt(piM*freqs->data[iEnd]); //Center of the tapering step function in v-space
+  const REAL8 vWindow = cbrt(piM * freqs->data[iEnd]); //Center of the tapering step function in v-space
 
-  const REAL8 width = (NCyclesStep*LAL_PI*vWindow*vWindow*vWindow*vWindow*vWindow*vWindow)/(50.* pfaN0);
+  const REAL8 width = (NCyclesStep * LAL_PI * vWindow * vWindow * vWindow * vWindow * vWindow * vWindow)/(50. * pfaN0);
 
   REAL8Sequence *d2phasenonGRdf2Tapered = NULL;
 //  phasenonGR = XLALCreateREAL8Sequence( (UINT4) freqs->length );
@@ -294,7 +294,7 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
   for ( i = iStart; i < freqs->length; i++)
     {
       const REAL8 f = freqs->data[i];
-      if (f>0) d2phasenonGRdf2Tapered->data[i] = PNPhaseSecondDerivative(f, pfa, mtot)/ (1. + exp( (cbrt(piM*freqs->data[i]) - vWindow) / width ) );
+      if (f>0) d2phasenonGRdf2Tapered->data[i] = PNPhaseSecondDerivative(f, pfa, mtot)/ (1. + exp( (cbrt(piM * freqs->data[i]) - vWindow) / width ) );
     }
   
 //  splinenonGR = gsl_spline_alloc (gsl_interp_cspline, freqs->length);
@@ -351,7 +351,7 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
   REAL8 PNPhaseRefDerivative = dphasenonGRdfTapered->data[iPeak];
   
   for ( i = iStart; i < freqs->length; i++ ) {
-    REAL8 phasing = phasenonGRTapered->data[i] - PNPhaseRefDerivative*(freqs->data[i]-freqs->data[iRef]) ;
+    REAL8 phasing = phasenonGRTapered->data[i] - PNPhaseRefDerivative * (freqs->data[i]-freqs->data[iRef]) ;
     htilde->data->data[i] *= cexp(phasing * 1.j);
   }
     
