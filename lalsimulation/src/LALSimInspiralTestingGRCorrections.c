@@ -349,12 +349,7 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
   const REAL8 f0 = htilde->f0;
   const REAL8 deltaF = htilde->deltaF;
   INT4 iPeak = (UINT4) fmin(ceil((fPeak-f0) / deltaF), freqs->length - 1);
-  
-  
-  FILE *out = fopen ("ipeak2.txt", "w");
-    fprintf(out, "%.16u %.16u\n",iEnd, iPeak );
-  fclose(out);
-  
+
   
   REAL8 PNPhaseRefDerivative = dphasenonGRdfTapered->data[iPeak];
   
