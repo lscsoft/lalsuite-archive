@@ -67,6 +67,7 @@ bin_PROGRAMS = \
 
 pkginclude_HEADERS = \
 	LALSimBlackHoleRingdown.h \
+	LALSimBlackHoleRingdownPrec.h \
 	LALSimBurst.h \
 	LALSimIMR.h \
 	LALSimInspiral.h \
