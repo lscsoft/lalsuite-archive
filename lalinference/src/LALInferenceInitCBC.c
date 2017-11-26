@@ -934,10 +934,11 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
     while(N>0){
       N--;
       char *name=strings[N];
-      fprintf(stdout,"Pinning parameter %s\n",node->name);
       node=LALInferenceGetItem(&tempParams,name);
-      if(node) LALInferenceAddVariable(model->params,node->name,node->value,node->type,node->vary);
-      else {fprintf(stderr,"Error: Cannot pin parameter %s. No such parameter found in injection!\n",node->name);}
+      fprintf(stdout,"Pinning parameter %s(node->name:%s)\n",name,node->name);
+      //if(node) LALInferenceAddVariable(model->params,node->name,node->value,node->type,node->vary);
+      if(node) LALInferenceAddVariable(model->params,node->name,node->value,node->type,LALINFERENCE_PARAM_FIXED);
+      else {fprintf(stderr,"Error: Cannot pin parameter %s(node->name:%s). No such parameter found in injection!\n",name, node->name);}
     }
   }
 
@@ -1330,7 +1331,14 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   if((ppt=LALInferenceGetProcParamVal(commandLine,"--distance-max"))) Dmax=atof(ppt->value);
   if((ppt=LALInferenceGetProcParamVal(commandLine,"--distance-min"))) Dmin=atof(ppt->value);
   LALInferenceParamVaryType distanceVary = LALINFERENCE_PARAM_LINEAR;
-  if((ppt=LALInferenceGetProcParamVal(commandLine,"--fix-distance")))
+  LALInferenceVariableItem *node_dist=NULL;
+  node_dist=LALInferenceGetItem(model->params,"distance");
+  if( node_dist ) { /* set to be fixed if it was fixed to injection value already */
+    Dinitial=*(double *)node_dist->value;
+    distanceVary = LALINFERENCE_PARAM_FIXED;
+    LALInferenceRemoveVariable(model->params, "distance"); /* remove pinned distance parameter, will be added below as logdistance*/
+  }
+  if((ppt=LALInferenceGetProcParamVal(commandLine,"--fix-distance"))) /* override injection value by command line option */
   {
     Dinitial=atof(ppt->value);
     distanceVary = LALINFERENCE_PARAM_FIXED;
