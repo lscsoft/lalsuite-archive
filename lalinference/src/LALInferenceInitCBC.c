@@ -1334,7 +1334,19 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   LALInferenceVariableItem *node_dist=NULL;
   node_dist=LALInferenceGetItem(model->params,"distance");
   if( node_dist ) { /* set to be fixed if it was fixed to injection value already */
-    Dinitial=*(double *)node_dist->value;
+    if(node_dist->type == LALINFERENCE_REAL4_t)
+    {
+      Dinitial=*(REAL4 *)node_dist->value;
+    }
+    else if(node_dist->type == LALINFERENCE_REAL8_t)
+    {
+      Dinitial=(REAL4)(*(REAL8 *)node_dist->value);
+    }
+    else
+    {
+      fprintf(stderr, "[WARNING]Distance value should be real type. Initial value be set 10Mpc.\n");
+      Dinitial = 10.0;
+    }
     distanceVary = LALINFERENCE_PARAM_FIXED;
     LALInferenceRemoveVariable(model->params, "distance"); /* remove pinned distance parameter, will be added below as logdistance*/
   }
