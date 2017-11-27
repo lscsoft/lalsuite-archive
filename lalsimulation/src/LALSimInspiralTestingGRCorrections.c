@@ -27,6 +27,7 @@
 #include <lal/LALSimInspiralTestingGRCorrections.h>
 #include <lal/Sequence.h>
 #include "LALSimInspiralPNCoefficients.c"
+#include <lal/LALSimIMR.h>
 
 UNUSED static inline REAL8
 GetNRSpinPeakOmegaV4 (INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED eta, REAL8 a)
@@ -50,6 +51,8 @@ int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       
                                         const REAL8 chi2z,
                                         const REAL8 f_low,
                                         const REAL8 f_ref,
+                                        const REAL8 lambda1,
+                                        const REAL8 lambda2,
                                         const REAL8 f_window_div_f_Peak,     /** Frequency at which to attach non-GR and GR waveforms, inputted as a fraction of f_Peak (should be between 0 and 1) */
                                         const REAL8 NCyclesStep,                /** Number of GW cycles over which to taper the non-GR phase correction */
                                         const LALSimInspiralTestGRParam *pnCorrections    /**< input linked list of testing gr parameters */
@@ -68,12 +71,23 @@ int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       
   //    const REAL8 piM = LAL_PI * m_sec;
   //    const REAL8 vISCO = 1. / sqrt(6.);
   //    const REAL8 fISCO = vISCO * vISCO * vISCO / piM;
+  REAL8 fPeak;
   
-  //const REAL8 fPeak = GetNRSpinPeakOmegaV4(2, 2, eta, 0.) / (2. * LAL_PI * m_sec);
-  const REAL8 fPeak = GetNRSpinPeakOmegaV4(2, 2, eta, 0.) / (LAL_PI * m_sec); //Used to differ by a factor of 2, but we want the GW frequency, not orbital frequency
+  if(lambda1 == 0.0 && lambda2 == 0.0){
+    //const REAL8 fPeak = GetNRSpinPeakOmegaV4(2, 2, eta, 0.) / (2. * LAL_PI * m_sec);
+    fPeak = GetNRSpinPeakOmegaV4(2, 2, eta, 0.5*(chi1z + chi2z) + 0.5*(chi1z - chi2z)*(m1 - m2)/(m1 + m2)/(1. - 2.*eta)) / (LAL_PI * m_sec); //Used to differ by a factor of 2, but we want the GW frequency, not orbital frequency
+    //const REAL8 fPeak =0.0165  /  m_sec;
+  }
+  else if(lambda1 != 0.0 && lambda2 != 0.0)
+  {
+    const REAL8 q = fmax(m1 / m2, m2 / m1);
+    const double kappa2T = XLALSimNRTunedTidesComputeKappa2T(m1_SI, m2_SI, lambda1, lambda2);
+    fPeak = XLALSimNRTunedTidesMergerFrequency(m, kappa2T, q);
+  }
+  else{
+    fPeak = GetNRSpinPeakOmegaV4(2, 2, eta, 0.5*(chi1z + chi2z) + 0.5*(chi1z - chi2z)*(m1 - m2)/(m1 + m2)/(1. - 2.*eta)) / (LAL_PI * m_sec); //Used to differ by a factor of 2, but we want the GW frequency, not orbital frequency
+  }
   
-  //const REAL8 fPeak =0.0165  /  m_sec;
-    
   INT4 i;
   INT4 n = (INT4) htilde->data->length;
     

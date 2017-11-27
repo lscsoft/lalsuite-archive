@@ -41,6 +41,8 @@ int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       
                                         const REAL8 chi2z,
                                         const REAL8 f_low,
                                         const REAL8 f_ref,
+                                        const REAL8 lambda1,
+                                        const REAL8 lambda2,
 					const REAL8 f_window_div_f_Peak,     /** Frequency at which to attach non-GR and GR waveforms, inputted as a fraction of f_Peak (should be between 0 and 1) */
 					const REAL8 NCyclesStep,                /** Number of GW cycles over which to taper the non-GR phase correction */
                                         const LALSimInspiralTestGRParam *pnCorrections    /**< input linked list of testing gr parameters */

@@ -858,8 +858,8 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
         }
         else
         {
-            XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(hptilde,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI, spin1z, spin2z, f_start, f_ref, correction_window, correction_ncycles_taper, nonGRparams), errnum);
-            XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(hctilde,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI, spin1z, spin2z, f_start, f_ref, correction_window, correction_ncycles_taper, nonGRparams), errnum);
+            XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(hptilde,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI, spin1z, spin2z, f_start, f_ref, lambda1, lambda2, correction_window, correction_ncycles_taper, nonGRparams), errnum);
+            XLAL_TRY(ret = XLALSimInspiralTestingGRCorrections(hctilde,m1*LAL_MSUN_SI,m2*LAL_MSUN_SI, spin1z, spin2z, f_start, f_ref, lambda1, lambda2, correction_window, correction_ncycles_taper, nonGRparams), errnum);
         }
     }
     else
