@@ -74,6 +74,7 @@ static const REAL8 P2coeff20 = 17.5646;
 
 static INT4 XLALSimFindIndexMaxAmpli( UINT4 * indAmax, REAL8Vector * timeVec, REAL8Vector * ampWave, REAL8 * valAmax, REAL8 tofAmax );
 
+static INT4 XLALComuputePhonomFitRD( REAL8* ampcf1, REAL8* ampcf2, REAL8* phasecf1, REAL8* phasecf2, REAL8 chi, REAL8 eta, INT4 l, INT4 m);
 
 /**
  * Generates the ringdown wave associated with the given real
@@ -1499,6 +1500,71 @@ XLALSimIMREOBHybridAttachRingdownPrec(
 	}
 
 
+/*****************
+*   Compute fit coefficients for l=2 modes
+*****************/
+static INT4 XLALComuputePhonomFitRD(
+  REAL8* ampcf1,           /**<< OUTPUT 1st amplitude coeff */
+  REAL8* ampcf2,           /**<< OUTPUT  2md amplitude coeff */
+  REAL8* phasecf1,         /**<< OUTPUT 1st phase coeff */
+  REAL8* phasecf2,         /**<< OUTPUT 2nd phase coeff */
+  REAL8 chi,               /**<< INPUT spin parameter */
+  REAL8 eta,               /**<< INPUT sym. mass ration */
+  INT4 l,                  /**<< INPUT l-mode index */
+  INT4 m)                  /**<< INPUT m-mode index */
+{
+  INT4 errcode = XLAL_SUCCESS;
+  INT4 debugSB = 1;
+  /*********************************************************************************************/
+  /*                  Constant coefficients entering RD fitting formulas                      */
+  /*********************************************************************************************/
+  /* Computing fit coefficients that enter amplitude and phase of the RD signal */
+  /* Numeircal constants are defined at the top of this file */
+  /* Eq. (28) of https://dcc.ligo.org/T1600383 */
+  if (l==2 && m==2){
+    if (debugSB) {
+        printf("Check: Use the fit for 2,2: %d, %d  \n", l, m);
+    }
+    (*ampcf1) = A1coeff00 + A1coeff01 * chi + A1coeff02 * chi * chi + A1coeff10 * eta +
+                A1coeff11 * eta * chi + A1coeff20 * eta * eta;
+    /* Eq. (29) of https://dcc.ligo.org/T1600383 */
+    (*ampcf2) = A2coeff00 + A2coeff01 * chi + A2coeff10 * eta + A2coeff11 * eta * chi +
+                A2coeff20 * eta * eta + A2coeff21 * eta * eta * chi;
+
+    /* Eq. (36) of https://dcc.ligo.org/T1600383 */
+    (*phasecf1) = P1coeff00 + P1coeff01 * chi + P1coeff02 * chi * chi + P1coeff10 * eta +
+                P1coeff11 * eta * chi + P1coeff20 * eta * eta;
+
+    /* Eq. (37) of https://dcc.ligo.org/T1600383 */
+    (*phasecf2) = P2coeff00 + P2coeff01 * chi + P2coeff02 * chi * chi + P2coeff10 * eta +
+                P2coeff11 * eta * chi + P2coeff20 * eta * eta;
+  }else{
+    if (l==2 && m==1){
+      if (debugSB) {
+          printf("Check: Use the fit for 2,1: %d, %d  \n", l, m);
+      }
+      (*ampcf1) = 0.07780330893915006 + 0.24091006920322164 * eta -  0.7456327888190485 * eta * eta
+              - 0.05070638166864379 * chi + 0.38582622780596576 * eta * chi - 0.9695534075470388 *eta*eta*chi;
+      (*ampcf2) = -1.2451852641667298 + 6.134202504312409 * eta  - 14.67251127485556 *eta*eta
+                  - 1.195786238319961 *chi + 15.66696619631313 *eta*chi - 44.41982201432511 *eta*eta*chi;
+      (*phasecf1) = 0.15601401627613815 + 0.023346852452720928 *eta + 0.15326558178697175 *eta*eta +
+                    0.10219957917717622 *chi - 0.9435308286367039 *eta*chi + 1.7979082057513565 *eta*eta*chi;
+      (*phasecf2) = 2.7886287922318105 - 0.8145406685320334 *eta + 5.549338798935832 * eta*eta +
+                    4.29290053494256 *chi - 15.93796979597706 *eta*chi + 12.649775582333442 *eta*eta*chi;
+    }
+    else{
+      XLALPrintError("XLALSimIMRSpinEOBNonQCCorrection failed!\n");
+      printf("Implemented only l=2 modes (m=1, 2) so far \n");
+      XLAL_ERROR( XLAL_EDOM );
+    }
+  }
+
+  return errcode;
+
+
+}
+
+
 /* Search for index at which the maximum of the amplitude occurs */
 static INT4 XLALSimFindIndexMaxAmpli( UINT4 * indAmax, REAL8Vector * timeVec, REAL8Vector * ampWave, REAL8 * valAmax, REAL8 tofAmax ) {
     if ( indAmax == NULL || timeVec == NULL || ampWave == NULL || valAmax == NULL ) {
@@ -1663,6 +1729,8 @@ static INT4 XLALSimFindIndexMaxAmpli( UINT4 * indAmax, REAL8Vector * timeVec, RE
         {
             XLALPrintError("Time of maximum amplitude is not found .\n");
             XLALDestroyCOMPLEX16Vector(modefreqs);
+            XLALDestroyREAL8Vector(ampWave);
+            XLALDestroyREAL8Vector(phWave);
             XLAL_ERROR(XLAL_EFUNC);
         }
         if (debugSB) {
@@ -1678,27 +1746,34 @@ static INT4 XLALSimFindIndexMaxAmpli( UINT4 * indAmax, REAL8Vector * timeVec, RE
         /* Numeircal constants are defined at the top of this file */
         /* Eq. (28) of https://dcc.ligo.org/T1600383 */
         REAL8 ampcf1;
-        ampcf1 = A1coeff00 + A1coeff01 * chi + A1coeff02 * chi * chi + A1coeff10 * eta + A1coeff11 * eta * chi + A1coeff20 * eta * eta;
+        //ampcf1 = A1coeff00 + A1coeff01 * chi + A1coeff02 * chi * chi + A1coeff10 * eta + A1coeff11 * eta * chi + A1coeff20 * eta * eta;
 
         /* Eq. (29) of https://dcc.ligo.org/T1600383 */
         REAL8 ampcf2;
-        ampcf2 = A2coeff00 + A2coeff01 * chi + A2coeff10 * eta + A2coeff11 * eta * chi + A2coeff20 * eta * eta + A2coeff21 * eta * eta * chi;
+        //ampcf2 = A2coeff00 + A2coeff01 * chi + A2coeff10 * eta + A2coeff11 * eta * chi + A2coeff20 * eta * eta + A2coeff21 * eta * eta * chi;
 
     //    printf("creal(sigma220), 2.*ampcf1*tanh(ampcf2) = %.16e %.16e\n",1./creal(sigma220), 2.*ampcf1*tanh(ampcf2));
+
+        /* Eq. (36) of https://dcc.ligo.org/T1600383 */
+        REAL8 phasecf1;
+        //phasecf1 = P1coeff00 + P1coeff01 * chi + P1coeff02 * chi * chi + P1coeff10 * eta + P1coeff11 * eta * chi + P1coeff20 * eta * eta;
+
+        /* Eq. (37) of https://dcc.ligo.org/T1600383 */
+        REAL8 phasecf2;
+        //phasecf2 = P2coeff00 + P2coeff01 * chi + P2coeff02 * chi * chi + P2coeff10 * eta + P2coeff11 * eta * chi + P2coeff20 * eta * eta;
+
+        if (XLALComuputePhonomFitRD( &ampcf1, &ampcf2, &phasecf1, &phasecf2, chi, eta, l, m) == XLAL_FAILURE){
+            printf("Failed to get fitting formulae for l=%d, m=%d \n", l, m);
+            XLALDestroyCOMPLEX16Vector(modefreqs);
+            XLALDestroyREAL8Vector(ampWave);
+            XLALDestroyREAL8Vector(phWave);
+            XLAL_ERROR(XLAL_EFUNC);
+        }
+
         /* Eqs. (31)-(32) of https://dcc.ligo.org/T1600383 */
         if (creal(sigma220) > 2. * ampcf1 * tanh(ampcf2)) {
             ampcf1 = creal(sigma220) / (2. * tanh(ampcf2));
         }
-
-        /* Eq. (36) of https://dcc.ligo.org/T1600383 */
-        REAL8 phasecf1;
-        phasecf1 = P1coeff00 + P1coeff01 * chi + P1coeff02 * chi * chi + P1coeff10 * eta + P1coeff11 * eta * chi + P1coeff20 * eta * eta;
-
-        /* Eq. (37) of https://dcc.ligo.org/T1600383 */
-        REAL8 phasecf2;
-        phasecf2 = P2coeff00 + P2coeff01 * chi + P2coeff02 * chi * chi + P2coeff10 * eta + P2coeff11 * eta * chi + P2coeff20 * eta * eta;
-
-
 
         /*********************************************************************************************/
         /*                                            RD fitting formulas                                           */
