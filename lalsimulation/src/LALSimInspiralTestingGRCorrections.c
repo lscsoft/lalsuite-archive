@@ -90,12 +90,13 @@ int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       
   
   INT4 i;
   INT4 n = (INT4) htilde->data->length;
-    
-  INT4 iStart, iRef, iEnd;
+  
+  INT4 iStart, iRef, iEnd, iPeak;
   /* Fill with non-zero vals from f0 to fEnd */
   iStart = (UINT4) ceil((f_low-f0) / deltaF);
   iRef   = (UINT4) ceil((f_ref-f0) / deltaF);
   iEnd  = (UINT4) fmin(ceil((f_window_div_f_Peak * fPeak - f0) / deltaF),n-1);
+  iPeak  = (UINT4) fmin(ceil((fPeak - f0) / deltaF),n-1);
   //    printf("fPeak %.16e\n", fPeak);
   /* Sequence of frequencies where corrections to the model need to be evaluated */
   REAL8Sequence *freqs =NULL;
@@ -111,7 +112,7 @@ int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       
   const REAL8 qm_def2 = 1.;
   XLALSimInspiralPNCorrections(&pfa, m1, m2, chi1z, chi2z, chi1z*chi1z, chi2z*chi2z, chi1z*chi2z, qm_def1, qm_def2, pnCorrections);
   //  XLALSimInspiralPhaseCorrectionsPhasing(htilde,distance,freqs,iStart,iRef,iEnd,pfa,m_sec, eta, NCyclesStep);
-  XLALSimInspiralPhaseCorrectionsPhasing(htilde,freqs,iStart,iRef,iEnd,pfa,m_sec, eta, NCyclesStep);
+  XLALSimInspiralPhaseCorrectionsPhasing(htilde,freqs,iStart,iRef,iEnd,iPeak,pfa,m_sec, eta, NCyclesStep);
   XLALDestroyREAL8Sequence(freqs);
   return 0;
 }
@@ -227,6 +228,7 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
                                            const UINT4 iStart,
                                            const UINT4 iRef,
                                            const UINT4 iEnd,
+                                           const UINT4 iPeak,
                                            PNPhasingSeries pfa,
                                            const REAL8 mtot,
                                            const REAL8 eta,
@@ -359,10 +361,10 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
   //    const REAL8 vISCO = 1. / sqrt(6.);
   //    const REAL8 fISCO = vISCO * vISCO * vISCO / piM;
  
-  const REAL8 fPeak = GetNRSpinPeakOmegaV4(2, 2, eta, 0.) / (LAL_PI * mtot);
-  const REAL8 f0 = htilde->f0;
-  const REAL8 deltaF = htilde->deltaF;
-  INT4 iPeak = (UINT4) fmin(ceil((fPeak-f0) / deltaF), freqs->length - 1);
+  //const REAL8 fPeak = GetNRSpinPeakOmegaV4(2, 2, eta, 0.) / (LAL_PI * mtot);
+  //const REAL8 f0 = htilde->f0;
+  //const REAL8 deltaF = htilde->deltaF;
+  //INT4 iPeak = (UINT4) fmin(ceil((fPeak-f0) / deltaF), freqs->length - 1);
 
   
   REAL8 PNPhaseRefDerivative = dphasenonGRdfTapered->data[iPeak];
