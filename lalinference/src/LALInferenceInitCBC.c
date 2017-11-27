@@ -1336,11 +1336,11 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   if( node_dist ) { /* set to be fixed if it was fixed to injection value already */
     if(node_dist->type == LALINFERENCE_REAL4_t)
     {
-      Dinitial=*(REAL4 *)node_dist->value;
+      Dinitial=(REAL8)(*(REAL4 *)node_dist->value);
     }
     else if(node_dist->type == LALINFERENCE_REAL8_t)
     {
-      Dinitial=(REAL4)(*(REAL8 *)node_dist->value);
+      Dinitial=*(REAL8 *)node_dist->value;
     }
     else
     {
@@ -1349,6 +1349,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
     }
     distanceVary = LALINFERENCE_PARAM_FIXED;
     LALInferenceRemoveVariable(model->params, "distance"); /* remove pinned distance parameter, will be added below as logdistance*/
+    fprintf(stdout, "[INFO]Dinitial is %f and it is pinned.\n", Dinitial);
   }
   if((ppt=LALInferenceGetProcParamVal(commandLine,"--fix-distance"))) /* override injection value by command line option */
   {
