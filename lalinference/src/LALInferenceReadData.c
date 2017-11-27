@@ -696,7 +696,8 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 
     /* Only allocate this array if there weren't channels read in from the command line */
     if(!dataOpts && !Nchannel) channels=XLALCalloc(Nifo,sizeof(char *));
-    for(i=0;i<Nifo;i++) {
+    for(i=0;i<Nifo;i++)
+    {
         if(!dataOpts && !Nchannel) channels[i]=XLALMalloc(VARNAME_MAX);
         IFOdata[i].detector=XLALCalloc(1,sizeof(LALDetector));
 
@@ -805,8 +806,8 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
                 printf("Using a planck window for detector %s, starting at %f\n", IFOdata[i].name,  window_start_H);
                 IFOdata[i].window=XLALCreatePlanckREAL8Window(seglen, window_start_H, trig_time, SampleRate, rise_time);
             }
-	    else if(strcmp(IFOdata[i].name, "L1") == 0)
-	    {
+            else if(strcmp(IFOdata[i].name, "L1") == 0)
+            {
                 ppt=LALInferenceGetProcParamVal(commandLine,"--window-start-time-L");
                 if(!ppt){fprintf(stderr,"need to give --window-start-time-L\n"); exit(0);}
                 REAL8 window_start_L = atof(ppt->value);
@@ -846,12 +847,14 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 
 
     /* Read the PSD data */
-    for(i=0;i<Nifo;i++) {
+    for(i=0;i<Nifo;i++)
+    {
         memcpy(&(IFOdata[i].epoch),&segStart,sizeof(LIGOTimeGPS));
         /* Check to see if an interpolation file is specified */
         interpFlag=0;
         interp=NULL;
-        if( (globFrames)?0:strstr(caches[i],"interp:")==caches[i]){
+        if( (globFrames)?0:strstr(caches[i],"interp:")==caches[i])
+        {
           /* Extract the file name */
          char *interpfilename=&(caches[i][7]);
          printf("Looking for ASD interpolation file %s\n",interpfilename);
@@ -862,7 +865,8 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
         /* Check if fake data is requested */
        if( (globFrames)?0:(interpFlag || (!(strcmp(caches[i],"LALLIGO") && strcmp(caches[i],"LALVirgo") && strcmp(caches[i],"LALGEO") && strcmp(caches[i],"LALEGO") && strcmp(caches[i],"LALSimLIGO") && strcmp(caches[i],"LALSimAdLIGO") && strcmp(caches[i],"LALSimVirgo") && strcmp(caches[i],"LALSimAdVirgo") && strcmp(caches[i],"LALAdLIGO")))))
         {
-            if (!LALInferenceGetProcParamVal(commandLine,"--dataseed")){
+            if (!LALInferenceGetProcParamVal(commandLine,"--dataseed"))
+            {
                 fprintf(stderr,"Error: You need to specify a dataseed when generating data with --dataseed <number>.\n\
                         (--dataseed 0 uses a non-reproducible number from the system clock, and no parallel run is then possible.)\n" );
                 exit(-1);
@@ -924,7 +928,8 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
             if(*XLALGetErrnoPtr()) printf("XLErr: %s\n",XLALErrorString(*XLALGetErrnoPtr()));
             XLALDestroyRandomParams(datarandparam);
         }
-        else{ /* Not using fake data, load the data from a cache file */
+        else
+        { /* Not using fake data, load the data from a cache file */
 
             LALCache *cache=NULL;
             if(!globFrames)
@@ -1063,7 +1068,8 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 
                 }
 
-                if (LALInferenceGetProcParamVal(commandLine, "--KSlines")){
+                if (LALInferenceGetProcParamVal(commandLine, "--KSlines"))
+                {
 
                     double deltaF = IFOdata[i].oneSidedNoisePowerSpectrum->deltaF;
                     int lengthF = IFOdata[i].oneSidedNoisePowerSpectrum->data->length;
@@ -1109,7 +1115,8 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 
                 }
 
-                if (LALInferenceGetProcParamVal(commandLine, "--powerlawlines")){
+                if (LALInferenceGetProcParamVal(commandLine, "--powerlawlines"))
+                {
 
                     double deltaF = IFOdata[i].oneSidedNoisePowerSpectrum->deltaF;
                     int lengthF = IFOdata[i].oneSidedNoisePowerSpectrum->data->length;
@@ -1139,8 +1146,10 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 
                     snprintf(filename, nameLength, "%s-PowerLawLines.dat", IFOdata[i].name);
                     out = fopen(filename, "w");
-                    for (int k = 0; k < lengthF; ++k ) {
-                        if (pvalues[k] < lines_threshold) {
+                    for (int k = 0; k < lengthF; ++k )
+                    {
+                        if (pvalues[k] < lines_threshold)
+                        {
                             fprintf(out,"%g %g\n",((double) k) * deltaF,lines_width);
                         }
                     }
@@ -1155,7 +1164,8 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 
                 }
 
-                if (LALInferenceGetProcParamVal(commandLine, "--xcorrbands")){
+                if (LALInferenceGetProcParamVal(commandLine, "--xcorrbands"))
+                {
 
                     int lengthF = IFOdata[i].oneSidedNoisePowerSpectrum->data->length;
 
@@ -1186,7 +1196,8 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 
             /* Read the data segment */
             LIGOTimeGPS truesegstart=segStart;
-            if(Ntimeslides) {
+            if(Ntimeslides)
+            {
                 REAL4 deltaT=-atof(timeslides[i]);
                 XLALGPSAdd(&segStart, deltaT);
                 fprintf(stderr,"Slid %s by %f s from %10.10lf to %10.10lf\n",IFOnames[i],deltaT,truesegstart.gpsSeconds+1e-9*truesegstart.gpsNanoSeconds,segStart.gpsSeconds+1e-9*segStart.gpsNanoSeconds);
@@ -1208,18 +1219,70 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
             XLALDDVectorMultiply(IFOdata[i].windowedTimeData->data,IFOdata[i].timeData->data,IFOdata[i].window->data);
             XLALREAL8TimeFreqFFT(IFOdata[i].freqData,IFOdata[i].windowedTimeData,IFOdata[i].timeToFreqFFTPlan);
 
-            for(j=0;j<IFOdata[i].freqData->data->length;j++){
+            for(j=0;j<IFOdata[i].freqData->data->length;j++)
+            {
                 IFOdata[i].freqData->data->data[j] /= sqrt(IFOdata[i].window->sumofsquares / IFOdata[i].window->data->length);
                 IFOdata[i].windowedTimeData->data->data[j] /= sqrt(IFOdata[i].window->sumofsquares / IFOdata[i].window->data->length);
             }
 
-        
+           /*If required, dump the data before and after windowing.*/
+           if(LALInferenceGetProcParamVal(commandLine,"--dump_window_data"))
+           {
+               ppt=LALInferenceGetProcParamVal(commandLine,"--q_inj");
+               if(!ppt){fprintf(stderr,"need to give --q_inj\n"); exit(0);}
+               int q_inj= atof(ppt->value);
+               ppt=LALInferenceGetProcParamVal(commandLine,"--M_inj");
+               if(!ppt){fprintf(stderr,"need to give --M_inj\n"); exit(0);}
+               int M_inj= atof(ppt->value);
+               int shift = (int)RingdownTemplateWindow_shift + 10;
+                
+               char str_shift[256];
+               sprintf(str_shift, "%d", shift);
+               char q_inj_str[256];
+               sprintf(q_inj_str, "%d", q_inj);
+               char M_inj_str[256];
+               sprintf(M_inj_str, "%d", M_inj);
+               ppt=LALInferenceGetProcParamVal(commandLine,"--dump_window_data");
+
+               char file_name[8192] = "";
+               sprintf(file_name, "/q_%s_M_%s/file_time_%s_q_%s_M_%s_st_%sM.txt", q_inj_str, M_inj_str, IFOdata[i].name, q_inj_str, M_inj_str, str_shift);
+               char filename_out[256] = "";
+               strcpy(filename_out, ppt->value);
+               strcat(filename_out, file_name);
+               
+               FILE *file_time;
+               file_time = fopen(filename_out, "w");
+               /*loop over IFO data*/
+               UINT4 length_time = IFOdata[i].timeData->data->length;
+               UINT4 k;
+               for(k=0;k<length_time;k++)
+               {
+                   fprintf(file_time,"%f\n", IFOdata[i].timeData->data->data[k]*1e24);
+               }
+               fclose(file_time);
+                
+               char file_name_window[8192] = "";
+               sprintf(file_name_window, "/q_%s_M_%s/file_time_window_%s_q_%s_M_%s_st_%sM.txt", q_inj_str, M_inj_str, IFOdata[i].name, q_inj_str, M_inj_str, str_shift);
+               char filename_window_out[256] = "";
+               strcpy(filename_window_out, ppt->value);
+               strcat(filename_window_out, file_name_window);
+               
+               FILE *file_time_window;
+               file_time_window = fopen(filename_window_out, "w");
+               /*loop over IFO data*/
+               UINT4 length_time_windowed = IFOdata[i].windowedTimeData->data->length;
+               for(k=0;k<length_time_windowed;k++)
+               {
+                   fprintf(file_time_window,"%f\n", IFOdata[i].windowedTimeData->data->data[k]*1e24);
+               }
+               fclose(file_time_window);
+           }
         XLALDestroyCache(cache); // Clean up cache
         }
         /* End of data reading process */
         
-        makeWhiteData(&(IFOdata[i]));
-      
+
+      makeWhiteData(&(IFOdata[i]));
 
 
       /* Store ASD of noise spectrum to whiten glitch model */
@@ -1252,7 +1315,8 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
           }
           fclose(out);
         }
-        if (LALInferenceGetProcParamVal(commandLine, "--data-dump")) {
+        if (LALInferenceGetProcParamVal(commandLine, "--data-dump"))
+        {
             //pptdatadump=LALInferenceGetProcParamVal(commandLine,"--data-dump");
 
             ppt=LALInferenceGetProcParamVal(commandLine,"--outfile");
@@ -1323,7 +1387,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 
         }
     }
-
+    
     for (i=0;i<Nifo;i++) IFOdata[i].SNR=0.0; //SNR of the injection ONLY IF INJECTION. Set to 0.0 by default.
 
     for (i=0;i<Nifo-1;i++) IFOdata[i].next=&(IFOdata[i+1]);
@@ -1347,10 +1411,13 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
         fprintf(stderr, "done LALInferenceSetupROQdata\n");
 
      }
-
-
+    if(LALInferenceGetProcParamVal(commandLine,"--dump_window_data"))
+    {
+        exit(1);
+    }
     return headIFO;
 }
+
 
 void GetWindowParamsFromReadDataToTemplate(REAL8 * rise_time, REAL8 * window_shift)
 {

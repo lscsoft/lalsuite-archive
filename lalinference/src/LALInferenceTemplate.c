@@ -980,7 +980,7 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceModel *model)  // 
         GetWindowParamsFromReadDataToTemplate(&rise_time, &window_shift);
         REAL8 M      = XLALMf_to_M_nonspinning_UIB2016(eta, mass);
         REAL8 Tstart =  0.0*M*LAL_MTSUN_SI;
-        REAL8 Tend   = 50.0*M*LAL_MTSUN_SI;
+        REAL8 Tend   = 80.0*M*LAL_MTSUN_SI;
         UINT4 Num_samples_window=ceil((Tend-Tstart)/(deltaT));	
 
         XLAL_TRY(ret=XLALSimRingdownGenerateFullSphericalWaveform_time(&hplus, &hcross, (&model->timehCross->epoch), deltaT, Num_samples_window, mass*LAL_MSUN_SI, spin, eta, inclination, phi, distance, nonGRparams), errnum); 

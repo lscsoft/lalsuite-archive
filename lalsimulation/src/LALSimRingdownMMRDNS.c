@@ -1648,7 +1648,7 @@ int XLALSimRingdownGenerateFullSphericalWaveform_time
     COMPLEX16 Prefactor=0;
     UINT4 ll=0; INT4 mm=0;
     
-    /* Use total mass to agree with NR conventions. Inside the template t=0 corresponds to 10M after the merger.
+    /* Use total mass to agree with NR conventions. Inside the template t=0 corresponds to 10M after the psi_22 peak luminosity.
        Tend is computed inside LALInferenceTemplate.c to give the same number of samples to the window and to the generator.
        Inside this routine Tend is effectively represented by Nsamples passed as input.*/
     REAL8 M        = XLALMf_to_M_nonspinning_UIB2016(eta, Mf);
