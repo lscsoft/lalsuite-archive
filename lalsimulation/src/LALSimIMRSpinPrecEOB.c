@@ -672,13 +672,13 @@ int XLALSimIMRSpinEOBWaveform(
 int XLALSimIMRSpinEOBWaveformAll(
         REAL8TimeSeries **hplus,  /**<< output: hplus GW polarization */
         REAL8TimeSeries **hcross, /**<< output: hcross GW polarization */
-        REAL8Vector      **dynHi, /**<< Here we store and return the seob dynamics for high sampling (end of inspiral) */
+        REAL8Vector       **dynLow,   /**<< Here we store and return the seob dynamics for low sampling (inspiral) */
         SphHarmTimeSeries **hlmPTSoutput, /**<< Here we store and return the PWave (high sampling) */
         SphHarmTimeSeries **hlmPTSHiOutput, /**<< Here we store and return the JWave (high sampling) */
         SphHarmTimeSeries **hIMRlmJTSHiOutput, /**<< Here we store and return the JWaveIMR (high sampling) */
-        SphHarmTimeSeries **hIMRoutput,       /**<< Here we store and return the IWave (full) */
-        REAL8Vector     **AttachPars,   /**<< Parameters of RD attachment: */
-        const REAL8      phiC,      /**<< intitial orbital phase */
+        SphHarmTimeSeries **hIMRoutput,       /**<< Here we store and return the IWave (full) in the (x,y,z) inertial frame */
+        REAL8Vector     **AttachPars,   /**<< Parameters of RD attachment and final mass/spin */
+        const REAL8     phiC,      /**<< intitial orbital phase */
         const REAL8     deltaT,     /**<< sampling time step */
         const REAL8     m1SI,       /**<< mass of first object in SI */
         const REAL8     m2SI,       /**<< mass of second object in SI */
@@ -3630,11 +3630,19 @@ int XLALSimIMRSpinEOBWaveformAll(
     REAL8 omegaQNM210 = creal(QNMfreq210->data[0]);
 
     /* Complete Euler angles with extension post-merger according to flagEulerextension and invert to get angles from P to I */
+    /* FIXME: convention issues -- (alphaI2PTS, gammaI2PTS) contain (-alphaI2P, -gammaI2P) if the latter are the ZYZ Euler angles for the active rotation from I-frame to P-frame -- we revert the signs inside the function -- this also affects the sign of the outputs */
     EulerAnglesP2I(alphaP2I, betaP2I, gammaP2I, alphaI2PTS, betaI2PTS, gammaI2PTS, chif, omegaQNM220, omegaQNM210, flagEulerextension);
 
+    /* Build time series from the data (alphaP2I, betaP2I, gammaP2I) */
     alpI        = XLALCreateREAL8TimeSeries( "alphaJ2I", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
     betI        = XLALCreateREAL8TimeSeries( "betaJ2I", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
     gamI        = XLALCreateREAL8TimeSeries( "gammaJ2I", &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
+    for ( i = 0; i < retLenLow + retLenRDPatchLow; i++ )
+    {
+      alpI->data->data[i] = alphaP2I->data[i];
+      betI->data->data[i] = betaP2I->data[i];
+      gamI->data->data[i] = gammaP2I->data[i];
+    }
 
     printf("Check this: len of timeJFull = %d, compare to %d \n", timeJFull->length, retLenLow + retLenRDPatchLow);
 
@@ -4326,7 +4334,8 @@ int XLALSimIMRSpinEOBWaveformAll(
     XLALDestroyREAL8Vector( sigReHi );
     XLALDestroyREAL8Vector( sigImHi );
     XLALAdaptiveRungeKutta4Free(integrator);
-    XLALDestroyREAL8Array( dynamics );
+    XLALDestroyREAL8Array( dynamicsHi );
+    //XLALDestroyREAL8Array( dynamics );
     XLALDestroyREAL8Vector( Alpha );
     XLALDestroyREAL8Vector( Beta );
     XLALDestroyREAL8Vector( AlphaHi );
@@ -4356,14 +4365,22 @@ int XLALSimIMRSpinEOBWaveformAll(
   /* FIXME: Temporary code to convert REAL8Array to REAL8Vector because SWIG
    *        doesn't seem to like REAL8Array */
   REAL8Vector *tmp_vec;
-  tmp_vec = XLALCreateREAL8Vector(dynamicsHi->dimLength->data[0] * dynamicsHi->dimLength->data[1]);
+  tmp_vec = XLALCreateREAL8Vector(dynamics->dimLength->data[0] * dynamics->dimLength->data[1]);
   UINT4 tmp_idx_ii;
   for (tmp_idx_ii=0; tmp_idx_ii < tmp_vec->length; tmp_idx_ii++)
   {
-      tmp_vec->data[tmp_idx_ii] = dynamicsHi->data[tmp_idx_ii];
+     tmp_vec->data[tmp_idx_ii] = dynamics->data[tmp_idx_ii];
   }
-  *dynHi = tmp_vec;
-    XLALDestroyREAL8Array( dynamicsHi );
+  //Rescale p/(m eta) by eta for output
+  for (tmp_idx_ii=0; tmp_idx_ii < dynamics->dimLength->data[1]; tmp_idx_ii++)
+  {
+      tmp_vec->data[4*dynamics->dimLength->data[1] + tmp_idx_ii] = eta * tmp_vec->data[4*dynamics->dimLength->data[1] + tmp_idx_ii];
+      tmp_vec->data[5*dynamics->dimLength->data[1] + tmp_idx_ii] = eta * tmp_vec->data[5*dynamics->dimLength->data[1] + tmp_idx_ii];
+      tmp_vec->data[6*dynamics->dimLength->data[1] + tmp_idx_ii] = eta * tmp_vec->data[6*dynamics->dimLength->data[1] + tmp_idx_ii];
+  }
+  *dynLow = tmp_vec;
+    //XLALDestroyREAL8Array( dynamicsHi );
+    XLALDestroyREAL8Array( dynamics );
     XLALDestroyREAL8Vector( valuesV2 );
     if (dynamicsV2 != NULL){
         XLALDestroyREAL8Array( dynamicsV2 );
