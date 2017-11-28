@@ -60,6 +60,60 @@ static int RotationMatrixActiveFromBasisVectors(gsl_matrix* R, const REAL8 e1p[]
 	return XLAL_SUCCESS;
 }
 
+/* Function to unwrap phases mod 2pi  - acts on a REAL8Vector representing the phase */
+/* FIXME: for long vectors there are small differences with the numpy unwrap function - to be checked */
+static int unwrap_phase(
+  REAL8Vector* phaseout,    /* Output: unwrapped phase vector, already allocated */
+  REAL8Vector* phasein)     /* Input: phase vector */
+{
+  int N = phasein->length;
+  double* p = phasein->data;
+  double* pmod = (double*) malloc(sizeof(double) * N);
+  int* jumps = (int*) malloc(sizeof(int) * N);
+  int* cumul = (int*) malloc(sizeof(int) * N);
+
+  /* Compute phase mod 2pi (shifted to be between -pi and pi) */
+  for(int i=0; i<N; i++) {
+    pmod[i] = p[i] - floor((p[i] + LAL_PI) / (2*LAL_PI))*(2*LAL_PI);
+  }
+
+  /* Identify jumps */
+  jumps[0] = 0;
+  double d = 0.;
+  for(int i=1; i<N; i++) {
+    d = pmod[i] - pmod[i-1];
+    if(d<-LAL_PI) jumps[i] = 1;
+    else if(d>LAL_PI) jumps[i] = -1;
+    else jumps[i] = 0;
+  }
+
+  /* Cumulative of the jump sequence */
+  int c = 0;
+  cumul[0] = 0;
+  for(int i=1; i<N; i++) {
+    c += jumps[i];
+    cumul[i] = c;
+  }
+
+  /* Correct original phase series by the number of 2pi factor given by the cumulative of the jumps */
+  double* pout = phaseout->data;
+  for(int i=0; i<N; i++) {
+    pout[i] = 2*LAL_PI*cumul[i] + p[i];
+  }
+
+  /* Cleanup */
+  free(pmod);
+  free(jumps);
+  free(cumul);
+
+	return XLAL_SUCCESS;
+}
+/* Get a number modulo 2pi, in the range [-pi,pi) */
+static double mod_2pi(double x)
+{
+	return x - floor((x + LAL_PI) / (2*LAL_PI))*(2*LAL_PI);
+}
+
 /**
  * Computes RHS of ODE for gamma. Eq. 10 of PRD 89, 084006 (2014)
  */
@@ -336,9 +390,9 @@ static void ComputeSpinsInLframe(
 
 }
 
-
+/* FIXME: convention issues -- (alphaI2PTS, gammaI2PTS) contain (-alphaI2P, -gammaI2P) if the latter are the ZYZ Euler angles for the active rotation from I-frame to P-frame -- we revert the signs inside the function -- this also affects the sign of the outputs */
 static int EulerAnglesP2I(
-	       REAL8Vector* alphaP2I, /**<< output: alpha Euler angle */
+	       REAL8Vector *alphaP2I, /**<< output: alpha Euler angle */
          REAL8Vector *betaP2I, /**<< output: beta Euler angle */
          REAL8Vector *gammaP2I, /**<< output: gamma Euler angle */
 				 REAL8TimeSeries* alphaI2PTS, /** low sample alpha I->P */
@@ -352,23 +406,26 @@ static int EulerAnglesP2I(
      UINT4 i;
      UINT4 retLenLow = gammaI2PTS->data->length;
 		 /* NOTE: changed gamma,-beta,alpha to -gamma,-beta,-alpha, previously was done ouside of this function */
-     for (i=0; i<retLenLow;i++) {
-            alphaP2I->data[i] = -gammaI2PTS->data->data[i];
-            betaP2I->data[i] = -betaI2PTS->data->data[i];
-            gammaP2I->data[i] = -alphaI2PTS->data->data[i];
-     }
-		 /* Initial Euler angles from I-frame to P-frame at time of junction */
-		 REAL8 alpha0 = alphaI2PTS->data->data[retLenLow-1];
+		 /* FIXME: (alphaI2PTS,gammaI2PTS) are in the other convention with signs flips, so will be (alphaP2I,gammaP2I) */
+		 for (i=0; i<retLenLow;i++) {
+			 alphaP2I->data[i] = -gammaI2PTS->data->data[i];
+			 betaP2I->data[i] = -betaI2PTS->data->data[i];
+			 gammaP2I->data[i] = -alphaI2PTS->data->data[i];
+		 }
+		 /* Initial Euler angles from I-frame to P-frame at time of junction -- active rotation */
+		 /* FIXME: (alphaI2PTS,gammaI2PTS) are in the other convention with signs flips, so will be (alphaP2I,gammaP2I) -- here, changed the sign for alpha and gamma */
+		 REAL8 alpha0 = -alphaI2PTS->data->data[retLenLow-1];
 		 REAL8 beta0 = betaI2PTS->data->data[retLenLow-1];
-		 REAL8 gamma0 = gammaI2PTS->data->data[retLenLow-1];
+		 REAL8 gamma0 = -gammaI2PTS->data->data[retLenLow-1];
 		 /* Euler extension: here freeze the P-frame, extend with constant Euler angles */
+		 /* FIXME: (alphaI2PTS,gammaI2PTS) are in the other convention with signs flips, so will be (alphaP2I,gammaP2I) -- here, changed the sign for alpha and gamma */
 		 if(flagEulerextension==FLAG_SEOBNRv3_EULEREXT_CONSTANT) {
-	     for (i=retLenLow; i<alphaP2I->length; i++) {
-	           alphaP2I->data[i] = -gamma0;
-	           betaP2I->data[i] = -beta0;
-	           gammaP2I->data[i] = -alpha0;
-	     }
-	   }
+			 for (i=retLenLow; i<alphaP2I->length; i++) {
+				 alphaP2I->data[i] = gamma0;
+				 betaP2I->data[i] = -beta0;
+				 gammaP2I->data[i] = alpha0;
+			 }
+		 }
 		 /* Euler extension: here rotate around the direction of the final spin with constant beta, at the rate omegaQNM220-omegaQNM210 */
 		 else if(flagEulerextension==FLAG_SEOBNRv3_EULEREXT_QNM_SIMPLE_PRECESSION) {
 			 UINT4 npt = alphaP2I->length - retLenLow;
@@ -392,13 +449,21 @@ static int EulerAnglesP2I(
 			 yJ[0] = yJ[0] / yJnorm;
 			 yJ[1] = yJ[1] / yJnorm;
 			 yJ[2] = yJ[2] / yJnorm;
+			 cross_product(yJ, zJ, xJ);
+			 REAL8 xJnorm = sqrt(inner_product(xJ, xJ)); /* normally already normalized - we normalize again to be safe */
+			 xJ[0] = xJ[0] / xJnorm;
+			 xJ[1] = xJ[1] / xJnorm;
+			 xJ[2] = xJ[2] / xJnorm;
 
 			 /* Active rotation matrix from I-frame basis (x,y,z) to J-frame (xJ, yJ, zJ) */
 			 gsl_matrix* RIJ = gsl_matrix_alloc(3, 3);
+			 gsl_matrix_set_zero(RIJ);
 			 RotationMatrixActiveFromBasisVectors(RIJ, xJ, yJ, zJ);
 			 /* Active rotation matrices from I to P and from J to P */
 			 gsl_matrix* RIP = gsl_matrix_alloc(3, 3);
-			 gsl_matrix* RJP = gsl_matrix_alloc(3, 3);
+			 gsl_matrix* RJP_J = gsl_matrix_alloc(3, 3);
+			 gsl_matrix_set_zero(RIP);
+			 gsl_matrix_set_zero(RJP_J);
 			 /* Time series for Euler angles from J-frame to P-frame */
 			 REAL8Vector* alphaJ2P = XLALCreateREAL8Vector(npt);
 			 REAL8Vector* betaJ2P = XLALCreateREAL8Vector(npt);
@@ -408,11 +473,12 @@ static int EulerAnglesP2I(
 			 REAL8Vector* gammaI2Pext = XLALCreateREAL8Vector(npt);
 
 			 /* Compute initial values for Euler angles from J-frame to P-frame */
-			 /* R(aJ, bJ, cJ)(0) = R(aI, bI, cI)(0) . RIJ^-1 with RIJ^-1=RIJ^T */
+			 /* In the {eI} basis, R(aJ, bJ, cJ)_I(0) = R(aI, bI, cI)(0) . RIJ^-1 with RIJ^-1=RIJ^T */
+			 /* Here we want it in the {eJ} basis, R(aJ, bJ, cJ)_J(0) = RIJ^-1 . R(aI, bI, cI)(0) with RIJ^-1=RIJ^T */
 			 REAL8 alphaJ0, betaJ0, gammaJ0 = 0;
 			 RotationMatrixActiveFromEulerAnglesZYZ(RIP, alpha0, beta0, gamma0);
-			 gsl_blas_dgemm(CblasNoTrans, CblasTrans, 1.0, RIP, RIJ, 0.0, RJP); /* Note the transposition */
-			 EulerAnglesZYZFromRotationMatrixActive(&alphaJ0, &betaJ0, &gammaJ0, RJP);
+			 gsl_blas_dgemm(CblasTrans, CblasNoTrans, 1.0, RIJ, RIP, 0.0, RJP_J); /* Note the transposition */
+			 EulerAnglesZYZFromRotationMatrixActive(&alphaJ0, &betaJ0, &gammaJ0, RJP_J);
 
 			 /* Compute extension of Euler angles from J-frame to P-frame */
 			 /* Simple precession around final spin with rate Omega_P */
@@ -425,34 +491,64 @@ static int EulerAnglesP2I(
 			 }
 
 			 /* Translate to Euler angles from I-frame to P-frame */
-			 /* R(aI, bI, cI) = R(aJ, bJ, cJ) . RIJ */
+			 /* With RJP_I in the I-frame, R(aI, bI, cI) = R(aJ, bJ, cJ)_I . RIJ */
+			 /* From the Euler angles JP, we actually have RJP_J expressed in the {eJ} basis, so R(aI, bI, cI) = RIJ . R(aJ, bJ, cJ)_J */
 			 REAL8 alphaI, betaI, gammaI = 0;
 			 for (i=0; i<npt; i++) {
-				 RotationMatrixActiveFromEulerAnglesZYZ(RJP, alphaJ2P->data[i], betaJ2P->data[i], gammaJ2P->data[i]);
-				 gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1.0, RJP, RIJ, 0.0, RIP);
+				 RotationMatrixActiveFromEulerAnglesZYZ(RJP_J, alphaJ2P->data[i], betaJ2P->data[i], gammaJ2P->data[i]);
+				 gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1.0, RIJ, RJP_J, 0.0, RIP);
 				 EulerAnglesZYZFromRotationMatrixActive(&alphaI, &betaI, &gammaI, RIP);
 				 alphaI2Pext->data[i] = alphaI;
 				 betaI2Pext->data[i] = betaI;
 				 gammaI2Pext->data[i] = gammaI;
 			 }
 
+			 /* Unwrap extended Euler angles (already unwrapped before extension) */
+			 REAL8Vector* alphaI2PextUnwrap = XLALCreateREAL8Vector(npt);
+			 REAL8Vector* gammaI2PextUnwrap = XLALCreateREAL8Vector(npt);
+			 unwrap_phase(alphaI2PextUnwrap, alphaI2Pext);
+			 unwrap_phase(gammaI2PextUnwrap, gammaI2Pext);
+
+			 /* Compute 2pi-shifts to be added to match the end values of the Euler angles pre-extension */
+			 /* FIXME: (alphaI2PTS,gammaI2PTS) are in the other convention with signs flips, so will be (alphaP2I,gammaP2I) -- here, changed the sign for alpha and gamma of the extension */
+			 REAL8 shift2pialphaP2I = (alphaP2I->data[retLenLow - 1] - (gammaI2PextUnwrap->data[0])) - mod_2pi(alphaP2I->data[retLenLow - 1] - (gammaI2PextUnwrap->data[0]));
+			 REAL8 shift2pigammaP2I = (gammaP2I->data[retLenLow - 1] - (alphaI2PextUnwrap->data[0])) - mod_2pi(gammaP2I->data[retLenLow - 1] - (alphaI2PextUnwrap->data[0]));
+
 			 /* Invert to get Euler angles from P-frame to I-frame */
+			 /* FIXME: (alphaI2PTS,gammaI2PTS) are in the other convention with signs flips, so will be (alphaP2I,gammaP2I) -- here, changed the sign for alpha and gamma of the extension */
 			 for (i=0; i<npt; i++) {
-				 alphaP2I->data[retLenLow + i] = -gammaI2Pext->data[i];
+				 alphaP2I->data[retLenLow + i] = gammaI2PextUnwrap->data[i] + shift2pialphaP2I;
 				 betaP2I->data[retLenLow + i] = -betaI2Pext->data[i];
-				 gammaP2I->data[retLenLow + i] = -alphaI2Pext->data[i];
+				 gammaP2I->data[retLenLow + i] = alphaI2PextUnwrap->data[i] + shift2pigammaP2I;
 			 }
+
+			 FILE *out = NULL;
+       out = fopen( "debug_Eulerext_J2P.dat", "w" );
+       for ( i = 0; i < npt; i++ )
+       {
+           fprintf( out,
+             "%d %.16e %.16e %.16e\n",
+             i,
+             alphaJ2P->data[i],
+						 betaJ2P->data[i],
+						 gammaJ2P->data[i]);
+       }
+       fclose( out );
+       XLAL_PRINT_INFO("YP: IMR P wave written to file.\n");
+       fflush(NULL);
 
 			 /* Cleanup */
 			 gsl_matrix_free(RIJ);
 			 gsl_matrix_free(RIP);
-			 gsl_matrix_free(RJP);
+			 gsl_matrix_free(RJP_J);
 			 XLALDestroyREAL8Vector(alphaJ2P);
 			 XLALDestroyREAL8Vector(betaJ2P);
 			 XLALDestroyREAL8Vector(gammaJ2P);
 			 XLALDestroyREAL8Vector(alphaI2Pext);
 			 XLALDestroyREAL8Vector(betaI2Pext);
 			 XLALDestroyREAL8Vector(gammaI2Pext);
+			 XLALDestroyREAL8Vector(alphaI2PextUnwrap);
+			 XLALDestroyREAL8Vector(gammaI2PextUnwrap);
 
 		 }
 		 else {
