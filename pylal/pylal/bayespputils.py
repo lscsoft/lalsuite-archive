@@ -7705,7 +7705,7 @@ def make_1d_table(html,legend,label,pos,pars,noacf,GreedyRes,onepdfdir,sampsdir,
           #print "[DEBUG-1] lower1, upper1 : ",lower1, upper1
           plot_range=(lower1, upper1)
         #set plot range with limits values if exist
-        if(par_name in limitnames):
+        if(limitnames is not None and leftlimits is not None and rightlimits is not None and par_name in limitnames):
           par_index=limitnames.index(par_name)
           lower1=leftlimits[par_index]
           upper1=rightlimits[par_index]

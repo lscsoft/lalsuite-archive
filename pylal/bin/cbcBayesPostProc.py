@@ -716,9 +716,14 @@ def cbcBayesPostProc(
         os.makedirs(sampsdir)
     reses={}
 
-    limit_names=list(limit_names.split(','))
-    left_limits=list(map(float,list(left_limits.split(','))))
-    right_limits=list(map(float,list(right_limits.split(','))))
+    if limit_names is not None and left_limits is not None and right_limits is not None:
+      limit_names=list(limit_names.split(','))
+      left_limits=list(map(float,list(left_limits.split(','))))
+      right_limits=list(map(float,list(right_limits.split(','))))
+    else:
+      limit_names = None
+      left_limits = None
+      right_limits = None
     for i in oneDMenus.keys():
       rss=bppu.make_1d_table(html,legend,i,pos,oneDMenus[i],noacf,GreedyRes,onepdfdir,sampsdir,savepdfs,greedy,analyticLikelihood,nDownsample,leftsigma,rightsigma,limit_names,left_limits,right_limits)
       reses.update(rss)
