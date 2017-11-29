@@ -565,7 +565,9 @@ int XLALSimInspiralPhaseCorrectionsPhasingWithDS(COMPLEX16FrequencySeries *htild
     return 0;
 }
 
-REAL8 PNPhase(REAL8 f, PNPhasingSeries pfa, const REAL8 mtot)
+REAL8 PNPhase(REAL8 f,    /* frequency in Hz */
+              PNPhasingSeries pfa,
+              const REAL8 mtot)   /* total mass in seconds */
 {
   
     const REAL8 piM = LAL_PI * mtot;
@@ -607,7 +609,13 @@ REAL8 PNPhase(REAL8 f, PNPhasingSeries pfa, const REAL8 mtot)
     return -phasing;
 }
 
-REAL8 PNPhaseDerivative(REAL8 f, PNPhasingSeries pfa, const REAL8 mtot)
+/* Derivative of phase with respect to f
+ * d[f^((-5 + n)/3)]= (-5 + n) / 3 * f^((-8 + n)/3)
+ * d[f^((-5 + n)/3) * log(f)] = f^((-8 + n)/3) + (-5 + n)/3 * f^((-8 + n)/3) * log(f) */
+
+REAL8 PNPhaseDerivative(REAL8 f,    /* frequency in Hz */
+                        PNPhasingSeries pfa,
+                        const REAL8 mtot)   /* total mass in seconds */
 {
   
     const REAL8 piM = LAL_PI * mtot;
@@ -649,7 +657,14 @@ REAL8 PNPhaseDerivative(REAL8 f, PNPhasingSeries pfa, const REAL8 mtot)
 
     return -phasing;
 }
-REAL8 PNPhaseSecondDerivative(REAL8 f, PNPhasingSeries pfa, const REAL8 mtot)
+
+/* Derivative of phase with respect to f
+ * d2[f^((-5 + n)/3)]= (-5 + n) * (-8 + n) / 9 * f^((-11 + n)/3)
+ * d2[f^((-5 + n)/3) * log(f)] = (-13 + 2 * n)/3 * f^((-11 + n)/3) + (-5 + n) * (-8 + n) / 9 * f^((-11 + n)/3) * log(f) */
+
+REAL8 PNPhaseSecondDerivative(REAL8 f,    /* frequency in Hz */
+                              PNPhasingSeries pfa,
+                              const REAL8 mtot)   /* total mass in seconds */
 {
   
     const REAL8 piM = LAL_PI * mtot;
