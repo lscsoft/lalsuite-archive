@@ -29,7 +29,7 @@
 #include "LALSimInspiralPNCoefficients.c"
 #include <lal/LALSimIMR.h>
 
-/**
+/*
  * Copy and pasted from LALSimIMREOBNQCCorrection.c, which is now defunct.
  *
  * Peak frequency predicted by fitting NR results (currently only 2,2 available).
@@ -38,7 +38,7 @@
 UNUSED static inline REAL8 GetNRSpinPeakOmegaV4 (INT4 UNUSED l,
                                                  INT4 UNUSED m,
                                                  REAL8 UNUSED eta,
-                                                 REAL8 a) /** Combined spin chi defined in Eq. () of  */
+                                                 REAL8 a) /** Combined spin chi defined in Eq. (2.8) of Bohe et al. (2017)  */
 {
     REAL8 chi = a;
     REAL8 res;
@@ -48,7 +48,6 @@ UNUSED static inline REAL8 GetNRSpinPeakOmegaV4 (INT4 UNUSED l,
          chi * (7.629921628648589 -
                 72.75949266353584 * (-0.25 + eta)) -
          62.353217004599784 * (-0.25 + eta));
-    //    printf("w %.16e\n", res);
     return res;
 }
 
@@ -78,13 +77,15 @@ int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       
   const REAL8 eta = m1 * m2 / (m * m);
   REAL8 fPeak;
   
-  /* Compute the frequency where the amplitude of 2-2 mode peaks differently for BBH, BNS, and NSBH:
+  /* Compute the frequency where the amplitude of 2,2 mode peaks differently for BBH, BNS, and NSBH:
      For BBH, use (unpublished) fit to NR used in construction of SEOBNRv4
      For BNS, use (unpublished) fit to NR used in construction of NRTidal models (documented in LALSimNRTunedTides.c)
      For NSBH, use same fit as BBH
-  **/
+  */
+  
   if(lambda1 == 0.0 && lambda2 == 0.0){
     fPeak = GetNRSpinPeakOmegaV4(2, 2, eta, 0.5*(chi1z + chi2z) + 0.5*(chi1z - chi2z)*(m1 - m2)/(m1 + m2)/(1. - 2.*eta)) / (LAL_PI * m_sec);
+    //Spin combination defined in Eq. (2.8) of Bohe et al. (2017) (SEOBNRv4 paper)
   }
   else if(lambda1 != 0.0 && lambda2 != 0.0)
   {
@@ -107,7 +108,8 @@ int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       
   iPeak  = (UINT4) fmin(ceil((fPeak - f0) / deltaF),n-1);
   
   /* Sequence of frequencies where corrections to the model need to be evaluated
-   * Fill with non-zero vals from f0 to fEnd */
+   * Fill with non-zero vals from f0 to fEnd
+   */
   REAL8Sequence *freqs =NULL;
   freqs = XLALCreateREAL8Sequence(n);
   
@@ -124,6 +126,15 @@ int XLALSimInspiralTestingGRCorrections(COMPLEX16FrequencySeries *htilde,       
   XLALDestroyREAL8Sequence(freqs);
   return 0;
 }
+
+/* Computes the PN coefficients for the non-GR phase correction and stores in pfa.
+ * The TestGRParam values represent fractional deviation from the corresponing PN
+ * coefficients in TaylorF2 expression for the phase, except where the
+ * coefficeint vanishes in GR, in which case the TestGRParam values indicates the
+ * total value of that PN coefficient. The code closely follows XLALSimInspiralPNPhasing_F2()
+ * in LALSimInspiralPNCoefficients.c, but returns only the PN coefficients for the
+ * correction instead of the TaylorF2 value + correction.
+ */
 
 void XLALSimInspiralPNCorrections(PNPhasingSeries *pfa,
                                              const REAL8 m1, /**< Mass of body 1, in Msol */
@@ -218,9 +229,7 @@ void XLALSimInspiralPNCorrections(PNPhasingSeries *pfa,
         pfa->v[7] += (-8980424995.L/762048.L + 6586595.L*eta/756.L - 305.L*eta*eta/36.L)*SL - (170978035.L/48384.L - 2876425.L*eta/672.L - 4735.L*eta*eta/144.L) * dSigmaL;
         pfa->v[7] *= XLALSimInspiralGetTestGRParam(pnCorrections,"dchi7");
     }
-    
-    
-    
+  
     /* At the very end, multiply everything in the series by the newtonian term */
     for(int ii = 0; ii <= PN_PHASING_SERIES_MAX_ORDER; ii++)
     {
@@ -230,6 +239,10 @@ void XLALSimInspiralPNCorrections(PNPhasingSeries *pfa,
         pfa->vneg[ii] *= pfaN;
     }
 }
+
+/* Compute phase correction that tapers to zero at freqs->data[iEnd] and add to
+ * the phase of of the waveform htilde.
+ */
 
 int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,       /**< input htilde, will be modified in place */
                                            const REAL8Sequence *freqs,
@@ -242,17 +255,6 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
                                            const REAL8 eta,
                                            const REAL8 NCyclesStep)  /** Choose number of GW cycles over which to taper the non-GR phase correction */
 {
-
-
-  
-  /* Compute the SPA phase at the reference point
-   * N.B. f_ref == 0 means we define the reference time/phase at "coalescence"
-   * when the frequency approaches infinity. In that case,
-   * the integrals Eq. 3.15 of arXiv:0907.0700 vanish when evaluated at
-   * f_ref == infinity. If f_ref is finite, we must compute the SPA phase
-   * evaluated at f_ref, store it as ref_phasing and subtract it off.
-   */
-  //REAL8 ref_phasing = 0.;
     
   UINT4 i;
   const REAL8 pfaN0 = 3.L/(128.L * eta);
@@ -262,7 +264,8 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
 
   
   /* Compute the second derivative of the phase correction and taper with step function
-   * Phase correction only generated from f_low to f_max */
+   * Phase correction only generated from f_low to f_max
+   */
   REAL8Sequence *d2phasenonGRdf2Tapered = NULL;
   d2phasenonGRdf2Tapered = XLALCreateREAL8Sequence( (UINT4) freqs->length );
   for ( i = iStart; i < freqs->length; i++)
@@ -272,7 +275,8 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
     }
   
   /* Interpolate and integrate (twice) the tapered second derivative of the phase correction to compute the phase correction
-   * Set the value of the correction and its first derivative to zero at f_ref */
+   * Set the value of the correction and its first derivative to zero at f_ref
+   */
   REAL8Sequence *dphasenonGRdfTapered = NULL, *phasenonGRTapered = NULL;
   dphasenonGRdfTapered = XLALCreateREAL8Sequence( (UINT4) freqs->length );
   phasenonGRTapered = XLALCreateREAL8Sequence( (UINT4) freqs->length );
@@ -301,7 +305,7 @@ int XLALSimInspiralPhaseCorrectionsPhasing(COMPLEX16FrequencySeries *htilde,    
    * of time-domain waveform.
    *
    * Then add phase correction to input waveform phase.
-  */
+   */
   REAL8 PNPhaseRefDerivative = dphasenonGRdfTapered->data[iPeak];
   
   for ( i = iStart; i < freqs->length; i++ ) {
