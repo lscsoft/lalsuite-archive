@@ -7593,7 +7593,7 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
   A.savefig(os.path.join(path,'WF_DetFrame.png'),bbox_inches='tight')
   return inj_strains, rec_strains
 
-def make_1d_table(html,legend,label,pos,pars,noacf,GreedyRes,onepdfdir,sampsdir,savepdfs,greedy,analyticLikelihood,nDownsample,leftsigma,rightsigma):
+def make_1d_table(html,legend,label,pos,pars,noacf,GreedyRes,onepdfdir,sampsdir,savepdfs,greedy,analyticLikelihood,nDownsample,leftsigma,rightsigma,limitnames,leftlimits,rightlimits):
 
     from numpy import unique, sort
     global confidenceLevels
@@ -7704,6 +7704,13 @@ def make_1d_table(html,legend,label,pos,pars,noacf,GreedyRes,onepdfdir,sampsdir,
             upper1 = parpos_max
           #print "[DEBUG-1] lower1, upper1 : ",lower1, upper1
           plot_range=(lower1, upper1)
+        #set plot range with limits values if exist
+        if(par_name in limitnames):
+          par_index=limitnames.index(par_name)
+          lower1=leftlimits[par_index]
+          upper1=rightlimits[par_index]
+          plot_range=(lower1, upper1)
+
         print "1D plotting range, maxP, stdev : ", plot_range, statmaxP, statstdev
         out[par_name]=reses
         #Get analytic description if given

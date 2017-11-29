@@ -268,7 +268,11 @@ def cbcBayesPostProc(
                         greedy=True, ## If true will use greedy bin for 1-d credible regions. Otherwise use 2-steps KDE
                         #1D PDF plot range control with sigma(left and right)
                         leftsigma=None, 
-                        rightsigma=None
+                        rightsigma=None,
+                        #1D PDF plot range control with limits(left and right)
+                        limit_names=None,
+                        left_limits=None,
+                        right_limits=None
                     ):
     """
     This is a demonstration script for using the functionality/data structures
@@ -712,8 +716,11 @@ def cbcBayesPostProc(
         os.makedirs(sampsdir)
     reses={}
 
+    limit_names=list(limit_names.split(','))
+    left_limits=list(map(float,list(left_limits.split(','))))
+    right_limits=list(map(float,list(right_limits.split(','))))
     for i in oneDMenus.keys():
-      rss=bppu.make_1d_table(html,legend,i,pos,oneDMenus[i],noacf,GreedyRes,onepdfdir,sampsdir,savepdfs,greedy,analyticLikelihood,nDownsample,leftsigma,rightsigma)
+      rss=bppu.make_1d_table(html,legend,i,pos,oneDMenus[i],noacf,GreedyRes,onepdfdir,sampsdir,savepdfs,greedy,analyticLikelihood,nDownsample,leftsigma,rightsigma,limit_names,left_limits,right_limits)
       reses.update(rss)
 
 
@@ -1257,6 +1264,9 @@ if __name__=='__main__':
     parser.add_option("--noplot-source-frame", action="store_true", default=False,help="Don't make 1D plots of source-frame masses")
     parser.add_option("--leftsigma",action="store",default=None,help="plotting 1D pdf with sigma range(left)",type="float",dest="leftsigma")
     parser.add_option("--rightsigma",action="store",default=None,help="plotting 1D pdf with sigma range(right)",type="float",dest="rightsigma")
+    parser.add_option("--limitnames",action="store",default=None,type="string",help="comma separater list of names of parameter limited range, one for each parameter")
+    parser.add_option("--leftlimits",action="store",default=None,type="string",help="comma separater list of left limit values for limited parameter, order should be same as limitnames")
+    parser.add_option("--rightlimits",action="store",default=None,type="string",help="comma separater list of right limit values for limited parameter, order should be same as limitnames")
     (opts,args)=parser.parse_args()
 
     datafiles=[]
@@ -1433,7 +1443,10 @@ if __name__=='__main__':
                         greedy=not(opts.kdecredibleregions),
                         # 1D plot range by sigma
                         leftsigma=opts.leftsigma,
-                        rightsigma=opts.rightsigma
+                        rightsigma=opts.rightsigma,
+                        limit_names=opts.limitnames,
+                        left_limits=opts.leftlimits,
+                        right_limits=opts.rightlimits
                     )
 
     if opts.archive is not None:
