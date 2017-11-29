@@ -797,6 +797,7 @@ def cbcBayesPostProc(
     if not os.path.isdir(cornerdir):
       os.makedirs(cornerdir)
     massParams=['mtotal','m1','m2','mc']
+    spinParams2=['spin1','spin2','a1','a2','a1z','a2z','chi_eff','chi_tot','chi_p']
     distParams=['distance','distMPC','dist']
     incParams=['iota','inclination','theta_jn']
     polParams=['psi','polarisation','polarization']
@@ -829,6 +830,52 @@ def cbcBayesPostProc(
       myfig.savefig(os.path.join(cornerdir,'extrinsic.pdf'))
       html_corner+='<tr><td width="100%"><a href="corner/extrinsic.png" target="_blank"><img width="70%" src="corner/extrinsic.png"/></a></td></tr>'
       got_any+=1
+
+    try:
+      myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=massParams)
+    except:
+      myfig=None
+
+    if myfig:
+      myfig.savefig(os.path.join(cornerdir,'mass.png'))
+      myfig.savefig(os.path.join(cornerdir,'mass.pdf'))
+      html_corner+='<tr><td width="100%"><a href="corner/mass.png" target="_blank"><img width="70%" src="corner/mass.png"/></a></td></tr>'
+      got_any+=1
+
+    try:
+      myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=spin2Params)
+    except:
+      myfig=None
+
+    if myfig:
+      myfig.savefig(os.path.join(cornerdir,'spin2.png'))
+      myfig.savefig(os.path.join(cornerdir,'spin2.pdf'))
+      html_corner+='<tr><td width="100%"><a href="corner/spin2.png" target="_blank"><img width="70%" src="corner/spin2.png"/></a></td></tr>'
+      got_any+=1
+
+    try:
+      myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=spinParams)
+    except:
+      myfig=None
+
+    if myfig:
+      myfig.savefig(os.path.join(cornerdir,'spin.png'))
+      myfig.savefig(os.path.join(cornerdir,'spin.pdf'))
+      html_corner+='<tr><td width="100%"><a href="corner/spin.png" target="_blank"><img width="70%" src="corner/spin.png"/></a></td></tr>'
+      got_any+=1
+
+    try:
+      myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=sourceParams)
+    except:
+      myfig=None
+
+    if myfig:
+      myfig.savefig(os.path.join(cornerdir,'source.png'))
+      myfig.savefig(os.path.join(cornerdir,'source.pdf'))
+      html_corner+='<tr><td width="100%"><a href="corner/source.png" target="_blank"><img width="70%" src="corner/source.png"/></a></td></tr>'
+      got_any+=1
+
+
     try:
       myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=sourceFrameParams)
     except:
