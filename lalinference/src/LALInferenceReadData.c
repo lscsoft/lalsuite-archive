@@ -436,7 +436,7 @@ static void LALInferencePrintDataWithInjection(LALInferenceIFOData *IFOdata, Pro
 
   if (LALInferenceGetProcParamVal(commandLine, "--data-dump")) {
     //pptdatadump=LALInferenceGetProcParamVal(commandLine,"--data-dump");
-    const UINT4 nameLength=FILENAME_MAX;
+    const UINT4 nameLength=FILENAME_MAX+50;
     char filename[nameLength];
     FILE *out;
 
@@ -444,7 +444,8 @@ static void LALInferencePrintDataWithInjection(LALInferenceIFOData *IFOdata, Pro
 
       ppt=LALInferenceGetProcParamVal(commandLine,"--outfile");
       if(ppt) {
-        snprintf(filename, nameLength, "%s%s-timeDataWithInjection.dat", ppt->value, IFOdata[i].name);
+        if((int)nameLength<=snprintf(filename, nameLength, "%s%s-timeDataWithInjection.dat", ppt->value, IFOdata[i].name))
+            XLAL_ERROR_VOID(XLAL_EINVAL, "Output filename too long!");
       }
       //else if(strcmp(pptdatadump->value,"")) {
       //  snprintf(filename, nameLength, "%s/%s-timeDataWithInjection.dat", pptdatadump->value, IFOdata[i].name);
@@ -467,7 +468,7 @@ static void LALInferencePrintDataWithInjection(LALInferenceIFOData *IFOdata, Pro
 
       ppt=LALInferenceGetProcParamVal(commandLine,"--outfile");
       if(ppt) {
-        snprintf(filename, nameLength, "%s%s-freqDataWithInjection.dat", ppt->value, IFOdata[i].name);
+        snprintf(filename, nameLength, "%s%s-freqDataWithInjection.dat", ppt->value, IFOdata[i].name)        ;
       }
       //else if(strcmp(pptdatadump->value,"")) {
       //  snprintf(filename, nameLength, "%s/%s-freqDataWithInjection.dat", pptdatadump->value, IFOdata[i].name);
@@ -1168,7 +1169,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
       for(j=0;j<IFOdata[i].oneSidedNoisePowerSpectrum->data->length;j++)
         IFOdata[i].noiseASD->data->data[j]=sqrt(IFOdata[i].oneSidedNoisePowerSpectrum->data->data[j]);
         /* Save to file the PSDs so that they can be used in the PP pages */
-        const UINT4 nameLength=FILENAME_MAX;
+        const UINT4 nameLength=FILENAME_MAX+100;
         char filename[nameLength];
         FILE *out;
         ppt=LALInferenceGetProcParamVal(commandLine,"--dont-dump-extras");
@@ -1394,7 +1395,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
   REAL8 InjSampleRate=1.0/MindeltaT;
 	REAL4TimeSeries *injectionBuffer=NULL;
   REAL8 padding=0.4; //default, set in LALInferenceReadData()
-  char SNRpath[FILENAME_MAX]="";
+  char SNRpath[FILENAME_MAX+50]="";
 
 	while(thisData){
           minFlow   = minFlow>thisData->fLow ? thisData->fLow : minFlow;
@@ -1765,7 +1766,7 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
   LALStatus status;
   memset(&status,0,sizeof(LALStatus));
   INT4 errnum;
-  char SNRpath[FILENAME_MAX];
+  char SNRpath[FILENAME_MAX+50];
   ProcessParamsTable *ppt=NULL;
 
   ppt = LALInferenceGetProcParamVal(commandLine,"--outfile");
@@ -2761,14 +2762,14 @@ void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOD
     }
     printf("Injected network SNR %.3f from MDC\n",sqrt(net_snr));
 
-    char SNRpath[FILENAME_MAX];
+    char SNRpath[FILENAME_MAX+100];
     ppt=LALInferenceGetProcParamVal(commandLine,"--outfile");
     if(!ppt){
       fprintf(stderr,"Must specify --outfile <filename.dat>\n");
       exit(1);
     }
     char *outfile=ppt->value;
-    sprintf(SNRpath,"%s_snr.txt",outfile);
+    snprintf(SNRpath,sizeof(SNRpath),"%s_snr.txt",outfile);
     ppt=LALInferenceGetProcParamVal(commandLine,"--dont-dump-extras");
     if (!ppt){
       PrintSNRsToFile(IFOdata , SNRpath);
