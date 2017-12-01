@@ -802,7 +802,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
         /* Check to see if an interpolation file is specified */
         interpFlag=0;
         interp=NULL;
-        if( (globFrames||injectFRames)?0:strstr(caches[i],"interp:")==caches[i]){
+        if( (globFrames||injectFrames)?0:strstr(caches[i],"interp:")==caches[i]){
           /* Extract the file name */
          char *interpfilename=&(caches[i][7]);
          printf("Looking for ASD interpolation file %s\n",interpfilename);
