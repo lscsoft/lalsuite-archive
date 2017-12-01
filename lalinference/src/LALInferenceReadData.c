@@ -287,12 +287,14 @@ static INT4 getDataOptionsByDetectors(ProcessParamsTable *commandLine, char ***i
     *psds=XLALCalloc(*N,sizeof(char *));
 
     int globFrames=!!LALInferenceGetProcParamVal(commandLine,"--glob-frame-data");
+    /* added by hwlee to do injection with real PSD at 1 Dec. 2017*/
+    int injectFrames=!!LALInferenceGetProcParamVal(commandLine,"--inject-with-real-PSD");
 
     /* For each IFO, fetch the other options if available */
     for(i=0;i<*N;i++)
     {
         /* Cache */
-        if(!globFrames){
+        if(!globFrames && !injectFrames){
             sprintf(tmp,"--%s-cache",(*ifos)[i]);
             this=LALInferenceGetProcParamVal(commandLine,tmp);
             if(!this){fprintf(stderr,"ERROR: Must specify a cache file for %s with --%s-cache\n",(*ifos)[i],(*ifos)[i]); exit(1);}
@@ -547,6 +549,7 @@ static void LALInferencePrintDataWithInjection(LALInferenceIFOData *IFOdata, Pro
     (--inj-numreldata FileName) Location of NR data file for the injection of NR waveforms (with NR_hdf5 in injection XML file).\n\
     (--0noise)                  Sets the noise realisation to be identically zero\n\
                                     (for the fake caches above only)\n\
+    (--inject-with-real-PSD)    injection study with real PSD \n\
     \n"
 LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 /* Read in the data and store it in a LALInferenceIFOData structure */
@@ -573,6 +576,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
     REAL8 scalefactor=1;
     RandomParams *datarandparam;
     int globFrames=0; // 0 = no, 1 = will search for frames in PWD
+    int injectFrames=0; // 0 = no, 1 = will perform injection with real PSD data by hwlee at 1 Dec. 2017
     char *chartmp=NULL;
     char **channels=NULL;
     char **caches=NULL;
@@ -595,12 +599,13 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
     REAL8 asdFlag=0;
 
     if(LALInferenceGetProcParamVal(commandLine,"--glob-frame-data")) globFrames=1;
+    if(LALInferenceGetProcParamVal(commandLine,"--inject-with-real-PSD")) injectFrames=1;
 
     /* Check if the new style command line arguments are used */
     INT4 dataOpts=getDataOptionsByDetectors(commandLine, &IFOnames, &caches, &channels, &fLows, &fHighs, &timeslides, &asds, &psds, &Nifo);
     /* Check for options if not given in the new style */
     if(!dataOpts){
-        if(!(globFrames||LALInferenceGetProcParamVal(commandLine,"--cache"))||!(LALInferenceGetProcParamVal(commandLine,"--IFO")||LALInferenceGetProcParamVal(commandLine,"--ifo")))
+        if(!(globFrames||injectFrames||LALInferenceGetProcParamVal(commandLine,"--cache"))||!(LALInferenceGetProcParamVal(commandLine,"--IFO")||LALInferenceGetProcParamVal(commandLine,"--ifo")))
             {fprintf(stderr,USAGE); return(NULL);}
         if(LALInferenceGetProcParamVal(commandLine,"--channel")){
             LALInferenceParseCharacterOptionString(LALInferenceGetProcParamVal(commandLine,"--channel")->value,&channels,&Nchannel);
@@ -630,7 +635,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 
     }
     /* Check for remaining required options */
-	if(!LALInferenceGetProcParamVal(commandLine,"--seglen"))
+    if(!LALInferenceGetProcParamVal(commandLine,"--seglen"))
     {fprintf(stderr,USAGE); return(NULL);}
 
     if(LALInferenceGetProcParamVal(commandLine,"--dataseed")){
@@ -797,7 +802,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
         /* Check to see if an interpolation file is specified */
         interpFlag=0;
         interp=NULL;
-        if( (globFrames)?0:strstr(caches[i],"interp:")==caches[i]){
+        if( (globFrames||injectFRames)?0:strstr(caches[i],"interp:")==caches[i]){
           /* Extract the file name */
          char *interpfilename=&(caches[i][7]);
          printf("Looking for ASD interpolation file %s\n",interpfilename);
@@ -806,7 +811,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
          interp=interpFromFile(interpfilename, asdFlag);
         }
         /* Check if fake data is requested */
-       if( (globFrames)?0:(interpFlag || (!(strcmp(caches[i],"LALLIGO") && strcmp(caches[i],"LALVirgo") && strcmp(caches[i],"LALGEO") && strcmp(caches[i],"LALEGO") && strcmp(caches[i],"LALSimLIGO") && strcmp(caches[i],"LALSimAdLIGO") && strcmp(caches[i],"LALSimVirgo") && strcmp(caches[i],"LALSimAdVirgo") && strcmp(caches[i],"LALAdLIGO")))))
+       if( (globFrames||injectFrames)?0:(interpFlag || (!(strcmp(caches[i],"LALLIGO") && strcmp(caches[i],"LALVirgo") && strcmp(caches[i],"LALGEO") && strcmp(caches[i],"LALEGO") && strcmp(caches[i],"LALSimLIGO") && strcmp(caches[i],"LALSimAdLIGO") && strcmp(caches[i],"LALSimVirgo") && strcmp(caches[i],"LALSimAdVirgo") && strcmp(caches[i],"LALAdLIGO")))))
         {
             if (!LALInferenceGetProcParamVal(commandLine,"--dataseed")){
                 fprintf(stderr,"Error: You need to specify a dataseed when generating data with --dataseed <number>.\n\
@@ -873,12 +878,18 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
         else{ /* Not using fake data, load the data from a cache file */
 
             LALCache *cache=NULL;
-            if(!globFrames)
+            if(!globFrames && !injectFrames)
             {
                 cache  = XLALCacheImport( caches[i] );
                 int err;
                 err = *XLALGetErrnoPtr();
                 if(cache==NULL) {fprintf(stderr,"ERROR: Unable to import cache file \"%s\",\n       XLALError: \"%s\".\n",caches[i], XLALErrorString(err)); exit(-1);}
+            }
+            else if(injectFrames) /* added by hwlee at 1 Dec. 2017*/
+            {
+              caches[i] = XLALStringDuplicate("INJECTION");
+              cache = (LALCache *)XLALCreateCache(1);
+              fprintf(stdout,"Injection with real PSD.\n");
             }
             else
             {
@@ -1130,36 +1141,77 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
                 XLALDestroyREAL8TimeSeries(PSDtimeSeries);
             }
 
-            /* Read the data segment */
-            LIGOTimeGPS truesegstart=segStart;
-            if(Ntimeslides) {
+            /* set data with real PSD by hwlee at 1 Dec. 2017*/
+            if (injectFrames)
+            {
+              if (!LALInferenceGetProcParamVal(commandLine,"--dataseed")){
+                fprintf(stderr,"Error: You need to specify a dataseed when generating data with --dataseed <number>.\n\
+                        (--dataseed 0 uses a non-reproducible number from the system clock, and no parallel run is then possible.)\n" );
+                exit(-1);
+              }
+              /* Offset the seed in a way that depends uniquely on the IFO name */
+              int ifo_salt=0;
+              ifo_salt+=(int)IFOnames[i][0]+(int)IFOnames[i][1];
+              datarandparam=XLALCreateRandomParams(dataseed?dataseed+(int)ifo_salt:dataseed);
+              if(!datarandparam) XLAL_ERROR_NULL(XLAL_EFUNC);
+
+              IFOdata[i].freqData = (COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("stilde",&segStart,0.0,IFOdata[i].oneSidedNoisePowerSpectrum->deltaF,&lalDimensionlessUnit,seglen/2 +1);
+              if(!IFOdata[i].freqData) XLAL_ERROR_NULL(XLAL_EFUNC);
+
+              /* Create the fake data with real PSD*/
+              int j_Lo = (int) IFOdata[i].fLow/IFOdata[i].freqData->deltaF;
+              if(LALInferenceGetProcParamVal(commandLine,"--0noise")){
+                for(j=j_Lo;j<IFOdata[i].freqData->data->length;j++){
+                    IFOdata[i].freqData->data->data[j] = 0.0;
+                }
+              } else {
+                for(j=j_Lo;j<IFOdata[i].freqData->data->length;j++){
+                    IFOdata[i].freqData->data->data[j] = crect(
+                      XLALNormalDeviate(datarandparam)*(0.5*sqrt(IFOdata[i].oneSidedNoisePowerSpectrum->data->data[j]/IFOdata[i].freqData->deltaF)),
+                      XLALNormalDeviate(datarandparam)*(0.5*sqrt(IFOdata[i].oneSidedNoisePowerSpectrum->data->data[j]/IFOdata[i].freqData->deltaF))
+                      );
+                }
+              }
+              IFOdata[i].freqData->data->data[0] = 0;
+              const char timename[]="timeData";
+              IFOdata[i].timeData=(REAL8TimeSeries *)XLALCreateREAL8TimeSeries(timename,&segStart,0.0,(REAL8)1.0/SampleRate,&lalDimensionlessUnit,(size_t)seglen);
+              if(!IFOdata[i].timeData) XLAL_ERROR_NULL(XLAL_EFUNC);
+              XLALREAL8FreqTimeFFT(IFOdata[i].timeData,IFOdata[i].freqData,IFOdata[i].freqToTimeFFTPlan);
+              if(*XLALGetErrnoPtr()) printf("XLErr: %s\n",XLALErrorString(*XLALGetErrnoPtr()));
+              XLALDestroyRandomParams(datarandparam);
+            }
+            else {
+              /* Read the data segment */
+              LIGOTimeGPS truesegstart=segStart;
+              if(Ntimeslides) {
                 REAL4 deltaT=-atof(timeslides[i]);
                 XLALGPSAdd(&segStart, deltaT);
                 fprintf(stderr,"Slid %s by %f s from %10.10lf to %10.10lf\n",IFOnames[i],deltaT,truesegstart.gpsSeconds+1e-9*truesegstart.gpsNanoSeconds,segStart.gpsSeconds+1e-9*segStart.gpsNanoSeconds);
-            }
-            IFOdata[i].timeData=readTseries(cache,channels[i],segStart,SegmentLength);
-            segStart=truesegstart;
-            if(Ntimeslides) IFOdata[i].timeData->epoch=truesegstart;
+              }
+              IFOdata[i].timeData=readTseries(cache,channels[i],segStart,SegmentLength);
+              segStart=truesegstart;
+              if(Ntimeslides) IFOdata[i].timeData->epoch=truesegstart;
 
-            if(!IFOdata[i].timeData) {
+              if(!IFOdata[i].timeData) {
                 XLALPrintError("Error reading segment data for %s at %i\n",IFOnames[i],segStart.gpsSeconds);
                 XLAL_ERROR_NULL(XLAL_EFUNC);
-            }
-            XLALResampleREAL8TimeSeries(IFOdata[i].timeData,1.0/SampleRate);
-            if(!IFOdata[i].timeData) {XLALPrintError("Error reading segment data for %s\n",IFOnames[i]); XLAL_ERROR_NULL(XLAL_EFUNC);}
-            IFOdata[i].freqData=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("freqData",&(IFOdata[i].timeData->epoch),0.0,1.0/SegmentLength,&lalDimensionlessUnit,seglen/2+1);
-            if(!IFOdata[i].freqData) XLAL_ERROR_NULL(XLAL_EFUNC);
-            IFOdata[i].windowedTimeData=(REAL8TimeSeries *)XLALCreateREAL8TimeSeries("windowed time data",&(IFOdata[i].timeData->epoch),0.0,1.0/SampleRate,&lalDimensionlessUnit,seglen);
-            if(!IFOdata[i].windowedTimeData) XLAL_ERROR_NULL(XLAL_EFUNC);
-            XLALDDVectorMultiply(IFOdata[i].windowedTimeData->data,IFOdata[i].timeData->data,IFOdata[i].window->data);
-            XLALREAL8TimeFreqFFT(IFOdata[i].freqData,IFOdata[i].windowedTimeData,IFOdata[i].timeToFreqFFTPlan);
+              }
+              XLALResampleREAL8TimeSeries(IFOdata[i].timeData,1.0/SampleRate);
+              if(!IFOdata[i].timeData) {XLALPrintError("Error reading segment data for %s\n",IFOnames[i]); XLAL_ERROR_NULL(XLAL_EFUNC);}
+              IFOdata[i].freqData=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("freqData",&(IFOdata[i].timeData->epoch),0.0,1.0/SegmentLength,&lalDimensionlessUnit,seglen/2+1);
+              if(!IFOdata[i].freqData) XLAL_ERROR_NULL(XLAL_EFUNC);
+              IFOdata[i].windowedTimeData=(REAL8TimeSeries *)XLALCreateREAL8TimeSeries("windowed time data",&(IFOdata[i].timeData->epoch),0.0,1.0/SampleRate,&lalDimensionlessUnit,seglen);
+              if(!IFOdata[i].windowedTimeData) XLAL_ERROR_NULL(XLAL_EFUNC);
+              XLALDDVectorMultiply(IFOdata[i].windowedTimeData->data,IFOdata[i].timeData->data,IFOdata[i].window->data);
+              XLALREAL8TimeFreqFFT(IFOdata[i].freqData,IFOdata[i].windowedTimeData,IFOdata[i].timeToFreqFFTPlan);
 
-            for(j=0;j<IFOdata[i].freqData->data->length;j++){
+              for(j=0;j<IFOdata[i].freqData->data->length;j++){
                 IFOdata[i].freqData->data->data[j] /= sqrt(IFOdata[i].window->sumofsquares / IFOdata[i].window->data->length);
                 IFOdata[i].windowedTimeData->data->data[j] /= sqrt(IFOdata[i].window->sumofsquares / IFOdata[i].window->data->length);
+              }
             }
 
-        XLALDestroyCache(cache); // Clean up cache
+          XLALDestroyCache(cache); // Clean up cache
         } /* End of data reading process */
 
         makeWhiteData(&(IFOdata[i]));
