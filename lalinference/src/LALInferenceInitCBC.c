@@ -1363,6 +1363,31 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
   if((ppt=LALInferenceGetProcParamVal(commandLine,"--distance-max"))) Dmax=atof(ppt->value);
   if((ppt=LALInferenceGetProcParamVal(commandLine,"--distance-min"))) Dmin=atof(ppt->value);
   LALInferenceParamVaryType distanceVary = LALINFERENCE_PARAM_LINEAR;
+  /* added by hwlee at 1 Dec. 2017 to check pinned distance case
+   * If not and using pinparams [distance] option, there could be appear fixed distance and varying logdistance both.
+   * Hence actually, distance is not fixed into injection value.
+   */
+  LALInferenceVariableItem *node_dist=NULL;
+  node_dist=LALInferenceGetItem(model->params,"distance");
+  if( node_dist ) { /* set to be fixed if it was fixed to injection value already */
+    if(node_dist->type == LALINFERENCE_REAL4_t)
+    {
+      Dinitial=(REAL8)(*(REAL4 *)node_dist->value);
+    }
+    else if(node_dist->type == LALINFERENCE_REAL8_t)
+    {
+      Dinitial=*(REAL8 *)node_dist->value;
+    }
+    else
+    {
+      fprintf(stderr, "[WARNING]Distance value should be real type. Initial value be set 10Mpc.\n");
+      Dinitial = 10.0;
+    }
+    distanceVary = LALINFERENCE_PARAM_FIXED;
+    LALInferenceRemoveVariable(model->params, "distance"); /* remove pinned distance parameter, will be added below as logdistance*/
+    fprintf(stdout, "[INFO]Dinitial is %f and it is pinned.\n", Dinitial);
+  }
+
   if((ppt=LALInferenceGetProcParamVal(commandLine,"--fix-distance")))
   {
     Dinitial=atof(ppt->value);
