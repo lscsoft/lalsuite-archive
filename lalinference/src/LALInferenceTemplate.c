@@ -1349,207 +1349,134 @@ void LALInferenceTemplatePrincipalComp(LALInferenceModel *model)
 
 }
 
-void LALInferenceTemplatePrincipalCompBBH(LALInferenceModel *model)
+void LALInferenceTemplatePrincipalCompSpec(LALInferenceModel *model)
 {
+  //fprintf(stderr, "Beginning template function\n");
+  INT4 lower = 1, start = 0;//120, i = 0;
+  INT4 times_N = model->spechPlus->times_N;
+  INT4 freq_N = model->spechPlus->freq_N;
+  REAL8 hrss = 1.0;
 
-    UINT4 i=0, j=0;
-    //REAL8 hrss = 1.0;
+  /* Principle Component Coefficients */
+  REAL8 betas[model->pcs->nPCs];
 
-    /* Principle Component Coefficients */
-    UINT4 nPCs_max=10;
-    REAL8 amp_betas[nPCs_max];
-    REAL8 phase_betas[nPCs_max];
+  if (model->pcs->nPCs>=1)
+    betas[0] = *(REAL8*) LALInferenceGetVariable(model->params, "beta1");
+  if (model->pcs->nPCs>=2)
+    betas[1] = *(REAL8*) LALInferenceGetVariable(model->params, "beta2");
+  if (model->pcs->nPCs>=3)
+    betas[2] = *(REAL8*) LALInferenceGetVariable(model->params, "beta3");
+  if (model->pcs->nPCs>=4)
+    betas[3] = *(REAL8*) LALInferenceGetVariable(model->params, "beta4");
+  if (model->pcs->nPCs>=5)
+    betas[4] = *(REAL8*) LALInferenceGetVariable(model->params, "beta5");
+  if (model->pcs->nPCs>=6)
+    betas[5] = *(REAL8*) LALInferenceGetVariable(model->params, "beta6");
+  if (model->pcs->nPCs>=7)
+    betas[6] = *(REAL8*) LALInferenceGetVariable(model->params, "beta7");
+  if (model->pcs->nPCs>=8)
+    betas[7] = *(REAL8*) LALInferenceGetVariable(model->params, "beta8");
+  if (model->pcs->nPCs>=9)
+    betas[8] = *(REAL8*) LALInferenceGetVariable(model->params, "beta9");
+  if (model->pcs->nPCs>=10)
+    betas[9] = *(REAL8*) LALInferenceGetVariable(model->params, "beta10");
+  if (model->pcs->nPCs>=11)
+    betas[10] = *(REAL8*) LALInferenceGetVariable(model->params, "beta11");
+  if (model->pcs->nPCs>=12)
+    betas[11] = *(REAL8*) LALInferenceGetVariable(model->params, "beta12");
+  if (model->pcs->nPCs>=13)
+    betas[12] = *(REAL8*) LALInferenceGetVariable(model->params, "beta13");
+  if (model->pcs->nPCs>=14)
+    betas[13] = *(REAL8*) LALInferenceGetVariable(model->params, "beta14");
+  if (model->pcs->nPCs>=15)
+    betas[14] = *(REAL8*) LALInferenceGetVariable(model->params, "beta15");
+  if (model->pcs->nPCs>=16)
+    betas[15] = *(REAL8*) LALInferenceGetVariable(model->params, "beta16");
+  if (model->pcs->nPCs>=17)
+    betas[16] = *(REAL8*) LALInferenceGetVariable(model->params, "beta17");
+  if (model->pcs->nPCs>=18)
+    betas[17] = *(REAL8*) LALInferenceGetVariable(model->params, "beta18");
+  if (model->pcs->nPCs>=19)
+    betas[18] = *(REAL8*) LALInferenceGetVariable(model->params, "beta19");
+  if (model->pcs->nPCs==20)
+    betas[19] = *(REAL8*) LALInferenceGetVariable(model->params, "beta20");
 
-    for (j=0; j<nPCs_max; j++){
+  //fprintf(stderr, "betas [0] = %e , [1] = %e , [2] = %e. [3] = %e , [4] = %e , [5] = %e , [6] = %e , [7] = %e , [8] = %e\n", betas[0], betas[1], betas[2], betas[3], betas[4], betas[5], betas[6], betas[7], betas[8]);
 
-        amp_betas[j] = 0.0;
-        phase_betas[j] = 0.0;
-
-        if (model->pcs->nAmpPCs>=1)
-            amp_betas[0] = *(REAL8*) LALInferenceGetVariable(model->params, "amp_beta1");
-        if (model->pcs->nPhasePCs>=1)
-            phase_betas[0] = *(REAL8*) LALInferenceGetVariable(model->params, "phase_beta1");
-        if (model->pcs->nAmpPCs>=2)
-            amp_betas[1] = *(REAL8*) LALInferenceGetVariable(model->params, "amp_beta2");
-        if (model->pcs->nPhasePCs>=2)
-            phase_betas[1] = *(REAL8*) LALInferenceGetVariable(model->params, "phase_beta2");
-        if (model->pcs->nAmpPCs>=3)
-            amp_betas[2] = *(REAL8*) LALInferenceGetVariable(model->params, "amp_beta3");
-        if (model->pcs->nPhasePCs>=3)
-            phase_betas[2] = *(REAL8*) LALInferenceGetVariable(model->params, "phase_beta3");
-        if (model->pcs->nAmpPCs>=4)
-            amp_betas[3] = *(REAL8*) LALInferenceGetVariable(model->params, "amp_beta4");
-        if (model->pcs->nPhasePCs>=4)
-            phase_betas[3] = *(REAL8*) LALInferenceGetVariable(model->params, "phase_beta4");
-        if (model->pcs->nAmpPCs>=5)
-            amp_betas[4] = *(REAL8*) LALInferenceGetVariable(model->params, "amp_beta5");
-        if (model->pcs->nPhasePCs>=5)
-            phase_betas[4] = *(REAL8*) LALInferenceGetVariable(model->params, "phase_beta5");
-        if (model->pcs->nAmpPCs>=6)
-            amp_betas[5] = *(REAL8*) LALInferenceGetVariable(model->params, "amp_beta6");
-        if (model->pcs->nPhasePCs>=6)
-            phase_betas[5] = *(REAL8*) LALInferenceGetVariable(model->params, "phase_beta6");
-        if (model->pcs->nAmpPCs>=7)
-            amp_betas[6] = *(REAL8*) LALInferenceGetVariable(model->params, "amp_beta7");
-        if (model->pcs->nPhasePCs>=7)
-            phase_betas[6] = *(REAL8*) LALInferenceGetVariable(model->params, "phase_beta7");
-        if (model->pcs->nAmpPCs>=8)
-            amp_betas[7] = *(REAL8*) LALInferenceGetVariable(model->params, "amp_beta8");
-        if (model->pcs->nPhasePCs>=8)
-            phase_betas[7] = *(REAL8*) LALInferenceGetVariable(model->params, "phase_beta8");
-        if (model->pcs->nAmpPCs>=9)
-            amp_betas[8] = *(REAL8*) LALInferenceGetVariable(model->params, "amp_beta9");
-        if (model->pcs->nPhasePCs>=9)
-            phase_betas[8] = *(REAL8*) LALInferenceGetVariable(model->params, "phase_beta9");
-        if (model->pcs->nAmpPCs==10)
-            amp_betas[9] = *(REAL8*) LALInferenceGetVariable(model->params, "amp_beta10");
-        if (model->pcs->nPhasePCs==10)
-            phase_betas[9] = *(REAL8*) LALInferenceGetVariable(model->params, "phase_beta10");
+  /* Build Template */
+  /* Set to zero below flow */
+  for (int t = 0; t < times_N; t++) {
+    for (int f = 0; f < lower; f++) {
+      model->spechPlus->mag_data[f][t] = 0.0;
+      model->spechCross->mag_data[f][t] = 0.0;
     }
+  }
+  //fprintf(stderr, "Beginning template 2nd double for loop\n");
+  for (int t = 0; t < times_N; t++) {
+    start = t * freq_N;
+    for (int f = lower; f < freq_N; f++) {
+      model->spechPlus->mag_data[f][t] = 
+	betas[0] * GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, start + f, 0)) + betas[1] * GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, start + f, 1))
+	+ betas[2] * GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, start + f, 2)) + betas[3] * GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, start + f, 3))
+	+ betas[4] * GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, start + f, 4)) + betas[5] * GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, start + f, 5))
+	+ betas[6] * GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, start + f, 6)) + betas[7] * GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, start + f, 7))
+	+ betas[8] * GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, start + f, 8)) + betas[9] * GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, start + f, 9))
+	+ betas[10] * GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, start + f, 10)) + betas[11] * GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, start + f, 11))
+	+ betas[12] * GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, start + f, 12)) + betas[13] * GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, start + f, 13))
+	+ betas[14] * GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, start + f, 14)) + betas[15] * GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, start + f, 15))
+	+ betas[16] * GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, start + f, 16)) + betas[17] * GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, start + f, 17))
+	+ betas[18] * GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, start + f, 18)) + betas[19] * GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, start + f, 19));
+      
+	/*fprintf(stderr, "betas[0] = %e , gsl_thing = %e\n", betas[0], GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, start + f, 0)));
+	  fprintf(stderr, "betas[2] = %e , gsl_thing = %e\n", betas[2], GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, start + f, 2)));*/
+      //fprintf(stderr, "spec entry = %e\n", model->spechPlus->mag_data[f][t]);
 
+      //fprintf(stderr, "mag_data[%d][%d] = %e\n", f, t, model->spechPlus->mag_data[f][t]);
+      /* FIXME: do something about the cross polarization!!! */
+      model->spechCross->mag_data[f][t] = 0;
 
-    /* Build Template */
-    UINT4 datalen=model->timehPlus->data->length;
-
-    REAL8Sequence *amp = XLALCreateREAL8Sequence(datalen);
-    REAL8Sequence *phi = XLALCreateREAL8Sequence(datalen);
-
-    UINT4 peakidx=0;
-    REAL8 peak=0;
-
-    for(i=0; i<datalen; i++){
-
-//        fprintf(stdout, "%f %f\n", gsl_matrix_get(model->pcs->amp_pcs, 0, i),
-//                gsl_matrix_get(model->pcs->amp_pcs, 1, i));
-
-        amp->data[i] = gsl_matrix_get(model->pcs->amp_pcs, 0, i) + 
-            amp_betas[0] * gsl_matrix_get(model->pcs->amp_pcs, 1, i) + 
-            amp_betas[1] * gsl_matrix_get(model->pcs->amp_pcs, 2, i) + 
-            amp_betas[2] * gsl_matrix_get(model->pcs->amp_pcs, 3, i) + 
-            amp_betas[3] * gsl_matrix_get(model->pcs->amp_pcs, 4, i) + 
-            amp_betas[4] * gsl_matrix_get(model->pcs->amp_pcs, 5, i) + 
-            amp_betas[5] * gsl_matrix_get(model->pcs->amp_pcs, 6, i) + 
-            amp_betas[6] * gsl_matrix_get(model->pcs->amp_pcs, 7, i) + 
-            amp_betas[7] * gsl_matrix_get(model->pcs->amp_pcs, 8, i) + 
-            amp_betas[8] * gsl_matrix_get(model->pcs->amp_pcs, 9, i) + 
-            amp_betas[9] * gsl_matrix_get(model->pcs->amp_pcs, 10, i);
-
-        phi->data[i] = gsl_matrix_get(model->pcs->phase_pcs, 0, i) + 
-            phase_betas[0] * gsl_matrix_get(model->pcs->phase_pcs, 1, i) + 
-            phase_betas[1] * gsl_matrix_get(model->pcs->phase_pcs, 2, i) + 
-            phase_betas[2] * gsl_matrix_get(model->pcs->phase_pcs, 3, i) + 
-            phase_betas[3] * gsl_matrix_get(model->pcs->phase_pcs, 4, i) + 
-            phase_betas[4] * gsl_matrix_get(model->pcs->phase_pcs, 5, i) + 
-            phase_betas[5] * gsl_matrix_get(model->pcs->phase_pcs, 6, i) + 
-            phase_betas[6] * gsl_matrix_get(model->pcs->phase_pcs, 7, i) + 
-            phase_betas[7] * gsl_matrix_get(model->pcs->phase_pcs, 8, i) + 
-            phase_betas[8] * gsl_matrix_get(model->pcs->phase_pcs, 9, i) + 
-            phase_betas[9] * gsl_matrix_get(model->pcs->phase_pcs, 10, i);
-
-        /* locate the peak */
-        if (amp->data[i]>peak){
-            peak=amp->data[i];
-            peakidx=i;
-        }
-
+      /* XXX: hrss is only really applied in the likelihood function */
+      model->spechPlus->mag_data[f][t] *= hrss;
+      model->spechCross->mag_data[f][t] *= hrss;
     }
+  }
+  /*fprintf(stderr, "[0][0]real = %e , [0][0]imag = %e\n", GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, 0, 0)), GSL_IMAG(gsl_matrix_complex_get(model->pcs->pcs_plus, 0, 0)));
+  fprintf(stderr, "[1][0]real = %e , [1][0]imag = %e\n", GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, 1, 0)), GSL_IMAG(gsl_matrix_complex_get(model->pcs->pcs_plus, 1, 0)));
+  fprintf(stderr, "[2][0]real = %e , [2][0]imag = %e\n", GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, 2, 0)), GSL_IMAG(gsl_matrix_complex_get(model->pcs->pcs_plus, 2, 0)));
+  fprintf(stderr, "[3][0]real = %e , [3][0]imag = %e\n", GSL_REAL(gsl_matrix_complex_get(model->pcs->pcs_plus, 3, 0)), GSL_IMAG(gsl_matrix_complex_get(model->pcs->pcs_plus, 3, 0)));*/
 
-    /* ----------------------------------------------------------------------
-                                Mass Scaling
-    -------------------------------------------------------------------------*/
+  // Rescaling to have hrss ~ 1
+//  double S[65]; // Average PSD.  Essentially doing a Welch
+//  double x = 0;
+//  for (int f = 0; f < 65; f++) {
+//    x = 0;
+//    for (int t = 0; t < 936; t++) {
+//      x += model->spechPlus->mag_data[f][t] * model->spechPlus->mag_data[f][t];
+//    }
+//    x /= 936.0;
+//    S[f] = x;
+    //fprintf(stderr, "S[f], x = %e\n", x);
+//  }
 
+//  for (int f = 0; f < 65; f++) {
+//    hrss += S[f];
+//  }
+//  hrss *= 32.0;
+//  hrss = sqrt(hrss);
+//  double factor = 1.0 / hrss;
 
-    REAL8 target_mtotal = *(REAL8*) LALInferenceGetVariable(model->params, "mtotal");
+  //fprintf(stderr, "hrss = %e\n", hrss);
+  //fprintf(stderr, "factor = %e\n", factor);
 
-    REAL8 mtotal_ref = *(REAL8*) LALInferenceGetVariable(model->params, "mtotal_ref");
-    REAL8 mass_scale_ratio = target_mtotal / mtotal_ref;
+//  for (int f = 0; f < 65; f++) {
+//    for (int t = 0; t < 936; t++) {
+//      model->spechPlus->mag_data[f][t] = factor * model->spechPlus->mag_data[f][t];
+//    }
+//  }
 
-
-    /* --- Interpolation: see e.g.,ComputeFStatistic_resamp.c: ResampleSeries() --- */
-
-    REAL8 times[datalen];
-    REAL8 interp_times[datalen];
-
-    REAL8Sequence *amp_scaled = XLALCreateREAL8Sequence(datalen);
-    REAL8Sequence *phi_scaled = XLALCreateREAL8Sequence(datalen);
-
-    /* Make sure interpolated sequences initialise to zero */
-    for(i=0;i<datalen;i++){    
-
-        amp_scaled -> data[i] = 0.0;
-        phi_scaled -> data[i] = 0.0;
-
-        times[i] = model->timehPlus->deltaT*i;
-        interp_times[i] = mass_scale_ratio*times[i] - peakidx*model->timehPlus->deltaT*(mass_scale_ratio-1.0);
-
-    }
-
-    gsl_interp_accel *acclAmp;
-    gsl_interp_accel *acclPhi;
-
-    /* Initialize GSL */
-    acclAmp = gsl_interp_accel_alloc();
-    acclPhi = gsl_interp_accel_alloc();
-
-    /* GSL's memory allocated for model->timehPlus->data->length, which is the
-     * length of the data set */
-    gsl_interp *lininterAmp = gsl_interp_alloc(gsl_interp_linear, datalen);
-    gsl_interp *lininterPhi = gsl_interp_alloc(gsl_interp_linear, datalen);
-
-    /* Initialise the interpolator */
-    gsl_interp_init(lininterAmp, times, amp->data, datalen);
-    gsl_interp_init(lininterPhi, times, phi->data, datalen);
-
-    /* Orient the waveform */
-    REAL8 inclination = *(REAL8*) LALInferenceGetVariable(model->params, "theta_jn");
-    REAL8 coa_phase = *(REAL8*) LALInferenceGetVariable(model->params, "phase");
-
-    UINT4 modeL=2;
-    INT4 modeM=2;
-
-    COMPLEX16 Y22 = XLALSpinWeightedSphericalHarmonic(inclination, coa_phase, -2, modeL, modeM);
-    COMPLEX16 ComplexWave;
-
-    /* interpolation & orientation */
-    for(i=0;i<datalen;i++){    
-
-        //amp_scaled->data[i]  = mass_scale_ratio*gsl_interp_eval( lininterAmp, interp_times,
-        //        amp->data, times[i], acclAmp);
-        amp_scaled->data[i]  = gsl_interp_eval( lininterAmp, interp_times,
-                amp->data, times[i], acclAmp);
-
-        phi_scaled->data[i]  = gsl_interp_eval( lininterPhi, interp_times,
-                phi->data, times[i], acclPhi);
-
-        ComplexWave = Y22 * amp_scaled->data[i] * cexp(I*phi_scaled->data[i]);
-        model->timehPlus->data->data[i] = creal(ComplexWave);
-        model->timehCross->data->data[i] = -1.0*cimag(ComplexWave);
- 
-    }  
-
-    /* Free Memory */
-     XLALDestroyREAL8Sequence(amp);
-     XLALDestroyREAL8Sequence(phi);
-  
-     XLALDestroyREAL8Sequence(amp_scaled);
-     XLALDestroyREAL8Sequence(phi_scaled);     
-   
-     /* Free GSL stuff */
-     gsl_interp_free(lininterAmp);
-     gsl_interp_accel_free(acclAmp);
-  
-     gsl_interp_free(lininterPhi);
-     gsl_interp_accel_free(acclPhi);
-
-    /* ----------------------------------------------------------------------
-                             --- End Mass Scaling ---
-    -------------------------------------------------------------------------*/
-
-    model->domain = LAL_SIM_DOMAIN_TIME;
-
-
-//    exit(0);
-
+  //model->domain = LAL_SIM_DOMAIN_SPECTROGRAM;
+  model->domain = LAL_SIM_DOMAIN_FREQUENCY;
+  //fprintf(stderr, "Finishing template function\n"); 
     return;
 
  }

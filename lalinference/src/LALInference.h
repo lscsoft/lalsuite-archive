@@ -82,12 +82,27 @@
 #include <gsl/gsl_statistics.h>
 #include <gsl/gsl_complex_math.h>
 #include <sys/time.h>
+//#include <fft.h>
 
 //...other includes
 
 struct tagLALInferenceRunState;
 struct tagLALInferenceIFOData;
 struct tagLALInferenceModel;
+
+struct stft_data
+{
+  //complex double **complex_data;
+  double **mag_data;
+  double *freqs;
+  int freq_N;
+  double *times;
+  int times_N;
+  double trig_time;
+  double inj_dist_kpc;
+  double *inj_hplus;
+  double *inj_hcross;
+};
 
 /*Data storage type definitions*/
 
@@ -445,6 +460,7 @@ typedef struct tagLALInferenceModel
   REAL8                       padding; /** Padding used for the window */
   struct tagLALInferenceROQModel *roq; /** ROQ data */
   struct tagLALInferencePCsModel *pcs; /** Principle Component data */
+  struct stft_data *spechPlus, *spechCross;
 } LALInferenceModel;
 
 
@@ -565,6 +581,7 @@ tagLALInferenceIFOData
   COMPLEX16TimeSeries       *compTimeData;  /** Complex time series data buffers */
   LALInferenceVariables     *dataParams;    /* Optional data parameters */
   REAL8FrequencySeries      *oneSidedNoisePowerSpectrum;  /** one-sided Noise Power Spectrum */
+  REAL8FrequencySeries      *PSD_SMEE;
   REAL8FrequencySeries      *noiseASD;  /** (one-sided Noise Power Spectrum)^{-1/2} */
 //  REAL8TimeSeries           *timeDomainNoiseWeights; /** Roughly, InvFFT(1/Noise PSD). */
   REAL8Window               *window;        /** A window */
@@ -579,6 +596,7 @@ tagLALInferenceIFOData
   REAL8                     STDOF;              /** Degrees of freedom for IFO to be used in Student-T Likelihood. */
   struct tagLALInferenceROQData *roq; /** ROQ data */
   struct tagLALInferenceIFOData      *next;     /** A pointer to the next set of data for linked list */
+  struct stft_data *specData;
 
 } LALInferenceIFOData;
 
@@ -623,6 +641,30 @@ tagLALInferencePCsModel
   const gsl_matrix *amp_pcs;    /** Principle component matrix for td amplitudes */
   const gsl_matrix *phase_pcs;  /** Principle component matrix for td phases*/
 } LALInferencePCsModel;
+
+typedef struct
+tagLALInferenceSpecPCsModel
+{
+  INT4 nPCs;
+  INT4 nAmpPCs; /** Number of PCs to use */
+  INT4 nPhasePCs; /** Number of PCs to use */
+  const gsl_matrix *pcs_plus;   /** Principle component matrix for complex H freqseries*/
+  const gsl_matrix *pcs_cross;  /** Principle component matrix for complex H freqseries*/
+  const gsl_matrix_complex *td_pcs;  /** Principle component matrix for complex h timeseries*/
+  const gsl_matrix *amp_pcs;    /** Principle component matrix for td amplitudes */
+  const gsl_matrix *phase_pcs;  /** Principle component matrix for td phases*/
+} LALInferenceSpecPCsModel;
+
+/*typedef struct
+tagSpec_Data
+{
+  complex double **complex_data;
+  double **mag_data;
+  double *freqs;
+  int freq_N;
+  double *times;
+  int times_N;
+  }Spec_Data;*/
 
 /** Returns the element of the process params table with "name" */
 ProcessParamsTable *LALInferenceGetProcParamVal(ProcessParamsTable *procparams,const char *name);
@@ -1030,6 +1072,18 @@ gsl_matrix_complex* copy_npcs_from_complex_matrix(gsl_matrix_complex *input_matr
 gsl_matrix* get_matrix_from_file(const char *file_name, int M, int N);
 
 gsl_matrix* copy_npcs_from_matrix(gsl_matrix *input_matrix, int nPCs_max, int nPCs, int nrows, int ncols);
+
+float w(float n, float N);
+struct stft_data* spec(double data[], int N, int fft_N, int overlap, float fs);
+bool transform(double real[], double imag[], size_t n);
+bool inverse_transform(double real[], double imag[], size_t n);
+bool transform_radix2(double real[], double imag[], size_t n);
+bool transform_bluestein(double real[], double imag[], size_t n);
+bool convolve_real(const double x[], const double y[], double out[], size_t n);
+bool convolve_complex(const double xreal[], const double ximag[], const double yreal[], const double yimag[], double outreal[], double outimag[], size_t n);
+void circshift(double *in_array, int N, int shift);
+double RMS(double *in_array, int N);
+// static size_t reverse_bits(size_t x, int n);
 
 /**
  * Print spline calibration parameter names as tab-separated ASCII

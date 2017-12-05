@@ -119,6 +119,9 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
    }else if (LALInferenceGetProcParamVal(commandLine, "--margphi")) {
     fprintf(stderr, "Using marginalised phase likelihood.\n");
     runState->likelihood=&LALInferenceMarginalisedPhaseLogLikelihood;
+   }else if (LALInferenceGetProcParamVal(commandLine, "--spectrogram")) {
+    fprintf(stderr, "Using non-central chi squared likelihood.\n");
+    runState->likelihood=&LALInferenceSpectrogramLogLikelihood;
    } else if (LALInferenceGetProcParamVal(commandLine, "--margtime")) {
     fprintf(stderr, "Using marginalised time likelihood.\n");
     runState->likelihood=&LALInferenceMarginalisedTimeLogLikelihood;
@@ -1760,3 +1763,234 @@ void LALInferenceNetworkSNR(LALInferenceVariables *currentParams,
 
   model->SNR = sqrt(model->SNR);
 }
+
+REAL8 LALInferenceSpectrogramLogLikelihood(LALInferenceVariables *currentParams,
+						      LALInferenceIFOData *data,
+						      LALInferenceModel *model )
+/***************************************************************/
+/* (log-) likelihood function.                                 */
+/* Returns the non-normalised logarithmic likelihood.          */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Required (`currentParams') parameters are:                  */
+/*   - "rightascension"  (REAL8, radian, 0 <= RA <= 2pi)       */
+/*   - "declination"     (REAL8, radian, -pi/2 <= dec <=pi/2)  */
+/*   - "polarisation"    (REAL8, radian, 0 <= psi <= ?)        */
+/*   - "time"            (REAL8, GPS sec.)                     */
+/***************************************************************/
+{
+//  fprintf(stderr, "In likelihood\n");
+  double Fplus, Fcross;
+  int ifo, i;
+  LALInferenceIFOData *dataPtr;
+  double ra=0.0, dec=0.0, psi=0.0, gmst=0.0;
+  double GPSdouble=0.0;
+  LIGOTimeGPS GPSlal;
+  double timedelay;  /* time delay b/w iterferometer & geocenter w.r.t. sky location */
+  double timeshift=0;  /* time shift (not necessarily same as above)                   */
+  double deltaT;//deltaF, 
+  /* Burst templates are generated at hrss=1, thus need to rescale amplitude */
+  double amp_prefactor=1.0;
+  //REAL4 WinNorm=1.0;
+  //WinNorm = sqrt(data->window->sumofsquares/data->window->data->length);
+
+  LALStatus status;
+  memset(&status,0,sizeof(status));
+
+  if(data==NULL) {XLAL_ERROR_REAL8(XLAL_EINVAL,"ERROR: Encountered NULL data pointer in likelihood\n");}
+
+  int Nifos=0;
+  for(dataPtr=data;dataPtr;dataPtr=dataPtr->next) Nifos++;
+  void **generatedFreqModels=alloca((1+Nifos)*sizeof(void *));
+  for(i=0;i<=Nifos;i++) generatedFreqModels[i]=NULL;
+
+  if(LALInferenceCheckVariable(currentParams, "loghrss")){
+    amp_prefactor = exp(*(REAL8*)LALInferenceGetVariable(currentParams,"loghrss"));///WinNorm;
+    //fprintf(stderr, "hrss = %e, loghrss = %f\n", amp_prefactor, log(amp_prefactor));
+  }
+  else if (LALInferenceCheckVariable(currentParams, "hrss")){
+//    fprintf(stderr, "hrss\n");
+    amp_prefactor = (*(REAL8*)LALInferenceGetVariable(currentParams,"hrss"));///WinNorm;
+  }
+
+  /* determine source's sky location & orientation parameters: */
+  ra        = *(REAL8*) LALInferenceGetVariable(currentParams, "rightascension"); /* radian      */
+  dec       = *(REAL8*) LALInferenceGetVariable(currentParams, "declination");    /* radian      */
+  psi       = *(REAL8*) LALInferenceGetVariable(currentParams, "polarisation");   /* radian      */
+  GPSdouble = *(REAL8*) LALInferenceGetVariable(currentParams, "time");           /* GPS seconds */
+
+  /* Desired tc == 2 seconds before buffer end.  Only used during
+     margtime{phi} to try to place the waveform in a reasonable
+     place before time-shifting */
+  deltaT = data->timeData->deltaT;
+  //REAL8 epoch = XLALGPSGetREAL8(&(data->freqData->epoch));
+  //desired_tc = epoch + (time_length-1)*deltaT - 2.0;
+
+  /* figure out GMST: */
+  XLALGPSSetREAL8(&GPSlal, GPSdouble);
+  gmst=XLALGreenwichMeanSiderealTime(&GPSlal);
+  //fprintf(stderr, "GPSdouble = %f\n", GPSdouble);
+
+  REAL8 loglikelihood = 0.0;
+
+  /* Reset SNR */
+  model->SNR = 0.0;
+
+
+  //fprintf(stderr, "Looping over interferometers\n");
+  /* loop over data (different interferometers): */
+  for(dataPtr=data,ifo=0; dataPtr; dataPtr=dataPtr->next,ifo++) {
+    /* The parameters the Likelihood function can handle by itself   */
+    /* (and which shouldn't affect the template function) are        */
+    /* sky location (ra, dec), polarisation and signal arrival time. */
+    /* Note that the template function shifts the waveform to so that*/
+    /* t_c corresponds to the "time" parameter in                    */
+    /* model->params (set, e.g., from the trigger value).     */
+
+    /* Reset log-likelihood */
+    model->ifo_loglikelihoods[ifo] = 0.0;
+    model->ifo_SNRs[ifo] = 0.0;
+
+    /* Check to see if this buffer has already been filled with the signal.
+           Different dataPtrs can share the same signal buffer to avoid repeated
+           calls to template */
+
+    if(!checkItemAndAdd((void *)(model->freqhPlus), generatedFreqModels))
+      {
+    
+    model->templt(model);
+ 
+    /*fprintf(stderr, "Template created.  model->spechPlus:\n");
+    fprintf(stderr, "t = %d, %dHz:%e, %dHz:%e, %dHz:%e, %dHz:%e, %dHz:%e\n", 0, 10*32, model->spechPlus->mag_data[10][0]*amp_prefactor, 20*32, model->spechPlus->mag_data[20][0]*amp_prefactor, 30*32, model->spechPlus->mag_data[30][0]*amp_prefactor, 40*32, model->spechPlus->mag_data[40][0]*amp_prefactor, 50*32, model->spechPlus->mag_data[50][0]*amp_prefactor);
+    fprintf(stderr, "t = %d, %dHz:%e, %dHz:%e, %dHz:%e, %dHz:%e, %dHz:%e\n", 307, 10*32, model->spechPlus->mag_data[10][307]*amp_prefactor, 20*32, model->spechPlus->mag_data[20][307]*amp_prefactor, 30*32, model->spechPlus->mag_data[30][307]*amp_prefactor, 40*32, model->spechPlus->mag_data[40][307]*amp_prefactor, 50*32, model->spechPlus->mag_data[50][307]*amp_prefactor);
+    fprintf(stderr, "t = %d, %dHz:%e, %dHz:%e, %dHz:%e, %dHz:%e, %dHz:%e\n", 310, 10*32, model->spechPlus->mag_data[10][310]*amp_prefactor, 20*32, model->spechPlus->mag_data[20][310]*amp_prefactor, 30*32, model->spechPlus->mag_data[30][310]*amp_prefactor, 40*32, model->spechPlus->mag_data[40][310]*amp_prefactor, 50*32, model->spechPlus->mag_data[50][310]*amp_prefactor);
+    fprintf(stderr, "t = %d, %dHz:%e, %dHz:%e, %dHz:%e, %dHz:%e, %dHz:%e\n", 400, 10*32, model->spechPlus->mag_data[10][400]*amp_prefactor, 20*32, model->spechPlus->mag_data[20][400]*amp_prefactor, 30*32, model->spechPlus->mag_data[30][400]*amp_prefactor, 40*32, model->spechPlus->mag_data[40][400]*amp_prefactor, 50*32, model->spechPlus->mag_data[50][400]*amp_prefactor);
+    fprintf(stderr, "t = %d, %dHz:%e, %dHz:%e, %dHz:%e, %dHz:%e, %dHz:%e\n", 700, 10*32, model->spechPlus->mag_data[10][700]*amp_prefactor, 20*32, model->spechPlus->mag_data[20][700]*amp_prefactor, 30*32, model->spechPlus->mag_data[30][700]*amp_prefactor, 40*32, model->spechPlus->mag_data[40][700]*amp_prefactor, 50*32, model->spechPlus->mag_data[50][700]*amp_prefactor);
+    fprintf(stderr, "t = %d, %dHz:%e, %dHz:%e, %dHz:%e, %dHz:%e, %dHz:%e\n", 900, 10*32, model->spechPlus->mag_data[10][900]*amp_prefactor, 20*32, model->spechPlus->mag_data[20][900]*amp_prefactor, 30*32, model->spechPlus->mag_data[30][900]*amp_prefactor, 40*32, model->spechPlus->mag_data[40][900]*amp_prefactor, 50*32, model->spechPlus->mag_data[50][900]*amp_prefactor);*/
+
+    if(XLALGetBaseErrno()==XLAL_FAILURE) /* Template generation failed in a known way, set -Inf likelihood */
+      return(-DBL_MAX);
+  }
+
+    /* Template is now in model->timeFreqhPlus and hCross */
+
+    /* Calibration stuff if necessary */
+    /*spline*/
+    /*constant*/
+    /* determine beam pattern response (F_plus and F_cross) for given Ifo: */
+    XLALComputeDetAMResponse(&Fplus, &Fcross, (const REAL4(*)[3])dataPtr->detector->response, ra, dec, psi, gmst);
+
+    /* signal arrival time (relative to geocenter); */
+    timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location, ra, dec, &GPSlal);
+    /* (negative timedelay means signal arrives earlier at Ifo than at geocenter, etc.) */
+    /* amount by which to time-shift template (not necessarily same as above "timedelay"): */
+    timeshift =  (GPSdouble - (*(REAL8*) LALInferenceGetVariable(model->params, "time"))) + timedelay;
+ 
+    /* For burst the effect of windowing in amplitude is important. Add it here. */
+    //fprintf(stderr, "amp_prefactor = %e\n", amp_prefactor);
+    //fprintf(stderr, "Before amp_prefactor: Fplus = %e , Fcross = %e\n", Fplus, Fcross);
+    //Fplus*=amp_prefactor;
+    //Fcross*=amp_prefactor;
+
+    dataPtr->fPlus = Fplus;
+    dataPtr->fCross = Fcross;
+    dataPtr->timeshift = timeshift;
+    //end signalFlag condition
+
+    /* determine frequency range & loop over frequency bins: */
+    deltaT = dataPtr->timeData->deltaT;
+    //deltaF = 32.0; //fixxxxxxxxxxxxx //1.0 / (((double)dataPtr->timeData->data->length) * deltaT);
+    //lower = (UINT4)ceil(dataPtr->fLow / deltaF);
+    //upper = (UINT4)floor(dataPtr->fHigh / deltaF);
+    //TwoDeltaToverN = 2.0 * deltaT / ((double) dataPtr->timeData->data->length);
+
+    //Shifting the IFO data instead of the model
+/*    timeshift *= -1.0;
+
+    int timeshift_n = 0;
+    if (timeshift >= 0) {
+      timeshift_n = (int)((timeshift / deltaT) + .5);
+    }
+    else {
+      timeshift_n = (int)((timeshift / deltaT) - .5);
+    } */
+
+    // put the time series in d_time 
+    REAL8 d_time[12288];
+    for (int n = 0; n < 12288; n++) {
+      d_time[n] = dataPtr->timeData->data->data[n];
+    }
+
+//    circshift(d_time, 12288, timeshift_n); 
+
+//  fprintf(stderr, "In likelihood 1 \n");
+  
+    // turn the time series data in a spectrogram
+    struct stft_data *d_spec = spec(d_time, 12288, 128, 115, 4096.0);
+
+    REAL8 template = 0.0;
+    REAL8 sigma2 = 0.0;
+//    REAL8 psd = 0.0;
+    REAL8 d = 0.0;
+    REAL8 d2 = 0.0;
+    REAL8 template2 = 0.0;
+    REAL8 term1 = 0.0;
+    REAL8 term2 = 0.0;
+    REAL8 x = 0.0;
+ 
+    // calculate the log likelihood 
+    for (int t = 0; t < model->spechPlus->times_N; t++) {
+      for (int f = 2; f < 65; f++) {
+//  fprintf(stderr, "In likelihood 3 \n");
+
+	//fprintf(stderr, "t = %d, f = %d\n", t, f);
+	//fprintf(stderr, "Fplus = %e , spechPlus = %e , Fcross = %e, spechCross = %e\n", Fplus, model->spechPlus->mag_data[f][t], Fcross, model->spechCross->mag_data[f][t]);
+
+//	psd = dataPtr->PSD_SMEE->data->data[f];
+
+        REAL8 psd=(dataPtr->oneSidedNoisePowerSpectrum->data->data[f+1000]);
+	sigma2 = psd / 2.0;// * deltaT;// * deltaT;
+
+	template = model->spechPlus->mag_data[f][t] * amp_prefactor * Fplus * Fplus;
+	template2 = template * template;
+	template = sqrt(template2);
+
+	d = d_spec->mag_data[f][t];
+	d2 = d * d;
+	//if ((t == 350) && (f = 350)) fprintf(stderr, "d2 = %e\nsigma2 = %e\ntemplate2 = %e\n", d2, sigma2, template2);
+	term1 = -1.0 * (d2 + template2) / (2.0 * sigma2);
+
+	x = sqrt(d2 * template2) / sigma2;
+
+
+	if (x < 707) {
+	  term2 = log(gsl_sf_bessel_I0(x));
+	}
+	else {
+	  //fprintf(stderr, "x > 707, bessel function avoided.\nt = %d , f = %d\nx = %e\n", t, f, x);
+          term2 = x - log(sqrt(LAL_TWOPI * x));
+          //fprintf(stderr, "term2 approximation = %e\n", term2);
+	}
+
+	model->ifo_loglikelihoods[ifo] += (term1 + term2);
+      }
+    }
+    //fprintf(stderr, "Finished double for likelihood loop\n");
+    loglikelihood += model->ifo_loglikelihoods[ifo];
+    //fprintf(stderr, "ifo_loglikelihoodss[ifo] = %e\n", model->ifo_loglikelihoods[ifo]);
+    //fprintf(stderr, "Starting to free\n");
+    free(d_spec->freqs);
+    //fprintf(stderr, "Starting free loop\n");
+    for (int n = 0; n < 65; n++) {
+      free(d_spec->mag_data[n]);
+    }
+    free(d_spec->mag_data);
+    free(d_spec);
+
+  } /* end loop over detectors */
+  //fprintf(stderr, "Finishing likelihood\n");
+  //fprintf(stderr, "Final loglikelihood = %e\n", loglikelihood);
+  return(loglikelihood);
+}
+ 
+
+

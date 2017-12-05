@@ -3711,6 +3711,353 @@ gsl_matrix* copy_npcs_from_matrix(gsl_matrix *input_matrix, int nPCs_max, int nP
     return output_matrix;
  }
 
+//////////////////////////////////
+float w(float n, float N) {
+  return .54 - .46 * cos(2 * LAL_PI * n / (N - 1));
+}
+
+/*static void *memdup(const void *src, size_t n) {
+  void *dest = malloc(n);
+  if (dest != NULL)
+    memcpy(dest, src, n);
+  return dest;
+}*/
+
+struct stft_data* spec(double data[], int N, int fft_N, int overlap, float fs) {
+
+  struct stft_data *final_result = malloc(sizeof(struct stft_data));
+  double W = 0;
+  for (int n = 0; n < fft_N; n++) {
+    W += pow(w(n, fft_N), 2.0);
+  }
+
+  // advance is how much the data[] index advances between each successive FFT
+  int advance = fft_N - overlap; //(1 - overlap) * fft_N;
+  //float overlap_used = 1 - (1.0 * advance / fft_N);
+  int num_of_ffts = 1 + (N - fft_N) / advance;
+//  printf("num_of_ffts = %d\n", num_of_ffts);
+  float df = 1.0 / (fft_N * (1.0 / fs));
+  int freq_N = 1 + ((fs / 2.0) / df);
+  double *freqs = (double *)malloc(sizeof(double)*freq_N);
+  //double *times = (double *)malloc(sizeof(double)*num_of_ffts);
+  for (int i = 0; i < freq_N; i++) {
+    freqs[i] = i * df;
+  }
+
+  ///////////////printf("freq_N = %d\n", freq_N);
+
+  double **mag_result = (double **)malloc(sizeof(double *)*freq_N);
+  for (int i = 0; i < freq_N; i++) {
+    //complex_result[i]=(complex double *)malloc(sizeof(complex double)*num_of_ffts);
+    mag_result[i]=(double *)malloc(sizeof(double)*num_of_ffts);
+  }
+
+  double **imag_data = (double **)malloc(sizeof(double *)*num_of_ffts);
+  double **real_data = (double **)malloc(sizeof(double *)*num_of_ffts);
+  for (int i = 0; i < num_of_ffts; i++) {
+    //result[i]=(complex double *)malloc(sizeof(complex double)*fft_N);
+    real_data[i]=(double *)malloc(sizeof(double)*fft_N);
+    imag_data[i]=(double *)malloc(sizeof(double)*fft_N);
+  }
+
+  int start;
+  for (int i = 0; i < num_of_ffts; i++) {
+    start = i * advance;
+    for (int n = 0; n < fft_N; n++) {
+      real_data[i][n] = data[start+n] * w(n, fft_N);
+      imag_data[i][n] = 0.0;//idata[start+n] * w(n, fft_N);
+    }
+  }
+//  fprintf(stderr, "In Spectrogram 1 \n");
+/*  bool success;
+  for (int i = 0; i < num_of_ffts; i++) {
+    success = transform(real_data[i], imag_data[i], fft_N);
+  }
+  if (success) {
+    start += 1;
+  } */
+//   fprintf(stderr, "In Spectrogram 2 \n"); 
+  for (int t = 0; t < num_of_ffts; t++) {
+    for (int f = 0; f < freq_N; f++) { //freq_N
+      mag_result[f][t] = pow(pow(real_data[t][f], 2.0) + pow(imag_data[t][f], 2.0), .5) * pow(2 / (fs * W), .5);
+    }
+  }
+
+  final_result->mag_data = mag_result;
+  final_result->freqs = freqs;
+  final_result->freq_N = freq_N;
+
+  for (int i = 0; i < num_of_ffts; i++) {
+    free(real_data[i]);
+    free(imag_data[i]);
+  }
+  free(real_data);
+  free(imag_data);
+
+  return final_result;
+}
+
+bool transform(double real[], double imag[], size_t n) {
+  if (n == 0)
+    return true;
+  else if ((n & (n - 1)) == 0)  // Is power of 2
+    return transform_radix2(real, imag, n);
+  else  // More complicated algorithm for arbitrary sizes
+    return transform_bluestein(real, imag, n);
+}
+
+bool inverse_transform(double real[], double imag[], size_t n) {
+  return transform(imag, real, n);
+}
+
+/* static size_t reverse_bits(size_t x, int n) {
+  size_t result = 0;
+  for (int i = 0; i < n; i++, x >>= 1)
+    result = (result << 1) | (x & 1U);
+  return result; } */
+
+bool transform_radix2(double real[], double imag[], size_t n) {
+//  fprintf(stderr, "In Spectrogram 3 \n");
+  // Variables
+  bool status = false;
+  int levels = 0;  // Compute levels = floor(log2(n))
+  for (size_t temp = n; temp > 1U; temp >>= 1)
+    levels++;
+  if ((size_t)1U << levels != n)
+    return false;  // n is not a power of 2
+
+  // Trignometric tables
+  if (SIZE_MAX / sizeof(double) < n / 2)
+    return false;
+  size_t size_1 = (n / 2) * sizeof(double);
+  double *cos_table = malloc(size_1);
+  double *sin_table = malloc(size_1);
+  if (cos_table == NULL || sin_table == NULL)
+    goto cleanup;
+  for (size_t i = 0; i < n / 2; i++) {
+    cos_table[i] = cos(LAL_TWOPI * i / n);
+    sin_table[i] = sin(LAL_TWOPI * i / n);
+  }
+
+  // Bit-reversed addressing permutation
+  for (size_t i = 0; i < n; i++) {
+//    size_t j = reverse_bits(i, levels);
+   
+    size_t j = 0; 
+    for (int q = 0; q < levels; q++, i >>= 1)
+      j = (j << 1) | (i & 1); //1U); 
+
+    if (j > i) {
+      double temp = real[i];
+      real[i] = real[j];
+      real[j] = temp;
+      temp = imag[i];
+      imag[i] = imag[j];
+      imag[j] = temp;
+    }
+  }
+
+  // Cooley-Tukey decimation-in-time radix-2 FFT
+  for (size_t size = 2; size <= n; size *= 2) {
+    size_t halfsize = size / 2;
+    size_t tablestep = n / size;
+    for (size_t i = 0; i < n; i += size) {
+      for (size_t j = i, k = 0; j < i + halfsize; j++, k += tablestep) {
+	double tpre =  real[j+halfsize] * cos_table[k] + imag[j+halfsize] * sin_table[k];
+	double tpim = -real[j+halfsize] * sin_table[k] + imag[j+halfsize] * cos_table[k];
+	real[j + halfsize] = real[j] - tpre;
+	imag[j + halfsize] = imag[j] - tpim;
+	real[j] += tpre;
+	imag[j] += tpim;
+      }
+    }
+    if (size == n)  // Prevent overflow in 'size *= 2'
+      break;
+  }
+  status = true;
+ cleanup:
+  free(cos_table);
+  free(sin_table);
+  return status;
+}
+
+
+bool transform_bluestein(double real[], double imag[], size_t n) {
+  // Variables
+  bool status = false;
+  size_t m;
+
+  // Find a power-of-2 convolution length m such that m >= n * 2 + 1
+  {
+    size_t target;
+    if (n > (SIZE_MAX - 1) / 2)
+      return false;
+    target = n * 2 + 1;
+    for (m = 1; m < target; m *= 2) {
+      if (SIZE_MAX / 2 < m)
+	return false;
+    }
+  }
+
+  // Allocate memory
+  if (SIZE_MAX / sizeof(double) < n || SIZE_MAX / sizeof(double) < m)
+    return false;
+  size_t size_n = n * sizeof(double);
+  size_t size_m = m * sizeof(double);
+  double *cos_table = malloc(size_n);
+  double *sin_table = malloc(size_n);
+  double *areal = calloc(m, sizeof(double));
+  double *aimag = calloc(m, sizeof(double));
+  double *breal = calloc(m, sizeof(double));
+  double *bimag = calloc(m, sizeof(double));
+  double *creal = malloc(size_m);
+  double *cimag = malloc(size_m);
+  if (cos_table == NULL || sin_table == NULL
+      || areal == NULL || aimag == NULL
+      || breal == NULL || bimag == NULL
+      || creal == NULL || cimag == NULL)
+    goto cleanup;
+
+  // Trignometric tables
+  for (size_t i = 0; i < n; i++) {
+    unsigned long long temp = (unsigned long long)i * i;
+    temp %= (unsigned long long)n * 2;
+    double angle = LAL_PI * temp / n;
+    // Less accurate version if long long is unavailable: double angle = M_PI * i * i / n;
+    cos_table[i] = cos(angle);
+    sin_table[i] = sin(angle);
+  }
+
+  // Temporary vectors and preprocessing
+  for (size_t i = 0; i < n; i++) {
+    areal[i] =  real[i] * cos_table[i] + imag[i] * sin_table[i];
+    aimag[i] = -real[i] * sin_table[i] + imag[i] * cos_table[i];
+  }
+  breal[0] = cos_table[0];
+  bimag[0] = sin_table[0];
+  for (size_t i = 1; i < n; i++) {
+    breal[i] = breal[m - i] = cos_table[i];
+    bimag[i] = bimag[m - i] = sin_table[i];
+  }
+
+  // Convolution
+  if (!convolve_complex(areal, aimag, breal, bimag, creal, cimag, m))
+    goto cleanup;
+
+  // Postprocessing
+  for (size_t i = 0; i < n; i++) {
+    real[i] =  creal[i] * cos_table[i] + cimag[i] * sin_table[i];
+    imag[i] = -creal[i] * sin_table[i] + cimag[i] * cos_table[i];
+  }
+  status = true;
+
+  // Deallocation
+ cleanup:
+  free(cimag);
+  free(creal);
+  free(bimag);
+  free(breal);
+  free(aimag);
+  free(areal);
+  free(sin_table);
+  free(cos_table);
+  return status;
+}
+
+
+bool convolve_real(const double x[], const double y[], double out[], size_t n) {
+  bool status = false;
+  double *ximag = calloc(n, sizeof(double));
+  double *yimag = calloc(n, sizeof(double));
+  double *zimag = calloc(n, sizeof(double));
+  if (ximag == NULL || yimag == NULL || zimag == NULL)
+    goto cleanup;
+
+  status = convolve_complex(x, ximag, y, yimag, out, zimag, n);
+ cleanup:
+  free(zimag);
+  free(yimag);
+  free(ximag);
+  return status;
+}
+
+
+bool convolve_complex(const double xreal[], const double ximag[], const double yreal[], const double yimag[], double outreal[], double outimag[], size_t n) {
+
+  bool status = false;
+  if (SIZE_MAX / sizeof(double) < n)
+    return false;
+  size_t size = n * sizeof(double);
+  double *xr = memcpy(malloc(size),xreal,size); //memdup(xreal, size);
+  double *xi = memcpy(malloc(size),ximag,size); //memdup(ximag, size);
+  double *yr = memcpy(malloc(size),yreal,size); //memdup(yreal, size);
+  double *yi = memcpy(malloc(size),yimag,size); //memdup(yimag, size);
+  if (xr == NULL || xi == NULL || yr == NULL || yi == NULL)
+    goto cleanup;
+
+  if (!transform(xr, xi, n))
+    goto cleanup;
+  if (!transform(yr, yi, n))
+    goto cleanup;
+  for (size_t i = 0; i < n; i++) {
+    double temp = xr[i] * yr[i] - xi[i] * yi[i];
+    xi[i] = xi[i] * yr[i] + xr[i] * yi[i];
+    xr[i] = temp;
+  }
+  if (!inverse_transform(xr, xi, n))
+    goto cleanup;
+  for (size_t i = 0; i < n; i++) {  // Scaling (because this FFT implementation omits it)
+    outreal[i] = xr[i] / n;
+    outimag[i] = xi[i] / n;
+  }
+  status = true;
+
+ cleanup:
+  free(yi);
+  free(yr);
+  free(xi);
+  free(xr);
+  return status;
+}
+
+void circshift(double *in_array, int N, int shift) {
+  double *temp_array = (double *)malloc(sizeof(double)*N);
+  if (shift >= 0) {
+    for (int n = 0; n < N - shift; n++) {
+      temp_array[n] = in_array[n+shift];
+    }
+    for (int n = 0; n < shift; n++) {
+      temp_array[N-shift+n] = in_array[n];
+    }
+  }
+  else {
+    for (int n = shift; n < N; n++) {
+      temp_array[n] = in_array[n-shift];
+    }
+    for (int n = 0; n < shift; n++) {
+      temp_array[n] = in_array[N-shift+n];
+    }
+  }
+  for (int n = 0; n < N; n++) {
+    in_array[n] = temp_array[n];
+  }
+  free(temp_array);
+}
+
+double RMS(double *in_array, int N) {
+  double result = 0.0;
+  for (int n = 0; n < N; n++) {
+    result += in_array[n] * in_array[n];
+  }
+  result /= N;
+  result = sqrt(result);
+  return result;
+}
+
+
+
+
+
 
 
 

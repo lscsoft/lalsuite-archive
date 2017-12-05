@@ -44,5 +44,6 @@
 void LALInferenceInjectBurstSignal(LALInferenceIFOData *IFOdata, ProcessParamsTable *commandLine);
 void LALInferenceBurstInjectionToVariables(SimBurst *theEventTable, LALInferenceVariables *vars);
 void LALInferenceInjectSNBurstSignal(LALInferenceIFOData *IFOdata, ProcessParamsTable *commandLine);
+void LALInferenceInjectSupernovaTimeDomainSignal(LALInferenceIFOData *IFOdata, ProcessParamsTable *commandLine);
 /*@}*/
 #endif

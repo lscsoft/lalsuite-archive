@@ -186,6 +186,9 @@ LALInferenceVariables LALInferenceGetInstrinsicParams(LALInferenceVariables *cur
 
 /** Calculate the SNR across the network */
 void LALInferenceNetworkSNR(LALInferenceVariables *currentParams, LALInferenceIFOData *data, LALInferenceModel *model);
+
+REAL8 LALInferenceSpectrogramLogLikelihood(LALInferenceVariables *currentParams, LALInferenceIFOData *data, LALInferenceModel *model);
+						    
 /*@}*/
 
 #endif

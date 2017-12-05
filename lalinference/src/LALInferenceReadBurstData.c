@@ -637,3 +637,159 @@ void LALInferenceInjectSNBurstSignal(LALInferenceIFOData *IFOdata, ProcessParams
   XLALDestroyCOMPLEX16FrequencySeries(hptilde);
 
 }
+
+
+void LALInferenceInjectSupernovaTimeDomainSignal(LALInferenceIFOData *IFOdata, ProcessParamsTable *commandLine)
+///*-------------- Inject in Time domain -----------------*/
+{
+  fprintf(stdout,"Injecting a SN signal in the time domain !!!!!!!\n");
+  /* Inject a SN gravitational wave into the data in the time domain */
+
+  ProcessParamsTable *ppt=NULL;
+  ppt = NULL;
+
+  /*REAL8 WinNorm=1.0;
+    WinNorm = sqrt(IFOdata->window->sumofsquares/IFOdata->window->data->length);*/
+
+  REAL8 injtime = 871645255;
+  if((ppt=LALInferenceGetProcParamVal(commandLine,"--trigtime"))) injtime=atof(ppt->value);
+
+  REAL8 ra = 4.6499;
+  REAL8 dec = -0.5063;
+  REAL8 psi = 0.3046;
+  if((ppt=LALInferenceGetProcParamVal(commandLine,"--inj-ra"))) ra=atof(ppt->value);
+  if((ppt=LALInferenceGetProcParamVal(commandLine,"--inj-dec"))) dec=atof(ppt->value);
+  if((ppt=LALInferenceGetProcParamVal(commandLine,"--inj-psi"))) psi=atof(ppt->value);
+
+  //REAL8 deltaF = IFOdata->freqData->deltaF;
+  REAL8 deltaT = IFOdata->timeData->deltaT;
+
+  ppt=LALInferenceGetProcParamVal(commandLine,"--rawwaveformtime"); // {
+  FILE *fp=fopen(ppt->value,"r");
+
+  if ( fp == NULL ){
+    fprintf(stderr, "Error... cannot open file %s\n", ppt->value);
+    exit(1);
+  }
+
+
+  LALInferenceIFOData *dataPtr;
+  REAL8 Fplus, Fcross;
+  LIGOTimeGPS GPSlal;
+  REAL8 gmst;
+  REAL8 timedelay;  /* time delay b/w iterferometer & geocenter w.r.t. sky location */
+  REAL8 timeshift;  /* time shift (not necessarily same as above)                   */
+
+  REAL8 NetSNR=0.0;
+
+  /* figure out GMST: */
+  XLALGPSSetREAL8(&GPSlal, injtime);
+  gmst=XLALGreenwichMeanSiderealTime(&GPSlal);
+
+  /* loop over data (different interferometers): */
+  dataPtr = IFOdata;
+
+  REAL8 inj_data[12288];
+  REAL8 inj_t_data[12288];
+  int p = 0.0;
+  REAL8 tempPlus, tempCross;
+
+  while (p < 12288) {
+    fscanf(fp, "%lf %lf", &tempPlus, &tempCross);
+    inj_data[p] = tempPlus;
+    p++;
+  }
+
+  REAL8 scale_factor=1;
+  ppt=LALInferenceGetProcParamVal(commandLine,"--inj_dist_kpc");
+  if(ppt){
+    scale_factor= 10.0/(atof(ppt->value));
+    fprintf(stderr, "inj scale_factor= %lg \n", scale_factor);
+  }
+
+  double inj_RMS = 0.0;
+  double noise_RMS = 0.0;
+  double SNR = 0.0;
+  while (dataPtr != NULL) {
+    /*-- WF to inject is now in hptilde and hctilde. --*/
+    /* determine beam pattern response (Fplus and Fcross) for given Ifo: */
+    XLALComputeDetAMResponse(&Fplus, &Fcross,
+			     (const REAL4(*)[3])dataPtr->detector->response,
+			     ra, dec,
+			     psi, gmst);
+
+    /* signal arrival time (relative to geocenter); */
+    timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location,
+					     ra, dec,
+					     &GPSlal);
+
+    /* (negative timedelay means signal arrives earlier at Ifo than at geocenter, etc.) */
+    timeshift = timedelay;
+    //twopit    = LAL_TWOPI * (timeshift);
+
+    /* normalise injection same way as template model */
+    //Fplus*= 1.0 / WinNorm;
+    //    Fcross*= hrss / WinNorm;
+
+    dataPtr->fPlus = Fplus;
+    dataPtr->fCross = Fcross;
+    dataPtr->timeshift = timeshift;
+
+ //   fprintf(stderr, "inj Fplus= %lg , ra = %f, dec = %f, psi = %f\n", Fplus, ra, dec, psi);
+
+    char InjFileName[50];
+    sprintf(InjFileName,"injection_%s.dat",dataPtr->name);
+    FILE *outInj=fopen(InjFileName,"w");
+
+    // Converting time shift into integer number of points
+    int timeshift_n = 0;
+    if (timeshift >= 0) {
+      timeshift_n = (int)((timeshift / deltaT) + .5);
+    }
+    else {
+      timeshift_n = (int)((timeshift / deltaT) - .5);
+    }
+    //timeshift_n = 0;
+
+    for (int n = 0; n < 12288; n++) {
+      inj_t_data[n] = inj_data[n] * scale_factor;// * Fplus;
+    }
+
+    // cirshift stuff should be here I think..
+    circshift(inj_t_data, 12288, timeshift_n);
+
+    inj_RMS = RMS(inj_t_data, 12288);
+    noise_RMS = RMS(dataPtr->timeData->data->data, 12288);
+    //fprintf(stderr, "inj_RMS = %e, noise_RMS = %e\n", inj_RMS, noise_RMS);
+    //fprintf(stderr, "inj_t_data [4100] = %e , [4110] = %e\n", inj_t_data[4100], inj_t_data[4110]);
+    //fprintf(stderr, "Before injection, ifodata data[4100] = %e , data[4110] = %e , data[4120] = %e\n", dataPtr->timeData->data->data[4100], dataPtr->timeData->data->data[4110], dataPtr->timeData->data->data[4120]);
+
+    // Here is the main INJECTION part that I am currently commenting out.
+    for (int n = 0; n < 12288; n++) {
+      dataPtr->timeData->data->data[n] = dataPtr->timeData->data->data[n] + inj_t_data[n];
+    }
+    //fprintf(stderr, "After injection, ifodata data[4100] = %e , data[4110] = %e , data[4120] = %e\n", dataPtr->timeData->data->data[4100], dataPtr->timeData->data->data[4110], dataPtr->timeData->data->data[4120]);
+
+    SNR = (inj_RMS * inj_RMS) / (noise_RMS * noise_RMS);
+    //fprintf(stderr, "injected SNR %e in IFO %s\n", SNR, dataPtr->name);
+    //fprintf(stderr, "final noise_rms = %e\n", RMS(dataPtr->timeData->data->data, 12288));
+    NetSNR += SNR*SNR;
+    dataPtr->SNR = SNR;
+    dataPtr = dataPtr->next;
+
+    fclose(outInj);
+
+  }
+  fprintf(stderr, "injected Network SNR %e \n", sqrt(NetSNR));
+
+  fclose(fp);
+
+}
+
+
+
+
+
+
+
+
