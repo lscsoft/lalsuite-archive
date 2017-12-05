@@ -146,8 +146,23 @@ class Param(ligolw.Param):
 				fileobj.write(xmlescape(yaml.dump(self.pcdata).strip()))
 			else:
 				# we have to strip quote characters from
-				# string formats (see comment above)
-				fileobj.write(xmlescape(ligolwtypes.FormatFunc[self.Type](self.pcdata).strip(u"\"")))
+				# string formats (see comment above).  if
+				# the result is a zero-length string it
+				# will get parsed as None when the document
+				# is loaded, but on this code path we know
+				# that .pcdata is not None, so as a hack
+				# until something better comes along we
+				# replace zero-length strings here with a
+				# bit of whitespace.  whitespace is
+				# stripped from strings during parsing so
+				# this will turn .pcdata back into a
+				# zero-length string.  NOTE:  if .pcdata is
+				# None, then it will become a zero-length
+				# string, which will be turned back into
+				# None on parsing, so this mechanism is how
+				# None is encoded (a zero-length Param is
+				# None)
+				fileobj.write(xmlescape(ligolwtypes.FormatFunc[self.Type](self.pcdata).strip(u"\"") or u" "))
 		fileobj.write(self.end_tag(u"") + u"\n")
 
 	@classmethod
